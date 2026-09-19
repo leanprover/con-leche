@@ -709,6 +709,17 @@ justification and is four dead ends, each checked:
   `EnvWF` would be an invariant over `elimNested`'s loop rather than a
   lookup.
 
+**TWO CONJUNCTS, FOR TWO CROSSINGS.**  `constsResolve` is the guard at
+a LATER install: there the newly tabled names are FRESH at this
+environment, so `ProjFree.of_constsResolve` turns the resolution into
+the guard.  `projTablesOk` is the guard at the block's OWN install,
+which conses projection TABLES for its structure-like members: a
+member is STORED here — that is why the check runs at the formers'
+environment and not at the pre-block one — so resolution says nothing
+about it, while the table walk does, because a member's TABLE is not
+here.  A `.proj` node at a member is exactly what this conjunct
+refuses.
+
 The consumer is the wide identification's `ContainerModeled` clause
 carrying a container's pins' components' READINGS: that clause is a
 `denoteMeta` conclusion, it crosses a later install through the
@@ -722,10 +733,16 @@ pin is `J Ds` with `Ds` the container's parameter arguments read out of
 a constructor body the front door RESOLVED, `mkCopy` substitutes
 resolving terms into a stored container's resolving type, and the
 members the components mention are the formers this very environment
-holds.  A failure is `.internal`.  Category (B), by-construction-only,
+holds.  The table conjunct is the same argument at the other walk: a
+`.proj` node of the material a pin is read out of names a table stored
+at the FORMERS' environment (`restoreCtors_door`'s
+`FrontDoorFacts.slots`, which `NestedTailIn.storeNoProj`'s docstring
+states for the restored constructors — and a pin is a domain of one),
+and a member's own table is consed only at the very end of the
+install.  A failure is `.internal`.  Category (B), by-construction-only,
 and NOT gated: the consumer reads it in every mode. -/
 def pinsResolve (env : Env) (pins : List NestedPin) : Bool :=
-  pins.all fun q => q.pin.constsResolve env
+  pins.all fun q => q.pin.constsResolve env && q.pin.projTablesOk env
 
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED

@@ -545,6 +545,14 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       pinParams := C.pinParams
       pinDsScoped := C.pinDsScoped
       pinDsRes := fun q hq x hx => hres _ (C.pinDsRes q hq x hx)
+      -- the READING clause is the one the guard exists for: `hde` is
+      -- refutable across a projection-table cons, and the guard comes
+      -- from the components' own resolution at the OLD environment
+      -- (K.64's first conjunct), exactly as the member types' does
+      pinDsRead := fun q hq φ =>
+        DenoteMetaSpine.crossEnvP (fun e he => hde φ d.nP e he)
+          (fun e he => ProjFree.of_constsResolve hfresh (C.pinDsRes q hq e he))
+          (C.pinDsRead q hq φ)
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
         obtain ⟨cv, caps', hf₁⟩ := h0.pinsFound q hq
@@ -1606,7 +1614,9 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
         ∀ x ∈ (d.pinAt q).DsE, x.looseBVarsBounded 0 = true ∧
           ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params)
     (hpinDsRes : ∀ q, q < d.nPins → ∀ x ∈ (d.pinAt q).DsE,
-      x.constsResolve env = true) :
+      x.constsResolve env = true)
+    (hpinDsRead : ∀ q, q < d.nPins → ∀ φ : Name → Nat,
+      DenoteMetaSpine m.acval env φ d.nP (d.pinAt q).DsE ((d.pinAt q).Ds φ)) :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1621,6 +1631,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   pinsDistinctAt := hpinsDistinctAt
   pinDsScoped := hpinDsScoped
   pinDsRes := hpinDsRes
+  pinDsRead := hpinDsRead
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   nestArgsMentionAbsRefl := hnestArgsMentionAbsRefl

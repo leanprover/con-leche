@@ -358,31 +358,47 @@ needs it (its `hDs`), and nothing in `ContainerOwnPins`' own premises
 implies it. -/
 theorem ContainerOwnPinsSyn.toReadOf {env : Env} {m : EnvModel V env} {d : BlockModel V}
     (hsyn : ContainerOwnPinsSyn (V := V) env d)
-    (hscope : ∃ params : List Expr, params.length = d.nP ∧
-      (∀ j, j < d.nP → ∃ ty, params[j]? = some (Expr.fvar j ty)) ∧
-      ∀ qK, qK < d.nPins → ∀ x ∈ (d.pinAt qK).DsE,
-        x.looseBVarsBounded 0 = true ∧ ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params)
+    (hscope : ∀ qK, qK < d.nPins →
+      ∃ params : List Expr, params.length = d.nP ∧
+        (∀ j, j < d.nP → ∃ ty, params[j]? = some (Expr.fvar j ty)) ∧
+        ∀ x ∈ (d.pinAt qK).DsE, x.looseBVarsBounded 0 = true ∧
+          ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params)
     (hpinDs : ∀ qK, qK < d.nPins → ∀ φ : Name → Nat,
       DenoteMetaSpine m.acval env φ d.nP (d.pinAt qK).DsE ((d.pinAt qK).Ds φ))
-    (hDsE : ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level)
-        (DsE ps : List Expr) (Ds : List AnnotTerm) (ψ : Name → Nat) (dp : Nat),
-      i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
-      ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
-      DenoteMetaSpine m.acval env ψ dp DsE Ds →
-      DsE.length = d.nP ∧ ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true) :
+    :
     ContainerOwnPins m d := by
-  obtain ⟨params, hplen, hidx, hpins⟩ := hscope
-  intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine
-  obtain ⟨hDlen, hsc⟩ := hDsE i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine
+  intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine hsc hDlen
   have hsy := hsyn i cvC caps lvls DsE ps hi hfind (fun a ha => (hsc a ha).2) hps
-  refine ⟨fun e he => ?_, fun qK hqK => ⟨_, hsy.2 qK hqK hDlen,
-    denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
+  have hread : ∀ qK, qK < d.nPins →
+      DenoteMetaSpine m.acval env ψ dp
+        ((d.pinAt qK).DsE.map fun x =>
+          Expr.instSeq DsE (DsE.length - 1)
+            ((Expr.abstractRange x 0 d.nP 0).instantiateLevelParams cvC.levelParams lvls))
+        (((d.pinAt qK).Ds (Level.substFn ψ cvC.levelParams lvls)).map
+          (AnnotTerm.instAll Ds 0)) := by
+    intro qK hqK
+    obtain ⟨params, hplen, hidx, hpins⟩ := hscope qK hqK
+    exact denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
       (hpinDs qK hqK (Level.substFn ψ cvC.levelParams lvls))
-      (fun x hx => (hpins qK hqK x hx).1) (fun x hx => (hpins qK hqK x hx).2)⟩⟩
+      (fun x hx => (hpins x hx).1) (fun x hx => (hpins x hx).2)
+  refine ⟨fun e he => ?_, fun qK hqK => ⟨_, hsy.2 qK hqK hDlen, hread qK hqK⟩⟩
   obtain ⟨qK, hqK, rfl⟩ := hsy.1 e he
-  exact ⟨qK, _, hqK, rfl,
-    denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
-      (hpinDs qK hqK (Level.substFn ψ cvC.levelParams lvls))
-      (fun x hx => (hpins qK hqK x hx).1) (fun x hx => (hpins qK hqK x hx).2)⟩
+  exact ⟨qK, _, hqK, rfl, hread qK hqK⟩
+
+/-- **A CONTAINER'S OWN-PIN TABLE, READ** (task #315 WIDE, lane LE):
+`ContainerOwnPinsSyn.toReadOf` at the clauses a container's record
+carries for it — the components' scope (`pinDsScoped`) and their
+readings (`pinDsRead`) — with the syntactic table (`ownPins`) as the
+table itself.
+
+This is what the wide identification's `hρ` is read through at EVERY
+own-pin class, including the classes no field of the container names:
+a pin minted inside one of the container's own copies is reachable
+only through this table, and a table of expressions is only usable
+once it is read. -/
+theorem ContainerModeled.ownPinsRead {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) :
+    ContainerOwnPins m d :=
+  C.ownPins.toReadOf C.pinDsScoped C.pinDsRead
 
 end ConLeche.Model

@@ -630,6 +630,29 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   block. -/
   pinDsRes : ∀ q, q < d.nPins → ∀ x ∈ (d.pinAt q).DsE,
     x.constsResolve env = true
+  /-- **AND THEY READ AS THE RECORDED READINGS** (task #315 WIDE, lane
+  LE): at every own pin and every level assignment, the recorded
+  components READ, at the container's own parameter depth, as the
+  `PinSyn`'s recorded `Ds`.
+
+  `PinSyn.Ds` is an abstract field, so nothing but a clause ties it to
+  `DsE`: the run states it of the block it is installing
+  (`NestedStageFacts.pinDs`) and no law of `IsBlockModel` or
+  `ContainerModeled` recovers it at a STORED container.  It is what
+  makes the own-pin table usable semantically —
+  `ContainerOwnPinsSyn.toReadOf` turns the syntactic table into the
+  reading form with exactly this and `pinDsScoped` — and the wide
+  identification needs the reading form at every own pin, including
+  the pins a container minted inside its own copies, which no field of
+  the container names.
+
+  It is a `denoteMeta` CONCLUSION, so it crosses an install
+  covariantly — through the GUARDED `hde`, whose `ProjFree` the two
+  clauses above supply: `pinDsRes` at a LATER install (where the newly
+  tabled names are fresh) and K.64's table conjunct at the block's
+  OWN. -/
+  pinDsRead : ∀ q, q < d.nPins → ∀ φ : Name → Nat,
+    DenoteMetaSpine m.acval env φ d.nP (d.pinAt q).DsE ((d.pinAt q).Ds φ)
 
 /-- **The block model's member names ARE the container group's**, as
 lists (task #315 PINF): `k` and `namesLen` give the length and
@@ -1321,6 +1344,8 @@ bridge — UNCONDITIONAL since task #315 M7-3 session 16, DESIGN
     i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
     ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
     DenoteMetaSpine m.acval env ψ dp DsE Ds →
+    (∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true) →
+    DsE.length = d.nP →
     (∀ e ∈ ps, ∃ (qK : Nat) (es : List Expr), qK < d.nPins ∧
       e = Expr.mkAppN
         (.const (d.pinAt qK).J ((d.pinAt qK).lvls.map (Level.subst cvC.levelParams lvls))) es ∧
@@ -1351,7 +1376,7 @@ theorem ContainerOwnPins.of_noOwn {env : Env} {m : EnvModel V env} {d : BlockMod
     (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
       ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :
     ContainerOwnPins m d := by
-  intro i _cvC _caps lvls DsE ps _Ds _ψ _dp hi _ hps _
+  intro i _cvC _caps lvls DsE ps _Ds _ψ _dp hi _ hps _ _ _
   refine ⟨fun e he => ?_, fun qK hqK => absurd hqK (by rw [hnp]; omega)⟩
   rw [hempty i lvls DsE ps hi hps] at he
   exact nomatch he
@@ -1365,6 +1390,13 @@ root pin's level arguments and components — the correspondence
 the equality comes from: `pinCorr_of_ownPins` reads it off the table
 by MEMBERSHIP and hands back an existential `qK`, `pinCorr_of_ownPins_at`
 reads it off the table at a GIVEN POSITION and keeps it.
+
+The positional clause is guarded by the components' COUNT, and has to
+be: `containerOwnPinsAt` does not check it — `ownPinsStep`'s own guard
+`Ds.length == nPr` makes every step answer `[]` instead — so at a
+reader asked at the wrong number of components the table is EMPTY and
+the position says nothing.  `ContainerOwnPinsSyn` carries the same
+guard for the same reason.
 
 This is the Expr-to-`AnnotTerm` half lane L-E named: the `J` and
 `lvls` clauses come out of the term equality by `mkAppN`'s inversion at
@@ -1472,6 +1504,8 @@ theorem pinCorr_of_ownPins {env : Env} {m : EnvModel V env} {D dR : BlockModel V
     (hi : i < dR.k) (hfind : env.find? (dR.memberName i) = some (.indInfo cvC caps))
     (hps : ConLeche.containerOwnPinsAt env (dR.memberName i) lvlsK DsE₀ = some ps)
     (h0 : DenoteMetaSpine m.acval env ψ dp DsE₀ Ds₀)
+    (hsc : ∀ a ∈ DsE₀, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true)
+    (hDlen : DsE₀.length = dR.nP)
     (hmem : Expr.mkAppN (.const (D.pinAt q).J (D.pinAt q).lvls) (D.pinAt q).DsE ∈ ps)
     (hDsD : DenoteMetaSpine m.acval env ψ dp (D.pinAt q).DsE ((D.pinAt q).Ds ψ))
     (hψD : ∀ (cv : ConstantVal) (cp : IndCaps),
@@ -1490,7 +1524,7 @@ theorem pinCorr_of_ownPins {env : Env} {m : EnvModel V env} {D dR : BlockModel V
       PinCorr (D.targetView m.acval ψ) m.acval dR (Level.substFn ψ cvC.levelParams lvlsK)
         Ds₀ cvC.levelParams lvlsK (D.k + q) qK := by
   obtain ⟨qK, es, hqK, heq, hes⟩ :=
-    (hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0).1 _ hmem
+    (hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0 hsc hDlen).1 _ hmem
   exact ⟨qK, hqK, pinCorr_of_pinEq hqK heq hes hDsD hψD hψK hfoundK huIds⟩
 
 /-- **THE BRIDGE, at a GIVEN own pin** (task #315, lane WIDE's (f3)):
@@ -1510,7 +1544,8 @@ theorem pinCorr_of_ownPins_at {env : Env} {m : EnvModel V env} {D dR : BlockMode
     (hi : i < dR.k) (hfind : env.find? (dR.memberName i) = some (.indInfo cvC caps))
     (hps : ConLeche.containerOwnPinsAt env (dR.memberName i) lvlsK DsE₀ = some ps)
     (h0 : DenoteMetaSpine m.acval env ψ dp DsE₀ Ds₀)
-    (hqK : qK < dR.nPins)
+    (hqK : qK < dR.nPins) (hDlen : DsE₀.length = dR.nP)
+    (hsc : ∀ a ∈ DsE₀, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true)
     (hat : ps[qK]? = some
       (Expr.mkAppN (.const (D.pinAt q).J (D.pinAt q).lvls) (D.pinAt q).DsE))
     (hDsD : DenoteMetaSpine m.acval env ψ dp (D.pinAt q).DsE ((D.pinAt q).Ds ψ))
@@ -1529,7 +1564,7 @@ theorem pinCorr_of_ownPins_at {env : Env} {m : EnvModel V env} {D dR : BlockMode
     PinCorr (D.targetView m.acval ψ) m.acval dR (Level.substFn ψ cvC.levelParams lvlsK)
       Ds₀ cvC.levelParams lvlsK (D.k + q) qK := by
   obtain ⟨es, hes0, hes⟩ :=
-    (hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0).2 qK hqK
+    (hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0 hsc hDlen).2 qK hqK
   exact pinCorr_of_pinEq hqK (Option.some.inj (hat.symm.trans hes0)) hes hDsD hψD hψK hfoundK huIds
 
 /-! ## The model with its blocks -/

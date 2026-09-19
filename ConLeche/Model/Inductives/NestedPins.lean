@@ -1512,7 +1512,17 @@ way every other subject of the crossing does
 (`ProjFree.of_constsResolve`). -/
 theorem NestedPinsRun.resolved :
     ∀ q ∈ st.pins, q.pin.constsResolve (ENV₁) = true :=
-  ConLeche.pinsResolve_inv R.hK64
+  fun q hq => (ConLeche.pinsResolve_inv R.hK64 q hq).1
+
+/-- **THE PINS' `.proj` NODES NAME STORED TABLES** (task #315 K.64's
+second conjunct, lane LE): `resolved`'s sibling, and the guard at the
+block's OWN install — a member is stored at this environment, so
+resolution says nothing about a `.proj` node at one of them, while the
+table walk does, because a member's TABLE is consed only at the end of
+the install. -/
+theorem NestedPinsRun.pinsProjTables :
+    ∀ q ∈ st.pins, q.pin.projTablesOk (ENV₁) = true :=
+  fun q hq => (ConLeche.pinsResolve_inv R.hK64 q hq).2
 
 /-- **A pin's reading at the prefix model** (K.30 consumed): the pin's
 `inferType` run at the prefix environment and its scope give its

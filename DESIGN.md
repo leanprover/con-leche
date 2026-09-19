@@ -106513,7 +106513,23 @@ the environment holding the RESTORED FORMERS, and every `.proj` node in
 a pin names a stored structure.
 
     def pinsResolve (env : Env) (pins : List NestedPin) : Bool :=
-      pins.all fun q => q.pin.constsResolve env
+      pins.all fun q => q.pin.constsResolve env && q.pin.projTablesOk env
+
+**TWO CONJUNCTS, FOR TWO CROSSINGS** (the second added at the
+coordinator's ruling, against a 200-line walk induction for the same
+fact).  `constsResolve` is the guard at a LATER install, where the
+newly tabled names are FRESH here, so `ProjFree.of_constsResolve`
+turns the resolution into the guard.  `projTablesOk` is the guard at
+the block's OWN install, which conses projection TABLES for its
+structure-like members: a member is STORED here — that is why the
+check runs at the formers' environment and not at the pre-block one —
+so resolution says nothing about a `.proj` node at one of them, while
+the table walk does, because a member's TABLE is not here.  The model
+side is then the `ctorProjFree` idiom verbatim:
+`Expr.projSlotsOk_of_projTablesOk`, `ProjSlotsOk.noProjAt` against the
+member's empty slot (`findProj?_none_of_indFresh` through
+`findProj?_none_consMutualFormers`), `ProjFree.getAppArgs` to the
+components.
 
 **WHY A RECORD AND NOT A DERIVATION — four dead ends, each checked.**
 This is the whole justification, and it is `pinsScoped`'s own argument
@@ -106573,14 +106589,27 @@ could serve nobody.
 | `init-full` (53 093 accepted) | 1 | 1 | 0 |
 | Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
 
+(measured on the TWO-conjunct Bool; the accept counts are unchanged.)
+
 *Firing control* — the same check at the PRE-BLOCK environment, where a
 pin's member mention is unresolvable by construction: **88 fires over
 the e2e+arena sweep, one at every one of the 88 accepting shadow blocks
 and in BOTH modes**, **1 fire at `init-full`'s one block** and **41
 fires at Mathlib's 41**.  So the guard is reached with content wherever
-a nested block is installed, which is the
-widest reachability any of K.59-K.64 has — unlike K.60's and K.61's,
-whose guards are reached at nine blocks over three corpora.
+a nested block is installed, which is the widest reachability any of
+K.59-K.64 has — unlike K.60's and K.61's, whose guards are reached at
+nine blocks over three corpora.
+
+*And the SECOND conjunct has no firing control of its own, which is
+itself a measurement.*  The control that reaches it — the table walk at
+the EMPTY environment, which fires as soon as a pin holds ANY `.proj`
+node — fires **0 times on all three corpora**.  So no reachable block
+produces a pin with a projection in it, the conjunct is vacuously true
+wherever it is reached, and the control for this record is the
+pre-block one alone.  It is recorded all the same, because what the
+consumer needs is the absence, not its measurement: a block whose pin
+DID carry a `.proj` at one of its own members would make a container's
+pins' readings unstable across its own install.
 
 ##### (b) THE COST — NOISE, IN BOTH MODES
 
@@ -106588,12 +106617,12 @@ whose guards are reached at nine blocks over three corpora.
 
 | run | without | with | delta |
 |---|---|---|---|
-| `init-full --verified` (no shadow) | 539.248 G | 539.240 G | −0.001 % |
-| `init-full --trusted` (no shadow) | 521.910 G | 521.895 G | −0.003 % |
-| `init-full --verified --nested-shadow` | 539.305 G | 539.303 G | −0.000 % |
-| `init-full --trusted --nested-shadow` | 521.979 G | 521.998 G | +0.004 % |
-| Mathlib `--verified --nested-shadow` | 12 255.40 G | 12 257.30 G | +0.015 % |
-| Mathlib `--trusted --nested-shadow` | 11 297.31 G | 11 299.81 G | +0.022 % |
+| `init-full --verified` (no shadow) | 539.24 G | 539.31 G | +0.013 % |
+| `init-full --trusted` (no shadow) | 521.90 G | 521.92 G | +0.005 % |
+| `init-full --verified --nested-shadow` | 539.33 G | 539.34 G | +0.002 % |
+| `init-full --trusted --nested-shadow` | 521.97 G | 521.97 G | +0.000 % |
+| Mathlib `--verified --nested-shadow` | 12 255.30 G | 12 257.39 G | +0.017 % |
+| Mathlib `--trusted --nested-shadow` | 11 297.54 G | 11 299.39 G | +0.016 % |
 
 K.30's cost model, confirmed: one `constsResolve` — the memoized walk,
 `@[csimp]` — over one small term per pin, and a nested block has a
@@ -106738,7 +106767,36 @@ that decides it.
 So route 1 needs no new record and no new environment fact — only the
 carry, and the heredity chain down to the component.
 
-##### (d) AND THE CARRY IS NOT THE ONE-LINE STEP IT LOOKS — priced at the walk
+##### (e) LANDED, BY ROUTE 2 — and one finding in the reading form
+
+The coordinator ruled route 2 (K.64's second conjunct) against the
+walk induction (d) priced, and with it `pinDsRead` lands: the ninth
+site is `NestedStageFacts.pinDs` at the CONSTRUCTORS' environment,
+crossed to the install's output by the pair the typing clauses already
+take (`T.agree` for the carrier, `T.findR` for the constants — with
+recursors routed through `ConsExt.ext`, since ENV₂'s recursors are the
+pre-block ones: `consNestedCtors_find?_cases` and
+`consMutualFormers_find?_cases` say a lookup there is the base's or an
+`indInfo`/`ctorInfo`), under `denoteMeta_env_mono_projFree` at
+`Ts := p.memberNames`, whose guard is K.64's table conjunct.  All
+three clauses are now at all nine sites.
+
+**AND THE READING FORM WAS MIS-STATED.**  `ContainerOwnPins` — the
+form `pinCorr_of_ownPins(_at)` consumes — quantified over the
+components `DsE` with NO guard on them, and its positional conjunct
+asserted a table entry at every recorded pin.  That is FALSE at a
+reader asked at the wrong number of components:
+`containerOwnPinsAt` does not check the count, and `ownPinsStep`'s own
+guard `Ds.length == nPr` makes every step answer `[]`, so the reader
+returns `some []` and the positional conjunct claims an entry in an
+empty list.  Both conjuncts are now guarded by `DsE.length = d.nP` and
+by the components' SCOPE, exactly as `ContainerOwnPinsSyn`'s
+positional conjunct already was — after which `toReadOf` needs no
+`hDsE` at all and `ContainerModeled.ownPinsRead` is a producer with no
+side conditions.  The interface had no consumer, which is why the gap
+had never been exercised.
+
+##### (d) THE CARRY THAT WAS NOT TAKEN — priced at the walk
 
 Pricing the plumbing step by inputs before opening it, as the rule
 asks: it is not `repsAt`'s one-liner, and the reason is a GAP between

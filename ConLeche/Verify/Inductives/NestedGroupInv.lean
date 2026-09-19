@@ -134,12 +134,19 @@ theorem pinsScoped_inv {nP : Nat} {st : ElimState} (h : pinsScoped nP st = true)
 
 /-- **THE PINS' CONSTANTS RESOLVE, INVERTED** (task #315 K.64):
 `pinsScoped_inv`'s neighbour, and the same one-line shape — the Bool
-is an `all` over the pin list, so its content is the per-pin fact. -/
+is an `all` over the pin list, so its content is the per-pin PAIR: the
+constants resolve (the guard at a LATER install, where the tabled
+names are fresh here) and every `.proj` node's table is stored (the
+guard at the block's OWN install, where a member is stored here but
+its table is not). -/
 theorem pinsResolve_inv {env : Env} {pins : List NestedPin}
     (h : pinsResolve env pins = true) :
-    ∀ q ∈ pins, q.pin.constsResolve env = true := by
+    ∀ q ∈ pins, q.pin.constsResolve env = true ∧ q.pin.projTablesOk env = true := by
   unfold pinsResolve at h
-  exact fun q hq => List.all_eq_true.mp h q hq
+  intro q hq
+  have h' := List.all_eq_true.mp h q hq
+  simp only [Bool.and_eq_true] at h'
+  exact h'
 
 /-- **POST-CHECK (a), INVERTED** (task #315): the loop's two syntactic
 tests and its inference, at every pin. -/
