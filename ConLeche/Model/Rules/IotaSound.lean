@@ -13,6 +13,42 @@ Split out of `RedSound.lean` before the proof phase so the two lanes
 own disjoint files.  One lemma per constructor: `Red.iota`,
 `Red.rescueK`, `Red.rescueEta`, `Red.rescueAnd`; the master induction
 (`Sound.lean`) consumes them by name.
+
+The rows this file mines (`Model/Steps/{IotaRows,IotaKit,IotaGate,
+Major,CapsRows,TowerKit,Stuck}.lean`) are TRANSPLANTED, never
+imported; the shared helpers live in `IotaSoundKit.lean`.
+
+## FINDING — `Rules.Red.rescueEta` is one premise short at a
+projection-function family
+
+`Red.rescueEta_sound` is proved where the family's slots are
+tower-backed (`towerSlotsAll env T caps.etaFields = true`, which
+includes every field-less family) and is `sorry` at the other kind.
+The reason is not the argument: it is that the rule does not carry the
+fact.  At `towerSlotsAll = false` the fabricated arguments are
+`Expr.mkAppN (.const (projFnName T j) ust) (tmaj.getAppArgs ++
+[major])` nodes, so the fabrication READS only if `projFnName T j` is
+stored at the family's level arity — and no premise of
+`Rules.Red.rescueEta` says so.  (Its grading needs more of the same:
+the per-slot telescope certificate.)  In `Model/Steps/Major.lean` both
+come from inverting the η certificate's own run
+(`structEtaCertWith_inv` → `structEtaProjCerts_inv`); in the rules
+tier that run is the opaque `DefEq env d fab major` premise, whose
+motive `DefEqSem` exposes nothing of the kind.
+
+The repair is a premise on the constructor, mirroring what
+`DefEq.structEta` already carries:
+
+    towerSlotsAll env T caps.etaFields = false →
+      EtaProjCerts env d T ust tmaj.getAppArgs major cvT.levelParams
+        (List.range caps.etaFields)
+
+whose motive `EtaProjCertsSem` (`Model/Rules/Motive.lean:178`) hands
+back, per slot, `env.find? (projFnName T i) = some (.recInfo cvp …)`,
+`cvp.levelParams = lpsT`, the `stripPis` conjunct and the `CertsSem`
+that grades the spine — exactly the four facts the transplanted η arm
+of `majorToCtorFueled_{reads,step}` consumes.  `Rel.lean` is a shared
+file, so the change is the coordinator's.
 -/
 
 namespace ConLeche.Model.Rules
@@ -150,7 +186,13 @@ theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
   exact ⟨hfF, hsub, _, hdF, hgF,
     fun ρ hρ => (hpi hfF hfM hCF hCM hdF hea hgF hgM ρ hρ).symm⟩
 
-/-- The structure-η rescue (`majorToCtorFueled_step`'s η arm). -/
+set_option linter.unusedVariables false in
+/-- The structure-η rescue (`majorToCtorFueled_step`'s η arm).
+
+PROVED at a tower-backed family (the fabricated projections are
+`.proj T j major` nodes reading to the tower readings, graded by each
+entry's typing law); `sorry` at a projection-function family — see the
+module docstring's FINDING, the rule is one premise short there. -/
 theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
@@ -174,7 +216,152 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
     (hpi : DefEqSem m φ d fab major) :
     RedSem m φ d major fab := by
-  sorry
+  intro hfM Δa ea hCM hea hgM
+  have hsub : LeavesSub fab major := fun l hl => by
+    have := List.all_eq_true.mp hlv' l hl
+    simpa using this
+  have hfF : Frame d fab :=
+    ⟨Expr.WScoped.of_wscopedB hws, hb, fun l hl => hfM.2.2 l (hsub l hl)⟩
+  have hCF : CtxOk m φ d Δa fab := hCM.of_subset hsub
+  -- the family's η record: the rule's constructor IS the family's, and
+  -- carries the former's level parameters (`RecCtorsStored`)
+  obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hrec
+    List.mem_cons_self hctor hres hind
+  obtain ⟨hcapseta, hectr, hlpsE⟩ := hEbits heta
+  have hlpj : ust.length = cvj.levelParams.length := by
+    rw [hlpsE]; exact hlv
+  -- the major's io-inferred type, reduced, is the family at its spine
+  obtain ⟨hfT0, hsubT0, tm0a, htm0a, hgT0, hmemM0⟩ := htm hfM hCM hea hgM
+  obtain ⟨hfTm, hsubTm, tmaja, htmaja, hgTm, heqTm⟩ :=
+    htmaj hfT0 (hCM.of_subset hsubT0) htm0a hgT0
+  have hCTm : CtxOk m φ d Δa tmaj :=
+    (hCM.of_subset hsubT0).of_subset hsubTm
+  have hmemMW : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ ea ∈ˢ interp V ρ tmaja :=
+    fun ρ hρ => (heqTm ρ hρ) ▸ hmemM0 ρ hρ
+  rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
+    (ConLeche.Expr.mkAppN_getApp tmaj).symm, hthead] at htmaja
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := readSpine_mkAppN_inv htmaja
+  have hfrT := frame_spineK hfTm hCTm
+  obtain ⟨-, hoTs⟩ := hoist_spineK tsa hgTm
+  have hvT' : vT = m.acval T (Level.substFn φ cvT.levelParams ust) := by
+    rw [denoteMeta_const hind (show ust.length
+      = (ConLeche.ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
+      from hlv)] at hvT
+    exact (Option.some.inj hvT).symm
+  -- the constructor's stored type: read, graded, inhabited, closed
+  obtain ⟨TVja, hTVjaD, hokTVja, hmemCj, hnfJ, hbdJ⟩ :=
+    constTy_pkg hin.const_ty hctor rfl (show ust.length = _ from hlpj)
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVjaD hmemCj hnfJ hbdJ
+  obtain ⟨hfJ, hCJ⟩ := frame_of_not_hasFvar (m := m) (Δa := Δa) hnfJ hbdJ hCM.1
+  have hheadCj : denoteMeta m.acval env φ d (.const caps.etaCtor ust)
+      = some (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust)) := by
+    rw [← hectr]; exact denoteMeta_const hctor (show ust.length = _ from hlpj)
+  -- the fabricated projections' frames (a `.proj` node over the major)
+  have hprFr : ∀ j, Frame d (Expr.proj T j major) ∧
+      CtxOk m φ d Δa (Expr.proj T j major) := fun j =>
+    ⟨⟨by simpa [Expr.WScoped] using hfM.1,
+        by simpa [Expr.looseBVarsBounded] using hfM.2.1,
+        fun l hl => hfM.2.2 l (by simpa [Expr.fvarLeaves] using hl)⟩,
+      hCM.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)⟩
+  by_cases htow : ConLeche.towerSlotsAll env T caps.etaFields = true
+  · -- TOWER-BACKED SLOTS: the fabricated projections are `.proj T j
+    -- major` nodes reading to the tower readings and graded by each
+    -- entry's typing law (`Model/Steps/Major.lean`'s R13 tower arm)
+    have hpfacts : ∀ j ∈ List.range caps.etaFields,
+        denoteMeta m.acval env φ d (Expr.proj T j major)
+          = some (projAV (j + env.projOff T) ea) := by
+      intro j hj
+      obtain ⟨entry, hfe⟩ :=
+        ConLeche.towerSlotsAll_slot htow j (List.mem_range.mp hj)
+      rw [← ConLeche.Env.findProj?_off hfe]
+      exact denoteMeta_proj_towerK hfe hea
+    have hokProj : ∀ j ∈ List.range caps.etaFields,
+        Graded V Δa (projAV (j + env.projOff T) ea) := by
+      intro j hj ρ hρ
+      obtain ⟨entry, hfe⟩ :=
+        ConLeche.towerSlotsAll_slot htow j (List.mem_range.mp hj)
+      rw [← ConLeche.Env.findProj?_off hfe]
+      obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, himpj⟩, hO5j, cvCj, -, -,
+        hlawj, -⟩ := hin.tower_ok T j entry hfe
+      have hcvTj : cvTj = cvT := by
+        rw [hind] at hfTj
+        exact (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj hfTj)).1.symm
+      have hcapsTj : capsTj = caps := by
+        rw [hind] at hfTj
+        exact (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
+      obtain ⟨hnpj, -, hparj, -⟩ := himpj (by rw [hcapsTj]; exact hcapseta)
+      rw [hcapsTj] at hparj
+      have hlpe : entry.levelParams = cvT.levelParams := by rw [← hlpsTj, hcvTj]
+      have hgj : TowerGuardAt φ entry ust :=
+        towerGuardAt_of hO5j (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)
+      obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlv)
+      have hTad := towerEntry_tele_at_depthK hfe hTa
+      have hlenVs : tsa.length = entry.numParams := by
+        rw [← hspt.length, hlen, hparj]
+      have hpc : PiChainK (tsa ++ [ea]).length Ta := by
+        rw [List.length_append, List.length_singleton, hlenVs]
+        exact piChainK_of_stripPis _
+          (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
+      obtain ⟨restj, hpeel⟩ := peelPisK_of_piChain _ hpc
+      rw [hlpe, ← hvT'] at hA
+      exact (hA hgj ρ tsa ea restj hlenVs (hgTm ρ hρ) (hgM ρ hρ)
+        (hmemMW ρ hρ) hpeel).1
+    have hspF : ReadSpine m.acval env φ d
+        (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
+        (tsa ++ (List.range caps.etaFields).map fun j =>
+          projAV (j + env.projOff T) ea) := by
+      rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow]
+      exact hspt.append (ReadSpine.map_list _ _ _ hpfacts)
+    have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
+        caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
+      intro x hx
+      rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow] at hx
+      rcases List.mem_append.mp hx with hx' | hx'
+      · exact hfrT x hx'
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
+        exact hprFr j
+    have hoksF : ∀ x ∈ (tsa ++ (List.range caps.etaFields).map fun j =>
+        projAV (j + env.projOff T) ea), Graded V Δa x := by
+      intro x hx
+      rcases List.mem_append.mp hx with hx' | hx'
+      · exact hoTs x hx'
+      · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
+        exact hokProj j hj
+    have hdF : denoteMeta m.acval env φ d fab
+        = some (AnnotTerm.mkAppN
+          (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
+          (tsa ++ (List.range caps.etaFields).map fun j =>
+            projAV (j + env.projOff T) ea)) := by
+      rw [hfab]; exact readSpine_mkAppN hspF hheadCj
+    obtain ⟨resta, hfit, -⟩ :=
+      hcerts (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
+        hfJ hCJ (hTVjaD d) (fun ρ _ => hokTVja ρ) hfrF hspF hoksF (by simp)
+    have hgF : Graded V Δa (AnnotTerm.mkAppN
+        (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
+        (tsa ++ (List.range caps.etaFields).map fun j =>
+          projAV (j + env.projOff T) ea)) :=
+      fun ρ hρ => (fitA_grades _ (hokTVja ρ)
+        ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩
+        (fun x hx => hoksF x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
+    exact ⟨hfF, hsub, _, hdF, hgF,
+      fun ρ hρ => (hpi hfF hfM hCF hCM hdF hea hgF hgM ρ hρ).symm⟩
+  · -- PROJECTION-FUNCTION SLOTS — **THE LANE'S FINDING** (see the
+    -- module docstring): at `towerSlotsAll = false` the fabricated
+    -- arguments are `mkAppN (.const (projFnName T j) ust)
+    -- (tmaj.getAppArgs ++ [major])` nodes, and NOTHING in this rule's
+    -- premises says that `projFnName T j` is stored, nor at which
+    -- level arity — so the fabrication's READING cannot be produced.
+    -- In `Model/Steps/Major.lean` the fact comes from inverting the η
+    -- certificate's own run (`structEtaCertWith_inv` →
+    -- `structEtaProjCerts_inv`); at the motive that run is the opaque
+    -- `DefEq fab major` premise.  The repair is a premise on
+    -- `Rules.Red.rescueEta` — `towerSlotsAll env T caps.etaFields =
+    -- false → EtaProjCerts env d T ust tmaj.getAppArgs major
+    -- cvT.levelParams (List.range caps.etaFields)` — whose motive
+    -- `EtaProjCertsSem` hands back exactly the storage facts and the
+    -- per-slot `CertsSem` that grades each projection spine.
+    sorry
 
 set_option linter.unusedVariables false in
 /-- The `And` rescue (`majorToCtorFueled_step`'s `And` arm): the
