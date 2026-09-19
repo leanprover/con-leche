@@ -95,6 +95,23 @@ tests/e2e/tower_nested.ndjson 1 NTow=accept,
 # it too.
 tests/e2e/nested_prop_idx.ndjson 1 T=accept,
 
+# --- K.63's reflexive-nested-field witness ---------------------------
+# `J α | node (f : Nat → Box (J α))` is a container whose nested field
+# is REFLEXIVE: the domain is a `Π` whose body is headed by a further
+# stored container carrying `J` itself.  K.60's guard reads the stored
+# domain's HEAD and a `Π`'s `getAppFn` is no `.const`, so K.60 claims
+# nothing there; K.63 is that guard one `Π`-tower down, and this is the
+# shape it exists for.
+#
+# The row is `CON_LECHE_INMODEL=0` and covers `J` ONLY, which is the
+# whole finding: the in-process modeller declines any REFLEXIVE member
+# (`ConLeche/Frontend/InModel/Nested.lean`), so `J` has no install
+# route and the fold stops before `ReflPin` — the block whose expansion
+# would pin `J` and reach K.63's guard.  The row is a TRIPWIRE: it
+# gains `,ReflPin=accept` the day a route installs `J`, which is the
+# day K.63's guard is first reachable on any stream.
+tests/e2e/nested_refl_pin.ndjson 0 J=accept,
+
 # --- the container-instance map's three witnesses --------------------
 # One container `J α β | node (x : Pair α (J α β)) (y : Pair β (J α β))`
 # at three instantiations.  `J` itself has TWO own pins, differing only

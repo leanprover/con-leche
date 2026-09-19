@@ -106387,6 +106387,199 @@ of `nestedPinChecks_inv` (two more `by_cases`) rather than out of a new
 `by_cases` in `checkNested_inv_rest`, which is why the tail moved so
 little.
 
+#### K.63 — a container's REFLEXIVE nested field lands on a block pin (2026-09-19, task #315, lane PINF's request)
+
+K.60's twin one `Π`-tower down, FOLDED into K.60's walk on the
+coordinator's ruling.  K.60's guard reads the stored domain's HEAD, and
+a reflexive nested field's domain is a `Π`, so `getAppFn` is not a
+`.const`, the traversal falls into its catch-all and K.60 claims
+nothing there — BY CONSTRUCTION, as K.60's own docstring records.  The
+model cannot substitute, and the reason is the circle K.60 exists to
+break: the copy's stored domain is mimic-headed only if the rewrite
+FIRED, the fire needs the MENTION, and at a pin target the mention is
+read off the kind.  Nor can the model exclude `.ordinary` instead —
+`mutualOpenedOk`'s ordinary clause says the stored domain resolves in
+the pre-block environment, which an UNFIRED container-headed domain
+satisfies, so that arm is consistent with "no fire" and closes nothing.
+
+**WHAT THE ROUTE RECORDS.**  `copyReflFieldOk` is `copyPinFieldOk`
+after `stripDomPis`: the domain is a non-empty `Π` telescope whose BODY
+is headed by `.const K` with `K` NOT a member of the container's own
+group, `K` itself a stored container, and one of the body's first
+`ciK.nP` arguments mentioning a member of the group.  Under that guard
+`kf[l] = (.reflexive, t)` with `p.k ≤ t`.  Each part is available to
+the model, which is the criterion K.60 was designed against:
+`BlockOpened.nestReflF` gives the opened form as exactly that
+`Π`-telescope-with-a-container-headed-body,
+`ContainerModeled.pinsNotMembers` the non-membership, `pinNP` +
+`NestedPinGroupSyn.contsEnv` the further container, and the mention is
+the reflexive twin of `nestArgsMentionAbs` — (iv)(b) on the PINF lane,
+whose first input this record is.
+
+##### (a) THE FOLD, AND WHAT IT COSTS — NOTHING, MEASURED
+
+The two arms are DISJOINT by construction (a `Π`'s `getAppFn` is never
+a `.const`) and their per-field environment lookups are disjoint with
+them: K.60 looks up the domain's own head, K.63 the `Π`-body's, never
+both at one field.  So folding shares the constructor telescopes and
+one `containerInfo?` per pin — the part the ablation in "#### K.61" (d)
+says is not the price — and the measurement agrees: **K.63 is free.**
+
+| Mathlib `--nested-shadow` | K.61+K.62 | +K.63 | delta |
+|---|---|---|---|
+| `--verified` | 12 255.41 G | 12 255.37 G | −0.000 % |
+| `--trusted` | 11 297.40 G | 11 297.61 G | +0.002 % |
+
+Both inside the harness's noise.  Against the baseline with no record
+at all the three together are **+0.326 % / +0.436 %**, which is
+"#### K.61" (d)'s number unchanged — and that row carries the standing
+decision about it.
+
+**THE CARRIER OF THE FOLD.**  `nestedCopyFieldsAt` runs both arms in
+one pass with `allPair` and returns the PAIR;
+`nestedCopyPinFieldsAt` and `nestedCopyReflFieldsAt` are its two
+components, so the route reads `copyF.1`/`copyF.2` and each throw site
+names its own record.  `allPair_fst_mem`/`allPair_snd_mem`
+(`ConLeche/Verify/Inductives/NestedInv.lean`) are the extraction
+lemmas the two inversions use where an `all`-shaped walk would use
+`List.all_eq_true`; K.60's inversion is redone through them and **its
+statement is unchanged**, so no consumer moves.
+
+##### (b) THE MEASUREMENT — AND THE GUARD IS NOT REACHABLE TODAY
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, both `CON_LECHE_INMODEL` settings | 96 | 90 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+*Firing control* — the same check demanding `.recursive`, the wrong
+answer: **0 fires, on every corpus.**  That is not a weak control, it
+is the finding: **no stream this checker can reach today has a
+container with a REFLEXIVE nested field.**  The reason is upstream of
+the route: the in-process modeller declines any reflexive MEMBER
+(`ConLeche/Frontend/InModel/Nested.lean`), so such a container never
+gets installed, and a block that would pin it is never reached by the
+fold.
+
+`tests/e2e/src/nested_refl_pin.lean` is the fixture the request asked
+for and it exhibits exactly the shape —
+`J α | node (f : Nat → Box (J α))`, pinned by `ReflPin` — but it runs
+into the same wall: with the modeller ON the stream declines at `J`
+("reflexive member J"); with it OFF `J`'s own shadow runs and ACCEPTS,
+and the fold then stops for want of an install route.  Its shadow row
+is therefore `tests/e2e/nested_refl_pin.ndjson 0 J=accept,` and it is a
+TRIPWIRE, like `nested_pin_collide`'s: **it gains `,ReflPin=accept` the
+day a route installs `J`, and that is the day K.63's guard is first
+reachable on any stream.**  Until then the record is vacuous on every
+corpus — which for a category-(B) record that cannot fire is the
+expected state, not a gap, but the reachability is UNMEASURED rather
+than measured-zero-with-content, and this row says so rather than
+claiming a control that fired.
+
+##### (c) LEDGER ROW — K.63
+
+Not certification-only: an unconditional check in both routes whose
+failure is `.internal`.  Category **(B)**, by-construction-only —
+official computes nothing of the kind; the classification is our
+auxiliary block's and the fact is true by construction of `mkCopy` +
+`replaceAllNested`.  **Gating: NONE**, for K.60's reason — the model's
+`pinF` arm at a reflexive nested field reads it in every mode.  **It
+cannot fire.**
+
+**IF IT EVER FIRES** the elimination's classification of a copy's
+reflexive field disagrees with its container's — a defect in the ROUTE,
+not in the stream, and the answer is never to relax the check.  The
+message is "nested: a container's reflexive nested field is not
+classified reflexive into a pin of the block", and both routes carry
+that instruction at the point of failure.
+
+##### (d) WHAT CONSUMES IT
+
+`nestedCopyReflFieldsOk_head`, in `nestedCopyPinFieldsOk_head`'s shape
+at `.reflexive`, is the producer of `copyPinFReadRefl`'s `hkA` on the
+PINF lane — the `hkA` that lane's (c) recorded as having NO producer.
+With it in the tree, that lane's next step is (iv)(b), the two
+reflexive mention clauses, which it deliberately held until this
+record's shape was fixed.
+
+#### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
+
+Both cost this lane a build and a measurement; neither is obvious from
+the code, and K.61's row (a) is where they were learned.
+
+**`Expr.instPis` RE-CAPTURES A LOOSE `bvar` AS PADDING.**
+`containerOwnPinsAt` instantiates a mimic recursor's WHOLE telescope
+with `Expr.instPis`, a fold of `instantiate1`, and `instantiate1` lowers
+the binders above each substitution.  So a value handed to it with loose
+bound variables — the natural spelling of "the container at its own
+parameters", since a stored constructor's `stripPis` binder list leaves
+the parameters as bvars — is re-captured by the NEXT binder and comes
+back as whatever that binder is instantiated at, which here is the
+`Expr.sort Level.zero` padding.  The instrument that works is a
+SYNTHETIC FREE VARIABLE per parameter (`containerParamOpeners`): a
+stored constant's type carries no `fvar` at all, so an `fvar` is a
+marker that cannot collide, and the two sides of any such comparison
+are then two substitutions by the same list, which is all a syntactic
+comparison needs.  **Any reader of `containerOwnPinsAt` at a
+non-identity instantiation wants the openers, not bvars.**
+
+**AN OWN-PIN INDEX IS FIXED IN THE CONTAINER'S OWN SCOPE.**  The
+instance map may COLLAPSE — two of a container's own pins instantiated
+alike arrive at one mimic of the block — so the own-pin table read AT
+THE PIN'S COMPONENTS cannot separate them, and a `findIdx?` there
+answers the first of the two.  For an EQUATION about the block target
+that is harmless (the two collapse to one target anyway); for an INDEX
+into the container's own pin table, which is what the model quantifies
+over, it is wrong.  The identity-instantiated table
+(`containerOwnPinsSelf`) is where the two are still two.  **Anything
+that names a container's own pin by POSITION must read that position in
+the container's own scope.**
+
+#### DOCKET — THE NESTED HELPERS SHOULD TAKE A LOOKUP FUNCTION (2026-09-19, task #315, coordinator's ruling on K.61's cost)
+
+**The root cause of every "this record costs its own traversal" row on
+this route**, ruled after K.61/K.62's ablation: the traversal is cheap
+and the LOOKUPS inside it are not.
+
+`Env.find?` is `env.consts.find? (·.name == n)` — a linear scan of the
+constant list — and `containerInfo?` costs a handful of them (the type,
+the recursor, then two per member and one per constructor).  The pure
+`Env` is the SPEC and stays a list; that is not the problem.  The
+problem is that `checkNestedS`, the CACHED route — the one that ships —
+hands the nested helpers the pure `fe.env` at every site
+(`ConLeche/Cached/CheckerC.lean`, the `nestedContainersOk`,
+`nestedPinCompsOk`, `nestedCopySrcOk`, `nestedGroupsOk` and
+`nestedPinChecks` calls), while `FEnv.find?` beside it is an O(1) index
+lookup.  So K.41, K.57, K.59, K.60, K.61 and K.62 each pay a linear
+scan per container lookup in the route that ships.
+
+**THE FIX**: the nested helpers take a LOOKUP FUNCTION
+`fnd : Name → Option ConstantInfo` instead of an `Env`, the pure route
+passes `env.find?` and the cached route passes `fe.find?`.  K.50's
+`nestedRuleBitsOk` is the precedent — it already takes `find?` for
+exactly this reason, and its row records the measurement that forced
+it.
+
+**IT RESTS ON ONE PROOF-SIDE FACT, WHICH EXISTS**:
+`mkFEnv_find?_fun : FEnv.find? (mkFEnv env) = env.find?`
+(`ConLeche/Verify/CheckerF.lean`).  Everything else is mechanical
+re-threading — `env.find?` ↦ `fnd` through the definitions and through
+the inversions' statements, which mention the environment only inside
+`containerInfo?`.
+
+**WHAT IT PAYS BACK**: all six records at once.  K.61/K.62 alone are
++0.326 %/+0.434 % of a Mathlib shadow run and K.60 is
++0.128 %/+0.142 %; the class of the cost is the same for K.41, K.57 and
+K.59.  Lever (1) of K.61's row — fusing two `containerInfo?` calls
+inside `nestedInstMapAt` — would trim one record's share and leave the
+class, which is why it is NOT taken.
+
+**WHEN**: with the flip's re-measurement.  The nested route is not
+dispatched today, so the production cost of all six is ZERO; the first
+moment it matters is the moment the dispatch arm lands, and that is the
+measurement this work belongs to.  **Do not build it before then.**
+
 #### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
 
 The field lane L-E's covering premise waits on.  Every ingredient was

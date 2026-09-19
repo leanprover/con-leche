@@ -1504,7 +1504,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, -, -,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, -, -, -,
     hpins₁,
     hctors,
     hrm, hrn,
@@ -1542,13 +1542,16 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- `nestedCopyPinFieldsOk` — a container's nested field lands on a
   -- block pin, K.32's twin the other way round — which the copies'
   -- `pinF` arm reads and nothing on this path does, so it is carried
-  -- down to `NestedPinsRun` beside K.32 and K.51; the two `-` after
-  -- `hK60` are K.61's `nestedInstMapOk` (the container instance map: a
-  -- pin's container's own pins, instantiated, ARE block pins, and a
-  -- copy's field at such an own pin records the map's value) and K.62's
-  -- `nestedOrdOutsideOk` (a rewritten ORDINARY field's target is
-  -- outside that map's image) — both read where lane L-E's `ordF`/`pinF`
-  -- arms are assembled, neither on this path;
+  -- down to `NestedPinsRun` beside K.32 and K.51; the THREE `-` after
+  -- `hK60` are K.63's `nestedCopyReflFieldsOk` (K.60's guard one
+  -- `Π`-tower down, at a REFLEXIVE nested field — computed by the same
+  -- walk, read by the copies' `pinF` arm), K.61's `nestedInstMapOk`
+  -- (the container instance map: a pin's container's own pins,
+  -- instantiated, ARE block pins, and a copy's field at such an own pin
+  -- records the map's value) and K.62's `nestedOrdOutsideOk` (a
+  -- rewritten ORDINARY field's target is outside that map's image) —
+  -- all three read where lane L-E's `ordF`/`pinF` arms are assembled,
+  -- none on this path;
   -- then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
   -- carries for the rest — and the LAST two `-` are K.47's
