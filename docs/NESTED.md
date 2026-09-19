@@ -662,6 +662,24 @@ clauses on the object that holds a block's own pins, and the two sites
 that would switch to it.  Until those land the tree still takes the long
 way round (Resolution 3) there.
 
+**And at the copies of the container's own pins one more datum has to
+be carried, for a reason that is easy to price wrongly.**  The
+comparison at such a class needs the block's copy and the container's
+own record of that pin to be the SAME pin at two instantiations, and
+the only thing relating them is the own-pin table — a table of
+expressions.  For the pins a member's own field names, a field's
+correspondence would do instead, and it is already proved.  But a
+container may mint a pin inside one of its OWN copies rather than at a
+member's field — a type whose constructor nests through a container
+that itself nests is the ordinary case, and an accepted test exhibits
+it: the mint chain there runs from the type to the first container to
+the second, and the last pin is no member's field target.  At such a
+pin the table is the only handle, and using a table of expressions
+semantically means READING the container's own pins' components.  That
+reading is a fact about a stored container which no law of the model
+fixes, so it is carried on a container's record, with the components'
+scope and their resolution beside it.
+
 **The instance map is not an injection, and the identification no
 longer asks it to be.**  The expansion's dedup by pin expression
 identifies two of the container's own pins whenever they instantiate

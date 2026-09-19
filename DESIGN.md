@@ -118933,3 +118933,143 @@ moved**, as it must not before (4′).
 
 No kernel file changed, so no accept set moved and `tests/arena.sh` was
 not re-run.
+
+#### WIDE (3′) (a) REFUTED — a container's own pin need NOT be a member's field target, and route 1 is forced (lane LE, 2026-09-19)
+
+Route (b) of "(3′) PART-LANDED AND REPRICED" (d) — `hρ` through
+`copyPinFPinCorr` at a FIELD — owes one clause: *every own pin of a
+container is the target of some field of that container*.  **That
+clause is FALSE, and an accepted fixture of the shadow gate refutes
+it.**  Nothing of (a), (b), (c), (d), (4′) or (4) was built this
+session; the tree is unchanged apart from this record.
+
+##### (a) THE COUNTEREXAMPLE, DECODED FROM THE FIXTURE
+
+`tests/e2e/nested_p04.ndjson` (shadow gate row
+`nested_p04.ndjson 1 P4C=accept,P4=accept`), decoded from the stream's
+own tables:
+
+```
+P4C  : ∀(α : Sort), Sort                       numNested = 2
+  ctor0 leaf  : ∀(α : Sort), ∀(s : #0), P4C #1
+  ctor1 node  : ∀(α : Sort), ∀(parts : Array (P4C #0)), P4C #1
+Array: ctor mk : ∀(α : Sort), ∀(toList : List #0), Array #1
+P4   : ctor mk : ∀(a : P4C P4), P4             numNested = 3
+```
+
+`P4C`'s own elimination mints `Array (P4C α)` at its member's field
+and then, expanding THAT copy's `toList : List (P4C α)`, mints
+`List (P4C α)`.  So `P4C`'s own pin table is `[Array, List]` — the
+K.41 probe already recorded it verbatim, `own=[(some [Array, List]),
+(some []), (some [])]`, and the K.40 probe recorded the mint chain for
+`P4C`'s own block as `parents=[none, (some 0)] conts=[Array, List]`.
+
+`P4C` has exactly two fields: `α` (ordinary) and `Array (P4C α)`
+(nested, at own pin 0).  **No member field of `P4C` targets own pin 1**,
+so `∀ qK < d.nPins, ∃ i < d.k, ∃ j l, d.nestOf i j l = some qK` is
+false at `d = P4C`'s block model, `qK = 1`.  `P4` nests through `P4C`,
+so `hpin` — which quantifies over EVERY class `dJ.k ≤ c < dJ.k +
+dJ.nPins` — has to be discharged at that very pin.
+
+##### (b) IT IS NOT AN ACCIDENT OF THIS FIXTURE
+
+"A mimic exists because a field asked for it" is true; what the row
+inferred from it is not.  The field that asks may be a field of one of
+the container's OWN COPIES, and the elimination records exactly that:
+`NestedPin.mintedAt` stamps the WORKLIST POSITION being expanded, and
+K.40's measurement found the parent chain covering in 152 of 152
+instances.  A pin whose parent is another pin is the general case of
+nested-through-nested — `docs/NESTED.md` §5's `Foo`/`Tree'`/`List` is
+the same shape written out — and `d.tgts`/`d.nestOf` range over
+MEMBERS only (`IsBlockModel.tgtsLt` is stated at `mm' < d.k`); the
+copies' targets live in `d.pinCtors q`, a different table.
+
+##### (c) THE ROUTE IS STRUCTURALLY CONFINED, NOT MERELY UNRECORDED
+
+Widening the clause to the container's WIDE classes does not rescue
+route 2, because the consumer does not widen with it.  At `P4C`'s pin 1
+the asking field is `Array`'s `toList : List α`, and from `Array`'s
+side it is CONTAINER-ORDINARY — it mentions no member of `Array`'s
+group, `Array` has no pins at all, and K.62 records that its rewritten
+target leaves `Array`'s instance.  There is no `pinF` arm there and no
+`PinCorr` to be had: the correspondence exists only in `P4C`'s own
+block model (`(d.pinCtors 0).tgts j l = d.k + 1`), which is the
+container's stored record and not anything this block's run states.
+
+So at a pin the container minted inside one of its own copies the
+own-pin TABLE is the only handle — which is what
+`ContainerModeled.ownPins`' docstring already says ("Nothing else in
+`ContainerModeled`/`BlockAt` relates the two") — and using a table of
+`Expr`s semantically means READING the container's own pins'
+components.  That reading is route 1's `hpinDs`.  **Route 2 cannot be
+completed, and once `hpinDs` is carried route 2 is pointless: route 1
+answers at every own pin.**
+
+##### (d) WHAT ROUTE 1 COSTS, PRICED AT `pinCorr_of_pinEq`'s PREMISES
+
+Reading the premises rather than counting them, at an own pin `qK` of
+the container of the block's pin `q₀ + i'`:
+
+* **`heq`** (the pin terms) — **IN HAND at every own pin.**
+  `NestedPinsRun.instMapPinOwn`'s proof already derives it
+  (`hrnpin`): K.61's `nestedInstMapOk_at` gives the block pin `σq` with
+  `st.pins[σq].pin = own[qK]`, and `ContainerModeled.ownPins`'
+  POSITIONAL conjunct gives `own[qK] = (dJ.pinAt qK).ownAt dJ.nP
+  cvC.levelParams lvls DsE`.  Exposing it is a restatement of a landed
+  theorem and needs no record;
+* **`hDsD`** (the BLOCK pin's components read) — `NestedStageFacts.pinDs`;
+* **`hψD`** — the image pin's group's `stored`; **`hψK`** —
+  `ContainerModeled.pinψ`; **`hfoundK`** — `IsBlockModel.pinsFound`;
+  **`huIds`** — `instMapPinOwn`'s own conclusion, through
+  `NestedPinGroupSyn.pinOwn`;
+* **`hes`** (the SPELLED components read) — **the only gap**, and it is
+  `denoteMetaSpine_ownAt`/`ContainerOwnPinsSyn.toReadOf`, whose two
+  inputs are the two clauses "(3′) (c)" named: `hscope` (K.30's twin at
+  a container: the pins' components stand at the block's parameter
+  openers with no loose bound variable) and `hpinDs` (a pin's
+  components read, at the container's parameter depth, as its recorded
+  readings).
+
+**And a third, syntactic clause the earlier pricing did not name: the
+CROSSING.**  `hscope` mentions no environment and crosses
+`ContainerModeled.crossEnvP` verbatim.  `hpinDs` is a `denoteMeta`
+CONCLUSION, so it crosses COVARIANTLY — unlike the reading form
+`ContainerOwnPins`, whose `DenoteMetaSpine` PREMISE is what makes that
+one uncrossable — but it crosses through `crossEnvP`'s `hde`, which is
+guarded by `ProjFree Ts`.  Nothing today gives `ProjFree` at a stored
+container's pin COMPONENTS (`BlockOpened.nestF` records
+`constsResolve env₀` only for the arguments PAST `nPJ`), so the
+components' resolution rides along as a clause of its own and crosses
+by `hres`, with `ProjFree.of_constsResolve` at the crossing in the
+member-types idiom (`ContainerCross.lean:580`).
+
+Total: **three clauses**, nine sites each (eight vacuous at
+`d.nPins = 0`, in `nestMention`'s idiom), the ninth at
+`nestedContainerModeled` from the run — K.30 (`NestedPinsRun.scoped`)
+for the scope, `NestedStageFacts.pinDs` at `b.nP` for the readings, the
+pins' own check for the resolution — plus the crossing and one producer
+theorem beside `instMapPinOwn`.  Against the row's earlier "(c)'s two
+clauses and their nine-site rounds": one clause more, and the
+`hde`-guard is the part that was not priced.
+
+##### (e) STATE AND ORDER
+
+Nothing built; `hρ` is where "(3′) (e) 1" left it, and (c), (d), (4′)
+and (4) are all downstream of it and untouched.  The decision the row
+called "the next session's first decision" is no longer a choice —
+route 2 is refuted, route 1 is forced — but its clause list is not the
+one approved, so the order stands for the coordinator:
+
+1. the three clauses of (d), with the crossing and the ninth-site
+   discharge;
+2. the producer beside `instMapPinOwn`: `PinCorr` at EVERY own pin,
+   through `pinCorr_of_pinEq`;
+3. then (3′)'s open list unchanged — `hρ` and
+   `pinClassFit_of_transfer` at the class quantifier, `hrowsσ`, the σ
+   clause, (4′), (4).
+
+##### (f) GATES
+
+DESIGN-only session: no `.lean` file changed, so no gate could move and
+none was re-run.  `tests/unconsumed.sh` and the accept set stand where
+"(3′) PART-LANDED AND REPRICED" (f) left them.
