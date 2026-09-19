@@ -118134,3 +118134,143 @@ consume, which is exactly the hand-off.  `tests/shake.sh` wants
 `ConLeche.PinGen`; it says so by failing on the missing `.olean`.
 No kernel file and no `Semantics` file was touched, so no accept set
 moved and `tests/arena.sh` was not re-run.
+
+#### PINF: B3c, B3d AND (v) LANDED — the reflexive `pinF` arm is a THEOREM, and the model tier's residual is `NestedPinsLe` alone (lane PINF, 2026-09-19)
+
+**THE PATTERN OF THIS ROW, IN ONE SENTENCE, so the next reader prices
+by inputs too:** *the pin-side twin is SMALLER than the member-side
+original, because the pin's container is a stored CONSTANT with a
+recorded shape and the fire never looks at the telescope's binders* —
+160 / 45 / 15 lines against "740" / "a risk" / "the peel".  Every item
+in this row came in at its input price and none doubled; the two that
+looked expensive from the member side (`copyRecFDomRefl`'s 740,
+`copyRecFReadRefl`'s 560) are expensive because a MEMBER target has to
+reconstruct its head from K.14's uniformity, and a pin target reads it
+off `BlockOpened.nestReflF`.
+
+##### (a) WHAT LANDED
+
+* **B3c** `NestedPinsRun.copyPinFReadRefl` (`NestedCopyInst.lean:5534`)
+  — conjuncts 4 and 5.  Priced at its inputs: `R.copyResid` (the same
+  opener `copyPinFRead` and `copyRecFReadRefl` share), the minted tower
+  from `copyPinFDomRefl`, the fire and the aligned peel from
+  `copyPinFStoredReflM`, `BlockCtorData.nestReflEntry`/`nestEisLenRefl`
+  where the member twin reads `reflEntry`/`eisLenRefl`, and the spine
+  split at the PIN's container's `ci'.nP` where `copyPinFRead` splits
+  at `b.nP`.  Three compiler iterations, all of them spelling.
+* **B3c/1** the peel now keeps the TELESCOPE, not just its length:
+  `copyPinFStoredReflM` takes `hfree` (`normPosDomM_piDomsFree` at the
+  caller) and concludes at `TLm` on both sides through
+  `replaceAllNested_unchanged_or_aux` — `copyRecFDomRefl`'s `hbsEq`
+  argument at a pin target.  The FIRE still needs nothing about the
+  binders; the docstring now says which half each hypothesis serves.
+* **B3d** `copyPinFCorrRefl` (`:4264`), and `copyPinFUIdsCorrRefl`
+  (`:4982`) and `copyPinFPinCorrRefl` (`:5131`) as the twins by
+  substitution the previous record predicted.  `PinCorr` has NO
+  telescope clause, so `copyPinFCorrRefl`'s conclusion is
+  `copyPinFCorr`'s verbatim and only the depth moves: the components
+  are read under the tower, lifted by `l + TL.length` instead of `l`,
+  and `instAll_liftN0` cancels that lift at the deeper index exactly as
+  at `l`.  `copyPinFCorrRefl` compiled first try.
+* **(v)** `nestedPinsShapePinFRefl_of` (`:10669`) —
+  `NestedPinsShapePinFRefl` is a theorem.  The assembly is
+  `nestedPinsShapePinF_of`'s finitary branch with every lemma replaced
+  by its twin; the three transports across the group (`ψJEq`,
+  `sameDs`, `same`, and the level parameters off each pin's own
+  `IsBlockModel.ctors`) carry over untouched because none of them looks
+  at the field's kind.
+* **the chain**: `NestedChain.lean` gains `nestedModeled_of_le`, the
+  composition with the reflexive arm plugged in.  The MODEL tier's
+  residual is `NestedPinsLe` alone.
+
+##### (b) WHAT (v) STILL TAKES, and why it is not a conditional close
+
+`NestedPinsK63` (`:10628`) — the RUN's own record, quantified exactly
+as the field `NestedPinsRun.hK63` will be: *given the run relation,
+`nestedCopyReflFieldsOk env p b st stored = true`*.  `DeclNestedRun`
+already carries K.63 one level up, so this is not an assumption about
+the world; it is the four threading edits, not yet made, written down
+as a predicate.  It is named rather than inlined so that the chain can
+say precisely what is open, and so that the swap is mechanical:
+
+1. `DeclNestedCore.lean`: name the first `-` after `hK60` as `hK63`
+   and pass it to `hcore`;
+2. `NestedCore.lean`: `NestedCoreModeled` takes it beside `hK60`;
+3. `NestedLoop.lean`: the same on `NestedCtorsStaged`;
+4. `NestedPins.lean`: the field `hK63` on `NestedPinsRun`, and
+   `nestedPinsStaged_of` taking and storing it.
+
+Then `NestedPinsK63` is `fun R => R.hK63`, the hypothesis vanishes from
+`nestedPinsShapePinFRefl_of`, `copyPinFPinCorrRefl` and
+`copyPinFKindRefl`, and `nestedModeled_of_le` becomes
+`nestedModeled_of_one`.  **Three of the four files are the wide lane's;
+this lane did not touch them.**
+
+##### (c) THE LEDGER OF THE WHOLE ROW, at its inputs
+
+| piece | template | template lines | lines | compiler iterations |
+|---|---|---|---|---|
+| `copyPinFDomRefl` | `copyPinFDom` | 67 | 166 | 3 |
+| `mutualOpenedOk_reflHead` | `mutualOpenedOk_recHead` | 41 | 48 | 2 |
+| `copyPinFStoredGen` | a CUT of `copyPinFStored` | — | 161 | 1 |
+| `copyPinFStoredRefl` | `copyRecFKindRefl` | — | 197 | 3 |
+| `copyPinFStoredReflM` | — | — | 83 | 2 |
+| `copyPinFReadRefl` | `copyRecFReadRefl` | 572 | 565 | 3 |
+| `copyPinFCorrRefl` | `copyPinFCorr` | 368 | 568 | 1 |
+| `copyPinFUIdsCorrRefl` | `copyPinFUIdsCorr` | 52 | 63 | 1 |
+| `copyPinFPinCorrRefl` | `copyPinFPinCorr` | 86 | 101 | 1 |
+| `nestedPinsShapePinFRefl_of` | `nestedPinsShapePinF_of` | 93 | 85 | 1 |
+
+The two that grew against their template are the ones carrying a `Π`
+tower the template does not (`copyPinFDomRefl` 2.5x,
+`copyPinFCorrRefl` 1.5x), and both grew by the tower transport alone
+(`Expr.piBinders_instSeq`, `instSeq_mkPisB`, `openPisAtFvars_mkPisB`),
+which is shared text.  `copyPinFReadRefl` — the item priced as the big
+one — came in at 565 against `copyRecFReadRefl`'s 572: the reflexive
+PIN read is not larger than the reflexive MEMBER read, which is the
+row's sentence measured.
+
+##### (d) THREE THINGS THE TREE TAUGHT THIS LANE, recorded for the next brief
+
+* `copyPinFStored` has TWO call sites, not three.
+* `tests/shake.sh` needs `ConLeche.PinGen.{Prelude,Certs,Dump}` built,
+  not just `ConLeche.PinGen`; it says so by failing on the `.olean`.
+* `mkPisB` and `instTeleSeq` are imported PRIVATELY into
+  `NestedCopyInst.lean`, so they may appear in a `private`
+  declaration's statement and in any proof, but NOT in a public
+  theorem's — the module-system trap CLAUDE.md names, met in the wild.
+  The fix is to state at `Expr.piBinders` (no weaker: depth, binders
+  and body come back from one reading, and `Expr.stripPis_piBinders`
+  re-spells it as a `∀`-tower), never to guess a `public import`.
+
+##### (e) GATES
+
+`tests/warning-free.sh 9eb414c3`:
+
+```
+warning-free: 2 changed module(s) since 9eb414c3
+warning-free: lake build — 2 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4975 rows /
+12 roots / **doors 0**; `tests/shake.sh` 513 removals all allowlisted,
+pub-imports 1339 of 2270, none demotable; `tests/layering.sh` 0
+base->lane and 0 impl->theory edges; `tests/quote-gate.sh`,
+`tests/overview-links.sh` (112 links) and `tests/no-local-paths.sh` OK.
+
+`tests/unconsumed.sh` **185 of 3720**, and the movement is the whole
+point: `copyPinFKindRefl`, `copyPinFDomRefl` and
+`copyPinFStoredReflM` — the three the previous record listed as the
+hand-off to the read twin — are all CONSUMED now, and what the lane
+leaves on the list is `nestedModeled_of_le` (a chain root, like
+`nestedModeled_of_two` before it) and `copyPinFUIds`, which was
+unconsumed before this row began.
+
+No kernel file and no `Semantics` file was touched, so no accept set
+moved and `tests/arena.sh` was not re-run.  `docs/NESTED.md` needs no
+change: §3's fourth recorded fact already carries the reflexive
+sentence, and §8's item 4 — "every reflexive case is a separate arm:
+the reading opens a binder tower, and the rewrite must be shown inert
+on it" — is exactly what this row built.
