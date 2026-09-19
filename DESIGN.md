@@ -120446,3 +120446,79 @@ quantifies `Y` over every tuple below that carrier.
 `ordF`-right escape**, the way K.62/K.66 record the block's.  Until
 that is named, `hfitc` cannot close, and the remaining ~100 lines are
 not the obstacle.
+
+#### WIDE (3′) `hent₂` — THE CONTAINER HAS NO "OUTSIDE", SO THE PROPOSED CLAUSE CANNOT BE STATED (lane LE, 2026-09-19)
+
+The coordinator's proposal was a `ContainerModeled` clause on the
+(1′) pattern: *a rewritten container-ordinary field of the stored
+container's copies has its target outside the container's own
+instance*, carried from K.62/K.66 at the container's own install.
+Checked by grep and then priced by inputs, and the price check
+answers a different question: **there is no such "outside", so the
+clause has no statement.**
+
+##### (a) THE GREP, BOTH SPELLINGS — it is not already there
+
+`ContainerModeled`'s twenty-three clauses are `k`, `namesLen`, `nP`,
+`reps`, `typed`, `inj`, `member`, `frame`, `ordFree`, `nestMention`,
+`nestArgsMention`, `nestArgsMentionAbs`, `nestArgsMentionAbsRefl`,
+`nestPinSpineAbs`, `nestPinSpineAbsRefl`, `ctorProjFree`,
+`pinsNotMembers`, `pinNP`, `pinConts`, `ownPins`, `pinParams`,
+`pinsDistinct`, `pinsDistinctAt`, `pinDsScoped`, `pinDsRes`,
+`pinDsRead`.  `ordFree` is purely SYNTACTIC — an ordinary field's
+opened domain mentions no member of the container's group — and says
+nothing about a TARGET.  `PinRecLaws` has `tgtsLt`, `idxOk`, `fibre`,
+`mkZero`, `mkInj`, `injW`, `ind`.  Nothing under either name is the
+proposed fact.
+
+##### (b) AND `PinRecLaws.tgtsLt` IS WHY IT CANNOT BE
+
+    tgtsLt : ∀ ψ q j i, q < d.nPins → j < (pc q).ctors.length →
+      i < (((pc q).Fss ψ).getD j []).length → (pc q).tgts j i < d.k + d.nPins
+
+Every field target of every one of a container's own copies is one of
+that container's OWN CLASSES.  The container's wide space is CLOSED —
+there is nowhere for an `ordF`-right target to escape to, and the
+sentence "outside the container's own instance" is, on the container's
+side, the empty statement.  That is the asymmetry with the block: the
+block's instance is a SEGMENT of a larger tuple and K.62/K.66 say the
+target leaves that segment; the container's instance is the whole
+tuple.
+
+##### (c) SO THE MISSING OBJECT IS A CONSTRAINT ON `Y`, NOT A CLAUSE ON THE CONTAINER
+
+Read at `copyTransfer_iff`, which `pinClassFit_of_transfer` is: the
+four entry premises are two EQUALITIES, one per side — `hdomₓ` is
+slot ⊆ domain and `hentₓ` is domain ⊆ slot, at the `ordF`-right
+fields.  Side 1 gets its equality because the target leaves the
+BLOCK's instance, so `setJoin` hands the block's own carrier `L⁺`
+there and the run's `CopyEntryA` applies verbatim.  Side 2 has the
+same equality available — `BlockModel.copyEntryAt_pin` — but only AT
+THE CONTAINER'S CARRIER, while `hfitc` quantifies `Y` over every
+tuple below it.
+
+So what `hent₂` needs is not a fact about the container's syntax but
+**the tuple `Y` being the container's carrier at that target**, and
+no hypothesis of `hfit_wide_pin_of_class` says so: its `Y` carries
+`InTupleSpace`, `FibreConst σ` and `TupleLe … Y (lfpTuple … Ψaux)`,
+all of which bound `Y` from ABOVE.
+
+**Three ways out, none of them a `ContainerModeled` clause**, for
+whoever takes it next:
+
+1. `copyTransfer_iff`'s `hent₂` is stronger than the fit needs, and
+   the iff can be re-proved with side 2's entry as an INCLUSION at the
+   carrier plus monotonicity — i.e. the premise is mis-stated, not
+   unsatisfiable.  This is the first thing to check, at
+   `copyTransfer_via`'s own use of it;
+2. `ofNested_hΦ_of_fit` is applied only at tuples where the relevant
+   classes ARE at the carrier, and `hfitc`'s `Y` should carry that —
+   a change to the wide theorem's own hypothesis, upstream of here;
+3. the container's own `ordF`-right fields are `FibreConst`-related
+   to classes where `Y` is pinned, which would make it a consequence
+   of `FibreConst σ` rather than a new fact.
+
+**Nothing was built for this row.**  The tree is exactly as
+`1726c47e` left it; this is the "say which object is missing before
+building" the ruling asked for, and the object is `Y`'s lower bound,
+on the wide theorem's side.
