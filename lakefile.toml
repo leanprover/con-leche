@@ -36,7 +36,8 @@ testDriver = "ConLecheTests"
 # alone and the collapsed lane was retired whole.  The separation
 # campaign (task #161) had left the two trees genuinely disjoint — zero
 # edges in either direction — which is why the cut was clean: only
-# `Verify/Cached/MainC` and `tests/ProofDeps` had to change at all.
+# `Verify/Cached/MainC` and `tests/ProofDeps` (the proof-term pin, itself
+# retired at task #305) had to change at all.
 #
 # HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
 # does NOT give an import barrier between `lean_lib`s of the SAME

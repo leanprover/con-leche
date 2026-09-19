@@ -60,8 +60,9 @@
 # `ConLeche/MainTheorem.lean` passes; adding `import ConLeche.Frontend.Export`
 # (not implied) fails with that line named.
 #
-# NOT SHAKEN.  `PinDump.lean` and `tests/ProofDeps.lean` are classic files
-# (`lake shake` still refuses a non-`module` closure), and `tests/*` is blind
+# NOT SHAKEN.  `PinDump.lean` is a classic file (`lake shake` still
+# refuses a non-`module` closure; `tests/ProofDeps.lean` was the other one
+# until its gate retired at task #305), and `tests/*` is blind
 # to shake anyway: the suite is `#guard`/`example`-based and an `example`
 # stores no constant, so `moduleData.constants` sees nothing of it (#223 §8).
 #
