@@ -44,6 +44,38 @@ theorem DefEq.symm_sound {d : Nat} {a b : Expr} (h : DefEqSem m φ d a b) :
   intro hfb hfa Δa ba aa hCb hCa hba haa hgb hga ρ hρ
   exact (h hfa hfb hCa hCb haa hba hga hgb ρ hρ).symm
 
+/-- **EXPERIMENTAL (task #309)**: transitivity, with the MIDDLE term's
+frame, context and graded reading supplied.  Two lines — the
+obstruction is the premise, not the proof. -/
+theorem DefEq.trans_sound_of_mid {d : Nat} {a b c : Expr}
+    (hfb : Frame d b)
+    (hmid : ∀ {Δa : List AnnotTerm}, CtxOk m φ d Δa a →
+      CtxOk m φ d Δa b ∧ ∃ ba, denoteMeta m.acval env φ d b = some ba ∧
+        Graded V Δa ba)
+    (h₁ : DefEqSem m φ d a b) (h₂ : DefEqSem m φ d b c) :
+    DefEqSem m φ d a c := by
+  intro hfa hfc Δa aa ca hCa hCc haa hca hga hgc ρ hρ
+  obtain ⟨hCb, ba, hba, hgb⟩ := hmid hCa
+  exact (h₁ hfa hfb hCa hCb haa hba hga hgb ρ hρ).trans
+    (h₂ hfb hfc hCb hCc hba hca hgb hgc ρ hρ)
+
+/-- **EXPERIMENTAL (task #309)**: transitivity, as the master induction
+needs it.  `sorry` — and the `sorry` is not a gap to be filled: the
+statement is FALSE.  The goal after `intro hfa hfc Δa aa ca hCa hCc haa
+hca hga hgc ρ hρ` is `interp V ρ aa = interp V ρ ca`, and `h₁` wants
+FOUR facts about `b` that the conclusion's premises cannot supply —
+`Frame d b`, `CtxOk m φ d Δa b`, `denoteMeta … d b = some ba`,
+`Graded V Δa ba` — because a `DefEq` derivation carries no
+well-formedness of its terms.  See the DESIGN record for the two
+refutations (`DefEqSem` is vacuous at an unreadable middle, and the
+rule itself is unsound: `DefEq.fvar` + `DefEq.proofFast` + `trans`
+identify every pair of free variables). -/
+theorem DefEq.trans_sound {d : Nat} {a b c : Expr}
+    (h₁ : DefEqSem m φ d a b) (h₂ : DefEqSem m φ d b c) :
+    DefEqSem m φ d a c := by
+  intro hfa hfc Δa aa ca hCa hCc haa hca hga hgc ρ hρ
+  sorry
+
 /-- **The recursive-structure rule is sound**: the reduct reads, is
 graded and framed (`RedSem`), so the continuation's motive applies at
 it (`dq_whnfCore_package`'s content, `Steps/DefEq.lean:460`). -/

@@ -88,6 +88,8 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem m φ d a b
   | _, _, _, .refl => DefEq.refl_sound
   | _, _, _, .symm h => DefEq.symm_sound (defeq_sound hin h)
+  | _, _, _, .trans h₁ h₂ =>
+    DefEq.trans_sound (defeq_sound hin h₁) (defeq_sound hin h₂)
   | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hin hr) (defeq_sound hin h)
   | _, _, _, .sort h => DefEq.sort_sound h
   | _, _, _, .fvar => DefEq.fvar_sound
