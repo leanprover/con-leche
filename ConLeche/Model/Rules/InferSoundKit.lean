@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-import ConLeche.Semantics.LitParams
-import ConLeche.Verify.EnvGuards
 
 public section
 
