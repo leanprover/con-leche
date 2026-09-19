@@ -106576,8 +106576,9 @@ could serve nobody.
 *Firing control* — the same check at the PRE-BLOCK environment, where a
 pin's member mention is unresolvable by construction: **88 fires over
 the e2e+arena sweep, one at every one of the 88 accepting shadow blocks
-and in BOTH modes**, and the same control on Mathlib was still running when this row was written on Mathlib.  So the guard is
-reached with content wherever a nested block is installed, which is the
+and in BOTH modes**, **1 fire at `init-full`'s one block** and **41
+fires at Mathlib's 41**.  So the guard is reached with content wherever
+a nested block is installed, which is the
 widest reachability any of K.59-K.64 has — unlike K.60's and K.61's,
 whose guards are reached at nine blocks over three corpora.
 
