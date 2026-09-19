@@ -277,6 +277,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   nestMention := fun _ h => nomatch h
   nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  nestArgsMentionAbsRefl := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   ctorProjFree := fun _ _ _ _ hj => nomatch hj
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h

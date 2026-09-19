@@ -353,6 +353,30 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.ksF i j).getD l .ordinary = .recursive →
     ∃ e ∈ dom.1.getAppArgs.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **AND THE SAME AT A REFLEXIVE NESTED FIELD, ONE `Π`-TOWER DOWN**
+  (task #315 K.63).
+
+  `nestArgsMentionAbs` is the guard K.60 reads: it dispatches on the
+  stored domain's own HEAD, and a reflexive nested field's domain is a
+  `Π`, so `getAppFn` is not a `.const` and K.60's walk falls into its
+  catch-all and claims nothing there — by construction.  K.63 is the
+  twin that asks the same question of the domain's `stripDomPis` BODY,
+  and this is the mention its guard needs, spelled where the Bool reads
+  it.
+
+  The two are disjoint by construction and neither derives from the
+  other: the body's spine is not the domain's, and `getAppArgs` of a
+  `Π` is empty.  Reflexive only and with `q < d.nPins`, in
+  `nestArgsMentionAbs`' own idiom. -/
+  nestArgsMentionAbsRefl : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+    d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .reflexive →
+    ∃ e ∈ (ConLeche.stripDomPis dom.1).getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
   /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
   (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
   the derivation").
