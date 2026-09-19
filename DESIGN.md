@@ -75413,3 +75413,339 @@ At the closing commit, worktree `irrel-311`, both switches off:
 Commits on `agent/irrel-311`: `c910f427` (the implementation behind
 the switch), `7e82150f` (the use-then-consume fix of §2b), `daf8d582`
 (the OVERVIEW anchors), and this record.
+
+## TASK #312 — WHERE sokonanoda's SPEED COMES FROM: the attribution (2026-09-19, `agent/attrib-312`, measurement)
+
+**The ask.**  Two NbE spikes (#307, #310) ported sokonanoda's
+evaluator and came out 1.6× SLOWER than the shipped syntactic core at
+the shipped core's step counts — twice the instructions per step —
+while sokonanoda's author credits NbE with 35 %.  Is sokonanoda fast
+because it does FEWER steps (algorithm, portable) or because its steps
+are CHEAPER (runtime: arenas, no reference counting, address-keyed
+caches — not portable), and in what proportion?  This record measures
+sokonanoda's OWN code: the arena confirmed locally, step counters in
+three checkers, every heuristic ablated at HEAD, and every commit of
+its history measured.  ConLeche's code is unchanged; the raw tables
+are `docs/study-306/attribution-312.md` (T1–T10, cited below).
+
+**The answer, first.**  On `init-full` con-leche `--verified` retires
+13.0× sokonanoda's instructions (585.8 G against 45.1 G; the arena says
+14.9×), and that factor splits three ways, measured, not estimated:
+
+> **13.0× = 2.54× (the Lean runtime, at identical steps) × 2.50× (NbE
+> does fewer steps) × 2.05× (NbE's steps are cheaper, in Rust).**
+
+The middle factor is what the maintainer called "algorithm", the two
+outer ones "runtime"; in log shares 36 % / 36 % / 28 %.  The first
+factor is exact: nanoda (`4c544ed`, the syntactic algorithm in Rust)
+does the SAME steps as con-leche — β 37.5 M against 36.6 M, δ 7.15 M
+against 7.29 M, ι 1.66 M against 1.58 M (within 2–5 %) — at 2.54×
+fewer instructions.  The Mathlib prefix gives 12.2× = 2.64× × 2.27× ×
+2.04×; `grind-ring-5` 10.0× = 2.69× × 1.24× × 3.02×.  So the two
+spikes measured the right thing and missed BOTH factors they could
+have won: their step counts matched the shipped core's, not
+sokonanoda's (1.3× fewer on `grind-ring-5`, 2.5× on `init-full`), and
+their per-step price was 15× sokonanoda's where the syntactic core's
+is 2.5× nanoda's — the interned, reference-counted value graph is six
+times further from its Rust twin than the term graph is.  Of
+sokonanoda's own tricks, the one algorithmic win the shipped core lacks
+is the cross-declaration whnf store (~10 %); the veto it has, the
+relevance skip is worth 0.7 % even in sokonanoda, the probe budget
+never fires, and everything else is either a cache the shipped core
+already has or a runtime device.  **Recommendation (§7): the NbE line
+stays closed; the programme's next spike is the per-step price of the
+shipped syntactic core against nanoda's 4 800 instructions per step
+(con-leche: 12 400), and the whnf store is the one sokonanoda idea
+worth a measured week.**
+
+### 1. Method, and the memory incident
+
+Toolchain `nix shell nixpkgs#cargo nixpkgs#rustc` (rustc 1.97.1,
+cargo 1.97.0; worked at the first try; `llvm-profdata` and `perf` are
+on the system).  sokonanoda at HEAD `28c03d0` built twice — plain
+`cargo build --release`, and the arena's recipe (`-C target-cpu=native`
++ PGO on `init-prelude`); nanoda_lib `4c544ed` plain (the arena's
+recipe).  Both read lean4export NDJSON 3.1.x, the format of every
+stream here — no conversion.  Streams: the #307 record's `init-full`
+(v4.33.0, 57 977 declarations) and Mathlib prefix (131 902), the
+arena tarball's eight fixtures.  Protocol: `perf stat -e
+instructions:u`, ONE run per cell (three repeats of HEAD on
+`init-full`: 47.695 / 47.690 / 47.685 G), single thread, `timeout`,
+con-leche under `ulimit -v`.  The clone was deepened to its full
+108 commits; the whole lineage nanoda_lib → sonanoda (Paul Reichert,
+2026-04) → still-nanoda (SchrodingerZhu, 2026-04) → sokonanoda
+(IntGrah, from `7c74b01` "NbE", 2026-06-12) is in it, so no ancestor
+repository was needed.  Four delimited legs went to Opus subagents
+(the three instrumentations, the ablations, the bisect); the analysis
+is this record's.
+
+**The incident.**  The Rust checkers were first run without an
+address-space limit (sokonanoda reserves 2 GiB of stack per thread).
+One ablation run — `no-probe` on `init-full`, in the ablation leg,
+20:40–20:50 — reached ~40 GB and was killed by hand by the
+maintainer; a second (`no-nat-defer`) was killed by the cgroup.  Both
+are memory blow-ups, not slowdowns (under a 22 GB limit they abort at
+18.5 GB RSS), and the first is a finding: the speculative spine probe
+is what keeps sokonanoda's value graph bounded.  From then on every
+run went under `ulimit -v 22000000` (sokonanoda tolerates it: exit 0
+on `init-full` at 22 GB and at 8 GB, 4 threads under 22 GB), peak RSS
+by `time -v`, and Mathlib-scale runs and Rust builds were serialised
+through one `flock`; the affected matrices were re-run under the
+limits and reproduce the unlimited rows to 0.1 %.  Peak RSS observed
+(MB, T1): sokonanoda `init-full` 553, Mathlib prefix 923,
+`magma-list-pair-n21` 11 917, `magma-list-deep-n36` 7 873; nanoda 365
+/ 632 / 4 150 / 2 507; con-leche 479 / 941 / 5 345 / 7 348.  Nothing
+of this study's direct runs exceeded 12 GB.
+
+### 2. The arena, confirmed locally (T1)
+
+| stream | soko PGO | nanoda | cl `--trusted` | cl `--verified` | arena soko / nanoda / cl | cl-v ÷ soko | nanoda ÷ soko | cl-v ÷ nanoda |
+|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 5.55 G | 27.09 | 157.29 | 157.30 | 5.8 / 26 / 167.8 | 28.4× | 4.9× | 5.81× |
+| `beta-ladder` | 48.52 | 7.90 | 39.94 | 39.94 | 50.5 / 7.6 / 42.8 | 0.8× | 0.2× | 5.06× |
+| `let-ladder` | 0.80 | 4.35 | 8.06 | 8.06 | 0.9 / 4.2 / 8.6 | 10.1× | 5.4× | 1.85× |
+| `fueled-chain` | 0.06 | 0.86 | 1.08 | 1.09 | 0.1 / 0.9 / 1.2 | 18.1× | 14.3× | 1.26× |
+| `init-prelude` | 0.26 | 0.87 | 3.04 | 3.20 | 0.2 / 0.9 / 3.4 | 12.5× | 3.4× | 3.67× |
+| `grind-ring-5` | 2.25 | 8.41 | 21.47 | 22.61 | 2.0 / 8.3 / 24.3 | 10.0× | 3.7× | 2.69× |
+| `magma-list-pair-n21` | 49.55 | 86.85 | 194.28 | 199.17 | 43.5 / 85.6 / 213.8 | 4.0× | 1.8× | 2.29× |
+| `magma-list-deep-n36` | 31.48 | 218.98 | 316.51 | 324.55 | 27.9 / 218.7 / 348.2 | 10.3× | 7.0× | 1.48× |
+| **`init-full`** | **45.07** | 230.77 | 567.25 | 585.83 | 38.9 / 206.3 / 579.4 | **13.0×** | 5.1× | 2.54× |
+| Mathlib prefix | 69.33 | 321.83 | 816.82 | 848.52 | – | 12.2× | 4.6× | 2.64× |
+
+Every con-leche cell reproduces #307's to 0.01 %; nanoda and
+con-leche reproduce the arena within 1–6 % on the fixtures.
+sokonanoda's PGO build sits 12–14 % ABOVE the arena on the IDENTICAL
+fixtures (`grind-ring-5` 2.25 against 2.0 G, both `magma`) and 16 %
+on `init` (a different export: v4.33.0, 6.49 M lines, against the
+arena's v4.29.1, 6.06 M) — the residual is the build recipe (the
+arena's rustc, PGO profile and target CPU), not the stream; the
+plain build is 5 % above the PGO one, PGO+native being worth 2–7 %.
+Four threads cost sokonanoda +5.6 % on `init-full` (its whnf store is
+per thread) and con-leche +0.2 % (#307 §4.3).  Parse-only: sokonanoda
+2.2 G of 45 G on `init-full` (5 %), 3.9 G of 69 G on the prefix;
+nanoda has no such switch (its profile puts serde at ~10 %).  So the
+arena's 14.9× on `init` and 17.4× on Mathlib are 13.0× and 12.2× here,
+on a lighter Mathlib cone and a slower sokonanoda build; the
+decomposition below is of the local factor.
+
+### 3. Steps, not instructions (T4–T7)
+
+Three counting builds, none committed to anything shared: sokonanoda
+(168 atomic counters, `_tmp/soko-instr.patch`, +1.7–2.0 %
+instructions), nanoda (101, `_tmp/nanoda-instr.patch`, +0.9–1.3 %),
+and the shipped core (104 counters on `CState`, one `dbg_trace` line
+per record, branch `agent/count-312` commit `8ff7298c`, one `sorry` in
+`annotDeclStep_ok`, throwaway).  Parity in all three: exit 0 and
+byte-identical stdout on every stream.  Sanity: the shipped core's
+`grind-ring-5` β binders are 1 702 320 (the records' "1.7 M") and its
+`HAdd.hAdd` unfolds **4 487 at `--trusted`** — the #307/#310 figure
+reproduces exactly on the TRUSTED core; the verified core does 4 524.
+Steps = β binders + δ unfoldings + (ι fires + projection reductions +
+K + struct-η + Nat ops); the three checkers count the same events
+(sokonanoda's β is a closure applied to one argument; its
+`open_closure` — 13.9 M on `init-full` — is the Pi-codomain
+instantiation the syntactic checkers do by `instantiate1`, not a β).
+
+| stream | β cl / nanoda / soko (M) | δ cl / nanoda / soko | ι+proj+nat cl / nanoda / soko | instr cl-v / nanoda / soko (G) | instr per step cl / nanoda / soko | **cl → nanoda = steps × per-step** | **nanoda → soko = steps × per-step** |
+|---|---|---|---|---|---|---|---|
+| `init-prelude` | 0.045 / 0.035 / 0.032 | 0.007 / 0.005 / 0.004 | 0.004 / 0.003 / 0.003 | 3.2 / 0.87 / 0.26 | 57 209 / 20 031 / 6 653 | 3.67× = 1.28× × 2.86× | 3.41× = 1.13× × 3.01× |
+| `grind-ring-5` | 1.70 / 1.51 / 1.23 | 0.17 / 0.16 / 0.11 | 0.24 / 0.21 / 0.19 | 22.6 / 8.4 / 2.25 | 10 725 / 4 459 / 1 476 | 2.69× = 1.12× × 2.41× | 3.73× = 1.24× × 3.02× |
+| `magma-list-pair-n21` | 26.3 / 26.7 / 30.7 | 2.87 / 2.87 / 3.07 | 1.23 / 1.43 / 1.22 | 199.2 / 86.8 / 49.6 | 6 554 / 2 802 / 1 417 | 2.29× = 0.98× × 2.34× | 1.75× = 0.89× × 1.98× |
+| `magma-list-deep-n36` | 33.4 / 35.0 / 27.6 | 10.2 / 10.2 / 2.61 | 1.75 / 2.59 / 1.72 | 324.6 / 219.0 / 31.5 | 7 167 / 4 587 / 987 | 1.48× = 0.95× × 1.56× | 6.96× = 1.50× × 4.65× |
+| **`init-full`** | **36.6 / 37.5 / 15.9** | **7.29 / 7.15 / 2.45** | **3.53 / 3.65 / 0.98** | **585.8 / 230.8 / 45.1** | **12 357 / 4 783 / 2 330** | **2.54× = 0.98× × 2.58×** | **5.12× = 2.50× × 2.05×** |
+| Mathlib prefix | 44.3 / 45.6 / 21.2 | 8.81 / 8.70 / 3.30 | 4.26 / 4.41 / 1.36 | 848.5 / 321.8 / 69.3 | 14 795 / 5 487 / 2 685 | 2.64× = 0.98× × 2.70× | 4.64× = 2.27× × 2.04× |
+
+(The four ladders have under 5 000 steps each and are not step-bound:
+`app-lam` is 1.0 G instructions PER β in con-leche, 0.4 G in nanoda,
+45 M in sokonanoda — substitution, not reduction; T7 has them.)
+
+**Reading the table.**  (1) **nanoda and con-leche are the same
+algorithm**: identical steps on every large stream, 0.95–0.98×.  Their
+2.5× is therefore the price of the Lean runtime for the syntactic
+representation and nothing else — nanoda being a plain-`malloc`,
+`IndexMap`-interned checker with no arena (its profile: `alloc_expr`
+21 %, `inst_aux` 9 %, `IndexMap::insert` 7 %, `mk_app` 7 %, serde
+~10 %, malloc/free ~4 %; T2).  (2) **sokonanoda does 2.5× fewer steps
+than either**, uniformly across the kinds — β 2.3×, δ 3.0×, ι 3.6×
+fewer on `init-full` — and the check phase holds them (the install
+phase is 0.2 % of the β).  (3) **Its steps cost 2.05× less than
+nanoda's** (2 330 against 4 783; per β: 2 834 against 6 160 against
+con-leche's 16 014) — no substitution walk (nanoda visits 271 M nodes
+in `inst` for 37.5 M β), bump allocation, address-keyed caches; its
+profile is 36–39 % interning (`intern_frame`, `env_extend`,
+`neutral_app`, `prune`), 26–34 % `eval`, 7–9 % hash-table rehash,
+3 % allocator, 4 % parse (T2).  (4) **The verified certificates are
+not in it**: `--trusted` moves con-leche's steps by 0.1 % and its
+instructions by 3 %.  (5) On `magma-list-pair-n21` sokonanoda does 15 %
+MORE β than the syntactic checkers (strict evaluation of arguments the
+lazy ones never touch) and still wins 4× on price alone; on
+`magma-list-deep-n36` its δ count is 3.9× lower (7.6 M `forced` hits
+on 2.6 M unfoldings: the glued `Unfold` memo).
+
+**Where the fewer steps come from** (T4): half of all `unify` entries
+end at `ptr::eq` (9.8 M of 19.5 M on `init-full`), the pruned-environment
+`eval` cache answers 34 M of 85 M `eval` calls, the `Unfold.forced`
+cell 0.44 M of 2.9 M δ demands, the recursor-rule closure memo 523 k of
+546 k fires, and the cross-declaration whnf store 336 k lookups.
+Against that, the shipped core's own memos hit at comparable RATES —
+`whnfCore` 62 %, `defeq` pairs 59 %, `infer` 64 %, `constValAt` 88 %
+(T5) — on 2.5× more probes: the syntactic memos see every instantiated
+copy of a body as a new term (#307 §5 in reverse), the value caches
+see one value under its pruned environment.  That is the algorithmic
+content of NbE, and it is exactly what the two spikes did NOT get:
+#310's β count on `grind-ring-5` is 1.58 M, the shipped core's 1.70 M,
+sokonanoda's 1.23 M (#310 §4.3, T4).
+
+### 4. Ablations at HEAD (T8): what each trick is worth on its own code
+
+One binary, each heuristic behind an environment switch, baseline the
+same binary; `init-full` Δ % unless noted (`grind-ring-5` /
+Mathlib prefix in parentheses):
+
+| switched off | Δ | what it says |
+|---|---|---|
+| the inference cache (`type_cache`) | **+620 %** (+1 283 % / +458 %) | the load-bearing memo |
+| the pos/neg conversion caches | **+574 %** (+5.8 % / blow-up at 22 GB) | address-keyed pair memo |
+| the speculative spine probe | **blow-up at 22 GB** (+31.6 % / blow-up) | same-head args-before-unfold keeps the graph bounded; `probe-cap-64` +151 %, cap 10⁶ = ±0 — 2 048 never fires |
+| the `eval` caches | +210 % (+78 % / +173 %) | |
+| environment pruning (`key_env`) | +37.8 % (+6.1 % / panics) | and −99.6 % on `beta-ladder`: the pruning machinery IS `beta-ladder`'s 48 G |
+| value hash-consing (`*_hc`, `env_extend`, `neutral_app`) | +31.5 % (+29.5 % / +26.4 %; `magma-deep` +124 %) | the "share more work" commit's mechanism |
+| the static proof veto (`statically_not_proof`) | +15.1 % (+11.6 % / +12.2 %) | |
+| the whnf store | **+10.2 %** (−2.7 % / +8.5 %) | the one cross-declaration cache |
+| session arena 16 MiB → 1 MiB / → 1 GiB | +19.4 % / **−16.9 %** (−12.6 % on the prefix) | the caches are cleared with the arena; a 1 GiB session is free speed at 1.6–1.9 GB RSS |
+| the relevance spine skip | **+0.7 %** | #311's verdict, on sokonanoda's own code |
+| the per-(name, levels) `unfold_const_cache` | 0.0 % | its hit rate is 0: the sharing is the `Unfold` node's `OnceCell` |
+| `nat_red_defer` | blow-up on `init-full` | |
+| eager δ (`Unfold` forced at creation) | ≈4 700× on `grind-ring-5`, killed | gluing is not optional |
+
+Two counters settle two claims of the study note: the `RIGID=false`
+`unify` is dead code (never instantiated on any stream), and the probe
+budget's provisional-negative cache is never populated.
+
+### 5. The history (T9, T10): 64 commits, 5.68× on `init-full`
+
+Every first-parent commit from `90c2b70` (2026-02-18, the NDJSON
+parser) to HEAD builds `--locked` and runs `init-full` to exit 0;
+older commits cannot read the stream.  From 270.9 G to 47.7 G.  The
+>2 % movers, classified — ALGORITHMIC = fewer steps (a heuristic, a
+content-keyed cache, portable in principle), RUNTIME = cheaper steps
+(arena, layout, address keys, allocator, codegen — not portable to a
+reference-counted runtime), MIXED — with the evidence:
+
+| commit | init-full | class | evidence (file:line at that commit) |
+|---|---|---|---|
+| `6d2f037` (nanoda, eisbaw) | −14.3 % | R | `util.rs:36-77`: `Ptr` packed into one `u32`, bit 31 the dag tag |
+| `22e5940` (sonanoda) | **+37.1 %** | A | `tc.rs:971`: successes under a skipped Prop check leave the eq-cache — a cache narrowed for soundness |
+| `289d48d` (still-nanoda) | −5.9 % | R | `util.rs:453`: local-first interner probe (the README's 5 %) |
+| `7c74b01` **NbE** | **−38.6 %** | M | `tc.rs` −596, `value.rs` +249, `eval.rs` +1593: closures instead of substitution (A) over a `bumpalo` arena with address identity (R); the README's 35 % |
+| `fd05f02` | −6.3 % | R | `stumpalo` arena + `hashbrown` interners with address equality |
+| `6e2dd3f` "Optimisations" | −19.8 % | R | `overflow-checks=false`, `mimalloc`, a byte-level NDJSON fast path |
+| `d2a0be0` "wip" | −25.1 % | M | `tc.rs` −882 → `infer.rs`/`quote.rs`: inference on syntax under a VALUE environment, the inductive routes on values |
+| `7cb1703` | −2.1 % | R | BMI2 `pext` for environment slots |
+| `efaba38` | −3.2 % | R | a `canonical` flag on values (interior mutability) |
+| `7401fe5` "wip" | −12.3 % | A | content digests + the persistent whnf store (`eval.rs:978-1050`) |
+| `4f0bc57` proof irrelevance in spines | −12.8 % | A | `relevance.rs`: the per-constant `Sig` — the win is the `prop_result` VETO (ablation +15 %), not the skip (+0.7 %) |
+| `4ed825a` | −2.4 % | R | pointer-equality early returns on interned levels |
+| `13a9760` | −3.3 % | R | `codegen-units=1`, SWAR digit scanning |
+| `9ad006e` | −2.7 % | R | `HashMap::entry`: one probe per hash-cons |
+| `9b4ea12` eagerness | −4.7 % | M | thunks deleted (strict arguments — #310 measured strict vs lazy at 1.00× in Lean), the ignores-binder codomain shortcut, `absent_arg` (0) |
+| `7b51784` | −10.8 % | M | the positive conv cache from a union-find to a hash set (R); Lam/Lam unifies domains first (A) |
+| `28c03d0` share more work | −17.1 % | M | `neutral_app`, `env_extend` hash-consed by the addresses of the parts: more `ptr::eq` hits in `unify` (A in effect, R in mechanism) |
+
+**Per class**: RUNTIME 1.90× (37 % of the log-gain), MIXED 3.08 ×
+(65 %: NbE 1.63×, inference on values 1.34×, hash-consed
+spines/environments 1.21×, 1.12×, 1.05×), ALGORITHMIC 1.31× (15 %)
+against the one regression 0.73× (−18 %), the 45 small commits 1.02×.
+The bisect cannot split the MIXED class — its commits change the
+algorithm and the representation in one diff — which is why §3's
+step counts are the deliverable's centre: they split it at 2.50× ×
+2.05×.  Read together: sokonanoda's speed over nanoda (5.1×) is a bit
+more than half algorithm and a bit less than half runtime; over
+con-leche the Lean runtime adds a third factor of the same size.
+
+### 6. What this says about the two spikes, and where the floor is
+
+* **They measured the right thing and got neither factor.**  #310
+  reached the shipped core's step counts, not sokonanoda's; at
+  `grind-ring-5` sokonanoda does 1.24× fewer steps than nanoda and
+  1.38× fewer than con-leche, at `init-full` 2.5× fewer.  The
+  content-keyed sharing of #310 recovered the δ count of one head on
+  one stream and nothing at scale (#310 §4.1) — sokonanoda's sharing
+  is address identity over a bump arena, and its ablation (`no-hc`
+  +31 %, `no-prune` +38 %) says it is worth ~1.7× in its own runtime.
+* **The per-step price is the larger miss.**  On `grind-ring-5`, per
+  step (β+δ+ι): con-leche 10 700, nanoda 4 460, sokonanoda 1 480, and
+  #310's NbE core **23 100** (43.5 G on 1.88 M steps) — 15.6×
+  sokonanoda, where the syntactic core is 2.4× nanoda.  The value
+  graph in Lean — boxed records, a hash probe per node, RC per
+  allocation (#310 §5: 64 % of its profile) — is six times further
+  from its Rust twin than the term graph is from nanoda's.
+* **The floor, at what factor.**  For the SYNTACTIC algorithm the
+  runtime gap is measured: 2.54× at identical steps (nanoda), on a
+  checker that itself spends 20 % in its interner — a Lean syntactic
+  core cannot expect below ~2× nanoda without a representation
+  change, so the shipped core's floor is ≈ 230–300 G on `init-full`
+  (today 586).  For the NbE algorithm: a Lean port at nanoda's 2.5×
+  runtime gap would run `init-full` at ≈ 115 G = 0.20× the shipped
+  core — the 0.5× gate would be met with margin, so the runtime is NOT
+  what closes the line; the representation is.  The spikes are at
+  936 G, 8× from that mark: the per-step price has to fall 6× (23 100
+  → ~3 700) and the step count 1.3–2.5× (sharing by address).  #310
+  estimated the packed node store at 2×, not 4×; this record says the
+  distance is 8×.
+* **The certificates are 3 %** of the shipped core's instructions and
+  0.1 % of its steps (T5, `--trusted` column); they are not in any of
+  the three factors.
+
+### 7. Recommendation for the programme
+
+1. **The NbE line stays closed** as a core spike: the gap is not a
+   sharing model (#310 exhausted that) but a per-step price 6× worse
+   than the syntactic core's relative to its Rust twin, and no single
+   item of that size exists in either profile.  Reopen only as a
+   representation experiment whose gate is the per-step price itself
+   — ≤ 4 000 instructions per step on `grind-ring-5` (nanoda-level
+   distance from sokonanoda's 1 480) — measured before any sharing
+   work, with the #312 counters as the yardstick.
+2. **Port nothing from sokonanoda into the shipped syntactic core
+   except, as a measured week, the cross-declaration whnf store** —
+   +10 % on its own code, 336 k hits on `init-full`, content-keyed
+   (an `Expr` key with `beq`, not a digest), and the one item the
+   study's question 3 (#306 §8) already named; its proof cost is one
+   env-monotonicity lemma for derivations.  The rest: the static
+   proof veto is the `isProofFast`/`notProofFast` readers the core has
+   (#311: 1 280 slow probes of 1.25 M); the relevance skip is 0.7 % in
+   sokonanoda and 0 in con-leche (#311, refuted); the spine probe is
+   the same-head-arguments-first the lazy-δ arm already does
+   (`cDefeqSpineEntries` 269 k, 99 % true) and its budget never fires;
+   the inference, whnf and defeq caches exist with the same hit rates;
+   the session-size, `entry`-API, `pext`, `SmallVec`, `mimalloc`,
+   `codegen-units`, `overflow-checks` and packed-pointer items are the
+   RUNTIME class.
+3. **The programme's next target is the shipped core's per-step price
+   against nanoda's**: 12 400 → 4 800 instructions per step on
+   `init-full` at IDENTICAL steps is the 2.5× the Lean runtime costs
+   for this representation, and the #307 §1 profile already names its
+   composition — allocation and reference counting 35 %, the
+   substitution walks and their per-walk memo maps 16 % (`app-lam` 1.0 G
+   per β against nanoda's 0.4 G: the study's §1 substitution memo), the
+   `beq` bucket probes 8 %.  That is a representation-and-allocation
+   task on the core the proofs already cover, not a new core, and the
+   #306 §1 ladder rows are its fixtures.
+
+### 8. Where everything is; gates
+
+Committed: this record; `docs/study-306/attribution-312.md` (T1–T10).
+On the worktree only (`_tmp/attrib-312/_tmp/`, gitignored): `run/`
+(the battery TSVs, `tabulate.py`, `decomp.py`, `gen-tables*.py`),
+`prof/` (four `perf record` profiles and `bucket.py`), `counts/` (the
+three counter dumps and TSVs), `ablate/` (`results.tsv`, 112 rows with
+RSS), `bisect/` (`results.tsv`, per-commit stats and logs),
+`soko-instr.patch`, `nanoda-instr.patch`, `soko-ablate.patch`,
+`cl-count-instrumentation.diff`; the detached worktrees of the
+reference clones `soko-instr`, `soko-ablate`, `soko-bisect`,
+`nanoda-instr` (nothing committed in any); the throwaway branch
+`agent/count-312` (`8ff7298c`, one `sorry`, never to be merged).  The
+reference checkouts' working trees were not touched; the sokonanoda
+clone is now a full clone.  Gates: nothing in ConLeche changed;
+`tests/no-local-paths.sh` OK; `git status` clean at the commit.
