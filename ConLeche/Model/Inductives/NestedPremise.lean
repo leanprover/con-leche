@@ -564,6 +564,39 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   pinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
     Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
       = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q'
+  /-- **AND THE SAME AT THE SPELLING THE TABLE USES** (task #315 WIDE
+  (2″)): two of the container's recorded pins with one OWN-PIN TABLE
+  ENTRY are one pin.
+
+  `pinsDistinct` is about the recorded pin TERM; the consumer looks a
+  term up in `containerOwnPinsSelf`, whose entry at `q` is that term
+  passed through `PinSyn.ownAt` at the identity level instantiation and
+  the SYNTHETIC parameter openers — which is the term with every
+  parameter `fvar`'s ANNOTATION replaced by `Expr.sort Level.zero`
+  (`abstractRange` drops it, the reopening puts the synthetic one
+  back).  **Annotation-erasure is not injective in general**, so
+  `pinsDistinct` does not give this: a `findIdx?` over the table may
+  answer an EARLIER position than the pin's own unless the entries are
+  known distinct, and the whole point of the lookup is that the
+  position IS the pin's.
+
+  What makes it true here is K.30 (`pinsScoped`): a recorded pin's
+  `fvar` leaves are the FIRST FORMER's openers, so a given index
+  carries ONE annotation across all of a block's pins and the erasure
+  loses nothing on this set.  That is a fact about the block's own run,
+  so — like `pinsDistinct`, `ownPins` and `nestPinSpineAbs` — it has to
+  be carried rather than re-derived, and it is discharged at the
+  block's own read-back where K.30 is still in hand.
+
+  Stated at every `lps`, as `nestPinSpineAbs` is and for the same
+  reason: the level instantiation is the identity.  It mentions no
+  environment and no model, so it crosses an extension verbatim, and it
+  is vacuous at a pins-free container. -/
+  pinsDistinctAt : ∀ q q' (lps : List Name), q < d.nPins → q' < d.nPins →
+    (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+        (ConLeche.containerParamOpeners d.nP)
+      = (d.pinAt q').ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP) → q = q'
 
 /-- **The block model's member names ARE the container group's**, as
 lists (task #315 PINF): `k` and `namesLen` give the length and

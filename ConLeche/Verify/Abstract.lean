@@ -55,6 +55,58 @@ theorem abstract1_instantiate1 {d : Nat} {ty : Expr} :
       simp [hidx, Expr.instantiate1]
     · simp [hidx, Expr.instantiate1]
 
+/-- Opening a body with a fresh variable and closing it again is the
+identity — `abstract1_instantiate1`'s mirror, read in the direction the
+annotation pass takes it.  (It lived in two downstream copies, the
+cached checker's `Verify/Cached/StreamConsts` and a `private` one in
+`Verify/Inductives/NestedCopyNorm`; both are gone, and this is the one
+they called.) -/
+theorem instantiate1_abstract1_self {d : Nat} {T : Expr} :
+    ∀ (e : Expr) (k : Nat), fvarsBelow d e → e.looseBVarsBounded (k + 1) = true →
+      (e.instantiate1 (.fvar d T) k).abstract1 d k = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k hf hb
+    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
+    simp only [instantiate1]
+    by_cases h1 : i = k
+    · simp [h1, abstract1]
+    · rw [if_neg h1, if_neg (by omega)]
+      simp [abstract1]
+  | fvar idx ty ih =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [instantiate1, abstract1]
+    rw [if_neg (by omega)]
+  | app f a ihf iha =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [instantiate1, abstract1, ihf k hf.1 hb.1, iha k hf.2 hb.2]
+  | lam ty b m ihty ihb =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [instantiate1, abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
+  | forallE ty b m ihty ihb =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [instantiate1, abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
+  | letE ty v b ihty ihv ihb =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [instantiate1, abstract1, ihty k hf.1 hb.1.1, ihv k hf.2.1 hb.1.2,
+      ihb (k + 1) hf.2.2 hb.2]
+  | proj sn i pe ih =>
+    intro k hf hb
+    simp only [fvarsBelow] at hf
+    simp only [looseBVarsBounded] at hb
+    simp only [instantiate1, abstract1, ih k hf hb]
+  | _ => intro k hf hb; simp [instantiate1, abstract1]
+
 /-- Abstracting away the top variable lowers the scope bound. -/
 theorem WScoped.abstract1 {d : Nat} :
     ∀ {e : Expr} (k : Nat), WScoped (d + 1) e → WScoped d (e.abstract1 d k) := by

@@ -450,6 +450,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   ownPins := punitBlock_ownPins hT hR hU hmim
   pinψ := fun _ h => nomatch h
   pinsDistinct := fun _ _ h _ _ => nomatch h
+  pinsDistinctAt := fun _ _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`PUnit` carries its block's model** at any assignment that sends

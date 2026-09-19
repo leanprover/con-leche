@@ -829,6 +829,7 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
   ownPins := natBlock_ownPins hT hR hZ hS hmim
   pinψ := fun _ h => nomatch h
   pinsDistinct := fun _ _ h _ _ => nomatch h
+  pinsDistinctAt := fun _ _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Nat` carries its block's model** at any assignment that sends

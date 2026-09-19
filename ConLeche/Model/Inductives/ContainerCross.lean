@@ -532,6 +532,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ordFree := C.ordFree
       nestMention := C.nestMention
       pinsDistinct := C.pinsDistinct
+      pinsDistinctAt := C.pinsDistinctAt
       nestArgsMention := C.nestArgsMention
       nestArgsMentionAbs := C.nestArgsMentionAbs
       nestArgsMentionAbsRefl := C.nestArgsMentionAbsRefl
@@ -1591,7 +1592,12 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
         d i)
     (hpinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
       Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
-        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q') :
+        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q')
+    (hpinsDistinctAt : ∀ q q' (lps : List Name), q < d.nPins → q' < d.nPins →
+      (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP)
+        = (d.pinAt q').ownAt d.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners d.nP) → q = q') :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1603,6 +1609,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   ordFree := hordFree
   nestMention := hnestMention
   pinsDistinct := hpinsDistinct
+  pinsDistinctAt := hpinsDistinctAt
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   nestArgsMentionAbsRefl := hnestArgsMentionAbsRefl
