@@ -107249,6 +107249,244 @@ Four orders below K.62's +0.436 %: one stored-constructor read per pin
 field on a telescope K.61, K.62 and K.67 already walk, and one
 `nestedPinTermsSelf` per block.  No Mathlib perf cell, per the ruling.
 
+#### K.69 — a rewritten ordinary field's DOMAIN is the owner's, ONE SUBSTITUTION APART (2026-09-19, task #315, lane LE's request)
+
+K.67 and K.68 compare the two copies' TARGETS at a field the container
+calls ordinary.  This compares their field DOMAINS, and it is the row
+the wide identification's pin half needs where `hslotOrd` asks for an
+equation between two index expressions rather than between two class
+numbers: at the guard, the block's copy's domain IS the owner's,
+instantiated at the block pin's levels and components.
+
+##### WHY A RECORD, AND NOT A READING OF SOMETHING ALREADY THERE
+
+| candidate | its guard | verdict |
+|---|---|---|
+| K.67 / K.68 | this row's own | they carry a `Nat`, the class index; a DOMAIN is not among their conclusions |
+| `CopyCtorShape.ordF`'s right arm | — | carries `EntryRead` alone since the `TargetHead` refutation at `tests/e2e/nested_lam_pin_prop.ndjson` |
+| K.42 `nestedOrdNorms` | the field is ORDINARY for the BLOCK | wrong guard: this row's fields are the ones the block's rewrite made RECURSIVE |
+| K.51 `nestedPinRewrites` | a pin target | relates the block's two spellings of ONE domain, not two installs' |
+| a whnf/substitution commutation theorem | — | does not exist, and is FALSE in the direction the argument walks |
+
+##### THE SHAPE, AND THE ONE CORRECTION THE TREE FORCED
+
+The walk is K.67's, character for character — pins `g`, their
+containers `ciJ`, their own-pin tables `containerOwnPinsSelf`, the
+instance map's image `q = σ_g(qK)`, the container `K`'s stored
+constructor `j` and its field `l` — with K.67's TARGET comparison
+replaced by
+
+    ordTargetDom Jm.lps ci.nP terms q l domJ.1
+      == ordRootInst m₀.lps ciJ.nP cut pinG
+           (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
+
+where `terms = nestedPinTermsSelf p st` (K.68's table), `pinG` is the
+block pin `g` in that table, `cut = l + domPiDepth (ordTargetDomL …)`
+is the recomputation's own, and `ordRootInst` is the ONE substitution
+that relates the two opener scopes: the owner's level parameters at the
+block pin's levels, the owner's parameter OPENERS at the block pin's
+components (`abstractRange … 0 nPJ cut`, then `instantiateList …
+.reverse cut`).  The abstraction starts AT THE CUT and not at `0`
+because `ordTargetDom` leaves the binders below the cut loose, and
+abstracting the openers into `bvar 0 …` would collide with them.
+K.69's guard is K.67's `p.k ≤ t` bound DROPPED — the equation is about
+terms, not targets, so a block member target is covered too.
+
+**THE CORRECTION: THE NORMALISATION IS NOT RUN, AND THAT IS THE ROW
+AND NOT A RETREAT.**  The row was authorised as "the block's
+`normPosDomM` of the substituted domain equals the substitution of the
+root's `normPosDomM`", with both walks RE-RUN by the check.  Priced by
+inputs against the tree first, as ruled:
+
+* a monadic clause needs a CACHED-BRIDGE lemma, because `normPosDomM`
+  calls `ops.whnf`: K.42's and K.51's are `nestedOrdNormsS_run` /
+  `nestedPinNormsS_run` (`Verify/Cached/BridgeCSDecl.lean:1007`,
+  `:1017`), each over `normsMapM_run`, and each takes **`hμ :
+  mode.verifiedChecks = true`** — the shared-ops simulation
+  (`normPosDomMS_sim`, `BridgeCS3.lean:575`, through `opE_whnf_sim`,
+  `SimCS.lean:95`) exists in the VERIFIED mode only.  So an
+  UNCONDITIONAL monadic K.69 is not simulable at all, and a gated one
+  is not what the brief asked for;
+* and it needs `∀ je ∈ jobs, Expr.WScoped je.1 je.2.1` — K.42's own is
+  `nestedOrdDomPairs_WScoped` (`Verify/Inductives/NestedCopyNorm.lean:1236`)
+  over `nestedCopySrc_Ds_WScoped`, a file-section of work, and K.69
+  would need TWO more of them (the owner's own-pin table at the
+  openers, and `nestedPinTermsSelf`).
+
+**And none of it buys anything, because under this row's guard the
+normalisation is the IDENTITY on both sides.**  The guard is the
+owner's recomputation being headed by a `.const` that is one of the
+owner's group members or the container of one of the owner's own pins
+(`ordRootFired`, K.67's head test).  A constant-headed application at
+an inductive head is its own `whnf` and its own positivity walk
+(`whnf_indApp_eq` K.22, `normPosDomM_indApp`,
+`Verify/Inductives/NestedCopyNorm.lean:269`, `whnfCore_constApp_eq`,
+`Verify/InferLemmas.lean:755`); a constant head survives any
+substitution, so the block's side is head-normal too.  So
+
+    normPosDomM(block's mint) = block's mint = s(owner's mint)
+      = s(normPosDomM(owner's mint))
+
+with the middle equality THIS ROW's Bool and the two outer ones
+`normPosDomM_indApp`.  **The kernel must not re-run a walk it can prove
+is the identity**: the row records the syntactic equation and the
+normalisation is the Verify tier's, which is where the identity lives.
+
+##### WHAT IS OWED, AND WHERE THE ENVIRONMENT GAP IS
+
+The corollary above is NOT landed — it has no consumer yet (`hK69` is
+unconsumed, like `hK67` and `hK68`), and it has one real input to find:
+`normPosDomM_indApp` wants `env.find? M = some (.indInfo …)` **at the
+environment the walk ran in**, which is the block's own
+(`consNestedFormers (stored.take p.k) env`) and not the pre-block one
+where `containerInfo? env M` answers.  The step "the current
+environment's `whnf` of a root-era term is the root's" is the same
+question one environment over: delta-unfolding reads STORED bodies, and
+an extension by fresh names does not change the body of anything
+already there — but **there is no whnf-monotonicity-under-extension
+theorem in the tree**, and the fact this row's argument uses is the
+much weaker one that a CONSTANT-HEADED INDUCTIVE application reduces at
+neither environment.  The owed lemma is one declaration,
+`nestedOrdNorm_norm_of` (`Verify/Inductives/NestedCopyNorm.lean`, beside
+`normPosDomM_indApp`): K.69's equation plus `containerInfo?`'s
+`indInfo` transported across `consNestedFormers` gives
+`normPosDomM (block's mint) = .ok (s (owner's mint))` and its twin on
+the owner's side.  It is named here rather than built because its
+consumer is the model correspondence, which is the carry lane's.
+
+##### THE GUARD IS THE ROOT'S FIRING — THE FOUR ARMS, AND A SUB-GUARD
+
+The four-combination table of WIDE (3) (1) is why the guard is the
+ROOT's and not the block's:
+
+| `rs₁` (block) | `rs₂` (root) | closes with |
+|---|---|---|
+| false | false | `ordF`-left on both sides, `hcdom` |
+| false | true | `hmixOrd` |
+| true | true | `hdom₁` + `hslotOrd` — **this row's arm** |
+| true | false | `hdom₁` + `hcdom` + `ordF`-left — free |
+
+The (T,F) row — the root fires, the block does not — is IMPOSSIBLE by
+the same `normPosDomM_indApp`, and the (F,T) row — the mixed corner —
+is REAL: a root STUCK at a variable head is unblocked by the block's
+substitution.  So the guard has to be the root's firing, and where it
+fails the row says nothing.
+
+**AND THE LANDED GUARD IS A SUB-GUARD OF IT**, which is recorded rather
+than glossed: `ordRootFired` tests the head of the owner's mint
+BEFORE any reduction, so it means "the root fired WITHOUT a reduction
+step".  A root that fires only after a `whnf` — its mint a beta-redex,
+`(fun _ => T) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
+exhibits one level down — is in the SILENT set here, together with the
+mixed corner.  Separating the two costs exactly the monadic form priced
+above; the control below counts them together and separately from the
+arm that fires.
+
+##### THE `| _ => true` ARMS, ANSWERED
+
+Three arms assert nothing, and each is a deliberate silence, not a
+concession: the root did NOT fire (the mixed corner and the
+reduction sliver — `hmixOrd`'s territory, where the block's target
+leaves the instance and the model closes with an entry); the block
+pin's head is not a `.const` (`ordRootInst = none`); and the field is
+not one the block's rewrite made recursive or reflexive, or its
+container-side domain already mentions a member of the container's own
+group (K.67's two `if`s).  The LOOKUP arms are K.67's, character for
+character, `false` included — those are asserted, because K.67 already
+asserts them at a sub-set of the same fields.
+
+##### PLACEMENT
+
+Inside `nestedPinChecks`, directly after K.68 and ABOVE the
+`verifiedChecks` gate: UNCONDITIONAL in both routes, `.internal` on
+failure, on K.61's own instance-map table and K.46's field kinds.
+**No `PushChain` change**, confirmed — the record is a pure `Bool`, so
+the cached simulation (which names only K.64 among these) is untouched
+and `ConLeche.Verify.Cached.PushChain` built unchanged.  Inversions
+`nestedOrdNormOk_at_refl` (general) and `nestedOrdNormOk_at` (finitary,
+both cuts the identity), both in
+`Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
+`nestedPinChecks_inv` → `checkNested_inv_rest` → `checkNested_inv` →
+`DeclNestedRun`; `NestedPinsRun.hK69`.
+
+**IT CANNOT FIRE BY CONSTRUCTION**, category (B): the block's copy of
+the owner's pin is ONE substitution applied to the very constructor the
+owner copied, and both sides instantiate the SAME stored domain — the
+owner's at its own components, the block's at those components
+substituted.  Official computes nothing of the kind.  **IF IT EVER
+FIRES** the block's rewrite of a copy disagrees with the container it
+copied at the level of TERMS, and the first suspects are the mint's
+spelling against the elimination's (levels, annotations, the lift) —
+fixed in the recomputation, never by weakening the row.
+
+##### (a) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 with the K.69 binary: `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
+`annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
+`--jobs=4` sweeps unchanged — the accept set did not move.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+**THE TWO CONTROLS**, because this row has two silences and they are
+different things.  The first negates the equation, so it fires exactly
+where the ARM IS REACHED (the root fired and the comparison was made);
+the second replaces the guard's `true` arm by `false`, so it fires
+exactly at the MIXED CORNER — the guard region entered and the root's
+head test failing, which is the mixed arm together with the reduction
+sliver the sub-guard leaves out.  The corner becomes countable with
+this row's recomputation and was NOT countable before it (WIDE (3) (1)
+recorded exactly that).
+
+| corpus | arm reached | mixed corner | K.67's control, for scale |
+|---|---|---|---|
+| e2e (`tests/nested-shadow.sh`) | 4 blocks in 3 of 42 rows — `nested_p04` `P4`, `inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide` (39/42) | 1 block in 1 of 42 rows — `nested_pin_nocollide` `NoCollide` (41/42) | 4 of 42 |
+| `init-full` | 0 of 1 | 0 of 1 | 0 of 1 |
+| Mathlib | 5 of 41 — `Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`, `Lean.Widget.HighlightedMsgEmbed` and the two `Lean.Server.Test.Runner.Client` twins | 0 of 41 | 5 of 41 |
+
+The arm's reach is K.67's exactly, which is what the shape predicts:
+the two walks have the same addressing and the same outer guard, and
+K.69 only drops K.67's `p.k ≤ t`.
+
+**THE MIXED CORNER IS NOT EMPTY, AND IT IS RARE.**  `NoCollide` has
+fields of BOTH kinds, so the four-arm table's (F,T) row is a shape the
+corpus exhibits and not a hypothetical — `hmixOrd` and `hentOrd₁` are
+paying for something real, and WIDE (3) (1)'s repair was not
+precautionary.  At the two real corpora the count is ZERO: at every
+`init-full` and Mathlib block that enters the guard region the owner's
+copy fired, syntactically, with no reduction — which is also what
+bounds the sub-guard's sliver from above, since the second control
+fires on the sliver too and never did.  A measurement, not a proof:
+the case split that would make it one is over the syntax, and the
+monadic form priced above is what would take it.
+
+##### (b) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, the same binary with the check's call site removed.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2251 G | 538.2409 G | +0.0029 % |
+| `init-full --trusted --nested-shadow` | 520.8715 G | 520.8794 G | +0.0015 % |
+
+Two orders below K.62's +0.436 %: the walk is K.67's, its expensive
+lookups (`containerOwnPinsSelf`, `nestedPinTermsSelf`) are HOISTED per
+pin and per block, and the per-field work is one more stored-domain
+recomputation plus one `abstractRange`/`instantiateList` pass on a term
+the row already built.  No Mathlib perf cell, per the standing ruling.
+
+##### (c) STATE
+
+`NestedPinsRun.hK69` is UNCONSUMED, like `hK67` and `hK68`: the
+consumer is `hslotOrd` in `pinClassFit_of_transfer`, which needs the
+ROOT side's readings as well, and those are the carry lane's
+`PinShapes` clause plus the opener→reading bridge WIDE (3) (b) priced.
+What this row removes from that price is the SYNTAX half, outright.
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
