@@ -124274,3 +124274,143 @@ not run and not owed: no `Kernel/`, `Cached/` or `Verify/` file
 changed.  `#print axioms` on `ordTgtReadAt`, `nestedPinsOrdTgt_of`,
 `nestedPinsIdent_of` and `nestedModeled_of_two`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 1(a) PART 3 — THE BRICK LANDED, AND ITS SOURCE IS NOT THE ONE THE ROW NAMED (lane LE, 2026-09-19)
+
+Part 3's first brick — the head's container-hood, which the `PinShapes`
+clause must PRODUCE because a clause may not consume an environment
+fact — is landed.  Finding it cost the session; the rest of part 3 is
+priced at the end against what the tree actually holds, and it is a
+second session.
+
+##### (a) K.60 AND K.63 CANNOT HAND IT, AND THE REASON IS IN THEIR GUARDS
+
+The previous row named the run's `hK60`/`hK63` records as the place to
+look, "whose guards sit on exactly this object".  They do not, twice
+over, and both halves are recorded so that nobody looks again:
+
+* **the guard is the wrong FIELD.**  `copyPinFieldOk`/`copyReflFieldOk`
+  (`Kernel/Inductives/NestedInstall.lean`) run at a field the
+  container calls RECURSIVE — `copyPinFKind`'s own hypothesis is
+  `(dJ.ksF i' j).getD l .ordinary = .recursive` — and this clause's
+  field is ORDINARY there.  The two records' model-side inversions
+  CONSUME a `containerInfo?` (from `ContainerModeled.pinNP` +
+  `NestedPinGroupSyn.contsEnv`, `NestedCopyInst.lean:1571`); they never
+  produce one;
+* **and the check is SILENT at a non-container head.**  Both arms read
+  `match containerInfo? env K with | none => true`, so a
+  container-ordinary field whose stored domain is headed by a
+  DEFINITION — `abbrev MyList α := List α`, unblocked by the block's
+  substitution and fired by the copy's walk — passes K.60 and K.63 and
+  has no container record at all.  The clause therefore cannot be
+  stated with its `containerInfo?` in the conclusion and `hfin` as its
+  only guard *in general*: what rules that case out is not the head
+  equation but the target.
+
+##### (b) WHAT DOES HAND IT: THE INSTANCE MAP'S OWN ROW, AT THE PRE-BLOCK ENVIRONMENT
+
+`NestedPinsRun.instOrdSelfAt` (`NestedInstMap.lean:1091`, K.67/K.68's
+run-level row) is stated at exactly this field — container-ordinary,
+block-recursive — and its two arms are a case split on
+`p.memberNames.findIdx? (· == M)`:
+
+* `some mm` makes the recorded target `mm`, a member INDEX, hence
+  `< p.k`, which the clause's own guard `hpinT` refutes
+  (`p.memberNames.length = p.k` is `List.length_map` on
+  `p.formers`);
+* `none` PRODUCES `⟨ciM, z, containerInfo? env M = some ciM, …⟩` — the
+  head's container record at the ELIMINATION's environment `env`,
+  which is where the clause's carrier and every other `containerInfo?`
+  of the group already live.
+
+So the brick is a consequence of a row the lane already owns, and the
+def-headed case of (a) is excluded not by the head but by the target:
+a copy that fires at a non-container head lands on no pin, so its
+target is a member and `hpinT` is false there.
+
+##### (c) WHAT CHANGED
+
+`NestedPinsRun.ordTgtReadAt` now takes the guard `hord` it previously
+dropped (`_hord` at its discharge) and spends it on `hordC`, derives
+`hhead` from `hfin` through the new private
+`getAppFn_instantiateList_const` (`ordTargetDomL`'s head is
+`ordTargetDom`'s — the step the kernel's own row takes as a SECOND
+hypothesis for want of a model), and CONCLUDES
+
+    ∃ ciK, containerInfo? env K = some ciK ∧ OrdTargetRead … ciK.nP …
+
+with `ciK`/`hciK` gone from its hypotheses.  The same ∃-form on
+`NestedPinsOrdTgt` (`NestedCopyIdx.lean`), on `NestedPinsIdent`'s
+fifth component and on `NestedPinGroupIds.ordTgt`
+(`NestedPins.lean`), on `NestedPinGroup.ordTgt` (`NestedCore.lean`),
+and at `NestedPinGroup.crossEnv`'s `ordTgt` (`NestedLoop.lean`), where
+the container record crosses verbatim: `containerInfo? env K` names
+the elimination's environment, which the model crossing does not move.
+Commit `f58a0152`.
+
+##### (d) WHAT PART 3 STILL OWES, PRICED AGAINST THE TREE
+
+The clause itself is cheap and its TRANSPORT is not, and the transport
+is what a second session buys:
+
+* **the conjunct** on `PinShapes` (`NestedPremise.lean`), in the ∃-form
+  above and guarded exactly as the `ordF` row beside it is (container
+  ordinary, copy recursive, the syntactic data, `Jm`, and `hfin`), plus
+  `hpinT`.  ~40 lines;
+* **its producer** in `nestedPinShapes_of` (`NestedPinLeafAll.lean`):
+  `G.ordTgt` and nothing else — the member-arm exclusion is now the
+  run's, not the producer's.  ~30 lines;
+* **the vacuous producers** — the five pinned basis blocks and M7-3's
+  pins-free sites, where `q < d.nPins` is absurd — and
+  `PinShapes.congrB`, which needs NO change: it collects the tail into
+  one `hsh` and `rw`s `B ci` through it;
+* **`PinShapes.crossEnv`** (`ContainerCross.lean:613`), which is the
+  cost.  It currently takes no `hde` at all: the `shape` conjunct
+  crosses by `CopyCtorShape.of_EA`, a congruence over `acval`, because
+  it names no `Expr`.  `OrdTargetRead` is a `denoteMeta` of a syntactic
+  subject and must be transported, and the subject cannot be moved to
+  an environment that does not change — it mentions the block's own
+  members through the pin components, so it reads only at an
+  environment holding the formers.  Its three call sites want three
+  different ProjFree sources, and that is the session:
+  - `BlockAt.crossEnv` — unguarded, `ProjFree.nil`, free;
+  - `BlockAt.crossEnvP` — `Ts` is FRESH at the old environment
+    (`hfresh`), so `ProjFree.of_constsResolve` serves for any subject
+    that RESOLVES there, and an old container's own data does:
+    `ContainerModeled.pinDsRes` for the own-pin entries and the
+    members' stored types for `dom.1` (`projFree_members`'s idiom);
+  - `DeclNestedCore.lean:2255` — the block being installed, whose pin
+    components mention its own members, so `of_constsResolve` fails
+    and the route is K.64's `projTablesOk` at the formers-only
+    environment through `Expr.ProjSlotsOk.noProjAt`: the `pinDsRead`
+    bullet at `DeclNestedCore.lean:1474` is that idiom, verbatim, and
+    `dom.1` is still `of_constsResolve` there because an OLD
+    container's constructor resolves at the pre-block environment
+    where `p.memberNames` are fresh.
+  The closure the three share is `ProjFree Ts` of
+  `instSeq (openFvars d.nP l) (l-1) (ordTargetDom lpsC nPJ ownSelf q l dom.1)`
+  from `ProjFree Ts dom.1` and `ProjFree Ts` of the own-pin entry.
+  `NoProjAt.instantiate1`, `.instantiateLevelParams`, `.getAppArgs`
+  and `ProjFree.getAppArgs` exist (`Verify/ProjSlots.lean`,
+  `Verify/Inductives/FixRec.lean`, `Model/Inductives/BlockRepCross.lean`);
+  `instantiateList`, `instSeq` and `stripDomPis` do NOT and are three
+  short inductions, the first over the definition's own well-founded
+  recursion.
+
+**The budget for parts 1–2 was ONE session and this session spent
+itself on part 3's brick, whose stated source did not exist; it stops
+there.**  Steps 1(b) and 2 are untouched and unchanged in shape.
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 87113e70`: 5 changed modules, `lake build` 5
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; no import line
+moved).  `tests/unconsumed.sh` 196/3822 against 196/3821: ONE
+declaration enters (`getAppFn_instantiateList_const`, consumed by
+`ordTgtReadAt`), nothing enters or leaves the unconsumed list, and
+nothing of the `pins_le_*`/`NestedPinsLe` family moved.
+`tests/arena.sh` not run and not owed: no `Kernel/`, `Cached/` or
+`Verify/` file changed.  `#print axioms` on `nestedPinsOrdTgt_of`,
+`nestedPinsIdent_of` and `nestedModeled_of_two`: `propext`,
+`Classical.choice`, `Quot.sound`.
