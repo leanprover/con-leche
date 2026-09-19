@@ -5,6 +5,14 @@ import ConLeche.Semantics.LitParams
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.IOLicense
+import ConLeche.Model.CtxOkKit
+import ConLeche.Model.Rules.DefEqSoundKit
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.ValidSpine
+import ConLeche.Model.WellDenotedTransport
+import ConLeche.Semantics.Frame
+import ConLeche.Semantics.LitStep
+import ConLeche.Semantics.Skeleton
 
 public section
 
@@ -163,7 +171,7 @@ theorem Infer.fvar_sound {g : Grade} {d idx : Nat} {ty : Expr} (h : idx < d) :
   rw [interp_bvar, hlink ρ hρ]
   exact hρ (d - 1 - idx) Aa hi
 
-/-- `infer_const_claim(IO)`: `ConstTy` + `LeafValid`. -/
+/-- `infer_const_claim(IO)`: `ConstType` + `AcvalValid`. -/
 theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
     (hf : env.find? n = some ci) (htower : ci.isTowerEntry = false)
@@ -191,7 +199,7 @@ theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     ta, hta, fun ρ _ => ⟨m.acval_wellDenoted n _ ρ, hin.leaf_valid n _ ρ⟩,
     fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
 
-/-- `infer_natLit_claim(IO)`: `NatLeafHeads` + `LeafValid`. -/
+/-- `infer_natLit_claim(IO)`: `NatHeads` + `AcvalValid`. -/
 theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
     (h : ConLeche.natLitSupported env = true) :
     InferSem m φ g d (.lit (.natVal n)) (.const natName []) := by
@@ -260,7 +268,7 @@ theorem Infer.strLit_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 
 /-- `infer_forallE_claim(IO)` (`Steps/Infer.lean:254`, `InferIO.lean:339`):
 the two sort facts (`sortSemAt_of_claims`'s content) and the bit law. -/
-theorem Infer.forallE_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.forallE_sound {g : Grade} {d : Nat}
     {ty body s bs : Expr} {u v : Level} {mb : BinderMeta}
     (hs : InferSem m φ g d ty s) (hu : RedSem m φ d s (.sort u))
     (hbs : InferSem m φ g (d + 1) (body.instantiate1 (.fvar d ty)) bs)
@@ -350,7 +358,7 @@ theorem Infer.forallE_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 /-- `infer_lam_claim(IO)` (`Steps/Infer.lean:358`, `InferIO.lean:456`):
 the fibre regime fact from the leaf sort run or, at a chain node, from
 the copied annotation (`piR_zero_mem_univZero`). -/
-theorem Infer.lam_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.lam_sound {g : Grade} {d : Nat}
     {ty body s bt btt : Expr} {u v : Level} {mb : BinderMeta}
     (hs : g = .full → InferSemFull m φ d ty s)
     (hu : g = .full → RedSem m φ d s (.sort u))
@@ -506,7 +514,7 @@ theorem Infer.lam_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 
 /-- `infer_app_claim` / `infer_app_claimIO`'s kept arm
 (`Steps/Infer.lean:842`, `InferIO.lean:609`). -/
-theorem Infer.app_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.app_sound {g : Grade} {d : Nat}
     {f a tf ty body ta : Expr} {mt : BinderMeta}
     (htf : InferSem m φ g d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
     (hta : InferSem m φ g d a ta) (hd : DefEqSem m φ d ta ty) :
@@ -616,7 +624,7 @@ theorem Infer.app_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 membership from the subject's own hereditary app slot,
 `io_domain_transfer` + `piR_dom_unique` at a bit pinned positive by
 `pwBit_ne_zero_of_isNever`. -/
-theorem Infer.appSkip_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem Infer.appSkip_sound {d : Nat}
     {f a tf ty body : Expr} {mt : BinderMeta}
     (htf : InferSemIO m φ d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
     (hnev : mt.pw.isNever = true) :

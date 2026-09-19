@@ -1,7 +1,8 @@
 module
 
-import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.Steps.Tiers
+public import ConLeche.Model.Rules.Inputs
+public import ConLeche.Model.Claims
+public import ConLeche.Model.ClaimsIO
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.BetaGate
@@ -11,27 +12,22 @@ public section
 /-!
 # The recomposition: `checkSoundAtP5` through the rules tier (task #305)
 
-The five claims of `Model/Claims*.lean` at every fuel, with EXACTLY the
-statement of `Model/Steps/Tiers.lean`'s `checkSoundAtP5` /
-`checkSoundAt`, assembled from the bridge (`Verify/Rules/Bridge.lean`:
-run ⇒ derivation) and the soundness (`Model/Rules/Sound.lean`:
-derivation ⇒ P currency).  Each claim is a few lines: bridge the run,
-apply the soundness at the claim's premises, identify the claim's
-reading with the existence form's by `Option.some.inj`.
+The five claims of `Model/Claims*.lean` at every fuel, assembled from
+the bridge (`Verify/Rules/Bridge.lean`: run ⇒ derivation) and the
+soundness (`Model/Rules/Sound.lean`: derivation ⇒ P currency).  Each
+claim is a few lines: bridge the run, apply the soundness at the
+claim's premises, identify the claim's reading with the existence
+form's by `Option.some.inj`.
 
-This is the ONE module that imports both the bridge and `Model/Steps/*`
-(for `TierInputsAt` and, provisionally, the two literal rows).  At the
-end of the campaign `Model/Steps/*` is deleted and `Tiers.lean`
-re-exports this file's theorems under the landed names.
+The recomposition — bridge ∘ soundness — IS the theorem the
+declaration fold consumes, under the landed names, with the rules
+tier's environment inputs (`RulesInputs`, `Model/Rules/Inputs.lean`)
+as its hypothesis; `Model/Tiers.lean` above adds the run-stated
+readability facts the fold's consumers read.
 
 **The two literal rows** (`RulesInputs.nat_succ`, `.nat_op`) are
-projections like the other seven: lane R-nat took the durable fix the
-design record proposed, and `TierInputsAt`'s two literal fields ARE
-these rows (`Model/NatStep.lean` proves them from
-`EnvModelM.nat_ops`/`div_mod`, which is where the content lives; the
-run inversion that used to wrap them is `reduceNatStep_of_rows`,
-`Model/Steps/Tiers.lean`).  `RulesInputs.ofTier` is therefore
-`sorry`-free.
+fields like the other seven, proved in `Model/NatStep.lean` from
+`EnvModelM.nat_ops`/`div_mod`, which is where the content lives.
 -/
 
 namespace ConLeche.Model.Rules
@@ -47,32 +43,17 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
   {φ : Name → Nat}
 
-/-- **The rules inputs from the tier inputs.**  Seven fields are the
-same facts (`ConstTy`/`LeafValid`/`NatLeafHeads`/`DefnReads` are
-`ConstType`/`AcvalValid`/`NatHeads`/`AcvalDefnInst` restated, so the
-projections typecheck by unfolding); the two literal rows are
-`TierInputsAt`'s own fields since task #305 R-nat. -/
-theorem RulesInputs.ofTier {m : EnvModel V env} (h : TierInputsAt V μ m φ) :
-    RulesInputs V m φ where
-  const_ty := h.reads.const_ty
-  leaf_valid := h.acval_valid
-  nat_heads := h.nat_heads
-  defn := h.reads.defn
-  tower_ok := h.reads.tower_ok
-  rec_rules := h.rec_rules
-  caps_ok := h.caps_ok
-  nat_succ := h.nat_succ
-  nat_op := h.nat_op
-
-/-- **`checkSoundAtP5`, recomposed** — statement identical to
-`Model/Steps/Tiers.lean`'s. -/
-theorem checkSoundAtP5_rules (hμ : μ.verifiedChecks = true)
-    {m : EnvModel V env} (h : TierInputsAt V μ m φ) :
+/-- **The P soundness at one environment — the five claims at every
+fuel.**  Recomposed from the bridge and the rules soundness; the
+statement is the one the declaration fold and the install rows have
+always consumed. -/
+theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
+    {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
         DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel ∧
           InferClaimIO μ m φ fuel := by
-  have hin : RulesInputs V m φ := RulesInputs.ofTier h
+  have hin : RulesInputs V m φ := h
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   intro fuel
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
@@ -104,14 +85,15 @@ theorem checkSoundAtP5_rules (hμ : μ.verifiedChecks = true)
     cases hta
     exact ⟨hgt, hmem⟩
 
-/-- **`checkSoundAt`, recomposed** — the four sealed claims. -/
-theorem checkSoundAt_rules (hμ : μ.verifiedChecks = true)
-    {m : EnvModel V env} (h : TierInputsAt V μ m φ) :
+/-- The four sealed claims at every fuel — the joint recomposition's
+first four conjuncts, kept under the landed name so every consumer
+stands verbatim. -/
+theorem checkSoundAt (hμ : μ.verifiedChecks = true)
+    {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
         DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel := fun fuel =>
-  ⟨(checkSoundAtP5_rules hμ h fuel).1, (checkSoundAtP5_rules hμ h fuel).2.1,
-    (checkSoundAtP5_rules hμ h fuel).2.2.1,
-    (checkSoundAtP5_rules hμ h fuel).2.2.2.1⟩
+  ⟨(checkSoundAtP5 hμ h fuel).1, (checkSoundAtP5 hμ h fuel).2.1,
+    (checkSoundAtP5 hμ h fuel).2.2.1, (checkSoundAtP5 hμ h fuel).2.2.2.1⟩
 
 end ConLeche.Model.Rules

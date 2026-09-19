@@ -322,8 +322,8 @@ theorem DenoteMetaSpine.append {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-- A mapped spine reads pointwise (`DenoteSpine.map_list`'s mirror). -/
 theorem DenoteMetaSpine.map_list {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {g : Nat → Expr} {G : Nat → AnnotTerm} :
-    ∀ l : List Nat, (∀ j ∈ l, denoteMeta acval env φ d (g j) = some (G j)) →
+    {d : Nat} {β : Type _} {g : β → Expr} {G : β → AnnotTerm} :
+    ∀ l : List β, (∀ j ∈ l, denoteMeta acval env φ d (g j) = some (G j)) →
       DenoteMetaSpine acval env φ d (l.map g) (l.map G) := by
   intro l
   induction l with

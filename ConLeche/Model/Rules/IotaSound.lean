@@ -169,10 +169,10 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
   -- **the two licensed fits**: the redex's own slots license the walk,
   -- the subject's grading supplying them with the major slot exchanged
   -- along the reduction's equation (`wellDenotedV_mkAppN_snoc_congrK`)
-  have hspR : ReadSpine m.acval env φ d (e.getAppArgs.take mI ++ [major])
+  have hspR : DenoteMetaSpine m.acval env φ d (e.getAppArgs.take mI ++ [major])
       (xs.take mI ++ [AnnotTerm.mkAppN
         (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys]) :=
-    (hspx.take mI).append (ReadSpine.cons hvmajSave ReadSpine.nil)
+    (hspx.take mI).append (DenoteMetaSpine.cons hvmajSave DenoteMetaSpine.nil)
   have hframesR : ∀ x ∈ e.getAppArgs.take mI ++ [major],
       Frame d x ∧ CtxOk m φ d Δa x := by
     intro x hx
@@ -237,7 +237,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := denoteMeta_mkAppN_inv hresC
       obtain ⟨-, hoCargs⟩ :=
         hoist_spine cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
-      have hspIdx : ReadSpine m.acval env φ d ((e.getAppArgs.take mI).drop rP)
+      have hspIdx : DenoteMetaSpine m.acval env φ d ((e.getAppArgs.take mI).drop rP)
           ((xs.take mI).drop rP) := (hspx.take mI).drop rP
       have hmapI : (cargsa.drop (RecRule.ctorParams rl)).map (interp V ρ)
           = ((xs.take mI).drop rP).map (interp V ρ) :=
@@ -399,7 +399,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
         obtain ⟨vpa', hvpa', -⟩ := hpinsOk lvls pins hn j (by omega)
         rw [hcompRead p hp, ← hpj, hvpa']
         exact ⟨_, rfl⟩
-      obtain ⟨bsa, hspB⟩ := ReadSpine.exists_of_all _ hbsRead
+      obtain ⟨bsa, hspB⟩ := DenoteMetaSpine.exists_of_all _ hbsRead
       have hokChain : ∀ (vv : AnnotTerm) (j : Nat), j < pins.length →
           denoteMeta m.acval env φ rP (ConLeche.Verify.openRev 0 rP
             ((pins.getD j default).instantiateLevelParams cv.levelParams us))
@@ -489,7 +489,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       htrans (fun a ha => hoX a (List.mem_of_mem_take ha) ρ hρ)
         (fun b hb2 => hoY b hb2 ρ hρ)⟩
   -- the reduct: framed, leaf-covered, read, graded, interpretation-equal
-  have hspOut : ReadSpine m.acval env φ d
+  have hspOut : DenoteMetaSpine m.acval env φ d
       (e.getAppArgs.take rP ++ major.getAppArgs.drop (RecRule.ctorParams rl))
       (xs.take rP ++ ys.drop (RecRule.ctorParams rl)) :=
     (hspx.take rP).append (hspy.drop _)
@@ -717,13 +717,13 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       rw [hlpe, ← hvT'] at hA
       exact (hA hgj ρ tsa ea restj hlenVs (hgTm ρ hρ) (hgM ρ hρ)
         (hmemMW ρ hρ) hpeel).1
-    have hspF : ReadSpine m.acval env φ d
+    have hspF : DenoteMetaSpine m.acval env φ d
         (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
         (tsa ++ (List.range caps.etaFields).map fun j =>
           projAV (j + env.projOff T) ea) := by
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs
       rw [if_pos htow]
-      exact hspt.append (ReadSpine.map_list _ _ _ hpfacts)
+      exact hspt.append (DenoteMetaSpine.map_list _ hpfacts)
     have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
         caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
       intro x hx
@@ -771,7 +771,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       · exact absurd h htow
     have hslotR := hproj htowF
     -- the spine the per-slot certificates run at
-    have hspTb : ReadSpine m.acval env φ d (tmaj.getAppArgs ++ [major])
+    have hspTb : DenoteMetaSpine m.acval env φ d (tmaj.getAppArgs ++ [major])
         (tsa ++ [ea]) := hspt.append (.cons hea .nil)
     have hsubTb : ∀ x ∈ tmaj.getAppArgs ++ [major], LeavesSub x major := by
       intro x hx l hl
@@ -833,14 +833,14 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       have hmm := hmemp σ
       rwa [hlpj] at hmm
     -- the fabricated spine, its frame and its reading
-    have hspF : ReadSpine m.acval env φ d
+    have hspF : DenoteMetaSpine m.acval env φ d
         (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
         (tsa ++ (List.range caps.etaFields).map fun j =>
           AnnotTerm.mkAppN (m.acval (projFnName T j)
             (Level.substFn φ cvT.levelParams ust)) (tsa ++ [ea])) := by
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs
       rw [if_neg htow]
-      exact hspt.append (ReadSpine.map_list _ _ _ hprojden)
+      exact hspt.append (DenoteMetaSpine.map_list _ hprojden)
     have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
         caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
       intro x hx
@@ -990,12 +990,12 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
   have hheadCj : denoteMeta m.acval env φ d (.const rl.ctor ust)
       = some (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust)) :=
     denoteMeta_const hctor (show ust.length = _ from hlv.symm)
-  have hspF : ReadSpine m.acval env φ d
+  have hspF : DenoteMetaSpine m.acval env φ d
       (tmaj.getAppArgs ++ [.proj andName 0 major, .proj andName 1 major])
       (tsa ++ [projAV (0 + env.projOff andName) ea,
         projAV (1 + env.projOff andName) ea]) :=
-    hspt.append (ReadSpine.cons (hproj 0 (by decide)).1
-      (ReadSpine.cons (hproj 1 (by decide)).1 ReadSpine.nil))
+    hspt.append (DenoteMetaSpine.cons (hproj 0 (by decide)).1
+      (DenoteMetaSpine.cons (hproj 1 (by decide)).1 DenoteMetaSpine.nil))
   have hprFr : ∀ j, Frame d (Expr.proj andName j major) ∧
       CtxOk m φ d Δa (Expr.proj andName j major) := fun j =>
     ⟨⟨by simpa [Expr.WScoped] using hfM.1,

@@ -45,11 +45,11 @@ theorem red_sound (hin : RulesInputs V m φ) :
   | _, _, _, .refl => Red.refl_sound
   | _, _, _, .trans h₁ h₂ =>
     Red.trans_sound (red_sound hin h₁) (red_sound hin h₂)
-  | _, _, _, .appFn h => Red.appFn_sound hin (red_sound hin h)
-  | _, _, _, .projArg h => Red.projArg_sound hin (red_sound hin h)
-  | _, _, _, .betaGate hnev => Red.betaGate_sound hin hnev
+  | _, _, _, .appFn h => Red.appFn_sound (red_sound hin h)
+  | _, _, _, .projArg h => Red.projArg_sound (red_sound hin h)
+  | _, _, _, .betaGate hnev => Red.betaGate_sound hnev
   | _, _, _, .beta hta hd =>
-    Red.beta_sound hin (infer_sound hin hta) (defeq_sound hin hd)
+    Red.beta_sound (infer_sound hin hta) (defeq_sound hin hd)
   | _, _, _, .delta h => Red.delta_sound hin h
   | _, _, _, .natLit h => Red.natLit_sound h
   | _, _, _, .strLit h => Red.strLit_sound h
@@ -101,15 +101,15 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
   | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hin hf) (defeq_sound hin ha)
   | _, _, _, .proj h => DefEq.proj_sound (defeq_sound hin h)
   | _, _, _, .eta htb hwtb hty hbody hpw =>
-    DefEq.eta_sound hin (infer_sound hin htb) (red_sound hin hwtb)
+    DefEq.eta_sound (infer_sound hin htb) (red_sound hin hwtb)
       (defeq_sound hin hty) (defeq_sound hin hbody) hpw
   | _, _, _, .proofFast ha hb => DefEq.proofFast_sound hin ha hb
   | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
-    DefEq.proofIrrel_sound hin (infer_sound hin hta) (infer_sound hin htta)
+    DefEq.proofIrrel_sound (infer_sound hin hta) (infer_sound hin htta)
       (red_sound hin hu) hu0 (infer_sound hin htb) (infer_sound hin httb)
       (red_sound hin hv) hv0
   | _, _, _, .unitLike hta hwta hua htb hwtb hub =>
-    DefEq.unitLike_sound hin (infer_sound hin hta) (red_sound hin hwta) hua
+    DefEq.unitLike_sound (infer_sound hin hta) (red_sound hin hwta) hua
       (infer_sound hin htb) (red_sound hin hwtb) hub
   | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind heta hetaCtor hresT
       hresc htlen hlv hlps hslots hus hcerts hproj hparams hfields =>
@@ -131,19 +131,19 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .natLit h => Infer.natLit_sound hin h
   | _, _, _, _, .strLit h => Infer.strLit_sound hin h
   | _, _, _, _, .forallE hs hu hbs hv hz =>
-    Infer.forallE_sound hin (infer_sound hin hs) (red_sound hin hu)
+    Infer.forallE_sound (infer_sound hin hs) (red_sound hin hu)
       (infer_sound hin hbs) (red_sound hin hv) hz
   | _, _, _, _, .lam hs hu hbt hchain hbtt hv hz =>
-    Infer.lam_sound hin (fun hg => infer_sound hin (hs hg))
+    Infer.lam_sound (fun hg => infer_sound hin (hs hg))
       (fun hg => red_sound hin (hu hg)) (infer_sound hin hbt)
       (fun _ _ _ hbody => by subst hbody; exact Infer.lam_shape hbt)
       hchain (fun hn => infer_sound hin (hbtt hn))
       (fun hn => red_sound hin (hv hn)) hz
   | _, _, _, _, .app htf hw hta hd =>
-    Infer.app_sound hin (infer_sound hin htf) (red_sound hin hw)
+    Infer.app_sound (infer_sound hin htf) (red_sound hin hw)
       (infer_sound hin hta) (defeq_sound hin hd)
   | _, _, _, _, .appSkip htf hw hnev =>
-    Infer.appSkip_sound hin (infer_sound hin htf) (red_sound hin hw) hnev
+    Infer.appSkip_sound (infer_sound hin htf) (red_sound hin hw) hnev
   | _, _, _, _, .proj htpe hte hhead hent hlen hus hprop =>
     Infer.proj_sound hin (infer_sound hin htpe) (red_sound hin hte) hhead hent
       hlen hus hprop
@@ -153,9 +153,9 @@ theorem certs_sound (hin : RulesInputs V m φ) :
       Certs env d lic ty args → CertsSem m φ d lic ty args
   | _, _, _, _, .nil => Certs.nil_sound
   | _, _, _, _, .skip hlic hnev hrest =>
-    Certs.skip_sound hin hlic hnev (certs_sound hin hrest)
+    Certs.skip_sound hlic hnev (certs_sound hin hrest)
   | _, _, _, _, .cert hta hd hrest =>
-    Certs.cert_sound hin (infer_sound hin hta) (defeq_sound hin hd)
+    Certs.cert_sound (infer_sound hin hta) (defeq_sound hin hd)
       (certs_sound hin hrest)
 
 theorem defEqList_sound (hin : RulesInputs V m φ) :

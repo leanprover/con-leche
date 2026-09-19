@@ -3,6 +3,8 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitClosed
 
 public section
 
@@ -12,9 +14,9 @@ public section
 One lemma per constructor of `Red`: the motives of its derivation
 premises (the induction hypotheses) and its side conditions give the
 motive of its conclusion.  The master induction (`Sound.lean`) is the
-only place that mentions derivations; these lemmas are pure semantics
-and mine the corresponding rows of `Model/Steps/*` — the file and
-theorem each docstring names.
+only place that mentions derivations; these lemmas are pure semantics,
+mined from the `Model/Steps/*` rows each docstring names — the tier
+they cite was deleted at the task #305 closing.
 
 Lane S-red owns this file; `iota` and the three rescues are in
 `IotaSound.lean` (lane S-iota).
@@ -49,7 +51,7 @@ theorem Red.trans_sound {d : Nat} {e₁ e₂ e₃ : Expr}
 
 /-- `whnfCore_app_claim`'s head-reduction half (`Steps/Whnf.lean:509`)
 + `frame_appFn` (`Stuck.lean:206`). -/
-theorem Red.appFn_sound (_hin : RulesInputs V m φ) {d : Nat} {f f' a : Expr}
+theorem Red.appFn_sound {d : Nat} {f f' a : Expr}
     (hf : RedSem m φ d f f') : RedSem m φ d (.app f a) (.app f' a) := by
   intro hf Δa ea hC hea hg
   obtain ⟨hws, hb, hLb⟩ := hf
@@ -100,7 +102,7 @@ theorem Red.appFn_sound (_hin : RulesInputs V m φ) {d : Nat} {f f' a : Expr}
 
 /-- The `.proj` clause's scrutinee reduction (`projStep_of_claims`'s
 stuck branch, `Steps/ProjRows.lean:278`; `WellDenotedV_projAV_congr`). -/
-theorem Red.projArg_sound (_hin : RulesInputs V m φ) {d : Nat} {sn : Name}
+theorem Red.projArg_sound {d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr} (he : RedSem m φ d e e') :
     RedSem m φ d (.proj sn i e) (.proj sn i e') := by
   intro hf Δa ea hC hea hg
@@ -181,7 +183,7 @@ theorem beta_syntax {d : Nat} {ty body a : Expr} {mb : ConLeche.BinderMeta}
   rfl
 
 /-- `WellDenotedV_beta_gate` (`Steps/Gate.lean:80`) + `denoteMeta_beta`. -/
-theorem Red.betaGate_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem Red.betaGate_sound {d : Nat}
     {ty body a : Expr} {mb : BinderMeta} (hnev : mb.pw.isNever = true) :
     RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
   intro hf Δa ea hC hea hg
@@ -199,7 +201,7 @@ theorem Red.betaGate_sound (_hin : RulesInputs V m φ) {d : Nat}
 
 /-- `WellDenotedV_beta_pos` / `WellDenotedV_beta_zero` with the
 certificate's membership (`betaCert_of_claims`, `Steps/Whnf.lean:424`). -/
-theorem Red.beta_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem Red.beta_sound {d : Nat}
     {ty body a ta : Expr} {mb : BinderMeta}
     (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
     RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by

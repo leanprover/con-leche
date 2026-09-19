@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Rules.Rel
 public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Annot.BitLemmas
 
 public section
 
@@ -123,17 +124,6 @@ grading is a premise (`InferClaimIO`'s premise form). -/
   | .full, d, e, t => InferSemFull m φ d e t
   | .io, d, e, t => InferSemIO m φ d e t
 
-/-- Each expression of a spine reads to the corresponding annotation
-(`Model/Steps/Stuck.lean`'s `DenoteMetaSpine`, restated impl-free). -/
-inductive ReadSpine (acval : Name → (Name → Nat) → AnnotTerm)
-    (env : Env) (φ : Name → Nat) (d : Nat) :
-    List Expr → List AnnotTerm → Prop
-  | nil : ReadSpine acval env φ d [] []
-  | cons {a : Expr} {v : AnnotTerm} {as : List Expr} {vs : List AnnotTerm} :
-      denoteMeta acval env φ d a = some v →
-      ReadSpine acval env φ d as vs →
-      ReadSpine acval env φ d (a :: as) (v :: vs)
-
 /-- **`Certs`' motive**: the certified spine fits the telescope's
 reading, substitution-peeling (`certs_telePA` / `certs_teleLic`,
 `Model/Steps/IotaKit.lean:246`, `IotaGate.lean:123`).  At a licensed
@@ -148,7 +138,7 @@ premises exactly there. -/
     denoteMeta m.acval env φ d ty = some Ta →
     Graded V Δa Ta →
     (∀ x ∈ args, Frame d x ∧ CtxOk m φ d Δa x) →
-    ReadSpine m.acval env φ d args vs →
+    DenoteMetaSpine m.acval env φ d args vs →
     (∀ x ∈ vs, Graded V Δa x) →
     (lic = true →
       Graded V Δa (AnnotTerm.mkAppN fa vs) ∧
@@ -169,8 +159,8 @@ been handed over as read spines — and a consumer (`Red.iota_sound`'s
   ∀ {Δa : List AnnotTerm} {asa bsa : List AnnotTerm},
     (∀ x ∈ as, Frame d x ∧ CtxOk m φ d Δa x) →
     (∀ x ∈ bs, Frame d x ∧ CtxOk m φ d Δa x) →
-    ReadSpine m.acval env φ d as asa →
-    ReadSpine m.acval env φ d bs bsa →
+    DenoteMetaSpine m.acval env φ d as asa →
+    DenoteMetaSpine m.acval env φ d bs bsa →
     (∀ x ∈ asa, Graded V Δa x) →
     (∀ x ∈ bsa, Graded V Δa x) →
     ∀ ρ : Nat → V, Sat V Δa ρ →

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
--- lane S-red's kit is the SHARED one: `ReadSpine`'s list algebra,
+-- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
 -- `denoteMeta_mkAppN(_inv)`, `frame_spine`, `hoist_spine`,
 -- `mkAppN_of_fitA`, `PiChain`/`peelPis_of_piChain` and the tower
 -- entry's reading live there, not here.
@@ -10,6 +10,8 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitShift
 import ConLeche.Verify.Denote.OpenRevDenote
 import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Model.Annot.BitClosed
+import ConLeche.Semantics.DenoteClosed
 
 public section
 
@@ -17,25 +19,25 @@ public section
 # The ι lane's transplanted kit (task #305, lane S-iota)
 
 The spine, frame and fit lemmas the ι rule and the three stuck-major
-rescues need, restated over `Motive.lean`'s `ReadSpine` and proved
-here rather than imported: `Model/Steps/*` is off the rules tier's
-proof path by design (`tests/proofdeps.sh` pins the closure), so every
-row this lane mines is TRANSPLANTED — the argument, not the import.
+rescues need, restated over `Model/Annot/BitLemmas.lean`'s
+`DenoteMetaSpine` and proved here rather than imported: every row this
+lane mines is TRANSPLANTED from the `Model/Steps/*` file the docstring
+cites — the argument, not the import — and that tier is gone since the
+task #305 closing.
 
 Provenance, row by row (the original is the docstring's citation):
 
-* the `ReadSpine` residues this lane alone uses (`mem`, `getD`,
-  `exists_of_all`) — `DenoteMetaSpine` (`Model/Steps/Stuck.lean:94-140`);
-  the rest of the spine API is `RedSoundKit.lean`'s, shared;
+* the `DenoteMetaSpine` residue this lane alone uses
+  (`exists_of_all`); the rest of the spine API is
+  `Model/Annot/BitLemmas.lean`'s, shared;
 * `interp_mkAppN_congrK` — `Model/Steps/Stuck.lean:146`;
 * `constTy_pkg` — `constType_pkg` (`Model/Steps/IotaRows.lean:200`);
 * `denoteMeta_const_arityK` — `denoteMeta_const_arity` (`:233`);
 * the annotated `take`/`drop`/`getD` list algebra — `IotaRows.lean:107-153`.
 
-Nothing here is new mathematics; the statements are the originals'
-with `DenoteMetaSpine` replaced by `ReadSpine` and the `Frame`/
-`Graded`/`LeavesSub` abbreviations of `Motive.lean` in place of the
-claims' spelled-out conjunctions.
+Nothing here is new mathematics; the statements are the originals',
+with the `Frame`/`Graded`/`LeavesSub` abbreviations of `Motive.lean`
+in place of the claims' spelled-out conjunctions.
 -/
 
 namespace ConLeche.Model.Rules
@@ -50,41 +52,19 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
-/-! ## The `ReadSpine` API -/
+/-! ## The `DenoteMetaSpine` API
 
-namespace ReadSpine
+`mem` and `getD` are `Model/Annot/BitLemmas.lean`'s since the task
+#305 closing; what is left here is the residue only this lane uses. -/
+
+namespace DenoteMetaSpine
 
 variable {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-
-theorem mem {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) :
-    ∀ x ∈ as, ∃ v, denoteMeta acval env φ d x = some v := by
-  induction h with
-  | nil => intro x hx; exact nomatch hx
-  | cons ha _ ih =>
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx'
-    · exact ⟨_, ha⟩
-    · exact ih x hx'
-
-theorem getD {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) :
-    ∀ (dflt : Expr) (i : Nat), i < as.length →
-      denoteMeta acval env φ d (as.getD i dflt) = some (vs.getD i default) := by
-  induction h with
-  | nil => intro dflt i hi; exact absurd hi (by simp)
-  | @cons a v as vs ha _ ih =>
-    intro dflt i hi
-    cases i with
-    | zero => simpa [List.getD] using ha
-    | succ k =>
-      have : k < as.length := by simpa using hi
-      simpa [List.getD] using ih dflt k this
 
 /-- Every list of readable expressions has a reading spine. -/
 theorem exists_of_all :
     ∀ (as : List Expr), (∀ x ∈ as, ∃ v, denoteMeta acval env φ d x = some v) →
-      ∃ vs, ReadSpine acval env φ d as vs := by
+      ∃ vs, DenoteMetaSpine acval env φ d as vs := by
   intro as
   induction as with
   | nil => intro _; exact ⟨[], .nil⟩
@@ -94,7 +74,7 @@ theorem exists_of_all :
     obtain ⟨vs, hvs⟩ := ih (fun y hy => h y (List.mem_cons_of_mem a hy))
     exact ⟨v :: vs, .cons hv hvs⟩
 
-end ReadSpine
+end DenoteMetaSpine
 
 /-- **The spine congruence at `interp`** (`interp_mkAppN_congr`,
 `Model/Steps/Stuck.lean:146`). -/
@@ -152,7 +132,7 @@ theorem leavesSub_of_not_hasFvar {f e : Expr} (h : f.hasFvar = false) :
 /-- A stored declaration's instantiated type: read at every depth,
 graded, inhabited, and closed (`constType_pkg`,
 `Model/Steps/IotaRows.lean:200`). -/
-theorem constTy_pkg {m : EnvModel V env} (hct : ConstTy m φ)
+theorem constTy_pkg {m : EnvModel V env} (hct : ConstType m φ)
     {n : Name} {ci : ConLeche.ConstantInfo} (hf : env.find? n = some ci)
     (hnt : ci.isTowerEntry = false) {us : List Level}
     (hlen : us.length = ci.toConstantVal.levelParams.length) :
@@ -386,7 +366,7 @@ theorem teleFitPA_residualK {acval : Name → (Name → Nat) → AnnotTerm}
       Expr.WScoped d ty →
       (∀ a ∈ args, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
       denoteMeta acval env φ d ty = some Ta →
-      ReadSpine acval env φ d args vs →
+      DenoteMetaSpine acval env φ d args vs →
       TeleFitPA V ρ Ta vs restA →
       denoteMeta acval env φ d rest = some restA := by
   intro args
@@ -428,14 +408,20 @@ theorem teleFitPA_residualK {acval : Name → (Name → Nat) → AnnotTerm}
 /-! ## The reverse opening, read
 
 `denoteMeta_openRev_base` and `denoteMeta_openRev`
-(`Model/Steps/IotaKit.lean:66`, `:103`), transplanted: the `.nested`
+(`Model/Steps/IotaKit.lean:66`, `:103`), transplanted — the ONE copy
+since the task #305 closing, which is why `Model/IndOpenRev.lean` and
+`Model/IndBottomNested.lean` read them from here: the `.nested`
 fire's comparands are stored pins instantiated at the recursor's
 parameter prefix, and this is what turns the law's OPEN reading at
 depth `rP` into the instantiated comparand's reading at the ambient
 depth. -/
 
-/-- **The base-independence of the opened validated reading**. -/
-theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
+/-- **The base-independence of the opened validated reading**
+(`denote_openRev_base`'s mirror, `Model/Steps/IotaKit.lean:66`): a constant-frame subject's reverse
+opening reads to the same annotation at every base.  The lift the
+induction has to absorb is killed by `AnnotTerm.liftN_eq_self` at the
+erasure's bvar bound — `denoteMeta_closed`'s route, one depth up. -/
+theorem denoteMeta_openRev_base {acval : Name → (Name → Nat) → AnnotTerm}
     {cval : TConstVal}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -471,26 +457,27 @@ theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
         (denoteMeta_erase hlink n (openRev 0 n e) hden)
       exact hbv.mono (by omega)
 
-/-- **Real-argument instantiation, read through the reverse opening**. -/
-theorem denoteMeta_openRevK {m : EnvModel V env}
+/-- **Real-argument instantiation, read through the reverse opening**
+(`denote_openRev`'s mirror, `Model/Steps/IotaKit.lean:103`). -/
+theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (m.acval n ψ).liftN 1 k = m.acval n ψ)
+      (acval n ψ).liftN 1 k = acval n ψ)
     (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (m.acval n ψ).inst y k = m.acval n ψ) :
+      (acval n ψ).inst y k = acval n ψ) :
     ∀ (as : List Expr) {e : Expr} {d : Nat},
       (∀ a ∈ as, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow d e → e.looseBVarsBounded as.length = true →
-      ∀ {vs : List AnnotTerm}, ReadSpine m.acval env φ d as vs →
-      denoteMeta m.acval env φ d (Expr.instSeq as (as.length - 1) e)
-        = (denoteMeta m.acval env φ (d + as.length)
+      ∀ {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
+      denoteMeta acval env φ d (Expr.instSeq as (as.length - 1) e)
+        = (denoteMeta acval env φ (d + as.length)
             (openRev d as.length e)).map (AnnotTerm.instRevChain vs) := by
   intro as
   induction as with
   | nil =>
     intro e d _ _ _ vs hsp
     cases hsp
-    show denoteMeta m.acval env φ d e = (denoteMeta m.acval env φ (d + 0) e).map _
-    cases denoteMeta m.acval env φ d e <;> rfl
+    show denoteMeta acval env φ d e = (denoteMeta acval env φ (d + 0) e).map _
+    cases denoteMeta acval env φ d e <;> rfl
   | cons a as ih =>
     intro e d hargs hfb hb vs hsp
     cases hsp with
@@ -499,7 +486,7 @@ theorem denoteMeta_openRevK {m : EnvModel V env}
         x.looseBVarsBounded 0 = true :=
       fun x hx => hargs x (List.mem_cons_of_mem _ hx)
     obtain ⟨hwa, hba⟩ := hargs a List.mem_cons_self
-    show denoteMeta m.acval env φ d
+    show denoteMeta acval env φ d
       (Expr.instSeq as ((a :: as).length - 1 - 1)
         (e.instantiate1 a ((a :: as).length - 1))) = _
     rw [show (a :: as).length - 1 - 1 = as.length - 1 from by simp,
@@ -508,15 +495,16 @@ theorem denoteMeta_openRevK {m : EnvModel V env}
       (Expr.fvarsBelow_instantiate1_gen hwa.fvarsBelow _ hfb)
       (Expr.looseBVarsBounded_instantiate1_gen hba (by simpa using hb))
       hsp']
+    -- the opened side: commute the argument out, then β at the top
     rw [openRev_instantiate1_top hba d as.length e]
-    have ha' : denoteMeta m.acval env φ (d + as.length) a
+    have ha' : denoteMeta acval env φ (d + as.length) a
         = some (va.liftN as.length) := by
       rw [denoteMeta_lift hacl hwa (d + as.length) (by omega), ha,
         show d + as.length - d = as.length from by omega]
       rfl
     rw [denoteMeta_beta (ty := .sort .zero) hacl hainst
       (openRev_fvarsBelow hfb as.length) (hwa.mono (by omega)) hba ha' 0]
-    show ((denoteMeta m.acval env φ (d + as.length + 1)
+    show ((denoteMeta acval env φ (d + as.length + 1)
       (openRev d (as.length + 1) e)).map
         (AnnotTerm.inst · (va.liftN as.length) 0)).map
         (AnnotTerm.instRevChain vs') = _
@@ -525,7 +513,7 @@ theorem denoteMeta_openRevK {m : EnvModel V env}
         simp only [List.length_cons]
         omega,
       show (a :: as).length = as.length + 1 from rfl]
-    cases denoteMeta m.acval env φ (d + (as.length + 1))
+    cases denoteMeta acval env φ (d + (as.length + 1))
         (openRev d (as.length + 1) e) with
     | none => rfl
     | some X =>
@@ -534,6 +522,37 @@ theorem denoteMeta_openRevK {m : EnvModel V env}
       rw [show AnnotTerm.instRevChain (va :: vs') X
         = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
+
+/-- **The base-independence of the opened validated reading**, at the
+lane's own spelling — `denoteMeta_openRev_base` above, whose statement
+this is. -/
+theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
+    {cval : TConstVal}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
+    (hcl : ∀ n ψ, Term.Closed (cval n ψ))
+    {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
+    (hb : e.looseBVarsBounded n = true) :
+    ∀ d : Nat, denoteMeta acval env φ (d + n) (openRev d n e)
+      = denoteMeta acval env φ n (openRev 0 n e) :=
+  denoteMeta_openRev_base hacl hlink hcl hnf hb
+
+/-- **Real-argument instantiation, read through the reverse opening**,
+at the lane's own spelling — `denoteMeta_openRev` above at `m.acval`. -/
+theorem denoteMeta_openRevK {m : EnvModel V env}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (m.acval n ψ).liftN 1 k = m.acval n ψ)
+    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (m.acval n ψ).inst y k = m.acval n ψ) :
+    ∀ (as : List Expr) {e : Expr} {d : Nat},
+      (∀ a ∈ as, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow d e → e.looseBVarsBounded as.length = true →
+      ∀ {vs : List AnnotTerm}, DenoteMetaSpine m.acval env φ d as vs →
+      denoteMeta m.acval env φ d (Expr.instSeq as (as.length - 1) e)
+        = (denoteMeta m.acval env φ (d + as.length)
+            (openRev d as.length e)).map (AnnotTerm.instRevChain vs) :=
+  denoteMeta_openRev hacl hainst
 
 /-- A list member is the value at one of its indices (the shape the
 `∀ x ∈ bsa` grading premises need when the fact is indexed). -/

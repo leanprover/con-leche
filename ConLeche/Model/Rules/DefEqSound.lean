@@ -4,6 +4,8 @@ public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Semantics.DefEqStep
+import ConLeche.Model.Annot.BitShift
+import ConLeche.Model.Annot.BitClosed
 
 public section
 
@@ -192,7 +194,7 @@ theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
 
 /-- η (`etaCertStep_of_claims`, `Steps/Stuck.lean:576`: `lamR_eta`,
 regime-uniform). -/
-theorem DefEq.eta_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.eta_sound {d : Nat}
     {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
     (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
     (hty : DefEqSem m φ d ty₂ ty₁)
@@ -308,7 +310,7 @@ theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
 
 /-- `prop_side_pt` twice (`Steps/Irrel.lean:71`): a term whose type's
 sort is zero-equivalent interprets to the point. -/
-theorem DefEq.proofIrrel_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.proofIrrel_sound {d : Nat}
     {a ta tta b tb ttb : Expr} {u v : Level}
     (hta : InferSemIO m φ d a ta) (htta : InferSemIO m φ d ta tta)
     (hu : RedSem m φ d tta (.sort u)) (hu0 : Level.isEquiv u .zero = some true)
@@ -320,7 +322,7 @@ theorem DefEq.proofIrrel_sound (_hin : RulesInputs V m φ) {d : Nat}
     prop_side_pt' htb httb hv hv0 hfb hCb hba hgb ρ hρ]
 
 /-- `unit_side_pt` twice (`unitIrrelPQ_of_claims`, `Steps/Irrel.lean:179`). -/
-theorem DefEq.unitLike_sound (_hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.unitLike_sound {d : Nat}
     {a ta wta b tb wtb : Expr}
     (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
     (hua : ConLeche.isUnitLikeTy env wta = true)
@@ -473,8 +475,8 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     rw [List.length_map, ← hspt.length, htlen]
   -- the fabricated projection spine's subject list: it reads, and it
   -- is graded
-  have hspTb : ReadSpine m.acval env φ d (wtb.getAppArgs ++ [b]) (tsa ++ [ba]) :=
-    hspt.append (ReadSpine.cons hdb ReadSpine.nil)
+  have hspTb : DenoteMetaSpine m.acval env φ d (wtb.getAppArgs ++ [b]) (tsa ++ [ba]) :=
+    hspt.append (DenoteMetaSpine.cons hdb DenoteMetaSpine.nil)
   have hframeTb : ∀ x ∈ wtb.getAppArgs ++ [b],
       Frame d x ∧ CtxOk m φ d Δa x := by
     intro x hx
@@ -576,7 +578,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
       hfields.2
         (fun x hx => frame_spine hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
-        (ReadSpine.map_list _ _ _ hprojden)
+        (DenoteMetaSpine.map_list _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     have hfab : asa.map (interp V ρ)
         = tsa.map (interp V ρ) ++ (List.range e0.numFields).map
@@ -695,7 +697,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
       hfields.2
         (fun x hx => frame_spine hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
-        (ReadSpine.map_list _ _ _ hprojden)
+        (DenoteMetaSpine.map_list _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     have hfab : asa.map (interp V ρ)
         = etaFabArgsV (fun n => interp V ρ

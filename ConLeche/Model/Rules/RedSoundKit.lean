@@ -17,11 +17,11 @@ public section
 /-!
 # The reduction lane's transplanted kit (task #305, lane S-red)
 
-The rules tier may not import `Model/Steps/*` (the proof-term pin turns
-such an import into a door, and the deletion lane removes those files
-altogether), so the semantic facts the reduction rules' soundness needs
-are **transplanted** here, argument for argument, from the rows the
-DESIGN record names.  Nothing in this file mentions a run.
+The semantic facts the reduction rules' soundness needs are
+**transplanted** here, argument for argument, from the `Model/Steps/*`
+rows the DESIGN record names — that tier was deleted at the task #305
+closing, and the citations below are its history.  Nothing in this
+file mentions a run.
 
 Sections, in the order the rules consume them:
 
@@ -32,13 +32,14 @@ Sections, in the order the rules consume them:
   and the literal expansions' blindness (`Steps/Major.lean:66`,
   `Steps/Stuck.lean:540`);
 * the δ identity (`delta_of`, `Steps/Whnf.lean:329`);
-* **the shared spine/telescope kit** — `ReadSpine`'s list algebra,
-  `denoteMeta_mkAppN(_inv)`, `hoist_spine`, `frame_spine`,
+* **the shared telescope kit** — `hoist_spine`, `frame_spine`,
   `mkAppN_of_fitA`, the `PiChain` guard with `piChain_of_stripPis`
-  and `peelPis_of_piChain`, and the tower entry's reading
+  and `peelPis_of_piChain`, and the stored entry's telescope
   (`Steps/{Stuck,CapsRows,IotaKit,TowerKit}.lean`).  This is the
   LOWEST kit of the four, so a fact more than one lane needs lives
-  here and nowhere else.
+  here and nowhere else.  `DenoteMetaSpine`'s own list algebra,
+  `denoteMeta_mkAppN(_inv)` and the tower entry's two readings are
+  `Model/Annot/BitLemmas.lean`'s, imported (task #305 closing).
 -/
 
 namespace ConLeche.Model.Rules
@@ -440,57 +441,14 @@ theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
   io_domain_transfer hv hslot ha hf
 
 
-/-! ## The spine kit at `ReadSpine` (`Steps/Stuck.lean:94-210`,
-`TowerKit.lean:60-92`, transplanted onto `Motive.lean`'s relation) -/
+/-! ## The spine kit — `Model/Annot/BitLemmas.lean`, imported
 
-/-- A read spine has the length of its source. -/
-theorem ReadSpine.length {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine m.acval env φ d as vs) : as.length = vs.length := by
-  induction h with
-  | nil => rfl
-  | cons _ _ ih => simp [ih]
-
-/-- The `k`-th argument of a read spine reads to the `k`-th reading. -/
-theorem ReadSpine.getD_read {d : Nat} :
-    ∀ {as : List Expr} {vs : List AnnotTerm}, ReadSpine m.acval env φ d as vs →
-      ∀ {k : Nat}, k < as.length →
-        denoteMeta m.acval env φ d (as.getD k (.bvar 0))
-          = some (vs.getD k default)
-  | _, _, .nil, k, hk => absurd hk (Nat.not_lt_zero k)
-  | _, _, .cons ha _, 0, _ => by simpa [List.getD] using ha
-  | _, _, .cons _ hsp, k + 1, hk => by
-    simpa [List.getD] using ReadSpine.getD_read hsp (Nat.lt_of_succ_lt_succ hk)
-
-/-- **The application spine reads**, constructing direction
-(`denoteMeta_mkAppN`; the inverse is below).  Shared: the ι lane reads
-its fabricated spines with it too. -/
-theorem denoteMeta_mkAppN {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-    {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) :
-    ∀ {f : Expr} {fa : AnnotTerm}, denoteMeta acval env φ d f = some fa →
-      denoteMeta acval env φ d (Expr.mkAppN f as)
-        = some (AnnotTerm.mkAppN fa vs) := by
-  induction h with
-  | nil => intro f fa hf; exact hf
-  | cons ha _ ih =>
-    intro f fa hf
-    exact ih (by rw [denoteMeta_app, hf, ha]; rfl)
-
-/-- **The application spine, inverted at the validated reading**
-(`denoteMeta_mkAppN_inv`, at `ReadSpine`). -/
-theorem denoteMeta_mkAppN_inv {d : Nat} :
-    ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
-    denoteMeta m.acval env φ d (Expr.mkAppN f as) = some ea →
-    ∃ fa vs, denoteMeta m.acval env φ d f = some fa ∧
-      ReadSpine m.acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
-  intro as
-  induction as with
-  | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
-  | cons a as ih =>
-    intro f ea h
-    obtain ⟨fa, vs, hfa, hsp, rfl⟩ := ih h
-    obtain ⟨ff, aa, hff, haa, rfl⟩ := denoteMeta_app_inv hfa
-    exact ⟨ff, aa :: vs, hff, .cons haa hsp, rfl⟩
+`DenoteMetaSpine` and its list algebra (`length`, `getD_read`,
+`take`, `drop`, `append`, `map_list`, `snoc`, `getD`, `mem`),
+`denoteMeta_mkAppN(_inv)` and the tower entry's two readings are
+that file's, and there is ONE copy of each (task #305 closing).
+What is still stated here is what mentions the rules tier's own
+`Graded`/`Frame` abbreviations. -/
 
 /-- Every argument of a graded application spine is graded, and so is
 its head (`hoist_spine`). -/
@@ -522,74 +480,8 @@ theorem frame_spine {d : Nat} {Δa : List AnnotTerm} {a : Expr}
       fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
     hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
 
-/-! ## The spine kit, completed (`Steps/CapsRows.lean:324-446`).
-Shared by all four lanes — `take`/`drop`/`append`/`map_list` and the
-tower entry's reading were transplanted three times over and are one
-copy here. -/
-
-theorem ReadSpine.take {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) :
-    ∀ n, ReadSpine acval env φ d (as.take n) (vs.take n) := by
-  induction h with
-  | nil => intro n; simpa using ReadSpine.nil
-  | @cons a v as vs ha _ ih =>
-    intro n
-    cases n with
-    | zero => exact ReadSpine.nil
-    | succ n => exact ReadSpine.cons ha (ih n)
-
-theorem ReadSpine.drop {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) :
-    ∀ n, ReadSpine acval env φ d (as.drop n) (vs.drop n) := by
-  induction h with
-  | nil => intro n; simpa using ReadSpine.nil
-  | @cons a v as vs ha htl ih =>
-    intro n
-    cases n with
-    | zero => exact ReadSpine.cons ha htl
-    | succ n => exact ih n
-
-theorem ReadSpine.append {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {as bs : List Expr} {vs ws : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs)
-    (h2 : ReadSpine acval env φ d bs ws) :
-    ReadSpine acval env φ d (as ++ bs) (vs ++ ws) := by
-  induction h with
-  | nil => exact h2
-  | cons ha _ ih => exact ReadSpine.cons ha ih
-
-/-- A spine of uniformly-reading expressions (the fabricated
-projection lists). -/
-theorem ReadSpine.map_list {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-    {β : Type _} (f : β → Expr) (g : β → AnnotTerm) :
-    ∀ (l : List β), (∀ x ∈ l, denoteMeta acval env φ d (f x) = some (g x)) →
-      ReadSpine acval env φ d (l.map f) (l.map g) := by
-  intro l
-  induction l with
-  | nil => intro _; exact ReadSpine.nil
-  | cons x xs ih =>
-    intro h
-    exact ReadSpine.cons (h x List.mem_cons_self)
-      (ih (fun y hy => h y (List.mem_cons_of_mem x hy)))
-
-/-! ## The tower entry's reading (`Steps/TowerKit.lean:46`, `:173`) -/
-
-/-- The clause at a stored entry: the uniform iterated projection. -/
-theorem denoteMeta_proj_tower {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {s : Name} {i : Nat} {e : Expr}
-    {entry : ProjEntry} {ia : AnnotTerm}
-    (hfe : env.findProj? s i = some entry)
-    (he : denoteMeta acval env φ d e = some ia) :
-    denoteMeta acval env φ d (.proj s i e)
-      = some (projAV (i + entry.off) ia) := by
-  rw [denoteMeta_proj, he]
-  show (match env.findProj? s i with
-    | some entry => some (projAV (i + entry.off) ia)
-    | none => AnnotTerm.projPair? i ia)
-      = some (projAV (i + entry.off) ia)
-  rw [hfe]
+/-! ## The tower entry's telescope (`Steps/TowerKit.lean:46`, `:173`;
+the entry's two READINGS are `Model/Annot/BitLemmas.lean`'s) -/
 
 /-- A stored tower entry's body telescope is closed. -/
 theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
@@ -620,20 +512,6 @@ theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
   have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
     denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
-
-/-- The inversion of a `.proj` reading at a stored entry
-(`denoteMeta_proj_inv_tower`). -/
-theorem denoteMeta_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
-    {entry : ProjEntry} {ea : AnnotTerm}
-    (hfe : env.findProj? s i = some entry)
-    (h : denoteMeta m.acval env φ d (.proj s i e) = some ea) :
-    ∃ ia, denoteMeta m.acval env φ d e = some ia ∧
-      ea = projAV (i + entry.off) ia := by
-  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -⟩
-  · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
-    exact ⟨ia, hia, rfl⟩
-  · rw [hnt] at hfe; exact nomatch hfe
 
 /-! ## The ∀-chain guard and the fit's un-instantiation
 (`Steps/CapsRows.lean:79-180`, `ProjRows.lean:254`, transplanted) -/
@@ -700,10 +578,6 @@ theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
     obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
     exact peelPis_of_piChain as (PiChain.inst a 0 hB)
 
-theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
-    (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
-  cases h; rfl
-
 /-- **The fit un-instantiates, under the ∀-chain guard**
 (`teleFit_of_inst`). -/
 theorem teleFit_of_inst {aa : AnnotTerm} :
@@ -756,9 +630,9 @@ theorem teleFit_of_teleFitPA {ρ : Nat → V} :
 
 /-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
 
-/-- The instantiated form of `DefnReads`, by the level crossing
+/-- The instantiated form of `AcvalDefnInst`, by the level crossing
 (`acvalDefnInst_subst`, `Steps/Whnf.lean:277`). -/
-theorem denoteMetaDefnInst {m : EnvModel V env} (hdi : DefnReads m)
+theorem denoteMetaDefnInst {m : EnvModel V env} (hdi : AcvalDefnInst m)
     (φ : Name → Nat) {cv : ConstantVal} {value : Expr} {us : List Level}
     (hmem : ∃ hint : ConLeche.ReducibilityHint,
       ConstantInfo.defnInfo cv value hint ∈ env.consts) :
@@ -806,7 +680,7 @@ private theorem deltaCore (m : EnvModel V env)
 /-- **The δ step is invisible to the reading** (`delta_of`,
 `Steps/Whnf.lean:329`): the unfolding has the subject's own
 annotation. -/
-theorem denoteMeta_unfoldDefinition {m : EnvModel V env} (hdi : DefnReads m)
+theorem denoteMeta_unfoldDefinition {m : EnvModel V env} (hdi : AcvalDefnInst m)
     {d : Nat} {e e' : Expr} {ea : AnnotTerm}
     (hud : ConLeche.unfoldDefinition env e = some e')
     (hea : denoteMeta m.acval env φ d e = some ea) :

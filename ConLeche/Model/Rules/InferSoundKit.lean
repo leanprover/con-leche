@@ -1,20 +1,25 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
--- lane S-red's kit is the SHARED one: `ReadSpine`'s list algebra,
+-- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
 -- `denoteMeta_mkAppN(_inv)`, `denoteMeta_proj_inv_tower`,
 -- `teleFit_nil_inv` and the tower entry's reading live there
 import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Semantics.Hoist
+import ConLeche.Semantics.LitStep
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.WellDenotedTransport
+import ConLeche.Model.Annot.ValidSpine
 
 public section
 
 /-!
 # The S-infer kit (task #305, lane S-infer)
 
-The pieces the inference rules' soundness needs that today live in
-`Model/Steps/*`, restated here **by transplant** (the proofdeps pin
-turns an import of a Steps row into a door, so the lane copies the
-argument instead):
+The pieces the inference rules' soundness needs, restated here **by
+transplant** from the `Model/Steps/*` rows that carried them until the
+task #305 closing deleted that tier (the citations below are their
+provenance):
 
 * `wellDenotedV_mkAppN_of_fit` (`Steps/CapsRows.lean:402`) — the
   fit-to-application kit the string chain rides (`teleFit_nil_inv`,
@@ -22,7 +27,7 @@ argument instead):
   S-red's `RedSoundKit.lean`);
 * `charList_facts` and `strLitFacts` (`Steps/StrLit.lean:70`, `:176`)
   — the `String`-literal clause's whole content, stated over
-  `RulesInputs`' fields (`ConstTy`/`LeafValid`/`NatLeafHeads` are
+  `RulesInputs`' fields (`ConstType`/`AcvalValid`/`NatHeads` are
   `ConstType`/`AcvalValid`/`NatHeads` verbatim).
 -/
 
@@ -249,8 +254,8 @@ the only environment facts consumed are the four memberships and
 
 /-- **The string chain, at the environment.**  `strLit_facts`' mirror
 at the validated-annotation currency. -/
-theorem strLitFacts {m : EnvModel V env} (hct : ConstTy m φ)
-    (hval : LeafValid m) (hnh : NatLeafHeads m φ)
+theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
+    (hval : AcvalValid m) (hnh : NatHeads m φ)
     (hg : ConLeche.strLitSupported env = true) {d : Nat} {s : String}
     {ea : AnnotTerm}
     (hea : denoteMeta m.acval env φ d (.lit (.strVal s)) = some ea)
@@ -548,18 +553,8 @@ theorem WellDenotedV_projAV_hoist {i : Nat} {e : AnnotTerm} {σ : Nat → V}
 The `.proj` rule's reading walk, transplanted: the spine inversion,
 the entry-kind inversion, and the fit-free residual — the checker's
 `instPisAt` peel of the stored entry type reads to the syntactic peel
-of its reading.  `DenoteMetaSpine` is `Motive.lean`'s `ReadSpine`. -/
-
-/-- A read spine extended by one read argument. -/
-theorem ReadSpine.snoc {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    {a : Expr} {v : AnnotTerm}
-    (h : ReadSpine acval env φ d as vs)
-    (ha : denoteMeta acval env φ d a = some v) :
-    ReadSpine acval env φ d (as ++ [a]) (vs ++ [v]) := by
-  induction h with
-  | nil => exact .cons ha .nil
-  | cons h1 _ ih => exact .cons h1 ih
-
+of its reading.  The spine relation and its algebra are
+`Model/Annot/BitLemmas.lean`'s `DenoteMetaSpine`. -/
 
 /-- **The checker's `instPisAt` peel reads to the syntactic peel of
 the type's reading** — `teleFitPA_residual` without the fit: the two
@@ -577,7 +572,7 @@ theorem denoteMeta_instPisAt_peel
       Expr.WScoped d ty →
       (∀ a ∈ args, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
       denoteMeta acval env φ d ty = some Ta →
-      ReadSpine acval env φ d args vs →
+      DenoteMetaSpine acval env φ d args vs →
       ∃ restA, denoteMeta acval env φ d rest = some restA ∧
         AnnotTerm.peelPis Ta vs = some restA := by
   intro args
@@ -634,7 +629,7 @@ theorem denoteMeta_typeAt_peel {m : EnvModel V env} {T : Name} {i : Nat}
     {targs : List Expr} {pe : Expr} (hlen : targs.length = entry.numParams)
     (hframes : ∀ a ∈ targs ++ [pe], Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
     {vs : List AnnotTerm}
-    (hsp : ReadSpine m.acval env φ d (targs ++ [pe]) vs) :
+    (hsp : DenoteMetaSpine m.acval env φ d (targs ++ [pe]) vs) :
     ∃ restA, denoteMeta m.acval env φ d (entry.typeAt us targs pe) = some restA ∧
       AnnotTerm.peelPis Ta vs = some restA := by
   obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa

@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
+import ConLeche.Model.Annot.BitInst
 
 public section
 
@@ -47,7 +48,7 @@ theorem certs_step {d : Nat} {lic : Bool} {ty body arg : Expr}
     (hCT : CtxOk m φ d Δa (.forallE ty body mb))
     (hgT : Graded V Δa (.pi 0 (pwBit φ mb.pw) doma bodya))
     (hargs : ∀ x ∈ arg :: rest, Frame d x ∧ CtxOk m φ d Δa x)
-    (hsp' : ReadSpine m.acval env φ d rest vs')
+    (hsp' : DenoteMetaSpine m.acval env φ d rest vs')
     (hgvs : ∀ x ∈ aa :: vs', Graded V Δa x)
     (hlicP : lic = true →
       Graded V Δa (AnnotTerm.mkAppN fa (aa :: vs')) ∧
@@ -110,7 +111,7 @@ theorem certs_step {d : Nat} {lic : Bool} {ty body arg : Expr}
   exact ⟨resta, fun ρ hρ => .cons (hmemA ρ hρ) (hfit ρ hρ), hgresta⟩
 
 /-- The licensed slot: `iota_slot_transfer` (`Steps/IotaGate.lean:63`). -/
-theorem Certs.skip_sound (_hin : RulesInputs V m φ) {d : Nat} {lic : Bool}
+theorem Certs.skip_sound {d : Nat} {lic : Bool}
     {ty body arg : Expr} {mb : BinderMeta} {rest : List Expr}
     (hlic : lic = true) (hnev : mb.pw.isNever = true)
     (hrest : CertsSem m φ d lic (body.instantiate1 arg) rest) :
@@ -148,7 +149,7 @@ theorem Certs.skip_sound (_hin : RulesInputs V m φ) {d : Nat} {lic : Bool}
     hbodya haa hfarg hCarg hokA hokBody hmemA
 
 /-- The certified slot: `certs_telePA`'s step (`Steps/IotaKit.lean:246`). -/
-theorem Certs.cert_sound (_hin : RulesInputs V m φ) {d : Nat} {lic : Bool}
+theorem Certs.cert_sound {d : Nat} {lic : Bool}
     {ty body arg ta : Expr} {mb : BinderMeta} {rest : List Expr}
     (hta : InferSemIO m φ d arg ta) (hd : DefEqSem m φ d ta ty)
     (hrest : CertsSem m φ d lic (body.instantiate1 arg) rest) :

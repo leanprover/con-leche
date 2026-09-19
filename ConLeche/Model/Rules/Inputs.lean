@@ -10,83 +10,43 @@ public section
 What the soundness of a derivation reads about the ENVIRONMENT — the
 stored data's readings, gradings and laws — and nothing about the
 implementation.  One structure, `RulesInputs`, sorted by the tier that
-discharges each field.  Six fields are the laws `EnvModelM` already
-carries (`TowerOk`, `RecRules`, `CapsOk` are imported from
-`Model/Annot/EnvModelM.lean`; `ConstTy`, `LeafValid`, `NatLeafHeads`,
-`DefnReads` restate `Model/Steps/*`'s `ConstType`, `AcvalValid`,
-`NatHeads`, `AcvalDefnInst` verbatim so that this module does not
-import a file stated over runs).  Two fields are NEW SHAPES:
+discharges each field.
+
+Seven fields are the laws `EnvModelM` already carries: `ConstType`,
+`AcvalValid`, `NatHeads`, `AcvalDefnInst`, `TowerOk`, `RecRules` and
+`CapsOk`, all of them `Model/Annot/Laws.lean`'s (re-exported by
+`Model/Annot/EnvModelM.lean`).  `RulesInputs.ofEnvModelM` below reads
+each of them off the fold's invariant.  No `Model/Steps/*` exists: the
+tier was deleted at the task #305 closing, and the definitions that
+used to be restated here are the originals.
+
+Two fields are NEW SHAPES:
 
 * `NatSuccRow` / `NatOpRow` — the literal accelerations' semantic
   content, stated at the shapes `reduceNat` fires on with the
   arguments already at literal readings (`rawNatLit?`), and with the
-  subject's reading a premise.  Today this content is routed as
-  `ReduceNatStep`/`ReduceNatStepPQ` (`Model/Steps/Whnf.lean:220`,
-  `DefEq.lean:263`), which are stated over RUNS of `reduceNat` and
-  take `WhnfClaim` at the same fuel; `Model/NatStep.lean` proves them
-  from `EnvModelM.nat_ops`/`div_mod`.  The recomposition
-  (`Recompose.lean`) has only `TierInputsAt`, whose two nat fields are
-  those run rows, and derives these from them by instantiating at the
-  literal run — see the record.
+  subject's reading a premise.  They are proved in
+  `Model/NatStep.lean` from `EnvModelM.nat_ops`/`div_mod`, which is
+  where the content lives; they stay ARGUMENTS of `ofEnvModelM`
+  because that file sits above this one (`Model/Capstone.lean`'s
+  `RulesInputs.ofSem` supplies them).
 
 The row for the `Red.natLit` step (`lit n ↦ natLitToConstructor n`)
 needs no input: the reading is invisible to the step
-(`denoteMeta_litToCtorIfNat`, `Model/Steps/Major.lean:66`); the string
-expansion likewise (`denotePStrLit_of_guard`, `Stuck.lean:540`).
+(`denoteMeta_litToCtorIfNat`); the string expansion likewise
+(`denotePStrLit_of_guard`).
 -/
-
 namespace ConLeche.Model.Rules
 open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name)
+open ConLeche (CheckMode Env Expr Name)
 open ConLeche.Rules
 
 universe w
 
-variable {V : Type w} [SetTheory V]
-
-/-- Every stored leaf is bit-valid (`AcvalValid`, `Steps/Infer.lean:119`). -/
-@[expose] def LeafValid {env : Env} (m : EnvModel V env) : Prop :=
-  ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
-    AnnotValid V ρ (m.acval n ψ)
-
-/-- A stored constant's instantiated type reads, is graded, and holds
-the constant's leaf (`ConstType`, `Steps/Infer.lean:125`). -/
-@[expose] def ConstTy {env : Env} (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (d : Nat) (n : Name) (ci : ConLeche.ConstantInfo) (us : List Level),
-    env.find? n = some ci → ci.isTowerEntry = false →
-    us.length = ci.toConstantVal.levelParams.length →
-    ∃ ta,
-      denoteMeta m.acval env φ d
-        (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta ∧
-      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
-      ∀ ρ : Nat → V,
-        interp V ρ (m.acval n
-            (Level.substFn φ ci.toConstantVal.levelParams us))
-          ∈ˢ interp V ρ ta
-
-/-- The numeral heads (`NatHeads`, `Steps/Infer.lean:525`). -/
-@[expose] def NatLeafHeads {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
-    Prop :=
-  ConLeche.natLitSupported env = true →
-  ∀ ρ : Nat → V,
-    interp V ρ (m.acval natZeroName (Level.substFn φ [] []))
-      ∈ˢ interp V ρ (m.acval natName (Level.substFn φ [] [])) ∧
-    interp V ρ (m.acval natSuccName (Level.substFn φ [] []))
-      ∈ˢ piR 1 (interp V ρ (m.acval natName (Level.substFn φ [] [])))
-        (fun _ => interp V ρ
-          (m.acval natName (Level.substFn φ [] [])))
-
-/-- A stored definition's value reads to the constant's own leaf
-(`AcvalDefnInst`, `Steps/Whnf.lean:266`) — the δ step's whole input. -/
-@[expose] def DefnReads {env : Env} (m : EnvModel V env) : Prop :=
-  ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
-    (∃ hint : ReducibilityHint,
-      ConstantInfo.defnInfo cv value hint ∈ env.consts) →
-    denoteMeta m.acval env ψ 0 value = some (m.acval cv.name ψ)
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The successor packing's semantic row**: `Nat.succ w` at a literal
 reading of `w` interprets as the packed literal, which reads and is
@@ -123,13 +83,13 @@ graded. -/
 structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop where
   /-- install tier: a stored constant's type row -/
-  const_ty : ConstTy m φ
+  const_ty : ConstType m φ
   /-- install tier: leaf bit-validity -/
-  leaf_valid : LeafValid m
+  leaf_valid : AcvalValid m
   /-- install tier: the numeral heads -/
-  nat_heads : NatLeafHeads m φ
+  nat_heads : NatHeads m φ
   /-- install tier: a stored definition's value reads to its leaf -/
-  defn : DefnReads m
+  defn : AcvalDefnInst m
   /-- install tier: the projection tables' laws -/
   tower_ok : TowerOk m φ
   /-- iota tier: the stored recursors' fired contracts -/
@@ -140,5 +100,25 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   nat_succ : NatSuccRow m φ
   /-- literal tier: the binary operations -/
   nat_op : NatOpRow m φ
+
+/-- **The env-tier inputs, from the fold's invariant**: every field but
+the two literal rows is an `EnvModelM` projection; the rows stay
+arguments because `natSuccRow_of`/`natOpRow_of` (`Model/NatStep.lean`)
+sit above this file — `Model/Capstone.lean`'s `RulesInputs.ofSem`
+supplies them.  Replaces `TierInputsAt.ofEnvModelM` (task #305
+closing). -/
+theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
+    (mp : EnvModelM V μ env)
+    (hsucc : NatSuccRow mp.base2 φ) (hop : NatOpRow mp.base2 φ) :
+    RulesInputs V mp.base2 φ where
+  const_ty := mp.constType
+  leaf_valid := mp.acvalValid
+  nat_heads := mp.nat_heads φ
+  defn := mp.defn_reads
+  tower_ok := mp.tower_ok φ
+  rec_rules := mp.rec_rules φ
+  caps_ok := mp.caps_ok
+  nat_succ := hsucc
+  nat_op := hop
 
 end ConLeche.Model.Rules

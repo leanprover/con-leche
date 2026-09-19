@@ -1,6 +1,6 @@
 module
 
--- lane S-red's kit is the SHARED one: `ReadSpine`'s list algebra,
+-- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
 -- `hoist_spine`, `frame_spine`, `denoteMeta_mkAppN(_inv)`, the
 -- `PiChain` guard and the tower entry's reading live there
 public import ConLeche.Model.Rules.RedSoundKit
@@ -20,6 +20,7 @@ HERE only — the transplant of `Model/Steps/IrrelFast.lean`, which
 carries the same escape for the same reason. -/
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Semantics.Hoist
+import ConLeche.Model.Annot.BitLevels
 
 public section
 
@@ -29,11 +30,11 @@ public section
 The plumbing the per-rule lemmas of `Model/Rules/DefEqSound.lean`
 share: the frame/grading splitters at each node shape, the two `Nat`
 constant readings, and `projAV`'s congruence.  Everything here is a
-TRANSPLANT of an argument that lives today in `Model/Steps/*`
-(`DefEq.lean`'s `hoist_*` and `denoteMeta_nat*Const`,
-`ProjAVKit.lean`'s `projAV` family) — restated at the rules tier's
-`Frame`/`Graded` vocabulary, so that no `Model/Rules` module imports a
-file stated over runs.
+TRANSPLANT of an argument that lived in `Model/Steps/*` until the task
+#305 closing deleted that tier (`DefEq.lean`'s `hoist_*` and
+`denoteMeta_nat*Const`, `ProjAVKit.lean`'s `projAV` family) — restated
+at the rules tier's `Frame`/`Graded` vocabulary, so that no
+`Model/Rules` module is stated over runs.
 -/
 
 namespace ConLeche.Model.Rules
@@ -224,7 +225,7 @@ theorem Graded.projAV {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
 
 /-- A stored declaration's instantiated type: read at every depth,
 graded, inhabited, and framed (closed, so the frames are free). -/
-theorem constType_pkg {m : EnvModel V env} (hct : ConstTy m φ)
+theorem constType_pkg {m : EnvModel V env} (hct : ConstType m φ)
     {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
     (hnt : ci.isTowerEntry = false) {us : List Level}
     (hlen : us.length = ci.toConstantVal.levelParams.length) :
@@ -258,7 +259,7 @@ theorem constType_pkg {m : EnvModel V env} (hct : ConstTy m φ)
 
 The whole squash-regime licence, transplanted: the `V`-level facts,
 the type former's `.pi` chain, and `prf_of_isProofFast` itself, with
-`ConstType` read as the rules tier's `ConstTy`. -/
+`ConstType` read as the rules tier's `ConstType`. -/
 
 /-! ## 1. The squash-regime facts, V level -/
 
@@ -447,7 +448,7 @@ levels) lands in `univ 0`: `ConstType` supplies `I`'s membership in
 its instantiated stored type and that type's grading; the chain is
 read off the stored syntax at the composed valuation. -/
 theorem typeFormer_mem_univ_zero {m : EnvModel V env}
-    (hct : ConstTy m φ) {ρ : Nat → V} {d : Nat} {T : Expr}
+    (hct : ConstType m φ) {ρ : Nat → V} {d : Nat} {T : Expr}
     {I : Name} {us : List Level} {ci : ConstantInfo} {u : Level} {Ta : AnnotTerm}
     (hfn : T.getAppFn = .const I us) (hfI : env.find? I = some ci)
     (hnt : ci.isTowerEntry = false)
@@ -496,7 +497,7 @@ theorem mem_fvarLeaves_of_ty {ty : Expr} {idx : Nat}
 head-symbol case split of `isProofFast`, each case closed by the
 squash-regime licence (a ∀-typed head, a λ) or the one graph-regime
 step (a type-former-typed head). -/
-theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstTy m φ)
+theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstType m φ)
     {d : Nat} {a : Expr} {Δa : List AnnotTerm} {aa : AnnotTerm}
     (h : isProofFast env.find? a = true)
     (hCa : CtxOk m φ d Δa a)
@@ -618,11 +619,10 @@ theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstTy m φ)
 /-! ## The η-projection spelling, unfolded locally
 
 `rw [ConLeche.etaProjs]` would reference the function's EQUATION
-LEMMA, which Lean generated in `Model/Steps/CapsRows.lean` — the first
-module to force it — so the proof term would name a `Model/Steps`
-module and the proof-term pin would read a door.  The checker's
+LEMMA, generated in whichever module first forces it.  The checker's
 definitions are `@[expose]`d, so the clause is available by `rfl`
-here, in this tier's own module. -/
+here, in this tier's own module, and the proof term names nothing
+outside it. -/
 
 theorem etaProjs_eq (T : Name) (us : List Level) (targs : List Expr)
     (b : Expr) (nF : Nat) :
@@ -635,8 +635,8 @@ theorem etaProjs_eq (T : Name) (us : List Level) (targs : List Expr)
   rfl
 
 /-- The fabricated η spine's values, unfolded here for the same reason
-(`etaFabArgsV`/`projSpines` are `EnvModelM`'s, but their equation
-lemmas were generated in `Model/Steps/CapsRows.lean`). -/
+(`etaFabArgsV`/`projSpines` are `EnvModelM`'s; `rfl` beats naming
+their equation lemmas here too). -/
 theorem etaFabArgsV_eq (val : Name → V) (T : Name) (ts : List V) (b : V)
     (nF : Nat) :
     etaFabArgsV val T ts b nF =

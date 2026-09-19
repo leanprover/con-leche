@@ -20,12 +20,11 @@ operations' λ-towers.
 The two pieces the seal-II record scoped as owed are in place here:
 `EnvModelM.nat_ops` and `EnvModelM.div_mod` (the recurrence laws, from
 the run certificates) and the transports.  The third — the whnf IH —
-belongs to the RUN side, which since task #305 R-nat lives with its
-consumer: `reduceNatStep_of_rows` (`Model/Steps/Tiers.lean`) inverts a
-`reduceNat` run into these two shapes and is the only thing that ever
-needed a `WhnfClaim`.  So `TierInputsAt`'s two literal fields are
-these rows, and the run rows `ReduceNatStep`/`ReduceNatStepPQ` are
-produced in one place, from them.
+belonged to the RUN side, and the rules tier retired it with the run
+rows themselves: `Rules.RulesInputs`' two literal fields
+(`Model/Rules/Inputs.lean`) ARE these rows, and `Model/Capstone.lean`'s
+`Rules.RulesInputs.ofSem` is where the two theorems below are read into
+the bundle.
 
 The reduct's reading, grading and frame conditions are unchanged from
 `Steps/Nat.lean`'s leaf analysis, which was always premise-free; what
