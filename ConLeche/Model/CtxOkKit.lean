@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Annot.BitShift
+import ConLeche.Verify.InferLeaves
 public section
 
 /-!

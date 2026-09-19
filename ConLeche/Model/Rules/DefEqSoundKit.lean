@@ -459,7 +459,7 @@ theorem typeFormer_mem_univ_zero {m : EnvModel V env}
     interp V ρ Ta ∈ˢ (univ 0 : V) := by
   obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constType_pkg hct hfI hnt hlen
   have htaI' := htaI d
-  rw [denoteMetaInstLevels] at htaI'
+  rw [denotePInstLevels] at htaI'
   have hchain := neverChain_of_peel (env := env) T.getAppArgs.length hpeel htaI'
   rw [hz] at hchain
   exact mem_univ_zero_of_spine hfn hTa (denoteMeta_const hfI hlen) hchain

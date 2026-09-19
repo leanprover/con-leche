@@ -106,7 +106,7 @@ public import ConLeche.Model.Annot.BitInstall
 public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.ValidSpine
-public import ConLeche.Model.Steps.BitLevels
+public import ConLeche.Model.Annot.BitLevels
 -- P modules the old `ConLeche/SetR.lean` umbrella covered only transitively;
 -- named here so `lake build ConLecheModel` roots the whole lane.
 public import ConLeche.Model.Annot.BitRename

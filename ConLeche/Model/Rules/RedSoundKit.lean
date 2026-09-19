@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Annot.BitInstall
 import ConLeche.Model.CtxOkKit
@@ -25,8 +26,8 @@ DESIGN record names.  Nothing in this file mentions a run.
 Sections, in the order the rules consume them:
 
 * the level crossing and the assignment-independent literal slots
-  (`Model/Steps/BitLevels.lean`'s `acval_*`/`denotePInstLevels`, renamed
-  so that the two spellings can coexist while `Model/Steps` lives);
+  (`Model/Annot/BitLevels.lean`'s `acval_*`/`denotePInstLevels`, now
+  imported rather than transplanted — that file is impl-free);
 * the two `Nat` constructor readings (`Steps/DefEq.lean:99`, `:119`)
   and the literal expansions' blindness (`Steps/Major.lean:66`,
   `Steps/Stuck.lean:540`);
@@ -53,208 +54,15 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 variable {m : EnvModel V env}
 
-/-! ## The level crossing (`Steps/BitLevels.lean`, transplanted) -/
+/-! ## The level crossing — `Model/Annot/BitLevels.lean`, imported
 
-/-- A parameter-free slot is valued independently of the assignment. -/
-theorem acvalIsEmpty (m : EnvModel V env) {n : Name}
-    {ci : ConstantInfo} (hf : env.find? n = some ci)
-    (he : ci.toConstantVal.levelParams.isEmpty = true)
-    (ψ₁ ψ₂ : Name → Nat) : m.acval n ψ₁ = m.acval n ψ₂ := by
-  refine m.acval_params n ci hf ψ₁ ψ₂ fun p hpm => ?_
-  rw [List.isEmpty_iff] at he
-  rw [he] at hpm
-  exact nomatch hpm
+`acval_isEmpty`, `acval_oneParam`, `acval_scalar`, `acval_one`,
+`acval_natPair` and `denotePInstLevels` were transplanted here under
+camelCase names so that the two spellings could coexist while
+`Model/Steps/BitLevels.lean` lived.  That file is impl-free and moved to
+`Model/Annot/BitLevels.lean` (task #305 closing), so the kit imports it
+and there is ONE copy, under that file's own names. -/
 
-/-- A one-parameter slot substituted at `Level.zero` is valued
-independently of the assignment. -/
-theorem acvalOneParam (m : EnvModel V env) {n : Name}
-    {ci : ConstantInfo} (hf : env.find? n = some ci)
-    (hlen : ci.toConstantVal.levelParams.length = 1)
-    (ψ₁ ψ₂ : Name → Nat) :
-    m.acval n (Level.substFn ψ₁ ci.toConstantVal.levelParams [.zero])
-      = m.acval n
-        (Level.substFn ψ₂ ci.toConstantVal.levelParams [.zero]) := by
-  refine m.acval_params n ci hf _ _ ?_
-  intro p hpm
-  refine Level.substFn_ext (ps := []) (fun q hq => nomatch hq) ?_ ?_ p
-    hpm
-  · intro u hu
-    simp only [List.mem_singleton] at hu
-    subst hu
-    rfl
-  · simp [hlen]
-
-/-- The scalar literal-support slots, read off their shape guards. -/
-theorem acvalScalar (m : EnvModel V env) (nm : Name)
-    (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
-    (hnone : f none = false)
-    (hshape : ∀ ci, f (some ci) = true →
-      ci.toConstantVal.levelParams.isEmpty = true)
-    (ψ₁ ψ₂ : Name → Nat) : m.acval nm ψ₁ = m.acval nm ψ₂ := by
-  cases hx : env.find? nm with
-  | none => rw [hx, hnone] at hfok; exact nomatch hfok
-  | some ci =>
-    rw [hx] at hfok
-    exact acvalIsEmpty m hx (hshape ci hfok) _ _
-
-/-- The two one-parameter literal-support slots. -/
-theorem acvalOne (m : EnvModel V env) (nm : Name)
-    (f : Option ConstantInfo → Bool) (hfok : f (env.find? nm) = true)
-    (hnone : f none = false)
-    (hshape : ∀ ci, f (some ci) = true →
-      ci.toConstantVal.levelParams.length = 1)
-    (ψ₁ ψ₂ : Name → Nat) :
-    m.acval nm (Level.substFn ψ₁ (levelParamsAt env nm) [.zero])
-      = m.acval nm
-        (Level.substFn ψ₂ (levelParamsAt env nm) [.zero]) := by
-  cases hx : env.find? nm with
-  | none => rw [hx, hnone] at hfok; exact nomatch hfok
-  | some ci =>
-    have hlp : levelParamsAt env nm = ci.toConstantVal.levelParams := by
-      simp [levelParamsAt, hx]
-    rw [hx] at hfok
-    rw [hlp]
-    exact acvalOneParam m hx (hshape ci hfok) _ _
-
-/-- The `Nat`-literal leaves are assignment-independent. -/
-theorem acvalNatPair (m : EnvModel V env)
-    (hg : ConLeche.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
-    m.acval natZeroName ψ₁ = m.acval natZeroName ψ₂ ∧
-      m.acval natSuccName ψ₁ = m.acval natSuccName ψ₂ := by
-  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨-, hz⟩, hs⟩ := hg
-  refine ⟨acvalScalar m natZeroName natZeroOk hz rfl ?_ _ _,
-    acvalScalar m natSuccName natSuccOk hs rfl ?_ _ _⟩
-  · intro ci h
-    cases ci with
-    | ctorInfo cv a b =>
-      simp only [natZeroOk, Bool.and_eq_true] at h
-      simpa [ConstantInfo.toConstantVal] using h.1
-    | _ => simp [natZeroOk] at h
-  · intro ci h
-    cases ci with
-    | ctorInfo cv a b =>
-      simp only [natSuccOk, Bool.and_eq_true] at h
-      simpa [ConstantInfo.toConstantVal] using h.1
-    | _ => simp [natSuccOk] at h
-
-/-- **The level crossing for `denoteMeta`, unconditional and exact**:
-reading an instantiated term at `φ` is reading the term at the
-composed valuation `Level.substFn φ ks us`.  The binder step is
-`pwBit_substPW` (i.e. `PropWhen.holds_substPW`); the constant step is
-`EnvModel.acval_params` + `Level.substFn_map_subst`, as in the canonical
-walk. -/
-theorem denoteMetaInstLevels (m : EnvModel V env)
-    (φ : Name → Nat) (ks : List Name) (us : List Level) :
-    ∀ (d : Nat) (e : Expr),
-      denoteMeta m.acval env φ d (e.instantiateLevelParams ks us)
-        = denoteMeta m.acval env (Level.substFn φ ks us) d e := by
-  intro d e
-  induction d, e using denoteMeta.induct (env := env) with
-  | case1 d u =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, Level.eval_subst]
-  | case2 d idx ty =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta]
-  | case3 d n vs ci hf hlen =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, hf]
-    dsimp only
-    rw [if_pos hlen, if_pos (by simpa using hlen)]
-    exact congrArg some
-      (m.acval_params n ci hf _ _ fun p hp =>
-        Level.substFn_map_subst hlen hp)
-  | case4 d n vs ci hf hlen =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, hf]
-    dsimp only
-    rw [if_neg hlen, if_neg (by simpa using hlen)]
-  | case5 d n vs hf =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, hf]
-  | case6 d ty body mb ihty ihbody =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      ← Expr.instantiateLevelParams_instantiate1 ks us body 0,
-      ihty, ihbody]
-    simp only [pwBit_substPW]
-  | case7 d ty body mb ihty ihbody =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      ← Expr.instantiateLevelParams_instantiate1 ks us body 0,
-      ihty, ihbody]
-    simp only [pwBit_substPW]
-  | case8 d fe a ihf iha =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ihf, iha]
-  | case9 d ty val body =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta]
-  | case10 d sn i e ihe =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ihe]
-  | case11 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      if_pos hsup, if_pos hsup]
-    obtain ⟨ez, es⟩ := acvalNatPair m hsup
-      (Level.substFn (Level.substFn φ ks us) [] [])
-      (Level.substFn φ [] [])
-    rw [ez, es]
-  | case12 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      if_neg hsup, if_neg hsup]
-  | case13 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      if_pos hsup, if_pos hsup]
-    have hg := hsup
-    simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
-    obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
-    obtain ⟨ez, es⟩ := acvalNatPair m h0
-      (Level.substFn (Level.substFn φ ks us) [] [])
-      (Level.substFn φ [] [])
-    have esol := acvalScalar m stringOfListName stringOfListTyOk h2 rfl
-      (by intro ci hh
-          simp only [stringOfListTyOk, Bool.and_eq_true] at hh
-          exact hh.1)
-      (Level.substFn (Level.substFn φ ks us) [] [])
-      (Level.substFn φ [] [])
-    have echar := acvalScalar m charName charTyOk h6 rfl
-      (by intro ci hh
-          simp only [charTyOk, Bool.and_eq_true] at hh
-          exact hh.1)
-      (Level.substFn (Level.substFn φ ks us) [] [])
-      (Level.substFn φ [] [])
-    have eofn := acvalScalar m charOfNatName charOfNatTyOk h7 rfl
-      (by intro ci hh
-          simp only [charOfNatTyOk, Bool.and_eq_true] at hh
-          exact hh.1)
-      (Level.substFn (Level.substFn φ ks us) [] [])
-      (Level.substFn φ [] [])
-    have enil := acvalOne m listNilName listNilTyOk h4 rfl
-      (by intro ci hh
-          simp only [listNilTyOk] at hh
-          split at hh
-          · next p hpe => simp [hpe]
-          · exact nomatch hh)
-      (Level.substFn φ ks us) φ
-    have econs := acvalOne m listConsName listConsTyOk h5 rfl
-      (by intro ci hh
-          simp only [listConsTyOk] at hh
-          split at hh
-          · next p hpe => simp [hpe]
-          · exact nomatch hh)
-      (Level.substFn φ ks us) φ
-    rw [ez, es, esol, echar, eofn, enil, econs]
-  | case14 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta,
-      if_neg hsup, if_neg hsup]
-  | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
-    cases x with
-    | bvar i =>
-      rw [Expr.instantiateLevelParams, denoteMeta.eq_def, denoteMeta.eq_def]
-    | sort u => exact absurd rfl (hxs u)
-    | fvar i ty => exact absurd rfl (hfv i ty)
-    | const n vs => exact absurd rfl (hc n vs)
-    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
-    | lam ty b mb => exact absurd rfl (hlam ty b mb)
-    | app fe a => exact absurd rfl (happ fe a)
-    | letE ty v b => exact absurd rfl (hlet ty v b)
-    | proj sn i e => exact absurd rfl (hproj sn i e)
-    | lit l =>
-      cases l with
-      | natVal k => exact absurd rfl (hnat k)
-      | strVal s => exact absurd rfl (hstr s)
 /-! ## The two `Nat` constructor readings and the literal expansions -/
 
 theorem denoteMetaNatZeroConst {acval : Name → (Name → Nat) → AnnotTerm}
@@ -957,7 +765,7 @@ theorem denoteMetaDefnInst {m : EnvModel V env} (hdi : DefnReads m)
     denoteMeta m.acval env φ 0
         (value.instantiateLevelParams cv.levelParams us)
       = some (m.acval cv.name (Level.substFn φ cv.levelParams us)) := by
-  rw [denoteMetaInstLevels m φ cv.levelParams us 0 value]
+  rw [denotePInstLevels m φ cv.levelParams us 0 value]
   exact hdi _ cv value hmem
 
 /-- `delta_core` (`Steps/Whnf.lean:289`), transplanted. -/

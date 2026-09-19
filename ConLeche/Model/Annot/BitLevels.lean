@@ -29,6 +29,9 @@ valuation's bit.  So the theorem below is
 
 This is the P3 pivot's first full payoff, measured: what was two open
 metatheorems plus a conditional induction is one proved walk.
+
+Lives in `Model/Annot/` since task #305 closing (it was
+`Model/Steps/BitLevels.lean`; nothing in it is stated over a run).
 -/
 
 namespace ConLeche.Model
