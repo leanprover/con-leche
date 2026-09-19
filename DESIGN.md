@@ -121777,3 +121777,51 @@ accessor for that closedness (`nestedOccOk`'s `looseBVarsBounded 0`,
 Then: the ninth conjunct, `nestedPinShapes_of`'s discharge,
 `rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.  The tree is
 left green and `sorry`-free; the statement patch is out of tree.
+
+#### WIDE (3) THE BRIDGE LANDED — and the clause's last detail is `findIdx?` against an INDEX (lane LE, 2026-09-19)
+
+`NestedPinsRun.ownPinTerms_eq` : `(D).ownPinTerms lps
+= ConLeche.nestedPinTermsSelf p st`.  The model's spelling of the
+block's own pin table IS the checker's, position by position.  The
+ingredients were all in the tree, as priced: `NestedPinsSyn.pinRec`
+(which states `hownAtSelf`'s own equation, so that rewrite chain
+transposes verbatim), `instantiateList_openers_eq_instSeq` at cut `0`,
+`Expr.liftLooseBVars_zero`, `looseBVarsBounded_abstractRange`, and the
+closedness of a recorded pin off `NestedPinsRun.scoped` — `hsc`, which
+was already threaded.  Two imports were missing
+(`NestedRecCtorPin`, `NestedCopyInstU`).
+
+`BlockModel.ownPinTerms` is landed with it.
+
+##### THE LAST OPEN DETAIL, NAMED
+
+The `PinShapes` clause's PIN branch cannot be quantified `∀ n z` over
+an arbitrary `take n`: a table entry could match at a wrong `n` and the
+row would then assert a false target.  The `n` has to be the matched
+entry's own container's parameter count.  Three spellings, and the
+third is the one to build:
+
+1. `∀ n z, … findIdx? (take n) = some z → …` — **unsound**, as above;
+2. `∀ n z, … → (d.pinAt z).nPJ = n → …` — sound but the producer
+   cannot use it: it must produce `containerInfo? env M = some ciM` to
+   invoke `instOrdSelfAt`, and `(d.pinAt z).nPJ = n` does not give
+   that;
+3. **by INDEX rather than by `findIdx?`**: `∀ z, z < d.nPins →
+   ∀ ciM, containerInfo? env (d.pinAt z).J = some ciM →
+   (d.pinAt z).ownAt … = mkAppN (ordTargetDom …).getAppFn
+   ((ordTargetDom …).getAppArgs.take ciM.nP) →
+   (pc (q₀ + i')).tgts j l = d.k + z`.
+
+(3) names the environment only at `(d.pinAt z).J`, which is exactly
+what `PinShapes.crossEnv`'s `hci` already transports, so the transport
+stays one word.  Its producer owes one step the other spellings hid:
+`instOrdSelfAt` answers at `findIdx?`'s value, which is the FIRST
+matching position, so turning the term equality at `z` into
+`findIdx? = some z` needs the table's INJECTIVITY — `pinsDistinctAt`,
+K.31's twin at exactly this spelling, which the tree has and
+`DeclNestedCore` already consumes.
+
+That is the whole remainder of the clause: (3)'s statement, its
+producer through `pinsDistinctAt` + `ownPinTerms_eq` + `instOrdSelfAt`,
+the ninth `PinGroupInst` conjunct carrying it, `nestedPinShapes_of`'s
+discharge, `rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.

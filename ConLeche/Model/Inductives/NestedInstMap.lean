@@ -10,6 +10,8 @@ import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.NestedOwnPinsRead
 import ConLeche.Verify.Inductives.NestedOpenSpine
+import ConLeche.Verify.Inductives.NestedRecCtorPin
+import ConLeche.Verify.Inductives.NestedCopyInstU
 public import ConLeche.Model.Inductives.NestedCopyIdx
 public section
 
@@ -1231,6 +1233,65 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
     hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hmenAbs hhead'
+
+
+omit S in
+/-- **THE MODEL'S OWN-PIN TABLE IS THE CHECKER'S** (task #315 K.68's
+model side): `BlockModel.ownPinTerms` at the block's own model IS
+`nestedPinTermsSelf` at the run.
+
+Both are the recorded pin terms with the block's PARAMETERS abstracted
+and re-opened at the parameter openers; they differ only in the
+substitution idiom, `PinSyn.ownAt`'s `instSeq` against the kernel's
+`instantiateList` (the kernel may not name `instSeq`, which lives in
+`Verify`).  `instantiateList_openers_eq_instSeq` at cut `0` is that
+identity, and its premise — a recorded pin is CLOSED, its parameters
+riding as FVARS — is `NestedPinsRun.scoped`'s own clause. -/
+theorem NestedPinsRun.ownPinTerms_eq (lps : List Name) :
+    (D).ownPinTerms lps = ConLeche.nestedPinTermsSelf p st := by
+  obtain ⟨-, fvs, o, -, hsc⟩ := R.scoped
+  have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
+  have hlen : pinsS.length = st.pins.length := SF.pinsLen
+  have hkey : ∀ (z : Nat) (pn : ConLeche.NestedPin), st.pins[z]? = some pn →
+      ((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners b.nP)
+        = Expr.instantiateList (Expr.abstractRange pn.pin 0 p.nP 0)
+            (ConLeche.containerParamOpeners p.nP).reverse 0 := by
+    intro z pn hpz
+    obtain ⟨hJ, hpin⟩ := SF.pinRec z pn hpz
+    have hlvlId : ∀ us : List Level,
+        us.map (Level.subst lps (lps.map Level.param)) = us := by
+      intro us
+      have h := Expr.instantiateLevelParams_self lps (Expr.const .anonymous us)
+      simpa [Expr.instantiateLevelParams] using h
+    have hstep : ((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners b.nP)
+        = Expr.instSeq (ConLeche.containerParamOpeners b.nP) (b.nP - 1)
+            (Expr.abstractRange pn.pin 0 b.nP 0) := by
+      show (pinsS.getD z default).ownAt b.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners b.nP) = _
+      unfold ConLeche.Model.PinSyn.ownAt
+      rw [hpin, ← hJ, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+        ConLeche.instSeq_mkAppN_const, hlvlId,
+        show (ConLeche.containerParamOpeners b.nP).length = b.nP from by
+          simp [ConLeche.containerParamOpeners]]
+      simp only [List.map_map, Function.comp_def, Expr.instantiateLevelParams_self]
+    have hcl : pn.pin.looseBVarsBounded 0 = true :=
+      (hsc pn (List.mem_of_getElem? hpz)).1
+    have hA : (Expr.abstractRange pn.pin 0 b.nP 0).looseBVarsBounded b.nP = true := by
+      simpa using ConLeche.looseBVarsBounded_abstractRange pn.pin 0 b.nP 0 hcl
+    rw [hstep, ← ConLeche.instantiateList_openers_eq_instSeq b.nP 0 hA,
+      Expr.liftLooseBVars_zero, hnP]
+  unfold BlockModel.ownPinTerms ConLeche.nestedPinTermsSelf
+  refine List.ext_getElem? fun z => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  by_cases hz : z < st.pins.length
+  · have hz' : z < (D).nPins := by show z < pinsS.length; omega
+    rw [List.getElem?_range hz', List.getElem?_eq_getElem hz]
+    exact congrArg some (hkey z _ (List.getElem?_eq_getElem hz))
+  · have hz' : (D).nPins ≤ z := by show pinsS.length ≤ z; omega
+    rw [List.getElem?_eq_none (by simpa using hz'), List.getElem?_eq_none (by omega)]
+    rfl
 
 omit R SF S in
 /-- The function part of a closed application is closed. -/

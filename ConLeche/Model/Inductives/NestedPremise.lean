@@ -125,6 +125,20 @@ back closed, level-instantiated and re-opened exactly here. -/
       Expr.instSeq DsE (DsE.length - 1)
         ((Expr.abstractRange x 0 nP 0).instantiateLevelParams lps lvls))
 
+/-- **A BLOCK MODEL'S OWN PINS AS TERMS, AT ITS OWN PARAMETERS** (task
+#315 K.68's model side): the list the checker's `nestedPinTermsSelf`
+computes, spelled from the block model's own record instead.
+
+A clause stated over this names NO ENVIRONMENT, so it transports in a
+word — and it is the same list both sides of K.67/K.68's composition
+run their `findIdx?` over, which is why the collapse question never
+arises: neither side has to argue that equal terms have equal images,
+because both name one index. -/
+@[expose] def BlockModel.ownPinTerms (d : BlockModel V) (lps : List Name) : List Expr :=
+  (List.range d.nPins).map fun z =>
+    (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+      (ConLeche.containerParamOpeners d.nP)
+
 /-- **THE FIELD SHAPE: EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE
 BLOCK MODEL'S RECORDED PINS, SPELLED AT THAT INSTANTIATION** (task
 #315 M7-3 session 14, DESIGN §U.73 (a)) — the form
