@@ -1084,6 +1084,35 @@ theorem classPin_of_rootMember {env : Env} {D dR : BlockModel V} {r kR : Nat}
       rw [(S.same i hi ψ).2]
     rw [hIds, hfr, (S.same i hi ψ).1, S.pinU i hi ψ]
 
+/-- **THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE, AS A
+PREDICATE** (task #315 WIDE (3), step 1(a)): at a field the container
+calls ORDINARY and a later block's copy made recursive, the OWNER's own
+recomputation of the field's target — `ordTargetDom`, the stored domain
+cut and instantiated at the owner's own pin (K.67's spelling) — READS,
+at the block's parameter frame opened to the field's cut, as an
+application whose ARGUMENTS after the head container's parameters are
+the copy's index expressions.
+
+It is the conclusion of `NestedPinsRun.copyOrdFRightPinOrdTargetReadAt`
+and its reflexive twin, with the run's syntactic residual already
+discharged: the frame (`ψ`, `ρp`) and a fitting prefix `fs₁` are
+INPUTS, exactly as `CopyCtorShape`'s `ordF` conjunct takes them, and
+the head `fb` and the head container's parameters `Ps` are existential
+— nothing about them is claimed beyond their count, which is what the
+consumer splits the spine at.
+
+`cut` is `l` at a finitary field and `l + domPiDepth …` at a reflexive
+one, so the two arms are ONE statement; the caller supplies the cut. -/
+@[expose] def OrdTargetRead (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+    (ψ : Name → Nat) (ρp : Nat → V) (nP l cut nPK : Nat)
+    (Ds Fs Eis : List AnnotTerm) (dtm : Expr) : Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    SpineFit (consList (Ds.map (interp V ρp)) ρp) (Fs.take l) fs₁ →
+    ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = nPK ∧
+      denoteMeta acval env ψ (nP + cut)
+          (Expr.instSeq (ConLeche.Verify.openFvars nP cut) (cut - 1) dtm)
+        = some (AnnotTerm.mkAppN fb (Ps ++ Eis))
+
 /-- **The pins' shapes of a stored block** against a global assignment
 `B` of block models to container groups (task #315 L-E, DESIGN §U.36):
 every pin `q` of `d` sits in a group `(q₀, kJ)` whose container is
