@@ -1950,4 +1950,91 @@ theorem normPosDomM_mkPisB_free {env : Env} {memberNames : List Name} {F : Nat}
     ∀ b ∈ bs, mentionsMember memberNames b.1 = false :=
   PisDomsFree.mkPisB bs (hw ▸ normPosDomM_PisDomsFree bs.length h)
 
+/-! ## The walk's environment is the block's (task #315 WIDE (3) (4c), K.69)
+
+`normPosDomM_indApp` asks `env.find? J = some (.indInfo …)` at the
+environment the walk RAN in.  The nested route's copy constructors are
+normalised at the block's own environment, `consMutualFormers (fms.take
+p.k) env` — the pre-block environment with the auxiliary block's type
+FORMERS consed on — while the head the walk meets is answered for at
+the PRE-BLOCK one: it is either a J-pin CONTAINER, a stored constant
+that the cons does not touch, or a minted copy's AUXILIARY, which is
+one of the consed formers.  Both are `indInfo` at the walk's
+environment, and that is all `normPosDomM_indApp` reads.
+
+So the "whnf-monotonicity under environment extension" the K.69 row
+names as missing is not what is needed here — the fact used is the much
+weaker one that a constant-headed inductive application reduces at
+NEITHER environment, and the only transport is of the `find?` verdict's
+CONSTRUCTOR.  These two lemmas are that transport; the walk's own
+identity then comes back unchanged.
+-/
+
+/-- **AN `indInfo` SURVIVES THE FORMERS' CONSES**: the conses only add
+`indInfo`s, so a name the pre-block environment answers for with an
+`indInfo` is answered for with an `indInfo` at the block's own
+environment — possibly a DIFFERENT one, where a former shadows it,
+which is all a positivity walk's head test reads. -/
+theorem consMutualFormers_find?_indInfo :
+    ∀ {fms : List MutualFormerA} {env : Env} {n : Name} {cv : ConstantVal} {caps : IndCaps},
+      env.find? n = some (.indInfo cv caps) →
+      ∃ (cv' : ConstantVal) (caps' : IndCaps),
+        (consMutualFormers fms env).find? n = some (.indInfo cv' caps')
+  | [], _, _, cv, caps, h => ⟨cv, caps, h⟩
+  | g :: gs, env, n, cv, caps, h => by
+    show ∃ cv' caps', (consMutualFormers gs ⟨.indInfo g.cvTa {} :: env.consts⟩).find? n
+      = some (.indInfo cv' caps')
+    by_cases hn : (ConstantInfo.indInfo g.cvTa {} : ConstantInfo).name = n
+    · exact consMutualFormers_find?_indInfo
+        (show (⟨.indInfo g.cvTa {} :: env.consts⟩ : Env).find? n = some (.indInfo g.cvTa {}) from
+          by rw [Env.find?_cons, if_pos hn])
+    · exact consMutualFormers_find?_indInfo
+        (show (⟨.indInfo g.cvTa {} :: env.consts⟩ : Env).find? n = some (.indInfo cv caps) from
+          by rw [Env.find?_cons, if_neg hn]; exact h)
+
+/-- **A CONSED FORMER IS AN `indInfo` AT ITS OWN NAME** — no
+`Nodup` needed: the first cons of the name answers with an `indInfo`,
+and the later conses keep it one (`consMutualFormers_find?_indInfo`). -/
+theorem consMutualFormers_find?_indInfo_mem :
+    ∀ {fms : List MutualFormerA} {env : Env} {f : MutualFormerA}, f ∈ fms →
+      ∃ (cv' : ConstantVal) (caps' : IndCaps),
+        (consMutualFormers fms env).find? f.cvTa.name = some (.indInfo cv' caps')
+  | [], _, _, hf => nomatch hf
+  | g :: gs, env, f, hf => by
+    show ∃ cv' caps', (consMutualFormers gs ⟨.indInfo g.cvTa {} :: env.consts⟩).find?
+      f.cvTa.name = some (.indInfo cv' caps')
+    rcases List.mem_cons.mp hf with rfl | hf'
+    · exact consMutualFormers_find?_indInfo (Env.find?_cons_self (.indInfo f.cvTa {}) env)
+    · exact consMutualFormers_find?_indInfo_mem hf'
+
+/-- **THE POSITIVITY WALK IS THE IDENTITY AT THE BLOCK'S OWN
+ENVIRONMENT** (task #315 WIDE (3), K.69's owed `nestedOrdNorm_norm_of`
+at its CONSTANT-HEAD path): `normPosDomM_indApp` transported across the
+formers' conses, for a head the PRE-BLOCK environment records as an
+inductive — a J-pin container. -/
+theorem normPosDomM_indApp_cons {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat}
+    {J : Name} {lvls : List Level} {args : List Expr} {cv : ConstantVal} {caps : IndCaps}
+    {e' : Expr}
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel (Expr.mkAppN (.const J lvls) args) = .ok e') :
+    e' = Expr.mkAppN (.const J lvls) args := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo (fms := fms) hJ
+  exact normPosDomM_indApp hfind h
+
+/-- **THE SAME AT A MINTED COPY'S AUXILIARY** (task #315 WIDE (3)): the
+head a FIRED copy field carries is one of the block's own formers, and
+a former is an `indInfo` at the block's environment by construction —
+no pre-block lookup at all. -/
+theorem normPosDomM_indApp_former {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat}
+    {f : MutualFormerA} {lvls : List Level} {args : List Expr} {e' : Expr}
+    (hf : f ∈ fms)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel (Expr.mkAppN (.const f.cvTa.name lvls) args) = .ok e') :
+    e' = Expr.mkAppN (.const f.cvTa.name lvls) args := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
+  exact normPosDomM_indApp hfind h
+
 end ConLeche
