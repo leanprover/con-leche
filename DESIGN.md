@@ -119710,3 +119710,137 @@ it must not before (4′).
 
 No kernel file changed, so the accept set is untouched and
 `tests/arena.sh` was not re-run.
+
+#### WIDE (3′) THE σ CLAUSE — three conjuncts of seven built, and the other two STOP on a REFLEXIVE gap that is K.61's (lane LE, 2026-09-19)
+
+The coordinator's ruling adopted the repriced order and decided the σ
+clause's shape: `∃ σ : Nat → Nat, …` on `NestedPinGroupIds`, witnessed
+by the run's `nestedInstMapAt` through `instMapGroup`, its conjuncts
+read off `nestedPinWideStep`'s own signature (`agent/uniform-le4`).
+Priced by inputs, built as far as the inputs exist, and stopped at the
+first place they do not — which is not where the reading expected.
+
+##### (a) THE SHAPES, CHECKED AGAINST `nestedPinWideStep`
+
+`agent/uniform-le4`'s step-(4) skeleton takes the nine as
+`hinjJ hrowsσ hσ hroot hIsσ hent hstgt houtσ hpin`, all at the group's
+member `i` through `((D).pinAt (q₀ + i)).ψJ ψ` and
+`consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp` —
+i.e. `(D).pinFrame (q₀ + i) ψ ρp`.  Seven of them are σ's and belong on
+the clause; `hinjJ` is not about σ and `hpin` is item 2.
+
+##### (b) WHAT LANDED — `instMapSigmaFacts`, three of the seven
+
+`hσ` at the pin classes, `hmemσ` and `hidxσ`, all read off
+`instMapPinOwn` at the group's BASE member and nothing else:
+
+* `hσ` — the map's value is a pin of the block;
+* `hmemσ` — the block pin a PIN class maps to has the container's own
+  pin for its container, a MEMBER class's block pin is the mimic of
+  member `c` and has `dJ.memberName c` for its container
+  (`IsBlockModel.member`), and a container's own pin is no member of
+  its own group (`ContainerModeled.pinsNotMembers`);
+* `hidxσ` at a COLLAPSED pair.  **The earlier reading of this one was
+  one clause short** — "two own pins with one block pin, hence one
+  universe and one telescope, hence one index-tuple set".
+  `BlockModel.pinIdx` reads `pinFrame` as well, so the pin's
+  COMPONENTS are needed too; the two classes' components are equal
+  only after the outer instantiation, and `interp_instAll` at the
+  empty field list removes it.  It is therefore a consumer of all
+  three data clauses of the `PinCorr` this lane built, and could not
+  have been done before it.
+
+`hroot` is `rfl` by σ's definition and costs nothing.
+
+##### (c) WHERE IT STOPS — `hstgt` AT A REFLEXIVE NESTED FIELD HAS NO SOURCE
+
+`hstgt`'s hypothesis is `((dJ.rss i').getD j []).getD l false = true`,
+and `rss` is `rsOf`, i.e. `.recursive ∨ .reflexive` (`FixChains.lean`).
+Its intended producer `copyPinFInstTgt` takes
+`(dJ.ksF i' j).getD l .ordinary = .recursive`.  The reflexive arm is
+missing, and it is missing at THREE levels, each checked in the source:
+
+1. **K.61's own Bool does not see it.**  `nestedInstMapOkAt` dispatches
+   on `domJ.1.getAppFn` and its non-`.const` arm is `| _ => true`
+   (`Kernel/Inductives/NestedInstall.lean`).  A reflexive nested
+   field's stored domain is a `Π`, so `getAppFn` is a `forallE` and the
+   field clause claims NOTHING there — exactly the shape K.60 had, and
+   exactly why K.63 exists as "K.60's twin one `Π`-tower down".  So the
+   reflexive arm needs **K.61's twin after `stripDomPis`**, a
+   kernel-lane record, not a model-tier derivation;
+2. **`nestedInstMapOk_target`'s statement does not apply either**: its
+   `hhead : domJ.1.getAppFn = .const K us` is unsatisfiable at a
+   reflexive field, so the Verify-side inversion would need the
+   stripped twin too;
+3. **`ContainerModeled.nestPinSpineAbs` is RECURSIVE ONLY** and has no
+   reflexive twin.  It is what turns `findIdx?`'s position into the
+   container's own pin INDEX (with `pinsDistinctAt`), so the reflexive
+   arm needs `nestPinSpineAbsRefl` — WIDE (1′)'s clause a second time,
+   at the same nine sites.  The precedent that this is a real gap and
+   not an oversight is `nestArgsMentionAbsRefl`, which IS carried: the
+   MENTION's reflexive twin was taken, the SPINE's was not, because
+   (1′)'s consumer did not yet exist.
+
+**This is a doubling stop on this lane's own terms** — a kernel Bool
+plus a nine-site `ContainerModeled` clause is K.61+(1′) over again, and
+kernel records are a kernel-lane item (K.64's precedent).
+
+##### (d) AND `houtσ` IS HALF-SOURCED, MEASURED THE SAME WAY
+
+`houtσ` asks the target to be outside `σ`'s image over ALL classes,
+`∀ mm < dJ.k + dJ.nPins`.  K.62 (`nestedOrdOutsideAt`) checks
+`!((maps.getD q []).contains t)` — the map's image, which is the PIN
+classes only.  The MEMBER classes' images are the group's own mimics
+`p.k + q₀ + i'`, and that a rewritten container-ORDINARY field's target
+is none of them is a separate fact.  It is plausibly provable from
+`ContainerModeled.ordFree` by `copyOrdFOutside`'s own argument (the
+group's mimics are the container's members at the pin's components, and
+an ordinary field mentions no member), but it is NOT recorded and NOT
+built, and its price is not yet read at the proof.
+
+##### (e) STATE AND ORDER
+
+Landed this session: `pinsWScoped` + the two `WScoped` `mkAppN`
+lemmas; the own-pin `PinCorr` producer (`instMapPinOwn` extended) with
+the `huIds` weakening; `pinLvlsDsAt`; `instMapGroup`;
+`instMapSigmaFacts`.  Open:
+
+1. **KERNEL LANE** — K.61's twin after `stripDomPis` (the instance map
+   at a REFLEXIVE nested field), on K.63's model and by K.63's
+   argument; and with it `nestPinSpineAbsRefl` on `ContainerModeled` at
+   the nine sites.  Without these `hstgt` is false-by-omission at any
+   block with a reflexive nested field, and `tests/e2e`'s
+   `direct_fix_refl` family is exactly that shape;
+2. `houtσ`'s member half — price it at `copyOrdFOutside`'s proof first;
+3. `hIsσ` — members by the `hidx`/`hu`/`idxSet_instTele` bullet, pin
+   classes by `classPin_of_blockPinCorr` (`NestedPinLeafAll.lean`) at
+   the new `PinCorr` composed with `auxPinIdx`; needs
+   `NestedInstMap` to import `NestedPinLeafAll` (no cycle);
+4. then the clause itself, the fourth residual `NestedPinsInst` in
+   `NestedCopyIdx.lean`, `nestedPinsIdent_of`'s third argument and
+   `NestedChain`'s wiring (`NestedChain` must import `NestedInstMap`);
+5. item 2 (`hfitc`), then (4′), the merge and (4).
+
+##### (f) GATES
+
+`tests/warning-free.sh f5ccd94c`:
+
+```
+warning-free: 19 changed module(s) since f5ccd94c
+warning-free: lake build — 19 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0, zero warning lines.
+`tests/unconsumed.sh` **185 of 3742** against the session base's
+**186 of 3736**.  The diff READ: `ContainerModeled.ownPinsRead`,
+`pinCorr_of_ownPins_at` and `NestedPinsRun.instMapPinOwn` LEFT the list
+(the first two consumed by the producer, the third by
+`instMapSigmaFacts`); `NestedPinsRun.instMapGroup` and
+`NestedPinsRun.instMapSigmaFacts` joined it, their consumer being the
+clause of (e) 4.  **Nothing from the `pins_le_*`/`NestedPinsLe`-producer
+family moved.**
+
+No kernel file changed, so the accept set is untouched and
+`tests/arena.sh` was not re-run.
