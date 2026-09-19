@@ -106387,6 +106387,122 @@ of `nestedPinChecks_inv` (two more `by_cases`) rather than out of a new
 `by_cases` in `checkNested_inv_rest`, which is why the tail moved so
 little.
 
+#### K.63 — a container's REFLEXIVE nested field lands on a block pin (2026-09-19, task #315, lane PINF's request)
+
+K.60's twin one `Π`-tower down, FOLDED into K.60's walk on the
+coordinator's ruling.  K.60's guard reads the stored domain's HEAD, and
+a reflexive nested field's domain is a `Π`, so `getAppFn` is not a
+`.const`, the traversal falls into its catch-all and K.60 claims
+nothing there — BY CONSTRUCTION, as K.60's own docstring records.  The
+model cannot substitute, and the reason is the circle K.60 exists to
+break: the copy's stored domain is mimic-headed only if the rewrite
+FIRED, the fire needs the MENTION, and at a pin target the mention is
+read off the kind.  Nor can the model exclude `.ordinary` instead —
+`mutualOpenedOk`'s ordinary clause says the stored domain resolves in
+the pre-block environment, which an UNFIRED container-headed domain
+satisfies, so that arm is consistent with "no fire" and closes nothing.
+
+**WHAT THE ROUTE RECORDS.**  `copyReflFieldOk` is `copyPinFieldOk`
+after `stripDomPis`: the domain is a non-empty `Π` telescope whose BODY
+is headed by `.const K` with `K` NOT a member of the container's own
+group, `K` itself a stored container, and one of the body's first
+`ciK.nP` arguments mentioning a member of the group.  Under that guard
+`kf[l] = (.reflexive, t)` with `p.k ≤ t`.  Each part is available to
+the model, which is the criterion K.60 was designed against:
+`BlockOpened.nestReflF` gives the opened form as exactly that
+`Π`-telescope-with-a-container-headed-body,
+`ContainerModeled.pinsNotMembers` the non-membership, `pinNP` +
+`NestedPinGroupSyn.contsEnv` the further container, and the mention is
+the reflexive twin of `nestArgsMentionAbs` — (iv)(b) on the PINF lane,
+whose first input this record is.
+
+##### (a) THE FOLD, AND WHAT IT COSTS — NOTHING, MEASURED
+
+The two arms are DISJOINT by construction (a `Π`'s `getAppFn` is never
+a `.const`) and their per-field environment lookups are disjoint with
+them: K.60 looks up the domain's own head, K.63 the `Π`-body's, never
+both at one field.  So folding shares the constructor telescopes and
+one `containerInfo?` per pin — the part the ablation in "#### K.61" (d)
+says is not the price — and the measurement agrees: **K.63 is free.**
+
+| Mathlib `--nested-shadow` | K.61+K.62 | +K.63 | delta |
+|---|---|---|---|
+| `--verified` | 12 255.41 G | 12 255.37 G | −0.000 % |
+| `--trusted` | 11 297.40 G | 11 297.61 G | +0.002 % |
+
+Both inside the harness's noise.  Against the baseline with no record
+at all the three together are **+0.326 % / +0.436 %**, which is
+"#### K.61" (d)'s number unchanged — and that row carries the standing
+decision about it.
+
+**THE CARRIER OF THE FOLD.**  `nestedCopyFieldsAt` runs both arms in
+one pass with `allPair` and returns the PAIR;
+`nestedCopyPinFieldsAt` and `nestedCopyReflFieldsAt` are its two
+components, so the route reads `copyF.1`/`copyF.2` and each throw site
+names its own record.  `allPair_fst_mem`/`allPair_snd_mem`
+(`ConLeche/Verify/Inductives/NestedInv.lean`) are the extraction
+lemmas the two inversions use where an `all`-shaped walk would use
+`List.all_eq_true`; K.60's inversion is redone through them and **its
+statement is unchanged**, so no consumer moves.
+
+##### (b) THE MEASUREMENT — AND THE GUARD IS NOT REACHABLE TODAY
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, both `CON_LECHE_INMODEL` settings | 96 | 90 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+*Firing control* — the same check demanding `.recursive`, the wrong
+answer: **0 fires, on every corpus.**  That is not a weak control, it
+is the finding: **no stream this checker can reach today has a
+container with a REFLEXIVE nested field.**  The reason is upstream of
+the route: the in-process modeller declines any reflexive MEMBER
+(`ConLeche/Frontend/InModel/Nested.lean`), so such a container never
+gets installed, and a block that would pin it is never reached by the
+fold.
+
+`tests/e2e/src/nested_refl_pin.lean` is the fixture the request asked
+for and it exhibits exactly the shape —
+`J α | node (f : Nat → Box (J α))`, pinned by `ReflPin` — but it runs
+into the same wall: with the modeller ON the stream declines at `J`
+("reflexive member J"); with it OFF `J`'s own shadow runs and ACCEPTS,
+and the fold then stops for want of an install route.  Its shadow row
+is therefore `tests/e2e/nested_refl_pin.ndjson 0 J=accept,` and it is a
+TRIPWIRE, like `nested_pin_collide`'s: **it gains `,ReflPin=accept` the
+day a route installs `J`, and that is the day K.63's guard is first
+reachable on any stream.**  Until then the record is vacuous on every
+corpus — which for a category-(B) record that cannot fire is the
+expected state, not a gap, but the reachability is UNMEASURED rather
+than measured-zero-with-content, and this row says so rather than
+claiming a control that fired.
+
+##### (c) LEDGER ROW — K.63
+
+Not certification-only: an unconditional check in both routes whose
+failure is `.internal`.  Category **(B)**, by-construction-only —
+official computes nothing of the kind; the classification is our
+auxiliary block's and the fact is true by construction of `mkCopy` +
+`replaceAllNested`.  **Gating: NONE**, for K.60's reason — the model's
+`pinF` arm at a reflexive nested field reads it in every mode.  **It
+cannot fire.**
+
+**IF IT EVER FIRES** the elimination's classification of a copy's
+reflexive field disagrees with its container's — a defect in the ROUTE,
+not in the stream, and the answer is never to relax the check.  The
+message is "nested: a container's reflexive nested field is not
+classified reflexive into a pin of the block", and both routes carry
+that instruction at the point of failure.
+
+##### (d) WHAT CONSUMES IT
+
+`nestedCopyReflFieldsOk_head`, in `nestedCopyPinFieldsOk_head`'s shape
+at `.reflexive`, is the producer of `copyPinFReadRefl`'s `hkA` on the
+PINF lane — the `hkA` that lane's (c) recorded as having NO producer.
+With it in the tree, that lane's next step is (iv)(b), the two
+reflexive mention clauses, which it deliberately held until this
+record's shape was fixed.
+
 #### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
 
 Both cost this lane a build and a measurement; neither is obvious from
