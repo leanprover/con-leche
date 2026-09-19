@@ -10331,6 +10331,18 @@ GIVEN the two copies' readings.  The BLOCK's is this: the recomputation
 parameter openers, is the minted domain's head applied to the copy's
 recorded index expressions.
 
+**The reading is the PREFIX model's** (task #315 WIDE (3), step 1's
+owner half).  The term is a pre-block one — the container's stored
+constructor domain and the pins' components — so it reads at the model
+of the environment holding the block's own `p.k` formers, and that is
+the only spelling the consumers can use: `PinShapes` is produced at the
+RESTORED environment (`NestedPinGroupIds` at the prefix one), and
+`NestedPinsRun.crossUp` runs from the prefix model to the whole
+block's, never back.  The index expressions are still identified at
+the whole block's model, where `MutualCtorDataI.eisRead` lives; what
+crosses is the AnnotTerm equation it yields, which names no
+environment.
+
 Three steps and no new law, which is what the ledger's (4d) row priced:
 
 * the recomputation IS the minted domain, up to the `fvar` ANNOTATIONS
@@ -10386,7 +10398,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
       (b.nP + l) w = some ea') :
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
-      denoteMeta mp₁.base2.acval (ConLeche.consMutualFormers fms env) ψ (b.nP + l)
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
             (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
               (q₀ + i') l domJ.1))
@@ -10586,7 +10598,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     rw [← hsplen hsp₁, List.length_take]
     omega
   refine ⟨fa, vs₁, hlen₁, ?_⟩
-  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq hEr (b.nP + l), ← hwe, heaW, hvseq, hvsSplit,
+  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq hEr (b.nP + l), ← hwe, hea', hvseq, hvsSplit,
     hvs₂]
 
 
@@ -10659,7 +10671,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl
     (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
       (b.nP + l) w = some ea') :
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
-      denoteMeta mp₁.base2.acval (ConLeche.consMutualFormers fms env) ψ
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
           (b.nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
             (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1)))
           (Expr.instSeq (ConLeche.Verify.openFvars b.nP (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
@@ -11116,7 +11128,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl
     denoteMeta_erasedEq
       (Expr.instSeq_erasedEq_args (ConLeche.Verify.openFvars (b.nP + l) ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length) fvs
         (((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length - 1) hEr hopEr hopLen) (b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length),
-    halign, heaW, hvseq, hvsSplit, hvs₂]
+    halign, hbW, hvseq, hvsSplit, hvs₂]
 
 end Assembly
 
