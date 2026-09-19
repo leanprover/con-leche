@@ -11,6 +11,7 @@ public import ConLeche.Model.Inductives.NestedOwnPinsRead
 import ConLeche.Model.Inductives.NestedCopyRead
 import ConLeche.Model.Inductives.StructData
 import ConLeche.Verify.Inductives.NestedCopyTele
+import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.InstSpine
 import ConLeche.Verify.InstList
 import ConLeche.Verify.Inductives.NestedCopyInstU
@@ -586,5 +587,248 @@ theorem ordSpine_inst_of_reads {env : Env} (m : EnvModel V env) {ψ : Name → N
       (J := J) (lvlsJ := lvlsJ) (es := es)] at hreadB
   exact AnnotTerm.mkAppN_inj (Option.some.inj hreadB).symm
     (by rw [hlen, List.length_map])
+
+/-! ## THE OWNER'S RECOMPUTATION, SCOPED AT THE PARAMETER OPENERS
+(task #315 WIDE (3), step 1)
+
+`denoteMeta_ordRootInst_read` asks two things of the term it carries
+across the substitution: `hxb`, that no loose bound variable escapes
+the field's cut, and `hxlv`, that every free variable it carries is
+one of the owner's `nP` parameter openers.  Its subject is the OWNER's
+own recomputation `ordTargetDom`, and neither had a producer —
+`projFree_ordTargetDom_instSeq` (`ContainerCross.lean`) closes the
+PROJECTION guard over the same three operations, and what follows is
+its scoping twin.
+
+The recomputation has exactly two leaves, and the split is the same
+one: the container's stored constructor field domain, which is
+`fvar`-free and bounded at its own position in the telescope, and the
+owner's own-pin table entry, whose arguments stand at the openers.
+`ownPinTerm_getAppArgs_scoped` produces the second from K.30's
+`pinDsScoped`, and the round trip costs nothing: `abstractRange`'s
+`fvar` arm replaces an in-range leaf by a `bvar` WITHOUT descending
+into its annotation, and `pinDsScoped` bounds every leaf below `nP`,
+so the closed component has no `fvar` leaf at all and the entry's
+leaves are EXACTLY the openers. -/
+
+/-- `stripDomPis` preserves `fvar`-freeness: it peels `∀` nodes and
+keeps a body. -/
+theorem hasFvar_stripDomPis : ∀ {e : Expr}, e.hasFvar = false →
+    (ConLeche.stripDomPis e).hasFvar = false := by
+  intro e
+  induction e with
+  | forallE ty b bm ihty ihb =>
+    intro h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    exact ihb h.2
+  | _ => intro h; exact h
+
+/-- **`domPiDepth` pays for the binders `stripDomPis` removed**: a
+domain bounded at `k` has its stripped body bounded at `k` plus the
+tower's own depth.  At a domain that is not a `∀` both sides are the
+domain itself (`domPiDepth` is `0`), which is the finitary field's
+case. -/
+theorem looseBVarsBounded_stripDomPis : ∀ {e : Expr} {k : Nat},
+    e.looseBVarsBounded k = true →
+      (ConLeche.stripDomPis e).looseBVarsBounded (k + ConLeche.domPiDepth e) = true := by
+  intro e
+  induction e with
+  | forallE ty b bm ihty ihb =>
+    intro k h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    have hih := ihb (k := k + 1) h.2
+    show (ConLeche.stripDomPis b).looseBVarsBounded (k + (ConLeche.domPiDepth b + 1)) = true
+    rw [show k + (ConLeche.domPiDepth b + 1) = k + 1 + ConLeche.domPiDepth b from by omega]
+    exact hih
+  | _ => intro k h; exact h
+
+/-- The `fvar` leaves of a spine argument are the spine's. -/
+theorem fvarLeaves_getAppArgs : ∀ {e : Expr} {a : Expr}, a ∈ e.getAppArgs →
+    ∀ {l}, l ∈ a.fvarLeaves → l ∈ e.fvarLeaves := by
+  intro e
+  induction e with
+  | app f x ihf ihx =>
+    intro a ha l hl
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at ha
+    rw [Expr.fvarLeaves]
+    rcases ha with ha | rfl
+    · exact List.mem_append_left _ (ihf ha hl)
+    · exact List.mem_append_right _ hl
+  | _ => intro a ha l hl; simp [Expr.getAppArgs] at ha
+
+omit [SetTheory V] in
+/-- **THE OWNER'S RECOMPUTATION IS BOUNDED AT THE FIELD'S CUT AND
+CARRIES ONLY THE CALLER'S PARAMETERS** (task #315 WIDE (3), step 1) —
+`denoteMeta_ordRootInst_read`'s `hxb` and `hxlv`, at `ordTargetDom`.
+
+Three operations stand between the two leaves and the subject: the
+level instantiation (which moves neither bound nor leaf), `stripDomPis`
+(whose `domPiDepth` the cut already carries), and the own-pin spine's
+`instantiateList`, which is `Expr.instSpine` at the descending cuts
+(`Expr.instSpine_eq_instantiateList_at`).  The stored domain
+contributes no leaf at all, so every leaf of the result is an
+argument's. -/
+theorem ordTargetDom_scoped {lpsC : List Name} {nPJ qK l : Nat}
+    {ownSelf : List Expr} {dom : Expr} {params : List Expr}
+    (hdomF : dom.hasFvar = false)
+    (hdomb : dom.looseBVarsBounded (nPJ + l) = true)
+    (hargLen : nPJ ≤ (ownSelf.getD qK default).getAppArgs.length)
+    (hargb : ∀ a ∈ (ownSelf.getD qK default).getAppArgs, a.looseBVarsBounded 0 = true)
+    (hargl : ∀ a ∈ (ownSelf.getD qK default).getAppArgs, ∀ le ∈ a.fvarLeaves,
+      Expr.fvar le.1 le.2 ∈ params) :
+    (ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom).looseBVarsBounded
+        (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom)) = true ∧
+      ∀ le ∈ (ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom).fvarLeaves,
+        Expr.fvar le.1 le.2 ∈ params := by
+  have hlenAs : ((ownSelf.getD qK default).getAppArgs.take nPJ).length = nPJ := by
+    rw [List.length_take]; omega
+  -- the body: the stored domain, level-instantiated and stripped
+  have hbodyF : (ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC ownSelf qK dom)).hasFvar
+      = false := by
+    refine hasFvar_stripDomPis ?_
+    rw [ConLeche.ordTargetDomL, Expr.hasFvar_instantiateLevelParams]
+    exact hdomF
+  have hbodyb : (ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC ownSelf qK dom)).looseBVarsBounded
+      (nPJ + l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom)) = true := by
+    refine looseBVarsBounded_stripDomPis ?_
+    rw [ConLeche.ordTargetDomL, Expr.looseBVarsBounded_instantiateLevelParams]
+    exact hdomb
+  -- the bulk substitution IS the `instSpine` at the descending cuts
+  have hspine : ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom
+      = Expr.instSpine ((ownSelf.getD qK default).getAppArgs.take nPJ)
+          (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom) + nPJ - 1)
+          (ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC ownSelf qK dom)) := by
+    rw [ConLeche.ordTargetDom, ← Expr.instSpine_eq_instantiateList_at, hlenAs]
+  refine ⟨?_, ?_⟩
+  · rw [hspine, Expr.instSpine_eq_instSeq]
+    cases nPJ with
+    | zero =>
+      show (ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC ownSelf qK dom)).looseBVarsBounded
+          (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom)) = true
+      simpa using hbodyb
+    | succ n =>
+      have h := looseBVarsBounded_instSeq_gen ((ownSelf.getD qK default).getAppArgs.take (n + 1))
+        (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom) + (n + 1) - 1)
+        (ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC ownSelf qK dom))
+        (fun a ha => hargb a (List.take_subset _ _ ha))
+        (by
+          rw [show l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom) + (n + 1)
+              - 1 + 1 = n + 1 + l
+                + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom) from by omega]
+          exact hbodyb)
+        (by rw [hlenAs]; omega)
+      rw [hlenAs, show l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom)
+          + (n + 1) - 1 + 1 - (n + 1)
+        = l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom) from by omega] at h
+      exact h
+  · intro le hle
+    rw [hspine] at hle
+    rcases fvarLeaves_instSpine _ hle with hle' | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hbodyF] at hle'
+      exact absurd hle' (List.not_mem_nil)
+    · exact hargl a (List.take_subset _ _ ha) le hla
+
+/-- **THE PARAMETER OPENERS CLOSE A BODY BOUNDED AT THEIR COUNT**: a
+full argument list eats every cut, and at `nP = 0` the list is empty
+and the body is the result. -/
+theorem looseBVarsBounded_instSeq_openers : ∀ {nP : Nat} {e : Expr},
+    e.looseBVarsBounded nP = true →
+      (Expr.instSeq (ConLeche.containerParamOpeners nP)
+        ((ConLeche.containerParamOpeners nP).length - 1) e).looseBVarsBounded 0 = true := by
+  intro nP
+  have hlenO : (ConLeche.containerParamOpeners nP).length = nP := by
+    simp [ConLeche.containerParamOpeners]
+  have hclO : ∀ a ∈ ConLeche.containerParamOpeners nP, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    rw [ConLeche.containerParamOpeners] at ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  intro e he
+  rw [hlenO]
+  cases nP with
+  | zero =>
+    rw [show ConLeche.containerParamOpeners 0 = [] from by simp [ConLeche.containerParamOpeners]]
+    exact he
+  | succ n =>
+    exact looseBVarsBounded_instSeq _ _ _ hclO (by simpa using he) (by simpa using hlenO)
+
+omit [SetTheory V] in
+/-- **A BLOCK'S OWN-PIN TABLE ENTRY STANDS AT THE OPENERS** (task #315
+WIDE (3), step 1) — the second of `ordTargetDom_scoped`'s two leaves.
+
+`PinSyn.ownAt` closes each recorded component over the container's
+parameters, instantiates the levels and re-opens at the components it
+was given, which here are the openers themselves.  K.30's
+`pinDsScoped` bounds every leaf of a component below `nP`, so
+`abstractRange` leaves NOTHING free (`hasFvar_abstractRange_of_leaves`
+— its `fvar` arm does not descend into the annotation), and the only
+leaves the entry carries are the openers put back. -/
+theorem ownPinTerm_getAppArgs_scoped {d : BlockModel V} {lps : List Name} {z : Nat}
+    (hz : z < d.nPins)
+    (hsc : ∃ params : List Expr, params.length = d.nP ∧
+      (∀ j, j < d.nP → ∃ ty, params[j]? = some (Expr.fvar j ty)) ∧
+      ∀ x ∈ (d.pinAt z).DsE, x.looseBVarsBounded 0 = true ∧
+        ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) :
+    ((d.ownPinTerms lps).getD z default).getAppArgs.length = (d.pinAt z).DsE.length ∧
+      (∀ a ∈ ((d.ownPinTerms lps).getD z default).getAppArgs,
+        a.looseBVarsBounded 0 = true) ∧
+      (∀ a ∈ ((d.ownPinTerms lps).getD z default).getAppArgs, ∀ le ∈ a.fvarLeaves,
+        Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners d.nP) := by
+  obtain ⟨params, hplen, hidx, hxs⟩ := hsc
+  have hentry : (d.ownPinTerms lps).getD z default
+      = (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP) := by
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hz]
+    rfl
+  have hargs : ((d.ownPinTerms lps).getD z default).getAppArgs
+      = (d.pinAt z).DsE.map (fun x =>
+          Expr.instSeq (ConLeche.containerParamOpeners d.nP)
+            ((ConLeche.containerParamOpeners d.nP).length - 1)
+            ((Expr.abstractRange x 0 d.nP 0).instantiateLevelParams lps
+              (lps.map Level.param))) := by
+    rw [hentry]
+    unfold PinSyn.ownAt
+    rw [Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  -- each component's leaves are below `nP`, so the closed form is `fvar`-free
+  have hlt : ∀ x ∈ (d.pinAt z).DsE, ∀ le ∈ x.fvarLeaves, le.1 < d.nP := by
+    intro x hx le hle
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem ((hxs x hx).2 le hle)
+    have hilt : i < d.nP := by
+      have hib : i < params.length := by
+        rcases Nat.lt_or_ge i params.length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at hi; exact nomatch hi
+      omega
+    obtain ⟨tyi, htyi⟩ := hidx i hilt
+    rw [hi] at htyi
+    have hieq : le.1 = i := by simpa using (by simpa using htyi : le.1 = i ∧ le.2 = tyi).1
+    omega
+  refine ⟨by rw [hargs, List.length_map], ?_, ?_⟩
+  · intro a ha
+    rw [hargs] at ha
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+    refine looseBVarsBounded_instSeq_openers ?_
+    rw [Expr.looseBVarsBounded_instantiateLevelParams]
+    simpa using ConLeche.looseBVarsBounded_abstractRange x 0 d.nP 0 (hxs x hx).1
+  · intro a ha le hle
+    rw [hargs] at ha
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+    have hAF : ((Expr.abstractRange x 0 d.nP 0).instantiateLevelParams lps
+        (lps.map Level.param)).hasFvar = false := by
+      rw [Expr.hasFvar_instantiateLevelParams]
+      exact hasFvar_abstractRange_of_leaves x d.nP 0 (hlt x hx)
+    rw [← Expr.instSpine_eq_instSeq] at hle
+    rcases fvarLeaves_instSpine _ hle with hle' | ⟨o, ho, hlo⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hAF] at hle'
+      exact absurd hle' (List.not_mem_nil)
+    · have ho' := ho
+      rw [ConLeche.containerParamOpeners] at ho'
+      obtain ⟨i, -, rfl⟩ := List.mem_map.mp ho'
+      rw [Expr.fvarLeaves] at hlo
+      simp only [Expr.fvarLeaves, List.mem_cons, List.not_mem_nil, or_false] at hlo
+      obtain rfl : le = (i, Expr.sort Level.zero) := hlo
+      exact ho
 
 end ConLeche.Model
