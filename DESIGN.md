@@ -74454,3 +74454,456 @@ At the closing commit, worktree `trans-309`:
 `DefEq.trans_sound`; no `cases`/`match` over `DefEq` anywhere outside
 `Sound.lean` needed a new case, so the constructor could be added and
 removed with a three-file diff.)
+
+## TASK #310 — THE NbE SPIKE, CONTENT-KEYED SHARING (2026-09-19, `agent/nbe-310`)
+
+**The ask.**  The task #307 record's §5 attributed the missed gate to
+the sharing model: under the origin denotation the rulings required,
+two spellings of one value are two values, so `f a` reached from two
+spellings is two `unfold` nodes, both unfolded (the δ memo at 22 %,
+`HAdd.hAdd` unfolded 28 507 times on the grind certificate against
+the shipped core's 4 487), and it named the remedy the rules tier
+forbade — sokonanoda's content-addressed sharing of EVALUATED values.
+The maintainer asked for a spike of exactly that: values denoted by
+their head form, spines keyed by the evaluated content of their
+arguments, so that two evaluation paths reaching one value share every
+subsequent step; the verified route to be documented per move against
+`Rules/Rel.lean` plus the context-closure rules it now needs; every
+certificate site of #307's table kept, saying on what it now runs.
+**Gate: #307's** — `init-full` verified at ≤ 0.5× the shipped core's
+instructions, no stream more than 10 % worse, RSS within 1.5×.
+
+**The verdict, first.**  The variant exists (`--core=nbe2`: the #307
+core with strict argument evaluation, ι and the projection rule moved
+to `force`, strategy-split memos and a lazy boundary `whnf`), agrees
+with the shipped core on all 348 fixtures at both modes (the sweep
+now runs both NbE cores), and **recovers the sharing**: on the grind
+certificate `HAdd.hAdd` is unfolded 4 362 times (the shipped core
+4 487, the #307 core 28 503), the δ steps fall from 268 k to 140 k and
+the β steps from 2.62 M to 1.58 M — the shipped core's 1.7 M.  **It
+misses the gate by the same factor**: `init-full` verified at 936 G is
+**1.60× the shipped core's** 586 G (the #307 core: 1.68×), the Mathlib
+prefix 1.72× (1.81×), `grind-ring-5` 1.93× (2.15×), `init-prelude`
+1.83× (1.86×); `magma-list-pair-n21` is now 1.27× and its RSS 1.74×
+(the one stream over the RSS bound: strict evaluation of arguments a
+lazy core never touched).  And **the sharing buys nothing at scale**:
+the 5 % over the #307 binary on `init-full` and the Mathlib prefix is
+the monad change (§1, `EStateM`, made to both cores of this binary);
+at one monad the strict and the lazy strategy are equal within 0.5 %
+on `init-full` (936.2 G against 937.4 G) and on the Mathlib prefix
+(1 463 G against 1 470 G), the strict one 7 % better on `grind-ring-5`
+and 13–27 % worse on the two `magma` streams (§4.1).  With the step
+counts at parity with the shipped core, the gap is arithmetic:
+**27 500 instructions per β step against the shipped core's 13 300**
+— the runtime's price for an interned, reference-counted value graph,
+not a sharing deficit.  The
+17× is not reachable by this representation in Lean: to meet the gate
+the per-step price would have to fall four-fold, below the shipped
+core's own, and the profile (§5) has no single item of that size — 64 %
+of it is the value graph's construction (allocation and reference
+counting 34 %, the intern tables 20 %, the read-set projection 9.5 %),
+spread over twenty symbols.  Recommendation (§7): stop the NbE line at
+phase 0; the next variant worth a spike is a representation change
+(an unboxed node store), not another sharing model.  (Binaries: the
+shipped core `8e6d6377…` and the #307 core `de61b32f…` of the #307
+record, re-run today on `init-full` to 0.01 %; the variant at
+`c10a3761`, md5 `76143df0…`.)
+
+### 1. The design
+
+**What is shared, and when.**  In the #307 core every application
+argument is a THUNK — syntax under its (read-set-pruned) environment —
+and a spine, an `unfold` node, an environment entry and a closure are
+keyed by those thunks: by origin.  In the variant every application
+argument is EVALUATED as the spine is built (`evalAll` in `eval`'s
+`.app` clause: each argument's thunk is forced to its β-value through
+`evalT`, memoised on the thunk in `forceC`, sokonanoda's
+`open_eval_cache`), so `applySpine`, `mkApp`, `mkUnfold`, `envCons` at
+a β and the closure environments all see head forms, and the intern
+tables — unchanged, `ValId` by content — make two spellings of one
+value one node: one `deltaC` cell per `unfold` node (sokonanoda's
+`forced`), one `whnfC` cell, one `defeqC` pair, one `inferC` entry.
+Types are NOT strict: a declared type, a domain, a codomain under its
+telescope (`inferSpineStep*`'s `ty'`), a constant's type
+(`inferConst`) and the `iotaCerts` domains stay thunks, forced to
+their head form where the rules demand it, exactly as in #307; the
+codomain of an application is still instantiated with the argument's
+ORIGIN thunk (`inferSpineStepE`'s `av`), which keeps `Infer.app`'s
+conclusion syntactic.  Readbacks are unchanged (weak, hash-consed).
+
+**Evaluation strength.**  Strict evaluation is at β strength only.
+`eval` no longer tries ι at a recursor head (`stuckApp`) or the
+projection rule at `.proj` (`projReduce`); those moved to `force`,
+which becomes `whnfCore` on any value (`whnfCoreV`: the ι attempt at
+a recursor head applied to at least its telescope, the projection rule
+at a `proj` node, each memoised per node in `forceC` — the
+`OnceCell` of the glued value).  So an evaluated argument that is never
+demanded costs β only: no ι, no δ, no `whnf` of a major or a
+scrutinee.  The first cut forced arguments with ι (`forceAll`) and
+unrolled every fuel recursion's induction hypothesis eagerly — the
+IH `Nat.rec … n'` in the minor premise's argument position fired before
+the minor was applied, level by level down the fuel — `grind-ring-5`
+overflowed a 1 GiB stack; sokonanoda's `eval` is β-only for the same
+reason (`whnf_head` fires ι, `apply` does not).
+
+**The key.**  Unchanged: `ValId` into a per-declaration arena, the
+node's content hash a stored field of `VN` (computed once at
+construction from the children's hashes — O(1) per node; a computed
+field on `Value` as `Expr` has would save the `VN` allocation but not
+the hash), structural `VNode.beq` after a hash match, `ptrEq` on the
+syntax inside thunk and closure nodes through `Expr.beq`'s pointer
+fast path.  A memo probe is an integer key.
+
+**The memo tables, by key kind.**  Content-keyed now (the value is a
+head form): `deltaC`, `whnfC`, `defeqC`, `inferC`/`inferIOC` on values,
+`forceC` on `app`/`proj` nodes (the ι/projection cell), `quoteC`.
+Origin-keyed still: `forceC` on thunks (the eval memo: (pruned env,
+syntax) → β-value), `inferC`/`inferIOC` on the thunk of syntax under
+its environment (the front door's inference), `annotC`, `useC`.  **The
+bridge** (`Infer.red`, §2): `inferE`'s result for syntax under an
+environment is recorded under the value the syntax evaluated to as
+well, when it has (`inferPut` with `bridge`), so the β certificate on
+an evaluated argument finds the front door's inference of its origin.
+It is worth about a point of the verified mode's certificate bill on
+the Mathlib prefix (§3).
+
+**Forcing, gluing and sharing.**  `force` of a thunk is `evalT` (the
+β-value, memoised) then `whnfCoreV` (the node's own ι/projection
+cell); `whnf` is `force`, literal acceleration, `delta1` (which now
+`force`s its reduct: δ then `whnfCore`, as the shipped loop), again.
+A thunk forced from two environments that agree on its reads is one
+thunk (frames, #307); a value reached from two thunks is one node
+(content); its δ, its `whnf` and every comparison against it are
+shared.  Nothing keeps an origin: a value has none, and the memo
+tables are the only bridge from an origin to its head form.
+
+**The boundary, and the one thing strictness breaks.**  The
+`CheckerOps.whnf` boundary reads its value back, and the strict
+variant's reduct is DEEPER than official's head-only `whnf`:
+arguments are β-normalised.  The native inductive route's occurrence
+check reads that syntax (`normCtorVal` whnf's each field domain and
+`recCtorKinds` looks for the block's name in every index argument
+unreduced, as official's `has_ind_occ` does), and
+`direct_fix_vec_idx_occ_bad` — a recursive field's index
+`(fun β => n) (Vec' α n)`, official's "non valid occurrence" — was
+ACCEPTED: the redex was gone from the readback.  Not a soundness bug
+(the type reduces to a positive one) but an acceptance divergence,
+and acceptance parity is the gate.  Two fixes were considered and one
+taken.  (a) Values keep an origin — rejected: a content-shared node
+has many origins and only the one the term at hand stood for preserves
+its occurrences, so a "first origin" map is unfaithful.  (b) The
+boundary `whnf` runs the LAZY strategy (`strict = false`, a parameter
+of the mutual block): #307's head-only, origin-preserving reduct.
+That needs the memos whose RESULT depends on the strategy — how deep
+a reduct is — split by strategy, or a lazy `force` of a thunk would
+find a strict β-value (un-ι'd, β-normalised inside) and a lazy `delta1`
+a strict reduct: `forceC`, `whnfC`, `deltaC`, `inferC`, `inferIOC`,
+`constValAt`, `ruleRhsAt` have lazy twins (`*L`), selected by
+`strict` in the memo helpers of `Value.lean`; the strategy-independent
+memos (`defeqC`, `quoteC`, `annotC`, the read sets, the level and
+syntax instantiations) are shared; the arenas are shared (a node is
+its content).  The lazy twins are empty in the check phase (no
+boundary `whnf` there) and hold the install phase's boundary work; the
+`--core=nbe` process reads nothing else.  Cost: none measurable
+(`init-prelude` before and after the split within 0.1 %).
+
+**The monad.**  `NbeM` is `EStateM CheckError NState` instead of
+`StateT NState CheckM` (#307 §7.6 named the cost: an `Except.ok`
+around a pair per return, two objects per `get`).  −6 % on
+`init-prelude` and `grind-ring-5` on both cores; `orElse` keeps the
+state at a throw (a throw invalidates no memo).
+
+**Tried and reverted / not taken.**  Strict evaluation at `whnfCore`
+strength (the stack overflow above; reverted to β strength).  A
+strict boundary `whnf` (the occurrence check; replaced by the lazy
+boundary).  Strict types (a declared type or domain evaluated when
+made): not tried — the type thunks' laziness is what lets
+`inferSpineE` step a syntactic `∀` without forcing, worth 6 % in
+#307.  The `Nat.succ`-on-literal fold at `apply` (sokonanoda's
+`try_fire_rigid`): not needed, `reduceNatV` and the literal bridges
+of `unifyStuck` cover it.  A recursor-head flag on `app` nodes to
+save `whnfCoreV`'s `fe.find?` per force: not done (`FEnv.find?` is
+1.2 % of the profile).
+
+### 2. The moves, and the rules they land on
+
+The denotation is `⟦·⟧`, structural on values, with an environment
+entry denoted by ITS denotation: `⟦thunk (env, e)⟧ = instantiateList e
+(env.map ⟦·⟧)`, `⟦lam/pi (env, dom, body)⟧` the binder over the same
+substitution, `⟦app h sp⟧ = mkAppN ⟦h⟧ (sp.map ⟦·⟧)`, `⟦unfold n us
+sp⟧` the folded application, `⟦proj⟧`, `⟦fvar idx ty⟧ = .fvar idx
+⟦ty⟧`.  In #307 every entry was an origin, so this was the origin
+denotation; here an entry is a head form.  The state invariant backs
+each memo cell by a derivation: `forceC` (thunk) `t ↦ v` by `Red d ⟦t⟧
+⟦v⟧`, `forceC` (node) and `whnfC`, `deltaC` likewise, `defeqC` by
+`DefEq`, `inferC` by `Infer`.  The moves, with the rule of
+`Rules/Rel.lean` (master) or the new one:
+
+| move of the variant | rule |
+|---|---|
+| `evalAll`: an argument `a` of `(env, f a)` evaluated to `a'` before the spine is built | **`Red.appArg` (NEW)**: `Red d a a' → Red d (.app f a) (.app f a')`, once per argument, with `Red.appFn` and `Red.trans` — the premise is the eval memo's derivation.  Semantically an `interp` congruence (one line in the model: `interp (f a) = interp f (interp a)`).  This is the one move #307 did not make; every other new-looking move below is this one plus an existing rule |
+| β at `betaPeel` on the evaluated argument | `Red.beta`/`Red.betaGate` on `(λ ty body) a'` → `body.instantiate1 a'`, the closure environment's new entry being `a'` (the same substitution lemma as #307).  No reduction under a binder is ever claimed: the argument was reduced in the REDEX (`appArg`), before β substituted it |
+| the β certificate `Infer .io a' ta → DefEq ta ty` | `Red.beta`'s premises, on the head form (§3) |
+| the `Infer.red` bridge (`inferPut … bridge`): the origin's inference recorded under its head form | **`Infer.red` (NEW)**: `Red d a a' → Infer g d a t → Infer g d a' t`.  Semantically `interp a = interp a'` (one line).  Its converse is equally trivial and not needed |
+| ι at `whnfCoreV` on an `app` node (spine of head forms) | `Red.iota` at the reduct reached by `appArg`; `Certs`/`DefEqList` on the spine's head forms; the residual telescope's re-entry through a `pi` closure's own syntax (`originOf`'s new arm — a closure IS syntax under an environment, so the walk continues as it did through a thunk) |
+| the projection rule at `whnfCoreV` on a `proj` node, and the scrutinee's β-evaluation at `eval`'s `.proj` | `Red.projArg` (EXISTS: the shipped core `whnf`s the scrutinee) then `Red.proj` |
+| δ at `delta1` on an `unfold` node, and its memo hit from a second origin | `Red.delta` at the folded reading `f a'`; a second origin `f a₂` with `Red a₂ a'` reaches `f a'` by `appArg` and shares the cell by `Red.trans` — the sharing move, and its rule is `appArg` |
+| `force`/`whnf`/`evalT` memo hits | `Red.trans` with the cell's derivation |
+| `unify`'s pointer equality after `force` | `DefEq.refl` on head forms, `DefEq.redL` (+ `symm`) to the origins, whose `Red` premise is now an `appArg` chain |
+| every other conversion arm, η, proof irrelevance, structure η, unit-likeness, the rescues, inference on syntax under an environment, the annotation pass | #307's rows, on terms whose environment entries are head forms — the rules are on terms and do not care how the term was reached |
+| the lazy boundary `whnf` | #307's rows: origin-preserving, no new rule; its readback is official's reduct |
+| `inferType`'s strict readback at the boundary | `⟦v⟧` by the memo invariant; the value may hold head forms where official's would hold origins (a `whnf`'d function type's body); its consumers are `isDefEq`, `ensureSort` and the head readers, none syntactic on arguments — the sweep agrees, and `init-full`/the Mathlib prefix accept every declaration |
+| interning, frames, read sets, the strategy split, hash-consed readbacks, the monad | invisible |
+
+So the verified route for this variant is `Rules/Rel.lean` plus two
+rules, `Red.appArg` and `Infer.red`, each an `interp` congruence; the
+study's §4.3 prediction ("`Red.appArg` and its siblings") is met by
+`appArg` alone, because `projArg` exists and the under-binder
+closure the study feared is not needed (the argument is reduced in the
+redex, and β substitutes the reduct).  What the bridge proof would
+change: `ValOk v : Red ⟦v⟧ₒ ⟦v⟧ₕ` becomes the memo-backed invariant
+above with `⟦·⟧` on head forms, and the eval memo's entry is the only
+place an origin survives — the same shape as #307's, one denotation
+instead of two.
+
+### 3. The certificate sites
+
+Every row of #307's table is in place (the code of the sites is
+unchanged); what changed is what the spine holds when the site runs.
+Cost = `init-full --verified` of a throwaway build with the site
+switched off, against 936.16 G (one run each, the maintainer's
+protocol):
+
+| certificate (rule) | ran on (#307) | runs on (this variant) | cost |
+|---|---|---|---|
+| β argument: `Infer .io a ta → DefEq ta ty` at `betaPeel` (`Red.beta`) | the argument's ORIGIN | the argument's **head form** (`inferV` of the β-value; a hit in the bridged memo when the front door inferred its origin) | −4.3 G (0.46 %; #307: 0.55 %) |
+| ι telescope certificates `Certs` and the index/parameter comparisons at `iotaRec` (`Red.iota`) | the spine's origins; the major's whnf | the spine's **head forms** (the stored type walked under an environment of β-values; a residual re-enters through a `pi` closure's syntax) | not separately built this time (#307: 1.64 % with the index comparison); the whole bill below |
+| projection certificate at the fire (`Red.proj`) | the constructor spine's origins | the constructor spine's **head forms** | in the bill (#307: 1.19 %) |
+| `pw` agreement at ∀/λ/η | the closures' syntax | unchanged | ≈ 0 |
+| η's inference (`DefEq.eta`) | the stuck value | unchanged | not separable |
+| proof irrelevance (`DefEq.proofIrrel`, the readers) | values | unchanged | not separable |
+| structure η / unit-like (`DefEq.structEta`/`structUnit`) | values; projections as `.proj` nodes or projection-function applications, ι tried at construction | values; the projections are now **deferred** nodes (`mkProj`, `mkApp` of the projection function — reduced at `force`, as the shipped core's fabrication holds them syntactically) | in the bill |
+| the rescues' fabrication and scope guard | the fabrication; masks/readback | unchanged | in the bill |
+| io grade: `appSkip` at a `.never` codomain, the certificate otherwise (`inferSpineStepE`) | the argument's origin (syntax) | unchanged — inference stays on syntax; the bridge records the result under the head form | the skip: not re-measured (#307: 6.0 %) |
+| `inferBody`'s annotation validations | the opened body's type value | unchanged | in the bill |
+| the boundary `whnf`'s own certificates (the installers' ι, β, projection fires) | origins | origins (the lazy strategy) | in the install phase |
+
+The whole bill (`--verified` minus `--trusted`): **+3.8 % on
+`init-full`** (936.2 G vs 901.9 G; #307 +4.5 %, the shipped core
++3.3 %), +5.7 % on `init-prelude` (#307 +5.8 %), +4.5 % on
+`grind-ring-5` (#307 +6.5 %), +4.2 % on the Mathlib prefix (1 463 G vs
+1 404 G; the lazy strategy of this binary +5.1 %, 1 470 G vs 1 399 G;
+the shipped core +3.9 %).  The #307 record's +16.8 % on the Mathlib
+prefix was an anomalous cell (§4): its binary gives +5.1 % today.  The
+bridge is worth the point between 5.1 and 4.2: the io-grade argument
+inferences that ran on origins the memo never saw again now find the
+head form's entry.
+
+### 4. Measurements
+
+The project's method with the maintainer's correction: `perf stat -e
+instructions:u`, `--jobs=1`, `ulimit -v 16000000` (22 GB for
+`init-full` and the Mathlib prefix), `timeout`, **one run per cell**
+(re-runs of the shipped core today reproduced #307's cells to 0.01 %:
+`init-full` 567.25/585.85 G against 567.27/585.83 G, the Mathlib prefix
+816.85/848.54 G against 816.83/848.52 G), peak RSS by
+`time -v`; the same streams as #307 (the fresh `lean4export` of `Init`
+at `v4.33.0`, 57 977 declarations; the cone of
+`Mathlib.Order.Filter.Basic` at `6f1ef4e5`, 131 902 declarations; the
+arena's tarball and the `magma`/`fueled-chain` fixtures).  The shipped
+and #307 columns are #307's cells (the same binaries, the same day),
+with one correction: **#307's Mathlib prefix `--verified` cell
+(1 706.24 G) does not reproduce** — the binary of the record's md5 gives
+1 536.62 G today, twice (the `--trusted` cell reproduces to 0.001 %),
+so the table carries today's figure and #307's Mathlib ratio is 1.81×,
+not 2.01×.
+
+**4.1 The battery** (instructions; `nbe2 ÷ shipped` and `nbe2 ÷ #307`
+at `--verified`):
+
+| stream | shipped t / v | #307 nbe t / v | **nbe2 t / v** | nbe2 ÷ shipped (t / v) | nbe2 ÷ #307 (v) |
+|---|---|---|---|---|---|
+| `let-ladder` | 8.06 / 8.06 G | 4.26 / 4.26 G | 4.23 / 4.24 G | **0.53× / 0.53×** | 0.99× |
+| `beta-ladder` | 39.94 / 39.94 G | 0.51 / 0.52 G | 0.50 / 0.51 G | **0.013× / 0.013×** | 0.98× |
+| `init-prelude` | 3.04 / 3.20 G | 5.62 / 5.94 G | 5.55 / 5.87 G | 1.83× / 1.83× | 0.99× |
+| `grind-ring-5` | 21.47 / 22.61 G | 45.58 / 48.52 G | 41.66 / 43.53 G | 1.94× / 1.93× | **0.90×** |
+| `app-lam` | 157.30 / 157.30 G | 1.11 / 1.13 G | 1.08 / 1.10 G | **0.0069× / 0.0070×** | 0.98× |
+| `fueled-chain` | 1.08 / 1.09 G | 6.64 / 6.70 G | 6.29 / 6.32 G | 5.83× / 5.80× | 0.94× |
+| `magma-list-pair-n21` | 194.29 / 199.17 G | 193.34 / 203.93 G | 245.57 / 253.45 G | 1.26× / 1.27× | 1.24× |
+| `magma-list-deep-n36` | 316.52 / 324.55 G | 229.23 / 248.24 G | 251.73 / 266.22 G | **0.80× / 0.82×** | 1.07× |
+| **`init-full`** | 567.27 / 585.83 G | 937.09 / 981.91 G | 901.90 / 936.16 G | **1.59× / 1.60×** | **0.95×** |
+| Mathlib prefix | 816.83 / 848.52 G | 1 461.44 / 1 536.62 G | 1 403.83 / 1 463.29 G | 1.72× / 1.72× | 0.95× |
+
+**The gate**: `init-full --verified` at 936.2 G = **1.60× today's**
+against ≤ 0.5×; `init-prelude`, `grind-ring-5`, `fueled-chain`,
+`magma-list-pair-n21` and the Mathlib prefix regress by more than
+10 %.  Missed.  Against the #307 binary: 5 % better on `init-full` and
+the Mathlib prefix, 10 % on `grind-ring-5`, worse on the two `magma`
+streams.  **At one monad** — this binary's `--core=nbe` is the #307
+code path on `EStateM` — the strategies compare as follows
+(instructions, `--trusted` / `--verified`):
+
+| stream | lazy (`--core=nbe`, this binary) | strict (`--core=nbe2`) | strict ÷ lazy (v) |
+|---|---|---|---|
+| `init-prelude` | 5.48 / 5.79 G | 5.55 / 5.87 G | 1.01× |
+| `grind-ring-5` | 43.94 / 46.74 G | 41.66 / 43.53 G | **0.93×** |
+| `fueled-chain` | 6.52 / 6.58 G | 6.29 / 6.32 G | 0.96× |
+| `magma-list-pair-n21` | 185.95 / 195.98 G | 245.57 / 253.45 G | **1.29×** |
+| `magma-list-deep-n36` | 216.83 / 234.63 G | 251.73 / 266.22 G | **1.13×** |
+| `init-full` | 894.65 / 937.38 G | 901.90 / 936.16 G | 1.00× |
+| Mathlib prefix | 1 398.64 / 1 470.21 G | 1 403.83 / 1 463.29 G | 1.00× |
+
+(the three ladders are equal to 1 %).  So the content-keyed sharing,
+which halves the δ steps on the grind certificate, is worth 7 % there
+and nothing on `init-full` or the Mathlib prefix, where the work it
+saves (δ misses −18 %) is paid back in the strict evaluation of
+arguments a lazy core never demanded; on the `magma` streams that
+evaluation is a net loss.  The `EStateM` change is worth 4.5 % on
+`init-full` (981.9 → 937.4 G) and 4.3 % on the Mathlib prefix
+(1 536.6 → 1 470.2 G) on the lazy core.
+
+**4.2 Peak RSS** (MB, shipped / #307 / nbe2): `init-full` 479 / 426 /
+419 (0.87×); Mathlib prefix 941 / 800 / 805 (0.86×); `magma-list-pair-n21`
+5 464 / 7 922 / **9 515 (1.74×)** — over the bound; `magma-list-deep-n36`
+7 523 / 5 764 / 6 410 (0.85×); `grind-ring-5` 217 / 615 / 556 (2.6×, a
+0.55 GB figure); `app-lam` 2 787 / 54 / 58; `beta-ladder` 749 / 38 / 37;
+`let-ladder` 237 / – / 254; `init-prelude` 30 / – / 40; `fueled-chain`
+25 / – / 45.  The per-declaration arena holds every node until the
+declaration ends (#307 §8.6), and strict evaluation makes more of them
+on a stream of large unused arguments; a session reset would need
+values to be droppable mid-declaration, which `ValId` indices are not.
+
+**4.3 The step counts** (a throwaway `dbgTrace` build, `grind-ring-5
+--verified`, both cores of this binary; the shipped core's β count is
+#307's, its `HAdd.hAdd` count #307's throwaway):
+
+| | β steps | ι fires | δ steps | `unify` entries (non-identical) | `eval` of an application | `HAdd.hAdd` unfolded |
+|---|---|---|---|---|---|---|
+| shipped core | 1.7 M | – | – | – | – | 4 487 |
+| #307 core | 2 619 294 | 208 090 | 267 960 | 345 415 | 989 690 | 28 503 |
+| **nbe2** | **1 580 371** | 157 341 | **140 203** | 254 782 | 935 440 | **4 362** |
+
+The sharing is recovered: the variant does the shipped core's amount
+of work (β 1.58 M against 1.7 M; the δ count of the head that #307
+singled out at parity with the shipped core).  Instructions per β
+step: **nbe2 27 500, the #307 core 17 800 (this binary's `--core=nbe`,
+46.7 G, on 65 % more steps), the shipped core 13 300.**
+
+**4.4 The memo hit rates** (`--nbe-stats`, `init-full --verified`,
+check phase; #307's in parentheses): intern 95.5 M / 56.6 M = 62.8 %
+(62.6 %), environments 61.3 % (63.0 %), `force` 19.8 M / 19.9 M =
+49.8 % (36.3 % — the probes doubled: the thunks' β-values and the
+nodes' ι cells), `whnf` 61.3 % (66.9 %), **δ 1.43 M / 6.42 M = 18.2 %
+(22.3 %; the misses fell from 7.8 M to 6.4 M, −18 %)**, `defeq` 48.7 %
+(43.2 %), `infer` 53.2 % (53.2 %), `inferIO` 36.8 % (36.5 %), `quote`
+59.1 % (59.0 %), `annotate` 31.1 % (31.1 %); the largest arena 208 748
+values / 244 173 environments (190 931 / 249 099).  The Mathlib
+prefix: intern 62.2 %, `force` 47.6 %, δ 18.0 % (#307: 22.8 %), `defeq`
+46.8 % (42.2 %), `infer` 49.6 % (49.6 %).
+On `grind-ring-5` the δ misses halve (260 207 → 135 201) and `defeq`
+misses fall 37 % (159 375 → 100 889).  A δ hit RATE that fell while the
+misses fell says what the step counts say: fewer unfoldings reach the
+memo at all, because the spines that would have missed are now one
+node — the sharing happens at the intern table, before the memo.
+
+### 5. Where the instructions go (`perf record -F 199 -e instructions:u`, `init-full --verified --core=nbe2`)
+
+| bucket | share |
+|---|---|
+| allocator + reference counting (`mi_malloc_small` 11.0, `lean_dec_ref_cold` 10.6, `mi_free` 7.2, `lean_inc_heartbeat` 2.1, `del_core` 1.6, `mi_malloc` 1.1, `lean_free_object` 0.9, …) | **34.3 %** |
+| the intern tables (`intern` 4.1 + its probe 2.1 + its rehash 1.2, `envCons` 2.5 + 1.6, `envFrame` 2.3 + 1.6, `mkThunkNode` 1.3, `spineData` 0.7, `VNode.beq` 0.7) | **19.9 %** |
+| the core's own bodies (`evalT` 1.2, `envLookup` 1.0, `evalAll` 0.8, `mkThunks` 0.8, `mkThunk` 0.7, `eval` 0.7, `applySpine` 0.7, `betaPeel` 0.6, `force` 0.6, `annotate` 0.5, …, each below 1.3) | 13.1 % |
+| the read-set projection (`buildFrame` 2.7 + 0.7, `usesMask` 1.8 + 1.2 + 0.5, `lean_nat_log2` 0.7 (`maskBound`)) | 9.5 % |
+| `Expr.beqGo` (hash-equal, pointer-distinct syntax at the thunk, read-set and readback probes) | 4.3 % |
+| `Expr`/`Level` operations (`instLevelParamsGo`, `instantiate1Lift*` in `annotate`'s ζ, `Expr.app`, …) | 4.3 % |
+| the memo maps' probes and inserts (`forcePut`, `flushed`'s rehash, …) | 2.6 % |
+| `Array` runtime, the readback table, `FEnv.find?` (1.2, half of it `whnfCoreV`'s head test), the parse (1.2) | 5.4 % |
+
+Read against #307 §4.4: the same picture, a point or two moved —
+allocation 36.2 → 34.3, interning 14.8 → 19.9 (the thunk node per
+argument is now also evaluated: `intern` itself 3.3 → 4.1), projection
+5.0 → 9.5 (`buildFrame` walks the cons chain to the highest index a
+thunk reads, per argument thunk), `beqGo` 3.3 → 4.3.  **The gap is the
+per-node price, not the hit rates**: with the step counts at the
+shipped core's (§4.3), 64 % of the profile is the construction of the
+value graph — an `Array VN` of boxed records over boxed nodes over
+boxed argument arrays, three allocations and a hash probe per node, an
+`EN` record and a probe per environment cons, a `VN` candidate
+allocated for every probe that hits.  No item is 20 % of the run; the
+shape is.  A representation that removed it — nanoclo's packed node
+store, `UInt32` ids in unboxed arrays, no per-node object — is a
+rewrite of `Value.lean` and of every `nodeOf` match, not a variant of
+the core, and it is the only thing left on this line that could reach
+a 0.5× gate.  Whether it would: the shipped core's own 13 300
+instructions per β include 16 % substitution walks the NbE core does
+not do; the variant's 27 500 would have to fall to ~6 600.  Bump
+allocation and address identity gave sokonanoda that price; a packed
+store in Lean would still pay the runtime's reference counting on the
+`Expr` side and the `Std.HashMap` probe per construction.  The honest
+estimate is a 2× from the representation, not 4×.
+
+**`fueled-chain`** (5.8×) is #307's diagnosis unchanged: `Expr.beqGo`
+on 300 000 hash-equal, pointer-distinct copies of one telescope.
+
+### 6. Parity
+
+`tests/arena.sh` sweeps both NbE cores at both modes (four passes;
+`tests/nbe-expected.txt` lines may name a core, a line naming none
+applies to both): 138 arena + 195 e2e + 15 annot as expected, **0
+recorded divergences, on `nbe` and `nbe2` at `--verified` and
+`--trusted`**; `init-full` and the Mathlib prefix accept every
+declaration at both modes.  The sweep caught the one real divergence
+of the variant (`direct_fix_vec_idx_occ_bad`, §1) and the stack
+overflow of the first cut.
+
+### 7. What this settles, and the recommendation
+
+* **The sharing hypothesis of #307 §5 is confirmed and exhausted.**
+  Content-keyed sharing of evaluated values does what it was expected
+  to do — the grind certificate's δ count at the shipped core's, the β
+  count below it, δ misses −18 % on `init-full`, −48 % on
+  `grind-ring-5` — and at one monad it moves `init-full` and the
+  Mathlib prefix by nothing (within 0.5 %), `grind-ring-5` by 7 %, and
+  the `magma` streams the wrong way.  The 1.6× is the price per node
+  of an interned, reference-counted value graph in Lean, spread over
+  allocation, interning and projection; the monad alone was worth
+  4.5 %.
+* **The verified route costs two rules**, `Red.appArg` and
+  `Infer.red`, both `interp` congruences; the certificates keep their
+  sites and run on head forms, at a bill a point below the lazy
+  core's (+3.8 % on `init-full`, +4.2 % on the Mathlib prefix against
+  +4.5 % and +5.1 %), because the bridge makes the origin's inference
+  the head form's.
+* **The boundary is the subtle point**: official's `whnf` is head-only
+  and the inductive routes read it syntactically, so a strict core
+  must keep a lazy strategy (and strategy-split memos) for that one
+  boundary — a wrinkle any CBV core under these installers will have.
+* **Strict evaluation has a cost of its own** on streams with large
+  never-demanded arguments (`magma-list-pair-n21` +27 %, RSS 1.74×);
+  β-only strictness bounds it but does not remove it.
+* **Recommendation: stop the NbE line at phase 0.**  Two spikes have
+  measured the two sharing models; the gate is missed by 3.2× with
+  the better one, and what remains is not a design of the core but the
+  runtime representation of values.  If the programme continues, the
+  one variant with a chance is a packed node store (§5), to be
+  spiked as a representation experiment on the #310 core with the
+  same battery — with the expectation of ~2×, not 4×.  Otherwise the
+  study's own alternative stands: the binder-ladder wins (139×, 76×,
+  1.9×) are the diagnosis of the shipped core's substitution memo, and
+  a fix there (task #306 §1's 0.6 T of 12.9 T) does not need a new
+  core.
+
+### 8. The gates and the commits
+
+`lake build` and `lake test` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh` (no `unsafe` in the tier; pointer equality
+only through `Expr.beq`), `tests/overview-links.sh` (five `Main.lean`
+anchors repointed: the core switch moved the linked lines),
+`tests/quote-gate.sh`, `tests/shake.sh`, `tests/no-local-paths.sh`,
+and the full `tests/arena.sh` with the four NbE passes — all green at
+the final commit.
+
+Commits on `agent/nbe-310`: `9f541067` (the variant: strict
+arguments, `whnfCoreV`, the lazy boundary, the strategy-split memos,
+the bridge), `c10a3761` (`EStateM`), `57efc5b6` (the sweep runs
+`nbe2`), `059a1b90` (the anchors), and this record.
