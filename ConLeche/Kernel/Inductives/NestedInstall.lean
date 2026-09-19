@@ -1028,9 +1028,12 @@ route pays for.
 
 `nestedCopyFieldsAt` is that fold: it runs BOTH arms in one pass and
 returns the pair, so each route's throw site can name the right record.
-The two `all`-shaped Bools below are the SPEC — what the run relation
-records and what the model inverts — and `nestedCopyFieldsAt_fst`/`_snd`
-(`ConLeche/Verify/Inductives/NestedCopyKinds.lean`) are the bridge. -/
+The two Bools below are the SPEC — what the run relation records and
+what the model inverts — and each IS one component of the fold
+(`.1` and `.2`, definitionally), so the two inversions in
+`ConLeche/Verify/Inductives/NestedCopyKinds.lean` unfold straight
+through it and read the pair with `allPair_fst_mem`/`allPair_snd_mem`
+where an `all`-shaped walk would use `List.all_eq_true`. -/
 
 /-- `List.all` of BOTH components of a pair-valued predicate, in ONE
 pass over the list (`allPair_fst`/`allPair_snd`). -/
@@ -1093,9 +1096,10 @@ def copyReflFieldOk (env : Env) (p : NestedParts) (mems : List Name)
 
 /-- **THE TWO ARMS ON ONE WALK** (task #315 K.60 + K.63): the pair
 `(K.60's verdict, K.63's verdict)`, computed in a single pass over the
-containers' stored constructors.  `nestedCopyFieldsAt_fst` and
-`nestedCopyFieldsAt_snd` say it IS the pair of the two specs; the route
-calls this one and reads the components for the two messages. -/
+containers' stored constructors.  The two records ARE its components —
+`nestedCopyPinFieldsAt` is `.1` and `nestedCopyReflFieldsAt` is `.2`,
+definitionally — so the route calls this one and reads the components
+for the two messages. -/
 def nestedCopyFieldsAt (env : Env) (p : NestedParts) (st : ElimState)
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool × Bool :=
   match kinds? with

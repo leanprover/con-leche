@@ -217,7 +217,12 @@ carrying one of the container's own members becomes, in the copy, a
 field at one of the block's own pins — and the block's classification
 says so.  Neither direction of that correspondence is derivable: the
 copies come from a rewrite the model tier has no theorem about, so both
-are recorded at the install, one each way.
+are recorded at the install, one each way.  A REFLEXIVE such field gets
+its own record on the same walk: its stored domain is a function space,
+so the record that dispatches on the domain's head sees a `Π` and says
+nothing there, and the twin asks the same question of the telescope's
+body — which is also why the mention above is carried on that body as
+well as on the two spines.
 Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 

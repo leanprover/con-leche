@@ -117349,3 +117349,168 @@ list now (its consumer is `nestedPinsShapePinF_of`), and
 `copyPinFStored`, `copyPinFRead` and the dispatch never reach it.  No
 kernel file changed, so no accept set moved and `tests/arena.sh` was
 not re-run.
+
+#### PINF: (iv)(b)'s ABSTRACT half LANDED with its consumer — and the reflexive read twin RE-PRICED AT ITS INPUTS, with two corrections (lane PINF, 2026-09-19)
+
+K.63 landed, so the `hkA` the previous section recorded as having NO
+producer has one, and the first item that record named — (iv)(b), the
+reflexive mention clauses — was the first thing done.  Its ABSTRACT
+half is a theorem end to end and its consumer (`copyPinFKindRefl`) is
+in the tree.  Its OPENED half was NOT built, deliberately, and the read
+twin was priced at its inputs and stopped again, with the price's PARTS
+redistributed: one of the two things (c) called a risk is not one, and
+one thing (c) treated as reuse is not reuse either.
+
+##### (a) WHAT LANDED — the abstract carry, in the same three tiers (ii) used
+
+* **tier 1** (`ConLeche/Verify/Inductives/NestedRestoreOpen.lean`):
+  `restoreWalk_stripPis_body` (`:1509`) is
+  `restoreWalk_stripPis_domain`'s sibling — the same induction read at
+  the telescope's BODY rather than at a domain — and
+  `restoreWalk_stripPis_pinRefl` (`:1551`) is
+  `restoreWalk_stripPis_pin` one `Π`-tower down: where the auxiliary
+  domain is itself a telescope whose body is a pin key's application,
+  the restored domain is a telescope of the SAME depth whose body is
+  that pin, lifted past BOTH towers.  Beside them
+  `stripDomPis_of_stripPis` (`:1461`) and
+  `stripDomPis_eq_self_of_getAppFn_const` (`:1491`): K.63's guard is
+  stated at `stripDomPis` and the restore's records at `stripPis`, and
+  these are what let the two spellings meet.
+* **tier 2** (`NestedCtorRead.lean`): `ReadCtx.restoredAbsPinRefl`
+  (`:956`), with the two records' common preamble factored out as
+  `ReadCtx.restoreSplit` (`:869`); `RestoredCtor.absPinRefl` (`:1030`).
+* **tier 3**: `NestedCtorRead.pinArgsAbsRefl` (`NestedLoop.lean:300`),
+  `NestedLoopFacts`/`NestedStageFacts.pinArgsAbsRefl`
+  (`NestedCore.lean:1729`, `:1874`).
+* **the clause**: `ContainerModeled.nestArgsMentionAbsRefl`
+  (`NestedPremise.lean:347`), eight vacuous sites in `nestMention`'s
+  `q < d.nPins` idiom (the four basis blocks, the crossing kit's two,
+  and `EnvModelBStages`' two `of_readBack` calls) and one real
+  discharge at `nestedContainerModeled`.
+* **the consumer**: `NestedPinsRun.copyPinFKindRefl`
+  (`NestedCopyInst.lean:1630`), `copyPinFKind`'s twin one `Π`-tower
+  down, whose two conclusions are `NestedPinsShapePinFRefl`'s conjunct
+  1 and the `hkA` a reflexive `copyPinFCorr` wants.
+
+**THE STEP THAT MADE IT CHEAP**, and it is the same lesson (ii)
+recorded: the transport between the opened and the closed tower is
+`Expr.piBinders_instSeq` — the openers are free VARIABLES, so the
+opening neither makes nor unmakes a binder, the two towers have the
+same DEPTH, and the opened body is the closed one at that same
+instantiation.  So the closed body's pin head and its arity are read
+off the opened ones with `os_instSeq_getAppFn_const_inv` /
+`os_instSeq_getAppArgs`, exactly as B1 does at depth zero, and neither
+tier needed a new induction.  The whole abstract carry, clause and
+consumer included, is under 400 lines.
+
+Also in: `docs/NESTED.md` §3's fourth recorded fact gains the reflexive
+sentence, and the dead prose in
+`ConLeche/Kernel/Inductives/NestedInstall.lean` citing
+`nestedCopyFieldsAt_fst`/`_snd` — which do not exist — is replaced by
+what is true, that the two records ARE the fold's `.1` and `.2`
+definitionally and the two inversions unfold straight through it.
+
+##### (b) THE OPENED CLAUSE WAS NOT BUILT, and that is the consumer-first rule again
+
+(iv)(b) is two clauses, and only one of them has a consumer.  The
+ABSTRACT one is what K.63's guard reads, so `copyPinFKindRefl` consumes
+it in this session.  The OPENED one's only possible consumer is inside
+the read twin (B3), which is not built — and the tree says the shape is
+right to wait: the FINITARY opened clause `nestArgsMention` has no
+consumer in the tree TODAY either, a year of sessions after it landed.
+Nine more vacuous discharges against a clause whose consumer does not
+exist is what `consumer-first-hypotheses` forbids, and the lane's own
+(e) said so.  It is cheap when it is wanted: tier 1 is
+`restoreOpen_pinRefl_domain`, which already exists
+(`NestedRestoreOpen.lean:857`).
+
+##### (c) THE READ TWIN, RE-PRICED AT ITS INPUTS — two corrections
+
+Measured, by reading the lemmas rather than guessing: `copyRecFDomRefl`
+740 lines, `copyRecFReadRefl` ~560, `copyPinFStored` ~915,
+`copyPinFRead` ~515, `copyRecFRead` ~337; at the FINITARY field the
+pin-target dom lemma is a sixth of the member-target one
+(`copyPinFDom` ~90 against `copyRecFDom` ~590).
+
+**Correction 1 — the `.reflexive` `mutualOpenedOk` reader is not a
+risk.**  (c) named it as the reason the contradiction has no route.
+The Bool's reflexive cell (`ConLeche/Kernel/Inductives/MutualInstall.lean:439`)
+opens the field's own `Π` tower with `openPisAtFvars` at
+`(piBinders).1.length` and then asks the SAME head equation the
+recursive cell asks — `body.getAppFn == .const (nameOf m') …` — so the
+reader is `mutualOpenedOk_recHead`'s 32 lines
+(`NestedCopyInst.lean:2133`) plus one `match` arm.  Call it 45.
+
+**Correction 2 — `copyPinFStored` does NOT transfer by changing
+`hkA`.**  Its `hrun` pins the run's INPUT to a CONSTANT SPINE
+(`replaceAllNested … (mkAppN (.const I us) AS)`) and its OUTPUT to the
+field's own domain `(Fs'.getD l default).1`.  At a reflexive field the
+minted domain is a `Π` tower whose BODY is that spine, so the lemma
+cannot be applied there at all until (i) its output slot is generalised
+from the field's domain to a bound `Fl` — mechanical, its `hkA`
+contradiction does not look at the output — and (ii) something hands it
+the BODY's own run.  (ii) is `copyPinFDomRefl`'s job, so the ORDER is
+`copyPinFDomRefl` FIRST, the generalisation SECOND, `copyPinFReadRefl`
+THIRD; (iii)'s "the extraction's abstraction is what lets the read
+twins consume it" holds in `I`/`us`/`AS` but not in the output slot,
+and that is the half of it that was not checked.
+
+The 3× total stands.  What moves is where it sits: less in the
+`mutualOpenedOk` reader, more in `copyPinFDomRefl`, and the
+generalisation is a new (cheap) item that was not on the list.
+
+##### (d) THE ASSEMBLY (v) IS BLOCKED ON ONE FIELD, and the four edits are listed
+
+The run relation carries K.63 — `DeclNestedRun`'s conjunct after K.60
+(`ConLeche/Semantics/Inductives/DeclNested.lean:300`), the first `-`
+after `hK60` in `declNested_of`'s pattern — but the field that would
+put it in the consumer's hands is `NestedPinsRun`'s, in
+`NestedPins.lean`, which the wide lane owns while it threads K.61 and
+K.62 through the same structure.  So `copyPinFKindRefl` takes `hK63`
+as a PARAMETER, which is `copyGroupTargetHead`'s idiom for `hK32`, and
+the threading is four edits for whoever owns that file next:
+
+1. `DeclNestedCore.lean`: name the first `-` after `hK60` as `hK63`
+   and pass it to `hcore`;
+2. `NestedCore.lean`: `NestedCoreModeled` takes
+   `(hK63 : nestedCopyReflFieldsOk env p b st stored = true)` beside
+   `hK60` and passes it on;
+3. `NestedLoop.lean`: the same on `NestedCtorsStaged`;
+4. `NestedPins.lean`: the field `hK63` on `NestedPinsRun`, and
+   `nestedPinsStaged_of` taking and storing it.
+
+Then `copyPinFKindRefl`'s parameter becomes `R.hK63` and nothing else
+moves.
+
+##### (e) STATE
+
+* **(iv)(b) ABSTRACT: LANDED** with its consumer — tiers 1–3, the
+  clause, nine sites, `copyPinFKindRefl`;
+* **(iv)(b) OPENED: NOT BUILT**, consumer-first (b), tier 1 exists;
+* **(iii)/(v) at the REFLEXIVE field: STILL OPEN**, re-priced (c), in
+  the order `copyPinFDomRefl` → `copyPinFStored` generalised →
+  `copyPinFReadRefl`, and `nestedModeled_of_two`'s hypotheses are
+  unchanged (`NestedPinsShapePinFRefl`, `NestedPinsLe`);
+* **the K.63 threading**: four edits (d), one of them in another
+  lane's file.
+
+##### (f) GATES
+
+`tests/warning-free.sh 202affa0`:
+
+```
+warning-free: 14 changed module(s) since 202affa0
+warning-free: lake build — 14 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4975 rows /
+12 roots / **doors 0**; `tests/shake.sh` 513 removals all allowlisted,
+pub-imports 1339 of 2270, none demotable; `tests/quote-gate.sh`,
+`tests/overview-links.sh` (112 links) and `tests/no-local-paths.sh`
+OK; `tests/unconsumed.sh` 185 of 3706 — `copyPinFKindRefl` is on that
+list and every tier below it is off, which is exactly the hand-off to
+the read twin.  The only kernel file touched is a DOCSTRING
+(`NestedInstall.lean`, the dead `_fst`/`_snd` citation), so no accept
+set moved and `tests/arena.sh` was not re-run.
