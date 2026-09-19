@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
+-- lane S-red's kit: `ReadSpine.length`, `denoteMeta_mkAppN_inv`,
+-- `denoteMeta_proj_inv_tower` and `teleFit_nil_inv` are transplanted there
+import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
@@ -12,9 +15,10 @@ The pieces the inference rules' soundness needs that today live in
 turns an import of a Steps row into a door, so the lane copies the
 argument instead):
 
-* `teleFit_nil_inv` and `wellDenotedV_mkAppN_of_fit`
-  (`Steps/CapsRows.lean:142`, `:402`) — the fit-to-application kit the
-  string chain rides;
+* `wellDenotedV_mkAppN_of_fit` (`Steps/CapsRows.lean:402`) — the
+  fit-to-application kit the string chain rides (`teleFit_nil_inv`,
+  the spine inversion and the entry-kind inversion come from lane
+  S-red's `RedSoundKit.lean`);
 * `charList_facts` and `strLitFacts` (`Steps/StrLit.lean:70`, `:176`)
   — the `String`-literal clause's whole content, stated over
   `RulesInputs`' fields (`ConstTy`/`LeafValid`/`NatLeafHeads` are
@@ -86,11 +90,6 @@ theorem WellDenotedV.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
     fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.2⟩
 
 /-! ## The fit-to-application kit (`Steps/CapsRows.lean`) -/
-
-/-- The empty fit pins its residual. -/
-theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
-    (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
-  cases h; rfl
 
 theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
     ∀ (vs : List AnnotTerm) {Ta f : AnnotTerm} {σ : Nat → V} {rest : V},
@@ -549,44 +548,6 @@ The `.proj` rule's reading walk, transplanted: the spine inversion,
 the entry-kind inversion, and the fit-free residual — the checker's
 `instPisAt` peel of the stored entry type reads to the syntactic peel
 of its reading.  `DenoteMetaSpine` is `Motive.lean`'s `ReadSpine`. -/
-
-/-- A read spine has the length of its source. -/
-theorem ReadSpine.length {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) : as.length = vs.length := by
-  induction h with
-  | nil => rfl
-  | cons _ _ ih => simp [ih]
-
-/-- **The application spine, inverted at the validated reading**: the
-head and every argument read, and the value is their `AnnotTerm`
-application.  `denote_mkAppN_inv` without the fuel. -/
-theorem denoteMeta_mkAppN_inv {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} : ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
-    denoteMeta acval env φ d (Expr.mkAppN f as) = some ea →
-    ∃ fa vs, denoteMeta acval env φ d f = some fa ∧
-      ReadSpine acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
-  intro as
-  induction as with
-  | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
-  | cons a as ih =>
-    intro f ea h
-    obtain ⟨fa, vs, hfa, hsp, rfl⟩ := ih h
-    obtain ⟨ff, aa, hff, haa, rfl⟩ := denoteMeta_app_inv hfa
-    exact ⟨ff, aa :: vs, hff, .cons haa hsp, rfl⟩
-
-
-/-- The inversion at a stored entry. -/
-theorem denoteMeta_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
-    {entry : ProjEntry} {ea : AnnotTerm}
-    (hfe : env.findProj? s i = some entry)
-    (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
-    ∃ ia, denoteMeta acval env φ d e = some ia ∧ ea = projAV (i + entry.off) ia := by
-  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -⟩
-  · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
-    exact ⟨ia, hia, rfl⟩
-  · rw [hnt] at hfe; exact nomatch hfe
 
 /-- A read spine extended by one read argument. -/
 theorem ReadSpine.snoc {d : Nat} {as : List Expr} {vs : List AnnotTerm}
