@@ -106931,6 +106931,204 @@ K.62 already enumerates.  Mathlib is not a landing measurement for a
 nested record (see K.65 §(d)); the feature is measured there once, at
 its end.
 
+#### K.67 — a rewritten ordinary field's target is the OWNER's own class (2026-09-19, task #315, lane LE's request)
+
+**A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS.**
+K.62's positive twin at the same guard.  K.62 says where such a target
+is NOT — outside the instance; the wide identification's PIN half needs
+where it IS, because `hslotOrd`'s equation has to hold uniformly in the
+container's tuple `Y` and that forces `tg₁ l = σ (tg₂ l)`.
+
+##### WHY A RECORD, AND NOT A READING OF SOMETHING ALREADY THERE
+
+The guard table, checked input by input at its own guard:
+
+| candidate | its guard | verdict |
+|---|---|---|
+| `PinShapes.rowTarget` / `PinGroupInst.hpinσ` | `(dK.rss i) = true` | wrong guard — that is `hrel`'s pin sub-case |
+| `hstgt` / K.61 `copyPinFInstTgt` | `(dJ.rss i') = true`, at the group's MEMBERS | wrong guard and wrong half |
+| `houtσ` / K.62 `copyOrdFOutside` | right guard | NEGATIVE, and against the copy's own container's map |
+| `ContainerModeled.nestPinSpineAbs` / `…Refl` | `nestOf = some q` with kind `.recursive` / `.reflexive` | does not apply — a container-ordinary field has no `nestOf` |
+| `CopyCtorShape.ordF`'s right arm | — | carries `EntryRead` alone since the `TargetHead` refutation at `tests/e2e/nested_lam_pin_prop.ndjson` |
+
+##### THE SHAPE, AND THE TWO CORRECTIONS THE TREE FORCED
+
+1. **The classification is RECOMPUTED, not read.**  The brief's form —
+   read the owner's stored `_nested` constructor — has nothing to read:
+   the install RESTORES, "the restored constants are stored; the
+   scratch environment is dropped", and what survives of a container's
+   own pins is the pin TERM alone (`containerOwnPinsAtGo` keeps
+   `K lvlsK DsK`).  So `ordTargetDom` recomputes: the container `K`'s
+   STORED constructor field domain, `stripDomPis`'d and cut at
+   `l + domPiDepth` (both arms from the start, K.63/K.65's pattern),
+   instantiated at `K`'s parameters AS THE OWNER GAVE THEM — the
+   `qK`-th entry of `containerOwnPinsSelf env J`, argument spine
+   reversed, because the binder order inside a stripped telescope is
+   the parameters' reverse (K.61 instantiates the same positions with
+   `(containerParamOpeners ci.nP).reverse`).
+2. **The owner is read off the MAP, not off the parent.**  Iterating
+   pins `g` and their own-pin tables is K.61's own addressing and the
+   consumer's (`dJ.pinCtors qK` at the group).  K.40's
+   `nestedPinParent` would be VACUOUS where the consumer needs content:
+   in `nested_p04` the chain is `P4C → Array → List` and `Array` mints
+   nothing, so the `List` copy's parent has an empty own-pin table
+   while `P4C`'s is `[Array, List]` — K.41's own correction, one arm
+   over.  A collapsed map costs nothing: every own-pin position whose
+   image is this pin is checked, not just the first.
+
+The head of the owner's reading is then either one of `J`'s MEMBERS —
+image `p.k + gn.grpBase + mm` — or, by `findIdx?` into `J`'s own-pin
+table, one of `J`'s own pins `q_J` — image
+`p.k + mapR.getD q_J`.  A field that is ordinary for `K` and NOT
+rewritten records nothing.
+
+Placement is K.62's: inside `nestedPinChecks`, ABOVE the
+`verifiedChecks` gate, UNCONDITIONAL in both routes and `.internal` on
+failure, on K.61's own table and K.46's field kinds.  **No `PushChain`
+change**, confirmed — the cached simulation names only K.64, the one
+record outside `nestedPinChecks`, and `ConLeche.Verify.Cached.PushChain`
+built unchanged.  Inversion `nestedOrdTargetOk_at_refl` (general) and
+`nestedOrdTargetOk_at` (finitary, the cut the identity), both in
+`Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
+`nestedPinChecks_inv` → `checkNested_inv_rest` → `checkNested_inv` →
+`DeclNestedRun`; `NestedPinsRun.hK67`.
+
+**IT CANNOT FIRE BY CONSTRUCTION**, category (B): the block's copy of
+the owner's pin is ONE substitution applied to the very constructor the
+owner copied, so the block's target is the owner's target instantiated.
+Official computes nothing of the kind.  **IF IT EVER FIRES** the
+block's rewrite disagrees with the container it copied at a field
+neither calls recursive — a defect in the ROUTE, and the answer is
+never to relax the check.
+
+##### (a) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 with the K.67 binary: `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
+`annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
+`--jobs=4` sweeps unchanged — the accept set did not move.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+**THE FIRING CONTROL REACHES THE ARM**, and its count corrects a
+sentence in the row above.  With the two target comparisons shifted by
+one (`t == … + 1`), the check fires at
+
+| corpus | blocks reached |
+|---|---|
+| e2e (`tests/nested-shadow.sh`) | 4 of 42 rows' blocks — `nested_p04` `P4`, `inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide` (39/42 rows) |
+| `init-full` | 0 of 1 |
+| Mathlib | 5 of 41 |
+
+So the arm is NOT reached at every accepting nested block, and the
+earlier row's "the ordinary case of nesting" needs its scope: the FIELD
+is the ordinary case (`Tree α := node (List (Tree α))` has `List`'s
+`α` ordinary and rewritten), but the RECORD asks about it only where
+the copy is some other container's own pin — the nested-in-nested
+shape.  That is exactly `hslotOrd`'s own guard, which lives in
+`pinClassFit_of_transfer`, the pin half; so the reachability count and
+the consumer agree, and `init-full`'s single nested block
+(`Lean.Syntax`) is simply not nested-in-nested.
+
+##### (b) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, the same binary with the check's call site removed.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.226 G | 538.227 G | +0.0003 % |
+| `init-full --trusted --nested-shadow` | 520.863 G | 520.869 G | +0.0011 % |
+
+Three orders below K.62's +0.436 %, which is what the shape predicts:
+`containerOwnPinsSelf` is HOISTED PER PIN rather than read per field —
+the order `nestedInstMaps` already runs at — and the per-field work is
+one stored-constructor read (K.30's cost model) on a telescope K.61 and
+K.62 already walk.  No Mathlib perf cell, per the standing ruling.
+
+##### (c) STATE
+
+`NestedPinsRun.hK67` is UNCONSUMED until session 2 carries it onto
+`PinShapes` (the `ordF` analogue of the carry lane's row) and the model
+correspondence spends it.
+
+##### (d) THE FIRST SHAPE, STOPPED BEFORE WRITING — why the record is not the one the brief described
+
+K.67 was authorised with a stated shape.  Checked against the tree
+first, as ruled, two things are wrong with it — one repairable, one
+structural — so nothing was written.
+
+###### (a) THERE IS NO STORED `_nested` CONSTRUCTOR TO READ
+
+The brief says to read `J`'s classification "off `J`'s STORED mimic
+constructor for its own pin of `K` (the `_nested` ctor type's field
+`l`)".  No such constant exists: the nested install RESTORES, "the
+restored constants are stored; the scratch environment is dropped"
+(`NestedInstall.lean:28`), and a stream may not even name a `_nested`
+constant.  What survives of a container's own pins is the pin TERM
+only, recovered from the MIMIC RECURSOR's first domain —
+`containerOwnPinsAtGo` keeps `Expr.mkAppN dom.getAppFn
+(dom.getAppArgs.take ciK.nP)`, i.e. `K lvlsK DsK` and nothing else.
+There are no fields, no constructors and no kinds.
+
+**The repair, and it is the machinery K.61 already runs.**  `J`'s
+classification of `K`'s field `l` is RECOMPUTED, not read: take `K`'s
+STORED constructor `j`, its domain at `ci.nP + l`, `stripDomPis` it,
+cut at `l + domPiDepth`, and instantiate its spine head and parameter
+arguments at `J`'s own pin-of-`K`'s components — the `qK`-th entry of
+`containerOwnPinsSelf env J`.  The head is then either a member of
+`J`'s group (index `m`) or, by `findIdx?` into `containerOwnPinsSelf
+env J`, one of `J`'s own pins `q_J`.  That is `nestedInstMapOkAt`'s
+inner block with the lookup table changed from `K`'s own pins to `J`'s
+members and own pins, so both arms (`stripDomPis`/`domPiDepth`) come
+free, as the brief asks.
+
+The mapping is then as briefed: member `m` ↦ the block class
+`p.k + P.grpBase + m`; own pin `q_J` ↦ `(nestedInstMapAt env st P).getD
+q_J`, `P` the parent copy off K.40's `nestedPinParent`.  Cost: one
+stored-ctor read per pin field as K.30 models, plus
+`containerOwnPinsSelf env J` HOISTED PER PIN — not per field.  That is
+the same order as `nestedInstMaps`, which already runs
+`containerOwnPinsAt` at every pin, so K.61's warning (the two
+whole-environment scans are read only at a GUARDED, rare field) is
+respected by the hoist and not by the guard.
+
+###### (b) ONE RECORD DOES NOT CLOSE (3) — THE HOLE IS ON BOTH SIDES
+
+The decisive check.  `hslotOrd` needs `tg₁ l = σ (tg₂ l)`, and `tg₂ l`
+is `(dJ.pinCtors qK).tgts j l` — the ROOT container's MODEL's number.
+`CopyCtorShape.ordF`'s right arm (`NestedFit.lean:932`) is
+
+    rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧
+      tg l < TV.k + TV.n ∧ EntryRead …
+
+on BOTH sides: it bounds `tg l` and says nothing else about it.  So
+side 2 has exactly the same hole as side 1, and a record about the
+BLOCK's rewrite cannot fill it — `dJ` is a stored container and its
+`pinCtors` come from `BlockAt`/`PinShapes`, not from this run.
+
+What fills it is the carry lane's own pattern, one arm over: K.67 is
+`J`'s run fact when `J` was installed, so it has to be CARRIED onto
+`PinShapes` as a clause and read back, exactly as the carry lane
+carried K.61's row and read it with `PinShapes.rowTarget`.  So (3) is
+
+1. K.67, in the corrected shape above (kernel + `nestedOrdTargetOk_at`
+   inversion + run conjunct + `NestedPinsRun.hK67`) — the BLOCK's side;
+2. a `PinShapes` clause at the `ordF` guard and its reader
+   (`rowTargetOrd`, say) — the CONTAINER's side, in
+   `NestedPremise.lean`, which is the carry lane's file;
+3. the model correspondence `hslotOrd` from (1) + (2).
+
+That is the carry lane's whole session AGAIN plus a kernel record —
+a doubling by the measure the brief set, and (2) is not in this lane's
+files.  Both stop conditions the brief named are met, so nothing was
+written.
+
+(The guard table that makes it a record is the row's own, above.)
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
@@ -121247,209 +121445,3 @@ block's own rewrite, the way K.61 and K.62 already are.
 the row that carries it, and it should be priced as such before
 anything is built.  Nothing was built for this row beyond the
 docstring correction.
-
-#### K.67 — STOPPED BEFORE WRITING: the record's shape does not match the tree's readers, and one record does not close (3) (lane LE, 2026-09-19)
-
-K.67 was authorised with a stated shape.  Checked against the tree
-first, as ruled, two things are wrong with it — one repairable, one
-structural — so nothing was written.
-
-##### (a) THERE IS NO STORED `_nested` CONSTRUCTOR TO READ
-
-The brief says to read `J`'s classification "off `J`'s STORED mimic
-constructor for its own pin of `K` (the `_nested` ctor type's field
-`l`)".  No such constant exists: the nested install RESTORES, "the
-restored constants are stored; the scratch environment is dropped"
-(`NestedInstall.lean:28`), and a stream may not even name a `_nested`
-constant.  What survives of a container's own pins is the pin TERM
-only, recovered from the MIMIC RECURSOR's first domain —
-`containerOwnPinsAtGo` keeps `Expr.mkAppN dom.getAppFn
-(dom.getAppArgs.take ciK.nP)`, i.e. `K lvlsK DsK` and nothing else.
-There are no fields, no constructors and no kinds.
-
-**The repair, and it is the machinery K.61 already runs.**  `J`'s
-classification of `K`'s field `l` is RECOMPUTED, not read: take `K`'s
-STORED constructor `j`, its domain at `ci.nP + l`, `stripDomPis` it,
-cut at `l + domPiDepth`, and instantiate its spine head and parameter
-arguments at `J`'s own pin-of-`K`'s components — the `qK`-th entry of
-`containerOwnPinsSelf env J`.  The head is then either a member of
-`J`'s group (index `m`) or, by `findIdx?` into `containerOwnPinsSelf
-env J`, one of `J`'s own pins `q_J`.  That is `nestedInstMapOkAt`'s
-inner block with the lookup table changed from `K`'s own pins to `J`'s
-members and own pins, so both arms (`stripDomPis`/`domPiDepth`) come
-free, as the brief asks.
-
-The mapping is then as briefed: member `m` ↦ the block class
-`p.k + P.grpBase + m`; own pin `q_J` ↦ `(nestedInstMapAt env st P).getD
-q_J`, `P` the parent copy off K.40's `nestedPinParent`.  Cost: one
-stored-ctor read per pin field as K.30 models, plus
-`containerOwnPinsSelf env J` HOISTED PER PIN — not per field.  That is
-the same order as `nestedInstMaps`, which already runs
-`containerOwnPinsAt` at every pin, so K.61's warning (the two
-whole-environment scans are read only at a GUARDED, rare field) is
-respected by the hoist and not by the guard.
-
-##### (b) ONE RECORD DOES NOT CLOSE (3) — THE HOLE IS ON BOTH SIDES
-
-The decisive check.  `hslotOrd` needs `tg₁ l = σ (tg₂ l)`, and `tg₂ l`
-is `(dJ.pinCtors qK).tgts j l` — the ROOT container's MODEL's number.
-`CopyCtorShape.ordF`'s right arm (`NestedFit.lean:932`) is
-
-    rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧
-      tg l < TV.k + TV.n ∧ EntryRead …
-
-on BOTH sides: it bounds `tg l` and says nothing else about it.  So
-side 2 has exactly the same hole as side 1, and a record about the
-BLOCK's rewrite cannot fill it — `dJ` is a stored container and its
-`pinCtors` come from `BlockAt`/`PinShapes`, not from this run.
-
-What fills it is the carry lane's own pattern, one arm over: K.67 is
-`J`'s run fact when `J` was installed, so it has to be CARRIED onto
-`PinShapes` as a clause and read back, exactly as the carry lane
-carried K.61's row and read it with `PinShapes.rowTarget`.  So (3) is
-
-1. K.67, in the corrected shape above (kernel + `nestedOrdTargetOk_at`
-   inversion + run conjunct + `NestedPinsRun.hK67`) — the BLOCK's side;
-2. a `PinShapes` clause at the `ordF` guard and its reader
-   (`rowTargetOrd`, say) — the CONTAINER's side, in
-   `NestedPremise.lean`, which is the carry lane's file;
-3. the model correspondence `hslotOrd` from (1) + (2).
-
-That is the carry lane's whole session AGAIN plus a kernel record —
-a doubling by the measure the brief set, and (2) is not in this lane's
-files.  Both stop conditions the brief named are met, so nothing was
-written.
-
-##### THE GUARD TABLE THAT MAKES IT A RECORD
-
-Unchanged from the row above, and it is the reason a record is needed
-at all: `rowTarget`/`hpinσ` and K.61 are at `(dK.rss i) = true`; K.62
-is at the right guard but NEGATIVE and against the copy's own
-container's map; `nestPinSpineAbs`/`Refl` are guarded by
-`nestOf = some q` with kind `.recursive`/`.reflexive`, which a
-container-ordinary field does not satisfy; and the shape's `ordF`-right
-arm carries `EntryRead` alone since the `TargetHead` refutation.
-
-#### K.67
-
-**A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS.**
-K.62's positive twin at the same guard.  K.62 says where such a target
-is NOT — outside the instance; the wide identification's PIN half needs
-where it IS, because `hslotOrd`'s equation has to hold uniformly in the
-container's tuple `Y` and that forces `tg₁ l = σ (tg₂ l)`.
-
-##### WHY A RECORD, AND NOT A READING OF SOMETHING ALREADY THERE
-
-The guard table, checked input by input at its own guard:
-
-| candidate | its guard | verdict |
-|---|---|---|
-| `PinShapes.rowTarget` / `PinGroupInst.hpinσ` | `(dK.rss i) = true` | wrong guard — that is `hrel`'s pin sub-case |
-| `hstgt` / K.61 `copyPinFInstTgt` | `(dJ.rss i') = true`, at the group's MEMBERS | wrong guard and wrong half |
-| `houtσ` / K.62 `copyOrdFOutside` | right guard | NEGATIVE, and against the copy's own container's map |
-| `ContainerModeled.nestPinSpineAbs` / `…Refl` | `nestOf = some q` with kind `.recursive` / `.reflexive` | does not apply — a container-ordinary field has no `nestOf` |
-| `CopyCtorShape.ordF`'s right arm | — | carries `EntryRead` alone since the `TargetHead` refutation at `tests/e2e/nested_lam_pin_prop.ndjson` |
-
-##### THE SHAPE, AND THE TWO CORRECTIONS THE TREE FORCED
-
-1. **The classification is RECOMPUTED, not read.**  The brief's form —
-   read the owner's stored `_nested` constructor — has nothing to read:
-   the install RESTORES, "the restored constants are stored; the
-   scratch environment is dropped", and what survives of a container's
-   own pins is the pin TERM alone (`containerOwnPinsAtGo` keeps
-   `K lvlsK DsK`).  So `ordTargetDom` recomputes: the container `K`'s
-   STORED constructor field domain, `stripDomPis`'d and cut at
-   `l + domPiDepth` (both arms from the start, K.63/K.65's pattern),
-   instantiated at `K`'s parameters AS THE OWNER GAVE THEM — the
-   `qK`-th entry of `containerOwnPinsSelf env J`, argument spine
-   reversed, because the binder order inside a stripped telescope is
-   the parameters' reverse (K.61 instantiates the same positions with
-   `(containerParamOpeners ci.nP).reverse`).
-2. **The owner is read off the MAP, not off the parent.**  Iterating
-   pins `g` and their own-pin tables is K.61's own addressing and the
-   consumer's (`dJ.pinCtors qK` at the group).  K.40's
-   `nestedPinParent` would be VACUOUS where the consumer needs content:
-   in `nested_p04` the chain is `P4C → Array → List` and `Array` mints
-   nothing, so the `List` copy's parent has an empty own-pin table
-   while `P4C`'s is `[Array, List]` — K.41's own correction, one arm
-   over.  A collapsed map costs nothing: every own-pin position whose
-   image is this pin is checked, not just the first.
-
-The head of the owner's reading is then either one of `J`'s MEMBERS —
-image `p.k + gn.grpBase + mm` — or, by `findIdx?` into `J`'s own-pin
-table, one of `J`'s own pins `q_J` — image
-`p.k + mapR.getD q_J`.  A field that is ordinary for `K` and NOT
-rewritten records nothing.
-
-Placement is K.62's: inside `nestedPinChecks`, ABOVE the
-`verifiedChecks` gate, UNCONDITIONAL in both routes and `.internal` on
-failure, on K.61's own table and K.46's field kinds.  **No `PushChain`
-change**, confirmed — the cached simulation names only K.64, the one
-record outside `nestedPinChecks`, and `ConLeche.Verify.Cached.PushChain`
-built unchanged.  Inversion `nestedOrdTargetOk_at_refl` (general) and
-`nestedOrdTargetOk_at` (finitary, the cut the identity), both in
-`Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
-`nestedPinChecks_inv` → `checkNested_inv_rest` → `checkNested_inv` →
-`DeclNestedRun`; `NestedPinsRun.hK67`.
-
-**IT CANNOT FIRE BY CONSTRUCTION**, category (B): the block's copy of
-the owner's pin is ONE substitution applied to the very constructor the
-owner copied, so the block's target is the owner's target instantiated.
-Official computes nothing of the kind.  **IF IT EVER FIRES** the
-block's rewrite disagrees with the container it copied at a field
-neither calls recursive — a defect in the ROUTE, and the answer is
-never to relax the check.
-
-##### (a) THE MEASUREMENT
-
-`tests/arena.sh` EXIT 0 with the K.67 binary: `e2e: 200/200`,
-`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
-`annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
-`--jobs=4` sweeps unchanged — the accept set did not move.
-
-| corpus | shadow blocks | accepting | fires |
-|---|---|---|---|
-| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
-| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
-
-**THE FIRING CONTROL REACHES THE ARM**, and its count corrects a
-sentence in the row above.  With the two target comparisons shifted by
-one (`t == … + 1`), the check fires at
-
-| corpus | blocks reached |
-|---|---|
-| e2e (`tests/nested-shadow.sh`) | 4 of 42 rows' blocks — `nested_p04` `P4`, `inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide` (39/42 rows) |
-| `init-full` | 0 of 1 |
-| Mathlib | 5 of 41 |
-
-So the arm is NOT reached at every accepting nested block, and the
-earlier row's "the ordinary case of nesting" needs its scope: the FIELD
-is the ordinary case (`Tree α := node (List (Tree α))` has `List`'s
-`α` ordinary and rewritten), but the RECORD asks about it only where
-the copy is some other container's own pin — the nested-in-nested
-shape.  That is exactly `hslotOrd`'s own guard, which lives in
-`pinClassFit_of_transfer`, the pin half; so the reachability count and
-the consumer agree, and `init-full`'s single nested block
-(`Lean.Syntax`) is simply not nested-in-nested.
-
-##### (b) THE COST — NOISE, AT INIT-FULL
-
-`perf stat -e instructions:u`, one run per cell, `--nested-shadow
---jobs=1`, the same binary with the check's call site removed.
-
-| run | without | with | delta |
-|---|---|---|---|
-| `init-full --verified --nested-shadow` | 538.226 G | 538.227 G | +0.0003 % |
-| `init-full --trusted --nested-shadow` | 520.863 G | 520.869 G | +0.0011 % |
-
-Three orders below K.62's +0.436 %, which is what the shape predicts:
-`containerOwnPinsSelf` is HOISTED PER PIN rather than read per field —
-the order `nestedInstMaps` already runs at — and the per-field work is
-one stored-constructor read (K.30's cost model) on a telescope K.61 and
-K.62 already walk.  No Mathlib perf cell, per the standing ruling.
-
-##### (c) STATE
-
-`NestedPinsRun.hK67` is UNCONSUMED until session 2 carries it onto
-`PinShapes` (the `ordF` analogue of the carry lane's row) and the model
-correspondence spends it.
