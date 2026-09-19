@@ -1026,6 +1026,27 @@ former everywhere, so without this nothing forbids a pin carrying
 constructors its container does not have, and the transfer would have
 no shape at them.
 
+**THE ROW CONJUNCT** (task #315 WIDE, lane `uniform-carry`): K.61's
+row at each of the container's own pins, carried onto the container's
+model so that a LATER block can read it.  At a field of the pin's
+container that is container-recursive into one of THAT container's own
+pins, the copy lands on a pin of `d` — which one is not derivable
+here, because the expansion's dedup and the instantiation are the
+run's and no law of the block model recovers them — and that pin's
+container, index universe, index telescope and components are the
+container's own pin's at the group's instantiation.
+
+It is `PinGroupInst`'s `hstgt` and `hpinσ` together, in the model's own
+spelling (`(pc (q₀ + i')).tgts` rather than the auxiliary block's
+target table), and it is what the collapse-aware correspondence — "σ
+of the container's pick is the block's pick" — reads on the CONTAINER's
+side.  Stated modulo nothing: the two picks are compared at the pin's
+DATA and not at its index, because the two sides index different lists
+and two own pins that collapse at one instantiation need not collapse
+at the other.  `PinCorr`'s `EA` clause is absent for the reason it is
+absent from `hpinσ`: `targetRead_of_pin` rebuilds it from the three
+that are here, and it is the only one that reads a model.
+
 **Its three producer classes**, so that nobody rediscovers them: the
 five PINNED BASIS blocks, where it is vacuous (`d.pins = []`, so `q`
 does not exist); the NESTED route, where it is
@@ -1040,6 +1061,21 @@ unchanged. -/
     ConLeche.containerInfo? env (d.pinAt q).J = some ci ∧
     PinGroupView d (B ci) q₀ kJ ∧
     (∀ i', i' < kJ → (pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length) ∧
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+      l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+      (((B ci).rss i').getD j []).getD l false = true →
+      ¬ (B ci).tgts i' j l < (B ci).k →
+      ∃ q', q' < d.nPins ∧
+        (pc (q₀ + i')).tgts j l = d.k + q' ∧
+        (d.pinAt q').J = ((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).J ∧
+        ∀ φ : Name → Nat,
+          (d.pinAt q').u φ
+              = ((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).u ((d.pinAt q₀).ψJ φ) ∧
+          (d.pinAt q').Ids φ
+              = ((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).Ids ((d.pinAt q₀).ψJ φ) ∧
+          (d.pinAt q').Ds φ
+              = (((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).Ds ((d.pinAt q₀).ψJ φ)).map
+                  (AnnotTerm.instAll ((d.pinAt q₀).Ds φ) 0)) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),

@@ -271,7 +271,22 @@ with the six facts `ofNested_pin_block_of_wide_inst` reads off it.
 map at the group's base pin (`nestedInstMapAt`, K.61), lifted over the
 members by `hroot`, and this structure carries no `ElimState`.  The
 six clauses are, in the order that theorem takes them: `hroot`, `hσ`,
-`hmemσ`, `hidxσ`, `hstgt`, `houtσ`.
+`hmemσ`, `hidxσ`, `hstgt`, `houtσ` — and, beside them, `hpinσ`.
+
+**`hpinσ` is the row the CONTAINER's side of the correspondence reads**
+(task #315 WIDE, lane `uniform-carry`).  `hstgt` says the copy's field
+lands on `σ` of the container's own pin CLASS; the collapse-aware
+correspondence between the two copies of one container at two
+instantiations has to compare the block's pick with the CONTAINER's,
+and neither side's INDEX is a handle for that — they index different
+lists, and two own pins that collapse at one instantiation need not
+collapse at the other.  So the comparison is made at the pin's DATA,
+and this clause carries it: the class `σ` names is the block pin `q'`,
+whose container, index universe, index telescope and components are
+the container's own pin's at the group's instantiation.  It is
+`PinCorr` minus its `EA` clause, which `targetRead_of_pin` rebuilds
+from the three that are here — and minus it on purpose, because `EA`
+is the only one that reads a model and this residual carries none.
 
 **`hIsσ` is NOT here on purpose.**  It is the only one of the seven
 that is not a fact about the run: it equates two INDEX SETS, and every
@@ -306,7 +321,21 @@ records it sits beside. -/
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
       ¬ ∃ c, c < dJ.k + dJ.nPins ∧
         σ c = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) ∧
+    -- `hpinσ`: AND THAT CLASS IS A PIN OF THE BLOCK, WITH THE
+    -- CONTAINER'S OWN PIN'S DATA (task #315 WIDE, lane `uniform-carry`)
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = true →
+      ¬ dJ.tgts i' j l < dJ.k →
+      ∃ q', q' < pinsS.length ∧ σ (dJ.tgts i' j l) = p.k + q' ∧
+        ((D).pinAt q').J = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J ∧
+        ∀ φ : Name → Nat,
+          ((D).pinAt q').u φ = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).u (((D).pinAt q₀).ψJ φ) ∧
+          ((D).pinAt q').Ids φ = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ids (((D).pinAt q₀).ψJ φ) ∧
+          ((D).pinAt q').Ds φ
+            = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds (((D).pinAt q₀).ψJ φ)).map
+                (AnnotTerm.instAll (((D).pinAt q₀).Ds φ) 0))
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE

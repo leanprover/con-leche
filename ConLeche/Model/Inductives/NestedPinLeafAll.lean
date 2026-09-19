@@ -1578,10 +1578,21 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   intro q hq
   obtain ⟨ci, hci⟩ := hcont q hq
   obtain ⟨q₀, kJ, i, hqe, hi, G, hDsE⟩ := hgroupsB q hq ci hci
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci, pinGroupView_of_group G hDsE, fun i' hi' => ?_, ?_⟩
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci, pinGroupView_of_group G hDsE, fun i' hi' => ?_, ?_, ?_⟩
   · -- the count: the copies of a member are its constructors
     simp only [nestedPc, List.length_map, ← Nat.add_assoc]
     exact (G.ctorCount i' hi').symm
+  · -- the ROW (task #315 WIDE, lane `uniform-carry`): `PinGroupInst`'s
+    -- `hstgt` and `hpinσ` composed — the first names the class `σ`
+    -- sends the container's own pin to, the second says that class is
+    -- a pin of the block and carries its data
+    intro ψ i' hi' j hj l hl hrs hpinT
+    obtain ⟨σ, -, -, -, -, hstgt, -, hpinσ⟩ := G.inst
+    obtain ⟨q', hq'lt, hσq, hJ, hrest⟩ := hpinσ ψ i' hi' j hj l hl hrs hpinT
+    refine ⟨q', hq'lt, ?_, hJ, hrest⟩
+    simp only [nestedPc, ← Nat.add_assoc]
+    rw [hstgt ψ i' hi' j hj l hl hrs hpinT, hσq]
+    rfl
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
@@ -4509,7 +4520,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
     have hqK : c - (dJf r).k < (dJf r).nPins := by
       have := hcT; unfold BlockModel.kT at this; omega
     have hcE : c = (dJf r).k + (c - (dJf r).k) := by omega
-    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', hshape'⟩ := hshR _ hqK
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, hshape'⟩ := hshR _ hqK
     -- `ClassPin.name`: the two sides' `containerInfo?` is at ONE name
     have hname : ((dJf r).pinAt (c - (dJf r).k)).J = ((D).pinAt q).J := by
       have := hcp.1.name
@@ -4818,7 +4829,7 @@ theorem nestedPinFam_of_classPin (m : EnvModel V env₂) {st : ElimState}
   · -- a PIN class: the two least tuples are compared through their LEAVES
     have hqK : c - (dJf r).k < (dJf r).nPins := by
       have := hcT; unfold BlockModel.kT at this; omega
-    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', hshape'⟩ := hshR _ hqK
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, hshape'⟩ := hshR _ hqK
     have hname : ((dJf r).pinAt (c - (dJf r).k)).J = ((D).pinAt q).J := by
       have := hcp.1.name
       rwa [(dJf r).nameT_of_pin hcm] at this

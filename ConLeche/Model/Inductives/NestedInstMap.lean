@@ -1655,7 +1655,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [← pinAtE_eq] at h
     exact h
   refine ⟨fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0,
-    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_⟩
+    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- `hσ`
     intro c hc
     dsimp only
@@ -1705,6 +1705,32 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       R.instOutAt SF S hPD hkindsRun hi' (hgb i' hi') hciP CM hci0 CM0 hfind hjA hlF hord hrss
     obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
     exact hout
+  · -- `hpinσ`: `instTgtPin`, whose block pin is exactly `σ`'s value at
+    -- this class — the map's entry at the container's own pin — with
+    -- the pin data `instTgtAt` projects away.  `PinCorr`'s `Ds` clause
+    -- IS the components' conjunct, because `targetView.Ds` at a pin
+    -- class is that pin's own `Ds` (`BlockModel.targetView`).
+    intro ψ i' hi' j hj l hl hrs hpinT
+    dsimp only
+    obtain ⟨cAJ, hjA⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cAJ.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci, hciP, CM⟩ := hci i' hi'
+    obtain ⟨mm', σq, hmm', hmmqK, -, hσlt, hJeq, hrest⟩ :=
+      R.instTgtPin SF S hPD hkindsRun hi' (hgb i' hi') hciP CM hci0 CM0 hfind hjA hlF hrs hpinT
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    refine ⟨σq, hσlt, ?_, hJeq, fun φ => ?_⟩
+    · rw [if_neg hpinT, List.getD_eq_getElem?_getD, hmmqK]; rfl
+    · obtain ⟨⟨hu, hIds⟩, hcorr⟩ := hrest φ
+      refine ⟨hu, hIds, ?_⟩
+      have hDs := hcorr.2.1
+      show ((D).pinAt σq).Ds φ = _
+      rw [show ((D).pinAt σq).Ds φ
+          = ((D).targetView mp₁'.base2.acval φ).Ds ((D).k + σq) from by
+        show _ = ((D).pinAt ((D).k + σq - (D).k)).Ds φ
+        rw [Nat.add_sub_cancel_left]]
+      exact hDs
 
 end Assembly
 
