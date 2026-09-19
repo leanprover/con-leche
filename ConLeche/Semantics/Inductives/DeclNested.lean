@@ -290,6 +290,20 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- `pinF` arm needs.  UNCONDITIONAL, like K.59 and for the same
     -- reason: the consumer reads it in every mode
     ConLeche.nestedCopyPinFieldsOk env p b st stored = true ∧
+    -- **THE CONTAINER INSTANCE MAP** (K.61): every own pin of every
+    -- pin's container, instantiated at that pin's own level arguments
+    -- and components, IS a pin of the block (totality), and a copy's
+    -- field sitting at one of those own pins records the map's value as
+    -- its target.  K.41 records the CONVERSE — a covering, not a map.
+    -- The map may COLLAPSE and is not checked injective.
+    -- UNCONDITIONAL, like K.59 and K.60 and for the same reason
+    ConLeche.nestedInstMapOk env p b st stored = true ∧
+    -- **A REWRITTEN ORDINARY FIELD LEAVES THE INSTANCE** (K.62): at an
+    -- `ordF`-right edge — one whose container-side field mentions no
+    -- member of the container's own group — the recorded target is
+    -- OUTSIDE the instance map's image.  A negative clause on K.61's
+    -- table, with no walk of its own; UNCONDITIONAL for K.61's reason
+    ConLeche.nestedOrdOutsideOk env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -554,7 +568,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
-    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
     hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_

@@ -534,4 +534,190 @@ theorem nestedCopyPinFieldsOk_head {env : Env} {p : NestedParts} {b : MutualBloc
   simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hlv
   exact hlv
 
+
+/-! ## THE CONTAINER INSTANCE MAP, INVERTED (task #315 K.61 and K.62)
+
+K.61's Bool is stated over `List.range st.pins.length` and reads the
+map's table off `nestedInstMaps`; the model consumes it at ONE pin and
+ONE own pin of that pin's container.  These theorems are that shape,
+and every datum in them is one of `nestedInstMapOk`'s own lookups, so
+they cost no new check.
+
+`nestedInstMapOk_at` is both halves of K.61's first clause at a pair:
+the map is DEFINED at `q` (totality) and its value at `qK` is a pin
+`σ` of the block whose recorded pin TERM is the container's own pin
+`own[qK]` — `nestedPinRootPairOk_inv`'s correspondence, positionally
+rather than as a membership.  That one equality of pin terms carries
+the container's name, the level list, the components and the index
+telescope together, exactly as K.41's does.
+
+`nestedInstMapOk_collapsed` is the reading at a COLLAPSED pair: two own
+pins that σ sends to ONE block pin have the same pin term, so their
+components and index telescopes agree.  The map may collapse — it is
+not checked injective — and this is what the wide identification reads
+there.
+
+`nestedInstMapOk_target` is K.61's second clause, in
+`nestedCopyPinFieldsOk_head`'s binders (K.60's guard verbatim, read off
+the telescope instantiated at the parameter openers): the copy's field
+lands on the instance map's value at the own-pin position its
+container's field sits at.
+
+`nestedOrdOutsideOk_at` is K.62 at one edge. -/
+
+/-- **K.61's map, at one pin and one own pin.** -/
+theorem nestedInstMapOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedInstMapOk env p b st stored = true)
+    {q : Nat} (hq : q < st.pins.length)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {lvls : List Level} {Ds : List Expr}
+    (hld : nestedPinLvlsDs env qn = some (lvls, Ds))
+    {own : List Expr} (hown : containerOwnPinsAt env qn.container lvls Ds = some own)
+    {qK : Nat} {e : Expr} (he : own[qK]? = some e) :
+    ∃ (m : List Nat) (σ : Nat) (rn : NestedPin),
+      nestedInstMapAt env st q = some m ∧ m[qK]? = some σ ∧
+        σ < st.pins.length ∧ st.pins[σ]? = some rn ∧ rn.pin = e := by
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedInstMapOk nestedInstMapOkAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+    obtain ⟨m, -, hm⟩ := mapM_option_inv hms q q (by simp [hq])
+    have hm0 := hm
+    simp only [nestedInstMapAt, bind, Option.bind, hqn, hld, hown] at hm
+    obtain ⟨σ, hσ, hfi⟩ := mapM_option_inv hm qK e he
+    obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+    exact ⟨m, σ, st.pins[σ], hm0, hσ, hlt, List.getElem?_eq_getElem hlt, by simpa using hp⟩
+
+/-- **K.61's map at a COLLAPSED pair**: two own pins with one image have
+one pin term. -/
+theorem nestedInstMapOk_collapsed {env : Env} {st : ElimState}
+    {m : List Nat} {q : Nat} (hm : nestedInstMapAt env st q = some m)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {lvls : List Level} {Ds : List Expr}
+    (hld : nestedPinLvlsDs env qn = some (lvls, Ds))
+    {own : List Expr} (hown : containerOwnPinsAt env qn.container lvls Ds = some own)
+    {qK₁ qK₂ σ : Nat} {e₁ e₂ : Expr}
+    (he₁ : own[qK₁]? = some e₁) (he₂ : own[qK₂]? = some e₂)
+    (h₁ : m[qK₁]? = some σ) (h₂ : m[qK₂]? = some σ) : e₁ = e₂ := by
+  simp only [nestedInstMapAt, bind, Option.bind, hqn, hld, hown] at hm
+  obtain ⟨σ₁, hσ₁, hf₁⟩ := mapM_option_inv hm qK₁ e₁ he₁
+  obtain ⟨σ₂, hσ₂, hf₂⟩ := mapM_option_inv hm qK₂ e₂ he₂
+  have hs₁ : σ = σ₁ := by rw [h₁] at hσ₁; simpa using hσ₁
+  have hs₂ : σ = σ₂ := by rw [h₂] at hσ₂; simpa using hσ₂
+  obtain ⟨hlt₁, hp₁, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hf₁
+  obtain ⟨hlt₂, hp₂, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hf₂
+  have hq₁ : st.pins[σ₁].pin = e₁ := by simpa using hp₁
+  have hq₂ : st.pins[σ₂].pin = e₂ := by simpa using hp₂
+  have hσ12 : σ₁ = σ₂ := by omega
+  subst hσ12
+  exact hq₁.symm.trans hq₂
+
+/-- **K.61's clause at an own-pin field**, in `nestedCopyPinFieldsOk_head`'s
+binders. -/
+theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedInstMapOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {J : ContainerMember} (hJ : ci.members[q - qn.grpBase]? = some J)
+    {own0 : List Expr} (hown0 : containerOwnPinsSelf env qn.container = some own0)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    {K : Name} {us : List Level} (hhead : domJ.1.getAppFn = .const K us)
+    (hnm : ((ci.members.map (·.name)).contains K) = false)
+    {ciK : ContainerInfo} (hciK : containerInfo? env K = some ciK)
+    {a : Expr} (ha : a ∈ domJ.1.getAppArgs.take ciK.nP)
+    (hmen : mentionsMember (ci.members.map (·.name)) a = true) :
+    ∃ (qK : Nat) (e0 : Expr) (m : List Nat),
+      own0.findIdx? (fun x => x == Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l) = some qK ∧
+        own0[qK]? = some e0 ∧
+        e0 = Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l ∧
+        nestedInstMapAt env st q = some m ∧
+        m.getD qK st.pins.length = t - p.k := by
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedInstMapOk nestedInstMapOkAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms q q (by simp [hq])
+  unfold nestedInstMapOk nestedInstMapOkAt at h
+  rw [hms, hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hqv := h q hq
+  rw [hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJ, hown0] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [hhead] at hlv
+  simp only at hlv
+  rw [if_neg (by rw [hnm]; simp), hciK] at hlv
+  simp only at hlv
+  rw [if_pos (by
+    simp only [_root_.List.any_eq_true]
+    exact ⟨a, ha, hmen⟩)] at hlv
+  rw [← hhead] at hlv
+  cases hfi : own0.findIdx? (fun x => x == Expr.instantiateList
+      (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+      (containerParamOpeners ci.nP).reverse l) with
+  | none => rw [hfi] at hlv; simp at hlv
+  | some qK =>
+    rw [hfi] at hlv
+    simp only [beq_iff_eq] at hlv
+    obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+    refine ⟨qK, own0[qK], m, rfl, List.getElem?_eq_getElem hlt, by simpa using hp, hm, ?_⟩
+    rw [show maps.getD q [] = m from by rw [List.getD_eq_getElem?_getD, hmq]; rfl] at hlv
+    simpa using hlv
+
+/-- **K.62 at one edge**: an `ordF`-right reference leaves the instance. -/
+theorem nestedOrdOutsideOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdOutsideOk env p b st stored = true)
+    {edges : List (Nat × Nat × Bool)}
+    (hedges : nestedPinEdges env p b st stored = some edges)
+    {q t : Nat} (hq : q < st.pins.length)
+    {mentions : Bool} (hmem : (q, t, mentions) ∈ edges)
+    (hno : mentions = false) :
+    ∃ m : List Nat, nestedInstMapAt env st q = some m ∧ m.contains t = false := by
+  subst hno
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedOrdOutsideOk nestedOrdOutsideAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  unfold nestedOrdOutsideOk nestedOrdOutsideAt at h
+  rw [hms, hedges] at h
+  simp only [_root_.List.all_eq_true] at h
+  have hb := h _ hmem
+  simp only [Bool.false_or, Bool.not_eq_eq_eq_not, Bool.not_true] at hb
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms q q (by simp [hq])
+  refine ⟨m, hm, ?_⟩
+  rw [show maps.getD q [] = m from by rw [List.getD_eq_getElem?_getD, hmq]; rfl] at hb
+  simpa using hb
+
+
 end ConLeche
