@@ -6,6 +6,13 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Semantics.DefEqStep
 import ConLeche.Model.Annot.BitShift
 import ConLeche.Model.Annot.BitClosed
+/- Task #309 (EXPERIMENTAL, removed with the experiment): the
+refutations at the end of this file compute `isProofFast` on a closed
+term, and `ConLeche/Kernel/PropWhen` seals its representation on
+purpose, so the `rfl` cannot see the reduct without this view —
+`Model/Rules/DefEqSoundKit.lean` carries the same escape for the same
+reason. -/
+import all ConLeche.Kernel.PropWhen
 
 public section
 
@@ -847,5 +854,100 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     rw [List.length_map, ← hspt.length, htlen]
   exact hlaw ρ (tsa.map (interp V ρ)) (interp V ρ resta) (interp V ρ aa)
     (interp V ρ ba) hlenTs hfitT hmx hmy
+
+/-! ## Task #309: why `DefEq.trans` fails
+
+Four checked refutations.  They are the experiment's deliverable; the
+DESIGN record quotes them.  All are removed with the `trans`
+constructor when the experiment is closed. -/
+
+/-- **The rule itself is unsound.**  `.fvar i (.fvar k (.sort .zero))`
+— a variable whose declared type is a variable of type `Prop` — is
+"definitely a proof" under `isProofFast`, with no environment
+assumption at all.  The annotation is read off the term, and
+`DefEq.fvar` lets any annotation be put on any variable. -/
+theorem fvarProof_isProofFast (f : Name → Option ConstantInfo) (i k : Nat) :
+    isProofFast f (.fvar i (.fvar k (.sort .zero))) = true := by rfl
+
+/-- **With `trans`, ANY two free variables are definitionally equal**:
+re-annotate each as a proof (`DefEq.fvar` ignores annotations) and join
+the two proofs by `DefEq.proofFast`. -/
+theorem all_fvars_defEq (env : Env) (d i i' : Nat) (ty ty' : Expr) :
+    DefEq env d (.fvar i ty) (.fvar i' ty') :=
+  .trans (b := .fvar i (.fvar 0 (.sort .zero))) .fvar
+    (.trans (b := .fvar i' (.fvar 0 (.sort .zero))) (.proofFast rfl rfl) .fvar)
+
+/-- The absurd consequence: soundness of `trans` would make **every two
+context slots equal under every satisfying valuation**. -/
+theorem all_slots_equal
+    (hsound : ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem (V := V) m φ d a b)
+    {d i i' : Nat} {ty ty' : Expr} {Δa : List AnnotTerm}
+    (hfa : Frame d (.fvar i ty)) (hfb : Frame d (.fvar i' ty'))
+    (hCa : CtxOk m φ d Δa (.fvar i ty)) (hCb : CtxOk m φ d Δa (.fvar i' ty'))
+    (hga : Graded V Δa (.bvar (d - 1 - i)))
+    (hgb : Graded V Δa (.bvar (d - 1 - i')))
+    (ρ : Nat → V) (hρ : Sat V Δa ρ) :
+    ρ (d - 1 - i) = ρ (d - 1 - i') := by
+  have h := hsound (all_fvars_defEq env d i i' ty ty') hfa hfb hCa hCb
+    (by rw [denoteMeta_fvar]) (by rw [denoteMeta_fvar]) hga hgb ρ hρ
+  simpa using h
+
+/-- **Repair (a) is false, part one**: a `DefEq` derivation does not
+propagate the subject's scope — `DefEq.fvar` puts an arbitrary
+annotation on the other side. -/
+theorem wscoped_not_propagated (env : Env) :
+    ¬ (∀ {d : Nat} {a b : Expr}, DefEq env d a b →
+        Expr.WScoped d a → Expr.WScoped d b) := by
+  intro h
+  have := h (d := 1) (a := .fvar 0 (.sort .zero))
+    (b := .fvar 0 (.fvar 5 (.sort .zero))) .fvar (by simp [Expr.WScoped])
+  simp [Expr.WScoped] at this
+
+/-- **Repair (a) is false, part two** (and with it repair (c), the
+existence form for `DefEqSem`): the reading is not propagated either.
+`DefEq.proofFast` reads a λ's OWN annotation datum, so it relates a
+readable λ to one whose domain is not in the environment. -/
+theorem reading_not_propagated (n : Name) (hn : env.find? n = none) (d : Nat) :
+    ¬ (∀ {a b : Expr}, DefEq env d a b →
+        (denoteMeta m.acval env φ d a).isSome = true →
+        (denoteMeta m.acval env φ d b).isSome = true) := by
+  intro h
+  have hb : denoteMeta m.acval env φ d
+      (.lam (.const n []) (.bvar 0) ⟨.ifAllZero []⟩) = none := by
+    rw [denoteMeta_lam, denoteMeta, hn]
+    rfl
+  have ha : denoteMeta m.acval env φ d
+      (.lam (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)
+      = some (.lam (pwBit φ (.ifAllZero [])) (.sort ((Level.zero).eval φ))
+          (.bvar 0)) := by
+    rw [denoteMeta_lam, denoteMeta_sort]
+    rw [show ((Expr.bvar 0).instantiate1 (.fvar d (.sort .zero)))
+        = .fvar d (.sort .zero) from rfl, denoteMeta_fvar]
+    simp
+  have := h (a := .lam (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)
+    (b := .lam (.const n []) (.bvar 0) ⟨.ifAllZero []⟩)
+    (.proofFast rfl rfl) (by rw [ha]; rfl)
+  rw [hb] at this
+  exact absurd this (by simp)
+
+/-- **The per-rule lemma SHAPE is false too**, independently of the
+rule: `DefEqSem` is vacuous at an unreadable middle, so it is not a
+transitive relation.  `DefEqSem a b` and `DefEqSem b c` hold for
+`b = .const n []` at a name the environment does not have, for EVERY
+`a` and `c`. -/
+theorem defEqSem_not_transitive (n : Name) (hn : env.find? n = none)
+    {d : Nat} {a c : Expr} (hac : ¬ DefEqSem (V := V) m φ d a c) :
+    ¬ (∀ {x y z : Expr}, DefEqSem (V := V) m φ d x y →
+        DefEqSem (V := V) m φ d y z → DefEqSem (V := V) m φ d x z) := by
+  intro h
+  have hnone : denoteMeta m.acval env φ d (.const n []) = none := by
+    rw [denoteMeta, hn]
+  refine hac (h (y := .const n []) ?_ ?_)
+  · intro _ _ _ _ _ _ _ _ h2 _ _ _ _
+    rw [hnone] at h2
+    exact absurd h2 (by simp)
+  · intro _ _ _ _ _ _ _ h1 _ _ _ _ _
+    rw [hnone] at h1
+    exact absurd h1 (by simp)
 
 end ConLeche.Model.Rules
