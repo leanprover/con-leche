@@ -100,6 +100,29 @@ basev = sorted((a, b) for a in mods for b in edges[a]
 implv = sorted((a, b) for a in mods for b in edges[a]
                if (mods[a].startswith(IMPL_DIRS) or a in IMPL_ROOTS)
                and b.startswith(THEORY_PFX))
+# THE RULES FENCE (task #305).  The rules tier — the relational
+# description of the core checker (`ConLeche/Rules/*`) and the soundness
+# of its derivations (`ConLeche/Model/Rules/*`) — is stated over the
+# checker's Expr syntax and its fuel-free helpers (`Kernel/CoreDefs`)
+# and must not import the pure implementation: the bodies and the knot
+# (`Kernel/Core`), the fueled entry points (`Kernel/TypeChecker`,
+# `Kernel/CoreIO`), the declaration checker (`Kernel/Checker*`,
+# `Kernel/DeclCheck`) or the cached tier (`Cached/*`).  The bridge
+# (`ConLeche/Verify/Rules/*`) and the recomposition
+# (`ConLeche/Model/Rules/Recompose.lean`) are the two places that see
+# both sides, and are exempt by name.  A DIRECT-import fence, like the
+# two above (the proof-term criterion is `tests/proofdeps.sh`).
+RULES_DIRS  = ('ConLeche/Rules/', 'ConLeche/Model/Rules/')
+RULES_EXEMPT = {'ConLeche.Model.Rules.Recompose'}
+def impl_mod(b):
+    return (b in ('ConLeche.Kernel.Core', 'ConLeche.Kernel.TypeChecker',
+                  'ConLeche.Kernel.CoreIO', 'ConLeche.Kernel.DeclCheck',
+                  'ConLeche.Cached')
+            or b.startswith('ConLeche.Kernel.Checker')
+            or b.startswith('ConLeche.Cached.'))
+rulesv = sorted((a, b) for a in mods for b in edges[a]
+                if mods[a].startswith(RULES_DIRS) and a not in RULES_EXEMPT
+                and impl_mod(b))
 
 if '--list' in sys.argv[1:]:
     for a, b in basev:
@@ -122,12 +145,17 @@ report('base module importing the model lane', basev,
 report('implementation importing theory', implv,
        'CLAUDE.md: ConLeche/Kernel/*, Main.lean must never import '
        'ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*.')
+report('rules tier importing the pure implementation', rulesv,
+       'task #305: ConLeche/Rules/* and ConLeche/Model/Rules/* are stated '
+       'over Kernel/CoreDefs and may not import Kernel/{Core,TypeChecker,'
+       'CoreIO,Checker*,DeclCheck} or Cached/*.')
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "model", "caps", "umbrella")}
 if not fail:
     print(f'layering: base {n["base"]} / model {n["model"]} / caps {n["caps"]} / '
           f'umbrella {n["umbrella"]} modules; '
-          f'{len(basev)} base->lane edges, {len(implv)} impl->theory')
+          f'{len(basev)} base->lane edges, {len(implv)} impl->theory, '
+          f'{len(rulesv)} rules->impl')
 sys.exit(fail)
 PYEOF

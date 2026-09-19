@@ -134,7 +134,18 @@ is a corollary of and the assembly under those.
   fully checked environment and the model it carries, the walk along
   the install run (`ConLeche/Verify/Cached/InstalledC.lean`).
 * `False_pure` / `Empty_pure` — the pure fueled checker the graded tower is stated
-  about. -/
+  about.
+* `rules_bridge` / `rules_sound` / `rules_recomposed` — **the rules
+  tier** (task #305): the bridge `run ⇒ derivation`
+  (`ConLeche/Verify/Rules/Bridge.lean`), the soundness `derivation ⇒ P
+  currency` (`ConLeche/Model/Rules/Sound.lean`; `red_sound` is the
+  mutual block's first member, and the block is one proof term), and
+  the recomposition of `checkSoundAtP5` through them
+  (`ConLeche/Model/Rules/Recompose.lean`).  Pinned so that the
+  soundness's closure is MEASURED: it must never reach the fueled
+  entry points (`ConLeche.Kernel.TypeChecker`, `ConLeche.Kernel.CoreIO`)
+  — that is the maintainer's layering ask stated at the proof term,
+  where the import fence cannot state it. -/
 private def roots : List (String × Name) :=
   [("main_model", `ConLeche.model_exists),
    ("main_file_False", `ConLeche.no_False_declaration),
@@ -147,7 +158,10 @@ private def roots : List (String × Name) :=
    ("False_checked", `ConLeche.Cached.no_proof_of_False_checked),
    ("fullyChecked_sound", `ConLeche.Cached.fullyChecked_sound),
    ("False_pure", `ConLeche.Model.no_proof_of_False_pure),
-   ("Empty_pure", `ConLeche.Model.no_proof_of_Empty_pure)]
+   ("Empty_pure", `ConLeche.Model.no_proof_of_Empty_pure),
+   ("rules_bridge", `ConLeche.Rules.bridge),
+   ("rules_sound", `ConLeche.Model.Rules.red_sound),
+   ("rules_recomposed", `ConLeche.Model.Rules.checkSoundAtP5_rules)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `ConLeche.*` module the root's proof term reaches, sorted.  The pinned
