@@ -505,12 +505,9 @@ implementation
 And the *recomposition*, which is a few lines per claim: bridge the
 run, apply the soundness
 ([theorem `checkSoundAtP5` in `ConLeche/Model/Rules/Recompose.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)).
-The import fence of §12 keeps the soundness honest: the modules that
-state the relations and prove them sound do not import the pure
-implementation, and what their imports' public re-exports still carry
-in is measured and listed by the gate, so what a proof there can use
-of the checker is the inductive description and nothing the list does
-not name.
+The modules that state the relations and prove them sound import the
+term syntax and the environment, not the implementation; the fence
+of §12 checks it.
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
 does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,
@@ -786,12 +783,8 @@ declare it.)
 
 ## 10. Naming conventions
 
-The tree once carried a suffix per verification tier. Those tiers are
-gone — the collapsed set model, the declarative type-theory lane and
-the "tier B" two-regime interpretation were all deleted — and with them
-their markers: **no `2`, `P`, `S2` or `Direct` suffix survives**, and
-**no suffix not listed here carries meaning**. What a reader still has
-to know is short:
+Every marker a reader has to know is in this table; **no suffix not
+listed here carries meaning**.
 
 | marker | reading |
 |---|---|
@@ -860,16 +853,12 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
 `tests/arena.sh` is the standard battery: the layering fence
 (`tests/layering.sh`: no base module imports the model lane, no
-implementation module imports the theory, and the rules tier of §4
-neither imports the pure implementation nor reaches it through its
-imports' public re-exports — under the module system the environment a
-module elaborates in is its direct imports plus, transitively, their
-`public import`s, so that closure is the exact bound on what a proof
-in the module can mention, and the gate computes it from source; the
-handful of implementation modules the base tiers' own re-exports still
-carry into every model module are listed in the script as the doors to
-close, and both a new door and a closed one fail the gate until
-recorded), the compiler-escape scan, the pin
+implementation module imports the theory, and no module of the
+rules tier of §4 has the pure implementation in the environment it
+elaborates in — its direct imports plus, transitively, their
+`public import`s, computed from source; the implementation modules
+that the base tiers' own re-exports still carry in are listed in the
+script and the list may only shrink), the compiler-escape scan, the pin
 dump freshness, the Comparator pair (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),
