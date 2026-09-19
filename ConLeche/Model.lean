@@ -22,6 +22,7 @@ public import ConLeche.Model.Steps.Accepted
 public import ConLeche.Model.Steps.Nat
 public import ConLeche.Model.Steps.CapsRows
 public import ConLeche.Model.Steps.Tiers
+public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.Install
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.NatSem
