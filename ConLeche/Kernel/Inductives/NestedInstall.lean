@@ -2532,9 +2532,9 @@ instantiates the same positions with `(containerParamOpeners ci.nP).reverse`).
 
 This is what makes the record a RECOMPUTATION rather than a reading:
 the owner's own elimination left no constant behind to ask. -/
-def ordTargetDom (ci : ContainerInfo) (ownSelf : List Expr) (qK l : Nat) (dom : Expr) : Expr :=
+def ordTargetDom (nP : Nat) (ownSelf : List Expr) (qK l : Nat) (dom : Expr) : Expr :=
   Expr.instantiateList (stripDomPis dom)
-    (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) (l + domPiDepth dom)
+    (((ownSelf.getD qK default).getAppArgs.take nP).reverse) (l + domPiDepth dom)
 
 
 /-- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS**
@@ -2621,7 +2621,7 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else if mentionsMember memsK domJ.1 then true
                               else
-                                let dmJ := ordTargetDom ci ownSelf qK l domJ.1
+                                let dmJ := ordTargetDom ci.nP ownSelf qK l domJ.1
                                 match dmJ.getAppFn with
                                 | .const M _ =>
                                   match memsJ.findIdx? (· == M) with

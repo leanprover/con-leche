@@ -893,14 +893,14 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     (hkt : p.k ≤ t)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {M : Name} {us : List Level}
-    (hhead : (ordTargetDom ci ownSelf qK l domJ.1).getAppFn = .const M us) :
+    (hhead : (ordTargetDom ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
         t = p.k + gn.grpBase + mm) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
-      ownSelf.findIdx? (fun e => e == Expr.mkAppN (ordTargetDom ci ownSelf qK l domJ.1).getAppFn
-          ((ordTargetDom ci ownSelf qK l domJ.1).getAppArgs.take ciM.nP)) = some qJ →
+      ownSelf.findIdx? (fun e => e == Expr.mkAppN (ordTargetDom ci.nP ownSelf qK l domJ.1).getAppFn
+          ((ordTargetDom ci.nP ownSelf qK l domJ.1).getAppArgs.take ciM.nP)) = some qJ →
       t = p.k + mapR.getD qJ st.pins.length) := by
   cases hms : nestedInstMaps env st with
   | none =>
@@ -1001,7 +1001,7 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
       have hc : Expr.forallE ty bo bm = Expr.const K usK := hfin
       exact nomatch hc
     | _ => exact ⟨rfl, rfl⟩
-  have hdm : ordTargetDom ci ownSelf qK l domJ.1
+  have hdm : ordTargetDom ci.nP ownSelf qK l domJ.1
       = Expr.instantiateList domJ.1
           (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) l := by
     unfold ordTargetDom
