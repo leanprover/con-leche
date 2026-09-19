@@ -11130,6 +11130,214 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl
         (((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length - 1) hEr hopEr hopLen) (b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length),
     halign, hbW, hvseq, hvsSplit, hvs₂]
 
+/-! ## The tie's block side, AT THE RUN'S OWN RESIDUALS (task #315
+WIDE (3), step 1(a))
+
+`copyOrdFRightPinOrdTargetRead` and its reflexive twin take the field's
+whole syntactic residual — the minted telescope, its opening, the
+positivity walk's output, the rewrite and the reading — as hypotheses,
+because that is the form the proof needs them in.  No consumer holds
+them: what a consumer holds at an `ordF`-right field is the run, the
+group, a frame and a fitting prefix, exactly as at every other arm of
+the shape.
+
+The two wrappers below close that gap the way `copyOrdFRightReadP`
+does: `copyFieldReadCoreQ` mints the residual and hands it to the
+caller's `hrunAll` (the positivity run, which is `copyOrdFRightPinRun`
+at either kind), and the `Q` it is instantiated at CAPTURES the four
+pieces the target reading needs and `copyFieldReadPin`'s fixed `Q`
+drops — the minted constructor, its opening, the opened field variable
+and the walk's output.  The reading of that output is the core's own
+last component, which is why the frame and the prefix are inputs here
+and absent from the conclusion.
+
+`hfin` and `hciK` stay hypotheses: they are K.69's own dispatch — the
+head of the OWNER's recomputation and its container — and no clause of
+the run produces them. -/
+
+/-- **THE TIE'S BLOCK SIDE AT A FINITARY FIELD, FROM THE RUN**
+(task #315 WIDE (3), step 1(a)): `copyOrdFRightPinOrdTargetRead` with
+its syntactic residual discharged by the core, leaving the positivity
+run (`hrunAll`), K.69's dispatch (`hfin`, `hciK`) and a frame. -/
+theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta)) (w : Expr)
+        (st' : ConLeche.ElimState),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    {cbs : List (Expr × ConLeche.BinderMeta)} {rJ : Expr}
+    (hstripJ : cAJ.1.type.stripPis (ci.nP + cAJ.2) = some (cbs, rJ))
+    {domJ : Expr × ConLeche.BinderMeta} (hdomJ : cbs[ci.nP + l]? = some domJ)
+    {K : Name} {usK : List Level} {ciK : ContainerInfo}
+    (hfin : (Expr.instantiateLevelParams J.lps
+      (pinsS.getD (q₀ + i') default).lvls domJ.1).getAppFn = .const K usK)
+    (hciK : ConLeche.containerInfo? env K = some ciK)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
+          (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+            (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+              (q₀ + i') l domJ.1))
+        = some (AnnotTerm.mkAppN fb (Ps ++
+            ((mutEiss0 ctorsA.length eissF ψ).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])) := by
+  classical
+  obtain ⟨x', w, ea', hx', hQ, hea', -, -⟩ :=
+    R.copyFieldReadCoreQ
+      (Q := fun x' w => ∃ (cI : Expr) (xfvs' : List Expr) (restM xI : Expr)
+          (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+          (st' : ConLeche.ElimState),
+        Expr.instPis (Expr.instantiateLevelParams J.lps
+          (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI ∧
+        ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) ∧
+        xfvs'[l]? = some xI ∧
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
+      SF S hPD hi' hj hlF
+      (fun ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 => by
+        obtain ⟨params, pbs₀, w, st', hrwd, hrun, hrep, hst⟩ :=
+          hrunAll ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7
+        obtain rfl : ci₂ = ci := Option.some.inj (h1.symm.trans hci)
+        obtain rfl : J₂ = J :=
+          ConLeche.containerInfo?_member_det h1 h1 rfl h2 hJmem (h3.trans hJn.symm)
+        exact ⟨w, hrun, cI, xfvs', restM, xI, params, pbs₀, st', h4, h5, h6, hrwd, hrun, hrep, hst⟩)
+      ψ ρp hsat fs₁ hfs hfit
+  obtain ⟨cI, xfvs', restM, xI, params, pbs₀, st',
+    hinstCI, hopM, hxI, hrwd, hnormW, hrep, hstable⟩ := hQ
+  -- the CLASSIFICATION names the stored domain's head
+  obtain ⟨_cc, _J, _ci, _cI, cA, _cname, -, -, -, -, -, -, -, -, -, hcA, -, -⟩ :=
+    R.ctorPair SF S hPD hi' hj
+  have hCD := R.h.CD _ _ hcA
+  obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
+  obtain ⟨-, hopen, -⟩ := R.h.ksJ _ _ hcA
+  exact R.copyOrdFRightPinOrdTargetRead SF S hPD hi' hj hlF hkA hpinT hci hJmem hJn hstripJ hdomJ
+    hfin hciK hinstCI hopM hxI hx'
+    (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hnormW hrep hstable hea'
+
+/-- **THE TIE'S BLOCK SIDE AT A REFLEXIVE FIELD, FROM THE RUN**
+(task #315 WIDE (3), step 1(a)): the twin of
+`copyOrdFRightPinOrdTargetReadAt`, with the tower's cut and K.69's
+dispatch read at `stripDomPis`.  The stored domain's head is NOT a
+hypothesis here for the reason the underlying theorem gives: at a
+reflexive field the finitary head form is false of the domain, and the
+head comes off `MutualOpened.reflF` at the tower's body. -/
+theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAtRefl
+    {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta)) (w : Expr)
+        (st' : ConLeche.ElimState),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    {cbs : List (Expr × ConLeche.BinderMeta)} {rJ : Expr}
+    (hstripJ : cAJ.1.type.stripPis (ci.nP + cAJ.2) = some (cbs, rJ))
+    {domJ : Expr × ConLeche.BinderMeta} (hdomJ : cbs[ci.nP + l]? = some domJ)
+    {K : Name} {usK : List Level} {ciK : ContainerInfo}
+    (hfin : (ConLeche.stripDomPis (Expr.instantiateLevelParams J.lps
+      (pinsS.getD (q₀ + i') default).lvls domJ.1)).getAppFn = .const K usK)
+    (hciK : ConLeche.containerInfo? env K = some ciK)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
+          (b.nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+            (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1)))
+          (Expr.instSeq (ConLeche.Verify.openFvars b.nP
+              (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+                (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1)))
+            ((l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+              (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1)) - 1)
+            (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+              (q₀ + i') l domJ.1))
+        = some (AnnotTerm.mkAppN fb (Ps ++
+            ((mutEiss0 ctorsA.length eissF ψ).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])) := by
+  classical
+  obtain ⟨x', w, ea', hx', hQ, hea', -, -⟩ :=
+    R.copyFieldReadCoreQ
+      (Q := fun x' w => ∃ (cI : Expr) (xfvs' : List Expr) (restM xI : Expr)
+          (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+          (st' : ConLeche.ElimState),
+        Expr.instPis (Expr.instantiateLevelParams J.lps
+          (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI ∧
+        ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) ∧
+        xfvs'[l]? = some xI ∧
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
+      SF S hPD hi' hj hlF
+      (fun ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 => by
+        obtain ⟨params, pbs₀, w, st', hrwd, hrun, hrep, hst⟩ :=
+          hrunAll ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7
+        obtain rfl : ci₂ = ci := Option.some.inj (h1.symm.trans hci)
+        obtain rfl : J₂ = J :=
+          ConLeche.containerInfo?_member_det h1 h1 rfl h2 hJmem (h3.trans hJn.symm)
+        exact ⟨w, hrun, cI, xfvs', restM, xI, params, pbs₀, st', h4, h5, h6, hrwd, hrun, hrep, hst⟩)
+      ψ ρp hsat fs₁ hfs hfit
+  obtain ⟨cI, xfvs', restM, xI, params, pbs₀, st',
+    hinstCI, hopM, hxI, hrwd, hnormW, hrep, hstable⟩ := hQ
+  exact R.copyOrdFRightPinOrdTargetReadRefl SF S hPD hi' hj hlF hkA hpinT hci hJmem hJn hstripJ
+    hdomJ hfin hciK hinstCI hopM hxI hx' hrwd hnormW hrep hstable hea'
+
 end Assembly
 
 /-! ## THE FIVE ARMS, ASSEMBLED (task #315 L-B, DESIGN §U.58)
