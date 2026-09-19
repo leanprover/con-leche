@@ -24,14 +24,18 @@
    exits 1 on it today (`duplicate declaration
    Collide._model._impl.pack_1`, a generated model record).
 
-   THE ROW IS IN `tests/nested-shadow-expected.txt`, NOT IN
+   THE ROWS ARE IN `tests/nested-shadow-expected.txt`, NOT IN
    `tests/e2e-expected.txt`.  The shadow gate is where the uniform
-   route is measured, and this stream is in it: `J=accept,`.  The outer
-   block's own shadow does not run yet — the fold stops at the
-   generated model record before that install — so the row is a
-   TRIPWIRE that gains `,Collide=accept` the day the stream gets that
-   far.  The e2e row, which records the dispatch's exit code, is added
-   at the flip.
+   route is measured.  This stream's row is `J=accept,`: the fold stops
+   at the generated model record, one record short of the outer block's
+   `inductive` record, so the outer block's own shadow never fires
+   here.  Its TWIN `nested_pin_collide_nomodel.ndjson` — the same
+   stream with the OUTER block's model records dropped,
+   `scripts/mk_nested_nomodel.py` — reaches that record and measures
+   it: `J=accept,Collide=accept,`, in `--verified` and `--trusted`
+   alike.  So the uniform route accepts the collapse; it is the
+   modelled dispatch alone that does not.  The e2e row, which records
+   the dispatch's exit code, is added at the flip.
 
    The stream is committed beside this source and regenerates from it
    with `scripts/export-fixture.sh nested_pin_collide` (Lean v4.29.1,

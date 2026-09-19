@@ -125,12 +125,26 @@ tests/e2e/nested_pin_nocollide.ndjson 1 J=accept,NoCollide=accept,
 # `nested_pin_collide` and `nested_pin_collide2` instantiate both
 # parameters alike, so the expansion's dedup by pin EXPRESSION mints one
 # mimic for two of `J`'s own-pin classes — the collapse the wide
-# identification has to survive.  The outer block's own shadow does NOT
-# run yet, and the reason is not this route: the modelled dispatch stops
-# the stream at a generated model record before the outer block's
-# install, so the shadow is never reached there.  `J` is measured; the
-# outer block is the TRIPWIRE — these rows gain `,Collide=accept` (resp.
-# `Collide2`) the day the stream gets that far, and a route change that
-# broke the collapse would show here first.
+# identification has to survive.  On the committed streams only `J` is
+# measured, and the reason is not this route: the modelled dispatch
+# stops the stream at a generated model record before the outer block's
+# install (`duplicate declaration <T>._model._impl.pack_1`, the
+# modeller's own false reject), so the shadow is never reached there.
 tests/e2e/nested_pin_collide.ndjson 1 J=accept,
 tests/e2e/nested_pin_collide2.ndjson 1 J=accept,
+# **THE OUTER BLOCKS, MEASURED.**  The two rows above were tripwires
+# for the day the stream got as far as the outer block; the
+# `*_nomodel` twins are that day.  Each is the same stream with the
+# OUTER block's in-process model records dropped and the inner
+# container's kept — `scripts/mk_nested_nomodel.py` builds them from
+# `CON_LECHE_INMODEL_DUMP` — so with the modeller off the fold
+# installs `J` from the stream's own model, REACHES the outer block's
+# `inductive` record (where the shadow fires) and only then declines
+# for want of an install route (exit 2, which this gate does not read).
+# The verdict is `accept` for both, in `--verified` and `--trusted`
+# alike: **the uniform route accepts a collapsing block**, which is
+# what the wide identification's fibre-constancy repair claims and
+# nothing had run.  A route change that broke the collapse shows here
+# first.
+tests/e2e/nested_pin_collide_nomodel.ndjson 0 J=accept,Collide=accept,
+tests/e2e/nested_pin_collide2_nomodel.ndjson 0 J=accept,Collide2=accept,

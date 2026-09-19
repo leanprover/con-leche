@@ -16,9 +16,13 @@
    official (Lean v4.29.1): accepts.  con-leche's modelled dispatch
    exits 1 on it today, as on `nested_pin_collide`.
 
-   Shadow row `J=accept,` in `tests/nested-shadow-expected.txt`, a
-   tripwire like its partner's; no `tests/e2e-expected.txt` row until
-   the flip.  The stream is committed beside this source and
+   Shadow row `J=accept,` in `tests/nested-shadow-expected.txt`, like
+   its partner's, with the outer block measured on the twin
+   `nested_pin_collide2_nomodel.ndjson` (the same stream with the OUTER
+   block's model records dropped, `scripts/mk_nested_nomodel.py`):
+   `J=accept,Collide2=accept,` in both modes.  No
+   `tests/e2e-expected.txt` row until the flip.  The stream is
+   committed beside this source and
    regenerates with `scripts/export-fixture.sh nested_pin_collide2`
    (Lean v4.29.1, lean4export at `caccfbe`). -/
 
