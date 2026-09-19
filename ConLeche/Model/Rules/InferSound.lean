@@ -56,6 +56,50 @@ theorem InferSemFull.toSem {g : Grade} {d : Nat} {e t : Expr}
   | full => exact h
   | io => exact h.toIO
 
+/-- **The uniform view of the inference motive.**  Both grades
+conclude the type's frame, its reading, its grading and the
+membership; they differ only in where the SUBJECT's grading sits — a
+premise at `.io`, a conclusion at `.full`.  Reading a premise
+derivation's motive through this lemma, and building the conclusion's
+through `InferSem.of_uniform`, is what lets one argument serve both
+grades. -/
+theorem InferSem.apply {g : Grade} {d : Nat} {e t : Expr}
+    (h : InferSem m φ g d e t) (hfe : Frame d e) {Δa : List AnnotTerm}
+    {ea : AnnotTerm} (hC : CtxOk m φ d Δa e)
+    (hea : denoteMeta m.acval env φ d e = some ea)
+    (hgr : g = .io → Graded V Δa ea) :
+    Frame d t ∧ LeavesSub t e ∧ Graded V Δa ea ∧
+      ∃ ta, denoteMeta m.acval env φ d t = some ta ∧ Graded V Δa ta ∧
+        ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta := by
+  cases g with
+  | full =>
+    obtain ⟨hft, hsub, ta, hta, hge, hgt, hmem⟩ := h hfe hC hea
+    exact ⟨hft, hsub, hge, ta, hta, hgt, hmem⟩
+  | io =>
+    obtain ⟨hft, hsub, ta, hta, hgt, hmem⟩ := h hfe hC hea (hgr rfl)
+    exact ⟨hft, hsub, hgr rfl, ta, hta, hgt, hmem⟩
+
+/-- `InferSem.apply`'s converse: the uniform statement builds the
+motive at either grade. -/
+theorem InferSem.of_uniform {g : Grade} {d : Nat} {e t : Expr}
+    (h : ∀ {Δa : List AnnotTerm} {ea : AnnotTerm}, Frame d e →
+      CtxOk m φ d Δa e → denoteMeta m.acval env φ d e = some ea →
+      (g = .io → Graded V Δa ea) →
+      Frame d t ∧ LeavesSub t e ∧ Graded V Δa ea ∧
+        ∃ ta, denoteMeta m.acval env φ d t = some ta ∧ Graded V Δa ta ∧
+          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta) :
+    InferSem m φ g d e t := by
+  cases g with
+  | full =>
+    intro hfe Δa ea hC hea
+    obtain ⟨hft, hsub, hge, ta, hta, hgt, hmem⟩ :=
+      h hfe hC hea (fun hg => by simp at hg)
+    exact ⟨hft, hsub, ta, hta, hge, hgt, hmem⟩
+  | io =>
+    intro hfe Δa ea hC hea hge
+    obtain ⟨hft, hsub, -, ta, hta, hgt, hmem⟩ := h hfe hC hea (fun _ => hge)
+    exact ⟨hft, hsub, ta, hta, hgt, hmem⟩
+
 /-- **The sort fact at a grade** (`sortSemAt_of_claims`,
 `Steps/Infer.lean:798`, at the motives): a subject whose inferred type
 reduces to `.sort u` reads into the universe — and is graded, which at
@@ -70,18 +114,7 @@ theorem sortSem_of {g : Grade} {d : Nat} {e s : Expr} {u : Level}
     (hgr : g = .io → Graded V Δa ea) :
     ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenotedV V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V) := by
-  have hstep : Graded V Δa ea ∧ Frame d s ∧ LeavesSub s e ∧
-      ∃ sa, denoteMeta m.acval env φ d s = some sa ∧ Graded V Δa sa ∧
-        ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ sa := by
-    cases g with
-    | full =>
-      obtain ⟨hfs, hsub, sa, hsa, hge, hgs, hmem⟩ := hs hfe hC hea
-      exact ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩
-    | io =>
-      have hge := hgr rfl
-      obtain ⟨hfs, hsub, sa, hsa, hgs, hmem⟩ := hs hfe hC hea hge
-      exact ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩
-  obtain ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩ := hstep
+  obtain ⟨hfs, hsub, hge, sa, hsa, hgs, hmem⟩ := hs.apply hfe hC hea hgr
   obtain ⟨-, -, ua, hua, -, heq⟩ := hu hfs (hC.of_subset hsub) hsa hgs
   rw [denoteMeta] at hua
   obtain rfl : ua = .sort (u.eval φ) := (Option.some.inj hua).symm
@@ -331,12 +364,111 @@ theorem Infer.lam_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 
 /-- `infer_app_claim` / `infer_app_claimIO`'s kept arm
 (`Steps/Infer.lean:842`, `InferIO.lean:609`). -/
-theorem Infer.app_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.app_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {f a tf ty body ta : Expr} {mt : BinderMeta}
     (htf : InferSem m φ g d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
     (hta : InferSem m φ g d a ta) (hd : DefEqSem m φ d ta ty) :
     InferSem m φ g d (.app f a) (body.instantiate1 a) := by
-  sorry
+  refine InferSem.of_uniform ?_
+  intro Δa ea hfr hC hea hgr
+  obtain ⟨hws, hb, hLb⟩ := hfr
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  -- the subject's reading splits
+  rw [denoteMeta] at hea
+  rcases hfa : denoteMeta m.acval env φ d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denoteMeta m.acval env φ d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  have hoist : g = .io → Graded V Δa fa ∧ Graded V Δa aa := fun hg =>
+    ⟨(WellDenotedV.hoist_app (V := V) (hgr hg)).1,
+      (WellDenotedV.hoist_app (V := V) (hgr hg)).2.1⟩
+  -- the head, its type, and the ∀ it reduces to
+  obtain ⟨htff, htfsub, hgfa, tfa, htfa, hgtfa, hrowfM⟩ :=
+    htf.apply ⟨hws.1, hb.1, hLf⟩ hC.app_fn hfa (fun hg => (hoist hg).1)
+  obtain ⟨hpif, hpisub, pa, hpa, hokpa, hredf⟩ :=
+    hw htff (hC.app_fn.of_subset htfsub) htfa hgtfa
+  obtain ⟨hwfe, hbfe, hLfe⟩ := hpif
+  simp only [Expr.WScoped] at hwfe
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
+  have hLty' : Expr.LeavesBounded ty := fun l hl =>
+    hLfe l (by simp [Expr.fvarLeaves, hl])
+  have hCpi : CtxOk m φ d Δa (.forallE ty body mt) :=
+    (hC.app_fn.of_subset htfsub).of_subset hpisub
+  obtain ⟨Aa, Ba, hAa, hBa, rfl⟩ := denoteMeta_forallE_inv hpa
+  -- the ∀'s reading, split
+  have hokAa : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ Aa := by
+    intro ρ hρ
+    obtain ⟨h1, h2⟩ := hokpa ρ hρ
+    rw [WellDenoted_pi] at h1
+    rw [AnnotValid_pi] at h2
+    exact ⟨h1.1, h2.1⟩
+  have hokBa : ∀ (ρ : Nat → V), Sat V Δa ρ →
+      ∀ x, x ∈ˢ interp V ρ Aa → WellDenotedV V (cons x ρ) Ba := by
+    intro ρ hρ x hx
+    obtain ⟨h1, h2⟩ := hokpa ρ hρ
+    rw [WellDenoted_pi] at h1
+    rw [AnnotValid_pi] at h2
+    exact ⟨h1.2 x hx, h2.2.1 x hx⟩
+  have hcod0 : ∀ (ρ : Nat → V), Sat V Δa ρ → pwBit φ mt.pw = 0 →
+      ∀ x, x ∈ˢ interp V ρ Aa →
+        interp V (cons x ρ) Ba ∈ˢ (univZero : V) := by
+    intro ρ hρ h0 x hx
+    obtain ⟨-, h2⟩ := hokpa ρ hρ
+    rw [AnnotValid_pi] at h2
+    exact h2.2.2 h0 x hx
+  -- the argument, and the domain agreement
+  obtain ⟨htaf, htasub, hgaa, tyaA, htyaA, hgtyaA, hrowaM⟩ :=
+    hta.apply ⟨hws.2, hb.2, hLa⟩ hC.app_arg haa (fun hg => (hoist hg).2)
+  have hdom : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ tyaA = interp V ρ Aa :=
+    hd htaf ⟨hwfe.1, hbfe.1, hLty'⟩ (hC.app_arg.of_subset htasub)
+      hCpi.forallE_ty htyaA hAa hgtyaA hokAa
+  have ha2 : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ aa ∈ˢ interp V ρ Aa := by
+    intro ρ hρ
+    rw [← hdom ρ hρ]
+    exact hrowaM ρ hρ
+  have hf2 : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ fa ∈ˢ interp V ρ (.pi 0 (pwBit φ mt.pw) Aa Ba) := by
+    intro ρ hρ
+    rw [← hredf ρ hρ]
+    exact hrowfM ρ hρ
+  -- the returned type's reading, `denoteMeta_beta` backwards
+  have hcross : denoteMeta m.acval env φ d (body.instantiate1 a)
+      = some (Ba.inst aa) := by
+    rw [denoteMeta_beta (ty := ty) m.acval_closed
+      (acval_inst_self m) hwfe.2.fvarsBelow hws.2 hb.2 haa 0, hBa]
+    rfl
+  refine ⟨⟨Expr.WScoped.instantiate1_gen hws.2 0 hwfe.2,
+      Expr.looseBVarsBounded_instantiate1_gen hb.2 hbfe.2,
+      fun l hl => ?_⟩, fun l hl => ?_, ?_, _, hcross, ?_, ?_⟩
+  · rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact hLfe l (by simp [Expr.fvarLeaves, h2])
+    · exact hLa l h2
+  · rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · rw [Expr.fvarLeaves]
+      exact List.mem_append_left _ (htfsub l (hpisub l
+        (by simp [Expr.fvarLeaves, h2])))
+    · rw [Expr.fvarLeaves]
+      exact List.mem_append_right _ h2
+  · intro ρ hρ
+    refine ⟨(sound_app V (hgfa ρ hρ).1 (hgaa ρ hρ).1 (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).1, ?_⟩
+    rw [AnnotValid_app]
+    exact ⟨(hgfa ρ hρ).2, (hgaa ρ hρ).2⟩
+  · intro ρ hρ
+    exact (WellDenotedV_inst0 (hgaa ρ hρ)).mpr (hokBa ρ hρ _ (ha2 ρ hρ))
+  · intro ρ hρ
+    exact (sound_app V (hgfa ρ hρ).1 (hgaa ρ hρ).1 (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).2
 
 /-- **The io licence** (`infer_app_claimIO`'s gated arm): the skipped
 membership from the subject's own hereditary app slot,
