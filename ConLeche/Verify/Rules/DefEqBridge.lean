@@ -1,7 +1,10 @@
 module
 
 public import ConLeche.Verify.Rules.Defs
-import ConLeche.Verify.Knot
+import ConLeche.Verify.Rules.DefEqStepInv
+import ConLeche.Verify.Rules.Certs
+import ConLeche.Verify.Rules.RedBridge
+import ConLeche.Rules.Derived
 
 public section
 
@@ -13,11 +16,13 @@ public section
 follows by induction on its budget, the body is the loop at
 `defeqLoopFuel`.
 
-There is no `defeqStep_inv` in the tree (the model tier's
-`defeqStep_claim`, `Model/Steps/DefEq.lean:514`, inverts the step
-inline against its continuation contract `DefEqCont`); the lane writes
-the inversion as that proof does it, one `exceptBind_ok` per bind, and
-lands each exit on its rule:
+The inversion is `Verify/Rules/DefEqStepInv.lean`'s `defeqStep_inv`
+(the lane's by-product: the model tier's `defeqStep_claim`,
+`Model/Steps/DefEq.lean:514`, inverts the step inline against its
+continuation contract `DefEqCont`, and nothing in `Verify/` did).  It
+hands back the prefix's three exits, the two `whnfCore` reducts, and
+under them the nine ways the step ends — the last being
+`DefeqStuckExit`, the stuck tree's seventeen.  Each lands on one rule:
 
 | exit (`Core.lean`) | rule |
 |---|---|
@@ -52,7 +57,39 @@ theorem defeqStep_bridge (hwc : WhnfCoreBridge env fuel) (hw : WhnfBridge env fu
     {pi : Bool} {a b : Expr}
     (h : defeqStep .verified (pureFns .verified env fuel) env d k pi a b = .ok true) :
     DefEq env d a b := by
-  sorry
+  rcases defeqStep_inv h with rfl | ⟨rfl, hsc⟩ | ⟨a', b', hwa, hwb, hrest⟩
+  · exact .refl
+  · exact boolTrueShortcut_bridge hw hsc
+  refine DefEq.redBoth (hwc hwa) (hwc hwb) ?_
+  rcases hrest with rfl | hpi | ⟨a₂, hn, hk₂⟩ | ⟨b₂, hn, hk₂⟩ | ⟨a₂, hu, hk₂⟩ |
+    ⟨b₂, hu, hk₂⟩ | ⟨a₂, b₂, hua, hub, hk₂⟩ | hsp | hstuck
+  · exact .refl
+  · exact propIrrel_bridge hw hio hpi
+  · exact .redL (reduceNat_bridge hw hn) (hk hk₂)
+  · exact .redR (reduceNat_bridge hw hn) (hk hk₂)
+  · exact .deltaL hu (hk hk₂)
+  · exact .deltaR hu (hk hk₂)
+  · exact .deltaBoth hua hub (hk hk₂)
+  · exact defeqSpine_bridge hd hsp
+  -- the stuck tree: one rule per exit
+  cases hstuck with
+  | fallback hs => exact stuckIrrel_bridge hw hd hio hs
+  | sort hle => exact .sort hle
+  | lit => exact .refl
+  | natZeroL => exact .natZero
+  | natZeroR => exact .natZeroR
+  | natSuccL hde => exact .natSucc (hd hde)
+  | natSuccR hde => exact .natSuccR (hd hde)
+  | strLitL hg hde => exact .strLitL hg (hd hde)
+  | strLitR hg hde => exact .strLitR hg (hd hde)
+  | fvar => exact .fvar
+  | const hle => exact .const hle
+  | forallE hdt hbd hpw => exact .forallE (hd hdt) (hd hbd) hpw
+  | lam hdt hbd hpw => exact .lam (hd hdt) (hd hbd) hpw
+  | spine hhd hls => exact .spine (hd hhd) (defEqList_bridge hd hls)
+  | proj hde => exact .proj (hd hde)
+  | etaL he => exact etaCert_bridge hw hd hio he
+  | etaR he => exact (etaCert_bridge hw hd hio he).symm
 
 /-- The loop at every budget. -/
 theorem defeqLoop_bridge (hwc : WhnfCoreBridge env fuel) (hw : WhnfBridge env fuel)
