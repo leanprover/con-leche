@@ -357,4 +357,113 @@ theorem fitA_grades {ρ : Nat → V} :
       exact ih ((WellDenotedV_inst0 hokx).mpr (hokB _ hx)) hstep
         (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
 
+/-! ## The ∀-chain guard and the tower entries
+
+`PiChainK`/`peelPisK_of_piChain`/`piChainK_of_stripPis`
+(`Model/Steps/CapsRows.lean:79-130`, `:452`) and the two tower-entry
+rows (`denoteMeta_proj_towerK`, `towerEntry_tele_at_depthK`,
+`Model/Steps/TowerKit.lean:47`, `:173`), transplanted. -/
+
+/-- The reading's first `n` heads are `.pi` nodes (`PiChain`,
+`Model/Steps/CapsRows.lean:79`). -/
+@[expose] def PiChainK : Nat → AnnotTerm → Prop
+  | 0, _ => True
+  | n + 1, e =>
+    match e with
+    | .pi _ _ _ B => PiChainK n B
+    | _ => False
+
+theorem piChainK_succ_inv {n : Nat} {e : AnnotTerm} (h : PiChainK (n + 1) e) :
+    ∃ u v A B, e = .pi u v A B ∧ PiChainK n B := by
+  match e with
+  | .pi u v A B => exact ⟨u, v, A, B, rfl, h⟩
+  | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
+  | .eqE _ _ | .fst _ | .snd _ | .prf => exact nomatch h
+
+theorem PiChainK.inst : ∀ {n : Nat} {e : AnnotTerm} (a : AnnotTerm) (k : Nat),
+    PiChainK n e → PiChainK n (e.inst a k) := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _; trivial
+  | succ n ih =>
+    intro e a k h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChainK_succ_inv h
+    exact ih a (k + 1) hB
+
+/-- A ∀-chain of a list's length peels along it (`peelPis_of_piChain`,
+`Model/Steps/CapsRows.lean:114`). -/
+theorem peelPisK_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
+    PiChainK as.length T →
+      ∃ rest, ConLeche.Model.AnnotTerm.peelPis T as = some rest
+  | [], T, _ => ⟨T, rfl⟩
+  | a :: as, T, h => by
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChainK_succ_inv h
+    exact peelPisK_of_piChain as (PiChainK.inst a 0 hB)
+
+/-- **A syntactic ∀-telescope reads to a ∀-chain**
+(`piChain_of_stripPis`, `Model/Steps/CapsRows.lean:452`). -/
+theorem piChainK_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
+    ∀ (n : Nat) {d : Nat} {e : Expr} {ea : AnnotTerm},
+      (e.stripPis n).isSome = true →
+      denoteMeta acval env φ d e = some ea → PiChainK n ea := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _ _; trivial
+  | succ n ih =>
+    intro d e ea hs hd
+    match e, hs with
+    | .bvar _, hs => exact nomatch hs
+    | .fvar _ _, hs => exact nomatch hs
+    | .sort _, hs => exact nomatch hs
+    | .const _ _, hs => exact nomatch hs
+    | .app _ _, hs => exact nomatch hs
+    | .lam _ _ _, hs => exact nomatch hs
+    | .letE _ _ _, hs => exact nomatch hs
+    | .lit _, hs => exact nomatch hs
+    | .proj _ _ _, hs => exact nomatch hs
+    | .forallE ty bd mb, hs =>
+      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hd
+      simp only [ConLeche.Expr.stripPis, Option.isSome_map] at hs
+      exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
+
+/-- The clause at a stored entry (`denoteMeta_proj_tower`,
+`Model/Steps/TowerKit.lean:47`). -/
+theorem denoteMeta_proj_towerK {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {entry : ProjEntry} {ia : AnnotTerm}
+    (hfe : env.findProj? s i = some entry)
+    (he : denoteMeta acval env φ d e = some ia) :
+    denoteMeta acval env φ d (.proj s i e) = some (projAV (i + entry.off) ia) := by
+  rw [denoteMeta_proj, he]
+  show (match env.findProj? s i with
+    | some entry => some (projAV (i + entry.off) ia)
+    | none => AnnotTerm.projPair? i ia)
+      = some (projAV (i + entry.off) ia)
+  rw [hfe]
+
+/-- **The body telescope's reading is depth-free**
+(`towerEntry_tele_at_depth`, `Model/Steps/TowerKit.lean:173`, with
+`towerEntry_tele_closed`, `:160`). -/
+theorem towerEntry_tele_at_depthK {m : EnvModel V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AnnotTerm}
+    (hTa : denoteMeta m.acval env φ 0
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
+    ∀ d : Nat, denoteMeta m.acval env φ d
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta := by
+  have hnf : (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams
+          us)).looseBVarsBounded 0 = true := by
+    rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded,
+      Nat.zero_add]
+    exact ⟨ConLeche.projEntry_body_hasFvar m.wf hfe us,
+      ConLeche.projEntry_body_looseBVars m.wf hfe us⟩
+  exact denoteMeta_depth_of_closed m.acval_closed hnf.1
+    (fun k => denoteMeta_closed m.acval_erase m.cval_closed hnf.1 hnf.2 hTa 1 k)
+    hTa
+
 end ConLeche.Model.Rules
