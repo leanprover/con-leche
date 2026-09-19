@@ -677,11 +677,15 @@ fixpoint theory reads it: the tuples of the container's own wide
 space, constant along the fibres, below the container's own carrier —
 the same three conditions the fit carries.  Outside them it is FALSE
 rather than merely unproved, so the earlier free-tuple form of the
-hypothesis could have had no producer.  One consequence survives as an
-obligation of its own: the container's carrier's own fibre-constancy,
-which the fixpoint law used to hand back for free and which now needs
-either a meet over each fibre or the pins' entry law at the two
-identified pins.
+hypothesis could have had no producer.  The one consequence that
+looked like a new obligation — the container's carrier's own
+fibre-constancy, which the fixpoint law used to hand back for free —
+is not one: the FIBRE MEET settles it in set theory.  The meet of a
+position's whole fibre is fibre-constant by construction and below the
+carrier, so the operator's image at it is fibre-constant by the
+weakened law and, at each position of the fibre, below the carrier
+there — hence below the meet; the meet is therefore closed, the
+carrier is below it by leastness, and the two are equal.
 
 (The colliding shape is also one this checker rejects today, in its
 model generator rather than in its kernel, so no accepted stream

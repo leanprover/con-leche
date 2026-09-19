@@ -860,6 +860,140 @@ theorem meetT_eq_of_le {X L : Nat → V} (h : TupleLe k Is X L) :
 
 end Meet
 
+/-! ## THE LEAST TUPLE'S OWN FIBRE-CONSTANCY, from the WEAKENED row law
+
+`fibreConst_lfpTuple` reads its hypothesis at the least tuple and
+nowhere else, so it asks the rows to factor through `σ`'s fibres at
+EVERY tuple of the space.  An operator read off a block model's
+constructor data does not: its rows agree on the tuples that do not
+tell two identified classes apart and differ elsewhere (a three-line
+block exhibits it), so what a producer can supply is the weakened law
+
+    ∀ Y, InTupleSpace … Y → FibreConst σ s Y → FibreConst σ s (Φ' Y)
+
+— and at that strength the fixpoint argument is circular: it would
+need the least tuple's fibre-constancy to get the rows at it.
+
+The repair is the FIBRE MEET.  `L' i := ⨅ { L i' | σ i' = σ i }` is
+fibre-constant by construction and below `L`, so `Φ' L'` is
+fibre-constant by the weakened law and, at each `i'` of the fibre,
+below `Φ' L i' = L i'` — hence below the meet.  `L'` is therefore
+closed, `L ≤ L'` by leastness, and the two are equal.
+
+`hL'fc` — `lfpTuple_fcNorm_comp`'s and `lfpTuple_set_congr_le`'s
+hypothesis of that name — is thus a THEOREM at the hypotheses they
+already take. -/
+
+section FibreMeet
+
+variable {w s : Nat} {σ : Nat → Nat}
+
+omit [SetTheory V] in
+/-- `i`'s fibre under `σ`, as the list of positions below `s` that `σ`
+sends where it sends `i`.  It depends on `i` only through `σ i`. -/
+def fcFibre (σ : Nat → Nat) (s i : Nat) : List Nat :=
+  (List.range s).filter (fun i' => σ i' == σ i)
+
+omit [SetTheory V] in
+theorem mem_fcFibre {i i' : Nat} : i' ∈ fcFibre σ s i ↔ i' < s ∧ σ i' = σ i := by
+  simp [fcFibre, List.mem_filter, List.mem_range]
+
+/-- A finite meet of families over ONE index set. -/
+noncomputable def famMeetList (I : V) (f : Nat → V) : List Nat → V → V
+  | [], b => b
+  | i :: l, b => famMeetList I f l (famMeet I b (f i))
+
+theorem famMeetList_mem {I : V} {f : Nat → V} :
+    ∀ (l : List Nat) {b : V}, b ∈ˢ famSpace w I → famMeetList I f l b ∈ˢ famSpace w I
+  | [], _, hb => hb
+  | _ :: l, _, hb => famMeetList_mem l (famMeet_mem hb)
+
+theorem famMeetList_le_base {I : V} {f : Nat → V} :
+    ∀ (l : List Nat) (b : V), FamLe I (famMeetList I f l b) b
+  | [], b => FamLe.refl I b
+  | i :: l, b =>
+    (famMeetList_le_base l (famMeet I b (f i))).trans (famMeet_le_left I b (f i))
+
+theorem famMeetList_le_mem {I : V} {f : Nat → V} :
+    ∀ (l : List Nat) (b : V) {i : Nat}, i ∈ l → FamLe I (famMeetList I f l b) (f i)
+  | [], _, _, hi => absurd hi (by simp)
+  | j :: l, b, i, hi => by
+    rcases List.mem_cons.mp hi with rfl | hi'
+    · exact (famMeetList_le_base l (famMeet I b (f i))).trans (famMeet_le_right I b (f i))
+    · exact famMeetList_le_mem l (famMeet I b (f j)) hi'
+
+theorem famLe_famMeetList {I C : V} {f : Nat → V} :
+    ∀ (l : List Nat) (b : V), FamLe I C b → (∀ i ∈ l, FamLe I C (f i)) →
+      FamLe I C (famMeetList I f l b)
+  | [], _, hb, _ => hb
+  | i :: l, b, hb, hl =>
+    famLe_famMeetList l (famMeet I b (f i)) (famLe_famMeet hb (hl i (by simp)))
+      (fun j hj => hl j (List.mem_cons_of_mem _ hj))
+
+/-- **THE FIBRE MEET**: `L` with every position replaced by the meet of
+its whole fibre, based at the fibre's chosen representative so that the
+whole expression depends on the position only through `σ`. -/
+noncomputable def fcMeet (σ : Nat → Nat) (s : Nat) (Is L : Nat → V) : Nat → V :=
+  fun i => famMeetList (Is (fcRep σ s i)) L (fcFibre σ s i) (L (fcRep σ s i))
+
+theorem fibreConst_fcMeet (Is L : Nat → V) : FibreConst σ s (fcMeet σ s Is L) := by
+  intro i i' _ _ he
+  show famMeetList (Is (fcRepAt σ s (σ i))) L ((List.range s).filter (fun x => σ x == σ i))
+      (L (fcRepAt σ s (σ i)))
+    = famMeetList (Is (fcRepAt σ s (σ i'))) L ((List.range s).filter (fun x => σ x == σ i'))
+      (L (fcRepAt σ s (σ i')))
+  rw [he]
+
+/-- **THE LEAST TUPLE IS FIBRE-CONSTANT, at the WEAKENED law** (task
+#315 WIDE (3′)): `fibreConst_lfpTuple` with its hypothesis asked only
+of the tuples that are in the space AND already fibre-constant —
+which is the strength an operator read off a block model's constructor
+data has, and the strength `lfpTuple_fcNorm_comp` and
+`lfpTuple_set_congr_le` ask of the OTHER presentation.  Their `hL'fc`
+is this. -/
+theorem fibreConst_lfpTuple_of_fc {Is' : Nat → V} {Φ' : (Nat → V) → Nat → V}
+    (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
+    (hmono' : MonoTuple w s Is' Φ') (hcl' : ∃ L, IsClosedTuple w s Is' Φ' L)
+    (hfc' : ∀ Y, InTupleSpace w s Is' Y → FibreConst σ s Y → FibreConst σ s (Φ' Y)) :
+    FibreConst σ s (lfpTuple w s Is' Φ') := by
+  have hLmem := lfpTuple_mem w s Is' Φ'
+  have hIsrep : ∀ i, i < s → Is' (fcRep σ s i) = Is' i :=
+    fun i hi => hIs' _ _ (fcRep_lt hi) hi (fcRep_eq hi)
+  have hMmem : InTupleSpace w s Is' (fcMeet σ s Is' (lfpTuple w s Is' Φ')) := by
+    intro i hi
+    rw [← hIsrep i hi]
+    exact famMeetList_mem _ (hLmem _ (fcRep_lt hi))
+  have hMfc : FibreConst σ s (fcMeet σ s Is' (lfpTuple w s Is' Φ')) :=
+    fibreConst_fcMeet Is' _
+  have hMle : TupleLe s Is' (fcMeet σ s Is' (lfpTuple w s Is' Φ')) (lfpTuple w s Is' Φ') := by
+    intro i hi
+    rw [← hIsrep i hi]
+    exact famMeetList_le_mem _ _ (mem_fcFibre.mpr ⟨hi, rfl⟩)
+  -- at every position of the fibre the image is below the least tuple there
+  have hstep : ∀ i, i < s → ∀ i', i' < s → σ i' = σ i →
+      FamLe (Is' (fcRep σ s i)) (Φ' (fcMeet σ s Is' (lfpTuple w s Is' Φ')) i)
+        (lfpTuple w s Is' Φ' i') := by
+    intro i hi i' hi' he
+    have hIeq : Is' (fcRep σ s i) = Is' i' := by
+      rw [hIsrep i hi]; exact (hIs' i' i hi' hi he).symm
+    rw [hIeq, hfc' _ hMmem hMfc i i' hi hi' he.symm]
+    exact (hmono' _ _ hMmem hLmem hMle i' hi').trans (lfpTuple_closed hcl' hmono' i' hi')
+  have hclM : IsClosedTuple w s Is' Φ' (fcMeet σ s Is' (lfpTuple w s Is' Φ')) := by
+    refine ⟨hMmem, fun i hi => ?_⟩
+    rw [← hIsrep i hi]
+    refine famLe_famMeetList _ _ (hstep i hi _ (fcRep_lt hi) (fcRep_eq hi)) (fun i' hi' => ?_)
+    obtain ⟨hi'lt, hi'e⟩ := mem_fcFibre.mp hi'
+    exact hstep i hi i' hi'lt hi'e
+  intro i i' hi hi' he
+  have hEq : ∀ j, j < s → lfpTuple w s Is' Φ' j = fcMeet σ s Is' (lfpTuple w s Is' Φ') j :=
+    fun j hj => famSpace_ext (hLmem j hj) (hMmem j hj)
+      (fun t ht => Subset.antisymm (lfpTuple_le hclM j hj t ht) (hMle j hj t ht))
+  rw [hEq i hi, hEq i' hi']
+  exact hMfc i i' hi hi' he
+
+end FibreMeet
+
+
 /-! ## Congruence BELOW A CLOSED TUPLE -/
 
 section CongrLe

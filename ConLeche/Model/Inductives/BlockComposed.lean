@@ -434,7 +434,6 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
     (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ L)
     (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) IsJ Y → FibreConst σ (kJ + nJ) Y →
       FibreConst σ (kJ + nJ) (ΨJ Y))
-    (hCfcJ : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ))
     (hIs : ∀ i, i < kJ + nJ → (D).idx ψ ρp (σ i) = IsJ i)
     (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
       FibreConst σ (kJ + nJ) Y →
@@ -461,8 +460,14 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
   have hmapsJ' : MapsTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) ΨJ := fun X hX =>
     (inTupleSpace_congr hIs).mpr (hmapsJ X ((inTupleSpace_congr hIs).mp hX))
   -- the container's own carrier is constant on the collapse's fibres: two
-  -- classes with one block image have one row, hence one carrier
-  have hCfc : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) := hCfcJ
+  -- classes with one block image have one row, hence one carrier.  The
+  -- fixpoint law is circular at the WEAKENED row hypothesis, so this is the
+  -- FIBRE MEET (`fibreConst_lfpTuple_of_fc`) and not `fibreConst_lfpTuple`
+  have hIsFC : ∀ a b, a < kJ + nJ → b < kJ + nJ → σ a = σ b → IsJ a = IsJ b := by
+    intro a b ha hb hab
+    rw [← hIs a ha, ← hIs b hb, hab]
+  have hCfc : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) :=
+    fibreConst_lfpTuple_of_fc hIsFC hmonoJ hclJ hfcJ
   have hfcJ' : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
       FibreConst σ (kJ + nJ) Y → FibreConst σ (kJ + nJ) (ΨJ Y) :=
     fun Y hY hfc => hfcJ Y ((inTupleSpace_congr hIs).mp hY) hfc
@@ -510,8 +515,6 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
     {σ : Nat → Nat}
     (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
       FibreConst σ (dJ.k + dJ.nPins) Y → FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
-    (hCfcJ : FibreConst σ (dJ.k + dJ.nPins)
-      (lfpTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)))
     (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i)
@@ -527,7 +530,7 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
     (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
       = lfpTuple ((D).w ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i := by
   rw [hcomp]
-  exact ofNested_pin_block_wide h hseg hσ hroot hmonoJ hmapsJ hclJ hfcJ hCfcJ hIs hΦ hi
+  exact ofNested_pin_block_wide h hseg hσ hroot hmonoJ hmapsJ hclJ hfcJ hIs hΦ hi
 
 /-- **THE WHOLE-SPACE AGREEMENT `hΦ`, REDUCED TO THE FITS** (task #315,
 Resolution 1): `ofNested_pin_block_of_wide`'s hypothesis is a

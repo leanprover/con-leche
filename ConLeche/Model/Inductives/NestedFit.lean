@@ -2446,8 +2446,6 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
     (hrowsσ : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
       FibreConst σ (dJ.k + dJ.nPins) Y →
       FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
-    (hcarσ : FibreConst σ (dJ.k + dJ.nPins)
-      (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)))
     (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIsσ : ∀ i, i < dJ.k + dJ.nPins →
@@ -2500,7 +2498,7 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
   have hw' : (D).w ψ = dJ.w ψJ := hw.symm
   have hFa := hI.auxFunctor ψJ ρJ hρJ
   have hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i := hIsσ
-  refine (ofNested_pin_block_of_wide h hseg ?_ ?_ ?_ ?_ hrowsσ hcarσ hσ hroot hIs ?_ hi).trans
+  refine (ofNested_pin_block_of_wide h hseg ?_ ?_ ?_ ?_ hrowsσ hσ hroot hIs ?_ hi).trans
     (by rw [hw'])
   · rw [hw']; exact hFa.1
   · rw [hw']; exact hFa.2.1
