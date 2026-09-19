@@ -122486,3 +122486,91 @@ either.
 The four parts that ARE in hand are not lost: they are exactly what a
 `hslotOrd` producer will consume once the fifth has a source, and
 `ordTgt_corr` is the one of them that had no other route.
+
+#### WIDE (3) K.60 CHECKED AT THE `ordF` GUARD — `copyPinFRead`'s GUARD IS THE CONTAINER'S KIND, AND AT AN ORDINARY FIELD ITS CONCLUSION IS FALSE (lane LE, 2026-09-19)
+
+Asked, as the coordinator directed, before pricing again: does
+`NestedPinsRun.copyPinFRead` / `copyPinFReadRefl` give the block
+copy's field DATA for a field the CONTAINER calls ordinary?  **It does
+not, and the reason is stronger than "wrong guard".**
+
+##### (a) THE GUARDS, READ OFF THE SIGNATURES
+
+`copyPinFRead` (`Model/Inductives/NestedCopyInst.lean:5228`) takes
+THREE kind guards, two of them the CONTAINER's:
+
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)                          -- the CONTAINER's target is its own pin
+    (hrec  : (dJ.ksF i' j).getD l .ordinary = .recursive)       -- the CONTAINER's kind
+    (hkA   : kindAt (mutKsOf kinds …) l = .recursive)           -- the COPY's kind
+
+`copyPinFReadRefl` (`:5530`) is the same with `.reflexive`.  The
+single call site (`:10820`) sits inside the branch guarded by
+`hrs : ((dJ.rss i').getD j []).getD l false = true` and derives
+`hkind` — the container's kind — from it before applying either.  So
+the family is the producer of `CopyCtorShape`'s `recF`/`pinF`
+conjuncts 3–4, which is exactly `slot_container`'s source, and
+`slot_container` is the normalisation the `ordF` arm was already known
+to lack.
+
+##### (b) AND THE CONCLUSION IS NOT MERELY INAPPLICABLE — IT IS FALSE THERE
+
+Both theorems conclude that the copy's data are **the CONTAINER's
+instantiated**:
+
+    tls₁.map (·.2.2) = instTele Ds l ((dJ.tlss i' ψJ).getD j []).getD l []).map (·.2.2)
+    Eis₁            = (((dJ.Eiss i' ψJ).getD j []).getD l []).map (AnnotTerm.instAll Ds …)
+
+At a container-ORDINARY field `MutualCtorDataI`'s own clauses make
+both right-hand sides EMPTY — `ordNone` (`BlockRep.lean:260`) gives
+`(Eiss ψ).getD i [] = []` at a kind that is neither recursive nor
+reflexive, and `tssNone` (`:263`) gives `(tss ψ).getD i [] = []`.  So
+the statement at the `ordF` guard would read `Eis₁ = []` and
+`tls₁ = []`.  The second is true at a finitary copy kind and FALSE at
+a reflexive one; the first is FALSE whenever the block class the
+rewrite lands on carries indices.  The container has no data there to
+be instantiated, which is the same sentence as "`slot_container`
+cannot be routed through `dK`", now read off `ordNone`/`tssNone`
+rather than off the shape.
+
+##### (c) WHAT IS ACTUALLY RECORDED AT THAT GUARD, AND WHY IT IS NOT ENOUGH
+
+The `ordF`-right arm does have its own K.60-family readers —
+`NestedPinsRun.copyOrdFRightPinCorr` and `copyOrdFRightPinRead`
+(`:9288`), with the reflexive twin at `:10306`.  Their guard IS the
+copy's (`hpinT`: the BLOCK's target is a pin), as the coordinator
+expected of the family.  But what they hand back is a READING —
+
+    interp (consList fs₁ ρp) ea' = (Eis.map interp).foldl app (interp ρp (TV.EA (p.k + qq)))
+
+plus the index `SpineFit` — which is `EntryRead`'s content and is
+already on `CopyCtorShape.ordF`'s right arm.  Two such readings, one
+per side, equate the two `slotSet`s only AT the stored-reading tuple;
+`hfitc` needs the equation at every fibre-constant `Y` below `C`, and
+`tupW` is injective in its spine, so the equation at one family does
+not give `Eis₁-vals = Eis₂-vals`.  That was the fourth line of the
+previous row's input table and it is unchanged.
+
+`copyOrdFRightPinCorr`'s `eisRead` does characterise `Eis₁` — as the
+denotation spine of the COPY'S OWN stored domain's arguments past its
+own parameters.  That is a statement about one copy against itself.
+To compare two copies it needs a MIDDLE TERM, and at a
+container-ordinary field there is none: the container's model records
+the domain as one opaque `AnnotTerm` (`dK.Fss i j`), with no
+head/parameters/indices split — that split is `BlockOpened.nestF`'s
+and is recorded at NESTED fields only.
+
+##### (d) WHAT K.60 LACKS, BY NAME
+
+**A producer for the two copies' `tls`/`Eis` at a field the CONTAINER
+calls ordinary, stated against each other rather than against the
+container's (empty) data.**  Concretely: that the rewrite's index
+arguments correspond — `Eis₁ = Eis₂` instantiated at the block's
+components, and the same for a reflexive field's telescope — which is
+a `replaceAllNested`-commutes statement (`RewriteRel`'s territory) run
+on BOTH sides, with the root's side carried.  The coordinator's
+`PinShapes` clause and its `GroupFacts` conjunct are the right
+CARRIER for it once it exists; what does not exist is the run-level
+content to feed them on either side, and `copyPinFRead` is not it.
+
+**Stopped here, as directed.**  Nothing was built for this row; the
+tree is at the correspondence (`ordTgt_corr`) and its price row.
