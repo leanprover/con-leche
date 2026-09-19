@@ -4973,6 +4973,58 @@ theorem copyPinFUIdsCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [if_neg (by omega), show p.k + qq - p.k = qq from by omega]
     exact hown.2
 
+/-- **THE COPY'S TARGET'S INDEX DATA AT A PIN TARGET, REFLEXIVE** (task
+#315 PINF): `copyPinFUIdsCorr` at a reflexive nested field.  `PinCorr`
+has no telescope clause, so `copyPinFCorrRefl`'s conclusion is
+`copyPinFCorr`'s verbatim and this twin is that one with its call
+swapped — the identification through `NestedPinGroupSyn.pinOwn` never
+looks at the field's kind. -/
+theorem copyPinFUIdsCorrRefl {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrefl : (dJ.ksF i' j).getD l .ordinary = .reflexive)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ) (ψ : Name → Nat) :
+    ∃ qq : Nat,
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + qq ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).u (p.k + qq)
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).u ((pinsS.getD (q₀ + i') default).ψJ ψ) ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).Ids (p.k + qq)
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ids ((pinsS.getD (q₀ + i') default).ψJ ψ) := by
+  classical
+  obtain ⟨ci', qn, qq, hci', hnPeq, hqq, hidx, hhead, hargsLen, hJQ, hclvls, hDsE, hlps, hDsQ,
+    ⟨cvQ, capsQ, hfindQ, hagree⟩, -⟩ :=
+    copyPinFCorrRefl R SF S hPD hi' hj hlF hnest hrefl hkA hci hJmem hJn CM ψ
+  have hqqLt : qq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
+  have hqSq : qq < pinsS.length := by rw [SF.pinsLen]; exact hqqLt
+  -- the container's own pin index is in range
+  have hqlt : dJ.tgts i' j l - dJ.k < dJ.nPins := by
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+    have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+    obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+    have := hI.tgtsLt i' j l hI.memberLt hjlt (by rw [hCD.ksLen]; exact hlF)
+    omega
+  have hown := S.pinOwn _ hqlt qq hqSq hJQ cvQ capsQ hfindQ ψ _ hagree
+  refine ⟨qq, hidx, ?_, ?_⟩
+  · show nestedU p.k W pinsS ψ (p.k + qq) = _
+    rw [nestedU_pin]
+    exact hown.1
+  · show (if p.k + qq < p.k then blockIds b.nP ppsF ψ (p.k + qq)
+      else (pinsS.getD (p.k + qq - p.k) default).Ids ψ) = _
+    rw [if_neg (by omega), show p.k + qq - p.k = qq from by omega]
+    exact hown.2
+
 /-- **THE `pinF` ARM'S FIRST THREE CONJUNCTS** (task #315 PINF): at a
 container field that is FINITARY RECURSIVE at one of the container's
 own pins, the copy's corresponding field is recursive-or-reflexive
@@ -5040,6 +5092,94 @@ theorem NestedPinsRun.copyPinFPinCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     copyPinFCorr R SF S hPD hi' hj hlF hpinT hrecC hkA hciP hJmem hJname CM ψ
   obtain ⟨qq', hidx', hu, hIds⟩ :=
     copyPinFUIdsCorr R SF S hPD hi' hj hlF hpinT hrecC hkA hciP hJmem hJname CM ψ
+  have hqEq : qq' = qq := by omega
+  rw [hqEq] at hu hIds
+  refine ⟨hrss, by rw [hidx]; omega, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hidx]; exact hEA
+  · show (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).Ds ψ = _
+    rw [hidx, show p.k + qq - p.k = qq from by omega]
+    exact hDsQ
+  · rw [hidx]; exact hu
+  · rw [hidx]; exact hIds
+  · show (if (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k then _
+      else (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).J) = _
+    rw [hidx, if_neg (by omega), show p.k + qq - p.k = qq from by omega]
+    exact hJQ
+  · show (if (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k then ([] : List Level)
+      else (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).lvls) = _
+    rw [hidx, if_neg (by omega), show p.k + qq - p.k = qq from by omega, hclvls,
+      hlps cvT caps hfind]
+
+/-- **THE `pinF` ARM'S FIRST THREE CONJUNCTS, REFLEXIVE** (task #315
+PINF): `copyPinFPinCorr` at a reflexive nested field.  The joint is the
+same and each of the three places has its twin: K.63's inversion
+`copyPinFKindRefl` gives conjuncts 1 and 2 together with the `hkA` the
+others want, `copyPinFCorrRefl` gives `PinCorr`'s `EA`, `Ds`, `J` and
+`lvls` clauses off the fire, and `copyPinFUIdsCorrRefl` gives its `u`
+and `Ids`.  Conjunct 1 lands on the RIGHT disjunct of the
+recursive-or-reflexive bit, which is the only step that changes shape.
+
+`hK63` is a PARAMETER and not `R.hK63` for `copyPinFKindRefl`'s reason:
+the run relation carries the record but the field that would put it on
+`NestedPinsRun` is the wide lane's to add, and when it lands the swap
+is one line here and one there. -/
+theorem NestedPinsRun.copyPinFPinCorrRefl {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hreflC : (dJ.ksF i' j).getD l .ordinary = .reflexive)
+    (hpinT : ¬ dJ.tgts i' j l < dJ.k)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + i') default).J = some (.indInfo cvT caps))
+    (ψ : Name → Nat) :
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+    PinCorr (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ)
+      mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i') default).ψJ ψ)
+      ((pinsS.getD (q₀ + i') default).Ds ψ)
+      cvT.levelParams (pinsS.getD (q₀ + i') default).lvls
+      (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) (dJ.tgts i' j l - dJ.k) := by
+  classical
+  obtain ⟨hkA, hle⟩ :=
+    R.copyPinFKindRefl SF S hPD hkindsRun hK63 hi' hgb CM hj hlF hreflC hpinT
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  have hksLen : (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).length = cAJ.2 := by
+    rw [(R.h.ksJ _ _ hcA).1, hcAnF]
+  -- conjunct 1: the copy's field is recursive-or-reflexive
+  have hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
+      = true := by
+    rw [blkRss_getD hGlt,
+      rsOf_getD (show l < (kindsOf (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j))).length from by
+        rw [kindsOf, List.length_map, hksLen]; exact hlF),
+      kindsOf_getD', decide_eq_true_eq]
+    exact Or.inr hkA
+  -- conjunct 3: the pin correspondence, off the fire and the own-pin tie
+  obtain ⟨ci', qn, qq, hci', hnPeq, hqq, hidx, hhead, hargsLen, hJQ, hclvls, hDsE, hlps, hDsQ,
+    ⟨cvQ, capsQ, hfindQ, hagree⟩, hEA⟩ :=
+    copyPinFCorrRefl R SF S hPD hi' hj hlF hpinT hreflC hkA hciP hJmem hJname CM ψ
+  obtain ⟨qq', hidx', hu, hIds⟩ :=
+    copyPinFUIdsCorrRefl R SF S hPD hi' hj hlF hpinT hreflC hkA hciP hJmem hJname CM ψ
   have hqEq : qq' = qq := by omega
   rw [hqEq] at hu hIds
   refine ⟨hrss, by rw [hidx]; omega, ?_, ?_, ?_, ?_, ?_, ?_⟩
