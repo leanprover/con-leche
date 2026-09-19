@@ -121825,3 +121825,47 @@ That is the whole remainder of the clause: (3)'s statement, its
 producer through `pinsDistinctAt` + `ownPinTerms_eq` + `instOrdSelfAt`,
 the ninth `PinGroupInst` conjunct carrying it, `nestedPinShapes_of`'s
 discharge, `rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.
+
+#### WIDE (3) THE NINTH CONJUNCT LANDED, AND SPELLING (3) IMPROVED TO NAME NO ENVIRONMENT (lane LE, 2026-09-19)
+
+##### LANDED
+
+`PinGroupInst`'s ninth conjunct `hordσ` — K.68's row at the group, in
+the model's own vocabulary — with its producer:
+`NestedPinsRun.instOrdSelfAt` under two identifications,
+`ownPinTerms_eq` for the tables and `auxBlock_memberNames` for the
+member-name lists, plus `instOutAt`'s own `rss`-to-`kinds` conversion
+at the guard.
+
+##### SPELLING (3), CORRECTED ONCE MORE — AND `crossEnv` IS ONE WORD
+
+(3) as authorised carried `∀ ciM, containerInfo? env (d.pinAt z).J
+= some ciM → … take ciM.nP`.  That does NOT cross: the clause CONSUMES
+the lookup, so `PinShapes.crossEnv` would need it at `env₂` to produce
+it at `env₁`, and `hci` runs the other way.  Measured, not argued — the
+`crossEnv` bullet failed to elaborate on exactly that step.
+
+The fix removes the environment altogether: `ciM.nP` IS
+`(d.pinAt z).nPJ`, the block model's OWN datum
+(`ContainerModeled.pinNP`).  Stated at `nPJ` the clause names no
+environment and no model, and `PinShapes.crossEnv` then takes it in
+ONE WORD — verified by building it.  The producer recovers `ciM` from
+the pin's own group (`NestedPinGroup.modeled` at
+`containerInfo? env ((D).pinAt z).J`), which it holds anyway.
+
+The clause is kept out of tree (`_tmp/le2/clause3.patch`, 61 lines,
+`crossEnv` bullet included and building) while its NINTH site is
+finished.
+
+##### WHAT THE NINTH SITE OWES
+
+`nestedPinShapes_of` must turn `hordσ`'s `findIdx?` answer into the
+INDEX the clause is stated at.  `findIdx?` returns the FIRST matching
+position, so the step is exactly the own-pin table's INJECTIVITY at
+this spelling — `ContainerModeled.pinsDistinctAt`, K.31's twin, which
+the block's own read-back proves (`DeclNestedCore`) and which
+`nestedPinShapes_of` will take as a hypothesis from its single caller.
+The surrounding mechanics are the two `nestedPc`/`getD_drop`
+normalisations the neighbouring bullets already do.
+
+Then: `rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.
