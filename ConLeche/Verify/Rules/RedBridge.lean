@@ -216,7 +216,21 @@ theorem iotaRec_bridge (hw : WhnfBridge env fuel)
     {d : Nat} {e e'' : Expr}
     (h : iotaRecFueled .verified env fuel d e = .ok (some e'')) :
     Red env d e e'' := by
-  sorry
+  obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP, cnF, rl,
+    hfn, hfc, hlen, hlvl, hprep, hmfn, hfj, hrule, hml, hplain, hlev, hpeq,
+    hcerts, hmcerts, hidx, rfl⟩ := iotaRec_inv h
+  have hmaj : Red env d (e.getAppArgs.getD mI (.bvar 0)) major :=
+    prepareMajor_bridge hw hd hio ⟨cv, mI, rP, hfc⟩ hprep
+  by_cases hne : mI = rP
+  · exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml
+      hplain hlev (fun hc => defEqList_bridge hd (hpeq hc))
+      (iotaCerts_bridge hd hio hcerts) (iotaCerts_bridge hd hio hmcerts)
+      (fun hc => absurd hne hc) (fun hc => absurd hne hc)
+  · obtain ⟨residual, hres, hdl⟩ := iotaIndexOk_inv hidx hne
+    exact .iota hfn hfc hlen hlvl hmaj hmfn hfj hrule hml
+      hplain hlev (fun hc => defEqList_bridge hd (hpeq hc))
+      (iotaCerts_bridge hd hio hcerts) (iotaCerts_bridge hd hio hmcerts)
+      (fun _ => hres) (fun _ => defEqList_bridge hd hdl)
 
 /-- **`whnfCore` at `fuel + 1`**: the eleven shapes (`whnf_app_inv`,
 `whnf_proj_inv`, the six leaves, `whnfCore_letE_inv`, the `.bvar`
