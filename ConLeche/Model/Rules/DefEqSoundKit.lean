@@ -871,6 +871,170 @@ theorem Frame.getAppArgs {m : EnvModel V env} {d : Nat}
       fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
     hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
 
+
+/-! ## The spine kit, completed (`Steps/CapsRows.lean:324-446`) -/
+
+theorem ReadSpine.take {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ n, ReadSpine acval env φ d (as.take n) (vs.take n) := by
+  induction h with
+  | nil => intro n; simpa using ReadSpine.nil
+  | @cons a v as vs ha _ ih =>
+    intro n
+    cases n with
+    | zero => exact ReadSpine.nil
+    | succ n => exact ReadSpine.cons ha (ih n)
+
+theorem ReadSpine.drop {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ n, ReadSpine acval env φ d (as.drop n) (vs.drop n) := by
+  induction h with
+  | nil => intro n; simpa using ReadSpine.nil
+  | @cons a v as vs ha htl ih =>
+    intro n
+    cases n with
+    | zero => exact ReadSpine.cons ha htl
+    | succ n => exact ih n
+
+theorem ReadSpine.append {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as bs : List Expr} {vs ws : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs)
+    (h2 : ReadSpine acval env φ d bs ws) :
+    ReadSpine acval env φ d (as ++ bs) (vs ++ ws) := by
+  induction h with
+  | nil => exact h2
+  | cons ha _ ih => exact ReadSpine.cons ha ih
+
+/-- A mapped spine reads pointwise. -/
+theorem ReadSpine.map_list {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {g : Nat → Expr} {G : Nat → AnnotTerm} :
+    ∀ l : List Nat, (∀ j ∈ l, denoteMeta acval env φ d (g j) = some (G j)) →
+      ReadSpine acval env φ d (l.map g) (l.map G) := by
+  intro l
+  induction l with
+  | nil => intro _; exact ReadSpine.nil
+  | cons x xs ih =>
+    intro h
+    exact ReadSpine.cons (h x (by simp))
+      (ih fun j hj => h j (by simp [hj]))
+
+/-- **The application spine reads, constructing direction.** -/
+theorem denoteMeta_mkAppN {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
+    {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ {f : Expr} {fa : AnnotTerm}, denoteMeta acval env φ d f = some fa →
+      denoteMeta acval env φ d (Expr.mkAppN f as)
+        = some (AnnotTerm.mkAppN fa vs) := by
+  induction h with
+  | nil => intro f fa hf; exact hf
+  | cons ha _ ih =>
+    intro f fa hf
+    exact ih (by rw [denoteMeta_app, hf, ha]; rfl)
+
+/-- A `TeleFit` plus the type's grading yields the applied spine's
+grading and its residual membership. -/
+theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
+    ∀ (vs : List AnnotTerm) {Ta f : AnnotTerm} {σ : Nat → V} {rest : V},
+      WellDenotedV V σ Ta → WellDenotedV V ρ f →
+      (∀ x ∈ vs, WellDenotedV V ρ x) →
+      interp V ρ f ∈ˢ interp V σ Ta →
+      TeleFit V σ Ta (vs.map (interp V ρ)) rest →
+      WellDenotedV V ρ (AnnotTerm.mkAppN f vs) ∧
+        interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ rest := by
+  intro vs
+  induction vs with
+  | nil =>
+    intro Ta f σ rest _ hf _ hmem hfit
+    obtain rfl : rest = interp V σ Ta := teleFit_nil_inv hfit
+    exact ⟨hf, hmem⟩
+  | cons x xs ih =>
+    intro Ta f σ rest hokT hf hoks hmem hfit
+    simp only [List.map_cons] at hfit
+    cases hfit with
+    | @cons _ u v A B _ _ _ hx hfit' =>
+      have hokA : WellDenotedV V σ A :=
+        ⟨((WellDenoted_pi V σ u v A B) ▸ hokT.1).1,
+          ((AnnotValid_pi V σ u v A B) ▸ hokT.2).1⟩
+      have hokB : ∀ y, y ∈ˢ interp V σ A → WellDenotedV V (cons y σ) B :=
+        fun y hy =>
+          ⟨((WellDenoted_pi V σ u v A B) ▸ hokT.1).2 y hy,
+            ((AnnotValid_pi V σ u v A B) ▸ hokT.2).2.1 y hy⟩
+      have hfib : v = 0 → ∀ y, y ∈ˢ interp V σ A →
+          interp V (cons y σ) B ∈ˢ (univZero : V) :=
+        ((AnnotValid_pi V σ u v A B) ▸ hokT.2).2.2
+      rw [interp_pi] at hmem
+      have hokx : WellDenotedV V ρ x := hoks x List.mem_cons_self
+      have hstep : WellDenotedV V ρ (.app f x) := by
+        refine ⟨?_, ?_⟩
+        · rw [WellDenoted_app]
+          exact ⟨hf.1, hokx.1, v, interp V σ A,
+            (fun y => interp V (cons y σ) B), hmem, hx, hfib⟩
+        · rw [AnnotValid_app]; exact ⟨hf.2, hokx.2⟩
+      have hmem' : interp V ρ (.app f x)
+          ∈ˢ interp V (cons (interp V ρ x) σ) B := by
+        rw [interp_app]
+        exact app_mem_piR hmem hx hfib
+      exact ih (hokB _ hx) hstep
+        (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
+
+/-- A ∀-chain of a list's length peels along it. -/
+theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
+    PiChain as.length T →
+      ∃ rest, ConLeche.Model.AnnotTerm.peelPis T as = some rest
+  | [], T, _ => ⟨T, rfl⟩
+  | a :: as, T, h => by
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
+    exact peelPis_of_piChain as (PiChain.inst a 0 hB)
+
+/-! ## The tower entry's reading (`Steps/TowerKit.lean:46`, `:173`) -/
+
+/-- The clause at a stored entry: the uniform iterated projection. -/
+theorem denoteMeta_proj_tower {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {entry : ProjEntry} {ia : AnnotTerm}
+    (hfe : env.findProj? s i = some entry)
+    (he : denoteMeta acval env φ d e = some ia) :
+    denoteMeta acval env φ d (.proj s i e)
+      = some (projAV (i + entry.off) ia) := by
+  rw [denoteMeta_proj, he]
+  show (match env.findProj? s i with
+    | some entry => some (projAV (i + entry.off) ia)
+    | none => AnnotTerm.projPair? i ia)
+      = some (projAV (i + entry.off) ia)
+  rw [hfe]
+
+/-- A stored tower entry's body telescope is closed. -/
+theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    (us : List Level) :
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
+      = true := by
+  rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded,
+    Nat.zero_add]
+  exact ⟨ConLeche.projEntry_body_hasFvar hwf hfe us,
+    ConLeche.projEntry_body_looseBVars hwf hfe us⟩
+
+/-- **The body telescope's reading is depth-free.** -/
+theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AnnotTerm}
+    (hTa : denoteMeta m.acval env φ 0
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
+    (∀ d : Nat, denoteMeta m.acval env φ d
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
+    ∀ k : Nat, Ta.liftN 1 k = Ta := by
+  obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
+  have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
+    denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
+  exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
+
 /-! ## The two proof-irrelevance sides (`Steps/Irrel.lean:71`, `:119`)
 
 `prop_side_pt`/`unit_side_pt` at the motives: the run premises become
