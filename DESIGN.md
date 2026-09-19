@@ -123774,3 +123774,131 @@ semantic when both are syntactic.  Step 2 of the brief (`hslotOrd`,
 `hfitc`) is downstream of the tie's denotational half and is NOT
 started; (4′)'s switch and (4) are downstream of `hfitc` and are not
 started either.
+
+#### WIDE (3) STEP 1 — THE TIE'S DENOTATIONAL HALF, LANDED AT THE FINITARY ARM; THE REFLEXIVE ARM IS A SECOND SESSION, AND THE SHAKE GATE WAS ALREADY RED (lane LE, 2026-09-19)
+
+The (4d) row left the tie at "one lemma's worth at a reading": the
+run's reading of a copy's field (`MutualCtorDataI.eisRead`,
+`MutualData.lean:214`) against the recomputation `ordTargetDom` at the
+block's own pin table, with the residue named as the OPENER LIST and
+the components' fvar ANNOTATIONS.  That reading is now a theorem at
+the `ordF`-right PIN arm and at a FINITARY (`.recursive`) field.  The
+row's price held; what it did not price is the REFLEXIVE arm, which is
+a second session and is named here rather than opened.
+
+##### (a) WHAT LANDED
+
+Two declarations plus one accessor, in the order the chain walks:
+
+* `instantiateList_openers_abstractRange_erasedEq`
+  (`Verify/Inductives/NestedCopyInstU.lean`, end, with
+  `containerParamOpeners_getElem?`) — the own-pin table's
+  abstract-and-reopen round trip is the identity UP TO ANNOTATIONS.
+  Three existing laws and no induction:
+  `instantiateList_openers_eq_instSeq` puts the kernel's bulk form in
+  the run's `instSeq` idiom, `instSeq_abstractRange_fvs` is EXACT at
+  the run's own parameter openers (whose annotations are the leaves'
+  own), and `instSeq_erasedEq_args` crosses between the two opener
+  lists.  **`ErasedEq` and not equality is the right conclusion**:
+  `containerParamOpeners` plants the placeholder annotation `sort 0`,
+  so the round trip really does move a leaf's annotation, and a
+  reading cannot tell (`denoteMeta_erasedEq`);
+* `NestedPinsRun.copyOrdFRightPinOrdTargetRead`
+  (`Model/Inductives/NestedCopyInst.lean`, end of `section Assembly`)
+  — the block's half of the tie:
+
+      ∃ fb Ps, Ps.length = ciK.nP ∧
+        denoteMeta mp₁.base2.acval (consMutualFormers fms env) ψ (b.nP + l)
+            (Expr.instSeq (Verify.openFvars b.nP l) (l - 1)
+              (ordTargetDom J.lps ci.nP (nestedPinTermsSelf p st) (q₀ + i') l domJ.1))
+          = some (AnnotTerm.mkAppN fb (Ps ++ Eis))
+
+  with `Eis` the run's own `mutEiss0` entry at the field.  The shape
+  is `ordSpine_inst_of_reads`' `hreadB` with the head's spine left
+  whole, so the consumer splits at `Ps.length` and never re-derives
+  the arity.
+
+##### (b) THE THREE GAPS, AT THE PROOF
+
+* **gap 3 (the opener-vs-cut identification), denotationally.**
+  `ordTargetDom_pinTermsSelf` (the previous session's) gives the
+  recomputation as `instSeq` at the table's components;
+  `copyResid`'s `hfcs'` gives the MINTED domain as `instSeq` at the
+  RECORDED components; `Verify.openPisAtFvars_domain` opens it at
+  `xfvs'.take l`.  Two `instSeq_erasedEq_args` — the components by
+  (a), the openers by `openPisAtFvars_index` against
+  `Verify.openFvars_getElem?` — and `denoteMeta_erasedEq` is the whole
+  crossing.  **No reading law is involved**, which is why the row
+  could be priced at one lemma;
+* **gap 2 (the normalisation).**  `normPosDomM_indApp_cons` at the
+  head `ordTargetDom` carries — `containerInfo?_inv` turns the
+  container's `containerInfo?` into the `indInfo` the walk's head test
+  reads, and the walk is then the identity at the block's own
+  environment.  The head is const because the minted domain is
+  `instSeq` of `instSeq` of a const-headed term
+  (`instSeq_getAppFn_const` twice), and THAT is the row's guard
+  (`ordRootFired`/`ordRootNorm`) arriving as the hypothesis `hfin`;
+* **gap 1 (the rewrite).**  Not used through
+  `replaceAllNested_occurrence_args` at all: the run tier's instance
+  is `copyOrdFRightPinCorr`'s own `hqe`, and reading it backwards
+  gives `x'.fvarTypeD.getAppArgs.drop b.nP = w.getAppArgs.drop ciK.nP`
+  in one `rw`.  `replaceAllNested_occurrence_args` therefore stays
+  unconsumed — it is the STATEMENT of the fact, and the consumer never
+  needed the statement.
+
+##### (c) WHAT IS NOT DONE, AND ITS PRICE
+
+* **the REFLEXIVE arm.**  The brief asked for both arms
+  (`domPiDepth`).  The finitary one is above; the reflexive one is
+  `copyPinFReadRefl`'s shape at this guard and is NOT a variant of the
+  above.  Priced by inputs: `copyOrdFRightPinCorr` cannot be applied
+  at the field itself (its `hheadS` asks the stored domain to be
+  const-headed, and a reflexive field's is a `Π`-tower), so the tower
+  is opened first and the argument is run at the BODY — the shape
+  `copyOrdFRightReadRefl` already uses; on the recomputation's side
+  `ordTargetDom_eq_instSeq` (the tower-carrying form, not
+  `_const`) replaces `ordTargetDom_pinTermsSelf`, the cut moves by
+  `domPiDepth`, and the reading comes from `MutualCtorDataI.reflOpen`'s
+  last conjunct instead of `eisRead`.  That is the `copyPinFReadRefl`
+  twin — a file-section, not a lemma — and it is where the doubling
+  stop falls: the brief authorised ONE session for steps 1–3 together
+  and the finitary arm is what a session buys at this end;
+* **steps 2–5 are NOT started.**  The `PinShapes` reading clause, its
+  `crossEnv` transport with `hde`/`ProjFree`, the `PinGroupInst`
+  conjunct, `hslotOrd`/`hfitc`, the switch and `nestedPinWideStep`'s
+  nine hypotheses are all downstream and unchanged in price.
+
+##### (d) A GATE FINDING THAT IS NOT THIS SESSION'S
+
+`tests/arena.sh` is RED on the lane's tip, and it was red BEFORE this
+session's commit: `tests/shake.sh` reproduces identically at
+`d1046d3d` (checked by restoring the two files, rebuilding, and
+re-running the gate) —
+
+    SHAKE GATE FAIL — 2 import removal(s) not on tests/shake-allowlist.txt:
+      ConLeche/Model/Inductives/NestedFieldRead.lean: public import …NestedOwnPinsRead
+      ConLeche/Model/Inductives/NestedFieldRead.lean: public import …NestedCopyRead
+    DEMOTABLE `public import` (2) — …the same two lines
+
+and **both proposals are false**: deleting either line, or merely
+demoting it to a plain `import`, breaks the file's own elaboration
+(`Unknown identifier SetTheory` in its public statements), which is
+the allowlist's "compensated" category.  The repair is therefore
+either an allowlist entry carrying the compensating addition the
+`--only` run asks for, or a re-run of `scripts/pub-import-plan.py`'s
+fixpoint — neither of which is this brief's, so the finding is
+recorded and not acted on.
+
+##### (e) THE GATES
+
+`tests/warning-free.sh d1046d3d`: 2 changed modules, `lake build` 2
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/unconsumed.sh` 197/3806 against 198/3803 at `d1046d3d`; the
+diff read: `ordTargetDom_pinTermsSelf` and `normPosDomM_indApp_cons`
+LEAVE (the previous session's two deliverables, both consumed by the
+new run lemma), `NestedPinsRun.copyOrdFRightPinOrdTargetRead` ENTERS
+(waiting on step 2's clause), and the two new Verify declarations do
+not enter because the run lemma consumes them.  Nothing of the
+`pins_le_*` / `NestedPinsLe`-producer family moved.  `#print axioms`
+on all three new declarations: `propext`, `Classical.choice`,
+`Quot.sound`.
