@@ -122025,3 +122025,46 @@ correspondence at one head `M`, `hslotOrd`, `hfitc`.
 
 The patch is kept out of tree rather than committed with a `sorry` in
 the producer bullet.
+
+#### WIDE (3) THE CORRESPONDENCE — ASSEMBLED, AND IT NEEDS ONE FACT NEITHER ROW CARRIES (lane LE, 2026-09-19)
+
+`ordTgt_corr` is drafted (`_tmp/le2/corr-draft.patch`): side 1
+(`GroupFacts.ordTgt`) against side 2 (`PinShapes.rowTargetOrd`), with
+the three translations in its body — the TABLE by
+`ContainerOwnPinsSyn`'s positional clause (the two spellings of the
+owner's own-pin list are ONE list, which is what makes both sides
+recompute `ordTargetDom` over the same thing and reach one head `M`),
+the NAMES by `ContainerModeled.memberNames_eq`, the INDEX by
+`pinsDistinctAt`.  `σ`'s two values are `hroot` at a member class and,
+at an own-pin class, a run fact carried as a hypothesis because
+`PinGroupInst` may not name the instance map.
+
+The member branch closes: side 2 gives `tgts = mm`, side 1 gives
+`tg₁ = p.k + gn.grpBase + mm` at the same `mm` once the two name lists
+are identified, and `hroot` says `σ mm` is that.
+
+##### THE PIN BRANCH NEEDS "THE HEAD IS ONE OF THE OWNER'S CLASSES"
+
+Both rows' pin branches are IMPLICATIONS keyed by a lookup, and both
+kernel Bools escape through `| none => true` when the lookup fails:
+
+* side 1 asks for `ciM` with `containerInfo? env M = some ciM` and a
+  `findIdx?` answer at `take ciM.nP`;
+* side 2 asks for `z < dR.nPins` and the term equality at
+  `take (dR.pinAt z).nPJ`.
+
+Neither can be produced from the other without the other's answer
+first — side 1's predicate needs `ciM`, which comes from side 2's `z`;
+side 2's `z` comes from side 1's `findIdx?`.  What breaks the circle is
+the fact both rows leave open: **the owner's recomputation lands on one
+of the OWNER's classes** — either `M` is one of `dR.memberNames`, or it
+is the container of one of `dR`'s own pins.  K.67's and K.68's Bools do
+not assert it (that is exactly what their `| none => true` arms
+concede), and neither does the shape.
+
+So the correspondence's last input is that disjunction.  It is not a
+new kernel record if it can be read off the OWNER's own install — the
+owner classified that field into one of its classes, which is what
+`nestedPinKinds` records at the owner — but it is a fact, it has to
+come from somewhere, and it should be priced before it is built.  The
+member branch is closed either way.
