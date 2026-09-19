@@ -2208,10 +2208,11 @@ The own-pin position is `containerOwnPinsSelf`'s, and the field's domain
 is cut to the shape that table holds (`replaceIfNested`'s
 `pin = I lvls (args.take nP)`) and only THEN instantiated at the
 openers — the CUT is a pin, a small term, where the constructor's whole
-telescope is not.  Measured: instantiating the telescope instead
-(`Expr.instPisAtF` at the openers, the first form built) cost
-**+0.49 %** of a Mathlib shadow run where this form costs a fraction of
-that.  Both sides carry the same openers, so the comparison is exact:
+telescope is not.  (Instantiating the whole telescope instead,
+`Expr.instPisAtF` at the openers, was the first form built and costs
+the SAME to three digits — the record's Mathlib price is the
+per-pin ENVIRONMENT lookups, not the term walk; see DESIGN
+"#### K.61".)  Both sides carry the same openers, so the comparison is exact:
 the cut sits under `ci.nP + l` binders whose outer `ci.nP` are the
 parameters, so `instantiateList … opens l` with the openers REVERSED
 maps `bvar (l + i)` to parameter `ci.nP - 1 - i`'s opener and leaves the
@@ -2231,8 +2232,9 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
         | none => false
         | some ci =>
           let opens := (containerParamOpeners ci.nP).reverse
-          match ci.members[q - qn.grpBase]?, containerOwnPinsSelf env qn.container with
-          | some J, some own0 =>
+          match ci.members[q - qn.grpBase]? with
+          | none => false
+          | some J =>
             let mems := ci.members.map (·.name)
             (List.range ks.length).all fun j =>
               match ks[j]?, J.ctors[j]? with
@@ -2251,6 +2253,14 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
                           | none => true
                           | some ciK =>
                             if (domJ.1.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+                              -- the own-pin table is read HERE and not above:
+                              -- `containerOwnPinsSelf` costs two whole-environment
+                              -- scans (`Env.find?` is a list walk) and a guarded
+                              -- field is rare — 8 blocks over three corpora —
+                              -- while a pin is not
+                              match containerOwnPinsSelf env qn.container with
+                              | none => false
+                              | some own0 =>
                               match own0.findIdx? (fun e => e ==
                                   Expr.instantiateList (Expr.mkAppN domJ.1.getAppFn
                                     (domJ.1.getAppArgs.take ciK.nP)) opens l) with
@@ -2261,7 +2271,6 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
                       | _ => true
                     | _, _ => false
               | _, _ => false
-          | _, _ => false
       | _, _ => false
   | _, _ => false
 
