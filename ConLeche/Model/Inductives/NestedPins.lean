@@ -765,12 +765,14 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
       ∀ (K : Name) (usK : List Level),
       (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
           = .const K usK →
-      ∃ ciK : ContainerInfo, ConLeche.containerInfo? env K = some ciK ∧
+      ∃ z : Nat, z < (D).nPins ∧
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
         OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
           (((D).pinAt q₀).Ds ψ)
           ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
-          ciK.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
+          ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
 
 local notation "PGS" => NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
@@ -1362,13 +1364,15 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
       ∀ (K : Name) (usK : List Level),
       (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
           = .const K usK →
-      ∃ ciK : ContainerInfo, ConLeche.containerInfo? env K = some ciK ∧
+      ∃ z : Nat, z < pinsS.length ∧
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
         OrdTargetRead (V := V) mp₁'.base2.acval
           (ConLeche.consMutualFormers (fms.take p.k) env) ψ ρp b.nP l
           ((pinsS.getD q₀ default).Ds ψ)
           ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
-          ciK.nP lpsC dJ.nP (q₀ + i')
+          (pinsS.getD z default).nPJ lpsC dJ.nP (q₀ + i')
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps) dom.1
 

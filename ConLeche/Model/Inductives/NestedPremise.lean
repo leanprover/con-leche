@@ -1163,6 +1163,26 @@ at the other.  `PinCorr`'s `EA` clause is absent for the reason it is
 absent from `hpinσ`: `targetRead_of_pin` rebuilds it from the three
 that are here, and it is the only one that reads a model.
 
+**THE OWNER'S HALF** (task #315 WIDE (3), step 1(a)): at a field the
+pin's container calls ORDINARY and the block's rewrite made recursive,
+whose block target is a PIN and not a member, the OWNER's own
+recomputation of the field's target — `ordTargetDom`, K.67's spelling —
+READS, at the block's parameter frame opened to the field's cut, as an
+application whose arguments past the head container's parameters are
+the copy's index expressions (`OrdTargetRead`).  The row beside it
+relates the two copies' TARGETS; this relates their index
+EXPRESSIONS, which is what the wide identification's pin half asks for
+where it compares two index spines rather than two class numbers.
+
+It names the TARGET PIN `z` and takes its parameter count from the
+block's own record (`(d.pinAt z).nPJ`) rather than from a
+`containerInfo?` of the recomputation's head.  That is deliberate: a
+clause may only PRODUCE environment facts, and one that produced a
+group at an arbitrary NAME would have to be carried across every
+install by a frame no crossing site holds.  With the target named, the
+only environment the conjunct mentions is the reading's own, and
+`PinShapes.crossEnv` discharges it with the guarded `hde` alone.
+
 **Its three producer classes**, so that nobody rediscovers them: the
 five PINNED BASIS blocks, where it is vacuous (`d.pins = []`, so `q`
 does not exist); the NESTED route, where it is
@@ -1217,6 +1237,27 @@ unchanged. -/
                 ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
                   dom.1).getAppArgs.take (d.pinAt z).nPJ) ∧
           (pc (q₀ + i')).tgts j l = d.k + z)) ∧
+    (∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+      l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+      (((B ci).rss i').getD j []).getD l false = false →
+      ((pc (q₀ + i')).rss.getD j []).getD l false = true →
+      ¬ (pc (q₀ + i')).tgts j l < d.k →
+      ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+        (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+      ((B ci).ctorsM i')[j]? = some cA →
+      cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
+      bs[(B ci).nP + l]? = some dom →
+      ∀ (lpsC : List Name) (Jm : ContainerMember),
+      ci.members[i']? = some Jm → Jm.lps = lpsC →
+      ∀ (K : Name) (usK : List Level),
+      (dom.1.instantiateLevelParams lpsC ((d.pinAt (q₀ + i')).lvls)).getAppFn = .const K usK →
+      ∃ z : Nat, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
+        OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
+          ((d.pinAt q₀).Ds ψ)
+          (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
+          ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
+          ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -1346,7 +1387,7 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
                   ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
                     dom.1).getAppArgs.take (d.pinAt z).nPJ) ∧
             (pc (q₀ + i')).tgts j l = d.k + z) := by
-  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, hord, -⟩ := h q hq
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, hord, -, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   exact ⟨q₀, kJ, i, hqe, hi, hgv, hord⟩
 
@@ -1396,7 +1437,7 @@ theorem PinShapes.rowTarget {env : Env} {m : EnvModel V env} {B : ContainerInfo 
           (d.targetView m.acval φ).Ds ((pc (q₀ + i')).tgts j l)
               = (((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).Ds ((d.pinAt q₀).ψJ φ)).map
                   (AnnotTerm.instAll ((d.pinAt q₀).Ds φ) 0) := by
-  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, hrow, -, -⟩ := h q hq
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, hrow, -, -, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ i' hi' j hj l hl hrs hpinT => ?_⟩
   obtain ⟨q', -, htg, hJ, hrest⟩ := hrow ψ i' hi' j hj l hl hrs hpinT

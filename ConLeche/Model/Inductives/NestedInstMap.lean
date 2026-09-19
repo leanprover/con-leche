@@ -2361,12 +2361,14 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {K : Name} {usK : List Level}
     (hfin : (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
       = .const K usK) :
-    ∃ ciK : ContainerInfo, ConLeche.containerInfo? env K = some ciK ∧
+    ∃ z : Nat, z < pinsS.length ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
       OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
         (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
-        ciK.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1 := by
+        ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1 := by
   classical
   -- the container record at this pin, its member and the block's own constructor
   obtain ⟨cc, J, ci, cI₀, cAB, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj,
@@ -2504,8 +2506,59 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         rw [List.length_map]
       have heq := hbase.1 mm hfi
       exact absurd (by rw [heq]; omega) hpinT
-  obtain ⟨ciM, -, hciM, -, -⟩ := hbase.2 hnm
-  refine ⟨ciM, hciM, ?_⟩
+  -- THE TARGET PIN AND ITS PARAMETER COUNT (task #315 WIDE (3), step
+  -- 1(a) part 3): the row's own-pin position `z`, and the identity of
+  -- ITS container's parameter count with the head's — `pinNP` at `z`
+  -- composed with the group's `modeled`, exactly as `hordσ`'s arm
+  -- reads it.  Naming `z` and not the head's container record is what
+  -- makes the clause ENVIRONMENT-FREE, so it crosses in a word.
+  obtain ⟨ciM, z, hciM, hfi, htgz⟩ := hbase.2 hnm
+  obtain ⟨hzlt, hm₀, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+  have hzS : z < pinsS.length := by
+    have hzl : z < (ConLeche.nestedPinTermsSelf p st).length := hzlt
+    unfold ConLeche.nestedPinTermsSelf at hzl
+    rw [SF.pinsLen]; simpa using hzl
+  have hzD : z < (D).nPins := by show z < pinsS.length; exact hzS
+  have hentry : (ConLeche.nestedPinTermsSelf p st).getD z default
+      = ((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners b.nP) := by
+    rw [← R.ownPinTerms_eq SF lps]
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hzD]
+    rfl
+  have hterm : (((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+      (ConLeche.containerParamOpeners b.nP) == Expr.mkAppN
+        (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l dom.1).getAppFn
+        ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = true := by
+    rw [← hentry, show (ConLeche.nestedPinTermsSelf p st).getD z default
+        = (ConLeche.nestedPinTermsSelf p st)[z]'hzlt from by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzlt]; rfl]
+    exact hm₀
+  have hJM : ((D).pinAt z).J = K := by
+    have hfn := congrArg Expr.getAppFn (of_decide_eq_true hterm)
+    unfold ConLeche.Model.PinSyn.ownAt at hfn
+    rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN, hhead] at hfn
+    exact (Expr.const.inj hfn).1
+  obtain ⟨ciz, hciz, -⟩ := (hPD z (by rw [← SF.pinsLen]; exact hzS)).own
+  have hcizJ : ConLeche.containerInfo? env ((D).pinAt z).J = some ciz := by
+    show ConLeche.containerInfo? env (pinsS.getD z default).J = some ciz
+    rw [(SF.pinRec z _ (hPD z (by rw [← SF.pinsLen]; exact hzS)).pin).1]; exact hciz
+  have hnPz : ((D).pinAt z).nPJ = ciz.nP := by
+    obtain ⟨q₀z, kJz, iz, hqez, hiz, Sz⟩ := SF.groupsAt dsR xFvsR z hzS ciz hcizJ
+    have hp := Sz.pinNP iz hiz
+    have hm := (Sz.modeled iz hiz ciz (by
+      show ConLeche.containerInfo? env (pinsS.getD (q₀z + iz) default).J = some ciz
+      rw [← hqez]; exact hcizJ)).nP
+    show (pinsS.getD z default).nPJ = ciz.nP
+    rw [hqez]
+    exact hp.trans hm
+  have hcizM : ConLeche.containerInfo? env ((D).pinAt z).J = some ciM := by
+    rw [hJM]; exact hciM
+  obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
+  refine ⟨z, hzS, htgz, ?_⟩
+  rw [hnPz]
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
   rw [hDs, hψ] at hfit

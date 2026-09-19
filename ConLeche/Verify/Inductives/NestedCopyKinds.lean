@@ -1755,4 +1755,113 @@ theorem openPisAtFvars_count_unique : ∀ (n m : Nat) {e : Expr} {d : Nat}
             obtain ⟨-, rfl⟩ := h2
             exact congrArg (· + 1) (ih m hq hK1 hq2 hK2)
 
+/-! ## `NoProjAt` through the owner's recomputation
+
+`ordTargetDom` — the owner's own recomputation of a rewritten ordinary
+field's target (K.67's spelling) — is built from the stored domain by
+three list-shaped operations, and the block model's crossing guard
+(`ProjFree`, `Model/Inductives/BlockRepCross.lean`) has to travel all
+three.  None of them creates a node: `stripDomPis` drops binders,
+`instantiateList` and `instSeq` replace `bvar`s by terms the caller
+guards.  (`Expr.NoProjAt.instantiate1` and `.instantiateLevelParams`
+are `Verify/ProjSlots.lean`'s; these are the three the recomputation
+adds.) -/
+
+/-- Bulk instantiation adds no `.proj T i` node when no replacement
+carries one: `Expr.instantiateList_cons` peels the list and
+`Expr.NoProjAt.instantiate1` does each step. -/
+theorem rg_noProjAt_instantiateList {T : Name} {i : Nat} :
+    ∀ (vs : List Expr), (∀ v ∈ vs, Expr.NoProjAt T i v) →
+      ∀ (e : Expr) (d : Nat), Expr.NoProjAt T i e →
+        Expr.NoProjAt T i (e.instantiateList vs d) := by
+  intro vs
+  induction vs with
+  | nil => intro _ e d h; rw [Expr.instantiateList_nil]; exact h
+  | cons v vs ih =>
+    intro hvs e d h
+    rw [Expr.instantiateList_cons]
+    exact Expr.NoProjAt.instantiate1 (hvs v (List.mem_cons_self ..)) _ d
+      (ih (fun w hw => hvs w (List.mem_cons_of_mem _ hw)) e (d + 1) h)
+
+/-- A descending instantiation sequence adds no `.proj T i` node when no
+argument carries one. -/
+theorem rg_noProjAt_instSeq {T : Name} {i : Nat} :
+    ∀ (as : List Expr), (∀ a ∈ as, Expr.NoProjAt T i a) →
+      ∀ (t : Nat) (e : Expr), Expr.NoProjAt T i e →
+        Expr.NoProjAt T i (Expr.instSeq as t e) := by
+  intro as
+  induction as with
+  | nil => intro _ t e h; rw [Expr.instSeq]; exact h
+  | cons a as ih =>
+    intro has t e h
+    rw [Expr.instSeq]
+    exact ih (fun x hx => has x (List.mem_cons_of_mem _ hx)) (t - 1) _
+      (Expr.NoProjAt.instantiate1 (has a (List.mem_cons_self ..)) e t h)
+
+/-- Stripping a domain's own binders keeps the absence: the result is a
+subterm. -/
+theorem rg_noProjAt_stripDomPis {T : Name} {i : Nat} :
+    ∀ (e : Expr), Expr.NoProjAt T i e → Expr.NoProjAt T i (stripDomPis e) := by
+  intro e
+  induction e with
+  | forallE ty b m _ ihb =>
+    intro h
+    rw [stripDomPis]
+    exact ihb (Expr.noProjAt_forallE.mp h).2
+  | _ => intro h; exact h
+
+/-- Abstraction over a range of fvars adds no `.proj T i` node: an
+abstracted `fvar` becomes a `bvar` and every other node is rebuilt. -/
+theorem rg_noProjAt_abstractRange {T : Name} {i : Nat} :
+    ∀ (e : Expr) (d k c : Nat), Expr.NoProjAt T i e →
+      Expr.NoProjAt T i (Expr.abstractRange e d k c) := by
+  intro e
+  induction e with
+  | bvar _ => intro d k c _; simp [Expr.abstractRange]
+  | sort _ => intro d k c _; simp [Expr.abstractRange]
+  | lit _ => intro d k c _; simp [Expr.abstractRange]
+  | const _ _ => intro d k c _; simp [Expr.abstractRange]
+  | fvar idx ty _ =>
+    intro d k c h
+    rw [Expr.abstractRange]
+    split
+    · simp
+    · exact h
+  | app f a ihf iha =>
+    intro d k c h
+    rw [Expr.abstractRange, Expr.noProjAt_app]
+    exact ⟨ihf d k c (Expr.noProjAt_app.mp h).1, iha d k c (Expr.noProjAt_app.mp h).2⟩
+  | lam ty b m ihty ihb =>
+    intro d k c h
+    rw [Expr.abstractRange, Expr.noProjAt_lam]
+    exact ⟨ihty d k c (Expr.noProjAt_lam.mp h).1, ihb d k (c + 1) (Expr.noProjAt_lam.mp h).2⟩
+  | forallE ty b m ihty ihb =>
+    intro d k c h
+    rw [Expr.abstractRange, Expr.noProjAt_forallE]
+    exact ⟨ihty d k c (Expr.noProjAt_forallE.mp h).1,
+      ihb d k (c + 1) (Expr.noProjAt_forallE.mp h).2⟩
+  | letE ty v b ihty ihv ihb =>
+    intro d k c h
+    rw [Expr.abstractRange, Expr.noProjAt_letE]
+    exact ⟨ihty d k c (Expr.noProjAt_letE.mp h).1, ihv d k c (Expr.noProjAt_letE.mp h).2.1,
+      ihb d k (c + 1) (Expr.noProjAt_letE.mp h).2.2⟩
+  | proj s n e ihe =>
+    intro d k c h
+    rw [Expr.abstractRange, Expr.noProjAt_proj]
+    exact ⟨(Expr.noProjAt_proj.mp h).1, ihe d k c (Expr.noProjAt_proj.mp h).2⟩
+
+/-- An application spine adds no `.proj T i` node when neither its head
+nor its arguments carry one. -/
+theorem rg_noProjAt_mkAppN {T : Name} {i : Nat} :
+    ∀ (as : List Expr) (f : Expr), Expr.NoProjAt T i f →
+      (∀ a ∈ as, Expr.NoProjAt T i a) → Expr.NoProjAt T i (Expr.mkAppN f as) := by
+  intro as
+  induction as with
+  | nil => intro f hf _; exact hf
+  | cons a as ih =>
+    intro f hf has
+    rw [Expr.mkAppN]
+    exact ih _ (Expr.noProjAt_app.mpr ⟨hf, has a (List.mem_cons_self ..)⟩)
+      (fun x hx => has x (List.mem_cons_of_mem _ hx))
+
 end ConLeche

@@ -124414,3 +124414,100 @@ nothing of the `pins_le_*`/`NestedPinsLe` family moved.
 `Verify/` file changed.  `#print axioms` on `nestedPinsOrdTgt_of`,
 `nestedPinsIdent_of` and `nestedModeled_of_two`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 1 PART 1 — THE `PinShapes` CONJUNCT LANDED, AND ITS ∃-FORM WAS THE WRONG ONE (lane LE, 2026-09-19)
+
+Part 1 is done: the owner's half of the two copies' field-data tie is
+a conjunct of `PinShapes`, produced by the nested route and carried
+across an install.  The session's finding is that the shape the
+previous row priced — the head's container record in ∃-form — is not
+transportable, and that the fix makes the clause CHEAPER, not dearer.
+
+##### (a) THE PRICE, BY INPUTS, AND WHAT IT MISSED
+
+Priced at the start: three `NoProjAt` inductions (`instantiateList`
+through `instantiateList_cons`, `instSeq` and `stripDomPis` by their
+own recursions), one `ProjFree` closure over `ordTargetDom`, the
+conjunct (~45 lines), its producer off `G.ordTgt` (~15), the vacuous
+producers (`BlockAt.of_noPins` and the five basis blocks, all
+`fun q hq => nomatch hq`, unchanged), `congrB` unchanged, and
+`PinShapes.crossEnv` with `hde` at three sites.
+
+Two items the inventory did not name, both found by building:
+
+* **the `containerInfo? env K` the clause PRODUCES has to cross too.**
+  `PinShapes.crossEnv`'s `hci` is the pins' containers' frame, quantified
+  over `q < d.nPins`; the head `K` of a recomputation is no pin of the
+  block, so nothing carries it.  A generic frame is dischargeable at the
+  `EnvBlocksOf` sites (`containerInfo?_ext_ind_eq` at a name the old
+  environment stores) but NOT at the nested install's own
+  (`DeclNestedCore`), where the crossing runs from the CONSTRUCTORS'
+  environment to the output and the pull-back to the pre-block one is a
+  fresh `EnvWF` argument about a stored `K.rec` with `K` unstored;
+* **`ContainerModeled.ctorProjFree` is stated at `d.memberNames`, not at
+  an arbitrary `Ts`**, so the row's "the members' stored types for
+  `dom.1`" does not serve: `dom.1` is a field of a CONSTRUCTOR type, and
+  the guard for it comes from `IsBlockModel.ctors` + `EnvWF` instead
+  (`projFree_ctorsM`).
+
+##### (b) THE FIX: NAME THE TARGET PIN, NOT THE HEAD'S GROUP
+
+`ciK.nP` is the only thing the clause wanted the container record for,
+and the row beside it already produces the target's own-pin position
+`z`.  So the conjunct names `z` and takes the arity from the block's
+own record, `(d.pinAt z).nPJ`:
+
+    ∃ z, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
+      OrdTargetRead … ((d.pinAt z).nPJ) …
+
+It names NO environment beyond the reading's own, so `crossEnv`
+discharges it with the guarded `hde` alone — `hciK`, the `NestedTailOut`
+field it would have needed and the pull-back argument all disappear.
+The same spelling runs down the carriers: `NestedPinsRun.ordTgtReadAt`
+(`NestedInstMap.lean`), `NestedPinsOrdTgt` (`NestedCopyIdx.lean`),
+`NestedPinsIdent` and `NestedPinGroupIds.ordTgt` (`NestedPins.lean`),
+`NestedPinGroup.ordTgt` (`NestedCore.lean`) and the crossing
+(`NestedLoop.lean`).  `ordTgtReadAt`'s own `z` and the identity
+`(D).pinAt z).nPJ = ciM.nP` are `instOrdSelfAt`'s, read exactly as
+`hordσ`'s arm reads them.
+
+This is the general rule the file already states for `hordσ` and that
+the ∃-form broke: **a clause of a stored block's obligation may name
+the block's own record and the reading's environment, and nothing
+else.**
+
+##### (c) WHAT LANDED
+
+* `Verify/Inductives/NestedCopyKinds.lean` (end-of-file):
+  `rg_noProjAt_instantiateList`, `rg_noProjAt_instSeq`,
+  `rg_noProjAt_stripDomPis`, and the two the own-pin table needed,
+  `rg_noProjAt_abstractRange` and `rg_noProjAt_mkAppN`;
+* `Model/Inductives/ContainerCross.lean`: `projFree_ctorsM`,
+  `projFree_ownPinTerms` (guard of the components as a parameter, so
+  both sources serve), `projFree_ordTargetDom_instSeq` — the closure
+  over the level instantiation, `stripDomPis`, the own-pin spine's
+  `instantiateList` and the openers' `instSeq`;
+* the conjunct on `PinShapes` (`NestedPremise.lean`) and its producer
+  in `nestedPinShapes_of` (`NestedPinLeafAll.lean`);
+* `PinShapes.crossEnv` gains `hde` and the two leaf guards, and the
+  three sites supply them: `BlockAt.crossEnv` at `Ts := []`
+  (`ProjFree.nil`), `BlockAt.crossEnvP` through `of_constsResolve` at
+  the old environment, and the nested install through two extractions
+  — `nestedReadCrossOut` (the reading crossing from the constructors'
+  environment to the output, which `pinDsRead` already proved inline)
+  and `nestedPinDsProjFree` (K.64's table conjunct at the components,
+  the one guard that serves the block being installed).
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 53f8d42b`: 10 changed modules, `lake build` 10
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; `pub-imports`
+1343/2304, none demotable).  `tests/unconsumed.sh` 196/3832 against
+196/3822: ten declarations enter, all consumed; nothing enters or
+leaves the unconsumed list and nothing of the
+`pins_le_*`/`NestedPinsLe` family moved.  `tests/arena.sh` not run and
+not owed: the one `Verify/` change is an end-of-file append.
+`#print axioms` on `nestedPinShapes_of`, `PinShapes.crossEnv`,
+`BlockAt.crossEnvP` and `declNested_of`: `propext`,
+`Classical.choice`, `Quot.sound`.

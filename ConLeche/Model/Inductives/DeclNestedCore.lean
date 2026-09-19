@@ -600,6 +600,148 @@ theorem consNestedCtors_find?_cases :
         exact Or.inl h₁
     · exact Or.inr ⟨y, List.mem_cons_of_mem _ hy, rfl⟩
 
+/-- **THE PINS' COMPONENTS ARE GUARDED AT THE BLOCK'S OWN MEMBERS**
+(task #315): `ProjFree p.memberNames` at every component of every
+recorded pin — the guard the two consumers of the reading crossing
+need, and the one source that serves the block being INSTALLED, where
+`ProjFree.of_constsResolve` cannot (its members are stored at the
+environment its subjects resolve at).
+
+It is K.64's second conjunct (`pinsResolve`' `projTablesOk` at the
+formers' environment, where a member is stored but its TABLE is not)
+read through the member's empty slot (`Expr.ProjSlotsOk.noProjAt`),
+and then down the pin's spine (`ProjFree.getAppArgs`). -/
+private theorem nestedPinDsProjFree {F : Nat} {st : ElimState} {envAux : Env}
+    {stored : List AuxStored} {sortss : List (List Level)} {xFvsF : Nat → List Expr}
+    {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+    {mp₂ : EnvModelM V μ ENV₂}
+    (hcaps : ((stored.take p.k).all fun a =>
+      !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
+    (haux : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true
+      = .ok envAux)
+    (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
+    (O : NestedCoreOut F mp p st b ctorsR fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂)
+    (hK64 : ConLeche.pinsResolve (ConLeche.consNestedFormers (stored.take p.k) env) st.pins
+      = true) :
+    ∀ q, q < (D).nPins → ∀ e ∈ ((D).pinAt q).DsE, ProjFree p.memberNames e := by
+  have hslen : stored.length = b.k := (ConLeche.auxStoredAll_get hstored).1
+  have hkle : p.k ≤ b.k := by rw [O.bk]; omega
+  have hfreshMem : ∀ n ∈ (D).memberNames, env.find? n = none :=
+    nestedMembersFresh hcaps haux hstored O
+  intro q hq
+  have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+  have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+  obtain ⟨-, hpin⟩ := O.stage.pinRec q _ hpq
+  have hslots : ConLeche.Expr.ProjSlotsOk (ConLeche.consNestedFormers (stored.take p.k) env)
+      (st.pins[q]'hql).pin :=
+    ConLeche.Expr.projSlotsOk_of_projTablesOk _
+      ((ConLeche.pinsResolve_inv hK64 _ (List.mem_of_getElem? hpq)).2)
+  intro e he T hT j
+  have hTm : T ∈ (D).memberNames := by rw [O.record.memberNames]; exact hT
+  have hslot : (ConLeche.consNestedFormers (stored.take p.k) env).findProj? T j = none := by
+    obtain ⟨henv', -⟩ := ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle
+    rw [henv']
+    exact findProj?_none_consMutualFormers
+      (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshMem T hTm) j)
+  have hnp : ConLeche.Expr.NoProjAt T j (st.pins[q]'hql).pin :=
+    ConLeche.Expr.ProjSlotsOk.noProjAt hslot _ hslots
+  have hargs : e ∈ (st.pins[q]'hql).pin.getAppArgs := by
+    rw [hpin, ConLeche.Expr.getAppArgs_mkAppN]
+    simp only [ConLeche.Expr.getAppArgs, List.nil_append]
+    exact he
+  exact ProjFree.getAppArgs (Ts := p.memberNames) (fun T' hT' j' => by
+    have hT'm : T' ∈ (D).memberNames := by rw [O.record.memberNames]; exact hT'
+    have hslot' : (ConLeche.consNestedFormers (stored.take p.k) env).findProj? T' j' = none := by
+      obtain ⟨henv', -⟩ := ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle
+      rw [henv']
+      exact findProj?_none_consMutualFormers
+        (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshMem T' hT'm) j')
+    exact ConLeche.Expr.ProjSlotsOk.noProjAt hslot' _ hslots) e hargs T hT j
+
+/-- **THE CONSTRUCTORS' ENVIRONMENT'S READINGS CROSS THE INSTALL,
+UNDER THE GUARD** (task #315): the nested route ends by consing
+projection TABLES for its structure-like members, so a reading crosses
+only for subjects with no `.proj` node at one of them (`ProjFree
+p.memberNames`).  The constants cross because the constructors'
+environment holds the pre-block ones plus the block's own formers
+(`indInfo`s) and restored constructors (`ctorInfo`s) — never a
+recursor the install did not already have — and the only new tables
+are at the members (`NestedInstallExt.tableCross`); the carrier
+crosses by `T.agree`.
+
+Stated at an arbitrary depth so that both consumers can use it: the
+components' readings (`pinDsRead`, at `b.nP`) and the pins' shapes'
+owner half (`PinShapes.crossEnv`, at the field's own cut). -/
+private theorem nestedReadCrossOut {F : Nat} {st : ElimState}
+    {stored : List AuxStored} {sortss : List (List Level)} {xFvsF : Nat → List Expr}
+    {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+    {mp₂ : EnvModelM V μ ENV₂} {envOut : Env} {mpOut : EnvModelM V μ envOut}
+    (O : NestedCoreOut F mp p st b ctorsR fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂)
+    (T : NestedTailOut (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF) (esF := esF)
+      (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF) (tssF := tssF)
+      (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) mp stored mp₂ envOut mpOut) :
+    ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree p.memberNames e → ∀ {ea : AnnotTerm},
+      denoteMeta mp₂.base2.acval (ENV₂) ψ dp e = some ea →
+      denoteMeta mpOut.base2.acval envOut ψ dp e = some ea := by
+  -- the CONSTRUCTORS' environment crosses the install: its constants are
+  -- the pre-block ones plus the block's own formers (`indInfo`s) and
+  -- restored constructors (`ctorInfo`s), and the only projection tables
+  -- the install creates are at its members (`NestedInstallExt.tableCross`)
+  have hndF : ((fms.take p.k).map (·.cvTa.name)).Nodup := by
+    have hndM : (fms.map (·.cvTa.name)).Nodup := by
+      rw [O.facts.names]
+      have hnd' := O.nodup
+      unfold ConLeche.MutualBlock.blockNames at hnd'
+      exact (List.nodup_append.mp (List.nodup_append.mp hnd').1).1
+    rw [List.map_take]
+    exact List.Nodup.sublist (List.take_sublist _ _) hndM
+  have hfreshF : ∀ f ∈ fms.take p.k, env.find? f.cvTa.name = none := by
+    intro f hf
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
+    exact O.facts.fresh t f ht
+  obtain ⟨hF₁, hG₁, hP₁⟩ := consMutualFormers_ext hfreshF hndF
+  have hFenv₂ : FindPreserved env (ENV₂) := fun h => O.stage.find (hF₁ h)
+  have hRecEnv₂ : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (ENV₂).find? n = some (.recInfo cv mI rP rules) →
+      env.find? n = some (.recInfo cv mI rP rules) := by
+    intro n cv mI rP rules hf
+    rcases consNestedCtors_find?_cases hf with h₁ | ⟨c, -, hc⟩
+    · rcases consMutualFormers_find?_cases h₁ with h₂ | ⟨g, -, hg⟩
+      · exact h₂
+      · exact nomatch hg
+    · exact nomatch hc
+  have hFind₂ : FindPreserved (ENV₂) envOut := by
+    obtain ⟨new, E, -⟩ := T.install
+    intro n ci hf
+    match ci, hf with
+    | .recInfo cv mI rP rules, hf => exact E.toConsExt.ext _ _ (hRecEnv₂ n cv mI rP rules hf)
+    | .indInfo _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+    | .ctorInfo _ _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+    | .defnInfo _ _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+    | .thmInfo _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+    | .axiomInfo _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+    | .projInfo _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
+  have hLit₂ : LitGuardsMono (ENV₂) envOut :=
+    litGuardsMono_of_findPreserved (fun hf => hFind₂ hf)
+  have hProj₂ : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+      (ENV₂).findProj? sn i = none → envOut.findProj? sn i = some entry →
+      sn ∈ p.memberNames := by
+    obtain ⟨new, E, -⟩ := T.install
+    intro sn i entry h0 h1
+    refine E.tableCross.proj sn i entry ?_ h1
+    cases hf : env.findProj? sn i with
+    | none => rfl
+    | some e' =>
+      obtain ⟨tbl, hft, hi, -⟩ := ConLeche.Env.findProj?_some hf
+      rw [ConLeche.Env.findProj?_of_table (hFenv₂ hft) hi] at h0
+      exact nomatch h0
+  intro ψ dp e hpf ea hr
+  rw [denoteMeta_acval_congr (fun n hn => (T.agree n hn).symm) dp e] at hr
+  exact denoteMeta_env_mono_projFree hFind₂ hLit₂ hProj₂ dp e hpf hr
+
 /-- **The block the NESTED route installs IS its own container group**
 (task #315 M7-3 session 10, DESIGN §U.67 (b)):
 `ContainerModeled.of_readBack` at the run's K.34 conjunct, the mutual
@@ -766,58 +908,6 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       cases hf : env.find? n with
       | none => rw [hf] at hn; exact nomatch hn
       | some c => rw [E.toConsExt.ext _ _ hf]; rfl
-  -- the CONSTRUCTORS' environment crosses the install: its constants are
-  -- the pre-block ones plus the block's own formers (`indInfo`s) and
-  -- restored constructors (`ctorInfo`s), and the only projection tables
-  -- the install creates are at its members (`NestedInstallExt.tableCross`)
-  have hndF : ((fms.take p.k).map (·.cvTa.name)).Nodup := by
-    have hndM : (fms.map (·.cvTa.name)).Nodup := by
-      rw [O.facts.names]
-      have hnd' := O.nodup
-      unfold ConLeche.MutualBlock.blockNames at hnd'
-      exact (List.nodup_append.mp (List.nodup_append.mp hnd').1).1
-    rw [List.map_take]
-    exact List.Nodup.sublist (List.take_sublist _ _) hndM
-  have hfreshF : ∀ f ∈ fms.take p.k, env.find? f.cvTa.name = none := by
-    intro f hf
-    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
-    exact O.facts.fresh t f ht
-  obtain ⟨hF₁, hG₁, hP₁⟩ := consMutualFormers_ext hfreshF hndF
-  have hFenv₂ : FindPreserved env (ENV₂) := fun h => O.stage.find (hF₁ h)
-  have hRecEnv₂ : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      (ENV₂).find? n = some (.recInfo cv mI rP rules) →
-      env.find? n = some (.recInfo cv mI rP rules) := by
-    intro n cv mI rP rules hf
-    rcases consNestedCtors_find?_cases hf with h₁ | ⟨c, -, hc⟩
-    · rcases consMutualFormers_find?_cases h₁ with h₂ | ⟨g, -, hg⟩
-      · exact h₂
-      · exact nomatch hg
-    · exact nomatch hc
-  have hFind₂ : FindPreserved (ENV₂) envOut := by
-    obtain ⟨new, E, -⟩ := T.install
-    intro n ci hf
-    match ci, hf with
-    | .recInfo cv mI rP rules, hf => exact E.toConsExt.ext _ _ (hRecEnv₂ n cv mI rP rules hf)
-    | .indInfo _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-    | .ctorInfo _ _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-    | .defnInfo _ _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-    | .thmInfo _ _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-    | .axiomInfo _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-    | .projInfo _, hf => exact T.findR _ _ (fun _ _ _ _ h => nomatch h) hf
-  have hLit₂ : LitGuardsMono (ENV₂) envOut :=
-    litGuardsMono_of_findPreserved (fun hf => hFind₂ hf)
-  have hProj₂ : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
-      (ENV₂).findProj? sn i = none → envOut.findProj? sn i = some entry →
-      sn ∈ p.memberNames := by
-    obtain ⟨new, E, -⟩ := T.install
-    intro sn i entry h0 h1
-    refine E.tableCross.proj sn i entry ?_ h1
-    cases hf : env.findProj? sn i with
-    | none => rfl
-    | some e' =>
-      obtain ⟨tbl, hft, hi, -⟩ := ConLeche.Env.findProj?_some hf
-      rw [ConLeche.Env.findProj?_of_table (hFenv₂ hft) hi] at h0
-      exact nomatch h0
   refine ContainerModeled.of_readBack ?_ O.record.nP ?_ ?_ ?_ T.repsAt.toIsBlockModels
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
@@ -1472,39 +1562,13 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
     obtain ⟨-, hpin⟩ := O.stage.pinRec q _ hpq
     -- the guard: no `.proj` node of the pin names one of the block's members
-    have hslots : ConLeche.Expr.ProjSlotsOk (ConLeche.consNestedFormers (stored.take p.k) env)
-        (st.pins[q]'hql).pin :=
-      ConLeche.Expr.projSlotsOk_of_projTablesOk _
-        ((ConLeche.pinsResolve_inv hK64 _ (List.mem_of_getElem? hpq)).2)
-    have hguard : ∀ e ∈ ((D).pinAt q).DsE, ProjFree p.memberNames e := by
-      intro e he T hT j
-      have hTm : T ∈ (D).memberNames := by rw [O.record.memberNames]; exact hT
-      have hslot : (ConLeche.consNestedFormers (stored.take p.k) env).findProj? T j = none := by
-        obtain ⟨henv', -⟩ := ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle
-        rw [henv']
-        exact findProj?_none_consMutualFormers
-          (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshMem T hTm) j)
-      have hnp : ConLeche.Expr.NoProjAt T j (st.pins[q]'hql).pin :=
-        ConLeche.Expr.ProjSlotsOk.noProjAt hslot _ hslots
-      have hargs : e ∈ (st.pins[q]'hql).pin.getAppArgs := by
-        rw [hpin, ConLeche.Expr.getAppArgs_mkAppN]
-        simp only [ConLeche.Expr.getAppArgs, List.nil_append]
-        exact he
-      exact ProjFree.getAppArgs (Ts := p.memberNames) (fun T' hT' j' => by
-        have hT'm : T' ∈ (D).memberNames := by rw [O.record.memberNames]; exact hT'
-        have hslot' : (ConLeche.consNestedFormers (stored.take p.k) env).findProj? T' j' = none := by
-          obtain ⟨henv', -⟩ := ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle
-          rw [henv']
-          exact findProj?_none_consMutualFormers
-            (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshMem T' hT'm) j')
-        exact ConLeche.Expr.ProjSlotsOk.noProjAt hslot' _ hslots) e hargs T hT j
+    have hguard : ∀ e ∈ ((D).pinAt q).DsE, ProjFree p.memberNames e :=
+      nestedPinDsProjFree hcaps haux hstored O hK64 q hq
     -- the crossing, at the constructors' environment
     have hde : ∀ (e : Expr), ProjFree p.memberNames e → ∀ {ea : AnnotTerm},
         denoteMeta mp₂.base2.acval (ENV₂) φ b.nP e = some ea →
-        denoteMeta mpOut.base2.acval envOut φ b.nP e = some ea := by
-      intro e hpf ea hr
-      rw [denoteMeta_acval_congr (fun n hn => (T.agree n hn).symm) b.nP e] at hr
-      exact denoteMeta_env_mono_projFree hFind₂ hLit₂ hProj₂ b.nP e hpf hr
+        denoteMeta mpOut.base2.acval envOut φ b.nP e = some ea :=
+      fun e hpf {_ea} hr => nestedReadCrossOut O T φ b.nP e hpf hr
     have hread := DenoteMetaSpine.crossEnvP (Ts := p.memberNames) hde hguard
       (O.stage.pinDs q hqS φ)
     rw [O.record.nP, ← (ConLeche.auxBlock_former hb).1]
@@ -2261,12 +2325,26 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
         obtain ⟨ci', h₂, -, hEnv⟩ := T.conts q hq
         obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans h₂)
         exact hEnv)
-      hcm.pinsDistinctAt).crossEnv T.findR T.agree hk0
+      hcm.pinsDistinctAt).crossEnv T.findR T.agree (nestedReadCrossOut O T) hk0
     O.reps.toIsBlockModels
     hBreps (fun q hq ci hci => by
       obtain ⟨ci', h₂, hOut, -⟩ := T.conts q hq
       obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans h₂)
       exact hOut)
+    -- **the owner's half's two leaves** (task #315 WIDE (3), step
+    -- 1(a)): the pin's container is an OLD one, so its constructor
+    -- types resolve where the block's members are still FRESH
+    -- (`projFree_ctorsM` at the PRE-BLOCK model); the block's own-pin
+    -- entries are guarded by K.64's table conjunct, which is the one
+    -- source that serves the block being installed
+    (fun q hq ci hci i' j cA hi' hjA => by
+      obtain ⟨new, E, hMsN⟩ := T.install
+      obtain ⟨ci', h₂, -, hEnv⟩ := T.conts q hq
+      obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans h₂)
+      exact projFree_ctorsM mp.base2 (fun n hn => E.toConsExt.freshN n (hMsN n hn))
+        ((blockOf_of_env mp.blocks) _ ci hEnv).1.reps hi' hjA)
+    (fun lps z hz =>
+      projFree_ownPinTerms (nestedPinDsProjFree hcaps haux hstored O hK64) lps hz)
   refine ⟨⟨mpOut, ⟨fun ci => if ci = ConLeche.blockContainerInfo p.nP
       (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
         (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))

@@ -8,6 +8,7 @@ import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedCopyInstU
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedCopyGlue
+import ConLeche.Verify.Inductives.NestedRestoreKit
 public section
 
 /-!
@@ -603,6 +604,91 @@ theorem projFree_members {Ts : List Name} {env : Env} (m : EnvModel V env)
   exact ProjFree.of_constsResolve hfresh
     (m.wf _ (ConLeche.Semantics.Env.find?_mem hfind)).2.2.1
 
+/-- **A BLOCK'S CONSTRUCTOR TYPES ARE GUARDED AT NAMES THE
+ENVIRONMENT DOES NOT CARRY**: `IsBlockModel.ctors` stores every
+constructor of the block, a stored constant's type resolves (`EnvWF`),
+and a resolving expression has no projection at an unstored structure.
+`projFree_members`' twin for the CONSTRUCTOR types — the leaf of the
+owner's recomputation (`OrdTargetRead`'s `dom`, a field of one of
+them). -/
+theorem projFree_ctorsM {Ts : List Name} {env : Env} (m : EnvModel V env)
+    (hfresh : ∀ T ∈ Ts, env.find? T = none) {d : BlockModel V} (hd : IsBlockModels m d)
+    {mm j : Nat} (hmm : mm < d.k) {cA : ConstantVal × Nat}
+    (hj : (d.ctorsM mm)[j]? = some cA) : ProjFree Ts cA.1.type := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hd mm hmm
+  exact ProjFree.of_constsResolve hfresh
+    (m.wf _ (ConLeche.Semantics.Env.find?_mem (hI.ctors mm j cA hmm hj).1)).2.2.1
+
+omit [SetTheory V] in
+/-- **A BLOCK'S OWN-PIN TABLE IS GUARDED WHERE ITS PINS' COMPONENTS
+ARE**: an entry of `ownPinTerms` is the pin's constant applied to its
+components, each abstracted over the container's parameters, level
+instantiated and re-opened at the parameter openers.  The openers are
+`fvar`s at a sort and the constant head carries nothing, so the only
+leaves are the components, and the caller says where their guard comes
+from: `ContainerModeled.pinDsRes` through `ProjFree.of_constsResolve`
+at a LATER install, K.64's table conjunct at the block's own. -/
+theorem projFree_ownPinTerms {Ts : List Name} {d : BlockModel V}
+    (hpf : ∀ q, q < d.nPins → ∀ x ∈ (d.pinAt q).DsE, ProjFree Ts x)
+    (lps : List Name) {z : Nat} (hz : z < d.nPins) :
+    ProjFree Ts ((d.ownPinTerms lps).getD z default) := by
+  have hentry : (d.ownPinTerms lps).getD z default
+      = (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP) := by
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hz]
+    rfl
+  rw [hentry]
+  intro T hT j
+  unfold PinSyn.ownAt
+  refine ConLeche.rg_noProjAt_mkAppN _ _ (by simp) (fun a ha => ?_)
+  obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+  refine ConLeche.rg_noProjAt_instSeq _ (fun o ho => ?_) _ _ ?_
+  · rw [ConLeche.containerParamOpeners] at ho
+    obtain ⟨n, -, rfl⟩ := List.mem_map.mp ho
+    simp
+  · exact ConLeche.Expr.NoProjAt.instantiateLevelParams _ _ _
+      (ConLeche.rg_noProjAt_abstractRange _ _ _ _ (hpf z hz x hx T hT j))
+
+omit [SetTheory V] in
+/-- **THE SUBJECT OF THE OWNER'S HALF IS GUARDED WHERE THE STORED
+DOMAIN AND THE OWN-PIN ENTRY ARE** (task #315 WIDE (3), step 1(a)):
+`OrdTargetRead`'s subject is the container's recomputation
+`ordTargetDom` of its own stored field domain, opened at the block's
+parameter fvars.  Three list-shaped operations build it — the level
+instantiation, `stripDomPis`, the own-pin spine's `instantiateList`
+and the openers' `instSeq` — and none creates a `.proj` node
+(`rg_noProjAt_*`, `Verify/Inductives/NestedCopyKinds.lean`), so the
+guard travels from the two leaves the caller has: the stored domain
+`dom` and the owner's own-pin entry at `qK`, whose first `nPJ`
+arguments are the substituted parameters.  The openers are `fvar`s at
+`.sort .zero` and carry no node at all. -/
+theorem projFree_ordTargetDom_instSeq {Ts lpsC : List Name} {nPJ qK l nP cut : Nat}
+    {ownSelf : List Expr} {dom : Expr}
+    (hdom : ProjFree Ts dom) (hown : ProjFree Ts (ownSelf.getD qK default)) :
+    ProjFree Ts (Expr.instSeq (ConLeche.Verify.openFvars nP cut) (cut - 1)
+      (ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom)) := by
+  intro T hT j
+  -- an opener is an `fvar` at a sort: no node, at any depth
+  have hopen : ∀ (d k : Nat) (a : Expr), a ∈ ConLeche.Verify.openFvars d k →
+      ConLeche.Expr.NoProjAt T j a := by
+    intro d k
+    induction k generalizing d with
+    | zero => intro a ha; simp [ConLeche.Verify.openFvars] at ha
+    | succ k ih =>
+      intro a ha
+      rw [ConLeche.Verify.openFvars_succ, List.mem_cons] at ha
+      rcases ha with rfl | ha
+      · simp
+      · exact ih (d + 1) a ha
+  refine ConLeche.rg_noProjAt_instSeq _ (fun a ha => hopen _ _ a ha) _ _ ?_
+  rw [ConLeche.ordTargetDom]
+  refine ConLeche.rg_noProjAt_instantiateList _ (fun v hv => ?_) _ _ ?_
+  · rw [List.mem_reverse] at hv
+    exact ProjFree.getAppArgs hown v (List.take_subset _ _ hv) T hT j
+  · exact ConLeche.rg_noProjAt_stripDomPis _
+      (ConLeche.Expr.NoProjAt.instantiateLevelParams _ _ _ (hdom T hT j))
+
 /-! ## The pins' laws and shapes across the change -/
 
 /-- **A stored block's pins' shapes cross an environment change**: the
@@ -610,26 +696,61 @@ shapes read the carrier only at the block's members, its pins'
 containers and the containers' own pins' containers — all stored at
 the old environment — and the pins' containers' groups are read the
 same at the new one (`hci`). -/
-theorem PinShapes.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {B : ContainerInfo → BlockModel V} {d : BlockModel V} {pc : Nat → PinCtors V}
     (hF : ∀ (n : Name) (c : ConstantInfo),
       (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
       env₁.find? n = some c → env₂.find? n = some c)
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hk : 0 < d.k) (hd : IsBlockModels m₁ d)
     (hB : ∀ q, q < d.nPins → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci → IsBlockModels m₁ (B ci))
     (hci : ∀ q, q < d.nPins → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci →
       ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci)
+    (hpfDom : ∀ q, q < d.nPins → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci →
+      ∀ (i' j : Nat) (cA : ConstantVal × Nat), i' < (B ci).k →
+        ((B ci).ctorsM i')[j]? = some cA → ProjFree Ts cA.1.type)
+    (hpfOwn : ∀ (lps : List Name) (z : Nat), z < d.nPins →
+      ProjFree Ts ((d.ownPinTerms lps).getD z default))
     (h : PinShapes m₁ B d pc) : PinShapes m₂ B d pc := by
   intro q hq
-  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hct, hrow, hord, hsh⟩ := h q hq
+  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hct, hrow, hord, hotr, hsh⟩ := h q hq
   -- the two ROWS are model-free and environment-free — K.68's names
   -- the matched pin's parameter count as `nPJ`, the block model's own
   -- datum, precisely so that it crosses in a word like the first
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, hct, hrow, hord,
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, hct, hrow, hord, ?_,
     fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
+  -- **THE OWNER'S HALF** (task #315 WIDE (3), step 1(a) part 3): a
+  -- `denoteMeta` of a SYNTACTIC subject, so it is the one conjunct
+  -- that needs the guarded reading transport.  Its subject is the
+  -- container's recomputation of the field's target, whose two leaves
+  -- are the container's stored constructor type (`hpfDom`) and the
+  -- block's own-pin entry (`hpfOwn`); `projFree_ordTargetDom_instSeq`
+  -- closes the guard over the three operations between them.  It
+  -- names NO environment beyond the reading's own: the head's arity
+  -- is the block's own pin's (`nPJ` at the target `z`), not a
+  -- `containerInfo?` of the head — which is what lets it cross here
+  -- in a word instead of asking every caller for a group frame at an
+  -- arbitrary name.
+  · intro ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom lps hjA hstrip hdm
+      lpsC Jm hJm hlpsE K usK hfin
+    obtain ⟨z, hz, htg, hOT⟩ := hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom
+      lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hfin
+    have hdomPF : ProjFree Ts dom.1 := fun T hT jj =>
+      (ConLeche.rg_noProjAt_stripPis _ hstrip
+        (hpfDom q hq ci hcont i' j cA (hgv.kEq ▸ hi') hjA T hT jj)).1 dom
+          (List.mem_of_getElem? hdm)
+    have hownPF : ProjFree Ts ((d.ownPinTerms lps).getD (q₀ + i') default) :=
+      hpfOwn lps (q₀ + i') (by have := hgv.seg; omega)
+    refine ⟨z, hz, htg, fun fs₁ hlen hsp => ?_⟩
+    obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
+    exact ⟨fb, Ps, hPs,
+      hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old
   obtain ⟨cv₁, caps₁, hf₁⟩ := h0.pinsFound (q₀ + i') (by
@@ -690,8 +811,18 @@ theorem BlockAt.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ContainerOwnPinsSyn (V := V) env₂ (B ci))
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk hci hownCross, pc, hL.cross,
-    hS.crossEnv hF hag hk C.reps hB hci⟩
+  -- the owner's half of the shapes reads a SYNTACTIC subject, whose
+  -- two leaves are an old container's stored constructor type
+  -- (`projFree_ctorsM`) and this block's own-pin entries
+  -- (`projFree_ownPinTerms` off `pinDsRes`) — both guarded because
+  -- `Ts` is fresh at the old environment
+  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk hci hownCross,
+    pc, hL.cross,
+    hS.crossEnv hF hag hde hk C.reps hB hci
+      (fun q hq ci' hci' i' j cA hi' hjA =>
+        projFree_ctorsM m₁ hfresh (hB q hq ci' hci') hi' hjA)
+      (fun lps z hz => projFree_ownPinTerms
+        (fun q hq x hx => ProjFree.of_constsResolve hfresh (C.pinDsRes q hq x hx)) lps hz)⟩
 
 /-- **A container group's obligation crosses an environment change**
 (the block model by `ContainerModeled.crossEnv`, the pins' laws
@@ -718,7 +849,8 @@ theorem BlockAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ 
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
   exact ⟨C.crossEnv hF hres hag hde hk hci hownCross, pc, hL.cross,
-    hS.crossEnv hF hag hk C.reps hB hci⟩
+    hS.crossEnv (Ts := []) hF hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr) hk C.reps hB hci
+      (fun _ _ _ _ _ _ _ _ _ => ProjFree.nil _) (fun _ _ _ => ProjFree.nil _)⟩
 
 /-! ## The field across an extension -/
 

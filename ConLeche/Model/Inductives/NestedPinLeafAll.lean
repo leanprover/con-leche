@@ -1596,7 +1596,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   obtain ⟨ci, hci⟩ := hcont q hq
   obtain ⟨q₀, kJ, i, hqe, hi, G, hDsE⟩ := hgroupsB q hq ci hci
   refine ⟨q₀, kJ, i, ci, hqe, hi, hci, pinGroupView_of_group G hDsE,
-    fun i' hi' => ?_, ?_, ?_, ?_⟩
+    fun i' hi' => ?_, ?_, ?_, ?_, ?_⟩
   · -- the count: the copies of a member are its constructors
     simp only [nestedPc, List.length_map, ← Nat.add_assoc]
     exact (G.ctorCount i' hi').symm
@@ -1652,6 +1652,24 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
         simpa using hm₀
       · simp only [nestedPc, ← Nat.add_assoc]
         exact htgz
+  · -- **the OWNER's half of the two copies' field-data tie** (task
+    -- #315 WIDE (3), step 1(a)): `G.ordTgt`, whose guard names the
+    -- container at an ARBITRARY member of the group — so this side
+    -- hands in the one it already holds, at its own member `i`, read
+    -- at the ELIMINATION's environment (`hcontE`).  The row names the
+    -- TARGET PIN and its parameter count, not the head's container
+    -- record, so it names no environment beyond the reading's own.
+    intro ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom lps hjA hst hdm lpsC Jm hJm
+      hlpsE K usK hfin
+    simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc hpinT
+    obtain ⟨z, hz, htg, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom
+      lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE K usK
+      hfin
+    refine ⟨z, hz, ?_, ?_⟩
+    · simp only [nestedPc, ← Nat.add_assoc]
+      exact htg
+    · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+      exact hOT
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
@@ -5236,7 +5254,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
     have hqK : c - (dJf r).k < (dJf r).nPins := by
       have := hcT; unfold BlockModel.kT at this; omega
     have hcE : c = (dJf r).k + (c - (dJf r).k) := by omega
-    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, -, hshape'⟩ := hshR _ hqK
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, -, -, hshape'⟩ := hshR _ hqK
     -- `ClassPin.name`: the two sides' `containerInfo?` is at ONE name
     have hname : ((dJf r).pinAt (c - (dJf r).k)).J = ((D).pinAt q).J := by
       have := hcp.1.name
@@ -5545,7 +5563,7 @@ theorem nestedPinFam_of_classPin (m : EnvModel V env₂) {st : ElimState}
   · -- a PIN class: the two least tuples are compared through their LEAVES
     have hqK : c - (dJf r).k < (dJf r).nPins := by
       have := hcT; unfold BlockModel.kT at this; omega
-    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, -, hshape'⟩ := hshR _ hqK
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', -, -, -, hshape'⟩ := hshR _ hqK
     have hname : ((dJf r).pinAt (c - (dJf r).k)).J = ((D).pinAt q).J := by
       have := hcp.1.name
       rwa [(dJf r).nameT_of_pin hcm] at this
