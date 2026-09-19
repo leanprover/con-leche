@@ -92,12 +92,6 @@ def dummyPisM (bm : ConLeche.BinderMeta) : Nat → List (Expr × ConLeche.Binder
   | 0 => []
   | n + 1 => (Expr.sort Level.zero, bm) :: dummyPisM bm n
 
-theorem dummyPisM_length (bm : ConLeche.BinderMeta) : ∀ n : Nat, (dummyPisM bm n).length = n
-  | 0 => rfl
-  | n + 1 => by
-    show ((Expr.sort Level.zero, bm) :: dummyPisM bm n).length = n + 1
-    rw [List.length_cons, dummyPisM_length bm n]
-
 /-- The dummy tower under one substitution: the domains are closed, so
 only the body moves, and it moves to the cut below the whole tower. -/
 theorem mkPisB_dummyPisM_instantiate1 (bm : ConLeche.BinderMeta) (v : Expr) :
@@ -531,45 +525,5 @@ theorem denoteMeta_ordRootInst_mkAppN_read {env : Env} (m : EnvModel V env) {ψ 
     exact denoteMeta_mkAppN hargs hhead
   rw [denoteMeta_ordRootInst_read m hplen hidx hxb hxlv hDlen hDs hspine hx,
     AnnotTerm.instAll_mkAppN, AnnotTerm.instAll_eq_self hfa]
-
-/-- **THE LIST FORM** (task #315 WIDE (3), lane LE): the spine version
-of `denoteMeta_ownAt_component_at`, which is the shape the arguments of
-a rewritten field domain arrive in — `PinCorr`'s `Ds` clause and
-`CopyCtorShape`'s index-expression clauses both read spines. -/
-theorem denoteMetaSpine_ownAt_at {env : Env} (m : EnvModel V env) {ψ : Name → Nat}
-    {lps : List Name} {lvls : List Level} {nP dp cut : Nat}
-    {params DsE : List Expr} {Ds : List AnnotTerm}
-    (hplen : params.length = nP)
-    (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
-    (hDlen : DsE.length = nP)
-    (hDs : ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true)
-    (hspine : DenoteMetaSpine m.acval env ψ dp DsE Ds) :
-    ∀ {xs : List Expr} {rxs : List AnnotTerm},
-      DenoteMetaSpine m.acval env (Level.substFn ψ lps lvls) (nP + cut)
-        (xs.map fun x => Expr.instSeq (Verify.openFvars nP cut) (cut - 1) x) rxs →
-      (∀ x ∈ xs, x.looseBVarsBounded cut = true) →
-      (∀ x ∈ xs, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) →
-      DenoteMetaSpine m.acval env ψ (dp + cut)
-        (xs.map fun x => Expr.instSeq (Verify.openFvars dp cut) (cut - 1)
-          (Expr.instSeq DsE (nP - 1 + cut)
-            (Expr.instantiateLevelParams lps lvls (Expr.abstractRange x 0 nP cut))))
-        (rxs.map (AnnotTerm.instAll Ds cut)) := by
-  intro xs
-  induction xs with
-  | nil =>
-    intro rxs h _ _
-    cases h
-    exact .nil
-  | cons a as ih =>
-    intro rxs h hb hl
-    rw [List.map_cons] at h
-    cases h with
-    | cons ha hrest =>
-      rename_i v vs
-      rw [List.map_cons, List.map_cons]
-      exact .cons
-        (denoteMeta_ownAt_component_at m hplen hidx (hb a (by simp)) (hl a (by simp))
-          hDlen hDs hspine ha)
-        (ih hrest (fun x hx => hb x (by simp [hx])) (fun x hx => hl x (by simp [hx])))
 
 end ConLeche.Model

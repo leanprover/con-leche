@@ -123334,3 +123334,165 @@ starting the build.
 
 Step 3 of the brief (`hslotOrd` discharged, `hfitc` closed) consumes
 (b)'s output, so it is stopped by the same price and is NOT attempted.
+
+#### WIDE (3) (3) THE CUT-`l` BRIDGE, BUILT — IT IS A REDUCTION, NOT A SECOND COPY; AND STEP 2's CARRY RE-PRICED AT THE TREE (lane LE, 2026-09-19)
+
+The previous row stopped at the pricing of the opener→reading bridge at
+a FIELD DOMAIN and named four steps.  The object is built, in 340 lines of code
+(529 with the docstrings) against the 250–400 priced, and the shape of
+the work is not the one the pricing assumed.
+
+##### (a) WHAT THE PRICING GOT WRONG, AND WHY IT IS WORTH RECORDING
+
+The pricing read the cut-`0` file and measured what would have to be
+REDONE at cut `l`: `denoteMeta_ownAt_component`'s 93 lines (the
+substitution law, `instAll … 0` throughout) and the ~140-line `dummyPis`
+scope kit (built for exactly `nP` DEAD binders, where cut `l` has `l`
+LIVE ones).  Both measurements are correct and both are beside the
+point, because the cut-`0` law does not have to be restated at all:
+
+**wrap the cut-`l` term in `l` dummy binders and hand it to the cut-`0`
+law verbatim.**  The wrapped term is bvar-closed
+(`looseBVarsBounded_mkPisB_dummyPisM`) and has the same `fvar` leaves
+(`fvarLeaves_mkPisB_dummyPisM`), which are the cut-`0` law's only two
+hypotheses about the term; the tower commutes with each of the three
+operations the spelling performs —
+
+| operation | lemma | effect |
+|---|---|---|
+| `Expr.abstractRange` | `abstractRange_mkPisB_dummyPisM` | the cursor moves out by `l` |
+| `Expr.instantiateLevelParams` | `instantiateLevelParams_mkPisB_dummyPisM` | the binder DATUM is substituted |
+| `Expr.instSeq` | `instSeq_mkPisB_dummyPisM` | each cut moves out by `l` |
+
+— and `denoteMeta` of the tower is the tower over the opened body's
+reading in BOTH directions (`denoteMeta_mkPisB_dummyPis` forward,
+`denoteMeta_mkPisB_dummyPisM_inv` here).  What the cut-`0` law returns
+is `AnnotTerm.instAll Ds 0` of a `mkPisAV`, which
+`AnnotTerm.instAll_mkPisAV` splits into the tower and
+`AnnotTerm.instAll Ds l` of the body; `mkPisAV_inj` reads the body off.
+
+**The `l` LIVE binders are never generalised over: they are OPENED on
+both sides by the same `Verify.openFvars`, and the wrapper is what
+carries the opening across the opener substitution.**  That is the whole
+content, and it is why "generalise the scope kit for live binders" was
+the wrong shape to price.  The ONE thing that did have to be
+generalised is the binder DATUM — `Expr.instantiateLevelParams` rewrites
+it (`Level.substPW`) and the dummy tower sits UNDER the level
+instantiation on the spelled side — hence `dummyPisM`, `dummyPis` with
+the datum an argument.
+
+**`instPisILP_read`'s `hDs`** (`NestedCopyRead.lean:94`), which the
+pricing called "the HARD CONSTRAINT: the components must be scoped at
+exactly the `nP` openers, which a field domain at cut `l` is not", is
+met by NOT ARISING: `hDs` constrains the reader's COMPONENTS `DsE`, not
+the term being read, and the components are unchanged by the cut.  The
+new file never calls `instPisILP_read`; the cut-`0` law does, inside,
+at the components it always had.
+
+**The reflexive `Π`-tower arm is not an arm.**  A reflexive field's
+domain sits at cut `l + domPiDepth` instead of `l`, and the bridge is
+stated at an arbitrary `cut`; it is the same theorem at a larger
+number.  (`ordTargetDom` cuts at exactly `l + domPiDepth
+(ordTargetDomL …)`, K.63/K.65's pattern, which is what makes this
+work.)
+
+##### (b) WHAT LANDED
+
+* `denoteMeta_ownAt_component_at` — the law, `denoteMeta_ownAt_component`'s
+  twin at cut `cut`, with the abstraction starting AT the cut (K.69's
+  own correction, for K.69's own reason: `ordTargetDom` leaves the
+  binders below the cut loose and abstracting at `0` would collide with
+  them);
+* `abstractRange_instantiateLevelParams` — closing over the parameters
+  and substituting the levels commute, which is what identifies the
+  bridge's inherited order with `ordRootInst`'s;
+* `denoteMeta_ordRootInst_read` — the law at the KERNEL's own spelling
+  (`Expr.instantiateList` at the reversed spine at the cut, the kernel
+  being unable to name `Expr.instSeq`), through
+  `Expr.instSpine_eq_instantiateList_at` and `Expr.instSpine_eq_instSeq`;
+* `denoteMeta_ordRootInst_mkAppN_read` — the deliverable the brief asked
+  the step to end at: **the reading of the owner's REWRITTEN copy-field
+  domain at the openers, in terms of the readings of its ARGUMENTS.**  A
+  rewritten domain is headed by a constant (the planted pin —
+  `replaceIfNested` always writes one — or a member of the owner's own
+  group), so it reads as that head applied to its arguments' readings;
+  carried to the block's scope it is the SAME head applied to those
+  readings with `AnnotTerm.instAll Ds cut` applied POSITION BY POSITION,
+  the head not moving (`AnnotTerm.instAll_eq_self` at
+  `EnvModel.acval_inst_self`).  An equation between SPINES, which is
+  what a consumer comparing two `Eis` lists needs.
+
+All in `ConLeche/Model/Inductives/NestedFieldRead.lean`, a new file
+beside `NestedOwnPinsRead.lean` as the brief asked, so the pin-table
+bridge is untouched.  No `Kernel/`, `Cached/` or `Verify/` file moved.
+
+##### (c) STEP 2's CARRY, RE-PRICED AT THE TREE — AND WHERE IT NOW STOPS
+
+The previous row priced the carry as "one field on `PinCtors`, one
+value in `nestedPc`, one line in `BlockModel.ofNested`, one model-free
+`PinShapes` conjunct".  Read against the tree with the bridge in hand,
+two of those four are wrong and the third is the real price:
+
+* **the TERM needs no field.**  `PinShapes`' conjunct 5 (`hordσ`'s model
+  twin, `NestedPremise.lean:1171`) already names
+  `ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1`
+  from data it quantifies over — `dom` off `(B ci).ctorsM i'`'s stored
+  type, `d.ownPinTerms` off the block model's own pins
+  (`NestedPremise.lean:137`).  A sibling conjunct can spell `W` the same
+  way.  Nothing has to be threaded through `nestedPc` or
+  `BlockModel.ofNested`, and the "one value off the auxiliary block's
+  global lists" the previous row assumed has no source there in any case
+  (`nestedPc`'s arguments are `ctorsA`/`kinds`/`dsF`/`esF`/`eissF`/`tssF`
+  and nothing environment-facing, while `ordTargetDom` reads a stored
+  constructor's type);
+* **the two sides' `Eis` are BOTH `PinCtors` data.**  Side 1 is
+  `(D.pinCtors q).Eiss`, side 2 is `(dR.pinCtors qK).Eiss`, and
+  `pinCtors` is a `BlockModel` field — so the equation `Eis₁ = Eis₂[s]`
+  is model-free in `crossEnv`'s sense (no `m.acval`, no `interp`, no
+  `env`) and transports in one token like conjuncts 2–5.  But it names
+  TWO blocks and the instance map between them, and a `PinShapes`
+  conjunct names ONE, so it is not a `PinShapes` conjunct: it is
+  `PinGroupInst`'s `hpinσ` one datum over, exactly as `de051e52`'s row
+  said;
+* **and that leaves the gap that is neither side's carry.**  To close it
+  from each side separately, each side's `Eis` has to be tied to ITS own
+  copy of `W` — a READING clause, at the one guard where no reading
+  clause exists: `CopyCtorShape.ordF`'s right arm carries `EntryRead`
+  and nothing else, `EntryRead` is one semantic identity at ONE tuple
+  (`NestedFit.lean:791`), and `de051e52` already recorded that one value
+  does not determine a `piTele`'s telescope.  A `PinShapes` clause that
+  said "`Eiss` at this field is the reading of `W`'s rewrite" is exactly
+  the kind that joins conjunct 6 in `PinShapes.crossEnv` — it mentions a
+  reading — and the previous row's own rule ("the clause must be the
+  TERMS, the readings derived at the consumer") then bites: there is
+  nothing at the consumer to derive it FROM.
+
+So step 2 is not the four mechanical sites; it is **one new reading
+clause at the `ordF` guard, with its producer at the nested run** — and
+that producer's proof IS step 3's argument (K.69, this file's bridge,
+`denoteMeta_of_rewriteRel`) moved earlier.  Against the brief's own
+doubling rule — one session for the bridge, one for the rest — the
+bridge's session is spent and the rest is a second one whose first half
+is a record change the previous row priced at the wrong shape.  **This
+row stops with the bridge landed and step 2 re-specified**, rather than
+starting a `PinCtors`/`PinShapes` change on a mis-pricing.
+
+**What step 2 needs, in the order a session would take it**, now that
+the bridge exists:
+
+1. the reading clause at the `ordF` guard, on `PinShapes`: at a field
+   the container calls ordinary and the copy's rewrite made recursive,
+   the copy's `Eiss` at that field ARE the readings of the arguments of
+   the owner's rewrite of `W` — stated with the spine explicit, since
+   `denoteMeta_ordRootInst_mkAppN_read` is what reads it;
+2. its producer in `nestedPinShapes_of` (`NestedPinLeafAll.lean:1572`),
+   off `NestedPinGroupSyn`'s own run facts — where
+   `copyOrdFRightPinRead` (`NestedCopyInst.lean:~9275`) already proves
+   the block's half of the same statement at the run tier;
+3. `PinShapes.crossEnv` (`ContainerCross.lean:613`) — this clause is
+   NOT one of the free ones: it mentions `m.acval`, so it needs
+   conjunct 6's `targetRead_congr`-shaped argument;
+4. only then step 3: `Eis₁` = (`copyOrdFRightPinCorr.eisRead`) the
+   block's rewrite's reading = (K.69's `hK69`) the block's rewrite of
+   `W[s]` = (`denoteMeta_of_rewriteRel`) `W[s]`'s reading = (this file)
+   `W`'s reading instantiated = `Eis₂[s]` by 1.
