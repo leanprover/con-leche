@@ -120648,3 +120648,68 @@ and (2)'s carry are independent and (3) needs both.
 The cheapest first move, if one is wanted: **(2), the carry** — it is
 the only one of the three whose shape is already proved twice on this
 lane, and it is what both (1) and (3) consume.
+
+#### WIDE (3′) STEP (1) REFUTED AT `CopyCtorShape.ordF`'s RIGHT ARM — and `EntryRead` says exactly what `Y` is missing (lane LE, 2026-09-19)
+
+Step (1) was authorised as "the `ordF`-right arm through
+`slotSet_mono_app (hrel …)`, `hent₂` gone".  Read at the arm's own
+payload before building, and it does not work — but the read replaces
+the question with a sharper one.
+
+##### (a) THERE IS NOTHING FOR `hrel` TO BE APPLIED TO
+
+`CopyCtorShape.ordF`'s right arm (`NestedFit.lean`) is
+
+    rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧
+      tg l < TV.k + TV.n ∧ EntryRead TV dJ ψJ Ds tg tls Eis ρp i j l
+
+— the two sides' slot DATA (`TV.u (tg l)`, `tls`, `Eis`) are each
+side's own and are related to nothing on the other side.  The
+recursive arm is comparable only because `CopyCtorShape.slot_container`
+rewrites BOTH slots into the CONTAINER's `tlss`/`Eiss` first
+(`copyTransfer_via`'s recursive branch does exactly that, then applies
+`hrel`); at an `ordF`-right field `slot_container` does not apply,
+because the field is not container-recursive.  So the arm has to go
+through the container's domain, as the existing proof does, and there
+is no pair of slots for `hrel` to compare.
+
+##### (b) BUT `EntryRead` IS GENERIC IN THE TUPLE, AND THAT NAMES THE GAP
+
+    EntryRead l : ∀ Z,
+      (∀ is, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
+        app (Z (tg l)) (tupW (TV.u (tg l)) is)
+          = is.foldl app (interp V ρp (TV.EA (tg l)))) →
+      CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
+
+So each side's entry is available at ANY tuple `Z` that READS THE
+TARGET'S STORED READING there — it is not tied to that side's carrier
+at all.  Side 1 gets it because the target leaves the block's instance
+(K.62/K.66), so `setJoin` hands `L⁺`, which does read it.  **Side 2
+needs the same of `Y` at `tg₂ l`, and `hfitc`'s `Y` is free below the
+container's carrier.**
+
+That is the gap, stated at the right object at last: not "`Y` is the
+carrier", not "the target escapes", but **`Y` reads the container's
+stored reading at its own `ordF`-right targets**.
+
+##### (c) WHY THIS IS NOT A LEMMA BUT A STATEMENT QUESTION
+
+`ofNested_hΦ_of_fit` asks the fit equivalence at EVERY tuple of the
+space below `C` — `lfpTuple_congr_le`'s `hΦ`, whose clamp argument is
+what needs the small ones.  A free `Y` does not read anything.  So
+either
+
+* the agreement is asked at too many tuples and (B-below) can be run
+  at a smaller family (closed tuples below `C`, say, at which a
+  reading condition is plausible) — a set-theory question about
+  `lfpTuple_congr_le`, not about nested inductives; or
+* the pin half's `hΦ` should carry the reading condition on `Y`, which
+  then has to be discharged wherever `hfitc` is applied.
+
+**Both are changes to the wide route's own statement**, upstream of
+every carry discussed so far, and neither is a `ContainerModeled`
+clause.  The parallel lane's (2) is unaffected — K.61's rows for a
+container's own pins are wanted either way — but (1) as authorised
+cannot be built, and (3) presupposes (1).
+
+Nothing was built for this row.
