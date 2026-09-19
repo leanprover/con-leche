@@ -118853,6 +118853,24 @@ session's first decision:
    So this route trades (c)'s two clauses for ONE clause of the same
    family.
 
+**And route 2 is cheaper than "one clause against two" makes it look**,
+for a reason worth stating because it is the same asymmetry (c) turns
+on.  Route 1's real cost is `hpinDs` — the container's pins'
+components' READINGS — and that datum is irreducible there: reading
+the own-pin table's entry means reading `(dJ.pinAt qK).DsE`, which is
+the container's own record and which no law of `ContainerModeled`
+reads.  Route 2 never reads it: `copyPinFPinCorr` gets the
+correspondence off the COPY's field, whose reading the RUN makes
+itself (through `BlockOpened.nestF`), so the container's pin record is
+never denoted at all.  What route 2 owes is only the SURJECTIVITY — 
+that every own pin of a container is the target of some field of that
+container — which is true by construction of the mint (a mimic exists
+because a field asked for it) and which the tree records nowhere:
+`nestMention` says a pin's components mention a member, `nestOf` ties
+a FIELD to a pin, and nothing runs the other way.  Checked against
+`ContainerModeled`, `PinGroupView`, `IsBlockModel` and `PinRecLaws`:
+no clause of any of them is quantified over pins and asserts a field.
+
 Route 2 looks cheaper by one clause; route 1 is the one whose
 consumers already exist.  **Either way (3′) is NOT "the rest transfers
 from the narrow site"**: the σ-facts' run halves were three new
