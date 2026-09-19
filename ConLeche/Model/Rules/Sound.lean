@@ -72,10 +72,11 @@ theorem red_sound (hin : RulesInputs V m φ) :
       (certs_sound hin hcerts) (infer_sound hin htf) (defeq_sound hin hdt)
       (defeq_sound hin hpi)
   | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv hnz
-      hfab hws hb hlv' hcerts hpi =>
+      hfab hws hb hlv' hcerts hproj hpi =>
     Red.rescueEta_sound hin hrec heta hctor hres hind (infer_sound hin htm)
       (red_sound hin htmaj) hthead hlen hlv hnz hfab hws hb hlv'
-      (certs_sound hin hcerts) (defeq_sound hin hpi)
+      (certs_sound hin hcerts)
+      (fun hno => etaProjCerts_sound hin (hproj hno)) (defeq_sound hin hpi)
   | _, _, _, .rescueAnd hrec hctor hres hind htm htmaj hthead hlen hlv hslots
       hfab hws hb hlv' hcerts htf hdt hpi =>
     Red.rescueAnd_sound hin hrec hctor hres hind (infer_sound hin htm)

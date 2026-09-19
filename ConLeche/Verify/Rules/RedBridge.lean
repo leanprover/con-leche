@@ -195,10 +195,17 @@ theorem majorToCtor_bridge (hw : WhnfBridge env fuel)
       hlps hle rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
       (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)
   · refine .rescueEta hfr heta hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh)
-      hfn hlen hlps hnz rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts) ?_
-    rcases hcert with hse | ⟨-, hpirr⟩
-    · exact structEtaCertWith_bridge hw hd hio hinf hwh hse
-    · exact proofIrrel_bridge hw hio hpirr
+      hfn hlen hlps hnz rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
+      ?_ ?_
+    · -- the per-field telescope certificates: the η certificate ran
+      -- them (`structEtaCertWith_projCerts_bridge`); the field-less
+      -- proof-irrelevance fallback has no field to certify
+      rcases hcert with hse | ⟨h0, -⟩
+      · exact structEtaCertWith_projCerts_bridge hd hio hfn hfT hse
+      · exact fun _ => by rw [h0]; exact .nil
+    · rcases hcert with hse | ⟨-, hpirr⟩
+      · exact structEtaCertWith_bridge hw hd hio hinf hwh hse
+      · exact proofIrrel_bridge hw hio hpirr
   · exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
       hlen hlps hslots rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
       (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)

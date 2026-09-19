@@ -250,7 +250,11 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   projections is fabricated, scope-guarded, certified against the
   constructor's telescope, and equated to the major by the structure-η
   certificate (or, at a field-less structure, by proof irrelevance —
-  either way the last `DefEq` premise). -/
+  either way the last `DefEq` premise).  At a projection-function
+  family the per-field telescope certificates are a premise of their
+  own, as in `DefEq.structEta`: the rescue's η certificate runs
+  `structEtaProjCerts` there (`structEtaCertWith`, `Core.lean:412-417`),
+  and the fabrication READS only through those slots' storage. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
@@ -271,6 +275,9 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true →
       Certs env d false (cvj.type.instantiateLevelParams cvj.levelParams ust)
         (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) →
+      (towerSlotsAll env T caps.etaFields = false →
+        EtaProjCerts env d T ust tmaj.getAppArgs major cvT.levelParams
+          (List.range caps.etaFields)) →
       DefEq env d fab major →
       Red env d major fab
   /-- **The `And` rescue** (`majorToCtor`'s `And` branch,
