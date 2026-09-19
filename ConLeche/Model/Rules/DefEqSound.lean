@@ -191,7 +191,7 @@ theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
 
 /-- η (`etaCertStep_of_claims`, `Steps/Stuck.lean:576`: `lamR_eta`,
 regime-uniform). -/
-theorem DefEq.eta_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.eta_sound (_hin : RulesInputs V m φ) {d : Nat}
     {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
     (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
     (hty : DefEqSem m φ d ty₂ ty₁)
@@ -199,7 +199,102 @@ theorem DefEq.eta_sound (hin : RulesInputs V m φ) {d : Nat}
       (.app b (.fvar d ty₁)))
     (hpw : m₁.pw = m₂.pw) :
     DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb hda hdb hokA hokB ρ hρ
+  obtain ⟨hwa, hba, hLa⟩ := hfa
+  obtain ⟨hwb, hbb, hLb⟩ := hfb
+  simp only [Expr.WScoped] at hwa
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba
+  have hLty : Expr.LeavesBounded ty₁ := fun l hl =>
+    hLa l (by simp [Expr.fvarLeaves, hl])
+  have hLbd : Expr.LeavesBounded body₁ := fun l hl =>
+    hLa l (by simp [Expr.fvarLeaves, hl])
+  have hfty : Frame d ty₁ := ⟨hwa.1, hba.1, hLty⟩
+  have hCty : CtxOk m φ d Δa ty₁ := hCa.lam_ty
+  have hCbd : CtxOk m φ d Δa body₁ := hCa.lam_body
+  -- the λ's own reading, and its two gradings
+  obtain ⟨ta, bda, hta, hbda, rfl⟩ := denoteMeta_lam_inv hda
+  obtain ⟨hokTa, hokBda⟩ := Graded.lam hokA
+  -- `b`'s inferred type, its reduct, and both readings
+  obtain ⟨hftb, hsubtb, tba, htba, hokTb, hmemB⟩ :=
+    htb ⟨hwb, hbb, hLb⟩ hCb hdb hokB
+  have hCtb : CtxOk m φ d Δa tb := hCb.of_subset hsubtb
+  obtain ⟨hfW, hsubW, wtba, hwtba, hokW, heqW⟩ := hwtb hftb hCtb htba hokTb
+  have hCwr : CtxOk m φ d Δa (Expr.forallE ty₂ B m₂) := hCtb.of_subset hsubW
+  obtain ⟨ta₂, ba₂, hta₂, -, rfl⟩ := denoteMeta_forallE_inv hwtba
+  obtain ⟨hokTa₂, -⟩ := Graded.pi hokW
+  -- premise one: the two domains agree
+  have hdom : ∀ σ : Nat → V, Sat V Δa σ → interp V σ ta₂ = interp V σ ta :=
+    fun σ hσ => hty hfW.forallE_ty hfty hCwr.forallE_ty hCty hta₂ hta
+      hokTa₂ hokTa σ hσ
+  -- premise two: `b` inhabits the product the ∀-type names
+  have hmem : ∀ σ : Nat → V, Sat V Δa σ →
+      interp V σ ba ∈ˢ piR (pwBit φ m₂.pw) (interp V σ ta₂)
+        (fun x => interp V (cons x σ) ba₂) := by
+    intro σ hσ
+    have hm := hmemB σ hσ
+    rw [heqW σ hσ, interp_pi] at hm
+    exact hm
+  -- premise three: the two bits are equal (the rule's own `pw` premise)
+  have hbit : pwBit φ m₁.pw = pwBit φ m₂.pw := by rw [hpw]
+  -- premise four: the λ's fibre is `app ⟦b⟧`
+  have hdbUp : denoteMeta m.acval env φ (d + 1) b = some ba.lift := by
+    rw [denoteMeta_weaken_top m.acval_closed hwb, hdb]; rfl
+  have hdapp : denoteMeta m.acval env φ (d + 1) (.app b (.fvar d ty₁))
+      = some (.app ba.lift (.bvar 0)) := by
+    rw [denoteMeta, hdbUp, denoteMeta_fvar]
+    simp
+  have hCfvar : CtxOk m φ (d + 1) (ta :: Δa) (.fvar d ty₁) := by
+    have := CtxOk.openS (body := Expr.bvar 0) hCty
+      (CtxOk.of_fvarLeaves_nil hCa.1 (by simp [Expr.fvarLeaves])) hta
+      hokTa
+    simpa [Expr.instantiate1] using this
+  have hCapp : CtxOk m φ (d + 1) (ta :: Δa) (.app b (.fvar d ty₁)) :=
+    CtxOk.app (CtxOk.weakenTop hCb) hCfvar
+  have hokApp : Graded V (ta :: Δa) (.app ba.lift (.bvar 0)) := by
+    intro σ hσ
+    have hσ' : Sat V Δa (fun j => σ (j + 1)) := Sat_tail hσ
+    have hx : σ 0 ∈ˢ interp V (fun j => σ (j + 1)) ta := hσ 0 ta rfl
+    have hok0 := WellDenotedV.hoist_lift (X := ta) hokB σ hσ
+    refine ⟨?_, ?_⟩
+    · rw [WellDenoted_app]
+      refine ⟨hok0.1, by simp, pwBit φ m₂.pw,
+        interp V (fun j => σ (j + 1)) ta₂,
+        (fun x => interp V (cons x (fun j => σ (j + 1))) ba₂), ?_, ?_,
+        ?_⟩
+      · rw [interp_lift]; exact hmem _ hσ'
+      · show σ 0 ∈ˢ _
+        rw [hdom _ hσ']; exact hx
+      · exact ((AnnotValid_pi V _ 0 (pwBit φ m₂.pw) ta₂ ba₂)
+          ▸ (hokW _ hσ').2).2.2
+    · rw [AnnotValid_app]
+      exact ⟨hok0.2, by simp⟩
+  have hfopen : Frame (d + 1) (body₁.instantiate1 (.fvar d ty₁)) :=
+    Frame.open_body hfty hwa.2 hba.2 hLbd
+  have hfapp : Frame (d + 1) (.app b (.fvar d ty₁)) := by
+    refine ⟨?_, by simp [Expr.looseBVarsBounded, hbb], fun l hl => ?_⟩
+    · simp only [Expr.WScoped]
+      exact ⟨Expr.WScoped.mono (by omega) hwb, by omega,
+        Expr.WScoped.mono (by omega) hwa.1⟩
+    · rw [ConLeche.Expr.fvarLeaves] at hl
+      rcases List.mem_append.mp hl with h2 | h2
+      · exact hLb l h2
+      · rw [ConLeche.Expr.fvarLeaves] at h2
+        rcases List.mem_cons.mp h2 with rfl | h3
+        · exact hba.1
+        · exact hLty l h3
+  have hbodyEq : ∀ σ : Nat → V, Sat V (ta :: Δa) σ →
+      interp V σ bda = interp V σ (.app ba.lift (.bvar 0)) :=
+    fun σ hσ => hbody hfopen hfapp (CtxOk.open hCbd hCty hta hokTa) hCapp
+      hbda hdapp hokBda hokApp σ hσ
+  -- η: `lamR_eta`, regime-uniform
+  have hpt : ∀ x, x ∈ˢ interp V ρ ta →
+      interp V (cons x ρ) bda = SetTheory.app (interp V ρ ba) x := by
+    intro x hx
+    rw [hbodyEq _ (Sat_cons V hρ hx), interp_app, interp_lift_cons,
+      interp_bvar]
+    rfl
+  rw [interp_lam, lamR_congr hpt, hbit]
+  exact lamR_eta (by rw [← hdom ρ hρ]; exact hmem ρ hρ)
 
 /-- `prf_of_isProofFast` twice (`Steps/IrrelFast.lean:303`). -/
 theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
