@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.NestedPinLaws
 import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.NestedCopyIdx
+import ConLeche.Model.Inductives.NestedInstMap
 public section
 
 /-!
@@ -2041,6 +2042,59 @@ by the consumer (`dJf` at the group's base pin). -/
 structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) :
     Prop where
   syn : PGS st m q₀ kJ dJ
+  /-- **K.67 AT THE GROUP** (task #315 WIDE (3)): at a field the copy's
+  container calls ORDINARY and the block's rewrite made recursive, the
+  block's target is the image of the class the OWNER gave the same
+  field — the owner being the container whose own pin number `qK` this
+  copy is, read off the instance map as K.67's Bool reads it.
+
+  **It lives here and not on `PinGroupInst`** because the owner
+  relation is an `ElimState` object (`nestedInstMapAt env st g`) and
+  the residual carries no `st`; without one the clause would have to
+  name the OWNER's σ — a different group's — and is then statable at
+  neither group.  `GroupFacts` is parameterised by `st` and is the
+  record the consumers already hold.  K.68's twin stays on
+  `PinGroupInst`: it speaks of the BLOCK's own classes and needs no
+  owner.
+
+  Stated as the run states it, over the ENVIRONMENT's own-pin table and
+  at a `findIdx?` value.  The three translations into the container
+  model's vocabulary — the table by `ContainerOwnPinsSyn`, the member
+  names by `ContainerModeled.memberNames_eq`, the index by
+  `pinsDistinctAt` — belong to the CORRESPONDENCE, which holds the
+  container's `ContainerModeled` and has to run them for
+  `PinShapes.rowTargetOrd` anyway; carrying them here would duplicate
+  them and would pin this field to one spelling of the level
+  parameters. -/
+  ordTgt : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (g : Nat), g < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[g]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
+    ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ∀ (M : Name) (us : List Level),
+    (ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppFn = .const M us →
+    (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
+    (∀ (ciM : ContainerInfo) (qJ : Nat),
+      (ciO.members.map (·.name)).findIdx? (· == M) = none →
+      ConLeche.containerInfo? env M = some ciM →
+      ownT.findIdx? (fun e => e == Expr.mkAppN
+          (ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppFn
+          ((ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -6054,7 +6108,35 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_⟩
+    · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
+        g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm M us hhd
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hjA hlF hordC hrss hge hst hdm hg hgn hciO hownT hmapR hqK hqm hhd
     · intro i₂ hi₂ ψ₂ i₃ hi₃
       exact nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
         mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR
