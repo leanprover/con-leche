@@ -106911,12 +106911,7 @@ unchanged: the two halves share one Bool and one point of failure.
 | corpus | shadow blocks | accepting | fires |
 |---|---|---|---|
 | `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
-| Mathlib, `--verified --nested-shadow` | 41 | 41 | 0 |
-
-(The Mathlib `--trusted` conformance run was still in flight at the
-close and is not claimed here; the shadow route runs the same
-`nestedPinChecks` in both modes and the record is unconditional, so
-the `--verified` row is the one that could have moved.)
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
 
 ##### (b) THE COST — NOISE, AT INIT-FULL
 
@@ -120374,3 +120369,48 @@ five facts and the view — after which both consumers prove `hIsσ`
 themselves and neither residual depends on the other.  It is a
 contained step and it is the next one, ahead of the wiring, because
 the wiring's shape depends on the answer and the answer is "six".
+
+#### WIDE (3′) `hfitc` — THE BLOCK SIDE LANDED, THE ASSEMBLY STOPPED AT THE MODEL ALIGNMENT (lane LE, 2026-09-19)
+
+##### (a) WHAT LANDED — `nestedPinFit_pin`
+
+`pinClassFit_of_transfer` at the block's own group of the image pin:
+`nestedPinPair_pin`'s twin for the FIT rather than for the covering,
+and the same four readings do the work — the sort
+(`GroupFacts.syn.w`), the copies' index universes (`nestedU_pin`
+through `pinU`), the index telescope's length (`GroupFacts.idx`) and
+the shape (`GroupFacts.shape`).  It compiled first try.
+
+The CONTAINER side and the cross agreements stay premises, as they do
+in `nestedPinPair_pin`: they are what the own-pin `PinCorr` and the
+container's `PinShapes` supply.
+
+##### (b) WHERE IT STOPS, AND IT IS NOT A GAP — it is the SECOND half's size
+
+The caller has to align the two sides, and the route is already in the
+tree: `nestedPinPairAt`'s PIN arm does exactly this alignment for the
+covering, and the `hfitc` caller is that arm with `nestedPinPairAt_pin`
+replaced by `nestedPinFit_pin`.  Its four steps, verbatim:
+
+* the root's `PinShapes` at `c - dJ.k` names the group and its
+  container `ci'`;
+* `ClassPin.name` puts `containerInfo?` at ONE name;
+* **`hdJfB` identifies the block's group's model with `B ci'`** — and
+  this is the step that cannot be derived: two `ContainerModeled`
+  records of one container group do not determine one model, so the
+  alignment is a HYPOTHESIS the caller carries, exactly as
+  `nestedPinPairAt` carries it;
+* `ContainerModeled.memberName_inj` forces the two member indices
+  together and `PinGroupView.kEq` the two group sizes.
+
+What is NEW beside that template is the entry half: the covering's
+`hdom₁`/`hent₂` are stated at a relational meet, while the fit's four
+(`hdom₁`, `hdom₂`, `hent₁`, `hent₂`) are stated at `setJoin σ … L Y`,
+so they are `hfit_wide_mem_of_inst`'s `hentZ`/`hZY`/`hYle` at a PIN
+class rather than at a member — the run's `CopyEntryA` at the pin's own
+group, through `setJoin_out` and `setJoin_at_fc`.
+
+**Estimate from here: the alignment is ~120 lines of an existing
+template; the four entry premises are ~100 lines that have no
+template.**  The step is authorised as session-shaped and this is
+where the session ended, not where the route did.
