@@ -124544,3 +124544,169 @@ and the conclusion `Eis₁ = Eis₂.map (AnnotTerm.instAll Ds cut)` is
 `ordSpine_inst_of_reads` (`NestedFieldRead.lean:555`) with the two
 readings supplied.  Its consumer is step 1(c)'s `hslotOrd`, in the
 same session, per the consumer-first rule.
+
+#### WIDE (3) STEP 1(b) PRICED AT THE PROOF — THREE OF ITS FOUR NAMED OBJECTS ARE NOT WHERE THE PLAN PUTS THEM; K.69 AT THE RUN LANDED, AND THE STOP (lane LE, 2026-09-19)
+
+Priced by inputs against the tree before building, as ruled.  The row
+above sites step 1(b) as an assembly-tier theorem beside `ordTgt_corr`
+with three named ingredients — `ordTgtReadAt` for the block's side,
+`hK69` through `nestedOrdNormOk_at`/`_at_pi` for the tie, and
+`ordSpine_inst_of_reads` for the conclusion.  Checked one by one, only
+the first is usable as named.  ONE brick was built — the one the
+pricing found to be a COPY of something already in the tree and needed
+by every re-price — and the step itself was not.
+
+##### (a) WHAT IS ACTUALLY IN HAND
+
+| ingredient | where it is | verdict |
+|---|---|---|
+| the owner's half | `PinShapes`'s z-form conjunct (`NestedPremise.lean:1194`, `OrdTargetRead` at `:1108`) | **IN HAND** — applied as `hrow`, exactly as `ordTgt_corr` applies K.68's row |
+| the `z` identification | `ordTgt_corr`'s own preamble (`NestedPinLeafAll.lean:4547`) — `ownPinsSelfAt`, `ordTargetDom_congr_at`, `pinsDistinctAt` | in hand, re-runnable verbatim |
+| the block pin's components' READING | `NestedPinSynFacts.pinDs` (`NestedPins.lean:816`) | **IN HAND, AND FREE** — `DenoteMetaSpine … b.nP (pinsS.getD q default).DsE ((pinsS.getD q default).Ds ψ)` at every pin, which is the bridge's `hspine`/`hDlen` |
+| K.69 as a term equation, at the run | `NestedPinsRun.ordNormAt` (`NestedInstMap.lean:2614`) | **BUILT THIS SESSION**; see (c) |
+| the block's own reading of its recomputation | `NestedPinsRun.ordTgtReadAt` (`NestedInstMap.lean:2343`) | a RUN theorem with no `GroupFacts` carrier; see (b) |
+| the conclusion | `ordSpine_inst_of_reads` (`NestedFieldRead.lean:557`) | does NOT fit; see (d) |
+| the owner's recomputation's SCOPING | — | **NO PRODUCER**; see (e) |
+
+##### (b) `ordTgtReadAt` DOES NOT REACH THE ASSEMBLY, AND `pinDs` SAYS WHERE THE BLOCK-SIDE HALF BELONGS
+
+`GroupFacts` (`NestedPinLeafAll.lean:2060`) has four fields — `syn`,
+`ordTgt`, `idx`, `shape` — and no reading of the block's own
+recomputation.  `NestedPinsRun.ordTgtReadAt` is reachable only where a
+`NestedPinsRun` is, which inside that file is `mkGF`
+(`NestedPinLeafAll.lean:6393`) and nowhere else.  So the block's side
+is a NEW `GroupFacts` field plus its `mkGF` discharge — cheap (~40
+lines; the discharge is `NestedInstMap.lean`'s
+`nestedPinsOrdTgt_of` body, one line), but a carrier the plan does not
+count.
+
+And `NestedPinSynFacts.pinDs` settles WHERE the block-side half
+belongs: at `mkGF` the block pin's components' readings are free, at
+`ordTgt_corr`'s tier they are a hypothesis nobody holds.  **The whole
+block-side half — the reading, K.69's equation and the bridge —
+belongs in one `GroupFacts` field stated at `ordRootInst`'s output,
+with the OWNER's reading and the owner's scoping as its hypotheses.**
+That is the plan's one structural correction.
+
+##### (c) K.69 HAD NO RUN-LEVEL WRAPPER — AND IT IS `instOrdTgtAt`'s BODY, SO IT WAS BUILT
+
+`NestedPinsRun.hK69` (`NestedPins.lean:1219`) is the BOOL,
+`nestedOrdNormOk μ env p b st stored = true`; `nestedOrdNormOk_at`,
+`_at_pi` and `_at_refl` (`Verify/…/NestedCopyKinds.lean:1294`, `:1393`,
+`:1205`) had NO caller in the tree.  Their twenty-four lookups are the
+same ones `NestedPinsRun.instOrdTgtAt` (`NestedInstMap.lean:916`)
+derives for K.67 — the container record, its member, the constructor,
+its `stripPis`, the kinds row and the field kind, all in the group's
+spelling — so the wrapper is that body VERBATIM with a different tail,
+not a second session of it.
+
+`NestedPinsRun.ordNormAt` (`NestedInstMap.lean:2614`) is that wrapper:
+at the owner's firing guard, the BLOCK's recomputation of the field's
+domain IS `ordRootInst` of the OWNER's.  Two of K.67's inputs are
+absent by design — `hge` (`p.k ≤ t`), because the equation is about
+terms and a block member target is covered too, and the head guard
+sits on the STRIPPED recomputations (`stripDomPis`), the reflexive
+form that specialises to the finitary one.  It compiled at the first
+build after the transcription, and it is UNCONSUMED: its consumer is
+the `GroupFacts` field of (b).
+
+##### (d) `ordSpine_inst_of_reads` ASKS FOR A SPLIT `OrdTargetRead` HIDES — AND THE FITTING TOOL IS CHEAPER
+
+`ordSpine_inst_of_reads` takes the owner's side as `hhead`
+(`denoteMeta (.const J lvlsJ) = some fa`), `hargs` (a
+`DenoteMetaSpine` over `es.map (instSeq …)`) and `hfa` (the head inert
+under `instAll`).  `OrdTargetRead` supplies none of the three: its
+conclusion is `∃ fb Ps, Ps.length = nPK ∧ denoteMeta … = some
+(AnnotTerm.mkAppN fb (Ps ++ Eis))`, with the syntactic `es` gone and
+`fb`/`Ps` existential — deliberately, per its own docstring ("nothing
+about them is claimed beyond their count").
+
+The tool that DOES fit is one level down and needs less:
+`denoteMeta_ordRootInst_read` (`NestedFieldRead.lean:448`) takes the
+owner's WHOLE reading `rx` and yields `AnnotTerm.instAll Ds cut rx` at
+the block's openers; `AnnotTerm.instAll_mkAppN` then distributes and
+`AnnotTerm.mkAppN_inj` reads the spines off.  **`hfa` is not needed**:
+the two readings are compared as `mkAppN`s of equal arity and the head
+equality falls OUT of the injection instead of being assumed.  The
+arity premise is `nPK₁ = nPK₂` and `Eis₁.length = Eis₂.length`, which
+is `PinCorr`/`hpinσ` at the target as the plan says.  So the
+conclusion is cheaper than priced, and
+`denoteMeta_ordRootInst_mkAppN_read` is NOT this route's entry point.
+
+##### (e) THE OWNER'S RECOMPUTATION'S SCOPING HAS NO PRODUCER — BUT ITS ONE TRAP DISSOLVES
+
+`denoteMeta_ordRootInst_read` still asks two things of the owner's
+recomputation `x = ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l
+dom.1`:
+
+* `hxb : x.looseBVarsBounded cut = true`;
+* `hxlv : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params`.
+
+Neither has a producer: the grep for a `looseBVarsBounded`/
+`fvarLeaves` analogue of last session's `projFree_ordTargetDom_instSeq`
+is empty.  What is owed is one Verify-tier lemma, environment-free and
+model-free — the two closures through `instantiateLevelParams`
+(`looseBVarsBounded_instantiateLevelParams`, `Verify/InstLevels.lean:105`,
+covers half), `stripDomPis` with `domPiDepth` paying for the binders it
+removed, and the own-pin spine's `instantiateList` (reducible to
+`instSeq` by `Expr.instSpine_eq_instantiateList_at`, where
+`looseBVarsBounded_instSeq_gen`, `NestedCopyInstU.lean:446`, already
+exists) — plus its two leaves, the stored constructor domain being
+fvar-free and bounded at `nP + l`.
+
+**And the annotation trap the first reading of it feared is not
+there.**  The worry was that `ContainerModeled.pinDsScoped`
+(`NestedPremise.lean:657`) hands its `params` back existentially, with
+the leaves' type annotations unconstrained, while the entry's openers
+are `containerParamOpeners` (`Kernel/…/NestedInstall.lean:2369`) =
+`fvar i (.sort 0)`.  Read at `PinSyn.ownAt` (`NestedPremise.lean:121`)
+the two never meet: the entry's arguments are
+`instSeq openers _ ((abstractRange x 0 nP 0).instantiateLevelParams …)`,
+`abstractRange`'s `fvar` arm REPLACES a leaf in range by a `bvar`
+WITHOUT descending into its annotation, and `pinDsScoped` forces every
+leaf of `x` to have index `< nP`.  So `abstractRange x 0 nP 0` has NO
+fvar leaves at all, and the recomputation's leaves are EXACTLY the
+openers — `params := containerParamOpeners dR.nP` with `hplen`/`hidx`
+from `containerParamOpeners_getElem?`
+(`NestedCopyInstU.lean:1322`), and no reconciliation to do.
+
+##### (f) THE PRICE, AND THE STOP
+
+| item | price | state |
+|---|---|---|
+| K.69 at the run | ~120 lines, `instOrdTgtAt`'s body | **LANDED** (c) |
+| block-side `GroupFacts` field (reading + K.69 + the bridge) + `mkGF` | ~120 lines | owed, mechanical (b) |
+| the recomputation's scoping closure + its two leaves | ~150 lines | owed, design-risk-free after (e) |
+| the assembly theorem (preamble, cuts, arity, `mkAppN_inj`) | ~150 lines | owed (a), (d) |
+| the `tls` half on the reflexive prefix | unpriced | not inspected; a second object of the same shape |
+| step 2 (`hslotOrd`'s five parts, the `instAll` transport at the two frames, `hfitc`) | ~200 lines | owed; de051e52's table with part five sourced |
+
+That is ~620 lines still owed over four files, two new carriers and an
+unpriced object, against a budget of ONE session for steps 1 and 2
+together.  **The doubling stop applies**: step 1(b) itself was not
+built, and steps (3), (4′) and (4) — all downstream of `hfitc` — were
+not started.  `agent/uniform-le4` was NOT merged: its merge is step
+(4)'s first act, and merging it across a stop would leave
+`NestedPinsLeInd` unconsumed for as long as the stop lasts.
+
+**What a re-price should keep:** (b)'s relocation of the whole
+block-side half into one `GroupFacts` field (the free `hspine`),
+(d)'s cheaper conclusion, and (e)'s finding that the scoping lemma has
+no reconciliation in it.  **What it must add:** the scoping closure and
+the `tls` half as steps of their own, since neither is a corollary of
+anything landed.
+
+##### (g) THE GATES
+
+`tests/warning-free.sh 868e29cd`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; `pub-imports`
+1343/2304, none demotable).  `tests/unconsumed.sh` 196/3833 against
+196/3832, and the diff is exactly two lines:
+`NestedPinsRun.ordNormAt` ENTERS, waiting on its `GroupFacts` carrier,
+and `nestedOrdNormOk_at_pi` LEAVES — K.69's Verify inversion has its
+first caller.  Nothing of the `pins_le_*`/`NestedPinsLe` family moved.
+`tests/arena.sh` not run and not owed: no `Kernel/`, `Cached/` or
+`Verify/` file changed.  `#print axioms
+ConLeche.Model.NestedPinsRun.ordNormAt`: `propext`, `Classical.choice`,
+`Quot.sound`.
