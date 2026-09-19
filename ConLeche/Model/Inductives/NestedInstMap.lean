@@ -1333,6 +1333,96 @@ theorem NestedPinsRun.instMapSigmaFacts {pbs : List (Expr × ConLeche.BinderMeta
       congrArg (fun l => consList l ((D).pinFrame (q₀ + 0) φ ρp)) hmapEq
     rw [hframe, hu.symm.trans hu', hIds.symm.trans hIds']
 
+/-- **`hstgt` AT THE RUN, AT BOTH ARMS** (task #315 WIDE (3′)): a
+container-RECURSIVE field of a pin's container whose target is one of
+the container's OWN PINS lands, in the copy, on the block pin the
+INSTANCE MAP names — whatever tower the field's domain wears.
+
+`rss = true` is `.recursive ∨ .reflexive` (`rsOf`), which is exactly
+the two arms: `copyPinFInstTgt` on the first, `copyPinFInstTgtRefl` on
+the second.  The map is read at the GROUP's base rather than at the
+member the field belongs to (`instMapGroup`), because the assembly's
+`σ` is one function of the container's classes while K.61's map is
+keyed by a block pin.
+
+The `getD` default moves with it: the map has an entry at every own
+pin of the container (`instMapPinOwn`), so `0` and `st.pins.length`
+agree at this index, and the `- p.k` of K.61's own statement is
+undone by `copyPinFKind`'s `p.k ≤ t`. -/
+theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {ci0 : ContainerInfo}
+    (hci0 : ConLeche.containerInfo? env (pinsS.getD (q₀ + 0) default).J = some ci0)
+    (CM0 : ContainerModeled mp₁'.base2 ci0 dJ)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + 0) default).J = some (.indInfo cvT caps))
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hrs : ((dJ.rss i').getD j []).getD l false = true)
+    (hpinT : ¬ dJ.tgts i' j l < dJ.k) :
+    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+        = p.k + mm.getD (dJ.tgts i' j l - dJ.k) 0 := by
+  classical
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨cvT', caps', cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  -- `rss` is the two arms
+  have hksl : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF
+  have hrr : (dJ.ksF i' j).getD l .ordinary = .recursive
+      ∨ (dJ.ksF i' j).getD l .ordinary = .reflexive := by
+    have h := hrs
+    rw [show (dJ.rss i').getD j [] = rsOf (dJ.ksF i' j) from rssOfK_getD hjlt,
+      rsOf_getD hksl, decide_eq_true_eq] at h
+    exact h
+  have hCMf : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ := by
+    intro ciJ hciJ
+    obtain rfl : ciJ = ci := Option.some.inj (hciJ.symm.trans hciP)
+    exact CM
+  -- K.61 at the field, on whichever arm, and the block target above `p.k`
+  obtain ⟨mm', hmap', hval⟩ : ∃ mm : List Nat,
+      ConLeche.nestedInstMapAt env st (q₀ + i') = some mm ∧
+      mm.getD (dJ.tgts i' j l - dJ.k) st.pins.length
+        = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k := by
+    rcases hrr with hrec | hrefl
+    · exact R.copyPinFInstTgt SF S hPD hkindsRun hi' hgb hCMf hj hlF hrec hpinT
+    · exact R.copyPinFInstTgtRefl SF S hPD hkindsRun hi' hgb hCMf hj hlF hrefl hpinT
+  have hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 := by
+    rcases hrr with hrec | hrefl
+    · exact (R.copyPinFKind SF S hPD hkindsRun hi' hgb hCMf hj hlF hrec hpinT).2
+    · exact (R.copyPinFKindRefl SF S hPD hkindsRun hi' hgb hCMf hj hlF hrefl hpinT).2
+  -- the map is the GROUP's, and it has an entry at this own pin
+  have hmm0 : ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm' := by
+    rw [NestedPinsRun.instMapGroup SF S hPD S.kpos hi' hci0 hciP CM0 CM]; exact hmap'
+  have hFssLen : ((dJ.Fss i' (fun _ => 0)).getD j []).length = cAJ.2 :=
+    hI.Fss_length hj (fun _ => 0)
+  have hqq : dJ.tgts i' j l - dJ.k < dJ.nPins :=
+    CM.reps.tgt_pin_lt hik hj l (by rw [hFssLen]; exact hlF) hpinT
+  obtain ⟨mm₂, σq, hmapAt, hmmqK, -, -, -⟩ :=
+    R.instMapPinOwn SF S hPD S.kpos hci0 CM0 hqq hfind
+  have hmmEq : mm₂ = mm' := Option.some.inj (hmapAt.symm.trans hmm0)
+  rw [hmmEq] at hmmqK
+  have hdef : List.getD mm' (dJ.tgts i' j l - dJ.k) st.pins.length
+      = List.getD mm' (dJ.tgts i' j l - dJ.k) 0 := by
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, hmmqK]; rfl
+  refine ⟨mm', hmm0, ?_⟩
+  rw [← hdef, hval]
+  omega
+
 end Assembly
 
 end ConLeche.Model
