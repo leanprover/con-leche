@@ -603,15 +603,25 @@ own pins are counted TWICE in the tree and the two counts have never
 been tied together — once by position in the table the checker reads
 off the container's mimic recursors, and once by position in the
 container's stored block model, which is where the identification's
-reindexing has to be stated.  The only bridge between the two says that
-each table entry is SOME model pin, not WHICH, and says nothing at all
-about a model pin the table happens not to mention; so the reindexing
-is neither total nor single-valued from what is recorded.  The tie is
-true — the checker certifies the table at its own instantiation to be
-the recorded pin list verbatim, position by position, and moving it to
-another instantiation is a map — so the repair is to keep the position
-in the bridge rather than to record anything new.  Until it is kept,
-the tree still takes the long way round (Resolution 3) at the two sites
+reindexing has to be stated.  The bridge between the two used to say only
+that each table entry is SOME model pin, not WHICH; it now also says
+which, position by position, and that repair recorded nothing new — the
+checker already certifies the table at the container's own
+instantiation to be the recorded pin list verbatim, and moving it to
+another instantiation is a map, so the position was there to be kept
+and was being thrown away.
+
+One arrow further along is still missing, and it is of the same kind.
+To know which of the container's own pins a field of that container
+lands on, one reads the field's stored domain and finds its spine in
+the table.  That the spine IS the pin is a fact the checker establishes
+about the block it is INSTALLING, and it is not carried on a container
+that was installed earlier — nor is the fact that a container's own
+pins are spelled differently from one another, which is what makes
+"find it in the table" answer at all.  Both are true by construction
+of the expansion, both are cheap where they are proved, and neither
+travels to where the identification reads them.  Until they do, the
+tree still takes the long way round (Resolution 3) at the two sites
 that consume the identification.
 
 **The instance map is not an injection, and the identification no
