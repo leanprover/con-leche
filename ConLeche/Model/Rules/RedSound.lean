@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 
 public section
@@ -77,19 +78,40 @@ theorem Red.beta_sound (hin : RulesInputs V m φ) {d : Nat}
 annotation reads the unfolding) + `unfoldDefinition_WScoped`. -/
 theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
     (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
-  sorry
+  intro hf Δa ea _ hea hg
+  refine ⟨⟨ConLeche.unfoldDefinition_WScoped m.wf h hf.1,
+      ConLeche.unfoldDefinition_looseBVars m.wf h hf.2.1,
+      fun l hl => hf.2.2 l (ConLeche.unfoldDefinition_fvarLeaves m.wf h l hl)⟩,
+    fun l hl => ConLeche.unfoldDefinition_fvarLeaves m.wf h l hl,
+    ea, denoteMeta_unfoldDefinition hin.defn h hea, hg, fun _ _ => rfl⟩
 
 /-- `denoteMeta_litToCtorIfNat` + `frame_litToCtorIfNat`
 (`Steps/Major.lean:66`, `:92`). -/
 theorem Red.natLit_sound {d n : Nat} (h : ConLeche.natLitSupported env = true) :
     RedSem m φ d (.lit (.natVal n)) (natLitToConstructor n) := by
-  sorry
+  intro _ Δa ea _ hea hg
+  refine ⟨⟨ConLeche.natLitToConstructor_WScoped n,
+      ConLeche.natLitToConstructor_looseBVars n, ?_⟩, ?_, ea, ?_, hg,
+    fun _ _ => rfl⟩
+  · intro l hl
+    rw [ConLeche.natLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+  · intro l hl
+    rw [ConLeche.natLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+  · rw [denoteMeta_natLitToConstructor h]; exact hea
 
 /-- `denotePStrLit_of_guard` (`Steps/Stuck.lean:540`). -/
 theorem Red.strLit_sound {d : Nat} {s : String}
     (h : ConLeche.strLitSupported env = true) :
     RedSem m φ d (.lit (.strVal s)) (strLitToConstructor s) := by
-  sorry
+  intro _ Δa ea _ hea hg
+  refine ⟨⟨ConLeche.strLitToConstructor_WScoped s d,
+      ConLeche.strLitToConstructor_looseBVars s 0, ?_⟩, ?_, ea, ?_, hg,
+    fun _ _ => rfl⟩
+  · intro l hl
+    rw [ConLeche.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+  · intro l hl
+    rw [ConLeche.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+  · rw [denoteMeta_strLitToConstructor h]; exact hea
 
 /-- The successor row at the reduced argument (`NatSuccRow`). -/
 theorem Red.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {a w : Expr}
