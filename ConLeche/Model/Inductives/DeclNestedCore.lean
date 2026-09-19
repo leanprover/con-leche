@@ -851,8 +851,13 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     | some c =>
       rw [hc] at hj'
       obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
-      obtain ⟨dd, hargs⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q (hdk ▸ hi) hc
-        hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- the SPINE, read back as the mention form: the lifted pin's own
+      -- argument list is the domain's first `nPJ` (task #315 WIDE (1′))
+      obtain ⟨dd, hargs⟩ : ∃ dd, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+          = ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs :=
+        ⟨l, by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
       -- K.30: the pin is closed and its variables are the first former's openers
       obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
       have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
@@ -941,8 +946,11 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     | some c =>
       rw [hc] at hj'
       obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
-      obtain ⟨dd, hargs⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q (hdk ▸ hi) hc
-        hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨dep, rest, hPar, hspine⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨dd, hargs⟩ : ∃ dd, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
+          = ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs :=
+        ⟨l + dep, by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
       -- K.30: the pin is closed and its variables are the first former's openers
       obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
       have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
