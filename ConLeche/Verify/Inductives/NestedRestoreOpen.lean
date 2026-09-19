@@ -1517,29 +1517,6 @@ theorem domPiDepth_of_stripPis :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
     | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
-/-- **THE STRIP AT ITS OWN DEPTH** (task #315 K.65): `stripPis` at
-`domPiDepth` peels exactly the tower `stripDomPis` removes.  It is what
-lets a record stated at `stripPis` — the restore walk's, which takes
-its depth as an input — be read at the depth K.65's guard instantiates
-with, and it is the reflexive twin of
-`stripDomPis_eq_self_of_getAppFn_const`'s role on the finitary arm.
-
-(`Expr.stripPis_piBinders` says the same thing about `piBinders`, of
-which `stripDomPis` and `domPiDepth` are the two components; it lives
-in the MODEL tier, which this file may not import, so the induction is
-repeated here rather than transported.) -/
-theorem stripPis_domPiDepth : ∀ e : Expr,
-    ∃ bs : List (Expr × BinderMeta), e.stripPis (domPiDepth e) = some (bs, stripDomPis e) := by
-  intro e
-  induction e with
-  | forallE ty b bm _ ihb =>
-    obtain ⟨bs, hb⟩ := ihb
-    refine ⟨(ty, bm) :: bs, ?_⟩
-    show (b.stripPis (domPiDepth b)).map (fun q => ((ty, bm) :: q.1, q.2)) = _
-    rw [hb]; rfl
-  | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
-  | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact ⟨[], rfl⟩
-
 /-- **`domPiDepth` is `0` on a constant spine** — `stripDomPis`' twin
 (task #315 K.65): the cut a finitary field's record is stated at is
 the cut K.65's guard instantiates with. -/

@@ -106842,6 +106842,100 @@ in the ROUTE — the elimination minted a copy the map does not account
 for — and never a reason to relax the check.  The message is K.61's,
 unchanged: the two arms share one Bool and one point of failure.
 
+#### K.66 — a rewritten ordinary field leaves the MINT GROUP too (2026-09-19, task #315, lane LE's request)
+
+K.62's second half, on K.62's own rows and with no walk of its own.
+
+**WHY IT IS A RECORD AND NOT A LEMMA — the pricing, kept.**  `houtσ`
+asks the target to be outside `σ`'s image over ALL of the container's
+wide classes.  K.62 checks `mentions || !((maps.getD q []).contains t)`,
+and the map is the container's OWN PINS, so the MEMBER classes — whose
+images are the mint group `[grpBase, grpBase + grpSize)` — are not
+covered.  Closing them in the model tier means turning "the COPY's
+classified target is the mimic at `grpBase + mm`" back into "the
+CONTAINER's stored domain mentions `J_mm`", which is the CONVERSE of
+the rewrite; the tree carries that only as
+`replaceAllNested_unchanged_or_aux` — *unchanged, or mentions SOME
+pin's auxiliary* — and never per pin.  `docs/NESTED.md` §3 already says
+this family is recorded "one each way" for exactly that reason; this is
+the third direction.
+
+The half that IS free is `copyOrdFOutside`'s own and stays where it is:
+`ContainerModeled.ordFree` through `blockCtorFieldDomain` and
+`mentionsMember_instSeq_false` gives mention-`false` on the container's
+stored domain, which is what puts the edge on K.37's list with the bit
+`false` in the first place.
+
+**WHAT THE ROUTE RECORDS.**  `nestedOrdOutsideAt` takes the state and
+its row test becomes
+
+    mentions || (!((maps.getD q []).contains t) &&
+      match st.pins[q]? with
+      | some qn => decide (t < qn.grpBase) || decide (qn.grpBase + qn.grpSize ≤ t)
+      | none => false)
+
+— the group's bounds are the pin's own record, so there is no walk, no
+new Bool and no new `DeclNestedRun` conjunct: `nestedOrdOutsideOk`'s
+own signature is unchanged, `NestedPinsRun.hK62` is unchanged, and the
+check stays where K.62 sits — inside `nestedPinChecks`, above the
+`verifiedChecks` gate, UNCONDITIONAL in both routes and `.internal` on
+failure.  **No `PushChain` change**, confirmed: the cached simulation
+names only K.64, the one record that sits outside `nestedPinChecks`.
+
+`nestedOrdOutsideOk_at` gains the pin (`hqn`) and the second conjunct;
+`NestedPinsRun.copyOrdFOutside` hands both halves on, with the group's
+bounds rewritten to `q₀`/`kJ` by `NestedPinGroupSyn.grp`.
+
+**IT CANNOT FIRE.**  A rewritten container-ordinary field's domain
+mentions no member of the container's own group (`ordFree`), and a
+mimic of that group's member `mm` is planted only where the rewrite
+fired at an occurrence of that member applied at the pin's components —
+which the domain would have to mention.  So the target leaves the
+container's instance on both halves by construction of the mint, and
+the check is category **(B)**, by-construction-only: official computes
+nothing of the kind.  Not certification-only and not gated, for K.61's
+reason — the consumer reads it in every mode.
+
+**IF IT EVER FIRES** a rewritten ordinary field re-entered the mint
+group, which refutes the same argument K.62's own message names, and
+the answer is never to relax the check.  The message is K.62's,
+unchanged: the two halves share one Bool and one point of failure.
+
+##### (a) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 with the K.66 binary: `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
+`annot suite: 15/15`, `axioms: pinned`, and the trusted / `--jobs=1` /
+`--jobs=4` sweeps unchanged — the accept set did not move.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
+| Mathlib, `--verified --nested-shadow` | 41 | 41 | 0 |
+
+(The Mathlib `--trusted` conformance run was still in flight at the
+close and is not claimed here; the shadow route runs the same
+`nestedPinChecks` in both modes and the record is unconditional, so
+the `--verified` row is the one that could have moved.)
+
+##### (b) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`.  The pair is the tree BEFORE K.65 against the tree with
+K.65 AND K.66, so the figure is the two records together.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.23 G | 538.21 G | -0.003 % |
+| `init-full --trusted --nested-shadow` | 520.86 G | 520.88 G | +0.004 % |
+
+Both inside the harness's noise band and two orders below K.62's own
++0.436 %, which is what the shape predicts: K.66 adds no lookup and no
+walk — one `getElem?` on the pin list and two comparisons, on rows
+K.62 already enumerates.  Mathlib is not a landing measurement for a
+nested record (see K.65 §(d)); the feature is measured there once, at
+its end.
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
@@ -120118,3 +120212,131 @@ list, `NestedPinsRun.instMapGroup` and `instMapSigmaFacts` joined it
 (their consumer is the σ clause), and K.65's own
 `nestedInstMapOk_target_refl` is consumed by `nestedInstMapOk_target`.
 **Nothing from the `pins_le_*`/`NestedPinsLe`-producer family moved.**
+
+#### WIDE (3′) THE REFLEXIVE ARM, MODEL SIDE — `nestPinSpineAbsRefl`, `copyPinFInstTgtRefl`, and the σ clause's four run halves (lane LE, 2026-09-19)
+
+K.65 and K.66 consumed, in the order the coordinator set.  Everything
+here is model tier; the accept set does not move.
+
+##### (a) `nestPinSpineAbsRefl` ×9 — CHEAPER THAN PRICED, FOR (1′) (a)'s OWN REASON
+
+The tiers already held it.  `NestedStageFacts.pinArgsAbsRefl`
+concluded at `liftLooseBVars (l + dep) 0` with `dep` EXISTENTIAL,
+while its producer in `NestedCtorRead` was already calling the restore
+walk at `(domA.1.piBinders).1.length`.  So the restatement NAMES the
+depth rather than discovering it: `pinArgsAbsRefl` now concludes at
+`domPiDepth dom.1` — the kernel's own function, the one K.65's guard
+instantiates with — and the producer supplies it with one `have`.
+
+Two syntactic lemmas beside `stripDomPis_of_stripPis`:
+`domPiDepth_of_stripPis` and `domPiDepth_eq_zero_of_getAppFn_const`.
+(A third, `stripPis_domPiDepth`, was written and then DELETED: the
+producer's own strip is the input, so it had no consumer, and a lemma
+with no consumer is a liability.)  `Expr.stripPis_piBinders`
+says the same about `piBinders`, of which `stripDomPis` and
+`domPiDepth` are the two components, but it is MODEL tier and Verify
+may not import it, so the induction is repeated.
+
+Nine sites as priced: four basis blocks, the crossing kit's two,
+`EnvModelBStages`' two `of_readBack` calls (vacuous at `nPins = 0`),
+and `nestedContainerModeled`, whose discharge is `nestPinSpineAbs`'
+with the cut moved — it compiled first try.
+
+##### (b) `copyPinFInstTgtRefl` — the same theorem at the stripped spine
+
+`copyPinFInstTgt` with the domain read after `stripDomPis` and the cut
+at `l + domPiDepth`: the HEAD from `BlockOpened.nestReflF` through
+`Expr.piBinders_instSeq` (`copyPinFKindRefl`'s derivation at the same
+inputs), the MENTION from `nestArgsMentionAbsRefl`, the SPINE from
+`nestPinSpineAbsRefl`, and K.61 through
+`nestedInstMapOk_target_refl`.  `findIdx?`'s minimality and
+`pinsDistinctAt` identify the position with the pin's own index
+exactly as on the finitary arm: the table is the same table, and the
+arms differ only in which cut is looked up in it.
+
+##### (c) THE FOUR RUN HALVES OF THE σ CLAUSE
+
+Named, so that the clause itself is an assembly and not a proof:
+
+* **`instMapSigmaFacts`** (earlier this session) — `hσ` at the pin
+  classes, `hmemσ`, `hidxσ`;
+* **`instTgtAt`** — `hstgt` AT BOTH ARMS.  `rss = true` is
+  `.recursive ∨ .reflexive`, which is exactly the two; the map is read
+  at the GROUP's base (`instMapGroup`) because `σ` is one function of
+  the container's classes while K.61's map is keyed by a block pin;
+  and the `getD` default moves from `st.pins.length` to `0` because
+  the map has an entry at every own pin;
+* **`instOutAt`** — `houtσ` over BOTH halves of the instance, K.62 and
+  K.66 together.  Three cases, which are the three ways a class can be
+  missed: a target below `p.k` is a member of the block being
+  installed and every value of `σ` is a block PIN (which is why
+  `houtσ` needs no `p.k ≤ t` hypothesis); a MEMBER class is the
+  group's own mimic, which K.66's disjunction excludes; a PIN class is
+  the map's entry, which K.62's `contains … = false` excludes;
+* `hroot` is σ's definition and costs nothing.
+
+##### (d) WHAT THE σ CLAUSE STILL OWES — `hIsσ`, priced
+
+One conjunct is left and it is not lines.  At the container's MEMBERS
+it is the narrow route's own bullet (`G.idx`, `pinU`,
+`idxSet_instTele`).  At the PIN classes it is `ClassPin.idx`
+(`dR.idxT ψR ρR c = D.pinIdx q ψ ρp`) through
+`classPin_of_blockPinCorr` at the `PinCorr` this lane built, composed
+with `IsBlockModel.auxPinIdx` and `BlockModel.pinIdx_of_view` — and
+the two sides are stated at DIFFERENT frames (`pinIdx` reads the pin's
+own frame, `hIsσ` reads `ρp`), so the composition is a real step and
+not a rewrite.  It also needs `NestedInstMap` to import
+`NestedPinLeafAll` (acyclic).  **Session-shaped, like `hfitc`.**
+
+##### (e) `hIsσ` LANDED THE SAME DAY, AND IT WAS AN ASSEMBLY
+
+The price above was wrong in the cheap direction, and the reason is
+worth keeping: the FRAME CHANGE it flagged was already a named
+theorem.  `nestedIdx_eq_pinIdx` crosses between `(D).idx` at `ρp` and
+`(D).pinIdx` at the pin's own frame, through the group's `idx`
+identity; `classPin_of_blockPinCorr` at this lane's `PinCorr` gives
+the `ClassPin` whose `idx` clause IS the two sides met; and
+`BlockModel.idxT_of_pin` with `IsBlockModel.auxPinIdx` read the
+container's two class readers at a pin class as `pinIdx`.
+`nestedIsSigma_pin` is those four lines.
+
+It lives beside `classPin_of_blockPinCorr` rather than beside the run,
+because `hgroups` is what it quantifies over and the run supplies the
+`PinCorr` as a hypothesis — so no import moved.
+
+##### (f) WHAT IS LEFT, AND WHERE IT STANDS
+
+The σ clause itself is now an ASSEMBLY of named run halves and nothing
+else: `hroot` (σ's definition), `hσ`/`hmemσ`/`hidxσ`
+(`instMapSigmaFacts`), `hstgt` (`instTgtAt`), `houtσ` (`instOutAt`),
+`hIsσ` (`nestedIsSigma_pin` at the pin classes, `nestedIdx_of_group`
+at the members).  What remains is its SHAPE and its WIRING — the
+`∃ σ` clause, the `NestedPinsInst` residual in `NestedCopyIdx.lean`,
+the third argument to `nestedPinsIdent_of` and `NestedChain` importing
+`NestedInstMap` — and then `hfitc`, `hpin`/`hrowsσ`, (4′), the merge
+of `agent/uniform-le4` and (4).
+
+##### (g) GATES
+
+`tests/arena.sh` EXIT 0 at K.66 and again after `nestPinSpineAbsRefl`
+(the second because `Verify/` moved): `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96`, `annot suite: 15/15`,
+`axioms: pinned`, the three sweeps unchanged.
+
+`lake build` and `lake test` EXIT 0, zero warning lines;
+`tests/layering.sh` 353/290/3/1 with 0 base→lane and 0 impl→theory;
+`tests/shake.sh` 513 removals all allowlisted, pub-imports 1341 of
+2285, none demotable; `tests/proofdeps.sh` 4975 rows / 12 roots /
+**doors 0**.
+
+`tests/unconsumed.sh` **185 of 3749** against the session base
+`5814fad4`'s **186 of 3736**.  The diff READ: LEFT the list —
+`ContainerModeled.ownPinsRead` and `pinCorr_of_ownPins_at` (the
+own-pin `PinCorr` producer is their first consumer),
+`NestedPinsRun.instMapPinOwn` (consumed by `instMapSigmaFacts`,
+`instTgtAt` and `instOutAt`), `NestedPinsRun.copyPinFInstTgt` (by
+`instTgtAt`) and `NestedPinsRun.copyOrdFOutside` (by `instOutAt`).
+JOINED — `instMapGroup`, `instMapSigmaFacts`, `instTgtAt`, `instOutAt`
+and `nestedIsSigma_pin`, whose common consumer is the σ clause of (f).
+**Nothing from the `pins_le_*`/`NestedPinsLe`-producer family moved**,
+as it must not before (4′).
