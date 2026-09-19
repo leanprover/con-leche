@@ -121247,3 +121247,85 @@ block's own rewrite, the way K.61 and K.62 already are.
 the row that carries it, and it should be priced as such before
 anything is built.  Nothing was built for this row beyond the
 docstring correction.
+
+#### K.67 — STOPPED BEFORE WRITING: the record's shape does not match the tree's readers, and one record does not close (3) (lane LE, 2026-09-19)
+
+K.67 was authorised with a stated shape.  Checked against the tree
+first, as ruled, two things are wrong with it — one repairable, one
+structural — so nothing was written.
+
+##### (a) THERE IS NO STORED `_nested` CONSTRUCTOR TO READ
+
+The brief says to read `J`'s classification "off `J`'s STORED mimic
+constructor for its own pin of `K` (the `_nested` ctor type's field
+`l`)".  No such constant exists: the nested install RESTORES, "the
+restored constants are stored; the scratch environment is dropped"
+(`NestedInstall.lean:28`), and a stream may not even name a `_nested`
+constant.  What survives of a container's own pins is the pin TERM
+only, recovered from the MIMIC RECURSOR's first domain —
+`containerOwnPinsAtGo` keeps `Expr.mkAppN dom.getAppFn
+(dom.getAppArgs.take ciK.nP)`, i.e. `K lvlsK DsK` and nothing else.
+There are no fields, no constructors and no kinds.
+
+**The repair, and it is the machinery K.61 already runs.**  `J`'s
+classification of `K`'s field `l` is RECOMPUTED, not read: take `K`'s
+STORED constructor `j`, its domain at `ci.nP + l`, `stripDomPis` it,
+cut at `l + domPiDepth`, and instantiate its spine head and parameter
+arguments at `J`'s own pin-of-`K`'s components — the `qK`-th entry of
+`containerOwnPinsSelf env J`.  The head is then either a member of
+`J`'s group (index `m`) or, by `findIdx?` into `containerOwnPinsSelf
+env J`, one of `J`'s own pins `q_J`.  That is `nestedInstMapOkAt`'s
+inner block with the lookup table changed from `K`'s own pins to `J`'s
+members and own pins, so both arms (`stripDomPis`/`domPiDepth`) come
+free, as the brief asks.
+
+The mapping is then as briefed: member `m` ↦ the block class
+`p.k + P.grpBase + m`; own pin `q_J` ↦ `(nestedInstMapAt env st P).getD
+q_J`, `P` the parent copy off K.40's `nestedPinParent`.  Cost: one
+stored-ctor read per pin field as K.30 models, plus
+`containerOwnPinsSelf env J` HOISTED PER PIN — not per field.  That is
+the same order as `nestedInstMaps`, which already runs
+`containerOwnPinsAt` at every pin, so K.61's warning (the two
+whole-environment scans are read only at a GUARDED, rare field) is
+respected by the hoist and not by the guard.
+
+##### (b) ONE RECORD DOES NOT CLOSE (3) — THE HOLE IS ON BOTH SIDES
+
+The decisive check.  `hslotOrd` needs `tg₁ l = σ (tg₂ l)`, and `tg₂ l`
+is `(dJ.pinCtors qK).tgts j l` — the ROOT container's MODEL's number.
+`CopyCtorShape.ordF`'s right arm (`NestedFit.lean:932`) is
+
+    rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧
+      tg l < TV.k + TV.n ∧ EntryRead …
+
+on BOTH sides: it bounds `tg l` and says nothing else about it.  So
+side 2 has exactly the same hole as side 1, and a record about the
+BLOCK's rewrite cannot fill it — `dJ` is a stored container and its
+`pinCtors` come from `BlockAt`/`PinShapes`, not from this run.
+
+What fills it is the carry lane's own pattern, one arm over: K.67 is
+`J`'s run fact when `J` was installed, so it has to be CARRIED onto
+`PinShapes` as a clause and read back, exactly as the carry lane
+carried K.61's row and read it with `PinShapes.rowTarget`.  So (3) is
+
+1. K.67, in the corrected shape above (kernel + `nestedOrdTargetOk_at`
+   inversion + run conjunct + `NestedPinsRun.hK67`) — the BLOCK's side;
+2. a `PinShapes` clause at the `ordF` guard and its reader
+   (`rowTargetOrd`, say) — the CONTAINER's side, in
+   `NestedPremise.lean`, which is the carry lane's file;
+3. the model correspondence `hslotOrd` from (1) + (2).
+
+That is the carry lane's whole session AGAIN plus a kernel record —
+a doubling by the measure the brief set, and (2) is not in this lane's
+files.  Both stop conditions the brief named are met, so nothing was
+written.
+
+##### THE GUARD TABLE THAT MAKES IT A RECORD
+
+Unchanged from the row above, and it is the reason a record is needed
+at all: `rowTarget`/`hpinσ` and K.61 are at `(dK.rss i) = true`; K.62
+is at the right guard but NEGATIVE and against the copy's own
+container's map; `nestPinSpineAbs`/`Refl` are guarded by
+`nestOf = some q` with kind `.recursive`/`.reflexive`, which a
+container-ordinary field does not satisfy; and the shape's `ordF`-right
+arm carries `EntryRead` alone since the `TargetHead` refutation.
