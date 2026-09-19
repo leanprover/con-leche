@@ -123945,3 +123945,108 @@ demotable* on its own.
 e2e 200/200, the three sweeps as at the default worker count.  No
 `.lean` statement changed: the commit is two import lines, a header
 comment, one allowlist line and one fallback pair.
+
+#### WIDE (3) STEP 1 COMPLETE — THE REFLEXIVE ARM LANDED, AND THE TOWER COST FOUR BRICKS THE PRICE DID NOT NAME (lane LE, 2026-09-19)
+
+The previous row's §(c) priced the reflexive arm as "a file-section,
+not a lemma", by inputs: `copyOrdFRightReadRefl`'s tower peeling,
+`ordTargetDom_eq_instSeq` tower-carrying, the cut moved by
+`domPiDepth`, the reading off `reflOpen`'s last conjunct.  All four
+held.  What it did NOT name is that the tower needs FOUR new laws
+before any of them can be stated, and one of them is about the
+positivity WALK, not about syntax.
+
+##### (a) THE FOUR BRICKS
+
+* `stripDomPis_instSeq` (`Verify/Inductives/NestedCopyKinds.lean`) —
+  **an instantiation moves neither the tower's depth nor its body**:
+  `domPiDepth (instSeq vs t E) = domPiDepth E` and `stripDomPis` of it
+  is `stripDomPis E` at the cut `t + domPiDepth E`.  The constant-head
+  hypothesis is load-bearing and not decoration: without it the body
+  could be a `bvar` and the substitution could PLANT a `Π` there,
+  deepening the tower.  This is the whole content of "the two
+  spellings of the cut agree" — `ordTargetDom` strips before it
+  instantiates, the run instantiates the whole tower and opens
+  afterwards;
+* `stripPis_domPiDepth` + `openPis_domPiDepth` (same file) — a domain
+  opens at its OWN tower depth, with `stripDomPis` at the openers.
+  `stripPis_mkPisB`/`openPisAtFvars_mkPisB` do the work; what is new is
+  that `domPiDepth` is the right count to feed them;
+* `openPisAtFvars_count_unique` (same file) — **two openings at
+  constant-headed leaves peel the same number of binders.**  This is
+  how the recomputation's `domPiDepth` MEETS the copy's recorded
+  telescope length `tss`.  The alternative (a `domPiDepth` computation
+  through the walk) needs `instantiate1` to preserve the depth and was
+  dropped;
+* `normPosDomM_openPis_indApp`
+  (`Verify/Inductives/NestedCopyNorm.lean`) — **the walk's output opens
+  to the same leaf, at the same openers.**  The finitary arm's whole
+  use of the walk was ONE `normPosDomM_indApp_cons` (`w =
+  xI.fvarTypeD`); its reflexive twin is an induction over the tower.
+  `normPosDomM_forallE_inv`'s `Π` arm hands the binder DOMAIN back
+  untouched and recurses on the opened body, so the openers are
+  literally the input's; the `abstract1`/`instantiate1` round trip that
+  closes each binder is EXACT (not merely `ErasedEq`) because
+  `normPosDomM_pres` carries the output's leaves back into the input's
+  and `Expr.LeafCond` at the binder's own index is
+  `abstract1_instantiate1`'s side condition — `MutualNorm`'s pattern,
+  with `WScoped`/`looseBVarsBounded` as the only new premises.
+
+The premises are discharged at the call site and are NOT hypotheses of
+the deliverable: `openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`
+off `instPis_WScoped`/`looseBVarsBounded_instPis` at the minted
+constructor, which `copyResid`'s own `hccf`/`hccb` and the pin's
+scoping (`R.scoped` + `WScoped_of_openers`) supply.
+
+##### (b) WHAT LANDED
+
+`NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl`
+(`Model/Inductives/NestedCopyInst.lean`, end of `section Assembly`) —
+the finitary theorem's statement at `kindAt … = .reflexive`, with
+
+* `hfin` on `stripDomPis` of the level-instantiated stored domain (the
+  shape K.69's own dispatch reads), and
+* the cut `l + domPiDepth (ordTargetDomL …)` in all three places the
+  `hreadB` shape needs it (the depth, the opener list, the index).
+
+`hheadS` is NOT a hypothesis here: at a reflexive field the stored
+domain is a `Π`-tower and the finitary form is FALSE of it, so the
+head comes off `MutualOpened.reflF` at the tower's body, read back
+through the opening (`copyOrdFRightReadReflP`'s own `hheadRaw`).
+
+The chain: the recomputation splits into the field's `l` openers and
+the tower's (`Verify.openFvars` append, proved locally — the Verify
+tier's `NestedCopyKinds`/`NestedCopyInstU` do not reach
+`Verify/Denote/OpenVars`, and `omit [SetTheory V]` is refused inside
+this file's section, so it is a `have`); the block's and the run's
+stripped bodies are `ErasedEq` by the finitary argument verbatim
+(`instantiateList_openers_abstractRange_erasedEq` for the components,
+`openPisAtFvars_index` for the openers); the walk's opening fixes the
+depth and identifies the leaf with the normalisation's body; and
+`copyOrdFRightPinCorr` at the BODY (`fvs`, `tsq = |tss| - 1`) threads
+the index arguments, with `reflOpen`'s last conjunct in `eisRead`'s
+place.
+
+##### (c) THE SHAKE GATE AND THE BUDGET
+
+Step 0 (the previous row's §(d)) is closed — see the step-0 row.  The
+lane's authorised budget for steps 1–3 was ONE session; step 1 alone
+has now taken TWO (the finitary arm, then this), which is the doubling
+stop.  **Steps 2–5 are not started** and their price is unchanged: the
+`PinShapes` reading clause at the `ordF` guard with its `crossEnv`
+arm, the `PinGroupInst` conjunct, `hslotOrd`/`hfitc`, the switch, and
+`nestedPinWideStep`'s nine hypotheses.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 014e85ee`: 4 changed modules, `lake build` 4
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` (run alone): 514 removals proposed, all allowlisted;
+none demotable.  `tests/unconsumed.sh` 198/3814 against 197/3806; the
+diff read: the only entry that MOVES is
+`copyOrdFRightPinOrdTargetReadRefl` ENTERING beside its finitary twin,
+both waiting on step 2's clause — all seven helper laws have consumers,
+and nothing of the `pins_le_*` / `NestedPinsLe`-producer family moved
+(`pins_le_of_declOrder` stands where it stood).  `#print axioms` on the
+deliverable and on all six new Verify laws: `propext`,
+`Classical.choice`, `Quot.sound`.
