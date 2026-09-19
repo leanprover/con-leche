@@ -239,7 +239,33 @@ theorem whnfCore_bridge_succ (hwc : WhnfCoreBridge env fuel)
     (hw : WhnfBridge env fuel) (hd : DefEqBridge env fuel)
     (hio : InferIOBridge env fuel) :
     WhnfCoreBridge env (fuel + 1) := by
-  sorry
+  intro d e e' h
+  match e, h with
+  | .sort _, h | .fvar _ _, h | .forallE _ _ _, h | .lam _ _ _, h
+  | .const _ _, h | .lit _, h =>
+    cases Except.ok.inj h; exact .refl
+  | .bvar _, h =>
+    rw [whnfCore_succ] at h
+    simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+  | .letE _ _ _, h => exact (whnfCore_letE_inv h).elim
+  | .app f a, h =>
+    obtain ⟨f', hf, hcase⟩ := whnf_app_inv h
+    have hRf : Red env d (.app f a) (.app f' a) := .appFn (hwc hf)
+    rcases hcase with ⟨ty, body, mb, rfl, hbody, hcert⟩ | ⟨e'', hiota, hcont⟩ | rfl
+    · refine .trans hRf (.trans ?_ (hwc hbody))
+      rcases hcert with hg | ⟨ta, hta, hde⟩
+      · exact .betaGate (by simpa [betaGateFires] using hg)
+      · exact .beta (inferTypeIO_bridge hio hta) (hd hde)
+    · exact .trans hRf (.trans (iotaRec_bridge hw hd hio hiota) (hwc hcont))
+    · exact hRf
+  | .proj sn i pe, h =>
+    obtain ⟨e₂, e₃, hwh, hlit, hcase⟩ := whnf_proj_inv h
+    have hR : Red env d (.proj sn i pe) (.proj sn i e₃) :=
+      .trans (.projArg (hw hwh)) (.projArg (projLitToCtor_bridge hw hlit))
+    rcases hcase with rfl | ⟨us, entry, hfn, hfp, hi, hlen, hus, hfire, hcont, hcert⟩
+    · exact hR
+    · obtain ⟨cvC, nP, nF, hc, hcerts⟩ := projCertAt_bridge hd hio hcert
+      exact .trans hR (.trans (.proj hfp hfn hi hlen hus hfire hc hcerts) (hwc hcont))
 
 /-- One `whnfStep` under a bridged continuation is a `Red` chain
 (`whnfStep_inv`: `whnfCore`, then acceleration or δ into `k`, or the
