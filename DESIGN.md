@@ -122817,3 +122817,61 @@ So the middle term is the recomputation for the SYNTAX, as the
 coordinator says, but not for the READINGS, and `Eis₂` is a reading.
 K.69 would give side 1 outright; side 2 still costs the carry plus the
 bridge.
+
+#### WIDE (3) (1) THE PIN HALF REPAIRED — `hfireOrd` WEAKENED, THE MIXED ARM ADDED, AND THE ENTRY BACK ON SIDE 1 ONLY (lane LE, 2026-09-19)
+
+The soundness repair (a) named, landed.
+
+##### WHAT MOVED
+
+* `copyTransfer_via_pin` no longer takes `hfireOrd` AT ALL.  Its
+  ordinary branch now has FOUR arms, and the lemma is symmetric in its
+  two sides, which is what lets `copyTransfer_iff_pin` apply it in both
+  orientations under an ASYMMETRIC fact:
+
+  | `rs₁` | `rs₂` | closes with |
+  |---|---|---|
+  | false | false | `ordF`-left on both sides, `hcdom` |
+  | false | true | **`hmixOrd`**, the one arm that costs a hypothesis |
+  | true | true | `hdom₁` + `hslotOrd` |
+  | true | false | `hdom₁` + `hcdom` + `h₂.ordF`-left — **free** |
+
+  `hmixOrd` is `hdom₂`'s reverse at the mixed guard: the container's
+  domain at side 1's frame lands in SIDE 2's slot.
+* `copyTransfer_iff_pin` keeps `hfireOrd`, WEAKENED to the single
+  implication `rs₂ = true → rs₁ = true`, and gains `hentOrd₁`.  The
+  FORWARD call discharges `hmixOrd` vacuously from `hfireOrd`; the
+  BACKWARD call — where the sides are swapped and the surviving
+  implication points the wrong way — discharges it from `hentOrd₁`.
+* `pinClassFit_of_transfer` and `nestedPinFit_pin` carry the same two
+  in the consumers' spelling.
+
+##### WHY ONLY SIDE 1's ENTRY COMES BACK
+
+WIDE (3′) step (1) replaced `hent₁`/`hent₂` by the iff, and only side
+2's removal was sound.  The combination that would need `hent₂` — the
+root fires and the block does not — is now RULED OUT rather than
+assumed: a root that fires is constant-headed, a substitution cannot
+change a constant head, and a constant-headed inductive application is
+its own `whnf` (K.22 `whnf_indApp_eq`, `normPosDomM_indApp`).  The
+combination that needs `hent₁` — the block fires and the root does not
+— is REAL (the `β trivial` corner), and its target leaves the
+instance, which is exactly the entry NESTED.md §7 says the
+identification consumes and the instance induction supplies.  So the
+repair costs one hypothesis on one side and buys back soundness.
+
+##### THE COUNT THE ROW WAS ASKED FOR — NOT MEASURABLE TODAY, AND THE REASON IS K.67's OWN
+
+A `--nested-shadow` count of the mixed corner at nested-in-nested
+depth cannot be taken with today's binary.  The corner is "the ROOT's
+copy did not fire at this field", and the root's classification of that
+field is precisely the datum its install did not keep — the nested
+install RESTORES and the scratch environment is dropped, which is why
+K.67 RECOMPUTES rather than reads.  K.67's control counts only the
+block's side (4 of 42 e2e rows, 0 of 1 `init-full`, 5 of 41 Mathlib).
+The corner becomes countable exactly when the recomputation K.69 would
+add exists — so the measurement is K.69's, not this row's, and that is
+recorded rather than guessed at.
+
+Build, `lake test` and `tests/warning-free.sh` green; no `Kernel/`,
+`Cached/` or `Verify/` file moved.

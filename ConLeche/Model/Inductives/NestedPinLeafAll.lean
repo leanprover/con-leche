@@ -3410,8 +3410,21 @@ and it has no source in the SHAPE: the `ordF`-right arm carries
 `EntryRead` and nothing about the target, `TargetHead` having been
 refuted at an accepted block.
 
-`hfireOrd` is the other half of the same fact: the two copies fire
-together at such a field.
+`hfireOrd` is NOT the other half of the same fact, and the corner
+says why.  `K`'s field `β trivial` at a parameter `β` is STUCK at the
+root, where `β` is the root's own parameter, and the block's
+instantiation `β := fun _ => Foo` unblocks it: the positivity `whnf`
+reduces the redex and the BLOCK's copy fires where the root's did
+not.  So the two copies do not fire together; what survives is the ONE
+direction `rs₂ → rs₁` — a root that fires is CONSTANT-headed, a
+substitution cannot change a constant head, and a constant-headed
+inductive application is its own `whnf` (K.22 `whnf_indApp_eq`,
+`normPosDomM_indApp`).  The mixed case is therefore an ARM, and this
+lemma takes it as `hmixOrd`: at a field where side 1 is silent and
+side 2 fired, the container's domain lands in side 2's slot.  In the
+direction where it is SIDE 1 that fired the arm is free — `hdom₁`
+into the container's domain and `hcdom` across the frames — which is
+why only one of the four combinations costs a hypothesis.
 
 `copyTransfer_via` is untouched and keeps serving the covering
 (`nestedPinPair_pin`); this twin serves the FIT's pin half alone. -/
@@ -3443,9 +3456,15 @@ theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
           (X₁ (tg₁ l))
         ⊆ˢ interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
             (((dK.Fss i ψ₁).getD j []).getD l default))
-    (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+    (hmixOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
-      (rs₁.getD l false = true ↔ rs₂.getD l false = true))
+      rs₁.getD l false = false → rs₂.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+          (((dK.Fss i ψ₁).getD j []).getD l default)
+        ⊆ˢ slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+            (X₂ (tg₂ l)))
     (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → rs₂.getD l false = true →
@@ -3529,29 +3548,43 @@ theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
           exact hcd.eissBelow ψ₂ fs₁.length e hmem
       rw [hcongr]
       exact slotSet_mono_app (hrel _ hl hr)
-    · -- container-ORDINARY: the two copies FIRED TOGETHER (`hfireOrd`),
-      -- so the arm is the slot correspondence and not an entry — the
-      -- container's domain is not an intermediary here, because at a
-      -- field the container calls ordinary it has no recursive datum
-      -- to normalise both sides into (`slot_container` is stated for
-      -- container-recursive fields only)
+    · -- container-ORDINARY: the four firing combinations, and only ONE
+      -- of them needs an entry.  `hfireOrd` is the direction that
+      -- SURVIVES the block's substitution (a root that fires is
+      -- constant-headed, and a constant head is its own `whnf`); the
+      -- other direction is false — a root STUCK at a variable head is
+      -- unblocked by the block's instantiation — so the mixed case is
+      -- an arm here, not an excluded one.
       have hr' : ((dK.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
       rcases h₁.ordF _ hl hr' with ⟨hrC₁, hFeq₁⟩ | ⟨hrC₁, -, -, -⟩
-      · -- neither copy fired: both read the container's own domain
-        have hrC₂ : rs₂.getD fs₁.length false = false := by
-          by_cases hb : rs₂.getD fs₁.length false = true
-          · rw [(hfireOrd _ hl hr').mpr hb] at hrC₁; exact nomatch hrC₁
-          · simpa using hb
-        rcases h₂.ordF _ hl₂ hr' with ⟨-, hFeq₂⟩ | ⟨hrC₂', -, -, -⟩
-        · rw [if_neg (by rw [hrC₁]; exact Bool.false_ne_true), hFeq₁ fs₁ rfl hsp,
-            interp_instAll, if_neg (by rw [hrC₂]; exact Bool.false_ne_true),
-            hFeq₂ fs₁ rfl hsp₂, interp_instAll, ← hcdom]
-          exact ⟨Subset.refl _, Subset.refl _⟩
-        · rw [hrC₂] at hrC₂'; exact nomatch hrC₂'
-      · -- both fired: the slot correspondence at the σ-related targets
-        have hrC₂ : rs₂.getD fs₁.length false = true := (hfireOrd _ hl hr').mp hrC₁
-        rw [if_pos hrC₁, if_pos hrC₂]
-        exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hslotOrd _ hl hr' hrC₁ hrC₂ fs₁ rfl⟩
+      · by_cases hb : rs₂.getD fs₁.length false = true
+        · -- side 1 silent, side 2 fired: the ONE arm that needs an
+          -- entry, and the one this direction takes as `hmixOrd`
+          rw [if_neg (by rw [hrC₁]; exact Bool.false_ne_true), hFeq₁ fs₁ rfl hsp,
+            interp_instAll, if_pos hb]
+          exact ⟨Subset.refl _, hmixOrd _ hl hr' hrC₁ hb fs₁ rfl hsp⟩
+        · -- neither copy fired: both read the container's own domain
+          have hrC₂ : rs₂.getD fs₁.length false = false := by simpa using hb
+          rcases h₂.ordF _ hl₂ hr' with ⟨-, hFeq₂⟩ | ⟨hrC₂', -, -, -⟩
+          · rw [if_neg (by rw [hrC₁]; exact Bool.false_ne_true), hFeq₁ fs₁ rfl hsp,
+              interp_instAll, if_neg (by rw [hrC₂]; exact Bool.false_ne_true),
+              hFeq₂ fs₁ rfl hsp₂, interp_instAll, ← hcdom]
+            exact ⟨Subset.refl _, Subset.refl _⟩
+          · rw [hrC₂] at hrC₂'; exact nomatch hrC₂'
+      · by_cases hb : rs₂.getD fs₁.length false = true
+        · -- both fired: the slot correspondence at the σ-related targets
+          rw [if_pos hrC₁, if_pos hb]
+          exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hslotOrd _ hl hr' hrC₁ hb fs₁ rfl⟩
+        · -- THE MIXED CORNER: side 1 fired and side 2 did not.  FREE —
+          -- the copy's slot lands in the container's domain (`hdom₁`)
+          -- and that domain is ONE set at either frame (`hcdom`), which
+          -- is what side 2 reads there
+          have hrC₂ : rs₂.getD fs₁.length false = false := by simpa using hb
+          rcases h₂.ordF _ hl₂ hr' with ⟨-, hFeq₂⟩ | ⟨hrC₂', -, -, -⟩
+          · rw [if_pos hrC₁, if_neg (by rw [hrC₂]; exact Bool.false_ne_true),
+              hFeq₂ fs₁ rfl hsp₂, interp_instAll, ← hcdom]
+            exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hdom₁ _ hl hrC₁ fs₁ rfl hsp⟩
+          · rw [hrC₂] at hrC₂'; exact nomatch hrC₂'
   · -- the index equations
     intro l hl
     rw [hnI₂] at hl
@@ -3576,8 +3609,18 @@ theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
 /-- **THE TRANSFER BOTH WAYS, PIN HALF** (task #315 WIDE (3′)):
 `copyTransfer_iff` on `copyTransfer_via_pin`, so the `ordF`-right arm
 is the two copies' SLOT CORRESPONDENCE (`hslotOrd`, an equality here
-because the iff spends it in both directions) and their firing
-together (`hfireOrd`), rather than an entry on each side.
+because the iff spends it in both directions) rather than an entry on
+each side.
+
+`hfireOrd` is the SINGLE implication `rs₂ → rs₁` (see the twin's
+docstring for the corner that refutes the converse), and it discharges
+the forward direction's mixed arm VACUOUSLY.  The backward direction's
+mixed arm is the one that costs: there the block fired and the root did
+not, and the root's own domain has to land in the BLOCK's slot —
+`hentOrd₁`, the entry at a target that LEAVES the instance, which the
+instance induction supplies (NESTED.md §7).  Restoring it on side 1
+alone is the correction: WIDE (3′) step (1) removed the entry arm from
+both sides, and only side 2's removal was sound.
 
 `copyTransfer_iff` is untouched; this twin is what the FIT's pin half
 runs on. -/
@@ -3618,7 +3661,16 @@ theorem copyTransfer_iff_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
             (((dK.Fss i ψ₂).getD j []).getD l default))
     (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
-      (rs₁.getD l false = true ↔ rs₂.getD l false = true))
+      rs₂.getD l false = true → rs₁.getD l false = true)
+    (hentOrd₁ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      rs₂.getD l false = false → rs₁.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+      interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+          (((dK.Fss i ψ₂).getD j []).getD l default)
+        ⊆ˢ slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+            (X₁ (tg₁ l)))
     (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → rs₂.getD l false = true →
@@ -3641,14 +3693,16 @@ theorem copyTransfer_iff_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
   constructor
   · rintro ⟨hfit, hidx⟩
     exact copyTransfer_via_pin hreps hi hkK hj hψ hρ hwK huT hIdsLen hw₁ hw₂ hu₁ hu₂ hnI₁ hnI₂
-      h₁ h₂ hdom₁ hfireOrd
+      h₁ h₂ hdom₁
+      (fun l hl hr h1 h2 _ _ _ =>
+        absurd (hfireOrd l hl hr h2) (by rw [h1]; exact Bool.false_ne_true))
       (fun l hl hr h1 h2 fs₁ hl₁ => by rw [hslotOrd l hl hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
       (fun l hl hr t' => by rw [hrel l hl hr]; exact Subset.refl _) t fs hfit hidx
   · rintro ⟨hfit, hidx⟩
     exact copyTransfer_via_pin hreps hi hkK hj (fun p hp => (hψ p hp).symm)
       (fun v hv => (hρ v hv).symm)
       hwK.symm (fun l => (huT l).symm) hIdsLen.symm hw₂ hw₁ hu₂ hu₁ hnI₂ hnI₁ h₂ h₁ hdom₂
-      (fun l hl hr => (hfireOrd l (by rwa [hF]) hr).symm)
+      hentOrd₁
       (fun l hl hr h2 h1 fs₁ hl₁ => by
         rw [hslotOrd l (by rwa [hF]) hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
       (fun l hl hr t' => by
@@ -3769,7 +3823,8 @@ through it.
 At an `ordF`-right field (ordinary for the container, recursive for
 both copies) neither side has an entry to spend, so the passage is not
 through `dK`'s domain there but DIRECTLY between the two copies:
-`hfireOrd` says they fire together and `hslotOrd` says their slots are
+`hfireOrd` says a root firing forces a block firing, `hentOrd₁`
+carries the mixed case's entry, and `hslotOrd` says their slots are
 the same set. -/
 theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockModel V}
     {acval : Name → (Name → Nat) → AnnotTerm}
@@ -3817,7 +3872,17 @@ theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockM
             (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default))
     (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
-      (rs₁.getD l false = true ↔ ((dJ.pinCtors qK).rss.getD j []).getD l false = true))
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true → rs₁.getD l false = true)
+    (hentOrd₁ : ∀ l, l < ((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = false → rs₁.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
+      interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
+          (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default)
+        ⊆ˢ slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+            (X₁ (tg₁ l)))
     (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
@@ -3837,7 +3902,7 @@ theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockM
     ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs := by
   subst hcq
   refine Iff.trans (copyTransfer_iff_pin hreps hi hkK hj hψ hρ hwK huT hIdsLen hw₁ hw₂ hu₁
-    (fun i' hi' => hu₂ i' hi') hnI₁ hnI₂ h₁ h₂ hdom₁ hdom₂ hfireOrd hslotOrd hrel t fs) ?_
+    (fun i' hi' => hu₂ i' hi') hnI₁ hnI₂ h₁ h₂ hdom₁ hdom₂ hfireOrd hentOrd₁ hslotOrd hrel t fs) ?_
   exact (BlockModel.chainFitT_of_pin (d := dJ) (pc := dJ.pinCtors) hc).symm
 
 /-- **THE OWN-PIN HALF IN `hfit_wide_of_inst`'s SHAPE**: the count and
@@ -4673,8 +4738,24 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
             ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default))
     (hfireOrd : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       (((dJf a).rss i).getD j []).getD l false = false →
-      (((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true
-        ↔ ((dJ.pinCtors qK).rss.getD j []).getD l false = true))
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true)
+    (hentOrd₁ : ∀ l, l < (((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
+      interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
+          ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default)
+        ⊆ˢ slotSet (f₀.s.eval ψ)
+            (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + a + i) + j) []).getD l 0)) (consList fs₁ ρp)
+            (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+            (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+            (X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + a + i) + j) []).getD l 0)))
     (hslotOrd : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       (((dJf a).rss i).getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
@@ -4755,7 +4836,7 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
       show nestedU p.k W pinsS ψ (p.k + a + i') = _
       rw [Nat.add_assoc, nestedU_pin]
       exact G.syn.pinU i hi ψ i' hi')
-    hu₂ hnI hnI₂ hsh h₂ hdom₁ hdom₂ hfireOrd hslotOrd hrel t fs
+    hu₂ hnI hnI₂ hsh h₂ hdom₁ hdom₂ hfireOrd hentOrd₁ hslotOrd hrel t fs
 
 /-- **`hpair` at a MEMBER class of the root** (task #315 L-E, DESIGN
 §U.72): `nestedPinPair_mem` with its three premises discharged —
