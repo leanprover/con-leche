@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.LitParams
 import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.IOLicense
 
 public section
