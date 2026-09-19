@@ -4,9 +4,8 @@ module
 -- `hoist_spine`, `frame_spine`, `denoteMeta_mkAppN(_inv)`, the
 -- `PiChain` guard and the tower entry's reading live there
 public import ConLeche.Model.Rules.RedSoundKit
-public import ConLeche.Model.Inductives.StructIntro
 import ConLeche.Model.CtxOkKit
-public import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.PropRead
 import ConLeche.Model.IOLicense
@@ -20,8 +19,7 @@ facts below cannot see the reduct.  `import all` restores that view
 HERE only — the transplant of `Model/Steps/IrrelFast.lean`, which
 carries the same escape for the same reason. -/
 import all ConLeche.Kernel.PropWhen
-public import ConLeche.Semantics.DefEqStep
-public import ConLeche.Semantics.Hoist
+import ConLeche.Semantics.Hoist
 
 public section
 

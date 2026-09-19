@@ -6,8 +6,6 @@ public import ConLeche.Model.Rules.Inputs
 -- `mkAppN_of_fitA`, `PiChain`/`peelPis_of_piChain` and the tower
 -- entry's reading live there, not here.
 import ConLeche.Model.Rules.RedSoundKit
-import ConLeche.Model.CtxOkKit
-import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitShift
 import ConLeche.Verify.Denote.OpenRevDenote

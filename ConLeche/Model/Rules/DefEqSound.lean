@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.Rules.DefEqSoundKit
+import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.CtxOkKit
+import ConLeche.Semantics.DefEqStep
 
 public section
 

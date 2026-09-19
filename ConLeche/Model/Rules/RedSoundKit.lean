@@ -1,16 +1,15 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.Annot.BitLemmas
-public import ConLeche.Model.Annot.BitClosed
-public import ConLeche.Model.Annot.BitInstall
+import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitClosed
+import ConLeche.Model.Annot.BitInstall
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Denote.StrLit
-public import ConLeche.Model.Annot.BitInst
-public import ConLeche.Model.WellDenotedTransport
-public import ConLeche.Model.IOLicense
+import ConLeche.Model.WellDenotedTransport
+import ConLeche.Model.IOLicense
 
 public section
 

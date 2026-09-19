@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Rules.Rel
-public import ConLeche.Model.Claims
 public import ConLeche.Model.Annot.EnvModelM
 
 public section
