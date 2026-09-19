@@ -1,10 +1,7 @@
 module
 
-import ConLeche.Kernel.Env
-public import ConLeche.Kernel.PropRead
 import ConLeche.Kernel.Level
 import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.Basis
 public import ConLeche.Kernel.CoreDefs
 
 @[expose] public section
