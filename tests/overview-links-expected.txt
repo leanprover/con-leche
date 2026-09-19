@@ -262,17 +262,14 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2908-L2917
-  2908        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2909        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2910        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2911        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2912        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2913    | fuel + 1 =>
-  2914      wrap
-  2915        { whnfCore := fun d e =>
-  2916            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2917          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L1927-L1933
+  1927    | 0 =>
+  1928      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1929        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1930        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1931        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1932        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  1933        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
 
 == ConLeche/Model/Fold.lean#L308-L315
    308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -308,11 +305,11 @@
 == ConLeche/Kernel/Env.lean#L59
     59  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L2065
-  2065  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1097
+  1097  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L2788
-  2788        -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+== ConLeche/Kernel/Core.lean#L1804
+  1804  def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -758,36 +755,36 @@
     53  task #227).  (Members' parameter telescopes and sorts are not
     54  compared: task #218, `Mutual.lean`'s header.)
 
-== ConLeche/Kernel/Core.lean#L582-L590
-   582  /-- The certified structural-`Nat` operations.  Six of them
-   583  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   584  here without one — it has no fast path (official's `reduce_nat` folds
-   585  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   586  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   587  must be certified for `sub`'s literal fold to be sound. -/
-   588  def natOpNames : List Name :=
-   589    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   590     natBeqName, natBleName]
+== ConLeche/Kernel/CoreDefs.lean#L473-L481
+   473  /-- The certified structural-`Nat` operations.  Six of them
+   474  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   475  here without one — it has no fast path (official's `reduce_nat` folds
+   476  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   477  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   478  must be certified for `sub`'s literal fold to be sound. -/
+   479  def natOpNames : List Name :=
+   480    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   481     natBeqName, natBleName]
 
-== ConLeche/Kernel/Core.lean#L514-L531
-   514  /-! ## Structural-Nat literal acceleration
-   515  
-   516  The official kernel accelerates the structural `Nat` operations on
-   517  literals (GMP-backed there).  Here the fast path is *certified*: an
-   518  operation participates only when its defining recurrence equations
-   519  hold by definitional equality — checked once, at install: `checkDecl`
-   520  positively rejects a nonstandard definition under one of these names,
-   521  so *presence in the store is the certificate* (no runtime flag, no
-   522  re-checking; a reduction-time re-check would in fact livelock — the
-   523  certification's own `pred zero` equation re-enters the fast path).
-   524  
-   525  The certification runs in the environment *before* the operation is
-   526  stored, on the equations with the operation's self-references replaced
-   527  by its (annotated) definition value (`Expr.substConst0`): running it
-   528  after insertion would let the operation's own just-enabled fast path
-   529  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   530  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   531  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/CoreDefs.lean#L405-L422
+   405  /-! ## Structural-Nat literal acceleration
+   406  
+   407  The official kernel accelerates the structural `Nat` operations on
+   408  literals (GMP-backed there).  Here the fast path is *certified*: an
+   409  operation participates only when its defining recurrence equations
+   410  hold by definitional equality — checked once, at install: `checkDecl`
+   411  positively rejects a nonstandard definition under one of these names,
+   412  so *presence in the store is the certificate* (no runtime flag, no
+   413  re-checking; a reduction-time re-check would in fact livelock — the
+   414  certification's own `pred zero` equation re-enters the fast path).
+   415  
+   416  The certification runs in the environment *before* the operation is
+   417  stored, on the equations with the operation's self-references replaced
+   418  by its (annotated) definition value (`Expr.substConst0`): running it
+   419  after insertion would let the operation's own just-enabled fast path
+   420  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   421  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   422  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L110-L117
    110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -802,23 +799,23 @@
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
 
-== ConLeche/Kernel/Core.lean#L592-L607
-   592  /-- The WF-recursive operations with a *pinned-declaration* certified
-   593  fast path: at install, `checkDecl` compares the stream's definition
-   594  against a vendored pin of the toolchain's own (helper-unfolded)
-   595  definition by definitional equality, and then checks the pinned
-   596  `Nat.ble`-guarded characterization certificates
-   597  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   598  installing them.  Presence in the store is therefore again the
-   599  capability: a stored operation under one of these names has passed pin
-   600  and certificates, or the install declined.  (The name is historic:
-   601  the family started with `Nat.div`/`Nat.mod` and now covers every
-   602  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   603  `Nat.log2` left the list when its fast path did, official folding no
-   604  unary operation but `Nat.succ`.) -/
-   605  def natDivModNames : List Name :=
-   606    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   607     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/CoreDefs.lean#L483-L498
+   483  /-- The WF-recursive operations with a *pinned-declaration* certified
+   484  fast path: at install, `checkDecl` compares the stream's definition
+   485  against a vendored pin of the toolchain's own (helper-unfolded)
+   486  definition by definitional equality, and then checks the pinned
+   487  `Nat.ble`-guarded characterization certificates
+   488  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   489  installing them.  Presence in the store is therefore again the
+   490  capability: a stored operation under one of these names has passed pin
+   491  and certificates, or the install declined.  (The name is historic:
+   492  the family started with `Nat.div`/`Nat.mod` and now covers every
+   493  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   494  `Nat.log2` left the list when its fast path did, official folding no
+   495  unary operation but `Nat.succ`.) -/
+   496  def natDivModNames : List Name :=
+   497    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   498     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
