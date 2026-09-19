@@ -72868,3 +72868,508 @@ divergences.
   and `DefEq.absentArg`, belong in `Rel.lean` when that spike lands
   (the checker sites do not exist yet; the rules would be premise-exact
   against them).
+
+## TASK #306 — FAST CORES: NbE (sokonanoda) and delayed substitution (nanoclo) — a design study (2026-09-19, `agent/fastcore-306`, read-only)
+
+**The ask** (the maintainer, verbatim): *"As https://arena.lean-lang.org/
+shows clearly there are much faster checkers out there, in particular
+sokonanoda (NbE, plus other heavy optimization tricks) and nanoclo
+(delayed substitutions).  There is no reason why we cannot have these
+as well, can we?  Maybe even as an alternative, but verified, core
+with a flag to choose.  [For either approach:] Would we need a new
+Expr type, a cheaply extended Expr type, or can we use the Expr?  Can
+we change the code in that way without touching (too much) of the env
+handling, the inductives etc?  Is this purely an implementation detail
+of defeq/whnf or more?  Where would a soundness proof lie?  Reduction
+to the pure run?  Reduction to the declarative rules we just
+introduced?  Or do we have to go all the way to Claims?  Is this
+approach a good fit for Lean as a host language (those checkers are in
+rust)?  Should we attempt one, the other, or even both?"*
+
+**What this section is.**  A read-only study: no code changes, no
+build.  Three research notes are committed under `docs/study-306/`
+(`sokonanoda.md` 873 lines, `nanoclo.md` 1275, `conleche-perf.md`
+516, every claim with a `file:line` into the reference checkouts at
+`_tmp/ref/{sokonanoda,nanoclo,nanoda_lib}` or into this tree) plus
+the arena's `results.json` rendered as `arena-2026-09-19.txt`.  This
+section condenses them and answers the questions; the notes hold the
+evidence.  Line citations into `Core.lean` are against master
+`c431b1ca` (before the task #305 CoreDefs split); the rules are cited
+on `agent/rules-305` (`ConLeche/Rules/Rel.lean`).
+
+### 1. The arena picture, and what dominates con-leche's cost
+
+Arena `results.json`, generated 2026-09-19 08:59 UTC at arena rev
+`f6280771`; `instructions` = `instructions:u`, wall = 4 threads where
+the checker takes them (con-leche runs `--verified --jobs=4`).
+
+| checker (arena rev) | mathlib instr | mathlib wall | init | std | cslib | app-lam | beta-ladder | magma-list-deep-n36 | grind-ring-5 |
+|---|---|---|---|---|---|---|---|---|---|
+| sokonanoda (28c03d0) | **743 G** | 54 s | 39 G | 65 G | 248 G | 5.8 G | **50.5 G** | 28 G | 2.0 G |
+| mathgraph (sokonanoda fork) | 833 G | 44 s | 53 G | 83 G | 272 G | 0.2 G | 4.4 G | 31 G | 2.4 G |
+| nanoclo (cdeb070) | 2 841 G | 187 s | 121 G | 201 G | 778 G | **0.1 G** | **0.03 G** | 140 G | 4.1 G |
+| nanoda (4c544ed) | 6 463 G | 418 s | 206 G | 328 G | 1 222 G | 26 G | 7.6 G | 219 G | 8.3 G |
+| official (v4.34.0-rc2) | 11 834 G | 2 035 s | 367 G | 617 G | 2 429 G | 29 G | 10.0 G | 175 G | 12.9 G |
+| **con-leche** (2f53a7b) | **12 903 G** | 429 s | 579 G | 961 G | 3 423 G | **168 G** | **43 G** | **348 G** | 24 G |
+| lean4lean (bce3448) | 14 346 G | 1 704 s | 530 G | 863 G | 3 279 G | 30 G | 10 G | 235 G | 17 G |
+
+Reading it: con-leche is at instruction parity with the official
+kernel (1.09× on Mathlib; PERF.md at `1d470aa7` says 1.06× trusted /
+1.14× verified against v4.33.0), and the two Lean-hosted syntactic
+kernels bracket the C++ one — *"written in Lean is not the gap; the
+architecture is"* (the lean4lean control, `DESIGN.md:27014-27023`).
+sokonanoda retires **17× fewer** instructions than con-leche on
+Mathlib, nanoclo 4.5× fewer.  The rows where con-leche is furthest
+behind are the binder-ladder fixtures — `app-lam` ×5.7 official,
+`beta-ladder` ×4.3, and the `magma` decide-certificates at ×2 — and
+they are exactly the rows where nanoclo goes to ~0 and where
+sokonanoda is *not* uniformly better (`beta-ladder`: strict evaluation
+costs it 50 G against nanoclo's 0.03 G).  Those four rows are 0.6 T of
+a 12.9 T Mathlib run, so they are a diagnosis, not the prize.
+
+**What the time is** (`docs/study-306/conleche-perf.md` §C–D, all
+from DESIGN records; there is NO per-function profile of the shipped
+binary, finding F1): the allocator and the reference counter are
+34–50 % of every profile (`lean_dec_ref_cold` 10–23 %, `mi_malloc_small`
+6–16 %); the substitution walks (`instantiate*Go`, `abstractRangeGo`)
+and their per-walk `Std.HashMap` memos 11–18 %; `Expr.beq` bucket
+probes 1–7 % after task #240 (39–46 % of the slowest declarations
+before it); the core bodies `whnfCoreBodyI`/`defeqStepI`/`inferBodyI`
+**never reach 1 %**.  A β step is a memoised DAG rebuild of the body
+cut at the exact loose-bvar bound (`Cached/ExprOpsC.lean:281-347`), one
+`Prod` allocation and one hash probe per rebuilt node, and every rebuilt
+node is a *fresh object* that no memo probe can recognise by pointer
+(`DESIGN.md:51944-51953`, task #240's 8.9-billion-node walk).  That is
+the cost NbE and delayed substitution attack: **closing over an
+environment instead of rebuilding a body.**
+
+**The certificates are not the gap.**  `--verified` minus `--trusted`
+(PERF.md:20-28): Mathlib 12.01 T vs 11.16 T = **+7.6 %**, init-full
++3.3 %, grind-ring-5 +5.3 %, and **0.00 %** on `app-lam`, `beta-ladder`,
+`let-ladder` — `.trusted` skips every certificate family outright
+(`Kernel/Env.lean:163-165`, `CheckMode.certs`).  The io grade (task
+#170/#172 B4) brought the internal-inference tax from the 10–26 % of
+2026-09-02 (`DESIGN.md:22582-22588`) to this.  So a fast core's
+verified mode is bounded by ~8 % over its own trusted mode on Mathlib
+*if the certificates keep costing what they cost*; the 17× lives
+elsewhere.  Section 6 says what the certificates do to a fast core.
+
+**What neither core touches**: the parse (2.3 % of the Mathlib run),
+the install phase (150 s of 1143 s at `--jobs=1` = 13 %, and 56 % of
+the eight-worker run — the sequential floor, which a faster check
+phase makes *worse*), the `annotate` pass's own traversal, and the
+heap-locality effect of task #269 (the same instructions at IPC 1.29
+vs 2.59 depending on the heap; `DESIGN.md:67845-67870`).
+
+### 2. sokonanoda, condensed (`docs/study-306/sokonanoda.md`)
+
+13 kloc Rust, smalltt-style NbE with **glued** values.  Syntax
+(`src/expr.rs:17-76`): a 40-byte hash-consed `Expr`, de Bruijn indices,
+no binder names, a cached hash and a **64-bit `fv_mask`** of the loose
+bvars a node reads.  Values (`src/value.rs:89-135`): `Rigid {head,
+spine}` with `RigidHead::BVar(level, type)` — **a de Bruijn level
+carrying its own type, exactly con-leche's `.fvar idx ty`** — `Unfold
+{head, spine, head_value: &OnceCell, forced: OnceCell}` (a constant
+application remembering both its folded and its unfolded form),
+`Lam`/`Pi` closures `{env, body: ExprPtr}`, literals, and a `Thunk`
+that is **never constructed**: evaluation is call-by-value
+(`eval.rs:663`), δ the only laziness.  Environments are pruned to the
+term's `fv_mask` and interned (`eval.rs:91-112`, `271-279`), so the
+eval and type caches are keyed by "(what this term reads, this
+term)".  `apply` on a `Lam` extends the environment and evaluates the
+body at once (`eval.rs:864-901`); `eval_const` makes `Unfold` for
+definitions and theorems (`:744-768`).  `unify` (`conv.rs:85-360`):
+`ptr::eq`; pos/neg pair caches keyed by addresses; Nat literal
+bridging; same-head spines **with Prop-typed and body-absent positions
+skipped** (`relevance.rs`, `conv.rs:509-513`); `Unfold/Unfold` same
+head → a **budgeted speculative spine probe** (2048 steps,
+`conv.rs:396-428`) then proof irrelevance then unfold both; different
+heads → unfold the greater hint; binders opened at one fresh
+`BVar(depth)`; λ-η **without inferring the other side's type**
+(`conv.rs:555-560`); unit-like and structure η.  ι evaluates the rule
+RHS as a closure once per (rule, levels) (`eval.rs:1695-1732`); 15 Nat
+ops on `BigUint` plus `Nat.div.go`/`Nat.modCore.go` by fiat.
+Inference (`infer.rs:77-172`) runs on **syntax under a value
+environment** and defers a λ's codomain as an "infer closure"
+(`eval.rs:930-936`).  The inductive installer is nanoda's, on syntax
+(2134 lines), reading values back with `quote`.  ~35 per-thread
+caches, **~20 keyed by raw addresses**, cleared with the bump arena;
+one cross-declaration **whnf store** keyed by a 64-bit digest
+verified by a 128-bit one, holding quoted syntax (`eval.rs:1083-1158`).
+Shared-nothing threads, 2 GiB stacks; theorem values ARE checked;
+every failure is a `panic!`.  The only quantified attribution in the
+repository: **NbE = 35 % at +40 % peak memory**, interning 5 % + 10 %.
+
+### 3. nanoclo, condensed (`docs/study-306/nanoclo.md`)
+
+**HEAD no longer runs the design its name and README describe for
+conversion.**  Commit `cdcb24d` "Delete the closure conversion machine"
+(2026-08-10; the arena's `cdeb070` is a month later) replaced the
+closure whnf/defeq with sokonanoda's NbE (`src/nbe*.rs`, 2 525 lines).
+nanoclo's own: (a) **the interned environment** — `Clo = (ExprPtr,
+EnvId)`, `EnvNode {entry, parent, len, next_level, jump}` in a `Vec`
+with a hash-consing table (one probe per extension; "the same
+extension built twice is the same `EnvId`", `closure.rs:35-49`,
+`368-414`), skew-binary `jump` pointers for O(log i) lookup
+(`closure.rs:569-593`, a pure function of the cons), entries `Val clo
+| Neu fvar | V value`; (b) **free variables named by de Bruijn level**
+so two openings of one binder coincide (`closure.rs:596-605` — again
+con-leche's `.fvar d ty`); (c) **read sets** (`Uses`,
+`closure.rs:73-88`): the indices a term reads, used to project an
+environment and intern the projection as a "view" the caches key on —
+the biggest measured win in its log (~456 G of its 2 281 G Mathlib
+corpus, `nanoclo.md` §5.3); (d) **inference on closures**
+(`tc.rs:595-803`): `let` pushes a delayed entry, application pushes
+`Val(arg, env)` and never instantiates the codomain, `reify`
+(`closure.rs:818-876`) is the only place a closure becomes an
+expression, at boundaries.  The evaluator **reads the checker's own
+environments** (`VEnvId = closure::EnvId`, commit `d407622`), uses real
+thunks (`Value::Thunk {env, expr, forced}`, `nbe.rs:66-99`) and a
+*weak* readback (`nb_readback`: unforced constants fold, a thunk reads
+back as its expression under its environment).  Everything is a
+32-bit index into `IndexSet` arenas; **no `unsafe`, no `Rc`, no
+interior mutability**.  The inductive installer is nanoda's, fully
+syntactic, using only `whnf`/`infer`/`assert_def_eq` on `ExprPtr`
+(`nanoclo.md` §7).  Its commits claim instruction parity with
+sokonanoda on its corpora; the arena's Mathlib export shows 3.8× more
+(2 841 G vs 743 G) — the note's reading: a hash probe per construction
+against bump allocation, and "the doubled machinery around
+conversion" its author names in `d407622`.
+
+**So the maintainer's "either approach" is one design at HEAD**: NbE
+conversion with glued unfolding over hash-consed environments and
+value-keyed caches, plus closure inference and read-set keys.  The
+pure delayed-substitution conversion was measured and *replaced by its
+own author*.
+
+### 4. The four questions for an NbE core
+
+**4.1 Term type.**  Reuse `Expr` unchanged for syntax; add an
+implementation-only inductive `Value` (≈ 8 constructors: `rigid head
+spine | unfold name levels spine | lam ty clo | pi dom clo | sort |
+lit | thunk env expr`, with `Clo = (Env, Expr)` and `Env` a persistent
+list of values), living beside `Kernel/Core.lean` and never seen above
+`CheckerOps`.  Nothing needs adding to `Expr`: the `.fvar (idx :
+Nat) (type : Expr)` constructor **is** `RigidHead::BVar(level, type)`
+and nanoclo's level-named `Local` — a binder opens in the value world
+with the same `.fvar d ty` the rules open with (`Rules/Rel.lean:340-352`),
+which is what makes the bridge of 4.3 possible at all.  The one cheap
+extension worth having is a **field, not a constructor**: a second
+`@[computed_field] uses : Expr → UInt64` (the `fv_mask` of
+`expr.rs:17-76`; the packed word has one reserved bit,
+`Expr.lean:144-150`, no room) — 8 bytes per node, invisible to every
+proof (computed fields are derived), and the key to the environment
+pruning that both checkers' cache sharing rests on.  The boundary:
+`eval : Nat → Env → Expr → Value` at every entry, and a **weak**
+readback `quote : Nat → Value → Expr` at the returns that are `Expr`
+by type — `CheckerOps.inferType`/`.whnf` (`CheckerBase.lean:30-57`),
+i.e. per front-door inference and at the 22 install-route call sites;
+`isDefEq` returns `Bool` and needs none.  The readback's packed fields
+are computed at construction, free.  Cost of the boundary: nanoclo
+paid 37 % on `bitvec` while values and closures had separate
+environments (`1af0f57`) and recovered it by fusing them (`d407622`) —
+keep one environment type.
+
+**4.2 Blast radius.**  The `CoreFns` record (`Core.lean:103-131`) has
+six slots; five change bodies — `whnfCore`, `whnf`, `infer`, `inferIO`,
+`defeq` (`Core.lean:816-2690`, and the cached twins in
+`Cached/CoreC.lean`, 2 090 lines) — and `annotate` (`Core.lean:
+2783-2900`) stays syntactic, a *client* of the new core through its 17
+record calls via readback.  Untouched: the environment (`Kernel/Env.lean`,
+`FEnv`: constants keep `Expr` types and values, evaluated on demand —
+today's `constValAt` memo, `StateC.lean:133-135`, is sokonanoda's
+`unfold_const_cache`); the declaration checker above the record
+(`DeclCheck`, `Checker`, `CheckerBase`); **the inductive install
+routes** — all 22 of their core calls go through `ops.whnf`/
+`ops.inferType`/`ops.isDefEq` on `Expr` (`Inductives/SumInstall.lean:
+56,62,129,166`, `NativeInstall.lean:493-496`, `Modeled.lean:42-52,146,
+313,347`, `StructInstall.lean:49`, the `*F` twins) — the three services
+nanoclo's installer uses (`nanoclo.md` §7), so we keep our installers
+at a readback per call; the frontend; the fold.  Changed besides the
+bodies: the memo state (`Cached/StateC.lean:131-156`, `Expr`-keyed)
+becomes value-keyed (4.4); and the driver — "an alternative core with
+a flag" is a second `CheckerOps` instantiation beside `sharedOpsC`
+(`Cached/CheckerC.lean:83`) while the main theorem names `.verified`
+outright (`ConLeche/MainTheorem.lean`), so the fold gets a core
+*parameter* (the #304 shape) and the letters are stated for the core
+set.  The verified-mode certificates — `Red.beta`'s `Infer .io a ta →
+DefEq ta ty` (`Core.lean:1943-1965`), the ι/projection telescope walks
+(`Rel.lean:543-583`), the λ-codomain sort check and the `m₁.pw == m₂.pw`
+binder agreement (`Core.lean:2609`, `:2617`; 19 `verifiedChecks`/
+`betaGate` sites) — must all be run by the new core, on the values'
+origins (§6).  **Verdict: not "whnf/defeq only"** — the five knot
+bodies, their memo state, the readback boundary and the driver's core
+switch; *not* the environment, the installers, the annotation logic
+or the frontend.
+
+**4.3 Where the soundness proof sits.**  Three candidates, judged
+against the tree:
+
+(a) *Simulation to the pure fueled run* (`Verify/Cached/*`, 23 369
+lines): its walks mirror `CoreI` clause by clause against `Core` —
+"every cached entry point simulates the corresponding fueled family"
+(`Verify/Cached/KnotC.lean`) — with equality as the value relation.
+An NbE core is **not the same algorithm** (arguments evaluated before
+they are needed, budgeted spine probes, unfolding by hint on values,
+identity memos); a simulation would be a *completeness* statement
+about the pure core relative to another one — false in general (the
+`sameRegular` abbrev guard, the probe's early accept) and never what
+this route proved.  The precedent, the interned arena's
+denote-simulation (`DESIGN.md:2830-2905`), was 28 500 lines for a
+same-algorithm representation change, and was deleted
+(`DESIGN.md:38440`).  **Rejected.**
+
+(b) *A bridge run ⇒ derivation into the task #305 rules*, in the
+coordinator's framing: give the fast core's states a denotation into
+`Expr` and ask, per internal step, whether it is invisible, an existing
+rule, or a move with no rule.  The choice of denotation decides the
+answer.  Denote a closure by the substitution it delays, `⟦(env, e)⟧ =
+instantiateList e (env.map ⟦·⟧)` (`Kernel/ExprOps.lean:211`, with its
+lemma kit), a `BVar(d, tyv)` by `.fvar d ⟦tyv⟧`, an `Unfold` by its
+**folded** form, a `Rigid` by its head applied to its spine — and,
+the load-bearing decision, **denote an argument by its ORIGIN, not by
+its evaluated form**: a `Thunk {env, expr}` reads as `⟦(env, expr)⟧`
+whether or not it has been forced, and a strictly evaluated argument
+must keep its origin for the same reading.  Each value then carries
+one invariant, `ValOk v : Red env d ⟦v⟧ₒ ⟦v⟧ₕ` — its origin
+head-reduces to its head form by the rules — held in the state
+invariant the way `CSOK` backs every memo entry today.  Under that
+denotation the moves sort as follows (`Rel.lean` on `agent/rules-305`):
+
+| move of the NbE core | class | rule / lemma |
+|---|---|---|
+| eval of an application chain, strict or thunked argument evaluation, environment pruning by `fv_mask`, frame interning, hash-consing, `canon`, the pos/neg/probe caches, the probe budget, `nat_red_defer`, `statically_not_proof` | (i) invisible | `instantiateList` reads only what the term mentions (a lemma); caches are memos backed by derivations; negatives never license an accept |
+| closure application `apply (Lam clo) a` | (ii) | `Red.beta` (`Rel.lean:126`) modulo `instantiateList body (⟦a⟧ :: env) = (instantiateList (lift body) env).instantiate1 ⟦a⟧` — one substitution lemma; the certificate premise is run on the argument's origin (§6); the `.never` gate reads `mb.pw` off the closure's own syntax (`Red.betaGate`, `:121`) |
+| head reduction inside a spine's function position | (ii) | `Red.appFn` (`:111`), `Red.trans` (`:106`) |
+| `Unfold` created / forced | (i) / (ii) | folded reading; forcing is `Red.delta` (`:132`), premise `unfoldDefinition env e = some e'` read off the same `ConstantInfo` |
+| `fire_recursor`, `Nat.rec` on a literal, K, struct-η rescue, `do_proj`, Nat ops | (ii) | `Red.iota` (`:184`), `Red.natLit` + `iota`, `rescueK`/`rescueEta` (`:225`, `:254`), `Red.proj` (`:166`), `Red.natOp`/`natSucc` (`:148-160`); the rule RHS "evaluated as a closure and β-applied" reads as the syntactic instantiation the rules state — the same substitution lemma; the guards are the stored data; **the telescope walks `Certs`/`DefEqList` must be run** (§6) |
+| `ptr::eq` / interned-id equality in `unify` | (ii) | `DefEq.refl` on head forms, chained to the origins by `DefEq.redBoth` (derived, `Rules/Derived.lean`) and the two `ValOk`s |
+| Sort/Sort, lit/lit, `conv_nat`, `BVar`/`BVar` + spines, same-head constants + spines, Pi/Pi and Lam/Lam opened at a fresh `BVar(depth)`, `Unfold/Unfold` by hint, `Unfold` vs anything | (ii) | `DefEq.sort/refl/natZero/natSucc/fvar/constSpine/forallE/lam/deltaL/deltaR/deltaBoth` — the port opens with the RIGHT domain (`ty₂`, as the rules do, `:340-352`; sokonanoda opens with the left) and compares `m₁.pw == m₂.pw` (the datum is on the closure's syntax) |
+| λ-η (`unify_cold`, `conv.rs:555-560`) | (ii) with an added certificate | `DefEq.eta` (`:367`) needs `Infer .io b tb → Red tb (∀ …) → DefEq ty₂ ty₁`; sokonanoda infers nothing there, official does; the port runs the inference |
+| proof irrelevance (`try_proof_irrel_at`), unit-like, structure η | (ii) | `DefEq.proofIrrel/unitLike/structEta` — same premise shapes; `value_type` is inference on syntax under a value env, so it bridges through the `Infer` rules under the substitution |
+| **relevance-signature skipping** of Prop-typed and body-absent argument positions (`relevance.rs`, `conv.rs:509-513`) | **(iii)** | no rule: `DefEq.app` (`:357`) demands `DefEq a₁ a₂` per argument.  Two cheap additions: `DefEq.appIrrel` — `DefEq f₁ f₂ → Infer .io f₁ tf → Red tf (∀ ty _ _) → Infer .io ty (sort u) → u ≡ 0 → DefEq (app f₁ a₁) (app f₂ a₂)`, sound because a Prop-typed domain denotes a set with ≤ 1 element and the frame makes both arguments members; and `DefEq.absentArg` for a *definition* head whose unfolded body never reads position i (`unfoldDefinition` + a syntactic non-occurrence guard), sound by `delta_of` and a substitution lemma.  Or forgo the two tricks |
+| the **deferred "infer closure"** (a λ's codomain inferred only when the Pi is applied, `infer.rs:120-141`) | **(iii)**, structural | its denotation is not a function of its data — it is "what inference would return".  The port infers codomains eagerly (sokonanoda's own `49b0e9c` does in the atomic case) and loses the never-infer-unused-codomain gain |
+| `InferOnly` skipping *every* argument check (`infer.rs:184`) | (iii) and **not licensed by our model** | `Infer.appSkip` (`:518`) skips only at a `.never` codomain (`Model/IOLicense.lean`); the port keeps our io grade and pays those inferences |
+| the cross-declaration whnf store | (i) + one lemma | memo backed by derivations at an *earlier* environment: `Red`/`DefEq`/`Infer` are monotone under pushing fresh names (duplicates are rejected, so `Env.find?`'s newest-wins cannot shadow) — a structural lemma, not a rule; and the key must be `Expr` with `beq`, not a digest (a 128-bit "verifier" is not a proof) |
+| deep `quote` after `apply_closure` (evaluation under the fresh variable, `quote.rs`) | **(iii)** for the full-strength readback | a Lam's deep readback is a reduct under a congruence closure the rules lack (`Red` has only `appFn`/`projArg`).  **Use the weak readback** (`quote_weak`, nanoclo's `nb_readback`): `quote_weak v = ⟦v⟧ₕ`, licensed by `ValOk` alone, and a closure body reifies by `instantiateList` — the "substitution at the boundary" of nanoclo's README |
+
+Two conclusions.  **With thunked (call-by-need) arguments, weak
+readback and origin denotation, every move of an NbE core is (i) or
+(ii) except the two relevance skips (two semantically trivial rules)
+and the deferred codomain (drop it)**; `Red.appArg` and evaluation
+under binders are *not* needed, because nothing is ever denoted by an
+evaluated argument.  With sokonanoda's strict evaluation the same
+holds provided every value keeps its origin — 16 bytes per value, or
+laziness, which stores the origin for free and is what nanoclo does.
+What the denotation costs to define: `⟦·⟧ₒ`/`⟦·⟧ₕ` are structural on
+`Value` (finite trees; the `forced` slots are state, not structure),
+built from `instantiateList`, `mkAppN` and — if closures carry a
+universe substitution as sokonanoda's `Env::Nil{lsub}` does — a
+commutation lemma with `Expr.instantiateLevelParams`
+(`ExprOps.lean:2463`); simpler and equally cheap is to substitute
+levels at unfold time as today (`constValAt` per (name, levels)) and
+carry no `lsub`.  The packed computed fields cost nothing (derived).
+Depth: `ValOk` is at the depth the value was made; a derivation at
+depth `d` weakens to `d' ≥ d` structurally — the cheap cousin of
+`Verify/Deep.lean`'s 3 127-line run-level depth invariance.  The
+bridge itself is a NEW proof of the shape `Verify/Rules/*` is now
+building for the current core (run ⇒ derivation by induction on the
+new core's fuel, with `ValOk`/memo backing in the state invariant) —
+the same statements at the entry points, a different program.
+**Recommended.**
+
+(c) *All the way to the claims*: a second `Model/Steps` (13 114 lines
+today) for the new core against `interp`.  Task #305 was created so
+that this never has to happen again: the rules tier reuses every
+per-rule soundness lemma (`Model/Rules/*`) verbatim, and the only new
+semantic content under (b) is the two rules of the (iii) row.
+**Rejected.**
+
+**4.4 Fit for Lean as host.**  What Rust gives sokonanoda and Lean
+withholds: (1) **address identity as a cache key** — ~20 of its 35
+caches are keyed by arena addresses; Lean has `withPtrEq` as a *fast
+path* (`Expr.lean:684-696`) but no stable address to key on, so value
+memos are content-hash + structural `beq`, the bucket-probe economy
+`Expr` memos have today (`StateC.lean:26-34`; its distinct-but-equal
+failure was task #240); the alternative is nanoclo's — intern values
+into an `Array` with `UInt32` ids in the state monad — the deleted
+arena (`DESIGN.md:2830`) in value form, admissible now under
+`CLAUDE.md`'s self-contained-WF exception rather than as 5 742 lines
+of `ArenaWF`.  (2) **Interior mutability** — the `OnceCell` forced
+slots that make gluing free.  Lean's `Thunk` is the wrong tool on the
+pool: `lean_thunk_get_core` marks the forced value's reachable graph
+multi-threaded (atomic RC, no in-place updates), and ONE thunk in the
+knot cost 13.8 % of `init-full` (task #179, `Cached/CoreC.lean:
+1925-1945`, `DESIGN.md:48264-48276`); `IO.Ref` marks the same way.  So
+`forced` becomes a state-monad memo keyed by value id — "an
+equivalent, slower encoding" (nanoclo's note), and what `constValAt`/
+`whnfC` are today.  (3) **Arena allocation** — none; every value,
+spine and environment node is an RC'd mimalloc allocation in a checker
+already 34–50 % allocator and RC; NbE trades rebuilt term nodes for
+value nodes, and whether that nets out is the spike's question.  (4)
+**Bit tricks**: the `fv_mask` computed field ports; `pext`, the tagged
+`Elim` and the packed `ExprPtr` do not.  (5) **Threads** map directly:
+`checkPool` (`Main.lean:294`), one memo state per worker, the one-shot
+persistent mark (`Main.lean:390`, task #265) making the shared
+environment RC-free, ~1 GiB reserved stack per worker; sokonanoda's
+`force_all` explicit stack is worth copying.  (6) `Nat` is GMP.
+Already here: the packed hash and bounds, pointer-first `beq`,
+per-entry memos, the bulk-instantiation memo, per-(name, levels)
+instantiation, the io grade, the pool, the mark, a byte-level parser.
+**Verdict: the algorithm ports; the identity-keyed sharing that makes
+it 17× does not port as-is, and no Lean-hosted NbE kernel exists to
+calibrate against — which is why phase 0 is a measurement, not a
+port.**
+
+### 5. The four questions for a delayed-substitution core
+
+**Term type.**  `Expr` unchanged; `Clo := Expr × Env` with `Env` an
+ordinary persistent inductive of entries `val clo | neu fvar | v value`
+whose `len`/`nextLevel`/`jump` are pure functions of the cons
+(`nanoclo.md` §10: Okasaki's skew-binary list "in disguise").  `.fvar d
+ty` is nanoclo's level-named `Local`; the packed `bvarB` bound is its
+`num_loose_bvars`; the read set is the `uses` field of 4.1; `reify`
+**is** `instantiateList`.  Lost without interning: `EnvId` equality as
+an O(1) key for the four env-keyed caches that carry nanoclo's win —
+its note calls interning in the state monad "necessary rather than
+optional".
+
+**Blast radius.**  Smaller if conversion stays syntactic: the
+inference bodies (`Core.lean:2079-2380`) push entries where they
+instantiate today (`instListRevM`, `StateC.lean:202`; `betaPeelI`'s
+`instListM`, `CoreC.lean:911-918`), β pushes instead of
+`instantiate1`, and `defeq`'s congruence on two closures needs an
+equality modulo delayed substitution (`eq_mod`, `closure.rs:879-995`) —
+new.  Above `CheckerOps`, and every installer: untouched.  But this is
+the pre-August nanoclo, which its author replaced once NbE over the
+*same* environments won on every corpus.
+
+**Soundness.**  Route (b), cheaper than for NbE: a closure denotes by
+one `instantiateList`; push, lookup and reify are (i); every head step
+is today's rule on the denoted term (ii); **no new rules**, since a
+syntactic conversion never evaluates an argument.  It is also the
+closest thing to (a) — the present algorithm up to the representation
+of substitution, which is exactly what the arena's `denote`-simulation
+proved at 28.5 k lines; the rules tier is what makes that statement
+cheap (a derivation instead of a fuel bisimulation, structural depth
+weakening instead of `Verify/Deep.lean`'s 3 127 lines).
+
+**Fit for Lean.**  Excellent — no `unsafe`, no `Rc`, persistent
+structures, one atomic counter.  The *gain* is the problem: closure
+inference sends the binder-ladder rows to ~0 (`app-lam` 0.1 G,
+`beta-ladder`/`let-ladder` 0.03 G against con-leche's 168/43/9 G), but
+those rows are 0.2 T of 12.9 T on Mathlib; nanoclo's Mathlib number
+comes from NbE conversion and view-keyed sharing.
+
+### 6. The certificates in a fast core
+
+(1) They cost +7.6 % on Mathlib, +3.3 % on `init-full`, 0 % where
+con-leche is worst (§1): the verified-mode speedup of any core is
+bounded by that over its trusted mode, and the 17× is not made of
+them.  (2) **No reference checker has a reduction-time certificate**:
+sokonanoda's `Check`-mode `infer_app_v` checks each argument against
+the domain (`infer.rs:184-186`) — our front-door `Infer.app` — and
+`InferOnly` skips all; official's `infer_only` likewise; six of our
+twenty internal inference sites have no official counterpart
+(`DESIGN.md:22489-22512`).  `Red.beta` (`Rel.lean:126`), `Red.iota`'s
+`Certs`/`DefEqList` walks (`:184`) and `Red.proj`'s `Certs` (`:166`)
+carry them because the model needs `⟦a⟧ ∈ ⟦ty⟧` at every level
+assignment for β to preserve `WellDenotedV` (`Core.lean:1946-1948`);
+the `.never` gate (`betaGate`) is what makes most of them free.  (3) A
+fast core lands on those rules only by running the same certificates
+**on the argument's origin** — free if arguments are thunks (the
+syntax under its environment is right there for `infer_value(InferOnly,
+…, env, ctx, expr)`), a readback if they are strict values: the second
+reason after 4.3 to build the lazy variant.  The certificate memo keys
+by the same (pruned env, expr) pair as the evaluation and dedups where
+it dedups.  The `Infer .io` inferences the io grade keeps at
+non-`.never` binders are the other inherited cost; sokonanoda's
+blanket `InferOnly` skip is not ours to take (`Model/IOLicense.lean`).
+
+### 7. Recommendation
+
+**One spike, one design: a call-by-need NbE core in Lean — thunked
+arguments, glued unfolding, weak readback, values keyed by content
+with a pointer fast path — with inference on syntax under the value
+environment (which both checkers' inference is).**  Not "sokonanoda"
+and not "nanoclo": at HEAD they are that design with different memory
+management, and the pure delayed-substitution core was retired by its
+own author.  Not both, and not the closure-only variant: its win sits
+on 2 % of the Mathlib run.  Neither, if phase 0 misses its gate — that
+is a result, not a failure: it would say the Lean runtime's price for
+value graphs is the floor `DESIGN.md:27070-27080` already named.
+
+**Phase 0 — the measurement (2–3 agent-weeks, ~2 500–3 500 lines).**
+Unverified, `--trusted` semantics, behind `--core=nbe`; the bodies in
+a new `ConLeche/NbE/` (`Value`, `Env`, `eval`, `unify`, `inferValue`,
+`quote_weak`, the state) instantiating `CheckerOps` beside
+`sharedOpsC`, so every installer and the fold run unchanged; the
+annotation pass kept.  Measure as the project measures — `perf stat -e
+instructions:u`, median of 3, `--jobs=1`, `ulimit -v 16000000`,
+`timeout` — on the PERF.md battery plus `magma-list-deep-n36`,
+`magma-string-pair-n9` and a Mathlib prefix, against the same binary's
+`--trusted`; record peak RSS.  **Gate: `init-full` trusted at ≤ 0.5×
+today's instructions (≤ 0.65× official; sokonanoda is at 0.1×), no
+stream regressing more than 10 %, RSS within 1.5×.**  Below a 1.5×
+improvement, stop and record why, from a `perf record` and the gdb
+sampling recipe (`DESIGN.md:51888-51900`).  Day one, before any of it:
+decompose `app-lam`'s 5.35× on the shipped binary (perf note F4 — a
+25-second experiment the tree has never run).
+
+**Phase 1 — the denotation and the rules (2–3 weeks).**  `⟦·⟧ₒ`,
+`⟦·⟧ₕ`, `ValOk`, the `instantiateList` lemmas, env-monotonicity of
+derivations, and — only if the spike used the relevance skips —
+`DefEq.appIrrel`/`DefEq.absentArg` with two soundness lemmas in
+`Model/Rules/`.  `Model/Steps` untouched.
+
+**Phase 2 — the bridge (6–10 weeks, 8–15 k lines).**  Run ⇒ derivation
+for the NbE core: the `WhnfBridge`/`DefEqBridge`/`InferBridge`
+statements of `Verify/Rules/Defs.lean` verbatim, proved by induction on
+the new core's fuel with `ValOk` and derivation-backed memos in the
+state invariant (the `CSOK` shape); verified mode with §6's
+certificates.  Sized against `Verify/Cached/*` (23 k lines for a
+same-algorithm run-simulation) and the seven-lane #305 bridge now in
+flight, whose sibling it is.
+
+**Phase 3 — the letters.**  The fold parametric in the core (#304),
+`no_proof_of_False` for the core set, the gates (`layering.sh`:
+`ConLeche/NbE/*` is implementation; `trust-surface.sh`: no `unsafe`,
+pointer equality only through `withPtrEq`).
+
+**Risks.**  (R1) The runtime — no address keys, MT-marking thunks, RC
+per node: phase 0 prices it.  (R2) Sharing — the 17× is identity-keyed;
+content keys re-create today's bucket probes in value form: measure hit
+rates (perf note F5).  (R3) Boundaries — nanoclo's 37 %; a readback per
+installer call, 6 639 blocks on `init-full`.  (R4) Memory — +40 % in
+sokonanoda's record, at the arena's limits.  (R5) Recursion depth —
+explicit worklists where sokonanoda uses `force_all`.  (R6) The proof —
+heuristics are free under (b), but `ValOk` over a memoised value graph
+is a large state invariant, mechanical as `CSOK` was.  (R7) The install
+phase — a 2× faster check phase turns the sequential 13 % into 23 %.
+**Total: 12–18 agent-weeks to a verified second core; 2–3 to know
+whether to start.**
+
+### 8. Open questions for the maintainer
+
+1. How should two cores read in the main theorem — the fold
+   parametric in a `Core` record with one letter for the set (the
+   #304 shape), or a third `CheckMode`-like selector with its own
+   letter?
+2. Are `DefEq.appIrrel` and `DefEq.absentArg` acceptable additions to
+   `Rules/Rel.lean` (two rules, two soundness lemmas), or should the
+   verified core forgo the relevance skips?
+3. Is a per-thread memo that outlives one declaration acceptable to
+   the proof (today every memo's lifetime is one declaration; the
+   store needs env-monotonicity of derivations)?
+4. Keep the β certificate at the reduction site (`Red.beta`), or move
+   it to the inference site as every reference checker has it — a
+   change to the rules and to the model's β-preservation argument?
+5. Is a `--trusted`-only fast core an acceptable interim (a flag, no
+   proof, outside the theorem exactly as `--trusted` is today), with
+   the verified route gated on phase 0?
+6. Memory ceiling at Mathlib scale for the arena: is +40 % RSS
+   acceptable?
+7. Should phase 0 spend its first day on the profile the tree lacks
+   (perf note F1–F4: a `perf record` of the shipped binary on
+   `app-lam`/`init-full`/a Mathlib prefix), so that the gate compares
+   against attributed numbers rather than buckets?
