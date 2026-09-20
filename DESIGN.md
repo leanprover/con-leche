@@ -125292,3 +125292,126 @@ statements match.  `tests/arena.sh` not run and not owed: no
 `memberStrip`, `rowPinNIdx`, `stripPis_sort_arity`, `ordTgt_corr`,
 `ordRead_corr` and `nestedPinsEntry_of_le_all`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 3's RUN SIDE, COMPLETE — THE MEMBER ARM NEEDS NO REWRITE INVERSION, AND THE PLAN'S ~900-LINE TWIN WAS NOT THE OBJECT (lane LE, 2026-09-20)
+
+The previous row priced step 3 at "a member-target twin of
+`copyOrdFRightPinCorr` … then the threading", ONE TO TWO SESSIONS,
+"the pin side of that machinery is ~900 lines".  The RUN side is done
+and `copyOrdFRightPinCorr` has no twin: it is not needed, and the
+reason is a record the plan did not consult.
+
+##### (a) WHY THE PIN CORE'S ROUTE IS THE WRONG ONE HERE
+
+`copyOrdFRightPinCorr` exists to INVERT the rewrite: at a pin target
+the walk FIRED, and the theorem reads the fire backwards to learn that
+the copy's stored domain is the mimic at the walk's parameters and the
+occurrence's index arguments.  At a MEMBER target nothing fires, and
+K.42 says so directly: `copyOrdFLeftRun`'s filter admits a field whose
+target is below `p.k` (the kernel lane's 2026-09-18 widening), and
+what it gives there is
+
+  `normPosDomM … xI.fvarTypeD = .ok x'.fvarTypeD`
+
+— the positivity normalisation of the MINTED domain IS the block's
+STORED one, with no `replaceAllNested` between them.  So the member
+arm's run hypothesis is one equation where the pin arm's is four, and
+there is nothing to invert.
+
+The walk is then the identity for the same reason it is at a pin, one
+lookup over: `normPosDomM_indApp_former`
+(`Verify/Inductives/NestedCopyNorm.lean:~2028`, beside
+`normPosDomM_indApp_cons`) — the head is one of the block's own
+FORMERS and a former is an `indInfo` at the block's environment by
+construction, no pre-block lookup at all.  Minted and stored domain
+are ONE term, and the split is the constructor's own datum
+(`MutualCtorDataI.recEntry`: a recursive field's stored domain reads
+as the target member's leaf applied to `paramBvarsAt b.nP (b.nP + l)`
+followed by the copy's index expressions), not a spine inversion.
+`Ps.length = b.nP` falls out of `paramBvarsAt`'s own length.
+
+Everything before the split is the pin arm's preamble VERBATIM — the
+components' round trip, the opener lists and the two `instSeq`
+`ErasedEq`s that identify the recomputation with the minted domain
+never look at the target — which is why the two cores are the pin
+ones' length and not new work.
+
+##### (b) WHAT LANDED
+
+* `NestedPinsRun.copyOrdFRightMemOrdTargetRead`
+  (`Model/Inductives/NestedCopyInst.lean:11385`) and its run wrapper
+  `…ReadAt` (`:11587`), FINITARY;
+* `NestedPinsRun.copyOrdFRightMemOrdTargetReadRefl` (`:11680`) and
+  `…ReadAtRefl` (`:12132`), REFLEXIVE.  The tower machinery is the
+  pin twin's; what is shorter is that the normalisation's tower IS the
+  stored one (`replaceAllNested_mkPisB_inv`/`…_inert` have nothing to
+  do) and that the split is at the block's own parameter count, which
+  `MutualOpened`'s reflexive cell makes long enough
+  (`body.getAppArgs.length = nP + mutualNIdxOf …`);
+* `normPosDomM_openPis_indApp` (`NestedCopyNorm.lean:2065`)
+  GENERALISED to take its guard at the WALK'S OWN environment.  Both
+  heads a copy's reflexive field can carry answer there and only one
+  of them answers before — a pre-block container through
+  `consMutualFormers_find?_indInfo`, one of the block's own formers
+  through `consMutualFormers_find?_indInfo_mem`.  Its one call site
+  passes the transported lookup;
+* `NestedPinsRun.ordTgtMemReadAt` (`NestedInstMap.lean:2885`),
+  `ordTgtReadAt`'s sibling at the other arm of `instOrdSelfAt`: the
+  dispatch is `ordTgtReadAt`'s (the copy field's kind off `blkRss`),
+  the run is K.42's and not K.51's, and the two counts are the
+  member's own — `b.nP` for the head's parameters, `(D).nIdxAt mm` for
+  the index expressions (`MutualCtorDataI.eisLen`/`eisLenRefl` with
+  the member table `memT`).  The member/pin dichotomy is `hmemT`
+  against `instOrdSelfAt`'s `none` arm, which makes the target a pin
+  INDEX at or above `p.k`;
+* `NestedPinsRun.takeNames` (`NestedInstMap.lean:1094`), factored out
+  of `membersFresh`: it turns a `findIdx?` hit in `p.memberNames` into
+  the FORMER whose name it is, which is what feeds
+  `normPosDomM_indApp_former`.
+
+##### (c) WHERE IT STOPS, AND WHAT THE REST IS
+
+The MODEL side of step 3 was not started.  It is plumbing plus one
+real proof, in this order:
+
+1. a `NestedPinsOrdTgtMem` premise beside `NestedPinsOrdTgt`
+   (`NestedCopyIdx.lean:518`) with `ordTgtMemReadAt` as its producer,
+   threaded through `nestedPinsIdent_of`;
+2. an `ordTgtMem` field on `NestedPinGroupSyn` (`NestedPins.lean:749`)
+   and on `NestedPinGroup` (`NestedCore.lean:511`), with the three
+   construction sites (`NestedPins.lean:806`, `NestedLoop.lean:141`);
+3. the MEMBER DISJUNCT on `PinShapes`' `OrdTargetRead` clause
+   (`NestedPremise.lean:~1268`) — every consumer that destructures the
+   record moves with it — discharged in `nestedPinShapes_of`
+   (`NestedPinLeafAll.lean:~1656`) exactly as the pin one is, and
+   projected by a `PinShapes.rowOrdReadMem` beside `rowOrdRead`;
+4. `ordRead_corr`'s member arm (`NestedPinLeafAll.lean:5001`): side 2
+   (the OWNER) is the new disjunct, side 1 (the BLOCK) stays the PIN
+   one — the owner's member `m` is copied by the block, so the block's
+   target is the block's copy of it, a pin at `p.k + grpBase + m` —
+   and the σ that ties them is `hroot`'s.  That is the one item that
+   is not plumbing.
+
+Steps 4, 5, (4') and (4) of the order were NOT started;
+`agent/uniform-le4` was NOT merged; `hslotOrd` was NOT weakened in the
+four signatures.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 614acf6a`: 3 changed modules, `lake build` 3
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/arena.sh` green and OWED — a
+`Verify/` file changed in place (91/96 arena, 200/200 e2e, 15/15
+annot, axioms pinned at 20 theorems).  `tests/unconsumed.sh` 200/3859
+against 200/3853: `ordTgtMemReadAt` ENTERED the set (its model-side
+consumer is (c) 1), `normPosDomM_indApp_former` LEFT it (the finitary
+member core is its first consumer), and nothing of the
+`pins_le_*`/`NestedPinsLe`-producer family moved —
+`pins_le_of_declOrder`, `nestedPinsLe_of_rank`, `ordTgt_corr`,
+`ordRead_corr`, `PinShapes.rowOrdRead` and `PinShapes.rowPinNIdx` all
+stay.  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match.  `#print axioms` on the four
+member cores, `ordTgtMemReadAt`, `takeNames`,
+`normPosDomM_openPis_indApp` and `nestedPinsEntry_of_le_all`:
+`propext`, `Classical.choice`, `Quot.sound`.
