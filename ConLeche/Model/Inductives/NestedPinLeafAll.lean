@@ -4625,6 +4625,51 @@ theorem ordTargetDom_congr_at {lps : List Name} {nP : Nat} {t₁ t₂ : List Exp
   unfold ConLeche.ordTargetDom ConLeche.ordTargetDomL ConLeche.ordTargetLvls
   rw [h]
 
+omit [SetTheory V] in
+/-- **A CONSTANT HEAD SURVIVES `instantiateList`** — what carries
+`ordTargetDomL`'s head to `ordTargetDom`'s.  (The twin in
+`NestedInstMap.lean` is private to its own run tier.) -/
+theorem getAppFn_instantiateList_const_at {vs : List Expr} {n : Name} {us : List Level} :
+    ∀ {e : Expr} {d : Nat}, e.getAppFn = .const n us →
+      (e.instantiateList vs d).getAppFn = .const n us := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro d h
+    simp only [Expr.instantiateList, Expr.getAppFn]
+    exact ihf (by simpa only [Expr.getAppFn] using h)
+  | const m vs' => intro d h; simpa only [Expr.instantiateList] using h
+  | _ => intro d h; simp [Expr.getAppFn] at h
+
+omit [SetTheory V] in
+/-- **A CONSTANT-HEADED STORED DOMAIN FLATTENS EVERY TABLE'S
+RECOMPUTATION** (task #315 WIDE (3), step 2): `stripDomPis` peels only
+`∀` nodes and the level instantiation the table supplies does not
+change a head, so at a domain whose own head is a constant the tower is
+empty at EVERY own-pin table — which is what lets the two sides' two
+tables be compared at one cut. -/
+theorem ordTargetDomL_flat_at {lpsC : List Name} {dom : Expr} {K : Name} {vs : List Level}
+    (hK : dom.getAppFn = .const K vs) (t : List Expr) (nP q l : Nat) :
+    ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
+      (ConLeche.ordTargetDom lpsC nP t q l dom).getAppFn
+        = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+  have hh : (ConLeche.ordTargetDomL lpsC t q dom).getAppFn
+      = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+    rw [ConLeche.ordTargetDomL, Expr.getAppFn_instantiateLevelParams, hK]
+    rfl
+  have hflat : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
+      ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC t q dom)
+        = ConLeche.ordTargetDomL lpsC t q dom := by
+    cases hd : ConLeche.ordTargetDomL lpsC t q dom with
+    | forallE ty bo bm =>
+      rw [hd] at hh
+      exact nomatch (hh : (Expr.forallE ty bo bm).getAppFn = Expr.const K _)
+    | _ => exact ⟨rfl, rfl⟩
+  refine ⟨hflat.1, ?_⟩
+  unfold ConLeche.ordTargetDom
+  rw [hflat.2]
+  exact getAppFn_instantiateList_const_at hh
+
 /-- **THE TWO ROWS NAME ONE CLASS** (task #315 WIDE (3), the
 correspondence): at a field the pin's container `dK` calls ORDINARY and
 both copies rewrote to recursive, the BLOCK's target is `σ` of the
@@ -4651,6 +4696,18 @@ spelling had — side 1's two lookups are derived from side 2's `z`:
 group carried as a hypothesis because `PinGroupInst` may not name the
 instance map.
 
+**THE BLOCK'S GUARD IS DERIVED AND NOT A PREMISE.**  Both rows'
+guards ARE the bound `p.k ≤ t`, so neither can produce it;
+`GroupFacts.ordGe` (K.68 at this block) does, at the price of the
+recomputed head being DECLARED in `env`.  The head is the stored
+domain's own (`hdomHd`, carried through `ordTargetDomL_flat_at`
+because a level instantiation does not change a head), and the OWNER's
+side declares it on BOTH arms: at a member class it is one of the
+owner container's members (`containerInfo?_inv`'s per-member
+`env.find?`), at a pin class it is that pin's own container
+(`pinNP`/`pinConts` and the crossing).  That is why side 2 is read
+first and side 1 only inside the two branches.
+
 The two CROSSINGS are hypotheses and not derivations: the container's
 model lives at the model's environment and the kernel's tables are
 read at the block's own, and only the consumer — which holds the run —
@@ -4663,13 +4720,13 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
     (hord : ((dK.rss i').getD j []).getD l false = false)
     (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
-    (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-      (b.ownOffset (p.k + a + i') + j) []).getD l 0)
     {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     {dom : Expr × ConLeche.BinderMeta}
     (hjA : (dK.ctorsM i')[j]? = some cA)
     (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
     (hdm : bs[dK.nP + l]? = some dom)
+    -- THE HEAD: the stored domain's own, which is what the bound reads
+    {K : Name} {vs : List Level} (hdomHd : dom.1.getAppFn = .const K vs)
     -- the guard's container, at an ARBITRARY member of the block's group
     {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
     (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
@@ -4736,15 +4793,45 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
   obtain ⟨hmem₂, hpin₂⟩ := hrow lps (by rw [← hdomEq]; exact hhd)
   -- THE NAMES: the two member lists are one
   have hnames : dR.memberNames = ciR.members.map (·.name) := CR.memberNames_eq
-  obtain ⟨hmem₁, hpin₁⟩ := G.ordTgt ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
-    lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
-    M us hhd
+  -- THE BOUND IS NOT A PREMISE.  The recomputation's head is the
+  -- STORED domain's (`ordTargetDomL_flat_at`: a level instantiation
+  -- does not change a head, and a constant head is not a `Π`), so `M`
+  -- is `K`; each of the two arms below declares `K` in `env`, and
+  -- `GroupFacts.ordGe` (K.68 at this block) turns that into `p.k ≤ t`.
+  have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
+      = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
+    rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
+  have hMK : M = K :=
+    (Expr.const.inj
+      (hhd.symm.trans (ordTargetDomL_flat_at (lpsC := lpsC) hdomHd ownT dK.nP qK l).2)).1
+  have hbound : (env.find? K).isSome = true →
+      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0 := fun hfindK =>
+    G.ordGe ψ i' hi' j hj l hl hord hrs₁ cA bs rr dom lpsC hjA hst hdm
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK
+  have hgo := fun (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0) =>
+    G.ordTgt ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
+      lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
+      M us hhd
   cases hfi : dR.memberNames.findIdx? (· == M) with
   | some mm =>
     -- a MEMBER class: `hroot` is `σ` there
     have hmmlt : mm < dR.k := by
       obtain ⟨hlt, -, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
       rw [← CR.namesLen]; exact hlt
+    -- and the head is one of the OWNER's container's members, hence
+    -- a stored inductive: the bound follows
+    have hfindK : (env.find? K).isSome = true := by
+      obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+      simp only [beq_iff_eq] at hp
+      have hMmem : M ∈ ciR.members.map (·.name) := by
+        rw [← hp, ← hnames]; exact List.getElem_mem hlt
+      obtain ⟨mem, hmemM, hmemN⟩ := List.mem_map.mp hMmem
+      obtain ⟨_, _, _, _, _, _, -, -, -, -, hmems⟩ := ConLeche.containerInfo?_inv hciR
+      obtain ⟨cvC, capsC, -, -, -, hf, -, -, -, -, -, -⟩ := hmems mem hmemM
+      rw [← hMK, ← hmemN, hf]; rfl
+    obtain ⟨hmem₁, -⟩ := hgo (hbound hfindK)
     rw [hmem₂ mm hfi, hroot mm hmmlt]
     exact hmem₁ mm (by rw [← hnames]; exact hfi)
   | none =>
@@ -4762,6 +4849,12 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     obtain ⟨ciZ, hciZ0, hnPZ⟩ := CR.pinNP z hz
     have hciM : ConLeche.containerInfo? env M = some ciZ := by
       rw [← hJz]; exact hcontZ z hz ciZ (CR.pinConts z hz ciZ hciZ0)
+    -- so the head is a stored inductive here too, and the bound follows
+    have hfindK : (env.find? K).isSome = true := by
+      have hciK : ConLeche.containerInfo? env K = some ciZ := by rw [← hMK]; exact hciM
+      obtain ⟨cvZ, capsZ, -, -, -, -, hf, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciK
+      rw [hf]; rfl
+    obtain ⟨-, hpin₁⟩ := hgo (hbound hfindK)
     -- the searched term is the table's entry at `z`
     have hsearch : Expr.mkAppN (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
         ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)
@@ -4803,51 +4896,6 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       have := hpin₁ ciZ qJ (by rw [← hnames]; exact hfi) hciM hF
       rw [this, hqJz]
 
-
-omit [SetTheory V] in
-/-- **A CONSTANT HEAD SURVIVES `instantiateList`** — what carries
-`ordTargetDomL`'s head to `ordTargetDom`'s.  (The twin in
-`NestedInstMap.lean` is private to its own run tier.) -/
-theorem getAppFn_instantiateList_const_at {vs : List Expr} {n : Name} {us : List Level} :
-    ∀ {e : Expr} {d : Nat}, e.getAppFn = .const n us →
-      (e.instantiateList vs d).getAppFn = .const n us := by
-  intro e
-  induction e with
-  | app f a ihf _ =>
-    intro d h
-    simp only [Expr.instantiateList, Expr.getAppFn]
-    exact ihf (by simpa only [Expr.getAppFn] using h)
-  | const m vs' => intro d h; simpa only [Expr.instantiateList] using h
-  | _ => intro d h; simp [Expr.getAppFn] at h
-
-omit [SetTheory V] in
-/-- **A CONSTANT-HEADED STORED DOMAIN FLATTENS EVERY TABLE'S
-RECOMPUTATION** (task #315 WIDE (3), step 2): `stripDomPis` peels only
-`∀` nodes and the level instantiation the table supplies does not
-change a head, so at a domain whose own head is a constant the tower is
-empty at EVERY own-pin table — which is what lets the two sides' two
-tables be compared at one cut. -/
-theorem ordTargetDomL_flat_at {lpsC : List Name} {dom : Expr} {K : Name} {vs : List Level}
-    (hK : dom.getAppFn = .const K vs) (t : List Expr) (nP q l : Nat) :
-    ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
-      (ConLeche.ordTargetDom lpsC nP t q l dom).getAppFn
-        = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
-  have hh : (ConLeche.ordTargetDomL lpsC t q dom).getAppFn
-      = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
-    rw [ConLeche.ordTargetDomL, Expr.getAppFn_instantiateLevelParams, hK]
-    rfl
-  have hflat : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
-      ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC t q dom)
-        = ConLeche.ordTargetDomL lpsC t q dom := by
-    cases hd : ConLeche.ordTargetDomL lpsC t q dom with
-    | forallE ty bo bm =>
-      rw [hd] at hh
-      exact nomatch (hh : (Expr.forallE ty bo bm).getAppFn = Expr.const K _)
-    | _ => exact ⟨rfl, rfl⟩
-  refine ⟨hflat.1, ?_⟩
-  unfold ConLeche.ordTargetDom
-  rw [hflat.2]
-  exact getAppFn_instantiateList_const_at hh
 
 /-- **THE TWO ROWS NAME ONE FIELD DATUM** (task #315 WIDE (3), step 2,
 `hslotOrd`'s field-data half): at a field the pin's container `dK`
