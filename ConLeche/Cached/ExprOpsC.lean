@@ -513,8 +513,8 @@ def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
     if hcut : e.bvarB ≤ d then e
     else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
 
-/-- The plain descent of `instantiateRev` (task #314; as `instantiateListP`
-on the reversed array). -/
+/-- The plain descent of `instantiateRev` (as `instantiateListP` on
+the reversed array): the reference of `instantiateRevXP`. -/
 def instantiateRevP (vs : Array Expr) (e : Expr) (k : Nat) (d : Nat) : Expr :=
   if k = 0 then e
   else if e.bvarB ≤ d then e
@@ -618,8 +618,8 @@ def instantiateRev (e : @& Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
 
 /-! ## Abstraction -/
 
-/-- The plain descent of `abstract1C` (task #314; the reference of
-`abstract1X`). -/
+/-- The plain descent of `abstract1C`: the reference of
+`abstract1XP`. -/
 def abstract1P (d : Nat) (e : Expr) (k : Nat) : Expr :=
   if e.fvarB ≤ d then e else
   match e with
@@ -682,8 +682,8 @@ def abstract1C (e : @& Expr) (d : Nat) (k : Nat := 0) : Expr :=
   if hcut : e.fvarB ≤ d then e else
   resTerm (abstract1XP d none e k hcut)
 
-/-- The plain descent of `abstractRangeC` (task #314; the reference of
-`abstractRangeX`). -/
+/-- The plain descent of `abstractRangeC`: the reference of
+`abstractRangeXP`. -/
 def abstractRangeP (d k : Nat) (e : Expr) (c : Nat) : Expr :=
   if e.fvarB ≤ d then e else
   match e with
@@ -757,8 +757,8 @@ def abstractRangeC (e : @& Expr) (d k : Nat) (c : Nat := 0) : Expr :=
 
 /-! ## Level instantiation -/
 
-/-- The plain descent of `instLevelParams` (task #314; the reference of
-`instLevelParamsX`). -/
+/-- The plain descent of `instLevelParams`: the reference of
+`instLevelParamsXP`. -/
 def instLevelParamsP (ks : List Name) (us : List Level) (e : Expr) : Expr :=
   if !e.hasLP then e else
   match e with
