@@ -6209,6 +6209,96 @@ theorem dom₂_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
   rw [← hCeq _ hlt]
   exact app_subset_of_famLe (hY _ hlt) (hYC _ hlt) t'
 
+
+/-- **THE OWNER'S READING, FROM ITS OWN ROWS** (task #315 WIDE (f3)
+step 1): `hread` — the `denoteMeta` of the OWNER's recomputation at the
+field's cut — from `PinShapes`' `OrdTargetRead` conjunct at whichever
+of the target's two arms holds.
+
+Three things are spent and nothing else.  The CUT: the stored domain's
+head is a constant, so the recomputation's `Π`-tower is empty
+(`ordTargetDomL_flat_at`) and `OrdTargetRead`'s cut `l + depth` IS the
+consumer's `l`.  The TABLE: the environment's own-pin list and the
+container model's agree at position `qK`, which is the only position
+the recomputation reads (`ordTargetDom_congr_at`).  The PARAMETER
+COUNT: `ContainerModeled.nP`.
+
+**It is stated under the fitting prefix**, which is `OrdTargetRead`'s
+own guard and the consumer's own scope — the unconditional form has no
+producer, and a constructor with an empty earlier domain has no
+fitting prefix to manufacture one from. -/
+theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {ψJ : Name → Nat} {ρJ : Nat → V} {ψ : Name → Nat}
+    {a i j baseK qK : Nat} {lpsC lps : List Name}
+    {bs : List (Expr × ConLeche.BinderMeta)} {ownT : List Expr}
+    {ciR : ContainerInfo} (CR : ContainerModeled m ciR dR)
+    (htabAt : ownT.getD qK default = (dR.ownPinTerms lps).getD qK default)
+    (hscope : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dR.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ∃ (K : Name) (vs : List Level), dom.1.getAppFn = .const K vs)
+    (hrowRead : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dR.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ¬ (dR.pinCtors qK).tgts j l < dR.k →
+      ∃ z : Nat, z < dR.nPins ∧
+      (dR.pinCtors qK).tgts j l = dR.k + z ∧
+      ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l []).length = (dR.pinAt z).nIdx ∧
+      OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dR.nP l
+        ((dR.pinAt baseK).Ds ψJ) ((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j [])
+        ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l [])
+        ((((dR.pinCtors qK).tlss ψJ).getD j []).getD l [])
+        ((dR.pinAt z).nPJ) lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
+    (hrowReadMem : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dR.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      (dR.pinCtors qK).tgts j l < dR.k →
+      ∃ mm : Nat, mm < dR.k ∧
+      (dR.pinCtors qK).tgts j l = mm ∧
+      ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l []).length = dR.nIdxAt mm ∧
+      OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dR.nP l
+        ((dR.pinAt baseK).Ds ψJ) ((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j [])
+        ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l [])
+        ((((dR.pinCtors qK).tlss ψJ).getD j []).getD l [])
+        dR.nP lpsC dK.nP qK (dR.ownPinTerms lps) dom.1) :
+    ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dR.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (((dR.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        (((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
+      ∃ rx : AnnotTerm,
+        denoteMeta m.acval env₂ ψJ (ciR.nP + l)
+          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+            (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx := by
+  intro l hl hord hrsP dom hdm fs₁ hfsl hfit
+  obtain ⟨K, vs, hdomHd⟩ := hscope l hl hord hrsP dom hdm
+  obtain ⟨hdep, -⟩ :=
+    ordTargetDomL_flat_at (lpsC := lpsC) hdomHd (dR.ownPinTerms lps) dK.nP qK l
+  have hOR : OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dR.nP l
+      ((dR.pinAt baseK).Ds ψJ) ((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j [])
+      ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l [])
+      ((((dR.pinCtors qK).tlss ψJ).getD j []).getD l [])
+      (if (dR.pinCtors qK).tgts j l < dR.k then dR.nP
+        else (dR.pinAt ((dR.pinCtors qK).tgts j l - dR.k)).nPJ)
+      lpsC dK.nP qK (dR.ownPinTerms lps) dom.1 := by
+    by_cases hmemT : (dR.pinCtors qK).tgts j l < dR.k
+    · rw [if_pos hmemT]
+      obtain ⟨mm, -, -, -, hOR₀⟩ := hrowReadMem l hl hord hrsP dom hdm hmemT
+      exact hOR₀
+    · rw [if_neg hmemT]
+      obtain ⟨z, hz, htgz, -, hOR₀⟩ := hrowRead l hl hord hrsP dom hdm hmemT
+      rw [show (dR.pinCtors qK).tgts j l - dR.k = z from by omega]
+      exact hOR₀
+  obtain ⟨-, fb, Ps, -, hden⟩ := hOR fs₁ hfsl hfit
+  rw [hdep, Nat.add_zero] at hden
+  rw [ordTargetDom_congr_at htabAt, ← CR.nP]
+  exact ⟨_, hden⟩
+
 /-- **`hfitc` AT ONE OWN-PIN CLASS, WITH `hslotOrd` INLINED** (task
 #315 WIDE (f3) step 1): `nestedPinFit_pin` at
 `hslotOrd := nestedSlotOrd_pin`, which is the edit the previous row

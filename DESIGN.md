@@ -126517,3 +126517,55 @@ assembly), and one LEFT the set by gaining its first consumer
 (`ordTgt_corr`, consumed by `tgtσ_of_run`).  `#print axioms` on
 `tgtσ_of_run`, `dom₂_of_run`, `nestedSlotOrd_pin`, `nestedFitc_pin`
 and `nestedBlockAt_of`: `propext`, `Classical.choice`, `Quot.sound`.
+
+#### WIDE (f3) STEP 1 — `hread`'s PRODUCER, AND THE HEAD NARROWED TO ONE ARM (lane LE, 2026-09-20)
+
+`read_of_run` (`Model/Inductives/NestedPinLeafAll.lean`) is the split
+premise's producer: `hread` — the OWNER's `denoteMeta` of its
+recomputation at the field's cut — from `PinShapes`' `OrdTargetRead`
+conjunct at whichever of the target's two arms holds
+(`rowOrdRead`/`rowOrdReadMem`), the two joined by an `if` on the
+owner's target so the arms' different parameter counts never reach the
+conclusion.  Three things are spent and nothing else: the CUT (the
+stored domain's head is a constant, so `ordTargetDomL_flat_at` makes
+the recomputation's `Π`-tower empty and `OrdTargetRead`'s `l + depth`
+IS the consumer's `l`), the TABLE at position `qK` alone
+(`ordTargetDom_congr_at`), and `ContainerModeled.nP`.
+
+**Where the missing head is, exactly.**  The previous row named
+`hscope`'s first conjunct — the field's stored domain is
+constant-headed — as having no producer.  Read one arm further, it has
+one at the arm the bridge's OTHER consumer needs it at and not at
+`hscope`'s:
+
+* at a container-RECURSIVE field at one of the shared container's own
+  pins (`CopyCtorShape.pinF`, arm (A)'s PIN half), the head is the
+  pin's container by construction and
+  `ContainerModeled.nestPinSpineAbs` records it — the spine
+  `mkAppN dom.getAppFn (args.take nPJ)`, instantiated, IS
+  `(d.pinAt q).ownAt …`, whose head is `.const J _`;
+* at a container-ORDINARY field the OWNER rewrote (`hscope`'s arm),
+  nothing does, and the reason is structural: the shared container did
+  NOT classify the field as nested, so no `nest*` clause speaks of it,
+  and the fact that its domain is constant-headed is a fact about the
+  OWNER's rewrite — the datum the nested install restores and drops.
+
+So the remaining object is narrow and nameable: **the OWNER's copy
+rewrote a container-ORDINARY field, therefore that field's stored
+domain is constant-headed** — a record of the K.67/K.69 family (or a
+`PinShapes` clause carried the way K.68's row is), and the only thing
+between `hscope` and its producer.  It cannot be guarded by the
+BLOCK's rewrite: `nestedFitc_pin` spends `hscope` to PRODUCE that bit.
+
+##### THE GATES
+
+`tests/warning-free.sh 09cdf781`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match, `tests/no-local-paths.sh`
+OK.  `tests/arena.sh` NOT owed — `Model/` only.
+`tests/unconsumed.sh` **203 of 3880** against **202 of 3879**: one
+declaration added (`read_of_run`), unconsumed until the assembly.
+`#print axioms read_of_run`: `propext`, `Classical.choice`,
+`Quot.sound`.
