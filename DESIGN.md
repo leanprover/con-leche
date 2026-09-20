@@ -126587,10 +126587,20 @@ has everything the inclusion needs:
 **So `hdom₁` is not a fourth proof**: it is `hdom₂` transported, plus
 — at the one corner where side 2 is silent — the very entry
 `hentOrd₁` already asks for.  The 2026-09-19 table's 40 lines are
-bookkeeping over three arms and no missing object, and the cleaner
-shape is to DELETE the premise from `copyTransfer_via_pin` and derive
-it there, where `hcdom`, `h₁.slot_container`, `h₂.slot_container` and
-`copyTarget_u` are all already in hand.
+bookkeeping over three arms and no missing object.
+
+**Where the derivation may NOT live**: not in `copyTransfer_via_pin`.
+That theorem is ONE direction and holds only its own side's `hdom₁`;
+`copyTransfer_iff_pin` runs it twice with the sides swapped, so the
+second call's `hdom₁` IS `hdom₂`.  The derivation belongs at
+`copyTransfer_iff_pin`, which holds both — and taking it there costs
+one more thing: at the mixed corner `hentOrd₁` is the ⊆ˢ the OTHER
+way, so eliminating `hdom₁` needs that premise strengthened from an
+inclusion to the ENTRY (`CopyEntryAt` is an equality and gives both
+directions at once), which is what the assembly has in hand anyway
+(`CopyEntryAOrd` + `entOut_corr` + `setJoin_out`).  Whether to spend
+that refactor or to keep `hdom₁` a premise and PRODUCE it at the
+assembly is a choice, not a blocker: both need the same three arms.
 
 **What the bridge still owes, after this reading**: ONE object — the
 OWNER's rewrite of a container-ORDINARY field forces that field's
