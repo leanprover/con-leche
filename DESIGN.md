@@ -125175,3 +125175,120 @@ CONSUMED, nothing left the set, and the four the previous rows parked
 `ordTgtReadAt`, `ordReadAt`, `ordRead_corr` and
 `nestedPinsEntry_of_le_all`: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (3) STEPS 1 AND 2 CLOSED — THE BOUND IS DERIVED, THE INDEX COUNTS MEET AT A STORED TYPE; AND STEP 3's PRODUCER DOES NOT EXIST (lane LE, 2026-09-20)
+
+The previous row left `ordTgt_corr` assuming `hge` and `ordRead_corr`
+assuming `hnIdx`.  Both are gone.  Step 3 was PRICED against the tree
+and NOT started: its member arm needs a run-tier reading theorem that
+is not there, and the pin one cannot be relaxed into it.
+
+##### (a) STEP 1 — THE BLOCK'S BOUND, DERIVED AT THE CORRESPONDENCE
+
+`ordTgt_corr` (`NestedPinLeafAll.lean:~4722`) no longer takes
+`p.k ≤ t`.  In its place it takes the STORED domain's head
+(`hdomHd : dom.1.getAppFn = .const K vs`), which is what the bound's
+producer reads:
+
+* `ordTargetDomL_flat_at` carries that head to the recomputation's
+  (a level instantiation does not change a head), so the
+  correspondence's `M` IS `K` — the two flattening lemmas moved above
+  the theorem that now uses them;
+* each of the OWNER's two arms declares `K` in `env`: the MEMBER arm
+  through `containerInfo?_inv`'s per-member `env.find?` at `ciR`, the
+  PIN arm through `CR.pinNP`/`pinConts` and the crossing `hcontZ`
+  (`hciM`, already in hand there);
+* `GroupFacts.ordGe` then produces the bound INSIDE each branch, so
+  side 1 (`GroupFacts.ordTgt`) is read there and not before the split.
+
+That is the reordering the previous row named, and it cost what it
+priced.
+
+##### (b) STEP 2 — `hnIdx` REPLACED, AND THE ROUTE IS NOT THE PRICED ONE
+
+The plan asked for a `ContainerModeled` clause pinning `(pinAt q).nIdx`
+to the member's stored type, at nine sites.  It is not needed: the
+same fact is a LEMMA over the records that already exist, and the
+nine sites stay untouched.
+
+* `ContainerModeled.memberStrip` (`NestedPremise.lean:~964`):
+  `IsBlockModel.strip` read off the container RECORD — `∃ mem ∈
+  ci.members, mem.name = J ∧ ∃ bs s, mem.type.stripPis (ci.nP + n) =
+  some (bs, .sort s)` — with the count a PARAMETER, so a `pinNIdx`
+  rewrites into it in one step.
+* `PinShapes.rowPinNIdx` (`NestedPremise.lean:1482`): the OWNER's
+  producer.  `PinShapes` hands a `PinGroupView d (B ci) q₀ kJ` at
+  every pin (its `name`/`pinNIdx`), and `EnvBlocksOf` hands
+  `ContainerModeled m ci (B ci)`; `memberStrip` composes them.  This
+  is the one object the step ADDED to the unconsumed set.
+* The block's producer, beside its target: `ordTgtReadAt`
+  (`NestedInstMap.lean:~2609`) carries it out of `groupsAt`'s group
+  record (`rep`'s `IsBlockModel.member`, `pinNIdx`, `modeled`) exactly
+  as `hnPz` was carried, through `ordReadAt` (`:~3300`) and onto
+  `GroupFacts.ordRead` (`NestedPinLeafAll.lean:~2183`).
+* `stripPis_sort_arity` (`NestedPinLeafAll.lean:~4911`): a sort-ended
+  telescope has ONE length — `stripPis` peels `∀` nodes only.  With
+  `containerInfo?_member_det` naming one member of one record, the two
+  counts are equal.
+
+`ordRead_corr`'s hypothesis on this axis is now the owner's row
+itself (`hnIdxR`), which is `rowPinNIdx`'s conclusion verbatim at
+`env₂` — the environment `ContainerModeled m ciR dR` lives at.
+
+##### (c) STEP 3 PRICED AGAINST THE TREE — AND ITS MEMBER ARM IS FALSE OF THE PIN ROW
+
+The owner's MEMBER arm is a second disjunct on `PinShapes`' reading
+clause, and the plan's shape for it is RIGHT: the split is `d.nP`,
+because at a member target the recomputation's head is one of the
+BLOCK's own members applied to the block's parameters.  The producer
+is what does not exist.
+
+* The pin row's core is
+  `NestedPinsRun.copyOrdFRightPinOrdTargetRead`
+  (`NestedCopyInst.lean:10361`, with its reflexive twin at `:10636`
+  and the two run wrappers at `:11165`/`:11260`).  Its conclusion is
+  `Ps.length = ciK.nP` and `hciK : containerInfo? env K = some ciK` is
+  a HYPOTHESIS of it.
+* In the member arm that hypothesis is not merely unavailable, it is
+  FALSE: `K ∈ p.memberNames` and `NestedPinsRun.membersFresh`
+  (`NestedInstMap.lean:1100`) says the block's member names are
+  UNDECLARED in `env`, so `containerInfo? env K = none`.  The pin row
+  cannot be relaxed to cover it — the object the member arm needs is a
+  different theorem with a different split.
+* So step 3 is: a member-target twin of `copyOrdFRightPinCorr`
+  (`:9142`, the structural core — at a member target the rewrite
+  leaves the head, `hheadS` already names it) and of the reading core
+  and its reflexive twin, then the threading through `ordTgtReadAt`
+  (drop `hpinT`, split on `instOrdSelfAt`'s two arms), `ordReadAt`,
+  `GroupFacts.ordRead`, the `PinShapes` clause, `rowOrdRead` and
+  `nestedPinShapes_of`, and finally `ordRead_corr`'s member arm.  The
+  pin side of that machinery is ~900 lines; ONE TO TWO SESSIONS is the
+  honest price, and it is a prerequisite for step 4's discharge
+  ("both arms").
+* `copyOrdFRightReadM` (`:9731`) is NOT it: it produces `EntryRead`,
+  not the `denoteMeta … = mkAppN fb (Ps ++ Eis)` the tie compares.
+
+##### (d) WHERE IT STOPS
+
+Steps 3, 4, 5, (4') and (4) were NOT started; `agent/uniform-le4` was
+NOT merged.  `hslotOrd` was not weakened in the four signatures: the
+two fits it should take are `ordRead_corr`'s two, and the discharge
+behind them needs (c).
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 9429b913`: 3 changed modules, `lake build` 3
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/unconsumed.sh` 200/3853 against
+199/3850: the three additions are `ContainerModeled.memberStrip` and
+`stripPis_sort_arity` (both CONSUMED) and `PinShapes.rowPinNIdx`
+(unconsumed, the owner's producer waiting for (4)); nothing left the
+set, and the four the previous rows parked plus `ordTgt_corr`,
+`ordRead_corr` and `PinShapes.rowOrdRead` stay where they were.
+`tests/overview-links.sh` 112 links OK and `tests/quote-gate.sh` 2
+statements match.  `tests/arena.sh` not run and not owed: no
+`Kernel/`, `Cached/` or `Verify/` file changed.  `#print axioms` on
+`memberStrip`, `rowPinNIdx`, `stripPis_sort_arity`, `ordTgt_corr`,
+`ordRead_corr` and `nestedPinsEntry_of_le_all`: `propext`,
+`Classical.choice`, `Quot.sound`.
