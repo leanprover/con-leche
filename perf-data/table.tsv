@@ -1,69 +1,21 @@
-let-ladder	official	6131317439	0.58	0	22	4.67	Accepted 22 declarations.	
-let-ladder	trusted	8060419805	1.01	0	13	4.67	con-leche: accepted 13 declarations (--trusted)	
-let-ladder	verified	8060552469	1.02	0	13	4.67	con-leche: accepted 13 declarations (--verified)	
-beta-ladder	official	10124396214	1.14	0	20	4.67	Accepted 20 declarations.	
-beta-ladder	trusted	39941218981	4.71	0	11	4.67	con-leche: accepted 11 declarations (--trusted)	
-beta-ladder	verified	39946424274	4.75	0	11	4.53	con-leche: accepted 11 declarations (--verified)	
-init-prelude	official	2207023560	0.20	0	2056	4.33	Accepted 2056 declarations.	
-init-prelude	trusted	3041145165	0.29	0	1773	4.33	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-prelude	verified	3200519993	0.31	0	1773	4.33	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	official	13414747030	1.36	0	2429	4.33	Accepted 2429 declarations.	
-grind-ring-5	trusted	21544795946	2.35	0	2181	4.22	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	verified	22688127093	2.45	0	2181	4.22	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-app-lam	official	29413657010	3.33	0	34	4.04	Accepted 34 declarations.	
-app-lam	trusted	157303318908	24.91	0	21	4.04	con-leche: accepted 21 declarations (--trusted)	
-app-lam	verified	157306562289	24.37	0	21	3.54	con-leche: accepted 21 declarations (--verified)	
-init-full	official	403442866449	50.43	0	54472	3.30	Accepted 54472 declarations.	
-init-full	trusted	521125882841	48.08	0	53088	2.56	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-full	verified	538456129501	50.26	0	53088	2.42	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-mathlib-full	official	10536734049626	1843.78	0	670627	2.29	Accepted 670627 declarations.	9607380
-mathlib-full	trusted	11158247938832	1048.20	0	654499	1.89	con-leche: accepted 654499 declarations (--trusted)	8251984
-mathlib-full	verified	12013580800847	1140.33	0	654499	2.43	con-leche: accepted 654499 declarations (--verified)	8257232
-let-ladder	official	6130994850	0.50	0	22	3.28	Accepted 22 declarations.	
-let-ladder	trusted	8012353607	1.03	0	13	3.28	con-leche: accepted 13 declarations (--trusted)	
-let-ladder	verified	8012521928	1.00	0	13	3.28	con-leche: accepted 13 declarations (--verified)	
-beta-ladder	official	10128531672	1.14	0	20	3.28	Accepted 20 declarations.	
-beta-ladder	trusted	39746345102	5.24	0	11	4.70	con-leche: accepted 11 declarations (--trusted)	
-beta-ladder	verified	39749924438	5.19	0	11	5.60	con-leche: accepted 11 declarations (--verified)	
-init-prelude	official	2207398687	0.20	0	2056	5.40	Accepted 2056 declarations.	
-init-prelude	trusted	2740686220	0.27	0	1777	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-prelude	verified	2885287655	0.27	0	1777	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	official	13405717964	1.35	0	2429	5.40	Accepted 2429 declarations.	
-grind-ring-5	trusted	19057735528	2.06	0	2185	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	verified	20185581485	2.21	0	2185	5.20	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-app-lam	official	29425593706	3.37	0	34	5.20	Accepted 34 declarations.	
-app-lam	trusted	157076799755	24.60	0	21	5.51	con-leche: accepted 21 declarations (--trusted)	
-app-lam	verified	157081144713	24.58	0	21	4.79	con-leche: accepted 21 declarations (--verified)	
-init-full	official	439877141546	54.66	0	59430	3.72	Accepted 59430 declarations.	
-init-full	trusted	491834513662	45.47	0	57977	2.92	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-full	verified	510080976184	47.04	0	57977	2.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-let-ladder	official	6132282036	0.57	0	22	5.94	Accepted 22 declarations.	
-let-ladder	trusted	2718766421	0.30	0	13	5.94	con-leche: accepted 13 declarations (--trusted)	
-let-ladder	verified	2718972169	0.30	0	13	5.94	con-leche: accepted 13 declarations (--verified)	
-beta-ladder	official	10127893761	1.25	0	20	5.94	Accepted 20 declarations.	
-beta-ladder	trusted	15307687874	2.46	0	11	5.94	con-leche: accepted 11 declarations (--trusted)	
-beta-ladder	verified	15311303312	1.68	0	11	13.63	con-leche: accepted 11 declarations (--verified)	
-init-prelude	official	2207388805	0.24	0	2056	13.63	Accepted 2056 declarations.	
-init-prelude	trusted	2746731163	0.44	0	1777	13.63	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-prelude	verified	2888883241	0.57	0	1777	13.63	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	official	13409010490	2.00	0	2429	20.71	Accepted 2429 declarations.	
-grind-ring-5	trusted	19184828971	2.13	0	2185	20.71	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	verified	20295525806	4.59	0	2185	20.71	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-app-lam	official	29412409144	5.87	0	34	32.68	Accepted 34 declarations.	
-app-lam	trusted	70676741511	14.62	0	21	38.23	con-leche: accepted 21 declarations (--trusted)	
-app-lam	verified	70680150682	12.02	0	21	38.99	con-leche: accepted 21 declarations (--verified)	
-init-full	official	439539804686	58.70	0	59430	35.17	Accepted 59430 declarations.	
-init-full	trusted	491172838775	60.09	0	57977	25.64	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-full	verified	509044762960	58.52	0	57977	31.01	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-let-ladder	trusted	2711825350	0.30	0	13	3.39	con-leche: accepted 13 declarations (--trusted)	
-let-ladder	verified	2712033233	0.29	0	13	3.39	con-leche: accepted 13 declarations (--verified)	
-beta-ladder	trusted	13921493272	1.43	0	11	3.60	con-leche: accepted 11 declarations (--trusted)	
-beta-ladder	verified	13925497956	1.46	0	11	3.60	con-leche: accepted 11 declarations (--verified)	
-init-prelude	trusted	2355005001	0.24	0	1777	3.60	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-prelude	verified	2494152321	0.26	0	1777	3.60	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	trusted	16304779572	1.88	0	2185	3.60	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-grind-ring-5	verified	17410028185	2.00	0	2185	3.55	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-app-lam	trusted	70654285477	11.56	0	21	3.55	con-leche: accepted 21 declarations (--trusted)	
-app-lam	verified	70657833631	11.23	0	21	3.61	con-leche: accepted 21 declarations (--verified)	
-init-full	trusted	437780293487	42.82	0	57977	3.76	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
-init-full	verified	453947141320	44.25	0	57977	10.69	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+let-ladder	official	6116471447	0.55	0	22	13.69	Accepted 22 declarations.	
+let-ladder	trusted	2711816435	0.32	0	13	13.69	con-leche: accepted 13 declarations (--trusted)	
+let-ladder	verified	2712047659	0.45	0	13	13.69	con-leche: accepted 13 declarations (--verified)	
+beta-ladder	official	10126231473	1.69	0	20	19.64	Accepted 20 declarations.	
+beta-ladder	trusted	13921689023	1.55	0	11	19.64	con-leche: accepted 11 declarations (--trusted)	
+beta-ladder	verified	13925516702	1.48	0	11	19.64	con-leche: accepted 11 declarations (--verified)	
+init-prelude	official	2207230857	0.20	0	2056	18.47	Accepted 2056 declarations.	
+init-prelude	trusted	2355081069	0.23	0	1777	18.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+init-prelude	verified	2493817645	0.25	0	1777	18.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+grind-ring-5	official	13415241198	1.36	0	2429	18.47	Accepted 2429 declarations.	
+grind-ring-5	trusted	16302758774	1.86	0	2185	18.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+grind-ring-5	verified	17406035837	2.03	0	2185	18.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+app-lam	official	29415094197	3.39	0	34	17.39	Accepted 34 declarations.	
+app-lam	trusted	70653902054	11.96	0	21	16.40	con-leche: accepted 21 declarations (--trusted)	
+app-lam	verified	70657331889	11.21	0	21	14.89	con-leche: accepted 21 declarations (--verified)	
+init-full	official	439591091713	54.31	0	59430	13.52	Accepted 59430 declarations.	
+init-full	trusted	437777594981	42.98	0	57977	8.60	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+init-full	verified	453960897214	44.89	0	57977	6.20	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+mathlib-full	official	10263526316109	1774.39	0	707578	4.49	Accepted 707578 declarations.	11949836
+mathlib-full	trusted	7428491323646	802.74	0	691203	4.59	con-leche: accepted 691203 declarations (--trusted)	8711160
+mathlib-full	verified	8101966235776	907.23	0	691203	7.64	con-leche: accepted 691203 declarations (--verified)	8739344

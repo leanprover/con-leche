@@ -78816,3 +78816,267 @@ build, test, shake and arena logs under `logs/`.  The arena streams
 are the #318 lane's live tarball (`_tmp/arena-tests`, a symlink); the
 arena gate runs on the vendored snapshot `_tmp/arena-vendored`, as
 #318's did, because the live tarball has a different fixture list.
+
+## TASK #320 — PERF.md RE-MEASURED AT MASTER: the full battery, Mathlib included (2026-09-20, `agent/perf-320`)
+
+**The ask.**  `PERF.md` had grown two carried-forward parts: the
+`official v4.33.0` column (the #317 battery's, kept because the
+upstream checkout had left the machine) and the whole `mathlib-full`
+row (the 2026-09-10 battery's, on a 5.6 GB stream that was also gone —
+a different binary AND a different stream from every other cell).  So
+the README's *"comparable performance to the official kernel"* rested
+on `init-full` and on a Mathlib row nobody could reproduce.  This task
+regenerates every input, rebuilds the reference binary, and measures
+**every cell of every table in one session**: one pair of binaries,
+one set of streams, **not one carried-forward number left in the
+file**.
+
+**The verdict, first.**  On all of Mathlib con-leche is now the
+**faster** checker — **0.79× the official kernel's instructions in the
+verified mode, 0.72× in the trusted mode** — while `init-full` sits at
+1.03× / 1.00× and the Mathlib prefix at 1.02× / 0.98×.  Both Mathlib
+cells accept: official 707 578 declarations, con-leche 691 203
+declaration records in both modes, exit 0.  Wall time for the whole
+library at one worker: **15.1 min verified** (8.33 GiB peak RSS)
+against official's 29.6 min (11.40 GiB).  §5 attributes the 0.79×,
+which is outside the 1.0–1.1× band the brief expected, to two measured
+causes: the official checker's NDJSON parse (a flat 306 instructions
+per input byte — 18 % of its full-Mathlib run) and a check phase whose
+per-declaration cost grows 3.5× from the Mathlib prefix to the whole
+library where con-leche's grows 2.4×.
+
+### 1. The kit — the provenance of every input
+
+* **`mathlib-full` (new).**  mathlib4 **`6f1ef4e5`** — the last mathlib4
+  commit on the `v4.33.0` toolchain, the commit #307/#318 cut the
+  Mathlib prefix from — `lake exe cache get` for the oleans (8 323
+  `.olean`), then `lake env lean4export Mathlib` with **`lean4export`
+  at `15f6055`** (the `chore: bump toolchain to v4.33.0 (#44)` commit,
+  the newest whose `lean-toolchain` is ours).  Result: exit 0,
+  **6 069 002 157 bytes, 107 820 903 lines**, header
+  `lean4export 3.1.0 / format 3.1.0 / Lean 4.33.0 (d8b18978)` —
+  byte-for-byte the dialect of the `init-full` and prefix streams, and
+  the same dialect the official kernel reads unchanged.  The census
+  makes it **691 203 declaration records** (6 714 native inductive
+  blocks: 5 764 structures, 604 sums, 346 indexed; 5 pinned) against
+  the official binary's **707 578** `constMap` entries.  It is 7.7 %
+  LARGER than the 5 636 308 621-byte stream the carried-forward row
+  quoted, which was a Lean **4.29.1** export of an older Mathlib: the
+  two are not the same input and their cells are not comparable.
+  Kept at `_tmp/ref/mathlib-full.ndjson` for the next lane.
+* **`init-full` and the Mathlib prefix (unchanged).**  The #307/#318
+  exports at `_tmp/ref/init-exports/`: `init-full` 347 714 179 B /
+  57 977 declarations, `mathlib-prefix` (the cone of
+  `Mathlib.Order.Filter.Basic` at `6f1ef4e5`) 590 944 488 B / 131 902.
+  The prefix is not a battery row; it is measured here off-battery as
+  the reproduction check and as §5's middle data point.
+* **The official kernel (rebuilt).**  `leanprover/lean-kernel-arena`
+  cloned fresh (HEAD `cc1a217`); `checkers/official-v4.33.0` no longer
+  exists at HEAD (commit `aa259bf`, "Bump official to v4.34.0-rc2",
+  deleted it), so the directory was restored from **`aa259bf^`** and
+  built by its own recipe — `echo leanprover/lean4:v4.33.0 >
+  lean-toolchain && lake build`.  `.lake/build/bin/kernel`, md5
+  **`6125c70e83490973a07be2ea69523a2c`**.  Same source, same toolchain
+  and the same `Export.Parse` pin (`lean4export` `f297dfe2`) as the
+  battery that first produced the `official v4.33.0` column.
+* **con-leche.**  master **`403a4152`**, `lake build`, md5
+  **`f037fae3a24949427026eaf835ad288f`** — bit-identical to #319's
+  landed binary, so the con-leche cells are directly comparable with
+  that record's.
+* **Method.**  `perf stat -e instructions:u`, **ONE run per cell**,
+  `--jobs=1` on every con-leche cell, `ulimit -v 16000000`
+  (`22000000` on the Mathlib row), `timeout` and `nice -n 5` on
+  everything, RSS by GNU `time -v` on the Mathlib row, one
+  Mathlib-scale process at a time.  `scripts/perf-tables.sh` with no
+  `PERF_STREAMS`/`PERF_CONFIGS`, so the run is a full sweep and
+  refreshes the tracked `perf-data/`.
+
+### 2. The table
+
+`instructions:u`, master `403a4152` against official v4.33.0, one run
+per cell:
+
+| stream | official v4.33.0 | trusted | verified | trusted ÷ official | verified ÷ official |
+|---|---|---|---|---|---|
+| `let-ladder` | 6.12 G | 2.71 G | 2.71 G | 0.44× | 0.44× |
+| `beta-ladder` | 10.13 G | 13.92 G | 13.93 G | 1.37× | 1.38× |
+| `init-prelude` | 2.21 G | 2.36 G | 2.49 G | 1.07× | 1.13× |
+| `grind-ring-5` | 13.42 G | 16.30 G | 17.41 G | 1.22× | 1.30× |
+| `app-lam` | 29.42 G | 70.65 G | 70.66 G | 2.40× | 2.40× |
+| `init-full` | 439.59 G | 437.78 G | 453.96 G | **1.00×** | **1.03×** |
+| Mathlib prefix (off-battery) | 644.69 G | 630.70 G | 658.10 G | **0.98×** | **1.02×** |
+| **`mathlib-full`** | **10 263.53 G** | **7 428.49 G** | **8 101.97 G** | **0.72×** | **0.79×** |
+
+Every cell exit 0.  Accepted: `mathlib-full` official 707 578,
+con-leche 691 203 in both modes (the difference is the official
+binary's `constMap.size` counting, reproduced from the file alone by
+`scripts/stream-census.py`); `init-full` 59 430 / 57 977; the prefix
+137 581 / 131 902.
+
+**The Mathlib row as data** (one worker, shared machine): wall
+official 1 774.4 s = 29.6 min, trusted 802.7 s = 13.4 min, verified
+907.2 s = 15.1 min; peak RSS 11.40 / 8.31 / 8.33 GiB.  con-leche's own
+phase split on the verified run: parse 23.2 s, install 124.1 s, check
+758.2 s.
+
+### 3. The reproduction check
+
+The brief's gate: the `init-full` cells must reproduce #319's within
+0.5 % and the prefix must reproduce 658.03 G.  They do, by three
+orders of magnitude more than asked — same binary, same streams, two
+different days:
+
+| cell | #319 | this battery | Δ |
+|---|---|---|---|
+| `init-full` verified | 453.947 G | 453.961 G | **+0.003 %** |
+| `init-full` trusted | 437.780 G | 437.778 G | **−0.0006 %** |
+| `mathlib-prefix` verified | 658.03 G | 658.096 G | **+0.010 %** |
+| `mathlib-prefix` trusted | 630.65 G | 630.698 G | **+0.008 %** |
+
+The `mathlib-full` verified cell was measured a second time in the
+worker-count sweep (§6) and came back at 8 101.995 G against the
+battery's 8 101.966 G — **+0.0004 %**.  One run per cell is the right
+number.
+
+### 4. What moved against the carried-forward file
+
+The `official` column reproduces the carried-forward one everywhere
+(`init-full` 439.59 G against 439.54 G, `app-lam` 29.42 against 29.41,
+`grind-ring-5` 13.42 against 13.41): the #317 column was a faithful
+carry, and this battery retires the caveat rather than a number.  The
+`mathlib-full` row moved a lot, and BOTH sides of the change are
+inputs the old row could not hold fixed: con-leche 12.01 T → 8.10 T
+verified (the binary is #313+#317+#319 newer — those three tasks took
+the Mathlib prefix from 848.51 G to 658.03 G, ×0.776 — and the stream
+is a different, larger export), official 10.54 T → 10.26 T.  The ratio
+went 1.14× → **0.79×**.
+
+### 5. Why the Mathlib ratio is 0.79× and not `init-full`'s 1.03×
+
+The brief asks for the difference to be attributed before it is
+written up.  Two measured causes, no estimate in either.
+
+**(1) The official checker's parser, 18 % of its full-Mathlib run.**
+The official binary has a `--parse-only` mode, so the split is a
+measurement, not a profile share:
+
+| stream | bytes | parse-only | full run | parse share | instructions / byte |
+|---|---|---|---|---|---|
+| `init-full` | 347 714 179 | 106.83 G | 439.59 G | 24.3 % | 307.2 |
+| Mathlib prefix | 590 944 488 | 180.70 G | 644.69 G | 28.0 % | 305.8 |
+| `mathlib-full` | 6 069 002 157 | **1 852.39 G** | 10 263.53 G | **18.0 %** | 305.2 |
+
+`Lean.Json`-based parsing costs the official kernel a flat **306
+instructions per input byte** across a 17× range of file size.
+con-leche's parse is ~1 % of its instructions (#307's profile of the
+prefix) and 23.2 s of a 907 s run.  Reading the 6 GB file therefore
+costs official 1.85 T and con-leche something around 0.08 T: the parse
+ALONE moves the verified ratio from **0.95× (check phase only) to
+0.79× (end to end)**.  It is real work on the same bytes — both
+checkers must read the file — but it is not kernel work, and it is the
+single largest term in the Mathlib row's gap.
+
+**(2) The check phase: official's per-declaration cost grows 3.5×
+from the prefix to the whole library, con-leche's 2.4×.**  With the
+parse subtracted on the official side:
+
+| | Mathlib prefix | `mathlib-full` | growth |
+|---|---|---|---|
+| official, check only | 463.98 G / 137 581 = **3.37 M per decl** | 8 411.13 G / 707 578 = **11.89 M** | **×3.53** |
+| con-leche `--verified` | 658.10 G / 131 902 = **4.99 M per record** | 8 101.97 G / 691 203 = **11.72 M** | **×2.35** |
+| check phases, con-leche ÷ official | 1.40× | **0.95×** | |
+
+So Mathlib's later declarations are ~3× heavier per declaration for
+BOTH checkers — that part is the input, not either implementation —
+and official's cost simply grows the faster of the two, which is what
+turns a 1.40× deficit on the prefix into parity on the library.
+`perf record -e instructions:u` of the official binary on both streams
+(92 793 samples on the full stream at `-F 49`, 16 123 on the prefix at
+`-F 199`; `_tmp/attrib/*.data`, bucketed by `bucket.py`) says where
+the extra growth sits:
+
+| bucket | prefix | `mathlib-full` | per-declaration growth |
+|---|---|---|---|
+| `lean::expr_eq_fn` (structural equality) | 2.8 % | **4.9 %** | **×5.4** |
+| `std::unordered_map` caches | 12.0 % | **14.6 %** | ×3.8 |
+| expr node construction | 8.8 % | 11.9 % | ×4.2 |
+| allocator + reference counting | 20.8 % | 22.4 % | ×3.3 |
+| substitution / `replace_rec_fn` | 21.9 % | 21.5 % | ×3.0 |
+| parse (`Json`/`Export` symbols) | 13.8 % | 8.6 % | ×2.0 |
+
+The growth concentrates in the C++ kernel's structural-equality path
+and the per-declaration hash caches around it — the caches con-leche
+replaced in #317–#319 with the pointer-keyed, exclusivity-gated memo.
+There is no single anomaly to name: the profile is the same shape at
+both scales, scaled unevenly.
+
+**What this does NOT say.**  Nothing here is a claim that con-leche's
+kernel algorithm beats the official one.  On the adversarial ladders
+it is still 1.4×–2.4× behind (`app-lam` 2.40×, `beta-ladder` 1.38×),
+and #312's decomposition against nanoda stands.  What the Mathlib row
+says is narrower and more useful: on the workload people actually
+have, end to end, from the same file, con-leche finishes first.
+
+### 6. The worker-count sweep, re-measured
+
+The worker-count table is a sweep of its own, which the battery does
+not run; its cells were also from the old stream, so they were
+re-measured here on the new one (`--verified`, `perf stat`, one run
+per cell, `ulimit -v` 16 GB on `init-full` and 32 GB on
+`mathlib-full`):
+
+| stream | `--jobs=1` | `--jobs=4` | `--jobs=8` |
+|---|---|---|---|
+| `init-full` | 45.0 s / 453.95 G | 14.9 s / 455.09 G | 9.8 s / 455.15 G |
+| `mathlib-full` | 864.7 s / 8 101.99 G | 353.2 s / 8 124.26 G | 267.3 s / 8 124.54 G |
+
+Instructions move **0.3 %** across the three worker counts, which is
+why the battery's cells are the `--jobs=1` ones and the pool is
+reported in wall time only.  On `mathlib-full` the check phase itself
+is 718.2 s / 201.6 s / 120.1 s; the sequential prefix ahead of it is
+23.8 s of parse and 121.0 s of install — 17 % of the one-worker run
+and **54 % of the eight-worker one**, the floor no worker count goes
+below.
+
+### 7. What the README's claim rests on now
+
+`README.md:9` says the checker "has comparable performance to the
+official kernel" and `README.md:138` "roughly on par".  Until today
+that sentence rested on `init-full` (1.03×) plus a Mathlib row that
+was neither this binary's nor this stream's.  It now rests on **all of
+Mathlib, measured in the same session as everything else it is
+compared with**: 6 069 002 157 bytes of `lean4export` NDJSON, 691 203
+declaration records, accepted in the verified mode in 15.1 minutes and
+8.1 T instructions against the official kernel's 29.6 minutes and
+10.3 T — **0.79×**, with `init-full` at 1.03× and the Mathlib prefix
+at 1.02× bracketing it from above.  "Comparable" is now the
+conservative reading of the file, and the honest caveat has moved
+from *"the Mathlib row is old"* to *"the adversarial ladders are still
+2.4×"*, which the table shows in its own rows.  The README is the
+maintainer's and is unchanged.
+
+### 8. Where everything is
+
+Committed on `agent/perf-320`: `PERF.md`,
+`perf-data/{table.tsv,census.tsv,meta.txt,parallel.tsv}` (the tracked
+record, regenerated wholesale by the sweep; `parallel.tsv` by §6's
+sweep), `scripts/perf-tables-render.py` (two hard-coded paragraphs
+that quote battery numbers: the in-process modeller's generated-record
+count, 2 168/51 blocks → **2 072/49** on the new stream, and the
+check-phase-per-worker sentence, → 718/202/120 s and 8.10/8.12/8.12 T),
+and this record.  No other file changes.
+
+OUTSIDE every worktree, kept for the next lane at
+`/home/joachim/con-leche/_tmp/ref/`: **`mathlib-full.ndjson`** (the
+6.07 GB export), `init-exports/` (the #318 streams, where they were),
+`arena-upstream/` (the arena clone with
+`checkers/official-v4.33.0/.lake/build/bin/kernel` built), `lean4export/`
+(at `15f6055`, built), `mathlib4/` (at `6f1ef4e5`, oleans fetched),
+`logs/` (clone, build, export logs).  In the worktree
+(`_tmp/perf-320/_tmp/`, gitignored): `perf-tables/` (the battery's raw
+cells and the Mathlib runs' timestamped progress logs), `attrib/` (the
+`--parse-only` cells, the two `perf record` profiles and `bucket.py`),
+`par/` (the worker sweep's harness, cells and progress logs), and the
+symlinks `arena-tests`, `init-exports`, `mathlib-scoping/` and
+`perfcmp/arena-upstream` that point `scripts/perf-tables.sh`'s default
+paths at `_tmp/ref/`.
