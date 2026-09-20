@@ -2647,6 +2647,20 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
               let q := mapR.getD qK st.pins.length
               match st.pins[q]?, kinds[q]? with
               | some qn, some ks =>
+                -- **K.70's ARM (A), THE MEMBER HALF**: the image of a
+                -- MINTED GROUP is contiguous in member order.  The
+                -- copy at `q` is the owner's own pin `qK` and sits at
+                -- offset `q - qn.grpBase` in the block's group, so the
+                -- owner's own pin for the container's member `mm` is
+                -- `qK - (q - qn.grpBase) + mm` and its image is the
+                -- block's `qn.grpBase + mm`.  That is all a
+                -- container-RECURSIVE field at a MEMBER target needs:
+                -- both copies' targets are already exact
+                -- (`CopyCtorShape.recF`), and only the map's
+                -- contiguity ties them.
+                ((List.range qn.grpSize).all fun mm =>
+                  mapR.getD (qK - (q - qn.grpBase) + mm) st.pins.length
+                    == qn.grpBase + mm) &&
                 match containerInfo? env qn.container with
                 | none => false
                 | some ci =>
@@ -2666,14 +2680,6 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else
                                 let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
-                                (match dmJ.getAppFn with
-                                 | .const M _ =>
-                                   match memsK.findIdx? (· == M) with
-                                   | some mmK =>
-                                     t == p.k + mapR.getD
-                                       (qK - (q - qn.grpBase) + mmK) st.pins.length
-                                   | none => true
-                                 | _ => true) &&
                                 (if ordRootFired env memsJ ownSelf dmJ then
                                   match dmJ.getAppFn with
                                   | .const M _ =>

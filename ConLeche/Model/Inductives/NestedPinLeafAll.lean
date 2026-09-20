@@ -2128,11 +2128,6 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
-    (∀ mmK, (ciO.members.map (·.name)).findIdx? (· == M) = none →
-      dJ.memberNames.findIdx? (· == M) = some mmK →
-      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
-        = p.k + mapR.getD (qK - i' + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
@@ -2141,6 +2136,22 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
           ((ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
+  /-- **K.70's ARM (A), THE MEMBER HALF, AT THE GROUP**: the OWNER's
+  instance map takes its own pin group onto this block's, member for
+  member.
+
+  That is the whole of a container-RECURSIVE field at a MEMBER target:
+  `CopyCtorShape.recF` gives the block's target as `p.k + q₀ + mm` and
+  the owner's as `dR.k + baseK + mm`, and this says `σ` carries the
+  second to the first.  No head, no recomputation and no term match —
+  which is why it is a clause about the MAP and not about a field. -/
+  mapGrp : ∀ (i' : Nat), i' < kJ →
+    ∀ (g : Nat), g < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[g]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
+    ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ∀ mm, mm < kJ → mapR.getD (qK - i' + mm) st.pins.length = q₀ + mm
   /-- **K.70's ARM (C) AT THE GROUP**: where the OWNER's own
   recomputation did NOT fire and the block's rewrite did, at a field
   the copy's container calls ORDINARY, the block's target leaves the
@@ -4945,7 +4956,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       obtain ⟨_, _, _, _, _, _, -, -, -, -, hmems⟩ := ConLeche.containerInfo?_inv hciR
       obtain ⟨cvC, capsC, -, -, -, hf, -, -, -, -, -, -⟩ := hmems mem hmemM
       rw [← hMK, ← hmemN, hf]; rfl
-    obtain ⟨hmem₁, -, -⟩ := hgo (hbound hfindK)
+    obtain ⟨hmem₁, -⟩ := hgo (hbound hfindK)
     rw [hmem₂ mm hfi, hroot mm hmmlt]
     exact hmem₁ mm (by rw [← hnames]; exact hfi)
   | none =>
@@ -4968,7 +4979,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       have hciK : ConLeche.containerInfo? env K = some ciZ := by rw [← hMK]; exact hciM
       obtain ⟨cvZ, capsZ, -, -, -, -, hf, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciK
       rw [hf]; rfl
-    obtain ⟨-, -, hpin₁⟩ := hgo (hbound hfindK)
+    obtain ⟨-, hpin₁⟩ := hgo (hbound hfindK)
     -- the searched term is the table's entry at `z`
     have hsearch : Expr.mkAppN (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
         ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)
@@ -7686,7 +7697,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hrss hge cA bs rr dom hjA hst hdm
@@ -7717,6 +7728,11 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+    · -- K.70's arm (A), the member half, as the run states it
+      -- (`instMapGrpAt`): a map fact, so no field preamble at all
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro i₂ hi₂ g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm mm hmm
+      exact R.instMapGrpAt SF S' hPD hi₂ hg hgn hciO hownT hmapR hqK hqm hmm
     · -- K.70's arm (C) at the group, as the run states it
       -- (`instOutOwnerAt`): the same preamble, with the `ordF` guard's
       -- bridge, which the negative row still needs

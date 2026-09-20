@@ -949,11 +949,6 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
-    (∀ mmK, (ciO.members.map (·.name)).findIdx? (· == M) = none →
-        dJ.memberNames.findIdx? (· == M) = some mmK →
-        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
-          = p.k + mapR.getD (qK - i' + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
@@ -1062,22 +1057,52 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1).getAppFn
       = .const M us := by
     rw [hlps', hnPci]; exact hhead
-  have hinv := ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
+  rw [← hnPci, ← hlps']
+  exact ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
     hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hhead'
-  rw [← hnPci, ← hlps']
-  -- the middle arm's member list is the container MODEL's, and its
-  -- offset is this copy's own inside the block's group
-  refine ⟨hinv.1, fun mmK hnm hmk => ?_, hinv.2.2⟩
-  have hmk' : (ci.members.map (·.name)).findIdx? (· == M) = some mmK := by
-    rw [← CMci.memberNames_eq]; exact hmk
-  have hoff : q₀ + i' - (pinAtE st (q₀ + i')).grpBase = i' := by
-    rw [hgb]; omega
-  have := hinv.2.1 mmK hnm hmk'
-  rwa [hoff] at this
 
+
+/-- **K.70's ARM (A), THE MEMBER HALF, AT THE RUN** (task #315 K.70):
+the OWNER's instance map takes its own pin group onto the block's,
+member for member — so the owner's own pin for the container's member
+`mm` maps to the block pin `q₀ + mm`.
+
+It is the map fact a container-RECURSIVE field at a MEMBER target
+needs, and nothing else: both copies' targets are exact there
+(`CopyCtorShape.recF`), and this is what ties them. -/
+theorem NestedPinsRun.instMapGrpAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[g]? = some gn)
+    {ciO : ContainerInfo} (hciO : ConLeche.containerInfo? env gn.container = some ciO)
+    {ownSelf : List Expr}
+    (hown : ConLeche.containerOwnPinsSelf env gn.container = some ownSelf)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    (hqm : mapR.getD qK st.pins.length = q₀ + i')
+    {mm : Nat} (hmm : mm < kJ) :
+    mapR.getD (qK - i' + mm) st.pins.length = q₀ + mm := by
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hq
+  obtain ⟨kindsP, hkP, hkPlen⟩ := ConLeche.nestedPinKindsOk_inv R.hkinds
+  have hkqlt : q₀ + i' < kindsP.length := by rw [hkPlen]; exact hq
+  have hkq : kindsP[q₀ + i']? = some (kindsP[q₀ + i']'hkqlt) :=
+    List.getElem?_eq_getElem hkqlt
+  obtain ⟨hgb₀, hgs₀⟩ := S.grp i' hi'
+  have hgb : (pinAtE st (q₀ + i')).grpBase = q₀ := by
+    rw [← pinAtE_eq] at hgb₀; exact hgb₀
+  have hgs : (pinAtE st (q₀ + i')).grpSize = kJ := by
+    rw [← pinAtE_eq] at hgs₀; exact hgs₀
+  have hoff : q₀ + i' - (pinAtE st (q₀ + i')).grpBase = i' := by rw [hgb]; omega
+  have hcell := ConLeche.nestedOrdTargetOk_grp_at R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
+    PD.pin hkq (mm := mm) (by rw [hgs]; exact hmm)
+  rw [hoff, hgb] at hcell
+  exact hcell
 
 /-- **K.70's ARM (C) AT THE COPY'S FIELD** (task #315 K.70): the
 NEGATIVE twin of `instOrdTgtAt`, one nesting level up from
