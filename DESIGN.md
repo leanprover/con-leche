@@ -126398,3 +126398,122 @@ is `Model/` only and no kernel statement moved.
 `b94459e9` (measured at the base, not quoted from a row): the same
 count and, line numbers apart, the SAME SET — no declaration was added
 or removed.
+
+#### WIDE (f3) STEP 1 — TWO OF THE BRIDGE'S FOUR REAL ENTRIES LANDED, AND THE THIRD'S READING WAS ASKED AT THE WRONG ARM AGAIN (lane LE, 2026-09-20)
+
+The bridge's four entries carrying real proof are the 2026-09-19
+table's own — `hdom₁`, `hdom₂`, `hscope`, `htgσ`.  Two of them are in,
+and reading the third against its producer repeated the step 1(a)
+finding one level down.
+
+##### (a) WHAT LANDED
+
+| object | file | what it is |
+|---|---|---|
+| `tgtσ_of_run` | `Model/Inductives/NestedPinLeafAll.lean` | `htgσ` at EVERY rewritten field of a pin copy — `ordTgt_corr` per `l`, with K.71's bound produced rather than assumed |
+| `dom₂_of_run` | same | `hdom₂` at every copy-recursive field of the owner's copy — `copyEntryAt_pin` + `auxLfp_eq_famAt` + `slotSet_mono_app` |
+| `hscope` SPLIT, `hread` added | same (`nestedSlotOrd_pin`, `nestedFitc_pin`) | the owner's READING moved under the fitting prefix its producer speaks at |
+
+**`tgtσ_of_run` produces K.71's bound where the proof already
+stands.**  `ordTgt_corr` takes `p.k ≤ t` since K.71, and at a
+container-ORDINARY field it is `GroupFacts.ordGe` — whose price is the
+recomputed head's DECLAREDNESS in `env`.  That comes off the OWNER's
+own row and needs no new object: `PinShapes.rowTargetOrd` answers
+either with a MEMBER of the owner's container, which
+`containerInfo?_inv` makes a stored inductive, or with one of the
+owner's own PINS, whose container `ContainerModeled.pinNP`/`pinConts`
+name and `hcontZ` carries to `env`.  It is the same argument
+`ordRead_corr` makes inline; stated once, it serves the whole field
+walk.
+
+**`dom₂_of_run` reads no arm of the shape.**  `copyEntryAt_pin` splits
+on the SHAPE and not on the caller's guard, so the container-ORDINARY
+fields the block rewrote are covered by the same three lines as the
+container-recursive ones.
+
+##### (b) THE FINDING — `hscope`'s READING HAD NO PRODUCER, FOR STEP 1(a)'s REASON
+
+`hscope`'s fifth conjunct asked for the OWNER's reading of its
+recomputation UNCONDITIONALLY:
+
+    denoteMeta m.acval env₂ ψJ (ciR.nP + l) (… ordTargetDom …) = some rx
+
+Its only producer is `PinShapes`' `OrdTargetRead` conjunct
+(`rowOrdRead`/`rowOrdReadMem`), and that is stated **under a fitting
+prefix of the field's own length** — `∀ fs₁, fs₁.length = l →
+SpineFit … → …`.  There is no way to manufacture such a prefix: a
+constructor one of whose earlier fields has an EMPTY domain has no
+fitting prefix at all, so the unconditional form is not merely
+unproved.
+
+It is also not needed: `nestedSlotOrd_pin` destructures `hscope`
+AFTER `intro … fs₁ hfsl hfit₁ hfit₂`, so the consumer already holds
+the prefix.  The premise is now split — `hscope` keeps the four
+conjuncts that are unconditional (the stored domain's head, the
+owner's firing, the recomputation's boundedness and its leaves) and a
+new `hread` carries the reading under the two fits, which is exactly
+where it is spent.  No proof changed; two signatures and two call
+sites did.
+
+**This is step 1(a)'s finding at the next level in**: a premise stated
+at a strictly larger set than its producer speaks at.  The rule the
+two together suggest — read EVERY premise against its named producer's
+own guards before pricing, not just the ones the table flags.
+
+##### (c) AND ONE CONJUNCT OF `hscope` HAS NO PRODUCER EITHER — NAMED
+
+`hscope`'s FIRST conjunct, `dom.1.getAppFn = .const K vs` — the
+field's stored domain is CONSTANT-HEADED — is not derivable from
+anything landed, and the grep is empty:
+
+* every model-side row TAKES it (`PinShapes`' fourth clause and
+  `rowOrdRead` take `(dom.1.instantiateLevelParams lpsC lvls).getAppFn
+  = .const K usK` as a hypothesis; `rowTargetOrd` takes the
+  recomputation's head; `ordRead_corr` and `GroupFacts.ordGe`/`ordRead`
+  take it);
+* `ordRootFired = true` does NOT give it: `ordRootFired` answers
+  `false` at a non-constant head, but its subject is
+  `ordTargetDom`, which is the stored domain `stripDomPis`'d — a
+  `Π`-headed domain can still have a constant-headed recomputation;
+* `ContainerModeled` carries no such clause (`ordFree` is about
+  member mentions, `nestMention`/`nestArgsMention*` about the pins'
+  components).
+
+It cannot be guarded by the BLOCK's rewrite either, and that is the
+2026-09-20 row's own warning: `nestedFitc_pin` spends `hscope` to
+PRODUCE `blkRss = true` (the `hfireOrd` lambda), so a `hscope` guarded
+by `blkRss` is a circle.  So the head must come from the OWNER's side
+— the container's own install saw a constant-headed domain where its
+copy rewrote the field — which is a record of the K.67/K.69 family or
+a `PinShapes` clause, and is the next thing step 1 owes.  The
+reflexive (Π-headed) arm is excluded by the same conjunct and stays a
+separate object, as `GroupFacts.ordRead`'s own docstring says.
+
+##### (d) THE BRIDGE, RE-PRICED AGAIN
+
+Of the 2026-09-19 table's four real entries: `htgσ` and `hdom₂` are
+**closed**; `hscope` is split and owes (c)'s record plus ~40 lines
+(the reading from `OrdTargetRead` at `domPiDepth = 0`, the firing from
+`rowTargetOrd`'s dichotomy, the scoping from `ordTargetDom_scoped`);
+`hdom₁` is untouched (~40).  The plumbing entries are cheaper than the
+table says — `hnIdxR` is `PinShapes.rowPinNIdx` in a line, and
+`hrowTgt`/`hrowRead`/`hrowReadMem` are the three projections applied —
+but `hXrec`'s PIN half needs `hrowTgt` WIDENED (K.71 took the
+container-ordinary guard off `PinShapes`' clause; `nestedFitc_pin`'s
+premise still carries it), and `hX`/`hu` are `setJoin_at_fc` and the
+group's `pinU`.
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 72de12fe`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match, `tests/no-local-paths.sh`
+OK.  `tests/arena.sh` NOT owed — `Model/` only.
+`tests/unconsumed.sh` **202 of 3879** against **201 of 3877**: two
+declarations added and both are unconsumed (they wait for the
+assembly), and one LEFT the set by gaining its first consumer
+(`ordTgt_corr`, consumed by `tgtσ_of_run`).  `#print axioms` on
+`tgtσ_of_run`, `dom₂_of_run`, `nestedSlotOrd_pin`, `nestedFitc_pin`
+and `nestedBlockAt_of`: `propext`, `Classical.choice`, `Quot.sound`.
