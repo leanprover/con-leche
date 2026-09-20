@@ -2551,7 +2551,8 @@ def ordTargetDom (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
     (l + domPiDepth (ordTargetDomL lps ownSelf qK dom))
 
 
-/-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69): its own
+/-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69, and K.70's
+own dichotomy): its own
 recomputation of the field (`ordTargetDom` at the owner's own
 components) is headed by a CONSTANT that is one of the owner's group
 MEMBERS or the container of one of the owner's own PINS — K.67's head
@@ -2570,7 +2571,16 @@ It is applied to the mint's POSITIVITY NORMAL FORM (`ordRootNorm`) and
 not to the mint, so that a root that fires only AFTER a reduction step
 — its mint a redex, `(fun _ => T α) trivial` — is inside the guard and
 not in the silent set.  At a mint already at a constant head the normal
-form is the mint and no walk is run. -/
+form is the mint and no walk is run.
+
+**K.70 reads it UNNORMALISED**, as the split between the arm where the
+owner's copy names a class of the owner (the positive row) and the arm
+where it names none (the negative one).  There the two arms are
+complementary by construction, so nothing is conceded either way and
+the reduction sliver K.69 closes with `ordRootNorm` does not arise:
+a mint that is a redex is in the NEGATIVE arm, and the negative claim
+— the block's target leaves the owner's instance — is the weaker of
+the two. -/
 def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
   match W.getAppFn with
   | .const M _ =>
@@ -2618,9 +2628,33 @@ table while `P4C`'s is `[Array, List]` — K.41's own correction, one arm
 over.  A collapsed map is handled for free: every own-pin position
 whose image is this pin is checked, not just the first.
 
+**THE THREE ARMS ARE ALL ASSERTED NOW** (task #315 K.70).  The walk
+used to SKIP a field the container calls RECURSIVE and to CONCEDE a
+field whose owner-side recomputation is not constant-headed; those are
+exactly the two arms of the wide identification's pin half with no
+producer in the tree.  What it asserts instead:
+
+* the instance map's image of a MINTED GROUP is contiguous in member
+  order — arm (A) at a MEMBER target, where both copies' targets are
+  already exact (`CopyCtorShape.recF`) and only the map ties them.  It
+  is hoisted OUT of the field walk because it is a statement about the
+  MAP and reads no field at all;
+* the positive row at every field under the guard, the
+  `mentionsMember` skip gone — arm (A) at a PIN target, whose consumer
+  needs K.71 beside it;
+* where the owner's recomputation did NOT fire and the field is
+  container-ordinary, the target is in neither the image of the
+  owner's instance map nor the owner's own mint group — arm (C),
+  K.62/K.66's content ONE NESTING LEVEL UP.  The remaining corner (not
+  fired, container-RECURSIVE) is a `false`: a strictly positive
+  recursive occurrence is constant-headed after the `Π`-strip.
+
 **It cannot fire by construction**: the block's rewrite of the copy is
 ONE substitution applied to the very constructor `J` copied, so the
-block's target is `J`'s target instantiated.  CERTIFICATION-ONLY in
+block's target is `J`'s target instantiated; the mint plants a mimic
+of a class only where the rewrite found an occurrence of it, so a
+field whose owner-side reading names no class of the owner has none to
+find; and the map's contiguity is `mkCopies`' own order.  CERTIFICATION-ONLY in
 spirit but UNCONDITIONAL and `.internal` for K.61's reason — the wide
 identification reads it in every mode, and a gated check is `true` in
 the trusted one.  Cost is K.30's: one stored-constructor read per pin
@@ -2756,11 +2790,22 @@ pins — `Tree α := node (List (Tree α))` names the member — so both
 halves are recorded, the member by its name among `p.memberNames` and
 the pin by its term among the same table the head is recomputed in.
 
+**AND THE CONTAINER-RECURSIVE FIELDS ARE IN IT** (task #315 K.71),
+which is K.70's change on this block's own side: the
+`mentionsMember memsK` skip is gone.  At a field the container calls
+RECURSIVE the block's recomputation names a class just as it does at
+one it calls ordinary, and the wide identification's pin half needs it
+CARRIED — the OWNER's install is restored and dropped, so the pin TERM
+is all that survives of it, and identifying the owner's model index
+with a position in its own-pin table asks for TERM equality
+(`pinsDistinctAt`), which no DATA row carries.
+
 **It cannot fire by construction**, category (B): the elimination's
 rewrite of the copy IS the substitution this row recomputes, followed
 by the replacement of the occurrence it finds, so the recorded target
-is the class the recomputation names.  UNCONDITIONAL and `.internal`
-for K.61's reason. -/
+is the class the recomputation names — at a recursive field as much as
+at an ordinary one.  UNCONDITIONAL and `.internal` for K.61's
+reason. -/
 def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match kinds? with
@@ -3387,10 +3432,17 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- constant survives the restore.  UNCONDITIONAL and `.internal`, for
   -- K.61's reason, on K.61's own table and K.46's field kinds.
   --
+  -- **AND ITS THREE ARMS** (task #315 K.70): the instance map's image
+  -- of a minted group is contiguous in member order; the positive row
+  -- holds at a field the container calls RECURSIVE too; and where the
+  -- OWNER's own recomputation did not fire the target leaves the
+  -- owner's instance altogether — K.62/K.66's content one nesting
+  -- level up.
+  --
   -- **IF THIS EVER FIRES** the block's rewrite of a copy disagrees with
-  -- the container it copied, at a field neither calls recursive — a
-  -- defect in the ROUTE, not in the stream, and the answer is never to
-  -- relax the check.  See DESIGN "#### K.67".
+  -- the container it copied — a defect in the ROUTE, not in the
+  -- stream, and the answer is never to relax the check.  See DESIGN
+  -- "#### K.67" and "#### K.70".
   else if !nestedOrdTargetAt env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the owning \
       container's own class")
@@ -3402,9 +3454,12 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- easily as a pin.  UNCONDITIONAL and `.internal`, for K.61's
   -- reason.
   --
+  -- The container-RECURSIVE fields are in it too (task #315 K.71),
+  -- because arm (A)'s pin half needs this row CARRIED.
+  --
   -- **IF THIS EVER FIRES** the elimination's rewrite of a copy names a
   -- class its own substitution does not — a defect in the ROUTE, not
-  -- in the stream.  See DESIGN "#### K.68".
+  -- in the stream.  See DESIGN "#### K.68" and "#### K.71".
   else if !nestedOrdSelfTargetAt env p st kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the block's own \
       class")
