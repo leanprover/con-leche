@@ -1257,9 +1257,76 @@ theorem wscopedBGoC_spec : ∀ {e : Expr},
           rw [wscopedB_proj, ← h1]
         exact ⟨hres, h2.insert hres⟩
 
+/-- The `.excl` walk's cutoff, read as the specification: a node whose
+cached fvar range is zero is well scoped at every cursor. -/
+private theorem wscopedBP_cut_spec {e : Expr} {d : Nat} (h : (e.fvarB == 0) = true) :
+    true = Expr.wscopedB d e :=
+  (wscopedB_of_fvarsBelow_zero _ (fvarB_le (Nat.le_of_eq (by simpa using h))) d).symm
+
+/-- **The plain descent of the `.excl` walk is `Expr.wscopedB`.** -/
+theorem wscopedBP_spec : ∀ (e : Expr) (d : Nat),
+    Expr.wscopedBP e d = Expr.wscopedB d e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d; rw [Expr.wscopedBP.eq_def]; split <;> exact (wscopedB_bvar i d).symm
+  | sort u =>
+    intro d; rw [Expr.wscopedBP.eq_def]; split <;> exact (wscopedB_sort u d).symm
+  | const n us =>
+    intro d; rw [Expr.wscopedBP.eq_def]; split <;> exact (wscopedB_const n us d).symm
+  | lit l =>
+    intro d; rw [Expr.wscopedBP.eq_def]; split <;> exact (wscopedB_lit l d).symm
+  | fvar idx ty iht =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_fvar, iht]
+  | app f a ihf iha =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_app, ihf, iha]
+  | lam ty bd m iht ihb =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_lam, iht, ihb]
+  | forallE ty bd m iht ihb =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_forallE, iht, ihb]
+  | letE ty val bd iht ihv ihb =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_letE, iht, ihv, ihb]
+  | proj s i sub ihe =>
+    intro d
+    rw [Expr.wscopedBP.eq_def]
+    split
+    · next h => exact wscopedBP_cut_spec h
+    · simp only [wscopedB_proj, ihe]
+
+/-- **The `.excl` entry decides `Expr.wscopedB`.** -/
+private theorem wscopedBX_spec {d : Nat} {e : Expr} :
+    Expr.wscopedBX d e = Expr.wscopedB d e := by
+  rw [Expr.wscopedBX.eq_def]
+  split
+  · next h => exact wscopedBP_cut_spec h
+  · rw [Expr.resBool_eq]; exact wscopedBP_spec e d
+
 theorem wscopedBC_spec {d : Nat} {e : Expr} :
-    Expr.wscopedBC d e = (Expr.wscopedB d e) :=
-  (wscopedBGoC_spec (d := d) MemoWInv.empty).1
+    Expr.wscopedBC d e = (Expr.wscopedB d e) := by
+  rw [Expr.wscopedBC.eq_def]
+  cases Expr.boolMemoMode with
+  | keyed => exact (wscopedBGoC_spec (d := d) MemoWInv.empty).1
+  | excl => exact wscopedBX_spec
 
 /-! ## The `∀`-telescope residual
 

@@ -1199,6 +1199,73 @@ theorem leavesSubGo_spec {bl : List (Nat × Expr)}
           rw [hlv, ← h1]
         exact ⟨hres, h2.insert hres⟩
 
+/-- The `.excl` walk's cutoff, read as the specification: a node whose
+cached fvar range is zero has no leaf to check. -/
+private theorem leavesSubP_cut_spec {B' : List (Nat × Expr)} {e : Expr}
+    (h : (e.fvarB == 0) = true) :
+    true = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
+  rw [fvarLeaves_nil_of_fvarsBelow_zero _
+    (fvarB_le (Nat.le_of_eq (by simpa using h)))]
+  rfl
+
+/-- **The plain descent of the `.excl` walk decides the `Expr`-level
+leaf-subset boolean.** -/
+theorem leavesSubP_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
+    (hbl : LeafBase bl B') : ∀ {e : Expr},
+    Expr.leavesSubP bl e = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
+  intro e
+  induction e with
+  | bvar i =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp [fvarLeaves_bvar]
+  | sort u =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp [fvarLeaves_sort]
+  | const n us =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp [fvarLeaves_const]
+  | lit l =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp [fvarLeaves_lit]
+  | fvar idx ty iht =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_fvar, List.all_cons, leafMem_spec hbl, iht]
+  | app f a ihf iha =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_app, List.all_append, ihf, iha]
+  | lam ty bd m iht ihb =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_lam, List.all_append, iht, ihb]
+  | forallE ty bd m iht ihb =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_forallE, List.all_append, iht, ihb]
+  | letE ty val bd iht ihv ihb =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_letE, List.all_append, iht, ihv, ihb]
+  | proj s i sub ihe =>
+    rw [Expr.leavesSubP.eq_def]; split
+    · next h => exact leavesSubP_cut_spec h
+    · simp only [fvarLeaves_proj, ihe]
+
+/-- **The `.excl` entry decides the `Expr`-level leaf-subset
+boolean.** -/
+private theorem leavesSubX_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
+    (hbl : LeafBase bl B') {e : Expr} :
+    Expr.leavesSubX bl e = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
+  rw [Expr.leavesSubX.eq_def]
+  split
+  · next h => exact leavesSubP_cut_spec h
+  · rw [Expr.resBool_eq]; exact leavesSubP_spec hbl
+
 /-- **The fabrication leaf guard agrees with the `Expr`-level
 leaf-subset boolean** — `leafGuard_spec'`'s right-hand side, verbatim,
 with the arena denotation replaced by the erasure. -/
@@ -1216,7 +1283,9 @@ theorem leafGuard_spec {fab base : Expr} :
     simp [this]
   | true =>
     simp only [Bool.not_true, Bool.false_or]
-    exact (leavesSubGo_spec (fvarLeavesC_leafBase) MemoSubInv.empty).1
+    cases Expr.boolMemoMode with
+    | keyed => exact (leavesSubGo_spec (fvarLeavesC_leafBase) MemoSubInv.empty).1
+    | excl => exact leavesSubX_spec fvarLeavesC_leafBase
 
 end ConLeche.Expr
 

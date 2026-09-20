@@ -989,6 +989,99 @@ theorem resBool_eq {c : Bool} {M : Type} (s : Squash ({ r : Bool // r = c } × M
 
 /-! ## Scope queries -/
 
+/-- The plain descent of `wscopedBC`: the reference the walk is
+verified against (`wscopedBP_spec`, `ConLeche/Verify/Cached/OpsC.lean`,
+is the equation to `Expr.wscopedB`).  The cursor is the node's second
+argument, as it is for the substitution walks — it CHANGES at `fvar`,
+where the annotation is entered at the variable's own index, so the
+memo key must carry it. -/
+def wscopedBP (e : Expr) (d : Nat) : Bool :=
+  if e.fvarB == 0 then true else
+  match e with
+  | .bvar .. | .sort .. | .const .. | .lit .. => true
+  | .fvar idx ty .. => idx < d && wscopedBP ty idx
+  | .app f a .. => wscopedBP f d && wscopedBP a d
+  | .lam ty body _ .. | .forallE ty body _ .. => wscopedBP ty d && wscopedBP body d
+  | .letE ty val body .. => wscopedBP ty d && wscopedBP val d && wscopedBP body d
+  | .proj _ _ sub .. => wscopedBP sub d
+
+theorem wscopedBP_cut {e : Expr} {d : Nat} (h : (e.fvarB == 0) = true) :
+    wscopedBP e d = true := by
+  rw [wscopedBP.eq_def]; simp [h]
+
+/-- The child step of `wscopedBXP`: the cutoff, the compound test, the
+exclusivity read. -/
+@[inline] def enterWSP (e : @& Expr) (d : Nat) (memo : MemoB wscopedBP)
+    (rec : (hcut : (e.fvarB == 0) = false) → Squash (ResB wscopedBP e d)) :
+    Squash (ResB wscopedBP e d) :=
+  match hcut : e.fvarB == 0 with
+  | true => Squash.mk (⟨true, (wscopedBP_cut hcut).symm⟩, memo)
+  | false =>
+    if !isCompoundF e then rec hcut
+    else withExcl e fun excl =>
+      if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The walk of `wscopedBC` under `.excl` (the node is past the
+cutoff: the wrapper and `enterWSP` test it). -/
+def wscopedBXP (memo : MemoB wscopedBP) (e : @& Expr) (d : Nat)
+    (hcut : (e.fvarB == 0) = false) : Squash (ResB wscopedBP e d) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. =>
+    if hidx : idx < d then
+      enterWSP ty idx memo (fun h => wscopedBXP memo ty idx h)
+        |>.lift fun (⟨rt, ht⟩, memo) =>
+      Squash.mk (⟨rt, by rw [wscopedBP]; simp [hcut, hidx, ← ht]⟩, memo)
+    else
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, hidx]⟩, memo)
+  | .app f a .. =>
+    enterWSP f d memo (fun h => wscopedBXP memo f d h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterWSP a d memo (fun h => wscopedBXP memo a d h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [wscopedBP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body _ .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP body d memo (fun h => wscopedBXP memo body d h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body _ .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP body d memo (fun h => wscopedBXP memo body d h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP val d memo (fun h => wscopedBXP memo val d h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterWSP body d memo (fun h => wscopedBXP memo body d h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterWSP sub d memo (fun h => wscopedBXP memo sub d h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [wscopedBP]; simp [hcut, ← hs]⟩, memo)
+
 /-- Core of `wscopedBC` (memoized; `fvar` annotations are descended,
 so the cached fvar range does not decide it). -/
 def wscopedBGoC (memo : Std.HashMap (Expr × Nat) Bool) (d : Nat)
@@ -1017,8 +1110,18 @@ def wscopedBGoC (memo : Std.HashMap (Expr × Nat) Bool) (d : Nat)
       | .proj _ _ sub .. => wscopedBGoC memo d sub
     (r, memo.insert (e, d) r)
 
-/-- The cached `Expr.wscopedB d` (one memoized DAG walk). -/
-def wscopedBC (d : Nat) (e : Expr) : Bool := (wscopedBGoC {} d e).1
+/-- The `.excl` entry of `wscopedBC`: the cutoff, then the walk. -/
+def wscopedBX (d : Nat) (e : Expr) : Bool :=
+  match hcut : e.fvarB == 0 with
+  | true => true
+  | false => resBool (wscopedBXP none e d hcut)
+
+/-- The cached `Expr.wscopedB d` (one memoized DAG walk), at the
+committed position of `boolMemoMode`. -/
+def wscopedBC (d : Nat) (e : Expr) : Bool :=
+  match boolMemoMode with
+  | .keyed => (wscopedBGoC {} d e).1
+  | .excl => wscopedBX d e
 
 /-- Core of `fvarLeavesC` (memoized set accumulation). -/
 def fvarLeavesGoC (acc : List (Nat × Expr))
@@ -1055,6 +1158,107 @@ def leafMem : List (Nat × Expr) → Nat → Expr → Bool
   | (i, t) :: rest, idx, ty =>
     (i == idx && t == ty) || leafMem rest idx ty
 
+/-- The plain descent of the leaf-subset walk: the reference the walk
+is verified against (`leavesSubP_spec`,
+`ConLeche/Verify/Cached/GuardsC.lean`, is the equation to the
+`Expr`-level leaf-subset boolean).  `leafMem` is the incumbent's
+membership test, unchanged. -/
+def leavesSubP (bl : List (Nat × Expr)) (e : Expr) : Bool :=
+  if e.fvarB == 0 then true else
+  match e with
+  | .bvar .. | .sort .. | .const .. | .lit .. => true
+  | .fvar idx ty .. => leafMem bl idx ty && leavesSubP bl ty
+  | .app f a .. => leavesSubP bl f && leavesSubP bl a
+  | .lam ty body _ .. | .forallE ty body _ .. => leavesSubP bl ty && leavesSubP bl body
+  | .letE ty val body .. =>
+    leavesSubP bl ty && leavesSubP bl val && leavesSubP bl body
+  | .proj _ _ sub .. => leavesSubP bl sub
+
+theorem leavesSubP_cut {bl : List (Nat × Expr)} {e : Expr} (h : (e.fvarB == 0) = true) :
+    leavesSubP bl e = true := by
+  rw [leavesSubP.eq_def]; simp [h]
+
+/-- The child step of `leavesSubXP`: the cutoff, the compound test,
+the exclusivity read. -/
+@[inline] def enterLSub (bl : @& List (Nat × Expr)) (e : @& Expr)
+    (memo : MemoB0 (leavesSubP bl))
+    (rec : (hcut : (e.fvarB == 0) = false) → Squash (ResB0 (leavesSubP bl) e)) :
+    Squash (ResB0 (leavesSubP bl) e) :=
+  match hcut : e.fvarB == 0 with
+  | true => Squash.mk (⟨true, (leavesSubP_cut hcut).symm⟩, memo)
+  | false =>
+    if !isCompoundF e then rec hcut
+    else withExcl e fun excl =>
+      if excl then rec hcut else memo.shared e fun _ => rec hcut
+
+/-- The leaf-subset walk under `.excl` (the node is past the cutoff:
+the entry and `enterLSub` test it). -/
+def leavesSubXP (bl : @& List (Nat × Expr)) (memo : MemoB0 (leavesSubP bl))
+    (e : @& Expr) (hcut : (e.fvarB == 0) = false) : Squash (ResB0 (leavesSubP bl) e) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. =>
+    if hlm : leafMem bl idx ty = true then
+      enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h)
+        |>.lift fun (⟨rt, ht⟩, memo) =>
+      Squash.mk (⟨rt, by rw [leavesSubP]; simp [hcut, hlm, ← ht]⟩, memo)
+    else
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, hlm]⟩, memo)
+  | .app f a .. =>
+    enterLSub bl f memo (fun h => leavesSubXP bl memo f h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterLSub bl a memo (fun h => leavesSubXP bl memo a h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [leavesSubP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body _ .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body _ .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl val memo (fun h => leavesSubXP bl memo val h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLSub bl sub memo (fun h => leavesSubXP bl memo sub h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [leavesSubP]; simp [hcut, ← hs]⟩, memo)
+
+/-- The `.excl` entry of the leaf-subset walk: the cutoff, then the
+walk. -/
+def leavesSubX (bl : List (Nat × Expr)) (e : Expr) : Bool :=
+  match hcut : e.fvarB == 0 with
+  | true => true
+  | false => resBool (leavesSubXP bl none e hcut)
+
 /-- Core of the fabrication-side leaf-subset test (task #86). -/
 def leavesSubGo (bl : List (Nat × Expr))
     (memo : Std.HashMap Expr Bool) (e : Expr) :
@@ -1087,7 +1291,10 @@ def leavesSubGo (bl : List (Nat × Expr))
 `base` (short-circuits on `fvar`-free fabrications, `O(1)` off the
 cached range). -/
 def leafGuard (fab base : Expr) : Bool :=
-  !fab.hasFvar || (leavesSubGo (fvarLeavesC base) {} fab).1
+  !fab.hasFvar ||
+    (match boolMemoMode with
+     | .keyed => (leavesSubGo (fvarLeavesC base) {} fab).1
+     | .excl => leavesSubX (fvarLeavesC base) fab)
 
 /-! ## Telescope operations -/
 
