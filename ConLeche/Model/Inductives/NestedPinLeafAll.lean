@@ -3622,6 +3622,8 @@ theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → rs₂.getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
       slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
           (X₁ (tg₁ l))
         ⊆ˢ slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
@@ -3727,7 +3729,7 @@ theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
       · by_cases hb : rs₂.getD fs₁.length false = true
         · -- both fired: the slot correspondence at the σ-related targets
           rw [if_pos hrC₁, if_pos hb]
-          exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hslotOrd _ hl hr' hrC₁ hb fs₁ rfl⟩
+          exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hslotOrd _ hl hr' hrC₁ hb fs₁ rfl hsp hsp₂⟩
         · -- THE MIXED CORNER: side 1 fired and side 2 did not.  FREE —
           -- the copy's slot lands in the container's domain (`hdom₁`)
           -- and that domain is ONE set at either frame (`hcdom`), which
@@ -3828,6 +3830,8 @@ theorem copyTransfer_iff_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → rs₂.getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
       slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
           (X₁ (tg₁ l))
         = slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
@@ -3849,15 +3853,16 @@ theorem copyTransfer_iff_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V
       h₁ h₂ hdom₁
       (fun l hl hr h1 h2 _ _ _ =>
         absurd (hfireOrd l hl hr h2) (by rw [h1]; exact Bool.false_ne_true))
-      (fun l hl hr h1 h2 fs₁ hl₁ => by rw [hslotOrd l hl hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
+      (fun l hl hr h1 h2 fs₁ hl₁ hs₁ hs₂ => by
+        rw [hslotOrd l hl hr h1 h2 fs₁ hl₁ hs₁ hs₂]; exact Subset.refl _)
       (fun l hl hr t' => by rw [hrel l hl hr]; exact Subset.refl _) t fs hfit hidx
   · rintro ⟨hfit, hidx⟩
     exact copyTransfer_via_pin hreps hi hkK hj (fun p hp => (hψ p hp).symm)
       (fun v hv => (hρ v hv).symm)
       hwK.symm (fun l => (huT l).symm) hIdsLen.symm hw₂ hw₁ hu₂ hu₁ hnI₂ hnI₁ h₂ h₁ hdom₂
       hentOrd₁
-      (fun l hl hr h2 h1 fs₁ hl₁ => by
-        rw [hslotOrd l (by rwa [hF]) hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
+      (fun l hl hr h2 h1 fs₁ hl₁ hs₂ hs₁ => by
+        rw [hslotOrd l (by rwa [hF]) hr h1 h2 fs₁ hl₁ hs₁ hs₂]; exact Subset.refl _)
       (fun l hl hr t' => by
         rw [← hrel l (by rwa [hF]) hr]
         exact Subset.refl _) t fs hfit hidx
@@ -4040,6 +4045,9 @@ theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockM
       ((dK.rss i).getD j []).getD l false = false →
       rs₁.getD l false = true → ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
       slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
           (X₁ (tg₁ l))
         = slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
@@ -5468,6 +5476,10 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
       ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit ((D).pinFrame (a + i) ψ ρp)
+        ((((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).take l) fs₁ →
+      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
       slotSet (f₀.s.eval ψ)
           (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
             (b.ownOffset (p.k + a + i) + j) []).getD l 0)) (consList fs₁ ρp)
