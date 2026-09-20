@@ -125415,3 +125415,100 @@ stay.  `tests/overview-links.sh` 112 links OK,
 member cores, `ordTgtMemReadAt`, `takeNames`,
 `normPosDomM_openPis_indApp` and `nestedPinsEntry_of_le_all`:
 `propext`, `Classical.choice`, `Quot.sound`.
+#### WIDE (3) STEP 3's MODEL SIDE AND STEP 2's `hslotOrd`, BOTH LANDED — THE SORTS DROP OUT AND THE INDEX SPINE NEEDS NO BOUNDEDNESS (lane LE, 2026-09-20)
+
+Two steps of the order, priced by inputs before building and both
+paid.
+
+##### (a) STEP 3's MODEL SIDE — the four items, as the previous row listed them
+
+Priced: three items of plumbing off the landed run row plus one real
+proof.  Paid at that.
+
+* `NestedPinsOrdTgtMem` (`NestedCopyIdx.lean:572`), discharged by
+  `nestedPinsOrdTgtMem_of` (`NestedInstMap.lean:3671`) off the landed
+  `NestedPinsRun.ordTgtMemReadAt`, threaded through
+  `nestedPinsIdent_of` and `NestedChain`.  Nothing became conditional;
+* an `ordTgtMem` field on `NestedPinGroupIds` (`NestedPins.lean:791`)
+  and `NestedPinGroup` (`NestedCore.lean:553`), with `ofParts` and the
+  `NestedLoop` crossing — the crossing is the pin arm's word for the
+  pin arm's reason (a `denoteMeta` conclusion at the block's own frame,
+  so `hde` alone);
+* `PinShapes`' `OrdTargetRead` clause is now a DISJUNCTION over the
+  target's two arms and carries NO guard: `rowOrdRead` and the new
+  `rowOrdReadMem` re-add it, one each, and `nestedPinShapes_of` chooses
+  the arm from the block's own target.  Every consumer that
+  destructures the record is unchanged — the conjunct count did not
+  move — and `crossEnv` carries the two arms alike;
+* `ordReadMem_corr` (`NestedPinLeafAll.lean:5252`), the one real
+  proof.  **Side 1 does not move**: the owner's member is copied by the
+  block, so the block's target is a PIN of the block and the block
+  reads its own recomputation through the same `GroupFacts.ordRead`.
+  Two things the pin arm pays for are FREE on this arm — the block's
+  guard, which `hroot` gives outright (no `ordGe`, no head
+  declaredness), and the two lengths, which the block's own pin group
+  at the instance's ROOT pins in a word (`PinGroupView.pinNP`/
+  `pinNIdx`) instead of meeting at a member's stored type.
+
+##### (b) STEP 2 — `hslotOrd` WEAKENED AND DISCHARGED
+
+The weakening is what the pricing row asked for and it is four
+signatures and five call sites: the slot correspondence is proved from
+the two copies' READINGS and a reading is a statement about a FITTING
+prefix, so the hypothesis takes the two sides' fits, which
+`copyTransfer_via_pin` already holds at its one call site
+(`hsp`/`hsp₂`).
+
+`nestedSlotOrd_pin` (`NestedPinLeafAll.lean:5427`) is the discharge.
+The five parts of the 2026-09-19 pricing table, each from its source:
+the targets from `ordTgt_corr` (the assembly's `htgσ`), the target's
+universe and the carriers as the assembly's own equations, and the
+FIELD DATA — the part that had NO SOURCE when the table was written —
+from `ordRead_corr` at a pin target and `ordReadMem_corr` at a member
+one.
+
+**Two of the table's entries turned out cheaper than it said.**
+
+* **The SORTS drop out entirely.**  Both copies' telescopes come out
+  EMPTY on either arm (the recomputation's head is the stored domain's
+  own and a constant head is not a `Π`), so `slotSet_nil` collapses
+  both sides and the equation never reads `w`.  The `hw` the price
+  named is not a hypothesis of the theorem.
+* **The index spine needs no boundedness input.**  The feared shape was
+  "the pin copy's `Eis` are bounded at the owner's parameters", which
+  `PinCtors` does not carry — it is a bare record.  It is not needed:
+  the block's `Eis` are the owner's with the owner PIN's components
+  substituted at the field's cut, and the owner's parameter frame IS
+  that pin's frame (`BlockModel.pinFrame` is literally
+  `consList ((pinAt q).Ds ψ |>.map (interp ρp)) ρp`), so
+  `interp_instAll` makes the two readings ONE term at ONE frame.
+
+##### (c) WHERE IT STOPS
+
+`nestedPinFit_pin` still TAKES `hslotOrd`.  That is a design decision
+and not an unfinished edit: inlining the producer's ~25 inputs into a
+theorem that already has ~25 would make a fifty-hypothesis signature,
+and the caller that will hold those inputs is step 3's
+`hfit_wide_pin_of_class` — the same edit, made once, where `hfitc` is
+closed.  So `hfitc` is NOT closed; steps 3, (4′) and (4) of the order
+were not started and `agent/uniform-le4` was not merged.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 5e73fecd`: 9 changed modules, `lake build` 9
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/arena.sh` NOT owed — the change is
+`Model/` only.  `tests/unconsumed.sh` 200/3864 against 200/3859: five
+declarations added, two LEFT the set by gaining the consumer this work
+was for (`ordTgtMemReadAt`, whose model-side consumer the previous row
+named; `ordRead_corr`, whose first consumer IS the discharge) and two
+entered waiting for step 3 (`PinShapes.rowOrdReadMem`,
+`nestedSlotOrd_pin`); `pins_le_of_declOrder`, `nestedPinsLe_of_rank`,
+`ordTgt_corr`, `PinShapes.rowOrdRead`, `PinShapes.rowPinNIdx` and
+`PinShapes.rowTargetOrd` all stay.  `tests/overview-links.sh` 112
+links OK, `tests/quote-gate.sh` 2 statements match,
+`tests/no-local-paths.sh` OK.  `#print axioms` on
+`nestedPinsOrdTgtMem_of`, `ordReadMem_corr`, `nestedSlotOrd_pin`,
+`PinShapes.rowOrdReadMem`, `nestedPinShapes_of` and
+`nestedPinsIdent_of`: `propext`, `Classical.choice`, `Quot.sound`.
