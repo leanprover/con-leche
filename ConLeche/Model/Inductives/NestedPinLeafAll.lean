@@ -5510,7 +5510,10 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
           (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
             (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
     -- side 2: K.68's two rows at the OWNER's own install
-    (hrowTgt : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+    (hrowTgt : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
       ∀ (lps : List Name) (M : Name) (us : List Level),
       (ConLeche.ordTargetDom lpsC dK.nP (dJ.ownPinTerms lps) qK l dom.1).getAppFn
           = .const M us →
@@ -5524,7 +5527,10 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
                 ((ConLeche.ordTargetDom lpsC dK.nP (dJ.ownPinTerms lps) qK l
                   dom.1).getAppArgs.take (dJ.pinAt z).nPJ) ∧
           (dJ.pinCtors qK).tgts j l = dJ.k + z))
-    (hrowRead : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+    (hrowRead : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
       ¬ (dJ.pinCtors qK).tgts j l < dJ.k →
       ∀ lps : List Name, ∃ z : Nat, z < dJ.nPins ∧
       (dJ.pinCtors qK).tgts j l = dJ.k + z ∧
@@ -5534,7 +5540,10 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
         ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l [])
         ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
         ((dJ.pinAt z).nPJ) lpsC dK.nP qK (dJ.ownPinTerms lps) dom.1)
-    (hrowReadMem : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+    (hrowReadMem : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
       (dJ.pinCtors qK).tgts j l < dJ.k →
       ∀ lps : List Name, ∃ mm : Nat, mm < dJ.k ∧
       (dJ.pinCtors qK).tgts j l = mm ∧
@@ -5550,17 +5559,35 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
       ∃ mem ∈ ci.members, mem.name = (dJ.pinAt z).J ∧
         ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
           mem.type.stripPis (ci.nP + (dJ.pinAt z).nIdx) = some (bsz, .sort sz))
-    -- THE TARGETS (`ordTgt_corr`), and σ's two values
-    (htgσ : ∀ l, ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-      (b.ownOffset (p.k + a + i) + j) []).getD l 0 = σ ((dJ.pinCtors qK).tgts j l))
+    -- THE TARGETS (`ordTgt_corr`), and σ's two values.  **The three
+    -- readings are asked AT THE ARM THEIR PRODUCER SPEAKS AT** (task
+    -- #315 WIDE (f3)): `ordTgt_corr` is guarded by the container's
+    -- ORDINARY kind and the block's firing, and an unguarded `∀ l`
+    -- form asks for them at container-RECURSIVE fields, where a
+    -- different correspondence speaks, and past the field list, where
+    -- neither does.
+    (htgσ : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l 0 = σ ((dJ.pinCtors qK).tgts j l))
     (hroot : ∀ c, c < dJ.k → σ c = p.k + rbase + c)
     (S₀ : PinGroupView (D) dJ rbase dJ.k)
     -- THE TARGET'S UNIVERSE and THE CARRIERS (the SORTS drop out:
     -- both telescopes are empty, and `slotSet_nil` does not read `w`)
-    (hu : ∀ l, nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+    (hu : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + a + i) + j) []).getD l 0)
       = dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ)
-    (hX : ∀ l, X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+    (hX : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + a + i) + j) []).getD l 0)
       = Y ((dJ.pinCtors qK).tgts j l)) :
     ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
@@ -5615,14 +5642,16 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
     · exact ordReadMem_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
         hst hdm hi hciC hJm hlpsJ hdomHd hgp hgn hciR hm₀ hownT hmapR hqKT hqm
         hfired hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn
-        (fun lps => hrowReadMem l dom hdm hmemT lps) (htgσ l) hroot S₀ fs₁ hfsl hfit₁' hfit₂
+        (fun lps => hrowReadMem l hl hord hrsP dom hdm hmemT lps) (htgσ l hl hord hrsB hrsP) hroot S₀
+        fs₁ hfsl hfit₁' hfit₂
     · exact ordRead_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
         hst hdm hi hciC hJm hlpsJ hdomHd hgp hgn hciR hm₀ hownT hmapR hqKT hqm
         hfired hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn hmemT hcontZ
-        (fun lps M us hh => hrowTgt l dom hdm lps M us hh)
-        (fun lps => hrowRead l dom hdm hmemT lps) hnIdxR fs₁ hfsl hfit₁' hfit₂
+        (fun lps M us hh => hrowTgt l hl hord hrsP dom hdm lps M us hh)
+        (fun lps => hrowRead l hl hord hrsP dom hdm hmemT lps) hnIdxR fs₁ hfsl hfit₁' hfit₂
   obtain ⟨htl₁, htl₂, hEis⟩ := hdata
-  rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu l, hX l, hEis, hρJ, List.map_map]
+  rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu l hl hord hrsB hrsP, hX l hl hord hrsB hrsP, hEis, hρJ,
+    List.map_map]
   refine congrArg _ (congrArg _ (List.map_congr_left fun e _ => ?_))
   have h := interp_instAll (V := V) (((D).pinAt gp).Ds ψ) fs₁ ρp e
   rw [hfsl] at h
@@ -5804,17 +5833,28 @@ and nowhere else, so neither of the two mid-tier theorems carries a
 fifty-hypothesis signature.
 
 Two of `nestedPinFit_pin`'s premises are gone rather than moved.
-`hslotOrd` is discharged by `nestedSlotOrd_pin`; `hrel` — the
-carriers' agreement at a container-RECURSIVE field — is the
-unconditional `hX` the discharge already takes, so the guarded form is
-that hypothesis weakened.
+`hslotOrd` is discharged by `nestedSlotOrd_pin`, and `hfireOrd` — the
+OWNER's copy firing at a container-ordinary field forces the BLOCK's
+— by `hscope` and `GroupFacts.ordFire` (K.69 STRENGTHENED).
 
-What remains a premise and has no producer in the tree is
-`hfireOrd`: the OWNER's copy firing at a container-ordinary field
-forces the BLOCK's copy to fire.  DESIGN records the argument (a
-firing root is constant-headed, substitution cannot change a constant
-head, and a constant-headed inductive application is its own `whnf`)
-and no theorem; it is the one residue of `hfitc`'s pin half. -/
+**EVERY READING IS ASKED AT THE ARM ITS PRODUCER SPEAKS AT** (task
+#315 WIDE (f3)).  `htgσ`, `hu` and `hX` were `∀ l` with no guard at
+all; their producers are `ordTgt_corr` and the rows behind it, which
+are guarded by the shared container's ORDINARY kind, the block's
+firing AND the owner's (`PinShapes.rowTargetOrd` carries the last),
+and past the constructor's field list nothing states them.  They now
+carry those three guards, which is where `nestedSlotOrd_pin` uses them
+and nowhere else.
+
+What that separates out, and what remains a premise with NO PRODUCER
+in the tree, is `hXrec`: the two joined carriers agree at a field the
+SHARED container calls RECURSIVE — `nestedPinFit_pin`'s `hrel`, which
+the unguarded `hX` used to cover by accident.  Its inputs exist
+(`PinShapes.rowTarget` and `PinGroupInst.hpinσ` compare the two sides'
+picks at the pin's DATA, `CopyCtorShape.recF` at a member target), but
+turning either into the CLASS equation `tg₁ = σ tg₂` is a fact about
+how the instance maps of two nested groups agree — the run's, not this
+tier's.  It is the one residue of `hfitc`'s pin half. -/
 theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → BlockModel V}
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
     {a kk i j : Nat} (G : GF st m a kk (dJf a)) (hi : i < kk)
@@ -5924,7 +5964,10 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
           (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
             (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1)) = some rx)
     -- side 2: K.68's two rows at the OWNER's own install
-    (hrowTgt : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
+    (hrowTgt : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
       ∀ (lps : List Name) (M : Name) (us : List Level),
       (ConLeche.ordTargetDom lpsC (dJf a).nP (dJ.ownPinTerms lps) qK l dom.1).getAppFn
           = .const M us →
@@ -5938,7 +5981,10 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
                 ((ConLeche.ordTargetDom lpsC (dJf a).nP (dJ.ownPinTerms lps) qK l
                   dom.1).getAppArgs.take (dJ.pinAt z).nPJ) ∧
           (dJ.pinCtors qK).tgts j l = dJ.k + z))
-    (hrowRead : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
+    (hrowRead : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
       ¬ (dJ.pinCtors qK).tgts j l < dJ.k →
       ∀ lps : List Name, ∃ z : Nat, z < dJ.nPins ∧
       (dJ.pinCtors qK).tgts j l = dJ.k + z ∧
@@ -5948,7 +5994,10 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
         ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l [])
         ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
         ((dJ.pinAt z).nPJ) lpsC (dJf a).nP qK (dJ.ownPinTerms lps) dom.1)
-    (hrowReadMem : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
+    (hrowReadMem : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
       (dJ.pinCtors qK).tgts j l < dJ.k →
       ∀ lps : List Name, ∃ mm : Nat, mm < dJ.k ∧
       (dJ.pinCtors qK).tgts j l = mm ∧
@@ -5964,17 +6013,43 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
       ∃ mem ∈ ci.members, mem.name = (dJ.pinAt z).J ∧
         ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
           mem.type.stripPis (ci.nP + (dJ.pinAt z).nIdx) = some (bsz, .sort sz))
-    -- THE TARGETS (`ordTgt_corr`), and σ's two values
-    (htgσ : ∀ l, ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-      (b.ownOffset (p.k + a + i) + j) []).getD l 0 = σ ((dJ.pinCtors qK).tgts j l))
+    -- THE TARGETS (`ordTgt_corr`), and σ's two values, each asked AT
+    -- THE ARM ITS PRODUCER SPEAKS AT (task #315 WIDE (f3))
+    (htgσ : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l 0 = σ ((dJ.pinCtors qK).tgts j l))
     (hroot : ∀ c, c < dJ.k → σ c = p.k + rbase + c)
     (S₀ : PinGroupView (D) dJ rbase dJ.k)
     -- THE TARGET'S UNIVERSE and THE CARRIERS (the SORTS drop out:
     -- both telescopes are empty, and `slotSet_nil` does not read `w`)
-    (hu : ∀ l, nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+    (hu : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + a + i) + j) []).getD l 0)
       = dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ)
-    (hX : ∀ l, X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+    (hX : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l 0)
+      = Y ((dJ.pinCtors qK).tgts j l))
+    -- **THE CARRIERS AT A CONTAINER-RECURSIVE FIELD** — the pin half's
+    -- own `hstgt`, and the one premise of this theorem with no
+    -- producer in the tree: at a field the SHARED container calls
+    -- recursive, the block's target is `σ` of the OWNER's, so the two
+    -- joined carriers are one there too.  `PinShapes.rowTarget` and
+    -- `PinGroupInst.hpinσ` compare the two sides' picks at the pin's
+    -- DATA; turning that into the class equation is the instance
+    -- maps' own coherence and is not this tier's.
+    (hXrec : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = true →
+      X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + a + i) + j) []).getD l 0)
       = Y ((dJ.pinCtors qK).tgts j l))
     (t : V) (fs : List V) :
@@ -6017,7 +6092,7 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
     (nestedSlotOrd_pin m G hi hρp hj hst hciC hJm hlpsJ hgp hgn hciR hm₀ hownT hmapR
       hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ hscope hrowTgt hrowRead
       hrowReadMem hnIdxR htgσ hroot S₀ hu hX)
-    (fun l _ _ => hX l) t fs
+    hXrec t fs
 
 /-- **`hpair` at a MEMBER class of the root** (task #315 L-E, DESIGN
 §U.72): `nestedPinPair_mem` with its three premises discharged —
