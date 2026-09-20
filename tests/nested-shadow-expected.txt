@@ -134,3 +134,22 @@ tests/e2e/nested_pin_nocollide.ndjson 1 J=accept,NoCollide=accept,
 # broke the collapse would show here first.
 tests/e2e/nested_pin_collide.ndjson 1 J=accept,
 tests/e2e/nested_pin_collide2.ndjson 1 J=accept,
+
+# --- the stored domain's head, at the arm K.67 and K.69 speak at -----
+# `K α | mk (a : α)` nested at `J β | node (k : K (J β))`: the shared
+# container's stored field domain is a BARE PARAMETER, so its
+# `getAppFn` is no `.const`, while the RECOMPUTATION at the owner's
+# components (`J β`) is constant-headed and both K.67's and K.68's
+# lookups succeed.  The outer block is the smallest one whose copy of
+# `K` has another container's own pin as its OWNER, and it is the
+# witness that refutes "the stored domain is constant-headed where the
+# owner's copy rewrote a container-ordinary field" — see DESIGN, "THE
+# STORED DOMAIN'S HEAD IS NOT THE RECOMPUTATION'S".
+# `nested_pin_nocollide` and `nested_p04` carry the same shape.
+tests/e2e/nested_bvar_field.ndjson 1 J=accept,BvarField=accept,
+# The `Π` twin: `K α | mk (f : Nat → α)` at the same nesting.  The
+# modeller declines `J` (reflexive member), so the fold stops before
+# `PiField` and the row covers `J` alone — a TRIPWIRE of
+# `nested_refl_pin`'s kind, gaining `,PiField=accept` the day a route
+# installs a container with a reflexive member.
+tests/e2e/nested_pi_field.ndjson 0 J=accept,

@@ -126613,3 +126613,147 @@ widened `PinShapes`' clause), `hu`/`hX` (`setJoin_at_fc` and the
 group's `pinU`), `hnIdxR` (`PinShapes.rowPinNIdx`, one line) and the
 assembly's preamble (`nestedPinPairAt`'s pin arm, re-run at σ instead
 of at `ClassPinAt`).
+
+#### WIDE (f3) STEP 1 — THE STORED DOMAIN'S HEAD IS NOT THE RECOMPUTATION'S, AND THE OWED OBJECT IS REFUTED BY THREE GATED FIXTURES (lane LE, 2026-09-20)
+
+The previous row named ONE owed object: *the OWNER's copy rewrote a
+container-ORDINARY field, therefore that field's stored domain is
+constant-headed* — `hscope`'s first conjunct, to be derived or, failing
+that, recorded as K.72.  It cannot be either.  **It is FALSE**, and the
+witnesses were already in the shadow gate.
+
+##### (a) THE COUNTEREXAMPLE, AND THE CONTROL THAT FOUND IT
+
+    K α       | mk   (a : α)          -- `K`'s only field is the bvar `α`
+    J β       | node (k : K (J β))    -- `J`'s own pin is `K (J β)`
+    BvarField | mk   (j : J BvarField)
+
+`K` calls its field ORDINARY (the domain mentions no member of `K`) and
+`J`'s own elimination REWROTE it — `α := J β` is an occurrence of `J`'s
+member, so the copy of `K.mk` inside `J`'s block has a RECURSIVE field.
+The outer block copies BOTH groups, so its copy of `K` has `J`'s own pin
+as its OWNER: exactly the arm `hscope` is stated at.  The stored domain
+there is `Expr.bvar 0`, whose `getAppFn` is no `.const`.
+
+**The measurement, not the reading, is the evidence.**  The conjunct was
+added to K.67's walk as the hypothetical K.72 — `domJ.1.getAppFn` must
+be a `.const` under the same guard — and the shadow gate run:
+
+| fixture | block | with the hypothetical K.72 |
+|---|---|---|
+| `tests/e2e/nested_pin_nocollide.ndjson` | `NoCollide` | **error** (`a rewritten ordinary field's target is not the owning container's own class`) |
+| `tests/e2e/nested_p04.ndjson` | `P4` | **error**, same |
+| `tests/e2e/nested_bvar_field.ndjson` | `BvarField` | **error**, same |
+
+All three are OFFICIAL ACCEPTS and two of the three are gate rows
+today.  `Pair α β | mk (a : α) (b : β)` — `nested_pin_nocollide`'s
+container, and `nested_pin_collide`'s and `nested_pin_collide2`'s — has
+TWO bare-parameter fields, so the shape is not exotic: it is what a
+product container looks like.
+
+##### (b) WHERE THE READING WENT WRONG
+
+`ordRootFired`'s subject is the RECOMPUTATION, `ordTargetDom` — the
+stored domain level-instantiated, `stripDomPis`'d and then
+`instantiateList`'d at the OWNER's components.  A bvar head in range of
+that instantiation becomes the component's head, and the component is
+the owner's own pin argument (`J β` above), which IS constant-headed.
+So the walk's lookups succeed, K.67, K.68 and K.69 all fire, and the
+kernel is right; it is the MODEL side that asked its guard of the wrong
+term.  The chain that does so, in full:
+
+* `ConLeche/Model/Inductives/NestedPinLeafAll.lean` — `hscope`'s first
+  conjunct, `ordTargetDomL_flat_at`, `ordRead_corr`/`ordReadMem_corr`'s
+  `hdomHd`, `GroupFacts.ordGe`/`ordRead`'s `hfin`;
+* `ConLeche/Model/Inductives/NestedInstMap.lean` — `NestedPinsRun.ordGeAt`,
+  `ordTgtReadAt`, `ordReadAt`, `ordNormAt` (`hfin`/`hfinB`);
+* `ConLeche/Verify/Inductives/NestedCopyKinds.lean` —
+  `nestedOrdNormOk_at_pi` (`hfin`/`hfinB`);
+* `ConLeche/Model/Inductives/NestedPremise.lean` — `PinShapes`' third
+  clause and its projections `rowOrdRead`/`rowOrdReadMem`.
+
+Every one of them asks the head of the STORED domain (after the level
+instantiation, and in `_at_pi` after the strip) where what it spends is
+the head of the RECOMPUTATION.  `nestedOrdNormOk_at_pi` is the clearest
+case: `hfin` and `hfinB` are used for NOTHING but
+`getAppFn_instantiateList_const`, i.e. to produce the two
+recomputations' heads, which is all `ordRootNorm_const` wants.
+
+##### (c) THE GUARD THAT IS SAFE, MEASURED
+
+Two replacements were put in the kernel as controls and measured on the
+same corpus:
+
+| probe | the assertion, at K.67's (B) / K.69's (C) guard | fires? |
+|---|---|---|
+| (B) | `domPiDepth (ordTargetDomL … dom.1) = 0` — the stored domain is not a `Π` | **no** |
+| (C) | `(ordTargetDom … terms q l dom.1).getAppFn` is a `.const` — the BLOCK's own recomputation is constant-headed | **no** |
+
+Both probes together: `tests/nested-shadow.sh` **42/42 as expected**;
+`init-full` exit 0, 53 093 declarations, its one nested block
+(`Lean.Syntax`) `accept`; **Mathlib exit 0, 654 504 declarations, all
+41 shadowed nested blocks `accept` and no non-`accept` shadow line**;
+and `nested_bvar_field` accepted at both of its blocks.  So:
+
+* the OWNER's recomputation head is FREE — `hscope` already carries
+  `ordRootFired = true` and `getAppFn_const_of_ordRootFired` reads the
+  head off it, so the first conjunct is not replaced by anything there;
+* the BLOCK's recomputation head is the ONE genuinely new datum, and
+  it is a never-firing row of K.69's own Bool (probe C) — no new
+  `DeclNestedRun` conjunct, no new walk, one `getAppFn` match at a
+  field the walk already computes.  **It is true by construction**: the
+  block's recomputation is the owner's under the mint's substitution,
+  and a substitution does not move a constant head;
+* FLATNESS (probe B) is NOT a candidate for a kernel row, and the
+  reason is the rule this row exists to enforce.  It does not fire on
+  the corpus, but `K α | mk (f : Nat → α)` at the same nesting
+  (`tests/e2e/nested_pi_field.ndjson`) is an official ACCEPT with a
+  `Π`-headed stored domain at this very arm; it is out of reach today
+  only because the in-process modeller declines a reflexive member.
+  Flatness is therefore the REFLEXIVE `Π`-PREFIX object the tree has
+  been deferring all along (`GroupFacts.ordRead`'s docstring,
+  `nestedOrdNormOk_at_pi`'s), now located: it is what `hscope` needs
+  and the one thing on this arm that no record may assert.
+
+##### (d) AND A SECOND CONJUNCT HAS NO PRODUCER EITHER — NAMED
+
+`hscope`'s SECOND conjunct asks `ordRootFired … = true`: the owner
+FIRED.  Its guard is that the owner REWROTE, and the two are not the
+same — `ordRootFired` is the UNNORMALISED head test, and K.69 exists
+because a mint that is a redex (`(fun _ : True => …) True.intro`,
+`nested_lam_pin_prop`'s shape) rewrites without firing.  No witness of
+the composed shape is in the corpus, and none was built this session;
+the corner is named here so that the next reading does not re-price
+`hscope` as three conjuncts when it is four.
+
+##### (e) THE BRIDGE, RE-PRICED
+
+`hscope` is not one owed object away.  It is:
+
+1. the stored-domain head, **deleted** (the recomputation's is free) —
+   but with it the `hfin` hypothesis of `ordGe`/`ordRead`/`ordGeAt`/
+   `ordReadAt`/`ordTgtReadAt`/`ordNormAt`/`nestedOrdNormOk_at_pi` and
+   of `PinShapes`' third clause, each of which has to be restated on
+   the recomputation and its producer re-proved (~2 sessions, the
+   `_at_pi` end of it a three-line generalisation and the `PinShapes`
+   end the dear one);
+2. the BLOCK's recomputation head, a new never-firing row of K.69's
+   Bool with the usual pipeline (walk conjunct, `Verify` inversion,
+   `NestedPinsRun` row, `GroupFacts` field) — ~1 session;
+3. FLATNESS, i.e. the reflexive `Π`-prefix object — unpriced, and the
+   only part that can neither be derived nor recorded;
+4. the firing corner of (d).
+
+**What a re-price should keep**: that the STORED domain's head is a
+different term from the RECOMPUTATION's and only the second is ever
+spent; that a product container (`Pair α β`) is the common case, not a
+corner; and that the control — assert the conjunct in the kernel and
+run the shadow gate — cost one exe build and settled in one run what
+three readings had not.
+
+##### (f) THE GATES
+
+No `ConLeche/` file changed.  Two fixtures and two gate rows are added:
+`tests/e2e/src/nested_bvar_field.lean` (+ `.ndjson`, `J=accept,
+BvarField=accept,`) and `tests/e2e/src/nested_pi_field.lean`
+(+ `.ndjson`, `J=accept,` at `CON_LECHE_INMODEL=0`, a tripwire).
