@@ -2060,13 +2060,21 @@ index is the binder's domain (`Expr.LeafCond`), and that is
 
 /-- **THE POSITIVITY WALK'S OUTPUT OPENS TO THE SAME LEAF** (task #315
 WIDE (3), lane LE): at a `∀`-tower whose body is a constant-headed
-application of a pre-block inductive, the walk's output opens — same
-depth, same count, same OPENERS — at exactly that body. -/
+application of an inductive THE WALK'S OWN ENVIRONMENT records, the
+walk's output opens — same depth, same count, same OPENERS — at
+exactly that body.
+
+The guard is stated at the consed environment because both heads a
+copy's reflexive field can carry answer there and only one of them
+answers before: a pre-block CONTAINER through
+`consMutualFormers_find?_indInfo`, and one of the block's own FORMERS
+— a MEMBER target, where the pre-block environment says `none` —
+through `consMutualFormers_find?_indInfo_mem`. -/
 theorem normPosDomM_openPis_indApp {fms : List MutualFormerA} {env : Env}
     (henv : EnvWF (consMutualFormers fms env)) {memberNames : List Name} {F : Nat}
     {J : Name} {lvls : List Level} {args : List Expr}
     {cv : ConstantVal} {caps : IndCaps}
-    (hJ : env.find? J = some (.indInfo cv caps)) :
+    (hJ : (consMutualFormers fms env).find? J = some (.indInfo cv caps)) :
     ∀ (n : Nat) {d fuel : Nat} {e w : Expr} {fvsE : List Expr},
       normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
           memberNames d fuel e = .ok w →
@@ -2080,7 +2088,7 @@ theorem normPosDomM_openPis_indApp {fms : List MutualFormerA} {env : Env}
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopE
     obtain ⟨rfl, hee⟩ := hopE
     rw [hee] at h
-    rw [normPosDomM_indApp_cons hJ h]
+    rw [normPosDomM_indApp hJ h]
     rfl
   | succ n ih =>
     intro d fuel e w fvsE h hws hb hopE
