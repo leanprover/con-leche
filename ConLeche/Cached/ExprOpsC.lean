@@ -301,7 +301,7 @@ arithmetic; a tagged scalar as a `Nat` (addresses are below `2^47`).
 In the model the address is `0` and the key is the cursor — the
 tables never rely on the key: an entry validates itself. -/
 @[inline] def pkey (addr : USize) (c : Nat) : Nat :=
-  (addr.toUInt64 / 8 * 65536 + UInt64.ofNat (c % 65536)).toNat
+  (addr.toUInt64 / 8 * 65536 + (UInt64.ofNat c &&& 65535)).toNat
 
 /-- A memo entry: the node it was made for, its rebuild, the cursor,
 and the proof — the entry is its own invariant. -/
@@ -379,11 +379,14 @@ def rehash (keys : @& Array Nat) (ents : @& Array (PEnt s)) (i : Nat)
   else (keys', ents')
 termination_by keys.size - i
 
-/-- Double the capacity (`p` is the filler of the fresh entry array). -/
+/-- Quadruple the capacity (`p` is the filler of the fresh entry array):
+16 → 64 → 256 → 1024 — a growth is a scan of every slot and a re-probe
+of every entry, and the first flat build (doubling: six growths for a
+170-entry table, `rehash` 3 % of `magma-list-pair-n21`) paid for it. -/
 def grow (keys : Array Nat) (ents : Array (PEnt s)) (count : Nat) (shift : UInt64)
     (p : PEnt s) : PTab s :=
-  let cap := keys.size + keys.size
-  let shift := shift - 1
+  let cap := keys.size * 4
+  let shift := shift - 2
   match rehash keys ents 0 (Array.replicate cap 0) (Array.replicate cap p) (cap - 1) shift with
   | (keys', ents') => ⟨keys', ents', count, shift⟩
 
@@ -401,19 +404,41 @@ def insertK (t : PTab s) (key : Nat) (p : PEnt s) : PTab s :=
     if count + count > keys.size then grow keys ents count shift p
     else ⟨keys, ents, count, shift⟩
 
+/-- Insert under a slot probed BEFORE the descent that produced the
+entry: if the capacity is unchanged the probe resumes at that slot
+(usually still empty — one step, no re-hash), else it restarts. -/
+def insertAt (t : PTab s) (key : Nat) (i cap : Nat) (p : PEnt s) : PTab s :=
+  match t with
+  | ⟨keys, ents, count, shift⟩ =>
+    let mask := keys.size - 1
+    let i := if keys.size == cap then
+        (if keys[i]! == 0 then i else find keys key i mask keys.size)
+      else find keys key (idx shift key) mask keys.size
+    let keys := keys.set! i key
+    let ents := ents.set! i p
+    let count := count + 1
+    if count + count > keys.size then grow keys ents count shift p
+    else ⟨keys, ents, count, shift⟩
+
 /-- The one-entry table (the first entry is also the filler). -/
 def create (key : Nat) (p : PEnt s) : PTab s :=
   let keys : Array Nat := Array.replicate 16 0
   ⟨keys.set! (idx initShift key) key, Array.replicate 16 p, 1, initShift⟩
 
 /-- The probe, in continuation shape so that a hit allocates no
-`Option`. -/
+`Option`; the first step is inline (the common no-collision case makes
+no call), and a miss hands its slot and the capacity to the
+continuation for `insertAt`. -/
 @[inline] def probe {β : Sort u} (t : @& PTab s) (key : Nat) (hit : PEnt s → β)
-    (miss : Unit → β) : β :=
-  let i := find t.keys key (idx t.shift key) (t.keys.size - 1) t.keys.size
+    (miss : Nat → Nat → β) : β :=
+  let size := t.keys.size
+  let mask := size - 1
+  let i0 := idx t.shift key
+  let k0 := t.keys[i0]!
+  let i := if k0 == 0 || k0 == key then i0 else find t.keys key ((i0 + 1) &&& mask) mask size
   if h : i < t.ents.size then
-    if t.keys[i]! == key then hit t.ents[i] else miss ()
-  else miss ()
+    if t.keys[i]! == key then hit t.ents[i] else miss i size
+  else miss i size
 
 end PTab
 
@@ -433,14 +458,14 @@ abbrev ResXP (s : Expr → Nat → Expr) (e : Expr) (c : Nat) :=
   { r : Expr // r = s e c } × MemoXP s
 
 @[inline] def MemoXP.insertK {s : Expr → Nat → Expr} (memo : MemoXP s) (key : Nat)
-    (p : PEnt s) : MemoXP s :=
+    (i cap : Nat) (p : PEnt s) : MemoXP s :=
   match memo with
   | none =>
     match walkPtrTable with
     | .hash => some (.hash (({} : HTab s).insert ⟨key⟩ p))
     | .flat => some (.flat (PTab.create key p))
   | some (.hash m) => some (.hash (m.insert ⟨key⟩ p))
-  | some (.flat t) => some (.flat (t.insertK key p))
+  | some (.flat t) => some (.flat (t.insertAt key i cap p))
 
 /-- The shared-node step over the pointer-keyed memo: the address
 read, the probe, the validated hit — else the descent and the record
@@ -452,20 +477,20 @@ the address is unobservable: `withAddr`). -/
   let key := pkey addr c
   match memo with
   | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-      Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+      Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
   | some (.hash m) =>
     match m[(⟨key⟩ : PKey)]? with
     | some p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
         Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-          Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+          Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
     | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+        Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
   | some (.flat t) =>
     t.probe key (fun p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
         Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-          Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩))
-      fun _ => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+          Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩))
+      fun i cap => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insertK key i cap ⟨e, r, c, hr⟩)
 
 /-- The cursor-free instance (`instLevelParams`): the cursored memo at
 cursor `0`. -/
