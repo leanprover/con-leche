@@ -69,21 +69,6 @@ def getAppArgsAccC : Expr → List Expr → List Expr
 
 /-! ## Instantiation -/
 
-/-- Memo table for cursored node→node traversals. -/
-abbrev MemoN := Std.HashMap (Expr × Nat) Expr
-
-/-- Memo table for cursor-free node→node traversals. -/
-abbrev Memo0 := Std.HashMap Expr Expr
-
-/-- Memo table for the bulk traversals (node, cursor).
-
-**The live prefix `k` is not part of the key.**  It is constant for the
-whole life of one table: the only place `k` changes is the `bvar` arm's
-re-entry at a replacement, and that re-entry runs under a *fresh*
-table.  Dropping it halves the key — `(Expr × Nat × Nat)` is two
-`Prod` allocations per probe, `(Expr × Nat)` is one. -/
-abbrev MemoNL := Std.HashMap (Expr × Nat) Expr
-
 /-! ## The exclusivity-oracle memo discipline (task #314)
 
 The second memo discipline, selectable by `walkMemoMode`: ONE walk
@@ -119,113 +104,10 @@ the compound test, then the oracle; its `rec` argument is the descent
 itself, inlined, so the recursive call is applied to the subterm and
 termination is the walk's own. -/
 
-/-- The memo discipline of the substitution wrappers: the task #313
-node budget with a restart under the always-memoised walk; the task
-#314 exclusivity oracle alone; or HYBRID — the budgeted plain descent
-first and the oracle walk on restart (the budget answers the small
-walks, the oracle the large ones). -/
-inductive WalkMemoMode where
-  | budget
-  | oracle
-  | hybrid
-  | ptr
-  | hybridPtr
-deriving DecidableEq, Repr
-
-/-- THE SWITCH (compile-time: both disciplines are compiled either
-way, and the wrappers fold the constant).  Flip and rebuild to compare
-— the task #314 record (DESIGN.md) holds the table. -/
-def walkMemoMode : WalkMemoMode := .ptr
-
 /-- The nodes a memo entry can save a descent of. -/
 @[inline] def isCompound : Expr → Bool
   | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => true
   | _ => false
-
-/-- The oracle memo's invariant for a cursored walk with plain descent
-`s`: every stored value is `s` at its key. -/
-def MemoXInv (s : Expr → Nat → Expr) (m : MemoN) : Prop :=
-  ∀ (k : Expr) (c : Nat) (r : Expr), m[(k, c)]? = some r → r = s k c
-
-theorem MemoXInv.insert {s : Expr → Nat → Expr} {m : MemoN} (hm : MemoXInv s m)
-    {e r : Expr} {c : Nat} (heq : r = s e c) : MemoXInv s (m.insert (e, c) r) := by
-  intro k c' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    cases eq_of_beq hbeq
-    exact heq
-  · exact hm k c' r' hk
-
-theorem MemoXInv.empty {s : Expr → Nat → Expr} : MemoXInv s {} := by
-  intro _ _ _ h; simp at h
-
-/-- The oracle memo: absent until the first shared compound node. -/
-abbrev MemoX (s : Expr → Nat → Expr) := Option { m : MemoN // MemoXInv s m }
-
-/-- A walk's result: the term, fixed by its proof, beside the memo. -/
-abbrev ResX (s : Expr → Nat → Expr) (e : Expr) (c : Nat) :=
-  { r : Expr // r = s e c } × MemoX s
-
-@[inline] def MemoX.insert {s : Expr → Nat → Expr} (memo : MemoX s) (e : Expr) (c : Nat)
-    (r : Expr) (h : r = s e c) : MemoX s :=
-  match memo with
-  | none => some ⟨({} : MemoN).insert (e, c) r, MemoXInv.insert MemoXInv.empty h⟩
-  | some m => some ⟨m.1.insert (e, c) r, MemoXInv.insert m.2 h⟩
-
-/-- The shared-node step, generic in the walk: the probe, else the
-descent and the record.  (The exclusive step is the bare descent; the
-cutoff and the compound test sit in each walk's `enter*`.) -/
-@[inline] def MemoX.shared {s : Expr → Nat → Expr} (memo : MemoX s) (e : Expr) (c : Nat)
-    (rec : Unit → Squash (ResX s e c)) : Squash (ResX s e c) :=
-  match memo with
-  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-      Squash.mk (⟨r, hr⟩, memo.insert e c r hr)
-  | some m =>
-    match h : m.1[(e, c)]? with
-    | some r => Squash.mk (⟨r, m.2 e c r h⟩, some m)
-    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insert e c r hr)
-
-/-- The same for the cursor-free walks (`instLevelParams`). -/
-def MemoX0Inv (s : Expr → Expr) (m : Memo0) : Prop :=
-  ∀ (k : Expr) (r : Expr), m[k]? = some r → r = s k
-
-theorem MemoX0Inv.insert {s : Expr → Expr} {m : Memo0} (hm : MemoX0Inv s m)
-    {e r : Expr} (heq : r = s e) : MemoX0Inv s (m.insert e r) := by
-  intro k r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    cases eq_of_beq hbeq
-    exact heq
-  · exact hm k r' hk
-
-theorem MemoX0Inv.empty {s : Expr → Expr} : MemoX0Inv s {} := by
-  intro _ _ h; simp at h
-
-abbrev MemoX0 (s : Expr → Expr) := Option { m : Memo0 // MemoX0Inv s m }
-
-abbrev ResX0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoX0 s
-
-@[inline] def MemoX0.insert {s : Expr → Expr} (memo : MemoX0 s) (e : Expr)
-    (r : Expr) (h : r = s e) : MemoX0 s :=
-  match memo with
-  | none => some ⟨({} : Memo0).insert e r, MemoX0Inv.insert MemoX0Inv.empty h⟩
-  | some m => some ⟨m.1.insert e r, MemoX0Inv.insert m.2 h⟩
-
-@[inline] def MemoX0.shared {s : Expr → Expr} (memo : MemoX0 s) (e : Expr)
-    (rec : Unit → Squash (ResX0 s e)) : Squash (ResX0 s e) :=
-  match memo with
-  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-      Squash.mk (⟨r, hr⟩, memo.insert e r hr)
-  | some m =>
-    match h : m.1[e]? with
-    | some r => Squash.mk (⟨r, m.2 e r h⟩, some m)
-    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insert e r hr)
 
 /-- The term of a walk's result (the quotient lifts: the term is fixed
 by its subtype). -/
@@ -371,62 +253,6 @@ abbrev ResXP0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoX
     (rec : Unit → Squash (ResXP0 s e)) : Squash (ResXP0 s e) :=
   MemoXP.shared (s := fun e _ => s e) memo e 0 rec
 
-/-- Core of `instantiate1C` (nodes whose cached bound is at or below the
-cursor are returned unchanged; compound nodes are memoized, atoms are
-answered in place — see this module's memo discipline). -/
-def instantiate1GoC (v : Expr) (memo : MemoN) (e : Expr) (d : Nat) :
-    Expr × MemoN :=
-  if e.bvarB ≤ d then (e, memo) else
-  match e with
-  | .bvar i .. =>
-    (if i = d then v else if i > d then Expr.mkBvar (i - 1) else e, memo)
-  | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-  | .app f a .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (f', memo) := instantiate1GoC v memo f d
-      let (a', memo) := instantiate1GoC v memo a d
-      let r := mkApp f' a'
-      (r, memo.insert key r)
-  | .lam ty body m .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1GoC v memo ty d
-      let (b', memo) := instantiate1GoC v memo body (d + 1)
-      let r := mkLam ty' b' m
-      (r, memo.insert key r)
-  | .forallE ty body m .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1GoC v memo ty d
-      let (b', memo) := instantiate1GoC v memo body (d + 1)
-      let r := mkForallE ty' b' m
-      (r, memo.insert key r)
-  | .letE ty val body .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1GoC v memo ty d
-      let (v', memo) := instantiate1GoC v memo val d
-      let (b', memo) := instantiate1GoC v memo body (d + 1)
-      let r := mkLetE ty' v' b'
-      (r, memo.insert key r)
-  | .proj sn i sub .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (s', memo) := instantiate1GoC v memo sub d
-      let r := mkProj sn i s'
-      (r, memo.insert key r)
-
 /-! ### `instantiate1LiftC` (task #214, P4)
 
 The capture-avoiding substitution `Expr.instantiate1Lift` — the one
@@ -440,106 +266,6 @@ the small terms that are the common case, cf. the +33 % an
 unconditional instantiate memo cost on init-prelude), and the memoised
 descent only past the budget.  `instantiate1LiftC_spec`
 (`ConLeche/Verify/Cached/OpsC.lean`) reads it as `Expr.instantiate1Lift`. -/
-
-/-- The budgeted descent: the plain rebuild on a node budget, `none`
-when it runs out (nothing built is kept). -/
-def instantiate1LiftBC (v : Expr) (fuel : Nat) (e : Expr) (d : Nat) : Option Expr × Nat :=
-  if e.bvarB ≤ d then (some e, fuel) else
-  match fuel, e with
-  | _, .bvar i .. =>
-    (some (if i = d then Expr.liftLooseBVars d 0 v else if i > d then Expr.mkBvar (i - 1) else e),
-      fuel)
-  | _, .fvar .. | _, .sort .. | _, .const .. | _, .lit .. => (some e, fuel)
-  | 0, _ => (none, 0)
-  | fuel + 1, .app f a .. =>
-    match instantiate1LiftBC v fuel f d with
-    | (some f', fuel) =>
-      match instantiate1LiftBC v fuel a d with
-      | (some a', fuel) => (some (mkApp f' a'), fuel)
-      | r => r
-    | r => r
-  | fuel + 1, .lam ty body m .. =>
-    match instantiate1LiftBC v fuel ty d with
-    | (some ty', fuel) =>
-      match instantiate1LiftBC v fuel body (d + 1) with
-      | (some b', fuel) => (some (mkLam ty' b' m), fuel)
-      | r => r
-    | r => r
-  | fuel + 1, .forallE ty body m .. =>
-    match instantiate1LiftBC v fuel ty d with
-    | (some ty', fuel) =>
-      match instantiate1LiftBC v fuel body (d + 1) with
-      | (some b', fuel) => (some (mkForallE ty' b' m), fuel)
-      | r => r
-    | r => r
-  | fuel + 1, .letE ty val body .. =>
-    match instantiate1LiftBC v fuel ty d with
-    | (some ty', fuel) =>
-      match instantiate1LiftBC v fuel val d with
-      | (some v', fuel) =>
-        match instantiate1LiftBC v fuel body (d + 1) with
-        | (some b', fuel) => (some (mkLetE ty' v' b'), fuel)
-        | r => r
-      | r => r
-    | r => r
-  | fuel + 1, .proj sn i sub .. =>
-    match instantiate1LiftBC v fuel sub d with
-    | (some s', fuel) => (some (mkProj sn i s'), fuel)
-    | r => r
-
-/-- The memoised descent, in `instantiate1GoC`'s shape. -/
-def instantiate1LiftGoC (v : Expr) (memo : MemoN) (e : Expr) (d : Nat) :
-    Expr × MemoN :=
-  if e.bvarB ≤ d then (e, memo) else
-  match e with
-  | .bvar i .. =>
-    (if i = d then Expr.liftLooseBVars d 0 v else if i > d then Expr.mkBvar (i - 1) else e, memo)
-  | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-  | .app f a .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (f', memo) := instantiate1LiftGoC v memo f d
-      let (a', memo) := instantiate1LiftGoC v memo a d
-      let r := mkApp f' a'
-      (r, memo.insert key r)
-  | .lam ty body m .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1LiftGoC v memo ty d
-      let (b', memo) := instantiate1LiftGoC v memo body (d + 1)
-      let r := mkLam ty' b' m
-      (r, memo.insert key r)
-  | .forallE ty body m .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1LiftGoC v memo ty d
-      let (b', memo) := instantiate1LiftGoC v memo body (d + 1)
-      let r := mkForallE ty' b' m
-      (r, memo.insert key r)
-  | .letE ty val body .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := instantiate1LiftGoC v memo ty d
-      let (v', memo) := instantiate1LiftGoC v memo val d
-      let (b', memo) := instantiate1LiftGoC v memo body (d + 1)
-      let r := mkLetE ty' v' b'
-      (r, memo.insert key r)
-  | .proj sn i sub .. =>
-    let key := (e, d)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (s', memo) := instantiate1LiftGoC v memo sub d
-      let r := mkProj sn i s'
-      (r, memo.insert key r)
 
 /-- The plain descent of `instantiate1LiftC` (task #314; the reference
 of `instantiate1LiftX`). -/
@@ -562,48 +288,6 @@ def instantiate1LiftP (v : Expr) (e : Expr) (d : Nat) : Expr :=
 theorem instantiate1LiftP_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
     instantiate1LiftP v e d = e := by
   rw [instantiate1LiftP.eq_def]; simp [h]
-
-@[inline] def enterLift (v : @& Expr) (e : @& Expr) (d : Nat)
-    (memo : MemoX (instantiate1LiftP v))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResX (instantiate1LiftP v) e d)) :
-    Squash (ResX (instantiate1LiftP v) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiate1LiftP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
-
-/-- The oracle walk of `instantiate1LiftC`. -/
-def instantiate1LiftX (v : @& Expr) (memo : MemoX (instantiate1LiftP v)) (e : @& Expr)
-    (d : Nat) (hcut : ¬ e.bvarB ≤ d) : Squash (ResX (instantiate1LiftP v) e d) :=
-  match e with
-  | .bvar i .. =>
-    Squash.mk (⟨if i = d then Expr.liftLooseBVars d 0 v
-        else if i > d then Expr.mkBvar (i - 1) else .bvar i,
-      by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .app f a .. =>
-    enterLift v f d memo (fun h => instantiate1LiftX v memo f d h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterLift v a d memo (fun h => instantiate1LiftX v memo a d h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [instantiate1LiftP]; simp [hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterLift v ty d memo (fun h => instantiate1LiftX v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLift v body (d + 1) memo (fun h => instantiate1LiftX v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterLift v ty d memo (fun h => instantiate1LiftX v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLift v body (d + 1) memo (fun h => instantiate1LiftX v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterLift v ty d memo (fun h => instantiate1LiftX v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLift v val d memo (fun h => instantiate1LiftX v memo val d h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterLift v body (d + 1) memo (fun h => instantiate1LiftX v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [instantiate1LiftP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterLift v sub d memo (fun h => instantiate1LiftX v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [instantiate1LiftP]; simp [hcut, hs, mkProj]⟩, memo)
 
 /-- (Task #316.) The child step of `instantiate1LiftXP`: the pointer-keyed twin of `enterLift`. -/
 @[inline] def enterLiftP (v : @& Expr) (e : @& Expr) (d : Nat)
@@ -648,108 +332,10 @@ def instantiate1LiftXP (v : @& Expr) (memo : MemoXP (instantiate1LiftP v)) (e : 
     enterLiftP v sub d memo (fun h => instantiate1LiftXP v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instantiate1LiftP]; simp [hcut, hs, mkProj]⟩, memo)
 
-/-- The cached `Expr.instantiate1Lift`: the cutoff, then the memo
-discipline `walkMemoMode` selects (the budget here is the older
-4 096-node one of task #215, with its `Option` result). -/
+/-- The cached `Expr.instantiate1Lift`: the cutoff, then the walk. -/
 def instantiate1LiftC (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
   if hcut : e.bvarB ≤ d then e else
-  match walkMemoMode with
-  | .budget =>
-    match instantiate1LiftBC v 4096 e d with
-    | (some r, _) => r
-    | (none, _) => (instantiate1LiftGoC v {} e d).1
-  | .oracle => resTerm (instantiate1LiftX v none e d hcut)
-  | .hybrid =>
-    match instantiate1LiftBC v 4096 e d with
-    | (some r, _) => r
-    | (none, _) => resTerm (instantiate1LiftX v none e d hcut)
-  | .ptr => resTerm (instantiate1LiftXP v none e d hcut)
-  | .hybridPtr =>
-    match instantiate1LiftBC v 4096 e d with
-    | (some r, _) => r
-    | (none, _) => resTerm (instantiate1LiftXP v none e d hcut)
-
-/-! ### The budgeted plain descent (task #313)
-
-Every substitution walk below runs in two stages: a PLAIN rebuild on
-a node budget first — no memo table, no key allocation, no bucket
-probe — and the memoised walk above only when the budget runs out,
-from scratch.  The budget is a fuel threaded through the result pair:
-a compound node needs at least two units and hands one fewer to its
-children, a leaf hands its fuel back unchanged, and a returned fuel of
-`0` means the descent was abandoned (the `Expr` beside it is then
-meaningless).  The invariant that makes `0` an unambiguous signal: a
-completed descent always returns fuel `≥ 1`, because every child of a
-node that proceeds receives `≥ 1` and a leaf returns what it received.
-So the result carries no `Option` — one `Prod` per node, which the
-compiler's reset/reuse recycles up the spine — and the wrapper reads
-success off the scalar.
-
-Why a budget rather than a memo always: the memo's whole cost — the
-`(Expr × Nat)` key, the bucket cons cell, the rehash from an
-eight-bucket table at every β — is paid per node whether or not any
-node is shared, and the day-one profile put it at 7 % of `init-full`
-and 38 % of `app-lam`.  What the plain descent gives up is sharing: a
-subterm reached twice under the cursor is rebuilt twice, and the
-copies are distinct objects downstream — every later memo probe on
-them is a structural `beq` instead of a pointer hit, and every later
-walk visits both.  The budget bounds that loss to `walkBudget` rebuilt
-nodes per walk, and a walk that exceeds it is RESTARTED under the memo
-rather than continued: the alternative (switching to the memo
-mid-walk, which keeps the plain part) was measured and lost — it
-keeps the duplicated prefix, and on `app-lam` that compounds to 7×
-at a 32 768 budget where the restart costs 0.6 % — see the task #313
-record (DESIGN.md), which also holds the budget sweep the value below
-comes from: a LARGE budget loses on every sharing-heavy stream.  The
-restarted walk begins on a table pre-sized to the budget, since the
-term is by then known to be at least that large. -/
-
-/-- Node budget of the plain descent before a memo table is built. -/
-def walkBudget : Nat := 256
-
-/-- The memo table a walk restarts on after its budget ran out:
-pre-sized to the budget. -/
-@[inline] def memoAfterBudget : MemoN :=
-  Std.HashMap.emptyWithCapacity walkBudget
-
-/-- The budgeted plain descent of `instantiate1C` (see the section
-docstring for the fuel convention). -/
-def instantiate1BC (v : Expr) (fuel : Nat) (e : Expr) (d : Nat) : Expr × Nat :=
-  if e.bvarB ≤ d then (e, fuel) else
-  match e with
-  | .bvar i .. =>
-    (if i = d then v else if i > d then Expr.mkBvar (i - 1) else e, fuel)
-  | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
-  | .app f a .. =>
-    if fuel < 2 then (e, 0) else
-    let (f', fuel) := instantiate1BC v (fuel - 1) f d
-    if fuel = 0 then (e, 0) else
-    let (a', fuel) := instantiate1BC v fuel a d
-    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
-  | .lam ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := instantiate1BC v fuel body (d + 1)
-    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
-  | .forallE ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := instantiate1BC v fuel body (d + 1)
-    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
-  | .letE ty val body .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
-    if fuel = 0 then (e, 0) else
-    let (v', fuel) := instantiate1BC v fuel val d
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := instantiate1BC v fuel body (d + 1)
-    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
-  | .proj sn i sub .. =>
-    if fuel < 2 then (e, 0) else
-    let (s', fuel) := instantiate1BC v (fuel - 1) sub d
-    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+  resTerm (instantiate1LiftXP v none e d hcut)
 
 /-- The plain descent of `instantiate1C`: the reference the oracle
 walk is verified against (`instantiate1P_spec`, `Verify/Cached/OpsC.lean`,
@@ -770,49 +356,6 @@ def instantiate1P (v : Expr) (e : Expr) (d : Nat) : Expr :=
 theorem instantiate1P_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
     instantiate1P v e d = e := by
   rw [instantiate1P.eq_def]; simp [h]
-
-/-- The child step of `instantiate1X`: the cutoff, the compound test,
-the oracle. -/
-@[inline] def enter1 (v : @& Expr) (e : @& Expr) (d : Nat) (memo : MemoX (instantiate1P v))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResX (instantiate1P v) e d)) :
-    Squash (ResX (instantiate1P v) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiate1P_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
-
-/-- The oracle walk of `instantiate1C` (the node is past the cutoff:
-the wrapper and `enter1` test it). -/
-def instantiate1X (v : @& Expr) (memo : MemoX (instantiate1P v)) (e : @& Expr) (d : Nat)
-    (hcut : ¬ e.bvarB ≤ d) : Squash (ResX (instantiate1P v) e d) :=
-  match e with
-  | .bvar i .. =>
-    Squash.mk (⟨if i = d then v else if i > d then Expr.mkBvar (i - 1) else .bvar i,
-      by rw [instantiate1P]; simp [hcut]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiate1P]; simp [hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiate1P]; simp [hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiate1P]; simp [hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [instantiate1P]; simp [hcut]⟩, memo)
-  | .app f a .. =>
-    enter1 v f d memo (fun h => instantiate1X v memo f d h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enter1 v a d memo (fun h => instantiate1X v memo a d h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [instantiate1P]; simp [hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enter1 v ty d memo (fun h => instantiate1X v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enter1 v body (d + 1) memo (fun h => instantiate1X v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by rw [instantiate1P]; simp [hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enter1 v ty d memo (fun h => instantiate1X v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enter1 v body (d + 1) memo (fun h => instantiate1X v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by rw [instantiate1P]; simp [hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enter1 v ty d memo (fun h => instantiate1X v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enter1 v val d memo (fun h => instantiate1X v memo val d h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enter1 v body (d + 1) memo (fun h => instantiate1X v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [instantiate1P]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enter1 v sub d memo (fun h => instantiate1X v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [instantiate1P]; simp [hcut, hs, mkProj]⟩, memo)
 
 /-- (Task #316, the pointer-keyed twin.) The child step of `instantiate1XP`: the cutoff, the compound test,
 the oracle. -/
@@ -857,160 +400,10 @@ def instantiate1XP (v : @& Expr) (memo : MemoXP (instantiate1P v)) (e : @& Expr)
     enter1P v sub d memo (fun h => instantiate1XP v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instantiate1P]; simp [hcut, hs, mkProj]⟩, memo)
 
-/-- The cached `Expr.instantiate1`: the cutoff, then the memo
-discipline `walkMemoMode` selects. -/
+/-- The cached `Expr.instantiate1`: the cutoff, then the walk. -/
 def instantiate1C (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
   if hcut : e.bvarB ≤ d then e else
-  match walkMemoMode with
-  | .budget =>
-    let (r, fuel) := instantiate1BC v walkBudget e d
-    if fuel ≠ 0 then r else (instantiate1GoC v memoAfterBudget e d).1
-  | .oracle => resTerm (instantiate1X v none e d hcut)
-  | .hybrid =>
-    let (r, fuel) := instantiate1BC v walkBudget e d
-    if fuel ≠ 0 then r else resTerm (instantiate1X v none e d hcut)
-  | .ptr => resTerm (instantiate1XP v none e d hcut)
-  | .hybridPtr =>
-    let (r, fuel) := instantiate1BC v walkBudget e d
-    if fuel ≠ 0 then r else resTerm (instantiate1XP v none e d hcut)
-
-/-- Core of `instantiateListC` (task #50): `vs` innermost binder first,
-`k` the live prefix length.
-
-Not structural (the `bvar` arm re-enters at the replacement with the
-shorter prefix `i - d`), so it carries the arena twin's lexicographic
-measure `(k, sizeOf e)`: the subterm calls keep `k`, the `bvar` call
-decreases it.  The prefix test is written as a dependent `if` — as in
-`instantiateListIGo` — only to put `i - d < k` in scope for that
-obligation; `dite` on the same `Decidable Nat.lt` instance compiles to
-the same code as the `ite` did.
-
-The re-entry runs under a **fresh** memo (that is what keeps `k` out of
-the key, see `MemoNL`) and is guarded: a replacement that is closed at
-the cursor, or a zero-length residual prefix, is its own instantiation,
-so the common case — the checker substitutes `fvar`s — allocates no
-table at all. -/
-def instantiateListGoC (vs : Array Expr) (memo : MemoNL)
-    (e : Expr) (k : Nat) (d : Nat) : Expr × MemoNL :=
-  if k = 0 then (e, memo)
-  else if e.bvarB ≤ d then (e, memo)
-  else
-    match e with
-    | .bvar i .. =>
-      if i < d then (e, memo)
-      else if _h : i - d < k then
-        if h : i - d < vs.size then
-          let w := vs[i - d]
-          if i - d = 0 || w.bvarB ≤ d then (w, memo)
-          else ((instantiateListGoC vs {} w (i - d) d).1, memo)
-        else (e, memo)
-      else (Expr.mkBvar (i - k), memo)
-    | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-    | .app f a .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (f', memo) := instantiateListGoC vs memo f k d
-        let (a', memo) := instantiateListGoC vs memo a k d
-        let r := mkApp f' a'
-        (r, memo.insert key r)
-    | .lam ty body m .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateListGoC vs memo ty k d
-        let (b', memo) := instantiateListGoC vs memo body k (d + 1)
-        let r := mkLam ty' b' m
-        (r, memo.insert key r)
-    | .forallE ty body m .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateListGoC vs memo ty k d
-        let (b', memo) := instantiateListGoC vs memo body k (d + 1)
-        let r := mkForallE ty' b' m
-        (r, memo.insert key r)
-    | .letE ty val body .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateListGoC vs memo ty k d
-        let (v', memo) := instantiateListGoC vs memo val k d
-        let (b', memo) := instantiateListGoC vs memo body k (d + 1)
-        let r := mkLetE ty' v' b'
-        (r, memo.insert key r)
-    | .proj sn i sub .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (s', memo) := instantiateListGoC vs memo sub k d
-        let r := mkProj sn i s'
-        (r, memo.insert key r)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
-
-/-- The budgeted plain descent of `instantiateListC` (task #313; the
-fuel convention of `instantiate1BC`).  The `bvar` arm's re-entry at a
-replacement continues on the same fuel — it is one walk's budget. -/
-def instantiateListBC (vs : Array Expr) (fuel : Nat)
-    (e : Expr) (k : Nat) (d : Nat) : Expr × Nat :=
-  if k = 0 then (e, fuel)
-  else if e.bvarB ≤ d then (e, fuel)
-  else
-    match e with
-    | .bvar i .. =>
-      if i < d then (e, fuel)
-      else if _h : i - d < k then
-        if h : i - d < vs.size then
-          let w := vs[i - d]
-          if i - d = 0 || w.bvarB ≤ d then (w, fuel)
-          else instantiateListBC vs fuel w (i - d) d
-        else (e, fuel)
-      else (Expr.mkBvar (i - k), fuel)
-    | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
-    | .app f a .. =>
-      if fuel < 2 then (e, 0) else
-      let (f', fuel) := instantiateListBC vs (fuel - 1) f k d
-      if fuel = 0 then (e, 0) else
-      let (a', fuel) := instantiateListBC vs fuel a k d
-      if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
-    | .lam ty body m .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
-    | .forallE ty body m .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
-    | .letE ty val body .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (v', fuel) := instantiateListBC vs fuel val k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
-    | .proj sn i sub .. =>
-      if fuel < 2 then (e, 0) else
-      let (s', fuel) := instantiateListBC vs (fuel - 1) sub k d
-      if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
+  resTerm (instantiate1XP v none e d hcut)
 
 /-- The plain descent of `instantiateListC` (task #314; the reference of
 `instantiateListX`, `instantiateListBC` without the fuel). -/
@@ -1045,67 +438,6 @@ decreasing_by
 theorem instantiateListP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bvarB ≤ d) :
     instantiateListP vs e k d = e := by
   rw [instantiateListP.eq_def]; simp [h]
-
-/-- The child step of `instantiateListX` (`k` is the parent's live prefix). -/
-@[inline] def enterList (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
-    (memo : MemoX (fun e d => instantiateListP vs e k d))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResX (fun e d => instantiateListP vs e k d) e d)) :
-    Squash (ResX (fun e d => instantiateListP vs e k d) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateListP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
-
-/-- The oracle walk of the bulk instantiation (the `bvar` arm's
-re-entry at a replacement runs under a fresh memo, as the memoised
-walk's does — `MemoNL`). -/
-def instantiateListX (vs : @& Array Expr) (k : Nat) (memo : MemoX (fun e d => instantiateListP vs e k d))
-    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
-    Squash (ResX (fun e d => instantiateListP vs e k d) e d) :=
-  match e with
-  | .bvar i .. =>
-    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi]⟩, memo)
-    else if _h : i - d < k then
-      if h : i - d < vs.size then
-        let w := vs[i - d]
-        if h0 : i - d = 0 || w.bvarB ≤ d then
-          Squash.mk (⟨w, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
-        else
-          have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
-            simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
-          instantiateListX vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
-          Squash.mk (⟨r, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
-      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
-    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .app f a .. =>
-    enterList vs f k d memo (fun h => instantiateListX vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterList vs a k d memo (fun h => instantiateListX vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterList vs ty k d memo (fun h => instantiateListX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterList vs body k (d + 1) memo (fun h => instantiateListX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterList vs ty k d memo (fun h => instantiateListX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterList vs body k (d + 1) memo (fun h => instantiateListX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterList vs ty k d memo (fun h => instantiateListX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterList vs val k d memo (fun h => instantiateListX vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterList vs body k (d + 1) memo (fun h => instantiateListX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterList vs sub k d memo (fun h => instantiateListX vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
 
 /-- (Task #316, the pointer-keyed twin.) The child step of `instantiateListXP` (`k` is the parent's live prefix). -/
 @[inline] def enterListP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
@@ -1168,158 +500,14 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-/-- The cached `Expr.instantiateList` (bulk): the memo discipline
-`walkMemoMode` selects. -/
+/-- The cached `Expr.instantiateList` (bulk): the cutoff, then the walk. -/
 def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
   match vs with
   | [] => e
   | v :: vs' =>
     let a := (v :: vs').toArray
-    match walkMemoMode with
-    | .budget =>
-      let (r, fuel) := instantiateListBC a walkBudget e a.size d
-      if fuel ≠ 0 then r else (instantiateListGoC a memoAfterBudget e a.size d).1
-    | .oracle =>
-      if hcut : e.bvarB ≤ d then e
-      else resTerm (instantiateListX a a.size none e d (by simp [a]) hcut)
-    | .hybrid =>
-      let (r, fuel) := instantiateListBC a walkBudget e a.size d
-      if fuel ≠ 0 then r
-      else if hcut : e.bvarB ≤ d then e
-      else resTerm (instantiateListX a a.size none e d (by simp [a]) hcut)
-    | .ptr =>
-      if hcut : e.bvarB ≤ d then e
-      else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
-    | .hybridPtr =>
-      let (r, fuel) := instantiateListBC a walkBudget e a.size d
-      if fuel ≠ 0 then r
-      else if hcut : e.bvarB ≤ d then e
-      else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
-
-/-- Core of `instantiateRev`: as `instantiateListGoC`, but the
-replacement array holds the innermost binder **last** (the binder
-loops' push order — lean4lean's `instantiateRev`).  Same
-`(k, sizeOf e)` measure, same dependent prefix test. -/
-def instantiateRevGo (vs : Array Expr) (memo : MemoNL)
-    (e : Expr) (k : Nat) (d : Nat) : Expr × MemoNL :=
-  if k = 0 then (e, memo)
-  else if e.bvarB ≤ d then (e, memo)
-  else
-    match e with
-    | .bvar i .. =>
-      if i < d then (e, memo)
-      else if _h : i - d < k then
-        if h : i - d < vs.size then
-          let w := vs[vs.size - 1 - (i - d)]'(by omega)
-          if i - d = 0 || w.bvarB ≤ d then (w, memo)
-          else ((instantiateRevGo vs {} w (i - d) d).1, memo)
-        else (e, memo)
-      else (Expr.mkBvar (i - k), memo)
-    | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-    | .app f a .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (f', memo) := instantiateRevGo vs memo f k d
-        let (a', memo) := instantiateRevGo vs memo a k d
-        let r := mkApp f' a'
-        (r, memo.insert key r)
-    | .lam ty body m .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateRevGo vs memo ty k d
-        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-        let r := mkLam ty' b' m
-        (r, memo.insert key r)
-    | .forallE ty body m .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateRevGo vs memo ty k d
-        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-        let r := mkForallE ty' b' m
-        (r, memo.insert key r)
-    | .letE ty val body .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (ty', memo) := instantiateRevGo vs memo ty k d
-        let (v', memo) := instantiateRevGo vs memo val k d
-        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-        let r := mkLetE ty' v' b'
-        (r, memo.insert key r)
-    | .proj sn i sub .. =>
-      let key := (e, d)
-      match memo[key]? with
-      | some r => (r, memo)
-      | none =>
-        let (s', memo) := instantiateRevGo vs memo sub k d
-        let r := mkProj sn i s'
-        (r, memo.insert key r)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
-
-/-- The budgeted plain descent of `instantiateRev` (task #313; as
-`instantiateListBC` on the reversed array). -/
-def instantiateRevBC (vs : Array Expr) (fuel : Nat)
-    (e : Expr) (k : Nat) (d : Nat) : Expr × Nat :=
-  if k = 0 then (e, fuel)
-  else if e.bvarB ≤ d then (e, fuel)
-  else
-    match e with
-    | .bvar i .. =>
-      if i < d then (e, fuel)
-      else if _h : i - d < k then
-        if h : i - d < vs.size then
-          let w := vs[vs.size - 1 - (i - d)]'(by omega)
-          if i - d = 0 || w.bvarB ≤ d then (w, fuel)
-          else instantiateRevBC vs fuel w (i - d) d
-        else (e, fuel)
-      else (Expr.mkBvar (i - k), fuel)
-    | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
-    | .app f a .. =>
-      if fuel < 2 then (e, 0) else
-      let (f', fuel) := instantiateRevBC vs (fuel - 1) f k d
-      if fuel = 0 then (e, 0) else
-      let (a', fuel) := instantiateRevBC vs fuel a k d
-      if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
-    | .lam ty body m .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
-    | .forallE ty body m .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
-    | .letE ty val body .. =>
-      if fuel < 2 then (e, 0) else
-      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
-      if fuel = 0 then (e, 0) else
-      let (v', fuel) := instantiateRevBC vs fuel val k d
-      if fuel = 0 then (e, 0) else
-      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
-      if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
-    | .proj sn i sub .. =>
-      if fuel < 2 then (e, 0) else
-      let (s', fuel) := instantiateRevBC vs (fuel - 1) sub k d
-      if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
+    if hcut : e.bvarB ≤ d then e
+    else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
 
 /-- The plain descent of `instantiateRev` (task #314; as `instantiateListP`
 on the reversed array). -/
@@ -1354,67 +542,6 @@ decreasing_by
 theorem instantiateRevP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bvarB ≤ d) :
     instantiateRevP vs e k d = e := by
   rw [instantiateRevP.eq_def]; simp [h]
-
-/-- The child step of `instantiateRevX` (`k` is the parent's live prefix). -/
-@[inline] def enterRev (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
-    (memo : MemoX (fun e d => instantiateRevP vs e k d))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResX (fun e d => instantiateRevP vs e k d) e d)) :
-    Squash (ResX (fun e d => instantiateRevP vs e k d) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateRevP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
-
-/-- The oracle walk of the bulk instantiation (the `bvar` arm's
-re-entry at a replacement runs under a fresh memo, as the memoised
-walk's does — `MemoNL`). -/
-def instantiateRevX (vs : @& Array Expr) (k : Nat) (memo : MemoX (fun e d => instantiateRevP vs e k d))
-    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
-    Squash (ResX (fun e d => instantiateRevP vs e k d) e d) :=
-  match e with
-  | .bvar i .. =>
-    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi]⟩, memo)
-    else if _h : i - d < k then
-      if h : i - d < vs.size then
-        let w := vs[vs.size - 1 - (i - d)]'(by omega)
-        if h0 : i - d = 0 || w.bvarB ≤ d then
-          Squash.mk (⟨w, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
-        else
-          have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
-            simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
-          instantiateRevX vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
-          Squash.mk (⟨r, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
-      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
-    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .app f a .. =>
-    enterRev vs f k d memo (fun h => instantiateRevX vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterRev vs a k d memo (fun h => instantiateRevX vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterRev vs ty k d memo (fun h => instantiateRevX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRev vs body k (d + 1) memo (fun h => instantiateRevX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterRev vs ty k d memo (fun h => instantiateRevX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRev vs body k (d + 1) memo (fun h => instantiateRevX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterRev vs ty k d memo (fun h => instantiateRevX vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRev vs val k d memo (fun h => instantiateRevX vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterRev vs body k (d + 1) memo (fun h => instantiateRevX vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterRev vs sub k d memo (fun h => instantiateRevX vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
-termination_by (k, sizeOf e)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; omega)
-    | (apply Prod.Lex.right; simp +arith +decide)
 
 /-- (Task #316, the pointer-keyed twin.) The child step of `instantiateRevXP` (`k` is the parent's live prefix). -/
 @[inline] def enterRevP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
@@ -1477,125 +604,14 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-/-- Bulk instantiation on a reversed accumulator array: the memo
-discipline `walkMemoMode` selects. -/
+/-- Bulk instantiation on a reversed accumulator array: the cutoffs,
+then the walk. -/
 def instantiateRev (e : @& Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
   if hk : vs.size = 0 then e
   else if hcut : e.bvarB ≤ d then e
-  else
-    match walkMemoMode with
-    | .budget =>
-      let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
-      if fuel ≠ 0 then r else (instantiateRevGo vs memoAfterBudget e vs.size d).1
-    | .oracle => resTerm (instantiateRevX vs vs.size none e d hk hcut)
-    | .hybrid =>
-      let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
-      if fuel ≠ 0 then r else resTerm (instantiateRevX vs vs.size none e d hk hcut)
-    | .ptr => resTerm (instantiateRevXP vs vs.size none e d hk hcut)
-    | .hybridPtr =>
-      let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
-      if fuel ≠ 0 then r else resTerm (instantiateRevXP vs vs.size none e d hk hcut)
+  else resTerm (instantiateRevXP vs vs.size none e d hk hcut)
 
 /-! ## Abstraction -/
-
-/-- Core of `abstract1C` (`d` is the abstracted fvar's level, `k` the
-binder cursor; compound nodes are memoized, the `fvar` leaf is answered
-in place).
-
-**Documented deviation from the arena twin** (`abstract1IGo`, which has
-no such cutoff): a node whose cached fvar range is at or below `d`
-cannot contain `fvar d`, so it is returned unchanged.  A rebuild here
-allocates, so returning the node itself is what keeps the walk
-idempotent on the shared subterms.  Same value either way. -/
-def abstract1GoC (d : Nat) (memo : MemoN) (e : Expr) (k : Nat) :
-    Expr × MemoN :=
-  if e.fvarB ≤ d then (e, memo) else
-  match e with
-  | .fvar idx .. => (if idx = d then Expr.mkBvar k else e, memo)
-  | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-  | .app f a .. =>
-    let key := (e, k)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (f', memo) := abstract1GoC d memo f k
-      let (a', memo) := abstract1GoC d memo a k
-      let r := mkApp f' a'
-      (r, memo.insert key r)
-  | .lam ty body m .. =>
-    let key := (e, k)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstract1GoC d memo ty k
-      let (b', memo) := abstract1GoC d memo body (k + 1)
-      let r := mkLam ty' b' m
-      (r, memo.insert key r)
-  | .forallE ty body m .. =>
-    let key := (e, k)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstract1GoC d memo ty k
-      let (b', memo) := abstract1GoC d memo body (k + 1)
-      let r := mkForallE ty' b' m
-      (r, memo.insert key r)
-  | .letE ty val body .. =>
-    let key := (e, k)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstract1GoC d memo ty k
-      let (v', memo) := abstract1GoC d memo val k
-      let (b', memo) := abstract1GoC d memo body (k + 1)
-      let r := mkLetE ty' v' b'
-      (r, memo.insert key r)
-  | .proj sn i sub .. =>
-    let key := (e, k)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (s', memo) := abstract1GoC d memo sub k
-      let r := mkProj sn i s'
-      (r, memo.insert key r)
-
-/-- The budgeted plain descent of `abstract1C` (task #313; the fuel
-convention of `instantiate1BC`). -/
-def abstract1BC (d : Nat) (fuel : Nat) (e : Expr) (k : Nat) : Expr × Nat :=
-  if e.fvarB ≤ d then (e, fuel) else
-  match e with
-  | .fvar idx .. => (if idx = d then Expr.mkBvar k else e, fuel)
-  | .bvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
-  | .app f a .. =>
-    if fuel < 2 then (e, 0) else
-    let (f', fuel) := abstract1BC d (fuel - 1) f k
-    if fuel = 0 then (e, 0) else
-    let (a', fuel) := abstract1BC d fuel a k
-    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
-  | .lam ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstract1BC d fuel body (k + 1)
-    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
-  | .forallE ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstract1BC d fuel body (k + 1)
-    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
-  | .letE ty val body .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
-    if fuel = 0 then (e, 0) else
-    let (v', fuel) := abstract1BC d fuel val k
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstract1BC d fuel body (k + 1)
-    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
-  | .proj sn i sub .. =>
-    if fuel < 2 then (e, 0) else
-    let (s', fuel) := abstract1BC d (fuel - 1) sub k
-    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
 
 /-- The plain descent of `abstract1C` (task #314; the reference of
 `abstract1X`). -/
@@ -1614,46 +630,6 @@ def abstract1P (d : Nat) (e : Expr) (k : Nat) : Expr :=
 theorem abstract1P_cut {d : Nat} {e : Expr} {k : Nat} (h : e.fvarB ≤ d) :
     abstract1P d e k = e := by
   rw [abstract1P.eq_def]; simp [h]
-
-@[inline] def enterAbs1 (d : Nat) (e : @& Expr) (k : Nat) (memo : MemoX (abstract1P d))
-    (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResX (abstract1P d) e k)) :
-    Squash (ResX (abstract1P d) e k) :=
-  if hcut : e.fvarB ≤ d then Squash.mk (⟨e, (abstract1P_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e k fun _ => rec hcut
-
-/-- The oracle walk of `abstract1C`. -/
-def abstract1X (d : Nat) (memo : MemoX (abstract1P d)) (e : @& Expr) (k : Nat)
-    (hcut : ¬ e.fvarB ≤ d) : Squash (ResX (abstract1P d) e k) :=
-  match e with
-  | .fvar idx ty .. =>
-    Squash.mk (⟨if idx = d then Expr.mkBvar k else .fvar idx ty,
-      by rw [abstract1P]; simp [hcut]⟩, memo)
-  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [abstract1P]; simp [hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by rw [abstract1P]; simp [hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by rw [abstract1P]; simp [hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [abstract1P]; simp [hcut]⟩, memo)
-  | .app f a .. =>
-    enterAbs1 d f k memo (fun h => abstract1X d memo f k h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterAbs1 d a k memo (fun h => abstract1X d memo a k h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [abstract1P]; simp [hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterAbs1 d ty k memo (fun h => abstract1X d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbs1 d body (k + 1) memo (fun h => abstract1X d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by rw [abstract1P]; simp [hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterAbs1 d ty k memo (fun h => abstract1X d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbs1 d body (k + 1) memo (fun h => abstract1X d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by rw [abstract1P]; simp [hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterAbs1 d ty k memo (fun h => abstract1X d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbs1 d val k memo (fun h => abstract1X d memo val k h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterAbs1 d body (k + 1) memo (fun h => abstract1X d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [abstract1P]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterAbs1 d sub k memo (fun h => abstract1X d memo sub k h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [abstract1P]; simp [hcut, hs, mkProj]⟩, memo)
 
 /-- (Task #316.) The child step of `abstract1XP`: the pointer-keyed twin of `enterAbs1`. -/
 @[inline] def enterAbs1P (d : Nat) (e : @& Expr) (k : Nat) (memo : MemoXP (abstract1P d))
@@ -1696,116 +672,10 @@ def abstract1XP (d : Nat) (memo : MemoXP (abstract1P d)) (e : @& Expr) (k : Nat)
     enterAbs1P d sub k memo (fun h => abstract1XP d memo sub k h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [abstract1P]; simp [hcut, hs, mkProj]⟩, memo)
 
-/-- The cached `Expr.abstract1`: the cutoff, then the memo discipline
-`walkMemoMode` selects. -/
+/-- The cached `Expr.abstract1`: the cutoff, then the walk. -/
 def abstract1C (e : @& Expr) (d : Nat) (k : Nat := 0) : Expr :=
   if hcut : e.fvarB ≤ d then e else
-  match walkMemoMode with
-  | .budget =>
-    let (r, fuel) := abstract1BC d walkBudget e k
-    if fuel ≠ 0 then r else (abstract1GoC d memoAfterBudget e k).1
-  | .oracle => resTerm (abstract1X d none e k hcut)
-  | .hybrid =>
-    let (r, fuel) := abstract1BC d walkBudget e k
-    if fuel ≠ 0 then r else resTerm (abstract1X d none e k hcut)
-  | .ptr => resTerm (abstract1XP d none e k hcut)
-  | .hybridPtr =>
-    let (r, fuel) := abstract1BC d walkBudget e k
-    if fuel ≠ 0 then r else resTerm (abstract1XP d none e k hcut)
-
-/-- Core of `abstractRangeC` (bulk abstraction, task #72; same memo
-discipline as `abstract1GoC`). -/
-def abstractRangeGoC (d k : Nat) (memo : MemoN) (e : Expr) (c : Nat) :
-    Expr × MemoN :=
-  if e.fvarB ≤ d then (e, memo) else
-  match e with
-  | .fvar idx .. =>
-    (if d ≤ idx ∧ idx < d + k then Expr.mkBvar (c + (d + k - 1 - idx)) else e, memo)
-  | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-  | .app f a .. =>
-    let key := (e, c)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (f', memo) := abstractRangeGoC d k memo f c
-      let (a', memo) := abstractRangeGoC d k memo a c
-      let r := mkApp f' a'
-      (r, memo.insert key r)
-  | .lam ty body m .. =>
-    let key := (e, c)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstractRangeGoC d k memo ty c
-      let (b', memo) := abstractRangeGoC d k memo body (c + 1)
-      let r := mkLam ty' b' m
-      (r, memo.insert key r)
-  | .forallE ty body m .. =>
-    let key := (e, c)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstractRangeGoC d k memo ty c
-      let (b', memo) := abstractRangeGoC d k memo body (c + 1)
-      let r := mkForallE ty' b' m
-      (r, memo.insert key r)
-  | .letE ty val body .. =>
-    let key := (e, c)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (ty', memo) := abstractRangeGoC d k memo ty c
-      let (v', memo) := abstractRangeGoC d k memo val c
-      let (b', memo) := abstractRangeGoC d k memo body (c + 1)
-      let r := mkLetE ty' v' b'
-      (r, memo.insert key r)
-  | .proj sn i sub .. =>
-    let key := (e, c)
-    match memo[key]? with
-    | some r => (r, memo)
-    | none =>
-      let (s', memo) := abstractRangeGoC d k memo sub c
-      let r := mkProj sn i s'
-      (r, memo.insert key r)
-
-/-- The budgeted plain descent of `abstractRangeC` (task #313; the
-fuel convention of `instantiate1BC`). -/
-def abstractRangeBC (d k : Nat) (fuel : Nat) (e : Expr) (c : Nat) : Expr × Nat :=
-  if e.fvarB ≤ d then (e, fuel) else
-  match e with
-  | .fvar idx .. =>
-    (if d ≤ idx ∧ idx < d + k then Expr.mkBvar (c + (d + k - 1 - idx)) else e, fuel)
-  | .bvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
-  | .app f a .. =>
-    if fuel < 2 then (e, 0) else
-    let (f', fuel) := abstractRangeBC d k (fuel - 1) f c
-    if fuel = 0 then (e, 0) else
-    let (a', fuel) := abstractRangeBC d k fuel a c
-    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
-  | .lam ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
-    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
-  | .forallE ty body m .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
-    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
-  | .letE ty val body .. =>
-    if fuel < 2 then (e, 0) else
-    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
-    if fuel = 0 then (e, 0) else
-    let (v', fuel) := abstractRangeBC d k fuel val c
-    if fuel = 0 then (e, 0) else
-    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
-    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
-  | .proj sn i sub .. =>
-    if fuel < 2 then (e, 0) else
-    let (s', fuel) := abstractRangeBC d k (fuel - 1) sub c
-    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+  resTerm (abstract1XP d none e k hcut)
 
 /-- The plain descent of `abstractRangeC` (task #314; the reference of
 `abstractRangeX`). -/
@@ -1828,47 +698,6 @@ def abstractRangeP (d k : Nat) (e : Expr) (c : Nat) : Expr :=
 theorem abstractRangeP_cut {d k : Nat} {e : Expr} {c : Nat} (h : e.fvarB ≤ d) :
     abstractRangeP d k e c = e := by
   rw [abstractRangeP.eq_def]; simp [h]
-
-@[inline] def enterAbsR (d k : Nat) (e : @& Expr) (c : Nat) (memo : MemoX (abstractRangeP d k))
-    (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResX (abstractRangeP d k) e c)) :
-    Squash (ResX (abstractRangeP d k) e c) :=
-  if hcut : e.fvarB ≤ d then Squash.mk (⟨e, (abstractRangeP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e c fun _ => rec hcut
-
-/-- The oracle walk of `abstractRangeC`. -/
-def abstractRangeX (d k : Nat) (memo : MemoX (abstractRangeP d k)) (e : @& Expr) (c : Nat)
-    (hcut : ¬ e.fvarB ≤ d) : Squash (ResX (abstractRangeP d k) e c) :=
-  match e with
-  | .fvar idx ty .. =>
-    Squash.mk (⟨if d ≤ idx ∧ idx < d + k then Expr.mkBvar (c + (d + k - 1 - idx))
-        else .fvar idx ty,
-      by rw [abstractRangeP]; simp [hcut]⟩, memo)
-  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [abstractRangeP]; simp [hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by rw [abstractRangeP]; simp [hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by rw [abstractRangeP]; simp [hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [abstractRangeP]; simp [hcut]⟩, memo)
-  | .app f a .. =>
-    enterAbsR d k f c memo (fun h => abstractRangeX d k memo f c h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterAbsR d k a c memo (fun h => abstractRangeX d k memo a c h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [abstractRangeP]; simp [hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterAbsR d k ty c memo (fun h => abstractRangeX d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbsR d k body (c + 1) memo (fun h => abstractRangeX d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' m, by rw [abstractRangeP]; simp [hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterAbsR d k ty c memo (fun h => abstractRangeX d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbsR d k body (c + 1) memo (fun h => abstractRangeX d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' m, by rw [abstractRangeP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterAbsR d k ty c memo (fun h => abstractRangeX d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterAbsR d k val c memo (fun h => abstractRangeX d k memo val c h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterAbsR d k body (c + 1) memo (fun h => abstractRangeX d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [abstractRangeP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterAbsR d k sub c memo (fun h => abstractRangeX d k memo sub c h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [abstractRangeP]; simp [hcut, hs, mkProj]⟩, memo)
 
 /-- (Task #316.) The child step of `abstractRangeXP`: the pointer-keyed twin of `enterAbsR`. -/
 @[inline] def enterAbsRP (d k : Nat) (e : @& Expr) (c : Nat) (memo : MemoXP (abstractRangeP d k))
@@ -1913,65 +742,15 @@ def abstractRangeXP (d k : Nat) (memo : MemoXP (abstractRangeP d k)) (e : @& Exp
     Squash.mk (⟨mkProj sn i s', by rw [abstractRangeP]; simp [hcut, hs, mkProj]⟩, memo)
 
 /-- The cached `Expr.abstractRange` (`k = 0` is the identity and skips
-the traversal, as in the arena): the cutoff, then the memo discipline
-`walkMemoMode` selects. -/
+the traversal, as in the arena): the cutoff, then the walk. -/
 def abstractRangeC (e : @& Expr) (d k : Nat) (c : Nat := 0) : Expr :=
   match k with
   | 0 => e
   | _ + 1 =>
     if hcut : e.fvarB ≤ d then e else
-    match walkMemoMode with
-    | .budget =>
-      let (r, fuel) := abstractRangeBC d k walkBudget e c
-      if fuel ≠ 0 then r else (abstractRangeGoC d k memoAfterBudget e c).1
-    | .oracle => resTerm (abstractRangeX d k none e c hcut)
-    | .hybrid =>
-      let (r, fuel) := abstractRangeBC d k walkBudget e c
-      if fuel ≠ 0 then r else resTerm (abstractRangeX d k none e c hcut)
-    | .ptr => resTerm (abstractRangeXP d k none e c hcut)
-    | .hybridPtr =>
-      let (r, fuel) := abstractRangeBC d k walkBudget e c
-      if fuel ≠ 0 then r else resTerm (abstractRangeXP d k none e c hcut)
+    resTerm (abstractRangeXP d k none e c hcut)
 
 /-! ## Level instantiation -/
-
-/-- Core of `instantiateLevelParams` (memoized; nodes without a level
-parameter are returned unchanged — the arena's `eparamBs` cutoff). -/
-def instLevelParamsGo (ks : List Name) (us : List Level)
-    (memo : Memo0) (e : Expr) : Expr × Memo0 :=
-  if !e.hasLP then (e, memo) else
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Expr × Memo0 :=
-      match e with
-      | .bvar .. | .lit .. => (e, memo)
-      | .sort u .. => (mkSort (Level.subst ks us u), memo)
-      | .const n vs .. => (mkConst n (vs.map (Level.subst ks us)), memo)
-      | .fvar idx ty .. =>
-        let (t, memo) := instLevelParamsGo ks us memo ty
-        (mkFVar idx t, memo)
-      | .app f a .. =>
-        let (f', memo) := instLevelParamsGo ks us memo f
-        let (a', memo) := instLevelParamsGo ks us memo a
-        (mkApp f' a', memo)
-      | .lam ty body m .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (b', memo) := instLevelParamsGo ks us memo body
-        (mkLam ty' b' ⟨Level.substPW ks us m.pw⟩, memo)
-      | .forallE ty body m .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (b', memo) := instLevelParamsGo ks us memo body
-        (mkForallE ty' b' ⟨Level.substPW ks us m.pw⟩, memo)
-      | .letE ty val body .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (v', memo) := instLevelParamsGo ks us memo val
-        let (b', memo) := instLevelParamsGo ks us memo body
-        (mkLetE ty' v' b', memo)
-      | .proj s i sub .. =>
-        let (s', memo) := instLevelParamsGo ks us memo sub
-        (mkProj s i s', memo)
-    (r, memo.insert e r)
 
 /-- The plain descent of `instLevelParams` (task #314; the reference of
 `instLevelParamsX`). -/
@@ -1996,55 +775,6 @@ def instLevelParamsP (ks : List Name) (us : List Level) (e : Expr) : Expr :=
 theorem instLevelParamsP_cut {ks : List Name} {us : List Level} {e : Expr}
     (h : (!e.hasLP) = true) : instLevelParamsP ks us e = e := by
   rw [instLevelParamsP.eq_def]; simp [h]
-
-/-- The child step of `instLevelParamsX`: the cutoff, then the oracle —
-on EVERY node past the cutoff, as the memoised walk records every one
-(a `const` with level parameters is a `Level.subst` per occurrence). -/
-@[inline] def enterLP (ks : @& List Name) (us : @& List Level) (e : @& Expr)
-    (memo : MemoX0 (instLevelParamsP ks us))
-    (rec : (hcut : ¬ (!e.hasLP) = true) → Squash (ResX0 (instLevelParamsP ks us) e)) :
-    Squash (ResX0 (instLevelParamsP ks us) e) :=
-  if hcut : (!e.hasLP) = true then Squash.mk (⟨e, (instLevelParamsP_cut hcut).symm⟩, memo)
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e fun _ => rec hcut
-
-/-- The oracle walk of `instLevelParams`. -/
-def instLevelParamsX (ks : @& List Name) (us : @& List Level)
-    (memo : MemoX0 (instLevelParamsP ks us)) (e : @& Expr) (hcut : ¬ (!e.hasLP) = true) :
-    Squash (ResX0 (instLevelParamsP ks us) e) :=
-  match e with
-  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
-  | .sort u .. =>
-    Squash.mk (⟨mkSort (Level.subst ks us u), by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
-  | .const n vs .. =>
-    Squash.mk (⟨mkConst n (vs.map (Level.subst ks us)),
-      by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
-  | .fvar idx ty .. =>
-    enterLP ks us ty memo (fun h => instLevelParamsX ks us memo ty h) |>.lift fun (⟨t, ht⟩, memo) =>
-    Squash.mk (⟨mkFVar idx t, by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, mkFVar]⟩, memo)
-  | .app f a .. =>
-    enterLP ks us f memo (fun h => instLevelParamsX ks us memo f h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterLP ks us a memo (fun h => instLevelParamsX ks us memo a h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hf, ha, mkApp]⟩, memo)
-  | .lam ty body m .. =>
-    enterLP ks us ty memo (fun h => instLevelParamsX ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLP ks us body memo (fun h => instLevelParamsX ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b' ⟨Level.substPW ks us m.pw⟩,
-      by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hb, mkLam]⟩, memo)
-  | .forallE ty body m .. =>
-    enterLP ks us ty memo (fun h => instLevelParamsX ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLP ks us body memo (fun h => instLevelParamsX ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b' ⟨Level.substPW ks us m.pw⟩,
-      by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterLP ks us ty memo (fun h => instLevelParamsX ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLP ks us val memo (fun h => instLevelParamsX ks us memo val h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterLP ks us body memo (fun h => instLevelParamsX ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterLP ks us sub memo (fun h => instLevelParamsX ks us memo sub h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hs, mkProj]⟩, memo)
 
 /-- (Task #316, the pointer-keyed twin.) The child step of `instLevelParamsXP`: the cutoff, then the oracle —
 on EVERY node past the cutoff, as the memoised walk records every one
@@ -2095,15 +825,11 @@ def instLevelParamsXP (ks : @& List Name) (us : @& List Level)
     enterLPP ks us sub memo (fun h => instLevelParamsXP ks us memo sub h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hs, mkProj]⟩, memo)
 
-/-- The cached `Expr.instantiateLevelParams`: the cutoff, then the memo
-discipline `walkMemoMode` selects (`.budget` is the always-memoised
-walk here — level instantiation had no budget). -/
+/-- The cached `Expr.instantiateLevelParams`: the cutoff, then the
+walk. -/
 def instLevelParams (ks : List Name) (us : List Level) (e : @& Expr) : Expr :=
   if hcut : (!e.hasLP) = true then e else
-  match walkMemoMode with
-  | .budget => (instLevelParamsGo ks us {} e).1
-  | .oracle | .hybrid => resTerm (instLevelParamsX ks us none e hcut)
-  | .ptr | .hybridPtr => resTerm (instLevelParamsXP ks us none e hcut)
+  resTerm (instLevelParamsXP ks us none e hcut)
 
 /-- The cached `ProjEntry.typeAt`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and
