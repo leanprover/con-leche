@@ -5389,6 +5389,208 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
     rw [hlen₁, hlen₂, hPs₁, hPs₂, hnPeq, hnIdxEq])
   exact (List.append_inj hargs hPs₁').2
 
+/-- **THE TWO COPIES' SLOTS AGREE AT A REWRITTEN CONTAINER-ORDINARY
+FIELD** (task #315 WIDE (3), step 2): `hslotOrd`, DISCHARGED.
+
+`slotSet` is `piTele w (teleOfFields …) (fun bs => app X (tupW u
+(Eis …)))`, so an equation uniform in the carrier needs five things
+and each has its source:
+
+* **the targets** — `ordTgt_corr`, whose conclusion the assembly holds
+  (`htgσ`).  Only σ's MEMBER value is read here (`hroot`, and only to
+  place the block's target above `p.k` on the member arm); the own-pin
+  value is the assembly's business, inside `ordTgt_corr`;
+* **the sorts** — the block's own (`GroupFacts.syn.w`) against the
+  group view's (`PinGroupView.w`), here `hw`;
+* **the target's universe** — `hroot` at a member class and the own-pin
+  row's `u` clause at a pin one, here `hu`;
+* **the carriers** — `setJoin`'s equation at a σ-related class, `hX`;
+* **the FIELD DATA** — `ordRead_corr` at a pin target and
+  `ordReadMem_corr` at a member one, which is what this theorem
+  APPLIES.  Both copies' telescopes come out EMPTY — the
+  recomputation's head is the stored domain's own and a constant head
+  is not a `Π` — so `slotSet_nil` collapses both sides and only the
+  index spine is left.
+
+**The index spine crosses by the FRAME and nothing else.**  The
+block's `Eis` are the owner's with the owner PIN's components
+substituted at the field's cut, and the owner's own parameter frame IS
+that pin's frame (`BlockModel.pinFrame`: the components read at the
+block's frame), so `interp_instAll` closes it with no boundedness
+hypothesis — the two readings are literally one term at one frame.
+
+The per-field inputs `hscope` are `GroupFacts.ordRead`'s own: the
+owner's recomputation fires, is scoped at the field's cut and at the
+container's parameter openers, and READS — the four things this tier
+cannot produce and the assembly holds from the owner's `PinShapes`
+conjunct and the run. -/
+theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : BlockModel V}
+    {ψ ψJ : Name → Nat} {ρp ρJ : Nat → V} {a kk i j baseK qK rbase : Nat}
+    {X₁ Y : Nat → V} {σ : Nat → Nat}
+    (G : GF st m a kk dK) (hi : i < kk)
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    (hj : (dK.ctorsM i)[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    -- the container record at the block's own member of the group
+    {lpsC : List Name} {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i)).J = some ciC)
+    (hJm : ciC.members[i]? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- the OWNER, at the run
+    {gp : Nat} (hgp : gp < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[gp]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {m₀ : ContainerMember} (hm₀ : ciR.members.head? = some m₀)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st gp = some mapR)
+    (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i)
+    (hDsE : ((D).pinAt gp).DsE.length = ciR.nP)
+    -- the OWNER, at the model
+    (CR : ContainerModeled m ciR dJ)
+    (hciR₂ : ConLeche.containerInfo? env₂ gn.container = some ciR)
+    (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
+    (hqKn : qK < dJ.nPins)
+    (hcontZ : ∀ z, z < dJ.nPins → ∀ ciZ : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dJ.pinAt z).J = some ciZ →
+      ConLeche.containerInfo? env (dJ.pinAt z).J = some ciZ)
+    -- the owner's level assignment and parameter frame at the block's pin
+    (hψJ : ψJ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
+    (hρJ : ρJ = (D).pinFrame gp ψ ρp)
+    -- the per-field scoping and reading of the owner's recomputation
+    -- (`GroupFacts.ordRead`'s own inputs)
+    (hscope : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ∃ (K : Name) (vs : List Level) (rx : AnnotTerm),
+        dom.1.getAppFn = .const K vs ∧
+        ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT
+          (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = true ∧
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true ∧
+        (∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
+          Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP) ∧
+        denoteMeta m.acval env₂ ψJ (ciR.nP + l)
+          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+            (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
+    -- side 2: K.68's two rows at the OWNER's own install
+    (hrowTgt : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ∀ (lps : List Name) (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom lpsC dK.nP (dJ.ownPinTerms lps) qK l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, dJ.memberNames.findIdx? (· == M) = some mm → (dJ.pinCtors qK).tgts j l = mm) ∧
+      (dJ.memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < dJ.nPins ∧
+          (dJ.pinAt z).ownAt dJ.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners dJ.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom lpsC dK.nP (dJ.ownPinTerms lps) qK l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC dK.nP (dJ.ownPinTerms lps) qK l
+                  dom.1).getAppArgs.take (dJ.pinAt z).nPJ) ∧
+          (dJ.pinCtors qK).tgts j l = dJ.k + z))
+    (hrowRead : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ¬ (dJ.pinCtors qK).tgts j l < dJ.k →
+      ∀ lps : List Name, ∃ z : Nat, z < dJ.nPins ∧
+      (dJ.pinCtors qK).tgts j l = dJ.k + z ∧
+      ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []).length = (dJ.pinAt z).nIdx ∧
+      OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dJ.nP l
+        ((dJ.pinAt baseK).Ds ψJ) ((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j [])
+        ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l [])
+        ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
+        ((dJ.pinAt z).nPJ) lpsC dK.nP qK (dJ.ownPinTerms lps) dom.1)
+    (hrowReadMem : ∀ l, ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      (dJ.pinCtors qK).tgts j l < dJ.k →
+      ∀ lps : List Name, ∃ mm : Nat, mm < dJ.k ∧
+      (dJ.pinCtors qK).tgts j l = mm ∧
+      ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []).length = dJ.nIdxAt mm ∧
+      OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dJ.nP l
+        ((dJ.pinAt baseK).Ds ψJ) ((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j [])
+        ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l [])
+        ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
+        dJ.nP lpsC dK.nP qK (dJ.ownPinTerms lps) dom.1)
+    -- the owner's pins' index counts, as the container record's members' stored types
+    (hnIdxR : ∀ z : Nat, z < dJ.nPins → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dJ.pinAt z).J = some ci →
+      ∃ mem ∈ ci.members, mem.name = (dJ.pinAt z).J ∧
+        ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+          mem.type.stripPis (ci.nP + (dJ.pinAt z).nIdx) = some (bsz, .sort sz))
+    -- THE TARGETS (`ordTgt_corr`), and σ's two values
+    (htgσ : ∀ l, ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i) + j) []).getD l 0 = σ ((dJ.pinCtors qK).tgts j l))
+    (hroot : ∀ c, c < dJ.k → σ c = p.k + rbase + c)
+    (S₀ : PinGroupView (D) dJ rbase dJ.k)
+    -- THE TARGET'S UNIVERSE and THE CARRIERS (the SORTS drop out:
+    -- both telescopes are empty, and `slotSet_nil` does not read `w`)
+    (hu : ∀ l, nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l 0)
+      = dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ)
+    (hX : ∀ l, X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l 0)
+      = Y ((dJ.pinCtors qK).tgts j l)) :
+    ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit ((D).pinFrame (a + i) ψ ρp)
+        (((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).take l) fs₁ →
+      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
+        (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
+      slotSet (f₀.s.eval ψ)
+          (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + a + i) + j) []).getD l 0)) (consList fs₁ ρp)
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+          (X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + a + i) + j) []).getD l 0))
+        = slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
+            ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
+            ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l)) := by
+  classical
+  intro l hl hord hrsB hrsP fs₁ hfsl hfit₁ hfit₂
+  -- the group's pins share their level assignment, which is what the
+  -- two rows' `Fss` are read at
+  have hψa : ((D).pinAt (a + i)).ψJ ψ = ((D).pinAt a).ψJ ψ := by
+    have h := G.syn.ψJEq i 0 hi G.syn.kpos ψ
+    rwa [Nat.add_zero] at h
+  have hl' : l < ((dK.Fss i (((D).pinAt a).ψJ ψ)).getD j []).length := by rwa [hψa] at hl
+  -- the two frames, at the group's base pin
+  have hDsEq : ((D).pinAt (a + i)).Ds ψ = ((D).pinAt a).Ds ψ := G.syn.sameDs i hi ψ
+  have hfit₁' : SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
+      (((dK.Fss i (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ := by
+    rw [← hDsEq, ← hψa]
+    exact hfit₁
+  -- the field's stored domain
+  obtain ⟨cvTb, cvRb, mIb, rPb, rulesb, hIb⟩ := G.syn.reps i (G.syn.kEq ▸ hi)
+  have hlF : l < cA.2 := by
+    rw [← hIb.Fss_length hj (((D).pinAt a).ψJ ψ)]; exact hl'
+  have hbsl : bs.length = dK.nP + cA.2 := ConLeche.Expr.stripPis_length _ hst
+  obtain ⟨dom, hdm⟩ : ∃ dom, bs[dK.nP + l]? = some dom :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hbsl]; omega)⟩
+  obtain ⟨K, vs, rx, hdomHd, hfired, hbd, hlv, hrx⟩ := hscope l hl hord hrsB dom hdm
+  -- the field data, by the target's arm
+  have hdata : ((mutTlss ctorsA.length tssF ψ).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l [] = [] ∧
+      (((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [] = [] ∧
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l []
+        = ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []).map
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+    by_cases hmemT : (dJ.pinCtors qK).tgts j l < dJ.k
+    · exact ordReadMem_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
+        hst hdm hi hciC hJm hlpsJ hdomHd hgp hgn hciR hm₀ hownT hmapR hqKT hqm
+        hfired hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn
+        (fun lps => hrowReadMem l dom hdm hmemT lps) (htgσ l) hroot S₀ fs₁ hfsl hfit₁' hfit₂
+    · exact ordRead_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
+        hst hdm hi hciC hJm hlpsJ hdomHd hgp hgn hciR hm₀ hownT hmapR hqKT hqm
+        hfired hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn hmemT hcontZ
+        (fun lps M us hh => hrowTgt l dom hdm lps M us hh)
+        (fun lps => hrowRead l dom hdm hmemT lps) hnIdxR fs₁ hfsl hfit₁' hfit₂
+  obtain ⟨htl₁, htl₂, hEis⟩ := hdata
+  rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu l, hX l, hEis, hρJ, List.map_map]
+  refine congrArg _ (congrArg _ (List.map_congr_left fun e _ => ?_))
+  have h := interp_instAll (V := V) (((D).pinAt gp).Ds ψ) fs₁ ρp e
+  rw [hfsl] at h
+  exact h
+
 /-- **THE WIDE FIT AT A PIN CLASS, WITH THE BLOCK SIDE READ OFF THE
 GROUP** (task #315 WIDE (3′), `hfitc`'s first half):
 `pinClassFit_of_transfer` at the block's own group of the image pin —
