@@ -125512,3 +125512,141 @@ links OK, `tests/quote-gate.sh` 2 statements match,
 `nestedPinsOrdTgtMem_of`, `ordReadMem_corr`, `nestedSlotOrd_pin`,
 `PinShapes.rowOrdReadMem`, `nestedPinShapes_of` and
 `nestedPinsIdent_of`: `propext`, `Classical.choice`, `Quot.sound`.
+
+#### WIDE (f3) STEP 1 — THE INLINING LANDED; `hfitc`'s REMAINING INPUTS PRICED AGAINST THE TREE, AND ONE OF THEM HAS NO PRODUCER (lane LE, 2026-09-20)
+
+The order's step 1 was "`hpin` = `hfit_wide_pin_of_class` at `hfitc` =
+`nestedPinFit_pin` with `hslotOrd := nestedSlotOrd_pin` inlined HERE,
+then `hrowsσ` = `rowsσ_of_pin_class`".  The inlining landed.  The rest
+was priced by INPUTS before building, as ruled, and the price is a
+session and a half, with one input that has **no producer anywhere in
+the tree** — so nothing beyond the inlining was built and the row
+stops.
+
+##### (a) WHAT LANDED — `nestedFitc_pin`
+
+`nestedFitc_pin` (`Model/Inductives/NestedPinLeafAll.lean:5781`) is
+`nestedPinFit_pin` at `hslotOrd := nestedSlotOrd_pin`: the producer's
+~25 inputs and the consumer's ~25 meet in ONE signature, which is
+where the previous row said they should (`hfitc`'s call site), so
+neither mid-tier theorem carries a fifty-hypothesis signature.
+
+**Two premises are gone rather than moved.**  `hslotOrd` is
+discharged; and `hrel` — the two carriers' agreement at a
+container-RECURSIVE field — is the UNCONDITIONAL `hX` the discharge
+already takes, so the guarded form is that hypothesis weakened
+(`fun l _ _ => hX l`).  `nestedPinFit_pin` and `nestedSlotOrd_pin` both
+LEFT the unconsumed list at the same commit.
+
+##### (b) `hfitc` AT EVERY OWN-PIN CLASS — THE BRIDGE, PRICED AT THE PROOF
+
+`hfit_wide_pin_of_class` wants `hfitc` ∀ own-pin class `c`, keyed by
+`σ c` and `offs (σ c) + j`; `nestedFitc_pin` gives it at ONE class,
+keyed by the block pin `p.k + a + i` the instance map names.  The
+bridge instantiates it per class off the records the switch site
+holds, exactly as `nestedPinPairAt`'s pin arm instantiates
+`nestedPinPairAt_pin`.  Every input read against the tree:
+
+| input | source | ~lines |
+|---|---|---|
+| `σ c = p.k + a + i`, the group | `PinGroupInst.hownσ` + `hgroups` | 10 |
+| `hfind` | `GroupFacts.syn.stored` | 5 |
+| `hj`, `hcnt` (the counts) | `PinShapes`' count conjunct + `hdJfB` | 35 |
+| `hc`/`hcq`/`hqK`, `S₂` (the owner's pin group at `qK`, position-for-position) | `PinShapes` at `qK` + `ContainerModeled.memberName_inj` + `PinGroupView.kEq` — `nestedPinPairAt`'s own preamble | 30 |
+| `CK`, `hciK`, `hfK`, `hpp` | `EnvBlocksOf`, `hppB` | 15 |
+| `hψK`, `hψ`, `hρ` | the own-pin `PinCorr` (`NestedPinsRun.instMapPinOwn`) through `classPin_of_blockPinCorr_of_pinGroup` | 30 |
+| `h₂` | `PinShapes`' last conjunct | 10 |
+| `hdom₂` | `BlockModel.slotDomT_of_le` at the owner, against `TupleLe` | 25 |
+| `hdom₁` | the block side at `setJoin σ … Y`, through `hX` and the group's shape | 40 |
+| `hentOrd₁` | `CopyEntryAOrd` at the block's group + `houtσ` + `setJoin_out` (`hfit_wide_mem_of_inst`'s `hentZ` at a pin class) | 30 |
+| the run data (`hgp` … `hcontZ`, `hψJ`, `hρJ`) | `GroupFacts`, `PinData`, `NestedPinsRun` | 30 |
+| `hscope` | the OWNER's `PinShapes.rowOrdRead` + the scoping closure | 60 |
+| `hrowTgt`, `hrowRead`, `hrowReadMem` | `PinShapes.rowTargetOrd`/`rowOrdRead`/`rowOrdReadMem` | 40 |
+| `hnIdxR` | the container record's members' stored types | 20 |
+| `htgσ` | `ordTgt_corr` (itself ~30 inputs) | 50 |
+| `hroot`, `S₀` | `PinGroupInst`, `pinGroupView_of_syn` | 5 |
+| `hu` | `hroot` + `GroupFacts.syn.pinU` at a member target, `hownσ`'s `u` clause at a pin one | 30 |
+| `hX` | `setJoin_at_fc` + `htgσ` + the target's bound | 20 |
+| **`hfireOrd`** | **NONE** — see (c) | — |
+
+That is ~485 lines over one file, four of them (`hdom₁`, `hdom₂`,
+`hscope`, `htgσ`) carrying real proof rather than plumbing, against a
+step priced at one session of which the inlining consumed most.
+`hrowsσ` is then `rowsσ_of_pin_class` at the same `hcnt`/`hfitc` and
+is fifteen lines, as the 2026-09-19 row said — it is not what stops
+this.
+
+##### (c) THE ONE INPUT WITH NO PRODUCER — `hfireOrd`
+
+`hfireOrd` is, in the consumers' spelling: at a field the SHARED
+container calls ordinary, if the OWNER's copy fired then the BLOCK's
+copy fired.
+
+```
+(dK.rss i).getD j []).getD l false = false →
+((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true
+```
+
+It is a hypothesis of `copyTransfer_iff_pin`
+(`NestedPinLeafAll.lean:3817`), of `pinClassFit_of_transfer` (`:4031`)
+and of `nestedPinFit_pin` (`:5656`), and the grep for a producer is
+EMPTY: every row that concludes something about the block's rewrite
+— `GroupFacts.ordTgt` (K.67), `ordGe` (K.68), `ordRead` (K.69),
+`PinGroupInst.hordσ` — is GUARDED by `blkRss = true` and so cannot
+produce it, and the owner's `PinShapes` rows (`rowTargetOrd`,
+`rowOrdRead`) are guarded by the owner's firing and say nothing about
+the block's.
+
+It is not derivable at this tier either.  Under the guard the block's
+`CopyShapeA.ordF` LEFT arm says the block's copy's domain reads as the
+shared container's own instantiated; the owner's `CopyCtorShape.ordF`
+RIGHT arm says the owner's copy's domain is a `slotSet` with an
+`EntryRead`.  These are statements about two different `Fss` lists at
+two different frames and contradict nothing.
+
+**DESIGN already records the ARGUMENT** (WIDE (3) (1), 2026-09-19): a
+root that fires is constant-headed, a substitution cannot change a
+constant head, and a constant-headed inductive application is its own
+`whnf` (K.22 `whnf_indApp_eq`, `normPosDomM_indApp`).  What it does
+not record is a THEOREM, and the argument's home is the run: the fact
+relates the owner's classification of a field — the datum the nested
+install RESTORES and drops, which is why K.67 RECOMPUTES — to the
+block's.  So this is a kernel-record request of the K.67/K.69 family
+(the owner's firing, carried), not a model-tier lemma, and it gates
+`hfitc` whichever way the bridge is built.
+
+##### (d) THE STOP
+
+The doubling stop applies: step 1 was priced at one session, the
+inlining is in, and the bridge is ~485 lines with one input that has
+no producer.  Steps (4′), the merge of `agent/uniform-le4` and (4) are
+all downstream of `hfitc` and were NOT started; `agent/uniform-le4`
+was NOT merged, for the reason the 2026-09-19 row gives — merging it
+across a stop leaves `NestedPinsLeInd` unconsumed for as long as the
+stop lasts.
+
+**What a re-price should keep**: (b)'s table, which is read at the
+proofs and not at the brief, and the finding that `hrowsσ` is not on
+the critical path.  **What it must add**: `hfireOrd`'s producer as a
+step of its own, before the bridge — it is not a corollary of anything
+landed.
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 96eff9d8`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match, `tests/no-local-paths.sh`
+OK.  `tests/arena.sh` NOT owed — the change is `Model/` only.
+`tests/unconsumed.sh` **199 of 3865** against **200 of 3864**, and the
+diff is exactly three lines: `nestedFitc_pin` ENTERS (its consumer is
+the bridge), and `nestedPinFit_pin` and `nestedSlotOrd_pin` LEAVE —
+the inlining is their first consumer, which is the point of the
+session.  **Nothing of the `pins_le_*`/`NestedPinsLe`-producer family
+moved** (`pins_le_of_declOrder`, `nestedPinsLe_of_rank` both stay), as
+it must not before (4′); Resolution 3's candidate-frame apparatus
+(`pinLfp_eq_pinLfpAt`, `CandParamFit`, `pinLfpAt_le`) is where it was.
+`#print axioms ConLeche.Model.nestedFitc_pin`: `propext`,
+`Classical.choice`, `Quot.sound`.
