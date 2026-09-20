@@ -3951,6 +3951,84 @@ theorem NestedPinsRun.pinTermSpine {gp : Nat} (hgp : gp < pinsS.length)
     exact (DenoteMetaSpine.eraseAnnots (as := (pinsS.getD gp default).DsE)).mpr hbase
 
 
+/-- **THE TWO RECOMPUTATIONS' HEADS CARRY ONE NAME** (task #315 WIDE
+(f3) step 3(b)): at a field the copy's container calls ORDINARY where
+the OWNER's RAW recomputation FIRED, the OWNER's recomputation and the
+BLOCK's are headed by the SAME constant.
+
+**It is K.69's term equation read at the head**, and it needs no record
+of its own: `ordNormAt` says the block's recomputation IS the owner's
+under `ordRootInst`, `ordRootInst_getAppFn_const` says that
+substitution moves no constant head, and the owner's head comes free
+off the firing (`getAppFn_const_of_ordRootFired`).  The step-2 row
+(`ordBlkHeadAt`, K.69's Bool) gives the block's head as an ∃ and
+therefore CANNOT tie the names; this does, and the tie is what the wide
+identification's consumers spend where they compare the OWNER's target
+pin and the BLOCK's at ONE container (`hnPeq`, `hnIdxEq`,
+`ordTgt_corr`'s single `M`).
+
+The block's rewrite bit `hrss`, which `ordNormAt` asks for, is
+`ordFireAt`'s own conclusion at this very guard, so the row's
+hypotheses are `ordFireAt`'s verbatim. -/
+theorem NestedPinsRun.ordBlkHeadTieAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary)
+    {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    (hstrip : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bs, rr))
+    {dom : Expr × ConLeche.BinderMeta} (hdomM : bs[dJ.nP + l]? = some dom)
+    {lpsC : List Name}
+    (hlpsC : ∀ ciP : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
+      ∀ Jm : ContainerMember, ciP.members[i']? = some Jm → Jm.lps = lpsC)
+    {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[g]? = some gn)
+    {ciO : ContainerInfo} (hciO : ConLeche.containerInfo? env gn.container = some ciO)
+    {m₀ : ContainerMember} (hm₀ : ciO.members.head? = some m₀)
+    {ownSelf : List Expr}
+    (hown : ConLeche.containerOwnPinsSelf env gn.container = some ownSelf)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    (hqm : mapR.getD qK st.pins.length = q₀ + i')
+    (hfire : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownSelf
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = true) :
+    ∃ (M : Name) (us usB : List Level),
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppFn = .const M us ∧
+      (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l dom.1).getAppFn = .const M usB := by
+  classical
+  obtain ⟨M, us, hW⟩ := ConLeche.getAppFn_const_of_ordRootFired hfire
+  have hrss := R.ordFireAt SF S hPD hkindsRun hi' hgb CM hj hlF hordC hstrip hdomM hlpsC
+    hg hgn hciO hm₀ hown hmapR hqK hqm hfire
+  have hgS : g < pinsS.length := by rw [SF.pinsLen]; exact hg
+  obtain ⟨hhdPin, -, -, -⟩ := R.pinTermSpine SF hgS hgn
+  have hrootInst : ConLeche.ordRootInst m₀.lps ciO.nP
+      (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom.1))
+      ((ConLeche.nestedPinTermsSelf p st).getD g default)
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1)
+      = some (Expr.instantiateList
+          (Expr.abstractRange (Expr.instantiateLevelParams m₀.lps
+            (pinsS.getD g default).lvls
+            (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1)) 0 ciO.nP
+            (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom.1)))
+          ((((ConLeche.nestedPinTermsSelf p st).getD g default).getAppArgs.take
+            ciO.nP).reverse)
+          (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf qK dom.1))) := by
+    unfold ConLeche.ordRootInst
+    rw [hhdPin]
+  have hK69 := R.ordNormAt SF S hPD hkindsRun hi' hgb CM hj hlF hordC hrss hstrip hdomM hlpsC
+    hg hgn hciO hm₀ hown hmapR hqK hqm hfire hrootInst
+  obtain ⟨usB, hB⟩ := ConLeche.ordRootInst_getAppFn_const hrootInst hW
+  exact ⟨M, us, usB, hW, by rw [hK69]; exact hB⟩
+
 /-- **THE TWO COPIES' FIELD DATA, AT THE RUN** (task #315 WIDE (3),
 step 2): the BLOCK-side half of the tie — the block's own reading of
 its recomputation IS the OWNER's reading, carried across `ordRootInst`

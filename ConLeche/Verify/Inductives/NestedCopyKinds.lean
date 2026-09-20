@@ -1581,6 +1581,42 @@ theorem getAppFn_const_of_ordRootFired {env : Env} {memsJ : List Name} {ownSelf 
   | const M us => exact ⟨M, us, rfl⟩
   | _ => rw [hd] at h; simp at h
 
+/-- **`ordRootInst` MOVES NO CONSTANT HEAD** (task #315 WIDE (f3) step
+3(b)): the block's recomputation is the owner's at the block pin's
+levels and components (K.69's own equation), and every step of that
+substitution — the level instantiation, the parameter abstraction and
+the components' fold — leaves a constant head where it found it.
+
+That is what ties the two recomputations' head NAMES, which the wide
+identification's consumers spend where they compare the OWNER's target
+pin and the BLOCK's at ONE container.  At a constant-headed stored
+domain the tie was free; at a bare-parameter one it is this. -/
+theorem ordRootInst_getAppFn_const {lpsJ : List Name} {nPJ cut : Nat} {pinG W Wb : Expr}
+    {M : Name} {us : List Level}
+    (h : ordRootInst lpsJ nPJ cut pinG W = some Wb)
+    (hW : W.getAppFn = Expr.const M us) :
+    ∃ us' : List Level, Wb.getAppFn = Expr.const M us' := by
+  unfold ordRootInst at h
+  cases hp : pinG.getAppFn with
+  | const I lvlsJ =>
+    rw [hp] at h
+    obtain rfl : Wb = Expr.instantiateList
+        (Expr.abstractRange (W.instantiateLevelParams lpsJ lvlsJ) 0 nPJ cut)
+        ((pinG.getAppArgs.take nPJ).reverse) cut := (Option.some.inj h).symm
+    refine ⟨us.map (Level.subst lpsJ lvlsJ), ?_⟩
+    refine getAppFn_instantiateList_const ?_
+    -- the abstraction, on the spine the head already has
+    rw [show W.instantiateLevelParams lpsJ lvlsJ
+        = Expr.mkAppN (W.instantiateLevelParams lpsJ lvlsJ).getAppFn
+            (W.instantiateLevelParams lpsJ lvlsJ).getAppArgs from (Expr.mkAppN_getApp _).symm,
+      Expr.getAppFn_instantiateLevelParams, hW]
+    rw [abstractRange_mkAppN,
+      show Expr.instantiateLevelParams lpsJ lvlsJ (Expr.const M us)
+        = Expr.const M (us.map (Level.subst lpsJ lvlsJ)) from rfl,
+      abstractRange_const, Expr.getAppFn_mkAppN]
+    rfl
+  | _ => rw [hp] at h; exact nomatch h
+
 /-- **THE STRENGTHENED ROW AT THE RECOMPUTATION ITSELF** — the shape
 the run reads it in.  A firing root is constant-headed
 (`getAppFn_const_of_ordRootFired`), so its positivity normal form is

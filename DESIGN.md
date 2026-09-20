@@ -127815,3 +127815,57 @@ than kept.  `#print axioms` on the seven new declarations and on
 `nestedSlotOrd_pin`, `nestedFitc_pin` and `nestedPinsEntry_of_le_all`:
 all `[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new
 axiom, no `maxHeartbeats`.
+
+#### WIDE (f3) STEP 3(b) FOLLOW-UP — THE HEAD-NAME TIE IS K.69's TERM EQUATION READ AT THE HEAD, AND IT NEEDS NO RECORD (lane LE, 2026-09-20)
+
+Step 3(b) left ONE new obligation: the OWNER's recomputation and the
+BLOCK's must carry the SAME head NAME, because the consumers compare
+the two sides' target pins at ONE container (`hnPeq`, `hnIdxEq`,
+`ordTgt_corr`'s single `M`).  At a constant-headed STORED domain that
+was free — one constant, two level instantiations.  At a bare-parameter
+one it is not: the owner's head comes from the owner's component and
+the block's from the block's.  **It is discharged, at the run, with no
+kernel change.**
+
+##### (a) THE ARGUMENT, AND WHY THE STEP-2 ROW COULD NOT MAKE IT
+
+K.69 already records the TERM: `NestedPinsRun.ordNormAt` says the
+block's recomputation IS the owner's under `ordRootInst`.  And
+`ordRootInst` is three substitutions — a level instantiation, a
+parameter abstraction, a components' fold — each of which leaves a
+constant head where it found it.  So the owner's head, which comes
+free off the firing (`getAppFn_const_of_ordRootFired`), IS the block's.
+
+The step-2 row (`ordBlkHeadAt`, the K.69 Bool's own conjunct) gives the
+block's head as an `∃ M us` and therefore cannot tie the names — that
+is exactly what it cannot say, and why the tie is a separate object
+rather than a strengthening of that record.  It stays where it is:
+`NestedPinsRun.ordGeAt` consumes it, and its argument is the raw
+guard's.
+
+##### (b) THE TWO OBJECTS
+
+| object | file |
+|---|---|
+| `ordRootInst_getAppFn_const` | `Verify/Inductives/NestedCopyKinds.lean` — `abstractRange_mkAppN`/`abstractRange_const` on the spine plus `getAppFn_instantiateList_const`, ~15 lines |
+| `NestedPinsRun.ordBlkHeadTieAt` | `Model/Inductives/NestedInstMap.lean` — `ordFireAt`'s hypotheses verbatim (the block's rewrite bit `ordNormAt` asks for IS `ordFireAt`'s conclusion at this guard), `ordRootInst`'s `some` off `pinTermSpine`'s constant head, then `ordNormAt` and the lemma |
+
+`GroupFacts.ordBlkHead`'s conclusion becomes
+`∃ M us usB, (owner's recomputation).getAppFn = .const M us ∧
+(block's).getAppFn = .const M usB` — which is `hscope`'s two head
+conjuncts verbatim, so the assembly's producer for them is now named
+and no longer owed to a later session.
+
+##### (c) THE GATES
+
+`tests/arena.sh` EXIT 0 — nested-shadow 45/45, e2e 200/200, arena
+91/96, annot 15/15, mode flags 10/10, trusted and `--jobs` sweeps as at
+the default.  **No `ConLeche` executable byte changed.**
+`tests/warning-free.sh f7f721f4` 0 warning lines in both halves (3
+changed modules), `lake test` 0 warnings, overview-links 112,
+quote-gate 2, no-local-paths OK.  `tests/unconsumed.sh` **204 of 3888**
+against **204 of 3886** — two declarations added and BOTH consumed
+(`ordRootInst_getAppFn_const` by `ordBlkHeadTieAt`, that by `mkGF`);
+`ordBlkHeadAt` keeps its consumer (`ordGeAt`).  `#print axioms` on both
+and on `nestedPinsEntry_of_le_all`:
+`[propext, Classical.choice, Quot.sound]`.

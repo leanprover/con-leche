@@ -2387,8 +2387,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
   BLOCK's is this field.
 
   `ordFire`'s hypotheses verbatim, and its producer
-  (`NestedPinsRun.ordBlkHeadAt`) is `ordFireAt`'s scaffolding with the
-  tail changed. -/
+  (`NestedPinsRun.ordBlkHeadTieAt`) is `ordFireAt`'s hypotheses with
+  K.69's term equation read at the head. -/
   ordBlkHead : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
     l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
     ((dJ.rss i').getD j []).getD l false = false →
@@ -2408,9 +2408,16 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ∀ (qK : Nat), qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
     ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
-    ∃ (M : Name) (us : List Level),
+    -- **AT THE OWNER'S OWN NAME** (task #315 WIDE (f3) step 3(b)): an
+    -- ∃ over the block's head alone cannot TIE the two, and the tie is
+    -- what the consumers spend where they compare the owner's target
+    -- pin and the block's at ONE container.  Its producer
+    -- (`NestedPinsRun.ordBlkHeadTieAt`) reads K.69's term equation at
+    -- the head and needs no record of its own.
+    ∃ (M : Name) (us usB : List Level),
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppFn = .const M us ∧
       (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-        (q₀ + i') l dom.1).getAppFn = .const M us
+        (q₀ + i') l dom.1).getAppFn = .const M usB
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -8394,7 +8401,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.ordFireAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
-    · -- the BLOCK's recomputation head at the group (`ordBlkHeadAt`,
+    · -- the BLOCK's recomputation head at the group (`ordBlkHeadTieAt`,
       -- WIDE (f3) step 2): `ordFireAt`'s preamble verbatim, and the
       -- same guard
       obtain ⟨pbs, -, hPD⟩ := R.pinData
@@ -8433,7 +8440,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
             (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
         obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
         exact hlpsE
-      exact R.ordBlkHeadAt SF S' hPD R.h.classify hi₂ hgb
+      exact R.ordBlkHeadTieAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
     · intro i₂ hi₂ ψ₂ i₃ hi₃
