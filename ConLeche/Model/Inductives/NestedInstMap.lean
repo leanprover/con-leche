@@ -949,6 +949,11 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
+    (∀ mmK, (ciO.members.map (·.name)).findIdx? (· == M) = none →
+        dJ.memberNames.findIdx? (· == M) = some mmK →
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+          = p.k + mapR.getD (qK - i' + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
@@ -1057,12 +1062,21 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1).getAppFn
       = .const M us := by
     rw [hlps', hnPci]; exact hhead
-  rw [← hnPci, ← hlps']
-  exact ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
+  have hinv := ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
     hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hhead'
+  rw [← hnPci, ← hlps']
+  -- the middle arm's member list is the container MODEL's, and its
+  -- offset is this copy's own inside the block's group
+  refine ⟨hinv.1, fun mmK hnm hmk => ?_, hinv.2.2⟩
+  have hmk' : (ci.members.map (·.name)).findIdx? (· == M) = some mmK := by
+    rw [← CMci.memberNames_eq]; exact hmk
+  have hoff : q₀ + i' - (pinAtE st (q₀ + i')).grpBase = i' := by
+    rw [hgb]; omega
+  have := hinv.2.1 mmK hnm hmk'
+  rwa [hoff] at this
 
 
 /-- **K.70's ARM (C) AT THE COPY'S FIELD** (task #315 K.70): the

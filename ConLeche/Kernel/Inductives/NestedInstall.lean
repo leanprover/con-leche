@@ -2666,7 +2666,15 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else
                                 let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
-                                if ordRootFired env memsJ ownSelf dmJ then
+                                (match dmJ.getAppFn with
+                                 | .const M _ =>
+                                   match memsK.findIdx? (· == M) with
+                                   | some mmK =>
+                                     t == p.k + mapR.getD
+                                       (qK - (q - qn.grpBase) + mmK) st.pins.length
+                                   | none => true
+                                 | _ => true) &&
+                                (if ordRootFired env memsJ ownSelf dmJ then
                                   match dmJ.getAppFn with
                                   | .const M _ =>
                                     match memsJ.findIdx? (· == M) with
@@ -2685,7 +2693,7 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                                 else
                                   !mapR.contains (t - p.k)
                                     && (decide (t < p.k + gn.grpBase)
-                                        || decide (p.k + gn.grpBase + gn.grpSize ≤ t))
+                                        || decide (p.k + gn.grpBase + gn.grpSize ≤ t)))
                             | _, _ => false
                       | _, _ => false
               | _, _ => true

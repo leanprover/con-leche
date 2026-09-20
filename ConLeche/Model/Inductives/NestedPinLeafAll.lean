@@ -2128,6 +2128,11 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
+    (∀ mmK, (ciO.members.map (·.name)).findIdx? (· == M) = none →
+      dJ.memberNames.findIdx? (· == M) = some mmK →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+        = p.k + mapR.getD (qK - i' + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
@@ -4940,7 +4945,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       obtain ⟨_, _, _, _, _, _, -, -, -, -, hmems⟩ := ConLeche.containerInfo?_inv hciR
       obtain ⟨cvC, capsC, -, -, -, hf, -, -, -, -, -, -⟩ := hmems mem hmemM
       rw [← hMK, ← hmemN, hf]; rfl
-    obtain ⟨hmem₁, -⟩ := hgo (hbound hfindK)
+    obtain ⟨hmem₁, -, -⟩ := hgo (hbound hfindK)
     rw [hmem₂ mm hfi, hroot mm hmmlt]
     exact hmem₁ mm (by rw [← hnames]; exact hfi)
   | none =>
@@ -4963,7 +4968,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       have hciK : ConLeche.containerInfo? env K = some ciZ := by rw [← hMK]; exact hciM
       obtain ⟨cvZ, capsZ, -, -, -, -, hf, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciK
       rw [hf]; rfl
-    obtain ⟨-, hpin₁⟩ := hgo (hbound hfindK)
+    obtain ⟨-, -, hpin₁⟩ := hgo (hbound hfindK)
     -- the searched term is the table's entry at `z`
     have hsearch : Expr.mkAppN (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
         ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)

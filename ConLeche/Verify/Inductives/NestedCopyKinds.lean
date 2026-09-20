@@ -931,6 +931,9 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     (hhead : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
         t = p.k + gn.grpBase + mm) ∧
+    (∀ mmK, (ciJ.members.map (·.name)).findIdx? (· == M) = none →
+      (ci.members.map (·.name)).findIdx? (· == M) = some mmK →
+      t = p.k + mapR.getD (qK - (q - qn.grpBase) + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
@@ -973,19 +976,28 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
   rw [hl, hdJ] at hlv
   simp only at hlv
   rw [if_neg (by simp [hrec, hkt])] at hlv
-  refine ⟨fun mm hmm => ?_, fun ciM qJ hnm hciM hfi => ?_⟩
-  · rw [if_pos (ordRootFired_of_mem (ownSelf := ownSelf) (env := env) hhead hmm), hhead] at hlv
-    simp only at hlv
-    rw [hmm] at hlv
-    simpa using hlv
+  simp only [Bool.and_eq_true] at hlv
+  obtain ⟨hlvM, hlvF⟩ := hlv
+  refine ⟨fun mm hmm => ?_, fun mmK hnm hmk => ?_, fun ciM qJ hnm hciM hfi => ?_⟩
+  · rw [if_pos (ordRootFired_of_mem (ownSelf := ownSelf) (env := env) hhead hmm), hhead] at hlvF
+    simp only at hlvF
+    rw [hmm] at hlvF
+    simpa using hlvF
+  · -- the head is one of the SHARED container's own members: the
+    -- owner's own pin for it sits at this copy's own group offset,
+    -- and that half of the row is ABOVE the firing guard
+    rw [hhead] at hlvM
+    simp only at hlvM
+    rw [hmk] at hlvM
+    simpa using hlvM
   · rw [if_pos (ordRootFired_of_pin (memsJ := ciJ.members.map (·.name)) hhead hciM hfi),
-      hhead] at hlv
-    simp only at hlv
-    rw [hnm, hciM] at hlv
-    simp only at hlv
-    rw [← hhead] at hlv
-    rw [hfi] at hlv
-    simpa using hlv
+      hhead] at hlvF
+    simp only at hlvF
+    rw [hnm, hciM] at hlvF
+    simp only at hlvF
+    rw [← hhead] at hlvF
+    rw [hfi] at hlvF
+    simpa using hlvF
 
 /-- **K.67 at a FINITARY field**, where the cut is the identity: the
 domain's head is a `.const`, so it is not a `Π` and `stripDomPis` and
@@ -1022,6 +1034,9 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
       = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
         t = p.k + gn.grpBase + mm) ∧
+    (∀ mmK, (ciJ.members.map (·.name)).findIdx? (· == M) = none →
+      (ci.members.map (·.name)).findIdx? (· == M) = some mmK →
+      t = p.k + mapR.getD (qK - (q - qn.grpBase) + mmK) st.pins.length) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
@@ -1127,10 +1142,12 @@ theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
   rw [hl, hdJ] at hlv
   simp only at hlv
   rw [if_neg (by simp [hrec, hkt])] at hlv
-  rw [if_neg (by simp [hnofire]), if_neg (by simp [hord])] at hlv
+  simp only [Bool.and_eq_true] at hlv
+  obtain ⟨-, hlvF⟩ := hlv
+  rw [if_neg (by simp [hnofire]), if_neg (by simp [hord])] at hlvF
   simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
-    Bool.not_eq_eq_eq_not, Bool.not_true] at hlv
-  exact hlv
+    Bool.not_eq_eq_eq_not, Bool.not_true] at hlvF
+  exact hlvF
 
 /-! ## THE BLOCK'S OWN CLASS AT A REWRITTEN ORDINARY FIELD (task #315 K.68)
 
