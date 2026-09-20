@@ -126757,3 +126757,42 @@ No `ConLeche/` file changed.  Two fixtures and two gate rows are added:
 `tests/e2e/src/nested_bvar_field.lean` (+ `.ndjson`, `J=accept,
 BvarField=accept,`) and `tests/e2e/src/nested_pi_field.lean`
 (+ `.ndjson`, `J=accept,` at `CON_LECHE_INMODEL=0`, a tripwire).
+
+#### WIDE (f3) STEP 1 — K.69's TERM EQUATION, GUARDED ON THE RECOMPUTATIONS (lane LE, 2026-09-20)
+
+The first link of the previous row's (e) 1: `nestedOrdNormOk_at_head`
+(`ConLeche/Verify/Inductives/NestedCopyKinds.lean`), K.69's term
+equation with its two head guards asked of the terms they are SPENT
+on, and `nestedOrdNormOk_at_pi` re-proved as its corollary in four
+lines.
+
+`_at_pi`'s `hfin`/`hfinB` were used for nothing but
+`getAppFn_instantiateList_const`, i.e. to produce the two
+RECOMPUTATIONS' heads, which is all `ordRootNorm_const` wants.  Taken
+as hypotheses directly, the theorem covers a stored domain headed by a
+BARE PARAMETER — the shape `nested_bvar_field`, `nested_pin_nocollide`
+and `nested_p04` carry and `_at_pi` cannot reach — and the OWNER's half
+of the guard becomes free there, since a firing root is constant-headed
+(`getAppFn_const_of_ordRootFired`).
+
+Nothing else moved: `NestedPinsRun.ordNormAt` still reads `_at_pi`, so
+this is a widening with no consumer change and no re-proof anywhere
+above it.  The BLOCK's half of the guard is the row that link (e) 2
+owes; until it exists, `_at_head` has exactly one consumer and it is
+`_at_pi`.
+
+##### THE GATES
+
+`tests/warning-free.sh a68eae7f`: 3 changed modules, `lake build` 1
+recompiled and 0 warning lines, `lake test` 1 recompiled and 0 warning
+lines.  `tests/shake.sh` green (514 removals, all allowlisted;
+pub-imports 1343/2308, none demotable).  `tests/arena.sh` EXIT 0 —
+arena 91/96, e2e 200/200, annot 15/15, nested-shadow **44/44** (the
+two new rows), trusted and `--jobs` sweeps as at the default.
+`tests/overview-links.sh` 112 links OK, `tests/quote-gate.sh` 2
+statements match, `tests/no-local-paths.sh` OK.
+`tests/unconsumed.sh` **203 of 3881** against **203 of 3880** at
+`a68eae7f`: one declaration added and it has a consumer, so the
+unconsumed set did not move.  `#print axioms` on
+`nestedOrdNormOk_at_head` and `nestedOrdNormOk_at_pi`: `propext`,
+`Classical.choice`, `Quot.sound`.
