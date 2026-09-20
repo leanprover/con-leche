@@ -2910,16 +2910,34 @@ and both sides instantiate the SAME stored domain — the owner's at its
 own components, the block's at those components substituted.
 UNCONDITIONAL and `.internal`, for K.61's reason.
 
+**THE OWNER'S FIRING FORCES THE BLOCK'S** (task #315 WIDE (f3), the row
+STRENGTHENED).  The field kind test is BELOW the guard and not above
+it: where the owner fired, a block copy that left the field ORDINARY is
+a `false` and not a silence.  The argument is the guard's own — the
+owner's normalised domain is constant-headed at an inductive head
+(`ordRootFired`), a constant head survives the block's substitution,
+and such an application is its own `whnf` (`whnf_indApp_eq`,
+`normPosDomM_indApp`), so the block's positivity walk classifies the
+field recursive or reflexive.  It cannot fire for that reason on the
+constant-head path; on the SLIVER path it rests on the same owed lemma
+the row's WHAT IS OWED already names (the owner's reduction under the
+substitution, and `whnf` finding it).  This is what produces
+`hfireOrd` — `rs₂ → rs₁` at the model — which no `blkRss`-guarded row
+can.
+
 **The arms that assert nothing.**  Where the root did NOT fire — after
 the normalisation, so the mixed corner and nothing else — the row is
-silent, and that corner has no claim to make; where the OWNER's walk
-threw (fuel, or a non-positive occurrence) it is silent too, since the
-owner's own side is then not in hand; and where the block pin's head is
-not a constant it is silent for `ordRootInst`'s reason.  The BLOCK's
-walk throwing is NOT silent: under the guard the owner's normal form is
-constant-headed, so the block's reduces to its substitution and cannot
-throw, and the arm asserts that.  The LOOKUP arms are K.67's, character
-for character. -/
+silent, and that corner has no claim to make (and with it the block's
+kind, which is why the kind test may not be hoisted above the guard);
+where the OWNER's walk threw (fuel, or a non-positive occurrence) it is
+silent too, since the owner's own side is then not in hand; where the
+block pin's head is not a constant it is silent for `ordRootInst`'s
+reason; and where the container's own stored domain already mentions a
+member of the container's group the field is not this row's.  The
+BLOCK's walk throwing is NOT silent: under the guard the owner's normal
+form is constant-headed, so the block's reduces to its substitution and
+cannot throw, and the arm asserts that.  The LOOKUP arms are K.67's,
+character for character. -/
 def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
@@ -2962,14 +2980,14 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
                             (List.range kf.length).all fun l =>
                               match kf[l]?, jbs[ci.nP + l]? with
                               | some (r, _), some domJ =>
-                                if !(r == .recursive || r == .reflexive) then true
-                                else if mentionsMember memsK domJ.1 then true
+                                if mentionsMember memsK domJ.1 then true
                                 else
                                   let W := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
                                   match ordRootNorm mode env memsJ W with
                                   | none => true
                                   | some Wn =>
                                   if !ordRootFired env memsJ ownSelf Wn then true
+                                  else if !(r == .recursive || r == .reflexive) then false
                                   else
                                     match ordRootInst m₀.lps ciJ.nP
                                         (l + domPiDepth

@@ -1276,14 +1276,156 @@ theorem nestedOrdNormOk_at_refl {mode : CheckMode} {env : Env} {p : NestedParts}
   have hlv := hjv l hlLt
   rw [hl, hdJ] at hlv
   simp only at hlv
-  rw [if_neg (by simp [hrec]), if_neg (by simp [hord])] at hlv
+  rw [if_neg (by simp [hord])] at hlv
   rw [hnorm] at hlv
   simp only at hlv
-  rw [if_neg (by simp [hfire])] at hlv
+  rw [if_neg (by simp [hfire]), if_neg (by simp [hrec])] at hlv
   rw [hinst] at hlv
   simp only at hlv
   rw [hnormB] at hlv
   simpa using hlv
+
+/-- **THE OWNER'S FIRING FORCES THE BLOCK'S CLASSIFICATION** (task #315
+WIDE (f3), K.69 STRENGTHENED) — the row's sibling inversion, and the
+producer of the model's `hfireOrd` (`rs₂ → rs₁`).
+
+At a field the shared container calls ORDINARY, where the OWNER's
+recomputation fired — its positivity normal form is headed by a
+constant that is one of the owner's group members or the container of
+one of the owner's own pins — the BLOCK's copy of that field is
+`.recursive` or `.reflexive`.
+
+**Why the row may assert it.**  A constant head survives the block's
+instantiation, and a constant-headed inductive application is its own
+`whnf` (`whnf_indApp_eq`, `normPosDomM_indApp`), so the block's own
+positivity walk meets the same inductive head and rewrites the field.
+Every `blkRss`-guarded row (K.67's `ordTgt`, K.68's `ordGe`, K.69's
+`ordRead`) ASSUMES this conclusion, so none of them can produce it;
+the row's own arm is where it lives.
+
+The lookups are `nestedOrdNormOk_at_refl`'s, character for character —
+the two differ only in which side of the strengthened arm they read. -/
+theorem nestedOrdNormOk_fire {mode : CheckMode} {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk mode env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {m₀ : ContainerMember} (hm₀ : ciJ.members.head? = some m₀)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    {Wn : Expr}
+    (hnorm : ordRootNorm mode env (ciJ.members.map (·.name))
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wn)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = true) :
+    (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedOrdNormOk nestedOrdNormAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms g g (by simp [hg])
+  have hmeq : m = mapR := by rw [hm] at hmapR; simpa using hmapR
+  unfold nestedOrdNormOk nestedOrdNormAt at h
+  rw [hms, hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hgv := h g hg
+  rw [hgn] at hgv
+  simp only at hgv
+  rw [hciJ] at hgv
+  simp only at hgv
+  rw [hown] at hgv
+  simp only at hgv
+  rw [hm₀] at hgv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hgv
+  have hqv := hgv qK hqK
+  rw [show maps.getD g [] = mapR from by
+    rw [List.getD_eq_getElem?_getD, hmq]; exact hmeq] at hqv
+  rw [hq, hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJm] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hord])] at hlv
+  rw [hnorm] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hfire])] at hlv
+  cases hr : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) with
+  | true => rfl
+  | false => rw [hr] at hlv; simp at hlv
+
+/-- **A FIRING ROOT IS CONSTANT-HEADED**, and that is `ordRootFired`'s
+own first `match`: every other head answers `false`.  What lets the
+strengthened row's consumers drop the head guard — the firing they
+already hold carries it. -/
+theorem getAppFn_const_of_ordRootFired {env : Env} {memsJ : List Name} {ownSelf : List Expr}
+    {W : Expr} (h : ordRootFired env memsJ ownSelf W = true) :
+    ∃ (M : Name) (us : List Level), W.getAppFn = .const M us := by
+  unfold ordRootFired at h
+  cases hd : W.getAppFn with
+  | const M us => exact ⟨M, us, rfl⟩
+  | _ => rw [hd] at h; simp at h
+
+/-- **THE STRENGTHENED ROW AT THE RECOMPUTATION ITSELF** — the shape
+the run reads it in.  A firing root is constant-headed
+(`getAppFn_const_of_ordRootFired`), so its positivity normal form is
+itself (`ordRootNorm_const`) and nothing is run: the guard needs no
+separate head hypothesis. -/
+theorem nestedOrdNormOk_fire_at {mode : CheckMode} {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk mode env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {m₀ : ContainerMember} (hm₀ : ciJ.members.head? = some m₀)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = true) :
+    (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
+  obtain ⟨M, us, hhd⟩ := getAppFn_const_of_ordRootFired hfire
+  exact nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
+    hcJ hsJ hl hdJ hord (ordRootNorm_const hhd) hfire
 
 /-- **K.69 at a FINITARY field**, where the two cuts are the identity:
 the recomputed domains' heads are `.const`s, so neither is a `Π` and

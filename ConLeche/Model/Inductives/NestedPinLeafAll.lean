@@ -2252,6 +2252,43 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
           AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
             = AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l rx
+  /-- **THE OWNER'S FIRING FORCES THE BLOCK'S** (task #315 WIDE (f3)):
+  the bit `ordTgt` (K.67), `ordGe` (K.68) and `ordRead` (K.69) all
+  ASSUME, produced here from the one arm that is not guarded by it —
+  K.69 STRENGTHENED, through `NestedPinsRun.ordFireAt`.
+
+  At a field the copy's container calls ORDINARY, where the OWNER's
+  recomputation of the field's domain FIRED, the block's rewrite made
+  the field recursive or reflexive.  The owner's normalised domain is
+  constant-headed at an inductive head, a constant head survives the
+  block's substitution, and such an application is its own `whnf`
+  (`whnf_indApp_eq`, `normPosDomM_indApp`) — so the block's own
+  positivity walk meets the same head.
+
+  **It needs no head guard**: `ordRootFired` answers `false` at every
+  non-constant head, so the firing carries it.  This is the model's
+  `hfireOrd` (`rs₂ → rs₁`), the pin half's one hypothesis that no
+  `blkRss`-guarded row could discharge. -/
+  ordFire : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (lpsC : List Name),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (i₀ : Nat), i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (gp : Nat), gp < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[gp]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (m₀ : ContainerMember), ciO.members.head? = some m₀ →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st gp = some mapR →
+    ∀ (qK : Nat), qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -5460,7 +5497,7 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
     -- (`GroupFacts.ordRead`'s own inputs)
     (hscope : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
       ∃ (K : Name) (vs : List Level) (rx : AnnotTerm),
         dom.1.getAppFn = .const K vs ∧
@@ -5566,7 +5603,7 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
   have hbsl : bs.length = dK.nP + cA.2 := ConLeche.Expr.stripPis_length _ hst
   obtain ⟨dom, hdm⟩ : ∃ dom, bs[dK.nP + l]? = some dom :=
     ⟨_, List.getElem?_eq_getElem (by rw [hbsl]; omega)⟩
-  obtain ⟨K, vs, rx, hdomHd, hfired, hbd, hlv, hrx⟩ := hscope l hl hord hrsB dom hdm
+  obtain ⟨K, vs, rx, hdomHd, hfired, hbd, hlv, hrx⟩ := hscope l hl hord hrsP dom hdm
   -- the field data, by the target's arm
   have hdata : ((mutTlss ctorsA.length tssF ψ).getD
         (b.ownOffset (p.k + a + i) + j) []).getD l [] = [] ∧
@@ -5828,10 +5865,6 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
           ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l))
         ⊆ˢ interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
             ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default))
-    (hfireOrd : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
-      (((dJf a).rss i).getD j []).getD l false = false →
-      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true)
     (hentOrd₁ : ∀ l, l < (((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).length →
       (((dJf a).rss i).getD j []).getD l false = false →
       ((dJ.pinCtors qK).rss.getD j []).getD l false = false →
@@ -5878,7 +5911,7 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
     -- (`GroupFacts.ordRead`'s own inputs)
     (hscope : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       (((dJf a).rss i).getD j []).getD l false = false →
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
+      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
       ∃ (K : Name) (vs : List Level) (rx : AnnotTerm),
         dom.1.getAppFn = .const K vs ∧
@@ -5960,7 +5993,27 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
           = projS l t))
     ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs :=
   nestedPinFit_pin m hρp G hi hfind hj hc hcq hqK S₂ CK hciK hfK hpp hψK hψ hρ h₂
-    hdom₁ hdom₂ hfireOrd hentOrd₁
+    hdom₁ hdom₂
+    (fun l hl hordR hrsP => by
+      -- THE OWNER'S FIRING FORCES THE BLOCK'S (task #315 WIDE (f3)):
+      -- the owner's own scoping row gives the recomputation's firing
+      -- (`hscope`, guarded by the owner's bit), and K.69 STRENGTHENED
+      -- at the group turns it into the block's
+      obtain ⟨cvTb, cvRb, mIb, rPb, rulesb, hIb⟩ := G.syn.reps i (G.syn.kEq ▸ hi)
+      have hψa : ((D).pinAt (a + i)).ψJ ψ = ((D).pinAt a).ψJ ψ := by
+        have hh := G.syn.ψJEq i 0 hi G.syn.kpos ψ
+        rwa [Nat.add_zero] at hh
+      have hl' : l < (((dJf a).Fss i (((D).pinAt a).ψJ ψ)).getD j []).length := by rwa [hψa] at hl
+      have hlF : l < cA.2 := by
+        rw [← hIb.Fss_length hj (((D).pinAt a).ψJ ψ)]; exact hl'
+      have hbsl : bs.length = (dJf a).nP + cA.2 := ConLeche.Expr.stripPis_length _ hst
+      obtain ⟨dom, hdm⟩ : ∃ dom, bs[(dJf a).nP + l]? = some dom :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hbsl]; omega)⟩
+      obtain ⟨K, vs, rx, hdomHd, hfired, hbd, hlv, hrx⟩ := hscope l hl hordR hrsP dom hdm
+      exact G.ordFire ψ i hi j (List.getElem?_eq_some_iff.mp hj).1 l hl' hordR
+        cA bs rr dom lpsC hj hst hdm i hi ciC Jm hciC hJm hlpsJ
+        gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT mapR hmapR qK hqKT hqm hfired)
+    hentOrd₁
     (nestedSlotOrd_pin m G hi hρp hj hst hciC hJm hlpsJ hgp hgn hciR hm₀ hownT hmapR
       hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ hscope hrowTgt hrowRead
       hrowReadMem hnIdxR htgσ hroot S₀ hu hX)
@@ -7512,7 +7565,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
@@ -7609,6 +7662,47 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hfin
         hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO hxb hxlv hreadO
+    · -- K.69 STRENGTHENED at the group (`ordFireAt`): the OWNER's firing
+      -- forces the block's rewrite, which every other row assumes
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR cA bs rr dom lpsC hjA hst hdm
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE
+        g hg gn hgn ciO hciO m₀ hm₀ ownT hownT mapR hmapR qK hqK hqm hfire
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
+      exact R.ordFireAt SF S' hPD R.h.classify hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
     · intro i₂ hi₂ ψ₂ i₃ hi₃
       exact nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
         mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR
