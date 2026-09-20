@@ -323,14 +323,7 @@ theorem erase_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
 end AnnotTerm
 
 
-/-! ## `erase` at the constant clause
-
-Re-based here from `SetR/Interp/EmptyPin2.lean` at THE SEPARATION's S2
-(task #161): pure syntax, and both lanes read a constant back out of an
-erasure with it.  (Its namespace was `ConLeche.SetR.Interp`, re-opened
-by a nested block here until the 2026-09-06 namespace rename folded
-both into `ConLeche.Semantics`.) -/
-
+/-! ## `erase` at the constant clause -/
 
 open ConLeche.Term (BConst)
 

@@ -82,11 +82,7 @@ iteration protocol. Keep it up to date when decisions change.
   the PUBLIC view and fails on a hidden unfolding; `:= by rfl` is
   elaborated in the private view and is the fix.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
-  /tmp and /home are tmpfs). Reference checkouts under `_tmp/ref/`: `sokonanoda` (full clone),
-  `nanoclo`, `nanoda_lib`, the arena's `results.json`, and
-  `init-exports/` (the `init-full` and Mathlib-prefix streams the
-  performance records measure; the task #307 record says how they are
-  regenerated).
+  /tmp and /home are tmpfs).
 * If running the checker may OOM, use a timeout and memory limit
   (`ulimit -v 16000000` for ordinary runs, 22 GB for Mathlib scale;
   `timeout` on every checker run; builds get `timeout` only).
