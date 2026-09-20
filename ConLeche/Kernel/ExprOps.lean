@@ -973,8 +973,10 @@ node itself — the probe is the cached `data` word plus `Expr.beq`,
 whose first test is pointer equality — and it is dropped after each
 call, since the answer depends on `f`.
 
-No node budget here (unlike `Expr.beqMemo`): `renameConsts` is reached only
-from the modeled install, once per member type, never from a hot
+No cutoff and no exclusivity read here (unlike `Expr.beqMemo` and the
+walks of `ConLeche/Cached/ExprOpsC.lean`, which memoise only what
+`withExclusive` reports shared): `renameConsts` is reached only from
+the modeled install, once per member type, never from a hot
 small-term path — measured on `init-full` at the task's gate. -/
 
 /-- The memo's invariant: every recorded answer is the real one. -/

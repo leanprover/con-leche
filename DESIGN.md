@@ -78465,3 +78465,354 @@ regenerated streams, for the next lane), `lean4export-src/`,
 live tarball: the perf streams) and `arena-vendored/` (the pinned
 snapshot `tests/arena.sh` expects), `arena-committed2.log`,
 `build-full2.log`, `test-full2.log`.
+
+## TASK #319 — LANDED: one memo idiom — `withExclusive` in `Expr.beq` and the traversal walks (2026-09-20, `agent/land-319`)
+
+**The ask.**  The maintainer's ruling on the #318 measurement spike:
+*"Definitely merge beq. … if withExclusive and ptr addr memo is a good
+idiom, then use it consistently unless there is a reason not to."*  So
+this task lands ONE memo discipline for every traversal memo in the
+tree — gated by `withExclusive`, keyed by address through
+`withPtrAddr`, a hit validated by pointer equality, entries
+self-proving, no table invariant, no cutoff — whether or not a given
+walk's gain is measurable, and deletes every incumbent and every
+switch.  The exceptions are only those with a real reason, stated:
+there is exactly one, `fvarLeavesC` (§3).  The branch is cut from
+`agent/beq-318`, which carried the variants behind the switches
+`beqMemoMode` and `boolMemoMode`/`crfMemoMode`.
+
+### 1. What ships
+
+**`Expr.beq`** (`ConLeche/Kernel/Expr.lean`, section "The memo
+discipline: memoise only what is shared").  `beqGoX` with `enterBeq`
+is now THE descent: at every recursive child position the pointer
+test, the computed-word test, the leaf test (`beqRecursive`), then
+`withExcl` on `a` and — only if `a` is shared — on `b`; a pair with an
+exclusive side is descended with the memo untouched, a shared/shared
+pair is probed (`probeHit`) and recorded on a completed `true`.  The
+official kernel's `expr_eq_fn::check_cache` guard (`if (is_shared(a)
+&& is_shared(b))`), which the #240 record could not port because a
+Lean walk saw its arguments owned.  The entries are the incumbent's
+`EqPair`s, the key the incumbent's `beqKey` (both addresses packed
+into one tagged `Nat`, task #240), a hit validated by `Expr.ptrDec` on
+BOTH stored objects — self-proving, so there is no table invariant and
+no lemma about the table.  `beqMemo` keeps the lazy word test
+(`if a.data == b.data then decide (a = b) else false`, the #318
+finding: the incumbent's `&&` compiled the descent's call in FRONT of
+the word test).  `beqMemo_eq` is the incumbent's three lines,
+`beq_eq_beqMemo` and `LawfulBEq Expr` are untouched: no lemma changed
+anywhere, because every branch returns `Decidable (a = b)` for its own
+`a`, `b` and the memo sits behind the `Squash`.
+
+**The four `Bool`-valued walks** (`ConLeche/Cached/ExprOpsC.lean`,
+section "The `Bool`-valued walks", and `ConLeche/Cached/StateC.lean`):
+`constsResolveFC`, `allLevelParamsDefinedC`, `wscopedBC` and
+`leafGuard` are the `*XP` walks over the `BEnt`/`MemoB` kit — a plain
+descent `*P` carrying the walk's own cutoff, a child step `enter*`
+(cutoff, `isCompoundF`, `withExcl`), and a walk returning
+`Squash ({ r : Bool // r = *P … } × memo)`, read by `resBool`.  Each
+wrapper is now the cutoff and the walk, with no `match` in front:
+`wscopedBC` and `leavesSubC` on `fvarB == 0`,
+`allLevelParamsDefinedC` on `hasLP`, `constsResolveFC` with no cutoff
+at all (no cached field decides whether a constant resolves — where
+the incumbent therefore memoised EVERY node including leaves, this
+walk decides `bvar`, `sort`, `lit` and `const` directly and never
+records them).  The specs keep their statements verbatim
+(`constsResolveFC_spec`, `allLevelParamsDefinedC_spec`,
+`wscopedBC_spec`, `leafGuard_spec`, `constsResolveFC_congr`) and are
+three lines each.
+
+Both are the substitution walks' design of task #317, unchanged; what
+this task adds is that the tree now has no other kind of traversal
+memo.  `ConLeche/Kernel/Exclusive.lean` is untouched — `withExclusive`
+was already the ONE `unsafe`-implemented primitive and the one
+allowlisted escape, and it stays exactly that; the trust surface does
+not move.
+
+### 2. What was deleted
+
+**The `beq` budget — the second and last heuristic cutoff in the
+tree**, after #317 deleted the substitution walks' (`walkBudget`).
+`Expr.beqBudget` (4 096 nodes), the budgeted descent `beqGo` with its
+`finish` write-back, the fuel-carrying result `BeqRes`/`BeqOut`/
+`BeqOut.mk`, and the switch `BeqMemoMode`/`beqMemoMode`.  `beqDec` is
+one line.  Nothing else in the tree named any of them.
+
+**The four structural-key incumbents and their memo invariants.**
+`Expr.wscopedBGoC`, `Expr.leavesSubGo`, `Expr.allLevelParamsDefinedGoC`
+(`ConLeche/Cached/ExprOpsC.lean`) and `Cached.constsResolveFCGo`
+(`ConLeche/Cached/StateC.lean`), each a per-call `Std.HashMap` keyed
+STRUCTURALLY on the node, whose probe compared the stored node with
+the query by `Expr.beq`; the switches `BoolMemoMode`, `boolMemoMode`
+and `crfMemoMode`; and, with them, every memo invariant of the walks:
+`MemoWInv` with its `empty`/`insert` and `wscopedBGoC_spec`
+(`Verify/Cached/OpsC.lean`), `MemoLPDInv`/`allLevelParamsDefinedGoC_spec`,
+`MemoSubInv`/`leavesSubGo_spec`, `MemoCRInv`/`constsResolveFCGo_spec`
+(`Verify/Cached/GuardsC.lean`) and `constsResolveFCGo_congr`
+(`Verify/Cached/KnotCongr.lean`).  The intermediate entries
+`Expr.wscopedBX` and its private spec folded into `wscopedBC` and
+`wscopedBC_spec`; `Expr.leavesSubX` is `Expr.leavesSubC`, the cached
+leaf-subset test `leafGuard` calls.  **Not one walk in
+`ConLeche/Cached/` carries a memo invariant any more**, which is the
+sentence `Verify/Cached/OpsC.lean`'s header now makes.
+
+Line counts: `Verify/Cached/GuardsC.lean` 1 628 → 1 039,
+`Verify/Cached/OpsC.lean` 1 471 → 1 281, `Verify/Cached/KnotCongr.lean`
+564 → 548; `Kernel/Expr.lean` 1 042 → 1 071 and
+`Cached/ExprOpsC.lean` 1 043 → 1 429 against MASTER (the variants #318
+added are what the growth is; against `agent/beq-318` both shrink).
+
+**One import and one allowlist line.**  `ConLeche/Cached/ExprOpsC.lean`
+had its own `import ConLeche.Kernel.Exclusive`, allowlisted for the
+#318 spike because `Kernel/Expr.lean` now re-exports the module and
+`shake` therefore proposes its removal.  The reason that line gave was
+explicitly conditional — *"only while the `beq` variant lives there"* —
+and the variant now lives there for good, so the redundant import is
+gone with the allowlist line and the shake gate is back to #317's 445
+proposals with no exception for this module.  `withExcl` reaches
+`ExprOpsC` and `StateC` through `Kernel/Expr.lean`'s public import, as
+it already reached `StateC`.
+
+### 3. `fvarLeavesC` — the one exception, and the open question behind it
+
+`Expr.fvarLeavesGoC` keeps its `Std.HashMap Expr Unit` visited set.
+The conversion was attempted under the brief's bounded effort and is
+not merely unmeasured but structurally wrong, and the reason is now in
+the walk's own docstring.
+
+**What the accumulator invariant is.**  `SeenInv G acc seen`
+(`ConLeche/Verify/Cached/GuardsC.lean`): *every key of `seen` either
+has all of its leaves in `acc` already, or is gray* — `G` is the
+predicate for the nodes on the current descent path, marked before
+they are descended into.  So a `seen` entry, which carries `Unit`,
+means something about the ACCUMULATOR — a value that changes at every
+step — and about the walk's own call stack.  An entry with no value
+cannot prove itself; this memo needs a table invariant, which is
+exactly what the idiom removes.  The exclusivity read and the address
+key would both port on their own (a shared-only visited set keyed by
+`withPtrAddr` and validated by `Expr.ptrDec` is a mechanical change),
+but the result would be a THIRD discipline — the idiom's gate with the
+incumbent's invariant — which is the one outcome the ruling rejects.
+
+**Why the intrinsic version is the wrong algorithm.**  The
+self-proving entry would carry the node's own leaf list,
+`{ r : List (Nat × Expr) // r = Expr.fvarLeaves e }`, appended at the
+parent: that is the `Bool` walks' shape with a list in place of the
+decision and it closes as a PROOF with no difficulty.  It does not
+close as a program.  `Expr.fvarLeaves` concatenates at every compound
+node (`ConLeche/Kernel/ExprOps.lean`: `fvarLeaves (.app f a) =
+fvarLeaves f ++ fvarLeaves a`), so a node's own list is the leaf list
+of its TREE unfolding — an `app e e` ladder gives the root `2^k`
+elements on `k` nodes, and the affine frontier's 3.9 · 10⁸-node
+unfolding of a 3 106-node DAG is the real instance — and materialising
+one per memo entry is precisely the blow-up the visited set exists to
+prevent.  Weakening the subtype to the membership characterization
+that the one consumer (`leafMem`) actually needs,
+`{ r // ∀ l, l ∈ r ↔ l ∈ Expr.fvarLeaves e }`, closes just as easily
+(`List.mem_append` at every arm) and does not shrink a single list:
+siblings still concatenate, so deduplicating at each node is the only
+fix and it reintroduces a per-node set — the table the entry was meant
+to replace.  The accumulator IS the algorithm here, and an accumulator
+is what cannot be carried in a result type.  Its cost, for the record
+(#318 §5): 126 K probes and 30 % hits on `init-full`, 0.45 % of the
+profile with its table operations; it never runs on the ladders or
+`fueled-chain`.
+
+**The open question (the maintainer's, recorded as a question, not as
+work).**  It would be interesting whether the
+accumulator-with-visited-set idiom can be proved GENERICALLY, once, to
+agree with a recursive specification that folds with a commutative,
+idempotent and associative operation — set union being the instance
+here, and `fvarLeaves`-as-a-set the fold.  The theorem would be of the
+shape *"accumulate-with-visited-set over a DAG equals the fold, for
+any such operation"*, and the interesting part is stating it so that it
+still holds when the visited set is keyed by ADDRESS (`withPtrAddr`,
+the key never trusted) and GATED by `withExclusive` (so the set holds
+only the shared nodes, and an unshared node is simply re-folded — which
+idempotence is exactly what makes sound).  The invariant it would need
+is `SeenInv`'s shape one level up: the accumulator is the fold over the
+visited set's keys joined with the fold over what remains, monotone in
+the accumulator, with the gray set as the descent's frontier.  Proved
+once, it would retire the last per-walk invariant in the tree and give
+the idiom a fourth instance for free.  Nobody has tried it.
+
+**Two memos NOT in this campaign's scope, named so that the next
+reader does not have to re-derive it.**  `Expr.renameConstsGo`
+(`ConLeche/Kernel/ExprOps.lean`) and `occursConstM`
+(`ConLeche/Frontend/ProjRec.lean`) are per-call traversal memos of the
+same structural-key shape.  Neither was in #318's measurement scope and
+neither is on a hot path: `renameConsts` runs once per member type of
+the modeled install and `occursConst` once per constructor binder
+domain of an inductive block, both off the checking loop, and both were
+measured at their own task's gate.  They are candidates for the idiom,
+not exceptions to it.
+
+
+### 4. The measurement
+
+`--jobs=1`, ONE run per stream and configuration, `perf stat -e
+instructions:u`, `ulimit -v 16000000` (22 GB on the Mathlib prefix),
+`timeout` on everything, RSS by GNU `time -v`; no cell exited nonzero.
+The streams are #318's: the arena tarball, `init-full` a fresh
+`lean4export` of `Init` at v4.33.0 (57 977 declarations, 347 714 179
+bytes) and the Mathlib prefix the export of
+`Mathlib.Order.Filter.Basic` at mathlib4 `6f1ef4e5` (131 902
+declarations, 590 944 488 bytes), both under `_tmp/init-exports/`.
+`master` is `agent/beq-318`'s baseline executable (md5 `0783756e…`,
+byte for byte #317's `land317`); `landed (#319)` is this tree at
+`d6a96583` (md5 `f037fae3…`).
+
+**The brief's reproduction test passes with room to spare.**  Every
+cell of the landed binary is within **0.15 %** of #318's `all-excl`
+column and most are within 0.05 % — `init-full` −0.00 %, the prefix
+−0.00 %, the largest single deviation `fueled-chain` −0.15 % (a 0.44 G
+stream, where 0.15 % is 0.7 M instructions).  So there is nothing to
+attribute: deleting the incumbents, the switches and the budget costs
+and buys exactly nothing at runtime, which is #317's finding about
+dead code in the same module, again.
+
+**`--verified`**
+
+| stream | master | **landed (#319)** | Δ vs master | #318 `all-excl` | Δ vs #318 |
+|---|---|---|---|---|---|
+| `app-lam` | 70.68 G | **70.66 G** | -0.0 % | 70.66 G | -0.01 % |
+| `beta-ladder` | 15.31 G | **13.92 G** | -9.1 % | 13.93 G | -0.04 % |
+| `let-ladder` | 2.72 G | **2.71 G** | -0.3 % | 2.71 G | +0.02 % |
+| `fueled-chain` | 0.79 G | **0.44 G** | -44.1 % | 0.44 G | -0.15 % |
+| `init-prelude` | 2.89 G | **2.49 G** | -13.7 % | 2.49 G | +0.10 % |
+| `grind-ring-5` | 20.30 G | **17.41 G** | -14.2 % | 17.40 G | +0.04 % |
+| `magma-list-pair-n21` | 174.28 G | **171.77 G** | -1.4 % | 171.80 G | -0.02 % |
+| `magma-list-deep-n36` | 258.98 G | **236.81 G** | -8.6 % | 236.79 G | +0.01 % |
+| `init-full` | 509.05 G | **453.95 G** | -10.8 % | 453.97 G | -0.00 % |
+| `mathlib-prefix` | 738.27 G | **658.03 G** | -10.9 % | 658.04 G | -0.00 % |
+
+**`--trusted`**
+
+| stream | master | **landed (#319)** | Δ vs master | #318 `all-excl` | Δ vs #318 |
+|---|---|---|---|---|---|
+| `app-lam` | 70.67 G | **70.65 G** | -0.0 % | 70.65 G | +0.00 % |
+| `beta-ladder` | 15.31 G | **13.92 G** | -9.1 % | 13.92 G | +0.00 % |
+| `let-ladder` | 2.72 G | **2.71 G** | -0.3 % | 2.71 G | +0.01 % |
+| `fueled-chain` | 0.78 G | **0.43 G** | -44.5 % | 0.43 G | +0.05 % |
+| `init-prelude` | 2.75 G | **2.35 G** | -14.3 % | 2.35 G | +0.15 % |
+| `grind-ring-5` | 19.18 G | **16.30 G** | -15.0 % | 16.30 G | +0.02 % |
+| `magma-list-pair-n21` | 169.41 G | **166.99 G** | -1.4 % | 166.90 G | +0.05 % |
+| `magma-list-deep-n36` | 250.94 G | **228.52 G** | -8.9 % | 228.53 G | -0.01 % |
+| `init-full` | 491.15 G | **437.79 G** | -10.9 % | 437.75 G | +0.01 % |
+| `mathlib-prefix` | 708.48 G | **630.65 G** | -11.0 % | 630.63 G | +0.00 % |
+
+**RSS (MB, `--verified`)**
+
+| stream | master | landed (#319) |
+|---|---|---|
+| `app-lam` | 2717 | **2721** |
+| `beta-ladder` | 862 | **868** |
+| `let-ladder` | 232 | **232** |
+| `fueled-chain` | 24 | **24** |
+| `init-prelude` | 31 | **31** |
+| `grind-ring-5` | 219 | **218** |
+| `magma-list-pair-n21` | 5387 | **5397** |
+| `magma-list-deep-n36` | 7337 | **7334** |
+| `init-full` | 468 | **468** |
+| `mathlib-prefix` | 917 | **919** |
+
+Every verdict is master's, in both modes: `init-full` 57 977 accepted
+declarations, the Mathlib prefix 131 902, `magma-list-pair-n21` 263,
+`magma-list-deep-n36` 479, `grind-ring-5` 2 185, `init-prelude` 1 777,
+`fueled-chain` 137, `app-lam` 21, `beta-ladder` 11, `let-ladder` 13;
+exit 0 in all twenty cells.  RSS within 0.2 % everywhere.
+
+**Reading it.**  `init-full` **453.95 G, −10.8 % against master**, the
+Mathlib prefix **658.03 G, −10.9 %**; `grind-ring-5` −14.2 %,
+`init-prelude` −13.7 %, `magma-list-deep-n36` −8.6 %, `beta-ladder`
+−9.1 %, `fueled-chain` −44.1 %, `magma-list-pair-n21` −1.4 %, and
+`app-lam` and `let-ladder` unchanged (their comparisons are decided at
+the root and their guard walks barely run).  #318's decomposition of
+that number stands: `beqMemo`'s lazy word test −3.0 points, the `beq`
+exclusivity read −5.9 on top, the four `Bool` walks −2.2 on top.  The
+one stream the `beq` memo does not win on is `magma-list-pair-n21`,
+where #318 counted 11.7 M shared/shared pairs, 11.1 M probes and
+**7 333 hits (0.1 %)** — DAG-shared persistent environment types,
+shared in the HEAP and compared once per comparison, which the deleted
+budget used to keep out of the table.  That is the ceiling of the
+design on such inputs, the official kernel lives at the same ceiling,
+and the stream is still −1.4 % against master because `beqGoX`'s node
+is cheaper than `beqGo`'s.
+
+Per β/δ/ι step on `init-full` (#312's 47.4 M steps, unchanged — the
+walks and the core compute the same terms): #317's landed 10 741 →
+**9 577 instructions**, and nanoda's 4 783 is **2.00×** away where
+#317 left it at 2.25× and #312 measured 2.58×.  On the Mathlib prefix
+(57.35 M steps) 12 873 → **11 474**.
+
+**The IR audit, on the landed tree** (`.lake/build/ir/…`, the bodies
+kept in `_tmp/ir-*.c`).  `beqGoX`: 7 275 lines, `lean_alloc_closure`
+**0**, `lean_is_exclusive_obj` **22** (two per recursive child
+position, `b`'s read only under `a`'s), `lean_ptr_addr` 50, and
+`beqDec` folds to `beqGoX(lean_box(0), a, b)` and nothing else.  The
+four `Bool` walks (`allLevelParamsDefinedXP___redArg`,
+`wscopedBXP___redArg`, `leavesSubXP___redArg`, `constsResolveFXP`):
+`lean_alloc_closure` **0** each, `lean_is_exclusive_obj` **11** each
+(one per compound child position — `fvar` 1 + `app` 2 + `lam` 2 +
+`forallE` 2 + `letE` 3 + `proj` 1), `lean_ptr_addr` 22.  Identical to
+#318's audit at `.excl`, as it must be: the landed code IS that code.
+
+**`PERF.md`** and `perf-data/{table.tsv,census.tsv,meta.txt}` are
+regenerated for the six non-Mathlib rows' con-leche cells by the
+battery's own script (`scripts/perf-tables.sh`, `PERF_APPEND=1`
+`PERF_CONFIGS="trusted verified"` on a cache seeded from the tracked
+record).  The `official` cells are carried forward unchanged from the
+#317 battery — the official v4.33.0 checkout that produced them is no
+longer on this machine — and the `mathlib-full` row stays the
+`1d470aa7` battery's, as the header already says.  Against official
+v4.33.0 the six rows now read `let-ladder` **0.44×** (unchanged — the
+one stream con-leche was already faster on), `beta-ladder` **1.37×**
+from 1.51×, `init-prelude` **1.07× / 1.13×** from 1.24× / 1.31×,
+`grind-ring-5` **1.22× / 1.30×** from 1.43× / 1.51×, `app-lam` 2.40×
+unchanged, and `init-full` **1.00× trusted** — 437.78 G against the
+official kernel's 439.54 G, so on `Init` the trusted mode is now at
+PARITY with the C++ kernel — and **1.03× verified**, from 1.12× /
+1.16×.  One line of `scripts/perf-tables.sh` changed with it: the
+battery now demands the official binary only when `official` is in
+`PERF_CONFIGS`, so an append that re-measures the con-leche cells
+alone is not blocked by a checkout that is gone.
+
+### 5. The gates
+
+| gate | result |
+|---|---|
+| `lake build` | 567 jobs, warning-free |
+| `lake test` | 486 jobs, warning-free |
+| `tests/layering.sh` | base 305 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl |
+| `tests/trust-surface.sh` | 15 escapes in 6 allowlisted files (503 scanned), 0 outside — **no new escape**: `withExclusive` was already the one, and this task adds none |
+| `tests/shake.sh` | 445 removals proposed, all allowlisted (#318's extra line removed with the import it covered — back to #317's count); pub-imports 950 of 1 416 in-tree edges public, none demotable |
+| `tests/overview-links.sh` | 106 links, 60 files, 2 documents, OK (one anchor repointed by hand — `coreKnotI_congr` moved from L565 to L527 when `constsResolveFCGo_congr` above it was deleted; the citing paragraph re-read, `--update` run) |
+| `tests/quote-gate.sh` | 2 quoted statements match the tree |
+| `tests/no-local-paths.sh` | OK |
+| `tests/pindump.sh` | 3 pinners reproduced, 0 skipped |
+| `tests/challenge.sh` | OK — builds with `sorry` only; statements identical |
+| `tests/inmodel.sh` | OK (8 fixtures) |
+| `tests/arena.sh` (full, on the vendored snapshot `_tmp/arena-vendored` — the live tarball the perf streams come from has a different fixture list) | 90/92 tutorial, 195/195 e2e, 15/15 annot, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14, trusted sweep 138 + 195 + 15 (3 recorded divergences), `--jobs=1` and `--jobs=4` sweeps as at the default — **every verdict identical to master's**; exit 0 |
+| the wording | `git grep -n -i oracle ConLeche` comes back empty |
+| axioms | `beqMemo_eq`, `beq_eq_beqMemo`, `probeHit`, `constsResolveFC_spec`, `constsResolveFC_congr`, `allLevelParamsDefinedC_spec`, `wscopedBC_spec`, `leafGuard_spec`, `BEnt.hit`, `MemoB.shared`: `[propext, Classical.choice, Quot.sound]`; `resBool_eq` depends on none.  No `sorry`, no new axiom |
+
+### 6. Where everything is
+
+Committed on `agent/land-319`: `ac788523` (`Expr.beq` — the budget,
+`beqGo`, `BeqRes`/`BeqOut` and `beqMemoMode` gone, `beqDec` one line),
+`aa8a6d67` (the four `Bool` walks — the keyed incumbents, their memo
+invariants and specs, `BoolMemoMode`/`crfMemoMode` gone),
+`d6a96583` (the `fvarLeavesC` exception in its docstring, the
+OVERVIEW sentence, the redundant import and the shake allowlist line),
+and the commits of the measurement and of this record.  On the
+worktree (`_tmp/land-319/_tmp/`, gitignored): `bin/{land319, master}`
+(`master` is `agent/beq-318`'s baseline binary, md5 `0783756e…`, which
+is #317's `land317` byte for byte), `runs/{land319,master}.tsv` with
+`runs/log/` (the tables above verbatim; `table319.py` renders them),
+`measure.sh` (#318's harness at this lane's paths), `ir-*.c` (the
+seven audited bodies), `axioms.lean`, `init-exports/` (the two big
+streams, regenerated for the #318 lane and carried here), and the
+build, test, shake and arena logs under `logs/`.  The arena streams
+are the #318 lane's live tarball (`_tmp/arena-tests`, a symlink); the
+arena gate runs on the vendored snapshot `_tmp/arena-vendored`, as
+#318's did, because the live tarball has a different fixture list.

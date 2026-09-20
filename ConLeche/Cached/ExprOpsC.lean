@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Cached.ExprNodes
 public import ConLeche.Kernel.Core
-public import ConLeche.Kernel.Exclusive
 
 @[expose] public section
 
@@ -78,7 +77,7 @@ design, as landed:
   **no table invariant** — the table may be anything, may grow and may
   overwrite — and a validated hit yields the proof the walk's result
   type demands by rewriting along the two equalities.  This is the
-  `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGo`, applied to the
+  `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGoX`, applied to the
   walks.
 * **No cutoff.**  The walk is exact: it memoises every shared compound
   node it meets, for as long as the walk lasts, and nothing bounds the
@@ -101,7 +100,7 @@ these walks that drops a `@&` or lets a `let`, a closure or a `Prod`
 hold the node across the check is silently correct and measurably
 slower; the audit is what catches it.
 
-**Verification is intrinsic** (the `Expr.beqGo` shape): a walk returns
+**Verification is intrinsic** (the `Expr.beqGoX` shape): a walk returns
 a `Squash` of the rebuilt term with its proof of equality to the PLAIN
 descent (`*P`, the reference — `Verify/Cached/OpsC.lean` proves each
 `*P` equal to the specification) beside the memo, which is
@@ -116,7 +115,7 @@ subterm and termination is the walk's own.
 
 Nothing here adds to the trust surface beyond the one allowlisted
 escape: `withPtrAddr` and `withPtrEq` are `Init.Util`'s (and the tree
-already relies on both, in `Expr.beqGo` and `Name.beq`), and
+already relies on both, in `Expr.beqGoX` and `Name.beq`), and
 `withExclusive` is `ConLeche/Kernel/Exclusive.lean`'s — the walks' one
 `unsafe`-implemented primitive, whose module docstring is the
 justification `tests/trust-surface.sh` points at. -/
@@ -858,40 +857,276 @@ def _root_.ConLeche.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
   instantiateListC (instLevelParams entry.levelParams us entry.body)
     (pe :: targs.reverse)
 
+/-! ## The `Bool`-valued walks
+
+The scope, definedness and resolution guards are the substitution
+walks' design over a `Bool`, and the tree has ONE memo discipline for
+every traversal memo in it (task #319; `Expr.beqGoX` is the third
+instance).  Each guard used to create a `Std.HashMap` per call, keyed
+STRUCTURALLY on the node (and, for the scope walk, the cursor), and
+record EVERY node it decided — a probe that compared the stored node
+with the query by `Expr.beq`, and an entry for every leaf.  Instead:
+
+* **memoise only what is shared** — at every compound child past the
+  cutoff, `withExclusive` (`ConLeche/Kernel/Exclusive.lean`) on the
+  node (borrowed); an exclusive node is descended with the memo
+  untouched (no key, no probe, no insert), a shared one is probed and
+  recorded on a miss.  A node with one reference cannot be reached
+  again, so recording it is pure loss;
+* **key by address and cursor** — `withPtrAddr` (`Expr.withAddr`) at
+  the top of the shared step, packed with the cursor into one `Nat`
+  (`pkey`), under the mixing hash of `PKey`.  No structural hash and
+  no `Expr.beq` on any probe;
+* **validate a hit by pointer identity** — `Expr.ptrDec` on the
+  stored node against the current one, plus a cursor compare.  The
+  address is never trusted: a wrong key can only cost a descent,
+  never a value;
+* **every entry is self-proving** — a `BEnt` carries its node, its
+  cursor, its decision and the proof `val = s node depth`, so there
+  is **no table invariant** and no lemma about the table at all;
+* **no cutoff beyond the walk's own** (`fvarB`, `hasLP`, and none at
+  all for `constsResolveFC`): every shared compound node the walk
+  meets is memoised, for as long as the call lasts.
+
+A walk's result is a `Squash` of `{ r : Bool // r = <the plain
+descent> }` beside the memo — a `Subsingleton`, which is the
+obligation `withExclusive` and `withPtrAddr` each ask of their
+continuation — and the wrapper reads the decision off it with
+`resBool`.  The plain descents (`*P`) carry the cutoff and are proved
+equal to their `ConLeche.Expr` specifications in
+`ConLeche/Verify/Cached/{OpsC,GuardsC}.lean`.  **The borrowed
+parameter is a requirement, not an optimisation**, for the reason the
+substitution walks' section states.
+
+The one walk of this file that is NOT of this shape is
+`fvarLeavesGoC`, whose memo is a visited SET; its docstring says
+why. -/
+
+/-- The nodes a `Bool` memo entry can save a descent of: the compound
+nodes, and `fvar` — every walk of this section descends into the
+ANNOTATION, so the cached fvar range does not decide an `fvar` node. -/
+@[inline] def isCompoundF : Expr → Bool
+  | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. | .fvar .. => true
+  | _ => false
+
+/-- A `Bool` memo entry: the node it was decided for, the cursor, the
+decision, and the proof — the entry is its own invariant (`PEnt` with
+`Bool` in place of the rebuilt term). -/
+structure BEnt (s : Expr → Nat → Bool) where
+  node : Expr
+  depth : Nat
+  val : Bool
+  eq : val = s node depth
+
+/-- A validated hit: the cursor compares equal and the stored node IS
+the current one (by pointer at runtime — `Expr.ptrDec` — structurally
+in the model); then the entry's proof is the walk's. -/
+@[inline] def BEnt.hit {s : Expr → Nat → Bool} {β : Sort u} (p : BEnt s) (e : Expr) (c : Nat)
+    (k : { r : Bool // r = s e c } → β) (miss : Unit → β) : β :=
+  if hd : p.depth = c then
+    match Expr.ptrDec p.node e with
+    | isTrue hn => k ⟨p.val, by rw [p.eq, hn, hd]⟩
+    | isFalse _ => miss ()
+  else miss ()
+
+/-- The `Bool` table: the packed address-and-cursor key under the
+mixing hash of `PKey`. -/
+abbrev BTab (s : Expr → Nat → Bool) := Std.HashMap PKey (BEnt s)
+
+/-- The pointer-keyed `Bool` memo: absent until the first shared
+compound node. -/
+abbrev MemoB (s : Expr → Nat → Bool) := Option (BTab s)
+
+/-- A `Bool` walk's result: the decision, fixed by its proof, beside
+the memo. -/
+abbrev ResB (s : Expr → Nat → Bool) (e : Expr) (c : Nat) :=
+  { r : Bool // r = s e c } × MemoB s
+
+/-- The record: the entry under its packed key, in the table or in a
+fresh one. -/
+@[inline] def MemoB.insert {s : Expr → Nat → Bool} (memo : MemoB s) (key : Nat)
+    (p : BEnt s) : MemoB s :=
+  match memo with
+  | none => some (({} : BTab s).insert ⟨key⟩ p)
+  | some m => some (m.insert ⟨key⟩ p)
+
+/-- The shared-node step over the pointer-keyed `Bool` memo: the
+address read, the probe, the validated hit — else the descent and the
+record under the key read BEFORE the descent (`MemoXP.shared`
+verbatim, with `BEnt` for `PEnt`). -/
+@[inline] def MemoB.shared {s : Expr → Nat → Bool} (memo : MemoB s) (e : Expr) (c : Nat)
+    (rec : Unit → Squash (ResB s e c)) : Squash (ResB s e c) :=
+  withAddr e fun addr =>
+  let key := pkey addr c
+  match memo with
+  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+      Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+  | some m =>
+    match m[(⟨key⟩ : PKey)]? with
+    | some p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
+        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+          Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+
+/-- The cursor-free instance: the cursored `Bool` memo at cursor
+`0`. -/
+abbrev MemoB0 (s : Expr → Bool) := MemoB (fun e _ => s e)
+
+abbrev ResB0 (s : Expr → Bool) (e : Expr) := { r : Bool // r = s e } × MemoB0 s
+
+@[inline] def MemoB0.shared {s : Expr → Bool} (memo : MemoB0 s) (e : Expr)
+    (rec : Unit → Squash (ResB0 s e)) : Squash (ResB0 s e) :=
+  MemoB.shared (s := fun e _ => s e) memo e 0 rec
+
+/-- The decision of a `Bool` walk's result (the quotient lifts: the
+decision is fixed by its subtype). -/
+@[inline] def resBool {c : Bool} {M : Type} (s : Squash ({ r : Bool // r = c } × M)) : Bool :=
+  Quotient.lift (fun p => p.1.1) (fun p q _ => by rw [p.1.2, q.1.2]) s
+
+/-- What the decision of a `Bool` walk's result is: the value its
+subtype names.  Whatever the exclusivity reads and the addresses were
+along the way. -/
+theorem resBool_eq {c : Bool} {M : Type} (s : Squash ({ r : Bool // r = c } × M)) :
+    resBool s = c := by
+  induction s using Quotient.ind with
+  | _ p => exact p.1.2
+
 /-! ## Scope queries -/
 
-/-- Core of `wscopedBC` (memoized; `fvar` annotations are descended,
-so the cached fvar range does not decide it). -/
-def wscopedBGoC (memo : Std.HashMap (Expr × Nat) Bool) (d : Nat)
-    (e : Expr) : Bool × Std.HashMap (Expr × Nat) Bool :=
-  if e.fvarB == 0 then (true, memo) else
-  match memo[(e, d)]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap (Expr × Nat) Bool :=
-      match e with
-      | .bvar .. | .sort .. | .const .. | .lit .. => (true, memo)
-      | .fvar idx ty .. =>
-        if idx < d then wscopedBGoC memo idx ty else (false, memo)
-      | .app f a .. =>
-        let (rf, memo) := wscopedBGoC memo d f
-        if rf then wscopedBGoC memo d a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := wscopedBGoC memo d ty
-        if rt then wscopedBGoC memo d body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := wscopedBGoC memo d ty
-        if rt then
-          let (rv, memo) := wscopedBGoC memo d val
-          if rv then wscopedBGoC memo d body else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => wscopedBGoC memo d sub
-    (r, memo.insert (e, d) r)
+/-- The plain descent of `wscopedBC`: the reference the walk is
+verified against (`wscopedBP_spec`, `ConLeche/Verify/Cached/OpsC.lean`,
+is the equation to `Expr.wscopedB`).  The cursor is the node's second
+argument, as it is for the substitution walks — it CHANGES at `fvar`,
+where the annotation is entered at the variable's own index, so the
+memo key must carry it. -/
+def wscopedBP (e : Expr) (d : Nat) : Bool :=
+  if e.fvarB == 0 then true else
+  match e with
+  | .bvar .. | .sort .. | .const .. | .lit .. => true
+  | .fvar idx ty .. => idx < d && wscopedBP ty idx
+  | .app f a .. => wscopedBP f d && wscopedBP a d
+  | .lam ty body _ .. | .forallE ty body _ .. => wscopedBP ty d && wscopedBP body d
+  | .letE ty val body .. => wscopedBP ty d && wscopedBP val d && wscopedBP body d
+  | .proj _ _ sub .. => wscopedBP sub d
 
-/-- The cached `Expr.wscopedB d` (one memoized DAG walk). -/
-def wscopedBC (d : Nat) (e : Expr) : Bool := (wscopedBGoC {} d e).1
+theorem wscopedBP_cut {e : Expr} {d : Nat} (h : (e.fvarB == 0) = true) :
+    wscopedBP e d = true := by
+  rw [wscopedBP.eq_def]; simp [h]
 
-/-- Core of `fvarLeavesC` (memoized set accumulation). -/
+/-- The child step of `wscopedBXP`: the cutoff, the compound test, the
+exclusivity read. -/
+@[inline] def enterWSP (e : @& Expr) (d : Nat) (memo : MemoB wscopedBP)
+    (rec : (hcut : (e.fvarB == 0) = false) → Squash (ResB wscopedBP e d)) :
+    Squash (ResB wscopedBP e d) :=
+  match hcut : e.fvarB == 0 with
+  | true => Squash.mk (⟨true, (wscopedBP_cut hcut).symm⟩, memo)
+  | false =>
+    if !isCompoundF e then rec hcut
+    else withExcl e fun excl =>
+      if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The walk of `wscopedBC` (the node is past the cutoff: the wrapper
+and `enterWSP` test it). -/
+def wscopedBXP (memo : MemoB wscopedBP) (e : @& Expr) (d : Nat)
+    (hcut : (e.fvarB == 0) = false) : Squash (ResB wscopedBP e d) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [wscopedBP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. =>
+    if hidx : idx < d then
+      enterWSP ty idx memo (fun h => wscopedBXP memo ty idx h)
+        |>.lift fun (⟨rt, ht⟩, memo) =>
+      Squash.mk (⟨rt, by rw [wscopedBP]; simp [hcut, hidx, ← ht]⟩, memo)
+    else
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, hidx]⟩, memo)
+  | .app f a .. =>
+    enterWSP f d memo (fun h => wscopedBXP memo f d h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterWSP a d memo (fun h => wscopedBXP memo a d h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [wscopedBP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body _ .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP body d memo (fun h => wscopedBXP memo body d h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body _ .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP body d memo (fun h => wscopedBXP memo body d h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterWSP ty d memo (fun h => wscopedBXP memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterWSP val d memo (fun h => wscopedBXP memo val d h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterWSP body d memo (fun h => wscopedBXP memo body d h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [wscopedBP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [wscopedBP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterWSP sub d memo (fun h => wscopedBXP memo sub d h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [wscopedBP]; simp [hcut, ← hs]⟩, memo)
+
+/-- The cached `Expr.wscopedB d` (one memoized DAG walk): the cutoff,
+then the walk. -/
+def wscopedBC (d : Nat) (e : Expr) : Bool :=
+  match hcut : e.fvarB == 0 with
+  | true => true
+  | false => resBool (wscopedBXP none e d hcut)
+
+/-- Core of `fvarLeavesC` (memoized set accumulation).
+
+**The one walk of the tree whose memo is not the `withExclusive`
+idiom, and why** (task #319, which put that idiom in front of every
+other traversal memo — the substitution walks, `Expr.beqGoX`, and the
+`Bool`-valued walks above).  This memo is a visited SET, and its
+entries are `Unit`: what an entry means is *"this node's leaves are
+already in `acc`"* — a statement about the ACCUMULATOR, which changes
+at every step, and about the walk's own descent path, not about the
+node.  It is the verification's `SeenInv`
+(`ConLeche/Verify/Cached/GuardsC.lean`): every key of `seen` either
+has all its leaves in `acc` already or is *gray* (being processed).
+An entry carrying no value cannot prove itself, so this memo needs a
+table invariant — which is exactly what the idiom removes.
+
+The self-proving alternative is an entry carrying the node's own leaf
+list, `{ r : List (Nat × Expr) // r = Expr.fvarLeaves e }`, appended
+at the parent.  That closes as a proof — it is the `Bool` walks'
+shape with a list in place of the decision — but it is the wrong
+ALGORITHM: `Expr.fvarLeaves` concatenates at every compound node
+(`ConLeche/Kernel/ExprOps.lean`), so a node's own list is the leaf
+list of its TREE unfolding, and materialising one per entry is
+precisely the blow-up the `seen` set exists to avoid (an `app e e`
+ladder gives the root a list of `2^k` elements on `k` nodes; the
+affine frontier's 3.9 · 10⁸-node unfolding of a 3 106-node DAG is the
+real instance).  Weakening the subtype to a membership
+characterization — all the one consumer, `leafMem`, needs — closes
+just as easily and does not shrink the lists: siblings still
+concatenate, and deduplicating at each node reintroduces a per-node
+set, i.e. the table the entry was meant to replace.  So the
+accumulator is the algorithm here, and the accumulator is what cannot
+be carried in a type.  DESIGN.md, task #319, records this as the one
+permitted exception and the open question behind it. -/
 def fvarLeavesGoC (acc : List (Nat × Expr))
     (seen : Std.HashMap Expr Unit) (e : Expr) :
     List (Nat × Expr) × Std.HashMap Expr Unit :=
@@ -926,39 +1161,111 @@ def leafMem : List (Nat × Expr) → Nat → Expr → Bool
   | (i, t) :: rest, idx, ty =>
     (i == idx && t == ty) || leafMem rest idx ty
 
-/-- Core of the fabrication-side leaf-subset test (task #86). -/
-def leavesSubGo (bl : List (Nat × Expr))
-    (memo : Std.HashMap Expr Bool) (e : Expr) :
-    Bool × Std.HashMap Expr Bool :=
-  if e.fvarB == 0 then (true, memo) else
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .sort .. | .const .. | .lit .. => (true, memo)
-      | .fvar idx ty .. =>
-        if leafMem bl idx ty then leavesSubGo bl memo ty else (false, memo)
-      | .app f a .. =>
-        let (rf, memo) := leavesSubGo bl memo f
-        if rf then leavesSubGo bl memo a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := leavesSubGo bl memo ty
-        if rt then leavesSubGo bl memo body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := leavesSubGo bl memo ty
-        if rt then
-          let (rv, memo) := leavesSubGo bl memo val
-          if rv then leavesSubGo bl memo body else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => leavesSubGo bl memo sub
-    (r, memo.insert e r)
+/-- The plain descent of the leaf-subset walk: the reference the walk
+is verified against (`leavesSubP_spec`,
+`ConLeche/Verify/Cached/GuardsC.lean`, is the equation to the
+`Expr`-level leaf-subset boolean).  `leafMem` is the membership
+test (task #86). -/
+def leavesSubP (bl : List (Nat × Expr)) (e : Expr) : Bool :=
+  if e.fvarB == 0 then true else
+  match e with
+  | .bvar .. | .sort .. | .const .. | .lit .. => true
+  | .fvar idx ty .. => leafMem bl idx ty && leavesSubP bl ty
+  | .app f a .. => leavesSubP bl f && leavesSubP bl a
+  | .lam ty body _ .. | .forallE ty body _ .. => leavesSubP bl ty && leavesSubP bl body
+  | .letE ty val body .. =>
+    leavesSubP bl ty && leavesSubP bl val && leavesSubP bl body
+  | .proj _ _ sub .. => leavesSubP bl sub
+
+theorem leavesSubP_cut {bl : List (Nat × Expr)} {e : Expr} (h : (e.fvarB == 0) = true) :
+    leavesSubP bl e = true := by
+  rw [leavesSubP.eq_def]; simp [h]
+
+/-- The child step of `leavesSubXP`: the cutoff, the compound test,
+the exclusivity read. -/
+@[inline] def enterLSub (bl : @& List (Nat × Expr)) (e : @& Expr)
+    (memo : MemoB0 (leavesSubP bl))
+    (rec : (hcut : (e.fvarB == 0) = false) → Squash (ResB0 (leavesSubP bl) e)) :
+    Squash (ResB0 (leavesSubP bl) e) :=
+  match hcut : e.fvarB == 0 with
+  | true => Squash.mk (⟨true, (leavesSubP_cut hcut).symm⟩, memo)
+  | false =>
+    if !isCompoundF e then rec hcut
+    else withExcl e fun excl =>
+      if excl then rec hcut else memo.shared e fun _ => rec hcut
+
+/-- The leaf-subset walk (the node is past the cutoff: `leavesSubC`
+and `enterLSub` test it). -/
+def leavesSubXP (bl : @& List (Nat × Expr)) (memo : MemoB0 (leavesSubP bl))
+    (e : @& Expr) (hcut : (e.fvarB == 0) = false) : Squash (ResB0 (leavesSubP bl) e) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [leavesSubP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. =>
+    if hlm : leafMem bl idx ty = true then
+      enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h)
+        |>.lift fun (⟨rt, ht⟩, memo) =>
+      Squash.mk (⟨rt, by rw [leavesSubP]; simp [hcut, hlm, ← ht]⟩, memo)
+    else
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, hlm]⟩, memo)
+  | .app f a .. =>
+    enterLSub bl f memo (fun h => leavesSubXP bl memo f h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterLSub bl a memo (fun h => leavesSubXP bl memo a h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [leavesSubP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body _ .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body _ .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterLSub bl ty memo (fun h => leavesSubXP bl memo ty h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLSub bl val memo (fun h => leavesSubXP bl memo val h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterLSub bl body memo (fun h => leavesSubXP bl memo body h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [leavesSubP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [leavesSubP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLSub bl sub memo (fun h => leavesSubXP bl memo sub h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [leavesSubP]; simp [hcut, ← hs]⟩, memo)
+
+/-- The cached leaf-subset test: the cutoff, then the walk. -/
+def leavesSubC (bl : List (Nat × Expr)) (e : Expr) : Bool :=
+  match hcut : e.fvarB == 0 with
+  | true => true
+  | false => resBool (leavesSubXP bl none e hcut)
 
 /-- The fabrication leaf guard: every `fvar` leaf of `fab` is one of
 `base` (short-circuits on `fvar`-free fabrications, `O(1)` off the
 cached range). -/
 def leafGuard (fab base : Expr) : Bool :=
-  !fab.hasFvar || (leavesSubGo (fvarLeavesC base) {} fab).1
+  !fab.hasFvar || leavesSubC (fvarLeavesC base) fab
 
 /-! ## Telescope operations -/
 
@@ -1001,43 +1308,122 @@ def piResidual (e : Expr) (args : List Expr) : Option Expr :=
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 
-/-- Core of `allLevelParamsDefinedC` (memoized; nodes without a level
-parameter are `true` without traversal — the `hasLP` cutoff). -/
-def allLevelParamsDefinedGoC (params : List Name)
-    (memo : Std.HashMap Expr Bool) (e : Expr) :
-    Bool × Std.HashMap Expr Bool :=
-  if !e.hasLP then (true, memo) else
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .lit .. => (true, memo)
-      | .sort u .. => (Level.allParamsDefined params u, memo)
-      | .const _ us .. => (us.all (Level.allParamsDefined params), memo)
-      | .fvar _ ty .. => allLevelParamsDefinedGoC params memo ty
-      | .app f a .. =>
-        let (rf, memo) := allLevelParamsDefinedGoC params memo f
-        if rf then allLevelParamsDefinedGoC params memo a else (false, memo)
-      | .lam ty body m .. | .forallE ty body m .. =>
-        let (rt, memo) := allLevelParamsDefinedGoC params memo ty
-        if rt then
-          let (rb, memo) := allLevelParamsDefinedGoC params memo body
-          (rb && m.pw.paramsDefined params, memo)
-        else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := allLevelParamsDefinedGoC params memo ty
-        if rt then
-          let (rv, memo) := allLevelParamsDefinedGoC params memo val
-          if rv then allLevelParamsDefinedGoC params memo body
-          else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => allLevelParamsDefinedGoC params memo sub
-    (r, memo.insert e r)
+/-- The plain descent of `allLevelParamsDefinedC`: the reference the
+walk is verified against (`allLevelParamsDefinedP_spec`,
+`ConLeche/Verify/Cached/GuardsC.lean`, is the equation to
+`Expr.allLevelParamsDefined`).  The cutoff: a node without a level
+parameter is `true` without traversal. -/
+def allLevelParamsDefinedP (params : List Name) (e : Expr) : Bool :=
+  if e.hasLP then
+    match e with
+    | .bvar .. | .lit .. => true
+    | .sort u .. => Level.allParamsDefined params u
+    | .const _ us .. => us.all (Level.allParamsDefined params)
+    | .fvar _ ty .. => allLevelParamsDefinedP params ty
+    | .app f a .. =>
+      allLevelParamsDefinedP params f && allLevelParamsDefinedP params a
+    | .lam ty body m .. | .forallE ty body m .. =>
+      allLevelParamsDefinedP params ty && allLevelParamsDefinedP params body
+        && m.pw.paramsDefined params
+    | .letE ty val body .. =>
+      allLevelParamsDefinedP params ty && allLevelParamsDefinedP params val
+        && allLevelParamsDefinedP params body
+    | .proj _ _ sub .. => allLevelParamsDefinedP params sub
+  else true
+
+theorem allLevelParamsDefinedP_cut {params : List Name} {e : Expr}
+    (h : ¬ e.hasLP = true) : allLevelParamsDefinedP params e = true := by
+  rw [allLevelParamsDefinedP.eq_def]; simp [h]
+
+/-- The child step of `allLevelParamsDefinedXP`: the cutoff, the
+compound test, the exclusivity read. -/
+@[inline] def enterLPD (params : @& List Name) (e : @& Expr)
+    (memo : MemoB0 (allLevelParamsDefinedP params))
+    (rec : (hcut : e.hasLP = true) →
+      Squash (ResB0 (allLevelParamsDefinedP params) e)) :
+    Squash (ResB0 (allLevelParamsDefinedP params) e) :=
+  if hcut : e.hasLP = true then
+    (if !isCompoundF e then rec hcut
+     else withExcl e fun excl =>
+       if excl then rec hcut else memo.shared e fun _ => rec hcut)
+  else Squash.mk (⟨true, (allLevelParamsDefinedP_cut hcut).symm⟩, memo)
+
+/-- The walk of `allLevelParamsDefinedC` (the node is past the
+cutoff: the wrapper and `enterLPD` test it). -/
+def allLevelParamsDefinedXP (params : @& List Name)
+    (memo : MemoB0 (allLevelParamsDefinedP params)) (e : @& Expr)
+    (hcut : e.hasLP = true) :
+    Squash (ResB0 (allLevelParamsDefinedP params) e) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .sort u .. =>
+    Squash.mk (⟨Level.allParamsDefined params u,
+      by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .const _ us .. =>
+    Squash.mk (⟨us.all (Level.allParamsDefined params),
+      by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .fvar _ ty .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    Squash.mk (⟨rt, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .app f a .. =>
+    enterLPD params f memo (fun h => allLevelParamsDefinedXP params memo f h)
+      |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterLPD params a memo (fun h => allLevelParamsDefinedXP params memo a h)
+        |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [allLevelParamsDefinedP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body m .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb && m.pw.paramsDefined params,
+        by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body m .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb && m.pw.paramsDefined params,
+        by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params val memo (fun h => allLevelParamsDefinedXP params memo val h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLPD params sub memo (fun h => allLevelParamsDefinedXP params memo sub h)
+      |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [allLevelParamsDefinedP]; simp [hcut, ← hs]⟩, memo)
 
 /-- The cached `Expr.allLevelParamsDefined params` (one memoized DAG
-walk). -/
+walk): the cutoff, then the walk. -/
 def allLevelParamsDefinedC (params : List Name) (e : Expr) : Bool :=
-  (allLevelParamsDefinedGoC params {} e).1
+  if hcut : e.hasLP = true then resBool (allLevelParamsDefinedXP params none e hcut)
+  else true
 
 end ConLeche.Expr

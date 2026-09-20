@@ -404,50 +404,119 @@ def flushC : CheckCM Unit := modify (·.flushed)
 
 `Expr.constsResolveF` as a memoized `Expr` DAG walk (the counterpart
 of `constsResolveFIGo`): the tree-walking `Expr` version is what makes
-the `Expr`-typed driver quadratic — or worse — on shared declarations. -/
+the `Expr`-typed driver quadratic — or worse — on shared declarations.
 
-/-- Core of `constsResolveFC` (memo per call: the result depends on the
-environment). -/
-def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap Expr Bool)
-    (e : Expr) : Bool × Std.HashMap Expr Bool :=
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .sort .. => (true, memo)
-      | .lit (.natVal _) .. =>
-        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
-          (fe.find? natSuccName).isSome, memo)
-      | .lit (.strVal _) .. =>
-        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
-          (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
-          (fe.find? stringOfListName).isSome &&
-          (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
-          (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
-          (fe.find? charOfNatName).isSome, memo)
-      | .const nm _ .. => ((fe.find? nm).isSome, memo)
-      | .fvar _ ty .. => constsResolveFCGo fe memo ty
-      | .app f a .. =>
-        let (rf, memo) := constsResolveFCGo fe memo f
-        if rf then constsResolveFCGo fe memo a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := constsResolveFCGo fe memo ty
-        if rt then constsResolveFCGo fe memo body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := constsResolveFCGo fe memo ty
-        if rt then
-          let (rv, memo) := constsResolveFCGo fe memo val
-          if rv then constsResolveFCGo fe memo body else (false, memo)
-        else (false, memo)
-      | .proj sn _ sub .. =>
-        if (fe.find? sn).isSome then constsResolveFCGo fe memo sub
-        else (false, memo)
-    (r, memo.insert e r)
+The walk is the substitution walks' design over a `Bool`
+(`ConLeche/Cached/ExprOpsC.lean`, "The `Bool`-valued walks"): a plain
+descent `constsResolveFP`, a child step that reads `withExclusive`
+(`ConLeche/Kernel/Exclusive.lean`) on the BORROWED node, and a walk
+carrying its own proof against the plain descent, memoising only what
+the read reports shared, under the node's address as key.  There is no
+cutoff — no cached field decides whether a constant resolves — so the
+structural per-call `Std.HashMap` this replaced (task #319) recorded
+EVERY node it met, leaves included; this walk decides `bvar`, `sort`,
+`lit` and `const` directly, never records them, and probes only a
+compound node (`fvar` included: its annotation is descended) that
+`withExclusive` reports shared.  `fe` is read-only and borrowed. -/
+
+/-- The plain descent of `constsResolveFC`: the reference the walk is
+verified against (`constsResolveFP_spec`,
+`ConLeche/Verify/Cached/GuardsC.lean`, is the equation to
+`Expr.constsResolveF`). -/
+def constsResolveFP (fe : FEnv) (e : Expr) : Bool :=
+  match e with
+  | .bvar .. | .sort .. => true
+  | .lit (.natVal _) .. =>
+    (fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+      (fe.find? natSuccName).isSome
+  | .lit (.strVal _) .. =>
+    (fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+      (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
+      (fe.find? stringOfListName).isSome &&
+      (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
+      (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
+      (fe.find? charOfNatName).isSome
+  | .const nm _ .. => (fe.find? nm).isSome
+  | .fvar _ ty .. => constsResolveFP fe ty
+  | .app f a .. => constsResolveFP fe f && constsResolveFP fe a
+  | .lam ty body _ .. | .forallE ty body _ .. =>
+    constsResolveFP fe ty && constsResolveFP fe body
+  | .letE ty val body .. =>
+    constsResolveFP fe ty && constsResolveFP fe val && constsResolveFP fe body
+  | .proj sn _ sub .. => (fe.find? sn).isSome && constsResolveFP fe sub
+
+/-- The child step of `constsResolveFXP`: the compound test, then the
+exclusivity read (there is no cutoff). -/
+@[inline] def enterCRF (fe : @& FEnv) (e : @& Expr)
+    (memo : Expr.MemoB0 (constsResolveFP fe))
+    (rec : Unit → Squash (Expr.ResB0 (constsResolveFP fe) e)) :
+    Squash (Expr.ResB0 (constsResolveFP fe) e) :=
+  if !Expr.isCompoundF e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `constsResolveFC`. -/
+def constsResolveFXP (fe : @& FEnv) (memo : Expr.MemoB0 (constsResolveFP fe))
+    (e : @& Expr) : Squash (Expr.ResB0 (constsResolveFP fe) e) :=
+  match e with
+  | .bvar .. | .sort .. => Squash.mk (⟨true, by rw [constsResolveFP]⟩, memo)
+  | .lit (.natVal _) .. =>
+    Squash.mk (⟨(fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+      (fe.find? natSuccName).isSome, by rw [constsResolveFP]⟩, memo)
+  | .lit (.strVal _) .. =>
+    Squash.mk (⟨(fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+      (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
+      (fe.find? stringOfListName).isSome &&
+      (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
+      (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
+      (fe.find? charOfNatName).isSome, by rw [constsResolveFP]⟩, memo)
+  | .const nm _ .. => Squash.mk (⟨(fe.find? nm).isSome, by rw [constsResolveFP]⟩, memo)
+  | .fvar _ ty .. =>
+    enterCRF fe ty memo (fun _ => constsResolveFXP fe memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    Squash.mk (⟨rt, by rw [constsResolveFP, ← ht]⟩, memo)
+  | .app f a .. =>
+    enterCRF fe f memo (fun _ => constsResolveFXP fe memo f) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterCRF fe a memo (fun _ => constsResolveFXP fe memo a) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [constsResolveFP, ← hf, ← ha, Bool.true_and]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [constsResolveFP, ← hf, Bool.false_and]⟩, memo)
+  | .lam ty body _ .. | .forallE ty body _ .. =>
+    enterCRF fe ty memo (fun _ => constsResolveFXP fe memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterCRF fe body memo (fun _ => constsResolveFXP fe memo body) |>.lift
+        fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [constsResolveFP, ← ht, ← hb, Bool.true_and]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [constsResolveFP, ← ht, Bool.false_and]⟩, memo)
+  | .letE ty val body .. =>
+    enterCRF fe ty memo (fun _ => constsResolveFXP fe memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterCRF fe val memo (fun _ => constsResolveFXP fe memo val) |>.lift
+        fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterCRF fe body memo (fun _ => constsResolveFXP fe memo body) |>.lift
+          fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [constsResolveFP, ← ht, ← hv, ← hb]; simp⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [constsResolveFP, ← ht, ← hv]; simp⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [constsResolveFP, ← ht]; simp⟩, memo)
+  | .proj sn _ sub .. =>
+    if hfind : (fe.find? sn).isSome = true then
+      enterCRF fe sub memo (fun _ => constsResolveFXP fe memo sub) |>.lift
+        fun (⟨rs, hs⟩, memo) =>
+      Squash.mk (⟨rs, by rw [constsResolveFP, ← hs, hfind, Bool.true_and]⟩, memo)
+    else
+      Squash.mk (⟨false, by rw [constsResolveFP]; simp [hfind]⟩, memo)
 
 /-- The cached `Expr.constsResolveF fe` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
-  (constsResolveFCGo fe {} e).1
+  Expr.resBool (constsResolveFXP fe none e)
 
 /-- Record an accepted constant's converted type/value, tagged with the
 very `Expr` objects pushed into the environment (the counterpart of

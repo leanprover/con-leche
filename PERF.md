@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| commit measured | `0e6412044db71e4ffbe55caab019f2f5011432f7` |
-| tree | agent/land-317 at the commit above (task #317: the `withExclusive` walks with the pointer-keyed memo LANDED — one walk per operation, one memo discipline, no cutoff) — six rows re-measured with this binary; the `mathlib-full` row is the previous battery's (`1d470aa7`, binary md5 `625a61ba…`, 2026-09-10): its 5.6 GB stream is not on this machine, so that row is neither this binary's nor this stream set's.  The `init-full` stream is the #307 export (`lean4export` of `Init` at v4.33.0, 57 977 declarations) — the one the #307/#312–#317 records measure. |
-| date | 2026-09-20T15:41:43+00:00 |
+| commit measured | `2dc27e88e691fe0f9227b7ec92bd9851514c6ed9` |
+| tree | agent/land-319 at the commit above (task #319: ONE memo idiom — `withExclusive` with the pointer-keyed, self-proving memo in `Expr.beq` and in every traversal walk; the `beq` node budget, the tree's last heuristic cutoff, deleted with it) — the six rows' CON-LECHE cells re-measured with this binary (`PERF_CONFIGS="trusted verified"`).  The `official v4.33.0` cells are the #317 battery's, carried forward unchanged: they are the same upstream binary's and that checkout is no longer on this machine, and nothing in this task touches them.  The `mathlib-full` row is the previous battery's (`1d470aa7`, binary md5 `625a61ba…`, 2026-09-10): its 5.6 GB stream is not on this machine, so that row is neither this binary's nor this stream set's.  The `init-full` stream is the #307 export (`lean4export` of `Init` at v4.33.0, 57 977 declarations) — the one the #307/#312–#319 records measure. |
+| date | 2026-09-20T19:57:01+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |
@@ -13,18 +13,18 @@
 | Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
 | concurrent load | shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv` |
 | official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| con-leche binary | md5 `0783756e160e9d755fee11a2cf9b9464` |
+| con-leche binary | md5 `f037fae3a24949427026eaf835ad288f` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
-| `let-ladder` | 6.13 G | 2.72 G | 2.72 G | 0.44× | 0.44× |
-| `beta-ladder` | 10.13 G | 15.31 G | 15.31 G | 1.51× | 1.51× |
-| `init-prelude` | 2.21 G | 2.75 G | 2.89 G | 1.24× | 1.31× |
-| `grind-ring-5` | 13.41 G | 19.18 G | 20.30 G | 1.43× | 1.51× |
-| `app-lam` | 29.41 G | 70.68 G | 70.68 G | 2.40× | 2.40× |
-| `init-full` | 439.54 G | 491.17 G | 509.04 G | 1.12× | 1.16× |
+| `let-ladder` | 6.13 G | 2.71 G | 2.71 G | 0.44× | 0.44× |
+| `beta-ladder` | 10.13 G | 13.92 G | 13.93 G | 1.37× | 1.37× |
+| `init-prelude` | 2.21 G | 2.36 G | 2.49 G | 1.07× | 1.13× |
+| `grind-ring-5` | 13.41 G | 16.30 G | 17.41 G | 1.22× | 1.30× |
+| `app-lam` | 29.41 G | 70.65 G | 70.66 G | 2.40× | 2.40× |
+| `init-full` | 439.54 G | 437.78 G | 453.95 G | 1.00× | 1.03× |
 | `mathlib-full` | 10.54 T | 11.16 T | 12.01 T | 1.06× | 1.14× |
 
 ## exit code / accepted declaration records
