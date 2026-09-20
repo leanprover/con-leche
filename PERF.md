@@ -10,9 +10,9 @@
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |
 | check phase | one worker: every con-leche cell passes `--jobs=1` (the worker-count table below is the parallel lane) |
 | streams | `lean4export` NDJSON, read unchanged by both checkers |
-| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (6069002157 bytes, 107820903 lines, raw) |
+| Mathlib stream | `<checkout>/_tmp/ref/mathlib-full.ndjson` (6069002157 bytes, 107820903 lines, raw) |
 | concurrent load | shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv` |
-| official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
+| official kernel | `<checkout>/_tmp/ref/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | con-leche binary | md5 `f037fae3a24949427026eaf835ad288f` |
 
 ## instructions:u

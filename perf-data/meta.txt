@@ -8,9 +8,9 @@ cpu	AMD EPYC 9455 48-Core Processor
 cores	96
 mem	125 GB
 kernelver	6.12.100
-official	<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
+official	<checkout>/_tmp/ref/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
 binmd5	f037fae3a24949427026eaf835ad288f
-mathlibstream	`<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (6069002157 bytes, 107820903 lines, raw)
+mathlibstream	`<checkout>/_tmp/ref/mathlib-full.ndjson` (6069002157 bytes, 107820903 lines, raw)
 note	master `403a4152`, measured END TO END IN ONE SESSION — one pair of binaries, one set of streams, **not one cell carried forward** (the #313–#319 batteries carried the `official` column and the whole `mathlib-full` row; this one measures them).  The `official v4.33.0` binary was rebuilt for it from the arena's own source (`leanprover/lean-kernel-arena` `checkers/official-v4.33.0` at `aa259bf^`, the last revision that carried that directory; `echo leanprover/lean4:v4.33.0 > lean-toolchain && lake build`; md5 `6125c70e83490973a07be2ea69523a2c`).  The `mathlib-full` stream was re-exported for it: `lean4export` at `15f6055` (the `chore: bump toolchain to v4.33.0` commit) over the `Mathlib` module of mathlib4 `6f1ef4e5` (the last mathlib4 commit on v4.33.0), **6 069 002 157 bytes, 107 820 903 lines, 691 203 declaration records** — a different and 7.7 % larger stream than the 5 636 308 621-byte one the carried-forward row quoted, which was a Lean 4.29.1 export of an older Mathlib.  `init-full` is the #307 export (`lean4export` of `Init` at v4.33.0, 57 977 declarations, 347 714 179 bytes), unchanged.  Reproduction: `init-full` verified 453.96 G against #319's 453.95 G (+0.003 %), trusted 437.78 G against 437.78 G; the Mathlib prefix (off-battery, same session) verified 658.10 G against #319's 658.03 G (+0.01 %), trusted 630.70 G against 630.65 G.
 loadnote	shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv`
 configs	official trusted verified
