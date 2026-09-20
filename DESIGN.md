@@ -77686,3 +77686,782 @@ as landed; the word "oracle" gone), `0cda50c6` (OVERVIEW.md),
 tables above verbatim; `table317.py` renders them), `measure.sh`,
 `land/inst1XP.c` (the IR audit excerpt), `land/arena.log`,
 `land/perfbattery.log`, the build and gate logs.
+
+## TASK #318 — `withExclusive` IN `Expr.beq` AND THE REMAINING TRAVERSAL MEMOS: the measurement (2026-09-20, `agent/beq-318`)
+
+**The ask.**  A MEASUREMENT SPIKE, after #317 landed: put
+`withExclusive` in front of `Expr.beq`'s pair memo — the memo #240
+gave its pair key and #176 its pointer-first test — and in front of
+every remaining per-call traversal memo, in the #317 shape, and
+measure.  NOTHING LANDS: no decision, no `PERF.md`/`perf-data`
+update, no incumbent deleted; every variant sits behind a
+compile-time switch committed at the incumbent's position, the
+proofs are green at both positions, and this record is the
+deliverable for the maintainer's discussion.  Not in scope: the knot
+memos (`memoEI`, the `CState` tables — result caches across calls, a
+different kind of cache).  The branch is cut from master `8981b582`.
+
+### 1. `Expr.beq` — the design
+
+`ConLeche/Kernel/Expr.lean`, the section "The variant under
+measurement (task #318)".  The incumbent `beqGo` (tasks #176, #240)
+records visited pairs so that a sub-DAG shared on both sides is
+compared once; a node BUDGET of 4 096 keeps the table away from the
+small comparisons (the #240 record: *"the `is_shared` filter cannot be
+ported, and the `beqB` budget stays what plays its role"*, because a
+Lean walk saw its arguments owned).  Since #317 it can be ported —
+`withExclusive` reads the count of a borrowed node and `beqGo`'s terms
+are borrowed already — so the variant is the official kernel's
+`expr_eq_fn::check_cache` guard (`if (is_shared(a) && is_shared(b))`)
+in the shape of the substitution walks:
+
+* `enterBeq map a b rec` is the CHILD STEP (`enter*P`'s role): pointer
+  identity (`withAddr` on both sides), the computed word, the leaf
+  test (`beqRecursive`), then `withExcl a` and — only if `a` is
+  shared — `withExcl b`.  An exclusive side means the pair cannot be
+  queried again within this comparison, so it is neither probed nor
+  recorded: `rec map`, the memo untouched.  A shared/shared pair is
+  probed (`probeHit`, when the table exists) and recorded on a
+  completed `true` (`BeqMap.record`: the table is created at the first
+  recorded pair);
+* `beqGoX map a b` is the descent: the constructor cases with
+  `enterBeq` in front of every recursive call, both terms borrowed
+  (`@&`), the memo threaded owned.  There is NO budget and the ROOT
+  pair is never asked (it reaches `beqGoX` past `beqMemo`'s pointer
+  and word tests and cannot recur);
+* the entries are the incumbent's `EqPair`s — the pair, its two
+  addresses, and the proof `fst = snd`; the key is the incumbent's
+  `beqKey pa pb` (both addresses packed into one tagged `Nat`, task
+  #240), and a hit is validated by `Expr.ptrDec` on BOTH stored
+  objects (`probeHit`).  So the brief's question — should the pair
+  key become address-keyed with `withPtrEq` validation on both sides —
+  was already answered by #240: it is, and the variant changes
+  nothing about the key, the entry or the probe;
+* the result is `BeqOutX a b := Squash (BeqResX a b)` (the decision
+  beside the memo, behind the quotient), which is what `withExcl`,
+  `withAddr` and `Squash.lift` each ask of their continuation.  Every
+  branch returns `Decidable (a = b)` for its own `a`, `b`, so
+  `beqDec` is a decision of `a = b` at either position and
+  `beqMemo_eq`, `beq_eq_beqMemo`, `LawfulBEq Expr` are untouched: the
+  proof status is GREEN by construction, with no case analysis on
+  reference counts and no new lemma.
+
+`Expr.beqMemoMode : BeqMemoMode := .budget | .excl` selects at compile
+time; the `match` in `beqDec` folds (the generated `beqDec` calls only
+`beqGo` at `.budget` and only `beqGoX` at `.excl`, both read).  The
+committed position is `.budget`, the incumbent.
+
+**A second finding, on the way in: `beqMemo` called the descent before
+the word test.**  The incumbent's
+`a.data == b.data && @decide (a = b) (beqDec a b)` compiles to
+`beqDec(a, b)` FIRST and the `data` comparison afterwards (the
+generated C of master, `_tmp/ir/beqGo-incumbent.c`'s caller: `x =
+beqDec(a, b); switch (tag a) … if (data_a != data_b) return 0; else
+return x;`) — every word-rejected comparison paid a call into `beqGo`,
+its own pointer and word tests, a `BeqRes` allocation and its free.
+Written as `if a.data == b.data then decide (a = b) else false` the
+call sits after the test (`_tmp/ir/beqMemo-lazy.c`: the `beqDec` call
+is in the join point behind `lean_uint64_dec_eq`).  This is
+independent of the memo discipline, is measured as its own column
+(`beq-lazy` = master + this change, at `.budget`), and the `.excl`
+column includes it.
+
+### 2. The IR audit — `beqGoX`
+
+`.lake/build/ir/ConLeche/Kernel/Expr.c` at `.excl` (the body is kept
+whole in `_tmp/ir/beqGoX-excl.c`, 7 275 lines; the incumbent's
+`beqGo` in `_tmp/ir/beqGo-incumbent.c` for comparison):
+
+| | `beqGoX` |
+|---|---|
+| `lean_alloc_closure` | **0** (the `enterBeq` continuations and every `Squash.lift` are inlined) |
+| `lean_is_exclusive_obj` | **22** — two per recursive child position: `fvar` 1 (the annotation) + `app` 2 + `lam` 2 + `forallE` 2 + `letE` 3 + `proj` 1 = 11 positions, each reading `a`'s child then, only if shared, `b`'s |
+| `lean_ptr_addr` | 50 — the incumbent reads 2 per node; here 2 per position for the identity test, 2 more for the key, and 2 in each validation (`probeHit`'s `ptrDec` on the stored pair) |
+| `inc`/`dec` of the parameters `a`, `b` | **0 / 0** — borrowed all the way, never returned |
+| `inc` of a CHILD before its read, in control-flow order | **none** |
+
+The last row is the one that matters and it was read, not counted:
+every `lean_is_exclusive_obj` sits in a join point of its own
+(`v___jp_3033_`, `v___jp_3193_`, … — eleven of them) that is entered
+only from the compound test's `switch` (`goto v___jp_3033_` from the
+`fvar`/`app`/`lam`/`forallE`/`letE`/`proj` cases) and contains no
+`lean_inc`.  The three textually-earlier `lean_inc_ref`s of each child
+are (i) the pointer-equal arm's structural fallback of `ptrDec` (never
+taken at runtime, returns immediately), (ii) the write-back after the
+descent — the `EqPair` entry takes its two references there, as the
+incumbent's `finish` does — and (iii) `probeHit`'s validation fallback
+(the structural `decEq` behind a passed address filter; the counts
+below show it never runs).  The `.app` arm's shared step, on the raw
+projections `a_3107`/`a_3109` of the borrowed pair:
+
+```c
+v___jp_3193_:                                        // from the compound test
+  if (v___y_3197_ == 0) { … rec map … }              // a leaf pair: the bare descent
+  else {
+    v___x_3198_ = lean_is_exclusive_obj(v_a_3107_);  // the child of a, count untouched
+    if (v___x_3198_ == 0) {
+      v___x_3199_ = lean_is_exclusive_obj(v_a_3109_);  // the child of b
+      if (v___x_3199_ == 0) {
+        if (lean_obj_tag(v___y_3196_) == 0) { … }      //   memo none: no probe, descend, create
+        else { … getD … lean_ptr_addr(fst) … }         //   memo some: probe, validate by identity
+      } else { … beqGoX(map, a, a') … }                // b's child exclusive: bare descent
+    } else { … beqGoX(map, a, a') … }                  // a's child exclusive: bare descent
+```
+
+The wrapper folds: `beqDec` at `.excl` is `beqGoX(lean_box(0), a, b)`
+and nothing else (`_tmp/ir/beqDec-excl.c`); at `.budget` it is
+`beqGo(4096, lean_box(0), a, b)` as before.
+
+**Where the caller's reference goes.**  `beq` is `@[inline]` into
+`==` at every call site — the knot's `Std.HashMap Expr` probes (an
+owned key in the table against the caller's term), `defeqC`'s
+`(Expr × Expr)` keys, `leafMem`, the quick `a == b` tests of the
+definitional-equality core — and some of those hold OWNED copies of
+the root.  That reference can only ever inflate the count of the
+ROOT: `beqMemo`/`beqDec`/`beqGoX` pass `a` and `b` on borrowed
+(`beqDec`'s C takes them as plain parameters and does not `inc`), the
+children are raw `lean_ctor_get` projections, and the root pair is
+never asked.  So "shared only because the caller holds it" is a
+property of the root alone, and the counts below report the root's
+classification separately (`count-inc`, counters 10–18: the exclusivity
+of `a` and of `b` at `beqDec`, which the variant never consults).  The
+opposite experiment — the walk ITSELF holding the reference — is the
+`count-excl-owned` binary: `enterBeq` and `beqGoX` with `(a b : Expr)`
+instead of `(a b : @& Expr)`, which is the shape the #240 record
+measured its "0 exclusive out of 62" on.
+
+### 3. The measurement — `Expr.beq`
+
+`--jobs=1`, ONE run per stream and configuration, `perf stat -e
+instructions:u`, `ulimit -v 16000000` (22 GB on the Mathlib prefix),
+`timeout`, RSS by GNU `time -v`; no cell exited nonzero.  The streams
+are the arena's current tarball (`_tmp/arena-tests`), `init-full` a
+fresh `lean4export` of `Init` at v4.33.0 (the #307 recipe: lean4export
+at its `v4.33.0` tag built against the toolchain; 57 977 declarations,
+347 714 179 bytes) and the Mathlib prefix the export of
+`Mathlib.Order.Filter.Basic` at mathlib4 `6f1ef4e5` (131 902
+declarations, 590 944 488 bytes); both regenerated for this lane and
+kept under `_tmp/init-exports/`.  **The baseline reproduces the
+landed cells**: `master` here is the tree's own executable at
+`8981b582` (md5 `0783756e…`, byte-identical to #317's `land317`),
+`init-full` 509.05 G against `PERF.md`'s 509.04 G and the #317
+record's 509.10 G, the prefix 738.21 G against 738.29 G, every other
+cell within 0.1 %.
+
+The columns: `master`; `beq-lazy` — master plus `beqMemo`'s word
+test moved in front of the descent (§1), at `.budget`; `beq-nobudget`
+— a THROWAWAY control, `beqGoX` with the exclusivity read stubbed to
+"shared" (no budget, every recursive pair probed and recorded: what
+dropping the budget costs WITHOUT the read); `beq-excl` — the
+variant, `.excl`.
+
+**`--verified`**
+
+| stream | master | beq-lazy | Δ vs master | beq-nobudget | Δ vs master | beq-excl | Δ vs master |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 70.68 G | 70.67 G | -0.0 % | 70.67 G | -0.0 % | 70.67 G | -0.0 % |
+| `beta-ladder` | 15.31 G | 15.30 G | -0.0 % | 17.69 G | +15.6 % | 13.93 G | -9.0 % |
+| `let-ladder` | 2.72 G | 2.71 G | -0.2 % | 2.71 G | -0.2 % | 2.71 G | -0.2 % |
+| `fueled-chain` | 0.79 G | 0.77 G | -1.8 % | 0.54 G | -31.0 % | 0.46 G | -40.9 % |
+| `init-prelude` | 2.89 G | 2.79 G | -3.3 % | 3.09 G | +7.1 % | 2.61 G | -9.7 % |
+| `grind-ring-5` | 20.30 G | 19.84 G | -2.3 % | 21.16 G | +4.3 % | 17.62 G | -13.2 % |
+| `magma-list-pair-n21` | 174.23 G | 170.87 G | -1.9 % | 186.16 G | +6.8 % | 171.82 G | -1.4 % |
+| `magma-list-deep-n36` | 259.07 G | 255.47 G | -1.4 % | 287.48 G | +11.0 % | 236.85 G | -8.6 % |
+| `init-full` | 509.05 G | 493.76 G | -3.0 % | 515.24 G | +1.2 % | 464.48 G | -8.8 % |
+| `mathlib-prefix` | 738.21 G | 714.56 G | -3.2 % | 745.58 G | +1.0 % | 678.02 G | -8.2 % |
+
+**`--trusted`**
+
+| stream | master | beq-lazy | Δ vs master | beq-nobudget | Δ vs master | beq-excl | Δ vs master |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 70.68 G | 70.67 G | -0.0 % | 70.66 G | -0.0 % | 70.66 G | -0.0 % |
+| `beta-ladder` | 15.31 G | 15.30 G | -0.0 % | 17.69 G | +15.6 % | 13.92 G | -9.0 % |
+| `let-ladder` | 2.72 G | 2.71 G | -0.2 % | 2.71 G | -0.2 % | 2.71 G | -0.2 % |
+| `fueled-chain` | 0.78 G | 0.76 G | -1.7 % | 0.53 G | -31.4 % | 0.46 G | -41.3 % |
+| `init-prelude` | 2.75 G | 2.65 G | -3.3 % | 2.95 G | +7.4 % | 2.47 G | -10.1 % |
+| `grind-ring-5` | 19.18 G | 18.73 G | -2.4 % | 20.04 G | +4.5 % | 16.52 G | -13.9 % |
+| `magma-list-pair-n21` | 169.43 G | 166.04 G | -2.0 % | 181.44 G | +7.1 % | 166.93 G | -1.5 % |
+| `magma-list-deep-n36` | 250.88 G | 247.32 G | -1.4 % | 279.22 G | +11.3 % | 228.55 G | -8.9 % |
+| `init-full` | 491.20 G | 475.97 G | -3.1 % | 498.03 G | +1.4 % | 448.30 G | -8.7 % |
+| `mathlib-prefix` | 708.48 G | 685.04 G | -3.3 % | 715.73 G | +1.0 % | 650.60 G | -8.2 % |
+
+**RSS (MB, `--verified`)**
+
+| stream | master | beq-lazy | beq-nobudget | beq-excl |
+|---|---|---|---|---|
+| `app-lam` | 2721 | 2718 | 2721 | 2721 |
+| `beta-ladder` | 867 | 830 | 773 | 833 |
+| `let-ladder` | 232 | 232 | 232 | 232 |
+| `fueled-chain` | 25 | 24 | 24 | 24 |
+| `init-prelude` | 31 | 31 | 30 | 31 |
+| `grind-ring-5` | 219 | 219 | 221 | 212 |
+| `magma-list-pair-n21` | 5397 | 5397 | 5398 | 5394 |
+| `magma-list-deep-n36` | 7342 | 7341 | 7344 | 7343 |
+| `init-full` | 468 | 469 | 474 | 467 |
+| `mathlib-prefix` | 919 | 917 | 922 | 921 |
+
+
+Verdicts identical in every cell and both modes (`init-full` 57 977,
+the prefix 131 902, `magma-list-pair-n21` 263, `magma-list-deep-n36`
+479, `grind-ring-5` 2 185, `init-prelude` 1 777, `fueled-chain` 137,
+`app-lam` 21, `beta-ladder` 11, `let-ladder` 13; exit 0 everywhere).
+
+**Reading the columns.**  Against `beq-lazy` — the fair base for the
+memo question, since the lazy word test is a separate change — the
+variant is `init-full` **−5.9 %**, the prefix **−5.1 %**,
+`grind-ring-5` −11.2 %, `init-prelude` −6.7 %, `magma-list-deep-n36`
+−7.3 %, `beta-ladder` −9.0 %, `fueled-chain` −40 %, and
+`magma-list-pair-n21` **+0.6 %** — the one stream it does not win.
+The lazy word test alone is −3.0 % / −3.2 % on `init-full` and the
+prefix (−2.3 % `grind-ring-5`, −3.3 % `init-prelude`, −1.9 % / −1.4 %
+on the magma streams, nothing on the ladders — they compare little).
+Together, against master: `init-full` **−8.8 %** (509.05 → 464.48 G),
+the prefix **−8.2 %**, `grind-ring-5` −13.2 %, `init-prelude` −9.7 %,
+`magma-list-deep-n36` −8.6 %, `magma-list-pair-n21` −1.4 %,
+`fueled-chain` −41 %, `beta-ladder` −9.0 %; `app-lam` and
+`let-ladder` do not move (their comparisons are decided at the root).
+RSS within 1 % everywhere (`beta-ladder` −4 %: the smaller `BeqResX`).
+
+**The control says the read is the whole story.**  `beq-nobudget` —
+the budget gone and NO exclusivity read — is `init-full` +4.4 %
+against `beq-lazy`, the prefix +4.3 %, `magma-list-pair-n21` +9.0 %,
+`magma-list-deep-n36` +12.5 %, `beta-ladder` +15.6 %, `init-prelude`
++10.8 %: the budget was doing real work, exactly as #240 said, and a
+memo on every recursive pair is 4–16 % worse than the budget.  With
+the read the same walk is 5–11 % BETTER than the budget on the same
+streams — the exclusivity read is worth 10–28 points on its own.
+(`fueled-chain` is −30 % even without the read: its comparisons are
+deep and DAG-shaped, and the 4 096-node budget's plain descent was
+re-walking them.)
+
+**`beqGo`'s share of the profile** (`perf record -e instructions:u`,
+`--verified --jobs=1`; self time, symbols bucketed by
+`_tmp/bucket.py`: `beq` = `beqGo`/`beqGoX`/`beqDec`/`beqMemo`,
+`beq-memo` = the `Std.HashMap` specialisations named after `beqGo`):
+
+| stream | master: `beq` | master: `beq-memo` | `beq-excl`: `beq` | `beq-excl`: `beq-memo` |
+|---|---|---|---|---|
+| `init-full` | 8.31 % | 0.48 % | **3.57 %** | 1.38 % |
+| `magma-list-pair-n21` | 4.40 % | 0.04 % | **2.22 %** | 1.81 % |
+| `fueled-chain` | 19.04 % | 0.00 % | **4.25 %** | 1.09 % |
+
+The descent's own share more than halves on every stream; the memo's
+share grows (the table exists in every comparison now, not only past
+4 096 nodes), and on `magma-list-pair-n21` the two movements cancel —
+the counts say why.
+
+### 4. The counts — `Expr.beq`
+
+Throwaway counting builds (`_tmp/count-lane`, branch
+`agent/beq-318-count`, not merged: an `IO.Ref` counter array bumped
+through `@[implemented_by]` shims whose result is the value they
+wrap, so the calls cannot be dropped; the exclusivity class read by
+`isExclusiveUnsafe` on the borrowed node; `--verified --jobs=1`).
+
+**The incumbent** (`count-inc`, `.budget`).  "descents" are the
+`beqMemo` calls that pass the pointer and word tests and enter
+`beqGo`; "root a/b excl / shared" classifies the ROOT pair at
+`beqDec` — the caller's references included — which no position
+consults; "`beqGo` nodes" counts every entry into the descent:
+
+| stream | `beqMemo` calls | pointer-equal | word-rejected | descents | root a excl / shared | root b excl / shared | `beqGo` nodes | tables materialised | probes | hits | records |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 145,418 | 84,922 | 51,916 | 8,580 | 0.6 % / 99.4 % | 1.2 % / 98.8 % | 26,127 | 0 | 0 | 0 | 0 |
+| `beta-ladder` | 94,077 | 46,640 | 41,118 | 6,319 | 0.5 % / 99.5 % | 64.1 % / 35.9 % | 11,999,257 | 0 | 0 | 0 | 0 |
+| `let-ladder` | 74,630 | 32,708 | 27,541 | 14,381 | 0.2 % / 99.8 % | 0.5 % / 99.5 % | 23,494 | 0 | 0 | 0 | 0 |
+| `fueled-chain` | 196,375 | 59,568 | 87,456 | 49,351 | 12.1 % / 87.9 % | 1.7 % / 98.3 % | 2,145,712 | 1 | 10,253 | 1,230 | 13,907 |
+| `init-prelude` | 983,511 | 224,480 | 608,398 | 150,633 | 8.9 % / 91.1 % | 4.7 % / 95.3 % | 2,093,323 | 1 | 100,806 | 782 | 100,532 |
+| `grind-ring-5` | 6,174,481 | 2,462,104 | 2,895,404 | 816,973 | 8.4 % / 91.6 % | 10.2 % / 89.8 % | 13,783,733 | 1 | 1,829,315 | 2,036 | 1,830,693 |
+| `magma-list-pair-n21` | 36,724,693 | 13,261,505 | 20,563,010 | 2,900,178 | 0.2 % / 99.8 % | 13.9 % / 86.1 % | 73,127,432 | 1 | 100,806 | 782 | 100,532 |
+| `magma-list-deep-n36` | 47,129,803 | 12,190,156 | 21,243,727 | 13,695,920 | 55.3 % / 44.7 % | 55.4 % / 44.6 % | 243,226,378 | 1 | 1,785,972 | 1,964 | 1,787,050 |
+| `init-full` | 180,898,389 | 59,406,972 | 96,999,807 | 24,491,610 | 12.4 % / 87.6 % | 6.2 % / 93.8 % | 395,303,822 | 1 | 8,664,319 | 721,240 | 8,059,554 |
+| `mathlib-prefix` | 271,428,420 | 84,609,333 | 150,476,338 | 36,342,749 | 12.3 % / 87.7 % | 5.4 % / 94.6 % | 543,587,446 | 1 | 9,069,863 | 837,463 | 8,368,107 |
+
+**The variant** (`count-excl`, `.excl`).  "child pairs" are the
+`enterBeq` entries (every recursive child position); "recursive
+(asked)" the pairs past the pointer, word and leaf tests, on which
+`a`'s exclusivity is read (and `b`'s — the counting build classifies
+both so that the columns are independent; the production walk reads
+`b` only when `a` is shared); "both shared" the pairs that reach the
+memo; "probes" those of them that find a table:
+
+| stream | descents | child pairs | ptr-equal | word-rejected | leaf | recursive (asked) | a exclusive | b exclusive | both shared | probes | hits | hit rate | records |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 8,580 | 17,530 | 16,604 | 0 | 360 | 566 | 384 (67.8 %) | 428 (75.6 %) | 96 (17.0 %) | 40 | 16 | 40.0 % | 80 |
+| `beta-ladder` | 6,319 | 11,992,923 | 5,997,389 | 0 | 181 | 5,995,353 | 5,989,232 (99.9 %) | 5,995,264 (100.0 %) | 71 (0.0 %) | 27 | 14 | 51.9 % | 57 |
+| `let-ladder` | 14,381 | 9,098 | 8,441 | 0 | 239 | 418 | 276 (66.0 %) | 319 (76.3 %) | 76 (18.2 %) | 29 | 14 | 48.3 % | 62 |
+| `fueled-chain` | 49,351 | 405,955 | 208,166 | 0 | 7,765 | 190,024 | 90,591 (47.7 %) | 115,514 (60.8 %) | 65,998 (34.7 %) | 47,122 | 15,413 | 32.7 % | 50,585 |
+| `init-prelude` | 150,633 | 1,883,648 | 960,960 | 0 | 34,470 | 888,218 | 635,805 (71.6 %) | 730,698 (82.3 %) | 129,751 (14.6 %) | 79,205 | 20,271 | 25.6 % | 109,465 |
+| `grind-ring-5` | 816,973 | 12,357,532 | 6,404,136 | 4 | 88,674 | 5,864,718 | 4,694,162 (80.0 %) | 5,061,789 (86.3 %) | 704,184 (12.0 %) | 400,604 | 100,065 | 25.0 % | 604,119 |
+| `magma-list-pair-n21` | 2,900,178 | 70,202,168 | 36,439,222 | 4,427 | 5,595 | 33,752,911 | 21,594,252 (64.0 %) | 22,057,362 (65.3 %) | 11,689,821 (34.6 %) | 11,090,810 | 7,333 | 0.1 % | 11,682,488 |
+| `magma-list-deep-n36` | 13,695,920 | 214,234,218 | 113,480,018 | 3,958 | 2,538,457 | 98,211,775 | 81,598,219 (83.1 %) | 90,295,154 (91.9 %) | 7,904,068 (8.0 %) | 3,616,918 | 1,713,374 | 47.4 % | 6,190,694 |
+| `init-full` | 24,491,610 | 248,405,081 | 122,095,518 | 0 | 4,397,733 | 121,911,830 | 64,837,311 (53.2 %) | 74,490,202 (61.1 %) | 42,683,793 (35.0 %) | 30,672,825 | 11,353,793 | 37.0 % | 31,314,690 |
+| `mathlib-prefix` | 36,342,749 | 341,094,432 | 163,578,919 | 0 | 7,809,346 | 169,706,167 | 86,150,414 (50.8 %) | 99,190,071 (58.4 %) | 63,010,919 (37.1 %) | 45,452,206 | 17,910,943 | 39.4 % | 45,072,453 |
+
+Three readings.  (i) **The word test below the root is dead**: 0
+rejections at child positions on `init-full`, the prefix, the ladders
+and `fueled-chain` (a few thousand on the magma streams) — a parent
+pair whose `data` words agree has children whose words agree but for
+a hash collision.  The test costs two loads and a compare; it is kept
+because the root's is the one that pays, and the child's is what makes
+the leaf arms free of the structural fallback.  (ii) **The variant
+visits fewer nodes and hits more**: on `init-full` 248 M child pairs
+against the incumbent's 395 M `beqGo` entries (the root pairs are
+24.5 M of each), with 11.35 M hits against 0.72 M — the incumbent's
+4 096 free nodes were re-walked shared sub-DAGs — while recording
+31.3 M entries where the budget recorded 8.1 M.  So the win is the
+hits and the price is the entries, and `init-full` nets −5.9 %.
+(iii) **On `magma-list-pair-n21` the memo is dead weight**: 11.7 M
+shared/shared pairs, 11.1 M probes, **7 333 hits (0.1 %)**, 11.7 M
+entries — the DAG-shared persistent environment types (68 % of the
+walks' nodes there are persistent, #314 §5) are shared in the HEAP and
+compared ONCE per comparison; the incumbent's budget kept them out
+(100 806 probes, 782 hits, one table).  The variant still nets +0.6 %
+there only because `beqGoX`'s node is cheaper than `beqGo`'s (no
+fuel arithmetic, no `BeqRes` triple).  Everywhere else the hit rate is
+25–47 % and the memo pays for itself.
+
+**Where the caller's reference goes** (the brief's "shared only
+because the caller holds it").  At the ROOT — the pair `beqDec`
+receives — 87.6 % of `a`s and 93.8 % of `b`s read shared on
+`init-full` (87.7 % / 94.6 % on the prefix, 91–98 % on the small
+streams; `magma-list-deep-n36` 45 % / 45 %, `beta-ladder`'s `b` 36 %):
+a term a caller compares is a term the caller holds, usually in a table
+too.  That reference reaches no child: the children are raw
+projections of the borrowed root (§2), so the count a child reads is
+the count of the references inside the terms, and the root is never
+asked.  The `count-excl-owned` build — `enterBeq`/`beqGoX` with the
+terms OWNED, the one #240 measured "0 exclusive out of 62" on — shows
+what the alternative would be:
+
+| stream | descents | child pairs | ptr-equal | word-rejected | leaf | recursive (asked) | a exclusive | b exclusive | both shared | probes | hits | hit rate | records |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `fueled-chain` | 49,351 | 405,955 | 208,166 | 0 | 7,765 | 190,024 | 303 (0.2 %) | 409 (0.2 %) | 189,615 (99.8 %) | 136,838 | 15,413 | 11.3 % | 174,202 |
+| `init-prelude` | 150,633 | 1,883,552 | 960,896 | 0 | 34,470 | 888,186 | 2,939 (0.3 %) | 3,695 (0.4 %) | 884,491 (99.6 %) | 699,663 | 20,287 | 2.9 % | 864,185 |
+| `grind-ring-5` | 816,973 | 12,357,208 | 6,403,950 | 4 | 88,665 | 5,864,589 | 3,679 (0.1 %) | 4,453 (0.1 %) | 5,860,136 (99.9 %) | 5,053,105 | 100,098 | 2.0 % | 5,760,038 |
+| `init-full` | 24,491,610 | 248,389,020 | 122,087,214 | 0 | 4,396,349 | 121,905,457 | 39,766 (0.0 %) | 45,871 (0.0 %) | 121,859,586 (100.0 %) | 91,277,104 | 11,355,483 | 12.4 % | 110,482,095 |
+
+99.6–100 % of the asked pairs read shared at every child, against
+53–80 % exclusive on `a` with the borrowed convention; the hits are
+the same (11.36 M against 11.35 M on `init-full` — the memo finds the
+same re-visits) but the entries triple (110 M against 31 M) and the
+probes triple (91 M against 31 M).  So the borrowed convention is not
+an optimisation of the variant, it IS the variant; the #314/#317
+statement stands for `beq` as for the walks, and this is the number
+behind it.
+
+### 5. The `Bool`-valued walks
+
+`wscopedBGoC`, `leavesSubGo` (`leafGuard`), `allLevelParamsDefinedGoC`
+(`ConLeche/Cached/ExprOpsC.lean`) and `constsResolveFCGo`
+(`ConLeche/Cached/StateC.lean`) create a `Std.HashMap` keyed
+STRUCTURALLY on the node (and, for the scope walk, the cursor) per
+call and record every node they decide; `fvarLeavesGoC` keeps a
+visited SET.  The #317 treatment (the sub-agent's lane, branch
+`agent/beq-318-bool`, merged here): per walk a plain descent `*P`
+with the incumbent's cutoff, a child step `enter*` (cutoff, the
+compound test — `isCompoundF`, which includes `fvar` because every
+one of these walks descends into the annotation — then `withExcl`),
+a walk `*XP` returning `Squash ({ r : Bool // r = *P … } × memo)`
+over a `Bool` twin of the kit (`BEnt` with `node`, `depth`, `val`,
+`eq`; `BEnt.hit`; `MemoB`/`MemoB0`; `MemoB.shared` is `MemoXP.shared`
+verbatim with the entry type changed; `resBool`/`resBool_eq`), and
+the wrapper selecting by `Expr.boolMemoMode : BoolMemoMode := .keyed
+| .excl` (a second constant `crfMemoMode := boolMemoMode` lets
+`constsResolveFC` be moved alone).  `constsResolveFCGo` had NO cutoff
+and memoised every node, leaves included — an insert per `bvar`,
+`sort`, `lit`, `const`; the variant decides leaves directly.
+`wscopedB`'s cursor changes at `fvar` (to the variable's own index),
+so it is the one whose key carries a cursor.
+
+**`fvarLeavesGoC` was not converted, on purpose.**  Its memo is a
+visited set, and a set entry's meaning is "this node's leaves are
+already in the accumulator" — a statement about the accumulator,
+which changes at every step; a hit cannot validate itself against the
+entry alone, it needs the accumulator's monotonicity threaded through
+the walk, which is exactly the table invariant the #317 design
+removes (the incumbent's `SeenInv`).  A self-proving alternative — an
+entry carrying the node's own leaf list, appended on a hit — is a
+different algorithm and plausibly slower; it was not built.  Its
+counts are below for the record: 126 K probes on `init-full`, 30 %
+hits, 0.45 % of the profile with its table operations.
+
+**Proof status: GREEN at both positions.**  Every wrapper spec
+(`constsResolveFC_spec`, `allLevelParamsDefinedC_spec`,
+`wscopedBC_spec`, `leafGuard_spec`) keeps its statement and proves
+both arms of the switch, through `resBool_eq` and a `*P_spec` per
+walk (`constsResolveFP_spec`, `allLevelParamsDefinedP_spec`,
+`wscopedBP_spec`, `leavesSubP_spec`, in `Verify/Cached/GuardsC.lean`
+and `OpsC.lean`); `constsResolveFC_congr` (`Verify/Cached/KnotCongr.lean`)
+reads the wrapper through the switch and needed a `constsResolveFP_congr`.
+`#print axioms` on all of them, on `BEnt.hit` and `MemoB.shared`:
+`[propext, Classical.choice, Quot.sound]`; `resBool_eq` depends on
+none.  No new lemma in the Kernel tier.  One trap worth recording:
+a cutoff hypothesis in NEGATED form (`hcut : ¬ (!e.hasLP) = true`)
+makes every arm's `simp [hcut]` fail — `simp` normalises the goal's
+condition but not the supplied rule's LHS — and the fix is the
+positive form (`if e.hasLP then … else true`, hypothesis
+`e.hasLP = true`; `match hcut : e.fvarB == 0 with`).
+
+**The IR audit** (built at `.excl`; the sub-agent's excerpt in
+`_tmp/bool-lane/_tmp/ir-audit.md`): `constsResolveFXP` (`StateC.c`),
+`allLevelParamsDefinedXP`, `wscopedBXP`, `leavesSubXP` (`ExprOpsC.c`)
+— `lean_alloc_closure` **0** each; `lean_is_exclusive_obj` **11**
+each (one per compound child position: `fvar` 1 + `app` 2 + `lam` 2
++ `forallE` 2 + `letE` 3 + `proj` 1, one more than #317's 10 because
+`fvar` is compound here); `lean_ptr_addr` 22 (the key read and the
+validation); the node parameter `inc` **0** / `dec` **0** (lower than
+#317's `inc` 2: a `Bool` walk never returns the node); no `inc` of a
+child precedes its read in control-flow order — the one
+`lean_inc_ref` of the child is the entry's, in the write-back join
+point after the descent.  The wrappers fold: at `.keyed` the C calls
+only the incumbents, at `.excl` only the `*XP` walks.
+
+**The table** (`beq-lazy` is the base: the Bool lane was cut from it,
+at `.budget`; `bool-keyed` is the merged tree at `.keyed` — the
+incumbents, with the variants compiled in and dead — `bool-excl` at
+`.excl`, `bool-excl-crfonly` with `constsResolveFC` alone at `.excl`):
+
+**`--verified`**
+
+| stream | beq-lazy | bool-keyed | Δ vs beq-lazy | bool-excl | Δ vs beq-lazy | bool-excl-crfonly | Δ vs beq-lazy |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 70.67 G | 70.67 G | -0.0 % | 70.66 G | -0.0 % | 70.66 G | -0.0 % |
+| `beta-ladder` | 15.30 G | 15.30 G | -0.0 % | 15.30 G | -0.0 % | 15.30 G | -0.0 % |
+| `let-ladder` | 2.71 G | 2.71 G | +0.0 % | 2.71 G | -0.0 % | 2.71 G | -0.0 % |
+| `fueled-chain` | 0.77 G | 0.77 G | +0.0 % | 0.52 G | -32.7 % | 0.52 G | -32.5 % |
+| `init-prelude` | 2.79 G | 2.79 G | -0.0 % | 2.68 G | -4.1 % | 2.71 G | -2.8 % |
+| `grind-ring-5` | 19.84 G | 19.84 G | +0.0 % | 19.62 G | -1.1 % | 19.66 G | -0.9 % |
+| `magma-list-pair-n21` | 170.87 G | 170.84 G | -0.0 % | 170.80 G | -0.0 % | 170.80 G | -0.0 % |
+| `magma-list-deep-n36` | 255.47 G | 255.47 G | +0.0 % | 255.55 G | +0.0 % | 255.49 G | +0.0 % |
+| `init-full` | 493.76 G | 493.73 G | -0.0 % | 482.80 G | -2.2 % | 486.44 G | -1.5 % |
+| `mathlib-prefix` | 714.56 G | 714.52 G | -0.0 % | 693.86 G | -2.9 % | 701.23 G | -1.9 % |
+
+**`--trusted`**
+
+| stream | beq-lazy | bool-keyed | Δ vs beq-lazy | bool-excl | Δ vs beq-lazy | bool-excl-crfonly | Δ vs beq-lazy |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 70.67 G | 70.67 G | -0.0 % | 70.66 G | -0.0 % | 70.66 G | -0.0 % |
+| `beta-ladder` | 15.30 G | 15.30 G | -0.0 % | 15.30 G | -0.0 % | 15.30 G | -0.0 % |
+| `let-ladder` | 2.71 G | 2.71 G | -0.0 % | 2.71 G | -0.0 % | 2.71 G | -0.0 % |
+| `fueled-chain` | 0.76 G | 0.76 G | +0.0 % | 0.51 G | -33.2 % | 0.51 G | -33.0 % |
+| `init-prelude` | 2.65 G | 2.65 G | -0.0 % | 2.54 G | -4.3 % | 2.58 G | -3.0 % |
+| `grind-ring-5` | 18.73 G | 18.73 G | +0.0 % | 18.51 G | -1.2 % | 18.56 G | -0.9 % |
+| `magma-list-pair-n21` | 166.04 G | 166.12 G | +0.0 % | 166.00 G | -0.0 % | 165.94 G | -0.1 % |
+| `magma-list-deep-n36` | 247.32 G | 247.40 G | +0.0 % | 247.28 G | -0.0 % | 247.33 G | +0.0 % |
+| `init-full` | 475.97 G | 475.96 G | -0.0 % | 465.00 G | -2.3 % | 468.61 G | -1.5 % |
+| `mathlib-prefix` | 685.04 G | 685.02 G | -0.0 % | 664.43 G | -3.0 % | 671.72 G | -1.9 % |
+
+**RSS (MB, `--verified`)**
+
+| stream | beq-lazy | bool-keyed | bool-excl | bool-excl-crfonly |
+|---|---|---|---|---|
+| `app-lam` | 2718 | 2721 | 2722 | 2721 |
+| `beta-ladder` | 830 | 828 | 860 | 870 |
+| `let-ladder` | 232 | 232 | 232 | 232 |
+| `fueled-chain` | 24 | 24 | 24 | 24 |
+| `init-prelude` | 31 | 31 | 31 | 31 |
+| `grind-ring-5` | 219 | 219 | 219 | 219 |
+| `magma-list-pair-n21` | 5397 | 5398 | 5398 | 5398 |
+| `magma-list-deep-n36` | 7341 | 7317 | 7346 | 7346 |
+| `init-full` | 469 | 468 | 470 | 470 |
+| `mathlib-prefix` | 917 | 921 | 920 | 920 |
+
+
+`bool-keyed` reproduces `beq-lazy` to 0.05 % in every cell: the dead
+variants cost nothing, as #317 found.  `bool-excl` is `init-full`
+**−2.2 %**, the prefix **−2.9 %**, `init-prelude` −4.1 %,
+`grind-ring-5` −1.1 %, the magma streams and the ladders ±0.0 % — and
+`fueled-chain` **−32.7 %**, which is not the memo: it is `beq`.  The
+structural key's probe compares the stored node with the query by
+`Expr.beq`, and a hash-equal, pointer-distinct pair — a DAG the
+checker has rebuilt — is a full memoised descent per probe;
+`fueled-chain`'s profile on master has `beqGo` at 19.0 % of self
+time, `bool-excl` alone brings it to 11.4 % (the address key probes
+nothing structurally), `beq-excl` alone to 4.3 %.  On `init-full`
+the same effect is inside the 2.2 %: `constsResolveFCGo` and its
+table were 1.68 % of the profile, `allLevelParamsDefinedGoC` 0.26 %,
+the scope and leaf walks 0.02 % together — the brief's ~1 % estimate
+was the walks' own time, and the `beq` their keys cost was booked
+under `beq`.  `bool-excl-crfonly` — `constsResolveFC` alone — is `init-full` −1.5 %, the prefix −1.9 %, `init-prelude` −2.8 %, `fueled-chain` −32.5 %: two thirds of the section's gain, and all of the `fueled-chain` effect, is that one walk; `allLevelParamsDefinedC` is the other third on the core streams (−0.7 / −1.0 points), and the scope and leaf walks are within noise.
+
+**The counts** (`count-bool-keyed` / `count-bool-excl`, the merged
+counting build at the two positions, `--verified --jobs=1`;
+"keyed: probes" is every node the incumbent looks up — its
+`memo[e]?` before the descent — and "excl: asked" every compound
+child past the cutoff, on which the exclusivity is read):
+
+**`constsResolveFC`**
+
+| stream | keyed: probes | keyed: hits | keyed hit rate | excl: asked | exclusive | shared | excl: probes | hits | hit rate |
+|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 41,043 | 16,231 | 39.5 % | 24,466 | 16,402 (67.0 %) | 8,064 | 4,039 | 4,011 | 99.3 % |
+| `beta-ladder` | 16,621 | 6,151 | 37.0 % | 8,286 | 6,247 (75.4 %) | 2,039 | 2,023 | 6 | 0.3 % |
+| `let-ladder` | 8,725 | 4,170 | 47.8 % | 8,329 | 288 (3.5 %) | 8,041 | 8,022 | 4,006 | 49.9 % |
+| `fueled-chain` | 25,793 | 10,080 | 39.1 % | 38,936 | 19,560 (50.2 %) | 19,376 | 19,183 | 13,221 | 68.9 % |
+| `init-prelude` | 189,929 | 55,556 | 29.3 % | 98,579 | 79,396 (80.5 %) | 19,183 | 15,979 | 6,550 | 41.0 % |
+| `grind-ring-5` | 582,531 | 223,552 | 38.4 % | 400,607 | 209,340 (52.3 %) | 191,267 | 185,671 | 101,092 | 54.4 % |
+| `magma-list-pair-n21` | 30,540 | 9,846 | 32.2 % | 17,034 | 12,394 (72.8 %) | 4,640 | 4,018 | 1,804 | 44.9 % |
+| `magma-list-deep-n36` | 60,643 | 19,896 | 32.8 % | 37,798 | 22,337 (59.1 %) | 15,461 | 14,362 | 6,547 | 45.6 % |
+| `init-full` | 23,301,780 | 9,268,618 | 39.8 % | 16,611,789 | 8,735,247 (52.6 %) | 7,876,542 | 7,702,293 | 4,545,761 | 59.0 % |
+
+**`allLevelParamsDefinedC`**
+
+| stream | keyed: probes | keyed: hits | keyed hit rate | excl: asked | exclusive | shared | excl: probes | hits | hit rate |
+|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 238 | 9 | 3.8 % | 159 | 142 (89.3 %) | 17 | 5 | 1 | 20.0 % |
+| `beta-ladder` | 157 | 8 | 5.1 % | 116 | 101 (87.1 %) | 15 | 5 | 1 | 20.0 % |
+| `let-ladder` | 171 | 8 | 4.7 % | 124 | 109 (87.9 %) | 15 | 5 | 1 | 20.0 % |
+| `fueled-chain` | 2,679 | 198 | 7.4 % | 1,987 | 1,778 (89.5 %) | 209 | 145 | 90 | 62.1 % |
+| `init-prelude` | 70,901 | 8,343 | 11.8 % | 52,549 | 46,839 (89.1 %) | 5,710 | 4,426 | 2,177 | 49.2 % |
+| `grind-ring-5` | 80,770 | 14,913 | 18.5 % | 69,584 | 52,633 (75.6 %) | 16,951 | 16,160 | 11,157 | 69.0 % |
+| `magma-list-pair-n21` | 1,773 | 55 | 3.1 % | 1,263 | 1,194 (94.5 %) | 69 | 24 | 12 | 50.0 % |
+| `magma-list-deep-n36` | 6,012 | 506 | 8.4 % | 4,501 | 4,124 (91.6 %) | 377 | 268 | 168 | 62.7 % |
+| `init-full` | 7,365,362 | 1,815,138 | 24.6 % | 6,720,135 | 4,656,583 (69.3 %) | 2,063,552 | 2,020,383 | 1,409,330 | 69.8 % |
+
+**`wscopedBC`**
+
+| stream | keyed: probes | keyed: hits | keyed hit rate | excl: asked | exclusive | shared | excl: probes | hits | hit rate |
+|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `beta-ladder` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `let-ladder` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `fueled-chain` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `init-prelude` | 118 | 0 | 0.0 % | 89 | 19 (21.3 %) | 70 | 3 | 0 | 0.0 % |
+| `grind-ring-5` | 432 | 55 | 12.7 % | 360 | 85 (23.6 %) | 275 | 116 | 55 | 47.4 % |
+| `magma-list-pair-n21` | 4 | 0 | 0.0 % | 2 | 0 (0.0 %) | 2 | 0 | 0 | — |
+| `magma-list-deep-n36` | 28 | 4 | 14.3 % | 22 | 4 (18.2 %) | 18 | 8 | 4 | 50.0 % |
+| `init-full` | 166,731 | 39,155 | 23.5 % | 201,194 | 72,438 (36.0 %) | 128,756 | 118,743 | 49,527 | 41.7 % |
+
+**`leafGuard`**
+
+| stream | keyed: probes | keyed: hits | keyed hit rate | excl: asked | exclusive | shared | excl: probes | hits | hit rate |
+|---|---|---|---|---|---|---|---|---|---|
+| `app-lam` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `beta-ladder` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `let-ladder` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `fueled-chain` | 0 | 0 | — | 0 | 0 (—) | 0 | 0 | 0 | — |
+| `init-prelude` | 118 | 0 | 0.0 % | 89 | 19 (21.3 %) | 70 | 3 | 0 | 0.0 % |
+| `grind-ring-5` | 432 | 55 | 12.7 % | 360 | 85 (23.6 %) | 275 | 116 | 55 | 47.4 % |
+| `magma-list-pair-n21` | 4 | 0 | 0.0 % | 2 | 0 (0.0 %) | 2 | 0 | 0 | — |
+| `magma-list-deep-n36` | 28 | 4 | 14.3 % | 22 | 4 (18.2 %) | 18 | 8 | 4 | 50.0 % |
+| `init-full` | 141,539 | 41,978 | 29.7 % | 186,816 | 68,331 (36.6 %) | 118,485 | 108,472 | 55,415 | 51.1 % |
+
+**`fvarLeavesC` (incumbent only: seen-set probes / hits)**
+
+| stream | probes | hits | hit rate |
+|---|---|---|---|
+| `app-lam` | 0 | 0 | — |
+| `beta-ladder` | 0 | 0 | — |
+| `let-ladder` | 0 | 0 | — |
+| `fueled-chain` | 0 | 0 | — |
+| `init-prelude` | 159 | 27 | 17.0 % |
+| `grind-ring-5` | 234 | 31 | 13.2 % |
+| `magma-list-pair-n21` | 7 | 1 | 14.3 % |
+| `magma-list-deep-n36` | 11 | 1 | 9.1 % |
+| `init-full` | 126,211 | 38,440 | 30.5 % |
+
+Nothing here is dead: every walk is hit on `init-full` (23–40 %
+under the structural key, 42–70 % of the far fewer probes under the
+address key), `constsResolveFC` on every stream.  The scope, leaf
+and `fvarLeaves` walks never run on the ladders and `fueled-chain`
+(no stuck-major rescue fabricates a term there) and run a few hundred
+times on the rest — `wscopedBC`'s 118 probes on `init-prelude` hit 0
+times, `leafGuard`'s the same — so their memos are alive only on
+`init-full` (167 K / 142 K probes, 24 % / 30 % hits) and their
+conversion is measurable nowhere; they were converted for uniformity
+and cost nothing (the `bool-excl` cells on the magma streams are
+within 0.03 % of `bool-keyed`).  `allLevelParamsDefinedC` is 69–95 %
+exclusive at the compound children (fresh instantiated types) and its
+hit rate on what remains is 50–70 %.  `constsResolveFC` reads 53 %
+exclusive on `init-full` and 17 M asked nodes against the incumbent's
+23 M probes; where the address key probes (7.7 M) it hits 59 %
+against the structural key's 40 % — the same shape as `beq`: fewer
+probes, better probes, and no `beq` on any of them.
+
+### 6. All of it together, and the per-step figure
+
+`all-excl` is the merged tree at `.excl` for BOTH switches
+(`beqMemoMode` and `boolMemoMode`), against master:
+
+**`--verified`**
+
+| stream | master | beq-excl | Δ vs master | all-excl | Δ vs master |
+|---|---|---|---|---|---|
+| `app-lam` | 70.68 G | 70.67 G | -0.0 % | 70.66 G | -0.0 % |
+| `beta-ladder` | 15.31 G | 13.93 G | -9.0 % | 13.93 G | -9.0 % |
+| `let-ladder` | 2.72 G | 2.71 G | -0.2 % | 2.71 G | -0.3 % |
+| `fueled-chain` | 0.79 G | 0.46 G | -40.9 % | 0.44 G | -44.1 % |
+| `init-prelude` | 2.89 G | 2.61 G | -9.7 % | 2.49 G | -13.7 % |
+| `grind-ring-5` | 20.30 G | 17.62 G | -13.2 % | 17.40 G | -14.3 % |
+| `magma-list-pair-n21` | 174.23 G | 171.82 G | -1.4 % | 171.80 G | -1.4 % |
+| `magma-list-deep-n36` | 259.07 G | 236.85 G | -8.6 % | 236.79 G | -8.6 % |
+| `init-full` | 509.05 G | 464.48 G | -8.8 % | 453.97 G | -10.8 % |
+| `mathlib-prefix` | 738.21 G | 678.02 G | -8.2 % | 658.04 G | -10.9 % |
+
+**`--trusted`**
+
+| stream | master | beq-excl | Δ vs master | all-excl | Δ vs master |
+|---|---|---|---|---|---|
+| `app-lam` | 70.68 G | 70.66 G | -0.0 % | 70.65 G | -0.0 % |
+| `beta-ladder` | 15.31 G | 13.92 G | -9.0 % | 13.92 G | -9.1 % |
+| `let-ladder` | 2.72 G | 2.71 G | -0.2 % | 2.71 G | -0.3 % |
+| `fueled-chain` | 0.78 G | 0.46 G | -41.3 % | 0.43 G | -44.6 % |
+| `init-prelude` | 2.75 G | 2.47 G | -10.1 % | 2.35 G | -14.3 % |
+| `grind-ring-5` | 19.18 G | 16.52 G | -13.9 % | 16.30 G | -15.0 % |
+| `magma-list-pair-n21` | 169.43 G | 166.93 G | -1.5 % | 166.90 G | -1.5 % |
+| `magma-list-deep-n36` | 250.88 G | 228.55 G | -8.9 % | 228.53 G | -8.9 % |
+| `init-full` | 491.20 G | 448.30 G | -8.7 % | 437.75 G | -10.9 % |
+| `mathlib-prefix` | 708.48 G | 650.60 G | -8.2 % | 630.63 G | -11.0 % |
+
+**RSS (MB, `--verified`)**
+
+| stream | master | beq-excl | all-excl |
+|---|---|---|---|
+| `app-lam` | 2721 | 2721 | 2721 |
+| `beta-ladder` | 867 | 833 | 798 |
+| `let-ladder` | 232 | 232 | 232 |
+| `fueled-chain` | 25 | 24 | 24 |
+| `init-prelude` | 31 | 31 | 31 |
+| `grind-ring-5` | 219 | 212 | 217 |
+| `magma-list-pair-n21` | 5397 | 5394 | 5396 |
+| `magma-list-deep-n36` | 7342 | 7343 | 7345 |
+| `init-full` | 468 | 467 | 469 |
+| `mathlib-prefix` | 919 | 921 | 922 |
+
+
+`init-full` **453.97 G, −10.8 % against master** (−8.1 % against
+`beq-lazy`), the prefix **658.04 G, −10.9 %**, `grind-ring-5`
+−14.3 %, `init-prelude` −13.7 %, `magma-list-deep-n36` −8.6 %,
+`magma-list-pair-n21` −1.4 %, `fueled-chain` −44 %, `beta-ladder`
+−9.0 %, `app-lam` and `let-ladder` unchanged; both modes agree to
+0.2 points; RSS within 1 % (the `beta-ladder` −8 % is the memo
+shrinkage of §3).  The pieces add: `beq-lazy` −3.0, the `beq` read
+−5.9 on top, the `Bool` walks −2.2 on top, `all-excl` −10.8 on
+`init-full`.
+
+Per β/δ/ι step on `init-full` (#312's 47.4 M steps; the walks and the
+core compute the same terms, the counts are unchanged): **10 741 →
+9 578 instructions** (#317's landed figure → `all-excl`; `beq-excl`
+alone 9 799, `beq-lazy` alone 10 417).  nanoda's 4 783 is now
+**2.00×** away where #317 left it at 2.25× and #312 measured 2.58×.
+On the prefix (57.35 M steps) 12 873 → **11 474**.
+
+### 7. Analysis, and a recommendation per memo — NOTHING IS DECIDED HERE
+
+**`Expr.beq`'s pair memo — recommend LAND `.excl`, with the lazy word
+test.**  The official kernel's guard, in the shape of the landed
+walks, on a memo that already had the address-pair key and the
+identity-validated, self-proving entries (#240): −8.8 % on `init-full`
+and −8.2 % on the prefix against master, −5.9 % / −5.1 % of it from
+the read alone, −9 … −14 % on `grind-ring-5`, `init-prelude` and
+`magma-list-deep-n36`, −41 % on `fueled-chain`, nothing lost anywhere
+(the worst stream, `magma-list-pair-n21`, is −1.4 % against master
+and +0.6 % against `beq-lazy`, where the memo's 0.1 % hit rate is the
+whole explanation).  The proof status is green by construction — no
+lemma changed, `beqMemo_eq` is the incumbent's — the trust surface
+does not move (`withExclusive` is the one allowlisted escape, and it
+is already there), the IR audit is clean, and the budget — the one
+heuristic cutoff left in the tree after #317 deleted the walks' —
+goes with it.  What a reviewer should weigh: (a) `magma-list-pair-n21`'s
+dead memo is the #316 finding again (the count says "shared in the
+heap", not "reached twice in this walk"), and this is the ceiling of
+the design on DAG-shared persistent inputs — the official kernel
+lives at the same ceiling; (b) the entries hold references to both
+terms of every recorded pair for the comparison's duration, as
+before, and there are now up to four times as many of them on
+`init-full` (31 M against 8 M), which RSS does not register.
+
+**The lazy word test in `beqMemo` — recommend LAND, whatever is
+decided about the memo.**  −3.0 % / −3.2 % on `init-full` and the
+prefix from moving a call after the test it was meant to be behind;
+one line; the theorem's statement is unchanged and its proof is the
+same three lines.  It is independent of the memo question and should
+not wait on it.
+
+**`constsResolveFC` — recommend LAND `.excl`.**  The section's largest memo (1.7 % of `init-full` with its table, 23 M probes) and the largest gain: −1.5 % on `init-full`, −1.9 % on the prefix, −32 % on `fueled-chain` by itself.  The
+incumbent memoises leaves and probes with `Expr.beq` on a structural
+key; the variant does neither.  Green at both positions, no invariant
+to keep, one more walk of the landed shape.
+
+**`allLevelParamsDefinedC` — recommend LAND `.excl` with the above,
+as one lane.**  Small on its own (0.26 % of `init-full`, the
+difference between `bool-excl-crfonly` and `bool-excl` is within
+noise) but the same shape, green at both positions, and leaving one
+structural-key walk beside three address-keyed ones is the worse
+tree.
+
+**`wscopedBC` and `leafGuard` — recommend LAND `.excl` for uniformity,
+or DROP the variants, but not keep both.**  Measurable nowhere: the
+stuck-major rescue that calls them fabricates a term a few hundred
+times per stream and 200 K times on `init-full`, and their memos are
+alive only there (24–30 % hits).  Green at both positions.  The
+maintainer's call is about the tree, not the numbers: one memo
+discipline for every per-call walk, or two kits.
+
+**`fvarLeavesC` — NEEDS a design, not a measurement; recommend leave
+as is.**  A visited set cannot be made self-proving without a
+statement about the accumulator (§5); the incumbent's `SeenInv` is
+that statement and it is small.  0.45 % of `init-full` with its table
+operations; not dead (30 % hits).
+
+**Dead memos (the brief's item 3): none.**  Every memo in scope is
+hit on at least `init-full`; the two smallest (`wscopedBC`,
+`leafGuard`) are never CALLED on four of the nine streams and hit 0
+of 118 probes on `init-prelude`, which is as close as anything comes.
+
+**What was not measured, and why.**  `magma-list-pair-n21` at
+`.excl` with the budget kept in front (a `.hybrid` for `beq`): #317
+rejected the walks' cutoff on principle and the same reasoning
+applies; the stream is +0.6 % against `beq-lazy`, and a hybrid would
+buy back at most that.  A `beq` memo that survives the comparison
+(keyed on the pair across calls): out of scope — the knot memos are
+that kind of cache and were excluded by the brief.
+
+### 8. The gates at the committed position (`.budget`, `.keyed`)
+
+| gate | result |
+|---|---|
+| `lake build` | 567 jobs, warning-free (the executable byte-identical before and after the import edits: md5 `5c80daef…`) |
+| `lake test` | 486 jobs, warning-free |
+| `tests/layering.sh` | base 305 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl |
+| `tests/trust-surface.sh` | 15 escapes in 6 allowlisted files (503 scanned), 0 outside — no new escape |
+| `tests/shake.sh` | 446 removals proposed, all allowlisted (one new line: `ExprOpsC.lean`'s `import ConLeche.Kernel.Exclusive`, reachable through `Kernel/Expr.lean`'s public import while the `beq` variant lives there); pub-imports 950 of 1417 public, none demotable |
+| `tests/overview-links.sh` | 106 links, 60 files, 2 documents, OK (two anchors repointed: an import line in `Expr.lean`, `constsResolveFP_congr` above `coreKnotI_congr`) |
+| `tests/quote-gate.sh` | 2 quoted statements match the tree |
+| `tests/no-local-paths.sh` | OK |
+| `tests/pindump.sh` | 3 pinners reproduced, 0 skipped |
+| `tests/challenge.sh` | OK — builds with `sorry` only; statements identical |
+| `tests/inmodel.sh` | OK (8 fixtures) |
+| axioms | the arena's 20 pinned theorems at `[propext, Classical.choice, Quot.sound]`; `#print axioms` on the four Bool wrapper specs, the four `*P_spec`s, `constsResolveFC_congr`, `BEnt.hit`, `MemoB.shared`: the same three; `resBool_eq` none; `beqMemo_eq` untouched |
+| `tests/arena.sh` (full, on the vendored snapshot `_tmp/arena-vendored` — the live tarball the perf streams come from has a different fixture list) | 90/92 tutorial, 195/195 e2e, 15/15 annot, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14, trusted sweep 138+195+15 (3 recorded divergences), `--jobs=1` and `--jobs=4` sweeps as at the default — every verdict identical to master's.  The run's one red row was the shake gate before the allowlist line; `tests/shake.sh` re-run green afterwards (`_tmp/shake2.log`) |
+| the variant positions | `lake build` and `lake test` warning-free at `boolMemoMode := .excl` (the sub-agent's full-tree build); `lake build con-leche` at `beqMemoMode := .excl` and at both switches `.excl` (`all-excl`); every executable's verdicts and declaration counts equal master's on all ten streams in both modes, and the 177 `tests/e2e` fixtures produce byte-identical output across `bool-keyed`/`bool-excl`/`bool-excl-crfonly` |
+
+`git grep -n -i oracle ConLeche` comes back empty.
+
+### 9. Where everything is
+
+Committed on `agent/beq-318`: `f90a651c` (the `beq` variant behind
+`beqMemoMode`, the lazy word test), the Bool lane's `7264b314`
+(the kit), `a3f32479` (`constsResolveFC`), `327eac00`
+(`allLevelParamsDefinedC`), `6148ac5b` (`wscopedBC`, and `leafGuard`'s
+Cached side), `bdafe2b3` (`leafGuard`'s verification,
+`constsResolveFP_congr`), `cb114834` (`crfMemoMode`) — merged
+fast-forward — `4e202d5d` (two overview-links anchors), `47e73126` (the import edits and the shake allowlist line),
+and the commit of this record.  NOT merged: `agent/beq-318-count`
+(the counting builds: `ConLeche/Kernel/Count.lean`, the
+`Count.tick`/`tickCls` shims in `Expr.lean`, `ExprOpsC.lean`,
+`StateC.lean`, `Main.lean`'s report; `_tmp/count-lane`).  On the
+worktree (`_tmp/beq-318/_tmp/`, gitignored): `bin/{master, beq-lazy,
+beq-excl, beq-nobudget, bool-keyed, bool-excl, bool-excl-crfonly,
+all-excl, count-inc, count-excl, count-excl-owned, count-bool-keyed,
+count-bool-excl}`, `runs/*.tsv` with `runs/log/` (the tables above
+verbatim; `table318.py`, `counts318.py`, `counts318b.py` render
+them), `prof/` (the profiles; `bucket.py`), `ir/{beqGo-incumbent,
+beqGoX-excl, beqDec-excl, beqMemo-lazy}.c`, `bool-lane/_tmp/ir-audit.md`,
+`measure.sh`, `init-exports/{init-full, mathlib-prefix}.ndjson` (the
+regenerated streams, for the next lane), `lean4export-src/`,
+`mathlib4/` (at `6f1ef4e5`, cache for the cone), `arena-tests/` (the
+live tarball: the perf streams) and `arena-vendored/` (the pinned
+snapshot `tests/arena.sh` expects), `arena-committed2.log`,
+`build-full2.log`, `test-full2.log`.
