@@ -1607,11 +1607,32 @@ theorem constsResolveFCGo_spec {fe : FEnv} :
           simp [hfind]
         exact ⟨hres, hm.insert hres⟩
 
+/-- **The plain descent of the `.excl` walk is
+`Expr.constsResolveF`.** -/
+theorem constsResolveFP_spec {fe : FEnv} : ∀ {e : Expr},
+    constsResolveFP fe e = Expr.constsResolveF fe e := by
+  intro e
+  induction e with
+  | bvar i => rw [constsResolveFP, Expr.constsResolveF]
+  | sort u => rw [constsResolveFP, Expr.constsResolveF]
+  | lit l => cases l <;> rw [constsResolveFP, Expr.constsResolveF]
+  | const n us => rw [constsResolveFP, Expr.constsResolveF]
+  | fvar idx ty iht => rw [constsResolveFP, Expr.constsResolveF, iht]
+  | app f a ihf iha => rw [constsResolveFP, Expr.constsResolveF, ihf, iha]
+  | lam ty bd m iht ihb => rw [constsResolveFP, Expr.constsResolveF, iht, ihb]
+  | forallE ty bd m iht ihb => rw [constsResolveFP, Expr.constsResolveF, iht, ihb]
+  | letE ty val bd iht ihv ihb =>
+    rw [constsResolveFP, Expr.constsResolveF, iht, ihv, ihb]
+  | proj s i sub ihe => rw [constsResolveFP, Expr.constsResolveF, ihe]
+
 open Expr in
 /-- **`constsResolveFC` is `Expr.constsResolveF` of the erasure.** -/
 theorem constsResolveFC_spec {fe : FEnv} {e : Expr} :
-    constsResolveFC fe e = Expr.constsResolveF fe e :=
-  (constsResolveFCGo_spec MemoCRInv.empty).1
+    constsResolveFC fe e = Expr.constsResolveF fe e := by
+  rw [constsResolveFC.eq_def]
+  cases Expr.boolMemoMode with
+  | keyed => exact (constsResolveFCGo_spec MemoCRInv.empty).1
+  | excl => rw [Expr.resBool_eq]; exact constsResolveFP_spec
 
 /-! ### The zero-ness readout (task #163, batch 9; task #272)
 
