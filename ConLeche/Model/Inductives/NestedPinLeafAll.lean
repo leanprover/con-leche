@@ -5070,6 +5070,44 @@ theorem stripPis_sort_arity : ∀ (a b : Nat) {e : Expr}
             exact congrArg Nat.succ (ih b' hA hB)
     | _ => exact nomatch h1
 
+/-- **THE TWO COPIES' TARGETS AT A CONTAINER-RECURSIVE FIELD AT A
+MEMBER** (task #315 K.70, arm (A)'s member half): the block's target
+is `σ` of the owner's, and NOTHING about the field is read to say so.
+
+At such a field both copies' targets are already exact —
+`CopyCtorShape.recF` gives the block's as `p.k + a + mm` and the
+owner's as `dR.k + baseK + mm` — so all that is missing is that `σ`
+carries the second to the first, and that is the instance map's
+contiguity on a minted group (`GroupFacts.mapGrp`, K.70) composed with
+`σ`'s value at an own-pin class.  No head, no recomputation, no
+`findIdx?` and no term match: the corresponding statement at the PIN
+sub-case needs all four, and that is why the two are separate. -/
+theorem recTgt_corr_mem {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {σ : Nat → Nat} {pcR : Nat → PinCtors V} {a kk i' j l baseK qK mm : Nat}
+    (G : GF st m a kk dK) (hi' : i' < kk) (hmm : mm < kk)
+    -- the two copies' targets, `CopyCtorShape.recF`'s own values
+    (htg₁ : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 = p.k + a + mm)
+    (htg₂ : (pcR qK).tgts j l = dR.k + baseK + mm)
+    (hqK : qK = baseK + i')
+    -- the OWNER: the container whose own pin `qK` this copy is
+    {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[g]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
+    (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
+    (hbase : baseK + mm < dR.nPins)
+    -- `σ` at an own-pin class, the assembly's own value
+    (hσpin : ∀ z, z < dR.nPins → σ (dR.k + z) = p.k + mapR.getD z st.pins.length) :
+    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 = σ ((pcR qK).tgts j l) := by
+  have hgrp := G.mapGrp i' hi' g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm mm hmm
+  rw [hqK, Nat.add_sub_cancel] at hgrp
+  rw [htg₁, htg₂, show dR.k + baseK + mm = dR.k + (baseK + mm) from by omega,
+    hσpin (baseK + mm) hbase, hgrp]
+  omega
+
 /-- **THE TWO ROWS NAME ONE FIELD DATUM** (task #315 WIDE (3), step 2,
 `hslotOrd`'s field-data half): at a field the pin's container `dK`
 calls ORDINARY and both copies rewrote to recursive, whose two targets
