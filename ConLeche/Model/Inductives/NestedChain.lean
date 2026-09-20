@@ -83,7 +83,7 @@ theorem nestedModeled_of_two
       (nestedPinsIdent_of (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
         (nestedPinsEntry_of_le_all (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
           hLe)
-        nestedPinsInst_of nestedPinsOrdTgt_of))))
+        nestedPinsInst_of nestedPinsOrdTgt_of nestedPinsOrdTgtMem_of))))
     nestedTailModeled h
 
 /-- **THE CHAIN AT ONE MODEL-TIER HYPOTHESIS** (task #315): the nested

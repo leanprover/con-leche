@@ -538,6 +538,48 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
+  /-- **THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE, AT A
+  MEMBER TARGET** (task #315 WIDE (3), step 3): `ordTgt`'s sibling at
+  the other arm of the target split — the block's rewrite sent the
+  field to one of the BLOCK's own members, and the owner's own
+  recomputation of its target reads as an application whose arguments
+  past the BLOCK's parameters are the COPY's index expressions.
+
+  The two counts are the MEMBER's own (`b.nP` for the head's
+  parameters, `nIdxAt` for the index expressions) where the pin arm
+  reads the target pin's `nPJ`/`nIdx`; nothing here names a container
+  record, because at a member target the positivity normalisation
+  lands on the copy's stored domain with no rewrite between them. -/
+  ordTgtMem : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((D).params ψ).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
+      ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+        (dom : Expr × ConLeche.BinderMeta) (lps lpsC : List Name),
+      (dJ.ctorsM i')[j]? = some cA →
+      cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+      bs[dJ.nP + l]? = some dom →
+      ∀ i₀, i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+      ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+      ciC.members[i']? = some Jm → Jm.lps = lpsC →
+      ∀ (K : Name) (usK : List Level),
+      (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
+          = .const K usK →
+      ∃ mm : Nat, mm < p.k ∧
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = (D).nIdxAt mm ∧
+        OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
+          (((D).pinAt q₀).Ds ψ)
+          ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          b.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
 
 /-! ### The pin groups' consequences -/
 

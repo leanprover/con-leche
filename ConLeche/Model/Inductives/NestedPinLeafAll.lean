@@ -1654,25 +1654,42 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
       · simp only [nestedPc, ← Nat.add_assoc]
         exact htgz
   · -- **the OWNER's half of the two copies' field-data tie** (task
-    -- #315 WIDE (3), step 1(a)): `G.ordTgt`, whose guard names the
-    -- container at an ARBITRARY member of the group — so this side
+    -- #315 WIDE (3), steps 1(a) and 3): `G.ordTgt` at a PIN target and
+    -- `G.ordTgtMem` at a MEMBER one — two rows whose guards are the
+    -- two sides of the block's own target, so the DISJUNCT is chosen
+    -- here and the clause carries no guard of its own.  Both name the
+    -- container at an ARBITRARY member of the group, so this side
     -- hands in the one it already holds, at its own member `i`, read
-    -- at the ELIMINATION's environment (`hcontE`).  The row names the
-    -- TARGET PIN and its parameter count, not the head's container
-    -- record, so it names no environment beyond the reading's own.
-    intro ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom lps hjA hst hdm lpsC Jm hJm
+    -- at the ELIMINATION's environment (`hcontE`).  Neither names an
+    -- environment beyond the reading's own: the pin arm reads the
+    -- TARGET PIN's parameter count and the member arm the BLOCK's.
+    intro ψ ρp hρp i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm lpsC Jm hJm
       hlpsE K usK hfin
-    simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc hpinT
-    obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom
-      lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE K usK
-      hfin
-    refine ⟨z, hz, ?_, ?_, ?_⟩
-    · simp only [nestedPc, ← Nat.add_assoc]
-      exact htg
-    · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
-      exact hEl
-    · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
-      exact hOT
+    simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc
+    by_cases hmemT : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k
+    · refine Or.inr ?_
+      obtain ⟨mm, hmm, htg, hEl, hOT⟩ := G.ordTgtMem ψ ρp hρp i' hi' j hj l hl hrs hrc hmemT cA bs
+        rr dom lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE
+        K usK hfin
+      refine ⟨mm, hmm, ?_, ?_, ?_⟩
+      · simp only [nestedPc, ← Nat.add_assoc]
+        exact htg
+      · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+        exact hEl
+      · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+        exact hOT
+    · refine Or.inl ?_
+      obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hmemT cA bs rr
+        dom lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE
+        K usK hfin
+      refine ⟨z, hz, ?_, ?_, ?_⟩
+      · simp only [nestedPc, ← Nat.add_assoc]
+        exact htg
+      · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+        exact hEl
+      · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+        exact hOT
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj

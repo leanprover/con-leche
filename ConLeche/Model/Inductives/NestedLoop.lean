@@ -144,6 +144,16 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
         dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin
       refine ⟨z, hz, htg, hEl, fun fs₁ hfs hfit => ?_⟩
       obtain ⟨htl, fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
+      exact ⟨htl, fb, Ps, hlen, hde _ _ _ hd⟩
+    -- the same tie at a MEMBER target (task #315 WIDE (3), step 3):
+    -- the same `denoteMeta` conclusion at the same frame, so the same
+    -- word crosses it
+    ordTgtMem := fun ψ ρp hsat i' hi' j hj l hl hord hrss hmemT cA bs rr dom lps lpsC hjA hstrip
+        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin => by
+      obtain ⟨mm, hmm, htg, hEl, hOT⟩ := G.ordTgtMem ψ ρp hsat i' hi' j hj l hl hord hrss hmemT
+        cA bs rr dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin
+      refine ⟨mm, hmm, htg, hEl, fun fs₁ hfs hfit => ?_⟩
+      obtain ⟨htl, fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
       exact ⟨htl, fb, Ps, hlen, hde _ _ _ hd⟩ }
 
 /-! ## The two named facts' interfaces -/

@@ -737,20 +737,29 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
   -- `containerInfo?` of the head — which is what lets it cross here
   -- in a word instead of asking every caller for a group frame at an
   -- arbitrary name.
-  · intro ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom lps hjA hstrip hdm
+  · intro ψ ρp hρp i' hi' j hj l hl hrsC hrsB cA bs rr dom lps hjA hstrip hdm
       lpsC Jm hJm hlpsE K usK hfin
-    obtain ⟨z, hz, htg, hEl, hOT⟩ := hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom
-      lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hfin
     have hdomPF : ProjFree Ts dom.1 := fun T hT jj =>
       (ConLeche.rg_noProjAt_stripPis _ hstrip
         (hpfDom q hq ci hcont i' j cA (hgv.kEq ▸ hi') hjA T hT jj)).1 dom
           (List.mem_of_getElem? hdm)
     have hownPF : ProjFree Ts ((d.ownPinTerms lps).getD (q₀ + i') default) :=
       hpfOwn lps (q₀ + i') (by have := hgv.seg; omega)
-    refine ⟨z, hz, htg, hEl, fun fs₁ hlen hsp => ?_⟩
-    obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
-    exact ⟨htl, fb, Ps, hPs,
-      hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩
+    -- the two DISJUNCTS cross alike (task #315 WIDE (3), step 3): the
+    -- reading's subject is the same recomputation on both, and the
+    -- counts each arm names — the target pin's, or the block's own —
+    -- are block-model data and cross for free
+    rcases hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB cA bs rr dom
+        lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hfin with
+      ⟨z, hz, htg, hEl, hOT⟩ | ⟨mm, hmm, htg, hEl, hOT⟩
+    · refine Or.inl ⟨z, hz, htg, hEl, fun fs₁ hlen hsp => ?_⟩
+      obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
+      exact ⟨htl, fb, Ps, hPs,
+        hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩
+    · refine Or.inr ⟨mm, hmm, htg, hEl, fun fs₁ hlen hsp => ?_⟩
+      obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
+      exact ⟨htl, fb, Ps, hPs,
+        hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old
   obtain ⟨cv₁, caps₁, hf₁⟩ := h0.pinsFound (q₀ + i') (by

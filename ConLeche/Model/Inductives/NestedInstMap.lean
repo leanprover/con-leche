@@ -3665,4 +3665,16 @@ theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
     lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hfin
   exact ⟨z, hz, htg, hEl, hOT⟩
 
+/-- **THE OWNER-HALF RESIDUAL AT A MEMBER TARGET, DISCHARGED** (task
+#315 WIDE (3), step 3): `NestedPinsOrdTgtMem` at every run and every
+pin group, from `NestedPinsRun.ordTgtMemReadAt`. -/
+theorem nestedPinsOrdTgtMem_of {F : Nat} : NestedPinsOrdTgtMem V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro ψ ρp hsat i' hi' j hj l hl hord hrss hmemT cA bs rr dom lps lpsC hjA hstrip hdom
+    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  exact R.ordTgtMemReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hmemT lps lpsC hjA hstrip hdom
+    hi₀ hciC hJmC hlpsE hfin
+
 end ConLeche.Model

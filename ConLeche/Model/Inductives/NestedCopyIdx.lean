@@ -553,11 +553,68 @@ off the two wrappers of `NestedCopyInst.lean`. -/
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps) dom.1
 
+/-- **RESIDUAL 5 — THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE
+AT A MEMBER TARGET** (task #315 WIDE (3), step 3): `NestedPinsOrdTgt`'s
+sibling at the other arm of the target split.  At a field the pin's
+container calls ORDINARY and the block's rewrite made recursive, whose
+block target IS a member of the block, the OWNER's own recomputation of
+the field's target reads as an application whose arguments past the
+BLOCK's parameters are the COPY's index expressions.
+
+The two counts are the MEMBER's own: a member is applied to the
+block's parameters (`b.nP`) and carries its own index telescope
+(`nIdxAt`), where the pin arm reads the target pin's `nPJ`/`nIdx`.
+Nothing here names a container record: at a member target the
+positivity normalisation lands on the copy's stored domain with no
+rewrite between them (K.42), so there is no pre-block lookup to carry.
+
+`NestedPinsRun.ordTgtMemReadAt` discharges it (`NestedInstMap.lean`). -/
+@[expose] def NestedPinsOrdTgtMem (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF
+      xrestF eissF tssF ctorsR dsR xFvsR pinsS mp₁' q₀ kJ dJ =>
+    ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
+      ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+        (dom : Expr × ConLeche.BinderMeta) (lps lpsC : List Name),
+      (dJ.ctorsM i')[j]? = some cA →
+      cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+      bs[dJ.nP + l]? = some dom →
+      ∀ i₀, i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC →
+      ciC.members[i']? = some Jm → Jm.lps = lpsC →
+      ∀ (K : Name) (usK : List Level),
+      (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
+          = .const K usK →
+      ∃ mm : Nat, mm < p.k ∧
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length
+          = (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).nIdxAt mm ∧
+        OrdTargetRead (V := V) mp₁'.base2.acval
+          (ConLeche.consMutualFormers (fms.take p.k) env) ψ ρp b.nP l
+          ((pinsS.getD q₀ default).Ds ψ)
+          ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          b.nP lpsC dJ.nP (q₀ + i')
+          ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps) dom.1
+
 /-- **`NestedPinsIdent` from the shapes, the entries, the instance map
 and the owner-half tie**: `idx` is a theorem (`nestedPinsIdx`), the
-shape, the entry, the instance map and `ordTgt` the named residuals. -/
+shape, the entry, the instance map and `ordTgt`/`ordTgtMem` — the tie's
+two target arms — the named residuals. -/
 theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : NestedPinsEntry V μ F)
-    (hIn : NestedPinsInst V μ F) (hOT : NestedPinsOrdTgt V μ F) :
+    (hIn : NestedPinsInst V μ F) (hOT : NestedPinsOrdTgt V μ F)
+    (hOM : NestedPinsOrdTgtMem V μ F) :
     NestedPinsIdent V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
@@ -570,6 +627,8 @@ theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : Neste
     hIn mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
     hOT mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
+      esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
+    hOM mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S⟩
 
 end ConLeche.Model

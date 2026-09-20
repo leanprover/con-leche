@@ -1190,20 +1190,29 @@ at the other.  `PinCorr`'s `EA` clause is absent for the reason it is
 absent from `hpinσ`: `targetRead_of_pin` rebuilds it from the three
 that are here, and it is the only one that reads a model.
 
-**THE OWNER'S HALF** (task #315 WIDE (3), step 1(a)): at a field the
-pin's container calls ORDINARY and the block's rewrite made recursive,
-whose block target is a PIN and not a member, the OWNER's own
-recomputation of the field's target — `ordTargetDom`, K.67's spelling —
-READS, at the block's parameter frame opened to the field's cut, as an
-application whose arguments past the head container's parameters are
-the copy's index expressions (`OrdTargetRead`).  The row beside it
-relates the two copies' TARGETS; this relates their index
+**THE OWNER'S HALF** (task #315 WIDE (3), steps 1(a) and 3): at a
+field the pin's container calls ORDINARY and the block's rewrite made
+recursive, the OWNER's own recomputation of the field's target —
+`ordTargetDom`, K.67's spelling — READS, at the block's parameter frame
+opened to the field's cut, as an application whose arguments past the
+head container's parameters are the copy's index expressions
+(`OrdTargetRead`).  The row beside it relates the two copies' TARGETS;
+this relates their index
 EXPRESSIONS, which is what the wide identification's pin half asks for
 where it compares two index spines rather than two class numbers.
 
-It names the TARGET PIN `z` and takes its parameter count from the
-block's own record (`(d.pinAt z).nPJ`) rather than from a
-`containerInfo?` of the recomputation's head.  That is deliberate: a
+**Its two DISJUNCTS are the target's two arms** (task #315 WIDE (3),
+step 3): at a PIN target it names the target pin `z` and reads the
+head's parameter and index counts off that pin (`nPJ`/`nIdx`); at a
+MEMBER target it names the member `mm` and the counts are the BLOCK's
+own (`d.nP`, `d.nIdxAt mm`) — a member is applied to the block's
+parameters and carries its own index telescope.  Neither arm takes the
+target's side as a GUARD, because the clause's consumers split on it
+and the producer knows it.
+
+It takes the pin arm's parameter count from the block's own record
+(`(d.pinAt z).nPJ`) rather than from a `containerInfo?` of the
+recomputation's head.  That is deliberate: a
 clause may only PRODUCE environment facts, and one that produced a
 group at an arbitrary NAME would have to be carried across every
 install by a frame no crossing site holds.  With the target named, the
@@ -1269,7 +1278,6 @@ unchanged. -/
       l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
       (((B ci).rss i').getD j []).getD l false = false →
       ((pc (q₀ + i')).rss.getD j []).getD l false = true →
-      ¬ (pc (q₀ + i')).tgts j l < d.k →
       ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
         (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
       ((B ci).ctorsM i')[j]? = some cA →
@@ -1279,14 +1287,22 @@ unchanged. -/
       ci.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
       (dom.1.instantiateLevelParams lpsC ((d.pinAt (q₀ + i')).lvls)).getAppFn = .const K usK →
-      ∃ z : Nat, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
+      (∃ z : Nat, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
         ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l []).length = (d.pinAt z).nIdx ∧
         OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
           ((d.pinAt q₀).Ds ψ)
           (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
           ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
           ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [])
-          ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1) ∧
+          ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1) ∨
+      (∃ mm : Nat, mm < d.k ∧ (pc (q₀ + i')).tgts j l = mm ∧
+        ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l []).length = d.nIdxAt mm ∧
+        OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
+          ((d.pinAt q₀).Ds ψ)
+          (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
+          ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
+          ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [])
+          d.nP lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1)) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -1431,10 +1447,10 @@ parameters are the copy's index expressions — together with the two
 lengths the consumer splits that application at (`Ps` by the target
 pin's `nPJ`, `Eis` by its `nIdx`).
 
-Its guard is the clause's own: the owner's target is one of the
-owner's PINS (`¬ (pc _).tgts j l < d.k`).  At a MEMBER target the
-clause says nothing, and that arm of the two copies' field-data tie is
-a separate object. -/
+Its guard is the target's side: the owner's target is one of the
+owner's PINS (`¬ (pc _).tgts j l < d.k`), which is what selects the
+clause's pin DISJUNCT — the member one names a class below `d.k` and
+cannot hold beside it.  `rowOrdReadMem` is the other arm. -/
 theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
     {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinShapes m B d pc)
     {q : Nat} (hq : q < d.nPins) {ci : ContainerInfo}
@@ -1465,7 +1481,61 @@ theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo
             ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1 := by
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
-  exact ⟨q₀, kJ, i, hqe, hi, hgv, hrd⟩
+  refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ ρp hρp i' hi' j hj l hl hrsC hrsP hpinT cA bs rr dom lps
+    hjA hst hdm lpsC Jm hJm hlpsE K usK hfin => ?_⟩
+  rcases hrd ψ ρp hρp i' hi' j hj l hl hrsC hrsP cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE
+      K usK hfin with hz | ⟨mm, hmm, htg, -, -⟩
+  · exact hz
+  · exact absurd (htg ▸ hmm) hpinT
+
+/-- **K.68's MEMBER ROW, READ AT ONE PIN** (task #315 WIDE (3), step
+3): `rowOrdRead`'s sibling at the other arm of the target split — the
+owner's rewrite sent the field to one of the OWNER's own members, and
+the clause's member disjunct says what the owner's recomputation of
+that target reads as.
+
+The two lengths the consumer splits the application at are the
+MEMBER's own: the head's parameters are the owner block's (`d.nP` — a
+member is applied to the block's parameters) and the index expressions
+are as many as that member's index telescope (`d.nIdxAt mm`).  Its
+guard is the target's side, which selects the disjunct the way
+`rowOrdRead`'s selects the other. -/
+theorem PinShapes.rowOrdReadMem {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinShapes m B d pc)
+    {q : Nat} (hq : q < d.nPins) {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env (d.pinAt q).J = some ci) :
+    ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PinGroupView d (B ci) q₀ kJ ∧
+      ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+        ∀ i', i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+        l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+        (((B ci).rss i').getD j []).getD l false = false →
+        ((pc (q₀ + i')).rss.getD j []).getD l false = true →
+        (pc (q₀ + i')).tgts j l < d.k →
+        ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+          (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+        ((B ci).ctorsM i')[j]? = some cA →
+        cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
+        bs[(B ci).nP + l]? = some dom →
+        ∀ (lpsC : List Name) (Jm : ContainerMember),
+        ci.members[i']? = some Jm → Jm.lps = lpsC →
+        ∀ (K : Name) (usK : List Level),
+        (dom.1.instantiateLevelParams lpsC ((d.pinAt (q₀ + i')).lvls)).getAppFn = .const K usK →
+        ∃ mm : Nat, mm < d.k ∧ (pc (q₀ + i')).tgts j l = mm ∧
+          ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l []).length = d.nIdxAt mm ∧
+          OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
+            ((d.pinAt q₀).Ds ψ)
+            (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
+            ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
+            ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [])
+            d.nP lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1 := by
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
+  obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
+  refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ ρp hρp i' hi' j hj l hl hrsC hrsP hmemT cA bs rr dom lps
+    hjA hst hdm lpsC Jm hJm hlpsE K usK hfin => ?_⟩
+  rcases hrd ψ ρp hρp i' hi' j hj l hl hrsC hrsP cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE
+      K usK hfin with ⟨z, -, htg, -, -⟩ | hm
+  · exact absurd (htg ▸ hmemT) (by omega)
+  · exact hm
 
 /-- **A PIN'S INDEX COUNT IS ITS CONTAINER'S MEMBER'S STORED ARITY**
 (task #315 WIDE (3), step 2): `PinShapes`' group view composed with
