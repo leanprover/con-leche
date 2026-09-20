@@ -1130,6 +1130,118 @@ def piResidual (e : Expr) (args : List Expr) : Option Expr :=
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 
+/-- The plain descent of `allLevelParamsDefinedC`: the reference the
+walk is verified against (`allLevelParamsDefinedP_spec`,
+`ConLeche/Verify/Cached/GuardsC.lean`, is the equation to
+`Expr.allLevelParamsDefined`).  The incumbent's cutoff: a node without
+a level parameter is `true` without traversal. -/
+def allLevelParamsDefinedP (params : List Name) (e : Expr) : Bool :=
+  if e.hasLP then
+    match e with
+    | .bvar .. | .lit .. => true
+    | .sort u .. => Level.allParamsDefined params u
+    | .const _ us .. => us.all (Level.allParamsDefined params)
+    | .fvar _ ty .. => allLevelParamsDefinedP params ty
+    | .app f a .. =>
+      allLevelParamsDefinedP params f && allLevelParamsDefinedP params a
+    | .lam ty body m .. | .forallE ty body m .. =>
+      allLevelParamsDefinedP params ty && allLevelParamsDefinedP params body
+        && m.pw.paramsDefined params
+    | .letE ty val body .. =>
+      allLevelParamsDefinedP params ty && allLevelParamsDefinedP params val
+        && allLevelParamsDefinedP params body
+    | .proj _ _ sub .. => allLevelParamsDefinedP params sub
+  else true
+
+theorem allLevelParamsDefinedP_cut {params : List Name} {e : Expr}
+    (h : ¬ e.hasLP = true) : allLevelParamsDefinedP params e = true := by
+  rw [allLevelParamsDefinedP.eq_def]; simp [h]
+
+/-- The child step of `allLevelParamsDefinedXP`: the cutoff, the
+compound test, the exclusivity read. -/
+@[inline] def enterLPD (params : @& List Name) (e : @& Expr)
+    (memo : MemoB0 (allLevelParamsDefinedP params))
+    (rec : (hcut : e.hasLP = true) →
+      Squash (ResB0 (allLevelParamsDefinedP params) e)) :
+    Squash (ResB0 (allLevelParamsDefinedP params) e) :=
+  if hcut : e.hasLP = true then
+    (if !isCompoundF e then rec hcut
+     else withExcl e fun excl =>
+       if excl then rec hcut else memo.shared e fun _ => rec hcut)
+  else Squash.mk (⟨true, (allLevelParamsDefinedP_cut hcut).symm⟩, memo)
+
+/-- The walk of `allLevelParamsDefinedC` under `.excl` (the node is
+past the cutoff: the wrapper and `enterLPD` test it). -/
+def allLevelParamsDefinedXP (params : @& List Name)
+    (memo : MemoB0 (allLevelParamsDefinedP params)) (e : @& Expr)
+    (hcut : e.hasLP = true) :
+    Squash (ResB0 (allLevelParamsDefinedP params) e) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .sort u .. =>
+    Squash.mk (⟨Level.allParamsDefined params u,
+      by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .const _ us .. =>
+    Squash.mk (⟨us.all (Level.allParamsDefined params),
+      by rw [allLevelParamsDefinedP]; simp [hcut]⟩, memo)
+  | .fvar _ ty .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    Squash.mk (⟨rt, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .app f a .. =>
+    enterLPD params f memo (fun h => allLevelParamsDefinedXP params memo f h)
+      |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterLPD params a memo (fun h => allLevelParamsDefinedXP params memo a h)
+        |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [allLevelParamsDefinedP]; simp [hcut, ← hf, ← ha]⟩, memo)
+    | false, hf =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← hf]⟩, memo)
+  | .lam ty body m .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb && m.pw.paramsDefined params,
+        by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .forallE ty body m .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb && m.pw.paramsDefined params,
+        by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hb]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .letE ty val body .. =>
+    enterLPD params ty memo (fun h => allLevelParamsDefinedXP params memo ty h)
+      |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterLPD params val memo (fun h => allLevelParamsDefinedXP params memo val h)
+        |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterLPD params body memo (fun h => allLevelParamsDefinedXP params memo body h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+      | false, hv =>
+        Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht, ← hv]⟩, memo)
+    | false, ht =>
+      Squash.mk (⟨false, by rw [allLevelParamsDefinedP]; simp [hcut, ← ht]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLPD params sub memo (fun h => allLevelParamsDefinedXP params memo sub h)
+      |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [allLevelParamsDefinedP]; simp [hcut, ← hs]⟩, memo)
+
 /-- Core of `allLevelParamsDefinedC` (memoized; nodes without a level
 parameter are `true` without traversal — the `hasLP` cutoff). -/
 def allLevelParamsDefinedGoC (params : List Name)
@@ -1165,8 +1277,12 @@ def allLevelParamsDefinedGoC (params : List Name)
     (r, memo.insert e r)
 
 /-- The cached `Expr.allLevelParamsDefined params` (one memoized DAG
-walk). -/
+walk), at the committed position of `boolMemoMode`. -/
 def allLevelParamsDefinedC (params : List Name) (e : Expr) : Bool :=
-  (allLevelParamsDefinedGoC params {} e).1
+  match boolMemoMode with
+  | .keyed => (allLevelParamsDefinedGoC params {} e).1
+  | .excl =>
+    if hcut : e.hasLP = true then resBool (allLevelParamsDefinedXP params none e hcut)
+    else true
 
 end ConLeche.Expr

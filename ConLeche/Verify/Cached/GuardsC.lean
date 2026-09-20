@@ -311,11 +311,84 @@ theorem allLevelParamsDefinedGoC_spec {ps : List Name} :
         simp only [hp]
         exact ⟨h1, h2.insert h1⟩
 
+/-- The `.excl` walk's cutoff, read as the specification: a node
+without a level parameter has all of them defined. -/
+private theorem lpdP_cut_spec {ps : List Name} {e : Expr} (h : ¬ e.hasLP = true) :
+    true = Expr.allLevelParamsDefined ps e :=
+  (Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
+    (by rw [← hasLP_eq _]; simpa using h)).symm
+
+/-- **The plain descent of the `.excl` walk is
+`Expr.allLevelParamsDefined`.** -/
+theorem allLevelParamsDefinedP_spec {ps : List Name} : ∀ {e : Expr},
+    Expr.allLevelParamsDefinedP ps e = Expr.allLevelParamsDefined ps e := by
+  intro e
+  induction e with
+  | bvar i =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | lit l =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | sort u =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | const n us =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | fvar idx ty iht =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [iht, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | app f a ihf iha =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [ihf, iha, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | lam ty bd m iht ihb =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [iht, ihb, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | forallE ty bd m iht ihb =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [iht, ihb, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | letE ty val bd iht ihv ihb =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [iht, ihv, ihb, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+  | proj s i sub ihe =>
+    rw [Expr.allLevelParamsDefinedP.eq_def]
+    split
+    · simp only [ihe, Expr.allLevelParamsDefined]
+    · next h => exact lpdP_cut_spec h
+
 /-- **`Expr.allLevelParamsDefined` is `Expr.allLevelParamsDefined` of
 the erasure.** -/
 theorem allLevelParamsDefinedC_spec {ps : List Name} {e : Expr} :
-    Expr.allLevelParamsDefinedC ps e = (Expr.allLevelParamsDefined ps e) :=
-  (allLevelParamsDefinedGoC_spec MemoLPDInv.empty).1
+    Expr.allLevelParamsDefinedC ps e = (Expr.allLevelParamsDefined ps e) := by
+  rw [Expr.allLevelParamsDefinedC.eq_def]
+  cases Expr.boolMemoMode with
+  | keyed => exact (allLevelParamsDefinedGoC_spec MemoLPDInv.empty).1
+  | excl =>
+    show (if hcut : e.hasLP = true then
+        Expr.resBool (Expr.allLevelParamsDefinedXP ps none e hcut) else true)
+      = Expr.allLevelParamsDefined ps e
+    split
+    · rw [Expr.resBool_eq]; exact allLevelParamsDefinedP_spec
+    · next h => exact lpdP_cut_spec h
 
 /-! ## The fabrication leaf guard
 
