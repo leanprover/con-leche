@@ -2016,38 +2016,6 @@ theorem ordTargetDom_eq_instSeq {lps : List Name} {nP l : Nat} {ownSelf : List E
       show l + domPiDepth (dom.instantiateLevelParams lps lvls) + (n + 1) - 1
         = n + 1 - 1 + (l + domPiDepth (dom.instantiateLevelParams lps lvls)) from by omega]
 
-/-- **The same at a FINITARY field**, where the tower is empty: a
-recomputation whose stored domain is already at a constant head has
-`stripDomPis` the identity and `domPiDepth` zero, so the cut is the
-field's own `l` and the term is the stored domain at the entry's
-levels — `NestedPinsRun.copyResid`'s minted-telescope entry, character
-for character. -/
-theorem ordTargetDom_eq_instSeq_const {lps : List Name} {nP l : Nat} {ownSelf : List Expr}
-    {qK : Nat} {I : Name} {lvls : List Level} {Ds : List Expr} {dom : Expr}
-    {K : Name} {usK : List Level}
-    (hown : ownSelf.getD qK default = Expr.mkAppN (.const I lvls) Ds)
-    (hlen : Ds.length = nP)
-    (hfin : (dom.instantiateLevelParams lps lvls).getAppFn = .const K usK) :
-    ordTargetDom lps nP ownSelf qK l dom
-      = Expr.instSeq Ds (nP - 1 + l) (dom.instantiateLevelParams lps lvls) := by
-  have hlvls : ordTargetLvls ownSelf qK = lvls := by
-    unfold ordTargetLvls
-    rw [hown, Expr.getAppFn_mkAppN]
-    rfl
-  have hL : ordTargetDomL lps ownSelf qK dom = dom.instantiateLevelParams lps lvls := by
-    unfold ordTargetDomL; rw [hlvls]
-  have hnotPi : ∀ ty bo bm, dom.instantiateLevelParams lps lvls ≠ Expr.forallE ty bo bm := by
-    intro ty bo bm h
-    rw [h] at hfin
-    exact nomatch (hfin : Expr.forallE ty bo bm = Expr.const K usK)
-  have hstrip : stripDomPis (dom.instantiateLevelParams lps lvls)
-      = dom.instantiateLevelParams lps lvls ∧
-      domPiDepth (dom.instantiateLevelParams lps lvls) = 0 := by
-    cases hd : dom.instantiateLevelParams lps lvls with
-    | forallE ty bo bm => exact absurd hd (hnotPi ty bo bm)
-    | _ => exact ⟨rfl, rfl⟩
-  rw [ordTargetDom_eq_instSeq hown hlen, hL, hstrip.1, hstrip.2, Nat.add_zero]
-
 /-! ### The block's own-pin table entry, at the run's pin record
 
 `ordTargetDom`'s components come from the table entry it is addressed
@@ -2057,7 +2025,7 @@ at `containerParamOpeners`.  Since those openers are the parameter
 FVARS themselves (at the placeholder annotation `sort 0`), the entry is
 the recorded pin with its components' fvar ANNOTATIONS normalised and
 nothing else moved: the head, the levels and the arity are the run's
-own.  That is what makes `ordTargetDom_eq_instSeq_const` applicable at
+own.  That is what makes `ordTargetDom_eq_instSeq_flat` applicable at
 the block's side with the run's `st.pins` record as its only input. -/
 
 /-- Bulk instantiation commutes with an application spine. -/
@@ -2092,32 +2060,109 @@ theorem nestedPinTermsSelf_shape {p : NestedParts} {st : ElimState} {q : Nat}
       = .const I lvls from by simp only [Expr.instantiateList], List.map_map]
   rfl
 
+/-! ### The tower is TABLE-INDEPENDENT (task #315 WIDE (f3) step 4,
+object (1))
+
+`ordTargetDomL` is the stored domain at whichever own-pin table it is
+addressed at, and the only thing the table contributes is the LEVELS.
+Level instantiation maps a `forallE` to a `forallE` and nothing else to
+one, so the `Π`-tower's DEPTH — and, up to the same instantiation, its
+body — is the STORED domain's and is the same number at every table.
+That is what lets the OWNER's cut and the BLOCK's be one number
+without flatness, which is the reflexive twin's first object. -/
+
+/-- Level instantiation does not move the `Π`-tower's depth. -/
+theorem domPiDepth_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ e : Expr, domPiDepth (e.instantiateLevelParams ks us) = domPiDepth e := by
+  intro e
+  induction e with
+  | forallE ty body m _ ih => simp only [Expr.instantiateLevelParams, domPiDepth, ih]
+  | _ => rfl
+
+/-- **THE TOWER'S DEPTH IS THE STORED DOMAIN'S, AT EVERY TABLE**: the
+number `ordTargetDom` cuts at is `l + domPiDepth dom`, and no own-pin
+table moves it. -/
+theorem domPiDepth_ordTargetDomL (lps : List Name) (t : List Expr) (q : Nat) (dom : Expr) :
+    domPiDepth (ordTargetDomL lps t q dom) = domPiDepth dom :=
+  domPiDepth_instantiateLevelParams _ _ dom
+
+/-- An erasure-equal partner of a constant IS that constant, read on
+the LEFT (`ErasedEq`'s own match; the `Norm` file's twin reads it on
+the right). -/
+theorem erasedEq_const_left {K : Name} {us : List Level} {e : Expr}
+    (h : Expr.ErasedEq (.const K us) e) : e = .const K us := by
+  match e, h with
+  | .const n vs, h => obtain ⟨rfl, rfl⟩ := h; rfl
+
+/-- **AN ERASURE-EQUAL PARTNER HAS THE SAME CONSTANT HEAD** (task #315
+WIDE (f3) step 3(b)): what a proof spends a constant head on survives
+the annotation round trip the two openings differ by, so a head read
+off ONE of the two spellings serves the other. -/
+theorem erasedEq_getAppFn_const {e e' : Expr} {K : Name} {us : List Level}
+    (h : Expr.ErasedEq e e') (hK : e.getAppFn = Expr.const K us) :
+    e'.getAppFn = Expr.const K us := by
+  have h1 := (ErasedEq.getApp h).1
+  rw [hK] at h1
+  exact erasedEq_const_left h1
+
+/-- A tower of depth zero is its own body. -/
+theorem stripDomPis_of_depth_zero {E : Expr} (h : domPiDepth E = 0) : stripDomPis E = E := by
+  cases E with
+  | forallE ty bo bm => exact nomatch (h : domPiDepth bo + 1 = 0)
+  | _ => rfl
+
+/-- **`ordTargetDom` IS THE MINTED DOMAIN'S SPELLING, AT THE FLAT
+GUARD** (task #315 WIDE (f3) step 3(b)): at a stored domain with no
+`Π`-tower the cut is the field's own `l` and the term is the stored
+domain at the entry's levels — `NestedPinsRun.copyResid`'s minted
+telescope entry, character for character.
+
+**The guard is FLATNESS and not the domain's constant HEAD**, which is
+what the finitary form used to ask: a product container's field domain
+is a BARE PARAMETER (`Pair α β | mk (a : α) (b : β)`), whose `getAppFn`
+is a `bvar`, so the head form is unstatable at `nested_bvar_field`,
+`nested_pin_nocollide` and `nested_p04` — three official ACCEPTS —
+while flatness holds at all three. -/
+theorem ordTargetDom_eq_instSeq_flat {lps : List Name} {nP l : Nat} {ownSelf : List Expr}
+    {qK : Nat} {I : Name} {lvls : List Level} {Ds : List Expr} {dom : Expr}
+    (hown : ownSelf.getD qK default = Expr.mkAppN (.const I lvls) Ds)
+    (hlen : Ds.length = nP)
+    (hflat : domPiDepth dom = 0) :
+    ordTargetDom lps nP ownSelf qK l dom
+      = Expr.instSeq Ds (nP - 1 + l) (dom.instantiateLevelParams lps lvls) := by
+  have hL : ordTargetDomL lps ownSelf qK dom = dom.instantiateLevelParams lps lvls := by
+    unfold ordTargetDomL
+    rw [show ordTargetLvls ownSelf qK = lvls from by
+      unfold ordTargetLvls; rw [hown, Expr.getAppFn_mkAppN]; rfl]
+  have hd : domPiDepth (dom.instantiateLevelParams lps lvls) = 0 := by
+    rw [domPiDepth_instantiateLevelParams]; exact hflat
+  rw [ordTargetDom_eq_instSeq hown hlen, hL, stripDomPis_of_depth_zero hd, hd, Nat.add_zero]
+
 /-- **K.69'S BLOCK SIDE, IN THE RUN'S IDIOM** (task #315 WIDE (3), lane
-LE): `ordTargetDom_eq_instSeq_const` addressed at the block's own
-table, with the run's pin record as its only input — the recomputation
-is the container's stored field domain at the pin's LEVELS, folded onto
-the pin's COMPONENTS at the field's own cut, which is the spelling
+LE; at the FLAT guard since WIDE (f3) step 3(b)):
+`ordTargetDom_eq_instSeq_flat` addressed at the block's own table, with
+the run's pin record as its only input — the recomputation is the
+container's stored field domain at the pin's LEVELS, folded onto the
+pin's COMPONENTS at the field's own cut, which is the spelling
 `NestedPinsRun.copyResid`'s minted telescope carries.
 
 The components arrive through `nestedPinTermsSelf`'s abstraction and
 re-opening; that round trip normalises a component's free-variable
 annotations and moves nothing else, which is why the equation can be
 stated against the run's recorded `Ds` at all. -/
-theorem ordTargetDom_pinTermsSelf {p : NestedParts} {st : ElimState} {q : Nat}
+theorem ordTargetDom_pinTermsSelf_flat {p : NestedParts} {st : ElimState} {q : Nat}
     {pn : NestedPin} {I : Name} {lvls : List Level} {Ds : List Expr}
-    {lps : List Name} {nP l : Nat} {dom : Expr} {K : Name} {usK : List Level}
+    {lps : List Name} {nP l : Nat} {dom : Expr}
     (hq : st.pins[q]? = some pn) (hpin : pn.pin = Expr.mkAppN (.const I lvls) Ds)
     (hlen : Ds.length = nP)
-    (hfin : (dom.instantiateLevelParams lps lvls).getAppFn = .const K usK) :
+    (hflat : domPiDepth dom = 0) :
     ordTargetDom lps nP (nestedPinTermsSelf p st) q l dom
       = Expr.instSeq
           (Ds.map fun a => Expr.instantiateList (Expr.abstractRange a 0 p.nP 0)
             (containerParamOpeners p.nP).reverse 0)
           (nP - 1 + l) (dom.instantiateLevelParams lps lvls) :=
-  ordTargetDom_eq_instSeq_const (nestedPinTermsSelf_shape hq hpin)
-    (by rw [List.length_map]; exact hlen) hfin
-
-
+  ordTargetDom_eq_instSeq_flat (nestedPinTermsSelf_shape hq hpin)
+    (by rw [List.length_map]; exact hlen) hflat
 
 /-! ### The tower's cut, syntactically (task #315 WIDE (3), step 1)
 

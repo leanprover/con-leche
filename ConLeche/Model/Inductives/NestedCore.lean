@@ -524,8 +524,14 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
+      -- task #315 WIDE (f3) step 3(b): flatness, the recomputation's
+      -- head, and the reflexive arm's stored head under its own kind
+      ConLeche.domPiDepth dom.1 = 0 →
+      (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
+        (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
+          ((D).pinAt (q₀ + i')).lvls dom.1)).getAppFn = .const K usK) →
       ∃ z : Nat, z < (D).nPins ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
@@ -566,8 +572,13 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
+      -- task #315 WIDE (f3) step 3(b), `ordTgt`'s own move
+      ConLeche.domPiDepth dom.1 = 0 →
+      (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
+        (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
+          ((D).pinAt (q₀ + i')).lvls dom.1)).getAppFn = .const K usK) →
       ∃ mm : Nat, mm < p.k ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm ∧

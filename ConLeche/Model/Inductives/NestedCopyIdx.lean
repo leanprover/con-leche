@@ -535,8 +535,18 @@ off the two wrappers of `NestedCopyInst.lean`. -/
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
-          = .const K usK →
+      -- FLATNESS AND THE BLOCK'S RECOMPUTATION HEAD (task #315 WIDE
+      -- (f3) step 3(b)), the reflexive arm's stored head under its
+      -- own kind — the stored-domain form was FALSE at a
+      -- bare-parameter field
+      ConLeche.domPiDepth dom.1 = 0 →
+      (ConLeche.ordTargetDom lpsC dJ.nP
+          ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)
+          (q₀ + i') l dom.1).getAppFn = .const K usK →
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
+        (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
+          (pinsS.getD (q₀ + i') default).lvls dom.1)).getAppFn = .const K usK) →
       ∃ z : Nat, z < pinsS.length ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
@@ -589,8 +599,15 @@ rewrite between them (K.42), so there is no pre-block lookup to carry.
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
-          = .const K usK →
+      -- task #315 WIDE (f3) step 3(b), `NestedPinsOrdTgt`'s own move
+      ConLeche.domPiDepth dom.1 = 0 →
+      (ConLeche.ordTargetDom lpsC dJ.nP
+          ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)
+          (q₀ + i') l dom.1).getAppFn = .const K usK →
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
+        (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
+          (pinsS.getD (q₀ + i') default).lvls dom.1)).getAppFn = .const K usK) →
       ∃ mm : Nat, mm < p.k ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm ∧

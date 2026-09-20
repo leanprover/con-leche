@@ -738,7 +738,7 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
   -- in a word instead of asking every caller for a group frame at an
   -- arbitrary name.
   · intro ψ ρp hρp i' hi' j hj l hl hrsC hrsB cA bs rr dom lps hjA hstrip hdm
-      lpsC Jm hJm hlpsE K usK hfin
+      lpsC Jm hJm hlpsE K usK hflat hheadB hfinRefl
     have hdomPF : ProjFree Ts dom.1 := fun T hT jj =>
       (ConLeche.rg_noProjAt_stripPis _ hstrip
         (hpfDom q hq ci hcont i' j cA (hgv.kEq ▸ hi') hjA T hT jj)).1 dom
@@ -750,7 +750,7 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
     -- counts each arm names — the target pin's, or the block's own —
     -- are block-model data and cross for free
     rcases hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB cA bs rr dom
-        lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hfin with
+        lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hflat hheadB hfinRefl with
       ⟨z, hz, htg, hEl, hOT⟩ | ⟨mm, hmm, htg, hEl, hOT⟩
     · refine Or.inl ⟨z, hz, htg, hEl, fun fs₁ hlen hsp => ?_⟩
       obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp

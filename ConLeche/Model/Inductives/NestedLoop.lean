@@ -139,9 +139,9 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     -- records, the container's stored constructor, the own-pin table —
     -- is read at the PRE-BLOCK environment, which does not move.
     ordTgt := fun ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip
-        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin => by
+        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hflat hheadB hfinRefl => by
       obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr
-        dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin
+        dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hflat hheadB hfinRefl
       refine ⟨z, hz, htg, hEl, fun fs₁ hfs hfit => ?_⟩
       obtain ⟨htl, fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
       exact ⟨htl, fb, Ps, hlen, hde _ _ _ hd⟩
@@ -149,9 +149,10 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     -- the same `denoteMeta` conclusion at the same frame, so the same
     -- word crosses it
     ordTgtMem := fun ψ ρp hsat i' hi' j hj l hl hord hrss hmemT cA bs rr dom lps lpsC hjA hstrip
-        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin => by
+        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hflat hheadB hfinRefl => by
       obtain ⟨mm, hmm, htg, hEl, hOT⟩ := G.ordTgtMem ψ ρp hsat i' hi' j hj l hl hord hrss hmemT
-        cA bs rr dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin
+        cA bs rr dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hflat hheadB
+        hfinRefl
       refine ⟨mm, hmm, htg, hEl, fun fs₁ hfs hfit => ?_⟩
       obtain ⟨htl, fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
       exact ⟨htl, fb, Ps, hlen, hde _ _ _ hd⟩ }

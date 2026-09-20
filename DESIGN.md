@@ -127673,3 +127673,145 @@ corner is owed by the SYNTAX and by nothing else.
 `nested_redex_owner` row still described the PINNED FINDING
 (`Outer=error`) that step 1 flipped.  Rewritten to state the current
 fact and to say what the row is a regression for.
+
+#### WIDE (f3) STEP 3(b) — THE REMAINING SIX PLACES ARE OFF THE STORED DOMAIN'S HEAD, AND THE REFLEXIVE ARM'S GUARD HAD NO KIND TO NAME ITSELF BY (lane LE, 2026-09-20)
+
+Step 3(a) moved three of the places the refutation row listed; this
+moves the rest — and there were SIX, not five: the two-block field-data
+theorem (`two_block_field_data`, WIDE (3) step 2) reads the same head
+and the earlier count missed it.  **No `ConLeche` executable byte
+changed** — nothing under `Kernel/`, `Cached/`, `Frontend/` or
+`Main.lean` is touched — so this row is a proof-tier move and carries
+no measurement of its own.
+
+##### (a) WHAT EVERY ONE OF THEM ACTUALLY SPENT
+
+The stored-domain head `dom.1.getAppFn = .const K vs` was doing THREE
+jobs at once, and only the first two are ever used:
+
+1. **FLATNESS** — `domPiDepth (ordTargetDomL …) = 0`, which makes the
+   recomputation's cut the field's own `l`;
+2. **THE RECOMPUTATION'S HEAD** — at the owner's table and at the
+   block's, at ONE name;
+3. at the REFLEXIVE arm only, the stripped stored domain's head, which
+   `stripDomPis_instSeq` needs to know that the components'
+   substitution plants no new `Π`.
+
+(1) is now derived from a hypothesis `domPiDepth dom.1 = 0` through
+**the tower's TABLE-INDEPENDENCE**, which is step 4's own object (1)
+and is landed here because every one of these sites needed it:
+`domPiDepth_instantiateLevelParams` and `domPiDepth_ordTargetDomL`
+(`Verify/Inductives/NestedCopyKinds.lean`) — level instantiation maps
+a `forallE` to a `forallE` and nothing else to one, so the depth is the
+STORED domain's at every own-pin table.  (2) is taken as a hypothesis
+at each tier, and its producers are named below.  (3) stays, guarded.
+
+##### (b) THE OBJECTS
+
+| object | file | change |
+|---|---|---|
+| `domPiDepth_instantiateLevelParams`, `domPiDepth_ordTargetDomL`, `stripDomPis_of_depth_zero` | `Verify/Inductives/NestedCopyKinds.lean` | NEW — step 4's object (1) |
+| `ordTargetDom_eq_instSeq_flat`, `ordTargetDom_pinTermsSelf_flat` | same | the `_const` forms at the FLAT guard; the `_const` forms are DELETED (strictly stronger hypothesis, no other consumer) |
+| `erasedEq_const_left`, `erasedEq_getAppFn_const` | same | NEW — a constant head survives the annotation round trip the two openings differ by |
+| `copyOrdFRightPinOrdTargetRead`/`…At`, `copyOrdFRightMemOrdTargetRead`/`…At` | `Model/Inductives/NestedCopyInst.lean` | `hfin` → `hflat` + `hheadB`; the walk's identity at an inductive application is read off the BLOCK's recomputation through the residual's own `ErasedEq` |
+| `NestedPinsRun.ordTgtReadAt`, `ordTgtMemReadAt`, `ordReadAt` | `Model/Inductives/NestedInstMap.lean` | the same, plus the reflexive arm's guard |
+| `NestedPinsOrdTgt`, `NestedPinsOrdTgtMem` | `Model/Inductives/NestedCopyIdx.lean` | the residuals' guards |
+| `NestedPinGroupIds.ordTgt`/`ordTgtMem`, `NestedPinsIdent` | `Model/Inductives/NestedPins.lean` | ditto |
+| `NestedPinGroup.ordTgt`/`ordTgtMem` | `Model/Inductives/NestedCore.lean`, crossed in `NestedLoop.lean` | ditto |
+| `PinShapes`' third clause, `rowOrdRead`, `rowOrdReadMem` | `Model/Inductives/NestedPremise.lean` | ditto, crossed in `ContainerCross.lean` |
+| `GroupFacts.ordRead`, `ordRead_corr`, `ordReadMem_corr`, `read_of_run`, `two_block_field_data`, `hscope` (both spellings) | `Model/Inductives/NestedPinLeafAll.lean` | ditto |
+
+Four declarations went with them, all dead at the new guards:
+`ordTargetDomL_flat_at`, `getAppFn_instantiateList_const_at`
+(`NestedPinLeafAll.lean`) and the two private twins
+`getAppFn_const_of_ilp`, `ordTargetDomL_flat` (`NestedInstMap.lean`).
+
+##### (c) THE REFLEXIVE ARM, AND WHY ITS GUARD IS SPELLED AT THE TELESCOPE
+
+`copyOrdFRightPinOrdTargetReadAtRefl` needs the STRIPPED stored
+domain's head and nothing weaker: `stripDomPis_instSeq`'s own docstring
+says why — "without it the body could be a `bvar` and the substitution
+could plant a `Π` there, deepening the tower" — and that is precisely
+what a bare-parameter domain over a `Π`-typed component does.  So the
+arm keeps a head hypothesis, and the only question was what to GUARD it
+by.
+
+**`kindAt … = .reflexive` is unstatable at `PinShapes`.**  The clause
+is quantified over an arbitrary `d : BlockModel V` and
+`pc : Nat → PinCtors V`; there is no `kinds`, no `ctorsA`, and
+`PinCtors` records no field kinds.  The spelling that DOES cross is the
+copy's own recorded telescope — `(((pc q).tlss ψ).getD j []).getD l []
+≠ []` — so every tier from `PinShapes` down to `ordTgtReadAt` carries
+that, and the kind is turned into it at the one site that holds the
+ctor-data record: the classifier asserts `afvs.length ≠ 0` at a
+reflexive field (`MutualOpened.reflF`) and
+`MutualCtorDataI.reflOpen` equates that length with the recorded
+telescope's, so `kindAt … = .reflexive → tlss ≠ []` is four lines
+inside `ordTgtReadAt`/`ordTgtMemReadAt`.
+
+**THE RESIDUE, NAMED.**  A copy field that is REFLEXIVE over a FLAT
+stored domain is possible in principle — `K α | mk (a : α)` minted at
+`K (Nat → J β)` gives the copy the field `Nat → <J-copy>` — and at such
+a field the stored head is a `bvar` and the guard is FALSE.  No fixture
+in the tree has the shape and neither corpus measures one, but a
+proof's case split is over the SYNTAX, so it is owed; it is the SAME
+object as step 4's (3) (the telescope tie at `ordF`-right) one arm
+over, and the two should be built together.
+
+##### (d) WHAT IS NOW A PREMISE AND WHO OWES IT — THE HEAD-NAME TIE
+
+The consumers compare the OWNER's target pin and the BLOCK's at ONE
+container (`hnPeq`, `hnIdxEq`, `ordTgt_corr`'s single `M`), so the two
+recomputations' heads must carry the SAME NAME.  At a
+CONSTANT-headed stored domain that was free — one constant, two level
+instantiations.  At a bare-parameter one it is not: the owner's head
+comes from the owner's component and the block's from the block's.
+
+It is TRUE by the route's own construction (the block's components are
+the owner's under `ordRootInst`, and a constant head survives an
+instantiation), and it is derivable at the run from K.69's term
+equation (`NestedPinsRun.ordNormAt`) plus head-preservation for
+`ordRootInst`.  **It is NOT derivable at the model tier**, because
+`GroupFacts.ordBlkHead` (WIDE (f3) step 2) gives the block's head only
+as `∃ M us`.  So it is carried as a conjunct of `hscope` —
+`(ordTargetDom … ownT qK l dom.1).getAppFn = .const K vs` beside
+`(ordTargetDom … (nestedPinTermsSelf p st) (a + i) l dom.1).getAppFn
+= .const K vsB` — where the assembly, which holds the run, will
+discharge it.  **That is the one genuinely new obligation this step
+creates**, and it is one theorem (`ordRootInst` moves no constant head)
+plus a `GroupFacts` row for `ordNormAt`, which is unconsumed today and
+exists for exactly this.
+
+##### (e) WHAT IT BUYS
+
+`hscope`, `PinShapes`' `OrdTargetRead` clause, `GroupFacts.ordRead`,
+the two `*_corr` readers, `read_of_run`, `two_block_field_data` and the
+whole `NestedPinsOrdTgt`/`ordTgtReadAt` chain are now STATABLE at a
+bare-parameter stored domain — the `nested_bvar_field`,
+`nested_pin_nocollide` and `nested_p04` shapes, three official ACCEPTS
+at which the old spelling's hypotheses were unsatisfiable.  With step
+3(a)'s three places this closes the refutation row's list; what remains
+between here and `hfitc` is step 4 (the reflexive twin, now one job
+with (c)'s residue) and steps 5 and after.
+
+##### (f) THE GATES
+
+`tests/arena.sh` EXIT 0 — nested-shadow 45/45, e2e 200/200, arena
+91/96, annot 15/15, mode flags 10/10, progress 15/15, worker pool
+15/15, DAG-tower 14/14, trusted sweep 162+200+15 with the 3 recorded
+divergences, `--jobs=1` and `--jobs=4` sweeps as at the default.
+`tests/warning-free.sh f4e23058` 0 warning lines in both halves (10
+changed modules), `lake test` 0 warnings, `tests/shake.sh` green (514
+removals, all allowlisted; pub-imports 1345 of 2312, none demotable),
+overview-links 112, quote-gate 2, no-local-paths OK, challenge gate OK.
+`tests/unconsumed.sh` **204 of 3886** against **204 of 3885**: seven
+declarations added and six retired, and the advisory count did not
+move — `ordTargetDomL_flat_at` and `getAppFn_instantiateList_const_at`
+lost their last consumers to the new guards and were DELETED rather
+than kept.  `#print axioms` on the seven new declarations and on
+`ordRead_corr`, `ordReadMem_corr`, `ordTgt_corr`, `read_of_run`,
+`nestedPinsOrdTgt_of`, `nestedPinsOrdTgtMem_of`, `ordTgtReadAt`,
+`ordReadAt`, `ordTgtMemReadAt`, `rowOrdRead`, `rowOrdReadMem`,
+`nestedSlotOrd_pin`, `nestedFitc_pin` and `nestedPinsEntry_of_le_all`:
+all `[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new
+axiom, no `maxHeartbeats`.
