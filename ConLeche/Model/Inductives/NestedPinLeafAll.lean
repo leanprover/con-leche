@@ -2185,6 +2185,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
+      -- the target pin carries the head's container (the run's own `hJM`)
+      ((D).pinAt z).J = K ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
@@ -4916,11 +4918,7 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
         ((((pcR qK).Eiss φ).getD j []).getD l [])
         ((((pcR qK).tlss φ).getD j []).getD l [])
         ((dR.pinAt z).nPJ) lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
-    -- the block's target pin carries the head's container (the run's `hJM`)
-    (hblkJ : ∀ z : Nat, z < pinsS.length →
-      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + a + i') + j) []).getD l 0 = p.k + z → ((D).pinAt z).J = K)
-    -- and two pins with ONE container have one arity
+    -- two pins with ONE container have one arity
     (harity : ∀ z₁ z₂ : Nat, z₁ < pinsS.length → z₂ < dR.nPins →
       ((D).pinAt z₁).J = (dR.pinAt z₂).J →
       ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ ∧ ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx) :
@@ -4962,7 +4960,7 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
       = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
     rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
   -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
-  obtain ⟨z₁, hz₁, htg₁, hlen₁, hrest₁⟩ :=
+  obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hrest₁⟩ :=
     G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
       i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
       mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
@@ -4989,7 +4987,7 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     simp only [ConLeche.Model.PinSyn.ownAt, Expr.getAppFn_mkAppN] at h
     rw [hhd₂] at h
     exact Expr.const.inj h |>.1
-  obtain ⟨hnPeq, hnIdxEq⟩ := harity z₁ z₂ hz₁ hz₂ (by rw [hblkJ z₁ hz₁ htg₁, hJz])
+  obtain ⟨hnPeq, hnIdxEq⟩ := harity z₁ z₂ hz₁ hz₂ (by rw [hblkJ, hJz])
   -- the two readings, at a fitting prefix on each side
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁

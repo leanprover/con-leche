@@ -2423,6 +2423,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
+      ((D).pinAt z).J = K ∧
       OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
@@ -2618,7 +2619,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hJM]; exact hciM
   obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
   have hlB : l < cAB.2 := by rw [hnFB, ← hnf]; exact hlF
-  refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, ?_⟩
+  refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, hJM, ?_⟩
   rw [hnPz]
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
@@ -3093,6 +3094,7 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = (pinsS.getD z default).nIdx ∧
+      (pinsS.getD z default).J = K ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
@@ -3135,9 +3137,9 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hgp hgn hciO hm₀ hownT hmapR hqK hqm
     (by rw [hstripO]; exact hhdO) (by rw [hstripB]; exact hhdB) hfire hrootInst
   -- the block's own reading, and its target
-  obtain ⟨z, hz, htg, hEl, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC
-    hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
-  refine ⟨z, hz, htg, hEl, fun fs₁ hfs hspf => ?_⟩
+  obtain ⟨z, hz, htg, hEl, hJz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
+    lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
+  refine ⟨z, hz, htg, hEl, hJz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
   rw [hown_eq, hdpB] at htl
   refine ⟨List.eq_nil_of_length_eq_zero htl, fb, Ps, hPs, ?_⟩
@@ -3180,7 +3182,8 @@ theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
   intro ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip hdom
     i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin
   obtain ⟨pbs, -, hPD⟩ := R.pinData
-  exact R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC hjA hstrip hdom hi₀ hciC
-    hJmC hlpsE hfin
+  obtain ⟨z, hz, htg, hEl, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
+    lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hfin
+  exact ⟨z, hz, htg, hEl, hOT⟩
 
 end ConLeche.Model
