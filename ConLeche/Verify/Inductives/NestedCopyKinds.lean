@@ -905,7 +905,7 @@ no new check. -/
 /-- **K.67 at one owner, one own pin, one constructor and one field.** -/
 theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdTargetOk env p b st stored = true)
+    {mode : CheckMode} (h : nestedOrdTargetOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -927,15 +927,18 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
+    {Wn : Expr}
+    (hnorm : ordRootNorm mode env (ciJ.members.map (·.name))
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wn)
     {M : Name} {us : List Level}
-    (hhead : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
+    (hhead : Wn.getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
         t = p.k + gn.grpBase + mm) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
-      ownSelf.findIdx? (fun e => e == Expr.mkAppN (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn
-          ((ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppArgs.take ciM.nP)) = some qJ →
+      ownSelf.findIdx? (fun e => e == Expr.mkAppN Wn.getAppFn
+          (Wn.getAppArgs.take ciM.nP)) = some qJ →
       t = p.k + mapR.getD qJ st.pins.length) := by
   cases hms : nestedInstMaps env st with
   | none =>
@@ -975,6 +978,8 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
   rw [hl, hdJ] at hlv
   simp only at hlv
   rw [if_neg (by simp [hrec, hkt])] at hlv
+  rw [hnorm] at hlv
+  simp only at hlv
   refine ⟨fun mm hmm => ?_, fun ciM qJ hnm hciM hfi => ?_⟩
   · rw [if_pos (ordRootFired_of_mem (ownSelf := ownSelf) (env := env) hhead hmm), hhead] at hlv
     simp only at hlv
@@ -994,7 +999,7 @@ domain's head is a `.const`, so it is not a `Π` and `stripDomPis` and
 `domPiDepth` say nothing.  K.61's `nestedInstMapOk_target` pattern. -/
 theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdTargetOk env p b st stored = true)
+    {mode : CheckMode} (h : nestedOrdTargetOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -1050,7 +1055,7 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     rw [hnf.1, hnf.2, Nat.add_zero]
   rw [← hdm] at hhead ⊢
   exact nestedOrdTargetOk_at_refl h hk hg hgn hciJ hown hmapR hqK hq hqn hks hci hJm hj hkf hcJ
-    hsJ hl hdJ hrec hkt hhead
+    hsJ hl hdJ hrec hkt (ordRootNorm_const hhead) hhead
 
 
 /-- **K.70's ARM (A), THE MEMBER HALF — THE MINTED GROUP'S IMAGE IS
@@ -1068,7 +1073,7 @@ the owner's as `dR.k + baseK + mm`) and only the map's contiguity ties
 the two. -/
 theorem nestedOrdTargetOk_grp_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdTargetOk env p b st stored = true)
+    {mode : CheckMode} (h : nestedOrdTargetOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -1121,7 +1126,7 @@ instead, so the two are a dichotomy and neither is a weakening of the
 other. -/
 theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdTargetOk env p b st stored = true)
+    {mode : CheckMode} (h : nestedOrdTargetOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -1144,8 +1149,10 @@ theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    (hnofire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
-      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = false) :
+    {Wn : Expr}
+    (hnorm : ordRootNorm mode env (ciJ.members.map (·.name))
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wn)
+    (hnofire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = false) :
     mapR.contains (t - p.k) = false ∧
       (t < p.k + gn.grpBase ∨ p.k + gn.grpBase + gn.grpSize ≤ t) := by
   cases hms : nestedInstMaps env st with
@@ -1186,6 +1193,8 @@ theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
   rw [hl, hdJ] at hlv
   simp only at hlv
   rw [if_neg (by simp [hrec, hkt])] at hlv
+  rw [hnorm] at hlv
+  simp only at hlv
   rw [if_neg (by simp [hnofire]), if_neg (by simp [hord])] at hlv
   simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
     Bool.not_eq_eq_eq_not, Bool.not_true] at hlv

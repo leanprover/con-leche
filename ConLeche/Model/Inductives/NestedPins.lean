@@ -1244,7 +1244,7 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   instance, this says which class of the OWNING container it is the
   image of.  The wide identification's PIN half reads it; the member
   half reads only `hK62`. -/
-  hK67 : ConLeche.nestedOrdTargetOk env p b st stored = true
+  hK67 : ConLeche.nestedOrdTargetOk μ env p b st stored = true
   /-- **and it is THIS block's own class, by its own recomputation**
   (task #315 K.68): K.67's SELF-RELATIVE twin — no owner, no parent,
   no instance map.  `hK67` is what the block's OWN side of the wide

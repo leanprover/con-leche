@@ -2185,8 +2185,9 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
     ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
     ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
-    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
-      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = false →
+    ∀ Wn : Expr, ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = some Wn →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT Wn = false →
     mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
       (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -2490,7 +2491,7 @@ theorem candIdxAgree_pinAs (st : ElimState) (pinsS : List PinSyn)
     CandIdxAgree (V := V) st pinsS dJf ψ ρp (pinAs (V := V) pinsS ψ ρp) :=
   fun _ _ _ _ => rfl
 
-local notation "GF" => GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
+local notation "GF" => GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -5086,9 +5087,17 @@ theorem entOut_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
     {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
     {qK : Nat} (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
-    -- the owner did NOT fire at this field
-    (hnofire : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT
-      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = false)
+    -- the owner did NOT fire at this field, at its recomputation's
+    -- POSITIVITY NORMAL FORM (task #315 WIDE (f3), the K.67
+    -- normalisation): the unnormalised head test is not the arm's
+    -- guard any more, because a mint that is a REDEX whose reduct
+    -- names one of the owner's own classes reads as not firing and
+    -- this row's claim would then be FALSE
+    -- (`tests/e2e/nested_redex_owner.lean`)
+    {Wn : Expr}
+    (hnorm : ConLeche.ordRootNorm μ env (ciR.members.map (·.name))
+      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = some Wn)
+    (hnofire : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT Wn = false)
     -- the owner's group, and `σ`'s two values
     (hgrpSize : gn.grpSize = dR.k)
     (hroot : ∀ c, c < dR.k → σ c = p.k + gn.grpBase + c)
@@ -5102,7 +5111,7 @@ theorem entOut_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       (b.ownOffset (p.k + a + i') + j) []).getD l 0
   · obtain ⟨hcon, hgrp⟩ := G.ordOut ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
       lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
-      hnofire
+      Wn hnorm hnofire
     rintro ⟨c, hclt, hceq⟩
     by_cases hcm : c < dR.k
     · -- a MEMBER class of the owner: the block's copy, which the group
@@ -8063,7 +8072,7 @@ it is handed, and applies this at exactly that one. -/
       xrestF eissF tssF ctorsR dsR xFvsR pinsS mp₁' _ _ _ =>
     ∀ dJf : Nat → BlockModel V,
       (∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
-        GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
           (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
           (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8118,7 +8127,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d →
-      GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8154,7 +8163,8 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         exact hlpsE
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-        hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+        hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm
+        (ConLeche.ordRootNorm_const hhd) hhd
     · -- K.70's arm (A), the member half, as the run states it
       -- (`instMapGrpAt`): a map fact, so no field preamble at all
       obtain ⟨pbs, -, hPD⟩ := R.pinData
@@ -8166,7 +8176,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
         lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE
-        g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm hnofire
+        g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm Wn hnorm hnofire
       obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
       have hlF : l₂ < cA.2 := by
         rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
@@ -8201,7 +8211,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         exact hlpsE
       exact R.instOutOwnerAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-        hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hnofire
+        hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hnorm hnofire
     · -- the bound the two rows above assume, off K.68's own row
       -- (`ordGeAt`): the block's member names are fresh, so a member
       -- answer is impossible at a head declared in `env`
@@ -8318,7 +8328,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
   obtain ⟨dJf, hdJf₀, hgroups⟩ :
       ∃ dJf : Nat → BlockModel V, dJf q₀ = dJ ∧
         ∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
-          GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
             (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
             (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
             (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8349,7 +8359,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
   have hle := hLe mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     dJf hgroups ψ ρp hρp
-  have hGF' : GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+  have hGF' : GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
       (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)

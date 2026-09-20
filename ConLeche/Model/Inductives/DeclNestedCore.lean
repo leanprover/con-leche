@@ -1901,7 +1901,7 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     -- K.67: and it IS the owning container's own class, imaged — the
     -- positive twin at the same guard, which the wide identification's
     -- PIN half needs where `houtσ` only says the target is outside
-    ConLeche.nestedOrdTargetOk env p b st stored = true →
+    ConLeche.nestedOrdTargetOk μ env p b st stored = true →
     -- K.68: and it is THIS block's own class, by its own recomputation
     -- — K.67's self-relative twin, which the CONTAINER's side of the
     -- wide correspondence is built from

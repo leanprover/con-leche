@@ -319,7 +319,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- constructor at the owner's own components, because the restore
     -- leaves no `_nested` constant to read.  UNCONDITIONAL for K.61's
     -- reason
-    ConLeche.nestedOrdTargetOk env p b st stored = true ∧
+    ConLeche.nestedOrdTargetOk μ env p b st stored = true ∧
     -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**
     -- (K.68): K.67's self-relative twin — no owner, no parent, no
     -- instance map — which is the half a LATER block reads of this

@@ -944,17 +944,19 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
     {qK : Nat} (hqK : qK < ownSelf.length)
     (hqm : mapR.getD qK st.pins.length = q₀ + i')
+    {Wn : Expr}
+    (hnorm : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = some Wn)
     {M : Name} {us : List Level}
-    (hhead : (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppFn = .const M us) :
+    (hhead : Wn.getAppFn = .const M us) :
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
-      ownSelf.findIdx? (fun e => e == Expr.mkAppN
-          (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppFn
-          ((ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
+      ownSelf.findIdx? (fun e => e == Expr.mkAppN Wn.getAppFn
+          (Wn.getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length) := by
   classical
@@ -1054,15 +1056,14 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
   have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
-  have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1).getAppFn
-      = .const M us := by
-    rw [hlps', hnPci]; exact hhead
-  rw [← hnPci, ← hlps']
+  have hnorm' : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
+      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = some Wn := by
+    rw [hlps', hnPci]; exact hnorm
   exact ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
-    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hhead'
+    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hnorm' hhead
 
 
 /-- **K.70's ARM (A), THE MEMBER HALF, AT THE RUN** (task #315 K.70):
@@ -1151,8 +1152,10 @@ theorem NestedPinsRun.instOutOwnerAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
     {qK : Nat} (hqK : qK < ownSelf.length)
     (hqm : mapR.getD qK st.pins.length = q₀ + i')
-    (hnofire : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownSelf
-      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = false) :
+    {Wn : Expr}
+    (hnorm : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = some Wn)
+    (hnofire : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownSelf Wn = false) :
     mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
       (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -1274,14 +1277,14 @@ theorem NestedPinsRun.instOutOwnerAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
   have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
-  have hnofire' : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownSelf
-      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = false := by
-    rw [hlps', hnPci]; exact hnofire
+  have hnorm' : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
+      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = some Wn := by
+    rw [hlps', hnPci]; exact hnorm
   exact ConLeche.nestedOrdTargetOk_out_at R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
-    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hmenAbs hnofire'
+    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hmenAbs hnorm' hnofire
 
 
 omit SF S in

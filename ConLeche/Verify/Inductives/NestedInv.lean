@@ -1077,7 +1077,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- **K.67**: and it IS the owning container's own class, imaged.
       -- K.62's positive twin at the same guard; UNCONDITIONAL, for
       -- K.60's reason
-      nestedOrdTargetOk env p b st stored = true ∧
+      nestedOrdTargetOk ops.mode env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation — K.67's self-relative twin, the half a LATER
       -- block reads of this one
@@ -1102,7 +1102,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)) = true
   case neg => rw [if_pos (by simpa using hout)] at h; close_throw
   rw [if_neg (by simpa using hout)] at h
-  by_cases htgt : nestedOrdTargetAt env p st (nestedInstMaps env st)
+  by_cases htgt : nestedOrdTargetAt ops.mode env p st (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using htgt)] at h; close_throw
   rw [if_neg (by simpa using htgt)] at h
@@ -1381,7 +1381,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       -- **AND IT IS THE OWNING CONTAINER'S OWN CLASS, IMAGED** (K.67):
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
-      nestedOrdTargetOk env p b st stored = true ∧
+      nestedOrdTargetOk mode env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation
       nestedOrdSelfTargetOk env p b st stored = true ∧
@@ -1761,7 +1761,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- **AND IT IS THE OWNING CONTAINER'S OWN CLASS, IMAGED** (K.67):
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
-      nestedOrdTargetOk env p b st stored = true ∧
+      nestedOrdTargetOk mode env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation
       nestedOrdSelfTargetOk env p b st stored = true ∧

@@ -2551,6 +2551,57 @@ def ordTargetDom (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
     (l + domPiDepth (ordTargetDomL lps ownSelf qK dom))
 
 
+/-- **THE MINT AT ITS POSITIVITY NORMAL FORM** (task #315 K.69's
+REDUCTION SLIVER).
+
+`ordRootFired` tests the head of a recomputed mint BEFORE any
+reduction, and so leaves out an owner copy that fires only after the
+positivity walk's `whnf` — a mint that is a REDEX at the owner, say
+`(fun _ => T α) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
+exhibits one level down.  The model's consumer needs the row whenever
+the OWNER fired, reduction or not, and a proof's case split is over the
+SYNTAX and not over a corpus, so "measured zero" does not retire that
+arm.  This is what closes it: at a mint whose head is ALREADY a
+constant nothing is run — the term is its own normal form
+(`normPosDomM_indApp`) — and otherwise the walk the install itself uses
+is run on it.
+
+**IT IS THE PURE WALK, AND THAT IS WHAT KEEPS THE ROW SIMULABLE.**
+`normPosDomM` is monadic over `CheckerOps`, and the CACHED
+instantiation's simulation (`normPosDomMS_sim`, `BridgeCS3.lean`)
+exists in the VERIFIED mode only — which is why the row could not be
+an `ops`-level clause and stay unconditional.  Here the call is at
+`fueledOps` and at the STANDARD fuel: a pure function of the arguments
+`nestedPinChecks` already has, so the two routes run the SAME function
+on the SAME inputs (`nestedPinChecks` is one definition, shared) and no
+bridge lemma is owed.  The fuel is `checkFuel` and NOT the route's `F`
+for the same reason: the cached route has no `F` to hand, so a
+fuel-parametric clause would not be one function.
+
+**THE COST IS THE SLIVER'S.**  The walk runs only where the mint's head
+is not already a constant — measured EMPTY at `init-full` and at
+Mathlib, and one block in the e2e suite — and then on ONE field domain,
+so the "no unmemoized traversals" rule is met by rarity and by size,
+not by a memo.  `none` on an error: the walk can throw (fuel, or a
+non-positive occurrence), and where it does the row says nothing about
+the OWNER's side. -/
+def ordRootNorm (mode : CheckMode) (env : Env) (memsJ : List Name) (W : Expr) :
+    Option Expr :=
+  match W.getAppFn with
+  | .const _ _ => some W
+  | _ =>
+    match normPosDomM (m := CheckM) (fueledOps mode checkFuel) env memsJ 0 1024 W with
+    | .ok w => some w
+    | .error _ => none
+
+/-- At a constant head the normal form is the term: the walk is not run
+at all, which is both the cost argument and `normPosDomM_indApp` read
+as a definitional fact. -/
+theorem ordRootNorm_const {mode : CheckMode} {env : Env} {memsJ : List Name}
+    {W : Expr} {c : Name} {us : List Level} (h : W.getAppFn = .const c us) :
+    ordRootNorm mode env memsJ W = some W := by
+  unfold ordRootNorm; rw [h]
+
 /-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69, and K.70's
 own dichotomy): its own
 recomputation of the field (`ordTargetDom` at the owner's own
@@ -2573,14 +2624,19 @@ not to the mint, so that a root that fires only AFTER a reduction step
 not in the silent set.  At a mint already at a constant head the normal
 form is the mint and no walk is run.
 
-**K.70 reads it UNNORMALISED**, as the split between the arm where the
-owner's copy names a class of the owner (the positive row) and the arm
-where it names none (the negative one).  There the two arms are
-complementary by construction, so nothing is conceded either way and
-the reduction sliver K.69 closes with `ordRootNorm` does not arise:
-a mint that is a redex is in the NEGATIVE arm, and the negative claim
-— the block's target leaves the owner's instance — is the weaker of
-the two. -/
+**K.70 READS IT AT THE NORMAL FORM TOO**, and the argument that it need
+not is REFUTED.  K.70's two arms — the owner's copy names a class of
+the owner (the positive row), or it names none (the negative one) — are
+complementary as BOOLS at whatever term the test is asked of, but the
+negative arm's CLAIM is about the owner's instance and not about the
+term: a mint that is a REDEX whose reduct names one of the owner's own
+classes reads as NOT firing and so lands in the negative arm, whose
+claim is then FALSE.  `tests/e2e/nested_redex_owner.lean` is that shape
+and is an OFFICIAL ACCEPT the unnormalised split errors on.  So K.67's
+split is taken at `ordRootNorm` exactly as K.69's guard is, which
+costs no acceptance anywhere measured (init-full and Mathlib
+byte-identical) and keeps the walk inside `ordRootNorm`'s own
+measured-empty regime. -/
 def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
   match W.getAppFn with
   | .const M _ =>
@@ -2660,7 +2716,7 @@ identification reads it in every mode, and a gated check is `true` in
 the trusted one.  Cost is K.30's: one stored-constructor read per pin
 field, plus `containerOwnPinsSelf` HOISTED PER PIN rather than per
 field, which is the order `nestedInstMaps` already runs at. -/
-def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
+def nestedOrdTargetAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match maps?, kinds? with
@@ -2713,7 +2769,10 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                             | some (r, t), some domJ =>
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else
-                                let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
+                                match ordRootNorm mode env memsJ
+                                    (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) with
+                                | none => true
+                                | some dmJ =>
                                 if ordRootFired env memsJ ownSelf dmJ then
                                   match dmJ.getAppFn with
                                   | .const M _ =>
@@ -2742,9 +2801,9 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
 /-- The Bool the route records (task #315 K.67), on the same instance-map
 table K.61 and K.62 read and the same field kinds `nestedPinKinds`
 computes. -/
-@[inline] def nestedOrdTargetOk (env : Env) (p : NestedParts) (b : MutualBlock)
-    (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdTargetAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+@[inline] def nestedOrdTargetOk (mode : CheckMode) (env : Env) (p : NestedParts)
+    (b : MutualBlock) (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdTargetAt mode env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
 
 /-- **THE BLOCK'S OWN PINS AS THE MODEL SPELLS THEM** (task #315 K.68):
 each recorded pin term with the block's PARAMETERS abstracted and
@@ -2889,57 +2948,6 @@ def ordRootInst (lpsJ : List Name) (nPJ cut : Nat) (pinG W : Expr) : Option Expr
       (Expr.abstractRange (W.instantiateLevelParams lpsJ lvlsJ) 0 nPJ cut)
       ((pinG.getAppArgs.take nPJ).reverse) cut)
   | _ => none
-
-/-- **THE MINT AT ITS POSITIVITY NORMAL FORM** (task #315 K.69's
-REDUCTION SLIVER).
-
-`ordRootFired` tests the head of a recomputed mint BEFORE any
-reduction, and so leaves out an owner copy that fires only after the
-positivity walk's `whnf` — a mint that is a REDEX at the owner, say
-`(fun _ => T α) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
-exhibits one level down.  The model's consumer needs the row whenever
-the OWNER fired, reduction or not, and a proof's case split is over the
-SYNTAX and not over a corpus, so "measured zero" does not retire that
-arm.  This is what closes it: at a mint whose head is ALREADY a
-constant nothing is run — the term is its own normal form
-(`normPosDomM_indApp`) — and otherwise the walk the install itself uses
-is run on it.
-
-**IT IS THE PURE WALK, AND THAT IS WHAT KEEPS THE ROW SIMULABLE.**
-`normPosDomM` is monadic over `CheckerOps`, and the CACHED
-instantiation's simulation (`normPosDomMS_sim`, `BridgeCS3.lean`)
-exists in the VERIFIED mode only — which is why the row could not be
-an `ops`-level clause and stay unconditional.  Here the call is at
-`fueledOps` and at the STANDARD fuel: a pure function of the arguments
-`nestedPinChecks` already has, so the two routes run the SAME function
-on the SAME inputs (`nestedPinChecks` is one definition, shared) and no
-bridge lemma is owed.  The fuel is `checkFuel` and NOT the route's `F`
-for the same reason: the cached route has no `F` to hand, so a
-fuel-parametric clause would not be one function.
-
-**THE COST IS THE SLIVER'S.**  The walk runs only where the mint's head
-is not already a constant — measured EMPTY at `init-full` and at
-Mathlib, and one block in the e2e suite — and then on ONE field domain,
-so the "no unmemoized traversals" rule is met by rarity and by size,
-not by a memo.  `none` on an error: the walk can throw (fuel, or a
-non-positive occurrence), and where it does the row says nothing about
-the OWNER's side. -/
-def ordRootNorm (mode : CheckMode) (env : Env) (memsJ : List Name) (W : Expr) :
-    Option Expr :=
-  match W.getAppFn with
-  | .const _ _ => some W
-  | _ =>
-    match normPosDomM (m := CheckM) (fueledOps mode checkFuel) env memsJ 0 1024 W with
-    | .ok w => some w
-    | .error _ => none
-
-/-- At a constant head the normal form is the term: the walk is not run
-at all, which is both the cost argument and `normPosDomM_indApp` read
-as a definitional fact. -/
-theorem ordRootNorm_const {mode : CheckMode} {env : Env} {memsJ : List Name}
-    {W : Expr} {c : Name} {us : List Level} (h : W.getAppFn = .const c us) :
-    ordRootNorm mode env memsJ W = some W := by
-  unfold ordRootNorm; rw [h]
 
 /-- **THE NORMALISATION COMMUTES WITH THE INSTANTIATION AT THIS FIELD**
 (task #315 K.69) — K.67's and K.68's twin at the same walk, with the
@@ -3443,7 +3451,7 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- the container it copied — a defect in the ROUTE, not in the
   -- stream, and the answer is never to relax the check.  See DESIGN
   -- "#### K.67" and "#### K.70".
-  else if !nestedOrdTargetAt env p st maps? kinds? then
+  else if !nestedOrdTargetAt ops.mode env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the owning \
       container's own class")
   -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**

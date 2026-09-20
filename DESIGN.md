@@ -106987,7 +106987,15 @@ Placement is K.62's: inside `nestedPinChecks`, ABOVE the
 failure, on K.61's own table and K.46's field kinds.  **No `PushChain`
 change**, confirmed — the cached simulation names only K.64, the one
 record outside `nestedPinChecks`, and `ConLeche.Verify.Cached.PushChain`
-built unchanged.  Inversion `nestedOrdTargetOk_at_refl` (general) and
+built unchanged.
+
+**THE FIRE TEST IS AT THE POSITIVITY NORMAL FORM** (2026-09-20, WIDE
+(f3) step 1): `nestedOrdTargetAt` takes the `mode` and the walk reads
+`ordRootNorm mode env memsJ (ordTargetDom …)`, `none` conceding, which
+is K.69's own spelling one row over.  Asked at the un-reduced mint the
+walk ERRORED on `tests/e2e/nested_redex_owner.ndjson`'s `Outer`, an
+official accept — see the WIDE (f3) step 1 rows at the end of this
+file for the refutation, the inversion chain and the conformance.  Inversion `nestedOrdTargetOk_at_refl` (general) and
 `nestedOrdTargetOk_at` (finitary, the cut the identity), both in
 `Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
 `nestedPinChecks_inv` → `checkNested_inv_rest` → `checkNested_inv` →
@@ -107763,6 +107771,17 @@ a second heartbeat cell for content the same guard already reaches.
 The dichotomy is spelled with `ordRootFired`, the head test K.69
 already reads as a Bool, so the fired arm and the negative arm are
 complementary by construction and neither is a weakening of the other.
+
+**CORRECTED (2026-09-20, WIDE (f3) step 1): the test is asked at
+`ordRootNorm`, not at the un-reduced mint.**  The two arms are
+complementary as BOOLS at whatever term the test is asked of — that
+part stands — but the NEGATIVE arm's CLAIM is about the owner's
+INSTANCE and not about the term, so asking the test of the un-reduced
+mint puts a REDEX whose reduct names one of the owner's own classes
+into the arm whose claim is then FALSE.  `tests/e2e/nested_redex_owner.lean`
+is that shape and is an OFFICIAL ACCEPT the un-normalised split
+ERRORED on.  The fix is K.69's own spelling and it is landed; see the
+WIDE (f3) step 1 rows at the end of this file.
 The remaining corner — the owner did not fire and the field is
 K-RECURSIVE — is a `false`: a strictly positive recursive occurrence
 is constant-headed after the `Π`-strip, so the owner's recomputation
@@ -126872,3 +126891,152 @@ the native route is not on it.
 `tests/warning-free.sh a68eae7f` 0 warning lines in both halves,
 `tests/shake.sh` green, overview-links 112, quote-gate 2,
 no-local-paths OK.  No `ConLeche/` file changed by this row.
+
+#### WIDE (f3) STEP 1 — THE K.67 NORMALISATION IS LANDED: THE ROUTE NO LONGER ERRORS ON AN OFFICIAL ACCEPT (lane LE, 2026-09-20)
+
+The previous two rows found the defect and priced the fix.  This lands
+it.  **K.67's walk now reads its fire test and its head lookups at
+`ordRootNorm`**, exactly as K.69's already does, and
+`tests/e2e/nested_redex_owner.ndjson`'s `Outer` — an OFFICIAL ACCEPT
+the route ERRORED on — accepts.  The gate row is flipped from the
+pinned finding to `J=accept,Outer=accept,` and the fixture's docstring
+now reads as a REGRESSION test: it goes back to `error` the moment the
+normalisation is dropped.
+
+##### (a) THE KERNEL, AND THE ARGUMENT THAT WAS WRONG
+
+`nestedOrdTargetAt` takes the `mode` (`nestedOrdTargetOk` and the call
+site `ops.mode`, K.69's own arrangement), and the walk's one line
+
+    let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
+    if ordRootFired env memsJ ownSelf dmJ then …
+
+becomes
+
+    match ordRootNorm mode env memsJ (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) with
+    | none => true
+    | some dmJ => if ordRootFired env memsJ ownSelf dmJ then …
+
+`none` concedes, as it does at K.69 (the owner's walk threw).
+`ordRootNorm` and `ordRootNorm_const` MOVED up the file, above
+`ordRootFired`, because K.67's walk is defined before K.69's; nothing
+else about either declaration changed.
+
+**The argument the old spelling rested on is refuted, and the kernel
+docstring says so now.**  K.70's two arms are complementary as BOOLS at
+whatever term the test is asked of — but the NEGATIVE arm's claim is
+about the owner's INSTANCE and not about the term, so asking the test
+of the un-reduced mint puts a redex whose reduct names one of the
+owner's own classes into the arm whose claim is then FALSE.  That is
+`nested_redex_owner`'s whole content.
+
+##### (b) THE INVERSION CHAIN, AND THE ONE STATEMENT THAT HAD TO MOVE
+
+| object | file | what changed |
+|---|---|---|
+| `nestedOrdTargetOk_at_refl` | `Verify/Inductives/NestedCopyKinds.lean` | takes `{Wn} (hnorm : ordRootNorm mode … = some Wn)` and states `hhead` and both conclusions at `Wn` |
+| `nestedOrdTargetOk_at` | same | **statement unchanged**: at a finitary field the recomputation's head is a `.const`, so `ordRootNorm_const` supplies `hnorm` inside the proof |
+| `nestedOrdTargetOk_grp_at` | same | mode only — it is a statement about the MAP and reads no term |
+| `nestedOrdTargetOk_out_at` | same | `hnofire` moves onto `Wn`, with `hnorm` beside it |
+| `NestedPinsRun.instOrdTgtAt` / `instOutOwnerAt` | `Model/Inductives/NestedInstMap.lean` | the same two, with the `lpsC`/`nP` conversion applied to `hnorm` instead of to `hhead`/`hnofire` |
+| `NestedPinsRun.instMapGrpAt` | same | unchanged |
+| `GroupFacts.ordTgt` | `Model/Inductives/NestedPinLeafAll.lean` | **unchanged** — its producer passes `ordRootNorm_const hhd` |
+| `GroupFacts.ordOut` | same | the guard is now `∀ Wn, ordRootNorm μ … = some Wn → ordRootFired … Wn = false`; `GroupFacts` gains `μ` (the `GF` notation and the four explicit spellings carry `(μ := μ)`) |
+| `ordTgt_corr` | same | **unchanged** |
+| `entOut_corr` | same | `hnofire` at `Wn`, `hnorm` beside it |
+| `hK67`'s type | `NestedPins.lean`, `NestedCore.lean`, `NestedLoop.lean`, `DeclNestedCore.lean`, `Semantics/Inductives/DeclNested.lean`, `Verify/Inductives/NestedInv.lean` | gains the mode |
+
+**ONLY THE NEGATIVE ARM'S STATEMENT MOVED, AND THAT IS THE WHOLE
+POINT.**  The positive row's consumers hold a CONSTANT head of the
+un-reduced recomputation (`hscope`'s `ordRootFired … = true`, read
+through `getAppFn_const_of_ordRootFired`), and at a constant head
+`ordRootNorm` is the identity — so `GroupFacts.ordTgt` and
+`ordTgt_corr` keep their statements and `ordRootNorm_const` does the
+crossing in one term.  That is the arrangement K.69's own group rows
+already use (`ordRead`, `ordFire` are stated at the UNNORMALISED fire
+and bridged at the run), so this row adopts a pattern rather than
+inventing one.  The NEGATIVE arm has no such head to read — a mint
+that does not fire is exactly one whose head may not be a constant —
+so its guard had to become the normalised one.
+
+##### (c) `hscope`'s FOURTH CONJUNCT DID **NOT** COLLAPSE, AND THE REASON IS A SECOND ENVIRONMENT CROSSING
+
+The re-price predicted that with the normalisation landed `hscope`'s
+fire conjunct would be stated at the normalised test and the "the
+owner REWROTE and the owner FIRED are not the same bit" corner would
+go with it.  **Checked, and it does not — not without buying a fact
+the tree does not have.**
+
+`ordTgt_corr` ties side 1 (`GroupFacts.ordTgt`, K.67 at the run) to
+side 2 (`PinShapes.rowTargetOrd`, K.68 CARRIED from the owner's own
+install) through ONE name `M`, and side 2's clause is SYNTACTIC: "if
+the recomputation over the container model's `ownPinTerms` has head
+`.const M us` then the model's target is …".  The two recomputations
+are literally one `Expr` (`ordTargetDom_congr_at` on
+`ContainerModeled.ownPinsSelfAt`), which is why the raw heads match.
+Put side 1's head on the NORMAL FORM and side 2 no longer fires at it:
+matching would need the OWNER's install to have recorded the
+NORMALISED classification, i.e. K.68's walk normalised too — and then
+the consumer owes that the owner's normal form at the OWNER's
+environment is the normal form at THIS block's, which is
+whnf-monotonicity-under-environment-extension, the theorem K.69's WHAT
+IS OWED already names as absent from the tree.
+
+So the corner stays named, and its price is now known: it is not a
+spelling, it is that same missing theorem.  **What the normalisation
+DOES buy at `hscope` is the arm that matters** — the positive arm is
+reached wherever the un-reduced recomputation is constant-headed
+(which is what `hscope` gives), and the negative arm's guard is now the
+one the kernel actually asserts, so `hentOrd₁`'s producer can no longer
+be handed a false claim.
+
+##### (d) THE CONFORMANCE — BYTE-FOR-BYTE THE UNPATCHED ANSWERS
+
+| corpus | accepted | shadow blocks | accepting | K.67 fires |
+|---|---|---|---|---|
+| `init-full` `--verified` | 53 093 | — | — | 0 |
+| `init-full` `--trusted` | 53 093 | — | — | 0 |
+| `init-full` `--verified --nested-shadow` | 53 093 | 1 | 1 | 0 |
+| `init-full` `--trusted --nested-shadow` | 53 093 | 1 | 1 | 0 |
+| Mathlib `--verified --nested-shadow` | 654 504 | 41 | 41 | 0 |
+| Mathlib `--trusted --nested-shadow` | 654 504 | 41 | 41 | 0 |
+
+The same three numbers the pre-normalisation binary gives, at both
+corpora and in both modes, so the normalisation costs no acceptance
+anywhere measured and the walk stays inside `ordRootNorm`'s own
+measured-empty regime (K.69 §(a)'s `c69s` column is 0 at both real
+corpora).  No Mathlib perf cell, per the standing ruling.
+
+##### (e) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the same binary with the walk's normalisation
+removed (the previous spelling, `let dmJ := ordTargetDom …`).
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2365 G | 538.2415 G | +0.0009 % |
+| `init-full --trusted --nested-shadow` | 520.9010 G | 520.8959 G | −0.0010 % |
+
+The trusted cell is NEGATIVE, which is the honest reading of the
+shape: the extra work is ONE `normPosDomM` call per field that enters
+the guard region with a non-constant head, and (d)'s corpora contain
+none — so both cells measure run-to-run noise and nothing else.  No
+Mathlib perf cell, per the standing ruling.
+
+##### (f) THE GATES
+
+`tests/arena.sh` EXIT 0 — nested-shadow **45/45** (`nested_redex_owner`
+flipped to `J=accept,Outer=accept,`), e2e 200/200, arena 91/96, annot
+15/15, mode flags 10/10, trusted sweep 162+200+15 with the 3 recorded
+divergences, `--jobs=1` and `--jobs=4` sweeps as at the default.
+`tests/warning-free.sh 116e0ba9` 0 warning lines in both halves (11
+changed modules, 10 recompiled), `tests/shake.sh` green (514 removals,
+all allowlisted), overview-links 112, quote-gate 2, no-local-paths OK.
+`tests/unconsumed.sh` **203 of 3881** against **203 of 3881** — no
+declaration added or retired; `nestedOrdTargetOk_at` and `entOut_corr`
+were unconsumed before this row and still are.  `#print axioms` on
+`ordRootNorm_const`, the four `nestedOrdTargetOk_*` inversions,
+`instOrdTgtAt`/`instOutOwnerAt`/`instMapGrpAt`, `entOut_corr`,
+`ordTgt_corr` and `nestedPinsEntry_of_le_all`: all
+`[propext, Classical.choice, Quot.sound]`.

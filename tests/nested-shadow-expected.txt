@@ -167,4 +167,4 @@ tests/e2e/nested_pi_field.ndjson 0 J=accept,
 # and becomes `Outer=accept` when K.67's walk reads its fire test at
 # the positivity normal form, as K.69 already does.  See DESIGN, "K.70's
 # ARM (C) IS REFUTED BY A REDEX MINT".
-tests/e2e/nested_redex_owner.ndjson 1 J=accept,Outer=error,
+tests/e2e/nested_redex_owner.ndjson 1 J=accept,Outer=accept,
