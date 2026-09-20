@@ -285,16 +285,6 @@ compound node, as before, and the switch is a compile-time constant
 the wrappers fold.  Nothing here adds to the trust surface: the two
 address primitives are `Init.Util`'s and the oracle's is task #314's. -/
 
-/-- Which table the pointer-keyed memo uses (compile-time). -/
-inductive PtrTable where
-  | hash
-  | flat
-deriving DecidableEq, Repr
-
-/-- THE SECOND SWITCH of the pointer-keyed memo: the table behind
-`walkMemoMode := .ptr` / `.hybridPtr`. -/
-def walkPtrTable : PtrTable := .hash
-
 /-- The packed key: the node's address over its 8-byte alignment,
 then the cursor modulo `2^16` in the low bits.  Pure `UInt64` register
 arithmetic; a tagged scalar as a `Nat` (addresses are below `2^47`).
@@ -335,137 +325,22 @@ instance : Hashable PKey := ⟨fun k => hash64 (UInt64.ofNat k.val)⟩
 packed address instead of the structural pair. -/
 abbrev HTab (s : Expr → Nat → Expr) := Std.HashMap PKey (PEnt s)
 
-/-- The flat table: open addressing over two parallel arrays of
-power-of-two capacity, `keys[i] = 0` marking an empty slot (a real key
-is at least `2^16`: the address's aligned part is never `0`). -/
-structure PTab (s : Expr → Nat → Expr) where
-  keys : Array Nat
-  ents : Array (PEnt s)
-  count : Nat
-  /-- `64 - log2 capacity`: the Fibonacci hash keeps the top bits. -/
-  shift : UInt64
-
-namespace PTab
-
-/-- The initial capacity is 16 (`64 - 4`). -/
-def initShift : UInt64 := 60
-
-/-- Fibonacci hashing: the key times the golden-ratio constant, top
-`log2 capacity` bits. -/
-@[inline] def idx (shift : UInt64) (key : Nat) : Nat :=
-  ((UInt64.ofNat key * 11400714819323198485) >>> shift).toNat
-
-/-- The probe: the slot holding `key`, or the first empty slot on its
-run (the table is never more than half full, so one exists; the fuel
-is the capacity). -/
-def find (keys : @& Array Nat) (key : Nat) (i : Nat) (mask : Nat) : Nat → Nat
-  | 0 => i
-  | fuel + 1 =>
-    let k := keys[i]!
-    if k == 0 || k == key then i else find keys key ((i + 1) &&& mask) mask fuel
-
-/-- Re-probe every entry of the old arrays into the new (empty, twice
-as large) ones. -/
-def rehash (keys : @& Array Nat) (ents : @& Array (PEnt s)) (i : Nat)
-    (keys' : Array Nat) (ents' : Array (PEnt s)) (mask : Nat) (shift : UInt64) :
-    Array Nat × Array (PEnt s) :=
-  if h : i < keys.size then
-    let k := keys[i]
-    if k == 0 then rehash keys ents (i + 1) keys' ents' mask shift
-    else if h2 : i < ents.size then
-      let j := find keys' k (idx shift k) mask keys'.size
-      rehash keys ents (i + 1) (keys'.set! j k) (ents'.set! j ents[i]) mask shift
-    else rehash keys ents (i + 1) keys' ents' mask shift
-  else (keys', ents')
-termination_by keys.size - i
-
-/-- Quadruple the capacity (`p` is the filler of the fresh entry array):
-16 → 64 → 256 → 1024 — a growth is a scan of every slot and a re-probe
-of every entry, and the first flat build (doubling: six growths for a
-170-entry table, `rehash` 3 % of `magma-list-pair-n21`) paid for it. -/
-def grow (keys : Array Nat) (ents : Array (PEnt s)) (count : Nat) (shift : UInt64)
-    (p : PEnt s) : PTab s :=
-  let cap := keys.size * 4
-  let shift := shift - 2
-  match rehash keys ents 0 (Array.replicate cap 0) (Array.replicate cap p) (cap - 1) shift with
-  | (keys', ents') => ⟨keys', ents', count, shift⟩
-
-/-- Insert (a slot already holding `key` is overwritten: the entry
-validates itself, so a stale one is only a lost hit); grow at half
-load. -/
-def insertK (t : PTab s) (key : Nat) (p : PEnt s) : PTab s :=
-  match t with
-  | ⟨keys, ents, count, shift⟩ =>
-    let mask := keys.size - 1
-    let i := find keys key (idx shift key) mask keys.size
-    let keys := keys.set! i key
-    let ents := ents.set! i p
-    let count := count + 1
-    if count + count > keys.size then grow keys ents count shift p
-    else ⟨keys, ents, count, shift⟩
-
-/-- Insert under a slot probed BEFORE the descent that produced the
-entry: if the capacity is unchanged the probe resumes at that slot
-(usually still empty — one step, no re-hash), else it restarts. -/
-def insertAt (t : PTab s) (key : Nat) (i cap : Nat) (p : PEnt s) : PTab s :=
-  match t with
-  | ⟨keys, ents, count, shift⟩ =>
-    let mask := keys.size - 1
-    let i := if keys.size == cap then
-        (if keys[i]! == 0 then i else find keys key i mask keys.size)
-      else find keys key (idx shift key) mask keys.size
-    let keys := keys.set! i key
-    let ents := ents.set! i p
-    let count := count + 1
-    if count + count > keys.size then grow keys ents count shift p
-    else ⟨keys, ents, count, shift⟩
-
-/-- The one-entry table (the first entry is also the filler). -/
-def create (key : Nat) (p : PEnt s) : PTab s :=
-  let keys : Array Nat := Array.replicate 16 0
-  ⟨keys.set! (idx initShift key) key, Array.replicate 16 p, 1, initShift⟩
-
-/-- The probe, in continuation shape so that a hit allocates no
-`Option`; the first step is inline (the common no-collision case makes
-no call), and a miss hands its slot and the capacity to the
-continuation for `insertAt`. -/
-@[inline] def probe {β : Sort u} (t : @& PTab s) (key : Nat) (hit : PEnt s → β)
-    (miss : Nat → Nat → β) : β :=
-  let size := t.keys.size
-  let mask := size - 1
-  let i0 := idx t.shift key
-  let k0 := t.keys[i0]!
-  let i := if k0 == 0 || k0 == key then i0 else find t.keys key ((i0 + 1) &&& mask) mask size
-  if h : i < t.ents.size then
-    if t.keys[i]! == key then hit t.ents[i] else miss i size
-  else miss i size
-
-end PTab
-
-/-- The two tables behind one constructor pair; `walkPtrTable` picks
-the one a walk creates. -/
-inductive PTabU (s : Expr → Nat → Expr) where
-  | hash : HTab s → PTabU s
-  | flat : PTab s → PTabU s
-
 /-- The pointer-keyed memo: absent until the first shared compound
 node. -/
-abbrev MemoXP (s : Expr → Nat → Expr) := Option (PTabU s)
+abbrev MemoXP (s : Expr → Nat → Expr) := Option (HTab s)
 
 /-- A pointer-keyed walk's result: the term, fixed by its proof,
 beside the memo. -/
 abbrev ResXP (s : Expr → Nat → Expr) (e : Expr) (c : Nat) :=
   { r : Expr // r = s e c } × MemoXP s
 
-@[inline] def MemoXP.insertK {s : Expr → Nat → Expr} (memo : MemoXP s) (key : Nat)
-    (i cap : Nat) (p : PEnt s) : MemoXP s :=
+/-- The record: the entry under its packed key, in the table or in a
+fresh one. -/
+@[inline] def MemoXP.insert {s : Expr → Nat → Expr} (memo : MemoXP s) (key : Nat)
+    (p : PEnt s) : MemoXP s :=
   match memo with
-  | none =>
-    match walkPtrTable with
-    | .hash => some (.hash (({} : HTab s).insert ⟨key⟩ p))
-    | .flat => some (.flat (PTab.create key p))
-  | some (.hash m) => some (.hash (m.insert ⟨key⟩ p))
-  | some (.flat t) => some (.flat (t.insertAt key i cap p))
+  | none => some (({} : HTab s).insert ⟨key⟩ p)
+  | some m => some (m.insert ⟨key⟩ p)
 
 /-- The shared-node step over the pointer-keyed memo: the address
 read, the probe, the validated hit — else the descent and the record
@@ -477,20 +352,14 @@ the address is unobservable: `withAddr`). -/
   let key := pkey addr c
   match memo with
   | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-      Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
-  | some (.hash m) =>
+      Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, c, hr⟩)
+  | some m =>
     match m[(⟨key⟩ : PKey)]? with
     | some p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
         Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-          Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
+          Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, c, hr⟩)
     | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩)
-  | some (.flat t) =>
-    t.probe key (fun p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
-        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-          Squash.mk (⟨r, hr⟩, memo.insertK key 0 0 ⟨e, r, c, hr⟩))
-      fun i cap => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
-        Squash.mk (⟨r, hr⟩, memo.insertK key i cap ⟨e, r, c, hr⟩)
+        Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, c, hr⟩)
 
 /-- The cursor-free instance (`instLevelParams`): the cursored memo at
 cursor `0`. -/
