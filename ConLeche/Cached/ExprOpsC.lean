@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Cached.ExprNodes
 public import ConLeche.Kernel.Core
-public import ConLeche.Kernel.Exclusive
+import ConLeche.Kernel.Exclusive
 
 @[expose] public section
 
