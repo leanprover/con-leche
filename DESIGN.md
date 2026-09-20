@@ -128133,8 +128133,20 @@ no `maxHeartbeats`.
 ##### (f) THE COST
 
 `perf stat -e instructions:u`, one run per cell, `--nested-shadow
---jobs=1`, against the landed step-3(b) binary.  The reduction runs
-NOTHING where the mint's head is already a constant, which is every
-field of both real corpora (K.69's `c69s` column, this row's table),
-so the cells measure the removal of `normPosDomM` from the rows and
-nothing else.  No Mathlib perf cell, per the standing ruling.
+--jobs=1`, against the step-3(b) binary built from `001c0871` with the
+SAME toolchain and the same one kernel file swapped.
+
+| run | `ordRootNorm` (001c0871) | `ordHeadRed` | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2368 G | 538.2303 G | **−0.0012 %** |
+| `init-full --trusted --nested-shadow` | 520.8891 G | 520.8883 G | **−0.0002 %** |
+
+Both cells are NEGATIVE, which is what the shape predicts: the
+reduction runs NOTHING where the mint's head is already a constant
+(`ordHeadRed_const`), which is every field of both real corpora
+(K.69's `c69s` column and this row's conformance table), so what the
+cells measure is `normPosDomM` and its `fueledOps` allocation leaving
+the rows.  Noise-level either way — three orders below K.62's
++0.436 % — and the "no unmemoized traversals" rule is met, as before,
+by rarity and by size.  No Mathlib perf cell, per the standing
+ruling.
