@@ -12,7 +12,7 @@ public section
 Task #163, batch 4.  The pieces of the cached clone that sit *between*
 the parse arena and the core:
 
-* the fabrication leaf guard (`fvarLeaves`/`leafMem`/`leavesSubGo`/
+* the fabrication leaf guard (`fvarLeaves`/`leafMem`/`leavesSubC`/
   `leafGuard`) — the transposition of `leafGuard_spec'`
   (`ConLeche/Verify/IExprOps.lean`);
 * the level-parameter definedness walk
@@ -59,267 +59,22 @@ namespace ConLeche.Expr
 
 /-! ## Level-parameter definedness
 
-`Expr.allLevelParamsDefinedGo` is a plain `Expr`-keyed memoized walk
-with the `hasLP` cutoff; the memo invariant is the
-erasure-function-of-key form, and the cutoff arm is discharged by
-`hasLP_eq _` plus `Expr.allLevelParamsDefined_of_not_hasLevelParam`. -/
+`allLevelParamsDefinedC` is the pointer-keyed walk of
+`ConLeche/Cached/ExprOpsC.lean` with the `hasLP` cutoff.  The walk
+carries its own proof against the plain descent
+`allLevelParamsDefinedP`, so all that is proved here is that plain
+descent (and the cutoff arm, by `hasLP_eq _` plus
+`Expr.allLevelParamsDefined_of_not_hasLevelParam`); there is no memo
+invariant, because each entry carries its own proof. -/
 
-/-- The definedness walk's memo invariant. -/
-@[expose] def MemoLPDInv (ps : List Name) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
-    r = (Expr.allLevelParamsDefined ps e)
-
-theorem MemoLPDInv.empty {ps : List Name} : MemoLPDInv ps {} := by
-  intro e r h
-  simp at h
-
-theorem MemoLPDInv.insert {ps : List Name} {memo : Std.HashMap Expr Bool}
-    (hm : MemoLPDInv ps memo) {e : Expr} {r : Bool}
-    (heq : r = (Expr.allLevelParamsDefined ps e)) :
-    MemoLPDInv ps (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← beq_sound hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-/-- **The definedness walk agrees with `Expr.allLevelParamsDefined` on
-the erasure.** -/
-theorem allLevelParamsDefinedGoC_spec {ps : List Name} :
-    ∀ {e : Expr},
-    ∀ {memo : Std.HashMap Expr Bool}, MemoLPDInv ps memo →
-      (Expr.allLevelParamsDefinedGoC ps memo e).1
-          = (Expr.allLevelParamsDefined ps e) ∧
-        MemoLPDInv ps (Expr.allLevelParamsDefinedGoC ps memo e).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simp)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨rfl, hm.insert rfl⟩
-  | lit l =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simp)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨rfl, hm.insert rfl⟩
-  | sort u =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨rfl, hm.insert rfl⟩
-  | const n us =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨rfl, hm.insert rfl⟩
-  | fvar idx ty iht =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        exact ⟨h1, h2.insert h1⟩
-  | app f a ihf iha =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := ihf hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo f with ⟨rf, mf⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rf with
-        | true =>
-          obtain ⟨h3, h4⟩ := iha h2
-          rcases hq : Expr.allLevelParamsDefinedGoC ps mf a with ⟨ra, ma⟩
-          rw [hq] at h3 h4
-          have hres : ra
-              = (Expr.allLevelParamsDefined ps (.app f a)) := by
-            show ra = (Expr.app f a).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = (Expr.allLevelParamsDefined ps (.app f a)) := by
-            show false
-              = (Expr.app f a).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | lam ty bd m iht ihb =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : Expr.allLevelParamsDefinedGoC ps mt bd with ⟨rb, mb⟩
-          rw [hq] at h3 h4
-          have hres : (rb && m.pw.paramsDefined ps)
-              = (Expr.allLevelParamsDefined ps (.lam ty bd m)) := by
-            show _ = (Expr.lam ty bd m
-              ).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = (Expr.allLevelParamsDefined ps (.lam ty bd m)) := by
-            show false = (Expr.lam ty bd m
-              ).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1]
-            simp
-          exact ⟨hres, h2.insert hres⟩
-  | forallE ty bd m iht ihb =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : Expr.allLevelParamsDefinedGoC ps mt bd with ⟨rb, mb⟩
-          rw [hq] at h3 h4
-          have hres : (rb && m.pw.paramsDefined ps)
-              = (Expr.allLevelParamsDefined ps (.forallE ty bd m)) := by
-            show _ = (Expr.forallE ty bd m
-              ).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = (Expr.allLevelParamsDefined ps (.forallE ty bd m)) := by
-            show false = (Expr.forallE ty bd m
-              ).allLevelParamsDefined ps
-            rw [Expr.allLevelParamsDefined, ← h1]
-            simp
-          exact ⟨hres, h2.insert hres⟩
-  | letE ty val bd iht ihv ihb =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · have herase : (Expr.letE ty val bd)
-            = Expr.letE ty val bd := rfl
-        obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | false =>
-          have hres : false
-              = (Expr.allLevelParamsDefined ps (.letE ty val bd)) := by
-            rw [herase, Expr.allLevelParamsDefined, ← h1]
-            simp
-          exact ⟨hres, h2.insert hres⟩
-        | true =>
-          obtain ⟨h3, h4⟩ := ihv h2
-          rcases hq : Expr.allLevelParamsDefinedGoC ps mt val with ⟨rv, mv⟩
-          rw [hq] at h3 h4
-          cases rv with
-          | false =>
-            have hres : false
-                = (Expr.allLevelParamsDefined ps (.letE ty val bd)) := by
-              rw [herase, Expr.allLevelParamsDefined, ← h1, ← h3]
-              simp
-            exact ⟨hres, h4.insert hres⟩
-          | true =>
-            obtain ⟨h5, h6⟩ := ihb h4
-            rcases hr : Expr.allLevelParamsDefinedGoC ps mv bd with ⟨rb, mb⟩
-            rw [hr] at h5 h6
-            have hres : rb
-                = (Expr.allLevelParamsDefined ps (.letE ty val bd)) := by
-              rw [herase, Expr.allLevelParamsDefined, ← h1, ← h3, ← h5]
-              simp
-            exact ⟨hres, h6.insert hres⟩
-  | proj s i sub ihe =>
-    intro memo hm
-    rw [Expr.allLevelParamsDefinedGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := ihe hm
-        rcases hp : Expr.allLevelParamsDefinedGoC ps memo sub with ⟨rs, ms⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        exact ⟨h1, h2.insert h1⟩
-
-/-- The `.excl` walk's cutoff, read as the specification: a node
-without a level parameter has all of them defined. -/
+/-- The walk's cutoff, read as the specification: a node without a
+level parameter has all of them defined. -/
 private theorem lpdP_cut_spec {ps : List Name} {e : Expr} (h : ¬ e.hasLP = true) :
     true = Expr.allLevelParamsDefined ps e :=
   (Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
     (by rw [← hasLP_eq _]; simpa using h)).symm
 
-/-- **The plain descent of the `.excl` walk is
-`Expr.allLevelParamsDefined`.** -/
+/-- **The plain descent is `Expr.allLevelParamsDefined`.** -/
 theorem allLevelParamsDefinedP_spec {ps : List Name} : ∀ {e : Expr},
     Expr.allLevelParamsDefinedP ps e = Expr.allLevelParamsDefined ps e := by
   intro e
@@ -380,15 +135,9 @@ the erasure.** -/
 theorem allLevelParamsDefinedC_spec {ps : List Name} {e : Expr} :
     Expr.allLevelParamsDefinedC ps e = (Expr.allLevelParamsDefined ps e) := by
   rw [Expr.allLevelParamsDefinedC.eq_def]
-  cases Expr.boolMemoMode with
-  | keyed => exact (allLevelParamsDefinedGoC_spec MemoLPDInv.empty).1
-  | excl =>
-    show (if hcut : e.hasLP = true then
-        Expr.resBool (Expr.allLevelParamsDefinedXP ps none e hcut) else true)
-      = Expr.allLevelParamsDefined ps e
-    split
-    · rw [Expr.resBool_eq]; exact allLevelParamsDefinedP_spec
-    · next h => exact lpdP_cut_spec h
+  split
+  · rw [Expr.resBool_eq]; exact allLevelParamsDefinedP_spec
+  · next h => exact lpdP_cut_spec h
 
 /-! ## The fabrication leaf guard
 
@@ -919,288 +668,8 @@ theorem fvarLeavesC_leafBase {base : Expr} :
 
 /-! ### The subset walk -/
 
-/-- The subset walk's memo invariant. -/
-@[expose] def MemoSubInv (B' : List (Nat × Expr))
-    (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
-    r = ((Expr.fvarLeaves e).all fun l => B'.contains l)
-
-theorem MemoSubInv.empty {B' : List (Nat × Expr)} :
-    MemoSubInv B' {} := by
-  intro e r h
-  simp at h
-
-theorem MemoSubInv.insert {B' : List (Nat × Expr)}
-    {memo : Std.HashMap Expr Bool} (hm : MemoSubInv B' memo) {e : Expr}
-    {r : Bool}
-    (heq : r = ((Expr.fvarLeaves e).all fun l => B'.contains l)) :
-    MemoSubInv B' (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← beq_sound hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-/-- **The subset walk decides the `Expr`-level leaf-subset boolean.** -/
-theorem leavesSubGo_spec {bl : List (Nat × Expr)}
-    {B' : List (Nat × Expr)} (hbl : LeafBase bl B') :
-    ∀ {e : Expr},
-    ∀ {memo : Std.HashMap Expr Bool}, MemoSubInv B' memo →
-      (Expr.leavesSubGo bl memo e).1
-          = ((Expr.fvarLeaves e).all fun l => B'.contains l) ∧
-        MemoSubInv B' (Expr.leavesSubGo bl memo e).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro memo hm
-    have hnil : (Expr.fvarLeaves (Expr.bvar i)) = [] := fvarLeaves_bvar i
-    have hres : true = ((Expr.fvarLeaves (Expr.bvar i)).all
-        fun l => B'.contains l) := by rw [hnil]; rfl
-    rw [leavesSubGo.eq_def]
-    split
-    · exact ⟨hres, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨hres, hm.insert hres⟩
-  | sort u =>
-    intro memo hm
-    have hnil : (Expr.fvarLeaves (Expr.sort u)) = [] := fvarLeaves_sort u
-    have hres : true = ((Expr.fvarLeaves (Expr.sort u)).all
-        fun l => B'.contains l) := by rw [hnil]; rfl
-    rw [leavesSubGo.eq_def]
-    split
-    · exact ⟨hres, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨hres, hm.insert hres⟩
-  | const n us =>
-    intro memo hm
-    have hnil : (Expr.fvarLeaves (Expr.const n us)) = [] := fvarLeaves_const n us
-    have hres : true = ((Expr.fvarLeaves (Expr.const n us)).all
-        fun l => B'.contains l) := by rw [hnil]; rfl
-    rw [leavesSubGo.eq_def]
-    split
-    · exact ⟨hres, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨hres, hm.insert hres⟩
-  | lit l =>
-    intro memo hm
-    have hnil : (Expr.fvarLeaves (Expr.lit l)) = [] := fvarLeaves_lit l
-    have hres : true = ((Expr.fvarLeaves (Expr.lit l)).all
-        fun l => B'.contains l) := by rw [hnil]; rfl
-    rw [leavesSubGo.eq_def]
-    split
-    · exact ⟨hres, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · exact ⟨hres, hm.insert hres⟩
-  | fvar idx ty iht =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.fvar idx ty))
-        = (idx, ty) :: (Expr.fvarLeaves ty) := fvarLeaves_fvar ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · dsimp only
-        split
-        · rename_i hlm
-          obtain ⟨h1, h2⟩ := iht hm
-          rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
-          rw [hp] at h1 h2
-          have hres : rt
-              = ((Expr.fvarLeaves (Expr.fvar idx ty)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_cons, ← leafMem_spec hbl, hlm, ← h1,
-              Bool.true_and]
-          exact ⟨hres, h2.insert hres⟩
-        · rename_i hlm
-          have hres : false
-              = ((Expr.fvarLeaves (Expr.fvar idx ty)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_cons, ← leafMem_spec hbl]
-            simp [hlm]
-          exact ⟨hres, hm.insert hres⟩
-  | app f a ihf iha =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.app f a))
-        = (Expr.fvarLeaves f) ++ (Expr.fvarLeaves a) := fvarLeaves_app ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := ihf hm
-        rcases hp : Expr.leavesSubGo bl memo f with ⟨rf, mf⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rf with
-        | true =>
-          obtain ⟨h3, h4⟩ := iha h2
-          rcases hq : Expr.leavesSubGo bl mf a with ⟨ra, ma⟩
-          rw [hq] at h3 h4
-          have hres : ra
-              = ((Expr.fvarLeaves (Expr.app f a)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = ((Expr.fvarLeaves (Expr.app f a)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | lam ty bd m iht ihb =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.lam ty bd m))
-        = (Expr.fvarLeaves ty) ++ (Expr.fvarLeaves bd) := fvarLeaves_lam ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : Expr.leavesSubGo bl mt bd with ⟨rb, mb⟩
-          rw [hq] at h3 h4
-          have hres : rb
-              = ((Expr.fvarLeaves (Expr.lam ty bd m)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = ((Expr.fvarLeaves (Expr.lam ty bd m)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | forallE ty bd m iht ihb =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.forallE ty bd m))
-        = (Expr.fvarLeaves ty) ++ (Expr.fvarLeaves bd) :=
-      fvarLeaves_forallE ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb h2
-          rcases hq : Expr.leavesSubGo bl mt bd with ⟨rb, mb⟩
-          rw [hq] at h3 h4
-          have hres : rb
-              = ((Expr.fvarLeaves (Expr.forallE ty bd m)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = ((Expr.fvarLeaves (Expr.forallE ty bd m)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | letE ty val bd iht ihv ihb =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.letE ty val bd))
-        = (Expr.fvarLeaves ty) ++ (Expr.fvarLeaves val)
-            ++ (Expr.fvarLeaves bd) := fvarLeaves_letE ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht hm
-        rcases hp : Expr.leavesSubGo bl memo ty with ⟨rt, mt⟩
-        rw [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | false =>
-          have hres : false
-              = ((Expr.fvarLeaves (Expr.letE ty val bd)).all
-                  fun l => B'.contains l) := by
-            rw [hlv, List.all_append, List.all_append, ← h1]
-            simp
-          exact ⟨hres, h2.insert hres⟩
-        | true =>
-          obtain ⟨h3, h4⟩ := ihv h2
-          rcases hq : Expr.leavesSubGo bl mt val with ⟨rv, mv⟩
-          rw [hq] at h3 h4
-          cases rv with
-          | false =>
-            have hres : false
-                = ((Expr.fvarLeaves (Expr.letE ty val bd)).all
-                    fun l => B'.contains l) := by
-              rw [hlv, List.all_append, List.all_append, ← h1, ← h3]
-              simp
-            exact ⟨hres, h4.insert hres⟩
-          | true =>
-            obtain ⟨h5, h6⟩ := ihb h4
-            rcases hr : Expr.leavesSubGo bl mv bd with ⟨rb, mb⟩
-            rw [hr] at h5 h6
-            have hres : rb
-                = ((Expr.fvarLeaves (Expr.letE ty val bd)).all
-                    fun l => B'.contains l) := by
-              rw [hlv, List.all_append, List.all_append, ← h1, ← h3, ← h5]
-              simp
-            exact ⟨hres, h6.insert hres⟩
-  | proj s i sub ihe =>
-    intro memo hm
-    have hlv : (Expr.fvarLeaves (Expr.proj s i sub))
-        = (Expr.fvarLeaves sub) := fvarLeaves_proj ..
-    rw [leavesSubGo.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨by rw [fvarLeaves_nil_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut)))]; rfl, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ hhit, hm⟩
-      · dsimp only
-        obtain ⟨h1, h2⟩ := ihe hm
-        rcases hp : Expr.leavesSubGo bl memo sub with ⟨rs, ms⟩
-        rw [hp] at h1 h2
-        have hres : rs
-            = ((Expr.fvarLeaves (Expr.proj s i sub)).all
-                fun l => B'.contains l) := by
-          rw [hlv, ← h1]
-        exact ⟨hres, h2.insert hres⟩
-
-/-- The `.excl` walk's cutoff, read as the specification: a node whose
-cached fvar range is zero has no leaf to check. -/
+/-- The walk's cutoff, read as the specification: a node whose cached
+fvar range is zero has no leaf to check. -/
 private theorem leavesSubP_cut_spec {B' : List (Nat × Expr)} {e : Expr}
     (h : (e.fvarB == 0) = true) :
     true = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
@@ -1208,8 +677,8 @@ private theorem leavesSubP_cut_spec {B' : List (Nat × Expr)} {e : Expr}
     (fvarB_le (Nat.le_of_eq (by simpa using h)))]
   rfl
 
-/-- **The plain descent of the `.excl` walk decides the `Expr`-level
-leaf-subset boolean.** -/
+/-- **The plain descent decides the `Expr`-level leaf-subset
+boolean.** -/
 theorem leavesSubP_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
     (hbl : LeafBase bl B') : ∀ {e : Expr},
     Expr.leavesSubP bl e = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
@@ -1256,12 +725,12 @@ theorem leavesSubP_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
     · next h => exact leavesSubP_cut_spec h
     · simp only [fvarLeaves_proj, ihe]
 
-/-- **The `.excl` entry decides the `Expr`-level leaf-subset
-boolean.** -/
-private theorem leavesSubX_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
+/-- **The cached leaf-subset test decides the `Expr`-level
+leaf-subset boolean.** -/
+private theorem leavesSubC_spec {bl : List (Nat × Expr)} {B' : List (Nat × Expr)}
     (hbl : LeafBase bl B') {e : Expr} :
-    Expr.leavesSubX bl e = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
-  rw [Expr.leavesSubX.eq_def]
+    Expr.leavesSubC bl e = ((Expr.fvarLeaves e).all fun l => B'.contains l) := by
+  rw [Expr.leavesSubC.eq_def]
   split
   · next h => exact leavesSubP_cut_spec h
   · rw [Expr.resBool_eq]; exact leavesSubP_spec hbl
@@ -1283,9 +752,7 @@ theorem leafGuard_spec {fab base : Expr} :
     simp [this]
   | true =>
     simp only [Bool.not_true, Bool.false_or]
-    cases Expr.boolMemoMode with
-    | keyed => exact (leavesSubGo_spec (fvarLeavesC_leafBase) MemoSubInv.empty).1
-    | excl => exact leavesSubX_spec fvarLeavesC_leafBase
+    exact leavesSubC_spec fvarLeavesC_leafBase
 
 end ConLeche.Expr
 
@@ -1525,232 +992,15 @@ theorem leafGuard_spec' {fab base : Expr} {fx bx : Expr}
 
 /-! ## Constant resolution
 
-`constsResolveFCGo` (`ConLeche/Cached/StateC.lean`) is the cached
-`Expr.constsResolveF`: an `Expr`-keyed memoized walk with **no**
-cutoff (the environment index is an ambient parameter of the call, so
-only the node matters). -/
+`constsResolveFC` (`ConLeche/Cached/StateC.lean`) is the cached
+`Expr.constsResolveF`: the pointer-keyed walk of
+`ConLeche/Cached/ExprOpsC.lean` with **no** cutoff (the environment
+index is an ambient parameter of the call, so only the node matters).
+The walk carries its own proof against the plain descent
+`constsResolveFP`, so all that is proved here is that plain
+descent. -/
 
-open Expr in
-/-- The constant-resolution walk's memo invariant. -/
-@[expose] def MemoCRInv (fe : FEnv) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (e : Expr) (r : Bool), memo[e]? = some r →
-    r = Expr.constsResolveF fe e
-
-theorem MemoCRInv.empty {fe : FEnv} : MemoCRInv fe {} := by
-  intro e r h
-  simp at h
-
-theorem MemoCRInv.insert {fe : FEnv} {memo : Std.HashMap Expr Bool}
-    (hm : MemoCRInv fe memo) {e : Expr} {r : Bool}
-    (heq : r = Expr.constsResolveF fe e) :
-    MemoCRInv fe (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← Expr.beq_sound hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-open Expr in
-/-- **The constant-resolution walk agrees with `Expr.constsResolveF` on
-the erasure.** -/
-theorem constsResolveFCGo_spec {fe : FEnv} :
-    ∀ {e : Expr},
-    ∀ {memo : Std.HashMap Expr Bool}, MemoCRInv fe memo →
-      (constsResolveFCGo fe memo e).1 = Expr.constsResolveF fe e ∧
-        MemoCRInv fe (constsResolveFCGo fe memo e).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | sort u =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | const n us =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | lit l =>
-    intro memo hm
-    cases l <;>
-      · rw [constsResolveFCGo.eq_def]
-        split
-        · rename_i r hhit
-          exact ⟨hm _ _ hhit, hm⟩
-        · exact ⟨rfl, hm.insert rfl⟩
-  | fvar idx ty iht =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      rcases hp : constsResolveFCGo fe memo ty with ⟨rt, mt⟩
-      rw [hp] at h1 h2
-      simp only [hp]
-      exact ⟨h1, h2.insert h1⟩
-  | app f a ihf iha =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := ihf hm
-      rcases hp : constsResolveFCGo fe memo f with ⟨rf, mf⟩
-      rw [hp] at h1 h2
-      simp only [hp]
-      cases rf with
-      | true =>
-        obtain ⟨h3, h4⟩ := iha h2
-        rcases hq : constsResolveFCGo fe mf a with ⟨ra, ma⟩
-        rw [hq] at h3 h4
-        have hres : ra
-            = Expr.constsResolveF fe ((.app f a)) := by
-          show ra = Expr.constsResolveF fe (Expr.app f a)
-          rw [Expr.constsResolveF, ← h1, ← h3, Bool.true_and]
-        exact ⟨hres, h4.insert hres⟩
-      | false =>
-        have hres : false
-            = Expr.constsResolveF fe ((.app f a)) := by
-          show false = Expr.constsResolveF fe (Expr.app f a)
-          rw [Expr.constsResolveF, ← h1, Bool.false_and]
-        exact ⟨hres, h2.insert hres⟩
-  | lam ty bd m iht ihb =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      rcases hp : constsResolveFCGo fe memo ty with ⟨rt, mt⟩
-      rw [hp] at h1 h2
-      simp only [hp]
-      cases rt with
-      | true =>
-        obtain ⟨h3, h4⟩ := ihb h2
-        rcases hq : constsResolveFCGo fe mt bd with ⟨rb, mb⟩
-        rw [hq] at h3 h4
-        have hres : rb = Expr.constsResolveF fe
-            ((.lam ty bd m)) := by
-          show rb = Expr.constsResolveF fe
-            (Expr.lam ty bd m)
-          rw [Expr.constsResolveF, ← h1, ← h3, Bool.true_and]
-        exact ⟨hres, h4.insert hres⟩
-      | false =>
-        have hres : false = Expr.constsResolveF fe
-            ((.lam ty bd m)) := by
-          show false = Expr.constsResolveF fe
-            (Expr.lam ty bd m)
-          rw [Expr.constsResolveF, ← h1, Bool.false_and]
-        exact ⟨hres, h2.insert hres⟩
-  | forallE ty bd m iht ihb =>
-    intro memo hm
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      rcases hp : constsResolveFCGo fe memo ty with ⟨rt, mt⟩
-      rw [hp] at h1 h2
-      simp only [hp]
-      cases rt with
-      | true =>
-        obtain ⟨h3, h4⟩ := ihb h2
-        rcases hq : constsResolveFCGo fe mt bd with ⟨rb, mb⟩
-        rw [hq] at h3 h4
-        have hres : rb = Expr.constsResolveF fe
-            ((.forallE ty bd m)) := by
-          show rb = Expr.constsResolveF fe
-            (Expr.forallE ty bd m)
-          rw [Expr.constsResolveF, ← h1, ← h3, Bool.true_and]
-        exact ⟨hres, h4.insert hres⟩
-      | false =>
-        have hres : false = Expr.constsResolveF fe
-            ((.forallE ty bd m)) := by
-          show false = Expr.constsResolveF fe
-            (Expr.forallE ty bd m)
-          rw [Expr.constsResolveF, ← h1, Bool.false_and]
-        exact ⟨hres, h2.insert hres⟩
-  | letE ty val bd iht ihv ihb =>
-    intro memo hm
-    have herase : (Expr.letE ty val bd)
-        = Expr.letE ty val bd := rfl
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      rcases hp : constsResolveFCGo fe memo ty with ⟨rt, mt⟩
-      rw [hp] at h1 h2
-      simp only [hp]
-      cases rt with
-      | false =>
-        have hres : false = Expr.constsResolveF fe
-            ((.letE ty val bd)) := by
-          rw [herase, Expr.constsResolveF, ← h1]
-          simp
-        exact ⟨hres, h2.insert hres⟩
-      | true =>
-        obtain ⟨h3, h4⟩ := ihv h2
-        rcases hq : constsResolveFCGo fe mt val with ⟨rv, mv⟩
-        rw [hq] at h3 h4
-        cases rv with
-        | false =>
-          have hres : false = Expr.constsResolveF fe
-              ((.letE ty val bd)) := by
-            rw [herase, Expr.constsResolveF, ← h1, ← h3]
-            simp
-          exact ⟨hres, h4.insert hres⟩
-        | true =>
-          obtain ⟨h5, h6⟩ := ihb h4
-          rcases hr : constsResolveFCGo fe mv bd with ⟨rb, mb⟩
-          rw [hr] at h5 h6
-          have hres : rb = Expr.constsResolveF fe
-              ((.letE ty val bd)) := by
-            rw [herase, Expr.constsResolveF, ← h1, ← h3, ← h5]
-            simp
-          exact ⟨hres, h6.insert hres⟩
-  | proj s i sub ihe =>
-    intro memo hm
-    have herase : (Expr.proj s i sub)
-        = Expr.proj s i sub := rfl
-    rw [constsResolveFCGo.eq_def]
-    split
-    · rename_i r hhit
-      exact ⟨hm _ _ hhit, hm⟩
-    · dsimp only
-      split
-      · rename_i hfind
-        obtain ⟨h1, h2⟩ := ihe hm
-        rcases hp : constsResolveFCGo fe memo sub with ⟨rs, ms⟩
-        rw [hp] at h1 h2
-        have hres : rs = Expr.constsResolveF fe
-            ((.proj s i sub)) := by
-          rw [herase, Expr.constsResolveF, ← h1, hfind, Bool.true_and]
-        exact ⟨hres, h2.insert hres⟩
-      · rename_i hfind
-        have hres : false = Expr.constsResolveF fe
-            ((.proj s i sub)) := by
-          rw [herase, Expr.constsResolveF]
-          simp [hfind]
-        exact ⟨hres, hm.insert hres⟩
-
-/-- **The plain descent of the `.excl` walk is
-`Expr.constsResolveF`.** -/
+/-- **The plain descent is `Expr.constsResolveF`.** -/
 theorem constsResolveFP_spec {fe : FEnv} : ∀ {e : Expr},
     constsResolveFP fe e = Expr.constsResolveF fe e := by
   intro e
@@ -1771,10 +1021,8 @@ open Expr in
 /-- **`constsResolveFC` is `Expr.constsResolveF` of the erasure.** -/
 theorem constsResolveFC_spec {fe : FEnv} {e : Expr} :
     constsResolveFC fe e = Expr.constsResolveF fe e := by
-  rw [constsResolveFC.eq_def]
-  cases Expr.crfMemoMode with
-  | keyed => exact (constsResolveFCGo_spec MemoCRInv.empty).1
-  | excl => rw [Expr.resBool_eq]; exact constsResolveFP_spec
+  rw [constsResolveFC.eq_def, Expr.resBool_eq]
+  exact constsResolveFP_spec
 
 /-! ### The zero-ness readout (task #163, batch 9; task #272)
 

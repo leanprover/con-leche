@@ -28,12 +28,12 @@ its key, and insert-preservation goes through
 `Std.HashMap.getElem?_insert` plus `beq_sound` on the colliding key —
 a memo hit's key is only `BEq`-equal to the query.
 
-That last shape survives here only for the SCOPE and DEFINEDNESS walks
-(`MemoWInv`).  The substitution walks carry no memo invariant at all
-(task #317): each is verified intrinsically — its result type carries
-its proof against a plain descent — and its memo's entries prove
-themselves, so what this file states about them is the plain descents
-(`*P`) and the wrappers.
+That last shape is gone from the walks: not one of them carries a memo
+invariant any more (tasks #317, #319).  Each is verified intrinsically
+— its result type carries its proof against a plain descent — and its
+memo's entries prove themselves, so what this file states about them is
+the plain descents (`*P`) and the wrappers.  It survives only where a
+memo is not a per-call traversal memo.
 -/
 
 namespace ConLeche.Expr
@@ -1008,262 +1008,13 @@ private theorem wscopedB_of_fvarsBelow_zero : ∀ (e : Expr),
   intro e
   induction e <;> intro hb d <;> simp_all [Expr.fvarsBelow, Expr.wscopedB]
 
-/-- The scope walk's memo invariant. -/
-def MemoWInv (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
-  ∀ (e : Expr) (d : Nat) (r : Bool), memo[(e, d)]? = some r →
-    r = (Expr.wscopedB d e)
-
-theorem MemoWInv.empty : MemoWInv {} := by
-  intro e d r h
-  simp at h
-
-theorem MemoWInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
-    (hm : MemoWInv memo) {e : Expr} {d : Nat} {r : Bool}
-    (heq : r = (Expr.wscopedB d e)) : MemoWInv (memo.insert (e, d) r) := by
-  intro e' d' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    obtain ⟨he, hd⟩ := pairKey_inv hbeq
-    rw [← he, ← (beq_iff_eq ..).mp hd]
-    exact heq
-  · exact hm e' d' r' hk
-
-/-- **The scope walk agrees with `Expr.wscopedB` on the erasure.** -/
-theorem wscopedBGoC_spec : ∀ {e : Expr},
-    ∀ {memo : Std.HashMap (Expr × Nat) Bool} {d : Nat}, MemoWInv memo →
-      (Expr.wscopedBGoC memo d e).1 = (Expr.wscopedB d e) ∧
-        MemoWInv (Expr.wscopedBGoC memo d e).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · exact ⟨(wscopedB_bvar i d).symm,
-          hm.insert (wscopedB_bvar i d).symm⟩
-  | sort u =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · exact ⟨(wscopedB_sort u d).symm,
-          hm.insert (wscopedB_sort u d).symm⟩
-  | const n us =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · exact ⟨(wscopedB_const n us d).symm,
-          hm.insert (wscopedB_const n us d).symm⟩
-  | lit l =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · exact ⟨(wscopedB_lit l d).symm, hm.insert (wscopedB_lit l d).symm⟩
-  | fvar idx ty iht =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · dsimp only
-        split
-        · rename_i hidx
-          obtain ⟨h1, h2⟩ := iht (d := idx) hm
-          rcases hp : Expr.wscopedBGoC memo idx ty with ⟨rt, mt⟩
-          simp only [hp] at h1 h2
-          have hres : rt = (Expr.wscopedB d (.fvar idx ty)) := by
-            rw [show (Expr.fvar idx ty)
-                = Expr.fvar idx ty from rfl, wscopedB_fvar,
-              ← h1, decide_eq_true hidx, Bool.true_and]
-          exact ⟨hres, h2.insert hres⟩
-        · rename_i hidx
-          have hres : false
-              = (Expr.wscopedB d (.fvar idx ty)) := by
-            rw [wscopedB_fvar,
-              decide_eq_false hidx, Bool.false_and]
-          exact ⟨hres, hm.insert hres⟩
-  | app f a ihf iha =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := ihf (d := d) hm
-        rcases hp : Expr.wscopedBGoC memo d f with ⟨rf, mf⟩
-        simp only [hp] at h1 h2
-        simp only [hp]
-        cases rf with
-        | true =>
-          obtain ⟨h3, h4⟩ := iha (d := d) h2
-          rcases hq : Expr.wscopedBGoC mf d a with ⟨ra, ma⟩
-          simp only [hq] at h3 h4
-          have hres : ra = (Expr.wscopedB d (.app f a)) := by
-            rw [wscopedB_app,
-              ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false = (Expr.wscopedB d (.app f a)) := by
-            rw [wscopedB_app,
-              ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | lam ty bd m iht ihb =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht (d := d) hm
-        rcases hp : Expr.wscopedBGoC memo d ty with ⟨rt, mt⟩
-        simp only [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb (d := d) h2
-          rcases hq : Expr.wscopedBGoC mt d bd with ⟨rb, mb⟩
-          simp only [hq] at h3 h4
-          have hres : rb
-              = (Expr.wscopedB d (.lam ty bd m)) := by
-            rw [wscopedB_lam, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = (Expr.wscopedB d (.lam ty bd m)) := by
-            rw [wscopedB_lam, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | forallE ty bd m iht ihb =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := iht (d := d) hm
-        rcases hp : Expr.wscopedBGoC memo d ty with ⟨rt, mt⟩
-        simp only [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | true =>
-          obtain ⟨h3, h4⟩ := ihb (d := d) h2
-          rcases hq : Expr.wscopedBGoC mt d bd with ⟨rb, mb⟩
-          simp only [hq] at h3 h4
-          have hres : rb
-              = (Expr.wscopedB d (.forallE ty bd m)) := by
-            rw [wscopedB_forallE, ← h1, ← h3, Bool.true_and]
-          exact ⟨hres, h4.insert hres⟩
-        | false =>
-          have hres : false
-              = (Expr.wscopedB d (.forallE ty bd m)) := by
-            rw [wscopedB_forallE, ← h1, Bool.false_and]
-          exact ⟨hres, h2.insert hres⟩
-  | letE ty val bd iht ihv ihb =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · have herase : (Expr.letE ty val bd)
-            = Expr.letE ty val bd := rfl
-        obtain ⟨h1, h2⟩ := iht (d := d) hm
-        rcases hp : Expr.wscopedBGoC memo d ty with ⟨rt, mt⟩
-        simp only [hp] at h1 h2
-        simp only [hp]
-        cases rt with
-        | false =>
-          have hres : false
-              = (Expr.wscopedB d (.letE ty val bd)) := by
-            rw [herase, wscopedB_letE, ← h1]
-            simp
-          exact ⟨hres, h2.insert hres⟩
-        | true =>
-          obtain ⟨h3, h4⟩ := ihv (d := d) h2
-          rcases hq : Expr.wscopedBGoC mt d val with ⟨rv, mv⟩
-          simp only [hq] at h3 h4
-          cases rv with
-          | false =>
-            have hres : false
-                = (Expr.wscopedB d (.letE ty val bd)) := by
-              rw [herase, wscopedB_letE, ← h1, ← h3]
-              simp
-            exact ⟨hres, h4.insert hres⟩
-          | true =>
-            obtain ⟨h5, h6⟩ := ihb (d := d) h4
-            rcases hr : Expr.wscopedBGoC mv d bd with ⟨rb, mb⟩
-            simp only [hr] at h5 h6
-            have hres : rb
-                = (Expr.wscopedB d (.letE ty val bd)) := by
-              rw [herase, wscopedB_letE, ← h1, ← h3, ← h5]
-              simp
-            exact ⟨hres, h6.insert hres⟩
-  | proj s i sub ihe =>
-    intro memo d hm
-    rw [Expr.wscopedBGoC.eq_def]
-    split
-    · rename_i hcut
-      exact ⟨(wscopedB_of_fvarsBelow_zero _
-        (fvarB_le (Nat.le_of_eq (by simpa using hcut))) d).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm _ _ _ hhit, hm⟩
-      · obtain ⟨h1, h2⟩ := ihe (d := d) hm
-        rcases hp : Expr.wscopedBGoC memo d sub with ⟨rs, ms⟩
-        simp only [hp] at h1 h2
-        simp only [hp]
-        have hres : rs
-            = (Expr.wscopedB d (.proj s i sub)) := by
-          rw [wscopedB_proj, ← h1]
-        exact ⟨hres, h2.insert hres⟩
-
-/-- The `.excl` walk's cutoff, read as the specification: a node whose
-cached fvar range is zero is well scoped at every cursor. -/
+/-- The walk's cutoff, read as the specification: a node whose cached
+fvar range is zero is well scoped at every cursor. -/
 private theorem wscopedBP_cut_spec {e : Expr} {d : Nat} (h : (e.fvarB == 0) = true) :
     true = Expr.wscopedB d e :=
   (wscopedB_of_fvarsBelow_zero _ (fvarB_le (Nat.le_of_eq (by simpa using h))) d).symm
 
-/-- **The plain descent of the `.excl` walk is `Expr.wscopedB`.** -/
+/-- **The plain descent is `Expr.wscopedB`.** -/
 theorem wscopedBP_spec : ∀ (e : Expr) (d : Nat),
     Expr.wscopedBP e d = Expr.wscopedB d e := by
   intro e
@@ -1313,20 +1064,12 @@ theorem wscopedBP_spec : ∀ (e : Expr) (d : Nat),
     · next h => exact wscopedBP_cut_spec h
     · simp only [wscopedB_proj, ihe]
 
-/-- **The `.excl` entry decides `Expr.wscopedB`.** -/
-private theorem wscopedBX_spec {d : Nat} {e : Expr} :
-    Expr.wscopedBX d e = Expr.wscopedB d e := by
-  rw [Expr.wscopedBX.eq_def]
-  split
-  · next h => exact wscopedBP_cut_spec h
-  · rw [Expr.resBool_eq]; exact wscopedBP_spec e d
-
 theorem wscopedBC_spec {d : Nat} {e : Expr} :
     Expr.wscopedBC d e = (Expr.wscopedB d e) := by
   rw [Expr.wscopedBC.eq_def]
-  cases Expr.boolMemoMode with
-  | keyed => exact (wscopedBGoC_spec (d := d) MemoWInv.empty).1
-  | excl => exact wscopedBX_spec
+  split
+  · next h => exact wscopedBP_cut_spec h
+  · rw [Expr.resBool_eq]; exact wscopedBP_spec e d
 
 /-! ## The `∀`-telescope residual
 

@@ -858,51 +858,50 @@ def _root_.ConLeche.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
   instantiateListC (instLevelParams entry.levelParams us entry.body)
     (pe :: targs.reverse)
 
-/-! ## The `Bool`-valued walks (task #318)
+/-! ## The `Bool`-valued walks
 
-The scope, definedness and resolution guards each create a
-`Std.HashMap` per call, keyed STRUCTURALLY on the node (and, for the
-scope walk, the cursor), and record EVERY node they decide.  The
-substitution walks of tasks #314–#317 stopped doing that: they ask
-`withExclusive` whether the node can be reached again and memoise only
-what it reports shared, under a key that is the node's ADDRESS packed
-with the cursor, in a table whose entries prove themselves.  This
-section is the same treatment for the `Bool`-valued walks, behind a
-compile-time switch: `boolMemoMode` selects the incumbent (`.keyed`)
-or the variant (`.excl`), the `match` in each wrapper folds, and
-NOTHING is decided here — the section exists to be measured
-(DESIGN.md, task #318).
+The scope, definedness and resolution guards are the substitution
+walks' design over a `Bool`, and the tree has ONE memo discipline for
+every traversal memo in it (task #319; `Expr.beqGoX` is the third
+instance).  Each guard used to create a `Std.HashMap` per call, keyed
+STRUCTURALLY on the node (and, for the scope walk, the cursor), and
+record EVERY node it decided — a probe that compared the stored node
+with the query by `Expr.beq`, and an entry for every leaf.  Instead:
 
-The kit is the `PEnt`/`MemoXP` kit with `Bool` in place of the rebuilt
-term: an entry carries its node, its cursor, its decision and the
-proof `val = s node depth`, so there is **no table invariant**; a
-probe is believed only after `Expr.ptrDec` says the stored node IS the
-current one and the cursors compare equal; the table is created at the
-first shared compound node and the root is never probed.  A walk's
-result is a `Squash` of `{ r : Bool // r = <the plain descent> }`
-beside the memo — a `Subsingleton`, which is the obligation
-`withExclusive` and `withPtrAddr` each ask of their continuation — and
-the wrapper reads the decision off it with `resBool`.  The plain
-descents (`*P`) carry the incumbent's cutoff and are proved equal to
-their `ConLeche.Expr` specifications in
-`ConLeche/Verify/Cached/{OpsC,GuardsC}.lean`. -/
+* **memoise only what is shared** — at every compound child past the
+  cutoff, `withExclusive` (`ConLeche/Kernel/Exclusive.lean`) on the
+  node (borrowed); an exclusive node is descended with the memo
+  untouched (no key, no probe, no insert), a shared one is probed and
+  recorded on a miss.  A node with one reference cannot be reached
+  again, so recording it is pure loss;
+* **key by address and cursor** — `withPtrAddr` (`Expr.withAddr`) at
+  the top of the shared step, packed with the cursor into one `Nat`
+  (`pkey`), under the mixing hash of `PKey`.  No structural hash and
+  no `Expr.beq` on any probe;
+* **validate a hit by pointer identity** — `Expr.ptrDec` on the
+  stored node against the current one, plus a cursor compare.  The
+  address is never trusted: a wrong key can only cost a descent,
+  never a value;
+* **every entry is self-proving** — a `BEnt` carries its node, its
+  cursor, its decision and the proof `val = s node depth`, so there
+  is **no table invariant** and no lemma about the table at all;
+* **no cutoff beyond the walk's own** (`fvarB`, `hasLP`, and none at
+  all for `constsResolveFC`): every shared compound node the walk
+  meets is memoised, for as long as the call lasts.
 
-/-- The memo discipline of the `Bool`-valued walks: the structural
-per-call `Std.HashMap` (the incumbent) or the exclusivity read over
-the pointer-keyed table. -/
-inductive BoolMemoMode where
-  | keyed
-  | excl
+A walk's result is a `Squash` of `{ r : Bool // r = <the plain
+descent> }` beside the memo — a `Subsingleton`, which is the
+obligation `withExclusive` and `withPtrAddr` each ask of their
+continuation — and the wrapper reads the decision off it with
+`resBool`.  The plain descents (`*P`) carry the cutoff and are proved
+equal to their `ConLeche.Expr` specifications in
+`ConLeche/Verify/Cached/{OpsC,GuardsC}.lean`.  **The borrowed
+parameter is a requirement, not an optimisation**, for the reason the
+substitution walks' section states.
 
-/-- The committed position. -/
-def boolMemoMode : BoolMemoMode := .keyed
-
-/-- The position of `constsResolveFC` ALONE.  That walk is the
-section's largest share of `init-full` by a factor of four, so the
-attribution measurement wants a binary that moves it and nothing else;
-committed equal to `boolMemoMode`, and the generated C shows the
-wrapper calling only the selected walk at either position. -/
-def crfMemoMode : BoolMemoMode := boolMemoMode
+The one walk of this file that is NOT of this shape is
+`fvarLeavesGoC`, whose memo is a visited SET; its docstring says
+why. -/
 
 /-- The nodes a `Bool` memo entry can save a descent of: the compound
 nodes, and `fvar` — every walk of this section descends into the
@@ -1028,8 +1027,8 @@ exclusivity read. -/
     else withExcl e fun excl =>
       if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
-/-- The walk of `wscopedBC` under `.excl` (the node is past the
-cutoff: the wrapper and `enterWSP` test it). -/
+/-- The walk of `wscopedBC` (the node is past the cutoff: the wrapper
+and `enterWSP` test it). -/
 def wscopedBXP (memo : MemoB wscopedBP) (e : @& Expr) (d : Nat)
     (hcut : (e.fvarB == 0) = false) : Squash (ResB wscopedBP e d) :=
   match e with
@@ -1089,46 +1088,12 @@ def wscopedBXP (memo : MemoB wscopedBP) (e : @& Expr) (d : Nat)
     enterWSP sub d memo (fun h => wscopedBXP memo sub d h) |>.lift fun (⟨rs, hs⟩, memo) =>
     Squash.mk (⟨rs, by rw [wscopedBP]; simp [hcut, ← hs]⟩, memo)
 
-/-- Core of `wscopedBC` (memoized; `fvar` annotations are descended,
-so the cached fvar range does not decide it). -/
-def wscopedBGoC (memo : Std.HashMap (Expr × Nat) Bool) (d : Nat)
-    (e : Expr) : Bool × Std.HashMap (Expr × Nat) Bool :=
-  if e.fvarB == 0 then (true, memo) else
-  match memo[(e, d)]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap (Expr × Nat) Bool :=
-      match e with
-      | .bvar .. | .sort .. | .const .. | .lit .. => (true, memo)
-      | .fvar idx ty .. =>
-        if idx < d then wscopedBGoC memo idx ty else (false, memo)
-      | .app f a .. =>
-        let (rf, memo) := wscopedBGoC memo d f
-        if rf then wscopedBGoC memo d a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := wscopedBGoC memo d ty
-        if rt then wscopedBGoC memo d body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := wscopedBGoC memo d ty
-        if rt then
-          let (rv, memo) := wscopedBGoC memo d val
-          if rv then wscopedBGoC memo d body else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => wscopedBGoC memo d sub
-    (r, memo.insert (e, d) r)
-
-/-- The `.excl` entry of `wscopedBC`: the cutoff, then the walk. -/
-def wscopedBX (d : Nat) (e : Expr) : Bool :=
+/-- The cached `Expr.wscopedB d` (one memoized DAG walk): the cutoff,
+then the walk. -/
+def wscopedBC (d : Nat) (e : Expr) : Bool :=
   match hcut : e.fvarB == 0 with
   | true => true
   | false => resBool (wscopedBXP none e d hcut)
-
-/-- The cached `Expr.wscopedB d` (one memoized DAG walk), at the
-committed position of `boolMemoMode`. -/
-def wscopedBC (d : Nat) (e : Expr) : Bool :=
-  match boolMemoMode with
-  | .keyed => (wscopedBGoC {} d e).1
-  | .excl => wscopedBX d e
 
 /-- Core of `fvarLeavesC` (memoized set accumulation). -/
 def fvarLeavesGoC (acc : List (Nat × Expr))
@@ -1168,8 +1133,8 @@ def leafMem : List (Nat × Expr) → Nat → Expr → Bool
 /-- The plain descent of the leaf-subset walk: the reference the walk
 is verified against (`leavesSubP_spec`,
 `ConLeche/Verify/Cached/GuardsC.lean`, is the equation to the
-`Expr`-level leaf-subset boolean).  `leafMem` is the incumbent's
-membership test, unchanged. -/
+`Expr`-level leaf-subset boolean).  `leafMem` is the membership
+test (task #86). -/
 def leavesSubP (bl : List (Nat × Expr)) (e : Expr) : Bool :=
   if e.fvarB == 0 then true else
   match e with
@@ -1198,8 +1163,8 @@ the exclusivity read. -/
     else withExcl e fun excl =>
       if excl then rec hcut else memo.shared e fun _ => rec hcut
 
-/-- The leaf-subset walk under `.excl` (the node is past the cutoff:
-the entry and `enterLSub` test it). -/
+/-- The leaf-subset walk (the node is past the cutoff: `leavesSubC`
+and `enterLSub` test it). -/
 def leavesSubXP (bl : @& List (Nat × Expr)) (memo : MemoB0 (leavesSubP bl))
     (e : @& Expr) (hcut : (e.fvarB == 0) = false) : Squash (ResB0 (leavesSubP bl) e) :=
   match e with
@@ -1259,49 +1224,17 @@ def leavesSubXP (bl : @& List (Nat × Expr)) (memo : MemoB0 (leavesSubP bl))
     enterLSub bl sub memo (fun h => leavesSubXP bl memo sub h) |>.lift fun (⟨rs, hs⟩, memo) =>
     Squash.mk (⟨rs, by rw [leavesSubP]; simp [hcut, ← hs]⟩, memo)
 
-/-- The `.excl` entry of the leaf-subset walk: the cutoff, then the
-walk. -/
-def leavesSubX (bl : List (Nat × Expr)) (e : Expr) : Bool :=
+/-- The cached leaf-subset test: the cutoff, then the walk. -/
+def leavesSubC (bl : List (Nat × Expr)) (e : Expr) : Bool :=
   match hcut : e.fvarB == 0 with
   | true => true
   | false => resBool (leavesSubXP bl none e hcut)
-
-/-- Core of the fabrication-side leaf-subset test (task #86). -/
-def leavesSubGo (bl : List (Nat × Expr))
-    (memo : Std.HashMap Expr Bool) (e : Expr) :
-    Bool × Std.HashMap Expr Bool :=
-  if e.fvarB == 0 then (true, memo) else
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .sort .. | .const .. | .lit .. => (true, memo)
-      | .fvar idx ty .. =>
-        if leafMem bl idx ty then leavesSubGo bl memo ty else (false, memo)
-      | .app f a .. =>
-        let (rf, memo) := leavesSubGo bl memo f
-        if rf then leavesSubGo bl memo a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := leavesSubGo bl memo ty
-        if rt then leavesSubGo bl memo body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := leavesSubGo bl memo ty
-        if rt then
-          let (rv, memo) := leavesSubGo bl memo val
-          if rv then leavesSubGo bl memo body else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => leavesSubGo bl memo sub
-    (r, memo.insert e r)
 
 /-- The fabrication leaf guard: every `fvar` leaf of `fab` is one of
 `base` (short-circuits on `fvar`-free fabrications, `O(1)` off the
 cached range). -/
 def leafGuard (fab base : Expr) : Bool :=
-  !fab.hasFvar ||
-    (match boolMemoMode with
-     | .keyed => (leavesSubGo (fvarLeavesC base) {} fab).1
-     | .excl => leavesSubX (fvarLeavesC base) fab)
+  !fab.hasFvar || leavesSubC (fvarLeavesC base) fab
 
 /-! ## Telescope operations -/
 
@@ -1347,8 +1280,8 @@ def piResidual (e : Expr) (args : List Expr) : Option Expr :=
 /-- The plain descent of `allLevelParamsDefinedC`: the reference the
 walk is verified against (`allLevelParamsDefinedP_spec`,
 `ConLeche/Verify/Cached/GuardsC.lean`, is the equation to
-`Expr.allLevelParamsDefined`).  The incumbent's cutoff: a node without
-a level parameter is `true` without traversal. -/
+`Expr.allLevelParamsDefined`).  The cutoff: a node without a level
+parameter is `true` without traversal. -/
 def allLevelParamsDefinedP (params : List Name) (e : Expr) : Bool :=
   if e.hasLP then
     match e with
@@ -1384,8 +1317,8 @@ compound test, the exclusivity read. -/
        if excl then rec hcut else memo.shared e fun _ => rec hcut)
   else Squash.mk (⟨true, (allLevelParamsDefinedP_cut hcut).symm⟩, memo)
 
-/-- The walk of `allLevelParamsDefinedC` under `.excl` (the node is
-past the cutoff: the wrapper and `enterLPD` test it). -/
+/-- The walk of `allLevelParamsDefinedC` (the node is past the
+cutoff: the wrapper and `enterLPD` test it). -/
 def allLevelParamsDefinedXP (params : @& List Name)
     (memo : MemoB0 (allLevelParamsDefinedP params)) (e : @& Expr)
     (hcut : e.hasLP = true) :
@@ -1456,47 +1389,10 @@ def allLevelParamsDefinedXP (params : @& List Name)
       |>.lift fun (⟨rs, hs⟩, memo) =>
     Squash.mk (⟨rs, by rw [allLevelParamsDefinedP]; simp [hcut, ← hs]⟩, memo)
 
-/-- Core of `allLevelParamsDefinedC` (memoized; nodes without a level
-parameter are `true` without traversal — the `hasLP` cutoff). -/
-def allLevelParamsDefinedGoC (params : List Name)
-    (memo : Std.HashMap Expr Bool) (e : Expr) :
-    Bool × Std.HashMap Expr Bool :=
-  if !e.hasLP then (true, memo) else
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .lit .. => (true, memo)
-      | .sort u .. => (Level.allParamsDefined params u, memo)
-      | .const _ us .. => (us.all (Level.allParamsDefined params), memo)
-      | .fvar _ ty .. => allLevelParamsDefinedGoC params memo ty
-      | .app f a .. =>
-        let (rf, memo) := allLevelParamsDefinedGoC params memo f
-        if rf then allLevelParamsDefinedGoC params memo a else (false, memo)
-      | .lam ty body m .. | .forallE ty body m .. =>
-        let (rt, memo) := allLevelParamsDefinedGoC params memo ty
-        if rt then
-          let (rb, memo) := allLevelParamsDefinedGoC params memo body
-          (rb && m.pw.paramsDefined params, memo)
-        else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := allLevelParamsDefinedGoC params memo ty
-        if rt then
-          let (rv, memo) := allLevelParamsDefinedGoC params memo val
-          if rv then allLevelParamsDefinedGoC params memo body
-          else (false, memo)
-        else (false, memo)
-      | .proj _ _ sub .. => allLevelParamsDefinedGoC params memo sub
-    (r, memo.insert e r)
-
 /-- The cached `Expr.allLevelParamsDefined params` (one memoized DAG
-walk), at the committed position of `boolMemoMode`. -/
+walk): the cutoff, then the walk. -/
 def allLevelParamsDefinedC (params : List Name) (e : Expr) : Bool :=
-  match boolMemoMode with
-  | .keyed => (allLevelParamsDefinedGoC params {} e).1
-  | .excl =>
-    if hcut : e.hasLP = true then resBool (allLevelParamsDefinedXP params none e hcut)
-    else true
+  if hcut : e.hasLP = true then resBool (allLevelParamsDefinedXP params none e hcut)
+  else true
 
 end ConLeche.Expr

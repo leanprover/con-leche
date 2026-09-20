@@ -404,60 +404,20 @@ def flushC : CheckCM Unit := modify (·.flushed)
 
 `Expr.constsResolveF` as a memoized `Expr` DAG walk (the counterpart
 of `constsResolveFIGo`): the tree-walking `Expr` version is what makes
-the `Expr`-typed driver quadratic — or worse — on shared declarations. -/
+the `Expr`-typed driver quadratic — or worse — on shared declarations.
 
-/-- Core of `constsResolveFC` (memo per call: the result depends on the
-environment). -/
-def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap Expr Bool)
-    (e : Expr) : Bool × Std.HashMap Expr Bool :=
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Bool × Std.HashMap Expr Bool :=
-      match e with
-      | .bvar .. | .sort .. => (true, memo)
-      | .lit (.natVal _) .. =>
-        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
-          (fe.find? natSuccName).isSome, memo)
-      | .lit (.strVal _) .. =>
-        ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
-          (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
-          (fe.find? stringOfListName).isSome &&
-          (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
-          (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
-          (fe.find? charOfNatName).isSome, memo)
-      | .const nm _ .. => ((fe.find? nm).isSome, memo)
-      | .fvar _ ty .. => constsResolveFCGo fe memo ty
-      | .app f a .. =>
-        let (rf, memo) := constsResolveFCGo fe memo f
-        if rf then constsResolveFCGo fe memo a else (false, memo)
-      | .lam ty body _ .. | .forallE ty body _ .. =>
-        let (rt, memo) := constsResolveFCGo fe memo ty
-        if rt then constsResolveFCGo fe memo body else (false, memo)
-      | .letE ty val body .. =>
-        let (rt, memo) := constsResolveFCGo fe memo ty
-        if rt then
-          let (rv, memo) := constsResolveFCGo fe memo val
-          if rv then constsResolveFCGo fe memo body else (false, memo)
-        else (false, memo)
-      | .proj sn _ sub .. =>
-        if (fe.find? sn).isSome then constsResolveFCGo fe memo sub
-        else (false, memo)
-    (r, memo.insert e r)
-
-
-/-! ### The exclusivity variant (task #318)
-
-The same walk in the shape of the substitution walks
+The walk is the substitution walks' design over a `Bool`
 (`ConLeche/Cached/ExprOpsC.lean`, "The `Bool`-valued walks"): a plain
-descent `constsResolveFP`, a child step that reads `withExclusive` on
-the node, and a walk carrying its own proof against the plain descent.
-There is no cutoff — no cached field decides whether a constant
-resolves — so the incumbent memoises EVERY node it meets, leaves
-included; the variant decides `bvar`, `sort`, `lit` and `const`
-directly, never records them, and probes only a compound node
-(`fvar` included: its annotation is descended) that `withExclusive`
-reports shared.  `fe` is read-only and borrowed. -/
+descent `constsResolveFP`, a child step that reads `withExclusive`
+(`ConLeche/Kernel/Exclusive.lean`) on the BORROWED node, and a walk
+carrying its own proof against the plain descent, memoising only what
+the read reports shared, under the node's address as key.  There is no
+cutoff — no cached field decides whether a constant resolves — so the
+structural per-call `Std.HashMap` this replaced (task #319) recorded
+EVERY node it met, leaves included; this walk decides `bvar`, `sort`,
+`lit` and `const` directly, never records them, and probes only a
+compound node (`fvar` included: its annotation is descended) that
+`withExclusive` reports shared.  `fe` is read-only and borrowed. -/
 
 /-- The plain descent of `constsResolveFC`: the reference the walk is
 verified against (`constsResolveFP_spec`,
@@ -495,7 +455,7 @@ exclusivity read (there is no cutoff). -/
   withExcl e fun excl =>
     if excl then rec () else memo.shared e fun _ => rec ()
 
-/-- The walk of `constsResolveFC` under `.excl`. -/
+/-- The walk of `constsResolveFC`. -/
 def constsResolveFXP (fe : @& FEnv) (memo : Expr.MemoB0 (constsResolveFP fe))
     (e : @& Expr) : Squash (Expr.ResB0 (constsResolveFP fe) e) :=
   match e with
@@ -554,12 +514,9 @@ def constsResolveFXP (fe : @& FEnv) (memo : Expr.MemoB0 (constsResolveFP fe))
     else
       Squash.mk (⟨false, by rw [constsResolveFP]; simp [hfind]⟩, memo)
 
-/-- The cached `Expr.constsResolveF fe` (one memoized DAG walk), at
-the committed position of `Expr.crfMemoMode`. -/
+/-- The cached `Expr.constsResolveF fe` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
-  match Expr.crfMemoMode with
-  | .keyed => (constsResolveFCGo fe {} e).1
-  | .excl => Expr.resBool (constsResolveFXP fe none e)
+  Expr.resBool (constsResolveFXP fe none e)
 
 /-- Record an accepted constant's converted type/value, tagged with the
 very `Expr` objects pushed into the environment (the counterpart of
