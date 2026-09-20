@@ -77231,7 +77231,7 @@ neither this binary's nor this stream set's, and the header says so.
 | `tests/pindump.sh` | 3 pinners reproduced, 0 skipped |
 | `tests/challenge.sh` | OK — builds with `sorry` only; statements identical |
 | `tests/inmodel.sh` | OK (8 fixtures) |
-| axioms | 20 theorems at `[propext, Classical.choice, Quot.sound]` |
+| axioms | the arena's 20 pinned theorems at `[propext, Classical.choice, Quot.sound]`; `#print axioms` on the seven wrapper specs, on `PEnt.hit` and on `MemoXP.shared`: the same three |
 | `tests/arena.sh` (full) | 90/92 tutorial, 195/195 e2e, 15/15 annot, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14, trusted sweep 138+195+15 (3 recorded divergences), `--jobs=1` and `--jobs=4` sweeps as at the default — every verdict identical to master's |
 
 `git grep -n -i oracle ConLeche` comes back empty.
