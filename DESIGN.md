@@ -128169,14 +128169,16 @@ the rows.  Noise-level either way — three orders below K.62's
 by rarity and by size.  No Mathlib perf cell, per the standing
 ruling.
 
-#### WIDE (f3) STEP 4 (3) DESIGNED AGAINST THE TREE — K.72 IS K.69's TOWER HALF, AND ITS DEPTH CONJUNCT IS **ALREADY EXERCISED** AT K.32's ARM (lane LE, 2026-09-20)
+#### WIDE (f3) STEP 4 (3) DESIGNED AGAINST THE TREE — K.72 IS K.69's TOWER HALF, ITS ADDRESSING IS K.32's, AND ITS OBVIOUS DEPTH CONJUNCT IS REFUTED BY THE COMPONENT'S OWN TOWER (lane LE, 2026-09-20)
 
 Step 4's pricing put object (3) — the `ordF`-right telescope tie — at
-"~1–2 sessions, the `CopyCtorShape` end the dear one".  The KERNEL end
-is cheaper than that, and this row says exactly why, by naming the
-reads rather than the intention.  **Nothing below is compiled**; it is
-written so the next session can check it rather than rediscover it
-(session 31's step-5 precedent).
+"~1–2 sessions, the `CopyCtorShape` end the dear one".  Priced again
+against the tree, read by read: the ADDRESSING is free (a sibling arm
+already performs it), and the obvious one-comparison spelling is
+**REFUTED** — (3) is TWO arms, divided by where the copy's tower came
+from.  **Nothing below is compiled**; it is written so the next session
+can check it rather than rediscover it (session 31's step-5
+precedent).
 
 ##### (a) THE SHAPE: K.69 ONE LAYER OUT
 
@@ -128220,28 +128222,62 @@ at the ORDINARY-container guard is the same statement one arm over.
 That is a measured precedent for the shape, not a proof of it, and the
 usual controls are still owed.
 
-##### (c) THE BOOL, SPELLED
+##### (c) THE BOOL, SPELLED — AND THE OBVIOUS CONJUNCT IS **FALSE**, WHICH IS THIS ROW'S REAL CONTENT
 
-Under K.69's guard (container-ordinary field `l` of the container's
-constructor `j` at the copy `q`, the owner's reduced mint fired, the
-block's rewrite made the field recursive or reflexive):
+The obvious spelling is "the two depths agree",
+`(Expr.piBinders domC.1).1.length == domPiDepth domJ.1`.  **Checked
+against the tree, it is REFUTED**, and by the very shape step 3(b) (c)
+named as the residue: at
 
-1. **the depths agree** — `(Expr.piBinders domC.1).1.length ==
-   domPiDepth domJ.1`.  The right-hand side is table-independent
-   (`domPiDepth_instantiateLevelParams`, landed at step 3(b)), so it is
-   the OWNER's tower and the BLOCK's at once;
-2. **the prefix domains agree, one substitution apart** — the first `d`
-   binder domains of `domC.1` against those of `domJ.1` carried by the
-   mint's substitution, which is `ordRootInst`'s own at the shallower
-   cuts `l`, `l+1`, …, `l+d-1`.  A `List.all₂`-style comparison of two
-   lists the arm already has.
+    K α | mk (a : α)        minted at  K (Nat → J β)
 
-Conjunct 1 alone is what object (2)'s eight signatures need (it is what
-makes the owner's cut and the block's ONE number without flatness);
-conjunct 2 is what `CopyCtorShape.ordF`'s right arm needs to gain the
-`instTele`-shaped tie `recF` and `pinF` already carry.  **They should
-land together and in that order**, because 1 is cheap, is the
-precondition for (2), and is independently measurable.
+the container's stored domain `domJ.1` is the bare parameter
+`Expr.bvar 0` (depth `0`) while the COPY's field domain `domC.1` is
+`Nat → <J-copy>` (depth `1`).  The mint's substitution PLANTS a tower
+that the container's domain does not have, `mentionsMember` does not
+exclude the field (a `bvar` mentions no member), and the block's
+rewrite does make it recursive — so a depth-equality row would fire on
+an input official accepts.  `tests/e2e/nested_bvar_field.ndjson` is the
+same family at the degenerate instance (`K (J β)`, both depths `0`), so
+the fixture the tree HAS does not exhibit the disagreement; the
+`Nat → J β` instance is owed by the SYNTAX and needs a fixture of its
+own before anything is recorded here.
+
+**So (3) is TWO ARMS and not one comparison**, and the dividing line is
+where the copy's tower CAME FROM:
+
+* **the container's own tower** (`nested_pi_field`: `K α | mk (f : Nat → α)`)
+  — the copy's tower is `domJ.1`'s, carried by the substitution, and
+  the depths agree.  This is the arm `OrdTargetRead`'s existing
+  `tlsl.length = domPiDepth (ordTargetDomL …)` conjunct already
+  matches, and it is the arm object (2)'s eight signatures need;
+* **the COMPONENT's tower** (`K α | mk (a : α)` at `K (Nat → J β)`) —
+  the copy's tower is the mint's, the container's domain is flat, and
+  the two numbers are different.  Here the reading's cut
+  (`domPiDepth (ordTargetDomL …)`, the CONTAINER's) is still the right
+  one for `ordTargetDom`, and what is longer is the MODEL's telescope;
+  so the consumer may not identify them and the tie has to be stated
+  against the mint, not against the stored domain.
+
+**What is therefore recordable** is the first arm's conjunct under a
+guard that excludes the second — the natural one being
+`stripDomPis domJ.1`'s head being a `.const` or a member-mentioning
+application, i.e. the tower belonging to the stored domain — plus, at
+the second arm, the mint-relative statement.  Neither is written here:
+the point of this row is that the ONE-comparison reading is refuted and
+that the arm count is two.
+
+##### (c′) WHAT K.32's PRECEDENT DOES AND DOES NOT SAY
+
+`nestedCopyTargetsAt` strips the CONTAINER's domain by the COPY's depth
+`d` and asserts the result (`| _, _ => false`), so at ITS guard — the
+copy recursive into its own GROUP — the container's domain is at least
+as deep as the copy's, measured non-firing on both corpora.  That is a
+precedent for the ADDRESSING (the `stored[p.k + q]` / `a.ctors[j]` /
+`cvCa.type.stripPis (p.nP + nF)` / `cbs[p.nP + l]` chain is exactly
+what K.72 needs and costs nothing new) and **not** for the claim: K.32's
+guard excludes the pin case, which is where the component's tower can
+appear.
 
 ##### (d) WHAT IS STILL THE DEAR END
 
