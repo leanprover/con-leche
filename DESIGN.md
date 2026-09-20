@@ -127568,3 +127568,108 @@ named hypotheses its own subsection lists, and NOT ONE mentions a
 candidate-frame object.  It is not on the switch's path until (4) takes
 it; this merge only makes it build against the current tree, so that
 the switch has one fewer moving part.
+
+#### WIDE (f3) STEP 0 — THE REDEX MINT'S FIELD **HAS** AN ARM; WHAT IS SILENT THERE IS THE OWNER'S HALF, AND ITS PRICE IS NOW KNOWN (lane LE, 2026-09-20)
+
+Step 2's row left a watch item: "at a redex mint the block's RAW
+recomputation head is unavailable and its normal form's head does not
+serve the model, which reads the raw recomputation".  The model's case
+split over a pin copy's field is over the SYNTAX (the standing ruling),
+so the question is not whether the corner is measured — it is not, at
+either corpus — but which ARM `tests/e2e/nested_redex_owner.ndjson`'s
+`Outer` field falls in and which producer speaks there.  **Checked
+against the tree, arm by arm and guard by guard.**
+
+##### (a) THE FIELD, AND THE ARM IT IS IN
+
+The fixture is `Wrap (f : True → Type) | mk : f True.intro → Wrap f`,
+`J β | node : Wrap (fun _ : True => J β) → J β`,
+`Outer | mk : J Outer → Outer`.  At `Outer`'s install the shared
+container is `K = Wrap`, the OWNER is the block's pin of `J` and `qK`
+is `Wrap`'s position in `J`'s own-pin table.  The three Bools at the
+one field `l = 0`:
+
+| Bool | value | why |
+|---|---|---|
+| `(dJf a).rss i` — the container's own kind | `false` | `Wrap` calls `f True.intro` ORDINARY |
+| `(dJ.pinCtors qK).rss` — the OWNER's copy | `true` | `J`'s positivity walk reduces `(fun _ : True => J β) True.intro` to `J β` and rewrites |
+| `blkRss …` — the BLOCK's copy | `true` | the same redex at the block's components, the same reduction |
+
+So the field is in **`copyTransfer_via_pin`'s `hslotOrd` arm** —
+container-ordinary, BOTH copies recursive — which `nestedFitc_pin`
+discharges through `nestedSlotOrd_pin` from `htgσ`/`hu`/`hX`.  It is
+**NOT** in `hentOrd₁` (arm (C)): that arm's second guard is
+`(dJ.pinCtors qK).rss = false`, the owner's copy NOT recursive, and
+here the owner's copy IS.  **The home the order's own example named —
+"the raw-unfired arm with the entry from the block's own rewrite" —
+therefore does not apply**, and the reason is worth keeping: the
+OWNER's `rss` and the OWNER's `ordRootFired` are different bits, and
+this fixture is exactly where they part.
+
+##### (b) THE BLOCK'S HALF SPEAKS; THE OWNER'S DOES NOT
+
+* **side 1 (the block) is fine.**  K.67's walk reads its fire test at
+  `ordRootNorm` since WIDE (f3) step 1, so at `Outer` the walk
+  normalises `(fun _ : True => J #op) True.intro` to `J #op`, fires,
+  and files the field under the POSITIVE arm with the block's target
+  `p.k + gn.grpBase + mm`.  The run record is there.
+* **side 2 (the owner) is silent, at three places at once.**
+  `nestedOrdSelfTargetAt` (K.68/K.71) matches `dmJ.getAppFn` and
+  CONCEDES (`| _ => true`) at a non-constant head, so `J`'s own
+  install recorded nothing about this field; `PinShapes`' fourth
+  clause and its reader `PinShapes.rowTargetOrd` are guarded on
+  `(ordTargetDom …).getAppFn = .const M us`, which a λ is not; and
+  `ordTgt_corr`'s `hhd` is that same guard.  `nestedFitc_pin`'s
+  `hscope` asks for more still — its second conjunct is
+  `ordRootFired … (ordTargetDom …) = true` at the RAW recomputation,
+  which is FALSE here.
+
+**So `nestedFitc_pin` is today INAPPLICABLE at that constructor**, and
+the honest statement of the corner is not "an arm with no producer" but
+"an arm whose OWNER-side producer concedes".  A conceding producer is
+not a false one: nothing the route records is wrong at
+`nested_redex_owner`, the install accepts it, and the gate says so
+(`J=accept,Outer=accept,`).  What is missing is a POSITIVE fact the
+model needs and the owner's install did not record.
+
+##### (c) IT IS NOT A DESIGN INVALIDATION, AND THE PRICE IS TWO SHAPES
+
+The stop condition is "no arm, and no run fact reaches it".  There IS
+an arm and the block's run fact DOES reach it; what is owed is the
+owner's, and the owner's install is free to record it.  Two spellings,
+priced:
+
+* **(A) K.68 NORMALISED, AND THE CARRY ACROSS `ordRootNorm`.**  Give
+  `nestedOrdSelfTargetAt` the mode and `ordRootNorm`, exactly as K.67's
+  walk already has it.  Then side 2's clause names the OWNER's normal
+  form and side 1's the BLOCK's, of literally one `Expr` at two
+  environments, and identifying them is `ordRootNorm` STABILITY UNDER
+  ENVIRONMENT EXTENSION — `normPosDomM` through `ops.whnf`, the theorem
+  step 1's row (c) already named as absent.  That is the whole
+  reduction machinery and it is the dear one.
+* **(B) AN ENVIRONMENT-FREE HEAD NORMALISATION ON BOTH WALKS.**  The
+  sliver's shape is a β-redex mint, and β needs no environment.  If
+  K.67's and K.68's walks both normalise with an env-FREE head
+  reduction (`Expr.headBeta`'s idiom) instead of `normPosDomM`, the two
+  sides run the SAME pure function on the SAME term and the
+  identification is free — no stability theorem, and `PinShapes`'
+  clause crosses environments unchanged because it mentions none.  The
+  residue is then narrower: a mint whose head becomes a constant only
+  after DELTA, IOTA or a projection, which no fixture in the tree
+  exhibits and which would still be an arm with a conceding producer.
+  Cheaper than (A) by the whole of `whnf`, and it REPLACES a landed
+  spelling rather than adding to one.
+
+Neither is on this session's order; both are recorded so the choice is
+made against the tree rather than from memory.  **The reach is one
+hand-built fixture**: `init-full` and Mathlib measure the non-constant
+head population at ZERO at this arm in both modes (K.69's `c69s`
+column, step 2's `cbh2` control, K.67's own conformance table), so the
+corner is owed by the SYNTAX and by nothing else.
+
+##### (d) THE GATE COMMENT
+
+`tests/nested-shadow-expected.txt`'s paragraph above the
+`nested_redex_owner` row still described the PINNED FINDING
+(`Outer=error`) that step 1 flipped.  Rewritten to state the current
+fact and to say what the row is a regression for.
