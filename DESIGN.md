@@ -76066,3 +76066,457 @@ record.  On the worktree (`_tmp/perstep-313/_tmp/`, gitignored):
 (the measured binaries), `ExprOpsC-variantB.lean` (the mid-walk
 variant), `step2-*.patch.py`, `genbc.py` (the generator the five
 descents were written with), `arena-s1.log`.
+
+## TASK #314 — MEMOISE ONLY WHAT IS SHARED: the exclusivity oracle (2026-09-20, `agent/excl-314`)
+
+**The ask** (maintainer, verbatim): *"spike it, maybe we can even get
+that function into the stdlib if it proves useful. carefully read the
+IR to see if that function is not itself increasing the RC! and use it
+for the other memos as well, like the official kernel."*  And the
+amendment while the lane ran: do NOT land anything — build the oracle
+so that both disciplines are selectable, keep the proofs green for
+both, measure both against master with the oracle counts, record, and
+stop; the maintainer discusses before anything merges.  So: **nothing
+is decided here.**  The branch is cut from `agent/perstep-313`, the
+tree ships with the switch at `.budget` (the #313 behaviour), and the
+two other positions — `.oracle` and a `.hybrid` that fell out of the
+first measurement — are measured below.
+
+### 1. The idea, and the official kernel's version of it
+
+The per-walk memo of a substitution walk exists for one reason: a node
+reached twice — a shared sub-DAG — must be rebuilt once, so the walk is
+`O(DAG)` and its OUTPUT stays shared.  A node with exactly ONE
+reference cannot be reached twice, so recording it is pure loss: the
+`(Expr × Nat)` key, the bucket cons cell, the rehash.  #313 attacked
+that loss with a node budget (plain descent for the first 256 nodes,
+restart under the memo past it); the official kernel attacks it with
+the reference count: `replace_rec_fn::apply` (`src/kernel/replace_fn.cpp`,
+v4.36 source in the nix store) reads
+
+```cpp
+bool shared = false;
+if (m_use_cache && !is_likely_unshared(e)) {      // rc == 1 || rc == -1 (expr.h)
+    auto it = m_cache.find(mk_pair(e.raw(), offset));
+    if (it != m_cache.end()) return it->second;
+    shared = true;
+}
+… return save_result(e, offset, r, shared);       // inserts only if `shared`
+```
+
+and `for_each_fn` does the same for its visited set.  The count is read
+off the object header (`lean_is_exclusive`: `lean_is_st(o) && o->m_rc == 1`;
+`is_likely_unshared` also takes a uniquely-held multi-threaded object
+as unshared).  A persistent object (`m_rc == 0`, the imported
+environment in both kernels) is never exclusive.
+
+### 2. The primitive — `ConLeche/Kernel/Exclusive.lean`
+
+Written to be lifted into `Init/Util.lean` verbatim (nothing in it
+depends on this tree):
+
+```lean
+@[inline] unsafe def withExclusiveUnsafe {α : Type u} {β : Type v} (a : α)
+    (k : Bool → β) (h : ∀ b₁ b₂, k b₁ = k b₂) : β :=
+  k (isExclusiveUnsafe a)
+
+@[implemented_by withExclusiveUnsafe]
+def withExclusive {α : Type u} {β : Type v} (a : α) (k : Bool → β)
+    (h : ∀ b₁ b₂, k b₁ = k b₂) : β :=
+  k false
+```
+
+plus the tree's convenience `withExcl [Subsingleton β] a k :=
+withExclusive a k (fun _ _ => Subsingleton.elim _ _)` (the
+`Expr.withAddr` shape).  The pure definition presumes nothing
+exclusive — it IS the always-memoised walk — and the obligation `h`
+says the continuation cannot observe the answer, so the compiled
+program computes the definition's value: exactly `withPtrAddr`'s
+arrangement (`k 0` in the model, the address in the binary).  The
+allowlist entry in `tests/trust-surface.sh` (`unsafe`,
+`implemented_by`) carries the justification; the module's docstring is
+the long form.
+
+**The obligation's shape decides the proof architecture, and it cannot
+be weakened.**  A continuation returning `Expr × MemoN` has
+`k true ≠ k false` — the memo differs (the exclusive branch records
+nothing) — and an obligation on the term alone would leave the
+compiled memo, which LATER nodes probe, outside the theorem.  So the
+walk's result is a `Squash` (a subsingleton, as `Expr.beqGo`'s `BeqOut`)
+of *the rebuilt term with its proof of correctness* beside the memo,
+whose type carries its own invariant:
+
+```lean
+abbrev MemoX (s : Expr → Nat → Expr) := Option { m : MemoN // MemoXInv s m }
+abbrev ResX  (s : Expr → Nat → Expr) (e : Expr) (c : Nat) :=
+  { r : Expr // r = s e c } × MemoX s
+```
+
+The verification is INTRINSIC: every arm of an oracle walk returns
+`Squash (ResX (spec) e c)`, the term's subtype fixes its value, and
+`resTerm` extracts it through `Quotient.lift` with the constancy proof
+`p.1.2 ▸ q.1.2` — so the wrapper's theorem holds *whatever the oracle
+answers*, by the primitive's contract and never by a case analysis on
+reference counts (`resTerm_eq`).  The spec the walks are verified
+against is the tree's own PLAIN descent (`instantiate1P` etc.: the
+#313 `*BC` functions with the fuel removed), because the cutoff lemmas
+(`bvarB_le`, `instantiate1_eq_self`) live in the Verify tier and the
+implementation may not import it; `Verify/Cached/OpsC.lean` then
+proves `*P_spec : *P = specification` once per walk (the `*BC_spec`
+proofs minus the fuel) and the wrapper specs — statements unchanged —
+split on the switch.  `#print axioms` on all seven wrapper specs and
+`resTerm_eq`: `[propext, Classical.choice, Quot.sound]`;
+`withExclusive` depends on no axiom.
+
+### 3. THE IR READING — did the check itself bump the count?
+
+**Before any fix, by design rather than by repair**: the prototype was
+written with the node BORROWED, and the first generated C confirmed the
+shape, so no fix was needed — but the reasoning that put the `@&`
+there is the finding, and it is not the one the brief expected.
+
+*The trap is not the primitive; it is the walk's parameter convention.*
+Inlined, `withExcl e k` is `lean_is_exclusive_obj(e)` on the caller's
+own variable, and the extern's parameter is borrowed — the standalone
+`withExclusiveUnsafe` in `Exclusive.c` shows `v___x = lean_is_exclusive_obj(v_a)`
+with `a` never `inc`/`dec`ed and the `___boxed` shim doing the
+`lean_dec(a)` for an owned caller, i.e. the unboxed entry takes `a`
+borrowed.  So the check adds nothing.  What WOULD have defeated it is
+an OWNED walk parameter: with `e` owned, `f := proj[0] e` is
+`lean_inc(f)` at the projection and `e` is `dec`ed only afterwards, so
+a child sees "in-tree references + 1" until its parent dies — and a
+parent that is itself held elsewhere (every root reached from a memo
+key, a `CState` table, the environment) never dies during the walk, so
+EVERY child of a held root would answer shared.  That is the C++
+kernel's `expr const &` convention exactly: a borrowed reference is not
+a reference the count sees.  Hence:
+
+* the node is `@&` in every walk (`instantiate1X (v : @& Expr) (memo)
+  (e : @& Expr) …`) and in every WRAPPER (`instantiate1C (e : @& Expr)
+  …`), so a caller's `instantiate1C body arg` on the projection `body`
+  of a redex it still holds passes `body` at ITS count (1 if the redex
+  is a fresh tree), not at "+1 for the callee";
+* the replacement `v`/`vs` is `@&` too (the #313 `*BC` had it inferred
+  borrowed; the prototype's owned `v` cost an `inc`/`dec` pair per
+  compound node);
+* the memo is threaded owned (it is mutated in place), the cursor is a
+  scalar.
+
+The generated C of `instantiate1X___redArg` (`.lake/build/ir/ConLeche/Cached/ExprOpsC.c`,
+the `.app` arm; excerpt kept in `_tmp/ir/inst1X-app-arm.c`):
+
+```c
+case 4:
+v_f_3436_ = lean_ctor_get(v_e_3396_, 0);          // projections, NO lean_inc
+v_a_3437_ = lean_ctor_get(v_e_3396_, 1);
+…                                                 // (f's step first, joined at jp_3438)
+v___x_3441_ = lean_is_exclusive_obj(v_a_3437_);   // the raw projection, count untouched
+if (v___x_3441_ == 0) {                           // shared → probe / descend / record
+  if (lean_obj_tag(v___y_3440_) == 0) {           //   memo `none`: no key, no probe
+    lean_inc(v_d_3397_);
+    v___x_3442_ = …instantiate1X___redArg(v_v_3394_, v___y_3440_, v_a_3437_, v_d_3397_);
+    …
+    lean_inc_ref(v_a_3437_);                      //   the key (a, d) — the ONLY inc of `a`,
+    lean_ctor_set(v___x_3446_, 0, v_a_3437_);     //   after the descent, reset/reuse cell
+    v___x_3451_ = …Raw_insert…(v___x_3448_, v___x_3450_, v_fst_3444_);
+  } else { … m[(a, d)]? … }                       //   memo `some`: probe first
+} else {                                          // exclusive → the bare descent
+  v___x_3477_ = …instantiate1X___redArg(v_v_3394_, v___y_3440_, v_a_3437_, v_d_3397_);
+}
+```
+
+The audit over all seven walks (`instantiate1X`, `instantiate1LiftX`,
+`instantiateListX`, `instantiateRevX`, `abstract1X`, `abstractRangeX`,
+`instLevelParamsX`): `lean_alloc_closure` 0 in every body (the thunked
+`rec` of `enter*` and the `Squash.lift` continuations are all inlined
+and beta-reduced — `Quot.lift` is a `toLCNF` builtin); the node
+parameter has NO `lean_dec` in any body and is `lean_inc_ref`ed only
+where it is RETURNED (the cutoff and leaf arms) — the borrowed
+convention held; 10 (11 for LP) `lean_is_exclusive_obj` calls per
+walk, one per child position, each on a raw `lean_ctor_get` projection
+with no `lean_inc` in the three lines before it; `vs`/`v`/`ks`/`us`
+never `dec`ed.  The wrappers: the `match walkMemoMode` on the
+compile-time constant is FOLDED — `instantiate1C` calls
+`instantiate1X___redArg(v, lean_box(0), e, d)` and nothing else in the
+`.oracle` build, `instantiate1BC`/`instantiate1GoC` and nothing else in
+the `.budget` build (both read).  So: **the check does not bump the
+count, and no fix was needed; the object reaches it borrowed from a
+borrowed walk.**  (`isExclusiveUnsafe` can be used from Lean in this
+position; the `@[extern]`-with-`lean_is_exclusive` fallback was not
+needed.  One trap met on the side, in the count probe only:
+`@[extern c inline "…(#1)"]` numbers the ERASED type argument as `#1`,
+so `#2` is the object — `#1` is `lean_box(0)` and dereferencing it is
+the segfault the probe's first build died of.)
+
+### 4. The walks converted, and the switch
+
+`ConLeche/Cached/ExprOpsC.lean`.  Every replace-shaped per-walk memo
+the tree carries now has an oracle twin, and the wrapper selects by
+`Expr.walkMemoMode : WalkMemoMode` (`budget | oracle | hybrid`), a
+compile-time constant whose `match` the compiler folds:
+
+| wrapper | `.budget` (#313, unchanged) | `.oracle` | `.hybrid` |
+|---|---|---|---|
+| `instantiate1C` | `instantiate1BC` 256 → `instantiate1GoC` | `instantiate1X` | BC 256 → `instantiate1X` |
+| `instantiate1LiftC` | `instantiate1LiftBC` 4096 → `instantiate1LiftGoC` | `instantiate1LiftX` | BC 4096 → X |
+| `instantiateListC` | `instantiateListBC` → `instantiateListGoC` | `instantiateListX` | BC → X |
+| `instantiateRev` | `instantiateRevBC` → `instantiateRevGo` | `instantiateRevX` | BC → X |
+| `abstract1C` | `abstract1BC` → `abstract1GoC` | `abstract1X` | BC → X |
+| `abstractRangeC` | `abstractRangeBC` → `abstractRangeGoC` | `abstractRangeX` | BC → X |
+| `instLevelParams` | `instLevelParamsGo` (always memoised; never had a budget) | `instLevelParamsX` | X |
+
+The oracle walk's shape, per walk: `enter* v e c memo rec` is the CHILD
+step — the cutoff (`bvarB ≤ d` / `fvarB ≤ d` / `!hasLP`), then the
+compound test (`isCompound`: only `app`/`lam`/`forallE`/`letE`/`proj`
+are ever memoised, as before; `instLevelParamsX` asks at every node
+past the cutoff because the memoised walk recorded every one — a
+`const` with level parameters is a `Level.subst` per occurrence), then
+`withExcl e`: exclusive → `rec` (the bare descent); shared →
+`MemoX.shared`: memo `none` → descend and CREATE the table with this
+one entry; `some m` → probe, on a miss descend and insert.  The ROOT is
+never asked (it cannot be reached again within its own walk), so a
+fresh tree costs no table at all; the table appears at the first
+shared compound child.  The `bvar` re-entry of the bulk walks runs
+under a fresh `none`, as the memoised walk's did under `{}`.  `rec` is
+a thunk `(hcut : ¬ cutoff) → Squash …` whose body is the recursive
+call applied to the subterm, so structural (and, for the two bulk
+walks, the `(k, sizeOf e)` well-founded) termination is the walk's own.
+No `sorry`; `lake build` and `lake test` warning-free at every switch
+position (all three built; `.oracle` and `.budget` through the full
+tree).
+
+The Bool-valued per-declaration walks (`wscopedBGoC`, `leavesSubGo`,
+`allLevelParamsDefinedGoC`, `constsResolveFCGo`, `fvarLeavesGoC`) are
+NOT converted: together ~1 % of `init-full` (#313 §5), and each is one
+more intrinsic walk of the same shape — a follow-up if the oracle is
+adopted.  The knot memos are a different kind of cache and out of
+scope, as briefed.
+
+### 5. The measurements
+
+`--jobs=1`, ONE run per cell, `perf stat -e instructions:u`, `ulimit -v
+16000000` (22 GB on the prefix), RSS by GNU `time -v`; the three
+binaries are the SAME tree at the three switch positions (`_tmp/bin-budget`,
+`_tmp/bin-oracle`, `_tmp/bin-hybrid`; the oracle and hybrid executables
+are byte-reproducible from their positions, and the budget executable
+relinked by the final full-tree build differs from the measured one
+only in layout — `init-prelude` 2.87048 G on both, to five digits).  `master` is the #313 record's base column
+(`b9737075`; master's tip `c431b1ca` differs from it by task #304, a
+statement-level change).  The `budget` column reproduces #313's own
+step-1 cells within 0.2 % (`init-full` 509.72 vs 509.41 G, the prefix
+742.69 vs 742.21 G, `app-lam` 157.35 vs 157.08 G) — the wrappers'
+borrowed `e` and the folded `match` cost nothing measurable.
+
+**`--verified`**
+
+| stream | master `b9737075` | budget (#313) | oracle | Δ oracle vs budget | hybrid | Δ hybrid vs budget | RSS budget → oracle → hybrid (MB) |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 157.30 G | 157.35 G | **74.15 G** | -52.9 % | **75.08 G** | -52.3 % | 2723 → 2721 → 2745 |
+| `beta-ladder` | 39.94 G | 39.71 G | **15.32 G** | -61.4 % | **15.79 G** | -60.2 % | 736 → 868 → 837 |
+| `let-ladder` | 8.06 G | 8.01 G | **2.71 G** | -66.2 % | **2.87 G** | -64.1 % | 231 → 232 → 232 |
+| `fueled-chain` | 1.09 G | 1.08 G | **0.80 G** | -26.1 % | **0.85 G** | -21.3 % | 25 → 24 → 24 |
+| `init-prelude` | 3.20 G | 2.87 G | **2.91 G** | +1.5 % | **2.81 G** | -1.9 % | 29 → 31 → 31 |
+| `grind-ring-5` | 22.61 G | 20.15 G | **20.52 G** | +1.8 % | **19.75 G** | -2.0 % | 223 → 212 → 225 |
+| `magma-list-pair-n21` | 199.17 G | 155.60 G | **183.45 G** | +17.9 % | **155.57 G** | -0.0 % | 6230 → 5345 → 6234 |
+| `magma-list-deep-n36` | 324.55 G | 241.64 G | **260.51 G** | +7.8 % | **241.61 G** | -0.0 % | 7407 → 7347 → 7407 |
+| `init-full` | 585.84 G | 509.72 G | **518.49 G** | +1.7 % | **503.58 G** | -1.2 % | 477 → 469 → 480 |
+| `mathlib-prefix` | 848.51 G | 742.69 G | **752.54 G** | +1.3 % | **732.51 G** | -1.4 % | 943 → 923 → 945 |
+
+**`--trusted`**
+
+| stream | master | budget | oracle | Δ | hybrid | Δ |
+|---|---|---|---|---|---|---|
+| `app-lam` | 157.29 G | 157.35 G | 74.14 G | -52.9 % | 75.08 G | -52.3 % |
+| `beta-ladder` | 39.94 G | 39.71 G | 15.32 G | -61.4 % | 15.78 G | -60.2 % |
+| `let-ladder` | 8.06 G | 8.01 G | 2.71 G | -66.2 % | 2.87 G | -64.1 % |
+| `fueled-chain` | 1.08 G | 1.07 G | 0.79 G | -26.3 % | 0.84 G | -21.8 % |
+| `init-prelude` | 3.04 G | 2.73 G | 2.77 G | +1.5 % | 2.68 G | -1.9 % |
+| `grind-ring-5` | 21.47 G | 19.03 G | 19.41 G | +2.0 % | 18.64 G | -2.0 % |
+| `magma-list-pair-n21` | 194.28 G | 150.73 G | 178.57 G | +18.5 % | 150.71 G | -0.0 % |
+| `magma-list-deep-n36` | 316.51 G | 233.76 G | 252.78 G | +8.1 % | 233.72 G | -0.0 % |
+| `init-full` | 567.25 G | 491.55 G | 500.49 G | +1.8 % | 485.65 G | -1.2 % |
+| `mathlib-prefix` | 816.81 G | 712.25 G | 722.33 G | +1.4 % | 702.63 G | -1.4 % |
+
+Verdicts identical across all three binaries and both modes (the
+accepted-declaration lines of every cell agree; `tests/arena.sh` on the
+`.oracle` build: 90/92 tutorial, 195/195 e2e, 15/15 annot, all sweeps
+as expected, every gate green).
+
+**The oracle's answers** (`_tmp/bin-count`, a throwaway build of the
+`.oracle` tree whose `withExcl` also classifies the object —
+exclusive / persistent (`m_rc == 0`) / multi-threaded / shared
+(`m_rc > 1`) — per walk kind; `--verified --jobs=1`; the root of a walk
+is never asked, so these are the compound child nodes visited past the
+cutoff):
+
+| stream | asked | exclusive | persistent | shared (rc > 1) | mt | exclusive share | persistent share |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 143,965,708 | 95,948,952 | 24,431 | 47,992,325 | 0 | 66.6 % | 0.0 % |
+| `beta-ladder` | 29,992,256 | 29,967,693 | 16,329 | 8,234 | 0 | 99.9 % | 0.1 % |
+| `let-ladder` | 6,004,329 | 5,999,724 | 349 | 4,256 | 0 | 99.9 % | 0.0 % |
+| `fueled-chain` | 171,276 | 62,027 | 67,062 | 42,187 | 0 | 36.2 % | 39.2 % |
+| `init-prelude` | 693,849 | 336,827 | 239,466 | 117,556 | 0 | 48.5 % | 34.5 % |
+| `grind-ring-5` | 5,031,020 | 2,525,199 | 1,859,109 | 646,712 | 0 | 50.2 % | 37.0 % |
+| `magma-list-pair-n21` | 70,776,681 | 20,387,416 | 47,898,498 | 2,490,767 | 0 | 28.8 % | 67.7 % |
+| `magma-list-deep-n36` | 111,970,691 | 91,978,982 | 18,979,264 | 1,012,445 | 0 | 82.1 % | 17.0 % |
+| `init-full` | 166,058,262 | 81,888,682 | 59,141,910 | 25,027,670 | 0 | 49.3 % | 35.6 % |
+| `mathlib-prefix` | 240,514,765 | 114,131,880 | 88,660,673 | 37,722,212 | 0 | 47.5 % | 36.9 % |
+
+Per walk on `init-full` (exclusive / persistent / shared): `instantiateList`
+55.7 M / 20.1 M / 4.1 M (69.8 % exclusive), `instantiateRev` 18.2 M /
+15.7 M / 7.5 M (44.0 %), `abstractRange` 4.9 M / 0 / 12.8 M (27.6 % —
+its inputs are the annotate telescopes' fresh but DAG-shaped bodies),
+`instantiate1Lift` 2.9 M / 0.5 M / 0.6 M (73 %), `instLevelParams`
+0.1 M / 22.9 M / 0.05 M (0.4 % — definition bodies, all persistent);
+the prefix within a point of each.  On `magma-list-pair-n21`
+`instantiateList` alone asks 70.6 M times and 47.9 M of them are
+PERSISTENT — the environment's DAG-shaped types.  No object is ever
+multi-threaded at `--jobs=1` (the check phase's own thread creates
+everything it touches; the marked environment is persistent, not mt).
+
+### 6. What the numbers say
+
+**Where the oracle wins, it wins what #313 could not.**  The ladders'
+walks are large and tree-shaped — chains of fresh intermediates —
+and 99.9 % of their nodes answer exclusive: `beta-ladder` −61 %, the
+cliff #313 §6 left on the table at a 4 096 budget (it cost `init-full`
+5.4 points there; here it costs nothing because the oracle tells a
+chain from a DAG per node, which no per-call budget can).  `app-lam`
+−53 %: its walks are DAG-shaped and larger than any budget, so #313
+memoised every node; two thirds of them are exclusive and the memo
+falls to the shared third.  `let-ladder` −66 %, `fueled-chain` −26 %.
+
+**Where the oracle loses, it loses to the budget's plain descent on
+SHARED nodes.**  Alone, the oracle is +1.3 … +1.8 % on `init-full`, the
+prefix, `init-prelude`, `grind-ring-5`, and +8 / +18 % on the magma
+streams — it fails the brief's decision rule against the budget.  The
+counts say why: 35–37 % of the visited compound nodes on the core
+streams are PERSISTENT (the environment: the declaration's own type and
+value and every constant's body are marked at the phase boundary, and
+the C++ kernel's imported terms are compacted-region objects with the
+same count), 15 % more are shared at rc > 1, and the oracle memoises
+every one of them — a key, a probe, an insert, and the rehash train of
+a table grown from eight buckets — where #313's plain descent rebuilt
+them for free as long as the walk stayed under 256 nodes.  Most walks
+do.  The `magma-list-pair-n21` profile attributes it exactly: the
+walk-memo bucket is 8.4 % of the oracle run (`insert` 2.7 %, probe
+1.8 %, rehash `foldlM` 3.0 %) and 0 % of the budget run, whose
+`instantiateListBC` self time is 13.0 % against `instantiateListX`'s
+9.4 % — the plain descent visits MORE (it duplicates; RSS 6.2 GB vs
+the oracle's 5.3 GB, the one place the oracle's sharing shows) and
+still costs less, because the duplicated nodes are cheap and the memo
+entries are not.  Sharing in the output only pays when the downstream
+sees it; #313 §2 measured that the 256-node budget's duplicates do not
+register in `beqGo`.
+
+**The hybrid is the sum of the two, and it satisfies the brief's rule
+where the oracle alone does not:** the budgeted plain descent first
+(the small walks, shared or not, at zero memo cost), and on restart the
+ORACLE walk instead of the always-memoised one (the large walks memoise
+their shared nodes only).  `init-full` 503.58 G (−1.2 % against the
+budget, **−14.0 % against master; 10 624 instructions per β/δ/ι step**
+from 10 745), the prefix 732.51 G (−1.4 %, −13.7 % against master),
+`init-prelude` −1.9 %, `grind-ring-5` −2.0 %, the magma streams ±0.0 %
+(their walks never leave the budget), `app-lam` −52 %, `beta-ladder`
+−60 %, `let-ladder` −64 %, `fueled-chain` −21 %; RSS within 1 % of the
+budget everywhere.  Not worse than 1 % on any stream, at least as good
+on `init-full` and the prefix.  The hybrid's restarted walk begins on
+`none` (the table appears at its first shared node) rather than #313's
+pre-sized `memoAfterBudget`; pre-sizing the oracle's restart table is
+the one knob not turned.
+
+**What was NOT the reason.**  Not the IR: the check is free and the
+count it reads is the in-tree count (§3).  Not the intrinsic proof
+shape: `Squash`/`Quotient.lift`/the subtype are erased, the C is the
+same reset/reuse discipline as the `*BC` (`lean_is_exclusive` on the
+result pair, one `Prod` per node) plus one `lean_is_exclusive_obj` per
+child.  The oracle's cost IS the memo on the shared nodes it correctly
+identifies — the official kernel pays the same on every imported term,
+and pays it in a C++ `unordered_map` keyed on a raw pointer pair with
+no allocation per key.
+
+### 7. Decision — NONE; what the maintainer is asked to weigh
+
+Per the amendment, nothing is landed: the tree is committed at
+`.budget` (the #313 state; `lake build`/`lake test` warning-free,
+`tests/arena.sh` green at that position and at `.oracle`; at `.hybrid`
+every verdict sweep is as expected and only the shake gate reported —
+it wants a full-tree build and the hybrid position had only its
+executable built — see `_tmp/arena-*.log`), the proofs cover all three
+positions, and the switch is one token in `ExprOpsC.lean`.  The
+question on the table: `.hybrid` (−14 % against master on `init-full`
+and the prefix, −52 … −64 % on the ladders, nowhere worse than the
+budget by more than noise) keeps BOTH mechanisms — the budget's
+restart AND the oracle's per-node test — and the primitive's TCB entry;
+`.oracle` alone is the cleaner design (no budget, no restart, the
+official kernel's discipline exactly) and loses 1–2 % on the core
+streams and 8–18 % on the magma streams to persistent-term memoisation;
+`.budget` keeps the trust surface as it is and leaves the ladders'
+factor of two to three on the table.  If the oracle is adopted in
+either form, the pre-sized restart table and the five Bool-valued
+walks (§4) are the follow-ups, and the budget code (`walkBudget`,
+`*BC`, `*GoC`, their `Memo*Inv` invariants and `_spec` theorems) is
+deleted only under `.oracle`.
+
+### 8. Upstream: is `withExclusive` worth proposing?
+
+Yes, on this evidence — with the honest framing that its value is
+conditional on a proof architecture the caller must adopt.  What
+`Init/Util.lean` would gain is the safe counterpart `isExclusiveUnsafe`
+does not have today, in the exact shape of `withPtrAddr` beside it.
+Ready to send:
+
+```lean
+set_option linter.unusedVariables.funArgs false in
+@[inline] unsafe def withExclusiveUnsafe {α : Type u} {β : Type v} (a : α)
+    (k : Bool → β) (h : ∀ b₁ b₂, k b₁ = k b₂) : β :=
+  k (isExclusiveUnsafe a)
+
+/--
+Runs `k` on whether `a` is an exclusive object — single-threaded with reference count 1, so
+that no other reference to it exists — in compiled code; in the logic, on `false`.
+
+The obligation `h` says the continuation's value does not depend on the answer, so the
+substitution is unobservable: a caller may use the answer to choose *how* to compute a
+value, never *which* value — typically to skip recording an object in a memo table when it
+cannot be reached again (the kernel's `replace_fn` caches only `is_shared` nodes).  The
+pattern of `withPtrAddr`.  A continuation whose result type is a `Subsingleton` discharges
+`h` by `Subsingleton.elim`; a memoising traversal obtains that by returning a `Squash` of its
+result together with the memo (`ConLeche/Cached/ExprOpsC.lean` is a worked example).
+
+The object should reach the check *borrowed*: an owned parameter is a reference of its own,
+and the count read would then be one too high for every child of a held root.
+-/
+@[implemented_by withExclusiveUnsafe]
+def withExclusive {α : Type u} {β : Type v} (a : α) (k : Bool → β)
+    (h : ∀ b₁ b₂, k b₁ = k b₂) : β :=
+  k false
+```
+
+Two things a reviewer will ask that this record answers: the
+obligation cannot be relaxed to the visible component (§2 — the memo
+the compiled program builds must be inside the theorem), and the
+borrowed-parameter caveat is the whole difference between a useful
+primitive and one that always answers `false` (§3).  A `Bool`-returning
+`isExclusive`-with-proof cannot exist (its proof would have to say
+something about the answer); a `@[specialize]` combinator gains nothing
+over `@[inline]` here (the C shows the check inlined to the extern
+call).
+
+### 9. Where everything is
+
+Committed on `agent/excl-314`: `ConLeche/Kernel/Exclusive.lean` (the
+primitive), `ConLeche/Cached/ExprOpsC.lean` (the switch, `MemoX*`,
+`resTerm`, seven `*P`/`enter*`/`*X` triples, the wrappers),
+`ConLeche/Verify/Cached/OpsC.lean` (seven `*P_spec`, the wrapper specs
+over the three positions), `tests/trust-surface.sh` (the allowlist
+row), this record.  On the worktree (`_tmp/excl-314/_tmp/`,
+gitignored): `runs/{oracle,budget,hybrid,counts}.tsv` and their logs
+(the tables above verbatim), `bin-{oracle,budget,hybrid,count}`,
+`prof/` (the two `magma-list-pair-n21` profiles, `bucket.py`),
+`ir/inst1X-app-arm.c`, `genx.py`/`apply_x.py` (the generator the seven
+walks were written with), `hybrid.py`, `probe.py` (the count
+instrumentation: `initialize` counters, `@[extern c inline]`
+classifiers, `withExclT`), `measure.sh`/`count.sh`/`profile.sh`,
+`arena-{oracle,hybrid,budget}.log`, `proofs/` (the copy the proof
+sub-agent worked in).
