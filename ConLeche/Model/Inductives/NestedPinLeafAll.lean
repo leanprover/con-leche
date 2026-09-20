@@ -5070,6 +5070,91 @@ theorem stripPis_sort_arity : ∀ (a b : Nat) {e : Expr}
             exact congrArg Nat.succ (ih b' hA hB)
     | _ => exact nomatch h1
 
+/-- **THE TARGET LEAVES THE OWNER'S INSTANCE** (task #315 K.70, arm
+(C)): at a field the pin's container calls ORDINARY that the block's
+rewrite made recursive and the OWNER's own recomputation did NOT fire,
+no class of the owner's wide space is mapped to the block's target.
+
+`instOutAt`'s statement ONE NESTING LEVEL UP, and the reason it is a
+record and not a reading is `instOutAt`'s own: the two images are
+unrelated — K.62 and K.66 speak of the COPY's container's pins and the
+copy's own mint group, and this speaks of the OWNER's.
+
+It is what `setJoin_out` consumes: past it the joined tuple at the
+target IS the block's own least tuple, and `CopyEntryAOrd` at the
+block's group closes the entry.  The three cases are `instOutAt`'s
+three, one level up: a target below `p.k` is a member of the block
+being installed and no value of `σ` is one; a MEMBER class of the
+owner is the block's copy `p.k + gn.grpBase + c`, which K.70's group
+disjunction excludes; and a PIN class is `p.k + mapR.getD z`, which
+its `contains` excludes. -/
+theorem entOut_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {σ : Nat → Nat} {ψ : Name → Nat} {a kk i' j l : Nat}
+    (G : GF st m a kk dK) (hi' : i' < kk)
+    (hj : j < (dK.ctorsM i').length)
+    (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
+    (hord : ((dK.rss i').getD j []).getD l false = false)
+    (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta}
+    (hjA : (dK.ctorsM i')[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    (hdm : bs[dK.nP + l]? = some dom)
+    {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
+    (hJm : ciC.members[i']? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- the OWNER: the container whose own pin `qK` this copy is
+    {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[g]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
+    -- the owner did NOT fire at this field
+    (hnofire : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = false)
+    -- the owner's group, and `σ`'s two values
+    (hgrpSize : gn.grpSize = dR.k)
+    (hroot : ∀ c, c < dR.k → σ c = p.k + gn.grpBase + c)
+    (hσpin : ∀ z, z < dR.nPins → σ (dR.k + z) = p.k + mapR.getD z st.pins.length)
+    (hmemMap : ∀ z, z < dR.nPins → mapR.getD z st.pins.length ∈ mapR) :
+    ¬ ∃ c, c < dR.k + dR.nPins ∧
+      σ c = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0 := by
+  classical
+  by_cases hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0
+  · obtain ⟨hcon, hgrp⟩ := G.ordOut ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
+      lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
+      hnofire
+    rintro ⟨c, hclt, hceq⟩
+    by_cases hcm : c < dR.k
+    · -- a MEMBER class of the owner: the block's copy, which the group
+      -- disjunction excludes
+      rw [hroot c hcm] at hceq
+      rw [← hgrpSize] at hcm
+      omega
+    · -- a PIN class: the map's entry, which the `contains` excludes
+      have hqq : c - dR.k < dR.nPins := by omega
+      rw [show c = dR.k + (c - dR.k) from by omega, hσpin _ hqq] at hceq
+      have hcontra : mapR.contains
+          (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + a + i') + j) []).getD l 0 - p.k) = true := by
+        refine List.contains_iff_exists_mem_beq.mpr
+          ⟨mapR.getD (c - dR.k) st.pins.length, hmemMap _ hqq, ?_⟩
+        simp only [beq_iff_eq]
+        omega
+      rw [hcon] at hcontra
+      exact nomatch hcontra
+  · -- the target is a MEMBER of the block being installed, and every
+    -- value of `σ` is a block PIN
+    rintro ⟨c, hclt, hceq⟩
+    by_cases hcm : c < dR.k
+    · rw [hroot c hcm] at hceq; omega
+    · have hqq : c - dR.k < dR.nPins := by omega
+      rw [show c = dR.k + (c - dR.k) from by omega, hσpin _ hqq] at hceq
+      omega
+
 /-- **THE TWO COPIES' TARGETS AT A CONTAINER-RECURSIVE FIELD AT A
 MEMBER** (task #315 K.70, arm (A)'s member half): the block's target
 is `σ` of the owner's, and NOTHING about the field is read to say so.
