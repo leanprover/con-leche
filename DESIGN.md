@@ -128071,37 +128071,55 @@ whose subject is the unreduced term.  **So the corner survives (B), and
 it survives it on the READ and not on the TARGET.**
 
 **IT IS NOT A DESIGN INVALIDATION, AND THE OBJECT THAT CLOSES IT IS
-ONE LEMMA.**  What the reading half needs is
+NAMED — BUT IT IS DEARER THAN "ONE LEMMA", AND THE REASON IS THE β
+CERTIFICATE.**  What the reading half needs is
 
-    normPosDomM ops env mems d F W = .ok (ordHeadRed W)
+    w = ordHeadRed W
 
-whenever `(ordHeadRed W).getAppFn` is a `.const` declared `indInfo` —
-i.e. **the walk's `whnf` performs exactly the head β/ζ the pure
-function performs, and then stops**.  Three things make it cheaper than
-step 0's spelling (A):
+where `w` is what the INSTALL's walk returned (`hnormW`, a hypothesis
+`copyOrdFRightPinOrdTargetRead` already holds) and `W` is the minted
+domain.  The obvious route — "the walk's `whnf` performs exactly the
+head β/ζ the pure function performs, and then stops" — was checked
+against the tree and it does **not** hold as a syntactic fact:
 
-1. it is a LOCAL fact at ONE environment — head β/ζ plus
-   `whnf_indApp_eq` (K.22) — and NOT `whnf`-stability under environment
-   EXTENSION, which is the theorem (A) needs and the tree does not
-   have;
-2. `normPosDomM` calls `ops.whnf` exactly ONCE before its `forallE`
-   case (`Kernel/Inductives/MutualInstall.lean:232`), so the lemma is
-   about one `whnf` call and not about a walk;
-3. the bulk-beta machinery it needs is already in the tree
-   (`Verify/BetaSpine.lean`, `whnfCore_constApp_eq`,
-   `normPosDomM_indApp_cons`).
+* `normPosDomM` calls `ops.whnf` exactly ONCE before its `forallE` case
+  (`Kernel/Inductives/MutualInstall.lean:232`), which is the good news:
+  the object is about one `whnf` call and not about a walk;
+* `whnfCoreBody`'s β step is **CERTIFICATE-GATED**
+  (`Kernel/Core.lean:1935`, task #100's de-gating): unless
+  `betaGateFires mode mb.pw`, it runs `inferIO` on the argument and a
+  `defeq` against the binder's domain, and **an uncertified redex stays
+  STUCK**.  So `whnf` does not unconditionally β-reduce, and no
+  syntactic lemma can say it does;
+* the kernel's β substitutes ONE argument at a time
+  (`body.instantiate1 a`), which does match `ordHeadRedGo`'s shape —
+  but with `instantiate1` and not `instantiate1Lift`, and the two agree
+  only at a `bvar`-closed argument.  `ordHeadRed` may not use
+  `instantiate1`: its input has the binders BELOW the cut loose.
 
-The one real risk it carries is that the kernel's `whnf` betas the
-spine in BULK while `ordHeadRed` betas ONE argument at a time with
-`instantiate1Lift`; the two agree as terms but the identification is
-`BetaSpine`'s own and has to be made rather than assumed.  **Priced at
-one session**, and the propagation that follows it (move
-`copyOrdFRight*Read`, `PinShapes`' `OrdTargetRead`, `GroupFacts.ordRead`
-and `hscope`'s head conjuncts onto `ordHeadRed`, then `ordTgt_corr`'s
-`hhd` and `rowTargetOrd`'s guard with them) at one more.  Until both
-land, `nestedFitc_pin` remains inapplicable at `Outer` — a conceding
-producer, not a false one: the install ACCEPTS `nested_redex_owner`
-and the gate records it (`J=accept,Outer=accept`).
+So the object is not "whnf betas" but **"the install's β at THIS site
+FIRED"**, and that is a run-level fact about a certificate, not a
+syntactic one.  The tree does give a lever: the consumer already holds
+`hheadS`, the REWRITTEN domain's head as a block-member constant, and a
+stuck redex rewrites to a stuck redex — so `w` is constant-headed, and
+what is then owed is a `whnf` INVERSION ("a constant-headed result of
+`whnf` at a term whose head β/ζ normal form is constant-headed IS that
+normal form"), which is determinism of the reduction at a head-normal
+reduct and which the tree does not state.  **Re-priced at two to four
+sessions**, with the `whnf` inversion the dear part and
+`Verify/BetaSpine.lean` the file it would live beside; the propagation
+that follows it (move `copyOrdFRight*Read`, `PinShapes`'
+`OrdTargetRead`, `GroupFacts.ordRead` and `hscope`'s head conjuncts
+onto `ordHeadRed`, then `ordTgt_corr`'s `hhd` and `rowTargetOrd`'s
+guard with them) is one more.
+
+**And it is still not an invalidation.**  Until those land,
+`nestedFitc_pin` remains inapplicable at `Outer` — a conceding
+producer, not a false one: the install ACCEPTS `nested_redex_owner`,
+the gate records it (`J=accept,Outer=accept`), and nothing the route
+records there is wrong.  The corner is owed by the SYNTAX and by
+nothing else: `init-full` and Mathlib measure the non-constant-head
+population at this arm at ZERO in both modes.
 
 ##### (e) THE MEASUREMENT
 
