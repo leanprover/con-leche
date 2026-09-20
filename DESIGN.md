@@ -127223,3 +127223,110 @@ progress lane (`PROGRESS FAIL: --jobs=4 --progress=1 reports every check
 once, counting up`, 14/15) and the re-run passed 15/15.  The binary is
 BYTE-IDENTICAL to step 2's (`cmp`), so this row cannot have caused it:
 it is a timing flake in the progress counter under load.
+
+#### WIDE (f3) STEP 4 — FLATNESS PRICED: THE REFLEXIVE TWIN IS THREE OBJECTS, AND IT IS **NOT** A DESIGN INVALIDATION (lane LE, 2026-09-20)
+
+Step 3(a) left the five remaining head-guard sites blocked on ONE
+thing: flatness, `domPiDepth (ordTargetDomL lpsC t q dom.1) = 0`, which
+is what makes the owner's reading's cut the field's own `l`.  It cannot
+be recorded — `tests/e2e/nested_pi_field.ndjson` is an OFFICIAL ACCEPT
+with a `Π`-headed stored domain at exactly this arm — so the reading
+has to carry the tower.  **Priced against the tree, input by input.
+Nothing it needs is unavailable in principle; the price is three
+objects and it is stated so it can be checked.**
+
+##### (a) THE PRODUCER IS ALREADY TOWER-READY, AND THAT IS THE GOOD NEWS
+
+`OrdTargetRead` (`Model/Inductives/NestedPremise.lean:1133`) — the
+owner's half, `PinShapes`' own conjunct — is ALREADY stated at
+`l + domPiDepth (ordTargetDomL lpsC ownSelf q dom)`, on all three of
+its occurrences (the `denoteMeta` cut, the `openFvars` count and the
+`instSeq` depth), and it already carries
+`tlsl.length = domPiDepth (ordTargetDomL …)`.  Its own docstring says
+why: "the cut is the field's own `l` at a finitary field and
+`l + domPiDepth …` at a reflexive one, so the two arms are ONE
+statement".  **So side 2 needs no change at all.**  What collapses the
+tower is the CONSUMER: `ordRead_corr` and `ordReadMem_corr` rewrite by
+`hdep₂` in exactly two places — the telescope-emptiness conjunct
+(`List.eq_nil_of_length_eq_zero (by rw [htlsLen₂, hdep₂])`) and the cut
+match against side 1's reading (`rw [hdep₂, Nat.add_zero, …]`).
+
+##### (b) THE THREE OBJECTS
+
+1. **`domPiDepth` IS TABLE-INDEPENDENT** — one lemma,
+   `domPiDepth (Expr.instantiateLevelParams lps us e) = domPiDepth e`
+   by induction, since level instantiation maps a `forallE` to a
+   `forallE`.  It is what lets the OWNER's cut
+   (`ordTargetDomL … ownT qK …`) and the BLOCK's
+   (`ordTargetDomL … (nestedPinTermsSelf p st) (q₀ + i') …`) be the
+   same number without flatness.  ~10 lines.
+2. **THE CUT, THREADED** — `l` becomes `l + depth` in
+   `NestedPinsRun.ordReadAt`/`ordTgtReadAt` (their `hxb`, `hxlv`,
+   `hreadO` and the `instAll … l rx` conclusion), `GroupFacts.ordRead`,
+   `ordRead_corr`/`ordReadMem_corr`, `hscope`'s reading conjuncts, and
+   `PinShapes`' third clause with `rowOrdRead`/`rowOrdReadMem`.  This is
+   MECHANICAL: `ordRootInst` is already cut-parametric (`hrootInst`'s
+   statement spells `l + domPiDepth …` today and is only rewritten DOWN
+   to `l` by flatness), and so is
+   `denoteMeta_ordRootInst_read`, which takes `cut` as a parameter.
+   K.65's `stripDomPis`/`domPiDepth` pattern verbatim, at eight
+   signatures.
+3. **THE TELESCOPE TIE AT `ordF`-RIGHT — THE ONE GENUINELY NEW
+   OBJECT.**  At depth `0` the consumers conclude that BOTH copies'
+   field telescopes are `[]`, which flatness gives.  At a tower neither
+   is, and **`CopyCtorShape.ordF`'s right arm carries no telescope tie**:
+   `recF` and `pinF` each carry
+   `(tls.getD l []).map (·.2.2) = instTele Ds l (container's own tlss)`,
+   and `ordF`-right carries `EntryRead` alone — `EntryRead` USES `tls`
+   (inside `CopyEntryAt`) but constrains it against nothing.  Nor is
+   there anything on the container's side to tie to: at a field the
+   container calls ORDINARY its own model records no telescope, so the
+   tower is the STORED DOMAIN's `Π`-prefix and not `dJ.tlss`.
+
+##### (c) WHY (3) IS RECORDABLE — THE TEST THE STOP CONDITION ASKS
+
+The stop condition is "a fact NO run record can carry and no model
+clause can produce".  (3) is neither:
+
+* **the run has both sides.**  The block's telescope at the field comes
+  from the BLOCK's own stored constructor type (`mutTlss`/`tssF` off
+  `blkFss0`, i.e. off `AuxStored`), and the tower comes from the
+  CONTAINER's stored constructor's field domain — both are stored
+  constructor types the kernel already walks at this very arm
+  (`nestedOrdNormAt` reads the container's; `nestedCopyFieldsAt` and
+  K.42 read the block's).  A row of the K.42/K.51 family — "at a field
+  the container calls ORDINARY whose copy the block rewrote, the copy's
+  own field domain's `Π`-prefix is the recomputation's, one
+  substitution apart" — is one comparison of two terms the arm already
+  computes, with no new walk;
+* **the model has the consumer pattern.**  `recF`'s and `pinF`'s
+  `instTele Ds l …` conjunct is exactly the shape the tie must take,
+  and `BlockOpened`/`CopyShapeA` already turn a stored domain's
+  `Π`-prefix into `tlss` at the container-recursive arms.  The new
+  clause is that bridge at one more arm, not a new bridge.
+
+**So step 4 is NOT a design-invalidation candidate**, and this row
+records the negative result as precisely as the positive one: the
+object the tree "has been deferring all along" is a telescope tie at
+one arm, with a producer of the established family and a consumer of
+the established shape.
+
+##### (d) THE PRICE, AND WHAT IS EXERCISED
+
+| object | size |
+|---|---|
+| (1) `domPiDepth` table-independence | ~10 lines |
+| (2) the cut at eight signatures | ~1 session, mechanical, no new fact |
+| (3) the `ordF`-right telescope tie: kernel row + `Verify` inversion + `NestedPinsRun` row + `GroupFacts` field + the `CopyCtorShape` clause and its producer | ~1–2 sessions, the `CopyCtorShape` end the dear one (it is lane L-B's file) |
+
+**THE WITNESS, AND ITS REACH.**  `tests/e2e/nested_pi_field.ndjson`
+(`K α | mk (f : Nat → α)`, `J β | node (k : K (J β))`,
+`PiField | mk (j : J PiField)`) is the shape, and it is a TRIPWIRE: the
+in-process modeller declines a reflexive member, so the fold reaches
+`J` and not `PiField`, and the gate row covers `J` only.  The arm is
+therefore owed by the SYNTAX — the standing ruling — and not by any
+corpus; `init-full` and Mathlib measure the tower population at ZERO at
+this arm (K.69's `c69m`/`c69s` columns and step 2's `cbh2` control all
+agree).  That is what makes (2) and (3) schedulable rather than urgent,
+and it is also why they may NOT be replaced by a flatness record: a
+record would reject `nested_pi_field`, which official accepts.
