@@ -4821,17 +4821,16 @@ spelling had — side 1's two lookups are derived from side 2's `z`:
 group carried as a hypothesis because `PinGroupInst` may not name the
 instance map.
 
-**THE BLOCK'S GUARD IS DERIVED AND NOT A PREMISE.**  Both rows'
-guards ARE the bound `p.k ≤ t`, so neither can produce it;
-`GroupFacts.ordGe` (K.68 at this block) does, at the price of the
-recomputed head being DECLARED in `env`.  The head is the stored
-domain's own (`hdomHd`, carried through `ordTargetDomL_flat_at`
-because a level instantiation does not change a head), and the OWNER's
-side declares it on BOTH arms: at a member class it is one of the
-owner container's members (`containerInfo?_inv`'s per-member
-`env.find?`), at a pin class it is that pin's own container
-(`pinNP`/`pinConts` and the crossing).  That is why side 2 is read
-first and side 1 only inside the two branches.
+**THE BLOCK'S GUARD IS A PREMISE** (task #315 K.71).  Both rows'
+guards ARE the bound `p.k ≤ t`, so neither can produce it; it used to
+be derived here from `GroupFacts.ordGe` (K.68 at this block) at the
+price of the recomputed head being DECLARED in `env`, which put the
+STORED DOMAIN'S HEAD in the signature and with it the assumption that
+the domain is not a `Π`.  It is now a hypothesis, and that is what
+makes ONE correspondence serve every arm: at a container-ORDINARY
+field the consumer passes `G.ordGe` (it holds the head there), at a
+container-RECURSIVE one `CopyShapeA.pinF`'s own `TV.k ≤ tg l`, and the
+reflexive arm is no longer excluded by a head that is a `Π`.
 
 The two CROSSINGS are hypotheses and not derivations: the container's
 model lives at the model's environment and the kernel's tables are
@@ -4849,18 +4848,17 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     (hjA : (dK.ctorsM i')[j]? = some cA)
     (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
     (hdm : bs[dK.nP + l]? = some dom)
-    -- THE HEAD: the stored domain's own, which is what the bound reads
-    {K : Name} {vs : List Level} (hdomHd : dom.1.getAppFn = .const K vs)
-    -- THE BOUND, as a HYPOTHESIS (task #315 K.70): at a field the
+    -- THE BOUND, as a HYPOTHESIS (task #315 K.70/K.71): at a field the
     -- container calls ORDINARY it is `GroupFacts.ordGe` (K.68 at this
-    -- block) at the recomputed head's declaredness; at one it calls
-    -- RECURSIVE — arm (A)'s pin half — `CopyShapeA.pinF`'s own
-    -- `TV.k ≤ tg l` gives it outright and no row is needed.  Taking it
-    -- rather than deriving it is what lets ONE correspondence serve
-    -- both arms.
-    (hbound : (env.find? K).isSome = true →
-      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + a + i') + j) []).getD l 0)
+    -- block) at the recomputed head's declaredness, which the consumer
+    -- holds the head for; at one it calls RECURSIVE — arm (A)'s pin
+    -- half — `CopyShapeA.pinF`'s own `TV.k ≤ tg l` gives it outright.
+    -- Taking it rather than deriving it is what lets ONE
+    -- correspondence serve both arms, and it takes the STORED
+    -- DOMAIN'S HEAD out of the signature with it — so the `Π`-headed
+    -- (reflexive) arm is covered too.
+    (hbound : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0)
     -- the guard's container, at an ARBITRARY member of the block's group
     {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
     (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
@@ -4927,37 +4925,18 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
   obtain ⟨hmem₂, hpin₂⟩ := hrow lps (by rw [← hdomEq]; exact hhd)
   -- THE NAMES: the two member lists are one
   have hnames : dR.memberNames = ciR.members.map (·.name) := CR.memberNames_eq
-  -- THE BOUND IS NOT A PREMISE.  The recomputation's head is the
-  -- STORED domain's (`ordTargetDomL_flat_at`: a level instantiation
-  -- does not change a head, and a constant head is not a `Π`), so `M`
-  -- is `K`; each of the two arms below declares `K` in `env`, and
-  -- `GroupFacts.ordGe` (K.68 at this block) turns that into `p.k ≤ t`.
-  have hMK : M = K :=
-    (Expr.const.inj
-      (hhd.symm.trans (ordTargetDomL_flat_at (lpsC := lpsC) hdomHd ownT dK.nP qK l).2)).1
-  have hgo := fun (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-      (b.ownOffset (p.k + a + i') + j) []).getD l 0) =>
-    G.ordTgt ψ i' hi' j hj l hl hrs₁ hge cA bs rr dom hjA hst hdm
-      lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
-      M us hhd
+  -- side 1: K.70's positive row at this field, at the bound the
+  -- consumer hands in
+  have hgo := G.ordTgt ψ i' hi' j hj l hl hrs₁ hbound cA bs rr dom hjA hst hdm
+    lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
+    M us hhd
   cases hfi : dR.memberNames.findIdx? (· == M) with
   | some mm =>
     -- a MEMBER class: `hroot` is `σ` there
     have hmmlt : mm < dR.k := by
       obtain ⟨hlt, -, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
       rw [← CR.namesLen]; exact hlt
-    -- and the head is one of the OWNER's container's members, hence
-    -- a stored inductive: the bound follows
-    have hfindK : (env.find? K).isSome = true := by
-      obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
-      simp only [beq_iff_eq] at hp
-      have hMmem : M ∈ ciR.members.map (·.name) := by
-        rw [← hp, ← hnames]; exact List.getElem_mem hlt
-      obtain ⟨mem, hmemM, hmemN⟩ := List.mem_map.mp hMmem
-      obtain ⟨_, _, _, _, _, _, -, -, -, -, hmems⟩ := ConLeche.containerInfo?_inv hciR
-      obtain ⟨cvC, capsC, -, -, -, hf, -, -, -, -, -, -⟩ := hmems mem hmemM
-      rw [← hMK, ← hmemN, hf]; rfl
-    obtain ⟨hmem₁, -⟩ := hgo (hbound hfindK)
+    obtain ⟨hmem₁, -⟩ := hgo
     rw [hmem₂ mm hfi, hroot mm hmmlt]
     exact hmem₁ mm (by rw [← hnames]; exact hfi)
   | none =>
@@ -4976,11 +4955,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     have hciM : ConLeche.containerInfo? env M = some ciZ := by
       rw [← hJz]; exact hcontZ z hz ciZ (CR.pinConts z hz ciZ hciZ0)
     -- so the head is a stored inductive here too, and the bound follows
-    have hfindK : (env.find? K).isSome = true := by
-      have hciK : ConLeche.containerInfo? env K = some ciZ := by rw [← hMK]; exact hciM
-      obtain ⟨cvZ, capsZ, -, -, -, -, hf, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciK
-      rw [hf]; rfl
-    obtain ⟨-, hpin₁⟩ := hgo (hbound hfindK)
+    obtain ⟨-, hpin₁⟩ := hgo
     -- the searched term is the table's entry at `z`
     have hsearch : Expr.mkAppN (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
         ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)
