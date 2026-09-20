@@ -148,10 +148,32 @@ theorem constsResolveFCGo_congr (hfe : fe₁.find? = fe₂.find?) :
     intro memo
     rw [constsResolveFCGo.eq_def, constsResolveFCGo.eq_def]; simp only [hfe, ih]
 
+/-- The `.excl` walk's plain descent reads `fe` only through `find?`. -/
+theorem constsResolveFP_congr (hfe : fe₁.find? = fe₂.find?) : ∀ e : Expr,
+    constsResolveFP fe₁ e = constsResolveFP fe₂ e := by
+  intro e
+  induction e with
+  | bvar i => rw [constsResolveFP, constsResolveFP]
+  | sort u => rw [constsResolveFP, constsResolveFP]
+  | lit l => cases l <;> simp only [constsResolveFP, hfe]
+  | const n us => simp only [constsResolveFP, hfe]
+  | fvar idx ty iht => simp only [constsResolveFP, iht]
+  | app f a ihf iha => simp only [constsResolveFP, ihf, iha]
+  | lam ty body m iht ihb => simp only [constsResolveFP, iht, ihb]
+  | forallE ty body m iht ihb => simp only [constsResolveFP, iht, ihb]
+  | letE ty val body iht ihv ihb => simp only [constsResolveFP, iht, ihv, ihb]
+  | proj sn i sub ih => simp only [constsResolveFP, hfe, ih]
+
 /-- `constsResolveFC` reads `fe` only through `find?`. -/
 theorem constsResolveFC_congr (hfe : fe₁.find? = fe₂.find?) :
     constsResolveFC fe₁ = constsResolveFC fe₂ := by
-  funext e; unfold constsResolveFC; simp only [constsResolveFCGo_congr hfe]
+  funext e
+  unfold constsResolveFC
+  cases Expr.boolMemoMode with
+  | keyed => simp only [constsResolveFCGo_congr hfe]
+  | excl =>
+    rw [Expr.resBool_eq, Expr.resBool_eq]
+    exact constsResolveFP_congr hfe e
 
 /-! ## The core's readers (`ConLeche/Cached/CoreC.lean`)
 
