@@ -124835,3 +124835,114 @@ family moved.  `tests/arena.sh` not run and not owed: no `Kernel/`,
 `NestedPinsRun.pinTermSpine`, `NestedPinsRun.ordReadAt` and
 `nestedPinsEntry_of_le_all`: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (3) STEP 1 COMPLETE — THE TWO `Eis` LENGTHS AND THE `tls` HALF, BOTH ALREADY IN THE TREE; STEP 2 RE-PRICED AND THE STOP (lane LE, 2026-09-20)
+
+The previous row's two open items were step 1's: the `Eis`-length fact
+on each side ("NOT LOCATED") and the `tls` half ("still unpriced and
+still not inspected").  Both are landed, and neither needed a new
+obligation on any producer — each was a fact the tree already proves
+and was discarding.  Steps 2–4 did not start.
+
+##### (a) THE TWO `Eis` LENGTHS ARE ONE RUN LEMMA, AND IT IS NOT NESTED-SPECIFIC
+
+`MutualCtorDataI.eisLen`/`eisLenRefl` (`MutualData.lean`) already say a
+recursive or reflexive field's index readings are as many as its
+TARGET MEMBER's indices; the auxiliary block's member `p.k + z` IS
+pin `z`'s copy, and `NestedPinSynFacts.pinNIdx` says its index count is
+the pin's.  So
+
+    NestedPinsRun.copyEisLen   (NestedInstMap.lean:2329)
+
+is the whole content, and **both sides of step 2 read it**, because the
+owner's `Eiss` at its own install ARE the block's `mutEiss0` list — the
+owner's half is discharged by the same lemma when the owner was the
+block being installed.  Threaded as one conjunct of the `∃ z` that
+already carries the reading: `ordReadAt` and `GroupFacts.ordRead` on
+the block's side; `ordTgtReadAt`, `NestedPinsOrdTgt`,
+`NestedPinsIdent`, `NestedPinGroupIds.ordTgt`, `NestedPinGroup.ordTgt`
+and the `PinShapes` conjunct on the owner's, with `nestedPinShapes_of`
+discharging it and `PinShapes.crossEnv` carrying it.  `congrB` needed
+no change (its destructuring is right-nested); the basis and the
+native/mutual sites are pins-free, so the clause is vacuous there.
+
+##### (b) THE `tls` HALF WAS A PROMOTION, NOT A PROOF
+
+Inside `copyOrdFRightPinOrdTargetReadRefl` the equation
+
+    ((tssF G ψ).getD l []).length = domPiDepth (ordTargetDomL …)
+
+is already derived — `hcount`, off `openPisAtFvars_count_unique`,
+composed with `hDL` — and was discarded: the theorem's statement
+mentioned `tssF` nowhere.  It is now a conjunct.  The FINITARY twin's
+is `MutualCtorDataI.tssNone` at its own `.recursive` kind, so the two
+arms of `ordTgtReadAt`'s dispatch both deliver it.
+
+**It rides the `∀ fs₁` clause and not the `∃ z` preamble**, because the
+reflexive arm's `hcount` needs the reading and the reading needs the
+fit.  `OrdTargetRead` (`NestedPremise.lean:1108`) therefore takes the
+field's telescope and states the equation at the GENERAL cut — so that
+relaxing the guard to the stripped head still moves nothing — while the
+block's side (`ordReadAt`, `GroupFacts.ordRead`), already
+guard-specialised at the cut `l`, carries `= []` outright.
+
+**No lemma "a constant-headed stored domain forbids a reflexive copy"
+was needed, and none exists.**  The tree's design is the other one:
+keep both kinds and kill the tower by depth (`ordTargetDomL_flat`).
+Every one of the nine `tssNone` applications in the `Nested*` files
+discharges its side condition from a kind hypothesis, never from a head
+shape — so a future lane should not go looking for that lemma.
+
+##### (c) STEP 2 RE-PRICED BY INPUTS — THE TWO-BLOCK THEOREM BESIDE `ordTgt_corr`
+
+| ingredient | where | verdict |
+|---|---|---|
+| the preamble (the two own-pin tables are one) | `ordTgt_corr`'s own (`NestedPinLeafAll.lean:4623`): `ownPinsSelfAt`, `ordTargetDom_congr_at` | re-runnable verbatim, ~25 lines |
+| the owner's reading + its `Eis` length + `tls` | the `PinShapes` z-conjunct, projected as `rowTargetOrd` projects the target one | in hand; needs a sibling projection (~20 lines) |
+| the block's reading + `Eis` length + `tls` | `GroupFacts.ordRead` (`NestedPinLeafAll.lean:2147`) | **LANDED** |
+| the two readings' DEPTHS agree | `dR.nP = ciO.nP` (`ContainerModeled`), `domPiDepth = 0` (`ordTargetDomL_flat`) | derivable, ~15 lines |
+| the conclusion | `instAll_mkAppN` + `mkAppN_inj` + `List.append_inj` | in hand |
+| the head container's parameter counts agree | the SHARED HEAD `K`: `((D).pinAt z₂).nPJ = ciK.nP` is `ordTgtReadAt`'s own `hnPz`; the owner's is `PinGroupView.pinNP` ∘ `ContainerModeled.nP` | ~20 lines |
+| **the two `nIdx` agree** | ALSO the shared head, and this is the row's finding: `ownPinView_of_blocks` (`NestedPremise.lean:1510`) forces the pin's container MEMBER by its NAME, and `IsBlockModel.pinIds_length` (`NestedRecCand.lean:736`) turns `Ids` into `nIdx`; the block's side is `SF.groupsAt` at `z₂` + `NestedPinGroupSyn.pinNIdx` + `modeled` | ~50 lines — **and it does NOT need the instance map.**  `z₂ = mapR.getD z₁ …` (via `ordTgt_corr` + `hσpin`) would need `hownσ` at the OWNER's group, i.e. a `PinGroupInst` at a different instance label; the lengths do not go that way |
+
+So step 2 is ~250–300 lines, every input located.  It has no consumer
+until step 3, exactly as `ordTgt_corr` has none today.
+
+##### (d) THE ONE OBLIGATION THE EARLIER PRICINGS DID NOT LIST — AND IT IS FREE
+
+`OrdTargetRead` is `∀ fs₁` under a fit at the OWNER's frame, so step 2
+needs an owner-side frame AND a fitting prefix, not only the block's.
+Both are in hand at the consumer and nobody has to build them:
+`copyTransfer_via_pin` (`NestedPinLeafAll.lean:3525`) carries `ρJ` and
+proves under BOTH fits (`hsp` and `hsp₂`, `NestedPinLeafAll.lean:~3660`).
+
+**The consequence for step 3:** `hslotOrd` must be WEAKENED to take the
+two fits, in `copyTransfer_via_pin`, `pinClassFit_of_transfer`
+(`:3923`) and `nestedPinFit_pin` (`:4783`).  That is a signature change
+and not a proof: at every call site the fits are already in scope, and
+`hdom₁` beside `hslotOrd` already takes one.
+
+##### (e) THE STOP
+
+Step 1 is complete at ~200 lines over nine files, inside the ledger's
+own price for it, and step 2 is priced above with no unlocated input.
+Step 2 was NOT started: at ~250–300 lines it does not fit what is left
+of the budget the maintainer set for steps 1–3, and a half-built
+assembly theorem lands nothing.  `agent/uniform-le4` was NOT merged,
+for the previous row's reason.
+
+##### (f) THE GATES
+
+`tests/warning-free.sh 9d14a4da`: 9 changed modules, `lake build` 9
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2307, none demotable).  `tests/unconsumed.sh` 197/3844 against
+197/3843 — the SET is unchanged: `copyEisLen` has its consumer
+(`ordTgtReadAt`) in the same commit, and `ordTargetDom_scoped`,
+`ownPinTerm_getAppArgs_scoped`, `pins_le_of_declOrder` and
+`nestedPinsLe_of_rank` stay where the previous row left them.
+`tests/arena.sh` not run and not owed: no `Kernel/`, `Cached/` or
+`Verify/` file changed.  `#print axioms` on `copyEisLen`,
+`ordTgtReadAt`, `ordReadAt`, `nestedPinShapes_of` and
+`nestedPinsEntry_of_le_all`: `propext`, `Classical.choice`,
+`Quot.sound`.
