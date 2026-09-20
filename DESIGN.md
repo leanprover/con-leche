@@ -127040,3 +127040,129 @@ were unconsumed before this row and still are.  `#print axioms` on
 `instOrdTgtAt`/`instOutOwnerAt`/`instMapGrpAt`, `entOut_corr`,
 `ordTgt_corr` and `nestedPinsEntry_of_le_all`: all
 `[propext, Classical.choice, Quot.sound]`.
+
+#### WIDE (f3) STEP 2 — THE BLOCK'S RECOMPUTATION HEAD, AND THE GUARD THE MEASUREMENT FORCED (lane LE, 2026-09-20)
+
+The refutation row named ONE genuinely new datum the model owes: *the
+BLOCK's recomputation is constant-headed*, "a never-firing row of
+K.69's own Bool … true by construction: the block's recomputation is
+the owner's under the mint's substitution, and a substitution does not
+move a constant head".  It is landed — **and the guard it was briefed
+under is WRONG, which the control found in one run.**
+
+##### (a) THE GUARD IS THE RAW MINT'S FIRING, NOT THE NORMAL FORM'S
+
+Written under K.69's own arm guard — the owner's NORMALISED
+recomputation fires — the row FIRES on `tests/e2e/nested_redex_owner.ndjson`'s
+`Outer`, an OFFICIAL ACCEPT, and the shadow gate says so:
+`45 rows, 1 diverging row, 1 diverging block [nested_redex_owner: Outer]`.
+
+The argument's own words say why.  "A substitution does not move a
+constant head" is about the term that HAS the constant head, and under
+the normalised guard that term is the owner's NORMAL FORM, not the mint
+the block substituted.  At a redex mint — `(fun _ : True => J β) True.intro`
+— the owner's normal form is `J β` and constant-headed, while the raw
+mint is a λ; the block's recomputation is the RAW mint substituted, so
+it is a λ too.
+
+So the guard is `ordRootFired env memsJ ownSelf W` at the RAW `W`, where
+the argument does hold, and the row is written as a conjunct of K.69's
+own arm rather than as a new `if`:
+
+    (match (ordTargetDom Jm.lps ci.nP terms q l domJ.1).getAppFn with
+     | .const _ _ => true
+     | _ => !ordRootFired env memsJ ownSelf W)
+    && …the term equation…
+
+**And the raw firing is EXACTLY the bit `hscope` already carries**, so
+the row plugs into step 3 with no new hypothesis anywhere: `hscope`'s
+second conjunct is `ordRootFired … (ordTargetDom …) = true` at the raw
+recomputation, which is this row's guard verbatim.
+
+**WHAT IS THEREFORE NOT RECORDABLE, AND IS NOW KNOWN.**  At a redex
+mint the block's raw recomputation is a redex too, so `hheadB` — the
+block's recomputation head — is unavailable exactly where the owner
+fired only after a reduction.  What IS free there is the block's
+NORMAL FORM's head (K.69's own equation gives `Wn₁ = Wb` and
+`ordRootInst` moves no constant head), but the model reads the RAW
+recomputation — `denoteMeta … (instSeq … (ordTargetDom …))` — so the
+free form does not serve it.  The reduction sliver therefore reaches
+further than K.69's row measured: it is not only the owner's guard that
+moves at a redex mint, it is the block's whole reading.  Named here;
+the sliver is measured EMPTY at both real corpora (below) and the one
+witness is a hand-built fixture.
+
+##### (b) THE PIPELINE
+
+| object | file |
+|---|---|
+| the conjunct | `Kernel/Inductives/NestedInstall.lean`, inside `nestedOrdNormAt` — no new `DeclNestedRun` conjunct, no new walk, one `getAppFn` match at a term the arm already computes |
+| `nestedOrdNormOk_blkHead` | `Verify/Inductives/NestedCopyKinds.lean` — guarded on the RAW firing, from which it derives K.69's own arm guard (`ordRootNorm_const` off `getAppFn_const_of_ordRootFired`) and the field kind (`nestedOrdNormOk_fire`) |
+| `NestedPinsRun.ordBlkHeadAt` | `Model/Inductives/NestedInstMap.lean` — `ordFireAt`'s scaffolding verbatim with the tail changed |
+| `GroupFacts.ordBlkHead` | `Model/Inductives/NestedPinLeafAll.lean` — `ordFire`'s hypotheses verbatim, produced in `mkGF` beside it |
+
+**IT CANNOT FIRE BY CONSTRUCTION**, category (B): under the RAW guard
+the owner's mint is constant-headed, the block's recomputation is that
+mint with the owner's level parameters at the block pin's levels and
+the owner's parameter openers at the block pin's components, and
+neither instantiation moves a constant head.  Official computes nothing
+of the kind.  **IF IT EVER FIRES** the mint's spelling and the
+elimination's disagree at the head — a defect in the ROUTE.
+
+##### (c) THE MEASUREMENT
+
+| corpus | accepted | shadow blocks | accepting | fires |
+|---|---|---|---|---|
+| `init-full` `--verified --nested-shadow` | 53 093 | 1 | 1 | 0 |
+| `init-full` `--trusted --nested-shadow` | 53 093 | 1 | 1 | 0 |
+| Mathlib `--verified --nested-shadow` | 654 504 | 41 | 41 | 0 |
+| Mathlib `--trusted --nested-shadow` | 654 504 | 41 | 41 | 0 |
+
+**ONE CONTROL** (`cbh2`), the row NEGATED — the block's recomputation
+must NOT be constant-headed where the raw mint fired — so it counts the
+arm's whole reach:
+
+| corpus | reach |
+|---|---|
+| e2e (`tests/nested-shadow.sh`, 45 rows) | 5 blocks in 4 rows — `nested_p04` `P4`, `inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide`, `nested_bvar_field` `BvarField` |
+| `init-full` | 0 of 1 |
+| Mathlib | 5 of 41 |
+
+The reach is K.67's and K.69's own (`c69`'s 5 of 41 at Mathlib), which
+is what the shape predicts: the guard is the same arm.  `nested_bvar_field`
+is in the reach and not in K.69's `c69` list because it is a fixture
+added since; it is also the block whose STORED domain is a bare
+parameter, so it is precisely the witness that the recomputation's head
+and the stored domain's are different terms.
+
+##### (d) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the step-1 binary (the same tree without this row).
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2321 G | 538.2335 G | +0.0003 % |
+| `init-full --trusted --nested-shadow` | 520.8840 G | 520.8887 G | +0.0009 % |
+
+One `getAppFn` on a term the arm already built, at a field population
+`init-full` measures at ZERO.  No Mathlib perf cell, per the ruling.
+
+##### (e) THE GATES
+
+`tests/arena.sh` EXIT 0 — nested-shadow 45/45, e2e 200/200, arena
+91/96, annot 15/15, trusted and `--jobs` sweeps as at the default.
+`tests/warning-free.sh b95f812e` 0 warning lines in both halves (4
+changed modules), `tests/shake.sh` green, overview-links 112,
+quote-gate 2, no-local-paths OK.  `tests/unconsumed.sh` **203 of 3883**
+against **203 of 3881**: two declarations added
+(`nestedOrdNormOk_blkHead`, `NestedPinsRun.ordBlkHeadAt`) and BOTH
+consumed, the first by the second and the second by `mkGF`.
+`#print axioms` on `nestedOrdNormOk_blkHead`, `ordBlkHeadAt`,
+`nestedOrdNormOk_at_refl`/`_at_head`/`_at_pi` and
+`nestedPinsEntry_of_le_all`: all `[propext, Classical.choice, Quot.sound]`.
+
+##### (f) STATE
+
+`GroupFacts.ordBlkHead` is the producer step 3 needs and is UNCONSUMED
+until step 3 re-plumbs the eight places off the stored domain's head.

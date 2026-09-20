@@ -3067,7 +3067,40 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
                                   | some Wn =>
                                   if !ordRootFired env memsJ ownSelf Wn then true
                                   else if !(r == .recursive || r == .reflexive) then false
+                                  -- **THE BLOCK'S OWN RECOMPUTATION IS
+                                  -- CONSTANT-HEADED WHERE THE OWNER'S
+                                  -- RAW ONE IS** (task #315 WIDE (f3)
+                                  -- step 2).  One `getAppFn` match at
+                                  -- a term this arm already computes;
+                                  -- it is what the model spends where
+                                  -- it used to ask the STORED
+                                  -- domain's head, which is not the
+                                  -- recomputation's and is refuted at
+                                  -- three accepted blocks.
+                                  --
+                                  -- **THE GUARD IS THE RAW MINT'S
+                                  -- FIRING AND NOT THE NORMAL FORM'S**,
+                                  -- and that is measured, not chosen:
+                                  -- the block's recomputation is the
+                                  -- OWNER's under the mint's
+                                  -- substitution, and a substitution
+                                  -- does not move a CONSTANT head —
+                                  -- but the owner's NORMAL FORM being
+                                  -- constant-headed says nothing about
+                                  -- its raw mint, and at a redex mint
+                                  -- (`tests/e2e/nested_redex_owner.ndjson`)
+                                  -- the block's raw recomputation is a
+                                  -- redex too.  Under the normalised
+                                  -- guard this row FIRES on that
+                                  -- official ACCEPT; under the raw one
+                                  -- it is silent there and asserted at
+                                  -- every other field of both corpora.
                                   else
+                                    (match (ordTargetDom Jm.lps ci.nP terms q l
+                                        domJ.1).getAppFn with
+                                     | .const _ _ => true
+                                     | _ => !ordRootFired env memsJ ownSelf W)
+                                    &&
                                     match ordRootInst m₀.lps ciJ.nP
                                         (l + domPiDepth
                                           (ordTargetDomL Jm.lps ownSelf qK domJ.1))

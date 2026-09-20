@@ -2347,6 +2347,51 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
     ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true
+  /-- **THE BLOCK'S OWN RECOMPUTATION IS CONSTANT-HEADED** (task #315
+  WIDE (f3) step 2): at a field the copy's container calls ORDINARY
+  where the OWNER's RAW recomputation FIRED — which is the bit
+  `hscope` already carries, and NOT the normal form's firing (at a
+  redex mint the block's raw recomputation is a redex too and the row
+  would fire on an official ACCEPT) — the recomputation at the BLOCK
+  pin's own components is headed by a constant.
+
+  **It replaces a guard that is FALSE.**  This tier used to ask the
+  head of the STORED domain — `hscope`'s first conjunct,
+  `ordTargetDomL_flat_at`, `ordRead_corr`/`ordReadMem_corr`'s
+  `hdomHd`, `ordGe`/`ordRead`'s `hfin`, and `PinShapes`' third clause
+  — and a product container's field domain is a BARE PARAMETER
+  (`Pair α β | mk (a : α) (b : β)`), whose `getAppFn` is a `bvar`.
+  Asserting the stored-domain form in the kernel turns three official
+  ACCEPTS into errors.  What every one of those places SPENDS is the
+  two RECOMPUTATIONS' heads: the OWNER's comes free off the firing
+  they already hold (`getAppFn_const_of_ordRootFired`), and the
+  BLOCK's is this field.
+
+  `ordFire`'s hypotheses verbatim, and its producer
+  (`NestedPinsRun.ordBlkHeadAt`) is `ordFireAt`'s scaffolding with the
+  tail changed. -/
+  ordBlkHead : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (lpsC : List Name),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (i₀ : Nat), i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (gp : Nat), gp < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[gp]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (m₀ : ContainerMember), ciO.members.head? = some m₀ →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st gp = some mapR →
+    ∀ (qK : Nat), qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
+    ∃ (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l dom.1).getAppFn = .const M us
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -8133,7 +8178,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hrss hge cA bs rr dom hjA hst hdm
@@ -8303,6 +8348,48 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
         exact hlpsE
       exact R.ordFireAt SF S' hPD R.h.classify hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
+    · -- the BLOCK's recomputation head at the group (`ordBlkHeadAt`,
+      -- WIDE (f3) step 2): `ordFireAt`'s preamble verbatim, and the
+      -- same guard
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR cA bs rr dom lpsC hjA hst hdm
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE
+        g hg gn hgn ciO hciO m₀ hm₀ ownT hownT mapR hmapR qK hqK hqm hfire
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
+      exact R.ordBlkHeadAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
     · intro i₂ hi₂ ψ₂ i₃ hi₃
