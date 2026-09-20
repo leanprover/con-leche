@@ -128168,3 +128168,96 @@ the rows.  Noise-level either way — three orders below K.62's
 +0.436 % — and the "no unmemoized traversals" rule is met, as before,
 by rarity and by size.  No Mathlib perf cell, per the standing
 ruling.
+
+#### WIDE (f3) STEP 4 (3) DESIGNED AGAINST THE TREE — K.72 IS K.69's TOWER HALF, AND ITS DEPTH CONJUNCT IS **ALREADY EXERCISED** AT K.32's ARM (lane LE, 2026-09-20)
+
+Step 4's pricing put object (3) — the `ordF`-right telescope tie — at
+"~1–2 sessions, the `CopyCtorShape` end the dear one".  The KERNEL end
+is cheaper than that, and this row says exactly why, by naming the
+reads rather than the intention.  **Nothing below is compiled**; it is
+written so the next session can check it rather than rediscover it
+(session 31's step-5 precedent).
+
+##### (a) THE SHAPE: K.69 ONE LAYER OUT
+
+`ordTargetDom` is `instantiateList (stripDomPis (ordTargetDomL …)) …
+cut`, i.e. it throws the `Π`-PREFIX away and keeps the BODY; K.69
+compares the two copies' bodies under `ordRootInst`.  K.72 is the same
+comparison on the PREFIX — the copy's own field telescope against the
+container's stored domain's tower, one substitution apart.  It belongs
+on `nestedOrdNormAt`'s own walk, under K.69's own guard, and needs no
+new environment scan and no new walk: every lookup is already in hand
+there (`ci`, `Jm`, `cJ`, `jbs[ci.nP + l]`, `terms`, `ownSelf`, `mapR`).
+
+##### (b) THE BLOCK'S SIDE IS ALREADY READ, AT A SIBLING ARM
+
+The block's copy field domain is NOT reachable from the container's
+tables — it comes from `stored`, which `nestedPinChecks` has and which
+**`nestedCopyTargetsAt` (K.32) already reads with exactly the
+addressing K.72 needs** (`Kernel/Inductives/NestedInstall.lean:1034`):
+
+    match st.pins[q]?, kinds[q]?, stored[p.k + q]? with
+    | some qn, some ks, some a => …
+      match ks[j]?, a.ctors[j]?, J.ctors[j]? with
+      | some kf, some (cvCa, _, nF), some cJ => …
+        match cvCa.type.stripPis (p.nP + nF), cJ.type.stripPis (ci.nP + cJ.nFields) with
+        | some (cbs, _), some (jbs, _) => …
+          match cbs[p.nP + l]?, jbs[ci.nP + l]? with
+          | some domC, some domJ =>
+            let d := (Expr.piBinders domC.1).1.length
+            match domJ.1.stripPis d, … with
+
+so `domC` — the BLOCK's copy's own field domain — and its tower depth
+`d` are one `stored` read and one `stripPis` away, on a walk the route
+already runs at every pin.
+
+**AND THE DEPTH EQUALITY IS ALREADY EXERCISED THERE.**  K.32's arm
+takes the copy's depth `d` and strips the CONTAINER's domain by that
+same `d` — and the strip is asserted (`| _, _ => false`).  So at every
+field K.32's guard reaches (the copy recursive into its OWN group) the
+two depths already agree on both corpora, and the conjunct K.72 needs
+at the ORDINARY-container guard is the same statement one arm over.
+That is a measured precedent for the shape, not a proof of it, and the
+usual controls are still owed.
+
+##### (c) THE BOOL, SPELLED
+
+Under K.69's guard (container-ordinary field `l` of the container's
+constructor `j` at the copy `q`, the owner's reduced mint fired, the
+block's rewrite made the field recursive or reflexive):
+
+1. **the depths agree** — `(Expr.piBinders domC.1).1.length ==
+   domPiDepth domJ.1`.  The right-hand side is table-independent
+   (`domPiDepth_instantiateLevelParams`, landed at step 3(b)), so it is
+   the OWNER's tower and the BLOCK's at once;
+2. **the prefix domains agree, one substitution apart** — the first `d`
+   binder domains of `domC.1` against those of `domJ.1` carried by the
+   mint's substitution, which is `ordRootInst`'s own at the shallower
+   cuts `l`, `l+1`, …, `l+d-1`.  A `List.all₂`-style comparison of two
+   lists the arm already has.
+
+Conjunct 1 alone is what object (2)'s eight signatures need (it is what
+makes the owner's cut and the block's ONE number without flatness);
+conjunct 2 is what `CopyCtorShape.ordF`'s right arm needs to gain the
+`instTele`-shaped tie `recF` and `pinF` already carry.  **They should
+land together and in that order**, because 1 is cheap, is the
+precondition for (2), and is independently measurable.
+
+##### (d) WHAT IS STILL THE DEAR END
+
+The `CopyCtorShape.ordF` clause and its producer — lane L-B's file
+(`Model/Inductives/NestedFit.lean:932`) — is unchanged in price: it is
+a new conjunct on a shape the whole pin half reads, and every producer
+of `CopyCtorShape` has to supply it.  The re-pricing here is of the
+KERNEL half only: **one comparison on terms a sibling arm already
+reads**, not a new walk and not a new scan.
+
+##### (e) THE WITNESS AND THE GATE
+
+`tests/e2e/nested_pi_field.ndjson` stays the tripwire (reachable only
+with `CON_LECHE_INMODEL=0`; the gate row covers `J` and not
+`PiField`), and `tests/e2e/nested_bvar_field.ndjson` is the
+bare-parameter shape the depth conjunct must answer `0 == 0` at.  Both
+corpora measure the tower population at ZERO at this arm, so the arm is
+owed by the SYNTAX and the controls will have to count it, as K.69's
+four do.
