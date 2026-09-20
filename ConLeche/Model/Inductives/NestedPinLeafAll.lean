@@ -2106,7 +2106,6 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
   parameters. -/
   ordTgt : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
     l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
-    ((dJ.rss i').getD j []).getD l false = false →
     ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
     p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 →
@@ -2137,6 +2136,48 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
           ((ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
+  /-- **K.70's ARM (C) AT THE GROUP**: where the OWNER's own
+  recomputation did NOT fire and the block's rewrite did, at a field
+  the copy's container calls ORDINARY, the block's target leaves the
+  OWNER's instance — neither the image of the owner's instance map nor
+  the owner's own mint group.
+
+  `ordTgt` beside it is the FIRED arm, so the two are a dichotomy:
+  every rewritten field of a pin copy is at exactly one of them, and
+  the wide identification's pin half reads the first as a target
+  correspondence and this one as an ENTRY (`CopyEntryAOrd`).
+
+  It lives here for `ordTgt`'s reason — the owner relation is an
+  `ElimState` object and the residual carries no `st`. -/
+  ordOut : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (lpsC : List Name) (i₀ : Nat), i₀ < kJ →
+    ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (g : Nat), g < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[g]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
+    ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = false →
+    mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
+      (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + gn.grpBase ∨
+        p.k + gn.grpBase + gn.grpSize
+          ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
   /-- **A REWRITTEN ORDINARY FIELD'S TARGET IS A PIN** (task #315 WIDE
   (3), step 1): the bound `ordTgt` (K.67) and `ordRead` (K.69) both
   ASSUME, produced here from the one row whose guard does not carry it
@@ -4879,7 +4920,7 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK
   have hgo := fun (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + a + i') + j) []).getD l 0) =>
-    G.ordTgt ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
+    G.ordTgt ψ i' hi' j hj l hl hrs₁ hge cA bs rr dom hjA hst hdm
       lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
       M us hhd
   cases hfi : dR.memberNames.findIdx? (· == M) with
@@ -7640,29 +7681,15 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
-      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hrss hge cA bs rr dom hjA hst hdm
         lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE
         g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm M us hhd
       obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
       have hlF : l₂ < cA.2 := by
         rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
-      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
-      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
-      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
-        have hh := hordR
-        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
-            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
-          rsOf_getD hksl] at hh
-        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
-            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
-          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
-        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
-        · exact ho
-        · exact absurd (Or.inl hr) hne
-        · exact absurd (Or.inr hrf) hne
       have hgb : (pinAtE st (a + i₂)).grpBase = a := by
         have hgr := (S'.grp i₂ hi₂).1
         rw [← pinAtE_eq] at hgr
@@ -7684,7 +7711,49 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         exact hlpsE
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-        hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+        hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+    · -- K.70's arm (C) at the group, as the run states it
+      -- (`instOutOwnerAt`): the same preamble, with the `ordF` guard's
+      -- bridge, which the negative row still needs
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
+        lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE
+        g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm hnofire
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
+      exact R.instOutOwnerAt SF S' hPD R.h.classify hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hnofire
     · -- the bound the two rows above assume, off K.68's own row
       -- (`ordGeAt`): the block's member names are fresh, so a member
       -- answer is impossible at a head declared in `env`
