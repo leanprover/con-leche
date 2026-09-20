@@ -126835,10 +126835,15 @@ K.69 already met the sliver and closed it with `ordRootNorm`
 walk does not.  Making it do so — `nestedOrdTargetAt` takes the mode,
 the fire test and the head lookups read
 `ordRootNorm mode env memsJ (ordTargetDom …)`, `none` conceding as it
-does at K.69 — was built and run: **`Outer` accepts** and
+does at K.69 — was built and run: **`Outer` accepts**,
 `tests/nested-shadow.sh` is unchanged at 44/44 (45/45 with the new
-row).  So the fix is one spelling and no new record, and it is K.69's
-own spelling.
+row), `init-full` is unchanged (exit 0, 53 093 declarations,
+`Lean.Syntax` `accept`) and **Mathlib is unchanged** (exit 0, 654 504
+declarations, all 41 shadowed nested blocks `accept`, no non-`accept`
+line) — the same three numbers the unpatched binary gives, so the
+normalisation costs no acceptance and the walk stays in
+`ordRootNorm`'s own measured-empty regime.  The fix is one spelling and
+no new record, and it is K.69's own spelling.
 
 **What it costs above the kernel** is the walk's whole inversion chain,
 because every consumer of the positive and negative arms would then see
