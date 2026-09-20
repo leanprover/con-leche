@@ -2220,8 +2220,14 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
     ciC.members[i']? = some Jm → Jm.lps = lpsC →
     ∀ (K : Name) (usK : List Level),
-    (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
-      = .const K usK →
+    -- THE HEAD IS THE BLOCK'S RECOMPUTATION'S (task #315 WIDE (f3)
+    -- step 3) and not the STORED domain's: the two are different
+    -- terms, only this one is ever spent, and the stored-domain form
+    -- is FALSE at a bare-parameter field (`nested_bvar_field`, and
+    -- `Pair α β` in `nested_pin_nocollide` / `nested_p04`).  Its
+    -- producer is `ordBlkHead` beside it.
+    (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+      (q₀ + i') l dom.1).getAppFn = .const K usK →
     (env.find? K).isSome = true →
     p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
@@ -5390,6 +5396,12 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
       = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
     rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
+  -- the BLOCK's recomputation head, which is what `ordGe` takes since
+  -- WIDE (f3) step 3: the stored domain's head carries to the block
+  -- table's recomputation exactly as it does to the owner's
+  obtain ⟨-, hhdBlk⟩ :=
+    ordTargetDomL_flat_at (lpsC := lpsC) hdomHd (ConLeche.nestedPinTermsSelf p st)
+      dK.nP (a + i') l
   -- SIDE 2: the owner's, and its target pin.  It comes FIRST because
   -- the block's guard is read off it: the owner's own row says the
   -- head is the container of one of the owner's pins, hence a stored
@@ -5427,7 +5439,7 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   have hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + a + i') + j) []).getD l 0 < p.k :=
     Nat.not_lt.mpr (G.ordGe ψ i' hi' j hj l hl hord hrs₁ cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK)
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hhdBlk hfindK)
   -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
   obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hblkNP, hblkSt, hrest₁⟩ :=
     G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
@@ -6191,10 +6203,16 @@ theorem tgtσ_of_run {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
       = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
     rw [Expr.getAppFn_instantiateLevelParams, hhd]; rfl
+  -- the BLOCK's recomputation head, which is what `ordGe` takes since
+  -- WIDE (f3) step 3: the stored domain's head carries to the block
+  -- table's recomputation exactly as it does to the owner's
+  obtain ⟨-, hhdBlk⟩ :=
+    ordTargetDomL_flat_at (lpsC := lpsC) hhd (ConLeche.nestedPinTermsSelf p st)
+      dK.nP (a + i') l
   have hbound : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + a + i') + j) []).getD l 0 :=
     G.ordGe ψ i' hi' j hj l hl' hord hrs₁ cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hhdBlk hfindK
   exact ordTgt_corr G hi' hj hl' hrs₁ hjA hst hdm hbound hi₀ hciC hJm hlpsJ
     hgp hgn hciR CR hownT hmapR hqKT hqKn hqm hciR₂ hownT₂ hcontZ hhdT
     (fun lps' hhd' => hrowTgt l hl hord hrsP dom hdm lps' K _ hhd') hroot hσpin
@@ -8262,11 +8280,12 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       -- answer is impossible at a head declared in `env`
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss cA bs rr dom lpsC hjA hst hdm
-        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin hfindK
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hhead hfindK
       obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
       have hlF : l₂ < cA.2 := by
         rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
-      exact R.ordGeAt SF S' hPD hi₂ hordR hrss lpsC hjA hlF hst hdm hi₀ hciC hJmC hlpsE hfin hfindK
+      exact R.ordGeAt SF S' hPD hi₂ hordR hrss lpsC hjA hlF hst hdm hi₀ hciC hJmC hlpsE hhead
+        hfindK
     · -- K.69 at the group, read (`ordReadAt`): the same preamble, and the
       -- three run pieces composed
       obtain ⟨pbs, -, hPD⟩ := R.pinData

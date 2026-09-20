@@ -1904,7 +1904,15 @@ in between.
 (task #315 WIDE (f3)): the two guards here are spent on producing the
 two RECOMPUTATIONS' heads and on nothing else, and asked of those
 directly the theorem also covers a stored domain headed by a bare
-parameter, which this one does not. -/
+parameter, which this one does not.
+
+**NOTHING READS IT SINCE WIDE (f3) STEP 3**: `NestedPinsRun.ordNormAt`,
+its one consumer, now takes neither head — the owner's comes free off
+the firing and the block's is the step-2 row — so it reads `_at_head`
+directly.  This specialisation is kept as the documented bridge between
+the two shapes and as the statement a constant-headed stored domain
+still licenses; it is in `tests/unconsumed.sh`'s advisory list by
+design. -/
 theorem nestedOrdNormOk_at_pi {mode : CheckMode} {env : Env} {p : NestedParts}
     {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
     (h : nestedOrdNormOk mode env p b st stored = true)

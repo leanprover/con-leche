@@ -127166,3 +127166,60 @@ consumed, the first by the second and the second by `mkGF`.
 
 `GroupFacts.ordBlkHead` is the producer step 3 needs and is UNCONSUMED
 until step 3 re-plumbs the eight places off the stored domain's head.
+
+#### WIDE (f3) STEP 3(a) — THE RUN AND GROUP TIERS ARE OFF THE STORED DOMAIN'S HEAD (lane LE, 2026-09-20)
+
+Three of the eight places the refutation row listed now ask the head of
+the term they SPEND — the recomputation — instead of the STORED
+domain's, which is a different term and is FALSE at a bare-parameter
+field.  **No `ConLeche` executable byte changed** (`cmp` against the
+step-2 binary), so this row is a proof-tier move and carries no
+measurement of its own.
+
+| place | before | now |
+|---|---|---|
+| `NestedPinsRun.ordNormAt` | `hfin` + `hfinB` on the two STRIPPED stored domains, and `nestedOrdNormOk_at_pi` | **neither**: the OWNER's head comes free off `hfire` (`getAppFn_const_of_ordRootFired`), the BLOCK's is the step-2 row (`ordBlkHeadAt`), and it reads `nestedOrdNormOk_at_head` |
+| `NestedPinsRun.ordGeAt` | `hfin` on the stored domain at the pin's levels, from which the proof re-derived flatness and the block recomputation's head | `hhead` on the BLOCK's recomputation directly — ~25 lines of flatness derivation GONE |
+| `GroupFacts.ordGe` | the same `hfin` | the same `hhead`, whose producer is `ordBlkHead` beside it |
+
+**WHAT THIS BUYS, EXACTLY.**  `ordNormAt` and `ordGeAt` are now
+STATABLE at a bare-parameter stored domain — the `nested_bvar_field`,
+`nested_pin_nocollide` and `nested_p04` shapes — where their old
+hypotheses were unsatisfiable.  Neither the consumers above them nor
+`hscope` have moved yet, so the reachability is at the run and group
+tiers and not yet at the assembly.
+
+**WHAT IS LEFT OF THE EIGHT, AND WHY IT IS ONE JOB WITH STEP 4.**  The
+five remaining places — `hscope`'s first conjunct,
+`ordTargetDomL_flat_at`, `ordRead_corr`/`ordReadMem_corr`'s `hdomHd`,
+`GroupFacts.ordRead`'s `hfin`, `NestedPinsRun.ordTgtReadAt`/`ordReadAt`'s
+`hfin`, and `PinShapes`' third clause with `rowOrdRead`/`rowOrdReadMem`
+— all spend the stored head on TWO things, not one: the recomputation's
+head (now available) AND **flatness**, `domPiDepth (ordTargetDomL …) = 0`,
+which is what makes the reading's cut the field's own `l`.  A constant
+head is not a `Π`, which is why one hypothesis served both; a
+bare-parameter head is not a `Π` either, so flatness still HOLDS at the
+three fixtures — it just no longer follows from anything the tier has.
+Splitting the guard into `hhead` + flatness is mechanical; PRODUCING
+flatness is step 4, and it is the one part that can be neither derived
+nor recorded (`nested_pi_field` is an official accept with a `Π`-headed
+stored domain at this very arm).  So the two are one job and are not
+split further here.
+
+**GATES.**  `tests/arena.sh` EXIT 0 — nested-shadow 45/45, e2e 200/200,
+arena 91/96, annot 15/15, mode flags 10/10, progress 15/15, worker pool
+15/15, DAG-tower 14/14, trusted and `--jobs` sweeps as at the default.
+`tests/warning-free.sh 1b100f72` 0 warning lines in both halves (2
+changed modules), `tests/shake.sh` green, overview-links 112,
+quote-gate 2, no-local-paths OK.  `tests/unconsumed.sh` **204 of 3883**
+against **203 of 3883**: `nestedOrdNormOk_at_pi` lost its one consumer
+to `_at_head` and is kept, with a docstring saying so, as the documented
+bridge between the two shapes.  `#print axioms` on `ordGeAt`,
+`ordNormAt`, `ordRead_corr`, `ordReadMem_corr` and
+`nestedPinsEntry_of_le_all`: all `[propext, Classical.choice, Quot.sound]`.
+
+**ONE PROCESS INCIDENT.**  The first `tests/arena.sh` run failed the
+progress lane (`PROGRESS FAIL: --jobs=4 --progress=1 reports every check
+once, counting up`, 14/15) and the re-run passed 15/15.  The binary is
+BYTE-IDENTICAL to step 2's (`cmp`), so this row cannot have caused it:
+it is a timing flake in the progress counter under load.
