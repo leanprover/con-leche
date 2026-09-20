@@ -621,7 +621,7 @@ theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   tgtsLt := fun _ _ _ _ h => (nomatch h)
   idxOk := fun _ _ _ _ h => (nomatch h)
   fibre := fun _ _ _ _ _ _ _ h => (nomatch h)
-  mkZero := fun _ _ _ _ _ => rfl
+  mkZero := fun _ _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => (nomatch h)
   injW := fun _ _ h => (nomatch h)
   ind := fun _ _ _ _ _ _ _ _ h => (nomatch h)
@@ -654,7 +654,7 @@ theorem eqBlockAt {env : Env} (mp : EnvModelM V μ env)
     intro ψ ρ
     exact mp.mem_type ConLeche.eqReflA (ConLeche.find?_mem hR) ψ _ (eqReflA_type_read hE ψ) ρ
   refine ⟨hB ▸ eqBlock_containerModeled hE hR hRec hmim (mp.eq_law) hformerTy hctorTy,
-    ⟨fun _ => default, ?_, ?_⟩⟩
+    ⟨?_, ?_⟩⟩
   · exact hB ▸ eqBlock_pinRecLaws
   · rw [hB]; exact fun q hq => (nomatch hq)
 

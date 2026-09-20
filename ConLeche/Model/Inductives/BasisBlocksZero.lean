@@ -209,7 +209,7 @@ theorem zeroCtorBlock_pinRecLaws {env : Env} {m : EnvModel V env}
   tgtsLt := fun _ _ _ _ h => nomatch h
   idxOk := fun _ _ _ _ h => nomatch h
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
-  mkZero := fun _ _ _ _ _ => rfl
+  mkZero := fun _ _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
@@ -365,7 +365,7 @@ theorem emptyBlockAt {env : Env} {m : EnvModel V env}
     rfl
   refine ⟨hB ▸ zeroCtorBlock_containerModeled (cvR := ConLeche.emptyRecA.toConstantVal)
       hT rfl rfl hval (fun _ _ _ => rfl) (containerInfo?_emptyA hT hR) hmim,
-    ⟨fun _ => default, ?_, ?_⟩⟩
+    ⟨?_, ?_⟩⟩
   · exact hB ▸ zeroCtorBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 
@@ -390,7 +390,7 @@ theorem falseBlockAt {env : Env} {m : EnvModel V env}
     rfl
   refine ⟨hB ▸ zeroCtorBlock_containerModeled (cvR := ConLeche.falseRecA.toConstantVal)
       hT rfl rfl hval (fun _ _ _ => rfl) (containerInfo?_falseA hT hR) hmim,
-    ⟨fun _ => default, ?_, ?_⟩⟩
+    ⟨?_, ?_⟩⟩
   · exact hB ▸ zeroCtorBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

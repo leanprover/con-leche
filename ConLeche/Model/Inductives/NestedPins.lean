@@ -1952,14 +1952,14 @@ theorem NestedPinsRun.groupSyn
       contsEnv := CM₀.pinConts
       pinViews := by
         -- the container's OWN pins' views, off its `BlockAt`'s `PinShapes`
-        obtain ⟨-, pc, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
+        obtain ⟨-, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
         intro qq hqq
         obtain ⟨a, kk, i', ci', hqe, hi', -, hview, -, -⟩ := hSh qq hqq
         exact ⟨a, kk, i', blockOf mp.base2 ci', hqe, hi', hview⟩
       pinOwn := by
         -- the container's own pins' views at the family, and the BLOCK
         -- pin's own group at the same family: `pinOwn_core` joins them
-        obtain ⟨-, pc, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
+        obtain ⟨-, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
         intro qq hqq q₂ hq₂ hJeq cv caps hfind φ ψ' hag
         rw [hpinAt] at hJeq hag ⊢
         rw [← hJeq] at hfind

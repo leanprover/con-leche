@@ -1320,11 +1320,24 @@ containers' models through `B`): the group's block model `B ci` in the
 container's own terms, and its pins' constructors with the recursor
 kit's laws — the pins' carriers at any member tuple are the LEAST
 families closed under them (`PinRecLaws.ind`, the leastness the `Prop`
-countermodel of DESIGN §U.36 violates) — and their shapes against `B`. -/
+countermodel of DESIGN §U.36 violates) — and their shapes against `B`.
+
+**The constructors are the block model's OWN `pinCtors` and not an
+existential** (task #315 WIDE (f3) step 1).  The wide identification
+reads a container's auxiliary operator through `IsBlockModel.auxFibre`,
+which is stated at `d.pinCtors`, so the own-pin half of the fit
+(`hfit_wide_pin_of_class`, `ofNested_pin_block_of_wide_inst`'s `hpin`)
+is a statement about `d.pinCtors` and about no other pin-constructor
+family; an existential witness would have to be identified with it, and
+nothing identifies two `PinCtors` records.  Every producer already
+supplied the block's own field — the basis blocks' `fun _ => default`
+IS their `pinCtors`, `nestedBlockAt_of`'s `PC` is `(D).pinCtors` by
+`rfl`, and the pins-free blocks' is the `Inhabited` witness — so
+dropping the existential asks nothing new of any of them. -/
 @[expose] def BlockAt {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
     (ci : ContainerInfo) : Prop :=
   ContainerModeled m ci (B ci) ∧
-  ∃ pc : Nat → PinCtors V, PinRecLaws m (B ci) pc ∧ PinShapes m B (B ci) pc
+  PinRecLaws m (B ci) (B ci).pinCtors ∧ PinShapes m B (B ci) (B ci).pinCtors
 
 /-- **Every stored container carries its block's model at the
 assignment `B`**: at every group `containerInfo?` reads, `BlockAt`. -/
@@ -1685,7 +1698,7 @@ theorem ownPinView_of_blocks {env : Env} {m : EnvModel V env}
       ((B ci).pinAt q).nPJ = (B ci').nP ∧
       ((B ci).pinAt q).pps = (B ci').ppsM i ∧
       ∀ ψ : Name → Nat, ((B ci).pinAt q).u ψ = (B ci').uM i (((B ci).pinAt q).ψJ ψ) := by
-  obtain ⟨-, pc, -, hsh⟩ := hb J ci hci
+  obtain ⟨-, -, hsh⟩ := hb J ci hci
   obtain ⟨q₀, kJ, i, ciq, hqe, hi, hciq, hgv, -⟩ := hsh q hq
   obtain rfl := Option.some.inj (hciq.symm.trans hci')
   refine ⟨i, ?_, ?_, ?_, ?_, ?_⟩

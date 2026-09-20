@@ -126322,3 +126322,79 @@ missing record, and the four entries carrying real proof are the
 **What a re-price should keep**: the three-arm table; that arm (A)
 SPLITS at the target and only the PIN half is expensive; and the two
 findings in (b).
+
+#### WIDE (f3) STEP 1's PREREQUISITE — `BlockAt`'s PIN CONSTRUCTORS ARE THE BLOCK MODEL'S OWN, NOT AN EXISTENTIAL (lane LE, 2026-09-20)
+
+The bridge (`hfitc` at every own-pin class) reads the OWNER's own
+record of its pins — `PinShapes.rowTargetOrd`/`rowOrdRead`/
+`rowOrdReadMem` and the count and shape conjuncts — and every consumer
+downstream of it is stated at `d.pinCtors`.  Priced at the proofs
+before building, as ruled, the first thing the reading found is that
+those two are NOT the same object, and that nothing in the tree
+identifies them.
+
+##### (a) THE GAP, AND WHY IT IS STRUCTURAL
+
+`BlockAt` said `∃ pc, PinRecLaws m (B ci) pc ∧ PinShapes m B (B ci) pc`.
+The wide identification does not read `pc`: it reaches a container's
+auxiliary operator through `IsBlockModel.auxFibre`, which is stated at
+`d.pinCtors` —
+
+    x ∈ˢ app (d.Ψaux ψ ρp Z c) t ↔
+      ∃ j fs, j < (d.ctorsT d.pinCtors c).length ∧
+        d.ChainFitT d.pinCtors ψ ρp Z t c j fs ∧ x = d.injT d.pinCtors ψ c j fs
+
+— so `ofNested_pin_block_of_wide_inst`'s `hpin`, `hinjJ` and
+`hfit_wide_pin_of_class`'s `hfitc` are statements about `d.pinCtors`
+and about no other pin-constructor family.  `nestedFitc_pin` is
+already written that way (`(dJ.pinCtors qK).tgts`, `.rss`, `.Eiss`,
+`.tlss`), so the bridge would have had to identify an existential
+witness with `d.pinCtors`, and **two `PinCtors` records cannot be
+identified**: `PinRecLaws.fibre` characterises `d.pinCar` by `pc` and
+`auxFibre` characterises `d.Ψaux` by `d.pinCtors`, which agree
+EXTENSIONALLY (through `auxPinsCar`) and as records not at all.
+
+The NARROW route never met this, which is why it went unnoticed for as
+long as it did: `nestedPinPairAt`/`nestedPinInstLe` carry `pcR`
+abstract from end to end and spend it only through `PinRecLaws`.
+
+##### (b) THE FIX IS THE ONE THE PRODUCERS ALREADY SATISFY
+
+`BlockAt` now reads
+
+    ContainerModeled m ci (B ci) ∧
+      PinRecLaws m (B ci) (B ci).pinCtors ∧ PinShapes m B (B ci) (B ci).pinCtors
+
+and **no producer had to prove anything new**, because every one of
+them already supplied the block's own field:
+
+* the five pinned basis blocks set `pinCtors := fun _ => default` and
+  proved their laws at `fun _ => default`;
+* `nestedBlockAt_of` takes them at `PC`, and `(D).pinCtors = PC` is
+  `rfl` (`NestedCore.lean`'s own `hPC`);
+* `BlockAt.of_noPins` (the mutual and native routes' blocks) is
+  vacuous at `nPins = 0`;
+* `BlockAt.crossEnvP`/`crossEnv` carry whatever they are given.
+
+One clause moved: `PinRecLaws.mkZero` is now guarded by
+`q < d.nPins`, as every other clause of the structure already was.  It
+had to be, and the reason is the finding's mirror image — unguarded,
+it asks something of a PINS-FREE block's `pinCtors`, which is a junk
+field that no record pins down; guarded, it is exactly the content the
+pinned blocks prove.  Nothing consumes the clause outside that range
+(the `mkZero`s the tree spends are `IsBlockModel`'s, a different
+field).
+
+##### (c) THE GATES
+
+`tests/warning-free.sh b94459e9`: 10 changed modules, `lake build` 10
+recompiled and 0 warning lines, `lake test` 2 recompiled and 0 warning
+lines.  `tests/shake.sh` green (514 removals, all allowlisted;
+pub-imports 1343/2308, none demotable).  `tests/overview-links.sh` 112
+links OK, `tests/quote-gate.sh` 2 statements match,
+`tests/no-local-paths.sh` OK.  `tests/arena.sh` NOT owed — the change
+is `Model/` only and no kernel statement moved.
+`tests/unconsumed.sh` **201 of 3877** against **201 of 3877** at
+`b94459e9` (measured at the base, not quoted from a row): the same
+count and, line numbers apart, the SAME SET — no declaration was added
+or removed.

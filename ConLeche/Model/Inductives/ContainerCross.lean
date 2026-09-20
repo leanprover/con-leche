@@ -819,14 +819,14 @@ theorem BlockAt.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
     (hownCross : ContainerOwnPinsSyn (V := V) env₁ (B ci) →
       ContainerOwnPinsSyn (V := V) env₂ (B ci))
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
-  obtain ⟨C, pc, hL, hS⟩ := h
+  obtain ⟨C, hL, hS⟩ := h
   -- the owner's half of the shapes reads a SYNTACTIC subject, whose
   -- two leaves are an old container's stored constructor type
   -- (`projFree_ctorsM`) and this block's own-pin entries
   -- (`projFree_ownPinTerms` off `pinDsRes`) — both guarded because
   -- `Ts` is fresh at the old environment
   exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk hci hownCross,
-    pc, hL.cross,
+    hL.cross,
     hS.crossEnv hF hag hde hk C.reps hB hci
       (fun q hq ci' hci' i' j cA hi' hjA =>
         projFree_ctorsM m₁ hfresh (hB q hq ci' hci') hi' hjA)
@@ -856,8 +856,8 @@ theorem BlockAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ 
     (hownCross : ContainerOwnPinsSyn (V := V) env₁ (B ci) →
       ContainerOwnPinsSyn (V := V) env₂ (B ci))
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
-  obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnv hF hres hag hde hk hci hownCross, pc, hL.cross,
+  obtain ⟨C, hL, hS⟩ := h
+  exact ⟨C.crossEnv hF hres hag hde hk hci hownCross, hL.cross,
     hS.crossEnv (Ts := []) hF hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr) hk C.reps hB hci
       (fun _ _ _ _ _ _ _ _ _ => ProjFree.nil _) (fun _ _ _ => ProjFree.nil _)⟩
 
@@ -1016,17 +1016,17 @@ theorem EnvBlocksOf.crossIndP {Ts : List Name} {env₁ env₂ : Env} {m₁ : Env
       refine ⟨hnot, ?_⟩
       rw [ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc hnot]
       exact hci'
-    obtain ⟨C, pc, hL, hS⟩ := hB.crossEnvP hF hres hag hde hfresh
+    obtain ⟨C, hL, hS⟩ := hB.crossEnvP hF hres hag hde hfresh
       (projFree_members m₁ hfresh h₁) (hB.1.k ▸ containerInfo?_members_pos h₁)
       hb.pinGroups (fun q hq ci' hci' => (hpc q hq ci' hci').2)
       (fun h => ContainerOwnPinsSyn.crossIndOf hext hnewN hfreshN hrecN hmimN hwf hrc hhead
         hB.1 h)
     have hBci : B' ci = B ci := hold J ci hJ h₁
-    refine ⟨by rw [hBci]; exact C, pc, by rw [hBci]; exact hL, ?_⟩
+    refine ⟨by rw [hBci]; exact C, by rw [hBci]; exact hL, ?_⟩
     rw [hBci]
     refine hS.congrB fun q hq ci' hci' => ?_
     -- `ci'` is the old reading of the pin's container
-    obtain ⟨q₀, kJ, i, ci₁, -, -, hci₁, -, -⟩ := hB.2.choose_spec.2 q hq
+    obtain ⟨q₀, kJ, i, ci₁, -, -, hci₁, -, -⟩ := hB.2.2 q hq
     obtain ⟨hnot, hci₂⟩ := hpc q hq ci₁ hci₁
     obtain rfl : ci' = ci₁ := Option.some.inj (hci'.symm.trans hci₂)
     exact hold _ ci' hnot hci₁
@@ -1082,16 +1082,16 @@ theorem EnvBlocksOf.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m
       refine ⟨hnot, ?_⟩
       rw [ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc hnot]
       exact hci'
-    obtain ⟨C, pc, hL, hS⟩ := hB.crossEnv hF hres hag hde (hB.1.k ▸ containerInfo?_members_pos h₁)
+    obtain ⟨C, hL, hS⟩ := hB.crossEnv hF hres hag hde (hB.1.k ▸ containerInfo?_members_pos h₁)
       hb.pinGroups (fun q hq ci' hci' => (hpc q hq ci' hci').2)
       (fun h => ContainerOwnPinsSyn.crossIndOf hext hnewN hfreshN hrecN hmimN hwf hrc hhead
         hB.1 h)
     have hBci : B' ci = B ci := hold J ci hJ h₁
-    refine ⟨by rw [hBci]; exact C, pc, by rw [hBci]; exact hL, ?_⟩
+    refine ⟨by rw [hBci]; exact C, by rw [hBci]; exact hL, ?_⟩
     rw [hBci]
     refine hS.congrB fun q hq ci' hci' => ?_
     -- `ci'` is the old reading of the pin's container
-    obtain ⟨q₀, kJ, i, ci₁, -, -, hci₁, -, -⟩ := hB.2.choose_spec.2 q hq
+    obtain ⟨q₀, kJ, i, ci₁, -, -, hci₁, -, -⟩ := hB.2.2 q hq
     obtain ⟨hnot, hci₂⟩ := hpc q hq ci₁ hci₁
     obtain rfl : ci' = ci₁ := Option.some.inj (hci'.symm.trans hci₂)
     exact hold _ ci' hnot hci₁
@@ -1852,21 +1852,20 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
 
 /-- **A block with NO PINS carries its group's obligation as soon as
 its `ContainerModeled` holds** (task #315 M7-3 session 6): at
-`d.pins = []` every clause of `PinRecLaws` but `mkZero` is quantified
-`q < d.nPins` and so vacuous, `mkZero` is the `Inhabited (PinCtors V)`
-witness's own injection (`fun _ _ _ => pt`, which is `mkZero`), and
+`d.pins = []` every clause of `PinRecLaws` is quantified
+`q < d.nPins` and so vacuous, and
 `PinShapes` is vacuous.  The mutual and native routes' blocks are of
 this shape (`MutualBlockModelOf.pins`). -/
 theorem BlockAt.of_noPins {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
     {ci : ContainerInfo} (hc : ContainerModeled m ci (B ci)) (hp : (B ci).pins = []) :
     BlockAt m B ci := by
   have h0 : (B ci).nPins = 0 := by show (B ci).pins.length = 0; rw [hp]; rfl
-  refine ⟨hc, fun _ => default, ?_, fun q hq => absurd hq (by rw [h0]; omega)⟩
+  refine ⟨hc, ?_, fun q hq => absurd hq (by rw [h0]; omega)⟩
   exact
     { tgtsLt := fun _ q _ _ hq => absurd hq (by rw [h0]; omega)
       idxOk := fun _ _ _ q hq => absurd hq (by rw [h0]; omega)
       fibre := fun _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega)
-      mkZero := fun _ _ _ _ _ => rfl
+      mkZero := fun _ _ q hq => absurd hq (by rw [h0]; omega)
       mkInj := fun _ _ q hq => absurd hq (by rw [h0]; omega)
       injW := fun _ q hq => absurd hq (by rw [h0]; omega)
       ind := fun _ _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega) }

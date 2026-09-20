@@ -364,7 +364,7 @@ theorem punitBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   tgtsLt := fun _ _ _ _ h => nomatch h
   idxOk := fun _ _ _ _ h => nomatch h
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
-  mkZero := fun _ _ _ _ _ => rfl
+  mkZero := fun _ _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
@@ -470,7 +470,7 @@ theorem punitBlockAt {env : Env} {m : EnvModel V env}
       = punitBlock (V := V)) :
     BlockAt m B ⟨0, [⟨ConLeche.punitName, [ConLeche.uN], ConLeche.punitA.toConstantVal.type,
         [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩ := by
-  refine ⟨hB ▸ punitBlock_containerModeled hT hR hU hmim, ⟨fun _ => default, ?_, ?_⟩⟩
+  refine ⟨hB ▸ punitBlock_containerModeled hT hR hU hmim, ⟨?_, ?_⟩⟩
   · exact hB ▸ punitBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

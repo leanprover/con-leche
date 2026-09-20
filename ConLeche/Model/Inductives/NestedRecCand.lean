@@ -280,8 +280,14 @@ structure PinRecLaws {env : Env} (m : EnvModel V env) (d : BlockModel V) (pc : N
       x ∈ˢ app (d.pinCar ψ ρp X q) t ↔
         ∃ j fs, j < (pc q).ctors.length ∧ d.ChainFitT pc ψ ρp (d.famAt ψ ρp X) t (d.k + q) j fs ∧
           x = (pc q).inj ψ j fs
-  /-- at a `Prop`-valued block every injection is the point -/
-  mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ q j fs, (pc q).inj ψ j fs = pt
+  /-- at a `Prop`-valued block every injection is the point.
+
+  **Guarded by the pin count** (task #315 WIDE (f3) step 1), as every
+  clause beside it is: with `BlockAt` read at the block's own
+  `pinCtors` rather than at an existential witness, an unguarded
+  `mkZero` would ask something of a pins-free block's junk field that
+  nothing records.  Nothing consumes the clause outside that range. -/
+  mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ q, q < d.nPins → ∀ j fs, (pc q).inj ψ j fs = pt
   /-- at a `Type`-valued block a pin's injections are injective -/
   mkInj : ∀ ψ : Name → Nat, d.w ψ ≠ 0 → ∀ q, q < d.nPins → ∀ j fs j' fs',
     j < (pc q).ctors.length → j' < (pc q).ctors.length →

@@ -1707,7 +1707,7 @@ theorem nestedBlockAt_of (m : EnvModel V env₂) {B : ContainerInfo → BlockMod
     {ci : ContainerInfo} (hB : B ci = D) (C : ContainerModeled m ci (D))
     (hL : PinRecLaws m (D) PC) (hS : PinShapes m B (D) PC) : BlockAt m B ci := by
   rw [BlockAt, hB]
-  exact ⟨C, PC, hL, hS⟩
+  exact ⟨C, hL, hS⟩
 
 /-- **A stored block's pins' groups, with their containers' models** —
 `PinShapes` read for the VIEWS alone, at an assignment every stored
@@ -6696,7 +6696,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
       rw [BlockModel.ctorsT_of_pin hcm, hqKe, hcount' i'' hiq, ← hdJf] at hj
       exact hj
     -- the container's own pins, viewed
-    obtain ⟨-, pcK, hpcK, hshK⟩ := hB _ ci' hci'
+    obtain ⟨-, hpcK, hshK⟩ := hB _ ci' hci'
     have hOwn : ∀ qq, qq < (dJf q₀).nPins → ∃ (q₀'' kk'' i₂ : Nat) (dJ'' : BlockModel V),
         qq = q₀'' + i₂ ∧ i₂ < kk'' ∧ PinGroupView (dJf q₀) dJ'' q₀'' kk'' ∧ IsBlockModels m dJ'' := by
       rw [hdJf]; exact hshK.views hB

@@ -716,7 +716,7 @@ theorem natBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   tgtsLt := fun _ _ _ _ h => nomatch h
   idxOk := fun _ _ _ _ h => nomatch h
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
-  mkZero := fun _ _ _ _ _ => rfl
+  mkZero := fun _ _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
@@ -852,7 +852,7 @@ theorem natBlockAt {env : Env} {m : EnvModel V env}
     BlockAt m B ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
          ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩ := by
-  refine ⟨hB ▸ natBlock_containerModeled hT hR hZ hS hmim, ⟨fun _ => default, ?_, ?_⟩⟩
+  refine ⟨hB ▸ natBlock_containerModeled hT hR hZ hS hmim, ⟨?_, ?_⟩⟩
   · exact hB ▸ natBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

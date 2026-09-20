@@ -352,7 +352,7 @@ theorem nestedPinRecLaws_of (hμ : μ.verifiedChecks = true)
       obtain ⟨hfit, heqs⟩ := (hchain ψ ρp q hq _ _ hZY t j fs).mpr hcf
       exact ⟨j, fs, hJl, hmem, hfit, heqs, rfl⟩
   · -- mkZero
-    intro ψ hw q j fs
+    intro ψ hw q _ j fs
     show injW (f₀.s.eval ψ) j (mkTower (fs ++ [pt])) = pt
     rw [show f₀.s.eval ψ = 0 from hw, injW_zero]
   · -- mkInj
