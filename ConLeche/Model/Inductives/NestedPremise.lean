@@ -938,6 +938,31 @@ covering is the parent chain. -/
     (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
   ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPinAt env D dR ψ ψR ρp ρR r c q
 
+/-- **A GROUP MEMBER'S STORED TYPE STRIPS AT THE BLOCK MODEL'S INDEX
+COUNT** (task #315 WIDE (3), step 2): `IsBlockModel.strip` read off
+the group record rather than off the block model — the member named
+`J` at position `i` is one of `ci.members`, and its stored type is the
+telescope over the group's parameters and that member's own indices.
+
+It is the form two block models of ONE container can be compared at:
+the arity is a fact of the RECORD `containerInfo?` returns, so a
+consumer holding two pins with one container — the wide
+identification's `hnIdx` — gets their index counts from two
+independent block models and identifies them by "a `.sort` is not a
+`Π`".  Stated with the count as a parameter (`hn`) so that a
+`PinGroupView`'s `pinNIdx` can be rewritten into it in one step. -/
+theorem ContainerModeled.memberStrip {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dJ : BlockModel V} (C : ContainerModeled m ci dJ) {i : Nat} (hi : i < dJ.k)
+    {J : Name} (hJ : dJ.memberName i = J) {n : Nat} (hn : n = dJ.nIdxAt i) :
+    ∃ mem ∈ ci.members, mem.name = J ∧
+      ∃ (bs : List (Expr × ConLeche.BinderMeta)) (s : Level),
+        mem.type.stripPis (ci.nP + n) = some (bs, .sort s) := by
+  obtain ⟨M, hM⟩ : ∃ M, ci.members[i]? = some M :=
+    ⟨_, List.getElem?_eq_getElem (by rw [← C.k]; exact hi)⟩
+  obtain ⟨hname, -, cvR, mI, rP, rules, hI⟩ := C.member i M hM
+  obtain ⟨bs, s, hstrip, -⟩ := hI.strip
+  exact ⟨M, List.mem_of_getElem? hM, by rw [← hname, hJ], bs, s, by rw [hn, ← C.nP]; exact hstrip⟩
+
 /-! ## The pins' laws and shapes of a stored block -/
 
 instance : Nonempty (BlockModel V) :=
@@ -1441,6 +1466,33 @@ theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   exact ⟨q₀, kJ, i, hqe, hi, hgv, hrd⟩
+
+/-- **A PIN'S INDEX COUNT IS ITS CONTAINER'S MEMBER'S STORED ARITY**
+(task #315 WIDE (3), step 2): `PinShapes`' group view composed with
+the container's own record (`ContainerModeled.memberStrip`).
+
+This is what two pins carrying ONE container are compared at.  Their
+index counts come from two independent block models — one side's from
+the block's own group record, the other's from the container model the
+shape names — and `PinSyn.nIdx` is a block model's per-MEMBER count,
+so `ContainerInfo`, which records none, offers nothing to meet at.
+The member's STORED TYPE does: it strips at the group's parameters
+plus that member's indices and ends in a `.sort`, and a `.sort` is not
+a `Π`, so the count is determined. -/
+theorem PinShapes.rowPinNIdx {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinShapes m B d pc)
+    (hB : ∀ (J : Name) (ci : ContainerInfo),
+      ConLeche.containerInfo? env J = some ci → ContainerModeled m ci (B ci))
+    {q : Nat} (hq : q < d.nPins) {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env (d.pinAt q).J = some ci) :
+    ∃ mem ∈ ci.members, mem.name = (d.pinAt q).J ∧
+      ∃ (bs : List (Expr × ConLeche.BinderMeta)) (s : Level),
+        mem.type.stripPis (ci.nP + (d.pinAt q).nIdx) = some (bs, .sort s) := by
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -⟩ := h q hq
+  obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
+  subst hqe
+  exact (hB _ _ hci).memberStrip (by rw [hgv.kEq]; exact hi) (hgv.name i hi).symm
+    (hgv.pinNIdx i hi)
 
 /-- **THE ROW, READ AS THE TARGET VIEW'S DATA AT THE FIELD** (task
 #315 WIDE, lane `uniform-carry`): the shape the collapse-aware

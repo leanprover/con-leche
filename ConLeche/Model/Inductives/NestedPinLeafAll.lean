@@ -2220,6 +2220,12 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       ((D).pinAt z).J = K ∧
       (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
         ((D).pinAt z).nPJ = ci.nP) ∧
+      -- and its INDEX count, as the container record's member's stored
+      -- type records it — the form two blocks' pins can meet at
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        ∃ mem ∈ ci.members, mem.name = K ∧
+          ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+            mem.type.stripPis (ci.nP + ((D).pinAt z).nIdx) = some (bsz, .sort sz)) ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
@@ -4897,6 +4903,54 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       rw [this, hqJz]
 
 
+omit [SetTheory V] in
+/-- **A SORT-ENDED TELESCOPE HAS ONE LENGTH** (task #315 WIDE (3),
+step 2): `stripPis` peels `∀` nodes only, so a decomposition whose
+body is a `.sort` cannot be extended — "a `.sort` is not a `Π`".  This
+is the uniqueness that makes a member's STORED TYPE a meeting point
+for two block models' index counts. -/
+theorem stripPis_sort_arity : ∀ (a b : Nat) {e : Expr}
+    {bs bs' : List (Expr × ConLeche.BinderMeta)} {s s' : Level},
+    e.stripPis a = some (bs, .sort s) → e.stripPis b = some (bs', .sort s') → a = b := by
+  intro a
+  induction a with
+  | zero =>
+    intro b e bs bs' s s' h1 h2
+    rw [ConLeche.Expr.stripPis] at h1
+    obtain ⟨-, rfl⟩ := Prod.mk.injEq _ _ _ _ ▸ Option.some.inj h1
+    cases b with
+    | zero => rfl
+    | succ b' => exact nomatch h2
+  | succ a' ih =>
+    intro b e bs bs' s s' h1 h2
+    cases e with
+    | forallE ty bo bm =>
+      cases b with
+      | zero =>
+        rw [ConLeche.Expr.stripPis] at h2
+        obtain ⟨-, hc⟩ := Prod.mk.injEq _ _ _ _ ▸ Option.some.inj h2
+        exact nomatch hc
+      | succ b' =>
+        rw [ConLeche.Expr.stripPis] at h1
+        rw [ConLeche.Expr.stripPis] at h2
+        cases hb1 : ConLeche.Expr.stripPis a' bo with
+        | none => rw [hb1] at h1; exact nomatch h1
+        | some r1 =>
+          obtain ⟨bs1, e1⟩ := r1
+          cases hb2 : ConLeche.Expr.stripPis b' bo with
+          | none => rw [hb2] at h2; exact nomatch h2
+          | some r2 =>
+            obtain ⟨bs2, e2⟩ := r2
+            rw [hb1] at h1
+            rw [hb2] at h2
+            simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h1 h2
+            have hA : ConLeche.Expr.stripPis a' bo = some (bs1, Expr.sort s) := by
+              rw [← h1.2]; exact hb1
+            have hB : ConLeche.Expr.stripPis b' bo = some (bs2, Expr.sort s') := by
+              rw [← h2.2]; exact hb2
+            exact congrArg Nat.succ (ih b' hA hB)
+    | _ => exact nomatch h1
+
 /-- **THE TWO ROWS NAME ONE FIELD DATUM** (task #315 WIDE (3), step 2,
 `hslotOrd`'s field-data half): at a field the pin's container `dK`
 calls ORDINARY and both copies rewrote to recursive, whose two targets
@@ -5014,14 +5068,19 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
         ((((pcR qK).Eiss φ).getD j []).getD l [])
         ((((pcR qK).tlss φ).getD j []).getD l [])
         ((dR.pinAt z).nPJ) lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
-    -- two pins with ONE container have one INDEX count.  The
-    -- parameter count is no longer assumed — both rows pin it to the
-    -- container record `containerInfo?` reads — but `nIdx` is the
-    -- container's block model's per-MEMBER count and `ContainerInfo`
-    -- records none, so the crossing stays.
-    (hnIdx : ∀ z₁ z₂ : Nat, z₁ < pinsS.length → z₂ < dR.nPins →
-      ((D).pinAt z₁).J = (dR.pinAt z₂).J →
-      ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx) :
+    -- THE OWNER'S PINS' INDEX COUNTS, AS THE CONTAINER RECORD'S
+    -- MEMBERS' STORED TYPES RECORD THEM (task #315 WIDE (3), step 2):
+    -- neither side's `nIdx` is a fact of `ContainerInfo` — it is a
+    -- block model's per-MEMBER count and the record keeps none — so
+    -- the two meet at the member's STORED TYPE, whose arity is unique
+    -- because a `.sort` is not a `Π`.  The block's half comes beside
+    -- its target (`GroupFacts.ordRead`); this is the owner's, and
+    -- `PinShapes.rowPinNIdx` is its producer.
+    (hnIdxR : ∀ z : Nat, z < dR.nPins → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dR.pinAt z).J = some ci →
+      ∃ mem ∈ ci.members, mem.name = (dR.pinAt z).J ∧
+        ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+          mem.type.stripPis (ci.nP + (dR.pinAt z).nIdx) = some (bsz, .sort sz)) :
     ∀ fs₁ : List V, fs₁.length = l →
       SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
         (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
@@ -5098,14 +5157,22 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     Nat.not_lt.mpr (G.ordGe ψ i' hi' j hj l hl hord hrs₁ cA bs rr dom lpsC hjA hst hdm
       i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK)
   -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
-  obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hblkNP, hrest₁⟩ :=
+  obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hblkNP, hblkSt, hrest₁⟩ :=
     G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
       i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
       mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
   have hnPeq : ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ := by
     rw [hblkNP ciZ hciEnv, hnPZ]
-  have hnIdxEq : ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx :=
-    hnIdx z₁ z₂ hz₁ hz₂ (by rw [hblkJ, hJz])
+  -- THE INDEX COUNTS: one member of one record, whose stored type
+  -- strips at exactly one arity
+  have hnIdxEq : ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx := by
+    obtain ⟨me₁, hme₁, hmn₁, bsA, sA, hstA⟩ := hblkSt ciZ hciEnv
+    obtain ⟨me₂, hme₂, hmn₂, bsB, sB, hstB⟩ :=
+      hnIdxR z₂ hz₂ ciZ (CR.pinConts z₂ hz₂ ciZ hciZ0)
+    obtain rfl : me₁ = me₂ :=
+      ConLeche.containerInfo?_member_det hciEnv hciEnv rfl hme₁ hme₂
+        (by rw [hmn₁, hmn₂, hJz])
+    exact Nat.add_left_cancel (stripPis_sort_arity _ _ hstA hstB)
   -- the two readings, at a fitting prefix on each side
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁

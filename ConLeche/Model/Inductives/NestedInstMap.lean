@@ -2609,6 +2609,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ((D).pinAt z).J = K ∧
       (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
         ((D).pinAt z).nPJ = ci.nP) ∧
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        ∃ mem ∈ ci.members, mem.name = K ∧
+          ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+            mem.type.stripPis (ci.nP + ((D).pinAt z).nIdx) = some (bsz, .sort sz)) ∧
       OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
@@ -2791,15 +2795,24 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hcizJ : ConLeche.containerInfo? env ((D).pinAt z).J = some ciz := by
     show ConLeche.containerInfo? env (pinsS.getD z default).J = some ciz
     rw [(SF.pinRec z _ (hPD z (by rw [← SF.pinsLen]; exact hzS)).pin).1]; exact hciz
+  obtain ⟨q₀z, kJz, iz, hqez, hiz, Sz⟩ := SF.groupsAt dsR xFvsR z hzS ciz hcizJ
+  have CMz := Sz.modeled iz hiz ciz (by
+    show ConLeche.containerInfo? env (pinsS.getD (q₀z + iz) default).J = some ciz
+    rw [← hqez]; exact hcizJ)
   have hnPz : ((D).pinAt z).nPJ = ciz.nP := by
-    obtain ⟨q₀z, kJz, iz, hqez, hiz, Sz⟩ := SF.groupsAt dsR xFvsR z hzS ciz hcizJ
-    have hp := Sz.pinNP iz hiz
-    have hm := (Sz.modeled iz hiz ciz (by
-      show ConLeche.containerInfo? env (pinsS.getD (q₀z + iz) default).J = some ciz
-      rw [← hqez]; exact hcizJ)).nP
     show (pinsS.getD z default).nPJ = ciz.nP
     rw [hqez]
-    exact hp.trans hm
+    exact (Sz.pinNP iz hiz).trans CMz.nP
+  -- AND ITS INDEX COUNT, AS THE MEMBER'S STORED TYPE RECORDS IT (task
+  -- #315 WIDE (3), step 2): `IsBlockModel.strip` at the group's own
+  -- model, read off the container RECORD — the form in which a pin of
+  -- another block carrying the same container can meet it.
+  have hStripz : ∃ mem ∈ ciz.members, mem.name = ((D).pinAt z).J ∧
+      ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+        mem.type.stripPis (ciz.nP + ((D).pinAt z).nIdx) = some (bsz, .sort sz) := by
+    obtain ⟨cvTz, cvRz, mIz, rPz, rulesz, hIz, -⟩ := Sz.rep iz hiz
+    rw [show ((D).pinAt z) = ((D).pinAt (q₀z + iz)) from by rw [hqez]]
+    exact CMz.memberStrip (by rw [Sz.kEq]; exact hiz) hIz.member (Sz.pinNIdx iz hiz)
   have hcizM : ConLeche.containerInfo? env ((D).pinAt z).J = some ciM := by
     rw [hJM]; exact hciM
   obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
@@ -2807,7 +2820,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, hJM,
     fun ci hci => by
       obtain rfl := Option.some.inj (hci.symm.trans hciM)
-      exact hnPz, ?_⟩
+      exact hnPz,
+    fun ci hci => by
+      obtain rfl := Option.some.inj (hci.symm.trans hciM)
+      rw [← hJM]; exact hStripz, ?_⟩
   rw [hnPz]
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
@@ -3285,6 +3301,10 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       (pinsS.getD z default).J = K ∧
       (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
         (pinsS.getD z default).nPJ = ci.nP) ∧
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        ∃ mem ∈ ci.members, mem.name = K ∧
+          ∃ (bsz : List (Expr × ConLeche.BinderMeta)) (sz : Level),
+            mem.type.stripPis (ci.nP + (pinsS.getD z default).nIdx) = some (bsz, .sort sz)) ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
@@ -3327,9 +3347,9 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hgp hgn hciO hm₀ hownT hmapR hqK hqm
     (by rw [hstripO]; exact hhdO) (by rw [hstripB]; exact hhdB) hfire hrootInst
   -- the block's own reading, and its target
-  obtain ⟨z, hz, htg, hEl, hJz, hnPz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss
+  obtain ⟨z, hz, htg, hEl, hJz, hnPz, hStz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss
     hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
-  refine ⟨z, hz, htg, hEl, hJz, hnPz, fun fs₁ hfs hspf => ?_⟩
+  refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
   rw [hown_eq, hdpB] at htl
   refine ⟨List.eq_nil_of_length_eq_zero htl, fb, Ps, hPs, ?_⟩
@@ -3372,7 +3392,7 @@ theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
   intro ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip hdom
     i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin
   obtain ⟨pbs, -, hPD⟩ := R.pinData
-  obtain ⟨z, hz, htg, hEl, -, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
+  obtain ⟨z, hz, htg, hEl, -, -, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
     lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hfin
   exact ⟨z, hz, htg, hEl, hOT⟩
 
