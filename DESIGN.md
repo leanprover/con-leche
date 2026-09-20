@@ -124710,3 +124710,128 @@ first caller.  Nothing of the `pins_le_*`/`NestedPinsLe` family moved.
 `Verify/` file changed.  `#print axioms
 ConLeche.Model.NestedPinsRun.ordNormAt`: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (3) STEPS 1 AND 2 BUILT — THE SCOPING CLOSURE AND THE BLOCK-SIDE `GroupFacts` FIELD; STEP 3 PRICED AND THE STOP (lane LE, 2026-09-19)
+
+The corrected plan's first two steps landed; steps 3 and 4 did not
+start.  Each was priced by inputs before building, as ruled, and both
+prices were exceeded — 244 against ~150 and 434 against ~120 — so the
+row records what the building found, prices step 3 against the tree,
+and stops.
+
+##### (a) STEP 1 — THE SCOPING CLOSURE, AND WHY IT SITS WITH THE BRIDGE
+
+`denoteMeta_ordRootInst_read`'s `hxb`/`hxlv` had no producer.
+`ordTargetDom_scoped` (`Model/Inductives/NestedFieldRead.lean`) is it:
+the three operations between the two leaves move neither bound nor
+leaf — the level instantiation (`looseBVarsBounded_instantiateLevelParams`,
+`hasFvar_instantiateLevelParams`), `stripDomPis` with the cut already
+carrying its `domPiDepth` (`looseBVarsBounded_stripDomPis`,
+`hasFvar_stripDomPis`, two new micro-inductions), and the own-pin
+spine's `instantiateList`, which is `Expr.instSpine` at the descending
+cuts.  The stored domain contributes NO leaf, so every leaf of the
+recomputation is an argument's.
+
+`ownPinTerm_getAppArgs_scoped` is the second leaf, and the re-price's
+finding (e) held at the proof: `abstractRange`'s `fvar` arm does not
+descend into the annotation and `pinDsScoped` bounds every leaf below
+`nP`, so the closed component is `fvar`-free
+(`hasFvar_abstractRange_of_leaves`) and the entry's leaves are EXACTLY
+`containerParamOpeners` — no `params` reconciliation, as predicted.
+
+**It is stated with the BRIDGE and not beside
+`projFree_ordTargetDom_instSeq`.**  The leaf toolbox
+(`hasFvar_abstractRange_of_leaves`, `fvarLeaves_instSpine`,
+`Expr.instSpine_eq_instantiateList_at`, `looseBVarsBounded_instSeq_gen`)
+is in `NestedFieldRead`'s import closure and is NOT in
+`ContainerCross`'s; siting it there would have cost four imports to
+save a file. One import was still needed
+(`Verify.Inductives.NestedRecCtorPin`, for
+`looseBVarsBounded_abstractRange`: `NestedOwnPinsRead` imports it
+privately, so it did not reach).
+
+##### (b) STEP 2 — THE BLOCK-SIDE HALF IS ONE FIELD, AND `pinTermSpine` IS ITS CONTENT
+
+`GroupFacts.ordRead` (`NestedPinLeafAll.lean`) is the re-price's
+relocation, built: the reading, K.69's equation and the bridge in one
+clause stated at `ordRootInst`'s output, discharged at `mkGF` by
+`NestedPinsRun.ordReadAt` (`NestedInstMap.lean`), with the OWNER's
+reading `rx` and the owner's scoping as its two hypotheses — the two
+objects that tier cannot produce.
+
+Two things the pricing did not see:
+
+* **the cut is the field's own `l` on BOTH sides, for free.**
+  `ordTgtReadAt`'s guard is the stored domain's head at the BLOCK
+  pin's levels; a constant head survives every level instantiation
+  (`getAppFn_const_of_ilp`) and a constant spine is not a `Π`, so both
+  tables' towers are empty (`ordTargetDomL_flat`, over
+  `stripDomPis_eq_self_of_getAppFn_const` and
+  `domPiDepth_eq_zero_of_getAppFn_const`).  No cut reconciliation, and
+  K.69's two stripped guards come out of the one unstripped guard;
+* **the bridge's three component inputs were the real work.**
+  `NestedPinsRun.pinTermSpine` produces them: the entry
+  `nestedPinTermsSelf` writes at a pin is that pin's container applied
+  to its recorded components (`nestedPinTermsSelf_shape`, already in
+  the tree), so the head carries the pin's own name and levels, the
+  arguments are as many as the components, each is `WScoped b.nP` and
+  closed, and each READS as the recorded reading — the round trip
+  being `ErasedEq` and not equality
+  (`instantiateList_openers_abstractRange_erasedEq`), which is exactly
+  what `DenoteMetaSpine.eraseAnnots` absorbs.  That is ~140 of step
+  2's 434 lines and is the whole overrun.
+
+**The reflexive Π-prefix is NOT in the statement.**
+`ordTgtReadAt`'s guard forces the tower empty, so `ordRead` covers the
+finitary arm only; the `tls` half stays owed, as the corrected plan
+already listed it.
+
+##### (c) STEP 3, PRICED BY INPUTS — WHAT IS IN HAND AND THE ONE THING THAT IS NOT
+
+| ingredient | where it is | verdict |
+|---|---|---|
+| the preamble (`z` identification) | `ordTgt_corr`'s own — `ownPinsSelfAt`, `ordTargetDom_congr_at`, `pinsDistinctAt` | in hand, re-runnable verbatim (~25 lines) |
+| the owner's reading | `PinShapes`'s z-form conjunct, applied as `hrow` is | in hand |
+| the block's reading + K.69 + the bridge | `GroupFacts.ordRead` | **LANDED** (b) |
+| the owner's scoping at `dR` | step 1's two lemmas | **LANDED** (a) |
+| the conclusion | `AnnotTerm.instAll_mkAppN` + `AnnotTerm.mkAppN_inj` | in hand, and `hfa` is not needed (the re-price's (d)) |
+| the head container's parameter counts agree | `hownσ` (`NestedCore.lean`) gives `((D).pinAt q').J = (dR.pinAt x).J`; `nPJ` is then `ciZ.nP` on both sides through `NestedPinGroupSyn.pinNP` and `ContainerModeled.pinNP` | derivable, ~20 lines |
+| **the two `Eis` LENGTHS agree** | — | **NOT LOCATED.**  `mkAppN_inj` needs `(Ps₁ ++ Eis₁).length = (Ps₂ ++ Eis₂).length`; with the `Ps` settled above what is left is `Eis₁.length = Eis₂.length`, and neither side's "a copy's recorded index expressions are as many as its target pin's indices" was found.  `hownσ`'s `Ids` clause equates the two targets' index LISTS, so the fact is one `Eis.length = Ids.length` per side away — two hunts, not a rewrite |
+
+So step 3 is ~250–300 lines with one unlocated input on each side.  It
+was NOT started.
+
+##### (d) THE STOP
+
+678 lines paid over three files against the row's ~620 for steps 1–4
+together, with TWO of the four delivered.  Step 3 is priced above;
+step 4 (`hslotOrd` at `pinClassFit_of_transfer`, `hfitc` closed) needs
+step 3 AND the `tls` half, which is still unpriced and still not
+inspected — so `hfitc` could not have closed in this session whatever
+was built.  Steps (4′) and (4) were not started, and
+`agent/uniform-le4` was NOT merged: its merge is step (4)'s first act,
+and merging it across a stop would leave `NestedPinsLeInd` unconsumed
+for as long as the stop lasts.
+
+**What a re-price should keep:** (b)'s finding that the guard settles
+both cuts with no argument, and that `pinTermSpine` — now landed — is
+what any further block-side reading will ask for.  **What it must
+add:** the two `Eis`-length facts of (c) as objects of their own, and
+the `tls` half, which nothing yet has touched.
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 5ea391e4`: 3 changed modules, `lake build` 3
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2307, none demotable).  `tests/unconsumed.sh` 197/3843 against
+196/3833, and the diff is three lines: `NestedPinsRun.ordNormAt`
+LEAVES (K.69 at the run has its first caller), `ordTargetDom_scoped`
+and `ownPinTerm_getAppArgs_scoped` ENTER, waiting on step 3, which is
+their named consumer.  Nothing of the `pins_le_*`/`NestedPinsLe`
+family moved.  `tests/arena.sh` not run and not owed: no `Kernel/`,
+`Cached/` or `Verify/` file changed.  `#print axioms` on
+`ordTargetDom_scoped`, `ownPinTerm_getAppArgs_scoped`,
+`NestedPinsRun.pinTermSpine`, `NestedPinsRun.ordReadAt` and
+`nestedPinsEntry_of_le_all`: `propext`, `Classical.choice`,
+`Quot.sound`.
