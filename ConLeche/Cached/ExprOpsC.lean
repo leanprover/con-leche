@@ -897,6 +897,13 @@ inductive BoolMemoMode where
 /-- The committed position. -/
 def boolMemoMode : BoolMemoMode := .keyed
 
+/-- The position of `constsResolveFC` ALONE.  That walk is the
+section's largest share of `init-full` by a factor of four, so the
+attribution measurement wants a binary that moves it and nothing else;
+committed equal to `boolMemoMode`, and the generated C shows the
+wrapper calling only the selected walk at either position. -/
+def crfMemoMode : BoolMemoMode := boolMemoMode
+
 /-- The nodes a `Bool` memo entry can save a descent of: the compound
 nodes, and `fvar` — every walk of this section descends into the
 ANNOTATION, so the cached fvar range does not decide an `fvar` node. -/

@@ -169,7 +169,7 @@ theorem constsResolveFC_congr (hfe : fe₁.find? = fe₂.find?) :
     constsResolveFC fe₁ = constsResolveFC fe₂ := by
   funext e
   unfold constsResolveFC
-  cases Expr.boolMemoMode with
+  cases Expr.crfMemoMode with
   | keyed => simp only [constsResolveFCGo_congr hfe]
   | excl =>
     rw [Expr.resBool_eq, Expr.resBool_eq]

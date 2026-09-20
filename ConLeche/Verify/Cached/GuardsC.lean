@@ -1772,7 +1772,7 @@ open Expr in
 theorem constsResolveFC_spec {fe : FEnv} {e : Expr} :
     constsResolveFC fe e = Expr.constsResolveF fe e := by
   rw [constsResolveFC.eq_def]
-  cases Expr.boolMemoMode with
+  cases Expr.crfMemoMode with
   | keyed => exact (constsResolveFCGo_spec MemoCRInv.empty).1
   | excl => rw [Expr.resBool_eq]; exact constsResolveFP_spec
 

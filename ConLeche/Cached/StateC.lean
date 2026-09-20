@@ -555,9 +555,9 @@ def constsResolveFXP (fe : @& FEnv) (memo : Expr.MemoB0 (constsResolveFP fe))
       Squash.mk (⟨false, by rw [constsResolveFP]; simp [hfind]⟩, memo)
 
 /-- The cached `Expr.constsResolveF fe` (one memoized DAG walk), at
-the committed position of `Expr.boolMemoMode`. -/
+the committed position of `Expr.crfMemoMode`. -/
 def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
-  match Expr.boolMemoMode with
+  match Expr.crfMemoMode with
   | .keyed => (constsResolveFCGo fe {} e).1
   | .excl => Expr.resBool (constsResolveFXP fe none e)
 
