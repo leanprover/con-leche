@@ -27,6 +27,13 @@ which is real: a clause says every stored value is the pure function at
 its key, and insert-preservation goes through
 `Std.HashMap.getElem?_insert` plus `beq_sound` on the colliding key —
 a memo hit's key is only `BEq`-equal to the query.
+
+That last shape survives here only for the SCOPE and DEFINEDNESS walks
+(`MemoWInv`).  The substitution walks carry no memo invariant at all
+(task #317): each is verified intrinsically — its result type carries
+its proof against a plain descent — and its memo's entries prove
+themselves, so what this file states about them is the plain descents
+(`*P`) and the wrappers.
 -/
 
 namespace ConLeche.Expr
@@ -112,16 +119,15 @@ theorem getAppArgsC_spec (e : Expr) :
 
 /-! ## Instantiation of one bound variable
 
-The memo invariant is stated in the **erasure-function-of-key** form:
-nothing is claimed about the key's *fields*, only that the stored value
-is well formed and erases to the substitution applied to the key's
-erasure.  That is exactly what survives a memo hit, whose key is only
-`BEq`-equal to the query. -/
+The walks themselves are verified INTRINSICALLY (their result type
+carries the proof: `ConLeche/Cached/ExprOpsC.lean`), so what this file
+proves is the plain descent each walk is stated against — the `*P`
+functions — and the wrappers, which read that proof off the walk's
+result through `Expr.resTerm_eq`. -/
 
-/-- **The plain descent computes `Expr.instantiate1`** (task #314):
-`instantiate1BC_spec` with the fuel bookkeeping removed.  It is the
-reference the oracle walk `instantiate1X` carries its own proof
-against, so the wrapper's `.oracle` branch reads through it. -/
+/-- **The plain descent computes `Expr.instantiate1`.**  It is the
+reference `instantiate1XP` carries its own proof against, so the
+wrapper reads through it. -/
 theorem instantiate1P_spec {v : Expr} : ∀ (e : Expr) (d : Nat),
     Expr.instantiate1P v e d = Expr.instantiate1 e v d := by
   intro e
@@ -263,11 +269,10 @@ private theorem instList_leaf {e : Expr} {ws : List Expr} {d : Nat}
     e = (Expr.instantiateList e ws d) :=
   (Expr.instantiateList_eq_self h).symm
 
-/-- **The plain bulk descent computes `Expr.instantiateList`** (task
-#314): `instantiateListBC_spec` without the fuel bookkeeping — the
-same induction, strong on the live prefix `k` (the `bvar` arm re-enters
-at the replacement with a shorter prefix), structural on the node
-inside it.  The reference of the oracle walk `instantiateListX`. -/
+/-- **The plain bulk descent computes `Expr.instantiateList`.**  The
+induction is strong on the live prefix `k` (the `bvar` arm re-enters
+at the replacement with a shorter prefix) and structural on the node
+inside it.  The reference of `instantiateListXP`. -/
 theorem instantiateListP_spec {vs : Array Expr} :
     ∀ (k : Nat) (e : Expr), ∀ {d : Nat}, k ≤ vs.size →
       Expr.instantiateListP vs e k d
@@ -648,9 +653,8 @@ private theorem abstract1_eq_self : ∀ {e : Expr} {d k : Nat},
     simp_all only [Expr.fvarsBelow, Expr.abstract1]
   rw [if_neg (by omega)]
 
-/-- **The plain descent computes `Expr.abstract1`** (task #314):
-`abstract1BC_spec` without the fuel bookkeeping; the reference of the
-oracle walk `abstract1X`. -/
+/-- **The plain descent computes `Expr.abstract1`**: the reference of
+`abstract1XP`. -/
 theorem abstract1P_spec {d : Nat} : ∀ (e : Expr) (k : Nat),
     Expr.abstract1P d e k = Expr.abstract1 e d k := by
   intro e
@@ -754,9 +758,8 @@ private theorem abstractRange_zero : ∀ (e : Expr) (d c : Nat),
   intro e
   induction e <;> intro d c <;> simp_all [Expr.abstractRange]
 
-/-- **The plain bulk descent computes `Expr.abstractRange`** (task
-#314): `abstractRangeBC_spec` without the fuel bookkeeping; the
-reference of the oracle walk `abstractRangeX`. -/
+/-- **The plain bulk descent computes `Expr.abstractRange`**: the
+reference of `abstractRangeXP`. -/
 theorem abstractRangeP_spec {d k : Nat} : ∀ (e : Expr) (c : Nat),
     Expr.abstractRangeP d k e c = Expr.abstractRange e d k c := by
   intro e
@@ -857,9 +860,8 @@ theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
 
 /-! ## Level instantiation -/
 
-/-- **The plain descent computes `Expr.instantiateLevelParams`**
-(task #314): `instLevelParamsGo_spec` without the memo; the reference
-of the oracle walk `instLevelParamsX`. -/
+/-- **The plain descent computes `Expr.instantiateLevelParams`**: the
+reference of `instLevelParamsXP`. -/
 theorem instLevelParamsP_spec {ks : List Name} {us : List Level} : ∀ (e : Expr),
     Expr.instLevelParamsP ks us e = e.instantiateLevelParams ks us := by
   intro e
@@ -1363,14 +1365,12 @@ theorem piResidual_spec {e : Expr} {args : List Expr} :
 
 /-! ## The capture-avoiding instantiation (task #214, P4)
 
-`instantiate1Lift`'s twin: the same three facts as `instantiate1`'s —
-the cutoff is `Expr.instantiate1Lift_eq_self`, the budgeted plain
-descent rebuilds exactly the substitution wherever it completes, and
-the memoised descent carries the erasure-of-key invariant. -/
+`instantiate1Lift`'s twin: the same two facts as `instantiate1`'s —
+the cutoff is `Expr.instantiate1Lift_eq_self`, and the plain descent
+rebuilds exactly the substitution. -/
 
-/-- **The plain descent computes `Expr.instantiate1Lift`** (task #314):
-`instantiate1LiftBC_spec` without the fuel and the `Option`; the
-reference of the oracle walk `instantiate1LiftX`. -/
+/-- **The plain descent computes `Expr.instantiate1Lift`**: the
+reference of `instantiate1LiftXP`. -/
 theorem instantiate1LiftP_spec {v : Expr} : ∀ (e : Expr) (d : Nat),
     Expr.instantiate1LiftP v e d = Expr.instantiate1Lift e v d := by
   intro e

@@ -19,40 +19,16 @@ instead of a cons-table probe).
 Two structural consequences of dropping the arena, both load-bearing
 for the pilot's numbers:
 
-* every traversal memo is keyed on `Expr` itself (`O(1)` hashing off
-  the cached field, pointer-first equality), so shared sub-DAGs are
-  still visited once — a `Std.HashMap Expr α` replaces the arena's
-  `Std.HashMap EIdx α` one for one;
+* the scope and definedness walks' memos are keyed on `Expr` itself
+  (`O(1)` hashing off the cached field, pointer-first equality), so
+  shared sub-DAGs are still visited once — a `Std.HashMap Expr α`
+  replaces the arena's `Std.HashMap EIdx α` one for one.  The
+  SUBSTITUTION walks key theirs by address instead; see "The
+  substitution walks" below;
 * a cutoff (`bvarB ≤ d`, `fvarB ≤ d`, `!hasLP`) returns the node
   **itself**, so the result shares memory with the input and later
   pointer comparisons on it are `O(1)` — the analogue of the arena
   returning the same index.
-
-## The memo discipline of the substitution walks (task #177)
-
-The retired arena's memo key was an `EIdx` — a scalar.  This tier's is
-a *constructed* key, so the probe costs allocations, and profiling put
-`instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
-roughly half of every `--trusted` run.  Three shape rules cut that,
-and each is a property of the walks alone (the values are unchanged —
-`ConLeche/Verify/Cached/OpsC.lean` proves each walk equal to its
-`ConLeche.Expr` counterpart exactly as before):
-
-1. **The key is built once per node.**  `let key := …` is shared by the
-   probe and the insert, instead of the same tuple being allocated for
-   each.
-2. **The bulk key carries no live prefix.**  `k` is invariant over the
-   life of a table (see `MemoNL`), so it moved from the key into the
-   memo *invariant* (`MemoLInv ws k memo`), and the `bvar` arm's
-   re-entry — the one place `k` shrinks — runs under a fresh table.
-3. **Only compound nodes are memoized.**  The memo probe and insert sit
-   inside the `app`/`lam`/`forallE`/`letE`/`proj` arms; a node with no
-   children to descend into is answered on the spot.  This matters most
-   for the loose `bvar`s, which the cutoff lets through by
-   construction and which are the most numerous nodes a substitution
-   touches — recording a one-word answer under a two-word key was pure
-   loss.  It is why the arms carry the probe rather than the head of
-   the function.
 -/
 
 namespace ConLeche.Expr
@@ -67,42 +43,83 @@ def getAppArgsAccC : Expr → List Expr → List Expr
 /-- The arguments of an application spine, outermost last. -/
 @[inline] def getAppArgsC (e : Expr) : List Expr := getAppArgsAccC e []
 
-/-! ## Instantiation -/
+/-! ## The substitution walks (tasks #314, #316, #317)
 
-/-! ## The exclusivity-oracle memo discipline (task #314)
+ONE walk per operation — `instantiate1XP`, `instantiate1LiftXP`,
+`instantiateListXP`, `instantiateRevXP`, `abstract1XP`,
+`abstractRangeXP`, `instLevelParamsXP` — and ONE memo discipline.  The
+design, as landed:
 
-The second memo discipline, selectable by `walkMemoMode`: ONE walk
-per operation that asks, at every compound node, whether the node is
-an EXCLUSIVE object — single-threaded, reference count 1
-(`ConLeche/Kernel/Exclusive.lean`) — and rebuilds an exclusive node
-without touching the memo (no key, no probe, no insert), while a
-shared node (count `> 1`, multi-threaded, or persistent — the
-installed environment) is probed and, on a miss, recorded after the
-rebuild.  The table is created at the first shared compound node
-(`none` until then); the root is never probed (it cannot be reached
-again within its own walk).  The official kernel's `replace_fn`
-caches exactly the `!is_likely_unshared(e)` nodes.
+* **Memoise only what is shared.**  At every compound node past the
+  cutoff the walk asks `withExclusive`
+  (`ConLeche/Kernel/Exclusive.lean`) whether the node is an EXCLUSIVE
+  object — single-threaded, reference count 1.  An exclusive node
+  cannot be reached twice, so it is rebuilt with the memo untouched:
+  no key, no probe, no insert.  A shared node (count `> 1`,
+  multi-threaded, or persistent — the installed environment) is
+  probed and, on a miss, recorded after the rebuild.  The table is
+  created at the first shared compound node (`none` until then); the
+  root is never probed (it cannot be reached again within its own
+  walk).  The official kernel's `replace_fn` caches exactly the
+  `!is_likely_unshared(e)` nodes.
+* **Key the memo by address and cursor.**  The key is the node's
+  address, read by `withPtrAddr` (`Expr.withAddr`) at the top of the
+  shared step, packed with the cursor into one `Nat` (`pkey`) — a
+  scalar, no allocation, no structural hash.  The table is a
+  `Std.HashMap` on that key.
+* **Validate a hit by pointer identity.**  A probe that returns an
+  entry is believed only after `Expr.ptrDec` (`withPtrEq`, the
+  pointer comparison at runtime and the derived structural decision
+  in the model) says the stored node IS the current one, and the
+  cursors compare equal.  The address is therefore never trusted: a
+  wrong key can only cost a rebuild, never a value.
+* **Every entry is self-proving.**  A `PEnt` stores its node, its
+  rebuild, its cursor and the proof `val = s node depth`.  So there is
+  **no table invariant** — the table may be anything, may grow and may
+  overwrite — and a validated hit yields the proof the walk's result
+  type demands by rewriting along the two equalities.  This is the
+  `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGo`, applied to the
+  walks.
+* **No cutoff.**  The walk is exact: it memoises every shared compound
+  node it meets, for as long as the walk lasts, and nothing bounds the
+  table.  The node budget of task #313 — a heuristic that stopped
+  memoising after 256 nodes and restarted — is gone (task #317).
 
-**The node is borrowed** (`@&`) all the way down, and so is the
-replacement.  An owned parameter is a reference of its own, and the
-count the oracle reads would then be "in-tree references + 1" — every
-child of a held root would answer shared.  Borrowed, the count is the
-number of references INSIDE the term (plus the caller's at the root,
-which is never asked), which is the question the memo exists to
-answer.  The task #314 record reads the generated C.
+**The borrowed-parameter convention is a REQUIREMENT, not an
+optimisation.**  The node is borrowed (`@&`) all the way down, and so
+is the replacement.  An owned parameter is a reference of its own, and
+the count `withExclusive` reads would then be "in-tree references
++ 1" — every child of a held root would answer shared, and the memo
+would degenerate to the always-memoised walk.  Borrowed, the count is
+the number of references INSIDE the term (plus the caller's at the
+root, which is never asked), which is the question the memo exists to
+answer.  **How this is checked**: by reading the generated C of every
+walk (`.lake/build/ir/ConLeche/Cached/ExprOpsC.c`) for a surviving
+`lean_inc_ref` of the node before `lean_is_exclusive_obj` — the IR
+audits of the task #314 and #316 records (DESIGN.md).  A change to
+these walks that drops a `@&` or lets a `let`, a closure or a `Prod`
+hold the node across the check is silently correct and measurably
+slower; the audit is what catches it.
 
-**Verification is intrinsic** (the `Expr.beqGo` shape): a walk
-returns a `Squash` of the rebuilt term with its proof of equality to
-the PLAIN descent (`*P`, the reference — `Verify/Cached/OpsC.lean`
-proves each `*P` equal to the specification) beside the memo, whose
-type carries its own invariant (`MemoXInv`).  The result is a
-`Subsingleton`, which is the obligation `withExclusive` asks of its
-continuation — so the wrapper's theorem holds whatever the oracle
-answers, by the primitive's contract, never by a case analysis on
-reference counts.  Each walk's `enter*` is the child step: the cutoff,
-the compound test, then the oracle; its `rec` argument is the descent
-itself, inlined, so the recursive call is applied to the subterm and
-termination is the walk's own. -/
+**Verification is intrinsic** (the `Expr.beqGo` shape): a walk returns
+a `Squash` of the rebuilt term with its proof of equality to the PLAIN
+descent (`*P`, the reference — `Verify/Cached/OpsC.lean` proves each
+`*P` equal to the specification) beside the memo, which is
+unobservable.  The result is a `Subsingleton`, which is the obligation
+`withExclusive` and `withPtrAddr` each ask of their continuation — so
+the wrapper's theorem holds whatever the reference count and the
+address are, by the primitives' contracts, never by a case analysis on
+either.  Each walk's `enter*P` is the child step: the cutoff, the
+compound test, then the exclusivity read; its `rec` argument is the
+descent itself, inlined, so the recursive call is applied to the
+subterm and termination is the walk's own.
+
+Nothing here adds to the trust surface beyond the one allowlisted
+escape: `withPtrAddr` and `withPtrEq` are `Init.Util`'s (and the tree
+already relies on both, in `Expr.beqGo` and `Name.beq`), and
+`withExclusive` is `ConLeche/Kernel/Exclusive.lean`'s — the walks' one
+`unsafe`-implemented primitive, whose module docstring is the
+justification `tests/trust-surface.sh` points at. -/
 
 /-- The nodes a memo entry can save a descent of. -/
 @[inline] def isCompound : Expr → Bool
@@ -115,57 +132,45 @@ by its subtype). -/
   Quotient.lift (fun p => p.1.1) (fun p q _ => by rw [p.1.2, q.1.2]) s
 
 /-- What the term of a walk's result is: the value its subtype names.
-Whatever the oracle answered along the way. -/
+Whatever the exclusivity reads and the addresses were along the
+way. -/
 theorem resTerm_eq {c : Expr} {M : Type} (s : Squash ({ r : Expr // r = c } × M)) :
     resTerm s = c := by
   induction s using Quotient.ind with
   | _ p => exact p.1.2
 
-/-! ## The pointer-keyed memo (task #316)
+/-! ### The memo
 
-The oracle memo above (`MemoX`) records a shared node under the
-STRUCTURAL key `(e, c)`: one `Prod` allocation per entry, the node's
-cached hash mixed with the cursor, a `beq` on every probe (pointer
-identity first, then the data word, then the descent), a bucket cons
-cell per insert and the rehash train of a table grown from eight
-buckets.  The task #314/#315 records attribute what remains of the
-oracle's gap against the budget on `magma-list-pair-n21` (+13.6 …
-+17.9 %) to exactly that per-entry price on the shared nodes of small
-walks.  The C++ kernel's `replace_fn` pays none of it: its cache is an
-`unordered_map` keyed on the raw `expr` pointer and the offset.
+The key is the node's ADDRESS packed with the cursor into one `Nat`
+(`pkey`: addresses are 8-byte aligned, so `addr / 8`, then the cursor
+modulo `2^16` in the low bits — pure register arithmetic, a tagged
+scalar, no allocation and no structural hash), and the table is a
+`Std.HashMap` on it under a MIXING hash (the address bits are dense;
+`hash64` is what `Lean.Ptr` uses, and the identity hash of `Nat` would
+cluster them after Std's fold — the intern table's lesson of task
+#89).
 
-This is that memo in Lean: the key is the node's ADDRESS (`withPtrAddr`,
-`Init.Util`) packed with the cursor into one `Nat` (`pkey`: addresses
-are 8-byte aligned, so `addr / 8`, then the cursor modulo `2^16` in
-the low bits — a scalar, no allocation), and a hit is VALIDATED by
-pointer identity of the stored node with the current one
-(`Expr.ptrDec`, i.e. `withPtrEqDecEq`: one comparison at runtime, the
-structural decision in the model) plus a cursor compare.  **No table
-invariant**: every entry (`PEnt`) carries its own proof that its value
-is the plain descent of its node at its cursor — the `BeqMap`/`EqPair`
-shape of `Expr.beqGo` — so a validated hit yields the proof the walk's
-result type demands by rewriting along the two equalities, and the
-address is never trusted: a key collision (an address reused within
-one walk cannot happen — every recorded node is held by the table —
-but nothing here depends on that) fails validation and is a miss.
-That is what discharges `withPtrAddr`'s obligation: the continuation
-returns a `Squash`, and its value is the plain descent whatever the
-address (`Subsingleton.elim`, as `Expr.withAddr` already asks).
+A structural key `(e, c)` was what the walks used before task #316: a
+`Prod` allocation per entry, the node's cached hash mixed with the
+cursor, and a `beq` on every probe.  The C++ kernel's `replace_fn`
+pays none of that — its cache is an `unordered_map` on the raw `expr`
+pointer and the offset — and neither does this.
 
-Two tables behind one switch (`walkPtrTable`): `.hash`, a
-`Std.HashMap` on the packed key under a mixing hash (the address bits
-are dense; `hash64` is what `Lean.Ptr` uses) — the incumbent's table
-with the key changed, one `Prod`-free insert; and `.flat`, an
-open-addressing table of two parallel arrays (`keys : Array Nat`,
-tagged scalars, `0` = empty; `ents : Array (PEnt s)`), power-of-two
-capacity from 16, Fibonacci hashing on the packed key, linear probing,
-doubled at half load by re-probing every entry — no bucket cells, no
-per-key allocation beyond the entry itself, no cutoff, growth only.
-The walks (`*XP`) are the oracle walks (`*X`) verbatim over `MemoXP`
-in place of `MemoX`; the memo is `none` until the first shared
-compound node, as before, and the switch is a compile-time constant
-the wrappers fold.  Nothing here adds to the trust surface: the two
-address primitives are `Init.Util`'s and the oracle's is task #314's. -/
+The price of the cheap key is that the key alone proves nothing, so
+the entry does: `PEnt` stores its node, its rebuild, its cursor and
+the proof, and `PEnt.hit` believes a probe only after the cursors
+compare equal and `Expr.ptrDec` says the stored node IS the current
+one.  A key collision (an address reused within one walk cannot happen
+— every recorded node is held by its entry and the root by the caller
+— but nothing here depends on that) fails validation and is a miss.
+Hence **no table invariant at all**: the table may grow, rehash and
+overwrite freely, and no lemma about it is needed.
+
+`withPtrAddr`'s own obligation is discharged the same way the rest of
+the section's are: the continuation of the address read is the whole
+shared-node step and returns a `Squash`, so it is `Subsingleton.elim`
+(`Expr.withAddr`).  The address may choose HOW the walk computes —
+which slot, which entry is consulted — never WHAT. -/
 
 /-- The packed key: the node's address over its 8-byte alignment,
 then the cursor modulo `2^16` in the low bits.  Pure `UInt64` register
@@ -256,19 +261,17 @@ abbrev ResXP0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoX
 /-! ### `instantiate1LiftC` (task #214, P4)
 
 The capture-avoiding substitution `Expr.instantiate1Lift` — the one
-substitution on the direct install's executed path with no memoised
-twin: `structProjBodies` runs it once per field over the constructor
-telescope, turning a DAG-shared field type into an unshared tree each
-time.  The twin has the `bvarB` cutoff (a node bounded at or below the
-cursor is returned unchanged), a BUDGETED plain descent first (4096
-nodes, allocation-free of any memo table — the memo would be a tax on
-the small terms that are the common case, cf. the +33 % an
-unconditional instantiate memo cost on init-prelude), and the memoised
-descent only past the budget.  `instantiate1LiftC_spec`
-(`ConLeche/Verify/Cached/OpsC.lean`) reads it as `Expr.instantiate1Lift`. -/
+substitution on the direct install's executed path that once had no
+memoised twin at all: `structProjBodies` runs it once per field over
+the constructor telescope, turning a DAG-shared field type into an
+unshared tree each time.  The twin is the section's walk, with the
+`bvarB` cutoff (a node bounded at or below the cursor is returned
+unchanged).  `instantiate1LiftC_spec`
+(`ConLeche/Verify/Cached/OpsC.lean`) reads it as
+`Expr.instantiate1Lift`. -/
 
-/-- The plain descent of `instantiate1LiftC` (task #314; the reference
-of `instantiate1LiftX`). -/
+/-- The plain descent of `instantiate1LiftC`: the reference
+`instantiate1LiftXP` carries its own proof against. -/
 def instantiate1LiftP (v : Expr) (e : Expr) (d : Nat) : Expr :=
   if e.bvarB ≤ d then e else
   match e with
@@ -289,7 +292,8 @@ theorem instantiate1LiftP_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
     instantiate1LiftP v e d = e := by
   rw [instantiate1LiftP.eq_def]; simp [h]
 
-/-- (Task #316.) The child step of `instantiate1LiftXP`: the pointer-keyed twin of `enterLift`. -/
+/-- The child step of `instantiate1LiftXP`: the cutoff, the compound
+test, the exclusivity read. -/
 @[inline] def enterLiftP (v : @& Expr) (e : @& Expr) (d : Nat)
     (memo : MemoXP (instantiate1LiftP v))
     (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (instantiate1LiftP v) e d)) :
@@ -299,7 +303,7 @@ theorem instantiate1LiftP_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
-/-- The oracle walk of `instantiate1LiftC`. -/
+/-- The walk of `instantiate1LiftC`. -/
 def instantiate1LiftXP (v : @& Expr) (memo : MemoXP (instantiate1LiftP v)) (e : @& Expr)
     (d : Nat) (hcut : ¬ e.bvarB ≤ d) : Squash (ResXP (instantiate1LiftP v) e d) :=
   match e with
@@ -337,9 +341,9 @@ def instantiate1LiftC (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
   if hcut : e.bvarB ≤ d then e else
   resTerm (instantiate1LiftXP v none e d hcut)
 
-/-- The plain descent of `instantiate1C`: the reference the oracle
-walk is verified against (`instantiate1P_spec`, `Verify/Cached/OpsC.lean`,
-is the equation to `Expr.instantiate1`). -/
+/-- The plain descent of `instantiate1C`: the reference the walk is
+verified against (`instantiate1P_spec`, `Verify/Cached/OpsC.lean`, is
+the equation to `Expr.instantiate1`). -/
 def instantiate1P (v : Expr) (e : Expr) (d : Nat) : Expr :=
   if e.bvarB ≤ d then e else
   match e with
@@ -357,8 +361,8 @@ theorem instantiate1P_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
     instantiate1P v e d = e := by
   rw [instantiate1P.eq_def]; simp [h]
 
-/-- (Task #316, the pointer-keyed twin.) The child step of `instantiate1XP`: the cutoff, the compound test,
-the oracle. -/
+/-- The child step of `instantiate1XP`: the cutoff, the compound test,
+the exclusivity read. -/
 @[inline] def enter1P (v : @& Expr) (e : @& Expr) (d : Nat) (memo : MemoXP (instantiate1P v))
     (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (instantiate1P v) e d)) :
     Squash (ResXP (instantiate1P v) e d) :=
@@ -367,8 +371,8 @@ the oracle. -/
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
-/-- The oracle walk of `instantiate1C` (the node is past the cutoff:
-the wrapper and `enter1P` test it). -/
+/-- The walk of `instantiate1C` (the node is past the cutoff: the
+wrapper and `enter1P` test it). -/
 def instantiate1XP (v : @& Expr) (memo : MemoXP (instantiate1P v)) (e : @& Expr) (d : Nat)
     (hcut : ¬ e.bvarB ≤ d) : Squash (ResXP (instantiate1P v) e d) :=
   match e with
@@ -405,8 +409,8 @@ def instantiate1C (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
   if hcut : e.bvarB ≤ d then e else
   resTerm (instantiate1XP v none e d hcut)
 
-/-- The plain descent of `instantiateListC` (task #314; the reference of
-`instantiateListX`, `instantiateListBC` without the fuel). -/
+/-- The plain descent of `instantiateListC`: the reference
+`instantiateListXP` carries its own proof against. -/
 def instantiateListP (vs : Array Expr) (e : Expr) (k : Nat) (d : Nat) : Expr :=
   if k = 0 then e
   else if e.bvarB ≤ d then e
@@ -449,9 +453,9 @@ theorem instantiateListP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bva
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
-/-- The oracle walk of the bulk instantiation (the `bvar` arm's
-re-entry at a replacement runs under a fresh memo, as the memoised
-walk's does — `MemoNL`). -/
+/-- The walk of the bulk instantiation.  The `bvar` arm's re-entry at
+a replacement runs under a FRESH memo: it is the one place the live
+prefix `k` shrinks, and `k` is not part of the key. -/
 def instantiateListXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateListP vs e k d))
     (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
     Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
@@ -553,9 +557,10 @@ theorem instantiateRevP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bvar
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
-/-- The oracle walk of the bulk instantiation (the `bvar` arm's
-re-entry at a replacement runs under a fresh memo, as the memoised
-walk's does — `MemoNL`). -/
+/-- The walk of the bulk instantiation on a reversed accumulator.  The
+`bvar` arm's re-entry at a replacement runs under a FRESH memo: it is
+the one place the live prefix `k` shrinks, and `k` is not part of the
+key. -/
 def instantiateRevXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs e k d))
     (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
     Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
@@ -640,7 +645,7 @@ theorem abstract1P_cut {d : Nat} {e : Expr} {k : Nat} (h : e.fvarB ≤ d) :
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e k fun _ => rec hcut
 
-/-- The oracle walk of `abstract1C`. -/
+/-- The walk of `abstract1C`. -/
 def abstract1XP (d : Nat) (memo : MemoXP (abstract1P d)) (e : @& Expr) (k : Nat)
     (hcut : ¬ e.fvarB ≤ d) : Squash (ResXP (abstract1P d) e k) :=
   match e with
@@ -708,7 +713,7 @@ theorem abstractRangeP_cut {d k : Nat} {e : Expr} {c : Nat} (h : e.fvarB ≤ d) 
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e c fun _ => rec hcut
 
-/-- The oracle walk of `abstractRangeC`. -/
+/-- The walk of `abstractRangeC`. -/
 def abstractRangeXP (d k : Nat) (memo : MemoXP (abstractRangeP d k)) (e : @& Expr) (c : Nat)
     (hcut : ¬ e.fvarB ≤ d) : Squash (ResXP (abstractRangeP d k) e c) :=
   match e with
@@ -776,9 +781,10 @@ theorem instLevelParamsP_cut {ks : List Name} {us : List Level} {e : Expr}
     (h : (!e.hasLP) = true) : instLevelParamsP ks us e = e := by
   rw [instLevelParamsP.eq_def]; simp [h]
 
-/-- (Task #316, the pointer-keyed twin.) The child step of `instLevelParamsXP`: the cutoff, then the oracle —
-on EVERY node past the cutoff, as the memoised walk records every one
-(a `const` with level parameters is a `Level.subst` per occurrence). -/
+/-- The child step of `instLevelParamsXP`: the cutoff, then the
+exclusivity read on EVERY node past it — there is no compound test
+here, since a `const` with level parameters is a `Level.subst` per
+occurrence and worth recording. -/
 @[inline] def enterLPP (ks : @& List Name) (us : @& List Level) (e : @& Expr)
     (memo : MemoXP0 (instLevelParamsP ks us))
     (rec : (hcut : ¬ (!e.hasLP) = true) → Squash (ResXP0 (instLevelParamsP ks us) e)) :
@@ -787,7 +793,7 @@ on EVERY node past the cutoff, as the memoised walk records every one
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e fun _ => rec hcut
 
-/-- The oracle walk of `instLevelParams`. -/
+/-- The walk of `instLevelParams`. -/
 def instLevelParamsXP (ks : @& List Name) (us : @& List Level)
     (memo : MemoXP0 (instLevelParamsP ks us)) (e : @& Expr) (hcut : ¬ (!e.hasLP) = true) :
     Squash (ResXP0 (instLevelParamsP ks us) e) :=
