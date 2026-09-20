@@ -6,7 +6,7 @@ The core idea of this project is: What if we allow the checker implementation to
 
 ## Status
 
-The checker is practically useful; it can process a mathlib export in about 20 minutes on a single worker thread (a few minutes with eight) within 8GB of memory. It is a relatively slow checker (see below for why), executing roughly 1.1–1.3× the instructions of the official kernel on common workloads.
+The checker is practically useful; it has comparable performance to the official kernel.
 
 It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
@@ -135,19 +135,17 @@ The parser is proven equivalent to a naive reference parser written over a list 
 
 ## Performance
 
-This checker is rather slow, compared to the official kernel or lean4lean. See [`PERF.md`](./PERF.md) for details.
+This checker is performance-wise roughly on par with the official kernel. See [`PERF.md`](./PERF.md) for details.
 
-The main reason seems to be that the official kernel, written in C++, has access to more low-level optimizations around the memo tables (peeking at the RC to decide if something is worth caching, implementing whole expression traversals without touching the RC field and using pointer addresses for hashing). The lean4lean kernel uses `Lean.Expr`, including some functions on that data structure that are implemented in C++, so it benefits some from this.
+This required pulling some low-level stunts that the kernel does in C++ in Lean, in particular around the memo tables (peeking at the RC to decide if something is worth caching, implementing whole expression traversals without touching the RC field and using pointer addresses for hashing). This is possible, to some extent, with functions like [`withPtrAddr`](https://leanprover-community.github.io/mathlib4_docs/Init/Util.html#withPtrAddr) that expose such runtime information to safe code, given a proof that this runtime information cannot affect the logical result of the function. This is also already anticipating that a safe `withExclusive` ([RFC #15235](https://github.com/leanprover/lean4/issues/15235)) will become part of the standard library; until then we have [this code here](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean).
 
-On top of that there is the overhead of annotating terms and some extra checks; the certification tax explained above.
-
-And on top of that there is surely plenty of optimizations still possible.
+There is some overhead of annotating terms and some extra checks; the certification tax explained above.
 
 ## Next steps
 
 This project was published when it was barely useable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
 
-* Make it faster.
+* Make it even faster.
 * Direct support for mutual and nested types, dropping the run-time model generation.
 * Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
