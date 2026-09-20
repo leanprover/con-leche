@@ -125882,3 +125882,140 @@ proofs, not at the brief), `hrowsσ` being off the critical path, and
 the `hscope` guard finding — a premise guarded by the bit its own
 conclusion is used to produce is a circle, and the tree had one.
 
+
+#### WIDE (f3) STEP 1(a) — THE BRIDGE RE-PRICED AT THE PROOFS: SIX PREMISES WERE ASKED AT THE WRONG ARM, AND TWO OF THE THREE ARMS OF A PIN COPY'S FIELD HAVE NO PRODUCER (lane LE, 2026-09-20)
+
+The brief's step 1 was "the rest of `hfitc` — ∀ own-pin class keyed by
+`σ c` — from `nestedFitc_pin`", priced at ~470 lines by the 2026-09-19
+table.  Priced again AT THE PROOFS before building, as ruled, and the
+table does not survive the reading: six of `nestedFitc_pin`'s premises
+are stated at a strictly larger set of fields than their named
+producers speak at — one of them at a set where the statement is
+plainly false — and once each is put at its own arm, TWO of the three
+arms of a field of a PIN COPY turn out to have no producer in the
+tree, where the table names a producer for one.
+
+What landed is the separation, which is a prerequisite for the bridge
+whichever way it is built and changes no proof.  Nothing of the bridge
+itself was started.
+
+##### (a) THE SIX PREMISES, AND WHY EACH WAS UNPROVABLE
+
+`nestedFitc_pin` and `nestedSlotOrd_pin` carried
+
+| premise | was guarded by | its producer's own guard |
+|---|---|---|
+| `htgσ` | nothing (`∀ l`) | `ordTgt_corr`: `l < Fss`, K-ordinary, block fired, OWNER fired |
+| `hu` | nothing (`∀ l`) | as `htgσ` (the target is read through it) |
+| `hX` | nothing (`∀ l`) | as `htgσ` |
+| `hrowTgt` | `dom` only | `PinShapes.rowTargetOrd`: `l < Fss`, K-ordinary, OWNER fired |
+| `hrowRead` | the target split only | `PinShapes.rowOrdRead`: the same three, plus the split |
+| `hrowReadMem` | the target split only | `PinShapes.rowOrdReadMem`: likewise |
+
+`htgσ`'s unguarded form is not merely unproved, it is **false**: `∀ l`
+is over ALL of `Nat`, and past the constructor's field list the block's
+target list reads `0` while σ at a member class is `p.k + rbase + c`,
+so the equation asks `0 = p.k + rbase`.  The other five are asked at
+container-RECURSIVE fields and at fields nobody rewrote, where the
+`PinShapes` rows are silent by their own guards.
+
+All six now carry their producer's guards, which is exactly where
+`nestedSlotOrd_pin`'s tail uses them (`intro l hl hord hrsB hrsP` has
+all four in scope) — six signatures and six call sites, no proof
+changed.
+
+##### (b) WHAT THE SEPARATION EXPOSES — `hXrec`, AND THE THREE ARMS
+
+`hX` unguarded was silently covering `nestedPinFit_pin`'s `hrel` as
+well (`fun l _ _ => hX l`), which is a DIFFERENT arm: `hrel` is
+guarded by the shared container calling the field RECURSIVE.  Split
+out, it is `nestedFitc_pin`'s new premise `hXrec`, and it has no
+producer.
+
+A field `l` of the shared container `K`'s constructor `(i, j)`, at the
+OWNER whose own pin `qK` this copy is, falls in exactly one of:
+
+| arm | what `hfitc` needs | producer |
+|---|---|---|
+| (A) K-RECURSIVE | `tg₁ = σ tg₂` (`hXrec`, `hrel`, and `hdom₁` there) | **NONE** |
+| (B) K-ordinary, OWNER fired | `tg₁ = σ tg₂` (`htgσ`) | `ordTgt_corr` (landed) |
+| (C) K-ordinary, owner did NOT fire, block DID | `tg₁` is OUTSIDE σ's image (`hentOrd₁`) | **NONE** |
+| (D) K-ordinary, nobody fired | nothing | — |
+
+(B) is the arm the whole of WIDE (3) built, and K.69 STRENGTHENED
+(WIDE (f3), 2026-09-20) is what makes the owner's firing carry the
+block's, so (B) and (C) are a genuine dichotomy.
+
+**Why (A) and (C) are one family.**  `PinGroupInst`'s `hstgt` (K.61's
+`instTgtAt`) and `houtσ` (K.62's `instOutAt`) are exactly (A)'s and
+(C)'s statements ONE LEVEL DOWN — at the constructors of the group's
+OWN members, against that group's own σ.  At a pin COPY the field
+belongs to `K`'s constructor while the σ in hand is the OWNER's, and
+`PinGroupInst` at the block's group `a` speaks only of σ_K.  The two
+images are unrelated: σ_owner covers the owner's member group and the
+copies of the OWNER's own pins, σ_K the group `a` and the copies of
+K's.  So neither clause applies, in either direction.
+
+That is the same shape as (B): `ordTgt_corr` is K.68's row lifted one
+level by K.67, and (A)/(C) want K.61's and K.62's rows lifted the same
+way.  **Missing object, by name: a positive record of a PIN COPY's
+target at a container-RECURSIVE field, and a negative one at a
+rewritten container-ordinary field the OWNER did not rewrite, both
+against the OWNER's instance map.**  Their model-side inputs exist and
+are not enough: `PinShapes.rowTarget` and `PinGroupInst.hpinσ` compare
+the two sides' picks at the pin's DATA (deliberately — DESIGN, WIDE
+(3), 2026-09-19: the two sides index different pin lists and a
+collapse at one instantiation need not be one at the other), and
+`NestedPinsRun.instMapPinOwn` hands the owner's map values as block
+pins with the right data; turning either into the CLASS equation needs
+two block pins with equal DATA to be one pin, which is not a fact —
+the expansion mints one copy per distinct pin EXPRESSION.  So this is
+a kernel record of the K.61/K.62 family at the nesting depth K.67
+already reaches, not a model-tier lemma, exactly as `hfireOrd` was.
+
+##### (c) THE TABLE, RE-PRICED
+
+The 2026-09-19 table stands for the arms it covers, MINUS `hfireOrd`
+(discharged 2026-09-20) and MINUS the `hscope` guard mismatch, and
+PLUS:
+
+* `hXrec` — arm (A) — **no producer**, and `hdom₁`'s 40 lines depend on
+  it at that arm;
+* `hentOrd₁` — arm (C) — the table's entry ("`CopyEntryAOrd` at the
+  block's group + `houtσ` + `setJoin_out`") reads `houtσ` at the wrong
+  group and is **not** available as written;
+* the six re-guardings, which landed here and cost the bridge nothing
+  — its instantiations now carry four guards each instead of none.
+
+So the bridge is ~470 lines OF WHICH the parts that depend on (A) and
+(C) — `hdom₁`, `hentOrd₁`, and `hXrec` itself, ~90 lines — cannot be
+written at all until the record exists, and the remainder would be a
+conditional object carrying two premises no consumer can discharge.
+**The doubling stop applies**: the brief priced two sessions for steps
+1 through 4, one of which the previous row spent; step 1 alone is now a
+kernel record plus its two rows plus the bridge.  `agent/uniform-le4`
+was NOT merged, for the reason the 2026-09-19 row gives.
+
+**What a re-price should keep**: the three-arm table in (b), which is
+the thing to check a plan against — every premise of `hfitc`'s pin
+half is at exactly one arm now, so the question "does this have a
+producer" is answerable by looking.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 6a02d714`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match, `tests/no-local-paths.sh`
+OK.  `tests/arena.sh` NOT owed — the change is `Model/` only, and no
+statement outside `NestedPinLeafAll.lean` moved.
+`tests/unconsumed.sh` **199 of 3869**, the same count and the same SET
+as the base: no declaration was added or removed, `nestedFitc_pin` is
+still in it (its consumer is the bridge), **nothing of the
+`pins_le_*`/`NestedPinsLe`-producer family moved**
+(`pins_le_of_declOrder`, `nestedPinsLe_of_rank` both stay) and
+Resolution 3's candidate-frame apparatus (`pinLfp_eq_pinLfpAt`,
+`CandParamFit`, `pinLfpAt_le`) is where it was.
+`#print axioms`: `nestedFitc_pin` and `nestedSlotOrd_pin` both
+`[propext, Classical.choice, Quot.sound]`.
