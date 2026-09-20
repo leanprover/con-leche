@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| commit measured | `1d470aa7ce0b933b0c5559d83a7f9d4e20e7a39b` |
-| tree | master at the commit above: the two-phase fold — every record installed, then every recorded declaration checked against the prefix view of the installed index — over the hand-rolled `lean4export` parser. |
-| date | 2026-09-10T17:41:04+00:00 |
+| commit measured | `0e6412044db71e4ffbe55caab019f2f5011432f7` |
+| tree | agent/land-317 at the commit above (task #317: the `withExclusive` walks with the pointer-keyed memo LANDED — one walk per operation, one memo discipline, no cutoff) — six rows re-measured with this binary; the `mathlib-full` row is the previous battery's (`1d470aa7`, binary md5 `625a61ba…`, 2026-09-10): its 5.6 GB stream is not on this machine, so that row is neither this binary's nor this stream set's.  The `init-full` stream is the #307 export (`lean4export` of `Init` at v4.33.0, 57 977 declarations) — the one the #307/#312–#317 records measure. |
+| date | 2026-09-20T15:41:43+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |
@@ -13,18 +13,18 @@
 | Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
 | concurrent load | shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv` |
 | official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| con-leche binary | md5 `625a61babe10de48dde3ced724ad0f13` |
+| con-leche binary | md5 `0783756e160e9d755fee11a2cf9b9464` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
-| `let-ladder` | 6.13 G | 8.06 G | 8.06 G | 1.31× | 1.31× |
-| `beta-ladder` | 10.12 G | 39.94 G | 39.95 G | 3.95× | 3.95× |
-| `init-prelude` | 2.21 G | 3.04 G | 3.20 G | 1.38× | 1.45× |
-| `grind-ring-5` | 13.41 G | 21.54 G | 22.69 G | 1.61× | 1.69× |
-| `app-lam` | 29.41 G | 157.30 G | 157.31 G | 5.35× | 5.35× |
-| `init-full` | 403.44 G | 521.13 G | 538.46 G | 1.29× | 1.33× |
+| `let-ladder` | 6.13 G | 2.72 G | 2.72 G | 0.44× | 0.44× |
+| `beta-ladder` | 10.13 G | 15.31 G | 15.31 G | 1.51× | 1.51× |
+| `init-prelude` | 2.21 G | 2.75 G | 2.89 G | 1.24× | 1.31× |
+| `grind-ring-5` | 13.41 G | 19.18 G | 20.30 G | 1.43× | 1.51× |
+| `app-lam` | 29.41 G | 70.68 G | 70.68 G | 2.40× | 2.40× |
+| `init-full` | 439.54 G | 491.17 G | 509.04 G | 1.12× | 1.16× |
 | `mathlib-full` | 10.54 T | 11.16 T | 12.01 T | 1.06× | 1.14× |
 
 ## exit code / accepted declaration records
@@ -33,10 +33,10 @@
 |---|---|---|---|
 | `let-ladder` | 0 / 22 | 0 / 13 | 0 / 13 |
 | `beta-ladder` | 0 / 20 | 0 / 11 | 0 / 11 |
-| `init-prelude` | 0 / 2056 | 0 / 1773 | 0 / 1773 |
-| `grind-ring-5` | 0 / 2429 | 0 / 2181 | 0 / 2181 |
+| `init-prelude` | 0 / 2056 | 0 / 1777 | 0 / 1777 |
+| `grind-ring-5` | 0 / 2429 | 0 / 2185 | 0 / 2185 |
 | `app-lam` | 0 / 34 | 0 / 21 | 0 / 21 |
-| `init-full` | 0 / 54472 | 0 / 53088 | 0 / 53088 |
+| `init-full` | 0 / 59430 | 0 / 57977 | 0 / 57977 |
 | `mathlib-full` | 0 / 670627 | 0 / 654499 | 0 / 654499 |
 
 Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
@@ -65,10 +65,10 @@ the same checked records either way.
 |---|---|---|---|---|---|---|---|---|
 | `let-ladder` | 13 | 13 | 19 | 2 | 2 | 2 | 0 | 0 |
 | `beta-ladder` | 11 | 11 | 17 | 3 | 1 | 1 | 0 | 0 |
-| `init-prelude` | 1777 | 1773 | 2056 | 5 | 121 | 104 | 14 | 3 |
-| `grind-ring-5` | 2185 | 2181 | 2429 | 4 | 101 | 78 | 16 | 7 |
+| `init-prelude` | 1777 | 1777 | 2056 | 5 | 121 | 104 | 14 | 3 |
+| `grind-ring-5` | 2185 | 2185 | 2429 | 4 | 101 | 78 | 16 | 7 |
 | `app-lam` | 21 | 21 | 31 | 2 | 4 | 4 | 0 | 0 |
-| `init-full` | 53093 | 53088 | 54472 | 5 | 583 | 477 | 59 | 47 |
+| `init-full` | 57977 | 57977 | 59430 | 5 | 610 | 493 | 63 | 54 |
 | `mathlib-full` | 654504 | 654499 | 670627 | 5 | 6639 | 5683 | 634 | 322 |
 
 ## the Mathlib row, as data (not a measurement)
@@ -104,7 +104,7 @@ Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation
 
 ## Notes
 
-* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells.  **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes — **1.14× verified, 1.06× trusted**; the smaller `init-full` stream sits at 1.33× / 1.29×.  The count difference is the official binary's counting (see below), not a verdict difference.
+* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells.  **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes — **1.14× verified, 1.06× trusted**; the smaller `init-full` stream sits at 1.16× / 1.12× (the `mathlib-full` cells predate tasks #313 and #317, see the note above).  The count difference is the official binary's counting (see below), not a verdict difference.
 * **The verdict line counts declaration RECORDS**, the FILE's own count
   `decls.size - genRecords` (the file's own records: the built-in
   prelude adds none, since the stream's own record is what is used

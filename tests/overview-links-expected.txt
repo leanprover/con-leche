@@ -363,6 +363,45 @@
   1432      {env : Env} (h : checkDecls mode pins ds = .ok env) :
   1433      envSkels env = streamSkels ds.toList := by
 
+== ConLeche/Kernel/Exclusive.lean#L6-L42
+     6  # `withExclusive`: the reference-count read behind the walk memo
+     7  
+     8  **What it is.**  `withExclusive a k h` runs the continuation `k` on
+     9  whether the object `a` is *exclusive* — single-threaded with reference
+    10  count exactly 1, so that no other reference to it exists.  In the logic
+    11  it is `k false` ("not known to be exclusive", the conservative answer);
+    12  in compiled code `@[implemented_by]` substitutes `k
+    13  (isExclusiveUnsafe a)`, the real count read off the object header
+    14  (`Init/Util.lean`, `@[extern "lean_is_exclusive_obj"]`, a BORROWED
+    15  parameter; `lean_is_exclusive` in `lean.h`).  A multi-threaded object
+    16  (count `< 0`) and a persistent one (count `0` — the installed
+    17  environment after the driver's `Runtime.markPersistent`) answer
+    18  `false`, which is the safe side.
+    19  
+    20  **What licenses the substitution** is the obligation
+    21  
+    22  ```
+    23  h : k true = k false
+    24  ```
+    25  
+    26  — the continuation's value does not depend on the answer, so the
+    27  compiled program computes the very value the definition names.  A
+    28  caller may use the answer to choose *how* to compute a value, never
+    29  *which* value.  `Init.Util`'s `withPtrAddr` is the same arrangement
+    30  (`k 0` in the model, the address in the binary, the continuation
+    31  address-blind by obligation), and `Bool` being two-valued makes
+    32  `k true = k false` the whole of `∀ b₁ b₂, k b₁ = k b₂`.
+    33  
+    34  **What it is for.**  The per-walk memo tables of the substitution walks
+    35  (`ConLeche/Cached/ExprOpsC.lean`) exist for one reason: a node reached
+    36  twice — a shared sub-DAG — must be rebuilt once, so that the walk is
+    37  `O(DAG)` and its OUTPUT stays shared.  A node with exactly one
+    38  reference cannot be reached twice, so recording it is pure loss: the
+    39  key, the entry, the probe.  The official kernel's `replace_fn`
+    40  (`src/kernel/replace_fn.cpp`) therefore caches a node's replacement
+    41  only when `!is_likely_unshared(e)` — the same read.  The walks memoise
+    42  exactly the nodes this primitive reports shared.
+
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
    177  

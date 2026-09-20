@@ -116,6 +116,27 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
+#   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
+#       `withExclusive` (tasks #314, #317) — THE ONE
+#       `unsafe`-implemented primitive of the substitution walks.  It
+#       is *defined* as `k false` and `@[implemented_by]` the compiled
+#       `k (isExclusiveUnsafe a)` — the reference-count read the
+#       official kernel's `replace_fn` keys its cache on
+#       (`is_likely_unshared`); the walks memoise exactly the nodes it
+#       reports shared.  The obligation `h : k true = k false` is what
+#       licenses the substitution: the continuation cannot observe the
+#       answer, so the compiled program computes the definition's
+#       value — the same arrangement as `Init.Util`'s `withPtrAddr`
+#       (`k 0` in the model, the address in the binary).  Every use in
+#       the tree goes through `withExcl`, whose continuation returns a
+#       `Squash` (a `Subsingleton`), so `h` is `Subsingleton.elim` and
+#       the walks' theorems (`Verify/Cached/OpsC.lean`) hold whatever
+#       the read answers.  The file's own docstring is the
+#       justification (and cites the Lean RFC that proposes the
+#       primitive for `Init/Util.lean`); the task #314 and #316
+#       records read the generated C for the trap the primitive exists
+#       to avoid (a hidden reference before the read).
+#
 #   ConLeche/Kernel/BasisGen.lean      unsafe, implemented_by
 #       ELABORATOR-ONLY.  `#annotate_basis` / `#annotate_pins` run the
 #       checker's own annotation pass at elaboration time through
@@ -187,6 +208,7 @@ ALLOW = {
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
+    'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately

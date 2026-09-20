@@ -422,7 +422,11 @@ differ from a textbook presentation and matter for the proof:
   ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
-  what makes the DAG-safe traversals cheap.
+  what makes the DAG-safe traversals cheap.  The substitution walks
+  memoise only the nodes the runtime reports SHARED — a reference-count
+  read, with a memo keyed by the node's address and validated by
+  pointer identity, so an unshared node costs no key and no probe
+  ([`withExclusive`'s account in `ConLeche/Kernel/Exclusive.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean#L6-L42)).
 
 ## 4. The proof idea
 
