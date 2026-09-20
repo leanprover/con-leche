@@ -126569,3 +126569,37 @@ OK.  `tests/arena.sh` NOT owed — `Model/` only.
 declaration added (`read_of_run`), unconsumed until the assembly.
 `#print axioms read_of_run`: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (f3) STEP 1 — `hdom₁` NEEDS NO NEW OBJECT: IT IS `hdom₂` ACROSS THE SLOT CORRESPONDENCE, ARM BY ARM (lane LE, 2026-09-20)
+
+The last of the 2026-09-19 table's four real entries, read at
+`copyTransfer_via_pin`'s proof rather than at the brief.  `hdom₁` is
+side 1's (the BLOCK's) slot inside the SHARED container's field domain,
+and the proof spends it at exactly three arms — each of which already
+has everything the inclusion needs:
+
+| arm | where `hdom₁` is spent | what gives it |
+|---|---|---|
+| container-RECURSIVE | the `if_pos (hrs₁ …)` branch | `h₁.slot_container` + `copyTarget_u` + `hrel`/`hXrec` carry side 1's slot onto side 2's; `hdom₂` bounds that; `hcdom` (already computed in the same proof) carries the domain back to frame 1 |
+| container-ORDINARY, BOTH fired | the `if_pos hrC₁, if_pos hb` branch | the same, with `hslotOrd` in place of `slot_container` — it is an EQUALITY of the two slots |
+| container-ORDINARY, side 1 fired and side 2 did NOT (the mixed corner) | the last branch | `h₁.ordF`-RIGHT's `EntryRead` at a target that LEAVES the instance (`entOut_corr` + `CopyEntryAOrd` + `setJoin_out`) — an EQUALITY, so it gives this inclusion and `hentOrd₁`'s at once |
+
+**So `hdom₁` is not a fourth proof**: it is `hdom₂` transported, plus
+— at the one corner where side 2 is silent — the very entry
+`hentOrd₁` already asks for.  The 2026-09-19 table's 40 lines are
+bookkeeping over three arms and no missing object, and the cleaner
+shape is to DELETE the premise from `copyTransfer_via_pin` and derive
+it there, where `hcdom`, `h₁.slot_container`, `h₂.slot_container` and
+`copyTarget_u` are all already in hand.
+
+**What the bridge still owes, after this reading**: ONE object — the
+OWNER's rewrite of a container-ORDINARY field forces that field's
+stored domain to be constant-headed (the previous row) — and
+bookkeeping: `hdom₁`'s three arms, `hscope`'s firing and scoping
+(`rowTargetOrd`'s dichotomy and `ordTargetDom_scoped`), `hXrec`'s two
+halves (`recTgt_corr_mem` at a member target, `ordTgt_corr` at a pin
+one, the latter wanting `nestedFitc_pin`'s `hrowTgt` WIDENED as K.71
+widened `PinShapes`' clause), `hu`/`hX` (`setJoin_at_fc` and the
+group's `pinU`), `hnIdxR` (`PinShapes.rowPinNIdx`, one line) and the
+assembly's preamble (`nestedPinPairAt`'s pin arm, re-run at σ instead
+of at `ClassPinAt`).
