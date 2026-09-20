@@ -1395,6 +1395,53 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   exact ⟨q₀, kJ, i, hqe, hi, hgv, hord⟩
 
+/-- **K.68's `z`-ROW, READ AT ONE PIN** (task #315 WIDE (3), step 2):
+`PinShapes`' `OrdTargetRead` clause projected out at a pin, the way
+`rowTargetOrd` projects the class row beside it.
+
+The class row says WHICH class a rewritten ordinary field lands on;
+this one says what the OWNER's own recomputation of that field READS
+as — an application whose arguments past the head container's
+parameters are the copy's index expressions — together with the two
+lengths the consumer splits that application at (`Ps` by the target
+pin's `nPJ`, `Eis` by its `nIdx`).
+
+Its guard is the clause's own: the owner's target is one of the
+owner's PINS (`¬ (pc _).tgts j l < d.k`).  At a MEMBER target the
+clause says nothing, and that arm of the two copies' field-data tie is
+a separate object. -/
+theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinShapes m B d pc)
+    {q : Nat} (hq : q < d.nPins) {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env (d.pinAt q).J = some ci) :
+    ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PinGroupView d (B ci) q₀ kJ ∧
+      ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+        ∀ i', i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+        l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+        (((B ci).rss i').getD j []).getD l false = false →
+        ((pc (q₀ + i')).rss.getD j []).getD l false = true →
+        ¬ (pc (q₀ + i')).tgts j l < d.k →
+        ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+          (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+        ((B ci).ctorsM i')[j]? = some cA →
+        cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
+        bs[(B ci).nP + l]? = some dom →
+        ∀ (lpsC : List Name) (Jm : ContainerMember),
+        ci.members[i']? = some Jm → Jm.lps = lpsC →
+        ∀ (K : Name) (usK : List Level),
+        (dom.1.instantiateLevelParams lpsC ((d.pinAt (q₀ + i')).lvls)).getAppFn = .const K usK →
+        ∃ z : Nat, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
+          ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l []).length = (d.pinAt z).nIdx ∧
+          OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
+            ((d.pinAt q₀).Ds ψ)
+            (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
+            ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
+            ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [])
+            ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1 := by
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
+  obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
+  exact ⟨q₀, kJ, i, hqe, hi, hgv, hrd⟩
+
 /-- **THE ROW, READ AS THE TARGET VIEW'S DATA AT THE FIELD** (task
 #315 WIDE, lane `uniform-carry`): the shape the collapse-aware
 correspondence consumes.

@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.NestedCopyIdx
 import ConLeche.Model.Inductives.NestedInstMap
+import ConLeche.Model.Inductives.NestedCopyRead
 import ConLeche.Verify.Inductives.NestedGroupInv
 public section
 
@@ -4767,6 +4768,248 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
       have := hpin₁ ciZ qJ (by rw [← hnames]; exact hfi) hciM hF
       rw [this, hqJz]
 
+
+omit [SetTheory V] in
+/-- **A CONSTANT HEAD SURVIVES `instantiateList`** — what carries
+`ordTargetDomL`'s head to `ordTargetDom`'s.  (The twin in
+`NestedInstMap.lean` is private to its own run tier.) -/
+theorem getAppFn_instantiateList_const_at {vs : List Expr} {n : Name} {us : List Level} :
+    ∀ {e : Expr} {d : Nat}, e.getAppFn = .const n us →
+      (e.instantiateList vs d).getAppFn = .const n us := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro d h
+    simp only [Expr.instantiateList, Expr.getAppFn]
+    exact ihf (by simpa only [Expr.getAppFn] using h)
+  | const m vs' => intro d h; simpa only [Expr.instantiateList] using h
+  | _ => intro d h; simp [Expr.getAppFn] at h
+
+omit [SetTheory V] in
+/-- **A CONSTANT-HEADED STORED DOMAIN FLATTENS EVERY TABLE'S
+RECOMPUTATION** (task #315 WIDE (3), step 2): `stripDomPis` peels only
+`∀` nodes and the level instantiation the table supplies does not
+change a head, so at a domain whose own head is a constant the tower is
+empty at EVERY own-pin table — which is what lets the two sides' two
+tables be compared at one cut. -/
+theorem ordTargetDomL_flat_at {lpsC : List Name} {dom : Expr} {K : Name} {vs : List Level}
+    (hK : dom.getAppFn = .const K vs) (t : List Expr) (nP q l : Nat) :
+    ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
+      (ConLeche.ordTargetDom lpsC nP t q l dom).getAppFn
+        = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+  have hh : (ConLeche.ordTargetDomL lpsC t q dom).getAppFn
+      = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+    rw [ConLeche.ordTargetDomL, Expr.getAppFn_instantiateLevelParams, hK]
+    rfl
+  have hflat : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
+      ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC t q dom)
+        = ConLeche.ordTargetDomL lpsC t q dom := by
+    cases hd : ConLeche.ordTargetDomL lpsC t q dom with
+    | forallE ty bo bm =>
+      rw [hd] at hh
+      exact nomatch (hh : (Expr.forallE ty bo bm).getAppFn = Expr.const K _)
+    | _ => exact ⟨rfl, rfl⟩
+  refine ⟨hflat.1, ?_⟩
+  unfold ConLeche.ordTargetDom
+  rw [hflat.2]
+  exact getAppFn_instantiateList_const_at hh
+
+/-- **THE TWO ROWS NAME ONE FIELD DATUM** (task #315 WIDE (3), step 2,
+`hslotOrd`'s field-data half): at a field the pin's container `dK`
+calls ORDINARY and both copies rewrote to recursive, whose two targets
+are PINS, the BLOCK's recorded index expressions are the OWNER's with
+the owner pin's components substituted at the field's cut, and both
+copies' field TELESCOPES are empty.
+
+`ordTgt_corr` beside it ties the two copies' TARGETS; this ties their
+DATA, and the two together are what the wide identification's pin half
+compares.
+
+**One reading, read twice.**  Side 1 is `GroupFacts.ordRead` (K.69 at
+the group), stated at the block's own parameter frame and at the
+environment's own-pin table; side 2 is `PinShapes.rowOrdRead` (K.68's
+`z`-row carried), stated at the OWNER's parameter frame and over the
+container model's `ownPinTerms`.  The two tables are one at the
+position the recomputation reads (`ownPinsSelfAt`,
+`ordTargetDom_congr_at`), so the two sides read ONE expression: side
+2's reading IS side 1's `rx`, and side 1's equation then says the
+block's application is the owner's carried across the substitution
+(`AnnotTerm.instAll_mkAppN`).
+
+**The split is by ARITY and that is why the two lengths are here.**
+`AnnotTerm.mkAppN` is injective only at equal argument counts, so the
+head container's parameter count (`nPJ`) and the target member's index
+count (`nIdx`) must agree on the two sides.  Both pins carry the same
+container — the SHARED HEAD `K` of the stored domain, which neither
+level instantiation can change — and `harity` is that agreement, the
+crossing this tier cannot run: the two pin tables belong to two
+different runs and only a consumer holding both can say a name
+determines an arity.
+
+**The guard is the OWNER's own** (`hpinR`): at a field whose owner
+target is a container MEMBER the `z`-row says nothing, and that arm of
+the tie is a separate object. -/
+theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {pcR : Nat → PinCtors V} {ψ φ : Name → Nat} {ρp ρR : Nat → V}
+    {Ds₂ Fs₂ : List AnnotTerm} {a kk i' j l : Nat}
+    (G : GF st m a kk dK)
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (hi' : i' < kk) (hj : j < (dK.ctorsM i').length)
+    (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
+    (hord : ((dK.rss i').getD j []).getD l false = false)
+    (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 < p.k)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta} {lpsC : List Name}
+    (hjA : (dK.ctorsM i')[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    (hdm : bs[dK.nP + l]? = some dom)
+    {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
+    (hJm : ciC.members[i']? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- THE HEAD: the stored domain's own, which both guards read
+    {K : Name} {vs : List Level} (hdomHd : dom.1.getAppFn = .const K vs)
+    -- the OWNER, at the run
+    {gp : Nat} (hgp : gp < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[gp]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {m₀ : ContainerMember} (hm₀ : ciR.members.head? = some m₀)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st gp = some mapR)
+    {qK : Nat} (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
+    (hfired : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = true)
+    (hDsE : ((D).pinAt gp).DsE.length = ciR.nP)
+    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
+      Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP)
+    (hφ : φ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
+    {rx : AnnotTerm}
+    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + l)
+      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
+    -- the OWNER, at the model
+    (CR : ContainerModeled m ciR dR)
+    (hciR₂ : ConLeche.containerInfo? env₂ gn.container = some ciR)
+    (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
+    (hqKn : qK < dR.nPins)
+    (hpinR : ¬ (pcR qK).tgts j l < dR.k)
+    -- side 2: K.68's two rows at the OWNER's own install
+    (hrowTgt : ∀ (lps : List Name) (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, dR.memberNames.findIdx? (· == M) = some mm → (pcR qK).tgts j l = mm) ∧
+      (dR.memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < dR.nPins ∧
+          (dR.pinAt z).ownAt dR.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners dR.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l
+                  dom.1).getAppArgs.take (dR.pinAt z).nPJ) ∧
+          (pcR qK).tgts j l = dR.k + z))
+    (hrowRead : ∀ lps : List Name, ∃ z : Nat, z < dR.nPins ∧
+      (pcR qK).tgts j l = dR.k + z ∧
+      ((((pcR qK).Eiss φ).getD j []).getD l []).length = (dR.pinAt z).nIdx ∧
+      OrdTargetRead (V := V) m.acval env₂ φ ρR dR.nP l Ds₂ Fs₂
+        ((((pcR qK).Eiss φ).getD j []).getD l [])
+        ((((pcR qK).tlss φ).getD j []).getD l [])
+        ((dR.pinAt z).nPJ) lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
+    -- the block's target pin carries the head's container (the run's `hJM`)
+    (hblkJ : ∀ z : Nat, z < pinsS.length →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0 = p.k + z → ((D).pinAt z).J = K)
+    -- and two pins with ONE container have one arity
+    (harity : ∀ z₁ z₂ : Nat, z₁ < pinsS.length → z₂ < dR.nPins →
+      ((D).pinAt z₁).J = (dR.pinAt z₂).J →
+      ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ ∧ ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx) :
+    ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
+        (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
+      SpineFit (consList (Ds₂.map (interp V ρR)) ρR) (Fs₂.take l) fs₁ →
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l [] = [] ∧
+      (((pcR qK).tlss φ).getD j []).getD l [] = [] ∧
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
+        = ((((pcR qK).Eiss φ).getD j []).getD l []).map
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+  classical
+  subst hφ
+  -- THE OWNER'S TABLE: the environment's reader is the model's list, at every position
+  obtain ⟨lps, htab⟩ := CR.ownPinsSelfAt hciR₂ hownT₂
+  have hentry : ∀ y, y < dR.nPins →
+      (dR.ownPinTerms lps).getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
+    rfl
+  have hown : ∀ y, y < dR.nPins →
+      ownT.getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    rw [List.getD_eq_getElem?_getD, htab y hy]; rfl
+  -- so the two sides run ONE recomputation
+  have hdomEq : ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1
+      = ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1 :=
+    ordTargetDom_congr_at (by rw [hown qK hqKn, hentry qK hqKn])
+  -- THE HEAD, at both tables: the stored domain's own, so the towers are empty
+  obtain ⟨hdep₂, hhd₂⟩ :=
+    ordTargetDomL_flat_at (lpsC := lpsC) hdomHd (dR.ownPinTerms lps) dK.nP qK l
+  have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
+      = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
+    rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
+  -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
+  obtain ⟨z₁, hz₁, htg₁, hlen₁, hrest₁⟩ :=
+    G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
+      mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
+  -- SIDE 2: the owner's, and its target pin
+  obtain ⟨z₂, hz₂, htg₂, hlen₂, hOR⟩ := hrowRead lps
+  have hnone : dR.memberNames.findIdx? (· == K) = none := by
+    cases hfi : dR.memberNames.findIdx? (· == K) with
+    | none => rfl
+    | some mm =>
+      exfalso
+      have hmmlt : mm < dR.k := by
+        obtain ⟨hlt, -, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+        rw [← CR.namesLen]; exact hlt
+      exact hpinR (by rw [(hrowTgt lps K _ hhd₂).1 mm hfi]; exact hmmlt)
+  obtain ⟨z₂', hz₂', heqz, htg₂'⟩ := (hrowTgt lps K _ hhd₂).2 hnone
+  have hz₂eq : z₂' = z₂ := by
+    have h : dR.k + z₂' = dR.k + z₂ := by rw [← htg₂', htg₂]
+    omega
+  rw [hz₂eq] at heqz
+  -- THE SHARED HEAD: both target pins carry the container `K`
+  have hJz : (dR.pinAt z₂).J = K := by
+    have h := congrArg Expr.getAppFn heqz
+    rw [Expr.getAppFn_mkAppN] at h
+    simp only [ConLeche.Model.PinSyn.ownAt, Expr.getAppFn_mkAppN] at h
+    rw [hhd₂] at h
+    exact Expr.const.inj h |>.1
+  obtain ⟨hnPeq, hnIdxEq⟩ := harity z₁ z₂ hz₁ hz₂ (by rw [hblkJ z₁ hz₁ htg₁, hJz])
+  -- the two readings, at a fitting prefix on each side
+  intro fs₁ hfsl hfit₁ hfit₂
+  obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
+  obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
+  refine ⟨htls₁, List.eq_nil_of_length_eq_zero (by rw [htlsLen₂, hdep₂]), ?_⟩
+  -- side 2's reading IS side 1's `rx`
+  have hrxEq : rx = AnnotTerm.mkAppN fb₂
+      (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
+        []).getD l [])) := by
+    have h2 := hread₂
+    rw [hdep₂, Nat.add_zero, ← hdomEq, CR.nP] at h2
+    exact Option.some.inj (hrx.symm.trans h2)
+  rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
+  have hPs₁' : Ps₁.length
+      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l)).length := by
+    rw [List.length_map, hPs₁, hPs₂, hnPeq]
+  obtain ⟨-, hargs⟩ := AnnotTerm.mkAppN_inj heq₁ (by
+    simp only [List.length_append, List.length_map]
+    rw [hlen₁, hlen₂, hPs₁, hPs₂, hnPeq, hnIdxEq])
+  exact (List.append_inj hargs hPs₁').2
 
 /-- **THE WIDE FIT AT A PIN CLASS, WITH THE BLOCK SIDE READ OFF THE
 GROUP** (task #315 WIDE (3′), `hfitc`'s first half):
