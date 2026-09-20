@@ -116,6 +116,23 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
+#   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
+#       THE EXCLUSIVITY ORACLE (task #314).  `withExclusive a k h` is
+#       *defined* as `k false` and `@[implemented_by]` the compiled
+#       `k (isExclusiveUnsafe a)` — the reference-count read the
+#       official kernel's `replace_fn` keys its cache on (`is_shared`).
+#       The obligation `h : ∀ b₁ b₂, k b₁ = k b₂` is what licenses the
+#       substitution: the continuation cannot observe the answer, so
+#       the compiled program computes the definition's value — the
+#       same arrangement as `Init.Util`'s `withPtrAddr` (`k 0` in the
+#       model, the address in the binary).  Every use in the tree goes
+#       through `withExcl`, whose continuation returns a `Squash`
+#       (a `Subsingleton`), so `h` is `Subsingleton.elim` and the
+#       walks' theorems (`Verify/Cached/OpsC.lean`) hold whatever the
+#       oracle answers.  The file's own docstring is the justification;
+#       the task #314 record reads the generated C for the trap the
+#       primitive exists to avoid (a hidden reference before the read).
+#
 #   ConLeche/Kernel/BasisGen.lean      unsafe, implemented_by
 #       ELABORATOR-ONLY.  `#annotate_basis` / `#annotate_pins` run the
 #       checker's own annotation pass at elaboration time through
@@ -187,6 +204,7 @@ ALLOW = {
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
+    'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
