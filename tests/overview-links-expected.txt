@@ -207,9 +207,9 @@
    462      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
    463      EnvModelOk V μ q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L543-L544
-   543  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   544      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L565-L566
+   565  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   566      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
 == ConLeche/Verify/Cached/InstalledC.lean#L484-L486
    484  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
@@ -353,10 +353,10 @@
     39  (`Level.substPW_self`, `ConLeche/Verify/PropWhen.lean`) holds
     40  unconditionally — amendment 2's counterexample (DESIGN.md, task #161
 
-== ConLeche/Kernel/Expr.lean#L102-L104
-   102  structure BinderMeta where
-   103    pw : PropWhen
-   104    deriving DecidableEq, Repr, Hashable
+== ConLeche/Kernel/Expr.lean#L103-L105
+   103  structure BinderMeta where
+   104    pw : PropWhen
+   105    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
   1431  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
