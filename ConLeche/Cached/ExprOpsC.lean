@@ -293,7 +293,7 @@ deriving DecidableEq, Repr
 
 /-- THE SECOND SWITCH of the pointer-keyed memo: the table behind
 `walkMemoMode := .ptr` / `.hybridPtr`. -/
-def walkPtrTable : PtrTable := .flat
+def walkPtrTable : PtrTable := .hash
 
 /-- The packed key: the node's address over its 8-byte alignment,
 then the cursor modulo `2^16` in the low bits.  Pure `UInt64` register
