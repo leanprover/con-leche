@@ -207,9 +207,9 @@
    462      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
    463      EnvModelOk V μ q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L565-L566
-   565  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   566      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L527-L528
+   527  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   528      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
 == ConLeche/Verify/Cached/InstalledC.lean#L484-L486
    484  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)

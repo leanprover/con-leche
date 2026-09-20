@@ -344,7 +344,7 @@ Read from the outside in:
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
-   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L565-L566)).
+   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L527-L528)).
    The walk carries the model to the final environment
    ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L484-L486)),
    and the fold's letter
@@ -425,7 +425,10 @@ differ from a textbook presentation and matter for the proof:
   what makes the DAG-safe traversals cheap.  The substitution walks
   memoise only the nodes the runtime reports SHARED — a reference-count
   read, with a memo keyed by the node's address and validated by
-  pointer identity, so an unshared node costs no key and no probe
+  pointer identity, so an unshared node costs no key and no probe —
+  and that is the tree's ONE discipline for every traversal memo,
+  structural equality (`Expr.beq`) and the syntactic guard walks
+  included
   ([`withExclusive`'s account in `ConLeche/Kernel/Exclusive.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean#L6-L42)).
 
 ## 4. The proof idea

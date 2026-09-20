@@ -482,4 +482,3 @@ ConLeche/Semantics/LitParams.lean	public import ConLeche.Kernel.Core	# compensat
 ConLeche/Semantics/ConstsBound.lean	import ConLeche.Kernel.Core	# compensated: +import ConLeche.Kernel.CoreDefs in ConLeche/Semantics/ConstsBound.lean (task #305 prep, as for FEnv.lean)
 ConLeche/Denotes.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Denotes.lean (task #305 prep, as for FEnv.lean)
 ConLeche/Frontend/NatOpGround.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Frontend/NatOpGround.lean (task #305 prep, as for FEnv.lean)
-ConLeche/Cached/ExprOpsC.lean	import ConLeche.Kernel.Exclusive	# task #318 spike: `withExcl` reaches this module through `Kernel/Expr.lean`'s public import only while the `beq` variant lives there; the walks' own dependency on the primitive stays written (the incumbent-position tree has no other route)

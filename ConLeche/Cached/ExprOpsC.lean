@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Cached.ExprNodes
 public import ConLeche.Kernel.Core
-import ConLeche.Kernel.Exclusive
 
 @[expose] public section
 
@@ -1095,7 +1094,39 @@ def wscopedBC (d : Nat) (e : Expr) : Bool :=
   | true => true
   | false => resBool (wscopedBXP none e d hcut)
 
-/-- Core of `fvarLeavesC` (memoized set accumulation). -/
+/-- Core of `fvarLeavesC` (memoized set accumulation).
+
+**The one walk of the tree whose memo is not the `withExclusive`
+idiom, and why** (task #319, which put that idiom in front of every
+other traversal memo — the substitution walks, `Expr.beqGoX`, and the
+`Bool`-valued walks above).  This memo is a visited SET, and its
+entries are `Unit`: what an entry means is *"this node's leaves are
+already in `acc`"* — a statement about the ACCUMULATOR, which changes
+at every step, and about the walk's own descent path, not about the
+node.  It is the verification's `SeenInv`
+(`ConLeche/Verify/Cached/GuardsC.lean`): every key of `seen` either
+has all its leaves in `acc` already or is *gray* (being processed).
+An entry carrying no value cannot prove itself, so this memo needs a
+table invariant — which is exactly what the idiom removes.
+
+The self-proving alternative is an entry carrying the node's own leaf
+list, `{ r : List (Nat × Expr) // r = Expr.fvarLeaves e }`, appended
+at the parent.  That closes as a proof — it is the `Bool` walks'
+shape with a list in place of the decision — but it is the wrong
+ALGORITHM: `Expr.fvarLeaves` concatenates at every compound node
+(`ConLeche/Kernel/ExprOps.lean`), so a node's own list is the leaf
+list of its TREE unfolding, and materialising one per entry is
+precisely the blow-up the `seen` set exists to avoid (an `app e e`
+ladder gives the root a list of `2^k` elements on `k` nodes; the
+affine frontier's 3.9 · 10⁸-node unfolding of a 3 106-node DAG is the
+real instance).  Weakening the subtype to a membership
+characterization — all the one consumer, `leafMem`, needs — closes
+just as easily and does not shrink the lists: siblings still
+concatenate, and deduplicating at each node reintroduces a per-node
+set, i.e. the table the entry was meant to replace.  So the
+accumulator is the algorithm here, and the accumulator is what cannot
+be carried in a type.  DESIGN.md, task #319, records this as the one
+permitted exception and the open question behind it. -/
 def fvarLeavesGoC (acc : List (Nat × Expr))
     (seen : Std.HashMap Expr Unit) (e : Expr) :
     List (Nat × Expr) × Std.HashMap Expr Unit :=
