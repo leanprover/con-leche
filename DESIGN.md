@@ -107685,6 +107685,237 @@ What the row removes from the pin half's price is the SYNTAX half of
 `hslotOrd`, outright and at EVERY field where the owner fired (not a
 corpus-shaped subset of it), plus `hfireOrd` entirely.
 
+#### K.70 — THE TWO ARMS OF A PIN COPY'S FIELD K.67 WAS SILENT AT (2026-09-20, task #315, lane LE's request)
+
+K.67's walk asked one question of one arm: at a field the shared
+container `K` calls ORDINARY whose copy the block rewrote, which class
+of the OWNER is the target the image of.  The re-pricing of the bridge
+(WIDE (f3) STEP 1(a)) found that `nestedFitc_pin`'s pin half has THREE
+arms at a field of a pin copy and that two of them have no producer
+anywhere in the tree:
+
+| arm | what `hfitc` needs | before | now |
+|---|---|---|---|
+| (A) K-RECURSIVE | `tg₁ = σ tg₂` (`hXrec`, `hrel`, `hdom₁`) | the walk SKIPPED it (`mentionsMember memsK`) | K.70 |
+| (B) K-ordinary, OWNER fired | `tg₁ = σ tg₂` (`htgσ`) | K.67 | unchanged |
+| (C) K-ordinary, owner did NOT fire, block DID | `tg₁` OUTSIDE σ's image (`hentOrd₁`) | the walk CONCEDED it (`\| _ => true`) | K.70 |
+| (D) nobody fired | nothing | — | — |
+
+**IT IS K.67's OWN BOOL, NOT A NEW ONE** — K.66's precedent verbatim
+("K.62's second half, on K.62's own rows and with no walk of its
+own"): the same walk, the same pins, the same own-pin tables, the same
+instance map, the same stored constructors, one `DeclNestedRun`
+conjunct and one point of failure.  A separate record would have
+bought a second inversion chain, a second `nestedPinChecks` clause and
+a second heartbeat cell for content the same guard already reaches.
+
+##### (a) THE THREE PIECES, AND WHY THE FIRST IS A MAP CLAUSE
+
+1. **ARM (A), THE MEMBER HALF — hoisted OUT of the field walk.**  At a
+   field `K` calls recursive whose target is one of `K`'s OWN MEMBERS,
+   BOTH copies' targets are already exact: `CopyCtorShape.recF` gives
+   the block's as `p.k + q₀ + mm` and the owner's as
+   `dR.k + baseK + mm`.  Nothing about the FIELD is missing — only
+   that `σ` carries the second to the first, which is the instance
+   map's CONTIGUITY on a minted group:
+
+       (List.range qn.grpSize).all fun mm =>
+         mapR.getD (qK - (q - qn.grpBase) + mm) st.pins.length == qn.grpBase + mm
+
+   **A COLLAPSE CANNOT BREAK IT**, and the reason is the mint's own:
+   two pins of ONE group carry distinct member names, so they never
+   have equal pin EXPRESSIONS and never collapse with each other; two
+   groups collapse only if their whole terms coincide, in which case
+   the mint made ONE group of them.  (As at K.61, the collapsing arm
+   is exercised by the tree's witnesses but does not reach this
+   check's guard today — `nested_pin_collide`'s fold stops at the
+   generated model record.)
+
+   The first spelling put this per FIELD, keyed by `memsK.findIdx?` on
+   the recomputed head, and that made the bridge owe "the head of a
+   container-recursive field at a member target IS that member" — a
+   fact `ContainerModeled` does not carry (it has `nestPinSpineAbs`
+   for the NESTED fields and nothing for this one).  As a MAP clause
+   it owes nothing, costs one lookup per own pin instead of one per
+   field, and is checked where the copy's group is already in hand.
+   The model spends it in eight lines (`recTgt_corr_mem`).
+2. **ARM (A), THE PIN HALF — K.67's two lookup arms, with the skip
+   gone.**  A container-recursive field whose target is one of `K`'s
+   own pins reaches the same recomputation K.67 runs and admits the
+   same two answers (the head among the OWNER's members, or among the
+   containers of the owner's own pins).  The `mentionsMember memsK`
+   line that skipped those fields is deleted, so the positive row
+   speaks at every field under the guard.  Its CONSUMER needs K.71
+   beside it — see that row.
+3. **ARM (C) — the negative, at the OWNER's instance.**  Where the
+   owner's own recomputation did NOT fire (`ordRootFired` false) and
+   the field is K-ordinary, the block's target is in neither the image
+   of the owner's instance map nor the owner's own mint group:
+
+       !mapR.contains (t - p.k) &&
+         (decide (t < p.k + gn.grpBase) || decide (p.k + gn.grpBase + gn.grpSize ≤ t))
+
+   That is K.62's and K.66's content ONE NESTING LEVEL UP — against
+   the OWNER's map and the OWNER's group rather than the copy's own —
+   and it is the arm K.69's own row already names: "the mixed corner …
+   is REAL … and is the arm the model closes with an entry".
+
+The dichotomy is spelled with `ordRootFired`, the head test K.69
+already reads as a Bool, so the fired arm and the negative arm are
+complementary by construction and neither is a weakening of the other.
+The remaining corner — the owner did not fire and the field is
+K-RECURSIVE — is a `false`: a strictly positive recursive occurrence
+is constant-headed after the `Π`-strip, so the owner's recomputation
+fires there.
+
+##### (b) IT CANNOT FIRE
+
+Category **(B)**, by-construction-only; official computes nothing of
+the kind.  UNCONDITIONAL in both routes, `.internal` on failure, NOT
+gated, for K.61's reason — the wide identification reads it in every
+mode.  The argument is K.67's, at the two arms it did not reach: the
+block's copy of the owner's pin is ONE substitution applied to the
+very constructor the owner copied, so the owner's targets,
+instantiated, ARE the block's (arms A and B); the mint plants a mimic
+of a class only where the rewrite found an occurrence of it, and at a
+field whose owner-side reading names no class of the owner there is
+none to find (arm C); and the map's contiguity is `mkCopies`' own
+order — one copy per member of the group being minted, in member
+order.
+
+**IF IT EVER FIRES** the message is K.67's, unchanged: "nested: a
+rewritten ordinary field's target is not the owning container's own
+class".  The four halves share one Bool and one point of failure,
+K.62/K.66's arrangement.
+
+##### (c) THE MODEL SIDE
+
+* inversions (`Verify/Inductives/NestedCopyKinds.lean`):
+  `nestedOrdTargetOk_at_refl`/`_at` LOSE their `hord` guard — the
+  positive row now holds at a container-recursive field too, which is
+  arm (A)'s pin half at the model; `nestedOrdTargetOk_grp_at` is arm
+  (A)'s member half; `nestedOrdTargetOk_out_at` is arm (C); and
+  `ordRootFired_of_mem`/`_of_pin` produce the branch's own guard from
+  the lookup the consumer already holds;
+* the run (`Model/Inductives/NestedInstMap.lean`):
+  `NestedPinsRun.instOrdTgtAt` loses `hordC` and with it the `ordFree`
+  bridge (which moves to `instOutOwnerAt`, where the negative row
+  still needs it); `instMapGrpAt` and `instOutOwnerAt` are the two new
+  rows;
+* the group (`Model/Inductives/NestedPinLeafAll.lean`):
+  `GroupFacts.ordTgt` loses the same guard, and `GroupFacts.mapGrp`
+  and `ordOut` are the two new fields, both produced in `mkGF` beside
+  it.
+
+##### (d) THE MEASUREMENT
+
+Measured TOGETHER with K.71 (they are one binary; K.65 and K.66's
+arrangement).  See `#### K.71` §(c).
+
+##### (e) WHAT CONSUMES IT, BY NAME
+
+`GroupFacts.mapGrp` closes arm (A)'s MEMBER half outright —
+`recTgt_corr_mem`, eight lines, because `CopyCtorShape.recF` gives
+both copies' targets exactly.  `GroupFacts.ordTgt` at a
+container-recursive field is arm (A)'s PIN half's BLOCK side, spent by
+`ordTgt_corr`.  `GroupFacts.ordOut` is `hentOrd₁`'s, spent by
+`entOut_corr`.
+
+#### K.71 — K.68 WIDENED TO THE CONTAINER-RECURSIVE FIELDS, AND THE CARRY WITH IT (2026-09-20, task #315, lane LE's request)
+
+K.70 removed K.67's `mentionsMember memsK` skip.  This removes K.68's,
+which is the same line on THIS block's own side, and takes the guard
+off the carry that reads it.
+
+**WHY IT IS OWED.**  Arm (A)'s PIN half needs `tg₁ = σ tg₂` at a field
+whose target is one of the shared container's OWN pins.  K.70 gives
+the BLOCK's side — `tg₁ = p.k + mapR.getD qJ` at the own-pin position
+the `findIdx?` answers — and `PinShapes.rowTarget` gives the OWNER's
+target's DATA (`J`, `u`, `Ids`, `Ds`) but not its TERM.  Identifying
+the model index with the table position is `pinsDistinctAt`, which
+asks for TERM equality, and the term is `PinSyn.ownAt`'s — built from
+`J`, `lvls` and `DsE`, two of which no data row carries.  So the
+missing object is the OWNER's own record that its pin IS the
+container's pin at the owner's instantiation, SYNTACTICALLY: K.68's
+row, at a container-RECURSIVE field, CARRIED.  It is not a model-tier
+lemma — the owner's install is restored and dropped, and the pin TERM
+is all that survives of it.
+
+**THE CHANGE, AND WHAT IT COSTS.**  One kernel line (the skip), and
+then the guard comes off a chain whose proofs do not change:
+
+* `nestedOrdSelfTargetOk_at_refl`/`_at` lose `hord`;
+* `NestedPinsRun.instOrdSelfAt` loses `hordC` and with it the
+  `ordFree` bridge (`ContainerModeled.ordFree` through
+  `blockCtorFieldDomain` and `mentionsMember_instSeq_false`);
+* `PinGroupInst.hordσ` and `PinShapes`' fourth clause — and its reader
+  `PinShapes.rowTargetOrd` — lose the container-ordinary premise.
+
+**AND IT COLLAPSES TWO CORRESPONDENCES INTO ONE.**  `ordTgt_corr`
+used its `hord` for exactly one thing: `GroupFacts.ordGe` (K.68 at
+this block), to produce the bound `p.k ≤ t` both rows assume.  With
+`hord` replaced by that bound as a HYPOTHESIS (`hbound`), ONE
+correspondence serves both arms — at an ordinary field the consumer
+passes `G.ordGe`, at a recursive one `CopyShapeA.pinF`'s own
+`TV.k ≤ tg l`.  So arm (A)'s pin half needs no theorem of its own.
+
+**IT CANNOT FIRE BY CONSTRUCTION**, category (B), K.68's own argument
+at the arm it did not reach: the elimination's rewrite of the copy IS
+the substitution the row recomputes, at a field the container calls
+recursive as much as at one it calls ordinary.  The message is K.68's,
+unchanged.
+
+##### (a) THE MEASUREMENT — K.70 AND K.71 TOGETHER
+
+`tests/arena.sh` EXIT 0: `e2e: 200/200`,
+
+| corpus | accepted | shadow blocks | accepting | K.70 fires | K.71 fires |
+|---|---|---|---|---|---|
+| `init-full` `--verified` / `--trusted` | 53 093 | 1 | 1 | 0 | 0 |
+| `init-full` `--verified --nested-shadow` / `--trusted --nested-shadow` | 53 093 | 1 | 1 | 0 | 0 |
+| Mathlib `--verified --nested-shadow` / `--trusted --nested-shadow` | 654 504 | 41 | 41 | 0 | 0 |
+
+##### (b) THE FIRING CONTROLS REACH EVERY ARM
+
+Five controls, each the landed check with ONE answer made wrong, over
+`tests/nested-shadow.sh`'s 42 rows, `init-full` and the Mathlib
+shadow:
+
+| control | what it breaks | e2e blocks | `init-full` | Mathlib |
+|---|---|---|---|---|
+| `c70a` | K.70's two lookup equations, `+1` at K-RECURSIVE fields — arm (A)'s PIN half | 3 (`nested_p04` `P4`, `inmodel_groups` `M` and `H`) | 0 of 1 | 5 of 41 |
+| `c70g` | K.70's map clause, `+1` — arm (A)'s MEMBER half | 4 (those three and `nested_pin_nocollide` `NoCollide`) | 0 of 1 | 5 of 41 |
+| `c70c` | K.70's negative made `false` — arm (C) | 1 (`NoCollide`) | 0 of 1 | 0 of 41 |
+| `c70r` | K.70's non-firing dichotomy flipped | 1 (`NoCollide`) | 0 of 1 | 0 of 41 |
+| `c71` | K.68's two equations, `+1` at K-RECURSIVE fields | 39, over 29 of the 42 rows | 1 of 1 | 39 of 41 |
+
+`init-full`'s single nested block is not nested-in-nested and reaches
+none of K.70's four — K.67's own count (0 of 1), unchanged; K.71's
+arm it does reach, as K.68's control does (1 of 1).
+
+**ARM (C) IS REACHED AT ONE FIXTURE AND NOWHERE ELSE.**  `c70c` and
+`c70r` fire at `nested_pin_nocollide`'s `NoCollide` and at no block of
+`init-full` or Mathlib, so the corner "the owner's recomputation did
+not fire and the block's rewrite did" is exercised by the tree's own
+witness and by no accepted corpus.  That is a fact about the corpora,
+not about the arm: the model's consumer needs the row at every field
+of every block, and a proof's case split is over the SYNTAX
+(the standing ruling).  It is the same shape K.65's arm has, and the
+reason the record is BY CONSTRUCTION and not by measurement.
+
+##### (c) THE COST
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the same binary with K.70's three pieces and K.71's
+one reverted (`nok7071`).
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2487 G | 538.2257 G | −0.0043 % |
+| `init-full --trusted --nested-shadow` | 520.8765 G | 520.8900 G | +0.0026 % |
+
+No Mathlib perf cell, per the standing ruling (K.65 §(d)).
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
@@ -126019,3 +126250,75 @@ Resolution 3's candidate-frame apparatus (`pinLfp_eq_pinLfpAt`,
 `CandParamFit`, `pinLfpAt_le`) is where it was.
 `#print axioms`: `nestedFitc_pin` and `nestedSlotOrd_pin` both
 `[propext, Classical.choice, Quot.sound]`.
+
+#### WIDE (f3) STEP 1 COMPLETE, STEP 2 BEGUN — K.70 AND K.71 LANDED, AND ALL THREE OF THE BRIDGE'S BLOCKED ARMS HAVE PRODUCERS (lane LE, 2026-09-20)
+
+The previous row stopped with the three-arm table and the finding that
+arms (A) and (C) of a PIN COPY's field have no producer anywhere in
+the tree.  This session built them (`#### K.70`, `#### K.71`) and
+spent them: arm (C) is closed at the σ-image, arm (A)'s MEMBER half is
+closed outright, and arm (A)'s PIN half needs no theorem of its own —
+the correspondence that serves arm (B) serves it too.
+
+##### (a) WHAT LANDED
+
+| object | file | what it is |
+|---|---|---|
+| K.70's three pieces | `Kernel/Inductives/NestedInstall.lean` | the map's group contiguity, the positive row at container-RECURSIVE fields, the negative row at the OWNER's instance |
+| K.71 | same | K.68's `mentionsMember` skip, deleted |
+| `nestedOrdTargetOk_grp_at`, `_out_at`, `ordRootFired_of_mem`/`_of_pin` | `Verify/Inductives/NestedCopyKinds.lean` | the inversions; `nestedOrdTargetOk_at_refl`/`_at` and `nestedOrdSelfTargetOk_at_refl`/`_at` LOSE their `hord` |
+| `NestedPinsRun.instMapGrpAt`, `instOutOwnerAt` | `Model/Inductives/NestedInstMap.lean` | the run rows; `instOrdTgtAt` and `instOrdSelfAt` lose `hordC` |
+| `GroupFacts.mapGrp`, `ordOut` | `Model/Inductives/NestedPinLeafAll.lean` | the group's two new fields; `ordTgt` loses the same guard |
+| `PinGroupInst.hordσ`, `PinShapes`' fourth clause, `rowTargetOrd` | `Model/Inductives/{NestedCore,NestedPremise}.lean` | the carry, widened to the container-recursive fields |
+| `recTgt_corr_mem` | `Model/Inductives/NestedPinLeafAll.lean` | arm (A)'s MEMBER half — `hXrec` there, in eight lines |
+| `entOut_corr` | same | arm (C)'s σ-image half — `instOutAt`'s statement one level up |
+| `ordTgt_corr`, generalised | same | `hord` replaced by the bound it only ever used it for, so ONE correspondence serves arm (B) and arm (A)'s PIN half |
+
+##### (b) THE TWO FINDINGS WORTH KEEPING
+
+**A per-field record whose answer the model must match SYNTACTICALLY
+is dearer than a map-level one that it need not.**  Arm (A)'s member
+half was first written as K.67's shape — the recomputed head looked up
+in the container's own member names, the offset read off that
+`findIdx?` — and it made the bridge owe "the head of a
+container-recursive field at a member target IS that member", which
+`ContainerModeled` does not carry.  Re-stated about the MAP alone (the
+image of a minted group is contiguous in member order) it owes
+nothing, because `CopyCtorShape.recF` already gives BOTH copies'
+targets exactly, and the model spends it in eight lines.  The same
+question one arm over — arm (A)'s PIN half, where `recF` does NOT give
+the targets — needed the whole of K.71 and the carry with it.
+
+**`ordTgt_corr`'s `hord` was never about the ordinary arm.**  It had
+exactly one use, `GroupFacts.ordGe`, and only to produce the bound
+`p.k ≤ t`.  Taking the bound as a hypothesis instead makes the
+correspondence arm-generic: an ordinary field passes `G.ordGe`, a
+recursive one passes `CopyShapeA.pinF`'s own `TV.k ≤ tg l`.  A guard
+that a proof uses only to reach ONE input is a guard on that input,
+not on the theorem.
+
+##### (c) THE BRIDGE, RE-PRICED
+
+The 2026-09-19 table stands, MINUS `hfireOrd` (2026-09-20), MINUS the
+`hscope` guard mismatch, and with:
+
+* `hXrec` at a MEMBER target — **closed** (`recTgt_corr_mem`);
+* `hXrec` at a PIN target — `ordTgt_corr` at the widened carry, plus
+  `setJoin_at_fc`; no new object, ~20 lines of instantiation;
+* `hentOrd₁` — its σ-image half **closed** (`entOut_corr`), which is
+  what `setJoin_out` consumes; what is left is `CopyEntryAOrd` at the
+  block's group — whose own `hout` is `houtσ` (K.62/K.66 at the
+  BLOCK's group, already in hand for the member half, and a DIFFERENT
+  statement from `entOut_corr`'s: one excludes the block's own mint
+  group, the other the owner's whole instance) — and the frame
+  transport (`hρ`/`hψ` through `ctor_params`' `hF`, the same transport
+  `hdom₁`/`hdom₂` do), ~40 lines of plumbing;
+* `hdom₁`'s 40 lines no longer wait on arm (A).
+
+So the bridge is ~470 lines of which NOTHING is now blocked on a
+missing record, and the four entries carrying real proof are the
+2026-09-19 table's own (`hdom₁`, `hdom₂`, `hscope`, `htgσ`).
+
+**What a re-price should keep**: the three-arm table; that arm (A)
+SPLITS at the target and only the PIN half is expensive; and the two
+findings in (b).
