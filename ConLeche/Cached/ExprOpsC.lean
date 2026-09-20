@@ -858,6 +858,135 @@ def _root_.ConLeche.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
   instantiateListC (instLevelParams entry.levelParams us entry.body)
     (pe :: targs.reverse)
 
+/-! ## The `Bool`-valued walks (task #318)
+
+The scope, definedness and resolution guards each create a
+`Std.HashMap` per call, keyed STRUCTURALLY on the node (and, for the
+scope walk, the cursor), and record EVERY node they decide.  The
+substitution walks of tasks #314–#317 stopped doing that: they ask
+`withExclusive` whether the node can be reached again and memoise only
+what it reports shared, under a key that is the node's ADDRESS packed
+with the cursor, in a table whose entries prove themselves.  This
+section is the same treatment for the `Bool`-valued walks, behind a
+compile-time switch: `boolMemoMode` selects the incumbent (`.keyed`)
+or the variant (`.excl`), the `match` in each wrapper folds, and
+NOTHING is decided here — the section exists to be measured
+(DESIGN.md, task #318).
+
+The kit is the `PEnt`/`MemoXP` kit with `Bool` in place of the rebuilt
+term: an entry carries its node, its cursor, its decision and the
+proof `val = s node depth`, so there is **no table invariant**; a
+probe is believed only after `Expr.ptrDec` says the stored node IS the
+current one and the cursors compare equal; the table is created at the
+first shared compound node and the root is never probed.  A walk's
+result is a `Squash` of `{ r : Bool // r = <the plain descent> }`
+beside the memo — a `Subsingleton`, which is the obligation
+`withExclusive` and `withPtrAddr` each ask of their continuation — and
+the wrapper reads the decision off it with `resBool`.  The plain
+descents (`*P`) carry the incumbent's cutoff and are proved equal to
+their `ConLeche.Expr` specifications in
+`ConLeche/Verify/Cached/{OpsC,GuardsC}.lean`. -/
+
+/-- The memo discipline of the `Bool`-valued walks: the structural
+per-call `Std.HashMap` (the incumbent) or the exclusivity read over
+the pointer-keyed table. -/
+inductive BoolMemoMode where
+  | keyed
+  | excl
+
+/-- The committed position. -/
+def boolMemoMode : BoolMemoMode := .keyed
+
+/-- The nodes a `Bool` memo entry can save a descent of: the compound
+nodes, and `fvar` — every walk of this section descends into the
+ANNOTATION, so the cached fvar range does not decide an `fvar` node. -/
+@[inline] def isCompoundF : Expr → Bool
+  | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. | .fvar .. => true
+  | _ => false
+
+/-- A `Bool` memo entry: the node it was decided for, the cursor, the
+decision, and the proof — the entry is its own invariant (`PEnt` with
+`Bool` in place of the rebuilt term). -/
+structure BEnt (s : Expr → Nat → Bool) where
+  node : Expr
+  depth : Nat
+  val : Bool
+  eq : val = s node depth
+
+/-- A validated hit: the cursor compares equal and the stored node IS
+the current one (by pointer at runtime — `Expr.ptrDec` — structurally
+in the model); then the entry's proof is the walk's. -/
+@[inline] def BEnt.hit {s : Expr → Nat → Bool} {β : Sort u} (p : BEnt s) (e : Expr) (c : Nat)
+    (k : { r : Bool // r = s e c } → β) (miss : Unit → β) : β :=
+  if hd : p.depth = c then
+    match Expr.ptrDec p.node e with
+    | isTrue hn => k ⟨p.val, by rw [p.eq, hn, hd]⟩
+    | isFalse _ => miss ()
+  else miss ()
+
+/-- The `Bool` table: the packed address-and-cursor key under the
+mixing hash of `PKey`. -/
+abbrev BTab (s : Expr → Nat → Bool) := Std.HashMap PKey (BEnt s)
+
+/-- The pointer-keyed `Bool` memo: absent until the first shared
+compound node. -/
+abbrev MemoB (s : Expr → Nat → Bool) := Option (BTab s)
+
+/-- A `Bool` walk's result: the decision, fixed by its proof, beside
+the memo. -/
+abbrev ResB (s : Expr → Nat → Bool) (e : Expr) (c : Nat) :=
+  { r : Bool // r = s e c } × MemoB s
+
+/-- The record: the entry under its packed key, in the table or in a
+fresh one. -/
+@[inline] def MemoB.insert {s : Expr → Nat → Bool} (memo : MemoB s) (key : Nat)
+    (p : BEnt s) : MemoB s :=
+  match memo with
+  | none => some (({} : BTab s).insert ⟨key⟩ p)
+  | some m => some (m.insert ⟨key⟩ p)
+
+/-- The shared-node step over the pointer-keyed `Bool` memo: the
+address read, the probe, the validated hit — else the descent and the
+record under the key read BEFORE the descent (`MemoXP.shared`
+verbatim, with `BEnt` for `PEnt`). -/
+@[inline] def MemoB.shared {s : Expr → Nat → Bool} (memo : MemoB s) (e : Expr) (c : Nat)
+    (rec : Unit → Squash (ResB s e c)) : Squash (ResB s e c) :=
+  withAddr e fun addr =>
+  let key := pkey addr c
+  match memo with
+  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+      Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+  | some m =>
+    match m[(⟨key⟩ : PKey)]? with
+    | some p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
+        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+          Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, c, r, hr⟩)
+
+/-- The cursor-free instance: the cursored `Bool` memo at cursor
+`0`. -/
+abbrev MemoB0 (s : Expr → Bool) := MemoB (fun e _ => s e)
+
+abbrev ResB0 (s : Expr → Bool) (e : Expr) := { r : Bool // r = s e } × MemoB0 s
+
+@[inline] def MemoB0.shared {s : Expr → Bool} (memo : MemoB0 s) (e : Expr)
+    (rec : Unit → Squash (ResB0 s e)) : Squash (ResB0 s e) :=
+  MemoB.shared (s := fun e _ => s e) memo e 0 rec
+
+/-- The decision of a `Bool` walk's result (the quotient lifts: the
+decision is fixed by its subtype). -/
+@[inline] def resBool {c : Bool} {M : Type} (s : Squash ({ r : Bool // r = c } × M)) : Bool :=
+  Quotient.lift (fun p => p.1.1) (fun p q _ => by rw [p.1.2, q.1.2]) s
+
+/-- What the decision of a `Bool` walk's result is: the value its
+subtype names.  Whatever the exclusivity reads and the addresses were
+along the way. -/
+theorem resBool_eq {c : Bool} {M : Type} (s : Squash ({ r : Bool // r = c } × M)) :
+    resBool s = c := by
+  induction s using Quotient.ind with
+  | _ p => exact p.1.2
+
 /-! ## Scope queries -/
 
 /-- Core of `wscopedBC` (memoized; `fvar` annotations are descended,
