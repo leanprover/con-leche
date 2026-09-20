@@ -850,6 +850,42 @@ theorem nestedOrdOutsideOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
   simpa using hb1
 
 
+/-! ## THE OWNER'S FIRING, PRODUCED FROM THE TWO LOOKUPS (task #315 K.70)
+
+`ordRootFired` is K.67's head test read as a Bool, so each of the two
+arms K.67's walk takes — the head among the owner's MEMBERS, or among
+the containers of its own PINS — produces it.  K.70 puts the walk's
+assertions BELOW that Bool, so an inversion at either arm has to
+re-enter the branch, and these two are what it enters with. -/
+
+/-- The head is one of the owner's members. -/
+theorem ordRootFired_of_mem {env : Env} {memsJ : List Name} {ownSelf : List Expr}
+    {W : Expr} {M : Name} {us : List Level} {mm : Nat}
+    (hhead : W.getAppFn = .const M us)
+    (hmm : memsJ.findIdx? (· == M) = some mm) :
+    ordRootFired env memsJ ownSelf W = true := by
+  unfold ordRootFired
+  rw [hhead]
+  simp only [Bool.or_eq_true]
+  refine Or.inl ?_
+  obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmm
+  have hMe : memsJ[mm] = M := by simpa using hp
+  exact List.contains_iff_exists_mem_beq.mpr ⟨memsJ[mm], List.getElem_mem hlt, by simp [hMe]⟩
+
+/-- The head is the container of one of the owner's own pins. -/
+theorem ordRootFired_of_pin {env : Env} {memsJ : List Name} {ownSelf : List Expr}
+    {W : Expr} {M : Name} {us : List Level} {ciM : ContainerInfo} {qJ : Nat}
+    (hhead : W.getAppFn = .const M us)
+    (hciM : containerInfo? env M = some ciM)
+    (hfi : ownSelf.findIdx? (fun e => e == Expr.mkAppN W.getAppFn
+      (W.getAppArgs.take ciM.nP)) = some qJ) :
+    ordRootFired env memsJ ownSelf W = true := by
+  unfold ordRootFired
+  rw [show W.getAppFn = Expr.const M us from hhead] at *
+  simp only [Bool.or_eq_true]
+  refine Or.inr ?_
+  simp only [hciM, hfi, Option.isSome_some]
+
 /-! ## THE REWRITTEN ORDINARY FIELD'S TARGET, INVERTED (task #315 K.67)
 
 K.62 inverted says where such a target is NOT.  This says where it IS:
@@ -891,7 +927,6 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
-    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {M : Name} {us : List Level}
     (hhead : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
@@ -937,13 +972,16 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
   have hlv := hjv l hlLt
   rw [hl, hdJ] at hlv
   simp only at hlv
-  rw [if_neg (by simp [hrec, hkt]), if_neg (by simp [hord])] at hlv
-  rw [hhead] at hlv
-  simp only at hlv
+  rw [if_neg (by simp [hrec, hkt])] at hlv
   refine ⟨fun mm hmm => ?_, fun ciM qJ hnm hciM hfi => ?_⟩
-  · rw [hmm] at hlv
+  · rw [if_pos (ordRootFired_of_mem (ownSelf := ownSelf) (env := env) hhead hmm), hhead] at hlv
+    simp only at hlv
+    rw [hmm] at hlv
     simpa using hlv
-  · rw [hnm, hciM] at hlv
+  · rw [if_pos (ordRootFired_of_pin (memsJ := ciJ.members.map (·.name)) hhead hciM hfi),
+      hhead] at hlv
+    simp only at hlv
+    rw [hnm, hciM] at hlv
     simp only at hlv
     rw [← hhead] at hlv
     rw [hfi] at hlv
@@ -976,7 +1014,6 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
-    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {K : Name} {usK : List Level}
     (hfin : (ordTargetDomL Jm.lps ownSelf qK domJ.1).getAppFn = .const K usK)
     {M : Name} {us : List Level}
@@ -1011,8 +1048,89 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     rw [hnf.1, hnf.2, Nat.add_zero]
   rw [← hdm] at hhead ⊢
   exact nestedOrdTargetOk_at_refl h hk hg hgn hciJ hown hmapR hqK hq hqn hks hci hJm hj hkf hcJ
-    hsJ hl hdJ hrec hkt hord hhead
+    hsJ hl hdJ hrec hkt hhead
 
+
+/-- **K.70's ARM (C) — THE OWNER DID NOT FIRE, AND THE BLOCK'S TARGET
+LEAVES THE OWNER'S INSTANCE** (task #315 K.70).
+
+K.62 and K.66 say a rewritten ordinary field's target leaves the
+COPY's own instance — its own container's pins and its own mint group.
+This says the same one nesting level up, and only where the owner's
+own recomputation did NOT fire: the target is in neither the image of
+the OWNER's instance map nor the OWNER's own mint group.  Where the
+owner DID fire the positive row (`nestedOrdTargetOk_at_refl`) speaks
+instead, so the two are a dichotomy and neither is a weakening of the
+other. -/
+theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdTargetOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hkt : p.k ≤ t)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    (hnofire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = false) :
+    mapR.contains (t - p.k) = false ∧
+      (t < p.k + gn.grpBase ∨ p.k + gn.grpBase + gn.grpSize ≤ t) := by
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedOrdTargetOk nestedOrdTargetAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms g g (by simp [hg])
+  have hmeq : m = mapR := by rw [hm] at hmapR; simpa using hmapR
+  unfold nestedOrdTargetOk nestedOrdTargetAt at h
+  rw [hms, hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hgv := h g hg
+  rw [hgn] at hgv
+  simp only at hgv
+  rw [hciJ] at hgv
+  simp only at hgv
+  rw [hown] at hgv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hgv
+  have hqv := hgv qK hqK
+  rw [show maps.getD g [] = mapR from by
+    rw [List.getD_eq_getElem?_getD, hmq]; exact hmeq] at hqv
+  rw [hq, hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJm] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hrec, hkt])] at hlv
+  rw [if_neg (by simp [hnofire]), if_neg (by simp [hord])] at hlv
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
+    Bool.not_eq_eq_eq_not, Bool.not_true] at hlv
+  exact hlv
 
 /-! ## THE BLOCK'S OWN CLASS AT A REWRITTEN ORDINARY FIELD (task #315 K.68)
 

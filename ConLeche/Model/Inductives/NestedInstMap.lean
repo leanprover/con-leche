@@ -1080,7 +1080,7 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
-    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hmenAbs hhead'
+    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hhead'
 
 
 omit SF S in

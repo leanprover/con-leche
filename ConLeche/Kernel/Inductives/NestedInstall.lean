@@ -2551,6 +2551,37 @@ def ordTargetDom (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
     (l + domPiDepth (ordTargetDomL lps ownSelf qK dom))
 
 
+/-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69): its own
+recomputation of the field (`ordTargetDom` at the owner's own
+components) is headed by a CONSTANT that is one of the owner's group
+MEMBERS or the container of one of the owner's own PINS — K.67's head
+test, read as a Bool instead of as a case split.
+
+That is the guard under which the normalisation may be pushed across
+the block's instantiation, and it is a guard about the ROOT alone: a
+term already at a constant inductive head is its own `whnf`
+(`whnf_indApp_eq`, `normPosDomM_indApp`), a constant head survives any
+substitution, and so the block's copy of the same field is head-normal
+too.  The converse fails — a root STUCK at a variable head is unblocked
+by the block's substitution — which is why the guard is the root's
+firing and not the block's.
+
+It is applied to the mint's POSITIVITY NORMAL FORM (`ordRootNorm`) and
+not to the mint, so that a root that fires only AFTER a reduction step
+— its mint a redex, `(fun _ => T α) trivial` — is inside the guard and
+not in the silent set.  At a mint already at a constant head the normal
+form is the mint and no walk is run. -/
+def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
+  match W.getAppFn with
+  | .const M _ =>
+    memsJ.contains M ||
+      (match containerInfo? env M with
+       | none => false
+       | some ciM =>
+         (ownSelf.findIdx? (fun e => e ==
+           Expr.mkAppN W.getAppFn (W.getAppArgs.take ciM.nP))).isSome)
+  | _ => false
+
 /-- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS**
 (task #315 K.67).
 
@@ -2633,23 +2664,28 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                             match kf[l]?, jbs[ci.nP + l]? with
                             | some (r, t), some domJ =>
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
-                              else if mentionsMember memsK domJ.1 then true
                               else
                                 let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
-                                match dmJ.getAppFn with
-                                | .const M _ =>
-                                  match memsJ.findIdx? (· == M) with
-                                  | some mm => t == p.k + gn.grpBase + mm
-                                  | none =>
-                                    match containerInfo? env M with
-                                    | none => false
-                                    | some ciM =>
-                                      match ownSelf.findIdx? (fun e => e ==
-                                          Expr.mkAppN dmJ.getAppFn
-                                            (dmJ.getAppArgs.take ciM.nP)) with
-                                      | some qJ => t == p.k + mapR.getD qJ st.pins.length
+                                if ordRootFired env memsJ ownSelf dmJ then
+                                  match dmJ.getAppFn with
+                                  | .const M _ =>
+                                    match memsJ.findIdx? (· == M) with
+                                    | some mm => t == p.k + gn.grpBase + mm
+                                    | none =>
+                                      match containerInfo? env M with
                                       | none => false
-                                | _ => true
+                                      | some ciM =>
+                                        match ownSelf.findIdx? (fun e => e ==
+                                            Expr.mkAppN dmJ.getAppFn
+                                              (dmJ.getAppArgs.take ciM.nP)) with
+                                        | some qJ => t == p.k + mapR.getD qJ st.pins.length
+                                        | none => false
+                                  | _ => false
+                                else if mentionsMember memsK domJ.1 then false
+                                else
+                                  !mapR.contains (t - p.k)
+                                    && (decide (t < p.k + gn.grpBase)
+                                        || decide (p.k + gn.grpBase + gn.grpSize ≤ t))
                             | _, _ => false
                       | _, _ => false
               | _, _ => true
@@ -2765,37 +2801,6 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
   nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored)
 
 /-! ## THE ROOT'S NORMALISED DOMAIN, INSTANTIATED (task #315 K.69) -/
-
-/-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69): its own
-recomputation of the field (`ordTargetDom` at the owner's own
-components) is headed by a CONSTANT that is one of the owner's group
-MEMBERS or the container of one of the owner's own PINS — K.67's head
-test, read as a Bool instead of as a case split.
-
-That is the guard under which the normalisation may be pushed across
-the block's instantiation, and it is a guard about the ROOT alone: a
-term already at a constant inductive head is its own `whnf`
-(`whnf_indApp_eq`, `normPosDomM_indApp`), a constant head survives any
-substitution, and so the block's copy of the same field is head-normal
-too.  The converse fails — a root STUCK at a variable head is unblocked
-by the block's substitution — which is why the guard is the root's
-firing and not the block's.
-
-It is applied to the mint's POSITIVITY NORMAL FORM (`ordRootNorm`) and
-not to the mint, so that a root that fires only AFTER a reduction step
-— its mint a redex, `(fun _ => T α) trivial` — is inside the guard and
-not in the silent set.  At a mint already at a constant head the normal
-form is the mint and no walk is run. -/
-def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
-  match W.getAppFn with
-  | .const M _ =>
-    memsJ.contains M ||
-      (match containerInfo? env M with
-       | none => false
-       | some ciM =>
-         (ownSelf.findIdx? (fun e => e ==
-           Expr.mkAppN W.getAppFn (W.getAppArgs.take ciM.nP))).isSome)
-  | _ => false
 
 /-- **THE ROOT-ERA TERM AT THE BLOCK'S INSTANTIATION** (task #315 K.69):
 a term in the OWNER's parameter-opener scope, carried to the BLOCK's by
