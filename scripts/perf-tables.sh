@@ -238,7 +238,14 @@ if [ "${1:-}" = "--render" ]; then
   exit 0
 fi
 
-for f in "$BIN" "$OFFICIAL"; do
+# The official kernel is required only when the `official` column is
+# actually measured: a `PERF_CONFIGS="trusted verified"` append (task
+# #319 re-measured the con-leche cells on a machine where the upstream
+# checkout was gone, and carried the official cells forward) must not
+# be blocked by a binary no cell of it runs.
+NEED=("$BIN")
+case " $CONFIGS " in *" official "*) NEED+=("$OFFICIAL") ;; esac
+for f in "${NEED[@]}"; do
   [ -x "$f" ] || { echo "missing binary: $f  (lake build con-leche)" >&2; exit 1; }
 done
 
