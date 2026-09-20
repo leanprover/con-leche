@@ -765,31 +765,6 @@ entry, never an answer. -/
 @[inline] def beqKey (pa pb : USize) : Nat :=
   ((pa ^^^ (pb * 0x9E3779B97F4A7C15)) &&& 0x3FFFFFFFFFFFFFFF).toNat
 
-/-- Node budget of the descent before the memo table is materialised.
-Almost every comparison the checker makes is decided by the pointer
-test, the computed-word test, or a handful of nodes; paying for a memo
-table there costs a third of `init-prelude`.  Beyond the budget the
-term is big enough that `O(tree)` is the real risk, and from there on
-every completed pair is recorded. -/
-def beqBudget : Nat := 4096
-
-/-- The raw result of one node's comparison: the decision, the
-remaining budget and the memo (absent while the budget lasts). -/
-structure BeqRes (a b : Expr) where
-  dec : Decidable (a = b)
-  fuel : Nat
-  map : Option BeqMap
-
-/-- The result as the descent returns it: the raw result behind a
-quotient identifying all of them, so that it is a subsingleton — the
-decision is one (`Decidable` is a subsingleton) and the state is
-unobservable.  Erased by the compiler. -/
-abbrev BeqOut (a b : Expr) := Squash (BeqRes a b)
-
-@[inline] def BeqOut.mk {a b : Expr} (d : Decidable (a = b)) (fuel : Nat)
-    (map : Option BeqMap) : BeqOut a b :=
-  Quot.mk _ ⟨d, fuel, map⟩
-
 /-- `withPtrAddr` into a subsingleton: its side condition — the
 continuation's result does not depend on the address — is then
 `Subsingleton.elim`. -/
@@ -816,184 +791,48 @@ by pointer and never walks. -/
     | _, _ => ⟨false, fun h => Bool.noConfusion h⟩
   else ⟨false, fun h => Bool.noConfusion h⟩
 
-/-- The memoised structural descent: pointer identity, the computed
-word, the memo probe, then the constructor cases with the recursive
-calls — every branch returning `Decidable (a = b)` for its own
-`a`, `b` (the module docstring above says why that is the whole
-proof).  The budget counts nodes down while the map is absent and
-materialises it at zero; a completed `true` at a recursive node is
-recorded (`finish`) once the map exists.  A completed `false` aborts
-the comparison at every level, so no unequal pair is ever re-queried
-and only proved-equal pairs are stored — as in the official kernel's
-`expr_eq_fn`.  The terms are borrowed (`@&`): the write-back is the
-only consumer that stores them, and owned terms cost a reference-count
-pair per node. -/
-def beqGo (fuel : Nat) (map : Option BeqMap) (a b : @& Expr) : BeqOut a b :=
-  withAddr a fun pa => withAddr b fun pb =>
-  if pa == pb then .mk (ptrDec a b) fuel map
-  else if h : a.data != b.data then
-    .mk (isFalse (fun e => by subst e; simp at h)) fuel map
-  else
-    let (fuel, map) : Nat × Option BeqMap :=
-      match map with
-      | some m => (fuel, some m)
-      | none => if fuel == 0 then (0, some {}) else (fuel - 1, none)
-    let hit : { h : Bool // h = true → a = b } :=
-      match map with
-      | some m =>
-        if beqRecursive a then probeHit m (beqKey pa pb) pa pb a b
-        else ⟨false, fun h => Bool.noConfusion h⟩
-      | none => ⟨false, fun h => Bool.noConfusion h⟩
-    if hh : hit.1 then .mk (isTrue (hit.2 hh)) fuel map
-    else
-      -- The write-back, generic in the pair so that every arm below is
-      -- a tail call into it (the compiler makes it a join point).
-      let finish : ∀ {a' b' : Expr}, BeqOut a' b' → BeqOut a' b' :=
-        fun {a' b'} r => Squash.lift r fun r =>
-          match r.dec, r.map with
-          | isTrue h, some m =>
-            if beqRecursive a' then
-              .mk (isTrue h) r.fuel
-                (some (m.insert (beqKey pa pb) ⟨a', b', pa, pb, h⟩))
-            else .mk (isTrue h) r.fuel (some m)
-          | d, mp => .mk d r.fuel mp
-      match a, b with
-      | .bvar i, .bvar j => finish <|
-        .mk (if h : i = j then isTrue (by subst h; rfl)
-             else isFalse (fun e => h (Expr.bvar.inj e))) fuel map
-      | .fvar i t, .fvar j u => finish <|
-        if h : i = j then
-          Squash.lift (beqGo fuel map t u) fun r =>
-            .mk (match r.dec with
-              | isTrue h' => isTrue (by subst h; subst h'; rfl)
-              | isFalse h' => isFalse (fun e => h' (Expr.fvar.inj e).2))
-              r.fuel r.map
-        else .mk (isFalse (fun e => h (Expr.fvar.inj e).1)) fuel map
-      -- Levels, names and level lists compare by `==`: their `BEq`
-      -- is the pointer-and-hash-first one, and it is lawful.
-      | .sort u, .sort v => finish <|
-        .mk (if h : u == v then isTrue (by rw [beq_iff_eq.mp h])
-             else isFalse (fun e => h (beq_iff_eq.mpr (Expr.sort.inj e))))
-          fuel map
-      | .const n us, .const m vs => finish <|
-        .mk (if h : n == m && us == vs then
-               isTrue (by
-                 have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
-                 have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
-                 rw [h1, h2])
-             else isFalse (fun e => h (by
-               obtain ⟨h1, h2⟩ := Expr.const.inj e
-               subst h1; subst h2; simp))) fuel map
-      | .app f x, .app g y => finish <|
-        Squash.lift (beqGo fuel map f g) fun r₁ =>
-          match r₁.dec with
-          | isFalse h => .mk (isFalse (fun e => h (Expr.app.inj e).1)) r₁.fuel r₁.map
-          | isTrue h => Squash.lift (beqGo r₁.fuel r₁.map x y) fun r₂ =>
-            .mk (match r₂.dec with
-              | isTrue h' => isTrue (by subst h; subst h'; rfl)
-              | isFalse h' => isFalse (fun e => h' (Expr.app.inj e).2))
-              r₂.fuel r₂.map
-      | .lam t b m, .lam t' b' m' => finish <|
-        if h : m = m' then
-          Squash.lift (beqGo fuel map t t') fun r₁ =>
-            match r₁.dec with
-            | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.lam.inj e).1)) r₁.fuel r₁.map
-            | isTrue h₁ => Squash.lift (beqGo r₁.fuel r₁.map b b') fun r₂ =>
-              .mk (match r₂.dec with
-                | isTrue h₂ => isTrue (by subst h; subst h₁; subst h₂; rfl)
-                | isFalse h₂ => isFalse (fun e => h₂ (Expr.lam.inj e).2.1))
-                r₂.fuel r₂.map
-        else .mk (isFalse (fun e => h (Expr.lam.inj e).2.2)) fuel map
-      | .forallE t b m, .forallE t' b' m' => finish <|
-        if h : m = m' then
-          Squash.lift (beqGo fuel map t t') fun r₁ =>
-            match r₁.dec with
-            | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.forallE.inj e).1)) r₁.fuel r₁.map
-            | isTrue h₁ => Squash.lift (beqGo r₁.fuel r₁.map b b') fun r₂ =>
-              .mk (match r₂.dec with
-                | isTrue h₂ => isTrue (by subst h; subst h₁; subst h₂; rfl)
-                | isFalse h₂ => isFalse (fun e => h₂ (Expr.forallE.inj e).2.1))
-                r₂.fuel r₂.map
-        else .mk (isFalse (fun e => h (Expr.forallE.inj e).2.2)) fuel map
-      | .letE t v b, .letE t' v' b' => finish <|
-        Squash.lift (beqGo fuel map t t') fun r₁ =>
-          match r₁.dec with
-          | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.letE.inj e).1)) r₁.fuel r₁.map
-          | isTrue h₁ => Squash.lift (beqGo r₁.fuel r₁.map v v') fun r₂ =>
-            match r₂.dec with
-            | isFalse h₂ => .mk (isFalse (fun e => h₂ (Expr.letE.inj e).2.1)) r₂.fuel r₂.map
-            | isTrue h₂ => Squash.lift (beqGo r₂.fuel r₂.map b b') fun r₃ =>
-              .mk (match r₃.dec with
-                | isTrue h₃ => isTrue (by subst h₁; subst h₂; subst h₃; rfl)
-                | isFalse h₃ => isFalse (fun e => h₃ (Expr.letE.inj e).2.2))
-                r₃.fuel r₃.map
-      | .lit l, .lit l' => finish <|
-        .mk (if h : l = l' then isTrue (by subst h; rfl)
-             else isFalse (fun e => h (Expr.lit.inj e))) fuel map
-      | .proj s i e, .proj s' i' e' => finish <|
-        if h : s == s' && i == i' then
-          Squash.lift (beqGo fuel map e e') fun r =>
-            .mk (match r.dec with
-              | isTrue h' =>
-                isTrue (by
-                  have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
-                  have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
-                  rw [h1, h2, h'])
-              | isFalse h' => isFalse (fun e => h' (Expr.proj.inj e).2.2))
-              r.fuel r.map
-        else .mk (isFalse (fun e => h (by
-          obtain ⟨h1, h2, _⟩ := Expr.proj.inj e
-          subst h1; subst h2; simp))) fuel map
-      -- Different constructors: the derived decision rejects on the
-      -- tags in `O(1)`, which is all it is ever asked here.
-      | a', b' => finish <| .mk (instDecidableEqExpr a' b') fuel map
-termination_by structural a
+/-! ### The memo discipline: memoise only what is shared (task #319)
 
-/-! ### The variant under measurement (task #318): memoise only what is shared
-
-The node budget above plays, for this memo, the part the official
-kernel's `is_shared` guard plays in `expr_eq_fn::check_cache`
+The memo is the substitution walks' (`ConLeche/Cached/ExprOpsC.lean`,
+"The substitution walks"), and the tree has ONE such discipline: at
+every recursive child position `withExclusive`
+(`ConLeche/Kernel/Exclusive.lean`) reads the count of the BORROWED
+node, and only a pair whose two nodes are both SHARED is probed and
+recorded — a pair with an exclusive side cannot be queried again
+within this comparison, so it costs no key, no probe and no entry.
+This is the official kernel's `expr_eq_fn::check_cache` guard
 (`src/kernel/expr_eq_fn.cpp`: `if (is_shared(a) && is_shared(b))` in
-front of the probe and the write) — the task #240 record says so, and
-says the guard could not be ported because a Lean walk sees its
-arguments owned.  Since task #317 it can: `withExclusive`
-(`ConLeche/Kernel/Exclusive.lean`) reads the count of a BORROWED
-node, and `beqGo`'s terms are borrowed already.  The variant,
-`beqGoX`, is the same descent in the shape of the substitution walks
-(`ConLeche/Cached/ExprOpsC.lean`, `enter*P`/`*XP`): the child step
-`enterBeq` does the pointer test, the word test, the leaf test, then
-reads the exclusivity of BOTH children.  A pair can be queried again
-within one comparison only if both of its nodes can be reached
-again, so a pair with an exclusive side is neither probed nor
-recorded — no key, no probe, no entry — and only a shared/shared
-recursive pair pays the memo.  There is no budget: the table appears
-at the first shared/shared pair proved equal, the root pair is never
-asked, and the entries are `EqPair`s as before (the pair, its
-addresses, and its proof; a hit is validated by identity on both
-sides, `probeHit`).  Everything the incumbent proves about the memo
-holds unchanged: every branch returns `Decidable (a = b)` for its own
-`a`, `b`, and the memo is behind the quotient.
+front of the probe and the write), which the task #240 record could
+not port because a Lean walk saw its arguments owned; task #317's
+`withExclusive` reads a borrowed node's count, and `beqGoX`'s terms
+are borrowed already.
 
-`beqMemoMode` selects the position at compile time (the `match` in
-`beqDec` folds); `.budget` is the incumbent.  NOTHING is decided by
-this section: it exists to be measured (DESIGN.md, task #318). -/
+The child step `enterBeq` plays `enter*P`'s part: the pointer test,
+the computed-word test, the leaf test, then the two exclusivity
+reads.  There is NO cutoff — the node budget that used to keep the
+table away from small comparisons was the tree's second heuristic
+cutoff after the walks' and went with it (task #319) — so the table
+appears at the first shared/shared pair proved equal, the root pair
+is never asked (it reaches `beqGoX` past `beqMemo`'s pointer and word
+tests and cannot recur), and nothing bounds the table but the
+comparison's own end.  The entries are `EqPair`s (the pair, its two
+addresses, and its proof), the key is the packed address pair
+(`beqKey`), and a hit is validated by identity on BOTH stored objects
+(`probeHit`) — self-proving entries, so there is no table invariant
+and no lemma about the table at all.  Every branch returns
+`Decidable (a = b)` for its own `a`, `b`, and the memo is behind the
+quotient; `beqMemo_eq` is three lines, as it always was. -/
 
-/-- The memo discipline of `beqDec`: the node budget (the incumbent) or
-the exclusivity read. -/
-inductive BeqMemoMode where
-  | budget
-  | excl
-
-/-- The committed position. -/
-def beqMemoMode : BeqMemoMode := .budget
-
-/-- The raw result of one node's comparison under `.excl`: the
-decision and the memo (absent until the first recorded pair). -/
+/-- The raw result of one node's comparison: the decision and the
+memo (absent until the first recorded pair). -/
 structure BeqResX (a b : Expr) where
   dec : Decidable (a = b)
   map : Option BeqMap
 
-/-- `BeqResX` behind the quotient (`BeqOut`'s arrangement). -/
+/-- The result as the descent returns it: the raw result behind a
+quotient identifying all of them, so that it is a subsingleton — the
+decision is one (`Decidable` is a subsingleton) and the state is
+unobservable.  Erased by the compiler. -/
 abbrev BeqOutX (a b : Expr) := Squash (BeqResX a b)
 
 @[inline] def BeqOutX.mk {a b : Expr} (d : Decidable (a = b)) (map : Option BeqMap) :
@@ -1036,9 +875,19 @@ the references inside the terms (the requirement stated in
         | isTrue h => .mk (isTrue h) (BeqMap.record r.map (beqKey pa pb) ⟨a, b, pa, pb, h⟩)
         | d => .mk d r.map
 
-/-- The descent under `.excl`: the constructor cases with the child
-step in front of every recursive call.  The root pair reaches it past
-`beqMemo`'s pointer and word tests and is never asked. -/
+/-- The memoised structural descent: the constructor cases with the
+child step (`enterBeq`) in front of every recursive call — every
+branch returning `Decidable (a = b)` for its own `a`, `b` (the module
+docstring above says why that is the whole proof).  A completed
+`false` aborts the comparison at every level, so no unequal pair is
+ever re-queried and only proved-equal pairs are stored, as in the
+official kernel's `expr_eq_fn`.  The root pair reaches it past
+`beqMemo`'s pointer and word tests and is never asked.  The terms are
+borrowed (`@&`): the write-back is the only consumer that stores
+them, and owned terms cost a reference-count pair per node — and the
+exclusivity read would then answer `false` at every node
+(`ConLeche/Kernel/Exclusive.lean`, "The borrowed-parameter
+requirement"). -/
 def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
   match a, b with
   | .bvar i, .bvar j =>
@@ -1127,12 +976,10 @@ def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
   | a', b' => .mk (instDecidableEqExpr a' b') map
 termination_by structural a
 
-/-- The descent's decision, from a fresh state, at the committed
-position of `beqMemoMode`. -/
+/-- The descent's decision, from a fresh state (no table: the first
+shared/shared pair proved equal creates it). -/
 def beqDec (a b : Expr) : Decidable (a = b) :=
-  match beqMemoMode with
-  | .budget => Squash.lift (beqGo beqBudget none a b) fun r => r.dec
-  | .excl => Squash.lift (beqGoX none a b) fun r => r.dec
+  Squash.lift (beqGoX none a b) fun r => r.dec
 
 /-- The executed equality: pointer test, computed-word test, then the
 memoised descent.  The implementation of `beq`; `beqMemo_eq` proves

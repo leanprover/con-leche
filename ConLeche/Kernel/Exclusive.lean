@@ -42,7 +42,7 @@ only when `!is_likely_unshared(e)` — the same read.  The walks memoise
 exactly the nodes this primitive reports shared.
 
 **How the walks discharge `h`.**  Their result is a `Squash` — a
-`Subsingleton`, exactly as `Expr.beqGo`'s `BeqOut` is — carrying the
+`Subsingleton`, exactly as `Expr.beqGoX`'s `BeqOut` is — carrying the
 rebuilt term with its proof of correctness beside an unobservable
 memo, so `h` is `Subsingleton.elim` (`withExcl` below).
 

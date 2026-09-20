@@ -78,7 +78,7 @@ design, as landed:
   **no table invariant** — the table may be anything, may grow and may
   overwrite — and a validated hit yields the proof the walk's result
   type demands by rewriting along the two equalities.  This is the
-  `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGo`, applied to the
+  `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGoX`, applied to the
   walks.
 * **No cutoff.**  The walk is exact: it memoises every shared compound
   node it meets, for as long as the walk lasts, and nothing bounds the
@@ -101,7 +101,7 @@ these walks that drops a `@&` or lets a `let`, a closure or a `Prod`
 hold the node across the check is silently correct and measurably
 slower; the audit is what catches it.
 
-**Verification is intrinsic** (the `Expr.beqGo` shape): a walk returns
+**Verification is intrinsic** (the `Expr.beqGoX` shape): a walk returns
 a `Squash` of the rebuilt term with its proof of equality to the PLAIN
 descent (`*P`, the reference — `Verify/Cached/OpsC.lean` proves each
 `*P` equal to the specification) beside the memo, which is
@@ -116,7 +116,7 @@ subterm and termination is the walk's own.
 
 Nothing here adds to the trust surface beyond the one allowlisted
 escape: `withPtrAddr` and `withPtrEq` are `Init.Util`'s (and the tree
-already relies on both, in `Expr.beqGo` and `Name.beq`), and
+already relies on both, in `Expr.beqGoX` and `Name.beq`), and
 `withExclusive` is `ConLeche/Kernel/Exclusive.lean`'s — the walks' one
 `unsafe`-implemented primitive, whose module docstring is the
 justification `tests/trust-surface.sh` points at. -/
