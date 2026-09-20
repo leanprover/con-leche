@@ -127869,3 +127869,70 @@ against **204 of 3886** — two declarations added and BOTH consumed
 `ordBlkHeadAt` keeps its consumer (`ordGeAt`).  `#print axioms` on both
 and on `nestedPinsEntry_of_le_all`:
 `[propext, Classical.choice, Quot.sound]`.
+
+#### WIDE (f3) STEP 5 PRICED AT ONE INPUT — `hXrec`'s PIN ARM NEEDS NO HEAD GUARD, AND THE SPLIT IS `nestOf` (lane LE, 2026-09-20)
+
+`nestedFitc_pin`'s docstring calls `hXrec` "the one residue of
+`hfitc`'s pin half" and says its inputs exist but that turning them
+into the class equation "is the run's, not this tier's".  **Priced
+against the tree before it is built, and the sentence needs one
+correction: the pin arm's HEAD GUARD — which looked like the missing
+input after step 3(b) moved every other site onto the recomputation —
+is FREE at this arm.**  Nothing below is compiled; it is written so the
+next session can check it rather than rediscover it.
+
+##### (a) THE SPLIT IS `nestOf`, AND BOTH ARMS HAVE PRODUCERS
+
+`hXrec`'s guard is the SHARED container's own kind
+(`(dJf a).rss i … = true`).  Under it the container's target is either
+one of its own MEMBERS or one of its own PINS, and the model's own
+spelling of that split is `BlockModel.nestOf`:
+
+* **`nestOf i j l = none` (member).**  `CopyCtorShape.recF` gives BOTH
+  copies' targets exactly — the block's as `p.k + q₀ + mm`, the
+  owner's as `dR.k + baseK + mm` — and `recTgt_corr_mem` (K.70's map
+  clause, eight lines, already in the tree) turns that into
+  `tg₁ = σ tg₂`;
+* **`nestOf i j l = some q` (pin).**  `ordTgt_corr` serves it since
+  K.71 replaced its `hord` by the bound `hbound`, which
+  `CopyShapeA.pinF`'s own `TV.k ≤ tg l` supplies, and its owner side
+  `PinShapes.rowTargetOrd` lost the container-ordinary premise in the
+  same row.  What it still asks is the recomputation's head.
+
+##### (b) THE HEAD IS FREE AT THE PIN ARM
+
+`ContainerModeled.nestPinSpineAbs` is stated at exactly this guard
+(`nestOf i j l = some q` with `(d.ksF i j).getD l .ordinary =
+.recursive`) and says
+
+    instantiateList (mkAppN dom.1.getAppFn (dom.1.getAppArgs.take (d.pinAt q).nPJ))
+      (containerParamOpeners d.nP).reverse l
+      = (d.pinAt q).ownAt d.nP lps …
+
+whose right-hand side is `PinSyn.ownAt`'s `mkAppN` at a `.const` head.
+Taking `getAppFn` through both sides: `instantiateList` distributes
+over an application spine, so the left side's head is
+`instantiateList dom.1.getAppFn …`, and that is a constant ONLY if
+`dom.1.getAppFn` already is — a `bvar` head instantiates to one of the
+openers, which is an `fvar`, and an `fvar` head stays an `fvar`.  **So
+at a container-recursive NESTED field the STORED domain's head is a
+constant**, the tower is empty (`domPiDepth_ordTargetDomL` and
+`stripDomPis_of_depth_zero`), and BOTH recomputations carry that same
+constant.  The bare-parameter corner that forced step 3(b) does not
+exist at this arm: a bare parameter cannot be the head of a field the
+container calls RECURSIVE-nested, because the mint's own spine is what
+`nestPinSpineAbs` reads there.
+
+##### (c) WHAT IS THEREFORE LEFT, AND IT IS NOT A HEAD
+
+`hXrec`'s conclusion is about the CARRIERS (`X₁ (tg₁ l) = Y (tg₂ l)`),
+not about the classes.  With (a) and (b) the class equation
+`tg₁ l = σ (tg₂ l)` is in hand at both arms; the remaining step is the
+carriers under `σ` — `∀ c, X₁ (σ c) = Y c` — which is the wide
+identification's OWN content and is the shape `hu`/`hX` take per-field
+at the ordinary arm.  **Whether `hXrec` becomes one premise (`hXσ`) or
+stays per-field is the ASSEMBLY's call, and `nestedFitc_pin` has no
+caller yet**, so the premise set was NOT restructured here: changing it
+against a consumer that does not exist is exactly the guess the
+consumer-first rule forbids.  The next session should write the
+assembly first and let it choose.
