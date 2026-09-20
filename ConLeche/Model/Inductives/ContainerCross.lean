@@ -748,8 +748,8 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
     have hownPF : ProjFree Ts ((d.ownPinTerms lps).getD (q₀ + i') default) :=
       hpfOwn lps (q₀ + i') (by have := hgv.seg; omega)
     refine ⟨z, hz, htg, hEl, fun fs₁ hlen hsp => ?_⟩
-    obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
-    exact ⟨fb, Ps, hPs,
+    obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
+    exact ⟨htl, fb, Ps, hPs,
       hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old

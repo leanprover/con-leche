@@ -2187,6 +2187,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
+        ((mutTlss ctorsA.length tssF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] ∧
         ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ((D).pinAt z).nPJ ∧
           AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))

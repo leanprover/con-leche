@@ -2427,6 +2427,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
         (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+        (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
         ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1 := by
   classical
   -- the container record at this pin, its member and the block's own constructor
@@ -2623,7 +2624,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   intro fs₁ hfs hfit
   rw [hDs, hψ] at hfit
   rw [show ((D).ownPinTerms lps) = ConLeche.nestedPinTermsSelf p st from R.ownPinTerms_eq SF lps,
-    ← hlpsJ, hnPci, hdep, Nat.add_zero]
+    ← hlpsJ, hnPci, hdep, Nat.add_zero, mutTlss_getD hGlt]
   rcases hrr with hkA | hkA
   · exact R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
@@ -3095,6 +3096,8 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
+        ((mutTlss ctorsA.length tssF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] ∧
         ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = (pinsS.getD z default).nPJ ∧
           AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
@@ -3135,8 +3138,9 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   obtain ⟨z, hz, htg, hEl, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC
     hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
   refine ⟨z, hz, htg, hEl, fun fs₁ hfs hspf => ?_⟩
-  obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
-  refine ⟨fb, Ps, hPs, ?_⟩
+  obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
+  rw [hown_eq, hdpB] at htl
+  refine ⟨List.eq_nil_of_length_eq_zero htl, fb, Ps, hPs, ?_⟩
   -- the bridge: `ordRootInst`'s output is the owner's reading, instantiated
   have hbr := denoteMeta_ordRootInst_read (V := V) mp₁'.base2 (ψ := ψ)
     (lps := m₀.lps) (lvls := (pinsS.getD gp default).lvls) (nP := ciO.nP) (dp := b.nP) (cut := l)

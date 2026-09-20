@@ -548,6 +548,7 @@ off the two wrappers of `NestedCopyInst.lean`. -/
           ((pinsS.getD q₀ default).Ds ψ)
           ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           (pinsS.getD z default).nPJ lpsC dJ.nP (q₀ + i')
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps) dom.1

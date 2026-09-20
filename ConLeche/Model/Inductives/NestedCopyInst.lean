@@ -10670,6 +10670,9 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl
     {ψ : Name → Nat} {ea' : AnnotTerm}
     (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
       (b.nP + l) w = some ea') :
+    ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length
+      = ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+          (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1) ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
           (b.nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
@@ -11122,7 +11125,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadRefl
     rfl
   have hopLen : (ConLeche.Verify.openFvars (b.nP + l) ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length).length = fvs.length := by
     rw [ConLeche.Verify.openFvars_length, hfvsRlen]
-  refine ⟨fa, vs₁, hlen₁, ?_⟩
+  refine ⟨hcount.symm, fa, vs₁, hlen₁, ?_⟩
   rw [mutEiss0_getD hGlt, hTgt, hcount,
     show b.nP + (l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length) = b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length from by omega,
     denoteMeta_erasedEq
@@ -11199,6 +11202,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
     (fs₁ : List V) (hfs : fs₁.length = l)
     (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length = 0 ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
@@ -11241,6 +11245,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
   have hCD := R.h.CD _ _ hcA
   obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
   obtain ⟨-, hopen, -⟩ := R.h.ksJ _ _ hcA
+  refine ⟨by rw [hCD.tssNone ψ l (by rw [hkA]; exact fun h => nomatch h)]; rfl, ?_⟩
   exact R.copyOrdFRightPinOrdTargetRead SF S hPD hi' hj hlF hkA hpinT hci hJmem hJn hstripJ hdomJ
     hfin hciK hinstCI hopM hxI hx'
     (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hnormW hrep hstable hea'
@@ -11293,6 +11298,9 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAtRefl
     (fs₁ : List V) (hfs : fs₁.length = l)
     (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length
+      = ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+          (ConLeche.nestedPinTermsSelf p st) (q₀ + i') domJ.1) ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
           (b.nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps

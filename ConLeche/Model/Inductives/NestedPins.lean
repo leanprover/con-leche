@@ -774,6 +774,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
           (((D).pinAt q₀).Ds ψ)
           ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
 
 local notation "PGS" => NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
@@ -1377,6 +1378,7 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
           ((pinsS.getD q₀ default).Ds ψ)
           ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           (pinsS.getD z default).nPJ lpsC dJ.nP (q₀ + i')
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps) dom.1

@@ -143,8 +143,8 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
       obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr
         dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK hfin
       refine ⟨z, hz, htg, hEl, fun fs₁ hfs hfit => ?_⟩
-      obtain ⟨fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
-      exact ⟨fb, Ps, hlen, hde _ _ _ hd⟩ }
+      obtain ⟨htl, fb, Ps, hlen, hd⟩ := hOT fs₁ hfs hfit
+      exact ⟨htl, fb, Ps, hlen, hde _ _ _ hd⟩ }
 
 /-! ## The two named facts' interfaces -/
 

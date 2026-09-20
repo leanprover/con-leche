@@ -1107,9 +1107,11 @@ the recomputation's own tower depth is a function of the arguments the
 predicate already takes, and no call site spells it. -/
 @[expose] def OrdTargetRead (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
     (ψ : Name → Nat) (ρp : Nat → V) (nP l : Nat) (Ds Fs Eis : List AnnotTerm)
+    (tlsl : List (Nat × Nat × AnnotTerm))
     (nPK : Nat) (lpsC : List Name) (nPJ q : Nat) (ownSelf : List Expr) (dom : Expr) : Prop :=
   ∀ fs₁ : List V, fs₁.length = l →
     SpineFit (consList (Ds.map (interp V ρp)) ρp) (Fs.take l) fs₁ →
+    tlsl.length = ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf q dom) ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = nPK ∧
       denoteMeta acval env ψ
           (nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf q dom)))
@@ -1258,6 +1260,7 @@ unchanged. -/
           ((d.pinAt q₀).Ds ψ)
           (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])
           ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l [])
+          ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [])
           ((d.pinAt z).nPJ) lpsC (B ci).nP (q₀ + i') (d.ownPinTerms lps) dom.1) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →

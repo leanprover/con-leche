@@ -536,6 +536,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
           (((D).pinAt q₀).Ds ψ)
           ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
           (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
           ((D).pinAt z).nPJ lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
 
 /-! ### The pin groups' consequences -/
