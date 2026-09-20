@@ -38,7 +38,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L747).
-* The parser is an agentic-hand-written parser over the input bytes.
+* The parser is a fast agentic-hand-written parser over the input bytes (verified with respect to a naive one, see below).
 
 ## Design of the checker proof
 
@@ -131,7 +131,7 @@ Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory o
 
 ## The parser
 
-The parser is proven equivalent to a naive reference parser written over a list of bytes, but this proof is unconnected to the rest of the development. It only serves to allow performance tweaks in the parser.
+The fast byte-wise parser is proven equivalent (`@[csimp]`) to a naive reference parser, and is covered by the Main Corollary mentioned above, which is stated in terms of the actual bytes entering the pipeline. (The Main Theorem does not cover the parser; it is not clear how to express the main theorem in terms of the raw input bytes.)
 
 ## Performance
 
