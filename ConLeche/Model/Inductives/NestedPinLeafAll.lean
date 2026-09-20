@@ -2120,6 +2120,36 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
           ((ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
+  /-- **A REWRITTEN ORDINARY FIELD'S TARGET IS A PIN** (task #315 WIDE
+  (3), step 1): the bound `ordTgt` (K.67) and `ordRead` (K.69) both
+  ASSUME, produced here from the one row whose guard does not carry it
+  — K.68 at THIS block, through `NestedPinsRun.ordGeAt`.
+
+  Its price is the recomputed head's DECLAREDNESS in `env`, which this
+  tier cannot see and the correspondence has on the OWNER's side: a
+  head that is one of the owner container's members, or the container
+  of one of its own pins, is a stored inductive either way.  The block
+  side then has nowhere else to go — the block's own member names are
+  fresh in `env`, so K.68's member arm is empty and its other arm
+  produces the target as `p.k + z`. -/
+  ordGe : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (lpsC : List Name),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (i₀ : Nat), i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (K : Name) (usK : List Level),
+    (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
+      = .const K usK →
+    (env.find? K).isSome = true →
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
   /-- **K.69 AT THE GROUP, READ** (task #315 WIDE (3), step 2): the
   BLOCK-side half of the two copies' FIELD-DATA tie, where the row
   beside it (`ordTgt`) carries their TARGETS.
@@ -2185,8 +2215,11 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
-      -- the target pin carries the head's container (the run's own `hJM`)
+      -- the target pin carries the head's container (the run's own
+      -- `hJM`) and, with it, that container's parameter count
       ((D).pinAt z).J = K ∧
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        ((D).pinAt z).nPJ = ci.nP) ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
@@ -4843,12 +4876,24 @@ block's application is the owner's carried across the substitution
 head container's parameter count (`nPJ`) and the target member's index
 count (`nIdx`) must agree on the two sides.  Both pins carry the same
 container — the SHARED HEAD `K` of the stored domain, which neither
-level instantiation can change — and `harity` is that agreement, the
-crossing this tier cannot run: the two pin tables belong to two
-different runs and only a consumer holding both can say a name
-determines an arity.
+level instantiation can change.  The PARAMETER count is then no
+premise at all: both rows pin it to the container record
+`containerInfo?` reads (side 1 through `ordTgtReadAt`'s own `hnPz`,
+side 2 through `ContainerModeled.pinNP`), and the head's record at the
+block's environment is what the owner's pin arm produces here.  The
+INDEX count stays a premise (`hnIdx`): it is the container BLOCK
+MODEL's per-MEMBER count (`pinOf`'s `nIdxAt (q - grpBase)`) and
+`ContainerInfo` records no index count at all, so the two sides have
+nothing to meet at — a `ContainerModeled` twin of `pinNP` that pins
+`nIdx` to the member's stored TYPE is what would close it.
 
-**The guard is the OWNER's own** (`hpinR`): at a field whose owner
+**The BLOCK's guard is DERIVED and no longer a premise.**  K.67's
+guard and `GroupFacts.ordRead`'s both carry `p.k ≤ t`, so neither can
+produce it; `GroupFacts.ordGe` does, from K.68 at this block, and its
+price — the head `K` being declared in `env` — is exactly what the
+owner's pin arm hands over (`CR.pinNP` and the crossing `hcontZ`).
+
+**The OWNER's guard is its own** (`hpinR`): at a field whose owner
 target is a container MEMBER the `z`-row says nothing, and that arm of
 the tie is a separate object. -/
 theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
@@ -4860,8 +4905,6 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
     (hord : ((dK.rss i').getD j []).getD l false = false)
     (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
-    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-      (b.ownOffset (p.k + a + i') + j) []).getD l 0 < p.k)
     {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     {dom : Expr × ConLeche.BinderMeta} {lpsC : List Name}
     (hjA : (dK.ctorsM i')[j]? = some cA)
@@ -4897,6 +4940,11 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
     (hqKn : qK < dR.nPins)
     (hpinR : ¬ (pcR qK).tgts j l < dR.k)
+    -- the crossing: the owner's pins' containers read the same at the
+    -- block's environment as at the model's (`ordTgt_corr`'s own)
+    (hcontZ : ∀ z, z < dR.nPins → ∀ ciZ : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dR.pinAt z).J = some ciZ →
+      ConLeche.containerInfo? env (dR.pinAt z).J = some ciZ)
     -- side 2: K.68's two rows at the OWNER's own install
     (hrowTgt : ∀ (lps : List Name) (M : Name) (us : List Level),
       (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
@@ -4918,10 +4966,14 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
         ((((pcR qK).Eiss φ).getD j []).getD l [])
         ((((pcR qK).tlss φ).getD j []).getD l [])
         ((dR.pinAt z).nPJ) lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
-    -- two pins with ONE container have one arity
-    (harity : ∀ z₁ z₂ : Nat, z₁ < pinsS.length → z₂ < dR.nPins →
+    -- two pins with ONE container have one INDEX count.  The
+    -- parameter count is no longer assumed — both rows pin it to the
+    -- container record `containerInfo?` reads — but `nIdx` is the
+    -- container's block model's per-MEMBER count and `ContainerInfo`
+    -- records none, so the crossing stays.
+    (hnIdx : ∀ z₁ z₂ : Nat, z₁ < pinsS.length → z₂ < dR.nPins →
       ((D).pinAt z₁).J = (dR.pinAt z₂).J →
-      ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ ∧ ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx) :
+      ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx) :
     ∀ fs₁ : List V, fs₁.length = l →
       SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
         (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
@@ -4959,12 +5011,11 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
       = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
     rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
-  -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
-  obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hrest₁⟩ :=
-    G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
-      mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
-  -- SIDE 2: the owner's, and its target pin
+  -- SIDE 2: the owner's, and its target pin.  It comes FIRST because
+  -- the block's guard is read off it: the owner's own row says the
+  -- head is the container of one of the owner's pins, hence a stored
+  -- inductive, and `GroupFacts.ordGe` turns that into the bound side 1
+  -- assumes.
   obtain ⟨z₂, hz₂, htg₂, hlen₂, hOR⟩ := hrowRead lps
   have hnone : dR.memberNames.findIdx? (· == K) = none := by
     cases hfi : dR.memberNames.findIdx? (· == K) with
@@ -4987,7 +5038,26 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     simp only [ConLeche.Model.PinSyn.ownAt, Expr.getAppFn_mkAppN] at h
     rw [hhd₂] at h
     exact Expr.const.inj h |>.1
-  obtain ⟨hnPeq, hnIdxEq⟩ := harity z₁ z₂ hz₁ hz₂ (by rw [hblkJ, hJz])
+  -- so `K` is a stored inductive, and the BLOCK's target is a pin
+  obtain ⟨ciZ, hciZ0, hnPZ⟩ := CR.pinNP z₂ hz₂
+  have hciEnv : ConLeche.containerInfo? env K = some ciZ := by
+    rw [← hJz]; exact hcontZ z₂ hz₂ ciZ (CR.pinConts z₂ hz₂ ciZ hciZ0)
+  have hfindK : (env.find? K).isSome = true := by
+    obtain ⟨cvZ, capsZ, -, -, -, -, hf, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciEnv
+    rw [hf]; rfl
+  have hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 < p.k :=
+    Nat.not_lt.mpr (G.ordGe ψ i' hi' j hj l hl hord hrs₁ cA bs rr dom lpsC hjA hst hdm
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK)
+  -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
+  obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hblkNP, hrest₁⟩ :=
+    G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
+      mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
+  have hnPeq : ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ := by
+    rw [hblkNP ciZ hciEnv, hnPZ]
+  have hnIdxEq : ((D).pinAt z₁).nIdx = (dR.pinAt z₂).nIdx :=
+    hnIdx z₁ z₂ hz₁ hz₂ (by rw [hblkJ, hJz])
   -- the two readings, at a fitting prefix on each side
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
@@ -6719,7 +6789,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
@@ -6764,6 +6834,16 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+    · -- the bound the two rows above assume, off K.68's own row
+      -- (`ordGeAt`): the block's member names are fresh, so a member
+      -- answer is impossible at a head declared in `env`
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss cA bs rr dom lpsC hjA hst hdm
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin hfindK
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      exact R.ordGeAt SF S' hPD hi₂ hordR hrss lpsC hjA hlF hst hdm hi₀ hciC hJmC hlpsE hfin hfindK
     · -- K.69 at the group, read (`ordReadAt`): the same preamble, and the
       -- three run pieces composed
       obtain ⟨pbs, -, hPD⟩ := R.pinData

@@ -1083,6 +1083,47 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hge hmenAbs hhead'
 
 
+omit SF S in
+/-- **THE BLOCK'S MEMBER NAMES ARE FRESH** (task #315 WIDE (3), step 1):
+`checkConstantVal`'s duplicate-declaration gate, read back at the run.
+The auxiliary block's first `p.k` stored records ARE the block's own
+annotated formers (`consNestedFormers_take_eq`), the formers' names are
+the block's members' (`auxBlock_memberNames` through
+`MutualFormersFacts.names`), and `hcaps` — the same Bool the nested
+route records for the eta capability — says each of those names is
+undeclared in `env`.
+
+`DeclNestedCore.nestedMembersFresh` is the same fact at
+`NestedCoreOut`; this one is at the RUN, where `hbk` supplies `O.bk`
+and `h.names` the member-name half of `O.formers`, because the
+consumers of the bound below (`ordGeAt`) hold `R` and not `O`. -/
+theorem NestedPinsRun.membersFresh : ∀ n ∈ p.memberNames, env.find? n = none := by
+  have hslen : stored.length = b.k := (ConLeche.auxStoredAll_get R.hstored).1
+  have hkle : p.k ≤ b.k := by rw [R.hbk]; omega
+  have hcv := (ConLeche.consNestedFormers_take_eq R.haux R.hformers R.hstored p.k hkle).2
+  have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
+    rw [List.map_take, R.h.names]
+    exact ConLeche.auxBlock_memberNames R.hfA R.helim R.hb
+  intro n hn
+  rw [← hnames] at hn
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hf
+  have hilt : i < p.k := by
+    have hl := (List.getElem?_eq_some_iff.mp hi).1
+    rw [List.length_take] at hl
+    omega
+  have hfi : fms[i]? = some f := by
+    rw [← List.getElem?_take_of_lt hilt]; exact hi
+  have hsi : stored[i]? = some stored[i] := List.getElem?_eq_getElem (by omega)
+  obtain ⟨f', hf', hcveq, -, -⟩ := hcv i _ hilt hsi
+  obtain rfl : f' = f := Option.some.inj (hf'.symm.trans hfi)
+  have hmem : stored[i] ∈ stored.take p.k :=
+    List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hilt]; exact hsi)
+  have hall := List.all_eq_true.mp R.hcaps _ hmem
+  rw [Bool.and_eq_true] at hall
+  rw [← congrArg (fun c : ConstantVal => c.name) hcveq]
+  exact Option.isNone_iff_eq_none.mp hall.2
+
 /-- **K.68 AT THE COPY'S FIELD** (task #315 WIDE (3), session 2): the
 SELF-relative twin of `instOrdTgtAt`, on the same scaffolding.  Where
 that one names the class the OWNER gave the field, this names the class
@@ -2359,6 +2400,148 @@ theorem NestedPinsRun.copyEisLen {pbs : List (Expr × ConLeche.BinderMeta)}
   rw [(R.h.memT _ _ hfM).2]
   exact hp
 
+/-- **A REWRITTEN ORDINARY FIELD'S TARGET IS A PIN, NOT A MEMBER**
+(task #315 WIDE (3), step 1): at a field the pin's container calls
+ORDINARY and the block's rewrite made recursive, whose recomputed head
+`K` is a constant DECLARED IN `env`, the recorded target is at least
+`p.k` — the bound K.67's guard and `GroupFacts.ordRead`'s assume.
+
+It is K.68's row (`instOrdSelfAt`) and nothing else: that row is the
+one WITHOUT the `p.k ≤ t` bound in its guard, and it splits on whether
+the recomputation's head is a MEMBER NAME of the block.  A member
+answer makes the target a member index; but the block's member names
+are fresh in `env` (`membersFresh`, `checkConstantVal`'s duplicate
+gate) and `K` is declared there, so that arm is empty and the other
+arm produces the target as `p.k + z`.
+
+**K.67 cannot serve and neither can `GroupFacts.ordRead`**: the bound
+is literally part of K.67's kernel guard
+(`nestedOrdTargetAt`, `(r == .recursive || r == .reflexive) && p.k ≤ t`)
+and `ordRead`'s is the same fact negated, so both presuppose what this
+row produces.  `CopyCtorShape.ordF`'s right arm bounds the target only
+from ABOVE.  The declaredness of `K` is the consumer's to supply: at
+the correspondence it is the OWNER's own row that gives it — a head
+that is one of the owner container's members, or the container of one
+of its own pins, is a stored inductive either way. -/
+theorem NestedPinsRun.ordGeAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j l : Nat}
+    (hord : ((dJ.rss i').getD j []).getD l false = false)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta} (lpsC : List Name)
+    (hjA : (dJ.ctorsM i')[j]? = some cA)
+    (hlF : l < cA.2)
+    (hstrip : cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr))
+    (hdom : bs[dJ.nP + l]? = some dom)
+    {i₀ : Nat} (hi₀ : i₀ < kJ) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC)
+    (hJmC : ciC.members[i']? = some Jm) (hlpsE : Jm.lps = lpsC)
+    {K : Name} {usK : List Level}
+    (hfin : (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
+      = .const K usK)
+    (hfindK : (env.find? K).isSome = true) :
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 := by
+  classical
+  obtain ⟨cc, J, ci, cI₀, cAB, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj,
+    hcAB, hbc, hnFB⟩ := R.ctorPair SF S hPD hi' hjA
+  obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+  have hpinAt : ∀ n : Nat, ((D).pinAt n) = pinsS.getD n default := fun _ => rfl
+  rw [hpinAt] at hI'
+  have hcimem : i' < ci.members.length := by
+    have CMci := S.modeled i' hi' ci (by rw [hpinAt]; exact hciP)
+    have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+    rw [← CMci.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ := ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hJeq : J = J₂ := by
+    have CMci := S.modeled i' hi' ci (by rw [hpinAt]; exact hciP)
+    have hJ₂name : J₂.name = J.name := by
+      rw [← (CMci.member i' J₂ hJ₂).1, hJname]
+      exact hI'.member
+    exact ConLeche.containerInfo?_member_det hciP hciP rfl hJmem (List.mem_of_getElem? hJ₂)
+      hJ₂name.symm
+  have hlpsJ : J.lps = lpsC := by
+    rw [hJeq]
+    exact S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP hJ₂
+  have hqst : q₀ + i' < st.pins.length := by rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hqst
+  obtain ⟨hJc, hpinS⟩ := SF.pinRec _ _ PD.pin
+  have hpin := PD.pinEq
+  rw [hpinS] at hpin
+  have hLv : (pinsS.getD (q₀ + i') default).lvls = (srcAtE st p (q₀ + i')).2.1 := by
+    have h := congrArg Expr.getAppFn hpin
+    simp only [Expr.getAppFn_mkAppN, Expr.getAppFn] at h
+    exact (ConLeche.Expr.const.inj h).2
+  have hlvlsT : ConLeche.ordTargetLvls (ConLeche.nestedPinTermsSelf p st) (q₀ + i')
+      = (pinsS.getD (q₀ + i') default).lvls := by
+    unfold ConLeche.ordTargetLvls
+    rw [ConLeche.nestedPinTermsSelf_shape PD.pin PD.pinEq, Expr.getAppFn_mkAppN, hLv]
+    rfl
+  have hDL : ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1
+      = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 := by
+    unfold ConLeche.ordTargetDomL; rw [hlvlsT]
+  have hfinJ : (Expr.instantiateLevelParams J.lps
+      (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn = .const K usK := by
+    rw [hlpsJ]; exact hfin
+  have hstripId : ConLeche.stripDomPis (Expr.instantiateLevelParams J.lps
+      (pinsS.getD (q₀ + i') default).lvls dom.1)
+      = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 := by
+    cases hd : Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 with
+    | forallE ty bo bm =>
+      rw [hd] at hfinJ
+      exact nomatch (hfinJ : Expr.forallE ty bo bm = Expr.const K usK)
+    | _ => rfl
+  have hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary := by
+    obtain ⟨-, -, hCD⟩ := hI'.ctors i' j cA hI'.memberLt hjA
+    have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hjA).1
+    have hksl : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF
+    have hh := hord
+    rw [show (dJ.rss i').getD j [] = rsOf (dJ.ksF i' j) from rssOfK_getD hjlt,
+      rsOf_getD hksl] at hh
+    have hne : ¬ ((dJ.ksF i' j).getD l .ordinary = .recursive
+        ∨ (dJ.ksF i' j).getD l .ordinary = .reflexive) := by
+      intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+    rcases hCD.opened.kinds l (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+    · exact ho
+    · exact absurd (Or.inl hr) hne
+    · exact absurd (Or.inr hrf) hne
+  have hgbE : (pinAtE st (q₀ + i')).grpBase = q₀ := by
+    obtain ⟨hgb', -⟩ := S.grp i' hi'
+    rw [← pinAtE_eq] at hgb'
+    exact hgb'
+  have hstripDL : ConLeche.stripDomPis (ConLeche.ordTargetDomL J.lps
+      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1)
+      = ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1 := by
+    rw [hDL]; exact hstripId
+  have hhead : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+      (q₀ + i') l dom.1).getAppFn = .const K usK := by
+    rw [← hlpsJ]
+    unfold ConLeche.ordTargetDom
+    rw [hstripDL]
+    refine getAppFn_instantiateList_const (e := ConLeche.ordTargetDomL J.lps
+      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) ?_
+    rw [hDL]; exact hfinJ
+  have hbase := R.instOrdSelfAt SF S hPD R.h.classify hi' hgbE
+    (fun ciJ hh => by
+      rw [hciP] at hh
+      obtain rfl := Option.some.inj hh
+      exact S.modeled i' hi' ci hciP)
+    hjA hlF hordC hrss hstrip hdom
+    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
+  cases hfi : p.memberNames.findIdx? (· == K) with
+  | some mm =>
+    exfalso
+    obtain ⟨hmmlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+    have hmem : K ∈ p.memberNames := by
+      have h := List.getElem_mem hmmlt
+      rwa [eq_of_beq hbeq] at h
+    rw [R.membersFresh K hmem] at hfindK
+    exact nomatch hfindK
+  | none =>
+    obtain ⟨ciM, z, -, -, htgz⟩ := hbase.2 hfi
+    omega
+
 /-- **THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE, AT THE RUN**
 (task #315 WIDE (3), step 1(a)): at a field the pin's container calls
 ORDINARY and the block's rewrite made recursive, whose block target is
@@ -2424,6 +2607,8 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
       ((D).pinAt z).J = K ∧
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        ((D).pinAt z).nPJ = ci.nP) ∧
       OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
@@ -2619,7 +2804,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hJM]; exact hciM
   obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
   have hlB : l < cAB.2 := by rw [hnFB, ← hnf]; exact hlF
-  refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, hJM, ?_⟩
+  refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, hJM,
+    fun ci hci => by
+      obtain rfl := Option.some.inj (hci.symm.trans hciM)
+      exact hnPz, ?_⟩
   rw [hnPz]
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
@@ -3095,6 +3283,8 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       (((mutEiss0 ctorsA.length eissF ψ).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = (pinsS.getD z default).nIdx ∧
       (pinsS.getD z default).J = K ∧
+      (∀ ci : ContainerInfo, ConLeche.containerInfo? env K = some ci →
+        (pinsS.getD z default).nPJ = ci.nP) ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
@@ -3137,9 +3327,9 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hgp hgn hciO hm₀ hownT hmapR hqK hqm
     (by rw [hstripO]; exact hhdO) (by rw [hstripB]; exact hhdB) hfire hrootInst
   -- the block's own reading, and its target
-  obtain ⟨z, hz, htg, hEl, hJz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
-    lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
-  refine ⟨z, hz, htg, hEl, hJz, fun fs₁ hfs hspf => ?_⟩
+  obtain ⟨z, hz, htg, hEl, hJz, hnPz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss
+    hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
+  refine ⟨z, hz, htg, hEl, hJz, hnPz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
   rw [hown_eq, hdpB] at htl
   refine ⟨List.eq_nil_of_length_eq_zero htl, fb, Ps, hPs, ?_⟩
@@ -3182,7 +3372,7 @@ theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
   intro ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip hdom
     i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin
   obtain ⟨pbs, -, hPD⟩ := R.pinData
-  obtain ⟨z, hz, htg, hEl, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
+  obtain ⟨z, hz, htg, hEl, -, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
     lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hfin
   exact ⟨z, hz, htg, hEl, hOT⟩
 
