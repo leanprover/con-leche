@@ -76960,3 +76960,294 @@ them), `prof/` (the six profiles, `bucket.py`), `ir/inst1XP-full.c`,
 `ptrmemo-section.lean` (the section as first written), `measure.sh` /
 `profile.sh` / `count.sh` / `chain*.sh`, `arena-ptr2.log`,
 `arena-hash.log`, `build-*.log` / `test-*.log`, `trust-surface.log`.
+
+## TASK #317 — LANDED: `withExclusive` and the pointer-keyed walk memo (2026-09-20, `agent/land-317`)
+
+**The ask.**  The maintainer's ruling closing the #313–#316 campaign:
+of the three things measured in front of the substitution walks' memo,
+the NODE BUDGET (#313) is a heuristic cutoff and is rejected; the
+SHARING BITS (#315) need an in-place write into a node the walk does
+not own and are rejected; what lands is the exact design — the
+`withExclusive` walks of #314 with the pointer-keyed memo of #316.
+This task is the landing.  The tree ships ONE walk per operation and
+ONE memo discipline; every other variant the campaign built goes,
+with its specs; the wording is the maintainer's (the word "oracle" is
+not used in code, docstrings, comments or this record); and the record
+carries the final table.  The branch is cut from `agent/pkmemo-316`,
+which carried all the variants behind switches.
+
+### 1. What ships
+
+`ConLeche/Kernel/Exclusive.lean` — **`withExclusive`**, its own
+module, self-contained, the tree's ONE `unsafe`-implemented primitive
+of the walks.  The obligation is now stated as
+
+```lean
+@[implemented_by withExclusiveUnsafe]
+def withExclusive {α : Type u} {β : Type v} (a : α) (k : Bool → β)
+    (h : k true = k false) : β :=
+  k false
+```
+
+— `h : k true = k false` in place of #314's `∀ b₁ b₂, k b₁ = k b₂`,
+which over `Bool` is the same statement and is the form the callers
+discharge (`withExcl` passes `Subsingleton.elim _ _`).  The module
+docstring says what the primitive is, what licenses the substitution,
+what it is for (the walks memoise exactly the nodes it reports
+shared), how the walks discharge `h` (a `Squash`, i.e. a
+`Subsingleton`), that the borrowed-parameter convention is a
+requirement with the IR audit as its check, that this is the walks'
+one escape and `tests/trust-surface.sh` allowlists this file for
+`unsafe` and `implemented_by` with that docstring as the
+justification, and it cites the Lean RFC
+<https://github.com/leanprover/lean4/issues/15235>, which proposes the
+primitive for `Init/Util.lean` — **when upstream ships it, this module
+becomes a re-export**.  The trust-surface entry was rewritten to
+match.
+
+`ConLeche/Cached/ExprOpsC.lean`, section "The substitution walks" —
+the design, in the maintainer's terms:
+
+* **memoise only what is shared** — at every compound node past the
+  cutoff, `withExclusive` on the node (borrowed); an exclusive node is
+  rebuilt with the memo untouched (no key, no probe, no insert), a
+  shared one is probed and recorded on a miss.  The table is created
+  at the first shared compound node; the root is never probed.  The
+  official kernel's `replace_fn` caches exactly the
+  `!is_likely_unshared(e)` nodes;
+* **key by address and cursor** — `withPtrAddr` (`Expr.withAddr`) at
+  the top of the shared step, packed with the cursor into one `Nat`
+  (`pkey`): register arithmetic, a tagged scalar, no allocation and no
+  structural hash.  The table is a `Std.HashMap` on that key under
+  `hash64`;
+* **validate a hit by pointer identity** — `Expr.ptrDec`
+  (`withPtrEqDecEq`) on the stored node against the current one, plus
+  a cursor compare.  The address is never trusted: a wrong key can
+  only cost a rebuild, never a value;
+* **every entry is self-proving** — `PEnt` carries `node`, `val`,
+  `depth` and `eq : val = s node depth`, so there is **no table
+  invariant** and no lemma about the table at all; a validated hit
+  rewrites the entry's proof into the one the walk's result type
+  demands.  The `BeqMap`/`EqPair`/`probeHit` shape of `Expr.beqGo`;
+* **no cutoff** — the walk is exact: every shared compound node it
+  meets is memoised, for as long as the walk lasts, and nothing bounds
+  the table;
+* **the borrowed-parameter convention is a REQUIREMENT**, stated as
+  such in the section, with the IR audit method named as its check:
+  read `.lake/build/ir/ConLeche/Cached/ExprOpsC.c` for a surviving
+  `lean_inc_ref` of the node before `lean_is_exclusive_obj` (the #314
+  and #316 records).  Re-run here on the landed tree: zero
+  `lean_alloc_closure` in all seven `*XP___redArg`, 10 exclusivity
+  reads each (11 for `instLevelParamsXP`: it has no compound test),
+  the node parameter `inc` 2 / `dec` 0 with both `inc`s at return
+  sites, and **20 `lean_ptr_addr` per walk where #316 read 30** — the
+  third read per child position was the flat table's, and the flat
+  table is gone.
+
+Verification is unchanged and intrinsic: each walk returns a `Squash`
+of the rebuilt term with its proof against the plain descent (`*P`),
+and `Verify/Cached/OpsC.lean` proves each `*P` equal to its
+`ConLeche.Expr` specification; the seven wrappers now read that proof
+straight off the walk through `Expr.resTerm_eq`, with no case analysis
+on anything.  No `sorry`, no new axiom, no new escape.
+
+### 2. What was deleted
+
+`ConLeche/Cached/ExprOpsC.lean` (2 442 → 1 049 lines) — the switches
+`WalkMemoMode`/`walkMemoMode` and `PtrTable`/`walkPtrTable`; the
+budgeted plain descents `instantiate1BC`, `instantiate1LiftBC`,
+`instantiateListBC`, `instantiateRevBC`, `abstract1BC`,
+`abstractRangeBC` with `walkBudget` and `memoAfterBudget`; the
+always-memoised walks `instantiate1GoC`, `instantiate1LiftGoC`,
+`instantiateListGoC`, `instantiateRevGo`, `abstract1GoC`,
+`abstractRangeGoC`, `instLevelParamsGo` with the tables `MemoN`,
+`MemoNL`, `Memo0` that only they used; the structural-key walks
+`instantiate1X`, `instantiate1LiftX`, `instantiateListX`,
+`instantiateRevX`, `abstract1X`, `abstractRangeX`,
+`instLevelParamsX` with their child steps `enter1`, `enterLift`,
+`enterList`, `enterRev`, `enterAbs1`, `enterAbsR`, `enterLP` and
+their memo `MemoX`/`MemoX0` with `ResX`/`ResX0`, `MemoXInv`,
+`MemoX0Inv` and the four insert/empty lemmas; the flat table
+`PTab` (`initShift`, `idx`, `find`, `rehash`, `grow`, `insertK`,
+`insertAt`, `create`, `probe`) and the union `PTabU` that held it
+beside the hash map.  `MemoXP.insertK` became `MemoXP.insert` (the
+flat table's slot hint is gone with it) and `MemoXP` is now
+`Option (HTab s)`.
+
+`ConLeche/Verify/Cached/OpsC.lean` (4 258 → 1 478 lines) — every spec
+of the above: `instantiate1GoC_spec`, `instantiate1BC_spec`,
+`instantiateListGoC_spec`, `instantiateListBC_spec`,
+`instantiateRevGo_eq`, `instantiateRevBC_eq`, `abstract1GoC_spec`,
+`abstract1BC_spec`, `abstractRangeGoC_spec`, `abstractRangeBC_spec`,
+`instLevelParamsGo_spec`, `instantiate1LiftGoC_spec`,
+`instantiate1LiftBC_spec`, and the six memo invariants with their
+`empty`/`insert` lemmas (`Memo1Inv`, `MemoLInv`, `MemoAInv`,
+`MemoARInv`, `MemoLPInv`, `Memo1LInv`).  The seven wrapper specs lost
+their five-armed case analysis and are three lines each.
+
+Nothing removed was used anywhere else: `pairKey_inv` and `OptEr`
+(cited by `KnotC`, `SimCEff`, `DiscC*`), the `instList_*` arm lemmas,
+`abstract1_eq_self`, `abstractRange_zero` and the scope walk's
+`MemoWInv` are still used by what remains and stayed.  The only
+other references to the deleted names anywhere in the tree are in
+`docs/study-306/conleche-perf.md`, a dated study document that is not
+a gate.
+
+### 3. The measurement
+
+`--jobs=1`, ONE run per stream and configuration, `perf stat -e
+instructions:u`, `ulimit -v 16000000` (22 GB on the Mathlib prefix),
+`timeout`, RSS by GNU `time -v`.  `master` and `budget (#314)` are the
+campaign's columns (the #313 base `b9737075` and the #314 `.budget`
+cell); `ptr/hash (#316)` is the design's column as #316 recorded it;
+`landed (#317)` is this tree's executable (`_tmp/bin/land317`, md5
+`0783756e…`, byte-identical to a rebuild).
+
+**`--verified`**
+
+| stream | master (#313) | budget (#314) | ptr/hash (#316) | **landed (#317)** | Δ vs #316 | Δ vs master |
+|---|---|---|---|---|---|---|
+| `app-lam` | 157.30 G | 157.35 G | 71.48 G | **70.68 G** | -1.1 % | -55.1 % |
+| `beta-ladder` | 39.94 G | 39.71 G | 15.35 G | **15.31 G** | -0.3 % | -61.7 % |
+| `let-ladder` | 8.06 G | 8.01 G | 2.72 G | **2.72 G** | -0.1 % | -66.3 % |
+| `fueled-chain` | 1.09 G | 1.08 G | 0.79 G | **0.79 G** | -0.5 % | -27.9 % |
+| `init-prelude` | 3.20 G | 2.87 G | 2.91 G | **2.89 G** | -0.8 % | -9.8 % |
+| `grind-ring-5` | 22.61 G | 20.15 G | 20.41 G | **20.30 G** | -0.6 % | -10.2 % |
+| `magma-list-pair-n21` | 199.17 G | 155.60 G | 176.03 G | **174.32 G** | -1.0 % | -12.5 % |
+| `magma-list-deep-n36` | 324.55 G | 241.64 G | 260.69 G | **259.04 G** | -0.6 % | -20.2 % |
+| `init-full` | 585.84 G | 509.72 G | 513.15 G | **509.10 G** | -0.8 % | -13.1 % |
+| `mathlib-prefix` | 848.51 G | 742.69 G | 744.50 G | **738.29 G** | -0.8 % | -13.0 % |
+
+**`--trusted`**
+
+| stream | master (#313) | budget (#314) | ptr/hash (#316) | **landed (#317)** | Δ vs #316 | Δ vs master |
+|---|---|---|---|---|---|---|
+| `app-lam` | 157.29 G | 157.35 G | 71.48 G | **70.68 G** | -1.1 % | -55.1 % |
+| `beta-ladder` | 39.94 G | 39.71 G | 15.34 G | **15.31 G** | -0.2 % | -61.7 % |
+| `let-ladder` | 8.06 G | 8.01 G | 2.72 G | **2.72 G** | -0.1 % | -66.3 % |
+| `fueled-chain` | 1.08 G | 1.07 G | 0.78 G | **0.78 G** | -0.4 % | -28.1 % |
+| `init-prelude` | 3.04 G | 2.73 G | 2.76 G | **2.75 G** | -0.5 % | -9.7 % |
+| `grind-ring-5` | 21.47 G | 19.03 G | 19.30 G | **19.19 G** | -0.6 % | -10.6 % |
+| `magma-list-pair-n21` | 194.28 G | 150.73 G | 171.24 G | **169.42 G** | -1.1 % | -12.8 % |
+| `magma-list-deep-n36` | 316.51 G | 233.76 G | 252.48 G | **250.85 G** | -0.6 % | -20.7 % |
+| `init-full` | 567.25 G | 491.55 G | 495.09 G | **491.15 G** | -0.8 % | -13.4 % |
+| `mathlib-prefix` | 816.81 G | 712.25 G | 714.34 G | **708.48 G** | -0.8 % | -13.3 % |
+
+**RSS (MB, `--verified`)**
+
+| stream | master (#313) | ptr/hash (#316) | **landed (#317)** |
+|---|---|---|---|
+| `app-lam` | 2722 | 2722 | **2717** |
+| `beta-ladder` | 716 | 869 | **865** |
+| `let-ladder` | 231 | 232 | **232** |
+| `fueled-chain` | 24 | 25 | **24** |
+| `init-prelude` | 29 | 31 | **31** |
+| `grind-ring-5` | 219 | 220 | **212** |
+| `magma-list-pair-n21` | 5344 | 5398 | **5388** |
+| `magma-list-deep-n36` | 7347 | 7345 | **7338** |
+| `init-full` | 466 | 468 | **471** |
+| `mathlib-prefix` | 918 | 920 | **919** |
+
+Every verdict is master's and #316's: `init-full` 57 977 accepted
+declarations in both modes, `magma-list-pair-n21` 263,
+`magma-list-deep-n36` 479, `grind-ring-5` 2 185, `init-prelude`
+1 777, `app-lam` 21, `beta-ladder` 11, `let-ladder` 13,
+`fueled-chain` 137, the Mathlib prefix 36 blocks modelled in process;
+exit 0 everywhere.
+
+**Why the landed column is BELOW #316's `ptr/hash`, and not within
+0.5 % of it.**  The brief expected a reproduction; the landed tree is
+0.5–1.2 % faster, so the difference was attributed rather than
+assumed.  Three binaries, same harness, `--verified`, one run each:
+`ptr-hash2` is #316's committed `.hash` executable, `nounion` is this
+branch at `5f655859` — the `PTabU` union removed and the flat table
+gone, but every other variant (`*X`, `*BC`, `*GoC`, the switches)
+still compiled in — and `land317` is the landed tree.
+
+| stream | `ptr-hash2` (#316's binary, here) | `nounion` | Δ | `land317` | Δ | total |
+|---|---|---|---|---|---|---|
+| `app-lam` | 71.57 G | 70.68 G | -1.24 % | 70.68 G | +0.00 % | -1.24 % |
+| `init-prelude` | 2.90 G | 2.89 G | -0.51 % | 2.89 G | -0.00 % | -0.51 % |
+| `grind-ring-5` | 20.40 G | 20.29 G | -0.50 % | 20.30 G | +0.01 % | -0.49 % |
+| `magma-list-pair-n21` | 175.97 G | 174.23 G | -0.99 % | 174.32 G | +0.05 % | -0.94 % |
+| `init-full` | 512.20 G | 509.07 G | -0.61 % | 509.10 G | +0.01 % | -0.61 % |
+
+`ptr-hash2` reproduces its #316 cells within 0.3 % here, so the
+harness is the same one.  **The whole difference is the removal of the
+`PTabU` union**: it cost a tag test on every probe and every insert
+and a constructor cell on every table created, which is why the
+largest share falls on `app-lam` (−1.24 %), the stream that creates
+24 M one-entry tables.  Deleting the other variants is worth
+**nothing**, in either direction (0.00 … +0.05 %): dead code in the
+same module neither helps nor hurts the walk that runs.  That is the
+answer to "else find why", and it is also the cleanest possible
+statement of what the deletion cost: nothing.
+
+**Against the budget, and the per-step figure.**  On the two streams
+the campaign argued over, the exact design is still above the
+heuristic one — `magma-list-pair-n21` +12.0 % (174.32 G against
+155.60 G, from #316's +13.1 %) and `magma-list-deep-n36` +7.2 % — and
+on everything else it is at or below it: `init-full` **−0.1 %**
+(509.10 G against 509.72 G), the Mathlib prefix **−0.6 %** (738.29 G
+against 742.69 G), `grind-ring-5` +0.7 %, `init-prelude` +0.7 %, and
+the ladders at the factor of two to three the budget never had
+(`app-lam` −55.1 %, `beta-ladder` −61.4 %, `let-ladder` −66.0 %).  So
+the cutoff bought nothing on the streams that matter most and the
+tree is rid of it.
+
+Per β/δ/ι step on `init-full` (#312's 47.4 M steps, unchanged — the
+walks compute the same terms): **12 357 → 10 741 instructions**, a
+−13.1 % that also beats #313's landed budget figure of 10 745 and
+#316's `ptr/hash` 10 826.  nanoda's 4 783 is **2.25×** away where
+#312 measured 2.58×.  On the Mathlib prefix (57.35 M steps) 14 795 →
+**12 873**.
+
+**`PERF.md`** is regenerated for the six non-Mathlib rows by its own
+battery (`scripts/perf-tables.sh`, `PERF_APPEND=1` on a cache seeded
+from the tracked record, the official column from the same
+`checkers/official-v4.33.0` binary the #313 battery used), and
+`perf-data/{table.tsv,census.tsv,meta.txt}` with it.  Against official
+v4.33.0: `let-ladder` **0.44×** (6.13 G official against 2.72 G — the
+first stream on which con-leche is FASTER than the official kernel,
+and by 2.3×), `app-lam` **2.40×** from 5.34×, `beta-ladder` **1.51×**
+from 3.92×, `grind-ring-5` 1.51× / 1.43×, `init-prelude` 1.31× /
+1.24×, `init-full` 1.16× / 1.12× (439.54 / 491.17 / 509.04 G).  As in
+#313, the `mathlib-full` row is the PREVIOUS battery's (`1d470aa7`,
+2026-09-10): its 5.6 GB stream is not on this machine, so that row is
+neither this binary's nor this stream set's, and the header says so.
+
+### 4. The gates
+
+| gate | result |
+|---|---|
+| `lake build` | 567 jobs, warning-free |
+| `lake test` | 486 jobs, warning-free |
+| `tests/layering.sh` | base 305 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl |
+| `tests/trust-surface.sh` | 15 escapes in 6 allowlisted files (503 scanned), 0 outside — no new escape; the `Exclusive.lean` justification rewritten for the landed shape |
+| `tests/shake.sh` | 445 removals proposed, all allowlisted; pub-imports 950 of 1416 public, none demotable |
+| `tests/overview-links.sh` | 106 links, 60 files, 2 documents, OK (one link added, `--update` run) |
+| `tests/quote-gate.sh` | 2 quoted statements match the tree |
+| `tests/no-local-paths.sh` | OK |
+| `tests/pindump.sh` | 3 pinners reproduced, 0 skipped |
+| `tests/challenge.sh` | OK — builds with `sorry` only; statements identical |
+| `tests/inmodel.sh` | OK (8 fixtures) |
+| axioms | 20 theorems at `[propext, Classical.choice, Quot.sound]` |
+| `tests/arena.sh` (full) | 90/92 tutorial, 195/195 e2e, 15/15 annot, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14, trusted sweep 138+195+15 (3 recorded divergences), `--jobs=1` and `--jobs=4` sweeps as at the default — every verdict identical to master's |
+
+`git grep -n -i oracle ConLeche` comes back empty.
+
+### 5. Where everything is
+
+Committed on `agent/land-317`: `ef795862` (the `withExclusive`
+signature, its module docstring and the trust-surface justification),
+`5f655859` (the flat table and `walkPtrTable` gone), `8335c3c3` (the
+one design — the switch, the budget, the `*GoC` and `*X` walks and
+every spec of them deleted), `c9243f35` (the walk section's docstrings
+as landed; the word "oracle" gone), `0cda50c6` (OVERVIEW.md),
+`0e641204` (the last four plain-descent docstrings), `43a6956d`
+(`PERF.md` and `perf-data/*`), and the commit of this record.  On the worktree
+(`_tmp/land-317/_tmp/`, gitignored): `bin/{land317, nounion}` and
+`runs/{land317, ptrhash2-here, nounion}.tsv` with their logs (the
+tables above verbatim; `table317.py` renders them), `measure.sh`,
+`land/inst1XP.c` (the IR audit excerpt), `land/arena.log`,
+`land/perfbattery.log`, the build and gate logs.
