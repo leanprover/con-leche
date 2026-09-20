@@ -153,3 +153,18 @@ tests/e2e/nested_bvar_field.ndjson 1 J=accept,BvarField=accept,
 # `nested_refl_pin`'s kind, gaining `,PiField=accept` the day a route
 # installs a container with a reflexive member.
 tests/e2e/nested_pi_field.ndjson 0 J=accept,
+# **THE REDEX-MINT-WITH-AN-OWNER ROW, PINNED AT ITS FINDING.**
+# `Wrap (f : True → Type) | mk : f True.intro → Wrap f` nested at
+# `J β | node : Wrap (fun _ : True => J β) → J β`, with `Outer` above:
+# `nested_lam_pin_prop`'s λ-REDEX mint, one nesting level down, so the
+# outer block's copy of `Wrap` has `J`'s own pin as its OWNER.  The
+# owner's recomputation reduces to `J β` and the owner REWROTE the
+# field, but `ordRootFired` is the UNNORMALISED head test and a λ is no
+# `.const`, so the field falls into K.70's arm (C) — whose claim, that
+# the block's target leaves the owner's instance, is FALSE here.
+# OFFICIAL ACCEPTS the block; the route errors on it.  The row is
+# pinned at `Outer=error` as the finding (`inmodel_groups`' precedent)
+# and becomes `Outer=accept` when K.67's walk reads its fire test at
+# the positivity normal form, as K.69 already does.  See DESIGN, "K.70's
+# ARM (C) IS REFUTED BY A REDEX MINT".
+tests/e2e/nested_redex_owner.ndjson 1 J=accept,Outer=error,

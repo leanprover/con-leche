@@ -126796,3 +126796,74 @@ statements match, `tests/no-local-paths.sh` OK.
 unconsumed set did not move.  `#print axioms` on
 `nestedOrdNormOk_at_head` and `nestedOrdNormOk_at_pi`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (f3) STEP 1 — K.70's ARM (C) IS REFUTED BY A REDEX MINT, AND THE SPELLING THAT FIXES IT (lane LE, 2026-09-20)
+
+The `hscope` reading named a second corner as unproduced — *the owner
+REWROTE and the owner FIRED are not the same bit* — and said no witness
+of the composed shape was in the corpus.  One was built, and it does
+more than leave a conjunct unproved: **it makes K.67's record FIRE on a
+block official ACCEPTS.**
+
+    Wrap (f : True → Type) | mk : f True.intro → Wrap f
+    J β                    | node : Wrap (fun _ : True => J β) → J β
+    Outer                  | mk   : J Outer → Outer
+
+`tests/e2e/nested_lam_pin_prop.ndjson` has this λ-REDEX mint at the
+BLOCK's own nesting; here it is one level down, at `J`'s, so the outer
+block's copy of `Wrap` has `J`'s own pin as its OWNER and K.67's walk
+speaks at it.  `Wrap` calls its field ORDINARY and `J`'s elimination
+REWROTE it — the recomputation `(fun _ : True => J β) True.intro`
+reduces to `J β`, an occurrence of `J`'s member.  But `ordRootFired` is
+the UNNORMALISED head test and a λ is no `.const`, so the owner reads
+as NOT FIRING and the field lands in **K.70's arm (C)**, whose claim is
+that the block's target leaves the owner's instance.  It does not: the
+target is the copy of `J`'s own member, squarely inside the map.  The
+walk answers `false` and the install throws
+`.internal "nested: a rewritten ordinary field's target is not the
+owning container's own class"`.
+
+**This refutes K.70's own complementarity argument in DESIGN "#### K.67"**
+— "a mint that is a redex is in the NEGATIVE arm, and the negative
+claim … is the weaker of the two".  The negative claim is not weaker:
+at a redex mint it is false.
+
+##### THE SPELLING, MEASURED
+
+K.69 already met the sliver and closed it with `ordRootNorm`
+(`nestedOrdNormAt` tests `ordRootFired` at the NORMALISED mint).  K.67's
+walk does not.  Making it do so — `nestedOrdTargetAt` takes the mode,
+the fire test and the head lookups read
+`ordRootNorm mode env memsJ (ordTargetDom …)`, `none` conceding as it
+does at K.69 — was built and run: **`Outer` accepts** and
+`tests/nested-shadow.sh` is unchanged at 44/44 (45/45 with the new
+row).  So the fix is one spelling and no new record, and it is K.69's
+own spelling.
+
+**What it costs above the kernel** is the walk's whole inversion chain,
+because every consumer of the positive and negative arms would then see
+the NORMALISED recomputation where it now sees the raw one:
+`nestedOrdTargetOk_grp_at`/`_out_at` (`Verify/Inductives/NestedCopyKinds.lean`),
+`NestedPinsRun.instOrdTgtAt`/`instOutOwnerAt`/`instMapGrpAt`
+(`Model/Inductives/NestedInstMap.lean`), `GroupFacts.ordTgt`/`ordOut`/
+`mapGrp` and `ordTgt_corr`/`entOut_corr` above them — plus the
+`hK67` hypothesis's type at every carrier (`NestedPins.lean`,
+`NestedCore.lean`, `NestedLoop.lean`, `DeclNestedCore.lean`), which
+gains the mode.  Not attempted here.
+
+##### THE ROW IS PINNED AT THE FINDING
+
+`tests/e2e/nested_redex_owner.ndjson` is in the shadow gate at
+`J=accept,Outer=error,` — `inmodel_groups`' precedent, a verdict pinned
+at the defect for as long as the defect stands, so that the fix is
+visible as a gate change and a regression would be too.  The DISPATCH
+is unaffected: the stream exits 0 with 8 declarations accepted, because
+the native route is not on it.
+
+##### THE GATES
+
+`tests/arena.sh` EXIT 0 — nested-shadow **45/45**, e2e 200/200, arena
+91/96, annot 15/15, trusted and `--jobs` sweeps as at the default.
+`tests/warning-free.sh a68eae7f` 0 warning lines in both halves,
+`tests/shake.sh` green, overview-links 112, quote-gate 2,
+no-local-paths OK.  No `ConLeche/` file changed by this row.
