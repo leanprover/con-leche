@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.PropWhen
+public import ConLeche.Kernel.Exclusive
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
 is that it is *definitionally* `k ()` — which is what
 `Level.beqPtr_eq` and `Expr.beqMemo_eq` prove.  `import all` makes that
@@ -948,22 +949,203 @@ def beqGo (fuel : Nat) (map : Option BeqMap) (a b : @& Expr) : BeqOut a b :=
       | a', b' => finish <| .mk (instDecidableEqExpr a' b') fuel map
 termination_by structural a
 
-/-- The descent's decision, from a fresh state. -/
+/-! ### The variant under measurement (task #318): memoise only what is shared
+
+The node budget above plays, for this memo, the part the official
+kernel's `is_shared` guard plays in `expr_eq_fn::check_cache`
+(`src/kernel/expr_eq_fn.cpp`: `if (is_shared(a) && is_shared(b))` in
+front of the probe and the write) — the task #240 record says so, and
+says the guard could not be ported because a Lean walk sees its
+arguments owned.  Since task #317 it can: `withExclusive`
+(`ConLeche/Kernel/Exclusive.lean`) reads the count of a BORROWED
+node, and `beqGo`'s terms are borrowed already.  The variant,
+`beqGoX`, is the same descent in the shape of the substitution walks
+(`ConLeche/Cached/ExprOpsC.lean`, `enter*P`/`*XP`): the child step
+`enterBeq` does the pointer test, the word test, the leaf test, then
+reads the exclusivity of BOTH children.  A pair can be queried again
+within one comparison only if both of its nodes can be reached
+again, so a pair with an exclusive side is neither probed nor
+recorded — no key, no probe, no entry — and only a shared/shared
+recursive pair pays the memo.  There is no budget: the table appears
+at the first shared/shared pair proved equal, the root pair is never
+asked, and the entries are `EqPair`s as before (the pair, its
+addresses, and its proof; a hit is validated by identity on both
+sides, `probeHit`).  Everything the incumbent proves about the memo
+holds unchanged: every branch returns `Decidable (a = b)` for its own
+`a`, `b`, and the memo is behind the quotient.
+
+`beqMemoMode` selects the position at compile time (the `match` in
+`beqDec` folds); `.budget` is the incumbent.  NOTHING is decided by
+this section: it exists to be measured (DESIGN.md, task #318). -/
+
+/-- The memo discipline of `beqDec`: the node budget (the incumbent) or
+the exclusivity read. -/
+inductive BeqMemoMode where
+  | budget
+  | excl
+
+/-- The committed position. -/
+def beqMemoMode : BeqMemoMode := .budget
+
+/-- The raw result of one node's comparison under `.excl`: the
+decision and the memo (absent until the first recorded pair). -/
+structure BeqResX (a b : Expr) where
+  dec : Decidable (a = b)
+  map : Option BeqMap
+
+/-- `BeqResX` behind the quotient (`BeqOut`'s arrangement). -/
+abbrev BeqOutX (a b : Expr) := Squash (BeqResX a b)
+
+@[inline] def BeqOutX.mk {a b : Expr} (d : Decidable (a = b)) (map : Option BeqMap) :
+    BeqOutX a b :=
+  Quot.mk _ ⟨d, map⟩
+
+/-- The write-back: the entry under its key, in the table or in a
+fresh one. -/
+@[inline] def BeqMap.record (mp : Option BeqMap) (key : Nat) (p : EqPair) : Option BeqMap :=
+  match mp with
+  | none => some (({} : BeqMap).insert key p)
+  | some m => some (m.insert key p)
+
+/-- The child step of `beqGoX`: pointer identity, the computed word,
+the leaf test, then the exclusivity of each side — an exclusive side
+means the pair cannot recur and the descent runs with the memo
+untouched; a shared/shared pair is probed, and recorded on a completed
+`true`.  The terms are borrowed, so the counts read are the counts of
+the references inside the terms (the requirement stated in
+`ConLeche/Cached/ExprOpsC.lean`; the check is the IR audit). -/
+@[inline] def enterBeq (map : Option BeqMap) (a b : @& Expr)
+    (rec : Option BeqMap → BeqOutX a b) : BeqOutX a b :=
+  withAddr a fun pa => withAddr b fun pb =>
+  if pa == pb then .mk (ptrDec a b) map
+  else if h : a.data != b.data then
+    .mk (isFalse (fun e => by subst e; simp at h)) map
+  else if !beqRecursive a then rec map
+  else withExcl a fun ea =>
+    if ea then rec map
+    else withExcl b fun eb =>
+    if eb then rec map
+    else
+      let hit : { h : Bool // h = true → a = b } :=
+        match map with
+        | some m => probeHit m (beqKey pa pb) pa pb a b
+        | none => ⟨false, fun h => Bool.noConfusion h⟩
+      if hh : hit.1 then .mk (isTrue (hit.2 hh)) map
+      else Squash.lift (rec map) fun r =>
+        match r.dec with
+        | isTrue h => .mk (isTrue h) (BeqMap.record r.map (beqKey pa pb) ⟨a, b, pa, pb, h⟩)
+        | d => .mk d r.map
+
+/-- The descent under `.excl`: the constructor cases with the child
+step in front of every recursive call.  The root pair reaches it past
+`beqMemo`'s pointer and word tests and is never asked. -/
+def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
+  match a, b with
+  | .bvar i, .bvar j =>
+    .mk (if h : i = j then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.bvar.inj e))) map
+  | .fvar i t, .fvar j u =>
+    if h : i = j then
+      Squash.lift (enterBeq map t u fun m => beqGoX m t u) fun r =>
+        .mk (match r.dec with
+          | isTrue h' => isTrue (by subst h; subst h'; rfl)
+          | isFalse h' => isFalse (fun e => h' (Expr.fvar.inj e).2))
+          r.map
+    else .mk (isFalse (fun e => h (Expr.fvar.inj e).1)) map
+  | .sort u, .sort v =>
+    .mk (if h : u == v then isTrue (by rw [beq_iff_eq.mp h])
+         else isFalse (fun e => h (beq_iff_eq.mpr (Expr.sort.inj e)))) map
+  | .const n us, .const m vs =>
+    .mk (if h : n == m && us == vs then
+           isTrue (by
+             have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
+             have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
+             rw [h1, h2])
+         else isFalse (fun e => h (by
+           obtain ⟨h1, h2⟩ := Expr.const.inj e
+           subst h1; subst h2; simp))) map
+  | .app f x, .app g y =>
+    Squash.lift (enterBeq map f g fun m => beqGoX m f g) fun r₁ =>
+      match r₁.dec with
+      | isFalse h => .mk (isFalse (fun e => h (Expr.app.inj e).1)) r₁.map
+      | isTrue h => Squash.lift (enterBeq r₁.map x y fun m => beqGoX m x y) fun r₂ =>
+        .mk (match r₂.dec with
+          | isTrue h' => isTrue (by subst h; subst h'; rfl)
+          | isFalse h' => isFalse (fun e => h' (Expr.app.inj e).2))
+          r₂.map
+  | .lam t b m, .lam t' b' m' =>
+    if h : m = m' then
+      Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
+        match r₁.dec with
+        | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.lam.inj e).1)) r₁.map
+        | isTrue h₁ => Squash.lift (enterBeq r₁.map b b' fun mp => beqGoX mp b b') fun r₂ =>
+          .mk (match r₂.dec with
+            | isTrue h₂ => isTrue (by subst h; subst h₁; subst h₂; rfl)
+            | isFalse h₂ => isFalse (fun e => h₂ (Expr.lam.inj e).2.1))
+            r₂.map
+    else .mk (isFalse (fun e => h (Expr.lam.inj e).2.2)) map
+  | .forallE t b m, .forallE t' b' m' =>
+    if h : m = m' then
+      Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
+        match r₁.dec with
+        | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.forallE.inj e).1)) r₁.map
+        | isTrue h₁ => Squash.lift (enterBeq r₁.map b b' fun mp => beqGoX mp b b') fun r₂ =>
+          .mk (match r₂.dec with
+            | isTrue h₂ => isTrue (by subst h; subst h₁; subst h₂; rfl)
+            | isFalse h₂ => isFalse (fun e => h₂ (Expr.forallE.inj e).2.1))
+            r₂.map
+    else .mk (isFalse (fun e => h (Expr.forallE.inj e).2.2)) map
+  | .letE t v b, .letE t' v' b' =>
+    Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
+      match r₁.dec with
+      | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.letE.inj e).1)) r₁.map
+      | isTrue h₁ => Squash.lift (enterBeq r₁.map v v' fun mp => beqGoX mp v v') fun r₂ =>
+        match r₂.dec with
+        | isFalse h₂ => .mk (isFalse (fun e => h₂ (Expr.letE.inj e).2.1)) r₂.map
+        | isTrue h₂ => Squash.lift (enterBeq r₂.map b b' fun mp => beqGoX mp b b') fun r₃ =>
+          .mk (match r₃.dec with
+            | isTrue h₃ => isTrue (by subst h₁; subst h₂; subst h₃; rfl)
+            | isFalse h₃ => isFalse (fun e => h₃ (Expr.letE.inj e).2.2))
+            r₃.map
+  | .lit l, .lit l' =>
+    .mk (if h : l = l' then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.lit.inj e))) map
+  | .proj s i e, .proj s' i' e' =>
+    if h : s == s' && i == i' then
+      Squash.lift (enterBeq map e e' fun mp => beqGoX mp e e') fun r =>
+        .mk (match r.dec with
+          | isTrue h' =>
+            isTrue (by
+              have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
+              have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
+              rw [h1, h2, h'])
+          | isFalse h' => isFalse (fun e => h' (Expr.proj.inj e).2.2))
+          r.map
+    else .mk (isFalse (fun e => h (by
+      obtain ⟨h1, h2, _⟩ := Expr.proj.inj e
+      subst h1; subst h2; simp))) map
+  | a', b' => .mk (instDecidableEqExpr a' b') map
+termination_by structural a
+
+/-- The descent's decision, from a fresh state, at the committed
+position of `beqMemoMode`. -/
 def beqDec (a b : Expr) : Decidable (a = b) :=
-  Squash.lift (beqGo beqBudget none a b) fun r => r.dec
+  match beqMemoMode with
+  | .budget => Squash.lift (beqGo beqBudget none a b) fun r => r.dec
+  | .excl => Squash.lift (beqGoX none a b) fun r => r.dec
 
 /-- The executed equality: pointer test, computed-word test, then the
 memoised descent.  The implementation of `beq`; `beqMemo_eq` proves
 it is `decide (a = b)`. -/
 @[inline] def beqMemo (a b : Expr) : Bool :=
-  withPtrEq a b (fun _ => a.data == b.data && @decide (a = b) (beqDec a b))
+  withPtrEq a b (fun _ => if a.data == b.data then @decide (a = b) (beqDec a b) else false)
     (fun h => by subst h; simp)
 
 /-- The executed equality is the specification: `withPtrEq a b k h`
 is *defined* as `k ()`, the word guard cannot reject an equal pair,
 and `beqDec` is *a* decision of `a = b`, hence *the* decision. -/
 theorem beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b) := by
-  show (a.data == b.data && @decide (a = b) (beqDec a b)) = decide (a = b)
+  show (if a.data == b.data then @decide (a = b) (beqDec a b) else false) = decide (a = b)
   rw [Subsingleton.elim (beqDec a b) (instDecidableEqExpr a b)]
   by_cases h : a = b
   · subst h; simp
