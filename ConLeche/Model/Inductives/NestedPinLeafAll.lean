@@ -1618,7 +1618,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- two agree exactly because the own-pin table is INJECTIVE at this
     -- spelling — `pinsDistinctAt`, K.31's twin, which the block's own
     -- read-back proves and the caller hands in.
-    intro ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE M us hhd
+    intro ψ i' hi' j hj l hl hrc cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE M us hhd
     simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc
     obtain ⟨σ, -, -, -, -, -, -, -, -, hordσ⟩ := G.inst
     -- the GUARD (task #315 WIDE (3), option 2): the clause names the
@@ -1626,7 +1626,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- `hordσ` names that container at an ARBITRARY member of the group
     -- — so this side hands in the one it already holds, at its own
     -- member `i`, read at the ELIMINATION's environment (`hcontE`).
-    obtain ⟨hmem, hpin⟩ := hordσ ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm
+    obtain ⟨hmem, hpin⟩ := hordσ ψ i' hi' j hj l hl hrc cA bs rr dom lps hjA hst hdm
       lpsC i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE M us hhd
     refine ⟨fun mm hmm => ?_, fun hnm => ?_⟩
     · simp only [nestedPc, ← Nat.add_assoc]
@@ -4843,7 +4843,6 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     (G : GF st m a kk dK) (hi' : i' < kk)
     (hj : j < (dK.ctorsM i').length)
     (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
-    (hord : ((dK.rss i').getD j []).getD l false = false)
     (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
     {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     {dom : Expr × ConLeche.BinderMeta}
@@ -4852,6 +4851,16 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     (hdm : bs[dK.nP + l]? = some dom)
     -- THE HEAD: the stored domain's own, which is what the bound reads
     {K : Name} {vs : List Level} (hdomHd : dom.1.getAppFn = .const K vs)
+    -- THE BOUND, as a HYPOTHESIS (task #315 K.70): at a field the
+    -- container calls ORDINARY it is `GroupFacts.ordGe` (K.68 at this
+    -- block) at the recomputed head's declaredness; at one it calls
+    -- RECURSIVE — arm (A)'s pin half — `CopyShapeA.pinF`'s own
+    -- `TV.k ≤ tg l` gives it outright and no row is needed.  Taking it
+    -- rather than deriving it is what lets ONE correspondence serve
+    -- both arms.
+    (hbound : (env.find? K).isSome = true →
+      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0)
     -- the guard's container, at an ARBITRARY member of the block's group
     {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
     (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
@@ -4923,17 +4932,9 @@ theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
   -- does not change a head, and a constant head is not a `Π`), so `M`
   -- is `K`; each of the two arms below declares `K` in `env`, and
   -- `GroupFacts.ordGe` (K.68 at this block) turns that into `p.k ≤ t`.
-  have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
-      = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
-    rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
   have hMK : M = K :=
     (Expr.const.inj
       (hhd.symm.trans (ordTargetDomL_flat_at (lpsC := lpsC) hdomHd ownT dK.nP qK l).2)).1
-  have hbound : (env.find? K).isSome = true →
-      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + a + i') + j) []).getD l 0 := fun hfindK =>
-    G.ordGe ψ i' hi' j hj l hl hord hrs₁ cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin hfindK
   have hgo := fun (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
       (b.ownOffset (p.k + a + i') + j) []).getD l 0) =>
     G.ordTgt ψ i' hi' j hj l hl hrs₁ hge cA bs rr dom hjA hst hdm

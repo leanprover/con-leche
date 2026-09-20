@@ -2775,7 +2775,6 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
           match ci.members[q - qn.grpBase]? with
           | none => false
           | some Jm =>
-            let memsK := ci.members.map (·.name)
             (List.range ks.length).all fun j =>
               match ks[j]?, Jm.ctors[j]? with
               | some kf, some cJ =>
@@ -2786,8 +2785,16 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                     match kf[l]?, jbs[ci.nP + l]? with
                     | some (r, t), some domJ =>
                       if !(r == .recursive || r == .reflexive) then true
-                      else if mentionsMember memsK domJ.1 then true
                       else
+                        -- **K.71**: the `mentionsMember memsK` skip is
+                        -- gone, K.70's twin at this block's own side.
+                        -- At a field the container calls RECURSIVE the
+                        -- block's recomputation names a class just as
+                        -- it does at an ordinary one — the block's
+                        -- mimic of the container's member, or the
+                        -- block's copy of one of the container's own
+                        -- pins — and the wide identification's pin
+                        -- half needs it there too (arm (A)).
                         let dmJ := ordTargetDom Jm.lps ci.nP terms q l domJ.1
                         match dmJ.getAppFn with
                         | .const M _ =>

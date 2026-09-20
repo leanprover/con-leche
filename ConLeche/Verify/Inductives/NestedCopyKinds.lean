@@ -1220,7 +1220,6 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
-    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {M : Name} {us : List Level}
     (hhead : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
@@ -1251,7 +1250,7 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
   have hlv := hjv l hlLt
   rw [hl, hdJ] at hlv
   simp only at hlv
-  rw [if_neg (by simp [hrec]), if_neg (by simp [hord])] at hlv
+  rw [if_neg (by simp [hrec])] at hlv
   rw [hhead] at hlv
   simp only at hlv
   refine ⟨fun mm hmm => ?_, fun hnm => ?_⟩
@@ -1300,7 +1299,6 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
-    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {K : Name} {usK : List Level}
     (hfin : (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1).getAppFn = .const K usK)
     {M : Name} {us : List Level}
@@ -1334,7 +1332,7 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     unfold ordTargetDom
     rw [hnf.1, hnf.2, Nat.add_zero]
   rw [← hdm] at hhead ⊢
-  exact nestedOrdSelfTargetOk_at_refl h hk hq hqn hks hci hJm hj hkf hcJ hsJ hl hdJ hrec hord hhead
+  exact nestedOrdSelfTargetOk_at_refl h hk hq hqn hks hci hJm hj hkf hcJ hsJ hl hdJ hrec hhead
 
 /-! ## THE REWRITTEN ORDINARY FIELD'S DOMAIN, INVERTED (task #315 K.69)
 

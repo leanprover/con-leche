@@ -362,7 +362,6 @@ records it sits beside. -/
     -- CONTAINER's side of the wide correspondence is built from it.
     (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
       l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
-      ((dJ.rss i').getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
       ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
         (dom : Expr × ConLeche.BinderMeta) (lps : List Name),

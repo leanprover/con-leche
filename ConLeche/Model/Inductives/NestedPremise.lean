@@ -1250,7 +1250,6 @@ unchanged. -/
                   (AnnotTerm.instAll ((d.pinAt q₀).Ds φ) 0)) ∧
     (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
       l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
-      (((B ci).rss i').getD j []).getD l false = false →
       ((pc (q₀ + i')).rss.getD j []).getD l false = true →
       ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
         (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
@@ -1409,7 +1408,6 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
     ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PinGroupView d (B ci) q₀ kJ ∧
       ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
         l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
-        (((B ci).rss i').getD j []).getD l false = false →
         ((pc (q₀ + i')).rss.getD j []).getD l false = true →
         ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
           (dom : Expr × ConLeche.BinderMeta) (lps : List Name),

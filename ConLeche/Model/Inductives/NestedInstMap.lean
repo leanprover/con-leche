@@ -1353,7 +1353,6 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ContainerModeled mp₁'.base2 ciJ dJ)
     {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
     {l : Nat} (hlF : l < cAJ.2)
-    (hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary)
     (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true)
     {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     (hstrip : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bs, rr))
@@ -1466,23 +1465,6 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the container's abstract field domain, and the opened one it substitutes to
   obtain ⟨domJ, hdomJ⟩ : ∃ domJ, cbs[dJ.nP + l]? = some domJ :=
     ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF)⟩
-  have hdrop : (cbs.drop dJ.nP)[l]? = some domJ := by
-    rw [List.getElem?_drop]; exact hdomJ
-  have hopen : x.fvarTypeD
-      = Expr.instSeq (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) domJ.1 :=
-    blockCtorFieldDomain hCD
-      (show cAJ.1.type.stripPis (dJ.nP + cAJ.2)
-          = some (cbs.take dJ.nP ++ cbs.drop dJ.nP, _) from by
-        rw [List.take_append_drop]; exact hstripJ)
-      (by rw [List.length_take]; omega) hx hdrop
-  -- an ordinary field mentions no member: on the opened domain, hence on the stored one
-  have hmenAbs : ConLeche.mentionsMember (ci.members.map (·.name)) domJ.1 = false := by
-    have hop := CMci.ordFree i' j l x hik hjlt hx hordC
-    rw [hopen] at hop
-    rw [← CMci.memberNames_eq]
-    exact ConLeche.mentionsMember_instSeq_false _ _ hop
   have hbs : bs = cbs := congrArg Prod.fst (Option.some.inj (hstrip.symm.trans hstripJ))
   subst hbs
   have hdd : dom = domJ := Option.some.inj (hdomM.symm.trans hdomJ)
@@ -1498,7 +1480,7 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
-    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hmenAbs hhead'
+    hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hhead'
 
 
 omit S in
@@ -2445,7 +2427,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
   · -- `hordσ`: K.68's row, `instOrdSelfAt` with the two tables and the
     -- two member-name lists identified (`ownPinTerms_eq`, the block's
     -- own names)
-    intro ψ i' hi' j hj l hl hord hrss cA bs rr dom lps hjA hstrip hdom
+    intro ψ i' hi' j hj l hl hrss cA bs rr dom lps hjA hstrip hdom
       lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE M us hhead
     obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
     have hlF : l < cA.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
@@ -2454,22 +2436,6 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       show (fms.take p.k).map (·.cvTa.name) = p.memberNames
       rw [List.map_take, R.h.names]
       exact ConLeche.auxBlock_memberNames R.hfA R.helim R.hb
-    -- the container's field is ORDINARY: `rss` false rules the other
-    -- two kinds out (`instOutAt`'s own conversion)
-    have hjlt : j < (dJ.ctorsM i').length := hj
-    obtain ⟨-, -, hCD⟩ := hI'.ctors i' j cA hI'.memberLt hjA
-    have hksl : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF
-    have hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary := by
-      have hh := hord
-      rw [show (dJ.rss i').getD j [] = rsOf (dJ.ksF i' j) from rssOfK_getD hjlt,
-        rsOf_getD hksl] at hh
-      have hne : ¬ ((dJ.ksF i' j).getD l .ordinary = .recursive
-          ∨ (dJ.ksF i' j).getD l .ordinary = .reflexive) := by
-        intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
-      rcases hCD.opened.kinds l (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
-      · exact ho
-      · exact absurd (Or.inl hr) hne
-      · exact absurd (Or.inr hrf) hne
     rw [R.ownPinTerms_eq SF lps] at hhead ⊢
     rw [hnames]
     -- the guard's container is named at an ARBITRARY member of the
@@ -2482,7 +2448,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       fun ciP hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm'
     have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
-      hjA hlF hordC hrss hstrip hdom hlpsC hhead
+      hjA hlF hrss hstrip hdom hlpsC hhead
     refine ⟨hbase.1, fun hnm => ?_⟩
     -- the STRENGTHENED arms give the answer POSITIVELY (task #315
     -- WIDE (3)): the head's container reads, and its own-pin term is
@@ -2738,7 +2704,7 @@ theorem NestedPinsRun.ordGeAt {pbs : List (Expr × ConLeche.BinderMeta)}
       rw [hciP] at hh
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
-    hjA hlF hordC hrss hstrip hdom
+    hjA hlF hrss hstrip hdom
     (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
   cases hfi : p.memberNames.findIdx? (· == K) with
   | some mm =>
@@ -2955,7 +2921,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       rw [hciP] at hh
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
-    hjA hlF hordC hrss hstrip hdom
+    hjA hlF hrss hstrip hdom
     (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
   have hnm : p.memberNames.findIdx? (· == K) = none := by
     cases hfi : p.memberNames.findIdx? (· == K) with
@@ -3240,7 +3206,7 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       rw [hciP] at hh
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
-    hjA hlF hordC hrss hstrip hdom
+    hjA hlF hrss hstrip hdom
     (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
   -- THE TARGET IS A MEMBER, so the instance map's row answers `some`:
   -- its other arm makes the recorded target a PIN index, at or above
