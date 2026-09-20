@@ -2188,8 +2188,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
     ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
     ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
-    ∀ Wn : Expr, ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
-      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = some Wn →
+    ∀ Wn : Expr, ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = Wn →
     ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT Wn = false →
     mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
@@ -2562,7 +2562,7 @@ theorem candIdxAgree_pinAs (st : ElimState) (pinsS : List PinSyn)
     CandIdxAgree (V := V) st pinsS dJf ψ ρp (pinAs (V := V) pinsS ψ ρp) :=
   fun _ _ _ _ => rfl
 
-local notation "GF" => GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀)
+local notation "GF" => GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -5121,8 +5121,8 @@ theorem entOut_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     -- this row's claim would then be FALSE
     -- (`tests/e2e/nested_redex_owner.lean`)
     {Wn : Expr}
-    (hnorm : ConLeche.ordRootNorm μ env (ciR.members.map (·.name))
-      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = some Wn)
+    (hnorm : ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = Wn)
     (hnofire : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT Wn = false)
     -- the owner's group, and `σ`'s two values
     (hgrpSize : gn.grpSize = dR.k)
@@ -8166,7 +8166,7 @@ it is handed, and applies this at exactly that one. -/
       xrestF eissF tssF ctorsR dsR xFvsR pinsS mp₁' _ _ _ =>
     ∀ dJf : Nat → BlockModel V,
       (∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
-        GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
           (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
           (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8221,7 +8221,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d →
-      GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8258,7 +8258,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm
-        (ConLeche.ordRootNorm_const hhd) hhd
+        (ConLeche.ordHeadRed_const hhd) hhd
     · -- K.70's arm (A), the member half, as the run states it
       -- (`instMapGrpAt`): a map fact, so no field preamble at all
       obtain ⟨pbs, -, hPD⟩ := R.pinData
@@ -8466,7 +8466,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
   obtain ⟨dJf, hdJf₀, hgroups⟩ :
       ∃ dJf : Nat → BlockModel V, dJf q₀ = dJ ∧
         ∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
-          GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
             (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
             (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
             (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
@@ -8497,7 +8497,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
   have hle := hLe mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     dJf hgroups ψ ρp hρp
-  have hGF' : GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+  have hGF' : GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
       (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)

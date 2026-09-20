@@ -457,14 +457,14 @@ container block model per group. -/
     -- K.67: and it IS the owning container's own class, imaged — the
     -- positive twin at the same guard, which the wide identification's
     -- PIN half needs where `houtσ` only says the target is outside
-    ConLeche.nestedOrdTargetOk μ env p b st stored = true →
+    ConLeche.nestedOrdTargetOk env p b st stored = true →
     -- K.68: and it is THIS block's own class, by its own recomputation
     -- — K.67's self-relative twin, which the CONTAINER's side of the
     -- wide correspondence is built from
     ConLeche.nestedOrdSelfTargetOk env p b st stored = true →
     -- K.69: and its DOMAIN is the owner's, one substitution apart,
     -- under the guard that the OWNER's copy fired
-    ConLeche.nestedOrdNormOk μ env p b st stored = true →
+    ConLeche.nestedOrdNormOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -667,9 +667,9 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
     (hK61 : ConLeche.nestedInstMapOk env p b st stored = true)
     (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
-    (hK67 : ConLeche.nestedOrdTargetOk μ env p b st stored = true)
+    (hK67 : ConLeche.nestedOrdTargetOk env p b st stored = true)
     (hK68 : ConLeche.nestedOrdSelfTargetOk env p b st stored = true)
-    (hK69 : ConLeche.nestedOrdNormOk μ env p b st stored = true)
+    (hK69 : ConLeche.nestedOrdNormOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hK64 : ConLeche.pinsResolve (ENV₁) st.pins = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true

@@ -106989,10 +106989,15 @@ change**, confirmed — the cached simulation names only K.64, the one
 record outside `nestedPinChecks`, and `ConLeche.Verify.Cached.PushChain`
 built unchanged.
 
-**THE FIRE TEST IS AT THE POSITIVITY NORMAL FORM** (2026-09-20, WIDE
-(f3) step 1): `nestedOrdTargetAt` takes the `mode` and the walk reads
-`ordRootNorm mode env memsJ (ordTargetDom …)`, `none` conceding, which
-is K.69's own spelling one row over.  Asked at the un-reduced mint the
+**THE FIRE TEST IS AT THE ENVIRONMENT-FREE HEAD NORMAL FORM**
+(2026-09-20, WIDE (f3) step 1, twice).  It was first read through
+`ordRootNorm mode env memsJ (ordTargetDom …)` — the positivity walk,
+`none` conceding — and is now read through `ordHeadRed` (head β and ζ,
+no environment, no mode), which is K.68's walk's spelling too and is
+what lets the two sides be identified without a
+whnf-stability-under-extension theorem; `nestedOrdTargetAt` LOST its
+`mode` with the change.  See the WIDE (f3) step 1 spelling-(B) row at
+the end of this file.  Asked at the un-reduced mint the
 walk ERRORED on `tests/e2e/nested_redex_owner.ndjson`'s `Outer`, an
 official accept — see the WIDE (f3) step 1 rows at the end of this
 file for the refutation, the inversion chain and the conformance.  Inversion `nestedOrdTargetOk_at_refl` (general) and
@@ -107191,6 +107196,14 @@ recorded: the member by its name among `p.memberNames`, the pin by its
 term among the same table the head is recomputed in.  Both `Π`-arms
 come free, as always, from `stripDomPis` / `domPiDepth`.
 
+**THE HEAD IS READ THROUGH `ordHeadRed`** (2026-09-20, WIDE (f3)
+step 1, spelling (B)): head β and ζ, no environment — which is what
+lets this row, CARRIED to a later block through `PinShapes`, be the
+same function K.67's walk runs there.  The `| _ => true` arm survives
+only as the narrower residue it now is: a head that becomes a constant
+only after δ, ι or a projection.  See the spelling-(B) row at the end
+of this file.
+
 Placement is K.67's: inside `nestedPinChecks`, ABOVE the
 `verifiedChecks` gate, UNCONDITIONAL in both routes, `.internal`.
 **No `PushChain` change** — the cached simulation names only K.64.
@@ -107370,6 +107383,16 @@ closes it:
   and the comparison is made between the two NORMAL FORMS, the block's
   side computed THE SAME WAY (the same function, the same member list —
   the OWNER's group, `memsJ` — the same depth and fuel).
+
+**SUPERSEDED (2026-09-20, WIDE (f3) step 1, spelling (B)):
+`ordRootNorm` IS DELETED and `normPosDomM` has left `nestedPinChecks`
+entirely.  Both sides are read through `ordHeadRed` — head β and ζ, no
+environment, no mode — so this row, K.67 and K.68 run ONE pure function
+on ONE term and the `hμ` question, the fuel crossing and the three
+owed reduction inputs below are retired ON THE ROWS.  The row's
+`CheckMode` parameter is gone with them.  See the spelling-(B) row at
+the end of this file; what the paragraphs below still describe is the
+argument's shape, not the landed spelling.**
 
 **THE PURE FORM IS WHAT KEEPS IT SIMULABLE, AND IT COSTS THE PRICING
 ABOVE NOTHING.**  `nestedPinChecks` is ONE definition, shared by the
@@ -127936,3 +127959,182 @@ caller yet**, so the premise set was NOT restructured here: changing it
 against a consumer that does not exist is exactly the guess the
 consumer-first rule forbids.  The next session should write the
 assembly first and let it choose.
+
+#### WIDE (f3) STEP 1 — SPELLING (B) LANDED AT THE CHECK: `normPosDomM` LEAVES `nestedPinChecks`, AND THE REDEX CORNER HAS A **FOURTH** CONCESSION THE STEP-0 ROW DID NOT LIST (lane LE, 2026-09-20)
+
+Step 0 priced two spellings for the redex-mint corner and (B) — an
+ENVIRONMENT-FREE head reduction applied identically on K.67's and
+K.68's walks — was chosen.  It is landed, at the CHECK.  The three
+concessions step 0 named are lifted there; a FOURTH, which step 0 did
+not list, is what still keeps `nestedFitc_pin` inapplicable at
+`tests/e2e/nested_redex_owner.lean`'s `Outer`, and this row names it,
+proves it is not an invalidation, and prices the one object that closes
+it.
+
+##### (a) THE FUNCTION, AND WHAT IT REPLACED
+
+`ordHeadRed` (`Kernel/Inductives/NestedInstall.lean:2619`) — head β and
+ζ, nothing else, no environment, no `CheckerOps`, no mode.  Its worker
+`ordHeadRedGo` (`:2565`) peels the application spine into an argument
+list and meets a `.lam` with its argument or a `.letE` with its value;
+the substitution is `Expr.instantiate1Lift` and not `instantiate1`,
+because `ordTargetDom` leaves the binders BELOW the cut loose and the
+argument of such a redex is an OPEN term.  The fuel is the constant
+`ordHeadRedFuel = 1024` (`:2582`): the function must be THE SAME one at
+the block's install and at its owner's, and the two routes have
+different fuels to hand.
+
+Two laws, and they are the whole of what the proofs spend:
+
+* `ordHeadRed_const` (`:2644`) — at a constant head the reduction is
+  the IDENTITY and nothing is run.  Its proof is the peeling invariant
+  `ordHeadRedGo_of_const` (`:2623`): every spine step preserves
+  `Expr.mkAppN e args`, so running out of fuel returns the term itself
+  and never a wrong one, and at a `.const` head no β/ζ rule applies.
+  **This is also what makes the change cost nothing downstream**: every
+  proof that already knows its term's head rewrites by it and the
+  `ordHeadRed` disappears;
+* `ordHeadRed_idem_of_const` (`:2651`) — idempotent where it lands on a
+  constant head, which is exactly where the rows speak.
+
+**`ordRootNorm` IS DELETED, AND WITH IT `normPosDomM` LEAVES
+`nestedPinChecks` ENTIRELY.**  That is the structural gain (B) was
+chosen for and it is bigger than the corner: the sliver walk no longer
+runs the monadic positivity walk at all, so
+
+* `nestedOrdTargetAt`/`nestedOrdTargetOk` (K.67) and
+  `nestedOrdNormAt`/`nestedOrdNormOk` (K.69) LOSE their `CheckMode`
+  parameter — the rows are now pure `Bool`s of `Env` and the tables;
+* `GroupFacts` loses its `μ` field with them (it had it for `ordOut`'s
+  `ordRootNorm` hypothesis and for nothing else), and `hK67`/`hK69` are
+  no longer stated at a mode;
+* the three owed inputs K.69's WHAT IS OWED named for the SLIVER path —
+  the owner's reduction closed under the substitution, `whnf` finding
+  it, and the fuel crossing — are **retired on the rows themselves**:
+  they were `normPosDomM`'s, and `normPosDomM` is no longer there.
+  (They survive only in the reading half, §(d).)
+
+##### (b) WHERE THE REDUCTION IS READ
+
+| row | what now reads `ordHeadRed` |
+|---|---|
+| K.67 `nestedOrdTargetAt` | the fire test and BOTH head lookups, at the OWNER's recomputation |
+| K.68 `nestedOrdSelfTargetAt` | the head match and the own-pin `findIdx?`, at the BLOCK's own recomputation — **the `\| _ => true` concession is lifted**, and survives only as the narrower residue: a head that becomes a constant only after δ, ι or a projection |
+| K.69 `nestedOrdNormAt` | the guard (the owner's firing) and BOTH sides of the term equation |
+
+The two walks read it **at the same place and with the same pure
+function on the same term** — `ordTargetDom lpsC nP ownT qK l dom.1` at
+the owner's table and at the block's own, which `ordTargetDom_congr_at`
+already identifies at `qK` — so there is nothing to push across an
+environment and no stability theorem is owed.  That is (B)'s whole
+content and it is now a fact of the tree rather than a plan.
+
+**ONE CONJUNCT OF K.69 STAYS RAW, DELIBERATELY.**  The block-head row
+(WIDE (f3) step 2) keeps its RAW guard and its RAW conclusion, because
+its consumer is not the head lookups': it is the READING half
+(`NestedPinsRun.copyOrdFRightPinOrdTargetRead`,
+`Model/Inductives/NestedCopyInst.lean:10361`), where the head is spent
+on `normPosDomM_indApp_cons` — "the positivity walk is the IDENTITY on
+the minted domain".  §(d) is why that cannot move.
+
+##### (c) THE MODEL TIER IS UNCHANGED, AND THAT IS THE POINT OF `ordHeadRed_const`
+
+No statement of `PinShapes`, `GroupFacts`, `ordTgt_corr`, `hscope`,
+`nestedFitc_pin` or any `NestedPinsRun` row changed.  Every consumer
+that meets an `ordHeadRed` holds the RAW constant head already and
+bridges with `ordHeadRed_const` — four call sites of
+`NestedPinsRun.instOrdSelfAt` and one of `instOrdTgtAt`.  So the rows
+are strictly WIDER at the check and nothing downstream regressed; what
+is not yet done is SPENDING the width, which is §(d)'s object plus the
+propagation that follows it.
+
+##### (d) THE FOURTH CONCESSION — THE READING HALF, AND WHY NO HEAD-REDUCTION SPELLING LIFTS IT
+
+Step 0's table listed three places the owner's side concedes at
+`Outer`: K.68's `| _ => true`, `PinShapes.rowTargetOrd`'s `.const M us`
+guard, and `ordTgt_corr`'s `hhd`; plus `hscope`'s raw-fire conjunct.
+Those are the TARGET half, and (B) reaches all of them.  But
+`nestedFitc_pin` also takes a READING premise — `hread`, `PinShapes`'
+`OrdTargetRead` clause and `GroupFacts.ordRead` — and that half is
+**not** about a head lookup:
+`copyOrdFRightPinOrdTargetRead`'s middle step is
+
+> the positivity walk is the IDENTITY on it — the head is the pin's
+> container, an `indInfo` of the pre-block environment, so
+> `normPosDomM_indApp_cons` applies
+
+and its conclusion is a `denoteMeta` equation about the **UNREDUCED**
+recomputation `ordTargetDom … (nestedPinTermsSelf p st) …`.  At a redex
+mint that step is FALSE: the minted domain IS the redex, the walk
+reduces it, and no spelling of a head reduction repairs a statement
+whose subject is the unreduced term.  **So the corner survives (B), and
+it survives it on the READ and not on the TARGET.**
+
+**IT IS NOT A DESIGN INVALIDATION, AND THE OBJECT THAT CLOSES IT IS
+ONE LEMMA.**  What the reading half needs is
+
+    normPosDomM ops env mems d F W = .ok (ordHeadRed W)
+
+whenever `(ordHeadRed W).getAppFn` is a `.const` declared `indInfo` —
+i.e. **the walk's `whnf` performs exactly the head β/ζ the pure
+function performs, and then stops**.  Three things make it cheaper than
+step 0's spelling (A):
+
+1. it is a LOCAL fact at ONE environment — head β/ζ plus
+   `whnf_indApp_eq` (K.22) — and NOT `whnf`-stability under environment
+   EXTENSION, which is the theorem (A) needs and the tree does not
+   have;
+2. `normPosDomM` calls `ops.whnf` exactly ONCE before its `forallE`
+   case (`Kernel/Inductives/MutualInstall.lean:232`), so the lemma is
+   about one `whnf` call and not about a walk;
+3. the bulk-beta machinery it needs is already in the tree
+   (`Verify/BetaSpine.lean`, `whnfCore_constApp_eq`,
+   `normPosDomM_indApp_cons`).
+
+The one real risk it carries is that the kernel's `whnf` betas the
+spine in BULK while `ordHeadRed` betas ONE argument at a time with
+`instantiate1Lift`; the two agree as terms but the identification is
+`BetaSpine`'s own and has to be made rather than assumed.  **Priced at
+one session**, and the propagation that follows it (move
+`copyOrdFRight*Read`, `PinShapes`' `OrdTargetRead`, `GroupFacts.ordRead`
+and `hscope`'s head conjuncts onto `ordHeadRed`, then `ordTgt_corr`'s
+`hhd` and `rowTargetOrd`'s guard with them) at one more.  Until both
+land, `nestedFitc_pin` remains inapplicable at `Outer` — a conceding
+producer, not a false one: the install ACCEPTS `nested_redex_owner`
+and the gate records it (`J=accept,Outer=accept`).
+
+##### (e) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 — `nested-shadow: 45/45`, `e2e: 200/200`,
+`arena suite: 91/96`, `annot suite: 15/15`, `mode flags: 10/10`,
+`prelude counts: 3/3`, `progress lane: 15/15`, `worker pool: 15/15`,
+`DAG-tower gate: 14/14`, `axioms: pinned (20 theorems)`, trusted sweep
+162+200+15 with the 3 recorded divergences, `--jobs=1` and `--jobs=4`
+sweeps as at the default, `inmodel: OK`, `shake: 514 removals, all
+allowlisted`, `overview-links: 112`, `quote-gate: 2`, `no-local-paths:
+OK`, `challenge: OK`.  The accept set did not move.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), `--verified --nested-shadow --jobs=1` | 1 | 1 | 0 |
+| `init-full`, `--trusted --nested-shadow --jobs=1` | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), `--verified --nested-shadow` | 41 | 41 | 0 |
+| Mathlib, `--trusted --nested-shadow` | 41 | 41 | 0 |
+
+`tests/unconsumed.sh` **204 of 3888**, unchanged: `ordRootNorm` and
+`ordRootNorm_const` are gone and the four new declarations live in
+`Kernel/`, which the advisory does not scan.  `lake test` 0 warnings,
+`tests/warning-free.sh` 0 warning lines in both halves.  `#print
+axioms` on `ordHeadRed_const`, `ordHeadRedGo_of_const`,
+`ordHeadRed_idem_of_const` and on the rows that moved with them:
+`[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom,
+no `maxHeartbeats`.
+
+##### (f) THE COST
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the landed step-3(b) binary.  The reduction runs
+NOTHING where the mint's head is already a constant, which is every
+field of both real corpora (K.69's `c69s` column, this row's table),
+so the cells measure the removal of `normPosDomM` from the rows and
+nothing else.  No Mathlib perf cell, per the standing ruling.

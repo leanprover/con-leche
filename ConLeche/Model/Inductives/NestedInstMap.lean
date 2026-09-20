@@ -945,8 +945,8 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {qK : Nat} (hqK : qK < ownSelf.length)
     (hqm : mapR.getD qK st.pins.length = q₀ + i')
     {Wn : Expr}
-    (hnorm : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
-      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = some Wn)
+    (hnorm : ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = Wn)
     {M : Name} {us : List Level}
     (hhead : Wn.getAppFn = .const M us) :
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
@@ -1056,8 +1056,8 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
   have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
-  have hnorm' : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
-      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = some Wn := by
+  have hnorm' : ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = Wn := by
     rw [hlps', hnPci]; exact hnorm
   exact ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
@@ -1153,8 +1153,8 @@ theorem NestedPinsRun.instOutOwnerAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {qK : Nat} (hqK : qK < ownSelf.length)
     (hqm : mapR.getD qK st.pins.length = q₀ + i')
     {Wn : Expr}
-    (hnorm : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
-      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = some Wn)
+    (hnorm : ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1) = Wn)
     (hnofire : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownSelf Wn = false) :
     mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
@@ -1277,8 +1277,8 @@ theorem NestedPinsRun.instOutOwnerAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
   have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
-  have hnorm' : ConLeche.ordRootNorm μ env (ciO.members.map (·.name))
-      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = some Wn := by
+  have hnorm' : ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1) = Wn := by
     rw [hlps', hnPci]; exact hnorm
   exact ConLeche.nestedOrdTargetOk_out_at R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
@@ -1365,8 +1365,9 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
       ∀ Jm : ContainerMember, ciP.members[i']? = some Jm → Jm.lps = lpsC)
     {M : Name} {us : List Level}
-    (hhead : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-      (q₀ + i') l dom.1).getAppFn = .const M us) :
+    (hhead : (ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l dom.1)).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
@@ -1374,10 +1375,12 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ∃ (ciM : ContainerInfo) (z : Nat),
       ConLeche.containerInfo? env M = some ciM ∧
       (ConLeche.nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-            (q₀ + i') l dom.1).getAppFn
-          ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-            (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = some z ∧
+          (ConLeche.ordHeadRed
+            (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+              (q₀ + i') l dom.1)).getAppFn
+          ((ConLeche.ordHeadRed
+            (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
+              (q₀ + i') l dom.1)).getAppArgs.take ciM.nP)) = some z ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z) := by
   classical
@@ -1475,8 +1478,9 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
   have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
-  have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
-      (q₀ + i') l dom.1).getAppFn = .const M us := by
+  have hhead' : (ConLeche.ordHeadRed
+      (ConLeche.ordTargetDom J₂.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l dom.1)).getAppFn = .const M us := by
     rw [hlps', hnPci]; exact hhead
   rw [htg, ← hnPci, ← hlps']
   exact ConLeche.nestedOrdSelfTargetOk_at_refl R.hK68 hkP hq PD.pin hkq
@@ -2451,7 +2455,8 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       fun ciP hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm'
     have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
-      hjA hlF hrss hstrip hdom hlpsC hhead
+      hjA hlF hrss hstrip hdom hlpsC (by rw [ConLeche.ordHeadRed_const hhead]; exact hhead)
+    rw [ConLeche.ordHeadRed_const hhead] at hbase
     refine ⟨hbase.1, fun hnm => ?_⟩
     -- the STRENGTHENED arms give the answer POSITIVELY (task #315
     -- WIDE (3)): the head's container reads, and its own-pin term is
@@ -2691,7 +2696,9 @@ theorem NestedPinsRun.ordGeAt {pbs : List (Expr × ConLeche.BinderMeta)}
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
     hjA hlF hrss hstrip hdom
-    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
+    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm')
+    (by rw [ConLeche.ordHeadRed_const hhead]; exact hhead)
+  rw [ConLeche.ordHeadRed_const hhead] at hbase
   cases hfi : p.memberNames.findIdx? (· == K) with
   | some mm =>
     exfalso
@@ -2910,7 +2917,9 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
     hjA hlF hrss hstrip hdom
-    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
+    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm')
+    (by rw [ConLeche.ordHeadRed_const hhead]; exact hhead)
+  rw [ConLeche.ordHeadRed_const hhead] at hbase
   have hnm : p.memberNames.findIdx? (· == K) = none := by
     cases hfi : p.memberNames.findIdx? (· == K) with
     | none => rfl
@@ -3203,7 +3212,9 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       obtain rfl := Option.some.inj hh
       exact S.modeled i' hi' ci hciP)
     hjA hlF hrss hstrip hdom
-    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm') hhead
+    (fun _ hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm')
+    (by rw [ConLeche.ordHeadRed_const hhead]; exact hhead)
+  rw [ConLeche.ordHeadRed_const hhead] at hbase
   -- THE TARGET IS A MEMBER, so the instance map's row answers `some`:
   -- its other arm makes the recorded target a PIN index, at or above
   -- `p.k`, which the guard excludes.

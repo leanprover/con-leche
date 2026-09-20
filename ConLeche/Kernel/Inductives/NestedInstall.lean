@@ -2551,56 +2551,107 @@ def ordTargetDom (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
     (l + domPiDepth (ordTargetDomL lps ownSelf qK dom))
 
 
-/-- **THE MINT AT ITS POSITIVITY NORMAL FORM** (task #315 K.69's
-REDUCTION SLIVER).
+/-- The worker of `ordHeadRed`: the application spine is peeled into
+`args` and a `.lam` meets its argument (β) or a `.letE` its value (ζ).
+`args` is in spine order (outermost last is `mkAppN`'s order), and the
+invariant every peeling step keeps is `Expr.mkAppN e args = <the term>`
+— which is what makes the fuel harmless: running out returns the term
+itself, never a wrong one.
 
-`ordRootFired` tests the head of a recomputed mint BEFORE any
-reduction, and so leaves out an owner copy that fires only after the
-positivity walk's `whnf` — a mint that is a REDEX at the owner, say
-`(fun _ => T α) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
-exhibits one level down.  The model's consumer needs the row whenever
-the OWNER fired, reduction or not, and a proof's case split is over the
-SYNTAX and not over a corpus, so "measured zero" does not retire that
-arm.  This is what closes it: at a mint whose head is ALREADY a
-constant nothing is run — the term is its own normal form
-(`normPosDomM_indApp`) — and otherwise the walk the install itself uses
-is run on it.
+`instantiate1Lift` and not `instantiate1`: the recomputed mint leaves
+the binders BELOW the cut loose (`ordTargetDom`), so the argument of a
+β-redex is an OPEN term and the capture-avoiding substitution is the
+one that may be used. -/
+def ordHeadRedGo : Nat → Expr → List Expr → Expr
+  | 0, e, args => Expr.mkAppN e args
+  | n + 1, e, args =>
+    match e with
+    | .app f a => ordHeadRedGo n f (a :: args)
+    | .letE _ v bd => ordHeadRedGo n (Expr.instantiate1Lift bd v) args
+    | .lam _ bd _ =>
+      match args with
+      | a :: rest => ordHeadRedGo n (Expr.instantiate1Lift bd a) rest
+      | [] => Expr.mkAppN e args
+    | _ => Expr.mkAppN e args
 
-**IT IS THE PURE WALK, AND THAT IS WHAT KEEPS THE ROW SIMULABLE.**
-`normPosDomM` is monadic over `CheckerOps`, and the CACHED
-instantiation's simulation (`normPosDomMS_sim`, `BridgeCS3.lean`)
-exists in the VERIFIED mode only — which is why the row could not be
-an `ops`-level clause and stay unconditional.  Here the call is at
-`fueledOps` and at the STANDARD fuel: a pure function of the arguments
-`nestedPinChecks` already has, so the two routes run the SAME function
-on the SAME inputs (`nestedPinChecks` is one definition, shared) and no
-bridge lemma is owed.  The fuel is `checkFuel` and NOT the route's `F`
-for the same reason: the cached route has no `F` to hand, so a
-fuel-parametric clause would not be one function.
+/-- The fuel of `ordHeadRed`, which bounds the number of head β/ζ steps
+and spine peelings together.  It is a constant and not the route's `F`
+for `ordHeadRed`'s whole reason for being: the function must be the
+SAME one at the block's install and at its owner's, and the two routes
+have different fuels to hand. -/
+def ordHeadRedFuel : Nat := 1024
 
-**THE COST IS THE SLIVER'S.**  The walk runs only where the mint's head
-is not already a constant — measured EMPTY at `init-full` and at
-Mathlib, and one block in the e2e suite — and then on ONE field domain,
-so the "no unmemoized traversals" rule is met by rarity and by size,
-not by a memo.  `none` on an error: the walk can throw (fuel, or a
-non-positive occurrence), and where it does the row says nothing about
-the OWNER's side. -/
-def ordRootNorm (mode : CheckMode) (env : Env) (memsJ : List Name) (W : Expr) :
-    Option Expr :=
-  match W.getAppFn with
-  | .const _ _ => some W
-  | _ =>
-    match normPosDomM (m := CheckM) (fueledOps mode checkFuel) env memsJ 0 1024 W with
-    | .ok w => some w
-    | .error _ => none
+/-- **THE MINT AT ITS ENVIRONMENT-FREE HEAD NORMAL FORM** (task #315
+K.69's REDUCTION SLIVER, at the spelling WIDE (f3) step 1 chose).
 
-/-- At a constant head the normal form is the term: the walk is not run
-at all, which is both the cost argument and `normPosDomM_indApp` read
-as a definitional fact. -/
-theorem ordRootNorm_const {mode : CheckMode} {env : Env} {memsJ : List Name}
-    {W : Expr} {c : Name} {us : List Level} (h : W.getAppFn = .const c us) :
-    ordRootNorm mode env memsJ W = some W := by
-  unfold ordRootNorm; rw [h]
+`ordRootFired` tests the head of a recomputed mint, and a mint that is
+a REDEX at the owner — `(fun _ : True => J β) True.intro`, the shape
+`tests/e2e/nested_redex_owner.ndjson` exhibits — has no constant head
+until something reduces it.  The model's consumer needs K.67's and
+K.68's rows whenever the OWNER fired, reduction or not, and a proof's
+case split is over the SYNTAX and not over a corpus, so "measured zero"
+does not retire that arm.
+
+**IT REDUCES β AND ζ AT THE HEAD, AND READS NO ENVIRONMENT.**  That is
+the whole point, and it is what a `whnf`-based normalisation could not
+give: K.68's row is CARRIED to a later block's install through
+`PinShapes`, so the function the owner ran and the function the block
+runs must be literally the same one — and a function that reads an
+environment is not, unless a `whnf`-stability-under-extension theorem
+is proved first.  There is no such theorem in the tree.  β and ζ need
+no environment, so the two walks run ONE pure function on ONE term and
+the identification is free.
+
+**THE RESIDUE, NAMED.**  A mint whose head becomes a constant only
+after DELTA, IOTA or a projection is NOT reduced here, and at such a
+mint K.67's guard fails and K.68's lookup concedes — an arm with a
+conceding producer, exactly as before this spelling.  No fixture in the
+tree exhibits one and neither corpus measures one (the non-constant
+head population at this arm is ZERO at `init-full` and at Mathlib in
+both modes).
+
+**THE COST IS THE SLIVER'S.**  Nothing is run where the mint's head is
+already a constant (`ordHeadRed_const`), which is every field of both
+real corpora; where it is not, the work is bounded by
+`ordHeadRedFuel` head steps on ONE field domain of ONE constructor of
+ONE pin.  The "no unmemoized traversals" rule is met by rarity and by
+size, not by a memo. -/
+def ordHeadRed (W : Expr) : Expr := ordHeadRedGo ordHeadRedFuel W []
+
+/-- Peeling the spine keeps `Expr.mkAppN e args`, so at a head that no
+rule applies to the worker returns its input. -/
+theorem ordHeadRedGo_of_const {c : Name} {us : List Level} :
+    ∀ (n : Nat) (e : Expr) (args : List Expr), e.getAppFn = .const c us →
+      ordHeadRedGo n e args = Expr.mkAppN e args := by
+  intro n
+  induction n with
+  | zero => intro e args _; rfl
+  | succ n ih =>
+    intro e args h
+    match e with
+    | .app f a =>
+      have hf : f.getAppFn = .const c us := h
+      simpa [ordHeadRedGo, Expr.mkAppN] using ih f (a :: args) hf
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .forallE _ _ _
+    | .lit _ | .proj _ _ _ => rfl
+    | .lam _ _ _ => exact absurd h (by simp [Expr.getAppFn])
+    | .letE _ _ _ => exact absurd h (by simp [Expr.getAppFn])
+
+/-- **AT A CONSTANT HEAD THE REDUCTION IS THE IDENTITY**, and nothing
+is run.  This is the cost argument, and it is also what makes every
+proof that already knows its term's head transfer unchanged: the
+`ordHeadRed` disappears. -/
+theorem ordHeadRed_const {W : Expr} {c : Name} {us : List Level}
+    (h : W.getAppFn = .const c us) : ordHeadRed W = W :=
+  ordHeadRedGo_of_const ordHeadRedFuel W [] h
+
+/-- **IDEMPOTENT WHERE IT LANDS ON A CONSTANT HEAD** — which is exactly
+where the rows speak.  (Off that head the fuel is what it is, and the
+rows are silent there anyway.) -/
+theorem ordHeadRed_idem_of_const {W : Expr} {c : Name} {us : List Level}
+    (h : (ordHeadRed W).getAppFn = .const c us) :
+    ordHeadRed (ordHeadRed W) = ordHeadRed W :=
+  ordHeadRed_const h
 
 /-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69, and K.70's
 own dichotomy): its own
@@ -2716,7 +2767,7 @@ identification reads it in every mode, and a gated check is `true` in
 the trusted one.  Cost is K.30's: one stored-constructor read per pin
 field, plus `containerOwnPinsSelf` HOISTED PER PIN rather than per
 field, which is the order `nestedInstMaps` already runs at. -/
-def nestedOrdTargetAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimState)
+def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match maps?, kinds? with
@@ -2769,10 +2820,8 @@ def nestedOrdTargetAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : Eli
                             | some (r, t), some domJ =>
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else
-                                match ordRootNorm mode env memsJ
-                                    (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) with
-                                | none => true
-                                | some dmJ =>
+                                let dmJ := ordHeadRed
+                                  (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
                                 if ordRootFired env memsJ ownSelf dmJ then
                                   match dmJ.getAppFn with
                                   | .const M _ =>
@@ -2801,9 +2850,9 @@ def nestedOrdTargetAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : Eli
 /-- The Bool the route records (task #315 K.67), on the same instance-map
 table K.61 and K.62 read and the same field kinds `nestedPinKinds`
 computes. -/
-@[inline] def nestedOrdTargetOk (mode : CheckMode) (env : Env) (p : NestedParts)
+@[inline] def nestedOrdTargetOk (env : Env) (p : NestedParts)
     (b : MutualBlock) (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdTargetAt mode env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+  nestedOrdTargetAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
 
 /-- **THE BLOCK'S OWN PINS AS THE MODEL SPELLS THEM** (task #315 K.68):
 each recorded pin term with the block's PARAMETERS abstracted and
@@ -2899,7 +2948,17 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                         -- block's copy of one of the container's own
                         -- pins — and the wide identification's pin
                         -- half needs it there too (arm (A)).
-                        let dmJ := ordTargetDom Jm.lps ci.nP terms q l domJ.1
+                        -- **THE HEAD IS READ THROUGH THE ENVIRONMENT-FREE
+                        -- REDUCTION** (task #315 WIDE (f3) step 1,
+                        -- spelling (B)): K.67's walk reads the OWNER's
+                        -- recomputation the same way, at the same
+                        -- place and with the same pure function, so a
+                        -- REDEX mint (`nested_redex_owner`) is inside
+                        -- both rows instead of conceding on this side.
+                        -- `| _ => true` survives as the NARROWER
+                        -- residue it now is: a head that becomes a
+                        -- constant only after δ, ι or a projection.
+                        let dmJ := ordHeadRed (ordTargetDom Jm.lps ci.nP terms q l domJ.1)
                         match dmJ.getAppFn with
                         | .const M _ =>
                           match p.memberNames.findIdx? (· == M) with
@@ -3017,7 +3076,7 @@ BLOCK's walk throwing is NOT silent: under the guard the owner's normal
 form is constant-headed, so the block's reduces to its substitution and
 cannot throw, and the arm asserts that.  The LOOKUP arms are K.67's,
 character for character. -/
-def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimState)
+def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match maps?, kinds? with
@@ -3062,9 +3121,7 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
                                 if mentionsMember memsK domJ.1 then true
                                 else
                                   let W := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
-                                  match ordRootNorm mode env memsJ W with
-                                  | none => true
-                                  | some Wn =>
+                                  let Wn := ordHeadRed W
                                   if !ordRootFired env memsJ ownSelf Wn then true
                                   else if !(r == .recursive || r == .reflexive) then false
                                   -- **THE BLOCK'S OWN RECOMPUTATION IS
@@ -3078,24 +3135,33 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
                                   -- recomputation's and is refuted at
                                   -- three accepted blocks.
                                   --
-                                  -- **THE GUARD IS THE RAW MINT'S
-                                  -- FIRING AND NOT THE NORMAL FORM'S**,
-                                  -- and that is measured, not chosen:
-                                  -- the block's recomputation is the
-                                  -- OWNER's under the mint's
-                                  -- substitution, and a substitution
-                                  -- does not move a CONSTANT head —
-                                  -- but the owner's NORMAL FORM being
-                                  -- constant-headed says nothing about
-                                  -- its raw mint, and at a redex mint
+                                  -- **AND BOTH SIDES ARE READ THROUGH
+                                  -- THE ENVIRONMENT-FREE REDUCTION**
+                                  -- (task #315 WIDE (f3) step 1,
+                                  -- spelling (B)).  The guard is the
+                                  -- owner's firing at `ordHeadRed`,
+                                  -- which is K.67's own guard
+                                  -- character for character, so the
+                                  -- three rows speak at exactly the
+                                  -- same fields; and the block's head
+                                  -- is asserted at `ordHeadRed` of the
+                                  -- block's recomputation, which is
+                                  -- the owner's under the mint's
+                                  -- substitution and therefore
+                                  -- constant-headed wherever the
+                                  -- owner's reduced mint is.  At a
+                                  -- REDEX mint
                                   -- (`tests/e2e/nested_redex_owner.ndjson`)
-                                  -- the block's raw recomputation is a
-                                  -- redex too.  Under the normalised
-                                  -- guard this row FIRES on that
-                                  -- official ACCEPT; under the raw one
-                                  -- it is silent there and asserted at
-                                  -- every other field of both corpora.
+                                  -- that is now TRUE on both sides,
+                                  -- where the raw reading had to
+                                  -- concede.
                                   else
+                                    -- the RAW block head, unchanged and
+                                    -- under its own RAW guard: the
+                                    -- positivity walk's identity on the
+                                    -- minted domain is read off it, and
+                                    -- that consumer is not the head
+                                    -- lookups' (see `#### K.69`).
                                     (match (ordTargetDom Jm.lps ci.nP terms q l
                                         domJ.1).getAppFn with
                                      | .const _ _ => true
@@ -3107,10 +3173,8 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
                                         pinG Wn with
                                     | none => true
                                     | some Wb =>
-                                      match ordRootNorm mode env memsJ
-                                        (ordTargetDom Jm.lps ci.nP terms q l domJ.1) with
-                                      | none => false
-                                      | some Wn₁ => Wn₁ == Wb
+                                      ordHeadRed
+                                        (ordTargetDom Jm.lps ci.nP terms q l domJ.1) == Wb
                               | _, _ => false
                         | _, _ => false
                 | _, _ => true
@@ -3119,9 +3183,9 @@ def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimS
 /-- The Bool the route records (task #315 K.69), on the same instance-map
 table K.61, K.62 and K.67 read and the same field kinds
 `nestedPinKinds` computes. -/
-@[inline] def nestedOrdNormOk (mode : CheckMode) (env : Env) (p : NestedParts)
+@[inline] def nestedOrdNormOk (env : Env) (p : NestedParts)
     (b : MutualBlock) (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdNormAt mode env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+  nestedOrdNormAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
 
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
@@ -3484,7 +3548,7 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- the container it copied — a defect in the ROUTE, not in the
   -- stream, and the answer is never to relax the check.  See DESIGN
   -- "#### K.67" and "#### K.70".
-  else if !nestedOrdTargetAt ops.mode env p st maps? kinds? then
+  else if !nestedOrdTargetAt env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the owning \
       container's own class")
   -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**
@@ -3519,7 +3583,7 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- not the owner's copy substituted — a defect in the ROUTE, not in
   -- the stream, and the answer is never to relax the check.  See
   -- DESIGN "#### K.69".
-  else if !nestedOrdNormAt ops.mode env p st maps? kinds? then
+  else if !nestedOrdNormAt env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's domain is not the owning \
       container's domain instantiated")
   else if !ops.mode.verifiedChecks then pure () else

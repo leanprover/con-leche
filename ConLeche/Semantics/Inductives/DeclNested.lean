@@ -319,7 +319,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- constructor at the owner's own components, because the restore
     -- leaves no `_nested` constant to read.  UNCONDITIONAL for K.61's
     -- reason
-    ConLeche.nestedOrdTargetOk μ env p b st stored = true ∧
+    ConLeche.nestedOrdTargetOk env p b st stored = true ∧
     -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**
     -- (K.68): K.67's self-relative twin — no owner, no parent, no
     -- instance map — which is the half a LATER block reads of this
@@ -332,7 +332,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- one guard under which the positivity normalisation may be pushed
     -- across the block's instantiation.  UNCONDITIONAL for K.61's
     -- reason
-    ConLeche.nestedOrdNormOk μ env p b st stored = true ∧
+    ConLeche.nestedOrdNormOk env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)

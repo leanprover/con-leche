@@ -1077,7 +1077,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- **K.67**: and it IS the owning container's own class, imaged.
       -- K.62's positive twin at the same guard; UNCONDITIONAL, for
       -- K.60's reason
-      nestedOrdTargetOk ops.mode env p b st stored = true ∧
+      nestedOrdTargetOk env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation — K.67's self-relative twin, the half a LATER
       -- block reads of this one
@@ -1085,7 +1085,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart — the terms where K.67 and K.68 compare the targets,
       -- under the guard that the OWNER's copy fired
-      nestedOrdNormOk ops.mode env p b st stored = true := by
+      nestedOrdNormOk env p b st stored = true := by
   unfold nestedPinChecks at h
   simp only at h
   by_cases hcpf : (nestedCopyFieldsAt env p st (nestedPinKinds p b stored)).1 = true
@@ -1102,14 +1102,14 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)) = true
   case neg => rw [if_pos (by simpa using hout)] at h; close_throw
   rw [if_neg (by simpa using hout)] at h
-  by_cases htgt : nestedOrdTargetAt ops.mode env p st (nestedInstMaps env st)
+  by_cases htgt : nestedOrdTargetAt env p st (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using htgt)] at h; close_throw
   rw [if_neg (by simpa using htgt)] at h
   by_cases hstgt : nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hstgt)] at h; close_throw
   rw [if_neg (by simpa using hstgt)] at h
-  by_cases hnrm : nestedOrdNormAt ops.mode env p st (nestedInstMaps env st)
+  by_cases hnrm : nestedOrdNormAt env p st (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hnrm)] at h; close_throw
   rw [if_neg (by simpa using hnrm)] at h
@@ -1381,13 +1381,13 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       -- **AND IT IS THE OWNING CONTAINER'S OWN CLASS, IMAGED** (K.67):
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
-      nestedOrdTargetOk mode env p b st stored = true ∧
+      nestedOrdTargetOk env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation
       nestedOrdSelfTargetOk env p b st stored = true ∧
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart, where the owner's copy fired
-      nestedOrdNormOk mode env p b st stored = true ∧
+      nestedOrdNormOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1761,13 +1761,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- **AND IT IS THE OWNING CONTAINER'S OWN CLASS, IMAGED** (K.67):
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
-      nestedOrdTargetOk mode env p b st stored = true ∧
+      nestedOrdTargetOk env p b st stored = true ∧
       -- **K.68**: and it is THIS block's own class, by its own
       -- recomputation
       nestedOrdSelfTargetOk env p b st stored = true ∧
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart, where the owner's copy fired
-      nestedOrdNormOk mode env p b st stored = true ∧
+      nestedOrdNormOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)

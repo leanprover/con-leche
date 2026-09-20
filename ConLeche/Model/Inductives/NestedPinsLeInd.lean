@@ -80,7 +80,7 @@ variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : M
 local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
   srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
 
-local notation "GF" => GroupFacts (V := V) (μ := μ) (p := p) (b := b) (fms := fms) (f₀ := f₀)
+local notation "GF" => GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
