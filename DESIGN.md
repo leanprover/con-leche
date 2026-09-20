@@ -124946,3 +124946,113 @@ recompiled and 0 warning lines, `lake test` 0 warning lines.
 `ordTgtReadAt`, `ordReadAt`, `nestedPinShapes_of` and
 `nestedPinsEntry_of_le_all`: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (3) STEP 2 LANDED — THE TWO-BLOCK FIELD-DATA THEOREM; AND `hslotOrd`'s MEMBER ARM HAS NO SOURCE ON EITHER SIDE (lane LE, 2026-09-20)
+
+The previous row's step 2 is built: `ordRead_corr`
+(`NestedPinLeafAll.lean:4852`), beside `ordTgt_corr`.  Step 3
+(`hslotOrd`/`hfitc`) was priced against the proof before building, as
+ruled, and is STOPPED — the reason is new and is (c) below.
+
+##### (a) `ordRead_corr`, AND THE TWO INPUTS THE PRICE MISLOCATED
+
+Side 1 is `GroupFacts.ordRead`, side 2 the `PinShapes` `z`-row,
+projected here as `PinShapes.rowOrdRead` (`NestedPremise.lean:1413`).
+The two own-pin tables are one at the position the recomputation reads
+(`ownPinsSelfAt` + `ordTargetDom_congr_at`), so the owner's reading IS
+side 1's `rx` and the rest is arithmetic on spines
+(`AnnotTerm.instAll_mkAppN`, `AnnotTerm.mkAppN_inj`, `List.append_inj`)
+at the arity the two `copyEisLen` conjuncts and the head container's
+parameter count give.  Conclusion: `tls₁ = []`, `tls₂ = []`, and
+`Eis₁ = Eis₂.map (AnnotTerm.instAll ((D).pinAt gp).Ds l)`, under a
+fitting prefix on EACH side — the previous row's (d), unchanged.
+
+Two helpers land with it, both local for want of a public one:
+`ordTargetDomL_flat_at` (the private `ordTargetDomL_flat` of
+`NestedInstMap.lean` is not reachable from the assembly) and
+`getAppFn_instantiateList_const_at` (same).  One import was added,
+`NestedCopyRead` — `AnnotTerm.instAll_mkAppN`'s chain to the assembly
+is not public.
+
+**Two inputs the price put in the wrong place, and they are now
+hypotheses.**
+
+* `hblkJ` — *the block's target pin carries the head's container*.
+  The price read it off `ordTgtReadAt`'s own `hJM`; but `hJM` is
+  INTERNAL to that proof and is in neither `ordTgtReadAt`'s conclusion
+  nor `GroupFacts.ordRead`'s.  A conjunct on `ordRead` would carry it
+  for two lines at the producer; it was not added this session because
+  nothing consumes `ordRead_corr` yet.
+* `harity` — *two pins with one container have one arity* (`nPJ` and
+  `nIdx`).  The price routed this through `SF.groupsAt` at the block's
+  target pin; **`SF` is `NestedPinSynFacts`, a RUN-tier record at the
+  model `mp₁.base2`, and the assembly tier holds no such record** —
+  `GroupFacts` carries `NestedPinGroupSyn` at ONE group only, and the
+  target pin is in another.  The `nPJ` half would still go through
+  (`ContainerModeled.pinNP` on the owner's side, `ordTgtReadAt`'s
+  `hnPz` on the block's, crossed by `ordTgt_corr`'s own `hcontZ`);
+  the `nIdx` half has no `ContainerModeled` field at all
+  (`pinNP` has no `pinNIdx` twin) and goes through
+  `ownPinView_of_blocks` + `PinGroupView.pinNIdx`, which needs
+  `EnvBlocksOf` and the two sides' `blockOf` at ONE model — an
+  alignment (`mp₁.base2` vs `mp.base2` vs the assembly's `m`) that is
+  not established anywhere.  So it is stated as the crossing it is,
+  in the shape `ordTgt_corr` states `hcontZ` in.
+
+##### (b) THE ARM `ordRead_corr` COVERS
+
+Its guard is the two rows' own: the BLOCK's target is a pin
+(`GroupFacts.ordRead`'s `¬ … < p.k`) and the OWNER's target is a pin
+(`PinShapes`' `z`-row's `¬ (pc _).tgts j l < d.k`).
+
+##### (c) THE STOP — `hslotOrd` IS QUANTIFIED OVER BOTH ARMS AND THE MEMBER ONE HAS NO CLAUSE
+
+`hslotOrd` (`NestedPinLeafAll.lean:5096` at `nestedPinFit_pin`) is
+`∀ l` under three KIND guards only — container ordinary, block copy
+recursive, owner copy recursive — and NO target guard.  At an `l`
+where the owner's copy targets a container MEMBER (`tgts j l < dJ.k`),
+and equally where the block's target is a member (`tgtB < p.k`),
+`ordRead_corr` says nothing, and neither does anything else:
+
+* `PinShapes`' `z`-row is guarded `¬ tgts j l < d.k`;
+* `GroupFacts.ordRead` is guarded `¬ tgtB < p.k`;
+* `CopyCtorShape.ordF`'s right arm (`NestedFit.lean:932`) carries
+  `rs = true`, the two range facts and `EntryRead` — and, unlike
+  `pinF`, it does not even bound the target below by `TV.k`, so the
+  member case is inside it;
+* `ordTgt_corr` itself carries `hge : p.k ≤ tgtB`, so the TARGET half
+  of `hslotOrd` is proved at the same one arm.
+
+So the 2026-09-19 row's verdict ("the FIELD data — NO CLAUSE, EITHER
+SIDE") is now HALF repaired: the own-pin arm has its object, the
+member arm does not, and it needs the same pair of objects the earlier
+row priced — a `PinShapes` conjunct with a producer and a
+`GroupFacts`/K.67-family conjunct with a kernel record — at a MEMBER
+target.  **That is another carry-lane session plus a kernel record,
+and the doubling stop applies against the two sessions the maintainer
+set for steps 1–2 together.**  Step 3's mechanical half (weakening
+`hslotOrd` to take the two fits in the four signatures —
+`copyTransfer_via_pin`, `copyTransfer_iff_pin`,
+`pinClassFit_of_transfer`, `nestedPinFit_pin`, five call sites) was
+NOT done: it is a widening with no discharge behind it.
+
+Steps (4′) and (4) are downstream of `hfitc` and were not started;
+`agent/uniform-le4` was NOT merged, for the previous rows' reason.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh d4f153f1`: 2 changed modules, `lake build` 2
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/unconsumed.sh` 199/3848 against
+197/3844 — the two additions are `ordRead_corr` and
+`PinShapes.rowOrdRead` (`ordTgt_corr` has had no consumer since it
+landed, for the same reason), the other two new declarations are
+consumed inside `ordRead_corr`, and NOTHING left the set:
+`ordTargetDom_scoped`, `ownPinTerm_getAppArgs_scoped`,
+`pins_le_of_declOrder` and `nestedPinsLe_of_rank` stay where the
+previous row left them.  `tests/arena.sh` not run and not owed: no
+`Kernel/`, `Cached/` or `Verify/` file changed.  `#print axioms` on
+`ordRead_corr`, `PinShapes.rowOrdRead`, `ordTargetDomL_flat_at` and
+`getAppFn_instantiateList_const_at`: `propext`, `Classical.choice`,
+`Quot.sound`.
