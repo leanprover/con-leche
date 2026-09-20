@@ -2623,6 +2623,11 @@ rule applies to the worker returns its input. -/
 theorem ordHeadRedGo_of_const {c : Name} {us : List Level} :
     ∀ (n : Nat) (e : Expr) (args : List Expr), e.getAppFn = .const c us →
       ordHeadRedGo n e args = Expr.mkAppN e args := by
+  -- **NO FOREIGN DEFINITION IS UNFOLDED BY NAME HERE** (the proof-term
+  -- gate's documented door, `tests/proofdeps.sh`): `Expr.mkAppN`'s and
+  -- `Expr.getAppFn`'s equations would be GENERATED in this module and
+  -- every later proof that reused them would name it.  Everything
+  -- below goes through defeq — `show`, a type ascription, `rfl`.
   intro n
   induction n with
   | zero => intro e args _; rfl
@@ -2631,11 +2636,13 @@ theorem ordHeadRedGo_of_const {c : Name} {us : List Level} :
     match e with
     | .app f a =>
       have hf : f.getAppFn = .const c us := h
-      simpa [ordHeadRedGo, Expr.mkAppN] using ih f (a :: args) hf
+      show ordHeadRedGo n f (a :: args) = Expr.mkAppN (.app f a) args
+      rw [ih f (a :: args) hf]
+      rfl
     | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .forallE _ _ _
     | .lit _ | .proj _ _ _ => rfl
-    | .lam _ _ _ => exact absurd h (by simp [Expr.getAppFn])
-    | .letE _ _ _ => exact absurd h (by simp [Expr.getAppFn])
+    | .lam _ _ _ => exact nomatch (h : Expr.lam _ _ _ = Expr.const c us)
+    | .letE _ _ _ => exact nomatch (h : Expr.letE _ _ _ = Expr.const c us)
 
 /-- **AT A CONSTANT HEAD THE REDUCTION IS THE IDENTITY**, and nothing
 is run.  This is the cost argument, and it is also what makes every

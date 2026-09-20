@@ -153,6 +153,18 @@ tests/e2e/nested_bvar_field.ndjson 1 J=accept,BvarField=accept,
 # `nested_refl_pin`'s kind, gaining `,PiField=accept` the day a route
 # installs a container with a reflexive member.
 tests/e2e/nested_pi_field.ndjson 0 J=accept,
+# The COMPONENT-tower twin, and the one where the two depths DISAGREE:
+# `K α | mk (a : α)` — a FLAT stored domain — nested at
+# `J β | node (k : K (Nat → J β))`, so the mint plants a `Π` the
+# container's own domain does not have and the copy's field is
+# `Nat → <J-copy>`.  It is the witness that refutes the
+# one-comparison spelling of step 4's object (3) (a K.72 comparing the
+# copy's tower depth with the container's would fire on an input
+# official accepts — see DESIGN, "WIDE (f3) STEP 4 (3) DESIGNED
+# AGAINST THE TREE").  The modeller declines `J` (reflexive member),
+# so this is a TRIPWIRE of `nested_pi_field`'s kind and the row covers
+# `J` alone.
+tests/e2e/nested_comp_tower.ndjson 0 J=accept,
 # **THE REDEX-MINT-WITH-AN-OWNER ROW, AND IT IS A REGRESSION TEST.**
 # `Wrap (f : True → Type) | mk : f True.intro → Wrap f` nested at
 # `J β | node : Wrap (fun _ : True => J β) → J β`, with `Outer` above:

@@ -128123,7 +128123,21 @@ population at this arm at ZERO in both modes.
 
 ##### (e) THE MEASUREMENT
 
-`tests/arena.sh` EXIT 0 — `nested-shadow: 45/45`, `e2e: 200/200`,
+**ONE PROCESS INCIDENT, AND IT IS THE GATE'S OWN DOCUMENTED DOOR.**
+The first run of the battery failed `tests/proofdeps.sh` with
+`ConLeche.Kernel.Inductives.NestedInstall` ENTERING all ten capstones'
+closures.  Nothing on a capstone path references a declaration in it;
+the cause was `simpa [ordHeadRedGo, Expr.mkAppN]` and
+`simp [Expr.getAppFn]` inside `ordHeadRedGo_of_const` — foreign
+definitions unfolded BY NAME in a low-tier module, which generates
+their equation lemmas THERE, exactly the hazard `tests/proofdeps.sh`'s
+header names as "a door nobody writes on purpose".  The proof now goes
+through defeq only (`show`, a type ascription, `rfl`) and the gate
+reads `doors: 0` again.  **Worth repeating because the site was a
+KERNEL file and the header's own instance was a Model one: the rule is
+about the TIER, not about the directory.**
+
+`tests/arena.sh` EXIT 0 — `nested-shadow: 46/46`, `e2e: 200/200`,
 `arena suite: 91/96`, `annot suite: 15/15`, `mode flags: 10/10`,
 `prelude counts: 3/3`, `progress lane: 15/15`, `worker pool: 15/15`,
 `DAG-tower gate: 14/14`, `axioms: pinned (20 theorems)`, trusted sweep
@@ -128139,9 +128153,12 @@ OK`, `challenge: OK`.  The accept set did not move.
 | Mathlib (654 504 accepted), `--verified --nested-shadow` | 41 | 41 | 0 |
 | Mathlib, `--trusted --nested-shadow` | 41 | 41 | 0 |
 
+`tests/proofdeps.sh` **4975 module rows across 12 roots, doors: 0**.
 `tests/unconsumed.sh` **204 of 3888**, unchanged: `ordRootNorm` and
-`ordRootNorm_const` are gone and the four new declarations live in
-`Kernel/`, which the advisory does not scan.  `lake test` 0 warnings,
+`ordRootNorm_const` are gone and the new declarations live in
+`Kernel/`, which the advisory does not scan.  The shadow gate gained
+one row (45 → 46) with `tests/e2e/nested_comp_tower.ndjson`, the
+witness the step-4 (3) row below needed.  `lake test` 0 warnings,
 `tests/warning-free.sh` 0 warning lines in both halves.  `#print
 axioms` on `ordHeadRed_const`, `ordHeadRedGo_of_const`,
 `ordHeadRed_idem_of_const` and on the rows that moved with them:
@@ -128239,9 +128256,13 @@ exclude the field (a `bvar` mentions no member), and the block's
 rewrite does make it recursive — so a depth-equality row would fire on
 an input official accepts.  `tests/e2e/nested_bvar_field.ndjson` is the
 same family at the degenerate instance (`K (J β)`, both depths `0`), so
-the fixture the tree HAS does not exhibit the disagreement; the
-`Nat → J β` instance is owed by the SYNTAX and needs a fixture of its
-own before anything is recorded here.
+the fixture the tree HAD did not exhibit the disagreement.
+**`tests/e2e/nested_comp_tower.ndjson` now does** — built for this row
+from `tests/e2e/src/nested_comp_tower.lean`, and Lean v4.29.1 compiles
+the source without complaint, so the shape is an official ACCEPT and
+the refutation is measured and not argued.  Like `nested_pi_field` it
+is a TRIPWIRE (the modeller declines `J` for its reflexive member), so
+its shadow row is `J=accept,` at `CON_LECHE_INMODEL=0`.
 
 **So (3) is TWO ARMS and not one comparison**, and the dividing line is
 where the copy's tower CAME FROM:
@@ -128290,10 +128311,17 @@ reads**, not a new walk and not a new scan.
 
 ##### (e) THE WITNESS AND THE GATE
 
-`tests/e2e/nested_pi_field.ndjson` stays the tripwire (reachable only
-with `CON_LECHE_INMODEL=0`; the gate row covers `J` and not
-`PiField`), and `tests/e2e/nested_bvar_field.ndjson` is the
-bare-parameter shape the depth conjunct must answer `0 == 0` at.  Both
-corpora measure the tower population at ZERO at this arm, so the arm is
-owed by the SYNTAX and the controls will have to count it, as K.69's
-four do.
+Three fixtures now divide the arm, and each is an official accept:
+
+| fixture | shape | the two depths |
+|---|---|---|
+| `nested_bvar_field` | `K α \| mk (a : α)` at `K (J β)` | `0` and `0` — the degenerate case |
+| `nested_pi_field` | `K α \| mk (f : Nat → α)` at `K (J β)` | agree, and the tower is the CONTAINER's |
+| `nested_comp_tower` | `K α \| mk (a : α)` at `K (Nat → J β)` | **disagree** — the tower is the MINT's |
+
+The last two are TRIPWIRES (the modeller declines `J` for its
+reflexive member, so the fold stops before the outer block and the
+rows cover `J` alone); `nested_bvar_field` is measured at both blocks.
+Both corpora measure the tower population at ZERO at this arm, so the
+arm is owed by the SYNTAX and the controls will have to count it, as
+K.69's four do.
