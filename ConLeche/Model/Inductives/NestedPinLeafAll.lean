@@ -5211,6 +5211,176 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     rw [hlen₁, hlen₂, hPs₁, hPs₂, hnPeq, hnIdxEq])
   exact (List.append_inj hargs hPs₁').2
 
+/-- **THE TWO ROWS NAME ONE FIELD DATUM AT A MEMBER TARGET** (task
+#315 WIDE (3), step 3, `hslotOrd`'s field-data half at the other arm):
+at a field the pin's container `dK` calls ORDINARY and both copies
+rewrote to recursive, whose OWNER-side target is one of the owner's
+own MEMBERS, the BLOCK's recorded index expressions are the OWNER's
+with the owner pin's components substituted at the field's cut, and
+both copies' field TELESCOPES are empty.
+
+`ordRead_corr` beside it is the same tie where the owner's target is
+one of its own PINS.  **Side 1 does not move**: the owner's member is
+copied by the block, so the block's target is a PIN of the block —
+`hroot`'s σ says which, `p.k + rbase + mm` — and the block reads its
+own recomputation through the same `GroupFacts.ordRead`.  What changes
+is side 2, which is the clause's MEMBER disjunct
+(`PinShapes.rowOrdReadMem`): its head's parameter count is the owner
+BLOCK's (`dR.nP`, a member being applied to the block's parameters)
+and its index count that member's own (`dR.nIdxAt mm`).
+
+**The two lengths are read off ONE record here, not met at a stored
+type.**  The pin arm has two independent block models and identifies
+their counts through the container record's member type; this arm's
+two sides are the block's copy of a member and the member itself, and
+the block's own pin group at the copy — `PinGroupView (D) dR rbase
+dR.k`, the ROOT group of the instance — pins both counts in a word
+(`pinNP`, `pinNIdx`).  The block's guard is likewise free: `hroot`
+puts the block's target at or above `p.k` outright, so `ordGe` and the
+head's declaredness are not needed on this arm.
+
+The target tie (`htgσ`) is `ordTgt_corr`'s conclusion and the σ values
+are the assembly's, exactly as there. -/
+theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {pcR : Nat → PinCtors V} {ψ φ : Name → Nat} {ρp ρR : Nat → V}
+    {Ds₂ Fs₂ : List AnnotTerm} {a kk i' j l : Nat}
+    (G : GF st m a kk dK)
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (hi' : i' < kk) (hj : j < (dK.ctorsM i').length)
+    (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
+    (hord : ((dK.rss i').getD j []).getD l false = false)
+    (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta} {lpsC : List Name}
+    (hjA : (dK.ctorsM i')[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    (hdm : bs[dK.nP + l]? = some dom)
+    {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
+    (hJm : ciC.members[i']? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- THE HEAD: the stored domain's own, which flattens both tables
+    {K : Name} {vs : List Level} (hdomHd : dom.1.getAppFn = .const K vs)
+    -- the OWNER, at the run
+    {gp : Nat} (hgp : gp < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[gp]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {m₀ : ContainerMember} (hm₀ : ciR.members.head? = some m₀)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st gp = some mapR)
+    {qK : Nat} (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
+    (hfired : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = true)
+    (hDsE : ((D).pinAt gp).DsE.length = ciR.nP)
+    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
+      Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP)
+    (hφ : φ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
+    {rx : AnnotTerm}
+    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + l)
+      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
+    -- the OWNER, at the model
+    (CR : ContainerModeled m ciR dR)
+    (hciR₂ : ConLeche.containerInfo? env₂ gn.container = some ciR)
+    (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
+    (hqKn : qK < dR.nPins)
+    -- side 2: K.68's MEMBER row at the OWNER's own install
+    (hrowReadMem : ∀ lps : List Name, ∃ mm : Nat, mm < dR.k ∧
+      (pcR qK).tgts j l = mm ∧
+      ((((pcR qK).Eiss φ).getD j []).getD l []).length = dR.nIdxAt mm ∧
+      OrdTargetRead (V := V) m.acval env₂ φ ρR dR.nP l Ds₂ Fs₂
+        ((((pcR qK).Eiss φ).getD j []).getD l [])
+        ((((pcR qK).tlss φ).getD j []).getD l [])
+        dR.nP lpsC dK.nP qK (dR.ownPinTerms lps) dom.1)
+    -- THE TARGETS, tied by the assembly's σ (`ordTgt_corr`), whose
+    -- value at a MEMBER class is the block's copy of it
+    {σ : Nat → Nat} {rbase : Nat}
+    (htgσ : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 = σ ((pcR qK).tgts j l))
+    (hroot : ∀ c, c < dR.k → σ c = p.k + rbase + c)
+    -- and the block's OWN group at those copies: the instance's root
+    (S₀ : PinGroupView (D) dR rbase dR.k) :
+    ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
+        (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
+      SpineFit (consList (Ds₂.map (interp V ρR)) ρR) (Fs₂.take l) fs₁ →
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l [] = [] ∧
+      (((pcR qK).tlss φ).getD j []).getD l [] = [] ∧
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
+        = ((((pcR qK).Eiss φ).getD j []).getD l []).map
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+  classical
+  subst hφ
+  -- THE OWNER'S TABLE: the environment's reader is the model's list, at every position
+  obtain ⟨lps, htab⟩ := CR.ownPinsSelfAt hciR₂ hownT₂
+  have hentry : ∀ y, y < dR.nPins →
+      (dR.ownPinTerms lps).getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
+    rfl
+  have hown : ∀ y, y < dR.nPins →
+      ownT.getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    rw [List.getD_eq_getElem?_getD, htab y hy]; rfl
+  -- so the two sides run ONE recomputation
+  have hdomEq : ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1
+      = ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1 :=
+    ordTargetDom_congr_at (by rw [hown qK hqKn, hentry qK hqKn])
+  -- THE HEAD, at both tables: the stored domain's own, so the towers are empty
+  obtain ⟨hdep₂, hhd₂⟩ :=
+    ordTargetDomL_flat_at (lpsC := lpsC) hdomHd (dR.ownPinTerms lps) dK.nP qK l
+  have hfin : (Expr.instantiateLevelParams lpsC ((D).pinAt (a + i')).lvls dom.1).getAppFn
+      = .const K (vs.map (Level.subst lpsC ((D).pinAt (a + i')).lvls)) := by
+    rw [Expr.getAppFn_instantiateLevelParams, hdomHd]; rfl
+  -- SIDE 2: the owner's, and its target MEMBER
+  obtain ⟨mm, hmmlt, htg₂, hlen₂, hOR⟩ := hrowReadMem lps
+  -- THE BLOCK'S TARGET is the block's copy of that member — a pin,
+  -- so side 1's guard is free and no declaredness is needed
+  have htgB : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 = p.k + (rbase + mm) := by
+    rw [htgσ, htg₂, hroot mm hmmlt, Nat.add_assoc]
+  have hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 < p.k := by rw [htgB]; omega
+  -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
+  obtain ⟨z₁, -, htg₁, hlen₁, -, -, -, hrest₁⟩ :=
+    G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hfin gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT
+      mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
+  -- and its pin IS the block's copy of the member: the head's own
+  -- container record and the two counts it would pin are NOT read
+  -- here, because the block's group at the instance's root pins them
+  obtain rfl : z₁ = rbase + mm := by
+    have h := htg₁.symm.trans htgB
+    omega
+  -- the two lengths, off the block's own group at the instance's root
+  have hnPeq : ((D).pinAt (rbase + mm)).nPJ = dR.nP := S₀.pinNP mm hmmlt
+  have hnIdxEq : ((D).pinAt (rbase + mm)).nIdx = dR.nIdxAt mm := S₀.pinNIdx mm hmmlt
+  -- the two readings, at a fitting prefix on each side
+  intro fs₁ hfsl hfit₁ hfit₂
+  obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
+  obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
+  refine ⟨htls₁, List.eq_nil_of_length_eq_zero (by rw [htlsLen₂, hdep₂]), ?_⟩
+  -- side 2's reading IS side 1's `rx`
+  have hrxEq : rx = AnnotTerm.mkAppN fb₂
+      (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
+        []).getD l [])) := by
+    have h2 := hread₂
+    rw [hdep₂, Nat.add_zero, ← hdomEq, CR.nP] at h2
+    exact Option.some.inj (hrx.symm.trans h2)
+  rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
+  have hPs₁' : Ps₁.length
+      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l)).length := by
+    rw [List.length_map, hPs₁, hPs₂, hnPeq]
+  obtain ⟨-, hargs⟩ := AnnotTerm.mkAppN_inj heq₁ (by
+    simp only [List.length_append, List.length_map]
+    rw [hlen₁, hlen₂, hPs₁, hPs₂, hnPeq, hnIdxEq])
+  exact (List.append_inj hargs hPs₁').2
+
 /-- **THE WIDE FIT AT A PIN CLASS, WITH THE BLOCK SIDE READ OFF THE
 GROUP** (task #315 WIDE (3′), `hfitc`'s first half):
 `pinClassFit_of_transfer` at the block's own group of the image pin —
