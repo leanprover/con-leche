@@ -107462,17 +107462,65 @@ corner alone (plus the two lookup silences below).  Separating the two
 did NOT cost the monadic form priced above: the walk is pure, and the
 controls count the corner and the sliver apart.
 
+##### THE ROW STRENGTHENED: THE OWNER'S FIRING FORCES THE BLOCK'S (2026-09-20, task #315 WIDE (f3))
+
+The FIELD-KIND test moved BELOW the guard.  It was K.67's first `if`,
+read as a silence: where the block's rewrite left a field ordinary the
+row said nothing.  It now says `false` there, whenever the owner
+fired — the arm is
+
+    else if !ordRootFired env memsJ ownSelf Wn then true
+    else if !(r == .recursive || r == .reflexive) then false
+    else …
+
+and nothing else about the check changed.  **The argument is the
+guard's own**: the owner's normalised domain is constant-headed at an
+inductive head, a constant head survives the block's substitution, and
+such an application is its own `whnf` (`whnf_indApp_eq`,
+`normPosDomM_indApp`), so the block's positivity walk meets the same
+head and classifies the field recursive or reflexive.  On the SLIVER
+path it rests on the same three owed inputs this row's WHAT IS OWED
+already names — the owner's reduction under the substitution, `whnf`
+finding it, and the fuel crossing — and on nothing new.
+
+**WHY THE ROW HAD TO CARRY IT.**  The model's pin half needs
+`hfireOrd` — at a field the shared container calls ordinary, if the
+OWNER's copy fired then the BLOCK's copy fired (`rs₂ → rs₁`) — and
+EVERY other row that concludes something about the block's rewrite
+(K.67 `GroupFacts.ordTgt`, K.68 `ordGe`, K.69 `ordRead`,
+`PinGroupInst.hordσ`) is GUARDED by `blkRss = true` and so ASSUMES it.
+The owner's `PinShapes` rows are guarded by the owner's firing and say
+nothing about the block's.  It is not derivable at the model tier
+either: under the guard the block's `CopyShapeA.ordF` LEFT arm and the
+owner's `CopyCtorShape.ordF` RIGHT arm are statements about two
+different `Fss` lists at two different frames and contradict nothing.
+The converse is FALSE — the mixed corner, a root stuck at a VARIABLE
+head unblocked by the block's substitution — which is why the
+implication is one-directional and why the kind test may NOT be hoisted
+back above the guard.
+
+The inversions are `nestedOrdNormOk_fire` (general) and
+`nestedOrdNormOk_fire_at` (at the recomputation itself, where
+`getAppFn_const_of_ordRootFired` supplies the head guard for free —
+`ordRootFired` answers `false` at every non-constant head), both in
+`Verify/Inductives/NestedCopyKinds.lean`; the run's is
+`NestedPinsRun.ordFireAt` (`Model/Inductives/NestedInstMap.lean`), the
+group's is `GroupFacts.ordFire`, and `nestedFitc_pin` discharges
+`hfireOrd` from it outright.
+
 ##### THE `| _ => true` ARMS, ANSWERED
 
-Four arms assert nothing, and each is a deliberate silence, not a
+Three arms assert nothing, and each is a deliberate silence, not a
 concession: the root did NOT fire, after the normalisation (the mixed
 corner and nothing else now — `hmixOrd`'s territory, where the block's
-target leaves the instance and the model closes with an entry); the
-OWNER's walk THREW (fuel, or a non-positive occurrence), where the
-owner's own side is not in hand; the block pin's head is not a `.const`
-(`ordRootInst = none`); and the field is not one the block's rewrite
-made recursive or reflexive, or its container-side domain already
-mentions a member of the container's own group (K.67's two `if`s).
+target leaves the instance and the model closes with an entry, and with
+it the block's KIND, which is why the kind test sits below the guard
+and not above it); the OWNER's walk THREW (fuel, or a non-positive
+occurrence), where the owner's own side is not in hand; and the block
+pin's head is not a `.const` (`ordRootInst = none`).  K.67's other
+`if` — the container-side domain already mentioning a member of the
+container's own group — stays a silence too; the FIELD-KIND one is no
+longer among them (see the row above).
 
 **The BLOCK's walk throwing is NOT a silence**, and that is deliberate
 too: under the guard the owner's normal form is constant-headed, so the
@@ -107498,7 +107546,8 @@ arguments `nestedPinChecks` already has, and `nestedPinChecks` is ONE
 definition: the cached simulation (which names only K.64 among these)
 is untouched and `ConLeche.Verify.Cached.PushChain` built unchanged.  Inversions
 `nestedOrdNormOk_at_refl` (general) and `nestedOrdNormOk_at` (finitary,
-both cuts the identity), both in
+both cuts the identity), plus the STRENGTHENED arm's siblings
+`nestedOrdNormOk_fire` and `nestedOrdNormOk_fire_at`, all in
 `Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
 `nestedPinChecks_inv` → `checkNested_inv_rest` → `checkNested_inv` →
 `DeclNestedRun`; `NestedPinsRun.hK69`.
@@ -107507,7 +107556,11 @@ both cuts the identity), both in
 the owner's pin is ONE substitution applied to the very constructor the
 owner copied, and both sides instantiate the SAME stored domain — the
 owner's at its own components, the block's at those components
-substituted.  Official computes nothing of the kind.  **IF IT EVER
+substituted.  The STRENGTHENED arm cannot fire for the guard's own
+reason — a constant head survives a substitution, and a
+constant-headed inductive application is its own `whnf` — so the
+block's walk classifies the field exactly as the owner's did.  Official
+computes nothing of the kind.  **IF IT EVER
 FIRES** the block's rewrite of a copy disagrees with the container it
 copied at the level of TERMS, and the first suspects are the mint's
 spelling against the elimination's (levels, annotations, the lift) —
@@ -107562,6 +107615,31 @@ predicts: moving the head test onto the normal form can only ENLARGE
 the fired set, and at every field of every corpus the owner's mint was
 already constant-headed.
 
+**THE STRENGTHENED ARM, MEASURED** (2026-09-20, WIDE (f3)).  The
+landed binary fires NOWHERE, and the two controls agree on the arm's
+reach at every corpus:
+
+| control | what it makes assertive | what it counts |
+|---|---|---|
+| `cf3k` | the STRENGTHENED arm negated (the block's kind must be ORDINARY where the owner fired) | the arm's whole reach — every field where the owner fired |
+| `cf3e` | the equation, below the kind test | the reach that survives the kind test |
+
+| corpus | landed (`f3`) | `cf3k` the arm reached | `cf3e` the equation reached |
+|---|---|---|---|
+| e2e (`tests/nested-shadow.sh`, 42 rows) | 0 blocks | 4 blocks in 3 rows — `nested_p04` `P4`, `inmodel_groups` `InModelGroups.M` and `.H`, `nested_pin_nocollide` `NoCollide` | the SAME 4 blocks in the same 3 rows |
+| `init-full` (53 093 accepted, both modes) | 0 of 1 | 0 of 1 | 0 of 1 |
+| Mathlib (654 504 accepted, both modes) | 0 of 41 | 5 of 41 | 5 of 41 |
+
+**THE TWO CONTROLS COINCIDE, AND THAT IS THE ROW'S OWN CLAIM
+MEASURED.**  `cf3k` counts the fields where the owner fired; `cf3e`
+counts those of them where the block's copy IS recursive or reflexive.
+They are equal at every corpus, so at every field of every corpus the
+block's kind was what the strengthening says it must be — and the
+landed binary's zero is that statement asserted rather than counted.
+The reach is K.67's own (`c69`'s 4 / 0 of 1 / 5 of 41), which is what
+the shape predicts: the arm is reached exactly where the guard holds,
+and the guard did not move.
+
 ##### (b) THE COST — STILL NOISE, AT INIT-FULL
 
 `perf stat -e instructions:u`, one run per cell, `--nested-shadow
@@ -107571,6 +107649,19 @@ already constant-headed.
 |---|---|---|---|
 | `init-full --verified --nested-shadow` | 538.2235 G | 538.2360 G | +0.0023 % |
 | `init-full --trusted --nested-shadow` | 520.8791 G | 520.8829 G | +0.0007 % |
+
+Re-measured with the arm STRENGTHENED (2026-09-20), same protocol,
+against the same binary with the call site removed:
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2414 G | 538.2434 G | +0.0004 % |
+| `init-full --trusted --nested-shadow` | 520.8720 G | 520.8857 G | +0.0026 % |
+
+The strengthening adds no work of its own — a field-kind comparison
+moved from one side of the guard to the other, and the guard is
+reached at the same fields — so the cells measure the walk, as before,
+and stay two orders below K.62's +0.436 %.
 
 The extra work the completed guard can add is ONE `normPosDomM` call
 per field that enters the guard region with a non-constant head, and
@@ -107583,14 +107674,16 @@ perf cell, per the standing ruling.
 
 ##### (c) STATE
 
-`NestedPinsRun.hK69` is UNCONSUMED, like `hK67` and `hK68`: the
-consumer is `hslotOrd` in `pinClassFit_of_transfer`, which needs the
-ROOT side's readings as well, and those are the carry lane's
-`PinShapes` clause plus the opener→reading bridge WIDE (3) (b) priced.
-What this row removes from that price is the SYNTAX half, outright —
-and, with the guard completed, it removes it at EVERY field where the
-owner fired, which is the shape `hslotOrd` asks for and not a
-corpus-shaped subset of it.
+`NestedPinsRun.hK69` is CONSUMED (2026-09-20), and twice: through
+`NestedPinsRun.ordNormAt` into `GroupFacts.ordRead` — `hslotOrd`'s
+syntax half, which `nestedSlotOrd_pin` spends — and through
+`NestedPinsRun.ordFireAt` into `GroupFacts.ordFire`, which is
+`hfireOrd`'s only producer and which `nestedFitc_pin` spends outright.
+`hK67` and `hK68` are consumed with it (`ordTgt`, `ordGe`).
+
+What the row removes from the pin half's price is the SYNTAX half of
+`hslotOrd`, outright and at EVERY field where the owner fired (not a
+corpus-shaped subset of it), plus `hfireOrd` entirely.
 
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
@@ -125650,3 +125743,142 @@ it must not before (4′); Resolution 3's candidate-frame apparatus
 (`pinLfp_eq_pinLfpAt`, `CandParamFit`, `pinLfpAt_le`) is where it was.
 `#print axioms ConLeche.Model.nestedFitc_pin`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (f3) STEP 1 — `hfireOrd`'s PRODUCER: K.69 STRENGTHENED, AND THE GUARD `hscope` SHOULD HAVE HAD ALL ALONG (lane LE, 2026-09-20)
+
+The previous row stopped on `hfireOrd` — at a field the shared
+container calls ordinary, if the OWNER's copy fired then the BLOCK's
+copy fired — with the finding that it has **no producer anywhere in
+the tree** and that its producer had to be a step of its own, before
+the bridge.  That step is this one, and it landed: the kernel row, its
+two inversions, the run lemma, the `GroupFacts` field, and the
+discharge at the one consumer that can hold it.  Nothing of the bridge
+was started.
+
+##### (a) THE KERNEL CHANGE IS ONE LINE MOVED
+
+`nestedOrdNormAt`'s field-kind test was K.67's first `if`, read as a
+silence.  It is now BELOW the guard and asserts:
+
+    else if !ordRootFired env memsJ ownSelf Wn then true
+    else if !(r == .recursive || r == .reflexive) then false
+    else …
+
+Nothing else about the check moved — the same lookups, the same
+`ordRootNorm`, the same equation, the same `ops.mode`, the same pure
+`Bool`, so no `PushChain` change and no bridge lemma (confirmed by
+building `Verify/Cached` unchanged).  The details and the argument are
+in the `#### K.69` row, updated in place.
+
+##### (b) THE MODEL SIDE, AND THE ONE DISCOVERY
+
+* `nestedOrdNormOk_fire` and `nestedOrdNormOk_fire_at`
+  (`Verify/Inductives/NestedCopyKinds.lean`) — the arm inverted.  The
+  `_at` form takes NO head guard, because `getAppFn_const_of_ordRootFired`
+  reads it off the firing: `ordRootFired` answers `false` at every
+  non-constant head, so its `= true` carries `∃ M us, W.getAppFn = .const M us`.
+  That is one lemma of four lines and it removed a hypothesis from
+  every consumer downstream;
+* `NestedPinsRun.ordFireAt` (`Model/Inductives/NestedInstMap.lean`) —
+  `ordNormAt`'s preamble verbatim with the field-kind step run
+  BACKWARDS: the inversion gives the kind, `blkRss_getD`/`rsOf_getD`
+  carry it to the bit;
+* `GroupFacts.ordFire` (`Model/Inductives/NestedPinLeafAll.lean`) and
+  its `mkGF` bullet — `ordRead`'s preamble, the same four derivations;
+* and the discharge.
+
+**THE DISCOVERY: `hscope` WAS GUARDED BY THE WRONG BIT.**  `hfireOrd`'s
+premise is the OWNER's `rss` bit, and `ordFire`'s is `ordRootFired` —
+so the discharge needs "the owner's copy fired ⇒ the owner's
+recomputation fired", which is the OWNER's install's datum and not
+this block's.  The theorem that carries it is `hscope`, the
+`nestedFitc_pin` premise whose conclusion already contains
+`ordRootFired … = true` — and it was guarded by `blkRss = true`, the
+very bit `hfireOrd` is asked to produce.  Re-guarding it by the
+OWNER's bit breaks the circle and costs NOTHING:
+
+* its own producer is the OWNER's `PinShapes.rowOrdRead`, which is
+  guarded by the OWNER's firing already — the 2026-09-19 pricing table
+  put `hscope` at 60 lines "the OWNER's `PinShapes.rowOrdRead` + the
+  scoping closure", and the blkRss guard would have had to be bridged
+  to the owner's rows anyway;
+* its only consumer, `nestedSlotOrd_pin`, calls it under `hslotOrd`'s
+  guard, where BOTH bits are in hand: the call site changed from
+  `hscope l hl hord hrsB` to `hscope l hl hord hrsP`, one identifier.
+
+With that, `nestedFitc_pin` discharges `hfireOrd` outright:
+`hscope` gives the owner's recomputation's firing, `G.ordFire` turns it
+into the block's bit.  `copyTransfer_iff_pin`, `pinClassFit_of_transfer`
+and `nestedPinFit_pin` KEEP it as a hypothesis — the first two are
+abstract over `rs₁`/`rs₂` and the third holds no `hscope`, so the
+discharge can only happen at the composed site, which is where the
+previous row put the meeting of the two ~25-hypothesis signatures.
+
+##### (c) THE BATTERY
+
+`tests/arena.sh` EXIT 0: `e2e: 200/200`, `nested-shadow: 42/42`,
+`arena suite: 91/96 good tests accepted`, `annot suite: 15/15`,
+`axioms: pinned`, trusted / `--jobs=1` / `--jobs=4` sweeps unchanged —
+the accept set did not move.
+
+Conformance, BOTH modes, zero fires:
+
+| corpus | accepted | shadow blocks | accepting | fires |
+|---|---|---|---|---|
+| `init-full` `--verified` / `--trusted` | 53 093 | 1 | 1 | 0 |
+| `init-full` `--verified --nested-shadow` / `--trusted --nested-shadow` | 53 093 | 1 | 1 | 0 |
+| Mathlib `--verified --nested-shadow` / `--trusted --nested-shadow` | 654 504 | 41 | 41 | 0 |
+
+The two controls and the cost cells are in the `#### K.69` row, under
+THE STRENGTHENED ARM, MEASURED and THE COST.  The short of it: `cf3k`
+(the arm negated) and `cf3e` (the equation) fire at the SAME 4 e2e
+blocks, the same 0 of 1 at `init-full` and the same 5 of 41 at
+Mathlib, which is the row's own claim measured — at every field of
+every corpus where the owner fired, the block's copy was recursive or
+reflexive.  The cost is +0.0004 % verified / +0.0026 % trusted at
+`init-full`.
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 8dbe98cd`: 4 changed modules, `lake build` 4
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; pub-imports
+1343/2308, none demotable).  `tests/overview-links.sh` 112 links OK,
+`tests/quote-gate.sh` 2 statements match, `tests/no-local-paths.sh` OK.
+`tests/unconsumed.sh` **199 of 3869** against **199 of 3865** — the
+four new declarations are all consumed and the unconsumed SET did not
+move.  `nestedFitc_pin` is still in it (its consumer is the bridge);
+**nothing of the `pins_le_*`/`NestedPinsLe`-producer family moved**
+(`pins_le_of_declOrder`, `nestedPinsLe_of_rank` both stay), as it must
+not before (4′); Resolution 3's candidate-frame apparatus
+(`pinLfp_eq_pinLfpAt`, `CandParamFit`, `pinLfpAt_le`) is where it was.
+`#print axioms`: `nestedOrdNormOk_fire`, `nestedOrdNormOk_fire_at`,
+`getAppFn_const_of_ordRootFired` and `ConLeche.Model.nestedFitc_pin`
+all `[propext, Classical.choice, Quot.sound]`.
+
+##### (e) THE STOP, AND THE BRIDGE RE-PRICED
+
+The brief's step 1 was this producer; steps 2 (the bridge), (4′) and
+(4) are all downstream of `hfitc` and were NOT started.  The
+2026-09-19 pricing table stands, MINUS two entries:
+
+* **`hfireOrd` is gone** — the row it had ("NONE — no producer") is
+  discharged here;
+* **`hscope`'s 60 lines lose their guard mismatch**: its producer is
+  the OWNER's `PinShapes.rowOrdRead`, which is owner-guarded, and the
+  premise is now owner-guarded too, so no bridge between the two bits
+  is owed.  Whether that makes it cheaper than 60 lines is not
+  measured and is not claimed.
+
+That leaves ~470 lines over one file with four entries carrying real
+proof (`hdom₁`, `hdom₂`, `hscope`, `htgσ`), against a brief priced at
+two sessions of which this step consumed one.  `agent/uniform-le4` was
+NOT merged, for the reason the 2026-09-19 row gives — merging it
+across a stop leaves `NestedPinsLeInd` unconsumed for as long as the
+stop lasts.
+
+**What a re-price should keep**: the 2026-09-19 table (read at the
+proofs, not at the brief), `hrowsσ` being off the critical path, and
+the `hscope` guard finding — a premise guarded by the bit its own
+conclusion is used to produce is a circle, and the tree had one.
+
