@@ -128,12 +128,14 @@ inductive WalkMemoMode where
   | budget
   | oracle
   | hybrid
+  | ptr
+  | hybridPtr
 deriving DecidableEq, Repr
 
 /-- THE SWITCH (compile-time: both disciplines are compiled either
 way, and the wrappers fold the constant).  Flip and rebuild to compare
 — the task #314 record (DESIGN.md) holds the table. -/
-def walkMemoMode : WalkMemoMode := .budget
+def walkMemoMode : WalkMemoMode := .ptr
 
 /-- The nodes a memo entry can save a descent of. -/
 @[inline] def isCompound : Expr → Bool
@@ -236,6 +238,244 @@ theorem resTerm_eq {c : Expr} {M : Type} (s : Squash ({ r : Expr // r = c } × M
     resTerm s = c := by
   induction s using Quotient.ind with
   | _ p => exact p.1.2
+
+/-! ## The pointer-keyed memo (task #316)
+
+The oracle memo above (`MemoX`) records a shared node under the
+STRUCTURAL key `(e, c)`: one `Prod` allocation per entry, the node's
+cached hash mixed with the cursor, a `beq` on every probe (pointer
+identity first, then the data word, then the descent), a bucket cons
+cell per insert and the rehash train of a table grown from eight
+buckets.  The task #314/#315 records attribute what remains of the
+oracle's gap against the budget on `magma-list-pair-n21` (+13.6 …
++17.9 %) to exactly that per-entry price on the shared nodes of small
+walks.  The C++ kernel's `replace_fn` pays none of it: its cache is an
+`unordered_map` keyed on the raw `expr` pointer and the offset.
+
+This is that memo in Lean: the key is the node's ADDRESS (`withPtrAddr`,
+`Init.Util`) packed with the cursor into one `Nat` (`pkey`: addresses
+are 8-byte aligned, so `addr / 8`, then the cursor modulo `2^16` in
+the low bits — a scalar, no allocation), and a hit is VALIDATED by
+pointer identity of the stored node with the current one
+(`Expr.ptrDec`, i.e. `withPtrEqDecEq`: one comparison at runtime, the
+structural decision in the model) plus a cursor compare.  **No table
+invariant**: every entry (`PEnt`) carries its own proof that its value
+is the plain descent of its node at its cursor — the `BeqMap`/`EqPair`
+shape of `Expr.beqGo` — so a validated hit yields the proof the walk's
+result type demands by rewriting along the two equalities, and the
+address is never trusted: a key collision (an address reused within
+one walk cannot happen — every recorded node is held by the table —
+but nothing here depends on that) fails validation and is a miss.
+That is what discharges `withPtrAddr`'s obligation: the continuation
+returns a `Squash`, and its value is the plain descent whatever the
+address (`Subsingleton.elim`, as `Expr.withAddr` already asks).
+
+Two tables behind one switch (`walkPtrTable`): `.hash`, a
+`Std.HashMap` on the packed key under a mixing hash (the address bits
+are dense; `hash64` is what `Lean.Ptr` uses) — the incumbent's table
+with the key changed, one `Prod`-free insert; and `.flat`, an
+open-addressing table of two parallel arrays (`keys : Array Nat`,
+tagged scalars, `0` = empty; `ents : Array (PEnt s)`), power-of-two
+capacity from 16, Fibonacci hashing on the packed key, linear probing,
+doubled at half load by re-probing every entry — no bucket cells, no
+per-key allocation beyond the entry itself, no cutoff, growth only.
+The walks (`*XP`) are the oracle walks (`*X`) verbatim over `MemoXP`
+in place of `MemoX`; the memo is `none` until the first shared
+compound node, as before, and the switch is a compile-time constant
+the wrappers fold.  Nothing here adds to the trust surface: the two
+address primitives are `Init.Util`'s and the oracle's is task #314's. -/
+
+/-- Which table the pointer-keyed memo uses (compile-time). -/
+inductive PtrTable where
+  | hash
+  | flat
+deriving DecidableEq, Repr
+
+/-- THE SECOND SWITCH of the pointer-keyed memo: the table behind
+`walkMemoMode := .ptr` / `.hybridPtr`. -/
+def walkPtrTable : PtrTable := .flat
+
+/-- The packed key: the node's address over its 8-byte alignment,
+then the cursor modulo `2^16` in the low bits.  Pure `UInt64` register
+arithmetic; a tagged scalar as a `Nat` (addresses are below `2^47`).
+In the model the address is `0` and the key is the cursor — the
+tables never rely on the key: an entry validates itself. -/
+@[inline] def pkey (addr : USize) (c : Nat) : Nat :=
+  (addr.toUInt64 / 8 * 65536 + UInt64.ofNat (c % 65536)).toNat
+
+/-- A memo entry: the node it was made for, its rebuild, the cursor,
+and the proof — the entry is its own invariant. -/
+structure PEnt (s : Expr → Nat → Expr) where
+  node : Expr
+  val : Expr
+  depth : Nat
+  eq : val = s node depth
+
+/-- A validated hit: the cursor compares equal and the stored node IS
+the current one (by pointer at runtime — `Expr.ptrDec` — structurally
+in the model); then the entry's proof is the walk's. -/
+@[inline] def PEnt.hit {s : Expr → Nat → Expr} {β : Sort u} (p : PEnt s) (e : Expr) (c : Nat)
+    (k : { r : Expr // r = s e c } → β) (miss : Unit → β) : β :=
+  if hd : p.depth = c then
+    match Expr.ptrDec p.node e with
+    | isTrue hn => k ⟨p.val, by rw [p.eq, hn, hd]⟩
+    | isFalse _ => miss ()
+  else miss ()
+
+/-- The hash-map variant's key: the packed `Nat` under a MIXING hash —
+the identity hash of `Nat` clusters dense address bits after Std's
+fold (the intern table's lesson, task #89). -/
+structure PKey where
+  val : Nat
+
+instance : BEq PKey := ⟨fun a b => a.val == b.val⟩
+instance : Hashable PKey := ⟨fun k => hash64 (UInt64.ofNat k.val)⟩
+
+/-- The hash-map table: the incumbent's `Std.HashMap`, keyed by the
+packed address instead of the structural pair. -/
+abbrev HTab (s : Expr → Nat → Expr) := Std.HashMap PKey (PEnt s)
+
+/-- The flat table: open addressing over two parallel arrays of
+power-of-two capacity, `keys[i] = 0` marking an empty slot (a real key
+is at least `2^16`: the address's aligned part is never `0`). -/
+structure PTab (s : Expr → Nat → Expr) where
+  keys : Array Nat
+  ents : Array (PEnt s)
+  count : Nat
+  /-- `64 - log2 capacity`: the Fibonacci hash keeps the top bits. -/
+  shift : UInt64
+
+namespace PTab
+
+/-- The initial capacity is 16 (`64 - 4`). -/
+def initShift : UInt64 := 60
+
+/-- Fibonacci hashing: the key times the golden-ratio constant, top
+`log2 capacity` bits. -/
+@[inline] def idx (shift : UInt64) (key : Nat) : Nat :=
+  ((UInt64.ofNat key * 11400714819323198485) >>> shift).toNat
+
+/-- The probe: the slot holding `key`, or the first empty slot on its
+run (the table is never more than half full, so one exists; the fuel
+is the capacity). -/
+def find (keys : @& Array Nat) (key : Nat) (i : Nat) (mask : Nat) : Nat → Nat
+  | 0 => i
+  | fuel + 1 =>
+    let k := keys[i]!
+    if k == 0 || k == key then i else find keys key ((i + 1) &&& mask) mask fuel
+
+/-- Re-probe every entry of the old arrays into the new (empty, twice
+as large) ones. -/
+def rehash (keys : @& Array Nat) (ents : @& Array (PEnt s)) (i : Nat)
+    (keys' : Array Nat) (ents' : Array (PEnt s)) (mask : Nat) (shift : UInt64) :
+    Array Nat × Array (PEnt s) :=
+  if h : i < keys.size then
+    let k := keys[i]
+    if k == 0 then rehash keys ents (i + 1) keys' ents' mask shift
+    else if h2 : i < ents.size then
+      let j := find keys' k (idx shift k) mask keys'.size
+      rehash keys ents (i + 1) (keys'.set! j k) (ents'.set! j ents[i]) mask shift
+    else rehash keys ents (i + 1) keys' ents' mask shift
+  else (keys', ents')
+termination_by keys.size - i
+
+/-- Double the capacity (`p` is the filler of the fresh entry array). -/
+def grow (keys : Array Nat) (ents : Array (PEnt s)) (count : Nat) (shift : UInt64)
+    (p : PEnt s) : PTab s :=
+  let cap := keys.size + keys.size
+  let shift := shift - 1
+  match rehash keys ents 0 (Array.replicate cap 0) (Array.replicate cap p) (cap - 1) shift with
+  | (keys', ents') => ⟨keys', ents', count, shift⟩
+
+/-- Insert (a slot already holding `key` is overwritten: the entry
+validates itself, so a stale one is only a lost hit); grow at half
+load. -/
+def insertK (t : PTab s) (key : Nat) (p : PEnt s) : PTab s :=
+  match t with
+  | ⟨keys, ents, count, shift⟩ =>
+    let mask := keys.size - 1
+    let i := find keys key (idx shift key) mask keys.size
+    let keys := keys.set! i key
+    let ents := ents.set! i p
+    let count := count + 1
+    if count + count > keys.size then grow keys ents count shift p
+    else ⟨keys, ents, count, shift⟩
+
+/-- The one-entry table (the first entry is also the filler). -/
+def create (key : Nat) (p : PEnt s) : PTab s :=
+  let keys : Array Nat := Array.replicate 16 0
+  ⟨keys.set! (idx initShift key) key, Array.replicate 16 p, 1, initShift⟩
+
+/-- The probe, in continuation shape so that a hit allocates no
+`Option`. -/
+@[inline] def probe {β : Sort u} (t : @& PTab s) (key : Nat) (hit : PEnt s → β)
+    (miss : Unit → β) : β :=
+  let i := find t.keys key (idx t.shift key) (t.keys.size - 1) t.keys.size
+  if h : i < t.ents.size then
+    if t.keys[i]! == key then hit t.ents[i] else miss ()
+  else miss ()
+
+end PTab
+
+/-- The two tables behind one constructor pair; `walkPtrTable` picks
+the one a walk creates. -/
+inductive PTabU (s : Expr → Nat → Expr) where
+  | hash : HTab s → PTabU s
+  | flat : PTab s → PTabU s
+
+/-- The pointer-keyed memo: absent until the first shared compound
+node. -/
+abbrev MemoXP (s : Expr → Nat → Expr) := Option (PTabU s)
+
+/-- A pointer-keyed walk's result: the term, fixed by its proof,
+beside the memo. -/
+abbrev ResXP (s : Expr → Nat → Expr) (e : Expr) (c : Nat) :=
+  { r : Expr // r = s e c } × MemoXP s
+
+@[inline] def MemoXP.insertK {s : Expr → Nat → Expr} (memo : MemoXP s) (key : Nat)
+    (p : PEnt s) : MemoXP s :=
+  match memo with
+  | none =>
+    match walkPtrTable with
+    | .hash => some (.hash (({} : HTab s).insert ⟨key⟩ p))
+    | .flat => some (.flat (PTab.create key p))
+  | some (.hash m) => some (.hash (m.insert ⟨key⟩ p))
+  | some (.flat t) => some (.flat (t.insertK key p))
+
+/-- The shared-node step over the pointer-keyed memo: the address
+read, the probe, the validated hit — else the descent and the record
+under the key read BEFORE the descent (the result is a `Squash`, so
+the address is unobservable: `withAddr`). -/
+@[inline] def MemoXP.shared {s : Expr → Nat → Expr} (memo : MemoXP s) (e : Expr) (c : Nat)
+    (rec : Unit → Squash (ResXP s e c)) : Squash (ResXP s e c) :=
+  withAddr e fun addr =>
+  let key := pkey addr c
+  match memo with
+  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+      Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+  | some (.hash m) =>
+    match m[(⟨key⟩ : PKey)]? with
+    | some p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
+        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+          Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+  | some (.flat t) =>
+    t.probe key (fun p => p.hit e c (fun r => Squash.mk (r, memo)) fun _ =>
+        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+          Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩))
+      fun _ => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insertK key ⟨e, r, c, hr⟩)
+
+/-- The cursor-free instance (`instLevelParams`): the cursored memo at
+cursor `0`. -/
+abbrev MemoXP0 (s : Expr → Expr) := MemoXP (fun e _ => s e)
+
+abbrev ResXP0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoXP0 s
+
+@[inline] def MemoXP0.shared {s : Expr → Expr} (memo : MemoXP0 s) (e : Expr)
+    (rec : Unit → Squash (ResXP0 s e)) : Squash (ResXP0 s e) :=
+  MemoXP.shared (s := fun e _ => s e) memo e 0 rec
 
 /-- Core of `instantiate1C` (nodes whose cached bound is at or below the
 cursor are returned unchanged; compound nodes are memoized, atoms are
@@ -471,6 +711,49 @@ def instantiate1LiftX (v : @& Expr) (memo : MemoX (instantiate1LiftP v)) (e : @&
     enterLift v sub d memo (fun h => instantiate1LiftX v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instantiate1LiftP]; simp [hcut, hs, mkProj]⟩, memo)
 
+/-- (Task #316.) The child step of `instantiate1LiftXP`: the pointer-keyed twin of `enterLift`. -/
+@[inline] def enterLiftP (v : @& Expr) (e : @& Expr) (d : Nat)
+    (memo : MemoXP (instantiate1LiftP v))
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (instantiate1LiftP v) e d)) :
+    Squash (ResXP (instantiate1LiftP v) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiate1LiftP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The oracle walk of `instantiate1LiftC`. -/
+def instantiate1LiftXP (v : @& Expr) (memo : MemoXP (instantiate1LiftP v)) (e : @& Expr)
+    (d : Nat) (hcut : ¬ e.bvarB ≤ d) : Squash (ResXP (instantiate1LiftP v) e d) :=
+  match e with
+  | .bvar i .. =>
+    Squash.mk (⟨if i = d then Expr.liftLooseBVars d 0 v
+        else if i > d then Expr.mkBvar (i - 1) else .bvar i,
+      by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterLiftP v f d memo (fun h => instantiate1LiftXP v memo f d h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterLiftP v a d memo (fun h => instantiate1LiftXP v memo a d h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [instantiate1LiftP]; simp [hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLiftP v val d memo (fun h => instantiate1LiftXP v memo val d h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [instantiate1LiftP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterLiftP v sub d memo (fun h => instantiate1LiftXP v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [instantiate1LiftP]; simp [hcut, hs, mkProj]⟩, memo)
+
 /-- The cached `Expr.instantiate1Lift`: the cutoff, then the memo
 discipline `walkMemoMode` selects (the budget here is the older
 4 096-node one of task #215, with its `Option` result). -/
@@ -486,6 +769,11 @@ def instantiate1LiftC (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
     match instantiate1LiftBC v 4096 e d with
     | (some r, _) => r
     | (none, _) => resTerm (instantiate1LiftX v none e d hcut)
+  | .ptr => resTerm (instantiate1LiftXP v none e d hcut)
+  | .hybridPtr =>
+    match instantiate1LiftBC v 4096 e d with
+    | (some r, _) => r
+    | (none, _) => resTerm (instantiate1LiftXP v none e d hcut)
 
 /-! ### The budgeted plain descent (task #313)
 
@@ -632,6 +920,49 @@ def instantiate1X (v : @& Expr) (memo : MemoX (instantiate1P v)) (e : @& Expr) (
     enter1 v sub d memo (fun h => instantiate1X v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instantiate1P]; simp [hcut, hs, mkProj]⟩, memo)
 
+/-- (Task #316, the pointer-keyed twin.) The child step of `instantiate1XP`: the cutoff, the compound test,
+the oracle. -/
+@[inline] def enter1P (v : @& Expr) (e : @& Expr) (d : Nat) (memo : MemoXP (instantiate1P v))
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (instantiate1P v) e d)) :
+    Squash (ResXP (instantiate1P v) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiate1P_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The oracle walk of `instantiate1C` (the node is past the cutoff:
+the wrapper and `enter1P` test it). -/
+def instantiate1XP (v : @& Expr) (memo : MemoXP (instantiate1P v)) (e : @& Expr) (d : Nat)
+    (hcut : ¬ e.bvarB ≤ d) : Squash (ResXP (instantiate1P v) e d) :=
+  match e with
+  | .bvar i .. =>
+    Squash.mk (⟨if i = d then v else if i > d then Expr.mkBvar (i - 1) else .bvar i,
+      by rw [instantiate1P]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiate1P]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiate1P]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiate1P]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [instantiate1P]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enter1P v f d memo (fun h => instantiate1XP v memo f d h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enter1P v a d memo (fun h => instantiate1XP v memo a d h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [instantiate1P]; simp [hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enter1P v ty d memo (fun h => instantiate1XP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enter1P v body (d + 1) memo (fun h => instantiate1XP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by rw [instantiate1P]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enter1P v ty d memo (fun h => instantiate1XP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enter1P v body (d + 1) memo (fun h => instantiate1XP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by rw [instantiate1P]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enter1P v ty d memo (fun h => instantiate1XP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enter1P v val d memo (fun h => instantiate1XP v memo val d h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enter1P v body (d + 1) memo (fun h => instantiate1XP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [instantiate1P]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enter1P v sub d memo (fun h => instantiate1XP v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [instantiate1P]; simp [hcut, hs, mkProj]⟩, memo)
+
 /-- The cached `Expr.instantiate1`: the cutoff, then the memo
 discipline `walkMemoMode` selects. -/
 def instantiate1C (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
@@ -644,6 +975,10 @@ def instantiate1C (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .hybrid =>
     let (r, fuel) := instantiate1BC v walkBudget e d
     if fuel ≠ 0 then r else resTerm (instantiate1X v none e d hcut)
+  | .ptr => resTerm (instantiate1XP v none e d hcut)
+  | .hybridPtr =>
+    let (r, fuel) := instantiate1BC v walkBudget e d
+    if fuel ≠ 0 then r else resTerm (instantiate1XP v none e d hcut)
 
 /-- Core of `instantiateListC` (task #50): `vs` innermost binder first,
 `k` the live prefix length.
@@ -878,6 +1213,67 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
+/-- (Task #316, the pointer-keyed twin.) The child step of `instantiateListXP` (`k` is the parent's live prefix). -/
+@[inline] def enterListP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
+    (memo : MemoXP (fun e d => instantiateListP vs e k d))
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateListP vs e k d) e d)) :
+    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateListP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The oracle walk of the bulk instantiation (the `bvar` arm's
+re-entry at a replacement runs under a fresh memo, as the memoised
+walk's does — `MemoNL`). -/
+def instantiateListXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateListP vs e k d))
+    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
+    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
+  match e with
+  | .bvar i .. =>
+    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi]⟩, memo)
+    else if _h : i - d < k then
+      if h : i - d < vs.size then
+        let w := vs[i - d]
+        if h0 : i - d = 0 || w.bvarB ≤ d then
+          Squash.mk (⟨w, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
+        else
+          have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
+            simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
+          instantiateListXP vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
+          Squash.mk (⟨r, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
+      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
+    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .app f a .. =>
+    enterListP vs f k d memo (fun h => instantiateListXP vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterListP vs a k d memo (fun h => instantiateListXP vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs val k d memo (fun h => instantiateListXP vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterListP vs sub k d memo (fun h => instantiateListXP vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
+
 /-- The cached `Expr.instantiateList` (bulk): the memo discipline
 `walkMemoMode` selects. -/
 def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
@@ -897,6 +1293,14 @@ def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
       if fuel ≠ 0 then r
       else if hcut : e.bvarB ≤ d then e
       else resTerm (instantiateListX a a.size none e d (by simp [a]) hcut)
+    | .ptr =>
+      if hcut : e.bvarB ≤ d then e
+      else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
+    | .hybridPtr =>
+      let (r, fuel) := instantiateListBC a walkBudget e a.size d
+      if fuel ≠ 0 then r
+      else if hcut : e.bvarB ≤ d then e
+      else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
 
 /-- Core of `instantiateRev`: as `instantiateListGoC`, but the
 replacement array holds the innermost binder **last** (the binder
@@ -1118,6 +1522,67 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
+/-- (Task #316, the pointer-keyed twin.) The child step of `instantiateRevXP` (`k` is the parent's live prefix). -/
+@[inline] def enterRevP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
+    (memo : MemoXP (fun e d => instantiateRevP vs e k d))
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateRevP vs e k d) e d)) :
+    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateRevP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The oracle walk of the bulk instantiation (the `bvar` arm's
+re-entry at a replacement runs under a fresh memo, as the memoised
+walk's does — `MemoNL`). -/
+def instantiateRevXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs e k d))
+    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
+    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+  match e with
+  | .bvar i .. =>
+    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi]⟩, memo)
+    else if _h : i - d < k then
+      if h : i - d < vs.size then
+        let w := vs[vs.size - 1 - (i - d)]'(by omega)
+        if h0 : i - d = 0 || w.bvarB ≤ d then
+          Squash.mk (⟨w, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
+        else
+          have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
+            simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
+          instantiateRevXP vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
+          Squash.mk (⟨r, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
+      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
+    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
+  | .app f a .. =>
+    enterRevP vs f k d memo (fun h => instantiateRevXP vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterRevP vs a k d memo (fun h => instantiateRevXP vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs val k d memo (fun h => instantiateRevXP vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterRevP vs sub k d memo (fun h => instantiateRevXP vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
+
 /-- Bulk instantiation on a reversed accumulator array: the memo
 discipline `walkMemoMode` selects. -/
 def instantiateRev (e : @& Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
@@ -1132,6 +1597,10 @@ def instantiateRev (e : @& Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
     | .hybrid =>
       let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
       if fuel ≠ 0 then r else resTerm (instantiateRevX vs vs.size none e d hk hcut)
+    | .ptr => resTerm (instantiateRevXP vs vs.size none e d hk hcut)
+    | .hybridPtr =>
+      let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
+      if fuel ≠ 0 then r else resTerm (instantiateRevXP vs vs.size none e d hk hcut)
 
 /-! ## Abstraction -/
 
@@ -1292,6 +1761,47 @@ def abstract1X (d : Nat) (memo : MemoX (abstract1P d)) (e : @& Expr) (k : Nat)
     enterAbs1 d sub k memo (fun h => abstract1X d memo sub k h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [abstract1P]; simp [hcut, hs, mkProj]⟩, memo)
 
+/-- (Task #316.) The child step of `abstract1XP`: the pointer-keyed twin of `enterAbs1`. -/
+@[inline] def enterAbs1P (d : Nat) (e : @& Expr) (k : Nat) (memo : MemoXP (abstract1P d))
+    (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResXP (abstract1P d) e k)) :
+    Squash (ResXP (abstract1P d) e k) :=
+  if hcut : e.fvarB ≤ d then Squash.mk (⟨e, (abstract1P_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e k fun _ => rec hcut
+
+/-- The oracle walk of `abstract1C`. -/
+def abstract1XP (d : Nat) (memo : MemoXP (abstract1P d)) (e : @& Expr) (k : Nat)
+    (hcut : ¬ e.fvarB ≤ d) : Squash (ResXP (abstract1P d) e k) :=
+  match e with
+  | .fvar idx ty .. =>
+    Squash.mk (⟨if idx = d then Expr.mkBvar k else .fvar idx ty,
+      by rw [abstract1P]; simp [hcut]⟩, memo)
+  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [abstract1P]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [abstract1P]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [abstract1P]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [abstract1P]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterAbs1P d f k memo (fun h => abstract1XP d memo f k h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterAbs1P d a k memo (fun h => abstract1XP d memo a k h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [abstract1P]; simp [hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterAbs1P d ty k memo (fun h => abstract1XP d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbs1P d body (k + 1) memo (fun h => abstract1XP d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by rw [abstract1P]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterAbs1P d ty k memo (fun h => abstract1XP d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbs1P d body (k + 1) memo (fun h => abstract1XP d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by rw [abstract1P]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterAbs1P d ty k memo (fun h => abstract1XP d memo ty k h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbs1P d val k memo (fun h => abstract1XP d memo val k h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterAbs1P d body (k + 1) memo (fun h => abstract1XP d memo body (k + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [abstract1P]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterAbs1P d sub k memo (fun h => abstract1XP d memo sub k h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [abstract1P]; simp [hcut, hs, mkProj]⟩, memo)
+
 /-- The cached `Expr.abstract1`: the cutoff, then the memo discipline
 `walkMemoMode` selects. -/
 def abstract1C (e : @& Expr) (d : Nat) (k : Nat := 0) : Expr :=
@@ -1304,6 +1814,10 @@ def abstract1C (e : @& Expr) (d : Nat) (k : Nat := 0) : Expr :=
   | .hybrid =>
     let (r, fuel) := abstract1BC d walkBudget e k
     if fuel ≠ 0 then r else resTerm (abstract1X d none e k hcut)
+  | .ptr => resTerm (abstract1XP d none e k hcut)
+  | .hybridPtr =>
+    let (r, fuel) := abstract1BC d walkBudget e k
+    if fuel ≠ 0 then r else resTerm (abstract1XP d none e k hcut)
 
 /-- Core of `abstractRangeC` (bulk abstraction, task #72; same memo
 discipline as `abstract1GoC`). -/
@@ -1462,6 +1976,48 @@ def abstractRangeX (d k : Nat) (memo : MemoX (abstractRangeP d k)) (e : @& Expr)
     enterAbsR d k sub c memo (fun h => abstractRangeX d k memo sub c h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [abstractRangeP]; simp [hcut, hs, mkProj]⟩, memo)
 
+/-- (Task #316.) The child step of `abstractRangeXP`: the pointer-keyed twin of `enterAbsR`. -/
+@[inline] def enterAbsRP (d k : Nat) (e : @& Expr) (c : Nat) (memo : MemoXP (abstractRangeP d k))
+    (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResXP (abstractRangeP d k) e c)) :
+    Squash (ResXP (abstractRangeP d k) e c) :=
+  if hcut : e.fvarB ≤ d then Squash.mk (⟨e, (abstractRangeP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e c fun _ => rec hcut
+
+/-- The oracle walk of `abstractRangeC`. -/
+def abstractRangeXP (d k : Nat) (memo : MemoXP (abstractRangeP d k)) (e : @& Expr) (c : Nat)
+    (hcut : ¬ e.fvarB ≤ d) : Squash (ResXP (abstractRangeP d k) e c) :=
+  match e with
+  | .fvar idx ty .. =>
+    Squash.mk (⟨if d ≤ idx ∧ idx < d + k then Expr.mkBvar (c + (d + k - 1 - idx))
+        else .fvar idx ty,
+      by rw [abstractRangeP]; simp [hcut]⟩, memo)
+  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [abstractRangeP]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [abstractRangeP]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [abstractRangeP]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [abstractRangeP]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterAbsRP d k f c memo (fun h => abstractRangeXP d k memo f c h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterAbsRP d k a c memo (fun h => abstractRangeXP d k memo a c h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [abstractRangeP]; simp [hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterAbsRP d k ty c memo (fun h => abstractRangeXP d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbsRP d k body (c + 1) memo (fun h => abstractRangeXP d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' m, by rw [abstractRangeP]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterAbsRP d k ty c memo (fun h => abstractRangeXP d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbsRP d k body (c + 1) memo (fun h => abstractRangeXP d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' m, by rw [abstractRangeP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterAbsRP d k ty c memo (fun h => abstractRangeXP d k memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterAbsRP d k val c memo (fun h => abstractRangeXP d k memo val c h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterAbsRP d k body (c + 1) memo (fun h => abstractRangeXP d k memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [abstractRangeP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterAbsRP d k sub c memo (fun h => abstractRangeXP d k memo sub c h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [abstractRangeP]; simp [hcut, hs, mkProj]⟩, memo)
+
 /-- The cached `Expr.abstractRange` (`k = 0` is the identity and skips
 the traversal, as in the arena): the cutoff, then the memo discipline
 `walkMemoMode` selects. -/
@@ -1478,6 +2034,10 @@ def abstractRangeC (e : @& Expr) (d k : Nat) (c : Nat := 0) : Expr :=
     | .hybrid =>
       let (r, fuel) := abstractRangeBC d k walkBudget e c
       if fuel ≠ 0 then r else resTerm (abstractRangeX d k none e c hcut)
+    | .ptr => resTerm (abstractRangeXP d k none e c hcut)
+    | .hybridPtr =>
+      let (r, fuel) := abstractRangeBC d k walkBudget e c
+      if fuel ≠ 0 then r else resTerm (abstractRangeXP d k none e c hcut)
 
 /-! ## Level instantiation -/
 
@@ -1592,6 +2152,55 @@ def instLevelParamsX (ks : @& List Name) (us : @& List Level)
     enterLP ks us sub memo (fun h => instLevelParamsX ks us memo sub h) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hs, mkProj]⟩, memo)
 
+/-- (Task #316, the pointer-keyed twin.) The child step of `instLevelParamsXP`: the cutoff, then the oracle —
+on EVERY node past the cutoff, as the memoised walk records every one
+(a `const` with level parameters is a `Level.subst` per occurrence). -/
+@[inline] def enterLPP (ks : @& List Name) (us : @& List Level) (e : @& Expr)
+    (memo : MemoXP0 (instLevelParamsP ks us))
+    (rec : (hcut : ¬ (!e.hasLP) = true) → Squash (ResXP0 (instLevelParamsP ks us) e)) :
+    Squash (ResXP0 (instLevelParamsP ks us) e) :=
+  if hcut : (!e.hasLP) = true then Squash.mk (⟨e, (instLevelParamsP_cut hcut).symm⟩, memo)
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e fun _ => rec hcut
+
+/-- The oracle walk of `instLevelParams`. -/
+def instLevelParamsXP (ks : @& List Name) (us : @& List Level)
+    (memo : MemoXP0 (instLevelParamsP ks us)) (e : @& Expr) (hcut : ¬ (!e.hasLP) = true) :
+    Squash (ResXP0 (instLevelParamsP ks us) e) :=
+  match e with
+  | .bvar i .. => Squash.mk (⟨.bvar i, by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
+  | .sort u .. =>
+    Squash.mk (⟨mkSort (Level.subst ks us u), by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
+  | .const n vs .. =>
+    Squash.mk (⟨mkConst n (vs.map (Level.subst ks us)),
+      by rw [instLevelParamsP.eq_def, if_neg hcut]⟩, memo)
+  | .fvar idx ty .. =>
+    enterLPP ks us ty memo (fun h => instLevelParamsXP ks us memo ty h) |>.lift fun (⟨t, ht⟩, memo) =>
+    Squash.mk (⟨mkFVar idx t, by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, mkFVar]⟩, memo)
+  | .app f a .. =>
+    enterLPP ks us f memo (fun h => instLevelParamsXP ks us memo f h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterLPP ks us a memo (fun h => instLevelParamsXP ks us memo a h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hf, ha, mkApp]⟩, memo)
+  | .lam ty body m .. =>
+    enterLPP ks us ty memo (fun h => instLevelParamsXP ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLPP ks us body memo (fun h => instLevelParamsXP ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b' ⟨Level.substPW ks us m.pw⟩,
+      by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hb, mkLam]⟩, memo)
+  | .forallE ty body m .. =>
+    enterLPP ks us ty memo (fun h => instLevelParamsXP ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLPP ks us body memo (fun h => instLevelParamsXP ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b' ⟨Level.substPW ks us m.pw⟩,
+      by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterLPP ks us ty memo (fun h => instLevelParamsXP ks us memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLPP ks us val memo (fun h => instLevelParamsXP ks us memo val h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterLPP ks us body memo (fun h => instLevelParamsXP ks us memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterLPP ks us sub memo (fun h => instLevelParamsXP ks us memo sub h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [instLevelParamsP.eq_def, if_neg hcut]; simp only [hs, mkProj]⟩, memo)
+
 /-- The cached `Expr.instantiateLevelParams`: the cutoff, then the memo
 discipline `walkMemoMode` selects (`.budget` is the always-memoised
 walk here — level instantiation had no budget). -/
@@ -1600,6 +2209,7 @@ def instLevelParams (ks : List Name) (us : List Level) (e : @& Expr) : Expr :=
   match walkMemoMode with
   | .budget => (instLevelParamsGo ks us {} e).1
   | .oracle | .hybrid => resTerm (instLevelParamsX ks us none e hcut)
+  | .ptr | .hybridPtr => resTerm (instLevelParamsXP ks us none e hcut)
 
 /-- The cached `ProjEntry.typeAt`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and

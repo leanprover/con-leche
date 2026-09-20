@@ -626,6 +626,18 @@ theorem instantiate1C_spec {e v : Expr} {d : Nat} :
         exact hb
       · rw [Expr.resTerm_eq]
         exact instantiate1P_spec e d
+    · rw [Expr.resTerm_eq]
+      exact instantiate1P_spec e d
+    · rcases hbc : Expr.instantiate1BC v Expr.walkBudget e d with ⟨r, fuel⟩
+      dsimp only
+      split
+      · rename_i hfuel
+        have hb := instantiate1BC_spec (v := v) e Expr.walkBudget d
+          (by rw [hbc]; exact hfuel)
+        rw [hbc] at hb
+        exact hb
+      · rw [Expr.resTerm_eq]
+        exact instantiate1P_spec e d
 
 /-! ## Bulk instantiation -/
 
@@ -1489,6 +1501,28 @@ theorem instantiateListC_spec {e : Expr} {vs : List Expr} {d : Nat} :
         · rw [Expr.resTerm_eq]
           exact htail _ (instantiateListP_spec (vs := (v :: vs').toArray)
             (v :: vs').toArray.size e (d := d) (Nat.le_refl _))
+    · split
+      · rename_i hcut
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · rw [Expr.resTerm_eq]
+        exact htail _ (instantiateListP_spec (vs := (v :: vs').toArray)
+          (v :: vs').toArray.size e (d := d) (Nat.le_refl _))
+    · rcases hbc : Expr.instantiateListBC (v :: vs').toArray Expr.walkBudget e
+          (v :: vs').toArray.size d with ⟨r, fuel⟩
+      dsimp only
+      split
+      · rename_i hfuel
+        have hb := instantiateListBC_spec (vs := (v :: vs').toArray)
+          (v :: vs').toArray.size e (fuel := Expr.walkBudget) (d := d)
+          (Nat.le_refl _) (by rw [hbc]; exact hfuel)
+        rw [hbc] at hb
+        exact htail _ hb
+      · split
+        · rename_i hcut
+          exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+        · rw [Expr.resTerm_eq]
+          exact htail _ (instantiateListP_spec (vs := (v :: vs').toArray)
+            (v :: vs').toArray.size e (d := d) (Nat.le_refl _))
 
 /-! ## Telescope-context spine instantiation -/
 
@@ -1936,6 +1970,25 @@ theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat}
             instantiateListGoC_spec (vs := vs.reverse) vs.size e (d := d)
               (by simp) MemoLInv.empty
           exact htail _ h3
+      · rw [Expr.resTerm_eq]
+        exact htail _ ((instantiateRevP_eq vs.size e d).trans
+          (instantiateListP_spec (vs := vs.reverse) vs.size e (d := d)
+            (by simp)))
+      · rw [instantiateRevBC_eq]
+        rcases hbc : Expr.instantiateListBC vs.reverse Expr.walkBudget e
+            vs.size d with ⟨r, fuel⟩
+        dsimp only
+        split
+        · rename_i hfuel
+          have hb := instantiateListBC_spec (vs := vs.reverse) vs.size e
+            (fuel := Expr.walkBudget) (d := d) (by simp)
+            (by rw [hbc]; exact hfuel)
+          rw [hbc] at hb
+          exact htail _ hb
+        · rw [Expr.resTerm_eq]
+          exact htail _ ((instantiateRevP_eq vs.size e d).trans
+            (instantiateListP_spec (vs := vs.reverse) vs.size e (d := d)
+              (by simp)))
       · rw [Expr.resTerm_eq]
         exact htail _ ((instantiateRevP_eq vs.size e d).trans
           (instantiateListP_spec (vs := vs.reverse) vs.size e (d := d)
@@ -2470,6 +2523,18 @@ theorem abstract1C_spec {e : Expr} {d k : Nat} :
         exact hb
       · rw [Expr.resTerm_eq]
         exact abstract1P_spec e k
+    · rw [Expr.resTerm_eq]
+      exact abstract1P_spec e k
+    · rcases hbc : Expr.abstract1BC d Expr.walkBudget e k with ⟨r, fuel⟩
+      dsimp only
+      split
+      · rename_i hfuel
+        have hb := abstract1BC_spec (d := d) e Expr.walkBudget k
+          (by rw [hbc]; exact hfuel)
+        rw [hbc] at hb
+        exact hb
+      · rw [Expr.resTerm_eq]
+        exact abstract1P_spec e k
 
 /-! ### Bulk abstraction -/
 
@@ -2979,6 +3044,19 @@ theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
           exact hb
         · rw [Expr.resTerm_eq]
           exact abstractRangeP_spec e c
+      · rw [Expr.resTerm_eq]
+        exact abstractRangeP_spec e c
+      · rcases hbc : Expr.abstractRangeBC d (k' + 1) Expr.walkBudget e c
+          with ⟨r, fuel⟩
+        dsimp only
+        split
+        · rename_i hfuel
+          have hb := abstractRangeBC_spec (d := d) (k := k' + 1) e
+            Expr.walkBudget c (by rw [hbc]; exact hfuel)
+          rw [hbc] at hb
+          exact hb
+        · rw [Expr.resTerm_eq]
+          exact abstractRangeP_spec e c
 
 /-! ## Level instantiation -/
 
@@ -3267,6 +3345,10 @@ theorem instLevelParams_spec {ks : List Name} {us : List Level} {e : Expr} :
     exact (hasLP_false (by simpa using hcut)).symm
   · split
     · exact (instLevelParamsGo_spec (ks := ks) (us := us) MemoLPInv.empty).2
+    · rw [Expr.resTerm_eq]
+      exact instLevelParamsP_spec e
+    · rw [Expr.resTerm_eq]
+      exact instLevelParamsP_spec e
     · rw [Expr.resTerm_eq]
       exact instLevelParamsP_spec e
     · rw [Expr.resTerm_eq]
@@ -4158,6 +4240,13 @@ theorem instantiate1LiftC_spec (e v : Expr) (d : Nat) :
       · rename_i r fuel hr
         exact instantiate1LiftBC_spec e 4096 d r (by rw [hr])
       · exact (instantiate1LiftGoC_spec (v := v) (d := d) Memo1LInv.empty).2
+    · rw [Expr.resTerm_eq]
+      exact instantiate1LiftP_spec e d
+    · split
+      · rename_i r fuel hr
+        exact instantiate1LiftBC_spec e 4096 d r (by rw [hr])
+      · rw [Expr.resTerm_eq]
+        exact instantiate1LiftP_spec e d
     · rw [Expr.resTerm_eq]
       exact instantiate1LiftP_spec e d
     · split
