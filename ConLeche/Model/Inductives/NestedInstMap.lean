@@ -2304,6 +2304,61 @@ private theorem getAppFn_instantiateList_const {vs : List Expr} {n : Name} {us :
   | const m vs' => intro d h; simpa only [Expr.instantiateList] using h
   | _ => intro d h; simp [Expr.getAppFn] at h
 
+omit S in
+/-- **A COPY'S RECORDED INDEX EXPRESSIONS ARE AS MANY AS ITS TARGET
+PIN'S INDICES** (task #315 WIDE (3), step 3): at a field of an
+auxiliary constructor whose kind is recursive or reflexive and whose
+recorded target is the copy former of pin `z`, the block's recorded
+index expressions at that field are as many as the pin's container has
+indices.
+
+It is the LENGTH the two copies' field-data tie is split at: the tie
+concludes an equation between two applications, and `AnnotTerm.mkAppN`
+is injective only at equal arity — the head container's parameter
+counts come from `hownσ`, and this is the other half, ON BOTH SIDES.
+The block's side reads it at `GroupFacts.ordRead`; the OWNER's side
+reads it at the `PinShapes` conjunct this same run fact discharges
+(`NestedPinGroupSyn.ordTgt`), because the owner's `Eiss` at its own
+install ARE this list.
+
+Nothing here is nested-specific: `MutualCtorDataI.eisLen` (and its
+reflexive twin) already say a recursive field's readings are as many
+as its TARGET MEMBER's indices, and the auxiliary block's member
+`p.k + z` is pin `z`'s copy, whose index count is the pin's
+(`NestedPinSynFacts.pinNIdx`). -/
+theorem NestedPinsRun.copyEisLen {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (ψ : Name → Nat) {G l z : Nat} {cA : ConstantVal × Nat}
+    (hcA : ctorsA[G]? = some cA) (hlF : l < cA.2)
+    (hk : kindAt (mutKsOf kinds G) l = RecFieldKind.recursive ∨
+      kindAt (mutKsOf kinds G) l = RecFieldKind.reflexive)
+    (hz : z < pinsS.length)
+    (htg : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD G []).getD l 0
+      = p.k + z) :
+    (((mutEiss0 ctorsA.length eissF ψ).getD G []).getD l []).length = ((D).pinAt z).nIdx := by
+  have hGlt : G < ctorsA.length := (List.getElem?_eq_some_iff.mp hcA).1
+  have hnFs : l < mutNFOf ctorsA G := by
+    show l < (ctorsA.getD G default).2
+    rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+    exact hlF
+  have htgA : tgtAt (mutKsOf kinds G) l = p.k + z := by
+    rw [← mutTgts_getD hGlt hnFs]; exact htg
+  rw [mutEiss0_getD hGlt]
+  have hlen : ((eissF G ψ).getD l []).length
+      = mutualNIdxOf b.members3 (tgtAt (mutKsOf kinds G) l) := by
+    rcases hk with hk | hk
+    · exact (R.h.CD G _ hcA).eisLen ψ l hk hlF
+    · exact (R.h.CD G _ hcA).eisLenRefl ψ l hk hlF
+  rw [hlen, htgA]
+  have hzst : z < st.pins.length := by rw [← SF.pinsLen]; exact hz
+  obtain ⟨fM, -, hfM, -, -, -, -, -⟩ := R.groupCopyFormer hPD hzst
+  have hfMd : fms.getD (p.k + z) default = fM := by
+    rw [List.getD_eq_getElem?_getD, hfM]; rfl
+  have hp := SF.pinNIdx z hz
+  rw [hfMd] at hp
+  rw [(R.h.memT _ _ hfM).2]
+  exact hp
+
 /-- **THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE, AT THE RUN**
 (task #315 WIDE (3), step 1(a)): at a field the pin's container calls
 ORDINARY and the block's rewrite made recursive, whose block target is
@@ -2366,6 +2421,8 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     ∃ z : Nat, z < pinsS.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+      (((mutEiss0 ctorsA.length eissF ψ).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
       OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
         ((pinsS.getD q₀ default).Ds ψ)
         ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
@@ -2559,7 +2616,8 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hcizM : ConLeche.containerInfo? env ((D).pinAt z).J = some ciM := by
     rw [hJM]; exact hciM
   obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
-  refine ⟨z, hzS, htgz, ?_⟩
+  have hlB : l < cAB.2 := by rw [hnFB, ← hnf]; exact hlF
+  refine ⟨z, hzS, htgz, R.copyEisLen SF hPD ψ hcAB hlB hrr hzS htgz, ?_⟩
   rw [hnPz]
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
@@ -3032,6 +3090,8 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     ∃ z : Nat, z < pinsS.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+      (((mutEiss0 ctorsA.length eissF ψ).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = (pinsS.getD z default).nIdx ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
@@ -3072,9 +3132,9 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hgp hgn hciO hm₀ hownT hmapR hqK hqm
     (by rw [hstripO]; exact hhdO) (by rw [hstripB]; exact hhdB) hfire hrootInst
   -- the block's own reading, and its target
-  obtain ⟨z, hz, htg, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC
+  obtain ⟨z, hz, htg, hEl, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC
     hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
-  refine ⟨z, hz, htg, fun fs₁ hfs hspf => ?_⟩
+  refine ⟨z, hz, htg, hEl, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
   refine ⟨fb, Ps, hPs, ?_⟩
   -- the bridge: `ordRootInst`'s output is the owner's reading, instantiated

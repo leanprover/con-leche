@@ -530,6 +530,8 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ∃ z : Nat, z < (D).nPins ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
         OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
           (((D).pinAt q₀).Ds ψ)
           ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])

@@ -1662,12 +1662,14 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     intro ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom lps hjA hst hdm lpsC Jm hJm
       hlpsE K usK hfin
     simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc hpinT
-    obtain ⟨z, hz, htg, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom
+    obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hpinT cA bs rr dom
       lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE K usK
       hfin
-    refine ⟨z, hz, ?_, ?_⟩
+    refine ⟨z, hz, ?_, ?_, ?_⟩
     · simp only [nestedPc, ← Nat.add_assoc]
       exact htg
+    · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
+      exact hEl
     · simp only [nestedPc, getD_drop, ← Nat.add_assoc]
       exact hOT
   · -- the shape, at the base pin's record and the dropped lists
@@ -2180,6 +2182,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ∃ z : Nat, z < pinsS.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+      (((mutEiss0 ctorsA.length eissF ψ).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →

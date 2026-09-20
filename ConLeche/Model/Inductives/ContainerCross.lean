@@ -739,7 +739,7 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
   -- arbitrary name.
   · intro ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom lps hjA hstrip hdm
       lpsC Jm hJm hlpsE K usK hfin
-    obtain ⟨z, hz, htg, hOT⟩ := hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom
+    obtain ⟨z, hz, htg, hEl, hOT⟩ := hotr ψ ρp hρp i' hi' j hj l hl hrsC hrsB hpinT cA bs rr dom
       lps hjA hstrip hdm lpsC Jm hJm hlpsE K usK hfin
     have hdomPF : ProjFree Ts dom.1 := fun T hT jj =>
       (ConLeche.rg_noProjAt_stripPis _ hstrip
@@ -747,7 +747,7 @@ theorem PinShapes.crossEnv {Ts : List Name} {env₁ env₂ : Env}
           (List.mem_of_getElem? hdm)
     have hownPF : ProjFree Ts ((d.ownPinTerms lps).getD (q₀ + i') default) :=
       hpfOwn lps (q₀ + i') (by have := hgv.seg; omega)
-    refine ⟨z, hz, htg, fun fs₁ hlen hsp => ?_⟩
+    refine ⟨z, hz, htg, hEl, fun fs₁ hlen hsp => ?_⟩
     obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hlen hsp
     exact ⟨fb, Ps, hPs,
       hde _ _ _ (projFree_ordTargetDom_instSeq hdomPF hownPF) hread⟩

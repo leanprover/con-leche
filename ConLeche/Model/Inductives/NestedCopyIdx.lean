@@ -540,6 +540,9 @@ off the two wrappers of `NestedCopyInst.lean`. -/
       ∃ z : Nat, z < pinsS.length ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length
+          = (pinsS.getD z default).nIdx ∧
         OrdTargetRead (V := V) mp₁'.base2.acval
           (ConLeche.consMutualFormers (fms.take p.k) env) ψ ρp b.nP l
           ((pinsS.getD q₀ default).Ds ψ)

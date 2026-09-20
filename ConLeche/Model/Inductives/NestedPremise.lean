@@ -1253,6 +1253,7 @@ unchanged. -/
       ∀ (K : Name) (usK : List Level),
       (dom.1.instantiateLevelParams lpsC ((d.pinAt (q₀ + i')).lvls)).getAppFn = .const K usK →
       ∃ z : Nat, z < d.nPins ∧ (pc (q₀ + i')).tgts j l = d.k + z ∧
+        ((((pc (q₀ + i')).Eiss ψ).getD j []).getD l []).length = (d.pinAt z).nIdx ∧
         OrdTargetRead (V := V) m.acval env ψ ρp d.nP l
           ((d.pinAt q₀).Ds ψ)
           (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j [])

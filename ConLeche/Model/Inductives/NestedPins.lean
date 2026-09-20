@@ -768,6 +768,8 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
       ∃ z : Nat, z < (D).nPins ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length = ((D).pinAt z).nIdx ∧
         OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
           (((D).pinAt q₀).Ds ψ)
           ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
@@ -1367,6 +1369,9 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
       ∃ z : Nat, z < pinsS.length ∧
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+        (((mutEiss0 ctorsA.length eissF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length
+          = (pinsS.getD z default).nIdx ∧
         OrdTargetRead (V := V) mp₁'.base2.acval
           (ConLeche.consMutualFormers (fms.take p.k) env) ψ ρp b.nP l
           ((pinsS.getD q₀ default).Ds ψ)
