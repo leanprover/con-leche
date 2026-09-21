@@ -166,7 +166,8 @@ section Run
 
 variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : MutualBlock}
   {fms : List MutualFormerA} {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
-  {kinds : List (List (RecFieldKind × Nat))}
+  {sortss : List (List Level)} {kinds : List (List (RecFieldKind × Nat))}
+  {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
   {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
   {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
   {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
@@ -328,6 +329,136 @@ theorem nestedPinDomRec_of_dom₂ (m : EnvModel V env₂)
     hpar.2.2.symm (fun l' => (huT l').symm)
     (G.syn.w iq hiq ψ) (S₂.w ψR) hu₁ hu₂ hsh (by rw [hlps]; exact h₁) hdom₂
     (fun l' hl' hr' => congrArg _ (hXrec l' hl' hr')) l hl hrec fs₁ hl₁ hsp
+
+/-! ## The Ord-only entry producer -/
+
+/-- **STEP (iv) AT THE `ordF`-RIGHT ARM ALONE** (task #315 WIDE (f3),
+lane DOM): `CopyEntryOrd` at one copy's constructor, from the rank
+induction's own scope and NOTHING at an in-instance target.
+
+`nestedPinsEntry_at` produces `CopyEntryOut` — the entries at EVERY
+copy-recursive field whose target leaves the mint group — and reaches
+the copies of the container's OWN pins through `nestedTargetReads_L`'s
+`S` at the `pinF` arm.  `S` at an in-instance target is what an
+induction over the container INSTANCES may not assume
+(`nestedTargetReads_L`'s own docstring), and those copies stay inside
+the instance.
+
+`CopyEntryOrd`'s guard is `((dJ.rss i).getD j []).getD l false = false`
+— the container calls the field ORDINARY — so the `pinF` arm is not
+asked about at all, and the only scope the producer needs is `hout`:
+at a field the container calls ordinary and the block's rewrite made
+recursive, whose target is a PIN, that pin satisfies `S`.  That is the
+same premise `nestedPinEntryOutEq` already takes, and this theorem is
+that per-field equality packaged as the residual's `Prop`. -/
+theorem nestedPinsEntryOrd_at (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {S : Nat → Prop} {Pf : Nat → V}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
+      Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+        ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+        ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    {j : Nat} (hj : j < ((dJf q₀).ctorsM i).length)
+    (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i) + j) []).getD l false = true →
+      (((dJf q₀).rss i).getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) < p.k →
+      S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) - p.k)) :
+    CopyEntryOrd (dJf q₀) (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
+      (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0)
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) [])
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []) ρp i j
+      (p.k + q₀) kJ ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) [])
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i) + j) []) (f₀.s.eval ψ)
+      (nestedU p.k W pinsS ψ)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) := by
+  have hψeq : ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ :=
+    (G.syn.ψJEq i 0 hi G.syn.kpos ψ).trans (by rw [Nat.add_zero])
+  have hDseq : ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ := G.syn.sameDs i hi ψ
+  have hjA : ((dJf q₀).ctorsM i)[j]? = some (((dJf q₀).ctorsM i).getD j default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
+  unfold CopyEntryOrd CopyEntryAt
+  rw [hψeq, hDseq]
+  intro l hl hord hrs hgout fs₁ hl₁ hsp
+  exact nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp G hIH hPfGroup hi hjA hout
+    l hl hrs hord hgout fs₁ hl₁ hsp
+
+/-- **STEP (iv)'s `ordF`-RIGHT ARM IN THE RESIDUAL'S OWN SHAPE**
+(task #315 WIDE (f3), lane DOM): `CopyEntryAOrd` exactly as
+`nestedPinWideStep`'s `hent` asks for it — at the group's pin `i` for
+the level assignment and components and at constructor `(i', j)` —
+from `nestedPinsEntryOrd_at` at `i'`, the group's own `ψJEq`/`sameDs`
+moving the reading data between its members.
+
+This is `nestedPinsEntry_of`'s twin at the WEAKER residual, and it is
+the producer step (4) was waiting for: no `S` at an in-instance target
+occurs anywhere in it. -/
+theorem nestedPinsEntryOrd_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {S : Nat → Prop} {Pf : Nat → V}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
+      Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+        ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+        ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    (hout : ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
+      S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k)) :
+    ∀ i', i' < (dJf q₀).k → ∀ j, j < ((dJf q₀).ctorsM i').length →
+      CopyEntryAOrd (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+        (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        (dJf q₀) (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ (dJf q₀).k i' j := by
+  have hkE : (dJf q₀).k = kJ := G.syn.kEq
+  intro i' hi'K j hj
+  have hi' : i' < kJ := hkE ▸ hi'K
+  have hψ : ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt (q₀ + i')).ψJ ψ := G.syn.ψJEq i i' hi hi' ψ
+  have hDs : ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt (q₀ + i')).Ds ψ := by
+    rw [G.syn.sameDs i hi ψ, ← G.syn.sameDs i' hi' ψ]
+  unfold CopyEntryAOrd
+  rw [hψ, hDs, hkE]
+  exact nestedPinsEntryOrd_at hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup G hi' hj
+    (hout i' j hi' hj)
 
 end Run
 

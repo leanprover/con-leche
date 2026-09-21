@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.NestedAux
+import ConLeche.Model.Inductives.NestedEntryOrd
 public import ConLeche.Model.Inductives.NestedPinLeafAll
 public section
 
@@ -34,18 +35,21 @@ hypothesis is the EQUALITY at pins of other instances, which
 `nestedPinEq_at_of_le` upgrades from the rank induction's own `FamLe`
 per pin.
 
-**And one input is NOT of that kind**, which is this module's finding:
-the identification's `hent` (`CopyEntryA`, i.e. `CopyEntryOut`) is
-asked at every copy-recursive field whose target leaves the mint GROUP,
-and that includes the copies of the container's OWN pins — which are
-inside the INSTANCE.  Its only producer, `nestedPinsEntry_at`, reaches
-those through `nestedTargetReads_L`'s `S` at the `pinF` arm, and `S`
-at an in-instance target is exactly what an induction over instances
-may not assume.  The wide route spends `hent` only through
-`CopyEntryOut.ord` (`hfit_wide_mem_of_inst`), so what step (4) needs is
-that hypothesis WEAKENED to `CopyEntryOrd` and an Ord-only producer
-beside `nestedPinsEntry_at`; neither exists, and both live in files this
-module does not own.  `hentOrd` below records the weakened shape.
+**THE ENTRIES ARE NO LONGER AN INPUT.**  The identification's `hent`
+used to be `CopyEntryA` (i.e. `CopyEntryOut`), asked at every
+copy-recursive field whose target leaves the mint GROUP — which
+includes the copies of the container's OWN pins, inside the INSTANCE,
+where `nestedPinsEntry_at`'s route through `nestedTargetReads_L`'s `S`
+at the `pinF` arm is exactly what an induction over instances may not
+assume.  The wide route spends the entries only through
+`CopyEntryOut.ord`, so the identification was weakened to
+`CopyEntryAOrd`, whose guard is the container's ORDINARY fields alone;
+and `nestedPinsEntryOrd_of` (`NestedEntryOrd.lean`) produces THAT from
+the induction's own two (`hIH`/`hPfGroup`) and from `hout`.
+`nestedPinWideStep` below therefore asks for `hout` — at a field the
+container calls ordinary and the block's rewrite made recursive, whose
+target is a PIN, that pin satisfies `S` — and no entry hypothesis at
+all.
 -/
 
 namespace ConLeche.Model
@@ -210,20 +214,18 @@ about the instance closure `σ` or about the copies' entries.
 * **`hpin`** — the fit at the copies of the container's OWN pins
   (`hfit_wide_pin_of_class` over `pinClassFit_of_transfer`), whose `hρ`
   is route 1's open item.
-* **`hent`** — the copies' ENTRIES at the auxiliary carrier.  **This is
-  the one hypothesis whose producer the induction cannot supply as
-  stated**: `CopyEntryA` is `CopyEntryOut`, asked at every
-  copy-recursive field leaving the mint GROUP, and the copies of the
-  container's own pins leave the group while staying inside the
-  INSTANCE.  `nestedPinsEntry_at` reaches those through
-  `nestedTargetReads_L`'s `S` at the `pinF` arm, and `S` at an
-  in-instance target is what an induction over instances may not assume
-  (that lemma's own docstring says so).  The wide route spends `hent`
-  only through `CopyEntryOut.ord` (`hfit_wide_mem_of_inst`), so what
-  step (4) needs is `CopyEntryOrd` — a weakening of
-  `hfit_wide_of_inst`/`ofNested_pin_block_of_wide_inst` plus an
-  Ord-only producer beside `nestedPinsEntry_at`, both in files this
-  module does not own.
+* **`hleafM`/`hIH`/`hPfGroup`/`hout`** — what the copies' ENTRIES cost
+  now that they are DERIVED and not assumed.  `hIH` and `hPfGroup` are
+  the induction's own two: the assembly above hands the first as
+  `hIHeq` at `Pf := pinLfp …`, and the second is the theorem
+  `pinLfp_group`.  What is genuinely open is `hout`, and only `hout`:
+  at a field the container calls ORDINARY and the block's rewrite made
+  recursive, whose target is a PIN, that pin satisfies `S`.  **`hout`
+  is NOT `nestedPinRankOk`'s clause (2)** — that clause's not-own
+  branch is a DISJUNCTION, and the rank induction discharges only its
+  second alternative; fourteen edges across eight ACCEPTED blocks are
+  `ordF`-right targets inside the source's own instance
+  (`nestedPinEntryOutEq`'s docstring, DESIGN §U.92 (c)).
 
 NO candidate-frame object occurs in any of them: the container's side
 is read at `consList ((((D).pinAt (q₀+i)).Ds ψ).map (interp V ρp)) ρp`
@@ -260,16 +262,35 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
       idxSet (nestedU p.k W pinsS ψ (σ i')) ρp (blockIds b.nP ppsF ψ (σ i'))
         = (dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
             (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) i')
-    (hent : ∀ i', i' < (dJf q₀).k → ∀ j, j < ((dJf q₀).ctorsM i').length →
-      CopyEntryAOrd (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
-        (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
-        (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
-        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
-        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
-        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
-        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
-        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-        (dJf q₀) (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ (dJf q₀).k i' j)
+    -- **THE ENTRIES, NO LONGER A HYPOTHESIS** (task #315 WIDE (f3),
+    -- lane DOM): `nestedPinsEntryOrd_of` (`NestedEntryOrd.lean`)
+    -- produces `CopyEntryAOrd` from the induction's own two and from
+    -- `hout` alone.  `hIH`/`hPfGroup` ARE the induction's two —
+    -- `nestedPinsLe_of_wide` hands the first as `hIHeq` at
+    -- `Pf := pinLfp …` and the second is the theorem `pinLfp_group` —
+    -- so what is left open where `hent` used to stand is `hout`: at a
+    -- field the container calls ORDINARY and the block's rewrite made
+    -- recursive, whose target is a PIN, that pin satisfies `S`.  That
+    -- is DESIGN §U.92 (c)'s item and nothing else.
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {S : Nat → Prop} {Pf : Nat → V}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    (hPfGroup : ∀ a kk, GF st m a kk (dJf a) → ∀ i', i' < kk →
+      Pf (a + i') = lfpTuple (f₀.s.eval ψ) (dJf a).k
+        ((dJf a).idx (((D).pinAt (a + i')).ψJ ψ)
+          (consList ((((D).pinAt (a + i')).Ds ψ).map (interp V ρp)) ρp))
+        ((dJf a).Φ (((D).pinAt (a + i')).ψJ ψ)
+          (consList ((((D).pinAt (a + i')).Ds ψ).map (interp V ρp)) ρp)) i')
+    (hout : ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
+      S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k))
     (hstgt : ∀ i', i' < (dJf q₀).k → ∀ j, j < ((dJf q₀).ctorsM i').length → ∀ l,
       l < (((dJf q₀).Fss i' (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).length →
       (((dJf q₀).rss i').getD j []).getD l false = true →
@@ -322,6 +343,7 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
             (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) Y t i' j fs)) :
     (D).pinCar ψ ρp (lfpTuple ((D).w ψ) (D).k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
       = pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (q₀ + i) := by
+  have hent := nestedPinsEntryOrd_of hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup G hi hout
   have hkE : (dJf q₀).k = kJ := G.syn.kEq
   subst hkE
   have hseg := G.syn.seg
