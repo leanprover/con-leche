@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.FixChains
+public import ConLeche.Model.Inductives.BlockChains
 public import ConLeche.Model.Inductives.FixTeleBound
 public section
 
@@ -171,7 +172,7 @@ theorem openPisAtFvars_leaf_bound {n : Nat} {e : Expr} {d : Nat} {fvs : List Exp
 set_option maxHeartbeats 1600000 in
 /-- **The walk's inputs**, from a recursive constructor's data at a
 carrier storing the former as a λ-tower over the parameters. -/
-theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {sorts : List Level}
@@ -186,11 +187,21 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
-    (u : Nat) (ψ : Name → Nat) (ρp : Nat → V)
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    (hD : BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    {k m : Nat} {tgts : List Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hlenOf : ∀ i ψ', (ppsOf i ψ').length = nP + nIdxOf i)
+    (hleafOf : ∀ i ψ', ∃ B, mp.base2.acval (Tof i) ψ'
+      = mkLamsC (resSort.eval ψ' + 1) (ppsOf i ψ') B)
+    (htgtLt : ∀ i, i < nF → recAt nP ks (nP + i) → tgts.getD i 0 < k)
+    (hIdsOf : ∀ i, i < nF → recAt nP ks (nP + i) →
+      Idss (tgts.getD i 0) = ((ppsOf i ψ).drop nP).map (·.2.2))
+    (hIdsM : Idss m = ((ppsAll ψ).drop nP).map (·.2.2))
     (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
-    ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks (tss ψ)
+    ChainFactsB k (resSort.eval ψ) nP nF ρp uf Idss m ks tgts (tss ψ)
       (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
   -- the openings, the opened record
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
@@ -278,7 +289,7 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     intro i hk h
     rw [hk] at h
     cases h
-  refine ⟨hD.ksLen, hlenFs, by rw [hD.lenE ψ, hlenIds], ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hD.ksLen, hlenFs, by rw [hD.lenE ψ, hIdsM, hlenIds], ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- the entries mention no recursive slot below them
     intro i hi
     obtain ⟨x, hx, hws, hlf⟩ := hdom i hi
@@ -345,33 +356,34 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     -- the fit, through the family's λ-tower, at a frame reading the
     -- parameters below `e` field-and-telescope values
     have fitAt : ∀ (σas : List V) (e : Nat), σas.length = e →
-        WellDenoted V (consList σas ρp) (AnnotTerm.mkAppN (mp.base2.acval T ψ)
+        WellDenoted V (consList σas ρp) (AnnotTerm.mkAppN (mp.base2.acval (Tof i) ψ)
           (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i [])) →
-        ((Eiss ψ).getD i []).length = nIdx →
+        ((Eiss ψ).getD i []).length = nIdxOf i →
         (∀ E ∈ (Eiss ψ).getD i [], WellDenoted V (consList σas ρp) E) ∧
-        SpineFit ρp (((ppsAll ψ).drop nP).map (·.2.2))
+        SpineFit ρp (((ppsOf i ψ).drop nP).map (·.2.2))
           (((Eiss ψ).getD i []).map (interp V (consList σas ρp))) := by
       intro σas e he hokA hEl
       obtain ⟨-, hargs⟩ := WellDenoted.mkAppN_inv hokA
       refine ⟨fun E hE => hargs E (List.mem_append_right _ hE), ?_⟩
-      obtain ⟨B, hB⟩ := hleafT ψ
-      have hK : Term.bvarsBelow 0 (mp.base2.acval T ψ).erase := mp.base2.cval_closedL T ψ
+      obtain ⟨B, hB⟩ := hleafOf i ψ
+      have hK : Term.bvarsBelow 0 (mp.base2.acval (Tof i) ψ).erase :=
+        mp.base2.cval_closedL (Tof i) ψ
       rw [hB] at hK
-      have hf : interp V (consList σas ρp) (mp.base2.acval T ψ)
-          = interp V (fun j => ρp (j + nP)) (mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B) := by
+      have hf : interp V (consList σas ρp) (mp.base2.acval (Tof i) ψ)
+          = interp V (fun j => ρp (j + nP)) (mkLamsC (resSort.eval ψ + 1) (ppsOf i ψ) B) := by
         rw [hB]; exact interp_closed (V := V) hK _ _
-      have hlenArgs : (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []).length = nP + nIdx := by
+      have hlenArgs : (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []).length = nP + nIdxOf i := by
         rw [List.getD_eq_getElem?_getD] at hEl
         simp [paramBvarsAt, hEl]
       have hfit := spineFit_of_wellDenoted_lams (u := resSort.eval ψ + 1) (Nat.succ_ne_zero _) (b := B)
-        (args := paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []) (ds := ppsAll ψ)
-        (σ := fun j => ρp (j + nP)) (ρ := consList σas ρp) (f := mp.base2.acval T ψ)
-        (by rw [hlenArgs, hFD.len ψ]; exact Nat.le_refl _) hokA hf
-      rw [hlenArgs, List.take_of_length_le (by rw [hFD.len ψ]; exact Nat.le_refl _),
-        ← List.take_append_drop nP (ppsAll ψ), List.map_append, List.map_append] at hfit
+        (args := paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []) (ds := ppsOf i ψ)
+        (σ := fun j => ρp (j + nP)) (ρ := consList σas ρp) (f := mp.base2.acval (Tof i) ψ)
+        (by rw [hlenArgs, hlenOf i ψ]; exact Nat.le_refl _) hokA hf
+      rw [hlenArgs, List.take_of_length_le (by rw [hlenOf i ψ]; exact Nat.le_refl _),
+        ← List.take_append_drop nP (ppsOf i ψ), List.map_append, List.map_append] at hfit
       obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
       have hlen₁ : as₁.length = nP := by
-        rw [h1.length_eq, List.length_map, List.length_take, hFD.len ψ]; omega
+        rw [h1.length_eq, List.length_map, List.length_take, hlenOf i ψ]; omega
       have hps : (paramBvarsAt nP (nP + e)).map (interp V (consList σas ρp))
           = (List.range nP).reverse.map ρp := by
         apply map_paramBvarsAt_interp
@@ -383,19 +395,21 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     have hk := hr.2
     rw [Nat.add_sub_cancel_left] at hk
     rcases hk with hk | hk
-    · -- a finitary field: the entry is the family at the readings
+    · -- a finitary field: the entry is the TARGET's family at the readings
       rw [hD.tssNone ψ i (hne_refl i hk)]
       have hentry := hD.recEntry ψ i hk hi
       rw [drop_map_getD hlenDs hi, hentry] at hokP
       obtain ⟨hok, hfit⟩ := fitAt as' i hlenA hokP.1 (hD.eisLen ψ i hk hi)
-      exact SlotFit.of_fin hok hfit
+      rw [hIdsOf i hi hr] at *
+      exact ⟨htgtLt i hi hr, SlotFit.of_fin hok hfit⟩
     · -- a reflexive field (task #202): the entry a Π-tower over the
       -- telescope; at a `Type`-valued block the telescope's domains are
       -- bounded at the family's regime (`fixTeleBound_of`, Stage B)
       have hentry := hD.reflEntry ψ i hk hi
       rw [drop_map_getD hlenDs hi, hentry] at hokP
       obtain ⟨hF, hB⟩ := WellDenoted_mkPisAV_inv hokP.1
-      refine ⟨?_, fun d hd => hD.tssBits ψ i d hd, fun bs hsp => ?_⟩
+      rw [hIdsOf i hi hr]
+      refine ⟨htgtLt i hi hr, ?_, fun d hd => hD.tssBits ψ i d hd, fun bs hsp => ?_⟩
       · refine fieldsOkB_of_pointwise fun k hkT bs hbs => ?_
         rw [List.length_map] at hkT
         rw [getD_map_snd hkT]
@@ -423,5 +437,35 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     unfold ctorBodyAVI at hokR
     obtain ⟨-, hargs⟩ := WellDenoted.mkAppN_inv hokR.1
     exact hargs E (List.mem_append_right _ hE)
+
+/-- **The chain facts at ONE member**: `blockChainFacts_of` with every
+recursive field targeting the family itself. -/
+theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    {sorts : List Level}
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
+      srcs ks fvsP xFvs xrest Eiss tss)
+    (u : Nat) (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
+    ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks (tss ψ)
+      (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) :=
+  ChainFactsB.toFix (tgts := [])
+    (blockChainFacts_of hμ mp hCtor hfT hProp hFD hleafT hD ψ ρp
+      (k := 1) (m := 0) (tgts := []) (uf := fun _ => u)
+      (Idss := fun _ => ((ppsAll ψ).drop nP).map (·.2.2)) (ppsOf := fun _ => ppsAll)
+      (fun _ ψ' => hFD.len ψ') (fun _ ψ' => hleafT ψ')
+      (fun _ _ _ => Nat.zero_lt_one) (fun _ _ _ => rfl) rfl hρp)
 
 end ConLeche.Model

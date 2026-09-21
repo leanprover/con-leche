@@ -224,8 +224,9 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    (hD : BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
     (ψ : Name → Nat) :
     (∀ b, b < nP + nF → ∀ ρ : Nat → V,
       Sat V ((shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop (nP + nF - b)) ρ →
