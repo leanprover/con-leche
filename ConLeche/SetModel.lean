@@ -6,6 +6,8 @@ public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.EnvClauseTreeList
+public import ConLeche.SetModel.EnvClauseP3
+public import ConLeche.SetModel.EnvClauseP4
 
 @[expose] public section
 
@@ -29,10 +31,14 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   `SetTheory/Derive/LfpTuple`'s tuple lfp; `TupleContainer` — the
   closed tuple of a block presented as a member container ((W) at
   tuples, the `Prop` regime, the nested slot);
-* `EnvClauseTreeList` — the falsifier for the uniform nested route:
-  `Tree ::= node (List Tree)` as a plain two-component block whose
-  copy component is identified with the container's recorded reading
-  through the container's env clause alone.
+* `EnvClauseTreeList`, `EnvClauseP3`, `EnvClauseP4` — the falsifiers
+  for the uniform nested route: `Tree ::= node (List Tree)` as a plain
+  two-component block whose copy component is identified with the
+  container's recorded reading through the container's env clause
+  alone; `P3 ::= mk (Array (List P3))` at four components, where the
+  container's own clause is WIDE and the identifications run in RANK
+  order; `P4 ::= mk (Rose P4)` at three, where the group's whole
+  segment is the nested container's wide table seeded at the pin.
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing
