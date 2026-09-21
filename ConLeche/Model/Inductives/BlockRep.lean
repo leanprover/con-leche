@@ -1,0 +1,331 @@
+module
+
+public import ConLeche.Model.Inductives.FixStageRec
+public import ConLeche.SetTheory.Derive.LfpTuple
+public section
+
+/-!
+# `BlockData` and `BlockModelAt` — THE datum of an inductive block (task #315, M3)
+
+Every stored inductive type is a MEMBER of a block, and the block is
+represented as the simultaneous least pre-fixed point of ONE operator
+on a TUPLE of families (`lfpTuple`,
+`ConLeche/SetTheory/Derive/LfpTuple.lean`), one COMPONENT per member,
+each over the member's own plain index-tuple set.  No member tag
+enters an index, no constructor position is flattened across members,
+no copy of anything is minted: a single family is the block with
+`k = 1` (`lfpTuple_one`).
+
+**The data** (`BlockData`) is the fixpoint route's spelling of a
+block, keyed by component and by the component's OWN constructor
+position: per component its telescope reading, index-tuple sort and
+constructors, per constructor the readings of its stored type
+(`BlockCtorDataI`'s data: `dsF`, `esF`, `ksF`, `eissF`, `tssF`) and,
+per field, the COMPONENT it targets (`tgts`); the tuple operator `Φ`
+and the component-local constructor injections `inj` — both abstract,
+so a pinned block whose elements are not tagged towers is represented
+on the nose.
+
+**The width.**  A block has `k` MEMBERS (the declared families) and
+`nInst` INSTANCE components (the copies a nested block's container
+contributes, DESIGN-theory §2.2); the operator's width is
+`N = k + nInst`.  Deliverable 1 installs no nested block, so every
+instance is built at `nInst = 0` — but the width is a field, and every
+clause but `leaf` quantifies over ALL `N` components, so adding
+instances later changes no statement.  `leaf` is at members only: only
+a member has a stored former whose leaf the environment model reads.
+
+**The clause** (`BlockModelAt`), for the block whose members are
+`names`:
+
+* at every parameter frame each component's index telescope is graded
+  (`idxOk`) and `Φ` is a monotone, space-preserving tuple functor with
+  a closed tuple (`functor` — its third conjunct is (W) at tuples,
+  `SetModel/TupleContainer.lean`), whose component `c`'s fibre at
+  `(X, t)` consists exactly of the injections `inj c j fs` of the
+  spines fitting component `c`'s constructor `j` at `(X, t)`
+  (`fibre`), a recursive field read at the component of the member it
+  targets (`ChainFit`, stated SEMANTICALLY: an entry is a set, the
+  slot the target's family at the tuple of the index expressions under
+  the field's telescope — `slotSet`);
+* **the leaf**: a member's former at fitting parameters and its own
+  indices is the fibre of the least pre-fixed TUPLE's component at the
+  index tuple (`leaf`);
+* **the constructors**: component `c`'s constructor `j` at fitting
+  parameters and fields is `inj c j fs` (`ctor`, at EVERY component —
+  F0's finding: official emits a recursor per instance, so an
+  instance's ι rule cannot be stated without its constructors'
+  injections); the injections are the point at a `Prop`-valued block
+  (`mkZero`) and injective WITHIN a component at a `Type`-valued one
+  (`mkInj` — cross-component disjointness is never needed: the
+  recursor's union tags the components).
+
+`fibre` and `functor` quantify over ALL tuples of the tuple space and
+ALL parameter frames in the `Sat` domain, never over the carrier:
+that is falsifier F0's finding (formation `inj … ∈ univ w` is
+derivable from `functor`'s `MapsTuple` and `fibre` only at that
+strength).
+
+Task #315's `IsBlockModel` is this clause plus the per-constant facts
+of a STORED member (its type's strip, the recursor's arithmetic and
+rules).  Those are not clauses here: they are inputs to establishing
+the representation, not part of it — `BlockCtorFacts` bundles the
+constructor half.
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps RecRule)
+
+universe w
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+/-! ## The block's data -/
+
+/-- **The representation data of a block** (see the module
+docstring). -/
+structure BlockData (V : Type w) where
+  /-- the parameter count (shared by the components) -/
+  nP : Nat
+  /-- the number of MEMBERS (the declared families) -/
+  k : Nat
+  /-- the number of INSTANCE components (`0` before nested blocks) -/
+  nInst : Nat
+  /-- the result sort (every member's stored type ends in it) -/
+  resSort : Level
+  /-- `resSort` is provably zero -/
+  isProp : Bool
+  /-- the eliminator is large -/
+  large : Bool
+  /-- the pre-block environment (a ghost witness: the ordinary field
+  domains resolve in it) -/
+  env₀ : Env
+  /-- the members' names, by position -/
+  memberNames : List Name
+  /-- per member: its index count -/
+  nIdxs : List Nat
+  /-- per component: its parameter-and-index telescope reading -/
+  ppsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)
+  /-- per component: its index-tuple sort -/
+  uM : Nat → (Name → Nat) → Nat
+  /-- per component: its constructors, in order, with their field counts -/
+  ctorsM : Nat → List (ConstantVal × Nat)
+  /-- per component and constructor: the residual's index arguments -/
+  idxF : Nat → Nat → List Expr
+  /-- per component and constructor: the type reading's binder data -/
+  dsF : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)
+  /-- per component and constructor: the result's index readings -/
+  esF : Nat → Nat → (Name → Nat) → List AnnotTerm
+  /-- per component and constructor: the field sources -/
+  srcsF : Nat → Nat → List (Option Nat)
+  /-- per component and constructor: the field kinds -/
+  ksF : Nat → Nat → List RecFieldKind
+  /-- per component, constructor and field: the component the field targets -/
+  tgts : Nat → Nat → Nat → Nat
+  /-- per component and constructor: the opened parameter variables -/
+  fvsPF : Nat → Nat → List Expr
+  /-- per component and constructor: the opened field variables -/
+  xFvsF : Nat → Nat → List Expr
+  /-- per component and constructor: the opened residual -/
+  xrestF : Nat → Nat → Expr
+  /-- per component and constructor: the recursive fields' index expressions -/
+  eissF : Nat → Nat → (Name → Nat) → List (List AnnotTerm)
+  /-- per component and constructor: the reflexive fields' telescopes -/
+  tssF : Nat → Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
+  /-- **the tuple operator**, at a level assignment and a parameter
+  frame: a meta-level function on tuples of families, component `c` a
+  set-level family over component `c`'s index-tuple set -/
+  Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- **the constructor injections**: component `c`'s constructor `j`
+  (component-local) at a field spine -/
+  inj : (Name → Nat) → Nat → Nat → List V → V
+
+namespace BlockData
+
+variable (d : BlockData V)
+
+/-- The operator's WIDTH: members plus instance components. -/
+@[expose] def N : Nat := d.k + d.nInst
+
+/-- The result sort's value. -/
+@[expose] def w (ψ : Name → Nat) : Nat := d.resSort.eval ψ
+
+/-- Member `mm`'s name. -/
+@[expose] def memberName (mm : Nat) : Name := d.memberNames.getD mm .anonymous
+
+/-- Member `mm`'s index count. -/
+@[expose] def nIdxAt (mm : Nat) : Nat := d.nIdxs.getD mm 0
+
+/-- The parameter telescope (the block's, read off component `0`: the
+components share their parameters). -/
+@[expose] def params (ψ : Name → Nat) : List AnnotTerm := ((d.ppsM 0 ψ).take d.nP).map (·.2.2)
+
+/-- Component `c`'s own index telescope, at the parameter frame. -/
+@[expose] def IdsM (c : Nat) (ψ : Name → Nat) : List AnnotTerm :=
+  ((d.ppsM c ψ).drop d.nP).map (·.2.2)
+
+/-- The block's constructor count (the recursors' minor count). -/
+@[expose] def nCtors : Nat := ((List.range d.k).map fun mm => (d.ctorsM mm).length).sum
+
+/-- Component `c`'s constructor data list (the fixpoint route's). -/
+@[expose] def cds (c : Nat) (ψ : Name → Nat) : List CtorDatumR :=
+  fixCtorDataList (d.dsF c) (d.esF c) (d.ksF c) (d.eissF c) (d.tssF c) ψ (d.ctorsM c) 0
+
+/-- Component `c`'s recursive flags, per constructor. -/
+@[expose] def rss (c : Nat) : List (List Bool) := rssOfK (d.ksF c) (d.ctorsM c).length
+
+/-- Component `c`'s per-field targets, per constructor. -/
+@[expose] def tgtss (c : Nat) : List (List Nat) :=
+  (List.range (d.ctorsM c).length).map fun j =>
+    (List.range (d.ksF c j).length).map (d.tgts c j)
+
+/-- Component `c`'s reflexive telescopes, per constructor. -/
+@[expose] def tlss (c : Nat) (ψ : Name → Nat) : List (List (List (Nat × Nat × AnnotTerm))) :=
+  tlssOfR (d.cds c ψ)
+
+/-- Component `c`'s recursive fields' index expressions, per constructor. -/
+@[expose] def Eiss (c : Nat) (ψ : Name → Nat) : List (List (List AnnotTerm)) :=
+  eissOfR (d.cds c ψ)
+
+/-- Component `c`'s field domains, per constructor (the real readings:
+a recursive entry is its TARGET's former applied). -/
+@[expose] def Fss (c : Nat) (ψ : Name → Nat) : List (List AnnotTerm) := fssOfR d.nP (d.cds c ψ)
+
+/-- Component `c`'s results' index readings, per constructor. -/
+@[expose] def Ess (c : Nat) (ψ : Name → Nat) : List (List AnnotTerm) := essOfR (d.cds c ψ)
+
+/-- **The tuple of index-tuple sets** at a parameter frame: component
+`c`'s is the tower set over its own index telescope. -/
+@[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+  fun c => idxSet (d.uM c ψ) ρp (d.IdsM c ψ)
+
+/-- Component `c`'s index spine as its index tuple. -/
+@[expose] noncomputable def tup (ψ : Name → Nat) (c : Nat) (is : List V) : V :=
+  tupW (d.uM c ψ) is
+
+/-- **A recursive slot**, as a set, at the frame `ρ` (the parameters
+and the earlier fields) and the tuple `X`: field `i` of component
+`c`'s constructor `j` reads the TARGET component of `X` at the tuple
+of its index expressions under its telescope (`slotSet`). -/
+@[expose] noncomputable def slotAt (ψ : Name → Nat) (X : Nat → V) (c j i : Nat) (ρ : Nat → V) : V :=
+  slotSet (d.w ψ) (d.uM (d.tgts c j i) ψ) ρ (((d.tlss c ψ).getD j []).getD i [])
+    (((d.Eiss c ψ).getD j []).getD i []) (X (d.tgts c j i))
+
+end BlockData
+
+/-- **The fields fit**, from position `i` on, along the domain list
+`Fs` (a suffix of the constructor's), each value in its entry at the
+earlier values — a recursive position (`rs`) in its slot, an ordinary
+one in its domain's reading: `SpineFit`'s shape, and `chainXBIGo`'s
+branching. -/
+@[expose] def FitsFrom (rs : List Bool) (slot : Nat → (Nat → V) → V) :
+    Nat → (Nat → V) → List AnnotTerm → List V → Prop
+  | _, _, [], [] => True
+  | i, ρ, F :: Fs, a :: as =>
+    a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) ∧
+    FitsFrom rs slot (i + 1) (cons a ρ) Fs as
+  | _, _, _, _ => False
+
+theorem FitsFrom.length_eq {rs : List Bool} {slot : Nat → (Nat → V) → V} :
+    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
+      FitsFrom rs slot i ρ Fs as → as.length = Fs.length
+  | _, _, [], [], _ => rfl
+  | _, _, [], _ :: _, h => h.elim
+  | _, _, _ :: _, [], h => h.elim
+  | _, _, _ :: Fs, _ :: as, h =>
+    congrArg Nat.succ (FitsFrom.length_eq (Fs := Fs) (as := as) h.2)
+
+namespace BlockData
+
+variable (d : BlockData V)
+
+/-- **A field spine fits component `c`'s constructor `j` at the
+functor frame `(ρp, X, t)`**: it fits the constructor's entries at
+`X`, and the constructor's index expressions at it are the components
+of the tuple `t` — the elimination shape of the fixpoint route's
+fibre, with the recursive slots at the target components. -/
+@[expose] def ChainFit (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (t : V) (c j : Nat)
+    (fs : List V) : Prop :=
+  FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp ((d.Fss c ψ).getD j []) fs ∧
+  ∀ l, l < (d.IdsM c ψ).length →
+    interp V (consList fs ρp) (((d.Ess c ψ).getD j []).getD l default) = projS l t
+
+end BlockData
+
+/-! ## The constructors' reading facts -/
+
+/-- **The per-constructor facts of a block component's constructor** —
+`FixCtorFactsAt`'s target-aware twin: the constructor is stored with
+the block's level parameters and its type reads as the block data
+says, a recursive field at the former of the component it targets. -/
+@[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
+    (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
+  env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧
+  cA.1.levelParams = lps ∧
+  BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+    (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+    (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
+
+/-! ## The clause -/
+
+/-- **The representation of the block whose members are `names`** at
+the block data `d` (see the module docstring). -/
+structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V) : Prop where
+  /-- the data's members are the block's -/
+  names : d.memberNames = names
+  /-- at every parameter frame every component's index telescope is graded -/
+  idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)
+  /-- **`Φ` is a monotone tuple functor** on the tuple space over the
+  components' index-tuple sets, mapping it into itself, with a closed
+  tuple ((W) at tuples) -/
+  functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L
+  /-- **the container functor**: component `c`'s fibre at `(X, t)` is
+  the set of injections of the spines fitting one of component `c`'s
+  constructors at `(X, t)` — a recursive field read at the component
+  of the member it targets -/
+  fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
+  /-- **the leaf**: a MEMBER's former at fitting parameters and its own
+  indices is the least pre-fixed TUPLE's component at the index tuple -/
+  leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
+    SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.IdsM mm ψ) is →
+    (as ++ is).foldl app (interp V ρ (m.acval (d.memberName mm) ψ))
+      = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)) mm)
+          (d.tup ψ mm is)
+  /-- **the constructors**: component `c`'s constructor `j` at fitting
+  parameters and fields is its injection -/
+  ctor : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA →
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V),
+      SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs →
+      (as ++ fs).foldl app (interp V ρ (m.acval cA.1.name ψ)) = d.inj ψ c j fs
+  /-- at a `Prop`-valued block every injection is the point -/
+  mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
+  /-- at a `Type`-valued block a component's injections are injective
+  across its constructors and spines of the constructors' lengths -/
+  mkInj : ∀ ψ : Name → Nat, d.w ψ ≠ 0 → ∀ c, c < d.N → ∀ j fs j' fs',
+    j < (d.ctorsM c).length → j' < (d.ctorsM c).length →
+    fs.length = ((d.Fss c ψ).getD j []).length → fs'.length = ((d.Fss c ψ).getD j' []).length →
+    d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
+
+/-! ## Derived laws -/
+
+/-- A fitting parameter spine satisfies the parameter telescope. -/
+theorem BlockData.satOfSpine (d : BlockData V) {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
+    (hsp : SpineFit ρ (d.params ψ) as) : Sat V (d.params ψ).reverse (consList as ρ) := by
+  have := ConLeche.Model.sat_of_spineFit (Sat_nil V ρ) hsp
+  simpa using this
+
+end ConLeche.Model
