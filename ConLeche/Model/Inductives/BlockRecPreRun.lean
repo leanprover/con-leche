@@ -144,4 +144,91 @@ theorem BlockRuleCerts.hres {envT : Env} (hμ : μ.verifiedChecks = true)
       interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
   ⟨_, hT, (h.residueOk hμ hsp hih).2⟩
 
+/-! ## 2. The carrier's case analysis
+
+The WF regime's step must be DEFINED at an arbitrary element of a
+component's carrier, and the only thing it can be defined by is the
+constructor that built it.  `BlockModelAt.fibre` says that at the
+OPERATOR: component `c`'s fibre of `Φ X` at `t` consists exactly of
+the injections of the spines fitting one of `c`'s constructors.  The
+carrier is the least pre-fixed TUPLE, and the fixed-point equation
+(`app_lfpTuple_eq`, off the clause's own `functor`) moves the
+statement onto it.
+
+At a `Type`-valued block (`w ψ ≠ 0`) the decomposition is UNIQUE
+(`mkInj`), and `blockDecomp` is that unique pair as a FUNCTION — the
+step reads its residue at those field values. -/
+
+/-- A fitting field spine is as long as the constructor's field
+list. -/
+theorem BlockData.ChainFit.length_eq {d : BlockData V} {ψ : Name → Nat} {ρp X : Nat → V}
+    {t : V} {c j : Nat} {fs : List V} (h : d.ChainFit ψ ρp X t c j fs) :
+    fs.length = ((d.Fss c ψ).getD j []).length :=
+  FitsFrom.length_eq h.1
+
+/-- **The carrier's case analysis**: an element of component `c`'s
+carrier at the index tuple `t` is the injection of a spine fitting one
+of `c`'s constructors at `(carrier, t)`.  `BlockModelAt.fibre` through
+the fixed-point equation — and the tuple it is stated at is the
+carrier itself, which is what makes the fields' own memberships
+available (`ChainFit`'s recursive slots are at the carrier). -/
+theorem blockCarrier_case {env : Env} {mo : EnvModel V env} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (d.params ψ).reverse ρp) {c : Nat} (hc : c < d.N) {t : V}
+    (ht : t ∈ˢ d.idx ψ ρp c) {x : V}
+    (hx : x ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) c) t) :
+    ∃ j fs, j < (d.ctorsM c).length ∧
+      d.ChainFit ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ∧
+      x = d.inj ψ c j fs := by
+  obtain ⟨hmono, hmaps, hcl⟩ := hM.functor ψ ρp hsat
+  rw [← app_lfpTuple_eq hcl hmono hmaps hc ht] at hx
+  exact (hM.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
+
+/-- **The decomposition is unique** at a `Type`-valued block: two
+fitting spines of the same component with the same injection are the
+same constructor and the same spine (`mkInj`, whose length side
+conditions are `ChainFit`'s own). -/
+theorem blockCarrier_case_unique {env : Env} {mo : EnvModel V env} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp X : Nat → V}
+    (hw : d.w ψ ≠ 0) {c : Nat} (hc : c < d.N) {t : V} {j j' : Nat} {fs fs' : List V}
+    (hj : j < (d.ctorsM c).length) (hj' : j' < (d.ctorsM c).length)
+    (hfit : d.ChainFit ψ ρp X t c j fs) (hfit' : d.ChainFit ψ ρp X t c j' fs')
+    (heq : d.inj ψ c j fs = d.inj ψ c j' fs') : j = j' ∧ fs = fs' :=
+  hM.mkInj ψ hw c hc j fs j' fs' hj hj' hfit.length_eq hfit'.length_eq heq
+
+open Classical in
+/-- **The decomposition, as a function**: the constructor and the
+field spine that built `x`, at component `c` and index tuple `t`.  Off
+the carrier (and at a block where nothing fits) it is `(0, [])`, which
+no clause ever reads. -/
+noncomputable def blockDecomp (d : BlockData V) (ψ : Name → Nat) (ρp X : Nat → V) (c : Nat)
+    (t x : V) : Nat × List V :=
+  if h : ∃ p : Nat × List V, p.1 < (d.ctorsM c).length ∧
+      d.ChainFit ψ ρp X t c p.1 p.2 ∧ x = d.inj ψ c p.1 p.2 then h.choose else (0, [])
+
+/-- The decomposition's specification, where there is one. -/
+theorem blockDecomp_spec {d : BlockData V} {ψ : Name → Nat} {ρp X : Nat → V} {c : Nat} {t x : V}
+    (h : ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs) :
+    (blockDecomp d ψ ρp X c t x).1 < (d.ctorsM c).length ∧
+      d.ChainFit ψ ρp X t c (blockDecomp d ψ ρp X c t x).1 (blockDecomp d ψ ρp X c t x).2 ∧
+      x = d.inj ψ c (blockDecomp d ψ ρp X c t x).1 (blockDecomp d ψ ρp X c t x).2 := by
+  have hex : ∃ p : Nat × List V, p.1 < (d.ctorsM c).length ∧
+      d.ChainFit ψ ρp X t c p.1 p.2 ∧ x = d.inj ψ c p.1 p.2 := by
+    obtain ⟨j, fs, hj, hfit, hxe⟩ := h
+    exact ⟨(j, fs), hj, hfit, hxe⟩
+  classical
+  rw [blockDecomp, dif_pos hex]
+  exact hex.choose_spec
+
+/-- **The decomposition reads back the constructor it was built
+with**, at a `Type`-valued block. -/
+theorem blockDecomp_eq {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp X : Nat → V} (hw : d.w ψ ≠ 0)
+    {c : Nat} (hc : c < d.N) {t : V} {j : Nat} {fs : List V}
+    (hj : j < (d.ctorsM c).length) (hfit : d.ChainFit ψ ρp X t c j fs) :
+    blockDecomp d ψ ρp X c t (d.inj ψ c j fs) = (j, fs) := by
+  obtain ⟨hj', hfit', heq⟩ := blockDecomp_spec (x := d.inj ψ c j fs) ⟨j, fs, hj, hfit, rfl⟩
+  obtain ⟨h1, h2⟩ := blockCarrier_case_unique hM hw hc hj' hj hfit' hfit heq.symm
+  exact Prod.ext h1 h2
+
 end ConLeche.Model
