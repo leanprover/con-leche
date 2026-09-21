@@ -1282,4 +1282,77 @@ theorem blockRecStep_at_rule (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
 
 end WfRun
 
+/-! ## 14. Regime SQ at the run
+
+At `w = 0` every injection is the point (`BlockModelAt.mkZero`), so the
+major carries no information and the decomposition of §2 is NOT
+available — `mkInj` is exactly what fails there.  What replaces it is
+the subsingleton criterion: the constructor's fields are a FUNCTION of
+the index values (`srcVals` at the index spine, `FixSquashI`'s
+vocabulary, which `BlockRecSqI` re-targets), so the step reads the
+residue at that SOURCE spine.  Only the step changes: §13's arm is
+untouched. -/
+
+section SqRun
+
+variable {d : BlockData V} {ℓ s K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
+  {mem nCt rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+  {concl RecTy : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
+  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+  {ihs : Nat → Nat → List AnnotTerm} {Rb0 : Nat → Nat → AnnotTerm}
+  {ihv : Nat → Nat → List V → V → List V} {src : Nat → List (Option Nat)}
+
+/-- **Regime SQ's step**: the rule's residue read at the SOURCE spine
+— the fields recovered from the tagged element's INDEX, the major
+being the point. -/
+@[expose] noncomputable def blockSqStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
+    (ρ : Nat → V) (mem : Nat → Nat) (src : Nat → List (Option Nat))
+    (Rb0 : Nat → Nat → AnnotTerm) (ihv : Nat → Nat → List V → V → List V) (xs : List V)
+    (u g : V) : V :=
+  interp V
+    (consList
+      (ihv (tagDec K u).1 0
+        (srcVals (isOfW (d.uM (mem (tagDec K u).1) ψ) (d.nIdxAt (mem (tagDec K u).1))
+          (tagDec K u).2.1) (src (tagDec K u).1)) g)
+      (consList
+        (xs ++ srcVals (isOfW (d.uM (mem (tagDec K u).1) ψ) (d.nIdxAt (mem (tagDec K u).1))
+          (tagDec K u).2.1) (src (tagDec K u).1)) ρ))
+    (Rb0 (tagDec K u).1 0)
+
+/-- The step at a tagged element whose source spine is known. -/
+theorem blockSqStep_at {c : Nat} (hc : c < K) {i x : V} {fs : List V}
+    (hsrc : srcVals (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i) (src c) = fs) (g : V) :
+    blockSqStep K d ψ ρ mem src Rb0 ihv xs (tagged c i x) g
+      = interp V (consList (ihv c 0 fs g) (consList (xs ++ fs) ρ)) (Rb0 c 0) := by
+  simp only [blockSqStep, tagDec_tagged hc, hsrc]
+
+/-- **Regime SQ's `hstAt`**: at the lone constructor the rule's own
+fields ARE the source spine at the rule's index tuple, so the step
+reads back the rule's residue. -/
+theorem blockSqStep_at_rule (D : RecFamData V ℓ K rP rds concl ρ)
+    (hsrcAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      j = 0 ∧
+        srcVals
+            (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
+              (D.tupOf c
+                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))))
+            (src c)
+          = fs) :
+    ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
+      blockSqStep K d ψ ρ mem src Rb0 ihv xs
+          (tagged c
+            (D.tupOf c
+              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
+        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+  intro c hc j hj xs fs hxl hsp g
+  obtain ⟨rfl, hsrc⟩ := hsrcAt c hc j hj xs fs hxl hsp
+  exact blockSqStep_at hc hsrc g
+
+end SqRun
+
 end ConLeche.Model
