@@ -257,17 +257,19 @@ stage). -/
 def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  match p.members, cvTas, ctorsAs with
-  | [ms], [cvTa], [ctorsA] =>
-    if blockRecCheckOn then checkBlockRecKS mode fe p cvTas ctorsAs
-    else do
+  if blockRecCheckOn then checkBlockRecKS mode fe p cvTas ctorsAs
+  else
+    match p.members, cvTas, ctorsAs with
+    | [ms], [cvTa], [ctorsA] => do
       let pn := p.toNative
       unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
           pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
         throw (.invalid "direct rec: recursor rules are not the generated ones")
       let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe) structWalkersC fe pn cvTa ctorsA
       pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-  | _, _, _ => checkBlockRecKS mode fe p cvTas ctorsAs
+    | _, _, _ => do
+      checkBlockRecPins (m := CheckCM) p
+      throw (.notImplemented "block rec: the mutual recursor stage")
 
 /-- **`checkBlockPass` through the index** (milestone M5): the k
 formers checked and consed — one flush entering the environment that

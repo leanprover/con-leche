@@ -533,30 +533,54 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
     ((p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
     cvRas ((p.members.zip ctorsAs).zip p.kinds) 0
 
-/-- **The recursor stage.**  At two or more members it is the CHECK of
-milestone M5 (`checkBlockRecK`).  At ONE member the check is GATED
-(`blockRecCheckOn`): the route runs the one-member
-generate-and-compare stage — the stream's rules against the generated
-ones (`nativeRulesOk`), then the recursor generated and compared
-(`checkNativeRec`) — because the k = 1 instance of the new check
-ACCEPTS MORE (any primitively recursive rule body) and the one-member
-bridge `checkBlock_one`, which the P tier's `declNative` reaches the
-route through, is an EQUALITY.  Lifting the gate makes the check live
-at every `k`; it goes with `blockRouteK1Only` at the flip. -/
+/-- **The recursor stage, behind its gate** (`blockRecCheckOn`).
+
+With the gate LIFTED the stage is the CHECK of milestone M5
+(`checkBlockRecK`) at every `k`.  With it down — the shipped
+configuration — the stage is milestone M1's interim one: at ONE member
+the existing generate-and-compare (the stream's rules against the
+generated ones, `nativeRulesOk`, then the recursor generated and
+compared, `checkNativeRec`), at two or more a positive decline, which
+the route's own gate (`blockRouteK1Only`) makes unreachable.
+
+Why BOTH arms are gated, and not only the one-member one:
+
+* at `k = 1` the CHECK accepts more than the generate-and-compare
+  stage (any primitively recursive rule body, not only the generated
+  one), so the two are not equal and the one-member bridge
+  `checkBlock_one` — which the P tier's `declNative` reaches the route
+  through — would stop being an equality;
+* at `k ≥ 2` the CHECK's rules are MUTUALLY recursive: a rule of
+  `rec_0` may name `rec_1`, so its right-hand side resolves at the
+  environment holding all `k` RULE-LESS recursors and NOT at the one
+  holding `rec_0` alone.  `EnvWF`'s recursor clause
+  (`ConLeche/Verify/EnvWF.lean`) is checked at the environment each
+  constant is consed into, and `envWF_consBlockRecs`
+  (`ConLeche/Verify/Inductives/BlockWF.lean`) conses the `k` recursors
+  one at a time, so the WF chain has to be restated for a SIMULTANEOUS
+  cons before this arm can be live.  That restatement is milestone
+  M6's entry cost, and the gate is what keeps the tree proved until
+  then.
+
+Both go with `blockRouteK1Only` at the flip. -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  match p.members, cvTas, ctorsAs with
-  | [ms], [cvTa], [ctorsA] =>
-    if blockRecCheckOn then checkBlockRecK ops env p cvTas ctorsAs
-    else do
+  if blockRecCheckOn then checkBlockRecK ops env p cvTas ctorsAs
+  else
+    match p.members, cvTas, ctorsAs with
+    | [ms], [cvTa], [ctorsA] => do
       let pn := p.toNative
       unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
           pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
         throw (.invalid "direct rec: recursor rules are not the generated ones")
       let (cvRa, rhss) ← checkNativeRec ops env pn cvTa ctorsA
       pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-  | _, _, _ => checkBlockRecK ops env p cvTas ctorsAs
+    | _, _, _ => do
+      -- the recursor RECORDS' pins (task #220 at k members) are thrown
+      -- FIRST, as the CHECK's own stage opens with them
+      checkBlockRecPins p
+      throw (.notImplemented "block rec: the mutual recursor stage")
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
 constructor, no index): the member's table at the tagged tower's
