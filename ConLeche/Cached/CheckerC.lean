@@ -246,9 +246,14 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
   checkBlockRecPins (m := CheckCM) p
   let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) structWalkersC fe p.toBlockShape
     (blockMems p.toBlockShape cvTas) (p.members.zip cvTas) 0
-  let feR := consBlockRecsBareF p.rulePrefix cvRas fe
+  let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
   flushC
-  checkBlockMembersRulesF (sharedOpsC mode feR) structWalkersC feR p
+  -- the rules are ANNOTATED at `feR` (they mention the k rule-less
+  -- recursors) and TYPED at `fe` — the constructors' index, before
+  -- they are consed (G1); the cached operations are index-bound, so
+  -- both records are built and handed over
+  checkBlockMembersRulesF (sharedOpsC mode feR) structWalkersC feR
+    (sharedOpsC mode fe) fe p
     (blockRecCallData p).1 (blockRecCallData p).2 cvRas
     ((p.members.zip ctorsAs).zip p.kinds) 0
 
@@ -301,7 +306,7 @@ def checkBlockTailS (fe : FEnv) (q : BlockPass FEnv) : CheckCM FEnv := do
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
   let rs ← checkBlockRecS mode fe₂ p q.cvTas q.ctorsAs
-  let fe₃ := consBlockRecsF fe₂.find? p.nP p.rulePrefix rs fe₂
+  let fe₃ := consBlockRecsF fe₂.find? p.toBlockShape p.nP 0 rs fe₂
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
 

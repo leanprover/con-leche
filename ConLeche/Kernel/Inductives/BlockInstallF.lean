@@ -192,21 +192,22 @@ def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → F
   | ctorsA :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorsA fe)
 
 /-- `consBlockRecs` through the index. -/
-def consBlockRecsF (find? : Name → Option ConstantInfo) (nP rP : Nat) :
-    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → FEnv → FEnv
-  | [], fe => fe
-  | (cvRa, rhss, nIdx, ctorsA) :: rest, fe =>
-    consBlockRecsF find? nP rP rest
-      (fe.push (.recInfo cvRa (rP + nIdx) rP
-        (sumRules find? cvRa.name nP (rP + nIdx) rP cvRa.type ctorsA rhss)))
+def consBlockRecsF (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+    Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, fe =>
+    consBlockRecsF find? p nP (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
+        (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)))
 
 /-! ## The recursor stage (milestone M5) -/
 
 /-- `consBlockRecsBare` through the index. -/
-def consBlockRecsBareF (rP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv
-  | [], fe => fe
-  | (cvRa, nIdx) :: rest, fe =>
-    consBlockRecsBareF rP rest (fe.push (.recInfo cvRa (rP + nIdx) rP []))
+def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, _nIdx) :: rest, fe =>
+    consBlockRecsBareF p (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
 
 /-- `checkBlockRecTys` through the index. -/
 def checkBlockRecTysF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : BlockShape)
@@ -229,7 +230,8 @@ def checkBlockRecTysF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : 
     pure ((⟨ms.cvR.name, ms.cvR.levelParams, recTy⟩, ms.nIdx) :: rs)
 
 /-- `checkBlockRule` through the index. -/
-def checkBlockRuleF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : BlockShape)
+def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+    (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape)
     (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
     (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
     (J : Nat) (rhs : Expr) : m Expr := do
@@ -241,7 +243,7 @@ def checkBlockRuleF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : B
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
   if rhs.hasFvar then
     throw (.invalid s!"free variable in rule of {cvR.name}")
-  let rhsA ← ops.annotate feR.env 0 rhs
+  let rhsA ← opsR.annotate feR.env 0 rhs
   unless rhsA.allLevelParamsDefined cvR.levelParams do
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless w.resolve feR rhsA do
@@ -268,35 +270,41 @@ def checkBlockRuleF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : B
     (.internal "direct rec: constructor parameter telescope")
   let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest (nP + k + N))
     (.internal "direct rec: constructor field telescope")
+  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
+    (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
+      recursor's prefix and the constructor's fields")
+  checkDefEqList opsT feT.env (nP + k + N + nF) ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
   let ihTele := blockIhPis nF (k + N) fr.pw (blockTgtsOf ks) fr.teleOf fr.idxOf fr.recIdx 0 body''
   let (_fvsIh, bodyO) ← unwrapOr
     (openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (nP + k + N + nF))
     (.internal "direct rec: inductive-hypothesis telescope")
   let depth := nP + k + N + nF + fr.nR
-  let tyB ← ops.inferType feR.env depth bodyO
+  let tyB ← opsT.inferType feT.env depth bodyO
   let motive ← unwrapOr fvsPref[nP + mi]? (.internal "direct rec: motive variable")
   let concl := Expr.mkAppN motive
     ((cbody.getAppArgs.drop nP) ++
       [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take nP ++ fvsF)])
-  unless ← ops.isDefEq feR.env depth tyB concl do
+  unless ← opsT.isDefEq feT.env depth tyB concl do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not produce the minor's \
       conclusion")
   pure rhsA
 
 /-- `checkBlockRules` through the index. -/
-def checkBlockRulesF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : BlockShape)
+def checkBlockRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+    (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape)
     (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat) (cvR : ConstantVal) :
     List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → Nat → m (List Expr)
   | [], [], _ => pure []
   | (cA, ks) :: cs, rhs :: rhss, J => do
-    let r ← checkBlockRuleF ops w feR p recNames rlvls recTy mi cvR cA ks J rhs
-    let rest ← checkBlockRulesF ops w feR p recNames rlvls recTy mi cvR cs rhss (J + 1)
+    let r ← checkBlockRuleF opsR w feR opsT feT p recNames rlvls recTy mi cvR cA ks J rhs
+    let rest ← checkBlockRulesF opsR w feR opsT feT p recNames rlvls recTy mi cvR cs rhss (J + 1)
     pure (r :: rest)
   | _, _, _ =>
     throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
 
 /-- `checkBlockMembersRules` through the index. -/
-def checkBlockMembersRulesF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+def checkBlockMembersRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+    (opsT : CheckerOps m) (feT : FEnv)
     (p : BlockParts) (recNames : List Name) (rlvls : List Level)
     (cvRas : List (ConstantVal × Nat)) :
     List ((MemberShape × List (ConstantVal × Nat)) × List (List BlockFieldKind)) → Nat →
@@ -304,9 +312,9 @@ def checkBlockMembersRulesF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv
   | [], _ => pure []
   | ((ms, ctorsA), kss) :: rest, mi => do
     let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
-    let rhss ← checkBlockRulesF ops w feR p.toBlockShape recNames rlvls cvRa.type mi ms.cvR
-      (ctorsA.zip kss) ms.rhss (p.offs mi)
-    let rest' ← checkBlockMembersRulesF ops w feR p recNames rlvls cvRas rest (mi + 1)
+    let rhss ← checkBlockRulesF opsR w feR opsT feT p.toBlockShape recNames rlvls cvRa.type mi
+      ms.cvR (ctorsA.zip kss) ms.rhss (p.offs mi)
+    let rest' ← checkBlockMembersRulesF opsR w feR opsT feT p recNames rlvls cvRas rest (mi + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
 /-- The block's recursor names and the level arguments every

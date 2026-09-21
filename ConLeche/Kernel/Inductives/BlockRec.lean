@@ -59,27 +59,6 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-/-! ## The gate -/
-
-/-- **THE RECURSOR STAGE'S GATE** (milestone M5): the k-ary recursor
-CHECK is written, but the route runs the one-member
-generate-and-compare stage at `k = 1` until the model side (lane M)
-lands, so that
-
-* the one-member bridge `checkBlock_one`
-  (`ConLeche/Verify/Inductives/BlockOneInstall.lean`) keeps closing —
-  the k = 1 instance of the new check ACCEPTS MORE than the old stage
-  (any primitively recursive rule body, not only the generated one),
-  so the two are not equal and the bridge would have to be restated
-  against a model that does not exist yet; and
-* every intermediate tree stays a complete, proved, sorry-free
-  checker.
-
-Flipping this constant makes the new check live at EVERY `k`
-(including `k = 1`); it is what a scratch build and the probes of
-milestone M5 do.  It goes with `blockRouteK1Only` at the flip. -/
-def blockRecCheckOn : Bool := false
-
 /-! ## The generated pieces at k members
 
 The frames, once (`o := k + N` are the extras between the parameters

@@ -89,7 +89,7 @@ theorem blockMembers_mem {cvTs : List ConstantVal} {nIdxs : List Nat}
     {groups : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × Nat × Nat × List RecRule)} {ms : MemberShape}
     (h : ms ∈ ((cvTs.zip nIdxs).zip (groups.zip rs)).map
-      (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ : MemberShape))) :
+      (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ : MemberShape))) :
     ms.cvT ∈ cvTs ∧ ms.ctors ∈ groups ∧ ms.cvR ∈ rs.map (·.1) := by
   obtain ⟨a, ha, rfl⟩ := List.mem_map.mp h
   obtain ⟨⟨cvT, nIdx⟩, ⟨g, cvR, mI, rP, rules⟩⟩ := a
@@ -105,13 +105,13 @@ theorem blockMembers_proj {cvTs : List ConstantVal} :
       {rs : List (ConstantVal × Nat × Nat × List RecRule)},
       nIdxs.length = cvTs.length → groups.length = cvTs.length → rs.length = cvTs.length →
       (((cvTs.zip nIdxs).zip (groups.zip rs)).map
-          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
+          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
             MemberShape))).map (·.cvT) = cvTs ∧
       (((cvTs.zip nIdxs).zip (groups.zip rs)).map
-          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
+          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
             MemberShape))).map (·.nIdx) = nIdxs ∧
       (((cvTs.zip nIdxs).zip (groups.zip rs)).map
-          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
+          (fun a => (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ :
             MemberShape))).map (·.ctors) = groups := by
   induction cvTs with
   | nil =>
@@ -159,7 +159,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     (hmembers : p.members = (((cvT0 :: cvTs').zip nIdxs).zip
         ((blockGroups ((cvT0 :: cvTs').map (·.name)) cvT0.levelParams nPd
             (cvT0 :: cvTs').length (cs.map fun c => (c.1, c.2.2))).zip rs)).map
-      (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩)) :
+      (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩)) :
     p.nP = nPd ∧
     p.isProp = (Level.isEquiv p.resSort .zero == some true) ∧
     p.members ≠ [] ∧
@@ -179,7 +179,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
       p.members = ((cvTs.zip nIdxs).zip
           ((blockGroups p.memberNames p.lps p.nP p.k
               (cs.map fun c => (c.1, c.2.2))).zip rs)).map
-        (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩) := by
+        (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩) := by
   obtain ⟨hlenN, hlenR⟩ := blockMemberCounts?_length hmc
   obtain ⟨e1, e2, e3⟩ := blockMembers_proj (cvTs := cvT0 :: cvTs') (nIdxs := nIdxs)
     (groups := blockGroups ((cvT0 :: cvTs').map (·.name)) cvT0.levelParams nPd
@@ -257,7 +257,7 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
       p.members = ((cvTs.zip nIdxs).zip
           ((blockGroups p.memberNames p.lps p.nP p.k
               (cs.map fun c => (c.1, c.2.2))).zip rs)).map
-        (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩) := by
+        (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩) := by
   unfold blockShape? at h
   obtain ⟨cvTs, cs, rs, hsp⟩ :
       ∃ cvTs cs rs, blockSplitOrdered block = some (cvTs, cs, rs) := by

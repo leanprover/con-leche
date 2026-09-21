@@ -385,6 +385,27 @@ def blockTgtsOf (ks : List BlockFieldKind) : List Nat :=
     | .reflexive t => t
     | _ => 0
 
+/-! ## The gates -/
+
+/-- **THE RECURSOR STAGE'S GATE** (milestone M5): the k-ary recursor
+CHECK is written, but the route runs the one-member
+generate-and-compare stage at `k = 1` until the model side (lane M)
+lands, so that
+
+* the one-member bridge `checkBlock_one`
+  (`ConLeche/Verify/Inductives/BlockOneInstall.lean`) keeps closing —
+  the k = 1 instance of the new check ACCEPTS MORE than the old stage
+  (any primitively recursive rule body, not only the generated one),
+  so the two are not equal and the bridge would have to be restated
+  against a model that does not exist yet; and
+* every intermediate tree stays a complete, proved, sorry-free
+  checker.
+
+Flipping this constant makes the new check live at EVERY `k`
+(including `k = 1`); it is what a scratch build and the probes of
+milestone M5 do.  It goes with `blockRouteK1Only` at the flip. -/
+def blockRecCheckOn : Bool := false
+
 /-! ## The record -/
 
 /-- One member of a block: its type former, its own index count, its
@@ -399,6 +420,14 @@ structure MemberShape where
   ctors : List (ConstantVal × Nat)
   /-- the member's recursor -/
   cvR : ConstantVal
+  /-- **the recursor record's own rule prefix** (`recInfo`'s `rP`): the
+  number of binders the recursor's type has before its INDEX binders —
+  the parameters, then the stretch official fills with the motives and
+  the minor premises, which the uniform route never looks inside.  Read
+  off the record (the ruling of 2026-09-21): a motive is a parameter
+  like any other.  The recursor's major sits at `rP + nIdx`, which is
+  the record's `mI`, and a rule's λ-prefix is `rP + nF`. -/
+  rP : Nat
   /-- the member's rules' right-hand sides as exported -/
   rhss : List Expr
   deriving Repr, Inhabited
@@ -449,10 +478,34 @@ def lps (p : BlockShape) : List Name :=
 /-- The constructors of the whole block, in block order. -/
 def allCtors (p : BlockShape) : List (ConstantVal × Nat) :=
   (p.members.map (·.ctors)).flatten
-/-- Every recursor's rule prefix: the parameters, the k motives and the
-block's minors (official's `nparams + ntypes + nminors`). -/
+/-- Every recursor's rule prefix AT THE GENERATED SHAPE: the
+parameters, the k motives and the block's minors (official's
+`nparams + ntypes + nminors`).  This is what the generate-and-compare
+stage builds and compares, and it is the block-wide number every
+`k = 1` bridge reads. -/
 def rulePrefix (p : BlockShape) : Nat := p.nP + p.k + p.numCtors
-/-- Member `m`'s recursor's major-premise index. -/
+
+/-- **Member `m`'s recursor's rule prefix, as the INSTALL uses it.**
+
+With the recursor stage's gate down (`blockRecCheckOn`, the shipped
+configuration) this is the generated shape's block-wide number, which
+is what the one-member bridges and the generate-and-compare stage
+need; the recursor records' pin (`blockRecPinOk`) refuses anything
+else, so no stream reaches the install with a different one.
+
+With the gate LIFTED it is the RECORD's (`MemberShape.rP`): the
+motive-free check never derives the sum, it reads it and requires only
+`nP ≤ rP` and `mI = rP + nIdx_m` (the ruling of 2026-09-21).  The
+`if` goes with the gate at the flip, leaving the record's. -/
+def rulePrefixAt (p : BlockShape) (m : Nat) : Nat :=
+  if blockRecCheckOn then (p.members.getD m default).rP else p.rulePrefix
+
+/-- Member `m`'s recursor's major-premise index, at the same reading. -/
+def majorIdxAt (p : BlockShape) (m : Nat) : Nat :=
+  p.rulePrefixAt m + (p.members.getD m default).nIdx
+
+/-- Member `m`'s recursor's major-premise index at the GENERATED
+shape. -/
 def majorIdx (p : BlockShape) (m : Nat) : Nat :=
   p.rulePrefix + (p.members.getD m default).nIdx
 
@@ -775,7 +828,8 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           let members := ((cvTs.zip nIdxs).zip (groups.zip rs)).map
             fun (a : (ConstantVal × Nat) ×
                 (List (ConstantVal × Nat) × ConstantVal × Nat × Nat × List RecRule)) =>
-              (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩ : MemberShape)
+              (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1,
+                a.2.2.2.2.2.map RecRule.rhs⟩ : MemberShape)
           -- WHICH ELIMINATOR the recursors are: the LARGE one carries a
           -- fresh elimination level parameter in front of the block's.
           -- Read off member 0's; the others are `blockRecLpsOk`'s, thrown

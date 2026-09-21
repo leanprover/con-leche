@@ -667,7 +667,7 @@ theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
         q.p q.cvTas q.ctorsAs = .ok rs ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.nP q.p.rulePrefix rs
+        (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP 0 rs
           (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
