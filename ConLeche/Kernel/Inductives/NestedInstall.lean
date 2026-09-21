@@ -2660,6 +2660,106 @@ theorem ordHeadRed_idem_of_const {W : Expr} {c : Name} {us : List Level}
     ordHeadRed (ordHeadRed W) = ordHeadRed W :=
   ordHeadRed_const h
 
+/-- **THE SUBJECT OF THE ORDINARY-FIELD RECORDS' HEAD READ** (task #315
+K.74): the recomputed mint at its environment-free head normal form,
+read BELOW its own `Π`-tower.
+
+`ordRootFired` and the two target lookups read `getAppFn`, and a `Π`
+has none — so without the strip K.67, K.68 and K.69 are SILENT at
+exactly the fields whose copies carry a telescope, which is the
+population the reading rows have to speak at (`nested_pi_field`, where
+the tower is the CONTAINER's; `nested_comp_tower`, where it is the
+MINT's; `nested_redex_tower`, where it appears only after the
+reduction).  `stripDomPis` is the cut K.63's guard already uses one
+tower down (`copyReflFieldOk`), and it is the IDENTITY wherever the
+reduced mint is not a `Π` (`ordHeadCut_const`), so every field the
+three rows speak at today they speak at unchanged. -/
+def ordHeadCut (W : Expr) : Expr := stripDomPis (ordHeadRed W)
+
+/-- `stripDomPis` is the identity at a constant head: a `Π`'s
+`getAppFn` is the `Π` itself and never a `.const`. -/
+theorem stripDomPis_of_const {W : Expr} {c : Name} {us : List Level}
+    (h : W.getAppFn = .const c us) : stripDomPis W = W := by
+  cases W with
+  | forallE ty bo bm =>
+    have hc : Expr.forallE ty bo bm = Expr.const c us := h
+    exact nomatch hc
+  | _ => rfl
+
+/-- **THE CUT DISAPPEARS AT A CONSTANT HEAD**, which is every field of
+both real corpora — `ordHeadRed_const` and `stripDomPis_of_const`
+together. -/
+theorem ordHeadCut_const {W : Expr} {c : Name} {us : List Level}
+    (h : W.getAppFn = .const c us) : ordHeadCut W = W := by
+  unfold ordHeadCut
+  rw [ordHeadRed_const h]
+  exact stripDomPis_of_const h
+
+/-! ## THE RECOMPUTED FIELD TELESCOPE (task #315 K.76) -/
+
+/-- The worker of `ordTargetTele`: each leading `∀` binder's TYPE with
+the pin's components substituted at that binder's own cut.  The cut
+rises by one per binder, which is what makes binder `i` speak at
+`l + i` — the same arithmetic `ordTargetDom` performs once, for the
+body, with `domPiDepth`. -/
+def ordTeleGo (Ds : List Expr) : Nat → Expr → List Expr
+  | cut, .forallE ty b _ => Expr.instantiateList ty Ds cut :: ordTeleGo Ds (cut + 1) b
+  | _, _ => []
+
+/-- **THE COPY'S FIELD TELESCOPE, RECOMPUTED** (task #315 K.76) — K.73's
+SUM with the two numbers replaced by the terms they count.
+
+The first summand is the CONTAINER's own tower: binder `i` is the
+container's `i`-th stored binder type with the pin's components
+substituted at that binder's own cut `l + i`.  The second is the tower
+the MINT plants into the stripped body, read straight off the reduced
+recomputation `ordHeadRed (ordTargetDom …)` — the same term K.69's own
+equation compares, and the same one K.73 measures the depth of.  So
+
+    (ordTargetTele … dom).length
+      = domPiDepth dom + domPiDepth (ordHeadRed (ordTargetDom … dom))
+
+which is K.73's right-hand side verbatim.
+
+**IT IS A RECOMPUTATION AND NOT A READING.**  Nothing here looks at the
+copy's STORED constructor: the mint (`replaceAllNested`) rewrites
+nested occurrences INSIDE binder types and `ordTargetDom` does not, so
+the stored binders and a recomputation differ as TERMS at any container
+whose field tower mentions its own group, and a comparison between them
+would fire on an input official accepts.  K.73's LENGTH comparison is
+the only stored-against-recomputed reading this arm may make, and it is
+not moved. -/
+def ordTargetTele (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
+    (dom : Expr) : List Expr :=
+  ordTeleGo (((ownSelf.getD qK default).getAppArgs.take nP).reverse) l
+      (ordTargetDomL lps ownSelf qK dom)
+    ++ ((ordHeadRed (ordTargetDom lps nP ownSelf qK l dom)).piBinders).1.map (·.1)
+
+/-- `ordTeleGo` records one entry per leading `∀`, so its length is the
+tower's depth and does not depend on the components. -/
+theorem ordTeleGo_length (Ds : List Expr) :
+    ∀ (cut : Nat) (e : Expr), (ordTeleGo Ds cut e).length = domPiDepth e := by
+  intro cut e
+  induction e generalizing cut with
+  | forallE ty b m ih₁ ih₂ => simp [ordTeleGo, domPiDepth, ih₂]
+  | _ => simp [ordTeleGo, domPiDepth]
+
+/-- `Expr.piBinders` records one entry per leading `∀` too. -/
+theorem piBinders_length : ∀ (e : Expr), (e.piBinders).1.length = domPiDepth e := by
+  intro e
+  induction e with
+  | forallE ty b m ih₁ ih₂ => simp [Expr.piBinders, domPiDepth, ih₂]
+  | _ => simp [Expr.piBinders, domPiDepth]
+
+/-- **K.76's LENGTH IS K.73's SUM** — the bridge that lets the model
+spend the two rows together. -/
+theorem ordTargetTele_length (lps : List Name) (nP : Nat) (ownSelf : List Expr)
+    (qK l : Nat) (dom : Expr) :
+    (ordTargetTele lps nP ownSelf qK l dom).length
+      = domPiDepth (ordTargetDomL lps ownSelf qK dom)
+        + domPiDepth (ordHeadRed (ordTargetDom lps nP ownSelf qK l dom)) := by
+  simp [ordTargetTele, ordTeleGo_length, piBinders_length]
+
 /-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69, and K.70's
 own dichotomy): its own
 recomputation of the field (`ordTargetDom` at the owner's own
@@ -2827,7 +2927,22 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                             | some (r, t), some domJ =>
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else
-                                let dmJ := ordHeadRed
+                                -- **THE HEAD IS READ BELOW THE
+                                -- REDUCED TOWER** (task #315 K.74):
+                                -- the subject is `stripDomPis` of the
+                                -- reduced mint, not the reduced mint.
+                                -- `ordRootFired` reads `getAppFn` and
+                                -- a `Π` has none, so without the strip
+                                -- this row is SILENT at exactly the
+                                -- fields whose copies carry a
+                                -- telescope — the population the
+                                -- reading rows have to speak at.  The
+                                -- strip is the identity wherever the
+                                -- mint is not a `Π`
+                                -- (`stripDomPis`), so every field the
+                                -- row speaks at today it speaks at
+                                -- unchanged.
+                                let dmJ := ordHeadCut
                                   (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
                                 if ordRootFired env memsJ ownSelf dmJ then
                                   match dmJ.getAppFn with
@@ -2965,7 +3080,13 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                         -- `| _ => true` survives as the NARROWER
                         -- residue it now is: a head that becomes a
                         -- constant only after δ, ι or a projection.
-                        let dmJ := ordHeadRed (ordTargetDom Jm.lps ci.nP terms q l domJ.1)
+                        -- **AND BELOW THE REDUCED TOWER** (task
+                        -- #315 K.74), K.67's own move on this side:
+                        -- the block's recomputation is a `Π` wherever
+                        -- the container's field tower is its own or
+                        -- the mint plants one, and a `Π`'s `getAppFn`
+                        -- is no `.const`.
+                        let dmJ := ordHeadCut (ordTargetDom Jm.lps ci.nP terms q l domJ.1)
                         match dmJ.getAppFn with
                         | .const M _ =>
                           match p.memberNames.findIdx? (· == M) with
@@ -3130,7 +3251,18 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                 else
                                   let W := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
                                   let Wn := ordHeadRed W
-                                  if !ordRootFired env memsJ ownSelf Wn then true
+                                  -- **THE GUARD READS THE HEAD BELOW
+                                  -- THE REDUCED TOWER** (task #315
+                                  -- K.74), K.67's guard character for
+                                  -- character, so the three rows still
+                                  -- speak at exactly the same fields.
+                                  -- `Wn` ITSELF is not stripped: the
+                                  -- term equation below compares the
+                                  -- two reduced mints towers and all,
+                                  -- and that is the only place the
+                                  -- PLANTED tower is compared.
+                                  if !ordRootFired env memsJ ownSelf
+                                      (ordHeadCut W) then true
                                   else if !(r == .recursive || r == .reflexive) then false
                                   -- **THE BLOCK'S OWN RECOMPUTATION IS
                                   -- CONSTANT-HEADED WHERE THE OWNER'S
@@ -3236,6 +3368,44 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                     -- perfectly well-formed, which
                                     -- would be a reject on an input
                                     -- official accepts.
+                                    -- **AND THE TWO RECOMPUTED
+                                    -- TOWERS AGREE, BINDER BY BINDER,
+                                    -- AT EACH BINDER'S OWN CUT**
+                                    -- (task #315 K.76).  This is the
+                                    -- row above one level out: K.69
+                                    -- carries the OWNER's reduced mint
+                                    -- to the block's instantiation and
+                                    -- compares it with the BLOCK's;
+                                    -- K.76 does the same at each
+                                    -- binder of the tower that mint
+                                    -- stands under, at `l + i`.
+                                    --
+                                    -- Both sides are the SAME function
+                                    -- at the SAME stored domain
+                                    -- `domJ.1`, differing only in the
+                                    -- component table — recomputation
+                                    -- against recomputation, never the
+                                    -- stored binders against a
+                                    -- recomputation (see
+                                    -- `ordTargetTele`).  `none` is
+                                    -- K.69's own silence, the block
+                                    -- pin's head not being a constant.
+                                    --
+                                    -- **IT DOES NOT SUBSUME K.73**:
+                                    -- K.76 never reads `stored`, and
+                                    -- K.73 is the only comparison the
+                                    -- arm may make between the STORED
+                                    -- copy's tower and the
+                                    -- recomputation's.
+                                    (let tlO := ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1
+                                     let tlB := ordTargetTele Jm.lps ci.nP terms q l domJ.1
+                                     (tlO.length == tlB.length) &&
+                                       (List.range tlO.length).all fun i =>
+                                         match ordRootInst m₀.lps ciJ.nP (l + i) pinG
+                                             (tlO.getD i default) with
+                                         | none => true
+                                         | some Tb => tlB.getD i default == Tb)
+                                    &&
                                     match stored[p.k + q]? with
                                     | none => false
                                     | some a =>

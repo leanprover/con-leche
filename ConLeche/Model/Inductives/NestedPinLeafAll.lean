@@ -2188,7 +2188,7 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
     ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
     ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
-    ∀ Wn : Expr, ConLeche.ordHeadRed
+    ∀ Wn : Expr, ConLeche.ordHeadCut
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = Wn →
     ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT Wn = false →
     mapR.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -5226,7 +5226,7 @@ theorem entOut_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel
     -- this row's claim would then be FALSE
     -- (`tests/e2e/nested_redex_owner.lean`)
     {Wn : Expr}
-    (hnorm : ConLeche.ordHeadRed
+    (hnorm : ConLeche.ordHeadCut
       (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1) = Wn)
     (hnofire : ConLeche.ordRootFired env (ciR.members.map (·.name)) ownT Wn = false)
     -- the owner's group, and `σ`'s two values
@@ -9002,7 +9002,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm
-        (ConLeche.ordHeadRed_const hhd) hhd
+        (ConLeche.ordHeadCut_const hhd) hhd
     · -- K.70's arm (A), the member half, as the run states it
       -- (`instMapGrpAt`): a map fact, so no field preamble at all
       obtain ⟨pbs, -, hPD⟩ := R.pinData

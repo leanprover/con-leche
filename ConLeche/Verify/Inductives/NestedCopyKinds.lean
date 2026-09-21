@@ -928,7 +928,7 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
     {Wn : Expr}
-    (hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
+    (hnorm : ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
     {M : Name} {us : List Level}
     (hhead : Wn.getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
@@ -1053,7 +1053,7 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     rw [hnf.1, hnf.2, Nat.add_zero]
   rw [← hdm] at hhead ⊢
   exact nestedOrdTargetOk_at_refl h hk hg hgn hciJ hown hmapR hqK hq hqn hks hci hJm hj hkf hcJ
-    hsJ hl hdJ hrec hkt (ordHeadRed_const hhead) hhead
+    hsJ hl hdJ hrec hkt (ordHeadCut_const hhead) hhead
 
 
 /-- **K.70's ARM (A), THE MEMBER HALF — THE MINTED GROUP'S IMAGE IS
@@ -1148,7 +1148,7 @@ theorem nestedOrdTargetOk_out_at {env : Env} {p : NestedParts} {b : MutualBlock}
     (hkt : p.k ≤ t)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {Wn : Expr}
-    (hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
+    (hnorm : ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
     (hnofire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = false) :
     mapR.contains (t - p.k) = false ∧
       (t < p.k + gn.grpBase ∨ p.k + gn.grpBase + gn.grpSize ≤ t) := by
@@ -1226,7 +1226,7 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     {M : Name} {us : List Level}
-    (hhead : (ordHeadRed
+    (hhead : (ordHeadCut
       (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1)).getAppFn
       = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
@@ -1234,9 +1234,9 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
       ∃ (ciM : ContainerInfo) (z : Nat),
       containerInfo? env M = some ciM ∧
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ordHeadRed
+          (ordHeadCut
             (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1)).getAppFn
-          ((ordHeadRed (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
+          ((ordHeadCut (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
             domJ.1)).getAppArgs.take ciM.nP)) = some z ∧
       t = p.k + z) := by
   unfold nestedOrdSelfTargetOk nestedOrdSelfTargetAt at h
@@ -1277,14 +1277,14 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
     simp only at hlv
     rw [← hhead] at hlv
     obtain ⟨z, hfi⟩ : ∃ z, (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-        (ordHeadRed
+        (ordHeadCut
           (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1)).getAppFn
-        ((ordHeadRed (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
+        ((ordHeadCut (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
           domJ.1)).getAppArgs.take ciM.nP)) = some z := by
       cases hc : (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ordHeadRed
+          (ordHeadCut
             (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1)).getAppFn
-          ((ordHeadRed (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
+          ((ordHeadCut (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
             domJ.1)).getAppArgs.take ciM.nP)) with
       | none => rw [hc] at hlv; exact nomatch hlv
       | some z => exact ⟨z, rfl⟩
@@ -1312,7 +1312,7 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {K : Name} {usK : List Level}
     (hfin : (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1).getAppFn = .const K usK)
     {M : Name} {us : List Level}
-    (hhead : (ordHeadRed
+    (hhead : (ordHeadCut
         (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
           ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
           l)).getAppFn = .const M us) :
@@ -1321,11 +1321,11 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
       ∃ (ciM : ContainerInfo) (z : Nat),
       containerInfo? env M = some ciM ∧
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ordHeadRed
+          (ordHeadCut
             (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
               ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
               l)).getAppFn
-          ((ordHeadRed
+          ((ordHeadCut
             (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
               ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
               l)).getAppArgs.take ciM.nP)) = some z ∧
@@ -1417,7 +1417,8 @@ theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts}
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {Wn : Expr}
     (hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
-    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = true)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true)
     {Wb : Expr}
     (hinst : ordRootInst m₀.lps ciJ.nP
         (l + domPiDepth (ordTargetDomL Jm.lps ownSelf qK domJ.1))
@@ -1473,7 +1474,7 @@ theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts}
   -- the three conjuncts under the guard: the block-head row (WIDE
   -- (f3) step 2), THIS row's instantiation, and K.72's tower
   simp only [Bool.and_eq_true] at hlv
-  replace hlv := hlv.1.2
+  replace hlv := hlv.1.1.2
   rw [hinst] at hlv
   simp only at hlv
   rw [hnormB] at hlv
@@ -1525,7 +1526,8 @@ theorem nestedOrdNormOk_fire {env : Env} {p : NestedParts}
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {Wn : Expr}
     (hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
-    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = true) :
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true) :
     (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
   cases hms : nestedInstMaps env st with
   | none =>
@@ -1653,7 +1655,8 @@ theorem nestedOrdNormOk_fire_at {env : Env} {p : NestedParts}
     (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
   obtain ⟨M, us, hhd⟩ := getAppFn_const_of_ordRootFired hfire
   exact nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
-    hcJ hsJ hl hdJ hord (ordHeadRed_const hhd) hfire
+    hcJ hsJ hl hdJ hord (ordHeadRed_const hhd)
+    (by rw [ordHeadCut_const hhd]; exact hfire)
 
 /-- **THE BLOCK'S OWN RECOMPUTATION IS CONSTANT-HEADED** (task #315
 WIDE (f3) step 2), K.69's third sibling inversion.
@@ -1718,7 +1721,9 @@ theorem nestedOrdNormOk_blkHead {env : Env} {p : NestedParts}
   obtain ⟨M₀, us₀, hhd₀⟩ := getAppFn_const_of_ordRootFired hfireRaw
   have hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
       = ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1 := ordHeadRed_const hhd₀
-  have hfire := hfireRaw
+  have hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true := by
+    rw [ordHeadCut_const hhd₀]; exact hfireRaw
   have hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true :=
     nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ hsJ
       hl hdJ hord hnorm hfire
@@ -1834,7 +1839,9 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
   obtain ⟨M₀, us₀, hhd₀⟩ := getAppFn_const_of_ordRootFired hfireRaw
   have hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
       = ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1 := ordHeadRed_const hhd₀
-  have hfire := hfireRaw
+  have hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true := by
+    rw [ordHeadCut_const hhd₀]; exact hfireRaw
   -- **K.73's REDUCTION IS THE IDENTITY WHERE THIS ROW SPEAKS**: the
   -- guard is the OWNER's RAW firing, and under it the arm above
   -- asserts the BLOCK's own recomputation is constant-headed too, so
@@ -1899,6 +1906,103 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
   rw [hdC] at hlv
   rw [hnormB] at hlv
   simpa using hlv
+
+/-- **THE TWO RECOMPUTED TOWERS, INVERTED** (task #315 K.76) — K.69's
+term equation ONE LEVEL OUT, at each binder of the `Π`-tower the two
+recomputed mints stand under.
+
+The guard is the OWNER's firing read BELOW the reduced tower
+(`ordHeadCut`, K.74), which is the guard K.67 and K.68 read at too, so
+the three rows speak at exactly the same fields.  `hnorm` is not
+needed: the conjunct mentions no `ordHeadRed` of its own, the
+reduction being inside `ordTargetTele`.
+
+Both sides are `ordTargetTele` at the SAME stored domain `domJ.1`,
+differing only in the component table — recomputation against
+recomputation.  The copy's STORED binders are not read here at all;
+K.73 (`nestedOrdNormOk_tower`) is where they are, and it compares a
+LENGTH. -/
+theorem nestedOrdNormOk_tele {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {m₀ : ContainerMember} (hm₀ : ciJ.members.head? = some m₀)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true) :
+    (ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1).length
+        = (ordTargetTele Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).length ∧
+      ∀ i, i < (ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1).length →
+        ∀ Tb, ordRootInst m₀.lps ciJ.nP (l + i)
+              ((nestedPinTermsSelf p st).getD g default)
+              ((ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1).getD i default) = some Tb →
+          (ordTargetTele Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getD i default
+            = Tb := by
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedOrdNormOk nestedOrdNormAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms g g (by simp [hg])
+  have hmeq : m = mapR := by rw [hm] at hmapR; simpa using hmapR
+  unfold nestedOrdNormOk nestedOrdNormAt at h
+  rw [hms, hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hgv := h g hg
+  rw [hgn] at hgv
+  simp only at hgv
+  rw [hciJ] at hgv
+  simp only at hgv
+  rw [hown] at hgv
+  simp only at hgv
+  rw [hm₀] at hgv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hgv
+  have hqv := hgv qK hqK
+  rw [show maps.getD g [] = mapR from by
+    rw [List.getD_eq_getElem?_getD, hmq]; exact hmeq] at hqv
+  rw [hq, hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJm] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hord])] at hlv
+  rw [if_neg (by simp [hfire]), if_neg (by simp [hrec])] at hlv
+  simp only [Bool.and_eq_true] at hlv
+  replace hlv := hlv.1.2
+  simp only [beq_iff_eq, _root_.List.all_eq_true, _root_.List.mem_range] at hlv
+  refine ⟨hlv.1, fun i hi Tb hinst => ?_⟩
+  have hi' := hlv.2 i hi
+  rw [hinst] at hi'
+  simpa using hi'
 
 /-- **K.69 at a FINITARY field**, where the two cuts are the identity:
 the recomputed domains' heads are `.const`s, so neither is a `Π` and
@@ -1978,7 +2082,7 @@ theorem nestedOrdNormOk_at {env : Env} {p : NestedParts}
   rw [← hdmB]
   refine nestedOrdNormOk_at_refl h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
     hcJ hsJ hl hdJ hrec hord (ordHeadRed_const hheadR) ?_ ?_ (ordHeadRed_const hheadB)
-  · rw [hdmR]; exact hfire
+  · rw [ordHeadCut_const hheadR, hdmR]; exact hfire
   · rw [hdmR, hd₁, Nat.add_zero]; exact hinst
 
 /-- **K.69 AS A TERM EQUATION, GUARDED ON THE RECOMPUTATIONS** (task
@@ -2040,7 +2144,8 @@ theorem nestedOrdNormOk_at_head {env : Env} {p : NestedParts}
         (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wb) :
     ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1 = Wb :=
   nestedOrdNormOk_at_refl h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
-    hcJ hsJ hl hdJ hrec hord (ordHeadRed_const hheadR) hfire hinst
+    hcJ hsJ hl hdJ hrec hord (ordHeadRed_const hheadR)
+    (by rw [ordHeadCut_const hheadR]; exact hfire) hinst
     (ordHeadRed_const hheadB)
 
 /-- **K.69 AS A TERM EQUATION AT A REFLEXIVE FIELD** (task #315 WIDE (3),
