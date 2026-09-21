@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.EnvClauseTreeList
 import ConLeche.SetModel.TupleContainer
 @[expose] public section
