@@ -244,8 +244,8 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
   checkBlockRecPins (m := CheckCM) p
-  let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) structWalkersC fe p.toBlockShape
-    (blockMems p.toBlockShape cvTas) (p.members.zip cvTas) 0
+  let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
+    (blockNested p.kinds) (p.members.zip cvTas) 0
   let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
   flushC
   -- the rules are ANNOTATED at `feR` (they mention the k rule-less
