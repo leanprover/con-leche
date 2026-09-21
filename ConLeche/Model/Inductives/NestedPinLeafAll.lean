@@ -7375,9 +7375,15 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
   compares the copy's tower's LENGTH; `ordRootInst`'s equation
   compares the two STRIPPED bodies), and one the model side cannot
   manufacture, since `CopyOrdTele`'s two instances give two equal
-  `Π`-SETS and a `Π`-set does not give its domain back.  That object —
-  K.72 strengthened to a TERM comparison — is the ledger's WIDE (f4)
-  §(b);
+  `Π`-SETS and a `Π`-set does not give its domain back.  **That object
+  is LANDED** (task #315 K.74 and K.76, the ledger's WIDE (f5)): the
+  three ordinary-field records read their head below the REDUCED tower
+  (`ordHeadCut`), and `nestedOrdNormAt` ties the two RECOMPUTED
+  telescopes binder by binder at `l + i` under `ordRootInst`.  It is in
+  hand here as `GroupFacts.ordTele`.  What is still missing between it
+  and this conjunct is the reading half — an `OrdTargetTele` beside
+  `OrdTargetRead` and a `teleOfFields` congruence to stand where
+  `slotSet_nil` stands (WIDE (f5) §(h));
 * `htele : CopyOrdTele …` is GONE from the signature.  The object is
   restated as an `interp` equation (its syntactic form is refuted by
   `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run
