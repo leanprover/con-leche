@@ -3,6 +3,8 @@ module
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.BlockFieldRead
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Inductives.StructRecRead
 import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
@@ -1842,5 +1844,198 @@ theorem blockDataOf_ksF {q : ConLeche.BlockShape} {env : Env}
       = ((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec := by rfl
 
 end HfldRun
+
+/-! ## A.13 The `rP − nP` SHIFT — the rule's field domains ARE the
+block's, read deeper
+
+The rule opens the constructor's telescope with the parameters at
+fvars `0 … nP-1` (the RECURSOR's prefix openers) and the fields at
+`rP … rP+nF-1`; the constructors' stage opens the SAME telescope at
+`0 … nP+nF-1`.  Reading an opened fvar `i` at depth `d` gives
+`.bvar (d-1-i)`, so the two readings differ exactly by a lift of
+`rP − nP` at each entry's own cutoff — the `o = rP − nP` shift
+`ihNodeVal_blockRec` already carries.
+
+**It is not a new battery.**  The move is not to compare two openings
+but to read ONE instantiated telescope (`crest`, whose free variables
+are the `nP` parameter openers) at the DEEPER depth: that is
+`ctorResidual_read_lift` (`StructRecRead.lean`, the `k = 1` route's),
+`denoteMeta_lift` through `liftN_mkPisAV`.  `denoteMeta_openPis` then
+hands the shifted tower's binder data back as the opened fvars'
+readings, and the two frames' `crest`s are `ErasedEq` because the
+reading is blind to an opener's annotation. -/
+
+section Shift
+
+variable {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env} {ψ : Name → Nat}
+
+omit [SetTheory V] in
+/-- A binder list's domains survive the lifting: `liftDoms` on the
+triples is `liftDomsK` on their domains. -/
+theorem map_liftDoms (m : Nat) :
+    ∀ (k : Nat) (ds : List (Nat × Nat × AnnotTerm)),
+      (liftDoms m k ds).map (·.2.2) = liftDomsK m k (ds.map (·.2.2))
+  | _, [] => rfl
+  | k, _ :: ds => by
+    show _ :: (liftDoms m (k + 1) ds).map (·.2.2) = _ :: liftDomsK m (k + 1) (ds.map (·.2.2))
+    rw [map_liftDoms m (k + 1) ds]
+
+omit [SetTheory V] in
+/-- `readOpenedDoms` is the binder data, whenever every opener reads to
+its own entry. -/
+theorem readOpenedDoms_eq :
+    ∀ (fvs : List Expr) (pps : List (Nat × Nat × AnnotTerm)) (dpt : Nat),
+      fvs.length = pps.length →
+      (∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+        ∃ pd, pps[i]? = some pd ∧ denoteMeta acval envC ψ (dpt + i) x.fvarTypeD = some pd.2.2) →
+      readOpenedDoms acval envC ψ dpt fvs = pps.map (·.2.2)
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, _, hl, _ => nomatch hl
+  | _ :: _, [], _, hl, _ => nomatch hl
+  | x :: fvs, pd :: pps, dpt, hl, hb => by
+    obtain ⟨pd', hpd', hx⟩ := hb 0 x rfl
+    obtain rfl : pd' = pd := Option.some.inj hpd'.symm
+    rw [Nat.add_zero] at hx
+    show (denoteMeta acval envC ψ dpt x.fvarTypeD).getD default
+        :: readOpenedDoms acval envC ψ (dpt + 1) fvs = _
+    rw [hx, Option.getD_some,
+      readOpenedDoms_eq fvs pps (dpt + 1) (by simpa using hl)
+        (fun i y hy => by
+          obtain ⟨q, hq, hd⟩ := hb (i + 1) y (by simpa using hy)
+          exact ⟨q, by simpa using hq, by rw [show dpt + 1 + i = dpt + (i + 1) from by omega]; exact hd⟩)]
+    rfl
+
+/-- **The shift, generically.**  Reading the constructor's
+parameter-instantiated telescope at the RULE's depth `nP + o` gives the
+constructors' stage's binder data lifted by `o`, and its body lifted at
+the fields' cutoff. -/
+theorem readOpenedDoms_shift {m : EnvModel V envC}
+    {crest crest' : Expr} {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
+    {nP nF o : Nat}
+    (hread : denoteMeta m.acval envC ψ nP crest = some (mkPisAV (ds.drop nP) bodyC))
+    (hw : Expr.WScoped nP crest) (hlenD : ds.length = nP + nF)
+    (heq : Expr.ErasedEq crest crest')
+    {fvsF : List Expr} {cbody : Expr}
+    (hop : ConLeche.openPisAtFvars nF crest' (nP + o) = some (fvsF, cbody)) :
+    readOpenedDoms m.acval envC ψ (nP + o) fvsF
+        = liftDomsK o 0 ((ds.drop nP).map (·.2.2)) ∧
+      denoteMeta m.acval envC ψ (nP + o + nF) cbody = some (bodyC.liftN o nF) := by
+  have hlenDrop : (ds.drop nP).length = nF := by
+    rw [List.length_drop, hlenD]; omega
+  have hread' : denoteMeta m.acval envC ψ (nP + o) crest'
+      = some (mkPisAV (liftDoms o 0 (ds.drop nP)) (bodyC.liftN o nF)) := by
+    rw [← denoteMeta_erasedEq heq]
+    exact ctorResidual_read_lift hread hw hlenD o
+  obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis nF hop hread'
+  have hstEq := stripPisAV_mkPisAV (liftDoms o 0 (ds.drop nP)) (bodyC.liftN o nF)
+  rw [liftDoms_length, hlenDrop] at hstEq
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hstEq))
+  refine ⟨?_, hb⟩
+  rw [readOpenedDoms_eq (acval := m.acval) (envC := envC) (ψ := ψ) fvsF
+      (liftDoms o 0 (ds.drop nP)) (nP + o)
+      (by rw [openPisAtFvars_length _ hop, liftDoms_length, hlenDrop])
+      (fun i x hx => by
+        obtain ⟨q, hq, -, hd⟩ := hbind i x hx
+        exact ⟨q, hq, hd⟩)]
+  exact map_liftDoms o 0 (ds.drop nP)
+
+omit [SetTheory V] in
+/-- Renaming by the identity is the identity — the bridge from
+`instPisAt_renEq` (stated at `RenEqT`) to `ErasedEq`. -/
+theorem renameConsts_id : ∀ e : Expr, e.renameConsts (fun n => n) = e
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => rfl
+  | .fvar _ ty => by rw [ConLeche.Expr.renameConsts, renameConsts_id ty]
+  | .app f a => by rw [ConLeche.Expr.renameConsts, renameConsts_id f, renameConsts_id a]
+  | .lam ty b m => by rw [ConLeche.Expr.renameConsts, renameConsts_id ty, renameConsts_id b]
+  | .forallE ty b m => by rw [ConLeche.Expr.renameConsts, renameConsts_id ty, renameConsts_id b]
+  | .letE ty v b => by
+    rw [ConLeche.Expr.renameConsts, renameConsts_id ty, renameConsts_id v, renameConsts_id b]
+  | .proj sn i e => by rw [ConLeche.Expr.renameConsts, renameConsts_id e]
+
+/-- **A-2's FIELD DOMAINS, at the run.**  The rule's field domains ARE
+the constructors' stage's, read `rP − nP` deeper — the identity lane
+RM9's `hspF` needs, and the last reading fact between `BlockRuleDataAt`'s
+second conjunct and the block's representation. -/
+theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
+          (((ds ψ).drop p.nP).map (·.2.2)) := by
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  obtain ⟨crest, hopP, hopX⟩ := hcd.opens
+  -- the stage's reading of the parameter-instantiated telescope
+  obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
+  have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
+    (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)) (by rw [hcd.len ψ]; omega)
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₀.symm.trans hstTake))
+  rw [Nat.zero_add] at hb₀
+  -- the telescope is scoped at the parameters
+  have hwT : Expr.WScoped 0 cA.1.type := Expr.WScoped.of_not_hasFvar hCf
+  have hwC : Expr.WScoped p.nP crest := by
+    have := (ConLeche.openPisAtFvars_WScoped p.nP cA.1.type 0 hopP hwT).2
+    rwa [Nat.zero_add] at this
+  -- the two frames' telescopes are erasure-equal
+  have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
+      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+  have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
+  have hargs : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
+      ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
+      ConLeche.Verify.RenEqT (fun n => n) a a' := by
+    intro k a a' ha ha'
+    obtain ⟨ty, rfl⟩ := hcd.pIdx k a ha
+    have hk : k < p.nP := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha'
+      rw [List.length_take] at hlt
+      omega
+    have ha'' : (blockRulePrefFvs p.toBlockShape rs c)[k]? = some a' := by
+      have ht : (List.take p.nP (blockRulePrefFvs p.toBlockShape rs c))[k]?
+          = (blockRulePrefFvs p.toBlockShape rs c)[k]? := by
+        rw [List.getElem?_take, if_pos hk]
+      rw [← ht]; exact ha'
+    obtain ⟨ty', rfl⟩ := hidxPref k a' ha''
+    rw [Nat.zero_add]
+    exact ConLeche.Verify.RenEqT.fvar
+  have hinstP : ConLeche.Expr.instPisAt fvsP cA.1.type
+      = some (fvsP.map ConLeche.Expr.fvarTypeD, crest) :=
+    ConLeche.Verify.openPisAtFvars_instPisAt _ hopP
+  obtain ⟨-, hrenC⟩ := ConLeche.Verify.instPisAt_renEq (f := fun n => n) fvsP
+    ((blockRulePrefFvs p.toBlockShape rs c).take p.nP) hinstP hinst
+    (by show Expr.ErasedEq _ _; rw [renameConsts_id]; exact Expr.ErasedEq.rfl _)
+    hargs
+    (by rw [hcd.pLen, List.length_take, hlenPref]; omega)
+  have heq : Expr.ErasedEq crest (blockRuleCrest p.toBlockShape rs c i) := by
+    have := hrenC
+    rwa [ConLeche.Verify.RenEqT, renameConsts_id] at this
+  -- the shift
+  have hsh := readOpenedDoms_shift (m := mpC.base2) (ψ := ψ)
+    (o := p.toBlockShape.rulePrefixAt c - p.nP) hb₀ hwC (hcd.len ψ) heq
+    (by rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
+          = p.toBlockShape.rulePrefixAt c from by omega]
+        exact hopF)
+  have hq := hsh.1
+  rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
+      = p.toBlockShape.rulePrefixAt c from by omega] at hq
+  rw [blockRuleFdomsAV]
+  exact hq
+
+end Shift
 
 end ConLeche.Model
