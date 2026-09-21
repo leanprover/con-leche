@@ -412,17 +412,17 @@ hands the image of an arbitrary member of the root group, and
 the member's — moves it to the base.  That transport is the caller's,
 because it is a run fact and this statement is not.
 
-**`hmmLen` is `≤`, and the direction matters**: what the proof spends is
-"the instance map is no LONGER than the container's pin list", so that a
-table POSITION is a class.  `ContainerOwnPinsSyn` does not give it —
-its second clause is `∀ qK < d.nPins, ps[qK]? = …`, i.e. the other
-direction — so the caller owes it.  Two ways: a length clause beside
-K.43's queued record, or, with no new record at all, the FIRST clause
-(`ps`'s entry at the found position is SOME recorded pin `qK'`) plus the
-second at that `qK'` (`ps[qK']` is the same term) plus `mapM`'s
-pointwise structure (`nestedInstMapAt` is `own.mapM findIdx?`, so equal
-terms give equal entries), which lands `∃ qK' < d.nPins, mm.getD qK' 0 = q`
-directly. -/
+**`hmmIdx` says a VALUE of the map is a value at a CLASS, and that is
+what the proof spends** (task #315 WIDE (f8), lane WIRE): the pin
+branch needs the position it finds `q` at to be a container class, and
+the length bound `mm.length ≤ d.nPins` that stood here before is FALSE
+in general — the map is `containerOwnPinsAt`'s table under
+`mapM findIdx?` and `ContainerOwnPinsSyn`'s first clause allows that
+table to repeat a pin, hence to be longer than `d.nPins`.  The
+producible statement, and the one the caller now owes, is
+`NestedPinsRun.instMapOwnIdx` (`NestedInstMap.lean`): clause (1) names
+the class of the entry found, clause (2) puts the same entry at that
+class, and `mapM`'s pointwise structure carries the value across. -/
 theorem nestedClassPinAt_of_instMap (m : EnvModel V env₂) {st : ElimState}
     {dJf : Nat → BlockModel V}
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
@@ -436,7 +436,7 @@ theorem nestedClassPinAt_of_instMap (m : EnvModel V env₂) {st : ElimState}
     (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
     (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
       σ c = p.k + mm.getD (c - (dJf r).k) 0)
-    (hmmLen : mm.length ≤ (dJf r).nPins)
+    (hmmIdx : ∀ z, mm.contains z = true → ∃ qK, qK < (dJf r).nPins ∧ mm.getD qK 0 = z)
     (hψR : ((D).pinAt r).ψJ ψ = Level.substFn ψ lpsR ((D).pinAt r).lvls)
     (hcorr : ∀ qK, qK < (dJf r).nPins →
       PinCorr ((D).targetView m.acval ψ) m.acval (dJf r) (((D).pinAt r).ψJ ψ)
@@ -453,11 +453,7 @@ theorem nestedClassPinAt_of_instMap (m : EnvModel V env₂) {st : ElimState}
       fun _ => rfl⟩, ?_⟩
     rw [hroot i (hkR ▸ hi)]; omega
   · -- a pin in the root group's index-level image: K.41's own pin
-    obtain ⟨qK, hqKlt, hqKe⟩ : ∃ qK, qK < mm.length ∧ mm.getD qK 0 = q := by
-      obtain ⟨qK, hqKlt, hqKe⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hin)
-      exact ⟨qK, hqKlt, by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hqKlt, hqKe]; rfl⟩
-    have hqK : qK < (dJf r).nPins := by omega
+    obtain ⟨qK, hqK, hqKe⟩ := hmmIdx q hin
     obtain ⟨q₀', kK', i'', ci', hqKe2, hi'', hci', S', -⟩ := hshR _ hqK
     subst hqKe2
     refine ⟨(dJf r).k + (q₀' + i''), by omega, ⟨?_, fun hlt => absurd hlt (by omega)⟩, ?_⟩
@@ -517,7 +513,8 @@ theorem nestedPinLfp_of_root_class {ψ : Name → Nat} {ρp : Nat → V}
 straight into `nestedPinLfp_of_root_class`, so that the class `c` never
 appears in a caller's obligation — what is asked of the run is K.75's
 clause (1) at the pin (`hpool`), the closure's two halves
-(`hroot`/`hpinσ`), the map's length and the correspondence at its
+(`hroot`/`hpinσ`), the map's values being values at classes
+(`hmmIdx`, `NestedPinsRun.instMapOwnIdx`) and the correspondence at its
 entries (`hcorr`, `NestedPinsRun.instMapPinOwn`).
 
 This is `nestedPinsLe_of_wide`'s `hwide` at the pin, up to the ONE
@@ -552,7 +549,7 @@ theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
     (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
     (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
       σ c = p.k + mm.getD (c - (dJf r).k) 0)
-    (hmmLen : mm.length ≤ (dJf r).nPins)
+    (hmmIdx : ∀ z, mm.contains z = true → ∃ qK, qK < (dJf r).nPins ∧ mm.getD qK 0 = z)
     (hψR : ((D).pinAt r).ψJ ψ = Level.substFn ψ lpsR ((D).pinAt r).lvls)
     (hcorr : ∀ qK, qK < (dJf r).nPins →
       PinCorr ((D).targetView m.acval ψ) m.acval (dJf r) (((D).pinAt r).ψJ ψ)
@@ -562,7 +559,7 @@ theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
     pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
       = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
   obtain ⟨c, hc, hcp, hσc⟩ := nestedClassPinAt_of_instMap (ρp := ρp) m hgroups GR CR hB hshR
-    hroot hpinσ hmmLen hψR hcorr hq hpool
+    hroot hpinσ hmmIdx hψR hcorr hq hpool
   exact nestedPinLfp_of_root_class m dJf hgroups hρp hB hdJfB GR hshR hwideFam
     c q hc hc hcp hσc
 

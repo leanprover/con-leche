@@ -2199,6 +2199,178 @@ theorem NestedPinsRun.instMapPinOwn {pbs : List (Expr × ConLeche.BinderMeta)}
   rw [hψJC φ, hcvTC]
   exact hc
 
+/-- **EVERY VALUE OF THE INSTANCE MAP IS THE MAP'S VALUE AT ONE OF THE
+CONTAINER'S OWN PIN INDICES** (task #315 WIDE (f8), lane WIRE): if the
+map contains `z` at all, it contains it at a POSITION that is a class
+of the container — `qK < dJ.nPins` — so a membership in the map is a
+CLASS of the container and not merely a table position.
+
+This is `nestedClassPinAt_of_instMap`'s `hmmLen` in the only form that
+is provable, and the merge row's "route 2".  **`mm.length ≤ dJ.nPins`
+itself is FALSE in general**: the map is `own.mapM findIdx?` over
+`containerOwnPinsAt`'s table, and nothing bounds that table's length by
+the block model's pin count — `ContainerOwnPinsSyn`'s first clause says
+every entry IS one of the `dJ.nPins` recorded pins, which allows
+repeats and hence a longer table.  What the consumer actually spends
+`hmmLen` on is turning a table position into a class, and that is this
+statement.
+
+The proof is the two clauses of `ContainerOwnPinsSyn` against the
+`mapM`'s pointwise structure: at the position `w` where the map holds
+`z` the table holds some `e`; clause (1) names a class `qK` with
+`e = (dJ.pinAt qK).ownAt …`; clause (2) at THAT class says the table
+holds the same term there; and equal source entries give equal `mapM`
+results, so the map holds `z` at `qK` too. -/
+theorem NestedPinsRun.instMapOwnIdx {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {mm : List Nat} (hmap : ConLeche.nestedInstMapAt env st (q₀ + i') = some mm)
+    {z : Nat} (hz : mm.contains z = true) :
+    ∃ qK, qK < dJ.nPins ∧ mm.getD qK 0 = z := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hqS : q₀ + i' < pinsS.length := by rw [SF.pinsLen]; exact hq
+  have PD := hPD _ hq
+  obtain ⟨hcname, hpinEq⟩ := SF.pinRec _ _ PD.pin
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CM.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hmemJ₂ : dJ.memberName i' = J₂.name := (CM.member i' J₂ hJ₂).1
+  obtain ⟨cvT', caps', cvR, mI, rP, rules, hfindP, hI, hψlaw⟩ := S.stored i' hi'
+  have hCname : (pinsS.getD (q₀ + i') default).J = J₂.name := by
+    rw [← hmemJ₂]; exact hI.member.symm
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, -, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfindC, -, -, -, -, -, -⟩ :=
+    hmembers J₂ (List.mem_of_getElem? hJ₂)
+  have hmem0 : 0 < ci.members.length := by omega
+  obtain ⟨M₀, hM₀⟩ : ∃ M₀, ci.members[0]? = some M₀ :=
+    ⟨_, List.getElem?_eq_getElem hmem0⟩
+  have hhead0 : ci.members.head? = some M₀ := by
+    rw [List.head?_eq_getElem?]; exact hM₀
+  have hDsLen : ((pinsS.getD (q₀ + i') default).DsE).length = dJ.nP := by
+    rw [(SF.pinDs _ hqS (fun _ => 0)).length]
+    exact S.pinDsLen i' hi' (fun _ => 0)
+  have hclosed : ∀ a ∈ (pinsS.getD (q₀ + i') default).DsE, a.looseBVarsBounded 0 = true := by
+    obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
+    have hb := (hsc _ (List.mem_of_getElem? PD.pin)).1
+    rw [hpinEq] at hb
+    exact lbb_mkAppN_args hb
+  have hlds : ConLeche.nestedPinLvlsDs env (pinAtE st (q₀ + i'))
+      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) :=
+    NestedPinsRun.pinLvlsDsAt SF S hPD hi' hciP CM
+  obtain ⟨own, hown⟩ : ∃ own : List Expr,
+      ConLeche.containerOwnPinsAt env (pinsS.getD (q₀ + i') default).J
+        ((pinsS.getD (q₀ + i') default).lvls) ((pinsS.getD (q₀ + i') default).DsE)
+        = some own :=
+    ⟨_, containerOwnPinsAt_eq (by rw [hCname]; exact hfindC) hciP hhead0⟩
+  have hfindM : (ConLeche.consMutualFormers (fms.take p.k) env).find? (dJ.memberName i')
+      = some (.indInfo cvC capsC) := by
+    rw [hmemJ₂, ← hCname]
+    exact R.cross.1 _ _ (fun _ _ _ _ hh => nomatch hh) (by rw [hCname]; exact hfindC)
+  have hpsM : ConLeche.containerOwnPinsAt (ConLeche.consMutualFormers (fms.take p.k) env)
+      (dJ.memberName i') ((pinsS.getD (q₀ + i') default).lvls)
+      ((pinsS.getD (q₀ + i') default).DsE) = some own := by
+    rw [hmemJ₂, ← hCname, R.ownPinsCross (C := (pinsS.getD (q₀ + i') default).J)
+      (by rw [hCname, hfindC]; rfl)]
+    exact hown
+  obtain ⟨hmemCl, hpos⟩ := CM.ownPins i' cvC capsC ((pinsS.getD (q₀ + i') default).lvls)
+    ((pinsS.getD (q₀ + i') default).DsE) own hik hfindM hclosed hpsM
+  -- the map IS the table's `mapM`
+  have hmapM : own.mapM (fun e => st.pins.findIdx? (fun r => r.pin == e)) = some mm := by
+    have h := hmap
+    unfold ConLeche.nestedInstMapAt at h
+    rw [PD.pin] at h
+    simp only [bind, Option.bind] at h
+    rw [hlds] at h
+    simp only at h
+    rw [show (pinAtE st (q₀ + i')).container
+        = (pinsS.getD (q₀ + i') default).J from hcname.symm, hown] at h
+    exact h
+  -- the position the map holds `z` at, and the table's entry there
+  obtain ⟨w, hwlt, hwz⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hz)
+  have hwz' : mm[w]? = some z := by
+    rw [List.getElem?_eq_getElem hwlt, hwz]
+  have hwown : w < own.length := by
+    rw [← ConLeche.mapM_option_length hmapM]; exact hwlt
+  obtain ⟨e, he⟩ : ∃ e, own[w]? = some e := ⟨_, List.getElem?_eq_getElem hwown⟩
+  obtain ⟨z', hz', hfe⟩ := ConLeche.mapM_option_inv hmapM w e he
+  have hzz : z = z' := Option.some.inj (hwz'.symm.trans hz')
+  -- clause (1): the entry is one of the container's recorded pins
+  obtain ⟨qK, hqK, hqKe⟩ := hmemCl e (List.mem_of_getElem? he)
+  -- clause (2) at THAT class: the table holds the same term
+  have hatqK : own[qK]? = some e := by rw [hpos qK hqK hDsLen, hqKe]
+  obtain ⟨z₂, hz₂, hfe₂⟩ := ConLeche.mapM_option_inv hmapM qK e hatqK
+  have hz₂z : z₂ = z' := Option.some.inj (hfe₂.symm.trans hfe)
+  exact ⟨qK, hqK, by rw [List.getD_eq_getElem?_getD, hz₂, Option.getD_some, hz₂z, hzz]⟩
+
+
+/-- **THE COVERING'S RUN-LEVEL INPUTS, AT A GROUP'S BASE** (task #315
+WIDE (f8), lane WIRE): three of the six inputs
+`nestedClassPinAt_of_instMap` (`NestedEntryOrd.lean`) asks for —
+`hmmIdx`, `hψR` and `hcorr` — read off the run record at the group's
+base pin, together with the instance map they all speak of.
+
+* `hmmIdx` is `instMapOwnIdx`: a VALUE of the map is a value at a
+  CLASS of the container;
+* `hψR` is the group's own level reading, `NestedPinGroupSyn.stored`'s
+  third component at the base member, and it is what fixes `lpsR` —
+  the container's own level parameters, read off the stored constant;
+* `hcorr` is `instMapPinOwn` at every own-pin class, with its `mm[qK]?`
+  turned into the `mm.getD qK 0` the covering reads.
+
+The two σ-halves (`hroot`/`hpinσ`) are NOT here and cannot be: they
+speak of the closure `σ`, which `PinGroupInst` (`NestedCore.lean`)
+carries EXISTENTIALLY, so nothing outside that residual's own producer
+can name the function they constrain.  See DESIGN's WIDE (f8) §(c). -/
+theorem NestedPinsRun.pinGroupCover_of {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q) :
+    ∃ (mm : List Nat) (lpsR : List Name),
+      ConLeche.nestedInstMapAt env st q₀ = some mm ∧
+      (∀ z, mm.contains z = true → ∃ qK, qK < dJ.nPins ∧ mm.getD qK 0 = z) ∧
+      (∀ φ : Name → Nat, ((D).pinAt q₀).ψJ φ
+        = Level.substFn φ lpsR (((D).pinAt q₀).lvls)) ∧
+      (∀ qK, qK < dJ.nPins → ∀ φ : Name → Nat,
+        PinCorr ((D).targetView mp₁'.base2.acval φ) mp₁'.base2.acval dJ
+          (((D).pinAt q₀).ψJ φ) (((D).pinAt q₀).Ds φ) lpsR (((D).pinAt q₀).lvls)
+          (p.k + mm.getD qK 0) qK) := by
+  classical
+  have hq0 : q₀ + 0 < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; have := S.kpos; omega
+  obtain ⟨hcname, -⟩ := SF.pinRec _ _ (hPD _ hq0).pin
+  obtain ⟨ci, hci0, -⟩ := (hPD _ hq0).own
+  have hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + 0) default).J = some ci := by
+    rw [hcname]; exact hci0
+  have CM : ContainerModeled mp₁'.base2 ci dJ := S.modeled 0 S.kpos ci hciP
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, -, hψlaw⟩ := S.stored 0 S.kpos
+  -- the group's own instance map
+  obtain ⟨mm, hmm⟩ : ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm := by
+    cases hms : ConLeche.nestedInstMaps env st with
+    | none =>
+      have hK61 := R.hK61
+      unfold ConLeche.nestedInstMapOk ConLeche.nestedInstMapOkAt at hK61
+      rw [hms] at hK61; simp at hK61
+    | some maps =>
+      obtain ⟨m, -, hm⟩ := ConLeche.mapM_option_inv hms (q₀ + 0) (q₀ + 0)
+        (by rw [List.getElem?_range (by omega)])
+      exact ⟨m, hm⟩
+  refine ⟨mm, cvT.levelParams, hmm,
+    fun z hz => R.instMapOwnIdx SF S hPD S.kpos hciP CM hmm hz, hψlaw, ?_⟩
+  intro qK hqK φ
+  obtain ⟨mm', σq, hmm', hmmqK, -, -, hrest⟩ :=
+    R.instMapPinOwn SF S hPD S.kpos hciP CM hqK hfind
+  have hmmeq : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+  rw [hmmeq] at hmmqK
+  have hval : mm.getD qK 0 = σq := by rw [List.getD_eq_getElem?_getD, hmmqK]; rfl
+  rw [hval]
+  exact (hrest φ).2
+
+
 /-- **THE TWO σ-FACTS, AND THE MAP'S RANGE** (task #315 WIDE (3′)):
 `rowsσ_of_pin_class`'s `hmemσ` and `hidxσ` at the run's instance map,
 read off `instMapPinOwn` at the group's BASE member and nothing else.

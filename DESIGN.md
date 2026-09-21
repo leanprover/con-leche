@@ -132970,3 +132970,141 @@ Changed: `ConLeche/Model/Inductives/NestedInstMap.lean`,
 `ConLeche/Model/Inductives/NestedPinsLeInd.lean`, `DESIGN.md`.  **The
 kernel did not change**, so no accept-set table and no cost table is
 owed.
+
+#### WIDE (f9) — THE COVERING'S MAP-SIDE INPUTS COME FROM THE RUN, AND `hmmLen` WAS NOT PROVABLE AS STATED (lane WIRE, session 1, 2026-09-21)
+
+##### (a) `hmmLen` IS FALSE AS STATED, AND WHAT REPLACES IT
+
+`nestedClassPinAt_of_instMap` asked for `mm.length ≤ (dJf r).nPins`,
+and WIDE (f6) offered two routes to it.  **Neither route proves that
+statement, and the statement is not true in general.**  The map is
+
+    nestedInstMapAt env st q = own.mapM (fun e => st.pins.findIdx? (·.pin == e))
+
+over `own = containerOwnPinsAt env …`, so `mm.length = own.length`, and
+the only clause that bounds `own` is `ContainerOwnPinsSyn`'s first —
+*every entry of `own` IS one of the `d.nPins` recorded pins* — which
+allows the table to REPEAT a pin and hence to be longer than `d.nPins`.
+Nothing in the tree forbids the repeat.
+
+What the consumer actually spends the bound on is one step: turning the
+table POSITION at which it finds `q` into a container CLASS.  That is
+
+    hmmIdx : ∀ z, mm.contains z = true → ∃ qK, qK < (dJf r).nPins ∧ mm.getD qK 0 = z
+
+which is WIDE (f6)'s own "route 2" reading, and it is provable exactly
+as that route said: clause (1) names the class `qK` of the entry found,
+clause (2) puts the SAME entry at `qK`, and `mapM`'s pointwise
+structure carries the value across.  `nestedClassPinAt_of_instMap`
+(`NestedEntryOrd.lean:426`) and `nestedPinLfp_of_pool` (`:526`) take
+`hmmIdx` in `hmmLen`'s place; the pin branch's four-line `obtain`
+became one line.
+
+##### (b) THE THREE RUN-LEVEL EXPORTS
+
+| object | file:line | what it is |
+|---|---|---|
+| `NestedPinsRun.instMapOwnIdx` | `NestedInstMap.lean:2224` | `hmmIdx` at a group's pin, from `ContainerOwnPinsSyn`'s two clauses and `mapM`'s pointwise structure |
+| `NestedPinsRun.pinGroupCover_of` | `NestedInstMap.lean:2331` | the group's instance map together with `hmmIdx`, `hψR` and `hcorr` |
+| `nestedClassPinAt_of_run` | `NestedPinsLeInd.lean:477` | `nestedClassPinAt_of_instMap` with those three discharged |
+
+`hψR` is `NestedPinGroupSyn.stored`'s third component at the base
+member and it is what fixes `lpsR` (the container's own level
+parameters, read off the stored constant); `hcorr` is
+`NestedPinsRun.instMapPinOwn` at every own-pin class, with its
+`mm[qK]? = some σq` turned into the `mm.getD qK 0` the covering reads.
+The prologue is `instMapPinOwn`'s and is not re-derived: both new
+theorems open the group's own-pin table exactly as it does.
+
+##### (c) `hroot`/`hpinσ` ARE **NOT** EXPORTABLE AT THIS TREE — A SHAPE FINDING, NOT A COST
+
+WIDE (f7) §(j) 3 priced all six covering inputs together as "one to two
+sessions, of which `hmmLen` is most of it".  Three of them are now
+discharged; the two σ-halves are **blocked on a shape, not on effort**,
+and the block is worth recording rather than working around:
+
+* `hroot`/`hpinσ` constrain the instance closure `σ`.  The residual
+  that PRODUCES a closure is `PinGroupInst` (`NestedCore.lean:296`,
+  discharged by `nestedPinsInst_of`) and its statement is `∃ σ, …`.  A
+  consumer therefore holds σ only as an opaque local, and the map `mm`
+  that `hpinσ` equates it against is nowhere in that record.
+* The clause that looks closest, `hownσ`, does **not** give `hpinσ`.
+  It says `σ (dJ.k + x) = p.k + q'` for a block pin `q'` carrying the
+  container's own pin's DATA (container name, index sort, index
+  telescope, components).  `instMapPinOwn` gives the same data at
+  `p.k + mm.getD x 0`.  Equal data does not name a pin — two block pins
+  may share all four — so `q' = mm.getD x 0` does not follow.
+* `pinGroupInst_of` (`NestedInstMap.lean`) DOES build σ as
+  `fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0`
+  at the map at the group's base.  The fix is therefore to let that
+  witness out: `PinGroupInst` carries the map and the two halves, or a
+  σ-explicit sibling of `pinGroupInst_of` states the nine conjuncts at
+  the named function.  **`NestedCore.lean` and `NestedPins.lean` are
+  the main lane's**, so this lane did not make the change; it is
+  half a session wherever it lands, and it also has to be made before
+  the step's `hσ`/`hstgt`/`houtσ`/`hIsσ` can be wired, because those
+  speak of the SAME σ.
+
+##### (d) `hpool` STAYS NAMED, AND WHY
+
+`hpool` is K.75's clause (1) at the pin, moved to the group base by
+`instMapGroup`.  Its inversion (`nestedPinPoolImage_inv`) reads the
+kernel Bool `nestedPinPoolGrpAt`, and **`NestedPinsRun` carries no K.41
+and no K.75 field** — `hgrp` (K.29), `hrank` (K.37), `hK61`, `hK62`,
+`hK67`/`hK68`/`hK69` are there, the root-pair wrapper is not.  That is
+why `nestedPinWideStep` already takes `hK75pool`/`hK75grp`/`hrootGrp`
+as hypotheses, and `hpool` is the same item one level down.  Adding the
+conjunct is a `NestedPins.lean` change, the main lane's.
+
+##### (e) THE GATES — FOR **BOTH** OF THIS SESSION'S ROWS
+
+Changed across WIDE (f8) and (f9):
+`ConLeche/Model/Inductives/NestedInstMap.lean`,
+`ConLeche/Model/Inductives/NestedEntryOrd.lean`,
+`ConLeche/Model/Inductives/NestedPinsLeInd.lean`, `DESIGN.md`.  **The
+kernel did not change**, so no accept-set table and no cost table is
+owed.
+
+`tests/arena.sh` EXIT 0 — `layering: base 355 / model 293 / caps 3 /
+umbrella 1 modules; 0 base->lane edges, 0 impl->theory`,
+`proofdeps: 4975 module rows as pinned across 12 roots; doors: 0`,
+`trust surface: 13 escapes in 5 allowlisted files (664 scanned)`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`, `shake: 514 removals proposed, all 514 allowlisted`,
+`pub-imports: 1351 of 2327 in-tree edges public, none demotable (60
+dot-notation fallbacks)`, **`nested-shadow: 47/47`**, `inmodel: OK`,
+`axioms: pinned (20 theorems)`, `arena suite: 91/96`, `e2e: 200/200`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`, the
+trusted sweep (162 + 200 + 15, 3 recorded divergences) and both
+`--jobs` sweeps as at the default.  The in-tree public edge count moved
+from 2326 to 2327: the one new import is `NestedPinsLeInd`'s PRIVATE
+`import ConLeche.Model.Inductives.NestedInstMap` (the count is of
+in-tree edges, of which the public share is unchanged at 1351).
+
+`tests/warning-free.sh 4079aa44`: 3 changed modules, 3 recompiled,
+**0 warning lines** in both halves; `lake test` exit 0 with no warning
+line.
+
+`tests/unconsumed.sh`: **209 of 3969** against the base's **208 of
+3965**.  Four declarations were added and exactly ONE is unconsumed:
+
+* `NestedPinsRun.edgeAt` — consumed by `nestedPinWideStep`;
+* `NestedPinsRun.instMapOwnIdx` and `NestedPinsRun.pinGroupCover_of` —
+  consumed by `nestedClassPinAt_of_run`;
+* `nestedClassPinAt_of_run` — **unconsumed**, the named residual whose
+  consumer is `hwide` and therefore the wiring of the step into
+  `nestedPinsLe_of_wide`.
+
+`nestedPinPoolImage_inv`, `nestedOrdOutsideGrp_inv` and
+`ofNested_pin_block_of_wide_inst_famAt` did **not** gain consumers this
+session and are still on the list, because that wiring — which is what
+spends them — did not land (see §(c) and WIDE (f9) §(d)).
+
+`#print axioms` on every declaration this session added or restated —
+`NestedPinsRun.edgeAt`, `NestedPinsRun.instMapOwnIdx`,
+`NestedPinsRun.pinGroupCover_of`, `nestedClassPinAt_of_run`,
+`nestedClassPinAt_of_instMap`, `nestedPinLfp_of_pool`,
+`nestedPinWideStep`, `nestedPinsLe_of_wide` —
+`[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom,
+no `maxHeartbeats`, no `implemented_by`.

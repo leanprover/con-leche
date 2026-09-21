@@ -442,6 +442,72 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
     hent hstgt houtσ hpin (i := i) (by omega)
   rw [hwide, pinLfp_group G hi, G.syn.w i hi ψ]
 
+
+/-! ## The covering, at the RUN
+
+`nestedClassPinAt_of_instMap` (`NestedEntryOrd.lean`) is stated at six
+inputs that all EXIST at the run and none of which is in the run's own
+vocabulary.  This is where three of them stop being hypotheses:
+`NestedPinsRun.pinGroupCover_of` (`NestedInstMap.lean`) hands the
+instance map together with `hmmIdx`, `hψR` and `hcorr`, and what is
+left named is the closure `σ` and its two halves.
+-/
+
+/-- **K.41's COVERING AT A PIN, FROM THE RUN** (task #315 WIDE (f8),
+lane WIRE): `nestedClassPinAt_of_instMap` with its three MAP-side
+inputs discharged — the map's values are values at container classes
+(`hmmIdx`), the root group's level reading (`hψR`) and the
+correspondence at every own-pin class (`hcorr`) — so that a caller owes
+only the instance closure and the pool.
+
+**What is still named, and why.**  `σ` and its two halves
+`hroot`/`hpinσ` are the CLOSURE, and the residual that produces a
+closure (`PinGroupInst`, `NestedCore.lean`, discharged by
+`nestedPinsInst_of`) carries it EXISTENTIALLY: `∃ σ, …`.  Nothing
+outside that residual's own producer can therefore name the function
+these two constrain, and in particular `PinGroupInst`'s own clauses
+(`hownσ` at an own-pin class) do NOT give `hpinσ`: they fix the block
+pin's DATA — container, index sort, index telescope, components — and
+two distinct block pins may carry the same data, so the data does not
+name the pin.  Exposing the witness, or carrying the map beside it, is
+`PinGroupInst`'s own change and is recorded in DESIGN's WIDE (f8) §(c).
+
+The model-side records (`GR`/`CR`/`hB`/`hshR`/`hgroups`) are the ones
+every consumer at this layer already holds. -/
+theorem nestedClassPinAt_of_run
+    {st : ElimState} {stored : List AuxStored}
+    (R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
+      kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁')
+    (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁')
+    {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st mp₁'.base2 q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V}
+    {r kR : Nat} (GR : GF st mp₁'.base2 r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled mp₁'.base2 ciR (dJf r))
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf mp₁'.base2 B)
+    {pcR : Nat → PinCtors V} (hshR : PinShapes mp₁'.base2 B (dJf r) pcR)
+    {σ : Nat → Nat} {mm : List Nat}
+    (hmap : ConLeche.nestedInstMapAt env st r = some mm)
+    (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
+    (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
+      σ c = p.k + mm.getD (c - (dJf r).k) 0)
+    {q : Nat} (hq : q < pinsS.length)
+    (hpool : (∃ i, i < kR ∧ q = r + i) ∨ mm.contains q = true) :
+    ∃ c, c < (dJf r).k + (dJf r).nPins ∧
+      ClassPinAt (ConLeche.consMutualFormers (fms.take p.k) env) (D) (dJf r) ψ
+        (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q ∧
+      σ c = p.k + q := by
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  obtain ⟨mm', lpsR, hmap', hmmIdx, hψR, hcorr⟩ := R.pinGroupCover_of SF GR.syn hPD
+  obtain rfl : mm' = mm := Option.some.inj (hmap'.symm.trans hmap)
+  exact nestedClassPinAt_of_instMap (ρp := ρp) mp₁'.base2 hgroups GR CR hB hshR
+    hroot hpinσ hmmIdx (hψR ψ) (fun qK hqK => hcorr qK hqK ψ) hq hpool
+
+
 end Step4
 
 end ConLeche.Model
