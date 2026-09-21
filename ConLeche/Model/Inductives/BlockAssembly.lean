@@ -342,12 +342,16 @@ theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} 
     (hnd : q.memberNames.Nodup)
     (hE : ConLeche.EtaFamiliesClosed env)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (hAbelowOf : ∀ (j : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (A j ψ).erase)
+    (hAbelowOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ ψ : Name → Nat, Term.bvarsBelow 0 (A j ψ).erase)
     (hAparamsOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ cvTa.levelParams, ψ₁ n = ψ₂ n) → A j ψ₁ = A j ψ₂)
-    (hAokOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A j ψ))
-    (hAvalidOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (A j ψ))
-    (hAmemOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V),
+    (hAokOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A j ψ))
+    (hAvalidOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (A j ψ))
+    (hAmemOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (A j ψ) ∈ˢ interp V ρ (mkPisAV (ppsOf j ψ) (.sort (q.resSort.eval ψ))))
     (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), cvTas[j]? = some cvTa →
       cvTas[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
@@ -576,14 +580,14 @@ theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {
     | some cvTa => exact (hF.fdOf j cvTa hj).below ψ
   refine blockFormerPass mp hInd hF hnd hE
     (fun j ψ => sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [])
-    (fun j ψ => sumTyAV_below (hbelow j ψ) (by intro Fs hFs; exact nomatch hFs))
+    (fun j _ _ ψ => sumTyAV_below (hbelow j ψ) (by intro Fs hFs; exact nomatch hFs))
     (fun j cvTa hj ψ₁ ψ₂ hφ => by
       obtain ⟨hp, hw⟩ := (hF.fdOf j cvTa hj).params ψ₁ ψ₂ hφ
       show sumTyAV _ _ [] = sumTyAV _ _ []
       rw [hp, hw])
-    (fun j ψ ρ => sumTyAV_wellDenoted (hwalks j ψ ρ).1)
-    (fun j ψ ρ => (sumTyAV_wellDenotedV (hwalks j ψ ρ).1 (hwalks j ψ ρ).2).2)
-    (fun j ψ ρ => sumTyAV_mem (hwalks j ψ ρ).1)
+    (fun j _ _ ψ ρ => sumTyAV_wellDenoted (hwalks j ψ ρ).1)
+    (fun j _ _ ψ ρ => (sumTyAV_wellDenotedV (hwalks j ψ ρ).1 (hwalks j ψ ρ).2).2)
+    (fun j _ _ ψ ρ => sumTyAV_mem (hwalks j ψ ρ).1)
     hetaNe hetaFresh ?_
   -- the capability laws at the DUMMY leaf: η is vacuous (no
   -- constructor is stored), unit-likeness folds the empty-chain leaf
@@ -808,5 +812,188 @@ theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : E
     funext fun i => nIdxAt_eq_getD (by rw [hlenNI]; exact htgtLt j i)
   rw [hTof, hNIdxOf, hnameOf m cvTa hm] at hD
   exact hD
+
+/-! ## The real pass -/
+
+/-- **The REAL former pass**: the `k` formers consed with the FIXPOINT
+leaves the dummy pass's readings build — `declNative`'s
+`stageFixFormer` at `k` members.  The block operator's premise bundle
+at the LEAF's chains (`hIdxAll`, `hXAll`, `hXVAll`) is what
+`blockLeafWalks` turns into the leaf's two hereditary premises, and
+the `blockTyAV` capstones into its five currency facts.  A unit-like
+member's law comes through its leaf's FOLD alone (`hfoldZ`), which is
+a statement about the leaf TERM and therefore crosses every cons. -/
+theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+    {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {sOf : Nat → Level}
+    {uOf : Nat → (Name → Nat) → Nat} {rsss : Nat → List (List Bool)}
+    {tgtsss : Nat → List (List Nat)}
+    {tlsss : Nat → (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eisss : Nat → (Name → Nat) → List (List (List AnnotTerm))}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
+    {Esss : Nat → (Name → Nat) → List (List AnnotTerm)}
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+      = .ok (envI, cvTas, q))
+    (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
+    (hnd : q.memberNames.Nodup)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), cvTas[j]? = some cvTa →
+      cvTas[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
+      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
+    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
+      (ConLeche.blockCapsAt q j isRec).eta = true →
+      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none)
+    -- the index telescopes' lengths, bounds and the chains' bounds
+    (hIdsLen : ∀ (j : Nat) (ψ : Name → Nat),
+      (((ppsOf j ψ).drop q.nP).map (·.2.2)).length = q.nIdxs.getD j 0)
+    (hIdsBelow : ∀ (c : Nat) (ψ : Name → Nat),
+      FieldsBelow q.nP (((ppsOf c ψ).drop q.nP).map (·.2.2)))
+    (hchainsBelow : ∀ (ψ : Name → Nat) (c : Nat), c < q.k →
+      ∀ chain ∈ chainsXBI (fun c' => uOf c' ψ)
+        (fun c' => ((ppsOf c' ψ).drop q.nP).map (·.2.2))
+        ((((ppsOf c ψ).drop q.nP).map (·.2.2)).length) (rsss c) (tgtsss c) (tlsss c ψ)
+        (Eisss c ψ) (fssZ ψ c) (Esss c ψ), FieldsBelow (q.nP + 2) chain)
+    -- the leaf's data depends on the block's level parameters only
+    (hZparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
+      (∀ c, uOf c ψ₁ = uOf c ψ₂) ∧ (∀ c, tlsss c ψ₁ = tlsss c ψ₂) ∧
+      (∀ c, Eisss c ψ₁ = Eisss c ψ₂) ∧ fssZ ψ₁ = fssZ ψ₂ ∧ (∀ c, Esss c ψ₁ = Esss c ψ₂))
+    -- the block operator's premise bundle, at every member's frame
+    (hIdxAll : ∀ (j : Nat) (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsOf j ψ).take q.nP).map (·.2.2)).reverse ρp →
+      BlockIdxOk (V := V) q.k (fun c => uOf c ψ) ρp
+        (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) ∧
+      ∀ c, c < q.k → FieldsValid ρp (((ppsOf c ψ).drop q.nP).map (·.2.2)))
+    (hXAll : ∀ (j : Nat) (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsOf j ψ).take q.nP).map (·.2.2)).reverse ρp →
+      BlockChainsOkI q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
+        (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+        (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ))
+    (hXVAll : ∀ (j : Nat) (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsOf j ψ).take q.nP).map (·.2.2)).reverse ρp →
+      ∀ Y, Y ∈ˢ famsSpaceB q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
+        (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) →
+      ∀ c, c < q.k → ∀ t, t ∈ˢ idxSet (uOf c ψ) ρp (((ppsOf c ψ).drop q.nP).map (·.2.2)) →
+      SumFieldsValid (cons t (cons Y ρp))
+        (chainsXBI (fun c' => uOf c' ψ) (fun c' => ((ppsOf c' ψ).drop q.nP).map (·.2.2))
+          ((((ppsOf c ψ).drop q.nP).map (·.2.2)).length) (rsss c) (tgtsss c) (tlsss c ψ)
+          (Eisss c ψ) (fssZ ψ c) (Esss c ψ)))
+    -- a unit-like member's leaf folds to the one tagged empty tuple
+    (hfoldZ : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      (ConLeche.blockCapsAt q j isRec).unitlike = true →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
+        SpineFit ρ ((ppsOf j ψ).map (·.2.2)) ts →
+        ts.foldl SetTheory.app (interp V ρ
+            (blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j))
+          = sumSet (q.resSort.eval ψ) (sumFibre (q.resSort.eval ψ) (consList ts ρ)
+              [[] ++ [idxEqAV []]])) :
+    ∃ mp' : EnvModelM V μ envI,
+      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        envI.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt q j isRec)) ∧
+        ∀ ψ, mp'.base2.acval cvTa.name ψ
+          = blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j) := by
+  -- the members' telescope readings depend on the block's level parameters only
+  have hppsParams : ∀ (c : Nat) (ψ₁ ψ₂ : Name → Nat), (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
+      ppsOf c ψ₁ = ppsOf c ψ₂ := by
+    intro c ψ₁ ψ₂ hφ
+    cases hc : cvTas[c]? with
+    | none => rw [hF.ppsNil c hc, hF.ppsNil c hc]
+    | some cvTb =>
+      exact ((hF.fdOf c cvTb hc).params ψ₁ ψ₂
+        (fun n hn => hφ n (by rw [← hF.lpsOf c cvTb hc]; exact hn))).1
+  -- the leaf's two hereditary premises at every member
+  have hwalks : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa → j < q.k →
+      ∀ ρ : Nat → V, ∀ ψ : Name → Nat,
+      ParamsOkXBI q.k (q.resSort.eval ψ) ρ (fun c => uOf c ψ)
+          (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+          (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) j (ppsOf j ψ) ∧
+        UnderTowerValid ρ
+          (.app (projAV j ((blockBodyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ)).liftN
+              ((((ppsOf j ψ).drop q.nP).map (·.2.2)).length) 0))
+            (mkTowerGo (uOf j ψ) (((ppsOf j ψ).drop q.nP).map (·.2.2)))) (ppsOf j ψ) := by
+    intro j cvTa hj hjk ρ ψ
+    exact blockLeafWalks (nIdx := q.nIdxs.getD j 0) ((hF.fdOf j cvTa hj).len ψ)
+      ((hF.fdOf j cvTa hj).bits ψ)
+      (fun ρ' => (hF.fdOf j cvTa hj).okTy ψ ρ') hjk rfl
+      (fun ρp hρp => hIdxAll j ψ ρp hρp) (fun ρp hρp => hXAll j ψ ρp hρp)
+      (fun ρp hρp => hXVAll j ψ ρp hρp) ρ
+  refine blockFormerPass mp hInd hF hnd hE
+    (fun j ψ => blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+      (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+      (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j)
+    ?_ ?_ ?_ ?_ ?_ hetaNe hetaFresh ?_
+  · -- closed
+    intro j cvTa hj ψ
+    exact blockTyAV_below ((hF.fdOf j cvTa hj).below ψ) ((hF.fdOf j cvTa hj).len ψ)
+      (hIdsLen j ψ) (fun c => hIdsBelow c ψ) (fun c hc => hchainsBelow ψ c hc)
+  · -- the level parameters
+    intro j cvTa hj ψ₁ ψ₂ hφ
+    have hφ' : ∀ n ∈ q.lps, ψ₁ n = ψ₂ n :=
+      fun n hn => hφ n (by rw [hF.lpsOf j cvTa hj]; exact hn)
+    obtain ⟨hu', htl, hei, hfz, hes⟩ := hZparams ψ₁ ψ₂ hφ'
+    have hw : q.resSort.eval ψ₁ = q.resSort.eval ψ₂ :=
+      ((hF.fdOf j cvTa hj).params ψ₁ ψ₂ hφ).2
+    show blockTyAV _ _ _ _ _ _ _ _ _ _ _ _ = blockTyAV _ _ _ _ _ _ _ _ _ _ _ _
+    rw [hw, hfz, hppsParams j ψ₁ ψ₂ hφ',
+      show (fun c => uOf c ψ₁) = (fun c => uOf c ψ₂) from funext hu',
+      show (fun c => tlsss c ψ₁) = (fun c => tlsss c ψ₂) from funext htl,
+      show (fun c => Eisss c ψ₁) = (fun c => Eisss c ψ₂) from funext hei,
+      show (fun c => Esss c ψ₁) = (fun c => Esss c ψ₂) from funext hes,
+      show (fun c => ((ppsOf c ψ₁).drop q.nP).map (·.2.2))
+        = (fun c => ((ppsOf c ψ₂).drop q.nP).map (·.2.2))
+        from funext fun c => by rw [hppsParams c ψ₁ ψ₂ hφ']]
+  · -- graded
+    intro j cvTa hj ψ ρ
+    exact blockTyAV_wellDenoted (by
+      have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this)
+      (hwalks j cvTa hj (by
+        have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this) ρ ψ).1
+  · -- bit-valid
+    intro j cvTa hj ψ ρ
+    have hjk : j < q.k := by
+      have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this
+    exact (blockTyAV_wellDenotedV hjk (hwalks j cvTa hj hjk ρ ψ).1
+      (hwalks j cvTa hj hjk ρ ψ).2).2
+  · -- the leaf inhabits its type's reading
+    intro j cvTa hj ψ ρ
+    have hjk : j < q.k := by
+      have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this
+    exact blockTyAV_mem hjk (hwalks j cvTa hj hjk ρ ψ).1
+  · -- the capability laws at the FIXPOINT leaf
+    intro j cvTa hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
+    have hFD₂ : FormerData m₂ cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) :=
+      hFD'.cross (c₀ := .indInfo cvTa (ConLeche.blockCapsAt q j isRec)) hfreshT
+        (ConsCrossAt.ofNtc fun _ hh => nomatch hh) hcb m₂ hac
+    have hleaf : ∀ ψ, m₂.acval cvTa.name ψ
+        = blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+            (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
+            (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j := by
+      intro ψ
+      rw [hac]
+      exact congrFun acvalWith_self ψ
+    refine ⟨fun he hfam => ?_, fun hu φ' => ?_⟩
+    · exfalso
+      obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
+      rw [ConLeche.Env.find?_cons,
+        if_neg (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+          show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
+          exact hh)),
+        hfreshC j cvTa hj he] at hfC
+      exact nomatch hfC
+    · refine fibreUnitLaw hleaf (fun ψ ρ ts hsp => hfoldZ j cvTa hj hu ψ ρ ts hsp)
+        hFD₂.read hFD₂.okTy (fun ψ => ?_)
+      rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
+        blockNIdxs_getD (q := q) (j := j) (by
+          have := (List.getElem?_eq_some_iff.mp hj).1
+          rwa [hF.lenCv] at this),
+        blockCapsAt_unitlike_nIdx hu, Nat.add_zero]
 
 end ConLeche.Model
