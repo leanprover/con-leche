@@ -579,7 +579,7 @@ theorem checkBlockRecK_lps {envC : Env} {p : ConLeche.BlockParts}
     have hnl : n < p.recs.length := by
       have hql := (List.getElem?_eq_some_iff.mp hq).1
       omega
-    obtain ⟨rc, q', hrc, hq', -, hcv⟩ := hall n hnl
+    obtain ⟨rc, q', hrc, hq', -, hcv, -, -⟩ := hall n hnl
     obtain rfl := Option.some.inj (hq.symm.trans hq')
     obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
       ConLeche.checkConstantVal_inv hcv

@@ -209,7 +209,9 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
     rs.length = p.recs.length ∧
     ∀ i, i < p.recs.length → ∃ rc r, p.recs[i]? = some rc ∧ rs[i]? = some r ∧
       r.1.name = rc.cvR.name ∧
-      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC rc.cvR = .ok r.1 := by
+      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC rc.cvR = .ok r.1 ∧
+      p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
+      ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
   unfold ConLeche.checkBlockRecK at h
   obtain ⟨u, hpins, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
@@ -219,7 +221,7 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
   refine ⟨by cases u; exact hpins, hlenR, ?_⟩
   intro i hil
   obtain ⟨rc, r, hrc, hr, hcvRa, -⟩ := hallR i hil
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, hle, hsum⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
@@ -227,8 +229,11 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
     have hq := hcvRa
     rw [Nat.zero_add] at hq
     exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-  exact ⟨rc, r, hrc, hr, by rw [hr1, (ConLeche.checkConstantVal_lps hcv).1],
-    by rw [hr1]; exact hcv⟩
+  refine ⟨rc, r, hrc, hr, by rw [hr1, (ConLeche.checkConstantVal_lps hcv).1],
+    by rw [hr1]; exact hcv, ?_, ?_⟩
+  · rw [Nat.zero_add] at hle; exact hle
+  · rw [Nat.zero_add] at hsum
+    exact ⟨nIdx, hsum⟩
 
 /-- **`blockRecStaged_of`'s three NAME premises and `hnoTy`**, from the
 per-recursor `checkConstantVal` run: freshness at the constructors'
@@ -250,7 +255,7 @@ theorem checkBlockRecK_cvFacts {envC : Env} {p : BlockParts} {cvTas : List Const
   have hil : i < p.recs.length := by
     have := (List.getElem?_eq_some_iff.mp hi).1
     omega
-  obtain ⟨rc, r', hrc, hr', hname, hcv⟩ := hall i hil
+  obtain ⟨rc, r', hrc, hr', hname, hcv, -, -⟩ := hall i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
   obtain ⟨hfresh, hres, hpsh, -, -, hfv, type, -, -, hann, -, -, -, -, hcv'⟩ :=
     ConLeche.checkConstantVal_inv hcv
@@ -276,7 +281,7 @@ theorem checkBlockRecK_nodup {envC : Env} {p : BlockParts} {cvTas : List Constan
   have hmap : rs.map (·.1.name) = p.recs.map (·.cvR.name) := by
     refine List.ext_getElem? (fun i => ?_)
     by_cases hi : i < p.recs.length
-    · obtain ⟨rc, r, hrc, hr, hname, -⟩ := hall i hi
+    · obtain ⟨rc, r, hrc, hr, hname, -, -, -⟩ := hall i hi
       simp only [List.getElem?_map, hrc, hr, Option.map_some]
       rw [hname]
     · rw [List.getElem?_eq_none (by simp only [List.length_map, hlenR]; omega),
