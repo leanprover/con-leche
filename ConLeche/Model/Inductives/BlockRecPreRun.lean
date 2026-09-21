@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecTyping
-public import ConLeche.Model.Inductives.BlockRecRegimes
+import ConLeche.Model.Inductives.BlockRecTyping
+import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
-public import ConLeche.Model.Inductives.BlockAssemblyKit
-public import ConLeche.Model.Inductives.BlockModel
+import ConLeche.Model.Inductives.BlockAssemblyKit
+import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.FixAssemblyKit
 
