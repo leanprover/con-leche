@@ -1,10 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.BlockAssembly
-public import ConLeche.Model.Inductives.BlockStageTables
-import ConLeche.Model.Inductives.BlockModel
+public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockCaps
-import ConLeche.Semantics.Inductives.DeclBlock
+import ConLeche.Verify.Inductives.BlockInv
 public import ConLeche.Verify.Inductives.BlockWF
 public section
 
