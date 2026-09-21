@@ -385,7 +385,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     intro j cA hj ψ ρp hρp
     obtain ⟨c, -, -, -, -, -, -, _, -, hCtor⟩ := hrunOf j cA hj
     exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp,
-      fixChainValidFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) ψ ρp hρp⟩
+      blockChainValidFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) ψ ρp hρp⟩
   have hTlss₀D : ∀ ψ j cA, ctorsA[j]? = some cA → (Tlss₀ ψ).getD j [] = tssF₀ j ψ :=
     fun ψ j cA hj => tlssOfR_fixCtorDataList_getD hj
   have hTlss₀None : ∀ ψ j, ¬ j < ctorsA.length → (Tlss₀ ψ).getD j [] = [] := by
