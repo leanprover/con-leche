@@ -1377,14 +1377,20 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
                 (.bvar (fr.nF - 1 - i + 0 +
                   (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
                 (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
-    -- G3: the call's arguments fit the field's telescope
-    -- **G3**, at the CALL's argument values: the values the guarded
-    -- call's arguments read to fit the field's telescope.  Stated at
-    -- every value list of the right length it would be refuted — the
-    -- fit is a chain of memberships
-    (hfit : ∀ (d i r : Nat) (locals : List V) (node : Expr) (as as1 : List Expr)
-      (vs : List AnnotTerm),
-      ConLeche.blockIhCall? fr d node = some (r, as) → locals.length = d → i < fr.nF →
+    -- **G3**, at THE CALL the fold is at: the values the guarded
+    -- call's OWN arguments read to fit the field whose `ih` opener the
+    -- call abstracts to.  Both bounds are load-bearing — quantified
+    -- over all value lists of the right length the fit is refutable
+    -- (session 10's sweep), and quantified over all fields `i` it asks
+    -- the fit at a telescope the call never mentions.  The two index
+    -- facts are the tie: `nm` is the callee, `c'` its position in the
+    -- block, and `(i, c')` the frame's key for the `ih` binder `r`.
+    (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
+      (as as1 : List Expr) (vs : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) →
+      ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      locals.length = d → i < fr.nF →
       DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
       (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
         = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
@@ -1487,7 +1493,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     ihFunAV_fold (V := V) (ℓ := ℓ) (K := K) (c' := c') (eis := (EisF i).map
         (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
       hℓ hleafv.symm hxl hfl (by rw [List.length_map, hvlen, htlen])
-      (hfit d i r locals node as as1 vs hcall hloc hiF hvs hwlen),
+      (hfit d i c' r nm locals node as as1 vs hcall hnm hrpos hloc hiF hvs hwlen),
     interp_mkAppN, foldl_app_map, hcl nm _ _ (consList (xs ++ fs) σchain), hleafv,
     prefVars_shift, fieldApp_shift, hEisShift,
     show consList (xs ++ fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
@@ -1562,13 +1568,13 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
                 (.bvar (fr.nF - 1 - i + 0 +
                   (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
                 (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
-    -- **G3**, at the CALL's argument values: the values the guarded
-    -- call's arguments read to fit the field's telescope.  Stated at
-    -- every value list of the right length it would be refuted — the
-    -- fit is a chain of memberships
-    (hfit : ∀ (d i r : Nat) (locals : List V) (node : Expr) (as as1 : List Expr)
-      (vs : List AnnotTerm),
-      ConLeche.blockIhCall? fr d node = some (r, as) → locals.length = d → i < fr.nF →
+    -- **G3**, at THE CALL the fold is at (see `ihSpineFold_blockRec`)
+    (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
+      (as as1 : List Expr) (vs : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) →
+      ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      locals.length = d → i < fr.nF →
       DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
       (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
         = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
