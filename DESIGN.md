@@ -80606,3 +80606,32 @@ per constructor and is what the general kit must generate.
    consumes only `famSpace_app`; the untested case is INDEXED pins, where
    `lfpTuple_seg_congr`'s index-set agreement would consume the lower
    rank's identification.
+
+#### AMENDMENT (2026-09-21, maintainer's questions): collapsing pins and basis containers
+
+* **Collapsing pins are not a decline.**  The check only CHECKS: the
+  recursor family is read off the stream's motives, and a component→motive
+  map σ (structural key equality) assigns two equal-key components of the
+  wide table (they arise only when a container's own recorded table has
+  components that coincide at the pins, as `Pair α (J α β)`/`Pair β (J α β)`
+  at `α := β := Collide`) to ONE motive and one rule set.  Equal keys give
+  syntactically equal abstract constructor lists and equal targets, hence
+  `Ψ X c = Ψ X c'` for every tuple `X`, hence `L c = L c'` at the least
+  tuple (one lemma from the fixed-point equation).  The recursor is the
+  union recursion at the wide width with `B (tagged c i x) := ⟦motive
+  (σ c)⟧ i x` and the shared step function; no `FibreConst`/`setJoin`
+  kit, no decline.  Theory §2.6's first bullet is withdrawn.
+* **Basis containers.**  The exclusion of `reservedBasisNames` from the
+  clause is an artifact — basis blocks are hand-installed, so no
+  `BlockModelAt` is established for them; a datum could be established by
+  hand from the set model if ever needed.  It costs nothing: `Quot` is
+  not an `inductive` in official (`is_nested_inductive_app` requires
+  `is_inductive()`), so a `Quot` pin is a plain "non valid occurrence"
+  REJECT there; an `Eq` pin either carries a loose bound variable
+  (`Eq` has two parameters, survey probes A7/A19/D7), or puts the member
+  into `Eq.refl`'s result INDEX (the pin's `a` itself, `is_valid_ind_app`
+  rejects), or into the aux former's type (`(fun _ => Nat) T`-style,
+  rejected as an unknown constant, probe D1); `Nat`/`PUnit`/`Empty` have
+  no parameters.  So nothing official accepts nests through a basis
+  block, and the verdict should be REJECT (exit 1, official's) rather
+  than decline; the class needs no model.
