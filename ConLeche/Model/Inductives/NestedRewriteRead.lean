@@ -213,6 +213,188 @@ theorem instantiate1 (hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true)
     rw [hp]
     exact .fire I us _ hA
 
+/-! ### THE REWRITE AT A `Π`, AND WHERE IT DID NOT FIRE (task #315 WIDE
+(f3) step 5)
+
+`CopyOrdTele`'s producer needs two readings of the relation that the
+transport above did not.
+
+* **a `Π` relates only to a `Π`, domain to domain.**  The `fire` case's
+  two sides are APPLICATIONS of a constant, and a binder is neither, so
+  the rewrite can no more create a `Π`-prefix than destroy one.  This is
+  the half that makes the copy's tower the mint's;
+* **where nothing fired, the two terms are `ErasedEq`.**  Every plant
+  the walk makes is headed by one of the mimic names, so a subterm of
+  the OUTPUT that mentions no mimic name is a subterm the walk did not
+  touch — up to the `.fvar` types the congruence is allowed to move and
+  the denotation never reads.  This is the half that makes the copy's
+  telescope DOMAINS the mint's.
+
+Together they say: at a field the block classified recursive or
+reflexive, whose `Π`-prefix domains are member-free BY THE
+CLASSIFICATION (`mutualPositivity`'s `forallE` arm makes a domain
+mentioning a member `.negative`), the copy's recorded telescope is the
+mint's own `Π`-prefix, domain for domain. -/
+
+/-- **WHERE NOTHING FIRED, THE TWO TERMS ARE `ErasedEq`**: every plant
+is an application of a mimic name, so an output that mentions none of
+them was rebuilt and not rewritten.  The conclusion is `ErasedEq` and
+not equality because the congruence may move a `.fvar`'s recorded type
+(`RewriteRel.fvar`), which is exactly what `ErasedEq` forgets and what
+`denoteMeta` never reads. -/
+theorem erasedEq_of_noAux :
+    ∀ {e e' : Expr}, RewriteRel auxNames blvls params e e' →
+      (∀ A ∈ auxNames, e'.mentionsConst A = false) → Expr.ErasedEq e e' := by
+  intro e e' h
+  induction h with
+  | bvar i => intro _; exact Expr.ErasedEq.rfl _
+  | fvar i ty ty' => intro _; exact (_root_.rfl : i = i)
+  | sort u => intro _; exact Expr.ErasedEq.rfl _
+  | const n us => intro _; exact Expr.ErasedEq.rfl _
+  | lit l => intro _; exact Expr.ErasedEq.rfl _
+  | app _ _ ihf iha =>
+    intro hm
+    exact ⟨ihf fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).1,
+      iha fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).2⟩
+  | lam m _ _ ih1 ih2 =>
+    intro hm
+    exact ⟨_root_.rfl, ih1 fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).1,
+      ih2 fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).2⟩
+  | forallE m _ _ ih1 ih2 =>
+    intro hm
+    exact ⟨_root_.rfl, ih1 fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).1,
+      ih2 fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).2⟩
+  | letE _ _ _ ih1 ih2 ih3 =>
+    intro hm
+    refine ⟨ih1 fun A hA => ?_, ih2 fun A hA => ?_, ih3 fun A hA => ?_⟩
+    · exact (by simpa only [Expr.mentionsConst, Bool.or_eq_false_iff, and_assoc] using hm A hA :
+        _ = false ∧ _ = false ∧ _ = false).1
+    · exact (by simpa only [Expr.mentionsConst, Bool.or_eq_false_iff, and_assoc] using hm A hA :
+        _ = false ∧ _ = false ∧ _ = false).2.1
+    · exact (by simpa only [Expr.mentionsConst, Bool.or_eq_false_iff, and_assoc] using hm A hA :
+        _ = false ∧ _ = false ∧ _ = false).2.2
+  | proj s i _ ih =>
+    intro hm
+    exact ⟨_root_.rfl, _root_.rfl, ih fun A hA => (by
+        simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using hm A hA :
+          _ = false ∧ _ = false).2⟩
+  | @fire A I us Ds hA =>
+    intro hm
+    have h1 : (Expr.mkAppN (.const A blvls) params).mentionsConst A = true :=
+      mentionsConst_mkAppN_of_fn params (.const A blvls) (by simp [Expr.mentionsConst])
+    rw [hm A hA] at h1
+    exact nomatch h1
+
+/-- **THE REWRITE DOES NOT MOVE A BINDER**: the `fire` clause's two
+sides are APPLICATIONS of a constant, and a binder is neither, so at a
+`Π` the only clause that applies is the congruence.  Stated on the
+OUTPUT because the consumer holds the COPY (the walk's output) and
+wants the MINT. -/
+theorem forallE_inv' :
+    ∀ {e e' : Expr}, RewriteRel auxNames blvls params e e' →
+      ∀ {ty' bo' : Expr} {bm : BinderMeta}, e' = .forallE ty' bo' bm →
+        ∃ ty bo, e = .forallE ty bo bm ∧
+          RewriteRel auxNames blvls params ty ty' ∧
+          RewriteRel auxNames blvls params bo bo' := by
+  intro e e' h
+  cases h with
+  | forallE m hty hbo =>
+    intro ty' bo' bm he
+    obtain ⟨rfl, rfl, rfl⟩ : _ ∧ _ ∧ _ := by
+      simpa only [Expr.forallE.injEq] using he
+    exact ⟨_, _, rfl, hty, hbo⟩
+  | fire I us Ds hA =>
+    intro ty' bo' bm he
+    have := congrArg Expr.getAppFn he
+    rw [Expr.getAppFn_mkAppN] at this
+    exact nomatch (this : Expr.const _ blvls = _)
+  | _ => intro ty' bo' bm he; exact nomatch he
+
+/-- **THE `Π`-PREFIX, OPENED ON BOTH SIDES** (task #315 WIDE (f3) step
+5): the walk's OUTPUT and its INPUT open at the same count and the same
+depth, their openers' recorded types are `ErasedEq`, and the two leaves
+stay related — provided each of the OUTPUT's opener types carries no
+mimic name.
+
+That proviso is the classification's own: `mutualPositivity`'s
+`forallE` arm answers `.negative` at a binder whose domain mentions a
+member of the block, and the mimic names ARE members of the auxiliary
+block, so a field the block classified recursive or reflexive has
+member-free prefix domains and the rewrite cannot have touched them.
+
+The openers themselves are `.fvar d ty` against `.fvar d ty'`, so they
+differ exactly in the type the denotation never reads — which is why
+the conclusion is `ErasedEq` and not equality, and why the two opened
+bodies are related by `RewriteRel.instantiate1` rather than equal. -/
+theorem openPisAtFvars_of_noAux
+    (hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true) :
+    ∀ (n : Nat) {e e' : Expr} {d : Nat} {fvs' : List Expr} {o' : Expr},
+      RewriteRel auxNames blvls params e e' →
+      ConLeche.openPisAtFvars n e' d = some (fvs', o') →
+      (∀ (k : Nat) (x : Expr), fvs'[k]? = some x →
+        ∀ X ∈ auxNames, (Expr.fvarTypeD x).mentionsConst X = false) →
+      ∃ fvs o, ConLeche.openPisAtFvars n e d = some (fvs, o) ∧
+        fvs.length = n ∧ fvs'.length = n ∧
+        (∀ (k : Nat) (x x' : Expr), fvs[k]? = some x → fvs'[k]? = some x' →
+          Expr.ErasedEq (Expr.fvarTypeD x) (Expr.fvarTypeD x')) ∧
+        RewriteRel auxNames blvls params o o' := by
+  intro n
+  induction n with
+  | zero =>
+    intro e e' d fvs' o' hrel hop _
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, rfl⟩ := hop
+    exact ⟨[], e, _root_.rfl, _root_.rfl, _root_.rfl, by intro k x x' hx; simp at hx, hrel⟩
+  | succ n ih =>
+    intro e e' d fvs' o' hrel hop hno
+    match e', hop with
+    | .forallE ty' rest' mb, hop =>
+      obtain ⟨ty, rest, rfl, hty, hrest⟩ := RewriteRel.forallE_inv' hrel _root_.rfl
+      simp only [ConLeche.openPisAtFvars] at hop
+      cases hq : ConLeche.openPisAtFvars n (rest'.instantiate1 (.fvar d ty')) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        -- the head domain: the OUTPUT's carries no mimic name, so nothing fired in it
+        have hty0 : Expr.ErasedEq ty ty' :=
+          RewriteRel.erasedEq_of_noAux hty (by
+            intro X hX
+            exact hno 0 (.fvar d ty') _root_.rfl X hX)
+        -- the tail, one opener down
+        obtain ⟨fvs, o, hopE, hlen, hlen', hdoms, hleaf⟩ :=
+          ih (d := d + 1) (RewriteRel.instantiate1 hpb (.fvar d ty ty') hrest 0)
+            hq (by
+              intro k x hx X hX
+              exact hno (k + 1) x hx X hX)
+        refine ⟨.fvar d ty :: fvs, o, ?_, by simp [hlen], by simp [hlen'], ?_, hleaf⟩
+        · show (match ConLeche.openPisAtFvars n (rest.instantiate1 (.fvar d ty)) (d + 1) with
+              | some (fvs, e) => some (Expr.fvar d ty :: fvs, e)
+              | none => none) = _
+          rw [hopE]
+        · intro k x x' hx hx'
+          cases k with
+          | zero =>
+            simp only [List.getElem?_cons_zero, Option.some.injEq] at hx hx'
+            subst hx; subst hx'
+            exact hty0
+          | succ k =>
+            simp only [List.getElem?_cons_succ] at hx hx'
+            exact hdoms k x x' hx hx'
+
 end RewriteRel
 
 /-! ## The producer: a run of the walk gives the relation -/

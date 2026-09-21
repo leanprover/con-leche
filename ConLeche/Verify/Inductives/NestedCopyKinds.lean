@@ -2562,4 +2562,179 @@ theorem rg_noProjAt_mkAppN {T : Name} {i : Nat} :
     exact ih _ (Expr.noProjAt_app.mpr ⟨hf, has a (List.mem_cons_self ..)⟩)
       (fun x hx => has x (List.mem_cons_of_mem _ hx))
 
+/-! ## THE `Π`-PREFIX'S DOMAINS, CONSTANT-FREE THROUGH THE OPENING
+(task #315 WIDE (f3) step 5)
+
+`CopyOrdTele`'s producer reads the classifier's own guarantee at a
+copy field — `rg_mutualPositivity_spine` says a `.recursive`/
+`.reflexive` verdict peeled a `Π`-prefix whose domains mention NO
+member of the block — and has to spend it one opening down, at the
+`.fvar` types `openPisAtFvars` plants.  The three steps below are that
+transport, and they are stated per CONSTANT so that the caller spends
+them once per member name.
+
+`PiDomsNoConst T n e` is deliberately `True` past the tower: a term
+that is not a `Π` has no domain to constrain, so the caller need never
+match the count `n` against the tower's own depth. -/
+
+/-- The first `n` `Π` domains of `e` carry no occurrence of `T`. -/
+def PiDomsNoConst (T : Name) : Nat → Expr → Prop
+  | 0, _ => True
+  | n + 1, .forallE ty bo _ => ty.mentionsConst T = false ∧ PiDomsNoConst T n bo
+  | _ + 1, _ => True
+
+/-- Constant-freeness survives a constant-free substitution:
+`instantiate1` replaces a `bvar` — which mentions nothing — by `v` and
+rebuilds every other node. -/
+theorem mentionsConst_instantiate1_false' {T : Name} {v : Expr}
+    (hv : v.mentionsConst T = false) :
+    ∀ {e : Expr} {j : Nat}, e.mentionsConst T = false →
+      (e.instantiate1 v j).mentionsConst T = false := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j _
+    show (if i = j then v else if i > j then Expr.bvar (i - 1) else Expr.bvar i).mentionsConst T
+      = false
+    split
+    · exact hv
+    · split <;> rfl
+  | app f a ihf iha =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | forallE ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | letE ty vl b ihty ihv ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨⟨ihty h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj sn i pe ih =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨h.1, ih h.2⟩
+  | _ => intro j h; simpa only [Expr.instantiate1] using h
+
+/-- A term mentioning `T` nowhere has `T`-free domains. -/
+theorem PiDomsNoConst.of_noConst {T : Name} :
+    ∀ (n : Nat) {e : Expr}, e.mentionsConst T = false → PiDomsNoConst T n e := by
+  intro n
+  induction n with
+  | zero => intro e _; exact True.intro
+  | succ n ih =>
+    intro e h
+    cases e with
+    | forallE ty bo bm =>
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+      exact ⟨h.1, ih h.2⟩
+    | _ => exact True.intro
+
+/-- The predicate survives a constant-free substitution: the binder
+case of the opening. -/
+theorem PiDomsNoConst.instantiate1 {T : Name} {v : Expr} (hv : v.mentionsConst T = false) :
+    ∀ (n : Nat) {e : Expr} {j : Nat}, PiDomsNoConst T n e →
+      PiDomsNoConst T n (e.instantiate1 v j) := by
+  intro n
+  induction n with
+  | zero => intro e j _; exact True.intro
+  | succ n ih =>
+    intro e j h
+    cases e with
+    | forallE ty bo bm =>
+      obtain ⟨hty, hbo⟩ := h
+      exact ⟨mentionsConst_instantiate1_false' hv hty, ih hbo⟩
+    | bvar i =>
+      show PiDomsNoConst T (n + 1)
+        (if i = j then v else if i > j then Expr.bvar (i - 1) else Expr.bvar i)
+      split
+      · exact PiDomsNoConst.of_noConst (n + 1) hv
+      · split <;> exact True.intro
+    | _ => exact True.intro
+
+/-- **THE CLASSIFIER'S TOWER GIVES THE PREDICATE AT EVERY COUNT**: the
+walk peeled `j` binders with `T`-free domains and stopped at a leaf
+that is not a `Π`, so no count can reach a domain it did not clear. -/
+theorem PiDomsNoConst.of_stripPis {T : Name} :
+    ∀ (j : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {leaf : Expr},
+      e.stripPis j = some (bs, leaf) →
+      (∀ b ∈ bs, b.1.mentionsConst T = false) →
+      (∀ ty bo bm, leaf ≠ Expr.forallE ty bo bm) →
+      ∀ n, PiDomsNoConst T n e := by
+  intro j
+  induction j with
+  | zero =>
+    intro e bs leaf hs _ hleaf n
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨-, rfl⟩ := hs
+    cases n with
+    | zero => exact True.intro
+    | succ n =>
+      cases e with
+      | forallE ty bo bm => exact absurd rfl (hleaf ty bo bm)
+      | _ => exact True.intro
+  | succ j ih =>
+    intro e bs leaf hs hds hleaf n
+    match e, hs with
+    | .forallE ty bo bm, hs =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hs
+      obtain ⟨⟨bs', leaf'⟩, hs', heq⟩ := hs
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      cases n with
+      | zero => exact True.intro
+      | succ n =>
+        refine ⟨hds (ty, bm) (List.mem_cons_self ..), ?_⟩
+        exact ih hs' (fun b hb => hds b (List.mem_cons_of_mem _ hb)) hleaf n
+
+/-- **THE OPENERS' TYPES ARE `T`-FREE**: `openPisAtFvars` plants
+`.fvar d dom` at each binder and substitutes it into the body, and both
+moves keep the predicate (`PiDomsNoConst.instantiate1`, at a `.fvar`
+whose recorded type is the domain the predicate has already cleared). -/
+theorem PiDomsNoConst.openers {T : Name} :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      ConLeche.openPisAtFvars n e d = some (fvs, body) →
+      PiDomsNoConst T n e →
+      ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+        (Expr.fvarTypeD x).mentionsConst T = false := by
+  intro n
+  induction n with
+  | zero =>
+    intro e d fvs body hop _ i x hx
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    simp at hx
+  | succ n ih =>
+    intro e d fvs body hop hp i x hx
+    match e, hop, hp with
+    | .forallE ty rest bm, hop, hp =>
+      obtain ⟨hty, hrest⟩ := hp
+      simp only [ConLeche.openPisAtFvars] at hop
+      cases hq : ConLeche.openPisAtFvars n (rest.instantiate1 (.fvar d ty)) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          subst hx
+          exact hty
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx
+          exact ih hq (PiDomsNoConst.instantiate1 (by
+            show (Expr.fvar d ty).mentionsConst T = false
+            exact hty) n hrest) i x hx
+
 end ConLeche

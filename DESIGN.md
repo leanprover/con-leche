@@ -129549,3 +129549,139 @@ warnings.  `tests/unconsumed.sh` **201 of 3924** against **207 of 3931**
 at the merge: seven declarations deleted and six advisory entries with
 them (`replaceIfNested_lamHead` had a consumer and was not on the
 list).  No `sorry`, no new axiom, no `maxHeartbeats`.
+
+#### WIDE (f3) STEP 5 — `CopyOrdTele`'s PRODUCER: ITS TWO BRICKS ARE BUILT, AND THE ASSEMBLY IS THE THIRD (lane LE, 2026-09-21)
+
+Session 34's row stated `CopyOrdTele` and named its producer's argument
+in prose: "the copy's field domain is `replaceAllNested` of the minted
+domain; neither the rewrite nor a level instantiation turns a `Π` into
+a non-`Π` or the other way round; and a nested occurrence in a
+`Π`-DOMAIN is a NEGATIVE occurrence and is rejected, so the prefix's
+domains are not rewritten at all."  **Read at the tree that argument is
+THREE objects and not one**, and this row builds the two that are
+self-contained, states the third exactly, and prices it.
+
+##### (a) THE ARGUMENT, AS THE TREE MAKES IT
+
+The prose above hides a step: "the prefix's domains are not rewritten"
+is not a property of `replaceAllNested` — the walk enters a `Π` domain
+like any other node.  What makes it true is the CLASSIFIER, one tier
+later, and the chain is
+
+1. the copy's field `l` is `.recursive` or `.reflexive` (the
+   `ordF`-right arm's own `rs.getD l false = true`), so
+   `rg_mutualPositivity_spine` (`Verify/Inductives/MutualInv.lean`)
+   says the walk peeled a `Π`-prefix whose domains mention **no member
+   of the auxiliary block**;
+2. the mimic names ARE members of the auxiliary block, so those domains
+   mention no mimic name;
+3. every plant `replaceAllNested` makes is an application of a mimic
+   name, so a subterm of the OUTPUT that mentions none is a subterm the
+   walk did not touch — up to the `.fvar` types the rewrite's own
+   congruence is allowed to move and `denoteMeta` never reads;
+4. hence the copy's `Π`-prefix domains are `ErasedEq` to the MINT's,
+   domain for domain, and the two open at the same count.
+
+Steps 1–2 are the classifier's; steps 3–4 are the rewrite relation's.
+Neither is a fact about `CopyOrdTele`, which is why they are built
+first and separately.
+
+##### (b) BRICK ONE — THE REWRITE RELATION AT A `Π` AND WHERE IT DID NOT FIRE
+
+`Model/Inductives/NestedRewriteRead.lean`, inside `RewriteRel`'s own
+namespace, beside `instantiate1` (whose `hpb` the new row spends):
+
+| declaration | `file:line` | what it says |
+|---|---|---|
+| `RewriteRel.erasedEq_of_noAux` | `NestedRewriteRead.lean:245` | an output mentioning no mimic name is `ErasedEq` to its input — the `fire` clause's output is `mkAppN (.const A blvls) params`, which mentions `A` |
+| `RewriteRel.forallE_inv'` | `:305` | a `Π` on the OUTPUT forces a `Π` on the input, same binder datum, the two parts related — the `fire` clause's two sides are constant-headed applications and a binder is neither |
+| `RewriteRel.openPisAtFvars_of_noAux` | `:341` | the two sides open at the same count and depth, their openers' recorded types are `ErasedEq`, and the leaves stay related — under the proviso that each OUTPUT opener type carries no mimic name |
+
+The conclusion is `ErasedEq` and not equality on purpose: `RewriteRel`
+relates `.fvar i ty` to `.fvar i ty'` at DIFFERENT recorded types (its
+own `fvar` clause), and that is exactly what the denotation forgets.
+The two opened bodies are therefore related by
+`RewriteRel.instantiate1` at `.fvar d ty` against `.fvar d ty'` and not
+equal, which is why the statement carries the relation through rather
+than an equation.
+
+##### (c) BRICK TWO — THE CLASSIFIER'S TOWER, THROUGH THE OPENING
+
+`Verify/Inductives/NestedCopyKinds.lean`.  `rg_mutualPositivity_spine`
+gives the RAW domains; the consumer wants the `.fvar` types
+`openPisAtFvars` plants, which are those domains with the earlier
+openers substituted.  `PiDomsNoConst T n e` — "the first `n` `Π`
+domains of `e` carry no occurrence of `T`" — is the carrier, and it is
+deliberately `True` past the tower, so the caller never has to match
+the count against `domPiDepth`:
+
+| declaration | `file:line` |
+|---|---|
+| `PiDomsNoConst` (the predicate) | `NestedCopyKinds.lean:2581` |
+| `mentionsConst_instantiate1_false'` | `:2589` |
+| `PiDomsNoConst.of_noConst` / `.instantiate1` | `:2630` / `:2645` |
+| `PiDomsNoConst.of_stripPis` | `:2668` — the classifier's tower at EVERY count, from `stripPis` + a leaf that is not a `Π` |
+| `PiDomsNoConst.openers` | `:2704` — the openers' types |
+
+`.of_stripPis` asks the leaf not to be a `Π` rather than the count to
+be the tower's depth, because the spine lemma hands back a
+CONSTANT-headed leaf and an existential `j`; tying `j` to `domPiDepth`
+would be a second object and buys nothing.
+
+##### (d) BRICK THREE — THE ASSEMBLY, STATED AND NOT BUILT
+
+What is left is the join, in `Model/Inductives/NestedCopyInst.lean`
+beside `copyOrdFRight_shape`, and its inputs are all named:
+
+* `copyResid`'s `hfields l` — the run
+  `replaceAllNested … (instSeq Ds (nP-1+l) (ilp lvls (fcs.getD l default).1))
+  = .ok ((Fs'.getD l default).1, st₂)`, i.e. THE MINT on the left and
+  the COPY's field domain on the right; `replaceAllNested_rel` turns it
+  into the relation (b) consumes;
+* `rg_mutualCtorKinds_at` / `rg_mutualPositivity_spine` at the COPY's
+  stored constructor, for (c)'s input;
+* the copy's `BlockCtorData.reflOpen` / `.nestReflOpen`, which give
+  `(tls.getD l []).length = (copy's domain).piBinders.1.length` and
+  read each opener's type as the recorded telescope's datum;
+* `mintFieldRead` (`NestedCopyInst.lean:499`), which reads the MINT's
+  field domain as `AnnotTerm.instAll Ds l` of the container's own —
+  `CopyOrdTele`'s subject on the nose, through
+  `IsBlockModel.Fss_getD` and `getD_dropD`;
+* `denoteMeta_openPisAtFvars_dom` (`NestedCopyRead.lean:226`), which is
+  what turns a `stripPisAV` of that reading into the openers' data, and
+  `denoteMeta_erasedEq` (`Model/Annot/BitRename.lean:49`), which crosses
+  (b)'s `ErasedEq`.
+
+**Honest sizing: one session**, and the reason it is not less is that
+the two sides' openings live at different depths and the copy's
+telescope is read through `mutTlss`/`tssF` while the mint's is read
+through `stripPisAV` — the same `l`-vs-`nP + l` and
+`instTeleP`-vs-`instAll` bookkeeping `mintFieldRead` itself spends
+forty lines on.  Nothing in it is a fact; the two facts are (b) and (c)
+and they are landed.
+
+##### (e) THE MEASUREMENT
+
+No kernel and no `Model/` logic changed — the two bricks are new
+`theorem`s and one `def` in a proof tier — so the accept set cannot
+move and no firing or `instructions:u` cell is owed.
+
+`tests/arena.sh` EXIT 0: `nested-shadow: 46/46`, `e2e: 200/200`,
+`arena suite: 91/96`, `annot suite: 15/15`, `mode flags: 10/10`,
+`prelude counts: 3/3`, `progress lane: 15/15`, `worker pool: 15/15`,
+`DAG-tower gate: 14/14`, `axioms: pinned (20 theorems)`, trusted and
+the two `--jobs` sweeps as at the default, `inmodel: OK`, `shake: 514
+removals, all allowlisted`, `pub-imports: 1347 of 2319 public, none
+demotable`, `layering 354/292/3/1 with 0 base->lane and 0 impl->theory
+edges`, `proofdeps: 4975 module rows, doors: 0`, `overview-links: 112`,
+`quote-gate: 2`, `no-local-paths: OK`, `challenge: OK`.
+`tests/warning-free.sh 42552bf6` — 2 changed modules, 0 warning lines
+in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **204 of 3933** against **201 of 3924**: nine
+declarations added and THREE advisory entries with them —
+`RewriteRel.openPisAtFvars_of_noAux`, `PiDomsNoConst.of_stripPis` and
+`PiDomsNoConst.openers`, the three the assembly of §(d) calls and
+nothing else does yet.  They are residuals waiting for a named
+consumer, not spare proof.
+`#print axioms` on all eight new theorems: `[propext, Classical.choice,
+Quot.sound]`.  No `sorry`, no new axiom, no `maxHeartbeats`.
