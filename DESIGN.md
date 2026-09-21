@@ -79066,8 +79066,8 @@ count, 2 168/51 blocks → **2 072/49** on the new stream, and the
 check-phase-per-worker sentence, → 718/202/120 s and 8.10/8.12/8.12 T),
 and this record.  No other file changes.
 
-OUTSIDE every worktree, kept for the next lane at
-`/home/joachim/con-leche/_tmp/ref/`: **`mathlib-full.ndjson`** (the
+OUTSIDE every worktree, kept for the next lane at the main checkout's
+`_tmp/ref/`: **`mathlib-full.ndjson`** (the
 6.07 GB export), `init-exports/` (the #318 streams, where they were),
 `arena-upstream/` (the arena clone with
 `checkers/official-v4.33.0/.lake/build/bin/kernel` built), `lean4export/`
