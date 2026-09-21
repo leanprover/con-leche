@@ -130533,3 +130533,64 @@ the RAW recomputation (K.72).
 | `init-full --trusted --nested-shadow` | 520.8983 G | 520.8990 G | **+0.0001 %** |
 
 No Mathlib perf run.
+
+#### WIDE (f3) — `hdom₁rec` NEEDS **NO** ORDERING INSIDE THE INSTANCE: IT IS `hdom₂` READ ON THE OTHER SIDE (lane DOM, 2026-09-21)
+
+The question this row answers was left open by the previous row's §(d):
+`hdom₁rec` (`NestedPinLeafAll.lean:7459`) is `hdom₁`'s CONTAINER-RECURSIVE
+arm — at a field the shared container `dJf q₀` calls recursive, the
+BLOCK's copy's slot at the block's own least tuple `L⁺` must be inside
+the container's field domain, read at the block's frame.  Its target is
+the group's own copy (`CopyShapeA.recF`) or the block pin corresponding
+to one of the container's OWN pins (`pinF`) — in either case one of the
+mint group's own pins, INSIDE the instance.  The previous row read that
+as "the arm needs a `TupleLe` in the family of `hent`'s open item", and
+priced it beside `CopyEntryOrd`.
+
+**THE ANSWER IS: NO ORDERING WITHIN THE INSTANCE, AND NO NEW `TupleLe`
+EITHER.**  The arm is `hdom₂` — which `dom₂_of_run`
+(`NestedPinLeafAll.lean:6497`) ALREADY produces in the same assembly —
+read on side 1 instead of side 2.  Four statements settle it and they
+are all in the tree:
+
+* **the guard transfers.**  `hdom₂`'s guard is side 2's
+  `((dR.pinCtors (q₀'+iq)).rss.getD j []).getD l false = true`, and at a
+  container-RECURSIVE field the owner's copy IS recursive:
+  `CopyCtorShape.recF`'s and `pinF`'s first conjunct, at `h₁`.  So
+  `hdom₂` speaks at exactly the fields `hdom₁rec` is asked about.
+* **the two slots are ONE slot up to the family.**
+  `CopyCtorShape.slot_container` (`NestedFit.lean:1069`) rewrites EITHER
+  copy's slot at a container-recursive field into the CONTAINER's own
+  `tlss`/`Eiss` at that copy's frame; `copyTarget_u` equates the two
+  copies' target universes; `slotSet_congr_below` moves the container's
+  data between the two frames (`hfrR`, the parameter agreement the
+  assembly already has).  This is not new work: it is literally the
+  container-recursive branch `copyTransfer_via_pin` runs
+  (`NestedPinLeafAll.lean:3904`–`:3925`), read in the other direction.
+* **the two families are EQUAL, by the class equation and nothing
+  else.**  On the wide route side 2's tuple is `X₂ = X₁ ∘ σ`, so
+  `X₁ (tg₁ l) = X₂ (tg₂ l)` is `congrArg X₁` of `hXrecTgt`
+  (`recσ_of_run`), which the assembly already computes and already
+  passes to `nestedFitc_pin`.  No `FamLe`, no rank, no `S`.
+* **the container's domain is ONE set at either frame** —
+  `interp_congr_below` over `IsBlockModel.Fss_below`, the assembly's
+  `hcdom`.
+
+So the only ordering fact spent is the one the assembly ALREADY takes:
+`hY`/`hYC`, the rank induction's own two, at the OWNER `dR` — `hYC` is
+`TupleLe (dR.k + dR.nPins) (dR.idx ψR ρR) (X₁ ∘ σ) (lfpTuple (dR.w ψR)
+… (dR.Ψaux ψR ρR))`, a premise of the assembly, not a fact about the
+group's own pins.  `dom₂_of_run` spends it through
+`BlockModel.copyEntryAt_pin` and `auxLfp_eq_famAt`, both block-model
+laws of an ALREADY-INSTALLED container.  **`S` at an in-instance target
+is not needed, and neither is a `TupleLe` for the inner container
+`dJf q₀`.**  `nestedPinWideStep`'s docstring ruling stands for `hent`;
+it does NOT extend to `hdom₁rec`, and this row is the correction to the
+previous row's §(d).
+
+**What this does NOT say.**  It does not discharge `hent`: the wide
+route still spends the entries through `CopyEntryOut.ord`, and the
+Ord-only producer beside `nestedPinsEntry_at` is still owed (it is this
+lane's other object).  Nor does it move `hpin`'s own premises: the
+`InTupleSpace`/`FibreConst`/`TupleLe` triple stays exactly as
+`nestedPinWideStep` states it.
