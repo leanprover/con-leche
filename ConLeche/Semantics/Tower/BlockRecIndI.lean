@@ -38,12 +38,12 @@ universe uv
 variable {V : Type uv} [SetTheory V]
 
 /-- **The point absorbs a whole spine.** -/
-theorem foldl_app_pt : ∀ (as : List V), as.foldl SetTheory.app (pt : V) = pt
+theorem foldl_app_pt_spine : ∀ (as : List V), as.foldl SetTheory.app (pt : V) = pt
   | [] => rfl
   | a :: as => by
     show as.foldl SetTheory.app (SetTheory.app (pt : V) a) = _
     rw [app_pt]
-    exact foldl_app_pt as
+    exact foldl_app_pt_spine as
 
 /-- A member of a truth value is the point. -/
 theorem eq_pt_of_mem_prop {T x : V} (hT : T ∈ˢ (univZero : V)) (hx : x ∈ˢ T) : x = pt :=
@@ -82,7 +82,7 @@ theorem indCand_hCand
         (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
   refine hCand_iotaEqsAV_of (fun _ => (pt : V)) hind fun c hc j hj xs fs hxl hsp => ?_
   obtain ⟨T, hT, hmem⟩ := hres c hc j hj xs fs hxl hsp
-  rw [foldl_app_pt, eq_pt_of_mem_prop hT hmem]
+  rw [foldl_app_pt_spine, eq_pt_of_mem_prop hT hmem]
 
 end Ind
 

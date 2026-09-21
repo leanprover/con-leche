@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Tower.SigChainI
-public import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Semantics.Kit
 @[expose] public section
@@ -68,13 +68,13 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## Frame kit -/
 
-theorem consList_getD_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
+theorem consList_getD_of_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
     consList as σ k = as.getD (as.length - 1 - k) pt
   | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
   | a :: as, σ, k, hk => by
     rw [consList_cons]
     rcases Nat.lt_or_ge k as.length with hlt | hge
-    · rw [consList_getD_lt as (cons a σ) k hlt, List.length_cons,
+    · rw [consList_getD_of_lt as (cons a σ) k hlt, List.length_cons,
         show as.length + 1 - 1 - k = (as.length - 1 - k) + 1 from by omega, List.getD_cons_succ]
     · have hk' : k = as.length := by simp at hk; omega
       subst hk'
@@ -184,7 +184,7 @@ theorem interp_prefVarsAV {rP : Nat} {xs bs : List V} {ρ : Nat → V} (hx : xs.
       interp V (consList (xs ++ bs) ρ) (.bvar (bs.length + rP - 1 - l)) = xs.getD l pt := by
     intro l hl
     show consList (xs ++ bs) ρ (bs.length + rP - 1 - l) = _
-    rw [consList_getD_lt _ _ _ (by omega), hlen,
+    rw [consList_getD_of_lt _ _ _ (by omega), hlen,
       show bs.length + rP - 1 - (bs.length + rP - 1 - l) = l from by omega,
       List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
       ← List.getD_eq_getElem?_getD]
@@ -454,7 +454,7 @@ noncomputable def chainFrame (K : Nat) (a ρ : Nat → V) : Nat → V :=
 theorem chainFrame_apply {K c : Nat} (hc : c < K) (a ρ : Nat → V) :
     chainFrame K a ρ (K - 1 - c) = a c := by
   have hlen : ((List.range K).map a).length = K := by simp
-  rw [chainFrame, consList_getD_lt _ _ _ (by omega), hlen,
+  rw [chainFrame, consList_getD_of_lt _ _ _ (by omega), hlen,
     show K - 1 - (K - 1 - c) = c from by omega, List.getD_eq_getElem?_getD,
     List.getElem?_map, List.getElem?_range hc]
   rfl
