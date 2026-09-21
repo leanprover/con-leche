@@ -679,4 +679,50 @@ theorem blockRuleDataAt_of_base {K rP nP : Nat} {a ρ : Nat → V}
     rw [List.map_map, hfun, hRHS]
     exact hRa
 
+/-! ## A.2 The residue conjunct's β-reduction
+
+`BlockRuleDataAt`'s fifth conjunct compares the stored right-hand
+side APPLIED to the rule's spine with the residue read at the ih
+values.  The right-hand side's reading is the rule's λ-tower
+(`rP + nF` binders), so the left side β-reduces along the spine, and
+what is left is exactly `interp_blockResidue`'s conclusion
+(`BlockRecLaw.lean` §9) — O-1 at the rule's own frame.  The two
+lemmas below are that split: the β-reduction is generic, and the
+composition is one rewrite. -/
+
+/-- **A λ-tower applied along a fitting spine reads as its body.** -/
+theorem interp_mkAppN_mkLamsAV {lds : List (Nat × AnnotTerm)} {b Ra : AnnotTerm}
+    {ρ : Nat → V} {args : List AnnotTerm}
+    (hlam : Ra = mkLamsAV lds b) (hok : WellDenoted V ρ Ra)
+    (hsp : SpineFit ρ (lds.map (·.2)) (args.map (interp V ρ))) :
+    interp V ρ (AnnotTerm.mkAppN Ra args)
+      = interp V (consList (args.map (interp V ρ)) ρ) b := by
+  subst hlam
+  rw [interp_mkAppN, foldl_app_map]
+  exact mkLamsAV_fold_graded hok hsp
+
+/-- **`blockRuleDataAt_of_base`'s `hRa`, from O-1.**  Give the stored
+right-hand side's reading as the rule's λ-tower, its grading, the
+spine's fit and `interp_blockResidue`'s equation at the rule's frame,
+and the conjunct follows by β-reduction. -/
+theorem blockRuleHRa_of {ρ : Nat → V} {Ra Rb0 A : AnnotTerm}
+    {lds : List (Nat × AnnotTerm)} {xs ys : List AnnotTerm} {rP nP : Nat}
+    {ihs0 : List AnnotTerm}
+    (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
+    (hsp : SpineFit ρ (lds.map (·.2))
+      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
+    (hres : interp V (consList ((xs.take rP).map (interp V ρ)
+          ++ (ys.drop nP).map (interp V ρ)) ρ) A
+      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
+            ++ (ys.drop nP).map (interp V ρ)) ρ)))
+          (consList ((xs.take rP).map (interp V ρ)
+            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0) :
+    interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
+      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
+            ++ (ys.drop nP).map (interp V ρ)) ρ)))
+          (consList ((xs.take rP).map (interp V ρ)
+            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 := by
+  rw [← hres, interp_mkAppN_mkLamsAV hlam hok (by rw [List.map_append]; exact hsp),
+    List.map_append]
+
 end ConLeche.Model
