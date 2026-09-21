@@ -858,4 +858,153 @@ theorem heqV_run {envC : Env} {mpC : EnvModelM V μ envC}
         AnnotValid V (consList tup ρ) e :=
   fun ψ ρ => annotValid_iotaEqsAV_of (hv ψ ρ)
 
+/-! ## 11. The WF kit's STEP, and the kit
+
+`UnionRecKitC.st` is TOTAL, so the step at a carrier element must name
+the constructor and the fields that built it: §2's `blockDecomp` at
+the tagged element's own component (`blockDecTag`), and the residue
+read at that spine and at the ih values the graph supplies
+(`blockRecStep`).  At a CONSTRUCTED element the decomposition reads
+back what built it (`blockDecomp_eq`, i.e. `mkInj`), which is
+`blockRecStep_at` — the equation the ι law's right-hand side needs.
+
+The kit's `hst` is then `BlockRuleCerts.residueOk` at that spine, with
+three seams, each in the shape its owner exports:
+
+* **`hihF`** — the ih openers' values fit their domains, given that
+  the graph is MOTIVE-VALUED at the predecessors.  That hypothesis on
+  the graph is proved here off the raw recursion-graph lemmas
+  (`app_mem_B_of_piSet`), because the kit is not built yet and
+  `WfRecKit.graph_mem_B` is not available; what remains is the ih
+  openers' own reading (RM8's rule data) together with
+  `blockData_mkDepth`, which is what puts the arguments in `tcPred`;
+* **`hspF`** — the fields fitting the constructor at the CARRIER
+  (`ChainFit`) fit the rule's field domains (`SpineFit`); the two
+  differ only at a recursive position, where the block's slot is the
+  member's former applied (`BlockModelAt.leaf`);
+* **`hCaB`** — the recursor's conclusion instantiated at the rule's
+  spine reads to the MOTIVE at the constructed element. -/
+
+section WfStep
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+
+/-- The carrier's decomposition at a TAGGED element: the constructor
+and the field spine that built its value, in its own component. -/
+@[expose] noncomputable def blockDecTag (K : Nat) (d : BlockData V) (ψ : Name → Nat)
+    (ρ : Nat → V) (mem : Nat → Nat) (xs : List V) (u : V) : Nat × List V :=
+  blockDecomp d ψ (consList (xs.take d.nP) ρ)
+    (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+      (d.Φ ψ (consList (xs.take d.nP) ρ)))
+    (mem (tagDec K u).1) (tagDec K u).2.1 (tagDec K u).2.2
+
+/-- **The WF kit's step**: the rule's RESIDUE, read at the spine the
+tagged element decomposes to and at the ih values the graph `g`
+supplies. -/
+@[expose] noncomputable def blockRecStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
+    (ρ : Nat → V) (mem : Nat → Nat) (Rb0 : Nat → Nat → AnnotTerm)
+    (ihv : Nat → Nat → List V → V → List V) (xs : List V) (u g : V) : V :=
+  interp V
+    (consList (ihv (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1
+        (blockDecTag K d ψ ρ mem xs u).2 g)
+      (consList (xs ++ (blockDecTag K d ψ ρ mem xs u).2) ρ))
+    (Rb0 (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1)
+
+/-- **The step at a CONSTRUCTED element**: the decomposition reads back
+the constructor and the fields, so the step is the rule's residue at
+the rule's own spine — the ι law's right-hand side. -/
+theorem blockRecStep_at (hM : BlockModelAt mo names d) {K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
+    {mem : Nat → Nat} {Rb0 : Nat → Nat → AnnotTerm}
+    {ihv : Nat → Nat → List V → V → List V} {xs : List V} (hw : d.w ψ ≠ 0)
+    {c : Nat} (hc : c < K) (hmemN : mem c < d.N) {i : V} {j : Nat} {fs : List V}
+    (hj : j < (d.ctorsM (mem c)).length)
+    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+        (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs)
+    (g : V) :
+    blockRecStep K d ψ ρ mem Rb0 ihv xs (tagged c i (d.inj ψ (mem c) j fs)) g
+      = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+  rw [blockRecStep, blockDecTag, tagDec_tagged hc, blockDecomp_eq hM hw hmemN hj hfit]
+
+/-- **The graph is motive-valued at the predecessors** — stated off the
+raw recursion-graph lemmas, because the kit whose `graph_mem_B` would
+say it is the one being built. -/
+theorem app_mem_B_of_piSet {ℓ : Nat} {U : V} {B : V → V} {st : V → V → V} {u g : V}
+    (hB : ∀ i, i ∈ˢ U → B i ∈ˢ (univ ℓ : V))
+    (hg : g ∈ˢ piSet (tcPred U u) (fun v => app (recGraph ℓ U (tcPred U) B st) v))
+    {v : V} (hv : v ∈ˢ tcPred U u) : app g v ∈ˢ B v := by
+  have h1 := app_mem_of_mem_piSet hg hv
+  rw [app_recGraph_eq hB (fun i _ => tcPred_subset U i) (tcPred_subset U u v hv)] at h1
+  exact (mem_recGraphFibre.mp h1).1
+
+section Kit
+
+variable {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt : Nat → Nat} {xs : List V}
+  {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
+  {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
+  {ihv : Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+  {rP : Nat → Nat}
+
+/-- **The WF regime's kit at a prefix spine**: F5's `WfRecKit` over the
+block's own index sets and carriers, with §9's motive and §11's step.
+Its two obligations are O-2's reading (`hconclTy`) and the rule's
+certificates at the decomposed spine, under the three seams the
+module docstring names. -/
+noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
+    (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
+    (hmemN : ∀ c, c < K → mem c < d.N)
+    (hsatP : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ))
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (hconclTy : ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ mem xs c →
+      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
+      interp V
+          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
+        ∈ˢ (univ ℓ : V))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+    (hspF : ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
+    (hihF : ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs))
+          (tagged c i (d.inj ψ (mem c) j fs)) →
+        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
+          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+    (hCaB : ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
+            (tagged c i (d.inj ψ (mem c) j fs))) :
+    WfRecKit ℓ K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs) where
+  B := blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
+  st := blockRecStep K d ψ ρ mem Rb0 ihv xs
+  hB := blockRecMot_mem_univ hconclTy
+  hst := by
+    intro u hu g hg
+    obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
+    obtain ⟨j, fs, hj, hfit, rfl⟩ := blockCarrier_case hM hsatP (hmemN c hc) hi hx
+    have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
+    have hgB : ∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ mem xs)
+        (blockRecCr d ψ ρ mem xs)) (tagged c i (d.inj ψ (mem c) j fs)) →
+        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
+          (fun c' => d.nIdxAt (mem c')) ρ xs v :=
+      fun v hv => app_mem_B_of_piSet (blockRecMot_mem_univ hconclTy) hg hv
+    have hres := (hcerts c hc j hjn).residueOk hμ (hspF c hc j hjn i fs hfit)
+      (hihF c hc j hjn i fs hfit g hgB)
+    rw [blockRecStep_at hM hw hc (hmemN c hc) hj hfit, ← hCaB c hc j hjn i fs hfit g]
+    exact hres.2
+
+end Kit
+
+end WfStep
+
 end ConLeche.Model
