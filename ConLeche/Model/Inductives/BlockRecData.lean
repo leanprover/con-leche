@@ -853,8 +853,12 @@ theorem fieldsValid_liftDomsK {K : Nat} {a ρ : Nat → V} :
     simp only [consList_append, consList_cons, consList_nil] at ih
     exact ih
 
-/-- **The family's ι equations at the block's own data.** -/
-def blockIotaEqsAV (K : Nat) (nCt : Nat → Nat) (pdoms0 : Nat → List AnnotTerm)
+/-- **The family's ι equations at the block's own data.**
+
+`@[expose]`: lane RM9 states its `hpre` at this term, so the body must
+unfold outside this module — `blockRecEqs` is exposed but reduces to
+this. -/
+@[expose] def blockIotaEqsAV (K : Nat) (nCt : Nat → Nat) (pdoms0 : Nat → List AnnotTerm)
     (fdoms0 es0 ihs : Nat → Nat → List AnnotTerm) (mk0 Rb0 : Nat → Nat → AnnotTerm) :
     List AnnotTerm :=
   iotaEqsAV K nCt
@@ -1624,5 +1628,145 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     hstrip, by rw [hpref, hffvs]; exact hlams⟩
 
 end Peel
+
+/-! ## A.10 A-2, split — the PREFIX half at the run, and what the
+FIELD half really is
+
+`BlockRuleDataAt`'s second conjunct is a fit of `pdoms0 ++ fdoms0`
+against `(xs.take rP) ++ (ys.drop nP)`, so `SpineFit.append` splits it
+at `rP`:
+
+* the **prefix half** — `SpineFit ρ pdoms0 ((xs.take rP).map ⟦·⟧)` —
+  is RM6's `spineFit_blockRecTy` truncated: the contract's `hfitR`
+  fits the stored recursor type's reading, `pdoms0` is that reading's
+  binder data cut at `rP`, and a fit truncates.  That is this
+  section;
+* the **field half** — `SpineFit (consList ((xs.take rP).map ⟦·⟧) ρ)
+  fdoms0 ((ys.drop nP).map ⟦·⟧)` — is NOT a truncation of the
+  contract's `hfitC`, and this is the session's main finding.
+  `hfitC` fits the constructor's fields at the CONSTRUCTOR's own
+  parameters (`ys.take nP`); the conjunct asks them to fit at the
+  RECURSOR's (`xs.take nP`), and the rule is `paramsBlind`, so no run
+  fact compares the two spines.  What supplies it is the block's
+  REPRESENTATION: the major premise's membership
+  (`hfitR`'s last step, at the member's carrier at `xs`' parameters
+  and indices) inverts through `BlockModelAt.fibre` into "the value is
+  `d.inj ψ c j fs` with `fs` fitting component `c`'s constructor `j`
+  AT THOSE PARAMETERS", and `BlockModelAt.mkInj` identifies that `fs`
+  with `(ys.drop nP)`'s values.  The same inversion is what lane RM9
+  calls `hspF`, and its remaining gap there is the SHIFT — the rule's
+  field domains are the block's `d.Fss` read `rP − nP` deeper, because
+  the rule's prefix carries the recursor's `nP … rP-1` stretch:
+
+  ```
+  blockRuleFdomsAV acval envC p rs ψ c i
+    = liftDomsK (p.rulePrefixAt c - p.nP) 0 ((d.Fss c ψ).getD i [])
+  ```
+
+  (the same `o = rP − nP` shift `ihNodeVal_blockRec` carries).  That
+  identity, and its twins for `es0`/`mk0`, are A-2/A-3's remaining
+  content; they are reading identifications between the CHECK's opened
+  frame (parameters at fvars `0 … nP-1`, fields at `rP … rP+nF-1`) and
+  the CONSTRUCTORS' stage's (`d.fvsPF`/`d.xFvsF`, at `0 … nP+nF-1`) —
+  the same Exprs opened at different fvar bases and read at different
+  depths. -/
+
+section HspRun
+
+open ConLeche (checkBlockRecK BlockParts)
+
+variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+/-- **A-2's PREFIX half, generically**: whatever fits the `c`-th
+stored recursor type's reading fits its first `rP` binder domains —
+`spineFit_blockRecTy` truncated at the rule's prefix. -/
+theorem spineFit_blockRulePdomsAV (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {ρ : Nat → V} {ws : List AnnotTerm} {rest TVa : AnnotTerm}
+    (hTVa : denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some TVa)
+    (hlen : ws.length = p.toBlockShape.majorIdxAt c + 1)
+    (hfit : TeleFitPA V ρ TVa ws rest) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      ((ws.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) := by
+  have hsp := spineFit_blockRecTy hμ mpC h hr ψ hTVa hlen hfit
+  obtain ⟨-, -, -, -, -, hrdsLen, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  have hpre := spineFit_take hsp (i := p.toBlockShape.rulePrefixAt c)
+    (by rw [List.length_map, hrdsLen]; omega)
+  rw [blockRulePdomsAV, List.map_take, List.map_take]
+  exact hpre
+
+/-- **A-2's prefix half at the contract's own spine**: the fit
+`RecRuleLaw` hands (`hfitR`, at `xs ++ [C ys]`) restricted to the
+rule's prefix. -/
+theorem spineFit_blockRulePdomsAV_app (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC)
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {ρ : Nat → V} {xs : List AnnotTerm} {maj rest TVa : AnnotTerm}
+    (hTVa : denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some TVa)
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfit : TeleFitPA V ρ TVa (xs ++ [maj]) rest) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) := by
+  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
+    rw [hxl]
+    exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  have hq := spineFit_blockRulePdomsAV hμ mpC h hr ψ hTVa
+    (by rw [List.length_append, List.length_singleton, hxl]) hfit
+  rwa [List.take_append_of_le_length hle] at hq
+
+/-- **A-2, assembled**: `blockRuleDataAt_of_base`'s `hsp` is the two
+halves appended.  The field half is stated here in the exact shape the
+representation produces it (lane RM9's `hspF`). -/
+theorem blockRuleHsp_of {pdoms0 fdoms0 : List AnnotTerm} {ρ : Nat → V}
+    {xs ys : List AnnotTerm} {rP nP : Nat}
+    (hpre : SpineFit ρ pdoms0 ((xs.take rP).map (interp V ρ)))
+    (hfld : SpineFit (consList ((xs.take rP).map (interp V ρ)) ρ) fdoms0
+      ((ys.drop nP).map (interp V ρ))) :
+    SpineFit ρ (pdoms0 ++ fdoms0)
+      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) :=
+  SpineFit.append hpre hfld
+
+end HspRun
+
+/-! ## A.11 A-3's core: the constructor's value is PARAMETER-BLIND
+
+`BlockRuleDataAt`'s fourth conjunct (`hmk`) compares the FIRED SPINE
+read at the rule's frame — the constructor at the RECURSOR's
+parameters and the rule's field openers — with `mkAppN Ca ys`, the
+constructor at its OWN parameters.  A `.plain` block rule is
+`paramsBlind`, so `RecRuleLaw` supplies no comparison of the two
+parameter spines (`Model/Annot/Laws.lean`: the comparison clause is
+guarded by `paramsBlind rl = false`), and none is derivable from the
+run.  What makes the conjunct TRUE is the model: `BlockModelAt.ctor`
+says a constructor folded along fitting parameters and fields IS
+`d.inj ψ c j fs` — a value that does not mention the parameters at
+all.  So `hmk` is that clause used twice, and the two remaining
+obligations are the two parameter spines' fits. -/
+
+section CtorBlind
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+
+/-- **The constructor's value ignores its parameters.**  `hmk`'s whole
+content, once the two readings are named. -/
+theorem blockCtorFold_params_blind (hM : BlockModelAt mo names d)
+    {c : Nat} (hc : c < d.N) {j : Nat} {cA : ConstantVal × Nat}
+    (hj : (d.ctorsM c)[j]? = some cA) (ψ : Name → Nat) {ρ : Nat → V}
+    {ps qs fs : List V}
+    (hps : SpineFit ρ (d.params ψ) ps) (hqs : SpineFit ρ (d.params ψ) qs)
+    (hfp : SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs)
+    (hfq : SpineFit (consList qs ρ) ((d.Fss c ψ).getD j []) fs) :
+    (ps ++ fs).foldl SetTheory.app (interp V ρ (mo.acval cA.1.name ψ))
+      = (qs ++ fs).foldl SetTheory.app (interp V ρ (mo.acval cA.1.name ψ)) := by
+  rw [hM.ctor c hc j cA hj ψ ρ ps fs hps hfp, hM.ctor c hc j cA hj ψ ρ qs fs hqs hfq]
+
+end CtorBlind
 
 end ConLeche.Model
