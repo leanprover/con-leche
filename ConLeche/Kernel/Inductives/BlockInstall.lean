@@ -451,9 +451,9 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested :
     unless p.nP ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
         parameters")
-    unless rP ≤ mI do
-      throw (.invalid "direct rec: the recursor's rule prefix reaches past its major \
-        premise")
+    unless mI == rP + ms.nIdx do
+      throw (.invalid "direct rec: the recursor's major-premise index is not its rule \
+        prefix plus the member's index count")
     let (fvs, concl) ← unwrapOr (openPisAtFvars (mI + 1) cvRi.type 0)
       (.invalid "direct rec: the recursor's type does not bind its parameters, its indices \
         and its major premise")

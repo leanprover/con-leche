@@ -100,7 +100,7 @@ theorem checkBlockRecTys_open {mode : ConLeche.CheckMode} {env : Env}
     by_cases hle : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
-    by_cases hle2 : p.rulePrefixAt ri ≤ p.majorIdxAt ri
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
     obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h

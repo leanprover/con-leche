@@ -344,7 +344,7 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
         cvRus[i]? = some (cvRi, nIdx, u) ∧
         checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi ∧
         p.nP ≤ p.rulePrefixAt (ri + i) ∧
-        p.rulePrefixAt (ri + i) ≤ p.majorIdxAt (ri + i)
+        p.majorIdxAt (ri + i) = p.rulePrefixAt (ri + i) + nIdx
   | [], _, cvRus, h => by
     simp only [checkBlockRecTys, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -357,7 +357,7 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
     by_cases hle : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
-    by_cases hle2 : p.rulePrefixAt ri ≤ p.majorIdxAt ri
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
     obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨fvs, concl⟩ := x1
@@ -383,7 +383,8 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
       refine ⟨by simp [hlen], ?_⟩
       intro i hi
       cases i with
-      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, hle2⟩
+      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, by
+          simpa using eq_of_beq hle2⟩
       | succ i =>
         obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv', hle', hle2'⟩ := hall i (by simpa using hi)
         refine ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv', ?_, ?_⟩
@@ -402,7 +403,8 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
       refine ⟨by simp [hlen], ?_⟩
       intro i hi
       cases i with
-      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, hle2⟩
+      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, by
+          simpa using eq_of_beq hle2⟩
       | succ i =>
         obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv', hle', hle2'⟩ := hall i (by simpa using hi)
         refine ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv', ?_, ?_⟩
