@@ -1819,11 +1819,9 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
     (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
-    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    {Wn : Expr}
-    (hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = Wn)
-    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = true)
+    (hfireRaw : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = true)
     -- the BLOCK's copy, at K.32's own addressing
     {aS : AuxStored} (haS : stored[p.k + q]? = some aS)
     {cvCa : ConstantVal} {nPc nF : Nat} (hac : aS.ctors[j]? = some (cvCa, nPc, nF))
@@ -1833,6 +1831,13 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
     (Expr.piBinders domC.1).1.length
       = domPiDepth domJ.1
         + domPiDepth (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1) := by
+  obtain ⟨M₀, us₀, hhd₀⟩ := getAppFn_const_of_ordRootFired hfireRaw
+  have hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
+      = ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1 := ordHeadRed_const hhd₀
+  have hfire := hfireRaw
+  have hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true :=
+    nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ hsJ
+      hl hdJ hord hnorm hfire
   cases hms : nestedInstMaps env st with
   | none =>
     unfold nestedOrdNormOk nestedOrdNormAt at h

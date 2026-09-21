@@ -2418,6 +2418,59 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppFn = .const M us ∧
       (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
         (q₀ + i') l dom.1).getAppFn = .const M usB
+  /-- **K.72 AT THE GROUP** (task #315 WIDE (f3) step 4 (3)): the
+  BLOCK's copy of a container-ORDINARY field the block's rewrite made
+  recursive carries a `Π`-tower as deep as the container's STORED
+  domain's plus the one the MINT's substitution plants — the latter
+  being `domPiDepth` of the block's own recomputation, since
+  `ordTargetDom` strips the container's tower away before it
+  substitutes.
+
+  **Why the SUM.**  The naive form — the copy's tower IS the
+  container's — is refuted by `tests/e2e/nested_comp_tower.ndjson`
+  (`K α | mk (a : α)` minted at `K (Nat → J β)`), an official ACCEPT
+  where the container's domain is a bare parameter and the copy's field
+  is `Nat → <copy>`.  The missing summand is exactly what the
+  components bring, and the recomputation measures it.
+
+  **The copy's side is the RUN's vocabulary and not the model's
+  telescope.**  A `GroupFacts` field may speak of `ctorsA`'s own
+  constructor type; the translation into `mutTlss`/`tssF` —
+  `MutualCtorDataI.reflOpen` at a reflexive field, `tssNone` at a
+  recursive one, and the opening, which plants no `Π` because the
+  openers are `fvar`s — belongs to the consumer that holds the
+  ctor-data record.
+
+  `ordBlkHead`'s hypotheses verbatim, and its producer is
+  `NestedPinsRun.ordTowerAt`. -/
+  ordTower : ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (lpsC : List Name),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (i₀ : Nat), i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (gp : Nat), gp < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[gp]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (m₀ : ContainerMember), ciO.members.head? = some m₀ →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st gp = some mapR →
+    ∀ (qK : Nat), qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
+    ∀ cAx : ConstantVal × Nat,
+      ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cAx →
+    ∀ (cbsB : List (Expr × ConLeche.BinderMeta)) (rB : Expr),
+      cAx.1.type.stripPis (p.nP + cAx.2) = some (cbsB, rB) →
+    ∀ domB : Expr × ConLeche.BinderMeta, cbsB[p.nP + l]? = some domB →
+    (Expr.piBinders domB.1).1.length
+      = ConLeche.domPiDepth dom.1
+        + ConLeche.domPiDepth (ConLeche.ordTargetDom lpsC dJ.nP
+            (ConLeche.nestedPinTermsSelf p st) (q₀ + i') l dom.1)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -8227,7 +8280,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hrss hge cA bs rr dom hjA hst hdm
@@ -8441,6 +8494,47 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
         exact hlpsE
       exact R.ordBlkHeadTieAt SF S' hPD R.h.classify hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
+    · -- the copy's own `Π`-tower at the group (`ordTowerAt`, K.72):
+      -- `ordBlkHead`'s preamble verbatim, and the same guard
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR cA bs rr dom lpsC hjA hst hdm
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE
+        g hg gn hgn ciO hciO m₀ hm₀ ownT hownT mapR hmapR qK hqK hqm hfire
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
+      exact R.ordTowerAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hst hdm hlpsC hg hgn hciO hm₀ hownT hmapR hqK hqm hfire
     · intro i₂ hi₂ ψ₂ i₃ hi₃
