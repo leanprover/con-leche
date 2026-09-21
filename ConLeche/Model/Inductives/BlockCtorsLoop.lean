@@ -9,7 +9,9 @@ public section
 `ctorsLoopEta` (`FixCtorsLoop.lean`) at the BLOCK's η invariant
 (`ConLeche.BlockEtaInv`, `ConLeche/Verify/EnvGuards.lean`): every
 stored family outside the block is closed, and every stored member's η
-constructor is none of the names the current member is consing.  The
+constructor is one of THAT member's own constructors — so a constructor
+of the member being consed completes no other member's η family, which
+is what `hout` (the block's distinct constructor names) says.  The
 loop itself is member-local — it is already abstract in the former's
 leaf (`leafT`), in the fibre fold (`hfold`) and in the carried
 invariant (`Inv`) — so the block's member is the one-member loop at
@@ -40,8 +42,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    {names ctorNames : List Name}
-    (hmemC : ∀ cA ∈ ctorsA, cA.1.name ∈ ctorNames)
+    {names : List Name} {ctorsOf : Name → List Name}
+    (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ p.cvT.name → cA.1.name ∉ ctorsOf T'')
     (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
@@ -94,7 +96,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V μ env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
-      ConLeche.BlockEtaInv env names ctorNames →
+      ConLeche.BlockEtaInv env names ctorsOf →
       env.find? p.cvT.name = some (.indInfo cvTa caps) →
       FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
@@ -104,7 +106,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
       ∃ mp' : EnvModelM V μ (ConLeche.consSumCtors p.nP rest env),
-        ConLeche.BlockEtaInv (ConLeche.consSumCtors p.nP rest env) names ctorNames ∧
+        ConLeche.BlockEtaInv (ConLeche.consSumCtors p.nP rest env) names ctorsOf ∧
         (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
           = some (.indInfo cvTa caps) ∧
         FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
@@ -113,10 +115,10 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
           idxF dsF esF srcsF ctorsA ctorsA.length ∧
         Inv mp'.base2 :=
   ctorsLoopEta hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
-    caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorNames)
+    caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorsOf)
     (fun _ _ _ hfresh hE => hE.cons hfresh)
     (fun _ cA hcA hfresh hE _ _ _ hf hne hres hcape _ =>
-      hE.other (nP := p.nP) (nF := cA.2) hfresh (hmemC cA hcA) hf hne hres hcape)
+      hE.other (nP := p.nP) (nF := cA.2) hfresh (hout cA hcA) hf hne hres hcape)
     hfold
 
 end ConLeche.Model
