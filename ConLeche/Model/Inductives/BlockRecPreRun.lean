@@ -1666,4 +1666,83 @@ theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat 
 
 end BlockInd
 
+/-! ## 18. `hTy` from the run
+
+`BlockRecPre.hTy` asks the recursor types' readings to be sets of the
+chain's level and to be graded.  The GRADING is `checkBlockRecK_tyPis`'
+last component (`WellDenotedV` is the grading and the bit-validity
+together, `Model/Currency.lean`), and the membership is the Π-tower's:
+a tower all of whose stages carry the level `s` lands in `univ s`,
+given its domains and its body do (`piR_mem_univ` at `u = v = s`,
+where the `max` collapses).  Both remaining premises are O-2's
+readings of the STORED type, at the named spellings `blockRecRdsAV`
+and `blockRecConclAV`. -/
+
+section TyRun
+
+/-- **A Π-tower at ONE level lands in that universe.** -/
+theorem mkPisAV_mem_univ (s : Nat) :
+    ∀ (ds : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (b : AnnotTerm),
+      (∀ dd ∈ ds, dd.2.1 = s) →
+      (∀ ys : List V, SpineFit ρ ((ds.take ys.length).map (·.2.2)) ys →
+        ∀ dd, ds[ys.length]? = some dd → interp V (consList ys ρ) dd.2.2 ∈ˢ (univ s : V)) →
+      (∀ ys : List V, SpineFit ρ (ds.map (·.2.2)) ys →
+        interp V (consList ys ρ) b ∈ˢ (univ s : V)) →
+      interp V ρ (mkPisAV ds b) ∈ˢ (univ s : V)
+  | [], ρ, b, _, _, hb => hb [] trivial
+  | dd :: ds, ρ, b, hlvl, hdom, hb => by
+    show piR dd.2.1 (interp V ρ dd.2.2) (fun x => interp V (cons x ρ) (mkPisAV ds b))
+      ∈ˢ (univ s : V)
+    have hA : interp V ρ dd.2.2 ∈ˢ (univ s : V) := hdom [] trivial dd rfl
+    have hB : ∀ x, x ∈ˢ interp V ρ dd.2.2 →
+        interp V (cons x ρ) (mkPisAV ds b) ∈ˢ (univ s : V) := by
+      intro x hx
+      refine mkPisAV_mem_univ s ds (cons x ρ) b (fun d' hd' => hlvl d' (.tail _ hd')) ?_ ?_
+      · intro ys hsp d' hd'
+        exact hdom (x :: ys) ⟨hx, hsp⟩ d' (by simpa using hd')
+      · intro ys hsp
+        exact hb (x :: ys) ⟨hx, hsp⟩
+    rw [hlvl dd (.head _)]
+    have h := piR_mem_univ (u := s) (v := s) hA hB
+    have hm : Nat.max s s = s := by simp [Nat.max_def]
+    have he : (if s = 0 then 0 else Nat.max s s) = s := by
+      rw [hm]
+      split
+      · next h0 => exact h0.symm
+      · rfl
+    rwa [he] at h
+
+/-- **`hTy` at the run**: the type's grading is the run's
+(`checkBlockRecK_tyPis`), its membership the Π-tower's at the run's
+own binder data and conclusion. -/
+theorem hTy_of_run {envC : Env} (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F s : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) (ρ : Nat → V)
+    (hlvl : ∀ c, c < rs.length →
+      ∀ dd ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c, dd.2.1 = s)
+    (hdom : ∀ c, c < rs.length → ∀ ys : List V,
+      SpineFit ρ
+        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take ys.length).map
+          (·.2.2)) ys →
+      ∀ dd, (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[ys.length]? = some dd →
+        interp V (consList ys ρ) dd.2.2 ∈ˢ (univ s : V))
+    (hcon : ∀ c, c < rs.length → ∀ ys : List V,
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+      interp V (consList ys ρ)
+          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) ∈ˢ (univ s : V)) :
+    ∀ c, c < rs.length →
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+        WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) := by
+  intro c hc
+  obtain ⟨-, -, -, -, hPis, -, -, -, -, hwd⟩ :=
+    checkBlockRecK_tyPis hμ mpC h (List.getElem?_eq_getElem hc) ψ
+  refine ⟨?_, (hwd ρ).1⟩
+  rw [hPis]
+  exact mkPisAV_mem_univ s _ ρ _ (hlvl c hc) (hdom c hc) (hcon c hc)
+
+end TyRun
+
 end ConLeche.Model
