@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
+public import ConLeche.Model.Inductives.BlockAssemblyKit
 
 public section
 
@@ -466,5 +467,80 @@ are the regime's own). -/
     kitW hsplit hconcl
 
 end WfData
+
+/-! ## 7. The LEAF's bridge from the dummy chains to the real ones
+
+`blockModelAt_of_stages` asks for the members' leaves at the REAL
+field readings `d.Fss`, while every stage supplies them at the dummy
+former's `fssZ` (`BlockCtorsStage.leaf`): the constructors are checked
+against a former whose recursive fields are not yet the member's own.
+The operator's half of that bridge is `blockChainsOk_congr_ord`
+(`BlockAssemblyKit.lean`); the LEAF's half is here, and it is a pure
+CONGRUENCE — `blockTyAV` reads the field lists only through
+`chainsXBI`, and `chainsXBI_congr_ord` already says those are the same
+list when the two readings agree at the ordinary positions.
+
+Its home is `BlockAssemblyKit.lean`, beside the operator's half; it is
+here because this lane owns one file. -/
+
+/-- The tuple-maker is congruent in its component function over the
+range it reads. -/
+theorem ndMkTowerAV_congr_lt {r : Nat} {Gty G G' : Nat → AnnotTerm} :
+    ∀ (n s : Nat), (∀ i, i < n → G (s + i) = G' (s + i)) →
+      ndMkTowerAV r Gty G s n = ndMkTowerAV r Gty G' s n
+  | 0, _, _ => rfl
+  | n + 1, s, h => by
+    have h0 : G s = G' s := by simpa using h 0 (Nat.succ_pos n)
+    have hrest : ∀ i, i < n → G (s + 1 + i) = G' (s + 1 + i) := by
+      intro i hi
+      have := h (i + 1) (by omega)
+      rwa [show s + (i + 1) = s + 1 + i from by omega] at this
+    show AnnotTerm.mkAppN _ [_, _, G s, ndMkTowerAV r Gty G (s + 1) n] = _
+    rw [h0, ndMkTowerAV_congr_lt n (s + 1) hrest]
+    rfl
+
+/-- **The block's operator term is congruent** in the field readings,
+at equal chains. -/
+theorem blockFunAV_congr_chains {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
+    {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
+    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Fsss' Esss : Nat → List (List AnnotTerm)}
+    (hchains : ∀ m, m < k →
+      chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) (Esss m)
+        = chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss' m)
+            (Esss m)) :
+    blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss
+      = blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss' Esss := by
+  unfold blockFunAV
+  refine congrArg _ (ndMkTowerAV_congr_lt k 0 fun i hi => ?_)
+  rw [Nat.zero_add]
+  unfold blockArmAV
+  rw [hchains i hi]
+
+/-- **The LEAF's bridge**: a member's former leaf is the same term at
+the dummy former's field readings and at the members' real ones, when
+the two agree at the ORDINARY positions — the `blockTyAV` twin of
+`blockChainsOk_congr_ord`. -/
+theorem blockTyAV_congr_ord {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
+    {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
+    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Fsss' Esss : Nat → List (List AnnotTerm)}
+    (hlen : ∀ m, m < k → (Fsss m).length = (Fsss' m).length)
+    (hlenj : ∀ m, m < k → ∀ j, j < (Fsss m).length →
+      ((Fsss m).getD j []).length = ((Fsss' m).getD j []).length)
+    (hord : ∀ m, m < k → ∀ j, j < (Fsss m).length → ∀ l, l < ((Fsss m).getD j []).length →
+      ((rsss m).getD j []).getD l false = false →
+      ((Fsss m).getD j []).getD l default = ((Fsss' m).getD j []).getD l default)
+    (pps : List (Nat × Nat × AnnotTerm)) (m : Nat) :
+    blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m
+      = blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss' Esss pps m := by
+  have hchains : ∀ m', m' < k →
+      chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m') (Fsss m')
+          (Esss m')
+        = chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m')
+            (Fsss' m') (Esss m') :=
+    fun m' hm' => chainsXBI_congr_ord (hlen m' hm') (hlenj m' hm') (hord m' hm')
+  unfold blockTyAV blockBodyAV
+  rw [blockFunAV_congr_chains (w := w) hchains]
 
 end ConLeche.Model
