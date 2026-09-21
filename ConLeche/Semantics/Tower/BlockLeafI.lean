@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Semantics.Tower.BlockTuple
-public import ConLeche.Semantics.Tower.FixTuple
-public import ConLeche.SetTheory.Derive.LfpCompose
+public import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Univ
+import ConLeche.SetTheory.Derive.LfpCompose
 @[expose] public section
 
 /-!
