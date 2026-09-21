@@ -1,7 +1,10 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Verify.Level
+import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Verify.Level
+public import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.BasisEmpty
 import ConLeche.Verify.Inductives.BlockRecInv
 
 public section
@@ -27,7 +30,7 @@ elimination level — `M5m`'s `OneElimLevel` at the family's single `ℓ`.
 -/
 
 namespace ConLeche.Model
-
+open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 
 /-! ## D-d, at the valuation -/
@@ -59,5 +62,47 @@ theorem blockRecElimAgree_zero_iff {us : List Level}
     (ψ : Name → Nat) {u : Level} (hu : u ∈ us) :
     ((us.headD .zero).eval ψ = 0 ↔ u.eval ψ = 0) := by
   rw [blockRecElimAgree_eval h ψ u hu]
+
+/-! ## FINDING — `denoteMeta` does not respect `Expr.resetMeta`
+
+`blockIhCall?` (`Kernel/Inductives/BlockRec.lean`) recognises a guarded
+recursive call by comparing the node with the generated spine **at the
+parse placeholder's binder data**: `Expr.resetMeta e == Expr.resetMeta
+expected`.  `blockIhCall?_spine` exports exactly that equality, and it
+is the ONLY tie between the stored right-hand side's call node and the
+spine the ι law is stated at.
+
+It does not transport a READING.  `resetMeta` forces every binder's
+datum to `⟨.never⟩`, whose bit is `1`, while a datum that holds at `φ`
+reads `0`; and `interp` is not bit-blind — `lamR`/`piR` take the bit.
+So two `resetMeta`-equal expressions can denote differently, and this
+is that fact, witnessed:
+
+the difference is confined to binder data occurring INSIDE the call's
+arguments that come from the GENERATED side — the field's index
+expressions (`BlockRuleFrame.idxOf`, off the constructor's stored
+annotated type) — since the telescope's own `⟨pw⟩` binders are consumed
+by `instPisAtLift` and the spine's other arguments are the node's own.
+Both sides are outputs of `annotateCore`, so on a well-formed stream
+they agree; what is missing is a lemma saying so (the annotation's
+binder data is a function of the erased term and the environment), or a
+strengthening of the comparison.  See the lane report. -/
+theorem not_denoteMeta_resetMeta_invariant :
+    ∃ (e₁ e₂ : Expr) (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+      (φ : Name → Nat) (d : Nat),
+      Expr.resetMeta e₁ = Expr.resetMeta e₂ ∧
+      denoteMeta acval env φ d e₁ ≠ denoteMeta acval env φ d e₂ := by
+  refine ⟨.lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.never⟩,
+    .lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.ifAllZero []⟩,
+    (fun _ _ => .prf), ⟨[]⟩, (fun _ => 0), 0, rfl, ?_⟩
+  have e1 : ∀ pw : ConLeche.PropWhen,
+      denoteMeta (fun _ _ => AnnotTerm.prf) (⟨[]⟩ : Env) (fun _ => 0) 0
+          (Expr.lam (.sort .zero) (.sort .zero) ⟨pw⟩)
+        = some (.lam (pwBit (fun _ => 0) pw) (.sort 0) (.sort 0)) := by
+    intro pw
+    rw [denoteMeta]
+    simp [denoteMeta_sort, Expr.instantiate1, Level.eval]
+  rw [e1, e1, pwBit_never, pwBit_ifAllZero_nil]
+  simp
 
 end ConLeche.Model
