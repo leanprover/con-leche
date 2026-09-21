@@ -90,14 +90,19 @@ the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
 field `i` of THIS constructor whose kind names the member `rec_{c'}`
 eliminates; the call's arguments `as` are as many as that
 field's telescope has binders and mention no block recursor; and the
-whole node is `blockIhSpinePis` — the generated call
-`rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame —
-instantiated at `as`, up to `Expr.resetMeta`.
+whole node IS `blockIhSpinePis` — the generated call
+`rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame — instantiated
+at `as`, EXACTLY: `e = expected` as terms, binder data included, so
+the field's index expressions `e⃗_i(a⃗)` in the node are the ANNOTATED
+ones the constructor's stored type carries, not merely their erasures.
 
-`resetMeta` is the comparison the stage makes, and the one the
-one-member stage has always made on a rule body (`nativeRulesOk`): the
-binder data inside a rule's right-hand side is the annotation pass's,
-not the generator's. -/
+The equality has to be exact because the model's reading is not
+`Expr.resetMeta`-invariant (`not_denoteMeta_resetMeta_invariant`,
+`ConLeche/Model/Inductives/BlockRecRead.lean`): `resetMeta` forces
+every binder datum to `.never` (bit `1`) while a datum that holds
+reads `0`, and `interp` takes the bit.  This equality is the only tie
+between the stored right-hand side's call node and the spine the ι law
+is stated at, so it is stated at the terms the reading sees. -/
 theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
     {as : List Expr} (h : blockIhCall? fr d e = some (r, as)) :
     ∃ (nm : Name) (c' i : Nat) (expected : Expr),
@@ -112,7 +117,7 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
       Expr.instPisAtLift as
           (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d (fr.teleOf i)
             (fr.idxOf i)) = some expected ∧
-      Expr.resetMeta e = Expr.resetMeta expected := by
+      e = expected := by
   simp only [blockIhCall?] at h
   split at h
   case h_2 => exact nomatch h
@@ -160,7 +165,7 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   have hus' : us = fr.rlvls := by simpa using hus
   have hasl' : maj.getAppArgs.length = (fr.teleOf (d + fr.nF - 1 - b)).length := by simpa using hasl
   have hfree' : (maj.getAppArgs.any fun a => a.mentionsAnyConst fr.recNames) = false := by simpa using hfree
-  have hcmp' : e.resetMeta = expected.resetMeta := by simpa using hcmp
+  have hcmp' : e = expected := by simpa using hcmp
   have htgt' : (fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt?
       = some (fr.recTgts.getD c' fr.recTgts.length) := by
     simpa using htgt
