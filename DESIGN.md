@@ -130009,3 +130009,135 @@ everywhere.
 `#print axioms` on `copyOrdTeleAt` and `CopyOrdTele.length`:
 `[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom,
 no `maxHeartbeats`.
+
+#### WIDE (f3) — THE REDUCE-THEN-OPEN INVERSION IS BUILT; AND OBJECT (2) DOES **NOT** NEED IT, BECAUSE K.72 MEASURES THE RECOMPUTATION'S **SYNTACTIC** DEPTH (lane LE, 2026-09-21)
+
+Session 36's §(f) owed object (2) "a REDUCE-THEN-OPEN inversion of the
+walk" and re-priced (2) at three sessions on the strength of it.  The
+inversion is built and proved, and reading it against the KERNEL's own
+K.72 arm shows the re-pricing was wrong in the direction that costs
+least: **object (2) is back to two sessions and needs only the
+inversion the tree already had**; what the new one buys is the
+REDEX-TOWER corner, which needs one more thing that is NOT object (2)'s.
+
+##### (a) WHAT LANDED
+
+| declaration | `file:line` | what it says |
+|---|---|---|
+| `OrdHeadStop` | `Verify/Inductives/OrdHeadRed.lean:226` | the TWO shapes at which both `ordHeadRed` and the run stop: a stored inductive's application, and a `∀` |
+| `whnfCore_ordHeadRedGo` / `whnfCore_ordHeadRed` / `whnf_ordHeadRed` | `:248` / `:329` / `:340` | restated over `OrdHeadStop` — the binder disjunct is the strengthening, and the constant one is the old statement verbatim |
+| `whnfCore_forallE` / `whnfCore_stop_inv` / `reduceNat_forallEHead_none` | `:200` / `:234` / `:317` | the binder arm's three lines: `whnfCoreBody` hands a `∀` back, and neither the literal path nor `unfoldDefinition` fires on one |
+| `openRedPisAtFvars` | `:718` | **`openPisAtFvars` with one `ordHeadRed` per binder** — the tower the walk itself peels, and a PURE function (no environment), which is what lets a reading row carry it |
+| `openRedPisAtFvars_forallE` / `_succ_const` / `_eq_openPisAtFvars` | `:731` / `:741` / `:770` | its two step equations, and: where neither leaf is a redex the two towers are ONE (counts, openers and leaves) |
+| `normPosDomM_openRedPis_ordHeadRed` | `Verify/Inductives/NestedCopyNorm.lean:2371` | **the inversion**: the walk's output opens at `n₂` binders with a constant-headed leaf exactly when the input's reduce-then-open tower opens at the same count, at the same openers, and the output's leaf is the input's leaf head-reduced |
+
+The proof is the plain inversion's three arms one function over: the
+member-free early return and a `whnf` answer handed back unchanged both
+land on ONE term whose two openings are `openRedPisAtFvars_eq_openPisAtFvars`,
+and the `Π` arm recurses through the `abstract1`/`instantiate1` round
+trip.  `#print axioms` on every one of them is `[propext,
+Classical.choice, Quot.sound]`.  **No kernel file is touched**, so the
+accept set cannot have moved and no firing or `instructions:u` cell is
+owed.
+
+##### (b) THE CORRECTION — AND IT IS READ OFF THE CHECK, NOT ARGUED
+
+Session 36 §(f) said the added `stripDomPis` "has to be
+`stripDomPis (ordHeadRed …)` and not `stripDomPis …`", because at
+`tests/e2e/nested_redex_tower.ndjson` the recomputation is a REDEX and
+`stripDomPis` of a non-`Π` is the identity.  True of that fixture, and
+IRRELEVANT to object (2), because of what K.72's own arm compares
+(`Kernel/Inductives/NestedInstall.lean:3216`):
+
+```
+(Expr.piBinders domC.1).1.length ==
+  domPiDepth domJ.1 + domPiDepth (ordTargetDom Jm.lps ci.nP terms q l domJ.1)
+```
+
+— `domPiDepth` of the recomputation **RAW**, with no `ordHeadRed` in
+front of it.  So inside K.72's guard the copy's recorded telescope is
+the container's stored tower plus the recomputation's own SYNTACTIC
+`Π`-prefix, and `stripDomPis` — which strips exactly that prefix —
+removes precisely the binders the new cut `l + tlsl.length` accounts
+for.  The mint therefore has `tlsl.length` plain `∀`s and
+`normPosDomM_openPis_ordHeadRed` (the tree's own, unchanged) reaches.
+
+**And where it would not, K.72 is FALSE and its guard is what saves
+it.**  At `nested_redex_tower` the copy's telescope is `1` while both
+summands are `0`, so the equation does not hold — the block is accepted
+only because the arm is unreachable there (`Wrap` has no own pins, so
+the `qK` loop is empty; measured: `nested-shadow` has the fixture at
+`accept` in both modes).  The general statement of that corner is:
+where the recomputation is a redex whose head normal form is a `Π`,
+K.72's equation under-counts, the reading rows' guard is false and the
+rows are VACUOUS — sound, silent, and exactly the conceding-arm pattern
+the fourth concession already uses.
+
+**So the residue is named, and it is not (2)'s.**  To make the rows
+speak at a planted-AND-reducing tower the CHECK has to change too:
+K.72 restated at the reduced depth (a `domPiDepth` of `ordHeadRed` of
+the recomputation, or the `openRedPisAtFvars` count) — a KERNEL record
+of the K.69 family, with the full battery.  That is a K.73-shaped item
+and it is the only consumer the new inversion has; until it exists,
+`normPosDomM_openRedPis_ordHeadRed` is a residual and
+`tests/unconsumed.sh` lists it (206 of 3944 against 205 of 3934: ONE
+new advisory entry, and it is exactly this theorem — the five other new
+declarations all have consumers).
+
+**Honest sizing: object (2) is TWO sessions from here**, as the
+2026-09-21 morning row had it, and the third session §(f) added is
+retracted.
+
+##### (c) `hdom₁` IDENTIFIED — IT IS `CopyEntryAt` AT THE BLOCK'S OWN LEAST TUPLE, AND IT IS ASKED AT **THREE** ARMS OF WHICH THE WIDE ROUTE ALREADY CARRIES ONE
+
+Step 3's first question ("what gives the block's own entry at the
+tower's body") has an answer in the tree, and it is not a new object:
+
+* `hdom₁`'s conclusion (`NestedPinLeafAll.lean:7388`) is the `⊆ˢ`
+  direction of `CopyEntryAt` (`Model/Inductives/NestedFit.lean:735`) at
+  `w = f₀.s.eval ψ`, `u = nestedU p.k W pinsS ψ` and
+  `Z = lfpTuple ((D).w ψ) (p.k + pinsS.length) …` — which is `L⁺`, the
+  BLOCK's own least tuple, by `rfl` (`NestedFit.lean:2018`).  The
+  frames match on the nose: `(D).pinFrame (q₀ + iq) ψ ρp` unfolds to
+  `consList (Ds.map (interp V ρp)) ρp`;
+* and `CopyEntryAOrd` (`NestedFit.lean:2074`) is that entry, packaged,
+  at the block's group — the hypothesis `hent` of
+  `nestedPinsLe_of_wide` (`NestedPinsLeInd.lean:264`) already;
+* **but `CopyEntryAOrd` covers ONE of `hdom₁`'s three arms.**  Its
+  guard is container-ORDINARY (`(dJ.rss i).getD j []).getD l = false`)
+  AND copy-recursive AND target OUTSIDE the group; `hdom₁`'s is
+  copy-recursive and nothing else.  The two arms it does not cover are
+  the container-RECURSIVE field (where the container's field domain is
+  the class itself and no entry is needed) and the target INSIDE the
+  group (the `pinF`/segment arm, where the block's own carrier is what
+  is being proved).  The split is `hXrec`'s — `nestOf`, as the step-5
+  row already found for the other premise — and `CopyOrdTele` is spent
+  in the one arm that reaches the container's field domain through a
+  TOWER.
+
+That is the work order for `hdom₁`: thread `CopyEntryAOrd` into the
+assembly, split the other two arms by `nestOf`, and spend
+`copyOrdTeleAt` where the tower is real.  No record is requested.
+
+##### (d) THE GATES, AT `a7b56ad9`
+
+`tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
+`shake: 514 removals, all allowlisted`, `pub-imports: 1348 of 2319
+public, none demotable (60 fallbacks)`, `nested-shadow: 47/47`
+(`nested_redex_tower`, `nested_redex_owner`, `nested_comp_tower`,
+`nested_bvar_field` and `nested_pi_field` at `CON_LECHE_INMODEL=0` all
+`accept`), `e2e: 200/200`, `arena suite: 91/96`, `annot 15/15`,
+`mode flags 10/10`, `prelude counts 3/3`, `progress lane 15/15`,
+`worker pool 15/15`, `DAG-tower 14/14`, `axioms: pinned (20 theorems)`,
+trusted and the two `--jobs` sweeps as at the default, `inmodel: OK`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`.  `tests/warning-free.sh 42a288e0` — 2 changed modules,
+**0 warning lines** in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **206 of 3944** against **205 of 3934**.
+
+One `FALLBACK` entry added to `scripts/pub-import-plan.py`
+(`NestedCopyNorm` → `OrdHeadRed`): the model calls the re-export
+demotable and the compiler refuses it — `Unknown identifier
+openRedPisAtFvars` at the theorem's statement plus the two
+`simp only [openRedPisAtFvars]` steps losing their equation lemmas,
+both measured.
