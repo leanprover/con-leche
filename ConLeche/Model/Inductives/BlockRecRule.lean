@@ -193,6 +193,21 @@ theorem hasFvar_of_mem_getAppArgs :
   | .fvar .., _, a, ha | .lam .., _, a, ha | .forallE .., _, a, ha
   | .letE .., _, a, ha | .proj .., _, a, ha => absurd ha (by simp [Expr.getAppArgs])
 
+/-- The bvar twin of `hasFvar_of_mem_getAppArgs`: a bounded spine's
+arguments are bounded. -/
+theorem bounded_of_mem_getAppArgs {k : Nat} :
+    ∀ {e : Expr}, e.looseBVarsBounded k = true →
+      ∀ a ∈ e.getAppArgs, a.looseBVarsBounded k = true
+  | .app f b, h, a, ha => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    rw [Expr.getAppArgs] at ha
+    rcases List.mem_append.mp ha with ha' | ha'
+    · exact bounded_of_mem_getAppArgs h.1 a ha'
+    · rw [List.mem_singleton.mp ha']; exact h.2
+  | .bvar _, _, a, ha | .sort _, _, a, ha | .lit _, _, a, ha | .const .., _, a, ha
+  | .fvar .., _, a, ha | .lam .., _, a, ha | .forallE .., _, a, ha
+  | .letE .., _, a, ha | .proj .., _, a, ha => absurd ha (by simp [Expr.getAppArgs])
+
 /-- **The call's arguments are the MAJOR's arguments**, and the major
 is one of the node's — `blockIhCall?` inverted just far enough to move
 `hasFvar` down. -/
@@ -578,7 +593,7 @@ so it is the regimes' seam and not this induction's. -/
     (fr : ConLeche.BlockRuleFrame) (F : Nat) (ρ' : Nat → V) (ihvals : List V) : Prop :=
   ∀ (d : Nat) (locals : List V) (e : Expr) (r : Nat) (as as1 as2 : List Expr)
     (A B : AnnotTerm),
-    e.hasFvar = false →
+    e.hasFvar = false → e.looseBVarsBounded (F + d) = true →
     locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
     ConLeche.blockIhCall? fr d e = some (r, as) →
     denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A →
@@ -605,12 +620,13 @@ theorem interp_abstractIh
     (hih : ihvals.length = fr.nR) (hcall : IhNodeVal V acval env φ fr F ρ' ihvals) :
     ∀ (e e'' : Expr) (d : Nat) (locals : List V) (as1 as2 : List Expr) (A B : AnnotTerm),
       ConLeche.abstractIh fr d e = some e'' → e.hasFvar = false →
+      e.looseBVarsBounded (F + d) = true →
       locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
       denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A →
       denoteMeta acval env φ (F + fr.nR + d) (e''.instantiateList as2 0) = some B →
       interp V (consList locals ρ') A
         = interp V (consList locals (consList ihvals ρ')) B
-  | .bvar j, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .bvar j, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     obtain rfl : e'' = (Expr.bvar j).liftLooseBVars fr.nR d := by
       rw [ConLeche.abstractIh_bvar] at hab
       rw [Expr.liftLooseBVars, ← Option.some.inj hab]
@@ -618,24 +634,25 @@ theorem interp_abstractIh
       · rw [if_neg (by omega)]
       · rw [if_pos (by omega)]
     exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
-  | .sort u, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .sort u, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     obtain rfl : e'' = (Expr.sort u).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
     exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
-  | .lit l, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .lit l, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     obtain rfl : e'' = (Expr.lit l).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
     exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
-  | .const n us, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .const n us, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     rw [ConLeche.abstractIh_const] at hab
     split at hab
     · exact nomatch hab
     · obtain rfl : e'' = (Expr.const n us).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
       exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
-  | .fvar _ _, _, _, _, _, _, _, _, hab, _, _, _, _, _, _ => nomatch hab
-  | .letE ty v b, _, d, _, as1, _, A, _, _, _, _, _, _, hA, _ => by
+  | .fvar _ _, _, _, _, _, _, _, _, hab, _, _, _, _, _, _, _ => nomatch hab
+  | .letE ty v b, _, d, _, as1, _, A, _, _, _, _, _, _, _, hA, _ => by
     rw [Expr.instantiateList, denoteMeta] at hA
     exact nomatch hA
-  | .proj sn i e, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .proj sn i e, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     simp only [Expr.hasFvar] at hf
+    simp only [Expr.looseBVarsBounded] at hb
     rw [ConLeche.abstractIh] at hab
     split at hab
     · exact nomatch hab
@@ -645,7 +662,7 @@ theorem interp_abstractIh
     obtain ⟨ea, hea, hA⟩ := Option.bind_eq_some_iff.mp hA
     obtain ⟨eb, heb, hB⟩ := Option.bind_eq_some_iff.mp hB
     have hrec := interp_abstractIh hacl hih hcall e e' d locals as1 as2 ea eb
-      hpe hf hloc h1 h2 hea heb
+      hpe hf hb hloc h1 h2 hea heb
     revert hA hB
     cases env.findProj? sn i with
     | some entry =>
@@ -663,8 +680,9 @@ theorem interp_abstractIh
         obtain rfl : B = .snd eb := (Option.some.inj hB).symm
         rw [interp_snd, interp_snd, hrec]
       · exact nomatch hA
-  | .lam ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .lam ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
     obtain ⟨ty', hty', hab⟩ := hab
     rw [Option.map_eq_some_iff] at hab
@@ -678,7 +696,7 @@ theorem interp_abstractIh
     obtain rfl : B = .lam (pwBit φ bi.pw) tb bb := (Option.some.inj hB).symm
     rw [← Expr.instantiateList_cons] at hba hbb
     have hrecT := interp_abstractIh hacl hih hcall ty ty' d locals as1 as2 ta tb
-      hty' hf.1 hloc h1 h2 hta htb
+      hty' hf.1 hb.1 hloc h1 h2 hta htb
     rw [interp_lam, interp_lam, hrecT]
     refine lamR_congr fun x _ => ?_
     rw [show F + d + 1 = F + (d + 1) from by omega] at hba
@@ -686,15 +704,16 @@ theorem interp_abstractIh
     have := interp_abstractIh hacl hih hcall b b' (d + 1) (locals ++ [x])
       (Expr.fvar (F + d) (ty.instantiateList as1 0) :: as1)
       (Expr.fvar (F + fr.nR + d) (ty'.instantiateList as2 0) :: as2) ba bb
-      hb' hf.2 (by simp [hloc])
+      hb' hf.2 (by rw [show F + (d + 1) = F + d + 1 from by omega]; exact hb.2) (by simp [hloc])
       (by rw [show F + (d + 1) = F + d + 1 from by omega]
           exact h1.cons _ (wscoped_instantiateList h1 ty hf.1 0))
       (by rw [show F + fr.nR + (d + 1) = F + fr.nR + d + 1 from by omega]
           exact h2.cons _ (wscoped_instantiateList h2 ty' (abstractIh_hasFvar hty' hf.1) 0))
       hba hbb
     rwa [consList_append, consList_append] at this
-  | .forallE ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .forallE ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
     obtain ⟨ty', hty', hab⟩ := hab
     rw [Option.map_eq_some_iff] at hab
@@ -708,7 +727,7 @@ theorem interp_abstractIh
     obtain rfl : B = .pi 0 (pwBit φ bi.pw) tb bb := (Option.some.inj hB).symm
     rw [← Expr.instantiateList_cons] at hba hbb
     have hrecT := interp_abstractIh hacl hih hcall ty ty' d locals as1 as2 ta tb
-      hty' hf.1 hloc h1 h2 hta htb
+      hty' hf.1 hb.1 hloc h1 h2 hta htb
     rw [interp_pi, interp_pi, hrecT]
     refine piR_congr fun x _ => ?_
     rw [show F + d + 1 = F + (d + 1) from by omega] at hba
@@ -716,14 +735,14 @@ theorem interp_abstractIh
     have := interp_abstractIh hacl hih hcall b b' (d + 1) (locals ++ [x])
       (Expr.fvar (F + d) (ty.instantiateList as1 0) :: as1)
       (Expr.fvar (F + fr.nR + d) (ty'.instantiateList as2 0) :: as2) ba bb
-      hb' hf.2 (by simp [hloc])
+      hb' hf.2 (by rw [show F + (d + 1) = F + d + 1 from by omega]; exact hb.2) (by simp [hloc])
       (by rw [show F + (d + 1) = F + d + 1 from by omega]
           exact h1.cons _ (wscoped_instantiateList h1 ty hf.1 0))
       (by rw [show F + fr.nR + (d + 1) = F + fr.nR + d + 1 from by omega]
           exact h2.cons _ (wscoped_instantiateList h2 ty' (abstractIh_hasFvar hty' hf.1) 0))
       hba hbb
     rwa [consList_append, consList_append] at this
-  | .app f a, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+  | .app f a, e'', d, locals, as1, as2, A, B, hab, hf, hb, hloc, h1, h2, hA, hB => by
     rw [ConLeche.abstractIh_app] at hab
     revert hab
     cases hc : ConLeche.blockIhCall? fr d (.app f a) with
@@ -731,10 +750,11 @@ theorem interp_abstractIh
       intro hab
       obtain ⟨r, as⟩ := ra
       obtain rfl := Option.some.inj hab
-      exact hcall d locals (.app f a) r as as1 as2 A B hf hloc h1 h2 hc hA hB
+      exact hcall d locals (.app f a) r as as1 as2 A B hf hb hloc h1 h2 hc hA hB
     | none =>
       intro hab
       simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       rw [Option.bind_eq_some_iff] at hab
       obtain ⟨f', hf', hab⟩ := hab
       rw [Option.map_eq_some_iff] at hab
@@ -747,8 +767,8 @@ theorem interp_abstractIh
       obtain rfl : A = .app fa aa := (Option.some.inj hA).symm
       obtain rfl : B = .app fb ab := (Option.some.inj hB).symm
       rw [interp_app, interp_app,
-        interp_abstractIh hacl hih hcall f f' d locals as1 as2 fa fb hf' hf.1 hloc h1 h2 hfa hfb,
-        interp_abstractIh hacl hih hcall a a' d locals as1 as2 aa ab ha' hf.2 hloc h1 h2 haa hab']
+        interp_abstractIh hacl hih hcall f f' d locals as1 as2 fa fb hf' hf.1 hb.1 hloc h1 h2 hfa hfb,
+        interp_abstractIh hacl hih hcall a a' d locals as1 as2 aa ab ha' hf.2 hb.2 hloc h1 h2 haa hab']
 
 /-! ## `IhNodeVal`, reduced to a statement about the STORED node
 
@@ -855,6 +875,7 @@ thing `IhNodeVal` still wants. -/
     (fr : ConLeche.BlockRuleFrame) (F : Nat) (ρ' : Nat → V) (ihvals : List V) : Prop :=
   ∀ (d : Nat) (locals : List V) (e : Expr) (r : Nat) (as as1 : List Expr)
     (A : AnnotTerm) (vs : List AnnotTerm),
+    e.hasFvar = false → e.looseBVarsBounded (F + d) = true →
     locals.length = d → FvarList (F + d) as1 →
     ConLeche.blockIhCall? fr d e = some (r, as) →
     denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A →
@@ -871,7 +892,7 @@ theorem ihNodeVal_of_fold
     (hih : ihvals.length = fr.nR)
     (hfold : IhCallFold V acval env φ fr F ρ' ihvals) :
     IhNodeVal V acval env φ fr F ρ' ihvals := by
-  intro d locals e r as as1 as2 A B he hloc h1 h2 hc hA hB
+  intro d locals e r as as1 as2 A B he hb hloc h1 h2 hc hA hB
   obtain ⟨nm, c', i, expected, hh1, hh2, hrpos, hh4, hh5, hh6, hh7, hh8, hh9, hh10⟩ :=
     ConLeche.blockIhCall?_spine hc
   clear hh1 hh2 hh4 hh5 hh6 hh7 hh8 hh9 hh10
@@ -880,7 +901,7 @@ theorem ihNodeVal_of_fold
   have hfa : ∀ a ∈ maj.getAppArgs, a.hasFvar = false :=
     hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs he maj hmaj)
   obtain ⟨vs, hvs, hval⟩ := interp_ihNode hacl hr hfa h1 h2 hloc hih hB
-  rw [hval, hfold d locals e r maj.getAppArgs as1 A vs hloc h1 hc hA hvs]
+  rw [hval, hfold d locals e r maj.getAppArgs as1 A vs he hb hloc h1 hc hA hvs]
 
 /-! ## One step further: the STORED node is the GENERATED spine
 
@@ -902,7 +923,9 @@ argument values are identified with the design's
     (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
     (fr : ConLeche.BlockRuleFrame) (F : Nat) (ρ' : Nat → V) (ihvals : List V) : Prop :=
   ∀ (d : Nat) (locals : List V) (nm : Name) (c' i r : Nat) (as as1 : List Expr)
-    (expected : Expr) (A : AnnotTerm) (vs : List AnnotTerm),
+    (node expected : Expr) (A : AnnotTerm) (vs : List AnnotTerm),
+    ConLeche.blockIhCall? fr d node = some (r, as) →
+    node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
     locals.length = d → FvarList (F + d) as1 →
     ConLeche.nameIdxOf? fr.recNames nm = some c' →
     ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
@@ -920,10 +943,10 @@ generated spine, so its opened reading is too. -/
 theorem ihCallFold_of_spine {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V}
     {ihvals : List V} (h : IhSpineFold V acval env φ fr F ρ' ihvals) :
     IhCallFold V acval env φ fr F ρ' ihvals := by
-  intro d locals e r as as1 A vs hloc h1 hc hA hvs
+  intro d locals e r as as1 A vs he hb hloc h1 hc hA hvs
   obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, hexp, rfl⟩ :=
     ConLeche.blockIhCall?_spine hc
-  exact h d locals nm c' i r as as1 e A vs hloc h1 hnm hrpos hasl hexp hA hvs
+  exact h d locals nm c' i r as as1 e e A vs hc he hb hloc h1 hnm hrpos hasl hexp hA hvs
 
 /-- **O-1's premise, from the generated spine alone.**  The composite:
 `interp_abstractIh`'s `hcall` follows from a statement that mentions
@@ -1331,10 +1354,6 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     (hfld : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
       FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
     -- the call's arguments live in the rule body's frame
-    (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
-      Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
-        fr.rP fr.nF i d (fr.teleOf i) (fr.idxOf i)) = some expected →
-      ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false)
     -- the generated Π-tower is a generated form: no free variable
     (hnofv : ∀ (d i : Nat) (nm : Name),
       (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
@@ -1359,15 +1378,29 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
                   (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
                 (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
     -- G3: the call's arguments fit the field's telescope
-    (hfit : ∀ (i : Nat) (ws : List V), i < fr.nF →
-      ws.length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+    -- **G3**, at the CALL's argument values: the values the guarded
+    -- call's arguments read to fit the field's telescope.  Stated at
+    -- every value list of the right length it would be refuted — the
+    -- fit is a chain of memberships
+    (hfit : ∀ (d i r : Nat) (locals : List V) (node : Expr) (as as1 : List Expr)
+      (vs : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) → locals.length = d → i < fr.nF →
+      DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
+      (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+        = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
       SpineFit (consList (xs ++ fs) σchain)
-        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2)) ws) :
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
+        (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))) :
     IhSpineFold V mo.acval env ψ fr F (consList (xs ++ fs) σchain) ihvals := by
-  intro d locals nm c' i r as as1 expected A vs hloc h1 hnm hrpos hasl hexp hA hvs
+  intro d locals nm c' i r as as1 node expected A vs hcall hnodeF hnodeB hloc h1 hnm hrpos hasl hexp hA hvs
   have hiF : i < fr.nF := hi i c' r hrpos
   obtain ⟨ci, hfind, hlvl, hleafv⟩ := hcallee nm c' hnm
-  have hbnd := hargs d i nm as expected hexp
+  obtain ⟨maj, hmaj, hasEq⟩ := blockIhCall?_args_sub hcall
+  have hbnd : ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false := by
+    rw [hasEq]
+    exact fun a ha =>
+      ⟨bounded_of_mem_getAppArgs (bounded_of_mem_getAppArgs hnodeB maj hmaj) a ha,
+        hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs hnodeF maj hmaj) a ha⟩
   have hnof := hnofv d i nm
   subst hF
   have hE : 0 < fr.nP + o + fr.nF + d := by omega
@@ -1454,7 +1487,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     ihFunAV_fold (V := V) (ℓ := ℓ) (K := K) (c' := c') (eis := (EisF i).map
         (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
       hℓ hleafv.symm hxl hfl (by rw [List.length_map, hvlen, htlen])
-      (hfit i _ hiF hwlen),
+      (hfit d i r locals node as as1 vs hcall hloc hiF hvs hwlen),
     interp_mkAppN, foldl_app_map, hcl nm _ _ (consList (xs ++ fs) σchain), hleafv,
     prefVars_shift, fieldApp_shift, hEisShift,
     show consList (xs ++ fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
@@ -1508,10 +1541,6 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
     -- constructors' stage supplies the package only there
     (hfld : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
       FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
-    (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
-      Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
-        fr.rP fr.nF i d (fr.teleOf i) (fr.idxOf i)) = some expected →
-      ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false)
     (hnofv : ∀ (d i : Nat) (nm : Name),
       (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
         (fr.teleOf i) (fr.idxOf i)).hasFvar = false)
@@ -1533,13 +1562,22 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
                 (.bvar (fr.nF - 1 - i + 0 +
                   (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
                 (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
-    (hfit : ∀ (i : Nat) (ws : List V), i < fr.nF →
-      ws.length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+    -- **G3**, at the CALL's argument values: the values the guarded
+    -- call's arguments read to fit the field's telescope.  Stated at
+    -- every value list of the right length it would be refuted — the
+    -- fit is a chain of memberships
+    (hfit : ∀ (d i r : Nat) (locals : List V) (node : Expr) (as as1 : List Expr)
+      (vs : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) → locals.length = d → i < fr.nF →
+      DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
+      (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+        = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
       SpineFit (consList (xs ++ fs) σchain)
-        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2)) ws) :
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
+        (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))) :
     IhNodeVal V mo.acval env ψ fr F (consList (xs ++ fs) σchain) ihvals :=
   ihNodeVal_of_spine haclN hih
     (ihSpineFold_blockRec (fun n ψ' k => haclN n ψ' 1 k) hainst hcl hF ho hxl hfl hℓ
-      hop0 hCf hCb hstripC htele hidx hfld hargs hnofv hcallee hi hihv hfit)
+      hop0 hCf hCb hstripC htele hidx hfld hnofv hcallee hi hihv hfit)
 
 end ConLeche.Model
