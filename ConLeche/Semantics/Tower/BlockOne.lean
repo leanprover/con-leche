@@ -172,16 +172,6 @@ end One
 
 /-! ## The chain, the step and the carrier at `k = 1` -/
 
-omit [SetTheory V] in
-theorem chainXBIGo_cons (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
-    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
-    (Eis : List (List AnnotTerm)) (F : AnnotTerm) (Fs : List AnnotTerm) (i : Nat) :
-    chainXBIGo uf Idss rs tgts tls Eis (F :: Fs) i
-      = (if rs.getD i false then
-          slotXBI (uf (tgts.getD i 0)) (Idss (tgts.getD i 0)) (tgts.getD i 0)
-            (tls.getD i []) (Eis.getD i []) i
-         else F.liftN 2 i) :: chainXBIGo uf Idss rs tgts tls Eis Fs (i + 1) := rfl
-
 section Chain
 
 variable {w : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
@@ -204,13 +194,10 @@ theorem towerSet_chainXB_one (htg : ∀ i, tgts.getD i 0 = 0) {t Y X : V} (hY : 
     rw [chainXBIGo_cons, chainXIGo_cons, List.cons_append, List.cons_append]
     simp only [teleOfFields, towerSet]
     have hhead : interp V (consList as (cons t (cons Y ρp)))
-        (if rs.getD as.length false then
-          slotXBI (uf (tgts.getD as.length 0)) (Idss (tgts.getD as.length 0))
-            (tgts.getD as.length 0) (tls.getD as.length []) (Eis.getD as.length []) as.length
-         else F.liftN 2 as.length)
+        (xEntryB uf Idss rs tgts tls Eis F as.length)
         = interp V (consList as (cons t (cons X ρp)))
           (xEntry (uf 0) (Idss 0) rs tls Eis F as.length) := by
-      unfold xEntry
+      unfold xEntry xEntryB
       by_cases hri : rs.getD as.length false = true
       · rw [if_pos hri, if_pos hri, htg as.length]
         exact slotXBI_interp_one hY _ _ as
@@ -599,14 +586,10 @@ variable {w : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List Ann
 /-- The chains' heads read equally at the two frames. -/
 theorem chainXB_head_one (htg : ∀ i, tgts.getD i 0 = 0) {t Y X : V} (hY : projS 0 Y = X)
     (F : AnnotTerm) (as : List V) :
-    interp V (consList as (cons t (cons Y ρp)))
-        (if rs.getD as.length false then
-          slotXBI (uf (tgts.getD as.length 0)) (Idss (tgts.getD as.length 0))
-            (tgts.getD as.length 0) (tls.getD as.length []) (Eis.getD as.length []) as.length
-         else F.liftN 2 as.length)
+    interp V (consList as (cons t (cons Y ρp))) (xEntryB uf Idss rs tgts tls Eis F as.length)
       = interp V (consList as (cons t (cons X ρp)))
         (xEntry (uf 0) (Idss 0) rs tls Eis F as.length) := by
-  unfold xEntry
+  unfold xEntry xEntryB
   by_cases hri : rs.getD as.length false = true
   · rw [if_pos hri, if_pos hri, htg as.length]
     exact slotXBI_interp_one hY _ _ as
@@ -619,13 +602,10 @@ theorem chainXB_head_one (htg : ∀ i, tgts.getD i 0 = 0) {t Y X : V} (hY : proj
 theorem chainXB_head_ok_one (htg : ∀ i, tgts.getD i 0 = 0) {t Y X : V} (hY : projS 0 Y = X)
     (F : AnnotTerm) (as : List V) :
     WellDenoted V (consList as (cons t (cons Y ρp)))
-        (if rs.getD as.length false then
-          slotXBI (uf (tgts.getD as.length 0)) (Idss (tgts.getD as.length 0))
-            (tgts.getD as.length 0) (tls.getD as.length []) (Eis.getD as.length []) as.length
-         else F.liftN 2 as.length)
+        (xEntryB uf Idss rs tgts tls Eis F as.length)
       → WellDenoted V (consList as (cons t (cons X ρp)))
         (xEntry (uf 0) (Idss 0) rs tls Eis F as.length) := by
-  unfold xEntry
+  unfold xEntry xEntryB
   by_cases hri : rs.getD as.length false = true
   · rw [if_pos hri, if_pos hri, htg as.length]
     exact slotXBI_wellDenoted_one hY _ _ as
@@ -653,10 +633,7 @@ theorem fieldsOkB_chainXB_one (htg : ∀ i, tgts.getD i 0 = 0) {t Y X : V} (hY :
   | F :: Fs, i, as, hi, hnF, h => by
     subst hi
     have h' : FieldsOkB w (consList as (cons t (cons Y ρp)))
-        ((if rs.getD as.length false then
-            slotXBI (uf (tgts.getD as.length 0)) (Idss (tgts.getD as.length 0))
-              (tgts.getD as.length 0) (tls.getD as.length []) (Eis.getD as.length []) as.length
-           else F.liftN 2 as.length)
+        (xEntryB uf Idss rs tgts tls Eis F as.length
           :: (chainXBIGo uf Idss rs tgts tls Eis Fs (as.length + 1)
               ++ [idxEqAV (eqsXI n nF Es)])) := h
     show FieldsOkB w (consList as (cons t (cons X ρp)))
