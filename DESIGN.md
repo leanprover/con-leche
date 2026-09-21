@@ -129685,3 +129685,102 @@ nothing else does yet.  They are residuals waiting for a named
 consumer, not spare proof.
 `#print axioms` on all eight new theorems: `[propext, Classical.choice,
 Quot.sound]`.  No `sorry`, no new axiom, no `maxHeartbeats`.
+
+#### WIDE (f3) — OBJECT (2) RE-PRICED AT THE MERGED TREE: THE CUT SHOULD BE THE **COPY'S** TELESCOPE AND NOT THE CONTAINER'S TOWER, AND THAT IS WHAT RETIRES `hflat` (lane LE, 2026-09-21)
+
+Session 33's row §(h) gave object (2) a site table, and every line
+number in it is stale: the WHNF lane's three sessions moved the eight
+`copyOrdFRight*OrdTargetRead*` rows and their wrappers.  This row is
+the table read at the MERGED tree, plus one correction to (2)'s own
+SHAPE that the merge makes visible and that changes its price.
+
+##### (a) WHY (2) IS NOW A BLOCKER AND NOT AN IMPROVEMENT
+
+The WHNF lane's move put the four DEEP rows' guard at
+
+    (ordHeadRed (instSeq (openFvars nP (l + D)) (l + D - 1) (ordTargetDom …))).getAppFn
+      = .const K usK,   D = domPiDepth (ordTargetDomL …)
+
+which is strictly wider than the stored-leaf form it replaced — at a
+λ-REDEX leaf the old rows said nothing and the new ones speak.  **But
+where the mint's COMPONENTS plant a `Π` into the stripped body — K.72's
+second summand, `tests/e2e/nested_comp_tower.ndjson` — the
+recomputation IS a binder, `ordHeadRed` is the identity on it, and the
+guard is FALSE.**  The rows are vacuous there.  That corner is exactly
+what (2) repairs, so (2) is now the thing that makes the reading site
+say anything at all at a planted tower, and not a tidy-up.  It is
+recorded here because the merge review flagged it and because nothing
+in the tree tests for it (the guard being false makes the row vacuous,
+not wrong).
+
+##### (b) THE CORRECTION: THE CUT IS ALREADY A PARAMETER
+
+Session 33 spelled (2) as "the cut becomes the SUM (equivalently
+`tlsl.length`)".  The parenthesis is the better half and the row took
+the worse one.  `OrdTargetRead` ALREADY takes the copy's recorded
+telescope `tlsl` as a parameter
+(`Model/Inductives/NestedPremise.lean:1133`) and uses it only to state
+
+    tlsl.length = domPiDepth (ordTargetDomL lpsC ownSelf q dom)
+
+— a CONTAINER-side quantity.  That spelling is the source of both
+residues:
+
+* the FINITARY rows need `hflat : domPiDepth domJ.1 = 0` to make the
+  cut `l`, because the container's tower is what the cut names;
+* the REFLEXIVE rows need `hfinRefl` (the stripped stored domain's
+  constant head) to know the components plant nothing, because
+  otherwise the container's tower is not the copy's.
+
+**Spell the cut as `l + tlsl.length` and both go.**  At a finitary copy
+field `BlockCtorData.tssNone` makes `tlsl` `[]`, so the cut is `l`
+literally — the finitary rows' statement is unchanged and `hflat` has
+nothing to do.  At a reflexive one `BlockCtorData.reflOpen` /
+`.nestReflOpen` give `tlsl.length = (copy's field domain).piBinders.1.length`
+outright, with no guard at all.  What then remains to be proved is the
+IDENTIFICATION of that length with the recomputation's cut — and that
+is K.72, which the consumer already holds as `GroupFacts.ordTower`
+(`Model/Inductives/NestedPinLeafAll.lean`), one tier ABOVE the
+producers.  So the burden moves from eight producers to one
+correspondence.
+
+**AND ITS TERM HALF IS THE BRICK THIS SESSION LANDED.**  The reflexive
+producer still owes "the copy's `Π`-prefix is the MINT's" — which is
+`RewriteRel.forallE_inv'` / `RewriteRel.openPisAtFvars_of_noAux`
+(`Model/Inductives/NestedRewriteRead.lean`, this session) with
+`PiDomsNoConst.openers` supplying their proviso; and the mint's tower
+against the recomputation's is `stripDomPis_instSeq_tower`
+(`Verify/Inductives/NestedCopyKinds.lean`), landed at session 33.
+**Object (2) and `CopyOrdTele`'s producer share both bricks**, which is
+why they were priced apart and should be built together.
+
+##### (c) THE SITE TABLE, AT THE MERGED TREE
+
+| site | file:line | kind |
+|---|---|---|
+| `OrdTargetRead` | `NestedPremise.lean:1133` | the statement — cut `l + tlsl.length`, `stripDomPis` on the subject, the length conjunct DROPPED (it becomes the consumer's, off `GroupFacts.ordTower`) |
+| `PinShapes`' clause and its two readers | `NestedPremise.lean:1307`, `:1315`, `:1510`, `:1566` | rename |
+| the two crossings | `ContainerCross.lean`, `NestedLoop.lean` | rename (2 and 4 `hflat` occurrences) |
+| `copyOrdFRightPinOrdTargetRead` / `…Refl` / `…At` / `…AtRefl` | `NestedCopyInst.lean:10365`, `:10660`, `:11266`, `:11375` | **fact** at the two reflexive ones; the two finitary ones are a rename once the cut is `tlsl.length` |
+| `copyOrdFRightMemOrdTargetRead` / `…At` / `…Refl` / `…AtRefl` | `NestedCopyInst.lean:11544`, `:11758`, `:11868`, `:12392` | the member twins, same split |
+| `NestedPinsRun.ordTgtReadAt`, `ordTgtMemReadAt`, `ordReadAt` | `NestedInstMap.lean` | rename (their `hflat` goes) |
+| `GroupFacts.ordRead` | `NestedPinLeafAll.lean` | rename |
+| `ordRead_corr`, `ordReadMem_corr` | `NestedPinLeafAll.lean:5307`, `:5551` | **fact** — this is where `GroupFacts.ordTower` is spent, and it is the one new correspondence |
+| `read_of_run` and `hscope`'s flatness conjunct | `NestedPinLeafAll.lean:6502` | the conjunct GOES |
+
+`hflat` stands at **57 occurrences in 8 files** at this tip (3 of them
+in `NestedStageCtor.lean` are an unrelated local name) — unchanged from
+session 33's count, because the WHNF lane moved the reduction and left
+the cut alone exactly as its collision row proposed.
+
+##### (d) THE PRICE
+
+Still two sessions, but the halves move: the eight producers are no
+longer "the dear half" (six of them become renames and two spend a
+brick that now exists), and the dear half is `ordRead_corr` /
+`ordReadMem_corr`, where `GroupFacts.ordTower`'s run-level statement
+about `ctorsA`'s constructor type has to be translated into the model's
+recorded telescope — the `MutualCtorDataI.reflOpen` / `tssNone`
+translation K.72's own landing row deliberately left to the consumer.
+Nothing in (2) is refuted by this re-reading; one object moved a tier
+up and one guard turned out to be unnecessary.
