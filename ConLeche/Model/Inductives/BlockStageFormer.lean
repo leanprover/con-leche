@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.BlockWF
 public section
 
@@ -149,6 +150,98 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
     simpa using hw
 
 end Walks
+
+/-! ## The `k` members' parameter frames, identified -/
+
+section Agree
+
+/-- One member's parameter telescope, opened: the `Opened` frame at the
+block's parameter count, with the context the former's data read
+(`ctorFramesGen`'s opening of the former, at a TELESCOPE longer than the
+opening — a member's type has its own indices after the parameters). -/
+private theorem openedParams (mp : EnvModelM V μ env) {F : Nat}
+    {cvT cvTa : ConstantVal} {nP nFull : Nat} {resSort : Level}
+    {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hFD : FormerData mp.base2 cvTa nFull resSort pps) (hle : nP ≤ nFull)
+    {tfvs : List Expr} {trest : Expr}
+    (hop : ConLeche.openPisAtFvars nP cvTa.type 0 = some (tfvs, trest))
+    (ψ : Name → Nat) :
+    ∃ R, Opened mp.base2 ψ nP cvTa.type tfvs trest
+      ((((pps ψ).take nP).map (·.2.2)).reverse) R := by
+  obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
+  simp only at htf' hbt' hop
+  obtain ⟨Γ, R, htele, hO⟩ := opened_of hop htf' hbt' (hFD.read ψ) (hFD.okTy ψ)
+  obtain ⟨pps', hst', hΓ⟩ := stripPisAV_of_piTeleAV htele
+  have hst'' := stripPisAV_mkPisAV_take nP (pps ψ) (AnnotTerm.sort (resSort.eval ψ))
+    (by rw [hFD.len ψ]; exact hle)
+  obtain ⟨rfl, -⟩ := Prod.mk.injEq _ _ _ _ ▸ Option.some.inj (hst'.symm.trans hst'')
+  exact ⟨R, by rw [hΓ]; exact hO⟩
+
+/-- **The `k` members' PARAMETER telescopes are interchangeable at a
+frame.**  This is official's `check_inductive_types` agreement —
+`checkBlockAgree`, every member's parameter domains definitionally
+member 0's — read semantically, and it is the one base fact the block
+needs that a single family never did: `blockLeafWalks`'s `hIdx`/`hX`/
+`hXV` are stated at a frame satisfying MEMBER `mm`'s parameter
+telescope, while `Idss c` for `c ≠ mm` is read off member `c`'s own
+type.  The producer is defeq soundness at the opened fvar frame
+(`paramFrames` at `nF = 0`, between two `nP`-binder openings). -/
+theorem blockParamsIff (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) {F : Nat}
+    {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env} {cvTas : List ConstantVal}
+    {p₁ : ConLeche.BlockShape}
+    (h : ConLeche.checkBlockInds (ConLeche.fueledOps μ F) env p isRec
+      = .ok (envI, cvTas, p₁))
+    {nPOf : Nat → Nat} {resSort : Level}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hle : ∀ j, p.nP ≤ nPOf j)
+    (hFD : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      FormerData mp.base2 cvTa (nPOf j) resSort (ppsOf j)) :
+    ∀ m₁ m₂, m₁ < cvTas.length → m₂ < cvTas.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ppsOf m₁ ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((ppsOf m₂ ψ).take p.nP).map (·.2.2)).reverse ρ := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, -, rfl, -, -, htele0, hteles, hagree⟩ :=
+    ConLeche.checkBlockInds_shape h
+  obtain ⟨cvT0, -, -, hccv0, -⟩ := ConLeche.checkBlockTele_shape htele0
+  obtain ⟨hlencvs, hteleAt⟩ := ConLeche.checkBlockTeles_inv hteles
+  -- every member's frame is member 0's
+  have hkey : ∀ m, m < (cvTa0 :: cvs.map (·.1)).length →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ppsOf m ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((ppsOf 0 ψ).take p.nP).map (·.2.2)).reverse ρ := by
+    intro m hm ψ ρ
+    match m with
+    | 0 => exact Iff.rfl
+    | j + 1 =>
+      have hjlen : j < cvs.length := by simpa using hm
+      have hjq : cvs[j]? = some cvs[j] := List.getElem?_eq_getElem hjlen
+      have hjc : (cvTa0 :: cvs.map (·.1))[j + 1]? = some (cvs[j]).1 := by
+        simp [List.getElem?_map, hjq]
+      -- member `j + 1`'s own `checkConstantVal` run
+      obtain ⟨q, hq, hteleq⟩ := hteleAt j rest[j] (List.getElem?_eq_getElem (by omega))
+      obtain rfl : q = cvs[j] := Option.some.inj (hq.symm.trans hjq)
+      obtain ⟨cvTq, -, -, hccvq, -⟩ := ConLeche.checkBlockTele_shape hteleq
+      -- the agreement's two openings and its per-binder pins
+      obtain ⟨-, tfvs0, trest0, tfvs, trest, hop0, hopq, -, hdoms⟩ :=
+        ConLeche.checkBlockAgree_inv hagree cvs[j] (List.getElem_mem hjlen)
+      obtain ⟨R0, hO0⟩ := openedParams mp hccv0 (hFD 0 cvTa0 (by simp)) (hle 0) hop0 ψ
+      obtain ⟨Rq, hOq⟩ := openedParams mp hccvq (hFD (j + 1) _ hjc) (hle (j + 1)) hopq ψ
+      have hpin : ∀ i, i < p.nP → ∃ a b, tfvs[i]? = some a ∧ tfvs0[i]? = some b ∧
+          ConLeche.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b) = .ok true := by
+        intro i hi
+        obtain ⟨a, b, ha, hb, hdeq⟩ := ConLeche.checkBlockDomsAt_inv hdoms i hi
+        rw [List.getElem?_map] at hb
+        obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp hb
+        exact ⟨a, b', ha, hb', by rw [Nat.zero_add] at hdeq; exact hdeq⟩
+      have hpf := paramFrames (nF := 0) (claimsAt_of (V := V) hμ mp ψ F) hO0 hOq hpin
+        p.nP (Nat.le_refl _)
+      simpa using (hpf).1 ρ
+  intro m₁ m₂ h₁ h₂ ψ ρ
+  exact (hkey m₁ h₁ ψ ρ).trans (hkey m₂ h₂ ψ ρ).symm
+
+end Agree
 
 /-! ## The k formers' conses -/
 

@@ -23,7 +23,7 @@ namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
@@ -201,5 +201,122 @@ theorem chainRealBI_of {μ : Nat → V}
   simpa using h
 
 end RealWalk
+
+
+/-! ## The real chain from the constructor's syntactic entries -/
+
+section RealOf
+
+variable {k w nP nF m : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
+  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
+  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
+  {ks : List RecFieldKind} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+  {Fs₀ Fs Es : List AnnotTerm} {Eis : List (List AnnotTerm)}
+  {ppsOf : Nat → List (Nat × Nat × AnnotTerm)} {AOf : Nat → AnnotTerm}
+
+/-- **One block constructor's REAL chain, from its syntactic entries**
+(`declNative`'s `hreal` at `k` members).  The recursive and reflexive
+entries are the TARGET member's leaf at the parameter variables and the
+field's index readings (`BlockCtorDataI.recEntry`/`.reflEntry`, whose
+`m.acval (Tof i) ψ` is `AOf i` here); `blockLeafApp` folds each to the
+target's component of the least tuple, which is exactly the slot's
+value.
+
+The target indirection costs ONE base fact the one-member route never
+needed: `blockLeafApp` wants the frame to satisfy the TARGET's
+parameter telescope, while the constructor's frame satisfies its OWN
+member's.  `hρpOf` is that fact at every member, and its producer is
+`blockParamsIff` — official's `checkBlockAgree` read semantically. -/
+theorem blockChainReal_of
+    (hI : BlockIdxOk (V := V) k uf ρp Idss)
+    (hokI : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+    (hC₀ : ChainFactsB k w nP nF ρp uf Idss m ks tgts tls Fs₀ Eis Es)
+    (hlenPpsOf : ∀ c, c < k → (ppsOf c).length = nP + (Idss c).length)
+    (hIdsOf : ∀ c, c < k → Idss c = ((ppsOf c).drop nP).map (·.2.2))
+    (hρpOf : ∀ c, c < k → Sat V (((ppsOf c).take nP).map (·.2.2)).reverse ρp)
+    (hA : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ σ : Nat → V, interp V σ (AOf i)
+      = interp V (fun j => ρp (j + nP))
+          (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss
+            (ppsOf (tgts.getD i 0)) (tgts.getD i 0)))
+    (hFs : Fs.length = nF)
+    (hnb : ∀ i, i < nF →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) (Fs.getD i default))
+    (hord : ∀ i, i < nF → ¬ recAt nP ks (nP + i) → Fs.getD i default = Fs₀.getD i default)
+    (hrecE : ∀ i, i < nF → ks.getD i .ordinary = .recursive →
+      Fs.getD i default
+        = AnnotTerm.mkAppN (AOf i) (paramBvarsAt nP (nP + i) ++ Eis.getD i []))
+    (hreflE : ∀ i, i < nF → ks.getD i .ordinary = .reflexive →
+      Fs.getD i default
+        = mkPisAV (tls.getD i [])
+            (AnnotTerm.mkAppN (AOf i)
+              (paramBvarsAt nP (nP + i + (tls.getD i []).length) ++ Eis.getD i [])))
+    (hnoneT : ∀ i, ks.getD i .ordinary ≠ .reflexive → tls.getD i [] = [])
+    (hbitsT : ∀ i, ∀ d ∈ tls.getD i [], (d.2.1 = 0 ↔ w = 0)) :
+    ChainRealBI (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+      k w ρp uf Idss (rsOf ks) tgts tls Eis 0 [] Fs₀ Fs := by
+  refine chainRealBI_of hC₀ hFs hnb hord ?_
+  intro i hi hr as as' hlenA hrel hsp'
+  obtain ⟨-, -, hrec'⟩ := hC₀.gr i hi as' hsp'
+  obtain ⟨htlt, hfit'⟩ := hrec' hr
+  have hfitS : SlotFit (uf (tgts.getD i 0)) w ρp (Idss (tgts.getD i 0)) (tls.getD i [])
+      (Eis.getD i []) as := by
+    refine slotFit_congr_shadow hrel ?_ ?_ hfit'
+    · rw [hlenA]; exact hC₀.nbT i hi hr
+    · rw [hlenA]; exact hC₀.nbE i hi hr
+  have hk := hr.2
+  rw [Nat.add_sub_cancel_left] at hk
+  rcases hk with hk | hk
+  · -- a finitary field: the TARGET member's family at the readings' values
+    have hnone := hnoneT i (by rw [hk]; intro h; cases h)
+    rw [hrecE i hi hk, hnone, slotSet_nil]
+    rw [hnone] at hfitS
+    obtain ⟨-, hspE⟩ := SlotFit.fin hfitS
+    have := blockLeafApp (c := tgts.getD i 0) htlt (hlenPpsOf _ htlt) (hIdsOf _ htlt) hI hokI
+      (hρpOf _ htlt) (hA i hi hr) (as := as) (Eis := Eis.getD i []) hspE
+    rw [hlenA] at this
+    exact this
+  · -- a reflexive field: the nested product of the target's family
+    rw [hreflE i hi hk]
+    unfold slotSet
+    refine ConLeche.Semantics.interp_mkPisAV_piTele (v := w) (acc := [])
+      (fun d hd => hbitsT i d hd) ?_
+    intro bs hsp
+    rw [List.nil_append, ← consList_append]
+    obtain ⟨-, hspE⟩ := hfitS.2.2 bs hsp
+    have hlenAB : (as ++ bs).length = i + (tls.getD i []).length := by
+      rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
+    have := blockLeafApp (c := tgts.getD i 0) htlt (hlenPpsOf _ htlt) (hIdsOf _ htlt) hI hokI
+      (hρpOf _ htlt) (hA i hi hr) (as := as ++ bs) (Eis := Eis.getD i []) hspE
+    rw [hlenAB, ← Nat.add_assoc] at this
+    exact this
+
+/-- **The fixpoint leaf's fibre law at block member `m`** —
+`blockCtorsLoop`'s `hfold`.  The member's leaf at the parameter
+variables and a constructor's index readings folds to the MEMBER-LOCAL
+tagged union of that member's own constructors' real chains: the leaf
+is the least tuple's `m`-th component (`blockLeafApp`), and the
+component's fibre is the indexed sum route's union
+(`blockFam_app_eq_sum`). -/
+theorem blockFold_of {A : AnnotTerm} {ppsAll : List (Nat × Nat × AnnotTerm)}
+    {Fss' : List (List AnnotTerm)} {Eis : List AnnotTerm} {bs : List V}
+    (hm : m < k)
+    (hok : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+    (hlenPps : ppsAll.length = nP + (Idss m).length)
+    (hIdsm : Idss m = ((ppsAll.drop nP).map (·.2.2)))
+    (hρp : Sat V ((ppsAll.take nP).map (·.2.2)).reverse ρp)
+    (hA : ∀ σ : Nat → V, interp V σ A
+      = interp V (fun j => ρp (j + nP))
+          (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss ppsAll m))
+    (hreal : ChainsRealBI (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+      k w ρp uf Idss m (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) Fss' (Esss m))
+    (hspE : SpineFit ρp (Idss m) (Eis.map (interp V (consList bs ρp)))) :
+    interp V (consList bs ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + bs.length) ++ Eis))
+      = sumSet w (sumFibre w (consList (Eis.map (interp V (consList bs ρp))) ρp)
+          (rChains (Idss m).length (Idss m).length Fss' (Esss m))) := by
+  rw [blockLeafApp hm hlenPps hIdsm hok.hI hok.hok hρp hA hspE,
+    blockFam_app_eq_sum hok hm hreal hspE]
+
+end RealOf
 
 end ConLeche.Model

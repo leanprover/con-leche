@@ -383,24 +383,28 @@ theorem EtaFamiliesClosedExcept.closed {env : Env} {T : Name}
 
 /-- **The η invariant a BLOCK's constructor conses carry**
 (`ctorsLoopEta`'s `EtaInv` at `k` members): every stored family outside
-the block is closed, and every stored MEMBER's η constructor — which is
-one of that member's OWN constructors — is none of the names
-`ctorNames` the current member is consing.  The second conjunct is what
-refutes "a fresh constructor completes an older member's η family",
-which at one family was refuted by closure alone. -/
-@[expose] def BlockEtaInv (env : Env) (names ctorNames : List Name) : Prop :=
+the block is closed, and every stored MEMBER's η constructor is one of
+THAT MEMBER's OWN constructors (`ctorsOf` at the member's name).  The
+second conjunct is what refutes "a fresh constructor completes an older
+member's η family", which at one family was refuted by closure alone:
+at a block the older member is still η-pending, so its η constructor is
+not stored and closure says nothing — what says it is that the block's
+constructor names are distinct, which the consumer supplies as the
+disjointness premise `hout` of `.other`. -/
+@[expose] def BlockEtaInv (env : Env) (names : List Name)
+    (ctorsOf : Name → List Name) : Prop :=
   EtaFamiliesClosedExceptL env names ∧
   ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T' = some (.indInfo cvT caps) → T' ∈ names → caps.eta = true →
-    caps.etaCtor ∉ ctorNames
+    caps.etaCtor ∈ ctorsOf T'
 
 /-- **`ctorsLoopEta`'s `hEtaCons` at a block**: a constructor's cons
 keeps the invariant — it is no former, so it completes no family
 outside the block and changes no member's record. -/
-theorem BlockEtaInv.cons {env : Env} {names ctorNames : List Name}
+theorem BlockEtaInv.cons {env : Env} {names : List Name} {ctorsOf : Name → List Name}
     {cvC : ConstantVal} {nP nF : Nat}
-    (h : BlockEtaInv env names ctorNames) (hfresh : env.find? cvC.name = none) :
-    BlockEtaInv (⟨.ctorInfo cvC nP nF :: env.consts⟩ : Env) names ctorNames := by
+    (h : BlockEtaInv env names ctorsOf) (hfresh : env.find? cvC.name = none) :
+    BlockEtaInv (⟨.ctorInfo cvC nP nF :: env.consts⟩ : Env) names ctorsOf := by
   refine ⟨h.1.cons hfresh (fun _ _ heq => nomatch heq), ?_⟩
   intro T' cvT caps hf hmem hcape
   rw [Env.find?_cons] at hf
@@ -411,19 +415,20 @@ theorem BlockEtaInv.cons {env : Env} {names ctorNames : List Name}
 /-- **`ctorsLoopEta`'s `hEtaOther` at a block**: the head is no stored
 family's η constructor.  Outside the block the family is CLOSED, so its
 η constructor is stored and the head is fresh; inside the block the
-head is one of the current member's constructors, which the invariant's
-second conjunct excludes. -/
-theorem BlockEtaInv.other {env : Env} {names ctorNames : List Name}
+η constructor of a member OTHER than the one being consed is one of
+that member's own constructors, and `hout` — the block's distinct
+constructor names — says the head is none of those. -/
+theorem BlockEtaInv.other {env : Env} {names : List Name} {ctorsOf : Name → List Name}
     {cvC : ConstantVal} {nP nF : Nat} {T T' : Name}
     {cvT' : ConstantVal} {caps' : IndCaps}
-    (h : BlockEtaInv env names ctorNames) (hfresh : env.find? cvC.name = none)
-    (hmemC : cvC.name ∈ ctorNames)
-    (hf : env.find? T' = some (.indInfo cvT' caps')) (_hne : T' ≠ T)
+    (h : BlockEtaInv env names ctorsOf) (hfresh : env.find? cvC.name = none)
+    (hout : ∀ T'' ∈ names, T'' ≠ T → cvC.name ∉ ctorsOf T'')
+    (hf : env.find? T' = some (.indInfo cvT' caps')) (hne : T' ≠ T)
     (_hres : reservedBasisNames.contains T' = false) (hcape : caps'.eta = true) :
     caps'.etaCtor ≠ cvC.name := by
   by_cases hmem : T' ∈ names
   · intro hh
-    exact h.2 T' cvT' caps' hf hmem hcape (hh ▸ hmemC)
+    exact hout T' hmem hne (hh ▸ h.2 T' cvT' caps' hf hmem hcape)
   · obtain ⟨cvC', hfC'⟩ := h.1 T' cvT' caps' hf hmem hcape _hres
     intro hh
     rw [hh, hfresh] at hfC'
