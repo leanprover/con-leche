@@ -35,9 +35,11 @@ not is proved:
   spends, namely `hY`/`hYC` at the OWNER, and no `S` and no `TupleLe`
   at the group's own pins.
 
-Both objects are UNCONSUMED in this tree: their consumers are the
-assembly's `hdom₁rec` and `nestedPinWideStep`'s `hent`, both of which
-are still named hypotheses at their call sites.
+The entry producer IS consumed: `nestedPinWideStep` no longer takes
+`hent` at all, and builds it here from `hIH`/`hPfGroup` and `hout`.
+`nestedPinDomRec_of_dom₂` is NOT: `hdom₁rec` is still a named
+hypothesis of `nestedPinPairAt_pinσ`, in a file this module does not
+own, and the discharge there is the merge session's one `exact`.
 -/
 
 namespace ConLeche.Model
