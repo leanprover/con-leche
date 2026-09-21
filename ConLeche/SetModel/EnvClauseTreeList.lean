@@ -570,4 +570,322 @@ theorem cons_mem_carL (hS : TreeListOk S) {h t : V} (hh : h ∈ˢ carT S)
   rw [← carL_eq hS] at ht ⊢
   exact (mem_carL hS).mpr (Or.inr ⟨h, t, hh, ht, rfl⟩)
 
+/-! ## (e) The recursor: `UnionRecKit` at TWO components
+
+Both recursion classes — the member's values and the copy's — are
+components of the tuple lfp, so `unionAcc_all`'s simultaneous
+induction reaches both and `unionAcc_of_classAcc`/`unionRecC` are not
+needed.  The three ι rules and the typing come out of `unionRec_eq`
+and `unionRec_mem_B` at `N = 2`.
+
+The section runs above `Prop` (`S.w ≠ 0`): the constructor
+decomposition of a value must be unique, which is exactly `mkInj`'s
+guard.  At `w = 0` a nested block is forced small
+(`DESIGN-theory.md` §3.5) and the recursor is the trivial one. -/
+
+section Rec
+
+variable {S : TreeListSig V} {ℓ : Nat} {M₀ M₁ : V → V} {mNode : V → V → V} {mNil : V}
+  {mCons : V → V → V → V → V}
+
+/-- The index set of the recursion: the disjoint union of the two
+components' values. -/
+noncomputable def blkIdx (S : TreeListSig V) : V := unionSet 2 uIs (car S)
+
+theorem mem_blkIdx {u : V} :
+    u ∈ˢ blkIdx S ↔
+      (∃ x, x ∈ˢ carT S ∧ u = tagged 0 pt x) ∨ (∃ l, l ∈ˢ carL S ∧ u = tagged 1 pt l) := by
+  unfold blkIdx
+  rw [mem_unionSet]
+  constructor
+  · rintro ⟨c, hc, i, hi, x, hx, rfl⟩
+    obtain rfl := mem_unitSet_iff.mp hi
+    match c, hc with
+    | 0, _ => exact Or.inl ⟨x, hx, rfl⟩
+    | 1, _ => exact Or.inr ⟨x, hx, rfl⟩
+  · rintro (⟨x, hx, rfl⟩ | ⟨l, hl, rfl⟩)
+    · exact ⟨0, by omega, pt, pt_mem_unitSet, x, hx, rfl⟩
+    · exact ⟨1, by omega, pt, pt_mem_unitSet, l, hl, rfl⟩
+
+theorem tree_mem_blkIdx {x : V} (hx : x ∈ˢ carT S) : tagged 0 pt x ∈ˢ blkIdx S :=
+  mem_blkIdx.mpr (Or.inl ⟨x, hx, rfl⟩)
+
+theorem list_mem_blkIdx {l : V} (hl : l ∈ˢ carL S) : tagged 1 pt l ∈ˢ blkIdx S :=
+  mem_blkIdx.mpr (Or.inr ⟨l, hl, rfl⟩)
+
+/-- The predecessor relation, read off the constructors of BOTH
+components — the copy's `cons` crosses to the member's component. -/
+def BlkRel (S : TreeListSig V) (u v : V) : Prop :=
+  (∃ l, u = tagged 0 pt (S.injT 0 [l]) ∧ v = tagged 1 pt l) ∨
+  (∃ h t, u = tagged 1 pt (S.injL 1 [h, t]) ∧ (v = tagged 0 pt h ∨ v = tagged 1 pt t))
+
+/-- The predecessor sets. -/
+noncomputable def blkPred (S : TreeListSig V) (u : V) : V := relPred (blkIdx S) (BlkRel S) u
+
+theorem blkPred_subset (S : TreeListSig V) (u : V) : blkPred S u ⊆ˢ blkIdx S :=
+  relPred_subset _ _ u
+
+theorem mem_blkPred {u v : V} : v ∈ˢ blkPred S u ↔ v ∈ˢ blkIdx S ∧ BlkRel S u v := mem_relPred
+
+theorem mem_blkPred_node (hS : TreeListOk S) (hw : S.w ≠ 0) {l v : V} :
+    v ∈ˢ blkPred S (tagged 0 pt (S.injT 0 [l])) ↔ v ∈ˢ blkIdx S ∧ v = tagged 1 pt l := by
+  rw [mem_blkPred]
+  refine and_congr_right fun _ => ⟨fun h => ?_, fun h => Or.inl ⟨l, rfl, h⟩⟩
+  rcases h with ⟨l', h₁, h₂⟩ | ⟨h', t', h₁, -⟩
+  · rw [h₂, hS.tree.mkInj hw l l' (tagged_inj h₁).2.2]
+  · exact absurd (tagged_inj h₁).1 (by omega)
+
+theorem not_mem_blkPred_nil (hS : TreeListOk S) (hw : S.w ≠ 0) {v : V} :
+    ¬ v ∈ˢ blkPred S (tagged 1 pt (S.injL 0 [])) := by
+  intro h
+  rcases (mem_blkPred.mp h).2 with ⟨_, h₁, -⟩ | ⟨h', t', h₁, -⟩
+  · exact absurd (tagged_inj h₁).1 (by omega)
+  · exact absurd (hS.list.mkInj hw _ _ _ _ (tagged_inj h₁).2.2).1 (by omega)
+
+theorem mem_blkPred_cons (hS : TreeListOk S) (hw : S.w ≠ 0) {h t v : V} :
+    v ∈ˢ blkPred S (tagged 1 pt (S.injL 1 [h, t])) ↔
+      v ∈ˢ blkIdx S ∧ (v = tagged 0 pt h ∨ v = tagged 1 pt t) := by
+  rw [mem_blkPred]
+  refine and_congr_right fun _ => ⟨fun hv => ?_, fun hv => Or.inr ⟨h, t, rfl, hv⟩⟩
+  rcases hv with ⟨_, h₁, -⟩ | ⟨h', t', h₁, h₂⟩
+  · exact absurd (tagged_inj h₁).1 (by omega)
+  · obtain ⟨-, he⟩ := hS.list.mkInj hw _ _ _ _ (tagged_inj h₁).2.2
+    obtain ⟨rfl, he'⟩ := List.cons.inj he
+    obtain ⟨rfl, -⟩ := List.cons.inj he'
+    exact h₂
+
+/-- **The predecessors come from the argument tuple** — the ONE fact
+the recursion theorem needs of the constructor decomposition. -/
+theorem blkPred_predsFrom (hS : TreeListOk S) (hw : S.w ≠ 0) :
+    PredsFrom S.w 2 uIs (blkΨ S) (blkPred S) := by
+  intro X hX hXle c hc i hi x hx v hv
+  obtain rfl := mem_unitSet_iff.mp hi
+  obtain ⟨-, hrel⟩ := mem_relPred.mp hv
+  match c, hc with
+  | 0, _ =>
+    rw [app_blkΨ_zero] at hx
+    obtain ⟨l, hl, rfl⟩ := mem_nodeFib.mp hx
+    rcases hrel with ⟨l', h₁, rfl⟩ | ⟨h', t', h₁, -⟩
+    · obtain rfl := hS.tree.mkInj hw l l' (tagged_inj h₁).2.2
+      exact tagged_mem_unionSet (by omega) pt_mem_unitSet hl
+    · exact absurd (tagged_inj h₁).1 (by omega)
+  | 1, _ =>
+    rw [app_blkΨ_one] at hx
+    rcases mem_listFib.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · rcases hrel with ⟨_, h₁, -⟩ | ⟨h', t', h₁, -⟩
+      · exact absurd (tagged_inj h₁).1 (by omega)
+      · exact absurd (hS.list.mkInj hw _ _ _ _ (tagged_inj h₁).2.2).1 (by omega)
+    · rcases hrel with ⟨_, h₁, -⟩ | ⟨h', t', h₁, h₂⟩
+      · exact absurd (tagged_inj h₁).1 (by omega)
+      · obtain ⟨-, he⟩ := hS.list.mkInj hw _ _ _ _ (tagged_inj h₁).2.2
+        obtain ⟨rfl, he'⟩ := List.cons.inj he
+        obtain ⟨rfl, -⟩ := List.cons.inj he'
+        rcases h₂ with rfl | rfl
+        · exact tagged_mem_unionSet (by omega) pt_mem_unitSet hh
+        · exact tagged_mem_unionSet (by omega) pt_mem_unitSet ht
+
+/-! ### The bound and the step -/
+
+/-- The bound: the two motives' fibres, selected by the value's tag
+(the block is unindexed, so the motive reads the value alone). -/
+noncomputable def blkB (M₀ M₁ : V → V) (u : V) : V :=
+  natFibre (fun c => (match c with | 0 => M₀ | _ + 1 => M₁) (ssnd (ssnd u))) (sfst u)
+
+theorem blkB_tree (M₀ M₁ : V → V) (x : V) : blkB M₀ M₁ (tagged 0 pt x) = M₀ x := by
+  unfold blkB tagged
+  rw [sfst_kpair, ssnd_kpair, ssnd_kpair, natFibre_vnat]
+
+theorem blkB_list (M₀ M₁ : V → V) (l : V) : blkB M₀ M₁ (tagged 1 pt l) = M₁ l := by
+  unfold blkB tagged
+  rw [sfst_kpair, ssnd_kpair, ssnd_kpair, natFibre_vnat]
+
+open Classical in
+/-- The step: the minors at the predecessors' recursive values. -/
+noncomputable def blkSt (S : TreeListSig V) (mNode : V → V → V) (mNil : V)
+    (mCons : V → V → V → V → V) (u g : V) : V :=
+  if h : ∃ l, u = tagged 0 pt (S.injT 0 [l]) then
+    mNode h.choose (app g (tagged 1 pt h.choose))
+  else if u = tagged 1 pt (S.injL 0 []) then mNil
+  else if h : ∃ q : V × V, u = tagged 1 pt (S.injL 1 [q.1, q.2]) then
+    mCons h.choose.1 h.choose.2 (app g (tagged 0 pt h.choose.1))
+      (app g (tagged 1 pt h.choose.2))
+  else empty
+
+theorem blkSt_node (hS : TreeListOk S) (hw : S.w ≠ 0) (l g : V) :
+    blkSt S mNode mNil mCons (tagged 0 pt (S.injT 0 [l])) g
+      = mNode l (app g (tagged 1 pt l)) := by
+  unfold blkSt
+  rw [dif_pos ⟨l, rfl⟩]
+  have h := Exists.choose_spec
+    (⟨l, rfl⟩ : ∃ y, (tagged 0 pt (S.injT 0 [l]) : V) = tagged 0 pt (S.injT 0 [y]))
+  rw [← hS.tree.mkInj hw _ _ (tagged_inj h).2.2]
+
+theorem blkSt_nil (g : V) :
+    blkSt S mNode mNil mCons (tagged 1 pt (S.injL 0 [])) g = mNil := by
+  unfold blkSt
+  rw [dif_neg (fun ⟨_, h⟩ => Nat.one_ne_zero (tagged_inj h).1), if_pos rfl]
+
+theorem blkSt_cons (hS : TreeListOk S) (hw : S.w ≠ 0) (h t g : V) :
+    blkSt S mNode mNil mCons (tagged 1 pt (S.injL 1 [h, t])) g
+      = mCons h t (app g (tagged 0 pt h)) (app g (tagged 1 pt t)) := by
+  unfold blkSt
+  rw [dif_neg (fun ⟨_, h'⟩ => Nat.one_ne_zero (tagged_inj h').1),
+    if_neg (fun h' => by
+      exact absurd (hS.list.mkInj hw _ _ _ _ (tagged_inj h').2.2).1 (by omega)),
+    dif_pos ⟨(h, t), rfl⟩]
+  have hs := Exists.choose_spec
+    (⟨(h, t), rfl⟩ :
+      ∃ q : V × V, (tagged 1 pt (S.injL 1 [h, t]) : V) = tagged 1 pt (S.injL 1 [q.1, q.2]))
+  obtain ⟨-, he⟩ := hS.list.mkInj hw _ _ _ _ (tagged_inj hs).2.2
+  obtain ⟨h₁, he'⟩ := List.cons.inj he
+  obtain ⟨h₂, -⟩ := List.cons.inj he'
+  rw [← h₁, ← h₂]
+
+/-! ### The kit -/
+
+section Kit
+
+variable (hS : TreeListOk S) (hw : S.w ≠ 0)
+  (hM₀ : ∀ x, x ∈ˢ carT S → M₀ x ∈ˢ (univ ℓ : V))
+  (hM₁ : ∀ l, l ∈ˢ carL S → M₁ l ∈ˢ (univ ℓ : V))
+  (hmNode : ∀ l ih, l ∈ˢ carL S → ih ∈ˢ M₁ l → mNode l ih ∈ˢ M₀ (S.injT 0 [l]))
+  (hmNil : mNil ∈ˢ M₁ (S.injL 0 []))
+  (hmCons : ∀ h t ih₁ ih₂, h ∈ˢ carT S → t ∈ˢ carL S → ih₁ ∈ˢ M₀ h → ih₂ ∈ˢ M₁ t →
+    mCons h t ih₁ ih₂ ∈ˢ M₁ (S.injL 1 [h, t]))
+
+include hM₀ hM₁ in
+theorem blkB_mem_univ : ∀ u, u ∈ˢ blkIdx S → blkB M₀ M₁ u ∈ˢ (univ ℓ : V) := by
+  intro u hu
+  rcases mem_blkIdx.mp hu with ⟨x, hx, rfl⟩ | ⟨l, hl, rfl⟩
+  · rw [blkB_tree]; exact hM₀ x hx
+  · rw [blkB_list]; exact hM₁ l hl
+
+include hM₀ hM₁ in
+theorem blkGraph_mem_B {u v : V} (hu : u ∈ˢ blkIdx S)
+    (hv : v ∈ˢ app (recGraph ℓ (blkIdx S) (blkPred S) (blkB M₀ M₁)
+      (blkSt S mNode mNil mCons)) u) : v ∈ˢ blkB M₀ M₁ u := by
+  rw [app_recGraph_eq (blkB_mem_univ hM₀ hM₁) (fun u _ => blkPred_subset S u) hu] at hv
+  exact (mem_recGraphFibre.mp hv).1
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- **The step is typed** — from the minors' typing alone. -/
+theorem blkSt_mem : ∀ u, u ∈ˢ blkIdx S → ∀ g,
+    g ∈ˢ piSet (blkPred S u) (fun j => app (recGraph ℓ (blkIdx S) (blkPred S) (blkB M₀ M₁)
+      (blkSt S mNode mNil mCons)) j) →
+    blkSt S mNode mNil mCons u g ∈ˢ blkB M₀ M₁ u := by
+  intro u hu g hg
+  have hval : ∀ v, v ∈ˢ blkPred S u → app g v ∈ˢ blkB M₀ M₁ v := fun v hv =>
+    blkGraph_mem_B hM₀ hM₁ (blkPred_subset S u v hv) (app_mem_of_mem_piSet hg hv)
+  rcases mem_blkIdx.mp hu with ⟨x, hx, rfl⟩ | ⟨l, hl, rfl⟩
+  · obtain ⟨l, hl, rfl⟩ := (mem_carT hS).mp hx
+    rw [blkSt_node hS hw, blkB_tree]
+    have h := hval (tagged 1 pt l) ((mem_blkPred_node hS hw).mpr ⟨list_mem_blkIdx hl, rfl⟩)
+    rw [blkB_list] at h
+    exact hmNode l _ hl h
+  · rcases (mem_carL hS).mp hl with rfl | ⟨h, t, hh, ht, rfl⟩
+    · rw [blkSt_nil, blkB_list]; exact hmNil
+    · rw [blkSt_cons hS hw, blkB_list]
+      have h₁ := hval (tagged 0 pt h) ((mem_blkPred_cons hS hw).mpr
+        ⟨tree_mem_blkIdx hh, Or.inl rfl⟩)
+      have h₂ := hval (tagged 1 pt t) ((mem_blkPred_cons hS hw).mpr
+        ⟨list_mem_blkIdx ht, Or.inr rfl⟩)
+      rw [blkB_tree] at h₁
+      rw [blkB_list] at h₂
+      exact hmCons h t _ _ hh ht h₁ h₂
+
+/-- **The block's recursion kit** at `N = 2` components. -/
+noncomputable def blkKit : UnionRecKit ℓ S.w 2 uIs (blkΨ S) :=
+  ⟨blkPred S, blkB M₀ M₁, blkSt S mNode mNil mCons, blkPred_predsFrom hS hw,
+    blkB_mem_univ hM₀ hM₁, blkSt_mem hS hw hM₀ hM₁ hmNode hmNil hmCons⟩
+
+local notation "K*" => blkKit hS hw hM₀ hM₁ hmNode hmNil hmCons
+
+@[simp] theorem blkKit_pred : (K*).pred = blkPred S := rfl
+@[simp] theorem blkKit_B : (K*).B = blkB M₀ M₁ := rfl
+@[simp] theorem blkKit_st : (K*).st = blkSt S mNode mNil mCons := rfl
+
+/-- The kit's recursor IS the selector of the recursion graph over the
+two-component union. -/
+theorem blkKit_recAt (c : Nat) (i x : V) :
+    (K*).recAt c i x = recSel (recGraph ℓ (blkIdx S) (blkPred S) (blkB M₀ M₁)
+      (blkSt S mNode mNil mCons)) (tagged c i x) := rfl
+
+/-- `Tree.rec`. -/
+noncomputable def recT (x : V) : V := (K*).recAt 0 pt x
+
+/-- `Tree.rec_1` — the recursor of the copy's component, the one
+official emits for the aux key `List Tree`. -/
+noncomputable def recL (l : V) : V := (K*).recAt 1 pt l
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- **Typing**: `Tree.rec … x ∈ motive x`. -/
+theorem recT_mem {x : V} (hx : x ∈ˢ carT S) :
+    recT hS hw hM₀ hM₁ hmNode hmNil hmCons x ∈ˢ M₀ x := by
+  have h := (K*).rec_mem_B (blkΨ_closed hS) (blkΨ_mono S) (blkΨ_maps hS)
+    (show (0:Nat) < 2 by omega) (show (pt : V) ∈ˢ uIs 0 from pt_mem_unitSet) hx
+  rw [blkKit_B, blkB_tree] at h
+  exact h
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- **Typing**: `Tree.rec_1 … l ∈ motive_1 l`. -/
+theorem recL_mem {l : V} (hl : l ∈ˢ carL S) :
+    recL hS hw hM₀ hM₁ hmNode hmNil hmCons l ∈ˢ M₁ l := by
+  have h := (K*).rec_mem_B (blkΨ_closed hS) (blkΨ_mono S) (blkΨ_maps hS)
+    (show (1:Nat) < 2 by omega) (show (pt : V) ∈ˢ uIs 1 from pt_mem_unitSet) hl
+  rw [blkKit_B, blkB_list] at h
+  exact h
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- The recursion equation, in the engine's form. -/
+theorem blkRec_eq {c : Nat} (hc : c < 2) {x : V} (hx : x ∈ˢ app (car S c) pt) :
+    (K*).recAt c pt x
+      = blkSt S mNode mNil mCons (tagged c pt x)
+          (graph (fun j => recSel (recGraph ℓ (blkIdx S) (blkPred S) (blkB M₀ M₁)
+            (blkSt S mNode mNil mCons)) j) (blkPred S (tagged c pt x))) := by
+  have h := (K*).rec_eq (blkΨ_closed hS) (blkΨ_mono S) (blkΨ_maps hS) hc
+    (show (pt : V) ∈ˢ uIs c from pt_mem_unitSet) hx
+  exact h
+
+/-! ### The three ι rules -/
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- ι 1: `Tree.rec … (node l) = mNode l (Tree.rec_1 … l)`. -/
+theorem recT_node {l : V} (hl : l ∈ˢ carL S) :
+    recT hS hw hM₀ hM₁ hmNode hmNil hmCons (S.injT 0 [l])
+      = mNode l (recL hS hw hM₀ hM₁ hmNode hmNil hmCons l) := by
+  show (K*).recAt 0 pt (S.injT 0 [l]) = mNode l ((K*).recAt 1 pt l)
+  rw [blkRec_eq hS hw hM₀ hM₁ hmNode hmNil hmCons (show (0:Nat) < 2 by omega)
+      ((mem_carT hS).mpr ⟨l, hl, rfl⟩),
+    blkSt_node hS hw, app_graph ((mem_blkPred_node hS hw).mpr ⟨list_mem_blkIdx hl, rfl⟩),
+    blkKit_recAt]
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- ι 2: `Tree.rec_1 … nil = mNil`. -/
+theorem recL_nil : recL hS hw hM₀ hM₁ hmNode hmNil hmCons (S.injL 0 []) = mNil := by
+  show (K*).recAt 1 pt (S.injL 0 []) = mNil
+  rw [blkRec_eq hS hw hM₀ hM₁ hmNode hmNil hmCons (show (1:Nat) < 2 by omega)
+      ((mem_carL hS).mpr (Or.inl rfl)),
+    blkSt_nil]
+
+include hS hw hM₀ hM₁ hmNode hmNil hmCons in
+/-- ι 3: `Tree.rec_1 … (cons h t) = mCons h t (Tree.rec … h) (Tree.rec_1 … t)` —
+the rule that CROSSES components, the one official emits for the
+container's constructor at the pin. -/
+theorem recL_cons {h t : V} (hh : h ∈ˢ carT S) (ht : t ∈ˢ carL S) :
+    recL hS hw hM₀ hM₁ hmNode hmNil hmCons (S.injL 1 [h, t])
+      = mCons h t (recT hS hw hM₀ hM₁ hmNode hmNil hmCons h)
+          (recL hS hw hM₀ hM₁ hmNode hmNil hmCons t) := by
+  show (K*).recAt 1 pt (S.injL 1 [h, t])
+    = mCons h t ((K*).recAt 0 pt h) ((K*).recAt 1 pt t)
+  rw [blkRec_eq hS hw hM₀ hM₁ hmNode hmNil hmCons (show (1:Nat) < 2 by omega)
+      ((mem_carL hS).mpr (Or.inr ⟨h, t, hh, ht, rfl⟩)),
+    blkSt_cons hS hw,
+    app_graph ((mem_blkPred_cons hS hw).mpr ⟨tree_mem_blkIdx hh, Or.inl rfl⟩),
+    app_graph ((mem_blkPred_cons hS hw).mpr ⟨list_mem_blkIdx ht, Or.inr rfl⟩),
+    blkKit_recAt, blkKit_recAt]
+
+end Kit
+
+end Rec
+
 end ConLeche.SetTheory
