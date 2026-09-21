@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.BlockStageTables
 public import ConLeche.Model.Inductives.BlockStageFormer
 public import ConLeche.Model.Inductives.BlockCtorFuns
 import ConLeche.Model.Inductives.BlockAssemblyKit
+import ConLeche.Model.Inductives.BlockCaps
+import ConLeche.Model.Inductives.FixZeroField
 import ConLeche.Verify.Inductives.BlockInv
 public section
 
@@ -94,6 +96,10 @@ structure BlockFormerFacts {env : Env} (mp : EnvModelM V μ env) (q : BlockShape
   /-- the member's telescope reading -/
   fdOf : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
     FormerData mp.base2 cvTa (q.nP + q.nIdxs.getD m 0) q.resSort (ppsOf m)
+  /-- off the block the reading is the empty telescope (the leaves are
+  a TOTAL function of the position, and the stages' obligations are
+  stated at every position) -/
+  ppsNil : ∀ m : Nat, cvTas[m]? = none → ∀ ψ : Name → Nat, ppsOf m ψ = []
   /-- **official's parameter agreement, semantically**: the members'
   parameter telescopes are interchangeable at a frame -/
   paramsIff : ∀ m₁ m₂, m₁ < q.k → m₂ < q.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -230,17 +236,20 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       htr, htf', hlpd, hbt', hst, pps, hFD⟩
   -- the members' telescope readings, chosen positionally
   have hfdEx : ∀ m : Nat, ∃ pps : (Name → Nat) → List (Nat × Nat × AnnotTerm),
-      ∀ cvTa : ConstantVal, cvTas[m]? = some cvTa →
+      (∀ cvTa : ConstantVal, cvTas[m]? = some cvTa →
         FormerData mp.base2 cvTa
           ((p₀.toBlockShape.withSort s0).nP
             + (p₀.toBlockShape.withSort s0).nIdxs.getD m 0)
-          (p₀.toBlockShape.withSort s0).resSort pps := by
+          (p₀.toBlockShape.withSort s0).resSort pps) ∧
+      (cvTas[m]? = none → ∀ ψ : Name → Nat, pps ψ = []) := by
     intro m
     cases hm : cvTas[m]? with
-    | none => exact ⟨fun _ => [], fun _ hh => nomatch hh⟩
+    | none =>
+      refine ⟨fun _ => [], fun _ hh => ?_, fun _ _ => rfl⟩
+      exact absurd hh (by simp)
     | some cvTa =>
       obtain ⟨ms, -, hms, -, -, -, -, -, -, -, -, -, -, pps, hFD⟩ := hsyn m cvTa hm
-      refine ⟨pps, fun cvTa' hh => ?_⟩
+      refine ⟨pps, fun cvTa' hh => ?_, fun hh => nomatch hh⟩
       obtain rfl := Option.some.inj hh
       rw [show (p₀.toBlockShape.withSort s0).nIdxs.getD m 0 = ms.nIdx from hnIdxAt m ms hms]
       exact hFD.congr_sort (hsEval m)
@@ -249,8 +258,9 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       FormerData mp.base2 cvTa
         ((p₀.toBlockShape.withSort s0).nP + (p₀.toBlockShape.withSort s0).nIdxs.getD m 0)
         (p₀.toBlockShape.withSort s0).resSort (Classical.choose (hfdEx m)) :=
-    fun m cvTa hm => Classical.choose_spec (hfdEx m) cvTa hm
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hsEval, hfd, ?_⟩
+    fun m cvTa hm => (Classical.choose_spec (hfdEx m)).1 cvTa hm
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hsEval, hfd,
+    fun m hm => (Classical.choose_spec (hfdEx m)).2 hm, ?_⟩
   · -- one former per member
     show cvTas.length = (p₀.toBlockShape.withSort s0).members.length
     rw [hcvTas, hmembers]
@@ -489,5 +499,117 @@ theorem blockTablesFamFree {q : BlockShape} :
     | succ j =>
       simp only [List.getElem?_cons_succ] at hi
       exact hmono _ (blockTablesFamFree rest env' env₂ hrest j e hi cA sorts hc hs hidx hpos)
+
+/-! ## The dummy pass -/
+
+/-- A member's index count, read off the record two ways. -/
+theorem blockNIdxs_getD {q : BlockShape} {j : Nat} (hj : j < q.members.length) :
+    q.nIdxs.getD j 0 = (q.members.getD j default).nIdx := by
+  show (q.members.map (·.nIdx)).getD j 0 = (q.members.getD j default).nIdx
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hj,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]
+  rfl
+
+/-- A unit-like member has no index. -/
+theorem blockCapsAt_unitlike_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
+    (hu : (ConLeche.blockCapsAt q j isRec).unitlike = true) :
+    (q.members.getD j default).nIdx = 0 := by
+  rcases blockCapsAt_cases q j isRec with ⟨c, -, hc⟩ | hc
+  · rw [hc] at hu
+    simp only [Bool.and_eq_true, beq_iff_eq] at hu
+    exact hu.1
+  · rw [hc] at hu; exact nomatch hu
+
+/-- **The DUMMY former pass**: the `k` formers consed with the EMPTY
+chain lists — `declNative`'s `stageSumFormer` at `k` members.  This is
+the carrier at which the members' constructors' readings are taken:
+every member's leaf must exist before any real one is built, because a
+member's fixpoint leaf mentions every member's chains. -/
+theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+    {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {sOf : Nat → Level}
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+      = .ok (envI, cvTas, q))
+    (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
+    (hnd : q.memberNames.Nodup)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), cvTas[j]? = some cvTa →
+      cvTas[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
+      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
+    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
+      (ConLeche.blockCapsAt q j isRec).eta = true →
+      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none) :
+    ∃ mp' : EnvModelM V μ envI,
+      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        envI.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt q j isRec)) ∧
+        ∀ ψ, mp'.base2.acval cvTa.name ψ
+          = sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) []) := by
+  -- the leaf's currency at EVERY position: on the block from the
+  -- member's telescope reading, off it at the empty telescope
+  have hwalks : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V),
+      ParamsOkS (q.resSort.eval ψ) ρ [] (ppsOf j ψ) ∧
+        UnderTowerValid ρ (sumBodyAV (q.resSort.eval ψ) []) (ppsOf j ψ) := by
+    intro j ψ ρ
+    have htriv : ∀ (w : Nat) (σ : Nat → V),
+        SumFieldsOkB (V := V) w σ [] ∧ SumFieldsValid (V := V) σ [] := by
+      intro w σ
+      constructor
+      · intro Fs hFs; exact nomatch hFs
+      · intro Fs hFs; exact nomatch hFs
+    cases hj : cvTas[j]? with
+    | none =>
+      rw [hF.ppsNil j hj ψ]
+      refine ⟨?_, ?_⟩
+      · show SumFieldsOkB (q.resSort.eval ψ) ρ []
+        exact (htriv _ ρ).1
+      · show AnnotValid V ρ (sumBodyAV (q.resSort.eval ψ) [])
+        exact sumBodyAV_validV (htriv (q.resSort.eval ψ) ρ).2
+    | some cvTa =>
+      exact formerWalksS (hF.fdOf j cvTa hj) (fun ψ' ρ' _ => htriv _ ρ') ψ ρ
+  have hbelow : ∀ (j : Nat) (ψ : Name → Nat), DomsBelow 0 (ppsOf j ψ) := by
+    intro j ψ
+    cases hj : cvTas[j]? with
+    | none => rw [hF.ppsNil j hj ψ]; trivial
+    | some cvTa => exact (hF.fdOf j cvTa hj).below ψ
+  refine blockFormerPass mp hInd hF hnd hE
+    (fun j ψ => sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [])
+    (fun j ψ => sumTyAV_below (hbelow j ψ) (by intro Fs hFs; exact nomatch hFs))
+    (fun j cvTa hj ψ₁ ψ₂ hφ => by
+      obtain ⟨hp, hw⟩ := (hF.fdOf j cvTa hj).params ψ₁ ψ₂ hφ
+      show sumTyAV _ _ [] = sumTyAV _ _ []
+      rw [hp, hw])
+    (fun j ψ ρ => sumTyAV_wellDenoted (hwalks j ψ ρ).1)
+    (fun j ψ ρ => (sumTyAV_wellDenotedV (hwalks j ψ ρ).1 (hwalks j ψ ρ).2).2)
+    (fun j ψ ρ => sumTyAV_mem (hwalks j ψ ρ).1)
+    hetaNe hetaFresh ?_
+  -- the capability laws at the DUMMY leaf: η is vacuous (no
+  -- constructor is stored), unit-likeness folds the empty-chain leaf
+  -- to the one tagged empty tuple
+  intro j cvTa hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
+  have hFD₂ : FormerData m₂ cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) :=
+    hFD'.cross (c₀ := .indInfo cvTa (ConLeche.blockCapsAt q j isRec)) hfreshT
+      (ConsCrossAt.ofNtc fun _ hh => nomatch hh) hcb m₂ hac
+  have hleaf : ∀ ψ, m₂.acval cvTa.name ψ = sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [] := by
+    intro ψ
+    rw [hac]
+    exact congrFun acvalWith_self ψ
+  refine ⟨fun he hfam => ?_, fun hu φ' => ?_⟩
+  · exfalso
+    obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
+    rw [ConLeche.Env.find?_cons,
+      if_neg (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+        show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
+        exact hh)),
+      hfreshC j cvTa hj he] at hfC
+    exact nomatch hfC
+  · refine fixEmptyUnitLaw hleaf hFD₂.read hFD₂.okTy (fun ψ => ?_)
+    rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
+      blockNIdxs_getD (q := q) (j := j) (by
+        have := (List.getElem?_eq_some_iff.mp hj).1
+        rwa [hF.lenCv] at this),
+      blockCapsAt_unitlike_nIdx hu, Nat.add_zero]
 
 end ConLeche.Model
