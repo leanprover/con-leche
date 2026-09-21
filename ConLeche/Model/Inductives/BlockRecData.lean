@@ -552,4 +552,131 @@ theorem blockRecLeafAV_valid (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
 
 end RunLeaf
 
+/-! ## A.1 The CHAIN-FRAME LIFTING
+
+`BlockRuleDataAt` (`BlockRecLaw.lean`) states the rule data at the
+CHAIN frame — under the `K` Σ' binders the family's tuple introduces —
+while every reading the check produces lives at the BASE frame.  That
+gap is O-2's bookkeeping (`M5m-REPORT` §7), and it is ONE move: a form
+standing under `k` of the rule's own binders is the base-frame form
+lifted by `K` at the cutoff `k`, because the chain frame is
+`consList ((List.range K).map a) ρ` and `shiftE K k` of the extended
+frame drops exactly that block (`shiftE_consList_ih`).
+
+`liftDomsK` is the same move on a BINDER LIST, each domain at its own
+depth; `blockRuleDataAt_of_base` is the whole of
+`BlockRuleDataAt` reduced to its five base-frame identifications. -/
+
+/-- A binder list moved under the `K` chain binders: domain `i` is
+lifted at the cutoff `k + i`. -/
+def liftDomsK (K : Nat) : Nat → List AnnotTerm → List AnnotTerm
+  | _, [] => []
+  | k, D :: Ds => D.liftN K k :: liftDomsK K (k + 1) Ds
+
+omit [SetTheory V] in
+@[simp] theorem liftDomsK_length (K : Nat) :
+    ∀ (k : Nat) (Ds : List AnnotTerm), (liftDomsK K k Ds).length = Ds.length
+  | _, [] => rfl
+  | k, _ :: Ds => by
+    show (liftDomsK K (k + 1) Ds).length + 1 = Ds.length + 1
+    rw [liftDomsK_length K (k + 1) Ds]
+
+omit [SetTheory V] in
+theorem liftDomsK_append (K : Nat) :
+    ∀ (k : Nat) (Ds Es : List AnnotTerm),
+      liftDomsK K k (Ds ++ Es) = liftDomsK K k Ds ++ liftDomsK K (k + Ds.length) Es
+  | k, [], Es => by simp [liftDomsK]
+  | k, D :: Ds, Es => by
+    show D.liftN K k :: liftDomsK K (k + 1) (Ds ++ Es) = _
+    rw [liftDomsK_append K (k + 1) Ds Es,
+      show k + 1 + Ds.length = k + (D :: Ds).length from by rw [List.length_cons]; omega]
+    rfl
+
+/-- **The lifting, at a reading**: a form read at the base frame under
+`ws` binders reads the same at the CHAIN frame under the same `ws`. -/
+theorem interp_liftN_chainFrame {K : Nat} {a ρ : Nat → V} (ws : List V) (e : AnnotTerm) :
+    interp V (consList ws (chainFrame K a ρ)) (e.liftN K ws.length)
+      = interp V (consList ws ρ) e := by
+  rw [interp_liftN, chainFrame,
+    shiftE_consList_ih (locals := ws) (ihvals := (List.range K).map a) rfl (by simp)]
+
+/-- **The lifting, at a fit**: a spine fitting the base-frame binder
+data fits the lifted data at the chain frame. -/
+theorem spineFit_liftDomsK {K : Nat} {a ρ : Nat → V} :
+    ∀ (Ds : List AnnotTerm) (ws vs : List V),
+      SpineFit (consList ws ρ) Ds vs →
+      SpineFit (consList ws (chainFrame K a ρ)) (liftDomsK K ws.length Ds) vs
+  | [], _, [], _ => trivial
+  | [], _, _ :: _, hsp => hsp.elim
+  | _ :: _, _, [], hsp => hsp.elim
+  | D :: Ds, ws, v :: vs, hsp => by
+    refine ⟨?_, ?_⟩
+    · rw [interp_liftN_chainFrame ws D]; exact hsp.1
+    · have ih := spineFit_liftDomsK (K := K) (a := a) (ρ := ρ) Ds (ws ++ [v]) vs
+        (by rw [consList_append, consList_cons, consList_nil]; exact hsp.2)
+      rw [List.length_append, List.length_singleton] at ih
+      rw [consList_append, consList_cons, consList_nil] at ih
+      exact ih
+
+/-- **`BlockRuleDataAt`, reduced to its base-frame identifications.**
+The five conjuncts at the chain frame follow from the same five at
+the RULE's own frame, once the data are the base-frame forms lifted
+past the `K` chain binders at their own depths.  Nothing here is about
+the check: it is the whole of O-2's move, once. -/
+theorem blockRuleDataAt_of_base {K rP nP : Nat} {a ρ : Nat → V}
+    {pdoms0 fdoms0 es0 ihs0 : List AnnotTerm} {mk0 Rb0 : AnnotTerm}
+    {xs ys : List AnnotTerm} {Ca Ra : AnnotTerm}
+    (hpl : pdoms0.length = rP)
+    (hsp : SpineFit ρ (pdoms0 ++ fdoms0) ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
+    (hes : es0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) = (xs.drop rP).map (interp V ρ))
+    (hmk : interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ) mk0 = interp V ρ (AnnotTerm.mkAppN Ca ys))
+    (hRa : interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
+      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
+          (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0) :
+    BlockRuleDataAt V K a (liftDomsK K 0 pdoms0) (liftDomsK K rP fdoms0)
+      (es0.map (fun e => e.liftN K (pdoms0.length + fdoms0.length)))
+      (mk0.liftN K (pdoms0.length + fdoms0.length))
+      (ihs0.map (fun e => e.liftN K (pdoms0.length + fdoms0.length)))
+      (Rb0.liftN K (pdoms0.length + fdoms0.length + ihs0.length))
+      ρ rP nP xs ys Ca Ra := by
+  have hlen : (((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) : List V).length = pdoms0.length + fdoms0.length := by
+    have hq := hsp.length_eq
+    simp only [List.length_append] at hq ⊢
+    exact hq
+  have hstep : ∀ e : AnnotTerm,
+      interp V (blockRuleFrame K a ρ rP nP xs ys)
+          (e.liftN K (pdoms0.length + fdoms0.length))
+        = interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ) e := by
+    intro e
+    show interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) (chainFrame K a ρ)) _ = _
+    rw [← hlen, interp_liftN_chainFrame]
+  have hfun : (interp V (blockRuleFrame K a ρ rP nP xs ys) ∘
+      fun e : AnnotTerm => e.liftN K (pdoms0.length + fdoms0.length))
+      = interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ) := funext hstep
+  refine ⟨by rw [liftDomsK_length]; exact hpl, ?_, ?_, ?_, ?_⟩
+  · have happ : liftDomsK K 0 (pdoms0 ++ fdoms0)
+        = liftDomsK K 0 pdoms0 ++ liftDomsK K rP fdoms0 := by
+      rw [liftDomsK_append, Nat.zero_add, hpl]
+    rw [← happ]
+    have hq := spineFit_liftDomsK (K := K) (a := a) (ρ := ρ) (pdoms0 ++ fdoms0) [] ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ))
+      (by rw [consList_nil]; exact hsp)
+    rw [consList_nil, List.length_nil] at hq
+    exact hq
+  · rw [List.map_map, hfun]; exact hes
+  · rw [hstep]; exact hmk
+  · have hRHS : interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
+          (blockRuleFrame K a ρ rP nP xs ys))
+          (Rb0.liftN K (pdoms0.length + fdoms0.length + ihs0.length))
+        = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
+            (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 := by
+      show interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
+        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) (chainFrame K a ρ))) _ = _
+      rw [← consList_append,
+        show pdoms0.length + fdoms0.length + ihs0.length
+            = ((((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) : List V) ++ ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))).length from by
+          rw [List.length_append, List.length_map, hlen],
+        interp_liftN_chainFrame, consList_append]
+    rw [List.map_map, hfun, hRHS]
+    exact hRa
+
 end ConLeche.Model
