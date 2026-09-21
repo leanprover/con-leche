@@ -366,7 +366,16 @@ def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
       throw (.invalid "direct rec: recursor rules are not the generated ones")
     let (cvRa, rhss) ← checkNativeRec ops env pn cvTa ctorsA
     pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-  | _, _, _ => throw (.notImplemented "block rec: the mutual recursor stage")
+  | _, _, _ => do
+    -- the recursor RECORDS' pins (task #220 at k members) are official's
+    -- replay comparison and reject whatever the stage does with the
+    -- rules afterwards, so they are thrown FIRST — milestone M5's stage
+    -- opens with them too (§4.2 (a) of the design)
+    unless blockRecLpsOk p.toBlockShape do
+      throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+    unless p.recPinned do
+      throw (.invalid "direct rec: the recursor record is not the generated recursor")
+    throw (.notImplemented "block rec: the mutual recursor stage")
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
 constructor, no index): the member's table at the tagged tower's
