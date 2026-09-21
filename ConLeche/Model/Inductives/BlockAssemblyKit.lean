@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
-public import ConLeche.Model.Inductives.BlockWitness
+import ConLeche.Model.Inductives.BlockWitness
 public section
 
 /-!
