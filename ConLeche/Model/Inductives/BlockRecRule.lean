@@ -917,4 +917,78 @@ theorem denoteMeta_blockIhSpinePis {env : Env} {m : EnvModel V env} {ψ : Name �
   rw [ConLeche.blockIhSpinePis, ho]
   exact h
 
+/-! ## The peel, transported to the OPENED frame
+
+`denoteMeta_instPisAtLift_peel` (M5M session 3) reads an
+`instPisAtLift` at bvar-CLOSED arguments — which the call's arguments
+are once the rule body is opened, and are NOT before.  The check's
+`instPisAtLift as (blockIhSpinePis …) = some expected` is a fact about
+the UNOPENED terms, so it has to be transported, and the per-binder
+commutation that does it already exists:
+`Expr.instSeq_instantiate1Lift` (`Verify/Subst.lean`) — "a
+capture-avoiding substitution followed by the ambient spine is the
+plain substitution at the already-instantiated argument".  Three small
+lemmas turn it into the statement `instPisAtLift` needs. -/
+
+theorem instSeq_forallE : ∀ (sp : List Expr) (t : Nat), sp.length = t + 1 →
+    ∀ (dom body : Expr) (mt : ConLeche.BinderMeta),
+      Expr.instSeq sp t (.forallE dom body mt)
+        = .forallE (Expr.instSeq sp t dom) (Expr.instSeq sp (t + 1) body) mt
+  | [], t, hlen, _, _, _ => absurd hlen (by simp)
+  | s :: ss, t, hlen, dom, body, mt => by
+    have hss : ss.length = t := by simpa using hlen
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      rfl
+    | succ t' =>
+      show Expr.instSeq ss t' ((Expr.forallE dom body mt).instantiate1 s (t' + 1)) = _
+      rw [Expr.instantiate1, instSeq_forallE ss t' hss]
+      rfl
+
+theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
+    (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
+    ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
+      (Expr.instSeq sp t a).looseBVarsBounded 0 = true
+  | [], t, _, hlen, _, _ => absurd hlen (by simp)
+  | s :: ss, t, hsp, hlen, a, ha => by
+    have hss : ss.length = t := by simpa using hlen
+    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      exact ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha
+    | succ t' =>
+      show (Expr.instSeq ss t' (a.instantiate1 s (t' + 1))).looseBVarsBounded 0 = true
+      exact looseBVarsBounded_instSeq ss t'
+        (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) hss
+        (ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha)
+
+/-- **The capture-avoiding telescope peel commutes with the frame's
+opening.**  This is what transports the check's own
+`instPisAtLift as (blockIhSpinePis …) = some expected` to the frame
+the model reads at. -/
+theorem instPisAtLift_instSeq {sp : List Expr} {t : Nat}
+    (hsp : ∀ s ∈ sp, s.looseBVarsBounded 0 = true) (hlen : sp.length = t + 1) :
+    ∀ (as : List Expr), (∀ a ∈ as, a.looseBVarsBounded (t + 1) = true) →
+      ∀ {ty rest : Expr}, Expr.instPisAtLift as ty = some rest →
+        Expr.instPisAtLift (as.map (Expr.instSeq sp t)) (Expr.instSeq sp t ty)
+          = some (Expr.instSeq sp t rest)
+  | [], _, ty, rest, h => by
+    obtain rfl : ty = rest := Option.some.inj h
+    rfl
+  | a :: as, ha, ty, rest, h => by
+    match ty, h with
+    | .forallE dom body mt, h =>
+      rw [Expr.instPisAtLift] at h
+      have hab : a.looseBVarsBounded (t + 1) = true := ha a List.mem_cons_self
+      have hcl : (Expr.instSeq sp t a).looseBVarsBounded 0 = true :=
+        looseBVarsBounded_instSeq sp t hsp hlen hab
+      have hcomm := ConLeche.Expr.instSeq_instantiate1Lift sp t hsp hlen hab body 0
+      simp only [Nat.zero_add] at hcomm
+      rw [List.map_cons, instSeq_forallE sp t hlen, Expr.instPisAtLift,
+        ConLeche.Expr.instantiate1Lift_eq_instantiate1 hcl, ← hcomm]
+      exact instPisAtLift_instSeq hsp hlen as
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) h
+
 end ConLeche.Model
