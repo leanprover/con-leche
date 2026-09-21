@@ -305,31 +305,88 @@ theorem mapM_blockCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) :
       | none => simp
       | some kss => simp [pure, Option.map]
 
-private theorem any_toRec_eq (kss : List (List BlockFieldKind))
+private theorem any_toRec_eq' (kss : List (List BlockFieldKind))
     (f : BlockFieldKind → Bool) (g : RecFieldKind → Bool)
     (h : ∀ k, g k.toRec = f k) :
     (kss.map (List.map BlockFieldKind.toRec)).any (fun ks => ks.any g)
       = kss.any (fun ks => ks.any f) := by
   simp only [List.any_map, Function.comp_def, h]
 
-theorem classifyBlockKinds_one (T : Name) (lps : List Name) (nP nIdx : Nat)
+theorem classifyMemberKinds_one (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) {β : Type} (k : List (List RecFieldKind) → m β) :
     classifyFixKinds (m := m) T lps nP nIdx ctorsA >>= k
-      = classifyBlockKinds (m := m) [T] lps nP [nIdx] [ctorsA] >>=
-          fun kss => k ((kss.headD []).map (List.map BlockFieldKind.toRec)) := by
-  simp only [classifyFixKinds, classifyBlockKinds, List.mapM_cons, List.mapM_nil,
+      = classifyMemberKinds (m := m) [T] lps nP [nIdx] ctorsA >>=
+          fun kss => k (kss.map (List.map BlockFieldKind.toRec)) := by
+  simp only [classifyFixKinds, classifyMemberKinds,
     mapM_blockCtorKinds T lps nP nIdx ctorsA, bind_assoc]
   cases hb : ctorsA.mapM (blockCtorKinds [T] lps nP [nIdx]) with
   | none => simp only [Option.map_none, unwrapOr, ThrowBindM.throw_bind, bind, Option.bind]
   | some kss =>
     simp only [Option.map_some, unwrapOr, pure_bind, bind, Option.bind, pure]
-    rw [any_toRec_eq kss (· == .negative) (· == .negative) (by intro k; cases k <;> rfl),
-      any_toRec_eq kss (· == .unsupported) (· == .unsupported) (by intro k; cases k <;> rfl)]
-    simp only [List.any_cons, List.any_nil, Bool.or_false]
+    rw [any_toRec_eq' kss (· == .negative) (· == .negative) (by intro k; cases k <;> rfl),
+      any_toRec_eq' kss (· == .unsupported) (· == .unsupported) (by intro k; cases k <;> rfl)]
     split
     · simp only [ThrowBindM.throw_bind]
     · split
       · simp only [ThrowBindM.throw_bind]
-      · simp only [pure_bind, List.headD_cons]
+      · simp only [pure_bind]
+
+/-- **The pass at ONE member is the one-member pass.** -/
+theorem checkNativePass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
+    {ms : MemberShape} (hm : p₀.members = [ms]) (isRec : Bool) {β : Type}
+    (k : NativePass Env × Bool → m β) :
+    checkNativePass ops env p₀.toNative isRec >>= k
+      = checkBlockPass ops env p₀ isRec >>= fun r =>
+          k (⟨r.1.env₁, r.1.cvTas.headD default, r.1.p.toNative, r.1.ctorsAs.headD [],
+            r.1.sortsss.headD []⟩, r.2) := by
+  have h1 : ms.cvT = p₀.toNative.toInductiveShape.cvT := by
+    simp [BlockParts.toNative, BlockShape.toInductive, hm]
+  have h2 : ms.nIdx = p₀.toNative.toInductiveShape.nIdx := by
+    simp [BlockParts.toNative, BlockShape.toInductive, hm]
+  simp only [checkNativePass, checkBlockPass, checkBlockInds, hm, checkBlockTeles,
+    checkBlockAgree, consBlockInds, bind_assoc, pure_bind, List.map_nil,
+    checkSumInd_tele ops env _ _ ms h1 h2]
+  refine bind_congr fun r => ?_
+  obtain ⟨cvTa, s⟩ := r
+  simp only [BlockParts.complete_members, BlockShape.withSort_members, hm,
+    List.zip_cons_cons, List.zip_nil_right, bind_assoc, pure_bind,
+    blockCapsAt_one (q := p₀.toBlockShape.withSort s) (by simpa using hm) isRec]
+  rw [checkBlockCtors_one ops _ _ (q := (p₀.complete (p₀.toBlockShape.withSort s)).toBlockShape)
+    (by simpa using hm) cvTa]
+  simp only [classifyBlockKinds, bind_assoc, pure_bind,
+    BlockParts.toNative, BlockShape.toInductive_withSort, InductiveShape.withSort,
+    BlockShape.withSort_elim, BlockParts.withKinds_members, BlockParts.withKinds_nP,
+    BlockParts.withKinds_elim, BlockParts.withKinds_resSort, BlockParts.withKinds_large,
+    BlockParts.withKinds_isProp, BlockParts.withKinds_kinds, BlockParts.withKinds_recPinned,
+    BlockParts.complete_kinds, BlockParts.complete_recPinned, BlockParts.complete_members,
+    BlockParts.complete_nP, BlockParts.complete_elim, BlockParts.complete_resSort,
+    BlockParts.complete_large, BlockParts.complete_isProp,
+    NativeParts.complete_cvT, NativeParts.complete_nP, NativeParts.complete_nIdx,
+    NativeParts.complete_resSort, NativeParts.complete_isProp, NativeParts.complete_large,
+    NativeParts.complete_ctors, InductiveShape.withSort_cvT, InductiveShape.withSort_nP,
+    InductiveShape.withSort_nIdx, InductiveShape.withSort_resSort,
+    InductiveShape.withSort_isProp, InductiveShape.withSort_large,
+    InductiveShape.withSort_ctors, BlockParts.complete_toBlockShape,
+    BlockShape.toInductive, BlockShape.memberNames, BlockShape.nIdxs, BlockShape.lps,
+    BlockShape.withSort_members, BlockShape.withSort_nP, BlockShape.withSort_resSort,
+    BlockShape.withSort_isProp, BlockShape.withSort_large, hm, List.headD_cons,
+    List.map_cons, List.map_nil, List.head?_cons, Option.map_some, Option.getD_some]
+  refine bind_congr fun r => ?_
+  rw [classifyMemberKinds_one (m := m) ms.cvT.name ms.cvT.levelParams p₀.nP ms.nIdx]
+  refine bind_congr fun kss => ?_
+  refine congrArg k ?_
+  congr 1
+  simp only [BlockShape.k, BlockParts.withKinds_members, BlockParts.complete_members,
+    BlockShape.withSort_members, hm, List.length_cons, List.length_nil, Nat.zero_add,
+    List.range_one,
+    List.all_cons, List.all_nil, Bool.and_true, blockCaps,
+    BlockParts.withKinds_kinds, blockIsRec_one,
+    blockCapsAt_one (q := ((p₀.complete (p₀.withSort s)).withKinds [kss]).toBlockShape)
+      (by simpa using hm),
+    blockCapsAt_one (q := p₀.toBlockShape.withSort s) (by simpa using hm),
+    nativeCaps, NativeParts.withKinds, NativeParts.complete, BlockParts.withKinds,
+    BlockParts.complete, BlockShape.toInductive, List.headD_cons,
+    BlockShape.withSort_nP, BlockShape.withSort_elim, BlockShape.withSort_resSort,
+    BlockShape.withSort_large, BlockShape.withSort_isProp]
 
 end ConLeche

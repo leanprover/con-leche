@@ -548,6 +548,18 @@ def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind)
     (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).kinds = ks := rfl
 @[simp] theorem BlockParts.withKinds_recPinned (p : BlockParts)
     (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).recPinned = p.recPinned := rfl
+@[simp] theorem BlockParts.withKinds_members (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).members = p.members := rfl
+@[simp] theorem BlockParts.withKinds_nP (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).nP = p.nP := rfl
+@[simp] theorem BlockParts.withKinds_elim (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).elim = p.elim := rfl
+@[simp] theorem BlockParts.withKinds_resSort (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).resSort = p.resSort := rfl
+@[simp] theorem BlockParts.withKinds_large (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).large = p.large := rfl
+@[simp] theorem BlockParts.withKinds_isProp (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).isProp = p.isProp := rfl
 @[simp] theorem BlockParts.withKinds_toBlockShape (p : BlockParts)
     (ks : List (List (List BlockFieldKind))) :
     (p.withKinds ks).toBlockShape = p.toBlockShape := rfl

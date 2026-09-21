@@ -178,15 +178,24 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
 constructors — their field domains normalised by official's positivity
 walk — against the WHOLE member list: a non-positive or non-valid
 occurrence is INVALID, a nested one a positive decline. -/
-def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (ctorsAs : List (List (ConstantVal × Nat))) : m (List (List (List BlockFieldKind))) := do
-  let kinds ← unwrapOr (ctorsAs.mapM fun cs => cs.mapM (blockCtorKinds names lps nP nIdxs))
+def classifyMemberKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
+    (ctorsA : List (ConstantVal × Nat)) : m (List (List BlockFieldKind)) := do
+  let kinds ← unwrapOr (ctorsA.mapM (blockCtorKinds names lps nP nIdxs))
     (.notImplemented "direct rec: constructor telescope")
-  if kinds.any (fun kss => kss.any fun ks => ks.any (· == .negative)) then
+  if kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive or non valid occurrence of the inductive type")
-  if kinds.any (fun kss => kss.any fun ks => ks.any (· == .unsupported)) then
+  if kinds.any (fun ks => ks.any (· == .unsupported)) then
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   pure kinds
+
+/-- The fields' kinds of every member, in block order. -/
+def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+    List (List (ConstantVal × Nat)) → m (List (List (List BlockFieldKind)))
+  | [] => pure []
+  | ctorsA :: rest => do
+    let kss ← classifyMemberKinds names lps nP nIdxs ctorsA
+    let rest' ← classifyBlockKinds names lps nP nIdxs rest
+    pure (kss :: rest')
 
 /-- **What one pass over the formers and the constructors yields**
 (`NativePass` at k members). -/
