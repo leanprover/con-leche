@@ -128325,3 +128325,263 @@ rows cover `J` alone); `nested_bvar_field` is measured at both blocks.
 Both corpora measure the tower population at ZERO at this arm, so the
 arm is owed by the SYNTAX and the controls will have to count it, as
 K.69's four do.
+
+#### WIDE (f3) STEP 4 (3) LANDED — K.72 IS **ONE** COMPARISON AFTER ALL: THE PREVIOUS ROW'S TWO ARMS ARE ITS TWO SUMMANDS; AND OBJECT (2) IS **UNDER-PRICED**, WHICH THE SAME READING SHOWS (lane LE, 2026-09-21)
+
+The previous row refuted the naive conjunct — "the copy's tower is the
+container's stored domain's" — with `tests/e2e/nested_comp_tower.ndjson`
+(`K α | mk (a : α)` minted at `K (Nat → J β)`, an OFFICIAL ACCEPT at
+which the container's domain has depth `0` and the copy's field
+`Nat → <copy>` has depth `1`) and concluded that (3) is TWO ARMS.
+**Read again at the tree, the refutation names a missing SUMMAND and
+not a second arm**, and the row below is the one comparison that
+results, landed.
+
+##### (a) THE READING THE PREVIOUS ROW MISSED
+
+`ordTargetDom lps nP ownSelf qK l dom` is
+`instSeq Ds (nP - 1 + (l + domPiDepth (ordTargetDomL …)))
+(stripDomPis (dom^lvls))` — it **strips the container's tower away and
+THEN substitutes the components**.  So whatever `Π` the components
+plant is planted into the STRIPPED BODY, and `domPiDepth` of the
+recomputation measures it and nothing else.  The mint, meanwhile,
+instantiates the WHOLE domain at the field's own `l` and opens
+afterwards, so its tower is the container's followed by the planted
+one.  Hence
+
+    copy's tower = domPiDepth domJ.1 + domPiDepth (block's recomputation)
+
+at every field, and the three witnesses are the three ways the two
+summands can split:
+
+| fixture | shape | `domPiDepth domJ.1` | `domPiDepth` of the recomputation | copy |
+|---|---|---|---|---|
+| `nested_bvar_field` | `K α \| mk (a : α)` at `K (J β)` | 0 | 0 | 0 |
+| `nested_pi_field` | `K α \| mk (f : Nat → α)` at `K (J β)` | 1 | 0 | 1 |
+| `nested_comp_tower` | `K α \| mk (a : α)` at `K (Nat → J β)` | 0 | 1 | 1 |
+
+**So the "two arms" of the previous row are the two SUMMANDS of one
+equation, and the guard that was to separate them is not needed.**
+
+##### (b) THE BOOL, AS LANDED
+
+A conjunct on K.69's Bool (`nestedOrdNormAt`, which gains `stored`),
+under K.69's own guard — the field is ordinary for the container, the
+container's stored domain mentions no member of its group, the OWNER's
+recomputation fired, and the block calls the field recursive or
+reflexive — and NOT a new `DeclNestedRun` conjunct:
+
+    match stored[p.k + q]? with
+    | some a => match a.ctors[j]? with
+      | some (cvCa, _, nF) => match cvCa.type.stripPis (p.nP + nF) with
+        | some (cbs, _) => match cbs[p.nP + l]? with
+          | some domC =>
+            (Expr.piBinders domC.1).1.length ==
+              domPiDepth domJ.1
+                + domPiDepth (ordTargetDom Jm.lps ci.nP terms q l domJ.1)
+          | _ => false
+        …
+
+The addressing is K.32's own (`nestedCopyTargetsAt`,
+`Kernel/Inductives/NestedInstall.lean:1034`), so the row costs one
+`stored` read and one `stripPis` on a walk the arm already runs — no
+new environment scan and no new walk.  The recomputation on the right
+is the term the block-head conjunct beside it already computes.
+
+**IT CANNOT FIRE**, category (B): the copy's field domain is
+`replaceAllNested` of the minted domain; the mint is the container's
+stored domain at the pin's LEVELS folded onto the pin's COMPONENTS;
+and neither a level instantiation nor the rewrite turns a `Π` into a
+non-`Π` or the other way round.  **IF IT EVER FIRES** the copy's field
+is not the container's field minted — a defect in the ROUTE, and the
+answer is never to relax the check.
+
+##### (c) WHAT LANDED
+
+| object | file |
+|---|---|
+| the conjunct, and `stored` on `nestedOrdNormAt` | `Kernel/Inductives/NestedInstall.lean` |
+| `nestedOrdNormOk_tower` (the inversion, at the RAW firing guard, `nestedOrdNormOk_blkHead`'s own) | `Verify/Inductives/NestedCopyKinds.lean` |
+| `NestedPinsRun.ordTowerAt` — `ordBlkHeadAt`'s scaffolding verbatim | `Model/Inductives/NestedInstMap.lean` |
+| `GroupFacts.ordTower` and its producer case | `Model/Inductives/NestedPinLeafAll.lean` |
+
+The two sibling inversions (`nestedOrdNormOk_at_refl`,
+`…_blkHead`) move one conjunct over, and
+`Verify/Inductives/NestedInv.lean`'s `by_cases` gains the `stored`
+argument; nothing else changed.
+
+**The copy's side stays in the RUN's vocabulary.**  `ordTowerAt` and
+`GroupFacts.ordTower` conclude about `ctorsA`'s own constructor type
+and its field domain, not about the model's recorded telescope: the
+translation — `MutualCtorDataI.reflOpen` at a reflexive field,
+`tssNone` at a recursive one, and the opening, which plants no `Π`
+because the openers are `fvar`s — belongs to the consumer that holds
+the ctor-data record, which is where the standing rule puts it.
+
+##### (d) OBJECT (2) IS UNDER-PRICED, AND THE SAME READING SAYS BY HOW MUCH
+
+Step 4's pricing called (2) "the cut at eight signatures, MECHANICAL,
+no new fact", on the ground that `OrdTargetRead`
+(`Model/Inductives/NestedPremise.lean:1133`) is "ALREADY tower-ready".
+It is tower-ready for the CONTAINER's tower only.  Its conjunct is
+
+    tlsl.length = domPiDepth (ordTargetDomL lpsC ownSelf q dom)
+
+and its reading is of `ordTargetDom …` itself at the cut
+`l + that depth`.  At `nested_comp_tower`'s shape BOTH are false: the
+copy's telescope has length `1` while the stored domain's depth is
+`0`, and the recomputation IS a `forallE`, so no `mkAppN fb (Ps ++ Eis)`
+can be its denotation.  **The repair is K.72's own shape**: the cut
+becomes the SUM (equivalently `tlsl.length`), and the subject gains one
+more `stripDomPis`, which strips the tower the components planted:
+
+    tlsl.length = domPiDepth (ordTargetDomL lpsC ownSelf q dom)
+                    + domPiDepth (ordTargetDom lpsC nPJ ownSelf q l dom) ∧
+    ∃ fb Ps, Ps.length = nPK ∧
+      denoteMeta … (nP + (l + tlsl.length))
+        (Expr.instSeq (openFvars nP (l + tlsl.length)) (l + tlsl.length - 1)
+          (stripDomPis (ordTargetDom lpsC nPJ ownSelf q l dom)))
+      = some (AnnotTerm.mkAppN fb (Ps ++ Eis))
+
+**AND THE COMMUTATION IT NEEDS IS THE UNGUARDED ONE, WHICH IS THE
+GOOD NEWS.**  The reflexive twin
+(`copyOrdFRightPinOrdTargetReadAtRefl`) already carries a tower, and it
+pays for it with `stripDomPis_instSeq`, whose docstring's own warning
+is this arm: "without it the body could be a `bvar` and the
+substitution could plant a `Π` there, deepening the tower".  Once the
+subject is `stripDomPis` of the SUBSTITUTED term the warning has
+nothing to warn about, and the bridge between the mint (the whole
+domain instantiated at the field's own `l`) and the recomputation (the
+STRIPPED body instantiated at `l + domPiDepth`) is one induction over
+the `Π`-prefix with `Expr.instSeq_forallE` and NO head guard:
+
+    stripDomPis (Expr.instSeq vs k e)
+      = stripDomPis (Expr.instSeq vs (k + domPiDepth e) (stripDomPis e)) ∧
+    domPiDepth (Expr.instSeq vs k e)
+      = domPiDepth e + domPiDepth (Expr.instSeq vs (k + domPiDepth e) (stripDomPis e))
+
+(side condition `vs.length ≤ k + 1`, `instSeq_forallE`'s own).  The
+second conjunct is K.72's equation read on the MINT rather than on the
+copy, which is why the two objects are one design and were priced
+apart.  `hfinRefl` — the STRIPPED stored domain's constant head, the
+guard step 3(b) (c) named as the residue — is what this retires.
+
+**IT IS LANDED** (`stripDomPis_instSeq_tower`,
+`Verify/Inductives/NestedCopyKinds.lean`), and `stripDomPis_instSeq`
+is re-proved through it in five lines, so the guarded form keeps its
+consumers and `stripDomPis_instSeq_leaf`, which had no other, is
+deleted.  That is (2)'s first brick and the only part of it this
+session lands; the rest is the propagation described above.
+
+So (2) is NOT a rename of a cut: the four `copyOrdFRight*` producers in
+`Model/Inductives/NestedCopyInst.lean` have to carry the planted tower
+through the mint→recomputation bridge (`stripDomPis_instSeq` at a body
+that is NOT constant-headed, which is the very thing its docstring
+warns about), and that is a fact, not a signature.  **Re-priced at two
+sessions rather than one**, with the producers the dear half and the
+consumers (`ordRead_corr`, `ordReadMem_corr`, `read_of_run`, `hscope`,
+`rowOrdRead`/`rowOrdReadMem`, `ordTgtReadAt`/`ordReadAt`/`ordTgtMemReadAt`,
+`GroupFacts.ordRead`) the mechanical one the pricing described.  K.72
+is what makes the new conjunct's right-hand side a RUN fact, so the
+order (3) then (2) was the right one.
+
+##### (e) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 — `nested-shadow: 46/46`, `e2e: 200/200`,
+`arena suite: 91/96`, `annot suite: 15/15`, `mode flags: 10/10`,
+`prelude counts: 3/3`, `progress lane: 15/15`, `worker pool: 15/15`,
+`DAG-tower gate: 14/14`, `axioms: pinned (20 theorems)`, trusted sweep
+162+200+15 with the 3 recorded divergences, `--jobs=1` and `--jobs=4`
+sweeps as at the default, `inmodel: OK`, `shake: 514 removals, all
+allowlisted`, `proofdeps: 4975 module rows, doors: 0`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`.  The accept set did not move.
+The four fixtures the arm's design singles out are all ACCEPTS and all
+in the gate: `nested_bvar_field` (`J=accept,BvarField=accept`),
+`nested_redex_owner` (`J=accept,Outer=accept`), and the two TRIPWIRES
+`nested_pi_field` and `nested_comp_tower` (`J=accept,` at
+`CON_LECHE_INMODEL=0`).
+`tests/warning-free.sh ebed8f2f` 0 warning lines in both halves (5
+changed modules), and `tests/warning-free.sh 15a05f15` 0 lines for the
+commutation commit (1 module); `lake test` 0 warnings.  `tests/unconsumed.sh`
+**204 of 3890** against **204 of 3888**: two declarations added and the
+advisory count did not move (`ordTowerAt` is consumed by the
+`GroupFacts` producer; the structure FIELD is not scanned).
+`#print axioms` on `nestedOrdNormOk_tower`, `nestedOrdNormOk_at_refl`,
+`nestedOrdNormOk_blkHead`, `NestedPinsRun.ordTowerAt` and
+`GroupFacts.ordTower`: all `[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), `--verified --nested-shadow --jobs=4` | 1 | 1 | 0 |
+| `init-full`, `--trusted --nested-shadow --jobs=4` | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), `--verified --nested-shadow` | 41 | 41 | 0 |
+| Mathlib, `--trusted --nested-shadow` | 41 | 41 | 0 |
+
+##### (f) THE CONTROLS, AND WHAT THEY MEASURE
+
+Three binaries, each with ONE answer made wrong, against
+`tests/nested-shadow.sh` (46 rows), `init-full` and Mathlib:
+
+| control | the comparison | shadow gate | `init-full` | Mathlib |
+|---|---|---|---|---|
+| `x` — the sum shifted by one | `d + 1 == …` | **41/46** — fires at 6 blocks in 5 rows | 0 of 1 | **5 of 41** |
+| `a` — the FIRST summand alone (the previous row's refuted form) | `d == domPiDepth domJ.1` | 46/46 | 0 of 1 | 0 of 41 |
+| `c` — the SECOND summand alone | `d == domPiDepth (recomputation)` | 46/46 | 0 of 1 | — |
+
+The `x` column is the REACHABILITY measurement and it is the same set
+the K.67 row's control reached, plus two: `nested_p04` `P4`,
+`inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide`,
+`nested_bvar_field` `BvarField`, `nested_redex_owner` `Outer`.
+`init-full`'s single nested block is not nested-in-nested, so the arm
+is not reached there at all — K.67's row already said so.
+
+**The `a` and `c` columns are the tower-population measurement, and
+they are the reason the arm is owed by the SYNTAX.**  Both agree with
+the landed row everywhere, which says that at EVERY field either the
+arm reaches, both summands are `0` — the container's domain is flat
+and the components plant nothing.  `nested_comp_tower` exhibits the
+disagreement but does NOT reach this arm: the modeller declines `J` for
+its reflexive member, so the fold stops at `J`, and at `J`'s own
+install the container `K` has no own pins, which is K.69's guard.  A
+proof's case split is over the syntax and never over a corpus, so the
+summand stands on the argument in (a) and the measurement is a
+non-firing check and not a witness.
+
+##### (g) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the same binary with the conjunct replaced by
+`true`.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2523 G | 538.2304 G | **−0.0041 %** |
+| `init-full --trusted --nested-shadow` | 520.8745 G | 520.8902 G | **+0.0030 %** |
+
+No Mathlib perf cell, per the standing ruling.
+
+##### (h) OBJECT (2)'s SITE TABLE, SO THAT NOBODY RE-DERIVES IT
+
+Every place the cut and the subject move, read off the tree at this
+tip.  The two columns separate the half that needs a FACT (the planted
+tower carried through the mint→recomputation bridge) from the half
+that is a rename.
+
+| site | file:line | kind |
+|---|---|---|
+| `OrdTargetRead` | `Model/Inductives/NestedPremise.lean:1133` | the statement — total cut + `stripDomPis` on the subject |
+| `PinShapes`' third clause, `rowOrdRead`, `rowOrdReadMem` | `NestedPremise.lean:1481`, `:1537` | rename |
+| the two crossings | `ContainerCross.lean:741`, `NestedLoop.lean:142` | rename |
+| `copyOrdFRightPinOrdTargetRead` / `…Refl` / `…At` / `…AtRefl` | `NestedCopyInst.lean:10361`, `:10645`, `:11176`, `:11274` | **fact** — `stripDomPis_instSeq_tower` replaces `stripDomPis_instSeq`, and `hfinRefl` goes |
+| `copyOrdFRightMemOrdTargetRead` / `…At` / `…Refl` / `…AtRefl` | `NestedCopyInst.lean:11397`, `:11600`, `:11696`, `:12148` | **fact**, the member arm's twin |
+| `NestedPinsRun.ordTgtReadAt`, `ordTgtMemReadAt`, `ordReadAt` | `NestedInstMap.lean:2753`, `:3067`, `:4238` | rename (their `hflat` goes) |
+| `GroupFacts.ordRead` | `NestedPinLeafAll.lean:2262` | rename |
+| `ordRead_corr`, `ordReadMem_corr` | `NestedPinLeafAll.lean:5307`, `:5551` | the two `hdep₂` rewrites become the tower's own; the conclusion's two `= []` become `.length = …` |
+| `read_of_run` and `hscope`'s flatness conjunct | `NestedPinLeafAll.lean:6374` | the conjunct GOES — it is what has no producer |
+
+`hflat` stands at **57 occurrences** in 8 files at this tip (3 of them
+in `NestedStageCtor.lean` are an unrelated local name), and every one
+of them is a consequence of the statement above, not a separate
+decision.
