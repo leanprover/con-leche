@@ -332,13 +332,16 @@ theorem classifyMemberKinds_one (T : Name) (lps : List Name) (nP nIdx : Nat)
       · simp only [pure_bind]
 
 /-- **The pass at ONE member is the one-member pass.** -/
-theorem checkNativePass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
+theorem checkBlockPass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
     {ms : MemberShape} (hm : p₀.members = [ms]) (isRec : Bool) {β : Type}
-    (k : NativePass Env × Bool → m β) :
-    checkNativePass ops env p₀.toNative isRec >>= k
-      = checkBlockPass ops env p₀ isRec >>= fun r =>
-          k (⟨r.1.env₁, r.1.cvTas.headD default, r.1.p.toNative, r.1.ctorsAs.headD [],
-            r.1.sortsss.headD []⟩, r.2) := by
+    (k : BlockPass Env × Bool → m β) (k' : NativePass Env × Bool → m β)
+    (hk : ∀ (env₁ : Env) (cvTa : ConstantVal) (pC : BlockParts)
+        (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
+        (kss : List (List BlockFieldKind)) (b : Bool),
+        k (⟨env₁, [cvTa], pC.withKinds [kss], [ctorsA], [sortss]⟩, b)
+          = k' (⟨env₁, cvTa, (pC.withKinds [kss]).toNative, ctorsA, sortss⟩, b)) :
+    checkNativePass ops env p₀.toNative isRec >>= k'
+      = checkBlockPass ops env p₀ isRec >>= k := by
   have h1 : ms.cvT = p₀.toNative.toInductiveShape.cvT := by
     simp [BlockParts.toNative, BlockShape.toInductive, hm]
   have h2 : ms.nIdx = p₀.toNative.toInductiveShape.nIdx := by
@@ -374,8 +377,18 @@ theorem checkNativePass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
   refine bind_congr fun r => ?_
   rw [classifyMemberKinds_one (m := m) ms.cvT.name ms.cvT.levelParams p₀.nP ms.nIdx]
   refine bind_congr fun kss => ?_
-  refine congrArg k ?_
+  rw [hk]
+  refine congrArg k' ?_
   congr 1
+  · simp only [BlockParts.toNative, BlockShape.toInductive, BlockParts.withKinds_kinds,
+      BlockParts.withKinds_members, BlockParts.withKinds_nP, BlockParts.withKinds_elim,
+      BlockParts.withKinds_resSort, BlockParts.withKinds_large, BlockParts.withKinds_isProp,
+      BlockParts.withKinds_recPinned, BlockParts.complete_members, BlockParts.complete_nP,
+      BlockParts.complete_elim, BlockParts.complete_resSort, BlockParts.complete_large,
+      BlockParts.complete_isProp, BlockParts.complete_recPinned,
+      BlockShape.withSort_members, BlockShape.withSort_nP, BlockShape.withSort_elim,
+      BlockShape.withSort_resSort, BlockShape.withSort_large, BlockShape.withSort_isProp,
+      hm, List.headD_cons, NativeParts.withKinds, NativeParts.complete]
   simp only [BlockShape.k, BlockParts.withKinds_members, BlockParts.complete_members,
     BlockShape.withSort_members, hm, List.length_cons, List.length_nil, Nat.zero_add,
     List.range_one,
