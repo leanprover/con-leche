@@ -600,6 +600,57 @@ theorem recCtorsHead_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDat
     · intro hb
       exact ConLeche.recRuleEtaOf_mono hkeepB' hb
 
+/-! ## The `String` guard, once the recursor names are official's
+
+The maintainer's ruling of 2026-09-21 (DESIGN: *"a block's recursor
+names, as a set, must be exactly the names official would generate"*)
+makes `blockRecStaged_of`'s `hstr` a THEOREM rather than a premise: a
+recursor is then named `T_m.rec`, and every one of the ten slots the
+two literal guards read ends in a component that is not `"rec"`
+(`"Nat"`, `"zero"`, `"succ"`, `"String"`, `"ofList"`, `"List"`,
+`"nil"`, `"cons"`, `"Char"`, `"ofNat"`), so the cons moves none of
+them. -/
+
+/-- A name that is no `_.rec` is none of the block's recursors'. -/
+theorem find?_consBlockRecs_of_notRec {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {n : Name}
+    (hrecName : ∀ r ∈ rs, ∃ T : Name, r.1.name = T.str "rec")
+    (hn : ∀ T : Name, n ≠ T.str "rec") :
+    (consBlockRecs envC.find? q nP 0 rs envC).find? n = envC.find? n :=
+  find?_consBlockRecs_of_ne (fun r hr hh => by
+    obtain ⟨T, hT⟩ := hrecName r hr
+    exact hn T (hh.trans hT))
+
+/-- **Both literal guards are untouched by the recursors' cons**, once
+the recursor names are official's — which is what turns
+`blockRecStaged_of`'s `hstr` from a premise into a consequence. -/
+theorem litGuards_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env}
+    (hrecName : ∀ r ∈ rs, ∃ T : Name, r.1.name = T.str "rec") :
+    ConLeche.natLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
+        = ConLeche.natLitSupported envC ∧
+      ConLeche.strLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
+        = ConLeche.strLitSupported envC := by
+  have key : ∀ n : Name, (∀ T : Name, n ≠ T.str "rec") →
+      (consBlockRecs envC.find? q nP 0 rs envC).find? n = envC.find? n :=
+    fun n hn => find?_consBlockRecs_of_notRec hrecName hn
+  have hnat : ConLeche.natLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
+      = ConLeche.natLitSupported envC := by
+    unfold ConLeche.natLitSupported
+    rw [key ConLeche.natName (by intro T h; simp [ConLeche.natName] at h),
+      key ConLeche.natZeroName (by intro T h; simp [ConLeche.natZeroName] at h),
+      key ConLeche.natSuccName (by intro T h; simp [ConLeche.natSuccName] at h)]
+  refine ⟨hnat, ?_⟩
+  unfold ConLeche.strLitSupported
+  rw [hnat,
+    key ConLeche.stringName (by intro T h; simp [ConLeche.stringName] at h),
+    key ConLeche.stringOfListName (by intro T h; simp [ConLeche.stringOfListName] at h),
+    key ConLeche.listName (by intro T h; simp [ConLeche.listName] at h),
+    key ConLeche.listNilName (by intro T h; simp [ConLeche.listNilName] at h),
+    key ConLeche.listConsName (by intro T h; simp [ConLeche.listConsName] at h),
+    key ConLeche.charName (by intro T h; simp [ConLeche.charName] at h),
+    key ConLeche.charOfNatName (by intro T h; simp [ConLeche.charOfNatName] at h)]
+
 /-! ## The stage's proposition -/
 
 /-- **`BlockRecStaged`, discharged** (task #315 M5, the Model half).
@@ -610,12 +661,14 @@ constructors' own off the `k` new names; every stored lookup survives;
 every reading of a constructor-environment subject survives; and a slot
 no stored piece mentioned is still mentioned by none.
 
-Two premises beyond the cons's own are worth naming.  `hstr` is the
-`String`-literal guard's *equality*: the guard is monotone at any fresh
-cons but not congruent, and nothing forbids a recursor NAME from being
-one of the seven string-support names (`List.cons` at a block that
-declares `List`), so conjunct 3's equation — as opposed to its
-monotone half, `blockRecStaged_denoteMeta_mono` — genuinely needs it.
+Two premises beyond the cons's own are worth naming.  `hrecName` is
+the maintainer's 2026-09-21 recursor-NAME ruling: without it the
+`String`-literal guard is monotone but not congruent — nothing else
+forbids a recursor from being named `List.cons` at a block that
+declares `List` — and conjunct 3's EQUATION (as opposed to its
+monotone half, `denoteMeta_consBlockRecs_mono`, which needs nothing)
+is then refutable.  With it the guard is untouched
+(`litGuards_consBlockRecs`).
 `hnoTy`/`hnoRhs` are the `.proj`-freedom of the stage's two stored
 pieces; they are `annotateCore_noProjAt` at the bare-`k` environment,
 whose `findProj?` is `envC`'s (`findProj?_consBlockRecs`). -/
@@ -651,8 +704,7 @@ theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ)
-    (hstr : ConLeche.strLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
-      = ConLeche.strLitSupported envC)
+    (hrecName : ∀ r ∈ rs, ∃ T : Name, r.1.name = T.str "rec")
     (hnoTy : ∀ r ∈ rs, ∀ (T : Name) (i : Nat), envC.findProj? T i = none →
       Expr.NoProjAt T i r.1.type)
     (hnoRhs : ∀ r ∈ rs, ∀ rhs ∈ r.2.1, ∀ (T : Name) (i : Nat),
@@ -684,7 +736,8 @@ theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
     intro ψ d e hcb
     rw [hac',
       ← denoteMeta_envExtend (acval := acv) (φ := ψ) (fun {n} {ci} h => hkeep n ci h)
-        ⟨(natLitSupported_consBlockRecs hnres).symm, hstr.symm⟩
+        ⟨(natLitSupported_consBlockRecs hnres).symm,
+          (litGuards_consBlockRecs hrecName).2.symm⟩
         (fun sn i h => by rw [findProj?_consBlockRecs hpsh]; exact h) d e hcb]
     exact denoteMeta_acval_congr
       (fun n hn => hag n (hne n hn)) d e
