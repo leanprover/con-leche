@@ -462,14 +462,62 @@ def nativeSkels (p : NativeParts) (sk : List InstallSkel) : List InstallSkel :=
     .proj (projTableName p.cvT.name) :: sumSkels p.toInductiveShape sk
   else sumSkels p.toInductiveShape sk
 
-/-- The dispatch below the direct-sum gate: the direct recursive gate
-(task #188; the sum's skeleton with the table at a structure-like
-block), then the modeled block.  The RECOGNISER decides, and nothing
-else (task #219), so the skeleton list needs no environment at all. -/
+/-! ### The uniform route's skeleton (milestone M1)
+
+The INSTALL ORDER at k members (the floor's agreement is positional):
+the k type formers, then every constructor of every member in block
+order, then the k recursors, then one projection table per
+structure-like member. -/
+
+/-- The k type formers (member 0 deepest, as `consBlockInds`). -/
+def blockIndSkels : List MemberShape → List InstallSkel → List InstallSkel
+  | [], sk => sk
+  | ms :: rest, sk => blockIndSkels rest (.ind ms.cvT.name :: sk)
+
+/-- Every member's constructors, in block order. -/
+def blockCtorSkels (nP : Nat) : List MemberShape → List InstallSkel → List InstallSkel
+  | [], sk => sk
+  | ms :: rest, sk =>
+    blockCtorSkels nP rest (sumCtorSkels nP (ms.ctors.map fun c => (c.1.name, c.2)) sk)
+
+/-- The k recursors, each with its member's rules. -/
+def blockRecSkels (rP : Nat) : List MemberShape → List InstallSkel → List InstallSkel
+  | [], sk => sk
+  | ms :: rest, sk =>
+    blockRecSkels rP rest
+      (.recr ms.cvR.name (rP + ms.nIdx) rP (ms.ctors.map (·.1.name)) :: sk)
+
+/-- The projection table of every structure-like member. -/
+def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
+  | [], sk => sk
+  | ms :: rest, sk =>
+    blockTableSkels rest
+      (if ms.ctors.length == 1 && ms.nIdx == 0 then
+        .proj (projTableName ms.cvT.name) :: sk else sk)
+
+/-- The uniform install's skeleton. -/
+def blockSkels (p : BlockParts) (sk : List InstallSkel) : List InstallSkel :=
+  blockTableSkels p.members
+    (blockRecSkels p.rulePrefix p.members
+      (blockCtorSkels p.nP p.members (blockIndSkels p.members sk)))
+
+/-- At ONE member the skeleton is the one-member skeleton. -/
+theorem blockSkels_one {p : BlockParts} {ms : MemberShape} (hm : p.members = [ms])
+    (sk : List InstallSkel) : blockSkels p sk = nativeSkels p.toNative sk := by
+  simp only [blockSkels, nativeSkels, blockIndSkels, blockCtorSkels, blockRecSkels,
+    blockTableSkels, sumSkels, BlockParts.toNative, BlockShape.toInductive,
+    BlockShape.rulePrefix, BlockShape.k, BlockShape.numCtors, numCtorsOf,
+    InductiveShape.rulePrefix, InductiveShape.majorIdx, hm, List.headD_cons,
+    List.length_cons, List.length_nil, Nat.add_zero]
+
+/-- The dispatch below the direct-sum gate: the uniform route's gate
+(milestone M1; the k-ary skeleton), then the modeled block.  The
+RECOGNISER decides, and nothing else (task #219), so the skeleton list
+needs no environment at all. -/
 def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
-  match nativeParts? nP block with
-  | some p => nativeSkels p sk
+  match blockParts? nP block with
+  | some p => blockSkels p sk
   | none => indDeclSkelsModeled block sk
 
 /-- The skeletons one declaration installs. -/
@@ -1332,9 +1380,12 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
       rw [hk]
       split
       · unfold indDeclSkels
-        cases nativeParts? nP block with
+        cases hbp : blockParts? nP block with
         | none => exact checkIndDeclSF_skels mode h block
-        | some p => exact checkNativeS_skels mode h p
+        | some p =>
+          obtain ⟨ms, hms⟩ := blockParts?_k1 hbp
+          simp only [checkBlockS_one mode hms, blockSkels_one hms]
+          exact checkNativeS_skels mode h p.toNative
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
+import ConLeche.Verify.Inductives.BlockOne
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
@@ -213,10 +214,13 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     · exact basisStepPB_of mp hrun
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-      cases hdf : ConLeche.nativeParts? nP block with
+      cases hdf : ConLeche.blockParts? nP block with
       | some p =>
         rw [hdf] at hrun'
-        exact declNative hμ mp hE hdf hrun'
+        -- milestone M1: the route is the k-ary recogniser's, gated at
+        -- ONE member, and the run is recorded at the one-member
+        -- reading of the record (`blockParts?_toNative`)
+        exact declNative hμ mp hE (ConLeche.blockParts?_toNative hdf).1 hrun'
       | none =>
         rw [hdf] at hrun'
         exact indStepPB_of hμ mp hE hrun'

@@ -1,7 +1,7 @@
 module
 
 public import Std.Data.HashSet
-public import ConLeche.Kernel.Inductives.NativeParts
+public import ConLeche.Kernel.Inductives.BlockParts
 import ConLeche.Kernel.Level
 
 @[expose] public section
@@ -357,7 +357,7 @@ def projRecOwners (block : List ConstantInfo)
   -- table at a one-constructor, index-free block), so no rewrite
   -- (the block's DECLARED parameter count, task #228: the first type
   -- record's, which is the one the parse carries into `indDecl`)
-  else if (nativeParts? ((types.head?.map (·.2.2.2.1)).getD 0) block).isSome then []
+  else if (blockParts? ((types.head?.map (·.2.2.2.1)).getD 0) block).isSome then []
   else
     types.filterMap fun (T, lps, tty, nP, nI, cs, _) => do
       let [C] := cs | none

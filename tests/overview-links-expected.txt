@@ -271,18 +271,18 @@
   1932        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1933        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
-== ConLeche/Model/Fold.lean#L308-L315
-   308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   309      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   310      {ds : List Declaration} {env' : Env}
-   311      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   312      ∀ c ∈ env'.consts,
-   313        c.toConstantVal.type = .const falseName [] → False := by
-   314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   315    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L312-L319
+   312  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   313      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   314      {ds : List Declaration} {env' : Env}
+   315      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   316      ∀ c ∈ env'.consts,
+   317        c.toConstantVal.type = .const falseName [] → False := by
+   318    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   319    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L165
-   165  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+== ConLeche/Model/Fold.lean#L166
+   166  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -358,10 +358,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
-  1431  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1432      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1433      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1482-L1484
+  1482  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1483      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1484      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo

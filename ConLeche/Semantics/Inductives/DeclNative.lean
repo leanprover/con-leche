@@ -204,18 +204,30 @@ theorem declNativeRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   | true => exact declNativeRun_of_pass hnd hP₂ (by simpa using h)
 
+/-- **The uniform install's run**: at ONE member the uniform installer
+IS the one-member installer (`checkBlock_one`, milestone M1), so a run
+of `checkBlock` is a `DeclNativeRun` at the one-member reading of the
+record. -/
+theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
+    {p : ConLeche.BlockParts} {ms : ConLeche.MemberShape} (hm : p.members = [ms])
+    (h : ConLeche.checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok env₂) :
+    DeclNativeRun μ F env p.toNative env₂ :=
+  declNativeRun_of (by rw [ConLeche.checkBlock_one (m := ConLeche.CheckM) _ _ hm]; exact h)
+
 /-! ## The run-level dispatch
 
-`checkDeclRun_ofEnvFactsE`'s `Ind` slot: the direct (fixpoint) arm and
-the modeled arm — the kernel's own case split (`nativeParts?`; ONE
-ROUTE, task #210 Part B). -/
+`checkDeclRun_ofEnvFactsE`'s `Ind` slot: the uniform (fixpoint) arm and
+the modeled arm — the kernel's own case split (`blockParts?`; ONE
+ROUTE, task #210 Part B, at k members since milestone M1).  The arm is
+recorded at the ONE-MEMBER reading of the record, which the route's
+gate makes exact. -/
 
 /-- The `.indDecl` dispatch at the run level (the recogniser alone
 since task #219). -/
 def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
-  match ConLeche.nativeParts? nP block with
-  | some p => DeclNativeRun μ F env p env₂
+  match ConLeche.blockParts? nP block with
+  | some p => DeclNativeRun μ F env p.toNative env₂
   | none => DeclIndRun μ F env block env₂
 
 end ConLeche.Semantics

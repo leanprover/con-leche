@@ -56,7 +56,7 @@ theorem checkDeclRun_ofEnvFactsE
     DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
   checkDeclRun_of
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
-    -- clause's own `nativeParts?` dispatch — `declNativeRun_of`
+    -- clause's own `blockParts?` dispatch — `declBlockRun_of`
     -- on the direct arm, `declIndRun_of` on the modeled one.
     (fun {block nP} hpin hh => by
       -- task #293: the pinned-block recognition came first, and this
@@ -68,10 +68,11 @@ theorem checkDeclRun_ofEnvFactsE
       by_cases hok : indParamsOk nP block = true
       · rw [if_pos hok] at hh
         revert hh
-        cases hdf : nativeParts? nP block with
+        cases hdf : blockParts? nP block with
         | some p =>
           intro hh
-          exact declNativeRun_of hh
+          obtain ⟨ms, hms⟩ := blockParts?_k1 hdf
+          exact declBlockRun_of hms hh
         | none =>
           intro hh
           exact declIndRun_of hh
