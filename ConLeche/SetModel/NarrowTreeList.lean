@@ -292,6 +292,43 @@ theorem narΨ_closed (hS : NarOk S) : ∃ L, IsClosedTuple S.w 1 uIs (narΨ S) L
   rw [app_graph pt_mem_unitSet]
   exact narΦ_narTop_sub hS hw x hx
 
+/-- **(W), the ALTERNATIVE route** — NOT used by anything below,
+recorded because it is the one the maintainer's ruling allows for an
+INFINITARY container, and because it costs nothing here: F0's
+transient two-component operator (the block plus a COPY of the
+container) has a closed tuple, and its FIRST component already bounds
+the narrow operator — the container's carrier at that component's
+value lies below the copy's component, by leastness against it, and
+`node` of that is back in the first component.  Nothing is identified
+and no fixed point of the wide operator is taken: the copy serves as a
+SET-SIZED BOUND and is discarded.  Unlike `narΨ_closed` this uses no
+finitarity, so it is the route an infinitary container must take. -/
+theorem narΨ_closed_of_wide (hS : NarOk S) : ∃ L, IsClosedTuple S.w 1 uIs (narΨ S) L := by
+  obtain ⟨L, hLmem, hLle⟩ := blkΨ_closed hS.ok
+  have hA : app (L 0) pt ∈ˢ (univ S.w : V) := famSpace_app (hLmem 0 (by omega)) pt_mem_unitSet
+  have hsub : app (S.LIST (app (L 0) pt)) pt ⊆ˢ app (L 1) pt := by
+    have hcl : IsClosedTuple S.w 1 uIs (S.ΨL (app (L 0) pt)) (fun _ => L 1) := by
+      refine ⟨fun _ _ => hLmem 1 (by omega), fun m hm i hi x hx => ?_⟩
+      obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+      obtain rfl := mem_unitSet_iff.mp hi
+      have h1 := hLle 1 (by omega) pt pt_mem_unitSet x
+      rw [app_blkΨ_one] at h1
+      refine h1 ?_
+      rcases (hS.ok.list.fibre _ hA _ (fun _ _ => hLmem 1 (by omega)) pt pt_mem_unitSet x).mp hx
+        with rfl | ⟨h, hh, t, ht, rfl⟩
+      · exact mem_listFib.mpr (Or.inl rfl)
+      · exact mem_listFib.mpr (Or.inr ⟨h, t, hh, ht, rfl⟩)
+    have hle := lfpTuple_le hcl 0 Nat.one_pos pt pt_mem_unitSet
+    rw [hS.ok.list.leaf _ hA]
+    exact hle
+  refine ⟨fun _ => L 0, fun _ _ => hLmem 0 (by omega), fun m hm i hi x hx => ?_⟩
+  obtain rfl := mem_unitSet_iff.mp hi
+  rw [app_narΨ] at hx
+  obtain ⟨l, hl, rfl⟩ := mem_narΦ.mp hx
+  have h0 := hLle 0 (by omega) pt pt_mem_unitSet (S.injT 0 [l])
+  rw [app_blkΨ_zero] at h0
+  exact h0 (mem_nodeFib.mpr ⟨l, hsub l hl, rfl⟩)
+
 /-! ## The carrier, the constructors, the elimination -/
 
 /-- The block's carrier: the NARROW one-component least fixed point. -/
