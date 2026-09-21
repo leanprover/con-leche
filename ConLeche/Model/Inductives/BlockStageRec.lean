@@ -326,4 +326,166 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : TConstVal}
       (hprojS n tbl ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
 
+/-! ## The names the conses do not touch -/
+
+/-- A name that is none of the `k` recursors' is found as it was. -/
+theorem find?_consBlockRecsBare_of_ne {q : BlockShape} {n : Name} :
+    ∀ {m : Nat} {ls : List (ConstantVal × Nat)} {env : Env},
+      (∀ r ∈ ls, n ≠ r.1.name) →
+      (consBlockRecsBare q m ls env).find? n = env.find? n
+  | _, [], _, _ => rfl
+  | m, r0 :: rest, env, hne => by
+    rw [consBlockRecsBare,
+      find?_consBlockRecsBare_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
+      ConLeche.Env.find?_cons,
+      if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+
+/-- A name that is none of the `k` recursors' is found as it was. -/
+theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} {n : Name} :
+    ∀ {m : Nat} {rs : List RecDatum} {env : Env},
+      (∀ r ∈ rs, n ≠ r.1.name) →
+      (consBlockRecs find? q nP m rs env).find? n = env.find? n
+  | _, [], _, _ => rfl
+  | m, r0 :: rest, env, hne => by
+    rw [consBlockRecs,
+      find?_consBlockRecs_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
+      ConLeche.Env.find?_cons,
+      if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+
+/-! ## The stage's cons, whole -/
+
+/-- **The `k` recursors' cons with their rules, P tier.**  The two
+phases composed: the rule-less chain, then the rule-list swap.  The
+`rec_rules` row (`hrecP`) is the ι content the caller supplies; every
+other row is discharged here. -/
+theorem envModelM_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
+    (hnd : (rs.map (·.1.name)).Nodup)
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hnres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false)
+    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
+    (hty : ∀ r ∈ rs,
+      r.1.type.hasFvar = false ∧
+      r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
+      r.1.type.constsResolve envC = true ∧
+      r.1.type.looseBVarsBounded 0 = true)
+    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
+    (hcl : ∀ r ∈ rs, ∀ ψ : Name → Nat, Term.Closed ((acv r.1.name ψ).erase))
+    (hlift : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (k : Nat),
+      (acv r.1.name ψ).liftN 1 k = acv r.1.name ψ)
+    (hpar : ∀ r ∈ rs, ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ r.1.levelParams, ψ₁ p = ψ₂ p) → acv r.1.name ψ₁ = acv r.1.name ψ₂)
+    (hok : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (acv r.1.name ψ))
+    (hval : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (acv r.1.name ψ))
+    (hrd : ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
+      denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
+      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+      (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta))
+    (hwf₃ : ConLeche.EnvWF (consBlockRecs envC.find? q nP 0 rs envC))
+    (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (consBlockRecs envC.find? q nP 0 rs envC).find? n
+        = some (.recInfo cv mI rP rules) →
+      (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some (.recInfo cv mI rP []) →
+      cv.name = n →
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true →
+          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? n r.ctor = true))
+    (hrecP : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
+      m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ) :
+    ∃ mp' : EnvModelM V μ (consBlockRecs envC.find? q nP 0 rs envC),
+      mp'.base2.acval = acv := by
+  -- phase 1: the `k` rule-less conses
+  have hmemB : ∀ x ∈ bareOf rs, ∃ r ∈ rs, x.1 = r.1 := fun x hx => mem_bareOf hx
+  obtain ⟨mpB, hacB⟩ :=
+    envModelM_consBlockRecsBare (q := q) (acv := acv) (m := 0) (ls := bareOf rs) mpC
+      (by rw [bareOf_map_name]; exact hnd)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hfr r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hnres r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hpsh r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hty r hr)
+      (fun n hn => hag n (fun r hr => hn (r.1, r.2.2.1) (List.mem_map_of_mem hr)))
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hcl r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hlift r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hpar r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hok r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hval r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hrd r hr)
+  -- phase 2: the rules, attached by the swap
+  have hswR : ConLeche.SwapShList (consBlockRecsBare q 0 (bareOf rs) envC).consts
+      (consBlockRecs envC.find? q nP 0 rs envC).consts :=
+    swapShList_consBlockRecs (ConLeche.SwapShList.of_eq envC.consts)
+  have hnresS : SwapNResS (consBlockRecsBare q 0 (bareOf rs) envC)
+      (consBlockRecs envC.find? q nP 0 rs envC) := by
+    intro n cv mI rP rules h₀ h₃
+    by_cases hres : ConLeche.reservedBasisNames.contains n = true
+    · refine Or.inl ?_
+      have hne : ∀ r ∈ rs, n ≠ r.1.name := by
+        intro r hr h
+        rw [h, hnres r hr] at hres
+        exact nomatch hres
+      rw [find?_consBlockRecs_of_ne hne] at h₃
+      rw [find?_consBlockRecsBare_of_ne
+        (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hne r hr)] at h₀
+      rw [h₀] at h₃
+      obtain ⟨-, -, -, e4⟩ := ConstantInfo.recInfo.inj (Option.some.inj h₃)
+      exact e4.symm
+    · exact Or.inr (Bool.not_eq_true _ ▸ hres)
+  obtain ⟨hctors₃, hbp₃, hproj₃⟩ :=
+    recSwapFacts3 mpB.base2.rec_ctors mpB.base2.basis_pinned mpB.base2.proj_ok
+      hswR hnresS hnew
+  obtain ⟨mp₃, hac₃, -⟩ :=
+    EnvModelM.swapP mpB hswR hwf₃ hctors₃ hbp₃ hproj₃
+      (fun m₃ hac φ => hrecP m₃ (by rw [hac, hacB]) φ)
+  exact ⟨mp₃, by rw [hac₃, hacB]⟩
+
+/-! ## What the cons leaves alone
+
+The four conjuncts `BlockRecStaged` carries beyond the carrier itself.
+`findProj?` is EQUAL across the cons (a recursor's name is not
+`isProjFnShape`, so it can be no structure's table), and so is the
+`Nat`-literal guard (the three slots are reserved names, and a block
+recursor's is not).  The `String` guard is the one that is only
+MONOTONE — see `blockRecStaged_of`'s `hstr`. -/
+
+/-- A name found in the constructors' environment is found unchanged
+after the recursors. -/
+theorem find?_consBlockRecs_keep {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} (hfr : ∀ r ∈ rs, envC.find? r.1.name = none) :
+    ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
+      (consBlockRecs envC.find? q nP 0 rs envC).find? n = some c := by
+  intro n c hf
+  rw [find?_consBlockRecs_of_ne (fun r hr hh => by rw [hh, hfr r hr] at hf; exact nomatch hf)]
+  exact hf
+
+/-- The recursors' cons stores no projection table. -/
+theorem findProj?_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false) (sn : Name) (i : Nat) :
+    (consBlockRecs envC.find? q nP 0 rs envC).findProj? sn i = envC.findProj? sn i := by
+  unfold ConLeche.Env.findProj?
+  rw [find?_consBlockRecs_of_ne (fun r hr hh => by
+    have hsh : (ConLeche.projTableName sn).isProjFnShape = true := rfl
+    rw [hh, hpsh r hr] at hsh
+    exact nomatch hsh)]
+
+/-- The `Nat`-literal guard is untouched: its three slots are reserved
+names and a block recursor's is not. -/
+theorem natLitSupported_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} (hnres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false) :
+    ConLeche.natLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
+      = ConLeche.natLitSupported envC := by
+  have hne : ∀ n : Name, ConLeche.reservedBasisNames.contains n = true →
+      ∀ r ∈ rs, n ≠ r.1.name := by
+    intro n hn r hr hh
+    rw [hh, hnres r hr] at hn
+    exact nomatch hn
+  unfold ConLeche.natLitSupported
+  rw [find?_consBlockRecs_of_ne (hne _ reserved_natName),
+    find?_consBlockRecs_of_ne (hne _ reserved_natZeroName),
+    find?_consBlockRecs_of_ne (hne _ reserved_natSuccName)]
+
 end ConLeche.Model
