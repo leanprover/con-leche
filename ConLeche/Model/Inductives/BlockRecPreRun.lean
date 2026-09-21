@@ -1704,7 +1704,7 @@ theorem mkPisAV_mem_univ (s : Nat) :
         exact hb (x :: ys) ⟨hx, hsp⟩
     rw [hlvl dd (.head _)]
     have h := piR_mem_univ (u := s) (v := s) hA hB
-    have hm : Nat.max s s = s := by simp [Nat.max_def]
+    have hm : Nat.max s s = s := by simp
     have he : (if s = 0 then 0 else Nat.max s s) = s := by
       rw [hm]
       split
