@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
+import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
@@ -322,52 +323,64 @@ elimination guard) that is `blockRecPre_ind_run` at every `ψ` and
 every `ρ`, and this is it verbatim — the theorem the coordinator
 `exact`s into the assembly. -/
 
-/-- **`hpre` at an all-`Prop` family**, in the assembly's spelling. -/
+/-- **The `c`-th recursor's RULE COUNT** — the lanes' shared choice of
+`nCt` (`M5M-data-REPORT` §6): what `sumRules` enumerates. -/
+@[expose] def blockRecNCt
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) (c : Nat) : Nat :=
+  (rs.getD c default).2.2.2.length
+
+/-- **`hpre` at an all-`Prop` family**, in the assembly's spelling and
+at the lanes' shared choice of `K`, `nCt` and `eqs`. -/
 theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = true)
-    {mpC : EnvModelM V μ envC} {mp : EnvModelM V μ envT} {F s K : Nat}
+    {mpC : EnvModelM V μ envC} {mp : EnvModelM V μ envT} {F s : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {nCt rP : Nat → Nat} {pdoms : (Name → Nat) → Nat → List AnnotTerm}
+    {rP : Nat → Nat} {pdoms : (Name → Nat) → Nat → List AnnotTerm}
     {fdoms es ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk : (Name → Nat) → Nat → Nat → AnnotTerm}
     {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {Rb Ca : (Name → Nat) → Nat → Nat → AnnotTerm}
-    (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K →
+    (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
-    (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = K →
-      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
+    (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+      (∀ c, c < rs.length →
+        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
         FieldsOkB 0 (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ∧
         ∀ ys, SpineFit (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ys →
           WellDenoted V (consList ys (consList as ρ))
               (AnnotTerm.mkAppN
-                (.bvar ((pdoms ψ c).length + (fdoms ψ c j).length + (K - 1 - c)))
+                (.bvar ((pdoms ψ c).length + (fdoms ψ c j).length + (rs.length - 1 - c)))
                 (prefVarsAV (pdoms ψ c).length (fdoms ψ c j).length ++ es ψ c j
                   ++ [mk ψ c j])) ∧
             WellDenoted V (consList ys (consList as ρ)) (instsAV 0 (ihs ψ c j) (Rb ψ c j)))
-    (hind : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K →
+    (hind : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
       (pt : V) ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
-    (hcerts : ∀ (ψ : Name → Nat), ∀ c, c < K → ∀ j, j < nCt c →
+    (hcerts : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       BlockRuleCerts V mp F ψ (rP c) (fdoms ψ c j).length (ihdoms ψ c j).length
         (pdoms ψ c) (fdoms ψ c j) (ihdoms ψ c j) (Rb ψ c j) (Ca ψ c j))
-    (hih : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms ψ c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms ψ c j)
+    (hih : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ xs fs : List V, xs.length = (pdoms ψ c).length →
+      SpineFit (chainFrame rs.length (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j)
+        (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame rs.length (fun _ => (pt : V)) ρ))
+        (ihdoms ψ c j)
         ((ihs ψ c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))))
-    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms ψ c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j) (xs ++ fs) →
+          (interp V (consList (xs ++ fs) (chainFrame rs.length (fun _ => (pt : V)) ρ)))))
+    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ xs fs : List V, xs.length = (pdoms ψ c).length →
+      SpineFit (chainFrame rs.length (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j)
+        (xs ++ fs) →
       interp V
           (consList
             ((ihs ψ c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca ψ c j)
+              (interp V (consList (xs ++ fs) (chainFrame rs.length (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame rs.length (fun _ => (pt : V)) ρ))) (Ca ψ c j)
         ∈ˢ (univZero : V)) :
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      BlockRecPre V s K (blockRecTyAV mpC.base2.acval envC rs ψ)
-        (iotaEqsAV K nCt (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ) (Rb ψ)) ρ :=
+      BlockRecPre V s rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
+        (iotaEqsAV rs.length (blockRecNCt rs) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
+          (Rb ψ)) ρ :=
   fun ψ ρ =>
     blockRecPre_ind_run hμ (hTy ψ ρ) (hwd ψ ρ) (hind ψ ρ) (hcerts ψ) (hih ψ ρ) (hT ψ ρ)
 
@@ -751,5 +764,69 @@ theorem blockWf_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d 
     rw [← hlenIds c hc]
     exact isOfW_tupW hIdx hidx
   rw [blockRecMot_tagged hc, hret, ← hdec]
+
+/-! ## 10. The equation list's BIT-VALIDITY at the chain frame
+
+RM8's `blockRecLeafAV_valid` leaves `heqV` — the equation list is
+`AnnotValid` at every tuple typed at the recursor types — to this
+lane, because it is the exact twin of `blockRecPre_of`'s `hwd`: the
+same quantifier over the same tuple, in the bit currency instead of
+the grading one.  At the shared choice `eqs = iotaEqsAV …` it is
+`annotValid_iotaEqAV` (`BlockRecData.lean`) under
+`forall_iotaEqsAV`. -/
+
+/-- **`heqV` at the shared `eqs`** — one rule's `annotValid_iotaEqAV`,
+lifted over the family's equation list. -/
+theorem annotValid_iotaEqsAV_of {K : Nat} {nCt : Nat → Nat} {RecTy : Nat → AnnotTerm}
+    {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+    {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
+    {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+    (hv : ∀ tup : List V, tup.length = K →
+      (∀ mm, mm < K → tup.getD mm pt ∈ˢ interp V ρ (RecTy mm)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsValid (consList tup ρ) (pdoms c ++ fdoms c j) ∧
+        ∀ ys, SpineFit (consList tup ρ) (pdoms c ++ fdoms c j) ys →
+          (∀ e ∈ es c j, AnnotValid V (consList ys (consList tup ρ)) e) ∧
+          AnnotValid V (consList ys (consList tup ρ)) (mk c j) ∧
+          (∀ v ∈ ihs c j, AnnotValid V (consList ys (consList tup ρ)) v) ∧
+          AnnotValid V
+            (consList ((ihs c j).map (interp V (consList ys (consList tup ρ))))
+              (consList ys (consList tup ρ))) (Rb c j)) :
+    ∀ tup : List V, tup.length = K →
+      (∀ mm, mm < K → tup.getD mm pt ∈ˢ interp V ρ (RecTy mm)) →
+      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
+        AnnotValid V (consList tup ρ) e := by
+  intro tup hlen hmem
+  refine forall_iotaEqsAV fun c hc j hj => ?_
+  obtain ⟨hd, hb⟩ := hv tup hlen hmem c hc j hj
+  exact annotValid_iotaEqAV hd hb
+
+/-- The same at the run, in `blockRecLeafAV_valid`'s spelling. -/
+theorem heqV_run {envC : Env} {mpC : EnvModelM V μ envC}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {pdoms : (Name → Nat) → Nat → List AnnotTerm}
+    {fdoms es : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk : (Name → Nat) → Nat → Nat → AnnotTerm}
+    {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {Rb : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hv : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
+      (∀ mm, mm < rs.length →
+        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ mm)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+        FieldsValid (consList tup ρ) (pdoms ψ c ++ fdoms ψ c j) ∧
+        ∀ ys, SpineFit (consList tup ρ) (pdoms ψ c ++ fdoms ψ c j) ys →
+          (∀ e ∈ es ψ c j, AnnotValid V (consList ys (consList tup ρ)) e) ∧
+          AnnotValid V (consList ys (consList tup ρ)) (mk ψ c j) ∧
+          (∀ v ∈ ihs ψ c j, AnnotValid V (consList ys (consList tup ρ)) v) ∧
+          AnnotValid V
+            (consList ((ihs ψ c j).map (interp V (consList ys (consList tup ρ))))
+              (consList ys (consList tup ρ))) (Rb ψ c j)) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
+      (∀ mm, mm < rs.length →
+        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ mm)) →
+      ∀ e ∈ iotaEqsAV rs.length (blockRecNCt rs) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
+          (Rb ψ),
+        AnnotValid V (consList tup ρ) e :=
+  fun ψ ρ => annotValid_iotaEqsAV_of (hv ψ ρ)
 
 end ConLeche.Model
