@@ -618,4 +618,39 @@ private def indAppSpine (hd : Name) : Expr :=
 #guard (whnf .verified indAppEnv 100 0 (indAppSpine indAppD)).toOption
   == some (indAppSpine indAppI)
 
+/-! ### K.76's recomputed field telescope (task #315)
+
+`ordTeleGo` substitutes binder `i`'s TYPE at that binder's own cut
+`cut + i`, which is what makes the tower speak at `l + i`.  Neither
+real corpus carries a field whose recomputed telescope is non-empty —
+the three fixtures that do (`nested_pi_field`, `nested_comp_tower`,
+`nested_redex_tower`) are TRIPWIRES whose outer block no route
+installs yet — so these are the arithmetic's witnesses. -/
+
+private def teleC : Expr := .const (.str .anonymous "TeleC") []
+
+private def teleDom : Expr :=
+  .forallE (.bvar 0) (.forallE (.bvar 1) (.sort .zero) default) default
+
+-- Both binders point at the SAME component from their own depth, and
+-- both come back as it.  With a FIXED cut the second would be `.bvar 0`.
+#guard ordTeleGo [teleC] 0 teleDom == [teleC, teleC]
+
+-- The same shape one binder further out: the cut starts at `l` and
+-- rises from there, so both binders still reach the component.
+#guard ordTeleGo [teleC] 1
+    (.forallE (.bvar 1) (.forallE (.bvar 2) (.sort .zero) default) default)
+  == [teleC, teleC]
+
+-- And a binder that points at the TELESCOPE's own binder stays loose:
+-- the cut is what separates the two, and it is `cut + i` and not `cut`.
+#guard ordTeleGo [teleC] 0
+    (.forallE (.sort .zero) (.forallE (.bvar 0) (.sort .zero) default) default)
+  == [Expr.sort .zero, Expr.bvar 0]
+
+-- A domain that is not a `Π` records nothing, and the length is the
+-- tower's depth (`ordTeleGo_length`).
+#guard ordTeleGo [teleC] 0 (Expr.sort .zero) == ([] : List Expr)
+#guard (ordTeleGo [teleC] 0 teleDom).length == domPiDepth teleDom
+
 end ConLecheTests
