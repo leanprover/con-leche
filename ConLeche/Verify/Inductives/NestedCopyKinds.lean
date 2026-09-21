@@ -1835,6 +1835,16 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
   have hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
       = ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1 := ordHeadRed_const hhd₀
   have hfire := hfireRaw
+  -- **K.73's REDUCTION IS THE IDENTITY WHERE THIS ROW SPEAKS**: the
+  -- guard is the OWNER's RAW firing, and under it the arm above
+  -- asserts the BLOCK's own recomputation is constant-headed too, so
+  -- `ordHeadRed` disappears and the conclusion is the raw sum.
+  obtain ⟨Mb, usb, hhdB⟩ :=
+    nestedOrdNormOk_blkHead h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ
+      hsJ hl hdJ hord hfireRaw
+  have hnormB : ordHeadRed (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1)
+      = ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1 :=
+    ordHeadRed_const hhdB
   have hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true :=
     nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ hsJ
       hl hdJ hord hnorm hfire
@@ -1887,6 +1897,7 @@ theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
   rw [hsC] at hlv
   simp only at hlv
   rw [hdC] at hlv
+  rw [hnormB] at hlv
   simpa using hlv
 
 /-- **K.69 at a FINITARY field**, where the two cuts are the identity:

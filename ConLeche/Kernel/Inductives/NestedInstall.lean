@@ -3186,7 +3186,10 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                     &&
                                     -- **THE COPY'S OWN TOWER IS THE
                                     -- CONTAINER'S PLUS THE ONE THE
-                                    -- MINT PLANTS** (task #315 K.72).
+                                    -- MINT PLANTS** (task #315 K.72),
+                                    -- **AND THE MINT'S HALF IS
+                                    -- MEASURED AT ITS HEAD NORMAL
+                                    -- FORM** (task #315 K.73).
                                     -- The block's copy of this field
                                     -- carries a `Π`-prefix, and it has
                                     -- TWO sources: the container's own
@@ -3194,13 +3197,45 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                     -- domJ.1`, which `ordTargetDom`
                                     -- strips before it substitutes)
                                     -- and the components the mint
-                                    -- plants into the stripped BODY
-                                    -- (`domPiDepth` of the
-                                    -- recomputation itself).  Their
-                                    -- SUM is the copy's, and the
+                                    -- plants into the stripped BODY.
+                                    -- Their SUM is the copy's, and the
                                     -- addressing is K.32's own —
                                     -- `stored`, the copy's stored
                                     -- constructor, its field `l`.
+                                    --
+                                    -- The second summand is
+                                    -- `domPiDepth` of `ordHeadRed` of
+                                    -- the recomputation and not of the
+                                    -- recomputation itself, because
+                                    -- the STORED copy is what the
+                                    -- comparison's left-hand side
+                                    -- measures and the install ran
+                                    -- `normPosDomM` — a `whnf`-based
+                                    -- walk — over the minted domain
+                                    -- before it stored it.  So a mint
+                                    -- that is a β/ζ-REDEX whose head
+                                    -- normal form is a `Π` is stored
+                                    -- WITH that binder
+                                    -- (`tests/e2e/nested_redex_tower.ndjson`
+                                    -- is the shape), and the raw
+                                    -- reading under-counts it.
+                                    --
+                                    -- **IT SUBSUMES THE RAW
+                                    -- COMPARISON AND IS NOT A SECOND
+                                    -- ONE.**  Wherever the block's
+                                    -- recomputation is constant-headed
+                                    -- — which the arm above asserts at
+                                    -- every field whose OWNER's raw
+                                    -- mint fires, and which both
+                                    -- corpora measure at every field —
+                                    -- `ordHeadRed` is the identity
+                                    -- (`ordHeadRed_const`) and the two
+                                    -- comparisons are the same `Bool`.
+                                    -- Off it the raw one can be FALSE
+                                    -- at a stored copy that is
+                                    -- perfectly well-formed, which
+                                    -- would be a reject on an input
+                                    -- official accepts.
                                     match stored[p.k + q]? with
                                     | none => false
                                     | some a =>
@@ -3215,8 +3250,9 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                           | some domC =>
                                             (Expr.piBinders domC.1).1.length ==
                                               domPiDepth domJ.1
-                                                + domPiDepth (ordTargetDom Jm.lps ci.nP
-                                                    terms q l domJ.1)
+                                                + domPiDepth (ordHeadRed
+                                                    (ordTargetDom Jm.lps ci.nP
+                                                      terms q l domJ.1))
                               | _, _ => false
                         | _, _ => false
                 | _, _ => true
