@@ -827,7 +827,19 @@ and whose `ClassPin` is then `classPin_of_blockPinCorr`'s.
 hands the image of an arbitrary member of the root group, and
 `NestedPinsRun.instMapGroup` — the instance map is the GROUP's, not
 the member's — moves it to the base.  That transport is the caller's,
-because it is a run fact and this statement is not. -/
+because it is a run fact and this statement is not.
+
+**`hmmLen` is `≤`, and the direction matters**: what the proof spends is
+"the instance map is no LONGER than the container's pin list", so that a
+table POSITION is a class.  `ContainerOwnPinsSyn` does not give it —
+its second clause is `∀ qK < d.nPins, ps[qK]? = …`, i.e. the other
+direction — so the caller owes it.  Two ways: a length clause beside
+K.43's queued record, or, with no new record at all, the FIRST clause
+(`ps`'s entry at the found position is SOME recorded pin `qK'`) plus the
+second at that `qK'` (`ps[qK']` is the same term) plus `mapM`'s
+pointwise structure (`nestedInstMapAt` is `own.mapM findIdx?`, so equal
+terms give equal entries), which lands `∃ qK' < d.nPins, mm.getD qK' 0 = q`
+directly. -/
 theorem nestedClassPinAt_of_instMap (m : EnvModel V env₂) {st : ElimState}
     {dJf : Nat → BlockModel V}
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
@@ -841,7 +853,7 @@ theorem nestedClassPinAt_of_instMap (m : EnvModel V env₂) {st : ElimState}
     (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
     (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
       σ c = p.k + mm.getD (c - (dJf r).k) 0)
-    (hmmLen : mm.length = (dJf r).nPins)
+    (hmmLen : mm.length ≤ (dJf r).nPins)
     (hψR : ((D).pinAt r).ψJ ψ = Level.substFn ψ lpsR ((D).pinAt r).lvls)
     (hcorr : ∀ qK, qK < (dJf r).nPins →
       PinCorr ((D).targetView m.acval ψ) m.acval (dJf r) (((D).pinAt r).ψJ ψ)
@@ -1040,7 +1052,7 @@ theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
     (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
     (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
       σ c = p.k + mm.getD (c - (dJf r).k) 0)
-    (hmmLen : mm.length = (dJf r).nPins)
+    (hmmLen : mm.length ≤ (dJf r).nPins)
     (hψR : ((D).pinAt r).ψJ ψ = Level.substFn ψ lpsR ((D).pinAt r).lvls)
     (hcorr : ∀ qK, qK < (dJf r).nPins →
       PinCorr ((D).targetView m.acval ψ) m.acval (dJf r) (((D).pinAt r).ψJ ψ)
