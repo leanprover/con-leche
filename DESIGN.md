@@ -133666,3 +133666,84 @@ Changed: `ConLeche/Model/Inductives/NestedInstMap.lean`,
 `ConLeche/Model/Inductives/NestedPinsLeInd.lean`, `DESIGN.md`.  **The
 kernel did not change**, so no accept-set table and no cost table is
 owed.  `lake build` EXIT 0, no warning line.
+
+#### WIDE (f13) — THE OPENER-**TYPE** BRIDGE: THE ONE BRICK `hscope`'s READING HALF WAS MISSING (lane LE, the merge session, 2026-09-21)
+
+##### (a) THE OBJECT
+
+`ConLeche.openPisAtFvars_mkPisB_getElem`
+(`ConLeche/Verify/Inductives/NestedRestoreOpen.lean:597`, beside
+`openPisAtFvars_mkPisB`):
+
+    openPisAtFvars n (mkPisB bs Y) i = some (fvs, L) →
+    ∀ k, k < n → ∀ b, bs[k]? = some b →
+      fvs[k]? = some (Expr.fvar (i + k) (Expr.instSeq (fvs.take k) (k - 1) b.1))
+
+— binder `k`'s opener carries binder `k`'s own domain with the openers
+BEFORE it substituted, at exactly the cut the LEAF's `instSeq` uses one
+level further on.  Opener 0 carries `bs[0].1` unchanged, opener 1
+carries `bs[1].1.instantiate1 fvs[0] 0`, opener 2 carries
+`(bs[2].1.instantiate1 fvs[0] 1).instantiate1 fvs[1] 0`.
+
+WIDE (f8′) §(d) named this as **the one brick the deep row needs and
+the tree does not have**: `MutualCtorDataI.reflOpen`
+(`Model/Inductives/MutualData.lean:235`) reads the copy's recorded
+binder `k` off the `k`-th OPENER's `fvarTypeD`, and nothing stated what
+that type is — `openPisAtFvars_index` (`Verify/BridgeWfImp.lean:451`)
+gives only the opener's INDEX, and `openPisAtFvars_mkPisB` (`:597`)
+characterises only the LEAF, leaving the openers existential under
+`AllFvarsL`.
+
+##### (b) TWO CHOICES IN THE STATEMENT, AND WHY
+
+* It is a **CONSEQUENCE of the opening**, not another existential.
+  Strengthening `openPisAtFvars_mkPisB`'s own `∃ fvs, …` with a fourth
+  conjunct would have rewritten all twenty of its `obtain` sites for
+  nothing; stated this way it composes with whatever `fvs` a caller
+  already holds from that theorem.
+* The **INDEX comes with it** (`i + k`) because the induction hands it
+  for free — the recursion opens at `i`, `i + 1`, … — and a consumer
+  that wants only the type ignores it.
+
+The proof is the obvious induction with one trap worth recording:
+`instTeleB`'s entry at `j` carries the cut `0 + j`, and `0 + j` is NOT
+definitionally `j` for a variable `j` (`Nat.add` recurses on its second
+argument), so the cut has to be rewritten before the `instSeq` step
+closes by `rfl`.
+
+##### (c) IT IS THE SESSION'S ONE UNCONSUMED DECLARATION, AND THAT IS RECORDED
+
+Its consumer is WIDE (f8′) §(d) (1)/(2)'s deep row — the
+`OrdTargetTele` producer in `NestedCopyInst.lean` — which is NOT in
+this session's scope and was not attempted.  The declaration is named
+here rather than argued away, exactly as
+`openRedPis_openers_eq_openPis_ordHeadRed` was in WIDE (f8′) §(h).
+
+##### (d) WHAT `hscope` STILL OWES, RE-READ AGAINST THE TREE
+
+With this brick landed, every syntactic gap WIDE (f8′) §(d) named is
+closed and what remains is ASSEMBLY:
+
+1. the OWNER's reading — `OrdTargetTele` beside `OrdTargetRead`
+   (`NestedPremise.lean:1146`) as a `PinShapes` conjunct with its
+   `rowOrdTele`/`rowOrdTeleMem` projections, and its producer at the
+   deep rows in `NestedCopyInst.lean`;
+2. the BLOCK's reading — `GroupFacts.ordTeleRead` beside
+   `GroupFacts.ordRead` (`NestedPinLeafAll.lean:2267`), whose own
+   hypothesis list is `ordRead`'s and which spends `GroupFacts.ordTele`
+   (`:2500`) where `ordRead` spends K.69's;
+3. the eight deep rows re-proved at `stripDomPis (ordHeadRed …)`, which
+   is what retires `hfinRefl`, followed by the three signature lines in
+   `NestedInstMap.lean` and the binders in `GroupFacts.ordRead`,
+   `ordRead_corr`, `ordReadMem_corr`, `PinShapes`' clause and `hscope`.
+
+**Honest sizing: two to five sessions, unchanged from WIDE (f8′)** —
+the brick was the cheapest of the items on that list and its landing
+moves the estimate's floor, not its shape.  No candidate-frame object
+and no new kernel record is in prospect on any of the three.
+
+##### (e) THE GATES
+
+Changed: `ConLeche/Verify/Inductives/NestedRestoreOpen.lean`,
+`DESIGN.md`.  **The kernel did not change**, so no accept-set table and
+no cost table is owed.

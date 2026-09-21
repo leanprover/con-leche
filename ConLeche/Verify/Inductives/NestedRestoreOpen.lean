@@ -631,6 +631,72 @@ theorem openPisAtFvars_mkPisB : ∀ (n : Nat) (bs : List (Expr × BinderMeta)),
         rw [show 0 + bs.length = n + 1 - 1 from by omega,
           show n + 1 - 1 - 1 = n - 1 from by omega]
 
+/-- **BINDER `k`'s OPENER CARRIES BINDER `k`'s TYPE** (task #315 WIDE
+(f13), lane LE) — `openPisAtFvars_mkPisB`'s per-binder twin.
+
+That theorem characterises the LEAF (`Expr.instSeq fvs (n - 1) Y`) and
+leaves the openers themselves existential under `AllFvarsL`, and
+`openPisAtFvars_index` (`Verify/BridgeWfImp.lean`) gives only their
+INDICES.  What a reading of a RECORDED telescope needs is neither: it
+needs opener `k`'s TYPE, because that is what
+`MutualCtorDataI.reflOpen` reads a recorded binder off
+(`fvarTypeD`), and nothing in the tree said what it is.
+
+It is binder `k`'s own domain with the openers BEFORE it substituted,
+at exactly the cut the leaf's `instSeq` uses one level further on:
+opener 0 carries `bs[0].1` unchanged, opener 1 carries
+`bs[1].1.instantiate1 fvs[0] 0`, opener 2 carries
+`(bs[2].1.instantiate1 fvs[0] 1).instantiate1 fvs[1] 0`, and so on.
+
+Stated as a CONSEQUENCE of the opening rather than as another
+existential, so that it composes with whatever `fvs` a caller already
+holds from `openPisAtFvars_mkPisB`. -/
+theorem openPisAtFvars_mkPisB_getElem :
+    ∀ (n : Nat) (bs : List (Expr × BinderMeta)), bs.length = n →
+      ∀ (i : Nat) (Y : Expr) (fvs : List Expr) (L : Expr),
+        openPisAtFvars n (mkPisB bs Y) i = some (fvs, L) →
+        ∀ k, k < n → ∀ b : Expr × BinderMeta, bs[k]? = some b →
+          fvs[k]? = some (Expr.fvar (i + k) (Expr.instSeq (fvs.take k) (k - 1) b.1)) := by
+  intro n
+  induction n with
+  | zero => intro _ _ i Y fvs L _ k hk; exact absurd hk (by omega)
+  | succ n ih =>
+    intro bs hbs i Y fvs L hop k hk b hb
+    cases bs with
+    | nil => exact nomatch hbs
+    | cons b₀ bs =>
+      simp only [List.length_cons, Nat.add_right_cancel_iff] at hbs
+      -- the head is peeled, and the tail is the instantiated telescope
+      rw [show mkPisB (b₀ :: bs) Y = Expr.forallE b₀.1 (mkPisB bs Y) b₀.2 from rfl,
+        openPisAtFvars,
+        mkPisB_instantiate1 (Expr.fvar i b₀.1) bs Y 0] at hop
+      cases hin : openPisAtFvars n
+          (mkPisB (instTeleB (Expr.fvar i b₀.1) 0 bs)
+            (Y.instantiate1 (Expr.fvar i b₀.1) (0 + bs.length))) (i + 1) with
+      | none => rw [hin] at hop; exact absurd hop (by simp)
+      | some r =>
+        rw [hin] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨hfvs, -⟩ := hop
+        subst hfvs
+        cases k with
+        | zero =>
+          simp only [List.getElem?_cons_zero] at hb ⊢
+          obtain rfl : b₀ = b := Option.some.inj hb
+          rfl
+        | succ j =>
+          have hbj : bs[j]? = some b := by simpa using hb
+          have htj : (instTeleB (Expr.fvar i b₀.1) 0 bs)[j]?
+              = some (b.1.instantiate1 (Expr.fvar i b₀.1) j, b.2) := by
+            rw [instTeleB_getElem?, hbj, show (0 : Nat) + j = j from by omega]; rfl
+          have := ih (instTeleB (Expr.fvar i b₀.1) 0 bs)
+            (by rw [instTeleB_length, hbs]) (i + 1) _ r.1 r.2 hin j (by omega) _ htj
+          simp only [List.getElem?_cons_succ]
+          rw [this, show i + 1 + j = i + (j + 1) from by omega,
+            show (Expr.fvar i b₀.1 :: r.1).take (j + 1) = Expr.fvar i b₀.1 :: r.1.take j from rfl,
+            show j + 1 - 1 = j from rfl]
+          rfl
+
 /-! ## Reading a substituted term's shape -/
 
 /-- Under variable openers a `∀` was a `∀`. -/
