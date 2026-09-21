@@ -51,6 +51,10 @@ and `direct_fix_refl` (`Iter f n` — a REFLEXIVE field
   corner_rec_major_params   `List'.rec`'s major is `t : List' Nat'`
       where `t : List' α` belongs — the major at the wrong parameters,
       so the recursor is not this block's: TARGET 1.
+  corner_rec_reserved_name  `Nat'`'s recursor is named `List.cons` — a
+      name the `String`-literal guard looks up.  A recursor under a
+      guarded name could flip the guard across its own cons, so the
+      recursor stage refuses it: TARGET 1.
 
 Usage: scripts/mk_rec_corner.py   (reads and writes under tests/e2e/)
 """
@@ -427,6 +431,28 @@ rc["name"] = hoola
 t.recs = t.recs[:1] + t.ins + t.recs[1:]
 t.ins = []
 t.write("corner_rec_hoolahoop", "Nat'")
+
+# --- corner_rec_reserved_name ---------------------------------------
+# `Nat'`'s recursor is called `List.cons` — a name one of the
+# environment's own GUARDS looks up (`strLitSupported`'s
+# `listConsTyOk` slot).  Recursor names are the stream's business, but
+# not THIS free: consing a recursor under a guarded name could flip a
+# literal guard, and a string literal would read as one thing below
+# the block's recursors and as another above them.  The recursor
+# stage refuses the name outright (`blockRecNamesUnreserved`):
+# TARGET 1.  (The name-set conformance check would refuse it too; the
+# reservation check runs first, so the twin exercises it.)
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+guarded = t.fresh_name(["List", "cons"])
+_recn = t.names["Nat'.rec"]
+for r in t.E.values():
+    if "const" in r and r["const"]["name"] == _recn:
+        r["const"]["name"] = guarded
+rc["name"] = guarded
+t.recs = t.recs[:1] + t.ins + t.recs[1:]
+t.ins = []
+t.write("corner_rec_reserved_name", "Nat'")
 
 # --- corner_rec_rule_missing ----------------------------------------
 # `Nat'.rec` without its `Nat'.zero` rule.  Rule COMPLETENESS is a
