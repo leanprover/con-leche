@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecLaw
+public import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.FixLeafOk
 
 public section
@@ -44,7 +45,7 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo RecRule BlockShape
 
 universe w
 
-variable {V : Type w} [SetTheory V]
+variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 /-! ## C.1 The leaf's ERASURE is closed
 
@@ -455,5 +456,100 @@ theorem annotValid_iotaEqAV {K c : Nat} {pdoms fdoms es ihs : List AnnotTerm}
   · intro _ ys hsp
     rw [propBinders_doms] at hsp
     exact eqv_mem_univZero _ _
+
+/-! ## C.7 The five facts AT THE RUN
+
+`blockRecStaged_run` (`BlockRecAssembly.lean`) states them at
+`blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i`, which is
+`blockRecAV s rs.length (blockRecTyAV …) (eqs ψ) i` — so each is the
+battery above at the run's own two inputs: the recursor types'
+readings (`checkBlockRecK_tyPis`, whose closedness is one
+`bvarsBelow_of_reading`) and the equation list `eqs`, which is
+RM9's choice and is left as the named premise here. -/
+
+/-- The `i`-th stored recursor type's READING is closed — the stored
+type has no free variable and no loose bvar, and `denoteMeta` at depth
+`0` preserves that. -/
+theorem closed_blockRecTyAV {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) (ψ : Name → Nat) :
+    Term.Closed ((blockRecTyAV mpC.base2.acval envC rs ψ i).erase) := by
+  obtain ⟨hfv, -, -, hb, -⟩ := ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨-, -, -, hread, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  exact bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hfv) hb hread
+
+section RunLeaf
+
+variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F s : Nat}
+  {eqs : (Name → Nat) → List AnnotTerm}
+
+/-- **C-1 at the run**: the stage's leaf is closed. -/
+theorem blockRecLeafAV_closed (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (heqB : ∀ ψ : Name → Nat, ∀ e ∈ eqs ψ, Term.bvarsBelow rs.length e.erase)
+    (ψ : Name → Nat) (i : Nat) :
+    Term.Closed ((blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).erase) :=
+  closed_blockRecAV
+    (fun _c' hc' => closed_blockRecTyAV hμ mpC h (List.getElem?_eq_getElem hc') ψ)
+    (heqB ψ)
+
+/-- **C-2 at the run**: lifting the stage's leaf is a no-op. -/
+theorem blockRecLeafAV_liftN (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (heqB : ∀ ψ : Name → Nat, ∀ e ∈ eqs ψ, Term.bvarsBelow rs.length e.erase)
+    (ψ : Name → Nat) (i k : Nat) :
+    (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).liftN 1 k
+      = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i :=
+  liftN_eq_self_of_closed (blockRecLeafAV_closed hμ mpC h heqB ψ i) k 1
+
+/-- **C-3 at the run**: the stage's leaf reads a level valuation only
+through the recursor types' readings and the equations. -/
+theorem blockRecLeafAV_par {mpC : EnvModelM V μ envC}
+    (hpar : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        (∀ c', c' < rs.length → blockRecTyAV mpC.base2.acval envC rs ψ₁ c'
+            = blockRecTyAV mpC.base2.acval envC rs ψ₂ c') ∧ eqs ψ₁ = eqs ψ₂)
+    (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
+    (hr : rs[i]? = some r) (ψ₁ ψ₂ : Name → Nat)
+    (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
+    blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
+      = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i :=
+  blockRecAV_congr (hpar i r hr ψ₁ ψ₂ hq).1 (hpar i r hr ψ₁ ψ₂ hq).2
+
+/-- **C-4 at the run**: the stage's leaf is graded — `blockRecAV_facts`
+at the family premise, one line.  **The block position is needed**:
+out of range `projChainAV` walks past the chain's last binder and the
+grading is not available (and not true in general). -/
+theorem blockRecLeafAV_wd {mpC : EnvModelM V μ envC}
+    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ConLeche.Semantics.BlockRecPre V s rs.length
+        (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ)
+    (ψ : Name → Nat) {i : Nat} (hi : i < rs.length) (ρ : Nat → V) :
+    WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i) :=
+  ((blockRecAV_facts (hpre ψ ρ)).choose_spec.1 i hi).2.2
+
+/-- **C-5 at the run**: the stage's leaf is bit-valid. -/
+theorem blockRecLeafAV_valid (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (heqV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
+      (∀ mm, mm < rs.length →
+        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ mm)) →
+      ∀ e ∈ eqs ψ, AnnotValid V (consList tup ρ) e)
+    (ψ : Name → Nat) (i : Nat) (ρ : Nat → V) :
+    AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i) :=
+  annotValid_blockRecAV
+    (fun c' hc' => by
+      obtain ⟨-, -, -, -, -, -, -, -, -, hwd⟩ :=
+        checkBlockRecK_tyPis hμ mpC h (List.getElem?_eq_getElem hc') ψ
+      exact (hwd ρ).2)
+    (heqV ψ ρ)
+
+end RunLeaf
 
 end ConLeche.Model
