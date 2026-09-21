@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixRecRead
 import ConLeche.Model.Inductives.FixCtorReads
 public section
@@ -49,7 +49,6 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The algebra, with the family free -/
 
-set_option maxHeartbeats 1600000 in
 /-- **A field's readings, off its domain's reading** — `fieldReadAt_of`
 with the family's leaf `A` and the index count `nI` free.
 
