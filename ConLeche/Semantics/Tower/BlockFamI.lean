@@ -77,6 +77,55 @@ theorem slotXBI_interp {c : Nat} (hI : IdxOk (uf c) ρp (Idss c)) {Y : V}
       show as.length + tl.length = (as ++ bs).length from by simp [hlen],
       Xframe_X, hval, consList_append]
 
+/-- **The target's component of a tuple of the family space** is a
+family over the target's index tuples. -/
+theorem projS_mem_famsSpaceB {c : Nat} (hc : c < k) {Y : V}
+    (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) :
+    projS c Y ∈ˢ lfpFamSpace V w (idxSet (uf c) ρp (Idss c)) := by
+  have := projS_mem_ndTowerSet V (blockR_ne_zero k w uf) k 0 hY c hc
+  rwa [Nat.zero_add] at this
+
+/-- **The projected family variable is graded** at the X-frame. -/
+theorem projAV_X_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {c : Nat} (hc : c < k)
+    {Y : V} (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) (cs : List V) (t' : V) :
+    WellDenoted V (consList cs (cons t' (cons Y ρp))) (projAV c (.bvar (cs.length + 1))) := by
+  have hFu : ∀ m, m < 0 + k → lfpFamSpace V w (idxSet (uf m) ρp (Idss m))
+      ∈ˢ (univ (blockR k w uf) : V) := fun m hm =>
+    famSpace_mem_blockR (by omega) (idxTyAV_facts (hIall m (by omega))).2.1
+  exact projAV_wellDenoted_ndTower V (blockR_ne_zero k w uf) c k 0
+    (.bvar (cs.length + 1)) _ hc hFu trivial (by rw [interp_bvar, Xframe_X]; exact hY)
+
+/-- **The recursive call at the tuple frame** — `recSlot_facts` at `k`:
+the application of the TARGET's component of the family variable to the
+tupler at the index expressions has the expected value, is graded, and
+lands in the block's universe. -/
+theorem recSlotB_facts (hIall : BlockIdxOk (V := V) k uf ρp Idss) {c : Nat} (hc : c < k)
+    {Y : V} (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) (as : List V) (t : V) {Es : List AnnotTerm}
+    (hEok : ∀ E ∈ Es, WellDenoted V (consList as ρp) E)
+    (hsp : SpineFit ρp (Idss c) (Es.map (interp V (consList as ρp)))) :
+    interp V (consList as (cons t (cons Y ρp)))
+        (.app (projAV c (.bvar (as.length + 1)))
+          (AnnotTerm.mkAppN ((tuplerAV (uf c) (Idss c)).liftN (as.length + 2) 0)
+            (Es.map (·.liftN 2 as.length))))
+      = SetTheory.app (projS c Y) (tupW (uf c) (Es.map (interp V (consList as ρp)))) ∧
+    WellDenoted V (consList as (cons t (cons Y ρp)))
+      (.app (projAV c (.bvar (as.length + 1)))
+        (AnnotTerm.mkAppN ((tuplerAV (uf c) (Idss c)).liftN (as.length + 2) 0)
+          (Es.map (·.liftN 2 as.length)))) ∧
+    SetTheory.app (projS c Y) (tupW (uf c) (Es.map (interp V (consList as ρp))))
+      ∈ˢ (univ w : V) := by
+  obtain ⟨htv, htok⟩ := tuplerApp_facts (X := Y) (t := t) (hIall c hc) as hEok hsp
+  have hXm : projS c Y ∈ˢ piR (w + 1) (idxSet (uf c) ρp (Idss c)) fun _ => (univ w : V) :=
+    projS_mem_famsSpaceB hc hY
+  refine ⟨?_, ?_, ?_⟩
+  · rw [interp_app, projAV_interp, interp_bvar, Xframe_X, htv]
+  · rw [WellDenoted_app]
+    refine ⟨projAV_X_wellDenoted hIall hc hY as t, htok, w + 1, idxSet (uf c) ρp (Idss c),
+      fun _ => (univ w : V), ?_, ?_, fun h => absurd h (Nat.succ_ne_zero w)⟩
+    · rw [projAV_interp, interp_bvar, Xframe_X]; exact hXm
+    · rw [htv]; exact tupW_mem hsp
+  · exact app_mem_piR_pos (Nat.succ_ne_zero w) hXm (tupW_mem hsp)
+
 /-- **The recursive slot at the tuple frame is graded**, and its value
 lives in the block's universe: the projection into the family tuple is
 graded by the tuple's own tower structure. -/
@@ -87,16 +136,11 @@ theorem slotXBI_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {c : Nat
     WellDenoted V (consList as (cons t (cons Y ρp))) (slotXBI (uf c) (Idss c) c tl Eis as.length) ∧
     (w ≠ 0 → slotSet w (uf c) (consList as ρp) tl Eis (projS c Y) ∈ˢ (univ w : V)) := by
   have hI := hIall c hc
-  have hproj : projS c Y ∈ˢ lfpFamSpace V w (idxSet (uf c) ρp (Idss c)) := by
-    have := projS_mem_ndTowerSet V (blockR_ne_zero k w uf) k 0 hY c hc
-    rwa [Nat.zero_add] at this
-  have hFu : ∀ m, m < 0 + k → lfpFamSpace V w (idxSet (uf m) ρp (Idss m))
-      ∈ˢ (univ (blockR k w uf) : V) := fun m hm =>
-    famSpace_mem_blockR (by omega) (idxTyAV_facts (hIall m (by omega))).2.1
+  have hproj : projS c Y ∈ˢ lfpFamSpace V w (idxSet (uf c) ρp (Idss c)) :=
+    projS_mem_famsSpaceB hc hY
   have hprojok : ∀ (cs : List V) (t' : V),
       WellDenoted V (consList cs (cons t' (cons Y ρp))) (projAV c (.bvar (cs.length + 1))) :=
-    fun cs t' => projAV_wellDenoted_ndTower V (blockR_ne_zero k w uf) c k 0
-      (.bvar (cs.length + 1)) _ hc hFu trivial (by rw [interp_bvar, Xframe_X]; exact hY)
+    fun cs t' => projAV_X_wellDenoted hIall hc hY cs t'
   constructor
   · unfold slotXBI
     refine WellDenoted_mkPisAV_of (w := w) (fieldsOkB_liftTele2 t Y tl as hfit.1) fun bs hsp => ?_

@@ -4,6 +4,7 @@ public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockRealChains
+public import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.IOLicense
 public import ConLeche.Model.WellDenotedTransport
