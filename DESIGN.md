@@ -130760,3 +130760,105 @@ no corpus run is owed.
 
 The docstring of `nestedPinPairAt_pinσ` records §(f)'s refutation at
 the place the merge session reads its work order.
+
+
+#### WIDE (f4) — HALF (1)'s READING CHAIN SPEAKS AT `l + domPiDepth dom.1`, AND WHAT FLATNESS IS STILL BUYING IS NAMED (lane LE, 2026-09-21)
+
+The previous row moved the chain's first declaration
+(`NestedPinsRun.ordReadAt`).  This moves the four above it, and it
+stops exactly where the remainder stops being a restatement.
+
+##### (a) THE FOUR THAT MOVED
+
+`GroupFacts.ordRead` (`Model/Inductives/NestedPinLeafAll.lean:2267`),
+`ordRead_corr` (`:5359`), `ordReadMem_corr` (`:5616`) and `read_of_run`
+(`:6598`) no longer take `ConLeche.domPiDepth dom.1 = 0`.  In all four
+the owner's SCOPING (`looseBVarsBounded`), the owner's READING
+(`denoteMeta` of `Expr.instSeq … ordTargetDom`, openers and cut
+together) and the block's index spine (`AnnotTerm.instAll`) are asked
+at `l + ConLeche.domPiDepth dom.1` — the number `ordTargetDom` itself
+instantiates at (`domPiDepth_ordTargetDomL`, table-independent) and the
+number `OrdTargetRead` reads at on the owner's side, K.72's sum with
+its PLANTED summand killed by the row's own head guard
+(`domPiDepth_eq_zero_of_getAppFn_const`).  The two correspondences'
+conclusion is now the two recorded telescopes' LENGTH
+(`… = ConLeche.domPiDepth dom.1`) where it used to be `= []`.
+
+`ordReadAt`'s producer inside `nestedPinLeafAll`'s
+`NestedPinGroupIds` construction (`:9096`) stopped collapsing anything:
+the `rw [hflat, Nat.add_zero]` at the three inputs and the two outputs
+is gone and the clause is the run's row verbatim.
+
+**22 of the 27.**  What still takes flatness is `hscope` at its three
+carriers — `nestedSlotOrd_pin` (`:5870`), `nestedFitc_pin` (`:6813`)
+and the assembly `nestedPinPairAt_pinσ` (`:7482`), which is
+`:5820`/`:6711`/`:7340`'s own conjunct in each case — and the two
+`…_flat` corollaries (`Verify/Inductives/NestedCopyKinds.lean:2333`
+and `:2360`).  The corollaries are **KEPT**: their guard is DERIVED at
+both call sites (`NestedCopyInst.lean:10500` and `:11683`, off the copy
+field's own KIND) and neither is a premise at any interface, so
+retiring them would buy nothing and cost the finitary arm its
+spelling.
+
+##### (b) WHY `hscope`'s CONJUNCT DID NOT GO WITH THEM — A NEW OBJECT, NAMED
+
+`nestedSlotOrd_pin`'s conclusion is an equation between two
+`slotSet`s, and `slotSet` is
+`piTele w (teleOfFields ρ (tl.map (·.2.2))) (fun bs => app X (tupW u …))`.
+With both telescopes EMPTY `slotSet_nil` collapses both sides and only
+the index spine is left, which is what the two correspondences tie.
+With a telescope of length `domPiDepth dom.1` the equation needs the
+two copies' recorded telescopes to agree AS TERMS (under the same
+`instAll` the index spines cross by), not merely in length — and
+**nothing in the tree compares them**.  K.72 compares the copy's
+stored tower's LENGTH against the sum
+(`Kernel/Inductives/NestedInstall.lean:3251`,
+`(Expr.piBinders domC.1).1.length == domPiDepth domJ.1 + …`);
+`ordRootInst`'s equation beside it compares the two STRIPPED bodies
+(`ordTargetDom` strips the stored tower before it instantiates), so it
+says nothing about the tower; and on the model side the reflexive twin
+(`NestedPinsRun.copyOrdFRightPinOrdTargetReadAtRefl`) and
+`OrdTargetRead`'s own first conjunct both deliver a LENGTH and no
+content.
+
+So the remainder of half (1) is **THE TWO COPIES' TOWERS, TIED THE WAY
+THEIR INDEX SPINES ARE** — `tl₁.map (·.2.2) = (tl₂.map (·.2.2)).map
+(AnnotTerm.instAll Ds l)`, or whatever equation lets a
+`piTele`/`teleOfFields` congruence stand beside `slotSet_nil` — and it
+is a NEW OBJECT, not a restatement.  **Two routes are open and neither
+is costed here**:
+
+* the MODEL route.  `CopyOrdTele` (`Model/Inductives/NestedFit.lean:1014`)
+  already ties EACH copy's recorded telescope to the CONTAINER's own
+  instantiated field domain — syntactically on the domains
+  (`(tls.getD l []).map (·.2.2) = T.map (·.2.2)`) and semantically on
+  the whole tower — and its producer (`NestedPinsRun.copyOrdTeleAt`)
+  runs at either install.  Two instances of it at ONE container field,
+  plus the frame correspondence the index spines already cross by,
+  would give the tie with NO kernel change.  What is not settled is
+  whether the existential `T` can be made canonical enough for the two
+  sides to meet: `CopyOrdTele` claims the tower's reading, not that
+  two readings of one field pick the same `T`, and a `Π`-SET equation
+  does not give its domains back;
+* the KERNEL route, as a fallback: K.72 strengthened from a length to
+  a term comparison at the same guard and addressing, the copy's
+  binders against the owner's under `ordRootInst`'s substitution.
+  That owes the full battery.
+
+**Honest sizing: two to five sessions**, the spread being which route
+survives.  It is the whole of what stands between the tree and
+`hscope`'s discharge — the flatness conjunct is FALSE at
+`tests/e2e/nested_pi_field.ndjson` (previous row's §(f)), so there is
+no shorter route through it.
+
+##### (c) THE GATES
+
+`tests/arena.sh` EXIT 0 with the counters of the row above.
+`tests/warning-free.sh 469325dc` — 1 changed module, **0 warning
+lines** in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **205 of 3948**, unmoved (no declaration added or
+removed).  `#print axioms` on `read_of_run`, `ordRead_corr`,
+`ordReadMem_corr` and `nestedSlotOrd_pin`: `[propext,
+Classical.choice, Quot.sound]`.  No `sorry`, no new axiom, no
+`maxHeartbeats`.  **NO KERNEL FILE CHANGED**, so the accept set, the
+shadow counts and the cost are unmoved and no corpus run is owed.

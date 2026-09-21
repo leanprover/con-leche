@@ -2255,10 +2255,15 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
   container model) as its hypotheses — the two things this tier
   cannot produce.
 
-  The cut is the field's own `l`: the guard is the stored domain's
-  head at the pin's levels, a constant head is not a `Π`, and both
-  tables' towers are therefore empty.  The reflexive Π-prefix is a
-  separate object. -/
+  **The cut is the CONTAINER's own tower** (task #315 WIDE (f3), half
+  (1)): `l + ConLeche.domPiDepth dom.1`, the number `ordTargetDom`
+  itself instantiates at and the number `OrdTargetRead` reads at on the
+  owner's side.  K.72's sum has a second summand — the tower the mint
+  PLANTS — and the row's own head guard `hheadB` kills it
+  (`domPiDepth_eq_zero_of_getAppFn_const`), so the copy's recorded
+  telescope has exactly the stored domain's length.  Flatness is GONE:
+  it was FALSE at `tests/e2e/nested_pi_field.ndjson`, where the copy's
+  field is reflexive and the stored domain has depth one. -/
   ordRead : ∀ (ψ : Name → Nat) (ρp : Nat → V),
     Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
     ∀ (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
@@ -2282,7 +2287,6 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     -- reflexive arm keeps the stored head, recognised by the copy's
     -- own recorded telescope — `PinShapes` has no `kindAt` to state it
     -- with, so this tier uses the spelling that crosses.
-    ConLeche.domPiDepth dom.1 = 0 →
     (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK →
     (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -2297,12 +2301,15 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
     ((D).pinAt gp).DsE.length = ciO.nP →
-    (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded l = true →
+    (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded
+      (l + ConLeche.domPiDepth dom.1) = true →
     (∀ le ∈ (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).fvarLeaves,
       Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciO.nP) →
     ∀ rx : AnnotTerm,
-    denoteMeta m.acval env₂ (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls) (ciO.nP + l)
-        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP l) (l - 1)
+    denoteMeta m.acval env₂ (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
+        (ciO.nP + (l + ConLeche.domPiDepth dom.1))
+        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP (l + ConLeche.domPiDepth dom.1))
+            (l + ConLeche.domPiDepth dom.1 - 1)
           (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) = some rx →
     ∃ z : Nat, z < pinsS.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -2323,12 +2330,13 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
-        ((mutTlss ctorsA.length tssF ψ).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] ∧
+        (((mutTlss ctorsA.length tssF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length
+            = ConLeche.domPiDepth dom.1 ∧
         ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ((D).pinAt z).nPJ ∧
           AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
-            = AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l rx
+            = AnnotTerm.instAll (((D).pinAt gp).Ds ψ) (l + ConLeche.domPiDepth dom.1) rx
   /-- **THE OWNER'S FIRING FORCES THE BLOCK'S** (task #315 WIDE (f3)):
   the bit `ordTgt` (K.67), `ordGe` (K.68) and `ordRead` (K.69) all
   ASSUME, produced here from the one arm that is not guarded by it —
@@ -5375,7 +5383,6 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     -- the SAME name, which is what `hnPeq`/`hnIdxEq` spend and what
     -- `GroupFacts.ordBlkHead` gives up to the name.
     {K : Name} {vs vsB : List Level}
-    (hflat : ConLeche.domPiDepth dom.1 = 0)
     (hhdBlk : (ConLeche.ordTargetDom lpsC dK.nP (ConLeche.nestedPinTermsSelf p st)
       (a + i') l dom.1).getAppFn = .const K vsB)
     (hfinRefl : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
@@ -5395,13 +5402,15 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     -- the OWNER's recomputation head, at `hhdBlk`'s own name
     (hhd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn = .const K vs)
     (hDsE : ((D).pinAt gp).DsE.length = ciR.nP)
-    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded
+      (l + ConLeche.domPiDepth dom.1) = true)
     (hlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
       Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP)
     (hφ : φ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
     {rx : AnnotTerm}
-    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + l)
-      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + (l + ConLeche.domPiDepth dom.1))
+      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP (l + ConLeche.domPiDepth dom.1))
+          (l + ConLeche.domPiDepth dom.1 - 1)
         (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
     -- the OWNER, at the model
     (CR : ContainerModeled m ciR dR)
@@ -5452,11 +5461,12 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
       SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
         (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
       SpineFit (consList (Ds₂.map (interp V ρR)) ρR) (Fs₂.take l) fs₁ →
-      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l [] = [] ∧
-      (((pcR qK).tlss φ).getD j []).getD l [] = [] ∧
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l
+          []).length = ConLeche.domPiDepth dom.1 ∧
+      ((((pcR qK).tlss φ).getD j []).getD l []).length = ConLeche.domPiDepth dom.1 ∧
       ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
         = ((((pcR qK).Eiss φ).getD j []).getD l []).map
-            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) (l + ConLeche.domPiDepth dom.1)) := by
   classical
   subst hφ
   -- THE OWNER'S TABLE: the environment's reader is the model's list, at every position
@@ -5481,9 +5491,11 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     ordTargetDom_congr_at (by rw [hown qK hqKn, hentry qK hqKn])
   -- THE TOWER IS THE STORED DOMAIN'S AND IS TABLE-INDEPENDENT (task
   -- #315 WIDE (f3) step 3(b)); the OWNER's head is `hhd` carried
-  -- across the two readings of ONE table.
+  -- across the two readings of ONE table.  It is no longer ZERO —
+  -- flatness is FALSE at `nested_pi_field` — and the two sides meet at
+  -- the CONTAINER's own tower instead (WIDE (f3), half (1)).
   have hdep₂ : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC (dR.ownPinTerms lps) qK dom.1)
-      = 0 := by rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
+      = ConLeche.domPiDepth dom.1 := ConLeche.domPiDepth_ordTargetDomL _ _ _ _
   have hhd₂ : (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
       = .const K vs := by rw [← hdomEq]; exact hhd
   -- SIDE 2: the owner's, and its target pin.  It comes FIRST because
@@ -5527,7 +5539,7 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
   obtain ⟨z₁, hz₁, htg₁, hlen₁, hblkJ, hblkNP, hblkSt, hrest₁⟩ :=
     G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hflat hhdBlk hfinRefl gp hgp gn hgn ciR hciR m₀ hm₀
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hhdBlk hfinRefl gp hgp gn hgn ciR hciR m₀ hm₀
       ownT hownT mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
   have hnPeq : ((D).pinAt z₁).nPJ = (dR.pinAt z₂).nPJ := by
     rw [hblkNP ciZ hciEnv, hnPZ]
@@ -5545,26 +5557,26 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
   obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
-  -- **K.72's SUM, COLLAPSED HERE** (task #315 WIDE (f3), object (2)):
-  -- the owner's row carries the copy's recorded telescope as the
-  -- container's stored tower PLUS the recomputation's own prefix; at
-  -- this row's guard the stored domain is flat (`hdep₂`) and the
-  -- recomputation is constant-headed (`hhd₂`), so both summands
-  -- vanish and the two readings meet at the field's own cut.
-  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂] at htlsLen₂
-  have hnil₂ := List.eq_nil_of_length_eq_zero htlsLen₂
-  refine ⟨htls₁, hnil₂, ?_⟩
+  -- **K.72's SUM, AT THE CONTAINER'S OWN TOWER** (task #315 WIDE (f3),
+  -- object (2) and half (1)): the owner's row carries the copy's
+  -- recorded telescope as the container's stored tower PLUS the
+  -- recomputation's own prefix; this row's head guard (`hhd₂`) kills
+  -- the SECOND summand, and the first is the stored domain's own
+  -- depth, which is where both sides read.
+  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂, Nat.add_zero] at htlsLen₂
+  refine ⟨htls₁, htlsLen₂, ?_⟩
   -- side 2's reading IS side 1's `rx`
   have hrxEq : rx = AnnotTerm.mkAppN fb₂
       (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
         []).getD l [])) := by
     have h2 := hread₂
-    rw [hnil₂, List.length_nil, Nat.add_zero,
+    rw [htlsLen₂,
       ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd₂, ← hdomEq, CR.nP] at h2
     exact Option.some.inj (hrx.symm.trans h2)
   rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
   have hPs₁' : Ps₁.length
-      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l)).length := by
+      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ)
+          (l + ConLeche.domPiDepth dom.1))).length := by
     rw [List.length_map, hPs₁, hPs₂, hnPeq]
   obtain ⟨-, hargs⟩ := AnnotTerm.mkAppN_inj heq₁ (by
     simp only [List.length_append, List.length_map]
@@ -5628,7 +5640,6 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
     -- the SAME name, which is what `hnPeq`/`hnIdxEq` spend and what
     -- `GroupFacts.ordBlkHead` gives up to the name.
     {K : Name} {vs vsB : List Level}
-    (hflat : ConLeche.domPiDepth dom.1 = 0)
     (hhdBlk : (ConLeche.ordTargetDom lpsC dK.nP (ConLeche.nestedPinTermsSelf p st)
       (a + i') l dom.1).getAppFn = .const K vsB)
     (hfinRefl : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
@@ -5648,13 +5659,15 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
     -- the OWNER's recomputation head, at `hhdBlk`'s own name
     (hhd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn = .const K vs)
     (hDsE : ((D).pinAt gp).DsE.length = ciR.nP)
-    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hbd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded
+      (l + ConLeche.domPiDepth dom.1) = true)
     (hlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
       Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP)
     (hφ : φ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
     {rx : AnnotTerm}
-    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + l)
-      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+    (hrx : denoteMeta m.acval env₂ φ (ciR.nP + (l + ConLeche.domPiDepth dom.1))
+      (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP (l + ConLeche.domPiDepth dom.1))
+          (l + ConLeche.domPiDepth dom.1 - 1)
         (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
     -- the OWNER, at the model
     (CR : ContainerModeled m ciR dR)
@@ -5681,11 +5694,12 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
       SpineFit (consList ((((D).pinAt a).Ds ψ).map (interp V ρp)) ρp)
         (((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).take l) fs₁ →
       SpineFit (consList (Ds₂.map (interp V ρR)) ρR) (Fs₂.take l) fs₁ →
-      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l [] = [] ∧
-      (((pcR qK).tlss φ).getD j []).getD l [] = [] ∧
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l
+          []).length = ConLeche.domPiDepth dom.1 ∧
+      ((((pcR qK).tlss φ).getD j []).getD l []).length = ConLeche.domPiDepth dom.1 ∧
       ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i') + j) []).getD l []
         = ((((pcR qK).Eiss φ).getD j []).getD l []).map
-            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) (l + ConLeche.domPiDepth dom.1)) := by
   classical
   subst hφ
   -- THE OWNER'S TABLE: the environment's reader is the model's list, at every position
@@ -5709,9 +5723,10 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
       = ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1 :=
     ordTargetDom_congr_at (by rw [hown qK hqKn, hentry qK hqKn])
   -- THE TOWER IS THE STORED DOMAIN'S AND IS TABLE-INDEPENDENT (task
-  -- #315 WIDE (f3) step 3(b))
+  -- #315 WIDE (f3) step 3(b)), and it is the CONTAINER's own and not
+  -- zero since WIDE (f3) half (1).
   have hdep₂ : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC (dR.ownPinTerms lps) qK dom.1)
-      = 0 := by rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
+      = ConLeche.domPiDepth dom.1 := ConLeche.domPiDepth_ordTargetDomL _ _ _ _
   have hhd₂ : (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
       = .const K vs := by rw [← hdomEq]; exact hhd
   -- SIDE 2: the owner's, and its target MEMBER
@@ -5726,7 +5741,7 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
   -- SIDE 1: the block's own reading of the recomputation (K.69 at the group)
   obtain ⟨z₁, -, htg₁, hlen₁, -, -, -, hrest₁⟩ :=
     G.ordRead ψ ρp hρp i' hi' j hj l hl hord hrs₁ hpinT cA bs rr dom lpsC hjA hst hdm
-      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hflat hhdBlk hfinRefl gp hgp gn hgn ciR hciR m₀ hm₀
+      i₀ hi₀ ciC Jm hciC hJm hlpsJ K _ hhdBlk hfinRefl gp hgp gn hgn ciR hciR m₀ hm₀
       ownT hownT mapR hmapR qK hqKT hqm hfired hDsE hbd hlv rx hrx
   -- and its pin IS the block's copy of the member: the head's own
   -- container record and the two counts it would pin are NOT read
@@ -5741,26 +5756,26 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
   obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
-  -- **K.72's SUM, COLLAPSED HERE** (task #315 WIDE (f3), object (2)):
-  -- the owner's row carries the copy's recorded telescope as the
-  -- container's stored tower PLUS the recomputation's own prefix; at
-  -- this row's guard the stored domain is flat (`hdep₂`) and the
-  -- recomputation is constant-headed (`hhd₂`), so both summands
-  -- vanish and the two readings meet at the field's own cut.
-  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂] at htlsLen₂
-  have hnil₂ := List.eq_nil_of_length_eq_zero htlsLen₂
-  refine ⟨htls₁, hnil₂, ?_⟩
+  -- **K.72's SUM, AT THE CONTAINER'S OWN TOWER** (task #315 WIDE (f3),
+  -- object (2) and half (1)): the owner's row carries the copy's
+  -- recorded telescope as the container's stored tower PLUS the
+  -- recomputation's own prefix; this row's head guard (`hhd₂`) kills
+  -- the SECOND summand, and the first is the stored domain's own
+  -- depth, which is where both sides read.
+  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂, Nat.add_zero] at htlsLen₂
+  refine ⟨htls₁, htlsLen₂, ?_⟩
   -- side 2's reading IS side 1's `rx`
   have hrxEq : rx = AnnotTerm.mkAppN fb₂
       (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
         []).getD l [])) := by
     have h2 := hread₂
-    rw [hnil₂, List.length_nil, Nat.add_zero,
+    rw [htlsLen₂,
       ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd₂, ← hdomEq, CR.nP] at h2
     exact Option.some.inj (hrx.symm.trans h2)
   rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
   have hPs₁' : Ps₁.length
-      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l)).length := by
+      = (Ps₂.map (AnnotTerm.instAll (((D).pinAt gp).Ds ψ)
+          (l + ConLeche.domPiDepth dom.1))).length := by
     rw [List.length_map, hPs₁, hPs₂, hnPeq]
   obtain ⟨-, hargs⟩ := AnnotTerm.mkAppN_inj heq₁ (by
     simp only [List.length_append, List.length_map]
@@ -5861,7 +5876,8 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
         (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [] ≠ [] →
           (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
             ((D).pinAt (a + i)).lvls dom.1)).getAppFn = .const K vsB) ∧
-        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded l = true ∧
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).looseBVarsBounded
+          (l + ConLeche.domPiDepth dom.1) = true ∧
         (∀ le ∈ (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).fvarLeaves,
           Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP))
     -- THE OWNER'S READING, AT A FITTING PREFIX (task #315 WIDE (f3)
@@ -5879,8 +5895,9 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
       SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
         (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
       ∃ rx : AnnotTerm,
-        denoteMeta m.acval env₂ ψJ (ciR.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+        denoteMeta m.acval env₂ ψJ (ciR.nP + (l + ConLeche.domPiDepth dom.1))
+          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP (l + ConLeche.domPiDepth dom.1))
+              (l + ConLeche.domPiDepth dom.1 - 1)
             (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx)
     -- side 2: K.68's two rows at the OWNER's own install
     (hrowTgt : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
@@ -6007,24 +6024,37 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
     hscope l hl hord hrsP dom hdm
   obtain ⟨rx, hrx⟩ := hread l hl hord hrsP dom hdm fs₁ hfsl hfit₂
   -- the field data, by the target's arm
-  have hdata : ((mutTlss ctorsA.length tssF ψ).getD
-        (b.ownOffset (p.k + a + i) + j) []).getD l [] = [] ∧
-      (((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [] = [] ∧
+  -- **THE TWO CORRESPONDENCES SPEAK AT THE CONTAINER'S OWN TOWER, AND
+  -- THIS CONSUMER COLLAPSES IT** (task #315 WIDE (f3), half (1)):
+  -- `ordRead_corr` and `ordReadMem_corr` now give the two recorded
+  -- telescopes' LENGTH — the stored domain's depth — and the index
+  -- spines at the cut that depth names.  `slotSet_nil` needs both
+  -- telescopes EMPTY, which is what `hscope`'s flatness conjunct
+  -- still buys here and nowhere else: the SLOT equation at a
+  -- `Π`-typed container field needs the two towers to agree as TERMS,
+  -- and no row of either install compares them (see the ledger).
+  have hdata : (((mutTlss ctorsA.length tssF ψ).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l []).length = ConLeche.domPiDepth dom.1 ∧
+      ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l []).length = ConLeche.domPiDepth dom.1 ∧
       ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l []
         = ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []).map
-            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l) := by
+            (AnnotTerm.instAll (((D).pinAt gp).Ds ψ) (l + ConLeche.domPiDepth dom.1)) := by
     by_cases hmemT : (dJ.pinCtors qK).tgts j l < dJ.k
     · exact ordReadMem_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
-        hst hdm hi hciC hJm hlpsJ hflat hhdBlk hfinRefl hgp hgn hciR hm₀ hownT hmapR hqKT hqm
+        hst hdm hi hciC hJm hlpsJ hhdBlk hfinRefl hgp hgn hciR hm₀ hownT hmapR hqKT hqm
         hfired hhd hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn
         (fun lps => hrowReadMem l hl hord hrsP dom hdm hmemT lps) (htgσ l hl hord hrsB hrsP) hroot S₀
         fs₁ hfsl hfit₁' hfit₂
     · exact ordRead_corr G hρp hi (List.getElem?_eq_some_iff.mp hj).1 hl' hord hrsB hj
-        hst hdm hi hciC hJm hlpsJ hflat hhdBlk hfinRefl hgp hgn hciR hm₀ hownT hmapR hqKT hqm
+        hst hdm hi hciC hJm hlpsJ hhdBlk hfinRefl hgp hgn hciR hm₀ hownT hmapR hqKT hqm
         hfired hhd hDsE hbd hlv hψJ hrx CR hciR₂ hownT₂ hqKn hmemT hcontZ
         (fun lps M us hh => hrowTgt l hl hord hrsP dom hdm lps M us hh)
         (fun lps => hrowRead l hl hord hrsP dom hdm hmemT lps) hnIdxR fs₁ hfsl hfit₁' hfit₂
-  obtain ⟨htl₁, htl₂, hEis⟩ := hdata
+  obtain ⟨htlL₁, htlL₂, hEis⟩ := hdata
+  rw [hflat] at htlL₁ htlL₂ hEis
+  rw [Nat.add_zero] at hEis
+  have htl₁ := List.eq_nil_of_length_eq_zero htlL₁
+  have htl₂ := List.eq_nil_of_length_eq_zero htlL₂
   rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu l hl hord hrsB hrsP, hX l hl hord hrsB hrsP, hEis, hρJ,
     List.map_map]
   refine congrArg _ (congrArg _ (List.map_congr_left fun e _ => ?_))
@@ -6549,10 +6579,14 @@ step 1): `hread` — the `denoteMeta` of the OWNER's recomputation at the
 field's cut — from `PinShapes`' `OrdTargetRead` conjunct at whichever
 of the target's two arms holds.
 
-Three things are spent and nothing else.  The CUT: the stored domain's
-head is a constant, so the recomputation's `Π`-tower is empty
-(`domPiDepth_ordTargetDomL`) and `OrdTargetRead`'s cut `l + depth` IS the
-consumer's `l`.  The TABLE: the environment's own-pin list and the
+Three things are spent and nothing else.  The CUT: `OrdTargetRead`
+reads at `l` plus the COPY's recorded telescope, K.72's sum, and the
+row's head guard kills the second summand
+(`domPiDepth_eq_zero_of_getAppFn_const`) while the first is the stored
+domain's own depth (`domPiDepth_ordTargetDomL`) — so the reading comes
+out at `l + domPiDepth dom.1`, which is where the block's side reads
+too (task #315 WIDE (f3), half (1); flatness is FALSE at
+`tests/e2e/nested_pi_field.ndjson` and is gone from here).  The TABLE: the environment's own-pin list and the
 container model's agree at position `qK`, which is the only position
 the recomputation reads (`ordTargetDom_congr_at`).  The PARAMETER
 COUNT: `ContainerModeled.nP`.
@@ -6571,13 +6605,12 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
       ((dK.rss i).getD j []).getD l false = false →
       ((dR.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
-      -- FLATNESS (task #315 WIDE (f3) step 3(b)) AND THE OWNER'S
-      -- RECOMPUTATION HEAD: since object (2) the row reads at the
-      -- COPY's recorded telescope and at the STRIPPED recomputation,
-      -- and K.72's sum has two summands — the stored domain's tower,
-      -- which flatness kills, and the recomputation's own, which the
-      -- head does.  `hscope` carries both already.
-      ConLeche.domPiDepth dom.1 = 0 ∧
+      -- THE OWNER'S RECOMPUTATION HEAD, and no flatness beside it
+      -- (task #315 WIDE (f3), half (1)): the row reads at the COPY's
+      -- recorded telescope, K.72's sum, and the head kills the
+      -- summand this proof has to kill — the recomputation's own
+      -- prefix.  The other summand is the container's stored tower
+      -- and is where the reading now speaks.
       ∃ (K : Name) (vs : List Level),
         (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn = .const K vs)
     (hrowRead : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
@@ -6614,15 +6647,16 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
       SpineFit (consList (((dR.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
         (((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
       ∃ rx : AnnotTerm,
-        denoteMeta m.acval env₂ ψJ (ciR.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+        denoteMeta m.acval env₂ ψJ (ciR.nP + (l + ConLeche.domPiDepth dom.1))
+          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP (l + ConLeche.domPiDepth dom.1))
+              (l + ConLeche.domPiDepth dom.1 - 1)
             (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx := by
   intro l hl hord hrsP dom hdm fs₁ hfsl hfit
-  obtain ⟨hflat, K, vs, hhd⟩ := hscope l hl hord hrsP dom hdm
+  obtain ⟨K, vs, hhd⟩ := hscope l hl hord hrsP dom hdm
   have hhd' : (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
       = .const K vs := by rw [← ordTargetDom_congr_at htabAt]; exact hhd
   have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC (dR.ownPinTerms lps) qK dom.1)
-      = 0 := by rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
+      = ConLeche.domPiDepth dom.1 := ConLeche.domPiDepth_ordTargetDomL _ _ _ _
   have hOR : OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dR.nP l
       ((dR.pinAt baseK).Ds ψJ) ((dK.Fss i ((dR.pinAt baseK).ψJ ψJ)).getD j [])
       ((((dR.pinCtors qK).Eiss ψJ).getD j []).getD l [])
@@ -6639,9 +6673,8 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
       rw [show (dR.pinCtors qK).tgts j l - dR.k = z from by omega]
       exact hOR₀
   obtain ⟨htl, fb, Ps, -, hden⟩ := hOR fs₁ hfsl hfit
-  rw [hdep, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd'] at htl
-  rw [List.eq_nil_of_length_eq_zero htl, List.length_nil, Nat.add_zero,
-    ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd'] at hden
+  rw [hdep, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd', Nat.add_zero] at htl
+  rw [htl, ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd'] at hden
   rw [ordTargetDom_congr_at htabAt, ← CR.nP]
   exact ⟨_, hden⟩
 
@@ -6786,7 +6819,8 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
         (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [] ≠ [] →
           (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
             ((D).pinAt (a + i)).lvls dom.1)).getAppFn = .const K vsB) ∧
-        (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1).looseBVarsBounded l = true ∧
+        (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1).looseBVarsBounded
+          (l + ConLeche.domPiDepth dom.1) = true ∧
         (∀ le ∈ (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1).fvarLeaves,
           Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP))
     -- the owner's READING, at a fitting prefix — `PinShapes`'
@@ -6799,8 +6833,9 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
       SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
         ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
       ∃ rx : AnnotTerm,
-        denoteMeta m.acval env₂ ψJ (ciR.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
+        denoteMeta m.acval env₂ ψJ (ciR.nP + (l + ConLeche.domPiDepth dom.1))
+          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP (l + ConLeche.domPiDepth dom.1))
+              (l + ConLeche.domPiDepth dom.1 - 1)
             (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1)) = some rx)
     -- side 2: K.68's two rows at the OWNER's own install
     -- **K.68's ROW, WIDENED** (task #315 K.71, WIDE (f3) step 5): no
@@ -7270,21 +7305,28 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
 
 * `hscope` — the owner's per-field scoping.  `hread` is GONE from the
   signature: object (2) moved `OrdTargetRead` to the copy's own cut and
-  stripped subject, and `read_of_run` now collapses K.72's two summands
-  out of `hscope`'s own flatness and head conjuncts, so the reading is
-  PRODUCED here instead of assumed.  What `hscope` still carries with
-  no producer is its FLATNESS conjunct (`domPiDepth dom.1 = 0`) and the
-  `hfinRefl` conjunct beside it.  **The first of the two is not merely
+  stripped subject, and `read_of_run` produces the reading out of
+  `hscope`'s head conjunct alone, so it is PRODUCED here instead of
+  assumed.  What `hscope` still carries with no producer is its
+  FLATNESS conjunct (`domPiDepth dom.1 = 0`) and the `hfinRefl`
+  conjunct beside it.  **The first of the two is not merely
   unproduced — it is FALSE** (task #315 WIDE (f3)): at
   `tests/e2e/nested_pi_field.ndjson` (`K α | mk (f : Nat → α)`) both of
   `hscope`'s guards hold at the `f` field — the container recurses
   nowhere and the copy's field `Nat → <copy>` is REFLEXIVE, so its
   `rss` bit is set — while `dom.1 = Nat → α` has depth one.  So this
-  hypothesis must be RESTATED, not discharged, and the restatement is
-  the reading branch's: the cut moves from the field's own `l` to
-  `l + domPiDepth dom.1` at `GroupFacts.ordRead`, `ordRead_corr`,
-  `ordReadMem_corr` and `read_of_run`, the way
-  `NestedPinsRun.ordReadAt` already speaks;
+  hypothesis must be RESTATED, not discharged.  **The restatement's
+  READING half is DONE** (WIDE (f4)): the cut is
+  `l + ConLeche.domPiDepth dom.1` at `NestedPinsRun.ordReadAt`,
+  `GroupFacts.ordRead`, `ordRead_corr`, `ordReadMem_corr` and
+  `read_of_run`, and none of those five takes flatness any more.  What
+  the conjunct is still spent on is ONE step, `nestedSlotOrd_pin`'s:
+  `slotSet_nil` needs BOTH copies' recorded telescopes EMPTY, and with
+  a tower they must instead be tied AS TERMS the way the index spines
+  are — an object no row of either install carries today (K.72
+  compares the copy's tower's LENGTH; `ordRootInst`'s equation
+  compares the two STRIPPED bodies).  That object, with its two
+  candidate routes, is the ledger's WIDE (f4) §(b);
 * `htele : CopyOrdTele …` is GONE from the signature.  The object is
   restated as an `interp` equation (its syntactic form is refuted by
   `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run
@@ -7453,7 +7495,8 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
         (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l [] ≠ [] →
           (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC
             ((D).pinAt (q₀ + iq)).lvls dom.1)).getAppFn = .const K vsB) ∧
-        (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1).looseBVarsBounded l = true ∧
+        (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1).looseBVarsBounded
+          (l + ConLeche.domPiDepth dom.1) = true ∧
         (∀ le ∈ (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1).fvarLeaves,
           Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP))
     -- **ONLY THE CONTAINER-RECURSIVE ARM IS ASKED** (task #315 WIDE
@@ -7629,13 +7672,13 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
     (fun l hl hrsP dom hdm lps M us hhd => hrowTgt l hl hrsP dom hdm lps M us hhd)
     rfl (by have := S₂.seg; omega) hroot hσpin
   -- the target's universe and the two carriers, both `σ`'s
-  -- **`hread` IS DISCHARGED HERE** (task #315 WIDE (f3), object (2)):
-  -- `read_of_run` at the owner's own rows.  It spends three things and
-  -- each is in hand: `hscope`'s flatness and the owner's recomputation
-  -- HEAD (K.72's two summands, which together put the reading back at
-  -- the field's own cut and strip nothing), the own-pin table read
-  -- twice (`ownPinsSelfAt` against `BlockModel.ownPinTerms`), and the
-  -- container's parameter count (`ContainerModeled.nP`).
+  -- **`hread` IS DISCHARGED HERE** (task #315 WIDE (f3), object (2)
+  -- and half (1)): `read_of_run` at the owner's own rows.  It spends
+  -- three things and each is in hand: the owner's recomputation HEAD
+  -- (which kills K.72's PLANTED summand and leaves the container's
+  -- own tower, the cut both sides now read at), the own-pin table
+  -- read twice (`ownPinsSelfAt` against `BlockModel.ownPinTerms`), and
+  -- the container's parameter count (`ContainerModeled.nP`).
   obtain ⟨lps₀, htab₀⟩ := CR.ownPinsSelfAt hciR₂ hownT₂
   have hentry₀ : ∀ y, y < dR.nPins →
       (dR.ownPinTerms lps₀).getD y default
@@ -7652,8 +7695,8 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
   have hread := read_of_run (V := V) (dK := dJf q₀) (dR := dR) (i := iq) (a := q₀) (j := j)
     (baseK := q₀') (qK := q₀' + iq) (bs := bs) (ψ := ψ) (lps := lps₀) CR htabAt₀
     (fun l hl hord hrsP dom hdm => by
-      obtain ⟨K, vs, -, hfl, -, hhd, -, -, -, -⟩ := hscope l hl hord hrsP dom hdm
-      exact ⟨hfl, K, vs, hhd⟩)
+      obtain ⟨K, vs, -, -, -, hhd, -, -, -, -⟩ := hscope l hl hord hrsP dom hdm
+      exact ⟨K, vs, hhd⟩)
     (fun l hl hord hrsP dom hdm hnt => hrowRead l hl hord hrsP dom hdm hnt lps₀)
     (fun l hl hord hrsP dom hdm hmt => hrowReadMem l hl hord hrsP dom hdm hmt lps₀)
   have htgtLt : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
@@ -9019,7 +9062,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       -- three run pieces composed
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ ρ₂ hρ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hpinT cA bs rr dom lpsC hjA hst hdm
-        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hflat hheadB hfinRefl
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hheadB hfinRefl
         g hg gn hgn ciO hciO m₀ hm₀ ownT hownT mapR hmapR qK hqK hqm hfire hnPO hxb hxlv rx hreadO
       obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
       have hlF : l₂ < cA.2 := by
@@ -9053,24 +9096,15 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
             (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
         obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
         exact hlpsE
-      -- **THE CLAUSE COLLAPSES THE CUT, THE PRODUCER DOES NOT** (task
-      -- #315 WIDE (f3)): `ordReadAt` now speaks at
-      -- `l + domPiDepth dom.1`; this clause still carries flatness, so
-      -- the two meet by `Nat.add_zero` and the clause's own `= []` is
-      -- the length equation read at `0`.
-      obtain ⟨z, hz, htg, hEl, hJz, hnPz, hStz, hOT⟩ :=
-        R.ordReadAt SF S' hPD R.h.classify ψ₂ ρ₂ hρ₂ hi₂ hgb
-          (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-          hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hheadB
-          hfinRefl
-          hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO
-          (by rw [hflat, Nat.add_zero]; exact hxb) hxlv
-          (by rw [hflat, Nat.add_zero]; exact hreadO)
-      refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
-      obtain ⟨htl, hrest⟩ := hOT fs₁ hfs hspf
-      rw [hflat] at htl
-      rw [hflat, Nat.add_zero] at hrest
-      exact ⟨List.eq_nil_of_length_eq_zero htl, hrest⟩
+      -- **THE CUT IS THE CONTAINER'S OWN TOWER ON BOTH SIDES** (task
+      -- #315 WIDE (f3), half (1)): the clause reads at
+      -- `l + domPiDepth dom.1`, which is what `ordReadAt` produces, so
+      -- nothing is collapsed here any more.
+      exact R.ordReadAt SF S' hPD R.h.classify ψ₂ ρ₂ hρ₂ hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hheadB
+        hfinRefl
+        hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO hxb hxlv hreadO
     · -- K.69 STRENGTHENED at the group (`ordFireAt`): the OWNER's firing
       -- forces the block's rewrite, which every other row assumes
       obtain ⟨pbs, -, hPD⟩ := R.pinData
