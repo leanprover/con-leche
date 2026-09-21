@@ -2036,6 +2036,76 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   rw [blockRuleFdomsAV]
   exact hq
 
+/-- **A-3's `mk0`, at the run**: the FIRED SPINE's reading is the
+constructor's leaf applied to the rule frame's parameter and field
+slots.  No stage comparison is needed — the term the check builds is a
+constant applied to openers, and the reading of an opener is its de
+Bruijn slot. -/
+theorem blockRuleMkAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ci : ConstantInfo}
+    (hfind : envC.find? cA.1.name = some ci)
+    (hlps : ci.toConstantVal.levelParams = p.lps)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+    blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = AnnotTerm.mkAppN
+          (mpC.base2.acval cA.1.name (Level.substFn ψ p.lps (p.lps.map Level.param)))
+          (paramBvarsAt p.nP (p.toBlockShape.rulePrefixAt c + cA.2)
+            ++ (List.range cA.2).map fun k =>
+                  AnnotTerm.bvar (p.toBlockShape.rulePrefixAt c + cA.2 - 1
+                    - (p.toBlockShape.rulePrefixAt c + k))) := by
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
+  have hcdd : r.2.2.2.getD i default = cA := by rw [List.getD_eq_getElem?_getD, hcA]; rfl
+  have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcdd]
+  have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
+      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+  have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
+  have hlenF : (blockRuleFieldFvs p.toBlockShape rs c i).length = cA.2 :=
+    openPisAtFvars_length _ hopF
+  have hidxF := ConLeche.openPisAtFvars_index _ _ _ hopF
+  -- the head
+  have hconst : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
+      (.const cA.1.name (p.lps.map Level.param))
+      = some (mpC.base2.acval cA.1.name (Level.substFn ψ p.lps (p.lps.map Level.param))) := by
+    rw [denoteMeta]
+    simp only [hfind, hlps]
+    rw [if_pos (by rw [List.length_map])]
+  -- the parameter openers
+  have hlenTake : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP).length = p.nP := by
+    rw [List.length_take, hlenPref]; omega
+  have hidxTake : ∀ (k : Nat) (x : Expr),
+      ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by
+    intro k x hx
+    have hk : k < p.nP := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp hx
+      rw [hlenTake] at hlt
+      exact hlt
+    have hx' : (blockRulePrefFvs p.toBlockShape rs c)[k]? = some x := by
+      have ht : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]?
+          = (blockRulePrefFvs p.toBlockShape rs c)[k]? := by
+        rw [List.getElem?_take, if_pos hk]
+      rw [← ht]; exact hx
+    obtain ⟨ty, hty⟩ := hidxPref k x hx'
+    exact ⟨ty, by rw [hty, Nat.zero_add]⟩
+  have hspP := denoteMetaSpine_params (acval := mpC.base2.acval) (env := envC) (φ := ψ)
+    (p.toBlockShape.rulePrefixAt c + cA.2) hlenTake hidxTake
+  -- the field openers
+  have hspF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ)
+    (p.toBlockShape.rulePrefixAt c + cA.2) (blockRuleFieldFvs p.toBlockShape rs c i)
+    (p.toBlockShape.rulePrefixAt c) hidxF
+  rw [hlenF] at hspF
+  rw [blockRuleMkAV, hct,
+    denoteMeta_mkAppN_of _ hconst (DenoteMetaSpine.append hspP hspF), Option.getD_some]
+
 end Shift
 
 end ConLeche.Model
