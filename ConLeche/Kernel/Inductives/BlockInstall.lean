@@ -120,6 +120,22 @@ def checkBlockTeles (ops : CheckerOps m) (env : Env) (nP : Nat) :
     let rs ← checkBlockTeles ops env nP rest
     pure (r :: rs)
 
+/-- **The parameter-domain agreement's own comparison**
+(`checkStructDomsAt` with official's verdict): between MEMBERS a
+domain mismatch is a REJECT — official's `check_inductive_types` fails
+with "parameters of all inductive datatypes must match" — where the
+shared helper, written for the constructor stage's parameter pins,
+declines.  Walks from the last binder to the first, as it does. -/
+def checkBlockDomsAt (ops : CheckerOps m) (env : Env) (off : Nat)
+    (fvs doms : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let a ← unwrapOr fvs[j]? (.internal "block: domain index")
+    let b ← unwrapOr doms[j]? (.internal "block: domain index")
+    unless ← ops.isDefEq env (off + j) a.fvarTypeD b do
+      throw (.invalid "parameters of all inductive datatypes must match")
+    checkBlockDomsAt ops env off fvs doms j
+
 /-- **Official's two agreements between the members**
 (`check_inductive_types`, `inductive.cpp`): every member's parameter
 domains are DEFINITIONALLY member 0's, and every member's result sort
@@ -135,7 +151,9 @@ def checkBlockAgree (ops : CheckerOps m) (env : Env) (nP : Nat)
       (.internal "block: type former telescope")
     let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)
       (.invalid "parameters of all inductive datatypes must match")
-    checkStructDomsAt ops env 0 tq.1 (tq0.1.map Expr.fvarTypeD) nP
+    unless tq.1.length == tq0.1.length do
+      throw (.invalid "parameters of all inductive datatypes must match")
+    checkBlockDomsAt ops env 0 tq.1 (tq0.1.map Expr.fvarTypeD) nP
     unless Level.isEquiv s s0 == some true do
       throw (.invalid "mutually inductive types must live in the same universe")
     checkBlockAgree ops env nP cvTa0 s0 rest
