@@ -274,6 +274,143 @@ theorem instPisAt_denoteMeta_pins
     (by simpa using hE)
   simpa using h
 
+/-! ## The field telescope, domain by domain
+
+`instPisAt_denoteMeta_pins` relates the two *residuals*; the readings
+`BlockCtorDataI.domRead` consumes are the residual telescope's field
+DOMAINS, one per field, read at the field's own depth
+(`denoteMeta … (nP + i) x.fvarTypeD`).  Opening both residuals at
+field variables propagates the relation through the telescope: each Π
+binder raises `instSeq`'s cut by one (`instSeqAV_pi`), and nothing
+else moves — in particular no substitution happens here, so this half
+needs neither `hainst` nor a scoping premise. -/
+
+set_option maxHeartbeats 1000000 in
+/-- **The copy transport through the field telescope.**  Two
+`∀`-telescopes whose readings differ by `AnnotTerm.instSeq ws t` have
+field domains that differ by `AnnotTerm.instSeq ws (t + j)` at field
+`j`, and residuals that differ by `AnnotTerm.instSeq ws (t + nF)`. -/
+theorem openPis_denoteMeta_transport :
+    ∀ (nF : Nat) {As Bs : Expr} {xs xo : List Expr} {rsb rob : Expr}
+      {d n t : Nat} {ws : List AnnotTerm} {Tb : AnnotTerm},
+      ws.length ≤ t + 1 →
+      openPisAtFvars nF As d = some (xs, rsb) →
+      openPisAtFvars nF Bs (d + n) = some (xo, rob) →
+      denoteMeta acval env φ (d + n) Bs = some Tb →
+      denoteMeta acval env φ d As
+        = some (ConLeche.Model.AnnotTerm.instSeq ws t Tb) →
+      (∃ Rb, denoteMeta acval env φ (d + n + nF) rob = some Rb ∧
+        denoteMeta acval env φ (d + nF) rsb
+          = some (ConLeche.Model.AnnotTerm.instSeq ws (t + nF) Rb)) ∧
+      (∀ (j : Nat) (xsj xoj : Expr), xs[j]? = some xsj → xo[j]? = some xoj →
+        ∃ Ad, denoteMeta acval env φ (d + n + j) xoj.fvarTypeD = some Ad ∧
+          denoteMeta acval env φ (d + j) xsj.fvarTypeD
+            = some (ConLeche.Model.AnnotTerm.instSeq ws (t + j) Ad)) := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro As Bs xs xo rsb rob d n t ws Tb _ hos hoo hB hA
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hos hoo
+    obtain ⟨rfl, rfl⟩ := hos
+    obtain ⟨rfl, rfl⟩ := hoo
+    refine ⟨⟨Tb, by simpa using hB, by simpa using hA⟩, ?_⟩
+    intro j xsj xoj hxs _
+    exact absurd hxs (by simp)
+  | succ nF ih =>
+    intro As Bs xs xo rsb rob d n t ws Tb hwl hos hoo hB hA
+    match As, hos, hA with
+    | .forallE doms bodys ms, hos, hA => ?_
+    match Bs, hoo, hB with
+    | .forallE domo bodyo mo, hoo, hB => ?_
+    simp only [openPisAtFvars] at hos hoo
+    cases h1 : openPisAtFvars nF (bodys.instantiate1 (.fvar d doms)) (d + 1) with
+    | none => rw [h1] at hos; exact nomatch hos
+    | some p => ?_
+    obtain ⟨xs', rsb'⟩ := p
+    rw [h1] at hos
+    simp only [Option.some.injEq, Prod.mk.injEq] at hos
+    obtain ⟨rfl, rfl⟩ := hos
+    cases h2 : openPisAtFvars nF (bodyo.instantiate1 (.fvar (d + n) domo)) (d + n + 1) with
+    | none => rw [h2] at hoo; exact nomatch hoo
+    | some q => ?_
+    obtain ⟨xo', rob'⟩ := q
+    rw [h2] at hoo
+    simp only [Option.some.injEq, Prod.mk.injEq] at hoo
+    obtain ⟨rfl, rfl⟩ := hoo
+    obtain ⟨Ao, Bo, hAo, hBo, rfl⟩ := denoteMeta_forallE_inv hB
+    obtain ⟨Aa, Ba, hAa, hBa, hpi⟩ := denoteMeta_forallE_inv hA
+    rw [instSeqAV_pi ws t 0 (pwBit φ mo.pw) Ao Bo hwl] at hpi
+    obtain ⟨_, _, hdom, hbody⟩ :
+        (0 : Nat) = 0 ∧ pwBit φ mo.pw = pwBit φ ms.pw ∧
+          ConLeche.Model.AnnotTerm.instSeq ws t Ao = Aa ∧
+          ConLeche.Model.AnnotTerm.instSeq ws (t + 1) Bo = Ba := by
+      simpa [AnnotTerm.pi.injEq, eq_comm] using hpi
+    obtain ⟨hres, hdoms⟩ := ih (As := bodys.instantiate1 (.fvar d doms))
+      (Bs := bodyo.instantiate1 (.fvar (d + n) domo))
+      (d := d + 1) (n := n) (t := t + 1) (ws := ws) (Tb := Bo)
+      (by omega) h1 (by simpa [Nat.add_right_comm] using h2)
+      (by simpa [Nat.add_right_comm] using hBo)
+      (by rw [hBa, hbody])
+    refine ⟨?_, ?_⟩
+    · obtain ⟨Rb, hRb, hrsb⟩ := hres
+      refine ⟨Rb, by simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hRb, ?_⟩
+      simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hrsb
+    · intro j xsj xoj hxs hxo
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hxs hxo
+        subst hxs; subst hxo
+        exact ⟨Ao, by simpa [ConLeche.Expr.fvarTypeD] using hAo,
+          by simpa [ConLeche.Expr.fvarTypeD, hdom] using hAa⟩
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at hxs hxo
+        obtain ⟨Ad, hAd, hAs⟩ := hdoms j xsj xoj hxs hxo
+        refine ⟨Ad, ?_, ?_⟩
+        · simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hAd
+        · simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hAs
+
+/-- **The copy transport, in `domRead` currency** — the two halves
+composed.  For a container constructor telescope `E` with `Ds.length`
+parameters and `nF` fields, the copy's field domains (read at the
+frame, field by field) are the stored constructor's opened field
+domains with the pins' readings substituted, and so is the residual.
+
+This is the shape `blockCtorData_of` (`BlockData.lean`) could consume:
+its `domRead` clause is `denoteMeta m.acval env ψ (nP + i)
+x.fvarTypeD = some ((ds ψ).getD (nP + i) default).2.2`, one reading
+per opened field variable, which is exactly the second conjunct's
+left-hand side at `d := nP`. -/
+theorem copyTele_transport
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (acval n ψ).inst y k = acval n ψ)
+    {Ds : List Expr} {E : Expr} {dss dso : List Expr} {rss rso : Expr}
+    {nF : Nat} {xs xo : List Expr} {rsb rob : Expr}
+    {d : Nat} {ws : List AnnotTerm} {To : AnnotTerm}
+    (hinst : Expr.instPisAt Ds E = some (dss, rss))
+    (hopen : openPisAtFvars Ds.length E d = some (dso, rso))
+    (hfb : Expr.fvarsBelow d E)
+    (hsc : ∀ (j : Nat) (a : Expr), Ds[j]? = some a →
+      Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
+    (hwslen : ws.length = Ds.length)
+    (hwsr : ∀ (j : Nat) (a : Expr), Ds[j]? = some a →
+      ∃ w, denoteMeta acval env φ d a = some w ∧ ws[j]? = some w)
+    (hE : denoteMeta acval env φ d E = some To)
+    (hos : openPisAtFvars nF rss d = some (xs, rsb))
+    (hoo : openPisAtFvars nF rso (d + ws.length) = some (xo, rob)) :
+    (∃ Rb, denoteMeta acval env φ (d + ws.length + nF) rob = some Rb ∧
+      denoteMeta acval env φ (d + nF) rsb
+        = some (ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1 + nF) Rb)) ∧
+    (∀ (j : Nat) (xsj xoj : Expr), xs[j]? = some xsj → xo[j]? = some xoj →
+      ∃ Ad, denoteMeta acval env φ (d + ws.length + j) xoj.fvarTypeD = some Ad ∧
+        denoteMeta acval env φ (d + j) xsj.fvarTypeD
+          = some (ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1 + j) Ad)) := by
+  obtain ⟨Ro, hRo, hrss⟩ := instPisAt_denoteMeta_pins (env := env) (φ := φ)
+    hacl hainst hinst hopen hfb hsc hwslen hwsr hE
+  exact openPis_denoteMeta_transport (env := env) (φ := φ) nF
+    (n := ws.length) (t := ws.length - 1) (by omega) hos hoo hRo hrss
+
 section Values
 variable {V : Type w} [SetTheory V]
 
