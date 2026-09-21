@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.NestedAux
+import ConLeche.Model.Inductives.NestedInstMap
 public import ConLeche.Model.Inductives.NestedEntryOrd
 public section
 
@@ -52,10 +53,17 @@ is an ACCEPTED block with two `ordF`-right edges whose endpoints carry
 equal instance labels — so `nestedPinWideStep` below runs at the
 instance's ROOT group instead (`hrootGrp`), where
 `nestedPinsOut_of_root` (`NestedEntryOrd.lean`) builds `hout` out of
-the EDGE half (`hedgeAt`, the K.32-shaped lookup bridge) and the LABEL
-half (`ConLeche.nestedPinOutLabel`, K.66 + K.75's two clauses + the
-roots table's constancy on an instance).  The step therefore takes no
-entry hypothesis and no `hout`.
+the EDGE half (`NestedPinsRun.edgeAt`, the K.32-shaped lookup bridge)
+and the LABEL half (`ConLeche.nestedPinOutLabel`, K.66 + K.75's two
+clauses + the roots table's constancy on an instance).  The step
+therefore takes no entry hypothesis and no `hout`.
+
+**AND THE EDGE HALF IS NOT AN INPUT EITHER** (task #315 WIDE (f7), lane
+WIRE).  `hedgeAt` was the last PLUMBING hypothesis on the step; it is
+now read off the RUN record, which the step takes instead
+(`NestedPinsRun`/`NestedPinSynFacts` in place of the bare
+`EnvModel V env₂`).  What is left in the signature is the wide
+identification's own inputs and the two K.75 Bools.
 -/
 
 namespace ConLeche.Model
@@ -86,6 +94,8 @@ variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : M
   {ctorsR : List (List (ConstantVal × Nat × Nat))}
   {dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {xFvsR : Nat → Nat → List Expr}
   {pinsS : List PinSyn} {env₂ : Env}
+  {envAux : Env} {fmsA ctorsA₀ : List ConstantVal}
+  {mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)}
 
 local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
   srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
@@ -182,14 +192,27 @@ theorem nestedPinsLe_of_wide (hμ : μ.verifiedChecks = true)
 
 /-! ## The per-instance step, SPELLED OUT at the identification's inputs -/
 
-/-- **STEP (4)'s PER-INSTANCE STEP** (task #315 WIDE (4)): `hwide` of
-`nestedPinsLe_of_wide` at ONE mint group, from Resolution 1's
-identification `ofNested_pin_block_of_wide_inst` (`NestedFit.lean`).
+/-- **STEP (4)'s PER-INSTANCE STEP** (task #315 WIDE (4)): the WIDE
+identification at ONE mint group, from Resolution 1's
+`ofNested_pin_block_of_wide_inst_famAt` (`NestedFit.lean`).
+
+**Its conclusion is `hwideFam`, not `hwide`** (task #315 WIDE (f10),
+lane WIRE).  What the rank induction needs is the identification at
+EVERY pin of the instance, not only at the root group's own members,
+and the bridge between the two is `nestedPinLfp_of_pool`
+(`NestedEntryOrd.lean`), whose premise is exactly the `famAt` reading
+of the identification at the root group's classes.  The member form
+(`ofNested_pin_block_of_wide_inst`) reaches only the members and is
+therefore not what this step should produce; the two theorems take the
+SAME hypothesis list, so the change is in the conclusion alone.
 
 Everything the RUN already holds about a group is discharged here from
-`GroupFacts` and from `NestedLfpOk`; what is left in the signature is
-exactly what step (4) is waiting for, and every one of them is a fact
-about the instance closure `σ` or about the copies' entries.
+`GroupFacts`, from `NestedLfpOk` and from the run record itself; what
+is left in the signature is exactly what step (4) is waiting for, and
+every one of them is a fact about the instance closure `σ`, about the
+copies' entries, or about K.41/K.75 — which `NestedPinsRun` does not
+carry (`DeclNestedCore.lean` drops `nestedPinRootPairOk` at the
+destructuring).
 
 * **`hinjJ`** — the class reader's injection at the WIDE width.  At a
   member class it is `injT_of_mem` over `NestedPinGroupSyn.inj` and
@@ -198,8 +221,12 @@ about the instance closure `σ` or about the copies' entries.
   `PinRecLaws`/`PinShapes` and is not on `GroupFacts`.
 * **`hσ`/`hroot`/`hIsσ`** — the instance closure itself: the
   container's classes mapped into the block's pins, contiguous on the
-  members, index sets matched.  This is the σ CLAUSE the lane is adding
-  to `NestedPinGroupIds`/`NestedPinsIdent`'s fourth conjunct.
+  members, index sets matched.  `hσ`/`hroot` (and `hstgt`/`houtσ`
+  below) now have a run producer that NAMES the closure,
+  `NestedPinsRun.pinGroupCover_of` (`NestedInstMap.lean`), reached
+  through `nestedClassPinAt_of_run`; `hIsσ` is the one of the four that
+  is not a run fact — it equates two index SETS — and every consumer
+  holds the group records it is proved from.
 * **`hrowsσ`** — the container's rows are constant along σ's fibres
   (`rowsσ_of_pin_class`).
 * **`hstgt`/`houtσ`** — K.61's and K.62's run halves
@@ -213,14 +240,15 @@ about the instance closure `σ` or about the copies' entries.
   the assembly above hands the first as `hIHeq` at `Pf := pinLfp …`
   (its scope is `NestedOutScope`, the same predicate both speak of),
   and the second is the theorem `pinLfp_group`.
-* **`hrootGrp`/`hedgeAt`/`hed`/`hrank`/`hK29`/`hK62`/`hK75pool`/`hK75grp`/`hpinsLen`**
+* **`hrootGrp`/`hed`/`hrank`/`hK29`/`hK62`/`hK75pool`/`hK75grp`/`hpinsLen`**
   — what `hout` cost once IT became derived too.  `hrootGrp` is the
   root-only restriction: the group `q₀` IS its instance's root group,
-  which K.41 (`nestedPinRootPairOk_inv`) hands at every pin.  `hedgeAt`
-  is the only PLUMBING item among them — the K.32-shaped lookup bridge
-  between the model's spellings and `nestedPinEdges`' own lookups,
-  whose theorem (`nestedPinEdges_mem`, `Verify/Inductives/NestedInv.lean`)
-  is in the tree and whose matching belongs in `NestedCopyInst.lean`.
+  which K.41 (`nestedPinRootPairOk_inv`) hands at every pin.  The
+  PLUMBING item that used to stand beside them, `hedgeAt`, is gone
+  (task #315 WIDE (f7)): the K.32-shaped lookup bridge between the
+  model's spellings and `nestedPinEdges`' own lookups is
+  `NestedPinsRun.edgeAt` (`NestedInstMap.lean`), built here from `R`
+  and `SF`.
   The two K.75 clauses are measured at zero fires on the shadow suite,
   `init-full` and Mathlib in both modes (DESIGN's WIDE (f4) row), and
   clause (2) is carried on its design argument: the corpus does not
@@ -240,12 +268,18 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
       fvsPF xFvsF xrestF eissF tssF)
     (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hbk : b.k = p.k + pinsS.length)
-    (m : EnvModel V env₂)
-    {st : ElimState} {stored : List AuxStored} (dJf : Nat → BlockModel V)
+    {st : ElimState} {stored : List AuxStored}
+    (R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
+      kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁')
+    (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁')
+    (dJf : Nat → BlockModel V)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
-      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+      q = q₀ + i ∧ i < kJ ∧ GF st mp₁'.base2 q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    {q₀ kJ : Nat} (G : GF st mp₁'.base2 q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
     {σ : Nat → Nat}
     -- the class reader's injection at the WIDE width, at a class of
     -- the wide space (the bound arrived with the widened
@@ -274,13 +308,13 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
     -- mint group (DESIGN's WIDE (f3) row, `nested_p04`), so the step
     -- runs at the instance's ROOT group: `hrootGrp` says so, and
     -- `nestedPinsOut_of_root` builds `hout` there from the EDGE half
-    -- (`hedgeAt`, the K.32-shaped lookup bridge, whose theorem is
-    -- `nestedPinEdges_mem` and whose plumbing lives in
-    -- `NestedCopyInst.lean`) and the LABEL half
+    -- (`NestedPinsRun.edgeAt`, the K.32-shaped lookup bridge over
+    -- `nestedPinEdges_mem`, built below from `R`/`SF`) and the LABEL
+    -- half
     -- (`ConLeche.nestedPinOutLabel`: K.66, K.75's two clauses and the
     -- roots table's constancy on an instance).
     (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
-      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+      mp₁'.base2.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
     {edges : List (Nat × Nat × Bool)}
     (hed : ConLeche.nestedPinEdges env p b st stored = some edges)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
@@ -297,21 +331,11 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
         mi.contains t' = false)
     (hpinsLen : st.pins.length = pinsS.length)
     (hrootGrp : (ConLeche.nestedPinRootGroup env p b st stored).getD (q₀ + i) none = some q₀)
-    (hedgeAt : ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
-      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
-      (((dJf q₀).rss i').getD j []).getD l false = false →
-      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
-      ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k < pinsS.length ∧
-        (q₀ + i', (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k, false) ∈ edges))
     {Pf : Nat → V}
     (hIH : ∀ q', q' < pinsS.length →
       NestedOutScope env p b st stored edges pinsS.length (q₀ + i) q' →
       Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
-    (hPfGroup : ∀ a kk, GF st m a kk (dJf a) → ∀ i', i' < kk →
+    (hPfGroup : ∀ a kk, GF st mp₁'.base2 a kk (dJf a) → ∀ i', i' < kk →
       Pf (a + i') = lfpTuple (f₀.s.eval ψ) (dJf a).k
         ((dJf a).idx (((D).pinAt (a + i')).ψJ ψ)
           (consList ((((D).pinAt (a + i')).Ds ψ).map (interp V ρp)) ρp))
@@ -367,23 +391,52 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
       ↔ (j < ((dJf q₀).ctorsT (dJf q₀).pinCtors i').length ∧
           (dJf q₀).ChainFitT (dJf q₀).pinCtors (((D).pinAt (q₀ + i)).ψJ ψ)
             (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) Y t i' j fs)) :
-    (D).pinCar ψ ρp (lfpTuple ((D).w ψ) (D).k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
-      = pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (q₀ + i) := by
+    ∀ c, c < (dJf q₀).k + (dJf q₀).nPins →
+      lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+        = (dJf q₀).famAt (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)
+            (lfpTuple ((dJf q₀).w (((D).pinAt (q₀ + i)).ψJ ψ)) (dJf q₀).k
+              ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+                (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+              ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+                (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))) c := by
+  -- **THE EDGE, BUILT AND NOT ASSUMED** (task #315 WIDE (f7), lane
+  -- WIRE): `NestedPinsRun.edgeAt` (`NestedInstMap.lean`) is the
+  -- K.32-shaped lookup bridge — an `ordF`-right copy field IS a
+  -- not-own row of `nestedPinEdges` and its target IS a pin — so the
+  -- step reads it off the RUN record instead of taking it.
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  have hedgeAt : ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
+      ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k < pinsS.length ∧
+        (q₀ + i', (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k, false) ∈ edges) := by
+    intro i' j hi' hj l hl h1 h2 h3
+    refine R.edgeAt SF G.syn hPD R.h.classify hed ψ hi' ?_ ?_ hj hl h1 h2 h3
+    · have hgb := (G.syn.grp i' hi').1
+      rw [← pinAtE_eq] at hgb
+      exact hgb
+    · exact fun ciJ hciJ => G.syn.modeled i' hi' ciJ hciJ
   -- **THE SCOPE, SPENT AT ONCE** (task #315 WIDE, the merge session):
   -- `nestedPinsOut_of_root` puts an `ordF`-right target in the rank
   -- induction's scope, `hedgeAt` carries its bound, and `hIH` turns the
   -- pair into the EQUALITY the entry producer now asks for -- `S` is
   -- no longer a premise anywhere below `nestedTargetReads_L`.
-  have hscopeOut := nestedPinsOut_of_root m hed hrank hK29 hK62 hK75pool hK75grp hpinsLen
+  have hscopeOut := nestedPinsOut_of_root mp₁'.base2 hed hrank hK29 hK62 hK75pool hK75grp hpinsLen
     dJf G hi hrootGrp hedgeAt
-  have hent := nestedPinsEntryOrd_of hμ h hbk m hleafM dJf hgroups hρp hPfGroup G hi
+  have hent := nestedPinsEntryOrd_of hμ h hbk mp₁'.base2 hleafM dJf hgroups hρp hPfGroup G hi
     (fun i' j hi' hj l hl h1 h2 h3 =>
       hIH _ (hedgeAt i' j hi' hj l hl h1 h2 h3).1 (hscopeOut i' j hi' hj l hl h1 h2 h3))
   have hkE : (dJf q₀).k = kJ := G.syn.kEq
   subst hkE
   have hseg := G.syn.seg
   have hkpos := G.syn.kpos
-  have hOk := nestedLfpOk_of_formers h hμ hbk ψ ρp hρp (nestedPinsBound m dJf hgroups hρp)
+  have hOk := nestedLfpOk_of_formers h hμ hbk ψ ρp hρp (nestedPinsBound mp₁'.base2 dJf hgroups hρp)
   have hρp' : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp := hρp
   obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, -⟩ := G.syn.stored i hi
   have hρJ : Sat V ((dJf q₀).params (((D).pinAt (q₀ + i)).ψJ ψ)).reverse
@@ -391,14 +444,9 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
     obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
     subst hρe
     exact (dJf q₀).satOfSpine (G.syn.DsFit i hi ψ ρ as hsp)
-  have hwide : (D).pinCar ψ ρp
-        (lfpTuple ((D).w ψ) (D).k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
-      = lfpTuple ((dJf q₀).w (((D).pinAt (q₀ + i)).ψJ ψ)) (dJf q₀).k
-          ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
-            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
-          ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
-            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i :=
-    ofNested_pin_block_of_wide_inst (V := V) (m := m) (σ := σ) m.acval
+  intro c hc
+  exact ofNested_pin_block_of_wide_inst_famAt (V := V) (m := mp₁'.base2) (σ := σ)
+    mp₁'.base2.acval
     (dJ := dJf q₀) (ψJ := ((D).pinAt (q₀ + i)).ψJ ψ) (Ds := ((D).pinAt (q₀ + i)).Ds ψ)
     (DsE := ((D).pinAt (q₀ + i)).DsE) (lpsJ := cvT.levelParams)
     (lvlsJ := ((D).pinAt (q₀ + i)).lvls)
@@ -410,8 +458,89 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
     hρJ (fun i' hi' => G.idx i hi ψ i' (by omega))
     (fun i' hi' j => ownCtors_grp h3 h.lenA ψ (G.syn.ctorCount i' (by omega)) j)
     (fun i' hi' j hj => G.shape i hi cvT caps hfind ψ ρp hρp' i' j (by omega) hj)
-    hent hstgt houtσ hpin (i := i) (by omega)
-  rw [hwide, pinLfp_group G hi, G.syn.w i hi ψ]
+    hent hstgt houtσ hpin hc
+
+
+/-! ## The covering, at the RUN
+
+`nestedClassPinAt_of_instMap` (`NestedEntryOrd.lean`) is stated at six
+inputs that all EXIST at the run and none of which is in the run's own
+vocabulary.  This is where three of them stop being hypotheses:
+`NestedPinsRun.pinGroupCover_of` (`NestedInstMap.lean`) hands the
+instance map together with `hmmIdx`, `hψR` and `hcorr`, and what is
+left named is the closure `σ` and its two halves.
+-/
+
+/-- **K.41's COVERING AT A PIN, FROM THE RUN — WITH THE CLOSURE IT IS
+COVERED BY** (task #315 WIDE (f8)/(f10), lane WIRE):
+`nestedClassPinAt_of_instMap` with FIVE of its six inputs discharged,
+and the instance closure `σ` handed over with the facts the WIDE
+identification asks of the same function.
+
+`NestedPinsRun.pinGroupCover_of` (`NestedInstMap.lean`) is the whole
+producer: it names `pinGroupInst_of`'s own closure instead of hiding it
+behind `PinGroupInst`'s existential, and carries beside it the map, the
+covering's `hroot`/`hpinσ`/`hmmIdx`/`hψR`/`hcorr` and the
+identification's `hσ`/`hstgt`/`houtσ`.  The σ this theorem RETURNS is
+therefore the one the per-instance step must be applied at — which is
+why it is returned and not quantified away.
+
+**What is still named**: `hpool`, K.75's clause (1) at the pin.  Its
+inversion reads the kernel Bool `nestedPinPoolGrpAt`, and
+`NestedPinsRun` carries no K.41/K.75 field — which is also why
+`nestedPinWideStep` takes `hK75pool`/`hK75grp`/`hrootGrp`.  Adding the
+conjunct is a `NestedPins.lean` change.  It is taken here in the form
+"at the group's own map", so that the caller need not name the map
+either.
+
+The model-side records (`GR`/`CR`/`hB`/`hshR`/`hgroups`) are the ones
+every consumer at this layer already holds. -/
+theorem nestedClassPinAt_of_run
+    {st : ElimState} {stored : List AuxStored}
+    (R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
+      kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁')
+    (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁')
+    {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st mp₁'.base2 q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V}
+    {r kR : Nat} (GR : GF st mp₁'.base2 r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled mp₁'.base2 ciR (dJf r))
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf mp₁'.base2 B)
+    {pcR : Nat → PinCtors V} (hshR : PinShapes mp₁'.base2 B (dJf r) pcR)
+    {q : Nat} (hq : q < pinsS.length)
+    (hpool : ∀ mm : List Nat, ConLeche.nestedInstMapAt env st r = some mm →
+      (∃ i, i < kR ∧ q = r + i) ∨ mm.contains q = true) :
+    ∃ σ : Nat → Nat,
+      (∀ c, c < (dJf r).k → σ c = p.k + r + c) ∧
+      (∀ c, c < (dJf r).k + (dJf r).nPins → σ c < p.k + pinsS.length) ∧
+      (∀ (φ : Name → Nat) (i' : Nat), i' < kR → ∀ j, j < ((dJf r).ctorsM i').length → ∀ l,
+        l < (((dJf r).Fss i' (((D).pinAt r).ψJ φ)).getD j []).length →
+        (((dJf r).rss i').getD j []).getD l false = true →
+        ¬ (dJf r).tgts i' j l < (dJf r).k →
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + r + i') + j) []).getD l 0 = σ ((dJf r).tgts i' j l)) ∧
+      (∀ (φ : Name → Nat) (i' : Nat), i' < kR → ∀ j, j < ((dJf r).ctorsM i').length → ∀ l,
+        l < (((dJf r).Fss i' (((D).pinAt r).ψJ φ)).getD j []).length →
+        (((dJf r).rss i').getD j []).getD l false = false →
+        ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + i') + j) []).getD l false = true →
+        ¬ ∃ c, c < (dJf r).k + (dJf r).nPins ∧
+          σ c = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + r + i') + j) []).getD l 0) ∧
+      ∃ c, c < (dJf r).k + (dJf r).nPins ∧
+        ClassPinAt (ConLeche.consMutualFormers (fms.take p.k) env) (D) (dJf r) ψ
+          (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q ∧
+        σ c = p.k + q := by
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  obtain ⟨σ, mm, lpsR, hmap, hroot, hpinσ, hσ, hmmIdx, hψR, hcorr, hstgt, houtσ⟩ :=
+    R.pinGroupCover_of SF GR.syn hPD
+  exact ⟨σ, hroot, hσ, hstgt, houtσ,
+    nestedClassPinAt_of_instMap (ρp := ρp) mp₁'.base2 hgroups GR CR hB hshR
+      hroot hpinσ hmmIdx (hψR ψ) (fun qK hqK => hcorr qK hqK ψ) hq (hpool mm hmap)⟩
+
 
 end Step4
 

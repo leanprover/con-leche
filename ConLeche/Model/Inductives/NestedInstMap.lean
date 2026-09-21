@@ -855,6 +855,205 @@ theorem NestedPinsRun.copyPinFInstTgtRefl {pbs : List (Expr × ConLeche.BinderMe
     rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
   exact ⟨mm, hmapAt, by rw [htg, ← hqKeq]; exact hmapVal⟩
 
+/-- **THE `ordF`-RIGHT FIELD IS A NOT-OWN EDGE, AND ITS TARGET IS A PIN**
+(task #315 WIDE (f7), lane WIRE): at a field of the container that is
+ORDINARY and whose COPY the auxiliary block classifies
+recursive-or-reflexive at a target outside the block's own members —
+the `ordF`-RIGHT arm — the pair (the copy's own pin, the target read as
+a pin number) is a row of `nestedPinEdges` with the `own` bit `false`,
+and the target really is a pin of the auxiliary block.
+
+This is the K.32-shaped lookup bridge the per-instance step
+(`nestedPinWideStep`, `NestedPinsLeInd.lean`) asks for as `hedgeAt`,
+and it is `copyOrdFOutside`'s own prologue stopped one step earlier:
+that theorem reads K.62 AT this row, this one hands the row over.  The
+three pieces beyond the shared prologue are
+
+* the GUARD BRIDGE.  The step states the container's side as
+  `rss = false` — the shape `CopyEntryAOrd`'s guard has — and
+  `ContainerModeled.ordFree` wants `ksF … = .ordinary`.  `rsOf` is
+  `false` at `.negative` and `.unsupported` too, so the two are not the
+  same statement; `BlockOpened.kinds` is what rules the other two out,
+  and the block's own side (`blkRss = true`) is read by
+  `blkRss_getD`/`rsOf_getD` exactly as `copyOrdFOutside` reads it.
+* the ROW'S OWN BIT.  `nestedPinEdges_mem` computes it as
+  `mentionsMember` of the container's own group names at the
+  CONTAINER's stored field domain; `ContainerModeled.ordFree` states
+  the same mention `false` on the field's OPENED domain, which is the
+  stored one substituted (`blockCtorFieldDomain`), and a mention
+  survives a substitution (`mentionsMember_instSeq_false`).
+* the TARGET'S BOUND.  `NestedPinsRun.copyTgtLt` — the classification's
+  targets are members of the auxiliary block and the block's members
+  are `p.k` formers followed by one mimic per pin
+  (`MutualFormersFacts.ksJ`, `MutualFormersFacts.lenFms`) — with the
+  field's own `p.k ≤ t`.
+
+`copyOrdFOutside` is stated below in terms of this theorem, so the
+prologue is written once. -/
+theorem NestedPinsRun.edgeAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {edges : List (Nat × Nat × Bool)}
+    (hed : ConLeche.nestedPinEdges env p b st stored = some edges)
+    (ψ : Name → Nat) {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} (hj : j < (dJ.ctorsM i').length) {l : Nat}
+    (hlF : l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true)
+    (hordC : ((dJ.rss i').getD j []).getD l false = false)
+    (hpk : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k) :
+    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k < pinsS.length ∧
+      (q₀ + i', ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k, false) ∈ edges := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hq
+  obtain ⟨cAJ, hjg⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hj⟩
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hjg
+  have CMci : ContainerModeled mp₁'.base2 ci dJ := CM ci hciP
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hjg
+  obtain ⟨cbs, esJ, hstripJ, -⟩ := hCD.resid
+  have hcbsLen : cbs.length = dJ.nP + cAJ.2 := Expr.stripPis_length _ hstripJ
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  -- the field index, at the container's own field count
+  have hnFeq : mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) = cAJ.2 := by
+    show (ctorsA.getD _ default).2 = _
+    rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some, hcAnF]
+  have hlF' : l < cAJ.2 := by
+    rw [blkFss0_getD hGlt, shadowFs_length] at hlF
+    omega
+  -- **THE GUARD BRIDGE**: the container's `rss` is `false` at three
+  -- kinds and `ordFree` speaks at one; `BlockOpened.kinds` rules the
+  -- other two out
+  have hordC' : (dJ.ksF i' j).getD l .ordinary = .ordinary := by
+    have hks : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF'
+    rw [BlockModel.rss, rssOfK_getD hj, rsOf_getD hks, decide_eq_false_iff_not] at hordC
+    rcases hCD.opened.kinds l hlF' with h | h | h
+    · exact h
+    · exact absurd (Or.inl h) hordC
+    · exact absurd (Or.inr h) hordC
+  obtain ⟨kindsP, hkP, hkPlen⟩ := ConLeche.nestedPinKindsOk_inv R.hkinds
+  have hkqlt : q₀ + i' < kindsP.length := by rw [hkPlen]; exact hq
+  have hkq : kindsP[q₀ + i']? = some (kindsP[q₀ + i']'hkqlt) :=
+    List.getElem?_eq_getElem hkqlt
+  obtain ⟨a, ha, hkget⟩ := ConLeche.nestedPinKinds_get hkP hkq
+  have ha' : stored[p.k + q₀ + i']? = some a := by
+    rw [show p.k + q₀ + i' = p.k + (q₀ + i') from by omega]; exact ha
+  obtain ⟨hactor, hall⟩ :=
+    ConLeche.auxStored_ctor_eq R.haux R.hformers R.hctorsA R.h3 R.hstored ha'
+  have hjA : j < a.ctors.length := by rw [hactor, ← S.ctorCount i' hi']; exact hj
+  obtain ⟨ac, hac⟩ : ∃ c, a.ctors[j]? = some c := ⟨_, List.getElem?_eq_getElem hjA⟩
+  obtain ⟨acv, acnP, acnF⟩ := ac
+  obtain ⟨cA', hcA', hcv, -, hnf'⟩ := hall j _ hac
+  have hcAeq : cA' = cA := Option.some.inj (hcA'.symm.trans hcA)
+  rw [hcAeq] at hcv hnf'
+  obtain ⟨hmapM, -, -, -⟩ := ConLeche.classifyMutualKinds_inv hkindsRun
+  obtain ⟨ksG, hksG, hmk⟩ :=
+    ConLeche.mapM_option_inv hmapM (b.ownOffset (p.k + q₀ + i') + j) cA hcA
+  have hmutKs : mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j) = ksG := by
+    show kinds.getD _ [] = _
+    rw [List.getD_eq_getElem?_getD, hksG]; rfl
+  have hkfj : (kindsP[q₀ + i']'hkqlt)[j]? = some ksG := by
+    rw [hkget j acv acnP acnF hac, ← hmk]
+    simp only at hcv hnf' ⊢
+    rw [hcv, hnf']
+  obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+  have hlks : l < ksG.length := by rw [← hmutKs, hksLen, hcAnF]; exact hlF'
+  obtain ⟨rt, hrt⟩ : ∃ rt, ksG[l]? = some rt := ⟨_, List.getElem?_eq_getElem hlks⟩
+  obtain ⟨r, t⟩ := rt
+  have htg : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = t := by
+    rw [mutTgts_getD hGlt (show l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) from by
+      omega)]
+    show ((mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)).2 = t
+    rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
+  -- **THE TARGET'S BOUND**: the classification's targets are the
+  -- auxiliary block's members, and those are `p.k` formers and one
+  -- mimic per pin
+  have hlt : t - p.k < pinsS.length := by
+    have := R.copyTgtLt SF S hPD hi' hjg l
+    rw [htg] at this
+    omega
+  rw [htg] at hpk ⊢
+  have hge : p.k ≤ t := Nat.not_lt.mp hpk
+  refine ⟨hlt, ?_⟩
+  -- the copy's field is recursive or reflexive
+  have hrr : r = .recursive ∨ r = .reflexive := by
+    rw [blkRss_getD hGlt, rsOf_getD (by rw [kindsOf, List.length_map, hmutKs]; exact hlks),
+      decide_eq_true_eq, kindsOf_getD', hmutKs] at hrss
+    show r = _ ∨ r = _
+    have hka : kindAt ksG l = r := by
+      show (ksG.getD l (.ordinary, 0)).1 = r
+      rw [List.getD_eq_getElem?_getD, hrt]; rfl
+    rw [hka] at hrss
+    exact hrss
+  have hrecB : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
+    rcases hrr with rfl | rfl <;> rfl
+  -- the container's member record at `i'`, positionally, and its constructor
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CMci.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hJ₂name : J₂.name = J.name := by
+    rw [← (CMci.member i' J₂ hJ₂).1, hJname]
+    exact hI.member
+  have hJ₂mem : J₂ ∈ ci.members := List.mem_of_getElem? hJ₂
+  have hjJ₂ : j < J₂.ctors.length := by
+    have hmap := (CMci.member i' J₂ hJ₂).2.1
+    have hlen := congrArg List.length hmap
+    simp only [List.length_map] at hlen
+    omega
+  obtain ⟨cJ, hcJ⟩ : ∃ cJ, J₂.ctors[j]? = some cJ := ⟨_, List.getElem?_eq_getElem hjJ₂⟩
+  have hccJ : cc = cJ :=
+    (ConLeche.containerInfo?_member_ctor_det hciP hciP hJmem hJ₂mem hJ₂name.symm hcc hcJ).2.2.2
+  have hnPci : ci.nP = dJ.nP := CMci.nP.symm
+  have hcJty : cJ.type = cAJ.1.type := by rw [hty, hccJ]
+  have hcJnF : cJ.nFields = cAJ.2 := by rw [hnf, hccJ]
+  obtain ⟨residJ, hsJ⟩ : ∃ residJ, cJ.type.stripPis (ci.nP + cJ.nFields) = some (cbs, residJ) :=
+    ⟨_, by rw [hcJty, hcJnF, hnPci]; exact hstripJ⟩
+  -- the container's abstract field domain, and the opened one it substitutes to
+  obtain ⟨domJ, hdomJ⟩ : ∃ domJ, cbs[dJ.nP + l]? = some domJ :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF')⟩
+  have hdrop : (cbs.drop dJ.nP)[l]? = some domJ := by
+    rw [List.getElem?_drop]; exact hdomJ
+  have hopen : x.fvarTypeD
+      = Expr.instSeq (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) domJ.1 :=
+    blockCtorFieldDomain hCD
+      (show cAJ.1.type.stripPis (dJ.nP + cAJ.2)
+          = some (cbs.take dJ.nP ++ cbs.drop dJ.nP, _) from by
+        rw [List.take_append_drop]; exact hstripJ)
+      (by rw [List.length_take]; omega) hx hdrop
+  -- **THE ROW'S OWN BIT**: an ordinary field mentions no member, on the
+  -- opened domain, hence on the stored one
+  have hmenAbs : ConLeche.mentionsMember (ci.members.map (·.name)) domJ.1 = false := by
+    have hop := CMci.ordFree i' j l x hik hj hx hordC'
+    rw [hopen] at hop
+    rw [← CMci.memberNames_eq]
+    exact ConLeche.mentionsMember_instSeq_false _ _ hop
+  have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
+    (SF.pinRec _ _ PD.pin).1.symm
+  have hmem := ConLeche.nestedPinEdges_mem hed hkP hq PD.pin hkq ha
+    (by rw [hpinJ]; exact hciP)
+    (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
+    (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
+    hkfj hac hcJ hsJ hlks hrt hrecB hge (by rw [hnPci]; exact hdomJ)
+  rw [hmenAbs] at hmem
+  exact hmem
+
 /-- **K.62 AND K.66 AT THE COPY'S FIELD** (task #315 WIDE (3′)): at a
 field of the container that is ORDINARY and whose COPY the auxiliary
 block classifies recursive-or-reflexive at a target outside the block's
@@ -2000,6 +2199,117 @@ theorem NestedPinsRun.instMapPinOwn {pbs : List (Expr × ConLeche.BinderMeta)}
   rw [hψJC φ, hcvTC]
   exact hc
 
+/-- **EVERY VALUE OF THE INSTANCE MAP IS THE MAP'S VALUE AT ONE OF THE
+CONTAINER'S OWN PIN INDICES** (task #315 WIDE (f8), lane WIRE): if the
+map contains `z` at all, it contains it at a POSITION that is a class
+of the container — `qK < dJ.nPins` — so a membership in the map is a
+CLASS of the container and not merely a table position.
+
+This is `nestedClassPinAt_of_instMap`'s `hmmLen` in the only form that
+is provable, and the merge row's "route 2".  **`mm.length ≤ dJ.nPins`
+itself is FALSE in general**: the map is `own.mapM findIdx?` over
+`containerOwnPinsAt`'s table, and nothing bounds that table's length by
+the block model's pin count — `ContainerOwnPinsSyn`'s first clause says
+every entry IS one of the `dJ.nPins` recorded pins, which allows
+repeats and hence a longer table.  What the consumer actually spends
+`hmmLen` on is turning a table position into a class, and that is this
+statement.
+
+The proof is the two clauses of `ContainerOwnPinsSyn` against the
+`mapM`'s pointwise structure: at the position `w` where the map holds
+`z` the table holds some `e`; clause (1) names a class `qK` with
+`e = (dJ.pinAt qK).ownAt …`; clause (2) at THAT class says the table
+holds the same term there; and equal source entries give equal `mapM`
+results, so the map holds `z` at `qK` too. -/
+theorem NestedPinsRun.instMapOwnIdx {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {mm : List Nat} (hmap : ConLeche.nestedInstMapAt env st (q₀ + i') = some mm)
+    {z : Nat} (hz : mm.contains z = true) :
+    ∃ qK, qK < dJ.nPins ∧ mm.getD qK 0 = z := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hqS : q₀ + i' < pinsS.length := by rw [SF.pinsLen]; exact hq
+  have PD := hPD _ hq
+  obtain ⟨hcname, hpinEq⟩ := SF.pinRec _ _ PD.pin
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CM.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hmemJ₂ : dJ.memberName i' = J₂.name := (CM.member i' J₂ hJ₂).1
+  obtain ⟨cvT', caps', cvR, mI, rP, rules, hfindP, hI, hψlaw⟩ := S.stored i' hi'
+  have hCname : (pinsS.getD (q₀ + i') default).J = J₂.name := by
+    rw [← hmemJ₂]; exact hI.member.symm
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, -, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfindC, -, -, -, -, -, -⟩ :=
+    hmembers J₂ (List.mem_of_getElem? hJ₂)
+  have hmem0 : 0 < ci.members.length := by omega
+  obtain ⟨M₀, hM₀⟩ : ∃ M₀, ci.members[0]? = some M₀ :=
+    ⟨_, List.getElem?_eq_getElem hmem0⟩
+  have hhead0 : ci.members.head? = some M₀ := by
+    rw [List.head?_eq_getElem?]; exact hM₀
+  have hDsLen : ((pinsS.getD (q₀ + i') default).DsE).length = dJ.nP := by
+    rw [(SF.pinDs _ hqS (fun _ => 0)).length]
+    exact S.pinDsLen i' hi' (fun _ => 0)
+  have hclosed : ∀ a ∈ (pinsS.getD (q₀ + i') default).DsE, a.looseBVarsBounded 0 = true := by
+    obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
+    have hb := (hsc _ (List.mem_of_getElem? PD.pin)).1
+    rw [hpinEq] at hb
+    exact lbb_mkAppN_args hb
+  have hlds : ConLeche.nestedPinLvlsDs env (pinAtE st (q₀ + i'))
+      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) :=
+    NestedPinsRun.pinLvlsDsAt SF S hPD hi' hciP CM
+  obtain ⟨own, hown⟩ : ∃ own : List Expr,
+      ConLeche.containerOwnPinsAt env (pinsS.getD (q₀ + i') default).J
+        ((pinsS.getD (q₀ + i') default).lvls) ((pinsS.getD (q₀ + i') default).DsE)
+        = some own :=
+    ⟨_, containerOwnPinsAt_eq (by rw [hCname]; exact hfindC) hciP hhead0⟩
+  have hfindM : (ConLeche.consMutualFormers (fms.take p.k) env).find? (dJ.memberName i')
+      = some (.indInfo cvC capsC) := by
+    rw [hmemJ₂, ← hCname]
+    exact R.cross.1 _ _ (fun _ _ _ _ hh => nomatch hh) (by rw [hCname]; exact hfindC)
+  have hpsM : ConLeche.containerOwnPinsAt (ConLeche.consMutualFormers (fms.take p.k) env)
+      (dJ.memberName i') ((pinsS.getD (q₀ + i') default).lvls)
+      ((pinsS.getD (q₀ + i') default).DsE) = some own := by
+    rw [hmemJ₂, ← hCname, R.ownPinsCross (C := (pinsS.getD (q₀ + i') default).J)
+      (by rw [hCname, hfindC]; rfl)]
+    exact hown
+  obtain ⟨hmemCl, hpos⟩ := CM.ownPins i' cvC capsC ((pinsS.getD (q₀ + i') default).lvls)
+    ((pinsS.getD (q₀ + i') default).DsE) own hik hfindM hclosed hpsM
+  -- the map IS the table's `mapM`
+  have hmapM : own.mapM (fun e => st.pins.findIdx? (fun r => r.pin == e)) = some mm := by
+    have h := hmap
+    unfold ConLeche.nestedInstMapAt at h
+    rw [PD.pin] at h
+    simp only [bind, Option.bind] at h
+    rw [hlds] at h
+    simp only at h
+    rw [show (pinAtE st (q₀ + i')).container
+        = (pinsS.getD (q₀ + i') default).J from hcname.symm, hown] at h
+    exact h
+  -- the position the map holds `z` at, and the table's entry there
+  obtain ⟨w, hwlt, hwz⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hz)
+  have hwz' : mm[w]? = some z := by
+    rw [List.getElem?_eq_getElem hwlt, hwz]
+  have hwown : w < own.length := by
+    rw [← ConLeche.mapM_option_length hmapM]; exact hwlt
+  obtain ⟨e, he⟩ : ∃ e, own[w]? = some e := ⟨_, List.getElem?_eq_getElem hwown⟩
+  obtain ⟨z', hz', hfe⟩ := ConLeche.mapM_option_inv hmapM w e he
+  have hzz : z = z' := Option.some.inj (hwz'.symm.trans hz')
+  -- clause (1): the entry is one of the container's recorded pins
+  obtain ⟨qK, hqK, hqKe⟩ := hmemCl e (List.mem_of_getElem? he)
+  -- clause (2) at THAT class: the table holds the same term
+  have hatqK : own[qK]? = some e := by rw [hpos qK hqK hDsLen, hqKe]
+  obtain ⟨z₂, hz₂, hfe₂⟩ := ConLeche.mapM_option_inv hmapM qK e hatqK
+  have hz₂z : z₂ = z' := Option.some.inj (hfe₂.symm.trans hfe)
+  exact ⟨qK, hqK, by rw [List.getD_eq_getElem?_getD, hz₂, Option.getD_some, hz₂z, hzz]⟩
+
+
 /-- **THE TWO σ-FACTS, AND THE MAP'S RANGE** (task #315 WIDE (3′)):
 `rowsσ_of_pin_class`'s `hmemσ` and `hidxσ` at the run's instance map,
 read off `instMapPinOwn` at the group's BASE member and nothing else.
@@ -2398,6 +2708,148 @@ private theorem NestedPinGroupSyn.groupMemberLps {i₀ i' : Nat} (hi₀ : i₀ <
       (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
   obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
   exact hlpsE
+
+/-- **THE COVERING'S RUN-LEVEL INPUTS, AT A GROUP'S BASE** (task #315
+WIDE (f8), lane WIRE): three of the six inputs
+`nestedClassPinAt_of_instMap` (`NestedEntryOrd.lean`) asks for —
+`hmmIdx`, `hψR` and `hcorr` — read off the run record at the group's
+base pin, together with the instance map they all speak of.
+
+* `hmmIdx` is `instMapOwnIdx`: a VALUE of the map is a value at a
+  CLASS of the container;
+* `hψR` is the group's own level reading, `NestedPinGroupSyn.stored`'s
+  third component at the base member, and it is what fixes `lpsR` —
+  the container's own level parameters, read off the stored constant;
+* `hcorr` is `instMapPinOwn` at every own-pin class, with its `mm[qK]?`
+  turned into the `mm.getD qK 0` the covering reads.
+
+**AND THE CLOSURE ITSELF** (task #315 WIDE (f10)).  `hroot`/`hpinσ`
+constrain the instance closure `σ`, and `PinGroupInst`
+(`NestedCore.lean`) carries its witness EXISTENTIALLY — so a consumer
+that holds only that residual can never tie σ to the map `mm` the
+covering reads.  The fix is to hand the witness over, which is what
+this theorem does: σ is `pinGroupInst_of`'s own function
+
+    fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0
+
+named rather than hidden, with the four facts about it that the two
+consumers downstream ask for — the covering's `hroot`/`hpinσ` and the
+wide identification's `hσ`/`hstgt`/`houtσ`.  The last three are
+`instMapSigmaFacts`' range clause, `instTgtAt` and `instOutAt`, exactly
+as `pinGroupInst_of` spends them. -/
+theorem NestedPinsRun.pinGroupCover_of {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q) :
+    ∃ (σ : Nat → Nat) (mm : List Nat) (lpsR : List Name),
+      ConLeche.nestedInstMapAt env st q₀ = some mm ∧
+      (∀ c, c < dJ.k → σ c = p.k + q₀ + c) ∧
+      (∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → σ c = p.k + mm.getD (c - dJ.k) 0) ∧
+      (∀ c, c < dJ.k + dJ.nPins → σ c < p.k + pinsS.length) ∧
+      (∀ z, mm.contains z = true → ∃ qK, qK < dJ.nPins ∧ mm.getD qK 0 = z) ∧
+      (∀ φ : Name → Nat, ((D).pinAt q₀).ψJ φ
+        = Level.substFn φ lpsR (((D).pinAt q₀).lvls)) ∧
+      (∀ qK, qK < dJ.nPins → ∀ φ : Name → Nat,
+        PinCorr ((D).targetView mp₁'.base2.acval φ) mp₁'.base2.acval dJ
+          (((D).pinAt q₀).ψJ φ) (((D).pinAt q₀).Ds φ) lpsR (((D).pinAt q₀).lvls)
+          (p.k + mm.getD qK 0) qK) ∧
+      (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+        l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+        ((dJ.rss i').getD j []).getD l false = true →
+        ¬ dJ.tgts i' j l < dJ.k →
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = σ (dJ.tgts i' j l)) ∧
+      (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+        l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+        ((dJ.rss i').getD j []).getD l false = false →
+        ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+        ¬ ∃ c, c < dJ.k + dJ.nPins ∧
+          σ c = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) := by
+  classical
+  have hq0 : q₀ + 0 < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; have := S.kpos; omega
+  obtain ⟨hcname, -⟩ := SF.pinRec _ _ (hPD _ hq0).pin
+  obtain ⟨ci, hci0, -⟩ := (hPD _ hq0).own
+  have hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + 0) default).J = some ci := by
+    rw [hcname]; exact hci0
+  have CM : ContainerModeled mp₁'.base2 ci dJ := S.modeled 0 S.kpos ci hciP
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, -, hψlaw⟩ := S.stored 0 S.kpos
+  -- the group's own instance map
+  obtain ⟨mm, hmm⟩ : ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm := by
+    cases hms : ConLeche.nestedInstMaps env st with
+    | none =>
+      have hK61 := R.hK61
+      unfold ConLeche.nestedInstMapOk ConLeche.nestedInstMapOkAt at hK61
+      rw [hms] at hK61; simp at hK61
+    | some maps =>
+      obtain ⟨m, -, hm⟩ := ConLeche.mapM_option_inv hms (q₀ + 0) (q₀ + 0)
+        (by rw [List.getElem?_range (by omega)])
+      exact ⟨m, hm⟩
+  -- the container records at every member, and the group's bases
+  have hqAt : ∀ i', i' < kJ → q₀ + i' < st.pins.length := by
+    intro i' hi'; rw [← SF.pinsLen]; have := S.seg; omega
+  have hci : ∀ i', i' < kJ → ∃ ci' : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci' ∧
+      ContainerModeled mp₁'.base2 ci' dJ := by
+    intro i' hi'
+    obtain ⟨hcname', -⟩ := SF.pinRec _ _ (hPD _ (hqAt i' hi')).pin
+    obtain ⟨ci', hci0', -⟩ := (hPD _ (hqAt i' hi')).own
+    have hciJ : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci' := by
+      rw [hcname']; exact hci0'
+    exact ⟨ci', hciJ, S.modeled i' hi' ci' hciJ⟩
+  have hgb : ∀ i', i' < kJ → (pinAtE st (q₀ + i')).grpBase = q₀ := by
+    intro i' hi'
+    have h := (S.grp i' hi').1
+    rw [← pinAtE_eq] at h
+    exact h
+  obtain ⟨hrange, -, -⟩ := R.instMapSigmaFacts SF S hPD hci hfind hmm
+  refine ⟨fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0,
+    mm, cvT.levelParams, hmm, fun c hc => if_pos hc, fun c hc _ => if_neg hc, ?_,
+    fun z hz => R.instMapOwnIdx SF S hPD S.kpos hciP CM hmm hz, hψlaw, ?_, ?_, ?_⟩
+  · -- `hσ`: every class has a block class
+    intro c hc
+    dsimp only
+    by_cases hcm : c < dJ.k
+    · rw [if_pos hcm]
+      have hck : c < kJ := by rw [← S.kEq]; exact hcm
+      have := S.seg
+      omega
+    · rw [if_neg hcm]
+      have := hrange (c - dJ.k) (by omega)
+      omega
+  · -- `hcorr`
+    intro qK hqK φ
+    obtain ⟨mm', σq, hmm', hmmqK, -, -, hrest⟩ :=
+      R.instMapPinOwn SF S hPD S.kpos hciP CM hqK hfind
+    have hmmeq : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    rw [hmmeq] at hmmqK
+    have hval : mm.getD qK 0 = σq := by rw [List.getD_eq_getElem?_getD, hmmqK]; rfl
+    rw [hval]
+    exact (hrest φ).2
+  · -- `hstgt`: `instTgtAt`, at the group's base map
+    intro ψ i' hi' j hj l hl hrs hpinT
+    dsimp only
+    obtain ⟨cAJ, hjA⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cAJ.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci', hciP', CM'⟩ := hci i' hi'
+    obtain ⟨mm', hmm', hval⟩ :=
+      R.instTgtAt SF S hPD R.h.classify hi' (hgb i' hi') hciP' CM' hciP CM hfind hjA hlF hrs hpinT
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    rw [hval, if_neg hpinT]
+  · -- `houtσ`: `instOutAt`, at the group's base map
+    intro ψ i' hi' j hj l hl hord hrss
+    dsimp only
+    obtain ⟨cAJ, hjA⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cAJ.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci', hciP', CM'⟩ := hci i' hi'
+    obtain ⟨mm', hmm', hout⟩ :=
+      R.instOutAt SF S hPD R.h.classify hi' (hgb i' hi') hciP' CM' hciP CM hfind hjA hlF hord hrss
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    exact hout
+
 
 /-- **THE σ CLAUSE, ASSEMBLED AT ONE GROUP** (task #315 WIDE (3′)):
 `PinGroupInst` from the four run halves and nothing else — `hroot` is
