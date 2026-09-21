@@ -55,6 +55,14 @@ The parts, in the order they compose:
 * **§5 the regimes at the run**: IND (`blockRecPre_ind_run`) and the
   `hpre` shape `blockRecStaged_run` consumes
   (`blockRecPre_run_allProp`).
+
+Session 2 adds the other two regimes and the dispatch: §7 the leaf's
+dummy-to-real bridge and §8 `BlockModelAt` from the stages' three
+records, §9 the WF kit's motive, §10 the equation list's
+bit-validity, §11 the WF kit's step and the kit, §12 the kit at every
+prefix spine (M5m's O-3), §13 the regime arm over an ABSTRACT step,
+§14 regime SQ (the source spine, where `mkInj` fails), and §15 the
+dispatch `blockRecPre_run`/`blockRecPre_hpre`.
 -/
 
 namespace ConLeche.Model
@@ -1037,7 +1045,7 @@ end Kit
 
 end WfStep
 
-/-! ## 12. The kit FAMILY, and the WF regime at the run
+/-! ## 12. The kit FAMILY at every prefix spine
 
 `RecFamData.kit` is total over prefix spines (M5m's O-3).  With the
 index sets guarded (§3, `blockRecIs`) a spine whose parameters do not
@@ -1136,7 +1144,7 @@ theorem blockWfKitFam_st (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo 
 
 end WfFam
 
-/-! ## 13. The WF regime at the run
+/-! ## 13. The regime arm, over an ABSTRACT step
 
 `blockRecPre_kit`'s `hst` is the kit's step at the rule's own tagged
 element, and §11's `blockRecStep_at` computes it — once the rule's
