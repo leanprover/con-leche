@@ -634,4 +634,141 @@ theorem ofNested_wide_famAt
 
 end WidePin
 
+/-! ## (R2): the ROOT's wide identification, read at a block pin
+
+The two halves are in the tree already and this is the join.  At a
+`ClassPinAt` pair `(c, q)` of the instance's root group,
+`nestedPinFam_of_classPin` says the pin's own least tuple `pinLfp … q`
+IS the root container's extended carrier at class `c`; `ofNested_wide_famAt`
+says the BLOCK's auxiliary carrier at position `σ c` is that same
+extended carrier.  With `σ c = p.k + q` — the instance closure landing
+class `c` on the block pin the pairing named — the two compose into the
+identification the rank induction wants AT THE PIN, and it is the
+ROOT's identification that produced it: no per-group step at `q`'s own
+mint group occurs anywhere in the chain.
+-/
+
+section RootClass
+
+variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : MutualBlock}
+  {fms : List MutualFormerA} {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+  {sortss : List (List Level)} {kinds : List (List (RecFieldKind × Nat))}
+  {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+  {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
+  {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+  {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+  {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+  {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+  {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+  {ctorsR : List (List (ConstantVal × Nat × Nat))}
+  {dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {xFvsR : Nat → Nat → List Expr}
+  {pinsS : List PinSyn} {env₂ : Env}
+
+local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+  srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+
+local notation "GF" => GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
+  (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
+  (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+  (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+
+local notation "ΨA" => nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
+  (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+  (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+  (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
+  (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
+
+/-- **(R2): THE ROOT'S IDENTIFICATION, AT A BLOCK PIN OF ITS INSTANCE**
+(task #315 WIDE (f3), lane DOM): at a `ClassPinAt` pair `(c, q)` of the
+instance's root group `r`, and with the instance closure `σ` taking the
+root's class `c` to the block position of pin `q`, the pin's own least
+tuple IS the block's auxiliary carrier there.
+
+This is the equality `nestedPinsLe_of_wide`'s `hwide` asks for at `q`
+(its `pinCar` form is `ofNested_pinCar_lfp` away), produced at the
+ROOT's wide identification instead of at `q`'s own mint group.  Every
+hypothesis but `hcp` and `hσc` is `ofNested_wide_famAt`'s, and those
+two are K.41's pairing and the closure's own landing. -/
+theorem nestedPinLfp_of_root_class {ψ : Name → Nat} {ρp : Nat → V}
+    (hOk : NestedLfpOk (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp))
+    (m : EnvModel V env₂) {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    (hρp : Sat V ((D).params ψ).reverse ρp)
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    (hdJfB : ∀ (q₀ kJ iq : Nat) (ci : ContainerInfo), iq < kJ → GF st m q₀ kJ (dJf q₀) →
+      ConLeche.containerInfo? env₂ ((D).pinAt (q₀ + iq)).J = some ci → dJf q₀ = B ci)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
+    {σ : Nat → Nat}
+    (hw : (dJf r).w (((D).pinAt r).ψJ ψ) = (D).w ψ)
+    (hσ : ∀ i, i < (dJf r).k + (dJf r).nPins → σ i < p.k + pinsS.length)
+    (hmonoJ : MonoTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
+    (hmapsJ : MapsTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
+    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) L)
+    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+        ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) Y →
+      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
+      FibreConst σ ((dJf r).k + (dJf r).nPins)
+        ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y))
+    (hIs : ∀ i, i < (dJf r).k + (dJf r).nPins →
+      (D).idx ψ ρp (σ i) = (dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) i)
+    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+        (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
+      TupleLe ((dJf r).k + (dJf r).nPins) (fun i => (D).idx ψ ρp (σ i)) Y
+        (lfpTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
+          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) →
+      ∀ i, i < (dJf r).k + (dJf r).nPins →
+      ΨA ψ ρp (setJoin σ ((dJf r).k + (dJf r).nPins)
+          (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+        = (dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y i)
+    (hcomp : (dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+      = composeΦ ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
+          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
+    (hpins : ∀ X q', q' < (dJf r).nPins →
+      (dJf r).pinCar (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) X q'
+        = pinsCar ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
+            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+            ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) X q')
+    (c q : Nat) (hcT : c < (dJf r).kT) (hc : c < (dJf r).k + (dJf r).nPins)
+    (hcp : ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q)
+    (hσc : σ c = p.k + q) :
+    pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+      = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
+  have hwide : lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+      = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+          (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+            ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c := by
+    -- the conclusion is unified with the STATED goal first, which is what
+    -- fixes `BlockModel.ofNested`'s twenty implicit lists: `NestedLfpOk`
+    -- names only some of them, so an `exact` leaves the rest open
+    -- `apply` unifies the CONCLUSION first, which is what fixes the
+    -- twenty implicit lists of `BlockModel.ofNested` that `NestedLfpOk`
+    -- does not name; the goals then come back in the order `apply`
+    -- chooses, so they are closed by name rather than positionally
+    apply ofNested_wide_famAt (dJ := dJf r) (σ := σ)
+    all_goals first
+      | exact hOk | exact hw | exact hσ | exact hmonoJ | exact hmapsJ | exact hclJ
+      | exact hfcJ | exact hIs | exact hΦ | exact hcomp | exact hpins | exact hc
+  rw [nestedPinFam_of_classPin m dJf hgroups hρp hB hdJfB GR hshR c q hcT hcp, ← hwide, hσc]
+
+end RootClass
+
 end ConLeche.Model
