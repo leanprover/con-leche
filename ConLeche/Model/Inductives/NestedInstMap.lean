@@ -2896,9 +2896,11 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     -- and the stored-domain form is FALSE at a bare-parameter field
     -- (`nested_bvar_field`, and `Pair α β` in `nested_pin_nocollide`
     -- and `nested_p04`).  `hheadB`'s producer is `ordBlkHead`
-    -- (WIDE (f3) step 2) and `hflat`'s is the reflexive twin's own
-    -- object (step 4).
-    (hflat : ConLeche.domPiDepth dom.1 = 0)
+    -- (WIDE (f3) step 2).  **FLATNESS IS NO LONGER ASKED** (task #315
+    -- WIDE (f3)): the recursive arm DERIVES it from the copy field's
+    -- own kind (`ConLeche.domPiDepth_eq_zero_of_copyField`, through
+    -- `copyOrdFRightPinOrdTargetReadAt`'s new conjunct) and the
+    -- reflexive arm never wanted it.
     (hheadB : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK)
     -- THE REFLEXIVE ARM KEEPS THE STORED HEAD, UNDER ITS OWN KIND:
@@ -2993,16 +2995,6 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hDL : ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1
       = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 := by
     unfold ConLeche.ordTargetDomL; rw [hlvlsT]
-  -- THE TOWER IS EMPTY BECAUSE THE STORED DOMAIN IS FLAT, and the
-  -- depth is TABLE-INDEPENDENT (task #315 WIDE (f3) step 3(b)) — no
-  -- head of the stored domain is read here any more
-  have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
-      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = 0 := by
-    rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
-  have hstripId : ConLeche.stripDomPis (Expr.instantiateLevelParams J.lps
-      (pinsS.getD (q₀ + i') default).lvls dom.1)
-      = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 :=
-    ConLeche.stripDomPis_of_depth_zero (by rw [← hDL] at *; exact hdep)
   -- THE HEAD'S CONTAINER, OFF THE INSTANCE MAP'S OWN ROW (task #315
   -- WIDE (3), step 1(a) part 3): `instOrdSelfAt` at THIS field.  Its
   -- member arm is excluded by `hpinT` — a member answer makes the
@@ -3026,10 +3018,6 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     obtain ⟨hgb', -⟩ := S.grp i' hi'
     rw [← pinAtE_eq] at hgb'
     exact hgb'
-  have hstripDL : ConLeche.stripDomPis (ConLeche.ordTargetDomL J.lps
-      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1)
-      = ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1 := by
-    rw [hDL]; exact hstripId
   have hhead : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK := hheadB
   have hbase := R.instOrdSelfAt SF S hPD R.h.classify hi' hgbE
@@ -3141,15 +3129,21 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadJ,
     ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadJ, Nat.add_zero]
   rcases hrr with hkA | hkA
-  · obtain ⟨h0, hres⟩ := R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
+  · obtain ⟨h0, hfl, hres⟩ := R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
         obtain ⟨prms, pb₀, ww, stt, hA, hB, hC, -, hE⟩ :=
           R.copyOrdFRightPinRun SF S hPD R.hK51 hi' hjA hlF
             (by rw [hkA]; exact fun hc => nomatch hc) hpinT h1 h2 h3 h4 h5 h6 h7
         exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
-      hkA hpinT hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom) hflat
+      hkA hpinT hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom)
       hheadJ hciM
       ψ ρp hsat fs₁ hfs hfit
+    -- THE TOWER IS EMPTY BECAUSE THE FIELD'S KIND MAKES THE STORED
+    -- DOMAIN FLAT (task #315 WIDE (f3)), and the depth is
+    -- TABLE-INDEPENDENT (`domPiDepth_ordTargetDomL`)
+    have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+        (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = 0 := by
+      rw [ConLeche.domPiDepth_ordTargetDomL]; exact hfl
     refine ⟨by rw [h0, hdep], ?_⟩
     rw [h0, Nat.add_zero]
     exact hres
@@ -3223,10 +3217,10 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (hciC : ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC)
     (hJmC : ciC.members[i']? = some Jm) (hlpsE : Jm.lps = lpsC)
     {K : Name} {usK : List Level}
-    -- flatness, the BLOCK's recomputation head, and the reflexive
-    -- arm's stored head under its own kind (task #315 WIDE (f3)
-    -- step 3(b)) — `ordTgtReadAt`'s own move, at the member arm
-    (hflat : ConLeche.domPiDepth dom.1 = 0)
+    -- the BLOCK's recomputation head and the reflexive arm's stored
+    -- head under its own kind (task #315 WIDE (f3) step 3(b)) —
+    -- `ordTgtReadAt`'s own move, at the member arm.  Flatness is
+    -- DERIVED at the recursive arm (task #315 WIDE (f3)).
     (hheadB : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK)
     (hfinRefl : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -3308,15 +3302,6 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   have hDL : ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1
       = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 := by
     unfold ConLeche.ordTargetDomL; rw [hlvlsT]
-  -- THE TOWER IS EMPTY BECAUSE THE STORED DOMAIN IS FLAT, and the
-  -- depth is TABLE-INDEPENDENT (task #315 WIDE (f3) step 3(b))
-  have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
-      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = 0 := by
-    rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
-  have hstripId : ConLeche.stripDomPis (Expr.instantiateLevelParams J.lps
-      (pinsS.getD (q₀ + i') default).lvls dom.1)
-      = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls dom.1 :=
-    ConLeche.stripDomPis_of_depth_zero (by rw [← hDL]; exact hdep)
   -- THE HEAD'S CONTAINER, OFF THE INSTANCE MAP'S OWN ROW (task #315
   -- WIDE (3), step 1(a) part 3): `instOrdSelfAt` at THIS field.  Its
   -- member arm is excluded by `hpinT` — a member answer makes the
@@ -3340,10 +3325,6 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     obtain ⟨hgb', -⟩ := S.grp i' hi'
     rw [← pinAtE_eq] at hgb'
     exact hgb'
-  have hstripDL : ConLeche.stripDomPis (ConLeche.ordTargetDomL J.lps
-      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1)
-      = ConLeche.ordTargetDomL J.lps (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1 := by
-    rw [hDL]; exact hstripId
   have hhead : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK := hheadB
   have hbase := R.instOrdSelfAt SF S hPD R.h.classify hi' hgbE
@@ -3426,12 +3407,18 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadJ,
     ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadJ, Nat.add_zero]
   rcases hrr with hkA | hkA
-  · obtain ⟨h0, hres⟩ := R.copyOrdFRightMemOrdTargetReadAt SF S hPD hi' hjA hlF
+  · obtain ⟨h0, hfl, hres⟩ := R.copyOrdFRightMemOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
         R.copyOrdFLeftRun SF S hPD R.hK42 hi' hjA hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
-      hkA hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom) hflat
+      hkA hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom)
       hheadJ hKmem
       ψ ρp hsat fs₁ hfs hfit
+    -- THE TOWER IS EMPTY BECAUSE THE FIELD'S KIND MAKES THE STORED
+    -- DOMAIN FLAT (task #315 WIDE (f3)), and the depth is
+    -- TABLE-INDEPENDENT (`domPiDepth_ordTargetDomL`)
+    have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL J.lps
+        (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = 0 := by
+      rw [ConLeche.domPiDepth_ordTargetDomL]; exact hfl
     refine ⟨by rw [h0, hdep], ?_⟩
     rw [h0, Nat.add_zero]
     exact hres
@@ -4505,7 +4492,7 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hgp hgn hciO hm₀ hownT hmapR hqK hqm hfire hrootInst
   -- the block's own reading, and its target
   obtain ⟨z, hz, htg, hEl, hJz, hnPz, hStz, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss
-    hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hflat hheadB hfinRefl
+    hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hheadB hfinRefl
   refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
   -- **K.72's SUM, COLLAPSED AT THIS ROW'S GUARD** (task #315 WIDE (f3),
@@ -4556,11 +4543,11 @@ theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   intro ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip hdom
-    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hflat hheadB hfinRefl
+    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hheadB hfinRefl
   obtain ⟨pbs, -, hPD⟩ := R.pinData
   rw [R.ownPinTerms_eq SF lps] at hheadB
   obtain ⟨z, hz, htg, hEl, -, -, -, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT
-    lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hflat hheadB hfinRefl
+    lps lpsC hjA hstrip hdom hi₀ hciC hJmC hlpsE hheadB hfinRefl
   exact ⟨z, hz, htg, hEl, hOT⟩
 
 /-- **THE OWNER-HALF RESIDUAL AT A MEMBER TARGET, DISCHARGED** (task
@@ -4570,11 +4557,11 @@ theorem nestedPinsOrdTgtMem_of {F : Nat} : NestedPinsOrdTgtMem V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   intro ψ ρp hsat i' hi' j hj l hl hord hrss hmemT cA bs rr dom lps lpsC hjA hstrip hdom
-    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hflat hheadB hfinRefl
+    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hheadB hfinRefl
   obtain ⟨pbs, -, hPD⟩ := R.pinData
   rw [R.ownPinTerms_eq SF lps] at hheadB
   exact R.ordTgtMemReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hmemT lps lpsC hjA hstrip hdom
-    hi₀ hciC hJmC hlpsE hflat hheadB hfinRefl
+    hi₀ hciC hJmC hlpsE hheadB hfinRefl
 
 end ConLeche.Model
 

@@ -535,11 +535,12 @@ off the two wrappers of `NestedCopyInst.lean`. -/
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      -- FLATNESS AND THE BLOCK'S RECOMPUTATION HEAD (task #315 WIDE
-      -- (f3) step 3(b)), the reflexive arm's stored head under its
-      -- own kind — the stored-domain form was FALSE at a
-      -- bare-parameter field
-      ConLeche.domPiDepth dom.1 = 0 →
+      -- THE BLOCK'S RECOMPUTATION HEAD (task #315 WIDE (f3) step
+      -- 3(b)) and the reflexive arm's stored head under its own kind —
+      -- the stored-domain form was FALSE at a bare-parameter field.
+      -- **FLATNESS IS GONE** (task #315 WIDE (f3)): the producer
+      -- derives it from the copy field's own kind, so a `Π`-typed
+      -- container field no longer makes this row vacuous.
       (ConLeche.ordTargetDom lpsC dJ.nP
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)
@@ -599,8 +600,8 @@ rewrite between them (K.42), so there is no pre-block lookup to carry.
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
-      -- task #315 WIDE (f3) step 3(b), `NestedPinsOrdTgt`'s own move
-      ConLeche.domPiDepth dom.1 = 0 →
+      -- task #315 WIDE (f3) step 3(b), `NestedPinsOrdTgt`'s own move;
+      -- flatness is gone for the reason given there
       (ConLeche.ordTargetDom lpsC dJ.nP
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)

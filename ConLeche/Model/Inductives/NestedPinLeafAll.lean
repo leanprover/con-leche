@@ -1665,14 +1665,14 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- environment beyond the reading's own: the pin arm reads the
     -- TARGET PIN's parameter count and the member arm the BLOCK's.
     intro ψ ρp hρp i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm lpsC Jm hJm
-      hlpsE K usK hflat hheadB hfinRefl
+      hlpsE K usK hheadB hfinRefl
     simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc
     by_cases hmemT : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k
     · refine Or.inr ?_
       obtain ⟨mm, hmm, htg, hEl, hOT⟩ := G.ordTgtMem ψ ρp hρp i' hi' j hj l hl hrs hrc hmemT cA bs
         rr dom lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE
-        K usK hflat (by simpa only [nestedPc, ← Nat.add_assoc] using hheadB)
+        K usK (by simpa only [nestedPc, ← Nat.add_assoc] using hheadB)
         (by simpa only [nestedPc, getD_drop, ← Nat.add_assoc] using hfinRefl)
       refine ⟨mm, hmm, ?_, ?_, ?_⟩
       · simp only [nestedPc, ← Nat.add_assoc]
@@ -1684,7 +1684,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     · refine Or.inl ?_
       obtain ⟨z, hz, htg, hEl, hOT⟩ := G.ordTgt ψ ρp hρp i' hi' j hj l hl hrs hrc hmemT cA bs rr
         dom lps lpsC hjA hst hdm i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE
-        K usK hflat (by simpa only [nestedPc, ← Nat.add_assoc] using hheadB)
+        K usK (by simpa only [nestedPc, ← Nat.add_assoc] using hheadB)
         (by simpa only [nestedPc, getD_drop, ← Nat.add_assoc] using hfinRefl)
       refine ⟨z, hz, ?_, ?_, ?_⟩
       · simp only [nestedPc, ← Nat.add_assoc]

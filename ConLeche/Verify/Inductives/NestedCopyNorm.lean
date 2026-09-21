@@ -5,6 +5,8 @@ public import ConLeche.Verify.Inductives.MutualNormPres
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.NestedCopyKinds
+-- the rewrite at a binder, for the recursive field's flatness (task #315 WIDE (f3))
+import ConLeche.Verify.Inductives.NestedCopyRewrite
 -- the `mapM` length, for the jobs' inversion (task #315 M8)
 import ConLeche.Verify.Inductives.NestedElimInv
 -- the container's stored constructors, for the same (task #315 M8)
@@ -2508,5 +2510,109 @@ theorem normPosDomM_openRedPis_ordHeadRed {fms : List MutualFormerA} {env : Env}
                 obtain ⟨rfl, rfl⟩ := hopW
                 obtain ⟨h1, h2, h3⟩ := ih n₂ hbody' hwopen hbopen hq hred hq2 hwc
                 exact ⟨congrArg (· + 1) h1, by rw [h2], h3⟩
+
+
+/-! ## A RECURSIVE COPY FIELD'S CONTAINER DOMAIN IS FLAT (task #315 WIDE (f3))
+
+`ordTgtReadAt` and everything under it used to ASK for the container's
+stored field domain to be `Π`-free (`domPiDepth dom = 0`) — a
+hypothesis threaded through the whole owner-half chain and, at a
+`Π`-typed container field (`tests/e2e/nested_pi_field.ndjson`'s
+`K α | mk (f : Nat → α)`, an official ACCEPT), simply FALSE, which
+made every one of those rows vacuous there.
+
+It was never an assumption: it is a CONSEQUENCE of the copy field's
+own kind.  The mint substitutes into the stored domain, the positivity
+walk hands a `∀` back as a `∀` (`normPosDomM_forallE_inv`: both arms
+rebuild the binder) and so does the rewrite
+(`replaceAllNested_forallE_run`), so a `Π`-typed stored domain gives a
+`Π`-typed copy field — and the classifier calls such a field
+REFLEXIVE, never RECURSIVE: `MutualOpened.recF`'s first conjunct says
+the field's `getAppFn` is a CONSTANT, and a `∀`'s is itself.
+
+So at the recursive arm flatness is free, and at the reflexive one the
+twin never wanted it. -/
+
+/-- **THE WALK KEEPS A `∀` A `∀`** (task #315 WIDE (f3)):
+`normPosDomM`'s two arms at a binder both rebuild it — the member-free
+early return hands the term back, the descent re-closes the body — and
+neither of the mint's two substitutions nor the level instantiation can
+delete one either (`Expr.instSeq_forallE`).  So a `Π`-typed container
+domain gives a `Π`-typed copy field. -/
+theorem normPosDomM_copyField_forallE {env₀ : Env} {memberNames : List Name}
+    {F fuel d : Nat} {vs₁ vs₂ : List Expr} {t₁ t₂ : Nat} {lps : List Name}
+    {lvls : List Level} {dom X w ty bo : Expr} {bm : BinderMeta}
+    (hd : dom = Expr.forallE ty bo bm)
+    (hX : X = Expr.instSeq vs₂ t₂
+      (Expr.instSeq vs₁ t₁ (dom.instantiateLevelParams lps lvls)))
+    (hl₁ : vs₁.length ≤ t₁ + 1) (hl₂ : vs₂.length ≤ t₂ + 1)
+    (hnorm : normPosDomM (m := CheckM) (fueledOps mode F) env₀ memberNames d fuel X = .ok w) :
+    ∃ a b m, w = Expr.forallE a b m := by
+  obtain ⟨bm', hLP⟩ : ∃ m, dom.instantiateLevelParams lps lvls
+      = Expr.forallE (ty.instantiateLevelParams lps lvls)
+          (bo.instantiateLevelParams lps lvls) m :=
+    ⟨{ pw := Level.substPW lps lvls bm.pw },
+      by rw [hd]; simp only [Expr.instantiateLevelParams]⟩
+  rw [hLP, Expr.instSeq_forallE vs₁ t₁ _ _ _ hl₁,
+    Expr.instSeq_forallE vs₂ t₂ _ _ _ hl₂] at hX
+  subst hX
+  rcases normPosDomM_forallE_inv hnorm with ⟨-, rfl⟩ | ⟨-, body', fuel', -, rfl⟩
+  · exact ⟨_, _, _, rfl⟩
+  · exact ⟨_, _, _, rfl⟩
+
+/-- **A COPY FIELD WHOSE CLASSIFIED FORM IS CONSTANT-HEADED HAS A FLAT
+CONTAINER DOMAIN, AT A MEMBER TARGET** (task #315 WIDE (f3)): the
+positivity walk's output IS the classified field there — the rewrite
+fires only at a nested occurrence — so the head is read off the walk's
+own result. -/
+theorem domPiDepth_eq_zero_of_copyFieldNorm {env₀ : Env} {memberNames : List Name}
+    {F fuel d : Nat} {vs₁ vs₂ : List Expr} {t₁ t₂ : Nat} {lps : List Name}
+    {lvls : List Level} {dom X w : Expr} {c : Name} {us : List Level}
+    (hX : X = Expr.instSeq vs₂ t₂
+      (Expr.instSeq vs₁ t₁ (dom.instantiateLevelParams lps lvls)))
+    (hl₁ : vs₁.length ≤ t₁ + 1) (hl₂ : vs₂.length ≤ t₂ + 1)
+    (hnorm : normPosDomM (m := CheckM) (fueledOps mode F) env₀ memberNames d fuel X = .ok w)
+    (hhead : w.getAppFn = Expr.const c us) :
+    domPiDepth dom = 0 := by
+  cases hd : dom with
+  | forallE ty bo bm =>
+    exfalso
+    obtain ⟨a, b, m, rfl⟩ := normPosDomM_copyField_forallE hd hX hl₁ hl₂ hnorm
+    simp only [Expr.getAppFn] at hhead
+    exact nomatch hhead
+  | _ => rfl
+
+/-- **A COPY FIELD WHOSE CLASSIFIED FORM IS CONSTANT-HEADED HAS A FLAT
+CONTAINER DOMAIN** (task #315 WIDE (f3)): the copy's field is the
+container's stored domain at the pin's levels, at the pin's components
+and at the constructor's earlier field openers — two `instSeq`s over a
+level instantiation — normalised and then rewritten.  None of the four
+steps can DELETE a `Π` (`normPosDomM_copyField_forallE`,
+`replaceAllNested_forallE_run`), so a constant head on the classified
+field forces the stored domain to have no `Π`-tower at all.
+
+`MutualOpened.recF` supplies the head at a RECURSIVE field, which is
+the only place the owner-half chain ever spent flatness — and at a
+REFLEXIVE one the twin never wanted it. -/
+theorem domPiDepth_eq_zero_of_copyField {env₀ env : Env} {memberNames : List Name}
+    {F fuel d : Nat} {blvls : List Level} {params : List Expr}
+    {pbs₀ : List (Expr × BinderMeta)} {st st' : ElimState}
+    {vs₁ vs₂ : List Expr} {t₁ t₂ : Nat} {lps : List Name} {lvls : List Level}
+    {dom X w x' : Expr} {c : Name} {us : List Level}
+    (hX : X = Expr.instSeq vs₂ t₂
+      (Expr.instSeq vs₁ t₁ (dom.instantiateLevelParams lps lvls)))
+    (hl₁ : vs₁.length ≤ t₁ + 1) (hl₂ : vs₂.length ≤ t₂ + 1)
+    (hnorm : normPosDomM (m := CheckM) (fueledOps mode F) env₀ memberNames d fuel X = .ok w)
+    (hrep : replaceAllNested env blvls params pbs₀ st w = .ok (x', st'))
+    (hhead : x'.getAppFn = Expr.const c us) :
+    domPiDepth dom = 0 := by
+  cases hd : dom with
+  | forallE ty bo bm =>
+    exfalso
+    obtain ⟨a, b, m, rfl⟩ := normPosDomM_copyField_forallE hd hX hl₁ hl₂ hnorm
+    rcases replaceAllNested_forallE_run hrep with ⟨rfl, -⟩ | ⟨ty', bo', st₁, -, -, rfl⟩ <;>
+      · simp only [Expr.getAppFn] at hhead
+        exact nomatch hhead
+  | _ => rfl
 
 end ConLeche

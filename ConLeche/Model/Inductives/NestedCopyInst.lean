@@ -10384,7 +10384,6 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     -- the proof spends is exactly these two — flatness for the cut
     -- (`ordTargetDom_pinTermsSelf_flat`) and the head for the walk's
     -- identity at an inductive application.
-    (hflat : ConLeche.domPiDepth domJ.1 = 0)
     (hheadB : (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
       (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
         (q₀ + i') l domJ.1))).getAppFn = .const K usK)
@@ -10411,6 +10410,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     {ψ : Name → Nat} {ea' : AnnotTerm}
     (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
       (b.nP + l) w = some ea') :
+    ConLeche.domPiDepth domJ.1 = 0 ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
@@ -10487,6 +10487,24 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
           (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
             (Expr.instantiateLevelParams J.lps (srcAtE st p (q₀ + i')).2.1 domJ.1)) := by
     rw [hxIdom, hfcs' l hlcc, hdomEq, hLv]
+  -- **FLATNESS IS THE FIELD'S KIND, NOT A HYPOTHESIS** (task #315 WIDE
+  -- (f3)): the copy's field is this stored domain under two
+  -- substitutions, then the positivity walk and the rewrite, and none
+  -- of the four can DELETE a `Π`
+  -- (`ConLeche.domPiDepth_eq_zero_of_copyField`) — so the classifier's
+  -- CONSTANT head at a recursive field forces the container's stored
+  -- domain to carry no tower at all.  It used to be a PREMISE, and at
+  -- a `Π`-typed container field (`tests/e2e/nested_pi_field.ndjson`'s
+  -- `K α | mk (f : Nat → α)`, an official ACCEPT) that premise is
+  -- FALSE, which made this row and every row above it vacuous there.
+  have hflat : ConLeche.domPiDepth domJ.1 = 0 :=
+    ConLeche.domPiDepth_eq_zero_of_copyField hXeq
+      (by
+        have hEq : (srcAtE st p (q₀ + i')).2.2.length = ci.nP := by rw [hDsnP, hnPci]
+        omega)
+      (by rw [List.length_take]; omega)
+      hnormW hrep hheadS
+  refine ⟨hflat, ?_⟩
   -- **K.69's BLOCK side, in the run's idiom** — at the FLAT guard
   -- (task #315 WIDE (f3) step 3(b))
   have hOTD : ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
@@ -11297,7 +11315,6 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
     {K : Name} {usK : List Level} {ciK : ContainerInfo}
     -- flatness and the BLOCK's recomputation head, the core's own
     -- guard since task #315 WIDE (f3) step 3(b)
-    (hflat : ConLeche.domPiDepth domJ.1 = 0)
     (hheadB : (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l domJ.1).getAppFn = .const K usK)
     (hciK : ConLeche.containerInfo? env K = some ciK)
@@ -11307,6 +11324,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
     (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
     ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length = 0 ∧
+    ConLeche.domPiDepth domJ.1 = 0 ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
@@ -11362,7 +11380,7 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
     ConLeche.ordHeadRed_const (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
   rw [← hid]
   exact R.copyOrdFRightPinOrdTargetRead SF S hPD hi' hj hlF hkA hpinT hci hJmem hJn hstripJ hdomJ
-    hflat (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hciK hinstCI hopM hxI
+    (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hciK hinstCI hopM hxI
     hx' (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hnormW hrep hstable hea'
 
 /-- **THE TIE'S BLOCK SIDE AT A REFLEXIVE FIELD, FROM THE RUN**
@@ -11555,7 +11573,6 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
     {K : Name} {usK : List Level}
     -- flatness plus the BLOCK's recomputation head, the pin arm's own
     -- guard since task #315 WIDE (f3) step 3(b)
-    (hflat : ConLeche.domPiDepth domJ.1 = 0)
     (hheadB : (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
       (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
         (q₀ + i') l domJ.1))).getAppFn = .const K usK)
@@ -11576,6 +11593,7 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
     {ψ : Name → Nat} {ea' : AnnotTerm}
     (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
       (b.nP + l) x'.fvarTypeD = some ea') :
+    ConLeche.domPiDepth domJ.1 = 0 ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = b.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
@@ -11652,6 +11670,24 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
           (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
             (Expr.instantiateLevelParams J.lps (srcAtE st p (q₀ + i')).2.1 domJ.1)) := by
     rw [hxIdom, hfcs' l hlcc, hdomEq, hLv]
+  -- **FLATNESS IS THE FIELD'S KIND, NOT A HYPOTHESIS** (task #315 WIDE
+  -- (f3)): the copy's field is this stored domain under two
+  -- substitutions, then the positivity walk and the rewrite, and none
+  -- of the four can DELETE a `Π`
+  -- (`ConLeche.domPiDepth_eq_zero_of_copyField`) — so the classifier's
+  -- CONSTANT head at a recursive field forces the container's stored
+  -- domain to carry no tower at all.  It used to be a PREMISE, and at
+  -- a `Π`-typed container field (`tests/e2e/nested_pi_field.ndjson`'s
+  -- `K α | mk (f : Nat → α)`, an official ACCEPT) that premise is
+  -- FALSE, which made this row and every row above it vacuous there.
+  have hflat : ConLeche.domPiDepth domJ.1 = 0 :=
+    ConLeche.domPiDepth_eq_zero_of_copyFieldNorm hXeq
+      (by
+        have hEq : (srcAtE st p (q₀ + i')).2.2.length = ci.nP := by rw [hDsnP, hnPci]
+        omega)
+      (by rw [List.length_take]; omega)
+      hnormW hheadS
+  refine ⟨hflat, ?_⟩
 
   -- **K.69's BLOCK side, in the run's idiom**
   have hOTD : ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
@@ -11782,7 +11818,6 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetReadAt {pbs : List (Expr × ConLe
     {K : Name} {usK : List Level}
     -- flatness plus the BLOCK's recomputation head (task #315 WIDE
     -- (f3) step 3(b))
-    (hflat : ConLeche.domPiDepth domJ.1 = 0)
     (hheadB : (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l domJ.1).getAppFn = .const K usK)
     (hKmem : ∃ f ∈ fms.take p.k, f.cvTa.name = K)
@@ -11792,6 +11827,7 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetReadAt {pbs : List (Expr × ConLe
     (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
     ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length = 0 ∧
+    ConLeche.domPiDepth domJ.1 = 0 ∧
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = b.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
           (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
@@ -11839,7 +11875,7 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetReadAt {pbs : List (Expr × ConLe
     ConLeche.ordHeadRed_const (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
   rw [← hid]
   exact R.copyOrdFRightMemOrdTargetRead SF S hPD hi' hj hlF hkA hci hJmem hJn hstripJ hdomJ
-    hflat (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hKmem hinstCI hopM hxI
+    (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hKmem hinstCI hopM hxI
     hx' (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hnormW hea'
 
 /-! ## The tie's denotational half at a MEMBER target, REFLEXIVE

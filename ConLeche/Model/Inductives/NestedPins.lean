@@ -769,7 +769,6 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
       -- recomputation's and is FALSE at a bare-parameter field
       -- (`nested_bvar_field`, and `Pair α β` in
       -- `nested_pin_nocollide` / `nested_p04`).
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
       (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -816,7 +815,6 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
       -- task #315 WIDE (f3) step 3(b), `ordTgt`'s own move
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
       (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -1424,7 +1422,6 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
       ∀ (K : Name) (usK : List Level),
       -- task #315 WIDE (f3) step 3(b): flatness, the recomputation's
       -- head, and the reflexive arm's stored head under its own kind
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)
@@ -1465,7 +1462,6 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
       -- task #315 WIDE (f3) step 3(b)
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP
           ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS).ownPinTerms lps)

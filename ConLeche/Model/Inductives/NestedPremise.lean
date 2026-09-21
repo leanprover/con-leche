@@ -1307,7 +1307,6 @@ unchanged. -/
       -- reflexive arm — recognised HERE by the copy's own recorded
       -- telescope, the only spelling this tier has for "the field is
       -- reflexive" — keeps the stored head until the tower does.
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
       ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [] ≠ [] →
@@ -1510,7 +1509,6 @@ theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo
         ci.members[i']? = some Jm → Jm.lps = lpsC →
         ∀ (K : Name) (usK : List Level),
         -- task #315 WIDE (f3) step 3(b): the clause's own guard
-        ConLeche.domPiDepth dom.1 = 0 →
         (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
             = .const K usK →
         ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [] ≠ [] →
@@ -1528,9 +1526,9 @@ theorem PinShapes.rowOrdRead {env : Env} {m : EnvModel V env} {B : ContainerInfo
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ ρp hρp i' hi' j hj l hl hrsC hrsP hpinT cA bs rr dom lps
-    hjA hst hdm lpsC Jm hJm hlpsE K usK hflat hheadB hfinRefl => ?_⟩
+    hjA hst hdm lpsC Jm hJm hlpsE K usK hheadB hfinRefl => ?_⟩
   rcases hrd ψ ρp hρp i' hi' j hj l hl hrsC hrsP cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE
-      K usK hflat hheadB hfinRefl with hz | ⟨mm, hmm, htg, -, -⟩
+      K usK hheadB hfinRefl with hz | ⟨mm, hmm, htg, -, -⟩
   · exact hz
   · exact absurd (htg ▸ hmm) hpinT
 
@@ -1566,7 +1564,6 @@ theorem PinShapes.rowOrdReadMem {env : Env} {m : EnvModel V env} {B : ContainerI
         ci.members[i']? = some Jm → Jm.lps = lpsC →
         ∀ (K : Name) (usK : List Level),
         -- task #315 WIDE (f3) step 3(b): the clause's own guard
-        ConLeche.domPiDepth dom.1 = 0 →
         (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
             = .const K usK →
         ((((pc (q₀ + i')).tlss ψ).getD j []).getD l [] ≠ [] →
@@ -1584,9 +1581,9 @@ theorem PinShapes.rowOrdReadMem {env : Env} {m : EnvModel V env} {B : ContainerI
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, -, hrd, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ ρp hρp i' hi' j hj l hl hrsC hrsP hmemT cA bs rr dom lps
-    hjA hst hdm lpsC Jm hJm hlpsE K usK hflat hheadB hfinRefl => ?_⟩
+    hjA hst hdm lpsC Jm hJm hlpsE K usK hheadB hfinRefl => ?_⟩
   rcases hrd ψ ρp hρp i' hi' j hj l hl hrsC hrsP cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE
-      K usK hflat hheadB hfinRefl with ⟨z, -, htg, -, -⟩ | hm
+      K usK hheadB hfinRefl with ⟨z, -, htg, -, -⟩ | hm
   · exact absurd (htg ▸ hmemT) (by omega)
   · exact hm
 

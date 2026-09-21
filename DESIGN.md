@@ -130533,3 +130533,146 @@ the RAW recomputation (K.72).
 | `init-full --trusted --nested-shadow` | 520.8983 G | 520.8990 G | **+0.0001 %** |
 
 No Mathlib perf run.
+
+#### WIDE (f3) — FLATNESS IS **NOT** A PREMISE: IT IS THE COPY FIELD'S OWN KIND, AND 17 OF THE 27 DECLARATIONS DROP IT (lane LE, 2026-09-21)
+
+The previous row priced the flatness retirement as "un-flatten the
+statements", three to five sessions, with the entry law at a `Π`-typed
+field as the content.  That pricing is right for TEN of the 27
+declarations and WRONG for the other seventeen, and the measurement
+that separates them is the copy field's KIND.
+
+##### (a) THE OBSERVATION
+
+`ConLeche.domPiDepth dom.1 = 0` — the container's stored field domain
+carries no `Π`-tower — was a hypothesis threaded from `hscope` at the
+assembly down to `copyOrdFRightPinOrdTargetRead`.  At the arm where it
+is actually SPENT it is a THEOREM:
+
+* the copy's field is the container's stored domain at the pin's
+  levels (`Expr.instantiateLevelParams`), at the pin's components and
+  at the constructor's earlier field openers (two `Expr.instSeq`s),
+  normalised (`normPosDomM`) and rewritten (`replaceAllNested`);
+* none of those four steps can DELETE a `Π` — level instantiation maps
+  a `forallE` to a `forallE`, `Expr.instSeq_forallE` peels the binder,
+  `normPosDomM_forallE_inv`'s two arms both rebuild it, and
+  `replaceAllNested_forallE_run`'s two arms do the same;
+* and `MutualOpened.recF`'s first conjunct says a RECURSIVE field's
+  classified form is headed by a CONSTANT, which a `∀` is not.
+
+So a `Π`-typed container domain gives a `Π`-typed copy field, and the
+classifier calls such a field REFLEXIVE.  At the recursive arm
+flatness is free; at the reflexive one the twin
+(`copyOrdFRightPinOrdTargetReadAtRefl`) never asked for it.
+
+The two new Verify objects are
+`ConLeche.normPosDomM_copyField_forallE` and
+`ConLeche.domPiDepth_eq_zero_of_copyField`
+(`Verify/Inductives/NestedCopyNorm.lean`), with
+`domPiDepth_eq_zero_of_copyFieldNorm` beside them for the MEMBER arm,
+where the walk's output IS the classified field and no rewrite runs.
+`NestedCopyNorm` gains one plain import (`NestedCopyRewrite`).
+
+##### (b) WHAT DROPPED IT — SEVENTEEN DECLARATIONS, THE WHOLE **TARGET** BRANCH
+
+`copyOrdFRightPinOrdTargetRead` and `copyOrdFRightMemOrdTargetRead`
+DERIVE flatness where they used to assume it and PUBLISH it as their
+conclusion's new first conjunct; the two `…At` wrappers pass it up;
+`ordTgtReadAt`/`ordTgtMemReadAt` rebuild `hdep` from it inside the
+recursive arm alone.  With that, the premise is gone from
+
+| file | declaration |
+|---|---|
+| `Model/Inductives/NestedCopyInst.lean` | `copyOrdFRightPinOrdTargetRead`, `…At`, `copyOrdFRightMemOrdTargetRead`, `…At` |
+| `Model/Inductives/NestedInstMap.lean` | `NestedPinsRun.ordTgtReadAt`, `NestedPinsRun.ordTgtMemReadAt` |
+| `Model/Inductives/NestedCopyIdx.lean` | `NestedPinsOrdTgt`, `NestedPinsOrdTgtMem` |
+| `Model/Inductives/NestedPins.lean` | `NestedPinGroupIds.ordTgt`, `.ordTgtMem`, and `NestedPinsIdent`'s two matching components |
+| `Model/Inductives/NestedCore.lean` | `GroupFacts.ordTgt`, `GroupFacts.ordTgtMem` |
+| `Model/Inductives/NestedPremise.lean` | `PinShapes`' target clause, `PinShapes.rowOrdRead`, `PinShapes.rowOrdReadMem` |
+
+and the crossings (`ContainerCross`, `NestedLoop`) and producers
+(`nestedPinsOrdTgt_of`, `nestedPinsOrdTgtMem_of`,
+`nestedPinLeafAll`'s `NestedPinGroupIds` construction) pass one
+argument fewer.  Two dead `have`s (`hstripId`, `hstripDL`) went with
+it in each of `ordTgtReadAt`/`ordTgtMemReadAt`.
+
+**These rows are now NON-VACUOUS at `tests/e2e/nested_pi_field.ndjson`**
+(`K α | mk (f : Nat → α)`), where they said nothing before: the copy's
+field there is reflexive, the twin's arm carries the tower, and no
+clause above it asks a false question any more.
+
+##### (c) WHAT KEPT IT — THE **READING** BRANCH, AND WHY IT CANNOT BE DERIVED
+
+Ten declarations still carry it: `ordTargetDom_eq_instSeq_flat` and
+`ordTargetDom_pinTermsSelf_flat` (`Verify/Inductives/NestedCopyKinds.lean`,
+now consumed with a DERIVED hypothesis), `NestedPinsRun.ordReadAt`,
+`GroupFacts.ordRead`, `ordRead_corr`, `ordReadMem_corr`, `read_of_run`
+and `hscope`'s first conjunct at its three carriers.
+
+The derivation does NOT reach them, and the reason is their
+CONCLUSION: `ordRead`'s says the copy's recorded telescope is EMPTY
+(`(mutTlss …).getD l [] = []`) and the reading sits at the field's own
+cut `l`.  There is no kind dispatch — the row's guard is `blkRss`, which
+is recursive-OR-reflexive — and at `nested_pi_field` the reflexive
+instance is a COUNTEREXAMPLE to that conclusion: `ordTargetDom` strips
+the stored tower BEFORE it instantiates, so the head IS a constant
+there while the telescope has length one.  Flatness is exactly what
+keeps that instance out.  Retiring it is therefore the restatement the
+previous row priced — the sum, the extended cut, and the owner's
+reading (`hreadO`, `PinShapes`' own conjunct) moved with them — and
+**`hscope` cannot be discharged before that**, since its flatness
+conjunct is what those rows spend.
+
+**Honest sizing for the rest: two to four sessions**, and the first of
+them is `ordReadAt`'s conclusion together with `denoteMeta_ordRootInst_read`
+at the extended cut.  `hfinRefl` did NOT retire: it is the reflexive
+arm's stored-head guard, false at `tests/e2e/nested_comp_tower.ndjson`
+(a planted tower), and retiring it is the OTHER vacuity — the one
+K.73 measures — not this one.
+
+##### (d) THE GATES
+
+`tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
+`layering 354/292/3/1 with 0 base->lane and 0 impl->theory edges`,
+`shake: 514 removals, all allowlisted`,
+`pub-imports: 1348 of 2320 public, none demotable (60 fallbacks)` (one
+in-tree edge more, the plain `NestedCopyRewrite` import),
+`nested-shadow: 47/47`, `e2e: 200/200`, `arena suite: 91/96`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`,
+`axioms: pinned (20 theorems)`, trusted and the two `--jobs` sweeps as
+at the default, `inmodel: OK`, `overview-links: 112`, `quote-gate: 2`,
+`no-local-paths: OK`, `challenge: OK`.
+`tests/warning-free.sh 6f7d0617` — 10 changed modules, **0 warning
+lines** in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **205 of 3948** against **205 of 3945**: three
+declarations added and all three have consumers.  `#print axioms` on
+`normPosDomM_copyField_forallE`, `domPiDepth_eq_zero_of_copyField`,
+`domPiDepth_eq_zero_of_copyFieldNorm`, the four
+`copyOrdFRight*OrdTargetRead*` and `ordTgtReadAt`/`ordTgtMemReadAt`
+and their two `_of` dischargers: `[propext, Classical.choice,
+Quot.sound]`.  No `sorry`, no new axiom, no `maxHeartbeats`.
+
+**NO KERNEL FILE CHANGED**, so the accept set, the shadow counts and
+the cost are all unmoved and no corpus run is owed.
+
+##### (e) K.74, NAMED AND NOT TAKEN
+
+The guard widening the previous row's §(b) left open is recorded as
+**K.74 — the ordinary-field records must read the head AFTER the
+REDUCED tower is stripped.**  `nestedOrdNormAt`
+(`Kernel/Inductives/NestedInstall.lean`) guards K.67, K.68 and K.69
+with `ConLeche.ordRootFired env memsJ ownSelf (ordHeadRed W)`, which
+reads `getAppFn` of the owner's recomputation; at
+`tests/e2e/nested_redex_tower.ndjson` the reduct is `True → J β`, a
+`.forallE`, whose `getAppFn` is not a `.const`, so the guard is FALSE
+and the arm returns `true` before any comparison.  K.74 replaces the
+guard's subject by `ConLeche.stripDomPis (ConLeche.ordHeadRed W)` — the
+reduced tower stripped — at all three records and at the
+`ordTargetDom`/`ordRootInst` cut they feed, so that the rows speak
+there.  Its consumer is `normPosDomM_openRedPis_ordHeadRed`
+(`Verify/Inductives/NestedCopyNorm.lean`), still `tests/unconsumed.sh`'s
+one advisory entry.  It is a KERNEL change and owes the full battery
+(zero-fire conformance on init-full and Mathlib in both modes with
+`--nested-shadow`, the controls, the init-full instruction cells, no
+Mathlib perf run), so it was NOT taken this session.

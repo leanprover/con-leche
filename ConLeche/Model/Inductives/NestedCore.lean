@@ -526,7 +526,6 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ∀ (K : Name) (usK : List Level),
       -- task #315 WIDE (f3) step 3(b): flatness, the recomputation's
       -- head, and the reflexive arm's stored head under its own kind
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
       (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -573,7 +572,6 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (K : Name) (usK : List Level),
       -- task #315 WIDE (f3) step 3(b), `ordTgt`'s own move
-      ConLeche.domPiDepth dom.1 = 0 →
       (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const K usK →
       (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
