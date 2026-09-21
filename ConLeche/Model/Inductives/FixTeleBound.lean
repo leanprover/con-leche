@@ -195,8 +195,9 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    (hD : BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
     (ψ : Name → Nat) (hw : resSort.eval ψ ≠ 0) {i : Nat} (hi : i < nF)
     (hk : ks.getD i .ordinary = .reflexive) {ρp : Nat → V}
     (hρp' : Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρp) {as' : List V}
@@ -284,7 +285,7 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
     have hread := hO.doms (nP + i) x hxA
     rw [reverse_getD_field hlenDs hi, drop_map_getD hlenDs hi, hD.reflEntry ψ i hk hi] at hread
     have hst := stripPisAV_mkPisAV ((tss ψ).getD i [])
-      (AnnotTerm.mkAppN (mp.base2.acval T ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (Tof i) ψ)
         (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
     have hb := stripPisAV_bits _ (hbits ψ) hread hst
     have hne' : (tss ψ).getD i [] ≠ [] := by

@@ -61,22 +61,23 @@ theorem ConstsBound.cons {c : ConstantInfo} :
 
 /-- **The recursive constructor data cross a cons** whose head is not
 the block's former. -/
-theorem FixCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name} {lps : List Name}
+theorem BlockCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name}
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
     {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (h : FixCtorDataI m env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss)
+    (h : BlockCtorDataI m env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
+      srcs ks fvsP xFvs xrest Eiss tss)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name)
+    (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name) (hTof : ∀ i, Tof i ≠ c₀.name)
     (hat : ∀ e : Expr, ConsCrossAt c₀ e) (hcb : ConstsBound env cvC.type)
     (hcbI : ∀ e ∈ idxArgs, ConstsBound env e)
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    FixCtorDataI m₂ env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks fvsP
-      xFvs xrest Eiss tss := by
+    BlockCtorDataI m₂ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
+      srcs ks fvsP xFvs xrest Eiss tss := by
   have hbase := h.toCtorDataI.cross hfresh hT hat hcb hcbI m₂ hac
   -- the opened variables' types are bounded
   obtain ⟨crest, hopP, hopX⟩ := h.opens
@@ -110,7 +111,7 @@ theorem FixCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name} {lps :
         (h.eisRead ψ i x hx hk)
     eisLen := h.eisLen
     recEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne hT]
+      rw [hac, acvalWith_ne (hTof i)]
       exact h.recEntry ψ i hk hi
     eissParams := h.eissParams
     eissBelow := h.eissBelow
@@ -137,7 +138,7 @@ theorem FixCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name} {lps :
           (fun a ha => constsBound_getAppArgs _ hbody a (List.mem_of_mem_drop ha)) hsp
     eisLenRefl := h.eisLenRefl
     reflEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne hT]
+      rw [hac, acvalWith_ne (hTof i)]
       exact h.reflEntry ψ i hk hi }
 
 end ConLeche.Model

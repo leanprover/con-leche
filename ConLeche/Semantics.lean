@@ -28,7 +28,10 @@ public import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.SumWF
+public import ConLeche.Verify.Inductives.BlockPartsInv
+public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Semantics.Inductives.DeclSumEta
+public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
@@ -44,6 +47,7 @@ public import ConLeche.Semantics.Tower.TowerWire
 public import ConLeche.Semantics.Tower.FixTuple
 public import ConLeche.Semantics.Tower.BlockTuple
 public import ConLeche.Semantics.Tower.BlockLeafI
+public import ConLeche.Semantics.Tower.BlockFamI
 public import ConLeche.Semantics.Tower.BlockOne
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
