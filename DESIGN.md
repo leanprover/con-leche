@@ -80706,3 +80706,16 @@ for it is UNSOUND: at `w = 0` the `Or`-component's element `pt` is
 both `inl trivial` and `inr p`, so `rec₂ pt` would have to equal two
 different minors (refuted at `motive₂ := λ _. Bool`).  DESIGN DOCUMENT
 1 §4.2 (b) is superseded by this amendment.
+
+#### AMENDMENT (2026-09-21, maintainer's question): the elimination guard, declaratively
+
+No counting of components.  Official's `elim_only_at_universe_zero`
+evaluates `m_ind_types.size() > 1` on its AUX block, so a Prop block
+that is mutual OR nested is Prop-only there; a lone block with one
+constructor gets the subsingleton criterion, with none is unrestricted.
+The check, as a Bool of the block record:
+`largeElimAllowed := resSort.isNeverZero ∨ (k = 1 ∧ ¬nested ∧ (nCtors = 0 ∨
+(nCtors = 1 ∧ subsingletonCriterion)))`, with `nested` set by the
+positivity pass when any field is a container occurrence.  When false,
+the recursor's conclusion must be a proposition.  The `P | mk : Or True
+P` example is covered by `¬nested`.
