@@ -106,6 +106,33 @@ def chainXBIGo (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Boo
         (tls.getD i []) (Eis.getD i []) i
      else F.liftN 2 i) :: chainXBIGo uf Idss rs tgts tls Eis Fs (i + 1)
 
+/-- The X-chain entry at position `i` (the head of `chainXBIGo`
+there): a recursive slot at the field's TARGET, or the lifted
+domain. -/
+def xEntryB (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool) (tgts : List Nat)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (F : AnnotTerm)
+    (i : Nat) : AnnotTerm :=
+  if rs.getD i false then
+    slotXBI (uf (tgts.getD i 0)) (Idss (tgts.getD i 0)) (tgts.getD i 0)
+      (tls.getD i []) (Eis.getD i []) i
+  else F.liftN 2 i
+
+omit [SetTheory V] in
+theorem chainXBIGo_cons (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
+    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
+    (Eis : List (List AnnotTerm)) (F : AnnotTerm) (Fs : List AnnotTerm) (i : Nat) :
+    chainXBIGo uf Idss rs tgts tls Eis (F :: Fs) i
+      = xEntryB uf Idss rs tgts tls Eis F i :: chainXBIGo uf Idss rs tgts tls Eis Fs (i + 1) :=
+  rfl
+
+omit [SetTheory V] in
+theorem chainXBIGo_length (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
+    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
+    (Eis : List (List AnnotTerm)) :
+    ∀ (Fs : List AnnotTerm) (i : Nat), (chainXBIGo uf Idss rs tgts tls Eis Fs i).length = Fs.length
+  | [], _ => rfl
+  | _ :: Fs, i => by simp [chainXBIGo, chainXBIGo_length uf Idss rs tgts tls Eis Fs (i + 1)]
+
 /-- One constructor's X-chain, equation-terminated at the member's own
 index arity. -/
 def chainXBI (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (nIdx : Nat) (rs : List Bool)
