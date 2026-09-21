@@ -196,7 +196,7 @@ theorem recRules_consBlockRecs_of {q : BlockShape} {nP : Nat} {rs : List RecDatu
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC))
     (hac : m₃.acval = acv) (φ : Name → Nat)
-    (hnew : ∀ (j : Nat) (r : RecDatum), r ∈ rs →
+    (hnew : ∀ (j : Nat) (r : RecDatum), rs[j]? = some r →
       ∀ rl ∈ ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
         r.1.type r.2.2.2 r.2.1,
       RecRule.fire rl ≠ .inert →
@@ -205,7 +205,8 @@ theorem recRules_consBlockRecs_of {q : BlockShape} {nP : Nat} {rs : List RecDatu
   intro n cv mI rP rules hf rl hmem hfire
   rcases find?_consBlockRecs_inv hf with hE | ⟨j, r, hr, rfl, hci⟩
   · exact recRuleLaw_consBlockRecs_prefix mpC hfr hpsh hag m₃ hac φ hE hmem hfire
-  · obtain ⟨rfl, rfl, rfl, rfl⟩ :
+  · rw [Nat.zero_add] at hci
+    obtain ⟨rfl, rfl, rfl, rfl⟩ :
         cv = r.1 ∧ mI = q.majorIdxAt j ∧ rP = q.rulePrefixAt j ∧
           rules = ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j)
             (q.rulePrefixAt j) r.1.type r.2.2.2 r.2.1 := by
@@ -506,7 +507,7 @@ theorem hrecP_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
     (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (hnew : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC), m₃.acval = acv →
-      ∀ (φ : Name → Nat) (j : Nat) (r : RecDatum), r ∈ rs →
+      ∀ (φ : Name → Nat) (j : Nat) (r : RecDatum), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
         Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP = true →
