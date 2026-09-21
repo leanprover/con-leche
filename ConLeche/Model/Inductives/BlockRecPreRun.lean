@@ -304,4 +304,67 @@ theorem blockRecPre_ind_run (hμ : μ.verifiedChecks = true)
 
 end IndRun
 
+/-! ## 6. `hpre`, in `blockRecStaged_run`'s own spelling
+
+`blockRecStaged_run` (`BlockRecAssembly.lean`) consumes
+
+```
+hpre : ∀ ψ ρ, BlockRecPre V s K (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ
+```
+
+with `eqs ψ` the rule data's ι equations at `ψ`.  At an all-`Prop`
+family (`ℓ = 0`, which every mutual or nested `Prop` block is by the
+elimination guard) that is `blockRecPre_ind_run` at every `ψ` and
+every `ρ`, and this is it verbatim — the theorem the coordinator
+`exact`s into the assembly. -/
+
+/-- **`hpre` at an all-`Prop` family**, in the assembly's spelling. -/
+theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = true)
+    {mpC : EnvModelM V μ envC} {mp : EnvModelM V μ envT} {F s K : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {nCt rP : Nat → Nat} {pdoms : (Name → Nat) → Nat → List AnnotTerm}
+    {fdoms es ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk : (Name → Nat) → Nat → Nat → AnnotTerm}
+    {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {Rb Ca : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K →
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+        WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
+    (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = K →
+      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsOkB 0 (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ∧
+        ∀ ys, SpineFit (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ys →
+          WellDenoted V (consList ys (consList as ρ))
+              (AnnotTerm.mkAppN
+                (.bvar ((pdoms ψ c).length + (fdoms ψ c j).length + (K - 1 - c)))
+                (prefVarsAV (pdoms ψ c).length (fdoms ψ c j).length ++ es ψ c j
+                  ++ [mk ψ c j])) ∧
+            WellDenoted V (consList ys (consList as ρ)) (instsAV 0 (ihs ψ c j) (Rb ψ c j)))
+    (hind : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K →
+      (pt : V) ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
+    (hcerts : ∀ (ψ : Name → Nat), ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms ψ c j).length (ihdoms ψ c j).length
+        (pdoms ψ c) (fdoms ψ c j) (ihdoms ψ c j) (Rb ψ c j) (Ca ψ c j))
+    (hih : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms ψ c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms ψ c j)
+        ((ihs ψ c j).map
+          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))))
+    (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms ψ c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms ψ c ++ fdoms ψ c j) (xs ++ fs) →
+      interp V
+          (consList
+            ((ihs ψ c j).map
+              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca ψ c j)
+        ∈ˢ (univZero : V)) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      BlockRecPre V s K (blockRecTyAV mpC.base2.acval envC rs ψ)
+        (iotaEqsAV K nCt (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ) (Rb ψ)) ρ :=
+  fun ψ ρ =>
+    blockRecPre_ind_run hμ (hTy ψ ρ) (hwd ψ ρ) (hind ψ ρ) (hcerts ψ) (hih ψ ρ) (hT ψ ρ)
+
 end ConLeche.Model
