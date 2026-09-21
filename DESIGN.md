@@ -130297,3 +130297,26 @@ no new axiom, no `maxHeartbeats`.
 
 **No kernel file changed**, so the accept set cannot have moved and no
 firing or `instructions:u` cell is owed.
+
+##### (e) `hdom₁` READ OFF ITS CONSUMER — TWO ARMS ARE THREADING, ONE IS THE INDUCTION'S OWN
+
+Not attempted this session; recorded so the next one does not
+re-derive it.  `hdom₁`'s only consumer is `copyTransfer_via_pin`
+(`NestedPinLeafAll.lean:~3803`), which spends it at exactly three
+places, and they are not §(c)'s split by `nestOf` — they are the
+FIRING combinations:
+
+| where | what it needs | route |
+|---|---|---|
+| container-ORDINARY, side 1 fired, side 2 SILENT (the mixed corner, `:~3960`) | side 1's slot ⊆ the container's domain | `nestedPinEntryOut` already proves the ENTRY EQUALITY there (`copyEntryAt_of_read hread hZ`) and publishes only the `interp ⊆ slot` half; the other half is the same equality.  `hentOrd₁`'s guard at the assembly is this corner verbatim |
+| container-ORDINARY, BOTH fired (`:~3951`) | the same | `hslotOrd` (side 1's slot ⊆ side 2's) composed with a `hdom₂`-shaped fact and `hcdom` (the container's domain is ONE set at either frame, proved inside the theorem).  `copyTransfer_via_pin` carries no `hdom₂`; the assembly does (`dom₂_of_run`).  A THREADING question, not a new object |
+| container-RECURSIVE (`:~3905`) | the same | `h₁.slot_container` turns side 1's slot into the container's own slot shape at the carrier `X₁ (tg₁ l)`, and the container's field domain is `dK.slotAtT` at the container's own extended carrier — so `BlockModel.slotDomT_of_le` closes it GIVEN that the block's carrier at the copy's target is in the container's tuple space and below that carrier |
+
+**The third is the one with content**, and it is `hIH`/`hPfGroup`
+under the rank induction's `S` — at a `recF` target the copy's target
+is `p.k + q₀ + dK.tgts i j l`, one of the GROUP's own pins, and
+`hout` supplies `S` only at `ordF`-right targets.  That is what §(c)'s
+"the block's own carrier is what is being proved" names, and the
+design question it poses is whether the induction's predicate reaches
+the group's own pins or whether the arm is closed some other way.
+Read off the shapes and the consumer's case split, not proved.
