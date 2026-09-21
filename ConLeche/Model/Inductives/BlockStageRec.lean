@@ -237,4 +237,93 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
       exact denoteMeta_cons_mono hfresh (hcross _) ψ 0
         (constsBound_of_constsResolve _ (hty r (List.mem_cons_of_mem _ hr)).2.2.1) hta
 
+/-! ## The rules, attached in one step
+
+`consBlockRecsBare` and `consBlockRecs` cons the SAME constants in the
+SAME order — the first with empty rule lists, the second with
+`sumRules`' — which is exactly `SwapPairSh` at every position. -/
+
+/-- The two recursor conses are a shape-level rule-list swap. -/
+theorem swapShList_consBlockRecs {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} :
+    ∀ {m : Nat} {rs : List RecDatum} {envA envB : Env},
+      ConLeche.SwapShList envA.consts envB.consts →
+      ConLeche.SwapShList (consBlockRecsBare q m (bareOf rs) envA).consts
+        (consBlockRecs find? q nP m rs envB).consts
+  | _, [], _, _, h => h
+  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, envA, envB, h => by
+    simp only [bareOf, List.map_cons, consBlockRecsBare, consBlockRecs]
+    exact swapShList_consBlockRecs (q := q) (nP := nP)
+      (rs := rest) (envA := ⟨_ :: envA.consts⟩) (envB := ⟨_ :: envB.consts⟩)
+      (ConLeche.SwapShList.cons
+        (Or.inr ⟨cvRa, q.majorIdxAt m, q.rulePrefixAt m, _, rfl, rfl⟩) h)
+
+/-- **The three non-`EnvWF` syntactic facts across a rule-list swap** —
+`swapEnvFacts`'s other three arms, off the head facts a
+`RecCtorsStored` needs and nothing else (the `EnvWF` arm is the one
+that consumes the rules' own syntax, and at the block it is
+`envWF_consBlockRecs`). -/
+theorem recSwapFacts3 {envSelf env₃ : Env} {cval : TConstVal}
+    (hctorsS : ConLeche.RecCtorsStored envSelf)
+    (hbpS : BasisPinnedTT envSelf cval) (hprojS : ProjOkT envSelf)
+    (hswR : ConLeche.SwapShList envSelf.consts env₃.consts)
+    (hnresR : SwapNResS envSelf env₃)
+    (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₃.find? n = some (.recInfo cv mI rP rules) →
+      envSelf.find? n = some (.recInfo cv mI rP []) → cv.name = n →
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF,
+          envSelf.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf envSelf.find? r.ctor = true) ∧
+        (r.eta = true → ConLeche.recRuleEtaOf envSelf.find? n r.ctor = true)) :
+    ConLeche.RecCtorsStored env₃ ∧ BasisPinnedTT env₃ cval ∧ ProjOkT env₃ := by
+  have hcg : ConLeche.SwapCongr envSelf env₃ := ConLeche.SwapShList.congr hswR
+  have hcorr := ConLeche.swapSh_find?_corr hswR
+  have hsame : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (env₃.find? n = some ci ↔ envSelf.find? n = some ci) :=
+    fun n ci hnr =>
+      ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
+  have hkeep : ∀ (m : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      envSelf.find? m = some ci → env₃.find? m = some ci :=
+    fun m ci hnr hfc => hcg.findUp m ci hfc hnr
+  refine ⟨?_, ?_, ?_⟩
+  · -- `RecCtorsStored`
+    intro n cv mI rP rules hf r hr
+    rcases hcorr n with heq | ⟨cv', mI', rP', rules', h₀, h₃, hn'⟩
+    · have hfS : envSelf.find? n = some (.recInfo cv mI rP rules) := by
+        rw [← heq]; exact hf
+      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := hctorsS n cv mI rP rules hfS r hr
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
+        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+    · obtain ⟨e1, e2, e3, -⟩ :=
+        ConstantInfo.recInfo.inj (Option.some.inj (h₃.symm.trans hf))
+      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ :=
+        hnew n cv mI rP rules hf (by rw [← e1, ← e2, ← e3]; exact h₀)
+          (by rw [← e1]; exact hn') r hr
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
+        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+  · -- `BasisPinnedTT`: a genuinely swapped entry is never reserved
+    intro n ci hf hres
+    have hf₀ : envSelf.find? n = some ci := by
+      rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+      · rw [← heq]; exact hf
+      · rcases hnresR n cv mI rP rules h₀ h₃ with rfl | hnr
+        · rw [h₃] at hf
+          obtain rfl := Option.some.inj hf
+          exact h₀
+        · rw [hnr] at hres
+          exact nomatch hres
+    exact hbpS n ci hf₀ hres
+  · -- `ProjOkT`: projection tables are untouched
+    intro n tbl hf i hi
+    exact ConLeche.TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+      (hprojS n tbl ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
+
 end ConLeche.Model
