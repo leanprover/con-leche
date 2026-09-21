@@ -339,6 +339,142 @@ theorem classifyBlockKinds_inv {names lps : List Name} {nP : Nat} {nIdxs : List 
       simp only [List.getElem?_cons_succ] at hc ⊢
       exact hall i c hc
 
+/-! ## The kinds' targets are members of the block -/
+
+/-- A successful `mapM` in `Option` produces each of its results from
+one of its inputs. -/
+theorem mapM_option_mem {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {r : List β}, l.mapM f = some r → ∀ b ∈ r, ∃ a ∈ l, f a = some b
+  | [], r, h, b, hb => by
+    simp only [List.mapM_nil, pure, Option.some.injEq] at h
+    subst h; simp at hb
+  | a :: l, r, h, b, hb => by
+    simp only [List.mapM_cons, bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+    obtain ⟨b0, hb0, bs, hbs, rfl⟩ := h
+    simp only [List.mem_cons] at hb
+    rcases hb with rfl | hb
+    · exact ⟨a, List.mem_cons_self, hb0⟩
+    · obtain ⟨a', ha', hfa'⟩ := mapM_option_mem hbs b hb
+      exact ⟨a', List.mem_cons_of_mem _ ha', hfa'⟩
+
+/-- A target read off a head expression is a MEMBER INDEX: the lookup
+either finds one or falls back on member 0, and a block has at least
+one member. -/
+theorem memberTgt_lt {names : List Name} (hne : names ≠ []) (lps : List Name) (e : Expr) :
+    memberTgt names lps e < names.length := by
+  have hpos : 0 < names.length := by
+    cases names with
+    | nil => exact absurd rfl hne
+    | cons a l => simp
+  unfold memberTgt
+  cases hi : memberIdxAt? names (lps.map .param) e.getAppFn with
+  | none => simpa using hpos
+  | some j =>
+    simp only [Option.getD_some]
+    unfold memberIdxAt? at hi
+    split at hi
+    · split at hi
+      · exact (List.findIdx?_eq_some_iff_getElem.mp hi).1
+      · exact nomatch hi
+    · exact nomatch hi
+
+/-- Every target official's positivity walk records is a member index. -/
+theorem blockPositivity_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
+    {o : Nat} (hne : names ≠ []) :
+    ∀ {e : Expr} {k t : Nat},
+      (blockPositivity names lps nP nIdxs o e k = .recursive t ∨
+       blockPositivity names lps nP nIdxs o e k = .reflexive t) → t < names.length := by
+  intro e
+  induction e with
+  | forallE dom body bi _ ihb =>
+    intro k t h
+    have heq : blockPositivity names lps nP nIdxs o (.forallE dom body bi) k =
+        if dom.mentionsAnyConst names then .negative
+        else blockPositivity names lps nP nIdxs o body (k + 1) := rfl
+    rw [heq] at h
+    split at h
+    · rcases h with h | h <;> exact nomatch h
+    · exact ihb h
+  | _ =>
+    intro k t h
+    simp only [blockPositivity] at h
+    repeat' split at h
+    all_goals
+      rcases h with h | h <;>
+        first
+          | (injection h with h; subst h; exact memberTgt_lt hne _ _)
+          | injection h
+
+/-- Every target a FIELD's kind carries is a member index. -/
+theorem blockFieldKind_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
+    (hne : names ≠ []) (o : Nat) (dom : Expr) (t : Nat)
+    (h : blockFieldKind names lps nP nIdxs o dom = .recursive t ∨
+         blockFieldKind names lps nP nIdxs o dom = .reflexive t) :
+    t < names.length := by
+  unfold blockFieldKind at h
+  split at h
+  · exact blockPositivity_tgt_lt hne h
+  · rcases h with h | h <;> exact nomatch h
+
+/-- **Every target a CONSTRUCTOR's kinds carry is a member index**
+(decision D7: the kind carries the target, so the model may read the
+member it names). -/
+theorem blockCtorKinds_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
+    (hne : names ≠ []) {c : ConstantVal × Nat} {ks : List BlockFieldKind}
+    (h : blockCtorKinds names lps nP nIdxs c = some ks) {t : Nat}
+    (hk : BlockFieldKind.recursive t ∈ ks ∨ BlockFieldKind.reflexive t ∈ ks) :
+    t < names.length := by
+  unfold blockCtorKinds at h
+  split at h
+  case h_2 => exact nomatch h
+  next cbs cbody _ =>
+  split at h
+  case isFalse =>
+    simp only [Option.some.injEq] at h
+    subst h
+    rcases hk with hk | hk <;>
+      (obtain ⟨-, -, hi⟩ := List.mem_map.mp hk; exact nomatch hi)
+  case isTrue =>
+  simp only [Option.some.injEq] at h
+  subst h
+  rcases hk with hk | hk <;>
+    (obtain ⟨i, -, hi⟩ := List.mem_map.mp hk
+     try simp only at hi
+     cases hfk : blockFieldKind names lps nP nIdxs i (cbs.getD (nP + i) default).1 with
+     | ordinary => rw [hfk] at hi; injection hi
+     | negative => rw [hfk] at hi; injection hi
+     | unsupported => rw [hfk] at hi; injection hi
+     | recursive t' =>
+       rw [hfk] at hi
+       try simp only at hi
+       split at hi
+       · injection hi
+       · first
+           | (injection hi with hi; subst hi;
+              exact blockFieldKind_tgt_lt hne _ _ _ (Or.inl hfk))
+           | injection hi
+     | reflexive t' =>
+       rw [hfk] at hi
+       try simp only at hi
+       split at hi
+       · injection hi
+       · first
+           | (injection hi with hi; subst hi;
+              exact blockFieldKind_tgt_lt hne _ _ _ (Or.inr hfk))
+           | injection hi)
+
+/-- **The classified kinds' targets are members of the block.** -/
+theorem classifyMemberKinds_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
+    (hne : names ≠ []) {ctorsA : List (ConstantVal × Nat)}
+    {kss : List (List BlockFieldKind)}
+    (h : classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA = .ok kss)
+    {ks : List BlockFieldKind} (hks : ks ∈ kss) {t : Nat}
+    (ht : BlockFieldKind.recursive t ∈ ks ∨ BlockFieldKind.reflexive t ∈ ks) :
+    t < names.length := by
+  obtain ⟨hmap, -, -, -⟩ := classifyMemberKinds_inv h
+  obtain ⟨c, -, hc⟩ := mapM_option_mem hmap ks hks
+  exact blockCtorKinds_tgt_lt hne hc ht
+
 /-! ## The pass -/
 
 /-- **One pass's shape at k members** (`checkNativePass_inv` at the
