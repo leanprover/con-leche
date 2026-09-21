@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedGroupInv
-public import ConLeche.Verify.Inductives.NestedCopyKinds
+public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Verify.Inductives.NestedCopyKinds
 
 public section
 

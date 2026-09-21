@@ -2,7 +2,6 @@ module
 
 import ConLeche.Model.Inductives.NestedAux
 public import ConLeche.Model.Inductives.NestedEntryOrd
-public import ConLeche.Model.Inductives.NestedPinLeafAll
 public section
 
 /-!
