@@ -130710,3 +130710,53 @@ Removing it splits cleanly, and the two halves are independent:
    without touching it; what needs it is `hfinRefl`'s retirement, and
    that is K.73's own shape, not flatness's.
 
+
+#### WIDE (f3) — THE READING BRANCH'S FIRST STEP: `ordReadAt` SPEAKS AT `l + domPiDepth dom.1`, AND ITS CONSUMER COLLAPSES (lane LE, 2026-09-21)
+
+The previous row's §(f) split the remainder into the CONTAINER's tower
+and the PLANTED one.  This is the first declaration of half (1), done
+the way the work order asks — the producer is generalised, the
+consumer collapses with the flatness it still holds, and the tree
+builds at every step.
+
+`NestedPinsRun.ordReadAt` (`Model/Inductives/NestedInstMap.lean:4373`)
+no longer takes `ConLeche.domPiDepth dom.1 = 0`.  Four things moved and
+nothing else did:
+
+* the OWNER's scoping `hxb` is asked at `l + ConLeche.domPiDepth dom.1`;
+* so is the OWNER's reading `hreadO`, whose openers and cut are the
+  same number — which is exactly the cut `PinShapes`' own
+  `OrdTargetRead` conjunct already reads at, since object (2) landed;
+* `ordRootInst`'s cut in K.69's input (`hrootInst`) is
+  `l + domPiDepth (ordTargetDomL lpsC ownT qK dom.1)`, which IS that
+  number (`domPiDepth_ordTargetDomL`, table-independent) — the proof
+  used to collapse it with `Nat.add_zero` and now does not;
+* the conclusion says the copy's recorded telescope has LENGTH
+  `domPiDepth dom.1` (K.73's sum with its second summand killed by the
+  row's own head guard, `domPiDepth_eq_zero_of_getAppFn_const`) and the
+  reading is `AnnotTerm.instAll Ds (l + domPiDepth dom.1) rx`.
+
+`denoteMeta_ordRootInst_read` (`Model/Inductives/NestedFieldRead.lean:449`)
+needed no change at all: it is `cut`-parametric, and the call passes
+`cut := l + ConLeche.domPiDepth dom.1`.
+
+Its one consumer — `GroupFacts.ordRead`'s producer inside
+`nestedPinLeafAll`'s `NestedPinGroupIds` construction
+(`Model/Inductives/NestedPinLeafAll.lean:9048`) — still holds the
+clause's flatness premise, so it converts the three inputs and the two
+outputs by `rw [hflat, Nat.add_zero]` and the clause is unmoved.  **18
+of the 27**; what still carries flatness is `GroupFacts.ordRead`,
+`ordRead_corr`, `ordReadMem_corr`, `read_of_run`, `hscope` at its three
+carriers, and the two `…_flat` corollaries in
+`Verify/Inductives/NestedCopyKinds.lean`.
+
+##### THE GATES
+
+`tests/arena.sh` EXIT 0 — the same counters as the row above, and
+`tests/warning-free.sh` on the changed modules 0 warning lines in both
+halves.  `#print axioms ConLeche.Model.NestedPinsRun.ordReadAt`:
+`[propext, Classical.choice, Quot.sound]`.  No kernel file changed, so
+no corpus run is owed.
+
+The docstring of `nestedPinPairAt_pinσ` records §(f)'s refutation at
+the place the merge session reads its work order.

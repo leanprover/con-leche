@@ -4410,7 +4410,6 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     -- (`domPiDepth_ordTargetDomL`) — one flatness hypothesis serves
     -- both.  The head it passes down to `ordTgtReadAt` is the BLOCK's
     -- recomputation's, whose producer is `ordBlkHead`.
-    (hflat : ConLeche.domPiDepth dom.1 = 0)
     (hheadB : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK)
     (hfinRefl : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
@@ -4428,13 +4427,16 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true)
     (hnPO : (pinsS.getD gp default).DsE.length = ciO.nP)
     -- the owner's recomputation, scoped and read
-    (hxb : (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hxb : (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded
+      (l + ConLeche.domPiDepth dom.1) = true)
     (hxlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).fvarLeaves,
       Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciO.nP)
     {rx : AnnotTerm}
     (hreadO : denoteMeta mp₁'.base2.acval (ENV₁)
-        (Level.substFn ψ m₀.lps (pinsS.getD gp default).lvls) (ciO.nP + l)
-        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP l) (l - 1)
+        (Level.substFn ψ m₀.lps (pinsS.getD gp default).lvls)
+        (ciO.nP + (l + ConLeche.domPiDepth dom.1))
+        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP (l + ConLeche.domPiDepth dom.1))
+          (l + ConLeche.domPiDepth dom.1 - 1)
           (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) = some rx) :
     ∃ z : Nat, z < pinsS.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -4451,20 +4453,28 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       ∀ fs₁ : List V, fs₁.length = l →
         SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
           (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
-        ((mutTlss ctorsA.length tssF ψ).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] ∧
+        (((mutTlss ctorsA.length tssF ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).length
+            = ConLeche.domPiDepth dom.1 ∧
         ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = (pinsS.getD z default).nPJ ∧
           AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
-            = AnnotTerm.instAll ((pinsS.getD gp default).Ds ψ) l rx := by
+            = AnnotTerm.instAll ((pinsS.getD gp default).Ds ψ)
+                (l + ConLeche.domPiDepth dom.1) rx := by
   classical
   have hgpS : gp < pinsS.length := by rw [SF.pinsLen]; exact hgp
-  -- the two tables' towers, from the ONE flatness hypothesis
+  -- **THE CUT IS THE CONTAINER'S OWN TOWER** (task #315 WIDE (f3)): no
+  -- flatness here any more — both tables' towers are the STORED
+  -- domain's, which is table-independent (`domPiDepth_ordTargetDomL`),
+  -- and the reading, the scoping and `ordRootInst` all speak at
+  -- `l + domPiDepth dom.1`.  What the row's head guard still kills is
+  -- the PLANTED summand, K.73's second one.
   have hdpB : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC
-      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = 0 := by
-    rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
-  have hdpO : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownT qK dom.1) = 0 := by
-    rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
+      (ConLeche.nestedPinTermsSelf p st) (q₀ + i') dom.1) = ConLeche.domPiDepth dom.1 :=
+    ConLeche.domPiDepth_ordTargetDomL _ _ _ _
+  have hdpO : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownT qK dom.1)
+      = ConLeche.domPiDepth dom.1 :=
+    ConLeche.domPiDepth_ordTargetDomL _ _ _ _
   obtain ⟨hhd, hlenA, hscA, hspA⟩ := R.pinTermSpine SF hgpS hgn
   have hown_eq : (D).ownPinTerms lps = ConLeche.nestedPinTermsSelf p st := R.ownPinTerms_eq SF lps
   -- the substitution `ordRootInst` writes, computed
@@ -4481,10 +4491,11 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       = some (Expr.instantiateList
           (Expr.abstractRange (Expr.instantiateLevelParams m₀.lps
             (pinsS.getD gp default).lvls
-            (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) 0 ciO.nP l)
+            (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) 0 ciO.nP
+            (l + ConLeche.domPiDepth dom.1))
           ((((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take
-            ciO.nP).reverse) l) := by
-    rw [hdpO, Nat.add_zero]
+            ciO.nP).reverse) (l + ConLeche.domPiDepth dom.1)) := by
+    rw [hdpO]
     unfold ConLeche.ordRootInst
     rw [hhd]
   -- K.69 at the copy's field
@@ -4495,19 +4506,16 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hheadB hfinRefl
   refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
-  -- **K.72's SUM, COLLAPSED AT THIS ROW'S GUARD** (task #315 WIDE (f3),
-  -- object (2)): the stored domain is flat and the recomputation is
-  -- constant-headed, so both summands are `0` and the copy's recorded
-  -- telescope is empty — which is what puts the reading back at the
-  -- field's own cut, where K.69 and the bridge speak.
-  rw [hown_eq, hdpB, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadB] at htl
-  have hnil : ((mutTlss ctorsA.length tssF ψ).getD
-      (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] :=
-    List.eq_nil_of_length_eq_zero htl
-  refine ⟨hnil, fb, Ps, hPs, ?_⟩
+  -- **K.73's SUM, AT ITS SECOND SUMMAND ONLY** (task #315 WIDE (f3)):
+  -- the row's head guard kills what the substitution PLANTS, and what
+  -- is left is the container's own stored tower — the cut the reading,
+  -- the scoping and `ordRootInst` all speak at.
+  rw [hown_eq, hdpB, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadB, Nat.add_zero] at htl
+  refine ⟨htl, fb, Ps, hPs, ?_⟩
   -- the bridge: `ordRootInst`'s output is the owner's reading, instantiated
   have hbr := denoteMeta_ordRootInst_read (V := V) mp₁'.base2 (ψ := ψ)
-    (lps := m₀.lps) (lvls := (pinsS.getD gp default).lvls) (nP := ciO.nP) (dp := b.nP) (cut := l)
+    (lps := m₀.lps) (lvls := (pinsS.getD gp default).lvls) (nP := ciO.nP) (dp := b.nP)
+    (cut := l + ConLeche.domPiDepth dom.1)
     (params := ConLeche.containerParamOpeners ciO.nP)
     (DsE := ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take ciO.nP)
     (Ds := (pinsS.getD gp default).Ds ψ)
@@ -4518,7 +4526,7 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (by rw [htakeAll]; exact hscA)
     (by rw [htakeAll]; exact hspA ψ)
     hreadO
-  rw [hown_eq, hnil, List.length_nil, Nat.add_zero,
+  rw [hown_eq, htl,
     ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadB, hK69] at hread
   rw [hbr] at hread
   exact (Option.some.inj hread).symm

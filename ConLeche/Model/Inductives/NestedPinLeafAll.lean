@@ -7274,9 +7274,17 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
   out of `hscope`'s own flatness and head conjuncts, so the reading is
   PRODUCED here instead of assumed.  What `hscope` still carries with
   no producer is its FLATNESS conjunct (`domPiDepth dom.1 = 0`) and the
-  `hfinRefl` conjunct beside it: both are premises of `PinShapes`' own
-  rows, and retiring them is the same edit at every row — K.72's sum in
-  flatness's place;
+  `hfinRefl` conjunct beside it.  **The first of the two is not merely
+  unproduced — it is FALSE** (task #315 WIDE (f3)): at
+  `tests/e2e/nested_pi_field.ndjson` (`K α | mk (f : Nat → α)`) both of
+  `hscope`'s guards hold at the `f` field — the container recurses
+  nowhere and the copy's field `Nat → <copy>` is REFLEXIVE, so its
+  `rss` bit is set — while `dom.1 = Nat → α` has depth one.  So this
+  hypothesis must be RESTATED, not discharged, and the restatement is
+  the reading branch's: the cut moves from the field's own `l` to
+  `l + domPiDepth dom.1` at `GroupFacts.ordRead`, `ordRead_corr`,
+  `ordReadMem_corr` and `read_of_run`, the way
+  `NestedPinsRun.ordReadAt` already speaks;
 * `htele : CopyOrdTele …` is GONE from the signature.  The object is
   restated as an `interp` equation (its syntactic form is refuted by
   `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run
@@ -9045,11 +9053,24 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
             (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
         obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
         exact hlpsE
-      exact R.ordReadAt SF S' hPD R.h.classify ψ₂ ρ₂ hρ₂ hi₂ hgb
-        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-        hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hflat hheadB
-        hfinRefl
-        hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO hxb hxlv hreadO
+      -- **THE CLAUSE COLLAPSES THE CUT, THE PRODUCER DOES NOT** (task
+      -- #315 WIDE (f3)): `ordReadAt` now speaks at
+      -- `l + domPiDepth dom.1`; this clause still carries flatness, so
+      -- the two meet by `Nat.add_zero` and the clause's own `= []` is
+      -- the length equation read at `0`.
+      obtain ⟨z, hz, htg, hEl, hJz, hnPz, hStz, hOT⟩ :=
+        R.ordReadAt SF S' hPD R.h.classify ψ₂ ρ₂ hρ₂ hi₂ hgb
+          (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+          hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hheadB
+          hfinRefl
+          hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO
+          (by rw [hflat, Nat.add_zero]; exact hxb) hxlv
+          (by rw [hflat, Nat.add_zero]; exact hreadO)
+      refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
+      obtain ⟨htl, hrest⟩ := hOT fs₁ hfs hspf
+      rw [hflat] at htl
+      rw [hflat, Nat.add_zero] at hrest
+      exact ⟨List.eq_nil_of_length_eq_zero htl, hrest⟩
     · -- K.69 STRENGTHENED at the group (`ordFireAt`): the OWNER's firing
       -- forces the block's rewrite, which every other row assumes
       obtain ⟨pbs, -, hPD⟩ := R.pinData
