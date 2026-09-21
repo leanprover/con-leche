@@ -214,7 +214,9 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
     -- the data's shape
     (hlenC : ∀ (ψ : Name → Nat) (c : Nat), (d.Fss c ψ).length = (d.ctorsM c).length)
-    (hlenPps : ∀ (ψ : Name → Nat) (c : Nat), (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
+    (hN0 : 0 < d.N)
+    (hlenPps : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
+      (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
     (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
       l < ((d.Fss c ψ).getD j []).length →
       ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N)
@@ -223,7 +225,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       = blockTyAV d.N (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
           (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ)
           (d.ppsM mm ψ) mm)
-    (hparams : ∀ (ψ : Name → Nat) (c : Nat) (ρ : Nat → V),
+    (hparams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N → ∀ ρ : Nat → V,
       Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρ)
     -- the constructors' leaves and their parameter frames
     (hctorLeaf : ∀ c, c < d.N → ∀ (j : Nat) (cA : ConstantVal × Nat),
@@ -234,31 +236,33 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2))
     (hdsLen : ∀ (ψ : Name → Nat) (c j : Nat), j < (d.ctorsM c).length →
       (d.dsF c j ψ).length = d.nP + ((d.Fss c ψ).getD j []).length)
-    (hparamsC : ∀ (ψ : Name → Nat) (c j : Nat) (ρ : Nat → V),
+    (hparamsC : ∀ (ψ : Name → Nat) (c j : Nat), c < d.N → j < (d.ctorsM c).length →
+      ∀ ρ : Nat → V,
       Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ)
     (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
       ∀ c, c < d.N → SumFieldsOkB (d.w ψ) ρ (uChains (d.Fss c ψ))) :
     BlockModelAt mo names d := by
-  have hlenParams : ∀ (ψ : Name → Nat) (c : Nat),
+  have hlenParams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
       (((d.ppsM c ψ).take d.nP).map (·.2.2)).length = d.nP := by
-    intro ψ c
-    rw [List.length_map, List.length_take, hlenPps]
+    intro ψ c hc
+    rw [List.length_map, List.length_take, hlenPps ψ c hc]
     omega
-  have hlenParamsD : ∀ ψ : Name → Nat, (d.params ψ).length = d.nP := fun ψ => hlenParams ψ 0
+  have hlenParamsD : ∀ ψ : Name → Nat, (d.params ψ).length = d.nP :=
+    fun ψ => hlenParams ψ 0 hN0
   -- the parameter spine at ANY component's own telescope
-  have hspP : ∀ (ψ : Name → Nat) (c : Nat) (ρ : Nat → V) (as : List V),
+  have hspP : ∀ (ψ : Name → Nat) (c : Nat), c < d.N → ∀ (ρ : Nat → V) (as : List V),
       SpineFit ρ (d.params ψ) as → SpineFit ρ (((d.ppsM c ψ).take d.nP).map (·.2.2)) as := by
-    intro ψ c ρ as hsp
-    exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hlenParams]) (hparams ψ c) ρ as
+    intro ψ c hc ρ as hsp
+    exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hlenParams ψ c hc]) (hparams ψ c hc) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
-  have hspPC : ∀ (ψ : Name → Nat) (c j : Nat), j < (d.ctorsM c).length →
+  have hspPC : ∀ (ψ : Name → Nat) (c j : Nat), c < d.N → j < (d.ctorsM c).length →
       ∀ (ρ : Nat → V) (as : List V),
       SpineFit ρ (d.params ψ) as → SpineFit ρ (((d.dsF c j ψ).take d.nP).map (·.2.2)) as := by
-    intro ψ c j hj ρ as hsp
+    intro ψ c j hc hj ρ as hsp
     have hl : (((d.dsF c j ψ).take d.nP).map (·.2.2)).length = d.nP := by
       rw [List.length_map, List.length_take, hdsLen ψ c j hj]
       omega
-    exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j) ρ as
+    exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
   refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- idxOk
@@ -305,7 +309,8 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         show _ = _ ++ ((d.ppsM mm ψ).drop d.nP).map (·.2.2)
         rw [← List.map_append, List.take_append_drop]
       rw [hsplit]
-      exact SpineFit.append (hspP ψ mm ρ as hsa) hsi
+      exact SpineFit.append
+        (hspP ψ mm (Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _)) ρ as hsa) hsi
     have hsh : shiftE (d.IdsM mm ψ).length 0 (consList (as ++ is) ρ) = consList as ρ := by
       rw [consList_append, ← hlenI]
       have := shiftE_consList_add (V := V) is 0 (consList as ρ)
@@ -344,7 +349,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       have h4 := sumMkAV_fold (V := V) (w := d.w ψ) (j := j)
         (pds := (d.dsF c j ψ).take d.nP) (fds := (d.dsF c j ψ).drop d.nP)
         (Fss := uChains (d.Fss c ψ)) (ρ := ρ) (as := as) (bs := fs)
-        hw (hspPC ψ c j hjl ρ as hsa) h2 (hFssOk ψ (consList as ρ) hsat c hc) h3
+        hw (hspPC ψ c j hc hjl ρ as hsa) h2 (hFssOk ψ (consList as ρ) hsat c hc) h3
       rw [List.take_append_drop] at h4
       exact h4
   · -- mkZero
