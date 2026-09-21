@@ -1566,6 +1566,63 @@ theorem checkBlockRecK_ruleRun {envC : Env} {p : BlockParts} {cvTas : List Const
   rw [hcv2]
   rfl
 
+/-! ### A-1's identification: the components ARE the run's witnesses -/
+
+/-- **The `(c, i)`-th rule's syntactic data, identified.**  Every Expr
+`checkBlockRule` opened is the one §A.8's definitions recompute:
+`Option` determinism against `checkBlockRule_data`, at the run
+`checkBlockRecK_ruleRun` supplies. -/
+theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (o₁ : Expr) (cpref : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr)
+      (ldoms : List Expr) (lrest : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt c) r.1.type 0
+          = some (blockRulePrefFvs p.toBlockShape rs c, o₁) ∧
+      ConLeche.Expr.instPisAt ((blockRulePrefFvs p.toBlockShape rs c).take p.nP) cA.1.type
+          = some (cpref, blockRuleCrest p.toBlockShape rs c i) ∧
+      ConLeche.openPisAtFvars cA.2 (blockRuleCrest p.toBlockShape rs c i)
+            (p.toBlockShape.rulePrefixAt c)
+          = some (blockRuleFieldFvs p.toBlockShape rs c i,
+              blockRuleCbody p.toBlockShape rs c i) ∧
+      ConLeche.Expr.stripLams (p.toBlockShape.rulePrefixAt c + cA.2) rhs = some (rbs, body) ∧
+      ConLeche.Expr.instLamsAt
+          (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)
+          rhs = some (ldoms, lrest) := by
+  have hrd : rs.getD c default = r := by
+    rw [List.getD_eq_getElem?_getD, hr]; rfl
+  have hcd : r.2.2.2.getD i default = cA := by
+    rw [List.getD_eq_getElem?_getD, hcA]; rfl
+  have hty : blockRuleRecTy rs c = r.1.type := by rw [blockRuleRecTy, hrd]
+  have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcd]
+  obtain ⟨envR, rc, recTys, ks, rhs0, hrc, hrecTy, hrun⟩ :=
+    checkBlockRecK_ruleRun h hr hcA hrhs
+  obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
+    resid, ihTele, fvsIh, bodyO, ty, concl,
+    hrecTy', hstrip, hop1, hinst, hop2, hlams, -, -, -, -, -, -⟩ :=
+    checkBlockRule_data hrun
+  obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
+  -- the prefix openers
+  have hpref : blockRulePrefFvs p.toBlockShape rs c = fvsPref := by
+    rw [blockRulePrefFvs, hty, hop1]; rfl
+  -- the constructor's telescope
+  have hcrest : blockRuleCrest p.toBlockShape rs c i = crest := by
+    rw [blockRuleCrest, hpref, hct, hinst]; rfl
+  -- the field openers and the body
+  have hffvs : blockRuleFieldFvs p.toBlockShape rs c i = fvsF := by
+    rw [blockRuleFieldFvs, hcrest, hct, hop2]; rfl
+  have hcbody : blockRuleCbody p.toBlockShape rs c i = cbody := by
+    rw [blockRuleCbody, hcrest, hct, hop2]; rfl
+  exact ⟨o₁, cpref, rbs, body, ldoms, lrest,
+    by rw [hpref]; exact hop1,
+    by rw [hpref, hcrest]; exact hinst,
+    by rw [hcrest, hffvs, hcbody]; exact hop2,
+    hstrip, by rw [hpref, hffvs]; exact hlams⟩
+
 end Peel
 
 end ConLeche.Model
