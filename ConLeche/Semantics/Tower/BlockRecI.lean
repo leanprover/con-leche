@@ -665,4 +665,79 @@ theorem hCand_iotaEqsAV_of (cand : Nat → V)
 
 end Assemble
 
+/-- `TowerWalkA` from the facts at every fitting spine. -/
+theorem towerWalkA_of_spines_body {m : Nat} {C : AnnotTerm} {g : List V → (Nat → V) → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
+      (∀ ys, SpineFit ρ (ds.map (·.2.2)) ys →
+        g (acc ++ ys) (consList ys ρ) ∈ˢ interp V (consList ys ρ) C ∧
+          (m = 0 → interp V (consList ys ρ) C ∈ˢ (univZero : V))) →
+      TowerWalkA m C g ρ acc ds
+  | [], ρ, acc, h => by
+    have h0 := h [] trivial
+    rw [List.append_nil, consList_nil] at h0
+    exact h0
+  | d :: ds, ρ, acc, h => by
+    intro a ha
+    refine towerWalkA_of_spines_body fun ys hsp => ?_
+    have := h (a :: ys) ⟨ha, hsp⟩
+    rw [consList_cons] at this
+    simpa using this
+
+/-! ## The candidate from a BODY FUNCTION — the regimes' common shape
+
+At `ℓ ≠ 0` every regime's candidate is the λ-tower over the recursor
+type's binder data of some assignment of a value to each class and
+fitting spine: regime WF's is the kit's `recAt` at the spine's index
+tuple and major (`wfCand`), and regime SQ's will be the residue at the
+SOURCE spine (`sqSpine`/`srcVals`, `FixSquashI.lean`, re-targeted).
+This is the reduction they share: a body function that lands in the
+conclusion's reading and satisfies each rule's equation at the rule's
+own spine IS the candidate. -/
+
+section Body
+
+variable {ℓ K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
+  {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+  {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
+  {ρ : Nat → V}
+
+/-- The λ-tower over the recursor type's binder data of a body
+function of the spine. -/
+noncomputable def towerCand (ℓ : Nat) (ρ : Nat → V)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (body : Nat → List V → V) (c : Nat) : V :=
+  lamTowerA ℓ ρ [] (rds c) fun ys _ => body c ys
+
+/-- **The regimes' common reduction** at `ℓ ≠ 0`. -/
+theorem towerCand_hCand (hℓ : ℓ ≠ 0) (body : Nat → List V → V)
+    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
+    (hbits : OneElimLevel ℓ K rds)
+    (hmem : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      body c ys ∈ˢ interp V (consList ys ρ) (concl c))
+    (hiota : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (towerCand ℓ ρ rds body) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ ((rds c).map (·.2.2))
+        (xs ++ (es c j ++ [mk c j]).map
+          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ)))) ∧
+      body c (xs ++ (es c j ++ [mk c j]).map
+          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
+        = interp V
+            (consList ((ihs c j).map
+                (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
+              (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))) (Rb c j)) :
+    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
+      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
+        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
+  refine hCand_iotaEqsAV_of (towerCand ℓ ρ rds body) (fun c hc => ?_)
+    fun c hc j hj xs fs hxl hsp => ?_
+  · rw [hTyE c hc]
+    exact lamTowerA_mem (hbits c hc)
+      (towerWalkA_of_spines_body fun ys hsp => ⟨by simpa using hmem c hc ys hsp,
+        fun h0 => absurd h0 hℓ⟩)
+  · obtain ⟨hfit, hbody⟩ := hiota c hc j hj xs fs hxl hsp
+    rw [towerCand, lamTowerA_fold hℓ hfit]
+    simpa using hbody
+
+end Body
+
 end ConLeche.Semantics

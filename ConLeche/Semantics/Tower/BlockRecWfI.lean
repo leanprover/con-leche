@@ -133,30 +133,21 @@ noncomputable def wfCand {ℓ K rP : Nat} {rds : Nat → List (Nat × Nat × Ann
   lamTowerA ℓ ρ [] (rds c) fun ys _ =>
     (D.kit (prefOf rP ys)).recAt c (D.tupOf c (idxOf rP ys)) (majOf ys)
 
-/-- `TowerWalkA` from the facts at every fitting spine. -/
-theorem towerWalkA_of_spines {m : Nat} {C : AnnotTerm} {g : List V → (Nat → V) → V} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
-      (∀ ys, SpineFit ρ (ds.map (·.2.2)) ys →
-        g (acc ++ ys) (consList ys ρ) ∈ˢ interp V (consList ys ρ) C ∧
-          (m = 0 → interp V (consList ys ρ) C ∈ˢ (univZero : V))) →
-      TowerWalkA m C g ρ acc ds
-  | [], ρ, acc, h => by
-    have h0 := h [] trivial
-    rw [List.append_nil, consList_nil] at h0
-    exact h0
-  | d :: ds, ρ, acc, h => by
-    intro a ha
-    refine towerWalkA_of_spines fun ys hsp => ?_
-    have := h (a :: ys) ⟨ha, hsp⟩
-    rw [consList_cons] at this
-    simpa using this
+/-- The candidate is the common `towerCand` shape (`BlockRecI`) at the
+kit's `recAt`. -/
+theorem wfCand_eq_towerCand {ℓ K rP : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+    {concl : Nat → AnnotTerm} {ρ : Nat → V} (D : WfRecData V ℓ K rP rds concl ρ) (c : Nat) :
+    wfCand D c
+      = towerCand ℓ ρ rds
+          (fun c ys => (D.kit (prefOf rP ys)).recAt c (D.tupOf c (idxOf rP ys)) (majOf ys)) c :=
+  rfl
 
 /-- **`mem_type` of the candidate**: it inhabits the recursor's type. -/
 theorem wfCand_mem {ℓ K rP : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
     {concl : Nat → AnnotTerm} {ρ : Nat → V} (D : WfRecData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)
     {c : Nat} (hc : c < K) (hbits : ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0)) :
     wfCand D c ∈ˢ interp V ρ (mkPisAV (rds c) (concl c)) := by
-  refine lamTowerA_mem hbits (towerWalkA_of_spines fun ys hsp => ⟨?_, fun h0 => absurd h0 hℓ⟩)
+  refine lamTowerA_mem hbits (towerWalkA_of_spines_body fun ys hsp => ⟨?_, fun h0 => absurd h0 hℓ⟩)
   obtain ⟨-, -, hi, hx⟩ := D.hsplit c hc ys hsp
   have hmem := (D.kit (prefOf rP ys)).rec_mem_B hc hi hx
   rw [D.hconcl c hc ys hsp] at hmem
