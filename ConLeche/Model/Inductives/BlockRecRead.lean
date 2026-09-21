@@ -276,7 +276,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     omega
   obtain ⟨rc, r', hrc, hr', hcvRa, -⟩ := hallR i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl

@@ -219,7 +219,7 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
   refine ⟨by cases u; exact hpins, hlenR, ?_⟩
   intro i hil
   obtain ⟨rc, r, hrc, hr, hcvRa, -⟩ := hallR i hil
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
@@ -450,7 +450,7 @@ theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List Con
     have hil : i < p.recs.length := by
       have := (List.getElem?_eq_some_iff.mp hi).1
       omega
-    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv⟩ := hallT i hil
+    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv, -, -⟩ := hallT i hil
     obtain rfl := Option.some.inj (hi.symm.trans hcu)
     obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv hcv
     rw [(ConLeche.checkConstantVal_lps hcv).1]
@@ -543,7 +543,9 @@ family's chosen tuple, at the recursor types the run reads. -/
 /-- **The recursor stage, at the run.**  Its premises are the check's
 own success, the two facts `declBlock` hands the lane (the
 recogniser's member names and the constructors' STORAGE), the LEAF's
-five facts, and the two SEMANTIC seams. -/
+five facts — the grading one only AT A BLOCK POSITION, which is where
+`blockRecAV_facts` gives it and where the stage consumes it — and the
+two SEMANTIC seams. -/
 theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -562,7 +564,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
         blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
           = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i)
-    (hleafOk : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
+    (hleafOk : ∀ (ψ : Name → Nat) (i : Nat), i < rs.length → ∀ ρ : Nat → V,
       WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
     (hleafVal : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
       AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
@@ -629,7 +631,8 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
       exact hleafPar i r hi ψ₁ ψ₂ hq)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleafOk ψ i ρ)
+      rw [hacv i r hi ψ]
+      exact hleafOk ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
       rw [hacv i r hi ψ]; exact hleafVal ψ i ρ)

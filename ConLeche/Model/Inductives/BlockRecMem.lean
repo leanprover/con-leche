@@ -100,6 +100,9 @@ theorem checkBlockRecTys_open {mode : ConLeche.CheckMode} {env : Env}
     by_cases hle : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    by_cases hle2 : p.rulePrefixAt ri ≤ p.majorIdxAt ri
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
     obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨fvs, concl⟩ := x1
     have hop : ConLeche.openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0
@@ -218,7 +221,7 @@ theorem checkBlockRecK_tyShape {envC : Env} {p : ConLeche.BlockParts}
     omega
   obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
   obtain rfl := Option.some.inj (hr.symm.trans hr')
-  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, hcv, -, -⟩ := hallT i hil
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
   have hr1 : r.1 = cvRi := by
