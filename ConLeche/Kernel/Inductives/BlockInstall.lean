@@ -386,7 +386,26 @@ def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : S
     checkBlockDefEqList ops env depth what as bs
   | _, _ => throw (.invalid s!"direct rec: {what} (arity)")
 
-/-- **Stage (b): every member's recursor TYPE.**
+/-- **D-d: ONE elimination level for the whole family** (the ruling of
+2026-09-21).  Official shares one elimination level parameter across a
+block's recursors, so the sort the kernel's own sort check returns for
+each recursor's CONCLUSION must be `Level.isEquiv` to the first one's
+— this accepts nothing official produces less, and a family whose
+conclusions live at different levels is INVALID INPUT.
+
+The levels are the type stage's own output (`checkBlockRecTys`), so
+the family fact is a statement about THIS list and nothing else
+(`blockRecElimAgree_inv`, `ConLeche/Verify/Inductives/BlockRecInv.lean`):
+the model may take one `ℓ` per family. -/
+def checkBlockRecElimAgree (us : List Level) : m Unit :=
+  match us with
+  | [] => pure ()
+  | u0 :: rest =>
+    if rest.all (fun u => Level.isEquiv u u0 == some true) then pure ()
+    else throw (.invalid "direct rec: the block's recursors do not all eliminate at \
+      one level")
+
+/-- **Stage (b): every recursor's TYPE.**
 
 The stream's type is checked as a constant's type and STORED AS IS —
 nothing is generated and nothing is compared with a generated term.
@@ -409,14 +428,26 @@ argument sums read off the record (`BlockShape.rulePrefixAt` /
 * the CONCLUSION is arbitrary — except that, when a large eliminator
   is not allowed (`blockLargeElimAllowed`, official's
   `elim_only_at_universe_zero` said declaratively), it must be a
-  PROPOSITION: its sort under the opened binders is `Sort 0`. -/
-def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested : Bool) :
-    List (MemberShape × ConstantVal) → Nat → m (List (ConstantVal × Nat))
+  PROPOSITION: its sort under the opened binders is `Sort 0`.
+
+The recursor's MEMBER is the one its major names (`RecShape.tgt`, read
+by the recogniser): a recursor whose major names none of them is a
+NESTED block's auxiliary one and is DECLINED here — the route refuses
+such a block at recognition, so the arm is the stage's own answer
+rather than a reachable verdict.  The conclusion's sort is returned
+with the record: it is D-d's datum. -/
+def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested : Bool)
+    (cvTas : List ConstantVal) :
+    List RecShape → Nat → m (List (ConstantVal × Nat × Level))
   | [], _ => pure []
-  | (ms, cvTa) :: rest, mi => do
-    let cvRi ← checkConstantVal ops env ms.cvR
-    let rP := p.rulePrefixAt mi
-    let mI := p.majorIdxAt mi
+  | rc :: rest, ri => do
+    let ms ← unwrapOr p.members[p.recTgtAt ri]?
+      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+    let cvTa ← unwrapOr cvTas[p.recTgtAt ri]?
+      (.internal "direct rec: type former of the recursor's member")
+    let cvRi ← checkConstantVal ops env rc.cvR
+    let rP := p.rulePrefixAt ri
+    let mI := p.majorIdxAt ri
     unless p.nP ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
         parameters")
@@ -427,7 +458,7 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested :
     let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
       (.internal "direct rec: type former telescope")
     checkBlockDefEqList ops env p.nP
-      s!"the recursor {ms.cvR.name}'s parameter domains are not the block's"
+      s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
       (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
     -- the MAJOR: the member at its parameters and its index binders
     let maj ← unwrapOr fvs[mI]? (.internal "direct rec: major premise")
@@ -438,13 +469,16 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested :
         mty.getAppArgs.drop p.nP == (fvs.drop rP).take ms.nIdx do
       throw (.invalid "direct rec: the recursor's major premise is not the member at its \
         parameters and its index binders")
-    -- the ELIMINATION restriction (official `elim_only_at_universe_zero`)
+    -- the CONCLUSION's sort, read ONCE: the elimination restriction
+    -- (official `elim_only_at_universe_zero`) and the family's one
+    -- elimination level (D-d) are both about it
+    let sty ← ops.inferType env (mI + 1) concl
+    let u ← ops.ensureSort env (mI + 1) sty
     unless blockLargeElimAllowed p nested do
-      let s ← ops.inferType env (mI + 1) concl
-      unless ← ops.isDefEq env (mI + 1) s (.sort .zero) do
+      unless ← ops.isDefEq env (mI + 1) sty (.sort .zero) do
         throw (.invalid "direct rec: large eliminator on a block whose sort may be Prop")
-    let rs ← checkBlockRecTys ops env p nested rest (mi + 1)
-    pure ((cvRi, ms.nIdx) :: rs)
+    let rs ← checkBlockRecTys ops env p nested cvTas rest (ri + 1)
+    pure ((cvRi, ms.nIdx, u) :: rs)
 
 /-- **Stage (c): ONE rule.**
 
@@ -469,13 +503,13 @@ side; the abstraction is the model's reading of it and nothing of it
 is kept. -/
 def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
     (p : BlockShape) (recNames : List Name) (rlvls : List Level)
-    (recTys : List Expr) (mIs rPs : List Nat) (mi : Nat)
+    (recTys : List Expr) (mIs rPs recOfM : List Nat) (ri : Nat)
     (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
     (rhs : Expr) : m Expr := do
   let nP := p.nP
-  let rP := p.rulePrefixAt mi
+  let rP := p.rulePrefixAt ri
   let nF := cA.2
-  let recTy ← unwrapOr recTys[mi]? (.internal "direct rec: recursor type")
+  let recTy ← unwrapOr recTys[ri]? (.internal "direct rec: recursor type")
   unless rhs.looseBVarsBounded 0 do
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
   if rhs.hasFvar then
@@ -505,8 +539,8 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
       fields"
     ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
   let fr : BlockRuleFrame :=
-    { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs, nP := nP, rP := rP,
-      nF := nF, ks := ks,
+    { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs, recOfM := recOfM,
+      nP := nP, rP := rP, nF := nF, ks := ks,
       teleOf := structFieldTeleOf cA.1.type nP nF,
       idxOf := structFieldIdxOf cA.1.type nP nF,
       recIdx := blockRecIdxOf ks,
@@ -516,7 +550,8 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
       recursor occurs outside a call on a recursive field of this constructor at the \
       rule's own prefix")
   let ihTele ← unwrapOr
-    (blockIhPis nP rP nF fr.pw (fun c => recTys.getD c (.sort .zero)) (blockTgtsOf ks)
+    (blockIhPis nP rP nF fr.pw
+      (fun t => recTys.getD (recOfM.getD t recTys.length) (.sort .zero)) (blockTgtsOf ks)
       fr.teleOf fr.idxOf fr.recIdx 0 body'')
     (.invalid s!"direct rec: the rule of {cA.1.name} recurses into a recursor whose type \
       does not bind the call's arguments")
@@ -542,37 +577,54 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
 GLOBAL index, which is the minor premise it fires). -/
 def checkBlockRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
     (p : BlockShape) (recNames : List Name) (rlvls : List Level)
-    (recTys : List Expr) (mIs rPs : List Nat) (mi : Nat) (cvR : ConstantVal) :
+    (recTys : List Expr) (mIs rPs recOfM : List Nat) (ri : Nat) (cvR : ConstantVal) :
     List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → m (List Expr)
   | [], [] => pure []
   | (cA, ks) :: cs, rhs :: rhss => do
-    let r ← checkBlockRule opsR envR opsT envT p recNames rlvls recTys mIs rPs mi cvR cA ks rhs
-    let rest ← checkBlockRules opsR envR opsT envT p recNames rlvls recTys mIs rPs mi cvR
-      cs rhss
+    let r ← checkBlockRule opsR envR opsT envT p recNames rlvls recTys mIs rPs recOfM ri
+      cvR cA ks rhs
+    let rest ← checkBlockRules opsR envR opsT envT p recNames rlvls recTys mIs rPs recOfM ri
+      cvR cs rhss
     pure (r :: rest)
   | _, _ =>
     throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
 
-/-- Every member's rules, in block order. -/
-def checkBlockMembersRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m)
+/-- Every RECURSOR's rules, in the record's recursor order — each
+against the constructors of the member its major names. -/
+def checkBlockRecsRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m)
     (envT : Env) (p : BlockParts)
-    (recNames : List Name) (rlvls : List Level) (cvRas : List (ConstantVal × Nat)) :
-    List ((MemberShape × List (ConstantVal × Nat)) × List (List BlockFieldKind)) → Nat →
+    (recNames : List Name) (rlvls : List Level) (cvRas : List (ConstantVal × Nat))
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    List RecShape → Nat →
       m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
   | [], _ => pure []
-  | ((ms, ctorsA), kss) :: rest, mi => do
-    let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
+  | rc :: rest, ri => do
+    let tgt := p.recTgtAt ri
+    let ms ← unwrapOr p.members[tgt]?
+      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+    let ctorsA ← unwrapOr ctorsAs[tgt]? (.internal "direct rec: the member's constructors")
+    let kss ← unwrapOr p.kinds[tgt]? (.internal "direct rec: the member's field kinds")
+    let (cvRa, nIdx) ← unwrapOr cvRas[ri]? (.internal "direct rec: recursor record")
+    unless ctorsA.length == ms.ctors.length do
+      throw (.internal "direct rec: the member's constructors")
     let rhss ← checkBlockRules opsR envR opsT envT p.toBlockShape recNames rlvls
-      (cvRas.map (·.1.type)) (List.range p.k |>.map p.majorIdxAt)
-      (List.range p.k |>.map p.rulePrefixAt) mi ms.cvR (ctorsA.zip kss) ms.rhss
-    let rest' ← checkBlockMembersRules opsR envR opsT envT p recNames rlvls cvRas rest (mi + 1)
+      (cvRas.map (·.1.type)) (List.range p.recs.length |>.map p.majorIdxAt)
+      (List.range p.recs.length |>.map p.rulePrefixAt) p.recOfMember ri rc.cvR
+      (ctorsA.zip kss) rc.rhss
+    let rest' ← checkBlockRecsRules opsR envR opsT envT p recNames rlvls cvRas ctorsAs
+      rest (ri + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
 /-- **Stage (a): the recursor RECORDS' pins** (task #220 at k
-members), thrown before anything is computed. -/
+members), thrown before anything is computed.
+
+What is NOT here any more (the ruling of 2026-09-21): the `T_m.rec`
+NAME pin — recursor names are the stream's business — and the two
+argument SUMS, which the motive-free check READS off the record.  Both
+live in the one-member generate-and-compare arm, the first inside
+`checkNativeRec` and the second through `BlockParts.toNative`'s
+`recSumsOk`. -/
 def checkBlockRecPins (p : BlockParts) : m Unit := do
-  unless p.members.all (fun ms => ms.cvR.name == ms.cvT.name.str "rec") do
-    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
   unless blockRecLpsOk p.toBlockShape do
     throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
   unless p.recPinned do
@@ -592,9 +644,11 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- argument sums, its rules' constructors or the block's constructor
   -- GROUPING, is INVALID INPUT — thrown before anything is computed
   checkBlockRecPins p
-  -- (b) every member's recursor type
-  let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds)
-    (p.members.zip cvTas) 0
+  -- (b) every recursor's type, and — D-d — one elimination level for
+  -- the whole family
+  let cvRus ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds) cvTas p.recs 0
+  checkBlockRecElimAgree (cvRus.map (·.2.2))
+  let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the
   -- environment holding all k rule-less recursors (a rule mentions
@@ -607,9 +661,9 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- certificate is being built for: a model of that environment owes
   -- every constant's leaf a type, and the recursors' is the
   -- recursion theorem itself.
-  checkBlockMembersRules ops envR ops env p (p.members.map (·.cvR.name))
-    ((p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
-    cvRas ((p.members.zip ctorsAs).zip p.kinds) 0
+  checkBlockRecsRules ops envR ops env p (p.recs.map (·.cvR.name))
+    ((p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [])
+    cvRas ctorsAs p.recs 0
 
 /-- **The recursor stage, behind its gate** (`blockRecCheckOn`).
 

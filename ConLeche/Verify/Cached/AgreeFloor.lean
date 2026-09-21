@@ -481,17 +481,18 @@ def blockCtorSkels (nP : Nat) : List MemberShape → List InstallSkel → List I
   | ms :: rest, sk =>
     blockCtorSkels nP rest (sumCtorSkels nP (ms.ctors.map fun c => (c.1.name, c.2)) sk)
 
-/-- The k recursors, each with its member's rules and its OWN
-argument sums (`BlockShape.rulePrefixAt`: the generated block-wide
-ones while the recursor stage's gate is down, the recursor record's
-once it is lifted — the install conses exactly these). -/
-def blockRecSkels (q : BlockShape) : Nat → List MemberShape → List InstallSkel →
+/-- The block's recursors, each with its TARGET member's rules and its
+OWN argument sums (`BlockShape.rulePrefixAt`/`recTgtAt`: the generated
+block-wide ones and the recursor's own position while the recursor
+stage's gate is down, the recursor record's once it is lifted — the
+install conses exactly these). -/
+def blockRecSkels (q : BlockShape) : Nat → List RecShape → List InstallSkel →
     List InstallSkel
   | _, [], sk => sk
-  | m, ms :: rest, sk =>
-    blockRecSkels q (m + 1) rest
-      (.recr ms.cvR.name (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ms.ctors.map (·.1.name)) :: sk)
+  | r, rc :: rest, sk =>
+    blockRecSkels q (r + 1) rest
+      (.recr rc.cvR.name (q.majorIdxAt r) (q.rulePrefixAt r)
+        ((q.members.getD (q.recTgtAt r) default).ctors.map (·.1.name)) :: sk)
 
 /-- The projection table of every structure-like member. -/
 def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
@@ -504,18 +505,20 @@ def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
 /-- The uniform install's skeleton. -/
 def blockSkels (p : BlockParts) (sk : List InstallSkel) : List InstallSkel :=
   blockTableSkels p.members
-    (blockRecSkels p.toBlockShape 0 p.members
+    (blockRecSkels p.toBlockShape 0 p.recs
       (blockCtorSkels p.nP p.members (blockIndSkels p.members sk)))
 
-/-- At ONE member the skeleton is the one-member skeleton. -/
-theorem blockSkels_one {p : BlockParts} {ms : MemberShape} (hm : p.members = [ms])
+/-- At ONE member and ONE recursor the skeleton is the one-member
+skeleton. -/
+theorem blockSkels_one {p : BlockParts} {ms : MemberShape} {rc : RecShape}
+    (hm : p.members = [ms]) (hr : p.recs = [rc])
     (sk : List InstallSkel) : blockSkels p sk = nativeSkels p.toNative sk := by
   simp only [blockSkels, nativeSkels, blockIndSkels, blockCtorSkels, blockRecSkels,
     blockTableSkels, sumSkels, BlockParts.toNative, BlockShape.toInductive,
-    rulePrefixAt_gated, majorIdxAt_gated, BlockShape.majorIdx,
+    rulePrefixAt_gated, majorIdxAt_gated, recTgtAt_gated, BlockShape.majorIdx,
     BlockShape.rulePrefix, BlockShape.k, BlockShape.numCtors, numCtorsOf,
     List.getD_cons_zero,
-    InductiveShape.rulePrefix, InductiveShape.majorIdx, hm, List.headD_cons,
+    InductiveShape.rulePrefix, InductiveShape.majorIdx, hm, hr, List.headD_cons,
     List.length_cons, List.length_nil, Nat.add_zero]
 
 /-- The dispatch below the direct-sum gate: the uniform route's gate
@@ -1391,8 +1394,8 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
         cases hbp : blockParts? nP block with
         | none => exact checkIndDeclSF_skels mode h block
         | some p =>
-          obtain ⟨ms, hms⟩ := blockParts?_k1 hbp
-          simp only [checkBlockS_one mode hms, blockSkels_one hms]
+          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hbp
+          simp only [checkBlockS_one mode hms, blockSkels_one hms hrc]
           exact checkNativeS_skels mode h p.toNative
       · exact Yields.ofThrow
 

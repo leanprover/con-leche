@@ -176,92 +176,86 @@ theorem and its companion go with the gate at the flip.** -/
 
 /-! ## The recogniser -/
 
-/-- **At ONE type former the recursor list is left alone**: with one
-member the reorder's length guard admits only a one-element list, and
-there the name match either finds that very element or does not fire
-at all. -/
-theorem blockOrderRecs_single (cvT : ConstantVal)
-    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
-    blockOrderRecs [cvT] rs = rs := by
-  cases rs with
-  | nil => rfl
-  | cons r rs' =>
-    cases rs' with
-    | cons r1 rs'' => simp only [blockOrderRecs, List.length_cons, List.length_nil]; rfl
-    | nil =>
-      unfold blockOrderRecs
-      cases hf : ([r].find? (fun x => x.1.name == cvT.name.str "rec")) with
-      | none =>
-        simp only [hf, List.all_cons, List.all_nil, Option.isSome_none,
-          Bool.false_and, Bool.and_false, Bool.false_eq_true, if_false]
-      | some r' =>
-        have hr : r' = r := by
-          simp only [List.find?] at hf
-          split at hf
-          · exact (Option.some.inj hf).symm ▸ rfl
-          · exact nomatch hf
-        subst hr
-        simp only [hf, List.all_cons, List.all_nil, Option.isSome_some, Bool.and_true,
-          List.length_cons, List.length_nil, beq_self_eq_true, Bool.true_and, if_pos,
-          List.filterMap_cons, List.filterMap_nil]
+/-- **`recTgtAt` while the recursor stage's gate is down**: the route
+takes one member with one recursor, so a recursor's position IS its
+member's.  Goes with the gate. -/
+@[simp] theorem recTgtAt_gated (p : BlockShape) (r : Nat) : p.recTgtAt r = r := rfl
 
-/-- `blockSplitOrdered` at ONE type former. -/
-theorem blockSplitOrdered_one {block : List ConstantInfo} {cvT0 : ConstantVal}
-    {cs : List (ConstantVal × Nat × Nat)} {rs : List (ConstantVal × Nat × Nat × List RecRule)}
-    (hsp : blockSplit block = some ([cvT0], cs, rs)) :
-    blockSplitOrdered block = some ([cvT0], cs, rs) := by
-  simp only [blockSplitOrdered, hsp, Option.map_some, blockOrderRecs_single]
-
-
-/-- The member counts at ONE member are the one-member counts. -/
+/-- The member counts at ONE member, at the sums of the recursor the
+loop found. -/
 theorem blockCounts?_one (nPd : Nat) (cvT : ConstantVal)
     (cs : List (ConstantVal × Nat × Nat)) (mI rP : Nat) :
-    blockCounts? nPd 1 cs.length cvT mI rP = nativeCounts? nPd cvT cs mI rP := rfl
+    blockCounts? nPd 1 cs.length cvT (some (mI, rP)) = nativeCounts? nPd cvT cs mI rP := rfl
 
-/-- **The recogniser at ONE member is the one-member recogniser.** -/
+/-- The member counts at ONE member when the loop found NO recursor
+for it: the answer is the former's telescope's, which is the one-member
+reading at ANY sums (the sums are read only at a def-headed former,
+where the absence of a recursor is a `none`). -/
+theorem blockCounts?_one_none {nPd : Nat} {cvT : ConstantVal}
+    {cs : List (ConstantVal × Nat × Nat)} {c : Nat × Nat} (mI rP : Nat)
+    (h : blockCounts? nPd 1 cs.length cvT none = some c) :
+    nativeCounts? nPd cvT cs mI rP = some c := by
+  revert h
+  unfold blockCounts? nativeCounts?
+  cases hb : cvT.type.piBinders with
+  | mk bs body =>
+    cases body <;> intro h <;> first
+      | exact h
+      | exact nomatch h
+
+/-- **The recogniser at ONE member is the one-member recogniser.**
+The recursor list is the stream's own, with the member its MAJOR names
+read off its type (`recTargetOf`). -/
 theorem blockShape?_one {nPd : Nat} {block : List ConstantInfo} {cvT0 : ConstantVal}
-    {cs : List (ConstantVal × Nat × Nat)} {rs : List (ConstantVal × Nat × Nat × List RecRule)}
+    {cs : List (ConstantVal × Nat × Nat)} {r0 : ConstantVal × Nat × Nat × List RecRule}
     {q : BlockShape}
-    (hsp : blockSplit block = some ([cvT0], cs, rs))
+    (hsp : blockSplit block = some ([cvT0], cs, [r0]))
     (h : blockShape? nPd block = some q) :
     nativeShape? nPd block = some q.toInductive ∧
-      ∃ r0 : ConstantVal × Nat × Nat × List RecRule, rs = [r0] ∧
-        q.members = [⟨cvT0, q.toInductive.nIdx, cs.map fun c => (c.1, c.2.2),
-          r0.1, r0.2.2.1, r0.2.2.2.map RecRule.rhs⟩] := by
+      q.members = [⟨cvT0, q.toInductive.nIdx, cs.map fun c => (c.1, c.2.2)⟩] ∧
+      q.recs = [⟨r0.1, r0.2.2.1, r0.2.1,
+        recTargetOf [cvT0.name] r0.2.1 r0.1.type, r0.2.2.2.map RecRule.rhs⟩] := by
   unfold blockShape? at h
-  rw [blockSplitOrdered_one hsp] at h
-  cases rs with
-  | nil => simp only at h; exact nomatch h
-  | cons r0 rs' =>
-  cases rs' with
-  | cons r1 rs'' =>
-    cases hbc : blockCounts? nPd [cvT0].length cs.length cvT0 r0.2.1 r0.2.2.1 <;>
-      simp only [blockMemberCounts?, hbc, Option.map_none] at h <;>
-      exact nomatch h
-  | nil =>
+  rw [hsp] at h
   obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
-  simp only [blockMemberCounts?, List.length_cons, List.length_nil,
-    blockCounts?_one nPd cvT0 cs] at h
-  cases hc : nativeCounts? nPd cvT0 cs r0.2.1 r0.2.2.1 with
+  simp only [blockMemberCounts?, List.length_cons, List.length_nil, List.map_cons,
+    List.map_nil, Nat.zero_add] at h
+  cases hc : blockCounts? nPd 1 cs.length cvT0
+      ((([r0].find? fun z => recTargetOf [cvT0.name] z.2.1 z.1.type == 0).map
+        fun z => (z.2.1, z.2.2.1))) with
   | none => rw [hc] at h; exact nomatch h
   | some cnt =>
   obtain ⟨nP, nIdx⟩ := cnt
   rw [hc] at h
   simp only [Option.map_some] at h
   simp only [nativeShape?, hsum]
+  -- the one-member counts, at the sums the loop read or without them
+  have hnat : nativeCounts? nPd cvT0 cs r0.2.1 r0.2.2.1 = some (nP, nIdx) := by
+    revert hc
+    simp only [List.find?, List.map]
+    cases hf : (recTargetOf [cvT0.name] r0.2.1 r0.1.type == 0) with
+    | true =>
+      simp only [Option.map_some]
+      intro hc
+      rw [← blockCounts?_one nPd cvT0 cs r0.2.1 r0.2.2.1]
+      exact hc
+    | false =>
+      simp only [Option.map_none]
+      intro hc
+      exact blockCounts?_one_none r0.2.1 r0.2.2.1 hc
   have hnP : nP = nPd := by
-    unfold nativeCounts? at hc
-    split at hc
-    · split at hc
-      · exact (congrArg Prod.fst (Option.some.inj hc)).symm
-      · exact nomatch hc
-    · split at hc
-      · exact nomatch hc
-      · split at hc
-        · exact (congrArg Prod.fst (Option.some.inj hc)).symm
-        · exact nomatch hc
+    unfold nativeCounts? at hnat
+    split at hnat
+    · split at hnat
+      · exact (congrArg Prod.fst (Option.some.inj hnat)).symm
+      · exact nomatch hnat
+    · split at hnat
+      · exact nomatch hnat
+      · split at hnat
+        · exact (congrArg Prod.fst (Option.some.inj hnat)).symm
+        · exact nomatch hnat
   subst hnP
-  rw [hc]
+  rw [hnat]
   simp only [List.all_cons, List.all_nil, Bool.and_true, beq_self_eq_true,
     blockGroups, Bool.and_assoc] at h ⊢
   split at h
@@ -270,32 +264,36 @@ theorem blockShape?_one {nPd : Nat} {block : List ConstantInfo} {cvT0 : Constant
     cases hl : r0.1.levelParams with
     | nil =>
       simp only [hl] at h ⊢
-      obtain rfl := Option.some.inj h; exact ⟨rfl, r0, rfl, rfl⟩
+      obtain rfl := Option.some.inj h; exact ⟨rfl, rfl, rfl⟩
     | cons elim relps =>
       simp only [hl] at h ⊢
       by_cases hg : (relps == cvT0.levelParams && !cvT0.levelParams.contains elim) = true
-      · rw [if_pos hg] at h ⊢; obtain rfl := Option.some.inj h; exact ⟨rfl, r0, rfl, rfl⟩
-      · rw [if_neg hg] at h ⊢; obtain rfl := Option.some.inj h; exact ⟨rfl, r0, rfl, rfl⟩
+      · rw [if_pos hg] at h ⊢; obtain rfl := Option.some.inj h; exact ⟨rfl, rfl, rfl⟩
+      · rw [if_neg hg] at h ⊢; obtain rfl := Option.some.inj h; exact ⟨rfl, rfl, rfl⟩
   · exact nomatch h
 
-/-- **The recursor pin at ONE member is the one-member pin.** -/
+/-- **The recursor pin at ONE member is the one-member pin** — the
+record's own pin (rule completeness) together with the two argument
+SUMS, which the ruling of 2026-09-21 moved out of the record's pin and
+into this, the generate-and-compare arm (`BlockParts.toNative` adds
+them). -/
 theorem blockRecPinOk_one {block : List ConstantInfo} {cvT0 : ConstantVal}
     {cs : List (ConstantVal × Nat × Nat)} {r0 : ConstantVal × Nat × Nat × List RecRule}
     {q : BlockShape} {nIdx : Nat}
     (hsp : blockSplit block = some ([cvT0], cs, [r0]))
-    (hm : q.members = [⟨cvT0, nIdx, cs.map fun c => (c.1, c.2.2),
-      r0.1, r0.2.2.1, r0.2.2.2.map RecRule.rhs⟩]) :
-    blockRecPinOk q block = nativeRecPinOk q.toInductive block := by
+    (hm : q.members = [⟨cvT0, nIdx, cs.map fun c => (c.1, c.2.2)⟩])
+    (hr : q.recs = [⟨r0.1, r0.2.2.1, r0.2.1, 0, r0.2.2.2.map RecRule.rhs⟩]) :
+    (q.recSumsOk && blockRecPinOk q block) = nativeRecPinOk q.toInductive block := by
   obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
-  unfold blockRecPinOk nativeRecPinOk
-  rw [blockSplitOrdered_one hsp]
+  unfold blockRecPinOk nativeRecPinOk BlockShape.recSumsOk
+  rw [hsp]
   simp only [hsum, BlockShape.k, BlockShape.allCtors, BlockShape.rulePrefix,
-    BlockShape.numCtors, BlockShape.offs, BlockShape.toInductive, numCtorsOf, hm,
+    BlockShape.numCtors, BlockShape.offs, BlockShape.toInductive, numCtorsOf, hm, hr,
     List.length_cons, List.length_nil, List.map_cons, List.map_nil, List.flatten_cons,
     List.flatten_nil, List.append_nil, List.headD_cons, List.getElem?_cons_zero,
     List.map_map, Nat.add_zero, List.take, beq_self_eq_true, Bool.true_and,
     List.range_one, List.all_cons, List.all_nil, Bool.and_true, Nat.zero_add,
-    Function.comp_def, beq_self_eq_true, Bool.true_and]
+    Function.comp_def, List.getD_cons_zero, Bool.and_assoc]
   rfl
 
 /-- **THE RECOGNISER BRIDGE**: a block the uniform route takes is a
@@ -311,30 +309,45 @@ theorem blockParts?_toNative {nPd : Nat} {block : List ConstantInfo} {p : BlockP
   obtain ⟨cvTs, cs, rs⟩ := z
   rw [hsp] at h
   simp only at h
-  by_cases hg : (blockRouteK1Only && cvTs.length != 1) = true
+  by_cases hg : (blockRouteK1Only && (cvTs.length != 1 || rs.length != 1)) = true
   · rw [if_pos hg] at h; exact nomatch h
   rw [if_neg hg] at h
-  have hlen : cvTs.length = 1 := by
-    simp only [blockRouteK1Only, Bool.true_and, bne_iff_ne, ne_eq] at hg
-    simpa using hg
+  simp only [blockRouteK1Only, Bool.true_and, Bool.or_eq_true, bne_iff_ne, ne_eq,
+    not_or, Decidable.not_not] at hg
   obtain ⟨cvT0, rfl⟩ : ∃ c, cvTs = [c] := by
-    match cvTs, hlen with
+    match cvTs, hg.1 with
     | [c], _ => exact ⟨c, rfl⟩
+  obtain ⟨r0, rfl⟩ : ∃ r, rs = [r] := by
+    match rs, hg.2 with
+    | [r], _ => exact ⟨r, rfl⟩
   cases hsh : blockShape? nPd block with
   | none => rw [hsh] at h; exact nomatch h
   | some q =>
   rw [hsh] at h
   simp only at h
-  obtain ⟨hnat, r0, rfl, hm⟩ := blockShape?_one hsp hsh
-  by_cases hk : (blockRouteK1Only && q.k != 1) = true
+  obtain ⟨hnat, hm, hr⟩ := blockShape?_one hsp hsh
+  by_cases hn : (q.recs.any fun rc => decide (q.k ≤ rc.tgt)) = true
+  · rw [if_pos hn] at h; exact nomatch h
+  rw [if_neg hn] at h
+  by_cases hk : (blockRouteK1Only && (q.k != 1 || q.recs.length != 1)) = true
   · rw [if_pos hk] at h; exact nomatch h
   rw [if_neg hk] at h
   obtain rfl := Option.some.inj h
+  -- the block has ONE member, so the single recursor's target — which
+  -- is below `k` by the nested rung's gate — is member 0
+  have hk1 : q.k = 1 := by
+    rw [BlockShape.k, hm]; rfl
+  have htgt : recTargetOf [cvT0.name] r0.2.1 r0.1.type = 0 := by
+    simp only [hr, List.any_cons, List.any_nil, Bool.or_false, decide_eq_true_eq,
+      hk1] at hn
+    omega
   refine ⟨?_, _, hm⟩
   unfold nativeParts?
   rw [hnat]
   simp only [Option.map_some, Option.some.injEq, BlockParts.toNative,
     List.headD_nil, List.map_nil, NativeParts.mk.injEq]
-  exact ⟨trivial, trivial, (blockRecPinOk_one hsp hm).symm⟩
+  have hr0 : q.recs = [⟨r0.1, r0.2.2.1, r0.2.1, 0, r0.2.2.2.map RecRule.rhs⟩] := by
+    rw [hr, htgt]
+  exact ⟨trivial, trivial, (blockRecPinOk_one hsp hm hr0).symm⟩
 
 end ConLeche

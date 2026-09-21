@@ -408,9 +408,14 @@ def blockRecCheckOn : Bool := false
 
 /-! ## The record -/
 
-/-- One member of a block: its type former, its own index count, its
-constructors (member-local, in block order), its recursor and that
-recursor's rules as exported. -/
+/-- One member of a block: its type former, its own index count and
+its constructors (member-local, in block order).
+
+**The member carries no recursor** (the ruling of 2026-09-21):
+recursor NAMES are the stream's business, a member may carry any
+number of them (zero included), and a recursor is assigned to its
+member by its MAJOR premise, not by its name — so the recursors are a
+list of their own (`RecShape`, `BlockShape.recs`). -/
 structure MemberShape where
   /-- the member's type former -/
   cvT : ConstantVal
@@ -418,28 +423,47 @@ structure MemberShape where
   nIdx : Nat
   /-- the member's constructors in block order, each with its field count -/
   ctors : List (ConstantVal × Nat)
-  /-- the member's recursor -/
+  deriving Repr, Inhabited
+
+/-- **One recursor of a block, as the stream carries it** (the ruling
+of 2026-09-21).  Its NAME is the stream's business — nothing here is
+compared with `T.rec` — and what makes it a recursor of member `tgt`
+is its MAJOR premise, read off its type at the record's own `mI`. -/
+structure RecShape where
+  /-- the recursor's constant (name, level parameters, type) -/
   cvR : ConstantVal
   /-- **the recursor record's own rule prefix** (`recInfo`'s `rP`): the
   number of binders the recursor's type has before its INDEX binders —
   the parameters, then the stretch official fills with the motives and
   the minor premises, which the uniform route never looks inside.  Read
   off the record (the ruling of 2026-09-21): a motive is a parameter
-  like any other.  The recursor's major sits at `rP + nIdx`, which is
-  the record's `mI`, and a rule's λ-prefix is `rP + nF`. -/
+  like any other.  A rule's λ-prefix is `rP + nF`. -/
   rP : Nat
-  /-- the member's rules' right-hand sides as exported -/
+  /-- **the recursor record's own major-premise index** (`recInfo`'s
+  `mI`): the binder its MAJOR sits at, read off the record too. -/
+  mI : Nat
+  /-- **the member its MAJOR names** (`recTargetOf`, read syntactically
+  by the recogniser).  `k` — no member at all — is the nested block's
+  auxiliary recursor, whose major is a CONTAINER: the route refuses
+  such a block (`blockParts?`) and the stage declines it. -/
+  tgt : Nat
+  /-- the recursor's rules' right-hand sides as exported, in the
+  constructor order of its target member -/
   rhss : List Expr
   deriving Repr, Inhabited
 
 /-- The pieces of a recognised block at any number of members: the
-members, the SHARED parameter count, elimination level parameter and
-result sort (official requires the parameters to agree definitionally
-and the result sorts to be equivalent — `check_inductive_types`, and
-one elimination level for all k recursors). -/
+members, the recursors, the SHARED parameter count, elimination level
+parameter and result sort (official requires the parameters to agree
+definitionally and the result sorts to be equivalent —
+`check_inductive_types`, and one elimination level for all the
+recursors, which is D-d). -/
 structure BlockShape where
   /-- the members in block order -/
   members : List MemberShape
+  /-- the block's recursors, in the order the stream exports them (any
+  number, assigned to their members by their majors) -/
+  recs : List RecShape
   /-- the shared parameter count -/
   nP : Nat
   /-- the recursors' fresh elimination level parameter (`large` only;
@@ -485,7 +509,35 @@ stage builds and compares, and it is the block-wide number every
 `k = 1` bridge reads. -/
 def rulePrefix (p : BlockShape) : Nat := p.nP + p.k + p.numCtors
 
-/-- **Member `m`'s recursor's rule prefix, as the INSTALL uses it.**
+/-- **The member recursor `r` belongs to, as the INSTALL uses it.**
+
+With the recursor stage's gate down (`blockRecCheckOn`, the shipped
+configuration) the route takes one member with one recursor, so the
+recursor's position IS its member's; with the gate LIFTED it is the
+target the recogniser read off the MAJOR (`RecShape.tgt`).  The `if`
+goes with the gate at the flip, leaving the record's. -/
+def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
+  if blockRecCheckOn then (p.recs.getD r default).tgt else r
+
+/-- **Member `t`'s PRINCIPAL recursor**: the first recursor of the
+block whose major names it (`p.recs.length` at a member with none).
+
+The abstraction gives one inductive hypothesis per recursive field,
+and its type is that member's recursor's conclusion — so with several
+recursors on one member a guarded call must name the one the `ih`
+binder was typed from, which is this one.  A second recursor on a
+member is CHECKED like any other; only its rules' recursive calls go
+through the principal one. -/
+def principalRecAt (p : BlockShape) (t : Nat) : Nat :=
+  ((List.range p.recs.length).find? fun r =>
+    (p.recs.getD r default).tgt == t).getD p.recs.length
+
+/-- `principalRecAt` at every member, in block order (the rule stage's
+frame carries it as a list). -/
+def recOfMember (p : BlockShape) : List Nat :=
+  (List.range p.k).map p.principalRecAt
+
+/-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 
 With the recursor stage's gate down (`blockRecCheckOn`, the shipped
 configuration) this is the generated shape's block-wide number, which
@@ -493,21 +545,33 @@ is what the one-member bridges and the generate-and-compare stage
 need; the recursor records' pin (`blockRecPinOk`) refuses anything
 else, so no stream reaches the install with a different one.
 
-With the gate LIFTED it is the RECORD's (`MemberShape.rP`): the
+With the gate LIFTED it is the RECORD's (`RecShape.rP`): the
 motive-free check never derives the sum, it reads it and requires only
-`nP ≤ rP` and `mI = rP + nIdx_m` (the ruling of 2026-09-21).  The
-`if` goes with the gate at the flip, leaving the record's. -/
-def rulePrefixAt (p : BlockShape) (m : Nat) : Nat :=
-  if blockRecCheckOn then (p.members.getD m default).rP else p.rulePrefix
+`nP ≤ rP` (the ruling of 2026-09-21).  The `if` goes with the gate at
+the flip, leaving the record's. -/
+def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
+  if blockRecCheckOn then (p.recs.getD r default).rP else p.rulePrefix
 
-/-- Member `m`'s recursor's major-premise index, at the same reading. -/
-def majorIdxAt (p : BlockShape) (m : Nat) : Nat :=
-  p.rulePrefixAt m + (p.members.getD m default).nIdx
+/-- Recursor `r`'s major-premise index, at the same reading — the
+RECORD's (`RecShape.mI`) with the gate lifted, the generated shape's
+while it is down. -/
+def majorIdxAt (p : BlockShape) (r : Nat) : Nat :=
+  if blockRecCheckOn then (p.recs.getD r default).mI
+  else p.rulePrefix + (p.members.getD r default).nIdx
 
 /-- Member `m`'s recursor's major-premise index at the GENERATED
 shape. -/
 def majorIdx (p : BlockShape) (m : Nat) : Nat :=
   p.rulePrefix + (p.members.getD m default).nIdx
+
+/-- **The recursor records' two argument SUMS at the GENERATED
+shape**: the pin the one-member generate-and-compare arm makes (the
+ruling of 2026-09-21 moved it there, out of `blockRecPinOk`, because
+the motive-free check reads the sums and derives nothing).  It is what
+`BlockParts.toNative` adds to the record's own pin. -/
+def recSumsOk (p : BlockShape) : Bool :=
+  p.recs.all fun rc =>
+    rc.rP == p.rulePrefix && rc.mI == p.rulePrefix + (p.members.getD rc.tgt default).nIdx
 
 /-- The record completed with the former stage's result sort (task
 #195 at k members: the sort is read off member 0's checked telescope,
@@ -517,6 +581,8 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
 
 @[simp] theorem withSort_members (p : BlockShape) (s : Level) :
     (p.withSort s).members = p.members := rfl
+@[simp] theorem withSort_recs (p : BlockShape) (s : Level) :
+    (p.withSort s).recs = p.recs := rfl
 @[simp] theorem withSort_nP (p : BlockShape) (s : Level) : (p.withSort s).nP = p.nP := rfl
 @[simp] theorem withSort_elim (p : BlockShape) (s : Level) : (p.withSort s).elim = p.elim := rfl
 @[simp] theorem withSort_resSort (p : BlockShape) (s : Level) :
@@ -537,6 +603,8 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
     (p.withSort s).allCtors = p.allCtors := rfl
 @[simp] theorem withSort_rulePrefix (p : BlockShape) (s : Level) :
     (p.withSort s).rulePrefix = p.rulePrefix := rfl
+@[simp] theorem withSort_recSumsOk (p : BlockShape) (s : Level) :
+    (p.withSort s).recSumsOk = p.recSumsOk := rfl
 @[simp] theorem withSort_majorIdx (p : BlockShape) (s : Level) (m : Nat) :
     (p.withSort s).majorIdx m = p.majorIdx m := rfl
 
@@ -546,7 +614,7 @@ theorem withSort_self (p : BlockShape)
     (h : p.isProp = (Level.isEquiv p.resSort .zero == some true)) :
     p.withSort p.resSort = p := by
   cases p with
-  | mk members nP elim resSort large isProp =>
+  | mk members recs nP elim resSort large isProp =>
     simp only [BlockShape.withSort]
     simp only at h
     rw [← h]
@@ -582,6 +650,8 @@ def BlockParts.complete (p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
     (p₀.complete p₁).recPinned = p₀.recPinned := rfl
 @[simp] theorem BlockParts.complete_members (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).members = p₁.members := rfl
+@[simp] theorem BlockParts.complete_recs (p₀ : BlockParts) (p₁ : BlockShape) :
+    (p₀.complete p₁).recs = p₁.recs := rfl
 @[simp] theorem BlockParts.complete_nP (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).nP = p₁.nP := rfl
 @[simp] theorem BlockParts.complete_elim (p₀ : BlockParts) (p₁ : BlockShape) :
@@ -607,6 +677,8 @@ def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind)
     (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).recPinned = p.recPinned := rfl
 @[simp] theorem BlockParts.withKinds_members (p : BlockParts)
     (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).members = p.members := rfl
+@[simp] theorem BlockParts.withKinds_recs (p : BlockParts)
+    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).recs = p.recs := rfl
 @[simp] theorem BlockParts.withKinds_nP (p : BlockParts)
     (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).nP = p.nP := rfl
 @[simp] theorem BlockParts.withKinds_elim (p : BlockParts)
@@ -627,15 +699,19 @@ member 0 and is junk — nothing consumes it there, because the route is
 gated (`blockRouteK1Only`). -/
 def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
   let ms := p.members.headD default
-  ⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, ms.cvR, p.elim, p.resSort, ms.rhss, p.large, p.isProp⟩
+  let rc := p.recs.headD default
+  ⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, rc.cvR, p.elim, p.resSort, rc.rhss, p.large, p.isProp⟩
 
 /-- **The one-member reading of the record**: the shape's, with the
-kinds' targets forgotten.  The install's stages agree with the
-one-member stages through this map
-(`ConLeche/Verify/Inductives/BlockOne.lean`). -/
+kinds' targets forgotten and the recursor record's two argument SUMS
+added to the pin — at `k = 1` the generate-and-compare arm is where
+they belong (the ruling of 2026-09-21), and `toNative` IS that arm's
+reading.  The install's stages agree with the one-member stages
+through this map (`ConLeche/Verify/Inductives/BlockOne.lean`). -/
 def BlockParts.toNative (p : BlockParts) : NativeParts :=
   ⟨p.toBlockShape.toInductive,
-    (p.kinds.headD []).map (List.map BlockFieldKind.toRec), p.recPinned⟩
+    (p.kinds.headD []).map (List.map BlockFieldKind.toRec),
+    p.toBlockShape.recSumsOk && p.recPinned⟩
 
 @[simp] theorem BlockShape.toInductive_withSort (p : BlockShape) (s : Level) :
     (p.withSort s).toInductive = p.toInductive.withSort s := rfl
@@ -671,54 +747,46 @@ def blockSplit : List ConstantInfo →
     (blockSplit rest).map fun q => (cvT :: q.1, q.2)
   | rest => (blockSplitCtors rest).map fun q => ([], q.1, q.2)
 
-/-- **The block's recursors, MATCHED to the members by NAME.**
+/-- **The member a recursor's MAJOR names** (the ruling of
+2026-09-21: recursor NAMES are the stream's business, and what makes a
+recursor this member's is its major premise).
 
-Official generates one recursor per member, named `T_m.rec`, but the
-EXPORTER's order of the `recs` list is its own (`E.rec_1, E.rec` —
-SURVEY §2.4; `inmodel_mutual` exports `Odd.rec` before `Even.rec`
-while its `types` are `Even, Odd`), so the record cannot pair the two
-lists positionally: it pairs each member with the recursor that NAMES
-it, which is what official's replay does when it looks the generated
-recursor up.
-
-When some member has no `T_m.rec` among them the export order is kept
-and nothing is decided here — the recursor stage's name pin throws
-(task #220: nothing the recursor records claim is a condition of
-recognition).  The LENGTH guard is what keeps a NESTED block out: its
-`recs` are `T.rec, T.rec_1, …` against ONE type former, and picking
-`T.rec` by name would make it look like a one-member block whose
-auxiliary recursors are not there — so a list of a different length is
-left alone, and `blockMemberCounts?` refuses it as it always has.  At
-one member with one recursor the list is unchanged
-(`blockOrderRecs_single`, `ConLeche/Verify/Inductives/BlockOne.lean`). -/
-def blockOrderRecs (cvTs : List ConstantVal)
-    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
-    List (ConstantVal × Nat × Nat × List RecRule) :=
-  if cvTs.length == rs.length &&
-      cvTs.all (fun cvT => (rs.find? (fun r => r.1.name == cvT.name.str "rec")).isSome) then
-    cvTs.filterMap (fun cvT => rs.find? (fun r => r.1.name == cvT.name.str "rec"))
-  else rs
-
-/-- `blockSplit` with the recursors matched to the members
-(`blockOrderRecs`), which is how every consumer reads them. -/
-def blockSplitOrdered (block : List ConstantInfo) :
-    Option (List ConstantVal × List (ConstantVal × Nat × Nat) ×
-      List (ConstantVal × Nat × Nat × List RecRule)) :=
-  (blockSplit block).map fun q => (q.1, q.2.1, blockOrderRecs q.1 q.2.2)
+Strip the `mI` binders the record claims off the stored type; the next
+binder is the MAJOR, and its domain's head constant is read against
+the block's member names.  `names.length` — no member — when the type
+does not have those binders, when the major's domain heads something
+else, or when it heads a constant outside the block: a NESTED block's
+auxiliary recursors are exactly that (their majors are the containers
+official's auxiliary block carries, not the block's own members), and
+that is the reading which replaces the recursor list's old length
+guard. -/
+def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
+  match ty.stripPis mI with
+  | some (_, .forallE dom _ _) =>
+    (match dom.getAppFn with
+     | .const n _ => names.findIdx? (· == n)
+     | _ => none).getD names.length
+  | _ => names.length
 
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
 Π-telescope once those binders are peeled.  At a former declared AT A
 DEFINITION (task #195) the syntactic telescope is not the one official
-walks and the member's own recursor record's argument sums are the only
-reading available — with `nP + k + N` the rule prefix at k members. -/
-def blockCounts? (nPd k nC : Nat) (cvT : ConstantVal) (mI rP : Nat) : Option (Nat × Nat) :=
+walks and a recursor record's argument sums are the only reading
+available — with `nP + k + N` the rule prefix at k members; `r` is
+then the sums of a recursor whose MAJOR names this member, and `none`
+when there is none. -/
+def blockCounts? (nPd k nC : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
+    Option (Nat × Nat) :=
   match cvT.type.piBinders with
   | (bs, .sort _) => if nPd ≤ bs.length then some (nPd, bs.length - nPd) else none
   | _ =>
-    if rP < nC + k || mI < rP then none
-    else if rP - (nC + k) == nPd then some (nPd, mI - rP) else none
+    match r with
+    | none => none
+    | some (mI, rP) =>
+      if rP < nC + k || mI < rP then none
+      else if rP - (nC + k) == nPd then some (nPd, mI - rP) else none
 
 /-- The member a constructor belongs to: the one its RESULT names
 (official's own reading — `check_constructors` checks each constructor
@@ -752,43 +820,51 @@ exhaust the block's constructors in block order (the generated minors
 are the block's constructors in block order, so a grouping that is not
 monotone cannot match any generated recursor). -/
 def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
-  match blockSplitOrdered block with
+  match blockSplit block with
   | some (cvTs, cs, rs) =>
-    cvTs.length == p.k && rs.length == p.k &&
+    cvTs.length == p.k && rs.length == p.recs.length &&
     (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
-    (List.range p.k).all fun m =>
-      match rs[m]?, p.members[m]? with
-      | some (_, mI, rP, rules), some ms =>
-        rP == p.rulePrefix && mI == p.rulePrefix + ms.nIdx &&
-        rules.length == ms.ctors.length &&
-        (List.range ms.ctors.length).all fun j =>
-          match rules[j]?, cs[p.offs m + j]? with
-          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
-          | _, _ => false
+    (List.range p.recs.length).all fun r =>
+      match rs[r]?, p.recs[r]? with
+      | some (_, _mI, _rP, rules), some rc =>
+        match p.members[rc.tgt]? with
+        | some ms =>
+          rules.length == ms.ctors.length &&
+          (List.range ms.ctors.length).all fun j =>
+            match rules[j]?, cs[p.offs rc.tgt + j]? with
+            | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
+            | _, _ => false
+        -- a recursor whose major names NO member: the nested block's
+        -- auxiliary one, refused by the route (`blockParts?`) and
+        -- declined by the stage — there is nothing to pin here
+        | none => true
       | _, _ => false
   | none => false
 
 /-- **The recursor records' level-parameter pin** (task #220 at k
-members): official generates ONE elimination level parameter for the
-whole block, so every recursor carries the block's own level parameters
-with that one in front at the large eliminator. -/
+members, per RECURSOR since the ruling of 2026-09-21): official
+generates ONE elimination level parameter for the whole block, so
+every recursor carries the block's own level parameters with that one
+in front at the large eliminator. -/
 def blockRecLpsOk (p : BlockShape) : Bool :=
-  p.members.all fun ms =>
-    if p.large then ms.cvR.levelParams == p.elim :: p.lps
-    else ms.cvR.levelParams == p.lps
+  p.recs.all fun rc =>
+    if p.large then rc.cvR.levelParams == p.elim :: p.lps
+    else rc.cvR.levelParams == p.lps
 
-/-- **The members' index counts**, one `blockCounts?` per member
-against its own recursor record: `none` unless there are as many
-recursors as formers (the count agreement official's replay makes when
-it compares every generated recursor with an exported one). -/
-def blockMemberCounts? (nPd k nC : Nat) : List ConstantVal →
-    List (ConstantVal × Nat × Nat × List RecRule) → Option (List Nat)
-  | [], [] => some []
-  | cvT :: ts, r :: rs =>
-    match blockCounts? nPd k nC cvT r.2.1 r.2.2.1 with
-    | some c => (blockMemberCounts? nPd k nC ts rs).map fun ns => c.2 :: ns
+/-- **The members' index counts**, one `blockCounts?` per member off
+the member's OWN former telescope — and, at a def-headed former (task
+#195) where there is no telescope to read, off the argument sums of a
+recursor whose MAJOR names that member. -/
+def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
+    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
+    Nat → List ConstantVal → Option (List Nat)
+  | _, [] => some []
+  | m, cvT :: ts =>
+    let r := (rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
+      fun q => (q.2.1, q.2.2.1)
+    match blockCounts? nPd k nC cvT r with
+    | some c => (blockMemberCounts? nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
     | none => none
-  | _, _ => none
 
 /-- The block's shape: the members with their counts, the shared
 parameter count, the result sort read off member 0 (or the placeholder
@@ -799,14 +875,14 @@ throws on them) — the arrangement of task #220, so that a block whose
 recursor record is a stub is REJECTED by its own type and constructors
 rather than declined. -/
 def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
-  match blockSplitOrdered block with
+  match blockSplit block with
   | some (cvTs, cs, rs) =>
     match cvTs, rs with
     | cvT0 :: _, (cvR0, _, _, _) :: _ =>
       let lps := cvT0.levelParams
       let names := cvTs.map (·.name)
       let k := cvTs.length
-      match blockMemberCounts? nPd k cs.length cvTs rs with
+      match blockMemberCounts? nPd k cs.length names rs 0 cvTs with
       | none => none
       | some nIdxs =>
         let nP := nPd
@@ -825,11 +901,15 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           let ctors : List (ConstantVal × Nat) :=
             cs.map fun (c : ConstantVal × Nat × Nat) => (c.1, c.2.2)
           let groups := blockGroups names lps nP k ctors
-          let members := ((cvTs.zip nIdxs).zip (groups.zip rs)).map
-            fun (a : (ConstantVal × Nat) ×
-                (List (ConstantVal × Nat) × ConstantVal × Nat × Nat × List RecRule)) =>
-              (⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.1,
-                a.2.2.2.2.2.map RecRule.rhs⟩ : MemberShape)
+          let members := ((cvTs.zip nIdxs).zip groups).map
+            fun (a : (ConstantVal × Nat) × List (ConstantVal × Nat)) =>
+              (⟨a.1.1, a.1.2, a.2⟩ : MemberShape)
+          -- **the recursors, in the stream's own order**, each with the
+          -- member its MAJOR names (`recTargetOf`)
+          let recsL := rs.map
+            fun (r : ConstantVal × Nat × Nat × List RecRule) =>
+              (⟨r.1, r.2.2.1, r.2.1, recTargetOf names r.2.1 r.1.type,
+                r.2.2.2.map RecRule.rhs⟩ : RecShape)
           -- WHICH ELIMINATOR the recursors are: the LARGE one carries a
           -- fresh elimination level parameter in front of the block's.
           -- Read off member 0's; the others are `blockRecLpsOk`'s, thrown
@@ -839,8 +919,8 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
             | elim :: relps => if relps == lps && !lps.contains elim then some elim else none
             | [] => none
           match large? with
-          | some elim => some ⟨members, nP, elim, s, true, isProp⟩
-          | none => some ⟨members, nP, .anonymous, s, false, isProp⟩
+          | some elim => some ⟨members, recsL, nP, elim, s, true, isProp⟩
+          | none => some ⟨members, recsL, nP, .anonymous, s, false, isProp⟩
         else none
     | _, _ => none
   | none => none
@@ -861,23 +941,37 @@ official's positivity walk, and the recursor records' structural pin
 two or more members is refused HERE, by the gate alone. -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockSplit block with
-  | some (cvTs, _, _) =>
-    if blockRouteK1Only && cvTs.length != 1 then none
+  | some (cvTs, _, rs) =>
+    if blockRouteK1Only && (cvTs.length != 1 || rs.length != 1) then none
     else
       match blockShape? nPd block with
       | some p =>
+        -- **the nested rung's gate** (the ruling of 2026-09-21, in
+        -- place of the recursor list's old length guard): a recursor
+        -- whose MAJOR names no member of the block is a NESTED block's
+        -- auxiliary recursor, whose major is one of official's
+        -- auxiliary containers.  The route cannot install it, and the
+        -- block belongs to the modelled one — so the RECOGNISER
+        -- refuses it, as it always has (a decline from the stage would
+        -- have no fallback: the dispatch is the recogniser alone, task
+        -- #219)
+        if p.recs.any (fun rc => decide (p.k ≤ rc.tgt)) then none
         -- the SAME gate on the record the recogniser built, so that a
-        -- block on the route is known to have one member without
-        -- re-reading the split (both go at the flip)
-        if blockRouteK1Only && p.k != 1 then none
+        -- block on the route is known to have one member and one
+        -- recursor — the shape the one-member generate-and-compare arm
+        -- reads — without re-reading the split (all of it goes at the
+        -- flip)
+        else if blockRouteK1Only && (p.k != 1 || p.recs.length != 1) then none
         else some ⟨p, [], blockRecPinOk p block⟩
       | none => none
   | none => none
 
 /-- **The gate, as the consumers read it**: a block the route takes has
-exactly one member (milestone M1; `blockRouteK1Only`). -/
+exactly one member and exactly one recursor (milestone M1;
+`blockRouteK1Only`). -/
 theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
-    (h : blockParts? nPd block = some p) : ∃ ms, p.members = [ms] := by
+    (h : blockParts? nPd block = some p) :
+    (∃ ms, p.members = [ms]) ∧ (∃ rc, p.recs = [rc]) := by
   unfold blockParts? at h
   split at h
   · split at h
@@ -885,13 +979,16 @@ theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
     · split at h
       · split at h
         · exact nomatch h
-        · rename_i q _ hk
-          obtain rfl := Option.some.inj h
-          simp only [blockRouteK1Only, Bool.true_and, bne_iff_ne, ne_eq] at hk
-          have : q.members.length = 1 := by
-            simpa [BlockShape.k] using hk
-          match q, this with
-          | ⟨ms :: [], _, _, _, _, _⟩, _ => exact ⟨ms, rfl⟩
+        · split at h
+          · exact nomatch h
+          · rename_i q _ _ hk
+            obtain rfl := Option.some.inj h
+            simp only [blockRouteK1Only, Bool.true_and, Bool.or_eq_true, bne_iff_ne,
+              ne_eq, not_or, Decidable.not_not] at hk
+            have hm : q.members.length = 1 := by simpa [BlockShape.k] using hk.1
+            have hr : q.recs.length = 1 := hk.2
+            match q, hm, hr with
+            | ⟨ms :: [], rc :: [], _, _, _, _, _⟩, _, _ => exact ⟨⟨ms, rfl⟩, ⟨rc, rfl⟩⟩
       · exact nomatch h
   · exact nomatch h
 

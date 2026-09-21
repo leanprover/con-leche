@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockRec
+public import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Verify.Level
 
 public section
 
@@ -13,7 +15,8 @@ the form the model tier reads them:
 * the **guarded call's characterisation** (`blockIhCall?_spine`): a
   node the abstraction replaces IS the generated recursive call
   `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
-  THIS constructor whose kind carries the target `c'` — up to
+  THIS constructor whose kind carries a member whose PRINCIPAL
+  recursor is `rec_{c'}` — up to
   `Expr.resetMeta`, which is the comparison the stage makes (and the
   comparison the one-member stage has always made on rule bodies);
 * the **abstraction's equations** and the fact that on a term free of
@@ -84,8 +87,8 @@ set_option maxHeartbeats 1000000 in
 call.**  `blockIhCall? fr d e = some (r, as)` says: the node's head is
 a block recursor `rec_{c'}` at the block's own level arguments and at
 the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
-`r` belongs to a field `i` of THIS constructor whose kind names the
-target `c'`; the call's arguments `as` are as many as that
+`r` belongs to a field `i` of THIS constructor whose kind names a
+member whose PRINCIPAL recursor is `rec_{c'}`; the call's arguments `as` are as many as that
 field's telescope has binders and mention no block recursor; and the
 whole node is `blockIhSpinePis` — the generated call
 `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame —
@@ -101,7 +104,8 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
       e.getAppFn = .const nm fr.rlvls ∧
       nameIdxOf? fr.recNames nm = some c' ∧
       natIdxOf? fr.recIdx i = some r ∧
-      (fr.ks.getD i .ordinary).tgt? = some c' ∧
+      ((fr.ks.getD i .ordinary).tgt?.map
+        (fun t => fr.recOfM.getD t fr.recNames.length)) = some c' ∧
       fr.rPs.getD c' 0 = fr.rP ∧
       e.getAppArgs.length = fr.mIs.getD c' 0 + 1 ∧
       as.length = (fr.teleOf i).length ∧
@@ -158,7 +162,8 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   have hasl' : maj.getAppArgs.length = (fr.teleOf (d + fr.nF - 1 - b)).length := by simpa using hasl
   have hfree' : (maj.getAppArgs.any fun a => a.mentionsAnyConst fr.recNames) = false := by simpa using hfree
   have hcmp' : e.resetMeta = expected.resetMeta := by simpa using hcmp
-  have htgt' : (fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt? = some c' := by
+  have htgt' : ((fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt?.map
+      (fun t => fr.recOfM.getD t fr.recNames.length)) = some c' := by
     simpa using htgt
   have hrp' : fr.rPs.getD c' 0 = fr.rP := by simpa using hrp
   exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
@@ -272,5 +277,32 @@ theorem abstractIh_of_recFree {fr : BlockRuleFrame} :
     simp only [abstractIh_app, hnone, abstractIh_of_recFree h.1 hf.1,
       abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
       Expr.liftLooseBVars]
+
+/-! ## D-d: ONE elimination level per family
+
+The type stage returns, with each recursor's record, the sort the
+kernel's own sort check gave its CONCLUSION; `checkBlockRecElimAgree`
+is the family check over exactly that list.  So the fact the model
+needs — one `ℓ` for the whole family — is a statement about the list
+and nothing else. -/
+
+/-- **D-d, exposed**: every recursor of the block eliminates at a level
+equivalent to the first one's, so the model may take ONE `ℓ` per
+family. -/
+theorem blockRecElimAgree_inv {us : List Level}
+    (h : checkBlockRecElimAgree (m := CheckM) us = .ok ()) :
+    ∀ u ∈ us, Level.isEquiv u (us.headD .zero) = some true := by
+  cases us with
+  | nil => intro u hu; exact nomatch hu
+  | cons u0 rest =>
+    rw [checkBlockRecElimAgree] at h
+    split at h
+    · next hall =>
+      intro u hu
+      simp only [List.mem_cons] at hu
+      rcases hu with rfl | hu
+      · exact Level.isEquiv_of_beq (beq_self_eq_true _)
+      · exact eq_of_beq (List.all_eq_true.mp hall u hu)
+    · exact nomatch h
 
 end ConLeche

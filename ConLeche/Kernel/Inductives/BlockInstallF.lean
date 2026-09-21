@@ -210,13 +210,18 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
       (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
 
 /-- `checkBlockRecTys` through the index. -/
-def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool) :
-    List (MemberShape × ConstantVal) → Nat → m (List (ConstantVal × Nat))
+def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+    (cvTas : List ConstantVal) :
+    List RecShape → Nat → m (List (ConstantVal × Nat × Level))
   | [], _ => pure []
-  | (ms, cvTa) :: rest, mi => do
-    let cvRi ← checkConstantValF ops fe ms.cvR
-    let rP := p.rulePrefixAt mi
-    let mI := p.majorIdxAt mi
+  | rc :: rest, ri => do
+    let ms ← unwrapOr p.members[p.recTgtAt ri]?
+      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+    let cvTa ← unwrapOr cvTas[p.recTgtAt ri]?
+      (.internal "direct rec: type former of the recursor's member")
+    let cvRi ← checkConstantValF ops fe rc.cvR
+    let rP := p.rulePrefixAt ri
+    let mI := p.majorIdxAt ri
     unless p.nP ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
         parameters")
@@ -226,7 +231,7 @@ def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested 
     let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
       (.internal "direct rec: type former telescope")
     checkBlockDefEqList ops fe.env p.nP
-      s!"the recursor {ms.cvR.name}'s parameter domains are not the block's"
+      s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
       (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
     let maj ← unwrapOr fvs[mI]? (.internal "direct rec: major premise")
     let mty := maj.fvarTypeD
@@ -236,23 +241,25 @@ def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested 
         mty.getAppArgs.drop p.nP == (fvs.drop rP).take ms.nIdx do
       throw (.invalid "direct rec: the recursor's major premise is not the member at its \
         parameters and its index binders")
+    let sty ← ops.inferType fe.env (mI + 1) concl
+    let u ← ops.ensureSort fe.env (mI + 1) sty
     unless blockLargeElimAllowed p nested do
-      let s ← ops.inferType fe.env (mI + 1) concl
-      unless ← ops.isDefEq fe.env (mI + 1) s (.sort .zero) do
+      unless ← ops.isDefEq fe.env (mI + 1) sty (.sort .zero) do
         throw (.invalid "direct rec: large eliminator on a block whose sort may be Prop")
-    let rs ← checkBlockRecTysF ops fe p nested rest (mi + 1)
-    pure ((cvRi, ms.nIdx) :: rs)
+    let rs ← checkBlockRecTysF ops fe p nested cvTas rest (ri + 1)
+    pure ((cvRi, ms.nIdx, u) :: rs)
 
 /-- `checkBlockRule` through the index. -/
 def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape)
-    (recNames : List Name) (rlvls : List Level) (recTys : List Expr) (mIs rPs : List Nat)
-    (mi : Nat) (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
+    (recNames : List Name) (rlvls : List Level) (recTys : List Expr)
+    (mIs rPs recOfM : List Nat)
+    (ri : Nat) (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
     (rhs : Expr) : m Expr := do
   let nP := p.nP
-  let rP := p.rulePrefixAt mi
+  let rP := p.rulePrefixAt ri
   let nF := cA.2
-  let recTy ← unwrapOr recTys[mi]? (.internal "direct rec: recursor type")
+  let recTy ← unwrapOr recTys[ri]? (.internal "direct rec: recursor type")
   unless rhs.looseBVarsBounded 0 do
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
   if rhs.hasFvar then
@@ -279,8 +286,8 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
       fields"
     ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
   let fr : BlockRuleFrame :=
-    { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs, nP := nP, rP := rP,
-      nF := nF, ks := ks,
+    { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs, recOfM := recOfM,
+      nP := nP, rP := rP, nF := nF, ks := ks,
       teleOf := structFieldTeleOf cA.1.type nP nF,
       idxOf := structFieldIdxOf cA.1.type nP nF,
       recIdx := blockRecIdxOf ks,
@@ -290,7 +297,8 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
       recursor occurs outside a call on a recursive field of this constructor at the \
       rule's own prefix")
   let ihTele ← unwrapOr
-    (blockIhPis nP rP nF fr.pw (fun c => recTys.getD c (.sort .zero)) (blockTgtsOf ks)
+    (blockIhPis nP rP nF fr.pw
+      (fun t => recTys.getD (recOfM.getD t recTys.length) (.sort .zero)) (blockTgtsOf ks)
       fr.teleOf fr.idxOf fr.recIdx 0 body'')
     (.invalid s!"direct rec: the rule of {cA.1.name} recurses into a recursor whose type \
       does not bind the call's arguments")
@@ -313,39 +321,50 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
 /-- `checkBlockRules` through the index. -/
 def checkBlockRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape)
-    (recNames : List Name) (rlvls : List Level) (recTys : List Expr) (mIs rPs : List Nat)
-    (mi : Nat) (cvR : ConstantVal) :
+    (recNames : List Name) (rlvls : List Level) (recTys : List Expr)
+    (mIs rPs recOfM : List Nat)
+    (ri : Nat) (cvR : ConstantVal) :
     List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → m (List Expr)
   | [], [] => pure []
   | (cA, ks) :: cs, rhs :: rhss => do
-    let r ← checkBlockRuleF opsR w feR opsT feT p recNames rlvls recTys mIs rPs mi cvR cA ks rhs
-    let rest ← checkBlockRulesF opsR w feR opsT feT p recNames rlvls recTys mIs rPs mi cvR
-      cs rhss
+    let r ← checkBlockRuleF opsR w feR opsT feT p recNames rlvls recTys mIs rPs recOfM ri
+      cvR cA ks rhs
+    let rest ← checkBlockRulesF opsR w feR opsT feT p recNames rlvls recTys mIs rPs recOfM ri
+      cvR cs rhss
     pure (r :: rest)
   | _, _ =>
     throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
 
-/-- `checkBlockMembersRules` through the index. -/
-def checkBlockMembersRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+/-- `checkBlockRecsRules` through the index. -/
+def checkBlockRecsRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     (opsT : CheckerOps m) (feT : FEnv)
     (p : BlockParts) (recNames : List Name) (rlvls : List Level)
-    (cvRas : List (ConstantVal × Nat)) :
-    List ((MemberShape × List (ConstantVal × Nat)) × List (List BlockFieldKind)) → Nat →
+    (cvRas : List (ConstantVal × Nat)) (ctorsAs : List (List (ConstantVal × Nat))) :
+    List RecShape → Nat →
       m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
   | [], _ => pure []
-  | ((ms, ctorsA), kss) :: rest, mi => do
-    let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
+  | rc :: rest, ri => do
+    let tgt := p.recTgtAt ri
+    let ms ← unwrapOr p.members[tgt]?
+      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+    let ctorsA ← unwrapOr ctorsAs[tgt]? (.internal "direct rec: the member's constructors")
+    let kss ← unwrapOr p.kinds[tgt]? (.internal "direct rec: the member's field kinds")
+    let (cvRa, nIdx) ← unwrapOr cvRas[ri]? (.internal "direct rec: recursor record")
+    unless ctorsA.length == ms.ctors.length do
+      throw (.internal "direct rec: the member's constructors")
     let rhss ← checkBlockRulesF opsR w feR opsT feT p.toBlockShape recNames rlvls
-      (cvRas.map (·.1.type)) (List.range p.k |>.map p.majorIdxAt)
-      (List.range p.k |>.map p.rulePrefixAt) mi ms.cvR (ctorsA.zip kss) ms.rhss
-    let rest' ← checkBlockMembersRulesF opsR w feR opsT feT p recNames rlvls cvRas rest (mi + 1)
+      (cvRas.map (·.1.type)) (List.range p.recs.length |>.map p.majorIdxAt)
+      (List.range p.recs.length |>.map p.rulePrefixAt) p.recOfMember ri rc.cvR
+      (ctorsA.zip kss) rc.rhss
+    let rest' ← checkBlockRecsRulesF opsR w feR opsT feT p recNames rlvls cvRas ctorsAs
+      rest (ri + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
 /-- The block's recursor names and the level arguments every
 recursive call carries (the rule stage's two constants). -/
 def blockRecCallData (p : BlockParts) : List Name × List Level :=
-  (p.members.map (·.cvR.name),
-    (p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
+  (p.recs.map (·.cvR.name),
+    (p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [])
 
 /-!
 `checkBlockRecK` itself has NO `F` twin: its two halves run at

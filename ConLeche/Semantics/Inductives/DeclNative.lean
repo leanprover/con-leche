@@ -209,10 +209,11 @@ IS the one-member installer (`checkBlock_one`, milestone M1), so a run
 of `checkBlock` is a `DeclNativeRun` at the one-member reading of the
 record. -/
 theorem declNativeRun_of_block_one {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p : ConLeche.BlockParts} {ms : ConLeche.MemberShape} (hm : p.members = [ms])
+    {p : ConLeche.BlockParts} {ms : ConLeche.MemberShape} {rc : ConLeche.RecShape}
+    (hm : p.members = [ms]) (hr : p.recs = [rc])
     (h : ConLeche.checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok env₂) :
     DeclNativeRun μ F env p.toNative env₂ :=
-  declNativeRun_of (by rw [ConLeche.checkBlock_one (m := ConLeche.CheckM) _ _ hm]; exact h)
+  declNativeRun_of (by rw [ConLeche.checkBlock_one (m := ConLeche.CheckM) _ _ hm hr]; exact h)
 
 /-! ## The run-level dispatch
 
