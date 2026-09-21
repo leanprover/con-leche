@@ -461,7 +461,8 @@ theorem idxTup_mem (hI : BlockIdxOk (V := V) k uf ρp Idss) :
 
 /-- At the spelled index tuple the constant's family-tuple space IS the
 block's own. -/
-theorem tupleFamsSpace_eq (hI : BlockIdxOk (V := V) k uf ρp Idss) :
+theorem tupleFamsSpace_eq (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
+    (Idss : Nat → List AnnotTerm) :
     tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k)
       = famsSpaceB k w ρp uf Idss := by
   unfold tupleFamsSpace famsSpaceB
@@ -479,9 +480,7 @@ theorem blockFunV_mem (hok : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Ei
 
 /-- **The induced tuple operator IS the block's**, on the tuple space
 and below `k` — the congruence `lfpTuple_congr` consumes. -/
-theorem tupleOpV_blockFunV
-    (hok : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-    {Xs : Nat → V} (hXs : InTupleSpace w k (blockIdx uf ρp Idss) Xs) {m : Nat} (hm : m < k) :
+theorem tupleOpV_blockFunV {Xs : Nat → V} (hXs : InTupleSpace w k (blockIdx uf ρp Idss) Xs) {m : Nat} (hm : m < k) :
     tupleOpV V k (blockFunV k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) Xs m
       = blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss Xs m := by
   have hmem : ndMkTowerSet Xs 0 k ∈ˢ famsSpaceB k w ρp uf Idss :=
@@ -507,7 +506,7 @@ theorem blockBody_app (hI : BlockIdxOk (V := V) k uf ρp Idss)
         (tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
         fun _ => tupleFamsSpace V k (blockUs k w uf)
           (ndMkTowerSet (blockIdx uf ρp Idss) 0 k) := by
-    rw [tupleFamsSpace_eq (w := w) hI]; exact blockFunV_mem hok
+    rw [tupleFamsSpace_eq k w ρp uf Idss]; exact blockFunV_mem hok
   rw [lfpTupleV_app V hIs hF,
     ndMkTowerSet_zero (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) k]
   congr 1
@@ -518,7 +517,7 @@ theorem blockBody_app (hI : BlockIdxOk (V := V) k uf ρp Idss)
   have hX' : InTupleSpace w k (blockIdx uf ρp Idss) X := fun c hc => by
     have h : X c ∈ˢ famSpace w (projS c (ndMkTowerSet (blockIdx uf ρp Idss) 0 k)) := hX c hc
     rwa [projS_idxTup hc] at h
-  exact tupleOpV_blockFunV hok hX' hc
+  exact tupleOpV_blockFunV hX' hc
 
 /-- **The carrier tuple reads to the tuple of the members' carriers.** -/
 theorem blockBodyAV_interp (hI : BlockIdxOk (V := V) k uf ρp Idss)
@@ -534,9 +533,13 @@ theorem blockBodyAV_interp (hI : BlockIdxOk (V := V) k uf ρp Idss)
       = lfpTupleV V k (blockUs k w uf) from rfl, hiv, hfv]
   exact blockBody_app hI hok
 
-/-- **The carrier tuple is in the block's family-tuple space.** -/
-theorem blockFam_tuple_mem (hI : BlockIdxOk (V := V) k uf ρp Idss)
-    (hok : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
+/-- **The carrier tuple is in the block's family-tuple space**, with
+no premise at all: the least pre-fixed tuple is total. -/
+theorem blockFam_tuple_mem (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
+    (Idss : Nat → List AnnotTerm) (rsss : Nat → List (List Bool))
+    (tgtsss : Nat → List (List Nat))
+    (tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm))))
+    (Eisss : Nat → List (List (List AnnotTerm))) (Fsss Esss : Nat → List (List AnnotTerm)) :
     ndMkTowerSet (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) 0 k
       ∈ˢ famsSpaceB k w ρp uf Idss :=
   ndMkTowerSet_mem (blockR_ne_zero k w uf) k 0 fun m hm => by
@@ -557,7 +560,7 @@ theorem blockBodyAV_wellDenoted (hI : BlockIdxOk (V := V) k uf ρp Idss)
         (tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
         fun _ => tupleFamsSpace V k (blockUs k w uf)
           (ndMkTowerSet (blockIdx uf ρp Idss) 0 k) := by
-    rw [tupleFamsSpace_eq (w := w) hI]; exact blockFunV_mem hok
+    rw [tupleFamsSpace_eq k w ρp uf Idss]; exact blockFunV_mem hok
   have hhead : SetTheory.app (interp V ρp (.const (.lfpTuple k) (blockUs k w uf)))
       (interp V ρp (idxTupAV k w uf Idss))
       ∈ˢ piR (tupleFamSort k (blockUs k w uf))
@@ -581,5 +584,157 @@ theorem blockBodyAV_wellDenoted (hI : BlockIdxOk (V := V) k uf ρp Idss)
   · rw [hfv]; exact hF
 
 end Body
+
+/-! ## The leaf's three laws -/
+
+/-- The base of member `m`'s leaf premise, at the frame below the
+parameters AND the member's index binders: the block's index
+telescopes graded there, its X-chains graded there, and the frame's
+index tuple fitting the member's telescope. -/
+def BlockBaseI (k w : Nat) (ρ : Nat → V) (uf : Nat → Nat) (Idss : Nat → List AnnotTerm)
+    (rsss : Nat → List (List Bool)) (tgtsss : Nat → List (List Nat))
+    (tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm))))
+    (Eisss : Nat → List (List (List AnnotTerm))) (Fsss Esss : Nat → List (List AnnotTerm))
+    (m : Nat) : Prop :=
+  BlockIdxOk k uf (shiftE (Idss m).length 0 ρ) Idss ∧
+  BlockChainsOkI k w (shiftE (Idss m).length 0 ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss ∧
+  SpineFit (shiftE (Idss m).length 0 ρ) (Idss m) (frameIdx (Idss m).length ρ)
+
+/-- `ParamsOkXBI`: member `m`'s leaf's one hereditary premise — the
+parameter and index telescope graded, `BlockBaseI` at the base. -/
+def ParamsOkXBI (k w : Nat) (ρ : Nat → V) (uf : Nat → Nat) (Idss : Nat → List AnnotTerm)
+    (rsss : Nat → List (List Bool)) (tgtsss : Nat → List (List Nat))
+    (tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm))))
+    (Eisss : Nat → List (List (List AnnotTerm))) (Fsss Esss : Nat → List (List AnnotTerm))
+    (m : Nat) : List (Nat × Nat × AnnotTerm) → Prop
+  | [] => BlockBaseI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
+  | d :: pps => d.2.1 ≠ 0 ∧ WellDenoted V ρ d.2.2 ∧
+      ∀ a, a ∈ˢ interp V ρ d.2.2 →
+        ParamsOkXBI k w (cons a ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m pps
+
+section Leaf
+
+variable {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
+  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
+  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
+  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
+
+/-- The leaf's body at the base frame: member `m`'s carrier at the
+frame's index tuple. -/
+theorem blockLeafBody_facts {ρ : Nat → V} {m : Nat} (hm : m < k)
+    (h : BlockBaseI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss m) :
+    interp V ρ (.app (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+          (Idss m).length 0)) (mkTowerGo (uf m) (Idss m)))
+        = SetTheory.app
+            (blockFam k w (shiftE (Idss m).length 0 ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m)
+            (tupW (uf m) (frameIdx (Idss m).length ρ)) ∧
+      interp V ρ (.app (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+          (Idss m).length 0)) (mkTowerGo (uf m) (Idss m))) ∈ˢ (univ w : V) ∧
+      WellDenoted V ρ (.app (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+          (Idss m).length 0)) (mkTowerGo (uf m) (Idss m))) := by
+  obtain ⟨hI, hok, hsp⟩ := h
+  have hρ : consList (frameIdx (Idss m).length ρ) (shiftE (Idss m).length 0 ρ) = ρ :=
+    consList_frameIdx (Idss m).length ρ
+  have hbv : interp V ρ ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+      (Idss m).length 0)
+      = ndMkTowerSet (blockFam k w (shiftE (Idss m).length 0 ρ) uf Idss rsss tgtsss tlsss
+          Eisss Fsss Esss) 0 k := by
+    rw [interp_liftN]
+    exact blockBodyAV_interp hI hok
+  have hbok : WellDenoted V ρ ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+      (Idss m).length 0) := by
+    rw [WellDenoted_liftN]
+    exact blockBodyAV_wellDenoted hI hok
+  have hbmem : interp V ρ ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+      (Idss m).length 0)
+      ∈ˢ famsSpaceB k w (shiftE (Idss m).length 0 ρ) uf Idss := by
+    rw [hbv]; exact blockFam_tuple_mem k w _ uf Idss rsss tgtsss tlsss Eisss Fsss Esss
+  have hpv : interp V ρ (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss
+      Eisss Fsss Esss).liftN (Idss m).length 0))
+      = blockFam k w (shiftE (Idss m).length 0 ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m := by
+    rw [projAV_interp, hbv, projS_ndMkTowerSet k 0 m hm, Nat.zero_add]
+  have hpok : WellDenoted V ρ (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss
+      Eisss Fsss Esss).liftN (Idss m).length 0)) :=
+    projAV_wellDenoted_ndTower V (blockR_ne_zero k w uf) m k 0 _ ρ hm
+      (fun c hc => famSpace_mem_blockR (by omega)
+        (idxTyAV_facts (hI c (by omega))).2.1) hbok hbmem
+  have htv : interp V ρ (mkTowerGo (uf m) (Idss m)) = tupW (uf m) (frameIdx (Idss m).length ρ) := by
+    have h1 := mkTowerGo_interp (ρp := shiftE (Idss m).length 0 ρ)
+      (bs := frameIdx (Idss m).length ρ) (fun _ => (hI m hm).2) hsp
+    rw [hρ] at h1
+    rw [h1]
+    rfl
+  have htok : WellDenoted V ρ (mkTowerGo (uf m) (Idss m)) := by
+    have h1 := mkTowerGo_wellDenoted (ρp := shiftE (Idss m).length 0 ρ)
+      (bs := frameIdx (Idss m).length ρ) (hI m hm).1 hsp
+    rwa [hρ] at h1
+  have htmem : tupW (uf m) (frameIdx (Idss m).length ρ)
+      ∈ˢ idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m) := tupW_mem hsp
+  have hfam : blockFam k w (shiftE (Idss m).length 0 ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
+      ∈ˢ famSpace w (idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m)) :=
+    lfpTuple_mem w k _ _ m hm
+  refine ⟨?_, ?_, ?_⟩
+  · rw [interp_app, hpv, htv]
+  · rw [interp_app, hpv, htv]
+    exact famSpace_app hfam htmem
+  · rw [WellDenoted_app]
+    refine ⟨hpok, htok, w + 1, idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m),
+      fun _ => (univ w : V), ?_, ?_, fun h0 => absurd h0 (Nat.succ_ne_zero w)⟩
+    · rw [hpv]
+      have := hfam
+      rwa [← lfpFamSpace_eq' (V := V) w
+        (idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m))] at this
+    · rw [htv]; exact htmem
+
+/-- **The leaf inhabits its type's reading.** -/
+theorem blockTyAV_mem {m : Nat} (hm : m < k) :
+    ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
+      ParamsOkXBI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss m pps →
+      interp V ρ (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m)
+        ∈ˢ interp V ρ (mkPisAV pps (.sort w))
+  | [], _, h => (blockLeafBody_facts hm h).2.1
+  | d :: pps, ρ, h => by
+    show (lamR (w + 1) (interp V ρ d.2.2)
+        fun a => interp V (cons a ρ) (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) _))
+      ∈ˢ piR d.2.1 (interp V ρ d.2.2)
+        fun a => interp V (cons a ρ) (mkPisAV pps (.sort w))
+    exact lamR_mem_zero_agree (iff_of_false (Nat.succ_ne_zero w) h.1)
+      (fun a ha => blockTyAV_mem hm (h.2.2 a ha))
+
+/-- **The leaf is graded.** -/
+theorem blockTyAV_wellDenoted {m : Nat} (hm : m < k) :
+    ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
+      ParamsOkXBI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss m pps →
+      WellDenoted V ρ (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m)
+  | [], _, h => (blockLeafBody_facts hm h).2.2
+  | d :: pps, ρ, h => by
+    show WellDenoted V ρ (.lam (w + 1) d.2.2 (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) _))
+    rw [WellDenoted_lam]
+    exact ⟨h.2.1, fun a ha => blockTyAV_wellDenoted hm (h.2.2 a ha),
+      ⟨fun a => interp V (cons a ρ) (mkPisAV pps (.sort w)),
+       fun a ha => blockTyAV_mem hm (h.2.2 a ha),
+       fun h0 => absurd h0 (Nat.succ_ne_zero w)⟩⟩
+
+/-- **The leaf's application fold**: along a fitting parameter-and-index
+spine the leaf computes member `m`'s carrier at the spine's tuple. -/
+theorem blockTyAV_fold {m : Nat} (hm : m < k)
+    {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {as : List V}
+    (hsp : SpineFit ρ (pps.map (·.2.2)) as)
+    (hbase : BlockBaseI k w (consList as ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m) :
+    as.foldl SetTheory.app
+        (interp V ρ (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m))
+      = SetTheory.app
+          (blockFam k w (shiftE (Idss m).length 0 (consList as ρ)) uf Idss rsss tgtsss tlsss
+            Eisss Fsss Esss m)
+          (tupW (uf m) (frameIdx (Idss m).length (consList as ρ))) := by
+  have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
+    rwa [List.map_map]
+  rw [blockTyAV,
+    mkLamsAV_fold (fun d hd => by
+      obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
+      exact Nat.succ_ne_zero w) hsp']
+  exact (blockLeafBody_facts hm hbase).1
+
+end Leaf
 
 end ConLeche.Semantics
