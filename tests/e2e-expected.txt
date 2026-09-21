@@ -813,13 +813,18 @@
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
 # TASK #207: 2.  The reflexive-member class went native at #202, but
 # only for a block of its own: a MUTUAL block with a reflexive member
-# still goes to the in-process modeller, whose mutual rung declines it
-# ("in-process model of MutualStructProj.Node: reflexive member").
-# The preprocessor used to model it; there is no tool any more, so
-# this is the residual class the mutual rung owes — a positive decline
-# naming it.  (nested_struct_proj, the same fixture family, ACCEPTS:
+# went to the in-process modeller, whose mutual rung declined it on the
+# export's flag ("in-process model of MutualStructProj.Node: reflexive
+# member") — a shortcut of the port, not a shape the tool ever refused
+# (it handed the auxiliary family to Lean's kernel, which minted the
+# reflexive hypotheses itself).  2026-09-21: 0 — the mutual rung takes
+# reflexive members: the auxiliary family's recursor comes from the
+# fixpoint route's own generators (`structRecTyR`/`structRecRhsR`), the
+# iota theorems pass `λ a⃗, T.rec._model … (f a⃗)` at the reflexive
+# field; `Forest.nodes : Fin 0 → Node` is that field here.  Official: 0.
+# (nested_struct_proj, the same fixture family, accepted throughout:
 # its reflexive member is not in a mutual block.)
-2 mutual_struct_proj.ndjson
+0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
 # inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
 # index-free MUTUAL blocks — a data pair with cross recursion, a
@@ -836,6 +841,18 @@
 # polymorphic index (the tag's universe inferred).  Same routing as
 # inmodel_mutual; tests/inmodel.sh gates the in-process path.
 0 inmodel_mutual_idx.ndjson
+# inmodel_mutual_refl.ndjson (2026-09-21): mutual blocks with REFLEXIVE
+# members — the checker's own rules tier in miniature (`Red`/`Infer`, an
+# indexed Prop pair whose premises are GUARDED by an equation,
+# `(g = .full → Infer …)`: the shape that flagged `ConLeche.Rules.Red`
+# reflexive and declined the self-check), a data pair with a function
+# field across the block and mixed finitary/reflexive fields in one
+# constructor (`Tree`/`Forest`; a `rfl` through the model recursors
+# applies a reflexive hypothesis), and an indexed data pair with the
+# reflexive field at the index (`A`/`B`).  Same routing as
+# inmodel_mutual; tests/inmodel.sh gates the in-process path.
+# Official: 0.
+0 inmodel_mutual_refl.ndjson
 # inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
 # `List`, through the indexed `Vec`, through `Option`+`Prod` (two
 # mimics), through a structure `Wrap` over `List` (a mimic depending on
@@ -1097,9 +1114,9 @@
 # --- nesting": the auxiliary family's isomorphisms with a function-typed
 # --- field need function extensionality), not of the fix route.
 0 ind_reflexive_tool.ndjson
-# TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
+# TODO(#200 residual) official: 0 — raw: the NESTED rung declines a reflexive member (the mutual rung takes one since 2026-09-21; the nested rung's pack/unpack isomorphisms at a function-typed field need function extensionality)
 2 ind_nest_inf.ndjson
-# TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
+# TODO(#200 residual) official: 0 — raw: the NESTED rung declines a reflexive member (the mutual rung takes one since 2026-09-21; the nested rung's pack/unpack isomorphisms at a function-typed field need function extensionality)
 2 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
@@ -1324,7 +1341,9 @@
 # `agent/direct-nested`): one shape per stream, every one of them a
 # module official (Lean v4.33.0) ACCEPTS.
 # nested_p01: a nested occurrence UNDER A BINDER, `(Nat → List P1) → P1`.
-# The modeller declines it as a reflexive member.
+# The NESTED rung declines it as a reflexive member (the mutual rung
+# takes reflexive members since 2026-09-21; nesting under a binder is
+# the nested rung's residual, `ind_nest_inf`).
 2 nested_p01.ndjson
 # nested_p02: a λ-pin at a constant function, `DMap Nat (fun _ => P2)`.
 0 nested_p02.ndjson

@@ -54049,10 +54049,13 @@ over one parameter telescope `p⃗` at sort `u`:
   tool's).
 
 *Declines* (the residual instrument): nested members (B3), indexed
-members (B2), a reflexive member (the export's flag), a field
-mentioning the block other than as a plain member application, members
-whose level parameters / parameter telescope / sort differ, a Prop
-block with a large eliminator (cannot arise at a mutual block).
+members (B2), a field mentioning the block other than as a member
+application under the field's own block-free binders (a nested or
+non-positive occurrence), members whose level parameters / parameter
+telescope / sort differ, a Prop block with a large eliminator (cannot
+arise at a mutual block).  A reflexive member (the export's flag) was a
+decline here until 2026-09-21 — a shortcut of the port; see "THE
+MUTUAL RUNG TAKES REFLEXIVE MEMBERS" at the end of this document.
 
 *The transition.*  The generated auxiliary family is an indexed
 recursive inductive; with the fixpoint route not yet on master, a raw
@@ -59307,7 +59310,7 @@ found **two classes the tool was masking**, both of them audit finding
 | class | where | verdict | message |
 |---|---|---|---|
 | a constructor field whose type is a DEFINITION REDEX that only whnf's to a recursive occurrence | arena `good/tutorial/{053_reduceCtorParam.mk, 118_reduceCtorParamRefl.mk, 119_reduceCtorParamRefl2.mk}`, e2e `ind_pos_whnf_id`, `ind_pos_whnf_fn`, `pre_decline_imax_field` | 2 | `no install route for inductive block T: …` |
-| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 | `in-process model of MutualStructProj.Node: reflexive member` |
+| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 — **0 since 2026-09-21** (the mutual rung takes reflexive members; the section of that date) | was `in-process model of MutualStructProj.Node: reflexive member` |
 | infinitary nesting (a nested occurrence under a binder) | e2e `ind_nest_inf`, `ind_nest_via_refl` | 2 (unchanged) | `in-process model of X: field i of C mentions the block other than as a whole member or container occurrence` |
 | a def-headed former the fix arm reads with `stripPis`; a mutual member whose parameter telescope or sort differs only up to defeq | e2e `ind_defhead_{struct,k,mutual,fix}`, `ind_former_redex`, `ind_mutual_{param,sort}_defeq` | 2 (unchanged raw) | the modeller's own named decline |
 
@@ -79242,3 +79245,96 @@ served), streams under `tests/e2e/nested_*.ndjson`, rows at the end of
 `tests/e2e-expected.txt` under a heading naming the same lanes.
 Arena before: `e2e: 195/195`; after: `e2e: 229/229`, every other
 section unchanged, exit 0.
+
+## THE MUTUAL RUNG TAKES REFLEXIVE MEMBERS (2026-09-21)
+
+**The finding.**  The self-check (`scripts/selfcheck.sh`, task #199)
+stopped accepting the tree:
+
+    con-leche: declined: in-process model of ConLeche.Rules.Red: reflexive member ConLeche.Rules.Red (--verified)
+
+`ConLeche.Rules.Red` is the rules tier's six-member mutual `Prop`
+block (task #305, `ConLeche/Rules/Rel.lean`), and it is REFLEXIVE in
+the export's sense — a constructor field that is a function into the
+block — because its premises are guarded by equations:
+`Infer.forall`'s `(g = .full → Infer env .full d ty s)` and the like.
+The mutual rung of the in-process modeller
+(`ConLeche/Frontend/InModel/Mutual.lean`) declined every block whose
+export carried `isReflexive`, a decline that had been on the books
+since task #200 as "the residual class the mutual rung owes"
+(`mutual_struct_proj`, `Forest.nodes : Fin 0 → Node`).
+
+**What went wrong: a shortcut of the port, not a limit of the
+construction.**  lean-inductive-models never looked at the flag.  Its
+mutual rung (`Mutual.lean` there) built the tag and the auxiliary
+family and handed them to Lean's own kernel (`addChecked`), which
+minted the auxiliary recursor — reflexive hypotheses `∀ a⃗, motive …
+(f a⃗)` included — and the tool restated the export's recursors and
+rules over it.  The port has no kernel to ask: it GENERATES the
+auxiliary recursor itself, and the generator it carried
+(`Kit.recTy`/`recRhs`, a private copy of the indexed generators with
+`ih` binders threaded in) read every recursive field as a bare member
+application `T_m p⃗ e⃗` — no field telescope, no `λ a⃗` in the rule.
+The flag gate was the honest fence around that gap, and the
+classification (`classifyCtor`) refused a Π-typed field anyway.  The
+tree already had the generators the gap needed: the direct fixpoint
+route's `structRecTyR`/`structRecRhsR`
+(`ConLeche/Kernel/Inductives/NativeParts.lean`, task #202 Stage B)
+read a recursive field's own telescope off the constructor
+(`structFieldTeleOf`/`structFieldIdxOf`) and emit official
+`mk_rec_infos`' shape for finitary and reflexive fields alike — and
+the route is what installs the auxiliary family, comparing the
+stream's recursor record against exactly those generators.
+
+**The fix** (`ConLeche/Frontend/InModel/{Kit,Mutual}.lean`):
+
+* `Kit.recTy`/`recRhs` are the fixpoint route's generators now (the
+  private copy is gone; `Kit` imports `NativeParts`).  The comparison
+  the route makes holds by construction.  One subtlety: the route
+  compares a stream rule's BODY syntactically with the generator's
+  output reset to the parse placeholder (`nativeRulesOk`,
+  `Expr.resetMeta`), as a parsed stream carries it everywhere — and a
+  reflexive hypothesis `λ a⃗, T.rec … (f a⃗)` is where a generated body
+  has binders of its own, at the elimination datum (`structTeleAt`).
+  A finitary body has none, which is why this never surfaced.  So
+  `recRhs` resets the generated rule's data.  (The first attempt
+  without it: `invalid: direct rec: recursor rules are not the
+  generated ones` at `Red._model._impl.aux` — a REJECT, exactly what
+  the route promises for a record that is not the generated one.)
+* `classifyCtor` walks a field's own `∀`-telescope the way official's
+  `check_positivity` does, syntactically: a binder domain mentioning
+  the block is a non-positive occurrence (decline; the fold would
+  reject the auxiliary family), the residual must be a member at the
+  parameters — `memberApp?` with the parameters `i + |a⃗|` binders up.
+  A recursive field is still recorded as (position, target member);
+  `specFam` already rewrote under binders.
+* The iota theorems (step 6) pass `λ a⃗, T_tgt.rec._model p⃗ M⃗ S⃗ e⃗(a⃗)
+  (f_i a⃗)` at a reflexive field — the domain lifted to the statement
+  frame, split by `Expr.piBinders`, the prefix lifted under the `λ`s —
+  which is the rule's applied right-hand side β-reduced, so `Eq.refl`
+  still proves them (δι through `aux.rec` and `tag.rec` under the
+  binders).
+* The `isReflexive` gate is gone from the mutual rung.  It STAYS in
+  the nested rung (`Nested.lean`): a reflexive field there needs the
+  pack/unpack isomorphisms transported under a function type, which is
+  function extensionality — `ind_nest_inf`, `ind_nest_via_refl`,
+  `nested_p01` keep their documented decline, now worded "the nested
+  rung".
+
+**Measured.**
+
+| what | before | after |
+|---|---|---|
+| `scripts/selfcheck.sh` (`--verified`) | exit 2 at `ConLeche.Rules.Red` | exit 0, 40,554 declarations accepted |
+| e2e `mutual_struct_proj` | 2 | 0, both modes |
+| e2e `inmodel_mutual_refl` (new: `Red`/`Infer` — the rules tier's guarded-premise shape in miniature; `Tree`/`Forest` with a function field across the block; `A`/`B` reflexive at the index) | — | 0, both modes; official 0 |
+| `tests/inmodel.sh` on both | — | OK (42 and 22 generated records) |
+| `lake build`, `lake test`, `tests/{overview-links,quote-gate,layering}.sh` | | clean |
+
+A run-protocol note found on the way: under `ulimit -v 16000000` a
+run WITHOUT `--jobs` aborts (exit 134) on this machine once the
+checker reaches the parallel fold — the default worker count is one
+per hardware thread and each reserves ~1 GiB of address space (the
+`--jobs=8` remark in `scripts/selfcheck.sh`).  Before the fix the
+declining fixtures never got that far, which is why the cap looked
+sufficient.

@@ -18,8 +18,11 @@ parameter telescope `p⃗` becomes
 * an **auxiliary family** `T_1._model._impl.aux : ∀ p⃗ (t : tag p⃗), Sort u`
   — one indexed recursive family; member `m`'s constructor `C` becomes
   `aux.m.C : ∀ p⃗ f⃗', aux p⃗ (tag.m p⃗)` with every field `T_{m'} p⃗`
-  rewritten to `aux p⃗ (tag.m' p⃗)` (`specFam`), and the recursor is
-  the kernel-shape one with inductive hypotheses (`Kit.recTy`);
+  rewritten to `aux p⃗ (tag.m' p⃗)` (`specFam`) — under a REFLEXIVE
+  field's own binders too, `∀ a⃗, T_{m'} p⃗ e⃗` becoming
+  `∀ a⃗, aux p⃗ (tag.m' p⃗ e⃗)` — and the recursor is the kernel-shape
+  one with inductive hypotheses (`Kit.recTy`, the fixpoint route's
+  generators: a reflexive field's hypothesis is `∀ a⃗, Mot … (f a⃗)`);
 * the **public slots** the modeled install consumes
   (`ConLeche/Kernel/Inductives/Modeled.lean`): `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`,
   `C._model := λ p⃗ f⃗, aux.m.C p⃗ f⃗`, and
@@ -38,9 +41,22 @@ the direct sum route's, the auxiliary family the direct fixpoint
 route's (task #188, at indices).  Every record below is checked by the
 fold as a stream declaration; a wrong one rejects or declines, never
 accepts.  Declines (`.error`) name the residual: nested members (B3),
-indexed members (B2), reflexive members, a `Prop` block with a large
-eliminator (the auxiliary family has ≥ 2 constructors, so it
-eliminates into `Prop` only).
+a field mentioning the block other than as a member application under
+the field's own block-free binders (a nested or non-positive
+occurrence), a `Prop` block with a large eliminator (the auxiliary
+family has ≥ 2 constructors, so it eliminates into `Prop` only).
+
+**Reflexive members are this rung's** (2026-09-21).  The export's
+`isReflexive` flag used to be a decline here, a shortcut of the port:
+lean-inductive-models never looked at the flag — it handed the
+auxiliary family to Lean's kernel, which minted the recursor with the
+reflexive hypotheses itself — and the port's private recursor
+generator (`Kit.lean`) had no field telescopes.  It now emits the
+fixpoint route's own generators (`structRecTyR`/`structRecRhsR`), and
+the iota theorems pass `λ a⃗, T_{m'}.rec._model p⃗ M⃗ S⃗ e⃗(a⃗) (f a⃗)` at
+a reflexive field.  The block this declined was the checker's own
+rules tier (`ConLeche.Rules.Red`, whose premises are guarded,
+`(g = .full → Infer …)`), i.e. the self-check (`scripts/selfcheck.sh`).
 
 **Members' parameter telescopes and sorts are NOT compared here**
 (task #218).  Official compares the members' parameter domains with
@@ -131,9 +147,14 @@ def memberApp? (members : List (Name × Nat × Nat)) (lps : List Name) (nP o : N
   | _ => none
 
 /-- Classify one constructor's fields: each domain is ordinary (no
-member mentioned) or exactly a member at the parameters and some
-index expressions (`T_{m'} p⃗ e⃗`); anything else is not this rung's
-(nested, reflexive, non-positive).  `members` lists `(T, m, nIdx)`. -/
+member mentioned) or, under its own `∀`-telescope whose domains do not
+mention the block (empty at a finitary field), exactly a member at the
+parameters and some index expressions (`∀ a⃗, T_{m'} p⃗ e⃗`) — official
+`check_positivity`'s telescope walk, syntactically; anything else is
+not this rung's (nested, non-positive).  `members` lists
+`(T, m, nIdx)`.  A recursive field is recorded by position and target
+member; its telescope is read off the constructor's type again where it
+is needed (`structFieldTeleOf`, the iota right-hand sides). -/
 def classifyCtor (members : List (Name × Nat × Nat)) (lps : List Name) (nP : Nat)
     (m : Nat) (c : IndCtorRec) : Except String MCtor := do
   let memberNames := members.map (·.1)
@@ -144,12 +165,18 @@ def classifyCtor (members : List (Name × Nat × Nat)) (lps : List Name) (nP : N
   let mut recFields : List (Nat × Nat) := []
   for i in List.range c.nF do
     let d := (bs.getD (nP + i) default).1
-    match memberApp? members lps nP i d with
-    | some m' => recFields := recFields ++ [(i, m')]
-    | none =>
-      if mentionsAny memberNames d then
+    if mentionsAny memberNames d then
+      let (tele, body) := d.piBinders
+      if tele.any (fun b => mentionsAny memberNames b.1) then
+        throw s!"field {i} of {c.cv.name}: non-positive occurrence (the block in the \
+          domain of the field's own binder)"
+      -- the parameters sit `i + tele.length` binders up at the residual
+      match memberApp? members lps nP (i + tele.length) body with
+      | some m' => recFields := recFields ++ [(i, m')]
+      | none =>
         throw s!"field {i} of {c.cv.name} mentions the block other than as a plain \
-          member application (nested, reflexive or non-positive occurrence)"
+          member application under the field's own binders (nested or non-positive \
+          occurrence)"
   pure ⟨m, c, recFields⟩
 
 /-- Unwrap a generator step that cannot fail on a well-formed block. -/
@@ -169,7 +196,6 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
   unless k ≥ 2 do throw "not a mutual block"
   for t in b.types do
     unless t.numNested == 0 do throw s!"nested member {t.cv.name} (B3)"
-    unless !t.isReflexive do throw s!"reflexive member {t.cv.name}"
     unless t.cv.levelParams == lps && t.nP == nP do
       throw s!"member {t.cv.name}: level parameters or parameter count differ"
   let some (pbs, .sort u) := t0.cv.type.stripPis (nP + t0.nIdx)
@@ -379,11 +405,17 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
       let lhs := Expr.mkAppN (.const (modelName r.cv.name) rlvls) (prefixVars ++ idxC ++ [ctorApp])
       let rhs := Expr.mkAppN (.bvar (nF + n - 1 - J))
         (fields ++ mc.recFields.map fun (i, tgt) =>
-          -- the recursive field's index expressions, lifted from its
-          -- binder to the statement frame
-          let idxI := ((doms.getD i default).liftLooseBVars (nF - i) 0).getAppArgs.drop nP
-          Expr.mkAppN (.const (modelName ((memberNames.getD tgt .anonymous).str "rec")) rlvls)
-            (prefixVars ++ idxI ++ [.bvar (nF - 1 - i)]))
+          -- the recursive field's domain `∀ a⃗, T_tgt p⃗ e⃗(a⃗)`, lifted
+          -- from its binder to the statement frame; the hypothesis'
+          -- value is `λ a⃗, T_tgt.rec._model p⃗ M⃗ S⃗ e⃗(a⃗) (f_i a⃗)`
+          -- (official `mk_rec_rules`; at a finitary field `a⃗` is
+          -- empty and this is the recursor at the field)
+          let (tele, body) := ((doms.getD i default).liftLooseBVars (nF - i) 0).piBinders
+          let a := tele.length
+          Expr.mkLamsOf tele
+            (Expr.mkAppN (.const (modelName ((memberNames.getD tgt .anonymous).str "rec")) rlvls)
+              (prefixVars.map (·.liftLooseBVars a 0) ++ body.getAppArgs.drop nP ++
+                [Expr.mkAppN (.bvar (nF - 1 - i + a)) (structTeleVars a)])))
       let stmt := mkPis (piBinders prefixBs ++ piBinders fieldBs)
         (Expr.mkAppN (.const eqName [ℓ]) [α, lhs, rhs])
       let value ← need "iota proof" (Expr.pisToLams (rP + nF) stmt

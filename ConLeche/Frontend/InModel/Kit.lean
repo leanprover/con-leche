@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.StructParts
+public import ConLeche.Kernel.Inductives.NativeParts
 
 @[expose] public section
 
@@ -19,13 +19,18 @@ nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
 * `specFam`, the syntactic rewrite of every member occurrence
   `T_m p⃗` into the auxiliary family at its tag, `aux p⃗ (tag.m p⃗ ı⃗)`;
 * the **kernel-shape recursor** of an indexed recursive family with
-  inductive hypotheses — `structRecTyI`/`structRecRhsI`
-  (`ConLeche/Kernel/Inductives/StructParts.lean`) with the `ih` binders of the
-  official `mk_rec_infos` threaded in; the direct fixpoint route
+  inductive hypotheses — the direct fixpoint route's own generators
+  `structRecTyR`/`structRecRhsR`
+  (`ConLeche/Kernel/Inductives/NativeParts.lean`), which read a
+  recursive field's own `∀`-telescope off the constructor, so a
+  REFLEXIVE field `f : ∀ a⃗, T p⃗ e⃗(a⃗)` gets the hypothesis
+  `∀ a⃗, motive e⃗(a⃗) (f a⃗)` and the rule passes
+  `λ a⃗, T.rec … e⃗(a⃗) (f a⃗)` (official `mk_rec_infos`); the route
   regenerates and compares the recursor of the auxiliary family
-  against exactly this shape by one `isDefEq`, so binder names are
-  display-only but the argument order and the `ih` placement are the
-  kernel's;
+  against exactly these generators by one `isDefEq`, so emitting
+  their output makes that comparison hold by construction (a private
+  copy without the telescopes was what declined every mutual block
+  with a reflexive member, 2026-09-21);
 * a **syntactic sort inferer** over the parsed declaration table (no
   environment, no `whnf`): the sort of a field's or index's type, for
   the `Eq` level of a `proj_i.iota` artifact and the tag's universe.
@@ -319,127 +324,36 @@ def mentionsAny (ns : List Name) (e : Expr) : Bool := (mentionsAnyGo ns {} e).1
 
 /-! ## The kernel-shape recursor of an indexed recursive family
 
-The generators of `ConLeche/Kernel/Inductives/StructParts.lean` (indexed, task #175)
-with the inductive hypotheses of the official `mk_rec_infos`: a minor
-premise binds the constructor's fields, then one `ih` per recursive
-field in field order — `motive e⃗_i f_i`, the field's own index
-expressions read off its domain `T p⃗ e⃗_i` — and concludes
+The direct fixpoint route's generators (`structRecTyR`/`structRecRhsR`,
+`ConLeche/Kernel/Inductives/NativeParts.lean`): a minor premise binds the
+constructor's fields, then one `ih` per recursive field in field order —
+`∀ a⃗, motive e⃗_i(a⃗) (f_i a⃗)` over the field's own telescope `a⃗`
+(empty at a finitary field: `motive e⃗_i f_i`), the index expressions
+read off its domain `∀ a⃗, T p⃗ e⃗_i(a⃗)` — and concludes
 `motive e⃗_C (C p⃗ f⃗)`; rule `j` is
-`λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…`.  A
-constructor is `(C, nF, cty, recIdx)` with `recIdx` the recursive
-field positions (ascending). -/
+`λ p⃗ motive m⃗ f⃗, minor_j f⃗ (λ a⃗, T.rec p⃗ motive m⃗ e⃗_i(a⃗) (f_i a⃗))…`.
+A constructor is `(C, nF, cty, recIdx)` with `recIdx` the recursive
+field positions (ascending), finitary or reflexive alike.  The modeller
+emits the auxiliary family's recursor as exactly these generators'
+output, and the route's comparison of the stream's record against them
+holds by construction. -/
 
-/-- The recursor's leading spine `p⃗ motive m⃗` as seen from under the
-`nF` fields and `e` further binders. -/
-def recPrefixAt (nP n nF e : Nat) : List Expr :=
-  structPsAt (e + nF + n + 1) nP ++ [Expr.bvar (e + nF + n)] ++
-    (List.range n).map fun l => Expr.bvar (e + nF + n - 1 - l)
-
-/-- The index arguments of recursive field `i` (domain `T p⃗ e⃗_i`,
-spelled at the field's own binder) lifted to the frame `l` binders
-below the last field. -/
-def recFieldIdx (nP nF i l : Nat) (doms : List Expr) : List Expr :=
-  ((doms.getD i default).liftLooseBVars (nF - i + l) 0).getAppArgs.drop nP
-
-/-- The `ih` binders of a minor premise: for each recursive field
-position (ascending) `motive e⃗_i f_i`, under the `l` earlier `ih`
-binders; the motive sits `nF + o - 1` binders above the fields. -/
-def ihPis (nP nF o : Nat) (pw : PropWhen) (doms : List Expr) : List Nat → Nat → Expr → Expr
-  | [], _, body => body
-  | i :: is, l, body =>
-    .forallE
-      (Expr.mkAppN (.bvar (nF + o - 1 + l))
-        (recFieldIdx nP nF i l doms ++ [.bvar (nF - 1 - i + l)]))
-      (ihPis nP nF o pw doms is (l + 1) body) ⟨pw⟩
-
-/-- Constructor `C`'s minor premise: the field telescope lifted under
-the `o` extras (every field datum reset to the elimination datum), the
-`ih` binders, and `motive e⃗_C (C p⃗ f⃗)` lifted above the `ih`s.  The
-residual's index expressions are read off the once-lifted telescope
-(`tele`), so unlike `structMinorTyI` they are lifted only above the
-`ih`s here. -/
-def minorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
-    (cty : Expr) (recIdx : List Nat) : Option Expr :=
-  (cty.stripPis nP).bind fun q =>
-  let tele := q.2.liftLooseBVars o 0
-  (tele.stripPis nF).bind fun r =>
-    let doms := r.1.map (·.1)
-    let nIh := recIdx.length
-    Expr.replacePisPw pw nF tele
-      (ihPis nP nF o pw doms recIdx 0
-        (Expr.mkAppN (.bvar (nF + o - 1 + nIh))
-          ((r.2.getAppArgs.drop nP).map (Expr.liftLooseBVars nIh 0) ++
-            [(structCtorSpineAt C lps o nP nF).liftLooseBVars nIh 0])))
-
-/-- The minors' `∀`-telescope over `body`, one per constructor, the
-first sitting `o` binders below the parameters. -/
-def minorsPis (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr × List Nat) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty, recIdx) :: cs, o, body =>
-    (minorTy C lps nP nF o pw cty recIdx).bind fun mty =>
-      (minorsPis lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE mty rest ⟨pw⟩
-
-/-- The `λ` twin of `minorsPis`. -/
-def minorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr × List Nat) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty, recIdx) :: cs, o, body =>
-    (minorTy C lps nP nF o pw cty recIdx).bind fun mty =>
-      (minorsLams lps nP pw cs (o + 1) body).map fun rest =>
-        .lam mty rest ⟨pw⟩
-
-/-- **The recursor type**
-
-    ∀ p⃗ {motive : ∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ}
-      (minor_C : ∀ f⃗ (ih⃗ : motive e⃗_i f_i)…, motive e⃗_C (C p⃗ f⃗))…
-      ı⃗ (t : T p⃗ ı⃗), motive ı⃗ t
-
-over the former's type `tty = ∀ p⃗ ı⃗, Sort w` (`structRecTyI` with
-inductive hypotheses). -/
+/-- **The recursor type** of a recursive family (`structRecTyR`). -/
 def recTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat)) : Option Expr :=
-  let ℓ := structElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  (tty.stripPis nP).bind fun q =>
-  (structMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
-  (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (structFamI T lps nP nIdx (n + 1) 0)
-        (Expr.mkAppN (.bvar (nIdx + n + 1)) (structPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨pw⟩)).bind fun major =>
-  (minorsPis lps nP pw ctors 1 major).bind fun minors =>
-    Expr.replacePisPw pw nP tty
-      (.forallE motiveTy minors ⟨pw⟩)
+  structRecTyR T lps elim large nP nIdx tty ctors
 
-/-- **The rule** of constructor `j`:
-`λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…` (`recC`,
-`rlvls`: the recursor's name and its level parameters as levels). -/
+/-- **The rule** of constructor `j` (`structRecRhsR`; `recC`, `rlvls`:
+the recursor's name and its level parameters as levels), at the parse
+placeholder's binder data throughout (`Expr.resetMeta`): the route
+compares a stream rule's body SYNTACTICALLY with the generator's output
+reset to the placeholder (`nativeRulesOk`), as a parsed stream carries
+it everywhere — and a reflexive hypothesis `λ a⃗, T.rec … (f a⃗)` is
+where a generated body has binders of its own. -/
 def recRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
     (recC : Name) (rlvls : List Level) (j : Nat) : Option Expr :=
-  let ℓ := structElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  match ctors[j]? with
-  | none => none
-  | some (_, nF, cty, recIdx) =>
-    (tty.stripPis nP).bind fun tq =>
-    (structMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
-    (cty.stripPis nP).bind fun q =>
-    let tele := q.2.liftLooseBVars (n + 1) 0
-    (tele.stripPis nF).bind fun r =>
-    let doms := r.1.map (·.1)
-    let body := Expr.mkAppN (.bvar (nF + n - 1 - j))
-      (((List.range nF).map fun k => Expr.bvar (nF - 1 - k)) ++
-        recIdx.map fun i =>
-          Expr.mkAppN (.const recC rlvls)
-            (recPrefixAt nP n nF 0 ++ recFieldIdx nP nF i 0 doms ++ [.bvar (nF - 1 - i)]))
-    (Expr.pisToLamsPw pw nF tele body).bind fun inner =>
-    (minorsLams lps nP pw ctors 1 inner).bind fun minors =>
-    Expr.pisToLamsPw pw nP tty
-      (.lam motiveTy minors ⟨pw⟩)
+  (structRecRhsR T lps elim large nP nIdx tty ctors recC rlvls j).map Expr.resetMeta
 
 /-! ## A syntactic sort inferer
 
