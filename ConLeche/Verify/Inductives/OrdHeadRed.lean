@@ -820,4 +820,89 @@ theorem openRedPisAtFvars_eq_openPisAtFvars :
             obtain ⟨h1, h2, h3⟩ := ih n hq2 hJ hq hK
             exact ⟨congrArg (· + 1) h1, by rw [h2], h3⟩
 
+/-! ## The syntactic tower inside the reduce-then-open one
+(task #315 WIDE (f8), the reading half's first brick) -/
+
+/-- `instantiate1` may REVEAL a binder — a loose `bvar` replaced by a
+`Π` — but it never hides one, so a `Π`-tower's depth can only grow. -/
+theorem domPiDepth_le_instantiate1 (v : Expr) :
+    ∀ (e : Expr) (k : Nat), domPiDepth e ≤ domPiDepth (e.instantiate1 v k) := by
+  intro e
+  induction e with
+  | forallE ty b m _ ihb =>
+    intro k
+    show domPiDepth b + 1 ≤ domPiDepth (b.instantiate1 v (k + 1)) + 1
+    exact Nat.succ_le_succ (ihb (k + 1))
+  | _ => intro k; exact Nat.zero_le _
+
+/-- A positive `Π`-depth is a `∀` on the nose. -/
+theorem forallE_of_domPiDepth_pos {e : Expr} (h : 0 < domPiDepth e) :
+    ∃ (ty b : Expr) (m : BinderMeta), e = Expr.forallE ty b m := by
+  cases e with
+  | forallE ty b m => exact ⟨ty, b, m, rfl⟩
+  | _ => exact absurd h (Nat.lt_irrefl 0)
+
+/-- **THE TWO TOWERS ARE ONE ALONG A SYNTACTIC `∀` PREFIX** (task #315
+WIDE (f8)): where the term's own leading `∀`s reach, head-reducing at
+every level changes nothing, because a `∀` is its own head normal form
+(`ordHeadRed_forallE`) and `instantiate1` at an opener keeps it one. -/
+theorem openRedPis_openers_eq_openPis :
+    ∀ (n : Nat) (e : Expr) (d : Nat), n ≤ domPiDepth e →
+      ∃ (fvs : List Expr) (lR lP : Expr),
+        openRedPisAtFvars n e d = some (fvs, lR) ∧
+        openPisAtFvars n e d = some (fvs, lP) := by
+  intro n
+  induction n with
+  | zero => intro e d _; exact ⟨[], e, e, rfl, rfl⟩
+  | succ n ih =>
+    intro e d h
+    obtain ⟨ty, bo, bm, hE⟩ := forallE_of_domPiDepth_pos (e := e) (by omega)
+    subst hE
+    have hbo : n ≤ domPiDepth bo := by
+      have h' : n + 1 ≤ domPiDepth bo + 1 := h
+      omega
+    obtain ⟨fvs, lR, lP, hR, hP⟩ := ih (bo.instantiate1 (Expr.fvar d ty) 0) (d + 1)
+      (Nat.le_trans hbo (domPiDepth_le_instantiate1 _ bo 0))
+    refine ⟨Expr.fvar d ty :: fvs, lR, lP, ?_, ?_⟩
+    · rw [openRedPisAtFvars_forallE ordHeadRed_forallE, hR]; rfl
+    · simp only [openPisAtFvars, hP]
+
+/-- **THE SYNTACTIC TOWER IS THE REDUCE-THEN-OPEN TOWER'S OWN PREFIX**
+(task #315 WIDE (f8)): along the leading `∀` prefix of `ordHeadRed e`
+the positivity walk's tower and the plain opening of the head normal
+form are the SAME opener list.
+
+This is what settles the question K.76's spelling raises.  Its second
+summand is `(ordHeadRed W).piBinders` — ONE head reduction and then a
+purely syntactic peel — while the walk's tower
+(`openRedPisAtFvars`, which `normPosDomM_openRedPis_ordHeadRed` says
+the walk's OUTPUT opens at) head-reduces at EVERY level.  The two can
+therefore only differ by the walk finding MORE binders where the
+syntactic peel stops, never by disagreeing on one the peel found: a
+`∀` is its own head normal form and stays one under the openers'
+substitution.  So the syntactic tower is a PREFIX, opener for opener,
+and K.73's length equation — the copy's recorded telescope against
+`domPiDepth (ordTargetDomL …) + domPiDepth (ordHeadRed (ordTargetDom …))`
+— pins that prefix to be the whole of it.  **No respelling of K.76
+over `openRedPisAtFvars` is owed.**
+
+The LEAVES are not claimed equal: at `n = 0` the reduced side is `e`
+itself and the plain side its head normal form, which is the whole
+reason `ordHeadRed` is in the statement at all. -/
+theorem openRedPis_openers_eq_openPis_ordHeadRed :
+    ∀ (n : Nat) (e : Expr) (d : Nat), n ≤ domPiDepth (ordHeadRed e) →
+      ∃ (fvs : List Expr) (lR lP : Expr),
+        openRedPisAtFvars n e d = some (fvs, lR) ∧
+        openPisAtFvars n (ordHeadRed e) d = some (fvs, lP) := by
+  intro n e d h
+  cases n with
+  | zero => exact ⟨[], e, ordHeadRed e, rfl, rfl⟩
+  | succ m =>
+    obtain ⟨ty, bo, bm, hOR⟩ := forallE_of_domPiDepth_pos (e := ordHeadRed e) (by omega)
+    obtain ⟨fvs, lR, lP, hR, hP⟩ := openRedPis_openers_eq_openPis (m + 1) (ordHeadRed e) d h
+    refine ⟨fvs, lR, lP, ?_, hP⟩
+    rw [openRedPisAtFvars_forallE hOR]
+    rw [openRedPisAtFvars_forallE (e := ordHeadRed e) (by rw [hOR]; exact ordHeadRed_forallE)] at hR
+    exact hR
+
 end ConLeche

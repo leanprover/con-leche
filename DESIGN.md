@@ -133028,18 +133028,31 @@ verbatim:
    (`Verify/Inductives/NestedCopyNorm.lean:2373`) — K.74's own named
    consumer, the advisory's one standing nested entry — says the
    walk's output tower and the input's REDUCE-THEN-OPEN tower are the
-   same openers.  **The one question this session did not settle** is
-   whether the kernel's `ordTargetTele` (`ordTeleGo` over the stored
-   domain ++ `piBinders` of ONE `ordHeadRed`) meets that
-   reduce-then-open tower binder for binder, or whether K.76 has to be
-   respelled over `openRedPisAtFvars`.  K.73's length equation forces
-   the two counts to agree at every accepted block, which is evidence
-   and not a proof.
+   same openers.  **The one brick the deep row still needs and the
+   tree does not have** is the OPENER-TYPE bridge: `reflOpen`
+   (`Model/Inductives/MutualData.lean:235`) reads the copy's recorded
+   binder `k` off the `k`-th OPENER's `fvarTypeD`, and nothing states
+   what that type is.  `openPisAtFvars_index`
+   (`Verify/BridgeWfImp.lean:451`) gives only the opener's INDEX, and
+   `openPisAtFvars_mkPisB` (`Verify/Inductives/NestedRestoreOpen.lean:597`)
+   characterises only the LEAF (`Expr.instSeq fvs (n-1) Y`), leaving
+   the openers existential under `AllFvarsL`.  What is wanted is its
+   per-binder twin — opener `k`'s type is `Expr.instSeq fvs (k-1)`
+   of `bs[k].1` — and it is a pure `openPisAtFvars` induction beside
+   that theorem, in the same file.
+
+   **The one question the plan could not answer from
+   the tree** was whether the kernel's `ordTargetTele` (`ordTeleGo`
+   over the stored domain ++ `piBinders` of ONE `ordHeadRed`) meets
+   that reduce-then-open tower binder for binder, or whether K.76 has
+   to be respelled over `openRedPisAtFvars`.  **§(h) ANSWERS IT, and
+   the answer is that no respelling is owed.**
 
 **Honest sizing from here: two to five sessions** for (1) and (2), of
-which the deep row is most, and the open question above is the one
-place where a K.77 could still be needed.  Everything else between
-`nestedModeled` and one fewer hypothesis is unchanged.
+which the deep row is most.  With §(h) landed there is no place left
+on this object where a K.77 is in prospect: everything owed is a
+reading, and every reading's bricks are in the tree.  Everything else
+between `nestedModeled` and one fewer hypothesis is unchanged.
 
 ##### (e) `hfinRefl` IS **NOT** RETIRED, AND THE REASON IS FILE OWNERSHIP
 
@@ -133105,3 +133118,55 @@ added or removed, so no base worktree was needed.
 No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
 **NO KERNEL FILE CHANGED**, so the accept set, the shadow counts and
 the cost are unmoved and no corpus run is owed.
+
+##### (h) THE READING HALF'S FIRST BRICK, LANDED — **K.76 NEEDS NO RESPELLING**
+
+§(d)'s open question is settled in the tree, not by argument.  Four
+declarations in `Verify/Inductives/OrdHeadRed.lean`, beside
+`openRedPisAtFvars` itself:
+
+| object | file:line | what it says |
+|---|---|---|
+| `domPiDepth_le_instantiate1` | `:828` | `instantiate1` may REVEAL a binder (a loose `bvar` replaced by a `Π`) but never hides one |
+| `forallE_of_domPiDepth_pos` | `:839` | a positive `Π`-depth is a `∀` on the nose |
+| `openRedPis_openers_eq_openPis` | `:849` | along a term's OWN leading `∀`s the reduce-then-open tower and the plain one are the same opener list |
+| `openRedPis_openers_eq_openPis_ordHeadRed` | `:892` | the same at `ordHeadRed e`: for `n ≤ domPiDepth (ordHeadRed e)`, `openRedPisAtFvars n e d` and `openPisAtFvars n (ordHeadRed e) d` both succeed with ONE opener list |
+
+**The argument, which is now machine-checked.**  A `∀` is its own head
+normal form (`ordHeadRed_forallE`, already in the tree) and
+`instantiate1` at an opener keeps it one, so at every level inside the
+syntactic prefix the walk's extra head reduction does nothing.  The
+two towers can therefore differ only by the walk finding MORE binders
+where the syntactic peel stops — never by disagreeing about one the
+peel found.  So `(ordHeadRed W).piBinders` is a PREFIX of the walk's
+tower, opener for opener, and **K.73's length equation pins that
+prefix to be the whole of it**: K.73 compares the copy's recorded
+telescope's length (which is the walk's tower's, through
+`copyOrdTeleAt`'s `hmap`) against
+`domPiDepth (ordTargetDomL …) + domPiDepth (ordHeadRed (ordTargetDom …))`,
+and a prefix as long as the whole is the whole.
+
+The LEAVES are deliberately not claimed equal — at `n = 0` the reduced
+side is `e` and the plain side its head normal form, which is the
+whole reason `ordHeadRed` is in the statement.  The leaf is
+`OrdTargetRead`'s business and `ordHeadCut` (K.74) already reads it.
+
+**`openRedPis_openers_eq_openPis_ordHeadRed` is the session's one
+unconsumed declaration** (`tests/unconsumed.sh` 209 of 3969 against
+208 of 3965; the other three are consumed by it).  Its consumer is
+§(d) (2)'s deep row and it is named there; it is recorded rather than
+argued away.
+
+##### (i) THE GATES, SECOND RUN
+
+`tests/arena.sh` EXIT 0 with §(g)'s counters unchanged.
+`tests/warning-free.sh e633d53d` — 1 changed module, **0 warning
+lines** in both halves; `lake test` exit 0, 0 warnings.
+`tests/unconsumed.sh` **209 of 3969** against §(g)'s **208 of 3965**
+(four declarations added, one unconsumed — §(h)).
+`#print axioms` on `domPiDepth_le_instantiate1`,
+`forallE_of_domPiDepth_pos`, `openRedPis_openers_eq_openPis` and
+`openRedPis_openers_eq_openPis_ordHeadRed`:
+`[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
+**NO KERNEL FILE CHANGED.**
