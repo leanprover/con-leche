@@ -392,10 +392,13 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
         (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
           (ConLeche.consBlockInds p₁ isRec rest i env).find? cvTa.name
             = some (.indInfo cvTa (ConLeche.blockCapsAt p₁ j isRec)) ∧
-          ∀ ψ, mp'.base2.acval cvTa.name ψ = A j ψ)
+          ∀ ψ, mp'.base2.acval cvTa.name ψ = A j ψ) ∧
+        -- OFF the members consed here the carrier reads as before
+        (∀ n : Name, (∀ cvTb ∈ rest, n ≠ cvTb.name) →
+          mp'.base2.acval n = mp.base2.acval n)
   | [], i, env, mp, _, hk, hE, _, _, _, hFD, hcons => by
     simp only [List.length_nil, Nat.add_zero] at hk
-    refine ⟨mp, hE, hFD, ?_⟩
+    refine ⟨mp, hE, hFD, ?_, fun _ _ => rfl⟩
     intro j cvTa hj
     exact hcons j cvTa (by rw [hk]; exact (List.getElem?_eq_some_iff.mp hj).1) hj
   | cvTa :: rest, i, env, mp, hrest, hk, hE, hres, hfreshOf, hfreshC, hFD, hcons => by
@@ -470,8 +473,12 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
           show cvTa.name = (ConLeche.blockCapsAt p₁ j isRec).etaCtor
           exact hh))]
       exact hfreshC j cvTb hj he
-    exact stageBlockFormers hnames hndN hnresOf hpshapeOf htyWF hAbelowOf hAparamsOf hAokOf
-      hAvalidOf hAmemOf hetaNe hTlawsOf rest (i + 1) _ mpI hrest' (by simp at hk; omega) hE'
-      hres' hfreshOf' hfreshC' hFD' hcons'
+    obtain ⟨mp', hE₂, hFD₂, hcons₂, hag₂⟩ :=
+      stageBlockFormers hnames hndN hnresOf hpshapeOf htyWF hAbelowOf hAparamsOf hAokOf
+        hAvalidOf hAmemOf hetaNe hTlawsOf rest (i + 1) _ mpI hrest' (by simp at hk; omega) hE'
+        hres' hfreshOf' hfreshC' hFD' hcons'
+    refine ⟨mp', hE₂, hFD₂, hcons₂, fun n hn => ?_⟩
+    rw [hag₂ n (fun cvTb hcvTb => hn cvTb (List.mem_cons_of_mem _ hcvTb)), hacI]
+    exact acvalWith_ne (hn cvTa List.mem_cons_self)
 
 end ConLeche.Model
