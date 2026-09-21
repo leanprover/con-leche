@@ -62,6 +62,15 @@ FALLBACK = {
     # compiler refuses it.
     ('ConLeche.Semantics.Inductives.DeclNested', 'ConLeche.Kernel.Inductives.NestedInstall'),
     ('ConLeche.Semantics.Inductives.DeclNested', 'ConLeche.Verify.Inductives.NestedInv'),
+    # task #315 WIDE (f3): `OrdHeadRed`'s consumer-facing statements are
+    # THEOREMS whose types name `ordHeadRed` (NestedInstall) and
+    # `Expr.ErasedEq` (Subst); the census attributes both to the proof
+    # side, so the model asks for the demotion and the compiler refuses
+    # it — `Unknown identifier Env`/`whnfCore` without the first,
+    # `Unknown constant ConLeche.Expr.ErasedEq` without the second
+    # (both measured, lane WHNF 2026-09-21).
+    ('ConLeche.Verify.Inductives.OrdHeadRed', 'ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.OrdHeadRed', 'ConLeche.Verify.Subst'),
     ('ConLeche.Model.Install',        'ConLeche.Model.Annot.BitExtend'),
     ('ConLeche.Model.Install',        'ConLeche.Semantics.ConstsBound'),
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),

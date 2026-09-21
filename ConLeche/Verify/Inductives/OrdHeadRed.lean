@@ -1,10 +1,9 @@
 module
 
-public import ConLeche.Verify.BetaSpine
-public import ConLeche.Verify.InferLemmas
 public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Verify.Subst
+import ConLeche.Verify.BetaSpine
 import ConLeche.Verify.Shift
-import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.MutualInv
 
 public section
@@ -364,5 +363,172 @@ theorem normPosDomM_eq_ordHeadRed {env : Env} {memberNames : List Name}
       · rw [hwc] at hlam; exact nomatch hlam
     · exact nomatch
         (hwc : Expr.forallE dom (body'.abstract1 d) bmP = Expr.const K us)
+
+/-! ## `ordHeadRed` is a congruence for `ErasedEq` (task #315 WIDE (f3))
+
+The reading site holds its recomputation and the install's minted
+domain only up to the `fvar` ANNOTATIONS an interpretation never reads
+(`hEr`), so the head reduction has to cross that relation.  It does:
+`ordHeadRedGo` peels an application spine and substitutes, and both
+operations are congruences for `Expr.ErasedEq`. -/
+
+/-- `liftLooseBVars` is a congruence for `ErasedEq`. -/
+theorem ErasedEq.liftLooseBVars {amount : Nat} :
+    ∀ {e e' : Expr} {c : Nat}, Expr.ErasedEq e e' →
+      Expr.ErasedEq (Expr.liftLooseBVars amount c e) (Expr.liftLooseBVars amount c e') := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro e' c he
+    match e', he with
+    | .bvar j, he =>
+      obtain rfl : i = j := he
+      simp only [Expr.liftLooseBVars]
+      split <;> simp [Expr.ErasedEq]
+  | fvar idx ty =>
+    intro e' c he
+    match e', he with
+    | .fvar j ty', he => simpa [Expr.liftLooseBVars, Expr.ErasedEq] using he
+  | sort u =>
+    intro e' c he
+    match e', he with
+    | .sort u', he => simpa [Expr.liftLooseBVars, Expr.ErasedEq] using he
+  | const n us =>
+    intro e' c he
+    match e', he with
+    | .const n' us', he => simpa [Expr.liftLooseBVars, Expr.ErasedEq] using he
+  | lit l =>
+    intro e' c he
+    match e', he with
+    | .lit l', he => simpa [Expr.liftLooseBVars, Expr.ErasedEq] using he
+  | app f x ihf ihx =>
+    intro e' c he
+    match e', he with
+    | .app g y, he => exact ⟨ihf he.1, ihx he.2⟩
+  | lam ty b m iht ihb =>
+    intro e' c he
+    match e', he with
+    | .lam ty' b' m', he => exact ⟨he.1, iht he.2.1, ihb he.2.2⟩
+  | forallE ty b m iht ihb =>
+    intro e' c he
+    match e', he with
+    | .forallE ty' b' m', he => exact ⟨he.1, iht he.2.1, ihb he.2.2⟩
+  | letE ty vl b iht ihv ihb =>
+    intro e' c he
+    match e', he with
+    | .letE ty' vl' b', he => exact ⟨iht he.1, ihv he.2.1, ihb he.2.2⟩
+  | proj sn i x ihx =>
+    intro e' c he
+    match e', he with
+    | .proj sn' i' x', he => exact ⟨he.1, he.2.1, ihx he.2.2⟩
+
+/-- The capture-avoiding substitution is a congruence for `ErasedEq`
+(`ErasedEq.instantiate1`'s twin, for the open-argument spelling
+`ordHeadRedGo` uses). -/
+theorem ErasedEq.instantiate1Lift :
+    ∀ {e e' v v' : Expr} {k : Nat}, Expr.ErasedEq e e' → Expr.ErasedEq v v' →
+      Expr.ErasedEq (e.instantiate1Lift v k) (e'.instantiate1Lift v' k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro e' v v' k he hv
+    match e', he with
+    | .bvar j, he =>
+      obtain rfl : i = j := he
+      simp only [Expr.instantiate1Lift]
+      split
+      · exact ErasedEq.liftLooseBVars hv
+      · split <;> simp [Expr.ErasedEq]
+  | fvar idx ty =>
+    intro e' v v' k he hv
+    match e', he with
+    | .fvar j ty', he => simpa [Expr.instantiate1Lift, Expr.ErasedEq] using he
+  | sort u =>
+    intro e' v v' k he hv
+    match e', he with
+    | .sort u', he => simpa [Expr.instantiate1Lift, Expr.ErasedEq] using he
+  | const n us =>
+    intro e' v v' k he hv
+    match e', he with
+    | .const n' us', he => simpa [Expr.instantiate1Lift, Expr.ErasedEq] using he
+  | lit l =>
+    intro e' v v' k he hv
+    match e', he with
+    | .lit l', he => simpa [Expr.instantiate1Lift, Expr.ErasedEq] using he
+  | app f x ihf ihx =>
+    intro e' v v' k he hv
+    match e', he with
+    | .app g y, he => exact ⟨ihf he.1 hv, ihx he.2 hv⟩
+  | lam ty b m iht ihb =>
+    intro e' v v' k he hv
+    match e', he with
+    | .lam ty' b' m', he => exact ⟨he.1, iht he.2.1 hv, ihb he.2.2 hv⟩
+  | forallE ty b m iht ihb =>
+    intro e' v v' k he hv
+    match e', he with
+    | .forallE ty' b' m', he => exact ⟨he.1, iht he.2.1 hv, ihb he.2.2 hv⟩
+  | letE ty vl b iht ihv ihb =>
+    intro e' v v' k he hv
+    match e', he with
+    | .letE ty' vl' b', he => exact ⟨iht he.1 hv, ihv he.2.1 hv, ihb he.2.2 hv⟩
+  | proj sn i x ihx =>
+    intro e' v v' k he hv
+    match e', he with
+    | .proj sn' i' x', he => exact ⟨he.1, he.2.1, ihx he.2.2 hv⟩
+
+/-- Pointwise `ErasedEq` on the peeled spine — `ordHeadRedGo`'s own
+accumulator, so the relation is stated at lists and not at indices. -/
+def ErasedEqs : List Expr → List Expr → Prop
+  | [], [] => True
+  | a :: as, b :: bs => Expr.ErasedEq a b ∧ ErasedEqs as bs
+  | _, _ => False
+
+theorem ErasedEqs.rfl : ∀ (as : List Expr), ErasedEqs as as
+  | [] => trivial
+  | a :: as => ⟨Expr.ErasedEq.rfl a, ErasedEqs.rfl as⟩
+
+theorem ErasedEq.mkAppN :
+    ∀ (as as' : List Expr) {f f' : Expr}, Expr.ErasedEq f f' → ErasedEqs as as' →
+      Expr.ErasedEq (Expr.mkAppN f as) (Expr.mkAppN f' as')
+  | [], [], _, _, hf, _ => hf
+  | a :: as, a' :: as', _, _, hf, has =>
+    ErasedEq.mkAppN as as' (show Expr.ErasedEq (.app _ a) (.app _ a') from ⟨hf, has.1⟩) has.2
+  | [], _ :: _, _, _, _, has => nomatch has
+  | _ :: _, [], _, _, _, has => nomatch has
+
+/-- **THE HEAD REDUCTION CROSSES `ErasedEq`**: every step of
+`ordHeadRedGo` is a peel, a `mkAppN`, or an `instantiate1Lift`, and all
+three are congruences. -/
+theorem ErasedEq.ordHeadRedGo :
+    ∀ (n : Nat) {e e' : Expr} (args args' : List Expr),
+      Expr.ErasedEq e e' → ErasedEqs args args' →
+      Expr.ErasedEq (ordHeadRedGo n e args) (ordHeadRedGo n e' args') := by
+  intro n
+  induction n with
+  | zero => intro e e' args args' he has; exact ErasedEq.mkAppN args args' he has
+  | succ n ih =>
+    intro e e' args args' he has
+    match e, e', he with
+    | .app f x, .app g y, he =>
+      exact ih (x :: args) (y :: args') he.1 ⟨he.2, has⟩
+    | .letE ty vl b, .letE ty' vl' b', he =>
+      exact ih args args' (ErasedEq.instantiate1Lift he.2.2 he.2.1) has
+    | .lam ty b m, .lam ty' b' m', he =>
+      match args, args', has with
+      | [], [], _ => exact ⟨he.1, he.2.1, he.2.2⟩
+      | a :: rest, a' :: rest', has =>
+        exact ih rest rest' (ErasedEq.instantiate1Lift he.2.2 has.1) has.2
+    | .bvar i, .bvar j, he => exact ErasedEq.mkAppN args args' he has
+    | .fvar i t, .fvar j t', he => exact ErasedEq.mkAppN args args' he has
+    | .sort u, .sort u', he => exact ErasedEq.mkAppN args args' he has
+    | .const c us, .const c' us', he => exact ErasedEq.mkAppN args args' he has
+    | .lit l, .lit l', he => exact ErasedEq.mkAppN args args' he has
+    | .proj sn i x, .proj sn' i' x', he => exact ErasedEq.mkAppN args args' he has
+    | .forallE ty b m, .forallE ty' b' m', he => exact ErasedEq.mkAppN args args' he has
+
+/-- `ordHeadRed` itself, at the empty spine. -/
+theorem ErasedEq.ordHeadRed {a b : Expr} (h : Expr.ErasedEq a b) :
+    Expr.ErasedEq (ConLeche.ordHeadRed a) (ConLeche.ordHeadRed b) :=
+  ErasedEq.ordHeadRedGo ordHeadRedFuel [] [] h trivial
 
 end ConLeche

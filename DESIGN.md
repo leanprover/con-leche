@@ -128472,3 +128472,103 @@ literal acceleration or by `unfoldDefinition`.
 about the checker's reduction, and it is not a claim that `whnf` betas.
 It is the identity of ONE `whnf` call with ONE pure function, under a
 hypothesis that names the answer's head.
+
+#### WIDE (f3) — THE `whnf` HEAD INVERSION IS PROVED, WITH ITS TWO BRIDGES; WHAT IS LEFT AT THE READING SITE IS PLUMBING, AND IT IS NAMED (lane WHNF, 2026-09-21)
+
+The row above stated the object; this one is what landed, read against
+the tree.  **`ConLeche/Verify/Inductives/OrdHeadRed.lean`** is the new
+Verify-tier file and it carries three things: the inversion, the
+congruence the reading site needs to cross its `ErasedEq`, and the
+`normPosDomM` wrapper the consumer spends.  A fourth — the
+`replaceAllNested` head-shape — went beside its twin in
+`Verify/Inductives/NestedElimInv.lean`.  `#print axioms` on all of them
+is `[propext, Classical.choice, Quot.sound]`.
+
+##### (a) WHAT IS PROVED
+
+| declaration | `file:line` | what it says |
+|---|---|---|
+| `whnfCore_letEApp_error` | `Verify/Inductives/OrdHeadRed.lean:53` | a `let` at the head of a spine makes the run an ERROR (task #241's `.internal`), so no let-freeness record is owed |
+| `whnfCore_constApp_inv` | `:113` | `whnfCore_constApp_eq` read off a run at an ARBITRARY fuel |
+| `whnfCore_betaSpine_inv` | `:131` | the one real step: a run over a λ-redex-headed spine either hands the redex back VERBATIM (the refused certificate) or is a run over the CONTRACTUM at some fuel |
+| `whnfCore_ordHeadRedGo` | `:203` | the induction, at `ordHeadRedGo`'s own recursion |
+| `whnfCore_ordHeadRed` / `whnf_ordHeadRed` | `:275` / `:288` | the disjunction at `ordHeadRed`, and across the reduction LOOP |
+| `normPosDomM_eq_ordHeadRed` | `:348` | **the consumer's fact**: `w = ordHeadRed W` |
+| `ErasedEq.liftLooseBVars` / `.instantiate1Lift` / `.mkAppN` / `.ordHeadRedGo` / `.ordHeadRed` | `:376`–`:530` | the head reduction is a CONGRUENCE for `Expr.ErasedEq` |
+| `replaceIfNested_lamHead` / `replaceAllNested_lamHead` | `Verify/Inductives/NestedElimInv.lean:283` / `:303` | a λ-headed term REWRITES to a λ-headed one |
+| `normPosDomM_ordHeadRed_cons` / `_former` | `Verify/Inductives/NestedCopyNorm.lean:2049` / `:2065` | the two `consMutualFormers` transports, `normPosDomM_indApp_cons`/`_former`'s twins |
+
+The statement is the one the row above promised, with `hwc` — the
+RESULT's constant head — the hypothesis that kills the stuck-certificate
+arm.  `whnf_ordHeadRed` is stated as the DISJUNCTION (not under `hwc`),
+which is strictly more usable: a caller with any exclusion of a λ head
+can spend it.
+
+##### (b) TWO THINGS THE PROOF DID NOT NEED, AND ONE IT DID
+
+* **no let-freeness record** — `whnfCoreBody`'s `letE` clause throws and
+  the throw propagates out of every spine level, so the ζ arm of
+  `ordHeadRedGo` is killed by the RUN and not by an invariant;
+* **no fuel bound** — every statement is an INVERSION (the run is the
+  hypothesis), so a fuel too small errors and makes it vacuous.  The
+  `ordHeadRed` side needs none either: at a truncating fuel
+  `ordHeadRedGo 0 e args` is `mkAppN e args`, whose head is
+  `e.getAppFn`, and `hred` then puts it at `ordHeadRed`'s own fixed
+  point (`ordHeadRedGo_of_const`);
+* **`@[expose] def appStep`** (`Verify/BetaSpine.lean:51`) — the one
+  change outside the new files.  `appStep` is `whnfCoreBody`'s app-case
+  continuation and the β step is inside it; `BetaSpine` opens a plain
+  `public section`, so its body was private and `unfold` refused
+  ("definition is not exposed").  This is the CLAUDE.md case of
+  "`@[expose]` appears where the compiler asked": `whnfApp`,
+  `whnfAppIota`, `whnfAppLam` and `betaPeelLam` beside it are exposed
+  already.
+
+##### (c) THE GATE'S `public import` MODEL ASKED FOR A DEMOTION THE COMPILER REFUSES — TWO FALLBACK ENTRIES, MEASURED
+
+`scripts/pub-import-plan.py --check` called both of `OrdHeadRed`'s
+`public import`s demotable.  Both were tried and both fail to compile:
+without `ConLeche.Kernel.Inductives.NestedInstall` the file cannot even
+parse its own signatures (`Unknown identifier Env`, `whnfCore`);
+without `ConLeche.Verify.Subst` it is `Unknown constant
+ConLeche.Expr.ErasedEq`.  The cause is the one the script's header
+already documents for six other edges: the census attributes a
+THEOREM's vocabulary to the proof side, so the model does not see that
+the statement needs the re-export.  Two `FALLBACK` entries recorded with
+that measurement; `tests/shake.sh` is green again (514 removals, all
+allowlisted; `pub-imports: 1347 of 2318 public, none demotable`).
+
+##### (d) WHAT IS LEFT AT THE READING SITE, AND IT IS PLUMBING
+
+`NestedPinsRun.copyOrdFRightPinOrdTargetRead`
+(`Model/Inductives/NestedCopyInst.lean:10361`) and its seven siblings
+are **NOT yet moved**, and the reason is OWNERSHIP plus one missing
+record, not a missing law:
+
+* **ownership.**  The rows' wrappers `…ReadAt` / `…ReadAtRefl`
+  (`:11176`, `:11274`) are consumed by
+  `Model/Inductives/NestedInstMap.lean:3008`/`:3017`, which belongs to
+  the assembly lane.  The move that costs nothing there is: give the
+  DEEP rows the guard
+  `(ordHeadRed (Expr.instSeq (openFvars b.nP l) (l-1) (ordTargetDom …))).getAppFn = .const K usK`
+  and the matching conclusion, and let the WRAPPERS keep today's guard
+  and bridge with `instSeq_getAppFn_const` + `ordHeadRed_const` — which
+  is FREE, because at a constant-headed recomputation the reduction is
+  the identity.  Then `NestedInstMap` is untouched and the deep rows are
+  strictly wider;
+* **the one missing record** is `hb`: `xI.fvarTypeD.looseBVarsBounded 0
+  = true`, the inversion's bvar-closedness premise.  `copyResid`
+  (`:1105`) carries `cc.type.looseBVarsBounded 0` and the components'
+  boundedness but NOT `cI`'s, so the reading site has to run the same
+  arithmetic its sibling already runs at `:3552`
+  (`hFlBnd : (Fs'.getD l default).1.looseBVarsBounded l = true`) and
+  then close the remaining `l` with the openers.  That is the honest
+  cost of the move: one boundedness chain, shared by the eight rows.
+
+Everything else the move needs is landed: `ErasedEq.ordHeadRed` carries
+the head and the denotation across `hEr`, `replaceAllNested_lamHead`
+supplies `hwc` from `hheadS`, and `normPosDomM_ordHeadRed_cons`/`_former`
+are the rows' own spellings.  **Until the move lands, those two
+transports and `ErasedEq.ordHeadRed` have no consumer** —
+`tests/unconsumed.sh` goes 204 → 206 of 3888 → 3904 on the two
+transports, and the advisory is right to say so.
