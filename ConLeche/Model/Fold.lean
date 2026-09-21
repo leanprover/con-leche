@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
+import ConLeche.Verify.Inductives.BlockOne
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstallF
-public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Cached.CoreC
 
 @[expose] public section

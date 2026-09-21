@@ -3,7 +3,6 @@ module
 public import ConLeche.Semantics.DeclIndRun
 import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
-public import ConLeche.Verify.Inductives.BlockOneInstall
 
 @[expose] public section
 

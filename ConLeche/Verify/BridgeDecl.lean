@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Fueled
+import ConLeche.Verify.Fueled
 public import ConLeche.Verify.Inductives.BlockOneFueled
 public import ConLeche.Kernel.Checker
 
