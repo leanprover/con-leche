@@ -53,7 +53,7 @@ theorem rsOf_getD_iff {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
 
 /-- The shadow fields: the ordinary domains, `Sort 0` at the recursive
 positions. -/
-def shadowFs (nP : Nat) (ks : List RecFieldKind) (nF : Nat) (Fs : List AnnotTerm) : List AnnotTerm :=
+@[expose] def shadowFs (nP : Nat) (ks : List RecFieldKind) (nF : Nat) (Fs : List AnnotTerm) : List AnnotTerm :=
   (List.range nF).map fun i => if recAt nP ks (nP + i) then .sort 0 else Fs.getD i default
 
 omit [SetTheory V] in
@@ -324,6 +324,33 @@ variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {nP nF : Nat} {ks 
   {tls : List (List (Nat × Nat × AnnotTerm))} {Fs : List AnnotTerm} {Eis : List (List AnnotTerm)}
   {Es : List AnnotTerm}
 
+/-- **The target-blind half of the per-position facts**: everything
+the SHADOW context sees.  A recursive position is replaced by `Sort 0`
+whatever member it targets, so the `NoBVar` clauses, the entries'
+grading and the residual's readings never mention the family slot —
+which is why both the one-member record (`ChainFacts`) and the k-ary
+one (`ChainFactsB`, `BlockChains.lean`) project onto this, and why the
+witness's shadow lemmas are stated over it. -/
+structure ChainFactsS (w nP nF nIdx : Nat) (ρp : Nat → V) (ks : List RecFieldKind)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (Fs : List AnnotTerm)
+    (Eis : List (List AnnotTerm)) (Es : List AnnotTerm) : Prop where
+  hks : ks.length = nF
+  hFs : Fs.length = nF
+  hEs : Es.length = nIdx
+  nb : ∀ i, i < nF →
+    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) (Fs.getD i default)
+  nbT : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ k d, (tls.getD i [])[k]? = some d →
+    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + k)) d.2.2
+  nbE : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ E ∈ Eis.getD i [],
+    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + (tls.getD i []).length)) E
+  nbEs : ∀ E ∈ Es, NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + nF) (nP + nF)) E
+  gr : ∀ i, i < nF → ∀ as' : List V, SpineFit ρp ((shadowFs nP ks nF Fs).take i) as' →
+    WellDenoted V (consList as' ρp) (Fs.getD i default) ∧
+    (¬ recAt nP ks (nP + i) → w ≠ 0 →
+      interp V (consList as' ρp) (Fs.getD i default) ∈ˢ (univ w : V))
+  grE : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
+    ∀ E ∈ Es, WellDenoted V (consList as' ρp) E
+
 /-- The per-position facts the walk consumes: the entries, index
 expressions and residual index readings mention no recursive slot
 below them; at every shadow-fitting spine the entry is graded (in the
@@ -351,6 +378,19 @@ structure ChainFacts (u w nP nF : Nat) (ρp : Nat → V) (Ids : List AnnotTerm)
     (recAt nP ks (nP + i) → SlotFit u w ρp Ids (tls.getD i []) (Eis.getD i []) as')
   grE : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
     ∀ E ∈ Es, WellDenoted V (consList as' ρp) E
+
+/-- The one-member record's target-blind half. -/
+theorem ChainFacts.toS (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) :
+    ChainFactsS w nP nF Ids.length ρp ks tls Fs Eis Es where
+  hks := hC.hks
+  hFs := hC.hFs
+  hEs := hC.hEs
+  nb := hC.nb
+  nbT := hC.nbT
+  nbE := hC.nbE
+  nbEs := hC.nbEs
+  gr i hi as' hsp := ⟨(hC.gr i hi as' hsp).1, (hC.gr i hi as' hsp).2.1⟩
+  grE := hC.grE
 
 /-- **The walk**: along the X-chain, beside a shadow spine. -/
 theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}

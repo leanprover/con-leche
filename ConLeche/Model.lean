@@ -5,6 +5,8 @@ public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockRealChains
 public import ConLeche.Model.Inductives.BlockLeafOk
+public import ConLeche.Model.Inductives.BlockWitness
+public import ConLeche.Model.Inductives.BlockCtorFuns
 public import ConLeche.Model.Inductives.BlockAssemblyKit
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.ClaimsIO

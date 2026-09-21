@@ -11,9 +11,9 @@ public section
 # Kit for the direct recursive install's assembly (task #188)
 
 The pieces `declNative` joins: the two routes' data lists
-identified (`fssOfR_fixCtorDataList`, `essOfR_fixCtorDataList`), a
-read spine transported along pointwise-equal readings
-(`DenoteMetaSpine.congr`), the former's index telescope valid at the
+identified (`fssOfR_fixCtorDataList`, `essOfR_fixCtorDataList`), the
+constructors' data identified across the dummy and the real formers
+(`blockCtorDataI_ident`), the former's index telescope valid at the
 parameter frame (`idxValid_of`, beside `idxOk_of`), and the chain
 validity facts of a recursive constructor (`fixChainValidFacts_of`,
 beside `fixChainFacts_of`: the validity halves of the shadow
@@ -61,19 +61,6 @@ theorem essOfR_fixCtorDataList (dsF : Nat → (Name → Nat) → List (Nat × Na
     show _ :: essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ cs (k + 1))
       = _ :: essOf (ctorDataList dsF esF ψ cs (k + 1))
     rw [essOfR_fixCtorDataList dsF esF ksF eissF tssF ψ cs (k + 1)]
-
-/-! ## Read spines -/
-
-/-- A read spine transports along pointwise-equal readings. -/
-theorem DenoteMetaSpine.congr {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
-    {d : Nat} :
-    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env φ d as vs →
-      (∀ a ∈ as, denoteMeta acval₁ env φ d a = denoteMeta acval₂ env φ d a) →
-      DenoteMetaSpine acval₂ env φ d as vs
-  | [], _, .nil, _ => .nil
-  | a :: as, _ :: vs, .cons ha h, heq =>
-    .cons (by rw [← heq a List.mem_cons_self]; exact ha)
-      (DenoteMetaSpine.congr h fun a' ha' => heq a' (List.mem_cons_of_mem _ ha'))
 
 /-! ## The index telescope, valid -/
 
@@ -437,10 +424,9 @@ at the former: the openings and the residual's index arguments are
 syntactic, the index readings, the recursive slots' index expressions
 and the ordinary fields' domains read the same (none mentions the
 former). -/
-theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
-    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env}
-    {m₁ m₂ : EnvModel V env} (hac₁ : m₁.acval = acvalWith acval T A₁)
-    (hac₂ : m₂.acval = acvalWith acval T A₂) (hfresh : env₀.find? T = none)
+theorem blockCtorDataI_ident {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {env₀ : Env}
+    {m₁ m₂ : EnvModel V env}
+    (hag : ∀ n, (env₀.find? n).isSome = true → m₁.acval n = m₂.acval n)
     {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {idx₁ idx₂ : List Expr}
     {ds₁ ds₂ : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es₁ Es₂ : (Name → Nat) → List AnnotTerm}
@@ -448,10 +434,10 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : 
     {fvsP₁ fvsP₂ xFvs₁ xFvs₂ : List Expr} {xrest₁ xrest₂ : Expr}
     {Eiss₁ Eiss₂ : (Name → Nat) → List (List AnnotTerm)}
     {tss₁ tss₂ : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (h₁ : FixCtorDataI m₁ env₀ T lps cvC nP nF nIdx resSort isProp large idx₁ ds₁ Es₁ srcs₁ ks
-      fvsP₁ xFvs₁ xrest₁ Eiss₁ tss₁)
-    (h₂ : FixCtorDataI m₂ env₀ T lps cvC nP nF nIdx resSort isProp large idx₂ ds₂ Es₂ srcs₂ ks
-      fvsP₂ xFvs₂ xrest₂ Eiss₂ tss₂) :
+    (h₁ : BlockCtorDataI m₁ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idx₁ ds₁ Es₁
+      srcs₁ ks fvsP₁ xFvs₁ xrest₁ Eiss₁ tss₁)
+    (h₂ : BlockCtorDataI m₂ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idx₂ ds₂ Es₂
+      srcs₂ ks fvsP₂ xFvs₂ xrest₂ Eiss₂ tss₂) :
     idx₁ = idx₂ ∧ fvsP₁ = fvsP₂ ∧ xFvs₁ = xFvs₂ ∧ xrest₁ = xrest₂ ∧
     (∀ ψ, Es₁ ψ = Es₂ ψ) ∧ (∀ ψ, Eiss₁ ψ = Eiss₂ ψ) ∧ (∀ ψ, tss₁ ψ = tss₂ ψ) ∧
     ∀ ψ i, i < nF → ks.getD i .ordinary ≠ .recursive → ks.getD i .ordinary ≠ .reflexive →
@@ -488,9 +474,7 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : 
     refine ⟨hlen, afvs, body, hop₁, fun k a hka => ?_, hsp₁, hsp₂, hresB⟩
     have hd₁ := hdoms₁ k a hka
     have hd₂ := hdoms₂ k a hka
-    rw [hac₁] at hd₁
-    rw [hac₂] at hd₂
-    rw [denoteMeta_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i + k) _
+    rw [denoteMeta_agree_of_resolve hag (nP + i + k) _
       (hresA a (List.mem_of_getElem? hka))] at hd₁
     have h22 := Option.some.inj (hd₁.symm.trans hd₂)
     have hlenA := openPisAtFvars_length _ hop₁
@@ -521,7 +505,7 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : 
     exact Prod.ext (hb₁.trans hb₂.symm) (Prod.ext h21 h22)
   refine ⟨rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_⟩
   · intro ψ
-    refine CtorDataI.Es_eq hac₁ hac₂ hfresh h₁.toCtorDataI h₂.toCtorDataI ?_ ψ
+    refine CtorDataI.Es_eq_of_agree hag h₁.toCtorDataI h₂.toCtorDataI ?_ ψ
     rw [h₁.idxEq]
     exact h₁.opened.residRes
   · intro ψ
@@ -539,17 +523,9 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : 
         · have hr₁ := h₁.eisRead ψ i _ hx hk
           have hr₂ := h₂.eisRead ψ i _ hx hk
           obtain ⟨-, -, -, hres, -, -⟩ := h₁.opened.recF i _ hx hk
-          rw [hac₁] at hr₁
-          rw [hac₂] at hr₂
-          have hr₁' := DenoteMetaSpine.congr hr₁ fun a ha =>
-            denoteMeta_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i) a (hres a ha)
-          exact DenoteMetaSpine.unique hr₁' hr₂
+          exact DenoteMetaSpine.unique (DenoteMetaSpine.agree_congr hag hres hr₁) hr₂
         · obtain ⟨-, afvs, body, -, -, hr₁, hr₂, hres⟩ := hrefl ψ i _ hx hk
-          rw [hac₁] at hr₁
-          rw [hac₂] at hr₂
-          have hr₁' := DenoteMetaSpine.congr hr₁ fun a ha =>
-            denoteMeta_acvalWith_unmentioned₂ (A₂ := A₂) hfresh _ a (hres a ha)
-          exact DenoteMetaSpine.unique hr₁' hr₂
+          exact DenoteMetaSpine.unique (DenoteMetaSpine.agree_congr hag hres hr₁) hr₂
       rw [List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)]
       congr 1
       rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
@@ -597,9 +573,36 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : 
       · exact absurd hk hnf
     have hd₁ := h₁.domRead ψ i _ hx
     have hd₂ := h₂.domRead ψ i _ hx
-    rw [hac₁] at hd₁
-    rw [hac₂] at hd₂
-    rw [denoteMeta_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
+    rw [denoteMeta_agree_of_resolve hag (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
     exact Option.some.inj (hd₁.symm.trans hd₂)
+
+/-- **A recursive constructor's data at two carriers** differing only
+at the former — the one-family instance of `blockCtorDataI_ident`:
+a carrier `acvalWith acval T A` and one at another leaf agree at every
+name the pre-block environment has, since it lacks `T`. -/
+theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
+    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env}
+    {m₁ m₂ : EnvModel V env} (hac₁ : m₁.acval = acvalWith acval T A₁)
+    (hac₂ : m₂.acval = acvalWith acval T A₂) (hfresh : env₀.find? T = none)
+    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idx₁ idx₂ : List Expr}
+    {ds₁ ds₂ : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es₁ Es₂ : (Name → Nat) → List AnnotTerm}
+    {srcs₁ srcs₂ : List (Option Nat)} {ks : List RecFieldKind}
+    {fvsP₁ fvsP₂ xFvs₁ xFvs₂ : List Expr} {xrest₁ xrest₂ : Expr}
+    {Eiss₁ Eiss₂ : (Name → Nat) → List (List AnnotTerm)}
+    {tss₁ tss₂ : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (h₁ : FixCtorDataI m₁ env₀ T lps cvC nP nF nIdx resSort isProp large idx₁ ds₁ Es₁ srcs₁ ks
+      fvsP₁ xFvs₁ xrest₁ Eiss₁ tss₁)
+    (h₂ : FixCtorDataI m₂ env₀ T lps cvC nP nF nIdx resSort isProp large idx₂ ds₂ Es₂ srcs₂ ks
+      fvsP₂ xFvs₂ xrest₂ Eiss₂ tss₂) :
+    idx₁ = idx₂ ∧ fvsP₁ = fvsP₂ ∧ xFvs₁ = xFvs₂ ∧ xrest₁ = xrest₂ ∧
+    (∀ ψ, Es₁ ψ = Es₂ ψ) ∧ (∀ ψ, Eiss₁ ψ = Eiss₂ ψ) ∧ (∀ ψ, tss₁ ψ = tss₂ ψ) ∧
+    ∀ ψ i, i < nF → ks.getD i .ordinary ≠ .recursive → ks.getD i .ordinary ≠ .reflexive →
+      ((ds₁ ψ).getD (nP + i) default).2.2 = ((ds₂ ψ).getD (nP + i) default).2.2 :=
+  blockCtorDataI_ident
+    (fun n hn => by
+      rw [hac₁, hac₂]
+      exact acvalWith_agree_of_fresh (A₁ := A₁) (A₂ := A₂) hfresh n hn)
+    h₁ h₂
 
 end ConLeche.Model

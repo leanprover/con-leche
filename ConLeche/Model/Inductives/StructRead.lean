@@ -37,22 +37,19 @@ open ConLeche ConLeche.Semantics ConLeche.Verify ConLeche.SetModel
 
 /-! ## The unmentioned leaf -/
 
-/-- Reading a term that resolves in `env₀` never consults the leaf at
-a name `env₀` lacks: every `.const` the reading looks up resolves in
+/-- **Reading a term that resolves in `env₀` only consults the leaf at
+names `env₀` has**: every `.const` the reading looks up resolves in
 `env₀`, and the literal spines' support constants are part of
-`constsResolve`'s literal clauses.  Stated as an equation — the two
-runs are `none` together. -/
-theorem denoteMeta_acvalWith_unmentioned
-    {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
-    {A : (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
-    (hfresh : env₀.find? T = none) :
+`constsResolve`'s literal clauses.  Stated as an equation between two
+carriers agreeing there — the two runs are `none` together.  (At a
+BLOCK this is what makes the dummy and the real formers' readings
+agree: the two carriers differ at the k member names, none of which
+`env₀` has.) -/
+theorem denoteMeta_agree_of_resolve
+    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
+    (hag : ∀ n, (env₀.find? n).isSome = true → acval₁ n = acval₂ n) :
     ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
-      denoteMeta (acvalWith acval T A) env φ d e
-        = denoteMeta acval env φ d e := by
-  have hne : ∀ n, (env₀.find? n).isSome = true → n ≠ T := by
-    intro n hn h
-    rw [h, hfresh] at hn
-    exact nomatch hn
+      denoteMeta acval₁ env φ d e = denoteMeta acval₂ env φ d e := by
   intro d e
   induction d, e using denoteMeta.induct (env := env) with
   | case1 d u => intro _; rw [denoteMeta, denoteMeta]
@@ -61,8 +58,7 @@ theorem denoteMeta_acvalWith_unmentioned
     intro hcr
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_pos hlen, if_pos hlen,
-      acvalWith_ne (hne n (by simpa [Expr.constsResolve] using hcr))]
+    rw [if_pos hlen, if_pos hlen, hag n (by simpa [Expr.constsResolve] using hcr)]
   | case4 d n us ci hf hlen =>
     intro _
     rw [denoteMeta, denoteMeta, hf]
@@ -94,8 +90,7 @@ theorem denoteMeta_acvalWith_unmentioned
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
-      acvalWith_ne (hne natZeroName hcr.1.2),
-      acvalWith_ne (hne natSuccName hcr.2)]
+      hag natZeroName hcr.1.2, hag natSuccName hcr.2]
   | case12 d n hsup =>
     intro _
     rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
@@ -104,13 +99,8 @@ theorem denoteMeta_acvalWith_unmentioned
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, hZ⟩, hS⟩, -⟩, hO⟩, -⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hcr
     rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
-      acvalWith_ne (hne stringOfListName hO),
-      acvalWith_ne (hne listNilName hN),
-      acvalWith_ne (hne listConsName hC),
-      acvalWith_ne (hne charName hH),
-      acvalWith_ne (hne charOfNatName hF),
-      acvalWith_ne (hne natZeroName hZ),
-      acvalWith_ne (hne natSuccName hS)]
+      hag stringOfListName hO, hag listNilName hN, hag listConsName hC,
+      hag charName hH, hag charOfNatName hF, hag natZeroName hZ, hag natSuccName hS]
   | case14 d s hsup =>
     intro _
     rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
@@ -130,6 +120,32 @@ theorem denoteMeta_acvalWith_unmentioned
       cases l with
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
+
+/-- Two leaves differing at a name `env₀` lacks agree at every name
+`env₀` has — the agreement `denoteMeta_agree_of_resolve` asks for. -/
+theorem acvalWith_agree_of_fresh {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
+    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env} (hfresh : env₀.find? T = none)
+    (n : Name) (hn : (env₀.find? n).isSome = true) :
+    acvalWith acval T A₁ n = acvalWith acval T A₂ n := by
+  have hne : n ≠ T := by
+    intro h
+    rw [h, hfresh] at hn
+    exact nomatch hn
+  rw [acvalWith_ne hne, acvalWith_ne hne]
+
+/-- A name `env₀` lacks is not consulted: the one-name instance of
+`denoteMeta_agree_of_resolve`. -/
+theorem denoteMeta_acvalWith_unmentioned
+    {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
+    {A : (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
+    (hfresh : env₀.find? T = none) :
+    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
+      denoteMeta (acvalWith acval T A) env φ d e
+        = denoteMeta acval env φ d e :=
+  denoteMeta_agree_of_resolve fun n hn => acvalWith_ne (by
+    intro h
+    rw [h, hfresh] at hn
+    exact nomatch hn)
 
 /-- Two leaves at the block's name read a pre-block term alike. -/
 theorem denoteMeta_acvalWith_unmentioned₂
