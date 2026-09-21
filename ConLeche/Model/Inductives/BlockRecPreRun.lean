@@ -2161,15 +2161,112 @@ theorem interp_liftN_insert {us ws : List V} {ρ : Nat → V} (e : AnnotTerm) :
       = interp V (consList ws ρ) e := by
   rw [interp_liftN, shiftE_consList_ih (locals := ws) (ihvals := us) rfl rfl]
 
-/-! **What blocks the fit's transport.**  `liftDomsK` (RM11,
-`BlockRecData.lean`) is a plain `def` in a `public section`, so its
-body does not unfold here and the fit's version of this transport —
-the structural recursion `spineFit_liftDomsK` performs — cannot be
-written outside that module.  `@[expose]` on `liftDomsK` (or the
-insertion-general `spineFit_liftDomsK` beside the chain one) is all it
-needs; the reading's half above is unblocked because it never mentions
-`liftDomsK`. -/
+/-- **A fit crosses an inserted block**: `spineFit_liftDomsK` at an
+ARBITRARY insertion (RM11 exposed `liftDomsK` for this; the chain
+version is this one at `us := (List.range K).map a`). -/
+theorem spineFit_liftDomsK_insert {us : List V} {ρ : Nat → V} :
+    ∀ (Ds : List AnnotTerm) (ws vs : List V),
+      SpineFit (consList ws (consList us ρ)) (liftDomsK us.length ws.length Ds) vs
+        ↔ SpineFit (consList ws ρ) Ds vs
+  | [], _, [] => Iff.rfl
+  | [], _, _ :: _ => Iff.rfl
+  | _ :: _, _, [] => Iff.rfl
+  | D :: Ds, ws, v :: vs => by
+    have ih := spineFit_liftDomsK_insert (us := us) (ρ := ρ) Ds (ws ++ [v]) vs
+    rw [List.length_append, List.length_singleton] at ih
+    simp only [consList_append, consList_cons, consList_nil] at ih
+    show (v ∈ˢ interp V (consList ws (consList us ρ)) (D.liftN us.length ws.length) ∧ _) ↔ _
+    rw [interp_liftN_insert (us := us) (ws := ws) D]
+    exact and_congr Iff.rfl ih
+
+/-- **The rule's field domains, at the rule's frame**: the
+constructor's own field domains, lifted past the recursor prefix's
+extra `rP − nP` binders (`blockRuleFdomsAV_eq`) and then past the `K`
+chain binders (`blockRecFdomsK`), fit exactly the spines that fit the
+constructor's domains at the PARAMETER frame.
+
+Both lifts are the same transport at a different inserted block: the
+chain's is `spineFit_liftDomsK`, the prefix stretch's is
+`spineFit_liftDomsK_insert` at `us := x⃗.drop nP`, which is the block
+`consList x⃗ ρ` carries above the parameters
+(`consList_append` at `x⃗.take nP ++ x⃗.drop nP`). -/
+theorem spineFit_liftDomsK_rule {K nP rP : Nat} {a ρ : Nat → V} {xs fs : List V}
+    {Fs0 : List AnnotTerm} (hxs : xs.length = rP)
+    (hfit : SpineFit (consList (xs.take nP) ρ) Fs0 fs) :
+    SpineFit (consList xs (chainFrame K a ρ)) (liftDomsK K rP (liftDomsK (rP - nP) 0 Fs0)) fs := by
+  rw [← hxs]
+  refine (spineFit_liftDomsK (K := K) (a := a) (ρ := ρ) _ xs fs).mpr ?_
+  have hsplit : consList xs ρ = consList (xs.drop nP) (consList (xs.take nP) ρ) := by
+    rw [← consList_append, List.take_append_drop]
+  have hlen : (xs.drop nP).length = xs.length - nP := by rw [List.length_drop]
+  rw [hsplit, ← hlen]
+  have hq := (spineFit_liftDomsK_insert (us := xs.drop nP) (ρ := consList (xs.take nP) ρ)
+    Fs0 [] fs).mpr hfit
+  simpa using hq
 
 end Insertion
+
+/-! ## 24. `hspF` at the run — the rule's spine fits (session 7)
+
+`hspF` is the kit's step passing `BlockRuleCerts.residueOk` its
+`SpineFit ρ (pdoms c ++ fdoms c j) (x⃗ ++ f⃗)`, and it splits exactly
+where `SpineFit.append` does:
+
+* the PREFIX half is the guard — since session 7 an inhabited class
+  index set carries `SpineFit ρ (pdoms c) x⃗` (`blockRecIs_fits`), so
+  the step has it in hand and nothing has to be proved about the
+  motives and the minor premises;
+* the FIELD half is the content: `ChainFit`'s `FitsFrom` asks a
+  recursive field's value in the block's SLOT, `SpineFit` asks it in
+  the domain's READING, and where the two agree the walks coincide
+  (`spineFit_of_fitsFrom`, `BlockModel.lean`).  The domains then cross
+  the two lifts — the recursor prefix's extra `rP − nP` binders and
+  the `K` chain binders — by §23's transports.
+
+The two identities this takes are named premises in their owners'
+spelling: `hfd` is RM11's `blockRuleFdomsAV_eq` composed with the
+record's `ds`/`Fss` identification, and `hslot` is the slot-to-domain
+step at the block's own carrier (`BlockCtorDataI.recEntry`/`.reflEntry`
+through `BlockModelAt.leaf`, the shape `blockChainReal_of` already
+discharges against the stage's tower). -/
+
+section SpineOfChain
+
+/-- **`hspF` at the run.**  With the prefix's fit (the guard) and the
+slot-to-domain identity, a field spine fitting the constructor at the
+carrier fits the rule's own binder data at the chain frame. -/
+theorem blockRecSpF {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat}
+    {a ρ : Nat → V} {xs fs : List V} {X : Nat → V} {t : V}
+    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
+    (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ σ : Nat → V,
+      ((d.rss (mem c)).getD j []).getD l false = true →
+      d.slotAt ψ X (mem c) j l σ
+        = interp V σ (((d.Fss (mem c) ψ).getD j []).getD l default))
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c)
+    (hpref : SpineFit (chainFrame K a ρ)
+      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
+    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ) X t (mem c) j fs) :
+    SpineFit (chainFrame K a ρ)
+      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs) := by
+  refine SpineFit.append hpref ?_
+  have hbase : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs :=
+    spineFit_of_fitsFrom (fun l hl σ hrb => by
+      rw [Nat.zero_add] at hrb ⊢
+      exact hslot l hl σ hrb) hfit.1
+  have hlenP : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
+  rw [blockRecFdomsK, hlenP, hfd]
+  exact spineFit_liftDomsK_rule hxs hbase
+
+end SpineOfChain
 
 end ConLeche.Model

@@ -108,6 +108,38 @@ theorem FitsFrom.congr_slot {rs : List Bool} {slot slot' : Nat → (Nat → V) �
     · have := hag (l + 1) (by simpa using hl) σ
       rwa [show i + (l + 1) = i + 1 + l from by omega] at this
 
+/-- **A constructor's fit, read at its DOMAINS**: `FitsFrom` and
+`SpineFit` walk the same list at the same frames and differ only at a
+RECURSIVE position, where the first asks the value in the block's slot
+and the second in the domain's own reading.  Where the two agree at
+every recursive position of the list, the fixpoint route's fit IS the
+domains' fit — the step from `BlockData.ChainFit` (what the carrier's
+case analysis hands back) to `SpineFit` (what a rule's certificates
+ask for). -/
+theorem spineFit_of_fitsFrom {rs : List Bool} {slot : Nat → (Nat → V) → V} :
+    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
+      (∀ l, l < Fs.length → ∀ σ : Nat → V, rs.getD (i + l) false = true →
+        slot (i + l) σ = interp V σ (Fs.getD l default)) →
+      FitsFrom rs slot i ρ Fs as → SpineFit ρ Fs as
+  | _, _, [], [], _, _ => trivial
+  | _, _, [], _ :: _, _, h => h.elim
+  | _, _, _ :: _, [], _, h => h.elim
+  | i, ρ, F :: Fs, a :: as, hag, h => by
+    refine ⟨?_, spineFit_of_fitsFrom (fun l hl σ hr => ?_) h.2⟩
+    · have h1 : a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) := h.1
+      by_cases hr : rs.getD i false = true
+      · rw [if_pos hr] at h1
+        have h0 := hag 0 (by simp) ρ (by rw [Nat.add_zero]; exact hr)
+        rw [Nat.add_zero] at h0
+        rw [h0] at h1
+        exact h1
+      · have hr' : rs.getD i false = false := by simpa using hr
+        rw [hr'] at h1
+        exact h1
+    · have hag' := hag (l + 1) (by simpa using hl) σ
+      rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
+      exact hag' hr
+
 /-! ## The operator's fibre, both regimes in one equivalence -/
 
 /-- **The block operator's fibre at a tuple of the space**: an element
