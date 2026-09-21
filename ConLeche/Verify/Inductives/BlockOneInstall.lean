@@ -189,4 +189,74 @@ theorem blockCtorKinds_single (T : Name) (lps : List Name) (nP nIdx : Nat)
     intro i _
     rfl
 
+/-! ## The install stages
+
+The equations are proved once, in any monad whose `throw`
+short-circuits a `bind`, and instantiated at the monads the drivers
+run in. -/
+
+/-- A monad in which a `throw` short-circuits a `bind` — every monad
+the checker runs in (the pure `Except`, the fueled family, the cached
+state monad). -/
+class ThrowBindM (m : Type → Type) [Monad m] [MonadExceptOf CheckError m] : Prop where
+  /-- a thrown error swallows the continuation -/
+  throw_bind {α β : Type} (e : CheckError) (f : α → m β) : (throw e : m α) >>= f = throw e
+
+instance : ThrowBindM CheckM where
+  throw_bind _ _ := rfl
+
+variable {m : Type → Type} [Monad m] [LawfulMonad m] [MonadExceptOf CheckError m] [ThrowBindM m]
+
+/-- The one-member former stage, as the k-ary member stage plus the
+cons: `checkSumInd` IS `checkBlockTele` followed by the environment
+extension. -/
+theorem checkSumInd_tele (ops : CheckerOps m) (env : Env) (sh : InductiveShape)
+    (capsOf : InductiveShape → IndCaps) (ms : MemberShape)
+    (h1 : ms.cvT = sh.cvT) (h2 : ms.nIdx = sh.nIdx) :
+    checkSumInd ops env sh capsOf
+      = checkBlockTele ops env sh.nP ms >>= fun r =>
+          pure (⟨.indInfo r.1 (capsOf (sh.withSort r.2)) :: env.consts⟩, r.1, sh.withSort r.2) := by
+  simp only [checkSumInd, checkBlockTele, h1, h2, bind_assoc]
+  refine bind_congr fun cvTa₀ => ?_
+  refine bind_congr fun r => ?_
+  refine bind_congr fun q => ?_
+  split
+  · simp only [pure_bind]
+  · simp only [ThrowBindM.throw_bind]
+
+/-! ### The record's readings at one member -/
+
+theorem blockCapsAt_one {q : BlockShape} {ms : MemberShape} (hm : q.members = [ms])
+    (isRec : Bool) : blockCapsAt q 0 isRec = nativeCapsAt q.toInductive isRec := by
+  simp only [blockCapsAt, nativeCapsAt, BlockShape.toInductive, hm, List.getD_cons_zero,
+    List.headD_cons, BlockShape.k, List.length_cons, List.length_nil]
+  cases hc : ms.ctors with
+  | nil => rfl
+  | cons c cs => cases cs with
+    | cons d ds => rfl
+    | nil => simp
+
+theorem blockIsRec_one (kss : List (List BlockFieldKind)) :
+    blockIsRec [kss] = nativeIsRec (kss.map (List.map BlockFieldKind.toRec)) := by
+  simp only [blockIsRec, nativeIsRec, List.any_cons, List.any_nil, Bool.or_false,
+    List.any_map, Function.comp_def]
+  refine congrArg _ ?_
+  funext ks
+  refine congrArg _ ?_
+  funext k
+  cases k <;> rfl
+
+theorem blockRawRec_one {p : BlockParts} {ms : MemberShape} (hm : p.members = [ms]) :
+    blockRawRec p = nativeRawRec p.toNative := by
+  simp only [blockRawRec, nativeRawRec, BlockParts.toNative, BlockShape.toInductive,
+    BlockShape.memberNames, hm, List.headD_cons, List.map_cons, List.map_nil,
+    List.any_cons, List.any_nil, Bool.or_false]
+  cases hc : ms.ctors with
+  | nil => rfl
+  | cons c cs => cases cs with
+    | cons d ds => rfl
+    | nil =>
+      simp only [Expr.mentionsAnyConst_single]
+      rfl
+
 end ConLeche
