@@ -130791,7 +130791,7 @@ RECURSIVE, and targets pin `2`; `hout` there asks `S 2`, whose last
 conjunct is `instLabel 2 ≠ instLabel 1` — **false**.  So `hout` is not
 merely unproved at the step as it stands: it is refuted.
 
-**And no K.74 can record the missing fact.**  What would have to be
+**And no K.75 can record the missing fact.**  What would have to be
 recorded is a decrease along not-own edges; the fourth-graph count
 ("THE FOURTH GRAPH", 2026-09-18) found a not-own edge INSIDE a
 strongly connected component of the bare directed edge list on eight
@@ -130816,7 +130816,7 @@ Read the same guard at the group the INSTANCE is entered at:
   conjunct `∃ g, … = some g` is already the root-group fact.  This
   CORRECTS session 1's row (f), which priced `hrootGrp` as an owed
   item;
-* the MISSING link, and it is the whole of the K.74 request: the
+* the MISSING link, and it is the whole of the K.75 request: the
   own-pin POOL read as the instance map's IMAGE, and K.62 read at the
   mint GROUP rather than at the single pin.
 
@@ -130829,7 +130829,7 @@ at `nested_p04` both offending edges have NON-ROOT sources (`1` and
 `2`; the root group is `{0}`), and the only edge out of the root group
 is the OWN one.
 
-##### (d) K.74, STATED EXACTLY — TWO CLAUSES, NO WALK, **AND BOTH MUST BE MEASURED FIRST**
+##### (d) K.75, STATED EXACTLY — TWO CLAUSES, NO WALK, **AND BOTH MUST BE MEASURED FIRST**
 
 Both are predicates on tables `nestedPinChecks` already binds
 (`nestedInstMaps`, `nestedPinEdges`, `nestedPinRootGroupAt`), so
@@ -130901,7 +130901,7 @@ Both compiled at the first attempt and carry
   step needs the root's group there instead, and the conclusion at `q`
   transported by `ofNested_wide_famAt` + (R2).
 
-**Honest sizing, and it is a range because (R3) was not read**: K.74's
+**Honest sizing, and it is a range because (R3) was not read**: K.75's
 two clauses and their measurement, one session; (R2), one to two; the
 re-indexing and the root-only step, two to four.  **Four to seven
 sessions**, and the first of them is the MEASUREMENT of (d), which is
@@ -130963,3 +130963,265 @@ exactly one.  `#print axioms` on `ofNested_wide_at` and
 No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
 THE KERNEL DID NOT CHANGE, so no accept-set table and no cost table is
 owed.
+
+#### WIDE (f4) — K.75 MEASURED: ZERO FIRES AND A VACUOUS SECOND CLAUSE; (R3) IS **REFUTED**; (R2) IS ONE `rw` THAT DOES NOT ELABORATE (lane DOM, 2026-09-21)
+
+The lane's order was: measure K.75 FIRST, stop if either clause fires
+on an official accept, then carry the two clauses as named hypotheses
+and re-index the step to the root group.  **The measurement passed and
+its CONTROL says clause (2) is vacuous on both corpora**; (R3) — read
+as instructed — is refuted; and the transport (R2) was written, is one
+`rw`, and did NOT elaborate, for a reason worth recording.  (The
+record is K.75 and not K.74: the main lane's session 41 is landing a
+different K.74.)
+
+##### (a) THE TWO CLAUSES, VERBATIM, SO THE MAIN LANE CAN LAND THEM
+
+Three definitions beside K.41's in `Kernel/Inductives/NestedInstall.lean`
+(after `nestedOrdOutsideOk`).  Neither clause walks: both read tables
+`nestedPinChecks` already binds (`nestedInstMaps`, `nestedPinEdgesAt`,
+`nestedPinRootGroupAt`).  The composite is the Bool to gate with K.41,
+whose `roots` table it takes.
+
+```lean
+def nestedPinPoolImageAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (roots : List (Option Nat)) : Bool :=
+  match maps? with
+  | some maps =>
+    (List.range st.pins.length).all fun q =>
+      match roots.getD q none with
+      | none => false
+      | some g =>
+        ((st.pins.getD q default).grpBase == g) ||
+          (List.range st.pins.length).any fun i =>
+            ((st.pins.getD i default).grpBase == g) && (maps.getD i []).contains q
+  | none => false
+
+def nestedOrdOutsideGrpAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
+  match maps?, edges? with
+  | some maps, some rows =>
+    rows.all fun (q, t, mentions) =>
+      mentions ||
+        (match st.pins[q]? with
+         | some qn =>
+           (List.range qn.grpSize).all fun d =>
+             !((maps.getD (qn.grpBase + d) []).contains t)
+         | none => false)
+  | _, _ => false
+
+def nestedPinPoolGrpAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (edges? : Option (List (Nat × Nat × Bool))) (roots : List (Option Nat)) : Bool :=
+  nestedPinPoolImageAt st maps? roots && nestedOrdOutsideGrpAt st maps? edges?
+```
+
+**THE KERNEL WAS NOT CHANGED ON THIS BRANCH.**  The three definitions
+and a `dbg_trace` probe were applied as an UNCOMMITTED patch
+(`_tmp/dom/k75.patch`), measured, and the file restored; the landing is
+the main lane's or the merge session's.
+
+##### (b) THE TABLE — ZERO FIRES, EVERY CORPUS, BOTH MODES
+
+One trace line per nested-block install, printed before
+`nestedPinChecks`' first test so that it runs in both modes and at a block the later
+checks would reject.
+
+| corpus | mode | blocks traced | pins | clause (1) fires | clause (2) fires | verdict |
+|---|---|---|---|---|---|---|
+| shadow suite (47 rows of `nested-shadow-expected.txt`, 44 fixture files) | default | 60 block installs, 47 distinct blocks | 92 | **0** | **0** | `nested-shadow: 47/47` |
+| `init-full.ndjson` | `--verified` | 1 (`Lean.Syntax`) | 2 | **0** | **0** | exit 0, 53 093 declarations |
+| `init-full.ndjson` | `--trusted` | 1 | 2 | **0** | **0** | exit 0, 53 093 declarations |
+| `mathlib-full.ndjson` | `--verified` | 41 | 121 | **0** | **0** | exit 0, 654 504 declarations |
+| `mathlib-full.ndjson` | `--trusted` | 41 | 121 | **0** | **0** | exit 0, 654 504 declarations |
+
+(The two Mathlib rows are the FIRST probe's full runs, both to exit 0.
+The CONTROL probe of (c) was re-run over Mathlib `--verified` and its
+install phase — where every one of the 41 blocks is traced — completed
+with the same verdicts; its check phase was cut short by hand once the
+counters were in, because the counters are computed before the mode
+test and are therefore mode-independent.)
+
+##### (c) THE CONTROL, AND IT IS THE FINDING: **CLAUSE (2) IS VACUOUS**
+
+"Zero fires" is worth nothing without the count of rows the clause
+actually constrains, so the probe carried four counters: `nonroot` (the
+pins for which clause (1)'s SECOND alternative is the one that has to
+hold), `grpgt1` (not-own edge rows whose SOURCE's mint group has more
+than one member — the rows at which clause (2) says strictly more than
+K.62), `dup` (pins whose pin EXPRESSION already occurs at an earlier
+pin — the named risk of clause (1)) and `mixgrp` (mint groups whose
+members' own-pin lists differ in length — the named risk of clause
+(2)).
+
+| corpus | pins | `nonroot` | `grpgt1` | `dup` | `mixgrp` |
+|---|---|---|---|---|---|
+| shadow suite | 92 | **8** (6 blocks) | **0** | 0 | 0 |
+| `init-full` | 2 | 0 | **0** | 0 | 0 |
+| Mathlib | 121 | **10** (5 blocks) | **0** | 0 | 0 |
+
+* **Clause (1) is exercised**: eight pins across six blocks
+  (`nested_p04`'s `P4` 2, `inmodel_groups`' `M` 1 and `H` 1,
+  `nested_pin_nocollide`'s `NoCollide` 2, `nested_bvar_field`'s
+  `BvarField` 1, `nested_redex_owner`'s `Outer` 1), and ten more across
+  five Mathlib blocks (`Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`,
+  `Lean.Widget.HighlightedMsgEmbed` and the two
+  `Lean.Server.Test.Runner.Client` twins, two each), are NOT members of
+  their instance's root group, and at every one of them the index-level
+  image contains the pin.  K.41's own control counted **12** non-root
+  pins over its two corpora and this one counts 8 + 10 over a wider
+  shadow suite; the population is the same thin one K.41 recorded, and
+  the clause is therefore measured, not vacuous;
+* **clause (2) is VACUOUS on both corpora**: `grpgt1 = 0` everywhere —
+  not one `ordF`-right edge in the whole corpus has its SOURCE in a
+  mint group of more than one member, so `nestedOrdOutsideGrpAt` is
+  pointwise equal to `nestedOrdOutsideAt` there and the measurement
+  cannot distinguish them.  **This is an honest negative**: it does not
+  say the clause is wrong, it says the corpus does not test it, and a
+  named hypothesis carrying it would be carried on the strength of the
+  design argument (a mutual container's members are minted together and
+  their eliminations share the occurrence list) and NOT on the strength
+  of a measurement.  `mixgrp = 0` says the same thing from the other
+  side: no mint group in either corpus has members with different
+  own-pin lists, which is the shape the clause was written against;
+* `dup = 0`: no two pins of any block share a pin EXPRESSION, which is
+  the fact clause (1) stands on (`replaceIfNested` mints one mimic per
+  distinct expression).  The two `nested_pin_collide` fixtures do NOT
+  exercise it: their outer `Collide`/`Collide2` blocks never reach
+  `nestedPinChecks` (the shadow expectation records exactly `J=accept`
+  for both, and the tripwire comment says the rows gain the outer block
+  "the day the stream gets that far").  So the COLLIDING-pin witness
+  the brief asked for cannot be built out of the fixtures that exist,
+  and the measurement's answer to risk (1) is `dup = 0` rather than a
+  witness.
+
+**Consequence for the plan, stated plainly**: clause (1) may be carried
+as a measured record; clause (2) may be carried only as a DESIGN
+argument, and if the root-only step needs it, the honest sizing must
+say so.  A second reading is available and cheaper — at `grpgt1 = 0`
+the root-only step could take K.62 AT THE PIN (`nestedOrdOutsideAt`,
+already in the tree and already gated) plus the group's contiguity, and
+clause (2) would not be needed at all until a mutual container with a
+mixed group appears.  That is the form the merge session should prefer.
+
+##### (d) (R3), READ AS INSTRUCTED: **THE ROOT'S PIN-CLASS ARM DOES NEED AN ENTRY**
+
+Session 2's row expected the root's pin-class arm to need no entry,
+with K.67 as the argument.  `hfit_wide_pin_of_class`
+(`Model/Inductives/NestedPinLeafAll.lean:4295`) is a pure repackaging
+of `hcnt` and `hfitc`; the content is `hfitc`'s producer,
+`pinClassFit_of_transfer` (`:4207`), and that theorem takes
+**`hentOrd₁`** — at a field the container `dK` calls ORDINARY, the
+ROOT-pin's own copy (`dJ.pinCtors qK`) also calls ordinary, and the
+BLOCK's copy calls RECURSIVE, the container's domain reading is
+contained in the block copy's slot.  Its own docstring names it: "at an
+`ordF`-right field neither side has an entry to spend … `hfireOrd` says
+a root firing forces a block firing, **`hentOrd₁` carries the mixed
+case's entry**, and `hslotOrd` says their slots are the same set."
+
+So the answer is **no**, and what it needs is exactly the MIXED CORNER
+K.69 leaves silent — the arm where the OWNER's own recomputation did
+not fire.  K.67 covers the other arm (`hfireOrd`/`hslotOrd`), which is
+why session 2's argument looked complete and was not.  This does NOT
+invalidate the root-only route: `hpin` is a hypothesis of
+`nestedPinWideStep` at this tree and has no producer either way, so the
+item is not added by going root-only — it is the same item, and it was
+already open.
+
+##### (e) (R2) — WRITTEN, ONE `rw`, AND IT DOES NOT ELABORATE
+
+The transport is a two-rewrite composition and both halves are in the
+tree:
+
+* `nestedPinFam_of_classPin` (`NestedPinLeafAll.lean:8038`) —
+  `pinLfp … q = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (lfpTuple …) c`
+  at a `ClassPinAt` pair `(c, q)` of the root group;
+* `ofNested_wide_famAt` (`NestedEntryOrd.lean:598`, this lane's) —
+  `lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c) = (dJf r).famAt … c`.
+
+With `σ c = p.k + q` the two give `pinLfp … q = lfpTuple … (p.k + q)`,
+which is `nestedPinsLe_of_wide`'s `hwide` at `q` up to
+`ofNested_pinCar_lfp`.  The statement and proof were written
+(`_tmp/dom/NestedEntryOrd-R2attempt.lean`) and the proof is
+`rw [nestedPinFam_of_classPin …, ← hwide, hσc]`.  **It does not
+elaborate**, and the obstruction is worth the paragraph because the
+next session will meet it again:
+
+`ofNested_wide_famAt` is stated in the RAW `BlockModel.ofNested`
+variable block; the assembly's `(D)` is `nestedBlockModel`, and
+`NestedLfpOk` names only fifteen of `ofNested`'s thirty-odd lists, so
+an `exact`/`refine` leaves the other eighteen as metavariables and the
+application fails.  **`apply` fixes that** — it unifies the CONCLUSION
+first and every list comes out concrete (verified: eleven of the twelve
+goals close by `exact` at the named hypothesis).  What remains is ONE
+goal, `NestedLfpOk ψ ρp`, where the supplied `hOk` prints as
+`NestedLfpOk ψ✝ ρp✝` with every other argument identical under
+`pp.explicit` — a `ψ`/`ρp` identity the elaborator will not make, and
+naming the instance binder, passing `(ψ := ψ) (ρp := ρp)` at the call
+AND at the binder, and moving the two out of the section variables all
+leave it unchanged.  **The fix is almost certainly to restate
+`ofNested_wide_at`/`ofNested_wide_famAt` in the ASSEMBLY's variable
+block** (over `nestedBlockModel`, beside `ofNested_pin_block_of_wide_inst`,
+which is the form `nestedPinWideStep` applies without trouble) rather
+than to keep fighting the generic one.  Half a session, and it is the
+first thing the next session should do.
+
+##### (f) WHAT THE SIGNATURES TAKE AT THIS TREE — **NOTHING MOVED**
+
+* `nestedPinWideStep` (`NestedPinsLeInd.lean:234`, `hout` at `:286`) is
+  UNCHANGED: `hleafM`, `hIH`, `hPfGroup`, `hout`, `hstgt`, `houtσ`,
+  `hpin`, `hinjJ`, `hrowsσ`, `hσ`, `hroot`, `hIsσ`;
+* `nestedPinsLe_of_wide` (`:129`) is UNCHANGED: `hμ`, `h`, `h3`, `hbk`,
+  `m`, `hleafM`, `hrank`, `hpinsLen`, `dJf`, `hgroups`, `hρp`, `hwide`.
+  The re-indexing to the root group was NOT attempted: it needs (R2)
+  first, and (R2) is (e);
+* `nestedModeled_of_one`/`_of_two` (`NestedChain.lean`) are UNCHANGED —
+  `hLe : NestedPinsLe V μ F`, `hμ`, `mp`, `hE`, `h : DeclNestedRun …`,
+  and `hPin` on the two-arm one.  `NestedChain.lean` was not touched
+  and `hLe` was not dropped: it is not producible at this tree;
+* no named hypothesis was added anywhere.  `hK75pool`/`hK75grp` were
+  NOT carried: their consumer is the label half of the root-group step,
+  which needs the re-indexing, which needs (R2) — and this project's
+  `consumer-first-hypotheses` rule forbids parking them without one.
+  **The label half's chain is now fully written out** and it is four
+  links, not three: from an `ordF`-right row `(q, t, false)` with `q`
+  in its instance's ROOT group `g`, (i) K.66 puts `t` outside
+  `[g, g + grpSize)`, (ii) clause (2) — or, at `grpgt1 = 0`, K.62
+  itself — puts `t` outside every group member's instance-map image,
+  (iii) the roots table is constant on an instance
+  (`nestedPinRootGroupAt` reads the class of `q`), and (iv) clause (1)
+  at `t` then contradicts (i)+(ii), so `instLabel t ≠ instLabel q`.
+  Link (i)'s group bookkeeping — a pin with `grpBase = g` lies in
+  `[g, g + grpSize)`, and the members of one group share `grpSize` — is
+  K.29's and IS already inverted: `nestedGroupsOk_inv`
+  (`Verify/Inductives/NestedGroupInv.lean:188`) gives
+  `qn.grpBase ≤ q ∧ q < qn.grpBase + qn.grpSize` at every pin and
+  `qi.grpBase = qn.grpBase ∧ qi.grpSize = qn.grpSize` at every member of
+  its group.  So **no link of the chain is missing a recorded source**;
+  what is missing is the chain itself, and its consumer.
+
+##### (g) THE GATES
+
+**Only `DESIGN.md` changed on the branch** — the probe and the three
+definitions were applied, measured and reverted, so the gates are the
+base tip's and were re-run to prove exactly that.  `tests/arena.sh`
+EXIT 0 — `layering 354/293/3/1 with 0 base->lane and 0 impl->theory
+edges`, `proofdeps: 4975 module rows, doors: 0`,
+`trust surface: 13 escapes in 5 allowlisted files (663 scanned)`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`, `shake: 514 removals, all allowlisted`,
+`pub-imports: 1350 of 2323 public, none demotable (60 fallbacks)`,
+**`nested-shadow: 47/47`**, `inmodel: OK`,
+`axioms: pinned (20 theorems)`, `arena suite: 91/96`, `e2e: 200/200`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`, the
+trusted sweep and both `--jobs` sweeps as at the default.
+`tests/warning-free.sh 3ee1e299`: **0 changed modules, 0 warning
+lines** in both halves; `lake test` exit 0 with no warning line.
+`tests/unconsumed.sh`: **207 of 3951**, byte-identical to the base —
+no declaration was added or removed.
+
+No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.  The
+kernel is RESTORED: `git diff` against the base is empty for
+`ConLeche/Kernel/**` and for `ConLeche/Verify/Inductives/NestedInv.lean`,
+so no accept-set table and no cost table is owed — the measurement's
+own table is (b) and (c).
