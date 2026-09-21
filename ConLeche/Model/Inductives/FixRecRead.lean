@@ -1038,12 +1038,173 @@ theorem fieldReadAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {lps 
     rw [hidxOf]
     exact hsp₂
 
+/-- **Every frame variable reads as itself** under an extension of the
+frame by `n` fresh openers: the opening list is a descending fvar list,
+and `denoteMeta` at the extended depth reads it straight back. -/
+theorem denoteMeta_instSeq_ext_bvar {m : EnvModel V env} {ψ : Name → Nat}
+    {L : List Expr} {D n q : Nat} (hL : L.length = D)
+    (hidxL : ∀ (k : Nat) (x : Expr), L[k]? = some x → ∃ ty, x = Expr.fvar k ty)
+    (hq : q < D + n) :
+    denoteMeta m.acval env ψ (D + n)
+        (Expr.instSeq (L ++ openFvars D n) (D + n - 1) (Expr.bvar q))
+      = some (AnnotTerm.bvar q) := by
+  have hlenLA : (L ++ openFvars D n).length = D + n := by
+    rw [List.length_append, hL, openFvars_length]
+  have hidxLA : ∀ (k : Nat) (x : Expr), (L ++ openFvars D n)[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by
+    intro k x hx
+    by_cases hk : k < D
+    · rw [List.getElem?_append_left (by rw [hL]; omega)] at hx
+      exact hidxL k x hx
+    · rw [List.getElem?_append_right (by rw [hL]; omega), hL] at hx
+      have hlt : k - D < n := by
+        rcases Nat.lt_or_ge (k - D) n with h | h
+        · exact h
+        · rw [List.getElem?_eq_none (by rw [openFvars_length]; omega)] at hx
+          exact nomatch hx
+      rw [openFvars_getElem? hlt] at hx
+      obtain rfl := (Option.some.inj hx).symm
+      exact ⟨.sort .zero, by congr 1; omega⟩
+  have hclLA : ∀ a ∈ L ++ openFvars D n, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨q', hq'⟩ := List.getElem?_of_mem ha
+    obtain ⟨ty, rfl⟩ := hidxLA q' a hq'
+    rfl
+  have hb := Expr.instSeq_bvar (L ++ openFvars D n) (D + n - 1) q hclLA (by omega)
+    (by rw [hlenLA]; omega)
+  obtain ⟨ty, hy⟩ := hidxLA _ _ hb
+  rw [hy, denoteMeta_fvar, show D + n - 1 - (D + n - 1 - q) = q from by omega]
+
 set_option maxHeartbeats 3200000 in
+/-- **The generated `ih` spine, read at ANY head and any leading
+arguments** (task #315, M5): the field's telescope moved binderwise
+(`denoteMeta_ihIdxAtM` at each binder), then the head applied to the
+leading arguments, the field's index readings and the field at the
+telescope's own variables.
+
+The one-member route's `ih` DOMAIN (`denoteMeta_ihDom` below) is the
+instance at the MOTIVE (`hd = .bvar (nF + o - 1 + l + m)`, no leading
+arguments); the uniform route's guarded CALL
+(`blockIhSpinePis`, `Kernel/Inductives/BlockRec.lean`) is the instance
+at a CALLEE RECURSOR (`hd = .const rec_{c'} us`) with the rule's own
+prefix variables in front.  The two differ in nothing else, which is
+why this is one theorem. -/
+theorem denoteMeta_ihSpineAt {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i : Nat}
+    {pw : PropWhen} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
+    {P X F I : List Expr} (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF)
+    (hI : I.length = l)
+    (hidxP : ∀ (k : Nat) (x : Expr), P[k]? = some x → ∃ ty, x = Expr.fvar k ty)
+    (hidxX : ∀ (k : Nat) (x : Expr), X[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty)
+    (hidxF : ∀ (k : Nat) (x : Expr), F[k]? = some x →
+      ∃ ty, x = Expr.fvar (nP + o + k) ty)
+    (hidxI : ∀ (k : Nat) (x : Expr), I[k]? = some x →
+      ∃ ty, x = Expr.fvar (nP + o + nF + k) ty)
+    {hd : Expr} {pre : List Expr} {hdA : AnnotTerm} {preA : List AnnotTerm}
+    (hhd : denoteMeta m.acval env ψ
+        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+            (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) hd)
+        = some hdA)
+    (hpre : DenoteMetaSpine m.acval env ψ
+        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (pre.map (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+            (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1))) preA) :
+    denoteMeta m.acval env ψ (nP + o + nF + l)
+        (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
+          (Expr.mkPisOf (ConLeche.structTeleAt nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i))
+            (Expr.mkAppN hd
+              (pre ++ (ConLeche.structFieldIdxOf cty nP nF i).map
+                  (ConLeche.structIdxAt nF o i l (ConLeche.structFieldTeleOf cty nP nF i).length) ++
+                [Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+                  (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)]))))
+      = some (mkPisAV (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl))
+          (AnnotTerm.mkAppN hdA
+            (preA ++ Eis.map (ihIdxAtM nF o i l (ConLeche.structFieldTeleOf cty nP nF i).length) ++
+              [AnnotTerm.mkAppN
+                (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)]))) := by
+  obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
+  obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
+  have hS : (fvs0.take (nP + i)).length = nP + i := by
+    rw [List.length_take, hlen0]
+    omega
+  have hidxS : ∀ (k : Nat) (x : Expr), (fvs0.take (nP + i))[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by
+    intro k x hx
+    have hk : k < nP + i := by
+      rcases Nat.lt_or_ge k (nP + i) with h | h
+      · exact h
+      · rw [List.getElem?_eq_none (by rw [hS]; omega)] at hx
+        exact nomatch hx
+    rw [List.getElem?_take, if_pos hk] at hx
+    exact hidx0 k x hx
+  have hprops := structFieldTele_props hCf hCb hstripC hi
+  have hlenL : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
+    rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
+  have hLidx := frameIdx hP hX hF hidxP hidxX hidxF hidxI
+  have hbvarA : ∀ q : Nat, q < nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length →
+      denoteMeta m.acval env ψ (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+              (ConLeche.structFieldTeleOf cty nP nF i).length)
+            (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
+        = some (AnnotTerm.bvar q) :=
+    fun q hq => denoteMeta_instSeq_ext_bvar hlenL hLidx hq
+  refine denoteMeta_instSeq_mkPisOf _ (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl)) _ _
+    (P ++ X ++ F ++ I) (nP + o + nF + l) hlenL hLidx
+    (by rw [ihTeleAtR_length, rebit_length, structTeleAt_length, hlenTl]) ?_ ?_
+  · -- the telescope, binderwise
+    intro k b p hb hp
+    have hk : k < (ConLeche.structFieldTeleOf cty nP nF i).length := by
+      rw [← structTeleAt_length nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i)]
+      exact (List.getElem?_eq_some_iff.mp hb).1
+    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (ConLeche.structFieldTeleOf cty nP nF i)[k]? = some b₀ :=
+      ⟨_, List.getElem?_eq_getElem hk⟩
+    rw [structTeleAt_getElem? (pw := pw) hb₀] at hb
+    obtain rfl := (Option.some.inj hb).symm
+    obtain ⟨d, hd⟩ : ∃ d, tl[k]? = some d := ⟨_, List.getElem?_eq_getElem (by rw [hlenTl]; exact hk)⟩
+    rw [ihTeleAtR, ihTeleAtGo_getElem? nF o i l 0 _ k, rebit, List.getElem?_map, hd] at hp
+    simp only [Option.map_some, Option.some.injEq, Nat.zero_add] at hp
+    obtain rfl := hp.symm
+    obtain ⟨h1, -, h3⟩ := hbind k b₀ d hb₀ hd
+    obtain ⟨hef, heb⟩ := hprops.1 k b₀ hb₀
+    exact ⟨h1, rfl, denoteMeta_ihIdxAtM hef heb (Nat.le_of_lt hi) hS hidxS hP hX hF hI hidxP hidxF h3⟩
+  · -- the head at the leading arguments, the field's readings and the field at its telescope
+    rw [structTeleAt_length nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i)]
+    have hspI := denoteMetaSpine_ihIdx (m := m) (ψ := ψ) (o := o) (l := l) hCf hCb hstripC hi rfl
+      hS hidxS (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF hI hidxP hidxF
+    have hfieldApp : denoteMeta m.acval env ψ
+        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+              (ConLeche.structFieldTeleOf cty nP nF i).length)
+            (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
+            (Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+              (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)))
+        = some (AnnotTerm.mkAppN
+            (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+            (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)) := by
+      rw [Expr.instSeq_mkAppN]
+      refine denoteMeta_mkAppN ?_ (hbvarA _ (by omega))
+      unfold ConLeche.structTeleVars teleVarsAV
+      rw [List.map_map]
+      simp only [Function.comp_def]
+      exact DenoteMetaSpine.of_map (List.range (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
+    rw [Expr.instSeq_mkAppN, List.map_append, List.map_append, List.map_map, List.map_cons,
+      List.map_nil]
+    simp only [Function.comp_def]
+    rw [denoteMeta_mkAppN ((hpre.append hspI).append (.cons hfieldApp .nil)) hhd]
+
 /-- **The `ih` binder's domain** for recursive field `i` at ih
 position `l`, instantiated at the recursor's frame, reads to
-`ihDomAV`: the field's telescope moved binderwise (`denoteMeta_ihIdxAtM`
-at each binder), then the motive at the field's index readings and the
-field applied to the telescope's own variables. -/
+`ihDomAV`: `denoteMeta_ihSpineAt` at the MOTIVE and no leading
+arguments. -/
 theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i : Nat} {pw : PropWhen}
     {cty : Expr}
     {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
@@ -1068,114 +1229,19 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
                 [Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
                   (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)]))))
       = some (ihDomAV nF o i l (rebit (pwBit ψ pw) tl) Eis) := by
-  obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
-  obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
-  have hS : (fvs0.take (nP + i)).length = nP + i := by
-    rw [List.length_take, hlen0]
-    omega
-  have hidxS : ∀ (k : Nat) (x : Expr), (fvs0.take (nP + i))[k]? = some x →
-      ∃ ty, x = Expr.fvar k ty := by
-    intro k x hx
-    have hk : k < nP + i := by
-      rcases Nat.lt_or_ge k (nP + i) with h | h
-      · exact h
-      · rw [List.getElem?_eq_none (by rw [hS]; omega)] at hx
-        exact nomatch hx
-    rw [List.getElem?_take, if_pos hk] at hx
-    exact hidx0 k x hx
-  have hprops := structFieldTele_props hCf hCb hstripC hi
   have hlenL : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
     rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
   have hLidx := frameIdx hP hX hF hidxP hidxX hidxF hidxI
-  -- the frame under the telescope's openers
-  have hlenLA : (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (ConLeche.structFieldTeleOf cty nP nF i).length).length
-      = nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length := by
-    rw [List.length_append, hlenL, openFvars_length]
-  have hidxLA : ∀ (k : Nat) (x : Expr),
-      (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-        (ConLeche.structFieldTeleOf cty nP nF i).length)[k]? = some x →
-      ∃ ty, x = Expr.fvar k ty := by
-    intro k x hx
-    by_cases hk : k < nP + o + nF + l
-    · rw [List.getElem?_append_left (by rw [hlenL]; omega)] at hx
-      exact hLidx k x hx
-    · rw [List.getElem?_append_right (by rw [hlenL]; omega), hlenL] at hx
-      have hlt : k - (nP + o + nF + l) < (ConLeche.structFieldTeleOf cty nP nF i).length := by
-        rcases Nat.lt_or_ge (k - (nP + o + nF + l))
-          (ConLeche.structFieldTeleOf cty nP nF i).length with h | h
-        · exact h
-        · rw [List.getElem?_eq_none (by rw [openFvars_length]; omega)] at hx
-          exact nomatch hx
-      rw [openFvars_getElem? hlt] at hx
-      obtain rfl := (Option.some.inj hx).symm
-      exact ⟨.sort .zero, by congr 1; omega⟩
-  have hclLA : ∀ a ∈ P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (ConLeche.structFieldTeleOf cty nP nF i).length, a.looseBVarsBounded 0 = true := by
-    intro a ha
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨ty, rfl⟩ := hidxLA q a hq
-    rfl
-  have hbvarA : ∀ q : Nat, q < nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length →
-      denoteMeta m.acval env ψ (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-              (ConLeche.structFieldTeleOf cty nP nF i).length)
-            (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
-        = some (AnnotTerm.bvar q) := by
-    intro q hq
-    have hb := Expr.instSeq_bvar (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (ConLeche.structFieldTeleOf cty nP nF i).length)
-      (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) q hclLA (by omega)
-      (by rw [hlenLA]; omega)
-    obtain ⟨ty, hy⟩ := hidxLA _ _ hb
-    rw [hy, denoteMeta_fvar,
-      show nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 -
-        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
+  have hlenTl := hfr.1
   unfold ihDomAV
   rw [rebit_length, hlenTl]
-  refine denoteMeta_instSeq_mkPisOf _ (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl)) _ _ (P ++ X ++ F ++ I)
-    (nP + o + nF + l) hlenL hLidx
-    (by rw [ihTeleAtR_length, rebit_length, structTeleAt_length, hlenTl]) ?_ ?_
-  · -- the telescope, binderwise
-    intro k b p hb hp
-    have hk : k < (ConLeche.structFieldTeleOf cty nP nF i).length := by
-      rw [← structTeleAt_length nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i)]
-      exact (List.getElem?_eq_some_iff.mp hb).1
-    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (ConLeche.structFieldTeleOf cty nP nF i)[k]? = some b₀ :=
-      ⟨_, List.getElem?_eq_getElem hk⟩
-    rw [structTeleAt_getElem? (pw := pw) hb₀] at hb
-    obtain rfl := (Option.some.inj hb).symm
-    obtain ⟨d, hd⟩ : ∃ d, tl[k]? = some d := ⟨_, List.getElem?_eq_getElem (by rw [hlenTl]; exact hk)⟩
-    rw [ihTeleAtR, ihTeleAtGo_getElem? nF o i l 0 _ k, rebit, List.getElem?_map, hd] at hp
-    simp only [Option.map_some, Option.some.injEq, Nat.zero_add] at hp
-    obtain rfl := hp.symm
-    obtain ⟨h1, -, h3⟩ := hbind k b₀ d hb₀ hd
-    obtain ⟨hef, heb⟩ := hprops.1 k b₀ hb₀
-    exact ⟨h1, rfl, denoteMeta_ihIdxAtM hef heb (Nat.le_of_lt hi) hS hidxS hP hX hF hI hidxP hidxF h3⟩
-  · -- the motive at the field's readings and the field at its telescope
-    rw [structTeleAt_length nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i)]
-    have hspI := denoteMetaSpine_ihIdx (m := m) (ψ := ψ) (o := o) (l := l) hCf hCb hstripC hi rfl
-      hS hidxS (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF hI hidxP hidxF
-    have hfieldApp : denoteMeta m.acval env ψ
-        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-              (ConLeche.structFieldTeleOf cty nP nF i).length)
-            (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
-            (Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-              (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)))
-        = some (AnnotTerm.mkAppN
-            (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-            (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)) := by
-      rw [Expr.instSeq_mkAppN]
-      refine denoteMeta_mkAppN ?_ (hbvarA _ (by omega))
-      unfold ConLeche.structTeleVars teleVarsAV
-      rw [List.map_map]
-      simp only [Function.comp_def]
-      exact DenoteMetaSpine.of_map (List.range (ConLeche.structFieldTeleOf cty nP nF i).length)
-        (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
-    rw [Expr.instSeq_mkAppN, List.map_append, List.map_map, List.map_cons, List.map_nil]
-    simp only [Function.comp_def]
-    rw [denoteMeta_mkAppN (hspI.append (.cons hfieldApp .nil)) (hbvarA _ (by omega))]
+  have h := denoteMeta_ihSpineAt (pw := pw) hop0 hCf hCb hstripC hi hfr hP hX hF hI
+    hidxP hidxX hidxF hidxI
+    (hd := .bvar (nF + o - 1 + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+    (pre := []) (preA := [])
+    (denoteMeta_instSeq_ext_bvar hlenL hLidx (by omega)) .nil
+  rw [List.nil_append, List.nil_append] at h
+  exact h
 
 set_option maxHeartbeats 1600000 in
 /-- **The `ih` binders' `∀`-tower** reads to `ihPisAV`, the body read

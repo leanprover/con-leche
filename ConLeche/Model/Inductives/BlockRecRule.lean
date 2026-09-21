@@ -4,9 +4,12 @@ public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.InstList
+public import ConLeche.Verify.Subst
+public import ConLeche.Model.Inductives.FixRecRead
+import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Model.Inductives.StructStageCtor
+import ConLeche.Model.IndFrame
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Semantics.BasisOk
 
 public section
@@ -761,5 +764,260 @@ theorem ihNodeVal_of_spine
     (hih : ihvals.length = fr.nR) (h : IhSpineFold V acval env φ fr F ρ' ihvals) :
     IhNodeVal V acval env φ fr F ρ' ihvals :=
   ihNodeVal_of_fold hacl hih (ihCallFold_of_spine h)
+
+/-! ## The frame, in the shape the reading battery wants
+
+`FvarList E as1` is the check's own opening list — DESCENDING, because
+`instantiateList` consumes `bvar 0` first.  The reading battery
+(`denoteMeta_instSeq_mkPisOf`, `denoteMeta_ihSpineAt`) is stated over
+the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
+They are the same frame reversed, and these three lemmas are the
+bridge. -/
+
+/-- The opening list, reversed, is the ascending frame. -/
+theorem FvarList.reverse_length {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    as1.reverse.length = E := by rw [List.length_reverse, h.1]
+
+theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    ∀ (k : Nat) (x : Expr), as1.reverse[k]? = some x → ∃ ty, x = Expr.fvar k ty := by
+  intro k x hx
+  have hk : k < E := by
+    rcases Nat.lt_or_ge k E with hk | hk
+    · exact hk
+    · rw [List.getElem?_eq_none (by rw [h.reverse_length]; omega)] at hx
+      exact nomatch hx
+  rw [List.getElem?_reverse (by rw [h.1]; omega), h.1] at hx
+  obtain ⟨ty, hty⟩ := h.2 (E - 1 - k) (by omega)
+  rw [hty] at hx
+  exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
+
+/-- Opening at a `FvarList` IS the battery's `instSeq` at the
+ascending frame. -/
+theorem instantiateList_eq_instSeq_of_fvarList {E : Nat} {as1 : List Expr}
+    (h : FvarList E as1) (hE : 0 < E) (e : Expr) :
+    e.instantiateList as1 0 = Expr.instSeq as1.reverse (E - 1) e := by
+  have hne : as1 ≠ [] := by
+    intro hnil
+    rw [hnil] at h
+    exact absurd h.1.symm (by simp; omega)
+  rw [ConLeche.instantiateList_eq_instSeq hne e, h.1]
+
+/-- **The ascending frame, split in four.**  The reading battery is
+stated over `P ++ X ++ F ++ I` — the parameters, the recursor's
+arbitrary stretch, the constructor's fields and the `ih` openers
+standing so far — with each part's fvar indices pinned.  Any ascending
+frame of the right length splits that way, so the check's single
+opening list needs no structure of its own. -/
+theorem ascFrame_split {L : List Expr} {a b c e : Nat}
+    (hL : L.length = a + b + c + e)
+    (hidx : ∀ (k : Nat) (x : Expr), L[k]? = some x → ∃ ty, x = Expr.fvar k ty) :
+    ∃ P X F I : List Expr, L = P ++ X ++ F ++ I ∧
+      P.length = a ∧ X.length = b ∧ F.length = c ∧ I.length = e ∧
+      (∀ (k : Nat) (x : Expr), P[k]? = some x → ∃ ty, x = Expr.fvar k ty) ∧
+      (∀ (k : Nat) (x : Expr), X[k]? = some x → ∃ ty, x = Expr.fvar (a + k) ty) ∧
+      (∀ (k : Nat) (x : Expr), F[k]? = some x → ∃ ty, x = Expr.fvar (a + b + k) ty) ∧
+      (∀ (k : Nat) (x : Expr), I[k]? = some x → ∃ ty, x = Expr.fvar (a + b + c + k) ty) := by
+  refine ⟨L.take a, (L.drop a).take b, (L.drop (a + b)).take c, L.drop (a + b + c), ?_,
+    by rw [List.length_take]; omega,
+    by rw [List.length_take, List.length_drop]; omega,
+    by rw [List.length_take, List.length_drop]; omega,
+    by rw [List.length_drop]; omega, ?_, ?_, ?_, ?_⟩
+  · rw [← List.take_add, ← List.take_add, List.take_append_drop]
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · exact hidx k x hx
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · rw [List.getElem?_drop] at hx
+      exact (hidx (a + k) x hx).imp fun ty hty => by rw [hty]
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · rw [List.getElem?_drop] at hx
+      exact (hidx (a + b + k) x hx).imp fun ty hty => by rw [hty]
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_drop] at hx
+    exact (hidx (a + b + c + k) x hx).imp fun ty hty => by rw [hty]
+
+/-! ## The generated guarded call, READ
+
+The block's `blockIhSpinePis` is `denoteMeta_ihSpineAt`
+(`Model/Inductives/FixRecRead.lean`) at a CALLEE `.const` head with the
+rule's own prefix variables in front — the one-member route's `ih`
+domain is the same theorem at the MOTIVE.  This is that instance, at
+the check's own opening list. -/
+
+variable {V : Type uv} [SetTheory V]
+
+/-- **The reading of the generated guarded call's Π-telescope.** -/
+theorem denoteMeta_blockIhSpinePis {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o rP d i : Nat} {pw : ConLeche.PropWhen} {cty : Expr}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    {fvs : List Expr} {cr : Expr}
+    (hop0 : ConLeche.openPisAtFvars (nP + nF) cty 0 = some (fvs, cr))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs tl Eis)
+    (ho : rP - nP = o)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1)
+    {nm : Name} {rlvls : List Level} {ci : ConstantInfo}
+    (hfind : env.find? nm = some ci)
+    (hlvl : rlvls.length = ci.toConstantVal.levelParams.length) :
+    denoteMeta m.acval env ψ (nP + o + nF + d)
+        ((ConLeche.blockIhSpinePis nm rlvls pw nP rP nF i d
+            (ConLeche.structFieldTeleOf cty nP nF i)
+            (ConLeche.structFieldIdxOf cty nP nF i)).instantiateList as1 0)
+      = some (mkPisAV (ihTeleAtR nF o i d (rebit (pwBit ψ pw) tl))
+          (AnnotTerm.mkAppN (m.acval nm (Level.substFn ψ ci.toConstantVal.levelParams rlvls))
+            (((List.range rP).map fun l =>
+                AnnotTerm.bvar (d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF
+                  + rP - 1 - l))
+              ++ Eis.map (ihIdxAtM nF o i d (ConLeche.structFieldTeleOf cty nP nF i).length)
+              ++ [AnnotTerm.mkAppN
+                    (.bvar (nF - 1 - i + d + (ConLeche.structFieldTeleOf cty nP nF i).length))
+                    (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)]))) := by
+  have hE : 0 < nP + o + nF + d := by omega
+  rw [instantiateList_eq_instSeq_of_fvarList h1 hE]
+  obtain ⟨P, X, F, I, hLsplit, hP, hX, hF, hI, hidxP, hidxX, hidxF, hidxI⟩ :=
+    ascFrame_split (a := nP) (b := o) (c := nF) (e := d) h1.reverse_length h1.reverse_idx
+  rw [hLsplit]
+  have hLlen : (P ++ X ++ F ++ I).length = nP + o + nF + d := by
+    rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
+  have hLidx : ∀ (k : Nat) (x : Expr), (P ++ X ++ F ++ I)[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by rw [← hLsplit]; exact h1.reverse_idx
+  have hhd : denoteMeta m.acval env ψ
+      (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+      (Expr.instSeq (P ++ X ++ F ++ I ++ ConLeche.Verify.openFvars (nP + o + nF + d)
+          (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
+        (.const nm rlvls))
+      = some (m.acval nm (Level.substFn ψ ci.toConstantVal.levelParams rlvls)) := by
+    rw [Expr.instSeq_eq_self _ _ (by rfl), denoteMeta_const hfind hlvl]
+  have hpre : DenoteMetaSpine m.acval env ψ
+      (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+      ((ConLeche.blockRulePrefixVars rP nF
+          (d + (ConLeche.structFieldTeleOf cty nP nF i).length)).map
+        (Expr.instSeq (P ++ X ++ F ++ I ++ ConLeche.Verify.openFvars (nP + o + nF + d)
+            (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)))
+      ((List.range rP).map fun l =>
+        AnnotTerm.bvar (d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF + rP - 1 - l)) := by
+    unfold ConLeche.blockRulePrefixVars
+    rw [List.map_map]
+    simp only [Function.comp_def]
+    refine DenoteMetaSpine.of_map (List.range rP) fun l hl => ?_
+    have hlt : d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF + rP - 1 - l
+        < nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length := by
+      rw [List.mem_range] at hl; omega
+    exact denoteMeta_instSeq_ext_bvar hLlen hLidx hlt
+  have h := denoteMeta_ihSpineAt (pw := pw) (o := o) (l := d) hop0 hCf hCb hstripC hi hfr
+    hP hX hF hI hidxP hidxX hidxF hidxI hhd hpre
+  rw [ConLeche.blockIhSpinePis, ho]
+  exact h
+
+/-! ## The peel, transported to the OPENED frame
+
+`denoteMeta_instPisAtLift_peel` (M5M session 3) reads an
+`instPisAtLift` at bvar-CLOSED arguments — which the call's arguments
+are once the rule body is opened, and are NOT before.  The check's
+`instPisAtLift as (blockIhSpinePis …) = some expected` is a fact about
+the UNOPENED terms, so it has to be transported, and the per-binder
+commutation that does it already exists:
+`Expr.instSeq_instantiate1Lift` (`Verify/Subst.lean`) — "a
+capture-avoiding substitution followed by the ambient spine is the
+plain substitution at the already-instantiated argument".  Three small
+lemmas turn it into the statement `instPisAtLift` needs. -/
+
+theorem instSeq_forallE : ∀ (sp : List Expr) (t : Nat), sp.length = t + 1 →
+    ∀ (dom body : Expr) (mt : ConLeche.BinderMeta),
+      Expr.instSeq sp t (.forallE dom body mt)
+        = .forallE (Expr.instSeq sp t dom) (Expr.instSeq sp (t + 1) body) mt
+  | [], t, hlen, _, _, _ => absurd hlen (by simp)
+  | s :: ss, t, hlen, dom, body, mt => by
+    have hss : ss.length = t := by simpa using hlen
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      rfl
+    | succ t' =>
+      show Expr.instSeq ss t' ((Expr.forallE dom body mt).instantiate1 s (t' + 1)) = _
+      rw [Expr.instantiate1, instSeq_forallE ss t' hss]
+      rfl
+
+theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
+    (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
+    ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
+      (Expr.instSeq sp t a).looseBVarsBounded 0 = true
+  | [], t, _, hlen, _, _ => absurd hlen (by simp)
+  | s :: ss, t, hsp, hlen, a, ha => by
+    have hss : ss.length = t := by simpa using hlen
+    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      exact ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha
+    | succ t' =>
+      show (Expr.instSeq ss t' (a.instantiate1 s (t' + 1))).looseBVarsBounded 0 = true
+      exact looseBVarsBounded_instSeq ss t'
+        (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) hss
+        (ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha)
+
+/-- **The capture-avoiding telescope peel commutes with the frame's
+opening.**  This is what transports the check's own
+`instPisAtLift as (blockIhSpinePis …) = some expected` to the frame
+the model reads at. -/
+theorem instPisAtLift_instSeq {sp : List Expr} {t : Nat}
+    (hsp : ∀ s ∈ sp, s.looseBVarsBounded 0 = true) (hlen : sp.length = t + 1) :
+    ∀ (as : List Expr), (∀ a ∈ as, a.looseBVarsBounded (t + 1) = true) →
+      ∀ {ty rest : Expr}, Expr.instPisAtLift as ty = some rest →
+        Expr.instPisAtLift (as.map (Expr.instSeq sp t)) (Expr.instSeq sp t ty)
+          = some (Expr.instSeq sp t rest)
+  | [], _, ty, rest, h => by
+    obtain rfl : ty = rest := Option.some.inj h
+    rfl
+  | a :: as, ha, ty, rest, h => by
+    match ty, h with
+    | .forallE dom body mt, h =>
+      rw [Expr.instPisAtLift] at h
+      have hab : a.looseBVarsBounded (t + 1) = true := ha a List.mem_cons_self
+      have hcl : (Expr.instSeq sp t a).looseBVarsBounded 0 = true :=
+        looseBVarsBounded_instSeq sp t hsp hlen hab
+      have hcomm := ConLeche.Expr.instSeq_instantiate1Lift sp t hsp hlen hab body 0
+      simp only [Nat.zero_add] at hcomm
+      rw [List.map_cons, instSeq_forallE sp t hlen, Expr.instPisAtLift,
+        ConLeche.Expr.instantiate1Lift_eq_instantiate1 hcl, ← hcomm]
+      exact instPisAtLift_instSeq hsp hlen as
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) h
+
+/-! ## The peel, evaluated
+
+`AnnotTerm.peelPis` of a `mkPisAV` tower along a spine of its own
+length is the body's instantiation sequence
+(`peelPis_of_piTeleAV` at `piTeleAV_mkPisAV`), and `interp_instSeq`
+evaluates that at the chain — which IS `consList` of the spine's
+values, since `chain` is `consN` of them and `consN` is `consList`
+(`consN_eq_consList`).  So the whole peel is one `interp` equation. -/
+
+theorem chain_eq_consList (ρ : Nat → V) (ws : List AnnotTerm) :
+    chain V ρ ws = consList (ws.map (interp V ρ)) ρ :=
+  consN_eq_consList _ _
+
+/-- **The peel, evaluated**: a Π-tower's reading peeled along a spine
+of its own length reads as the body at the frame extended by the
+spine's values. -/
+theorem interp_peelPis_mkPisAV {tlA : List (Nat × Nat × AnnotTerm)} {BodyA A : AnnotTerm}
+    {vs : List AnnotTerm} (hlen : vs.length = tlA.length)
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis (mkPisAV tlA BodyA) vs = some A)
+    (σ : Nat → V) :
+    interp V σ A = interp V (consList (vs.map (interp V σ)) σ) BodyA := by
+  rw [peelPis_of_piTeleAV tlA.length (piTeleAV_mkPisAV tlA BodyA) hlen] at hpeel
+  obtain rfl : A = ConLeche.Model.AnnotTerm.instSeq vs (tlA.length - 1) BodyA :=
+    (Option.some.inj hpeel).symm
+  rw [← hlen, interp_instSeq, chain_eq_consList]
 
 end ConLeche.Model
