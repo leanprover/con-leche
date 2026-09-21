@@ -216,7 +216,7 @@ def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested 
   | [], _ => pure []
   | rc :: rest, ri => do
     let ms ← unwrapOr p.members[p.recTgtAt ri]?
-      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+      (.invalid "direct rec: the recursor's major premise is not a member of the block")
     let cvTa ← unwrapOr cvTas[p.recTgtAt ri]?
       (.internal "direct rec: type former of the recursor's member")
     let cvRi ← checkConstantValF ops fe rc.cvR
@@ -346,7 +346,7 @@ def checkBlockRecsRulesF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   | rc :: rest, ri => do
     let tgt := p.recTgtAt ri
     let ms ← unwrapOr p.members[tgt]?
-      (.notImplemented "block rec: a recursor whose major is not a member of the block")
+      (.invalid "direct rec: the recursor's major premise is not a member of the block")
     let ctorsA ← unwrapOr ctorsAs[tgt]? (.internal "direct rec: the member's constructors")
     let kss ← unwrapOr p.kinds[tgt]? (.internal "direct rec: the member's field kinds")
     let (cvRa, nIdx) ← unwrapOr cvRas[ri]? (.internal "direct rec: recursor record")

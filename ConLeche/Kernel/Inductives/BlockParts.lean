@@ -570,8 +570,10 @@ ruling of 2026-09-21 moved it there, out of `blockRecPinOk`, because
 the motive-free check reads the sums and derives nothing).  It is what
 `BlockParts.toNative` adds to the record's own pin. -/
 def recSumsOk (p : BlockShape) : Bool :=
-  p.recs.all fun rc =>
-    rc.rP == p.rulePrefix && rc.mI == p.rulePrefix + (p.members.getD rc.tgt default).nIdx
+  (List.range p.recs.length).all fun r =>
+    (p.recs.getD r default).rP == p.rulePrefix &&
+      (p.recs.getD r default).mI
+        == p.rulePrefix + (p.members.getD (p.recTgtAt r) default).nIdx
 
 /-- The record completed with the former stage's result sort (task
 #195 at k members: the sort is read off member 0's checked telescope,
@@ -768,6 +770,25 @@ def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
      | _ => none).getD names.length
   | _ => names.length
 
+/-- **A recursor whose MAJOR heads a constant OUTSIDE the block**: a
+NESTED block's auxiliary recursor, whose major is one of official's
+auxiliary containers (`Tree.rec_1`'s `_nested.List_1 …` against the
+one former `Tree`).  Such a block is the MODELLED route's and the
+recogniser refuses it — this reading is what replaced the recursor
+list's old length guard.
+
+A recursor whose type has no major at all (it does not even bind `mI`
+binders) is NOT this: it is a broken record of THIS block's recursor,
+which the route recognises and the stage REJECTS, as it always
+has. -/
+def recMajorForeign (names : List Name) (mI : Nat) (ty : Expr) : Bool :=
+  match ty.stripPis mI with
+  | some (_, .forallE dom _ _) =>
+    (match dom.getAppFn with
+     | .const n _ => !names.contains n
+     | _ => false)
+  | _ => false
+
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
@@ -825,19 +846,13 @@ def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
     cvTs.length == p.k && rs.length == p.recs.length &&
     (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
     (List.range p.recs.length).all fun r =>
-      match rs[r]?, p.recs[r]? with
-      | some (_, _mI, _rP, rules), some rc =>
-        match p.members[rc.tgt]? with
-        | some ms =>
-          rules.length == ms.ctors.length &&
-          (List.range ms.ctors.length).all fun j =>
-            match rules[j]?, cs[p.offs rc.tgt + j]? with
-            | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
-            | _, _ => false
-        -- a recursor whose major names NO member: the nested block's
-        -- auxiliary one, refused by the route (`blockParts?`) and
-        -- declined by the stage — there is nothing to pin here
-        | none => true
+      match rs[r]?, p.members[p.recTgtAt r]? with
+      | some (_, _mI, _rP, rules), some ms =>
+        rules.length == ms.ctors.length &&
+        (List.range ms.ctors.length).all fun j =>
+          match rules[j]?, cs[p.offs (p.recTgtAt r) + j]? with
+          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
+          | _, _ => false
       | _, _ => false
   | none => false
 
@@ -948,14 +963,14 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
       | some p =>
         -- **the nested rung's gate** (the ruling of 2026-09-21, in
         -- place of the recursor list's old length guard): a recursor
-        -- whose MAJOR names no member of the block is a NESTED block's
-        -- auxiliary recursor, whose major is one of official's
-        -- auxiliary containers.  The route cannot install it, and the
-        -- block belongs to the modelled one — so the RECOGNISER
-        -- refuses it, as it always has (a decline from the stage would
-        -- have no fallback: the dispatch is the recogniser alone, task
-        -- #219)
-        if p.recs.any (fun rc => decide (p.k ≤ rc.tgt)) then none
+        -- whose MAJOR heads a constant OUTSIDE the block is a NESTED
+        -- block's auxiliary recursor, and the block belongs to the
+        -- MODELLED route — so the RECOGNISER refuses it, as it always
+        -- has (a decline from the stage would have no fallback: the
+        -- dispatch is the recogniser alone, task #219).  A recursor
+        -- whose type has no major AT ALL is a broken record of this
+        -- block's own recursor and stays here, to be rejected
+        if p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type) then none
         -- the SAME gate on the record the recogniser built, so that a
         -- block on the route is known to have one member and one
         -- recursor — the shape the one-member generate-and-compare arm

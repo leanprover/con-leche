@@ -279,16 +279,17 @@ into this, the generate-and-compare arm (`BlockParts.toNative` adds
 them). -/
 theorem blockRecPinOk_one {block : List ConstantInfo} {cvT0 : ConstantVal}
     {cs : List (ConstantVal × Nat × Nat)} {r0 : ConstantVal × Nat × Nat × List RecRule}
-    {q : BlockShape} {nIdx : Nat}
+    {q : BlockShape} {nIdx : Nat} {tgt : Nat}
     (hsp : blockSplit block = some ([cvT0], cs, [r0]))
     (hm : q.members = [⟨cvT0, nIdx, cs.map fun c => (c.1, c.2.2)⟩])
-    (hr : q.recs = [⟨r0.1, r0.2.2.1, r0.2.1, 0, r0.2.2.2.map RecRule.rhs⟩]) :
+    (hr : q.recs = [⟨r0.1, r0.2.2.1, r0.2.1, tgt, r0.2.2.2.map RecRule.rhs⟩]) :
     (q.recSumsOk && blockRecPinOk q block) = nativeRecPinOk q.toInductive block := by
   obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
   unfold blockRecPinOk nativeRecPinOk BlockShape.recSumsOk
   rw [hsp]
   simp only [hsum, BlockShape.k, BlockShape.allCtors, BlockShape.rulePrefix,
     BlockShape.numCtors, BlockShape.offs, BlockShape.toInductive, numCtorsOf, hm, hr,
+    recTgtAt_gated,
     List.length_cons, List.length_nil, List.map_cons, List.map_nil, List.flatten_cons,
     List.flatten_nil, List.append_nil, List.headD_cons, List.getElem?_cons_zero,
     List.map_map, Nat.add_zero, List.take, beq_self_eq_true, Bool.true_and,
@@ -326,28 +327,18 @@ theorem blockParts?_toNative {nPd : Nat} {block : List ConstantInfo} {p : BlockP
   rw [hsh] at h
   simp only at h
   obtain ⟨hnat, hm, hr⟩ := blockShape?_one hsp hsh
-  by_cases hn : (q.recs.any fun rc => decide (q.k ≤ rc.tgt)) = true
+  by_cases hn : (q.recs.any fun rc => recMajorForeign q.memberNames rc.mI rc.cvR.type) = true
   · rw [if_pos hn] at h; exact nomatch h
   rw [if_neg hn] at h
   by_cases hk : (blockRouteK1Only && (q.k != 1 || q.recs.length != 1)) = true
   · rw [if_pos hk] at h; exact nomatch h
   rw [if_neg hk] at h
   obtain rfl := Option.some.inj h
-  -- the block has ONE member, so the single recursor's target — which
-  -- is below `k` by the nested rung's gate — is member 0
-  have hk1 : q.k = 1 := by
-    rw [BlockShape.k, hm]; rfl
-  have htgt : recTargetOf [cvT0.name] r0.2.1 r0.1.type = 0 := by
-    simp only [hr, List.any_cons, List.any_nil, Bool.or_false, decide_eq_true_eq,
-      hk1] at hn
-    omega
   refine ⟨?_, _, hm⟩
   unfold nativeParts?
   rw [hnat]
   simp only [Option.map_some, Option.some.injEq, BlockParts.toNative,
     List.headD_nil, List.map_nil, NativeParts.mk.injEq]
-  have hr0 : q.recs = [⟨r0.1, r0.2.2.1, r0.2.1, 0, r0.2.2.2.map RecRule.rhs⟩] := by
-    rw [hr, htgt]
-  exact ⟨trivial, trivial, (blockRecPinOk_one hsp hm hr0).symm⟩
+  exact ⟨trivial, trivial, (blockRecPinOk_one hsp hm hr).symm⟩
 
 end ConLeche
