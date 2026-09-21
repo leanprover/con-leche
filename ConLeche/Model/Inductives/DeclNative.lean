@@ -898,7 +898,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact hinv.2.1 hU he
     obtain ⟨hcb, hcbI, hD⟩ := hinv.2.2 j cAj hj
     exact ⟨ConstsBound.cons _ hcb, fun e he => ConstsBound.cons _ (hcbI e he),
-      hD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcross hcb hcbI mC hac⟩
+      hD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC (fun _ => hTC) hcross hcb hcbI mC hac⟩
   have hidxRes₀ : ∀ j cA, ctorsA[j]? = some cA → ∀ e ∈ idxF j, e.constsResolve env = true := by
     intro j cA hj e he
     have := (hcf j cA hj).opened.residRes
