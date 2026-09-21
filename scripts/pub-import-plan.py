@@ -66,6 +66,20 @@ FALLBACK = {
     # structure`.
     ('ConLeche.Model.Inductives.BlockStageTables',
      'ConLeche.Model.Inductives.BlockStageCtors'),
+    # task #315 (M5, the recursor stage's Model half): three re-exports of
+    # `Model/Inductives/BlockStageRec.lean` that the model drops and the
+    # compiler asks back, MEASURED one at a time — `EnvModelM` carries the
+    # `[SetTheory V]` the file's `variable` binder needs (a class in a
+    # variable binder stores no census row), `BitConsCross` carries
+    # `acvalWith` and `NoProjEnv`, and `IndBlockFacts` carries `SwapShList`
+    # / `SwapNResS`.  Demoting any one of them fails the build with an
+    # `Unknown identifier` at the corresponding name.
+    ('ConLeche.Model.Inductives.BlockStageRec',
+     'ConLeche.Model.Annot.EnvModelM'),
+    ('ConLeche.Model.Inductives.BlockStageRec',
+     'ConLeche.Model.Annot.BitConsCross'),
+    ('ConLeche.Model.Inductives.BlockStageRec',
+     'ConLeche.Semantics.IndBlockFacts'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
