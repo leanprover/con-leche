@@ -4,6 +4,7 @@ public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
+public import ConLeche.Verify.Subst
 import ConLeche.Verify.InstList
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.Tower.TowerMk
@@ -761,5 +762,84 @@ theorem ihNodeVal_of_spine
     (hih : ihvals.length = fr.nR) (h : IhSpineFold V acval env φ fr F ρ' ihvals) :
     IhNodeVal V acval env φ fr F ρ' ihvals :=
   ihNodeVal_of_fold hacl hih (ihCallFold_of_spine h)
+
+/-! ## The frame, in the shape the reading battery wants
+
+`FvarList E as1` is the check's own opening list — DESCENDING, because
+`instantiateList` consumes `bvar 0` first.  The reading battery
+(`denoteMeta_instSeq_mkPisOf`, `denoteMeta_ihSpineAt`) is stated over
+the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
+They are the same frame reversed, and these three lemmas are the
+bridge. -/
+
+/-- The opening list, reversed, is the ascending frame. -/
+theorem FvarList.reverse_length {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    as1.reverse.length = E := by rw [List.length_reverse, h.1]
+
+theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    ∀ (k : Nat) (x : Expr), as1.reverse[k]? = some x → ∃ ty, x = Expr.fvar k ty := by
+  intro k x hx
+  have hk : k < E := by
+    rcases Nat.lt_or_ge k E with hk | hk
+    · exact hk
+    · rw [List.getElem?_eq_none (by rw [h.reverse_length]; omega)] at hx
+      exact nomatch hx
+  rw [List.getElem?_reverse (by rw [h.1]; omega), h.1] at hx
+  obtain ⟨ty, hty⟩ := h.2 (E - 1 - k) (by omega)
+  rw [hty] at hx
+  exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
+
+/-- Opening at a `FvarList` IS the battery's `instSeq` at the
+ascending frame. -/
+theorem instantiateList_eq_instSeq_of_fvarList {E : Nat} {as1 : List Expr}
+    (h : FvarList E as1) (hE : 0 < E) (e : Expr) :
+    e.instantiateList as1 0 = Expr.instSeq as1.reverse (E - 1) e := by
+  have hne : as1 ≠ [] := by
+    intro hnil
+    rw [hnil] at h
+    exact absurd h.1.symm (by simp; omega)
+  rw [ConLeche.instantiateList_eq_instSeq hne e, h.1]
+
+/-- **The ascending frame, split in four.**  The reading battery is
+stated over `P ++ X ++ F ++ I` — the parameters, the recursor's
+arbitrary stretch, the constructor's fields and the `ih` openers
+standing so far — with each part's fvar indices pinned.  Any ascending
+frame of the right length splits that way, so the check's single
+opening list needs no structure of its own. -/
+theorem ascFrame_split {L : List Expr} {a b c e : Nat}
+    (hL : L.length = a + b + c + e)
+    (hidx : ∀ (k : Nat) (x : Expr), L[k]? = some x → ∃ ty, x = Expr.fvar k ty) :
+    ∃ P X F I : List Expr, L = P ++ X ++ F ++ I ∧
+      P.length = a ∧ X.length = b ∧ F.length = c ∧ I.length = e ∧
+      (∀ (k : Nat) (x : Expr), P[k]? = some x → ∃ ty, x = Expr.fvar k ty) ∧
+      (∀ (k : Nat) (x : Expr), X[k]? = some x → ∃ ty, x = Expr.fvar (a + k) ty) ∧
+      (∀ (k : Nat) (x : Expr), F[k]? = some x → ∃ ty, x = Expr.fvar (a + b + k) ty) ∧
+      (∀ (k : Nat) (x : Expr), I[k]? = some x → ∃ ty, x = Expr.fvar (a + b + c + k) ty) := by
+  refine ⟨L.take a, (L.drop a).take b, (L.drop (a + b)).take c, L.drop (a + b + c), ?_,
+    by rw [List.length_take]; omega,
+    by rw [List.length_take, List.length_drop]; omega,
+    by rw [List.length_take, List.length_drop]; omega,
+    by rw [List.length_drop]; omega, ?_, ?_, ?_, ?_⟩
+  · rw [← List.take_add, ← List.take_add, List.take_append_drop]
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · exact hidx k x hx
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · rw [List.getElem?_drop] at hx
+      exact (hidx (a + k) x hx).imp fun ty hty => by rw [hty]
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · rw [List.getElem?_drop] at hx
+      exact (hidx (a + b + k) x hx).imp fun ty hty => by rw [hty]
+    · exact nomatch hx
+  · intro k x hx
+    rw [List.getElem?_drop] at hx
+    exact (hidx (a + b + c + k) x hx).imp fun ty hty => by rw [hty]
 
 end ConLeche.Model
