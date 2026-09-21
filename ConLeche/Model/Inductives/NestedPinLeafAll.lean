@@ -7224,13 +7224,15 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
 
 **What is NAMED, and why each**:
 
-* `hscope` and `hread` — the owner's per-field scoping and reading.
-  Both are stated in their PRE-(2) form here, with `hscope`'s FLATNESS
-  conjunct (`domPiDepth dom.1 = 0`) and its `hfinRefl` conjunct: object
-  (2) of WIDE (f3) step 4 is what removes them, and it edits
-  `Model/Inductives/NestedCopyInst.lean`, which the WHNF lane holds.
-  `read_of_run` is `hread`'s producer TODAY, at the flatness `hscope`
-  carries;
+* `hscope` — the owner's per-field scoping.  `hread` is GONE from the
+  signature: object (2) moved `OrdTargetRead` to the copy's own cut and
+  stripped subject, and `read_of_run` now collapses K.72's two summands
+  out of `hscope`'s own flatness and head conjuncts, so the reading is
+  PRODUCED here instead of assumed.  What `hscope` still carries with
+  no producer is its FLATNESS conjunct (`domPiDepth dom.1 = 0`) and the
+  `hfinRefl` conjunct beside it: both are premises of `PinShapes`' own
+  rows, and retiring them is the same edit at every row — K.72's sum in
+  flatness's place;
 * `htele : CopyOrdTele …` is GONE from the signature.  The object is
   restated as an `interp` equation (its syntactic form is refuted by
   `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run
@@ -7402,17 +7404,6 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
         (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1).looseBVarsBounded l = true ∧
         (∀ le ∈ (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1).fvarLeaves,
           Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciR.nP))
-    (hread : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
-      (((dJf q₀).rss iq).getD j []).getD l false = false →
-      ((dR.pinCtors (q₀' + iq)).rss.getD j []).getD l false = true →
-      ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf q₀).nP + l]? = some dom →
-      ∀ fs₁ : List V, fs₁.length = l →
-      SpineFit (consList (((dR.pinAt q₀').Ds ψR).map (interp V ρR)) ρR)
-        ((((dJf q₀).Fss iq ((dR.pinAt q₀').ψJ ψR)).getD j []).take l) fs₁ →
-      ∃ rx : AnnotTerm,
-        denoteMeta m.acval env₂ ψR (ciR.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
-            (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1)) = some rx)
     (hdom₁ : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
@@ -7538,6 +7529,33 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
     (fun l hl hrsP dom hdm lps M us hhd => hrowTgt l hl hrsP dom hdm lps M us hhd)
     rfl (by have := S₂.seg; omega) hroot hσpin
   -- the target's universe and the two carriers, both `σ`'s
+  -- **`hread` IS DISCHARGED HERE** (task #315 WIDE (f3), object (2)):
+  -- `read_of_run` at the owner's own rows.  It spends three things and
+  -- each is in hand: `hscope`'s flatness and the owner's recomputation
+  -- HEAD (K.72's two summands, which together put the reading back at
+  -- the field's own cut and strip nothing), the own-pin table read
+  -- twice (`ownPinsSelfAt` against `BlockModel.ownPinTerms`), and the
+  -- container's parameter count (`ContainerModeled.nP`).
+  obtain ⟨lps₀, htab₀⟩ := CR.ownPinsSelfAt hciR₂ hownT₂
+  have hentry₀ : ∀ y, y < dR.nPins →
+      (dR.ownPinTerms lps₀).getD y default
+        = (dR.pinAt y).ownAt dR.nP lps₀ (lps₀.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
+    rfl
+  have htabAt₀ : ownT.getD (q₀' + iq) default
+      = (dR.ownPinTerms lps₀).getD (q₀' + iq) default := by
+    rw [List.getD_eq_getElem?_getD, htab₀ (q₀' + iq) hqKn, hentry₀ (q₀' + iq) hqKn]
+    rfl
+  have hread := read_of_run (V := V) (dK := dJf q₀) (dR := dR) (i := iq) (a := q₀) (j := j)
+    (baseK := q₀') (qK := q₀' + iq) (bs := bs) (ψ := ψ) (lps := lps₀) CR htabAt₀
+    (fun l hl hord hrsP dom hdm => by
+      obtain ⟨K, vs, -, hfl, -, hhd, -, -, -, -⟩ := hscope l hl hord hrsP dom hdm
+      exact ⟨hfl, K, vs, hhd⟩)
+    (fun l hl hord hrsP dom hdm hnt => hrowRead l hl hord hrsP dom hdm hnt lps₀)
+    (fun l hl hord hrsP dom hdm hmt => hrowReadMem l hl hord hrsP dom hdm hmt lps₀)
   have htgtLt : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
       (dR.pinCtors (q₀' + iq)).tgts j l < dR.k + dR.nPins := by
     intro l hl
