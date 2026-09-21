@@ -11,6 +11,7 @@ public import ConLeche.Model.Inductives.BlockAssemblyKit
 public import ConLeche.Model.Inductives.CopyTransport
 public import ConLeche.Model.Inductives.BlockStageFormer
 public import ConLeche.Model.Inductives.BlockCtorsLoop
+public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.IOLicense
