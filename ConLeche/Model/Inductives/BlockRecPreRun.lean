@@ -667,4 +667,89 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     have hfr := hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hjc)
     exact (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c ρ).mp hsat))).1
 
+/-! ## 9. The WF kit's MOTIVE
+
+`WfRecKit.B` is a function of the TAGGED element alone, so the motive
+must recover the spine the conclusion is read at: the class, the index
+tuple and the major.  `tagged` is injective (`tagged_inj`), so below
+`K` the decoding is unique and `tagDec` is it as a function; the index
+SPINE comes back out of its tuple by `isOfW` (`isOfW_tupW`, at the
+member's own index telescope), exactly as regime SQ reads it.
+
+With that the two clauses the kit and the family data owe about the
+motive are one rewrite each: `hconcl` (`RecFamData`'s) says the motive
+at the tagged index IS the conclusion's reading at the fitting spine,
+and `hB` (the kit's) says it is a set of the family's level, which is
+O-2's reading fact restated at the decoded data. -/
+
+open Classical in
+/-- **A tagged element's class, index and value**, as a function. -/
+noncomputable def tagDec (K : Nat) (u : V) : Nat × V × V :=
+  if h : ∃ p : Nat × V × V, p.1 < K ∧ u = tagged p.1 p.2.1 p.2.2 then h.choose else (0, pt, pt)
+
+theorem tagDec_tagged {K c : Nat} (hc : c < K) (i x : V) :
+    tagDec K (tagged c i x) = (c, i, x) := by
+  classical
+  have hex : ∃ p : Nat × V × V, p.1 < K ∧ (tagged c i x : V) = tagged p.1 p.2.1 p.2.2 :=
+    ⟨(c, i, x), hc, rfl⟩
+  rw [tagDec, dif_pos hex]
+  obtain ⟨-, heq⟩ := hex.choose_spec
+  obtain ⟨h1, h2, h3⟩ := tagged_inj heq
+  exact Prod.ext h1.symm (Prod.ext h2.symm h3.symm)
+
+/-- **The WF kit's motive**: the recursor's CONCLUSION, read at the
+spine the tagged element carries — the prefix, the index spine
+recovered from the tuple, and the major. -/
+noncomputable def blockRecMot (K : Nat) (concl : Nat → AnnotTerm) (uOf nIdxOf : Nat → Nat)
+    (ρ : Nat → V) (xs : List V) (u : V) : V :=
+  interp V
+    (consList (xs ++ (isOfW (uOf (tagDec K u).1) (nIdxOf (tagDec K u).1) (tagDec K u).2.1
+      ++ [(tagDec K u).2.2])) ρ) (concl (tagDec K u).1)
+
+theorem blockRecMot_tagged {K c : Nat} (hc : c < K) {concl : Nat → AnnotTerm}
+    {uOf nIdxOf : Nat → Nat} {ρ : Nat → V} {xs : List V} {i x : V} :
+    blockRecMot K concl uOf nIdxOf ρ xs (tagged c i x)
+      = interp V (consList (xs ++ (isOfW (uOf c) (nIdxOf c) i ++ [x])) ρ) (concl c) := by
+  rw [blockRecMot, tagDec_tagged hc]
+
+/-- **The kit's `hB`**: the motive is a set of the family's level —
+O-2's reading fact (the conclusion reads to a set of level `ℓ` at
+every fitting spine), restated at the decoded data. -/
+theorem blockRecMot_mem_univ {K ℓ : Nat} {concl : Nat → AnnotTerm} {uOf nIdxOf : Nat → Nat}
+    {ρ : Nat → V} {xs : List V} {Is Cr : Nat → V}
+    (h : ∀ c, c < K → ∀ i, i ∈ˢ Is c → ∀ x, x ∈ˢ app (Cr c) i →
+      interp V (consList (xs ++ (isOfW (uOf c) (nIdxOf c) i ++ [x])) ρ) (concl c)
+        ∈ˢ (univ ℓ : V)) :
+    ∀ u, u ∈ˢ unionSet K Is Cr → blockRecMot K concl uOf nIdxOf ρ xs u ∈ˢ (univ ℓ : V) := by
+  intro u hu
+  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
+  rw [blockRecMot_tagged hc]
+  exact h c hc i hi x hx
+
+/-- **`RecFamData.hconcl` at the block's motive**: the motive at the
+tagged index IS the conclusion's reading at the fitting spine.  The
+index spine comes back out of its tuple at the member's own index
+telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
+`idxOk` clause), and the spine is the frame by `hsplit`'s
+decomposition. -/
+theorem blockWf_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat} {rP mem : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
+    (hmem : ∀ c, c < K → mem c < d.N)
+    (hlenIds : ∀ c, c < K → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
+    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ) :
+    ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ
+          (prefOf (rP c) ys) (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
+        = interp V (consList ys ρ) (concl c) := by
+  intro c hc ys hfit
+  obtain ⟨-, hdec, hpar, hidx, -⟩ := hsplit c hc ys hfit
+  have hIdx : IdxOk (d.uM (mem c) ψ) (consList ((prefOf (rP c) ys).take d.nP) ρ)
+      (d.IdsM (mem c) ψ) := hM.idxOk ψ _ (d.satOfSpine hpar) (mem c) (hmem c hc)
+  have hret : isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
+      (d.tup ψ (mem c) (idxOf (rP c) ys)) = idxOf (rP c) ys := by
+    rw [← hlenIds c hc]
+    exact isOfW_tupW hIdx hidx
+  rw [blockRecMot_tagged hc, hret, ← hdec]
+
 end ConLeche.Model
