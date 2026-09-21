@@ -53,11 +53,13 @@ theorem blockCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind} {sorts : List Level}
+    {sT : Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
+    (hsT : ∀ ψ : Name → Nat, sT.eval ψ = resSort.eval ψ)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
     (hks : ks.length = nF)
     (hmem : ∀ i : Nat, ∃ (cv : ConstantVal) (caps' : IndCaps) (s : Level)
         (bs' : List (Expr × BinderMeta)),
@@ -70,7 +72,7 @@ theorem blockCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     ∃ q : BlockCtorPick, BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort
       isProp large q.idxArgs q.ds q.Es q.srcs ks q.fvsP q.xFvs q.xrest q.Eiss q.tss := by
   obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, tss, hD⟩ :=
-    blockCtorData_of hμ mp hCtor hfT hlpsT hstripT hks hmem hopened
+    blockCtorData_of hμ mp hCtor hfT hlpsT hsT hstripT hks hmem hopened
   exact ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, tss⟩, hD⟩
 
 /-- **The constructors' data functions at one member of a block**:
@@ -80,10 +82,11 @@ theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     {F : Nat} {T : Name} {names : List Name} {nIdxs : List Nat} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal}
     {env₀ env₁ : Env} {caps : IndCaps} {bs : List (Expr × BinderMeta)}
-    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List BlockFieldKind)}
+    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List BlockFieldKind)} {sT : Level}
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
+    (hsT : ∀ ψ : Name → Nat, sT.eval ψ = resSort.eval ψ)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
     (hmem : ∀ tgt : Nat, ∃ (cv : ConstantVal) (caps' : IndCaps) (s : Level)
         (bs' : List (Expr × BinderMeta)),
         env.find? (ConLeche.nameAt names tgt) = some (.indInfo cv caps') ∧ cv.levelParams = lps ∧
@@ -119,7 +122,7 @@ theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
       have hksD : kinds.getD j [] = ks := by rw [List.getD_eq_getElem?_getD, hks]; rfl
       obtain ⟨fvsP, crest, xFvs, xrest, hopP, hopX, hO⟩ := blockOpened_of hopened
       obtain ⟨q, hq⟩ := blockCtorPick_of (ks := ks.map BlockFieldKind.toRec) hμ mp hCtor hfT
-        hlpsT hstripT (by rw [List.length_map]; exact hksLen)
+        hlpsT hsT hstripT (by rw [List.length_map]; exact hksLen)
         (fun i => hmem ((ConLeche.blockTgtsOf ks).getD i 0))
         (fun fvsP' crest' xFvs' xrest' hp' hx' => by
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hp'.symm.trans hopP))

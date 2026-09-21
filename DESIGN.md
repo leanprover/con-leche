@@ -81581,3 +81581,7 @@ soundness failure.  The gates are down, so the shipped tree is
 unaffected; at the flip (M6) this is a decision for the maintainer —
 keep the ruling and record the two rows as known accept-supersets, or
 re-pin the recursor NAME after all.
+
+#### RULING (2026-09-21, maintainer): arena `bad/135_misnamed_rec_user` and `bad/136_dup_rec_def2` become documented ACCEPT-SUPERSETS
+
+With recursor names free, both accept soundly (135: a definition uses a recursor declared under a non-canonical name; 136: a definition named `T.rec` beside a recursor of another name).  "Keep the ruling, record 135/136 as accept-supersets; maybe we'll add unverified extra checks later."  At the flip `tests/arena-expected.txt` carries both rows as expected accepts with this reason; an optional UNVERIFIED conformance check (canonical-name policing, off the verified path) may be added later.
