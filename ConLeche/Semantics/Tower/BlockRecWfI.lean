@@ -199,7 +199,7 @@ law, once the Model tier's two bridges hold —
 Everything else is this file's. -/
 theorem wfCand_hCand (D : WfRecData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)
     (hTy : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : ∀ c, c < K → ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0))
+    (hbits : OneElimLevel ℓ K rds)
     (hpl : ∀ c, c < K → (pdoms c).length = rP)
     (hrule : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →

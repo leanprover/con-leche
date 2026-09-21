@@ -584,6 +584,34 @@ theorem ihFunAV_fold {ℓ K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)
   rw [hxsfs]
   simp only [List.map_append, hpre, List.append_assoc]
 
+/-! ## Two named obligations: D-d and G1 -/
+
+/-- **D-d, stated** (the maintainer's decision of 2026-09-21, recorded
+in DESIGN v2 §3.2): the family eliminates at ONE level.  The leaf is a
+Σ'-chain at a single `s` and the candidate is a λ-tower at a single
+bit, so every class's binder data must carry the SAME zeroness — which
+is what a common elimination level gives.  The KERNEL's corresponding
+check is `Level.isEquiv` across the family's conclusions' sorts
+(official's shared `u`); the stage does not do it today, and this
+predicate is the name the obligation is discharged against. -/
+def OneElimLevel (ℓ K : Nat) (rds : Nat → List (Nat × Nat × AnnotTerm)) : Prop :=
+  ∀ c, c < K → ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0)
+
+/-- **G1's shape, stated**: what the Model tier owes about ONE rule's
+RESIDUE at ONE frame — it is graded, and its value lands in the
+target, at the frame `(x⃗, f⃗)` extended by the ih openers' VALUES.
+The residue is recursor-free (`abstractIh_of_recFree`), which is why
+this is a statement about the CONSTRUCTORS' environment and not about
+one holding the recursors.
+
+Both regimes consume exactly this: in WF the target is the kit's
+motive `B (tagged c ⟨ı⃗⟩ (C_j p⃗ f⃗))` and the fact IS `WfRecKit.hst`; in
+IND the target is a truth value and the fact is `indCand_hCand`'s
+`hres`.  The grading half is `hEq_iotaEqsAV_of`'s right conjunct. -/
+def ResidueOk (V : Type uv) [SetTheory V] (Rb : AnnotTerm) (ihvals : List V) (ρ' : Nat → V)
+    (B : V) : Prop :=
+  WellDenoted V (consList ihvals ρ') Rb ∧ interp V (consList ihvals ρ') Rb ∈ˢ B
+
 /-! ## The premise's two halves, in the form their owners prove them -/
 
 section Assemble
