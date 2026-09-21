@@ -173,51 +173,34 @@ theorem denoteMeta_instantiateList
   rw [hlen] at this
   exact this
 
-/-! ## O-1's seam: the guarded call's READING claim
+/-! ## O-1's guarded-call case, discharged
 
 O-1 — `interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')`, the
 abstraction's inverse at the denotation — has one case that is not
 structural: the node the abstraction REPLACES.  There the model must
-know that the stored node and the generated spine read alike, and the
-check's own comparison (`Expr.resetMeta`) does not give it
-(`not_denoteMeta_resetMeta_invariant` above).
+know that the stored node and the generated spine read alike.
 
-`IhCallReads` is that fact, named, in the form O-1 consumes it and
-lane K2's strengthened comparison will produce it: **every node
-`blockIhCall?` accepts reads exactly as the generated spine does**.
-`ihCallReads_of_eq` is the one-line bridge from a SYNTACTIC equality of
-the two, which is what an exact comparison exports — so K2's landing
-closes this premise by one `exact`. -/
+With lane K2's comparison that is **free**: `blockIhCall?_spine`
+exports `e = expected` as TERMS, binder data included, so the reading
+claim is `congrArg`.  (Before K2 it was a premise; the witness above
+records why it could not be one.) -/
 
 /-- **Every node the abstraction replaces reads as the generated
-spine.**  The premise O-1's guarded-call case needs. -/
-@[expose] def IhCallReads (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
-    (φ : Name → Nat) (fr : ConLeche.BlockRuleFrame) : Prop :=
-  ∀ (d : Nat) (e : Expr) (r : Nat) (as : List Expr),
-    ConLeche.blockIhCall? fr d e = some (r, as) →
-    ∀ (nm : Name) (i : Nat) (expected : Expr),
-      e.getAppFn = .const nm fr.rlvls →
+spine.**  O-1's guarded-call case, with no premise left. -/
+theorem denoteMeta_blockIhCall {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
+    {as : List Expr} (h : ConLeche.blockIhCall? fr d e = some (r, as)) :
+    ∃ (nm : Name) (c' i : Nat) (expected : Expr),
+      e.getAppFn = .const nm fr.rlvls ∧
+      ConLeche.nameIdxOf? fr.recNames nm = some c' ∧
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r ∧
+      as.length = (fr.teleOf i).length ∧
       Expr.instPisAtLift as
           (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
-            (fr.teleOf i) (fr.idxOf i)) = some expected →
-      ∀ D : Nat, denoteMeta acval env φ D e = denoteMeta acval env φ D expected
-
-/-- **The bridge from an exact comparison.**  `blockIhCall?` compares
-the node with the generated spine; once that comparison is the
-annotated one (lane K2), `blockIhCall?_spine` exports `e = expected`
-and the reading claim is `congrArg`. -/
-theorem ihCallReads_of_eq {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame}
-    (h : ∀ (d : Nat) (e : Expr) (r : Nat) (as : List Expr),
-      ConLeche.blockIhCall? fr d e = some (r, as) →
-      ∀ (nm : Name) (i : Nat) (expected : Expr),
-        e.getAppFn = .const nm fr.rlvls →
-        Expr.instPisAtLift as
-            (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
-              (fr.teleOf i) (fr.idxOf i)) = some expected →
-        e = expected) :
-    IhCallReads acval env φ fr :=
-  fun d e r as hcall nm i expected hfn hexp D =>
-    congrArg (denoteMeta acval env φ D) (h d e r as hcall nm i expected hfn hexp)
+            (fr.teleOf i) (fr.idxOf i)) = some expected ∧
+      ∀ D : Nat, denoteMeta acval env φ D e = denoteMeta acval env φ D expected := by
+  obtain ⟨nm, c', i, expected, h1, h2, h3, -, -, -, h7, -, h9, h10⟩ :=
+    ConLeche.blockIhCall?_spine h
+  exact ⟨nm, c', i, expected, h1, h2, h3, h7, h9, fun D => congrArg _ h10⟩
 
 end ConLeche.Model
