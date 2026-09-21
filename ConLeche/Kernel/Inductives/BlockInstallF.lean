@@ -192,21 +192,22 @@ def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → F
   | ctorsA :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorsA fe)
 
 /-- `consBlockRecs` through the index. -/
-def consBlockRecsF (find? : Name → Option ConstantInfo) (nP rP : Nat) :
-    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → FEnv → FEnv
-  | [], fe => fe
-  | (cvRa, rhss, nIdx, ctorsA) :: rest, fe =>
-    consBlockRecsF find? nP rP rest
-      (fe.push (.recInfo cvRa (rP + nIdx) rP
-        (sumRules find? cvRa.name nP (rP + nIdx) rP cvRa.type ctorsA rhss)))
+def consBlockRecsF (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+    Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, fe =>
+    consBlockRecsF find? p nP (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
+        (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)))
 
 /-! ## The recursor stage (milestone M5) -/
 
 /-- `consBlockRecsBare` through the index. -/
-def consBlockRecsBareF (rP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv
-  | [], fe => fe
-  | (cvRa, nIdx) :: rest, fe =>
-    consBlockRecsBareF rP rest (fe.push (.recInfo cvRa (rP + nIdx) rP []))
+def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, _nIdx) :: rest, fe =>
+    consBlockRecsBareF p (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
 
 /-- `checkBlockRecTys` through the index. -/
 def checkBlockRecTysF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : BlockShape)

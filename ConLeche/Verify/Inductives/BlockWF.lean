@@ -274,8 +274,8 @@ theorem find?_isSome_cons_under {a b : ConstantInfo} {env : Env} (n : Name)
 right-hand side is scoped at the environment holding that recursor's
 rule-less cons, which finds exactly the names the stored cons finds,
 and no stored rule is `.nested` (`sumRules_mem`). -/
-theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {nP rP : Nat} :
-    ∀ {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env},
+theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat} :
+    ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env},
       EnvWF env →
       (∀ r ∈ rs, r.1.type.hasFvar = false ∧
         r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
@@ -285,9 +285,9 @@ theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {nP rP : Nat}
           rhs.allLevelParamsDefined r.1.levelParams = true ∧
           (∃ mI rP', rhs.constsResolve ⟨.recInfo r.1 mI rP' [] :: env.consts⟩ = true) ∧
           rhs.looseBVarsBounded 0 = true) →
-      EnvWF (consBlockRecs find? nP rP rs env)
-  | [], _, henv, _ => henv
-  | (cvRa, rhss, nIdx, ctorsA) :: rest, env, henv, hall => by
+      EnvWF (consBlockRecs find? q nP m rs env)
+  | _, [], _, henv, _ => henv
+  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env, henv, hall => by
     simp only [consBlockRecs]
     refine envWF_consBlockRecs ?_ ?_
     · obtain ⟨h1, h2, h3, h4, h5⟩ := hall (cvRa, rhss, nIdx, ctorsA) List.mem_cons_self
@@ -301,8 +301,9 @@ theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {nP rP : Nat}
       obtain ⟨g1, g2, ⟨mI₀, rP₀, g3⟩, g4⟩ := h5 r.rhs hmem
       refine ⟨g1, g2, Expr.constsResolve_of_find
         (find?_isSome_cons_same (c := .recInfo cvRa mI₀ rP₀ [])
-          (c' := .recInfo cvRa (rP + nIdx) rP
-            (sumRules find? cvRa.name nP (rP + nIdx) rP cvRa.type ctorsA rhss)) rfl) g3,
+          (c' := .recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m)
+            (sumRules find? cvRa.name nP (q.majorIdxAt m) (q.rulePrefixAt m)
+              cvRa.type ctorsA rhss)) rfl) g3,
         g4, ?_⟩
       intro lvls pins hf
       exact absurd hf (hfire lvls pins)
@@ -357,7 +358,7 @@ theorem direct_block_wf {env env₂ : Env} (henv : EnvWF env)
   have h2 : EnvWF (consBlockCtors q.p.nP q.ctorsAs q.env₁) :=
     direct_block_ctors_wf h1 hCtors
   have h3 : EnvWF (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-      q.p.nP q.p.rulePrefix rs (consBlockCtors q.p.nP q.ctorsAs q.env₁)) :=
+      q.p.toBlockShape q.p.nP 0 rs (consBlockCtors q.p.nP q.ctorsAs q.env₁)) :=
     envWF_consBlockRecs h2 (checkBlockRec_facts hRec)
   exact direct_block_tables_wf h3 hTbl
 

@@ -342,13 +342,14 @@ def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
 /-- The members' recursors consed with their rules, in block order.
 `find?` is the environment holding the block's constructors (the
 recursors' own records are not read by `recRuleBits`). -/
-def consBlockRecs (find? : Name → Option ConstantInfo) (nP rP : Nat) :
-    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
-  | [], env => env
-  | (cvRa, rhss, nIdx, ctorsA) :: rest, env =>
-    consBlockRecs find? nP rP rest
-      ⟨.recInfo cvRa (rP + nIdx) rP
-        (sumRules find? cvRa.name nP (rP + nIdx) rP cvRa.type ctorsA rhss) :: env.consts⟩
+def consBlockRecs (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+    Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
+  | _, [], env => env
+  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, env =>
+    consBlockRecs find? p nP (m + 1) rest
+      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
+        (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)
+        :: env.consts⟩
 
 /-! ### The recursor stage as CHECKING (milestone M5)
 
@@ -362,10 +363,11 @@ that keeps the one-member generate-and-compare stage live behind
 environment a rule's right-hand side is annotated, resolved and typed
 at (official's `declare_recursors` puts every recursor of the block in
 the environment before any rule is looked at). -/
-def consBlockRecsBare (rP : Nat) : List (ConstantVal × Nat) → Env → Env
-  | [], env => env
-  | (cvRa, nIdx) :: rest, env =>
-    consBlockRecsBare rP rest ⟨.recInfo cvRa (rP + nIdx) rP [] :: env.consts⟩
+def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → Env → Env
+  | _, [], env => env
+  | m, (cvRa, _nIdx) :: rest, env =>
+    consBlockRecsBare p (m + 1) rest
+      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts⟩
 
 /-- The member list as the motive generator reads it: each member's
 name, index count and ANNOTATED type former's type. -/
@@ -546,7 +548,7 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- (b) every member's recursor type
   let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockMems p.toBlockShape cvTas)
     (p.members.zip cvTas) 0
-  let envR := consBlockRecsBare p.rulePrefix cvRas env
+  let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the
   -- environment holding all k rule-less recursors (a rule mentions
   -- them), but TYPED at `env` — the CONSTRUCTORS' environment, before
@@ -650,7 +652,7 @@ def checkBlockTail (ops : CheckerOps m) (env : Env) (q : BlockPass Env) : m Env 
     throw (.internal "direct rec: field kinds")
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let rs ← checkBlockRec ops env₂ p q.cvTas q.ctorsAs
-  let env₃ := consBlockRecs env₂.find? p.nP p.rulePrefix rs env₂
+  let env₃ := consBlockRecs env₂.find? p.toBlockShape p.nP 0 rs env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 

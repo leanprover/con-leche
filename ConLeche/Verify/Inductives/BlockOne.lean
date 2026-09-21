@@ -158,6 +158,22 @@ theorem blockSplit_one {block : List ConstantInfo} {cvT : ConstantVal}
       simp only [blockSplit] at h
       exact absurd h optmap_pair_nil_ne
 
+/-! ## The install's per-member sums, while the recursor stage is gated -/
+
+/-- **While `blockRecCheckOn` is down the install's per-member rule
+prefix IS the generated block-wide one.**  The gate's whole purpose is
+that the shipped tree behaves as the generate-and-compare stage does
+(`ConLeche/Kernel/Inductives/BlockParts.lean`'s `rulePrefixAt`), and
+that is what keeps every one-member bridge an EQUALITY while the
+motive-free check reads the sums off the recursor record.  **This
+theorem and its companion go with the gate at the flip.** -/
+@[simp] theorem rulePrefixAt_gated (p : BlockShape) (m : Nat) :
+    p.rulePrefixAt m = p.rulePrefix := rfl
+
+/-- `rulePrefixAt_gated`'s companion at the major-premise index. -/
+@[simp] theorem majorIdxAt_gated (p : BlockShape) (m : Nat) :
+    p.majorIdxAt m = p.majorIdx m := rfl
+
 /-! ## The recogniser -/
 
 /-- **At ONE type former the recursor list is left alone**: with one
@@ -211,7 +227,7 @@ theorem blockShape?_one {nPd : Nat} {block : List ConstantInfo} {cvT0 : Constant
     nativeShape? nPd block = some q.toInductive ∧
       ∃ r0 : ConstantVal × Nat × Nat × List RecRule, rs = [r0] ∧
         q.members = [⟨cvT0, q.toInductive.nIdx, cs.map fun c => (c.1, c.2.2),
-          r0.1, r0.2.2.2.map RecRule.rhs⟩] := by
+          r0.1, r0.2.2.1, r0.2.2.2.map RecRule.rhs⟩] := by
   unfold blockShape? at h
   rw [blockSplitOrdered_one hsp] at h
   cases rs with
@@ -268,7 +284,7 @@ theorem blockRecPinOk_one {block : List ConstantInfo} {cvT0 : ConstantVal}
     {q : BlockShape} {nIdx : Nat}
     (hsp : blockSplit block = some ([cvT0], cs, [r0]))
     (hm : q.members = [⟨cvT0, nIdx, cs.map fun c => (c.1, c.2.2),
-      r0.1, r0.2.2.2.map RecRule.rhs⟩]) :
+      r0.1, r0.2.2.1, r0.2.2.2.map RecRule.rhs⟩]) :
     blockRecPinOk q block = nativeRecPinOk q.toInductive block := by
   obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
   unfold blockRecPinOk nativeRecPinOk

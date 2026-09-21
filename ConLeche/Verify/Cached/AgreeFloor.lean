@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 import ConLeche.Verify.EnvBound
+import ConLeche.Verify.Inductives.BlockOne
 
 public section
 
@@ -480,12 +481,17 @@ def blockCtorSkels (nP : Nat) : List MemberShape → List InstallSkel → List I
   | ms :: rest, sk =>
     blockCtorSkels nP rest (sumCtorSkels nP (ms.ctors.map fun c => (c.1.name, c.2)) sk)
 
-/-- The k recursors, each with its member's rules. -/
-def blockRecSkels (rP : Nat) : List MemberShape → List InstallSkel → List InstallSkel
-  | [], sk => sk
-  | ms :: rest, sk =>
-    blockRecSkels rP rest
-      (.recr ms.cvR.name (rP + ms.nIdx) rP (ms.ctors.map (·.1.name)) :: sk)
+/-- The k recursors, each with its member's rules and its OWN
+argument sums (`BlockShape.rulePrefixAt`: the generated block-wide
+ones while the recursor stage's gate is down, the recursor record's
+once it is lifted — the install conses exactly these). -/
+def blockRecSkels (q : BlockShape) : Nat → List MemberShape → List InstallSkel →
+    List InstallSkel
+  | _, [], sk => sk
+  | m, ms :: rest, sk =>
+    blockRecSkels q (m + 1) rest
+      (.recr ms.cvR.name (q.majorIdxAt m) (q.rulePrefixAt m)
+        (ms.ctors.map (·.1.name)) :: sk)
 
 /-- The projection table of every structure-like member. -/
 def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
@@ -498,7 +504,7 @@ def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
 /-- The uniform install's skeleton. -/
 def blockSkels (p : BlockParts) (sk : List InstallSkel) : List InstallSkel :=
   blockTableSkels p.members
-    (blockRecSkels p.rulePrefix p.members
+    (blockRecSkels p.toBlockShape 0 p.members
       (blockCtorSkels p.nP p.members (blockIndSkels p.members sk)))
 
 /-- At ONE member the skeleton is the one-member skeleton. -/
@@ -506,7 +512,9 @@ theorem blockSkels_one {p : BlockParts} {ms : MemberShape} (hm : p.members = [ms
     (sk : List InstallSkel) : blockSkels p sk = nativeSkels p.toNative sk := by
   simp only [blockSkels, nativeSkels, blockIndSkels, blockCtorSkels, blockRecSkels,
     blockTableSkels, sumSkels, BlockParts.toNative, BlockShape.toInductive,
+    rulePrefixAt_gated, majorIdxAt_gated, BlockShape.majorIdx,
     BlockShape.rulePrefix, BlockShape.k, BlockShape.numCtors, numCtorsOf,
+    List.getD_cons_zero,
     InductiveShape.rulePrefix, InductiveShape.majorIdx, hm, List.headD_cons,
     List.length_cons, List.length_nil, Nat.add_zero]
 

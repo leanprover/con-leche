@@ -79,7 +79,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env)
     -- 9  the install spine: the k recursors with their rules, then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
-      (consBlockRecs (consBlockCtors p.nP ctorsAs env₁).find? p.nP p.rulePrefix rs
+      (consBlockRecs (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape p.nP 0 rs
         (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
 
 /-- A settled pass with the install after it is a run. -/

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
+public import ConLeche.Verify.Inductives.BlockOne
 
 public section
 
@@ -510,7 +511,11 @@ theorem checkNativeTail_one (ops : CheckerOps m) (env : Env) {q : BlockPass Env}
           ms.cvR.type = true
       · simp only [hr, if_pos, bind_assoc, pure_bind]
         refine bind_congr fun _x => ?_
-        simp only [consBlockRecs, checkNativeTable, bind_pure]
+        simp only [consBlockRecs, rulePrefixAt_gated, majorIdxAt_gated,
+          InductiveShape.rulePrefix, InductiveShape.majorIdx, BlockShape.rulePrefix,
+          BlockShape.majorIdx, BlockShape.k, BlockShape.numCtors, numCtorsOf, hm,
+          List.length_cons, List.length_nil, Nat.add_zero, List.getD_cons_zero,
+          checkNativeTable, bind_pure]
         cases ctorsA with
         | nil => rfl
         | cons cA cs =>
