@@ -46,8 +46,9 @@ STREAM's own**, checked as a constant's type and nothing more.
   bound variables lifted by the binders crossed — primitive recursion
   fixes the frame, and a call at another frame would name a different
   recursion instance), `f_i` a field of THIS constructor whose kind
-  carries the target `c'`, and `e⃗` SYNTACTICALLY the field's index
-  expressions at `a⃗`.  The spine is replaced by `ih_i a⃗`, whose
+  names the member `rec_{c'}` eliminates, and `e⃗` SYNTACTICALLY the
+  field's index expressions at `a⃗`.  The spine is replaced by the
+  opener of the (field, callee) pair applied to `a⃗`, whose
   opener's type is `rec_{c'}`'s own type INSTANTIATED at exactly those
   arguments under `∀ a⃗`; any other occurrence of a block recursor — a
   partial spine, a recursor passed as an argument, a call on something
@@ -108,28 +109,30 @@ def blockIhSpinePis (recName : Name) (rlvls : List Level) (pw : PropWhen)
       (blockRulePrefixVars rP nF (d + m) ++ idx.map (structIdxAt nF (rP - nP) i d m) ++
         [Expr.mkAppN (.bvar (nF - 1 - i + d + m)) (structTeleVars m)]))
 
-/-- **The `ih` binders of a rule's frame**: for each recursive field
-position, `∀ a⃗, <rec_{tgt i}'s own conclusion at the rule's prefix,
-at the field's index expressions and at `f_i a⃗`>`.  The conclusion is
-the recursor's STORED type instantiated at exactly the arguments the
-guarded call carries, which is what makes `ih_i a⃗` and the call
-interchangeable.  `recTyOf` is the stored type of the member's
-PRINCIPAL recursor; `none` when one of them does not have the binders the
-instantiation needs. -/
-def blockIhPis (nP rP nF : Nat) (pw : PropWhen) (recTyOf : Nat → Expr) (tgts : List Nat)
+/-- **The `ih` binders of a rule's frame**, one per (recursive FIELD,
+CALLEE recursor) key (`blockIhKeys`): `∀ a⃗, <rec_c's own conclusion at
+the rule's prefix, at the field's index expressions and at `f_i a⃗`>`.
+The conclusion is THAT CALLEE's STORED type instantiated at exactly the
+arguments the guarded call carries, which is what makes `ih_{(i,c)} a⃗`
+and the call interchangeable — the ruling of 2026-09-21: the family is
+primitively MUTUALLY recursive, so a rule may call ANY recursor of the
+group on a field, and each call gets its own opener typed from its own
+callee.  `recTyOf` is the stored type of a RECURSOR; `none` when one of
+them does not have the binders the instantiation needs. -/
+def blockIhPis (nP rP nF : Nat) (pw : PropWhen) (recTyOf : Nat → Expr)
     (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) :
-    List Nat → Nat → Expr → Option Expr
+    List (Nat × Nat) → Nat → Expr → Option Expr
   | [], _, body => some body
-  | i :: is, l, body =>
+  | (i, c) :: is, l, body =>
     let m := (teleOf i).length
     let o := rP - nP
     match Expr.instPisAtLift
         (blockRulePrefixVars rP nF (l + m) ++ (idxOf i).map (structIdxAt nF o i l m) ++
           [Expr.mkAppN (.bvar (nF - 1 - i + l + m)) (structTeleVars m)])
-        (recTyOf (tgts.getD i 0)) with
+        (recTyOf c) with
     | none => none
     | some concl =>
-      (blockIhPis nP rP nF pw recTyOf tgts teleOf idxOf is (l + 1) body).map fun rest =>
+      (blockIhPis nP rP nF pw recTyOf teleOf idxOf is (l + 1) body).map fun rest =>
         .forallE (Expr.mkPisOf (structTeleAt nF o i l pw (teleOf i)) concl) rest ⟨pw⟩
 
 /-! ## The elimination restriction, declaratively -/
@@ -169,10 +172,24 @@ def BlockFieldKind.tgt? : BlockFieldKind → Option Nat
 def nameIdxOf? (names : List Name) (n : Name) : Option Nat :=
   (List.range names.length).find? fun i => names.getD i default == n
 
-/-- The position of a number in a list (`none` when absent) — the
-`ih` binder a recursive field position owns. -/
-def natIdxOf? (ns : List Nat) (n : Nat) : Option Nat :=
-  (List.range ns.length).find? fun i => ns.getD i 0 == n
+/-- The position of a pair in a list (`none` when absent) — the `ih`
+binder a (field, callee) key owns. -/
+def pairIdxOf? (ps : List (Nat × Nat)) (p : Nat × Nat) : Option Nat :=
+  (List.range ps.length).find? fun i => ps.getD i (0, 0) == p
+
+/-- **The `ih` openers a rule's frame carries**, in order: for every
+recursive FIELD of the constructor, one per RECURSOR of the block that
+can be called on it — one whose MAJOR names the field's target member
+and whose rule prefix is this rule's own, which is what makes the
+spine's argument count come out.  A family with one recursor per member
+gives exactly one opener per recursive field, which is official's shape
+and the shape the one-member route has always had. -/
+def blockIhKeys (rP : Nat) (rPs recTgts : List Nat) (ks : List BlockFieldKind) :
+    List (Nat × Nat) :=
+  (blockRecIdxOf ks).flatMap fun i =>
+    (List.range recTgts.length).filterMap fun c =>
+      if (ks.getD i .ordinary).tgt? == some (recTgts.getD c recTgts.length) &&
+          rPs.getD c 0 == rP then some (i, c) else none
 
 /-- **The data one rule's abstraction walks against**: the block's
 recursor names and their shared level arguments, every member's
@@ -188,11 +205,8 @@ structure BlockRuleFrame where
   mIs : List Nat
   /-- every RECURSOR's rule prefix, in recursor order -/
   rPs : List Nat
-  /-- every MEMBER's principal recursor, in block order
-  (`BlockShape.recOfMember`): the recursor a guarded call on a field of
-  that member must name, because it is the one the field's `ih` opener
-  was typed from -/
-  recOfM : List Nat
+  /-- every RECURSOR's target member, in recursor order -/
+  recTgts : List Nat
   /-- the block's parameter count -/
   nP : Nat
   /-- THIS rule's recursor's rule prefix -/
@@ -205,13 +219,14 @@ structure BlockRuleFrame where
   teleOf : Nat → List (Expr × BinderMeta)
   /-- field `i`'s index expressions -/
   idxOf : Nat → List Expr
-  /-- the recursive field positions, in order (the `ih` binders) -/
-  recIdx : List Nat
+  /-- the `ih` binders, in order: one per (recursive field, callee
+  recursor) key (`blockIhKeys`) -/
+  ihKeys : List (Nat × Nat)
   /-- the block's elimination datum -/
   pw : PropWhen
 
 /-- The number of `ih` binders the rule's frame carries. -/
-def BlockRuleFrame.nR (fr : BlockRuleFrame) : Nat := fr.recIdx.length
+def BlockRuleFrame.nR (fr : BlockRuleFrame) : Nat := fr.ihKeys.length
 
 /-- **A guarded recursive call**, read at a rule body's frame under
 `d` binders: the node must be
@@ -221,13 +236,12 @@ def BlockRuleFrame.nR (fr : BlockRuleFrame) : Nat := fr.recIdx.length
 with `rec_{c'}` a block recursor at the block's own level arguments,
 `x⃗` the rule's OWN `rP` prefix variables (which forces `rec_{c'}` to
 carry the same prefix), `f_i` a field of THIS constructor whose kind
-names the member `rec_{c'}` is the PRINCIPAL recursor of (the one the
-`ih` opener was typed from), `a⃗` as many arguments as the field's
+names the member `rec_{c'}` eliminates, `a⃗` as many arguments as the field's
 telescope has binders and free of any block recursor, and the whole
 spine SYNTACTICALLY the generated call at those arguments (`blockIhSpinePis` instantiated at
 `a⃗`, compared at the parse placeholder's binder data).  The answer is
-the field's position among the recursive ones — the `ih` binder that
-replaces the call — together with `a⃗`. -/
+the position of the (field, callee) key among the frame's openers —
+the `ih` binder that replaces the call — together with `a⃗`. -/
 def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × List Expr) :=
   match e.getAppFn with
   | .const r us =>
@@ -246,10 +260,9 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
         | .bvar b =>
           if !(decide (d ≤ b) && decide (b < d + fr.nF)) then none else
           let i := d + fr.nF - 1 - b
-          -- the field's TARGET MEMBER, and the recursor that member's
-          -- `ih` openers were typed from (its principal one)
-          if ((fr.ks.getD i .ordinary).tgt?.map
-              (fun t => fr.recOfM.getD t fr.recNames.length)) != some c' then none else
+          -- the field's kind names the member the CALLEE eliminates
+          if (fr.ks.getD i .ordinary).tgt? !=
+              some (fr.recTgts.getD c' fr.recTgts.length) then none else
           let as := maj.getAppArgs
           let tele := fr.teleOf i
           if as.length != tele.length then none else
@@ -264,7 +277,7 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
           | none => none
           | some expected =>
             if Expr.resetMeta e != Expr.resetMeta expected then none
-            else match natIdxOf? fr.recIdx i with
+            else match pairIdxOf? fr.ihKeys (i, c') with
               | none => none
               | some rpos => some (rpos, as)
         | _ => none

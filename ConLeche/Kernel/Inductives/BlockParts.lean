@@ -519,23 +519,12 @@ goes with the gate at the flip, leaving the record's. -/
 def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
   if blockRecCheckOn then (p.recs.getD r default).tgt else r
 
-/-- **Member `t`'s PRINCIPAL recursor**: the first recursor of the
-block whose major names it (`p.recs.length` at a member with none).
-
-The abstraction gives one inductive hypothesis per recursive field,
-and its type is that member's recursor's conclusion — so with several
-recursors on one member a guarded call must name the one the `ih`
-binder was typed from, which is this one.  A second recursor on a
-member is CHECKED like any other; only its rules' recursive calls go
-through the principal one. -/
-def principalRecAt (p : BlockShape) (t : Nat) : Nat :=
-  ((List.range p.recs.length).find? fun r =>
-    (p.recs.getD r default).tgt == t).getD p.recs.length
-
-/-- `principalRecAt` at every member, in block order (the rule stage's
-frame carries it as a list). -/
-def recOfMember (p : BlockShape) : List Nat :=
-  (List.range p.k).map p.principalRecAt
+/-- **Every recursor's target member**, in recursor order, at the
+gated reading (`recTgtAt`): the rule stage's frame carries it, and the
+`ih` openers are keyed by (recursive field, CALLEE recursor) against
+it. -/
+def recTgts (p : BlockShape) : List Nat :=
+  (List.range p.recs.length).map p.recTgtAt
 
 /-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 

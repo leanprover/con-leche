@@ -457,3 +457,40 @@ _mty = t.ex({"forallE": dict(t.E[_snd["type"]]["forallE"],
 rc["type"] = t.ex({"forallE": dict(_top,
                                    body=t.ex({"forallE": dict(_snd, type=_mty)}))})
 t.write("mutual_rec_elim_levels", "MutB")
+
+# --- corner_rec_two_callees -----------------------------------------
+# `Nat'` with a second recursor `Nat'.rec2` whose TYPE is `Nat'.rec`'s
+# own, and whose `succ` rule recurses on the field `n` through BOTH
+# recursors — itself and the first:
+#
+#   λ m z s n. s n ((fun _ : m n => Nat'.rec2 m z s n) (Nat'.rec m z s n))
+#
+# Two guarded calls on ONE field with two different callees, so the
+# rule's frame carries TWO `ih` openers keyed by (field, callee), each
+# typed from ITS callee's own type at the spine's arguments (the
+# maintainer's ruling: the family is primitively MUTUALLY recursive).
+# TARGET 0.
+t = Twin("direct_fix_nat")
+_, blk = t.block("Nat'")
+rc = t.rec("Nat'", "Nat'.rec")
+rec2n = t.fresh_name(["Nat'", "rec2"])
+sr = t.rule("Nat'", "Nat'.rec", "Nat'.succ")
+body = t.binders(sr["rhs"], 4)[3]["lam"]["body"]                # `s n (Nat'.rec m z s n)`
+call_rec = t.E[body]["app"]["arg"]                              # `Nat'.rec m z s n`
+_head = call_rec
+while "app" in t.E[_head]:
+    _head = t.E[_head]["app"]["fn"]
+assert "const" in t.E[_head], "the call's head is not a constant"
+call_rec2 = t.replace(t.lift(call_rec, 1), _head,
+                      t.ex({"const": dict(t.E[_head]["const"], name=rec2n)}))
+motive_n = t.ex({"app": {"fn": t.ex({"bvar": 3}), "arg": t.ex({"bvar": 0})}})
+dead = t.ex({"lam": {"binderInfo": "default", "name": t.name("ih2"),
+                     "type": motive_n, "body": call_rec2}})
+new_body = t.ex({"app": {"fn": t.E[body]["app"]["fn"],
+                         "arg": t.ex({"app": {"fn": dead, "arg": call_rec}})}})
+rules2 = [({"ctor": ru["ctor"], "nfields": ru["nfields"],
+            "rhs": rebuild_prefix(t, ru["rhs"], 4, lambda _e: new_body)}
+           if ru["ctor"] == t.names["Nat'.succ"] else dict(ru))
+          for ru in rc["rules"]]
+blk["recs"] = blk["recs"] + [dict(rc, name=rec2n, rules=rules2)]
+t.write("corner_rec_two_callees", "Nat'")
