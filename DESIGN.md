@@ -132891,3 +132891,82 @@ No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
 Nothing on that list is an ordering inside an instance and nothing on
 it is a fact no run record can carry, so there is no invalidation
 candidate.
+
+#### WIDE (f8) — `hedgeAt` BUILT AND OFF THE STEP: `NestedPinsRun.edgeAt`, AND WHAT THE PROLOGUE ACTUALLY COST (lane WIRE, session 1, 2026-09-21)
+
+##### (a) THE OBJECT
+
+`NestedPinsRun.edgeAt` (`ConLeche/Model/Inductives/NestedInstMap.lean:893`)
+— at a field of the container that is ORDINARY and whose COPY the
+auxiliary block classifies recursive-or-reflexive at a target outside
+the block's own members, the pair (the copy's own pin, the target read
+as a pin number) is a row of `nestedPinEdges` with the `own` bit
+`false`, and the target is a pin of the block:
+
+    t - p.k < pinsS.length ∧ (q₀ + i', t - p.k, false) ∈ edges
+
+stated at the step's own spellings — the guard on the CONTAINER's side
+as `((dJ.rss i').getD j []).getD l false = false`, the field index
+against `blkFss0`'s length, the target as `¬ … < p.k` — so that
+`nestedPinWideStep` consumes it without a translation of its own.
+
+##### (b) THE PRICE, AGAINST THE MERGE ROW'S ESTIMATE
+
+WIDE (f7) §(j) 2 priced this at ONE session on the reading that
+`nestedPinEdges_mem`'s fourteen lookups are assembled only by
+`copyPinFInstTgt`.  That reading was one theorem short:
+**`NestedPinsRun.copyOrdFOutside` (`:1071`) already assembles them at
+exactly this guard** and already derives the edge membership — it goes
+on to read K.62 AT the row, where this one hands the row over.  The
+three pieces the row called new are real but small, and two of them
+were already written in that proof:
+
+* the GUARD BRIDGE is the one genuinely new step.  The step states the
+  container's side as `rss = false` (the shape `CopyEntryAOrd`'s guard
+  has) and `ContainerModeled.ordFree` wants `ksF … = .ordinary`; `rsOf`
+  is `false` at `.negative` and `.unsupported` too, so the two are not
+  the same statement and `BlockOpened.kinds` is what rules the other
+  two out.  Six lines.
+* the ROW'S OWN BIT — `ordFree` on the OPENED domain carried to the
+  stored one by `blockCtorFieldDomain` + `mentionsMember_instSeq_false`
+  — is `copyOrdFOutside`'s `hmenAbs`, verbatim.  The route through
+  `os_field_domain_free` (`NestedOpenSpine.lean`) that the row named is
+  NOT needed and was not taken.
+* the TARGET'S BOUND is `NestedPinsRun.copyTgtLt`
+  (`NestedCopyInst.lean:1852`), already in the tree and already proved
+  from `MutualFormersFacts.ksJ`'s third conjunct and `lenFms`; three
+  lines here.
+
+The prologue is duplicated and not factored.  `copyOrdFOutside`'s own
+guards are the OTHER spellings (`ksF = .ordinary`, `l < cAJ.2`) and the
+translation between them needs the prologue's `hcA`/`hCD`, so routing
+that theorem through this one would buy nothing; duplication of this
+prologue is the file's existing idiom (`instOrdTgtAt`'s docstring says
+so of `copyOrdFOutside` in turn).
+
+##### (c) `hedgeAt` HAS LEFT THE STEP
+
+`nestedPinWideStep` (`NestedPinsLeInd.lean:240`) no longer takes
+`hedgeAt`.  What it takes instead is the RUN: its bare
+`(m : EnvModel V env₂)` is replaced by
+
+    (R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ …)
+    (SF : NestedPinSynFacts … st mp₁')
+
+and every `m` in the statement became `mp₁'.base2`, which is what
+`GroupFacts.syn` is already stated at — so the group record the step
+already holds IS the `S` the producer wants (`G.syn`), the container
+model is `G.syn.modeled` and the group base is `G.syn.grp`.  `hPD` is
+`R.pinData` and `hkindsRun` is `R.h.classify`.  The file gained one
+private `import ConLeche.Model.Inductives.NestedInstMap`.
+
+This is the shape every later wiring step wants anyway: at the run
+(`NestedPinsLe`'s own quantifier) `R` and `SF` are in scope and a bare
+`EnvModel V env₂` is not.
+
+##### (d) THE GATES
+
+Changed: `ConLeche/Model/Inductives/NestedInstMap.lean`,
+`ConLeche/Model/Inductives/NestedPinsLeInd.lean`, `DESIGN.md`.  **The
+kernel did not change**, so no accept-set table and no cost table is
+owed.
