@@ -92,6 +92,13 @@ FALLBACK = {
     # the statements.
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Annot.Bit'),
+    # task #315 (M5, O-1's file, session 2): the same file re-exports
+    # `Model/Annot/BitLemmas.lean` for `DenoteMetaSpine`, which the
+    # EXPOSED `def IhCallFold`/`IhSpineFold : Prop` name in their BODIES —
+    # the `PushChain` case above.  MEASURED: demoting the line fails the
+    # build with `Unknown identifier DenoteMetaSpine`.
+    ('ConLeche.Model.Inductives.BlockRecRule',
+     'ConLeche.Model.Annot.BitLemmas'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
