@@ -261,10 +261,27 @@ section WfData
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
 
 /-- Class `c`'s index set at a prefix spine: the eliminated
-component's own index-tuple set, at the parameter frame. -/
+component's own index-tuple set, at the parameter frame — and EMPTY
+at a prefix whose parameters do not fit, which is M5m's O-3: the kit
+is total over prefix spines, and at a spine that fits nothing the
+class carriers are empty and every obligation is vacuous. -/
 @[expose] noncomputable def blockRecIs (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
     (mem : Nat → Nat) (xs : List V) (c : Nat) : V :=
-  d.idx ψ (consList (xs.take d.nP) ρ) (mem c)
+  open Classical in
+  if SpineFit ρ (d.params ψ) (xs.take d.nP) then d.idx ψ (consList (xs.take d.nP) ρ) (mem c)
+  else empty
+
+theorem blockRecIs_pos {d : BlockData V} {ψ : Name → Nat} {ρ : Nat → V} {mem : Nat → Nat}
+    {xs : List V} (h : SpineFit ρ (d.params ψ) (xs.take d.nP)) (c : Nat) :
+    blockRecIs d ψ ρ mem xs c = d.idx ψ (consList (xs.take d.nP) ρ) (mem c) := by
+  classical
+  rw [blockRecIs, if_pos h]
+
+theorem blockRecIs_neg {d : BlockData V} {ψ : Name → Nat} {ρ : Nat → V} {mem : Nat → Nat}
+    {xs : List V} (h : ¬ SpineFit ρ (d.params ψ) (xs.take d.nP)) (c : Nat) :
+    blockRecIs d ψ ρ mem xs c = (empty : V) := by
+  classical
+  rw [blockRecIs, if_neg h]
 
 /-- Class `c`'s ORDINARY carrier at a prefix spine: the eliminated
 component of the block's least pre-fixed tuple. -/
@@ -272,6 +289,16 @@ component of the block's least pre-fixed tuple. -/
     (mem : Nat → Nat) (xs : List V) (c : Nat) : V :=
   lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
     (d.Φ ψ (consList (xs.take d.nP) ρ)) (mem c)
+
+/-- At a non-fitting prefix the classes' union is EMPTY. -/
+theorem not_mem_unionSet_blockRecIs {d : BlockData V} {ψ : Name → Nat} {ρ : Nat → V}
+    {mem : Nat → Nat} {xs : List V} {K : Nat} {u : V}
+    (h : ¬ SpineFit ρ (d.params ψ) (xs.take d.nP)) :
+    ¬ u ∈ˢ unionSet K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs) := by
+  intro hu
+  obtain ⟨c, -, i, hi, -⟩ := mem_unionSet.mp hu
+  rw [blockRecIs_neg h c] at hi
+  exact not_mem_empty _ hi
 
 /-- **What O-2 owes about a recursor's binder data**: a fitting spine
 of `rec_c`'s type is the rule prefix, the eliminated member's indices
@@ -306,6 +333,7 @@ theorem blockWf_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : 
         (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
   intro c hc ys hfit
   obtain ⟨hlen, hdec, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
+  rw [blockRecIs_pos hpar]
   refine ⟨hlen, hdec, tupW_mem hidx, ?_⟩
   rw [blockRecCr, ← hM.leaf (mem c) (hmem c hc) ψ ρ ((prefOf (rP c) ys).take d.nP)
     (idxOf (rP c) ys) hpar hidx]
@@ -953,7 +981,7 @@ module docstring names. -/
 noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
     (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
     (hmemN : ∀ c, c < K → mem c < d.N)
-    (hsatP : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ))
+    (hparFit : SpineFit ρ (d.params ψ) (xs.take d.nP))
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hconclTy : ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ mem xs c →
       ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
@@ -991,7 +1019,9 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
   hst := by
     intro u hu g hg
     obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
-    obtain ⟨j, fs, hj, hfit, rfl⟩ := blockCarrier_case hM hsatP (hmemN c hc) hi hx
+    rw [blockRecIs_pos hparFit] at hi
+    obtain ⟨j, fs, hj, hfit, rfl⟩ :=
+      blockCarrier_case hM (d.satOfSpine hparFit) (hmemN c hc) hi hx
     have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
     have hgB : ∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ mem xs)
         (blockRecCr d ψ ρ mem xs)) (tagged c i (d.inj ψ (mem c) j fs)) →
@@ -1006,5 +1036,104 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
 end Kit
 
 end WfStep
+
+/-! ## 12. The kit FAMILY, and the WF regime at the run
+
+`RecFamData.kit` is total over prefix spines (M5m's O-3).  With the
+index sets guarded (§3, `blockRecIs`) a spine whose parameters do not
+fit carries EMPTY classes, so the kit there has nothing to prove —
+`blockWfKitFam` is §11's kit where the prefix fits and the vacuous one
+where it does not, and both branches carry the SAME motive and step,
+so `RecFamData.hconcl` is stated at one spelling.
+
+`blockRecPre_wf_run` is then `blockRecPre_kit` at that family: the ι
+law's right-hand side is `blockRecStep_at`, moved to the CHAIN frame
+by the residue's lifting (`interp_liftN_chainFrame`, RM8's) and by the
+ih values being the ih terms' readings there (`hihChain` — the seam
+`ihFunAV_fold` closes once the rule data are functions of the run). -/
+
+section WfFam
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+  {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
+  {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
+  {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
+  {ihv : Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+
+/-- **The kit at EVERY prefix spine**: §11's where the parameters fit,
+the vacuous one where they do not. -/
+noncomputable def blockWfKitFam (hμ : μ.verifiedChecks = true)
+    (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
+    (hmemN : ∀ c, c < K → mem c < d.N)
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (hconclTy : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ mem xs c →
+      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
+      interp V
+          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
+        ∈ˢ (univ ℓ : V))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+    (hspF : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
+    (hihF : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs))
+          (tagged c i (d.inj ψ (mem c) j fs)) →
+        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
+          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+    (hCaB : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
+            (tagged c i (d.inj ψ (mem c) j fs)))
+    (xs : List V) : WfRecKit ℓ K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs) :=
+  open Classical in
+  if h : SpineFit ρ (d.params ψ) (xs.take d.nP) then
+    blockWfKit (nCt := nCt) (rP := rP) (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) hμ hM hw
+      hmemN h hnCt (hconclTy xs h) hcerts (hspF xs h) (hihF xs h) (hCaB xs h)
+  else
+    { B := blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
+      st := blockRecStep K d ψ ρ mem Rb0 ihv xs
+      hB := fun _ hu => absurd hu (not_mem_unionSet_blockRecIs h)
+      hst := fun _ hu => absurd hu (not_mem_unionSet_blockRecIs h) }
+
+/-- Both branches carry §9's motive. -/
+theorem blockWfKitFam_B (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
+    (hw : d.w ψ ≠ 0) (hmemN) (hnCt) (hconclTy) (hcerts) (hspF) (hihF) (hCaB) (xs : List V) :
+    (blockWfKitFam (V := V) (ℓ := ℓ) (K := K) (ρ := ρ) (mem := mem) (nCt := nCt) (rP := rP)
+        (concl := concl) (pdoms := pdoms) (fdoms := fdoms) (ihdoms := ihdoms) (Rb0 := Rb0)
+        (Ca := Ca) (ihv := ihv) (mp := mp) (F := F)
+        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB xs).B
+      = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs := by
+  classical
+  rw [blockWfKitFam]
+  split <;> rfl
+
+/-- Both branches carry §11's step. -/
+theorem blockWfKitFam_st (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
+    (hw : d.w ψ ≠ 0) (hmemN) (hnCt) (hconclTy) (hcerts) (hspF) (hihF) (hCaB) (xs : List V) :
+    (blockWfKitFam (V := V) (ℓ := ℓ) (K := K) (ρ := ρ) (mem := mem) (nCt := nCt) (rP := rP)
+        (concl := concl) (pdoms := pdoms) (fdoms := fdoms) (ihdoms := ihdoms) (Rb0 := Rb0)
+        (Ca := Ca) (ihv := ihv) (mp := mp) (F := F)
+        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB xs).st
+      = blockRecStep K d ψ ρ mem Rb0 ihv xs := by
+  classical
+  rw [blockWfKitFam]
+  split <;> rfl
+
+end WfFam
 
 end ConLeche.Model
