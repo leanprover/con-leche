@@ -135,7 +135,7 @@ recursor lane proves it once, and `declBlock` consumes it. -/
     (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
       denoteMeta mp'.base2.acval (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) ψ dd e
         = denoteMeta mpC.base2.acval envC ψ dd e) ∧
-    (∀ (T : Name) (i : Nat), NoProjEnv envC T i →
+    (∀ (T : Name) (i : Nat), envC.findProj? T i = none → NoProjEnv envC T i →
       NoProjEnv (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) T i)
 
 /-- **The tables' invariant crosses the recursors' conses**, by the
@@ -148,7 +148,10 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     (hfind : ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → envR.find? n = some c)
     (hden : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
       denoteMeta mR.acval envR ψ dd e = denoteMeta mC.acval envC ψ dd e)
-    (hnp : ∀ (T : Name) (i : Nat), NoProjEnv envC T i → NoProjEnv envR T i) :
+    (hnp : ∀ (T : Name) (i : Nat), envC.findProj? T i = none →
+      NoProjEnv envC T i → NoProjEnv envR T i)
+    (hslot : ∀ c, c < d.k → (∃ cA, d.ctorsM c = [cA]) → d.nIdxAt c = 0 →
+      ∀ j, envC.findProj? (d.memberName c) j = none) :
     BlockTablesCore mR d lps cvTasAll p₁ isRec A 0 := by
   obtain ⟨hform, hctor, hnpC⟩ := h
   have hsome : ∀ n : Name, (envC.find? n).isSome = true → (envR.find? n).isSome = true := by
@@ -157,7 +160,7 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     | none => rw [hc] at hn; exact nomatch hn
     | some c => rw [hfind n c hc]; rfl
   refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_,
-    fun c hc hck h1 h2 j => hnp _ _ (hnpC c hc hck h1 h2 j)⟩
+    fun c hc hck h1 h2 j => hnp _ _ (hslot c hck h1 h2 j) (hnpC c hc hck h1 h2 j)⟩
   · obtain ⟨hfindT, hres, hleaf, hFD⟩ := hform c cvTb hc
     refine ⟨hfind _ _ hfindT, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
     · rw [hag cvTb.name (by rw [hfindT]; rfl)]; exact hleaf ψ
@@ -336,11 +339,56 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     show (ctorsAs.getD t [])[jj]? = some cA
     rw [List.getD_eq_getElem?_getD, ht]
     exact hjj
+  -- ## every member's projection TABLE is absent at the constructors'
+  -- environment: the tables' stage checked it free above the
+  -- recursors, and a name absent there was absent below them
+  have hslotC : ∀ c, c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k →
+      (∃ cA, (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c = [cA]) →
+      (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).nIdxAt c = 0 → ∀ j,
+      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).findProj?
+        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName c) j = none := by
+    intro c hc h1 h2 j
+    obtain ⟨cA, hcA⟩ := h1
+    have hck : c < p₁.k := hc
+    have hcAs : ctorsAs.getD c [] = [cA] := by
+      rw [List.getD_eq_getElem?_getD,
+        hctorsAs c (by rw [hlenCtorsAs]; exact hck), hcA]
+      rfl
+    -- the member's sorts list is a singleton, because it is as long as
+    -- its constructor list (`checkSumCtors_inv`)
+    obtain ⟨sorts, hs⟩ : ∃ sorts, sortsss.getD c [] = [sorts] := by
+      obtain ⟨-, -, hall⟩ := ConLeche.checkBlockCtors_inv hCtors
+      obtain ⟨mc, hmc⟩ : ∃ mc, (p₁.members.zip cvTas)[c]? = some mc := by
+        refine ⟨_, List.getElem?_eq_getElem ?_⟩
+        rw [List.length_zip, hF.lenCv, hkm, Nat.min_self]
+        exact Nat.lt_of_lt_of_eq hck hkm
+      obtain ⟨ctorsA, sortss, hcs, hss, hsum⟩ := hall c mc hmc
+      obtain ⟨hlc, hls, -⟩ := ConLeche.checkSumCtors_inv hsum
+      have hlen1 : sortss.length = 1 := by
+        rw [hls, ← hlc]
+        have : ctorsA = ctorsAs.getD c [] := by
+          rw [List.getD_eq_getElem?_getD, hcs]; rfl
+        rw [this, hcAs]
+        rfl
+      match sortss, hlen1 with
+      | [sorts], _ => exact ⟨sorts, by rw [List.getD_eq_getElem?_getD, hss]; rfl⟩
+    have hn0 : (p₁.members.getD c default).nIdx = 0 := by
+      rw [← blockNIdxs_getD (q := p₁) (j := c) (Nat.lt_of_lt_of_eq hck hkm)]
+      exact h2
+    have hfree := find?_none_consBlockRecs
+      (blockTablesTblFree (q := p₁) (p₁.members.zip (ctorsAs.zip sortsss)) _ env₂
+        hTbl c _ (hzipEntry c hck) cA sorts hcAs hs hn0)
+    have hname : (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName c
+        = (p₁.members.getD c default).cvT.name := hmnameEq c hck
+    have hfree' : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
+        (projTableName (p₁.members.getD c default).cvT.name) = none := hfree
+    rw [hname, ConLeche.Env.findProj?, hfree']
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR, hag, hfindMono, hden, hnpMono⟩ :=
     hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) ((p₀.complete p₁).withKinds kinds)
       cvTas ctorsAs rs mpC hRec
-  have hcoreT := (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono
+  have hcoreT :=
+    (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables
   refine stageBlockTables hN hS rfl rfl rfl (p₁.members.zip (ctorsAs.zip sortsss)) 0 _ env₂
     mpR ?_ hTbl hcoreT
