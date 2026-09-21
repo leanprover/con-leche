@@ -621,4 +621,71 @@ theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
     exact noProjEnv_consBlockRecs hnp (fun r hr => hnoTy r hr T i hslot)
       (fun r hr rhs hrhs' => hnoRhs r hr rhs hrhs' T i hslot)
 
+/-! ## The `String` guard, monotonically
+
+`strLitSupported` is not congruent under the cons — nothing forbids a
+recursor NAME from being one of the seven string-support names — but it
+is MONOTONE, because every guard is false at an absent slot and a
+present one is carried over verbatim.  That is enough for conjunct 3's
+monotone half. -/
+
+/-- A slot guard that fails at an absent name survives a lookup-preserving
+extension. -/
+theorem guardOk_mono {envA envB : Env} {n : Name} {f : Option ConstantInfo → Bool}
+    (hnone : f none = false)
+    (hkeep : ∀ (n : Name) (c : ConstantInfo), envA.find? n = some c → envB.find? n = some c)
+    (h : f (envA.find? n) = true) : f (envB.find? n) = true := by
+  cases hf : envA.find? n with
+  | none => rw [hf, hnone] at h; exact nomatch h
+  | some ci => rw [hkeep n ci hf]; rw [hf] at h; exact h
+
+/-- The `Nat`-literal guard is monotone. -/
+theorem natLitSupported_mono_of_keep {envA envB : Env}
+    (hkeep : ∀ (n : Name) (c : ConstantInfo), envA.find? n = some c → envB.find? n = some c)
+    (h : ConLeche.natLitSupported envA = true) : ConLeche.natLitSupported envB = true := by
+  unfold ConLeche.natLitSupported at h ⊢
+  simp only [Bool.and_eq_true] at h ⊢
+  exact ⟨⟨guardOk_mono rfl hkeep h.1.1, guardOk_mono rfl hkeep h.1.2⟩,
+    guardOk_mono rfl hkeep h.2⟩
+
+/-- The `String`-literal guard is monotone. -/
+theorem strLitSupported_mono_of_keep {envA envB : Env}
+    (hkeep : ∀ (n : Name) (c : ConstantInfo), envA.find? n = some c → envB.find? n = some c)
+    (h : ConLeche.strLitSupported envA = true) : ConLeche.strLitSupported envB = true := by
+  unfold ConLeche.strLitSupported at h ⊢
+  simp only [Bool.and_eq_true] at h ⊢
+  exact ⟨⟨⟨⟨⟨⟨⟨natLitSupported_mono_of_keep hkeep h.1.1.1.1.1.1.1,
+    guardOk_mono rfl hkeep h.1.1.1.1.1.1.2⟩,
+    guardOk_mono rfl hkeep h.1.1.1.1.1.2⟩,
+    guardOk_mono rfl hkeep h.1.1.1.1.2⟩,
+    guardOk_mono rfl hkeep h.1.1.1.2⟩,
+    guardOk_mono rfl hkeep h.1.1.2⟩,
+    guardOk_mono rfl hkeep h.1.2⟩,
+    guardOk_mono rfl hkeep h.2⟩
+
+/-- **Conjunct 3's monotone half, unconditionally** — the form the tree
+uses everywhere else (`denoteMeta_cons_fresh_mono`): a SUCCESSFUL
+reading at the constructors' environment is reproduced verbatim at the
+recursors'.  The equation `blockRecStaged_of` states needs `hstr`; this
+does not. -/
+theorem denoteMeta_consBlockRecs_mono {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {acv acvC : Name → (Name → Nat) → AnnotTerm}
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
+    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = acvC n)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound envC e) {ea : AnnotTerm}
+    (h : denoteMeta acvC envC ψ d e = some ea) :
+    denoteMeta acv (consBlockRecs envC.find? q nP 0 rs envC) ψ d e = some ea := by
+  have hkeep := find?_consBlockRecs_keep (q := q) (nP := nP) hfr
+  have hne : ∀ n : Name, (envC.find? n).isSome = true → ∀ r ∈ rs, n ≠ r.1.name := by
+    intro n hn r hr hh
+    rw [hh, hfr r hr] at hn
+    exact nomatch hn
+  refine denoteMeta_envExtend_mono (acval := acv) (φ := ψ)
+    (fun {n} {ci} hf => hkeep n ci hf)
+    ⟨natLitSupported_mono_of_keep hkeep, strLitSupported_mono_of_keep hkeep⟩
+    (fun sn i hs => by rw [findProj?_consBlockRecs hpsh]; exact hs) d e hcb ?_
+  rw [denoteMeta_acval_congr (φ := ψ) (fun n hn => hag n (hne n hn)) d e]
+  exact h
+
 end ConLeche.Model
