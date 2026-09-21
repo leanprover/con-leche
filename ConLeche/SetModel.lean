@@ -9,6 +9,7 @@ public import ConLeche.SetModel.EnvClauseTreeList
 public import ConLeche.SetModel.EnvClauseP3
 public import ConLeche.SetModel.EnvClauseP4
 public import ConLeche.SetModel.UnionRecIndexed
+public import ConLeche.SetModel.EnvClauseIndexed
 
 @[expose] public section
 
@@ -44,7 +45,10 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   INDEXED, PARAMETRIC block with a REFLEXIVE field (`Acc`-shaped in
   `Type`, at one member and at two mutual ones), together with the
   `ℓ = 0` arm (`InductionKit`), where the motive fibre's inhabitation
-  comes from the tuple lfp's induction alone.
+  comes from the tuple lfp's induction alone; `EnvClauseIndexed` —
+  `TV ::= node (n : ω) (v : Vec TV n)`, where the group's container is
+  INDEXED, so the identification runs at a non-trivial index set and
+  the fibre law selects its arms by the index.
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing
