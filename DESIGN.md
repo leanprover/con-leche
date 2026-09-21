@@ -131053,3 +131053,280 @@ wrong, counting the reach; `init-full` `perf stat -e instructions:u`
 cells only, no Mathlib perf run.  If either record fires on an
 official accept and no spelling fixes it, that is an invalidation
 candidate and the lane stops.
+
+
+#### WIDE (f5) — K.74 AND K.76 **LANDED**: THE THREE RECORDS READ THEIR HEAD BELOW THE REDUCED TOWER, THE TWO RECOMPUTED TOWERS ARE TIED BINDER BY BINDER, AND K.73 STAYS (lane LE, 2026-09-21)
+
+The previous row stated both against the tree.  Both are landed, with
+the full battery, and the row below corrects ONE claim that row made
+about which fixture exercises what — the control found it in one run.
+
+##### (a) WHAT THE KERNEL SAYS NOW
+
+**K.74.**  A new kernel function names the subject the three
+ordinary-field records read their head off:
+
+    def ordHeadCut (W : Expr) : Expr := stripDomPis (ordHeadRed W)
+
+and `ordHeadCut_const` (off `ordHeadRed_const` and
+`stripDomPis_of_const`) says it is the IDENTITY at a constant head,
+which is every field of both real corpora.  The three subjects became
+
+    K.67 (`nestedOrdTargetAt`):     let dmJ := ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
+    K.68 (`nestedOrdSelfTargetAt`): let dmJ := ordHeadCut (ordTargetDom Jm.lps ci.nP terms   q  l domJ.1)
+    K.69 (`nestedOrdNormAt`):       if !ordRootFired env memsJ ownSelf (ordHeadCut W) then true
+
+and nothing else moved.  `Wn := ordHeadRed W` is NOT stripped at
+K.69's term equation — that equation compares the two reduced mints
+towers and all, and it is the only place the PLANTED tower is compared
+today — and `ordRootInst`'s cut is unmoved, `abstractRange` and
+`instantiateList` raising it themselves under each binder.
+
+**K.76.**  Two more kernel functions and the conjunct they feed:
+
+    def ordTeleGo (Ds : List Expr) : Nat → Expr → List Expr
+      | cut, .forallE ty b _ => Expr.instantiateList ty Ds cut :: ordTeleGo Ds (cut + 1) b
+      | _, _ => []
+
+    def ordTargetTele (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
+        (dom : Expr) : List Expr :=
+      ordTeleGo (((ownSelf.getD qK default).getAppArgs.take nP).reverse) l
+          (ordTargetDomL lps ownSelf qK dom)
+        ++ ((ordHeadRed (ordTargetDom lps nP ownSelf qK l dom)).piBinders).1.map (·.1)
+
+    (let tlO := ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1
+     let tlB := ordTargetTele Jm.lps ci.nP terms  q  l domJ.1
+     (tlO.length == tlB.length) &&
+       (List.range tlO.length).all fun i =>
+         match ordRootInst m₀.lps ciJ.nP (l + i) pinG (tlO.getD i default) with
+         | none => true
+         | some Tb => tlB.getD i default == Tb)
+
+placed inside K.69's own arm, under K.69's own guard, immediately
+before K.73's `match stored …`.  `ordTargetTele_length` (in the kernel,
+beside it) proves its length IS K.73's right-hand side,
+`domPiDepth (ordTargetDomL …) + domPiDepth (ordHeadRed (ordTargetDom …))`,
+so the two rows compose with no arithmetic owed at the model.
+
+##### (b) THE PITFALL, CHECKED — AND K.73 IS NOT SUBSUMED
+
+`tlO` and `tlB` are the SAME function at the SAME stored domain
+`domJ.1`, differing only in the component table, so the comparison is
+recomputation against recomputation and the refuted shape (the copy's
+STORED binders against a recomputation) is structurally excluded:
+K.76 does not read `stored` at all.  K.73 does, and it compares a
+LENGTH, which the mint's rewrite does not move.  **K.73 therefore
+stays** — it is the tree's only stored-against-recomputed reading at
+this arm, and by the pitfall it is the only one that may exist.  The
+two are complementary: K.73 gives the model the copy's recorded
+telescope's LENGTH, K.76 gives the two recomputed telescopes' CONTENT.
+
+##### (c) THE CORRECTION — `nested_pi_field` IS **NOT** A K.74 WITNESS
+
+The previous row said the three tower fixtures each exercise K.74 at
+K.68.  Two do; `nested_pi_field` does not, and the reason is the one
+K.72's own reading already contained: `ordTargetDom` STRIPS the
+container's tower before it substitutes, so at `K α | mk (f : Nat → α)`
+the block's recomputation is `J`'s copy applied — constant-headed,
+depth `0` — and `ordHeadCut` is the identity there.  **K.74's witnesses
+are the fields whose tower is PLANTED**, and the control below names
+all four in the e2e corpus.  What covers `nested_pi_field`'s tower is
+K.76's FIRST summand (`ordTeleGo` over `domJ.1`), which the corpora
+measure at zero.
+
+##### (d) THE CONFORMANCE — THE SAME ANSWERS THE UNPATCHED BINARY GIVES
+
+| corpus | accepted | shadow blocks | accepting | fires |
+|---|---|---|---|---|
+| `init-full` `--verified --nested-shadow --jobs=1` | 53 093 | 1 | 1 | 0 |
+| `init-full` `--trusted --nested-shadow --jobs=1` | 53 093 | 1 | 1 | 0 |
+| Mathlib `--verified --nested-shadow --jobs=8` | 654 504 | 41 | 41 | 0 |
+| Mathlib `--trusted --nested-shadow --jobs=8` | 654 504 | 41 | 41 | 0 |
+
+Byte-for-byte the numbers the pre-row binary (`c3de21b5`) gives at the
+same four cells, so the two records cost no acceptance anywhere
+measured.  (The kernel file took two COMMENT-only edits after the
+measured binary was built — the `ordHeadCut` docstring's fixture list,
+corrected by §(c), and the unguarded-length residue recorded beside
+K.76's conjunct — so the measured `Bool`s are the landed ones
+character for character.)  `tests/nested-shadow.sh` is **47/47**, which includes the
+four blocks K.74 newly puts the lookups to work at (§(e)).
+
+
+##### (e) THE CONTROLS — FIVE BINARIES, ONE ANSWER MADE WRONG IN EACH
+
+Built with `lake build con-leche` off the landed commit with a single
+edit to `Kernel/Inductives/NestedInstall.lean`, run against
+`tests/nested-shadow.sh` (47 rows), `init-full` and Mathlib.
+
+| control | the answer made wrong | shadow gate | `init-full` | Mathlib |
+|---|---|---|---|---|
+| `c74b` — K.68's cut | `domPiDepth (ordHeadRed (block's recomputation)) == 0` asserted | **43/47** — 4 blocks in 4 rows | 0 of 1 | 0 of 41 |
+| `c74o` — K.67/K.69's cut | `domPiDepth Wn == 0` asserted under K.69's guard | 47/47 | 0 of 1 | 0 of 41 |
+| `c76l` — K.76's length | `tlO.length + 1 == tlB.length` | **42/47** — 6 blocks in 5 rows | 0 of 1 | 5 of 41 |
+| `c76t` — the tower population | `tlO.length == 0` | 47/47 | 0 of 1 | 0 of 41 |
+| `c76i` — K.76's binder equation | `tlB.getD (i + 1) default == Tb` | 47/47 | — | — |
+
+**`c74b` is K.74's REACH, and it is not vacuous.**  Its four rows are
+`nested_lam_pin_refl` `T`, `nested_pin_prop_cod` `T`,
+`nested_comp_tower` `J` and `nested_redex_tower` `J`, each with K.68's
+own message ("a rewritten ordinary field's target is not the block's
+own class").  All four are fields at which K.68 was SILENT before this
+row and asserts a lookup now — and all four ACCEPT under the landed
+binary.  `nested_pi_field` is absent for §(c)'s reason.
+
+**`c76l` is K.69's ARM's reach**, and it is K.72's control's set
+exactly: `nested_p04` `P4`, `inmodel_groups` `M`/`H`,
+`nested_pin_nocollide` `NoCollide`, `nested_bvar_field` `BvarField`,
+`nested_redex_owner` `Outer`, each with K.69's own message ("a
+rewritten ordinary field's domain is not the owning container's domain
+instantiated").  So K.76's conjunct is EVALUATED at six e2e blocks and
+the length half is what it spends there.
+
+**`c74b`'s Mathlib column is ZERO**, so K.74's added reach is an
+`e2e`-only population: no Mathlib field's block recomputation is a `Π`
+at this arm.  **`c76l`'s is FIVE of 41**, K.72's control's Mathlib
+number exactly, so K.69's arm IS reached there and K.76's length half
+is evaluated at those five.
+
+**`c74o` and `c76t` are the POPULATION measurements, and both are
+empty everywhere.**  At every field K.67's and K.69's guard reaches, the owner's
+reduced mint is not a `Π` and the recomputed telescope is empty — so
+K.74's owner-side widening and K.76's per-binder equations are owed by
+the SYNTAX and not by a corpus, exactly as K.72's two summands were.
+The three witnesses that DO carry a tower at this arm are TRIPWIRES
+(`nested_pi_field`, `nested_comp_tower`, `nested_redex_tower`: the
+modeller declines `J` for its reflexive member, so the fold stops
+before the outer block, and at `J`'s own install the container has no
+own pins, which is K.67's and K.69's loop).  A proof's case split is
+over the syntax and never over a corpus; the measurement here is a
+non-firing check.
+
+##### (f) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, against the binary built from `c3de21b5` (the same tree
+without the two records).
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2597 G | 538.2353 G | **−0.0045 %** |
+| `init-full --trusted --nested-shadow` | 520.8867 G | 520.8869 G | **+0.00004 %** |
+
+Both cells are noise, which is what the shape predicts: `ordHeadCut`
+adds one `stripDomPis` on a term the arm already built, and
+`ordTargetTele` runs one `instantiateList` per tower binder at a tower
+population both corpora measure at ZERO (§(e)'s `c76t`).  No Mathlib
+perf cell, per the standing ruling.
+
+##### (g) THE GATES
+
+`tests/arena.sh` EXIT 0 — `nested-shadow: 47/47`, `e2e: 200/200`,
+`arena suite: 91/96`, `annot 15/15`, `mode flags 10/10`, `prelude
+counts 3/3`, `progress lane 15/15`, `worker pool 15/15`, `DAG-tower
+14/14`, `axioms: pinned (20 theorems)`, trusted sweep 162+200+15 with
+the 3 recorded divergences, `--jobs=1` and `--jobs=4` sweeps as at the
+default, `inmodel: OK`, `proofdeps: 4975 module rows, doors: 0`,
+`shake: 514 removals, all allowlisted` (pub-imports 1348 of 2320
+public, none demotable), `overview-links: 112`, `quote-gate: 2`,
+`no-local-paths: OK`, `challenge: OK`, `layering: 0 base->lane edges,
+0 impl->theory`.  Every counter is the row above's.
+`tests/warning-free.sh c3de21b5` — 5 changed modules, **0 warning
+lines** in both halves; `lake test` 0 warnings (the fifth is the test
+library, which gained §(j)'s four `#guard`s).
+`tests/unconsumed.sh` **205 of 3950** against **205 of 3948**: TWO
+declarations added and both consumed — `nestedOrdNormOk_tele` by
+`NestedPinsRun.ordTeleAt`, and that by the producer of
+`GroupFacts.ordTele` (§(i)).  The advisory's one standing nested entry is still
+`normPosDomM_openRedPis_ordHeadRed`, K.74's own named consumer, which
+§(h) (1)–(2) is where it is spent.
+`#print axioms` on `stripDomPis_of_const`, `ordHeadCut_const`,
+`ordTeleGo_length`, `piBinders_length`, `ordTargetTele_length`,
+`nestedOrdNormOk_tele` and `NestedPinsRun.ordTeleAt`:
+`[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
+
+##### (h) WHAT THE OBJECT NOW NEEDS, SPELLED AGAINST THE TREE
+
+The kernel half is done; the model half is not, and nothing below is
+compiled.
+
+1. **`OrdTargetTele`, beside `OrdTargetRead`** (`NestedPremise.lean`),
+   a `PinShapes` conjunct that PRODUCES an environment fact and reads
+   binder by binder at each binder's own cut:
+
+        ∀ fs₁, fs₁.length = l → SpineFit … (Fs.take l) fs₁ →
+          ∀ i, i < tlsl.length →
+            denoteMeta acval env ψ (nP + (l + i))
+                (Expr.instSeq (Verify.openFvars nP (l + i)) (l + i - 1)
+                  ((ConLeche.ordTargetTele lpsC nPJ ownSelf q l dom).getD i default))
+              = some (tlsl.getD i default).2.2
+
+   — the OWNER's recomputed telescope binder `i` IS the copy's recorded
+   binder `i`, which is `OrdTargetRead`'s own shape one index down.  It
+   is projected out at a pin exactly as `rowOrdRead` projects
+   `OrdTargetRead` (`NestedPremise.lean:1492`, the definition at `:1146`), with `rowOrdReadMem`'s
+   twin at the member arm.
+2. **The producer** at the eight deep rows
+   (`NestedCopyInst.lean:10365`, `:10678`, `:11284`, `:11393`,
+   `:11562`, `:11794`, `:11904`, `:12428`), now reading at
+   `stripDomPis (ordHeadRed …)` — which is what K.74 makes available,
+   and what retires **`hfinRefl`** (`NestedInstMap.lean:2912`, `:3226`,
+   `:4579`): its claim is the STORED domain's head, and the
+   recomputation's own cut head is what the kernel now asserts.
+3. **DONE this session** — `NestedPinsRun.ordTeleAt` and
+   `GroupFacts.ordTele`; see §(i).
+4. **The `teleOfFields` congruence** (`Semantics/Tower/TowerIntro.lean`,
+   beside `teleOfFields_cons`): two field lists of equal length whose
+   entries interpret alike at every prefix environment give the same
+   `TeleS`, so `slotSet`'s `piTele` is the same at both copies.  It is
+   what stands where `slotSet_nil` stands today.
+5. **`nestedSlotOrd_pin` re-proved** (`NestedPinLeafAll.lean:5868`)
+   with (4) in place of `slotSet_nil`, which retires `hscope`'s
+   flatness conjunct at its carriers — `nestedSlotOrd_pin`
+   (`:5902`), `nestedFitc_pin` (`:6853`) and the assembly
+   `nestedPinPairAt_pinσ` (`:7535`)
+   — and `hscope`'s head conjuncts move to `ordHeadCut` with it, since
+   a planted tower makes the RAW recomputation's head unavailable.
+   Only then is `hscope` DISCHARGED at the assembly.
+
+Honest sizing from here: three to six sessions for (1)–(5).  The
+flatness conjunct is FALSE at `tests/e2e/nested_pi_field.ndjson` (WIDE
+(f3)'s §(f)), so there is no shorter route through it.
+
+##### (i) THE FIRST MODEL OBJECT LANDED WITH IT — K.76 REACHES THE RUN
+
+K.76 is not left as a kernel Bool with nothing above it.  Three
+objects carry it to the run.  The first two are DECLARATIONS and each
+is consumed by the next, so the advisory count does not move; the
+third is a structure CLAUSE, which the advisory does not scan.
+
+| object | file:line | what it says |
+|---|---|---|
+| `nestedOrdNormOk_tele` | `Verify/Inductives/NestedCopyKinds.lean:1925` | the Bool inverted: the two `ordTargetTele`s have equal length, and binder `i` of the block's IS `ordRootInst`'s image of the owner's at `l + i`.  It derives the field's KIND itself (`nestedOrdNormOk_fire` at `hnorm := rfl`), so no caller carries it |
+| `NestedPinsRun.ordTeleAt` | `Model/Inductives/NestedInstMap.lean:3800` | the same in the RUN's vocabulary — `ordTowerAt`'s scaffolding verbatim (container record, member, constructor, `stripPis`, field kind, `lpsC`/`nP` bridge), with the guard read below the reduced tower |
+| `GroupFacts.ordTele` | `Model/Inductives/NestedPinLeafAll.lean:2500` | the group's clause, produced inside `nestedPinLeafAll`'s `NestedPinGroupIds` construction (`:9322`) beside `ordTower`'s |
+
+The clause's GUARD is `ordRootFired … (ordHeadCut (ordTargetDom …))`
+and not `ordTower`'s raw firing, which is the whole reason K.74 had to
+land first: at a field whose tower the MINT plants, the raw
+recomputation is a `Π` and does not fire at all.
+
+It has no consumer yet — `nestedSlotOrd_pin` is where it will be
+spent, through §(h) (4)'s `teleOfFields` congruence — but it is a
+PRODUCED fact and not an assumed one, so nothing is owed by carrying
+it.
+
+##### (j) THE ARITHMETIC'S WITNESS, SINCE NO FIXTURE REACHES IT
+
+Both corpora measure K.76's tower population at ZERO (§(e)'s `c76t`)
+and the three fixtures that DO carry a tower at this arm are
+tripwires, so the cut's arithmetic has no end-to-end witness.  Four
+`#guard`s in `tests/ConLecheTests.lean` are it: `ordTeleGo` at cut `0`
+and at cut `1` on a two-binder domain whose binders reach the
+component from their own depth (both come back as the component), a
+binder that points at the TELESCOPE's own binder and stays loose —
+which is what a FIXED cut would get wrong — and the length against
+`domPiDepth`.  They are the honest substitute for a fixture at an arm
+no route reaches yet, and they go red the day `ordTeleGo`'s cut stops
+rising.
