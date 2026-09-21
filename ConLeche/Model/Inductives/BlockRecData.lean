@@ -1269,4 +1269,128 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
 
 end RuleData
 
+/-! ## A.7 The ruling of session 4, resolved: NO interface change
+
+The coordinator's option (i) — "thread the per-field `FieldReadAt`
+package into `declBlock`'s `hrec` and `blockRecStaged_run`" — turns
+out to need NO threading at all.  RM7's session-2 `hrec` already hands
+the recursor lane the block's whole representation, including
+
+```
+BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k
+```
+
+whose third clause carries, per (member `c`, constructor `j`), the
+constructors' reading record `BlockCtorDataI` — the block route's
+counterpart of the native route's `CtorReadR`.  So the data IS in
+scope where `hnew` is proved; `blockCtorData_of_core` is the one-line
+projection that names the entry point.
+
+**What the ruling actually reduces to is ONE owed theorem**, the block
+analogue of `fieldReadAt_of` (`FixRecRead.lean:965`, which builds
+`FieldReadAt` out of `CtorReadR`):
+
+```lean
+theorem blockFieldReadAt_of (hcd : BlockCtorDataI mpC.base2 … (d.eissF c j) (d.tssF c j))
+    {fvs : List Expr} {o : Expr}
+    (hop : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0 = some (fvs, o))
+    {i : Nat} (hi : i < cA.2) :
+    FieldReadAt mpC.base2 ψ d.nP cA.2 i cA.1.type fvs
+      ((d.tssF c j ψ).getD i []) ((d.eissF c j ψ).getD i [])
+```
+
+`BlockCtorDataI.reflOpen` is its content — the field's telescope
+OPENED at the field's depth, its domains reading to the telescope's
+entries and its body's index expressions to the field's readings —
+and the gap to `FieldReadAt` is the same `instSeq`/`openFvars` algebra
+`fieldReadAt_of` performs against `CtorReadR`'s
+`fieldRead`/`recEntry`/`fieldArity`/`teleLen`.  It belongs in M3's
+tier (beside `BlockCtorDataI`), not here. -/
+
+/-- The constructors' reading record for one (member, constructor),
+off the stage's core invariant — `blockFieldReadAt_of`'s entry. -/
+theorem blockCtorData_of_core {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    {c j : Nat} {cA : ConstantVal × Nat} (hcA : (d.ctorsM c)[j]? = some cA) :
+    BlockCtorDataI mpC.base2 d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
+      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j) :=
+  (hcore.2.2.1 c j cA hcA).2.2
+
+/-! ## A.8 The remaining components, SPELLED
+
+`pdoms0` needed no new reading (§A.6).  The other four syntactic
+components are the readings of the check's own opened frame, and they
+are functions of the run: the recursor's stored type and the
+constructor's stored type determine every Expr
+`checkBlockRule` opens (§A.5's equations), so recomputing the same
+`openPisAtFvars` / `instPisAt` here and reading the result is the
+definition.  The identification — that the run's witnesses ARE these —
+is `Option` determinism against `checkBlockRule_data`, once
+`checkBlockRecsRules` is peeled to reach one rule; that peel, and
+A-2/A-3's uses of these, are not in the tree. -/
+
+/-- The readings of an opened telescope's fvar types, each at its own
+depth. -/
+def readOpenedDoms (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    Nat → List Expr → List AnnotTerm
+  | _, [] => []
+  | d, x :: xs =>
+    (denoteMeta acval env ψ d x.fvarTypeD).getD default :: readOpenedDoms acval env ψ (d + 1) xs
+
+section Components
+
+variable (p : ConLeche.BlockShape)
+  (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+
+/-- The `c`-th stored recursor's type. -/
+@[expose] def blockRuleRecTy (c : Nat) : Expr := (rs.getD c default).1.type
+
+/-- The `i`-th constructor the `c`-th recursor's rules run over. -/
+@[expose] def blockRuleCtorOf (c i : Nat) : ConstantVal × Nat :=
+  ((rs.getD c default).2.2.2).getD i default
+
+/-- The rule's PREFIX openers: the recursor type's first `rP` binders. -/
+@[expose] def blockRulePrefFvs (c : Nat) : List Expr :=
+  ((ConLeche.openPisAtFvars (p.rulePrefixAt c) (blockRuleRecTy rs c) 0).map (·.1)).getD []
+
+/-- The constructor's telescope at the rule's parameters. -/
+@[expose] def blockRuleCrest (c i : Nat) : Expr :=
+  ((ConLeche.Expr.instPisAt ((blockRulePrefFvs p rs c).take p.nP)
+    (blockRuleCtorOf rs c i).1.type).map (·.2)).getD default
+
+/-- The rule's FIELD openers, at the depth `rP`. -/
+@[expose] def blockRuleFieldFvs (c i : Nat) : List Expr :=
+  ((ConLeche.openPisAtFvars (blockRuleCtorOf rs c i).2 (blockRuleCrest p rs c i)
+    (p.rulePrefixAt c)).map (·.1)).getD []
+
+/-- The constructor's conclusion at those openers — its INDEX
+expressions are `getAppArgs.drop nP`. -/
+@[expose] def blockRuleCbody (c i : Nat) : Expr :=
+  ((ConLeche.openPisAtFvars (blockRuleCtorOf rs c i).2 (blockRuleCrest p rs c i)
+    (p.rulePrefixAt c)).map (·.2)).getD default
+
+variable (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env) (ψ : Name → Nat)
+
+/-- **`fdoms0`** — the constructor's field domains at the rule's frame. -/
+@[expose] def blockRuleFdomsAV (c i : Nat) : List AnnotTerm :=
+  readOpenedDoms acval envC ψ (p.rulePrefixAt c) (blockRuleFieldFvs p rs c i)
+
+/-- **`es0`** — the constructor's index expressions, read at the rule's
+frame. -/
+@[expose] def blockRuleEsAV (c i : Nat) : List AnnotTerm :=
+  ((blockRuleCbody p rs c i).getAppArgs.drop p.nP).map fun e =>
+    (denoteMeta acval envC ψ (p.rulePrefixAt c + (blockRuleCtorOf rs c i).2) e).getD default
+
+/-- **`mk0`** — the FIRED SPINE `C_J p⃗ f⃗`, read at the rule's frame. -/
+@[expose] def blockRuleMkAV (c i : Nat) : AnnotTerm :=
+  (denoteMeta acval envC ψ (p.rulePrefixAt c + (blockRuleCtorOf rs c i).2)
+    (ConLeche.Expr.mkAppN (.const (blockRuleCtorOf rs c i).1.name (p.lps.map .param))
+      ((blockRulePrefFvs p rs c).take p.nP ++ blockRuleFieldFvs p rs c i))).getD default
+
+end Components
+
 end ConLeche.Model
