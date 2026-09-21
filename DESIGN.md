@@ -80566,3 +80566,43 @@ per group).  Everything else is deliverable 1's kit at width `N` or a cherry-pic
 * **N7** Order: F0 before any lane; if F0 needs a hypothesis outside the clause of
   §1.2, stop and redesign the clause before deliverable 1 fixes `BlockModelAt`'s shape.
 
+
+#### FALSIFIERS F0–F2 PASSED (2026-09-21, lanes `agent/uinds-F0`, `agent/uinds-F12`; merged d6c5965e, b78b50a9)
+
+Pure set-level developments, no syntax: `SetModel/EnvClauseTreeList.lean`
+(Tree/List, 1120 lines), `SetModel/EnvClauseP3.lean` (`P3 ::= mk (Array
+(List P3))`, four components, two groups, ranks 0/1, 1530 lines),
+`SetModel/EnvClauseP4.lean` (`Rose α ::= node α (List (Rose α))`,
+`P4 ::= mk (Rose P4)`: the instance's segment is the container's WIDE
+table, 1319 lines); `SetTheory/Derive/LfpCompose.lean` cherry-picked
+from 5fea1316 with the three tuple congruences from `agent/uniform-le`
+(`isClosedTuple_congr`, `lfpTuple_congr`, `lfpTuple_seg_congr`).  All
+three use NEITHER class accessibility (`unionAcc_of_classAcc`,
+`unionRecC`) NOR a second level `w'` NOR the clamp/`composeΦ`; every
+container clause is witnessed by the standard container (non-vacuity);
+axioms `[propext, Classical.choice, Quot.sound]`.  The identification
+at the least tuple (theory §2.4) is `lfpTuple_seg_congr` and was the
+cheapest part every time (≤ 150 lines); the recursor costs ~85 lines
+per constructor and is what the general kit must generate.
+
+**What the clause of theory §1.2 must record beyond what was written
+(the findings; each marked `-- F0/F1/F2 FINDING:` in the sources):**
+1. `ctor` at INSTANCE components too: the injection of a container copy's
+   constructor `inj ψ c j fs = ⟦C'.ctor_j⟧ ⟦Ds'⟧^ord fs` — official emits
+   a recursor per instance (`P3.rec_2` fires on `List.cons`), so its ι
+   rule cannot be stated without it (three ι rules consume it).
+2. An instance component's reading is at pins over the container's OWN
+   carriers (`instLeaf`: `LIST (app (ROSE α) pt)`, not `LIST α`) —
+   `⟦Ds⟧^ord` is a recursion over the container's table, not a
+   substitution of its parameters.
+3. Formation `inj … ∈ univ w` is DERIVABLE from `functor.maps` + `fibre`
+   provided `fibre` quantifies over ALL tuples and ALL parameter frames —
+   narrowing it to the carrier breaks F0.
+4. The (W) witness `tupleContainer_closed_exists` reads positions and
+   targets off the SHAPE alone: shapes must be tagged by (component,
+   constructor) globally — `List.cons` occurs at two components with
+   different targets in F1.
+5. The rank order orders the CLAIMS, not the proofs: the rank-1 step
+   consumes only `famSpace_app`; the untested case is INDEXED pins, where
+   `lfpTuple_seg_congr`'s index-set agreement would consume the lower
+   rank's identification.
