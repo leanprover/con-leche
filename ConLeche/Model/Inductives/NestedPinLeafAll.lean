@@ -5893,6 +5893,17 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
     -- the owner's level assignment and parameter frame at the block's pin
     (hψJ : ψJ = Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)
     (hρJ : ρJ = (D).pinFrame gp ψ ρp)
+    -- **THE TWO SORTS** (task #315 WIDE (f8)): the block's own against
+    -- the OWNER's at the pin's level assignment.  `slotSet_nil` did
+    -- not read `w` and this was not asked; the congruence that stands
+    -- where it stood (`slotSet_instTele`) reads it at every binder of
+    -- the tower, so it is asked now.  It is PRODUCED at the caller
+    -- (`nestedFitc_pin`) out of three facts it already holds —
+    -- `PinGroupView.w` at the owner's group view `S₂`,
+    -- `ContainerModeled.params_congr` across the two level
+    -- assignments, and `NestedPinGroupSyn.w` at the block's own group
+    -- — so nothing is added to the assembly's named set.
+    (hw : dJ.w ψJ = f₀.s.eval ψ)
     -- the per-field scoping and reading of the owner's recomputation
     -- (`GroupFacts.ordRead`'s own inputs)
     (hscope : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
@@ -6095,16 +6106,29 @@ theorem nestedSlotOrd_pin (m : EnvModel V env₂) {st : ElimState} {dK dJ : Bloc
         (fun lps M us hh => hrowTgt l hl hord hrsP dom hdm lps M us hh)
         (fun lps => hrowRead l hl hord hrsP dom hdm hmemT lps) hnIdxR fs₁ hfsl hfit₁' hfit₂
   obtain ⟨htlL₁, htlL₂, hEis⟩ := hdata
-  rw [hflat] at htlL₁ htlL₂ hEis
-  rw [Nat.add_zero] at hEis
-  have htl₁ := List.eq_nil_of_length_eq_zero htlL₁
-  have htl₂ := List.eq_nil_of_length_eq_zero htlL₂
-  rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu l hl hord hrsB hrsP, hX l hl hord hrsB hrsP, hEis, hρJ,
-    List.map_map]
-  refine congrArg _ (congrArg _ (List.map_congr_left fun e _ => ?_))
-  have h := interp_instAll (V := V) (((D).pinAt gp).Ds ψ) fs₁ ρp e
-  rw [hfsl] at h
-  exact h
+  -- **THE TWO RECORDED TELESCOPES, TIED AS TERMS** — `slotSet_instTele`'s
+  -- own premise (task #315 WIDE (f8)).  It is the ONE thing `hscope`'s
+  -- flatness conjunct is still spent on: with both towers empty the tie
+  -- is `instTele … [] = []` and closes by `rfl`, and the general form
+  -- (binder `k` of the block's copy is the owner's under `instAll` at
+  -- that binder's own cut `l + k`) is `OrdTargetTele`'s business.
+  have htl : (((mutTlss ctorsA.length tssF ψ).getD
+        (b.ownOffset (p.k + a + i) + j) []).getD l []).map (·.2.2)
+      = instTele (((D).pinAt gp).Ds ψ) fs₁.length
+          (((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l []).map (·.2.2)) := by
+    rw [hflat] at htlL₁ htlL₂
+    rw [List.eq_nil_of_length_eq_zero htlL₁, List.eq_nil_of_length_eq_zero htlL₂]
+    rfl
+  -- the index spine's cut is the owner's recorded telescope's length,
+  -- which is the number `slotSet_instTele` substitutes at
+  have hEis' : ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l []
+      = ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []).map
+          (AnnotTerm.instAll (((D).pinAt gp).Ds ψ)
+            (fs₁.length + ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l []).length)) := by
+    rw [hfsl, htlL₂]; exact hEis
+  rw [hu l hl hord hrsB hrsP, hX l hl hord hrsB hrsP, hEis', hρJ]
+  unfold BlockModel.pinFrame
+  exact slotSet_instTele (by rw [hw]) Iff.rfl (((D).pinAt gp).Ds ψ) ρp fs₁ htl _ _
 
 /-- **THE WIDE FIT AT A PIN CLASS, WITH THE BLOCK SIDE READ OFF THE
 GROUP** (task #315 WIDE (3′), `hfitc`'s first half):
@@ -7013,7 +7037,15 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
         gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT mapR hmapR qK hqKT hqm hfired)
     hentOrd₁
     (nestedSlotOrd_pin m G hi hρp hj hst hciC hJm hlpsJ hgp hgn hciR hm₀ hownT hmapR
-      hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ hscope hread
+      hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ
+      -- **THE TWO SORTS** (task #315 WIDE (f8)): the owner's sort at the
+      -- pin's level assignment IS the block's.  Three facts this theorem
+      -- already holds and nothing else — the owner's group view, the
+      -- container's own level-parameter congruence across the two
+      -- assignments, and the block's own group's sort row.
+      ((S₂.w ψJ).symm.trans
+        ((CK.params_congr hciK hfK hψK (G.syn.kEq ▸ hi)).2.2.trans (G.syn.w i hi ψ)))
+      hscope hread
       (fun l hl _ hrsP => hrowTgt l hl hrsP) hrowRead
       hrowReadMem hnIdxR htgσ hroot S₀ hu hX)
     hXrec t fs

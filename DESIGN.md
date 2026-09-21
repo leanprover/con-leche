@@ -132891,3 +132891,217 @@ No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
 Nothing on that list is an ordering inside an instance and nothing on
 it is a fact no run record can carry, so there is no invalidation
 candidate.
+
+#### WIDE (f8) — THE `teleOfFields` CONGRUENCE WAS ALREADY IN THE TREE, `nestedSlotOrd_pin` IS RE-PROVED THROUGH IT, AND THE SORTS ARE NOW PRODUCED — WHAT IS LEFT OF `hscope` IS **ONE** EQUATION (lane LE, 2026-09-21)
+
+The work order for this session was WIDE (f5) §(h) (1), (2), (4) and
+(5): `OrdTargetTele` beside `OrdTargetRead` with its producer at the
+eight deep rows, the `teleOfFields` congruence, and
+`nestedSlotOrd_pin` re-proved with the towers tied as terms.  Reading
+(4) against the tree answered it before any code was written, and the
+answer moves (5) most of the way on its own.
+
+##### (a) **THE CONGRUENCE IS NOT OWED — IT IS `slotSet_instTele`**
+
+WIDE (f5) §(h) (4) asked for a new object in
+`Semantics/Tower/TowerIntro.lean`: "two field lists of equal length
+whose entries interpret alike at every prefix environment give the
+same `TeleS`, so `slotSet`'s `piTele` is the same at both copies".
+**That object exists and has since lane L-E's instantiation kit**:
+
+| object | file:line | what it says |
+|---|---|---|
+| `piTele_instTele` | `Semantics/Tower/InstAll.lean:167` | the nested product over a telescope INSTANTIATED at the fields' depth, at the fields' frame, is the product over the original at the pin's frame — when the bodies agree at every fitting spine and the two universes agree on `= 0` |
+| `slotSet_instTele` | `Model/Inductives/NestedFit.lean:422` | the same at `slotSet`: `tlC.map (·.2.2) = instTele ds fs.length (tlJ.map (·.2.2))` and the index spine under `AnnotTerm.instAll ds (fs.length + tlJ.length)` give ONE slot |
+
+A `TeleS`-level congruence would have been HETEROGENEOUS (the two
+telescopes' `TeleS` live at two lengths), which is why the tree's form
+is the right one: `piTele`'s result is a `V`, so the congruence is an
+equation between elements and no transport is owed.  `slotSet_instTele`
+is already `CopyCtorShape.slot_container`'s whole proof at a
+container-RECURSIVE field (`NestedFit.lean:1069`), where `recF`/`pinF`
+hand over the `instTele` relation directly; the ordinary-field arm is
+the same consumer with a different producer for that relation.
+
+**So (4) is closed with no new declaration, and the premise shape it
+hands over is the exact specification of what is still missing.**
+
+##### (b) `nestedSlotOrd_pin` NOW GOES THROUGH IT
+
+`nestedSlotOrd_pin` (`Model/Inductives/NestedPinLeafAll.lean:5864`)
+used to end
+
+    rw [htl₁, htl₂, slotSet_nil, slotSet_nil, hu …, hX …, hEis, hρJ, List.map_map]
+
+— both recorded telescopes collapsed to `[]` and the index spine
+carried across by `interp_instAll` by hand.  It now ends
+
+    rw [hu …, hX …, hEis', hρJ]
+    unfold BlockModel.pinFrame
+    exact slotSet_instTele (by rw [hw]) Iff.rfl (((D).pinAt gp).Ds ψ) ρp fs₁ htl _ _
+
+with two `have`s above it (`:6115` and `:6124`): `htl`, the two
+recorded telescopes tied as TERMS, and `hEis'`, the index spine's cut
+restated as `fs₁.length + <the owner's recorded telescope's length>`
+— which is what the congruence substitutes at, and which `hEis` and
+`ordRead_corr`'s LENGTH conjunct give with one rewrite.  `slotSet_nil`
+is gone from the proof, and `BlockModel.pinFrame` is literally
+`consList ((pinAt q).Ds ψ).map … ) ρp`, the frame shape the congruence
+reads, so the frame crossing costs one `unfold`.
+
+**The flatness conjunct is now spent in EXACTLY ONE PLACE in the whole
+tree** — `NestedPinLeafAll.lean:6119`, inside `htl`, where both towers
+are empty and the tie is `instTele … [] = []` by `rfl`.  (`hflat` is
+bound at one other site, `:7033`, and not used there; the two `…_flat`
+corollaries in `Verify/Inductives/NestedCopyKinds.lean` are the
+FINITARY arm's own derived guard and are unrelated, as WIDE (f4) §(a)
+recorded.)  That is a measured localisation and not an argument: the
+grep is `ConLeche.domPiDepth dom.1 = 0`, three occurrences, all three
+the `hscope` conjunct's three carriers, and one consumer.
+
+##### (c) THE SORTS — A PREMISE THE OLD PROOF DID NOT NEED, **PRODUCED**
+
+`slotSet_nil` does not read `w`; `piTele` does, at every binder.  So
+the general route asks for the two sorts, which WIDE (3) step 2's
+docstring listed as one of `hslotOrd`'s five inputs ("the sorts — the
+block's own (`GroupFacts.syn.w`) against the group view's
+(`PinGroupView.w`), here `hw`") and which the statement had never
+carried.  It is now `nestedSlotOrd_pin`'s `hw`
+(`NestedPinLeafAll.lean:5906`), `dJ.w ψJ = f₀.s.eval ψ`, and it is
+**PRODUCED at the caller**, in `nestedFitc_pin` (`:7046`), out of three
+facts that theorem already holds and nothing else:
+
+    (S₂.w ψJ).symm.trans
+      ((CK.params_congr hciK hfK hψK (G.syn.kEq ▸ hi)).2.2.trans (G.syn.w i hi ψ))
+
+— the owner's group view carries the owner's sort to the shared
+container's at the owner's level assignment, `ContainerModeled`'s
+level-parameter congruence moves it to the BLOCK's assignment (`hψK`,
+already a premise), and the block's own group's sort row lands on
+`f₀.s.eval ψ`.  **No hypothesis is added at the assembly and its named
+set is unmoved**: `nestedPinPairAt_pinσ`'s is still exactly `{hscope}`.
+It compiled at the first attempt.
+
+##### (d) WHAT IS LEFT OF `hscope`: **ONE** EQUATION, AND ITS TWO HALVES ARE NAMED
+
+After (b) the residue is a single `have`:
+
+    htl : (block's recorded telescope).map (·.2.2)
+        = instTele (((D).pinAt gp).Ds ψ) l ((owner's recorded telescope).map (·.2.2))
+
+i.e. binder `k` of the BLOCK's copy is binder `k` of the OWNER's under
+`AnnotTerm.instAll` at that binder's own cut `l + k` — the index
+spine's relation one level up, exactly as WIDE (f4) §(b) predicted.
+The kernel half is landed (K.74/K.76) and reaches the run as
+`GroupFacts.ordTele` (`:2500`), which gives the two RECOMPUTED
+telescopes' content binder by binder under `ordRootInst`.  What is
+owed is the two READING halves, and they are `OrdTargetRead`'s two
+verbatim:
+
+1. **The OWNER's** — `OrdTargetTele` beside `OrdTargetRead`
+   (`NestedPremise.lean:1146`) as a `PinShapes` conjunct with its
+   `rowOrdTele`/`rowOrdTeleMem` projections: the owner's recorded
+   telescope binder `k` IS the denotation of `ordTargetTele … ownT qK
+   l dom.1`'s `k`-th entry, read at `ciR.nP + (l + k)` under the
+   owner's own openers.
+2. **The BLOCK's** — a `GroupFacts.ordTeleRead` beside
+   `GroupFacts.ordRead` (`:2267`): given the OWNER's reading of entry
+   `k` as `rx k`, the block's recorded binder `k` is
+   `AnnotTerm.instAll (((D).pinAt gp).Ds ψ) (l + k) (rx k)`.  This is
+   `ordRead`'s own shape and its own hypothesis list; what it spends
+   beyond them is `GroupFacts.ordTele`'s `ordRootInst` equation where
+   `ordRead` spends K.69's.
+
+   Its producer chain is `ordRead`'s: a deep row in
+   `Model/Inductives/NestedCopyInst.lean` beside
+   `copyOrdFRightPinOrdTargetReadRefl` (`:10678`), a dispatcher in the
+   `NestedPinsRun` namespace, and a residual like
+   `NestedPinsOrdTgt` (`NestedCopyIdx.lean:518`) to carry it into
+   `PinShapes`.  The bricks the deep row needs are in the tree and
+   were read against it this session:
+   `NestedPinsRun.copyOrdTeleAt`'s own `hmap`
+   (`NestedCopyInst.lean:12704`) already proves the copy's
+   recorded telescope's terms ARE the denotations of the positivity
+   walk's output binders, one per binder, through
+   `denoteMeta_openPis` and `MutualCtorDataI.reflOpen`; and
+   `normPosDomM_openRedPis_ordHeadRed`
+   (`Verify/Inductives/NestedCopyNorm.lean:2373`) — K.74's own named
+   consumer, the advisory's one standing nested entry — says the
+   walk's output tower and the input's REDUCE-THEN-OPEN tower are the
+   same openers.  **The one question this session did not settle** is
+   whether the kernel's `ordTargetTele` (`ordTeleGo` over the stored
+   domain ++ `piBinders` of ONE `ordHeadRed`) meets that
+   reduce-then-open tower binder for binder, or whether K.76 has to be
+   respelled over `openRedPisAtFvars`.  K.73's length equation forces
+   the two counts to agree at every accepted block, which is evidence
+   and not a proof.
+
+**Honest sizing from here: two to five sessions** for (1) and (2), of
+which the deep row is most, and the open question above is the one
+place where a K.77 could still be needed.  Everything else between
+`nestedModeled` and one fewer hypothesis is unchanged.
+
+##### (e) `hfinRefl` IS **NOT** RETIRED, AND THE REASON IS FILE OWNERSHIP
+
+WIDE (f5) §(h) (2) priced `hfinRefl`'s retirement as a by-product of
+re-proving the eight deep rows at `stripDomPis (ordHeadRed …)`.  That
+reading stands, but the retirement cannot be completed from this lane
+as it is scoped today: `hfinRefl` is a HYPOTHESIS of
+`NestedPinsRun.ordTgtReadAt` (`Model/Inductives/NestedInstMap.lean:2912`),
+`ordTgtMemReadAt` (`:3226`) and `ordReadAt` (`:4579`), and that file is
+the concurrent WIRE lane's; this lane may only APPEND to it, and the
+end of the file is outside its `Assembly` section, so a re-stated
+dispatcher would have to re-introduce twenty section variables by
+hand.  The order of work is therefore: the eight deep rows in
+`NestedCopyInst.lean` first (this lane's file), then three one-line
+signature edits in `NestedInstMap.lean` and the corresponding binders
+in `GroupFacts.ordRead`, `ordRead_corr`, `ordReadMem_corr`,
+`PinShapes`' clause and `hscope` — a single coordinated commit, and it
+belongs in whichever lane holds `NestedInstMap.lean` at that moment.
+
+##### (f) `hscope` IS NOT DISCHARGED, AND `hpin` NEEDS NO NEW STATEMENT
+
+The assembly's named set is still exactly `{hscope}`
+(`NestedPinLeafAll.lean:7814`), with two of its seven conjuncts
+unproduced (flatness and `hfinRefl`) and the other five produced.  The
+order's request to "state `hpin` as a theorem so the WIRE lane can
+consume it by name" needs no work: `hfit_wide_pin_of_class`
+(`NestedPinLeafAll.lean:4351`) IS that theorem and has been in the
+tree since WIDE (3′).  It takes exactly two inputs —
+
+    (hcnt : ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ j,
+       (offs (σ c) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ c) + j) 0 = σ c)
+         ↔ j < (dJ.pinCtors (c - dJ.k)).ctors.length)
+    (hfitc : ∀ Y, InTupleSpace … → FibreConst σ … → TupleLe … → ∀ c, ¬ c < dJ.k →
+       c < dJ.k + dJ.nPins → ∀ t j, j < (dJ.pinCtors (c - dJ.k)).ctors.length → ∀ fs,
+       (FitsFrom … ∧ …) ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs)
+
+— the COUNT (`PinShapes`' own conjunct through `ctorsT_of_pin`) and
+the per-constructor fit, and `hfitc` is what `nestedPinPairAt_pinσ`
+produces.  So `hpin` closes when the assembly does, which is when
+`hscope` does, which is (d).
+
+##### (g) THE GATES
+
+`tests/arena.sh` EXIT 0 with the previous row's counters —
+`nested-shadow: 47/47`, `e2e: 200/200`, `arena suite: 91/96`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`,
+`axioms: pinned (20 theorems)`, the trusted sweep (162 + 200 + 15,
+3 recorded divergences) and both `--jobs` sweeps as at the default,
+`inmodel: OK`, `proofdeps: 4975 module rows, doors: 0`,
+`shake: 514 removals, all allowlisted`, `overview-links: 112`,
+`quote-gate: 2`, `no-local-paths: OK`, `challenge: OK`,
+`layering: base 355 / model 293 / caps 3 / umbrella 1 modules; 0
+base->lane edges, 0 impl->theory`, `trust surface: 13 escapes in 5
+allowlisted files (664 scanned)`, `pub-imports: 1351 of 2326 in-tree
+edges public, none demotable (60 dot-notation fallbacks)`.
+`tests/warning-free.sh 4079aa44` — 1 changed module, **0 warning
+lines** in both halves; `lake test` exit 0, 0 warnings.
+`tests/unconsumed.sh` **208 of 3965**, UNMOVED — no declaration was
+added or removed, so no base worktree was needed.
+`#print axioms` on `nestedSlotOrd_pin`, `nestedFitc_pin` and
+`nestedPinPairAt_pinσ`: `[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
+**NO KERNEL FILE CHANGED**, so the accept set, the shadow counts and
+the cost are unmoved and no corpus run is owed.
