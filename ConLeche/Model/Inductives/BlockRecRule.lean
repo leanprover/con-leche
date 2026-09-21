@@ -708,4 +708,58 @@ theorem ihNodeVal_of_fold
   obtain ⟨vs, hvs, hval⟩ := interp_ihNode hacl hr hfa h1 h2 hloc hih hB
   rw [hval, hfold d locals e r maj.getAppArgs as1 A vs hloc h1 hc hA hvs]
 
+/-! ## One step further: the STORED node is the GENERATED spine
+
+`blockIhCall?_spine` exports `e = expected` as TERMS (lane K2's exact
+comparison), so the stored node's reading at the rule's frame IS the
+generated call's — `congrArg` through the opening.  That removes
+`blockIhCall?` from the obligation altogether and leaves a statement
+about `blockIhSpinePis` alone: the shape the reading batteries
+(`denoteMeta_instPisAtLift_peel`, and `FixRecRead`'s `structIdxAt` /
+`structTeleAt` lemmas at the one-member route) are written for. -/
+
+/-- **The guarded call's value, said of the GENERATED spine.**  The ih
+opener `r` of the key `(i, c')` is valued so that the generated call
+`rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)`, read at the rule's frame, is the ih value
+folded along `a⃗`'s readings.  This is `ihFunAV_fold` once the spine's
+argument values are identified with the design's
+`xs ++ (eis ++ [fap])`. -/
+@[expose] def IhSpineFold (V : Type uv) [SetTheory V]
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
+    (fr : ConLeche.BlockRuleFrame) (F : Nat) (ρ' : Nat → V) (ihvals : List V) : Prop :=
+  ∀ (d : Nat) (locals : List V) (nm : Name) (c' i r : Nat) (as as1 : List Expr)
+    (expected : Expr) (A : AnnotTerm) (vs : List AnnotTerm),
+    locals.length = d → FvarList (F + d) as1 →
+    ConLeche.nameIdxOf? fr.recNames nm = some c' →
+    ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+    as.length = (fr.teleOf i).length →
+    Expr.instPisAtLift as
+      (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
+        (fr.teleOf i) (fr.idxOf i)) = some expected →
+    denoteMeta acval env φ (F + d) (expected.instantiateList as1 0) = some A →
+    DenoteMetaSpine acval env φ (F + d) (as.map (·.instantiateList as1 0)) vs →
+    interp V (consList locals ρ') A
+      = (vs.map (interp V (consList locals ρ'))).foldl SetTheory.app (ihvals.getD r pt)
+
+/-- **`IhCallFold` from `IhSpineFold`** — the stored node IS the
+generated spine, so its opened reading is too. -/
+theorem ihCallFold_of_spine {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V}
+    {ihvals : List V} (h : IhSpineFold V acval env φ fr F ρ' ihvals) :
+    IhCallFold V acval env φ fr F ρ' ihvals := by
+  intro d locals e r as as1 A vs hloc h1 hc hA hvs
+  obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, hexp, rfl⟩ :=
+    ConLeche.blockIhCall?_spine hc
+  exact h d locals nm c' i r as as1 e A vs hloc h1 hnm hrpos hasl hexp hA hvs
+
+/-- **O-1's premise, from the generated spine alone.**  The composite:
+`interp_abstractIh`'s `hcall` follows from a statement that mentions
+neither `abstractIh` nor `blockIhCall?` — only `blockIhSpinePis`, the
+frame, and the ih values. -/
+theorem ihNodeVal_of_spine
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
+    (hih : ihvals.length = fr.nR) (h : IhSpineFold V acval env φ fr F ρ' ihvals) :
+    IhNodeVal V acval env φ fr F ρ' ihvals :=
+  ihNodeVal_of_fold hacl hih (ihCallFold_of_spine h)
+
 end ConLeche.Model
