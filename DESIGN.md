@@ -129784,3 +129784,210 @@ recorded telescope — the `MutualCtorDataI.reflOpen` / `tssNone`
 translation K.72's own landing row deliberately left to the consumer.
 Nothing in (2) is refuted by this re-reading; one object moved a tier
 up and one guard turned out to be unnecessary.
+
+#### WIDE (f3) STEP 5 — `CopyOrdTele` IS **REFUTED AS AN EQUATION BETWEEN READINGS**, RESTATED AT `interp`, AND PROVED FROM THE RUN WITH NO GUARD (lane LE, 2026-09-21)
+
+Session 34 stated `CopyOrdTele` and session 35 priced its producer at
+one session, on the argument that "neither the rewrite nor a level
+instantiation turns a `Π` into a non-`Π`".  **The argument leaves out
+the POSITIVITY NORMALISATION, which sits between the mint and the
+stored copy, and that is where the object is false.**  This row
+exhibits the witness, restates the object in the only form that
+survives, proves it, and re-prices object (2), which the same witness
+touches.
+
+##### (a) THE WITNESS, AND WHY IT IS NOT `nested_redex_owner`
+
+`tests/e2e/nested_redex_tower.ndjson` (source and stream committed;
+`scripts/export-fixture.sh nested_redex_tower`):
+
+```
+inductive Wrap (f : True → Type) | mk : f True.intro → Wrap f
+inductive J (β : Type)          | node : Wrap (fun _ : True => True → J β) → J β
+inductive Outer                 | mk : J Outer → Outer
+```
+
+official (Lean v4.29.1) ACCEPTS it; the uniform route ACCEPTS `J`
+(`nested-shadow` row at `CON_LECHE_INMODEL=0`, the gate now 47/47).  It
+is `nested_redex_owner`'s λ-REDEX mint carrying `nested_comp_tower`'s
+component:
+
+* `Wrap` calls its only field ORDINARY — the stored domain is
+  `f True.intro`, an APPLICATION of the parameter;
+* the mint at `J`'s pin is `(fun _ : True => True → J β) True.intro`, a
+  REDEX whose head normal form is the `Π` `True → J β`;
+* `normCtorValM` runs `normPosDomM` on that domain **before** it stores
+  the copy's constructor, so the STORED copy field is `True → J β`, the
+  block classifies it REFLEXIVE, and `tssF` records a ONE-binder
+  telescope.
+
+`CopyOrdTele`'s subject is `AnnotTerm.instAll Ds l` of the CONTAINER's
+field-domain reading — at this field `.app (the component's reading)
+(True.intro's)`, an application.  `stripPisAV 1` of it is `none`.  The
+object as session 34 stated it is FALSE at a block official accepts.
+
+`nested_redex_owner` does not exhibit it (its redex reduces to an
+APPLICATION, so the copy's field is finitary and no telescope is
+recorded) and neither does `nested_comp_tower` (its mint IS a `Π`
+already).  The corner needs both halves, which is why nothing in the
+tree caught it.
+
+##### (b) THE RESTATEMENT, AND WHY `interp` IS FORCED AND NOT CHOSEN
+
+`Model/Inductives/NestedFit.lean:1014`:
+
+```
+CopyOrdTele dJ ψJ Ds tls rs ρp i j :=
+  ∀ l, l < … → container-ordinary → copy-rewritten →
+    ∀ fs₁, fs₁.length = l → SpineFit (consList (Ds.map (interp V ρp)) ρp) (Fs.take l) fs₁ →
+      ∃ T body,
+        (tls.getD l []).map (·.2.2) = T.map (·.2.2) ∧
+        interp V (consList fs₁ ρp) (AnnotTerm.instAll Ds l (Fs.getD l default))
+          = interp V (consList fs₁ ρp) (mkPisAV T body)
+```
+
+The frame and the fitting prefix are `CopyCtorShape.ordF`'s own
+arguments, so no consumer gains an input.  `CopyOrdTele.length`
+(`:1032`) is the same statement read as a length.
+
+**`interp` and no more is exactly what the walk's law gives.**
+`normPosDomM_read_of` (`Model/Inductives/MutualNorm.lean`) relates the
+input's reading and the output's by `∀ ρ, Sat V Δa ρ → interp V ρ ea =
+interp V ρ ea'`; there is no syntactic half and (a) shows there cannot
+be one.  The DOMAINS stay syntactic because they are read off the
+copy's own stored `Π`s, which the walk's output carries verbatim.
+
+##### (c) THE PRODUCER — AND IT NEEDS NO HEAD GUARD
+
+`NestedPinsRun.copyOrdTeleAt` (`Model/Inductives/NestedCopyInst.lean:12554`).
+Two arms and four facts, all of them already in the tree:
+
+* at a copy field the block made RECURSIVE, `MutualCtorDataI.tssNone`
+  makes the telescope `[]`, `mkPisAV [] body` is `body`, and the arm
+  closes by `rfl`;
+* at a REFLEXIVE one: the copy's stored domain is `mkPisB bsX resX`
+  (`reflOpen`'s opening through `openPisAtFvars_stripPis`); the walk's
+  output `w` is a tower of the same length
+  (`replaceAllNested_mkPisB_inv`) whose binders mention no member
+  (`normPosDomM_mkPisB_free` — the POSITIVITY walk's own guarantee
+  about its OUTPUT), so the rewrite was the identity on them
+  (`replaceAllNested_mkPisB_inert`) and the two towers are one binder
+  list; `denoteMeta_openPis` peels `w`'s reading at that length at the
+  copy's OWN openers, `MutualCtorDataI.reflOpen` names each opener's
+  reading as `tls`'s datum (`crossUp` for the prefix→block model step),
+  and `copyFieldReadCoreQ`'s FOURTH component — the reading law, which
+  every one of the tie's denotational rows discards with a `-` — is the
+  `interp` equation.
+
+**No guard.**  `copyOrdFRightPinOrdTargetReadRefl` and its member twin
+need the recomputation's reduced head because they identify the two
+sides' LEAVES; this object claims nothing about the leaf, so the whole
+`normPosDomM_openPis_ordHeadRed` / `ordHeadRed` apparatus is absent
+from it.  That is why it holds at `nested_redex_tower` too.
+
+##### (d) SESSION 35's TWO BRICKS ARE SUPERSEDED AT THIS CONSUMER
+
+`RewriteRel.erasedEq_of_noAux` / `forallE_inv'` /
+`openPisAtFvars_of_noAux` (`Model/Inductives/NestedRewriteRead.lean`)
+and `PiDomsNoConst` + its four lemmas
+(`Verify/Inductives/NestedCopyKinds.lean`) were built to transport the
+copy's opening back across the rewrite and to supply that transport's
+proviso.  **The tree already had a stronger route for both**, and it is
+the one `copyPinFStoredReflM` has used since task #315 PINF:
+`replaceAllNested_mkPisB_inv` + `_inert` give the two towers'
+binder lists EQUAL, not `ErasedEq`, and `normPosDomM_mkPisB_free`
+supplies the proviso without the classifier.  Session 35's §(a) chain
+— the classifier's spine, the mimic names, the plants — is a correct
+argument for a weaker conclusion.
+
+They are left in the tree and listed here, the way the WHNF lane listed
+its five: the reflexive half of object (2) is the only place that might
+still want a rewrite-relation reading, and the deletion is that
+session's to make.  `tests/unconsumed.sh` keeps their three advisory
+entries.
+
+##### (e) `_htele` LEAVES THE ASSEMBLY, AND `hdom₁` IS RE-READ
+
+`nestedPinPairAt_pinσ` (`NestedPinLeafAll.lean:7223`) no longer takes
+`_htele`: it was vacuous there — nothing in the assembly reads it — and
+the object now has a producer at the run, so carrying it as a
+hypothesis bought nothing.  The named set is `hscope`, `hread`,
+`hdom₁`.
+
+The docstring's account of `hdom₁` is corrected.  It is
+`copyTransfer_iff_pin`'s SIDE 1, exactly symmetric to `hdom₂`, and the
+route `dom₂_of_run` takes on side 2 is **unavailable**:
+`BlockModel.copyEntryAt_pin` asks for `IsBlockModels m dR`, a STORED
+block, and the block being installed is not one.  What replaces the
+stored model is two halves — `CopyOrdTele`, which says the container's
+field domain interprets to a `Π`-tower of the copy's recorded
+telescope (landed), and the BLOCK's own entry at that tower's BODY (the
+target class inside the container's leaf), which is not in the tree.
+The second half is the session's real object, and `CopyOrdTele` comes
+back onto `GroupFacts` as one field the session it has a consumer.
+
+##### (f) OBJECT (2), RE-PRICED AGAIN BY THE SAME WITNESS
+
+The previous row's §(b) said: spell the cut `l + tlsl.length`, add one
+`stripDomPis` to the subject, and the reflexive producers become two
+facts over bricks that exist.  **`nested_redex_tower` says the added
+`stripDomPis` cannot sit where that pricing put it**, and the reason is
+the same one as (a):
+
+* at that field the recomputation `ordTargetDom` is the REDEX itself —
+  `stripDomPis` of a non-`Π` is the identity — so the `Π` the copy
+  records is not in the subject at all until something REDUCES it.  The
+  strip has to be `stripDomPis (ordHeadRed …)` and not
+  `stripDomPis …`;
+* and then the walk inversion that carries the count,
+  `normPosDomM_openPis_ordHeadRed` (`Verify/Inductives/NestedCopyNorm.lean:2307`),
+  **does not reach**: it opens the INPUT at `n` binders, and here the
+  input's own `Π`-depth is `0` while the output's is `1`.  Its leaf
+  step is `normPosDomM_eq_ordHeadRed`, which asks the reduced leaf to
+  be an application of a stored INDUCTIVE; a reduced leaf that is a
+  `Π` is a case it does not have.
+
+So object (2) owes, on top of the eight producers' re-spelling, a
+REDUCE-THEN-OPEN inversion of the walk: `normPosDomM e = .ok w` and an
+opening of `w` at `n₂` binders with a constant-headed leaf give an
+opening of `e`'s head normal form at the same count — one `whnf` claim
+per binder rather than one at the leaf.  That is a fact about `whnf`
+of the lane's own kind (the WHNF lane's row: "true only at an
+INDUCTIVE head, and official rejects every δ/ι/projection witness"),
+and it is stated here so that the next session does not discover it at
+the proofs.  **Honest sizing: object (2) is three sessions from here,
+not two**, and the added one is that inversion.
+
+Nothing in the wide identification is refuted by this reading; one
+object changed its equality and one inversion was found to be missing.
+
+##### (g) THE MEASUREMENT
+
+No kernel file changed — the diff is `Model/*`, a fixture and a gate
+row — so the accept set cannot move and no firing or `instructions:u`
+cell is owed.  The new fixture is measured where the route is: the
+shadow gate.
+
+`tests/arena.sh` EXIT 0: `nested-shadow: 47/47` (the new row included;
+`nested_redex_owner`, `nested_pi_field` at `CON_LECHE_INMODEL=0`,
+`nested_comp_tower` and `nested_bvar_field` all still `accept`),
+`e2e: 200/200`, `arena suite: 91/96`, `annot suite: 15/15`,
+`mode flags: 10/10`, `prelude counts: 3/3`, `progress lane: 15/15`,
+`worker pool: 15/15`, `DAG-tower gate: 14/14`,
+`axioms: pinned (20 theorems)`, trusted and the two `--jobs` sweeps as
+at the default, `inmodel: OK`, `shake: 514 removals, all allowlisted`,
+`pub-imports: 1347 of 2319 public, none demotable`,
+`layering 354/292/3/1 with 0 base->lane and 0 impl->theory edges`,
+`proofdeps: 4975 module rows, doors: 0`, `overview-links: 112`,
+`quote-gate: 2`, `no-local-paths: OK`, `challenge: OK`.
+`tests/warning-free.sh fd87d963` — 4 changed modules, 0 warning lines
+in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **205 of 3934** against **204 of 3933**: ONE
+declaration added (`NestedPinsRun.copyOrdTeleAt`) and one advisory
+entry with it — its consumer is `GroupFacts.ordTele`, which lands with
+`hdom₁`.  `CopyOrdTele.length` has no consumer either and the script
+does not see it: it matches identifier COMPONENTS, and `length` occurs
+everywhere.
+`#print axioms` on `copyOrdTeleAt` and `CopyOrdTele.length`:
+`[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom,
+no `maxHeartbeats`.
