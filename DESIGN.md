@@ -128325,3 +128325,150 @@ rows cover `J` alone); `nested_bvar_field` is measured at both blocks.
 Both corpora measure the tower population at ZERO at this arm, so the
 arm is owed by the SYNTAX and the controls will have to count it, as
 K.69's four do.
+
+#### WIDE (f3) — THE FOURTH CONCESSION'S OBJECT, STATED BEFORE IT IS PROVED: THE `whnf` HEAD INVERSION IS TRUE ONLY AT AN **INDUCTIVE** HEAD, AND OFFICIAL REJECTS EVERY δ/ι/PROJECTION WITNESS (lane WHNF, 2026-09-21)
+
+Step 1's row (d) named the reading half's owed object — `w = ordHeadRed W`
+at a pin copy's field, with `w` the install's positivity-walk result and
+`W` the minted domain — and priced it as a `whnf` INVERSION with three
+facts in the way.  This row settles all three, states the theorem at the
+strongest form the tree can carry, and records the δ-witness measurement
+the brief asked for.  **Nothing below is compiled yet**; it is written
+first so the assembly lane can read the form its `hnormRed` must take.
+
+##### (a) THE STATEMENT
+
+Four declarations, in `ConLeche/Verify/Inductives/OrdHeadRed.lean` (a
+new Verify-tier file; `Verify/BetaSpine.lean` supplies the spine
+machinery and `Verify/InferLemmas.lean` the stuck-at-a-constant laws).
+The core is disjunctive and carries no head hypothesis on the RESULT:
+
+    theorem whnfCore_ordHeadRed
+        (hb   : W.looseBVarsBounded 0 = true)
+        (hJ   : env.find? J = some (.indInfo cv caps))
+        (hred : (ordHeadRed W).getAppFn = .const J lvls)
+        (h    : whnfCore mode env F d W = .ok v) :
+        v = ordHeadRed W ∨ ∃ ty bd bm, v.getAppFn = .lam ty bd bm
+
+    theorem whnf_ordHeadRed  (same hypotheses, `whnf` in place of
+        `whnfCore`)                            : same disjunction
+
+    theorem normPosDomM_eq_ordHeadRed
+        (hb) (hJ) (hred)
+        (hwc  : w.getAppFn = .const K us)
+        (h    : normPosDomM (m := CheckM) (fueledOps mode F) env
+                  memberNames d fuel W = .ok w) :
+        w = ordHeadRed W
+
+plus `normPosDomM_ordHeadRed_cons` / `_former`, the two transports
+across `consMutualFormers` that `normPosDomM_indApp_cons` and
+`normPosDomM_indApp_former` already have and that the eight reading
+sites spend.  **The consumer's `hnormRed : w = ordHeadRed W` is the
+third declaration's conclusion verbatim**, so the assembly discharges
+it by one `exact`.
+
+The RIGHT disjunct is the stuck-certificate arm and nothing else: an
+uncertified β leaves the redex in place, so the result's `getAppFn` is
+the λ itself.  `hwc` — which the reading site holds through
+`replaceAllNested` and `hheadS`, the REWRITTEN domain's member head —
+kills it.
+
+##### (b) THE THREE FACTS STEP 1 NAMED, SETTLED
+
+* **the β certificate.**  The brief's reasoning checks out and is the
+  reason the core is a DISJUNCTION rather than an implication: the only
+  way `whnfCore` can stop before `ordHeadRed`'s fixed point is a failed
+  `inferIO`/`defeq` at a redex (`Kernel/Core.lean:1935`), and that arm
+  returns `.app (.lam ty body mb) a` — whose `getAppFn` is the λ.  Every
+  other arm of `whnfCoreBody` either performs the head β the pure
+  function performs, or cannot fire at all under `hred` (see the next
+  bullet).  So no run-level fact about the certificate is owed: the
+  inversion is proved by CASES on the syntax and the consumer's own
+  constant head selects the good one;
+* **`instantiate1` vs `instantiate1Lift`.**  They agree at a bvar-closed
+  argument (`Expr.instantiate1Lift_eq_instantiate1`, `Verify/Subst.lean`)
+  and `hb` is that hypothesis, carried along the head chain: if
+  `mkAppN (.lam ty bd bm) (a :: rest)` is `looseBVarsBounded 0` then so
+  is `mkAppN (bd.instantiate1 a) rest`.  At the reading site `W` is
+  `xI.fvarTypeD`, a domain `openPisAtFvars` opened at `fvar`s, so `hb`
+  is `openPisAtFvars`' own bound and not a new record.  **The generalised
+  form (an open argument) is NOT stated**: no consumer wants it, and the
+  lifting would have to be threaded through `whnfCore`'s substitution,
+  which is `instantiate1`;
+* **δ, ι and projections.**  This is where the theorem is genuinely
+  narrower than "whnf betas", and the narrowing is `hJ`.  `ordHeadRed`'s
+  fixed point having a CONSTANT head is not enough — `whnfCore` would
+  still ι-reduce a recursor head and the loop would still δ-unfold a
+  definition, and in both cases `w` is constant-headed at a DIFFERENT
+  constant.  Two counterexamples, and they are the reason `hJ` asks for
+  an `indInfo` and not for a constant:
+
+  | `W` | `ordHeadRed W` | `whnf W` |
+  |---|---|---|
+  | `(fun x => Nat.rec A f Nat.zero) b` | `Nat.rec A f Nat.zero b` (head `Nat.rec`, a `recInfo`) | `A b` — ι fired |
+  | `MyId (J β)`, `MyId γ := γ` | itself (head `MyId`, a `defnInfo`) | `J β` — δ then β |
+
+  Under `hJ` neither is reachable: at an `indInfo` head `whnfCore` is the
+  identity (`whnfCore_constApp_eq`), literal acceleration declines and
+  `unfoldDefinition` is `none` — which is exactly `whnf_indApp_eq`
+  (K.22), and the inversion is that law with the head β/ζ chain in front
+  of it.
+
+##### (c) THE δ WITNESS — **OFFICIAL REJECTS IT, SIX WAYS**, SO THE RESIDUE IS NOT REACHABLE AND NO FIXTURE IS ADDED
+
+The brief asked for `tests/e2e/src/nested_def_head.lean`: a mint whose
+head is a `def` that unfolds to a container.  Six shapes were put to
+Lean **v4.29.1** and **all six are REJECTED by official's own kernel**,
+so there is no stream to measure and no fixture to commit:
+
+| shape | official v4.29.1 |
+|---|---|
+| `def MyK (α) := K α`; `J.node (k : MyK (J β))` | `(kernel) arg #2 of 'J.node' contains a non valid occurrence` |
+| the same with `abbrev` | same rejection |
+| the same with `@[reducible] def` | same rejection |
+| `def MyK : Type → Type := K`; `MyK (J β)` | same rejection |
+| `def MyId (γ) := γ`; `K (MyId (J β))` | `maximum recursion depth`, and a **stack overflow** at `maxRecDepth 4000` |
+| `def MyOpt (γ) := Prod γ Nat`; `K (MyOpt (J β))` | `(kernel) arg #2 of '_nested.K_1.mk' …` |
+
+and the ι and projection twins with them (`pick Two.a (J β)` through a
+`match`, and `b.ty (J β)` through a structure projection): both
+`(kernel) … non valid occurrence`.  **Official's positivity check does
+not δ/ι/projection-unfold to find a container head**, so a δ-headed
+mint cannot come out of official's front end at all.  The concession
+K.68 and §(d) named therefore costs the route nothing that official
+buys: the arm is owed by the SYNTAX of the checker's own `whnf` and by
+no accepted input.  This is a CONFORMANCE finding and it is recorded
+here rather than as a fixture, per the brief's "if official REJECTS it,
+record that and drop it".
+
+##### (d) WHAT THE PROOF IS, AND WHAT IT IS NOT
+
+The core's induction is on `ordHeadRedFuel`, with `args` generalised,
+and it mirrors `ordHeadRedGo`'s own five arms:
+
+* `.app f a` — `mkAppN (.app f a) args = mkAppN f (a :: args)`, the
+  induction hypothesis verbatim;
+* `.lam` with an empty spine, and `.bvar`/`.fvar`/`.sort`/`.lit`/`.proj`
+  — `getAppFn` is the node itself and `hred` is contradictory;
+* `.const` (and the fuel-zero base) — `whnfCore_constApp_eq`'s inversion
+  twin, so `v` is the term itself;
+* `.letE` — `whnfCoreBody`'s `letE` clause THROWS (task #241: a `let` in
+  an annotated expression is `.internal`), and the throw propagates out
+  of an application spine, so the run hypothesis is contradictory.  **No
+  let-freeness record is owed**, which is worth saying because the
+  obvious alternative was to demand one;
+* `.lam` with `a :: rest` — the one real step, a snoc induction over the
+  spine (`whnfCore_mono` and `BetaSpine`'s `appStep_mono` glue the two
+  fuels) giving: either the run returns `mkAppN (.app (.lam …) a) rest`
+  verbatim (the stuck certificate), or it equals a run on
+  `mkAppN (bd.instantiate1 a) rest` at some fuel.
+
+The `whnf` wrapper is `whnf_eq_of_stuck`'s argument one term over: in
+both disjuncts the reduction loop stops at `whnfCore`'s answer, because
+neither an inductive-headed application nor a λ-headed one is touched by
+literal acceleration or by `unfoldDefinition`.
+
+**What this is NOT** is a general determinacy or confluence statement
+about the checker's reduction, and it is not a claim that `whnf` betas.
+It is the identity of ONE `whnf` call with ONE pure function, under a
+hypothesis that names the answer's head.
