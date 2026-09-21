@@ -459,4 +459,55 @@ theorem blockFieldsOk_one (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx :
     List.range_one, List.all_cons, List.all_nil, Bool.and_true, List.getElem?_cons_zero,
     beq_self_eq_true, Bool.true_and, blockMemberFieldsOk_one]
 
+/-- **The install after the pass, at ONE member.** -/
+theorem checkNativeTail_one (ops : CheckerOps m) (env : Env) {q : BlockPass Env}
+    {ms : MemberShape} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {kss : List (List BlockFieldKind)}
+    (hm : q.p.members = [ms]) (hc : q.cvTas = [cvTa]) (hcs : q.ctorsAs = [ctorsA])
+    (hss : q.sortsss = [sortss]) (hk : q.p.kinds = [kss]) :
+    checkNativeTail ops env ⟨q.env₁, cvTa, q.p.toNative, ctorsA, sortss⟩
+      = checkBlockTail ops env q := by
+  simp only [checkNativeTail, checkBlockTail, BlockParts.toNative, BlockShape.toInductive,
+    BlockShape.memberNames, BlockShape.nIdxs, BlockShape.lps, BlockShape.k,
+    BlockShape.numCtors, BlockShape.rulePrefix, numCtorsOf, hm, hc, hcs, hss, hk,
+    List.headD_cons, List.head?_cons, List.map_cons, List.map_nil, Option.map_some,
+    Option.getD_some, List.length_cons, List.length_nil, List.zip_cons_cons,
+    List.zip_nil_right, Nat.add_zero, checkBlockIdxSorts, checkBlockRec,
+    consBlockCtors, consBlockRecs, checkBlockTables, blockFieldsOk_one,
+    bind_assoc, pure_bind, InductiveShape.rulePrefix, InductiveShape.majorIdx,
+    ThrowBindM.throw_bind, Nat.zero_add]
+  have hgeq : (2 ≤ 1 ∨ 2 ≤ ms.ctors.length) ↔ (2 ≤ ms.ctors.length) := by omega
+  simp only [hgeq]
+  by_cases hg : (q.p.large && !q.p.resSort.isNeverZero && decide (2 ≤ ms.ctors.length)) = true
+  · simp only [hg, if_pos]
+  · simp only [hg, Bool.false_eq_true, if_false]
+    refine bind_congr fun tq => ?_
+    refine bind_congr fun _isorts => ?_
+    by_cases hf : nativeFieldsOk env ms.cvT.name ms.cvT.levelParams q.p.nP ms.nIdx ctorsA
+        (kss.map (List.map BlockFieldKind.toRec)) = true
+    · simp only [hf, if_pos]
+      by_cases hr : nativeRulesOk ms.cvR.name (ms.cvR.levelParams.map .param) .never q.p.nP
+          ms.ctors.length ctorsA (kss.map (List.map BlockFieldKind.toRec)) ms.rhss
+          ms.cvR.type = true
+      · simp only [hr, if_pos, bind_assoc, pure_bind]
+        refine bind_congr fun _x => ?_
+        simp only [consBlockRecs, checkNativeTable, bind_pure]
+        cases ctorsA with
+        | nil => rfl
+        | cons cA cs =>
+          cases cs with
+          | cons c2 cs2 => rfl
+          | nil =>
+            cases sortss with
+            | nil => rfl
+            | cons srt ss =>
+              cases ss with
+              | cons s2 ss2 => rfl
+              | nil =>
+                by_cases hi : (ms.nIdx == 0) = true
+                · simp only [hi, if_pos]
+                · simp only [hi, Bool.false_eq_true, if_false]
+      · simp only [hr, Bool.false_eq_true, if_false, ThrowBindM.throw_bind]
+    · simp only [hf, Bool.false_eq_true, if_false]
+
 end ConLeche
