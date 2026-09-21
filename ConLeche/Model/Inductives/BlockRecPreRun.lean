@@ -1988,4 +1988,146 @@ theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end FamilyLevel
 
+/-! ## 22. `hctorAt` (b) — the fired spine's VALUE at the rule's frame
+(session 6)
+
+`blockRuleMkAV_eq` (RM11) identifies the fired spine's reading as the
+constructor's leaf applied to the parameter bvars and the field bvars;
+what the regime needs is its VALUE at the rule's frame, and that is
+three computations:
+
+* the residue of the `K`-lift is the base frame
+  (`interp_liftN_chainFrame`, §13);
+* a bvar at `|L| − 1 − k` reads the `k`-th entry of the frame's list
+  (`interp_bvarAt`), so the parameter bvars read `xs.take nP` and the
+  field bvars read `fs` (`map_bvarAt_take`, `map_fieldBvars`);
+* the constant's leaf does not see the frame
+  (`acval_interp_closedC`), so `BlockModelAt.ctor` applies — at ANY
+  fitting parameter spine (`blockCtorFold_params_blind`, RM11). -/
+
+section FiredSpine
+
+/-- **A frame's `k`-th entry, as a bvar.** -/
+theorem interp_bvarAt {L : List V} {ρ : Nat → V} {k : Nat} (hk : k < L.length) :
+    interp V (consList L ρ) (.bvar (L.length - 1 - k)) = L.getD k pt := by
+  rw [interp_bvar, consList_getD_of_lt L ρ _ (by omega),
+    show L.length - 1 - (L.length - 1 - k) = k from by omega]
+
+/-- A prefix of a list, as its first entries. -/
+theorem take_eq_map_getD : ∀ (L : List V) (n : Nat), n ≤ L.length →
+    L.take n = (List.range n).map fun k => L.getD k pt := by
+  intro L n hn
+  refine List.ext_getElem (by simp; omega) fun i h1 h2 => ?_
+  have hi : i < n := by
+    have := h1
+    simp only [List.length_take] at this
+    omega
+  rw [List.getElem_take, List.getElem_map, List.getElem_range,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+  rfl
+
+/-- The parameter bvars read the frame's first `nP` entries. -/
+theorem map_bvarAt_take {L : List V} {ρ : Nat → V} {nP D : Nat} (hD : D = L.length)
+    (hnP : nP ≤ L.length) :
+    (paramBvarsAt nP D).map (interp V (consList L ρ)) = L.take nP := by
+  subst hD
+  rw [take_eq_map_getD L nP hnP, paramBvarsAt, List.map_map]
+  refine List.map_congr_left fun k hk => ?_
+  exact interp_bvarAt (by simpa using Nat.lt_of_lt_of_le (List.mem_range.mp hk) hnP)
+
+/-- The field bvars read the frame's fields. -/
+theorem map_fieldBvars {xs fs : List V} {ρ : Nat → V} {rP nF : Nat}
+    (hxs : xs.length = rP) (hfs : fs.length = nF) :
+    ((List.range nF).map fun k => (AnnotTerm.bvar (rP + nF - 1 - (rP + k)) : AnnotTerm)).map
+        (interp V (consList (xs ++ fs) ρ)) = fs := by
+  have hlen : (xs ++ fs).length = rP + nF := by rw [List.length_append, hxs, hfs]
+  refine List.ext_getElem (by simp [hfs]) fun i h1 h2 => ?_
+  have hi : i < nF := by simpa using h1
+  rw [List.getElem_map, List.getElem_map, List.getElem_range]
+  have : (AnnotTerm.bvar (rP + nF - 1 - (rP + i)) : AnnotTerm)
+      = .bvar ((xs ++ fs).length - 1 - (rP + i)) := by rw [hlen]
+  rw [this, interp_bvarAt (by rw [hlen]; omega), List.getD_eq_getElem?_getD,
+    List.getElem?_append_right (by omega), hxs,
+    show rP + i - rP = i from by omega, List.getElem?_eq_getElem (by omega)]
+  rfl
+
+/-- **`hctorAt` (b), at the run**: the rule's constructed major reads
+to the block's injection at the rule's own field values.  The three
+computations of the section header, in order. -/
+theorem blockRecMkK_value {envC : Env} {mpC : EnvModelM V μ envC} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mpC.base2 names d)
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ci : ConstantInfo} (hfind : envC.find? cA.1.name = some ci)
+    (hlps : ci.toConstantVal.levelParams = p.lps)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
+    {mem : Nat → Nat} {j : Nat} (hmemN : mem c < d.N)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (ψ : Name → Nat) {K : Nat} {a ρ : Nat → V} {xs fs : List V}
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
+    (hcut : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+        + (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length
+      = xs.length + fs.length)
+    (hps : SpineFit ρ (d.params ψ) (xs.take p.nP))
+    (hfp : SpineFit (consList (xs.take p.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs) :
+    interp V (consList (xs ++ fs) (chainFrame K a ρ))
+        (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c i)
+      = d.inj ψ (mem c) j fs := by
+  have hlenL : (xs ++ fs).length = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    rw [List.length_append, hxs, hfs]
+  -- (1) the K-lift drops to the base frame
+  rw [blockRecMkK,
+    show (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+        + (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length
+      = (xs ++ fs).length from by rw [hcut, List.length_append],
+    interp_liftN_chainFrame (xs ++ fs),
+    blockRuleMkAV_eq h hr hcA hrhs hfind hlps hnP ψ, interp_mkAppN, foldl_app_map,
+    List.map_append]
+  -- (2) the bvars read the frame's entries
+  rw [map_bvarAt_take (hD := by rw [hlenL]) (by rw [hlenL]; omega),
+    map_fieldBvars hxs hfs, List.take_append_of_le_length (by omega)]
+  -- (3) the constant's leaf does not see the frame
+  rw [acval_interp_closedC mpC.base2 cA.1.name _ (consList (xs ++ fs) ρ) ρ,
+    Level.substFn_param_self ψ p.lps]
+  exact hM.ctor (mem c) hmemN j cA hcj ψ ρ (xs.take p.nP) fs hps hfp
+
+end FiredSpine
+
+/-! ## 23. The lifting transport at an ARBITRARY insertion (session 6)
+
+`interp_liftN_chainFrame`/`spineFit_liftDomsK` (RM11) transport a
+reading and a fit past the `K` chain binders.  `hspF` needs the same
+transport past the rule prefix's `rP − nP` EXTRA binders — the
+recursor's `nP … rP-1` stretch, which `blockRuleFdomsAV_eq` exhibits
+as a `liftDomsK (rP − nP) 0` of the constructor's own field domains.
+Both are the same lemma at a different inserted block, and this is
+that lemma; the chain versions are its instances at
+`us := (List.range K).map a`. -/
+
+section Insertion
+
+/-- **A reading crosses an inserted block**: a form read under `ws`
+binders reads the same when `us` values are inserted below them, once
+lifted by `|us|` at the cutoff `|ws|`. -/
+theorem interp_liftN_insert {us ws : List V} {ρ : Nat → V} (e : AnnotTerm) :
+    interp V (consList ws (consList us ρ)) (e.liftN us.length ws.length)
+      = interp V (consList ws ρ) e := by
+  rw [interp_liftN, shiftE_consList_ih (locals := ws) (ihvals := us) rfl rfl]
+
+/-! **What blocks the fit's transport.**  `liftDomsK` (RM11,
+`BlockRecData.lean`) is a plain `def` in a `public section`, so its
+body does not unfold here and the fit's version of this transport —
+the structural recursion `spineFit_liftDomsK` performs — cannot be
+written outside that module.  `@[expose]` on `liftDomsK` (or the
+insertion-general `spineFit_liftDomsK` beside the chain one) is all it
+needs; the reading's half above is unblocked because it never mentions
+`liftDomsK`. -/
+
+end Insertion
+
 end ConLeche.Model
