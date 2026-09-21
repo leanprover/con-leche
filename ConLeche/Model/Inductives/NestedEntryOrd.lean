@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.ContainerCross
+import ConLeche.Verify.Inductives.NestedRootLabel
 public import ConLeche.Model.Inductives.NestedPinLeafAll
 public section
 
@@ -54,6 +55,29 @@ open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal RecFieldKi
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+
+/-! ## The rank induction's instance label and scope -/
+
+/-- **THE INSTANCE LABEL the induction measures**, named once: K.52's
+own list, which `nestedPinsLe_of_rank` reads off the run
+(`nestedPinInstOf` = the connected-component label of the OWN-reference
+edges `nestedPinEdges`, `Kernel/Inductives/NestedInstall.lean`).  The
+RANK (`nestedPinRankOf`) is the well-founded measure; the label is what
+"the same instance" means in the step's hypothesis. -/
+abbrev instLabel (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) (q : Nat) : Nat :=
+  (ConLeche.nestedPinInstOf env p b st stored).getD q 0
+
+/-- **THE RANK INDUCTION'S SCOPE AT A PIN `q`** (task #315 WIDE (f5),
+lane DOM): the pins `q'` its hypothesis reaches — an edge from a pin of
+`q`'s OWN instance, landing in ANOTHER instance.  `nestedPinsLe_of_wide`
+hands exactly this as `hIHeq`; naming it lets the step's `hIH` and the
+producer of its `hout` speak of one predicate. -/
+abbrev NestedOutScope (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) (edges : List (Nat × Nat × Bool)) (n q q' : Nat) : Prop :=
+  ∃ q₀', q₀' < n ∧ instLabel env p b st stored q₀' = instLabel env p b st stored q ∧
+    (∃ own : Bool, (q₀', q', own) ∈ edges) ∧
+    instLabel env p b st stored q' ≠ instLabel env p b st stored q
 
 /-! ## `hdom₁`'s container-recursive arm is the other side's bound -/
 
@@ -461,6 +485,104 @@ theorem nestedPinsEntryOrd_of (hμ : μ.verifiedChecks = true)
   rw [hψ, hDs, hkE]
   exact nestedPinsEntryOrd_at hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup G hi' hj
     (hout i' j hi' hj)
+
+/-! ## `hout`'s two halves at a ROOT group -/
+
+/-- **THE STEP'S `hout`, AT A ROOT GROUP** (task #315 WIDE (f5), lane
+DOM): at a field the container calls ORDINARY and the block's rewrite
+made recursive, whose target is a PIN, that pin is in the rank
+induction's scope — PROVIDED the group `q₀` is its instance's ROOT
+group (`hrootGrp`).
+
+`hout` was a hypothesis of `nestedPinWideStep` and DESIGN's WIDE (f3)
+row showed it FALSE at an arbitrary mint group (`nested_p04`).  Its two
+halves are here:
+
+* **the EDGE half** is `hedgeAt`, the K.32-shaped lookup bridge between
+  the model's spellings (`blkRss ctorsA kinds`, `mutTgts …`) and
+  `nestedPinEdges`' own lookups.  `nestedPinEdges_mem`
+  (`Verify/Inductives/NestedInv.lean`) is the theorem it instantiates;
+  what stands between them is the lookup matching, which lives in
+  `NestedCopyInst.lean` — not this lane's file — and is carried here as
+  a named hypothesis with this exact statement;
+* **the LABEL half** is `ConLeche.nestedPinOutLabel`
+  (`Verify/Inductives/NestedRootLabel.lean`), whose four links are K.66,
+  K.75 clause (2), the roots table's constancy on an instance and K.75
+  clause (1).  The two K.75 clauses are the named hypotheses `hK75pool`
+  and `hK75grp`; their Bools' verbatim text and their measurement (zero
+  fires on the shadow suite, `init-full` and Mathlib in both modes) are
+  in DESIGN's WIDE (f4) row.
+
+`hrootGrp` is stated at the group's pin `q₀ + i` and moved to the other
+members by K.37's clause (4) (a mint group is ONE instance) and
+`nestedPinRootGroup_congr`. -/
+theorem nestedPinsOut_of_root (m : EnvModel V env₂)
+    {st : ElimState} {stored : List AuxStored} {edges : List (Nat × Nat × Bool)}
+    (hed : ConLeche.nestedPinEdges env p b st stored = some edges)
+    (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    (hK29 : ConLeche.nestedGroupsOk env p st = true)
+    (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
+    -- **K.75 clause (1)**: the root group's own-pin POOL, read as the
+    -- instance map's INDEX-level image
+    (hK75pool : ∀ q, q < st.pins.length → ∀ g,
+      (ConLeche.nestedPinRootGroup env p b st stored).getD q none = some g →
+      (st.pins.getD q default).grpBase = g ∨
+        ∃ i, i < st.pins.length ∧ (st.pins.getD i default).grpBase = g ∧
+          ∃ mi, ConLeche.nestedInstMapAt env st i = some mi ∧ mi.contains q = true)
+    -- **K.75 clause (2)**: K.62 at the source's whole MINT GROUP
+    (hK75grp : ∀ s' t', (s', t', false) ∈ edges →
+      ∀ d, d < (st.pins.getD s' default).grpSize →
+      ∀ mi, ConLeche.nestedInstMapAt env st ((st.pins.getD s' default).grpBase + d) = some mi →
+        mi.contains t' = false)
+    (hpinsLen : st.pins.length = pinsS.length)
+    (dJf : Nat → BlockModel V) {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    (hrootGrp : (ConLeche.nestedPinRootGroup env p b st stored).getD (q₀ + i) none = some q₀)
+    {ψ : Name → Nat}
+    (hedgeAt : ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
+      ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k < pinsS.length ∧
+        (q₀ + i', (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k, false) ∈ edges)) :
+    ∀ i' j, i' < kJ → j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
+      NestedOutScope env p b st stored edges pinsS.length (q₀ + i)
+        ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) := by
+  obtain ⟨edges', hed', _, _, h4⟩ := ConLeche.nestedPinRankOk_inv hrank
+  rw [hed] at hed'
+  obtain rfl : edges = edges' := Option.some.inj hed'
+  have hseg := G.syn.seg
+  have hlt : q₀ + i < st.pins.length := by rw [hpinsLen]; omega
+  intro i' j hi' hj l hl hrssB hrssC hge
+  obtain ⟨htlt, hedge⟩ := hedgeAt i' j hi' hj l hl hrssB hrssC hge
+  have hlt' : q₀ + i' < st.pins.length := by rw [hpinsLen]; omega
+  -- a mint group is ONE instance (K.37's clause (4)), so every member
+  -- carries the group's label and the group's root
+  have hlab : instLabel env p b st stored (q₀ + i')
+      = instLabel env p b st stored (q₀ + i) := by
+    have e1 := h4 (q₀ + i') hlt'
+    have e2 := h4 (q₀ + i) hlt
+    rw [(G.syn.grp i' hi').1] at e1
+    rw [(G.syn.grp i hi).1] at e2
+    exact e1.trans e2.symm
+  have hroot' : (ConLeche.nestedPinRootGroup env p b st stored).getD (q₀ + i') none
+      = some (st.pins.getD (q₀ + i') default).grpBase := by
+    rw [(G.syn.grp i' hi').1, ConLeche.nestedPinRootGroup_congr hlt' hlt hlab]
+    exact hrootGrp
+  refine ⟨q₀ + i', by omega, hlab, ⟨false, hedge⟩, ?_⟩
+  rw [← hlab]
+  exact ConLeche.nestedPinOutLabel hK29 hK62 hK75pool
+    (fun d hd mi hmi => hK75grp _ _ hedge d hd mi hmi) hed hlt'
+    (by rw [hpinsLen]; exact htlt) hedge hroot'
 
 end Run
 
