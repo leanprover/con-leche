@@ -4,6 +4,9 @@ public import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Verify.InstList
+import ConLeche.Verify.Inductives.BlockRecInv
+import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.BasisOk
 
 public section
 
@@ -271,5 +274,226 @@ theorem denoteMeta_open_liftLooseBVars
           (b.instantiateList (Expr.fvar (F + d) (ty.instantiateList as1 0) :: as1) 0) with
       | none => rfl
       | some ba => rfl
+
+/-! ## The frame kit: the `nR` ih binders, dropped
+
+`AnnotTerm.liftN nR · d` is matched by `shiftE nR d`, and at the
+rule's frame that is exactly "forget the ih block". -/
+
+variable {V : Type uv} [SetTheory V]
+
+theorem shiftE_consList_ih {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → V}
+    (hloc : locals.length = d) (hih : ihvals.length = nR) :
+    shiftE nR d (consList locals (consList ihvals ρ')) = consList locals ρ' := by
+  funext i
+  rw [shiftE]
+  rcases Nat.lt_or_ge i d with hi | hi
+  · rw [if_pos hi, consList_getD_of_lt _ _ _ (by omega),
+      consList_getD_of_lt _ _ _ (by omega)]
+  · obtain ⟨i', rfl⟩ : ∃ i', i = i' + d := ⟨i - d, by omega⟩
+    rw [if_neg (by omega),
+      show i' + d + nR = (i' + nR) + locals.length from by omega,
+      consList_apply_add, ← hloc, consList_apply_add,
+      show i' + nR = i' + ihvals.length from by omega, consList_apply_add]
+
+/-- **The non-call node's `interp` step**: a subterm the abstraction
+only lifted reads the same, at the frame with the ih block dropped. -/
+theorem interp_of_open_lift
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {nR F d : Nat} {e : Expr} {as1 as2 : List Expr} {locals ihvals : List V} {ρ' : Nat → V}
+    {A B : AnnotTerm}
+    (hf : e.hasFvar = false) (h1 : FvarList (F + d) as1) (h2 : FvarList (F + nR + d) as2)
+    (hloc : locals.length = d) (hih : ihvals.length = nR)
+    (hA : denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A)
+    (hB : denoteMeta acval env φ (F + nR + d)
+      ((e.liftLooseBVars nR d).instantiateList as2 0) = some B) :
+    interp V (consList locals ρ') A
+      = interp V (consList locals (consList ihvals ρ')) B := by
+  have hEq := denoteMeta_open_liftLooseBVars (acval := acval) (env := env) (φ := φ)
+    hacl nR F e d as1 as2 hf h1 h2
+  rw [hA, hB, Option.map_some] at hEq
+  obtain rfl : B = A.liftN nR d := Option.some.inj hEq
+  rw [interp_liftN V nR A d, shiftE_consList_ih hloc hih]
+
+/-! ## The guarded call's node, as a named premise
+
+O-1's only non-structural case: at a node the abstraction replaced by
+`ih_r a⃗`, the stored node's reading and the ih value applied along the
+arguments' readings agree.  That is a statement about the ih VALUES —
+`ihFunAV`'s readings, folded by `ihFunAV_fold` — and about the leaf,
+so it is the regimes' seam and not this induction's. -/
+
+/-- **The guarded call's value.** -/
+@[expose] def IhNodeVal (V : Type uv) [SetTheory V]
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
+    (fr : ConLeche.BlockRuleFrame) (F : Nat) (ρ' : Nat → V) (ihvals : List V) : Prop :=
+  ∀ (d : Nat) (locals : List V) (e : Expr) (r : Nat) (as as1 as2 : List Expr)
+    (A B : AnnotTerm),
+    locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
+    ConLeche.blockIhCall? fr d e = some (r, as) →
+    denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A →
+    denoteMeta acval env φ (F + fr.nR + d)
+      ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+        (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) = some B →
+    interp V (consList locals ρ') A
+      = interp V (consList locals (consList ihvals ρ')) B
+
+set_option maxHeartbeats 1000000 in
+/-- **O-1**: the abstraction's inverse, at the reading.  The stored
+right-hand side's body, read at the rule's frame, is the RESIDUE read
+at the frame extended by the `ih` openers' values — `interp`, not
+syntax: at a guarded call the residue holds `ih_r a⃗` and substituting
+the ih term makes a β-redex (`ihFunAV_fold` evaluates it), so no
+`AnnotTerm` equation can hold.
+
+The induction is structural over the rule body; every node the
+abstraction did not replace is `interp_of_open_lift`, and the one it
+did is the premise `IhNodeVal`. -/
+theorem interp_abstractIh
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
+    (hih : ihvals.length = fr.nR) (hcall : IhNodeVal V acval env φ fr F ρ' ihvals) :
+    ∀ (e e'' : Expr) (d : Nat) (locals : List V) (as1 as2 : List Expr) (A B : AnnotTerm),
+      ConLeche.abstractIh fr d e = some e'' → e.hasFvar = false →
+      locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
+      denoteMeta acval env φ (F + d) (e.instantiateList as1 0) = some A →
+      denoteMeta acval env φ (F + fr.nR + d) (e''.instantiateList as2 0) = some B →
+      interp V (consList locals ρ') A
+        = interp V (consList locals (consList ihvals ρ')) B
+  | .bvar j, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    obtain rfl : e'' = (Expr.bvar j).liftLooseBVars fr.nR d := by
+      rw [ConLeche.abstractIh_bvar] at hab
+      rw [Expr.liftLooseBVars, ← Option.some.inj hab]
+      split <;> rename_i hj
+      · rw [if_neg (by omega)]
+      · rw [if_pos (by omega)]
+    exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
+  | .sort u, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    obtain rfl : e'' = (Expr.sort u).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
+    exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
+  | .lit l, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    obtain rfl : e'' = (Expr.lit l).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
+    exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
+  | .const n us, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    rw [ConLeche.abstractIh_const] at hab
+    split at hab
+    · exact nomatch hab
+    · obtain rfl : e'' = (Expr.const n us).liftLooseBVars fr.nR d := (Option.some.inj hab).symm
+      exact interp_of_open_lift hacl hf h1 h2 hloc hih hA hB
+  | .fvar _ _, _, _, _, _, _, _, _, hab, _, _, _, _, _, _ => nomatch hab
+  | .letE ty v b, _, d, _, as1, _, A, _, _, _, _, _, _, hA, _ => by
+    rw [Expr.instantiateList, denoteMeta] at hA
+    exact nomatch hA
+  | .proj sn i e, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    simp only [Expr.hasFvar] at hf
+    rw [ConLeche.abstractIh] at hab
+    split at hab
+    · exact nomatch hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨e', hpe, rfl⟩ := hab
+    rw [Expr.instantiateList, denoteMeta_proj] at hA hB
+    obtain ⟨ea, hea, hA⟩ := Option.bind_eq_some_iff.mp hA
+    obtain ⟨eb, heb, hB⟩ := Option.bind_eq_some_iff.mp hB
+    have hrec := interp_abstractIh hacl hih hcall e e' d locals as1 as2 ea eb
+      hpe hf hloc h1 h2 hea heb
+    revert hA hB
+    cases env.findProj? sn i with
+    | some entry =>
+      intro hA hB
+      obtain rfl : A = projAV (i + entry.off) ea := (Option.some.inj hA).symm
+      obtain rfl : B = projAV (i + entry.off) eb := (Option.some.inj hB).symm
+      rw [projAV_interp, projAV_interp, hrec]
+    | none =>
+      intro hA hB
+      rcases i with _ | _ | i
+      · obtain rfl : A = .fst ea := (Option.some.inj hA).symm
+        obtain rfl : B = .fst eb := (Option.some.inj hB).symm
+        rw [interp_fst, interp_fst, hrec]
+      · obtain rfl : A = .snd ea := (Option.some.inj hA).symm
+        obtain rfl : B = .snd eb := (Option.some.inj hB).symm
+        rw [interp_snd, interp_snd, hrec]
+      · exact nomatch hA
+  | .lam ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
+    obtain ⟨ty', hty', hab⟩ := hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨b', hb', rfl⟩ := hab
+    rw [Expr.instantiateList, denoteMeta_lam] at hA hB
+    obtain ⟨ta, hta, hA⟩ := Option.bind_eq_some_iff.mp hA
+    obtain ⟨ba, hba, hA⟩ := Option.bind_eq_some_iff.mp hA
+    obtain ⟨tb, htb, hB⟩ := Option.bind_eq_some_iff.mp hB
+    obtain ⟨bb, hbb, hB⟩ := Option.bind_eq_some_iff.mp hB
+    obtain rfl : A = .lam (pwBit φ bi.pw) ta ba := (Option.some.inj hA).symm
+    obtain rfl : B = .lam (pwBit φ bi.pw) tb bb := (Option.some.inj hB).symm
+    rw [← Expr.instantiateList_cons] at hba hbb
+    have hrecT := interp_abstractIh hacl hih hcall ty ty' d locals as1 as2 ta tb
+      hty' hf.1 hloc h1 h2 hta htb
+    rw [interp_lam, interp_lam, hrecT]
+    refine lamR_congr fun x _ => ?_
+    rw [show F + d + 1 = F + (d + 1) from by omega] at hba
+    rw [show F + fr.nR + d + 1 = F + fr.nR + (d + 1) from by omega] at hbb
+    have := interp_abstractIh hacl hih hcall b b' (d + 1) (locals ++ [x])
+      (Expr.fvar (F + d) (ty.instantiateList as1 0) :: as1)
+      (Expr.fvar (F + fr.nR + d) (ty'.instantiateList as2 0) :: as2) ba bb
+      hb' hf.2 (by simp [hloc])
+      (by rw [show F + (d + 1) = F + d + 1 from by omega]; exact h1.cons _)
+      (by rw [show F + fr.nR + (d + 1) = F + fr.nR + d + 1 from by omega]; exact h2.cons _)
+      hba hbb
+    rwa [consList_append, consList_append] at this
+  | .forallE ty b bi, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
+    obtain ⟨ty', hty', hab⟩ := hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨b', hb', rfl⟩ := hab
+    rw [Expr.instantiateList, denoteMeta_forallE] at hA hB
+    obtain ⟨ta, hta, hA⟩ := Option.bind_eq_some_iff.mp hA
+    obtain ⟨ba, hba, hA⟩ := Option.bind_eq_some_iff.mp hA
+    obtain ⟨tb, htb, hB⟩ := Option.bind_eq_some_iff.mp hB
+    obtain ⟨bb, hbb, hB⟩ := Option.bind_eq_some_iff.mp hB
+    obtain rfl : A = .pi 0 (pwBit φ bi.pw) ta ba := (Option.some.inj hA).symm
+    obtain rfl : B = .pi 0 (pwBit φ bi.pw) tb bb := (Option.some.inj hB).symm
+    rw [← Expr.instantiateList_cons] at hba hbb
+    have hrecT := interp_abstractIh hacl hih hcall ty ty' d locals as1 as2 ta tb
+      hty' hf.1 hloc h1 h2 hta htb
+    rw [interp_pi, interp_pi, hrecT]
+    refine piR_congr fun x _ => ?_
+    rw [show F + d + 1 = F + (d + 1) from by omega] at hba
+    rw [show F + fr.nR + d + 1 = F + fr.nR + (d + 1) from by omega] at hbb
+    have := interp_abstractIh hacl hih hcall b b' (d + 1) (locals ++ [x])
+      (Expr.fvar (F + d) (ty.instantiateList as1 0) :: as1)
+      (Expr.fvar (F + fr.nR + d) (ty'.instantiateList as2 0) :: as2) ba bb
+      hb' hf.2 (by simp [hloc])
+      (by rw [show F + (d + 1) = F + d + 1 from by omega]; exact h1.cons _)
+      (by rw [show F + fr.nR + (d + 1) = F + fr.nR + d + 1 from by omega]; exact h2.cons _)
+      hba hbb
+    rwa [consList_append, consList_append] at this
+  | .app f a, e'', d, locals, as1, as2, A, B, hab, hf, hloc, h1, h2, hA, hB => by
+    rw [ConLeche.abstractIh_app] at hab
+    revert hab
+    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
+    | some ra =>
+      intro hab
+      obtain ⟨r, as⟩ := ra
+      obtain rfl := Option.some.inj hab
+      exact hcall d locals (.app f a) r as as1 as2 A B hloc h1 h2 hc hA hB
+    | none =>
+      intro hab
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+      rw [Option.bind_eq_some_iff] at hab
+      obtain ⟨f', hf', hab⟩ := hab
+      rw [Option.map_eq_some_iff] at hab
+      obtain ⟨a', ha', rfl⟩ := hab
+      rw [Expr.instantiateList, denoteMeta_app] at hA hB
+      obtain ⟨fa, hfa, hA⟩ := Option.bind_eq_some_iff.mp hA
+      obtain ⟨aa, haa, hA⟩ := Option.bind_eq_some_iff.mp hA
+      obtain ⟨fb, hfb, hB⟩ := Option.bind_eq_some_iff.mp hB
+      obtain ⟨ab, hab', hB⟩ := Option.bind_eq_some_iff.mp hB
+      obtain rfl : A = .app fa aa := (Option.some.inj hA).symm
+      obtain rfl : B = .app fb ab := (Option.some.inj hB).symm
+      rw [interp_app, interp_app,
+        interp_abstractIh hacl hih hcall f f' d locals as1 as2 fa fb hf' hf.1 hloc h1 h2 hfa hfb,
+        interp_abstractIh hacl hih hcall a a' d locals as1 as2 aa ab ha' hf.2 hloc h1 h2 haa hab']
 
 end ConLeche.Model
