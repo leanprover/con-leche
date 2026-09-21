@@ -528,16 +528,24 @@ the two SEMANTIC seams — the family premise `BlockRecPre` (the
 regimes) and the rule data `hnew` (`hrecP_of`). -/
 
 /-- The `i`-th recursor's LEAF at `ψ`: the `i`-th projection of the
-family's chosen tuple, at the recursor types the run reads. -/
+family's chosen tuple, at the recursor types the run reads.
+
+**The family's level `s` is a FUNCTION of `ψ`**, as it is at `k = 1`
+(`fixLeafAV`'s `sAV : (Name → Nat) → Nat`): a large eliminator carries
+its own level parameter, so a block's recursor types are sets of a
+level that MOVES with the valuation, and `BlockRecPre.hTy` is stated
+at `univ (s ψ)`. -/
 @[expose] noncomputable def blockRecLeafAV (acval : Name → (Name → Nat) → AnnotTerm)
     (envC : Env) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (s : Nat) (eqs : (Name → Nat) → List AnnotTerm) (ψ : Name → Nat) (i : Nat) : AnnotTerm :=
-  ConLeche.Semantics.blockRecAV s rs.length (blockRecTyAV acval envC rs ψ) (eqs ψ) i
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) (ψ : Name → Nat)
+    (i : Nat) : AnnotTerm :=
+  ConLeche.Semantics.blockRecAV (s ψ) rs.length (blockRecTyAV acval envC rs ψ) (eqs ψ) i
 
 /-- The recursors' cons's valuation, at the block's own leaves. -/
 @[expose] noncomputable def blockRecAcv (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (s : Nat) (eqs : (Name → Nat) → List AnnotTerm) : Name → (Name → Nat) → AnnotTerm :=
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) :
+    Name → (Name → Nat) → AnnotTerm :=
   blockRecAcvOf acval (rs.map (·.1.name)) (blockRecLeafAV acval envC rs s eqs)
 
 /-- **The recursor stage, at the run.**  Its premises are the check's
@@ -549,8 +557,8 @@ two SEMANTIC seams. -/
 theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F s : Nat}
-    {eqs : (Name → Nat) → List AnnotTerm}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hndM : p.toBlockShape.memberNames.Nodup)
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
@@ -569,7 +577,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (hleafVal : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
       AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s rs.length
+      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
         (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ)
     (hnew : ∀ m₃ : EnvModel V (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC),
       m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs →
@@ -598,7 +606,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
   have hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
         blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ
-          = ConLeche.Semantics.blockRecAV s rs.length
+          = ConLeche.Semantics.blockRecAV (s ψ) rs.length
               (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) i := by
     intro i r hr ψ
     have hi : (rs.map (·.1.name))[i]? = some r.1.name := by

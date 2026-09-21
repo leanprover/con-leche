@@ -144,16 +144,17 @@ omit [SetTheory V] in
 /-- **C-3: the leaf reads only the `K` types and the equations** — so a
 level valuation reaches it only through those.  Only the components
 `c' < K` matter: the leaf is the chain of `blockTsAV K RecTy`. -/
-theorem blockRecAV_congr {s K : Nat} {RecTy₁ RecTy₂ : Nat → AnnotTerm}
-    {eqs₁ eqs₂ : List AnnotTerm} {c : Nat}
+theorem blockRecAV_congr {s₁ s₂ K : Nat} {RecTy₁ RecTy₂ : Nat → AnnotTerm}
+    {eqs₁ eqs₂ : List AnnotTerm} {c : Nat} (hs : s₁ = s₂)
     (hT : ∀ c', c' < K → RecTy₁ c' = RecTy₂ c') (heq : eqs₁ = eqs₂) :
-    blockRecAV s K RecTy₁ eqs₁ c = blockRecAV s K RecTy₂ eqs₂ c := by
+    blockRecAV s₁ K RecTy₁ eqs₁ c = blockRecAV s₂ K RecTy₂ eqs₂ c := by
   subst heq
+  subst hs
   have hTs : blockTsAV K RecTy₁ = blockTsAV K RecTy₂ := by
     simp only [blockTsAV]
     refine List.map_congr_left fun mm hmm => ?_
     rw [hT mm (List.mem_range.mp hmm)]
-  show projChainAV c (selChainAV s (blockTsAV K RecTy₁) (andChainAV eqs₁)) = _
+  show projChainAV c (selChainAV s₁ (blockTsAV K RecTy₁) (andChainAV eqs₁)) = _
   rw [hTs]
   rfl
 
@@ -487,8 +488,8 @@ section RunLeaf
 
 variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F s : Nat}
-  {eqs : (Name → Nat) → List AnnotTerm}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+  {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
 
 /-- **C-1 at the run**: the stage's leaf is closed. -/
 theorem blockRecLeafAV_closed (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
@@ -514,6 +515,7 @@ through the recursor types' readings and the equations. -/
 theorem blockRecLeafAV_par {mpC : EnvModelM V μ envC}
     (hpar : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        s ψ₁ = s ψ₂ ∧
         (∀ c', c' < rs.length → blockRecTyAV mpC.base2.acval envC rs ψ₁ c'
             = blockRecTyAV mpC.base2.acval envC rs ψ₂ c') ∧ eqs ψ₁ = eqs ψ₂)
     (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
@@ -521,7 +523,8 @@ theorem blockRecLeafAV_par {mpC : EnvModelM V μ envC}
     (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
     blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
       = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i :=
-  blockRecAV_congr (hpar i r hr ψ₁ ψ₂ hq).1 (hpar i r hr ψ₁ ψ₂ hq).2
+  blockRecAV_congr (hpar i r hr ψ₁ ψ₂ hq).1 (hpar i r hr ψ₁ ψ₂ hq).2.1
+    (hpar i r hr ψ₁ ψ₂ hq).2.2
 
 /-- **C-4 at the run**: the stage's leaf is graded — `blockRecAV_facts`
 at the family premise, one line.  **The block position is needed**:
@@ -529,7 +532,7 @@ out of range `projChainAV` walks past the chain's last binder and the
 grading is not available (and not true in general). -/
 theorem blockRecLeafAV_wd {mpC : EnvModelM V μ envC}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s rs.length
+      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
         (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ)
     (ψ : Name → Nat) {i : Nat} (hi : i < rs.length) (ρ : Nat → V) :
     WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i) :=
@@ -622,14 +625,14 @@ theorem blockRecLeafAV_par_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
-        (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → eqs ψ₁ = eqs ψ₂)
+        (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂ ∧ eqs ψ₁ = eqs ψ₂)
     (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
     (hr : rs[i]? = some r) (ψ₁ ψ₂ : Name → Nat)
     (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
     blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
       = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i :=
-  blockRecAV_congr (fun _ hc' => blockRecTyAV_params_ext hμ mpC h hr hq hc')
-    (heqP i r hr ψ₁ ψ₂ hq)
+  blockRecAV_congr (heqP i r hr ψ₁ ψ₂ hq).1
+    (fun _ hc' => blockRecTyAV_params_ext hμ mpC h hr hq hc') (heqP i r hr ψ₁ ψ₂ hq).2
 
 end RunLeaf
 

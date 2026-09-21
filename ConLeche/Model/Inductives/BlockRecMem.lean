@@ -307,7 +307,7 @@ Three premises, each in the shape its owner exports:
 * `hpre` — the family premise (lane RM3's `blockRecPre_of`). -/
 theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {acv : Name → (Name → Nat) → AnnotTerm} {s K : Nat}
+    {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -315,9 +315,9 @@ theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
         denoteMeta acval envC ψ 0 r.1.type = some (RecTy ψ i))
     (hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
-        acv r.1.name ψ = ConLeche.Semantics.blockRecAV s K (RecTy ψ) (eqs ψ) i)
+        acv r.1.name ψ = ConLeche.Semantics.blockRecAV (s ψ) K (RecTy ψ) (eqs ψ) i)
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s K (RecTy ψ) (eqs ψ) ρ) :
+      ConLeche.Semantics.BlockRecPre V (s ψ) K (RecTy ψ) (eqs ψ) ρ) :
     ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ta : AnnotTerm),
       denoteMeta acval envC ψ 0 r.1.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta := by
@@ -339,7 +339,7 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {acv : Name → (Name → Nat) → AnnotTerm} {s K : Nat}
+    {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hK : rs.length = K)
@@ -348,9 +348,9 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
         denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some (RecTy ψ i))
     (hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
-        acv r.1.name ψ = ConLeche.Semantics.blockRecAV s K (RecTy ψ) (eqs ψ) i)
+        acv r.1.name ψ = ConLeche.Semantics.blockRecAV (s ψ) K (RecTy ψ) (eqs ψ) i)
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s K (RecTy ψ) (eqs ψ) ρ) :
+      ConLeche.Semantics.BlockRecPre V (s ψ) K (RecTy ψ) (eqs ψ) ρ) :
     ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
