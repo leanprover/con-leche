@@ -231,6 +231,44 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
 
+/-- **The recursor stage through the index** (milestone M5).  The two
+halves run at DIFFERENT environments — the types at the block's, the
+rules at the one holding all `k` RULE-LESS recursors — and the cached
+operations are built at a fixed index, so the composition lives here
+with its own `flushC` and a fresh `sharedOpsC` in between (the
+arrangement `checkIndRecsS` uses for the modelled route).  The pure
+stage (`checkBlockRecK`) is this composition with one `ops`, which is
+the same thing: the generic operations honour the environment they are
+handed. -/
+def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+  checkBlockRecPins (m := CheckCM) p
+  let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) structWalkersC fe p.toBlockShape
+    (blockMems p.toBlockShape cvTas) (p.members.zip cvTas) 0
+  let feR := consBlockRecsBareF p.rulePrefix cvRas fe
+  flushC
+  checkBlockMembersRulesF (sharedOpsC mode feR) structWalkersC feR p
+    (blockRecCallData p).1 (blockRecCallData p).2 cvRas
+    ((p.members.zip ctorsAs).zip p.kinds) 0
+
+/-- `checkBlockRec` through the index (the same gate as the pure
+stage). -/
+def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
+  match p.members, cvTas, ctorsAs with
+  | [ms], [cvTa], [ctorsA] =>
+    if blockRecCheckOn then checkBlockRecKS mode fe p cvTas ctorsAs
+    else do
+      let pn := p.toNative
+      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
+          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
+        throw (.invalid "direct rec: recursor rules are not the generated ones")
+      let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe) structWalkersC fe pn cvTa ctorsA
+      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
+  | _, _, _ => checkBlockRecKS mode fe p cvTas ctorsAs
+
 /-- **`checkBlockPass` through the index** (milestone M5): the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
@@ -260,7 +298,7 @@ def checkBlockTailS (fe : FEnv) (q : BlockPass FEnv) : CheckCM FEnv := do
     throw (.internal "direct rec: field kinds")
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let rs ← checkBlockRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p q.cvTas q.ctorsAs
+  let rs ← checkBlockRecS mode fe₂ p q.cvTas q.ctorsAs
   let fe₃ := consBlockRecsF fe₂.find? p.nP p.rulePrefix rs fe₂
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃

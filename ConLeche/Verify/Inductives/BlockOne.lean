@@ -160,6 +160,43 @@ theorem blockSplit_one {block : List ConstantInfo} {cvT : ConstantVal}
 
 /-! ## The recogniser -/
 
+/-- **At ONE type former the recursor list is left alone**: with one
+member the reorder's length guard admits only a one-element list, and
+there the name match either finds that very element or does not fire
+at all. -/
+theorem blockOrderRecs_single (cvT : ConstantVal)
+    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
+    blockOrderRecs [cvT] rs = rs := by
+  cases rs with
+  | nil => rfl
+  | cons r rs' =>
+    cases rs' with
+    | cons r1 rs'' => simp only [blockOrderRecs, List.length_cons, List.length_nil]; rfl
+    | nil =>
+      unfold blockOrderRecs
+      cases hf : ([r].find? (fun x => x.1.name == cvT.name.str "rec")) with
+      | none =>
+        simp only [hf, List.all_cons, List.all_nil, Option.isSome_none,
+          Bool.false_and, Bool.and_false, Bool.false_eq_true, if_false]
+      | some r' =>
+        have hr : r' = r := by
+          simp only [List.find?] at hf
+          split at hf
+          · exact (Option.some.inj hf).symm ▸ rfl
+          · exact nomatch hf
+        subst hr
+        simp only [hf, List.all_cons, List.all_nil, Option.isSome_some, Bool.and_true,
+          List.length_cons, List.length_nil, beq_self_eq_true, Bool.true_and, if_pos,
+          List.filterMap_cons, List.filterMap_nil]
+
+/-- `blockSplitOrdered` at ONE type former. -/
+theorem blockSplitOrdered_one {block : List ConstantInfo} {cvT0 : ConstantVal}
+    {cs : List (ConstantVal × Nat × Nat)} {rs : List (ConstantVal × Nat × Nat × List RecRule)}
+    (hsp : blockSplit block = some ([cvT0], cs, rs)) :
+    blockSplitOrdered block = some ([cvT0], cs, rs) := by
+  simp only [blockSplitOrdered, hsp, Option.map_some, blockOrderRecs_single]
+
+
 /-- The member counts at ONE member are the one-member counts. -/
 theorem blockCounts?_one (nPd : Nat) (cvT : ConstantVal)
     (cs : List (ConstantVal × Nat × Nat)) (mI rP : Nat) :
@@ -176,7 +213,7 @@ theorem blockShape?_one {nPd : Nat} {block : List ConstantInfo} {cvT0 : Constant
         q.members = [⟨cvT0, q.toInductive.nIdx, cs.map fun c => (c.1, c.2.2),
           r0.1, r0.2.2.2.map RecRule.rhs⟩] := by
   unfold blockShape? at h
-  rw [hsp] at h
+  rw [blockSplitOrdered_one hsp] at h
   cases rs with
   | nil => simp only at h; exact nomatch h
   | cons r0 rs' =>
@@ -235,7 +272,7 @@ theorem blockRecPinOk_one {block : List ConstantInfo} {cvT0 : ConstantVal}
     blockRecPinOk q block = nativeRecPinOk q.toInductive block := by
   obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
   unfold blockRecPinOk nativeRecPinOk
-  rw [hsp]
+  rw [blockSplitOrdered_one hsp]
   simp only [hsum, BlockShape.k, BlockShape.allCtors, BlockShape.rulePrefix,
     BlockShape.numCtors, BlockShape.offs, BlockShape.toInductive, numCtorsOf, hm,
     List.length_cons, List.length_nil, List.map_cons, List.map_nil, List.flatten_cons,

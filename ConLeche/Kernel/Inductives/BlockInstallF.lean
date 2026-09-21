@@ -247,7 +247,7 @@ def checkBlockRuleF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : B
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless w.resolve feR rhsA do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
-  unless blockRulePrefixOk recTy nP k N J nF rhsA do
+  unless blockRulePrefixOk cvR.type nP k N J nF rhsA do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
       parameters, motives, minor premises and the constructor's fields")
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))
@@ -310,39 +310,22 @@ def checkBlockMembersRulesF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv
     let rest' ← checkBlockMembersRulesF ops w feR p recNames rlvls cvRas rest (mi + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
-/-- `checkBlockRecK` through the index. -/
-def checkBlockRecKF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
-  unless p.members.all (fun ms => ms.cvR.name == ms.cvT.name.str "rec") do
-    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
-  unless blockRecLpsOk p.toBlockShape do
-    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
-  unless p.recPinned do
-    throw (.invalid "direct rec: the recursor record is not the generated recursor")
-  let cvRas ← checkBlockRecTysF ops w fe p.toBlockShape (blockMems p.toBlockShape cvTas)
-    (p.members.zip cvTas) 0
-  let feR := consBlockRecsBareF p.rulePrefix cvRas fe
-  checkBlockMembersRulesF ops w feR p (p.members.map (·.cvR.name))
-    ((p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
-    cvRas ((p.members.zip ctorsAs).zip p.kinds) 0
+/-- The block's recursor names and the level arguments every
+recursive call carries (the rule stage's two constants). -/
+def blockRecCallData (p : BlockParts) : List Name × List Level :=
+  (p.members.map (·.cvR.name),
+    (p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
 
-/-- `checkBlockRec` through the index (the same gate as the pure
-stage). -/
-def checkBlockRecF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  match p.members, cvTas, ctorsAs with
-  | [ms], [cvTa], [ctorsA] =>
-    if blockRecCheckOn then checkBlockRecKF ops w fe p cvTas ctorsAs
-    else do
-      let pn := p.toNative
-      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
-          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
-        throw (.invalid "direct rec: recursor rules are not the generated ones")
-      let (cvRa, rhss) ← checkNativeRecF ops w fe pn cvTa ctorsA
-      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-  | _, _, _ => checkBlockRecKF ops w fe p cvTas ctorsAs
+/-!
+`checkBlockRecK` itself has NO `F` twin: its two halves run at
+DIFFERENT environments (the types at the block's, the rules at the one
+holding the `k` rule-less recursors), and the cached operations are
+built at a fixed index — so the cached driver composes
+`checkBlockRecPins`, `checkBlockRecTysF`, `consBlockRecsBareF` and
+`checkBlockMembersRulesF` itself, with its flush and a fresh
+`sharedOpsC` in between (`ConLeche/Cached/CheckerC.lean`, the
+arrangement `checkIndRecsS` uses for the modelled route).
+-/
 
 /-! ## The tables and the install -/
 

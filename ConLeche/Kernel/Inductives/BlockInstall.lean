@@ -400,8 +400,13 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape)
 /-- **Stage (c): ONE rule.**
 
 The right-hand side is annotated at the environment holding the `k`
-rule-less recursors, its `λ` prefix is compared with the stored
-recursor type (`blockRulePrefixOk`), its body is abstracted
+rule-less recursors, its `λ` prefix is compared with the STREAM's own
+recursor type (`blockRulePrefixOk`; the one-member docstring at
+`nativeRulePrefixOk` says why the comparison is against the stream's
+type and not against a generated term — the elaborator spells the
+minors' field domains from a whnf'd telescope, so `HPow`'s parameter
+binder is `Sort (w+1)` where this route's declared one is
+`outParam (Sort (w+1))`), its body is abstracted
 (`abstractIh`: every block-recursor occurrence is a guarded recursive
 call on a field of THIS constructor, replaced by that field's
 inductive hypothesis), and the residue is TYPED at the opened frame
@@ -430,7 +435,7 @@ def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless rhsA.constsResolve envR do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
-  unless blockRulePrefixOk recTy nP k N J nF rhsA do
+  unless blockRulePrefixOk cvR.type nP k N J nF rhsA do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
       parameters, motives, minor premises and the constructor's fields")
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))
@@ -493,6 +498,16 @@ def checkBlockMembersRules (ops : CheckerOps m) (envR : Env) (p : BlockParts)
     let rest' ← checkBlockMembersRules ops envR p recNames rlvls cvRas rest (mi + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
+/-- **Stage (a): the recursor RECORDS' pins** (task #220 at k
+members), thrown before anything is computed. -/
+def checkBlockRecPins (p : BlockParts) : m Unit := do
+  unless p.members.all (fun ms => ms.cvR.name == ms.cvT.name.str "rec") do
+    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
+  unless blockRecLpsOk p.toBlockShape do
+    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless p.recPinned do
+    throw (.invalid "direct rec: the recursor record is not the generated recursor")
+
 /-- **The recursor stage as CHECKING, at any number of members**
 (milestone M5, design §4.2): the recursor records' pins, then every
 member's type, then — at the environment holding all `k` rule-less
@@ -506,12 +521,7 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- `T_m.rec`, or contradicting it in its level parameters, its
   -- argument sums, its rules' constructors or the block's constructor
   -- GROUPING, is INVALID INPUT — thrown before anything is computed
-  unless p.members.all (fun ms => ms.cvR.name == ms.cvT.name.str "rec") do
-    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
-  unless blockRecLpsOk p.toBlockShape do
-    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
-  unless p.recPinned do
-    throw (.invalid "direct rec: the recursor record is not the generated recursor")
+  checkBlockRecPins p
   -- (b) every member's recursor type
   let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockMems p.toBlockShape cvTas)
     (p.members.zip cvTas) 0
