@@ -657,7 +657,8 @@ DOMAIN AND THE OWN-PIN ENTRY ARE** (task #315 WIDE (3), step 1(a)):
 `ordTargetDom` of its own stored field domain, opened at the block's
 parameter fvars.  Three list-shaped operations build it — the level
 instantiation, `stripDomPis`, the own-pin spine's `instantiateList`
-and the openers' `instSeq` — and none creates a `.proj` node
+and the openers' `instSeq`, and the outer `stripDomPis` object (2)
+puts on the subject — and none creates a `.proj` node
 (`rg_noProjAt_*`, `Verify/Inductives/NestedCopyKinds.lean`), so the
 guard travels from the two leaves the caller has: the stored domain
 `dom` and the owner's own-pin entry at `qK`, whose first `nPJ`
@@ -667,7 +668,7 @@ theorem projFree_ordTargetDom_instSeq {Ts lpsC : List Name} {nPJ qK l nP cut : N
     {ownSelf : List Expr} {dom : Expr}
     (hdom : ProjFree Ts dom) (hown : ProjFree Ts (ownSelf.getD qK default)) :
     ProjFree Ts (Expr.instSeq (ConLeche.Verify.openFvars nP cut) (cut - 1)
-      (ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom)) := by
+      (ConLeche.stripDomPis (ConLeche.ordTargetDom lpsC nPJ ownSelf qK l dom))) := by
   intro T hT j
   -- an opener is an `fvar` at a sort: no node, at any depth
   have hopen : ∀ (d k : Nat) (a : Expr), a ∈ ConLeche.Verify.openFvars d k →
@@ -682,6 +683,7 @@ theorem projFree_ordTargetDom_instSeq {Ts lpsC : List Name} {nPJ qK l nP cut : N
       · simp
       · exact ih (d + 1) a ha
   refine ConLeche.rg_noProjAt_instSeq _ (fun a ha => hopen _ _ a ha) _ _ ?_
+  refine ConLeche.rg_noProjAt_stripDomPis _ ?_
   rw [ConLeche.ordTargetDom]
   refine ConLeche.rg_noProjAt_instantiateList _ (fun v hv => ?_) _ _ ?_
   · rw [List.mem_reverse] at hv

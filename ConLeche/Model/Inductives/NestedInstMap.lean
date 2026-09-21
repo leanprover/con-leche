@@ -3123,19 +3123,37 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
   rw [hDs, hψ] at hfit
+  -- **OBJECT (2)'s CUT, SUBJECT AND TOWER CONJUNCT** (task #315 WIDE
+  -- (f3)): the predicate reads at the COPY's own recorded telescope
+  -- and at the recomputation stripped of its own `Π`-prefix, and its
+  -- conjunct is K.72's SUM.  This row's head guard kills the second
+  -- summand and the strip together
+  -- (`domPiDepth_eq_zero_of_getAppFn_const`,
+  -- `stripDomPis_eq_self_of_getAppFn_const`), and each arm's own
+  -- length equation closes the first — `0` at the finitary arm
+  -- (`MutualCtorDataI.tssNone`), the container's stored tower at the
+  -- reflexive one, which the twin already proves.
+  have hheadJ := hhead
+  rw [← hlpsJ] at hheadJ
+  rw [hnPci] at hheadJ
   rw [show ((D).ownPinTerms lps) = ConLeche.nestedPinTermsSelf p st from R.ownPinTerms_eq SF lps,
-    ← hlpsJ, hnPci, hdep, Nat.add_zero, mutTlss_getD hGlt]
+    ← hlpsJ, hnPci, mutTlss_getD hGlt,
+    ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadJ,
+    ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadJ, Nat.add_zero]
   rcases hrr with hkA | hkA
-  · exact R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
+  · obtain ⟨h0, hres⟩ := R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
         obtain ⟨prms, pb₀, ww, stt, hA, hB, hC, -, hE⟩ :=
           R.copyOrdFRightPinRun SF S hPD R.hK51 hi' hjA hlF
             (by rw [hkA]; exact fun hc => nomatch hc) hpinT h1 h2 h3 h4 h5 h6 h7
         exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
       hkA hpinT hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom) hflat
-      (by rw [← hlpsJ] at hhead; rw [hnPci] at hhead; exact hhead) hciM
+      hheadJ hciM
       ψ ρp hsat fs₁ hfs hfit
-  · have hres := R.copyOrdFRightPinOrdTargetReadAtRefl SF S hPD hi' hjA hlF
+    refine ⟨by rw [h0, hdep], ?_⟩
+    rw [h0, Nat.add_zero]
+    exact hres
+  · obtain ⟨hlenO, hres⟩ := R.copyOrdFRightPinOrdTargetReadAtRefl SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
         obtain ⟨prms, pb₀, ww, stt, hA, hB, hC, -, hE⟩ :=
           R.copyOrdFRightPinRun SF S hPD R.hK51 hi' hjA hlF
@@ -3161,7 +3179,8 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         intro hnil
         exact hne (by rw [ConLeche.openPisAtFvars_len _ hop, ← hlenT, hnil]; rfl)) hciM
       ψ ρp hsat fs₁ hfs hfit
-    rw [hdep, Nat.add_zero] at hres
+    refine ⟨hlenO, ?_⟩
+    rw [hlenO]
     exact hres
 
 /-- **THE OWNER'S HALF OF THE TWO COPIES' FIELD-DATA TIE AT A MEMBER
@@ -3397,16 +3416,26 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the goal, in the run's own spelling
   intro fs₁ hfs hfit
   rw [hDs, hψ] at hfit
+  -- **OBJECT (2)'s CUT, SUBJECT AND TOWER CONJUNCT** (task #315 WIDE
+  -- (f3)), exactly as at `ordTgtReadAt`
+  have hheadJ := hhead
+  rw [← hlpsJ] at hheadJ
+  rw [hnPci] at hheadJ
   rw [show ((D).ownPinTerms lps) = ConLeche.nestedPinTermsSelf p st from R.ownPinTerms_eq SF lps,
-    ← hlpsJ, hnPci, hdep, Nat.add_zero, mutTlss_getD hGlt]
+    ← hlpsJ, hnPci, mutTlss_getD hGlt,
+    ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadJ,
+    ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadJ, Nat.add_zero]
   rcases hrr with hkA | hkA
-  · exact R.copyOrdFRightMemOrdTargetReadAt SF S hPD hi' hjA hlF
+  · obtain ⟨h0, hres⟩ := R.copyOrdFRightMemOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
         R.copyOrdFLeftRun SF S hPD R.hK42 hi' hjA hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
       hkA hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom) hflat
-      (by rw [← hlpsJ] at hhead; rw [hnPci] at hhead; exact hhead) hKmem
+      hheadJ hKmem
       ψ ρp hsat fs₁ hfs hfit
-  · have hres := R.copyOrdFRightMemOrdTargetReadAtRefl SF S hPD hi' hjA hlF
+    refine ⟨by rw [h0, hdep], ?_⟩
+    rw [h0, Nat.add_zero]
+    exact hres
+  · obtain ⟨hlenO, hres⟩ := R.copyOrdFRightMemOrdTargetReadAtRefl SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
         R.copyOrdFLeftRun SF S hPD R.hK42 hi' hjA hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
       hkA hciP hJmem hJname (hnPci ▸ hstrip) (hnPci ▸ hdom)
@@ -3429,7 +3458,8 @@ theorem NestedPinsRun.ordTgtMemReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
         intro hnil
         exact hne (by rw [ConLeche.openPisAtFvars_len _ hop, ← hlenT, hnil]; rfl)) hKmem
       ψ ρp hsat fs₁ hfs hfit
-    rw [hdep, Nat.add_zero] at hres
+    refine ⟨hlenO, ?_⟩
+    rw [hlenO]
     exact hres
 
 
@@ -4478,8 +4508,16 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hpinT lps lpsC hjA hstrip hdomM hi₀ hciC hJmC hlpsE hflat hheadB hfinRefl
   refine ⟨z, hz, htg, hEl, hJz, hnPz, hStz, fun fs₁ hfs hspf => ?_⟩
   obtain ⟨htl, fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
-  rw [hown_eq, hdpB] at htl
-  refine ⟨List.eq_nil_of_length_eq_zero htl, fb, Ps, hPs, ?_⟩
+  -- **K.72's SUM, COLLAPSED AT THIS ROW'S GUARD** (task #315 WIDE (f3),
+  -- object (2)): the stored domain is flat and the recomputation is
+  -- constant-headed, so both summands are `0` and the copy's recorded
+  -- telescope is empty — which is what puts the reading back at the
+  -- field's own cut, where K.69 and the bridge speak.
+  rw [hown_eq, hdpB, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hheadB] at htl
+  have hnil : ((mutTlss ctorsA.length tssF ψ).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] = [] :=
+    List.eq_nil_of_length_eq_zero htl
+  refine ⟨hnil, fb, Ps, hPs, ?_⟩
   -- the bridge: `ordRootInst`'s output is the owner's reading, instantiated
   have hbr := denoteMeta_ordRootInst_read (V := V) mp₁'.base2 (ψ := ψ)
     (lps := m₀.lps) (lvls := (pinsS.getD gp default).lvls) (nP := ciO.nP) (dp := b.nP) (cut := l)
@@ -4493,7 +4531,8 @@ theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (by rw [htakeAll]; exact hscA)
     (by rw [htakeAll]; exact hspA ψ)
     hreadO
-  rw [hown_eq, hdpB, Nat.add_zero, hK69] at hread
+  rw [hown_eq, hnil, List.length_nil, Nat.add_zero,
+    ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadB, hK69] at hread
   rw [hbr] at hread
   exact (Option.some.inj hread).symm
 

@@ -5501,13 +5501,22 @@ theorem ordRead_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
   obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
-  refine ⟨htls₁, List.eq_nil_of_length_eq_zero (by rw [htlsLen₂, hdep₂]), ?_⟩
+  -- **K.72's SUM, COLLAPSED HERE** (task #315 WIDE (f3), object (2)):
+  -- the owner's row carries the copy's recorded telescope as the
+  -- container's stored tower PLUS the recomputation's own prefix; at
+  -- this row's guard the stored domain is flat (`hdep₂`) and the
+  -- recomputation is constant-headed (`hhd₂`), so both summands
+  -- vanish and the two readings meet at the field's own cut.
+  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂] at htlsLen₂
+  have hnil₂ := List.eq_nil_of_length_eq_zero htlsLen₂
+  refine ⟨htls₁, hnil₂, ?_⟩
   -- side 2's reading IS side 1's `rx`
   have hrxEq : rx = AnnotTerm.mkAppN fb₂
       (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
         []).getD l [])) := by
     have h2 := hread₂
-    rw [hdep₂, Nat.add_zero, ← hdomEq, CR.nP] at h2
+    rw [hnil₂, List.length_nil, Nat.add_zero,
+      ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd₂, ← hdomEq, CR.nP] at h2
     exact Option.some.inj (hrx.symm.trans h2)
   rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
   have hPs₁' : Ps₁.length
@@ -5688,13 +5697,22 @@ theorem ordReadMem_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockM
   intro fs₁ hfsl hfit₁ hfit₂
   obtain ⟨htls₁, fb₁, Ps₁, hPs₁, heq₁⟩ := hrest₁ fs₁ hfsl hfit₁
   obtain ⟨htlsLen₂, fb₂, Ps₂, hPs₂, hread₂⟩ := hOR fs₁ hfsl hfit₂
-  refine ⟨htls₁, List.eq_nil_of_length_eq_zero (by rw [htlsLen₂, hdep₂]), ?_⟩
+  -- **K.72's SUM, COLLAPSED HERE** (task #315 WIDE (f3), object (2)):
+  -- the owner's row carries the copy's recorded telescope as the
+  -- container's stored tower PLUS the recomputation's own prefix; at
+  -- this row's guard the stored domain is flat (`hdep₂`) and the
+  -- recomputation is constant-headed (`hhd₂`), so both summands
+  -- vanish and the two readings meet at the field's own cut.
+  rw [hdep₂, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd₂] at htlsLen₂
+  have hnil₂ := List.eq_nil_of_length_eq_zero htlsLen₂
+  refine ⟨htls₁, hnil₂, ?_⟩
   -- side 2's reading IS side 1's `rx`
   have hrxEq : rx = AnnotTerm.mkAppN fb₂
       (Ps₂ ++ ((((pcR qK).Eiss (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls)).getD j
         []).getD l [])) := by
     have h2 := hread₂
-    rw [hdep₂, Nat.add_zero, ← hdomEq, CR.nP] at h2
+    rw [hnil₂, List.length_nil, Nat.add_zero,
+      ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd₂, ← hdomEq, CR.nP] at h2
     exact Option.some.inj (hrx.symm.trans h2)
   rw [hrxEq, AnnotTerm.instAll_mkAppN, List.map_append] at heq₁
   have hPs₁' : Ps₁.length
@@ -6509,9 +6527,15 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
       ((dK.rss i).getD j []).getD l false = false →
       ((dR.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
-      -- FLATNESS (task #315 WIDE (f3) step 3(b)) — the only thing
-      -- this reading ever spent the stored domain's head on
-      ConLeche.domPiDepth dom.1 = 0)
+      -- FLATNESS (task #315 WIDE (f3) step 3(b)) AND THE OWNER'S
+      -- RECOMPUTATION HEAD: since object (2) the row reads at the
+      -- COPY's recorded telescope and at the STRIPPED recomputation,
+      -- and K.72's sum has two summands — the stored domain's tower,
+      -- which flatness kills, and the recomputation's own, which the
+      -- head does.  `hscope` carries both already.
+      ConLeche.domPiDepth dom.1 = 0 ∧
+      ∃ (K : Name) (vs : List Level),
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn = .const K vs)
     (hrowRead : ∀ l, l < ((dK.Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
       ((dR.pinCtors qK).rss.getD j []).getD l false = true →
@@ -6550,7 +6574,9 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
           (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
             (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1)) = some rx := by
   intro l hl hord hrsP dom hdm fs₁ hfsl hfit
-  have hflat := hscope l hl hord hrsP dom hdm
+  obtain ⟨hflat, K, vs, hhd⟩ := hscope l hl hord hrsP dom hdm
+  have hhd' : (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+      = .const K vs := by rw [← ordTargetDom_congr_at htabAt]; exact hhd
   have hdep : ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC (dR.ownPinTerms lps) qK dom.1)
       = 0 := by rw [ConLeche.domPiDepth_ordTargetDomL]; exact hflat
   have hOR : OrdTargetRead (V := V) m.acval env₂ ψJ ρJ dR.nP l
@@ -6568,8 +6594,10 @@ theorem read_of_run {m : EnvModel V env₂} {dK dR : BlockModel V}
       obtain ⟨z, hz, htgz, -, hOR₀⟩ := hrowRead l hl hord hrsP dom hdm hmemT
       rw [show (dR.pinCtors qK).tgts j l - dR.k = z from by omega]
       exact hOR₀
-  obtain ⟨-, fb, Ps, -, hden⟩ := hOR fs₁ hfsl hfit
-  rw [hdep, Nat.add_zero] at hden
+  obtain ⟨htl, fb, Ps, -, hden⟩ := hOR fs₁ hfsl hfit
+  rw [hdep, ConLeche.domPiDepth_eq_zero_of_getAppFn_const hhd'] at htl
+  rw [List.eq_nil_of_length_eq_zero htl, List.length_nil, Nat.add_zero,
+    ConLeche.stripDomPis_eq_self_of_getAppFn_const hhd'] at hden
   rw [ordTargetDom_congr_at htabAt, ← CR.nP]
   exact ⟨_, hden⟩
 
