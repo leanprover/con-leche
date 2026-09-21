@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockCtorsLoop
-public import ConLeche.Model.Inductives.BlockCaps
-public import ConLeche.Model.Inductives.BlockRealChains
+import ConLeche.Model.Inductives.BlockCtorsLoop
+import ConLeche.Model.Inductives.BlockCaps
+import ConLeche.Model.Inductives.BlockRealChains
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Semantics.Inductives.DeclSumEta
 public section

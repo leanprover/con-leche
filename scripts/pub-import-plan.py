@@ -59,6 +59,13 @@ FALLBACK = {
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),
     ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.EnvExt'),
     ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.Levels'),
+    # task #315: `BlockTablesStage EXTENDS BlockCtorsStage`, and a
+    # structure's PARENT is reached by the generated `toBlockCtorsStage`
+    # projection, which no census row attributes to the parent's module;
+    # demoting it makes the `extends` clause say `sorryAx is not a
+    # structure`.
+    ('ConLeche.Model.Inductives.BlockStageTables',
+     'ConLeche.Model.Inductives.BlockStageCtors'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.

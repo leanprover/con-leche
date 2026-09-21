@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
-public import ConLeche.Model.Inductives.BlockStageTable
+import ConLeche.Model.Inductives.BlockStageTable
 public section
 
 /-!
