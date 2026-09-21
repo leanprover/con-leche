@@ -1480,3 +1480,120 @@
 # GOOD: the canonical body under an identity redex — typed, but not
 # `minor f ih` (uniform: 0, the accept-superset)
 0 mutual_rec_body_redex.ndjson
+# THE CORNER CASES OF THE UNIFORM-INDUCTIVES DESIGN WORK (the `corner_*`
+# fixtures; the maintainer's standing rule that every corner case named
+# in a design discussion gets an end-to-end fixture at once).  The
+# sources are `tests/e2e/src/corner_*.lean`, exported with the pinned
+# `scripts/export-fixture.sh` (Lean v4.29.1); the forged streams come
+# from `scripts/mk_elim_large_bad.py`, `scripts/mk_basis_pin.py` and
+# `scripts/mk_rec_corner.py`, whose docstrings carry each twin's
+# recipe.  As in the `mutual_rec_*` block above, each row records what
+# the checker does TODAY and the comment names the verdict the uniform
+# route / nested arm must produce (`uniform: <n>`); a row whose two
+# numbers differ is the one to revisit at the flip.
+#
+# -- the elimination guard (DESIGN.md, the two amendments of
+# 2026-09-21: "the recursor check knows no motives" and "the
+# elimination guard, declaratively").  Official's
+# `elim_only_at_universe_zero` runs on the AUX block, so a `Prop`
+# block that is MUTUAL or NESTED is small-eliminating however
+# subsingleton its constructor looks.
+#
+# `NOr : Prop | mk : Or True NOr -> NOr` as Lean exports it: one
+# member, one constructor, all fields propositions — and SMALL, because
+# the aux block has two types.  Official accepts (uniform: 0).
+0 corner_nest_or_prop.ndjson
+# the same block with both motives patched to `Type`: the unsound case
+# of the amendment (at `w = 0` the `Or` component's element is both
+# `inl trivial` and `inr p`, so `rec_1` would have to equal two
+# different minors).  Official would reject (uniform: 1).
+1 corner_nest_or_prop_large_bad.ndjson
+# `P13 : Prop | mk : And P13 P13` (survey probe P13, fixture
+# `nested_p13`) with the same patch (uniform: 1).
+1 corner_nest_and_prop_large_bad.ndjson
+# a two-member MUTUAL `Prop` block with both motives patched to `Type`
+# — official returns true at `m_ind_types.size() > 1` before it looks
+# at the constructors (uniform: 1).
+1 corner_mutual_prop_large_bad.ndjson
+# -- large elimination from `Prop` where official DOES allow it.
+# `RRefl : Prop | mk : (Nat -> RRefl) -> RRefl`: one member, one
+# constructor, the REFLEXIVE field a proposition (`imax 1 0`
+# normalises to zero), so `RRefl.rec` eliminates into `Sort u` and
+# `RRefl.big` uses it at `Type`.  The index-free non-reflexive twin is
+# `direct_fix_prop_large` (`Loop`), the indexed one
+# `direct_fix_acc_large` (`Up`) (uniform: 0).
+0 corner_prop_refl_large.ndjson
+# a MUTUAL `Prop` pair at `w = 0` with a theorem through each
+# recursor: small elimination at `k = 2`, the mutual instance of
+# `direct_fix_prop`'s regime, and the base the forged
+# `corner_mutual_prop_large_bad` is derived from (uniform: 0).
+0 corner_prop_mutual_small.ndjson
+# -- nesting through a BASIS block (maintainer's ruling 2026-09-21,
+# open question 5: REJECT, "we'd reject if the basis were normal
+# inductives" — not a decline).  Each pair is a good stream and the
+# forged twin that repoints the container's parameter to the member.
+# `QFree | mk : Quot (fun (_ _ : Nat) => True) -> QFree` — a `Quot`
+# field that does not mention the block, accepted (uniform: 0).
+0 corner_pin_quot_free.ndjson
+# the same at `Quot (fun (_ _ : QFree) => True)`.  `Quot` is not an
+# `inductive` for official (`is_nested_inductive_app` tests
+# `is_inductive()`), so there is no nested occurrence to find and the
+# field is a "non valid occurrence": official REJECTS.  TODAY the
+# checker declines ("direct rec: a nested occurrence of the block");
+# the flip turns that into a reject (uniform: 1).
+2 corner_pin_quot_bad.ndjson
+# `EFree : Prop | mk : @Eq Prop False False -> EFree`, accepted
+# (uniform: 0).
+0 corner_pin_eq_free.ndjson
+# the same at `@Eq Prop EFree EFree`: `Eq`'s only PARAMETER is `α`, so
+# both member occurrences are index arguments and official again finds
+# no nested occurrence and rejects.  Declines today (uniform: 1).
+2 corner_pin_eq_bad.ndjson
+# -- an INDEXED container from a NON-parametric member,
+# `TVN | node : (n : Nat) -> VecC TVN n -> TVN`: the index is an
+# explicit field bound before the occurrence, where
+# `indexed_nested_aux`'s `TV α | node : α -> {n} -> Vec (TV α) n` has a
+# parameter and an implicit ctor-local index.  Official accepts
+# (uniform: 0).
+0 corner_idx_container.ndjson
+# -- RECURSOR corner cases at k = 1, against the motive-free check
+# (DESIGN.md's ruling of 2026-09-21: `rulePrefix = majorIdx` is read
+# off the RECORD, the rule's residue is TYPED, and no rule is compared
+# with a generated term).  None of the seven is exporter-producible —
+# official generates recursors, it does not read them — so the column
+# that matters is `uniform:`.  The three accept-supersets are the
+# point of the exercise: today's route rejects them because it compares
+# the record with the recursor it would have generated.
+#
+# an extra minor premise `(junk : Nat')` between `Nat'.rec`'s minors
+# and its major, `numMinors` bumped to match: a self-consistent record
+# for a WEAKER eliminator (uniform: 0).
+1 corner_rec_extra_binder.ndjson
+# `Nat'.rec` shaped like `casesOn` — the `succ` minor has no
+# `n_ih : motive n` premise and its rule makes no recursive call, so
+# the body has no inductive hypothesis to ignore.  A legitimate
+# primitive recursion (uniform: 0).
+1 corner_rec_no_ih.ndjson
+# `Iter.step`'s rule recurses on `h ((fun x : Nat => x) k) a` — the
+# reflexive field at an argument vector DEFEQ to, but not
+# syntactically, the bound variable; the guard abstracts the spine and
+# the residue types (uniform: 0).
+1 corner_rec_call_redex.ndjson
+# the same call at `h Nat.zero a`: a constant where the bound variable
+# belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is
+# ill-typed however the guard reads it — "a different argument vector"
+# is accepted only when it still types (uniform: 1).
+1 corner_rec_call_const_bad.ndjson
+# `Nat'.rec`'s `succ` rule recurses on `Nat'.zero`, a closed term of
+# the type rather than a field of the constructor: not structural, and
+# `motive Nat'.zero` is not the `motive n` the minor asks for
+# (uniform: 1).
+1 corner_rec_closed_major.ndjson
+# `Nat'.rec` with a THIRD rule, for `List'.nil` — a constructor of
+# another type.  One rule per constructor of the major's type is what
+# completeness means, and a stray rule is not one (uniform: 1).
+1 corner_rec_alien_rule.ndjson
+# `List'.rec`'s major is `t : List' Nat'` where `t : List' α` belongs:
+# the major at the wrong parameters, so the recursor is not this
+# block's (uniform: 1).
+1 corner_rec_major_params.ndjson
