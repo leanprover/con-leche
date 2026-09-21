@@ -101,4 +101,140 @@ theorem capsOk_cons_recFresh {env : Env} (mp : EnvModelM V μ env)
     rw [ConLeche.Env.find?_cons_self, hkind] at hf
     exact nomatch hf
 
+/-! ## The `k` rule-less conses -/
+
+/-- **The `k` RULE-LESS recursors' cons, P tier.**  Each head is a
+`recInfo` with NO rules, so the whole `EnvModelM` bill is the ordinary
+one (`declStep_preserves_of_ind_rec_cons`) with `caps_ok` free
+(`capsOk_cons_recFresh`) and `rec_rules` free (`recRules_cons_fresh`
+at an empty rule list); the chain is then an induction over the
+recursor list.
+
+The target valuation `acv` is given up front rather than built by
+iterated `acvalWith`: every hypothesis is then a statement about
+`acv r.1.name`, and the induction never has to shift a positional
+index.  `hagree` is what ties it to the prefix's valuation off the
+`k` names. -/
+theorem envModelM_consBlockRecsBare {q : BlockShape}
+    {acv : Name → (Name → Nat) → AnnotTerm} :
+    ∀ {m : Nat} {ls : List (ConstantVal × Nat)} {env : Env} (mp : EnvModelM V μ env),
+      (ls.map (·.1.name)).Nodup →
+      (∀ r ∈ ls, env.find? r.1.name = none) →
+      (∀ r ∈ ls, ConLeche.reservedBasisNames.contains r.1.name = false) →
+      (∀ r ∈ ls, r.1.name.isProjFnShape = false) →
+      (∀ r ∈ ls,
+        r.1.type.hasFvar = false ∧
+        r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
+        r.1.type.constsResolve env = true ∧
+        r.1.type.looseBVarsBounded 0 = true) →
+      (∀ n : Name, (∀ r ∈ ls, n ≠ r.1.name) → acv n = mp.base2.acval n) →
+      (∀ r ∈ ls, ∀ ψ : Name → Nat, Term.Closed ((acv r.1.name ψ).erase)) →
+      (∀ r ∈ ls, ∀ (ψ : Name → Nat) (k : Nat),
+        (acv r.1.name ψ).liftN 1 k = acv r.1.name ψ) →
+      (∀ r ∈ ls, ∀ ψ₁ ψ₂ : Name → Nat,
+        (∀ p ∈ r.1.levelParams, ψ₁ p = ψ₂ p) → acv r.1.name ψ₁ = acv r.1.name ψ₂) →
+      (∀ r ∈ ls, ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (acv r.1.name ψ)) →
+      (∀ r ∈ ls, ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (acv r.1.name ψ)) →
+      (∀ r ∈ ls, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
+        denoteMeta mp.base2.acval env ψ 0 r.1.type = some ta ∧
+        (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+        (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta)) →
+      ∃ mp' : EnvModelM V μ (consBlockRecsBare q m ls env), mp'.base2.acval = acv
+  | _, [], env, mp, _, _, _, _, _, hag, _, _, _, _, _, _ =>
+    ⟨mp, by funext n; exact (hag n (fun _ h => nomatch h)).symm⟩
+  | m, r0 :: rest, env, mp, hnd, hfr, hnres, hpsh, hty, hag, hcl, hlift, hpar, hok, hval, hrd => by
+    -- the head
+    have hmem0 : r0 ∈ r0 :: rest := List.mem_cons_self
+    have hfresh : env.find? r0.1.name = none := hfr r0 hmem0
+    rw [List.map_cons, List.nodup_cons] at hnd
+    have hnrr : ∀ r ∈ rest, r.1.name ≠ r0.1.name := fun r hr hh =>
+      hnd.1 (List.mem_map.mpr ⟨r, hr, hh⟩)
+    obtain ⟨h1, h2, h3, h4⟩ := hty r0 hmem0
+    have hcb : ConstsBound env r0.1.type := constsBound_of_constsResolve _ h3
+    have hcross : ∀ e : Expr,
+        ConsCrossAt (.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) []) e :=
+      fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
+    have hreadUp : ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
+        denoteMeta (acvalWith mp.base2.acval r0.1.name (acv r0.1.name))
+            ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [] :: env.consts⟩ ψ 0
+            r0.1.type = some ta ∧
+          (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+          (∀ ρ : Nat → V, interp V ρ (acv r0.1.name ψ) ∈ˢ interp V ρ ta) := by
+      intro ψ
+      obtain ⟨ta, hta, hokta, hmemta⟩ := hrd r0 hmem0 ψ
+      exact ⟨ta, denoteMeta_cons_mono hfresh (hcross _) ψ 0 hcb hta, hokta, hmemta⟩
+    -- the cons
+    obtain ⟨mp₁, hac₁⟩ :=
+      declStep_preserves_of_ind_rec_cons (A := acv r0.1.name)
+        (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) []) mp hfresh (hnres r0 hmem0)
+        ⟨r0.1, q.majorIdxAt m, q.rulePrefixAt m, [], rfl⟩
+        (ConsHead.ofFresh
+          (ConLeche.EnvWF.cons mp.base2.wf
+            (ConLeche.structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+              (fun _ _ _ heq => nomatch heq)
+              (fun _ _ _ rules heq r hr => by
+                injection heq with _ _ _ e4
+                subst e4
+                exact nomatch hr)))
+          (fun ψ => hcl r0 hmem0 ψ) (hnres r0 hmem0)
+          (fun _ h => nomatch h)
+          (fun _ _ _ rules heq r hr => by
+            injection heq with _ _ _ e4
+            subst e4
+            exact nomatch hr))
+        (fun ψ k => hlift r0 hmem0 ψ k) (fun ψ₁ ψ₂ h => hpar r0 hmem0 ψ₁ ψ₂ h)
+        (fun ψ ρ => hok r0 hmem0 ψ ρ) (fun ψ ρ => hval r0 hmem0 ψ ρ)
+        (fun ψ => (hreadUp ψ).imp fun _ h => h.1)
+        (fun ψ ta hta ρ => by
+          obtain ⟨ta', hta', hokta, -⟩ := hreadUp ψ
+          obtain rfl := Option.some.inj (hta'.symm.trans hta)
+          exact hokta ρ)
+        (fun ψ ta hta ρ => by
+          obtain ⟨ta', hta', -, hmemta⟩ := hreadUp ψ
+          obtain rfl := Option.some.inj (hta'.symm.trans hta)
+          exact hmemta ρ)
+        (fun m₂ hac =>
+          capsOk_cons_recFresh (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [])
+            mp hfresh rfl (hpsh r0 hmem0) m₂ hac)
+        (fun m₂ hac φ =>
+          recRules_cons_fresh (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [])
+            mp hfresh (ConsCrossEnv.ofNtc (fun _ h => nomatch h))
+            (fun _ _ _ _ heq => by injection heq with _ _ _ e4; exact e4.symm) m₂ hac φ)
+    -- the tail
+    show ∃ mp' : EnvModelM V μ (consBlockRecsBare q (m + 1) rest
+        ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [] :: env.consts⟩),
+      mp'.base2.acval = acv
+    refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    · exact hnd.2
+    · intro r hr
+      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnrr r hr hh.symm)]
+      exact hfr r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hnres r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hpsh r (List.mem_cons_of_mem _ hr)
+    · intro r hr
+      obtain ⟨g1, g2, g3, g4⟩ := hty r (List.mem_cons_of_mem _ hr)
+      exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
+    · intro n hn
+      rw [hac₁]
+      show acv n = acvalWith mp.base2.acval r0.1.name (acv r0.1.name) n
+      by_cases hh : n = r0.1.name
+      · rw [hh]
+        exact acvalWith_self.symm
+      · rw [acvalWith_ne hh]
+        exact hag n (fun r hr => by
+          rcases List.mem_cons.mp hr with rfl | hr'
+          · exact hh
+          · exact hn r hr')
+    · exact fun r hr => hcl r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hlift r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hpar r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hok r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hval r (List.mem_cons_of_mem _ hr)
+    · intro r hr ψ
+      obtain ⟨ta, hta, hokta, hmemta⟩ := hrd r (List.mem_cons_of_mem _ hr) ψ
+      refine ⟨ta, ?_, hokta, hmemta⟩
+      rw [hac₁]
+      exact denoteMeta_cons_mono hfresh (hcross _) ψ 0
+        (constsBound_of_constsResolve _ (hty r (List.mem_cons_of_mem _ hr)).2.2.1) hta
+
 end ConLeche.Model
