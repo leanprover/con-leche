@@ -1860,6 +1860,13 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE PIN PAIRING AT A NOT-OWN EDGE, WITH K.75'S TWO INDEX-LEVEL
+    -- CLAUSES** (K.41 extended by K.75, task #315 WIDE, the merge
+    -- session): the WIDE route's per-instance step reads all three of
+    -- this Bool's halves — the root-pair table, K.75 clause (1)'s pool
+    -- image and K.75 clause (2)'s group-wide K.62 — and no other record
+    -- in the run carries them
+    ConLeche.nestedPinRootPairOk env p b st stored = true →
     -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
     -- #315, lane L-B): at every ORDINARY field of every copy's
     -- constructor, the stored domain IS the positivity normalisation of
@@ -2126,7 +2133,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hK69,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, hK41, -, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hK69,
     hpins₁, hK64,
     hctors,
     hrm, hrn,
@@ -2204,6 +2211,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   replace hK32 := ConLeche.certOnly_elim hK32 hμ
   replace hkinds := ConLeche.certOnly_elim hkinds hμ
   replace hrank := ConLeche.certOnly_elim hrank hμ
+  replace hK41 := ConLeche.certOnly_elim hK41 hμ
   replace hK42 := hK42 hμ
   replace hK51 := hK51 hμ
   replace hauxApps := ConLeche.certOnly_elim hauxApps hμ
@@ -2214,7 +2222,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64 hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hK41 hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64 hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
@@ -2405,7 +2413,7 @@ CONCRETELY (`NestedCoreOut`). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK41 hK42 hK51
     hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64
     hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
@@ -2418,7 +2426,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
   rw [henv] at hctors hpins₁ hK64
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK41 hK42 hK51
     hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64
     hnd h3
     hformers hctorsA h hbk hctors

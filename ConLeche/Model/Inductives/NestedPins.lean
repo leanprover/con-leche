@@ -1198,6 +1198,25 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   reference that LEAVES it goes to a strictly smaller rank, the rank is
   a function of the instance, and a mint group is one instance -/
   hrank : ConLeche.nestedPinRankOk env p b st stored = true
+  /-- **THE PIN PAIRING AT A NOT-OWN EDGE, AND THE TWO INDEX-LEVEL
+  CLAUSES IT IS READ WITH** (K.41 extended by K.75, task #315 WIDE, the
+  merge session): one recorded Bool with three `…At` halves —
+  `nestedPinRootPairAt` (a pin of an instance that is not one of the
+  root group's own members is a pin the ROOT container's own
+  elimination minted), `nestedPinPoolImageAt` (K.75 clause (1): every
+  pin of an instance is a member of its root group or lies in the
+  instance map of one of that group's members) and
+  `nestedOrdOutsideGrpAt` (K.75 clause (2): K.62 at the whole mint
+  group, not only at the source pin).
+
+  `DeclNestedCore.lean` used to DROP this conjunct with a `-`; it is
+  carried now because the WIDE route's per-instance step reads all
+  three — `hrootGrp` off the first, `hK75pool`/`hpool` off the second,
+  `hK75grp` off the third — and no other record in the run carries
+  them.  The inversions are `nestedPinRootPairOk_inv`,
+  `nestedPinPoolImage_inv` and `nestedOrdOutsideGrp_inv`
+  (`Verify/Inductives/NestedInv.lean`). -/
+  hK41 : ConLeche.nestedPinRootPairOk env p b st stored = true
   /-- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
   #315, lane L-B): at every field of every copy's constructor that the
   record's filter admits — ORDINARY, **or** with a target below `p.k`,
@@ -2397,12 +2416,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpinsE hK64 hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK41 hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpinsE hK64 hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hK69, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK41, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hK69, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

@@ -133555,3 +133555,63 @@ consumers for the reason in §(d) 3.
 `nestedPinWideStep`, `nestedPinsLe_of_wide`, `nestedModeled_of_one`,
 `nestedModeled_of_two` — `[propext, Classical.choice, Quot.sound]`.
 No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
+
+#### WIDE (f11) — K.41/K.75 IS ON THE RUN RECORD, AND THE MEMBER-FORM WIDE IDENTIFICATION IS DELETED (lane LE, the merge session, 2026-09-21)
+
+##### (a) THE CONJUNCT `DeclNestedCore` USED TO DROP
+
+WIDE (f10) §(d) 3 named the one thing that blocked every remaining
+wiring step: `hK75pool`, `hK75grp`, `hrootGrp` and the covering's
+`hpool` all read `nestedPinRootPairOk`/`nestedPinPoolGrpAt`, and
+`NestedPinsRun` carried no such field — `DeclNestedCore.lean` took the
+run relation apart and dropped K.40's and K.41's conjuncts with `-`,
+"neither consumed on this path".
+
+It is carried now.  `NestedPinsRun.hK41`
+(`ConLeche/Model/Inductives/NestedPins.lean:1206`) is
+
+    hK41 : ConLeche.nestedPinRootPairOk env p b st stored = true
+
+— ONE recorded Bool with three halves (`nestedPinRootPairAt`, K.75
+clause (1)'s `nestedPinPoolImageAt`, K.75 clause (2)'s
+`nestedOrdOutsideGrpAt`), whose three inversions are already in the
+tree (`nestedPinRootPairOk_inv`, `nestedPinPoolImage_inv`,
+`nestedOrdOutsideGrp_inv`, `Verify/Inductives/NestedInv.lean`).
+
+The plumbing is one hypothesis added at each of the chain's eleven
+sites and nothing else:
+
+| file:line | what |
+|---|---|
+| `NestedPins.lean:1206` | the run record's new field |
+| `NestedPins.lean:2429` | `nestedPinsStaged_of`'s `intro` and the record's construction |
+| `NestedLoop.lean:418` | `NestedPinsStaged`'s new arrow |
+| `NestedLoop.lean:660` | `nestedLoopFacts_of`'s `hK41` binder |
+| `NestedLoop.lean:714`, `:899`, `:902` | the three applications |
+| `NestedCore.lean:2227` | `NestedCtorsStaged`'s new arrow |
+| `NestedCore.lean:2379`, `:2472` | `nestedStageFacts_of`'s binder and application |
+| `DeclNestedCore.lean:1862` | `NestedCoreModeled`'s new arrow |
+| `DeclNestedCore.lean:2136`, `:2214`, `:2225`, `:2416`, `:2429` | the destructuring (the second `-` after `hrank` is now `hK41`), its `certOnly_elim`, and the three applications |
+
+**No kernel file changed and no statement of the route's conclusion
+moved**: the Bool was already a conjunct of `DeclNestedRun` and was
+already checked; only the model side's reading of it did.
+
+##### (b) THE MEMBER-FORM WIDE IDENTIFICATION IS DELETED
+
+`ofNested_pin_block_of_wide_inst` (`NestedFit.lean`) lost its only
+consumer when WIDE (f10) moved `nestedPinWideStep` to the `famAt`
+conclusion, and gained none.  It is deleted (98 lines), and
+`ofNested_pin_block_of_wide_inst_famAt`'s docstring absorbs the design
+paragraph that lived on it — the container's side read off its stored
+model, the closure `σ`, and where `hpin` lives.  `hkpos`/`hseg`/`hroot`
+stay in the surviving theorem's list because the assembly below them
+spends them, and that is now said rather than implied.
+
+##### (c) THE GATES
+
+Changed: `ConLeche/Model/Inductives/NestedPins.lean`,
+`NestedLoop.lean`, `NestedCore.lean`, `DeclNestedCore.lean`,
+`NestedFit.lean`, `DESIGN.md`.  **The kernel did not change**, so no
+accept-set table and no cost table is owed.  `lake build` EXIT 0, no
+warning line.

@@ -2225,6 +2225,13 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE PIN PAIRING AT A NOT-OWN EDGE, WITH K.75'S TWO INDEX-LEVEL
+    -- CLAUSES** (K.41 extended by K.75, task #315 WIDE, the merge
+    -- session): the WIDE route's per-instance step reads all three of
+    -- this Bool's halves — the root-pair table, K.75 clause (1)'s pool
+    -- image and K.75 clause (2)'s group-wide K.62 — and no other record
+    -- in the run carries them
+    ConLeche.nestedPinRootPairOk env p b st stored = true →
     -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
     -- #315, lane L-B): at every ORDINARY field of every copy's
     -- constructor, the stored domain IS the positivity normalisation of
@@ -2369,6 +2376,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    (hK41 : ConLeche.nestedPinRootPairOk env p b st stored = true)
     (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
       ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
       ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
@@ -2461,7 +2469,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
-    hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64 hformers h hbk h3 hnd hctorsA
+    hkinds hrank hK41 hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpins₁ hK64 hformers h hbk h3 hnd hctorsA
     hleafM'
     hoff' hfind' hctors
   -- the names
