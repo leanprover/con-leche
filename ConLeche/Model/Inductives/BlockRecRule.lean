@@ -1477,4 +1477,61 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     exact interp_prefVarsAV hxl
   rw [hpref, List.append_assoc]
 
+/-- **O-1's premise, from the run.**  `ihNodeVal_of_spine` at
+`ihSpineFold_blockRec`: `interp_abstractIh`'s `hcall` with no
+proof obligation left but the run's own facts. -/
+theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
+    {cty : Expr} {fvs : List Expr} {cr : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {σchain : Nat → V} {xs fs : List V} {ihvals : List V}
+    (haclN : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mo.acval n ψ').liftN m k = mo.acval n ψ')
+    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (mo.acval n ψ').inst y k = mo.acval n ψ')
+    (hcl : ∀ (n : Name) (ψ' : Name → Nat) (ρ1 ρ2 : Nat → V),
+      interp V ρ1 (mo.acval n ψ') = interp V ρ2 (mo.acval n ψ'))
+    (hih : ihvals.length = fr.nR)
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o)
+    (hxl : xs.length = fr.rP) (hfl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs, cr))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hfld : ∀ i, i < fr.nF → FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
+    (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
+      Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
+        fr.rP fr.nF i d (fr.teleOf i) (fr.idxOf i)) = some expected →
+      ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false)
+    (hnofv : ∀ (d i : Nat) (nm : Name),
+      (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
+        (fr.teleOf i) (fr.idxOf i)).hasFvar = false)
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        interp V (consList (xs ++ fs) σchain)
+            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
+          = σchain (K - 1 - c'))
+    (hi : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r → i < fr.nF)
+    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      ihvals.getD r pt
+        = interp V (consList (xs ++ fs) σchain)
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0
+                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 +
+                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
+    (hfit : ∀ (i : Nat) (ws : List V), i < fr.nF →
+      ws.length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+      SpineFit (consList (xs ++ fs) σchain)
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2)) ws) :
+    IhNodeVal V mo.acval env ψ fr F (consList (xs ++ fs) σchain) ihvals :=
+  ihNodeVal_of_spine haclN hih
+    (ihSpineFold_blockRec (fun n ψ' k => haclN n ψ' 1 k) hainst hcl hF ho hxl hfl hℓ
+      hop0 hCf hCb hstripC htele hidx hfld hargs hnofv hcallee hi hihv hfit)
+
 end ConLeche.Model
