@@ -7,8 +7,6 @@ import ConLeche.Model.Inductives.StructTele
 import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecLawKit
-public import ConLeche.Model.RecRulesCons
-public import ConLeche.Semantics.Tower.BlockRecI
 
 public section
 
