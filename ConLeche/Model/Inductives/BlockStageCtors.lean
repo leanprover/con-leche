@@ -80,7 +80,8 @@ and every field's target is a member. -/
 @[expose] def BlockNamesOk (d : BlockData V) (cvTasAll : List ConstantVal) : Prop :=
   (∀ (c : Nat) (cvTb : ConstantVal), cvTasAll[c]? = some cvTb → d.memberName c = cvTb.name) ∧
   (∀ c j i : Nat, d.tgts c j i < cvTasAll.length) ∧
-  ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA → c < cvTasAll.length
+  (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA → c < cvTasAll.length) ∧
+  cvTasAll.length = d.k
 
 /-- **The core invariant survives a constructor's cons.**  A stored
 name is not the fresh one, so nothing found before is disturbed; the
@@ -96,7 +97,7 @@ theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
     (mC : EnvModel V ⟨.ctorInfo cA.1 d.nP cA.2 :: env.consts⟩)
     (hac : mC.acval = acvalWith m'.acval cA.1.name B) :
     BlockCtorsCore mC d lps cvTasAll p₁ isRec A nc := by
-  obtain ⟨hnameOf, htgtLt, hctorLt⟩ := hN
+  obtain ⟨hnameOf, htgtLt, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, hfr, hdata, hconsed⟩ := h
   have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 d.nP cA.2) e :=
     fun _ => ConsCrossAt.ofNtc (fun _ hh => nomatch hh)
@@ -398,7 +399,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       BlockCtorsCore mp'.base2 d lps cvTasAll p₁ isRec A (m + 1) ∧
       ∀ c, m + 1 ≤ c → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
         (ConLeche.consSumCtors d.nP (d.ctorsM m) env).find? cA.1.name = none := by
-  obtain ⟨hnameOf, htgtLt, hctorLt⟩ := hN
+  obtain ⟨hnameOf, htgtLt, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, hfrP, hdata, hconsed⟩ := hinv
   have hTname : d.memberName m = cvTa.name := hnameOf m cvTa hcvTa
   obtain ⟨hfindT, hresT, hleafT, hFD⟩ := hform m cvTa hcvTa
@@ -572,7 +573,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       (fun j cA hj ψ ρ hρ bs hsp => ((hframes j cA hj).2 ψ ρ hρ).2.2 bs hsp)
       (fun {env'} m' => BlockCtorsCore m' d lps cvTasAll p₁ isRec A m)
       (fun m' cA A' mC hcA hfresh hac hinv' =>
-        hinv'.cons ⟨hnameOf, htgtLt, hctorLt⟩ hfresh (hpshapeA cA hcA) mC hac)
+        hinv'.cons ⟨hnameOf, htgtLt, hctorLt, hlenCv⟩ hfresh (hpshapeA cA hcA) mC hac)
       (ConLeche.blockCapsAt p₁ m isRec) (A m)
       (fun m' kk cA hkk hinv' hFD' hleaf' hleafC' =>
         hTlawsOf m' kk cA hkk hinv' hFD' hleaf' hleafC')

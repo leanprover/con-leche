@@ -14,9 +14,10 @@ are its λ-tower shape (by `rfl` at `blockTyAV`) and its FOLD, which at
 a member with no index and one constructor is `blockFoldSingle`.
 
 So a block's tables cost exactly what the one-family route's do; what
-is member-specific is the premise `hXR` — the block's whole chain
-bundle at the member's parameter frame, and the member's real chains
-against it.
+is member-specific is the FOLD, and it is the caller's: a statement
+about the leaf TERM, established at the constructors' stage
+(`blockFoldSingle` over the member's real chains) where the member's
+data still crosses the conses.
 -/
 
 namespace ConLeche.Model
@@ -62,7 +63,7 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
     (hCDbelow : ∀ ψ, DomsBelow 0 (ds ψ))
     (hleq : ∀ i, i < nF → isProp = false → Level.leq (sorts.getD i .zero) resSort = some true)
     -- the member's leaf is the block's fixed-point leaf at its component
-    {k m : Nat} (hm : m < k)
+    {k m : Nat}
     {ufOf : (Name → Nat) → Nat → Nat} {IdssOf : (Name → Nat) → Nat → List AnnotTerm}
     {rsssOf : (Name → Nat) → Nat → List (List Bool)}
     {tgtsssOf : (Name → Nat) → Nat → List (List Nat)}
@@ -75,15 +76,17 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
     (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
       = sumMkAV (resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains [((ds ψ).drop nP).map (·.2.2)]))
-    -- the member is structure-like: no index, one constructor
-    (hIdsm : ∀ ψ, IdssOf ψ m = []) (hEssm : ∀ ψ, EsssOf ψ m = [[]])
-    (hXR : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((pps ψ).map (·.2.2)).reverse ρp →
-      BlockChainsOk k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ)
-        (tlsssOf ψ) (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) ∧
-      ChainsRealBI (blockFam k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ)
-          (tlsssOf ψ) (EisssOf ψ) (FsssOf ψ) (EsssOf ψ))
-        k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) m (rsssOf ψ m) (tgtsssOf ψ m) (tlsssOf ψ m)
-        (EisssOf ψ m) (FsssOf ψ m) [((ds ψ).drop nP).map (·.2.2)] (EsssOf ψ m))
+    -- the member's fold at no index and one constructor (the caller's
+    -- `blockFoldSingle`: the fold is a statement about the leaf TERM,
+    -- so it crosses the tables' conses where the constructors' data
+    -- does not)
+    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
+      SpineFit ρ ((pps ψ).map (·.2.2)) ts →
+      ts.foldl SetTheory.app (interp V ρ
+          (blockTyAV k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ) (tlsssOf ψ)
+            (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) (pps ψ) m))
+        = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList ts ρ)
+            [((ds ψ).drop nP).map (·.2.2) ++ [idxEqAV []]]))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V ((pps ψ).map (·.2.2)).reverse ρ ↔
         Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
@@ -105,14 +108,8 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
       env.find? (ConstantInfo.projInfo tbl).name = none ∧
       mp'.base2.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name
         (fun _ => .sort 0) := by
-  refine stageFixTable mp hTbl hfT hcaps hlpsT hfC hlpsC hstripC hProp hTshape hCshape
+  exact stageFixTable mp hTbl hfT hcaps hlpsT hfC hlpsC hstripC hProp hTshape hCshape
     hresT hresR hresC hnp hFD hCDread hCDlen hCDbelow hleq hleafT hleafC
-    (fun _ => ⟨_, rfl⟩) ?_ hiff hfields hboundP hsortsF
-  intro ψ ρ ts hsp
-  have hρ : Sat V ((pps ψ).map (·.2.2)).reverse (consList ts ρ) := by
-    have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp
-    rwa [List.append_nil] at this
-  obtain ⟨hok, hreal⟩ := hXR ψ (consList ts ρ) hρ
-  exact blockFoldSingle hm (hIdsm ψ) (hEssm ψ) hsp hok hreal
+    (fun _ => ⟨_, rfl⟩) hfold hiff hfields hboundP hsortsF
 
 end ConLeche.Model
