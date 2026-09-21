@@ -54054,8 +54054,7 @@ application under the field's own block-free binders (a nested or
 non-positive occurrence), members whose level parameters / parameter
 telescope / sort differ, a Prop block with a large eliminator (cannot
 arise at a mutual block).  A reflexive member (the export's flag) was a
-decline here until 2026-09-21 — a shortcut of the port; see "THE
-MUTUAL RUNG TAKES REFLEXIVE MEMBERS" at the end of this document.
+decline here until task #321 (2026-09-21) — a shortcut of the port.
 
 *The transition.*  The generated auxiliary family is an indexed
 recursive inductive; with the fixpoint route not yet on master, a raw
@@ -59310,7 +59309,7 @@ found **two classes the tool was masking**, both of them audit finding
 | class | where | verdict | message |
 |---|---|---|---|
 | a constructor field whose type is a DEFINITION REDEX that only whnf's to a recursive occurrence | arena `good/tutorial/{053_reduceCtorParam.mk, 118_reduceCtorParamRefl.mk, 119_reduceCtorParamRefl2.mk}`, e2e `ind_pos_whnf_id`, `ind_pos_whnf_fn`, `pre_decline_imax_field` | 2 | `no install route for inductive block T: …` |
-| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 — **0 since 2026-09-21** (the mutual rung takes reflexive members; the section of that date) | was `in-process model of MutualStructProj.Node: reflexive member` |
+| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 — **0 since task #321** (the mutual rung takes reflexive members) | was `in-process model of MutualStructProj.Node: reflexive member` |
 | infinitary nesting (a nested occurrence under a binder) | e2e `ind_nest_inf`, `ind_nest_via_refl` | 2 (unchanged) | `in-process model of X: field i of C mentions the block other than as a whole member or container occurrence` |
 | a def-headed former the fix arm reads with `stripPis`; a mutual member whose parameter telescope or sort differs only up to defeq | e2e `ind_defhead_{struct,k,mutual,fix}`, `ind_former_redex`, `ind_mutual_{param,sort}_defeq` | 2 (unchanged raw) | the modeller's own named decline |
 
@@ -79246,7 +79245,7 @@ served), streams under `tests/e2e/nested_*.ndjson`, rows at the end of
 Arena before: `e2e: 195/195`; after: `e2e: 229/229`, every other
 section unchanged, exit 0.
 
-## THE MUTUAL RUNG TAKES REFLEXIVE MEMBERS (2026-09-21)
+## TASK #321 — THE MUTUAL RUNG TAKES REFLEXIVE MEMBERS (2026-09-21)
 
 **The finding.**  The self-check (`scripts/selfcheck.sh`, task #199)
 stopped accepting the tree:
