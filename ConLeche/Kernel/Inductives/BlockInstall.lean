@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.NativeInstall
 public import ConLeche.Kernel.Inductives.BlockParts
+public import ConLeche.Kernel.Inductives.BlockRec
 
 @[expose] public section
 
@@ -349,33 +350,201 @@ def consBlockRecs (find? : Name → Option ConstantInfo) (nP rP : Nat) :
       ⟨.recInfo cvRa (rP + nIdx) rP
         (sumRules find? cvRa.name nP (rP + nIdx) rP cvRa.type ctorsA rhss) :: env.consts⟩
 
-/-- **The recursor stage, milestone M1's interim**: at ONE member it is
-the one-member stage — the stream's rules against the generated ones
-(`nativeRulesOk`), then the recursor generated and compared
-(`checkNativeRec`).  At two or more members it is a positive DECLINE
-until milestone M5 replaces the whole stage by a CHECK; the route's
-gate makes that arm unreachable in the meantime. -/
+/-! ### The recursor stage as CHECKING (milestone M5)
+
+`ConLeche/Kernel/Inductives/BlockRec.lean` holds the generated pieces
+and the primitive-recursion abstraction; here are the three stages
+that consume them — the pins, the types, the rules — and the dispatch
+that keeps the one-member generate-and-compare stage live behind
+`blockRecCheckOn`. -/
+
+/-- The `k` RULE-LESS recursors, consed in block order: the
+environment a rule's right-hand side is annotated, resolved and typed
+at (official's `declare_recursors` puts every recursor of the block in
+the environment before any rule is looked at). -/
+def consBlockRecsBare (rP : Nat) : List (ConstantVal × Nat) → Env → Env
+  | [], env => env
+  | (cvRa, nIdx) :: rest, env =>
+    consBlockRecsBare rP rest ⟨.recInfo cvRa (rP + nIdx) rP [] :: env.consts⟩
+
+/-- The member list as the motive generator reads it: each member's
+name, index count and ANNOTATED type former's type. -/
+def blockMems (p : BlockShape) (cvTas : List ConstantVal) : List (Name × Nat × Expr) :=
+  (p.members.zip cvTas).map fun (a : MemberShape × ConstantVal) =>
+    (a.1.cvT.name, a.1.nIdx, a.2.type)
+
+/-- **Stage (b): every member's recursor TYPE.**  The stream's type is
+checked as a constant's type, the generated type with the stream's own
+minor binders spliced in is built (`blockRecTySpliced`), and ONE
+`isDefEq` compares the two.  The STORED type is the spliced generated
+one. -/
+def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape)
+    (mems : List (Name × Nat × Expr)) :
+    List (MemberShape × ConstantVal) → Nat → m (List (ConstantVal × Nat))
+  | [], _ => pure []
+  | (ms, cvTa) :: rest, mi => do
+    let cvRi ← checkConstantVal ops env ms.cvR
+    let recTy ← unwrapOr (blockRecTySpliced ms.cvT.name p.lps p.elim p.large p.nP p.k
+        p.numCtors ms.nIdx mi cvTa.type mems cvRi.type)
+      (.invalid "direct rec: the recursor's type does not have the generated telescope")
+    unless recTy.allLevelParamsDefined ms.cvR.levelParams && recTy.constsResolve env &&
+        recTy.looseBVarsBounded 0 && !recTy.hasFvar do
+      throw (.internal "direct rec: recursor type scoping")
+    let sty ← ops.inferType env 0 recTy
+    let _u ← ops.ensureSort env 0 sty
+    unless ← ops.isDefEq env 0 cvRi.type recTy do
+      throw (.invalid "direct rec: recursor type is not the generated one")
+    let rs ← checkBlockRecTys ops env p mems rest (mi + 1)
+    pure ((⟨ms.cvR.name, ms.cvR.levelParams, recTy⟩, ms.nIdx) :: rs)
+
+/-- **Stage (c): ONE rule.**
+
+The right-hand side is annotated at the environment holding the `k`
+rule-less recursors, its `λ` prefix is compared with the stored
+recursor type (`blockRulePrefixOk`), its body is abstracted
+(`abstractIh`: every block-recursor occurrence is a guarded recursive
+call on a field of THIS constructor, replaced by that field's
+inductive hypothesis), and the residue is TYPED at the opened frame
+`p⃗ C⃗ m⃗ f⃗ ih⃗` against the minor's conclusion `C_m e⃗_J (C_J p⃗ f⃗)` —
+the type official's own right-hand side has.  The fields of the frame
+are the CONSTRUCTOR's (they are what the ι step substitutes), the
+parameters and motives the stored recursor type's.
+
+What is returned — and stored — is the ANNOTATED STREAM right-hand
+side; the abstraction is the model's reading of it and nothing of it
+is kept. -/
+def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
+    (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
+    (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
+    (J : Nat) (rhs : Expr) : m Expr := do
+  let nP := p.nP
+  let k := p.k
+  let N := p.numCtors
+  let nF := cA.2
+  unless rhs.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in rule of {cvR.name}")
+  if rhs.hasFvar then
+    throw (.invalid s!"free variable in rule of {cvR.name}")
+  let rhsA ← ops.annotate envR 0 rhs
+  unless rhsA.allLevelParamsDefined cvR.levelParams do
+    throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
+  unless rhsA.constsResolve envR do
+    throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
+  unless blockRulePrefixOk recTy nP k N J nF rhsA do
+    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
+      parameters, motives, minor premises and the constructor's fields")
+  let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))
+    (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
+      recursor's prefix and the constructor's fields")
+  let fr : BlockRuleFrame :=
+    { recNames := recNames, rlvls := rlvls, nIdxs := p.nIdxs, nP := nP, k := k, N := N,
+      nF := nF, ks := ks,
+      teleOf := structFieldTeleOf cA.1.type nP nF,
+      idxOf := structFieldIdxOf cA.1.type nP nF,
+      recIdx := blockRecIdxOf ks,
+      pw := Level.zeronessOf (structElimLevel p.elim p.large) }
+  let body'' ← unwrapOr (abstractIh fr 0 body)
+    (.invalid s!"direct rec: the rule of {cA.1.name} is not a primitive recursion — a block \
+      recursor occurs outside a call on a recursive field of this constructor")
+  let (fvsPref, _) ← unwrapOr (openPisAtFvars (nP + k + N) recTy 0)
+    (.internal "direct rec: recursor prefix telescope")
+  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsPref.take nP) cA.1.type)
+    (.internal "direct rec: constructor parameter telescope")
+  let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest (nP + k + N))
+    (.internal "direct rec: constructor field telescope")
+  let ihTele := blockIhPis nF (k + N) fr.pw (blockTgtsOf ks) fr.teleOf fr.idxOf fr.recIdx 0 body''
+  let (_fvsIh, bodyO) ← unwrapOr
+    (openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (nP + k + N + nF))
+    (.internal "direct rec: inductive-hypothesis telescope")
+  let depth := nP + k + N + nF + fr.nR
+  let tyB ← ops.inferType envR depth bodyO
+  let motive ← unwrapOr fvsPref[nP + mi]? (.internal "direct rec: motive variable")
+  let concl := Expr.mkAppN motive
+    ((cbody.getAppArgs.drop nP) ++
+      [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take nP ++ fvsF)])
+  unless ← ops.isDefEq envR depth tyB concl do
+    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not produce the minor's \
+      conclusion")
+  pure rhsA
+
+/-- One member's rules, in constructor order (`J` is the constructor's
+GLOBAL index, which is the minor premise it fires). -/
+def checkBlockRules (ops : CheckerOps m) (envR : Env) (p : BlockShape)
+    (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat) (cvR : ConstantVal) :
+    List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → Nat → m (List Expr)
+  | [], [], _ => pure []
+  | (cA, ks) :: cs, rhs :: rhss, J => do
+    let r ← checkBlockRule ops envR p recNames rlvls recTy mi cvR cA ks J rhs
+    let rest ← checkBlockRules ops envR p recNames rlvls recTy mi cvR cs rhss (J + 1)
+    pure (r :: rest)
+  | _, _, _ =>
+    throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
+
+/-- Every member's rules, in block order. -/
+def checkBlockMembersRules (ops : CheckerOps m) (envR : Env) (p : BlockParts)
+    (recNames : List Name) (rlvls : List Level) (cvRas : List (ConstantVal × Nat)) :
+    List ((MemberShape × List (ConstantVal × Nat)) × List (List BlockFieldKind)) → Nat →
+      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+  | [], _ => pure []
+  | ((ms, ctorsA), kss) :: rest, mi => do
+    let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
+    let rhss ← checkBlockRules ops envR p.toBlockShape recNames rlvls cvRa.type mi ms.cvR
+      (ctorsA.zip kss) ms.rhss (p.offs mi)
+    let rest' ← checkBlockMembersRules ops envR p recNames rlvls cvRas rest (mi + 1)
+    pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
+
+/-- **The recursor stage as CHECKING, at any number of members**
+(milestone M5, design §4.2): the recursor records' pins, then every
+member's type, then — at the environment holding all `k` rule-less
+recursors — every member's rules. -/
+def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+  -- (a) the recursor RECORDS' pins (task #220 at k members): official's
+  -- replay compares every exported recursor with the generated one
+  -- structurally, so a record naming something other than the generated
+  -- `T_m.rec`, or contradicting it in its level parameters, its
+  -- argument sums, its rules' constructors or the block's constructor
+  -- GROUPING, is INVALID INPUT — thrown before anything is computed
+  unless p.members.all (fun ms => ms.cvR.name == ms.cvT.name.str "rec") do
+    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
+  unless blockRecLpsOk p.toBlockShape do
+    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless p.recPinned do
+    throw (.invalid "direct rec: the recursor record is not the generated recursor")
+  -- (b) every member's recursor type
+  let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockMems p.toBlockShape cvTas)
+    (p.members.zip cvTas) 0
+  let envR := consBlockRecsBare p.rulePrefix cvRas env
+  -- (c) every member's rules, at the environment holding all k of them
+  checkBlockMembersRules ops envR p (p.members.map (·.cvR.name))
+    ((p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
+    cvRas ((p.members.zip ctorsAs).zip p.kinds) 0
+
+/-- **The recursor stage.**  At two or more members it is the CHECK of
+milestone M5 (`checkBlockRecK`).  At ONE member the check is GATED
+(`blockRecCheckOn`): the route runs the one-member
+generate-and-compare stage — the stream's rules against the generated
+ones (`nativeRulesOk`), then the recursor generated and compared
+(`checkNativeRec`) — because the k = 1 instance of the new check
+ACCEPTS MORE (any primitively recursive rule body) and the one-member
+bridge `checkBlock_one`, which the P tier's `declNative` reaches the
+route through, is an EQUALITY.  Lifting the gate makes the check live
+at every `k`; it goes with `blockRouteK1Only` at the flip. -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
   match p.members, cvTas, ctorsAs with
-  | [ms], [cvTa], [ctorsA] => do
-    let pn := p.toNative
-    unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
-        pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
-      throw (.invalid "direct rec: recursor rules are not the generated ones")
-    let (cvRa, rhss) ← checkNativeRec ops env pn cvTa ctorsA
-    pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-  | _, _, _ => do
-    -- the recursor RECORDS' pins (task #220 at k members) are official's
-    -- replay comparison and reject whatever the stage does with the
-    -- rules afterwards, so they are thrown FIRST — milestone M5's stage
-    -- opens with them too (§4.2 (a) of the design)
-    unless blockRecLpsOk p.toBlockShape do
-      throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
-    unless p.recPinned do
-      throw (.invalid "direct rec: the recursor record is not the generated recursor")
-    throw (.notImplemented "block rec: the mutual recursor stage")
+  | [ms], [cvTa], [ctorsA] =>
+    if blockRecCheckOn then checkBlockRecK ops env p cvTas ctorsAs
+    else do
+      let pn := p.toNative
+      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
+          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
+        throw (.invalid "direct rec: recursor rules are not the generated ones")
+      let (cvRa, rhss) ← checkNativeRec ops env pn cvTa ctorsA
+      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
+  | _, _, _ => checkBlockRecK ops env p cvTas ctorsAs
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
 constructor, no index): the member's table at the tagged tower's

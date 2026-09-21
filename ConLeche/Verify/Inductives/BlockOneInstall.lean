@@ -489,6 +489,9 @@ theorem checkNativeTail_one (ops : CheckerOps m) (env : Env) {q : BlockPass Env}
     List.headD_cons, List.head?_cons, List.map_cons, List.map_nil, Option.map_some,
     Option.getD_some, List.length_cons, List.length_nil, List.zip_cons_cons,
     List.zip_nil_right, Nat.add_zero, checkBlockIdxSorts, checkBlockRec,
+    -- the recursor stage's gate (milestone M5): the one-member arm is
+    -- the generate-and-compare stage until the model side lands
+    blockRecCheckOn, Bool.false_eq_true, if_false,
     consBlockCtors, consBlockRecs, checkBlockTables, blockFieldsOk_one,
     bind_assoc, pure_bind, InductiveShape.rulePrefix, InductiveShape.majorIdx,
     ThrowBindM.throw_bind, Nat.zero_add]
