@@ -202,17 +202,17 @@ EVERY pin of the instance, not only at the root group's own members,
 and the bridge between the two is `nestedPinLfp_of_pool`
 (`NestedEntryOrd.lean`), whose premise is exactly the `famAt` reading
 of the identification at the root group's classes.  The member form
-(`ofNested_pin_block_of_wide_inst`) reaches only the members and is
-therefore not what this step should produce; the two theorems take the
-SAME hypothesis list, so the change is in the conclusion alone.
+(the member form, deleted at task #315 WIDE (f11)) reached only the
+members and was therefore not what this step should produce.
 
 Everything the RUN already holds about a group is discharged here from
 `GroupFacts`, from `NestedLfpOk` and from the run record itself; what
 is left in the signature is exactly what step (4) is waiting for, and
-every one of them is a fact about the instance closure `σ`, about the
-copies' entries, or about K.41/K.75 — which `NestedPinsRun` does not
-carry (`DeclNestedCore.lean` drops `nestedPinRootPairOk` at the
-destructuring).
+every one of them is a fact about the instance closure `σ` or about
+the copies' entries.  K.41 and K.75 used to stand beside them and no
+longer do: the run record carries `nestedPinRootPairOk` since task
+#315 WIDE (f11) (`NestedPinsRun.hK41`), and the step reads its two
+K.75 halves off `NestedPinsRun.k75pool`/`k75grp`.
 
 * **`hinjJ`** — the class reader's injection at the WIDE width.  At a
   member class it is `injT_of_mem` over `NestedPinGroupSyn.inj` and
@@ -240,15 +240,18 @@ destructuring).
   the assembly above hands the first as `hIHeq` at `Pf := pinLfp …`
   (its scope is `NestedOutScope`, the same predicate both speak of),
   and the second is the theorem `pinLfp_group`.
-* **`hrootGrp`/`hed`/`hrank`/`hK29`/`hK62`/`hK75pool`/`hK75grp`/`hpinsLen`**
-  — what `hout` cost once IT became derived too.  `hrootGrp` is the
-  root-only restriction: the group `q₀` IS its instance's root group,
-  which K.41 (`nestedPinRootPairOk_inv`) hands at every pin.  The
-  PLUMBING item that used to stand beside them, `hedgeAt`, is gone
-  (task #315 WIDE (f7)): the K.32-shaped lookup bridge between the
-  model's spellings and `nestedPinEdges`' own lookups is
-  `NestedPinsRun.edgeAt` (`NestedInstMap.lean`), built here from `R`
-  and `SF`.
+* **`hrootGrp`/`hed`/`hrank`/`hK29`/`hK62`/`hpinsLen`** — what `hout`
+  cost once IT became derived too.  `hrootGrp` is the root-only
+  RESTRICTION and not a fact: the group `q₀` IS its instance's root
+  group, which the caller establishes by choosing `q₀` off
+  `nestedPinRootPairOk_inv` at the pin it is proving the
+  identification at.  The two PLUMBING items that used to stand beside
+  them are gone: `hedgeAt` (task #315 WIDE (f7)) is
+  `NestedPinsRun.edgeAt`, the K.32-shaped lookup bridge between the
+  model's spellings and `nestedPinEdges`' own lookups, built here from
+  `R` and `SF`; and `hK75pool`/`hK75grp` (task #315 WIDE (f11)) are
+  `NestedPinsRun.k75pool`/`k75grp`, K.41's recorded Bool inverted at
+  the run now that the run record carries it.
   The two K.75 clauses are measured at zero fires on the shadow suite,
   `init-full` and Mathlib in both modes (DESIGN's WIDE (f4) row), and
   clause (2) is carried on its design argument: the corpus does not
@@ -320,15 +323,6 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
     (hK29 : ConLeche.nestedGroupsOk env p st = true)
     (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
-    (hK75pool : ∀ q, q < st.pins.length → ∀ g,
-      (ConLeche.nestedPinRootGroup env p b st stored).getD q none = some g →
-      (st.pins.getD q default).grpBase = g ∨
-        ∃ i, i < st.pins.length ∧ (st.pins.getD i default).grpBase = g ∧
-          ∃ mi, ConLeche.nestedInstMapAt env st i = some mi ∧ mi.contains q = true)
-    (hK75grp : ∀ s' t', (s', t', false) ∈ edges →
-      ∀ d, d < (st.pins.getD s' default).grpSize →
-      ∀ mi, ConLeche.nestedInstMapAt env st ((st.pins.getD s' default).grpBase + d) = some mi →
-        mi.contains t' = false)
     (hpinsLen : st.pins.length = pinsS.length)
     (hrootGrp : (ConLeche.nestedPinRootGroup env p b st stored).getD (q₀ + i) none = some q₀)
     {Pf : Nat → V}
@@ -427,7 +421,8 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
   -- induction's scope, `hedgeAt` carries its bound, and `hIH` turns the
   -- pair into the EQUALITY the entry producer now asks for -- `S` is
   -- no longer a premise anywhere below `nestedTargetReads_L`.
-  have hscopeOut := nestedPinsOut_of_root mp₁'.base2 hed hrank hK29 hK62 hK75pool hK75grp hpinsLen
+  have hscopeOut := nestedPinsOut_of_root mp₁'.base2 hed hrank hK29 hK62
+    R.k75pool (R.k75grp hed) hpinsLen
     dJf G hi hrootGrp hedgeAt
   have hent := nestedPinsEntryOrd_of hμ h hbk mp₁'.base2 hleafM dJf hgroups hρp hPfGroup G hi
     (fun i' j hi' hj l hl h1 h2 h3 =>
@@ -485,13 +480,14 @@ identification's `hσ`/`hstgt`/`houtσ`.  The σ this theorem RETURNS is
 therefore the one the per-instance step must be applied at — which is
 why it is returned and not quantified away.
 
-**What is still named**: `hpool`, K.75's clause (1) at the pin.  Its
-inversion reads the kernel Bool `nestedPinPoolGrpAt`, and
-`NestedPinsRun` carries no K.41/K.75 field — which is also why
-`nestedPinWideStep` takes `hK75pool`/`hK75grp`/`hrootGrp`.  Adding the
-conjunct is a `NestedPins.lean` change.  It is taken here in the form
-"at the group's own map", so that the caller need not name the map
-either.
+**Nothing is named any more** (task #315 WIDE (f11)).  What stood
+here was `hpool`, K.75's clause (1) at the pin, whose inversion reads
+a kernel Bool the run record did not carry.  The record carries it
+now (`NestedPinsRun.hK41`), and `NestedPinsRun.poolAt` produces the
+disjunction from it — so what is taken in its place is `hroots`, the
+ROOT-GROUP identification `(nestedPinRootGroup …).getD q none = some
+r`, which is not a fact but the caller's CHOICE of which group to run
+the covering at.
 
 The model-side records (`GR`/`CR`/`hB`/`hshR`/`hgroups`) are the ones
 every consumer at this layer already holds. -/
@@ -512,8 +508,7 @@ theorem nestedClassPinAt_of_run
     {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf mp₁'.base2 B)
     {pcR : Nat → PinCtors V} (hshR : PinShapes mp₁'.base2 B (dJf r) pcR)
     {q : Nat} (hq : q < pinsS.length)
-    (hpool : ∀ mm : List Nat, ConLeche.nestedInstMapAt env st r = some mm →
-      (∃ i, i < kR ∧ q = r + i) ∨ mm.contains q = true) :
+    (hroots : (ConLeche.nestedPinRootGroup env p b st stored).getD q none = some r) :
     ∃ σ : Nat → Nat,
       (∀ c, c < (dJf r).k → σ c = p.k + r + c) ∧
       (∀ c, c < (dJf r).k + (dJf r).nPins → σ c < p.k + pinsS.length) ∧
@@ -539,7 +534,8 @@ theorem nestedClassPinAt_of_run
     R.pinGroupCover_of SF GR.syn hPD
   exact ⟨σ, hroot, hσ, hstgt, houtσ,
     nestedClassPinAt_of_instMap (ρp := ρp) mp₁'.base2 hgroups GR CR hB hshR
-      hroot hpinσ hmmIdx (hψR ψ) (fun qK hqK => hcorr qK hqK ψ) hq (hpool mm hmap)⟩
+      hroot hpinσ hmmIdx (hψR ψ) (fun qK hqK => hcorr qK hqK ψ) hq
+      (R.poolAt SF GR.syn hPD hq hroots hmap)⟩
 
 
 end Step4

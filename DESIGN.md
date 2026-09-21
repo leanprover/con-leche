@@ -133615,3 +133615,54 @@ Changed: `ConLeche/Model/Inductives/NestedPins.lean`,
 `NestedFit.lean`, `DESIGN.md`.  **The kernel did not change**, so no
 accept-set table and no cost table is owed.  `lake build` EXIT 0, no
 warning line.
+
+#### WIDE (f12) — K.41/K.75 SPENT: `hK75pool`/`hK75grp`/`hpool` ARE OFF THE STEP AND OFF THE COVERING (lane LE, the merge session, 2026-09-21)
+
+##### (a) THE FOUR OBJECTS
+
+| object | file:line | what it is |
+|---|---|---|
+| `NestedPinsRun.k75pool` | `NestedInstMap.lean:2867` | K.75 clause (1) at the run — `nestedPinPoolImage_inv R.hK41` |
+| `NestedPinsRun.k75grp` | `:2879` | K.75 clause (2) at the run — `nestedOrdOutsideGrp_inv R.hK41 hed` |
+| `NestedPinsRun.inGroup` | `:2897` | a pin whose recorded `grpBase` is this group's base IS one of its members: K.29's bound on a pin inside its own group, with the group's size pinned to `kJ` through `NestedPinGroupSyn.grp` at the base |
+| `NestedPinsRun.poolAt` | `:2921` | the covering's `hpool` at a pin whose ROOT GROUP is this group |
+
+`inGroup` is the step K.75 clause (1)'s BOTH disjuncts need, and it is
+proved without `nestedGroups_grpSize_eq` (`NestedRootLabel.lean`, not
+imported here): `nestedGroupsOk_inv` at the pin gives
+`grpBase ≤ x < grpBase + grpSize` and, at member 0 of that group, the
+BASE pin with `qi.grpSize = grpSize x`; `NestedPinGroupSyn.grp 0` says
+the base's size is `kJ`.  `poolAt` then routes clause (1)'s second
+disjunct — SOME member of the root group whose instance map contains
+`q` — through `inGroup` and `instMapGroup`, which moves that member's
+map to the group's base, the map the covering reads.
+
+##### (b) WHAT THE TWO CONSUMERS TAKE NOW
+
+`nestedPinWideStep` (`NestedPinsLeInd.lean:262`) no longer takes
+`hK75pool`/`hK75grp`: it reads them off `R`, exactly where it already
+reads `hPD`, `R.h.classify` and `edgeAt`.  What is left of that bullet
+is `hrootGrp`/`hed`/`hrank`/`hK29`/`hK62`/`hpinsLen`, and `hrootGrp`
+is a RESTRICTION (the caller's choice of a root group), not a fact.
+
+`nestedClassPinAt_of_run` (`:490`) no longer takes `hpool`.  In its
+place it takes `hroots`, the root-group identification
+`(nestedPinRootGroup env p b st stored).getD q none = some r` — which
+is the same choice `hrootGrp` is, in the same vocabulary, and which
+`nestedPinRootPairOk_inv` hands at every pin.  **Its named set is
+empty**: everything else it takes is a model-side record every
+consumer at this layer already holds.
+
+##### (c) THE PRICE OF WIDE (f10) §(d) 3, SETTLED
+
+That row priced the K.41/K.75 conjunct at "half to one session, main
+lane's files, and nothing this lane can start".  With the conjunct
+carried (WIDE (f11)) the four consumers cost four short theorems and
+two deletions; the estimate was right and the work is done.
+
+##### (d) THE GATES
+
+Changed: `ConLeche/Model/Inductives/NestedInstMap.lean`,
+`ConLeche/Model/Inductives/NestedPinsLeInd.lean`, `DESIGN.md`.  **The
+kernel did not change**, so no accept-set table and no cost table is
+owed.  `lake build` EXIT 0, no warning line.

@@ -2851,6 +2851,109 @@ theorem NestedPinsRun.pinGroupCover_of {pbs : List (Expr × ConLeche.BinderMeta)
     exact hout
 
 
+/-! ## K.41 AND K.75, OFF THE RUN RECORD
+
+`NestedPinsRun.hK41` (task #315 WIDE (f11)) carries
+`nestedPinRootPairOk` — the root-pair table together with K.75's two
+index-level clauses — and these three are its inversions in the
+shapes the WIDE route's step and covering read them at.  Until the
+conjunct was carried they were HYPOTHESES of `nestedPinWideStep` and
+`nestedClassPinAt_of_run` with no producer anywhere in the tree. -/
+
+omit SF S in
+/-- **K.75 CLAUSE (1), AT THE RUN**: every pin of an instance is a
+member of its root group, or lies in the instance map of one of that
+group's members.  `nestedPinWideStep`'s `hK75pool`. -/
+theorem NestedPinsRun.k75pool :
+    ∀ q, q < st.pins.length → ∀ g,
+      (ConLeche.nestedPinRootGroup env p b st stored).getD q none = some g →
+      (st.pins.getD q default).grpBase = g ∨
+        ∃ i, i < st.pins.length ∧ (st.pins.getD i default).grpBase = g ∧
+          ∃ mi, ConLeche.nestedInstMapAt env st i = some mi ∧ mi.contains q = true :=
+  ConLeche.nestedPinPoolImage_inv R.hK41
+
+omit SF S in
+/-- **K.75 CLAUSE (2), AT THE RUN**: at an `ordF`-right row the target
+is outside the instance map of EVERY member of the source's mint
+group.  `nestedPinWideStep`'s `hK75grp`. -/
+theorem NestedPinsRun.k75grp {edges : List (Nat × Nat × Bool)}
+    (hed : ConLeche.nestedPinEdges env p b st stored = some edges) :
+    ∀ s' t', (s', t', false) ∈ edges →
+      ∀ d, d < (st.pins.getD s' default).grpSize →
+      ∀ mi, ConLeche.nestedInstMapAt env st ((st.pins.getD s' default).grpBase + d) = some mi →
+        mi.contains t' = false :=
+  ConLeche.nestedOrdOutsideGrp_inv R.hK41 hed
+
+omit SF in
+/-- **A PIN WHOSE `grpBase` IS THE GROUP'S BASE IS ONE OF ITS
+MEMBERS** (task #315 WIDE (f11)): K.29 bounds a pin inside its own
+recorded group, `nestedGroups_grpSize_eq` makes the two groups' sizes
+one, and `NestedPinGroupSyn.grp` says that size is `kJ`.
+
+This is the step K.75 clause (1)'s two disjuncts BOTH need: the first
+to turn "`q`'s group is the root group" into a member index, the
+second to put the member whose instance map contains `q` inside the
+group, so that `instMapGroup` may move the map to the base. -/
+theorem NestedPinsRun.inGroup {x : Nat} (hx : x < st.pins.length)
+    (hbase : (st.pins.getD x default).grpBase = q₀) :
+    ∃ d, d < kJ ∧ x = q₀ + d := by
+  have hgx : st.pins[x]? = some (st.pins.getD x default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hx]; rfl
+  obtain ⟨_, _, _, _, _, _, _, _, hlo, hhi, _, _, _, hmem⟩ :=
+    ConLeche.nestedGroupsOk_inv R.hgrp x _ hgx
+  obtain ⟨qi, _, _, hqi, _, _, _, _, hqsz, _⟩ := hmem 0 (by omega)
+  rw [Nat.add_zero, hbase] at hqi
+  have hbq : st.pins.getD q₀ default = qi := by
+    rw [List.getD_eq_getElem?_getD, hqi]; rfl
+  have hk := (S.grp 0 S.kpos).2
+  rw [Nat.add_zero, hbq, hqsz] at hk
+  rw [hbase] at hlo hhi
+  exact ⟨x - q₀, by omega, by omega⟩
+
+/-- **K.41'S COVERING AT ONE PIN, IN THE COVERING'S OWN SHAPE**
+(task #315 WIDE (f11)): `nestedClassPinAt_of_run`'s `hpool` — given
+that `q`'s ROOT GROUP is this group, `q` is one of the group's members
+or lies in the group's own instance map.
+
+K.75 clause (1) names SOME member of the root group whose map contains
+`q`; `inGroup` puts that member inside `[q₀, q₀ + kJ)` and
+`instMapGroup` moves its map to the base, which is the map the
+covering reads.  The first disjunct is `inGroup` directly. -/
+theorem NestedPinsRun.poolAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < pinsS.length)
+    (hroots : (ConLeche.nestedPinRootGroup env p b st stored).getD q none = some q₀)
+    {mm : List Nat} (hmm : ConLeche.nestedInstMapAt env st q₀ = some mm) :
+    (∃ i, i < kJ ∧ q = q₀ + i) ∨ mm.contains q = true := by
+  classical
+  have hqS : q < st.pins.length := by rw [← SF.pinsLen]; exact hq
+  -- the container records at every member of the group, as
+  -- `pinGroupCover_of` builds them
+  have hqAt : ∀ i', i' < kJ → q₀ + i' < st.pins.length := by
+    intro i' hi'; rw [← SF.pinsLen]; have := S.seg; omega
+  have hci : ∀ i', i' < kJ → ∃ ci' : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci' ∧
+      ContainerModeled mp₁'.base2 ci' dJ := by
+    intro i' hi'
+    obtain ⟨hcname', -⟩ := SF.pinRec _ _ (hPD _ (hqAt i' hi')).pin
+    obtain ⟨ci', hci0', -⟩ := (hPD _ (hqAt i' hi')).own
+    have hciJ : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci' := by
+      rw [hcname']; exact hci0'
+    exact ⟨ci', hciJ, S.modeled i' hi' ci' hciJ⟩
+  rcases R.k75pool q hqS q₀ hroots with hself | ⟨i, hi, hib, mi, hmi, hin⟩
+  · exact Or.inl (R.inGroup S hqS hself)
+  · obtain ⟨d, hd, rfl⟩ := R.inGroup S hi hib
+    obtain ⟨ci₀, hci₀, CM₀⟩ := hci 0 S.kpos
+    obtain ⟨cid, hcid, CMd⟩ := hci d hd
+    have hmv : ConLeche.nestedInstMapAt env st (q₀ + d)
+        = ConLeche.nestedInstMapAt env st (q₀ + 0) :=
+      NestedPinsRun.instMapGroup SF S hPD hd S.kpos hcid hci₀ CMd CM₀
+    rw [Nat.add_zero] at hmv
+    rw [hmv, hmm] at hmi
+    rw [← Option.some.inj hmi] at hin
+    exact Or.inr hin
+
+
 /-- **THE σ CLAUSE, ASSEMBLED AT ONE GROUP** (task #315 WIDE (3′)):
 `PinGroupInst` from the four run halves and nothing else — `hroot` is
 σ's own definition, `hσ`/`hmemσ`/`hidxσ` are `instMapSigmaFacts`,
