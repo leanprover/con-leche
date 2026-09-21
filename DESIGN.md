@@ -81471,3 +81471,4 @@ rules; the group = the recursors declared in the block.  D-c is
 answered (unpinned); the k = 1 generate-and-compare arm keeps its pin
 only while it exists.
 D-d confirmed: within a recursor family the conclusions' sorts must be the same level up to `Level.isEquiv` (official shares one `u` across the block's recursors, so it accepts nothing more); one `ℓ` per family, no `max`.
+D-f REJECTED (maintainer): no recorded per-parameter positivity bits at a container's install — "it is Lean's design to determine positivity at concrete parameters, and that is more general than an abstract install-time analysis."  Positivity through a container is always checked at the concrete instantiation (the abstract copy at the pins), never from a stored verdict.
