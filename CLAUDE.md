@@ -82,8 +82,7 @@ iteration protocol. Keep it up to date when decisions change.
   the PUBLIC view and fails on a hidden unfolding; `:= by rfl` is
   elaborated in the private view and is the fix.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
-  /tmp and /home are tmpfs). Reference clones already there: nanodatg,
-  lean4lean-model.
+  /tmp and /home are tmpfs).
 * If running the checker may OOM, use a timeout and memory limit
   (`ulimit -v 16000000` for ordinary runs, 22 GB for Mathlib scale;
   `timeout` on every checker run; builds get `timeout` only).

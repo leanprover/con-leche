@@ -8,12 +8,11 @@ public import ConLeche.Term.Subst
 # `AnnotTerm`: the sort-annotated variant of `Term` (task #151, tier A)
 
 `Term` (`ConLeche/Term/Syntax.lean`) carries **no** universe information at
-its binders: `pi A B` and `lam A b` are the bare formers, and the
-interpretation reads them through the *collapsed* operators `piC`/`lamC`
-(`ConLeche/Term/Semantics/Interp.lean`), which is what makes the
-universe-cohabitation wall unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)`
-holds whenever the domain cannot be shown empty-free, so no *typing* can
-separate a proposition's inhabitant from the proof point.
+its binders: `pi A B` and `lam A b` are the bare formers.  Without a
+sort at the binder an interpretation cannot tell a predicate space
+with its one proof point from a dependent function space — the
+universe-cohabitation wall: no *typing* separates a proposition's
+inhabitant from the proof point.
 
 `AnnotTerm` is the same syntax with the binder formers carrying **ground
 numeral sorts**:
@@ -21,7 +20,7 @@ numeral sorts**:
 | `Term` | `AnnotTerm` | annotation |
 |---|---|---|
 | `pi A B` | `pi u v A B` | the domain's sort `u` and the body's sort `v` |
-| `lam A b` | `lam u A b` | the domain's sort `u` |
+| `lam A b` | `lam u A b` | the sort `u` of the body's **type** (the codomain), which `interp` dispatches on |
 | everything else | the same node | none |
 
 **Design rulings this file implements** (task #151's own):
@@ -31,10 +30,11 @@ numeral sorts**:
   levels are concrete `Nat`s"), so an annotation is a `Nat`.  There is
   no level substitution to commute with, which is what makes the whole
   substitution metatheory below *inert*.
-* **Annotations are cached premises.**  A slot exists exactly where a
-  `SetR` rule's own premises supply the fact (`ConLeche/SetR/Rel.lean`
-  I6's two `DefEq … (.sort _)` premises, I7's one) and a consumer reads
-  it.  Hence:
+* **Annotations are cached premises.**  A slot exists exactly where the
+  checker's own inference establishes the fact and a consumer reads
+  it: the rules tier's `Infer.forallE` carries the sort premises of
+  both binder positions and `Infer.lam` the codomain's
+  (`ConLeche/Rules/Rel.lean`).  Hence:
 * **There is no `letE` former at all** (task #241) — the slot question
   is moot: no stored expression carries a `let`, so the denotation's
   `letE` clause is `none` and the node never reaches this syntax.  See
@@ -323,14 +323,7 @@ theorem erase_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
 end AnnotTerm
 
 
-/-! ## `erase` at the constant clause
-
-Re-based here from `SetR/Interp/EmptyPin2.lean` at THE SEPARATION's S2
-(task #161): pure syntax, and both lanes read a constant back out of an
-erasure with it.  (Its namespace was `ConLeche.SetR.Interp`, re-opened
-by a nested block here until the 2026-09-06 namespace rename folded
-both into `ConLeche.Semantics`.) -/
-
+/-! ## `erase` at the constant clause -/
 
 open ConLeche.Term (BConst)
 
