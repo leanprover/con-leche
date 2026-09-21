@@ -17,6 +17,10 @@ in any monad whose `throw` short-circuits a `bind` (`ThrowBind`), and
 instantiated at the monads the drivers run in.
 -/
 
+-- the `simp only` sets below are written for robustness against the
+-- normal forms of the two sides, and several entries fire on one side only
+set_option linter.unusedSimpArgs false
+
 namespace ConLeche
 
 /-! ## The positivity walk at one name -/

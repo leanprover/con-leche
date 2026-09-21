@@ -51,6 +51,10 @@ recursors' minor order and is rejected by the recursor pin
 (`blockRecPinOk`'s last conjunct).
 -/
 
+-- the `simp only` sets below are written for robustness against the
+-- normal forms of the two sides, and several entries fire on one side only
+set_option linter.unusedSimpArgs false
+
 namespace ConLeche
 
 /-! ## `mentionsAnyConst`: the positivity walk's question at k names -/

@@ -36,6 +36,10 @@ the run relation, the P tier and the cached mirrors keep their
 one-member statements while the route is the k-ary one.
 -/
 
+-- the `simp only` sets below are written for robustness against the
+-- normal forms of the two sides, and several entries fire on one side only
+set_option linter.unusedSimpArgs false
+
 namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]

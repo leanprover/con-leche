@@ -23,6 +23,10 @@ overhaul a complete, proved checker.  When the gate goes (milestone
 M6), these bridges go with it and the statements are restated at k.
 -/
 
+-- the `simp only` sets below are written for robustness against the
+-- normal forms of the two sides, and several entries fire on one side only
+set_option linter.unusedSimpArgs false
+
 namespace ConLeche
 
 /-! ## The split -/
