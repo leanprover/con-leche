@@ -130606,7 +130606,7 @@ roots through `ConLeche/Model.lean`.  Four declarations, all
 
 ##### (a) `hdom₁rec`, PRODUCED — AND THE STEP-0 ROW'S READING CONFIRMED BY THE ELABORATOR
 
-* `copyDomRec_via` (`NestedEntryOrd.lean:81`) — THE CONTENT.  At a
+* `copyDomRec_via` (`NestedEntryOrd.lean:83`) — THE CONTENT.  At a
   field the container `dK` calls RECURSIVE, side 1's slot is inside
   `dK`'s real field domain as soon as side 2's is.  Its hypotheses are
   the two `CopyCtorShape`s, the numeric agreements
@@ -130618,7 +130618,7 @@ roots through `ConLeche/Model.lean`.  Four declarations, all
   container's domain: `copyTransfer_via_pin`'s own container-recursive
   branch, read in the other direction.  It compiled at the first
   attempt, which is the elaborator's confirmation of the step-0 row.
-* `nestedPinDomRec_of_dom₂` (`NestedEntryOrd.lean:218`) — the run-level
+* `nestedPinDomRec_of_dom₂` (`NestedEntryOrd.lean:220`) — the run-level
   producer, whose conclusion is `nestedPinPairAt_pinσ`'s `hdom₁rec`
   **character for character** (checked mechanically against
   `NestedPinLeafAll.lean:7459`–`:7474`, whitespace-normalised).  Its
@@ -130634,7 +130634,7 @@ roots through `ConLeche/Model.lean`.  Four declarations, all
 
 ##### (b) THE Ord-ONLY ENTRY PRODUCER, AND WHAT IT COSTS
 
-* `nestedPinsEntryOrd_at` (`NestedEntryOrd.lean:354`) — `CopyEntryOrd`
+* `nestedPinsEntryOrd_at` (`NestedEntryOrd.lean:356`) — `CopyEntryOrd`
   at one copy's constructor, from `hIH`/`hPfGroup` (the rank
   induction's own two, at a predicate `S`) and `hout`.  It is
   `nestedPinEntryOutEq`'s per-field equality packaged as the
@@ -130643,7 +130643,7 @@ roots through `ConLeche/Model.lean`.  Four declarations, all
   asked about at all, so `nestedTargetReads_L`'s `S` is never wanted
   at an in-instance target and `nestedPinsEntry_at`'s circularity does
   not arise.
-* `nestedPinsEntryOrd_of` (`NestedEntryOrd.lean:413`) — the same in
+* `nestedPinsEntryOrd_of` (`NestedEntryOrd.lean:415`) — the same in
   `CopyEntryAOrd`'s shape, at the group's pin `i` for the level
   assignment and components and at constructor `(i', j)`, the group's
   `ψJEq`/`sameDs` moving the reading data between its members.  This
