@@ -1134,6 +1134,151 @@ theorem blockRecRuleLaw_run {mpC : EnvModelM V μ envC} {cvTas : List ConstantVa
   blockRecRuleLaw_of (blockRecHrPle h hj) hj hplain
     (blockRecHleaf hac hnd hr) (blockRecHiota hpre hj hi) hrhs
 
+/-! ## A.6 The rule data's FIRST component, at the run
+
+`pdoms0` — the rule's prefix domains at the base frame — needs no new
+reading: it is the `rP` first entries of the recursor type's own
+binder data, which RM4 already named (`blockRecRdsAV`) and
+`checkBlockRecK_tyPis` already identifies.  Its length conjunct (the
+first of `BlockRuleDataAt`'s five) is then the stage's two pins
+together: `rds.length = mI + 1` and `mI = rP + nIdx`. -/
+
+/-- **The `c`-th rule's prefix domains, at the BASE frame.** -/
+@[expose] def blockRulePdomsAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : ConLeche.BlockShape)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c : Nat) : List AnnotTerm :=
+  ((blockRecRdsAV acval envC p rs ψ c).take (p.rulePrefixAt c)).map (·.2.2)
+
+/-- **`BlockRuleDataAt`'s first conjunct, at the run.** -/
+theorem blockRulePdomsAV_length {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) :
+    (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c := by
+  obtain ⟨-, -, -, -, -, hlen, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  rw [blockRulePdomsAV, List.length_map, List.length_take, hlen]
+  omega
+
 end Hnew
+
+/-! ## A.5 Stage (c)'s peel, WIDENED — the rule's own data, named
+
+`checkBlockRule_typing` (`BlockRecTyping.lean`) keeps the two typing
+runs and the three openings; the rule DATA needs four more witnesses
+the same bind chain produces and that peel discards — the λ-tower's
+body, the constructor's instantiated telescope, the abstraction's
+residue and the `ih` telescope — each with its DEFINING equation, so
+that the components below are functions of the run and not
+existentials.  (Fifth peel of stage (c) in the tree; V2's open item 3
+stands.) -/
+
+section RuleData
+
+open ConLeche (checkBlockRule BlockShape BlockFieldKind BlockRuleFrame)
+
+local macro "close_throw " h:term : tactic =>
+  `(tactic| first
+      | exact nomatch $h
+      | exact absurd $h (by
+          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+          exact fun hh => nomatch hh)
+      | exact absurd $h
+          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- **Stage (c)'s peel with the rule's DATA kept.** -/
+theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List Name}
+    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
+    {cvR : ConstantVal} {cA : ConstantVal × Nat} {ks : List BlockFieldKind}
+    {rhs out : Expr} {F : Nat}
+    (h : checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
+      recNames rlvls recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
+    ∃ (recTy : Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr)
+      (cpref : List Expr) (crest : Expr) (fvsPref : List Expr) (o₁ : Expr)
+      (fvsF : List Expr) (cbody : Expr) (ldoms : List Expr) (lrest : Expr)
+      (resid ihTele : Expr) (fvsIh : List Expr) (bodyO ty concl : Expr),
+      recTys[ri]? = some recTy ∧
+      ConLeche.Expr.stripLams (p.rulePrefixAt ri + cA.2) out = some (rbs, body) ∧
+      ConLeche.openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
+      ConLeche.Expr.instPisAt (fvsPref.take p.nP) cA.1.type = some (cpref, crest) ∧
+      ConLeche.openPisAtFvars cA.2 crest (p.rulePrefixAt ri) = some (fvsF, cbody) ∧
+      ConLeche.Expr.instLamsAt (fvsPref ++ fvsF) out = some (ldoms, lrest) ∧
+      ConLeche.abstractIh
+          { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs,
+            recTgts := recTgts, nP := p.nP, rP := p.rulePrefixAt ri, nF := cA.2, ks := ks,
+            teleOf := ConLeche.structFieldTeleOf cA.1.type p.nP cA.2,
+            idxOf := ConLeche.structFieldIdxOf cA.1.type p.nP cA.2,
+            ihKeys := ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks,
+            pw := Level.zeronessOf (ConLeche.structElimLevel p.elim p.large) }
+          0 body = some resid ∧
+      ConLeche.blockIhPis p.nP (p.rulePrefixAt ri) cA.2
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))
+          (fun c => recTys.getD c (.sort .zero))
+          (ConLeche.structFieldTeleOf cA.1.type p.nP cA.2)
+          (ConLeche.structFieldIdxOf cA.1.type p.nP cA.2)
+          (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks) 0 resid = some ihTele ∧
+      ConLeche.openPisAtFvars
+          (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length
+          (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+          (p.rulePrefixAt ri + cA.2) = some (fvsIh, bodyO) ∧
+      ConLeche.inferTypeCore μ envT F
+          (p.rulePrefixAt ri + cA.2 +
+            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
+          bodyO = .ok ty ∧
+      ConLeche.Expr.instPisAtLift
+          (fvsPref ++ cbody.getAppArgs.drop p.nP ++
+            [ConLeche.Expr.mkAppN (.const cA.1.name (p.lps.map .param))
+              (fvsPref.take p.nP ++ fvsF)])
+          recTy = some concl ∧
+      ConLeche.isDefEqCore μ envT F
+          (p.rulePrefixAt ri + cA.2 +
+            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
+          ty concl = .ok true := by
+  unfold checkBlockRule at h
+  obtain ⟨recTy, hrecTy, h⟩ := ConLeche.exceptBind_ok h
+  by_cases hbv : ConLeche.Expr.looseBVarsBounded 0 rhs = true
+  case neg => rw [if_neg hbv] at h; close_throw h
+  rw [if_pos hbv] at h
+  by_cases hfv : rhs.hasFvar = true
+  case pos => rw [if_pos hfv] at h; close_throw h
+  rw [if_neg hfv] at h
+  obtain ⟨rhsA, _, h⟩ := ConLeche.exceptBind_ok h
+  by_cases hlp : ConLeche.Expr.allLevelParamsDefined cvR.levelParams rhsA = true
+  case neg => rw [if_neg hlp] at h; close_throw h
+  rw [if_pos hlp] at h
+  by_cases hres : ConLeche.Expr.constsResolve envR rhsA = true
+  case neg => rw [if_neg hres] at h; close_throw h
+  rw [if_pos hres] at h
+  obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨rbs, body⟩ := x1
+  obtain ⟨x2, hx2, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
+  obtain ⟨x3, hx3, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨cpref, crest⟩ := x3
+  obtain ⟨x4, hx4, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
+  obtain ⟨x5, hx5, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨ldoms, lrest⟩ := x5
+  obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨resid, hresid, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨ihTele, hihTele, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨x9, hx9, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsIh, bodyO⟩ := x9
+  obtain ⟨ty, hty, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨concl, hconcl, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨b, hb, h⟩ := ConLeche.exceptBind_ok h
+  by_cases hd : b = true
+  case neg => rw [if_neg hd] at h; close_throw h
+  subst hd
+  have hout : out = rhsA := by
+    simpa [pure, Except.pure] using h.symm
+  subst hout
+  exact ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
+    resid, ihTele, fvsIh, bodyO, ty, concl,
+    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx1, ConLeche.unwrapOr_ok hx2,
+    ConLeche.unwrapOr_ok hx3, ConLeche.unwrapOr_ok hx4, ConLeche.unwrapOr_ok hx5,
+    ConLeche.unwrapOr_ok hresid, ConLeche.unwrapOr_ok hihTele, ConLeche.unwrapOr_ok hx9,
+    hty, ConLeche.unwrapOr_ok hconcl, hb⟩
+
+end RuleData
 
 end ConLeche.Model
