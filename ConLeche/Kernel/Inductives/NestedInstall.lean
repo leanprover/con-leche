@@ -2667,10 +2667,14 @@ read BELOW its own `Π`-tower.
 `ordRootFired` and the two target lookups read `getAppFn`, and a `Π`
 has none — so without the strip K.67, K.68 and K.69 are SILENT at
 exactly the fields whose copies carry a telescope, which is the
-population the reading rows have to speak at (`nested_pi_field`, where
-the tower is the CONTAINER's; `nested_comp_tower`, where it is the
-MINT's; `nested_redex_tower`, where it appears only after the
-reduction).  `stripDomPis` is the cut K.63's guard already uses one
+population the reading rows have to speak at.  The fields it reaches
+are the ones whose tower the MINT PLANTS — `nested_comp_tower`, where
+the component is a `Π`, and `nested_redex_tower`, where the `Π`
+appears only after the reduction; a tower that is the CONTAINER's own
+(`nested_pi_field`) is stripped by `ordTargetDom` before the
+components are substituted, so the strip is the identity there and
+K.76's first summand is what covers it.  `stripDomPis` is the cut
+K.63's guard already uses one
 tower down (`copyReflFieldOk`), and it is the IDENTITY wherever the
 reduced mint is not a `Π` (`ordHeadCut_const`), so every field the
 three rows speak at today they speak at unchanged. -/
@@ -2717,9 +2721,11 @@ recomputation `ordHeadRed (ordTargetDom …)` — the same term K.69's own
 equation compares, and the same one K.73 measures the depth of.  So
 
     (ordTargetTele … dom).length
-      = domPiDepth dom + domPiDepth (ordHeadRed (ordTargetDom … dom))
+      = domPiDepth (ordTargetDomL … dom)
+          + domPiDepth (ordHeadRed (ordTargetDom … dom))
 
-which is K.73's right-hand side verbatim.
+which is K.73's right-hand side verbatim (the level instantiation
+moves no binder — `domPiDepth_instantiateLevelParams`).
 
 **IT IS A RECOMPUTATION AND NOT A READING.**  Nothing here looks at the
 copy's STORED constructor: the mint (`replaceAllNested`) rewrites
@@ -3397,6 +3403,26 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                     -- arm may make between the STORED
                                     -- copy's tower and the
                                     -- recomputation's.
+                                    --
+                                    -- **THE LENGTH HALF IS
+                                    -- UNGUARDED**, and that is the one
+                                    -- place this row speaks where K.69
+                                    -- is silent — a block pin whose
+                                    -- head is not a `.const`, which
+                                    -- `replaceIfNested` never writes.
+                                    -- It may be: the first summand is
+                                    -- the same stored domain's tower
+                                    -- on both sides (the level
+                                    -- instantiation moves no binder)
+                                    -- and the second is the same
+                                    -- stripped body under two
+                                    -- component tables, and neither
+                                    -- `Expr.instantiateList` nor the
+                                    -- β/ζ reduction turns a `Π` into a
+                                    -- non-`Π` at the head.  The model
+                                    -- needs it unconditionally: a
+                                    -- `teleOfFields` congruence cannot
+                                    -- start without the two lengths.
                                     (let tlO := ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1
                                      let tlB := ordTargetTele Jm.lps ci.nP terms q l domJ.1
                                      (tlO.length == tlB.length) &&

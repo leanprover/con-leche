@@ -1946,7 +1946,6 @@ theorem nestedOrdNormOk_tele {env : Env} {p : NestedParts}
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
       (ordHeadCut (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)) = true) :
     (ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1).length
@@ -1957,6 +1956,11 @@ theorem nestedOrdNormOk_tele {env : Env} {p : NestedParts}
               ((ordTargetTele Jm.lps ci.nP ownSelf qK l domJ.1).getD i default) = some Tb →
           (ordTargetTele Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getD i default
             = Tb := by
+  -- the field's KIND is the arm's own, off the firing
+  -- (`nestedOrdNormOk_fire`), so no caller has to carry it
+  have hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true :=
+    nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ hsJ
+      hl hdJ hord rfl hfire
   cases hms : nestedInstMaps env st with
   | none =>
     unfold nestedOrdNormOk nestedOrdNormAt at h
