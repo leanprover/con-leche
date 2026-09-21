@@ -132572,3 +132572,305 @@ itself, whose consumer is `hwide` and therefore (d) 1.
 `nestedClassPinAt_of_instMap`, `nestedPinLfp_of_pool` —
 `[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom, no
 `maxHeartbeats`, no `implemented_by`.
+
+#### WIDE (f7) — THE MERGE: LANE DOM'S FIVE SESSIONS REVIEWED AND TAKEN, **K.75 LANDED**, `hdom₁rec` AND THE ABSTRACT SCOPE `S` **GONE**, AND `hwideFam` BUILT — WITH THE TWO IMPORT-DIRECTION CORRECTIONS THE PLAN DID NOT SEE (lane LE, 2026-09-21)
+
+Lane DOM is merged at `ffd82d38`.  The fork's only overlap was this
+document and both sides were pure appends, so the resolution keeps both
+tails, this lane's rows first.  Everything below is landed, built and
+gated; two of lane DOM's four hand-over statements turned out to name
+the WRONG FILE, and §(e) and §(f) record why and what was done instead.
+
+##### (a) THE REVIEW, AND ITS TWO FLAGS
+
+Every object of the DOM lane was read against the tree before the
+merge commit, which carries the review one line per object
+(`copyDomRec_via`, `nestedPinDomRec_of_dom₂`,
+`nestedPinsEntryOrd_at`/`_of`, `nestedPinsOut_of_root`,
+`nestedPinOutLabel`, `nestedGroups_grpSize_eq`, `ofNested_wide_at`,
+`ofNested_wide_famAt`, `nestedPinLfp_of_root_class`,
+`nestedClassPinAt_of_instMap`, `nestedPinLfp_of_pool`, and
+`nestedPinWideStep`'s new signature).  Nothing was rejected.  Two
+flags were raised and both are recorded here rather than acted on:
+
+1. **K.75's clause (2) is carried on a DESIGN argument, not on a
+   measurement.**  The DOM lane's control measured `grpgt1 = 0` on
+   every corpus — no `ordF`-right edge anywhere has its source in a
+   mint group of more than one member — so `nestedOrdOutsideGrpAt` is
+   pointwise `nestedOrdOutsideAt` wherever it was measured and its
+   ADDED reach is untested.  The zero-fire table is real (§(c)), so no
+   accept is lost anywhere measured; what no fixture exercises is a
+   mutual container whose members carry different own-pin lists.  The
+   cheaper reading (K.62 at the pin) does NOT close the label chain —
+   clause (1) hands over an ARBITRARY member of the root group and
+   `nestedOrdOutsideOk_at` speaks only at the source — so the clause
+   stands as DOM wrote it.
+2. **`hK75grp` on `nestedPinWideStep` is stated over the EDGE ROWS**
+   (`∀ s' t', (s', t', false) ∈ edges → …`) while the kernel Bool
+   quantifies over `nestedPinEdgesAt`'s rows.  The two agree; the
+   inversion this session writes produces the STEP's form, not the
+   Bool's shape, which is what §(b) does.
+
+##### (b) K.75 IS IN THE KERNEL, AND THE RECORDED CONJUNCT DID NOT GROW
+
+Three Bools beside K.41's in `Kernel/Inductives/NestedInstall.lean`,
+the DOM lane's WIDE (f4) §(a) text verbatim and placed after
+`nestedOrdOutsideOk` because the composite reads `nestedInstMaps`:
+
+* `nestedPinPoolImageAt` (`:2557`) — clause (1), K.41's pool as the
+  instance map's INDEX-level image;
+* `nestedOrdOutsideGrpAt` (`:2575`) — clause (2), K.62 at the source's
+  whole mint group;
+* `nestedPinPoolGrpAt` (`:2589`) — the two as one Bool.
+
+`nestedPinChecks` throws on the composite with its OWN message
+(`:3986`), immediately after K.41's check and inside the verified
+group, so a fire in either clause is distinguishable from a K.41 fire
+at the arena.  **No new `DeclNestedRun` conjunct**: the recorded
+wrapper `nestedPinRootPairOk` (`:2599`) is now K.41's `…At` Bool `&&`
+the composite at the same `roots` table, so the semantics tier and the
+whole Verify chain keep exactly the conjuncts they had, and the three
+`…At` Bools stay separate.
+
+The inversions are in `Verify/Inductives/NestedInv.lean` and they
+produce the two hypotheses `nestedPinOutLabel` and `nestedPinWideStep`
+already take, CHARACTER FOR CHARACTER:
+
+| object | file:line | shape |
+|---|---|---|
+| `nestedPinPoolImage_inv` | `NestedInv.lean:3026` | `∀ q < st.pins.length, ∀ g, roots.getD q none = some g → grpBase = g ∨ ∃ i …, mi.contains q` |
+| `nestedOrdOutsideGrp_inv` | `NestedInv.lean:3060` | `∀ s' t', (s', t', false) ∈ edges → ∀ d < grpSize, ∀ mi, nestedInstMapAt env st (grpBase + d) = some mi → mi.contains t' = false` |
+
+`nestedPinRootPairOk_inv` keeps its statement and takes the left
+conjunct.  The check-site inversion gained one `split` and the branch
+below it was re-indented; nothing else in that proof moved.
+
+##### (c) THE CONFORMANCE — ZERO FIRES, AND THE SAME NUMBERS THE PRE-K.75 BINARY GIVES
+
+| corpus | mode | declarations | shadow blocks | accepting | fires |
+|---|---|---|---|---|---|
+| `init-full` | `--verified --nested-shadow --jobs=1` | 53 093 | 1 | 1 | **0** |
+| `init-full` | `--trusted --nested-shadow --jobs=1` | 53 093 | 1 | 1 | **0** |
+| Mathlib | `--verified --nested-shadow --jobs=8` | 654 504 | 41 | 41 | **0** |
+| Mathlib | `--trusted --nested-shadow --jobs=8` | 654 504 | 41 | 41 | **0** |
+
+Byte-for-byte the previous row's four cells, so the two clauses cost
+no acceptance anywhere measured.  `tests/nested-shadow.sh` is 47/47.
+
+**The controls are lane DOM's and are not re-run**: WIDE (f4) §(c)
+measured `nonroot` at 8 pins over 6 shadow blocks and 10 over 5
+Mathlib blocks (clause (1) is EXERCISED and not vacuous), `grpgt1 = 0`
+everywhere (clause (2) is VACUOUS on both corpora — flag 1),
+`dup = 0` and `mixgrp = 0` (the two named fire risks do not occur).
+Those counters are computed from the same tables this landing gates
+on, and the landing changed no table.
+
+##### (d) THE COST — NOISE, AT INIT-FULL ONLY
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`.  The "without" column is the previous row's measured cells
+at `de822b97`, whose kernel this merge did not touch.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2353 G | 538.2257 G | **−0.0018 %** |
+| `init-full --trusted --nested-shadow` | 520.8869 G | 520.8883 G | **+0.00027 %** |
+
+Both are noise, which the shape predicts: the composite is two passes
+over tables the check group already built, and it runs once per nested
+block install in the verified mode only.  No Mathlib perf cell, per the
+standing ruling.
+
+##### (e) `hdom₁rec` DISCHARGED — AND THE FIRST IMPORT-DIRECTION CORRECTION
+
+Lane DOM landed `nestedPinDomRec_of_dom₂` in
+`Model/Inductives/NestedEntryOrd.lean` and priced the discharge as
+"ONE `exact` at `nestedPinPairAt_pinσ`, in the main lane's file".
+**The `exact` cannot be written there**: `NestedEntryOrd`
+`public import`s `NestedPinLeafAll`, which is where
+`nestedPinPairAt_pinσ` lives, so the producer sat ABOVE its consumer.
+
+`copyDomRec_via` and `nestedPinDomRec_of_dom₂` therefore MOVED into
+`NestedPinLeafAll.lean` (`:7353` and `:7458`), statement and proof
+character for character.  At the assembly the `hXrecTgt` `have` moves
+above `hdom₁` (it depends on neither), the `hdom₁rec` BINDER is gone,
+and one line stands where it stood:
+
+    have hdom₁rec := nestedPinDomRec_of_dom₂ m dJf hρp G hiq hjl S₂ CK hciK hfK hpp
+      hψ hfr h₁ hdom₂ hXrecTgt
+
+Both inputs are `have`s the proof already computes.  It compiled at the
+first attempt, which is the elaborator's confirmation of lane DOM's
+step-0 reading.
+
+**THE ASSEMBLY'S NAMED SET IS NOW EXACTLY `{hscope}`** — the comment
+`-- **THE NAMED SET** (the merge session's work order)`
+(`NestedPinLeafAll.lean:7782`) is followed by one binder and one only.
+
+##### (f) THE ABSTRACT SCOPE `S` IS GONE FROM THE ENTRY CHAIN
+
+Lane DOM's WIDE (f5) §(f) finding, carried out.  `hout`/`S` was spent
+in exactly ONE place — `nestedTargetReads_L`, immediately against
+`hIH` — so the premise those theorems need is the EQUALITY
+
+    Pf (t - p.k) = L⁺ (p.k + (t - p.k))
+
+and not a predicate that is FALSE at an in-instance target.
+
+`nestedTargetReads_L` (`NestedPinLeafAll.lean:3184`) drops `{S}` and
+`hIH` and takes that equality as its conclusion's third argument; the
+eight `{S}`-carrying theorems above it — `nestedPinEntryOutEq`,
+`nestedPinEntryOut`, `nestedPinPairAt_mem`, `nestedPinPairAt_pin`,
+`nestedPinPairAt_pinσ`, `nestedPinPairAt`, `nestedInstanceLe`,
+`nestedPinInstLe` — and lane DOM's two (`nestedPinsEntryOrd_at`/`_of`)
+follow, each `hout` becoming the same equality at the field's target.
+`nestedPinsEntry_at`'s `(S := fun _ => True)` call disappears with the
+parameter.
+
+The two arms are joined at `nestedPinWideStep`
+(`NestedPinsLeInd.lean`): `nestedPinsOut_of_root` still produces the
+SCOPE at a root group, `hedgeAt` carries the target's bound, and `hIH`
+turns the pair into the equality — one `have` and one lambda.  The
+IN-instance arm is now what it always should have been: the wide
+identification itself, `nestedPinLfp_of_pool`.
+
+##### (g) `hwideFam` — AND THE SECOND IMPORT-DIRECTION CORRECTION
+
+Lane DOM's (c)(a) asked for a `famAt`-conclusion sibling of
+`ofNested_pin_block_of_wide_inst` in `NestedFit.lean`, proved by
+`apply ofNested_wide_famAt`.  **`ofNested_wide_famAt` was in
+`NestedEntryOrd.lean`, which sits far above `NestedFit`.**  Both raw
+theorems therefore moved to `Model/Inductives/BlockComposed.lean`
+(`ofNested_wide_at` `:503`, `ofNested_wide_famAt` `:566`), beside
+`ofNested_pin_block_wide`, whose proof `ofNested_wide_at` literally is;
+their explicit `NestedLfpOk` binder becomes that section's own
+variable, which is the file's existing idiom.
+
+`ofNested_pin_block_of_wide_inst_famAt` (`NestedFit.lean:2544`) is then
+`ofNested_pin_block_of_wide_inst` with its hypothesis list UNCHANGED —
+`hseg` alone becomes `_hseg`, the `famAt` conclusion not spending it —
+and its last binder and conclusion replaced by
+
+```lean
+    {c : Nat} (hc : c < dJ.k + dJ.nPins) :
+    lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+      = dJ.famAt ψJ ρJ (lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) c
+```
+
+The proof is the member form's with `apply ofNested_wide_famAt` in
+place of its `refine` and ONE new goal, `hpins`, which is
+`IsBlockModel.auxPinsCar` at the stored model.
+
+`nestedPinLfp_of_root_class` and `nestedPinLfp_of_pool` are restated
+over it: their TEN raw wide hypotheses
+(`hw`/`hσ`/`hmonoJ`/`hmapsJ`/`hclJ`/`hfcJ`/`hIs`/`hΦ`/`hcomp`/`hpins`)
+and `hOk` are replaced by ONE,
+
+    hwideFam : ∀ c, c < (dJf r).k + (dJf r).nPins →
+      L⁺ (σ c) = (dJf r).famAt … (lfpTuple …) c
+
+which is the new theorem's conclusion at the instance — the same
+application the per-instance step already makes of
+`ofNested_pin_block_of_wide_inst`.  No run-level caller could have
+supplied the raw list: `BlockModel.ofNested`'s unnamed lists are open
+in it.
+
+##### (h) WHAT `nestedModeled` TAKES — **UNCHANGED**, AND WHY
+
+`NestedChain.lean` was not touched.  `nestedModeled_of_one` takes
+exactly
+
+    (hLe : NestedPinsLe V μ F) (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
+    Nonempty (EnvModelB V μ envOut)
+
+and `nestedModeled_of_two` takes `hPin : NestedPinsShapePinFRefl V μ F`
+beside them.  **`hLe` was NOT dropped and is not droppable at this
+tree**, and the reason is exact: `hwide` at a pin is
+`nestedPinLfp_of_pool`, whose `hwideFam` is
+`ofNested_pin_block_of_wide_inst_famAt` at the root group, whose
+`hpin` is `hfit_wide_pin_of_class` over `pinClassFit_of_transfer` —
+and that is the ASSEMBLY's output, so it closes only when the
+assembly's own named set does.  **That set is `{hscope}` (§(e)), so
+`nestedModeled` still carries `hscope`'s trace**, one level removed.
+Nothing else is between: the covering's six run-level exports
+(`hroot`/`hpinσ`/`hmmLen`/`hψR`/`hcorr`/`hpool`) and `hedgeAt` are
+plumbing with recorded sources, and `hK75pool`/`hK75grp` now have
+their Bools.
+
+##### (i) THE GATES
+
+`tests/arena.sh` EXIT 0 — `tests/arena.sh` EXIT 0 — `layering: base 355 / model 293 / caps 3 /
+umbrella 1 modules; 0 base->lane edges, 0 impl->theory`,
+`proofdeps: 4975 module rows as pinned across 12 roots; doors: 0`,
+`trust surface: 13 escapes in 5 allowlisted files (664 scanned)`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`, `shake: 514 removals proposed, all 514 allowlisted`,
+`pub-imports: 1351 of 2326 in-tree edges public, none demotable (60
+dot-notation fallbacks)`, **`nested-shadow: 47/47`**, `inmodel: OK`,
+`axioms: pinned (20 theorems)`, `arena suite: 91/96`, `e2e: 200/200`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`, the
+trusted sweep (162 + 200 + 15, 3 recorded divergences) and both
+`--jobs` sweeps as at the default.  The first run of the suite FAILED
+the shake gate on one import — `NestedEntryOrd`'s `ContainerCross`,
+whose only users were the two theorems §(e) moved out — and the
+numbers above are the re-run after that import was deleted.
+
+`tests/warning-free.sh de822b97`: `tests/warning-free.sh de822b97`: **9 changed modules, 9 recompiled,
+0 warning lines**; `lake test` exit 0 with no warning line.
+`tests/unconsumed.sh`: **208 of 3965** against the merge commit's **206 of 3962**.  Three
+declarations were added and one left the list.  The one that left is
+`nestedPinDomRec_of_dom₂` — §(e)'s discharge is its consumer.  The
+three that arrived are `nestedPinPoolImage_inv`,
+`nestedOrdOutsideGrp_inv` and
+`ofNested_pin_block_of_wide_inst_famAt`, and all three are named
+residuals whose consumer is one wiring away and NOT in the tree yet:
+the two inversions produce `nestedPinWideStep`'s `hK75pool`/`hK75grp`,
+and the step has no caller until it is wired into
+`nestedPinsLe_of_wide`; `hwideFam` produces `nestedPinLfp_of_pool`'s
+own premise, which is `hwide`, and `hwide` waits on the same wiring.
+This is not the `consumer-first-hypotheses` rule's case — none of the
+three is a HYPOTHESIS — but it is the advisory's finding and it is
+recorded rather than argued away.
+`#print axioms` on every declaration this session added or restated —
+`nestedPinPoolImage_inv`, `nestedOrdOutsideGrp_inv`,
+`nestedPinRootPairOk_inv`, `ofNested_wide_at`, `ofNested_wide_famAt`,
+`ofNested_pin_block_of_wide_inst_famAt`, `copyDomRec_via`,
+`nestedPinDomRec_of_dom₂`, `nestedTargetReads_L`,
+`nestedPinEntryOutEq`, `nestedPinEntryOut`, `nestedPinPairAt_pinσ`,
+`nestedPinPairAt`, `nestedInstanceLe`, `nestedPinInstLe`,
+`nestedPinsEntryOrd_at`, `nestedPinsEntryOrd_of`,
+`nestedPinsOut_of_root`, `nestedPinLfp_of_root_class`,
+`nestedPinLfp_of_pool`, `nestedPinWideStep`, `nestedPinsLe_of_wide`,
+`nestedModeled_of_one`, `nestedModeled_of_two` —
+`[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
+
+##### (j) WHAT IS LEFT, WITH HONEST SIZING
+
+1. **`hscope`** — the assembly's whole named set, and the only thing
+   between `nestedModeled` and one fewer hypothesis.  Its three objects
+   are the previous row's §(h) (1)/(2)/(4)/(5): `OrdTargetTele` beside
+   `OrdTargetRead` with its producer at the eight deep rows (which
+   retires `hfinRefl`), the `teleOfFields` congruence, and
+   `nestedSlotOrd_pin` re-proved with the towers tied as terms.  The
+   kernel half (K.74/K.76) is landed and `GroupFacts.ordTele` is in
+   hand.  **Three to six sessions**, unchanged.
+2. **`hedgeAt`** — lane DOM's (c)(b), the K.32-shaped lookup bridge to
+   `nestedPinEdges_mem`; plumbing with a named theorem behind it.
+   **Half a session to one.**
+3. **The covering's six run-level exports** — `hroot`/`hpinσ` are
+   `pinGroupInst_of`'s σ at its two branches, `hcorr` is
+   `instMapPinOwn`, `hpool` is K.75 clause (1) moved to the group base
+   by `instMapGroup`, `hψR` is the group's level reading, and `hmmLen`
+   is lane DOM's (b) route 2 (no new record).  **One to two sessions**,
+   of which `hmmLen` is most of it.
+4. **The switch (4′)** — re-route `ofNested_pin_block_of_inst`'s
+   consumer at `NestedRecFibre.lean` to the wide route, then delete
+   `hfit_le_of_inst`/`hfitLe`.  **NOT attempted this session.**
+
+Nothing on that list is an ordering inside an instance and nothing on
+it is a fact no run record can carry, so there is no invalidation
+candidate.
