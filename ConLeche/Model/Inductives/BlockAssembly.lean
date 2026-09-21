@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockStageTables
-public import ConLeche.Model.Inductives.BlockStageFormer
-public import ConLeche.Model.Inductives.BlockCtorFuns
-import ConLeche.Model.Inductives.BlockAssemblyKit
+import ConLeche.Model.Inductives.BlockCtorFuns
+public import ConLeche.Model.Inductives.BlockAssemblyKit
+import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.FixZeroField
 import ConLeche.Verify.Inductives.BlockInv
