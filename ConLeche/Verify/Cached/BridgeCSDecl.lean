@@ -717,15 +717,15 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
       exact hF₂p
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkNativeS`, everything else to `checkIndDeclSF`,
+block goes to `checkBlockS`, everything else to `checkIndDeclSF`,
 and either way the pure fueled `checkDecl` reproduces the run. -/
 theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
     (hok : indParamsOk nP block = true)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (match nativeParts? nP block with
-          | some p => checkNativeS mode (mkFEnv env) p
+    (h : (match blockParts? nP block with
+          | some p => checkBlockS mode (mkFEnv env) p
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
@@ -738,18 +738,24 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
       | some kind => checkBasisDecl (m := CheckM) env kind
       | none =>
         if indParamsOk nP block = true then
-          (match nativeParts? nP block with
-            | some p => checkNative (fueledOps mode F) env p
+          (match blockParts? nP block with
+            | some p => checkBlock (fueledOps mode F) env p
             | none => checkModeled mode (fueledOps mode F) env block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   -- task #293: this block is not one of the five pinned ones (the
   -- recognition happened before the dispatch, on both sides)
   simp only [hpin, if_pos hok]
-  cases hfp : nativeParts? nP block with
+  cases hfp : blockParts? nP block with
   | some p =>
     rw [hfp] at h
+    simp only at h
+    obtain ⟨ms, hms⟩ := blockParts?_k1 hfp
+    rw [checkBlockS_one mode hms] at h
     obtain ⟨hres, hfe, F, hF⟩ := checkNativeS_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
+    refine ⟨hres, hfe, F, ?_⟩
+    simp only []
+    rw [← checkBlock_one (m := CheckM) (fueledOps mode F) env hms]
+    exact hF
   | none =>
     rw [hfp] at h
     obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h

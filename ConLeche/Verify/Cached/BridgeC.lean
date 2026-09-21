@@ -636,8 +636,8 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         | some kind => checkBasisDeclC (mkFEnv env) kind
         | none =>
           if indParamsOk nP block = true then
-            (match nativeParts? nP block with
-              | some p => checkNativeS mode (mkFEnv env) p
+            (match blockParts? nP block with
+              | some p => checkBlockS mode (mkFEnv env) p
               | none => checkIndDeclSF mode (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe', s') := h
