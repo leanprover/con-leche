@@ -296,4 +296,198 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         rw [hcvTas, hmembers]; simp only [List.length_cons, List.length_map]; rw [hlenCvs]]
       exact h₂
 
+/-! ## One former pass -/
+
+/-- Distinct positions of a duplicate-free list carry distinct
+entries. -/
+theorem nodup_getElem_ne : ∀ {α : Type} {L : List α}, L.Nodup →
+    ∀ {i j : Nat} (hi : i < L.length) (hj : j < L.length), i ≠ j → L[i] ≠ L[j]
+  | _, [], _, i, _, hi, _, _ => absurd hi (by simp)
+  | _, a :: L, h, i, j, hi, hj, hne => by
+    rcases i with _ | i <;> rcases j with _ | j
+    · exact absurd rfl hne
+    · simp only [List.getElem_cons_zero, List.getElem_cons_succ]
+      intro hh
+      exact (List.nodup_cons.mp h).1 (hh ▸ List.getElem_mem (by simpa using hj))
+    · simp only [List.getElem_cons_zero, List.getElem_cons_succ]
+      intro hh
+      exact (List.nodup_cons.mp h).1 (hh ▸ List.getElem_mem (by simpa using hi))
+    · simp only [List.getElem_cons_succ]
+      exact nodup_getElem_ne (List.nodup_cons.mp h).2 (by simpa using hi) (by simpa using hj)
+        (fun hh => hne (by omega))
+
+/-- **One former pass**: the `k` formers consed in block order with
+the leaves `A`, at the capability records the block owes.  BOTH passes
+of the assembly are this theorem — the DUMMY one at the empty chains,
+at whose carrier the constructors are read, and the REAL one at the
+fixpoint leaves those readings build.  The η invariant is threaded
+over the whole member list, because all `k` formers are stored before
+any constructor is. -/
+theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+    {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {sOf : Nat → Level}
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+      = .ok (envI, cvTas, q))
+    (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
+    (hnd : q.memberNames.Nodup)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (A : Nat → (Name → Nat) → AnnotTerm)
+    (hAbelowOf : ∀ (j : Nat) (ψ : Name → Nat), Term.bvarsBelow 0 (A j ψ).erase)
+    (hAparamsOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ cvTa.levelParams, ψ₁ n = ψ₂ n) → A j ψ₁ = A j ψ₂)
+    (hAokOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A j ψ))
+    (hAvalidOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (A j ψ))
+    (hAmemOf : ∀ (j : Nat) (ψ : Name → Nat) (ρ : Nat → V),
+      interp V ρ (A j ψ) ∈ˢ interp V ρ (mkPisAV (ppsOf j ψ) (.sort (q.resSort.eval ψ))))
+    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), cvTas[j]? = some cvTa →
+      cvTas[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
+      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
+    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
+      (ConLeche.blockCapsAt q j isRec).eta = true →
+      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none)
+    (hTlawsOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      ∀ {env' : Env} (m' : EnvModel V env'),
+      FormerData m' cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) →
+      env'.find? cvTa.name = none → ConstsBound env' cvTa.type →
+      (∀ (j' : Nat) (cvTb : ConstantVal), cvTas[j']? = some cvTb →
+        (ConLeche.blockCapsAt q j' isRec).eta = true →
+        env'.find? (ConLeche.blockCapsAt q j' isRec).etaCtor = none) →
+      ∀ m₂ : EnvModel V ⟨.indInfo cvTa (ConLeche.blockCapsAt q j isRec) :: env'.consts⟩,
+      m₂.acval = acvalWith m'.acval cvTa.name (A j) →
+      CapsLawsAt m₂ cvTa.name cvTa (ConLeche.blockCapsAt q j isRec)) :
+    ∃ mp' : EnvModelM V μ envI,
+      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
+      (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+        envI.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt q j isRec)) ∧
+        ∀ ψ, mp'.base2.acval cvTa.name ψ = A j ψ) := by
+  obtain ⟨-, -, -, -, -, -, -, -, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
+  have hlenNames : q.memberNames.length = cvTas.length := by
+    rw [hF.lenCv]
+    show (q.members.map (·.cvT.name)).length = q.members.length
+    simp
+  have hnameG : ∀ (j : Nat) (cvTa : ConstantVal) (hj : j < q.memberNames.length),
+      cvTas[j]? = some cvTa → cvTa.name = q.memberNames[j] := by
+    intro j cvTa hj hjq
+    rw [hF.nameOf j cvTa hjq, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]
+    rfl
+  exact stageBlockFormers (V := V) (μ := μ) (p₁ := q) (isRec := isRec)
+    (names := q.memberNames) (cvTasAll := cvTas) (A := A)
+    (nPOf := fun j => q.nP + q.nIdxs.getD j 0) (resSort := q.resSort) (ppsOf := ppsOf)
+    (fun j cvTa hj => by
+      have hjl : j < q.memberNames.length := by
+        rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj).1
+      rw [hnameG j cvTa hjl hj]
+      exact List.getElem_mem hjl)
+    (fun j j' c c' hj hj' hjj => by
+      have hjl : j < q.memberNames.length := by
+        rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj).1
+      have hjl' : j' < q.memberNames.length := by
+        rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj').1
+      rw [hnameG j c hjl hj, hnameG j' c' hjl' hj']
+      exact nodup_getElem_ne hnd hjl hjl' hjj)
+    hF.nresOf hF.pshapeOf
+    (fun j cvTa hj => by
+      obtain ⟨htf, hlpd, hbt⟩ := hF.tyWFOf j cvTa hj
+      obtain ⟨bs, hst⟩ := hF.stripOf j cvTa hj
+      exact ⟨htf, hlpd, hbt,
+        ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) (by rw [hst]; rfl)⟩)
+    hAbelowOf hAparamsOf hAokOf hAvalidOf hAmemOf hetaNe hTlawsOf
+    cvTas 0 env mp (fun j => by rw [Nat.zero_add]) (Nat.zero_add _)
+    (hE.exceptL q.memberNames) hF.resolveOf (fun j cvTa _ hj => hF.freshOf j cvTa hj)
+    hetaFresh hF.fdOf
+    (fun j cvTa hj _ => absurd hj (Nat.not_lt_zero _))
+
+/-! ## A structure-like member's projection family is free -/
+
+/-- A name absent from a cons is absent from the base. -/
+theorem find?_none_of_consB {c : ConstantInfo} {env : Env} {n : Name}
+    (h : Env.find? ⟨c :: env.consts⟩ n = none) : env.find? n = none := by
+  rw [ConLeche.Env.find?_cons] at h
+  split at h
+  · exact nomatch h
+  · exact h
+
+/-- **A structure-like member's projection-FUNCTION family is free at
+the pre-table environment.**  The member's own table check requires
+its `nF` projection names fresh where it runs, and every environment
+the tables' loop threads is a cons over the previous one — so the
+family is free already where the loop started, and (by the install's
+other conses) below it.  This is `fixTableFamFree` at `k` members. -/
+theorem blockTablesFamFree {q : BlockShape} :
+    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level)))
+      (env env₂ : Env),
+      ConLeche.checkBlockTables (m := ConLeche.CheckM) q l env = .ok env₂ →
+      ∀ (i : Nat) (e : MemberShape × List (ConstantVal × Nat) × List (List Level)),
+        l[i]? = some e → ∀ (cA : ConstantVal × Nat) (sorts : List Level),
+        e.2.1 = [cA] → e.2.2 = [sorts] → e.1.nIdx = 0 → 0 < cA.2 →
+        env.find? (projFnName e.1.cvT.name 0) = none
+  | [], _, _, _, _, _, hi, _, _, _, _, _, _ => by simp at hi
+  | (ms, ctorsA, sortss) :: rest, env, env₂, h, i, e, hi, cA, sorts, hc, hs, hidx, hpos => by
+    have hkey : ∃ env' : Env,
+        ConLeche.checkBlockTables (m := ConLeche.CheckM) q rest env' = .ok env₂ ∧
+        (∀ n : Name, env'.find? n = none → env.find? n = none) ∧
+        (∀ (cB : ConstantVal × Nat) (sortsB : List Level),
+          ctorsA = [cB] → sortss = [sortsB] → ms.nIdx = 0 → 0 < cB.2 →
+          env.find? (projFnName ms.cvT.name 0) = none) := by
+      cases ctorsA with
+      | nil =>
+        refine ⟨env, ?_, fun _ hh => hh, fun _ _ hcc _ _ _ => by simp at hcc⟩
+        rw [ConLeche.checkBlockTables] at h
+        · exact h
+        · simp
+      | cons cA0 ctl =>
+      cases ctl with
+      | cons c2 ctl2 =>
+        refine ⟨env, ?_, fun _ hh => hh, fun _ _ hcc _ _ _ => by simp at hcc⟩
+        rw [ConLeche.checkBlockTables] at h
+        · exact h
+        · simp
+      | nil =>
+      cases sortss with
+      | nil =>
+        refine ⟨env, ?_, fun _ hh => hh, fun _ _ _ hss _ _ => by simp at hss⟩
+        rw [ConLeche.checkBlockTables] at h
+        · exact h
+        · simp
+      | cons s0 stl =>
+      cases stl with
+      | cons s2 stl2 =>
+        refine ⟨env, ?_, fun _ hh => hh, fun _ _ _ hss _ _ => by simp at hss⟩
+        rw [ConLeche.checkBlockTables] at h
+        · exact h
+        · simp
+      | nil =>
+      rw [ConLeche.checkBlockTables] at h
+      by_cases hidx0 : (ms.nIdx == 0) = true
+      case neg =>
+        rw [if_neg hidx0] at h
+        exact ⟨env, h, fun _ hh => hh, fun _ _ _ _ hii _ =>
+          absurd (by rw [hii]; rfl) hidx0⟩
+      rw [if_pos hidx0] at h
+      cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA0.1.name
+          q.lps q.nP cA0.2 q.resSort (ConLeche.structProjGuards cA0.1.type q.nP cA0.2 s0)
+          1 cA0.1 env with
+      | error er => rw [hT] at h; exact nomatch h
+      | ok env' =>
+        rw [hT] at h
+        have hinv := ConLeche.checkStructProjTable_inv hT
+        obtain ⟨_bodies, _hb1, _hb2, hfree, _hb4, henvOut⟩ := hinv
+        refine ⟨env', h, fun n hn => ?_, fun cB sortsB hcc _ _ hposB => ?_⟩
+        · rw [henvOut] at hn
+          exact find?_none_of_consB hn
+        · obtain rfl : cB = cA0 := by simpa using hcc.symm
+          exact Option.isNone_iff_eq_none.mp
+            (List.all_eq_true.mp hfree 0 (List.mem_range.mpr hposB))
+    obtain ⟨env', hrest, hmono, hhere⟩ := hkey
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+      subst hi
+      exact hhere cA sorts hc hs hidx hpos
+    | succ j =>
+      simp only [List.getElem?_cons_succ] at hi
+      exact hmono _ (blockTablesFamFree rest env' env₂ hrest j e hi cA sorts hc hs hidx hpos)
+
 end ConLeche.Model
