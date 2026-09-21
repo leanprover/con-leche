@@ -1812,6 +1812,35 @@ theorem blockRuleHfld_of (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRe
   exact blockFieldReadAt_of (blockCtorData_of_core hcore hcA) hop
     (by rw [← hksLen]; exact hiF) (by rw [hks]; exact hk)
 
+/-- **`hnofv`**: the generated guarded-call Π-tower has no free
+variable — `hasFvar_blockIhSpinePis` at `structFieldParts_hasFvar`,
+which is all the premise ever was (`M5M-rule-REPORT` §S6.5). -/
+theorem blockRuleHnofv_of {fr : ConLeche.BlockRuleFrame} {cty : Expr}
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidxF : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true) :
+    ∀ (dd i : Nat) (nm : Name),
+      (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i dd
+        (fr.teleOf i) (fr.idxOf i)).hasFvar = false := by
+  intro dd i nm
+  rw [htele, hidxF]
+  obtain ⟨ht, hix⟩ := structFieldParts_hasFvar (nP := fr.nP) (nF := fr.nF) (i := i)
+    hCf hCb hstripC
+  exact hasFvar_blockIhSpinePis ht hix
+
+/-- **`hks` at the datum the run builds**: the block data's field
+KINDS are the check's, through `BlockFieldKind.toRec` — `rfl` at
+`blockDataOf`, so `blockRuleHfld_of`'s one named premise costs the
+caller nothing. -/
+theorem blockDataOf_ksF {q : ConLeche.BlockShape} {env : Env}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {kinds : List (List (List ConLeche.BlockFieldKind))} {pk : Nat → BlockMemberPick}
+    {uOf : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} (c j : Nat) :
+    (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).ksF c j
+      = ((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec := by rfl
+
 end HfldRun
 
 end ConLeche.Model
