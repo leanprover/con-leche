@@ -6,6 +6,7 @@ public import ConLeche.Semantics.IndBlockFacts
 import ConLeche.Model.Swap
 import ConLeche.Model.Inductives.StructCaps
 import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.SumRec
 public section
 
 /-!
@@ -520,6 +521,94 @@ theorem noProjEnv_consBlockRecs {find? : Name → Option ConstantInfo}
       (fun r hr => hT r (List.mem_cons_of_mem _ hr))
       (fun r hr => hR r (List.mem_cons_of_mem _ hr))
 
+/-! ## The stage's stored rules, inverted
+
+`blockRecStaged_of`'s `hnew` — the `RecCtorsStored` head facts of the
+stored rules — is not a run fact but a consequence of `sumRules`' own
+construction, once the cons is inverted.  That inversion is the only
+place the lane looks INSIDE `consBlockRecs`. -/
+
+/-- **The recursors' cons, inverted**: a constant found above the `k`
+recursors is one of them, with its rules `sumRules`', or was stored
+below. -/
+theorem find?_consBlockRecs_inv {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} :
+    ∀ {m : Nat} {rs : List RecDatum} {env : Env} {n : Name} {ci : ConstantInfo},
+      (consBlockRecs find? q nP m rs env).find? n = some ci →
+      env.find? n = some ci ∨
+      ∃ (j : Nat) (r : RecDatum), r ∈ rs ∧ n = r.1.name ∧
+        ci = .recInfo r.1 (q.majorIdxAt j) (q.rulePrefixAt j)
+          (ConLeche.sumRules find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
+            r.1.type r.2.2.2 r.2.1)
+  | _, [], _, _, _, h => Or.inl h
+  | m, r0 :: rest, env, n, ci, h => by
+    rw [consBlockRecs] at h
+    rcases find?_consBlockRecs_inv h with h' | ⟨j, r, hr, hn, hci⟩
+    · rw [ConLeche.Env.find?_cons] at h'
+      split at h'
+      next heq => exact Or.inr ⟨m, r0, List.mem_cons_self, heq.symm, (Option.some.inj h').symm⟩
+      next => exact Or.inl h'
+    · exact Or.inr ⟨j, r, List.mem_cons_of_mem _ hr, hn, hci⟩
+
+/-- A name found in the constructors' environment is found unchanged
+after the RULE-LESS recursors. -/
+theorem find?_consBlockRecsBare_keep {q : BlockShape} {rs : List RecDatum} {envC : Env}
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none) :
+    ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
+      (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some c := by
+  intro n c hf
+  rw [find?_consBlockRecsBare_of_ne (fun x hx hh => by
+    obtain ⟨r, hr, he⟩ := mem_bareOf hx
+    rw [hh, he, hfr r hr] at hf
+    exact nomatch hf)]
+  exact hf
+
+/-- **`hnew`, discharged.**  The stored rules' constructors are the
+block's own — stored in the constructors' environment, hence in the
+bare-`k` one — and their two rescue bits are `recRuleBits`' reading of
+that same environment, which `recRuleKOf_mono`/`recRuleEtaOf_mono`
+carry up. -/
+theorem recCtorsHead_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) :
+    ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (consBlockRecs envC.find? q nP 0 rs envC).find? n
+        = some (.recInfo cv mI rP rules) →
+      (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some (.recInfo cv mI rP []) →
+      cv.name = n →
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true →
+          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? n r.ctor
+            = true) := by
+  have hkeepB := find?_consBlockRecsBare_keep (q := q) hfr
+  have hkeepB' : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      envC.find? n = some ci → (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some ci :=
+    fun n ci _ hf => hkeepB n ci hf
+  intro n cv mI rP rules hf hfB hname rl hrl
+  rcases find?_consBlockRecs_inv hf with hbelow | ⟨j, r0, hr0, rfl, hci⟩
+  · -- stored below the recursors: the bare environment finds the same
+    -- record, so the rule list is empty and there is nothing to prove
+    exfalso
+    rw [hkeepB n _ hbelow] at hfB
+    obtain ⟨-, -, -, e4⟩ := ConstantInfo.recInfo.inj (Option.some.inj hfB)
+    rw [e4] at hrl
+    exact nomatch hrl
+  · obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj hci
+    obtain ⟨i, cA, rhs, hi, -, rfl⟩ := ConLeche.sumRules_getElem? hrl
+    refine ⟨?_, ?_, ?_⟩
+    · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 hr0 cA (List.mem_of_getElem? hi)
+      exact ⟨cvj, cnP, cnF, hkeepB _ _ hfc⟩
+    · intro hb
+      exact ConLeche.recRuleKOf_mono hkeepB' hb
+    · intro hb
+      exact ConLeche.recRuleEtaOf_mono hkeepB' hb
+
 /-! ## The stage's proposition -/
 
 /-- **`BlockRecStaged`, discharged** (task #315 M5, the Model half).
@@ -567,18 +656,8 @@ theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
       rhs.allLevelParamsDefined r.1.levelParams = true ∧
       rhs.constsResolve (consBlockRecsBare q 0 (bareOf rs) envC) = true ∧
       rhs.looseBVarsBounded 0 = true)
-    (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      (consBlockRecs envC.find? q nP 0 rs envC).find? n
-        = some (.recInfo cv mI rP rules) →
-      (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some (.recInfo cv mI rP []) →
-      cv.name = n →
-      ∀ r ∈ rules,
-        (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true →
-          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? n r.ctor = true))
+    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ)
     (hstr : ConLeche.strLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
@@ -608,7 +687,7 @@ theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
       (ConLeche.envWF_consBlockRecs mpC.base2.wf
         (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2,
           fun rhs hrhs' => hrhs r hr rhs hrhs'⟩))
-      hnew hrecP
+      (recCtorsHead_consBlockRecs (nP := nP) hfr hctorsIn) hrecP
   refine ⟨mp', fun n hn => by rw [hac']; exact hag n (hne n hn), hkeep, ?_, ?_⟩
   · -- the readings of the constructors' environment survive, verbatim
     intro ψ d e hcb
