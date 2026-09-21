@@ -5,6 +5,8 @@ public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 public import ConLeche.Verify.Subst
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Model.Inductives.FixRecRead
 import ConLeche.Verify.InstList
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.Tower.TowerMk
@@ -841,5 +843,81 @@ theorem ascFrame_split {L : List Expr} {a b c e : Nat}
   · intro k x hx
     rw [List.getElem?_drop] at hx
     exact (hidx (a + b + c + k) x hx).imp fun ty hty => by rw [hty]
+
+/-! ## The generated guarded call, READ
+
+The block's `blockIhSpinePis` is `denoteMeta_ihSpineAt`
+(`Model/Inductives/FixRecRead.lean`) at a CALLEE `.const` head with the
+rule's own prefix variables in front — the one-member route's `ih`
+domain is the same theorem at the MOTIVE.  This is that instance, at
+the check's own opening list. -/
+
+variable {V : Type uv} [SetTheory V]
+
+/-- **The reading of the generated guarded call's Π-telescope.** -/
+theorem denoteMeta_blockIhSpinePis {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o rP d i : Nat} {pw : ConLeche.PropWhen} {cty : Expr}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    {fvs : List Expr} {cr : Expr}
+    (hop0 : ConLeche.openPisAtFvars (nP + nF) cty 0 = some (fvs, cr))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs tl Eis)
+    (ho : rP - nP = o)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1)
+    {nm : Name} {rlvls : List Level} {ci : ConstantInfo}
+    (hfind : env.find? nm = some ci)
+    (hlvl : rlvls.length = ci.toConstantVal.levelParams.length) :
+    denoteMeta m.acval env ψ (nP + o + nF + d)
+        ((ConLeche.blockIhSpinePis nm rlvls pw nP rP nF i d
+            (ConLeche.structFieldTeleOf cty nP nF i)
+            (ConLeche.structFieldIdxOf cty nP nF i)).instantiateList as1 0)
+      = some (mkPisAV (ihTeleAtR nF o i d (rebit (pwBit ψ pw) tl))
+          (AnnotTerm.mkAppN (m.acval nm (Level.substFn ψ ci.toConstantVal.levelParams rlvls))
+            (((List.range rP).map fun l =>
+                AnnotTerm.bvar (d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF
+                  + rP - 1 - l))
+              ++ Eis.map (ihIdxAtM nF o i d (ConLeche.structFieldTeleOf cty nP nF i).length)
+              ++ [AnnotTerm.mkAppN
+                    (.bvar (nF - 1 - i + d + (ConLeche.structFieldTeleOf cty nP nF i).length))
+                    (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)]))) := by
+  have hE : 0 < nP + o + nF + d := by omega
+  rw [instantiateList_eq_instSeq_of_fvarList h1 hE]
+  obtain ⟨P, X, F, I, hLsplit, hP, hX, hF, hI, hidxP, hidxX, hidxF, hidxI⟩ :=
+    ascFrame_split (a := nP) (b := o) (c := nF) (e := d) h1.reverse_length h1.reverse_idx
+  rw [hLsplit]
+  have hLlen : (P ++ X ++ F ++ I).length = nP + o + nF + d := by
+    rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
+  have hLidx : ∀ (k : Nat) (x : Expr), (P ++ X ++ F ++ I)[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by rw [← hLsplit]; exact h1.reverse_idx
+  have hhd : denoteMeta m.acval env ψ
+      (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+      (Expr.instSeq (P ++ X ++ F ++ I ++ ConLeche.Verify.openFvars (nP + o + nF + d)
+          (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
+        (.const nm rlvls))
+      = some (m.acval nm (Level.substFn ψ ci.toConstantVal.levelParams rlvls)) := by
+    rw [Expr.instSeq_eq_self _ _ (by rfl), denoteMeta_const hfind hlvl]
+  have hpre : DenoteMetaSpine m.acval env ψ
+      (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+      ((ConLeche.blockRulePrefixVars rP nF
+          (d + (ConLeche.structFieldTeleOf cty nP nF i).length)).map
+        (Expr.instSeq (P ++ X ++ F ++ I ++ ConLeche.Verify.openFvars (nP + o + nF + d)
+            (ConLeche.structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)))
+      ((List.range rP).map fun l =>
+        AnnotTerm.bvar (d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF + rP - 1 - l)) := by
+    unfold ConLeche.blockRulePrefixVars
+    rw [List.map_map]
+    simp only [Function.comp_def]
+    refine DenoteMetaSpine.of_map (List.range rP) fun l hl => ?_
+    have hlt : d + (ConLeche.structFieldTeleOf cty nP nF i).length + nF + rP - 1 - l
+        < nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length := by
+      rw [List.mem_range] at hl; omega
+    exact denoteMeta_instSeq_ext_bvar hLlen hLidx hlt
+  have h := denoteMeta_ihSpineAt (pw := pw) (o := o) (l := d) hop0 hCf hCb hstripC hi hfr
+    hP hX hF hI hidxP hidxX hidxF hidxI hhd hpre
+  rw [ConLeche.blockIhSpinePis, ho]
+  exact h
 
 end ConLeche.Model
