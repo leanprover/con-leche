@@ -64,11 +64,26 @@ theorem capsLawsAt_vacuous {env : Env} (m : EnvModel V env) {T : Name} {cvT : Co
   rw [hfresh] at hf
   exact nomatch hf
 
+/-- A family whose capability constructor is stored in the prefix does
+not have this cons's head as that constructor — `hother`'s shape at a
+route where every other stored family is CLOSED. -/
+theorem etaCtor_ne_of_closed {env : Env} {c₀ : ConstantInfo} {caps' : IndCaps}
+    (hfresh : env.find? c₀.name = none)
+    (h : ∃ cvC', env.find? caps'.etaCtor
+      = some (.ctorInfo cvC' caps'.etaParams caps'.etaFields)) :
+    caps'.etaCtor ≠ c₀.name := by
+  obtain ⟨cvC', hfC'⟩ := h
+  intro hh
+  rw [hh, hfresh] at hfC'
+  exact nomatch hfC'
+
 /-- **`CapsOk` at a block-member cons.**  The head is fresh, not
 projection-shaped, and either the block's former itself or not an
 inductive at all; every other stored family's capability constructor
-is stored in the prefix (`hother`); the block's own family's laws at
-the extension are supplied (`hTlaws`). -/
+is NOT this head (`hother`, which may consume the family's storedness
+AT THE EXTENSION — so that a block's still-pending members are refuted
+from the head's KIND rather than from closure); the block's own
+family's laws at the extension are supplied (`hTlaws`). -/
 theorem capsOk_cons_native (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm} {T : Name}
     (hfresh : env.find? c₀.name = none)
@@ -80,8 +95,8 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
       env.find? T' = some (.indInfo cvT' caps') → T' ≠ T →
       ConLeche.reservedBasisNames.contains T' = false →
       caps'.eta = true →
-      ∃ cvC', env.find? caps'.etaCtor
-        = some (.ctorInfo cvC' caps'.etaParams caps'.etaFields))
+      ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T' caps' →
+      caps'.etaCtor ≠ c₀.name)
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (hTlaws : ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -114,11 +129,7 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
     have hfE : env.find? T' = some (.indInfo cvT' caps') := by
       rwa [hdown _ hnT'] at hf
     -- the family's names are all prefix lookups
-    obtain ⟨cvC', hfC'⟩ := hother T' cvT' caps' hfE hTT hres hcape
-    have hnC : caps'.etaCtor ≠ c₀.name := by
-      intro hh
-      rw [hh, hfresh] at hfC'
-      exact nomatch hfC'
+    have hnC : caps'.etaCtor ≠ c₀.name := hother T' cvT' caps' hfE hTT hres hcape hfam
     have hnP : ∀ j, j < caps'.etaFields → projFnName T' j ≠ c₀.name := by
       intro j _ hh
       have := projFnName_isProjFnShape T' j

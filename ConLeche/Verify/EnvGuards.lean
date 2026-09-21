@@ -304,6 +304,70 @@ theorem EtaFamiliesClosedExcept.cons {env : Env} {T : Name} {c₀ : ConstantInfo
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
+/-- **`EtaFamiliesClosed` for every stored family outside `names`**
+(the uniform inductive route at `k` members): the shape a block's
+install carries between its FORMERS' conses and the last member's
+constructors.  `checkBlockInds` stores all `k` formers before any
+constructor is looked at, so between those two points there are up to
+`k` families whose capability constructor is still pending —
+`EtaFamiliesClosedExcept`'s single exception is the `k = 1` case. -/
+@[expose] def EtaFamiliesClosedExceptL (env : Env) (names : List Name) : Prop :=
+  ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T' = some (.indInfo cvT caps) → T' ∉ names → caps.eta = true →
+    reservedBasisNames.contains T' = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+/-- At one pending name the list form **is** `EtaFamiliesClosedExcept`. -/
+theorem etaFamiliesClosedExceptL_one (env : Env) (T : Name) :
+    EtaFamiliesClosedExceptL env [T] = EtaFamiliesClosedExcept env T := by
+  simp [EtaFamiliesClosedExceptL, EtaFamiliesClosedExcept]
+
+theorem EtaFamiliesClosed.exceptL {env : Env} (h : EtaFamiliesClosed env)
+    (names : List Name) : EtaFamiliesClosedExceptL env names :=
+  fun T' cvT caps hf _ he hr => h T' cvT caps hf he hr
+
+/-- More pending names is weaker. -/
+theorem EtaFamiliesClosedExceptL.mono {env : Env} {names names' : List Name}
+    (h : EtaFamiliesClosedExceptL env names) (hsub : ∀ n ∈ names, n ∈ names') :
+    EtaFamiliesClosedExceptL env names' :=
+  fun T' cvT caps hf hne he hr => h T' cvT caps hf (fun hh => hne (hsub T' hh)) he hr
+
+/-- Prepending one fresh constant that is neither a non-reserved
+η-capable former nor named outside `names` keeps the other families
+closed. -/
+theorem EtaFamiliesClosedExceptL.cons {env : Env} {names : List Name} {c₀ : ConstantInfo}
+    (hE1 : EtaFamiliesClosedExceptL env names)
+    (hfresh : env.find? c₀.name = none)
+    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true ∨ c₀.name ∈ names) :
+    EtaFamiliesClosedExceptL (⟨c₀ :: env.consts⟩ : Env) names := by
+  intro T' cvT caps hf hne he hr
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hh =>
+    obtain rfl := Option.some.inj hf
+    rcases hknd cvT caps rfl he with hres | hT
+    · rw [← hh] at hr; rw [hres] at hr; exact nomatch hr
+    · exact absurd (hh ▸ hT) hne
+  · obtain ⟨cvC, hfC⟩ := hE1 T' cvT caps hf hne he hr
+    refine ⟨cvC, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC
+
+/-- The families are all closed once every pending one is. -/
+theorem EtaFamiliesClosedExceptL.closed {env : Env} {names : List Name}
+    (hE : EtaFamiliesClosedExceptL env names)
+    (hT : ∀ T ∈ names, ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+      reservedBasisNames.contains T = false →
+      ∃ cvC, env.find? caps.etaCtor = some (.ctorInfo cvC caps.etaParams caps.etaFields)) :
+    EtaFamiliesClosed env := by
+  intro T' cvT caps hf he hr
+  by_cases hne : T' ∈ names
+  · exact hT T' hne cvT caps hf he hr
+  · exact hE T' cvT caps hf hne he hr
+
 /-- The families are all closed once `T`'s own is. -/
 theorem EtaFamiliesClosedExcept.closed {env : Env} {T : Name}
     (hE : EtaFamiliesClosedExcept env T)
@@ -316,6 +380,54 @@ theorem EtaFamiliesClosedExcept.closed {env : Env} {T : Name}
   by_cases hne : T' = T
   · subst hne; exact hT cvT caps hf he hr
   · exact hE T' cvT caps hf hne he hr
+
+/-- **The η invariant a BLOCK's constructor conses carry**
+(`ctorsLoopEta`'s `EtaInv` at `k` members): every stored family outside
+the block is closed, and every stored MEMBER's η constructor — which is
+one of that member's OWN constructors — is none of the names
+`ctorNames` the current member is consing.  The second conjunct is what
+refutes "a fresh constructor completes an older member's η family",
+which at one family was refuted by closure alone. -/
+@[expose] def BlockEtaInv (env : Env) (names ctorNames : List Name) : Prop :=
+  EtaFamiliesClosedExceptL env names ∧
+  ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T' = some (.indInfo cvT caps) → T' ∈ names → caps.eta = true →
+    caps.etaCtor ∉ ctorNames
+
+/-- **`ctorsLoopEta`'s `hEtaCons` at a block**: a constructor's cons
+keeps the invariant — it is no former, so it completes no family
+outside the block and changes no member's record. -/
+theorem BlockEtaInv.cons {env : Env} {names ctorNames : List Name}
+    {cvC : ConstantVal} {nP nF : Nat}
+    (h : BlockEtaInv env names ctorNames) (hfresh : env.find? cvC.name = none) :
+    BlockEtaInv (⟨.ctorInfo cvC nP nF :: env.consts⟩ : Env) names ctorNames := by
+  refine ⟨h.1.cons hfresh (fun _ _ heq => nomatch heq), ?_⟩
+  intro T' cvT caps hf hmem hcape
+  rw [Env.find?_cons] at hf
+  split at hf
+  · exact nomatch (Option.some.inj hf)
+  · exact h.2 T' cvT caps hf hmem hcape
+
+/-- **`ctorsLoopEta`'s `hEtaOther` at a block**: the head is no stored
+family's η constructor.  Outside the block the family is CLOSED, so its
+η constructor is stored and the head is fresh; inside the block the
+head is one of the current member's constructors, which the invariant's
+second conjunct excludes. -/
+theorem BlockEtaInv.other {env : Env} {names ctorNames : List Name}
+    {cvC : ConstantVal} {nP nF : Nat} {T T' : Name}
+    {cvT' : ConstantVal} {caps' : IndCaps}
+    (h : BlockEtaInv env names ctorNames) (hfresh : env.find? cvC.name = none)
+    (hmemC : cvC.name ∈ ctorNames)
+    (hf : env.find? T' = some (.indInfo cvT' caps')) (_hne : T' ≠ T)
+    (_hres : reservedBasisNames.contains T' = false) (hcape : caps'.eta = true) :
+    caps'.etaCtor ≠ cvC.name := by
+  by_cases hmem : T' ∈ names
+  · intro hh
+    exact h.2 T' cvT' caps' hf hmem hcape (hh ▸ hmemC)
+  · obtain ⟨cvC', hfC'⟩ := h.1 T' cvT' caps' hf hmem hcape _hres
+    intro hh
+    rw [hh, hfresh] at hfC'
+    exact nomatch hfC'
 
 /-- The extension shape every phase after a block's member fold has:
 non-recursor entries survive verbatim (the recursor swap replaces its

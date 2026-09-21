@@ -93,6 +93,18 @@ FALLBACK = {
     # NAMESPACE to exist in the public view — the build says
     # `unknown identifier SetTheory` (#223 §6's first blind class).
     ('ConLeche.Model.Inductives.FixTeleBound','ConLeche.Model.Inductives.FixChains'),
+    # task #315 M3: `BlockStageFormer`'s public statements resolve
+    # `SetTheory` (its namespace block's bare `open`), `AnnotTerm`,
+    # `WellDenotedV` and `Sat` only through `BlockLeafOk`'s re-export; the
+    # model calls the edge demotable once the file's two plain imports
+    # (`FixStageFormer`, `Verify/Inductives/BlockWF`, both PROOF-only)
+    # cover the constants, but a plain import is invisible to a public
+    # statement.  Demoting it makes the build say `unknown identifier
+    # SetTheory` at the `open`, and adding the `public import
+    # ConLeche.SetTheory.Core` lean's own note suggests only moves the
+    # failure on to `AnnotTerm`/`WellDenotedV`/`Sat` — both blind classes
+    # (#223 §6's first and the #290 one) in one line.
+    ('ConLeche.Model.Inductives.BlockStageFormer','ConLeche.Model.Inductives.BlockLeafOk'),
     # task #315 (the uniform block route): `BlockOne`'s public statements
     # are over `BlockLeafI`'s `blockFam`, `chainXBIGo` and `slotXBI`, and
     # its `open SetTheory` resolves only through that re-export; nothing

@@ -174,9 +174,18 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
 theorem stageCtorGen {T : Name}
-    (hE : ConLeche.EtaFamiliesClosedExcept env T)
     {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    -- **the other stored families' η constructors are not this one**
+    -- (`capsOk_cons_native`'s `hother`): at ONE family it is closure
+    -- (`etaCtor_ne_of_closed`); at a BLOCK a still-pending member's η
+    -- constructor is one of ITS OWN constructors, which the block's
+    -- distinct names refute
+    (hE : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
+      env.find? T' = some (.indInfo cvT' caps') → T' ≠ T →
+      ConLeche.reservedBasisNames.contains T' = false → caps'.eta = true →
+      ConLeche.EtaFamilyStored ⟨.ctorInfo cvCa nP nF :: env.consts⟩ T' caps' →
+      caps'.etaCtor ≠ cvCa.name)
     (mp : EnvModelM V μ env)
     {sorts : List Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
@@ -305,8 +314,8 @@ theorem stageCtorGen {T : Name}
     refine capsOk_cons_native mp (c₀ := .ctorInfo cvCa nP nF) (A := A)
       (T := T) hfresh (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
       (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
-    · intro T' cvT' caps' hf hne hres hcape
-      exact hE T' cvT' caps' hf hne hcape hres
+    · intro T' cvT' caps' hf hne hres hcape hfam
+      exact hE T' cvT' caps' hf hne hres hcape hfam
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts⟩ : Env).find? T
           = some (.indInfo cvTa caps) := by
