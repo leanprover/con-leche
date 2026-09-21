@@ -684,14 +684,12 @@ Why BOTH arms are gated, and not only the one-member one:
 * at `k ≥ 2` the CHECK's rules are MUTUALLY recursive: a rule of
   `rec_0` may name `rec_1`, so its right-hand side resolves at the
   environment holding all `k` RULE-LESS recursors and NOT at the one
-  holding `rec_0` alone.  `EnvWF`'s recursor clause
-  (`ConLeche/Verify/EnvWF.lean`) is checked at the environment each
-  constant is consed into, and `envWF_consBlockRecs`
-  (`ConLeche/Verify/Inductives/BlockWF.lean`) conses the `k` recursors
-  one at a time, so the WF chain has to be restated for a SIMULTANEOUS
-  cons before this arm can be live.  That restatement is milestone
-  M6's entry cost, and the gate is what keeps the tree proved until
-  then.
+  holding `rec_0` alone.  The WF chain is written for that
+  (`ConLeche/Verify/Inductives/BlockWF.lean`): `checkBlockRec_facts`
+  states the rules' scoping at `consBlockRecsBare … env` and holds at
+  either setting of this gate, and `envWF_consBlockRecs` conses the
+  `k` recursors SIMULTANEOUSLY — so `EnvWF` through the block install
+  (`direct_block_wf`) is not what keeps this arm gated any more.
 
 Both go with `blockRouteK1Only` at the flip. -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)

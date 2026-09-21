@@ -20,19 +20,33 @@ and `SumWF.lean` at k members:
   `IndCapsWF` hold at every former's cons;
 * **the N constructors consed, member by member**
   (`envWF_consBlockCtors`, `direct_block_ctors_wf`);
-* **the k recursors consed with their rules** (`envWF_consBlockRecs`),
-  each rule's right-hand side scoped by the recursor stage at the
-  environment holding that recursor's RULE-LESS cons — which finds
-  exactly the names the stored cons finds; the rules themselves are
-  `sumRules`' per member, so `sumRules_mem`/`sumRules_bits`
+* **the k recursors consed at once, with their rules**
+  (`envWF_consBlockRecs`), each rule's right-hand side scoped by the
+  recursor stage at the BARE-`k` environment — the one holding all `k`
+  RULE-LESS recursors, which finds exactly the names the stored cons
+  finds (`find?_consBlockRecs_of_bare`); the rules themselves are
+  `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
   (`SumWF.lean`) are the block's rule facts unchanged;
 * **the projection tables** (`direct_block_tables_wf`).
 
-`checkBlockRec_facts` is the recursor stage's WF contract: at ONE
-member it is the existing generate-and-compare's
-(`checkNativeRec_facts`), at two or more the stage declines, so the
-contract holds at every k.  Milestone M5 re-proves it for the CHECK
-that replaces the stage.
+`checkBlockRec_facts` is the recursor stage's WF contract, proved at
+EITHER setting of the stage's gate (`blockRecCheckOn`, split on rather
+than unfolded): with the gate down at ONE member the existing
+generate-and-compare's (`checkNativeRec_facts`) and at two or more
+vacuous, with the gate lifted the CHECK's own
+(`checkBlockRecK_facts`, off `checkBlockRecTys_inv` /
+`checkBlockRule_facts` / `checkBlockRules_facts` /
+`checkBlockRecsRules_facts`).
+
+**Why the recursors are consed SIMULTANEOUSLY** (milestone M6's entry
+cost): the CHECK's rules are MUTUALLY recursive — a rule of `rec_0`
+may name `rec_1` — so a right-hand side resolves at the environment
+holding ALL `k` rule-less recursors and at no environment holding
+`rec_0` alone.  `EnvWF`'s recursor clause is checked at the
+environment each constant is consed into, so the one-at-a-time
+`EnvWF.cons` induction cannot close at `k ≥ 2`; `EnvWF E` is
+`∀ c ∈ E.consts, ConstWF E c`, which is provable at the FINAL
+environment directly (`mem_consBlockRecs`, `ConstWF.mono`).
 -/
 
 set_option linter.unusedSimpArgs false
