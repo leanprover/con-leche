@@ -1181,14 +1181,16 @@ theorem blockWfData_st {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : N
     ((blockWfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ) d kitW hsplit hconcl).kit
       xs).st = (kitW xs).st := rfl
 
-/-- **Regimes WF (and SQ) at the run**: `blockRecPre_kit` with its
-`hst` computed from §11's step. -/
-theorem blockRecPre_wf_of (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
-    (hmemN : ∀ c, c < K → mem c < d.N)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (D : RecFamData V ℓ K rP rds concl ρ)
-    (hDst : ∀ xs : List V, (D.kit xs).st = blockRecStep K d ψ ρ mem Rb0 ihv xs)
-    (hDtup : ∀ (c : Nat) (is : List V), D.tupOf c is = d.tup ψ (mem c) is)
+/-- **THE REGIME ARM AT THE RUN**, over an abstract step: whatever the
+kit's step is, `BlockRecPre` follows once the step at a RULE's own
+tagged element is the rule's residue at the rule's spine (`hstAt`) —
+which is all that WF (by `mkInj`) and SQ (by the source spine) prove
+differently.  The two frame moves are this theorem's: the residue is
+the base-frame one lifted past the `K` chain binders, and the ih
+values built from the graph are the ih terms' readings there
+(`hihChain`). -/
+theorem blockRecPre_step_of (D : RecFamData V ℓ K rP rds concl ρ) {stp : List V → V → V → V}
+    (hDst : ∀ xs : List V, (D.kit xs).st = stp xs)
     (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
     (hwd : ∀ as : List V, as.length = K →
       (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
@@ -1209,6 +1211,48 @@ theorem blockRecPre_wf_of (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
       SpineFit ρ ((rds c).map (·.2.2))
         (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)])))
+    (hstAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
+      stp xs
+          (tagged c
+            (D.tupOf c
+              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
+        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j))
+    (hihChain : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      ihv c j fs
+          (kitGraphAt (D.kit xs)
+            (tagged c
+              (D.tupOf c
+                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
+        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :
+    BlockRecPre V s K RecTy
+      (iotaEqsAV K nCt pdoms fdoms es mk ihs
+        (fun c j => (Rb0 c j).liftN K
+          ((pdoms c).length + (fdoms c j).length + (ihs c j).length))) ρ := by
+  refine blockRecPre_kit hTy hwd D hℓ hTyE hbits hpl hrule ?_
+  intro c hc j hj xs fs hxl hsp
+  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
+    rw [hsp.length_eq, List.length_append]
+  rw [hDst xs, hstAt c hc j hj xs fs hxl hsp, hihChain c hc j hj xs fs hxl hsp,
+    show (pdoms c).length + (fdoms c j).length + (ihs c j).length
+      = (xs ++ fs).length + ((ihs c j).map
+          (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))).length from by
+      rw [hlen, List.length_map],
+    interp_Rb_chain]
+
+/-- **Regime WF's `hstAt`**: the rule's spine is a CONSTRUCTOR
+application at the carrier (`hctorAt`), so §11's step reads back the
+rule's residue (`blockRecStep_at`, i.e. `mkInj`). -/
+theorem blockRecStep_at_rule (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
+    (hmemN : ∀ c, c < K → mem c < d.N)
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (D : RecFamData V ℓ K rP rds concl ρ)
+    (hDtup : ∀ (c : Nat) (is : List V), D.tupOf c is = d.tup ψ (mem c) is)
     (hctorAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
@@ -1219,40 +1263,22 @@ theorem blockRecPre_wf_of (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
             ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
           (mem c) j fs ∧
         interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)
-          = d.inj ψ (mem c) j fs)
-    (hihChain : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+          = d.inj ψ (mem c) j fs) :
+    ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv c j fs
-          (kitGraphAt (D.kit xs)
-            (tagged c
-              (d.tup ψ (mem c)
-                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
-        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :
-    BlockRecPre V s K RecTy
-      (iotaEqsAV K nCt pdoms fdoms es mk ihs
-        (fun c j => (Rb0 c j).liftN K
-          ((pdoms c).length + (fdoms c j).length + (ihs c j).length))) ρ := by
-  refine blockRecPre_kit hTy hwd D hℓ hTyE hbits hpl hrule ?_
-  intro c hc j hj xs fs hxl hsp
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
+      blockRecStep K d ψ ρ mem Rb0 ihv xs
+          (tagged c
+            (D.tupOf c
+              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
+        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+  intro c hc j hj xs fs hxl hsp g
   obtain ⟨hfit, hmkv⟩ := hctorAt c hc j hj xs fs hxl hsp
   have hjc : j < (d.ctorsM (mem c)).length := by rw [hnCt c hc]; exact hj
-  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
-    rw [hsp.length_eq, List.length_append]
-  have h2 := blockRecStep_at (Rb0 := Rb0) (ihv := ihv) hM hw hc (hmemN c hc) hjc hfit
-    (kitGraphAt (D.kit xs)
-      (tagged c
-        (d.tup ψ (mem c)
-          ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-        (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
-  rw [← hmkv] at h2
-  rw [hDtup, hDst xs, h2, hihChain c hc j hj xs fs hxl hsp,
-    show (pdoms c).length + (fdoms c j).length + (ihs c j).length
-      = (xs ++ fs).length + ((ihs c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))).length from by
-      rw [hlen, List.length_map],
-    interp_Rb_chain]
+  have h2 := blockRecStep_at (Rb0 := Rb0) (ihv := ihv) hM hw hc (hmemN c hc) hjc hfit g
+  rw [hDtup, hmkv]
+  exact h2
 
 end WfRun
 
