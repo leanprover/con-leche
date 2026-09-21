@@ -180,3 +180,18 @@ tests/e2e/nested_comp_tower.ndjson 0 J=accept,
 # accept.  `Outer` goes back to `error` the moment that normalisation
 # is dropped.  See DESIGN, "THE K.67 NORMALISATION IS LANDED".
 tests/e2e/nested_redex_owner.ndjson 1 J=accept,Outer=accept,
+# **THE REDEX WHOSE REDUCTION IS A `Π`** — `nested_redex_owner`'s mint
+# with `nested_comp_tower`'s component:
+# `Wrap (f : True → Type) | mk : f True.intro → Wrap f` nested at
+# `J β | node : Wrap (fun _ : True => True → J β) → J β`.  The minted
+# copy field is the λ-REDEX `(fun _ : True => True → J β) True.intro`,
+# whose head normal form is a `Π`, so the positivity normalisation
+# stores `True → J β` and the block records a ONE-binder telescope
+# where the CONTAINER's stored domain `f True.intro` is an application.
+# It is the witness that refutes the SYNTACTIC spelling of step 5's
+# `CopyOrdTele` — "the copy's telescope is the `Π`-prefix of the
+# container's field domain with the components substituted" — see
+# DESIGN, "`CopyOrdTele` IS REFUTED AS AN EQUATION BETWEEN READINGS".
+# The modeller declines `J` (reflexive member), so the row is a
+# TRIPWIRE of `nested_pi_field`'s kind and covers `J` alone.
+tests/e2e/nested_redex_tower.ndjson 0 J=accept,
