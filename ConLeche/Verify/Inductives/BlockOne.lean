@@ -222,4 +222,60 @@ theorem blockShape?_one {nPd : Nat} {block : List ConstantInfo} {cvT0 : Constant
       · rw [if_neg hg] at h ⊢; obtain rfl := Option.some.inj h; exact ⟨rfl, r0, rfl, rfl⟩
   · exact nomatch h
 
+/-- **The recursor pin at ONE member is the one-member pin.** -/
+theorem blockRecPinOk_one {block : List ConstantInfo} {cvT0 : ConstantVal}
+    {cs : List (ConstantVal × Nat × Nat)} {r0 : ConstantVal × Nat × Nat × List RecRule}
+    {q : BlockShape} {nIdx : Nat}
+    (hsp : blockSplit block = some ([cvT0], cs, [r0]))
+    (hm : q.members = [⟨cvT0, nIdx, cs.map fun c => (c.1, c.2.2),
+      r0.1, r0.2.2.2.map RecRule.rhs⟩]) :
+    blockRecPinOk q block = nativeRecPinOk q.toInductive block := by
+  obtain ⟨caps, rest, rfl, hsum⟩ := blockSplit_one hsp
+  unfold blockRecPinOk nativeRecPinOk
+  rw [hsp]
+  simp only [hsum, BlockShape.k, BlockShape.allCtors, BlockShape.rulePrefix,
+    BlockShape.numCtors, BlockShape.offs, BlockShape.toInductive, numCtorsOf, hm,
+    List.length_cons, List.length_nil, List.map_cons, List.map_nil, List.flatten_cons,
+    List.flatten_nil, List.append_nil, List.headD_cons, List.getElem?_cons_zero,
+    List.map_map, Nat.add_zero, List.take, beq_self_eq_true, Bool.true_and,
+    List.range_one, List.all_cons, List.all_nil, Bool.and_true, Nat.zero_add,
+    Function.comp_def, beq_self_eq_true, Bool.true_and]
+  rfl
+
+/-- **THE RECOGNISER BRIDGE**: a block the uniform route takes is a
+block the one-member route takes, at the one-member reading of the
+record — and it has exactly one member (the gate). -/
+theorem blockParts?_toNative {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
+    (h : blockParts? nPd block = some p) :
+    nativeParts? nPd block = some p.toNative ∧ ∃ ms, p.members = [ms] := by
+  unfold blockParts? at h
+  cases hsp : blockSplit block with
+  | none => rw [hsp] at h; exact nomatch h
+  | some z =>
+  obtain ⟨cvTs, cs, rs⟩ := z
+  rw [hsp] at h
+  simp only at h
+  by_cases hg : (blockRouteK1Only && cvTs.length != 1) = true
+  · rw [if_pos hg] at h; exact nomatch h
+  rw [if_neg hg] at h
+  have hlen : cvTs.length = 1 := by
+    simp only [blockRouteK1Only, Bool.true_and, bne_iff_ne, ne_eq] at hg
+    simpa using hg
+  obtain ⟨cvT0, rfl⟩ : ∃ c, cvTs = [c] := by
+    match cvTs, hlen with
+    | [c], _ => exact ⟨c, rfl⟩
+  cases hsh : blockShape? nPd block with
+  | none => rw [hsh] at h; exact nomatch h
+  | some q =>
+  rw [hsh] at h
+  simp only [Option.map_some, Option.some.injEq] at h
+  obtain ⟨hnat, r0, rfl, hm⟩ := blockShape?_one hsp hsh
+  subst h
+  refine ⟨?_, _, hm⟩
+  unfold nativeParts?
+  rw [hnat]
+  simp only [Option.map_some, Option.some.injEq, BlockParts.toNative,
+    List.headD_nil, List.map_nil, NativeParts.mk.injEq]
+  exact ⟨trivial, trivial, (blockRecPinOk_one hsp hm).symm⟩
+
 end ConLeche
