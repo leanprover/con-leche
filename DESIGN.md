@@ -80762,3 +80762,35 @@ check — `largeElimAllowed` is what makes the reject principled, and the
 messages are worth re-reading after M6.  And `NOr : Prop | mk : Or True
 NOr` goes to the modeller with a two-component wide block, which is
 exactly the `N ≥ 2` the declarative guard counts.
+
+#### F4, P8 AND THE CORNER FIXTURES (2026-09-21; merged f9e44baa, 4b68b82c; arena battery green)
+
+* **F4 PASSED** (`SetModel/EnvClauseIndexed.lean`): `TV ::= node (n) (Vec TV n)`
+  through `Vec`'s recorded clause at index set ω; the segment congruence's
+  index-set hypothesis is `rfl` — structurally, since official rejects a
+  container whose index type mentions the block, so the rank induction
+  of theory §2.4 carries CARRIERS only.  Findings: an indexed `fibre` is
+  a guarded union of arms (`ChainFit` equates the fibre's index with each
+  constructor's RESULT index and reads slots at the field's own index);
+  (W) shapes carry a constructor's own index fields as payload; the
+  recursion kit needs nothing new for indices.
+* **P8** (`Model/Inductives/CopyTransport.lean`, 528 lines, proved): the
+  copy transport decomposes into the substitution law of the reading
+  (`instPisAt_denoteMeta_pins`, the telescope iteration relating
+  `instPisAt` to `openPisAtFvars`) and a defeq/whnf claim at the opened
+  context taken opaquely (`copyRead_transport_defEq`) — the maintainer's
+  framing.  Corrections to theory §2.3: `normCtorVal` never calls
+  `isDefEq` (its inversion records no defeq claim); the only semantic
+  link is `WhnfClaim`, and there is no `normPosDom_inv`.  Ruling to
+  adopt: the nested arm records a `checkDefEqList` at the abstract frame
+  for the copies.  Claims hold at valuations satisfying the context's
+  types (`Sat`), i.e. the curried family space — N3 needs a
+  packing/currying bridge to `BlockChainsOk`'s packed tuple; the base
+  depth shift of stored readings is a small uncosted composite.
+* **Corner fixtures** (18 `corner_*` rows, sources, three forging
+  scripts; `tests/e2e-expected.txt` rows = today's verdict, comment =
+  `uniform: <n>`): five rows move at the flip — the basis-pin rejects
+  2 → 1, the three recursor accept-supersets 1 → 0.  The elimination
+  guard is NOT a positive check today: the three forged large
+  eliminators reject only because the modeller's generated recursor
+  fails to typecheck.
