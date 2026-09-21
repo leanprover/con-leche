@@ -12508,6 +12508,188 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetReadAtRefl
   exact R.copyOrdFRightMemOrdTargetReadRefl SF S hPD hi' hj hlF hkA hci hJmem hJn hstripJ
     hdomJ (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadT) hKmem hinstCI hopM hxI
     hx' hnormW hea'
+/-! ## THE `ordF`-RIGHT TELESCOPE, FROM THE RUN (task #315 WIDE (f3)
+step 5)
+
+`CopyOrdTele` (`Model/Inductives/NestedFit.lean`) is K.72 at the model:
+at a field the container calls ORDINARY whose copy the block's rewrite
+made recursive or reflexive, the container's field domain, at the pin's
+components, INTERPRETS to a `Π`-tower whose domains are the copy's
+recorded telescope's.
+
+**Three facts and no guard.**
+
+* the rewrite is INERT on the tower's binders.  The copy's stored
+  domain is `mkPisB bsX resX` (`reflOpen`'s own opening), the walk's
+  output `w` is a tower of the same length
+  (`replaceAllNested_mkPisB_inv`), and its binders mention no member
+  (`normPosDomM_mkPisB_free`, the positivity walk's own guarantee about
+  its OUTPUT) — so the rewrite was the identity on them
+  (`replaceAllNested_mkPisB_inert`) and the two towers share their
+  binder list on the nose;
+* the READING of `w` therefore peels at the copy's recorded length
+  (`denoteMeta_openPis`) at the copy's OWN openers, so each `Π`'s
+  domain is `reflOpen`'s own reading of that opener — `tls`'s datum,
+  crossed from the prefix model to the whole block's (`crossUp`);
+* and the container's instantiated field domain reads as the MINTED one
+  (`mintFieldRead`) and INTERPRETS as `w`'s reading
+  (`normPosDomM_read_of`, the walk's reading law) — which is
+  `copyFieldReadCoreQ`'s own fourth component, the one the tie's
+  denotational rows discard.
+
+The last is why the object is an `interp` equation and not a
+`stripPisAV`: at a mint that is a λ-REDEX whose head normal form is a
+`Π` (`tests/e2e/nested_redex_tower.ndjson`) the copy records a
+telescope the container's reading has no `Π` for at all, and the walk's
+law is the only thing that crosses.
+
+At a copy field the block made RECURSIVE the telescope is empty
+(`tssNone`) and the tower is the term itself, so that arm is `T := []`
+and closes by `rfl`. -/
+
+/-- **K.72 AT THE MODEL, FROM THE RUN** (task #315 WIDE (f3) step 5):
+`CopyOrdTele` at the block's copy of pin `q₀ + i'`'s constructor `j`,
+with the positivity run as its only hypothesis — the shape
+`copyOrdFRightPinRun` and its member twin deliver it. -/
+theorem NestedPinsRun.copyOrdTeleAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    (hrunAll : ∀ (l : Nat), l < cAJ.2 →
+      ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta)) (w : Expr)
+        (st' : ConLeche.ElimState),
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st'))
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    CopyOrdTele (V := V) dJ ((pinsS.getD (q₀ + i') default).ψJ ψ)
+      ((pinsS.getD (q₀ + i') default).Ds ψ)
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j := by
+  classical
+  intro l hl _hord hrss fs₁ hfs hfit
+  -- the copy's constructor record, and the field's position
+  obtain ⟨_cc, _J, _ci, _cI, cA, _cname, -, -, -, -, -, hnfJ, -, -, -, hcA, -, hnfA⟩ :=
+    R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hCD := R.h.CD _ _ hcA
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  have hlF : l < cAJ.2 := by rw [hI.Fss_length hj _] at hl; exact hl
+  have hlA : l < cA.2 := by rw [hnfA, ← hnfJ]; exact hlF
+  have hlks : l < (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).length := by
+    obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+    rw [hksLen]; exact hlA
+  -- the copy's KIND: the run's `blkRss` bit, read as the classifier's cell
+  have hkinds : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .recursive ∨
+      kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .reflexive := by
+    have h := hrss
+    rw [blkRss_getD hGlt,
+      rsOf_getD (by simp only [kindsOf, List.length_map]; exact hlks),
+      decide_eq_true_eq, kindsOf_getD'] at h
+    exact h
+  have htlsEq : (mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []
+      = tssF (b.ownOffset (p.k + q₀ + i') + j) ψ := mutTlss_getD hGlt
+  rw [htlsEq]
+  rcases hkinds with hkA | hkA
+  · -- the FINITARY arm: no telescope is recorded, and the tower is the term
+    refine ⟨[], AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default), ?_, rfl⟩
+    rw [hCD.tssNone ψ l (by rw [hkA]; exact fun h => nomatch h)]
+  · -- the REFLEXIVE arm
+    obtain ⟨x', w, ea', hx', hQ, hea', hinterp, -⟩ :=
+      R.copyFieldReadCoreQ
+        (Q := fun x' w =>
+          (∀ (bs : List (Expr × ConLeche.BinderMeta)) (res : Expr), w = ConLeche.mkPisB bs res →
+            ∀ bb ∈ bs, ConLeche.mentionsMember b.memberNames bb.1 = false) ∧
+          ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+              (st' : ConLeche.ElimState),
+            ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+              = .ok (x'.fvarTypeD, st'))
+        SF S hPD hi' hj hlF
+        (fun ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 => by
+          obtain ⟨params, pbs₀, w, st', hrun, hrep⟩ :=
+            hrunAll l hlF ci₂ J₂ cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7
+          exact ⟨w, hrun,
+            (fun bs res hw bb hbb => ConLeche.normPosDomM_mkPisB_free hrun hw bb hbb),
+            params, pbs₀, st', hrep⟩)
+        ψ ρp hsat fs₁ hfs hfit
+    obtain ⟨hfreeW, params, pbs₀, st', hrep⟩ := hQ
+    -- the copy's own opening, and its binder list
+    obtain ⟨afvs, bodyX, hopX, -, hdomsRead, -⟩ := hCD.reflOpen ψ l x' hx' hkA
+    obtain ⟨bsX, resX, hstripX, -, -, -⟩ := Verify.openPisAtFvars_stripPis _ hopX
+    have hbsXlen : bsX.length
+        = ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length :=
+      ConLeche.Expr.stripPis_length _ hstripX
+    have hmkX : x'.fvarTypeD = ConLeche.mkPisB bsX resX := ConLeche.stripPis_mkPisB _ hstripX
+    -- the walk's output is a tower of the same length, and the rewrite was
+    -- the identity on its binders
+    obtain ⟨bsW, resW, hmkW, hbsWlen⟩ :=
+      ConLeche.replaceAllNested_mkPisB_inv _ (by rw [hmkX] at hrep; exact hrep) hbsXlen
+    have hfreeBs : ∀ bb ∈ bsW, (st.newNames.any fun T => bb.1.mentionsConst T) = false :=
+      fun bb hbb => ConLeche.newNames_no_mention_of_memberFree R.hb (hfreeW bsW resW hmkW bb hbb)
+    obtain ⟨resX', houtW, -⟩ :=
+      ConLeche.replaceAllNested_mkPisB_inert bsW hfreeBs (by rw [← hmkW]; exact hrep)
+    obtain ⟨hbsEq, -⟩ : bsW = bsX ∧ resX' = resX := by
+      have h1 : ConLeche.mkPisB bsW resX' = ConLeche.mkPisB bsX resX := by rw [← houtW, hmkX]
+      have h2 := ConLeche.stripPis_mkPisB_self bsW resX'
+      rw [h1, show bsW.length = bsX.length from by rw [hbsWlen, hbsXlen],
+        ConLeche.stripPis_mkPisB_self bsX resX] at h2
+      simp only [Option.some.injEq, Prod.mk.injEq] at h2
+      exact ⟨h2.1.symm, h2.2.symm⟩
+    rw [hbsEq] at hmkW
+    -- the two openings are one opener list
+    obtain ⟨fvs, hfvslen, -, hlaw⟩ :=
+      ConLeche.openPisAtFvars_mkPisB
+        ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length bsX hbsXlen (b.nP + l)
+    have hopXf := hlaw resX
+    rw [← hmkX] at hopXf
+    have hafvs : afvs = fvs := congrArg Prod.fst (Option.some.inj (hopX.symm.trans hopXf))
+    have hopW : ConLeche.openPisAtFvars
+        ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length w (b.nP + l)
+        = some (fvs, Expr.instSeq fvs
+          (((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length - 1) resW) := by
+      rw [hmkW]; exact hlaw resW
+    -- the reading of `w` peels into the copy's own telescope
+    obtain ⟨ppsW, bW, hstAV, -, hppsLen, hppsRead⟩ := denoteMeta_openPis _ hopW hea'
+    have hmap : ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).map (·.2.2)
+        = ppsW.map (·.2.2) := by
+      refine List.ext_getElem? fun k => ?_
+      by_cases hk : k < ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length
+      · obtain ⟨x, hx⟩ : ∃ x, fvs[k]? = some x :=
+          ⟨_, List.getElem?_eq_getElem (by rw [hfvslen]; exact hk)⟩
+        obtain ⟨pk, hpk, -, hpkRead⟩ := hppsRead k x hx
+        have hread₂ := hdomsRead k x (by rw [hafvs]; exact hx)
+        have hEq : pk.2.2
+            = (((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).getD k default).2.2 :=
+          Option.some.inj ((R.crossUp ψ (b.nP + l + k) _ hpkRead).symm.trans hread₂)
+        have htlsk : ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).getD k default
+            = ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l [])[k] := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk]; rfl
+        rw [List.getElem?_map, List.getElem?_map, hpk, List.getElem?_eq_getElem hk]
+        simp only [Option.map_some, Option.some.injEq]
+        rw [← htlsk]
+        exact hEq.symm
+      · have hk₂ : ¬ k < ppsW.length := by rw [hppsLen]; exact hk
+        rw [List.getElem?_map, List.getElem?_map,
+          List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+    refine ⟨ppsW, bW, hmap, ?_⟩
+    rw [hinterp, (stripPisAV_eq_mkPis hstAV).1]
+
+
 end Assembly
 
 /-! ## THE FIVE ARMS, ASSEMBLED (task #315 L-B, DESIGN §U.58)

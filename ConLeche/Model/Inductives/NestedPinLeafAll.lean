@@ -7383,7 +7383,7 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
     (_htele : CopyOrdTele (V := V) (dJf q₀) (((D).pinAt (q₀ + iq)).ψJ ψ)
       (((D).pinAt (q₀ + iq)).Ds ψ)
       ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) [])
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []) iq j)
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []) ρp iq j)
     (hdom₁ : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →

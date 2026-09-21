@@ -960,9 +960,32 @@ end Shape
 /-- **THE `ordF`-RIGHT TELESCOPE — K.72 AT THE MODEL** (task #315 WIDE
 (f3) step 5): at a field the container calls ORDINARY whose copy the
 block's rewrite made recursive or reflexive, the copy's `Π`-telescope
-is the `Π`-prefix of the container's own field domain WITH THE
-COMPONENTS SUBSTITUTED — `AnnotTerm.instAll Ds l`, the very term
-`ordF`'s LEFT arm reads the copy's domain as.
+is the `Π`-prefix the container's own field domain — WITH THE
+COMPONENTS SUBSTITUTED, `AnnotTerm.instAll Ds l`, the very term
+`ordF`'s LEFT arm reads the copy's domain as — INTERPRETS to.
+
+**IT IS AN `interp` EQUATION AND NOT A `stripPisAV`, AND THE
+DIFFERENCE IS A WITNESS AND NOT A CONVENIENCE** (task #315 WIDE (f3),
+session 36).  The install does NOT store the minted domain: it stores
+the POSITIVITY NORMALISATION of it (`normPosDomM`, inside
+`normCtorValM`), and the copy's recorded telescope is read off THAT.
+Where the mint is a λ-REDEX whose head normal form is a `Π` —
+`tests/e2e/nested_redex_tower.ndjson`, `Wrap (f : True → Type) | mk :
+f True.intro → Wrap f` nested at `J β | node : Wrap (fun _ : True =>
+True → J β) → J β`, which official ACCEPTS and the native route
+accepts — the copy records a ONE-binder telescope while the
+container's stored field domain `f True.intro` is an APPLICATION, and
+its reading at the components is an application too.  So
+`stripPisAV 1` of that reading is `none` and the syntactic form of
+this object is simply FALSE there.
+
+What survives the walk is exactly `interp`: `normPosDomM_read_of` is
+the reading law, and it says the minted domain's reading and the
+normalised one's interpret alike at every frame satisfying the
+constructor's own context — never that they are equal.  Hence the
+frame `ρp` and the fitting prefix `fs₁` in the statement, which are
+`CopyCtorShape.ordF`'s own arguments and the shape every consumer of
+this object already holds.
 
 **Why it is not `instTele Ds l` of a container-side telescope, which
 is the shape `recF` and `pinF` carry.**  At a container-ORDINARY field
@@ -981,47 +1004,49 @@ one the mint's substitution plants.
 
 **Only the DOMAINS are claimed**, `recF`/`pinF`'s own convention: the
 binder sorts are read off the copy's own stored `Π` and no consumer
-compares them across the two sides.
+compares them across the two sides; the tower's BODY is existential
+and nothing is claimed of it.
 
-**Its producer is the rewrite's**, and it lives where the copy's stored
-domain is in hand (`Model/Inductives/NestedCopyInst.lean`, beside
-`copyOrdFRight*`): the copy's field domain is `replaceAllNested` of the
-minted domain, the mint is the container's stored domain at the pin's
-levels folded onto the pin's components, and neither the rewrite nor a
-level instantiation turns a `Π` into a non-`Π` or the other way round —
-a nested occurrence in a `Π`-DOMAIN is a NEGATIVE occurrence and is
-rejected, so the prefix's domains are not rewritten at all.  Until that
-producer lands this is a NAMED hypothesis at the assembly, and it is
-NOT a clause of `CopyCtorShape`: making it one would change a structure
-whose five arms are produced in that file. -/
+Its producer is `NestedPinsRun.copyOrdTeleAt`
+(`Model/Inductives/NestedCopyInst.lean`), and it is NOT a clause of
+`CopyCtorShape`: making it one would change a structure whose five
+arms are produced in that file. -/
 @[expose] def CopyOrdTele (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
-    (tls : List (List (Nat × Nat × AnnotTerm))) (rs : List Bool) (i j : Nat) : Prop :=
+    (tls : List (List (Nat × Nat × AnnotTerm))) (rs : List Bool) (ρp : Nat → V)
+    (i j : Nat) : Prop :=
   ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
     ((dJ.rss i).getD j []).getD l false = false →
     rs.getD l false = true →
-    ∃ (T : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
-      stripPisAV (tls.getD l []).length
-          (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
-        = some (T, body) ∧
-      (tls.getD l []).map (·.2.2) = T.map (·.2.2)
+    ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      ∃ (T : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
+        (tls.getD l []).map (·.2.2) = T.map (·.2.2) ∧
+        interp V (consList fs₁ ρp)
+            (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
+          = interp V (consList fs₁ ρp) (mkPisAV T body)
 
 
-omit [SetTheory V] in
 /-- **The `ordF`-right telescope's LENGTH**, which is what K.72 states
-at the run: the copy's telescope is as long as the `Π`-prefix of the
-container's instantiated field domain, and `stripPisAV` succeeding at
-that length IS that statement (`stripPisAV_eq_mkPis`). -/
+at the run: the tower the container's instantiated field domain
+interprets to is as long as the copy's recorded telescope. -/
 theorem CopyOrdTele.length {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
-    {tls : List (List (Nat × Nat × AnnotTerm))} {rs : List Bool} {i j : Nat}
-    (h : CopyOrdTele (V := V) dJ ψJ Ds tls rs i j)
+    {tls : List (List (Nat × Nat × AnnotTerm))} {rs : List Bool} {ρp : Nat → V} {i j : Nat}
+    (h : CopyOrdTele (V := V) dJ ψJ Ds tls rs ρp i j)
     {l : Nat} (hl : l < ((dJ.Fss i ψJ).getD j []).length)
     (hord : ((dJ.rss i).getD j []).getD l false = false)
-    (hrs : rs.getD l false = true) :
+    (hrs : rs.getD l false = true)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (Ds.map (interp V ρp)) ρp)
+      (((dJ.Fss i ψJ).getD j []).take l) fs₁) :
     ∃ (T : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
-      AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default) = mkPisAV T body ∧
+      interp V (consList fs₁ ρp)
+          (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
+        = interp V (consList fs₁ ρp) (mkPisAV T body) ∧
       T.length = (tls.getD l []).length := by
-  obtain ⟨T, body, hst, -⟩ := h l hl hord hrs
-  exact ⟨T, body, stripPisAV_eq_mkPis hst⟩
+  obtain ⟨T, body, hmap, heq⟩ := h l hl hord hrs fs₁ hfs hfit
+  exact ⟨T, body, heq, by
+    have := congrArg List.length hmap
+    simpa only [List.length_map] using this.symm⟩
 
 /-- The outside entries give the container-ordinary ones. -/
 theorem CopyEntryOut.ord {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
