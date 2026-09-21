@@ -7325,8 +7325,11 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
   a tower they must instead be tied AS TERMS the way the index spines
   are — an object no row of either install carries today (K.72
   compares the copy's tower's LENGTH; `ordRootInst`'s equation
-  compares the two STRIPPED bodies).  That object, with its two
-  candidate routes, is the ledger's WIDE (f4) §(b);
+  compares the two STRIPPED bodies), and one the model side cannot
+  manufacture, since `CopyOrdTele`'s two instances give two equal
+  `Π`-SETS and a `Π`-set does not give its domain back.  That object —
+  K.72 strengthened to a TERM comparison — is the ledger's WIDE (f4)
+  §(b);
 * `htele : CopyOrdTele …` is GONE from the signature.  The object is
   restated as an `interp` equation (its syntactic form is refuted by
   `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run

@@ -130822,31 +130822,36 @@ says nothing about the tower; and on the model side the reflexive twin
 content.
 
 So the remainder of half (1) is **THE TWO COPIES' TOWERS, TIED THE WAY
-THEIR INDEX SPINES ARE** — `tl₁.map (·.2.2) = (tl₂.map (·.2.2)).map
-(AnnotTerm.instAll Ds l)`, or whatever equation lets a
-`piTele`/`teleOfFields` congruence stand beside `slotSet_nil` — and it
-is a NEW OBJECT, not a restatement.  **Two routes are open and neither
-is costed here**:
+THEIR INDEX SPINES ARE** — a per-binder equation
+(`tl₁[i] = AnnotTerm.instAll Ds (l + i) tl₂[i]`, or whatever lets a
+`piTele`/`teleOfFields` congruence stand where `slotSet_nil` stands
+today) — and it is a NEW OBJECT, not a restatement.  The fixture's own
+source says so in as many words
+(`tests/e2e/src/nested_pi_field.lean`: "the two copies' field
+telescopes are not empty and `slotSet_nil` does not collapse them —
+which is what 'the reflexive `Π`-prefix is a separate object' means at
+this arm"), so this row is where that object finally becomes the ONLY
+thing in the way.
 
-* the MODEL route.  `CopyOrdTele` (`Model/Inductives/NestedFit.lean:1014`)
-  already ties EACH copy's recorded telescope to the CONTAINER's own
-  instantiated field domain — syntactically on the domains
-  (`(tls.getD l []).map (·.2.2) = T.map (·.2.2)`) and semantically on
-  the whole tower — and its producer (`NestedPinsRun.copyOrdTeleAt`)
-  runs at either install.  Two instances of it at ONE container field,
-  plus the frame correspondence the index spines already cross by,
-  would give the tie with NO kernel change.  What is not settled is
-  whether the existential `T` can be made canonical enough for the two
-  sides to meet: `CopyOrdTele` claims the tower's reading, not that
-  two readings of one field pick the same `T`, and a `Π`-SET equation
-  does not give its domains back;
-* the KERNEL route, as a fallback: K.72 strengthened from a length to
-  a term comparison at the same guard and addressing, the copy's
-  binders against the owner's under `ordRootInst`'s substitution.
-  That owes the full battery.
-
-**Honest sizing: two to five sessions**, the spread being which route
-survives.  It is the whole of what stands between the tree and
+**THE MODEL ROUTE DOES NOT REACH IT, and the wall is exact.**
+`CopyOrdTele` (`Model/Inductives/NestedFit.lean:1014`) ties EACH
+copy's recorded telescope to the CONTAINER's own instantiated field
+domain, and its producer (`NestedPinsRun.copyOrdTeleAt`) runs at
+either install — but what it claims of the tower is an `interp`
+equation, `interp (instAll Ds l F) = interp (mkPisAV T body)` with the
+copy's own domains for `T`.  Two instances of it at one container
+field give two EQUAL `Π`-SETS, and a `Π`-set does not give its domain
+back (nor its telescope at a DIFFERENT body, which is what `slotSet`
+needs).  The object is therefore term-level, and its home is the
+KERNEL: **K.72 strengthened from a LENGTH to a TERM comparison** at
+the same guard and the same addressing — the copy's stored binders
+against the owner's under `ordRootInst`'s substitution at each
+binder's own cut, K.69's shape one level up — then the two sides'
+readings and a `teleOfFields` congruence at `slotSet` to spend it.  It
+owes the full battery, and it belongs in one lane with K.74 and
+`hfinRefl`, which live in the same `nestedOrdNormAt` arm and are the
+same kind of change.  **Honest sizing for that lane: four to seven
+sessions.**  It is the whole of what stands between the tree and
 `hscope`'s discharge — the flatness conjunct is FALSE at
 `tests/e2e/nested_pi_field.ndjson` (previous row's §(f)), so there is
 no shorter route through it.
