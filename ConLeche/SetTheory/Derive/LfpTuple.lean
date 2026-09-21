@@ -315,6 +315,59 @@ theorem lfpTuple_eq_section (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : Mono
 
 end Bekic
 
+/-! ## Congruence: the least tuple reads its operator and index sets below `k` only
+
+A block's operator and index sets are DATA, read off whatever
+presentation the consumer has; two presentations that agree on the `k`
+components the tuple has agree on its carrier.  This is what lets a
+reading be replaced by an equal one under the lfp without re-running
+the fixed point — the one part of the retired composition module
+(`Derive/LfpCompose.lean`, DESIGN 2026-09-21 §6.1) that has consumers.
+-/
+
+section Congr
+
+variable {w k : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+
+/-- Two presentations agreeing below `k` have the same closed tuples. -/
+theorem isClosedTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
+    (hΦ : ∀ X, InTupleSpace w k Is X → ∀ m, m < k → Φ X m = Φ' X m) {X : Nat → V} :
+    IsClosedTuple w k Is Φ X ↔ IsClosedTuple w k Is' Φ' X := by
+  have hsp : InTupleSpace w k Is X ↔ InTupleSpace w k Is' X := by
+    constructor
+    · intro h m hm; rw [← hIs m hm]; exact h m hm
+    · intro h m hm; rw [hIs m hm]; exact h m hm
+  constructor
+  · rintro ⟨hX, hle⟩
+    refine ⟨hsp.mp hX, fun m hm => ?_⟩
+    rw [← hIs m hm, ← hΦ X hX m hm]; exact hle m hm
+  · rintro ⟨hX, hle⟩
+    have hX' := hsp.mpr hX
+    refine ⟨hX', fun m hm => ?_⟩
+    rw [hIs m hm, hΦ X hX' m hm]; exact hle m hm
+
+/-- **The least tuple is a congruence** in the operator (on the tuple
+space) and the index sets, below `k`. -/
+theorem lfpTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
+    (hΦ : ∀ X, InTupleSpace w k Is X → ∀ m, m < k → Φ X m = Φ' X m) {m : Nat} (hm : m < k) :
+    lfpTuple w k Is Φ m = lfpTuple w k Is' Φ' m := by
+  have hcl : (∃ L, IsClosedTuple w k Is Φ L) ↔ ∃ L, IsClosedTuple w k Is' Φ' L :=
+    ⟨fun ⟨L, hL⟩ => ⟨L, (isClosedTuple_congr hIs hΦ).mp hL⟩,
+      fun ⟨L, hL⟩ => ⟨L, (isClosedTuple_congr hIs hΦ).mpr hL⟩⟩
+  by_cases h : ∃ L, IsClosedTuple w k Is Φ L
+  · have h' := hcl.mp h
+    refine famSpace_ext (lfpTuple_mem w k Is Φ m hm) (by rw [hIs m hm]; exact lfpTuple_mem w k Is' Φ' m hm)
+      fun i hi => ?_
+    apply SetTheory.ext
+    intro x
+    rw [mem_app_lfpTuple h hi, mem_app_lfpTuple h' (by rw [← hIs m hm]; exact hi)]
+    constructor
+    · intro hx X hX; exact hx X ((isClosedTuple_congr hIs hΦ).mpr hX)
+    · intro hx X hX; exact hx X ((isClosedTuple_congr hIs hΦ).mp hX)
+  · rw [lfpTuple_of_not h, lfpTuple_of_not (fun h' => h (hcl.mpr h')), hIs m hm]
+
+end Congr
+
 end ConLeche.SetTheory
 
 /-! ## A single family is the one-member block -/

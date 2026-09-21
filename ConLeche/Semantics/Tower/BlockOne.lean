@@ -3,7 +3,7 @@ module
 public import ConLeche.Semantics.Tower.BlockLeafI
 public import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Semantics.Tower.FixTuple
-import ConLeche.SetTheory.Derive.LfpCompose
+import ConLeche.SetTheory.Derive.LfpTuple
 @[expose] public section
 
 /-!
@@ -29,7 +29,7 @@ exactly the three pieces the design predicted:
   level (`projAV 0` on the leaf) and inside every recursive slot;
 * `lfpTuple_one` (`SetTheory/Derive/LfpTuple.lean`), which needs no
   hypothesis: a single family IS the one-member tuple;
-* `lfpTuple_congr` (`SetTheory/Derive/LfpCompose.lean`), because the
+* `lfpTuple_congr` (`SetTheory/Derive/LfpTuple.lean`), because the
   two operators are DIFFERENT functions that agree only on the tuple
   space — `oneTuple fixFunVI` computes by `app`, the block's `blockPhi`
   by the spelled arms.
