@@ -2266,4 +2266,39 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
 
 end Shift
 
+/-! ## A.14 A-4's ENVIRONMENT premises
+
+`ihSpineFold_blockRec`/`ihNodeVal_blockRec` (RM3) open with three
+facts about the leaf valuation — it is closed at every lift, fixed by
+every instantiation, and its reading does not depend on the
+environment.  All three are `EnvModel` fields, or one lemma away from
+one; naming them here is what lets the A-4 assembly pass them by
+`exact` instead of re-deriving them at each of the ~15 premise slots. -/
+
+section EnvFacts
+
+variable {env : Env} (mo : EnvModel V env)
+
+/-- **`haclN`**: the leaf is fixed by EVERY lift, not only the
+one-step one the field states (`liftN_eq_self_of_one`). -/
+theorem blockRuleHaclN :
+    ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mo.acval n ψ').liftN m k = mo.acval n ψ' :=
+  fun n ψ' m k => liftN_eq_self_of_one (fun k' => mo.acval_closed n ψ' k') m k
+
+/-- **`hainst`**: the leaf is fixed by every instantiation. -/
+theorem blockRuleHainst :
+    ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (mo.acval n ψ').inst y k = mo.acval n ψ' :=
+  acval_inst_self mo
+
+/-- **`hcl`**: the leaf's reading does not depend on the
+environment. -/
+theorem blockRuleHcl :
+    ∀ (n : Name) (ψ' : Name → Nat) (ρ1 ρ2 : Nat → V),
+      interp V ρ1 (mo.acval n ψ') = interp V ρ2 (mo.acval n ψ') :=
+  fun n ψ' ρ1 ρ2 => acval_interp_closedC mo n ψ' ρ1 ρ2
+
+end EnvFacts
+
 end ConLeche.Model
