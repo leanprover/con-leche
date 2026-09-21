@@ -488,4 +488,137 @@ theorem natLitSupported_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List Rec
     find?_consBlockRecs_of_ne (hne _ reserved_natZeroName),
     find?_consBlockRecs_of_ne (hne _ reserved_natSuccName)]
 
+/-- **`NoProjEnv` across the recursors' cons.**  A `.proj T i` node can
+enter only through a recursor's stored TYPE or one of its rules'
+right-hand sides; both are premises, and both come from
+`annotateCore_noProjAt` at the environment the stage annotates in
+(`Verify/ProjSlots.lean` — the slot `(T, i)` is empty there because the
+members' projection tables are consed AFTER the recursors). -/
+theorem noProjEnv_consBlockRecs {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} {T : Name} {i : Nat} :
+    ∀ {m : Nat} {rs : List RecDatum} {env : Env},
+      NoProjEnv env T i →
+      (∀ r ∈ rs, Expr.NoProjAt T i r.1.type) →
+      (∀ r ∈ rs, ∀ rhs ∈ r.2.1, Expr.NoProjAt T i rhs) →
+      NoProjEnv (consBlockRecs find? q nP m rs env) T i
+  | _, [], _, h, _, _ => h
+  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env, h, hT, hR => by
+    have hhead : NoProjHead (.recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m)
+        (ConLeche.sumRules find? cvRa.name nP (q.majorIdxAt m) (q.rulePrefixAt m)
+          cvRa.type ctorsA rhss)) T i := by
+      refine ⟨hT _ List.mem_cons_self, (fun _ _ _ hcon => nomatch hcon), ?_,
+        (fun _ hcon => nomatch hcon)⟩
+      intro cv mI rP rules heq rl hrl
+      injection heq with _ _ _ e4
+      subst e4
+      obtain ⟨hmem, hfire⟩ := ConLeche.sumRules_mem hrl
+      exact ⟨hR _ List.mem_cons_self _ hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
+    show NoProjEnv (consBlockRecs find? q nP (m + 1) rest ⟨_ :: env.consts⟩) T i
+    exact noProjEnv_consBlockRecs (h.cons hhead)
+      (fun r hr => hT r (List.mem_cons_of_mem _ hr))
+      (fun r hr => hR r (List.mem_cons_of_mem _ hr))
+
+/-! ## The stage's proposition -/
+
+/-- **`BlockRecStaged`, discharged** (task #315 M5, the Model half).
+
+The carrier at the recursors' environment, with the four facts the
+tables' stage and the final assembly read off it: the valuation is the
+constructors' own off the `k` new names; every stored lookup survives;
+every reading of a constructor-environment subject survives; and a slot
+no stored piece mentioned is still mentioned by none.
+
+Two premises beyond the cons's own are worth naming.  `hstr` is the
+`String`-literal guard's *equality*: the guard is monotone at any fresh
+cons but not congruent, and nothing forbids a recursor NAME from being
+one of the seven string-support names (`List.cons` at a block that
+declares `List`), so conjunct 3's equation — as opposed to its
+monotone half, `blockRecStaged_denoteMeta_mono` — genuinely needs it.
+`hnoTy`/`hnoRhs` are the `.proj`-freedom of the stage's two stored
+pieces; they are `annotateCore_noProjAt` at the bare-`k` environment,
+whose `findProj?` is `envC`'s (`findProj?_consBlockRecs`). -/
+theorem blockRecStaged_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
+    (hnd : (rs.map (·.1.name)).Nodup)
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hnres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false)
+    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
+    (hty : ∀ r ∈ rs,
+      r.1.type.hasFvar = false ∧
+      r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
+      r.1.type.constsResolve envC = true ∧
+      r.1.type.looseBVarsBounded 0 = true)
+    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
+    (hcl : ∀ r ∈ rs, ∀ ψ : Name → Nat, Term.Closed ((acv r.1.name ψ).erase))
+    (hlift : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (k : Nat),
+      (acv r.1.name ψ).liftN 1 k = acv r.1.name ψ)
+    (hpar : ∀ r ∈ rs, ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ r.1.levelParams, ψ₁ p = ψ₂ p) → acv r.1.name ψ₁ = acv r.1.name ψ₂)
+    (hok : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (acv r.1.name ψ))
+    (hval : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (acv r.1.name ψ))
+    (hrd : ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
+      denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
+      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+      (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta))
+    (hrhs : ∀ r ∈ rs, ∀ rhs ∈ r.2.1,
+      rhs.hasFvar = false ∧
+      rhs.allLevelParamsDefined r.1.levelParams = true ∧
+      rhs.constsResolve (consBlockRecsBare q 0 (bareOf rs) envC) = true ∧
+      rhs.looseBVarsBounded 0 = true)
+    (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (consBlockRecs envC.find? q nP 0 rs envC).find? n
+        = some (.recInfo cv mI rP rules) →
+      (consBlockRecsBare q 0 (bareOf rs) envC).find? n = some (.recInfo cv mI rP []) →
+      cv.name = n →
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true →
+          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? n r.ctor = true))
+    (hrecP : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
+      m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ)
+    (hstr : ConLeche.strLitSupported (consBlockRecs envC.find? q nP 0 rs envC)
+      = ConLeche.strLitSupported envC)
+    (hnoTy : ∀ r ∈ rs, ∀ (T : Name) (i : Nat), envC.findProj? T i = none →
+      Expr.NoProjAt T i r.1.type)
+    (hnoRhs : ∀ r ∈ rs, ∀ rhs ∈ r.2.1, ∀ (T : Name) (i : Nat),
+      envC.findProj? T i = none → Expr.NoProjAt T i rhs) :
+    ∃ mp' : EnvModelM V μ (consBlockRecs envC.find? q nP 0 rs envC),
+      (∀ n : Name, (envC.find? n).isSome = true →
+        mp'.base2.acval n = mpC.base2.acval n) ∧
+      (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
+        (consBlockRecs envC.find? q nP 0 rs envC).find? n = some c) ∧
+      (∀ (ψ : Name → Nat) (d : Nat) (e : Expr), ConstsBound envC e →
+        denoteMeta mp'.base2.acval (consBlockRecs envC.find? q nP 0 rs envC) ψ d e
+          = denoteMeta mpC.base2.acval envC ψ d e) ∧
+      (∀ (T : Name) (i : Nat), envC.findProj? T i = none →
+        NoProjEnv envC T i →
+        NoProjEnv (consBlockRecs envC.find? q nP 0 rs envC) T i) := by
+  have hkeep := find?_consBlockRecs_keep (q := q) (nP := nP) hfr
+  have hne : ∀ n : Name, (envC.find? n).isSome = true → ∀ r ∈ rs, n ≠ r.1.name := by
+    intro n hn r hr hh
+    rw [hh, hfr r hr] at hn
+    exact nomatch hn
+  obtain ⟨mp', hac'⟩ :=
+    envModelM_consBlockRecs mpC hnd hfr hnres hpsh hty hag hcl hlift hpar hok hval hrd
+      (ConLeche.envWF_consBlockRecs mpC.base2.wf
+        (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2,
+          fun rhs hrhs' => hrhs r hr rhs hrhs'⟩))
+      hnew hrecP
+  refine ⟨mp', fun n hn => by rw [hac']; exact hag n (hne n hn), hkeep, ?_, ?_⟩
+  · -- the readings of the constructors' environment survive, verbatim
+    intro ψ d e hcb
+    rw [hac',
+      ← denoteMeta_envExtend (acval := acv) (φ := ψ) (fun {n} {ci} h => hkeep n ci h)
+        ⟨(natLitSupported_consBlockRecs hnres).symm, hstr.symm⟩
+        (fun sn i h => by rw [findProj?_consBlockRecs hpsh]; exact h) d e hcb]
+    exact denoteMeta_acval_congr
+      (fun n hn => hag n (hne n hn)) d e
+  · -- the untouched slots
+    intro T i hslot hnp
+    exact noProjEnv_consBlockRecs hnp (fun r hr => hnoTy r hr T i hslot)
+      (fun r hr rhs hrhs' => hnoRhs r hr rhs hrhs' T i hslot)
+
 end ConLeche.Model
