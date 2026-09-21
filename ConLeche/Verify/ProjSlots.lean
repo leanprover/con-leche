@@ -127,6 +127,42 @@ theorem NoProjAt.instantiate1 {v : Expr} (hv : NoProjAt T i v) :
     rw [Expr.instantiate1, noProjAt_proj]
     exact ⟨h.1, ihe d h.2⟩
 
+/-- Lifting the loose variables moves no node. -/
+theorem NoProjAt.liftLooseBVars {k : Nat} :
+    ∀ {e : Expr} {c : Nat}, NoProjAt T i e → NoProjAt T i (e.liftLooseBVars k c) := by
+  intro e
+  induction e with
+  | bvar j => intro c _; simp only [Expr.liftLooseBVars]; split <;> simp
+  | fvar idx ty ih => intro c h; simpa [Expr.liftLooseBVars] using h
+  | sort u => intro c _; simp [Expr.liftLooseBVars]
+  | const n us => intro c _; simp [Expr.liftLooseBVars]
+  | lit l => intro c _; simp [Expr.liftLooseBVars]
+  | app f a ihf iha =>
+    intro c h
+    rw [noProjAt_app] at h
+    simp only [Expr.liftLooseBVars, noProjAt_app]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b m ihty ihb =>
+    intro c h
+    rw [noProjAt_lam] at h
+    simp only [Expr.liftLooseBVars, noProjAt_lam]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | forallE ty b m ihty ihb =>
+    intro c h
+    rw [noProjAt_forallE] at h
+    simp only [Expr.liftLooseBVars, noProjAt_forallE]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | letE t v b iht ihv ihb =>
+    intro c h
+    rw [noProjAt_letE] at h
+    simp only [Expr.liftLooseBVars, noProjAt_letE]
+    exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s j e ih =>
+    intro c h
+    rw [noProjAt_proj] at h
+    simp only [Expr.liftLooseBVars, noProjAt_proj]
+    exact ⟨h.1, ih h.2⟩
+
 /-- Level instantiation moves no node. -/
 theorem NoProjAt.instantiateLevelParams (ks : List Name) (us : List Level) :
     ∀ e : Expr, NoProjAt T i e →

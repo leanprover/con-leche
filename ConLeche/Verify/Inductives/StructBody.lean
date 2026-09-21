@@ -267,6 +267,136 @@ theorem structProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
       rw [structProjResidP, ih (by omega), List.range_succ, List.foldl_append,
         List.foldl_cons, List.foldl_nil, Nat.zero_add]
 
+/-! ## No projection of ANOTHER structure in the bodies (task #315 M3)
+
+A block's table stage needs, at member `m`, that member `c`'s
+projection bodies carry no `.proj (memberName m) _` node.  The bodies
+are the constructor telescope's domains with the parameters and the
+SUBJECT's earlier projections `.proj (memberName c) j (bvar 0)`
+substituted, so the only projection nodes they gain name `c` — and a
+`c ≠ m` block has `memberName c ≠ memberName m`.  At one member the
+claim is vacuous; at `k` it is this transport.
+-/
+
+/-- Capture-avoiding instantiation preserves the absence. -/
+theorem Expr.NoProjAt.instantiate1Lift {T : Name} {i : Nat} {v : Expr}
+    (hv : Expr.NoProjAt T i v) :
+    ∀ (e : Expr) (d : Nat), Expr.NoProjAt T i e →
+      Expr.NoProjAt T i (e.instantiate1Lift v d) := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro d _
+    rw [Expr.instantiate1Lift]
+    split
+    · exact hv.liftLooseBVars
+    · split <;> simp
+  | sort u => intro d _; rw [Expr.instantiate1Lift]; simp
+  | const n us => intro d h; rw [Expr.instantiate1Lift]; exact h
+  | fvar idx ty => intro d h; rw [Expr.instantiate1Lift]; exact h
+  | lit l => intro d _; rw [Expr.instantiate1Lift]; simp
+  | app f a ihf iha =>
+    intro d h
+    rw [noProjAt_app] at h
+    rw [Expr.instantiate1Lift, noProjAt_app]
+    exact ⟨ihf d h.1, iha d h.2⟩
+  | lam ty b m ihty ihb =>
+    intro d h
+    rw [noProjAt_lam] at h
+    rw [Expr.instantiate1Lift, noProjAt_lam]
+    exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
+  | forallE ty b m ihty ihb =>
+    intro d h
+    rw [noProjAt_forallE] at h
+    rw [Expr.instantiate1Lift, noProjAt_forallE]
+    exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
+  | letE t val b iht ihval ihb =>
+    intro d h
+    rw [noProjAt_letE] at h
+    rw [Expr.instantiate1Lift, noProjAt_letE]
+    exact ⟨iht d h.1, ihval d h.2.1, ihb (d + 1) h.2.2⟩
+  | proj s j e ihe =>
+    intro d h
+    rw [noProjAt_proj] at h
+    rw [Expr.instantiate1Lift, noProjAt_proj]
+    exact ⟨h.1, ihe d h.2⟩
+
+/-- The open `∀`-peel preserves the absence. -/
+theorem Expr.NoProjAt.instPisAtLift {T : Name} {i : Nat} :
+    ∀ (args : List Expr) {e r : Expr}, (∀ a ∈ args, Expr.NoProjAt T i a) →
+      Expr.instPisAtLift args e = some r → Expr.NoProjAt T i e → Expr.NoProjAt T i r
+  | [], e, r, _, h, he => by
+    simp only [Expr.instPisAtLift, Option.some.injEq] at h
+    rw [← h]; exact he
+  | a :: as, e, r, ha, h, he => by
+    match e, h with
+    | .forallE ty body m, h =>
+      rw [noProjAt_forallE] at he
+      exact Expr.NoProjAt.instPisAtLift as (fun b hb => ha b (List.mem_cons_of_mem _ hb))
+        h ((ha a List.mem_cons_self).instantiate1Lift body 0 he.2)
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      exact nomatch h
+
+/-- The bodies' generator preserves the absence: each step peels one
+binder and substitutes `.proj T' n (bvar 0)`, a node that is not
+`.proj T i` when `T' ≠ T`. -/
+theorem noProjAt_structProjBodiesGo {T T' : Name} {i : Nat}
+    (hne : ∀ j : Nat, ¬ (T' = T ∧ j = i)) :
+    ∀ (k n : Nat) {r : Expr} {bs : List Expr},
+      structProjBodiesGo T' k n r = some bs → Expr.NoProjAt T i r →
+      ∀ b ∈ bs, Expr.NoProjAt T i b
+  | 0, n, r, bs, h, _ => by
+    simp only [structProjBodiesGo, Option.some.injEq] at h
+    rw [← h]; intro b hb; exact absurd hb List.not_mem_nil
+  | k + 1, n, r, bs, h, hr => by
+    match r, h with
+    | .forallE fdom body mb, h =>
+      simp only [structProjBodiesGo, Option.map_eq_some_iff] at h
+      obtain ⟨bs', hgo, rfl⟩ := h
+      rw [noProjAt_forallE] at hr
+      have harg : Expr.NoProjAt T i (structProjArgP T' n) := by
+        rw [structProjArgP, noProjAt_proj]
+        exact ⟨hne n, by simp⟩
+      have := noProjAt_structProjBodiesGo hne k (n + 1) hgo
+        (harg.instantiate1Lift body 0 hr.2)
+      intro b hb
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact hr.1
+      · exact this b hb
+
+/-- **Another member's projection bodies carry no projection of this
+one** (task #315 M3): the bodies of `T'`'s table are the constructor
+telescope's domains with `T'`'s own projections substituted, so a
+`T ≠ T'` sees nothing new — and the telescope itself has no `.proj T`
+node (`noProjC`). -/
+theorem noProjAt_structProjBodies {T T' : Name} {i nP nF : Nat} {cty : Expr}
+    {bodies : Array Expr} (hne : ∀ j : Nat, ¬ (T' = T ∧ j = i))
+    (h : structProjBodies T' nP nF cty = some bodies)
+    (hcty : Expr.NoProjAt T i cty) :
+    ∀ j : Nat, Expr.NoProjAt T i (bodies.getD j default) := by
+  unfold structProjBodies at h
+  cases hr : Expr.instPisAtLift (structProjPs nP) cty with
+  | none => rw [hr] at h; exact nomatch h
+  | some r =>
+    rw [hr] at h
+    simp only [Option.map_eq_some_iff] at h
+    obtain ⟨bs, hgo, rfl⟩ := h
+    have hps : ∀ a ∈ structProjPs nP, Expr.NoProjAt T i a := by
+      intro a ha
+      obtain ⟨j, -, rfl⟩ := List.mem_map.mp ha
+      simp
+    have hbs := noProjAt_structProjBodiesGo hne nF 0 hgo
+      (Expr.NoProjAt.instPisAtLift _ hps hr hcty)
+    intro j
+    have hdef : Expr.NoProjAt T i (default : Expr) := by
+      show Expr.NoProjAt T i (Expr.bvar default)
+      simp
+    rw [Array.getD]
+    split
+    · exact hbs _ (by simp)
+    · exact hdef
+
 /-! ## The opened body -/
 
 /-- The parameter variables, dummy-annotated (the reading ignores
