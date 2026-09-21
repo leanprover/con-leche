@@ -304,6 +304,70 @@ theorem EtaFamiliesClosedExcept.cons {env : Env} {T : Name} {c₀ : ConstantInfo
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
+/-- **`EtaFamiliesClosed` for every stored family outside `names`**
+(the uniform inductive route at `k` members): the shape a block's
+install carries between its FORMERS' conses and the last member's
+constructors.  `checkBlockInds` stores all `k` formers before any
+constructor is looked at, so between those two points there are up to
+`k` families whose capability constructor is still pending —
+`EtaFamiliesClosedExcept`'s single exception is the `k = 1` case. -/
+@[expose] def EtaFamiliesClosedExceptL (env : Env) (names : List Name) : Prop :=
+  ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T' = some (.indInfo cvT caps) → T' ∉ names → caps.eta = true →
+    reservedBasisNames.contains T' = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+/-- At one pending name the list form **is** `EtaFamiliesClosedExcept`. -/
+theorem etaFamiliesClosedExceptL_one (env : Env) (T : Name) :
+    EtaFamiliesClosedExceptL env [T] = EtaFamiliesClosedExcept env T := by
+  simp [EtaFamiliesClosedExceptL, EtaFamiliesClosedExcept]
+
+theorem EtaFamiliesClosed.exceptL {env : Env} (h : EtaFamiliesClosed env)
+    (names : List Name) : EtaFamiliesClosedExceptL env names :=
+  fun T' cvT caps hf _ he hr => h T' cvT caps hf he hr
+
+/-- More pending names is weaker. -/
+theorem EtaFamiliesClosedExceptL.mono {env : Env} {names names' : List Name}
+    (h : EtaFamiliesClosedExceptL env names) (hsub : ∀ n ∈ names, n ∈ names') :
+    EtaFamiliesClosedExceptL env names' :=
+  fun T' cvT caps hf hne he hr => h T' cvT caps hf (fun hh => hne (hsub T' hh)) he hr
+
+/-- Prepending one fresh constant that is neither a non-reserved
+η-capable former nor named outside `names` keeps the other families
+closed. -/
+theorem EtaFamiliesClosedExceptL.cons {env : Env} {names : List Name} {c₀ : ConstantInfo}
+    (hE1 : EtaFamiliesClosedExceptL env names)
+    (hfresh : env.find? c₀.name = none)
+    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true ∨ c₀.name ∈ names) :
+    EtaFamiliesClosedExceptL (⟨c₀ :: env.consts⟩ : Env) names := by
+  intro T' cvT caps hf hne he hr
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hh =>
+    obtain rfl := Option.some.inj hf
+    rcases hknd cvT caps rfl he with hres | hT
+    · rw [← hh] at hr; rw [hres] at hr; exact nomatch hr
+    · exact absurd (hh ▸ hT) hne
+  · obtain ⟨cvC, hfC⟩ := hE1 T' cvT caps hf hne he hr
+    refine ⟨cvC, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC
+
+/-- The families are all closed once every pending one is. -/
+theorem EtaFamiliesClosedExceptL.closed {env : Env} {names : List Name}
+    (hE : EtaFamiliesClosedExceptL env names)
+    (hT : ∀ T ∈ names, ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+      reservedBasisNames.contains T = false →
+      ∃ cvC, env.find? caps.etaCtor = some (.ctorInfo cvC caps.etaParams caps.etaFields)) :
+    EtaFamiliesClosed env := by
+  intro T' cvT caps hf he hr
+  by_cases hne : T' ∈ names
+  · exact hT T' hne cvT caps hf he hr
+  · exact hE T' cvT caps hf hne he hr
+
 /-- The families are all closed once `T`'s own is. -/
 theorem EtaFamiliesClosedExcept.closed {env : Env} {T : Name}
     (hE : EtaFamiliesClosedExcept env T)

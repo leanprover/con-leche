@@ -305,8 +305,8 @@ theorem stageCtorGen {T : Name}
     refine capsOk_cons_native mp (c₀ := .ctorInfo cvCa nP nF) (A := A)
       (T := T) hfresh (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
       (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
-    · intro T' cvT' caps' hf hne hres hcape
-      exact hE T' cvT' caps' hf hne hcape hres
+    · intro T' cvT' caps' hf hne hres hcape _
+      exact etaCtor_ne_of_closed hfresh (hE T' cvT' caps' hf hne hcape hres)
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts⟩ : Env).find? T
           = some (.indInfo cvTa caps) := by

@@ -1116,8 +1116,8 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     refine capsOk_cons_native mp (c₀ := c₀) (A := A) (T := p.cvT.name) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
       (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
-    · intro T' cvT' caps' hf hne hres hcape
-      exact hE T' cvT' caps' hf hne hcape hres
+    · intro T' cvT' caps' hf hne hres hcape _
+      exact etaCtor_ne_of_closed hfresh (hE T' cvT' caps' hf hne hcape hres)
     · intro cvT caps' hf _
       have hfT' : (⟨c₀ :: env.consts⟩ : Env).find? p.cvT.name = some (.indInfo cvTa caps) := by
         rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]

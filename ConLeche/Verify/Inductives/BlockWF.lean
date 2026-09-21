@@ -71,9 +71,25 @@ theorem constsResolve_consBlockInds {p₁ : BlockShape} {isRec : Bool} {e : Expr
     simp only [consBlockInds]
     exact constsResolve_consBlockInds (Expr.constsResolve_mono h)
 
-/-- **The k formers' conses keep well-formedness**: each stored former
-is a checked constant whose telescope strips at the parameter count,
-which is the capability record's arity. -/
+/-- **One former's cons keeps well-formedness**: the stored former is a
+checked constant whose telescope strips at the parameter count, which is
+the capability record's arity. -/
+theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : Env}
+    {cvTa : ConstantVal} (henv : EnvWF env)
+    (h1 : cvTa.type.hasFvar = false)
+    (h2 : cvTa.type.allLevelParamsDefined cvTa.levelParams = true)
+    (h3 : cvTa.type.constsResolve env = true)
+    (h4 : cvTa.type.looseBVarsBounded 0 = true)
+    (h5 : (cvTa.type.stripPis p₁.nP).isSome = true) :
+    EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts⟩ := by
+  refine EnvWF.cons henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (by intro tbl hh; exact ConstantInfo.noConfusion hh) ?_)
+  refine IndCapsWF.of_caps ?_ ?_
+  · intro hu; rw [(blockCapsAt_arity p₁ i isRec).1 hu]; exact h5
+  · intro he; rw [(blockCapsAt_arity p₁ i isRec).2 he]; exact h5
+
+/-- **The k formers' conses keep well-formedness.** -/
 theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
     ∀ {cvTas : List ConstantVal} {i : Nat} {env : Env},
       EnvWF env →
@@ -88,12 +104,7 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
     simp only [consBlockInds]
     refine envWF_consBlockInds ?_ ?_
     · obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa List.mem_cons_self
-      refine EnvWF.cons henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
-        (by intro tbl hh; exact ConstantInfo.noConfusion hh) ?_)
-      refine IndCapsWF.of_caps ?_ ?_
-      · intro hu; rw [(blockCapsAt_arity p₁ i isRec).1 hu]; exact h5
-      · intro he; rw [(blockCapsAt_arity p₁ i isRec).2 he]; exact h5
+      exact envWF_cons_blockInd henv h1 h2 h3 h4 h5
     · intro cvTa' hc'
       obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩

@@ -237,7 +237,8 @@ theorem stageFixFormer (mp : EnvModelM V μ env)
       (A := A) (T := cvTa.name) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeI
       (Or.inl ⟨cvTa, caps, rfl, rfl⟩)
-      (fun T' cvT' caps' hf _ hres hcape => hE₀ T' cvT' caps' hf hcape hres)
+      (fun T' cvT' caps' hf _ hres hcape _ =>
+        etaCtor_ne_of_closed hfresh (hE₀ T' cvT' caps' hf hcape hres))
       m₂ hac ?_
     intro cvT caps' hf _
     have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa caps) env
