@@ -27,6 +27,7 @@ public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.DeclBlock
+public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.IOLicense
