@@ -1,12 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecRule
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Semantics.Tower.BlockRecKitI
-public import ConLeche.Semantics.Tower.BlockRecIndI
+import ConLeche.Semantics.Tower.BlockRecIndI
 import ConLeche.SetModel.WfRec
 public import ConLeche.SetTheory.Derive.TransClosure
-public import ConLeche.Rules.Rel
 
 public section
 

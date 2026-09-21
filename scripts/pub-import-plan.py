@@ -80,6 +80,18 @@ FALLBACK = {
      'ConLeche.Model.Annot.BitConsCross'),
     ('ConLeche.Model.Inductives.BlockStageRec',
      'ConLeche.Semantics.IndBlockFacts'),
+    # task #315 (M5, O-1's file): `Model/Inductives/BlockRecRule.lean`
+    # re-exports `Model/Annot/Bit.lean` for `ConLeche.Expr` and its
+    # `Expr.instantiateList`/`Expr.mkAppN` field notation, which every one
+    # of the file's PUBLIC statements uses and which no census row
+    # attributes to `Annot.Bit` (the constants belong to `Kernel/Expr` and
+    # `Kernel/ExprOps`, reached through this re-export and through DOT
+    # NOTATION).  MEASURED: demoting the line fails the build with
+    # `Unknown identifier Expr` at `FvarList`; importing `Kernel.ExprOps`
+    # publicly instead does not fix it, because `denoteMeta` itself is in
+    # the statements.
+    ('ConLeche.Model.Inductives.BlockRecRule',
+     'ConLeche.Model.Annot.Bit'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.

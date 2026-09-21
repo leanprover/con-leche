@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecRead
-public import ConLeche.Semantics.Tower.BlockRecI
-import ConLeche.Model.Annot.BitClosed
+public import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Semantics.Tower.BlockRecI
+import ConLeche.Semantics.Kit
 import ConLeche.Verify.InstList
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.Tower.TowerMk
