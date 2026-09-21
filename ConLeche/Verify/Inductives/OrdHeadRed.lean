@@ -195,35 +195,78 @@ private theorem whnfCore_headConst_inv {env : Env} {d : Nat}
   rw [← hX] at h ⊢
   exact whnfCore_constApp_inv hnr h
 
+/-- `whnfCore` is the identity on a `∀` (at nonzero fuel) —
+`whnfCore_lam`'s twin, and `whnfCoreBody`'s own clause. -/
+private theorem whnfCore_forallE {env : Env} (F d : Nat) (ty body : Expr)
+    (bm : BinderMeta) :
+    whnfCore mode env (F + 1) d (.forallE ty body bm)
+      = .ok (.forallE ty body bm) := rfl
+
+/-- **THE TWO SHAPES AT WHICH THE PURE REDUCTION AND THE RUN BOTH STOP**
+(task #315 WIDE (f3), the reduce-then-open inversion).
+
+`ordHeadRed` performs head β and ζ and nothing else, so it stops at a
+term that is neither a β- nor a ζ-redex at the head.  The RUN stops
+there too at exactly two of those shapes, and the two are what a
+container's minted field domain can be:
+
+* an application whose head is a STORED INDUCTIVE — `whnfCore` is the
+  identity at such a spine, literal acceleration declines and
+  `unfoldDefinition` is `none` (this is the narrowing the module's
+  header explains: at a recursor head the run ι-reduces, at a
+  definition head the loop δ-unfolds, and in both cases the answer is
+  headed by a DIFFERENT constant);
+* a `∀` — `whnfCoreBody` hands a binder straight back, and neither the
+  literal path nor `unfoldDefinition` can fire on one.
+
+The second disjunct is what the REDEX-TOWER mint needs
+(`tests/e2e/nested_redex_tower.ndjson`): its field domain's head normal
+form is a `Π`, so the first disjunct says nothing about it and the
+inversion would not reach. -/
+@[expose] def OrdHeadStop (env : Env) (X : Expr) : Prop :=
+  (∃ (J : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps),
+      X.getAppFn = .const J lvls ∧ env.find? J = some (.indInfo cv caps))
+    ∨ (∃ (ty bo : Expr) (bm : BinderMeta), X = .forallE ty bo bm)
+
+/-- **AND AT EITHER OF THEM `whnfCore` IS THE IDENTITY** — the constant
+arm is `whnfCore_headConst_inv`, the binder arm `whnfCore_forallE` (a
+fuel too small errors, which makes the hypothesis vacuous). -/
+private theorem whnfCore_stop_inv {env : Env} {d : Nat} {X v : Expr} {fuel : Nat}
+    (hst : OrdHeadStop env X)
+    (h : whnfCore mode env fuel d X = .ok v) : v = X := by
+  rcases hst with ⟨J, lvls, cv, caps, hhd, hJ⟩ | ⟨ty, bo, bm, rfl⟩
+  · exact whnfCore_headConst_inv hJ hhd h
+  · cases fuel with
+    | zero => rw [whnfCore_zero] at h; exact nomatch h
+    | succ F => rw [whnfCore_forallE] at h; exact (Except.ok.inj h).symm
+
 /-- **THE HEAD INVERSION, AT `ordHeadRedGo`'s OWN RECURSION** (task
 #315 WIDE (f3), the fourth concession).  A `whnfCore` run over a spine
 whose pure head β/ζ normal form is headed by a stored INDUCTIVE either
 IS that normal form, or is stuck at a λ-redex the per-redex certificate
 refused — and nothing else. -/
-theorem whnfCore_ordHeadRedGo {env : Env} {d : Nat}
-    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
-    (hJ : env.find? J = some (.indInfo cv caps)) :
+theorem whnfCore_ordHeadRedGo {env : Env} {d : Nat} :
     ∀ (n : Nat) (e : Expr) (args : List Expr) (fuel : Nat) (v : Expr),
       e.looseBVarsBounded 0 = true →
       (∀ x ∈ args, x.looseBVarsBounded 0 = true) →
-      (ordHeadRedGo n e args).getAppFn = .const J lvls →
+      OrdHeadStop env (ordHeadRedGo n e args) →
       whnfCore mode env fuel d (Expr.mkAppN e args) = .ok v →
       v = ordHeadRedGo n e args ∨ ∃ ty bd bm, v.getAppFn = .lam ty bd bm := by
   intro n
   induction n with
   | zero =>
-    intro e args fuel v _ _ hred h
-    exact Or.inl (whnfCore_headConst_inv hJ hred h)
+    intro e args fuel v _ _ hst h
+    exact Or.inl (whnfCore_stop_inv hst h)
   | succ n ih =>
-    intro e args fuel v hbe hbargs hred h
+    intro e args fuel v hbe hbargs hst h
     cases e with
-    | bvar i => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | fvar i t => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | sort u => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | const c us => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | lit l => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | proj sn i x => exact Or.inl (whnfCore_headConst_inv hJ hred h)
-    | forallE t b m => exact Or.inl (whnfCore_headConst_inv hJ hred h)
+    | bvar i => exact Or.inl (whnfCore_stop_inv hst h)
+    | fvar i t => exact Or.inl (whnfCore_stop_inv hst h)
+    | sort u => exact Or.inl (whnfCore_stop_inv hst h)
+    | const c us => exact Or.inl (whnfCore_stop_inv hst h)
+    | lit l => exact Or.inl (whnfCore_stop_inv hst h)
+    | proj sn i x => exact Or.inl (whnfCore_stop_inv hst h)
+    | forallE t b m => exact Or.inl (whnfCore_stop_inv hst h)
     | letE t vl b => exact (whnfCore_letEApp_error fuel args v h).elim
     | app f a0 =>
       obtain ⟨hbf, hba0⟩ : f.looseBVarsBounded 0 = true ∧ a0.looseBVarsBounded 0 = true := by
@@ -233,10 +276,10 @@ theorem whnfCore_ordHeadRedGo {env : Env} {d : Nat}
           rcases List.mem_cons.mp hx with rfl | hx'
           · exact hba0
           · exact hbargs x hx')
-        hred h
+        hst h
     | lam tyL bdL mbL =>
       cases args with
-      | nil => exact Or.inl (whnfCore_headConst_inv hJ hred h)
+      | nil => exact Or.inl (whnfCore_stop_inv hst h)
       | cons a rest =>
         have hba : a.looseBVarsBounded 0 = true := hbargs a List.mem_cons_self
         obtain ⟨-, hbdL⟩ : tyL.looseBVarsBounded 0 = true ∧ bdL.looseBVarsBounded 1 = true := by
@@ -250,10 +293,10 @@ theorem whnfCore_ordHeadRedGo {env : Env} {d : Nat}
           rfl
         · have hb' : (bdL.instantiate1 a).looseBVarsBounded 0 = true :=
             Expr.looseBVarsBounded_instantiate1_gen hba hbdL
-          have hred' : (ordHeadRedGo n (bdL.instantiate1 a) rest).getAppFn
-              = .const J lvls := by rw [← hlift]; exact hred
+          have hst' : OrdHeadStop env (ordHeadRedGo n (bdL.instantiate1 a) rest) := by
+            rw [← hlift]; exact hst
           have := ih (bdL.instantiate1 a) rest f' v hb'
-            (fun x hx => hbargs x (List.mem_cons_of_mem _ hx)) hred' hf'
+            (fun x hx => hbargs x (List.mem_cons_of_mem _ hx)) hst' hf'
           rcases this with hE | hR
           · exact Or.inl (by rw [hE, ← hlift]; rfl)
           · exact Or.inr hR
@@ -270,26 +313,33 @@ private theorem reduceNat_lamHead_none {env : Env} {fuel d : Nat} {e : Expr}
   · exact nomatch (hv : Expr.const _ [] = Expr.lam tyL bdL mbL)
   · rfl
 
+/-- Nor at a `∀`-headed one, for the same reason. -/
+private theorem reduceNat_forallEHead_none {env : Env} {fuel d : Nat} {e : Expr}
+    {tyP boP : Expr} {bmP : BinderMeta} (hv : e.getAppFn = .forallE tyP boP bmP) :
+    reduceNatFueled mode env fuel d e = .ok none := by
+  show reduceNat (pureFns mode env fuel) env d e = _
+  unfold reduceNat
+  split
+  · exact nomatch (hv : Expr.const _ [] = Expr.forallE tyP boP bmP)
+  · exact nomatch (hv : Expr.const _ [] = Expr.forallE tyP boP bmP)
+  · rfl
+
 /-- **THE HEAD INVERSION AT `ordHeadRed`** — `whnfCore_ordHeadRedGo` at
 the full fuel and the empty spine. -/
 theorem whnfCore_ordHeadRed {env : Env} {F d : Nat} {W v : Expr}
-    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
     (hb : W.looseBVarsBounded 0 = true)
-    (hJ : env.find? J = some (.indInfo cv caps))
-    (hred : (ordHeadRed W).getAppFn = .const J lvls)
+    (hst : OrdHeadStop env (ordHeadRed W))
     (h : whnfCore mode env F d W = .ok v) :
     v = ordHeadRed W ∨ ∃ ty bd bm, v.getAppFn = .lam ty bd bm :=
-  whnfCore_ordHeadRedGo hJ ordHeadRedFuel W [] F v hb (by simp) hred h
+  whnfCore_ordHeadRedGo ordHeadRedFuel W [] F v hb (by simp) hst h
 
 /-- **THE HEAD INVERSION AT THE REDUCTION LOOP**: in both arms the loop
 stops at `whnfCore`'s answer, because neither an inductive-headed
 application nor a λ-headed one is touched by literal acceleration or by
 `unfoldDefinition`. -/
 theorem whnf_ordHeadRed {env : Env} {F d : Nat} {W w : Expr}
-    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
     (hb : W.looseBVarsBounded 0 = true)
-    (hJ : env.find? J = some (.indInfo cv caps))
-    (hred : (ordHeadRed W).getAppFn = .const J lvls)
+    (hst : OrdHeadStop env (ordHeadRed W))
     (h : whnf mode env F d W = .ok w) :
     w = ordHeadRed W ∨ ∃ ty bd bm, w.getAppFn = .lam ty bd bm := by
   cases F with
@@ -302,19 +352,30 @@ theorem whnf_ordHeadRed {env : Env} {F d : Nat} {W w : Expr}
     replace h : whnfStep (pureFns mode env F) env d
         (whnfLoop (pureFns mode env F) env d k) W = .ok w := h
     obtain ⟨e₁, hcore, hcase⟩ := whnfStep_inv h
-    rcases whnfCore_ordHeadRed hb hJ hred hcore with hE | ⟨tyL, bdL, mbL, hlam⟩
-    · -- the pure normal form: stuck at a stored inductive former
-      have hhd : e₁.getAppFn = .const J lvls := by rw [hE]; exact hred
-      have hfull : e₁ = Expr.mkAppN (.const J lvls) e₁.getAppArgs := by
-        rw [← hhd]; exact (Expr.mkAppN_getApp e₁).symm
-      have hsucc : J = natSuccName → natLitSupported env = false := by
-        rintro rfl; simp [natLitSupported, natSuccOk, hJ]
-      have hop : natOpStored env J = false := by simp [natOpStored, hJ]
+    rcases whnfCore_ordHeadRed hb hst hcore with hE | ⟨tyL, bdL, mbL, hlam⟩
+    · -- the pure normal form, at either of the two stopping shapes
       have hnat : ∀ r, reduceNatFueled mode env F d e₁ ≠ .ok (some r) := by
-        intro r; rw [hfull]; exact reduceNat_constApp_ne_some hsucc hop
+        rcases hst with ⟨J, lvls, cv, caps, hred, hJ⟩ | ⟨tyP, boP, bmP, hpi⟩
+        · have hhd : e₁.getAppFn = .const J lvls := by rw [hE]; exact hred
+          have hfull : e₁ = Expr.mkAppN (.const J lvls) e₁.getAppArgs := by
+            rw [← hhd]; exact (Expr.mkAppN_getApp e₁).symm
+          have hsucc : J = natSuccName → natLitSupported env = false := by
+            rintro rfl; simp [natLitSupported, natSuccOk, hJ]
+          have hop : natOpStored env J = false := by simp [natOpStored, hJ]
+          intro r; rw [hfull]; exact reduceNat_constApp_ne_some hsucc hop
+        · intro r hr
+          have hhd : e₁.getAppFn = Expr.forallE tyP boP bmP := by rw [hE, hpi]; rfl
+          rw [reduceNat_forallEHead_none hhd] at hr
+          exact nomatch hr
       have hunf : unfoldDefinition env e₁ = none := by
-        rw [hfull]
-        exact unfoldDefinition_constApp_none hJ (by intro cv' v hint hh; exact nomatch hh)
+        rcases hst with ⟨J, lvls, cv, caps, hred, hJ⟩ | ⟨tyP, boP, bmP, hpi⟩
+        · have hhd : e₁.getAppFn = .const J lvls := by rw [hE]; exact hred
+          have hfull : e₁ = Expr.mkAppN (.const J lvls) e₁.getAppArgs := by
+            rw [← hhd]; exact (Expr.mkAppN_getApp e₁).symm
+          rw [hfull]
+          exact unfoldDefinition_constApp_none hJ (by intro cv' v hint hh; exact nomatch hh)
+        · have hhd : e₁.getAppFn = Expr.forallE tyP boP bmP := by rw [hE, hpi]; rfl
+          simp only [unfoldDefinition, hhd]
       rcases hcase with ⟨e₂, hr, -⟩ | ⟨-, e₂, hu, -⟩ | ⟨-, -, hw⟩
       · exact absurd hr (hnat e₂)
       · rw [hunf] at hu; exact nomatch hu
@@ -358,7 +419,7 @@ theorem normPosDomM_eq_ordHeadRed {env : Env} {memberNames : List Name}
   rcases normPosDomM_inv h with ⟨-, rfl⟩ | ⟨v, hv, hcase⟩
   · exact (ordHeadRed_const hwc).symm
   · rcases hcase with rfl | ⟨dom, body, bmP, body', fuel', -, -, -, -, rfl⟩
-    · rcases whnf_ordHeadRed hb hJ hred hv with hE | ⟨tyS, bdS, mbS, hlam⟩
+    · rcases whnf_ordHeadRed hb (Or.inl ⟨_, _, _, _, hred, hJ⟩) hv with hE | ⟨tyS, bdS, mbS, hlam⟩
       · exact hE
       · rw [hwc] at hlam; exact nomatch hlam
     · exact nomatch
@@ -436,7 +497,7 @@ theorem normPosDomM_not_forallE {env : Env} {memberNames : List Name}
   rcases normPosDomM_inv h with ⟨-, rfl⟩ | ⟨v, hv, hcase⟩
   · exact not_forallE_of_ordHeadRed_const hred
   · rcases hcase with rfl | ⟨dom, body, bmP, body', fuel', -, hvE, -, -, rfl⟩
-    · rcases whnf_ordHeadRed hb hJ hred hv with hE | ⟨tyS, bdS, mbS, hlam⟩
+    · rcases whnf_ordHeadRed hb (Or.inl ⟨_, _, _, _, hred, hJ⟩) hv with hE | ⟨tyS, bdS, mbS, hlam⟩
       · rw [hE]
         intro ty bo bm hw
         rw [hw] at hred
@@ -449,7 +510,7 @@ theorem normPosDomM_not_forallE {env : Env} {memberNames : List Name}
     · -- the `Π` arm: its own `whnf` answered with a `∀`, which the
       -- guard's two possible answers both refuse
       exfalso
-      rcases whnf_ordHeadRed hb hJ hred hv with hE | ⟨tyS, bdS, mbS, hlam⟩
+      rcases whnf_ordHeadRed hb (Or.inl ⟨_, _, _, _, hred, hJ⟩) hv with hE | ⟨tyS, bdS, mbS, hlam⟩
       · rw [hE] at hvE
         rw [hvE] at hred
         simp only [Expr.getAppFn] at hred
@@ -635,5 +696,128 @@ theorem ErasedEq.forallE_right {a ty bo : Expr} {bm : BinderMeta}
   cases a with
   | forallE ty' bo' bm' => exact ⟨ty', bo', bm', rfl⟩
   | _ => exact (h : False).elim
+
+/-! ## The REDUCE-THEN-OPEN telescope (task #315 WIDE (f3), object (2))
+
+`openPisAtFvars` peels a `∀` prefix and nothing else.  The positivity
+walk peels a different tower: at EVERY level it head-reduces first
+(`normPosDomM` calls `ops.whnf` before its `forallE` case) and only
+then looks for a binder.  So a container field whose minted domain is a
+λ-REDEX whose contractum is a `Π` — `tests/e2e/nested_redex_tower.ndjson`
+— has a walk output ONE binder deep while the input's own `Π`-depth is
+`0`, and no statement about `openPisAtFvars` of the input can reach it.
+
+`openRedPisAtFvars` is that tower, purely: `openPisAtFvars` with one
+`ordHeadRed` per binder.  It reads no environment, which is what lets a
+READING row carry it — the guard it states is the same "one `whnf`
+claim per binder" the walk itself makes, and where every level is a
+plain `∀` already it IS `openPisAtFvars`
+(`openRedPisAtFvars_eq_openPisAtFvars`). -/
+
+/-- `openPisAtFvars` with a HEAD REDUCTION at every binder. -/
+@[expose] def openRedPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], e)
+  | n + 1, e, i =>
+    match ordHeadRed e with
+    | .forallE dom body _ =>
+      let fv : Expr := .fvar i dom
+      match openRedPisAtFvars n (body.instantiate1 fv) (i + 1) with
+      | some (fvs, e') => some (fv :: fvs, e')
+      | none => none
+    | _ => none
+
+/-- The step equation at a binder: where the head reduction lands on a
+`∀`, the reduce-then-open tower peels it. -/
+theorem openRedPisAtFvars_forallE {e : Expr} {d n : Nat} {ty bo : Expr} {bm : BinderMeta}
+    (h : ordHeadRed e = Expr.forallE ty bo bm) :
+    openRedPisAtFvars (n + 1) e d =
+      (openRedPisAtFvars n (bo.instantiate1 (Expr.fvar d ty) 0) (d + 1)).map
+        (fun r => (Expr.fvar d ty :: r.1, r.2)) := by
+  simp only [openRedPisAtFvars, h]
+  cases openRedPisAtFvars n (bo.instantiate1 (Expr.fvar d ty) 0) (d + 1) <;> rfl
+
+/-- And where it lands on a constant-headed application the tower is
+already at its leaf: one more binder is `none`. -/
+theorem openRedPisAtFvars_succ_const {e : Expr} {d n : Nat} {K : Name} {us : List Level}
+    (h : (ordHeadRed e).getAppFn = Expr.const K us) :
+    openRedPisAtFvars (n + 1) e d = none := by
+  rw [openRedPisAtFvars]
+  cases hh : ordHeadRed e with
+  | bvar i => rfl
+  | fvar i t => rfl
+  | sort u => rfl
+  | const c us' => rfl
+  | lit l => rfl
+  | proj a b c => rfl
+  | app f a => rfl
+  | lam t b m => rfl
+  | letE t v b => rfl
+  | forallE t b m =>
+    rw [hh] at h
+    simp only [Expr.getAppFn] at h
+    exact nomatch h
+
+/-- **WHERE NEITHER LEAF IS A REDEX THE TWO TOWERS ARE ONE** — the
+counts, the openers and the leaves all agree.
+
+The guards are the ones the reading rows hold: on the reduce-then-open
+side the leaf's head NORMAL FORM is a stored inductive's application,
+on the plain side the leaf is already constant-headed.  Each excludes a
+`∀` at its own leaf, and that is what pins the two counts together: at
+a level where the term is not a binder the plain opening must stop, and
+`ordHeadRed` being the identity there (`ordHeadRed_const`) makes the
+reduced one stop with it. -/
+theorem openRedPisAtFvars_eq_openPisAtFvars :
+    ∀ (n₂ n : Nat) {e : Expr} {d : Nat} {fvsE fvsW : List Expr} {lE lw : Expr}
+      {J K : Name} {lvls us : List Level},
+      openRedPisAtFvars n e d = some (fvsE, lE) →
+      (ordHeadRed lE).getAppFn = Expr.const J lvls →
+      openPisAtFvars n₂ e d = some (fvsW, lw) →
+      lw.getAppFn = Expr.const K us →
+      n₂ = n ∧ fvsW = fvsE ∧ lw = lE := by
+  intro n₂
+  induction n₂ with
+  | zero =>
+    intro n e d fvsE fvsW lE lw J K lvls us hR hJ hP hK
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hP
+    obtain ⟨rfl, rfl⟩ := hP
+    cases n with
+    | zero =>
+      simp only [openRedPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hR
+      obtain ⟨rfl, rfl⟩ := hR
+      exact ⟨rfl, rfl, rfl⟩
+    | succ n =>
+      rw [openRedPisAtFvars_succ_const (by rw [ordHeadRed_const hK]; exact hK)] at hR
+      exact nomatch hR
+  | succ n₂ ih =>
+    intro n e d fvsE fvsW lE lw J K lvls us hR hJ hP hK
+    match e, hP with
+    | .forallE ty rest bm, hP =>
+      cases n with
+      | zero =>
+        simp only [openRedPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hR
+        obtain ⟨rfl, rfl⟩ := hR
+        rw [ordHeadRed_forallE] at hJ
+        simp only [Expr.getAppFn] at hJ
+        exact nomatch hJ
+      | succ n =>
+        simp only [openPisAtFvars] at hP
+        cases hq : openPisAtFvars n₂ (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+        | none => rw [hq] at hP; exact nomatch hP
+        | some q =>
+          obtain ⟨pfvs, pleaf⟩ := q
+          rw [hq] at hP
+          simp only [Option.some.injEq, Prod.mk.injEq] at hP
+          obtain ⟨rfl, rfl⟩ := hP
+          rw [openRedPisAtFvars_forallE ordHeadRed_forallE] at hR
+          cases hq2 : openRedPisAtFvars n (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+          | none => rw [hq2] at hR; exact nomatch hR
+          | some q2 =>
+            obtain ⟨rfvs, rleaf⟩ := q2
+            rw [hq2] at hR
+            simp only [Option.map, Option.some.injEq, Prod.mk.injEq] at hR
+            obtain ⟨rfl, rfl⟩ := hR
+            obtain ⟨h1, h2, h3⟩ := ih n hq2 hJ hq hK
+            exact ⟨congrArg (· + 1) h1, by rw [h2], h3⟩
 
 end ConLeche
