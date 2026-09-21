@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.StructTele
+import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecLawKit
 public import ConLeche.Model.RecRulesCons
@@ -314,6 +315,221 @@ theorem blockRecRuleEq_of_iota {ρ σ' : Nat → V} {R : V} {rP nP : Nat}
     simp only [List.map_append, List.map_cons, List.map_nil]
     rw [hes, hmk, ← List.append_assoc, ← List.map_append, List.take_append_drop]
   rw [hRa, ← hlaw, interp_mkAppN_foldl, hL, hlist]
+
+
+/-! ## 5. The family's ι law, in the form the last hop consumes
+
+`blockRecAV_iota` hands the tuple existentially and the law at every
+class and constructor at once.  The last hop uses it at ONE class and
+ONE constructor, and it must name the tuple — the rule data's
+identifications are stated at the chain frame the tuple builds.  So
+the consumed form exposes the tuple through the LEAF EQUATIONS (which
+pin it) rather than existentially, and fixes `c`/`j`. -/
+
+/-- **One class's ι law at one constructor**, with the tuple exposed.
+`leaf c'` is class `c'`'s leaf (the valuation's value at the stored
+recursor); the law is the family's at the spine that fits the rule's
+prefix and the constructor's fields. -/
+def BlockIotaAt (V : Type w) [SetTheory V] (K c : Nat) (leaf : Nat → AnnotTerm)
+    (pdoms fdoms es : List AnnotTerm) (mk : AnnotTerm) (ihs : List AnnotTerm)
+    (Rb : AnnotTerm) (ρ : Nat → V) : Prop :=
+  ∃ a : Nat → V,
+    (∀ c', c' < K → interp V ρ (leaf c') = a c') ∧
+    ∀ xs fs : List V, xs.length = pdoms.length →
+      SpineFit (chainFrame K a ρ) (pdoms ++ fdoms) (xs ++ fs) →
+      (xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))).foldl
+          SetTheory.app (a c)
+        = interp V (consList (ihs.map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))
+            (consList (xs ++ fs) (chainFrame K a ρ))) Rb
+
+/-- **The regimes' seam**: `BlockRecPre` — lane RM3's `blockRecPre_of`
+— gives `BlockIotaAt` at every class and constructor of the family. -/
+theorem blockIotaAt_of_pre {s K c j : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat}
+    {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+    {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
+    {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+    (h : BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ)
+    (hc : c < K) (hj : j < nCt c) :
+    BlockIotaAt V K c (blockRecAV s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb))
+      (pdoms c) (fdoms c j) (es c j) (mk c j) (ihs c j) (Rb c j) ρ := by
+  obtain ⟨a, ha, hlaw⟩ := blockRecAV_iota h
+  exact ⟨a, fun c' hc' => (ha c' hc').2.1, fun xs fs hxl hsp => hlaw c hc j hj xs fs hxl hsp⟩
+
+
+/-! ## 6. The rule data's identifications, bundled
+
+What is left of the last hop once the family's ι law is in hand is a
+statement about the rule DATA at one fired spine, and it mentions
+neither the recursion nor the check: the rule's prefix domains are as
+long as the recursor's rule prefix, the prefix and field values fit
+them at the chain frame, the constructor's index expressions read to
+the application's index arguments (`IotaIndexPin`'s content), its
+residual to the fired spine, and the stored right-hand side applied to
+the residue at the `ih` values (the rule's λ-tower β-reduced, then O-1
+`interp_abstractIh`).
+
+Both are `@[expose]` because the lane that derives them
+(the rule-data lane, RM3) builds them from the run in another file. -/
+
+/-- The rule's frame: the prefix values and the constructor's field
+values, under the `K` chain binders. -/
+@[expose] noncomputable def blockRuleFrame (K : Nat) (a ρ : Nat → V) (rP nP : Nat)
+    (xs ys : List AnnotTerm) : Nat → V :=
+  consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ))
+    (chainFrame K a ρ)
+
+/-- **The rule data's identifications at one fired spine.** -/
+@[expose] def BlockRuleDataAt (V : Type w) [SetTheory V] (K : Nat) (a : Nat → V)
+    (pdoms fdoms es : List AnnotTerm) (mk : AnnotTerm) (ihs : List AnnotTerm)
+    (Rb : AnnotTerm) (ρ : Nat → V) (rP nP : Nat) (xs ys : List AnnotTerm)
+    (Ca Ra : AnnotTerm) : Prop :=
+  pdoms.length = rP ∧
+  SpineFit (chainFrame K a ρ) (pdoms ++ fdoms)
+      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ∧
+  es.map (interp V (blockRuleFrame K a ρ rP nP xs ys)) = (xs.drop rP).map (interp V ρ) ∧
+  interp V (blockRuleFrame K a ρ rP nP xs ys) mk = interp V ρ (AnnotTerm.mkAppN Ca ys) ∧
+  interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
+    = interp V (consList (ihs.map (interp V (blockRuleFrame K a ρ rP nP xs ys)))
+        (blockRuleFrame K a ρ rP nP xs ys)) Rb
+
+/-- **The fired equality, from the ι law and the data.** -/
+theorem blockRecRuleEq_of_data {K c : Nat} {leaf : Nat → AnnotTerm}
+    {pdoms fdoms es ihs : List AnnotTerm} {mk Rb : AnnotTerm} {ρ : Nat → V}
+    (hiota : BlockIotaAt V K c leaf pdoms fdoms es mk ihs Rb ρ) (hc : c < K)
+    {rP nP : Nat} {xs ys : List AnnotTerm} {Ca Ra : AnnotTerm}
+    (hxs : rP ≤ xs.length)
+    (hdata : ∀ a : Nat → V, (∀ c', c' < K → interp V ρ (leaf c') = a c') →
+      BlockRuleDataAt V K a pdoms fdoms es mk ihs Rb ρ rP nP xs ys Ca Ra) :
+    interp V ρ (AnnotTerm.mkAppN (leaf c) (xs ++ [AnnotTerm.mkAppN Ca ys]))
+      = interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP)) := by
+  obtain ⟨a, ha, hlaw⟩ := hiota
+  obtain ⟨hpl, hsp, hes, hmk, hRa⟩ := hdata a ha
+  exact blockRecRuleEq_of_iota (R := a c) (ha c hc)
+    (hlaw _ _ (by rw [List.length_map, List.length_take, hpl, Nat.min_eq_left hxs]) hsp)
+    hes hmk hRa
+
+
+/-! ## 7. `RecRuleLaw` for a new block recursor
+
+The assembly.  Everything `RecRuleLaw` says about NAMES and LEVELS is
+discharged here — the `.plain` firing makes both nested conjuncts
+vacuous, the level instantiation is carried by the reading premise,
+and the parameter comparison is unused (`sumRules` sets
+`paramsBlind := true`).  What is passed through is the rule data
+(`BlockRuleDataAt`) and the grading of the applied right-hand side;
+what is consumed is the family's ι law (`BlockIotaAt`, i.e. lane RM3's
+`BlockRecPre` through `blockIotaAt_of_pre`). -/
+
+/-- **A new block recursor's rule law.** -/
+theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
+    {n : Name} {cv : ConstantVal} {mI rP : Nat} {rl : RecRule}
+    {K c : Nat} {leafF : (Name → Nat) → Nat → AnnotTerm}
+    {pdomsF fdomsF esF ihsF : (Name → Nat) → List AnnotTerm}
+    {mkF RbF : (Name → Nat) → AnnotTerm}
+    (hrPle : rP ≤ mI) (hc : c < K) (hplain : RecRule.fire rl = .plain)
+    (hleaf : ∀ ψ : Name → Nat, m₃.acval n ψ = leafF ψ c)
+    (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      BlockIotaAt V K c (leafF ψ) (pdomsF ψ) (fdomsF ψ) (esF ψ) (mkF ψ) (ihsF ψ) (RbF ψ) ρ)
+    (hrhs : ∀ us : List Level, us.length = cv.levelParams.length →
+      ∃ Ra : AnnotTerm,
+        denoteMeta m₃.acval env φ 0
+            ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some Ra ∧
+        (∀ ρ : Nat → V, WellDenotedV V ρ Ra) ∧
+        ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+          env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+          (TVa TVja restR restC : AnnotTerm),
+          xs.length = mI →
+          ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+          usj.length = cvj.levelParams.length →
+          Level.substFn φ cvj.levelParams usj
+            = Level.substFn φ cvj.levelParams
+                (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 →
+          IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs →
+          denoteMeta m₃.acval env φ 0
+              (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
+          denoteMeta m₃.acval env φ 0
+              (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+          TeleFitPA V ρ TVa
+            (xs ++ [AnnotTerm.mkAppN
+              (m₃.acval (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+          TeleFitPA V ρ TVja ys restC →
+          (∀ a : Nat → V,
+            (∀ c', c' < K →
+              interp V ρ (leafF (Level.substFn φ cv.levelParams us) c') = a c') →
+            BlockRuleDataAt V K a
+              (pdomsF (Level.substFn φ cv.levelParams us))
+              (fdomsF (Level.substFn φ cv.levelParams us))
+              (esF (Level.substFn φ cv.levelParams us))
+              (mkF (Level.substFn φ cv.levelParams us))
+              (ihsF (Level.substFn φ cv.levelParams us))
+              (RbF (Level.substFn φ cv.levelParams us))
+              ρ rP (RecRule.ctorParams rl) xs ys
+              (m₃.acval (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) Ra) ∧
+          ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
+            WellDenotedV V ρ (AnnotTerm.mkAppN Ra
+              (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))) :
+    RecRuleLaw m₃ φ n cv mI rP rl := by
+  refine ⟨hrPle, fun us hus => ?_⟩
+  obtain ⟨Ra, hRa, hokRa, hspine⟩ := hrhs us hus
+  refine ⟨Ra, hRa, hokRa, fun lvls pins hn => ?_, ?_⟩
+  · rw [hplain] at hn; exact nomatch hn
+  · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ
+      _ _ hidx hTVa hTVja hfitR hfitC
+    obtain ⟨hdata, hok⟩ := hspine cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC
+      hxl hyl hujl hψ hidx hTVa hTVja hfitR hfitC
+    refine ⟨?_, hok⟩
+    rw [hleaf]
+    exact blockRecRuleEq_of_data (hiota _ ρ) hc (by rw [hxl]; exact hrPle) hdata
+
+
+/-! ## 8. `hrecP`, as `blockRecStaged_of` consumes it
+
+The composition.  Two things are discharged on the way, and both are
+about `sumRules`' construction rather than about the model:
+
+* a stored rule's POSITION — `sumRules_getElem?` names the constructor
+  and the right-hand side the rule was built from, so the premise is
+  stated per `(recursor, constructor)` pair rather than per anonymous
+  rule;
+* the rule's FIRING — a block rule fires `.plain` or `.inert`
+  according to ONE syntactic test on the recursor's type
+  (`Expr.recRulePlain`), and `RecRules` asks nothing of an `.inert`
+  rule, so the `.plain` hypothesis `blockRecRuleLaw_of` needs is free:
+  it is `hfire` with the `if` resolved. -/
+
+/-- **`hrecP`**, in the exact shape `blockRecStaged_of` consumes. -/
+theorem hrecP_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
+    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
+    (hnew : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC), m₃.acval = acv →
+      ∀ (φ : Name → Nat) (j : Nat) (r : RecDatum), r ∈ rs →
+      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+        r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+        Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP = true →
+        RecRuleLaw m₃ φ r.1.name r.1 (q.majorIdxAt j) (q.rulePrefixAt j)
+          (ConLeche.recRuleBits envC.find? r.1.name
+            { ctor := cA.1.name, nfields := cA.2, ctorParams := nP,
+              fire := .plain, rhs := rhs, paramsBlind := true })) :
+    ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
+      m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ := by
+  intro m₃ hac φ
+  refine recRules_consBlockRecs_of mpC hfr hpsh hag m₃ hac φ ?_
+  intro j r hr rl hrl hfire
+  obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := ConLeche.sumRules_getElem? hrl
+  have hpl : Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP = true := by
+    cases hh : Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP with
+    | true => rfl
+    | false =>
+      rw [ConLeche.recRuleBits_fire, hh] at hfire
+      simp at hfire
+  rw [hpl]
+  simp only [if_true]
+  exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hpl
 
 
 end ConLeche.Model
