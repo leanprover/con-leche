@@ -80849,3 +80849,29 @@ operator may appear transiently (a set-sized bound); F5
 landed on `uniform-inds` depends on the wide tuple; the falsifier files
 F0–F4 and `LfpCompose.lean` document the abandoned route and may be
 deleted at the flip.
+
+#### F5 PASSED (2026-09-21, `agent/uinds-F5`, ff 69b750f1): the narrow clause with ∈-subterm recursion
+
+`SetTheory/Derive/TransClosure.lean` (`tc` as the ω-union of `sUnion`
+iterates, ∈-induction from `regularity`, in the PULLBACK form
+`tc_induction_map` since a tagged union element wraps its payload),
+`SetModel/WfRec.lean` (`tcAcc_all`: accessibility for free at any index
+set; encoding-depth lemmas `mem_tc_inj_mkTower`, `app_mem_tc`; `WfRecKit`
+with FOUR fields `B/st/hB/hst` over ORDINARY carriers),
+`SetModel/NarrowTreeList.lean` (Tree/List: the narrow one-component
+fixed point, (W), typing, the recursor family with official's three ι
+rules, non-vacuity).  Against F0: the identification is gone (8 lines
+read `⟦List⟧ ⟦Tree⟧` directly), accessibility 105 → 7 lines, and the
+predecessor set is never characterised (three positive memberships of 4
+lines each replace ~70 lines of `mkInj` case analysis).  `LIST` is
+monotone in its parameter from `ListClause` as stated (15 lines) —
+provided `fibre` quantifies over the whole tuple space.
+(W): holds with NO wide operator via the ω-iterate for a FINITARY
+container (not stated by the clause, false for `Stream`); the ruling's
+transient bound (`narΨ_closed_of_wide`, 25 lines: the block-plus-copy
+closed tuple bounds the narrow operator through its first component by
+leastness, nothing identified) is uniform — ADOPTED.
+Findings: (1) the clause must pin the constructor ENCODING
+`inj j (mkTower (fs ++ [pt]))` so ∈-depth is a theorem (`mkInj` gives
+injectivity only); (2) finitarity is not a clause fact — hence the
+transient bound.
