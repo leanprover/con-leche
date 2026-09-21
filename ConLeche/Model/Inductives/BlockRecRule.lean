@@ -6,6 +6,9 @@ import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 public import ConLeche.Verify.Subst
 public import ConLeche.Model.Inductives.FixRecRead
+import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Model.Inductives.StructStageCtor
+import ConLeche.Model.IndFrame
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 
@@ -990,5 +993,31 @@ theorem instPisAtLift_instSeq {sp : List Expr} {t : Nat}
         ConLeche.Expr.instantiate1Lift_eq_instantiate1 hcl, ← hcomm]
       exact instPisAtLift_instSeq hsp hlen as
         (fun x hx => ha x (List.mem_cons_of_mem _ hx)) h
+
+/-! ## The peel, evaluated
+
+`AnnotTerm.peelPis` of a `mkPisAV` tower along a spine of its own
+length is the body's instantiation sequence
+(`peelPis_of_piTeleAV` at `piTeleAV_mkPisAV`), and `interp_instSeq`
+evaluates that at the chain — which IS `consList` of the spine's
+values, since `chain` is `consN` of them and `consN` is `consList`
+(`consN_eq_consList`).  So the whole peel is one `interp` equation. -/
+
+theorem chain_eq_consList (ρ : Nat → V) (ws : List AnnotTerm) :
+    chain V ρ ws = consList (ws.map (interp V ρ)) ρ :=
+  consN_eq_consList _ _
+
+/-- **The peel, evaluated**: a Π-tower's reading peeled along a spine
+of its own length reads as the body at the frame extended by the
+spine's values. -/
+theorem interp_peelPis_mkPisAV {tlA : List (Nat × Nat × AnnotTerm)} {BodyA A : AnnotTerm}
+    {vs : List AnnotTerm} (hlen : vs.length = tlA.length)
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis (mkPisAV tlA BodyA) vs = some A)
+    (σ : Nat → V) :
+    interp V σ A = interp V (consList (vs.map (interp V σ)) σ) BodyA := by
+  rw [peelPis_of_piTeleAV tlA.length (piTeleAV_mkPisAV tlA BodyA) hlen] at hpeel
+  obtain rfl : A = ConLeche.Model.AnnotTerm.instSeq vs (tlA.length - 1) BodyA :=
+    (Option.some.inj hpeel).symm
+  rw [← hlen, interp_instSeq, chain_eq_consList]
 
 end ConLeche.Model
