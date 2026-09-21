@@ -362,76 +362,83 @@ theorem psigmaV_rr_mem (r : Nat) :
       (fun x hx => psigmaFibre_apply V hB hx)
     rwa [show Nat.max r r = r from Nat.max_self r] at h
 
-/-- The tower's components read to the carrier's own, hereditarily
-under the tower's fibre binders. -/
-def NdReads (F : Nat → V) (G : Nat → AnnotTerm) : Nat → Nat → (Nat → V) → Prop
-  | _, 0, _ => True
-  | s, n + 1, ρ => interp V ρ (G s) = F s ∧ ∀ x, NdReads F G (s + 1) n (cons x ρ)
-
-/-- The tower's components are graded, hereditarily. -/
-def NdGraded (G : Nat → AnnotTerm) : Nat → Nat → (Nat → V) → Prop
-  | _, 0, _ => True
-  | s, n + 1, ρ => WellDenoted V ρ (G s) ∧ ∀ x, NdGraded G (s + 1) n (cons x ρ)
-
-/-- **The non-dependent tower reads back as its carrier.** -/
-theorem ndTowerAV_interp {r : Nat} {F : Nat → V} (G : Nat → AnnotTerm) :
-    ∀ (n s : Nat) (ρ : Nat → V), (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
-      NdReads V F G s n ρ →
-      interp V ρ (ndTowerAV r G s n) = ndTowerSet V r F s n
-  | 0, _, _, _, _ => rfl
-  | n + 1, s, ρ, hF, h => by
-    have hA : interp V ρ (G s) ∈ˢ (univ r : V) := h.1 ▸ hF s (by omega)
-    have hG : ∀ x, interp V (cons x ρ) (ndTowerAV r G (s + 1) n)
-        = ndTowerSet V r F (s + 1) n :=
-      fun x => ndTowerAV_interp G n (s + 1) (cons x ρ) (fun m hm => hF m (by omega)) (h.2 x)
-    have hB : (lamR (r + 1) (interp V ρ (G s))
-          fun x => interp V (cons x ρ) (ndTowerAV r G (s + 1) n))
-        ∈ˢ piR (r + 1) (interp V ρ (G s)) (fun _ => (univ r : V)) :=
+/-- **The non-dependent tower reads back as its carrier.**  Its
+components are read at the BASE frame `ρ` — the former lifted them to
+their depth, so the tower's own binders do not reach them. -/
+theorem ndTowerAV_interp {r : Nat} {F : Nat → V} {G : Nat → AnnotTerm} {ρ : Nat → V} :
+    ∀ (n s d : Nat) (σ : Nat → V), shiftE d 0 σ = ρ →
+      (∀ m, m < s + n → interp V ρ (G m) = F m) →
+      (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
+      interp V σ (ndTowerAV r G s d n) = ndTowerSet V r F s n
+  | 0, _, _, _, _, _, _ => rfl
+  | n + 1, s, d, σ, hσ, hG, hF => by
+    have hC : interp V σ ((G s).liftN d 0) = F s := by
+      rw [interp_liftN, hσ]; exact hG s (by omega)
+    have hA : interp V σ ((G s).liftN d 0) ∈ˢ (univ r : V) := hC ▸ hF s (by omega)
+    have hrest : ∀ x : V, interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n)
+        = ndTowerSet V r F (s + 1) n := fun x =>
+      ndTowerAV_interp n (s + 1) (d + 1) (cons x σ)
+        (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
+        (fun m hm => hF m (by omega))
+    have hB : (lamR (r + 1) (interp V σ ((G s).liftN d 0))
+          fun x => interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n))
+        ∈ˢ piR (r + 1) (interp V σ ((G s).liftN d 0)) (fun _ => (univ r : V)) :=
       lamR_mem fun x _ => by
-        rw [hG x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
+        rw [hrest x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
     have hbv : bval V .psigma [r, r] = psigmaV V r r := rfl
-    show SetTheory.app (SetTheory.app (bval V .psigma [r, r]) (interp V ρ (G s)))
-        (lamR (r + 1) (interp V ρ (G s))
-          fun x => interp V (cons x ρ) (ndTowerAV r G (s + 1) n))
+    show SetTheory.app (SetTheory.app (bval V .psigma [r, r])
+        (interp V σ ((G s).liftN d 0)))
+        (lamR (r + 1) (interp V σ ((G s).liftN d 0))
+          fun x => interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n))
       = ndTowerSet V r F s (n + 1)
     rw [hbv, psigmaV_app V hA hB, show Nat.max r r = r from Nat.max_self r]
     show sigmaSet r _ _ = sigmaSet r (F s) _
-    rw [← h.1]
-    exact sigma_congr fun x hx => by rw [app_lamR_pos (Nat.succ_ne_zero r) hx, hG x]
+    rw [← hC]
+    exact sigma_congr fun x hx => by rw [app_lamR_pos (Nat.succ_ne_zero r) hx, hrest x]
 
 /-- **The non-dependent tower is graded** (`WellDenoted`). -/
-theorem ndTowerAV_wellDenoted {r : Nat} {F : Nat → V} (G : Nat → AnnotTerm) :
-    ∀ (n s : Nat) (ρ : Nat → V), (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
-      NdReads V F G s n ρ → NdGraded V G s n ρ →
-      WellDenoted V ρ (ndTowerAV r G s n)
-  | 0, _, _, _, _, _ => by simp [ndTowerAV]
-  | n + 1, s, ρ, hF, h, hok => by
-    have hA : interp V ρ (G s) ∈ˢ (univ r : V) := h.1 ▸ hF s (by omega)
-    have hGv : ∀ x, interp V (cons x ρ) (ndTowerAV r G (s + 1) n)
-        = ndTowerSet V r F (s + 1) n :=
-      fun x => ndTowerAV_interp V G n (s + 1) (cons x ρ) (fun m hm => hF m (by omega)) (h.2 x)
-    have hfib : ∀ x, x ∈ˢ interp V ρ (G s) →
-        interp V (cons x ρ) (ndTowerAV r G (s + 1) n) ∈ˢ (univ r : V) := fun x _ => by
-      rw [hGv x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
-    have hbv : interp V ρ (.const .psigma [r, r]) = psigmaV V r r := rfl
+theorem ndTowerAV_wellDenoted {r : Nat} {F : Nat → V} {G : Nat → AnnotTerm} {ρ : Nat → V} :
+    ∀ (n s d : Nat) (σ : Nat → V), shiftE d 0 σ = ρ →
+      (∀ m, m < s + n → interp V ρ (G m) = F m) →
+      (∀ m, m < s + n → WellDenoted V ρ (G m)) →
+      (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
+      WellDenoted V σ (ndTowerAV r G s d n)
+  | 0, _, _, _, _, _, _, _ => by simp [ndTowerAV]
+  | n + 1, s, d, σ, hσ, hG, hok, hF => by
+    have hC : interp V σ ((G s).liftN d 0) = F s := by
+      rw [interp_liftN, hσ]; exact hG s (by omega)
+    have hCok : WellDenoted V σ ((G s).liftN d 0) := by
+      rw [WellDenoted_liftN, hσ]; exact hok s (by omega)
+    have hA : interp V σ ((G s).liftN d 0) ∈ˢ (univ r : V) := hC ▸ hF s (by omega)
+    have hrest : ∀ x : V, interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n)
+        = ndTowerSet V r F (s + 1) n := fun x =>
+      ndTowerAV_interp V n (s + 1) (d + 1) (cons x σ)
+        (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
+        (fun m hm => hF m (by omega))
+    have hfib : ∀ x, x ∈ˢ interp V σ ((G s).liftN d 0) →
+        interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n) ∈ˢ (univ r : V) := fun x _ => by
+      rw [hrest x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
+    have hbv : interp V σ (.const .psigma [r, r]) = psigmaV V r r := rfl
     have hvac : ¬ r + 1 = 0 := Nat.succ_ne_zero r
-    show WellDenoted V ρ (.app (.app (.const .psigma [r, r]) (G s))
-      (.lam (r + 1) (G s) (ndTowerAV r G (s + 1) n)))
+    show WellDenoted V σ (.app (.app (.const .psigma [r, r]) ((G s).liftN d 0))
+      (.lam (r + 1) ((G s).liftN d 0) (ndTowerAV r G (s + 1) (d + 1) n)))
     rw [WellDenoted_app]
     refine ⟨?_, ?_, ?_⟩
     · rw [WellDenoted_app]
-      exact ⟨trivial, hok.1,
+      exact ⟨trivial, hCok,
         ⟨r + 1, univ r,
           fun A => piR (r + 1) (psigmaFibreSpace V r A) fun _ => (univ r : V),
           hbv ▸ psigmaV_rr_mem V r, hA, fun h0 => absurd h0 hvac⟩⟩
     · rw [WellDenoted_lam]
-      exact ⟨hok.1,
-        fun x _ => ndTowerAV_wellDenoted G n (s + 1) (cons x ρ)
-          (fun m hm => hF m (by omega)) (h.2 x) (hok.2 x),
+      exact ⟨hCok,
+        fun x _ => ndTowerAV_wellDenoted n (s + 1) (d + 1) (cons x σ)
+          (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
+          (fun m hm => hok m (by omega)) (fun m hm => hF m (by omega)),
         ⟨fun _ => (univ r : V), hfib, fun h0 => absurd h0 hvac⟩⟩
-    · refine ⟨r + 1, psigmaFibreSpace V r (interp V ρ (G s)),
+    · refine ⟨r + 1, psigmaFibreSpace V r (interp V σ ((G s).liftN d 0)),
         fun _ => (univ r : V), ?_, ?_, fun h0 => absurd h0 hvac⟩
-      · show SetTheory.app (interp V ρ (.const .psigma [r, r])) (interp V ρ (G s)) ∈ˢ _
+      · show SetTheory.app (interp V σ (.const .psigma [r, r]))
+          (interp V σ ((G s).liftN d 0)) ∈ˢ _
         rw [hbv]
         exact app_mem_piR_pos hvac (psigmaV_rr_mem V r) hA
       · exact lamR_mem fun x hx => hfib x hx
@@ -467,27 +474,15 @@ theorem projAV_wellDenoted_ndTower {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
 
 /-! ### The two towers of `lfpTuple k`'s type -/
 
-theorem ndReads_sorts (us : List Nat) :
-    ∀ (n s : Nat) (ρ : Nat → V),
-      NdReads V (fun m => (univ (lv us m) : V)) (fun m => (.sort (lv us m) : AnnotTerm)) s n ρ
-  | 0, _, _ => trivial
-  | n + 1, s, ρ => ⟨rfl, fun x => ndReads_sorts us n (s + 1) (cons x ρ)⟩
-
-theorem ndGraded_sorts (us : List Nat) :
-    ∀ (n s : Nat) (ρ : Nat → V),
-      NdGraded V (fun m => (.sort (lv us m) : AnnotTerm)) s n ρ
-  | 0, _, _ => trivial
-  | n + 1, s, ρ => ⟨trivial, fun x => ndGraded_sorts us n (s + 1) (cons x ρ)⟩
-
 /-- **The index-set tuple's type**: its value and its grading, at every
 environment (its components are closed sorts). -/
 theorem tupleSortsAV_facts (k : Nat) (us : List Nat) (ρ : Nat → V) :
     interp V ρ (tupleSortsAV k us) = tupleSortsSpace V k us ∧
       WellDenoted V ρ (tupleSortsAV k us) :=
-  ⟨ndTowerAV_interp V _ k 0 ρ (fun m _ => univ_lv_mem_tupleIdxSort V us m)
-      (ndReads_sorts V us k 0 ρ),
-   ndTowerAV_wellDenoted V _ k 0 ρ (fun m _ => univ_lv_mem_tupleIdxSort V us m)
-      (ndReads_sorts V us k 0 ρ) (ndGraded_sorts V us k 0 ρ)⟩
+  ⟨ndTowerAV_interp V (ρ := ρ) k 0 0 ρ (shiftE_zero_zero ρ) (fun _ _ => rfl)
+      (fun m _ => univ_lv_mem_tupleIdxSort V us m),
+   ndTowerAV_wellDenoted V (ρ := ρ) k 0 0 ρ (shiftE_zero_zero ρ) (fun _ _ => rfl)
+      (fun _ _ => trivial) (fun m _ => univ_lv_mem_tupleIdxSort V us m)⟩
 
 /-- The family tuple's components live in the family tuple's own
 universe, below `k`. -/
@@ -505,53 +500,30 @@ theorem famComp_mem_univ {k : Nat} {us : List Nat} {Is : V}
   · exact Nat.le_trans (ConLeche.Term.lv_le_levMax us m) (Nat.le_max_left _ _)
   · exact Nat.le_max_right _ _
 
-/-- The family tuple's components read off the ambient index-set tuple,
-hereditarily: at depth `s` of the tower the variable `j` sits at
-`j + s`. -/
-theorem ndReads_fams (k : Nat) (us : List Nat) (j : Nat) (ρ : Nat → V) :
-    ∀ (n s : Nat) (σ : Nat → V), (∀ i, σ (i + s) = ρ i) →
-      NdReads V (fun m => lfpFamSpace V (lv us k) (projS m (ρ j)))
-        (fun m => (.pi (lv us m) (lv us k + 1) (projAV m (.bvar (j + m)))
-          (.sort (lv us k)) : AnnotTerm)) s n σ
-  | 0, _, _, _ => trivial
-  | n + 1, s, σ, hσ => by
-    refine ⟨?_, fun x => ndReads_fams k us j ρ n (s + 1) (cons x σ) fun i => ?_⟩
-    · show piR (lv us k + 1) (interp V σ (projAV s (.bvar (j + s)))) _ = _
-      rw [projAV_interp, interp_bvar, hσ j]
-      rfl
-    · show cons x σ (i + (s + 1)) = ρ i
-      show σ (i + s) = ρ i
-      exact hσ i
-
-theorem ndGraded_fams {k : Nat} {us : List Nat} (j : Nat) (ρ : Nat → V)
-    (hIs : ρ j ∈ˢ tupleSortsSpace V k us) :
-    ∀ (n s : Nat) (σ : Nat → V), s + n ≤ k → (∀ i, σ (i + s) = ρ i) →
-      NdGraded V (fun m => (.pi (lv us m) (lv us k + 1) (projAV m (.bvar (j + m)))
-        (.sort (lv us k)) : AnnotTerm)) s n σ
-  | 0, _, _, _, _ => trivial
-  | n + 1, s, σ, hk, hσ => by
-    refine ⟨?_, fun x => ndGraded_fams j ρ hIs n (s + 1) (cons x σ) (by omega) fun i => ?_⟩
-    · rw [WellDenoted_pi]
-      refine ⟨?_, fun _ _ => trivial⟩
-      refine projAV_wellDenoted_ndTower V (tupleIdxSort_ne_zero us) s k 0
-        (.bvar (j + s)) σ (by omega) (fun m _ => univ_lv_mem_tupleIdxSort V us m) trivial ?_
-      rw [interp_bvar, hσ j]
-      exact hIs
-    · show cons x σ (i + (s + 1)) = ρ i
-      show σ (i + s) = ρ i
-      exact hσ i
-
 /-- **The family tuple's type**: its value and its grading, at an
 environment whose `j`-th variable is an index-set tuple. -/
 theorem tupleFamsAV_facts {k : Nat} {us : List Nat} {j : Nat} {ρ : Nat → V}
     (hIs : ρ j ∈ˢ tupleSortsSpace V k us) :
     interp V ρ (tupleFamsAV k us j) = tupleFamsSpace V k us (ρ j) ∧
-      WellDenoted V ρ (tupleFamsAV k us j) :=
-  ⟨ndTowerAV_interp V _ k 0 ρ (fun m hm => famComp_mem_univ V hIs m (by omega))
-      (ndReads_fams V k us j ρ k 0 ρ fun _ => rfl),
-   ndTowerAV_wellDenoted V _ k 0 ρ (fun m hm => famComp_mem_univ V hIs m (by omega))
-      (ndReads_fams V k us j ρ k 0 ρ fun _ => rfl)
-      (ndGraded_fams V j ρ hIs k 0 ρ (by omega) fun _ => rfl)⟩
+      WellDenoted V ρ (tupleFamsAV k us j) := by
+  have hG : ∀ m, m < k → interp V ρ (.pi (lv us m) (lv us k + 1) (projAV m (.bvar j))
+      (.sort (lv us k)) : AnnotTerm) = lfpFamSpace V (lv us k) (projS m (ρ j)) := by
+    intro m _
+    show piR (lv us k + 1) (interp V ρ (projAV m (.bvar j))) _ = _
+    rw [projAV_interp, interp_bvar]
+    rfl
+  have hok : ∀ m, m < k → WellDenoted V ρ (.pi (lv us m) (lv us k + 1) (projAV m (.bvar j))
+      (.sort (lv us k)) : AnnotTerm) := by
+    intro m hm
+    rw [WellDenoted_pi]
+    refine ⟨?_, fun _ _ => trivial⟩
+    refine projAV_wellDenoted_ndTower V (tupleIdxSort_ne_zero us) m k 0
+      (.bvar j) ρ hm (fun i _ => univ_lv_mem_tupleIdxSort V us i) trivial ?_
+    rw [interp_bvar]; exact hIs
+  exact ⟨ndTowerAV_interp V k 0 0 ρ (shiftE_zero_zero ρ) (fun m hm => hG m (by omega))
+      (fun m hm => famComp_mem_univ V hIs m (by omega)),
+   ndTowerAV_wellDenoted V k 0 0 ρ (shiftE_zero_zero ρ) (fun m hm => hG m (by omega))
+      (fun m hm => hok m (by omega)) (fun m hm => famComp_mem_univ V hIs m (by omega))⟩
 
 theorem bval_mem_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
     bval V (.lfpTuple k) us ∈ˢ interp V ρ (BConst.typeAV (.lfpTuple k) us) := by

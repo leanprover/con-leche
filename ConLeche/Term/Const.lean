@@ -81,11 +81,16 @@ def projPairT : Nat → Term → Term
   | i + 1, e => projPairT i (.snd e)
 
 /-- The non-dependent pair tower at level `r`, `PUnit`-terminated:
-`⟨G s, …, G (s + n - 1)⟩`, each component given at its own depth. -/
-def ndTowerT (r : Nat) (G : Nat → Term) : Nat → Nat → Term
-  | _, 0 => .const .punit [r]
-  | s, n + 1 =>
-    .app (.app (.const .psigma [r, r]) (G s)) (.lam (G s) (ndTowerT r G (s + 1) n))
+`⟨G s, …, G (s + n - 1)⟩`.  The components are given at the BASE frame
+and lifted to their own depth `d` by the former (component `s + i` sits
+under `i` of the tower's fibre binders), which is what makes the tower
+non-dependent: a component may mention the ambient frame, never an
+earlier component. -/
+def ndTowerT (r : Nat) (G : Nat → Term) : Nat → Nat → Nat → Term
+  | _, _, 0 => .const .punit [r]
+  | s, d, n + 1 =>
+    .app (.app (.const .psigma [r, r]) ((G s).liftN d 0))
+      (.lam ((G s).liftN d 0) (ndTowerT r G (s + 1) (d + 1) n))
 
 /-- An upper bound for every level a list mentions (`0` past its
 end, so the bound is global in the index — which is what a tower's
@@ -110,14 +115,13 @@ def tupleFamSort (k : Nat) (us : List Nat) : Nat :=
 
 /-- `⟨Sort u_0, …, Sort u_{k-1}⟩`, the index-set tuple's type. -/
 def tupleSortsT (k : Nat) (us : List Nat) : Term :=
-  ndTowerT (tupleIdxSort us) (fun m => .sort (lv us m)) 0 k
+  ndTowerT (tupleIdxSort us) (fun m => .sort (lv us m)) 0 0 k
 
 /-- `⟨proj_0 Is → Sort w, …, proj_{k-1} Is → Sort w⟩`, the family
-tuple's type, with `Is` at de Bruijn index `j` (each component lifted
-to its own depth in the tower). -/
+tuple's type, with `Is` at de Bruijn index `j` of the base frame. -/
 def tupleFamsT (k : Nat) (us : List Nat) (j : Nat) : Term :=
   ndTowerT (tupleFamSort k us)
-    (fun m => arrow (projPairT m (.bvar (j + m))) (.sort (lv us k))) 0 k
+    (fun m => arrow (projPairT m (.bvar j)) (.sort (lv us k))) 0 0 k
 
 /-! ## The type assignment -/
 

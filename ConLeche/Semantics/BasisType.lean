@@ -142,21 +142,24 @@ def projAV : Nat → AnnotTerm → AnnotTerm
   | i + 1, e => projAV i (.snd e)
 
 /-- The non-dependent pair tower at level `r`, `PUnit`-terminated:
-`⟨G s, …, G (s + n - 1)⟩`, each component given at its own depth. -/
-def ndTowerAV (r : Nat) (G : Nat → AnnotTerm) : Nat → Nat → AnnotTerm
-  | _, 0 => .const .punit [r]
-  | s, n + 1 =>
-    .app (.app (.const .psigma [r, r]) (G s)) (.lam (r + 1) (G s) (ndTowerAV r G (s + 1) n))
+`⟨G s, …, G (s + n - 1)⟩`.  The components are given at the BASE frame
+and lifted to their own depth `d` by the former (component `s + i` sits
+under `i` of the tower's fibre binders). -/
+def ndTowerAV (r : Nat) (G : Nat → AnnotTerm) : Nat → Nat → Nat → AnnotTerm
+  | _, _, 0 => .const .punit [r]
+  | s, d, n + 1 =>
+    .app (.app (.const .psigma [r, r]) ((G s).liftN d 0))
+      (.lam (r + 1) ((G s).liftN d 0) (ndTowerAV r G (s + 1) (d + 1) n))
 
 /-- `⟨Sort u_0, …, Sort u_{k-1}⟩`, the index-set tuple's type. -/
 def tupleSortsAV (k : Nat) (us : List Nat) : AnnotTerm :=
-  ndTowerAV (tupleIdxSort us) (fun m => .sort (lv us m)) 0 k
+  ndTowerAV (tupleIdxSort us) (fun m => .sort (lv us m)) 0 0 k
 
 /-- `⟨proj_0 Is → Sort w, …, proj_{k-1} Is → Sort w⟩`, the family
-tuple's type, with `Is` at de Bruijn index `j`. -/
+tuple's type, with `Is` at de Bruijn index `j` of the base frame. -/
 def tupleFamsAV (k : Nat) (us : List Nat) (j : Nat) : AnnotTerm :=
   ndTowerAV (tupleFamSort k us)
-    (fun m => .pi (lv us m) (lv us k + 1) (projAV m (.bvar (j + m))) (.sort (lv us k))) 0 k
+    (fun m => .pi (lv us m) (lv us k + 1) (projAV m (.bvar j)) (.sort (lv us k))) 0 0 k
 
 /-! ## The annotated type assignment -/
 
@@ -293,21 +296,22 @@ theorem projAV_erase : ∀ (i : Nat) (e : AnnotTerm),
 
 theorem ndTowerAV_erase (r : Nat) (G : Nat → AnnotTerm) (H : Nat → ConLeche.Term.Term)
     (hGH : ∀ m, (G m).erase = H m) :
-    ∀ (n s : Nat), (ndTowerAV r G s n).erase = ConLeche.Term.ndTowerT r H s n
-  | 0, _ => rfl
-  | n + 1, s => by
-    show ConLeche.Term.Term.app (ConLeche.Term.Term.app _ (G s).erase)
-      (ConLeche.Term.Term.lam (G s).erase (ndTowerAV r G (s + 1) n).erase) = _
-    rw [ndTowerAV_erase r G H hGH n (s + 1), hGH s]
+    ∀ (n s d : Nat), (ndTowerAV r G s d n).erase = ConLeche.Term.ndTowerT r H s d n
+  | 0, _, _ => rfl
+  | n + 1, s, d => by
+    show ConLeche.Term.Term.app (ConLeche.Term.Term.app _ ((G s).liftN d 0).erase)
+      (ConLeche.Term.Term.lam ((G s).liftN d 0).erase
+        (ndTowerAV r G (s + 1) (d + 1) n).erase) = _
+    rw [ndTowerAV_erase r G H hGH n (s + 1) (d + 1), AnnotTerm.erase_liftN, hGH s]
     rfl
 
 theorem tupleSortsAV_erase (k : Nat) (us : List Nat) :
     (tupleSortsAV k us).erase = ConLeche.Term.tupleSortsT k us :=
-  ndTowerAV_erase _ _ _ (fun _ => rfl) k 0
+  ndTowerAV_erase _ _ _ (fun _ => rfl) k 0 0
 
 theorem tupleFamsAV_erase (k : Nat) (us : List Nat) (j : Nat) :
     (tupleFamsAV k us j).erase = ConLeche.Term.tupleFamsT k us j := by
-  refine ndTowerAV_erase _ _ _ (fun m => ?_) k 0
+  refine ndTowerAV_erase _ _ _ (fun m => ?_) k 0 0
   show ConLeche.Term.Term.pi _ _ = ConLeche.Term.arrow _ _
   rw [projAV_erase]
   rfl
