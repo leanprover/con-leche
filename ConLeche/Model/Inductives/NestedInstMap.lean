@@ -1414,8 +1414,8 @@ WIDE (3), step 3): the run's first `p.k` formers carry exactly
 `p.memberNames`, in order.  `membersFresh` used this inline; the
 member arm of the field-data reading needs it on its own, to turn a
 `findIdx?` hit in `p.memberNames` into the FORMER whose name it is —
-which is what makes the positivity walk the identity there
-(`normPosDomM_indApp_former`). -/
+which is what puts the positivity walk's result at that head's own
+normal form there (`normPosDomM_ordHeadRed_former`). -/
 theorem NestedPinsRun.takeNames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
   rw [List.map_take, R.h.names]
   exact ConLeche.auxBlock_memberNames R.hfA R.helim R.hb
@@ -2902,10 +2902,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (hheadB : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const K usK)
     -- THE REFLEXIVE ARM KEEPS THE STORED HEAD, UNDER ITS OWN KIND:
-    -- `copyOrdFRightPinOrdTargetReadAtRefl`'s `stripDomPis_instSeq`
-    -- needs the leaf's constant head to know the substitution plants
-    -- no new `Π`, and that is the reflexive twin's object and not
-    -- this step's.  Guarded by the kind, so the finitary
+    -- `copyOrdFRightPinOrdTargetReadAtRefl` needs the leaf's constant
+    -- head to know the substitution plants no new `Π`
+    -- (`stripDomPis_instSeq2_notPi` reads the guard that way), and
+    -- that is the reflexive twin's object and not this step's.  Guarded by the kind, so the finitary
     -- bare-parameter shapes discharge it vacuously.
     (hfinRefl : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [] ≠ [] →
       (ConLeche.stripDomPis (Expr.instantiateLevelParams lpsC

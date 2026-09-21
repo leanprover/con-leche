@@ -129443,3 +129443,109 @@ Gates: build 729 jobs warning-free, `lake test` warning-free,
 `#print axioms` = `[propext, Classical.choice, Quot.sound]` on all nine
 new declarations and on the six rows and wrappers.  No kernel file is
 touched by this session, so no verdict can have moved.
+
+#### WIDE (f3) — THE WHNF LANE MERGED BACK, THE FIVE SUPERSEDED DECLARATIONS DELETED, AND K.72's FOUR HARD `false` ARMS ARE UNREACHABLE BY THE `mapM` LAW (lane LE, 2026-09-21)
+
+`agent/uniform-whnf` at `37ff8433` is merged (the review is in the merge
+commit's own message, one line per object).  This row is the merge-back
+HOUSEKEEPING and the answer to the order's K.72 flag.
+
+##### (a) THE FIVE SUPERSEDED DECLARATIONS ARE GONE, AND A SIXTH WITH THEM
+
+Session 3 of the WHNF lane listed five declarations its move superseded
+and left them because two of the five are in files it did not own.  All
+five are deleted here, with the doc prose that named them re-written to
+the surviving spelling:
+
+| deleted | file it was in | what replaced it |
+|---|---|---|
+| `normPosDomM_indApp_cons` | `Verify/Inductives/NestedCopyNorm.lean` | `normPosDomM_ordHeadRed_cons` |
+| `normPosDomM_indApp_former` | the same | `normPosDomM_ordHeadRed_former` |
+| `normPosDomM_openPis_indApp` | the same | `normPosDomM_openPis_ordHeadRed` |
+| `openPisAtFvars_count_unique` | `Verify/Inductives/NestedCopyKinds.lean` | the count folded into that row, and `openPisAtFvars_count_unique_notPi` |
+| `stripDomPis_instSeq` | the same | `stripDomPis_instSeq_tower` / `stripDomPis_instSeq2_notPi` |
+
+**`replaceAllNested_lamHead` IS DELETED TOO, AND SO IS ITS ONLY
+CONSUMER.**  The WHNF lane's own §(d) put the choice as "the next
+session either consumes it or deletes it", on the ground that the
+main lane's `hnormRed` might arrive without a fire record.  It did not
+and cannot: `nestedFitc_pin`'s premises carry the owner's firing, so
+every consumer of the inversion holds a POSITIVE constant head
+(`copyOrdFRightPinCorr`'s `hfn` at a pin, the stored domain's own head
+at a member), and a lemma that only EXCLUDES a λ has nothing to say
+that the positive head does not.  `replaceIfNested_lamHead`
+(`Verify/Inductives/NestedElimInv.lean`) went with it — it had no other
+consumer.  Both are one `rw`-chain and are cheap to restore if a row
+without either record ever appears; nothing in the tree is weaker for
+their absence.
+
+Two stale doc mentions in this lane's files are repointed as the order
+asked (`Model/Inductives/NestedInstMap.lean`'s `takeNames` docstring,
+which named `normPosDomM_indApp_former`, and the `hfinRefl` comment
+that named `stripDomPis_instSeq`), and two more the order did not list
+turned up in `Model/Inductives/NestedCopyInst.lean` (the pin and member
+reading rows' own bullets, which still said "the positivity walk is the
+IDENTITY on it").  It is not the identity any more — it lands on the
+head normal form — so the prose is corrected and not merely renamed.
+
+##### (b) THE K.72 FLAG: A MISS IS UNREACHABLE, AND THE ARGUMENT IS THE `mapM` LENGTH LAW
+
+K.72's conjunct in `nestedOrdNormAt`
+(`Kernel/Inductives/NestedInstall.lean`) makes four lookups and throws
+`.internal` on each miss —
+
+    stored[p.k + q]?  →  a.ctors[j]?  →  cvCa.type.stripPis (p.nP + nF)  →  cbs[p.nP + l]?
+
+— where the sibling `ordRootInst` miss two lines above is permissive
+(`| none => true`).  **The four are unreachable, and the reason is the
+syntax of the function that produced the arm's own guards.**  Reaching
+them requires `kinds[q]? = some ks`, `ks[j]? = some kf` and
+`kf[l]? = some (r, _)`, with `kinds = nestedPinKinds p b stored`:
+
+1. `nestedPinKinds p b stored` is `(stored.drop p.k).mapM …`, and
+   `mapM` over `Option` preserves LENGTH and POSITION, so
+   `kinds[q]? = some ks` forces `stored[p.k + q]? = some a` with `ks`
+   that very `a`'s image — the first lookup is the same element the
+   guard came from;
+2. `ks` is `a.ctors.mapM …`, so `ks[j]? = some kf` forces
+   `a.ctors[j]? = some (cvCa, _, nF)` by the same law — the second
+   lookup;
+3. `kf` is `mutualCtorKinds b.members3 b.lps b.nP (cvCa, nF)`'s value,
+   and that function's `stripPis` arm is its ONLY `some` path
+   (`| none => none`), so `cvCa.type.stripPis (b.nP + nF)` is `some
+   (cbs, _)`; and `b.nP = p.nP` because the route's block is
+   `auxBlock p st`, built `⟨formers, ctors, p.nP, …⟩` — the third
+   lookup;
+4. in that arm `kf.length = nF` (`(List.range nF).map …`, and the
+   `.negative` fallback `map`s it), so `l < nF`, and `stripPis`
+   returning `some` gives `cbs.length = p.nP + nF` — the fourth.
+
+**So the arm is made permissive by nothing and costs nothing as a hard
+`false`.**  The case split is over the syntax of `nestedPinKinds`,
+`mutualCtorKinds` and `List.mapM`, not over a corpus (the standing
+ruling), and the four are the addressing **K.32 already uses at
+exactly the same four lookups with exactly the same hard `false`s**
+(`nestedCopyTargetsAt`, same file): making K.72's permissive would put
+two rows on one walk at two different answers for one miss.  The one
+real difference is reach, and it is in K.72's favour — K.72's conjunct
+is UNCONDITIONAL while K.32's is behind `verifiedChecks`.
+
+The model side never has to argue any of it: `nestedOrdNormOk_tower`
+takes the four lookups as HYPOTHESES (`haS`, `hac`, `hsC`, `hdC`) and
+the consumer — `GroupFacts.ordTower`'s producer — supplies them from
+the copy's own stored constructor, which it holds.  A permissive arm
+would therefore not even shorten a proof.  **The arms stay as they
+are, and no kernel file is touched by this session.**
+
+##### (c) THE MEASUREMENT
+
+No kernel and no `Model/` logic changed — the whole diff is deletions
+in `Verify/*` and doc prose — so the accept set cannot move and no
+firing or `instructions:u` cell is owed.
+
+`lake build` 729 jobs EXIT 0.  `tests/warning-free.sh b51f807c` — 5
+changed modules, **0 warning lines** in both halves; `lake test` 0
+warnings.  `tests/unconsumed.sh` **201 of 3924** against **207 of 3931**
+at the merge: seven declarations deleted and six advisory entries with
+them (`replaceIfNested_lamHead` had a consumer and was not on the
+list).  No `sorry`, no new axiom, no `maxHeartbeats`.

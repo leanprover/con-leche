@@ -10354,9 +10354,10 @@ Three steps and no new law, which is what the ledger's (4d) row priced:
   for the own-pin table's round trip, `openPisAtFvars_index` for the
   opener list, and `Expr.instSeq_erasedEq_args` twice to put them
   together (`denoteMeta_erasedEq` then crosses);
-* the positivity walk is the IDENTITY on it — the head is the pin's
-  container, an `indInfo` of the pre-block environment, so
-  `normPosDomM_indApp_cons` applies at the walk's own environment;
+* the positivity walk lands on the pure head normal form — the head
+  reduces to the pin's container, an `indInfo` of the pre-block
+  environment, so `normPosDomM_ordHeadRed_cons` applies at the walk's
+  own environment;
 * and the rewrite threads the index arguments: `copyOrdFRightPinCorr`'s
   own `hqe` says the stored domain's arguments past the BLOCK's
   parameters are `w`'s past the CONTAINER's, which is where
@@ -11523,11 +11524,12 @@ cheaper than the ledger priced it:
   normalisation of the MINTED domain returns the block's STORED one —
   `replaceAllNested` never enters the picture, so there is no fire to
   invert and no `copyOrdFRightPinCorr` twin to write;
-* the WALK is the identity for the same reason it is at a pin, one
-  lookup over: the head is one of the block's own FORMERS, and a
-  former is an `indInfo` at the block's environment by construction
-  (`normPosDomM_indApp_former`, beside `normPosDomM_indApp_cons`).
-  So the minted domain and the stored one are ONE term;
+* the WALK lands on the head normal form for the same reason it does
+  at a pin, one lookup over: the head is one of the block's own
+  FORMERS, and a former is an `indInfo` at the block's environment by
+  construction (`normPosDomM_ordHeadRed_former`, beside
+  `normPosDomM_ordHeadRed_cons`).  So the minted domain and the stored
+  one are ONE `ordHeadRed` apart;
 * the SPLIT is then the constructor's own datum and not a spine
   inversion: `MutualCtorDataI.recEntry` reads a recursive field's
   stored domain as the target member's leaf applied to the block's

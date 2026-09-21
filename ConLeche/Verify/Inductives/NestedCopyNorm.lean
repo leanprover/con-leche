@@ -2009,43 +2009,14 @@ theorem consMutualFormers_find?_indInfo_mem :
     · exact consMutualFormers_find?_indInfo (Env.find?_cons_self (.indInfo f.cvTa {}) env)
     · exact consMutualFormers_find?_indInfo_mem hf'
 
-/-- **THE POSITIVITY WALK IS THE IDENTITY AT THE BLOCK'S OWN
-ENVIRONMENT** (task #315 WIDE (3), K.69's owed `nestedOrdNorm_norm_of`
-at its CONSTANT-HEAD path): `normPosDomM_indApp` transported across the
-formers' conses, for a head the PRE-BLOCK environment records as an
-inductive — a J-pin container. -/
-theorem normPosDomM_indApp_cons {fms : List MutualFormerA} {env : Env}
-    {memberNames : List Name} {F fuel d : Nat}
-    {J : Name} {lvls : List Level} {args : List Expr} {cv : ConstantVal} {caps : IndCaps}
-    {e' : Expr}
-    (hJ : env.find? J = some (.indInfo cv caps))
-    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
-        memberNames d fuel (Expr.mkAppN (.const J lvls) args) = .ok e') :
-    e' = Expr.mkAppN (.const J lvls) args := by
-  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo (fms := fms) hJ
-  exact normPosDomM_indApp hfind h
-
-/-- **THE SAME AT A MINTED COPY'S AUXILIARY** (task #315 WIDE (3)): the
-head a FIRED copy field carries is one of the block's own formers, and
-a former is an `indInfo` at the block's environment by construction —
-no pre-block lookup at all. -/
-theorem normPosDomM_indApp_former {fms : List MutualFormerA} {env : Env}
-    {memberNames : List Name} {F fuel d : Nat}
-    {f : MutualFormerA} {lvls : List Level} {args : List Expr} {e' : Expr}
-    (hf : f ∈ fms)
-    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
-        memberNames d fuel (Expr.mkAppN (.const f.cvTa.name lvls) args) = .ok e') :
-    e' = Expr.mkAppN (.const f.cvTa.name lvls) args := by
-  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
-  exact normPosDomM_indApp hfind h
-
-/-- **THE REDEX MINT'S TWIN OF `normPosDomM_indApp_cons`** (task #315
-WIDE (f3), the fourth concession): where the mint's head is a `.const`
-already, `normPosDomM_indApp_cons` says the walk is the identity; where
-it is a λ-REDEX the walk REDUCES it, and what it lands on is the pure
-head normal form `ordHeadRed` — `normPosDomM_eq_ordHeadRed`
-(`Verify/Inductives/OrdHeadRed.lean`) transported across the formers'
-conses, for a head the PRE-BLOCK environment records as an inductive. -/
+/-- **THE POSITIVITY WALK LANDS ON THE PURE HEAD NORMAL FORM AT THE
+BLOCK'S OWN ENVIRONMENT** (task #315 WIDE (f3), the fourth
+concession): where the mint's head is a `.const` already the walk is
+the identity (`ordHeadRed_const`); where it is a λ-REDEX the walk
+REDUCES it, and what it lands on is `ordHeadRed` either way —
+`normPosDomM_eq_ordHeadRed` (`Verify/Inductives/OrdHeadRed.lean`)
+transported across the formers' conses, for a head the PRE-BLOCK
+environment records as an inductive (a J-pin container). -/
 theorem normPosDomM_ordHeadRed_cons {fms : List MutualFormerA} {env : Env}
     {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
     {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
@@ -2060,8 +2031,10 @@ theorem normPosDomM_ordHeadRed_cons {fms : List MutualFormerA} {env : Env}
   obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo (fms := fms) hJ
   exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
 
-/-- **THE SAME AT A MINTED COPY'S AUXILIARY** — `normPosDomM_indApp_former`'s
-twin at a reduced head. -/
+/-- **THE SAME AT A MINTED COPY'S AUXILIARY**: the head a FIRED copy
+field carries is one of the block's own formers, and a former is an
+`indInfo` at the block's environment by construction — no pre-block
+lookup at all. -/
 theorem normPosDomM_ordHeadRed_former {fms : List MutualFormerA} {env : Env}
     {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
     {f : MutualFormerA} {lvls : List Level} {K : Name} {us : List Level}
@@ -2076,124 +2049,45 @@ theorem normPosDomM_ordHeadRed_former {fms : List MutualFormerA} {env : Env}
   exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
 
 
-/-! ## The walk through a `Π`-TOWER (task #315 WIDE (3), step 1)
+/-! ## The walk through a `Π`-TOWER, AT A LEAF THAT ONLY REDUCES TO A
+HEAD (task #315 WIDE (3) step 1, re-stated at WIDE (f3) step 4)
 
-`normPosDomM_indApp_cons` is the finitary arm's whole use of the
-positivity walk: at a constant-headed inductive application the walk
-is the identity, so the stored domain and its normalisation are one
-term.  A REFLEXIVE field's domain is that application under its own
-`∀`-telescope, and the walk is NOT the identity there — it opens every
-binder and closes it again (`normPosDomM_forallE_inv`'s `Π` arm).
-What survives is the shape: the binder DOMAINS are handed back
-untouched, and the leaf is the identity case one telescope down.  So
-the two openings — the input's and the output's, at the same depth and
-the same count — end at the SAME leaf, which is what the reflexive
-arm reads.
+`normPosDomM_ordHeadRed_cons` is the finitary arm's whole use of the
+positivity walk: at a leaf whose head normal form is an application of
+an inductive the walk's own environment records, the walk lands on that
+normal form, so the stored domain and its normalisation are one
+`ordHeadRed` apart.  A REFLEXIVE field's domain is that leaf under its
+own `∀`-telescope, and the walk is NOT the identity there — it opens
+every binder and closes it again (`normPosDomM_forallE_inv`'s `Π`
+arm).  What survives is the shape: the binder DOMAINS are handed back
+untouched, and the leaf is the one-telescope-down case.  So the two
+openings — the input's and the output's, at the same depth — end at
+`ordHeadRed` of the input's leaf, which is what the reflexive arm
+reads.
 
 The `abstract1`/`instantiate1` round trip that closes each binder is
 exact here (not merely `ErasedEq`): `normPosDomM_pres` carries the
 output's leaves back into the input's, whose leaf at the binder's own
 index is the binder's domain (`Expr.LeafCond`), and that is
-`abstract1_instantiate1`'s side condition. -/
+`abstract1_instantiate1`'s side condition.
 
-/-- **THE POSITIVITY WALK'S OUTPUT OPENS TO THE SAME LEAF** (task #315
-WIDE (3), lane LE): at a `∀`-tower whose body is a constant-headed
-application of an inductive THE WALK'S OWN ENVIRONMENT records, the
-walk's output opens — same depth, same count, same OPENERS — at
-exactly that body.
-
-The guard is stated at the consed environment because both heads a
-copy's reflexive field can carry answer there and only one of them
-answers before: a pre-block CONTAINER through
-`consMutualFormers_find?_indInfo`, and one of the block's own FORMERS
-— a MEMBER target, where the pre-block environment says `none` —
-through `consMutualFormers_find?_indInfo_mem`. -/
-theorem normPosDomM_openPis_indApp {fms : List MutualFormerA} {env : Env}
-    (henv : EnvWF (consMutualFormers fms env)) {memberNames : List Name} {F : Nat}
-    {J : Name} {lvls : List Level} {args : List Expr}
-    {cv : ConstantVal} {caps : IndCaps}
-    (hJ : (consMutualFormers fms env).find? J = some (.indInfo cv caps)) :
-    ∀ (n : Nat) {d fuel : Nat} {e w : Expr} {fvsE : List Expr},
-      normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
-          memberNames d fuel e = .ok w →
-      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-      openPisAtFvars n e d = some (fvsE, Expr.mkAppN (.const J lvls) args) →
-      openPisAtFvars n w d = some (fvsE, Expr.mkAppN (.const J lvls) args) := by
-  intro n
-  induction n with
-  | zero =>
-    intro d fuel e w fvsE h hws hb hopE
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopE
-    obtain ⟨rfl, hee⟩ := hopE
-    rw [hee] at h
-    rw [normPosDomM_indApp hJ h]
-    rfl
-  | succ n ih =>
-    intro d fuel e w fvsE h hws hb hopE
-    match e, hopE, h, hws, hb with
-    | .forallE ty rest bm, hopE, h, hws, hb =>
-      simp only [openPisAtFvars] at hopE
-      cases hq : openPisAtFvars n (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
-      | none => rw [hq] at hopE; exact nomatch hopE
-      | some q =>
-        obtain ⟨afvs, bodyq⟩ := q
-        rw [hq] at hopE
-        simp only [Option.some.injEq, Prod.mk.injEq] at hopE
-        obtain ⟨rfl, rfl⟩ := hopE
-        simp only [Expr.WScoped] at hws
-        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-        have hwopen : Expr.WScoped (d + 1) (rest.instantiate1 (.fvar d ty) 0) :=
-          Expr.WScoped.instantiate1 hws.1 0 hws.2
-        have hbopen : (rest.instantiate1 (.fvar d ty) 0).looseBVarsBounded 0 = true :=
-          looseBVarsBounded_instantiate1 rest 0 hb.2
-        rcases normPosDomM_forallE_inv h with ⟨-, rfl⟩ | ⟨-, body', fuel', hbody', rfl⟩
-        · simp only [openPisAtFvars, hq]
-        · obtain ⟨-, hbbody, hlbody⟩ := normPosDomM_pres henv fuel' hbody' hwopen hbopen
-          have hleaf : Expr.LeafCond d ty (rest.instantiate1 (.fvar d ty) 0) := by
-            intro l hl hd
-            rcases Expr.fvarLeaves_instantiate1 rest 0 hl with h2 | h2
-            · exact absurd hd (by
-                have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
-                omega)
-            · rw [Expr.fvarLeaves] at h2
-              rcases List.mem_cons.mp h2 with rfl | h3
-              · rfl
-              · exact absurd hd (by
-                  have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
-                  omega)
-          have hcons : Expr.fvarConsistent d ty body' :=
-            Expr.fvarConsistent_of_leafCond body' (fun l hl => hleaf l (hlbody l hl))
-          have hround : (body'.abstract1 d 0).instantiate1 (.fvar d ty) 0 = body' :=
-            abstract1_instantiate1 body' 0 hcons hbbody
-          simp only [openPisAtFvars, hround, ih hbody' hwopen hbopen hq]
-
-/-! ## The walk through a `Π`-TOWER AT A REDEX LEAF (task #315 WIDE
-(f3) step 4, lane WHNF)
-
-`normPosDomM_openPis_indApp` is the reflexive arm's use of the walk
-where the tower's leaf is a constant-headed application ALREADY: the
-walk is the identity there, so the two openings end at one term.  A
-mint whose leaf is a λ-REDEX — `tests/e2e/nested_redex_owner.ndjson`'s
-shape, one telescope down — has no constant head until something
-reduces it, and the walk DOES reduce it.  What survives is the same
-statement at the head normal form: the output opens, at the same
-openers, at `ordHeadRed` of the input's leaf.
-
-**And the COUNT comes out with it.**  The finitary arm could read the
-two openings' counts off `openPisAtFvars_count_unique`, because both
-leaves were constant-headed before the walk was inverted.  Here the
-INPUT's leaf need not be: only its head normal form is.  So the count
-is folded into the statement — the caller hands the opening of the
+**And the COUNT comes out with the leaf.**  A constant-headed leaf
+would let the caller read the two openings' counts off an
+opening-uniqueness lemma at a constant head; a λ-REDEX leaf —
+`tests/e2e/nested_redex_owner.ndjson`'s shape, one telescope down — is
+not constant-headed, and only its head normal form is.  So the count
+is folded into the statement: the caller hands the opening of the
 OUTPUT it already holds (the copy's recorded telescope, whose leaf the
 rewrite made a block member) and gets back that its count is the
 input's tower depth, that its openers are the input's, and that its
 leaf is the reduction's. -/
 
 /-- **TWO OPENINGS AT LEAVES THAT ARE NOT BINDERS PEEL THE SAME NUMBER
-OF BINDERS** — `openPisAtFvars_count_unique` (`NestedCopyKinds.lean`)
-is this at the constant-headed special case, and the special case is
-not enough here: a REDEX leaf is not constant-headed, and what the
-head-normal-form guard gives is exactly that it is not a `∀`. -/
+OF BINDERS**: neither opening can be the other's proper prefix, because
+a leaf that is not a binder stops both.  The guard is "not a `∀`" and
+not "constant-headed", which is what a REDEX leaf can supply — its head
+normal form's constant head reaches it through
+`not_forallE_of_ordHeadRed_const`. -/
 theorem openPisAtFvars_count_unique_notPi : ∀ (n m : Nat) {e : Expr} {d : Nat}
     {fvs₁ fvs₂ : List Expr} {leaf₁ leaf₂ : Expr},
     openPisAtFvars n e d = some (fvs₁, leaf₁) →
@@ -2289,10 +2183,10 @@ walk's own environment records, the walk's output opens — at the same
 openers — at that reduction; and the opening the caller already has of
 the OUTPUT is that one.
 
-`normPosDomM_openPis_indApp` is this where the leaf is constant-headed
-already (`ordHeadRed` is then the identity, `ordHeadRed_const`).  Three
-places differ, and all three are the same concession the finitary rows
-made in `Verify/Inductives/OrdHeadRed.lean`:
+Where the leaf is constant-headed already `ordHeadRed` is the identity
+(`ordHeadRed_const`) and the statement is the plain "both openings end
+at the same leaf".  Three places carry the concession the finitary
+rows made in `Verify/Inductives/OrdHeadRed.lean`:
 
 * the LEAF step is `normPosDomM_eq_ordHeadRed` and not
   `normPosDomM_indApp`, so it asks for the input's boundedness and for
@@ -2301,9 +2195,10 @@ made in `Verify/Inductives/OrdHeadRed.lean`:
 * the identity arm (the walk handed the whole tower back) is closed by
   `openPisAtFvars_count_unique_notPi`, since the input's leaf is not
   constant-headed and only the guard's "not a `∀`" is available;
-* and the `Π` arm's own recursion needs no new fact: the round trip
-  that closes each binder is `normPosDomM_openPis_indApp`'s, character
-  for character. -/
+* and the `Π` arm's own recursion needs no new fact: each binder is
+  closed by the `abstract1`/`instantiate1` round trip
+  `abstract1_instantiate1` licenses, under `normPosDomM_pres`'s leaf
+  condition. -/
 theorem normPosDomM_openPis_ordHeadRed {fms : List MutualFormerA} {env : Env}
     (henv : EnvWF (consMutualFormers fms env)) {memberNames : List Name} {F : Nat}
     {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}

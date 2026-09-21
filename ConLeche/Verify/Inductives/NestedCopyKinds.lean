@@ -2368,9 +2368,10 @@ parameters out to; the RUN instantiates the whole tower at the field's
 own `l` and opens it afterwards.  The two spellings are one
 commutation apart, and the commutation is the only thing the reflexive
 arm needs that the finitary one did not: substitution passes through a
-`Π`-binder with its index bumped (`Expr.instSeq_forallE`), so it moves
-neither the tower's DEPTH nor its body — provided the body cannot
-BECOME a binder, which a constant head settles. -/
+`Π`-binder with its index bumped (`Expr.instSeq_forallE`), so the two
+differ by exactly the tower the substitution PLANTS into the stripped
+body, and `stripDomPis_instSeq_tower` MEASURES that tower rather than
+excluding it with a head guard. -/
 
 /-- `stripDomPis` and `domPiDepth` at a domain that is not a `Π`. -/
 theorem stripDomPis_notPi {E : Expr} (hnf : ∀ ty bo bm, E ≠ Expr.forallE ty bo bm) :
@@ -2387,11 +2388,13 @@ end at the same stripped term, and the mint's tower is the stored
 domain's plus whatever the substitution PLANTS into the stripped
 body — which is K.72's equation, read on the mint.
 
-**It needs no head hypothesis**, and that is its whole point: the
-guarded form below asks the stripped body to be constant-headed
-precisely so that the substitution cannot plant a `Π`, and here the
-planted tower is measured instead of excluded.  One induction over the
-`Π`-prefix, `Expr.instSeq_forallE` at each step. -/
+**It needs no head hypothesis**, and that is its whole point: a guard
+asking the stripped body to be constant-headed would exclude the
+planted `Π` instead of measuring it, and `tests/e2e/nested_comp_tower.ndjson`
+is a shape at which there IS one.  One induction over the `Π`-prefix,
+`Expr.instSeq_forallE` at each step.  `stripDomPis_instSeq2_notPi`
+(`Verify/Inductives/NestedCopyNorm.lean`) is the reading of it under a
+guard that is not a head. -/
 theorem stripDomPis_instSeq_tower :
     ∀ (E : Expr) (vs : List Expr) (t : Nat), vs.length ≤ t + 1 →
       domPiDepth (Expr.instSeq vs t E)
@@ -2418,25 +2421,6 @@ theorem stripDomPis_instSeq_tower :
   | _ =>
     intro vs t _
     exact ⟨(Nat.zero_add _).symm, rfl⟩
-
-theorem stripDomPis_instSeq :
-    ∀ (E : Expr) (vs : List Expr) (t : Nat) {K : Name} {us : List Level},
-      (stripDomPis E).getAppFn = Expr.const K us → vs.length ≤ t + 1 →
-      domPiDepth (Expr.instSeq vs t E) = domPiDepth E ∧
-        stripDomPis (Expr.instSeq vs t E)
-          = Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) := by
-  intro E vs t K us hK hlen
-  obtain ⟨hd, hs⟩ := stripDomPis_instSeq_tower E vs t hlen
-  have hfn := instSeq_getAppFn_const vs (t + domPiDepth E) (stripDomPis E) hK
-  have hnf : ∀ ty bo bm,
-      Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) ≠ Expr.forallE ty bo bm := by
-    intro ty bo bm h
-    rw [h] at hfn
-    simp only [Expr.getAppFn] at hfn
-    exact nomatch hfn
-  obtain ⟨hs2, hd2⟩ := stripDomPis_notPi hnf
-  exact ⟨by rw [hd, hd2, Nat.add_zero], by rw [hs, hs2]⟩
-
 
 /-- `stripPis` at a domain's OWN tower depth always succeeds, and its
 body is `stripDomPis`. -/
@@ -2468,57 +2452,6 @@ theorem openPis_domPiDepth (e : Expr) (d : Nat) :
   have h := hlaw (stripDomPis e)
   rw [← stripPis_mkPisB _ hstrip] at h
   exact h
-
-/-- **TWO OPENINGS AT CONSTANT-HEADED LEAVES PEEL THE SAME NUMBER OF
-BINDERS**: a constant-headed leaf is not a binder, so neither opening
-can be the other's proper prefix.  This is how the recomputation's
-`domPiDepth` meets the copy's RECORDED telescope length — both are an
-opening of the normalisation, and both end at the container's
-application. -/
-theorem openPisAtFvars_count_unique : ∀ (n m : Nat) {e : Expr} {d : Nat}
-    {fvs₁ fvs₂ : List Expr} {leaf₁ leaf₂ : Expr} {K K' : Name} {us us' : List Level},
-    openPisAtFvars n e d = some (fvs₁, leaf₁) → leaf₁.getAppFn = Expr.const K us →
-    openPisAtFvars m e d = some (fvs₂, leaf₂) → leaf₂.getAppFn = Expr.const K' us' →
-    n = m := by
-  intro n
-  induction n with
-  | zero =>
-    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ K K' us us' h1 hK1 h2 hK2
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h1
-    obtain ⟨-, rfl⟩ := h1
-    cases m with
-    | zero => rfl
-    | succ m =>
-      match e, h2, hK1 with
-      | .forallE ty rest bm, _, hK1 =>
-        simp only [Expr.getAppFn] at hK1
-        exact nomatch hK1
-  | succ n ih =>
-    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ K K' us us' h1 hK1 h2 hK2
-    match e, h1 with
-    | .forallE ty rest bm, h1 =>
-      cases m with
-      | zero =>
-        simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h2
-        obtain ⟨-, rfl⟩ := h2
-        simp only [Expr.getAppFn] at hK2
-        exact nomatch hK2
-      | succ m =>
-        simp only [openPisAtFvars] at h1 h2
-        cases hq : openPisAtFvars n (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
-        | none => rw [hq] at h1; exact nomatch h1
-        | some q1 =>
-          cases hq2 : openPisAtFvars m (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
-          | none => rw [hq2] at h2; exact nomatch h2
-          | some q2 =>
-            obtain ⟨a1, b1⟩ := q1
-            obtain ⟨a2, b2⟩ := q2
-            rw [hq] at h1
-            rw [hq2] at h2
-            simp only [Option.some.injEq, Prod.mk.injEq] at h1 h2
-            obtain ⟨-, rfl⟩ := h1
-            obtain ⟨-, rfl⟩ := h2
-            exact congrArg (· + 1) (ih m hq hK1 hq2 hK2)
 
 /-! ## `NoProjAt` through the owner's recomputation
 
