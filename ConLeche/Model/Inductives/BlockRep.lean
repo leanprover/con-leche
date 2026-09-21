@@ -310,6 +310,23 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V),
       SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs →
       (as ++ fs).foldl app (interp V ρ (m.acval cA.1.name ψ)) = d.inj ψ c j fs
+  /-- **the recursive slots' index fit**: at a tuple of the space and
+  an index tuple of the component, a field prefix fitting the
+  constructor's own entries carries the recursive slot's `SlotFit` —
+  in particular the field's index readings land in the TARGET member's
+  index telescope, which is `BlockModelAt.leaf`'s second hypothesis at
+  that field.  The prefix is qualified by the fit the walk actually
+  has (`FitsFrom` at the block's own slots), never by its length
+  alone. -/
+  idxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
+    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
+    ∀ as : List V,
+      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
+        (((d.Fss c ψ).getD j []).take i) as →
+      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
+        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
   /-- at a `Prop`-valued block every injection is the point -/
   mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
   /-- at a `Type`-valued block a component's injections are injective

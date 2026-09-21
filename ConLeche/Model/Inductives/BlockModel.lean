@@ -151,15 +151,14 @@ fitting spine back into the constructor's `ChainFit` at the carrier
 theorem fitsFrom_of_spineFit {rs : List Bool} {slot : Nat → (Nat → V) → V} :
     ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
       (∀ l, l < Fs.length → ∀ bs : List V,
-        SpineFit ρ (Fs.take l) bs → rs.getD (i + l) false = true →
+        FitsFrom rs slot i ρ (Fs.take l) bs → rs.getD (i + l) false = true →
         slot (i + l) (consList bs ρ) = interp V (consList bs ρ) (Fs.getD l default)) →
       SpineFit ρ Fs as → FitsFrom rs slot i ρ Fs as
   | _, _, [], [], _, _ => trivial
   | _, _, [], _ :: _, _, h => h.elim
   | _, _, _ :: _, [], _, h => h.elim
   | i, ρ, F :: Fs, a :: as, hag, h => by
-    refine ⟨?_, fitsFrom_of_spineFit (fun l hl bs hb hr => ?_) h.2⟩
-    · show a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F)
+    have hhd : a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) := by
       by_cases hr : rs.getD i false = true
       · rw [if_pos hr]
         have h0 := hag 0 (by simp) [] trivial (by rw [Nat.add_zero]; exact hr)
@@ -170,11 +169,12 @@ theorem fitsFrom_of_spineFit {rs : List Bool} {slot : Nat → (Nat → V) → V}
       · have hr' : rs.getD i false = false := by simpa using hr
         rw [hr']
         exact h.1
-    · have hb' : SpineFit ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨h.1, hb⟩
-      have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
-        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
-      rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
-      exact hag'
+    refine ⟨hhd, fitsFrom_of_spineFit (fun l hl bs hb hr => ?_) h.2⟩
+    have hb' : FitsFrom rs slot i ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨hhd, hb⟩
+    have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
+      (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
+    rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
+    exact hag'
 
 /-! ## The operator's fibre, both regimes in one equivalence -/
 
@@ -254,6 +254,86 @@ theorem blockStepV_mem_iff {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
       rw [hfib]
       exact mkTower_mem_teleOfFields hw hspE
 
+
+/-- **The X-chain entry's VALUE** — `fitsFrom_iff_spineFit_chainXBIGo`'s
+own head computation, as a lemma: at a prefix where the recursive slot
+fits, the entry reads to the slot's set at a recursive position and to
+the domain's reading at an ordinary one. -/
+theorem xEntryB_value {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
+    {Idss : Nat → List AnnotTerm} (hIall : BlockIdxOk (V := V) k uf ρp Idss)
+    {Y t : V} {rs : List Bool} {tgts : List Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {F : AnnotTerm} {as : List V}
+    (hfit : rs.getD as.length false = true → tgts.getD as.length 0 < k ∧
+      SlotFit (uf (tgts.getD as.length 0)) w ρp (Idss (tgts.getD as.length 0))
+        (tls.getD as.length []) (Eis.getD as.length []) as) :
+    interp V (consList as (cons t (cons Y ρp))) (xEntryB uf Idss rs tgts tls Eis F as.length)
+      = (if rs.getD as.length false then
+           slotSet w (uf (tgts.getD as.length 0)) (consList as ρp) (tls.getD as.length [])
+             (Eis.getD as.length []) (projS (tgts.getD as.length 0) Y)
+         else interp V (consList as ρp) F) := by
+  by_cases hr : rs.getD as.length false = true
+  · obtain ⟨hct, hsf⟩ := hfit hr
+    rw [xEntryB_rec (Y := Y) F as t (hIall _ hct) hr hsf, if_pos hr]
+  · have hr' : rs.getD as.length false = false := by simpa using hr
+    rw [xEntryB_ord F as t hr', if_neg (by rw [hr']; exact Bool.false_ne_true)]
+
+/-- **The operator's slot premise, along a REAL field prefix**: from
+`SlotsFitXB` at the empty prefix, a spine that fits the constructor's
+own entries at a tuple carries the recursive slot's `SlotFit` at every
+recursive position.  The walk is `fitsFrom_iff_spineFit_chainXBIGo`'s,
+advanced by the `FitsFrom` head rather than by the X-chain's. -/
+theorem slotFit_of_slotsFitXB {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
+    {Idss : Nat → List AnnotTerm} (hIall : BlockIdxOk (V := V) k uf ρp Idss)
+    {Y t : V} {rs : List Bool} {tgts : List Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} :
+    ∀ (l : Nat) (Fs : List AnnotTerm) (i : Nat) (as bs : List V), as.length = i →
+      SlotsFitXB k w ρp uf Idss rs tgts tls Eis Y t i as Fs →
+      FitsFrom rs (fun m σ => slotSet w (uf (tgts.getD m 0)) σ (tls.getD m []) (Eis.getD m [])
+          (projS (tgts.getD m 0) Y)) i (consList as ρp) (Fs.take l) bs →
+      rs.getD (i + l) false = true → l < Fs.length →
+      tgts.getD (i + l) 0 < k ∧
+      SlotFit (uf (tgts.getD (i + l) 0)) w ρp (Idss (tgts.getD (i + l) 0))
+        (tls.getD (i + l) []) (Eis.getD (i + l) []) (as ++ bs) := by
+  intro l
+  induction l with
+  | zero =>
+    intro Fs i as bs hi hfit hb hr hl
+    cases Fs with
+    | nil => exact absurd hl (Nat.not_lt_zero _)
+    | cons F Fs =>
+      cases bs with
+      | nil =>
+        subst hi
+        rw [List.append_nil, Nat.add_zero] at *
+        exact hfit.1 hr
+      | cons b bs => exact hb.elim
+  | succ l ih =>
+    intro Fs i as bs hi hfit hb hr hl
+    cases Fs with
+    | nil => exact absurd hl (Nat.not_lt_zero _)
+    | cons F Fs =>
+      cases bs with
+      | nil => exact hb.elim
+      | cons b bs =>
+        subst hi
+        have hhead : b ∈ˢ interp V (consList as (cons t (cons Y ρp)))
+            (xEntryB uf Idss rs tgts tls Eis F as.length) := by
+          rw [xEntryB_value hIall hfit.1]
+          exact hb.1
+        have hnext := hfit.2 b hhead
+        have hbs : FitsFrom rs (fun m σ => slotSet w (uf (tgts.getD m 0)) σ (tls.getD m [])
+            (Eis.getD m []) (projS (tgts.getD m 0) Y)) (as.length + 1)
+            (consList (as ++ [b]) ρp) (Fs.take l) bs := by
+          rw [← consList_snoc']
+          exact hb.2
+        have hq := ih Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as) hnext hbs
+          (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
+          (by simpa using hl)
+        rw [show as.length + 1 + l = as.length + (l + 1) from by omega,
+          List.append_assoc] at hq
+        exact hq
+
 /-! ## The representation -/
 
 /-- **The block's representation, from the stages' outputs.**  Every
@@ -332,7 +412,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       omega
     exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
-  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- idxOk
     intro ψ ρp hρ c hc
     exact (hok ψ ρp hρ).hI c hc
@@ -420,6 +500,35 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         hw (hspPC ψ c j hc hjl ρ as hsa) h2 (hFssOk ψ (consList as ρ) hsat c hc) h3
       rw [List.take_append_drop] at h4
       exact h4
+  · -- idxFit
+    intro ψ ρp hρ X hX c hc t ht j hj i hi hr as hb
+    have h := hok ψ ρp hρ
+    have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
+      (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
+    have hSF := h.hfit _ hY c hc t ht j (by rw [hlenC]; exact hj)
+    have hb' : FitsFrom ((d.rss c).getD j [])
+        (fun m σ => slotSet (d.w ψ) (d.uM (((d.tgtss c).getD j []).getD m 0) ψ) σ
+          (((d.tlss c ψ).getD j []).getD m []) (((d.Eiss c ψ).getD j []).getD m [])
+          (projS (((d.tgtss c).getD j []).getD m 0)
+            (ndMkTowerSet X 0 d.N))) 0 (consList [] ρp)
+        (((d.Fss c ψ).getD j []).take i) as := by
+      rw [consList_nil]
+      refine FitsFrom.congr_slot (fun l hl σ => ?_) hb
+      rw [Nat.zero_add]
+      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj (by
+        have hli : l < i := by
+          have h' := hl
+          rw [List.length_take] at h'
+          omega
+        omega)
+      show _ = slotSet _ _ _ _ _ _
+      rw [htg, projS_ndMkTowerSet_zero hlt]
+      rfl
+    have hq := slotFit_of_slotsFitXB h.hI i ((d.Fss c ψ).getD j []) 0 [] as rfl hSF hb' ?_ hi
+    · obtain ⟨htg, hlt⟩ := htgts ψ c j i hj hi
+      rw [Nat.zero_add, List.nil_append, htg] at hq
+      exact hq.2
+    · rw [Nat.zero_add]; exact hr
   · -- mkZero
     intro ψ hw c j fs
     rw [hinj, if_pos hw]

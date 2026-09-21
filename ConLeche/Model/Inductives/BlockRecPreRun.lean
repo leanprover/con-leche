@@ -2316,7 +2316,8 @@ theorem blockRecCtorFitsFrom {envC : Env} {mpC : EnvModelM V μ envC} {d : Block
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
     (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ bs : List V,
-      SpineFit (consList (xs.take d.nP) ρ) (((d.Fss (mem c) ψ).getD j []).take l) bs →
+      FitsFrom ((d.rss (mem c)).getD j []) (d.slotAt ψ X (mem c) j) 0
+        (consList (xs.take d.nP) ρ) (((d.Fss (mem c) ψ).getD j []).take l) bs →
       ((d.rss (mem c)).getD j []).getD l false = true →
       d.slotAt ψ X (mem c) j l (consList bs (consList (xs.take d.nP) ρ))
         = interp V (consList bs (consList (xs.take d.nP) ρ))
@@ -2378,12 +2379,8 @@ theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
     {ψ : Name → Nat} {ρ : Nat → V} {as bs : List V} {l : Nat}
     (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
     (hl : l < cA.2) (hbs : bs.length = l) (htgt : d.tgts c j l < d.k)
-    (hEis : ∀ ts : List V,
-      SpineFit (consList bs (consList as ρ))
-          ((((d.tlss c ψ).getD j []).getD l []).map (·.2.2)) ts →
-      SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
-        ((((d.Eiss c ψ).getD j []).getD l []).map
-          (interp V (consList ts (consList bs (consList as ρ))))))
+    (hSF : SlotFit (d.uM (d.tgts c j l) ψ) (d.w ψ) (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
+      (((d.tlss c ψ).getD j []).getD l []) (((d.Eiss c ψ).getD j []).getD l []) bs)
     (hrec : ((d.rss c).getD j []).getD l false = true) :
     d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
         (consList bs (consList as ρ))
@@ -2427,8 +2424,8 @@ theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
             (paramBvarsAt d.nP (d.nP + l) ++ ((d.Eiss c ψ).getD j []).getD l []) := by
       rw [hEiD]
       exact hD.recEntry ψ l hk hl
-    have hfit0 := hEis [] (by rw [hnone]; trivial)
-    simp only [consList_nil] at hfit0
+    have hfit0 := (hSF.2.2 [] (by rw [hnone]; trivial)).2
+    simp only [List.append_nil] at hfit0
     rw [hentry, hnone, slotSet_nil, interp_mkAppN, foldl_app_map, List.map_append, hfrm,
       map_bvarAt_take (hD := hlenAB.symm) (by omega), htakeAB]
     exact (hleaf _ (by rw [hfrm] at hfit0; exact hfit0) _).symm
@@ -2456,7 +2453,8 @@ theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
       rw [List.length_append, hlenAB, htsLen]
     have htakeABT : (as ++ bs ++ ts).take d.nP = as := by
       rw [List.take_append_of_le_length (by rw [hlenAB]; omega), htakeAB]
-    have hfit := hEis ts hsp
+    have hfit := (hSF.2.2 ts hsp).2
+    rw [consList_append] at hfit
     rw [List.nil_append, interp_mkAppN, foldl_app_map, List.map_append, hfrm2,
       map_bvarAt_take (hD := hlenABT.symm) (by rw [hlenABT]; omega), htakeABT]
     exact hleaf _ (by rw [hfrm2] at hfit; exact hfit) _
@@ -2473,13 +2471,14 @@ theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
     {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
     (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
     (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k)
-    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
-      SpineFit (consList bs (consList as ρ))
-          ((((d.tlss c ψ).getD j []).getD l []).map (·.2.2)) ts →
-      SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
-        ((((d.Eiss c ψ).getD j []).getD l []).map
-          (interp V (consList ts (consList bs (consList as ρ)))))) :
-    ∀ l, l < ((d.Fss c ψ).getD j []).length → ∀ bs : List V, bs.length = l →
+    (hc : c < d.N) (hj : j < (d.ctorsM c).length) {_t : V}
+    (ht : _t ∈ˢ d.idx ψ (consList as ρ) c)
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList as ρ))
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)))) :
+    ∀ l, l < ((d.Fss c ψ).getD j []).length → ∀ bs : List V,
+      FitsFrom ((d.rss c).getD j [])
+        (d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j)
+        0 (consList as ρ) (((d.Fss c ψ).getD j []).take l) bs →
       ((d.rss c).getD j []).getD l false = true →
       d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
           (consList bs (consList as ρ))
@@ -2490,9 +2489,14 @@ theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
       fssOfR_fixCtorDataList_getD hcj
     rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
     omega
-  intro l hl bs hbs hrec
+  intro l hl bs hb hrec
+  have hbs : bs.length = l := by
+    have := hb.length_eq
+    rw [List.length_take] at this
+    omega
+  have hSF := hM.idxFit ψ (consList as ρ) (d.satOfSpine hps) _ hX c hc _t ht j hj l hl hrec bs hb
   rw [hnF] at hl
-  exact blockSlot_eq_entry hM hcj hcf hasLen hps hl hbs (htgt l hl) (hEis l hl bs hbs) hrec
+  exact blockSlot_eq_entry hM hcj hcf hasLen hps hl hbs (htgt l hl) hSF hrec
 
 /-- **`hspF` at the run, with `hslot` discharged** — §24's assembly
 over §25's identity. -/
@@ -2513,12 +2517,11 @@ theorem blockRecSpF_of {envC : Env} {mpC : EnvModelM V μ envC} {names : List Na
     (hasLen : (xs.take d.nP).length = d.nP)
     (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
     (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
-    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
-      SpineFit (consList bs (consList (xs.take d.nP) ρ))
-          ((((d.tlss (mem c) ψ).getD j []).getD l []).map (·.2.2)) ts →
-      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (d.tgts (mem c) j l) ψ)
-        ((((d.Eiss (mem c) ψ).getD j []).getD l []).map
-          (interp V (consList ts (consList bs (consList (xs.take d.nP) ρ))))))
+    (hcN : mem c < d.N) (hj : j < (d.ctorsM (mem c)).length)
+    (ht : t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c))
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+        (d.Φ ψ (consList (xs.take d.nP) ρ))))
     (hxs : xs.length = p.toBlockShape.rulePrefixAt c)
     (hpref : SpineFit (chainFrame K a ρ)
       (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
@@ -2529,8 +2532,8 @@ theorem blockRecSpF_of {envC : Env} {mpC : EnvModelM V μ envC} {names : List Na
       (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
         ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs) :=
   blockRecSpF hμ h hr hfd
-    (fun l hl bs hb hrb => blockSlot_agree hM hcj hcf hasLen hps htgt hEis l hl bs
-      (by have := hb.length_eq; rw [List.length_take] at this; omega) hrb)
+    (fun l hl bs hb hrb =>
+      blockSlot_agree hM hcj hcf hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
     hxs hpref hfit
 
 /-- **`hctorAt`'s fit half at the run, with `hslot` discharged.** -/
@@ -2551,12 +2554,11 @@ theorem blockRecCtorFitsFrom_of {envC : Env} {mpC : EnvModelM V μ envC} {names 
     (hasLen : (xs.take d.nP).length = d.nP)
     (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
     (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
-    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
-      SpineFit (consList bs (consList (xs.take d.nP) ρ))
-          ((((d.tlss (mem c) ψ).getD j []).getD l []).map (·.2.2)) ts →
-      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (d.tgts (mem c) j l) ψ)
-        ((((d.Eiss (mem c) ψ).getD j []).getD l []).map
-          (interp V (consList ts (consList bs (consList (xs.take d.nP) ρ))))))
+    (hcN : mem c < d.N) (hj : j < (d.ctorsM (mem c)).length) {t : V}
+    (ht : t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c))
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+        (d.Φ ψ (consList (xs.take d.nP) ρ))))
     (hxs : xs.length
       = (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length)
     (hsp : SpineFit (chainFrame K a ρ)
@@ -2567,8 +2569,8 @@ theorem blockRecCtorFitsFrom_of {envC : Env} {mpC : EnvModelM V μ envC} {names 
           (d.Φ ψ (consList (xs.take d.nP) ρ))) (mem c) j) 0
       (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs :=
   blockRecCtorFitsFrom hμ h hr hfd
-    (fun l hl bs hb hrb => blockSlot_agree hM hcj hcf hasLen hps htgt hEis l hl bs
-      (by have := hb.length_eq; rw [List.length_take] at this; omega) hrb)
+    (fun l hl bs hb hrb =>
+      blockSlot_agree hM hcj hcf hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
     hxs hsp
 
 end SlotEntry
