@@ -143,9 +143,7 @@ theorem nestedPinsEntryOrd_at (hμ : μ.verifiedChecks = true)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {S : Nat → Prop} {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    {Pf : Nat → V}
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -159,8 +157,9 @@ theorem nestedPinsEntryOrd_at (hμ : μ.verifiedChecks = true)
       (((dJf q₀).rss i).getD j []).getD l false = false →
       ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) < p.k →
-      S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) - p.k)) :
+      Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0) - p.k))) :
     CopyEntryOrd (dJf q₀) (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
       (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0)
@@ -178,7 +177,7 @@ theorem nestedPinsEntryOrd_at (hμ : μ.verifiedChecks = true)
   unfold CopyEntryOrd CopyEntryAt
   rw [hψeq, hDseq]
   intro l hl hord hrs hgout fs₁ hl₁ hsp
-  exact nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp G hIH hPfGroup hi hjA hout
+  exact nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp G hPfGroup hi hjA hout
     l hl hrs hord hgout fs₁ hl₁ hsp
 
 /-- **STEP (iv)'s `ordF`-RIGHT ARM IN THE RESIDUAL'S OWN SHAPE**
@@ -202,9 +201,7 @@ theorem nestedPinsEntryOrd_of (hμ : μ.verifiedChecks = true)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {S : Nat → Prop} {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    {Pf : Nat → V}
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -218,8 +215,9 @@ theorem nestedPinsEntryOrd_of (hμ : μ.verifiedChecks = true)
       (((dJf q₀).rss i').getD j []).getD l false = false →
       ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k →
-      S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k)) :
+      Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k))) :
     ∀ i', i' < (dJf q₀).k → ∀ j, j < ((dJf q₀).ctorsM i').length →
       CopyEntryAOrd (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
         (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
@@ -238,7 +236,7 @@ theorem nestedPinsEntryOrd_of (hμ : μ.verifiedChecks = true)
     rw [G.syn.sameDs i hi ψ, ← G.syn.sameDs i' hi' ψ]
   unfold CopyEntryAOrd
   rw [hψ, hDs, hkE]
-  exact nestedPinsEntryOrd_at hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup G hi' hj
+  exact nestedPinsEntryOrd_at hμ h hbk m hleafM dJf hgroups hρp hPfGroup G hi' hj
     (hout i' j hi' hj)
 
 /-! ## `hout`'s two halves at a ROOT group -/

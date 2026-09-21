@@ -3160,14 +3160,14 @@ hypothesis:
 * at a MEMBER target the carrier's member segment IS the block's own
   least tuple (`ofNested_lfp`, Bekić), so `memberTarget_reads` applies
   unconditionally;
-* at a PIN target `P q' = L⁺ (p.k + q')` is needed, and that is the
-  RANK INDUCTION's hypothesis, which holds only at a target OUTSIDE
-  the source's instance.  The predicate `S` is where that scope
-  enters.
+* at a PIN target `Pf q' = L⁺ (p.k + q')` is needed, and **that
+  EQUALITY is what this theorem asks for**, at the target and nowhere
+  else.
 
-**Do not read `S` as "the target leaves the instance"** (this
-docstring did, until 2026-09-18, and so did three DESIGN sections):
-`nestedPinRankOk`'s not-own branch is
+**The premise used to be an abstract scope `S`, and that was the wrong
+premise** (task #315 WIDE, the merge session).  `S` was the rank
+induction's, and the induction reaches only targets OUTSIDE the
+source's instance: `nestedPinRankOk`'s not-own branch is
 
     inst.getD e.1 0 == inst.getD e.2.1 0 ||
       decide (rank.getD e.2.1 0 < rank.getD e.1 0)
@@ -3176,8 +3176,11 @@ docstring did, until 2026-09-18, and so did three DESIGN sections):
 of one: `nestedRankPass` never relaxes along an edge whose endpoints
 share a label, so a strict decrease there is something the computation
 deliberately never establishes.  Fourteen such edges occur across
-eight ACCEPTED blocks.  At an in-instance target `S` is supplied by
-neither this lane nor the induction (DESIGN §U.92 (b)). -/
+eight ACCEPTED blocks, so `S` is FALSE at an in-instance target.  The
+equality is not: out of the instance it is `hIH` after
+`ConLeche.nestedPinOutLabel`, and INSIDE the instance it is the wide
+identification itself (`nestedPinLfp_of_pool`), which is what "`σ`
+covers the root's own pins" was always supposed to mean. -/
 theorem nestedTargetReads_L (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -3189,17 +3192,14 @@ theorem nestedTargetReads_L (hμ : μ.verifiedChecks = true)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
         ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i) :
-    ∀ t, t < p.k + pinsS.length → (¬ t < p.k → S (t - p.k)) → ∀ is : List V,
+    ∀ t, t < p.k + pinsS.length → (¬ t < p.k → Pf (t - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + (t - p.k))) → ∀ is : List V,
       SpineFit ((TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ).frame ρp t) ((TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ).Ids t) is →
       SetTheory.app ((lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) t) (tupW ((TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ).u t) is)
         = is.foldl SetTheory.app (interp V ρp ((TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ).EA t)) := by
@@ -3220,7 +3220,7 @@ theorem nestedTargetReads_L (hμ : μ.verifiedChecks = true)
       rw [hIds] at his
       exact his
     obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := hgroups (t - p.k) (by omega)
-    rw [ht', ← hIH (t - p.k) (by omega) (hS hk), ← ht']
+    rw [ht', ← hS hk, ← ht']
     rw [ht'] at his' ⊢
     rw [show p.k + (t - p.k) - p.k = t - p.k from by omega] at his'
     rw [hqe] at his' ⊢
@@ -4741,10 +4741,8 @@ theorem nestedPinEntryOutEq (hμ : μ.verifiedChecks = true)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {r kR : Nat} (GR : GF st m r kR (dJf r)) {S : Nat → Prop}
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -4754,7 +4752,7 @@ theorem nestedPinEntryOutEq (hμ : μ.verifiedChecks = true)
     {c j : Nat} (hc : c < kR) {cA : ConstantVal × Nat} (hj : ((dJf r).ctorsM c)[j]? = some cA)
     (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
-      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k)) :
+      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k))) :
     ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
       (((dJf r).rss c).getD j []).getD l false = false →
@@ -4776,7 +4774,7 @@ theorem nestedPinEntryOutEq (hμ : μ.verifiedChecks = true)
   have hlF : l < (((dJf r).Fss c (((D).pinAt r).ψJ ψ)).getD j []).length := by rw [← hsh.len]; exact hl
   rcases hsh.ordF l hlF hr' with ⟨hrC, -⟩ | ⟨-, -, hklt, hread⟩
   · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
-  · have hZ := nestedTargetReads_L hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) hklt
+  · have hZ := nestedTargetReads_L hμ h hbk m hleafM dJf hgroups hρp hPfGroup (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) hklt
       (fun hnk => hout l hl hrs hr' hnk)
     have heq := copyEntryAt_of_read hread hZ
     intro fs₁ hl₁ hsp
@@ -4798,10 +4796,8 @@ theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
-    {r kR : Nat} (GR : GF st m r kR (dJf r)) {S : Nat → Prop}
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -4811,7 +4807,7 @@ theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
     {c j : Nat} (hc : c < kR) {cA : ConstantVal × Nat} (hj : ((dJf r).ctorsM c)[j]? = some cA)
     (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
-      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k)) :
+      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k))) :
     ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
       (((dJf r).rss c).getD j []).getD l false = false →
@@ -4824,7 +4820,7 @@ theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
             (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + r + c) + j) []).getD l []) ((lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0)) := by
   intro l hl hrs hr' hg fs₁ hl₁ hsp
   exact fun x hx =>
-    nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp GR hIH hPfGroup hc hj hout
+    nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp GR hPfGroup hc hj hout
       l hl hrs hr' hg fs₁ hl₁ hsp ▸ hx
 
 /-- **THE WALK at a MEMBER class of the root** (task #315 L-E, DESIGN
@@ -7033,10 +7029,13 @@ conjunct, spent here), the index membership (`nestedIdx_of_group`) and
 the injections' identity (the two sides' level assignments being
 literally equal, `ψJEq`).
 
-The remaining premises are the two the induction owns: `hIH` (the rank
-induction's hypothesis at the pins it has already closed) and `hout`
-(`nestedPinRankOk`'s clause (2): an `ordF`-right target leaves the
-instance). -/
+The one premise left is `hout` — **and since task #315 WIDE's merge it
+is no longer the rank induction's SCOPE but the identity it produces**:
+at an `ordF`-right field whose target is a pin, that pin's
+`Pf` IS `L⁺` at the block position.  Out of the instance that is `hIH`
+after `nestedPinOutLabel`; inside it, it is the wide identification
+itself (`nestedPinLfp_of_pool`), which is why no abstract `S` occurs
+here any more. -/
 theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -7052,10 +7051,7 @@ theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
     {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
     {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
     {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -7065,7 +7061,7 @@ theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
     {c j : Nat} (hc : c < kR) (hjl : j < ((dJf r).ctorsM c).length)
     (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
-      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k))
+      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k)))
     (t : V) (fs : List V)
     (hfit : (dJf r).ChainFitT pcR (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (relMeet ((dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))) (fun c' bb => ∃ q', bb = p.k + q' ∧ ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c' q') (p.k + pinsS.length) (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp))) t c j fs)
     (ht : t ∈ˢ (dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) c) :
@@ -7105,7 +7101,7 @@ theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
     exact app_relMeet_le_rel (by omega) ⟨q', rfl, hcp⟩ t'
   refine ⟨hjl, ?_, ?_, nestedPinPair_mem m hρp GR hc hj
     ((dJf r).slotDomT_relMeet GR.syn.reps (GR.syn.typed _) (GR.syn.pinsTyped _) hck hj hρR hkpos)
-    hrel (nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp GR hIH hPfGroup hc hj hout) t fs hfit⟩
+    hrel (nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp GR hPfGroup hc hj hout) t fs hfit⟩
   · rw [nestedIdx_of_group GR hc, hψeq, hDseq]
     rw [(dJf r).idxT_of_mem hck (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)] at ht
     exact ht
@@ -7126,8 +7122,9 @@ data: the index membership (`nestedIdx_eq_pinIdx` at the pair's own
 index clause) and the injections' identity (`PinRecLaws.injW` on the
 root's side, `NestedPinGroupSyn.inj` on the block's, at one sort).
 
-What is left are the two premises the rank induction owns, `hIH` and
-`hout`, exactly as at a member class. -/
+What is left is `hout` in its post-merge form — the target's identity
+`Pf t = L⁺ (k + t)` and not an abstract scope — exactly as at a member
+class. -/
 theorem nestedPinPairAt_pin (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -7171,10 +7168,7 @@ theorem nestedPinPairAt_pin (hμ : μ.verifiedChecks = true)
     (hψ : ∀ pp ∈ cvK.levelParams, ((dR.pinAt q₀').ψJ ψR) pp = (((D).pinAt (q₀ + iq)).ψJ ψ) pp)
     (hfr : ∀ v, v < (dJf q₀).nP → dR.pinFrame q₀' ψR ρR v = (D).pinFrame (q₀ + iq) ψ ρp v)
     (hidxP : dR.idxT ψR ρR (dR.k + (q₀' + iq)) = (D).pinIdx (q₀ + iq) ψ ρp)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -7183,7 +7177,7 @@ theorem nestedPinPairAt_pin (hμ : μ.verifiedChecks = true)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
     (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
-      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)))
     (hjl : j < ((dJf q₀).ctorsM iq).length)
     (t : V) (fs : List V) (ht : t ∈ˢ dR.idxT ψR ρR (dR.k + (q₀' + iq)))
     (hfitT : dR.ChainFitT pcR ψR ρR (relMeet (dR.idxT ψR ρR) (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR))) (fun c' bb => ∃ q'', bb = p.k + q'' ∧ ClassPinAt env₂ (D) dR ψ ψR ρp ρR r c' q'') (p.k + pinsS.length) (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp))) t (dR.k + (q₀' + iq)) j fs) :
@@ -7304,7 +7298,7 @@ theorem nestedPinPairAt_pin (hμ : μ.verifiedChecks = true)
       · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
       · exact hg
     rw [hψ2f, hfrm2] at hsp ⊢
-    exact nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp G hIH hPfGroup hiq hj hout
+    exact nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp G hPfGroup hiq hj hout
       l (by rw [hsh.len]; exact hl) hrs hr' hgout fs₁ hl₁ hsp
   -- the root's fit, read off the pin's constructors
   rw [BlockModel.chainFitT_of_pin hnc, hsub] at hfitT
@@ -7680,9 +7674,7 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
     (hfr : ∀ v, v < (dJf q₀).nP → dR.pinFrame q₀' ψR ρR v = (D).pinFrame (q₀ + iq) ψ ρp v)
     (hidxP : dR.idxT ψR ρR (dR.k + (q₀' + iq)) = (D).pinIdx (q₀ + iq) ψ ρp)
     -- the rank induction's own two, and the tuple the fit is read at
-    {S : Nat → Prop} {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    {Pf : Nat → V}
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -7691,7 +7683,7 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
     (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
-      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)))
     (hjl : j < ((dJf q₀).ctorsM iq).length)
     -- **THE REINDEXING**: `σ`, the owner's group at the block, and the
     -- run data K.70/K.61 are read at
@@ -7909,7 +7901,7 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
         (fieldsBelow_take _ (hI.Fss_below hj ((dR.pinAt q₀').ψJ ψR))) hfrR hsp
     rw [IsBlockModel.dom_congr_mem G.syn.reps hiqK hj hψcA hfrR fs₁ hl₂]
     rw [hψ2f, hfrm2] at hsp₂ ⊢
-    exact nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp G hIH hPfGroup hiq hj hout
+    exact nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp G hPfGroup hiq hj hout
       fs₁.length (by rw [hsh.len]; exact hl₂) hrs hord hgout fs₁ rfl hsp₂
   -- **`hXrec`**: the class equation at a container-RECURSIVE field
   have hXrecTgt := recσ_of_run G hiq hjl hjA hst
@@ -7964,7 +7956,7 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
       have hsp₂ : SpineFit ((D).pinFrame (q₀ + iq) ψ ρp)
           ((((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).take fs₁.length) fs₁ := hsp
       rw [hψ2f, hfrm2] at hsp₂ ⊢
-      have hE := nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp G hIH hPfGroup hiq hj hout
+      have hE := nestedPinEntryOutEq hμ h hbk m hleafM dJf hgroups hρp G hPfGroup hiq hj hout
         fs₁.length (by rw [hsh.len]; exact hl) hrs hord hgout fs₁ rfl hsp₂
       exact fun x hx => hE.symm ▸ hx
   -- the target's universe and the two carriers, both `σ`'s
@@ -8066,10 +8058,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
     {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
     {pcR : Nat → PinCtors V} (hpR : PinRecLaws m (dJf r) pcR)
     (hshR : PinShapes m B (dJf r) pcR)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -8078,7 +8067,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
     (hout : ∀ q₀ iq j l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
-      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)) :
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))) :
     ∀ c q, c < (dJf r).kT →
       ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q →
       ∀ t, t ∈ˢ (dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) c →
@@ -8109,7 +8098,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
     have hjl : j < ((dJf r).ctorsM c).length := by
       rw [BlockModel.ctorsT_of_mem hcm] at hj; exact hj
     obtain ⟨-, htm, hinj, hslot, heq⟩ :=
-      nestedPinPairAt_mem hμ h hbk m hleafM dJf hgroups hρp GR CR hB hshR hIH hPfGroup hc hjl
+      nestedPinPairAt_mem hμ h hbk m hleafM dJf hgroups hρp GR CR hB hshR hPfGroup hc hjl
         (hout r c j) t fs hfit ht
     exact ⟨r, kR, c, rfl, hc, GR, hjl, htm, hinj, hslot, heq⟩
   · -- a PIN class of the root: the root's shapes name the container
@@ -8224,7 +8213,7 @@ theorem nestedPinPairAt (hμ : μ.verifiedChecks = true)
     obtain ⟨-, htm, hinj, hslot, heq⟩ :=
       nestedPinPairAt_pin (r := r) hμ h hbk m hleafM dJf hgroups hρp G hiq S₂'' CK hci₂ hfindq hpp
         hOwn GR.syn.reps hρR hkR (hshR.views hB) hpR h₁ hψ₁ CR.pinψ hpinψD hDsLenD hψ hfr hidxP
-        hIH hPfGroup (hout q₀ i'' j) hjl t fs (by rw [← hqKe, ← hcE]; exact ht)
+        hPfGroup (hout q₀ i'' j) hjl t fs (by rw [← hqKe, ← hcE]; exact ht)
         (by rw [← hqKe, ← hcE]; exact hfit)
     refine ⟨q₀, kK', i'', hqe, hiq, G, hjl, htm, ?_, hslot, heq⟩
     rw [hcE, hqKe]
@@ -8604,7 +8593,7 @@ carrier below the auxiliary carrier at `q`.
 
 The root's parameter frame is its group's own (`DsFit` at the base
 pin), so nothing beyond the block's `Sat` is asked of the caller; what
-is left are `hIH` and `hout`, the rank induction's two. -/
+is left is `hout`, the `ordF`-right target's own identity. -/
 theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -8627,10 +8616,7 @@ theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
     {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
     {pcR : Nat → PinCtors V} (hpR : PinRecLaws m (dJf r) pcR)
     (hshR : PinShapes m B (dJf r) pcR)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -8639,7 +8625,7 @@ theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
     (hout : ∀ q₀ iq j l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
-      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)) :
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))) :
     ∀ c q, p.k + q < p.k + pinsS.length →
       ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q →
       FamLe ((D).pinIdx q ψ ρp)
@@ -8656,7 +8642,7 @@ theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
     exact this
   exact instanceLe_of_pair hμ h h3 hbk m dJf hgroups hρp GR.syn.reps hpR
     (GR.syn.kEq ▸ GR.syn.kpos) hρR (fun _ _ hcp => hcp.1)
-    (nestedPinPairAt hμ h hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR hIH hPfGroup hout)
+    (nestedPinPairAt hμ h hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR hPfGroup hout)
 
 
 /-- **A container instance is closed, at its ROOT** (task #315 L-E,
@@ -8672,8 +8658,8 @@ index sets are one by `nestedIdx_eq_pinIdx`.
 
 What remains of the whole of step (iii) is then the RANK — `hedge` and
 `hhom`, K.37's clauses (2) and (3), which want the kernel lane's
-inversion of `nestedPinRankAt` — and the two premises this carries,
-`hIH` and `hout`. -/
+inversion of `nestedPinRankAt` — and the one premise this carries,
+`hout`. -/
 theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -8696,10 +8682,7 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
     {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
     {pcR : Nat → PinCtors V} (hpR : PinRecLaws m (dJf r) pcR)
     (hshR : PinShapes m B (dJf r) pcR)
-    {S : Nat → Prop}
     {Pf : Nat → V}
-    (hIH : ∀ q', q' < pinsS.length → S q' →
-      Pf q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
     (hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
       Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
         ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -8708,7 +8691,7 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
           (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
     (hout : ∀ q₀ iq j l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
-      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → Pf ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k) = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)))
     {inst : Nat → Nat}
     (hcov : InstanceCovered env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp
       ((D).pinFrame r ψ ρp) inst r) :
@@ -8723,7 +8706,7 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
     exact nestedIdx_eq_pinIdx G hiq
   rw [hidx, nestedPinFam_of_classPin m dJf hgroups hρp hB hdJfB GR hshR c q hcp.1.cLt hcp]
   exact nestedInstanceLe hμ h h3 hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR
-    hIH hPfGroup hout c q (by omega) hcp
+    hPfGroup hout c q (by omega) hcp
 
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
@@ -9027,9 +9010,8 @@ group, read off the identity step (ii)/(iii) produced.
 tuples, where the target readings are `pinTarget_reads`/`memberTarget_reads`
 directly.  Here the tuple is `L⁺` and the readings come from
 `nestedTargetReads_L` — whose pin-target half is the identity
-`pinLfp q = L⁺ (k + q)`, now UNCONDITIONAL (`S := fun _ => True`), so
-the predicate that carried the rank induction's scope disappears from
-the statement.
+`pinLfp q = L⁺ (k + q)` itself, supplied here by `heq` at every pin, so
+nothing of the rank induction's scope appears in the statement.
 
 The three arms are the shape's own: a container-RECURSIVE field at a
 MEMBER target lands inside the group and `CopyEntryOut` does not ask
@@ -9063,8 +9045,8 @@ theorem nestedPinsEntry_at (hμ : μ.verifiedChecks = true)
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i) + j) []) (f₀.s.eval ψ)
       (nestedU p.k W pinsS ψ)
       (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) := by
-  have hZ := nestedTargetReads_L (S := fun _ => True) hμ h hbk m hleafM dJf hgroups hρp
-    (fun q' hq' _ => heq q' hq') (fun _ _ G' _ hi' => pinLfp_group G' hi')
+  have hZ := nestedTargetReads_L hμ h hbk m hleafM dJf hgroups hρp
+    (fun _ _ G' _ hi' => pinLfp_group G' hi')
   have hρJ : Sat V ((dJf q₀).params (((D).pinAt (q₀ + i)).ψJ ψ)).reverse
       (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) := by
     obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
@@ -9097,13 +9079,17 @@ theorem nestedPinsEntry_at (hμ : μ.verifiedChecks = true)
       obtain ⟨-, -, hkle, hklt, hcorr, htl, hEis⟩ := hsh.pinF l hlF hr hnt
       refine copyEntryAt_of_pinCorr (TV := TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ)
         G.syn.reps (G.syn.typed _) (G.syn.pinsTyped _) (G.syn.kEq ▸ hi) hjl hρJ
-        (G.syn.w i hi ψ) hlF hr hnt hcorr htl hEis ?_ (hZ _ hklt (fun _ => trivial))
+        (G.syn.w i hi ψ) hlF hr hnt hcorr htl hEis ?_ (hZ _ hklt (fun hnk => heq _ (by
+        have hkl : _ < p.k + pinsS.length := hklt
+        omega)))
       exact nestedPinFrame_transport dJf hgroups hkle hklt hcorr.2.1 hcorr.2.2.2.1
   · -- a container-ORDINARY field: the repaired `EntryRead`
     have hr' : (((dJf q₀).rss i).getD j []).getD l false = false := by simpa using hr
     rcases hsh.ordF l hlF hr' with ⟨hrC, -⟩ | ⟨-, -, hklt, hread⟩
     · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
-    · exact copyEntryAt_of_read hread (hZ _ hklt (fun _ => trivial))
+    · exact copyEntryAt_of_read hread (hZ _ hklt (fun hnk => heq _ (by
+        have hkl : _ < p.k + pinsS.length := hklt
+        omega)))
 
 
 /-- **Step (iv), in the residual's own shape**: `CopyEntryA` exactly as

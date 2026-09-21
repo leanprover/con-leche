@@ -369,9 +369,16 @@ theorem nestedPinWideStep (hμ : μ.verifiedChecks = true)
             (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) Y t i' j fs)) :
     (D).pinCar ψ ρp (lfpTuple ((D).w ψ) (D).k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
       = pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (q₀ + i) := by
-  have hent := nestedPinsEntryOrd_of hμ h hbk m hleafM dJf hgroups hρp hIH hPfGroup G hi
-    (nestedPinsOut_of_root m hed hrank hK29 hK62 hK75pool hK75grp hpinsLen dJf G hi hrootGrp
-      hedgeAt)
+  -- **THE SCOPE, SPENT AT ONCE** (task #315 WIDE, the merge session):
+  -- `nestedPinsOut_of_root` puts an `ordF`-right target in the rank
+  -- induction's scope, `hedgeAt` carries its bound, and `hIH` turns the
+  -- pair into the EQUALITY the entry producer now asks for -- `S` is
+  -- no longer a premise anywhere below `nestedTargetReads_L`.
+  have hscopeOut := nestedPinsOut_of_root m hed hrank hK29 hK62 hK75pool hK75grp hpinsLen
+    dJf G hi hrootGrp hedgeAt
+  have hent := nestedPinsEntryOrd_of hμ h hbk m hleafM dJf hgroups hρp hPfGroup G hi
+    (fun i' j hi' hj l hl h1 h2 h3 =>
+      hIH _ (hedgeAt i' j hi' hj l hl h1 h2 h3).1 (hscopeOut i' j hi' hj l hl h1 h2 h3))
   have hkE : (dJf q₀).k = kJ := G.syn.kEq
   subst hkE
   have hseg := G.syn.seg
