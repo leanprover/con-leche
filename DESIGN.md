@@ -80794,3 +80794,58 @@ exactly the `N ≥ 2` the declarative guard counts.
   guard is NOT a positive check today: the three forged large
   eliminators reject only because the modeller's generated recursor
   fails to typecheck.
+
+#### RULINGS (2026-09-21, maintainer): recursors — one syntactic check, three proof regimes; the NARROW clause and a GLOBAL subterm relation for nested blocks
+
+**The check is the same for Prop and Type.**  A recursor family is
+accepted by ONE syntactic test — "syntactically primitively recursive":
+the recursor type well-formed with parameters, indices and major in the
+required positions (the motive-free amendment above); rules complete
+over the major's constructors with the `rP + nF` λ-prefix; every
+recursor occurrence in a body a full call on a field of the matched
+constructor (or a reflexive field applied), abstracted to an `ih`; the
+residue typed against the conclusion; plus the declarative elimination
+guard.  Nothing else in the checker depends on the sort.
+
+**Three regimes in the PROOF, reading the same certified data:**
+* `ℓ = 0` (the conclusion a proposition), any `w`: NESTED INDUCTION.
+  The recursor's type is a proposition; inhabiting it is the induction
+  principle: outer induction on the block's narrow least fixed point
+  with predicate "the motive is inhabited", each rule's residue typed
+  at every fitting spine as the step; a rule on a container's
+  constructor is the INNER step — the container's own induction
+  principle at the parameter (from its recorded fibre law and
+  monotonicity), nested as the pins nest.  The value is the point, ι
+  rules are `pt = pt`.  Every mutual or nested Prop block lives here.
+* `w ≠ 0, ℓ ≠ 0`: WELL-FOUNDED RECURSION ON A GLOBAL SUBTERM RELATION
+  `x ⊏ y := x ∈ tc y` (transitive ∈-closure; well-founded by the
+  interface's `regularity`; `tc` from `sUnion` + ω-iteration).  Fields
+  and reflexive-field images are ∈-deeper than the constructor value BY
+  THE ENCODING (`inj`, `mkTower`, `app`), so no per-inductive
+  well-foundedness fact is ever proved or recorded.  The recursor
+  family is recursion on the tagged union of the majors' ORDINARY
+  carriers, predecessors the ∈-smaller elements of the union, step by
+  cases on each carrier's own fibre law, typing from the minors'.  No
+  `PredsFrom`, no simultaneous accessibility, no tuple components.
+* `w = 0, ℓ ≠ 0` (large elimination from Prop): by the guard a lone,
+  non-nested block with ≤ 1 constructor under the subsingleton
+  criterion; the spine is a function of the index and recursion is the
+  block's own lfp induction (the existing squash kit).  Regularity is
+  not used at Prop.
+
+**The clause is NARROW** (superseding theory N1): for every stored
+inductive `I` with parameters `p⃗`, `⟦I⟧ p⃗ = lfp (x ↦ C[p⃗, x])` (a
+k-tuple lfp for a k-member block), where `C` is read from `I`'s stored
+constructor types with container instances read ORDINARILY through the
+containers' clauses; recorded with its fibre law, mono/maps/closed.  The
+wide tuple (members + copies = official's aux block) is NEITHER
+recorded NOR identified with anything; Bekić is not used.  What nested
+positivity must yield is monotonicity of `x ↦ ⟦C⟧(…x…)` in the hole —
+from the container's clause by leastness plus the abstract copy's
+positivity through the copy transport lemma (P8).  The closure witness
+at `w ≠ 0` for the narrow operator is the one place a two-component
+operator may appear transiently (a set-sized bound); F5
+(`agent/uinds-F5`) is establishing the route at the set level.  Nothing
+landed on `uniform-inds` depends on the wide tuple; the falsifier files
+F0–F4 and `LfpCompose.lean` document the abandoned route and may be
+deleted at the flip.
