@@ -40,7 +40,10 @@ The predecessor of this file is `mutual-direct`'s
 container INTO the member's operator and therefore needed the level
 fact, the container's map action in the parameter, the container's own
 induction at a parameter, and `unionAcc_of_classAcc`.  None of that
-survives.
+survives.  The development proper (up to the last ι rule) is ~890
+lines; the last section is extra, and discharges the hypothesis at the
+standard reading of `List` (`stdListClause`), so that nothing here is
+vacuous — `NestedTreeList.lean`'s `ContainerOk` was never witnessed.
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
@@ -220,13 +223,46 @@ variable {S : TreeListSig V}
 noncomputable def nodeFib (S : TreeListSig V) (X : Nat → V) : V :=
   image (fun l => S.injT 0 [l]) (app (X 1) pt)
 
+/-- The `nil`/`cons` arm over a head set `A` and a tail set `B`, with
+a given family of injections: `{ nil } ∪ { cons h t | h ∈ A, t ∈ B }`.
+It serves both the COPY's fibre (heads in the member's component,
+tails in the copy's) and, at a parameter, the container's own
+operator. -/
+noncomputable def consArm (inj : Nat → List V → V) (A B : V) : V :=
+  binUnion (sing (inj 0 [])) (image (fun p => inj 1 [sfst p, ssnd p]) (sigmaPairs A fun _ => B))
+
+theorem mem_consArm {inj : Nat → List V → V} {A B x : V} :
+    x ∈ˢ consArm inj A B ↔
+      x = inj 0 [] ∨ ∃ h t, h ∈ˢ A ∧ t ∈ˢ B ∧ x = inj 1 [h, t] := by
+  unfold consArm
+  rw [mem_binUnion, mem_sing]
+  refine or_congr Iff.rfl ⟨fun hx => ?_, fun hx => ?_⟩
+  · obtain ⟨p, hp, rfl⟩ := mem_image.mp hx
+    obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
+    rw [sfst_kpair, ssnd_kpair]
+    exact ⟨h, t, hh, ht, rfl⟩
+  · obtain ⟨h, t, hh, ht, rfl⟩ := hx
+    refine mem_image.mpr ⟨kpair h t, mem_sigmaPairs.mpr ⟨h, hh, t, ht, rfl⟩, ?_⟩
+    rw [sfst_kpair, ssnd_kpair]
+
+/-- The `nil`/`cons` arm's formation, above `Prop`. -/
+theorem consArm_mem_univ {w : Nat} (hw : w ≠ 0) {inj : Nat → List V → V} {A B : V}
+    (hA : A ∈ˢ (univ w : V)) (hB : B ∈ˢ (univ w : V))
+    (hnil : inj 0 [] ∈ˢ (univ w : V))
+    (hcons : ∀ h t, h ∈ˢ (univ w : V) → t ∈ˢ (univ w : V) → inj 1 [h, t] ∈ˢ (univ w : V)) :
+    consArm inj A B ∈ˢ (univ w : V) := by
+  have hU := univ_isTGUniverse (V := V) hw
+  refine hU.binUnion_mem hnil (hU.sing_mem hnil hnil) ?_
+  refine hU.image_mem (hU.sigmaPairs_mem hA fun _ _ => hB) fun p hp => ?_
+  obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
+  rw [sfst_kpair, ssnd_kpair]
+  exact hcons h t (hU.transitive hA hh) (hU.transitive hB ht)
+
 /-- Component `1`'s fibre — the abstract COPY of `List` at the pin
 `Tree`: `nil : y₁`, `cons : x₀ → y₁ → y₁`, with the CONTAINER's own
 injections. -/
 noncomputable def listFib (S : TreeListSig V) (X : Nat → V) : V :=
-  binUnion (sing (S.injL 0 []))
-    (image (fun p => S.injL 1 [sfst p, ssnd p])
-      (sigmaPairs (app (X 0) pt) (fun _ => app (X 1) pt)))
+  consArm S.injL (app (X 0) pt) (app (X 1) pt)
 
 /-- **The block's operator**, a plain two-component block operator. -/
 noncomputable def blkΨ (S : TreeListSig V) (X : Nat → V) : Nat → V
@@ -245,17 +281,7 @@ theorem mem_nodeFib {X : Nat → V} {x : V} :
 theorem mem_listFib {X : Nat → V} {x : V} :
     x ∈ˢ listFib S X ↔
       x = S.injL 0 [] ∨
-        ∃ h t, h ∈ˢ app (X 0) pt ∧ t ∈ˢ app (X 1) pt ∧ x = S.injL 1 [h, t] := by
-  unfold listFib
-  rw [mem_binUnion, mem_sing]
-  refine or_congr Iff.rfl ⟨fun hx => ?_, fun hx => ?_⟩
-  · obtain ⟨p, hp, rfl⟩ := mem_image.mp hx
-    obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
-    rw [sfst_kpair, ssnd_kpair]
-    exact ⟨h, t, hh, ht, rfl⟩
-  · obtain ⟨h, t, hh, ht, rfl⟩ := hx
-    refine mem_image.mpr ⟨kpair h t, mem_sigmaPairs.mpr ⟨h, hh, t, ht, rfl⟩, ?_⟩
-    rw [sfst_kpair, ssnd_kpair]
+        ∃ h t, h ∈ˢ app (X 0) pt ∧ t ∈ˢ app (X 1) pt ∧ x = S.injL 1 [h, t] := mem_consArm
 
 /-! ## (a) The functor clauses -/
 
@@ -293,12 +319,8 @@ theorem blkΨ_fib_mem (hS : TreeListOk S) {X : Nat → V} (hX : InTupleSpace S.w
     have h1 : app (X 1) pt ∈ˢ (univ S.w : V) := famSpace_app (hX 1 (by omega)) pt_mem_unitSet
     constructor
     · exact hU.image_mem h1 fun l hl => hS.tree.memU hw l (hU.transitive h1 hl)
-    · refine hU.binUnion_mem (hS.list.nil_mem_univ hw)
-        (hU.sing_mem (hS.list.nil_mem_univ hw) (hS.list.nil_mem_univ hw)) ?_
-      refine hU.image_mem (hU.sigmaPairs_mem h0 fun _ _ => h1) fun p hp => ?_
-      obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
-      rw [sfst_kpair, ssnd_kpair]
-      exact hS.list.cons_mem_univ hw (hU.transitive h0 hh) (hU.transitive h1 ht)
+    · exact consArm_mem_univ hw h0 h1 (hS.list.nil_mem_univ hw)
+        fun _ _ hh ht => hS.list.cons_mem_univ hw hh ht
 
 theorem blkΨ_maps (hS : TreeListOk S) : MapsTuple S.w 2 uIs (blkΨ S) := by
   intro X hX c hc
@@ -887,5 +909,212 @@ theorem recL_cons {h t : V} (hh : h ∈ˢ carT S) (ht : t ∈ˢ carL S) :
 end Kit
 
 end Rec
+
+/-! ## Non-vacuity: `ListClause` has a model
+
+The development above is hypothetical in the container's env clause.
+This section discharges the hypothesis at the STANDARD reading of
+`List` — tagged towers for the injections, the least pre-fixed family
+of the `nil`/`cons` arm for the carrier — so that `ListClause` is not
+an empty assumption.  Its (W) is the same recipe §2.2 (iii) prescribes
+for the copies, now at a container WITH A PARAMETER: the shapes carry
+the HOLE-FREE entry (`cons`'s head, a value of the parameter) and the
+positions are the slots alone. -/
+
+section StdList
+
+theorem kTuple_inj : ∀ fs fs' : List V, kTuple fs = kTuple fs' → fs = fs'
+  | [], [], _ => rfl
+  | [], _ :: _, h => absurd h (pt_ne_kpair _ _)
+  | _ :: _, [], h => absurd h.symm (pt_ne_kpair _ _)
+  | x :: xs, y :: ys, h => by
+      obtain ⟨rfl, h'⟩ := kpair_inj h
+      rw [kTuple_inj xs ys h']
+
+theorem kTuple_mem_univ {w : Nat} (hw : w ≠ 0) :
+    ∀ {fs : List V}, (∀ x, x ∈ fs → x ∈ˢ (univ w : V)) → kTuple fs ∈ˢ (univ w : V)
+  | [], _ => pt_mem_univ hw
+  | x :: _xs, h =>
+    (univ_isTGUniverse (V := V) hw).kpair_mem (h x List.mem_cons_self)
+      (h x List.mem_cons_self)
+      (kTuple_mem_univ hw fun y hy => h y (List.mem_cons_of_mem x hy))
+
+theorem stdInj_zero (j : Nat) (fs : List V) : stdInj (V := V) 0 j fs = pt := by
+  unfold stdInj; rw [if_pos rfl]
+
+theorem stdInj_mem_univ {w : Nat} (hw : w ≠ 0) {j : Nat} {fs : List V}
+    (hfs : ∀ x, x ∈ fs → x ∈ˢ (univ w : V)) : stdInj w j fs ∈ˢ (univ w : V) := by
+  unfold stdInj
+  rw [if_neg hw]
+  exact (univ_isTGUniverse (V := V) hw).kpair_mem (vnat_mem_univ_pos hw j)
+    (vnat_mem_univ_pos hw j) (kTuple_mem_univ hw hfs)
+
+theorem stdInj_inj {w : Nat} (hw : w ≠ 0) (j j' : Nat) (fs fs' : List V)
+    (h : stdInj w j fs = stdInj (V := V) w j' fs') : j = j' ∧ fs = fs' := by
+  unfold stdInj at h
+  rw [if_neg hw, if_neg hw] at h
+  obtain ⟨h₁, h₂⟩ := kpair_inj h
+  exact ⟨vnat_inj h₁, kTuple_inj _ _ h₂⟩
+
+/-- The container's own operator at a parameter `α`: one component,
+the `nil`/`cons` arm with `α` for the heads. -/
+noncomputable def stdΨL (w : Nat) (α : V) (Y : Nat → V) : Nat → V :=
+  fun _ => graph (fun _ => consArm (stdInj w) α (app (Y 0) pt)) unitSet
+
+theorem app_stdΨL (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨL w α Y 0) pt = consArm (stdInj w) α (app (Y 0) pt) := app_graph pt_mem_unitSet
+
+/-- The container's recorded reading `⟦List⟧ α`. -/
+noncomputable def stdLIST (w : Nat) (α : V) : V := lfpTuple w 1 uIs (stdΨL w α) 0
+
+/-! ### (W) for the container: shapes carry the parameter value -/
+
+/-- The shapes: `⟨1, pt⟩` for `nil`, `⟨2, h⟩` for `cons` at the head
+`h` — a HOLE-FREE entry, so it lives in the shape, not in a
+position. -/
+noncomputable def lsShapes (α : V) : V :=
+  binUnion (sing (kpair (vnat 1) pt)) (image (fun h => kpair (vnat 2) h) α)
+
+theorem mem_lsShapes {α a : V} :
+    a ∈ˢ lsShapes α ↔ a = kpair (vnat 1) pt ∨ ∃ h, h ∈ˢ α ∧ a = kpair (vnat 2) h := by
+  unfold lsShapes
+  rw [mem_binUnion, mem_sing]
+  exact or_congr Iff.rfl ⟨fun hx => by
+      obtain ⟨h, hh, rfl⟩ := mem_image.mp hx; exact ⟨h, hh, rfl⟩,
+    fun ⟨h, hh, hx⟩ => mem_image.mpr ⟨h, hh, hx⟩⟩
+
+/-- The positions of a shape: none for `nil`, one slot for `cons`. -/
+noncomputable def lsPos (a : V) : V :=
+  natFibre (fun j => if j = 2 then sing (vnat 0) else empty) (sfst a)
+
+theorem lsPos_nil : lsPos (kpair (vnat 1) pt : V) = empty := by
+  unfold lsPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega)]
+
+theorem lsPos_cons (h : V) : lsPos (kpair (vnat 2) h) = sing (vnat 0) := by
+  unfold lsPos; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+/-- The builder: the head comes from the SHAPE, the tail from the
+position function. -/
+noncomputable def lsMk (w : Nat) (a g : V) : V :=
+  natFibre (fun j => if j = 1 then stdInj w 0 [] else stdInj w 1 [ssnd a, app g (vnat 0)])
+    (sfst a)
+
+theorem lsMk_nil (w : Nat) (g : V) : lsMk w (kpair (vnat 1) pt) g = stdInj (V := V) w 0 [] := by
+  unfold lsMk; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+theorem lsMk_cons (w : Nat) (h g : V) :
+    lsMk w (kpair (vnat 2) h) g = stdInj (V := V) w 1 [h, app g (vnat 0)] := by
+  unfold lsMk; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), ssnd_kpair]
+
+theorem stdΨL_maps {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    MapsTuple w 1 uIs (stdΨL w α) := by
+  intro Y hY m hm
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  refine graph_mem_famSpace fun i hi => ?_
+  by_cases hw : w = 0
+  · rw [hw, univ_zero]
+    refine mem_univZero.mpr fun x hx => ?_
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, -, -, rfl⟩
+    · rw [stdInj_zero]; exact pt_mem_unitSet
+    · rw [stdInj_zero]; exact pt_mem_unitSet
+  · exact consArm_mem_univ hw hα (famSpace_app (hY 0 Nat.one_pos) pt_mem_unitSet)
+      (stdInj_mem_univ hw (by simp))
+      (fun h t hh ht => stdInj_mem_univ hw (by
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact hh
+        · rcases List.mem_cons.mp hx with rfl | hx
+          · exact ht
+          · exact absurd hx (List.not_mem_nil)))
+
+theorem stdΨL_mono {w : Nat} (α : V) : MonoTuple w 1 uIs (stdΨL w α) := by
+  intro X Y hX hY hle m hm i hi x hx
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  obtain rfl := mem_unitSet_iff.mp hi
+  rw [app_stdΨL] at hx ⊢
+  rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+  · exact mem_consArm.mpr (Or.inl rfl)
+  · exact mem_consArm.mpr (Or.inr ⟨h, t, hh, hle 0 Nat.one_pos pt pt_mem_unitSet t ht, rfl⟩)
+
+open Classical in
+theorem stdΨL_closed {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    ∃ L, IsClosedTuple w 1 uIs (stdΨL w α) L := by
+  by_cases hw : w = 0
+  · rw [hw]; exact closedTuple_zero (hw ▸ stdΨL_maps hα)
+  have hU := univ_isTGUniverse (V := V) hw
+  refine tupleContainer_closed_exists hw (Is := uIs) (stdΨL w α) (fun _ _ => lsShapes α) lsPos
+    (fun _ _ => 0) (fun _ _ => pt) (fun _ => lsMk w) ?hA ?hB ?htgt ?hmkU ?helim
+  case hA =>
+    intro m hm i hi
+    have hnilS : (kpair (vnat 1) pt : V) ∈ˢ (univ w : V) :=
+      hU.kpair_mem (vnat_mem_univ_pos hw 1) (vnat_mem_univ_pos hw 1) (pt_mem_univ hw)
+    show lsShapes α ∈ˢ (univ w : V)
+    unfold lsShapes
+    exact hU.binUnion_mem hnilS (hU.sing_mem hnilS hnilS)
+      (hU.image_mem hα fun h hh =>
+        hU.kpair_mem hα (vnat_mem_univ_pos hw 2) (hU.transitive hα hh))
+  case hB =>
+    intro m hm i a hi ha
+    rcases mem_lsShapes.mp ha with rfl | ⟨h, hh, rfl⟩
+    · rw [lsPos_nil]; exact hU.empty_mem hα
+    · rw [lsPos_cons]; exact hU.sing_mem (vnat_mem_univ_pos hw 0) (vnat_mem_univ_pos hw 0)
+  case htgt => exact fun m hm i a p hi ha hp => ⟨Nat.one_pos, pt_mem_unitSet⟩
+  case hmkU =>
+    intro m hm i a g hi ha hg
+    rcases mem_lsShapes.mp ha with rfl | ⟨h, hh, rfl⟩
+    · rw [lsMk_nil]; exact stdInj_mem_univ hw (by simp)
+    · rw [lsMk_cons]
+      refine stdInj_mem_univ hw ?_
+      intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact hU.transitive hα hh
+      · rcases List.mem_cons.mp hx with rfl | hx
+        · exact app_mem_univ hw hg _
+        · exact absurd hx (List.not_mem_nil)
+  case helim =>
+    intro X hX m hm i hi x hx
+    obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+    obtain rfl := mem_unitSet_iff.mp hi
+    rw [app_stdΨL] at hx
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · refine ⟨kpair (vnat 1) pt, mem_lsShapes.mpr (Or.inl rfl), graph (fun _ => pt) empty, ?_, ?_⟩
+      · rw [lsPos_nil]
+        exact graph_mem_piSet fun p hp => absurd hp (not_mem_empty p)
+      · rw [lsMk_nil]
+    · refine ⟨kpair (vnat 2) h, mem_lsShapes.mpr (Or.inr ⟨h, hh, rfl⟩),
+        graph (fun _ => t) (sing (vnat 0)), ?_, ?_⟩
+      · rw [lsPos_cons]
+        exact graph_mem_piSet fun p hp => ht
+      · rw [lsMk_cons, app_graph (mem_sing.mpr rfl)]
+
+/-- **`ListClause` is not an empty hypothesis**: the standard reading
+of `List` satisfies it at every level. -/
+theorem stdListClause (w : Nat) :
+    ListClause w (stdLIST (V := V) w) (stdΨL w) (stdInj w) where
+  leaf := fun _ _ => rfl
+  mono := fun α _ => stdΨL_mono α
+  maps := fun _ hα => stdΨL_maps hα
+  closed := fun _ hα => stdΨL_closed hα
+  fibre := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨL]
+    exact ⟨fun hx => by
+        rcases mem_consArm.mp hx with rfl | ⟨h, t', hh, ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, hh, t', ht', rfl⟩,
+      fun hx => by
+        rcases hx with rfl | ⟨h, hh, t', ht', rfl⟩
+        · exact mem_consArm.mpr (Or.inl rfl)
+        · exact mem_consArm.mpr (Or.inr ⟨h, t', hh, ht', rfl⟩)⟩
+  mkZero := fun hw j fs => by unfold stdInj; rw [if_pos hw]
+  mkInj := fun hw j j' fs fs' h => stdInj_inj hw j j' fs fs' h
+
+/-- The whole hypothesis of F0 is satisfiable: the standard `List`
+together with the standard member tags. -/
+theorem treeListOk_std (w : Nat) :
+    TreeListOk (V := V) ⟨w, stdLIST w, stdΨL w, stdInj w, stdInj w⟩ :=
+  ⟨stdListClause w, treeTags_stdInj w⟩
+
+end StdList
 
 end ConLeche.SetTheory
