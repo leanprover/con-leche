@@ -489,4 +489,131 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     exact hfreshC c (by omega) j cA hj
 
 
+/-! ## The loop over the members -/
+
+/-- **What the constructors' stage needs of every member** — the
+per-member hypotheses of `stageBlockCtorsAt`, gathered so that the
+loop over the `k` members carries ONE obligation. -/
+structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : List Name)
+    (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
+    (A : Nat → (Name → Nat) → AnnotTerm) (fssZ : (Name → Nat) → Nat → List (List AnnotTerm))
+    (envI : Env) (ctorsOf : Name → List Name) : Prop where
+  /-- the leaves the `k` formers were consed with -/
+  leaf : ∀ (c : Nat) (ψ : Name → Nat), A c ψ
+    = blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss d.tgtss
+        (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
+        (d.ppsM c ψ) c
+  /-- every member's constructors, as checked at the formers' environment -/
+  ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
+    ∃ (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
+      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name lps d.nP (d.nIdxAt m)
+        d.resSort d.isProp d.large cvTa cs = .ok (d.ctorsM m, sortss)
+  nodup : ∀ m, m < d.k → ((d.ctorsM m).map (·.1.name)).Nodup
+  out : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
+    ∀ cA ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ cvTa.name → cA.1.name ∉ ctorsOf T''
+  lpsT : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
+    cvTa.levelParams = lps
+  lpsA : ∀ m, m < d.k → ∀ cA ∈ d.ctorsM m, cA.1.levelParams = lps
+  pshape : ∀ m, m < d.k → ∀ cA ∈ d.ctorsM m, cA.1.name.isProjFnShape = false
+  ndBlock : ∀ m, m < d.k → ∀ (c : Nat), c ≠ m → ∀ (j : Nat) (cB : ConstantVal × Nat),
+    (d.ctorsM c)[j]? = some cB → cB.1.name ∉ (d.ctorsM m).map (·.1.name)
+  paramsOf : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+    ∀ c, c < d.k → Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρp
+  lenPps : ∀ (c : Nat) (ψ : Name → Nat), c < d.k → (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length
+  lenIds : ∀ m, m < d.k → ∀ ψ : Name → Nat, (d.IdsM m ψ).length = d.nIdxAt m
+  chainsOk : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+    BlockChainsOk d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+      (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fssZ ψ) (fun c => d.Ess c ψ)
+  lenZ : ∀ m, m < d.k → ∀ ψ : Name → Nat, (fssZ ψ m).length = (d.ctorsM m).length
+  lenZj : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+    (d.ctorsM m)[j]? = some cA → ((fssZ ψ m).getD j []).length = cA.2
+  chainFactsZ : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat),
+    (d.ctorsM m)[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+    ChainFactsB d.k (d.w ψ) d.nP cA.2 ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m
+      (d.ksF m j) ((d.tgtss m).getD j []) ((d.tlss m ψ).getD j []) ((fssZ ψ m).getD j [])
+      ((d.Eiss m ψ).getD j []) ((d.Ess m ψ).getD j [])
+  chainFacts : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat),
+    (d.ctorsM m)[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+    ChainFactsB d.k (d.w ψ) d.nP cA.2 ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m
+      (d.ksF m j) ((d.tgtss m).getD j []) ((d.tlss m ψ).getD j []) ((d.Fss m ψ).getD j [])
+      ((d.Eiss m ψ).getD j []) ((d.Ess m ψ).getD j [])
+  ord : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+    ∀ (ψ : Name → Nat) (i : Nat), i < cA.2 → ¬ recAt d.nP (d.ksF m j) (d.nP + i) →
+    ((d.Fss m ψ).getD j []).getD i default = ((fssZ ψ m).getD j []).getD i default
+  frames : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+    (∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((d.dsF m j ψ).take d.nP).map (·.2.2)).reverse ρ) ∧
+    (∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((d.dsF m j ψ).take d.nP).map (·.2.2)).reverse ρ →
+        FieldsOkB (d.w ψ) ρ (((d.dsF m j ψ).drop d.nP).map (·.2.2)) ∧
+        FieldsValid ρ (((d.dsF m j ψ).drop d.nP).map (·.2.2)) ∧
+        (∀ bs : List V, SpineFit ρ (((d.dsF m j ψ).drop d.nP).map (·.2.2)) bs →
+          SpineFit ρ (d.IdsM m ψ) (idxValsAt ρ (d.esF m j ψ) bs)))
+  capsU : ∀ m, m < d.k → ∀ (cvTa : ConstantVal), cvTasAll[m]? = some cvTa →
+    ∀ {env' : Env} (m' : EnvModel V env') (kk : Nat) (cA : ConstantVal × Nat),
+    (d.ctorsM m)[kk]? = some cA →
+    (ConLeche.blockCapsAt p₁ m isRec).unitlike = true →
+    FormerData m' cvTa (d.nP + d.nIdxAt m) d.resSort (d.ppsM m) →
+    (∀ ψ, m'.acval cvTa.name ψ = A m ψ) →
+    (∀ ψ, m'.acval cA.1.name ψ = sumMkAV (d.w ψ) kk (d.dsF m kk ψ)
+      (((d.dsF m kk ψ).drop d.nP).map (·.2.2)) (uChains (d.Fss m ψ))) →
+    CapsLawsAt m' cvTa.name cvTa (ConLeche.blockCapsAt p₁ m isRec)
+
+/-- **The `k` members' constructors' conses, in block order**
+(`consBlockCtors`): `stageBlockCtorsAt` at every member, the core
+invariant one member further on at each step. -/
+theorem stageBlockCtors (hμ : μ.verifiedChecks = true) {F : Nat}
+    {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape}
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env} {ctorsOf : Name → List Name}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (hN : BlockNamesOk (V := V) d cvTasAll)
+    (hlenCv : cvTasAll.length = d.k)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTasAll p₁ isRec A fssZ envI ctorsOf)
+    (hk : ctorsAs.length = d.k)
+    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some (d.ctorsM c)) :
+    ∀ (rest : List (List (ConstantVal × Nat))) (i : Nat) (env : Env) (mp : EnvModelM V μ env),
+      (∀ c, rest[c]? = ctorsAs[i + c]?) → i + rest.length = ctorsAs.length →
+      ConLeche.BlockEtaInv env d.memberNames ctorsOf →
+      BlockCtorsCore mp.base2 d lps cvTasAll p₁ isRec A i →
+      (∀ c, i ≤ c → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+        env.find? cA.1.name = none) →
+      ∃ mp' : EnvModelM V μ (ConLeche.consBlockCtors d.nP rest env),
+        ConLeche.BlockEtaInv (ConLeche.consBlockCtors d.nP rest env) d.memberNames ctorsOf ∧
+        BlockCtorsCore mp'.base2 d lps cvTasAll p₁ isRec A d.k
+  | [], i, env, mp, _, hi, hE, hinv, _ => by
+    simp only [List.length_nil, Nat.add_zero] at hi
+    rw [hi, hk] at hinv
+    exact ⟨mp, hE, hinv⟩
+  | ctorsA :: rest, i, env, mp, hrest, hi, hE, hinv, hfresh => by
+    have hilt : i < ctorsAs.length := by simp only [List.length_cons] at hi; omega
+    have hiA : ctorsAs[i]? = some ctorsA := by
+      have := hrest 0; simpa using this.symm
+    have hik : i < d.k := by rw [← hk]; exact hilt
+    obtain rfl : ctorsA = d.ctorsM i :=
+      Option.some.inj ((hiA.symm.trans (hctorsAs i hilt)))
+    obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTasAll[i]? = some cvTa :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
+    obtain ⟨cs, sortss, hCtors⟩ := hS.ctors i cvTa hik hcvTa
+    obtain ⟨mpI, hE', hinv', hfresh'⟩ :=
+      stageBlockCtorsAt hμ hN hik hcvTa hS.leaf hCtors (hS.nodup i hik)
+        (hS.out i cvTa hik hcvTa) (hS.lpsT i cvTa hik hcvTa) (hS.lpsA i hik) (hS.pshape i hik)
+        (hS.ndBlock i hik) (hS.paramsOf i hik) hS.lenPps (hS.lenIds i hik) (hS.chainsOk i hik)
+        (hS.lenZ i hik) (hS.lenZj i hik) (hS.chainFactsZ i hik) (hS.chainFacts i hik)
+        (hS.ord i hik) (hS.frames i hik)
+        (fun m' kk cA hkk hu hFD' hleaf' hleafC' =>
+          hS.capsU i hik cvTa hcvTa m' kk cA hkk hu hFD' hleaf' hleafC')
+        mp hE hinv (fun c hc j cA hj => hfresh c hc j cA hj)
+    have hrest' : ∀ c, rest[c]? = ctorsAs[i + 1 + c]? := by
+      intro c
+      have := hrest (c + 1)
+      rwa [show i + (c + 1) = i + 1 + c from by omega] at this
+    exact stageBlockCtors hμ hN hlenCv hS hk hctorsAs rest (i + 1) _ mpI hrest'
+      (by simp only [List.length_cons] at hi; omega) hE' hinv' hfresh'
+
 end ConLeche.Model
