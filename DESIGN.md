@@ -130676,3 +130676,37 @@ one advisory entry.  It is a KERNEL change and owes the full battery
 (zero-fire conformance on init-full and Mathlib in both modes with
 `--nested-shadow`, the controls, the init-full instruction cells, no
 Mathlib perf run), so it was NOT taken this session.
+
+##### (f) `hscope` IS NOT MERELY OPEN — AS STATED IT IS **FALSE**, AND THE REST SPLITS IN TWO
+
+Argued from the fixture's shape (not measured at the assembly, which
+has no run to evaluate): `hscope`'s guards are "the container calls
+field `l` ORDINARY" and "the copy's field `l` is recursive-or-
+REFLEXIVE", and its first conjunct is `ConLeche.domPiDepth dom.1 = 0`.
+At `tests/e2e/nested_pi_field.ndjson` (`K α | mk (f : Nat → α)`) both
+guards hold at the `f` field — `K` recurses nowhere, and the copy's
+field `Nat → <copy>` is REFLEXIVE, so its `rss` bit is set — while
+`dom.1 = Nat → α` has depth one.  So the named hypothesis is not
+waiting for a producer: **it asks something false at an official
+accept**, and the merge session must not try to discharge it before
+the conjunct is gone.
+
+Removing it splits cleanly, and the two halves are independent:
+
+1. **THE CONTAINER's tower** (`nested_pi_field`).  The cut moves from
+   the field's own `l` to `l + ConLeche.domPiDepth dom.1` in
+   `ordReadAt`'s conclusion and, with it, the OWNER's scoping
+   (`looseBVarsBounded`, `fvarLeaves`) and the owner's reading
+   `hreadO` — `PinShapes`' own conjunct, so the interface moves too.
+   `denoteMeta_ordRootInst_read` (`Model/Inductives/NestedFieldRead.lean:449`)
+   is already `cut`-parametric and needs no change, and K.69
+   (`NestedPinsRun.ordNormAt`) already applies `ordRootInst` at
+   `l + domPiDepth (ordTargetDomL lpsC ownT qK dom.1)`, which is that
+   same number (`domPiDepth_ordTargetDomL`).  This is the half that
+   retires flatness and `hscope`'s first conjunct.
+2. **THE PLANTED tower** (`nested_comp_tower`).  The second summand
+   `domPiDepth (ordHeadRed (ordTargetDom … self …))` is ZERO under
+   `ordRead`'s existing head guard `hheadB`, so half (1) can be done
+   without touching it; what needs it is `hfinRefl`'s retirement, and
+   that is K.73's own shape, not flatness's.
+
