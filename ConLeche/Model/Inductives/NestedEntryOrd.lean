@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Verify.Inductives.NestedRootLabel
 public import ConLeche.Model.Inductives.NestedPinLeafAll
 public section
