@@ -1355,4 +1355,174 @@ theorem blockSqStep_at_rule (D : RecFamData V ℓ K rP rds concl ρ)
 
 end SqRun
 
+/-! ## 15. The DISPATCH — `hpre` in every regime
+
+The three regimes are disjoint and exhaustive on `(w, ℓ)`: `ℓ = 0` is
+IND, and at `ℓ ≠ 0` the kit arm runs with the WF step (`w ≠ 0`,
+`blockRecStep_at_rule`) or the SQ one (`w = 0`,
+`blockSqStep_at_rule`).  The `w` split is therefore not in the
+dispatch but in whoever supplies `KitRegimeAt`: §13's arm does not
+know which kit it is handed, which is the point of stating it over an
+abstract step.
+
+Both bundles quantify the run data existentially, so the dispatch's
+statement mentions only what the ι equations are built from. -/
+
+section Dispatch
+
+variable {ℓ s K : Nat} {rP nCt : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+  {concl RecTy : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
+  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+  {ihs : Nat → Nat → List AnnotTerm} {Rb0 : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+
+/-- **The kit regimes' input at one frame** (WF at `w ≠ 0`, SQ at
+`w = 0`): a family datum whose step reads the rule's residue at the
+rule's spine, and the ih values from its graph. -/
+def KitRegimeAt (V : Type w) [SetTheory V] (ℓ K : Nat) (rP nCt : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (concl RecTy : Nat → AnnotTerm)
+    (pdoms : Nat → List AnnotTerm) (fdoms es : Nat → Nat → List AnnotTerm)
+    (mk : Nat → Nat → AnnotTerm) (ihs : Nat → Nat → List AnnotTerm)
+    (Rb0 : Nat → Nat → AnnotTerm) (ρ : Nat → V) : Prop :=
+  ∃ (D : RecFamData V ℓ K rP rds concl ρ) (stp : List V → V → V → V)
+    (ihv : Nat → Nat → List V → V → List V),
+    (∀ xs : List V, (D.kit xs).st = stp xs) ∧
+    (∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c)) ∧
+    OneElimLevel ℓ K rds ∧
+    (∀ c, c < K → (pdoms c).length = rP c) ∧
+    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ ((rds c).map (·.2.2))
+        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
+          ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)]))) ∧
+    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
+      stp xs
+          (tagged c
+            (D.tupOf c
+              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
+        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j)) ∧
+    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      ihv c j fs
+          (kitGraphAt (D.kit xs)
+            (tagged c
+              (D.tupOf c
+                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
+        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))
+
+/-- **Regime IND's input at one frame**: the induction principle and
+the rules' certificates, with the run data existential. -/
+def IndRegimeAt (V : Type w) [SetTheory V] (μ : CheckMode) (K : Nat) (nCt rP : Nat → Nat)
+    (ψ : Name → Nat) (RecTy : Nat → AnnotTerm) (pdoms : Nat → List AnnotTerm)
+    (fdoms : Nat → Nat → List AnnotTerm) (ihs : Nat → Nat → List AnnotTerm)
+    (Rb : Nat → Nat → AnnotTerm) (ρ : Nat → V) : Prop :=
+  ∃ (envT : Env) (mp : EnvModelM V μ envT) (F : Nat)
+    (ihdoms : Nat → Nat → List AnnotTerm) (Ca : Nat → Nat → AnnotTerm),
+    μ.verifiedChecks = true ∧
+    (∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c)) ∧
+    (∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j)) ∧
+    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
+        ((ihs c j).map
+          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))) ∧
+    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      interp V
+          (consList
+            ((ihs c j).map
+              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j)
+        ∈ˢ (univZero : V))
+
+/-- **`BlockRecPre` at one frame, in EVERY regime.** -/
+theorem blockRecPre_run {ψ : Name → Nat}
+    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
+    (hwd : ∀ as : List V, as.length = K →
+      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsOkB 0 (consList as ρ) (pdoms c ++ fdoms c j) ∧
+        ∀ ys, SpineFit (consList as ρ) (pdoms c ++ fdoms c j) ys →
+          WellDenoted V (consList ys (consList as ρ))
+              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
+            WellDenoted V (consList ys (consList as ρ))
+              (instsAV 0 (ihs c j)
+                ((Rb0 c j).liftN K ((pdoms c).length + (fdoms c j).length + (ihs c j).length))))
+    (hIND : ℓ = 0 → IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs
+      (fun c j => (Rb0 c j).liftN K
+        ((pdoms c).length + (fdoms c j).length + (ihs c j).length)) ρ)
+    (hKIT : ℓ ≠ 0 →
+      KitRegimeAt V ℓ K rP nCt rds concl RecTy pdoms fdoms es mk ihs Rb0 ρ) :
+    BlockRecPre V s K RecTy
+      (iotaEqsAV K nCt pdoms fdoms es mk ihs
+        (fun c j => (Rb0 c j).liftN K
+          ((pdoms c).length + (fdoms c j).length + (ihs c j).length))) ρ := by
+  by_cases hℓ : ℓ = 0
+  · obtain ⟨envT, mp, F, ihdoms, Ca, hμ, hind, hcerts, hih, hT⟩ := hIND hℓ
+    exact blockRecPre_ind_run hμ hTy hwd hind hcerts hih hT
+  · obtain ⟨D, stp, ihv, hDst, hTyE, hbits, hpl, hrule, hstAt, hihChain⟩ := hKIT hℓ
+    exact blockRecPre_step_of D hDst hTy hwd hℓ hTyE hbits hpl hrule hstAt hihChain
+
+/-- **`hpre` in every regime**, in `blockRecStaged_run`'s spelling and
+at the lanes' shared choice of `K`, `nCt` and `eqs`.  The family's
+elimination level may depend on the level assignment (the guard is
+`ℓ ψ`), the chain's level `s` is one numeral for the block — which is
+what the assembly takes. -/
+theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {ℓ : (Name → Nat) → Nat} {rP : Nat → Nat}
+    {rds : (Name → Nat) → Nat → List (Nat × Nat × AnnotTerm)}
+    {concl : (Name → Nat) → Nat → AnnotTerm} {pdoms : (Name → Nat) → Nat → List AnnotTerm}
+    {fdoms es : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk : (Name → Nat) → Nat → Nat → AnnotTerm}
+    {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+        WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
+    (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+      (∀ c, c < rs.length →
+        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+        FieldsOkB 0 (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ∧
+        ∀ ys, SpineFit (consList as ρ) (pdoms ψ c ++ fdoms ψ c j) ys →
+          WellDenoted V (consList ys (consList as ρ))
+              (AnnotTerm.mkAppN
+                (.bvar ((pdoms ψ c).length + (fdoms ψ c j).length + (rs.length - 1 - c)))
+                (prefVarsAV (pdoms ψ c).length (fdoms ψ c j).length ++ es ψ c j
+                  ++ [mk ψ c j])) ∧
+            WellDenoted V (consList ys (consList as ρ))
+              (instsAV 0 (ihs ψ c j)
+                ((Rb0 ψ c j).liftN rs.length
+                  ((pdoms ψ c).length + (fdoms ψ c j).length + (ihs ψ c j).length))))
+    (hIND : ∀ (ψ : Name → Nat) (ρ : Nat → V), ℓ ψ = 0 →
+      IndRegimeAt V μ rs.length (blockRecNCt rs) rP ψ
+        (blockRecTyAV mpC.base2.acval envC rs ψ) (pdoms ψ) (fdoms ψ) (ihs ψ)
+        (fun c j => (Rb0 ψ c j).liftN rs.length
+          ((pdoms ψ c).length + (fdoms ψ c j).length + (ihs ψ c j).length)) ρ)
+    (hKIT : ∀ (ψ : Name → Nat) (ρ : Nat → V), ℓ ψ ≠ 0 →
+      KitRegimeAt V (ℓ ψ) rs.length rP (blockRecNCt rs) (rds ψ) (concl ψ)
+        (blockRecTyAV mpC.base2.acval envC rs ψ) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
+        (Rb0 ψ) ρ) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      BlockRecPre V s rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
+        (iotaEqsAV rs.length (blockRecNCt rs) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
+          (fun c j => (Rb0 ψ c j).liftN rs.length
+            ((pdoms ψ c).length + (fdoms ψ c j).length + (ihs ψ c j).length))) ρ :=
+  fun ψ ρ =>
+    blockRecPre_run (ℓ := ℓ ψ) (rds := rds ψ) (concl := concl ψ) (hTy ψ ρ) (hwd ψ ρ)
+      (hIND ψ ρ) (hKIT ψ ρ)
+
+end Dispatch
+
 end ConLeche.Model
