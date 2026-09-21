@@ -654,8 +654,11 @@ depth; `blockRuleDataAt_of_base` is the whole of
 `BlockRuleDataAt` reduced to its five base-frame identifications. -/
 
 /-- A binder list moved under the `K` chain binders: domain `i` is
-lifted at the cutoff `k + i`. -/
-def liftDomsK (K : Nat) : Nat → List AnnotTerm → List AnnotTerm
+lifted at the cutoff `k + i`.
+
+`@[expose]`: lane RM9's fit transport is a structural recursion ON
+this definition, so its body must unfold outside this module. -/
+@[expose] def liftDomsK (K : Nat) : Nat → List AnnotTerm → List AnnotTerm
   | _, [] => []
   | k, D :: Ds => D.liftN K k :: liftDomsK K (k + 1) Ds
 
