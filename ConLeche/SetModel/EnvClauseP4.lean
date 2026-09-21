@@ -48,6 +48,10 @@ marked `-- F2 FINDING:` and collected in the last section; both are
 about what an INSTANCE component of a container's table must carry,
 and the first is F1's finding seen again.
 
+The last section discharges `RoseClause` at the standard reading of
+`Rose` (`stdRoseClause`, `p4Ok_std`), at F0's own tags — in
+particular the self-referential `instLeaf` of FINDING (2) has a model.
+
 Everything here is over the bare `SetTheory` interface; no syntax.
 `ListClause`, `consArm`, `uIs` and `TreeTags` are F0's
 (`ConLeche/SetModel/EnvClauseTreeList.lean`), reused verbatim; the
@@ -180,14 +184,44 @@ variable {S : P4Sig V}
 
 /-! ## The three-component operator -/
 
+/-- `Rose.node`'s arm over a label set `A` and a children set `B`:
+`{ node a l | a ∈ A, l ∈ B }`.  It serves both the COPY's fibre and,
+at a parameter, the container's own operator (the non-vacuity section
+below). -/
+noncomputable def nodeArm (inj : Nat → List V → V) (A B : V) : V :=
+  image (fun q => inj 0 [sfst q, ssnd q]) (sigmaPairs A fun _ => B)
+
+theorem mem_nodeArm {inj : Nat → List V → V} {A B x : V} :
+    x ∈ˢ nodeArm inj A B ↔ ∃ a, a ∈ˢ A ∧ ∃ l, l ∈ˢ B ∧ x = inj 0 [a, l] := by
+  unfold nodeArm
+  constructor
+  · intro hx
+    obtain ⟨q, hq, rfl⟩ := mem_image.mp hx
+    obtain ⟨a, ha, l, hl, rfl⟩ := mem_sigmaPairs.mp hq
+    rw [sfst_kpair, ssnd_kpair]
+    exact ⟨a, ha, l, hl, rfl⟩
+  · rintro ⟨a, ha, l, hl, rfl⟩
+    refine mem_image.mpr ⟨kpair a l, mem_sigmaPairs.mpr ⟨a, ha, l, hl, rfl⟩, ?_⟩
+    rw [sfst_kpair, ssnd_kpair]
+
+/-- The `node` arm's formation, above `Prop`. -/
+theorem nodeArm_mem_univ {w : Nat} (hw : w ≠ 0) {inj : Nat → List V → V} {A B : V}
+    (hA : A ∈ˢ (univ w : V)) (hB : B ∈ˢ (univ w : V))
+    (hnode : ∀ a l, a ∈ˢ (univ w : V) → l ∈ˢ (univ w : V) → inj 0 [a, l] ∈ˢ (univ w : V)) :
+    nodeArm inj A B ∈ˢ (univ w : V) := by
+  have hU := univ_isTGUniverse (V := V) hw
+  refine hU.image_mem (hU.sigmaPairs_mem hA fun _ _ => hB) fun q hq => ?_
+  obtain ⟨a, ha, l, hl, rfl⟩ := mem_sigmaPairs.mp hq
+  rw [sfst_kpair, ssnd_kpair]
+  exact hnode a l (hU.transitive hA ha) (hU.transitive hB hl)
+
 /-- The three components' fibres at an argument tuple: `P4.mk`'s field
 is a slot at `1`; `Rose.node`'s label is a slot at `0` (the pin is the
 MEMBER) and its children a slot at `2`; the copy of `List` has heads
 at `1` and tails at `2`. -/
 noncomputable def blkFib (S : P4Sig V) (X : Nat → V) : Nat → V
   | 0 => image (fun r => S.injP 0 [r]) (app (X 1) pt)
-  | 1 => image (fun q => S.injR 0 [sfst q, ssnd q])
-      (sigmaPairs (app (X 0) pt) fun _ => app (X 2) pt)
+  | 1 => nodeArm S.injR (app (X 0) pt) (app (X 2) pt)
   | _ => consArm S.injL (app (X 1) pt) (app (X 2) pt)
 
 /-- **The block's operator**, a plain three-component block operator. -/
@@ -201,8 +235,7 @@ theorem blkFib_zero (S : P4Sig V) (X : Nat → V) :
     blkFib S X 0 = image (fun r => S.injP 0 [r]) (app (X 1) pt) := rfl
 
 theorem blkFib_one (S : P4Sig V) (X : Nat → V) :
-    blkFib S X 1 = image (fun q => S.injR 0 [sfst q, ssnd q])
-      (sigmaPairs (app (X 0) pt) fun _ => app (X 2) pt) := rfl
+    blkFib S X 1 = nodeArm S.injR (app (X 0) pt) (app (X 2) pt) := rfl
 
 theorem blkFib_two (S : P4Sig V) (X : Nat → V) :
     blkFib S X 2 = consArm S.injL (app (X 1) pt) (app (X 2) pt) := rfl
@@ -212,17 +245,7 @@ theorem mem_blkFib_zero {X : Nat → V} {x : V} :
 
 theorem mem_blkFib_one {X : Nat → V} {x : V} :
     x ∈ˢ blkFib S X 1 ↔
-      ∃ a, a ∈ˢ app (X 0) pt ∧ ∃ l, l ∈ˢ app (X 2) pt ∧ x = S.injR 0 [a, l] := by
-  rw [blkFib_one]
-  constructor
-  · intro hx
-    obtain ⟨q, hq, rfl⟩ := mem_image.mp hx
-    obtain ⟨a, ha, l, hl, rfl⟩ := mem_sigmaPairs.mp hq
-    rw [sfst_kpair, ssnd_kpair]
-    exact ⟨a, ha, l, hl, rfl⟩
-  · rintro ⟨a, ha, l, hl, rfl⟩
-    refine mem_image.mpr ⟨kpair a l, mem_sigmaPairs.mpr ⟨a, ha, l, hl, rfl⟩, ?_⟩
-    rw [sfst_kpair, ssnd_kpair]
+      ∃ a, a ∈ˢ app (X 0) pt ∧ ∃ l, l ∈ˢ app (X 2) pt ∧ x = S.injR 0 [a, l] := mem_nodeArm
 
 theorem mem_blkFib_two {X : Nat → V} {x : V} :
     x ∈ˢ blkFib S X 2 ↔
@@ -275,12 +298,8 @@ theorem blkFib_mem (hS : P4Ok S) {X : Nat → V} (hX : InTupleSpace S.w 3 uIs X)
         hS.mem.memU hw r (hU.transitive (hap 1 (by omega)) hr)
     | 1, _ =>
       rw [blkFib_one]
-      refine hU.image_mem (hU.sigmaPairs_mem (hap 0 (by omega)) fun _ _ => hap 2 (by omega))
-        fun q hq => ?_
-      obtain ⟨a, ha, l, hl, rfl⟩ := mem_sigmaPairs.mp hq
-      rw [sfst_kpair, ssnd_kpair]
-      exact hS.rose.node_mem_univ hw (hU.transitive (hap 0 (by omega)) ha)
-        (hU.transitive (hap 2 (by omega)) hl)
+      exact nodeArm_mem_univ hw (hap 0 (by omega)) (hap 2 (by omega))
+        fun _ _ ha hl => hS.rose.node_mem_univ hw ha hl
     | 2, _ =>
       rw [blkFib_two]
       exact consArm_mem_univ hw (hap 1 (by omega)) (hap 2 (by omega))
@@ -1016,6 +1035,284 @@ INSTANCE component of the container's own table:
    `carP_mem_univ` (`famSpace_app`, three lines): a group whose pin is
    the member needs NO identification of its own, which is why it has
    rank `0`. -/
+
+/-! ## Non-vacuity: `RoseClause` has a model
+
+`RoseClause` carries the two fields §1.2 does not (`fibre1` at the
+inner container's tags, and the self-referential `instLeaf`), so it
+must be shown satisfiable — otherwise F2's identification would be
+vacuous and its finding empty.  This section builds the standard
+reading of `Rose α ::= node α (List (Rose α))` with F0's own
+`stdInj`/`stdΨL`/`stdLIST` for the inner container, so that
+`stdListClause` applies verbatim and both clauses hold at the SAME
+tags. -/
+
+section StdRose
+
+/-- `Rose`'s own WIDE operator at a parameter: component `0` is the
+`node` arm with the labels in the PARAMETER and the children at
+component `1`; component `1` is the `nil`/`cons` arm whose heads are
+at component `0` — the nesting inside the container. -/
+noncomputable def stdΨR (w : Nat) (α : V) (Y : Nat → V) : Nat → V
+  | 0 => graph (fun _ => nodeArm (stdInj w) α (app (Y 1) pt)) unitSet
+  | _ => graph (fun _ => consArm (stdInj w) (app (Y 0) pt) (app (Y 1) pt)) unitSet
+
+theorem app_stdΨR_zero (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨR w α Y 0) pt = nodeArm (stdInj w) α (app (Y 1) pt) := app_graph pt_mem_unitSet
+
+theorem app_stdΨR_one (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨR w α Y 1) pt = consArm (stdInj w) (app (Y 0) pt) (app (Y 1) pt) :=
+  app_graph pt_mem_unitSet
+
+/-- `⟦Rose α⟧`, the member's component of the wide table. -/
+noncomputable def stdROSE (w : Nat) (α : V) : V := lfpTuple w 2 uIs (stdΨR w α) 0
+
+theorem stdΨR_mono (w : Nat) (α : V) : MonoTuple w 2 uIs (stdΨR w α) := by
+  intro X Y hX hY hle c hc i hi x hx
+  obtain rfl := mem_unitSet_iff.mp hi
+  match c, hc with
+  | 0, _ =>
+    rw [app_stdΨR_zero] at hx ⊢
+    obtain ⟨a, ha, l, hl, rfl⟩ := mem_nodeArm.mp hx
+    exact mem_nodeArm.mpr ⟨a, ha, l, hle 1 (by omega) pt pt_mem_unitSet l hl, rfl⟩
+  | 1, _ =>
+    rw [app_stdΨR_one] at hx ⊢
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · exact mem_consArm.mpr (Or.inl rfl)
+    · exact mem_consArm.mpr (Or.inr ⟨h, t, hle 0 (by omega) pt pt_mem_unitSet h hh,
+        hle 1 (by omega) pt pt_mem_unitSet t ht, rfl⟩)
+
+theorem stdInj_two_mem_univ {w : Nat} (hw : w ≠ 0) (j : Nat) {a b : V}
+    (ha : a ∈ˢ (univ w : V)) (hb : b ∈ˢ (univ w : V)) : stdInj w j [a, b] ∈ˢ (univ w : V) := by
+  refine stdInj_mem_univ hw ?_
+  intro x hx
+  rcases List.mem_cons.mp hx with rfl | hx
+  · exact ha
+  · rcases List.mem_cons.mp hx with rfl | hx
+    · exact hb
+    · exact absurd hx List.not_mem_nil
+
+theorem stdΨR_maps {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) : MapsTuple w 2 uIs (stdΨR w α) := by
+  intro Y hY c hc
+  have hY0 : app (Y 0) pt ∈ˢ (univ w : V) := famSpace_app (hY 0 (by omega)) pt_mem_unitSet
+  have hY1 : app (Y 1) pt ∈ˢ (univ w : V) := famSpace_app (hY 1 (by omega)) pt_mem_unitSet
+  by_cases hw : w = 0
+  · subst hw
+    match c, hc with
+    | 0, _ =>
+      refine graph_mem_famSpace fun i hi => ?_
+      rw [univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      obtain ⟨a, -, l, -, rfl⟩ := mem_nodeArm.mp hx
+      rw [stdInj_zero]; exact pt_mem_unitSet
+    | 1, _ =>
+      refine graph_mem_famSpace fun i hi => ?_
+      rw [univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      rcases mem_consArm.mp hx with rfl | ⟨h, t, -, -, rfl⟩
+      · rw [stdInj_zero]; exact pt_mem_unitSet
+      · rw [stdInj_zero]; exact pt_mem_unitSet
+  · match c, hc with
+    | 0, _ =>
+      exact graph_mem_famSpace fun _ _ =>
+        nodeArm_mem_univ hw hα hY1 fun _ _ ha hl => stdInj_two_mem_univ hw 0 ha hl
+    | 1, _ =>
+      exact graph_mem_famSpace fun _ _ =>
+        consArm_mem_univ hw hY0 hY1 (stdInj_mem_univ hw (by simp))
+          fun _ _ hh ht => stdInj_two_mem_univ hw 1 hh ht
+
+/-! ### (W) for `Rose`'s wide table
+
+Shapes `⟨0, a⟩ = node` at the label `a` (a HOLE-FREE entry, so it
+lives in the SHAPE), `⟨1, pt⟩ = nil`, `⟨2, pt⟩ = cons` — `cons`'s head
+is a SLOT here (it targets component `0`), not shape data. -/
+
+/-- The shapes, per component. -/
+noncomputable def rShapes (α : V) : Nat → V → V
+  | 0, _ => image (fun a => kpair (vnat 0) a) α
+  | _, _ => upair (kpair (vnat 1) pt) (kpair (vnat 2) pt)
+
+/-- The positions of a shape. -/
+noncomputable def rPos (a : V) : V :=
+  natFibre (fun j => if j = 0 then sing (vnat 0) else if j = 1 then empty
+    else upair (vnat 0) (vnat 1)) (sfst a)
+
+theorem rPos_node (a : V) : rPos (kpair (vnat 0) a) = sing (vnat 0) := by
+  unfold rPos; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+theorem rPos_nil : rPos (kpair (vnat 1) pt : V) = empty := by
+  unfold rPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_pos rfl]
+
+theorem rPos_cons : rPos (kpair (vnat 2) pt : V) = upair (vnat 0) (vnat 1) := by
+  unfold rPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_neg (by omega)]
+
+open Classical in
+/-- The target of a slot: `node`'s child and `cons`'s tail go to
+component `1`, `cons`'s head to component `0`. -/
+noncomputable def rTgt (a p : V) : Nat :=
+  if sfst a = (vnat 2 : V) then (if p = (vnat 0 : V) then 0 else 1) else 1
+
+theorem rTgt_node (a p : V) : rTgt (kpair (vnat 0) a) p = 1 := by
+  unfold rTgt; rw [sfst_kpair, if_neg (vnat_ne (by omega))]
+
+theorem rTgt_cons_head : rTgt (kpair (vnat 2) pt : V) (vnat 0) = 0 := by
+  unfold rTgt; rw [sfst_kpair, if_pos rfl, if_pos rfl]
+
+theorem rTgt_cons_tail : rTgt (kpair (vnat 2) pt : V) (vnat 1) = 1 := by
+  unfold rTgt; rw [sfst_kpair, if_pos rfl, if_neg (vnat_ne (by omega))]
+
+/-- The builder: `node`'s label comes from the SHAPE. -/
+noncomputable def rMk (w : Nat) (_m : Nat) (a g : V) : V :=
+  natFibre (fun j => if j = 0 then stdInj w 0 [ssnd a, app g (vnat 0)]
+    else if j = 1 then stdInj w 0 []
+    else stdInj w 1 [app g (vnat 0), app g (vnat 1)]) (sfst a)
+
+theorem rMk_node (w m : Nat) (a g : V) :
+    rMk w m (kpair (vnat 0) a) g = stdInj (V := V) w 0 [a, app g (vnat 0)] := by
+  unfold rMk; rw [sfst_kpair, natFibre_vnat, if_pos rfl, ssnd_kpair]
+
+theorem rMk_nil (w m : Nat) (g : V) : rMk w m (kpair (vnat 1) pt) g = stdInj (V := V) w 0 [] := by
+  unfold rMk; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_pos rfl]
+
+theorem rMk_cons (w m : Nat) (g : V) :
+    rMk w m (kpair (vnat 2) pt) g = stdInj (V := V) w 1 [app g (vnat 0), app g (vnat 1)] := by
+  unfold rMk; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_neg (by omega)]
+
+open Classical in
+theorem stdΨR_closed {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    ∃ L, IsClosedTuple w 2 uIs (stdΨR w α) L := by
+  by_cases hw : w = 0
+  · rw [hw]; exact closedTuple_zero (hw ▸ stdΨR_maps hα)
+  have hU := univ_isTGUniverse (V := V) hw
+  have hv : ∀ j : Nat, (vnat j : V) ∈ˢ (univ w : V) := fun j => vnat_mem_univ_pos hw j
+  have hsh : ∀ j : Nat, ∀ x, x ∈ˢ (univ w : V) → (kpair (vnat j) x : V) ∈ˢ (univ w : V) :=
+    fun j x hx => hU.kpair_mem hx (hv j) hx
+  refine tupleContainer_closed_exists hw (Is := uIs) (stdΨR w α) (rShapes α) rPos rTgt
+    (fun _ _ => pt) (rMk w) ?hA ?hB ?htgt ?hmkU ?helim
+  case hA =>
+    intro m hm i hi
+    match m, hm with
+    | 0, _ =>
+      show image _ α ∈ˢ (univ w : V)
+      exact hU.image_mem hα fun a ha => hsh 0 a (hU.transitive hα ha)
+    | 1, _ =>
+      show upair _ _ ∈ˢ (univ w : V)
+      exact hU.upair_mem (hsh 1 pt (pt_mem_univ hw)) (hsh 1 pt (pt_mem_univ hw))
+        (hsh 2 pt (pt_mem_univ hw))
+  case hB =>
+    intro m hm i a hi ha
+    match m, hm with
+    | 0, _ =>
+      obtain ⟨b, -, rfl⟩ := mem_image.mp (show a ∈ˢ image _ α from ha)
+      rw [rPos_node]; exact hU.sing_mem (hv 0) (hv 0)
+    | 1, _ =>
+      rcases mem_upair.mp (show a ∈ˢ upair _ _ from ha) with rfl | rfl
+      · rw [rPos_nil]; exact hU.empty_mem (hv 0)
+      · rw [rPos_cons]; exact hU.upair_mem (hv 0) (hv 0) (hv 1)
+  case htgt =>
+    intro m hm i a p hi ha hp
+    refine ⟨?_, pt_mem_unitSet⟩
+    unfold rTgt
+    repeat' split
+    all_goals omega
+  case hmkU =>
+    intro m hm i a g hi ha hg
+    match m, hm with
+    | 0, _ =>
+      obtain ⟨b, hb, rfl⟩ := mem_image.mp (show a ∈ˢ image _ α from ha)
+      rw [rMk_node]
+      exact stdInj_two_mem_univ hw 0 (hU.transitive hα hb) (app_mem_univ hw hg _)
+    | 1, _ =>
+      rcases mem_upair.mp (show a ∈ˢ upair _ _ from ha) with rfl | rfl
+      · rw [rMk_nil]; exact stdInj_mem_univ hw (by simp)
+      · rw [rMk_cons]
+        exact stdInj_two_mem_univ hw 1 (app_mem_univ hw hg _) (app_mem_univ hw hg _)
+  case helim =>
+    intro X hX m hm i hi x hx
+    obtain rfl := mem_unitSet_iff.mp hi
+    match m, hm with
+    | 0, _ =>
+      rw [app_stdΨR_zero] at hx
+      obtain ⟨a, ha, l, hl, rfl⟩ := mem_nodeArm.mp hx
+      refine ⟨kpair (vnat 0) a, mem_image.mpr ⟨a, ha, rfl⟩,
+        graph (fun _ => l) (sing (vnat 0)), ?_, ?_⟩
+      · rw [rPos_node]
+        refine graph_mem_piSet fun p hp => ?_
+        rw [rTgt_node]
+        exact hl
+      · rw [rMk_node, app_graph (mem_sing.mpr rfl)]
+    | 1, _ =>
+      rw [app_stdΨR_one] at hx
+      rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+      · refine ⟨kpair (vnat 1) pt, mem_upair.mpr (Or.inl rfl), graph (fun _ => pt) empty, ?_, ?_⟩
+        · rw [rPos_nil]
+          exact graph_mem_piSet fun p hp => absurd hp (not_mem_empty p)
+        · rw [rMk_nil]
+      · refine ⟨kpair (vnat 2) pt, mem_upair.mpr (Or.inr rfl),
+          graph (fun p => if p = (vnat 0 : V) then h else t) (upair (vnat 0) (vnat 1)), ?_, ?_⟩
+        · rw [rPos_cons]
+          refine graph_mem_piSet fun p hp => ?_
+          rcases mem_upair.mp hp with rfl | rfl
+          · rw [if_pos rfl, rTgt_cons_head]; exact hh
+          · rw [if_neg (vnat_ne (by omega)), rTgt_cons_tail]; exact ht
+        · rw [rMk_cons, app_graph (mem_upair.mpr (Or.inl rfl)),
+            app_graph (mem_upair.mpr (Or.inr rfl)), if_pos rfl, if_neg (vnat_ne (by omega))]
+
+/-- The instance component of `Rose`'s table IS `⟦List⟧` at the
+container's OWN member carrier — the self-referential `instLeaf`
+(F2 FINDING (2)), proved by the same segment Bekić the identification
+uses, at `Rose`'s own block. -/
+theorem stdΨR_instLeaf {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    lfpTuple w 2 uIs (stdΨR w α) 1 = stdLIST w (app (stdROSE w α) pt) := by
+  have h : lfpTuple w 2 uIs (stdΨR w α) (1 + 0)
+      = lfpTuple w 1 uIs (stdΨL w (app (stdROSE w α) pt)) 0 :=
+    lfpTuple_seg_congr (stdΨR_closed hα) (stdΨR_mono w α) (by omega) (fun _ _ => rfl)
+      (fun Y hY i hi => by
+        obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+        show stdΨR w α (segJoin 1 1 (lfpTuple w 2 uIs (stdΨR w α)) Y) 1
+          = stdΨL w (app (stdROSE w α) pt) Y 0
+        unfold stdΨR stdΨL
+        rw [segJoin_add (q := 0) _ _ (show (0:Nat) < 1 by omega),
+          segJoin_lt _ _ (show (0:Nat) < 1 by omega)]
+        rfl)
+      Nat.zero_lt_one
+  exact h
+
+/-- **`RoseClause` is not an empty hypothesis**: the standard reading
+of `Rose α ::= node α (List (Rose α))` satisfies it at every level,
+with F0's standard `List` as its instance component and the SAME
+tags. -/
+theorem stdRoseClause (w : Nat) :
+    RoseClause w (stdROSE (V := V) w) (stdΨR w) (stdLIST w) (stdInj w) (stdInj w) where
+  leaf := fun _ _ => rfl
+  mono := fun α _ => stdΨR_mono w α
+  maps := fun _ hα => stdΨR_maps hα
+  closed := fun _ hα => stdΨR_closed hα
+  fibre0 := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨR_zero]
+    exact mem_nodeArm
+  fibre1 := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨR_one, mem_consArm]
+    exact ⟨fun hx => by
+        rcases hx with rfl | ⟨h, t', hh, ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, hh, t', ht', rfl⟩,
+      fun hx => by
+        rcases hx with rfl | ⟨h, hh, t', ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, t', hh, ht', rfl⟩⟩
+  instLeaf := fun _ hα => stdΨR_instLeaf hα
+  mkZero := fun hw j fs => by unfold stdInj; rw [if_pos hw]
+  mkInj := fun hw j j' fs fs' h => stdInj_inj hw j j' fs fs' h
+
+/-- The whole hypothesis of F2 is satisfiable. -/
+theorem p4Ok_std (w : Nat) :
+    P4Ok (V := V) ⟨w, stdROSE w, stdΨR w, stdLIST w, stdΨL w, stdInj w, stdInj w, stdInj w⟩ :=
+  ⟨stdRoseClause w, stdListClause w, treeTags_stdInj w⟩
+
+end StdRose
 
 end P4Block
 

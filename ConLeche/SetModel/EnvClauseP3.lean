@@ -63,6 +63,11 @@ component, the inner container's tags; here that is the `injL`
 argument of `ArrayClause`, shared with `ListClause`.  See the module
 `## What the clause must record` section at the end.
 
+The last section discharges `ArrayClause` at the standard reading of
+`Array α ::= mk (List α)` (`stdArrayClause`, `p3Ok_std`), at F0's own
+tags, so that nothing here — the two fields §1.2 does not have least
+of all — is vacuous.
+
 Everything here is over the bare `SetTheory` interface; no syntax.
 The container clause `ListClause`, the `nil`/`cons` arm `consArm`, the
 index sets `uIs` and the member-tag record `TreeTags` (a member with
@@ -1255,6 +1260,270 @@ end Rec
    tag shapes by (component, constructor).  This sharpens
    `F0-REPORT.md`'s point (2) — there the collision could not yet
    arise. -/
+
+/-! ## Non-vacuity: `ArrayClause` has a model
+
+The development above is hypothetical in the containers' env clauses,
+and `ArrayClause` carries two fields that §1.2 does not (`fibre1` at
+the inner container's tags, `instLeaf`) — so it must be shown
+satisfiable, or F1 would prove nothing.  This section discharges it at
+the STANDARD reading of `Array α ::= mk (List α)`, with F0's own
+`stdInj`/`stdΨL`/`stdLIST` for the inner container, so that
+`stdListClause` applies verbatim and the two clauses are witnessed at
+the SAME tags — which is what the F1 finding asks a real install to
+guarantee. -/
+
+section StdArray
+
+/-- `Array`'s own WIDE operator at a parameter: component `0` is
+`Array.mk`'s image of component `1`, component `1` is the `nil`/`cons`
+arm with the heads in the PARAMETER. -/
+noncomputable def stdΨA (w : Nat) (α : V) (Y : Nat → V) : Nat → V
+  | 0 => graph (fun _ => image (fun l => stdInj w 0 [l]) (app (Y 1) pt)) unitSet
+  | _ => graph (fun _ => consArm (stdInj w) α (app (Y 1) pt)) unitSet
+
+theorem app_stdΨA_zero (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨA w α Y 0) pt = image (fun l => stdInj w 0 [l]) (app (Y 1) pt) :=
+  app_graph pt_mem_unitSet
+
+theorem app_stdΨA_one (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨA w α Y 1) pt = consArm (stdInj w) α (app (Y 1) pt) := app_graph pt_mem_unitSet
+
+/-- `⟦Array α⟧`, the member's component of the wide table. -/
+noncomputable def stdARR (w : Nat) (α : V) : V := lfpTuple w 2 uIs (stdΨA w α) 0
+
+theorem stdΨA_mono (w : Nat) (α : V) : MonoTuple w 2 uIs (stdΨA w α) := by
+  intro X Y hX hY hle c hc i hi x hx
+  obtain rfl := mem_unitSet_iff.mp hi
+  match c, hc with
+  | 0, _ =>
+    rw [app_stdΨA_zero] at hx ⊢
+    obtain ⟨l, hl, rfl⟩ := mem_image.mp hx
+    exact mem_image.mpr ⟨l, hle 1 (by omega) pt pt_mem_unitSet l hl, rfl⟩
+  | 1, _ =>
+    rw [app_stdΨA_one] at hx ⊢
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · exact mem_consArm.mpr (Or.inl rfl)
+    · exact mem_consArm.mpr (Or.inr ⟨h, t, hh, hle 1 (by omega) pt pt_mem_unitSet t ht, rfl⟩)
+
+theorem stdInj_cons_mem_univ {w : Nat} (hw : w ≠ 0) {h t : V} (hh : h ∈ˢ (univ w : V))
+    (ht : t ∈ˢ (univ w : V)) : stdInj w 1 [h, t] ∈ˢ (univ w : V) := by
+  refine stdInj_mem_univ hw ?_
+  intro x hx
+  rcases List.mem_cons.mp hx with rfl | hx
+  · exact hh
+  · rcases List.mem_cons.mp hx with rfl | hx
+    · exact ht
+    · exact absurd hx List.not_mem_nil
+
+theorem stdΨA_maps {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) : MapsTuple w 2 uIs (stdΨA w α) := by
+  intro Y hY c hc
+  have hY1 : app (Y 1) pt ∈ˢ (univ w : V) := famSpace_app (hY 1 (by omega)) pt_mem_unitSet
+  by_cases hw : w = 0
+  · subst hw
+    match c, hc with
+    | 0, _ =>
+      refine graph_mem_famSpace fun i hi => ?_
+      rw [univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      obtain ⟨l, -, rfl⟩ := mem_image.mp hx
+      rw [stdInj_zero]; exact pt_mem_unitSet
+    | 1, _ =>
+      refine graph_mem_famSpace fun i hi => ?_
+      rw [univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      rcases mem_consArm.mp hx with rfl | ⟨h, t, -, -, rfl⟩
+      · rw [stdInj_zero]; exact pt_mem_unitSet
+      · rw [stdInj_zero]; exact pt_mem_unitSet
+  · have hU := univ_isTGUniverse (V := V) hw
+    match c, hc with
+    | 0, _ =>
+      exact graph_mem_famSpace fun _ _ =>
+        hU.image_mem hY1 fun l hl => stdInj_mem_univ hw (by
+          intro x hx
+          rcases List.mem_cons.mp hx with rfl | hx
+          · exact hU.transitive hY1 hl
+          · exact absurd hx List.not_mem_nil)
+    | 1, _ =>
+      exact graph_mem_famSpace fun _ _ =>
+        consArm_mem_univ hw hα hY1 (stdInj_mem_univ hw (by simp))
+          fun _ _ hh ht => stdInj_cons_mem_univ hw hh ht
+
+/-! ### (W) for `Array`'s wide table
+
+Shapes `⟨0, pt⟩ = Array.mk`, `⟨1, pt⟩ = nil`, `⟨2, h⟩ = cons` at the
+head `h` — a HOLE-FREE entry, so it lives in the SHAPE (§2.2 (iii),
+F0's `stdList` recipe).  Every slot targets component `1`. -/
+
+/-- The shapes, per component. -/
+noncomputable def aShapes (α : V) : Nat → V → V
+  | 0, _ => sing (kpair (vnat 0) pt)
+  | _, _ => binUnion (sing (kpair (vnat 1) pt)) (image (fun h => kpair (vnat 2) h) α)
+
+theorem mem_aShapes_one {α a : V} :
+    a ∈ˢ aShapes α 1 pt ↔ a = kpair (vnat 1) pt ∨ ∃ h, h ∈ˢ α ∧ a = kpair (vnat 2) h := by
+  show a ∈ˢ binUnion _ _ ↔ _
+  rw [mem_binUnion, mem_sing]
+  exact or_congr Iff.rfl ⟨fun hx => by
+      obtain ⟨h, hh, rfl⟩ := mem_image.mp hx; exact ⟨h, hh, rfl⟩,
+    fun ⟨h, hh, hx⟩ => mem_image.mpr ⟨h, hh, hx⟩⟩
+
+/-- The positions of a shape: one slot for `Array.mk` and for `cons`,
+none for `nil`. -/
+noncomputable def aPos (a : V) : V :=
+  natFibre (fun j => if j = 1 then empty else sing (vnat 0)) (sfst a)
+
+theorem aPos_mk : aPos (kpair (vnat 0) pt : V) = sing (vnat 0) := by
+  unfold aPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega)]
+
+theorem aPos_nil : aPos (kpair (vnat 1) pt : V) = empty := by
+  unfold aPos; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+theorem aPos_cons (h : V) : aPos (kpair (vnat 2) h) = sing (vnat 0) := by
+  unfold aPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega)]
+
+/-- The builder: `cons`'s head comes from the SHAPE. -/
+noncomputable def aMk (w : Nat) (_m : Nat) (a g : V) : V :=
+  natFibre (fun j => if j = 0 then stdInj w 0 [app g (vnat 0)]
+    else if j = 1 then stdInj w 0 [] else stdInj w 1 [ssnd a, app g (vnat 0)]) (sfst a)
+
+theorem aMk_mk (w m : Nat) (g : V) :
+    aMk w m (kpair (vnat 0) pt) g = stdInj (V := V) w 0 [app g (vnat 0)] := by
+  unfold aMk; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+theorem aMk_nil (w m : Nat) (g : V) : aMk w m (kpair (vnat 1) pt) g = stdInj (V := V) w 0 [] := by
+  unfold aMk; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_pos rfl]
+
+theorem aMk_cons (w m : Nat) (h g : V) :
+    aMk w m (kpair (vnat 2) h) g = stdInj (V := V) w 1 [h, app g (vnat 0)] := by
+  unfold aMk
+  rw [sfst_kpair, natFibre_vnat, if_neg (by omega), if_neg (by omega), ssnd_kpair]
+
+open Classical in
+theorem stdΨA_closed {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    ∃ L, IsClosedTuple w 2 uIs (stdΨA w α) L := by
+  by_cases hw : w = 0
+  · rw [hw]; exact closedTuple_zero (hw ▸ stdΨA_maps hα)
+  have hU := univ_isTGUniverse (V := V) hw
+  have hv : ∀ j : Nat, (vnat j : V) ∈ˢ (univ w : V) := fun j => vnat_mem_univ_pos hw j
+  have hsh : ∀ j : Nat, ∀ x, x ∈ˢ (univ w : V) → (kpair (vnat j) x : V) ∈ˢ (univ w : V) :=
+    fun j x hx => hU.kpair_mem hx (hv j) hx
+  refine tupleContainer_closed_exists hw (Is := uIs) (stdΨA w α) (aShapes α) aPos
+    (fun _ _ => 1) (fun _ _ => pt) (aMk w) ?hA ?hB ?htgt ?hmkU ?helim
+  case hA =>
+    intro m hm i hi
+    match m, hm with
+    | 0, _ =>
+      show sing (kpair (vnat 0) pt) ∈ˢ (univ w : V)
+      exact hU.sing_mem (hsh 0 pt (pt_mem_univ hw)) (hsh 0 pt (pt_mem_univ hw))
+    | 1, _ =>
+      show binUnion _ _ ∈ˢ (univ w : V)
+      refine hU.binUnion_mem (hsh 1 pt (pt_mem_univ hw))
+        (hU.sing_mem (hsh 1 pt (pt_mem_univ hw)) (hsh 1 pt (pt_mem_univ hw))) ?_
+      exact hU.image_mem hα fun h hh => hsh 2 h (hU.transitive hα hh)
+  case hB =>
+    intro m hm i a hi ha
+    match m, hm with
+    | 0, _ =>
+      obtain rfl : a = kpair (vnat 0) pt := mem_sing.mp ha
+      rw [aPos_mk]; exact hU.sing_mem (hv 0) (hv 0)
+    | 1, _ =>
+      rcases mem_aShapes_one.mp ha with rfl | ⟨h, hh, rfl⟩
+      · rw [aPos_nil]; exact hU.empty_mem (hv 0)
+      · rw [aPos_cons]; exact hU.sing_mem (hv 0) (hv 0)
+  case htgt => exact fun m hm i a p hi ha hp => ⟨by omega, pt_mem_unitSet⟩
+  case hmkU =>
+    intro m hm i a g hi ha hg
+    match m, hm with
+    | 0, _ =>
+      obtain rfl : a = kpair (vnat 0) pt := mem_sing.mp ha
+      rw [aMk_mk]
+      exact stdInj_mem_univ hw (by
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact app_mem_univ hw hg _
+        · exact absurd hx List.not_mem_nil)
+    | 1, _ =>
+      rcases mem_aShapes_one.mp ha with rfl | ⟨h, hh, rfl⟩
+      · rw [aMk_nil]; exact stdInj_mem_univ hw (by simp)
+      · rw [aMk_cons]
+        exact stdInj_cons_mem_univ hw (hU.transitive hα hh) (app_mem_univ hw hg _)
+  case helim =>
+    intro X hX m hm i hi x hx
+    obtain rfl := mem_unitSet_iff.mp hi
+    match m, hm with
+    | 0, _ =>
+      rw [app_stdΨA_zero] at hx
+      obtain ⟨l, hl, rfl⟩ := mem_image.mp hx
+      refine ⟨kpair (vnat 0) pt, mem_sing.mpr rfl, graph (fun _ => l) (sing (vnat 0)), ?_, ?_⟩
+      · rw [aPos_mk]
+        exact graph_mem_piSet fun p hp => hl
+      · rw [aMk_mk, app_graph (mem_sing.mpr rfl)]
+    | 1, _ =>
+      rw [app_stdΨA_one] at hx
+      rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+      · refine ⟨kpair (vnat 1) pt, mem_aShapes_one.mpr (Or.inl rfl),
+          graph (fun _ => pt) empty, ?_, ?_⟩
+        · rw [aPos_nil]
+          exact graph_mem_piSet fun p hp => absurd hp (not_mem_empty p)
+        · rw [aMk_nil]
+      · refine ⟨kpair (vnat 2) h, mem_aShapes_one.mpr (Or.inr ⟨h, hh, rfl⟩),
+          graph (fun _ => t) (sing (vnat 0)), ?_, ?_⟩
+        · rw [aPos_cons]
+          exact graph_mem_piSet fun p hp => ht
+        · rw [aMk_cons, app_graph (mem_sing.mpr rfl)]
+
+/-- The instance component of `Array`'s table IS `⟦List⟧` at the
+parameter — `instLeaf` is F0's identification at `Array`'s OWN block,
+proved here by the same segment Bekić, which is what a real install
+would record. -/
+theorem stdΨA_instLeaf {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    lfpTuple w 2 uIs (stdΨA w α) 1 = stdLIST w α := by
+  have h : lfpTuple w 2 uIs (stdΨA w α) (1 + 0) = lfpTuple w 1 uIs (stdΨL w α) 0 :=
+    lfpTuple_seg_congr (stdΨA_closed hα) (stdΨA_mono w α) (by omega) (fun _ _ => rfl)
+      (fun Y hY i hi => by
+        obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+        show stdΨA w α (segJoin 1 1 (lfpTuple w 2 uIs (stdΨA w α)) Y) 1 = stdΨL w α Y 0
+        unfold stdΨA stdΨL
+        rw [segJoin_add (q := 0) _ _ (show (0:Nat) < 1 by omega)]
+        rfl)
+      Nat.zero_lt_one
+  exact h
+
+/-- **`ArrayClause` is not an empty hypothesis**: the standard reading
+of `Array α ::= mk (List α)` satisfies it at every level, with F0's
+standard `List` as its instance component and the SAME tags. -/
+theorem stdArrayClause (w : Nat) :
+    ArrayClause w (stdARR (V := V) w) (stdΨA w) (stdLIST w) (stdInj w) (stdInj w) where
+  leaf := fun _ _ => rfl
+  mono := fun α _ => stdΨA_mono w α
+  maps := fun _ hα => stdΨA_maps hα
+  closed := fun _ hα => stdΨA_closed hα
+  fibre0 := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨA_zero]
+    exact mem_image
+  fibre1 := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨA_one, mem_consArm]
+    exact ⟨fun hx => by
+        rcases hx with rfl | ⟨h, t', hh, ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, hh, t', ht', rfl⟩,
+      fun hx => by
+        rcases hx with rfl | ⟨h, hh, t', ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, t', hh, ht', rfl⟩⟩
+  instLeaf := fun _ hα => stdΨA_instLeaf hα
+  mkZero := fun hw j fs => by unfold stdInj; rw [if_pos hw]
+  mkInj := fun hw j j' fs fs' h => stdInj_inj hw j j' fs fs' h
+
+/-- The whole hypothesis of F1 is satisfiable. -/
+theorem p3Ok_std (w : Nat) :
+    P3Ok (V := V) ⟨w, stdARR w, stdΨA w, stdLIST w, stdΨL w, stdInj w, stdInj w, stdInj w⟩ :=
+  ⟨stdArrayClause w, stdListClause w, treeTags_stdInj w⟩
+
+end StdArray
 
 end P3Block
 
