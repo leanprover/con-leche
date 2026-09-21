@@ -131,7 +131,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))),
       FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs
         ks fvsP xFvs xrest Eiss tss :=
-  blockCtorData_of hμ mp hCtor hfT hlpsT hstripT hks
+  blockCtorData_of hμ mp hCtor hfT hlpsT (fun _ => rfl) hstripT hks
     (fun _ => ⟨cvTa, caps, resSort, bs, hfT, hlpsT, hstripT, fun _ => rfl⟩)
     (by
       intro fvsP crest xFvs xrest hp hx

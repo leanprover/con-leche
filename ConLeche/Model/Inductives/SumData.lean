@@ -403,12 +403,13 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List (Expr × ConLeche.BinderMeta)}
-    {sorts : List Level}
+    {sorts : List Level} {sT : Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort)) :
+    (hsT : ∀ ψ : Name → Nat, sT.eval ψ = resSort.eval ψ)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT)) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (Es : (Name → Nat) → List AnnotTerm) (srcs : List (Option Nat)),
       (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
@@ -499,6 +500,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
     have hbelowAll := stripPisAV_below hst' (bvarsBelow_of_reading hw hbt' hTa)
     refine ⟨ds, vs₂, hTa, hlen, by rw [← hsp₂.length, hlenI], hsp₂, ?_, hokT', hbelowAll.1, ?_⟩
     · intro d hd
+      rw [← hsT ψ]
       exact (stripPisAV_bits (nP + nF) (hbits ψ) hTa hst' d hd).symm
     · intro E hE
       have hb := hbelowAll.2
