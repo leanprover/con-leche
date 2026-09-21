@@ -2525,6 +2525,103 @@ theorem ofNested_pin_block_of_inst {env : Env} {m : EnvModel V env} {q₀ kJ : N
     exact hfit_le_of_inst acval hreps hfT hPT rfl hw hu hρJ hidx hgrp hsh hent Y hY hYle i' hi' t
       ht j fs hj hC
 
+/-- **THE SAME ASSEMBLY, AT EVERY CLASS OF THE INSTANCE AND IN `famAt`
+FORM** (task #315 WIDE, the merge session — lane DOM's `hwideFam`):
+`ofNested_pin_block_of_wide_inst` with its hypothesis list UNCHANGED
+and its conclusion moved off the container's MEMBER classes onto all
+of them.
+
+It is what lets a caller read the identification at a pin of the
+instance that is not one of the root group's members: the wrapper's
+`hkpos`/`hseg`/`hroot` are what the MEMBER extraction spends, and the
+`famAt` conclusion spends none of them — they stay in the list so that
+the two theorems are applied at exactly the same arguments.
+
+The one hypothesis of `ofNested_wide_famAt` the member form does not
+need is `hpins`, the container's own pin readers against its wide
+operator's, and that is `IsBlockModel.auxPinsCar` at the container's
+stored model. -/
+theorem ofNested_pin_block_of_wide_inst_famAt {env : Env} {m : EnvModel V env} {q₀ : Nat}
+    {σ : Nat → Nat}
+    (h : NestedLfpOk (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+      (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) ψ ρp)
+    (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs tgtsG rss (Eiss₀ ψ)
+      (Fss₀ ψ) (Ess₀ ψ))
+    (_hseg : q₀ + dJ.k ≤ pins.length)
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hkpos : 0 < dJ.k)
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hrowsσ : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
+    (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
+    (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
+    (hIsσ : ∀ i, i < dJ.k + dJ.nPins →
+      idxSet (nestedU k W pins ψ (σ i)) ρp (blockIds nP ppsA ψ (σ i)) = dJ.idx ψJ ρJ i)
+    (hinjJ : ∀ i, i < dJ.k + dJ.nPins → ∀ j fs,
+      dJ.injT dJ.pinCtors ψJ i j fs = injW (resSort.eval ψ) j (mkTower (fs ++ [pt])))
+    (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    (hidx : ∀ i, i < dJ.k → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
+    (hgrp : ∀ i, i < dJ.k → ∀ j, (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
+      mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i) ↔ j < (dJ.ctorsM i).length)
+    (hsh : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyShapeA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (memberNames := memberNames) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
+    (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyEntryAOrd (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        dJ ψJ Ds q₀ dJ.k i j)
+    (hstgt : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = true →
+      ¬ dJ.tgts i j l < dJ.k →
+      (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 = σ (dJ.tgts i j l))
+    (houtσ : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = false →
+      (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true →
+      ¬ ∃ mm, mm < dJ.k + dJ.nPins ∧
+        σ mm = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+    (hpin : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ i, ¬ i < dJ.k → i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
+      (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
+        FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)) ρ
+            (((tlss ψ).getD (offs (σ i) + j) []).getD i' [])
+            (((Eiss₀ ψ).getD (offs (σ i) + j) []).getD i' [])
+            (setJoin σ (dJ.k + dJ.nPins) L⁺ Y ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)))
+          0 ρp ((Fss₀ ψ).getD (offs (σ i) + j) []) fs ∧
+        (∀ l, l < (blockIds nP ppsA ψ (σ i)).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
+            = projS l t))
+      ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs))
+    {c : Nat} (hc : c < dJ.k + dJ.nPins) :
+    lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+      = dJ.famAt ψJ ρJ (lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) c := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps 0 hkpos
+  have hw' : (D).w ψ = dJ.w ψJ := hw.symm
+  have hFa := hI.auxFunctor ψJ ρJ hρJ
+  have hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i := hIsσ
+  apply ofNested_wide_famAt (dJ := dJ) (σ := σ) h hw hσ (by rw [hw']; exact hFa.1)
+    (by rw [hw']; exact hFa.2.1) (by rw [hw']; exact hFa.2.2) hrowsσ hIs ?_
+    (hI.auxCompose ψJ ρJ) (fun X q' hq' => hI.auxPinsCar ψJ ρJ X q' hq') hc
+  refine ofNested_hΦ_of_fit h hS hσ hIs ?_
+    (nCJ := fun i => (dJ.ctorsT dJ.pinCtors i).length)
+    (FitJ := fun Y t i j fs => dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) hinjJ
+    (C := lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) ?_ ?_
+  · show MapsTuple (resSort.eval ψ) _ _ _
+    rw [← hw]; exact hFa.2.1
+  · intro Y hY c' hc' t ht x
+    exact hI.auxFibre ψJ ρJ hρJ Y (by rw [hw]; exact hY) c' hc' t ht x
+  · exact hfit_wide_of_inst acval hreps hfT hPT hw hroot hu hρJ hidx hgrp hsh hent
+      hstgt houtσ hpin
+
 /-- **A pin's carrier at the block's carrier is its container's least
 tuple, ON THE WIDE IDENTIFICATION** (task #315, Resolution 1) —
 `ofNested_pin_block_of_inst`'s sibling, with no domination hypothesis,

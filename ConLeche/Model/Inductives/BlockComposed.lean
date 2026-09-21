@@ -489,6 +489,115 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
   exact lfpTuple_set_congr_le hσ hΨ.2.2 hΨ.1 hΨ.2.1 hIs hmonoJ' hmapsJ' hfcJ' hL'fc hC hC' hCfc
     hΦ hi'
 
+/-- **THE WIDE IDENTIFICATION, AT EVERY CLASS OF THE INSTANCE**
+(task #315 WIDE (f3), lane DOM): the block's auxiliary carrier at the
+instance's position `σ i` IS the container's wide least tuple at class
+`i`, for EVERY `i < s` — not only at the container's members.
+
+This is `ofNested_pin_block_wide`'s own last line
+(`lfpTuple_set_congr_le`, `SetTheory/Derive/LfpCompose.lean`) with its
+bound left where the composition lemma puts it.  Neither the mint
+group's base `q₀`, nor its contiguity `hroot`, nor the segment bound
+`hseg` occurs: they are what the MEMBER extraction needs, and the
+identity itself needs none of them. -/
+theorem ofNested_wide_at
+    {s : Nat} {σ : Nat → Nat} (hσ : ∀ i, i < s → σ i < k + pins.length)
+    {IsJ : Nat → V} {ΨJ : (Nat → V) → Nat → V}
+    (hmonoJ : MonoTuple ((D).w ψ) s IsJ ΨJ)
+    (hmapsJ : MapsTuple ((D).w ψ) s IsJ ΨJ)
+    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) s IsJ ΨJ L)
+    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → FibreConst σ s Y → FibreConst σ s (ΨJ Y))
+    (hIs : ∀ i, i < s → (D).idx ψ ρp (σ i) = IsJ i)
+    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ s Y →
+      TupleLe s (fun i => (D).idx ψ ρp (σ i)) Y (lfpTuple ((D).w ψ) s IsJ ΨJ) →
+      ∀ i, i < s →
+      ΨA ψ ρp (setJoin σ s
+          (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+        = ΨJ Y i)
+    {i : Nat} (hi : i < s) :
+    lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ i)
+      = lfpTuple ((D).w ψ) s IsJ ΨJ i := by
+  have hΨ := nestedΨ_functor h
+  have hLmem : InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i))
+      (lfpTuple ((D).w ψ) s IsJ ΨJ) :=
+    (inTupleSpace_congr hIs).mpr (lfpTuple_mem _ _ _ _)
+  have hmonoJ' : MonoTuple ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) ΨJ := fun X Y hX hY hle =>
+    (tupleLe_congr hIs).mpr (hmonoJ X Y ((inTupleSpace_congr hIs).mp hX)
+      ((inTupleSpace_congr hIs).mp hY) ((tupleLe_congr hIs).mp hle))
+  have hC' : IsClosedTuple ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) ΨJ
+      (lfpTuple ((D).w ψ) s IsJ ΨJ) :=
+    ⟨hLmem, (tupleLe_congr hIs).mpr (lfpTuple_closed hclJ hmonoJ)⟩
+  have hmapsJ' : MapsTuple ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) ΨJ := fun X hX =>
+    (inTupleSpace_congr hIs).mpr (hmapsJ X ((inTupleSpace_congr hIs).mp hX))
+  have hIsFC : ∀ a b, a < s → b < s → σ a = σ b → IsJ a = IsJ b := by
+    intro a b ha hb hab
+    rw [← hIs a ha, ← hIs b hb, hab]
+  have hCfc : FibreConst σ s (lfpTuple ((D).w ψ) s IsJ ΨJ) :=
+    fibreConst_lfpTuple_of_fc hIsFC hmonoJ hclJ hfcJ
+  have hfcJ' : ∀ Y, InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ s Y → FibreConst σ s (ΨJ Y) :=
+    fun Y hY hfc => hfcJ Y ((inTupleSpace_congr hIs).mp hY) hfc
+  have hL'fc : FibreConst σ s (lfpTuple ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) ΨJ) := by
+    intro a b ha hb hab
+    rw [lfpTuple_congr hIs (fun _ _ _ _ => rfl) ha, lfpTuple_congr hIs (fun _ _ _ _ => rfl) hb]
+    exact hCfc a b ha hb hab
+  have hC : IsClosedTuple ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i))
+      (setSec (ΨA ψ ρp) σ s
+        (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)))
+      (lfpTuple ((D).w ψ) s IsJ ΨJ) := by
+    refine ⟨hLmem, fun m hm => ?_⟩
+    rw [setSec_apply, hΦ _ hLmem hCfc (TupleLe.refl _ _ _) m hm]
+    exact hC'.2 m hm
+  exact lfpTuple_set_congr_le hσ hΨ.2.2 hΨ.1 hΨ.2.1 hIs hmonoJ' hmapsJ' hfcJ' hL'fc hC hC' hCfc
+    hΦ hi
+
+/-- **AND AT A CLASS OF A STORED CONTAINER, IN `famAt` FORM**
+(task #315 WIDE (f3), lane DOM): `ofNested_wide_at` at the container's
+own wide operator, composed with `BlockModel.auxLfp_eq_famAt`.
+
+At a MEMBER class this is `ofNested_pin_block_of_wide`'s conclusion
+(`famAt` is the narrow least tuple there); at one of the container's
+OWN PIN classes it is the container's own pin carrier at its own
+carrier — which is what a block pin's `pinLeaf` has to be identified
+with, and the reason the theorem is stated: the pins of an instance
+that are not the root group's members are read HERE, off the ROOT's
+identification, instead of at a per-group one of their own. -/
+theorem ofNested_wide_famAt
+    {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ : Nat → V} {σ : Nat → Nat}
+    (hw : dJ.w ψJ = (D).w ψ)
+    (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
+    (hmonoJ : MonoTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    (hmapsJ : MapsTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) L)
+    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
+    (hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i)
+    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (fun i => (D).idx ψ ρp (σ i)) Y
+        (lfpTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ i, i < dJ.k + dJ.nPins →
+      ΨA ψ ρp (setJoin σ (dJ.k + dJ.nPins)
+          (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+        = dJ.Ψaux ψJ ρJ Y i)
+    (hcomp : dJ.Φ ψJ ρJ = composeΦ (dJ.w ψJ) dJ.k dJ.nPins (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    (hpins : ∀ X q, q < dJ.nPins →
+      dJ.pinCar ψJ ρJ X q
+        = pinsCar (dJ.w ψJ) dJ.k dJ.nPins (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) X q)
+    {i : Nat} (hi : i < dJ.k + dJ.nPins) :
+    lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ i)
+      = dJ.famAt ψJ ρJ (lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) i := by
+  have hmono' : MonoTuple (dJ.w ψJ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) := by
+    rw [hw]; exact hmonoJ
+  have hcl' : ∃ L, IsClosedTuple (dJ.w ψJ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ)
+      (dJ.Ψaux ψJ ρJ) L := by
+    rw [hw]; exact hclJ
+  rw [ofNested_wide_at h hσ hmonoJ hmapsJ hclJ hfcJ hIs hΦ hi, ← hw]
+  exact dJ.auxLfp_eq_famAt hmono' hcl' hcomp hpins hi
+
+
 /-- **The container's side of the wide identification, read off its
 STORED block model.**  `ofNested_pin_block_wide` against the container's
 own `Ψaux`: `hmonoJ`/`hclJ` are its `IsBlockModel.auxFunctor` and
