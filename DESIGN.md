@@ -78816,3 +78816,165 @@ build, test, shake and arena logs under `logs/`.  The arena streams
 are the #318 lane's live tarball (`_tmp/arena-tests`, a symlink); the
 arena gate runs on the vendored snapshot `_tmp/arena-vendored`, as
 #318's did, because the live tarball has a different fixture list.
+
+## NESTED e2e FIXTURES FROM THE PARKED NESTED LANES (2026-09-21, `agent/nested-e2e`)
+
+Four parked branches carried nested-inductive fixtures that never
+reached master: `agent/nested-279m` and `agent/direct-nested` (task
+#279's probe series, byte-identical on both) and `agent/uniform-le` /
+`agent/uniform-collide` (the uniform — native nested — route's
+witnesses).  On those branches most of the streams were gated by
+`--nested-shadow` and `tests/nested-shadow-expected.txt`, a gate that
+measures the uniform route beside the fold; neither the flag nor the
+file exists here.  The streams themselves are branch-independent, so
+they are collected as plain e2e fixtures and every row records what
+THIS checker — the modelled dispatch — does with them.
+
+NOTE ON TASK NUMBERS.  This master's #305–#319 are the perf/NbE series;
+the parked branches' #279 and #315 are a *different* numbering line that
+never merged here.  The K-records and DESIGN sections those sources cite
+live on the branches only, which is what each collected source's header
+line says.  This section therefore carries no task number of its own.
+
+### 1. What was collected
+
+34 streams under `tests/e2e/`, 29 of them with their `.lean` source
+under `tests/e2e/src/`.  Master's three `nested_*` fixtures
+(`nested_rec`, `nested_pin_names`, `nested_struct_proj`) are byte
+-identical on all four branches and were not touched.
+
+Five streams have no source: `nested_aux_clash` and
+`nested_unused_param` are forged (no exporter can emit them),
+`nested_nonuniform_param`'s source was never committed, and the two
+`_nomodel` twins are machine-derived from their originals.
+
+DE-DUPLICATION.  Every collected blob is byte-identical wherever two
+branches carry it, with one exception: `nested_pin_collide.lean` and
+`nested_pin_collide2.lean` differ between `agent/uniform-le` and
+`agent/uniform-collide`.  The difference is prose only — the
+`agent/uniform-collide` copies describe the `_nomodel` twins, the
+`agent/uniform-le` copies (newer, 2026-09-21 vs 2026-09-19) call the
+shadow row a tripwire — and the two branches' `.ndjson` streams for
+both fixtures are identical.  A second source file would therefore
+belong to no second fixture, so the newer (`agent/uniform-le`) copy is
+kept under the plain name and the older one is dropped; the collected
+header line names the twins.  No `_279m` / `_direct` suffixed copy was
+needed: `agent/nested-279m` and `agent/direct-nested` agree byte for
+byte on every blob they share.
+
+The `_nomodel` twins ARE collected: their declarations differ from
+their originals' by the inner container's 1827 spliced model records,
+and so does their verdict's site (below).  Their generator
+(`scripts/mk_nested_nomodel.py` on `agent/uniform-collide`) is NOT
+collected — it drives `CON_LECHE_INMODEL_DUMP` through a branch build —
+so the twins are committed as the artefacts they are.
+
+### 2. The table
+
+`official` is the verdict of the Lean the source was exported with
+(v4.33.0 for the #279 probes, v4.29.1 for the uniform lane's; the
+pinned exporter is `scripts/export-fixture.sh`'s).  `ver` / `tru` are
+THIS master's exit codes at `--verified` / `--trusted`, measured with
+`--jobs=1` under `ulimit -v 16000000`.  0 accept, 1 reject, 2 decline.
+
+| fixture | origin branch | official | ver | tru | this checker's reason |
+|---|---|---|---|---|---|
+| `nested_p01` | 279m / direct | accept | 2 | 2 | reflexive member `P1` |
+| `nested_p02` | 279m / direct | accept | 0 | 0 | |
+| `nested_p03` | 279m / direct | accept | 0 | 0 | |
+| `nested_p04` | 279m / direct | accept | 0 | 0 | |
+| `nested_p05` | 279m / direct | accept | 0 | 0 | |
+| `nested_p06` | 279m / direct | accept | 0 | 0 | |
+| `nested_p07` | 279m / direct | accept | **1** | **1** | application type mismatch at `P7._model._impl.rec` |
+| `nested_p10` | 279m / direct | accept | 2 | 2 | reflexive member `P10` |
+| `nested_p13` | 279m / direct | accept | 0 | 0 | |
+| `nested_p20` | 279m / direct | accept | 0 | 0 | |
+| `nested_p22` | 279m / direct | accept | 0 | 0 | |
+| `nested_p24` | 279m / direct | accept | 0 | 0 | |
+| `nested_p25` | 279m / direct | accept | 0 | 0 | |
+| `nested_p26` | 279m / direct | accept | 0 | 0 | |
+| `nested_p30` | 279m / direct | accept | 0 | 0 | |
+| `nested_p31` | 279m / direct | accept | 2 | 2 | reflexive member `P31` |
+| `nested_lam_pin_prop` | 279m / direct | accept | 0 | 0 | |
+| `nested_pin_prop_cod` | 279m / direct | accept | 2 | 2 | a `Prop` block through a `Prop` container |
+| `nested_unused_param` | 279m / direct | REJECT | 1 | 1 | invalid projection at `E._model._impl.unpack` |
+| `nested_nonuniform_param` | 279m / direct | either¹ | 0 | 0 | |
+| `nested_aux_clash` | 279m / direct | REJECT | **0** | **0** | forged name clash; the modelled route does not look at the name |
+| `nested_bvar_field` | uniform-le | accept | 0 | 0 | |
+| `nested_pi_field` | uniform-le | accept | 2 | 2 | reflexive member `J` |
+| `nested_comp_tower` | uniform-le | accept | 2 | 2 | reflexive member `J` |
+| `nested_redex_owner` | uniform-le | accept | 0 | 0 | |
+| `nested_redex_tower` | uniform-le | accept | 2 | 2 | minor 1 (`Wrap.mk`): 1 ih for 0 recursive fields |
+| `nested_lam_pin_refl` | uniform-le | accept | 2 | 2 | minor 1 (`Wrap.mk`): 1 ih for 0 recursive fields |
+| `nested_refl_pin` | uniform-le | accept | 2 | 2 | reflexive member `J` |
+| `nested_prop_idx` | uniform-le | accept | 0 | 0 | |
+| `nested_pin_nocollide` | uniform-le | accept | 0 | 0 | |
+| `nested_pin_collide` | uniform-le² | accept | **1** | **1** | duplicate declaration `Collide._model._impl.pack_1` |
+| `nested_pin_collide2` | uniform-le² | accept | **1** | **1** | duplicate declaration `Collide2._model._impl.pack_1` |
+| `nested_pin_collide_nomodel` | uniform-collide | n/a³ | 1 | 1 | duplicate declaration `J._model._impl.tag` |
+| `nested_pin_collide2_nomodel` | uniform-collide | n/a³ | 1 | 1 | duplicate declaration `J._model._impl.tag` |
+
+¹ `E.mk : (w : W) → L (E ⟨false⟩) → E w`.  Official v4.33.0 accepts,
+v4.34.0-rc2 rejects with `check_uniform_ind_occs`; the arena's expected
+outcome for the shape is `either`.
+² the `.ndjson` is identical on `agent/uniform-collide`; only the
+source's prose differed (§1).
+³ machine-derived from the fixture above it; not exporter-producible.
+
+THE TWO MODES AGREE ON ALL 34.  Nothing was added to
+`tests/trusted-expected.txt`.  No fixture errors (exit 3).
+
+### 3. Findings
+
+(a) **`nested_p07`: official accepts, this checker REJECTS.**  The
+probe puts a parameter in a nested block's index DOMAIN.  The in-process
+modeller builds a model for `P7` and the fold then fails to type-check
+the modeller's own `P7._model._impl.rec` — "application type mismatch,
+fold position 24".  This is the wrong verdict task #227 docketed on the
+parked lanes, now a committed e2e row on master.  It is a FALSE REJECT
+of a module Lean v4.33.0 elaborates: the strongest single finding here.
+
+(b) **`nested_pin_collide` / `nested_pin_collide2`: official accepts,
+this checker REJECTS.**  `J α β | node (x : Pair α (J α β)) (y : Pair β
+(J α β))` mints two own pins; a block instantiating both of `J`'s
+parameters alike makes the two pin EXPRESSIONS equal, and the expansion
+mints one copy per distinct expression, so one `Pair` mimic carries two
+of the container's pin classes and the mimic's pack helper is declared
+twice.  `nested_pin_nocollide` (the same container with the pins kept
+apart) accepts, and `nested_pin_collide2` is the control that isolates
+the collapse from the extra type: both false rejects turn on the
+collapse alone.  Already recorded as the modelled route's known
+false reject; the rows make it a gated fact.
+
+(c) **`nested_aux_clash`: official rejects, this checker ACCEPTS** — an
+accept-superset.  The stream names an ordinary definition
+`_nested.List_2.cons`, the name the second copy's constructor is about
+to get; official's `declare_inductive_types` throws "already declared"
+and the modelled route never looks at the name.  No exporter can emit
+the stream (official refuses it before the export), so nothing sound is
+lost, but it is a place the checker is laxer than the reference.
+
+(d) **Reflexive members are the modelled route's decline frontier.**
+Eight of the 34 decline, seven of them at "reflexive member <T>" or at
+the reflexive-field symptom "minor 1 (`Wrap.mk`): 1 inductive
+hypotheses for 0 recursive fields".  Every one of the eight is a module
+official accepts.  Declines, not rejects: they are the supported-feature
+boundary and exit 2 is the right code for them.
+
+(e) **The `_nomodel` twins reject at the INNER block, not the outer
+one.**  Their point on `agent/uniform-collide` was to hand the fold a
+stream with no model for the OUTER block.  Here the inner container's
+spliced model is the problem instead: a `_model` record in a stream is
+an ordinary declaration (task #219) and the in-process modeller does
+not stand down for it, so `J`'s model is declared twice.  That is
+exactly the ruling `tests/inmodel.sh`'s header states, and the two rows
+are now its e2e-side control.
+
+### 4. Where everything is
+
+Sources under `tests/e2e/src/nested_*.lean` (each with a one-line
+header naming the branch it came from and the branch-only gate it
+served), streams under `tests/e2e/nested_*.ndjson`, rows at the end of
+`tests/e2e-expected.txt` under a heading naming the same lanes.
+Arena before: `e2e: 195/195`; after: `e2e: 229/229`, every other
+section unchanged, exit 0.

@@ -1303,3 +1303,148 @@
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
 1 proj_typename_bad.ndjson
+
+# --- THE PARKED NESTED LANES' FIXTURES (2026-09-21, `agent/nested-e2e`)
+# --- Streams collected from four parked branches — `agent/nested-279m`
+# --- and `agent/direct-nested` (the task #279 probe series), and
+# --- `agent/uniform-le` / `agent/uniform-collide` (the uniform nested
+# --- route's witnesses).  On those branches most of them were gated by
+# --- `--nested-shadow` / `tests/nested-shadow-expected.txt`, which do
+# --- not exist here; here they are plain e2e rows recording what THIS
+# --- checker — the modelled dispatch — does with them.  Every row was
+# --- measured in `--verified` and in `--trusted`: the two modes agree
+# --- on all 34, so nothing is recorded in tests/trusted-expected.txt.
+# --- The `.lean` sources are in tests/e2e/src (five streams have none:
+# --- the two forged ones, `nested_nonuniform_param`, and the two
+# --- `_nomodel` twins); each source's header names the branch it came
+# --- from.  DESIGN's section of the same name carries the full table
+# --- (fixture x origin x official x verified x trusted).
+
+# The task #279 probe series (`agent/nested-279m`, byte-identical on
+# `agent/direct-nested`): one shape per stream, every one of them a
+# module official (Lean v4.33.0) ACCEPTS.
+# nested_p01: a nested occurrence UNDER A BINDER, `(Nat → List P1) → P1`.
+# The modeller declines it as a reflexive member.
+2 nested_p01.ndjson
+# nested_p02: a λ-pin at a constant function, `DMap Nat (fun _ => P2)`.
+0 nested_p02.ndjson
+# nested_p03: the chain probe `P3.mk : Array (List P3) → P3` — creation
+# depth 2.
+0 nested_p03.ndjson
+# nested_p04: nesting through a container that is ITSELF nested.
+0 nested_p04.ndjson
+# nested_p05: nesting through a MUTUAL container — both members copied.
+0 nested_p05.ndjson
+# nested_p06: a `Prop` block through `And`, at two constructors.
+0 nested_p06.ndjson
+# nested_p07: the index DOMAIN mentions a parameter — task #227's
+# docketed wrong verdict.  OFFICIAL ACCEPTS AND THIS CHECKER REJECTS:
+# "application type mismatch [at def P7._model._impl.rec, a generated
+# model record of inductive P7]".  The row records the false reject.
+1 nested_p07.ndjson
+# nested_p10: nesting through a REFLEXIVE container.
+2 nested_p10.ndjson
+# nested_p13: a ONE-constructor `Prop` block through `And`.
+0 nested_p13.ndjson
+# nested_p20: `Subtype` at a CONSTANT predicate.
+0 nested_p20.ndjson
+# nested_p22: a λ-pin whose body is a container application.
+0 nested_p22.ndjson
+# nested_p24: mutual AND nested, with an indexed member.
+0 nested_p24.ndjson
+# nested_p25: nesting through an INDEXED container at a closed index.
+0 nested_p25.ndjson
+# nested_p26: a λ-pin with a USED variable.
+0 nested_p26.ndjson
+# nested_p30: a universe-polymorphic block through `List`.
+0 nested_p30.ndjson
+# nested_p31: a REFLEXIVE nested field, `(Nat → Array P31) → P31`.
+2 nested_p31.ndjson
+# nested_lam_pin_prop: `Wrap (f : True → Type) | mk : f trivial → Wrap f`
+# nested as `T | mk : Wrap (fun (h : True) => T) → T` — a λ pin
+# component over a Prop DOMAIN.
+0 nested_lam_pin_prop.ndjson
+# nested_pin_prop_cod: `Wrap (A : Prop) : Prop | mk : A → Wrap A` nested
+# as `T : Prop | mk : Wrap (True → T) → T` — the pin component is a ∀
+# whose CODOMAIN is a `Prop`.  The modeller declines a nested `Prop`
+# block through a `Prop` container.
+2 nested_pin_prop_cod.ndjson
+
+# Three streams with no `.lean` source, from the same pair of branches.
+# nested_unused_param: an ill-typed pin that does not appear in the
+# auxiliary declaration (leanprover/lean4#14576, fixed in #14577).
+# Official REJECTS.  So does this checker, at a generated record
+# ("invalid projection: the node names another structure").
+1 nested_unused_param.ndjson
+# nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
+# Official v4.33.0 ACCEPTS, v4.34.0-rc2 REJECTS with
+# `check_uniform_ind_occs`; the arena's expected outcome for the shape
+# is `either`.  This checker accepts it.
+0 nested_nonuniform_param.ndjson
+# nested_aux_clash: `nested_p03`'s stream with one ordinary definition
+# NAMED `_nested.List_2.cons` inserted before the block — the name the
+# second copy's `cons` constructor is about to get.  FORGED on
+# `agent/direct-nested` (its `scripts/mk_nested_aux_clash.py`): no
+# exporter can produce it, because official mints `_nested.List_2` for
+# the copy and `declare_inductive_types`' `check_name` then throws
+# "already declared".  Official REJECTS; this checker ACCEPTS, on the
+# modelled route, which does not look at the name — a recorded
+# accept-superset over a stream no exporter emits.
+0 nested_aux_clash.ndjson
+
+# The uniform nested route's witnesses (`agent/uniform-le`, lanes LE,
+# L-B and WIDE).  Every one of these is a module official (Lean
+# v4.29.1) ACCEPTS; the row records the modelled dispatch's verdict.
+# nested_bvar_field: a container field whose STORED domain is a bare
+# parameter (`K α | mk (a : α)` under `J β | node (k : K (J β))`).
+0 nested_bvar_field.ndjson
+# nested_pi_field: the same container field with a `Π` stored domain.
+# The modeller declines: "reflexive member J".
+2 nested_pi_field.ndjson
+# nested_comp_tower: a copy field whose `Π`-tower is the MINT's and not
+# the container's.  Declined: "reflexive member J".
+2 nested_comp_tower.ndjson
+# nested_redex_owner: a container mint that is a REDEX, with an owner
+# above it.
+0 nested_redex_owner.ndjson
+# nested_redex_tower: a container mint that is a redex WHOSE REDUCTION
+# IS A `Π`.  Declined: "minor 1 (Wrap.mk): 1 inductive hypotheses for 0
+# recursive fields".
+2 nested_redex_tower.ndjson
+# nested_lam_pin_refl: the REFLEXIVE twin of `nested_lam_pin_prop` — the
+# container's field is a λ-redex at the pin's components and the
+# positivity normalisation creates a `Π`-telescope out of it.  Declined
+# for the same reason as `nested_redex_tower`.
+2 nested_lam_pin_refl.ndjson
+# nested_refl_pin: a REFLEXIVE nested field in a container.  Declined:
+# "reflexive member J".
+2 nested_refl_pin.ndjson
+# nested_prop_idx: a nested block whose CONTAINER's indices are `Prop`s.
+0 nested_prop_idx.ndjson
+# The container-instance-map triple.  `J α β | node (x : Pair α (J α β))
+# (y : Pair β (J α β))` mints two own pins; a block that instantiates
+# both parameters alike collapses them onto ONE `Pair` mimic, because
+# the expansion mints one copy per distinct pin EXPRESSION.
+# nested_pin_nocollide: the pins stay apart — accepts.
+0 nested_pin_nocollide.ndjson
+# nested_pin_collide (the collapsing arm) and nested_pin_collide2 (its
+# control, which adds `Wrap` and collapses anyway).  OFFICIAL ACCEPTS
+# BOTH AND THIS CHECKER REJECTS BOTH: the collapsed mimic's pack helper
+# is declared twice ("duplicate declaration Collide._model._impl.pack_1"
+# resp. `Collide2._model._impl.pack_1`, a generated model record).  The
+# rows record the false reject.
+1 nested_pin_collide.ndjson
+1 nested_pin_collide2.ndjson
+# The `_nomodel` twins (`agent/uniform-collide`, its
+# `scripts/mk_nested_nomodel.py`, which is not collected here): the same
+# two streams with the INNER container's generated model spliced in and
+# the OUTER block's dropped.  Their declarations therefore differ from
+# their originals' — 1827 extra records each — and so does their
+# verdict's site: the fold rejects at the INNER block now, because a
+# `_model` record in a stream is an ordinary declaration and the
+# in-process modeller does not stand down for it, so `J`'s model is
+# declared twice ("duplicate declaration J._model._impl.tag").  They are
+# the e2e-side control for the ruling tests/inmodel.sh's header states.
+# No official verdict: neither stream is exporter-producible.
+1 nested_pin_collide_nomodel.ndjson
+1 nested_pin_collide2_nomodel.ndjson
