@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
-public import ConLeche.Model.Inductives.FixStageFormer
-public import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
