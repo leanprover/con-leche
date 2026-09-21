@@ -333,3 +333,30 @@ def _redex(recs, names):
 
 twin("tests/e2e/mutual_rec_body_redex.ndjson", _redex,
      "A.mk's rule body is the canonical one under an identity redex (GOOD)")
+
+
+# 6. a recursor with a MISSING rule.  Completeness is a soundness
+#    requirement — `Nat.rec` with a rule for `zero` only would prove
+#    `∀ n, M n` from `M 0` — and the uniform route already enforces it
+#    twice: the recursor records' structural pin
+#    (`blockRecPinOk`: `rules.length == ms.ctors.length`, one rule per
+#    constructor of the member IN ORDER, each naming its constructor
+#    with its field count) and the rule loop itself
+#    (`checkBlockRules`, whose two lists must run out together).  The
+#    twin drops `Even.zero`'s rule from `Even.rec`.
+def _missing_rule(recs, names):
+    a, b = names["InModelMutual.Even"], names["InModelMutual.Odd"]
+    blk = None
+    for r in recs:
+        if "inductive" in r and [t["name"] for t in r["inductive"]["types"]] == [a, b]:
+            blk = r
+    assert blk is not None, "no Even/Odd block"
+    erec = next(rc for rc in blk["inductive"]["recs"]
+                if rc["name"] == names["InModelMutual.Even.rec"])
+    assert len(erec["rules"]) == 2
+    erec["rules"] = [ru for ru in erec["rules"]
+                     if ru["ctor"] != names["InModelMutual.Even.zero"]]
+
+
+twin("tests/e2e/mutual_rec_missing_rule.ndjson", _missing_rule,
+     "Even.rec loses its rule for Even.zero")

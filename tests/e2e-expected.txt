@@ -1480,3 +1480,12 @@
 # GOOD: the canonical body under an identity redex — typed, but not
 # `minor f ih` (uniform: 0, the accept-superset)
 0 mutual_rec_body_redex.ndjson
+# A recursor with a MISSING rule.  Completeness is a SOUNDNESS
+# requirement — `Nat.rec` with a rule for `zero` only would prove
+# `∀ n, M n` from `M 0` — and the uniform route enforces it twice: the
+# recursor records' structural pin (`blockRecPinOk`: one rule per
+# constructor of the member, in order, each naming its constructor
+# with its field count) and the rule loop itself (`checkBlockRules`,
+# whose two lists must run out together).  Today the modeller declines
+# it with its own message (uniform: 1, the pin).
+2 mutual_rec_missing_rule.ndjson
