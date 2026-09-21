@@ -80725,3 +80725,40 @@ D4 confirmed: `BConst.lfpFam` is dropped at the flip once unused ("drop unused")
 D6 confirmed: nothing touches master before M6 (the flip), "that's when we know that at least the first part makes sense and is useful".
 Open question 5 confirmed: nesting through a basis block REJECTS (exit 1) — "we'd reject if the basis were normal inductives".
 D1 confirmed: the k-tuple least fixed point is the built-in constant `BConst.lfpTuple k` ("the Term type is really a convenience for us, and we can shape it to suit our needs; avoiding universe issues here is certainly useful; µ is so fundamental I would have accepted a syntax kind if there was a compelling reason").  U-6 (1) of #315 is superseded.
+
+#### THE CORNER CASES HAVE FIXTURES (2026-09-21, lane T, `agent/uinds-T`)
+
+Every corner case named in the day's design work now has an end-to-end
+stream, `tests/e2e/corner_*.ndjson`, with a row in
+`tests/e2e-expected.txt` recording TODAY's verdict and a comment naming
+the target as `uniform: <n>`.  Sources under `tests/e2e/src/`, forged
+twins from `scripts/mk_elim_large_bad.py` (the elimination guard),
+`scripts/mk_basis_pin.py` (nesting through a basis block) and
+`scripts/mk_rec_corner.py` (the recursor corners at k = 1); the table
+and the findings are in `_tmp/uniform-inds/T-REPORT.md`.
+
+FIVE rows must MOVE when the route flips, and they are the lane's
+point:
+
+* `corner_pin_quot_bad`, `corner_pin_eq_bad` — **2 → 1**.  Both decline
+  today with "direct rec: a nested occurrence of the block", the same
+  message a legitimate nested block gets; the ruling (open question 5)
+  makes nesting through a basis block a REJECT, so the flip must tell
+  `Quot`/`Eq` pins apart from `List` pins.
+* `corner_rec_extra_binder`, `corner_rec_no_ih`, `corner_rec_call_redex`
+  — **1 → 0**: an extra minor before the major (record self-consistent),
+  a `casesOn`-shaped recursor with no inductive hypothesis, and a
+  recursive call at an argument vector defeq but not syntactically the
+  bound variable.  All three reject today because the k = 1 route
+  compares the record with the recursor it would have generated; the
+  motive-free check types the residue and must take them.
+
+Two observations for the guard's implementer.  The four
+elimination-guard rejects (`corner_nest_or_prop_large_bad` and its
+`And`/mutual companions) are at their target verdict TODAY only by
+coincidence: they fail typing at the modeller's generated
+`_model._impl.rec`, not at any "this block may not eliminate large"
+check — `largeElimAllowed` is what makes the reject principled, and the
+messages are worth re-reading after M6.  And `NOr : Prop | mk : Or True
+NOr` goes to the modeller with a two-component wide block, which is
+exactly the `N ≥ 2` the declarative guard counts.
