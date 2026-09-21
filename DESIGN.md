@@ -128790,3 +128790,36 @@ b.nP l) (l-1) (ordTargetDom …))`, which is `w` on the nose by
 `w = ordHeadRed W` needs no bridge at all, and one of the form
 `w = <something>` with `<something>` constant-headed is
 `ordHeadRed_const`-away.
+
+##### (f) A COLLISION TO SETTLE BEFORE THE MERGE: THE MAIN LANE'S OBJECT (2) EDITS THESE SAME EIGHT ROWS
+
+`agent/uniform-le` `5dbb84cc` (§(d) of its ledger row) re-prices its
+object (2) at two sessions and names, as "the dear half", exactly the
+producers this lane owns — `copyOrdFRightPinOrdTargetRead` / `…Refl` /
+`…At` / `…AtRefl` and the four member twins in
+`Model/Inductives/NestedCopyInst.lean`.  Its change is to the
+recomputation's SUBJECT and CUT:
+
+* the cut becomes the SUM `l + tlsl.length` (K.72's equation), and
+* the subject gains one more `stripDomPis`, so that the tower the
+  COMPONENTS plant is stripped and `hfinRefl` retires against
+  `stripDomPis_instSeq_tower`.
+
+That is the same eight rows this row moves, and the two changes
+COMPOSE rather than conflict — the eventual subject is
+
+```
+ConLeche.ordHeadRed (Expr.instSeq (openFvars nP (l + tlsl.length)) (l + tlsl.length - 1)
+  (ConLeche.stripDomPis (ConLeche.ordTargetDom …)))
+```
+
+— `ordHeadRed` outermost, because it is the LAST thing the walk does
+and the only one of the three that can move a head.  But they are
+textually the same lines, so one lane must make both edits: the
+sequencing that costs least is **this row first (landed), the main
+lane's object (2) on top of it**, since the finitary rows' `ordHeadRed`
+step is independent of the cut and the member/pin split, while (2)'s
+`stripDomPis` step is what unblocks §(c)'s two reflexive rows.  If the
+main lane instead lands (2) against the pre-move text, the two
+finitary rows' middle steps have to be re-applied by hand — four
+`have`s each, listed in §(b).
