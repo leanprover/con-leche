@@ -269,7 +269,7 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
           = some (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ (blockRecTyAV mpC.base2.acval envC rs ψ i)) := by
   obtain ⟨⟨cv, hcv⟩, fvs, concl, hop⟩ := checkBlockRecK_tyShape h hr
-  obtain ⟨ta, hta, hwd⟩ := checkConstantVal_reads hμ mpC hcv ψ
+  obtain ⟨ta, -, hta, hwd, -⟩ := checkConstantVal_reads hμ mpC hcv ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis _ hop hta
   have hrds : blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i = pps := by
