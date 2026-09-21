@@ -69,14 +69,15 @@ def Expr.mentionsAnyConst (names : List Name) : Expr → Bool
     ty.mentionsAnyConst names || v.mentionsAnyConst names || b.mentionsAnyConst names
   | .proj s _ e => names.contains s || e.mentionsAnyConst names
 
+/-- Membership in a one-element name list. -/
+theorem List.contains_singleton (T n : Name) : ([T] : List Name).contains n = (n == T) := by
+  cases h : (n == T) <;> simp [List.contains, List.elem, h]
+
 /-- At ONE name the walk is `Expr.mentionsConst`. -/
 theorem Expr.mentionsAnyConst_single (T : Name) :
     ∀ e : Expr, e.mentionsAnyConst [T] = e.mentionsConst T
   | .bvar _ | .sort _ | .lit _ => rfl
-  | .const n _ => by
-    have hn : (([T] : List Name).contains n) = (n == T) := by
-      cases h : (n == T) <;> simp [List.contains, List.elem, h]
-    exact hn
+  | .const n _ => List.contains_singleton T n
   | .fvar _ ty => by
     simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty]
   | .app f a => by
@@ -92,10 +93,8 @@ theorem Expr.mentionsAnyConst_single (T : Name) :
     simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty,
       Expr.mentionsAnyConst_single T v, Expr.mentionsAnyConst_single T b]
   | .proj s _ e => by
-    have hs : (([T] : List Name).contains s) = (s == T) := by
-      cases h : (s == T) <;> simp [List.contains, List.elem, h]
     show (([T] : List Name).contains s || e.mentionsAnyConst [T]) = ((s == T) || e.mentionsConst T)
-    rw [hs, Expr.mentionsAnyConst_single T e]
+    rw [List.contains_singleton, Expr.mentionsAnyConst_single T e]
 
 /-! ### `mentionsAnyConst`, memoized
 
@@ -292,19 +291,23 @@ def memberIdxAt? (names : List Name) (lvls : List Level) : Expr → Option Nat
   | .const n us => if us == lvls then names.findIdx? (· == n) else none
   | _ => none
 
-/-- Is `e` a member of the block at the parameter variables (sitting
-`o` binders up) followed by that member's index expressions, none of
-which mentions any member?  Official's `is_valid_ind_app` at k names;
-the member is the answer. -/
+/-- The member a head expression names, `0` at any other head (which
+`blockFamOk`'s own head test then refuses): the TARGET, read
+positionally so that the walk's shape is the one-name walk's. -/
+def memberTgt (names : List Name) (lps : List Name) (e : Expr) : Nat :=
+  (memberIdxAt? names (lps.map .param) e.getAppFn).getD 0
+
+/-- Is `e` the block's member `memberTgt e` at the parameter variables
+(sitting `o` binders up) followed by that member's index expressions,
+none of which mentions any member?  Official's `is_valid_ind_app` at k
+names: the head, the arity, the parameters (structurally) and
+`has_ind_occ` on every index argument. -/
 def blockFamOk (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (o : Nat) (e : Expr) : Option Nat :=
-  match memberIdxAt? names (lps.map .param) e.getAppFn with
-  | some c =>
-    if e.getAppArgs.length == nP + nIdxs.getD c 0 &&
-        e.getAppArgs.take nP == structPsAt o nP &&
-        (e.getAppArgs.drop nP).all (fun a => !a.mentionsAnyConst names) then some c
-    else none
-  | none => none
+    (o : Nat) (e : Expr) : Bool :=
+  e.getAppFn == Expr.const (names.getD (memberTgt names lps e) default) (lps.map .param) &&
+  e.getAppArgs.length == nP + nIdxs.getD (memberTgt names lps e) 0 &&
+  e.getAppArgs.take nP == structPsAt o nP &&
+  (e.getAppArgs.drop nP).all fun a => !a.mentionsAnyConst names
 
 /-- Official `check_positivity`'s telescope walk on a field domain that
 mentions the block, at k names: `k` binders of the field's own
@@ -313,7 +316,8 @@ member application at the head whose parameters are not the block's,
 with the wrong number of arguments, or whose INDEX expressions mention
 a member is the official "non valid occurrence" (`.negative`); an
 application of another constant is a nested occurrence
-(`.unsupported`: the modeled path). -/
+(`.unsupported`: the modeled path).  The kind carries the target
+member (decision D7). -/
 def blockPositivity (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
     (o : Nat) : Expr → Nat → BlockFieldKind
   | .forallE dom body _, k =>
@@ -321,19 +325,19 @@ def blockPositivity (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : Li
     else blockPositivity names lps nP nIdxs o body (k + 1)
   | e, k =>
     if !e.mentionsAnyConst names then .ordinary
+    else if e.getAppFn ==
+        Expr.const (names.getD (memberTgt names lps e) default) (lps.map .param) then
+      (if e.getAppArgs.length == nP + nIdxs.getD (memberTgt names lps e) 0 &&
+          e.getAppArgs.take nP == structPsAt (o + k) nP then
+        (if blockFamOk names lps nP nIdxs (o + k) e then
+          (if k == 0 then .recursive (memberTgt names lps e)
+           else .reflexive (memberTgt names lps e))
+         else .negative)
+       else .negative)
     else
-      match memberIdxAt? names (lps.map .param) e.getAppFn with
-      | some c =>
-        if e.getAppArgs.length == nP + nIdxs.getD c 0 &&
-            e.getAppArgs.take nP == structPsAt (o + k) nP then
-          (match blockFamOk names lps nP nIdxs (o + k) e with
-           | some c' => if k == 0 then .recursive c' else .reflexive c'
-           | none => .negative)
-        else .negative
-      | none =>
-        match e.getAppFn with
-        | .const T' _ => if names.contains T' then .negative else .unsupported
-        | _ => .unsupported
+      match e.getAppFn with
+      | .const T' _ => if names.contains T' then .negative else .unsupported
+      | _ => .unsupported
 
 /-- The kind of a field whose domain is `dom`, `o` fields into the
 constructor's telescope. -/

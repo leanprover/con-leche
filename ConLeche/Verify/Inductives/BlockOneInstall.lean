@@ -1,0 +1,192 @@
+module
+
+public import ConLeche.Kernel.Inductives.BlockInstall
+public import ConLeche.Verify.Inductives.BlockOne
+
+public section
+
+/-!
+# The uniform install at ONE member is the one-member install
+(milestone M1)
+
+The bridge the route's gate buys on the install side: at `k = 1` every
+stage of `checkBlock` (`ConLeche/Kernel/Inductives/BlockInstall.lean`)
+IS the corresponding stage of `checkNative`, at the one-member reading
+of the record (`BlockParts.toNative`).  The equations are proved once,
+in any monad whose `throw` short-circuits a `bind` (`ThrowBind`), and
+instantiated at the monads the drivers run in.
+-/
+
+namespace ConLeche
+
+/-! ## The positivity walk at one name -/
+
+theorem memberIdxAt?_single (T : Name) (lvls : List Level) :
+    ∀ f : Expr, memberIdxAt? [T] lvls f = if f == Expr.const T lvls then some 0 else none := by
+  intro f
+  cases f with
+  | const n us =>
+    simp only [memberIdxAt?, beq_iff_eq, Expr.const.injEq]
+    by_cases hu : us = lvls
+    · subst hu
+      by_cases hn : n = T
+      · subst hn; simp [List.findIdx?, List.findIdx?.go]
+      · simp [List.findIdx?, List.findIdx?.go, hn, Ne.symm hn]
+    · simp [hu]
+  | _ => simp [memberIdxAt?]
+
+private theorem toRec_ite {c : Bool} {a b : BlockFieldKind} :
+    (if c = true then a else b).toRec = if c = true then a.toRec else b.toRec := by
+  cases c <;> rfl
+
+/-- At ONE name the target is always member 0. -/
+theorem memberTgt_single (T : Name) (lps : List Name) (e : Expr) :
+    memberTgt [T] lps e = 0 := by
+  simp only [memberTgt, memberIdxAt?_single]
+  split <;> rfl
+
+/-- The block's family test at ONE name is the one-name test. -/
+theorem blockFamOk_single (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) :
+    blockFamOk [T] lps nP [nIdx] o e = recFamOk T lps nP nIdx o e := by
+  simp only [blockFamOk, recFamOk, memberTgt_single, Expr.mentionsAnyConst_single]
+  rfl
+
+/-- The walk's tail (every head but a `∀`), at ONE name: the two
+bodies are the same if-chain, so the kinds' targets are the only
+difference. -/
+private theorem blockPositivity_tail (T : Name) (lps : List Name) (nP nIdx o k : Nat)
+    (e : Expr) :
+    (if !e.mentionsAnyConst [T] then BlockFieldKind.ordinary
+     else if e.getAppFn ==
+         Expr.const ([T].getD (memberTgt [T] lps e) default) (lps.map .param) then
+       (if e.getAppArgs.length == nP + [nIdx].getD (memberTgt [T] lps e) 0 &&
+           e.getAppArgs.take nP == structPsAt (o + k) nP then
+         (if blockFamOk [T] lps nP [nIdx] (o + k) e then
+           (if k == 0 then .recursive (memberTgt [T] lps e)
+            else .reflexive (memberTgt [T] lps e))
+          else .negative)
+        else .negative)
+     else
+       match e.getAppFn with
+       | .const T' _ => if ([T] : List Name).contains T' then .negative else .unsupported
+       | _ => .unsupported).toRec
+    = (if !e.mentionsConst T then RecFieldKind.ordinary
+       else if e.getAppFn == Expr.const T (lps.map .param) then
+         (if e.getAppArgs.length == nP + nIdx &&
+             e.getAppArgs.take nP == structPsAt (o + k) nP then
+           (if recFamOk T lps nP nIdx (o + k) e then
+             (if k == 0 then .recursive else .reflexive)
+            else .negative)
+          else .negative)
+       else
+         match e.getAppFn with
+         | .const T' _ => if T' == T then .negative else .unsupported
+         | _ => .unsupported) := by
+  simp only [Expr.mentionsAnyConst_single, memberTgt_single, blockFamOk_single,
+    List.getD_cons_zero, List.contains_singleton]
+  by_cases h1 : (!e.mentionsConst T) = true
+  · simp only [h1, if_pos]; rfl
+  · simp only [h1, Bool.false_eq_true, if_false]
+    by_cases h2 : (e.getAppFn == Expr.const T (lps.map .param)) = true
+    · simp only [h2, if_pos]
+      by_cases h3 : (e.getAppArgs.length == nP + nIdx &&
+          e.getAppArgs.take nP == structPsAt (o + k) nP) = true
+      · simp only [h3, if_pos]
+        by_cases h4 : recFamOk T lps nP nIdx (o + k) e = true
+        · simp only [h4, if_pos]
+          by_cases h5 : (k == 0) = true
+          · simp only [h5, if_pos]; rfl
+          · simp only [h5, Bool.false_eq_true, if_false]; rfl
+        · simp only [h4, Bool.false_eq_true, if_false]; rfl
+      · simp only [h3, Bool.false_eq_true, if_false]; rfl
+    · simp only [h2, Bool.false_eq_true, if_false]
+      split
+      · rename_i T' us hc
+        by_cases h6 : (T' == T) = true
+        · simp only [h6, if_pos]; rfl
+        · simp only [h6, Bool.false_eq_true, if_false]; rfl
+      · rfl
+
+/-- The block's positivity walk at ONE name is the one-name walk. -/
+theorem blockPositivity_single (T : Name) (lps : List Name) (nP nIdx o : Nat) :
+    ∀ (e : Expr) (k : Nat),
+      (blockPositivity [T] lps nP [nIdx] o e k).toRec = recPositivity T lps nP nIdx o e k := by
+  intro e
+  induction e with
+  | forallE ty body bi iht ihb =>
+    intro k
+    simp only [blockPositivity, recPositivity, Expr.mentionsAnyConst_single]
+    split
+    · rfl
+    · exact ihb (k + 1)
+  | bvar i | sort u | const n us | fvar i ty _ | lit l | app f a _ _
+  | lam ty b bi _ _ | letE t v b _ _ _ | proj s i sub _ =>
+    intro k
+    exact blockPositivity_tail T lps nP nIdx o k _
+
+/-- The kind of one field, at ONE name. -/
+theorem blockFieldKind_single (T : Name) (lps : List Name) (nP nIdx o : Nat) (dom : Expr) :
+    (blockFieldKind [T] lps nP [nIdx] o dom).toRec = recFieldKind T lps nP nIdx o dom := by
+  simp only [blockFieldKind, recFieldKind, Expr.mentionsAnyConst_single]
+  split
+  · exact blockPositivity_single T lps nP nIdx o dom 0
+  · rfl
+
+/-- The `structUsedLater` guard commutes with forgetting the target. -/
+private theorem kind_guard (T : Name) (lps : List Name) (nP nIdx i : Nat)
+    (cty dom : Expr) :
+    (match blockFieldKind [T] lps nP [nIdx] i dom with
+     | .recursive t =>
+       if structUsedLater cty nP i then BlockFieldKind.unsupported else BlockFieldKind.recursive t
+     | .reflexive t =>
+       if structUsedLater cty nP i then BlockFieldKind.unsupported else BlockFieldKind.reflexive t
+     | k => k).toRec
+      = (match recFieldKind T lps nP nIdx i dom with
+         | .recursive =>
+           if structUsedLater cty nP i then RecFieldKind.unsupported else RecFieldKind.recursive
+         | .reflexive =>
+           if structUsedLater cty nP i then RecFieldKind.unsupported else RecFieldKind.reflexive
+         | k => k) := by
+  have h := blockFieldKind_single T lps nP nIdx i dom
+  cases hb : blockFieldKind [T] lps nP [nIdx] i dom with
+  | ordinary =>
+    rw [hb] at h; simp only [BlockFieldKind.toRec] at h; rw [← h]; rfl
+  | negative =>
+    rw [hb] at h; simp only [BlockFieldKind.toRec] at h; rw [← h]; rfl
+  | unsupported =>
+    rw [hb] at h; simp only [BlockFieldKind.toRec] at h; rw [← h]; rfl
+  | recursive t =>
+    rw [hb] at h; simp only [BlockFieldKind.toRec] at h; rw [← h]
+    by_cases hu : structUsedLater cty nP i = true
+    · simp only [hu, if_pos]; rfl
+    · simp only [hu, Bool.false_eq_true, if_false]; rfl
+  | reflexive t =>
+    rw [hb] at h; simp only [BlockFieldKind.toRec] at h; rw [← h]
+    by_cases hu : structUsedLater cty nP i = true
+    · simp only [hu, if_pos]; rfl
+    · simp only [hu, Bool.false_eq_true, if_false]; rfl
+
+/-- The kinds of one constructor's fields, at ONE name, are the
+one-name kinds. -/
+theorem blockCtorKinds_single (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (c : ConstantVal × Nat) :
+    (blockCtorKinds [T] lps nP [nIdx] c).map (List.map BlockFieldKind.toRec)
+      = recCtorKinds T lps nP nIdx c := by
+  simp only [blockCtorKinds, recCtorKinds]
+  cases hs : Expr.stripPis (nP + c.2) c.1.type with
+  | none => rfl
+  | some z =>
+  obtain ⟨cbs, cbody⟩ := z
+  simp only [Expr.mentionsAnyConst_single]
+  by_cases hall : ((cbody.getAppArgs.drop nP).all fun a => !a.mentionsConst T) = true
+  · simp only [hall, if_pos, Option.map_some, List.map_map, Option.some.injEq]
+    refine List.map_congr_left ?_
+    intro i _
+    exact kind_guard T lps nP nIdx i c.1.type (cbs.getD (nP + i) default).1
+  · simp only [hall, Bool.false_eq_true, if_false, Option.map_some, List.map_map,
+      Option.some.injEq]
+    refine List.map_congr_left ?_
+    intro i _
+    rfl
+
+end ConLeche
