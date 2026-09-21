@@ -1393,4 +1393,236 @@ frame. -/
 
 end Components
 
+/-! ## A.9 The peel to ONE rule
+
+`checkBlockRecsRules_facts` (V2) and `checkBlockRules_facts` keep the
+four scoping facts and drop the RUNS; `checkBlockRule_data` (§A.5) is
+stated about one run.  These two peels join them: from
+`checkBlockRecsRules … = .ok rs` to the `checkBlockRule` run of the
+`(c, i)`-th rule, with the inputs it was called at named. -/
+
+section Peel
+
+open ConLeche (checkBlockRule checkBlockRules checkBlockRecsRules BlockShape BlockParts
+  BlockFieldKind RecShape)
+
+local macro "close_throw " h:term : tactic =>
+  `(tactic| first
+      | exact nomatch $h
+      | exact absurd $h (by
+          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+          exact fun hh => nomatch hh)
+      | exact absurd $h
+          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- **One member's rules, peeled**: every stored right-hand side is a
+`checkBlockRule` run at its own constructor. -/
+theorem checkBlockRules_run {envR envT : Env} {p : BlockShape} {recNames : List Name}
+    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
+    {cvR : ConstantVal} {F : Nat} :
+    ∀ {cs : List ((ConstantVal × Nat) × List BlockFieldKind)} {rhss out : List Expr},
+      checkBlockRules (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p recNames
+          rlvls recTys mIs rPs recTgts ri cvR cs rhss = .ok out →
+      out.length = cs.length ∧ rhss.length = cs.length ∧
+      ∀ (j : Nat) (q : (ConstantVal × Nat) × List BlockFieldKind) (rhs : Expr),
+        cs[j]? = some q → rhss[j]? = some rhs →
+        ∃ o, out[j]? = some o ∧
+          checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
+            recNames rlvls recTys mIs rPs recTgts ri cvR q.1 q.2 rhs = .ok o
+  | [], [], out, h => by
+    simp only [checkBlockRules, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, rfl, fun j q rhs hq _ => nomatch hq⟩
+  | [], _ :: _, out, h => by
+    unfold checkBlockRules at h; close_throw h
+  | _ :: _, [], out, h => by
+    unfold checkBlockRules at h; close_throw h
+  | q0 :: cs, rhs0 :: rhss, out, h => by
+    unfold checkBlockRules at h
+    obtain ⟨o0, ho0, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨rest, hrest, h⟩ := ConLeche.exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hlen, hlenR, hall⟩ := checkBlockRules_run hrest
+    refine ⟨by simp [hlen], by simp [hlenR], fun j q rhs hq hrhs => ?_⟩
+    cases j with
+    | zero =>
+      obtain rfl := Option.some.inj hq
+      obtain rfl := Option.some.inj hrhs
+      exact ⟨o0, rfl, ho0⟩
+    | succ j =>
+      obtain ⟨o, ho, hrun⟩ := hall j q rhs (by simpa using hq) (by simpa using hrhs)
+      exact ⟨o, by simpa using ho, hrun⟩
+
+/-- **Every recursor's rules, peeled**: the `i`-th stored datum's rule
+list is a `checkBlockRules` run at the member's constructors and field
+kinds, at the block's own argument sums. -/
+theorem checkBlockRecsRules_run {envR envT : Env} {p : BlockParts} {recNames : List Name}
+    {rlvls : List Level} {cvRas : List (ConstantVal × Nat)}
+    {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
+    ∀ {recs : List RecShape} {ri : Nat}
+      {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))},
+      checkBlockRecsRules (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
+          recNames rlvls cvRas ctorsAs recs ri = .ok rs →
+      ∀ i, i < recs.length → ∃ (rc : RecShape) (r : ConstantVal × List Expr × Nat ×
+          List (ConstantVal × Nat)) (kss : List (List BlockFieldKind)),
+        recs[i]? = some rc ∧ rs[i]? = some r ∧
+        ctorsAs[p.recTgtAt (ri + i)]? = some r.2.2.2 ∧
+        p.kinds[p.recTgtAt (ri + i)]? = some kss ∧
+        checkBlockRules (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT
+            p.toBlockShape recNames rlvls (cvRas.map (·.1.type))
+            ((List.range p.recs.length).map p.majorIdxAt)
+            ((List.range p.recs.length).map p.rulePrefixAt) p.recTgts (ri + i) rc.cvR
+            (r.2.2.2.zip kss) rc.rhss = .ok r.2.1
+  | [], _, rs, _, i, hi => absurd hi (Nat.not_lt_zero i)
+  | rc :: rest, ri, rs, h, i, hi => by
+    unfold checkBlockRecsRules at h
+    obtain ⟨ms, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨ctorsA, hctorsA, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨kss, hkss, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRn, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRa, nIdx⟩ := cvRn
+    try simp only at h
+    by_cases hlen : (ctorsA.length == ms.ctors.length) = true
+    case neg => rw [if_neg hlen] at h; close_throw h
+    rw [if_pos hlen] at h
+    obtain ⟨rhss, hrules, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := ConLeche.exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    cases i with
+    | zero =>
+      refine ⟨rc, (cvRa, rhss, nIdx, ctorsA), kss, rfl, rfl, ?_, ?_, ?_⟩
+      · rw [Nat.add_zero]; exact ConLeche.unwrapOr_ok hctorsA
+      · rw [Nat.add_zero]; exact ConLeche.unwrapOr_ok hkss
+      · rw [Nat.add_zero]; exact hrules
+    | succ i =>
+      obtain ⟨rc', r, kss', hrc, hr, hct, hks, hrun⟩ :=
+        checkBlockRecsRules_run hrest i (by simpa using hi)
+      refine ⟨rc', r, kss', by simpa using hrc, by simpa using hr, ?_, ?_, ?_⟩
+      · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hct
+      · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hks
+      · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hrun
+
+/-- **The `(c, i)`-th rule's RUN, off `checkBlockRecK`.**  The
+composition of the two peels with the stage's own bind chain: every
+stored right-hand side is a `checkBlockRule` run at the `c`-th
+recursor's record, the `i`-th constructor of its member, and the
+block's own argument sums — and the run's OUTPUT is the stored right-
+hand side itself.  `checkBlockRule_data` (§A.5) applies to it
+directly. -/
+theorem checkBlockRecK_ruleRun {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (envR : Env) (rc : RecShape) (recTys : List Expr) (ks : List BlockFieldKind)
+      (rhs0 : Expr),
+      p.recs[c]? = some rc ∧ recTys[c]? = some r.1.type ∧
+      checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envC
+          p.toBlockShape (p.recs.map (·.cvR.name))
+          ((p.recs.head?.map fun q => q.cvR.levelParams.map Level.param).getD []) recTys
+          ((List.range p.recs.length).map p.majorIdxAt)
+          ((List.range p.recs.length).map p.rulePrefixAt) p.recTgts c rc.cvR cA ks rhs0
+        = .ok rhs := by
+  have hcl : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
+  have hcp : c < p.recs.length := by omega
+  obtain ⟨rc, r', kss, hrc, hr', hct, hks, hrun⟩ := checkBlockRecsRules_run h c hcp
+  obtain rfl := Option.some.inj (hr.symm.trans hr')
+  rw [Nat.zero_add] at hrun
+  obtain ⟨hlenO, hlenI, hallJ⟩ := checkBlockRules_run hrun
+  -- the constructor and its kinds, at the zip
+  have hjl : i < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
+  obtain ⟨ks, hks'⟩ : ∃ ks, (r.2.2.2.zip kss)[i]? = some (cA, ks) := by
+    rcases Nat.lt_or_ge i kss.length with hik | hik
+    · refine ⟨kss[i], ?_⟩
+      rw [List.getElem?_zip_eq_some]
+      exact ⟨hcA, List.getElem?_eq_getElem hik⟩
+    · exfalso
+      have hio := (List.getElem?_eq_some_iff.mp hrhs).1
+      have hz : (r.2.2.2.zip kss).length = min r.2.2.2.length kss.length := List.length_zip
+      rw [hz] at hlenO
+      omega
+  have hil : i < rc.rhss.length := by
+    have hio := (List.getElem?_eq_some_iff.mp hrhs).1
+    omega
+  obtain ⟨o, ho, hone⟩ := hallJ i (cA, ks) rc.rhss[i] hks'
+    (List.getElem?_eq_getElem hil)
+  obtain rfl := Option.some.inj (ho.symm.trans hrhs)
+  -- the recursor type list
+  obtain ⟨rc2, r2, hrc2, hr2, hcv2, -⟩ := hallR c hcp
+  obtain rfl := Option.some.inj (hr.symm.trans hr2)
+  refine ⟨_, rc, (cvRus.map fun q => (q.1, q.2.1)).map (·.1.type), ks, rc.rhss[i], hrc, ?_,
+    hone⟩
+  rw [List.getElem?_map]
+  rw [Nat.zero_add] at hcv2
+  rw [hcv2]
+  rfl
+
+/-! ### A-1's identification: the components ARE the run's witnesses -/
+
+/-- **The `(c, i)`-th rule's syntactic data, identified.**  Every Expr
+`checkBlockRule` opened is the one §A.8's definitions recompute:
+`Option` determinism against `checkBlockRule_data`, at the run
+`checkBlockRecK_ruleRun` supplies. -/
+theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (o₁ : Expr) (cpref : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr)
+      (ldoms : List Expr) (lrest : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt c) r.1.type 0
+          = some (blockRulePrefFvs p.toBlockShape rs c, o₁) ∧
+      ConLeche.Expr.instPisAt ((blockRulePrefFvs p.toBlockShape rs c).take p.nP) cA.1.type
+          = some (cpref, blockRuleCrest p.toBlockShape rs c i) ∧
+      ConLeche.openPisAtFvars cA.2 (blockRuleCrest p.toBlockShape rs c i)
+            (p.toBlockShape.rulePrefixAt c)
+          = some (blockRuleFieldFvs p.toBlockShape rs c i,
+              blockRuleCbody p.toBlockShape rs c i) ∧
+      ConLeche.Expr.stripLams (p.toBlockShape.rulePrefixAt c + cA.2) rhs = some (rbs, body) ∧
+      ConLeche.Expr.instLamsAt
+          (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)
+          rhs = some (ldoms, lrest) := by
+  have hrd : rs.getD c default = r := by
+    rw [List.getD_eq_getElem?_getD, hr]; rfl
+  have hcd : r.2.2.2.getD i default = cA := by
+    rw [List.getD_eq_getElem?_getD, hcA]; rfl
+  have hty : blockRuleRecTy rs c = r.1.type := by rw [blockRuleRecTy, hrd]
+  have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcd]
+  obtain ⟨envR, rc, recTys, ks, rhs0, hrc, hrecTy, hrun⟩ :=
+    checkBlockRecK_ruleRun h hr hcA hrhs
+  obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
+    resid, ihTele, fvsIh, bodyO, ty, concl,
+    hrecTy', hstrip, hop1, hinst, hop2, hlams, -, -, -, -, -, -⟩ :=
+    checkBlockRule_data hrun
+  obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
+  -- the prefix openers
+  have hpref : blockRulePrefFvs p.toBlockShape rs c = fvsPref := by
+    rw [blockRulePrefFvs, hty, hop1]; rfl
+  -- the constructor's telescope
+  have hcrest : blockRuleCrest p.toBlockShape rs c i = crest := by
+    rw [blockRuleCrest, hpref, hct, hinst]; rfl
+  -- the field openers and the body
+  have hffvs : blockRuleFieldFvs p.toBlockShape rs c i = fvsF := by
+    rw [blockRuleFieldFvs, hcrest, hct, hop2]; rfl
+  have hcbody : blockRuleCbody p.toBlockShape rs c i = cbody := by
+    rw [blockRuleCbody, hcrest, hct, hop2]; rfl
+  exact ⟨o₁, cpref, rbs, body, ldoms, lrest,
+    by rw [hpref]; exact hop1,
+    by rw [hpref, hcrest]; exact hinst,
+    by rw [hcrest, hffvs, hcbody]; exact hop2,
+    hstrip, by rw [hpref, hffvs]; exact hlams⟩
+
+end Peel
+
 end ConLeche.Model
