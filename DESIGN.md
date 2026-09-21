@@ -80794,3 +80794,666 @@ exactly the `N ≥ 2` the declarative guard counts.
   guard is NOT a positive check today: the three forged large
   eliminators reject only because the modeller's generated recursor
   fails to typecheck.
+
+#### RULINGS (2026-09-21, maintainer): recursors — one syntactic check, three proof regimes; the NARROW clause and a GLOBAL subterm relation for nested blocks
+
+**The check is the same for Prop and Type.**  A recursor family is
+accepted by ONE syntactic test — "syntactically primitively recursive":
+the recursor type well-formed with parameters, indices and major in the
+required positions (the motive-free amendment above); rules complete
+over the major's constructors with the `rP + nF` λ-prefix; every
+recursor occurrence in a body a full call on a field of the matched
+constructor (or a reflexive field applied), abstracted to an `ih`; the
+residue typed against the conclusion; plus the declarative elimination
+guard.  Nothing else in the checker depends on the sort.
+
+**Three regimes in the PROOF, reading the same certified data:**
+* `ℓ = 0` (the conclusion a proposition), any `w`: NESTED INDUCTION.
+  The recursor's type is a proposition; inhabiting it is the induction
+  principle: outer induction on the block's narrow least fixed point
+  with predicate "the motive is inhabited", each rule's residue typed
+  at every fitting spine as the step; a rule on a container's
+  constructor is the INNER step — the container's own induction
+  principle at the parameter (from its recorded fibre law and
+  monotonicity), nested as the pins nest.  The value is the point, ι
+  rules are `pt = pt`.  Every mutual or nested Prop block lives here.
+* `w ≠ 0, ℓ ≠ 0`: WELL-FOUNDED RECURSION ON A GLOBAL SUBTERM RELATION
+  `x ⊏ y := x ∈ tc y` (transitive ∈-closure; well-founded by the
+  interface's `regularity`; `tc` from `sUnion` + ω-iteration).  Fields
+  and reflexive-field images are ∈-deeper than the constructor value BY
+  THE ENCODING (`inj`, `mkTower`, `app`), so no per-inductive
+  well-foundedness fact is ever proved or recorded.  The recursor
+  family is recursion on the tagged union of the majors' ORDINARY
+  carriers, predecessors the ∈-smaller elements of the union, step by
+  cases on each carrier's own fibre law, typing from the minors'.  No
+  `PredsFrom`, no simultaneous accessibility, no tuple components.
+* `w = 0, ℓ ≠ 0` (large elimination from Prop): by the guard a lone,
+  non-nested block with ≤ 1 constructor under the subsingleton
+  criterion; the spine is a function of the index and recursion is the
+  block's own lfp induction (the existing squash kit).  Regularity is
+  not used at Prop.
+
+**The clause is NARROW** (superseding theory N1): for every stored
+inductive `I` with parameters `p⃗`, `⟦I⟧ p⃗ = lfp (x ↦ C[p⃗, x])` (a
+k-tuple lfp for a k-member block), where `C` is read from `I`'s stored
+constructor types with container instances read ORDINARILY through the
+containers' clauses; recorded with its fibre law, mono/maps/closed.  The
+wide tuple (members + copies = official's aux block) is NEITHER
+recorded NOR identified with anything; Bekić is not used.  What nested
+positivity must yield is monotonicity of `x ↦ ⟦C⟧(…x…)` in the hole —
+from the container's clause by leastness plus the abstract copy's
+positivity through the copy transport lemma (P8).  The closure witness
+at `w ≠ 0` for the narrow operator is the one place a two-component
+operator may appear transiently (a set-sized bound); F5
+(`agent/uinds-F5`) is establishing the route at the set level.  Nothing
+landed on `uniform-inds` depends on the wide tuple; the falsifier files
+F0–F4 and `LfpCompose.lean` document the abandoned route and may be
+deleted at the flip.
+
+#### F5 PASSED (2026-09-21, `agent/uinds-F5`, ff 69b750f1): the narrow clause with ∈-subterm recursion
+
+`SetTheory/Derive/TransClosure.lean` (`tc` as the ω-union of `sUnion`
+iterates, ∈-induction from `regularity`, in the PULLBACK form
+`tc_induction_map` since a tagged union element wraps its payload),
+`SetModel/WfRec.lean` (`tcAcc_all`: accessibility for free at any index
+set; encoding-depth lemmas `mem_tc_inj_mkTower`, `app_mem_tc`; `WfRecKit`
+with FOUR fields `B/st/hB/hst` over ORDINARY carriers),
+`SetModel/NarrowTreeList.lean` (Tree/List: the narrow one-component
+fixed point, (W), typing, the recursor family with official's three ι
+rules, non-vacuity).  Against F0: the identification is gone (8 lines
+read `⟦List⟧ ⟦Tree⟧` directly), accessibility 105 → 7 lines, and the
+predecessor set is never characterised (three positive memberships of 4
+lines each replace ~70 lines of `mkInj` case analysis).  `LIST` is
+monotone in its parameter from `ListClause` as stated (15 lines) —
+provided `fibre` quantifies over the whole tuple space.
+(W): holds with NO wide operator via the ω-iterate for a FINITARY
+container (not stated by the clause, false for `Stream`); the ruling's
+transient bound (`narΨ_closed_of_wide`, 25 lines: the block-plus-copy
+closed tuple bounds the narrow operator through its first component by
+leastness, nothing identified) is uniform — ADOPTED.
+Findings: (1) the clause must pin the constructor ENCODING
+`inj j (mkTower (fs ++ [pt]))` so ∈-depth is a theorem (`mkInj` gives
+injectivity only); (2) finitarity is not a clause fact — hence the
+transient bound.
+
+### DESIGN DOCUMENT 2, v2 — theory for steps 2 and 3 at the NARROW clause (supersedes DESIGN DOCUMENT 2 above; 2026-09-21)
+
+##### DESIGN — theory v2 for steps 2 and 3: the NARROW clause, three proof regimes, positivity through containers
+
+Theory design, 2026-09-21 (evening), against `uniform-inds` at 43cf43f0 (lane R's
+motive-free stage merged) and lane F5's tree (`_tmp/uniform-inds/wt-F5`, ced94ade +
+uncommitted `NarrowTreeList.lean`).  Successor of `DESIGN-theory.md` (DESIGN.md
+"DESIGN DOCUMENT 2"), rewritten to the maintainer's rulings of 2026-09-21 (DESIGN.md
+80798–80851: one syntactic check, three proof regimes, the narrow clause, the global
+subterm relation) and the amendments before them (collapsing pins/basis 80610, the
+motive-free check 80677, the declarative guard 80710, review gaps G1–G4 80639, the
+record-read rule prefix 80723).  Inputs: `REVIEW-recursors.md`, `F0/F12/F3/F4-REPORT.md`,
+`P8-REPORT.md`, `M5k-REPORT.md` §13–14, `M3-REPORT.md` §2, `SetTheory/Core.lean`,
+`SetModel/{Iter,RecGraph,UnionRec,TupleContainer,Container}.lean`,
+`SetTheory/Derive/LfpTuple.lean`, wt-F5 `SetTheory/Derive/TransClosure.lean`,
+`SetModel/WfRec.lean`, `SetModel/NarrowTreeList.lean`.  Terminology of DESIGN-kary
+(`BlockParts`, `blockΦ`, `BlockChainsOk`, `checkBlockRule`, `abstractIh`, `BlockModelAt`)
+and of the M3/M5k trees is used unchanged.  No F5 report exists yet; §6.5 lists where
+this document and F5's tree agree and disagree.
+
+#### 0. The decisions
+
+**V1 (§1). The clause is NARROW, at width k.**  For every stored non-basis inductive
+`I`, member `m` of a k-member block: `⟦I⟧ p⃗ ı⃗ = app (lfpTuple w k Is Φ m) ⟨ı⃗⟩` where `Φ`
+is `blockΦ` over the members' STORED constructors, a field whose domain mentions a
+member through a container (`List T`) being an entry that READS the container
+ORDINARILY — `denoteMeta` of the field's abstract domain `List x` at a frame holding
+the tuple's component at `x`, in which `List` is `acval List`.  Recorded with `fibre`,
+`MonoTuple`/`MapsTuple`/`∃ closed` and — new, from F5 — the encoding depth `mkDepth`.
+`BlockData.nInst` and `N = k + nInst` go (`N := k`).  No wide tuple, no identification,
+no Bekić, no instance components, no `instLeaf`, no instance `ctor` law (F12's findings
+1–2 are moot).  T1/N1 of v1 are withdrawn.
+
+**V2 (§2). Positivity through containers keeps the locate/abstract/descend/memo
+machinery of v1 §2.1 and drops the groups and the rank as an IDENTIFICATION order.**
+The copies survive for three consumers: the monotonicity verdict (the copy's kinds +
+the transport lemma P8 give "the narrow operator is monotone in the hole"), the
+closure bound at `w ≠ 0` (§2.5), and the recursor check's rules on a container-major
+recursor (the copy's kinds name the classes).  The key table's dependency order —
+the memo's completion order — survives as computed DATA for two inductions (mono,
+closure composition); a re-entrant key is exit 3.  Collapsing pins are a non-event
+(the memo is the collapse); basis containers REJECT.  The `nested` bit is recorded.
+
+**V3 (§2.5). The closure witness at `w ≠ 0` is the TRANSIENT wide operator's closed
+tuple, composed away.**  Build official's aux operator `Ψ` (members + one component per
+key), get its closed tuple from `tupleContainer_closed_exists` with plain slots (v1
+§2.2 (iii), F0–F4's (W)), iterate `closedTuple_composeAt` (TupleContainer.lean:248) over
+the keys in reverse dependency order, and transfer to the narrow operator by
+`isClosedTuple_congr` + the transport + the containers' `leaf`.  The copies serve as a
+set-sized bound and are discarded; nothing is identified.  The ω-iterate (F5's
+`narΨ_closed`) is NOT the route: it needs finitarity, which the clause does not record
+and reflexive/infinitary containers do not have.
+
+**V4 (§3). One syntactic check (lane R's `checkBlockRecTys`/`checkBlockRule`, M5k §14, plus
+the declarative guard) and three proof regimes, decided per family and per `ψ`:**
+`allProp` (every conclusion a proposition) → NESTED INDUCTION at any `w`; `¬allProp ∧
+w ≠ 0` → WELL-FOUNDED RECURSION on `x ∈ tc y` over the tagged union of the majors'
+ORDINARY carriers (F5's `WfRecKit`, regularity); `¬allProp ∧ w = 0` → the squash kit
+(k = 1, ¬nested, ≤ 1 constructor by the guard).  Classes = the stream's recursors,
+assigned by their MAJOR's type to a member or a key.  `UnionRecKit`, `PredsFrom`,
+`unionAcc_all` are retired.
+
+**V5 (§4). Prop: nothing nested-specific beyond the sort gate, the guard's `¬nested`
+clause and `closedTuple_zero`.**  Every nested or mutual Prop block is `allProp`.
+
+**V6 (§6). Cost ≈ 15–19 sessions after deliverable 1**, the model lane the long pole
+(§6.3); decisions still needed in §6.6.
+
+---------------------------------------------------------------------------
+#### 1. The narrow env clause
+
+##### 1.1 The datum and the clause, against M3 as built (`Model/Inductives/BlockRep.lean`)
+`BlockData` (BlockRep.lean:91): delete `nInst` (:97); `N` (:152) becomes `k`.  `ksF`'s
+kind type gains `.nested` (a field whose domain mentions a member only inside located
+container instances, §2.1); `BlockData` gains the per-field ABSTRACT domain
+`absF : Nat → Nat → (Name → Nat) → List AnnotTerm` — the stored domain with every member
+application `T_m p⃗ e⃗` replaced by `x_m e⃗` (the fvar discipline, v1 N3, at the k member
+variables only) read by `denoteMeta` at the block frame extended by `x⃗`.  `ChainFit`
+(:251) gains the arm: a `.nested` position's entry is `interp (frame ⧺ x⃗ := curry X) absF`
+— the container occurrences inside it read through `acval C ψ_C` (the container's LEAF),
+which is all the clause says about container instances.  The clause:
+```
+idxOk    : ∀ ψ ρp, Sat → ∀ m < k, IdxOk (uM m ψ) ρp (IdsM m ψ)                          -- unchanged, k
+functor  : ∀ ψ ρp, Sat → MonoTuple w k Is (Φ ψ ρp) ∧ MapsTuple … ∧ ∃ L, IsClosedTuple …  -- the NARROW operator
+fibre    : ∀ ψ ρp, Sat → ∀ X ∈ space, ∀ m < k, ∀ t ∈ Is m, ∀ x,
+             x ∈ app (Φ ψ ρp X m) t ↔ ∃ j fs, ChainFit ψ ρp X t m j fs ∧ x = inj ψ m j fs   -- .nested arm in ChainFit
+leaf     : (as ++ is).foldl app ⟦acval T_m ψ⟧ = app (lfpTuple w k Is (Φ ψ (consList as ρ)) m) (tup m is)
+ctor     : member constructors only (c < k)                                              -- :309, unchanged
+mkZero   : w ψ = 0 → inj ψ m j fs = pt ;  mkInj : w ψ ≠ 0 → inj injective at the constructors' lengths
+mkDepth  : w ψ ≠ 0 → ∀ m j fs a, a ∈ fs → a ∈ tc (inj ψ m j fs)                          -- NEW (F5)
+```
+`mkDepth` is F5's `TagDepth` (NarrowTreeList.lean:67): injectivity does not give
+∈-depth, which is a property of the REPRESENTATION; discharged at install from the
+encoding `sumMkAV`'s value `inj j (mkTower (fs ++ [pt]))` by `mem_tc_inj_mkTower`
+(WfRec.lean:117), one lemma.  `tc` is `TransClosure.lean:81` (ω-union of `sUnion`
+iterates through `image`/`omega`, Core.lean:110/121).  Everything else of M3's record is
+kept; `mutual-direct`'s `IsBlockModel` clauses and F12's instance clauses are gone.
+
+##### 1.2 The `EnvModelM` clause (v1 §1.2/§1.4, at width k)
+```
+@[expose] def BlocksOk (m : EnvModel V env) : Prop :=
+  ∀ T cvT caps, env.find? T = some (.indInfo cvT caps) → reservedBasisNames.contains T = false →
+    ∃ d : BlockData V, blockDataOf env T = some d ∧ BlockModelAt m d.memberNames d
+-- EnvModelM: block_models : BlocksOk base2
+```
+`blockDataOf env T` is a PURE function of the stored block (`all`/`ctors` on `.indInfo`,
+v1 N2): members, `nP`, stored constructors, kinds with `.nested`, `absF` (the
+abstraction is deterministic on the stored, normalised types — §2.4).  No instance
+table: the key table is install-local.  Cost as v1 §1.4 (the `tower_ok` pattern,
+~1 session); the establishment is `declBlock`'s `BlockModelAt` handed over.  The
+consumers: (1) a later block's positivity through `T` reads `functor`/`fibre`/`leaf`/
+`mkInj`/`mkDepth` at the pins' frame (§2.3, §2.5); (2) a container-major recursor's
+rules and predecessors read the container's `fibre`/`mkInj`/`mkDepth` (§3.2); (3) the
+nested induction reads the container's `functor` + `leaf` (§3.3).  Basis blocks are
+excluded and REJECT as containers (§2.6), so no datum is ever needed for them.
+
+##### 1.3 The `k = 1`, non-nested instance
+Unchanged from v1 §1.5 (`hleafT`, `fixFamI_eq_lfpTuple`, `monoTuple_one_of`…) plus
+`mkDepth` from `mem_tc_inj_mkTower`; M3's `blockModelAt_of_stages` (not yet assembled,
+M3 §3) gains the one field.
+
+##### 1.4 What the clause must say about container instances read ordinarily
+Nothing beyond the `.nested` `ChainFit` arm.  A consumer that needs a container's
+behaviour gets it from the CONTAINER's own `BlockModelAt` (through `block_models`),
+never from `I`'s: `I`'s clause fixes only that the entry is `denoteMeta` of `absF` with
+`C ↦ acval C`.  Two consequences that the design must keep true: `fibre` quantifies
+over ALL tuples of the space (F0-1, still needed: the closure bound §2.5 and the
+inner inductions §3.3 instantiate it below the carrier), and the container's
+parameter is a VALUE — the tuple's component at the field's index (F0-2; F5's
+`app (X 0) pt`), which is the currying bridge P8-1 at the `x⃗` slots (§2.4).
+
+---------------------------------------------------------------------------
+#### 2. Positivity through containers
+
+##### 2.1 The check (kernel) — v1 §2.1 steps 1–4, minus groups and rank
+Per constructor field domain `D` of member `m` (params/earlier fields as fvars):
+1. **Locate** (v1 step 1 verbatim): innermost-first, a subterm `C.{ls} Ds is` with `C`
+   a stored `.indInfo`, `|Ds| = C.numParams`, some `Ds[j]` mentioning a member or an
+   already-located key.  REJECT: a loose bvar in `Ds` (official 962 — and P8's `hsc`
+   premise, so the reject is literally the lemma's hypothesis), a member occurring
+   other than as `T_m.{lps} p⃗`, `C`'s sort at `ls` not `Level.isEquiv` the block's, `C`
+   reserved (basis: §2.6).  Key = `C Ds` with `p⃗` abstracted, `resetMeta`+`eraseNames`
+   structural equality; memoised in the KEY TABLE (a list, insertion order).
+2. **Abstract**: `D^abs` := `D` with `T_m p⃗ e⃗ ↦ x_m e⃗` and each located `C Ds is ↦ y_q is`
+   (`q` the key's table index); run the positivity walk (`recPositivity` at names
+   `x⃗ y⃗`, `normPosDom` after abstraction) → per field `.ordinary | .recursive c |
+   .reflexive c | .nested | .negative`, `c` a member (`x_m`) or a key (`y_q`).  A field
+   whose ONLY member occurrences are inside located keys and whose walk verdict is
+   positive is `.nested` (its slot targets are the keys it mentions; recorded for the
+   recursor check only).  Indices of a slot `x⃗ y⃗`-free (official 349–353).
+3. **Descend** (memoised on the key): for a NEW key `(C, ls, Ds)`, the copy
+   `absCtor_{q,j} := Π As, C.ctor_j.type[lps := ls][params := Ds^abs]` per constructor
+   of `C` — of `C`'s MEMBERS' constructors when `C` is mutual (each member of `C`'s
+   block at `Ds` is its own key, opened together, official 1009) — type-checked at the
+   abstract env (`p⃗ x⃗ y⃗` fvars, K.27's `nestedPinsAbsOk` form, now load-bearing:
+   §2.3), its field domains run through steps 1–2 (new keys enter the table), its
+   result `y_q is'` atom-free, field universes ≤ `w` or `w ≡ 0`; its normalised field
+   domains compared with the substituted ones by a recorded `checkDefEqList` at the
+   abstract frame (P8-3's recommendation, adopted in DESIGN 80783).
+4. **Order**: the table's completion order is the DEPENDENCY order (a key completes
+   after every key its copy mentions and every key inside its pins); a lookup of an
+   in-progress key is exit 3 ("cycle"), never expected: a descent edge goes to a
+   container declared strictly earlier (it occurs in `C`'s stored constructors), an
+   inner-pin edge to a strictly smaller pin — an argument, not a proof, and the
+   model consumes the order as data (v1's stance).  Nothing is grouped, ranked or
+   identified.
+5. **Output** `NestedParts` (install-local, never stored): the key table in order,
+   per key its copy's constructors (normalised + the defeq claims) and kinds, the
+   per-field `.nested` bit; `blockNested := kinds.any (· == .nested)` (BlockRec.lean:143
+   reads `.unsupported` today).  The STORED block is the k-member block (members,
+   their constructors, the stream's recursors): no `_nested` names, no copies.
+
+Memo `nested-aux-iota-rules`/`SURVEY-official` §1.7 conformance is as v1: the same
+verdicts, minus nothing (the descent still reaches every official aux constructor).
+
+##### 2.2 The narrow operator's entries, semantically
+`blockΦ ψ ρp X m` reads member `m`'s stored constructors; a `.nested` field's entry is
+`interp (ρp ⧺ fs-prefix ⧺ x⃗ := curry X) (absF …)` where `curry X` places component `X c`
+into the fvar slot `x_c : Π ı⃗_c, Sort w` as the curried family (P8-1's bridge, one lemma
+pair `pack/unpack` against `projS`/`slotSet`, BlockFamI.lean:223 ff.).  Two laws about the
+entry, both consumed at once by `mem_type` of the member's constructors:
+* **at the carrier**: `interp (… x⃗ := curry L) absF = interp (…) F` — the substitution
+  law `⟦D^abs⟧[x⃗ := ⟦T⃗⟧] = ⟦D⟧` at the block's own `leaf` (P8's `instPisAt_denoteMeta_pins`
+  shape at ONE binder per member — `denoteMeta_substFvarAt` BitInst.lean:205);
+* **monotone in `X`** (§2.3).
+Decision D-a (§6.6): whether ALL entries go through `absF` (one reading discipline;
+M3's `xEntryB`/`slotSet`/shadow context re-based, ~2 sessions) or only `.nested` ones
+(hybrid; M3's kit untouched, `ChainFit` gets one more arm).  Recommended: hybrid now,
+uniform at the flip if the hybrid's two disciplines cost a session anywhere.
+
+##### 2.3 THE theorem of this section: monotonicity in the hole
+For each key `q = (C, ls, Ds)` in table order, `KeyMono q`:
+```
+∀ X Y ∈ space, TupleLe k Is X Y → ∀ ı⃗, ⟦C Ds⟧[x⃗ := curry X] ⟨ı⃗⟩ ⊆ ⟦C Ds⟧[x⃗ := curry Y] ⟨ı⃗⟩
+```
+where `⟦C Ds⟧[x⃗ := …]` is the ordinary reading of the key at the abstract frame (through
+`acval C`).  Proof, by strong induction on the table position (the order of §2.1(4)):
+1. `C`'s clause (`block_models`) at the parameter frame `ρ_C(X) := ⟦Ds⟧[x⃗ := curry X]` —
+   in `C`'s `Sat` domain by the pins' type-check at the abstract env, certified at every
+   `Sat` valuation of `x⃗` = every tuple of the (curried) space (P8 §4) — gives
+   `⟦C Ds⟧[X] = lfpTuple w k_C Is_C (Φ_C ρ_C(X))` (`leaf` + `famSpace_ext` over `C`'s own
+   members; for a mutual `C` the key is one member's component of `C`'s narrow tuple).
+2. **Transport (P8)**: `Φ_C (ρ_C(X)) Z` at `C`'s member `c` = the copy `absCtor_q`'s entries
+   read at `(x⃗ := curry X, y_{q'} := ⟦inner keys⟧[X], y_q-block := Z)` — `copyRead_transport_defEq`
+   (CopyTransport.lean:494) per field domain, the base-depth shift P8-4, the recorded
+   defeq claims of §2.1(3), all at `Sat` valuations.
+3. **The copy's positivity**: every occurrence of `x⃗`, of inner atoms `y_{q'}` and of `y_q`
+   in the copy's fields is positive (the walk's verdict, `.recursive`/`.reflexive`/
+   `.nested` kinds), so the copy's entries are monotone in each — `chainXIGo_tele_sub`'s
+   argument (FixFamI.lean:687) with atoms as extra slots; the inner atoms' readings are
+   monotone in `X` by the IH (`KeyMono q'` for `q' < q` in table order).
+4. **Leastness**: `Φ_C(ρ_C(X)) ≤ Φ_C(ρ_C(Y))` pointwise ⇒ `lfpTuple … (Φ_C ρ_C(X)) ≤ lfpTuple …
+   (Φ_C ρ_C(Y))` — `lfpTuple_le` (LfpTuple.lean:115) at the larger carrier, which is closed
+   for the smaller operator.  This is F5's `ListClause.value_mono` (NarrowTreeList.lean:120)
+   with step 3 in place of the hand-read fibre shape.
+Then `MonoTuple` of the narrow operator: a `.nested` entry is monotone in `X` by `KeyMono`
+of the keys it mentions composed through the positive occurrences in `D^abs` (the
+walk's verdict on the member's own field — `Nat → y_q`, `Prod (y_q) Nat`… — is the
+same lemma as step 3), a recursive slot by `rss` as today.  `MapsTuple`: the entries are
+in `univ w` by `C`'s `MapsTuple` at `ρ_C(X)` + `lfpTuple_mem` (F5's `value_mem_univ`).
+
+What this makes unnecessary, confirmed against v1 §2.4/§2.7: `lfpTuple_seg`,
+`lfpTuple_seg_congr`, `LfpCompose.lean`, the identification, the rank-as-claims order,
+`lfpFamSet_mono_functor` as a THEOREM (it is step 4 inline).  What it costs that v1 did
+not: nothing new — steps 2–3 are v1 §2.2/§2.4's substitution law and the copy readings,
+used for monotonicity instead of identification.
+
+##### 2.4 Normalisation and the stored form (v1 §2.3 corrected by P8-2/P8-3)
+`normCtorVal` records no defeq (P8-2).  For the MEMBER's constructors the model reads the
+stored (normalised) type, so `absF` must be a function of the stored form: lane K pins
+that the stored domain is the normalised ABSTRACT domain re-instantiated at the
+members (`(normPosDom D^abs)[x⃗ := T⃗ p⃗]`), so that locate+abstract on the stored type
+returns `normPosDom D^abs` again (the abstraction is injective on `T_m p⃗ e⃗` shapes;
+risk §6.4 (1)).  For the COPIES the recorded `checkDefEqList` (§2.1(3)) is leg (b) of
+P8 and `copyRead_transport_defEq` closes it; no `normPosDom_inv`.
+
+##### 2.5 The closure witness at `w ≠ 0` — the transient wide operator
+Let the key table have `n` keys.  Define `Ψ` on `k + n` components: components `< k`
+the members' constructors with each `.nested` field's located keys as plain slots
+`y_q` (i.e. `D^abs` read with `y⃗` as tuple components), components `k + q` the copies'
+constructors with plain slots — official's aux block, exactly v1 §2.2's `Ψ`, and
+exactly what F0–F4 built by hand.  Then:
+1. `MonoTuple`/`MapsTuple` of `Ψ` from the kinds (`fixStepI_mono` at width `k + n`);
+   `∃ L, IsClosedTuple w (k+n) Is Ψ L` by `tupleContainer_closed_exists`
+   (TupleContainer.lean:127) with shapes tagged by (component, constructor, index
+   payload) and hole-free entries in the shape (F0/F12(4)/F3(1)/F4(3)) — M3's
+   `blockClosed_of` (M3 §S3.2) at width `k + n` fed the copies as components.
+2. **Compose away the keys, last table entry first** (reverse dependency order):
+   `closedTuple_composeAt` (TupleContainer.lean:248) turns a closed tuple of an operator
+   on `j + 1` components into one of `composeAt … j` on `j` components — component `j`
+   replaced by `lfpFamSet (secF Ψ X j)`, the lfp of `Ψ`'s section at `j` with the other
+   components at `X` — needing monotonicity at the remaining components in all `j + 1`
+   (the `hmono` premise: from `MonoTuple` and "`lfpFamSet` of a section monotone in `X`
+   is monotone in `X`", step 4 of §2.3 again).  After `n` steps: a closed tuple `L|k` of
+   `Ψ^{(n)}` on `k` components; ~150 lines of pure kit (the iteration lemma
+   `closedTuple_composeAll` + the monotonicity-preservation lemma).
+3. **`Ψ^{(n)} = Φ` on the tuple space** (`isClosedTuple_congr`, uniform-le's ~40 lines,
+   the one thing to keep of `LfpCompose.lean`): at component `< k`, a `.nested` entry of
+   `Ψ^{(n)}` at `X` is `lfpFamSet (secF … (k+q))` with the inner keys already composed —
+   by the transport (§2.3 step 2) that section IS `Φ_C(ρ_C(X))` at `C`'s member, so its
+   lfp is `⟦C Ds⟧[X]` by `C`'s `leaf` (§2.3 step 1); induction along the composition
+   order (the same order as `KeyMono`'s, reversed).
+Nothing is identified: `L (k+q)` is never claimed equal to anything; the copy is a
+set-sized bound and is discarded (F5's `narΨ_closed_of_wide`, NarrowTreeList.lean:306,
+is this argument at one key with the composition done by hand).  At `w = 0`:
+`closedTuple_zero` (TupleContainer.lean:209) from `MapsTuple`, no copies.
+
+Why not the ω-iterate (F5's `narΨ_closed`, :282; `iterU_closed_of` Iter.lean:92): its
+closure needs the container FINITARY in its parameter (`narTop_cont`, proved for `List`
+off the `nil/cons` shape), a fact the clause does not record and that is FALSE for a
+reflexive field (`P1 | mk : Nat → List P1`: a function into `⋃ₙ Aₙ` need not land in one
+`Aₙ`) and for an infinitary container (`C α := mk (Nat → α)`).  Recording ω-cocontinuity
+would be a new clause field with its own per-install proof; the transient bound uses
+only what the kit already has.  For a finitary block the two proofs coincide in
+strength and the ω-iterate is not cheaper (F5: `narTop_cont` ≈ 40 lines per container
+shape, by hand).  Decision D-b (§6.6) records this.
+
+##### 2.6 Collapsing pins, basis containers, mutual containers
+* **Collapsing pins** (`nested_pin_collide{,2}`, amendment 80612): under the memo there is
+  nothing to collapse — `Pair α (J α β)` and `Pair β (J α β)` at `α := β := Collide` are
+  ONE key `(Pair, [x, y_J])` located twice; official's aux table (built from `J`'s OWN
+  encoding, then instantiated) has two components that it collapses to one motive, and
+  the stream's one recursor matches the one key (§3.1).  No `σ` map, no `FibreConst`.
+* **Basis containers** (ruling 80726): a located instance headed by a reserved basis name
+  is `.invalid` with official's message (`Quot` is not an inductive: "non valid
+  occurrence"; `Eq`: loose bvar or an index occurrence; `Nat`/`PUnit`/`Empty` have no
+  parameters, never located).  T-lane rows `corner_pin_quot_bad`/`corner_pin_eq_bad`
+  move 2 → 1 at the flip.
+* **Mutual container** `C` (`nested_p05`): the key `(C_c, ls, Ds)` for the member `c` that
+  occurs; §2.1(3) opens the whole block's copies (every member of `C`'s group is a key
+  at `Ds`, official 1009), and `C`'s narrow clause at width `k_C` supplies `leaf` per
+  member (§2.3 step 1).
+
+---------------------------------------------------------------------------
+#### 3. Recursor checking — the model in three regimes
+
+##### 3.1 The check (lane R as built, M5k §14 + the nested delta) — the certificates
+Per stream recursor `R_c`: type stored AS IS; binders `0…nP-1` the parameters (per-binder
+defeq with the member's former telescope), `nP…rP-1` arbitrary, `rP…mI-1` the indices,
+`mI` the MAJOR — `T_m p⃗ ı⃗` (class = member `m`) **or, new, `C Ds ı⃗` with `C Ds`
+(`p⃗` abstracted) a KEY of the block's table** (class = that key; `nIdx` = the key's
+container's index count; the copy's index telescope at `Ds` — no motive, no motive
+count, hence no `N`); conclusion arbitrary; when `blockLargeElimAllowed p nested`
+(BlockRec.lean:154: `isNeverZero ∨ (k = 1 ∧ ¬nested ∧ nCtors ≤ 1)`, the subsingleton
+criterion at one constructor being the constructors' stage's) is false, the conclusion's
+sort `isDefEq Sort 0`.  Rules: one per constructor of the class — the member's, or the
+container's at the pins (`nfields` the container constructor's, prefix `rP + nF`, the
+fields' domains `absCtor_q`'s re-instantiated at the members, i.e. `C.ctor.type[params :=
+Ds]`; per-binder `checkBlockDefEqList` against the opened stored type, G2); every
+recursor occurrence a maximal spine `R_{c'} x⃗ e⃗(a⃗) (f_i a⃗)` with `f_i` a field of THIS
+constructor whose kind names `c'` — for a member's field: `.recursive c'`/`.reflexive c'`
+(a member) or `.nested` with `c'` one of the field's keys; for a container rule: the
+COPY's kind at that field, `x_m ↦` member, `y_q ↦` key; `e⃗` the field's index expressions
+syntactically; abstracted to `ih_i a⃗` of type `R_{c'}`'s type instantiated (`blockIhPis`);
+the residue typed at the CONSTRUCTORS' env (G1) against `R_c`'s conclusion at the
+prefix, the constructor's indices and `major := ctor p⃗ f⃗` (for a container rule
+`C.ctor Ds f⃗`, params the pins).  Completeness: every class named by a `.nested`/copy kind
+that some rule recurses into must have a recursor (else `.invalid`: the ih's type does
+not exist); a key with no stream recursor and no recursive call into it is fine (the
+class is unused).  Names: the stream's, pinned to `T_0.rec`, `T_m.rec`, `T_0.rec_i`
+(official's `mk_aux_rec_name_map`) — decision D-c.  Runtime ι: container rules stored
+`.nested lvls pins` (v1 §3.3, `nestedRuleShape` moved into `checkBlockRule`).
+Certificates the model reads: the residue's `Infer` at the constructors' env under the
+frame `p⃗ x⃗ ı⃗-free … f⃗ ih⃗` (`CtxOk`, `infer_sound` → `InferSemFull`), the per-binder
+`DefEqClaim`s (G2), the `abstractIh` spec (`blockIhCall?_spine`/`abstractIh_of_recFree`,
+BlockRecInv), and for the copies §2.1(3)'s claims.
+
+##### 3.2 Regime WF: `¬allProp ∧ w ≠ 0` — `WfRecKit` (wt-F5 `SetModel/WfRec.lean:154`)
+Classes `c < K` (the stream's recursors), each with index set `Is c` and ORDINARY carrier
+`C c` at the prefix frame `(p⃗, x⃗)`: `⟦T_m p⃗⟧` (the `leaf`) or `⟦C Ds⟧` (the ordinary reading
+of the major's type, `acval C` at the pins — no identification with anything).  Kit:
+```
+structure WfRecKit (ℓ k : Nat) (Is C : Nat → V) where
+  B  : V → V                 -- B (tagged c i x) := ⟦concl_c⟧ at (prefix, ı⃗ := i, major := x)
+  st : V → V → V             -- st (tagged c i x) g := ⟦residue_{c,j}⟧ at fs, ih_i := ihFun_i g   (x = inj_c j fs)
+  hB : ∀ u ∈ unionSet k Is C, B u ∈ univ ℓ
+  hst : ∀ u ∈ unionSet k Is C, ∀ g ∈ piSet (tcPred U u) (recGraph …), st u g ∈ B u
+```
+`tcPred U u := relPred U (λ u v. tagVal v ∈ tc (tagVal u))` (WfRec.lean:70), accessibility
+`tcAcc_all` (:83) from `tc_induction_map` (TransClosure.lean:200) from `regularity`
+(Core.lean:118); the kit is `UnionRecKitC` at `tcPred` (UnionRec.lean:383, kept), `recAt`,
+`rec_mem_B`, `rec_eq`, `graph_mem_B` follow.  Obligations per block, and their sources:
+* **`ℓ`** := the maximum over the family of the conclusions' sorts at `ψ` (`univ` is
+  cumulative, `univ_mono`); a Prop-valued class inside a WF family is fine (its `B u` is a
+  truth value in `univ ℓ`, its `st` reads to `pt`).  Decision D-d: alternatively require
+  the conclusions' sorts `Level.isEquiv` (official's shared `u`) — one `ℓ`, no max.
+* **`hB`**: `type_reads` of the stored recursor type — the conclusion's binder datum is
+  the stream's, read at the frame (M5k: "the model reads stream binders for the first
+  time", G2's per-binder claims for the prefix; the conclusion's sort from the
+  kernel's sort check of the type).
+* **`st`, unique decomposition**: `x = inj_c j fs` unique by the CLASS's `mkInj` — the
+  block's for a member, the CONTAINER's (its clause at `ρ_C`) for a key; `fs` in the
+  entries by the class's `fibre` at its own carrier (fixed point: `app_lfpTuple_eq`).
+* **`hst`**: the residue's certified typing (G1) at the frame with `f⃗ := fs` and each
+  `ih_i := ihFun_i g` — the CURRIED λ-tower over the field's telescope of
+  `app g (tagged c' ⟨e⃗(a⃗)⟩ (f_i a⃗))` (F3 finding 2: the ih's domain is the telescope,
+  not the predecessor set) — in its opener's domain by `graph_mem_B` at the predecessor,
+  which is in `tcPred U u` because (i) it is in `U`: `f_i a⃗ ∈ C c' ⟨e⃗(a⃗)⟩` from the entry
+  (a slot at the class's carrier; for a `.nested` field the entry IS `⟦C Ds⟧[x⃗ := ⟦T⃗⟧]`,
+  §2.2's substitution law; for a reflexive field `app_mem_of_mem_piSet`), and (ii) its
+  payload is a subterm: `mkDepth` of the class (`f_i ∈ tc x`) then `app_mem_tc` (WfRec.lean)
+  for a reflexive image — F5's `list_pred_node`/`tree_pred_cons`/`list_pred_cons`, one
+  line each.  Only the POSITIVE direction is ever proved (F5): `tcPred` is never
+  characterised — the retired `PredsFrom`'s whole cost.
+* **The leaf**: `blockRecAV c := projAV c (fst (choice.{s} (Σ' rs : ⟨RecTy_0 … RecTy_{K-1}⟩, IotaAll rs)))`
+  (v1 §4.3's Σ'-chain, `s = 0 ↔ allProp`); the Σ' inhabited by the λ-towers of `recAt`
+  over the prefix frames; `IotaAll` = `rec_eq` per class and constructor + the
+  SUBSTITUTION lemma `⟦rhs⟧[R ↦ R*] = ⟦residue⟧[ih ↦ ihFun (graph)]` (review attack 3:
+  spine-structural, G3 for `WellDenotedV` at ℓ = 0 spines); `RecRuleLaw` per stored rule
+  is the extracted equation, `.nested` conjunct discharged as v1 §3.3.
+No `PredsFrom`, no `unionAcc_all`, no simultaneous accessibility, no tuple: the carriers
+are sets and the kit asks nothing of them.  G3 at ℓ ≠ 0 falls out of `WellDenoted`.
+
+##### 3.3 Regime IND: `allProp`, any `w` — nested induction
+The family's types are propositions (each conclusion's outer Π-bit is `zeronessOf ℓ_c = 0`,
+`⟦RecTy_c⟧ = piR 0 … = truthVal`), so `mem_type` IS the induction principle and the value
+is `pt`; ι is `pt = pt` (`app_pt` + the rhs's outer λ-bit, G4's repair, F3's
+`InductionKit` §3 of `UnionRecIndexed.lean:616`).  What must be proved, per prefix frame:
+`∀ c i x, x ∈ C c i → ⟦concl_c⟧[i, x] inhabited`.  The kit — a `NestedInductionKit`
+generalising F3's `InductionKit` — per class a predicate `P_c i x := ⟦concl_c⟧[i,x]
+inhabited`, per constructor a STEP: from `P` at the recursive/reflexive/nested fields'
+images to `P` at the constructed value (= the residue's typing with every ih opener's
+value `pt` in its domain, which is the truth value "∀ a⃗ ∈ tele, P_{c'} …", inhabited by
+the ih; needs no `hst`, no graph, no `mkInj`, no `mkDepth`).  Its proof:
+* **outer**: `lfpTuple_induction` (LfpTuple.lean:188) on the block's NARROW tuple with
+  `P_m` at the members — at the step, `x ∈ Φ (sepTuple P) m i`, the fields sit in the
+  entries at `X := sepTuple` (`fibre` at a tuple below the carrier — F0-1's "all tuples"):
+  a slot gives `P` directly (`mem_sep`), a `.nested` field `f ∈ ⟦C Ds⟧[x⃗ := sepTuple]`
+  gives `P_q f` by the inner principle of its key;
+* **inner, per key `q` in table order**, parametric in the tuple:
+  `KeyInd q : ∀ S ∈ space, TupleLe S L → (∀ m i x ∈ S, P_m i x) → (∀ q' < q, KeyInd q' S) →
+  ∀ ı⃗ f, f ∈ ⟦C Ds⟧[x⃗ := curry S] ⟨ı⃗⟩ → P_q ı⃗ f` — `C`'s clause at `ρ_C(S)` (`leaf`, `functor`)
+  and `lfpTuple_induction` on `C`'s OWN narrow tuple with `P_q`; at `C`'s step the fields
+  are decoded by `C`'s `fibre` at `C`'s sep tuple, transported to the copy's shape (P8):
+  a field at `x_m` is in `S_m` (outer ih), at an inner atom `y_{q'}` in `⟦C' Ds'⟧[S]`
+  (`KeyInd q'`), at `y_q` in `C`'s sep (inner ih), a reflexive field under its
+  telescope; the step is the residue of the KEY-class rule for that constructor.
+  "Nested as the pins nest" = the table order; `P4 | mk : Rose P4` (F2's shape) has
+  keys `Rose [x]`, `List [y_Rose]` and `KeyInd (Rose)` calls `KeyInd (List)` at `Rose`'s sep.
+Every mutual or nested Prop block is here (`largeElimAllowed` false ⇒ `allProp`); so is
+`ℓ = 0` at `w ≠ 0` (the review: the WF kit also works there, one arm is simpler).
+`KeyInd` and `KeyMono` (§2.3) are the SAME induction over the same data; the model lane
+writes them together.
+
+##### 3.4 Regime SQ: `¬allProp ∧ w = 0` — the squash kit, unchanged
+By the guard: `k = 1`, `¬nested`, `nCtors ≤ 1`, and at one constructor the subsingleton
+criterion (every non-Prop field among the result's indices).  The spine is a function
+of the index (`sqSpine`/`sqPred`/`srcVals`, FixSquashI.lean:724–946), recursion is the
+block's own `lfpTuple_induction` at `k = 1` (= `RecGraph` at the index set); zero
+constructors vacuous; `Acc` canonical (`direct_fix_acc_large`).  No regularity, no
+copies (`¬nested`).  This is the ONE arm of the old tower kept (v1 §3.4/§4).
+
+##### 3.5 Where soundness needs the guard, restated at the narrow model
+At `w = 0` a container's element is `pt` (its `mkZero`), so a container-major class has
+no unique decomposition and no `mkDepth`; with a non-Prop conclusion `rec_q pt` would
+have to equal two minors (`P | mk : Or True P`, amendment 80700).  `¬nested` in the guard
+is exactly what keeps such a class out of SQ; in IND the value is `pt` and no
+decomposition is needed.  At `w ≠ 0` a nested block eliminates large through WF with
+the container's `mkInj`/`mkDepth` — `Tree.rec` into `Type` is ordinary.
+
+##### 3.6 The consumers of the check's certificates, by regime
+| certificate | WF | IND | SQ |
+|---|---|---|---|
+| G1 residue typing at the constructors' env (`InferSemFull` under `CtxOk`) | `hst` | the step | the step |
+| G2 per-binder `DefEqClaim` of the rule prefix | the ι frame | the ι frame (trivial: `pt`) | the ι frame |
+| G3 app-node inversion (`⟦a⃗⟧ ∈ ⟦tele⟧`) | not needed (`WellDenoted`) | `WellDenotedV` of the stored rhs | as IND when a Prop class exists |
+| `abstractIh` spec | substitution lemma | substitution lemma (both sides `pt`) | substitution lemma |
+| the copies' kinds + P8 claims | classes of container rules; `mkInj`/`mkDepth` of the container | `KeyInd` | — |
+
+---------------------------------------------------------------------------
+#### 4. Prop
+
+* **Sort gate** (§2.1(1)): a Prop block admits only Prop containers (`And`, `Or`, `∃`,
+  `Nonempty`, `Wrap`); their fibres are in `univ 0`, `mkZero` makes every value `pt`.
+* **Guard**: `blockLargeElimAllowed` false for every nested or mutual Prop block, so it is
+  `allProp` → IND (§3.3); the `w = 0` arm of the closure witness is `closedTuple_zero`, no
+  copies at the model level (the copies still exist in the CHECK for the verdict and the
+  classes).  `P13 | mk : And P13 P13`: keys `And [x, x]` — one key (both pins equal);
+  `TP | mk : Wrap (True → TP)`: key `Wrap [True → x]`, copy `mk : (True → x) → y` with
+  `.reflexive` under the Π; `KeyInd` at `⟦True → S⟧ = piSet`.
+* **Index universes** `u_m = 0` per member (`tupW_zero`), no bump (v1 §4).
+* **K**: `ruleK := k = 1 ∧ ¬nested ∧ nF = 0 ∧ isProp` (official `init_K_target`'s
+  `m_ind_types.size() == 1` on the aux block); η/unit-like per v1 §3.6, verified against
+  `nested_struct_proj`'s caps before changing anything.
+* **Regularity is not used at Prop** (IND and SQ are lfp inductions).
+Nothing else is Prop-specific.  `nested_pin_prop_cod`/`P13`/`P6`/`D4` are ordinary rows.
+
+---------------------------------------------------------------------------
+#### 5. Official's eight nested recursors against the narrow model (SURVEY-official §2.4)
+
+Classes are the stream's recursors matched by major type; carriers ORDINARY; `nfields`
+the container constructor's; `→ c` = the class of a guarded call.
+
+| block | classes (key table order) | rules crossing classes | narrow-model reading |
+|---|---|---|---|
+| `Tree \| node : List Tree` | `Tree`; `List [x]` | `List.cons h t`: `h → Tree`, `t → List[x]`; `node l`: `l → List[x]` | carrier of class 1 = `⟦List⟧⟦Tree⟧`, no component; `mkDepth` of `List` puts `h, t` below `cons h t` (F5's three facts) |
+| `T2 \| mk : List (Option T2)` | `T2`; `Option [x]`; `List [y_Opt]` | `List.cons`: `h → Option[x]`, `t → List[y_Opt]`; `Option.some v`: `v → T2` | `KeyMono`/`KeyInd` in table order: `Option` first, then `List` at `⟦Option⟧(X)` |
+| `P3 \| mk : Array (List P3)` | `P3`; `List [x]`; `Array [y_L]`; `List [y_L]` (descent) | `Array.mk l`: `l → List[y_L]`; `List.cons` at `List[y_L]`: `h → List[x]`, `t → List[y_L]`; at `List[x]`: `h → P3`, `t → List[x]` | official's four motives = four classes; the descent key's carrier is `⟦List⟧(⟦List⟧⟦P3⟧)`, ordinary; no rank |
+| `P1 \| mk : Nat → List P1` | `P1`; `List [x]` | `mk a ↦ mk a (fun n => P1.rec_1 … (a n))` | `.reflexive` with a nested codomain: kind `.nested` under Π, class `List[x]`; depth by `app_field_mem_tc`; closure via the transient bound (NOT the ω-iterate: reflexive) |
+| `TV \| node : {n} → Vec TV n` | `TV`; `Vec [x]` (indexed, `Is = ω`) | `Vec.cons n a t`: `a → TV`, `t → Vec[x]` at index `n`; `node n v`: `v → Vec[x]` at `n` | major `Vec TV a` with index binder `a` (`rP…mI-1`); `Vec`'s `fibre` is the guarded union (F4 (2)); the recursion kit needs nothing for indices (F4 (4)) |
+| `P13 : Prop \| mk : And P13 P13` | `P13`; `And [x, x]` | `And.intro l r`: both `→ P13` | IND (guard: `nested`); one key for the twice-used pin (B9) |
+| `TP : Prop \| mk : Wrap (True → TP)` | `TP`; `Wrap [True → x]` | `Wrap.mk a ↦ mk_1 a (fun h => TP.rec … (a h))` | IND; the copy's field `.reflexive` under a closed Π; `KeyInd` at `piSet True S` |
+| mutual `A \| mk : List B`, `B \| mk : Nat → A → B \| leaf` | `A`, `B`; `List [x_B]` | `A.rec_1`'s `List.cons`: `h → B`, `t → List[x_B]` | k = 2 narrow tuple; the key's pin is member `B`; `A.rec_1` a name pin (D-c) |
+
+Common (as v1 §5): pins never λ-bound in an rhs, the rule's `ctor` the container's real
+constructor, index arguments syntactic, no rule recurses on a pin, `.nested` fire at
+runtime.  `nested_p05` (mutual container: one key per member of the container's group),
+`p24`, `p26`/`p22` (λ pins), `p20` (`Subtype` at a constant predicate), `p30` (`List.{u}`)
+unchanged; the 9 reflexive declines of the corpus are `.reflexive`/`.nested`-under-Π
+fields of members or copies.
+
+---------------------------------------------------------------------------
+#### 6. Deleted, risks, lanes, decisions
+
+##### 6.1 Deleted or retired (at the flip, per D6)
+* The wide-route falsifiers `SetModel/EnvClause{TreeList,P3,P4,Indexed}.lean` (F0–F4,
+  5 415 lines) and `SetTheory/Derive/LfpCompose.lean` EXCEPT `isClosedTuple_congr`/
+  `lfpTuple_congr` (move to `LfpTuple.lean`; `lfpTuple_seg*` go).  `lfpTuple_eq_section`
+  (Bekić, LfpTuple.lean:285) has no consumer — delete with them.  F5's
+  `NarrowTreeList.lean` imports `EnvClauseTreeList` for `ListClause`/`blkB`/`blkSt`: its
+  landed form must carry its own clause and minors (D-e).
+* `UnionRec.lean`: `PredsFrom` (:110), `pred_sub_union`, `AccAt`, `unionAcc_of_classAcc` (:138),
+  `unionAcc_all` (:148), `unionAcc_all_union`, `unionRec` (:208) and `UnionRecKit` (:299) with
+  its laws.  KEEP `tagged`/`unionSet`/`relPred` (:48–196), `unionRecC`/`UnionRecKitC`/
+  `accFam_intro` (:360–457) — `WfRecKit` is built on them — and all of `RecGraph.lean`.
+* `TupleContainer.lean`: keep everything (`closedTuple_composeAt` is §2.5's engine).
+  `Iter.lean`: unused by the route (keep if the ω-iterate is wanted as a lemma; else
+  delete).  `UnionRecIndexed.lean` (F3): its `InductionKit` half is §3.3's seed (move to
+  a `SetModel/NestedInduction.lean`); its recursion half used `UnionRecKit` — retire, and
+  re-run F3's `W`/mutual-indexed block on `WfRecKit` as the WF regime's indexed +
+  reflexive + parametric falsifier (½ session, lane F5 or its successor).
+* The modelled route (`Frontend/InModel/*`, `Kernel/Inductives/Modeled.lean` minus
+  `nestedRuleShape`, `checkIotaThm`, `_model` artifacts), `blockRouteK1Only`, the
+  `blockOrderRecs` length guard (`recs.length = k`), the `.unsupported → .notImplemented`
+  decline at BlockInstall.lean:211 — as v1 §3.3/§3.4 and DESIGN-kary M6.
+* `BlockData.nInst`, `N`, every `c < d.N` (→ `< d.k`); the `ctor`-at-instances and
+  `instLeaf` clauses were never built.
+* v1 §2.6's `setJoin`/`FibreConst`/`lfpTuple_set_congr` family: never cherry-picked, stays out.
+
+##### 6.2 What is genuinely new against the landed trees
+(1) `mkDepth` in the clause + its discharge from the encoding; (2) the `.nested` kind,
+`absF`, the `ChainFit` arm and the currying bridge (P8-1); (3) `KeyMono`/`KeyInd` — one
+induction over the key table, consuming `block_models` + P8 + the copies' kinds;
+(4) `closedTuple_composeAll` + monotonicity preservation + `isClosedTuple_congr` (pure,
+~200 lines); (5) `WfRecKit` instantiation from certificates (`hst` via G1, the ih towers
+F3-(2), the substitution lemma); (6) the Σ'-leaf with three existence arms; (7) the
+`EnvModelM` clause; (8) the kernel's key table, copies at the abstract env, key-major
+recursors, basis reject.  Everything else is deliverable 1's kit at width `k`.
+
+##### 6.3 Lanes and estimates (after deliverable 1's M1–M6)
+| lane | content | sessions |
+|---|---|---|
+| E | `BlocksOk` + `block_models` + `blocksOk_cons_fresh` + ~22 call sites + swap + establishment; `all/ctors` on `.indInfo` if not yet in M1 | 1–1.5 |
+| K | §2.1 locate/abstract/descend/memo, copies type-checked at the abstract env, the recorded `checkDefEqList`, `NestedParts`, `.nested`/`blockNested`, key-major recursors + container rules in `checkBlockRecTys`/`checkBlockRule`, basis reject, twins (5 per stage), modeller deletion, `ExportC`/`InModel.wants` flip | 3 |
+| S | `.nested` entries in `blockΦ`/`ChainFit` (`absF`, curry bridge), `mkDepth` in `BlockChainsOk`'s consumers, the Σ'-leaf's three arms, `NestedInductionKit`, `closedTuple_composeAll` | 2 |
+| M-pos | `KeyMono` + `MapsTuple` (§2.3), the closure composition (§2.5), `mem_type` of constructors through the substitution law, `BlockModelAt` established at width k with `mkDepth` | 3–4 |
+| M-rec | WF: `WfRecKit` from certificates, `hst`, ι + substitution lemma, `RecRuleLaw` (G1/G2 consumed, F3-(2) towers); IND: `KeyInd` + the step from G1 + G3's inversion; SQ: the squash arm re-hung on the Σ'-leaf | 4–5 |
+| R | kernel recursor delta (key classes, container rules, `.nested` fire) — inside K above; `BlockRecInv` at key classes | 1 |
+| T | 34 `nested_*` rows → 0 (incl. `nested_pin_collide{,2}`), `corner_*` flips (basis 2 → 1, the three accept-supersets 1 → 0), bad twins (loose-bvar pin, non-uniform occurrence, Prop through a Type container, a container rule recursing on a pin, a call into a class with no recursor, a large eliminator on a nested Prop block), arena 90/92, ONE side-agent Mathlib/init-full sweep at the end | 1 |
+Total ≈ 15–19 (v1: 13–18).  Against v1: −(identification, rank, `lfpTuple_seg_congr`
+plumbing ≈ 1.5) + (`mkDepth`, `KeyMono`/`KeyInd`, composition ≈ 1.5, WF kit instantiation
+≈ 1); the long pole moves from the model's identification to the model's recursor.
+
+##### 6.4 Risks
+1. **`absF` as a function of the stored form** (§2.4): if the stored constructor cannot be
+   made the re-instantiated normalised abstract domain, `blockDataOf` needs the run's
+   whnf claims — a `normPosDom_inv` (P8-3, ~½ session) instead of a pure function.
+2. **The currying bridge P8-1** at `x⃗` slots: bounded, uncosted by P8 (~½–1 session);
+   sits under `KeyMono`, `KeyInd`, the closure transfer and `mem_type` alike.
+3. **The key order is data**: a re-entrant key is exit 3 (§2.1(4)); if a real stream ever
+   hits it the termination argument was wrong and the induction must be re-based on a
+   fuel the checker records (the same shape, one more datum).
+4. **Regime per `ψ`**: the Σ'-leaf's three arms select on `w ψ = 0` and `allProp ψ`
+   (`PropWhen`-style bits on the conclusions' sorts); a conclusion `Sort u` with `u` a
+   level parameter is IND at some `ψ` and WF at others — the existing `fixSortAV`
+   pattern, but at a FAMILY-level bit (D-d removes it).
+5. **Heartbeats/exposure** (v1 §6.3 (4)): per-stage theorems, `@[expose]` on every Model
+   `def` unfolded elsewhere.
+6. **F5 is unreported**: §3.2 is aligned with its tree as of this evening; if its report
+   changes `WfRecKit`'s shape (e.g. widening `B`/`st` by the class, F3-(1)'s alternative),
+   §3.2 follows it.
+
+##### 6.5 Alignment with lane F5 (wt-F5, no report yet)
+Agree: the narrow operator with the container read ordinarily at the tuple's VALUE
+(`narΦ`, :146); `TagDepth` (:67) as the clause's `mkDepth`; monotonicity in the
+parameter derived from `leaf` + `fibre` + leastness (`value_mono`, :120 — §2.3 with the
+copy's positivity in place of the hand-read fibre); `WfRecKit` over ordinary classes
+with `tcPred` and no `PredsFrom`; the positive-direction-only predecessor facts;
+`tc_induction_map` from `regularity`.  Disagree/decide: (i) F5's PRIMARY closure proof
+is the ω-iterate with hand-proved finitarity (`narTop_cont`, :242) and its second
+`-- F5 FINDING` calls this "the one place where the narrow route is weaker than the
+wide one"; this document makes F5's ALTERNATIVE (`narΨ_closed_of_wide`, :306) the route
+— with the composition lemma the narrow route's (W) costs exactly the wide route's (W)
+and is not weaker (§2.5, D-b); (ii) F5 imports F0's `ListClause`/`blkB`/`blkSt`
+(`EnvClauseTreeList.lean`), which §6.1 deletes — F5's landed file must be self-contained
+(D-e); (iii) F5's `InductionKit` for IND is not in its tree (it is F3's) — §3.3's
+`NestedInductionKit` with the per-key inner principle is the shape to build next, on
+Tree/List then `P4 | mk : Rose P4`.
+
+##### 6.6 Decisions for the maintainer
+* **D-a** Entry discipline: hybrid (`.nested` entries via `absF`, member slots as M3) now,
+  uniform at the flip — or uniform now (+~2 sessions on M3's kit).  Recommended: hybrid.
+* **D-b** Closure at `w ≠ 0`: the transient wide operator composed away (§2.5) — the
+  ω-iterate is rejected (finitarity not recorded; reflexive/infinitary fields).
+* **D-c** Names of key-class recursors: pinned to official's `T_0.rec_i` (any order,
+  assignment by major) — or unpinned (any reserved-safe name).  Recommended: pinned.
+* **D-d** Conclusion sorts within a family: arbitrary with `ℓ := max` (as ruled) — or
+  `Level.isEquiv` across the family (official's shared `u`; removes risk 4 and the max).
+  Recommended: `isEquiv`, as a strict reading of "primitively recursive family".
+* **D-e** F5 lands self-contained (its own clause, minors, standard model) so F0–F4 can
+  be deleted at the flip; `InductionKit` moves out of `UnionRecIndexed.lean` first.
+* **D-f** Whether to record per-parameter positivity bits on a container's clause at ITS
+  install (`paramMono j`, from the same walk with the parameter as a name) so a later
+  block's `KeyMono` is compositional WITHOUT the descent and the transport — an
+  accept-superset (`MyList := List` as a container is then accepted; official rejects it,
+  v1 §2.1 step 3) and a clause field with a per-install proof.  NOT recommended for the
+  route (the copies are needed for the closure bound and the container rules anyway);
+  recorded as the one simplification available if the transport ever bites.
+* **D-g** Confirm §2.6: collapsing pins accept through the memo with no special handling;
+  basis containers reject at locate with official's messages.
+

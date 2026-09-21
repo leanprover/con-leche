@@ -6,6 +6,8 @@ public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.EnvClauseTreeList
+public import ConLeche.SetModel.WfRec
+public import ConLeche.SetModel.NarrowTreeList
 public import ConLeche.SetModel.EnvClauseP3
 public import ConLeche.SetModel.EnvClauseP4
 public import ConLeche.SetModel.UnionRecIndexed
@@ -33,6 +35,12 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   `SetTheory/Derive/LfpTuple`'s tuple lfp; `TupleContainer` — the
   closed tuple of a block presented as a member container ((W) at
   tuples, the `Prop` regime, the nested slot);
+* `WfRec`, `NarrowTreeList` — the NARROW falsifier: a nested block's
+  meaning as the one-component least fixed point reading the container
+  ordinarily at the hole, with the recursion run by ∈-recursion on the
+  global subterm relation (`SetTheory/Derive/TransClosure.lean`) over
+  the two majors' ordinary carriers — no wide tuple, no identification,
+  no per-block accessibility;
 * `EnvClauseTreeList`, `EnvClauseP3`, `EnvClauseP4` — the falsifiers
   for the uniform nested route: `Tree ::= node (List Tree)` as a plain
   two-component block whose copy component is identified with the
