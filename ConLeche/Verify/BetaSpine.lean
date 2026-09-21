@@ -48,7 +48,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 /-- The continuation of `whnfCoreBody`'s app case after the function
 part's head normalization: beta with the possibly-Prop certificate on
 a lambda, iota otherwise. -/
-def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (w a : Expr) : m Expr :=
   match w with
   | .lam ty body mb => do

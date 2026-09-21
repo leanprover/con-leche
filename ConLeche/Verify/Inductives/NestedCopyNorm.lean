@@ -9,6 +9,8 @@ import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedElimInv
 -- the container's stored constructors, for the same (task #315 M8)
 import ConLeche.Verify.Inductives.NestedGroupInv
+-- the `whnf` head inversion, for the redex mint (task #315 WIDE (f3))
+import ConLeche.Verify.Inductives.OrdHeadRed
 
 public section
 
@@ -2036,6 +2038,42 @@ theorem normPosDomM_indApp_former {fms : List MutualFormerA} {env : Env}
     e' = Expr.mkAppN (.const f.cvTa.name lvls) args := by
   obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
   exact normPosDomM_indApp hfind h
+
+/-- **THE REDEX MINT'S TWIN OF `normPosDomM_indApp_cons`** (task #315
+WIDE (f3), the fourth concession): where the mint's head is a `.const`
+already, `normPosDomM_indApp_cons` says the walk is the identity; where
+it is a λ-REDEX the walk REDUCES it, and what it lands on is the pure
+head normal form `ordHeadRed` — `normPosDomM_eq_ordHeadRed`
+(`Verify/Inductives/OrdHeadRed.lean`) transported across the formers'
+conses, for a head the PRE-BLOCK environment records as an inductive. -/
+theorem normPosDomM_ordHeadRed_cons {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
+    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
+    {K : Name} {us : List Level}
+    (hb : W.looseBVarsBounded 0 = true)
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (hred : (ordHeadRed W).getAppFn = .const J lvls)
+    (hwc : w.getAppFn = .const K us)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel W = .ok w) :
+    w = ordHeadRed W := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo (fms := fms) hJ
+  exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
+
+/-- **THE SAME AT A MINTED COPY'S AUXILIARY** — `normPosDomM_indApp_former`'s
+twin at a reduced head. -/
+theorem normPosDomM_ordHeadRed_former {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
+    {f : MutualFormerA} {lvls : List Level} {K : Name} {us : List Level}
+    (hb : W.looseBVarsBounded 0 = true)
+    (hf : f ∈ fms)
+    (hred : (ordHeadRed W).getAppFn = .const f.cvTa.name lvls)
+    (hwc : w.getAppFn = .const K us)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel W = .ok w) :
+    w = ordHeadRed W := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
+  exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
 
 
 /-! ## The walk through a `Π`-TOWER (task #315 WIDE (3), step 1)
