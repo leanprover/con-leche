@@ -80635,3 +80635,41 @@ per constructor and is what the general kit must generate.
   no parameters.  So nothing official accepts nests through a basis
   block, and the verdict should be REJECT (exit 1, official's) rather
   than decline; the class needs no model.
+
+#### ADVERSARIAL REVIEW OF THE RECURSOR PLAN (2026-09-21; `_tmp/uniform-inds/REVIEW-recursors.md`)
+
+Verdict: convinced modulo four gaps, none a soundness hole.  Verified
+sound against the code: the predecessor map at `w ≠ 0` (unique
+decomposition by `mkInj`, `PredsFrom` from the fibre law at every
+tuple), every listed evasion of the syntactic guard (stopped by a line
+of `blockIhCall?`/`abstractIh`), the substitution lemma as a spine
+congruence with totality from per-frame `unionRec_mem_B`, the spliced
+minor bits, caps/K, and the accept-superset (no accepted shape is
+unsound).  The gaps and their fixes:
+* G1 — the residue `body''` must be TYPED AT THE CONSTRUCTORS'
+  ENVIRONMENT (before the rule-less recursors are consed): the typing
+  consumer needs a model of the derivation's env, and the recursors'
+  typing is what is being built (circular otherwise).  Kernel: two
+  lines (lane R).
+* G2 — per-binder `checkDefEqList` of each rule's λ-domains against the
+  opened stored recursor type (whole-type `isDefEq` gives no per-binder
+  reading equality at ℓ = 0); the stored rhs is the STREAM's, so the
+  model reads stream binders for the first time.  Kernel ~15 lines,
+  model ~100.
+* G3 — `⟦a⃗⟧ ∈ ⟦tele⟧` at a guarded call at ℓ = 0 comes from app-node
+  inversion on the `Infer` derivation, not from `WellDenoted` (no proof
+  erasure in `denoteMeta`).  ~1 session, model lane.
+* G4 — at `ℓ = 0` the union recursion kit is the wrong instrument at
+  `w = 0` (`PredsFrom` forces `pred = ∅` under a field-free
+  constructor).  The ℓ = 0 arm, at EVERY w: the recursor's type is a
+  Prop, `mem_type` = `lfpTuple_induction` with P := "the motive's fibre
+  is inhabited" (step = the residue's typing at the `sepTuple` frame,
+  ih values `pt`), ι = `pt = pt` (`app_pt` + the rhs's outer λ-bit).
+  The `w = 0, ℓ ≠ 0` regime (N = 1, one constructor, subsingleton
+  criterion) keeps the squash kit: the spine is a function of the
+  index (`Acc` canonical); empty-carrier blocks are vacuous.
+  DESIGN DOCUMENT 2 §3.5/§4's "the same `unionRec` construction at
+  ℓ = 0" is withdrawn.
+Carry-forwards: the elimination guard must count COMPONENTS `N` once
+instances exist; the union kit is to be exercised once with indices,
+parameters and a reflexive field (falsifier F3) before the model lane.
