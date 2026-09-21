@@ -71,6 +71,15 @@ FALLBACK = {
     # (both measured, lane WHNF 2026-09-21).
     ('ConLeche.Verify.Inductives.OrdHeadRed', 'ConLeche.Kernel.Inductives.NestedInstall'),
     ('ConLeche.Verify.Inductives.OrdHeadRed', 'ConLeche.Verify.Subst'),
+    # task #315 WIDE (f3) object (2): `normPosDomM_openRedPis_ordHeadRed`
+    # is a THEOREM whose type names `openRedPisAtFvars` (OrdHeadRed's own
+    # reduce-then-open tower); the census attributes a theorem's
+    # vocabulary to the proof side, so the model asks for the demotion
+    # and the compiler refuses it — `Unknown identifier
+    # openRedPisAtFvars` at the statement, plus the two `simp only
+    # [openRedPisAtFvars]` steps losing their equation lemmas (measured,
+    # lane LE 2026-09-21).
+    ('ConLeche.Verify.Inductives.NestedCopyNorm', 'ConLeche.Verify.Inductives.OrdHeadRed'),
     ('ConLeche.Model.Install',        'ConLeche.Model.Annot.BitExtend'),
     ('ConLeche.Model.Install',        'ConLeche.Semantics.ConstsBound'),
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),
