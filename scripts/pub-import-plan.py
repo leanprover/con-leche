@@ -111,6 +111,15 @@ FALLBACK = {
      'ConLeche.Verify.Subst'),
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Inductives.FixRecRead'),
+    # task #315 (M5, O-1's file, session 5): the same file re-exports
+    # `Semantics/Tower/BlockRecI.lean` for `prefVarsAV`, which the
+    # STATEMENT of `prefVars_shift` names.  The census attributes the
+    # definition to the module that DEFINES it, but the edge is reached
+    # here through the generic reading battery's re-export chain, so the
+    # model's candidate demotion is wrong.  MEASURED: demoting the line
+    # fails the build with `Unknown identifier prefVarsAV`.
+    ('ConLeche.Model.Inductives.BlockRecRule',
+     'ConLeche.Semantics.Tower.BlockRecI'),
     # task #315 (M5, the leaf's membership): `Model/Inductives/BlockRecMem.lean`
     # re-exports `Model/Annot/EnvModelM.lean` for the kernel types its public
     # statements name through the file's `variable` binder (`CheckMode`,
