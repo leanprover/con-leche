@@ -21,7 +21,9 @@ public section
 pass, the constructors' readings, the block's chain facts, the real
 conses through the derived former's API `stageTupleFormers`, the
 readings identified at the real model), the constructors' stage
-(`mutualCtorsStage`: #278's `stageMutualCtors` at the member leaves),
+(`mutualCtorsStage`: #278's `stageMutualCtors` at the member leaves,
+with the constructors' MEMBER-LOCAL tags over their members' chain
+suffixes — task #315 M6 s4, DESIGN §U.15 (c)),
 and the block model (`blockReps_of`: `BlockModel.ofMutual` satisfies
 `IsBlockModel` at every member of the constructors' environment, with the
 members and constructors typed).  Each stage's outputs are packaged as
@@ -74,7 +76,7 @@ former at the block's lists in global constructor order. -/
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (t : Nat)
     (ψ : Name → Nat) : AnnotTerm :=
   tupleLfpAV (W ψ) (f₀.s.eval ψ) (ppsF t ψ) (fms.getD t default).nIdx b.k (blockIds b.nP ppsF ψ)
-    (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+    b.ownOffset (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
     (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (mutRss ctorsA.length (mutKsOf kinds))
     (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
     (mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ)
@@ -874,7 +876,8 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
       rssf (fun ψ => tlssf ψ) (fun ψ => mutEiss0 ctorsA.length eissF₀ ψ) (fun ψ => Fss0f ψ)
       (fun ψ => mutEss0 ctorsA.length esF₀ ψ) :=
     TupleLfpBlockOk.of_tagged hParams hIdsBelow hchainBelow
-  obtain ⟨mp₁, hleaf₁, hoff₁, hstored⟩ := stageTupleFormers (V := V) (μ := μ) (F := F) hB mp hE
+  obtain ⟨mp₁, hleaf₁, hoff₁, hstored⟩ := stageTupleFormers (V := V) (μ := μ) (F := F) hB
+    b.ownOffset mp hE
     hformers hndF (fun t f hft => ⟨hlpsF t f hft, hFD t f hft,
       TupleLfpStageOk.of_tagged (hMCO t f hft)⟩)
   have hagree₁ : ∀ n : Name, (env.find? n).isSome = true →
@@ -1164,8 +1167,8 @@ theorem leafT {t : Nat} {f : MutualFormerA} (hft : fms[t]? = some f) (ψ : Name 
 /-- A member's leaf, at the representation. -/
 theorem leaf_repr {t : Nat} {f : MutualFormerA} (hft : fms[t]? = some f) (ψ : Name → Nat) :
     mp₁.base2.acval f.cvTa.name ψ
-      = mutualTyAVI (W ψ) (f₀.s.eval ψ) (ppsF t ψ) f.nIdx (blkIdss b ppsF ψ) (blkRss ctorsA kinds)
-          (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
+      = mutualTyAVI (W ψ) (f₀.s.eval ψ) (ppsF t ψ) f.nIdx (blkIdss b ppsF ψ) b.ownOffset
+          (blkRss ctorsA kinds) (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
           (blkFss0 b ctorsA kinds dsF ψ) (blkEss b ctorsA ppsF W esF ψ) t := by
   rw [h.leaf t f hft]
   unfold mutMemberLeaf
@@ -1252,7 +1255,7 @@ theorem chainFull (hμ : μ.verifiedChecks = true) {t : Nat} {f : MutualFormerA}
       FixChainsOkI (W ψ) (f₀.s.eval ψ) ρp (auxIds (W ψ) (blkIdss b ppsF ψ)) 1 (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
         (blkFss0 b ctorsA kinds dsF ψ) (blkEss b ctorsA ppsF W esF ψ) ∧
-      ChainsRealI (auxFamI (W ψ) (f₀.s.eval ψ) ρp (blkIdss b ppsF ψ) (blkRss ctorsA kinds)
+      ChainsRealI (auxFamI (W ψ) (f₀.s.eval ψ) ρp (blkIdss b ppsF ψ) b.ownOffset (blkRss ctorsA kinds)
           (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
           (blkFss0 b ctorsA kinds dsF ψ) (blkEss b ctorsA ppsF W esF ψ))
         (W ψ) (f₀.s.eval ψ) ρp (auxIds (W ψ) (blkIdss b ppsF ψ)) (blkRss ctorsA kinds)
@@ -1311,8 +1314,8 @@ theorem chainFull (hμ : μ.verifiedChecks = true) {t : Nat} {f : MutualFormerA}
         Sat V ((ppsT.take b.nP).map (·.2.2)).reverse ρp ∧
         mp₁.base2.acval (mutualNameOf b.members3 (tgtAt (mutKsOf kinds J) i)) ψ
           = mutualTyAVI (W ψ) ((fms.getD (mutMemF b J) default).s.eval ψ) ppsT
-              ((ppsT.drop b.nP).map (·.2.2)).length (blkIdss b ppsF ψ) (blkRss ctorsA kinds)
-              (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
+              ((ppsT.drop b.nP).map (·.2.2)).length (blkIdss b ppsF ψ) b.ownOffset
+              (blkRss ctorsA kinds) (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
               (blkFss0 b ctorsA kinds dsF ψ) (blkEss b ctorsA ppsF W esF ψ)
               (tgtAt (mutKsOf kinds J) i) := by
     intro i _ _
@@ -1342,6 +1345,30 @@ theorem chainFull (hμ : μ.verifiedChecks = true) {t : Nat} {f : MutualFormerA}
   rw [blkRss_getD hJ, mutTlss_getD hJ, blkFss0_getD hJ, mutFss_getD hJ, blkEiss_getDJ hJ hEL₁]
   rw [h.sEq _ _ hmtG ψ] at hrealJ
   exact hrealJ
+
+/-- **The cased functor's closed member family** at every member's
+parameter frame (`mutualCaseClosed_of`, from the very chain facts
+`chainFull` consumes): the premise the constructors' fibre fold and
+the operator's own premise need, now that the sum body is CASED per
+member (task #315 M6 s4, DESIGN §U.15 (c)). -/
+theorem chainClosed (hμ : μ.verifiedChecks = true) {t : Nat} {f : MutualFormerA}
+    (hft : fms[t]? = some f) (ψ : Name → Nat) (ρp : Nat → V)
+    (hρ : Sat V (((ppsF t ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    ∃ L, IsClosedFam (f₀.s.eval ψ) (idxSet (W ψ) ρp (auxIds (W ψ) (blkIdss b ppsF ψ)))
+      (caseFunVI (W ψ) (f₀.s.eval ψ) ρp (blkIdss b ppsF ψ) b.ownOffset (blkRss ctorsA kinds)
+        (mutTlss ctorsA.length tssF ψ) (blkEiss b ctorsA kinds ppsF W eissF tssF ψ)
+        (blkFss0 b ctorsA kinds dsF ψ) (blkEss b ctorsA ppsF W esF ψ)) L := by
+  obtain ⟨hTagJ, -⟩ := h.idxAll t f hft ψ ρp hρ
+  have hFs₀ : ∀ J : Nat, J < ctorsA.length →
+      ((blkFss0 b ctorsA kinds dsF ψ).getD J []).length = mutNFOf ctorsA J := by
+    intro J hJ
+    rw [blkFss0_getD hJ]
+    exact shadowFs_length
+  exact mutualCaseClosed_of (V := V) (nP := b.nP) (n := ctorsA.length)
+    (ksF := mutKsOf kinds) (nFs := mutNFOf ctorsA) hTagJ
+    (by show ((List.range ctorsA.length).map _).length = _; simp)
+    (fun J hJ => blkRss_getD hJ) hFs₀ (fun J hJ => (h.chainJ hμ hft ψ ρp hρ hJ).1)
+    (h.chainFull hμ hft ψ ρp hρ).1 b.ownOffset
 
 /-- **The constructors' frames** at the member leaves: a constructor's
 parameter frame is its member's, and at it the fields are graded,
@@ -1403,7 +1430,8 @@ theorem fold (hμ : μ.verifiedChecks = true) {J : Nat} {cA : ConstantVal × Nat
       = sumSet (f₀.s.eval ψ) (sumFibre (f₀.s.eval ψ)
           (consList (idxValsAt ρ
             [tagTupleAV (W ψ) (mutMemF b J) cA.2 (blkIdss b ppsF ψ) (esF J ψ)] bs) ρ)
-          (rChains 1 1 (mutFss b.nP ctorsA.length dsF ψ) (blkEss b ctorsA ppsF W esF ψ))) := by
+          (rChains 1 1 ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset (mutMemF b J)))
+            ((blkEss b ctorsA ppsF W esF ψ).drop (b.ownOffset (mutMemF b J))))) := by
   have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
   have hmt : mutMemF b J < fms.length := h.motLt J hJl
   have hmtG := fms_get hmt
@@ -1431,7 +1459,7 @@ theorem fold (hμ : μ.verifiedChecks = true) {J : Nat} {cA : ConstantVal × Nat
       = interp V (fun j => ρ (j + b.nP))
           (mutualTyAVI (W ψ) (f₀.s.eval ψ) (ppsF (mutMemF b J) ψ)
             (((ppsF (mutMemF b J) ψ).drop b.nP).map (·.2.2)).length (blkIdss b ppsF ψ)
-            (blkRss ctorsA kinds) (mutTlss ctorsA.length tssF ψ)
+            b.ownOffset (blkRss ctorsA kinds) (mutTlss ctorsA.length tssF ψ)
             (blkEiss b ctorsA kinds ppsF W eissF tssF ψ) (blkFss0 b ctorsA kinds dsF ψ)
             (blkEss b ctorsA ppsF W esF ψ) (mutMemF b J)) := by
     intro σ
@@ -1439,7 +1467,8 @@ theorem fold (hμ : μ.verifiedChecks = true) {J : Nat} {cA : ConstantVal × Nat
     exact interp_closed V hcl σ _
   have hf := mutualCtorFold (V := V) (nF := cA.2) (mem := mutMemF b J)
     (Fss := mutFss b.nP ctorsA.length dsF ψ)
-    hlenM hIdsM hTagJ (h.chainFull hμ hmtG ψ ρ hρ).1 (h.chainFull hμ hmtG ψ ρ hρ).2.2.1 hρ hA
+    hlenM hIdsM hTagJ (h.chainFull hμ hmtG ψ ρ hρ).1 (h.chainClosed hμ hmtG ψ ρ hρ)
+    (h.chainFull hμ hmtG ψ ρ hρ).2.2.1 hρ hA
     hlenbs (fun E hE => (hEok E hE).1) hfit
   rw [paramBvars_eq_paramBvarsAt]
   exact hf
@@ -1477,9 +1506,11 @@ end MutualFormersFacts
 /-- **The constructors' stage of the mutual install** (stage 3's
 conses): the constructors consed in block order with their sum-route
 leaves at the tagged towers, the members' leaves untouched, the
-constructors' data crossed. -/
+constructors' data crossed.  Constructor `J`'s tag is MEMBER-LOCAL
+(`J - b.ownOffset (mutMemF b J)`) over its member's SUFFIX of the
+block's real chains (task #315 M6 s4, DESIGN §U.15 (c)). -/
 theorem mutualCtorsStage (hμ : μ.verifiedChecks = true) (hE : ConLeche.EtaFamiliesClosed env)
-    (h0 : b.blockNames.Nodup) :
+    (h0 : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true) :
     ∃ mp₂ : EnvModelM V μ (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)),
       ConLeche.EtaFamiliesClosed
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) ∧
@@ -1492,8 +1523,9 @@ theorem mutualCtorsStage (hμ : μ.verifiedChecks = true) (hE : ConLeche.EtaFami
         (∀ e ∈ idxF J, e.constsResolve
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) = true) ∧
         ∀ ψ : Name → Nat, mp₂.base2.acval cA.1.name ψ
-          = sumMkAV (f₀.s.eval ψ) J (dsF J ψ) (((dsF J ψ).drop b.nP).map (·.2.2))
-              (uChains (mutFss b.nP ctorsA.length dsF ψ))) ∧
+          = sumMkAV (f₀.s.eval ψ) (J - b.ownOffset (mutMemF b J)) (dsF J ψ)
+              (((dsF J ψ).drop b.nP).map (·.2.2))
+              (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset (mutMemF b J))))) ∧
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name) ∧
       (∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) → mp₂.base2.acval n = mp₁.base2.acval n) := by
@@ -1502,6 +1534,13 @@ theorem mutualCtorsStage (hμ : μ.verifiedChecks = true) (hE : ConLeche.EtaFami
     unfold ConLeche.MutualBlock.blockNames at h0'
     exact (List.nodup_append.mp (List.nodup_append.mp h0').1).2.1
   have hndA : (ctorsA.map (·.1.name)).Nodup := by rw [h.namesC]; exact hndC
+  -- a constructor's member's own offset is at or before it (the block is grouped)
+  have hle : ∀ J : Nat, J < ctorsA.length → b.ownOffset (mutMemF b J) ≤ J := by
+    intro J hJl
+    have hJb : J < b.ctors.length := by rw [← h.lenA]; exact hJl
+    have hc : b.ctors[J]? = some (b.ctors.getD J default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
+    exact (ownCtors_of_ctors h3 hc).1
   have hmono₁ : ∀ e : Expr, Expr.constsResolve env e = true →
       Expr.constsResolve (ConLeche.consMutualFormers fms env) e = true :=
     fun e he => constsResolve_consMutualFormers he
@@ -1577,7 +1616,7 @@ theorem mutualCtorsStage (hμ : μ.verifiedChecks = true) (hE : ConLeche.EtaFami
       (FssR := fun ψ => mutFss b.nP ctorsA.length dsF ψ) (Ess' := blkEss b ctorsA ppsF W esF)
       (ppsOf := ppsF)
       (leafT := fun J ψ => mp₁.base2.acval (fms.getD (mutMemF b J) default).cvTa.name ψ)
-      (Inv := fun {_} _ => True) mp₁ hndA
+      (Inv := fun {_} _ => True) (off := fun J => b.ownOffset (mutMemF b J)) mp₁ hndA
       (fun J cA hJ => by
         obtain ⟨-, sorts, -, hrun⟩ := h.runC J cA hJ
         exact ⟨_, sorts, hrun⟩)
@@ -1585,11 +1624,17 @@ theorem mutualCtorsStage (hμ : μ.verifiedChecks = true) (hE : ConLeche.EtaFami
       (fun J cA hJ ψ ρ hρ bs hsp => h.fold hμ hJ ψ ρ hρ bs hsp)
       (fun J cA hJ ψ => by
         have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+        rw [List.getElem?_drop,
+          show b.ownOffset (mutMemF b J) + (J - b.ownOffset (mutMemF b J)) = J from
+            by have := hle J hJl; omega]
         show ((List.range ctorsA.length).map _)[J]? = _
         rw [List.getElem?_map, List.getElem?_range hJl]
         rfl)
       (fun J cA hJ ψ => by
         have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+        rw [List.getElem?_drop,
+          show b.ownOffset (mutMemF b J) + (J - b.ownOffset (mutMemF b J)) = J from
+            by have := hle J hJl; omega]
         rw [List.getElem?_eq_getElem (show J < (blkEss b ctorsA ppsF W esF ψ).length from
           by rw [blkEss_length]; exact hJl)]
         have hgd := blkEss_getD (b := b) (ppsF := ppsF) (W := W) (esF := esF) (ψ := ψ) hJl
@@ -1738,7 +1783,7 @@ lists in the checked constructors' order. -/
     (fun mm j => fvsPF (b.ownOffset mm + j)) (fun mm j => xFvsF (b.ownOffset mm + j))
     (fun mm j => xrestF (b.ownOffset mm + j)) (fun mm j => eissF (b.ownOffset mm + j))
     (fun mm j => tssF (b.ownOffset mm + j))
-    (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+    b.ownOffset (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
     (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
     (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
     (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
@@ -1756,13 +1801,6 @@ variable {b : MutualBlock} {fms : List MutualFormerA} {f₀ : MutualFormerA}
 
 local notation "D" => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF
   fvsPF xFvsF xrestF eissF tssF)
-
-/-- The block model's minor index is the block's own offset. -/
-theorem mutualBlockModel_minorIdx (mm j : Nat) : (D).minorIdx mm j = b.ownOffset mm + j := by
-  show blockMinorIdx _ mm j = _
-  unfold blockMinorIdx ConLeche.MutualBlock.ownOffset
-  congr 2
-  exact List.map_congr_left fun t _ => List.length_map _
 
 /-- A member's constructor is the checked constructor at the block's position. -/
 theorem mutualBlockModel_ctorsM_get (hg : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -1910,8 +1948,9 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
       (∀ e ∈ idxF J, e.constsResolve
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) = true) ∧
       ∀ ψ : Name → Nat, mp₂.base2.acval cA.1.name ψ
-        = sumMkAV (f₀.s.eval ψ) J (dsF J ψ) (((dsF J ψ).drop b.nP).map (·.2.2))
-            (uChains (mutFss b.nP ctorsA.length dsF ψ)))
+        = sumMkAV (f₀.s.eval ψ) (J - b.ownOffset (mutMemF b J)) (dsF J ψ)
+            (((dsF J ψ).drop b.nP).map (·.2.2))
+            (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset (mutMemF b J)))))
     (hleafM : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name)
     (hag₂ : ∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) → mp₂.base2.acval n = mp₁.base2.acval n) :
@@ -1973,14 +2012,14 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     exact (hframeT _ _ (fms_get (h.motLt J hJl)) ψ ρ).trans ((h.framesJ hμ hJl).1 ψ ρ)
   -- the operator's premise at every parameter frame
   have hOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((D).params ψ).reverse ρp →
-      TupleLfpOk (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) (mutMems ctorsA.length (mutMemF b))
-        (mutNFs ctorsA.length (mutNFOf ctorsA))
+      TupleLfpOk (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
+        (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
         (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) := by
     intro ψ ρp hρp
     exact TupleLfpOk.of_tagged (h.idxAll 0 f₀ h.first ψ ρp hρp).1
-      (h.chainFull hμ h.first ψ ρp hρp).1
+      (h.chainFull hμ h.first ψ ρp hρp).1 (h.chainClosed hμ h.first ψ ρp hρp)
   -- the lists' shape
   have hS : ∀ ψ : Name → Nat,
       TupleLfpShape b.k (blockIds b.nP ppsF ψ) (mutMems ctorsA.length (mutMemF b))
@@ -2166,40 +2205,32 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
           ∀ l, l < (blockIds b.nP ppsF ψ mm').length →
             interp V (consList fs ρp) ((esF (b.ownOffset mm' + j) ψ).getD l default) = projS l t
         rw [hJeq]
-      have hinjJ : ∀ (j : Nat) (fs : List V),
-          (D).inj ψ mm' j fs = injW (f₀.s.eval ψ) (b.ownOffset mm' + j) (mkTower (fs ++ [pt])) := by
-        intro j fs
-        show injW (f₀.s.eval ψ) ((D).minorIdx mm' j) (mkTower (fs ++ [pt])) = _
-        rw [mutualBlockModel_minorIdx]
-      show x ∈ˢ SetTheory.app (tupleLfpΦ (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ)
+      show x ∈ˢ SetTheory.app (tupleLfpΦ (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
         (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
         (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) X mm') t ↔ _
       rw [tupleLfpΦ_fibre hOk' hS' hX hmm' ht x]
       constructor
-      · rintro ⟨J, fs, hJ, hmemJ, hfit, heqs, rfl⟩
+      · rintro ⟨j, fs, hJ, hmemJ, hfit, heqs, rfl⟩
         rw [hlenF] at hJ
         rw [mutMems_getD hJ] at hmemJ
         obtain ⟨-, hle, hj⟩ := mutualBlockModel_ofCtor (V := V) (fms := fms) (f₀ := f₀) (kinds := kinds)
           (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF) (esF := esF) (srcsF := srcsF)
           (fvsPF := fvsPF) (xFvsF := xFvsF) (xrestF := xrestF) (eissF := eissF) (tssF := tssF)
           h3 h2 hlenA hJ
-        rw [hmemJ] at hle hj
-        have hJeq : b.ownOffset mm' + (J - b.ownOffset mm') = J := by omega
-        refine ⟨J - b.ownOffset mm', fs, (List.getElem?_eq_some_iff.mp hj).1,
-          ⟨(hfitJ J _ _ hJ hJeq hj fs).mp hfit, (htermJ J _ _ hJ hJeq hj fs).mp heqs⟩, ?_⟩
-        rw [hinjJ, hJeq]
+        rw [hmemJ, show b.ownOffset mm' + j - b.ownOffset mm' = j from by omega] at hj
+        refine ⟨j, fs, (List.getElem?_eq_some_iff.mp hj).1,
+          ⟨(hfitJ _ j _ hJ rfl hj fs).mp hfit, (htermJ _ j _ hJ rfl hj fs).mp heqs⟩, ?_⟩
         rfl
       · rintro ⟨j, fs, hjl, ⟨hfit, heqs⟩, rfl⟩
         have hj : ((D).ctorsM mm')[j]? = some (((D).ctorsM mm').getD j default) := by
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl]; rfl
         obtain ⟨hJl, hJ, hmemJ⟩ := hctorJ mm' j _ hj
-        refine ⟨b.ownOffset mm' + j, fs, by rw [hlenF]; exact hJl, ?_,
+        refine ⟨j, fs, by rw [hlenF]; exact hJl, ?_,
           (hfitJ _ j _ hJl rfl hj fs).mpr hfit, (htermJ _ j _ hJl rfl hj fs).mpr heqs, ?_⟩
         · rw [mutMems_getD hJl]; exact hmemJ
-        · rw [hinjJ]
-          rfl
+        · rfl
     · -- leaf
       intro ψ ρ as is hsp hi
       rw [hName _ _ hft, hleafM _ _ hft, h.leaf _ _ hft]
@@ -2216,15 +2247,13 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     · -- ctor
       intro mm' j cA hmm' hj ψ ρ as fs hsp hsp₂
       obtain ⟨hJl, hJ, hmemJ⟩ := hctorJ mm' j cA hj
-      rw [(hcons _ cA hJ).2.2 ψ]
+      rw [(hcons _ cA hJ).2.2 ψ, hmemJ,
+        show b.ownOffset mm' + j - b.ownOffset mm' = j from by omega]
       rw [IsBlockModel.Fss_getD hj ψ] at hsp₂
-      show (as ++ fs).foldl SetTheory.app (interp V ρ _)
-        = injW (f₀.s.eval ψ) ((D).minorIdx mm' j) (mkTower (fs ++ [pt]))
-      rw [mutualBlockModel_minorIdx]
-      show (as ++ fs).foldl SetTheory.app (interp V ρ (sumMkAV (f₀.s.eval ψ) (b.ownOffset mm' + j)
+      show (as ++ fs).foldl SetTheory.app (interp V ρ (sumMkAV (f₀.s.eval ψ) j
           (dsF (b.ownOffset mm' + j) ψ) (((dsF (b.ownOffset mm' + j) ψ).drop b.nP).map (·.2.2))
-          (uChains (mutFss b.nP ctorsA.length dsF ψ))))
-        = injW (f₀.s.eval ψ) (b.ownOffset mm' + j) (mkTower (fs ++ [pt]))
+          (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm')))))
+        = injW (f₀.s.eval ψ) j (mkTower (fs ++ [pt]))
       by_cases hw0 : f₀.s.eval ψ = 0
       · rw [hw0, sumMkAV_zero, foldl_app_pt, injW_zero]
       · have hlenDs : (dsF (b.ownOffset mm' + j) ψ).length = b.nP + cA.2 := (h.CD _ cA hJ).len ψ
@@ -2237,11 +2266,12 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
           have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp₁
           rwa [List.append_nil] at this
         have hok : SumFieldsOkB (f₀.s.eval ψ) (consList as ρ)
-            (uChains (mutFss b.nP ctorsA.length dsF ψ)) :=
-          SumFieldsOkB_uChains (h.fssOkP hμ hJl ψ (consList as ρ) hsat).1
-        have hFsJ : (uChains (mutFss b.nP ctorsA.length dsF ψ))[b.ownOffset mm' + j]?
+            (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm'))) :=
+          SumFieldsOkB_uChains fun Fs hFs =>
+            (h.fssOkP hμ hJl ψ (consList as ρ) hsat).1 Fs (List.mem_of_mem_drop hFs)
+        have hFsJ : (uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm')))[j]?
             = some ((((dsF (b.ownOffset mm' + j) ψ).drop b.nP).map (·.2.2)) ++ [idxEqAV []]) := by
-          rw [uChains_getElem?, List.getElem?_eq_getElem (show b.ownOffset mm' + j
+          rw [uChains_getElem?, List.getElem?_drop, List.getElem?_eq_getElem (show b.ownOffset mm' + j
             < (mutFss b.nP ctorsA.length dsF ψ).length from by rw [mutFss_length]; exact hJl)]
           have hgd := mutFss_getD (n := ctorsA.length) (nP := b.nP) (dsF := dsF) (ψ := ψ) hJl
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (show b.ownOffset mm' + j
@@ -2251,10 +2281,11 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
           rfl
         have hsplit : (dsF (b.ownOffset mm' + j) ψ).take b.nP ++ (dsF (b.ownOffset mm' + j) ψ).drop b.nP
             = dsF (b.ownOffset mm' + j) ψ := List.take_append_drop _ _
-        have := sumMkAV_fold (V := V) (j := b.ownOffset mm' + j) hw0
+        have := sumMkAV_fold (V := V) (j := j) hw0
           (pds := (dsF (b.ownOffset mm' + j) ψ).take b.nP)
           (fds := (dsF (b.ownOffset mm' + j) ψ).drop b.nP)
-          (Fss := uChains (mutFss b.nP ctorsA.length dsF ψ)) hsp₁ hsp₂ hok hFsJ
+          (Fss := uChains ((mutFss b.nP ctorsA.length dsF ψ).drop (b.ownOffset mm')))
+          hsp₁ hsp₂ hok hFsJ
         rw [hsplit] at this
         rw [this, injW_pos hw0]
     · -- mkInj
@@ -2281,19 +2312,17 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     exact this
 
 /-- **The block model's table facts** at the run's data: the injection is the
-tagged tower at the constructor's GLOBAL block position
-(`mutualBlockModel_minorIdx`), every member's parameter frame is the
-block's (the cross-member identification), and the constructors' field
-sorts, grading and bounds are the constructor stage's (`framesJ`,
-`sortsJ`).  Consumer: `mutualCoreModeled_of`. -/
+tagged tower at the constructor's MEMBER-LOCAL position (task #315 M6
+s4, DESIGN §U.15 (c)), every member's parameter frame is the block's
+(the cross-member identification), and the constructors' field sorts,
+grading and bounds are the constructor stage's (`framesJ`, `sortsJ`).
+Consumer: `mutualCoreModeled_of`. -/
 theorem mutualTableFacts_of (hμ : μ.verifiedChecks = true)
     (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
       xFvsF xrestF eissF tssF) :
     MutualTableFacts b fms sortss (D) where
-  inj ψ mm j fs := by
-    show injW ((D).w ψ) ((D).minorIdx mm j) (mkTower (fs ++ [pt])) = _
-    rw [mutualBlockModel_minorIdx]
+  inj ψ mm j fs := by rfl
   frame t ht ψ ρ := h.frame t _ (fms_get (by rw [h.lenFms]; exact ht)) ψ ρ
   sorts mm j cA _ hj := by
     obtain ⟨hJl, hJ, hmemJ⟩ := mutualBlockModel_ctorsM_get h3 h.lenA hj
@@ -2401,7 +2430,7 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
   obtain ⟨mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, h⟩ :=
     mutualFormersStage hμ mp hE b h0 h1 h2 hformers hf₀ htq₀ hcross hctors hkinds hfo
-  obtain ⟨mp₂, hE₂, hcons, hleafM, hag₂⟩ := mutualCtorsStage h hμ hE h0
+  obtain ⟨mp₂, hE₂, hcons, hleafM, hag₂⟩ := mutualCtorsStage h hμ hE h0 h3
   obtain ⟨hreps, htyped, hstored⟩ := blockReps_of hμ h0 h2 h3 h mp₂ hcons hleafM hag₂
   -- the model agrees with the pre-block model off the block
   have hagree : ∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat,
@@ -2421,7 +2450,7 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
   have hd : MutualBlockModelOf env b fms ctorsA
       (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF
         eissF tssF) :=
-    mutualBlockModelOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    mutualBlockModelOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
   obtain ⟨mp₃, hag₃, hreps₃, htyped₃, hstored₃⟩ := hrec hμ mp hE b streamRecs fms f₀ tq₀ ctorsA
     sortss kinds formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors
     hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored

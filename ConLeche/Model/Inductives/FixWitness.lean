@@ -402,6 +402,13 @@ noncomputable def mkShape (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
           app g (kpair (vnat i) (mkTower (frameIdx ((tlss.getD (shapeTag a) []).getD i []).length σ)))
     else (shapeFields (Fss.getD (shapeTag a) []).length a).getD i pt) ++ [pt]))
 
+/-- The builder's value is tagged by the shape's tag (the payload
+abstracted: the cased witness `CaseWitness.lean` re-tags it). -/
+theorem mkShape_tag (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Fss : List (List AnnotTerm)) (a g : V) :
+    ∃ y, mkShape w ρp rss tlss Fss a g = inj (shapeTag a) y :=
+  ⟨_, rfl⟩
+
 section Block
 
 variable {u w nP : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxOk u ρp Ids)

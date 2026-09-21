@@ -74592,3 +74592,145 @@ after the deletions.
    compound command persists into the next call, and a call without one
    runs where the previous left off — always `cd` explicitly; the prose
    pass of a rename hits `section` NAMES.
+
+#### U.11b — member-local constructor tags, ported onto master (from `agent/uniform-merge`, sessions U-13/U-14)
+
+A port, not a session: the two commits of the nested branch
+`agent/uniform-merge` that changed HOW CONSTRUCTORS ARE TAGGED in the
+construction — `e7da8d03` (U-13, the cased family functor) and
+`53349fd5` (U-14, the re-base of the sealed `k`-ary former and the tag
+sites) — cherry-picked onto master keeping the MUTUAL half only.  The
+branch's own `DESIGN.md` records them as §U.15 and §U.16; the reader
+who wants the nested motivation (the falsified `pinLeaf` at
+`ofNested`) should read them there.  **The ported code comments cite
+"DESIGN §U.15 (c)" / "§U.16": those are the NESTED BRANCH's section
+numbers, kept verbatim so the branch merges without conflict — on
+master the record is this §U.11b.**  No checker code changed — this is
+a model-tier change and the mutual route's verdicts are untouched (the
+tag is a model-side datum).  No `sorry`, no axioms, no
+`maxHeartbeats`.
+
+##### (a) THE TAG SCHEME
+
+The mutual route models a `k`-member block as ONE least fixed point
+over the tagged union of the members' index tuples, and the functor it
+inherited from the fixpoint route (`fixFunAVI`, `FixLeafI.lean`)
+summed, at EVERY index tuple, over the ONE global list of constructor
+chains.  An element's tag was therefore the constructor's position in
+the WHOLE block: member `m`'s first constructor carried `offs m`, not
+`0`, and `BlockModel.ofMutual`'s `inj` had to spell
+`blockMinorIdx ctorsM mm j` = `ownOffset mm + j`.
+
+The **cased** functor (`Semantics/Tower/CaseFamI.lean`) keeps the one
+global chain list but sums, at an index tuple whose member is `m`,
+only over that list's SUFFIX from member `m`'s first constructor on
+(`caseChains`): an element's tag is then its position WITHIN its
+member.  The member is read off the tuple itself — an index tuple of
+the auxiliary family is `mkTower [inj m ⟨ı⃗⟩]`, so its member is
+`natIdx (sfst (sfst t))` (`caseTag`) — and the sum body is selected by
+the sum route's numeral case split (`caseAVAt`, `SumCase.lean`) on the
+spelled discriminant `.fst (.fst (.bvar 0))`.  The later members'
+chains in the suffix are dead at that tuple (their tagged index
+equation fails).  The PREMISE does not move: the grading stays the
+GLOBAL `FixChainsOkI`/`XChainsOk` over the whole list, and the cased
+functor's monotonicity, space preservation and elimination are
+per-suffix instances of the 1-ary lemmas.
+
+##### (b) WHAT THE PORT CHANGED, FILE BY FILE
+
+* `Semantics/Tower/CaseFamI.lean` (NEW): the cased functor's spelling
+  (`caseFunAVI`/`caseBodyAVI`), its semantics (`caseStepI`,
+  `caseFamFI`, `caseFunVI`, `caseFamI`), and the laws — `caseTag_of_mem`,
+  `caseDisc_facts`/`idxSet_auxIds_eq`, `caseChains_okB`,
+  `caseFunAVI_facts`/`caseBodyAVI_facts`, `caseStepI_mono`,
+  `caseFunVI_mono`/`_maps`, `caseStepI_intro`, **`caseStepI_elim`**
+  (the LOCAL tag), `caseStepI_zero_elim`, `caseFamI_app_eq`,
+  `caseFamI_app_eq_sum`, `caseTag_tupW`, `caseFunVI_closed_zero`.
+* `Semantics/Tower/MutualTagI.lean` (NEW): the tag family, the tuplers
+  and `mutualEss`/`mutualEiss`, split VERBATIM out of `MutualLeafI` to
+  break the cycle `CaseFamI` would otherwise close.  The chain is
+  `FixFamI → MutualTagI → CaseFamI → MutualLeafI`.
+* `Semantics/Tower/MutualLeafI.lean`: `auxBodyAV`/`auxFamI`/
+  `mutualTyAVI` take `offs` and are the cased body; the laws' proofs
+  change in one line each (`caseBodyAVI_facts` for `fixBodyAVI_facts`).
+* `Model/Inductives/CaseWitness.lean` (NEW): the (W) wrapper
+  `caseClosed_of`/`caseClosed_all` over `FixWitness`'s
+  `container_closed_exists` — the same container with the tuple's
+  member paired into the shape and the builder RE-TAGGED
+  (`retag o (inj J y) = inj (J - o) y`).  `FixWitness` gained ONE
+  export, `mkShape_tag`.
+* `Model/Inductives/TupleLfp.lean`: the sealed former gains ONE
+  argument, `offs : Nat → Nat`, after `Ids`, and `TupleLfpOk` gains the
+  cased functor's closed family as a THIRD conjunct.  THE law
+  `tupleLfpΦ_fibre` now reads `x = injW w j (mkTower (fs ++ [pt]))`
+  with `offs mm + j` the global constructor — was `∃ J, … x = injW w J …`.
+* `Model/Inductives/MutualStageFormer.lean`, `MutualChains.lean`,
+  `MutualStageCtor.lean`: `offs`/`off` threaded; `auxBodyAV_validV`
+  reproved for the cased body; `mutualCtorFold` takes the cased
+  witness; NEW `mutualCaseClosed_of`; constructor `J`'s leaf is
+  `sumMkAV (w ψ) (J - off J) …` over its member's SUFFIX of the real
+  chains (the per-constructor step `stageMutualCtor` is UNCHANGED —
+  instantiated at the local tag and the dropped list).
+* THE THREE GLOBAL TAG SITES, now local: `BlockModel.ofMutual`'s `inj`
+  (`BlockRepMutual.lean`, `ofMutual_inj` by `rfl`, `ofMutual_mkInj` no
+  longer needs the prefix-sum arithmetic); `MutualTableFacts.inj`
+  (`DeclBlock.lean`: `injW (d.w ψ) j …`, was `b.ownOffset mm + j`), with
+  the table bundle's tag argument `0` at a structure-like member
+  (`MutualTables.lean`, `BlockTableMember.lean` — `TableMember` is
+  abstract in its tag, `stageBlockTable` untouched); and the
+  constructor stage in `MutualCore.lean` (`mutualCtorsStage` now needs
+  the grouping guard `h3` for `b.ownOffset (mutMemF b J) ≤ J`, NEW
+  `MutualFormersFacts.chainClosed` feeds `TupleLfpOk.of_tagged`'s third
+  argument, and `blockReps_of`'s `fibre` is SIMPLER — the law's `j` is
+  the clause's `j`).  `ofNative` (`k = 1`) was local already;
+  `BlockModel.minorIdx`/`blockMinorIdx` (the recursors' minor index) is
+  untouched — it never was the tag.
+
+##### (c) WHAT WAS DROPPED, AND WHY
+
+Master has no nested block-model arm, so every nested hunk of the two
+source commits is dropped rather than ported:
+
+* `e7da8d03`: its `Model/Inductives/DeclNestedCore.lean` hunk (an
+  import removal in a file that does not exist here).
+* `53349fd5`: `Model/Inductives/BlockComposed.lean` entirely
+  (`BlockModel.ofNested`, `nestedΨ`/`NestedLfpOk`/`ofNested_fibre` at
+  `offs`, the new `ofNested_pin_block_of_fit`, and the deletion of the
+  `ofNested_pin_tag`/`_lt` falsifiers — the file is not on master); the
+  `BlockComposed`/`DeclNestedCore`/`NestedSlotRead` lines of
+  `ConLeche/Model.lean` and the `DeclNested` line of
+  `ConLeche/Semantics.lean` (only the `CaseWitness`, `MutualTagI` and
+  `CaseFamI` lines are ported); and the two `NestedInv`/`DeclNested`
+  entries of `tests/shake-allowlist.txt` (of the three M6 s4 entries,
+  two are ported — see the deviation below).
+
+ONE DEVIATION forced by the gates: on the branch `MutualChains`'
+`import CaseWitness` is `public`, here it is DEMOTABLE — the nested arm
+is what needed the re-export — so it is a plain `import` and the
+source's shake-allowlist line for it goes with the demotion (the
+`MutualTagI`/`FixFamI` and `CaseWitness`/`FixWitness` lines stay).
+`tests/shake.sh`: 493 removals, all allowlisted; 1123 of 1646 edges
+public, none demotable.
+
+ONE DELETION the port orphans: `mutualBlockModel_minorIdx`
+(`MutualCore.lean`, `(D).minorIdx mm j = b.ownOffset mm + j`) had
+exactly three consumers, all of them the tag sites this port rewrote,
+and the census (`scripts/dead-census.py`) reads it dead afterwards — so
+it goes.  `blockMinorIdx`/`ofMutual_minorIdx` STAY: the recursors'
+minor index is a different thing, `ofMutual_minorIdx` was already
+unconsumed before the port, and deleting the pair would delete a
+declaration the port did NOT orphan (#209's rule — "imported by
+nothing" is not a dead-code criterion here).  What the reader should
+know is that `blockMinorIdx` has moved from live (it was
+`ofMutual.inj`'s value) to reachable only from that already-dead
+theorem, so the census now lists it under `attributed.txt`.  Nothing
+else moved: 136 hard / 1758 soft / 222 attributed candidates, one soft
+fewer than before the deletion above, and the three new modules
+contribute no candidate of any class.
+
+ONE hand-port, because the source's file carries the nested-slot arm
+master does not have: `BlockModel.ofMutual`'s body in
+`BlockRepMutual.lean` — the source's hunk sets `Φ`, `pinCar` and `inj`
+in one block, and `pinCar` is a field of the branch's `BlockModel`
+only.  Ported as the `offs`-threaded `Φ` plus the local `inj`, master's
+field list unchanged.  Everything else applied as the source wrote it.

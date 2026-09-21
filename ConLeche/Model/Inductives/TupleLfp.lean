@@ -21,21 +21,23 @@ this module, consumers see the former, its semantic operator and
 their laws only.
 
 **The API.**  For a block of `k` members with index telescopes `Idss`
-(at the parameter frame) and constructors in GLOBAL order — each with
-its member `mems`, field count `nFs`, recursive-field targets `tgts`,
-recursive flags `rss`, reflexive telescopes `tlss`, recursive fields'
-index expressions `Eiss₀`, field domains `Fss₀` and result index
-expressions `Ess₀`:
+(at the parameter frame), the members' first constructor positions
+`offs` (member `m`'s constructors are `offs m`, `offs m + 1`, … in the
+global lists) and constructors in GLOBAL order — each with its member
+`mems`, field count `nFs`, recursive-field targets `tgts`, recursive
+flags `rss`, reflexive telescopes `tlss`, recursive fields' index
+expressions `Eiss₀`, field domains `Fss₀` and result index expressions
+`Ess₀`:
 
-* `tupleLfpAV W w pps nIdx Idss mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m`
+* `tupleLfpAV W w pps nIdx Idss offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m`
   — member `m`'s leaf: the λ-tower over the parameters and the
   member's own indices returning the `m`-th component of the block's
   least fixed point at the index tuple;
-* `tupleLfpΦ W w ρp k Idss mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀` — the
-  block's tuple operator at a parameter frame, a meta-level function
-  on tuples of families (the block model's `Φ`);
+* `tupleLfpΦ W w ρp k Idss offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀` —
+  the block's tuple operator at a parameter frame, a meta-level
+  function on tuples of families (the block model's `Φ`);
 * `TupleLfpOk` — the premise at a parameter frame (the block's chains
-  graded);
+  graded, the cased functor's closed family);
 * the laws: **`tupleLfpAV_fold`** (the interp law: the leaf at fitting
   parameters and indices is `app (lfpTuple w k Is Φ m) ⟨ı⃗⟩`),
   **`tupleLfpΦ_functor`** (`Φ` monotone, space-preserving, with a
@@ -55,11 +57,18 @@ expressions `Ess₀`:
 **The representation** (private): the members' leaves are #278's
 `mutualTyAVI` (`Semantics/Tower/MutualLeafI.lean`) — ONE `lfpFam`
 over the tagged sum of the members' index tuples, member `m` its
-fibre at tag `m` — and the operator is the split of the fixpoint
-route's functor at the tagged data through the split/join theorem
-(`SetTheory/Derive/LfpSplit.lean`, `lfpTuple_splitFun`) along the
-tagged encoding `tagEnc`.  Nothing of the tag leaves this module
-(DESIGN §U.7).
+fibre at tag `m` — and the operator is the split of the CASED family
+functor (`Semantics/Tower/CaseFamI.lean`: at a tuple of member `m`
+the sum ranges over member `m`'s SUFFIX of the one global chain list,
+from `offs m` on, so an element's tag is its constructor's
+MEMBER-LOCAL position) at the tagged data through the split/join
+theorem (`SetTheory/Derive/LfpSplit.lean`, `lfpTuple_splitFun`) along
+the tagged encoding `tagEnc`.  The API takes the members' first
+constructor positions `offs : Nat → Nat` and exports the local tag in
+`tupleLfpΦ_fibre` (`injW w j` at member `mm`'s constructor `offs mm +
+j`); the premise `TupleLfpOk` carries the cased functor's closed
+family (the assembly's `mutualCaseClosed_of`).  Nothing of the
+representation leaves this module (DESIGN §U.7, §U.15 (c), §U.16).
 -/
 
 namespace ConLeche.Model
@@ -211,58 +220,67 @@ member's own `nIdx` indices returning the `m`-th component of the
 block's least fixed point at the index tuple (the representation:
 `mutualTyAVI` at the tagged data). -/
 def tupleLfpAV (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx k : Nat)
-    (Ids : Nat → List AnnotTerm) (mems nFs : List Nat) (tgts : List (List Nat))
+    (Ids : Nat → List AnnotTerm) (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat))
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss₀ : List (List (List AnnotTerm))) (Fss₀ Ess₀ : List (List AnnotTerm)) (m : Nat) :
     AnnotTerm :=
-  mutualTyAVI W w pps nIdx (tupleIdss k Ids) rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
-    Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) m
+  mutualTyAVI W w pps nIdx (tupleIdss k Ids) offs rss tlss
+    (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) m
 
 /-- **The block's tuple operator** at a parameter frame: a meta-level
 function on tuples of families over the members' index-tuple sets
 (the representation: the split of the fixpoint route's functor at the
 tagged data). -/
 noncomputable def tupleLfpΦ (W w : Nat) (ρp : Nat → V) (k : Nat) (Ids : Nat → List AnnotTerm)
-    (mems nFs : List Nat) (tgts : List (List Nat)) (rss : List (List Bool))
+    (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss₀ : List (List (List AnnotTerm)))
     (Fss₀ Ess₀ : List (List AnnotTerm)) : (Nat → V) → Nat → V :=
   splitFun k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids)
-    (fixFunVI W w ρp (auxIds W (tupleIdss k Ids)) (auxIds W (tupleIdss k Ids)).length rss tlss
+    (caseFunVI W w ρp (tupleIdss k Ids) offs rss tlss
       (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀))
 
 /-- **The premise at a parameter frame**: the members' index
-telescopes graded at a common positive universe `W`, and the block's
-chains graded (the representation: `TagOk` and the fixpoint route's
-`XChainsOk` at the tagged data).  Established from the constructors'
-readings (`TupleLfpOk.of_tagged` now; the untagged introduction is
-the recursor stage's). -/
+telescopes graded at a common positive universe `W`, the block's
+chains graded, and the cased functor's closed family (the
+representation: `TagOk`, the fixpoint route's `XChainsOk` at the
+tagged data, and `IsClosedFam` at `caseFunVI` — the (W) the
+assembly's `mutualCaseClosed_of` supplies).  Established from the
+constructors' readings (`TupleLfpOk.of_tagged` now; the untagged
+introduction is the recursor stage's). -/
 def TupleLfpOk (W w : Nat) (ρp : Nat → V) (k : Nat) (Ids : Nat → List AnnotTerm)
-    (mems nFs : List Nat) (tgts : List (List Nat)) (rss : List (List Bool))
+    (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat)) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss₀ : List (List (List AnnotTerm)))
     (Fss₀ Ess₀ : List (List AnnotTerm)) : Prop :=
   TagOk W ρp (tupleIdss k Ids) ∧
   XChainsOk W w ρp (auxIds W (tupleIdss k Ids)) rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
-    Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀)
+    Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) ∧
+  ∃ L, IsClosedFam w (idxSet W ρp (auxIds W (tupleIdss k Ids)))
+    (caseFunVI W w ρp (tupleIdss k Ids) offs rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
+      Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀)) L
 
 section Premise
 
-variable {W w : Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm} {mems nFs : List Nat}
+variable {W w : Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm} {offs : Nat → Nat}
+  {mems nFs : List Nat}
   {tgts : List (List Nat)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : List (List (List AnnotTerm))} {Fss₀ Ess₀ : List (List AnnotTerm)}
 
 theorem TupleLfpOk.of_tagged (hT : TagOk W ρp (tupleIdss k Ids))
     (hX : XChainsOk W w ρp (auxIds W (tupleIdss k Ids)) rss tlss
-      (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀)) :
-    TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ :=
-  ⟨hT, hX⟩
+      (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀))
+    (hcl : ∃ L, IsClosedFam w (idxSet W ρp (auxIds W (tupleIdss k Ids)))
+      (caseFunVI W w ρp (tupleIdss k Ids) offs rss tlss (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀)
+        Fss₀ (tupleEss W (tupleIdss k Ids) mems nFs Ess₀)) L) :
+    TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ :=
+  ⟨hT, hX, hcl⟩
 
 /-- The index universe is positive. -/
-theorem TupleLfpOk.W_pos (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
+theorem TupleLfpOk.W_pos (h : TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
     W ≠ 0 :=
   h.1.1
 
 /-- Every member's index telescope is graded at `W`. -/
-theorem TupleLfpOk.idxOk (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+theorem TupleLfpOk.idxOk (h : TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
     {m : Nat} (hm : m < k) : IdxOk W ρp (Ids m) := by
   refine h.1.2 _ ?_
   rw [← tupleIdss_getD (Ids := Ids) hm, List.getD_eq_getElem?_getD,
@@ -275,23 +293,23 @@ end Premise
 
 section Laws
 
-variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {mems nFs : List Nat}
+variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {offs : Nat → Nat} {mems nFs : List Nat}
   {tgts : List (List Nat)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : List (List (List AnnotTerm))} {Fss₀ Ess₀ : List (List AnnotTerm)}
 
 /-- **`Φ` is a monotone, space-preserving tuple functor with a closed
 tuple** (the block model's `functor` clause), from the premise. -/
 theorem tupleLfpΦ_functor {ρp : Nat → V}
-    (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
+    (h : TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
     MonoTuple w k (fun m => idxSet W ρp (Ids m))
-      (tupleLfpΦ W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
+      (tupleLfpΦ W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
     MapsTuple w k (fun m => idxSet W ρp (Ids m))
-      (tupleLfpΦ W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
+      (tupleLfpΦ W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
     ∃ L, IsClosedTuple w k (fun m => idxSet W ρp (Ids m))
-      (tupleLfpΦ W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) L :=
+      (tupleLfpΦ W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) L :=
   have henc := tagEnc_idxEnc h.1
-  ⟨splitFun_mono henc (fixFunVI_mono h.2), splitFun_maps henc (fixFunVI_maps h.2),
-    splitFun_closed_exists henc (fixFunVI_closed_exists h.2)⟩
+  ⟨splitFun_mono henc (caseFunVI_mono h.2.1), splitFun_maps henc (caseFunVI_maps h.2.1),
+    splitFun_closed_exists henc h.2.2⟩
 
 /-- **The interp law** (the block model's `leaf` clause): member `m`'s leaf
 at a spine fitting its parameters and its own indices is the `m`-th
@@ -299,14 +317,14 @@ component of the block's least fixed point at the index tuple — the
 tower of the index spine. -/
 theorem tupleLfpAV_fold {ρ : Nat → V} {as is : List V} {pps : List (Nat × Nat × AnnotTerm)}
     {nP m : Nat} (hm : m < k)
-    (h : TupleLfpOk W w (consList as ρ) k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (h : TupleLfpOk W w (consList as ρ) k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
     (hIds : Ids m = (pps.drop nP).map (·.2.2))
     (hsp : SpineFit ρ ((pps.take nP).map (·.2.2)) as)
     (hi : SpineFit (consList as ρ) ((pps.drop nP).map (·.2.2)) is) :
     (as ++ is).foldl SetTheory.app (interp V ρ
-        (tupleLfpAV W w pps (pps.drop nP).length k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m))
+        (tupleLfpAV W w pps (pps.drop nP).length k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m))
       = SetTheory.app (lfpTuple w k (fun m => idxSet W (consList as ρ) (Ids m))
-          (tupleLfpΦ W w (consList as ρ) k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) m)
+          (tupleLfpΦ W w (consList as ρ) k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) m)
           (mkTower is) := by
   have hW := h.W_pos
   have hn : is.length = (pps.drop nP).length := by rw [hi.length_eq, List.length_map]
@@ -322,7 +340,7 @@ theorem tupleLfpAV_fold {ρ : Nat → V} {as is : List V} {pps : List (Nat × Na
       m := by
     refine ⟨?_, ?_, _, hIdsG, by rw [List.length_map], ?_⟩
     · rw [consList_append, ← hn, shiftE_consList]; exact h.1
-    · rw [consList_append, ← hn, shiftE_consList]; exact h.2.hok
+    · rw [consList_append, ← hn, shiftE_consList]; exact h.2.1.hok
     · rw [consList_append, ← hn, shiftE_consList, ConLeche.Semantics.frameIdx_consList']; exact hi
   unfold tupleLfpAV
   rw [ConLeche.Semantics.mutualTyAVI_fold hspAll hbase]
@@ -334,8 +352,8 @@ theorem tupleLfpAV_fold {ρ : Nat → V} {as is : List V} {pps : List (Nat × Na
   have htup : mkTower is ∈ˢ idxSet W (consList as ρ) (Ids m) := by
     rw [hIds]; exact mkTower_mem_teleOfFields hW hi
   unfold tupleLfpΦ
-  rw [app_lfpTuple_splitFun (tagEnc_idxEnc h.1) (fixFunVI_mono h.2) (fixFunVI_maps h.2)
-    (fixFunVI_closed_exists h.2) hm htup, tagEnc_mkTower W (by rw [hn, hIds, List.length_map])]
+  rw [app_lfpTuple_splitFun (tagEnc_idxEnc h.1) (caseFunVI_mono h.2.1) (caseFunVI_maps h.2.1)
+    h.2.2 hm htup, tagEnc_mkTower W (by rw [hn, hIds, List.length_map])]
   rfl
 
 end Laws
@@ -437,12 +455,12 @@ variable {nP : Nat} {W : (Name → Nat) → Nat} {k : Nat} {Ids : (Name → Nat)
 /-- **The leaf is closed**, from its binder data and the block
 premise. -/
 theorem tupleLfpAV_below {lps : List Name}
-    (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) (offs : Nat → Nat)
     {w nIdx t : Nat} {pps : List (Nat × Nat × AnnotTerm)} (hp : DomsBelow 0 pps)
     (hlen : pps.length = nP + nIdx) (ψ : Name → Nat) :
     Term.bvarsBelow 0
-      (tupleLfpAV (W ψ) w pps nIdx k (Ids ψ) mems nFs tgts rss (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
-        t).erase :=
+      (tupleLfpAV (W ψ) w pps nIdx k (Ids ψ) offs mems nFs tgts rss (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ)
+        (Ess₀ ψ) t).erase :=
   mutualTyAVI_below hp hlen (hB.2.1 ψ) (hB.2.2 ψ)
 
 /-- **The leaf is graded and valid under its tower**, from the
@@ -451,11 +469,12 @@ theorem tupleLfpAV_wellDenotedV {m : EnvModel V env} {cvT : ConstantVal} {nIdx t
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hFD : FormerData m cvT (nP + nIdx) resSort pps)
     (hC : TupleLfpStageOk V nP t resSort W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ pps)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+    (offs : Nat → Nat) (ψ : Name → Nat) (ρ : Nat → V) :
     WellDenotedV V ρ
-      (tupleLfpAV (W ψ) (resSort.eval ψ) (pps ψ) nIdx k (Ids ψ) mems nFs tgts rss (tlss ψ) (Eiss₀ ψ)
-        (Fss₀ ψ) (Ess₀ ψ) t) :=
-  mutualTyAVI_wellDenotedV (mutualLeafWalks hFD hC ψ ρ).1 (mutualLeafWalks hFD hC ψ ρ).2
+      (tupleLfpAV (W ψ) (resSort.eval ψ) (pps ψ) nIdx k (Ids ψ) offs mems nFs tgts rss (tlss ψ)
+        (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) t) :=
+  mutualTyAVI_wellDenotedV (mutualLeafWalks (offs := offs) hFD hC ψ ρ).1
+    (mutualLeafWalks (offs := offs) hFD hC ψ ρ).2
 
 /-- **The leaf inhabits its former's type**, from the former's data and
 the member premise. -/
@@ -463,12 +482,12 @@ theorem tupleLfpAV_mem {m : EnvModel V env} {cvT : ConstantVal} {nIdx t : Nat}
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hFD : FormerData m cvT (nP + nIdx) resSort pps)
     (hC : TupleLfpStageOk V nP t resSort W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ pps)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+    (offs : Nat → Nat) (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ
-        (tupleLfpAV (W ψ) (resSort.eval ψ) (pps ψ) nIdx k (Ids ψ) mems nFs tgts rss (tlss ψ) (Eiss₀ ψ)
-          (Fss₀ ψ) (Ess₀ ψ) t)
+        (tupleLfpAV (W ψ) (resSort.eval ψ) (pps ψ) nIdx k (Ids ψ) offs mems nFs tgts rss (tlss ψ)
+          (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) t)
       ∈ˢ interp V ρ (mkPisAV (pps ψ) (.sort (resSort.eval ψ))) :=
-  mutualTyAVI_mem (mutualLeafWalks hFD hC ψ ρ).1
+  mutualTyAVI_mem (mutualLeafWalks (offs := offs) hFD hC ψ ρ).1
 
 end StageLaws
 
@@ -489,7 +508,7 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
     {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
     {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) (offs : Nat → Nat)
     {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
@@ -502,8 +521,8 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     ∃ mp₁ : EnvModelM V μ env₁,
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         mp₁.base2.acval f.cvTa.name
-          = fun ψ => tupleLfpAV (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx k (Ids ψ) mems nFs tgts rss
-              (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) t) ∧
+          = fun ψ => tupleLfpAV (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx k (Ids ψ) offs mems nFs tgts
+              rss (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) t) ∧
       (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → n ≠ f.cvTa.name) →
         mp₁.base2.acval n = mp.base2.acval n) ∧
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -524,7 +543,8 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     rw [hW, hI, htl, hEi, hF, hE]
     exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
   obtain ⟨mp₁, hleaf, hoff⟩ := stageMutualFormers (V := V) (μ := μ) (F := F) (nP := nP)
-    (resSort := resSort) (lps := lps) (W := W) (Idss := fun ψ => tupleIdss k (Ids ψ)) (rss := rss)
+    (resSort := resSort) (lps := lps) (W := W) (Idss := fun ψ => tupleIdss k (Ids ψ)) (offs := offs)
+    (rss := rss)
     (tlss := tlss) (Eiss' := fun ψ => tupleEiss (W ψ) (tupleIdss k (Ids ψ)) tgts (tlss ψ) (Eiss₀ ψ))
     (Fss₀ := Fss₀) (Ess' := fun ψ => tupleEss (W ψ) (tupleIdss k (Ids ψ)) mems nFs (Ess₀ ψ))
     (ppsF := ppsF) hParams hB.2.1 hB.2.2 mp hE hrun hnd hmem
@@ -546,7 +566,7 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
       hF hG hproj hag
   · intro ψ ρ
     rw [hleaf t f hf]
-    exact tupleLfpAV_mem hFD hC ψ ρ
+    exact tupleLfpAV_mem hFD hC offs ψ ρ
 
 /-! ## The fibre law (sealed)
 
@@ -556,12 +576,13 @@ the spines fitting one of member `mm`'s constructors at `(X, t)` — a
 recursive field read at the TARGET member's component of `X`, the
 constructor's index expressions at the spine the components of `t`.
 Stated over the UNTAGGED lists, positionally in the block's global
-constructor order (`J`); the representation's tag is translated away
-inside (`slotSet_tag_eq`, `fitsFrom_tag_iff`, `tagTerm_iff`). -/
+constructor order (`offs mm + j` for member `mm`'s constructor `j`),
+with the MEMBER-LOCAL tag `j`; the representation's tag is translated
+away inside (`slotSet_tag_eq`, `fitsFrom_tag_iff`, `tagTerm_iff`). -/
 
 section Fibre
 
-variable {W w : Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm}
+variable {W w : Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm} {offs : Nat → Nat}
 
 /-- A tagged tuple's arguments fit its member's index telescope when
 the tuple is graded (the tupler is a λ-tower over that telescope). -/
@@ -821,24 +842,30 @@ theorem tagTerm_iff (hT : TagOk W ρp (tupleIdss k Ids)) {mem : Nat} (hmem : mem
 
 /-- **The fibre of the operator** (the block model's `fibre` clause):
 component `mm`'s fibre at `(X, t)` is the set of the tagged towers
-`injW w J ⟨f⃗, pt⟩` of the spines `f⃗` fitting one of member `mm`'s
-constructors `J` at `(X, t)` — a recursive field read at the target
+`injW w j ⟨f⃗, pt⟩` of the spines `f⃗` fitting one of member `mm`'s
+constructors at `(X, t)` — member `mm`'s constructor `j`, the global
+constructor `offs mm + j` — a recursive field read at the target
 member's component of `X`, the constructor's index expressions at the
-spine the components of `t`. -/
+spine the components of `t`.  THE TAG IS MEMBER-LOCAL (`j`, not the
+global position): the cased sum body (DESIGN §U.15 (c)).  Stated over
+the UNTAGGED lists; the representation's tag is translated away inside
+(`slotSet_tag_eq`, `fitsFrom_tag_iff`, `tagTerm_iff`). -/
 theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss₀ : List (List (List AnnotTerm))}
     {Fss₀ Ess₀ : List (List AnnotTerm)}
-    (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (h : TupleLfpOk W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
     (hS : TupleLfpShape k Ids mems nFs tgts rss Eiss₀ Fss₀ Ess₀)
     {X : Nat → V} (hX : InTupleSpace w k (fun m => idxSet W ρp (Ids m)) X)
     {mm : Nat} (hmm : mm < k) {t : V} (ht : t ∈ˢ idxSet W ρp (Ids mm)) (x : V) :
-    x ∈ˢ SetTheory.app (tupleLfpΦ W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ X mm) t ↔
-      ∃ J fs, J < Fss₀.length ∧ mems.getD J 0 = mm ∧
-        FitsFrom (rss.getD J []) (fun i ρ => slotSet w W ρ ((tlss.getD J []).getD i [])
-            ((Eiss₀.getD J []).getD i []) (X ((tgts.getD J []).getD i 0))) 0 ρp (Fss₀.getD J []) fs ∧
+    x ∈ˢ SetTheory.app (tupleLfpΦ W w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ X mm) t ↔
+      ∃ j fs, offs mm + j < Fss₀.length ∧ mems.getD (offs mm + j) 0 = mm ∧
+        FitsFrom (rss.getD (offs mm + j) [])
+          (fun i ρ => slotSet w W ρ ((tlss.getD (offs mm + j) []).getD i [])
+            ((Eiss₀.getD (offs mm + j) []).getD i []) (X ((tgts.getD (offs mm + j) []).getD i 0)))
+          0 ρp (Fss₀.getD (offs mm + j) []) fs ∧
         (∀ l, l < (Ids mm).length →
-          interp V (consList fs ρp) ((Ess₀.getD J []).getD l default) = projS l t) ∧
-        x = injW w J (mkTower (fs ++ [pt])) := by
+          interp V (consList fs ρp) ((Ess₀.getD (offs mm + j) []).getD l default) = projS l t) ∧
+        x = injW w j (mkTower (fs ++ [pt])) := by
   have hT := h.1
   have hW := hT.1
   have henc := tagEnc_idxEnc hT
@@ -846,8 +873,13 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
       ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W (tupleIdss k Ids))) := by
     rw [lfpFamSpace_eq]; exact joinE_mem henc hX
   have hτ : tagEnc W Ids mm t ∈ˢ idxSet W ρp (auxIds W (tupleIdss k Ids)) := henc.mem mm hmm t ht
+  -- the tuple's member tag is `mm`
+  have htag : caseTag (tagEnc W Ids mm t) = mm := by
+    obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hW ht
+    rw [heq, tagEnc_mkTower W hsp.length_eq]
+    exact caseTag_tupW hW _ _
   unfold tupleLfpΦ
-  rw [app_splitFun ht, fixFunVI_app hY, famFI_app hτ]
+  rw [app_splitFun ht, caseFunVI_app hY, caseFamFI_app hτ]
   -- the tagged chain fit is the untagged fit
   have hfitJ : ∀ J, J < Fss₀.length → ∀ fs : List V,
       SpineFit (cons (tagEnc W Ids mm t) (cons
@@ -858,8 +890,8 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
       FitsFrom (rss.getD J []) (fun i ρ => slotSet w W ρ ((tlss.getD J []).getD i [])
           ((Eiss₀.getD J []).getD i []) (X ((tgts.getD J []).getD i 0))) 0 ρp (Fss₀.getD J []) fs := by
     intro J hJ fs
-    have hsx := h.2.hfit _ hY _ hτ J hJ
-    exact (spineFit_chainXIGo_iff (w := w) h.2.hI (Fss₀.getD J []) 0 [] fs rfl hsx).trans
+    have hsx := h.2.1.hfit _ hY _ hτ J hJ
+    exact (spineFit_chainXIGo_iff (w := w) h.2.1.hI (Fss₀.getD J []) 0 [] fs rfl hsx).trans
       (fitsFrom_tag_iff hT (n := (Fss₀.getD J []).length) (fun i hi hri =>
         ⟨tupleEiss_getD_getD (by rw [hS.lenEi]; exact hJ) (by rw [hS.eiLen J hJ]; exact hi),
           (hS.tgtOk J hJ i hi hri).1, (hS.tgtOk J hJ i hi hri).2⟩)
@@ -874,18 +906,18 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
       (EqAll (consList fs (cons (tagEnc W Ids mm t) (cons
           (joinE k (fun m => idxSet W ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ids) X)
           ρp)))
-        (eqsXI (auxIds W (tupleIdss k Ids)).length (Fss₀.getD J []).length
+        (eqsXI 1 (Fss₀.getD J []).length
           ((tupleEss W (tupleIdss k Ids) mems nFs Ess₀).getD J [])) ↔
         mems.getD J 0 = mm ∧ ∀ l, l < (Ids mm).length →
           interp V (consList fs ρp) ((Ess₀.getD J []).getD l default) = projS l t) := by
     intro J hJ fs hlenfs hsp
     rw [tupleEss_getD (by rw [hS.lenE]; exact hJ), hS.nF J hJ]
     -- the terminator is graded at the fitting prefix
-    have hok0 := h.2.hok _ hY _ hτ
-    have hchain : chainXI W (auxIds W (tupleIdss k Ids)) (auxIds W (tupleIdss k Ids)).length
+    have hok0 := h.2.1.hok _ hY _ hτ
+    have hchain : chainXI W (auxIds W (tupleIdss k Ids)) 1
         (rss.getD J []) (tlss.getD J []) ((tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀).getD J [])
         (Fss₀.getD J []) ((tupleEss W (tupleIdss k Ids) mems nFs Ess₀).getD J [])
-        ∈ chainsXI W (auxIds W (tupleIdss k Ids)) (auxIds W (tupleIdss k Ids)).length rss tlss
+        ∈ chainsXI W (auxIds W (tupleIdss k Ids)) 1 rss tlss
           (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀
           (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) :=
       List.mem_of_getElem? (by rw [chainsXI_getElem?, if_pos hJ])
@@ -901,12 +933,12 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
       Nat.sub_self] at hwd
     rw [hlenC, tupleEss_getD (by rw [hS.lenE]; exact hJ), hS.nF J hJ] at hwd
     simp only [List.getElem?_cons_zero, Option.getD_some] at hwd
-    have heqs : eqsXI (auxIds W (tupleIdss k Ids)).length (Fss₀.getD J []).length
+    have heqs : eqsXI 1 (Fss₀.getD J []).length
         [tagTupleAV W (mems.getD J 0) (Fss₀.getD J []).length (tupleIdss k Ids) (Ess₀.getD J [])]
         = [((tagTupleAV W (mems.getD J 0) (Fss₀.getD J []).length (tupleIdss k Ids)
             (Ess₀.getD J [])).liftN 2 (Fss₀.getD J []).length,
           projAV 0 (.bvar (Fss₀.getD J []).length))] := by
-      simp only [eqsXI, auxIds, List.length_singleton, List.range_succ, List.range_zero,
+      simp only [eqsXI, List.range_succ, List.range_zero,
         List.nil_append, List.map_cons, List.map_nil, List.getD_cons_zero]
     rw [heqs] at hwd
     obtain ⟨hokT, -⟩ := wellDenoted_idxEqAV_head hwd
@@ -917,38 +949,38 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
   · subst hw
     constructor
     · intro hx
-      obtain ⟨rfl, J, fs, hJ, hlen, hsp, hall⟩ := fixStepI_zero_elim hx
-      obtain ⟨hmemJ, heqs⟩ := (htermJ J hJ fs hlen hsp).mp hall
-      refine ⟨J, fs, hJ, hmemJ, (hfitJ J hJ fs).mp hsp, heqs, ?_⟩
+      obtain ⟨rfl, j, fs, hJ, hlen, hsp, hall⟩ := caseStepI_zero_elim hx
+      rw [htag] at hJ hlen hsp hall
+      obtain ⟨hmemJ, heqs⟩ := (htermJ _ hJ fs hlen hsp).mp hall
+      refine ⟨j, fs, hJ, hmemJ, (hfitJ _ hJ fs).mp hsp, heqs, ?_⟩
       rw [injW_zero]
-    · rintro ⟨J, fs, hJ, hmemJ, hf, hall, rfl⟩
-      have hsp := (hfitJ J hJ fs).mpr hf
-      have hlen : fs.length = (Fss₀.getD J []).length := hf.length_eq
+    · rintro ⟨j, fs, hJ, hmemJ, hf, hall, rfl⟩
+      have hsp := (hfitJ _ hJ fs).mpr hf
+      have hlen : fs.length = (Fss₀.getD (offs mm + j) []).length := hf.length_eq
       rw [injW_zero]
-      unfold fixStepI
-      refine pt_mem_sumSet_zero (i := J) (a := pt) ?_
+      unfold caseStepI
+      rw [htag]
+      refine pt_mem_sumSet_zero (i := j) (a := pt) ?_
       unfold sumFibre
-      rw [chainsXI_getElem?, if_pos hJ]
+      rw [caseChains_getElem?, if_pos hJ]
       unfold chainXI
       refine pt_mem_tower_teleOfFields (as := fs ++ [pt]) ?_
-      exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ J hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
+      exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ _ hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
   · constructor
     · intro hx
-      obtain ⟨J, fs, rfl, hJ, hlen, hsp, hall⟩ := fixStepI_elim hw hx
-      obtain ⟨hmemJ, heqs⟩ := (htermJ J hJ fs hlen hsp).mp hall
-      refine ⟨J, fs, hJ, hmemJ, (hfitJ J hJ fs).mp hsp, heqs, ?_⟩
+      obtain ⟨j, fs, rfl, hJ, hlen, hsp, hall⟩ := caseStepI_elim hw hx
+      rw [htag] at hJ hlen hsp hall
+      obtain ⟨hmemJ, heqs⟩ := (htermJ _ hJ fs hlen hsp).mp hall
+      refine ⟨j, fs, hJ, hmemJ, (hfitJ _ hJ fs).mp hsp, heqs, ?_⟩
       rw [injW_pos hw]
-    · rintro ⟨J, fs, hJ, hmemJ, hf, hall, rfl⟩
-      have hsp := (hfitJ J hJ fs).mpr hf
-      have hlen : fs.length = (Fss₀.getD J []).length := hf.length_eq
+    · rintro ⟨j, fs, hJ, hmemJ, hf, hall, rfl⟩
+      have hsp := (hfitJ _ hJ fs).mpr hf
+      have hlen : fs.length = (Fss₀.getD (offs mm + j) []).length := hf.length_eq
       rw [injW_pos hw]
-      unfold fixStepI
-      refine inj_mem hw ?_
-      unfold sumFibre
-      rw [chainsXI_getElem?, if_pos hJ]
-      unfold chainXI
-      refine mkTower_mem hw (fitsS_teleOfFields.mpr ?_)
-      exact spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, (htermJ J hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩⟩
+      refine caseStepI_intro hw (j := j) (fs := fs) ?_ ?_ ?_
+      · rw [htag]; exact hJ
+      · rw [htag]; exact hsp
+      · rw [htag]; exact (htermJ _ hJ fs hlen hsp).mpr ⟨hmemJ, hall⟩
 
 end Fibre
 
@@ -962,15 +994,15 @@ intros, and nothing else does (DESIGN §U.7 (c)). -/
 
 section Seam
 
-variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {mems nFs : List Nat}
+variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {offs : Nat → Nat} {mems nFs : List Nat}
   {tgts : List (List Nat)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : List (List (List AnnotTerm))} {Fss₀ Ess₀ : List (List AnnotTerm)}
 
 /-- **The representation** (the assembly's seam): member `m`'s leaf
 is #278's `mutualTyAVI` at the tagged data. -/
 theorem tupleLfpAV_repr (pps : List (Nat × Nat × AnnotTerm)) (nIdx m : Nat) :
-    tupleLfpAV W w pps nIdx k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m
-      = mutualTyAVI W w pps nIdx (tupleIdss k Ids) rss tlss
+    tupleLfpAV W w pps nIdx k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m
+      = mutualTyAVI W w pps nIdx (tupleIdss k Ids) offs rss tlss
           (tupleEiss W (tupleIdss k Ids) tgts tlss Eiss₀) Fss₀
           (tupleEss W (tupleIdss k Ids) mems nFs Ess₀) m := by
   rfl
@@ -978,9 +1010,10 @@ theorem tupleLfpAV_repr (pps : List (Nat × Nat × AnnotTerm)) (nIdx m : Nat) :
 /-- The leaf is a λ-tower over its binder data. -/
 theorem tupleLfpAV_lams (pps : List (Nat × Nat × AnnotTerm)) (nIdx m : Nat) :
     ∃ B : AnnotTerm,
-      tupleLfpAV W w pps nIdx k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m = mkLamsC (w + 1) pps B := by
+      tupleLfpAV W w pps nIdx k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m
+        = mkLamsC (w + 1) pps B := by
   rw [tupleLfpAV_repr]
-  exact ⟨_, mutualTyAVI_eq_mkLamsC _ _ _ _ _ _ _ _ _ _ _⟩
+  exact ⟨_, mutualTyAVI_eq_mkLamsC _ _ _ _ _ _ _ _ _ _ _ _⟩
 
 end Seam
 

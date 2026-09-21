@@ -3,16 +3,18 @@ module
 public import ConLeche.Model.Inductives.MutualShadow
 import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Model.Inductives.FixAssemblyKit
+import ConLeche.Model.Inductives.CaseWitness
 public import ConLeche.Semantics.Tower.MutualLeafFacts
 public section
 
 /-!
 # The auxiliary family's chains (task #278, M2.4)
 
-The mutual block's members are fibres of ONE fixpoint-route family at
-the tag — the tagged union of the members' index towers
-(`Semantics/Tower/MutualLeafI.lean`).  This module spells that
-family's chain data off the constructors' readings
+The mutual block's members are fibres of ONE CASED family at the tag —
+the tagged union of the members' index towers, with the sum at a tuple
+of member `m` running over member `m`'s own suffix of the block's
+chains (`Semantics/Tower/CaseFamI.lean`, `MutualLeafI.lean`).  This
+module spells that family's chain data off the constructors' readings
 (`MutualData.lean`) and proves what the fixpoint route's premise
 theorem (`fixPre_of`) asks of it:
 
@@ -28,7 +30,9 @@ theorem (`fixPre_of`) asks of it:
 * the walk's inputs at every constructor (`ChainFacts` at the
   auxiliary family, `mutualChainFacts_at`) and, from them,
   `XChainsOk`, `FixChainsOkI` and `ChainsRealI` for the whole block
-  (`mutualChainFacts_of`).
+  (`mutualChainFacts_of`), and the cased functor's closed member
+  family (`mutualCaseClosed_of`, `CaseWitness.lean`'s container
+  witness at the tagged data).
 
 The one new step over the fixpoint route is the TAG: a slot's index
 fit is `SpineFit ρp [tagTyAV] [inj m' ⟨e⃗⟩]`, which is the member's
@@ -768,7 +772,7 @@ to the AUXILIARY family at the 1-tuple of the member's tagged index
 tuple (`fixLeafApp` at a member of a mutual block, through
 `mutualTyAVI_fold`). -/
 theorem mutualLeafAppC {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)}
-    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {Idss : List (List AnnotTerm)} {offs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss Ess' : List (List AnnotTerm)} {ρp : Nat → V}
     (hlenT : ppsT.length = nP + ((ppsT.drop nP).map (·.2.2)).length)
@@ -779,12 +783,12 @@ theorem mutualLeafAppC {W w nP m'' : Nat} {ppsT : List (Nat × Nat × AnnotTerm)
     {A : AnnotTerm}
     (hA : ∀ σ : Nat → V, interp V σ A
       = interp V (fun j => ρp (j + nP))
-          (mutualTyAVI W w ppsT ((ppsT.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss Ess'
-            m''))
+          (mutualTyAVI W w ppsT ((ppsT.drop nP).map (·.2.2)).length Idss offs rss tlss Eiss'
+            Fss Ess' m''))
     {as : List V} {Eis : List AnnotTerm}
     (hsp : SpineFit ρp ((ppsT.drop nP).map (·.2.2)) (Eis.map (interp V (consList as ρp)))) :
     interp V (consList as ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
-      = SetTheory.app (auxFamI W w ρp Idss rss tlss Eiss' Fss Ess')
+      = SetTheory.app (auxFamI W w ρp Idss offs rss tlss Eiss' Fss Ess')
           (auxTup W (inj m'' (mkTower (Eis.map (interp V (consList as ρp)) ++ [pt])))) := by
   have hlenI : (Eis.map (interp V (consList as ρp))).length
       = ((ppsT.drop nP).map (·.2.2)).length := hsp.length_eq
@@ -903,7 +907,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
     (hD : MutualCtorDataI mp.base2 env₀ members T lps cvCa nP nF nIdx resSort isProp large
       idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
-    {W mem : Nat} {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {W mem : Nat} {Idss : List (List AnnotTerm)} {offs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss₀ Ess' : List (List AnnotTerm)} (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp)
@@ -921,9 +925,9 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         Sat V ((ppsT.take nP).map (·.2.2)).reverse ρp ∧
         mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ
           = mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
-              rss tlss Eiss' Fss₀ Ess' (tgtAt ks i))
+              offs rss tlss Eiss' Fss₀ Ess' (tgtAt ks i))
     (hokFix : FixChainsOkI W (resSort.eval ψ) ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess') :
-    ChainRealI (auxFamI W (resSort.eval ψ) ρp Idss rss tlss Eiss' Fss₀ Ess') W (resSort.eval ψ)
+    ChainRealI (auxFamI W (resSort.eval ψ) ρp Idss offs rss tlss Eiss' Fss₀ Ess') W (resSort.eval ψ)
       ρp (auxIds W Idss) (rsOf (kindsOf ks)) (tss ψ)
       ((List.range nF).map fun i =>
         [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
@@ -961,7 +965,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     have hA : ∀ σ : Nat → V, interp V σ (mp.base2.acval (mutualNameOf members (tgtAt ks i)) ψ)
         = interp V (fun j => ρp (j + nP))
             (mutualTyAVI W (resSort.eval ψ) ppsT ((ppsT.drop nP).map (·.2.2)).length Idss
-              rss tlss Eiss' Fss₀ Ess' (tgtAt ks i)) := by
+              offs rss tlss Eiss' Fss₀ Ess' (tgtAt ks i)) := by
       intro σ
       rw [← hAT]
       exact interp_closed (V := V) (mp.base2.cval_closedL _ ψ) σ _
@@ -1034,6 +1038,7 @@ against the X-source ones, and the chains' validity — `xChainsOk_of`
 at the tag, from the per-constructor facts (`mutualChainFacts_at`,
 `mutualChainValidFacts_at`, `mutualChainReal_at`). -/
 theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+    {offs : Nat → Nat}
     {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss₀ Fss Ess' : List (List AnnotTerm)}
@@ -1047,12 +1052,12 @@ theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (Lis
       (tlss.getD J []) (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
     (hCV : ∀ J, J < n → ChainValidFacts nP (nFs J) ρp (kindsOf (ksF J)) (tlss.getD J [])
       (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
-    (hreal : ∀ J, J < n → ChainRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp
+    (hreal : ∀ J, J < n → ChainRealI (auxFamI W w ρp Idss offs rss tlss Eiss' Fss₀ Ess') W w ρp
       (auxIds W Idss) (rss.getD J []) (tlss.getD J []) (Eiss'.getD J []) 0 []
       (Fss₀.getD J []) (Fss.getD J [])) :
     XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess' ∧
     FixChainsOkI W w ρp (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess' ∧
-    ChainsRealI (auxFamI W w ρp Idss rss tlss Eiss' Fss₀ Ess') W w ρp (auxIds W Idss) rss tlss
+    ChainsRealI (auxFamI W w ρp Idss offs rss tlss Eiss' Fss₀ Ess') W w ρp (auxIds W Idss) rss tlss
       Eiss' Fss₀ Fss Ess' ∧
     (∀ X, X ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)) →
       ∀ t, t ∈ˢ idxSet W ρp (auxIds W Idss) →
@@ -1074,36 +1079,61 @@ theorem mutualChainFacts_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (Lis
     rw [hlenR] at hJ
     exact hreal J hJ
 
+/-- **The cased functor's closed member family** at the block's tagged
+data: `CaseWitness.lean`'s container witness (`caseClosed_all`) at the
+auxiliary index telescope, from the very facts `mutualChainFacts_of`
+consumes — the premise the fibre's sum needs (`mutualCtorFold`). -/
+theorem mutualCaseClosed_of {nP n W w : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
+    {ksF : Nat → List (RecFieldKind × Nat)} {nFs : Nat → Nat} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
+    {Fss₀ Ess' : List (List AnnotTerm)}
+    (hTag : TagOk W ρp Idss) (hlen₀ : Fss₀.length = n)
+    (hrss : ∀ J, J < n → rss.getD J [] = rsOf (kindsOf (ksF J)))
+    (hFs₀ : ∀ J, J < n → (Fss₀.getD J []).length = nFs J)
+    (hC : ∀ J, J < n → ChainFacts W w nP (nFs J) ρp (auxIds W Idss) (kindsOf (ksF J))
+      (tlss.getD J []) (Fss₀.getD J []) (Eiss'.getD J []) (Ess'.getD J []))
+    (hX : XChainsOk W w ρp (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
+    (offs : Nat → Nat) :
+    ∃ L, IsClosedFam w (idxSet W ρp (auxIds W Idss))
+      (caseFunVI W w ρp Idss offs rss tlss Eiss' Fss₀ Ess') L :=
+  caseClosed_all (ksF := fun J => kindsOf (ksF J)) (auxIds_idxOk hTag)
+    (fun J hJ => hrss J (by omega))
+    (fun J hJ => by rw [hFs₀ J (by omega)]; exact hC J (by omega)) hX.hok offs
+
 /-! ## The constructor leaf's premise -/
 
 /-- **The constructor's residual folds to the auxiliary family's
 fibre** at the TAGGED index tuple: its own member's leaf applied at
-the parameter variables and its index expressions is the auxiliary
-family at the 1-tuple `⟨inj mem ⟨e⃗⟩⟩` (`mutualLeafAppC`), which is the
-restricted tagged union there (`fixFamI_app_eq_sum` at the 1-tuple
-spine). -/
+the parameter variables and its index expressions is the auxiliary —
+CASED — family at the 1-tuple `⟨inj mem ⟨e⃗⟩⟩` (`mutualLeafAppC`),
+which is the restricted tagged union over member `mem`'s OWN SUFFIX of
+the real chains there (`caseFamI_app_eq_sum` at the 1-tuple spine, its
+closed family `mutualCaseClosed_of`): the element's tag is
+member-local (DESIGN §U.15 (c), task #315 M6 s4). -/
 theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTerm)}
-    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {Idss : List (List AnnotTerm)} {offs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss₀ Fss Ess' : List (List AnnotTerm)} {ρ : Nat → V}
     (hlenM : ppsM.length = nP + ((ppsM.drop nP).map (·.2.2)).length)
     (hIdsM : Idss[mem]? = some ((ppsM.drop nP).map (·.2.2)))
     (hTag : TagOk W ρ Idss)
     (hX : XChainsOk W w ρ (auxIds W Idss) rss tlss Eiss' Fss₀ Ess')
-    (hreal : ChainsRealI (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess') W w ρ (auxIds W Idss)
+    (hcl : ∃ L, IsClosedFam w (idxSet W ρ (auxIds W Idss))
+      (caseFunVI W w ρ Idss offs rss tlss Eiss' Fss₀ Ess') L)
+    (hreal : ChainsRealI (auxFamI W w ρ Idss offs rss tlss Eiss' Fss₀ Ess') W w ρ (auxIds W Idss)
       rss tlss Eiss' Fss₀ Fss Ess')
     (hρ : Sat V ((ppsM.take nP).map (·.2.2)).reverse ρ)
     {A : AnnotTerm}
     (hA : ∀ σ : Nat → V, interp V σ A
       = interp V (fun j => ρ (j + nP))
-          (mutualTyAVI W w ppsM ((ppsM.drop nP).map (·.2.2)).length Idss rss tlss Eiss' Fss₀ Ess'
-            mem))
+          (mutualTyAVI W w ppsM ((ppsM.drop nP).map (·.2.2)).length Idss offs rss tlss Eiss' Fss₀
+            Ess' mem))
     {bs : List V} {Es : List AnnotTerm} (hlenbs : bs.length = nF)
     (hEok : ∀ E ∈ Es, WellDenoted V (consList bs ρ) E)
     (hfit : SpineFit ρ ((ppsM.drop nP).map (·.2.2)) (Es.map (interp V (consList bs ρ)))) :
     interp V (consList bs ρ) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + nF) ++ Es))
       = sumSet w (sumFibre w (consList (idxValsAt ρ [tagTupleAV W mem nF Idss Es] bs) ρ)
-          (rChains 1 1 Fss Ess')) := by
+          (rChains 1 1 (Fss.drop (offs mem)) (Ess'.drop (offs mem)))) := by
   have hfr : shiftE nF 0 (consList bs ρ) = ρ := by rw [← hlenbs]; exact shiftE_consList _ ρ
   obtain ⟨hval, -⟩ := tagTupleAV_facts hTag hIdsM hfr hEok hfit
   have hmem : inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt]))
@@ -1115,9 +1145,9 @@ theorem mutualCtorFold {W w nP nF mem : Nat} {ppsM : List (Nat × Nat × AnnotTe
   have hfold := mutualLeafAppC hlenM hIdsM hTag hX.hok hρ hA (as := bs) (Eis := Es) hfit
   rw [hlenbs] at hfold
   rw [hfold]
-  have hsum := fixFamI_app_eq_sum hX hreal hsp1
-  rw [show (auxIds W Idss).length = 1 from rfl] at hsum
-  show SetTheory.app (auxFamI W w ρ Idss rss tlss Eiss' Fss₀ Ess')
+  unfold auxFamI at hreal
+  have hsum := caseFamI_app_eq_sum hTag.1 hX hcl hreal hsp1
+  show SetTheory.app (auxFamI W w ρ Idss offs rss tlss Eiss' Fss₀ Ess')
       (auxTup W (inj mem (mkTower (Es.map (interp V (consList bs ρ)) ++ [pt])))) = _
   unfold auxFamI auxTup
   rw [hsum]

@@ -14,7 +14,8 @@ what the P step at ONE such cons reads (`stageBlockTable`,
 `BlockStageTable.lean`): the member's and its constructor's lookups
 and names, their readings, the fields' sorts, and — the set-level
 content — the member's carrier `S` at a parameter frame with its
-`FibreAt` shape at the constructor's GLOBAL block position `J`, and
+`FibreAt` shape at the constructor's tag `J` (the MEMBER-LOCAL
+position — `0` at a structure-like member, task #315 M6 s4), and
 the constructor's value at a fitting spine as the tagged tower
 injection.  The bundle is FLAT (no block model inside), because it must
 cross the OTHER members' table conses (`TableMember.cross`,
@@ -26,7 +27,8 @@ The uniform block model (`IsBlockModel`, DESIGN §U.3) instantiates the bundle
 once at the recursors' environment (`MutualTables.lean`): `S` is the
 member's `lfpTuple` component at the empty index tuple, the fibre is
 the block model's `fibre` clause decoded by `mkInj`, the injection the
-tower `injW w J (mkTower (fs ++ [pt]))` (`ofMutual_mkInj`).
+tower `injW w 0 (mkTower (fs ++ [pt]))` (`MutualTableFacts.inj`, the
+member-local tag).
 -/
 
 namespace ConLeche.Model
@@ -44,8 +46,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- **One structure-like member's table data**, flat, at a model of
 the environment its table is consed on (see the module docstring).
-`T` is the member, `cvCa` its one constructor (`nF` fields, at global
-block position `J`), `resSort` the member's OWN declared sort (the
+`T` is the member, `cvCa` its one constructor (`nF` fields, tagged
+`J` — its member-local position), `resSort` the member's OWN declared sort (the
 table's), `isProp` the block's `Prop` bit, `sorts` the constructor's
 field sorts as the constructor stage read them, `pps`/`ds`/`Es` the
 readings, `S ψ ρ'` the carrier at the parameter frame `ρ'`. -/
@@ -143,7 +145,8 @@ name. -/
 
 /-- **A member's table data, when the kernel conses its table**: at a
 structure-like member (`ownCtors` one constructor at global position
-`J`, no index) the flat bundle at that constructor; at any other
+`J`, no index) the flat bundle at that constructor, tagged `0` (its
+member-local position); at any other
 member nothing (`mutualMemberTable` conses nothing there,
 `mutualMemberTable_inv`).  `S mIdx` is the member's carrier. -/
 @[expose] def MemberTableOk (m : EnvModel V env) (b : MutualBlock)
@@ -152,7 +155,7 @@ member nothing (`mutualMemberTable` conses nothing there,
   ∀ (J : Nat) (c : MutualCtor), b.ownCtors mIdx = [(J, c)] → f.nIdx = 0 →
     ∃ (pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (Es : (Name → Nat) → List AnnotTerm),
       (ctorsA.getD J default).1.name = c.cv.name ∧ (ctorsA.getD J default).2 = c.nF ∧
-      TableMember m b.lps b.nP f.cvTa.name f.cvTa (ctorsA.getD J default).1 c.nF J f.s isProp
+      TableMember m b.lps b.nP f.cvTa.name f.cvTa (ctorsA.getD J default).1 c.nF 0 f.s isProp
         (sortss.getD J []) pps ds Es (S mIdx)
 
 end ConLeche.Model

@@ -62,7 +62,7 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
     (hCshape : cA.1.name.isProjFnShape = false)
     (hresC : ConLeche.reservedBasisNames.contains cA.1.name = false)
     {sorts : List Level} (hsj : sortss[J]? = some sorts) :
-    TableMember m b.lps d.nP f.cvTa.name f.cvTa cA.1 cA.2 J f.s d.isProp sorts (d.ppsM mIdx)
+    TableMember m b.lps d.nP f.cvTa.name f.cvTa cA.1 cA.2 0 f.s d.isProp sorts (d.ppsM mIdx)
       (d.dsF mIdx 0) (d.esF mIdx 0) (d.tableCarrier mIdx) := by
   obtain ⟨cvT, cvR, mI, rP, rules, h⟩ := hreps mIdx hmm
   have hj : (d.ctorsM mIdx)[0]? = some cA := by rw [hone]; rfl
@@ -75,9 +75,9 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
   have hBC := h.ctors mIdx 0 cA hmm hj
   have hcd := hBC.2.2
   have hinj : ∀ (ψ : Name → Nat) (fs : List V),
-      d.inj ψ mIdx 0 fs = injW (d.w ψ) J (mkTower (fs ++ [pt])) := by
+      d.inj ψ mIdx 0 fs = injW (d.w ψ) 0 (mkTower (fs ++ [pt])) := by
     intro ψ fs
-    rw [htf.inj, Nat.add_zero, hJ]
+    rw [htf.inj]
   have hJ0 : b.ownOffset mIdx + 0 = J := by rw [Nat.add_zero, hJ]
   obtain ⟨sorts', hsj', hlenS, hleqS, hfieldsS⟩ := htf.sorts mIdx 0 cA hmm hj
   rw [hJ0] at hsj'

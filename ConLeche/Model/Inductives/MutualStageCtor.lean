@@ -10,9 +10,10 @@ public section
 # The mutual block's constructor stage (task #278, M2.5c)
 
 `stageMutualCtor`: the P step at ONE constructor's cons — the sum
-route's constructor leaf `sumMkAV (w ψ) J …` at the constructor's
-GLOBAL block position `J` (the tag the auxiliary family's tagged union
-carries), over the whole block's REAL field chains `FssR`.  It is
+route's constructor leaf `sumMkAV (w ψ) J …` at the tag `J` the caller
+supplies (the tag the auxiliary family's tagged union carries), over
+the chains `FssR` the caller supplies.  The loop instantiates both
+MEMBER-LOCALLY (see below).  It is
 `stageCtorGen` (`Model/Inductives/SumStageCtor.lean`) with three
 mutual differences:
 
@@ -38,6 +39,16 @@ pair — `MutualConsedAt` for the constructors already consed (their
 facts and their leaves) and `MutualPendingAt` for the rest (their
 freshness and their data) — with `MutualCtorDataI.cross` threading a
 constructor's data over each later cons.
+
+The loop's tags are MEMBER-LOCAL (task #315 M6 s4, DESIGN §U.15 (c)):
+its parameter `off` sends a constructor to the position of the first
+constructor of its member, and constructor `J` is consed with the leaf
+at the tag `J - off J` over its member's SUFFIX `(FssR ψ).drop (off J)`
+of the block's real chains.  `off` is the loop's alone: the per-
+constructor step is instantiated at the dropped chains, and the
+block-wide premises (`hFssParams`, `hFssBelow`, `hFssOkP`) stay stated
+at the GLOBAL `FssR` — the suffix's versions follow by
+`List.mem_of_mem_drop`.
 -/
 
 namespace ConLeche.Model
@@ -429,8 +440,11 @@ environment (`PendingAt` with the mutual data). -/
       (xFvsF J) (xrestF J) (eissF J) (tssF J)
 
 /-- The facts about the consed constructors of a mutual block at an
-environment (`ConsedAt` with the mutual data and the GLOBAL block
-position as the tag). -/
+environment (`ConsedAt` with the mutual data and the MEMBER-LOCAL
+position as the tag): constructor `J`'s leaf carries the tag
+`J - off J` over its member's SUFFIX `(FssR ψ).drop (off J)` of the
+block's real chains, where `off J` is the position of the first
+constructor of `J`'s member (task #315 M6 s4, DESIGN §U.15 (c)). -/
 @[expose] def MutualConsedAt {env : Env} (m : EnvModel V env) (env₀ : Env)
     (members : List (Name × Nat × Nat)) (lps : List Name) (nP : Nat) (isProp large : Bool)
     (Tname : Nat → Name) (nIdxOf mots : Nat → Nat) (resSortOf : Nat → Level)
@@ -441,13 +455,15 @@ position as the tag). -/
     (xrestF : Nat → Expr) (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
     (w : (Name → Nat) → Nat) (FssR : (Name → Nat) → List (List AnnotTerm))
+    (off : Nat → Nat)
     (ctorsA : List (ConstantVal × Nat)) (k : Nat) : Prop :=
   ∀ J cA, J < k → ctorsA[J]? = some cA →
     MutualCtorFactsAt m env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
       idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF J cA ∧
     (∀ e ∈ idxF J, e.constsResolve env = true) ∧
     ∀ ψ, m.acval cA.1.name ψ
-      = sumMkAV (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))
+      = sumMkAV (w ψ) (J - off J) (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2))
+          (uChains ((FssR ψ).drop (off J)))
 
 /-! ## The constructors' conses, in block order -/
 
@@ -457,7 +473,10 @@ the formers' environment and conses them afterwards
 (`consMutualCtors`), so the data of every constructor — consed or
 pending — crosses each cons (`MutualCtorDataI.cross`, licensed by the
 block names being stored and the constructor names fresh) and the
-members' leaves are untouched. -/
+members' leaves are untouched.  Constructor `J` is consed with the
+leaf at its MEMBER-LOCAL tag `J - off J` over its member's SUFFIX
+`(FssR ψ).drop (off J)` of the block's real chains (task #315 M6 s4,
+DESIGN §U.15 (c)). -/
 theorem stageMutualCtorsGo
     {F : Nat} {memberNames : List Name} {members : List (Name × Nat × Nat)}
     {lps : List Name} {nP : Nat} {isProp large : Bool} {env₀ : Env}
@@ -470,6 +489,7 @@ theorem stageMutualCtorsGo
     {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
     {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
     {ctorsA : List (ConstantVal × Nat)}
+    (off : Nat → Nat)
     {W w : (Name → Nat) → Nat}
     {Idss FssR Ess' : (Name → Nat) → List (List AnnotTerm)}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -488,11 +508,12 @@ theorem stageMutualCtorsGo
           = sumSet (w ψ) (sumFibre (w ψ)
               (consList (idxValsAt ρ
                 [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)] bs) ρ)
-              (rChains 1 1 (FssR ψ) (Ess' ψ))))
+              (rChains 1 1 ((FssR ψ).drop (off J)) ((Ess' ψ).drop (off J)))))
     (hFsJ : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
-      (FssR ψ)[J]? = some (((dsF J ψ).drop nP).map (·.2.2)))
+      ((FssR ψ).drop (off J))[J - off J]? = some (((dsF J ψ).drop nP).map (·.2.2)))
     (hEsJ : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
-      (Ess' ψ)[J]? = some [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)])
+      ((Ess' ψ).drop (off J))[J - off J]?
+        = some [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)])
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       w ψ₁ = w ψ₂ ∧ FssR ψ₁ = FssR ψ₂)
     (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ FssR ψ, FieldsBelow nP Fs)
@@ -515,7 +536,7 @@ theorem stageMutualCtorsGo
       (∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
         mp.base2.acval (Tname (mots J)) ψ = leafT J ψ) →
       MutualConsedAt mp.base2 env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
-        idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR ctorsA k →
+        idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR off ctorsA k →
       MutualPendingAt mp.base2 env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
         idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF ctorsA k →
       Inv mp.base2 →
@@ -527,7 +548,7 @@ theorem stageMutualCtorsGo
         (∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
           mp'.base2.acval (Tname (mots J)) ψ = leafT J ψ) ∧
         MutualConsedAt mp'.base2 env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
-          idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR ctorsA ctorsA.length ∧
+          idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR off ctorsA ctorsA.length ∧
         Inv mp'.base2 ∧
         (∀ n : Name, (∀ cA ∈ rest, n ≠ cA.1.name) → mp'.base2.acval n = mp.base2.acval n)
   | [], k, env, mp, _, hk, hE, hfound, hleaf, hcons, _, hinv => by
@@ -560,15 +581,33 @@ theorem stageMutualCtorsGo
             = sumSet (w ψ) (sumFibre (w ψ)
                 (consList (idxValsAt ρ
                   [tagTupleAV (W ψ) (mots k) cA.2 (Idss ψ) (esF k ψ)] bs) ρ)
-                (rChains 1 1 (FssR ψ) (Ess' ψ))) := by
+                (rChains 1 1 ((FssR ψ).drop (off k)) ((Ess' ψ).drop (off k)))) := by
       intro ψ ρ hρ bs hsp
       unfold ctorBodyAVI
       rw [hleaf k cA hcAk ψ]
       exact hfold k cA hcAk ψ ρ hρ bs hsp
     have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ htr
-    obtain ⟨mpC, hacC⟩ := stageMutualCtor (J := k) (mem := mots k) mp hE hCtor hfresh htr hlpsC
-      (hw k cA hcAk) hCD.toCtorDataI hfoldC (hFsJ k cA hcAk) (hEsJ k cA hcAk) hFssParams
-      hFssBelow (hiff k cA hcAk) (hFssOkP k cA hcAk)
+    -- the member's SUFFIX of the block's real chains, at which the
+    -- constructor's tag is its MEMBER-LOCAL position `k - off k`
+    have hFssParams' : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+        w ψ₁ = w ψ₂ ∧ (FssR ψ₁).drop (off k) = (FssR ψ₂).drop (off k) := by
+      intro ψ₁ ψ₂ hφ
+      obtain ⟨hwe, hFe⟩ := hFssParams ψ₁ ψ₂ hφ
+      exact ⟨hwe, by rw [hFe]⟩
+    have hFssBelow' : ∀ ψ : Name → Nat, ∀ Fs ∈ (FssR ψ).drop (off k), FieldsBelow nP Fs :=
+      fun ψ Fs hFs => hFssBelow ψ Fs (List.mem_of_mem_drop hFs)
+    have hFssOkP' : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((dsF k ψ).take nP).map (·.2.2)).reverse ρ →
+        SumFieldsOkB (w ψ) ρ ((FssR ψ).drop (off k)) ∧
+          SumFieldsValid ρ ((FssR ψ).drop (off k)) := by
+      intro ψ ρ hρ
+      obtain ⟨hok, hv⟩ := hFssOkP k cA hcAk ψ ρ hρ
+      exact ⟨fun Fs hFs => hok Fs (List.mem_of_mem_drop hFs),
+        fun Fs hFs => hv Fs (List.mem_of_mem_drop hFs)⟩
+    obtain ⟨mpC, hacC⟩ := stageMutualCtor (J := k - off k) (mem := mots k)
+      (FssR := fun ψ => (FssR ψ).drop (off k)) mp hE hCtor hfresh htr hlpsC
+      (hw k cA hcAk) hCD.toCtorDataI hfoldC (hFsJ k cA hcAk) (hEsJ k cA hcAk) hFssParams'
+      hFssBelow' (hiff k cA hcAk) hFssOkP'
     -- the invariants at the extension
     have hE' : ConLeche.EtaFamiliesClosed ⟨.ctorInfo cA.1 nP cA.2 :: env.consts⟩ :=
       hE.cons_nonind hfresh (fun _ _ heq => nomatch heq)
@@ -589,7 +628,8 @@ theorem stageMutualCtorsGo
       rw [acvalWith_ne (hTne J cAJ hJ)]
       exact hleaf J cAJ hJ ψ
     have hcons' : MutualConsedAt mpC.base2 env₀ members lps nP isProp large Tname nIdxOf mots
-        resSortOf idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR ctorsA (k + 1) := by
+        resSortOf idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR off ctorsA
+        (k + 1) := by
       intro J cAJ hJk hJ
       rcases Nat.lt_or_ge J k with hlt | hge
       · obtain ⟨⟨hfi, hlpsi, hCDi⟩, hresi, hleafi⟩ := hcons J cAJ hlt hJ
@@ -640,7 +680,7 @@ theorem stageMutualCtorsGo
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 cA _ mpC.base2 ⟨k, hcAk⟩ hfresh hacC hinv
     obtain ⟨mp', hE'', hfound'', hleaf'', hcons'', hinv'', hag⟩ :=
-      stageMutualCtorsGo hnd hrun hw hfold hFsJ hEsJ hFssParams hFssBelow hiff hFssOkP Inv hInv
+      stageMutualCtorsGo off hnd hrun hw hfold hFsJ hEsJ hFssParams hFssBelow hiff hFssOkP Inv hInv
         rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfound' hleaf' hcons' hpend' hinv'
     refine ⟨mp', hE'', hfound'', hleaf'', hcons'', hinv'', ?_⟩
     intro n hn
@@ -650,7 +690,9 @@ theorem stageMutualCtorsGo
 /-- **The constructors' stage of the mutual install**: the block's `n`
 constructors consed onto the formers' environment in block order
 (`consMutualCtors`), constructor `J` with the sum route's leaf at its
-GLOBAL position `J` over the whole block's real field chains.  The
+MEMBER-LOCAL tag `J - off J` over its member's SUFFIX
+`(FssR ψ).drop (off J)` of the block's real field chains (task #315
+M6 s4, DESIGN §U.15 (c)).  The
 environment the conses land on keeps its stored η families closed and
 its block names found, every member's leaf is untouched, and the
 constructors' facts and leaves hold at the end. -/
@@ -666,6 +708,7 @@ theorem stageMutualCtors
     {xrestF : Nat → Expr} {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
     {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
     {ctorsA : List (ConstantVal × Nat)}
+    (off : Nat → Nat)
     {W w : (Name → Nat) → Nat}
     {Idss FssR Ess' : (Name → Nat) → List (List AnnotTerm)}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -685,11 +728,12 @@ theorem stageMutualCtors
           = sumSet (w ψ) (sumFibre (w ψ)
               (consList (idxValsAt ρ
                 [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)] bs) ρ)
-              (rChains 1 1 (FssR ψ) (Ess' ψ))))
+              (rChains 1 1 ((FssR ψ).drop (off J)) ((Ess' ψ).drop (off J)))))
     (hFsJ : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
-      (FssR ψ)[J]? = some (((dsF J ψ).drop nP).map (·.2.2)))
+      ((FssR ψ).drop (off J))[J - off J]? = some (((dsF J ψ).drop nP).map (·.2.2)))
     (hEsJ : ∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
-      (Ess' ψ)[J]? = some [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)])
+      ((Ess' ψ).drop (off J))[J - off J]?
+        = some [tagTupleAV (W ψ) (mots J) cA.2 (Idss ψ) (esF J ψ)])
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       w ψ₁ = w ψ₂ ∧ FssR ψ₁ = FssR ψ₂)
     (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ FssR ψ, FieldsBelow nP Fs)
@@ -721,15 +765,16 @@ theorem stageMutualCtors
       (∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
         mp₂.base2.acval (Tname (mots J)) ψ = leafT J ψ) ∧
       MutualConsedAt mp₂.base2 env₀ members lps nP isProp large Tname nIdxOf mots resSortOf
-        idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR ctorsA ctorsA.length ∧
+        idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF w FssR off ctorsA ctorsA.length ∧
       Inv mp₂.base2 ∧
       (∀ J cA, ctorsA[J]? = some cA → ∀ ψ : Name → Nat,
         mp₂.base2.acval cA.1.name ψ
-          = sumMkAV (w ψ) J (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2)) (uChains (FssR ψ))) ∧
+          = sumMkAV (w ψ) (J - off J) (dsF J ψ) (((dsF J ψ).drop nP).map (·.2.2))
+              (uChains ((FssR ψ).drop (off J)))) ∧
       (∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) →
         mp₂.base2.acval n = mp₁.base2.acval n) := by
   obtain ⟨mp₂, hE₂, hfound₂, hleaf₂, hcons₂, hinv₂, hag⟩ :=
-    stageMutualCtorsGo hnd hrun hw hfold hFsJ hEsJ hFssParams hFssBelow hiff hFssOkP Inv hInv
+    stageMutualCtorsGo off hnd hrun hw hfold hFsJ hEsJ hFssParams hFssBelow hiff hFssOkP Inv hInv
       ctorsA 0 env₁ mp₁ (fun i => by rw [Nat.zero_add]) (by omega) hE hfound hleafT
       (fun J cA h => absurd h (Nat.not_lt_zero J)) hpend hinv
   refine ⟨mp₂, hE₂, hfound₂, hleaf₂, hcons₂, hinv₂, ?_, hag⟩

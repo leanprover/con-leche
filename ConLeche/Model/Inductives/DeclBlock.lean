@@ -91,7 +91,7 @@ by the member's own. -/
 structure MutualTableFacts (b : MutualBlock) (fms : List MutualFormerA)
     (sortss : List (List Level)) (d : BlockModel V) : Prop where
   inj : ∀ (ψ : Name → Nat) (mm j : Nat) (fs : List V),
-    d.inj ψ mm j fs = injW (d.w ψ) (b.ownOffset mm + j) (mkTower (fs ++ [pt]))
+    d.inj ψ mm j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
   frame : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (((d.ppsM t ψ).take d.nP).map (·.2.2)).reverse ρ ↔ Sat V (d.params ψ).reverse ρ
   sorts : ∀ (mm j : Nat) (cA : ConstantVal × Nat), mm < d.k → (d.ctorsM mm)[j]? = some cA →
