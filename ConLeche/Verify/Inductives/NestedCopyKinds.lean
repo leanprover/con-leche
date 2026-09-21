@@ -2340,57 +2340,63 @@ theorem stripDomPis_notPi {E : Expr} (hnf : ∀ ty bo bm, E ≠ Expr.forallE ty 
   | forallE ty bo bm => exact absurd rfl (hnf ty bo bm)
   | _ => exact ⟨rfl, rfl⟩
 
-/-- The base case of `stripDomPis_instSeq`: at a constant-headed
-domain the substitution cannot plant a binder, so both sides are the
-instantiation itself. -/
-theorem stripDomPis_instSeq_leaf (E : Expr) (vs : List Expr) (t : Nat) {K : Name}
-    {us : List Level} (hK : (stripDomPis E).getAppFn = Expr.const K us)
-    (hnf : ∀ ty bo bm, E ≠ Expr.forallE ty bo bm) :
-    domPiDepth (Expr.instSeq vs t E) = domPiDepth E ∧
-      stripDomPis (Expr.instSeq vs t E)
-        = Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) := by
-  obtain ⟨hs, hd⟩ := stripDomPis_notPi hnf
-  rw [hs] at hK
-  have hfn := instSeq_getAppFn_const vs t E hK
-  have hnf2 : ∀ ty bo bm, Expr.instSeq vs t E ≠ Expr.forallE ty bo bm := by
-    intro ty bo bm h
-    rw [h] at hfn
-    simp only [Expr.getAppFn] at hfn
-    exact nomatch hfn
-  obtain ⟨hs2, hd2⟩ := stripDomPis_notPi hnf2
-  rw [hs, hd, hs2, hd2, Nat.add_zero]
-  exact ⟨rfl, rfl⟩
+/-- **THE `Π`-TOWER AND THE CUT, WITH NO GUARD AT ALL** (task #315
+WIDE (f3) step 4): the mint instantiates a field's WHOLE stored domain
+at the field's own cut; `ordTargetDom` strips the domain's tower first
+and instantiates the BODY at the cut the tower pushes out to.  The two
+end at the same stripped term, and the mint's tower is the stored
+domain's plus whatever the substitution PLANTS into the stripped
+body — which is K.72's equation, read on the mint.
 
-/-- **THE `Π`-TOWER SURVIVES AN INSTANTIATION, AND ITS BODY MOVES BY
-THE TOWER'S DEPTH** (task #315 WIDE (3), lane LE): at a domain whose
-stripped body is headed by a constant — the guard K.63/K.65 dispatch
-on — `Expr.instSeq` leaves `domPiDepth` alone and commutes with
-`stripDomPis` at the cut the tower adds.
+**It needs no head hypothesis**, and that is its whole point: the
+guarded form below asks the stripped body to be constant-headed
+precisely so that the substitution cannot plant a `Π`, and here the
+planted tower is measured instead of excluded.  One induction over the
+`Π`-prefix, `Expr.instSeq_forallE` at each step. -/
+theorem stripDomPis_instSeq_tower :
+    ∀ (E : Expr) (vs : List Expr) (t : Nat), vs.length ≤ t + 1 →
+      domPiDepth (Expr.instSeq vs t E)
+          = domPiDepth E
+            + domPiDepth (Expr.instSeq vs (t + domPiDepth E) (stripDomPis E)) ∧
+        stripDomPis (Expr.instSeq vs t E)
+          = stripDomPis (Expr.instSeq vs (t + domPiDepth E) (stripDomPis E)) := by
+  intro E
+  induction E with
+  | forallE ty bo bm _ ihbo =>
+    intro vs t hlen
+    obtain ⟨hd, hs⟩ := ihbo vs (t + 1) (by omega)
+    rw [Expr.instSeq_forallE vs t ty bo bm hlen]
+    have hcut : t + 1 + domPiDepth bo = t + (domPiDepth bo + 1) := by omega
+    refine ⟨?_, ?_⟩
+    · show domPiDepth (Expr.instSeq vs (t + 1) bo) + 1
+        = domPiDepth bo + 1
+          + domPiDepth (Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo))
+      rw [hd, ← hcut]
+      omega
+    · show stripDomPis (Expr.instSeq vs (t + 1) bo)
+        = stripDomPis (Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo))
+      rw [hs, hcut]
+  | _ =>
+    intro vs t _
+    exact ⟨(Nat.zero_add _).symm, rfl⟩
 
-The head hypothesis is not decoration: without it the body could be a
-`bvar` and the substitution could plant a `Π` there, deepening the
-tower. -/
 theorem stripDomPis_instSeq :
     ∀ (E : Expr) (vs : List Expr) (t : Nat) {K : Name} {us : List Level},
       (stripDomPis E).getAppFn = Expr.const K us → vs.length ≤ t + 1 →
       domPiDepth (Expr.instSeq vs t E) = domPiDepth E ∧
         stripDomPis (Expr.instSeq vs t E)
           = Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) := by
-  intro E
-  induction E with
-  | forallE ty bo bm _ ihbo =>
-    intro vs t K us hK hlen
-    obtain ⟨hd, hs⟩ := ihbo vs (t + 1) (K := K) (us := us) hK (by omega)
-    rw [Expr.instSeq_forallE vs t ty bo bm hlen]
-    refine ⟨?_, ?_⟩
-    · show domPiDepth (Expr.instSeq vs (t + 1) bo) + 1 = domPiDepth bo + 1
-      rw [hd]
-    · show stripDomPis (Expr.instSeq vs (t + 1) bo)
-        = Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo)
-      rw [hs, show t + 1 + domPiDepth bo = t + (domPiDepth bo + 1) from by omega]
-  | _ =>
-    intro vs t K us hK _
-    exact stripDomPis_instSeq_leaf _ vs t hK (fun _ _ _ h => nomatch h)
+  intro E vs t K us hK hlen
+  obtain ⟨hd, hs⟩ := stripDomPis_instSeq_tower E vs t hlen
+  have hfn := instSeq_getAppFn_const vs (t + domPiDepth E) (stripDomPis E) hK
+  have hnf : ∀ ty bo bm,
+      Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) ≠ Expr.forallE ty bo bm := by
+    intro ty bo bm h
+    rw [h] at hfn
+    simp only [Expr.getAppFn] at hfn
+    exact nomatch hfn
+  obtain ⟨hs2, hd2⟩ := stripDomPis_notPi hnf
+  exact ⟨by rw [hd, hd2, Nat.add_zero], by rw [hs, hs2]⟩
 
 
 /-- `stripPis` at a domain's OWN tower depth always succeeds, and its
