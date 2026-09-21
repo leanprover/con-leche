@@ -1745,4 +1745,118 @@ theorem hTy_of_run {envC : Env} (hμ : μ.verifiedChecks = true) (mpC : EnvModel
 
 end TyRun
 
+/-! ## 19. The WF regime's `KitRegimeAt`, assembled
+
+Everything §11–§13 built, in ONE step: from the representation, the
+rules' certificates and the six reading bridges, the dispatch's
+`KitRegimeAt` at `ℓ ≠ 0 ∧ w ≠ 0`.  The family datum is
+`blockWfData` at §12's kit family, its step is §11's, and `hstAt` is
+`blockRecStep_at_rule`.
+
+The six bridges are exactly what RM8's session 4 is writing, at the
+rule-data spelling of `M5M-data-REPORT` §S3.4 (`pdoms0`, `fdoms0`,
+`es0`, `mk0`, `Rb0` as functions of the run; `ihs` the model's own
+guarded-call towers, whose reading premise is the constructors'
+stage's per-field `FieldReadAt`).  They are premises here in that
+spelling — this lane parameterises at the chain-frame components
+throughout, which is the side RM8's `ihs` correction moves towards. -/
+
+section KitRegimeWf
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+  {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
+  {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
+  {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms : Nat → Nat → List AnnotTerm}
+  {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
+  {Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : Nat → Nat → List V → V → List V}
+  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+
+/-- **`KitRegimeAt` at the WF regime**, from the representation, the
+certificates and the reading bridges. -/
+theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
+    (hw : d.w ψ ≠ 0) (hmemK : ∀ c, c < K → mem c < d.k)
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (hlenIds : ∀ c, c < K → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
+    (hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
+    (hconclTy : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ mem xs c →
+      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
+      interp V
+          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
+        ∈ˢ (univ ℓ : V))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+    (hspF : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
+    (hihF : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs))
+          (tagged c i (d.inj ψ (mem c) j fs)) →
+        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
+          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+    (hCaB : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
+      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
+            (tagged c i (d.inj ψ (mem c) j fs)))
+    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
+    (hbits : OneElimLevel ℓ K rds) (hpl : ∀ c, c < K → (pdoms c).length = rP c)
+    (hrule : ∀ (D : RecFamData V ℓ K rP rds concl ρ), ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ xs fs : List V, xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ ((rds c).map (·.2.2))
+        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
+          ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)])))
+    (hctorAt : ∀ (D : RecFamData V ℓ K rP rds concl ρ), ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ xs fs : List V, xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      d.ChainFit ψ (consList (xs.take d.nP) ρ)
+          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+            (d.Φ ψ (consList (xs.take d.nP) ρ)))
+          (d.tup ψ (mem c)
+            ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+          (mem c) j fs ∧
+        interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)
+          = d.inj ψ (mem c) j fs)
+    (hihChain : ∀ (D : RecFamData V ℓ K rP rds concl ρ), ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ xs fs : List V, xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      ihv c j fs
+          (kitGraphAt (D.kit xs)
+            (tagged c
+              (D.tupOf c
+                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
+              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
+        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :
+    KitRegimeAt V ℓ K rP nCt rds concl RecTy pdoms fdoms es mk ihs Rb0 ρ := by
+  have hmemN : ∀ c, c < K → mem c < d.N :=
+    fun c hc => Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
+  refine ⟨blockWfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ) d
+      (blockWfKitFam (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) (rP := rP) (nCt := nCt)
+        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB)
+      (blockWf_hsplit hM hmemK hsplitR) ?_,
+    blockRecStep K d ψ ρ mem Rb0 ihv, ihv, ?_, hTyE, hbits, hpl, ?_, ?_, ?_⟩
+  · intro c hc ys hfit
+    rw [blockWfKitFam_B]
+    exact blockWf_hconcl hM hmemN hlenIds hsplitR c hc ys hfit
+  · intro xs
+    rw [blockWfData_st, blockWfKitFam_st]
+  · exact hrule _
+  · exact blockRecStep_at_rule hM hw hmemN hnCt _ (fun _ _ => rfl) (hctorAt _)
+  · exact hihChain _
+
+end KitRegimeWf
+
 end ConLeche.Model
