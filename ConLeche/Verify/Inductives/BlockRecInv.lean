@@ -10,14 +10,9 @@ public section
 What `ConLeche/Kernel/Inductives/BlockRec.lean`'s pieces are, said in
 the form the model tier reads them:
 
-* the generated pieces **unfolded** — `blockMotivesPis` and
-  `blockIhPis` one step at a time — and their agreement
-  with the one-member kit at `k = 1` (`blockRecPrefixAt_one`,
-  `blockIhPis_structIhPis`), which is what makes the `k = 1` instance
-  of the CHECK the one-member shapes;
 * the **guarded call's characterisation** (`blockIhCall?_spine`): a
   node the abstraction replaces IS the generated recursive call
-  `rec_{c'} p⃗ C⃗ m⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
+  `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
   THIS constructor whose kind carries the target `c'` — up to
   `Expr.resetMeta`, which is the comparison the stage makes (and the
   comparison the one-member stage has always made on rule bodies);
@@ -25,7 +20,8 @@ the form the model tier reads them:
   block recursors the walk IS `liftLooseBVars` past the `ih` binders
   (`abstractIh_of_recFree`) — the base case of the substitution lemma
   `⟦body⟧[rec ↦ rec*] = ⟦body''⟧[ih ↦ ihVals rec*]` the semantics tier
-  builds on;
+  builds on.
+
 ## The rule check's two ENVIRONMENT claims (G1, G2)
 
 Two facts about `checkBlockRule`
@@ -37,10 +33,11 @@ environment — the one it was called at, before `consBlockRecsBare`.
 
 * **G1 — the abstracted residue is typed at `envT`.**
   `opsT.inferType envT depth bodyO` and
-  `opsT.isDefEq envT depth tyB (C_m e⃗_J (C_J p⃗ f⃗))` run at the
+  `opsT.isDefEq envT depth tyB <the recursor's own conclusion at the
+  rule's prefix, the constructor's indices and `C_J p⃗ f⃗`>` run at the
   constructors' environment, NOT at the one holding the `k` rule-less
-  recursors.  The residue and its whole opened frame (parameters,
-  motives, minors, fields, `ih` openers) are recursor-free by
+  recursors.  The residue and its whole opened frame (the recursor's
+  own prefix, the fields, the `ih` openers) are recursor-free by
   construction — `abstractIh_of_recFree` below is that fact's
   syntactic half — and a model of an environment holding the
   recursors would owe every constant's leaf a type, the recursors'
@@ -51,7 +48,7 @@ environment — the one it was called at, before `consBlockRecsBare`.
 
 * **G2 — the rule's λ-domains are compared BINDER BY BINDER** with the
   opened STORED recursor type's frame:
-  `checkDefEqList opsT envT (nP+k+N+nF) ((fvsPref ++ fvsF).map
+  `checkDefEqList opsT envT (rP+nF) ((fvsPref ++ fvsF).map
   Expr.fvarTypeD) ldoms`, where `ldoms` comes from
   `Expr.instLamsAt (fvsPref ++ fvsF) rhsA` — `checkIotaRule`'s move
   (`ConLeche/Kernel/Inductives/Modeled.lean`).  Stage (b)'s whole-type
@@ -79,72 +76,19 @@ namespace ConLeche
 
 open Expr
 
-/-! ## The generated pieces, unfolded -/
-
-theorem blockMotivesPis_nil {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
-    {c : Nat} {body : Expr} :
-    blockMotivesPis lps nP ℓ pw [] c body = some body := rfl
-
-theorem blockMotivesPis_cons {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
-    {T : Name} {nIdx : Nat} {tty : Expr} {rest : List (Name × Nat × Expr)}
-    {c : Nat} {body : Expr} :
-    blockMotivesPis lps nP ℓ pw ((T, nIdx, tty) :: rest) c body =
-      (tty.stripPis nP).bind fun q =>
-      (structMotiveTyI T lps nP nIdx ℓ q.2).bind fun mty =>
-        (blockMotivesPis lps nP ℓ pw rest (c + 1) body).map fun r =>
-          .forallE (mty.liftLooseBVars c 0) r ⟨pw⟩ := rfl
-
-theorem blockIhPis_nil {nF o : Nat} {pw : PropWhen} {tgts : List Nat}
-    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
-    {l : Nat} {body : Expr} :
-    blockIhPis nF o pw tgts teleOf idxOf [] l body = body := rfl
-
-theorem blockIhPis_cons {nF o : Nat} {pw : PropWhen} {tgts : List Nat}
-    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
-    {i : Nat} {is : List Nat} {l : Nat} {body : Expr} :
-    blockIhPis nF o pw tgts teleOf idxOf (i :: is) l body =
-      .forallE
-        (Expr.mkPisOf (structTeleAt nF o i l pw (teleOf i))
-          (Expr.mkAppN (.bvar (nF + o - 1 + l + (teleOf i).length - tgts.getD i 0))
-            ((idxOf i).map (structIdxAt nF o i l (teleOf i).length) ++
-              [Expr.mkAppN (.bvar (nF - 1 - i + l + (teleOf i).length))
-                (structTeleVars (teleOf i).length)])))
-        (blockIhPis nF o pw tgts teleOf idxOf is (l + 1) body) ⟨pw⟩ := rfl
-
-/-! ## The `k = 1` agreement with the one-member kit -/
-
-/-- At ONE member the recursor's leading spine is the one-member
-one. -/
-theorem blockRecPrefixAt_one (nP N nF d : Nat) :
-    blockRecPrefixAt nP 1 N nF d = structRecPrefixAt nP N nF d := by
-  simp only [blockRecPrefixAt, structRecPrefixAt, List.range_one, List.map_cons,
-    List.map_nil, Nat.add_sub_cancel, Nat.sub_zero]
-
-/-- With every recursive field's target `0` — the only target a
-one-member block has — the `ih` telescope is the one-member one. -/
-theorem blockIhPis_structIhPis {nF o : Nat} {pw : PropWhen} {tgts : List Nat}
-    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
-    (h : ∀ i, tgts.getD i 0 = 0) :
-    ∀ (is : List Nat) (l : Nat) (body : Expr),
-      blockIhPis nF o pw tgts teleOf idxOf is l body
-        = structIhPis nF o pw teleOf idxOf is l body
-  | [], _, _ => rfl
-  | i :: is, l, body => by
-    simp only [blockIhPis_cons, structIhPis, h i, Nat.sub_zero,
-      blockIhPis_structIhPis h is (l + 1) body]
-
 /-! ## The guarded recursive call -/
 
 set_option maxHeartbeats 1000000 in
 
 /-- **A node the abstraction replaces IS the generated recursive
 call.**  `blockIhCall? fr d e = some (r, as)` says: the node's head is
-a block recursor `rec_{c'}` at the block's own level arguments; the
-`ih` binder `r` belongs to a field `i` of THIS constructor whose kind
-names the target `c'`; the call's arguments `as` are as many as that
+a block recursor `rec_{c'}` at the block's own level arguments and at
+the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
+`r` belongs to a field `i` of THIS constructor whose kind names the
+target `c'`; the call's arguments `as` are as many as that
 field's telescope has binders and mention no block recursor; and the
 whole node is `blockIhSpinePis` — the generated call
-`rec_{c'} p⃗ C⃗ m⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame —
+`rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame —
 instantiated at `as`, up to `Expr.resetMeta`.
 
 `resetMeta` is the comparison the stage makes, and the one the
@@ -158,10 +102,12 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
       nameIdxOf? fr.recNames nm = some c' ∧
       natIdxOf? fr.recIdx i = some r ∧
       (fr.ks.getD i .ordinary).tgt? = some c' ∧
+      fr.rPs.getD c' 0 = fr.rP ∧
+      e.getAppArgs.length = fr.mIs.getD c' 0 + 1 ∧
       as.length = (fr.teleOf i).length ∧
       (as.any fun a => a.mentionsAnyConst fr.recNames) = false ∧
       Expr.instPisAtLift as
-          (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.k fr.N fr.nF i d (fr.teleOf i)
+          (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d (fr.teleOf i)
             (fr.idxOf i)) = some expected ∧
       Expr.resetMeta e = Expr.resetMeta expected := by
   simp only [blockIhCall?] at h
@@ -174,6 +120,9 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   split at h
   case isTrue => exact nomatch h
   case isFalse hus =>
+  split at h
+  case isTrue => exact nomatch h
+  case isFalse hrp =>
   split at h
   case isTrue => exact nomatch h
   case isFalse hlen =>
@@ -211,8 +160,9 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   have hcmp' : e.resetMeta = expected.resetMeta := by simpa using hcmp
   have htgt' : (fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt? = some c' := by
     simpa using htgt
-  exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hasl',
-    hfree', hexp, hcmp'⟩
+  have hrp' : fr.rPs.getD c' 0 = fr.rP := by simpa using hrp
+  exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
+    by simpa using hlen, hasl', hfree', hexp, hcmp'⟩
 
 
 /-! ## The abstraction -/

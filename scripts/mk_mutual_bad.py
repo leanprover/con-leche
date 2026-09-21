@@ -360,3 +360,46 @@ def _missing_rule(recs, names):
 
 twin("tests/e2e/mutual_rec_missing_rule.ndjson", _missing_rule,
      "Even.rec loses its rule for Even.zero")
+
+
+# 7. a mutual `Prop` block whose recursor's CONCLUSION is not a
+#    proposition.  `InModelMutual.A`/`B` are `Sort 0` with two members,
+#    so official's `elim_only_at_universe_zero` — `blockLargeElimAllowed`
+#    (`ConLeche/Kernel/Inductives/BlockRec.lean`) — allows no large
+#    eliminator and the uniform route requires the conclusion's sort to
+#    be `Sort 0`.  The twin retypes `A.rec`'s FIRST motive binder from
+#    `A -> Prop` to `A -> Type`, which is the whole edit: the rules
+#    still type-check, only the elimination restriction refuses it.
+def _prop_concl(recs, names):
+    i, recsd = find_ab_block(recs, names)
+    arec = recsd[names["InModelMutual.A.rec"]]
+    E = exprs(recs)
+    top = arec["type"]
+    assert E[top][0] == "forallE", "A.rec's type is not a telescope"
+    mty = E[top][1]["type"]
+    assert E[mty][0] == "forallE", "A.rec's motive is not a telescope"
+    assert E[E[mty][1]["body"]][0] == "sort", "the motive's codomain is not a sort"
+    # the level `1` (succ zero), created if the file has none
+    ins, lvls = [], {}
+    for r in recs:
+        if "il" in r:
+            k = next(x for x in r if x != "il")
+            lvls[r["il"]] = (k, r[k])
+    one = next((i for i, (k, v) in lvls.items() if k == "succ" and v == 0), None)
+    nxtl = max(list(lvls) + [0]) + 1
+    if one is None:
+        one = nxtl
+        ins.append({"il": one, "succ": 0})
+    nxt = max(E) + 1
+    s1 = nxt
+    ins.append({"ie": s1, "sort": one})
+    mty2 = nxt + 1
+    ins.append({"ie": mty2, "forallE": dict(E[mty][1], body=s1)})
+    top2 = nxt + 2
+    ins.append({"ie": top2, "forallE": dict(E[top][1], type=mty2)})
+    arec["type"] = top2
+    recs[i:i] = ins
+
+
+twin("tests/e2e/mutual_rec_prop_concl.ndjson", _prop_concl,
+     "A.rec's motive is A -> Type on a mutual Prop block")

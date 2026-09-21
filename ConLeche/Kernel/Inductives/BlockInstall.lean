@@ -369,67 +369,113 @@ def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → E
     consBlockRecsBare p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts⟩
 
-/-- The member list as the motive generator reads it: each member's
-name, index count and ANNOTATED type former's type. -/
-def blockMems (p : BlockShape) (cvTas : List ConstantVal) : List (Name × Nat × Expr) :=
-  (p.members.zip cvTas).map fun (a : MemberShape × ConstantVal) =>
-    (a.1.cvT.name, a.1.nIdx, a.2.type)
+/-- **Pairwise definitional equality of binder domains, REJECTING**
+(`checkDefEqList` with official's verdict).  Between a rule's
+`λ`-domains and the recursor's own binders — or between a recursor's
+parameter domains and the block's — a mismatch is INVALID INPUT, not a
+feature this route lacks: official generates the recursor from the
+block and its replay compares the exported one structurally.  The
+shared helper's `.notImplemented` is written for the modelled route's
+iota certificates, where a mismatch really is an uncharted shape. -/
+def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : String) :
+    List Expr → List Expr → m Unit
+  | [], [] => pure ()
+  | a :: as, b :: bs => do
+    unless ← ops.isDefEq env depth a b do
+      throw (.invalid s!"direct rec: {what}")
+    checkBlockDefEqList ops env depth what as bs
+  | _, _ => throw (.invalid s!"direct rec: {what} (arity)")
 
-/-- **Stage (b): every member's recursor TYPE.**  The stream's type is
-checked as a constant's type, the generated type with the stream's own
-minor binders spliced in is built (`blockRecTySpliced`), and ONE
-`isDefEq` compares the two.  The STORED type is the spliced generated
-one. -/
-def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape)
-    (mems : List (Name × Nat × Expr)) :
+/-- **Stage (b): every member's recursor TYPE.**
+
+The stream's type is checked as a constant's type and STORED AS IS —
+nothing is generated and nothing is compared with a generated term.
+What is checked is the SHAPE the ruling of 2026-09-21 fixes, with the
+argument sums read off the record (`BlockShape.rulePrefixAt` /
+`majorIdxAt`):
+
+* `nP ≤ rP`, and the type has `mI + 1 = rP + nIdx_m + 1` `∀` binders;
+* the first `nP` binder DOMAINS are the block's parameter domains,
+  compared BINDER BY BINDER with the member's own opened former
+  telescope (the constructors' stage pins them the same way);
+* the binders `nP … rP-1` are ARBITRARY — the stretch official fills
+  with the motives and the minor premises is never looked inside;
+* the binder `mI` — the MAJOR — has type `T_m p⃗ ı⃗` with the head the
+  member's own constant at the block's level parameters, `p⃗` the
+  first `nP` binders and `ı⃗` EXACTLY the index binders `rP … mI-1`.
+  This is what ASSIGNS the recursor to member `m`, and it is what
+  makes the ι step's index matching and the model's predecessor index
+  mean anything;
+* the CONCLUSION is arbitrary — except that, when a large eliminator
+  is not allowed (`blockLargeElimAllowed`, official's
+  `elim_only_at_universe_zero` said declaratively), it must be a
+  PROPOSITION: its sort under the opened binders is `Sort 0`. -/
+def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested : Bool) :
     List (MemberShape × ConstantVal) → Nat → m (List (ConstantVal × Nat))
   | [], _ => pure []
   | (ms, cvTa) :: rest, mi => do
     let cvRi ← checkConstantVal ops env ms.cvR
-    let recTy ← unwrapOr (blockRecTySpliced ms.cvT.name p.lps p.elim p.large p.nP p.k
-        p.numCtors ms.nIdx mi cvTa.type mems cvRi.type)
-      (.invalid "direct rec: the recursor's type does not have the generated telescope")
-    unless recTy.allLevelParamsDefined ms.cvR.levelParams && recTy.constsResolve env &&
-        recTy.looseBVarsBounded 0 && !recTy.hasFvar do
-      throw (.internal "direct rec: recursor type scoping")
-    let sty ← ops.inferType env 0 recTy
-    let _u ← ops.ensureSort env 0 sty
-    unless ← ops.isDefEq env 0 cvRi.type recTy do
-      throw (.invalid "direct rec: recursor type is not the generated one")
-    let rs ← checkBlockRecTys ops env p mems rest (mi + 1)
-    pure ((⟨ms.cvR.name, ms.cvR.levelParams, recTy⟩, ms.nIdx) :: rs)
+    let rP := p.rulePrefixAt mi
+    let mI := p.majorIdxAt mi
+    unless p.nP ≤ rP do
+      throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
+        parameters")
+    let (fvs, concl) ← unwrapOr (openPisAtFvars (mI + 1) cvRi.type 0)
+      (.invalid "direct rec: the recursor's type does not bind its parameters, its indices \
+        and its major premise")
+    -- the block's parameter domains, binder by binder
+    let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
+      (.internal "direct rec: type former telescope")
+    checkBlockDefEqList ops env p.nP
+      s!"the recursor {ms.cvR.name}'s parameter domains are not the block's"
+      (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
+    -- the MAJOR: the member at its parameters and its index binders
+    let maj ← unwrapOr fvs[mI]? (.internal "direct rec: major premise")
+    let mty := maj.fvarTypeD
+    unless mty.getAppFn == Expr.const ms.cvT.name (p.lps.map .param) &&
+        mty.getAppArgs.length == p.nP + ms.nIdx &&
+        mty.getAppArgs.take p.nP == fvs.take p.nP &&
+        mty.getAppArgs.drop p.nP == (fvs.drop rP).take ms.nIdx do
+      throw (.invalid "direct rec: the recursor's major premise is not the member at its \
+        parameters and its index binders")
+    -- the ELIMINATION restriction (official `elim_only_at_universe_zero`)
+    unless blockLargeElimAllowed p nested do
+      let s ← ops.inferType env (mI + 1) concl
+      unless ← ops.isDefEq env (mI + 1) s (.sort .zero) do
+        throw (.invalid "direct rec: large eliminator on a block whose sort may be Prop")
+    let rs ← checkBlockRecTys ops env p nested rest (mi + 1)
+    pure ((cvRi, ms.nIdx) :: rs)
 
 /-- **Stage (c): ONE rule.**
 
 The right-hand side is annotated at the environment holding the `k`
-rule-less recursors, its `λ` prefix is compared with the STREAM's own
-recursor type — and on the RAW right-hand side, before the
-annotation's zeta expansion, as the one-member stage compares it
-(`blockRulePrefixOk`; the one-member docstring at
-`nativeRulePrefixOk` says why the comparison is against the stream's
-type and not against a generated term — the elaborator spells the
-minors' field domains from a whnf'd telescope, so `HPow`'s parameter
-binder is `Sort (w+1)` where this route's declared one is
-`outParam (Sort (w+1))`), its body is abstracted
-(`abstractIh`: every block-recursor occurrence is a guarded recursive
-call on a field of THIS constructor, replaced by that field's
-inductive hypothesis), and the residue is TYPED at the opened frame
-`p⃗ C⃗ m⃗ f⃗ ih⃗` against the minor's conclusion `C_m e⃗_J (C_J p⃗ f⃗)` —
-the type official's own right-hand side has.  The fields of the frame
-are the CONSTRUCTOR's (they are what the ι step substitutes), the
-parameters and motives the stored recursor type's.
+RULE-LESS recursors (a rule mentions them) and must bind `rP + nF`
+variables: the recursor's own prefix and the constructor's fields.
+Their domains are compared BINDER BY BINDER (`checkDefEqList`) with
+the opened STORED recursor type's prefix and the constructor's
+telescope at the same parameters — the whole-type comparison of stage
+(b) is not made at all any more, and per-binder equality is what the
+model needs to read the stored λ-tower at the frames the ι step
+applies it at.
+
+The body then goes through the primitive-recursion abstraction
+(`abstractIh`) and the residue is TYPED at the CONSTRUCTORS'
+environment (`envT`), under the opened frame `x⃗ f⃗ ih⃗`, against
+`rec_m`'s OWN conclusion instantiated at `x⃗`, at the constructor's
+index expressions and at the major `C_J p⃗ f⃗`.
 
 What is returned — and stored — is the ANNOTATED STREAM right-hand
 side; the abstraction is the model's reading of it and nothing of it
 is kept. -/
 def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
-    (p : BlockShape) (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
+    (p : BlockShape) (recNames : List Name) (rlvls : List Level)
+    (recTys : List Expr) (mIs rPs : List Nat) (mi : Nat)
     (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
-    (J : Nat) (rhs : Expr) : m Expr := do
+    (rhs : Expr) : m Expr := do
   let nP := p.nP
-  let k := p.k
-  let N := p.numCtors
+  let rP := p.rulePrefixAt mi
   let nF := cA.2
+  let recTy ← unwrapOr recTys[mi]? (.internal "direct rec: recursor type")
   unless rhs.looseBVarsBounded 0 do
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
   if rhs.hasFvar then
@@ -439,14 +485,27 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless rhsA.constsResolve envR do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
-  unless blockRulePrefixOk cvR.type nP k N J nF rhs do
-    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
-      parameters, motives, minor premises and the constructor's fields")
-  let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))
+  let (_rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
+  -- the frame: the recursor's own prefix, then the CONSTRUCTOR's
+  -- fields at those parameters (they are what the ι step substitutes)
+  let (fvsPref, _) ← unwrapOr (openPisAtFvars rP recTy 0)
+    (.internal "direct rec: recursor prefix telescope")
+  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsPref.take nP) cA.1.type)
+    (.internal "direct rec: constructor parameter telescope")
+  let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest rP)
+    (.internal "direct rec: constructor field telescope")
+  -- **G2**: the rule's λ-domains, binder by binder
+  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
+    (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
+      recursor's prefix and the constructor's fields")
+  checkBlockDefEqList opsT envT (rP + nF)
+    s!"the rule of {cA.1.name} does not bind the recursor's prefix and the constructor's \
+      fields"
+    ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
   let fr : BlockRuleFrame :=
-    { recNames := recNames, rlvls := rlvls, nIdxs := p.nIdxs, nP := nP, k := k, N := N,
+    { recNames := recNames, rlvls := rlvls, mIs := mIs, rPs := rPs, nP := nP, rP := rP,
       nF := nF, ks := ks,
       teleOf := structFieldTeleOf cA.1.type nP nF,
       idxOf := structFieldIdxOf cA.1.type nP nF,
@@ -454,57 +513,44 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
       pw := Level.zeronessOf (structElimLevel p.elim p.large) }
   let body'' ← unwrapOr (abstractIh fr 0 body)
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a primitive recursion — a block \
-      recursor occurs outside a call on a recursive field of this constructor")
-  let (fvsPref, _) ← unwrapOr (openPisAtFvars (nP + k + N) recTy 0)
-    (.internal "direct rec: recursor prefix telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsPref.take nP) cA.1.type)
-    (.internal "direct rec: constructor parameter telescope")
-  let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest (nP + k + N))
-    (.internal "direct rec: constructor field telescope")
-  -- **G2, the rule's λ-domains, BINDER BY BINDER** against the opened
-  -- STORED recursor type's frame (`checkIotaRule`'s move,
-  -- `ConLeche/Kernel/Inductives/Modeled.lean`).  The whole-type
-  -- `isDefEq` of stage (b) compares two CLOSED Π-types and does not
-  -- give per-binder equality of their readings — at `ℓ = 0` both read
-  -- to a truth value, and at `ℓ ≠ 0` an empty fibre makes two
-  -- Π-readings agree at different domains.  The stored right-hand
-  -- side is the annotated STREAM one, so its λ-tower is applied at
-  -- frames of the STORED type at every ι step, and the model has to
-  -- read those binders: this is the check that says they are the
-  -- stored type's.  The fields are the constructor's on both sides
-  -- (the same term), so the content is the parameters, the motives
-  -- and the minors.
-  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
-    (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
-      recursor's prefix and the constructor's fields")
-  checkDefEqList opsT envT (nP + k + N + nF) ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
-  let ihTele := blockIhPis nF (k + N) fr.pw (blockTgtsOf ks) fr.teleOf fr.idxOf fr.recIdx 0 body''
+      recursor occurs outside a call on a recursive field of this constructor at the \
+      rule's own prefix")
+  let ihTele ← unwrapOr
+    (blockIhPis nP rP nF fr.pw (fun c => recTys.getD c (.sort .zero)) (blockTgtsOf ks)
+      fr.teleOf fr.idxOf fr.recIdx 0 body'')
+    (.invalid s!"direct rec: the rule of {cA.1.name} recurses into a recursor whose type \
+      does not bind the call's arguments")
   let (_fvsIh, bodyO) ← unwrapOr
-    (openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (nP + k + N + nF))
+    (openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (rP + nF))
     (.internal "direct rec: inductive-hypothesis telescope")
-  let depth := nP + k + N + nF + fr.nR
+  let depth := rP + nF + fr.nR
   let tyB ← opsT.inferType envT depth bodyO
-  let motive ← unwrapOr fvsPref[nP + mi]? (.internal "direct rec: motive variable")
-  let concl := Expr.mkAppN motive
-    ((cbody.getAppArgs.drop nP) ++
-      [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take nP ++ fvsF)])
+  -- the recursor's OWN conclusion at the rule's prefix, the
+  -- constructor's index expressions and the major `C_J p⃗ f⃗`
+  let concl ← unwrapOr
+    (Expr.instPisAtLift
+      (fvsPref ++ (cbody.getAppArgs.drop nP) ++
+        [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take nP ++ fvsF)])
+      recTy)
+    (.internal "direct rec: recursor conclusion")
   unless ← opsT.isDefEq envT depth tyB concl do
-    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not produce the minor's \
-      conclusion")
+    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not produce the recursor's \
+      conclusion at that constructor")
   pure rhsA
 
 /-- One member's rules, in constructor order (`J` is the constructor's
 GLOBAL index, which is the minor premise it fires). -/
 def checkBlockRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
-    (p : BlockShape) (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
-    (cvR : ConstantVal) :
-    List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → Nat → m (List Expr)
-  | [], [], _ => pure []
-  | (cA, ks) :: cs, rhs :: rhss, J => do
-    let r ← checkBlockRule opsR envR opsT envT p recNames rlvls recTy mi cvR cA ks J rhs
-    let rest ← checkBlockRules opsR envR opsT envT p recNames rlvls recTy mi cvR cs rhss (J + 1)
+    (p : BlockShape) (recNames : List Name) (rlvls : List Level)
+    (recTys : List Expr) (mIs rPs : List Nat) (mi : Nat) (cvR : ConstantVal) :
+    List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → m (List Expr)
+  | [], [] => pure []
+  | (cA, ks) :: cs, rhs :: rhss => do
+    let r ← checkBlockRule opsR envR opsT envT p recNames rlvls recTys mIs rPs mi cvR cA ks rhs
+    let rest ← checkBlockRules opsR envR opsT envT p recNames rlvls recTys mIs rPs mi cvR
+      cs rhss
     pure (r :: rest)
-  | _, _, _ =>
+  | _, _ =>
     throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
 
 /-- Every member's rules, in block order. -/
@@ -516,8 +562,9 @@ def checkBlockMembersRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps
   | [], _ => pure []
   | ((ms, ctorsA), kss) :: rest, mi => do
     let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
-    let rhss ← checkBlockRules opsR envR opsT envT p.toBlockShape recNames rlvls cvRa.type mi
-      ms.cvR (ctorsA.zip kss) ms.rhss (p.offs mi)
+    let rhss ← checkBlockRules opsR envR opsT envT p.toBlockShape recNames rlvls
+      (cvRas.map (·.1.type)) (List.range p.k |>.map p.majorIdxAt)
+      (List.range p.k |>.map p.rulePrefixAt) mi ms.cvR (ctorsA.zip kss) ms.rhss
     let rest' ← checkBlockMembersRules opsR envR opsT envT p recNames rlvls cvRas rest (mi + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
@@ -546,7 +593,7 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- GROUPING, is INVALID INPUT — thrown before anything is computed
   checkBlockRecPins p
   -- (b) every member's recursor type
-  let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockMems p.toBlockShape cvTas)
+  let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds)
     (p.members.zip cvTas) 0
   let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the

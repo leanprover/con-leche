@@ -1489,3 +1489,14 @@
 # whose two lists must run out together).  Today the modeller declines
 # it with its own message (uniform: 1, the pin).
 2 mutual_rec_missing_rule.ndjson
+# A mutual `Prop` block whose recursor's CONCLUSION is not a
+# proposition: `InModelMutual.A`/`B` are `Sort 0` with two members, so
+# official's `elim_only_at_universe_zero` — `blockLargeElimAllowed`
+# (`ConLeche/Kernel/Inductives/BlockRec.lean`) — allows no large
+# eliminator, and with the conclusion ARBITRARY that condition reads
+# "the conclusion's sort is `Sort 0`".  `A.rec`'s first motive binder
+# is retyped `A → Type`; nothing else changes, and the rules still
+# type-check, so this twin tests the elimination restriction and
+# nothing else (uniform: 1, "large eliminator on a block whose sort
+# may be Prop").  Today the modeller's own type check rejects it.
+1 mutual_rec_prop_concl.ndjson
