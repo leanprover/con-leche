@@ -99,6 +99,18 @@ FALLBACK = {
     # build with `Unknown identifier DenoteMetaSpine`.
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Annot.BitLemmas'),
+    # task #315 (M5, O-1's file, session 3): two more of the same file's
+    # re-exports, each MEASURED by demoting it alone and watching the
+    # build fail.  `Verify/Subst.lean` carries `Expr.instSeq`, which the
+    # STATEMENT of `instantiateList_eq_instSeq_of_fvarList` names (the
+    # census attributes the `Expr.` prefix to the type's module, not to
+    # the one defining the operation); `Model/Inductives/FixRecRead.lean`
+    # carries `EnvModel`, `FieldReadAt`, `ihTeleAtR`, `ihIdxAtM` and
+    # `teleVarsAV`, all of which `denoteMeta_blockIhSpinePis` states.
+    ('ConLeche.Model.Inductives.BlockRecRule',
+     'ConLeche.Verify.Subst'),
+    ('ConLeche.Model.Inductives.BlockRecRule',
+     'ConLeche.Model.Inductives.FixRecRead'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.

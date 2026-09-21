@@ -5,11 +5,8 @@ public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 public import ConLeche.Verify.Subst
-public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Model.Inductives.FixRecRead
-import ConLeche.Verify.InstList
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Semantics.BasisOk
 
 public section
