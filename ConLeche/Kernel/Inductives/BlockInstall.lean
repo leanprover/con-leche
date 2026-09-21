@@ -227,6 +227,15 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
 
 /-! ## Stage 2: the tail -/
 
+/-- The target member's name, read positionally.  A target out of
+range cannot occur — the classification's targets are members of the
+block — and reading member 0 there keeps the ONE-member reading exact
+(`[T].getD tgt` would be a junk name at a junk target). -/
+def nameAt (names : List Name) (tgt : Nat) : Name := names.getD tgt (names.headD default)
+
+/-- The target member's index count (`nameAt`'s companion). -/
+def nIdxAt (nIdxs : List Nat) (tgt : Nat) : Nat := nIdxs.getD tgt (nIdxs.headD 0)
+
 /-- The kinds the recogniser computed, re-checked on one annotated
 constructor type OPENED at variables (`nativeOpenedOk` at k members):
 a recursive or reflexive field's domain is the TARGET member at the
@@ -243,9 +252,9 @@ def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat
         match xFvs[i]?, ks.getD i .ordinary with
         | some x, .ordinary => x.fvarTypeD.constsResolve env₀
         | some x, .recursive tgt =>
-          x.fvarTypeD.getAppFn == Expr.const (names.getD tgt default) (lps.map .param) &&
+          x.fvarTypeD.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
           x.fvarTypeD.getAppArgs.take nP == fvsP &&
-          x.fvarTypeD.getAppArgs.length == nP + nIdxs.getD tgt 0 &&
+          x.fvarTypeD.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
           (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
           !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
           !xrest.mentionsFvar (nP + i)
@@ -254,9 +263,9 @@ def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat
           | some (afvs, body) =>
             afvs.length != 0 &&
             afvs.all (fun a => a.fvarTypeD.constsResolve env₀) &&
-            body.getAppFn == Expr.const (names.getD tgt default) (lps.map .param) &&
+            body.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
             body.getAppArgs.take nP == fvsP &&
-            body.getAppArgs.length == nP + nIdxs.getD tgt 0 &&
+            body.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
             (body.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
             !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
             !xrest.mentionsFvar (nP + i)

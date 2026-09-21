@@ -389,4 +389,74 @@ theorem checkNativePass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
     BlockShape.withSort_nP, BlockShape.withSort_elim, BlockShape.withSort_resSort,
     BlockShape.withSort_large, BlockShape.withSort_isProp]
 
+/-! ### The tail -/
+
+private theorem getD_map_toRec (ks : List BlockFieldKind) (i : Nat) :
+    (ks.map BlockFieldKind.toRec).getD i .ordinary = (ks.getD i .ordinary).toRec := by
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_map]
+  cases ks[i]? <;> rfl
+
+private theorem nameAt_single (T : Name) (t : Nat) : nameAt [T] t = T := by
+  cases t <;> simp [nameAt]
+
+private theorem nIdxAt_single (n : Nat) (t : Nat) : nIdxAt [n] t = n := by
+  cases t <;> simp [nIdxAt]
+
+omit [LawfulMonad m] [ThrowBindM m] in
+theorem blockOpenedOk_one (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (cty : Expr) (nF : Nat) (ks : List BlockFieldKind) :
+    blockOpenedOk env₀ [T] lps nP [nIdx] cty nF ks
+      = nativeOpenedOk env₀ T lps nP nIdx cty nF (ks.map BlockFieldKind.toRec) := by
+  unfold blockOpenedOk nativeOpenedOk
+  cases h1 : openPisAtFvars nP cty 0 with
+  | none => rfl
+  | some z =>
+  obtain ⟨fvsP, crest⟩ := z
+  dsimp only
+  cases h2 : openPisAtFvars nF crest nP with
+  | none => rfl
+  | some w =>
+  obtain ⟨xFvs, xrest⟩ := w
+  dsimp only
+  simp only [getD_map_toRec]
+  refine congrArg (fun b => ((xrest.getAppArgs.drop nP).all
+    (fun e => e.constsResolve env₀)) && b) ?_
+  refine congrArg (List.all (List.range nF)) (funext fun i => ?_)
+  cases hx : xFvs[i]? with
+  | none => cases (ks.getD i BlockFieldKind.ordinary) <;> rfl
+  | some x =>
+    cases (ks.getD i BlockFieldKind.ordinary) with
+    | ordinary => rfl
+    | negative => rfl
+    | unsupported => rfl
+    | recursive t => simp only [BlockFieldKind.toRec, nameAt_single, nIdxAt_single]
+    | reflexive t =>
+      simp only [BlockFieldKind.toRec, nameAt_single, nIdxAt_single]
+      cases openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) <;> rfl
+
+omit [LawfulMonad m] [ThrowBindM m] in
+theorem blockMemberFieldsOk_one (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (kss : List (List BlockFieldKind)) :
+    blockMemberFieldsOk env₀ [T] lps nP [nIdx] ctorsA kss
+      = nativeFieldsOk env₀ T lps nP nIdx ctorsA (kss.map (List.map BlockFieldKind.toRec)) := by
+  simp only [blockMemberFieldsOk, nativeFieldsOk, List.length_map, blockOpenedOk_one,
+    List.getElem?_map]
+  refine congrArg (fun b => (ctorsA.length == kss.length) && b) ?_
+  refine congrArg (List.all (List.range ctorsA.length)) (funext fun j => ?_)
+  cases ctorsA[j]? with
+  | none => cases kss[j]? <;> rfl
+  | some cA =>
+    cases kss[j]? with
+    | none => rfl
+    | some ks => simp only [Option.map_some, List.length_map]
+
+omit [LawfulMonad m] [ThrowBindM m] in
+theorem blockFieldsOk_one (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (kss : List (List BlockFieldKind)) :
+    blockFieldsOk env₀ [T] lps nP [nIdx] [ctorsA] [kss]
+      = nativeFieldsOk env₀ T lps nP nIdx ctorsA (kss.map (List.map BlockFieldKind.toRec)) := by
+  simp only [blockFieldsOk, List.length_cons, List.length_nil, Nat.zero_add,
+    List.range_one, List.all_cons, List.all_nil, Bool.and_true, List.getElem?_cons_zero,
+    beq_self_eq_true, Bool.true_and, blockMemberFieldsOk_one]
+
 end ConLeche
