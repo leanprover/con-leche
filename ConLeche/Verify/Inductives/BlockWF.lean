@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.FixWF
-public import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.Verify.Inductives.BlockInv
 
 public section
 
