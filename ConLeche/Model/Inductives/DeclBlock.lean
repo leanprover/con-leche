@@ -106,6 +106,80 @@ theorem find?_none_consBlockRecs {find? : Name → Option ConstantInfo} {q : Con
     rw [h] at this
     exact nomatch this
 
+/-! ## The recursor stage's own constructor list, positionally
+
+`checkBlockRecsRules` reads the member's constructors off `ctorsAs` at
+the recursor's target and stores them with the recursor
+(`BlockInstall.lean`'s `ctorsA`), so a stored recursor's fourth
+component IS one of the constructors' stage's lists.  That is the one
+fact the recursor lane needs to turn the constructors' stage's
+STORAGE into its own `hctorsIn`, and the Verify tier's inversion of
+stage (c) (`checkBlockRecsRules_facts`) does not keep it.
+
+**Recommendation**: fold this clause into `checkBlockRecsRules_facts`
+when the Verify lane next touches it. -/
+
+section RecCtors
+
+local macro "close_throw " h:term : tactic =>
+  `(tactic| first
+      | exact nomatch $h
+      | exact absurd $h (by
+          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+          exact fun hh => nomatch hh)
+      | exact absurd $h
+          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- Every stored recursor's constructor list is a constructors'-stage
+list, at its member's index. -/
+theorem checkBlockRecsRules_ctorsIdx {envR envT : Env} {pp : BlockParts} {recNames : List Name}
+    {rlvls : List Level} {cvRas : List (ConstantVal × Nat)}
+    {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
+    ∀ {recs : List ConLeche.RecShape} {ri : Nat}
+      {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))},
+      ConLeche.checkBlockRecsRules (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envR
+        (ConLeche.fueledOps μ F) envT pp recNames rlvls cvRas ctorsAs recs ri = .ok rs →
+      ∀ r ∈ rs, ∃ c : Nat, ctorsAs[c]? = some r.2.2.2
+  | [], _, rs, h => by
+    simp only [ConLeche.checkBlockRecsRules, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro r hr
+    simp at hr
+  | rc :: rest, ri, rs, h => by
+    unfold ConLeche.checkBlockRecsRules at h
+    obtain ⟨ms, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨ctorsA, hctorsA, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨kss, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRn, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRa, nIdx⟩ := cvRn
+    try simp only at h
+    by_cases hlen : (ctorsA.length == ms.ctors.length) = true
+    case neg => rw [if_neg hlen] at h; close_throw h
+    rw [if_pos hlen] at h
+    obtain ⟨rhss, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := ConLeche.exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hmem
+    · exact ⟨pp.recTgtAt ri, ConLeche.unwrapOr_ok hctorsA⟩
+    · exact checkBlockRecsRules_ctorsIdx hrest r hmem
+
+/-- The recursor stage, at the same fact. -/
+theorem checkBlockRecK_ctorsIdx {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTas
+      ctorsAs = .ok rs) :
+    ∀ r ∈ rs, ∃ c : Nat, ctorsAs[c]? = some r.2.2.2 := by
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
+  exact checkBlockRecsRules_ctorsIdx h
+
+end RecCtors
+
 /-! ## The recursor stage's obligation -/
 
 /-- **What the recursors' stage owes the tables' stage** (milestone
@@ -176,7 +250,12 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
 /-- **The P carrier survives the uniform install at one member.**  The
 hypothesis is the uniform installer's own success, so the statement
 does not mention `nativeParts?`, `checkNative` or `DeclNativeRun` —
-only milestone M1's two bridges do, inside the proof. -/
+only milestone M1's two bridges do, inside the proof.
+
+**This theorem goes with the recursor stage's gate.**  Both bridges
+hold because `blockRecCheckOn` is down (`checkBlock_one` is the
+one-member arm only then); when the gate flips, `declBlock` covers
+`k = 1` too and this statement is deleted rather than re-proved. -/
 theorem declBlock_one (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
@@ -189,6 +268,27 @@ theorem declBlock_one (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       (ConLeche.blockParts?_k1 hdp).2.choose_spec h)
 
 /-- **The P carrier survives the uniform install at `k` members.**
+
+Two things about `hrec`, the recursor stage's obligation:
+
+* it is stated at **`checkBlockRecK`**, the UNIFORM check, not at the
+  gated `checkBlockRec` — so `hgate` (`blockRecCheckOn = true`) is
+  what carries the run to it.  `hgate` is an equation about a
+  COMPILE-TIME constant, not about the input: at the flip it is `rfl`
+  and the hypothesis is deleted along with the gate, and
+  `declBlock_one` — the `k = 1` arm, which goes through the
+  generate-and-compare stage — goes with it, superseded by this
+  theorem at every `k`;
+* it is handed everything the CONSTRUCTORS' environment knows: the
+  model `mpC`, the block data `dR` with the three records
+  `blockModelAt_of_stages` consumes (`BlockNamesOk`,
+  `BlockCtorsStage`, `BlockCtorsCore`) and the positional link from
+  the stage's `ctorsAs` to `dR.ctorsM`, plus the recogniser's member
+  names and the STORAGE of the constructors the recursors carry
+  (discharged here from `checkBlockRecK_ctorsIdx` and
+  `BlockCtorsCore`'s own storage clause).  Building `BlockModelAt`
+  itself from those three records is the regimes' first step and is
+  deliberately not done here.
 
 The run's nine conjuncts, one stage at a time: the formers' and the
 constructors' stages are `blockTablesStage_of`'s (conjuncts ①②③⑥⑦,
@@ -203,12 +303,28 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
-    (hrec : ∀ (envC : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
+    (hgate : ConLeche.blockRecCheckOn = true)
+    (hrec : ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
         (ctorsAsR : List (List (ConstantVal × Nat)))
         (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-        (mpC : EnvModelM V μ envC),
-        ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTasR
+        (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
+        (A : Nat → (Name → Nat) → AnnotTerm)
+        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)),
+        -- the recursor stage's own run
+        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTasR
           ctorsAsR = .ok rsR →
+        -- the recogniser's member names
+        pp.toBlockShape.memberNames.Nodup →
+        -- the block's REPRESENTATION at the constructors' environment,
+        -- in the three records `blockModelAt_of_stages` consumes
+        BlockNamesOk (V := V) dR cvTasR →
+        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A fssZ envI
+          pp.ctorNamesAt →
+        BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k →
+        (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
+        -- the constructors' STORAGE, at the lists the recursors carry
+        (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
+          ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     Nonempty (EnvModelM V μ env₂) := by
   classical
@@ -296,6 +412,16 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [hmnameEq m hm]
     exact hpull _ (blockTablesTblFree (q := p₁) (p₁.members.zip (ctorsAs.zip sortsss)) _ env₂
       hTbl m _ (hzipEntry m hm) cA sorts hcA hs hn0)
+  -- ## the recursor stage's gate: with it LIFTED the stage IS the
+  -- uniform check (the flip deletes this equation with the gate)
+  have hRecK : ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
+      ((p₀.complete p₁).withKinds kinds) cvTas ctorsAs
+    = ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
+      ((p₀.complete p₁).withKinds kinds) cvTas ctorsAs := by
+    unfold ConLeche.checkBlockRec
+    rw [if_pos hgate]
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk
@@ -383,10 +509,31 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     have hfree' : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
         (projTableName (p₁.members.getD c default).cvT.name) = none := hfree
     rw [hname, ConLeche.Env.findProj?, hfree']
+  -- ## the constructors the RECURSORS carry are the constructors'
+  -- stage's own lists, so they are stored
+  have hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
+      ∃ cvj cnP cnF,
+        (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? cA.1.name
+          = some (.ctorInfo cvj cnP cnF) := by
+    intro r hr cA hcA
+    obtain ⟨c, hc⟩ := checkBlockRecK_ctorsIdx (by rw [← hRecK]; exact hRec) r hr
+    have hcl : c < ctorsAs.length := by
+      have := (List.getElem?_eq_some_iff.mp hc).1
+      omega
+    have heq : r.2.2.2
+        = (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c :=
+      Option.some.inj (hc.symm.trans (hctorsAs c hcl))
+    rw [heq] at hcA
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+    exact ⟨cA.1, _, _, (hcoreC.2.2.2 c (by rw [hlenCtorsAs] at hcl; exact hcl) j cA hj).1⟩
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR, hag, hfindMono, hden, hnpMono⟩ :=
-    hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) ((p₀.complete p₁).withKinds kinds)
-      cvTas ctorsAs rs mpC hRec
+    hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
+      ((p₀.complete p₁).withKinds kinds)
+      cvTas ctorsAs rs mpC (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) isRec
+      (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
+      (by rw [← hRecK]; exact hRec) hndM hN hS.toBlockCtorsStage hcoreC
+      (fun c hc => hctorsAs c hc) hctorsIn
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables
