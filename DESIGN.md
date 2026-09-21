@@ -81549,15 +81549,21 @@ own sort check gave each recursor's CONCLUSION, and
 (`Verify/Inductives/BlockRecInv.lean`) is the fact the Model tier's
 `OneElimLevel` obligation asks for.
 
-**The principal recursor.**  The abstraction gives one inductive
-hypothesis per recursive field and types it from the field's target
-member's recursor; with several recursors on one member a guarded call
-must therefore name the one the `ih` opener was typed from — the
-member's FIRST recursor (`BlockShape.principalRecAt`/`recOfMember`,
-carried in `BlockRuleFrame.recOfM`).  A second recursor on a member is
-checked like any other; only its rules' recursive calls go through the
-principal one, so a second eliminator that recurses into ITSELF is not
-accepted (a `casesOn`-shaped one is: `corner_rec_two_recursors`).
+**The `ih` openers are keyed by (recursive FIELD, CALLEE recursor)**
+(`blockIhKeys`, `BlockRuleFrame.ihKeys`), not by field: the family is
+primitively MUTUALLY recursive, so a rule may call ANY recursor of the
+group on a field and each call gets its own opener, typed from ITS
+callee's stored type instantiated at that spine.  A field of target
+member `t` owns one opener per recursor whose major names `t` and
+whose rule prefix is this rule's own (the condition that makes the
+spine's argument count come out); at official's shape — one recursor
+per member — that is exactly one opener per recursive field, which is
+what the one-member route has always had.  `abstractIh` replaces each
+spine by its own opener, `pairIdxOf?` doing the lookup.
+`corner_rec_two_callees` is the twin: a rule recursing on one field
+through both itself and another recursor of the same member.  (With one
+opener per FIELD it rejects as "not a primitive recursion" — measured
+as the negative control.)
 
 **FINDING — two arena `bad/` tests accept once the name pin is gone.**
 With both gates lifted, `bad/tutorial/135_misnamed_rec_user` and
@@ -81575,3 +81581,7 @@ soundness failure.  The gates are down, so the shipped tree is
 unaffected; at the flip (M6) this is a decision for the maintainer —
 keep the ruling and record the two rows as known accept-supersets, or
 re-pin the recursor NAME after all.
+
+#### RULING (2026-09-21, maintainer): arena `bad/135_misnamed_rec_user` and `bad/136_dup_rec_def2` become documented ACCEPT-SUPERSETS
+
+With recursor names free, both accept soundly (135: a definition uses a recursor declared under a non-canonical name; 136: a definition named `T.rec` beside a recursor of another name).  "Keep the ruling, record 135/136 as accept-supersets; maybe we'll add unverified extra checks later."  At the flip `tests/arena-expected.txt` carries both rows as expected accepts with this reason; an optional UNVERIFIED conformance check (canonical-name policing, off the verified path) may be added later.

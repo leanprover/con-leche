@@ -1629,6 +1629,15 @@
 # recursor, so the block goes to the modeller, which has no model for
 # it.
 2 corner_rec_two_recursors.ndjson
+# the same block with `Nat'.rec2`'s TYPE `Nat'.rec`'s own and its
+# `succ` rule recursing on the field `n` through BOTH recursors —
+# itself and the first:
+#   λ m z s n. s n ((fun _ : m n => Nat'.rec2 m z s n) (Nat'.rec m z s n))
+# Two guarded calls on ONE field with two callees, so the rule's frame
+# carries TWO `ih` openers keyed by (field, callee), each typed from
+# ITS callee (uniform: 0; with one opener per FIELD this rejects as
+# "not a primitive recursion", which is the negative control).
+2 corner_rec_two_callees.ndjson
 # `Nat'`'s recursor called `Nat'.hoolahoop` — its type, its rules and
 # its major the generated ones, the name renamed everywhere, so the
 # definitions fire iota through it (uniform: 0).  Today the one-member
