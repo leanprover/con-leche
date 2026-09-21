@@ -129958,6 +129958,24 @@ and it is stated here so that the next session does not discover it at
 the proofs.  **Honest sizing: object (2) is three sessions from here,
 not two**, and the added one is that inversion.
 
+**And object (2) cannot take `CopyOrdTele`'s way out.**  The reading
+rows' conclusion is spent by `ordSpine_inst_of_reads`
+(`Model/Inductives/NestedFieldRead.lean:558`), which reads
+`denoteMeta … = some (AnnotTerm.mkAppN fb Eis₁)` and splits the spine
+by `AnnotTerm.mkAppN_inj` to identify the two copies' INDEX
+EXPRESSIONS.  An `interp` equation carries no spine, so weakening the
+rows the way this session weakened `CopyOrdTele` is not open; the
+inversion is the obligation.
+
+**The corner is real for the PROOF and unmeasurable today.**  The new
+fixture exercises it at `J`'s OWN install, which is what refutes
+`CopyOrdTele`; object (2) speaks at the block ABOVE a pin, and to reach
+one the fold would have to install `J` — whose copy of `Wrap.mk` is
+REFLEXIVE, which the in-process modeller declines (`J=accept,` alone in
+the shadow row, `nested_pi_field`'s tripwire shape).  The case split is
+over the SYNTAX and not over a corpus, so the arm stands whether or not
+a stream reaches it.
+
 Nothing in the wide identification is refuted by this reading; one
 object changed its equality and one inversion was found to be missing.
 
