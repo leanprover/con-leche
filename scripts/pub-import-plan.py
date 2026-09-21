@@ -86,6 +86,13 @@ FALLBACK = {
     # statement (the #290 class) — the build says so for every substitute
     # tried.
     ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Model.Inductives.FixRecReadDefs'),
+    # task #315 M3: `FixTeleBound`'s public statement resolves `SetTheory`
+    # (the `open SetTheory` of its namespace block) only through
+    # `FixChains`'s re-export; the model calls the edge demotable once the
+    # file's other imports cover the constants, but a bare `open` needs the
+    # NAMESPACE to exist in the public view — the build says
+    # `unknown identifier SetTheory` (#223 §6's first blind class).
+    ('ConLeche.Model.Inductives.FixTeleBound','ConLeche.Model.Inductives.FixChains'),
     # task #315 (the uniform block route): `BlockOne`'s public statements
     # are over `BlockLeafI`'s `blockFam`, `chainXBIGo` and `slotXBI`, and
     # its `open SetTheory` resolves only through that re-export; nothing

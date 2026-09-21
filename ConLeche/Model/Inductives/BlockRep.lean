@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageRec
-public import ConLeche.SetTheory.Derive.LfpTuple
+import ConLeche.SetTheory.Derive.LfpTuple
 public section
 
 /-!

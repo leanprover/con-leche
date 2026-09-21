@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.SumData
 import ConLeche.Model.Inductives.StructBodyFrames
 public import ConLeche.Verify.Inductives.FixWF
-public import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
 /-!

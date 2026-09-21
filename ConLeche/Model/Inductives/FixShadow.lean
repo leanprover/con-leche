@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixNoBVar
 public section
 
