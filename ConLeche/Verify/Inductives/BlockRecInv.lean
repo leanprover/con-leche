@@ -277,6 +277,78 @@ theorem abstractIh_of_recFree {fr : BlockRuleFrame} :
       abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
       Expr.liftLooseBVars]
 
+/-! ## Stage (a)'s two NAME checks, exposed
+
+`checkBlockRecPins` refuses a recursor named for one of the constants
+the environment's own guards look up (`reservedRecName`) and, since
+the maintainer's ruling of 2026-09-21 ("no red tutorial tests"), a
+block whose recursor names are not, as a SET, official's
+`{T_m.rec | m a member}`.  The first is what the MODEL consumes — it
+makes `natLitSupported` and `strLitSupported` congruent across the
+recursors' cons (`strLitSupported_consBlockRecs`,
+`ConLeche/Verify/Inductives/BlockWF.lean`); the second has no model
+consumer at all (it only shrinks the accept set) and is exposed here
+so that what the stage guarantees about names is read in ONE place. -/
+
+/-- Stage (a)'s guards, inverted. -/
+theorem checkBlockRecPins_inv {p : BlockParts}
+    (h : checkBlockRecPins (m := CheckM) p = .ok ()) :
+    blockRecLpsOk p.toBlockShape = true ∧
+    blockRecNamesUnreserved p.toBlockShape = true ∧
+    blockRecNameSetOk p.toBlockShape = true ∧
+    p.recPinned = true := by
+  unfold checkBlockRecPins at h
+  simp only [bind, Except.bind, pure, Except.pure, throw, throwThe,
+    MonadExceptOf.throw] at h
+  by_cases h1 : blockRecLpsOk p.toBlockShape = true
+  case neg => simp only [h1] at h; exact nomatch h
+  by_cases h2 : blockRecNamesUnreserved p.toBlockShape = true
+  case neg => simp only [h1, h2] at h; exact nomatch h
+  by_cases h3 : blockRecNameSetOk p.toBlockShape = true
+  case neg => simp only [h1, h2, h3] at h; exact nomatch h
+  by_cases h4 : p.recPinned = true
+  case neg => simp only [h1, h2, h3, h4] at h; exact nomatch h
+  exact ⟨h1, h2, h3, h4⟩
+
+/-- **No recursor of a checked block takes a name the environment's
+own guards look up** — a pinned basis name, a slot of the `Nat` or
+`String` literal guard, or a certified `Nat` operation.  This is the
+fact the model reads: the two literal guards are then CONGRUENT across
+the recursors' cons, so a literal denotes the same thing below the
+block's recursors and above them. -/
+theorem checkBlockRecPins_reserved {p : BlockParts}
+    (h : checkBlockRecPins (m := CheckM) p = .ok ()) :
+    ∀ rc ∈ p.recs, reservedRecName rc.cvR.name = false := by
+  intro rc hrc
+  have := List.all_eq_true.mp (checkBlockRecPins_inv h).2.1 rc hrc
+  exact eq_of_beq (by simpa using this)
+
+/-- **A checked block carries one recursor per member, named
+`T_m.rec`** (the conformance ruling of 2026-09-21): as many recursors
+as members, each named for a member and each member named by one.
+WHICH recursor is which member's is NOT said here — that is its
+MAJOR's business (`RecShape.tgt`). -/
+theorem checkBlockRecPins_names {p : BlockParts}
+    (h : checkBlockRecPins (m := CheckM) p = .ok ()) :
+    p.recs.length = p.members.length ∧
+    (∀ rc ∈ p.recs, ∃ ms ∈ p.members, rc.cvR.name = ms.cvT.name.str "rec") ∧
+    (∀ ms ∈ p.members, ∃ rc ∈ p.recs, rc.cvR.name = ms.cvT.name.str "rec") := by
+  have hset := (checkBlockRecPins_inv h).2.2.1
+  unfold blockRecNameSetOk at hset
+  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at hset
+  obtain ⟨⟨hlen, hwant⟩, hgot⟩ := hset
+  refine ⟨hlen, ?_, ?_⟩
+  · intro rc hrc
+    have hmem := List.elem_iff.mp
+      (List.all_eq_true.mp hgot rc.cvR.name (List.mem_map_of_mem hrc))
+    obtain ⟨ms, hms, hn⟩ := List.mem_map.mp hmem
+    exact ⟨ms, hms, hn.symm⟩
+  · intro ms hms
+    have hmem := List.elem_iff.mp
+      (List.all_eq_true.mp hwant (ms.cvT.name.str "rec") (List.mem_map_of_mem hms))
+    obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hmem
+    exact ⟨rc, hrc, hn⟩
+
 /-! ## D-d: ONE elimination level per family
 
 The type stage returns, with each recursor's record, the sort the

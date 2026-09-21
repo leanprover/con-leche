@@ -497,6 +497,48 @@ def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
    natXorName, natShiftLeftName, natShiftRightName]
 
+/-! ## The names the environment's own guards look up
+
+`natLitSupported` and `strLitSupported` decide whether a literal may
+be READ, and they decide it by looking ten fixed names up in the
+store.  Three of them (`Nat`, `Nat.zero`, `Nat.succ`) are reserved
+basis names, so no stream declaration can ever fill or change them;
+the other seven — `String`, `String.ofList`, `List`, `List.nil`,
+`List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream declarations,
+and a stream is free to install them (it must: that is how a stream
+earns string literals).
+
+What must not happen is a *recursor* taking one of these names.  A
+recursor's name is the stream's business (the ruling of 2026-09-21),
+so nothing else stops a block from declaring, say, a recursor called
+`List.cons` of `List.cons`'s type; consing it would flip
+`strLitSupported` from `false` to `true` and a string literal would
+read as one thing below the block's recursors and as another above
+them.  The block install therefore refuses such a name outright
+(`blockRecNamesUnreserved`, `ConLeche/Kernel/Inductives/BlockParts.lean`),
+which makes both guards CONGRUENT across the recursors' cons
+(`strLitSupported_consBlockRecs`, `ConLeche/Verify/Inductives/BlockWF.lean`)
+— the equation the model's reading law needs. -/
+
+/-- The ten names the two literal guards look up: the `Nat` guard's
+three and the `String` guard's seven. -/
+def litGuardNames : List Name :=
+  [natName, natZeroName, natSuccName,
+   stringName, stringOfListName, listName, listNilName, listConsName,
+   charName, charOfNatName]
+
+/-- **A name no block RECURSOR may take**: one the pinned basis blocks
+reserve, one a literal guard looks up, or one of the certified `Nat`
+operations (whose presence in the store IS their certificate, so a
+recursor stored under such a name would claim a capability nothing
+certified).  Type formers and constructors are NOT held to this — a
+stream must be able to declare `List`, `List.cons` and `Nat.add` —
+which is why the block install spends this predicate on the recursors
+alone and keeps `reservedBasisNames` where it always was. -/
+def reservedRecName (n : Name) : Bool :=
+  reservedBasisNames.contains n || litGuardNames.contains n ||
+    natOpNames.contains n || natDivModNames.contains n
+
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=
   if c = natPredName then [natPredName]
