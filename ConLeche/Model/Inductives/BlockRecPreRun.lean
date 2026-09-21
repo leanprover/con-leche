@@ -2228,7 +2228,15 @@ spelling: `hfd` is RM11's `blockRuleFdomsAV_eq` composed with the
 record's `ds`/`Fss` identification, and `hslot` is the slot-to-domain
 step at the block's own carrier (`BlockCtorDataI.recEntry`/`.reflEntry`
 through `BlockModelAt.leaf`, the shape `blockChainReal_of` already
-discharges against the stage's tower). -/
+discharges against the stage's tower).
+
+`hslot` is quantified at the frames the walk actually REACHES —
+`consList b⃗ ρp` for a prefix that already fits — and not at every
+`σ`: the identity is `BlockModelAt.leaf`, whose hypotheses are fits,
+so at an arbitrary frame the fold of the member's former and the slot
+are unrelated and the `∀ σ` form of the premise is FALSE (session 7's
+second over-quantification, caught in this lane's own first draft of
+this section). -/
 
 section SpineOfChain
 
@@ -2246,10 +2254,13 @@ theorem blockRecSpF {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
     {a ρ : Nat → V} {xs fs : List V} {X : Nat → V} {t : V}
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ σ : Nat → V,
+    (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ bs : List V,
+      FitsFrom ((d.rss (mem c)).getD j []) (d.slotAt ψ X (mem c) j) 0
+        (consList (xs.take d.nP) ρ) (((d.Fss (mem c) ψ).getD j []).take l) bs →
       ((d.rss (mem c)).getD j []).getD l false = true →
-      d.slotAt ψ X (mem c) j l σ
-        = interp V σ (((d.Fss (mem c) ψ).getD j []).getD l default))
+      d.slotAt ψ X (mem c) j l (consList bs (consList (xs.take d.nP) ρ))
+        = interp V (consList bs (consList (xs.take d.nP) ρ))
+            (((d.Fss (mem c) ψ).getD j []).getD l default))
     (hxs : xs.length = p.toBlockShape.rulePrefixAt c)
     (hpref : SpineFit (chainFrame K a ρ)
       (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
@@ -2259,9 +2270,9 @@ theorem blockRecSpF {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
         ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs) := by
   refine SpineFit.append hpref ?_
   have hbase : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs :=
-    spineFit_of_fitsFrom (fun l hl σ hrb => by
+    spineFit_of_fitsFrom (fun l hl bs hb hrb => by
       rw [Nat.zero_add] at hrb ⊢
-      exact hslot l hl σ hrb) hfit.1
+      exact hslot l hl bs hb hrb) hfit.1
   have hlenP : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   rw [blockRecFdomsK, hlenP, hfd]
@@ -2285,10 +2296,12 @@ theorem blockRecCtorFitsFrom {envC : Env} {mpC : EnvModelM V μ envC} {d : Block
     {a ρ : Nat → V} {xs fs : List V} {X : Nat → V}
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ σ : Nat → V,
+    (hslot : ∀ l, l < ((d.Fss (mem c) ψ).getD j []).length → ∀ bs : List V,
+      SpineFit (consList (xs.take d.nP) ρ) (((d.Fss (mem c) ψ).getD j []).take l) bs →
       ((d.rss (mem c)).getD j []).getD l false = true →
-      d.slotAt ψ X (mem c) j l σ
-        = interp V σ (((d.Fss (mem c) ψ).getD j []).getD l default))
+      d.slotAt ψ X (mem c) j l (consList bs (consList (xs.take d.nP) ρ))
+        = interp V (consList bs (consList (xs.take d.nP) ρ))
+            (((d.Fss (mem c) ψ).getD j []).getD l default))
     (hxs : xs.length
       = (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length)
     (hsp : SpineFit (chainFrame K a ρ)
@@ -2304,9 +2317,9 @@ theorem blockRecCtorFitsFrom {envC : Env} {mpC : EnvModelM V μ envC} {d : Block
   have hxs' : xs.length = p.toBlockShape.rulePrefixAt c := by
     rw [hxs, blockRecPdomsK, liftDomsK_length, hlenP]
   rw [blockRecFdomsK, hlenP, hfd] at h2
-  refine fitsFrom_of_spineFit (fun l hl σ hrb => by
+  refine fitsFrom_of_spineFit (fun l hl bs hb hrb => by
       rw [Nat.zero_add] at hrb ⊢
-      exact hslot l hl σ hrb) ?_
+      exact hslot l hl bs hb hrb) ?_
   exact (spineFit_liftDomsK_rule hxs').mp h2
 
 end SpineOfChain

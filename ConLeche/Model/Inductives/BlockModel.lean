@@ -118,27 +118,31 @@ case analysis hands back) to `SpineFit` (what a rule's certificates
 ask for). -/
 theorem spineFit_of_fitsFrom {rs : List Bool} {slot : Nat → (Nat → V) → V} :
     ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
-      (∀ l, l < Fs.length → ∀ σ : Nat → V, rs.getD (i + l) false = true →
-        slot (i + l) σ = interp V σ (Fs.getD l default)) →
+      (∀ l, l < Fs.length → ∀ bs : List V,
+        FitsFrom rs slot i ρ (Fs.take l) bs → rs.getD (i + l) false = true →
+        slot (i + l) (consList bs ρ) = interp V (consList bs ρ) (Fs.getD l default)) →
       FitsFrom rs slot i ρ Fs as → SpineFit ρ Fs as
   | _, _, [], [], _, _ => trivial
   | _, _, [], _ :: _, _, h => h.elim
   | _, _, _ :: _, [], _, h => h.elim
   | i, ρ, F :: Fs, a :: as, hag, h => by
-    refine ⟨?_, spineFit_of_fitsFrom (fun l hl σ hr => ?_) h.2⟩
+    refine ⟨?_, spineFit_of_fitsFrom (fun l hl bs hb hr => ?_) h.2⟩
     · have h1 : a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) := h.1
       by_cases hr : rs.getD i false = true
       · rw [if_pos hr] at h1
-        have h0 := hag 0 (by simp) ρ (by rw [Nat.add_zero]; exact hr)
+        have h0 := hag 0 (by simp) [] trivial (by rw [Nat.add_zero]; exact hr)
         rw [Nat.add_zero] at h0
+        simp only [consList_nil] at h0
         rw [h0] at h1
         exact h1
       · have hr' : rs.getD i false = false := by simpa using hr
         rw [hr'] at h1
         exact h1
-    · have hag' := hag (l + 1) (by simpa using hl) σ
+    · have hb' : FitsFrom rs slot i ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨h.1, hb⟩
+      have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
+        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
       rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
-      exact hag' hr
+      exact hag'
 
 /-- The converse of `spineFit_of_fitsFrom`: under the same agreement
 a domains' fit is the fixpoint route's fit — what turns a RULE's
@@ -146,27 +150,31 @@ fitting spine back into the constructor's `ChainFit` at the carrier
 (`hctorAt`'s first conjunct). -/
 theorem fitsFrom_of_spineFit {rs : List Bool} {slot : Nat → (Nat → V) → V} :
     ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
-      (∀ l, l < Fs.length → ∀ σ : Nat → V, rs.getD (i + l) false = true →
-        slot (i + l) σ = interp V σ (Fs.getD l default)) →
+      (∀ l, l < Fs.length → ∀ bs : List V,
+        SpineFit ρ (Fs.take l) bs → rs.getD (i + l) false = true →
+        slot (i + l) (consList bs ρ) = interp V (consList bs ρ) (Fs.getD l default)) →
       SpineFit ρ Fs as → FitsFrom rs slot i ρ Fs as
   | _, _, [], [], _, _ => trivial
   | _, _, [], _ :: _, _, h => h.elim
   | _, _, _ :: _, [], _, h => h.elim
   | i, ρ, F :: Fs, a :: as, hag, h => by
-    refine ⟨?_, fitsFrom_of_spineFit (fun l hl σ hr => ?_) h.2⟩
+    refine ⟨?_, fitsFrom_of_spineFit (fun l hl bs hb hr => ?_) h.2⟩
     · show a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F)
       by_cases hr : rs.getD i false = true
       · rw [if_pos hr]
-        have h0 := hag 0 (by simp) ρ (by rw [Nat.add_zero]; exact hr)
+        have h0 := hag 0 (by simp) [] trivial (by rw [Nat.add_zero]; exact hr)
         rw [Nat.add_zero] at h0
+        simp only [consList_nil] at h0
         rw [h0]
         exact h.1
       · have hr' : rs.getD i false = false := by simpa using hr
         rw [hr']
         exact h.1
-    · have hag' := hag (l + 1) (by simpa using hl) σ
+    · have hb' : SpineFit ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨h.1, hb⟩
+      have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
+        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
       rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
-      exact hag' hr
+      exact hag'
 
 /-! ## The operator's fibre, both regimes in one equivalence -/
 
