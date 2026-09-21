@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.WellDenoted
+import ConLeche.Semantics.WellDenoted
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Univ
 public import ConLeche.Semantics.BasisOk

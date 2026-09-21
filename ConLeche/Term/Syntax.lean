@@ -173,6 +173,21 @@ inductive BConst where
   hypothesis that a closed family exists.  (The non-indexed `lfp` of
   the route's checkpoint was removed once the indexed leaf landed.) -/
   | lfpFam
+  /-- `lfpTuple k .{u_0 … u_{k-1}, w}` — the least pre-fixed point of a
+  functor on **tuples** of `k` families, member `m`'s family living over
+  its own index set `I_m : Sort u_m` (`lfpTuple`,
+  `ConLeche/SetTheory/Derive/LfpTuple.lean`).  The carrier of a directly
+  installed inductive BLOCK of `k` members (the uniform route): the
+  argument is one tuple `Is = ⟨I_0, …, I_{k-1}⟩` of index sets and one
+  operator on the tuple of families, and the value is the tuple of the
+  members' carriers.  Like `lfpFam` it is a model-side constant with no
+  kernel counterpart — no stream declares it, only the block route's
+  leaves spell it — and its value is total (the empty tuple when no
+  closed tuple exists), so it inhabits its type with no certificate; the
+  fixed-point laws hold under the semantic hypothesis that a closed
+  tuple exists.  At `k = 1` the value is `lfpFam`'s
+  (`lfpTuple_one`). -/
+  | lfpTuple (k : Nat)
   deriving Repr, DecidableEq, Inhabited
 
 /-- Terms.  See the module docstring for what is *not* here. -/
@@ -241,5 +256,7 @@ def BConst.numLevels : BConst → Nat
   | .lfpFam => 2
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
+  -- one index universe per member, then the block's own sort
+  | .lfpTuple k => k + 1
 
 end ConLeche.Term

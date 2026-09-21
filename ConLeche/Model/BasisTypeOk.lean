@@ -92,10 +92,101 @@ theorem motive_app_univZero {u : Nat} {A M a : V} (hu : u = 0)
 
 variable (V)
 
+/-! ## `lfpTuple k`'s two towers (task #315, the uniform block route)
+
+The block carrier's constant is the one whose type is a *tower*, so its
+two grading facts are not the `simp` battery's: bit validity is
+hereditary and needs no membership at all (`ndTowerAV_annotValid`),
+while the grading of the family tower needs the ambient variable to be
+an index-set tuple — which is exactly what the outer `Π`'s own clause
+hands it. -/
+
+/-- The tower's components are bit-valid, hereditarily. -/
+def NdValid (G : Nat → AnnotTerm) : Nat → Nat → (Nat → V) → Prop
+  | _, 0, _ => True
+  | s, n + 1, ρ => AnnotValid V ρ (G s) ∧ ∀ x, NdValid G (s + 1) n (cons x ρ)
+
+theorem ndTowerAV_annotValid {r : Nat} (G : Nat → AnnotTerm) :
+    ∀ (n s : Nat) (ρ : Nat → V), NdValid V G s n ρ →
+      AnnotValid V ρ (ndTowerAV r G s n)
+  | 0, _, _, _ => by simp [ndTowerAV]
+  | n + 1, s, ρ, h => by
+    show AnnotValid V ρ (.app (.app (.const .psigma [r, r]) (G s))
+      (.lam (r + 1) (G s) (ndTowerAV r G (s + 1) n)))
+    rw [AnnotValid_app, AnnotValid_app, AnnotValid_lam]
+    exact ⟨⟨trivial, h.1⟩, h.1, fun x _ => ndTowerAV_annotValid G n (s + 1) (cons x ρ) (h.2 x)⟩
+
+theorem projAV_annotValid : ∀ (i : Nat) (e : AnnotTerm) (ρ : Nat → V),
+    AnnotValid V ρ e → AnnotValid V ρ (projAV i e)
+  | 0, e, ρ, h => by rw [projAV, AnnotValid_fst]; exact h
+  | i + 1, e, ρ, h => by
+    show AnnotValid V ρ (projAV i (.snd e))
+    exact projAV_annotValid i (.snd e) ρ (by rw [AnnotValid_snd]; exact h)
+
+theorem ndValid_sorts (us : List Nat) :
+    ∀ (n s : Nat) (ρ : Nat → V),
+      NdValid V (fun m => (.sort (lv us m) : AnnotTerm)) s n ρ
+  | 0, _, _ => trivial
+  | n + 1, s, ρ => ⟨trivial, fun x => ndValid_sorts us n (s + 1) (cons x ρ)⟩
+
+theorem ndValid_fams (us : List Nat) (k j : Nat) :
+    ∀ (n s : Nat) (ρ : Nat → V),
+      NdValid V (fun m => (.pi (lv us m) (lv us k + 1) (projAV m (.bvar (j + m)))
+        (.sort (lv us k)) : AnnotTerm)) s n ρ
+  | 0, _, _ => trivial
+  | n + 1, s, ρ => by
+    refine ⟨?_, fun x => ndValid_fams us k j n (s + 1) (cons x ρ)⟩
+    rw [AnnotValid_pi]
+    exact ⟨projAV_annotValid V s (.bvar (j + s)) ρ trivial, fun _ _ => trivial,
+      fun h0 => absurd h0 (Nat.succ_ne_zero _)⟩
+
+theorem tupleSortsAV_annotValid (k : Nat) (us : List Nat) (ρ : Nat → V) :
+    AnnotValid V ρ (tupleSortsAV k us) :=
+  ndTowerAV_annotValid V _ k 0 ρ (ndValid_sorts V us k 0 ρ)
+
+theorem tupleFamsAV_annotValid (k : Nat) (us : List Nat) (j : Nat) (ρ : Nat → V) :
+    AnnotValid V ρ (tupleFamsAV k us j) :=
+  ndTowerAV_annotValid V _ k 0 ρ (ndValid_fams V us k j k 0 ρ)
+
+/-- **`lfpTuple k`'s type is bit-valid**: every binder's result slot is
+the family tuple's own sort, which is never `0`. -/
+theorem AnnotValid_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
+    AnnotValid V ρ (BConst.typeAV (.lfpTuple k) us) := by
+  show AnnotValid V ρ (.pi _ _ (tupleSortsAV k us)
+    (.pi _ _ (.pi _ _ (tupleFamsAV k us 0) (tupleFamsAV k us 1)) (tupleFamsAV k us 1)))
+  have hR : ConLeche.Term.tupleFamSort k us ≠ 0 := tupleFamSort_ne_zero k us
+  rw [AnnotValid_pi]
+  refine ⟨tupleSortsAV_annotValid V k us ρ, fun Is _ => ?_, fun h0 => absurd h0 hR⟩
+  rw [AnnotValid_pi]
+  refine ⟨?_, fun F _ => tupleFamsAV_annotValid V k us 1 _, fun h0 => absurd h0 hR⟩
+  rw [AnnotValid_pi]
+  exact ⟨tupleFamsAV_annotValid V k us 0 _, fun x _ => tupleFamsAV_annotValid V k us 1 _,
+    fun h0 => absurd h0 hR⟩
+
+/-- **`lfpTuple k`'s type is graded**: the family tower's projections
+are graded because the outer `Π`'s clause hands them an index-set
+tuple. -/
+theorem WellDenoted_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
+    WellDenoted V ρ (BConst.typeAV (.lfpTuple k) us) := by
+  show WellDenoted V ρ (.pi _ _ (tupleSortsAV k us)
+    (.pi _ _ (.pi _ _ (tupleFamsAV k us 0) (tupleFamsAV k us 1)) (tupleFamsAV k us 1)))
+  rw [WellDenoted_pi]
+  refine ⟨(tupleSortsAV_facts V k us ρ).2, fun Is hIs => ?_⟩
+  rw [(tupleSortsAV_facts V k us ρ).1] at hIs
+  have h0 : WellDenoted V (cons Is ρ) (tupleFamsAV k us 0) :=
+    (tupleFamsAV_facts V (j := 0) (ρ := cons Is ρ) hIs).2
+  have h1 : ∀ x : V, WellDenoted V (cons x (cons Is ρ)) (tupleFamsAV k us 1) :=
+    fun x => (tupleFamsAV_facts V (j := 1) (ρ := cons x (cons Is ρ)) hIs).2
+  rw [WellDenoted_pi]
+  refine ⟨?_, fun F _ => h1 F⟩
+  rw [WellDenoted_pi]
+  exact ⟨h0, fun x _ => h1 x⟩
+
 set_option maxHeartbeats 4000000 in
 theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     AnnotValid V ρ (BConst.typeAV c us) := by
   cases c
+  case lfpTuple k => exact AnnotValid_lfpTuple V k us ρ
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
       natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,
@@ -330,6 +421,7 @@ set_option maxHeartbeats 4000000 in
 theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     WellDenoted V ρ (BConst.typeAV c us) := by
   cases c
+  case lfpTuple k => exact WellDenoted_lfpTuple V k us ρ
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
       natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,

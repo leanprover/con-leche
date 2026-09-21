@@ -293,9 +293,9 @@
    156      c hc hty
    157  
 
-== ConLeche/Model/Denotes.lean#L379-L380
-   379  `EnvModelM V μ env`. -/
-   380  noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
+== ConLeche/Model/Denotes.lean#L378-L379
+   378  `EnvModelM V μ env`. -/
+   379  noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
 
 == tests/layering.sh#L1-L3
      1  #!/usr/bin/env bash
@@ -402,37 +402,37 @@
     41  only when `!is_likely_unshared(e)` — the same read.  The walks memoise
     42  exactly the nodes this primitive reports shared.
 
-== ConLeche/Term/Syntax.lean#L176-L205
-   176    deriving Repr, DecidableEq, Inhabited
-   177  
-   178  /-- Terms.  See the module docstring for what is *not* here. -/
-   179  inductive Term where
-   180    /-- de Bruijn index -/
-   181    | bvar (i : Nat)
-   182    /-- `Sort u` at a concrete level -/
-   183    | sort (u : Nat)
-   184    /-- a built-in constant at a concrete level instantiation -/
-   185    | const (c : BConst) (us : List Nat)
-   186    /-- application -/
-   187    | app (f a : Term)
-   188    /-- `fun (_ : ty) => body` -/
-   189    | lam (ty body : Term)
-   190    /-- `(_ : ty) → body` -/
-   191    | pi (ty body : Term)
-   192    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
-   193    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
-   194    and a census (task #237) found no definition and no theorem in any
-   195    tier reading the slot the former used to carry.  It is gone; a
-   196    producer that knows the type simply drops it. -/
-   197    | eqE (lhs rhs : Term)
-   198    /-- First field of a pair.  Carries **only** the subject: the pair's
-   199    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
-   200    not from the term — see the module docstring.  Interpreted by
-   201    `sfst`, i.e. literally `interpExpr`'s clause. -/
-   202    | fst (e : Term)
-   203    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
-   204    | snd (e : Term)
-   205    /-- the canonical (irrelevant) proof of a derivable equation -/
+== ConLeche/Term/Syntax.lean#L191-L220
+   191    deriving Repr, DecidableEq, Inhabited
+   192  
+   193  /-- Terms.  See the module docstring for what is *not* here. -/
+   194  inductive Term where
+   195    /-- de Bruijn index -/
+   196    | bvar (i : Nat)
+   197    /-- `Sort u` at a concrete level -/
+   198    | sort (u : Nat)
+   199    /-- a built-in constant at a concrete level instantiation -/
+   200    | const (c : BConst) (us : List Nat)
+   201    /-- application -/
+   202    | app (f a : Term)
+   203    /-- `fun (_ : ty) => body` -/
+   204    | lam (ty body : Term)
+   205    /-- `(_ : ty) → body` -/
+   206    | pi (ty body : Term)
+   207    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+   208    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+   209    and a census (task #237) found no definition and no theorem in any
+   210    tier reading the slot the former used to carry.  It is gone; a
+   211    producer that knows the type simply drops it. -/
+   212    | eqE (lhs rhs : Term)
+   213    /-- First field of a pair.  Carries **only** the subject: the pair's
+   214    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+   215    not from the term — see the module docstring.  Interpreted by
+   216    `sfst`, i.e. literally `interpExpr`'s clause. -/
+   217    | fst (e : Term)
+   218    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   219    | snd (e : Term)
+   220    /-- the canonical (irrelevant) proof of a derivable equation -/
 
 == ConLeche/Semantics/Syntax.lean#L72-L98
     72    | const (c : BConst) (us : List Nat)
@@ -610,14 +610,14 @@
     99  measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
    100  function the carrier already owns, so no model content is
 
-== ConLeche/Model/Denotes.lean#L221-L227
-   221  term's closure under `Denotes` at the interpreted leaves. -/
-   222  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
-   223      (hcl : ∀ n ψ, Term.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat} :
-   224      ∀ (d : Nat) (e : Expr) {ta : AnnotTerm},
-   225        denoteMeta acval env φ d e = some ta →
-   226        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
-   227        ∀ ρ : Nat → V, WellDenotedV V ρ ta →
+== ConLeche/Model/Denotes.lean#L220-L226
+   220  term's closure under `Denotes` at the interpreted leaves. -/
+   221  theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
+   222      (hcl : ∀ n ψ, Term.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat} :
+   223      ∀ (d : Nat) (e : Expr) {ta : AnnotTerm},
+   224        denoteMeta acval env φ d e = some ta →
+   225        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
+   226        ∀ ρ : Nat → V, WellDenotedV V ρ ta →
 
 == ConLeche/Model/Claims.lean#L92-L160
     92      Expr.LeavesBounded e →

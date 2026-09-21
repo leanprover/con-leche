@@ -72,7 +72,7 @@ error cannot survive it.
 namespace ConLeche.Semantics
 
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche.Term (BConst lv)
+open ConLeche.Term (BConst lv tupleIdxSort tupleFamSort)
 
 /-! ## Annotated smart constructors
 
@@ -113,6 +113,50 @@ def relAV (u : Nat) (A : AnnotTerm) : AnnotTerm :=
 /-- `¬ A`, i.e. `A → False`: a proposition, so the codomain slot is
 `0`. -/
 def negTyAV (u : Nat) (A : AnnotTerm) : AnnotTerm := arrowA u 0 A (emptyAV 0)
+
+/-! ## The block carrier's tuple spelling (task #315, the uniform route)
+
+`lfpTuple k` binds ONE tuple of index sets and ONE operator on the
+tuple of families, so its type mentions two right-nested pair towers —
+`⟨Sort u_0, …, Sort u_{k-1}⟩` and `⟨proj_0 Is → Sort w, …⟩`.  Both are
+NON-dependent: component `m` may mention the ambient tuple variable but
+never an earlier component, so the former takes its components
+**already lifted to their own depth** (component `m` sits under `m` of
+the tower's fibre binders).
+
+`projAV` lives here rather than with the tower kit
+(`Semantics/Tower/TowerLeaf.lean`, which imports this module) because a
+basis constant's type needs it: it is ONE definition for every
+structure and every index.  `ndTowerAV r` is `towerBodyAVPos r`'s
+non-dependent twin — the same `.psigma [r, r]` tower with the same
+`r + 1` fibre annotation (the codomain type's sort, never `0`, so the
+fibre computes by `app_lamR_pos` in both regimes), differing only in
+the terminator's level, which no value reads (`bval .punit = unitSet`
+at every level). -/
+
+/-- The uniform projection spelling: `.fst ∘ .snd^i` — the `AnnotTerm`
+form of the tier's `projS i = sfst ∘ ssnd^i`.  Depends only on the
+index. -/
+def projAV : Nat → AnnotTerm → AnnotTerm
+  | 0, e => .fst e
+  | i + 1, e => projAV i (.snd e)
+
+/-- The non-dependent pair tower at level `r`, `PUnit`-terminated:
+`⟨G s, …, G (s + n - 1)⟩`, each component given at its own depth. -/
+def ndTowerAV (r : Nat) (G : Nat → AnnotTerm) : Nat → Nat → AnnotTerm
+  | _, 0 => .const .punit [r]
+  | s, n + 1 =>
+    .app (.app (.const .psigma [r, r]) (G s)) (.lam (r + 1) (G s) (ndTowerAV r G (s + 1) n))
+
+/-- `⟨Sort u_0, …, Sort u_{k-1}⟩`, the index-set tuple's type. -/
+def tupleSortsAV (k : Nat) (us : List Nat) : AnnotTerm :=
+  ndTowerAV (tupleIdxSort us) (fun m => .sort (lv us m)) 0 k
+
+/-- `⟨proj_0 Is → Sort w, …, proj_{k-1} Is → Sort w⟩`, the family
+tuple's type, with `Is` at de Bruijn index `j`. -/
+def tupleFamsAV (k : Nat) (us : List Nat) (j : Nat) : AnnotTerm :=
+  ndTowerAV (tupleFamSort k us)
+    (fun m => .pi (lv us m) (lv us k + 1) (projAV m (.bvar (j + m))) (.sort (lv us k))) 0 k
 
 /-! ## The annotated type assignment -/
 
@@ -228,6 +272,13 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi (u + 1) m (.sort u) <|
     .pi m m (arrowA m m (arrowA u (w + 1) (.bvar 0) (.sort w)) (arrowA u (w + 1) (.bvar 0) (.sort w))) <|
     .pi u (w + 1) (.bvar 1) (.sort w)
+  | .lfpTuple k, us =>
+    let R := tupleFamSort k us
+    -- `Π (Is : ⟨Sort u_0, …, Sort u_{k-1}⟩) (F : Fams Is → Fams Is), Fams Is`,
+    -- every binder's result slot the family tuple's own sort `R`
+    .pi (tupleIdxSort us) R (tupleSortsAV k us) <|
+    .pi R R (.pi R R (tupleFamsAV k us 0) (tupleFamsAV k us 1)) <|
+    tupleFamsAV k us 1
 
 /-! ## Faithfulness
 
@@ -235,10 +286,41 @@ The former adds annotations and nothing else — so a *numeral* error is
 the only thing this file can get wrong, and the capstone
 (`bval_mem_type`) is what tests those. -/
 
+theorem projAV_erase : ∀ (i : Nat) (e : AnnotTerm),
+    (projAV i e).erase = ConLeche.Term.projPairT i e.erase
+  | 0, _ => rfl
+  | i + 1, e => projAV_erase i (.snd e)
+
+theorem ndTowerAV_erase (r : Nat) (G : Nat → AnnotTerm) (H : Nat → ConLeche.Term.Term)
+    (hGH : ∀ m, (G m).erase = H m) :
+    ∀ (n s : Nat), (ndTowerAV r G s n).erase = ConLeche.Term.ndTowerT r H s n
+  | 0, _ => rfl
+  | n + 1, s => by
+    show ConLeche.Term.Term.app (ConLeche.Term.Term.app _ (G s).erase)
+      (ConLeche.Term.Term.lam (G s).erase (ndTowerAV r G (s + 1) n).erase) = _
+    rw [ndTowerAV_erase r G H hGH n (s + 1), hGH s]
+    rfl
+
+theorem tupleSortsAV_erase (k : Nat) (us : List Nat) :
+    (tupleSortsAV k us).erase = ConLeche.Term.tupleSortsT k us :=
+  ndTowerAV_erase _ _ _ (fun _ => rfl) k 0
+
+theorem tupleFamsAV_erase (k : Nat) (us : List Nat) (j : Nat) :
+    (tupleFamsAV k us j).erase = ConLeche.Term.tupleFamsT k us j := by
+  refine ndTowerAV_erase _ _ _ (fun m => ?_) k 0
+  show ConLeche.Term.Term.pi _ _ = ConLeche.Term.arrow _ _
+  rw [projAV_erase]
+  rfl
+
 /-- **The erasure law**: `typeAV` erases to `BConst.type` on the nose. -/
 theorem typeAV_erase (c : BConst) (us : List Nat) :
     (BConst.typeAV c us).erase = BConst.type c us := by
-  cases c <;>
+  cases c
+  case lfpTuple k =>
+    show ConLeche.Term.Term.pi _ (ConLeche.Term.Term.pi (ConLeche.Term.Term.pi _ _) _) = _
+    rw [tupleSortsAV_erase, tupleFamsAV_erase, tupleFamsAV_erase]
+    rfl
+  all_goals
     simp [BConst.typeAV, ConLeche.Term.BConst.type, natTyAV, natZeroAV,
       natSuccAV, punitAV, punitUnitAV, emptyAV, psigmaAV, quotAV,
       quotMkAV, arrowA, relAV, negTyAV, ConLeche.Term.natT,

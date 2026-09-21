@@ -63,6 +63,62 @@ ambient context: `A → A → Prop`.  (Written out rather than built from
 `arrow`, because the second domain sits under one extra binder.) -/
 def relT (A : Term) : Term := .pi A (.pi A.lift (.sort 0))
 
+/-! ## The block carrier's tuple spelling (task #315, the uniform route)
+
+`lfpTuple k` binds ONE tuple of index sets and ONE operator on the
+tuple of families, so its type mentions two right-nested pair towers —
+`⟨Sort u_0, …, Sort u_{k-1}⟩` and `⟨I_0 → Sort w, …, I_{k-1} → Sort w⟩`
+— and the members' index sets are read off the first by the uniform
+projection family.  Both towers are NON-dependent: component `m` may
+mention the ambient tuple variable but never an earlier component, so
+the former takes the components **already lifted to their own depth**
+(component `m` sits under `m` of the tower's fibre binders). -/
+
+/-- `.fst ∘ .snd^i` — the `Term` mirror of `projAV`, the uniform
+projection spelling. -/
+def projPairT : Nat → Term → Term
+  | 0, e => .fst e
+  | i + 1, e => projPairT i (.snd e)
+
+/-- The non-dependent pair tower at level `r`, `PUnit`-terminated:
+`⟨G s, …, G (s + n - 1)⟩`, each component given at its own depth. -/
+def ndTowerT (r : Nat) (G : Nat → Term) : Nat → Nat → Term
+  | _, 0 => .const .punit [r]
+  | s, n + 1 =>
+    .app (.app (.const .psigma [r, r]) (G s)) (.lam (G s) (ndTowerT r G (s + 1) n))
+
+/-- An upper bound for every level a list mentions (`0` past its
+end, so the bound is global in the index — which is what a tower's
+formation premise wants). -/
+def levMax (us : List Nat) : Nat := us.foldr Nat.max 0
+
+theorem lv_le_levMax : ∀ (us : List Nat) (m : Nat), lv us m ≤ levMax us
+  | [], m => by simp [lv, levMax]
+  | u :: us, 0 => by
+    show u ≤ Nat.max u (levMax us)
+    exact Nat.le_max_left _ _
+  | u :: us, m + 1 => by
+    show lv us m ≤ Nat.max u (levMax us)
+    exact Nat.le_trans (lv_le_levMax us m) (Nat.le_max_right _ _)
+
+/-- The sort of `lfpTuple k`'s index-set tuple `⟨Sort u_0, …⟩`. -/
+def tupleIdxSort (us : List Nat) : Nat := levMax us + 1
+
+/-- The sort of `lfpTuple k`'s family tuple `⟨I_0 → Sort w, …⟩`. -/
+def tupleFamSort (k : Nat) (us : List Nat) : Nat :=
+  Nat.max (levMax us) (lv us k + 1)
+
+/-- `⟨Sort u_0, …, Sort u_{k-1}⟩`, the index-set tuple's type. -/
+def tupleSortsT (k : Nat) (us : List Nat) : Term :=
+  ndTowerT (tupleIdxSort us) (fun m => .sort (lv us m)) 0 k
+
+/-- `⟨proj_0 Is → Sort w, …, proj_{k-1} Is → Sort w⟩`, the family
+tuple's type, with `Is` at de Bruijn index `j` (each component lifted
+to its own depth in the tower). -/
+def tupleFamsT (k : Nat) (us : List Nat) (j : Nat) : Term :=
+  ndTowerT (tupleFamSort k us)
+    (fun m => arrow (projPairT m (.bvar (j + m))) (.sort (lv us k))) 0 k
+
 /-! ## The type assignment -/
 
 /-- The type of each built-in constant. -/
@@ -155,5 +211,10 @@ def BConst.type : BConst → List Nat → Term
     .pi (.sort u) <|
     .pi (arrow (arrow (.bvar 0) (.sort w)) (arrow (.bvar 0) (.sort w))) <|
     .pi (.bvar 1) (.sort w)
+  | .lfpTuple k, us =>
+    -- `Π (Is : ⟨Sort u_0, …, Sort u_{k-1}⟩) (F : Fams Is → Fams Is), Fams Is`
+    .pi (tupleSortsT k us) <|
+    .pi (.pi (tupleFamsT k us 0) (tupleFamsT k us 1)) <|
+    tupleFamsT k us 1
 
 end ConLeche.Term
