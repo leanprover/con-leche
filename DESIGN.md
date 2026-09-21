@@ -128569,9 +128569,12 @@ Everything else the move needs is landed: `ErasedEq.ordHeadRed` carries
 the head and the denotation across `hEr`, `replaceAllNested_lamHead`
 supplies `hwc` from `hheadS`, and `normPosDomM_ordHeadRed_cons`/`_former`
 are the rows' own spellings.  **Until the move lands, those two
-transports and `ErasedEq.ordHeadRed` have no consumer** —
-`tests/unconsumed.sh` goes 204 → 206 of 3888 → 3904 on the two
-transports, and the advisory is right to say so.
+transports and `replaceAllNested_lamHead` have no consumer** —
+`tests/unconsumed.sh` goes 204 of 3888 → **207 of 3913**, and the three
+new entries are exactly those (`normPosDomM_ordHeadRed_cons`,
+`…_former`, `replaceAllNested_lamHead`).  They are residuals waiting for
+the move, not spare proof: the advisory is right to list them, and the
+next session either consumes them or deletes them.
 
 ##### (e) TWO READINGS OF THE SITE THAT CHANGE THE MOVE'S SHAPE, AND THE GATE NUMBERS
 
