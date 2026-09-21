@@ -82,6 +82,7 @@ structure BlockTablesStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : L
   fibre (`blockFoldSingle` at the constructors' stage, where the
   member's data still crosses) -/
   foldT : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
+    d.nIdxAt m = 0 →
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((d.ppsM m ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ (A m ψ))
@@ -354,7 +355,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (fun ψ => by rw [hleafT ψ, hS.leaf i ψ]; rfl)
         (fun ψ => by rw [hleafC ψ, hFss1 ψ]; rfl)
         (fun ψ ρ ts hsp => by
-          have hf := hS.foldT i cA hik hctorsEq ψ ρ ts hsp
+          have hf := hS.foldT i cA hik hctorsEq hnIdx0 ψ ρ ts hsp
           rw [hS.leaf i ψ] at hf
           exact hf)
         (fun ψ ρ => by
