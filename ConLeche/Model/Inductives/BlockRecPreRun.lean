@@ -1533,4 +1533,137 @@ theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : Nat}
 
 end Dispatch
 
+/-! ## 16. The IND arm's inputs (session 3)
+
+At `ℓ = 0` every binder of a recursor's type is a `Prop` binder
+(`OneElimLevel` at the family's level), so its reading is a Π-tower of
+truth values and inhabiting it is a statement about its BODY at every
+fitting spine (`pt_mem_mkPisAV_zero`).  That is what turns the
+induction principle `hind` into "the conclusion holds at every fitting
+spine", which is where the block's own induction does its work.
+
+`hT` — the rule's conclusion reads to a truth value — is the SAME
+premise the WF regime pays (`hCaB`: the conclusion at the rule's spine
+IS the motive at the constructed element) at `ℓ = 0`, where the
+motive is a member of `univ 0 = univZero`.  The two regimes therefore
+share their O-2 input, which is worth saying: it is one reading fact,
+not two. -/
+
+section IndInputs
+
+variable {ρ : Nat → V}
+
+/-- **A `Prop` Π-tower is inhabited by the point** exactly when its
+body is at every fitting spine. -/
+theorem pt_mem_mkPisAV_zero :
+    ∀ (ds : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (b : AnnotTerm),
+      (∀ dd ∈ ds, dd.2.1 = 0) →
+      (∀ ys : List V, SpineFit ρ (ds.map (·.2.2)) ys →
+        (pt : V) ∈ˢ interp V (consList ys ρ) b) →
+      (pt : V) ∈ˢ interp V ρ (mkPisAV ds b)
+  | [], ρ, b, _, h => h [] trivial
+  | dd :: ds, ρ, b, hbits, h => by
+    show (pt : V) ∈ˢ piR dd.2.1 (interp V ρ dd.2.2) fun x => interp V (cons x ρ) (mkPisAV ds b)
+    rw [hbits dd (.head _)]
+    refine pt_mem_piR_zero_of fun x hx => ?_
+    refine pt_mem_mkPisAV_zero ds (cons x ρ) b (fun d' hd' => hbits d' (.tail _ hd')) ?_
+    intro ys hsp
+    exact h (x :: ys) ⟨hx, hsp⟩
+
+/-- **The IND arm's `hind`, from the conclusion at every fitting
+spine**: the recursor's type is a `Prop` Π-tower (`OneElimLevel` at
+`ℓ = 0`, the bits from `checkBlockRecK_tyPis`), so inhabiting it is
+inhabiting its conclusion along the telescope — which is the block's
+own induction. -/
+theorem hind_of_spines {K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+    {concl RecTy : Nat → AnnotTerm} (hbits : OneElimLevel 0 K rds)
+    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
+    (hconclPt : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (pt : V) ∈ˢ interp V (consList ys ρ) (concl c)) :
+    ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c) := by
+  intro c hc
+  rw [hTyE c hc]
+  exact pt_mem_mkPisAV_zero (rds c) ρ (concl c)
+    (fun dd hd => (hbits c hc dd hd).mp rfl) (hconclPt c hc)
+
+/-- **The IND arm's `hT` is the WF arm's `hCaB` at `ℓ = 0`**: the
+rule's conclusion reads to the MOTIVE at the constructed element, and
+at the zero level the motive is a truth value (`univ 0 = univZero`). -/
+theorem hT_of_motive {T B : V} (hCaB : T = B) (hB : B ∈ˢ (univ 0 : V)) :
+    T ∈ˢ (univZero : V) := by
+  rw [hCaB, ← univ_zero]
+  exact hB
+
+end IndInputs
+
+/-! ## 17. The block's INDUCTION, and `hconclPt`
+
+`hind_of_spines` reduces the IND regime's induction principle to "the
+conclusion is inhabited at every fitting spine", and THAT is the
+block's own simultaneous induction: a fitting spine's major lies in
+the component's carrier (`BlockModelAt.leaf`, §3's identification), so
+`lfpTuple_induction` applies and its step sees the functor at the
+SEPARATED tuple — i.e. a recursive field already satisfies the
+property.
+
+The step is the premise here, and it is what `residueOk_blockFrame`
+discharges once the ih openers' domains are known to be inhabited: at
+`ℓ = 0` the ih values are the point, and their domains are the motive
+at the predecessors, which is exactly what the separated tuple
+carries.  What is missing to write that proof is the ih openers'
+READING (RM8's A-1, blocked on the constructors' stage's
+`FieldReadAt`), so the step stays named. -/
+
+section BlockInd
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+
+/-- **The induction's motive**: every class eliminating this
+component, at every fitting spine with these parameters, this index
+tuple and this major, has its conclusion inhabited. -/
+@[expose] def blockIndP (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (K : Nat)
+    (rP mem : Nat → Nat) (rds : Nat → List (Nat × Nat × AnnotTerm))
+    (concl : Nat → AnnotTerm) (as : List V) (m : Nat) (i x : V) : Prop :=
+  ∀ c, c < K → mem c = m → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (prefOf (rP c) ys).take d.nP = as → d.tup ψ (mem c) (idxOf (rP c) ys) = i →
+    majOf ys = x → (pt : V) ∈ˢ interp V (consList ys ρ) (concl c)
+
+/-- **The conclusion at every fitting spine, by the block's own
+induction.**  The outer induction is `lfpTuple_induction` at the
+block's representation; the step — the conclusion at a CONSTRUCTED
+major, with the property already available at the recursive fields —
+is the premise. -/
+theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat}
+    {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
+    (hmemK : ∀ c, c < K → mem c < d.k)
+    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
+    (hstep : ∀ as : List V, SpineFit ρ (d.params ψ) as →
+      ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
+        x ∈ˢ app (d.Φ ψ (consList as ρ)
+            (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+              (blockIndP d ψ ρ K rP mem rds concl as)) m) i →
+        blockIndP d ψ ρ K rP mem rds concl as m i x) :
+    ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (pt : V) ∈ˢ interp V (consList ys ρ) (concl c) := by
+  intro c hc ys hfit
+  obtain ⟨-, -, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
+  have hsat := d.satOfSpine hpar
+  obtain ⟨hmono, -, hcl⟩ := hM.functor ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) hsat
+  have hmemN : mem c < d.N := Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
+  have hi : d.tup ψ (mem c) (idxOf (rP c) ys)
+      ∈ˢ d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) (mem c) := tupW_mem hidx
+  have hmajC : majOf ys ∈ˢ
+      app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+        (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)) (mem c))
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
+    rw [← hM.leaf (mem c) (hmemK c hc) ψ ρ ((prefOf (rP c) ys).take d.nP) (idxOf (rP c) ys)
+      hpar hidx]
+    exact hmaj
+  exact lfpTuple_induction hcl hmono
+    (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP))
+    (hstep ((prefOf (rP c) ys).take d.nP) hpar) (mem c) hmemN _ hi _ hmajC c hc rfl ys hfit
+    rfl rfl rfl
+
+end BlockInd
+
 end ConLeche.Model
