@@ -480,14 +480,6 @@ ROOT's wide identification instead of at `q`'s own mint group.  Every
 hypothesis but `hcp` and `hσc` is `ofNested_wide_famAt`'s, and those
 two are K.41's pairing and the closure's own landing. -/
 theorem nestedPinLfp_of_root_class {ψ : Name → Nat} {ρp : Nat → V}
-    (hOk : NestedLfpOk (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
-      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
-      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
-      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
-      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
-      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
-      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
-      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp))
     (m : EnvModel V env₂) {st : ElimState} (dJf : Nat → BlockModel V)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
@@ -498,65 +490,26 @@ theorem nestedPinLfp_of_root_class {ψ : Name → Nat} {ρp : Nat → V}
     {r kR : Nat} (GR : GF st m r kR (dJf r))
     {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
     {σ : Nat → Nat}
-    (hw : (dJf r).w (((D).pinAt r).ψJ ψ) = (D).w ψ)
-    (hσ : ∀ i, i < (dJf r).k + (dJf r).nPins → σ i < p.k + pinsS.length)
-    (hmonoJ : MonoTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hmapsJ : MapsTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) L)
-    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-        ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins)
-        ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y))
-    (hIs : ∀ i, i < (dJf r).k + (dJf r).nPins →
-      (D).idx ψ ρp (σ i) = (dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) i)
-    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-        (fun i => (D).idx ψ ρp (σ i)) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
-      TupleLe ((dJf r).k + (dJf r).nPins) (fun i => (D).idx ψ ρp (σ i)) Y
-        (lfpTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) →
-      ∀ i, i < (dJf r).k + (dJf r).nPins →
-      ΨA ψ ρp (setJoin σ ((dJf r).k + (dJf r).nPins)
-          (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
-        = (dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y i)
-    (hcomp : (dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
-      = composeΦ ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
-          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hpins : ∀ X q', q' < (dJf r).nPins →
-      (dJf r).pinCar (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) X q'
-        = pinsCar ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
-            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-            ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) X q')
+    -- **THE WIDE IDENTIFICATION, AT EVERY CLASS OF THE INSTANCE** (task
+    -- #315 WIDE, the merge session): what stood here was
+    -- `ofNested_wide_famAt`'s TEN raw hypotheses, which no run-level
+    -- caller can supply — `BlockModel.ofNested`'s unnamed lists are open
+    -- in them.  `ofNested_pin_block_of_wide_inst_famAt` (`NestedFit.lean`)
+    -- is their assembly at the instance, at exactly the arguments the
+    -- per-instance step already applies `ofNested_pin_block_of_wide_inst`
+    -- at, so the premise is carried in ITS shape and not in theirs.
+    (hwideFam : ∀ c, c < (dJf r).k + (dJf r).nPins →
+      lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+        = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+            (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+              ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+              ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c)
     (c q : Nat) (hcT : c < (dJf r).kT) (hc : c < (dJf r).k + (dJf r).nPins)
     (hcp : ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q)
     (hσc : σ c = p.k + q) :
     pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
       = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
-  have hwide : lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
-      = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
-          (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
-            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-            ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c := by
-    -- the conclusion is unified with the STATED goal first, which is what
-    -- fixes `BlockModel.ofNested`'s twenty implicit lists: `NestedLfpOk`
-    -- names only some of them, so an `exact` leaves the rest open
-    -- `apply` unifies the CONCLUSION first, which is what fixes the
-    -- twenty implicit lists of `BlockModel.ofNested` that `NestedLfpOk`
-    -- does not name; the goals then come back in the order `apply`
-    -- chooses, so they are closed by name rather than positionally
-    apply ofNested_wide_famAt (dJ := dJf r) (σ := σ)
-    all_goals first
-      | exact hOk | exact hw | exact hσ | exact hmonoJ | exact hmapsJ | exact hclJ
-      | exact hfcJ | exact hIs | exact hΦ | exact hcomp | exact hpins | exact hc
+  have hwide := hwideFam c hc
   rw [nestedPinFam_of_classPin m dJf hgroups hρp hB hdJfB GR hshR c q hcT hcp, ← hwide, hσc]
 
 
@@ -575,14 +528,6 @@ is `ofNested_wide_famAt`'s raw list, and the assembly that discharges
 them from `ofNested_pin_block_of_wide_inst`'s own list is `hwideFam`
 (`NestedFit.lean`, the main lane's) — see DESIGN's WIDE (f6) row. -/
 theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
-    (hOk : NestedLfpOk (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
-      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
-      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
-      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
-      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
-      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
-      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
-      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp))
     (m : EnvModel V env₂) {st : ElimState} (dJf : Nat → BlockModel V)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
@@ -594,44 +539,16 @@ theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
     {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
     {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
     {σ : Nat → Nat}
-    (hw : (dJf r).w (((D).pinAt r).ψJ ψ) = (D).w ψ)
-    (hσ : ∀ i, i < (dJf r).k + (dJf r).nPins → σ i < p.k + pinsS.length)
-    (hmonoJ : MonoTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hmapsJ : MapsTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-      ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-      ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) L)
-    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-        ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins)
-        ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y))
-    (hIs : ∀ i, i < (dJf r).k + (dJf r).nPins →
-      (D).idx ψ ρp (σ i) = (dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) i)
-    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-        (fun i => (D).idx ψ ρp (σ i)) Y →
-      FibreConst σ ((dJf r).k + (dJf r).nPins) Y →
-      TupleLe ((dJf r).k + (dJf r).nPins) (fun i => (D).idx ψ ρp (σ i)) Y
-        (lfpTuple ((D).w ψ) ((dJf r).k + (dJf r).nPins)
-          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) →
-      ∀ i, i < (dJf r).k + (dJf r).nPins →
-      ΨA ψ ρp (setJoin σ ((dJf r).k + (dJf r).nPins)
-          (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
-        = (dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) Y i)
-    (hcomp : (dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
-      = composeΦ ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
-          ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-          ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
-    (hpins : ∀ X q', q' < (dJf r).nPins →
-      (dJf r).pinCar (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) X q'
-        = pinsCar ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k (dJf r).nPins
-            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
-            ((dJf r).Ψaux (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) X q')
+    -- **THE WIDE IDENTIFICATION AT EVERY CLASS** — carried in
+    -- `ofNested_pin_block_of_wide_inst_famAt`'s shape (`NestedFit.lean`),
+    -- which is the per-instance step's own application, and not in
+    -- `ofNested_wide_famAt`'s raw one (task #315 WIDE, the merge session)
+    (hwideFam : ∀ c, c < (dJf r).k + (dJf r).nPins →
+      lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (σ c)
+        = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+            (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+              ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+              ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c)
     {mm : List Nat} {lpsR : List Name}
     (hroot : ∀ c, c < (dJf r).k → σ c = p.k + r + c)
     (hpinσ : ∀ c, ¬ c < (dJf r).k → c < (dJf r).k + (dJf r).nPins →
@@ -647,8 +564,8 @@ theorem nestedPinLfp_of_pool {ψ : Name → Nat} {ρp : Nat → V}
       = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
   obtain ⟨c, hc, hcp, hσc⟩ := nestedClassPinAt_of_instMap (ρp := ρp) m hgroups GR CR hB hshR
     hroot hpinσ hmmLen hψR hcorr hq hpool
-  exact nestedPinLfp_of_root_class hOk m dJf hgroups hρp hB hdJfB GR hshR hw hσ hmonoJ hmapsJ
-    hclJ hfcJ hIs hΦ hcomp hpins c q hc hc hcp hσc
+  exact nestedPinLfp_of_root_class m dJf hgroups hρp hB hdJfB GR hshR hwideFam
+    c q hc hc hcp hσc
 
 end RootClass
 
