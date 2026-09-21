@@ -162,7 +162,7 @@ lane can state its `hTyE` at a name instead of an existential. -/
 /-- The `i`-th stored recursor type's READING at `ψ` (`default` off
 the list, or at a type that does not read — neither happens under the
 run, `checkBlockRecK_tyPis`). -/
-@[expose] def blockRecTyAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+def blockRecTyAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (ψ : Name → Nat) (c : Nat) : AnnotTerm :=
   (rs[c]?.bind fun r => denoteMeta acval envC ψ 0 r.1.type).getD default
@@ -170,7 +170,7 @@ run, `checkBlockRecK_tyPis`). -/
 /-- The `i`-th recursor's BINDER DATA: the reading's `mI + 1` Π-entries
 — the block's parameters, the `nP … rP-1` stretch, the indices and the
 major. -/
-@[expose] def blockRecRdsAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+def blockRecRdsAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (p : ConLeche.BlockShape)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (ψ : Name → Nat) (c : Nat) : List (Nat × Nat × AnnotTerm) :=
@@ -178,7 +178,7 @@ major. -/
 
 /-- The `i`-th recursor's CONCLUSION, read under its `mI + 1`
 binders. -/
-@[expose] def blockRecConclAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+def blockRecConclAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (p : ConLeche.BlockShape)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (ψ : Name → Nat) (c : Nat) : AnnotTerm :=
