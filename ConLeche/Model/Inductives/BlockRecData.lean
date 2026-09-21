@@ -2106,6 +2106,164 @@ theorem blockRuleMkAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   rw [blockRuleMkAV, hct,
     denoteMeta_mkAppN_of _ hconst (DenoteMetaSpine.append hspP hspF), Option.getD_some]
 
+omit [SetTheory V] in
+/-- A frame substitution does not touch a constant. -/
+theorem instSeq_const : ∀ (as : List Expr) (t : Nat) (n : Name) (us : List Level),
+    Expr.instSeq as t (Expr.const n us) = Expr.const n us
+  | [], _, _, _ => rfl
+  | a :: as, t, n, us => by
+    show Expr.instSeq as (t - 1) ((Expr.const n us).instantiate1 a t) = _
+    rw [show (Expr.const n us).instantiate1 a t = Expr.const n us from rfl,
+      instSeq_const as (t - 1) n us]
+
+omit [SetTheory V] in
+/-- A read spine's `getD` map IS the spine. -/
+theorem denoteMetaSpine_map_getD {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
+      as.map (fun e => (denoteMeta acval env φ d e).getD default) = vs
+  | _, _, .nil => rfl
+  | _, _, .cons hx hsp => by
+    rw [List.map_cons, hx, Option.getD_some, denoteMetaSpine_map_getD hsp]
+
+/-- **A-3's `es0`, at the run**: the constructor's INDEX expressions,
+read at the rule's frame, are the constructors' stage's index readings
+lifted by `rP − nP` at the fields' cutoff.
+
+The body's reading is `readOpenedDoms_shift`'s second component; what
+this adds is the SPINE inversion — the opened residual is the member's
+constant applied to the parameter slots and the index expressions
+(`CtorDataI.resid`), so `denoteMeta_mkAppN_inv` against the lifted
+`ctorBodyAVI` identifies the arguments one by one. -/
+theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+    blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = (Es ψ).map (·.liftN (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) := by
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  obtain ⟨crest, hopP, hopX⟩ := hcd.opens
+  -- the shift's body half (session 7's `readOpenedDoms_shift`)
+  obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
+  have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
+    (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)) (by rw [hcd.len ψ]; omega)
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₀.symm.trans hstTake))
+  rw [Nat.zero_add] at hb₀
+  have hwC : Expr.WScoped p.nP crest := by
+    have := (ConLeche.openPisAtFvars_WScoped p.nP cA.1.type 0 hopP
+      (Expr.WScoped.of_not_hasFvar hCf)).2
+    rwa [Nat.zero_add] at this
+  have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
+      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+  have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
+  have hargs : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
+      ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
+      ConLeche.Verify.RenEqT (fun n => n) a a' := by
+    intro k a a' ha ha'
+    obtain ⟨ty, rfl⟩ := hcd.pIdx k a ha
+    have hk : k < p.nP := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha'
+      rw [List.length_take] at hlt
+      omega
+    have ha'' : (blockRulePrefFvs p.toBlockShape rs c)[k]? = some a' := by
+      have ht : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]?
+          = (blockRulePrefFvs p.toBlockShape rs c)[k]? := by
+        rw [List.getElem?_take, if_pos hk]
+      rw [← ht]; exact ha'
+    obtain ⟨ty', rfl⟩ := hidxPref k a' ha''
+    rw [Nat.zero_add]
+    exact ConLeche.Verify.RenEqT.fvar
+  obtain ⟨-, hrenC⟩ := ConLeche.Verify.instPisAt_renEq (f := fun n => n) fvsP
+    ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)
+    (ConLeche.Verify.openPisAtFvars_instPisAt _ hopP) hinst
+    (by show Expr.ErasedEq _ _; rw [renameConsts_id]; exact Expr.ErasedEq.rfl _)
+    hargs
+    (by rw [hcd.pLen, List.length_take, hlenPref]; omega)
+  have heq : Expr.ErasedEq crest (blockRuleCrest p.toBlockShape rs c i) := by
+    have := hrenC
+    rwa [ConLeche.Verify.RenEqT, renameConsts_id] at this
+  have hsh := readOpenedDoms_shift (m := mpC.base2) (ψ := ψ)
+    (o := p.toBlockShape.rulePrefixAt c - p.nP) hb₀ hwC (hcd.len ψ) heq
+    (by rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
+          = p.toBlockShape.rulePrefixAt c from by omega]
+        exact hopF)
+  have hcb : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
+      (blockRuleCbody p.toBlockShape rs c i)
+      = some ((ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)).liftN
+          (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) := by
+    have := hsh.2
+    rwa [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
+        = p.toBlockShape.rulePrefixAt c from by omega] at this
+  -- the residual's SYNTACTIC spine
+  obtain ⟨cbs, es, hresid, hlenes⟩ := hcd.resid
+  have hlenSp : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+      ++ blockRuleFieldFvs p.toBlockShape rs c i).length = p.nP + cA.2 := by
+    rw [List.length_append, List.length_take, hlenPref, openPisAtFvars_length _ hopF]
+    omega
+  obtain ⟨ds', hcomb'⟩ := ConLeche.instPisAt_of_stripPis
+    ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+      ++ blockRuleFieldFvs p.toBlockShape rs c i) (by rw [hlenSp]; exact hresid)
+  have hcbEq : blockRuleCbody p.toBlockShape rs c i
+      = Expr.mkAppN (.const T (lps.map Level.param))
+          ((ConLeche.structPsAt cA.2 p.nP ++ es).map
+            (Expr.instSeq ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+              ++ blockRuleFieldFvs p.toBlockShape rs c i)
+              (((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+                ++ blockRuleFieldFvs p.toBlockShape rs c i).length - 1) ·)) := by
+    have h1 : blockRuleCbody p.toBlockShape rs c i
+        = Expr.instSeq ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+            ++ blockRuleFieldFvs p.toBlockShape rs c i)
+          (((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+            ++ blockRuleFieldFvs p.toBlockShape rs c i).length - 1)
+          (Expr.mkAppN (.const T (lps.map Level.param))
+            (ConLeche.structPsAt cA.2 p.nP ++ es)) :=
+      congrArg Prod.snd (Option.some.inj
+        ((ConLeche.Verify.Expr.instPisAt_append _ hinst
+          (ConLeche.Verify.openPisAtFvars_instPisAt _ hopF)).symm.trans hcomb'))
+    rw [h1, Expr.instSeq_mkAppN, instSeq_const]
+  have hlenArgs : (ConLeche.structPsAt cA.2 p.nP ++ es).length = p.nP + nIdx := by
+    rw [List.length_append, ConLeche.structPsAt, List.length_map, List.length_range, hlenes]
+  -- the reading, inverted
+  obtain ⟨fa, vs, -, hspine, hbeq⟩ := denoteMeta_mkAppN_inv (hcbEq ▸ hcb)
+  have hlift : (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)).liftN
+      (p.toBlockShape.rulePrefixAt c - p.nP) cA.2
+      = AnnotTerm.mkAppN
+          ((mpC.base2.acval T ψ).liftN (p.toBlockShape.rulePrefixAt c - p.nP) cA.2)
+          ((paramBvars p.nP cA.2 ++ Es ψ).map
+            (·.liftN (p.toBlockShape.rulePrefixAt c - p.nP) cA.2)) := by
+    rw [ctorBodyAVI, liftN_mkAppN]
+  have hlenVs : vs.length = ((paramBvars p.nP cA.2 ++ Es ψ).map
+      (·.liftN (p.toBlockShape.rulePrefixAt c - p.nP) cA.2)).length := by
+    rw [← hspine.length, List.length_map, List.length_map, List.length_append,
+      List.length_append, paramBvars, List.length_map, List.length_range,
+      ConLeche.structPsAt, List.length_map, List.length_range, hlenes, hcd.lenE ψ]
+  obtain ⟨-, rfl⟩ := mkAppN_inj_args (hlift ▸ hbeq) hlenVs.symm
+  -- the index arguments
+  have hmap := denoteMetaSpine_map_getD hspine
+  have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
+  have hcdd : r.2.2.2.getD i default = cA := by rw [List.getD_eq_getElem?_getD, hcA]; rfl
+  have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcdd]
+  rw [blockRuleEsAV, hct, hcbEq, Expr.getAppArgs_mkAppN,
+    show (Expr.const T (lps.map Level.param)).getAppArgs = [] from rfl, List.nil_append]
+  rw [List.map_drop, hmap, List.map_append, List.drop_left' (by
+    rw [List.length_map, paramBvars, List.length_map, List.length_range])]
+
 end Shift
 
 end ConLeche.Model
