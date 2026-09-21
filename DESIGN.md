@@ -81457,3 +81457,18 @@ Tree/List then `P4 | mk : Rose P4`.
 * **D-g** Confirm §2.6: collapsing pins accept through the memo with no special handling;
   basis containers reject at locate with official's messages.
 
+
+#### RULING (2026-09-21, maintainer): recursor NAMES are the stream's business
+
+"Whatever the stream wants to name them — could be `T.hoolahoop` for what
+I care.  We only check: are the 'recursors' primitively mutually
+recursive, so that we can model them with their rules."  So: no `T.rec`
+/ `T.rec_i` name pins on the uniform route (reserved-name safety and
+name uniqueness only, as for any declaration); a recursor is assigned
+to its component BY ITS MAJOR's type, not by name; any number of
+recursors per component (zero included), each modelled from its own
+rules; the group = the recursors declared in the block.  D-c is
+answered (unpinned); the k = 1 generate-and-compare arm keeps its pin
+only while it exists.
+D-d confirmed: within a recursor family the conclusions' sorts must be the same level up to `Level.isEquiv` (official shares one `u` across the block's recursors, so it accepts nothing more); one `ℓ` per family, no `max`.
+D-f REJECTED (maintainer): no recorded per-parameter positivity bits at a container's install — "it is Lean's design to determine positivity at concrete parameters, and that is more general than an abstract install-time analysis."  Positivity through a container is always checked at the concrete instantiation (the abstract copy at the pins), never from a stored verdict.
