@@ -15,7 +15,7 @@ identified (`fssOfR_fixCtorDataList`, `essOfR_fixCtorDataList`), the
 constructors' data identified across the dummy and the real formers
 (`blockCtorDataI_ident`), the former's index telescope valid at the
 parameter frame (`idxValid_of`, beside `idxOk_of`), and the chain
-validity facts of a recursive constructor (`fixChainValidFacts_of`,
+validity facts of a recursive constructor (`blockChainValidFacts_of`,
 beside `fixChainFacts_of`: the validity halves of the shadow
 gradings).
 -/
@@ -93,8 +93,12 @@ theorem idxValid_of (mp : EnvModelM V μ env)
 
 /-- **The walk's validity inputs**, from a recursive constructor's
 data at a carrier storing the former as a λ-tower over the parameters
-(the validity halves of the shadow gradings). -/
-theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+(the validity halves of the shadow gradings).  Nothing here reads a
+field's TARGET — `ChainValidFacts` does not mention one — so the
+statement is the BLOCK's (a member's constructor at arbitrary
+`Tof`/`nIdxOf`), and the one-family route's is it at the constant
+functions `FixCtorDataI` abbreviates (deviation D-M30). -/
+theorem blockChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {sorts : List Level}
@@ -109,8 +113,9 @@ theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    (hD : BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     ChainValidFacts nP nF ρp ks (tss ψ) (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by

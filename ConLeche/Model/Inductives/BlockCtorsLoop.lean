@@ -38,39 +38,56 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
+/-- The one-family shape a member's scalars present to the sum route's
+loop: the loop reads a shape's name, level parameters, parameter and
+index counts, sort and the two flags, and nothing else (D-M31). -/
+def memberShapeI (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level)
+    (isProp large : Bool) : InductiveShape where
+  cvT := { name := T, levelParams := lps, type := .sort .zero }
+  ctors := []
+  nP := nP
+  nIdx := nIdx
+  cvR := { name := .anonymous, levelParams := [], type := .sort .zero }
+  elim := .anonymous
+  resSort := resSort
+  rhss := []
+  large := large
+  isProp := isProp
+
 /-- **The constructors' conses at a block member.** -/
 theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
-    {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
+    {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {names : List Name} {ctorsOf : Name → List Name}
-    (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ p.cvT.name → cA.1.name ∉ ctorsOf T'')
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
+    (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ T → cA.1.name ∉ ctorsOf T'')
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI T
+      lps nP nIdx resSort isProp large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
-    (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams)
+    (hlpsT : cvTa.levelParams = lps)
+    (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = lps)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
-    (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) →
-      fssOf p.nP (ctorDataList dsF esF ψ₁ ctorsA 0) = fssOf p.nP (ctorDataList dsF esF ψ₂ ctorsA 0))
-    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0),
-      FieldsBelow p.nP Fs)
+    (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
+      fssOf nP (ctorDataList dsF esF ψ₁ ctorsA 0) = fssOf nP (ctorDataList dsF esF ψ₂ ctorsA 0))
+    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ fssOf nP (ctorDataList dsF esF ψ ctorsA 0),
+      FieldsBelow nP Fs)
     (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
-        Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ)
+      Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((dsF j ψ).take nP).map (·.2.2)).reverse ρ)
     (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
-      SumFieldsOkB (p.resSort.eval ψ) ρ (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)) ∧
-      SumFieldsValid ρ (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))
+      Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)) ∧
+      SumFieldsValid ρ (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))
     (hIdx : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ →
-      ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
-        SpineFit ρ (((ppsAll ψ).drop p.nP).map (·.2.2)) (idxValsAt ρ (esF j ψ) bs))
+      Sat V (((dsF j ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop nP).map (·.2.2)) bs →
+        SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (esF j ψ) bs))
     (Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
     (hInv : ∀ {env' : Env} (m' : EnvModel V env') (cA : ConstantVal × Nat)
       (A : (Name → Nat) → AnnotTerm)
-      (mC : EnvModel V ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts⟩),
+      (mC : EnvModel V ⟨.ctorInfo cA.1 nP cA.2 :: env'.consts⟩),
       cA ∈ ctorsA → env'.find? cA.1.name = none →
       mC.acval = acvalWith m'.acval cA.1.name A → Inv m' → Inv mC)
     -- the block's capability record and its laws at every carrier the
@@ -79,46 +96,47 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
     (leafT : (Name → Nat) → AnnotTerm)
     (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (cA : ConstantVal × Nat),
       ctorsA[k]? = some cA → Inv m' →
-      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
-      (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
+      FormerData m' cvTa (nP + nIdx) resSort ppsAll →
+      (∀ ψ, m'.acval T ψ = leafT ψ) →
       (∀ ψ, m'.acval cA.1.name ψ
-        = sumMkAV (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP).map (·.2.2))
-            (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))) →
-      CapsLawsAt m' p.cvT.name cvTa caps)
+        = sumMkAV (resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop nP).map (·.2.2))
+            (uChains (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))) →
+      CapsLawsAt m' T cvTa caps)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
-      ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
+      Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop nP).map (·.2.2)) bs →
         interp V (consList bs ρ)
-            (AnnotTerm.mkAppN (leafT ψ) (paramBvars p.nP cA.2 ++ esF j ψ))
-          = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
+            (AnnotTerm.mkAppN (leafT ψ) (paramBvars nP cA.2 ++ esF j ψ))
+          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ)
               (consList (idxValsAt ρ (esF j ψ) bs) ρ)
-              (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))
+              (rChains nIdx nIdx (fssOf nP (ctorDataList dsF esF ψ ctorsA 0))
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V μ env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
       ConLeche.BlockEtaInv env names ctorsOf →
-      env.find? p.cvT.name = some (.indInfo cvTa caps) →
-      FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
-      (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
-      ConsedAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
+      env.find? T = some (.indInfo cvTa caps) →
+      FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll →
+      (∀ ψ, mp.base2.acval T ψ = leafT ψ) →
+      ConsedAt mp.base2 T lps nP nIdx resSort isProp large
         idxF dsF esF srcsF ctorsA k →
-      PendingAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
+      PendingAt mp.base2 T lps nP nIdx resSort isProp large
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
-      ∃ mp' : EnvModelM V μ (ConLeche.consSumCtors p.nP rest env),
-        ConLeche.BlockEtaInv (ConLeche.consSumCtors p.nP rest env) names ctorsOf ∧
-        (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
+      ∃ mp' : EnvModelM V μ (ConLeche.consSumCtors nP rest env),
+        ConLeche.BlockEtaInv (ConLeche.consSumCtors nP rest env) names ctorsOf ∧
+        (ConLeche.consSumCtors nP rest env).find? T
           = some (.indInfo cvTa caps) ∧
-        FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
-        (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
-        ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
+        FormerData mp'.base2 cvTa (nP + nIdx) resSort ppsAll ∧
+        (∀ ψ, mp'.base2.acval T ψ = leafT ψ) ∧
+        ConsedAt mp'.base2 T lps nP nIdx resSort isProp large
           idxF dsF esF srcsF ctorsA ctorsA.length ∧
         Inv mp'.base2 :=
-  ctorsLoopEta hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+  ctorsLoopEta (p := memberShapeI T lps nP nIdx resSort isProp large)
+    hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
     caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorsOf)
     (fun _ _ _ hfresh hE => hE.cons hfresh)
     (fun _ cA hcA hfresh hE _ _ _ hf hne hres hcape _ =>
-      hE.other (nP := p.nP) (nF := cA.2) hfresh (hout cA hcA) hf hne hres hcape)
+      hE.other (nP := nP) (nF := cA.2) hfresh (hout cA hcA) hf hne hres hcape)
     hfold
 
 end ConLeche.Model
