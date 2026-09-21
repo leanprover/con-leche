@@ -9,6 +9,8 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Inductives.StructWF
 
 public section
 
@@ -64,17 +66,22 @@ This file is the hop between the two, and it has exactly three parts.
   `∃ ty, x = .fvar i ty` list and `ctxOk_of_openers`
   (`Model/IndFrame.lean`) applies unchanged.
 
-**What is taken as a named premise, and why.**  The stage's own
-inversion does NOT export the two runs: `checkBlockRule_facts`
-(`Verify/Inductives/BlockWF.lean`, lane V2) stops at SCOPING —
-fvar-freedom, level closure, resolution and `looseBVarsBounded` of the
-returned right-hand side — and V2's report says so in as many words
-("the stage facts stop at scoping … it says nothing about what the
-stage CHECKED"). So the two runs, and the syntactic side conditions on
-`bodyO`/`concl` that `InferClaim` asks for, are premises here,
-collected in `BlockRuleCerts` below; extending
-`checkBlockRule_facts` with them is the one item this lane leaves for
-the Verify tier.
+**Where the two runs come from.**  `checkBlockRule_facts`
+(`Verify/Inductives/BlockWF.lean`, lane V2) peels the stage's bind
+chain but stops at SCOPING — fvar-freedom, level closure, resolution
+and `looseBVarsBounded` of the returned right-hand side — and V2's
+report says so in as many words ("the stage facts stop at scoping …
+it says nothing about what the stage CHECKED").  §6 below is the SAME
+peel with the typing witnesses kept (`checkBlockRule_typing`), so G1
+is a fact about the CHECK and not about a pair of hypothetical runs.
+That theorem belongs beside `checkBlockRule_facts`; it is here only
+because this lane owns one file.
+
+What stays a premise is the SEAM to the other halves of M5: `hdoms`,
+saying that opener `i`'s stored type reads to the context entry at
+that slot (O-2's type readings and G2's per-binder `checkDefEqList`),
+`hokΔ`, the context's own grading, and the `ih` openers' `SpineFit`,
+which is the regime's to pay.
 
 **The grade, checked and not assumed** (the brief's question): the
 stage runs `opsT.inferType`, which at `μ = .verified` is
@@ -426,5 +433,103 @@ theorem hres_of_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
       interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
   ⟨_, hT, (residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
     hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih).2⟩
+
+/-! ## 6. The stage's own runs, named
+
+`checkBlockRule_facts` (`Verify/Inductives/BlockWF.lean`) peels the
+same bind chain and DISCARDS every witness but the four scoping facts
+`EnvWF` needs.  This is that peel with the typing witnesses KEPT — the
+two runs `residueOk_blockFrame` consumes, the three openings that
+build the frame, and the conclusion the residue is compared against.
+It belongs beside `checkBlockRule_facts` in the Verify tier
+(V2's open item 3); it is here because this lane owns one file. -/
+
+section Inversion
+
+open ConLeche (checkBlockRule BlockShape ConstantVal BlockFieldKind Level BlockRuleFrame)
+
+local macro "close_throw " h:term : tactic =>
+  `(tactic| first
+      | exact nomatch $h
+      | exact absurd $h (by
+          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+          exact fun hh => nomatch hh)
+      | exact absurd $h
+          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- **Stage (c)'s TYPING certificates, named.**  A successful
+`checkBlockRule` ran, at the CONSTRUCTORS' environment `envT` and at
+the depth of the frame it opened,
+
+* `inferTypeCore` on the opened residue `bodyO`, and
+* `isDefEqCore` between its result and the recursor's own conclusion
+  instantiated at the rule's prefix, the constructor's index
+  expressions and the major `C_J p⃗ f⃗`,
+
+and the frame is the three openings at the offsets `0`, `rP` and
+`rP + nF`.  Feeding these to `residueOk_blockFrame` is what makes G1 a
+fact about the CHECK rather than about a pair of hypothetical runs. -/
+theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : List Name}
+    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
+    {cvR : ConstantVal} {cA : ConstantVal × Nat} {ks : List BlockFieldKind}
+    {rhs out : Expr} {F : Nat}
+    (h : checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
+      recNames rlvls recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
+    ∃ (recTy crest ihTele : Expr) (fvsPref fvsF fvsIh : List Expr)
+      (o₁ cbody bodyO ty concl : Expr),
+      recTys[ri]? = some recTy ∧
+      openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
+      openPisAtFvars cA.2 crest (p.rulePrefixAt ri) = some (fvsF, cbody) ∧
+      openPisAtFvars
+          (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length
+          (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+          (p.rulePrefixAt ri + cA.2) = some (fvsIh, bodyO) ∧
+      ConLeche.inferTypeCore μ envT F
+          (p.rulePrefixAt ri + cA.2 +
+            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
+          bodyO = .ok ty ∧
+      Expr.instPisAtLift
+          (fvsPref ++ cbody.getAppArgs.drop p.nP ++
+            [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take p.nP ++ fvsF)])
+          recTy = some concl ∧
+      ConLeche.isDefEqCore μ envT F
+          (p.rulePrefixAt ri + cA.2 +
+            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
+          ty concl = .ok true := by
+  unfold checkBlockRule at h
+  obtain ⟨recTy, hrecTy, h⟩ := exceptBind_ok h
+  by_cases hbv : Expr.looseBVarsBounded 0 rhs = true
+  case neg => rw [if_neg hbv] at h; close_throw h
+  rw [if_pos hbv] at h
+  by_cases hfv : rhs.hasFvar = true
+  case pos => rw [if_pos hfv] at h; close_throw h
+  rw [if_neg hfv] at h
+  obtain ⟨rhsA, _, h⟩ := exceptBind_ok h
+  by_cases hlp : Expr.allLevelParamsDefined cvR.levelParams rhsA = true
+  case neg => rw [if_neg hlp] at h; close_throw h
+  rw [if_pos hlp] at h
+  by_cases hres : Expr.constsResolve envR rhsA = true
+  case neg => rw [if_neg hres] at h; close_throw h
+  rw [if_pos hres] at h
+  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x1
+  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
+  obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, crest⟩ := x3
+  obtain ⟨x4, hx4, h⟩ := exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
+  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x5
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨ihTele, _, h⟩ := exceptBind_ok h
+  obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨fvsIh, bodyO⟩ := x9
+  obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+  obtain ⟨concl, hconcl, h⟩ := exceptBind_ok h
+  obtain ⟨b, hb, h⟩ := exceptBind_ok h
+  by_cases hd : b = true
+  case neg => rw [if_neg hd] at h; close_throw h
+  subst hd
+  exact ⟨recTy, crest, ihTele, fvsPref, fvsF, fvsIh, o₁, cbody, bodyO, ty, concl,
+    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx2, ConLeche.unwrapOr_ok hx4,
+    ConLeche.unwrapOr_ok hx9, hty, ConLeche.unwrapOr_ok hconcl, hb⟩
+
+end Inversion
 
 end ConLeche.Model
