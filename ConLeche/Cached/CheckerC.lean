@@ -244,18 +244,19 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
   checkBlockRecPins (m := CheckCM) p
-  let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
-    (blockNested p.kinds) (p.members.zip cvTas) 0
+  let cvRus ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
+    (blockNested p.kinds) cvTas p.recs 0
+  checkBlockRecElimAgree (m := CheckCM) (cvRus.map (·.2.2))
+  let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
   flushC
   -- the rules are ANNOTATED at `feR` (they mention the k rule-less
   -- recursors) and TYPED at `fe` — the constructors' index, before
   -- they are consed (G1); the cached operations are index-bound, so
   -- both records are built and handed over
-  checkBlockMembersRulesF (sharedOpsC mode feR) structWalkersC feR
+  checkBlockRecsRulesF (sharedOpsC mode feR) structWalkersC feR
     (sharedOpsC mode fe) fe p
-    (blockRecCallData p).1 (blockRecCallData p).2 cvRas
-    ((p.members.zip ctorsAs).zip p.kinds) 0
+    (blockRecCallData p).1 (blockRecCallData p).2 cvRas ctorsAs p.recs 0
 
 /-- `checkBlockRec` through the index (the same gate as the pure
 stage). -/

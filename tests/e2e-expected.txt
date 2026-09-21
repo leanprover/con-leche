@@ -1616,3 +1616,33 @@
 # nothing else (uniform: 1, "large eliminator on a block whose sort
 # may be Prop").  Today the modeller's own type check rejects it.
 1 mutual_rec_prop_concl.ndjson
+# -- the NAMING ruling and D-d (DESIGN.md, 2026-09-21: recursor NAMES
+# are the stream's business, a member carries any number of recursors
+# and a recursor is assigned to its member by its MAJOR; and one
+# elimination level per family).  As above, the column that matters is
+# `uniform:` — none of the four is exporter-producible.
+#
+# a SECOND recursor on `Nat'`, `Nat'.rec2`, shaped like `casesOn` (its
+# `succ` minor has no `n_ih` premise and its rule makes no recursive
+# call).  Both eliminators are checked, and `Nat'.rec` still fires the
+# stream's definitions (uniform: 0).  Today the route is gated at one
+# recursor, so the block goes to the modeller, which has no model for
+# it.
+2 corner_rec_two_recursors.ndjson
+# `Nat'`'s recursor called `Nat'.hoolahoop` — its type, its rules and
+# its major the generated ones, the name renamed everywhere, so the
+# definitions fire iota through it (uniform: 0).  Today the one-member
+# generate-and-compare arm's name pin rejects it.
+1 corner_rec_hoolahoop.ndjson
+# `Nat'.rec` without its `Nat'.zero` rule: rule COMPLETENESS is a
+# soundness requirement and stays in the record's pin whatever the
+# recursor is called (uniform: 1).
+1 corner_rec_rule_missing.ndjson
+# D-d: the mutual block `MutA`/`MutB` (both `Type`) with `MutB.rec`'s
+# OWN motive retyped `MutB -> Type` while `MutA.rec`'s stays
+# `MutA -> Sort u`.  Each recursor is a well-typed eliminator on its
+# own; the FAMILY eliminates at two levels, which official never
+# produces — one elimination level parameter is shared across a
+# block's recursors (uniform: 1, "the block's recursors do not all
+# eliminate at one level").  Today the modeller's own check rejects it.
+1 mutual_rec_elim_levels.ndjson

@@ -823,11 +823,11 @@ theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
 /-- The uniform install at fuel `F`, through the one-member bridge
 (milestone M1): the route is gated at one member, so the fuel-indexed
 family is the one-member install's. -/
-theorem checkBlock_datF (env : Env) (p : BlockParts) {ms : MemberShape}
-    (hm : p.members = [ms]) (F : Nat) :
+theorem checkBlock_datF (env : Env) (p : BlockParts) {ms : MemberShape} {rc : RecShape}
+    (hm : p.members = [ms]) (hrr : p.recs = [rc]) (F : Nat) :
     (checkBlock (fueledOpsM mode) env p).val F = checkBlock (fueledOps mode F) env p := by
-  rw [← checkBlock_one (m := FueledM) (fueledOpsM mode) env hm,
-    ← checkBlock_one (m := CheckM) (fueledOps mode F) env hm]
+  rw [← checkBlock_one (m := FueledM) (fueledOpsM mode) env hm hrr,
+    ← checkBlock_one (m := CheckM) (fueledOps mode F) env hm hrr]
   exact checkNative_datF env p.toNative F
 
 macro "datF_step4_alt" : tactic =>
@@ -1078,8 +1078,8 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · split
       · split
         · next p hbp =>
-          obtain ⟨ms, hms⟩ := blockParts?_k1 hbp
-          exact checkBlock_datF env p hms F
+          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hbp
+          exact checkBlock_datF env p hms hrc F
         · exact checkModeled_datF env block F
       · rfl
 

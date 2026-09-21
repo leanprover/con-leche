@@ -24,7 +24,7 @@ rec_m : ∀ (p⃗ : the block's parameter domains)        -- binders 0 … nP-1
         <anything>                                    -- the conclusion
 ```
 
-`rP` and `mI` are READ OFF THE RECORD (`MemberShape.rP`,
+`rP` and `mI` are READ OFF THE RECORD (`RecShape.rP`/`mI`,
 `BlockShape.rulePrefixAt`/`majorIdxAt`); the stretch official fills
 with the motives and the minor premises is never looked inside; the
 major assigns the recursor to its member; and **the stored type is the
@@ -114,7 +114,7 @@ at the field's index expressions and at `f_i a⃗`>`.  The conclusion is
 the recursor's STORED type instantiated at exactly the arguments the
 guarded call carries, which is what makes `ih_i a⃗` and the call
 interchangeable.  `recTyOf` is the stored type of the member's
-recursor; `none` when one of them does not have the binders the
+PRINCIPAL recursor; `none` when one of them does not have the binders the
 instantiation needs. -/
 def blockIhPis (nP rP nF : Nat) (pw : PropWhen) (recTyOf : Nat → Expr) (tgts : List Nat)
     (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) :
@@ -180,14 +180,19 @@ argument sums, the frame's widths, the constructor's field kinds,
 telescopes and index expressions, and the recursive positions (the
 `ih` binders, in order). -/
 structure BlockRuleFrame where
-  /-- the block's `k` recursor names, in member order -/
+  /-- the block's recursor names, in the record's recursor order -/
   recNames : List Name
   /-- the level arguments every recursive call carries -/
   rlvls : List Level
-  /-- every member's major-premise index, in member order -/
+  /-- every RECURSOR's major-premise index, in recursor order -/
   mIs : List Nat
-  /-- every member's rule prefix, in member order -/
+  /-- every RECURSOR's rule prefix, in recursor order -/
   rPs : List Nat
+  /-- every MEMBER's principal recursor, in block order
+  (`BlockShape.recOfMember`): the recursor a guarded call on a field of
+  that member must name, because it is the one the field's `ih` opener
+  was typed from -/
+  recOfM : List Nat
   /-- the block's parameter count -/
   nP : Nat
   /-- THIS rule's recursor's rule prefix -/
@@ -216,9 +221,10 @@ def BlockRuleFrame.nR (fr : BlockRuleFrame) : Nat := fr.recIdx.length
 with `rec_{c'}` a block recursor at the block's own level arguments,
 `x⃗` the rule's OWN `rP` prefix variables (which forces `rec_{c'}` to
 carry the same prefix), `f_i` a field of THIS constructor whose kind
-names `c'`, `a⃗` as many arguments as the field's telescope has binders
-and free of any block recursor, and the whole spine SYNTACTICALLY the
-generated call at those arguments (`blockIhSpinePis` instantiated at
+names the member `rec_{c'}` is the PRINCIPAL recursor of (the one the
+`ih` opener was typed from), `a⃗` as many arguments as the field's
+telescope has binders and free of any block recursor, and the whole
+spine SYNTACTICALLY the generated call at those arguments (`blockIhSpinePis` instantiated at
 `a⃗`, compared at the parse placeholder's binder data).  The answer is
 the field's position among the recursive ones — the `ih` binder that
 replaces the call — together with `a⃗`. -/
@@ -240,7 +246,10 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
         | .bvar b =>
           if !(decide (d ≤ b) && decide (b < d + fr.nF)) then none else
           let i := d + fr.nF - 1 - b
-          if (fr.ks.getD i .ordinary).tgt? != some c' then none else
+          -- the field's TARGET MEMBER, and the recursor that member's
+          -- `ih` openers were typed from (its principal one)
+          if ((fr.ks.getD i .ordinary).tgt?.map
+              (fun t => fr.recOfM.getD t fr.recNames.length)) != some c' then none else
           let as := maj.getAppArgs
           let tele := fr.teleOf i
           if as.length != tele.length then none else

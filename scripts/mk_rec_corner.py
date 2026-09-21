@@ -372,3 +372,88 @@ bad = t.ex({"app": dict(t.E[major["type"]]["app"], arg=t.const("Nat'"))})
 rc["type"] = rebuild_prefix(t, rc["type"], pre,
                             lambda rest: t.ex({"forallE": dict(major, type=bad)}))
 t.write("corner_rec_major_params", "List'", drop_defs=True)
+
+# =====================================================================
+# THE NAMING RULING AND D-d (2026-09-21)
+#
+# The maintainer's two further rulings: recursor NAMES are the stream's
+# business (a member may carry any number of recursors, and a recursor
+# is assigned to its member by its MAJOR premise), and D-d — one
+# elimination level for the whole family.  Four twins.
+# =====================================================================
+
+# --- corner_rec_two_recursors ---------------------------------------
+# `Nat'` with a SECOND recursor `Nat'.rec2`, shaped like `casesOn` (the
+# `succ` minor has no `n_ih` premise and its rule makes no recursive
+# call).  Two recursors on ONE member, both legitimate eliminators:
+# TARGET 0.  `Nat'.rec` is untouched, so the stream's definitions still
+# fire iota through it.
+t = Twin("direct_fix_nat")
+_, blk = t.block("Nat'")
+rc = t.rec("Nat'", "Nat'.rec")
+succ_minor = t.binders(rc["type"], 3)[2]["forallE"]["type"]
+inner = t.E[succ_minor]["forallE"]
+ih = t.E[inner["body"]]["forallE"]
+no_ih = t.ex({"forallE": dict(inner, body=t.lift(ih["body"], -1))})
+rules2 = []
+for ru in rc["rules"]:
+    rules2.append({"ctor": ru["ctor"], "nfields": ru["nfields"],
+                   "rhs": t.replace(ru["rhs"], succ_minor, no_ih)})
+sr2 = next(ru for ru in rules2 if ru["ctor"] == t.names["Nat'.succ"])
+body = t.binders(sr2["rhs"], 4)[3]["lam"]["body"]               # `succ n (Nat'.rec ... n)`
+sr2["rhs"] = t.replace(sr2["rhs"], body, t.E[body]["app"]["fn"])
+blk["recs"] = blk["recs"] + [dict(rc, name=t.fresh_name(["Nat'", "rec2"]),
+                                  type=t.replace(rc["type"], succ_minor, no_ih),
+                                  rules=rules2)]
+t.write("corner_rec_two_recursors", "Nat'")
+
+# --- corner_rec_hoolahoop -------------------------------------------
+# `Nat'`'s recursor is called `Nat'.hoolahoop`.  Nothing else changes —
+# its type, its rules and its major are the generated ones — so the
+# motive-free check accepts it: TARGET 0.  The definitions are dropped
+# (they apply `Nat'.rec`, a name the twin no longer declares).
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+hoola = t.fresh_name(["Nat'", "hoolahoop"])
+_recn = t.names["Nat'.rec"]
+# the constant is renamed EVERYWHERE — in the rules and in the stream's
+# own definitions, which then fire iota through `Nat'.hoolahoop`
+for r in t.E.values():
+    if "const" in r and r["const"]["name"] == _recn:
+        r["const"]["name"] = hoola
+rc["name"] = hoola
+# the NAME record goes to the front: the `Nat'.rec` const nodes it
+# renames are emitted long before the block
+t.recs = t.recs[:1] + t.ins + t.recs[1:]
+t.ins = []
+t.write("corner_rec_hoolahoop", "Nat'")
+
+# --- corner_rec_rule_missing ----------------------------------------
+# `Nat'.rec` without its `Nat'.zero` rule.  Rule COMPLETENESS is a
+# soundness requirement and stays in the record's pin whatever the
+# recursor is called: TARGET 1.
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+rc["rules"] = [ru for ru in rc["rules"] if ru["ctor"] != t.names["Nat'.zero"]]
+t.write("corner_rec_rule_missing", "Nat'", drop_defs=True)
+
+# --- mutual_rec_elim_levels -----------------------------------------
+# D-d: the mutual block `MutA`/`MutB` (both `Type`) with `MutB.rec`'s
+# OWN motive retyped `MutB -> Type` while `MutA.rec`'s stays
+# `MutA -> Sort u`.  Each recursor is a well-typed eliminator on its
+# own; the FAMILY eliminates at two different levels, which official
+# never produces — one elimination level parameter is shared:
+# TARGET 1.
+t = Twin("tower_mutual")
+rc = t.rec("MutB", "MutB.rec")
+assert rc["numParams"] == 0 and rc["numMotives"] == 2
+_one = next((r["il"] for r in t.recs if "il" in r and r.get("succ") == 0), None)
+assert _one is not None, "the stream has no level 1"
+_top = t.E[rc["type"]]["forallE"]                               # motive_MutA
+_snd = t.E[_top["body"]]["forallE"]                             # motive_MutB
+assert t.E[t.E[_snd["type"]]["forallE"]["body"]].get("sort") is not None
+_mty = t.ex({"forallE": dict(t.E[_snd["type"]]["forallE"],
+                             body=t.ex({"sort": _one}))})
+rc["type"] = t.ex({"forallE": dict(_top,
+                                   body=t.ex({"forallE": dict(_snd, type=_mty)}))})
+t.write("mutual_rec_elim_levels", "MutB")

@@ -81492,3 +81492,86 @@ check it yet) and `ResidueOk` (G1's shape).  Falsifier
 `BlockRecFalsI.lean`: K = 1 WF and K = 2 IND end to end.  Open: O-1 the
 Model tier's `denoteMeta (stored rhs body) = instsAV 0 ihs Rb''`, O-2 the
 chain-frame lifting of the rule data, O-3/O-5 (session 2), O-4 SQ.
+
+#### M5k SESSION (2026-09-21, `agent/uinds-R`): the record redesign the two rulings ask for
+
+`MemberShape` carries no recursor any more.  A block's recursors are a
+list of their own,
+
+```lean
+structure RecShape where
+  cvR  : ConstantVal
+  rP   : Nat
+  mI   : Nat
+  tgt  : Nat
+  rhss : List Expr
+```
+
+and `BlockShape` gains `recs : List RecShape` beside `members`.  The
+TARGET is read off the MAJOR, syntactically, in the recogniser
+(`recTargetOf`: strip the record's `mI` binders off the stored type,
+read the head constant of the next binder's domain against the member
+names) — which is what replaced `blockOrderRecs` and the recursor
+list's length guard.  `rulePrefixAt`/`majorIdxAt` index `recs`, and
+`recTgtAt` joins them as the third gated reading (`blockRecCheckOn`
+down ⇒ a recursor's position IS its member's), which is what keeps
+every `k = 1` bridge an `rfl`.
+
+What moved OUT of the record's pin and into the one-member
+generate-and-compare arm: the `T.rec` NAME pin (it lives in
+`checkNativeRec`, where it always was) and the two argument SUMS
+(`BlockShape.recSumsOk`, added to `recPinned` by `BlockParts.toNative`
+— `toNative` IS that arm's reading).  What STAYS in the record's pin:
+rule completeness (one rule per constructor of the recursor's target
+member, in order, each naming its constructor with its field count),
+the constructors' grouping, and the reserved-name/uniqueness checks
+every declaration gets.  `blockRecLpsOk` is per recursor;
+`blockMemberCounts?` reads a member's index count off its OWN former
+telescope and falls back to the sums of a recursor whose major names
+it only at a def-headed former (task #195).
+
+**The nested rung's gate is at the RECOGNISER, not the stage**
+(deviation from the M5k specification, which put a `.notImplemented`
+in the stage): `blockParts?` returns `none` when some recursor's MAJOR
+heads a constant OUTSIDE the block — a nested block's auxiliary
+recursor, whose major is one of official's containers.  A decline from
+the stage would have no fallback: the dispatch is the recogniser alone
+(task #219), so a `.notImplemented` there would turn every nested
+block from ACCEPTED (through the modelled route) into a decline.  A
+recursor whose type has no major at all is NOT that — it is a broken
+record of this block's own recursor, stays on the route and is
+REJECTED (`zero_ctor_bad_rec`).
+
+**D-d is checked**: `checkBlockRecTys` returns the sort the kernel's
+own sort check gave each recursor's CONCLUSION, and
+`checkBlockRecElimAgree` requires every one of them to be
+`Level.isEquiv` to the first's.  `blockRecElimAgree_inv`
+(`Verify/Inductives/BlockRecInv.lean`) is the fact the Model tier's
+`OneElimLevel` obligation asks for.
+
+**The principal recursor.**  The abstraction gives one inductive
+hypothesis per recursive field and types it from the field's target
+member's recursor; with several recursors on one member a guarded call
+must therefore name the one the `ih` opener was typed from — the
+member's FIRST recursor (`BlockShape.principalRecAt`/`recOfMember`,
+carried in `BlockRuleFrame.recOfM`).  A second recursor on a member is
+checked like any other; only its rules' recursive calls go through the
+principal one, so a second eliminator that recurses into ITSELF is not
+accepted (a `casesOn`-shaped one is: `corner_rec_two_recursors`).
+
+**FINDING — two arena `bad/` tests accept once the name pin is gone.**
+With both gates lifted, `bad/tutorial/135_misnamed_rec_user` and
+`bad/tutorial/136_dup_rec_def2` are ACCEPTED (they reject today).  Both
+turn on official's recursor name being canonical rather than the
+stream's: 135 declares the recursor as `misnamed_rec.not_rec` and then
+a definition that USES `misnamed_rec.not_rec` — official generates
+`misnamed_rec.rec`, so the reference is unresolved there; 136 declares
+`dup_rec_def2.rec` as a definition first and the recursor as
+`dup_rec_def2.not_rec`, so official's generated `.rec` collides while
+the stream's names do not.  Neither accept is unsound (the eliminators
+are the generated ones under other names), but both are accepts of
+streams official rejects, and the arena counts a `bad/` accept as a
+soundness failure.  The gates are down, so the shipped tree is
+unaffected; at the flip (M6) this is a decision for the maintainer —
+keep the ruling and record the two rows as known accept-supersets, or
+re-pin the recursor NAME after all.

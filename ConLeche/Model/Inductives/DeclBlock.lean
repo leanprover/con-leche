@@ -56,6 +56,7 @@ theorem declBlock_one (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     Nonempty (EnvModelM V μ env₂) :=
   declNative hμ mp hE (ConLeche.blockParts?_toNative hdp).1
     (ConLeche.Semantics.declNativeRun_of_block_one
-      (ConLeche.blockParts?_toNative hdp).2.choose_spec h)
+      (ConLeche.blockParts?_k1 hdp).1.choose_spec
+      (ConLeche.blockParts?_k1 hdp).2.choose_spec h)
 
 end ConLeche.Model
