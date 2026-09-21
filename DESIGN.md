@@ -80724,3 +80724,4 @@ P` example is covered by `¬nested`.
 D4 confirmed: `BConst.lfpFam` is dropped at the flip once unused ("drop unused").
 D6 confirmed: nothing touches master before M6 (the flip), "that's when we know that at least the first part makes sense and is useful".
 Open question 5 confirmed: nesting through a basis block REJECTS (exit 1) — "we'd reject if the basis were normal inductives".
+D1 confirmed: the k-tuple least fixed point is the built-in constant `BConst.lfpTuple k` ("the Term type is really a convenience for us, and we can shape it to suit our needs; avoiding universe issues here is certainly useful; µ is so fundamental I would have accepted a syntax kind if there was a compelling reason").  U-6 (1) of #315 is superseded.
