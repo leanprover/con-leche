@@ -1,9 +1,11 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Swap
-public import ConLeche.Model.Inductives.StructCaps
-public import ConLeche.Verify.Inductives.BlockWF
+public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Annot.BitConsCross
+public import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Model.Swap
+import ConLeche.Model.Inductives.StructCaps
+import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
