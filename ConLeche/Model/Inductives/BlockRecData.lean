@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Model.Inductives.BlockFieldRead
 import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
@@ -1768,5 +1769,49 @@ theorem blockCtorFold_params_blind (hM : BlockModelAt mo names d)
   rw [hM.ctor c hc j cA hj ψ ρ ps fs hps hfp, hM.ctor c hc j cA hj ψ ρ qs fs hqs hfq]
 
 end CtorBlind
+
+/-! ## A.12 A-4's `hfld`, at the run
+
+`ihSpineFold_blockRec`/`ihNodeVal_blockRec` (RM3, `BlockRecRule.lean`)
+ask their field readings only where the rule's frame has an `ih`
+opener — lane RM10's bound.  The frame's `ihKeys` ARE
+`blockIhKeys rP rPs recTgts ks` by `checkBlockRule`'s construction, and
+`pairIdxOf_blockIhKeys_kind` (RM10) says a key names a RECURSIVE or
+REFLEXIVE field, which is exactly where `BlockCtorDataI` supplies the
+telescope; `blockFieldReadAt_of` (RM10) turns that into `FieldReadAt`.
+
+One bridge is owed and is named as a premise: the block data's field
+KINDS at `(c, j)` are the check's, through `BlockFieldKind.toRec`.  It
+is the constructors' stage's fact (the same stage that fixes `d.ksF`),
+not the recursors'. -/
+
+section HfldRun
+
+open ConLeche (BlockFieldKind pairIdxOf? blockIhKeys)
+
+variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {lps : List Name}
+  {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+  {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+
+/-- **`hfld` at the run**: the per-field reading package, at every
+field the rule's frame gives an `ih` opener. -/
+theorem blockRuleHfld_of (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    {c j : Nat} {cA : ConstantVal × Nat} (hcA : (d.ctorsM c)[j]? = some cA)
+    {fvs : List Expr} {o : Expr}
+    (hop : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0 = some (fvs, o))
+    {ksB : List BlockFieldKind} (hksLen : ksB.length = cA.2)
+    (hks : d.ksF c j = ksB.map BlockFieldKind.toRec)
+    {rP : Nat} {rPs recTgts : List Nat} {ihKeys : List (Nat × Nat)}
+    (hkeys : ihKeys = blockIhKeys rP rPs recTgts ksB) (ψ : Name → Nat) :
+    ∀ (i c' r : Nat), pairIdxOf? ihKeys (i, c') = some r →
+      FieldReadAt mpC.base2 ψ d.nP cA.2 i cA.1.type fvs
+        ((d.tssF c j ψ).getD i []) ((d.eissF c j ψ).getD i []) := by
+  intro i c' r hrpos
+  rw [hkeys] at hrpos
+  obtain ⟨hiF, hk⟩ := pairIdxOf_blockIhKeys_kind hrpos
+  exact blockFieldReadAt_of (blockCtorData_of_core hcore hcA) hop
+    (by rw [← hksLen]; exact hiF) (by rw [hks]; exact hk)
+
+end HfldRun
 
 end ConLeche.Model
