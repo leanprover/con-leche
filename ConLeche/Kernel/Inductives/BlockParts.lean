@@ -774,7 +774,36 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockSplit block with
   | some (cvTs, _, _) =>
     if blockRouteK1Only && cvTs.length != 1 then none
-    else (blockShape? nPd block).map fun p => ⟨p, [], blockRecPinOk p block⟩
+    else
+      match blockShape? nPd block with
+      | some p =>
+        -- the SAME gate on the record the recogniser built, so that a
+        -- block on the route is known to have one member without
+        -- re-reading the split (both go at the flip)
+        if blockRouteK1Only && p.k != 1 then none
+        else some ⟨p, [], blockRecPinOk p block⟩
+      | none => none
   | none => none
+
+/-- **The gate, as the consumers read it**: a block the route takes has
+exactly one member (milestone M1; `blockRouteK1Only`). -/
+theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
+    (h : blockParts? nPd block = some p) : ∃ ms, p.members = [ms] := by
+  unfold blockParts? at h
+  split at h
+  · split at h
+    · exact nomatch h
+    · split at h
+      · split at h
+        · exact nomatch h
+        · rename_i q _ hk
+          obtain rfl := Option.some.inj h
+          simp only [blockRouteK1Only, Bool.true_and, bne_iff_ne, ne_eq] at hk
+          have : q.members.length = 1 := by
+            simpa [BlockShape.k] using hk
+          match q, this with
+          | ⟨ms :: [], _, _, _, _, _⟩, _ => exact ⟨ms, rfl⟩
+      · exact nomatch h
+  · exact nomatch h
 
 end ConLeche

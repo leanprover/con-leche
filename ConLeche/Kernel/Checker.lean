@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstall
+public import ConLeche.Kernel.Inductives.BlockInstall
 
 @[expose] public section
 
@@ -604,8 +605,8 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
       -- on any block.  The module split (`CheckerBase ← Modeled ←
       -- Checker`) is why the dispatch lives here and not inside
       -- `checkModeled`.
-      match nativeParts? nP block with
-      | some p => checkNative ops env p
+      match blockParts? nP block with
+      | some p => checkBlock ops env p
       | none => checkModeled mode ops env block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>

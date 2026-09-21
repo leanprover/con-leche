@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstallF
+public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -229,6 +230,24 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
     unless settled' do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
+
+/-- **`checkBlock` through the index** (milestone M1): at ONE member
+the cached mirror IS the one-member mirror (`checkNativeS`), which the
+pure installer's own one-member bridge (`checkBlock_one`) matches, so
+every cached agreement keeps its one-member statement.  The k-ary
+cached mirror arrives with the recursor stage (milestone M5); until
+the route's gate goes (`blockRouteK1Only`), `blockParts?` returns
+`none` for a block with two or more members and the second arm is
+unreachable. -/
+def checkBlockS (fe : FEnv) (p : BlockParts) : CheckCM FEnv :=
+  match p.members with
+  | [_] => checkNativeS mode fe p.toNative
+  | _ => throw (.notImplemented "block: the cached mutual install")
+
+/-- **The cached mirror at ONE member.** -/
+theorem checkBlockS_one {fe : FEnv} {p : BlockParts} {ms : MemberShape}
+    (hm : p.members = [ms]) : checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
+  simp only [checkBlockS, hm]
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

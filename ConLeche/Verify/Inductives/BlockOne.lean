@@ -272,9 +272,12 @@ theorem blockParts?_toNative {nPd : Nat} {block : List ConstantInfo} {p : BlockP
   | none => rw [hsh] at h; exact nomatch h
   | some q =>
   rw [hsh] at h
-  simp only [Option.map_some, Option.some.injEq] at h
+  simp only at h
   obtain ⟨hnat, r0, rfl, hm⟩ := blockShape?_one hsp hsh
-  subst h
+  by_cases hk : (blockRouteK1Only && q.k != 1) = true
+  · rw [if_pos hk] at h; exact nomatch h
+  rw [if_neg hk] at h
+  obtain rfl := Option.some.inj h
   refine ⟨?_, _, hm⟩
   unfold nativeParts?
   rw [hnat]

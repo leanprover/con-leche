@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Fueled
+public import ConLeche.Verify.Inductives.BlockOneFueled
 public import ConLeche.Kernel.Checker
 
 public section
@@ -819,6 +820,16 @@ theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkNativePass_datF, checkNativeTail_datF]
 
+/-- The uniform install at fuel `F`, through the one-member bridge
+(milestone M1): the route is gated at one member, so the fuel-indexed
+family is the one-member install's. -/
+theorem checkBlock_datF (env : Env) (p : BlockParts) {ms : MemberShape}
+    (hm : p.members = [ms]) (F : Nat) :
+    (checkBlock (fueledOpsM mode) env p).val F = checkBlock (fueledOps mode F) env p := by
+  rw [← checkBlock_one (m := FueledM) (fueledOpsM mode) env hm,
+    ← checkBlock_one (m := CheckM) (fueledOps mode F) env hm]
+  exact checkNative_datF env p.toNative F
+
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
@@ -1066,7 +1077,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · exact checkBasisDecl_datF env _ F
     · split
       · split
-        · exact checkNative_datF env _ F
+        · next p hbp =>
+          obtain ⟨ms, hms⟩ := blockParts?_k1 hbp
+          exact checkBlock_datF env p hms F
         · exact checkModeled_datF env block F
       · rfl
 
