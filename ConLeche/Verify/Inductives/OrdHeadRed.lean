@@ -364,6 +364,100 @@ theorem normPosDomM_eq_ordHeadRed {env : Env} {memberNames : List Name}
     · exact nomatch
         (hwc : Expr.forallE dom (body'.abstract1 d) bmP = Expr.const K us)
 
+/-! ## The head normal form at a `Π` (task #315 WIDE (f3) step 4, lane WHNF)
+
+`ordHeadRedGo` has no rule for a binder: it peels an application spine
+and reduces a β- or ζ-redex at the head, and a `∀` is none of those, so
+the reduction hands a `Π` straight back.  That is the one fact the
+REFLEXIVE reading rows need on top of the finitary ones.  A guard of
+the form "the head normal form is headed by a CONSTANT" therefore
+excludes a `Π` outright, and that is what keeps a reflexive field's
+tower — and so the recomputation's CUT — the container's own: whatever
+the mint's components plant, they plant it under a head the guard has
+already said is not a binder. -/
+
+/-- `ordHeadRedGo` is the spine re-application at a `∀`. -/
+theorem ordHeadRedGo_forallE (ty bo : Expr) (bm : BinderMeta) :
+    ∀ (n : Nat) (args : List Expr),
+      ordHeadRedGo n (Expr.forallE ty bo bm) args
+        = Expr.mkAppN (Expr.forallE ty bo bm) args := by
+  intro n args
+  cases n <;> rfl
+
+/-- `ordHeadRed` is the identity on a `∀`. -/
+theorem ordHeadRed_forallE {ty bo : Expr} {bm : BinderMeta} :
+    ordHeadRed (Expr.forallE ty bo bm) = Expr.forallE ty bo bm :=
+  ordHeadRedGo_forallE ty bo bm ordHeadRedFuel []
+
+/-- **A HEAD-NORMAL-FORM GUARD EXCLUDES A BINDER**: `ordHeadRed` is the
+identity on a `∀` and a `∀` is its own `getAppFn`, so a term whose head
+normal form is constant-headed is not a `∀`. -/
+theorem not_forallE_of_ordHeadRed_const {W : Expr} {c : Name} {us : List Level}
+    (h : (ordHeadRed W).getAppFn = Expr.const c us) :
+    ∀ (ty bo : Expr) (bm : BinderMeta), W ≠ Expr.forallE ty bo bm := by
+  intro ty bo bm hW
+  rw [hW, ordHeadRed_forallE] at h
+  simp only [Expr.getAppFn] at h
+  exact nomatch h
+
+/-- **AND A SUBSTITUTION CANNOT HIDE ONE**: `instSeq` carries a `∀`
+through to a `∀`, so a head-normal-form guard on the SUBSTITUTED term
+says the substituted-into term is not a binder either.  That is how the
+guard on the block's recomputation — which is the stored leaf under the
+mint's components and the field's openers — reaches the leaf. -/
+theorem notPi_of_ordHeadRed_const_instSeq {vs : List Expr} {t : Nat} {Y : Expr}
+    (hlen : vs.length ≤ t + 1) {c : Name} {us : List Level}
+    (h : (ordHeadRed (Expr.instSeq vs t Y)).getAppFn = Expr.const c us) :
+    ∀ (ty bo : Expr) (bm : BinderMeta), Y ≠ Expr.forallE ty bo bm := by
+  intro ty bo bm hY
+  refine absurd ?_ (not_forallE_of_ordHeadRed_const h (Expr.instSeq vs t ty)
+    (Expr.instSeq vs (t + 1) bo) bm)
+  rw [hY, Expr.instSeq_forallE vs t ty bo bm hlen]
+
+/-- **AND THE WALK'S RESULT IS NOT A BINDER EITHER** (task #315 WIDE
+(f3) step 4): `normPosDomM_eq_ordHeadRed`'s case split, read for its
+SHAPE rather than for the identification — and this one needs no
+hypothesis about the result, which is what makes it usable one
+telescope up, where the result's head is not yet known.
+
+Each of the walk's three arms is a term that is not a `∀`: the
+member-free early return hands back `W`, which the guard excludes; the
+`whnf` arm lands on `ordHeadRed W` (constant-headed) or is stuck under
+a λ; and the `Π` arm cannot be reached at all, since its own `whnf`
+answered with a `∀` and the guard says that answer is not one. -/
+theorem normPosDomM_not_forallE {env : Env} {memberNames : List Name}
+    {F fuel d : Nat} {W w : Expr}
+    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
+    (hb : W.looseBVarsBounded 0 = true)
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (hred : (ordHeadRed W).getAppFn = .const J lvls)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel W = .ok w) :
+    ∀ (ty bo : Expr) (bm : BinderMeta), w ≠ Expr.forallE ty bo bm := by
+  rcases normPosDomM_inv h with ⟨-, rfl⟩ | ⟨v, hv, hcase⟩
+  · exact not_forallE_of_ordHeadRed_const hred
+  · rcases hcase with rfl | ⟨dom, body, bmP, body', fuel', -, hvE, -, -, rfl⟩
+    · rcases whnf_ordHeadRed hb hJ hred hv with hE | ⟨tyS, bdS, mbS, hlam⟩
+      · rw [hE]
+        intro ty bo bm hw
+        rw [hw] at hred
+        simp only [Expr.getAppFn] at hred
+        exact nomatch hred
+      · intro ty bo bm hw
+        rw [hw] at hlam
+        simp only [Expr.getAppFn] at hlam
+        exact nomatch hlam
+    · -- the `Π` arm: its own `whnf` answered with a `∀`, which the
+      -- guard's two possible answers both refuse
+      exfalso
+      rcases whnf_ordHeadRed hb hJ hred hv with hE | ⟨tyS, bdS, mbS, hlam⟩
+      · rw [hE] at hvE
+        rw [hvE] at hred
+        simp only [Expr.getAppFn] at hred
+        exact nomatch hred
+      · rw [hvE] at hlam
+        simp only [Expr.getAppFn] at hlam
+        exact nomatch hlam
+
 /-! ## `ordHeadRed` is a congruence for `ErasedEq` (task #315 WIDE (f3))
 
 The reading site holds its recomputation and the install's minted
@@ -530,5 +624,16 @@ theorem ErasedEq.ordHeadRedGo :
 theorem ErasedEq.ordHeadRed {a b : Expr} (h : Expr.ErasedEq a b) :
     Expr.ErasedEq (ConLeche.ordHeadRed a) (ConLeche.ordHeadRed b) :=
   ErasedEq.ordHeadRedGo ordHeadRedFuel [] [] h trivial
+
+/-- **`ErasedEq` KEEPS A BINDER A BINDER**: the relation is structural
+everywhere but at a `fvar`'s annotation, so a term erased-equal to a
+`∀` is one.  This is how a guard read on the RECOMPUTATION reaches the
+minted domain, whose components carry the run's own annotations. -/
+theorem ErasedEq.forallE_right {a ty bo : Expr} {bm : BinderMeta}
+    (h : Expr.ErasedEq a (Expr.forallE ty bo bm)) :
+    ∃ (ty' bo' : Expr) (bm' : BinderMeta), a = Expr.forallE ty' bo' bm' := by
+  cases a with
+  | forallE ty' bo' bm' => exact ⟨ty', bo', bm', rfl⟩
+  | _ => exact (h : False).elim
 
 end ConLeche

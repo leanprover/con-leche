@@ -129083,3 +129083,166 @@ step is independent of the cut and the member/pin split, while (2)'s
 main lane instead lands (2) against the pre-move text, the two
 finitary rows' middle steps have to be re-applied by hand — four
 `have`s each, listed in §(b).
+
+#### WIDE (f3) STEP 4 LANDED — THE READING SITE'S TWO **REFLEXIVE** ROWS SPEAK AT THE HEAD NORMAL FORM TOO, AND THE WALK'S OWN INVERSION NOW CARRIES THE COUNT (lane WHNF, 2026-09-21)
+
+Session 2's row moved the site's two FINITARY rows to
+`ordHeadRed (instSeq (openFvars nP l) (l-1) (ordTargetDom …))` and named
+the reason the two REFLEXIVE ones did not come with them: `ordHeadRed`
+is the identity on a `∀`, so the tower-level statement needs its OWN
+inversion of the walk, and the cut needs the UNGUARDED tower/cut
+commutation, which was the main lane's `stripDomPis_instSeq_tower` and
+had not landed yet.  It has (merged here at `5dbb84cc`), and both rows
+have moved.
+
+##### (a) WHAT THE TWO ROWS SAY NOW
+
+`copyOrdFRightPinOrdTargetReadRefl` (`Model/Inductives/NestedCopyInst.lean:10659`)
+and `copyOrdFRightMemOrdTargetReadRefl` (`:11866`) trade the guard
+
+```
+(stripDomPis (dom^lvls)).getAppFn = .const K usK
+```
+
+— the container's STORED leaf, after its own tower is stripped — for
+
+```
+(ordHeadRed (instSeq (openFvars nP (l + D)) (l + D - 1)
+  (ordTargetDom J.lps ci.nP (nestedPinTermsSelf p st) (q₀ + i') l dom))).getAppFn
+  = .const K usK
+    where D = domPiDepth (ordTargetDomL J.lps (nestedPinTermsSelf p st) (q₀ + i') dom)
+```
+
+— the BLOCK's own recomputation at the tower's cut, reduced — and their
+conclusion's subject gains the same `ordHeadRed`.  That is the finitary
+rows' guard verbatim, one telescope down, and it is the guard K.69's
+Bool actually produces: `ordRootFired` tests a head, and the head it
+tests is the recomputation's.
+
+**What the weakening buys.**  The stored form is FALSE at a leaf that is
+a λ-REDEX — the shape `tests/e2e/nested_redex_owner.ndjson` exhibits,
+here at a REFLEXIVE field — and at such a field the old rows said
+nothing at all.  The new ones say what they said before wherever the
+stored leaf is a constant (the wrappers still take `hfin` and bridge,
+§(c)) and they keep saying it where the leaf reduces to one.
+
+**What it does NOT buy, and why that is the main lane's (2).**  Where
+the mint's COMPONENTS plant a `Π` into the stripped body — K.72's second
+summand, `tests/e2e/nested_comp_tower.ndjson` — the recomputation IS a
+binder, `ordHeadRed` is the identity on it, and the guard is false.  The
+rows are vacuous there, exactly as the LE lane's re-pricing of object (2)
+says, and the fix is (2)'s: one more `stripDomPis` on the subject and the
+total cut `l + tlsl.length`.  The two changes compose — this row moved
+`ordHeadRed` and left the cut alone, which is what the collision row
+above proposed.
+
+##### (b) THE THREE FACTS THE MOVE NEEDED
+
+* **the walk's own inversion, one telescope up.**
+  `normPosDomM_openPis_ordHeadRed`
+  (`Verify/Inductives/NestedCopyNorm.lean:2307`) is
+  `normPosDomM_openPis_indApp` at a leaf that only REDUCES to a constant
+  head: the walk's output opens, at the same openers, at `ordHeadRed` of
+  the input's leaf.  **And the COUNT is folded into it.**  The old arm
+  could read the two openings' counts off
+  `openPisAtFvars_count_unique`, because the input's leaf was
+  constant-headed before the walk was inverted.  Here only its head
+  NORMAL FORM is, so the caller hands the opening of the OUTPUT it
+  already holds — the copy's recorded telescope, whose leaf the rewrite
+  made a block member — and gets back that its count is the input's
+  tower depth, that its openers are the input's, and that its leaf is
+  the reduction's.  Three arms: the leaf is
+  `normPosDomM_eq_ordHeadRed`; the walk's identity arm is
+  `openPisAtFvars_count_unique_notPi` (`:2197`, the const form of
+  `openPisAtFvars_count_unique` is not enough — a redex is not
+  constant-headed, and what the guard gives is "not a `∀`"); the `Π` arm
+  is `normPosDomM_openPis_indApp`'s round trip character for character.
+
+* **the tower and the cut, at a guard that is not a head.**
+  `stripDomPis_instSeq2_notPi` (`:2256`) prices what each of the mint's
+  two substitutions may PLANT into the stripped body
+  (`stripDomPis_instSeq_tower`, the main lane's) and then reads the
+  guard: a recomputation that is not a binder plants nothing, so
+  `domPiDepth` of the mint is the container's stored tower's and
+  `stripDomPis` of it is the substituted leaf — which is what the two
+  `stripDomPis_instSeq` calls used to give under the stored head.
+
+* **the guard has to reach the mint.**  The guard speaks of the
+  RECOMPUTATION; the proof needs it at `xI.fvarTypeD`.  `hEr0` — the
+  erased identification of the two spellings, restated GUARD-FREE, which
+  is the one reordering the proofs needed — carries it both ways:
+  `ErasedEq.forallE_right` (`Verify/Inductives/OrdHeadRed.lean:632`) for
+  the shape and `ErasedEq.ordHeadRed` + `erasedEq_getAppFn_const` for
+  the head.  The `ordHeadRed`-side kit is four lines each:
+  `ordHeadRed_forallE` (`:388` — `ordHeadRedGo` has no rule for a
+  binder), `not_forallE_of_ordHeadRed_const` (`:395`),
+  `notPi_of_ordHeadRed_const_instSeq` (`:408` — `instSeq` carries a `∀`
+  to a `∀`, so the guard reaches under the openers) and
+  `normPosDomM_not_forallE` (`:428`), which is
+  `normPosDomM_eq_ordHeadRed`'s case split read for its SHAPE and needs
+  no hypothesis about the result — that is what makes it usable one
+  telescope up, where the result's head is not yet known.
+
+##### (c) THE WRAPPERS ARE UNMOVED, CHARACTER FOR CHARACTER
+
+`copyOrdFRightPinOrdTargetReadAtRefl` (`:11374`) and
+`copyOrdFRightMemOrdTargetReadAtRefl` (`:12390`) keep `hfin` and their
+conclusion exactly as they were, so `Model/Inductives/NestedInstMap.lean`
+compiles untouched.  The bridge is the finitary wrappers' plus one step:
+`hfin` is at the stored leaf and the guard is at the recomputation, so
+the levels have to be matched (`PinData`'s `pinEq`, `ordTargetLvls`) and
+the head pushed through the components' substitution
+(`getAppFn_instantiateList_const`) and the openers'
+(`instSeq_getAppFn_const`); then `ordHeadRed_const` makes the reduction
+the identity and `rw [← hid]` is the whole bridge.
+
+##### (d) WHAT A CALLER GETS, IN THE RUN'S VOCABULARY
+
+At a field of the block's copy of pin `q₀ + i'` that the container calls
+REFLEXIVE, given the run's residual (the minted telescope, its opening,
+the positivity walk's output, the rewrite and the reading) and **one
+guard — that the block's own recomputation of that field, at the tower's
+cut, head-reduces to a constant `K`** — the four rows now say:
+
+1. the copy's RECORDED telescope at that field has exactly
+   `domPiDepth (ordTargetDomL …)` binders — the container's stored
+   tower, and no more;
+2. the recomputation, opened at the block's parameters and the tower's
+   own openers and then HEAD-REDUCED, reads as `K` applied to `ciK.nP`
+   (pin) / `b.nP` (member) parameters followed by the copy's recorded
+   INDEX expressions — `mutEiss0 … .getD l []` — at the prefix model.
+
+The `At` twins say the same from the run, the group and a fitting
+prefix, with the syntactic residual discharged by
+`copyFieldReadCoreQ` — and they still ask for `hfin`, so a consumer that
+holds only the stored head is unaffected by the move.
+
+##### (e) THE SUPERSEDED, AND THE GATES
+
+`tests/unconsumed.sh` goes 207 → 210, and the three new entries are
+exactly what the move superseded:
+
+| name | file | superseded by |
+| --- | --- | --- |
+| `normPosDomM_openPis_indApp` | `NestedCopyNorm.lean:2111` | `normPosDomM_openPis_ordHeadRed` |
+| `openPisAtFvars_count_unique` | `NestedCopyKinds.lean:2439` | the count folded into the same row (and `…_notPi`) |
+| `stripDomPis_instSeq` | `NestedCopyKinds.lean:2383` | `stripDomPis_instSeq2_notPi` over `…_tower` |
+
+They stay, with `normPosDomM_indApp_cons`/`_former` (session 2's two,
+already on the list) — five declarations to **delete at the merge-back**,
+not here: two of the five are in `NestedCopyKinds.lean`, which this lane
+does not own, and a doc comment in `NestedInstMap.lean:1297` still names
+`normPosDomM_indApp_former` (and `:2784` still names
+`stripDomPis_instSeq`) — both in the main lane's files, both stale, both
+for the merge session.  `replaceAllNested_lamHead`
+(`NestedElimInv.lean:303`) is unchanged by this session: it was on the
+list before it and is still session 1's residual.
+
+Gates: build 729 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` EXIT 0 (doors 0, nested-shadow 46/46 — which is where
+`nested_redex_owner`, `nested_pi_field` at `CON_LECHE_INMODEL=0` and
+`nested_comp_tower` are measured, all three still `accept`),
+`tests/shake.sh`, overview-links, quote-gate, no-local-paths,
+`#print axioms` = `[propext, Classical.choice, Quot.sound]` on all nine
+new declarations and on the six rows and wrappers.  No kernel file is
+touched by this session, so no verdict can have moved.
