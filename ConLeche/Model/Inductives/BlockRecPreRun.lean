@@ -2098,4 +2098,36 @@ theorem blockRecMkK_value {envC : Env} {mpC : EnvModelM V μ envC} {names : List
 
 end FiredSpine
 
+/-! ## 23. The lifting transport at an ARBITRARY insertion (session 6)
+
+`interp_liftN_chainFrame`/`spineFit_liftDomsK` (RM11) transport a
+reading and a fit past the `K` chain binders.  `hspF` needs the same
+transport past the rule prefix's `rP − nP` EXTRA binders — the
+recursor's `nP … rP-1` stretch, which `blockRuleFdomsAV_eq` exhibits
+as a `liftDomsK (rP − nP) 0` of the constructor's own field domains.
+Both are the same lemma at a different inserted block, and this is
+that lemma; the chain versions are its instances at
+`us := (List.range K).map a`. -/
+
+section Insertion
+
+/-- **A reading crosses an inserted block**: a form read under `ws`
+binders reads the same when `us` values are inserted below them, once
+lifted by `|us|` at the cutoff `|ws|`. -/
+theorem interp_liftN_insert {us ws : List V} {ρ : Nat → V} (e : AnnotTerm) :
+    interp V (consList ws (consList us ρ)) (e.liftN us.length ws.length)
+      = interp V (consList ws ρ) e := by
+  rw [interp_liftN, shiftE_consList_ih (locals := ws) (ihvals := us) rfl rfl]
+
+/-! **What blocks the fit's transport.**  `liftDomsK` (RM11,
+`BlockRecData.lean`) is a plain `def` in a `public section`, so its
+body does not unfold here and the fit's version of this transport —
+the structural recursion `spineFit_liftDomsK` performs — cannot be
+written outside that module.  `@[expose]` on `liftDomsK` (or the
+insertion-general `spineFit_liftDomsK` beside the chain one) is all it
+needs; the reading's half above is unblocked because it never mentions
+`liftDomsK`. -/
+
+end Insertion
+
 end ConLeche.Model
