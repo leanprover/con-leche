@@ -1,0 +1,427 @@
+module
+
+public import ConLeche.Semantics.Tower.SigChainI
+public import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Kit
+@[expose] public section
+
+/-!
+# The recursor family of a k-member block: the leaf and its ι laws (task #315, M5 model half)
+
+The uniform route's recursor stage CHECKS the stream's recursors
+(lane R, `ConLeche/Kernel/Inductives/BlockRec.lean`) instead of
+generating them.  What the model owes in exchange is a VALUE for each
+of the `K` recursors of the block that satisfies exactly the equations
+the check certified — one chosen tuple, pinned by its ι equations
+(DESIGN "DESIGN DOCUMENT 2, v2" §3.2, the leaf):
+
+    blockRecAV c  :=  projAV c (fst (choice.{s} (Σ' rs : ⟨RecTy_0, …, RecTy_{K-1}⟩, IotaAll rs) prf))
+
+with `RecTy_c` the READING of the stream's recursor type of class `c`
+(a `mkPisAV` over its binder data: the parameters, the arbitrary
+`nP…rP-1` stretch, the indices and the major, then the conclusion) and
+
+    IotaAll rs  =  ⋀_{c,j} ∀ x⃗ f⃗, eqE (app^ (projAV c rs) [x⃗, e⃗_j, C_j p⃗ f⃗]) (Rb_{c,j}[rec ↦ rs])
+
+the conjunction over every class `c` and constructor `j` of the rule's
+equation at the rule's own prefix `x⃗` (`rP` binders — record-read,
+M5k §13) and the constructor's fields `f⃗`.
+
+**Where the recursor occurrences went.**  The stored right-hand side's
+recursor occurrences are the GUARDED SPINES `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)`
+the check abstracted to `ih` openers (`abstractIh`,
+`ConLeche/Verify/Inductives/BlockRecInv.lean`), so the substitution
+`[rec ↦ rs]` is performed AT THE SPINE LEVEL, once per ih opener:
+`Rb = Rb''[ih_i ↦ ihFun_i]` with `Rb''` the RESIDUE — recursor-free by
+`abstractIh_of_recFree`, which is why the residue may be typed at the
+CONSTRUCTORS' environment (G1).  `instsAV` below is that substitution,
+and `interp_instsAV` is the substitution lemma: reading the
+substituted body at a frame is reading the residue at the frame
+extended by the ih VALUES.  Nothing here has to descend through the
+right-hand side's syntax — the check already did.
+
+**What is input and what is generated.**  Everything the equation
+mentions is INPUT data, read at the CHAIN frame (under the `K` Σ'
+binders, where class `c`'s component is `bvar (K-1-c)`): the rule's
+prefix domains `pdoms`, the constructor's field domains `fdoms`, its
+index expressions `es`, the constructed major `mk`, the ih terms `ihs`
+and the residue `Rb`.  The Model tier supplies them as the readings of
+the stored forms, lifted by `K`; the ih terms' canonical shape (the
+curried λ-tower over the field's telescope of the guarded call) is
+`ihFunAV`.
+
+The chain kit itself — `sigChainAV`/`selChainAV`/`projChainAV`,
+`andChainAV`, `ChainOk`, `blockRecAVI_facts` — is
+`ConLeche/Semantics/Tower/SigChainI.lean`.
+-/
+
+namespace ConLeche.Semantics
+open ConLeche.SetModel
+
+open SetTheory
+open ConLeche.SetTheory.Tower
+
+universe uv
+
+variable {V : Type uv} [SetTheory V]
+
+/-! ## Frame kit -/
+
+theorem consList_getD_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
+    consList as σ k = as.getD (as.length - 1 - k) pt
+  | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
+  | a :: as, σ, k, hk => by
+    rw [consList_cons]
+    rcases Nat.lt_or_ge k as.length with hlt | hge
+    · rw [consList_getD_lt as (cons a σ) k hlt, List.length_cons,
+        show as.length + 1 - 1 - k = (as.length - 1 - k) + 1 from by omega, List.getD_cons_succ]
+    · have hk' : k = as.length := by simp at hk; omega
+      subst hk'
+      rw [← Nat.zero_add as.length, consList_apply_add, cons_zero, List.length_cons,
+        show as.length + 1 - 1 - (0 + as.length) = 0 from by omega, List.getD_cons_zero]
+
+/-! ## The chain's projection IS the pair-tower's projection
+
+`projChainAV` (the Σ'-chain kit) and `projAV` (the basis pair tower)
+are the same function; the leaf is stated with either. -/
+
+omit [SetTheory V] in
+theorem projChainAV_eq_projAV : ∀ (i : Nat) (e : AnnotTerm), projChainAV i e = projAV i e
+  | 0, _ => rfl
+  | i + 1, e => projChainAV_eq_projAV i (.snd e)
+
+/-! ## Substituting a block of innermost binders
+
+`instsAV d vs e` replaces the `vs.length` innermost binders of `e` by
+`vs` — `vs[0]` the OUTERMOST of the replaced block, every `v` written
+at the frame BELOW the block (so `vs[t]` is lifted past the `t`
+binders still standing when its turn comes).  This is the ih
+substitution `[ih_i ↦ ihFun_i]` of the design. -/
+
+def instsAV : Nat → List AnnotTerm → AnnotTerm → AnnotTerm
+  | _, [], e => e
+  | d, v :: vs, e => (instsAV (d + 1) vs e).inst (v.liftN d 0)
+
+omit [SetTheory V] in
+@[simp] theorem instsAV_nil (d : Nat) (e : AnnotTerm) : instsAV d [] e = e := rfl
+
+theorem interp_instsAV_go : ∀ (vs : List AnnotTerm) (pre : List V) (e : AnnotTerm) (ρ : Nat → V),
+    interp V (consList pre ρ) (instsAV pre.length vs e)
+      = interp V (consList (pre ++ vs.map (interp V ρ)) ρ) e
+  | [], pre, e, ρ => by simp
+  | v :: vs, pre, e, ρ => by
+    show interp V (consList pre ρ)
+      ((instsAV (pre.length + 1) vs e).inst ((v.liftN pre.length 0))) = _
+    rw [interp_inst0, interp_liftN_consList, consList_snoc']
+    have h := interp_instsAV_go vs (pre ++ [interp V ρ v]) e ρ
+    rw [List.length_append, List.length_singleton] at h
+    rw [h]
+    simp
+
+/-- **THE SUBSTITUTION LEMMA** (review attack 3, spine-structural): the
+body with the ih openers substituted, read at a frame, is the RESIDUE
+read at that frame extended by the ih VALUES.  The recursion through
+the right-hand side's syntax is the check's (`abstractIh`), not the
+model's. -/
+theorem interp_instsAV (vs : List AnnotTerm) (e : AnnotTerm) (ρ : Nat → V) :
+    interp V ρ (instsAV 0 vs e) = interp V (consList (vs.map (interp V ρ)) ρ) e := by
+  have h := interp_instsAV_go (V := V) vs [] e ρ
+  simpa using h
+
+theorem wd_instsAV_go : ∀ (vs : List AnnotTerm) (pre : List V) (e : AnnotTerm) (ρ : Nat → V),
+    (∀ v ∈ vs, WellDenoted V ρ v) →
+    (WellDenoted V (consList pre ρ) (instsAV pre.length vs e)
+      ↔ WellDenoted V (consList (pre ++ vs.map (interp V ρ)) ρ) e)
+  | [], pre, e, ρ, _ => by simp
+  | v :: vs, pre, e, ρ, hv => by
+    show WellDenoted V (consList pre ρ)
+      ((instsAV (pre.length + 1) vs e).inst ((v.liftN pre.length 0))) ↔ _
+    rw [WellDenoted_inst0 V ((wd_liftN_consList v pre ρ).mpr (hv v (.head _))),
+      interp_liftN_consList, consList_snoc']
+    have h := wd_instsAV_go vs (pre ++ [interp V ρ v]) e ρ fun v' hv' => hv v' (.tail _ hv')
+    rw [List.length_append, List.length_singleton] at h
+    rw [h]
+    simp
+
+theorem wd_instsAV {vs : List AnnotTerm} {e : AnnotTerm} {ρ : Nat → V}
+    (hv : ∀ v ∈ vs, WellDenoted V ρ v) :
+    WellDenoted V ρ (instsAV 0 vs e) ↔ WellDenoted V (consList (vs.map (interp V ρ)) ρ) e := by
+  have h := wd_instsAV_go (V := V) vs [] e ρ hv
+  simpa using h
+
+theorem foldl_app_map (f : AnnotTerm → V) (b : V) :
+    ∀ as : List AnnotTerm,
+      as.foldl (fun r a => SetTheory.app r (f a)) b = (as.map f).foldl SetTheory.app b
+  | [] => rfl
+  | a :: as => by
+    show (as.foldl (fun r a => SetTheory.app r (f a)) (SetTheory.app b (f a))) = _
+    rw [foldl_app_map f _ as]
+    rfl
+
+/-! ## The rule's own prefix variables
+
+A rule binds `rP + nF` λs: the recursor's own prefix (the parameters
+and the arbitrary stretch), then the constructor's fields.  A guarded
+call's prefix arguments are the rule's OWN prefix variables (M5k §14.2,
+answer 2 strict), and so is the ι equation's left-hand side's prefix. -/
+
+/-- The `rP` prefix variables as bvars, at the frame
+`prefix ++ (nF further binders)`. -/
+def prefVarsAV (rP nF : Nat) : List AnnotTerm :=
+  (List.range rP).map fun l => .bvar (nF + rP - 1 - l)
+
+omit [SetTheory V] in
+@[simp] theorem prefVarsAV_length (rP nF : Nat) : (prefVarsAV rP nF).length = rP := by
+  simp [prefVarsAV]
+
+/-- **The prefix variables read back the prefix spine.** -/
+theorem interp_prefVarsAV {rP : Nat} {xs bs : List V} {ρ : Nat → V} (hx : xs.length = rP) :
+    (prefVarsAV rP bs.length).map (interp V (consList (xs ++ bs) ρ)) = xs := by
+  have hlen : (xs ++ bs).length = bs.length + rP := by
+    rw [List.length_append, hx]; omega
+  have hval : ∀ l, l < rP →
+      interp V (consList (xs ++ bs) ρ) (.bvar (bs.length + rP - 1 - l)) = xs.getD l pt := by
+    intro l hl
+    show consList (xs ++ bs) ρ (bs.length + rP - 1 - l) = _
+    rw [consList_getD_lt _ _ _ (by omega), hlen,
+      show bs.length + rP - 1 - (bs.length + rP - 1 - l) = l from by omega,
+      List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+      ← List.getD_eq_getElem?_getD]
+  calc (prefVarsAV rP bs.length).map (interp V (consList (xs ++ bs) ρ))
+      = (List.range rP).map (fun l => xs.getD l pt) := by
+        rw [prefVarsAV, List.map_map]
+        exact List.map_congr_left fun l hl => hval l (List.mem_range.mp hl)
+    _ = xs := range_map_getD hx
+
+/-! ## The ι equation of one rule -/
+
+/-- The binder data of a `Prop`-valued Π-tower over the given domains
+(both numerals `0`: the tower is a proposition and so is its body). -/
+def propBinders (doms : List AnnotTerm) : List (Nat × Nat × AnnotTerm) :=
+  doms.map fun D => (0, 0, D)
+
+omit [SetTheory V] in
+@[simp] theorem propBinders_doms (doms : List AnnotTerm) :
+    (propBinders doms).map (·.2.2) = doms := by
+  simp [propBinders, Function.comp_def]
+
+omit [SetTheory V] in
+theorem propBinders_cod {doms : List AnnotTerm} : ∀ d ∈ propBinders doms, d.2.1 = 0 := by
+  intro d hd
+  obtain ⟨D, -, rfl⟩ := List.mem_map.mp hd
+  rfl
+
+/-- A `Prop`-valued Π-tower over an equation is a truth value. -/
+theorem mkPisAV_eqE_univZero {l r : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
+      (∀ d ∈ ds, d.2.1 = 0) → interp V σ (mkPisAV ds (.eqE l r)) ∈ˢ (univZero : V)
+  | [], _, _ => eqv_mem_univZero _ _
+  | d :: ds, σ, hz => by
+    show piR d.2.1 _ _ ∈ˢ _
+    rw [hz d (.head _)]
+    exact piR_zero_mem_univZero
+
+/-- **One rule's ι equation**, at the CHAIN frame (under the `K` Σ'
+binders, class `c`'s component `bvar (K-1-c)`).  Quantified over the
+rule's prefix `x⃗` (domains `pdoms`) and the constructor's fields `f⃗`
+(domains `fdoms`); the left-hand side is the class's component applied
+along `(x⃗, e⃗_j, mk_j)`, the right-hand side the residue `Rb` with its
+ih openers substituted by `ihs`. -/
+def iotaEqAV (K c : Nat) (pdoms fdoms es : List AnnotTerm) (mk : AnnotTerm)
+    (ihs : List AnnotTerm) (Rb : AnnotTerm) : AnnotTerm :=
+  mkPisAV (propBinders (pdoms ++ fdoms))
+    (.eqE
+      (AnnotTerm.mkAppN (.bvar (pdoms.length + fdoms.length + (K - 1 - c)))
+        (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk]))
+      (instsAV 0 ihs Rb))
+
+/-- The ι equation is a truth value. -/
+theorem iotaEqAV_univZero {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
+    {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V} :
+    interp V σ (iotaEqAV K c pdoms fdoms es mk ihs Rb) ∈ˢ (univZero : V) :=
+  mkPisAV_eqE_univZero propBinders_cod
+
+/-- **The ι equation is graded** when the domains are graded along the
+telescope and both sides are graded at every fitting spine. -/
+theorem wd_iotaEqAV {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
+    {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V}
+    (hdoms : FieldsOkB 0 σ (pdoms ++ fdoms))
+    (hbody : ∀ ys, SpineFit σ (pdoms ++ fdoms) ys →
+      WellDenoted V (consList ys σ)
+          (AnnotTerm.mkAppN (.bvar (pdoms.length + fdoms.length + (K - 1 - c)))
+            (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk])) ∧
+        WellDenoted V (consList ys σ) (instsAV 0 ihs Rb)) :
+    WellDenoted V σ (iotaEqAV K c pdoms fdoms es mk ihs Rb) := by
+  refine WellDenoted_mkPisAV_of (by simpa using hdoms) fun ys hsp => ?_
+  rw [propBinders_doms] at hsp
+  rw [WellDenoted_eqE]
+  exact hbody ys hsp
+
+/-- **THE ι LAW, extracted**: at a fitting spine `xs ++ fs` of the
+rule's prefix and the constructor's fields, the class's component
+applied along the rule's left-hand side equals the residue read at the
+frame extended by the ih values.  `hR` names the component: the
+consumer instantiates `σ` with the chain frame `consList rs ρ`, where
+`σ (K-1-c) = rs.getD c pt` is the class's leaf. -/
+theorem iotaEqAV_law {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
+    {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V} {R : V}
+    (hR : σ (K - 1 - c) = R)
+    (h : (pt : V) ∈ˢ interp V σ (iotaEqAV K c pdoms fdoms es mk ihs Rb))
+    {xs fs : List V} (hxl : xs.length = pdoms.length)
+    (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs)) :
+    ((xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ))).foldl SetTheory.app R)
+      = interp V (consList ((ihs.map (interp V (consList (xs ++ fs) σ)))) (consList (xs ++ fs) σ))
+          Rb := by
+  have hfl : fs.length = fdoms.length := by
+    have := hsp.length_eq
+    rw [List.length_append, List.length_append, hxl] at this
+    omega
+  have heq := (pt_mem_mkPisAV_eqE_iff (V := V) (propBinders_cod (doms := pdoms ++ fdoms))).mp h
+    (xs ++ fs) (by rw [propBinders_doms]; exact hsp)
+  rw [interp_mkAppN, interp_instsAV] at heq
+  -- the head: the chain variable, past the rule's own binders
+  have hhead : interp V (consList (xs ++ fs) σ)
+      (.bvar (pdoms.length + fdoms.length + (K - 1 - c))) = R := by
+    show consList (xs ++ fs) σ (pdoms.length + fdoms.length + (K - 1 - c)) = R
+    rw [show pdoms.length + fdoms.length + (K - 1 - c)
+          = (K - 1 - c) + (xs ++ fs).length from by
+        rw [List.length_append, hxl, hfl]; omega,
+      consList_apply_add, hR]
+  -- the arguments: the prefix variables read back the prefix spine
+  have hpre : (prefVarsAV pdoms.length fdoms.length).map (interp V (consList (xs ++ fs) σ))
+      = xs := by
+    have h := interp_prefVarsAV (V := V) (rP := pdoms.length) (xs := xs) (bs := fs) (ρ := σ) hxl
+    rw [hfl] at h
+    exact h
+  have hargs : (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk]).map
+      (interp V (consList (xs ++ fs) σ))
+      = xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ)) := by
+    simp only [List.map_append, hpre, List.append_assoc]
+  rw [foldl_app_map, hhead, hargs] at heq
+  exact heq
+
+/-! ## The family: its ι equations, its leaf, and its facts -/
+
+/-- The family's ι equations: one per class `c < K` and constructor
+`j < nCt c`, in class-major order.  `IotaAll` of the design. -/
+def iotaEqsAV (K : Nat) (nCt : Nat → Nat) (pdoms : Nat → List AnnotTerm)
+    (fdoms es : Nat → Nat → List AnnotTerm) (mk : Nat → Nat → AnnotTerm)
+    (ihs : Nat → Nat → List AnnotTerm) (Rb : Nat → Nat → AnnotTerm) : List AnnotTerm :=
+  (List.range K).flatMap fun c =>
+    (List.range (nCt c)).map fun j =>
+      iotaEqAV K c (pdoms c) (fdoms c j) (es c j) (mk c j) (ihs c j) (Rb c j)
+
+omit [SetTheory V] in
+theorem mem_iotaEqsAV {K : Nat} {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm}
+    {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+    {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm} {c j : Nat}
+    (hc : c < K) (hj : j < nCt c) :
+    iotaEqAV K c (pdoms c) (fdoms c j) (es c j) (mk c j) (ihs c j) (Rb c j)
+      ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb :=
+  List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc,
+    List.mem_map.mpr ⟨j, List.mem_range.mpr hj, rfl⟩⟩
+
+omit [SetTheory V] in
+/-- Every member of the family's equation list IS one rule's equation —
+the form every per-equation premise is discharged in. -/
+theorem forall_iotaEqsAV {K : Nat} {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm}
+    {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+    {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm} {P : AnnotTerm → Prop}
+    (h : ∀ c, c < K → ∀ j, j < nCt c →
+      P (iotaEqAV K c (pdoms c) (fdoms c j) (es c j) (mk c j) (ihs c j) (Rb c j))) :
+    ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb, P e := by
+  intro e he
+  obtain ⟨c, hc, he⟩ := List.mem_flatMap.mp he
+  obtain ⟨j, hj, rfl⟩ := List.mem_map.mp he
+  exact h c (List.mem_range.mp hc) j (List.mem_range.mp hj)
+
+/-- **THE LEAF**: the recursor of class `c` is the `c`-th projection of
+the ONE chosen tuple of the `K` recursor types pinned by every rule's ι
+equation. -/
+def blockRecAV (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c : Nat) :
+    AnnotTerm :=
+  blockRecAVI s K RecTy eqs c
+
+omit [SetTheory V] in
+/-- The leaf, spelled: `projAV c (choice.{s} (Σ' rs : ⟨RecTy⃗⟩, IotaAll rs) prf)`. -/
+theorem blockRecAV_eq (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c : Nat) :
+    blockRecAV s K RecTy eqs c
+      = projAV c (AnnotTerm.mkAppN (.const .choice [s])
+          [sigChainAV s (blockTsAV K RecTy) (andChainAV eqs), .prf]) := by
+  rw [blockRecAV, blockRecAVI, projChainAV_eq_projAV, selChainAV]
+
+/-- The chain frame of a tuple: the base frame under the `K` Σ'
+binders, class `c`'s component at `bvar (K-1-c)`. -/
+noncomputable def chainFrame (K : Nat) (a ρ : Nat → V) : Nat → V :=
+  consList ((List.range K).map a) ρ
+
+theorem chainFrame_apply {K c : Nat} (hc : c < K) (a ρ : Nat → V) :
+    chainFrame K a ρ (K - 1 - c) = a c := by
+  have hlen : ((List.range K).map a).length = K := by simp
+  rw [chainFrame, consList_getD_lt _ _ _ (by omega), hlen,
+    show K - 1 - (K - 1 - c) = c from by omega, List.getD_eq_getElem?_getD,
+    List.getElem?_map, List.getElem?_range hc]
+  rfl
+
+/-- **The premise of the recursor family's leaf** at a base frame `ρ`:
+the `K` recursor types are formed at level `s`, the ι equations are
+truth values and graded at every fitting tuple, and a CANDIDATE tuple
+satisfies them.  The candidate is what the three proof regimes supply
+(DESIGN v2 §3.2 WF, §3.3 IND, §3.4 SQ); everything else is read off the
+check's certificates. -/
+structure BlockRecPre (V : Type uv) [SetTheory V] (s K : Nat) (RecTy : Nat → AnnotTerm)
+    (eqs : List AnnotTerm) (ρ : Nat → V) : Prop where
+  /-- The recursor types are sets of the chain's level, and graded. -/
+  hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c)
+  /-- The ι equations are truth values and graded at every tuple typed
+  at the recursor types. -/
+  hEq : ∀ rs : List V, rs.length = K →
+    (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+    ∀ e ∈ eqs, interp V (consList rs ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList rs ρ) e
+  /-- **The recursion theorem**: a tuple typed at the recursor types
+  satisfying every ι equation. -/
+  hCand : ∃ cand : Nat → V, (∀ c, c < K → cand c ∈ˢ interp V ρ (RecTy c)) ∧
+    ∀ e ∈ eqs, (pt : V) ∈ˢ interp V (chainFrame K cand ρ) e
+
+/-- **The leaf's facts**: there is ONE tuple `a` whose components are
+the classes' leaves — typed at the recursor types (`mem_type`) and
+graded — and which satisfies every ι equation. -/
+theorem blockRecAV_facts {s K : Nat} {RecTy : Nat → AnnotTerm} {eqs : List AnnotTerm}
+    {ρ : Nat → V} (h : BlockRecPre V s K RecTy eqs ρ) :
+    ∃ a : Nat → V,
+      (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c) ∧
+        interp V ρ (blockRecAV s K RecTy eqs c) = a c ∧
+        WellDenoted V ρ (blockRecAV s K RecTy eqs c)) ∧
+      ∀ e ∈ eqs, (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
+  obtain ⟨cand, hcand, hcandEq⟩ := h.hCand
+  exact blockRecAVI_facts s K RecTy eqs ρ h.hTy h.hEq cand hcand hcandEq
+
+/-- **THE ι LAWS OF THE FAMILY**, extracted at the leaf: one tuple `a`,
+its components the classes' leaves, and for every class `c` and
+constructor `j` the equation
+`rec_c x⃗ e⃗_j (C_j p⃗ f⃗) = Rb_{c,j}` at the ih values — the
+`RecRuleLaw`-shaped statement the Model tier converts. -/
+theorem blockRecAV_iota {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat}
+    {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+    {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
+    {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+    (h : BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ) :
+    ∃ a : Nat → V,
+      (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c) ∧
+        interp V ρ (blockRecAV s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) c) = a c ∧
+        WellDenoted V ρ
+          (blockRecAV s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) c)) ∧
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+        xs.length = (pdoms c).length →
+        SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+        (xs ++ (es c j ++ [mk c j]).map
+            (interp V (consList (xs ++ fs) (chainFrame K a ρ)))).foldl SetTheory.app (a c)
+          = interp V
+              (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))
+                (consList (xs ++ fs) (chainFrame K a ρ))) (Rb c j) := by
+  obtain ⟨a, ha, haEq⟩ := blockRecAV_facts h
+  refine ⟨a, ha, fun c hc j hj xs fs hxl hsp => ?_⟩
+  exact iotaEqAV_law (chainFrame_apply hc a ρ) (haEq _ (mem_iotaEqsAV hc hj)) hxl hsp
+
+end ConLeche.Semantics
