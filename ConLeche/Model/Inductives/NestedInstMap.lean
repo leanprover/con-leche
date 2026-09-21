@@ -62,6 +62,127 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
+/-! ## A NESTED FIELD'S STORED HEAD (task #315 WIDE (f3) step 5)
+
+`ordTgt_corr` asks for the head of the OWNER's recomputation, and the
+recomputation is the stored domain `Π`-stripped, level-instantiated and
+cut (`getAppFn_ordTargetDom_of_stripDomPis`).  At a field the container
+calls ORDINARY the stored head can be a BARE PARAMETER — the finding
+that forced WIDE (f3) step 3(b) — and only the recomputations' own
+firing produces it.  At a field the container calls RECURSIVE-nested it
+is FREE, and this is where: the container's own record says the opened
+domain is headed by the pin's container, and the opening substitutes
+free variables for bound ones and can neither make nor unmake a
+`const` head.
+
+ONE lemma over BOTH kinds, stated at the STRIPPED domain because that
+is what the recomputation reads: at a finitary field the strip is the
+identity (a `const`-headed term is not a `Π`), and at a reflexive one
+the tower is exactly what it removes. -/
+
+/-- **A CONTAINER-RECURSIVE NESTED FIELD'S STORED DOMAIN IS HEADED BY
+ITS PIN'S CONTAINER**, at both kinds (task #315 WIDE (f3) step 5). -/
+theorem blockCtorNestedHead {m : EnvModel V env} {d : BlockModel V}
+    {lps : List Name} {mm j : Nat} {cA : ConstantVal × Nat}
+    (hCF : BlockCtorFacts m d lps mm j cA)
+    {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    (hst : cA.1.type.stripPis (d.nP + cA.2) = some (bs, rr))
+    {l : Nat} {dom : Expr × ConLeche.BinderMeta}
+    (hdm : bs[d.nP + l]? = some dom) (hlF : l < cA.2)
+    (hj : j < (d.ctorsM mm).length)
+    (hrs : ((d.rss mm).getD j []).getD l false = true)
+    (hnest : ¬ d.tgts mm j l < d.k) :
+    (ConLeche.stripDomPis dom.1).getAppFn
+      = Expr.const (d.pinAt (d.tgts mm j l - d.k)).J
+          (d.pinAt (d.tgts mm j l - d.k)).lvls := by
+  obtain ⟨-, -, hCD⟩ := hCF
+  obtain ⟨cbs, esJ, hstripJ, -⟩ := hCD.resid
+  have hbs : cbs = bs := congrArg Prod.fst (Option.some.inj (hstripJ.symm.trans hst))
+  subst hbs
+  have hcbsLen : cbs.length = d.nP + cA.2 := Expr.stripPis_length _ hst
+  have hnestq : d.nestOf mm j l = some (d.tgts mm j l - d.k) := d.nestOf_some hnest
+  have hkindLen : l < (d.ksF mm j).length := by rw [hCD.ksLen]; exact hlF
+  have hkinds : (d.ksF mm j).getD l .ordinary = .recursive ∨
+      (d.ksF mm j).getD l .ordinary = .reflexive := by
+    rw [show (d.rss mm).getD j [] = rsOf (d.ksF mm j) from rssOfK_getD hj,
+      rsOf_getD hkindLen, decide_eq_true_eq] at hrs
+    exact hrs
+  obtain ⟨x, hx⟩ : ∃ x, (d.xFvsF mm j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF)⟩
+  have hdrop : (cbs.drop d.nP)[l]? = some dom := by
+    rw [List.getElem?_drop]; exact hdm
+  have hsplit : cA.1.type.stripPis (d.nP + cA.2)
+      = some (cbs.take d.nP ++ cbs.drop d.nP, rr) := by
+    rw [List.take_append_drop]; exact hst
+  have hpLen : (cbs.take d.nP).length = d.nP := by rw [List.length_take]; omega
+  rcases hkinds with hk | hk
+  · -- FINITARY: the opened domain IS the application, and the strip is
+    -- the identity on a `const`-headed term
+    obtain ⟨hfnOp, -, -, -, -⟩ := hCD.opened.nestF l x _ hx hnestq hk
+    have hheadA := blockCtorFieldHead hCD hsplit hpLen hx hdrop hfnOp
+    rw [ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadA]
+    exact hheadA
+  · -- REFLEXIVE: the head sits one `Π`-tower down, and the tower
+    -- crosses the opening because the openers are variables
+    obtain ⟨afvs, bodyO, hopA, -, -, hfnO, -, -, -, -⟩ :=
+      hCD.opened.nestReflF l x _ hx hnestq hk
+    have hdomEq : x.fvarTypeD
+        = Expr.instSeq (d.fvsPF mm j ++ (d.xFvsF mm j).take l) (d.nP + l - 1) dom.1 :=
+      blockCtorFieldDomain hCD hsplit hpLen hx hdrop
+    obtain ⟨crestA, hopPA, hopXA⟩ := hCD.opens
+    obtain ⟨bodyA₀, hopAll⟩ : ∃ bodyA₀, ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0
+        = some (d.fvsPF mm j ++ d.xFvsF mm j, bodyA₀) :=
+      ⟨_, openPisAtFvars_add d.nP hopPA (by rw [Nat.zero_add]; exact hopXA)⟩
+    have hfvAll : ∀ v ∈ d.fvsPF mm j ++ d.xFvsF mm j,
+        ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+      obtain ⟨-, -, -, hlenO', hIdxO, -⟩ :=
+        ConLeche.Verify.openPisAtFvars_stripPis (d.nP + cA.2) hopAll
+      intro v hv
+      obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+      obtain ⟨tyv, hjv⟩ := hIdxO iv (by rw [← hlenO']; exact hiv)
+      rw [List.getElem?_eq_getElem hiv] at hjv
+      exact ⟨0 + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+    have hfvL : ∀ v ∈ d.fvsPF mm j ++ (d.xFvsF mm j).take l,
+        ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+      intro v hv
+      refine hfvAll v ?_
+      rcases List.mem_append.mp hv with h | h
+      · exact List.mem_append_left _ h
+      · exact List.mem_append_right _ (List.mem_of_mem_take h)
+    have hlenL : (d.fvsPF mm j ++ (d.xFvsF mm j).take l).length ≤ d.nP + l - 1 + 1 := by
+      rw [List.length_append, hCD.pLen, List.length_take]; omega
+    have hafvsIdx : ∀ v ∈ afvs, ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+      obtain ⟨-, -, -, hlenA', hIdxA, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hopA
+      intro v hv
+      obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+      obtain ⟨tyv, hjv⟩ := hIdxA iv (by rw [← hlenA']; exact hiv)
+      rw [List.getElem?_eq_getElem hiv] at hjv
+      exact ⟨d.nP + l + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+    obtain ⟨hdepEq, hbodyEq⟩ := ConLeche.Model.Expr.piBinders_instSeq
+      (d.fvsPF mm j ++ (d.xFvsF mm j).take l) (d.nP + l - 1) dom.1 hfvL hlenL
+    rw [← hdomEq] at hdepEq hbodyEq
+    have hbodyO : bodyO
+        = Expr.instSeq afvs ((x.fvarTypeD.piBinders).1.length - 1) ((x.fvarTypeD.piBinders).2) :=
+      openPisAtFvars_instSeq _ hopA
+        (ConLeche.Model.Expr.stripPis_piBinders x.fvarTypeD)
+    have hfnPB : ((x.fvarTypeD.piBinders).2).getAppFn
+        = Expr.const (d.pinAt (d.tgts mm j l - d.k)).J
+            (d.pinAt (d.tgts mm j l - d.k)).lvls := by
+      refine ConLeche.os_instSeq_getAppFn_const_inv afvs hafvsIdx
+        ((x.fvarTypeD.piBinders).1.length - 1) _ ?_
+      rw [← hbodyO]; exact hfnO
+    have hheadPB : ((dom.1.piBinders).2).getAppFn
+        = Expr.const (d.pinAt (d.tgts mm j l - d.k)).J
+            (d.pinAt (d.tgts mm j l - d.k)).lvls := by
+      refine ConLeche.os_instSeq_getAppFn_const_inv _ hfvL
+        (d.nP + l - 1 + (dom.1.piBinders).1.length) _ ?_
+      rw [← hbodyEq]; exact hfnPB
+    have hsd : ConLeche.stripDomPis dom.1 = (dom.1.piBinders).2 := by
+      rw [ConLeche.stripDomPis_of_stripPis _ (ConLeche.Model.Expr.stripPis_piBinders dom.1),
+        ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadPB]
+    rw [hsd]; exact hheadPB
+
+
 section Assembly
 
 variable {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {st : ElimState} {b : MutualBlock}

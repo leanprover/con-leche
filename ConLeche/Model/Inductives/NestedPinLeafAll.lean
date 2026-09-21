@@ -6290,6 +6290,134 @@ theorem tgtσ_of_run {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockMode
     (fun lps' hhd' => hrowTgt l hl hord hrsP dom hdm lps' K _ hhd') hroot hσpin
 
 
+/-- **`hXrec`'s CLASS EQUATION AT EVERY CONTAINER-RECURSIVE FIELD**
+(task #315 WIDE (f3) step 5): the twin of `tgtσ_of_run` at the arm the
+shared container calls RECURSIVE — the block's target is `σ` of the
+owner's there too, and the split is the container's own
+`BlockModel.nestOf`.
+
+**A MEMBER target** (`nestOf = none`) needs no recomputation at all:
+`CopyCtorShape.recF` gives BOTH copies' targets exactly — the block's
+as `p.k + a + mm`, the owner's as `dR.k + baseK + mm` — and
+`recTgt_corr_mem` (K.70's map clause) carries the second to the first.
+
+**A PIN target** (`nestOf = some q`) is `ordTgt_corr`, at the two
+inputs that arm supplies for free where the ORDINARY arm has to work
+for them:
+
+* the BOUND `p.k ≤ t` is `CopyShapeA.pinF`'s own `TV.k ≤ tg l`, which
+  is why K.71 made it a hypothesis of `ordTgt_corr` rather than a
+  derivation from `GroupFacts.ordGe`;
+* the HEAD is `blockCtorNestedHead` — the container's own record says a
+  nested field's stored domain is headed by its pin's container, at
+  BOTH kinds — carried to the recomputation by
+  `getAppFn_ordTargetDom_of_stripDomPis`.  **So this arm carries no
+  head GUARD**: the bare-parameter corner that forced WIDE (f3) step
+  3(b) cannot arise at a field the container calls RECURSIVE-nested.
+
+`hrowTgt` is K.68's row WIDENED (K.71): `PinShapes.rowTargetOrd` lost
+its container-ordinary premise in that row, so the same row speaks
+here. -/
+theorem recσ_of_run {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {σ : Nat → Nat} {pcR : Nat → PinCtors V} {ψ : Name → Nat} {a kk i' j baseK qK : Nat}
+    (G : GF st m a kk dK) (hi' : i' < kk) (hj : j < (dK.ctorsM i').length)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    (hjA : (dK.ctorsM i')[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    -- the two copies' shapes at a container-RECURSIVE field, in the
+    -- run's vocabulary (`CopyShapeA.recF`/`pinF` on the block's side,
+    -- `CopyCtorShape.recF`/`pinF` on the owner's)
+    (hrsOwn : ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((dK.rss i').getD j []).getD l false = true →
+      ((pcR qK).rss.getD j []).getD l false = true)
+    (hrecBlk : ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((dK.rss i').getD j []).getD l false = true → dK.tgts i' j l < dK.k →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0 = p.k + a + dK.tgts i' j l)
+    (hrecOwn : ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((dK.rss i').getD j []).getD l false = true → dK.tgts i' j l < dK.k →
+      (pcR qK).tgts j l = dR.k + baseK + dK.tgts i' j l)
+    (hpinBlk : ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((dK.rss i').getD j []).getD l false = true → ¬ dK.tgts i' j l < dK.k →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true ∧
+      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0)
+    -- the guard's container, at an ARBITRARY member of the block's group
+    {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
+    (hJm : ciC.members[i']? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- the OWNER, at the run
+    {gp : Nat} (hgp : gp < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[gp]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st gp = some mapR)
+    (hqKT : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = a + i')
+    -- the OWNER, at the model
+    (CR : ContainerModeled m ciR dR)
+    (hciR₂ : ConLeche.containerInfo? env₂ gn.container = some ciR)
+    (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
+    (hqKn : qK < dR.nPins)
+    (hcontZ : ∀ z, z < dR.nPins → ∀ ciZ : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dR.pinAt z).J = some ciZ →
+      ConLeche.containerInfo? env (dR.pinAt z).J = some ciZ)
+    -- side 2: K.68's row at the OWNER's own install, WIDENED (K.71) —
+    -- no container-ordinary premise, which is the whole point
+    (hrowTgt : ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((pcR qK).rss.getD j []).getD l false = true →
+      ∀ dom : Expr × ConLeche.BinderMeta, bs[dK.nP + l]? = some dom →
+      ∀ (lps : List Name) (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, dR.memberNames.findIdx? (· == M) = some mm → (pcR qK).tgts j l = mm) ∧
+      (dR.memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < dR.nPins ∧
+          (dR.pinAt z).ownAt dR.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners dR.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l
+                  dom.1).getAppArgs.take (dR.pinAt z).nPJ) ∧
+          (pcR qK).tgts j l = dR.k + z))
+    -- the owner's group, and `σ`'s two values
+    (hqK : qK = baseK + i') (hseg : baseK + kk ≤ dR.nPins)
+    (hroot : ∀ c, c < dR.k → σ c = p.k + gn.grpBase + c)
+    (hσpin : ∀ z, z < dR.nPins → σ (dR.k + z) = p.k + mapR.getD z st.pins.length) :
+    ∀ l, l < ((dK.Fss i' (((D).pinAt (a + i')).ψJ ψ)).getD j []).length →
+      ((dK.rss i').getD j []).getD l false = true →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + a + i') + j) []).getD l 0 = σ ((pcR qK).tgts j l) := by
+  classical
+  intro l hl hrec
+  have hψa : ((D).pinAt (a + i')).ψJ ψ = ((D).pinAt a).ψJ ψ := by
+    have hh := G.syn.ψJEq i' 0 hi' G.syn.kpos ψ
+    rwa [Nat.add_zero] at hh
+  have hl' : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length := by rwa [hψa] at hl
+  have hik : i' < dK.k := G.syn.kEq ▸ hi'
+  obtain ⟨cvT₀, cvR₀, mI₀, rP₀, rules₀, hI₀⟩ := G.syn.reps i' hik
+  have hlF : l < cA.2 := by
+    rw [← hI₀.Fss_length hjA (((D).pinAt (a + i')).ψJ ψ)]; exact hl
+  have hbsl : bs.length = dK.nP + cA.2 := ConLeche.Expr.stripPis_length _ hst
+  obtain ⟨dom, hdm⟩ : ∃ dom, bs[dK.nP + l]? = some dom :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hbsl]; omega)⟩
+  by_cases hnt : dK.tgts i' j l < dK.k
+  · -- ARM (A)'s MEMBER half: both targets are exact, and the map's
+    -- contiguity on a minted group is all that is missing
+    exact recTgt_corr_mem G hi' (by rw [← G.syn.kEq]; exact hnt)
+      (hrecBlk l hl hrec hnt) (hrecOwn l hl hrec hnt) hqK hgp hgn hciR hownT hmapR hqKT hqm
+      (by have := G.syn.kEq; omega) hσpin
+  · -- ARM (A)'s PIN half: the bound is the shape's, the head is the
+    -- container record's, and the row is K.68 WIDENED
+    obtain ⟨hrs₁, hbound⟩ := hpinBlk l hl hrec hnt
+    have hCF := hI₀.ctors i' j cA hik hjA
+    have hhdS := blockCtorNestedHead hCF hst hdm hlF hj hrec hnt
+    have hhdT := ConLeche.getAppFn_ordTargetDom_of_stripDomPis
+      (lps := lpsC) (nP := dK.nP) (ownSelf := ownT) (qK := qK) (l := l) hhdS
+    exact ordTgt_corr G hi' hj hl' hrs₁ hjA hst hdm hbound hi₀ hciC hJm hlpsJ
+      hgp hgn hciR CR hownT hmapR hqKT hqKn hqm hciR₂ hownT₂ hcontZ hhdT
+      (fun lps' hhd' => hrowTgt l hl (hrsOwn l hl hrec) dom hdm lps' _ _ hhd') hroot hσpin
+
+
 /-- **`hdom₂` AT EVERY COPY-RECURSIVE FIELD OF THE OWNER'S COPY** (task
 #315 WIDE (f3) step 1): the OWNER's own copy of the shared container's
 constructor has its slot at any tuple below its extended carrier inside
@@ -6603,8 +6731,12 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
           (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
             (ConLeche.ordTargetDom lpsC (dJf a).nP ownT qK l dom.1)) = some rx)
     -- side 2: K.68's two rows at the OWNER's own install
+    -- **K.68's ROW, WIDENED** (task #315 K.71, WIDE (f3) step 5): no
+    -- container-ORDINARY premise — `PinShapes.rowTargetOrd` lost it in
+    -- K.71's row, and `recσ_of_run` needs the same row at a field the
+    -- shared container calls RECURSIVE, where `hXrec`'s pin arm reads
+    -- it.
     (hrowTgt : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
-      (((dJf a).rss i).getD j []).getD l false = false →
       ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ dom : Expr × ConLeche.BinderMeta, bs[(dJf a).nP + l]? = some dom →
       ∀ (lps : List Name) (M : Name) (us : List Level),
@@ -6730,7 +6862,8 @@ theorem nestedFitc_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → B
         gp hgp gn hgn ciR hciR m₀ hm₀ ownT hownT mapR hmapR qK hqKT hqm hfired)
     hentOrd₁
     (nestedSlotOrd_pin m G hi hρp hj hst hciC hJm hlpsJ hgp hgn hciR hm₀ hownT hmapR
-      hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ hscope hread hrowTgt hrowRead
+      hqKT hqm hDsE CR hciR₂ hownT₂ hqKn hcontZ hψJ hρJ hscope hread
+      (fun l hl _ hrsP => hrowTgt l hl hrsP) hrowRead
       hrowReadMem hnIdxR htgσ hroot S₀ hu hX)
     hXrec t fs
 

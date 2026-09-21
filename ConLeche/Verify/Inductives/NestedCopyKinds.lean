@@ -2198,6 +2198,74 @@ theorem instantiateList_mkAppN (vs : List Expr) (d : Nat) :
     simp only [Expr.instantiateList]
     rfl
 
+/-- **THE OPENERS ARE FREE VARIABLES**, which is the only thing a head
+argument ever needs of them (task #315 WIDE (f3) step 5). -/
+theorem containerParamOpeners_fvar {nP : Nat} :
+    ∀ v ∈ containerParamOpeners nP, ∃ idx ty, v = Expr.fvar idx ty := by
+  intro v hv
+  obtain ⟨i, -, hvi⟩ := List.mem_map.mp hv
+  exact ⟨i, _, hvi.symm⟩
+
+/-- **A CONSTANT HEAD AFTER A BULK INSTANTIATION BY FREE VARIABLES WAS
+ONE BEFORE** (task #315 WIDE (f3) step 5): `getAppFn_instantiateList_const`
+read backwards, at the one substitution shape this tree cuts a stored
+domain with.
+
+Every head but `.const` stays what it is: `instantiateList` maps a
+`.sort`, a `.lam`, a `.forallE`, a `.letE`, a `.lit`, a `.proj` and an
+`.fvar` to its own constructor, and a `.bvar` either stays a `.bvar` or
+becomes one of the substituted terms — here a free variable, which is
+not a `.const` either.
+
+**What spends it** is the head of a container-RECURSIVE nested field:
+`ContainerModeled.nestPinSpineAbs` exhibits the field's cut spine AS
+the recorded pin, whose head is `.const`, and the field's OWN head is
+what the recomputation then carries. -/
+theorem head_const_of_instantiateList {vs : List Expr}
+    (hvs : ∀ v ∈ vs, ∃ idx ty, v = Expr.fvar idx ty) {d : Nat} {J : Name}
+    {lvls : List Level} :
+    ∀ e : Expr, (Expr.instantiateList e.getAppFn vs d).getAppFn = .const J lvls →
+      e.getAppFn = .const J lvls := by
+  intro e
+  induction e with
+  | app f a ih _ => intro h; simp only [Expr.getAppFn] at h ⊢; exact ih h
+  | const n us => intro h; simpa only [Expr.getAppFn, Expr.instantiateList] using h
+  | bvar i =>
+    intro h
+    simp only [Expr.getAppFn, Expr.instantiateList] at h
+    split at h
+    · simp only [Expr.getAppFn] at h; exact absurd h (by simp)
+    · split at h
+      · rename_i hlt
+        obtain ⟨idx, ty, hfv⟩ := hvs _ (List.getElem_mem hlt)
+        rw [hfv] at h
+        simp only [Expr.instantiateList, Expr.getAppFn] at h
+        exact absurd h (by simp)
+      · simp only [Expr.getAppFn] at h; exact absurd h (by simp)
+  | _ => intro h; simp only [Expr.getAppFn, Expr.instantiateList] at h; exact absurd h (by simp)
+
+/-- **A NESTED FIELD'S STORED HEAD IS THE PIN'S CONTAINER** (task #315
+WIDE (f3) step 5): `ContainerModeled.nestPinSpineAbs`'s equation read
+at the head — the right side is `PinSyn.ownAt`'s `.const`-headed
+`mkAppN`, and `head_const_of_instantiateList` carries that back through
+the cut to the STORED domain's own head.
+
+This is the head `ordTgt_corr` asks for at arm (A)'s pin half, and the
+reason that arm needs no head GUARD: at a field the container calls
+RECURSIVE-nested the head is a constant by construction, where at an
+ORDINARY one it can be a bare parameter (`GroupFacts.ordBlkHead`'s own
+finding). -/
+theorem head_const_of_pinSpine {e : Expr} {args vs rest : List Expr} {d : Nat}
+    {J : Name} {lvls : List Level}
+    (hvs : ∀ v ∈ vs, ∃ idx ty, v = Expr.fvar idx ty)
+    (h : Expr.instantiateList (Expr.mkAppN e.getAppFn args) vs d
+          = Expr.mkAppN (.const J lvls) rest) :
+    e.getAppFn = .const J lvls := by
+  rw [instantiateList_mkAppN] at h
+  have h' := congrArg Expr.getAppFn h
+  rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at h'
+  exact head_const_of_instantiateList hvs e (by simpa only [Expr.getAppFn] using h')
+
 /-- **THE BLOCK'S OWN-PIN TABLE ENTRY IS THE RECORDED PIN** (task #315
 WIDE (3), lane LE): same head, same levels, same arity — the
 components carried through the abstraction and the openers, which move
@@ -2228,6 +2296,23 @@ body — is the STORED domain's and is the same number at every table.
 That is what lets the OWNER's cut and the BLOCK's be one number
 without flatness, which is the reflexive twin's first object. -/
 
+/-- **Level instantiation commutes with the `Π`-strip**, the term-level
+twin of `domPiDepth_instantiateLevelParams` (task #315 WIDE (f3) step
+5): `instantiateLevelParams` maps a `forallE` to a `forallE` and
+nothing else to one, so stripping before and after are the same term.
+
+What spends it is the HEAD of `ordTargetDom` at a container-RECURSIVE
+nested field, where the stored domain's own head is a constant
+(`ContainerModeled.nestPinSpineAbs`) and the recomputation has to carry
+that constant through the level substitution and the cut. -/
+theorem stripDomPis_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ e : Expr, stripDomPis (e.instantiateLevelParams ks us)
+      = (stripDomPis e).instantiateLevelParams ks us := by
+  intro e
+  induction e with
+  | forallE ty body m _ ih => simp only [Expr.instantiateLevelParams, stripDomPis, ih]
+  | _ => rfl
+
 /-- Level instantiation does not move the `Π`-tower's depth. -/
 theorem domPiDepth_instantiateLevelParams (ks : List Name) (us : List Level) :
     ∀ e : Expr, domPiDepth (e.instantiateLevelParams ks us) = domPiDepth e := by
@@ -2242,6 +2327,28 @@ table moves it. -/
 theorem domPiDepth_ordTargetDomL (lps : List Name) (t : List Expr) (q : Nat) (dom : Expr) :
     domPiDepth (ordTargetDomL lps t q dom) = domPiDepth dom :=
   domPiDepth_instantiateLevelParams _ _ dom
+
+/-- **THE RECOMPUTATION'S HEAD IS THE STRIPPED STORED DOMAIN'S** (task
+#315 WIDE (f3) step 5): `ordTargetDom` is the stored domain at the
+copy's levels, `Π`-stripped and then cut at the field's own depth, and
+none of the three moves a constant head — the levels are substituted
+INTO it, the strip is structural, and `instantiateList` never touches a
+spine head (`getAppFn_instantiateList_const`).
+
+**Where the constant comes from is the arm, not this lemma.**  At a
+field the container calls ORDINARY it is `nestedOrdNormAt`'s own firing
+(`getAppFn_const_of_ordRootFired`); at one it calls RECURSIVE-nested it
+is free, because `ContainerModeled.nestPinSpineAbs` exhibits the cut
+spine AS the recorded pin, whose head is `.const`. -/
+theorem getAppFn_ordTargetDom_of_stripDomPis {lps : List Name} {nP qK l : Nat}
+    {ownSelf : List Expr} {dom : Expr} {M : Name} {us : List Level}
+    (h : (stripDomPis dom).getAppFn = .const M us) :
+    (ordTargetDom lps nP ownSelf qK l dom).getAppFn
+      = .const M (us.map (Level.subst lps (ordTargetLvls ownSelf qK))) := by
+  refine getAppFn_instantiateList_const ?_
+  show (stripDomPis (Expr.instantiateLevelParams lps (ordTargetLvls ownSelf qK) dom)).getAppFn = _
+  rw [stripDomPis_instantiateLevelParams, Expr.getAppFn_instantiateLevelParams, h]
+  rfl
 
 /-- An erasure-equal partner of a constant IS that constant, read on
 the LEFT (`ErasedEq`'s own match; the `Norm` file's twin reads it on

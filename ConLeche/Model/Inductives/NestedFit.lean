@@ -957,6 +957,72 @@ structure CopyCtorShape : Prop where
 
 end Shape
 
+/-- **THE `ordF`-RIGHT TELESCOPE — K.72 AT THE MODEL** (task #315 WIDE
+(f3) step 5): at a field the container calls ORDINARY whose copy the
+block's rewrite made recursive or reflexive, the copy's `Π`-telescope
+is the `Π`-prefix of the container's own field domain WITH THE
+COMPONENTS SUBSTITUTED — `AnnotTerm.instAll Ds l`, the very term
+`ordF`'s LEFT arm reads the copy's domain as.
+
+**Why it is not `instTele Ds l` of a container-side telescope, which
+is the shape `recF` and `pinF` carry.**  At a container-ORDINARY field
+the container records NO telescope (`BlockCtorData.tssNone` makes
+`dJ.tlss` `[]` there), so that shape would force the copy's telescope
+empty; and a copy telescope that is an `instTele` of a container-side
+one is REFUTED at an accepted block
+(`tests/e2e/nested_lam_pin_refl.ndjson`, lane L-B's refutation recorded
+at `EntryRead`) — a container field that is an application of a
+function PARAMETER is minted at an instantiation whose body is an
+arrow, and the copy is REFLEXIVE where the container is ORDINARY.  The
+tower the COMPONENTS plant is exactly what `instAll Ds l` supplies and
+`instTele` cannot, and K.72 is the same statement read as a LENGTH at
+the run: the copy's tower is the container's stored domain's plus the
+one the mint's substitution plants.
+
+**Only the DOMAINS are claimed**, `recF`/`pinF`'s own convention: the
+binder sorts are read off the copy's own stored `Π` and no consumer
+compares them across the two sides.
+
+**Its producer is the rewrite's**, and it lives where the copy's stored
+domain is in hand (`Model/Inductives/NestedCopyInst.lean`, beside
+`copyOrdFRight*`): the copy's field domain is `replaceAllNested` of the
+minted domain, the mint is the container's stored domain at the pin's
+levels folded onto the pin's components, and neither the rewrite nor a
+level instantiation turns a `Π` into a non-`Π` or the other way round —
+a nested occurrence in a `Π`-DOMAIN is a NEGATIVE occurrence and is
+rejected, so the prefix's domains are not rewritten at all.  Until that
+producer lands this is a NAMED hypothesis at the assembly, and it is
+NOT a clause of `CopyCtorShape`: making it one would change a structure
+whose five arms are produced in that file. -/
+@[expose] def CopyOrdTele (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
+    (tls : List (List (Nat × Nat × AnnotTerm))) (rs : List Bool) (i j : Nat) : Prop :=
+  ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+    ((dJ.rss i).getD j []).getD l false = false →
+    rs.getD l false = true →
+    ∃ (T : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
+      stripPisAV (tls.getD l []).length
+          (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
+        = some (T, body) ∧
+      (tls.getD l []).map (·.2.2) = T.map (·.2.2)
+
+
+omit [SetTheory V] in
+/-- **The `ordF`-right telescope's LENGTH**, which is what K.72 states
+at the run: the copy's telescope is as long as the `Π`-prefix of the
+container's instantiated field domain, and `stripPisAV` succeeding at
+that length IS that statement (`stripPisAV_eq_mkPis`). -/
+theorem CopyOrdTele.length {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {rs : List Bool} {i j : Nat}
+    (h : CopyOrdTele (V := V) dJ ψJ Ds tls rs i j)
+    {l : Nat} (hl : l < ((dJ.Fss i ψJ).getD j []).length)
+    (hord : ((dJ.rss i).getD j []).getD l false = false)
+    (hrs : rs.getD l false = true) :
+    ∃ (T : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
+      AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default) = mkPisAV T body ∧
+      T.length = (tls.getD l []).length := by
+  obtain ⟨T, body, hst, -⟩ := h l hl hord hrs
+  exact ⟨T, body, stripPisAV_eq_mkPis hst⟩
+
 /-- The outside entries give the container-ordinary ones. -/
 theorem CopyEntryOut.ord {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
     {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
