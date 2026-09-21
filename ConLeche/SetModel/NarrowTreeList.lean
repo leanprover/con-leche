@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.SetModel.WfRec
-public import ConLeche.SetModel.EnvClauseTreeList
 public import ConLeche.SetModel.Iter
 import ConLeche.SetModel.TupleContainer
 @[expose] public section
@@ -10,20 +9,24 @@ import ConLeche.SetModel.TupleContainer
 # `Tree ::= node (List Tree)` NARROW, with ∈-recursion (falsifier F5)
 
 The maintainer's formulation of nested inductives (2026-09-21),
-falsified at the set level on the same block F0 took:
+falsified at the set level on the same block the WIDE falsifiers took
+(F0–F4, retired at DESIGN 2026-09-21's flip: this file carries their
+clause, minors, transient bound and standard model itself, D-e):
 
 * **(ii) the block's meaning is the NARROW least fixed point**
 
       ⟦Tree⟧ = T* = lfp (X ↦ { node l | l ∈ ⟦List⟧ X })
 
   where the container's carrier at the hole is read ORDINARILY through
-  its recorded env clause (`ListClause`, reused verbatim from
-  `EnvClauseTreeList.lean`).  The wide tuple — the block plus a COPY of
-  the container, official's auxiliary block — is **not recorded, not
-  built and not identified with anything**: there is no second
-  component, no `lfpTuple` at width ≥ 2, no `lfpTuple_seg_congr`, no
-  `L 1 = ⟦List⟧ (L 0)`.  The copy's carrier of F0 is here simply
-  `⟦List⟧ T*` — a *derived* set, equal to nothing by fiat.
+  its recorded env clause (`ListClause` below).  The wide tuple — the
+  block plus a COPY of the container, official's auxiliary block — is
+  **not recorded and not identified with anything**: there is no
+  second component of the carrier, no `lfpTuple` at width ≥ 2, no
+  `lfpTuple_seg_congr`, no `L 1 = ⟦List⟧ (L 0)`.  The copy's carrier
+  of the wide route is here simply `⟦List⟧ T*` — a *derived* set,
+  equal to nothing by fiat.  (The two-component operator IS built once,
+  below, as a transient BOUND for the infinitary case — D-b — and
+  discarded: nothing reads it and no fixed point of it is taken.)
 
 * **(i)/(iii) recursion is ∈-recursion on the GLOBAL subterm relation**
   over the tagged union of the two majors' ORDINARY carriers
@@ -31,8 +34,8 @@ falsified at the set level on the same block F0 took:
   members of the union, accessibility is regularity, and the kit
   assumes nothing of the carriers but that they are sets.
 
-What this costs, against F0, is recorded at the two `-- F5 FINDING:`
-markers: the clause must record the constructor **encoding's depth**
+What this costs, against the wide route, is recorded at the two
+`-- F5 FINDING:` markers: the clause must record the constructor **encoding's depth**
 (`TagDepth`) — injectivity is not enough, because ∈-depth is a
 property of the representation — and (W) at the narrow operator needs
 the container to be **finitary in its parameter**, which the clause as
@@ -53,6 +56,435 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
+open Tower (natFibre natFibre_vnat)
+
+/-! ## The block's datum, the container's env clause, the member's tags
+
+These are the falsifier's HYPOTHESES, and they are this file's own
+(decision D-e, DESIGN 2026-09-21): the wide-tuple falsifiers F0–F4,
+which first stated them, are retired, so F5 carries its clause, its
+minors, its transient bound and its standard model itself and imports
+no other falsifier.  Nothing below is specific to the wide route: the
+clause is `DESIGN-theory.md` §1.2's `BlockModelAt` at a one-member,
+non-indexed, non-parametric-index container, and the tag laws are the
+member's `mkZero`/`mkInj` plus formation. -/
+
+/-! ## Two small facts about `univ` -/
+
+/-- Application stays inside a universe: `app` is a union of a
+separation of a double union. -/
+theorem app_mem_univ {w : Nat} (hw : w ≠ 0) {g : V} (hg : g ∈ˢ (univ w : V)) (p : V) :
+    app g p ∈ˢ (univ w : V) := by
+  have hU := univ_isTGUniverse (V := V) hw
+  unfold app
+  split
+  · exact hU.pt_mem hg
+  · exact hU.sUnion_mem (hU.sep_mem (hU.sUnion_mem (hU.sUnion_mem hg)))
+
+theorem pt_mem_univ {w : Nat} (hw : w ≠ 0) : (pt : V) ∈ˢ (univ w : V) :=
+  (univ_isTGUniverse (V := V) hw).transitive (unitSet_mem_univ w) pt_mem_unitSet
+
+/-! ## The index sets
+
+`Tree` and `List` are both unindexed: every component's index set is
+the one-point set, and every index tuple is `pt`. -/
+
+/-- The index sets of a block of unindexed components. -/
+noncomputable def uIs : Nat → V := fun _ => unitSet
+
+@[simp] theorem uIs_apply (n : Nat) : (uIs n : V) = unitSet := rfl
+
+/-! ## The container's env clause
+
+What a LATER block reads about a stored container.  This is
+`DESIGN-theory.md` §1.2's `BlockModelAt` at `N = 1` (`List` has one
+member and no container instances of its own), no parameters beyond
+the one type parameter `α`, and no indices:
+
+* `leaf` — the recorded reading `LIST α` IS the one-component least
+  tuple of the container's operator at `α`;
+* `mono`/`maps`/`closed` — the `functor` clause;
+* `fibre` — the constructor decomposition, in terms of the container's
+  OWN injections `injL` (member-local tags);
+* `mkZero`/`mkInj`.
+
+Nothing here mentions trees: the clause is about `List` alone, at an
+arbitrary parameter in its `Sat` domain `univ w`. -/
+structure ListClause (w : Nat) (LIST : V → V) (ΨL : V → (Nat → V) → Nat → V)
+    (injL : Nat → List V → V) : Prop where
+  /-- `leaf`: the stored reading is the one-component least tuple. -/
+  leaf : ∀ α, α ∈ˢ (univ w : V) → LIST α = lfpTuple w 1 uIs (ΨL α) 0
+  /-- `functor`, monotonicity. -/
+  mono : ∀ α, α ∈ˢ (univ w : V) → MonoTuple w 1 uIs (ΨL α)
+  /-- `functor`, space preservation. -/
+  maps : ∀ α, α ∈ˢ (univ w : V) → MapsTuple w 1 uIs (ΨL α)
+  /-- `functor`, the closed tuple. -/
+  closed : ∀ α, α ∈ˢ (univ w : V) → ∃ L, IsClosedTuple w 1 uIs (ΨL α) L
+  /-- `fibre`: the constructor decomposition of the operator's values,
+  at every tuple of the space and every parameter in the domain. -/
+  fibre : ∀ α, α ∈ˢ (univ w : V) → ∀ Y, InTupleSpace w 1 uIs Y → ∀ t, t ∈ˢ (unitSet : V) →
+    ∀ x, x ∈ˢ app (ΨL α Y 0) t ↔
+      (x = injL 0 [] ∨ ∃ h, h ∈ˢ α ∧ ∃ t', t' ∈ˢ app (Y 0) pt ∧ x = injL 1 [h, t'])
+  /-- `mkZero`: at a `Prop` container every value is the proof point. -/
+  mkZero : w = 0 → ∀ j fs, injL j fs = (pt : V)
+  /-- `mkInj`: above `Prop` the injections of ONE component are
+  injective in the constructor tag and the fields together. -/
+  mkInj : w ≠ 0 → ∀ j j' fs fs', injL j fs = injL j' fs' → j = j' ∧ fs = fs'
+
+namespace ListClause
+
+variable {w : Nat} {LIST : V → V} {ΨL : V → (Nat → V) → Nat → V} {injL : Nat → List V → V}
+
+/-- A value built by the container's operator is a set of the
+container's level — read off `maps` and `fibre`, at a parameter and a
+tuple chosen to hold exactly the fields wanted.  This is how the
+clause supplies the FORMATION of the copy's values: no extra clause is
+needed. -/
+theorem inj_mem_univ_of (hC : ListClause w LIST ΨL injL) (hw : w ≠ 0) {α : V}
+    (hα : α ∈ˢ (univ w : V)) {Y : Nat → V} (hY : InTupleSpace w 1 uIs Y) {x : V}
+    (hx : x = injL 0 [] ∨ ∃ h, h ∈ˢ α ∧ ∃ t', t' ∈ˢ app (Y 0) pt ∧ x = injL 1 [h, t']) :
+    x ∈ˢ (univ w : V) :=
+  (univ_isTGUniverse (V := V) hw).transitive
+    (famSpace_app (hC.maps α hα Y hY 0 Nat.one_pos) pt_mem_unitSet)
+    ((hC.fibre α hα Y hY pt pt_mem_unitSet x).mpr hx)
+
+/-- `nil`'s value is a set of the container's level. -/
+theorem nil_mem_univ (hC : ListClause w LIST ΨL injL) (hw : w ≠ 0) :
+    injL 0 [] ∈ˢ (univ w : V) :=
+  hC.inj_mem_univ_of hw (unitSet_mem_univ (V := V) w)
+    (Y := fun _ => graph (fun _ => empty) unitSet)
+    (fun _ _ => graph_mem_famSpace fun _ _ => empty_mem_univ w) (Or.inl rfl)
+
+/-- `cons`'s value is a set of the container's level. -/
+theorem cons_mem_univ (hC : ListClause w LIST ΨL injL) (hw : w ≠ 0) {h t : V}
+    (hh : h ∈ˢ (univ w : V)) (ht : t ∈ˢ (univ w : V)) : injL 1 [h, t] ∈ˢ (univ w : V) := by
+  have hU := univ_isTGUniverse (V := V) hw
+  refine hC.inj_mem_univ_of hw (α := sing h) (hU.sing_mem hh hh)
+    (Y := fun _ => graph (fun _ => sing t) unitSet)
+    (fun _ _ => graph_mem_famSpace fun _ _ => hU.sing_mem ht ht) (Or.inr ⟨h, mem_sing.mpr rfl, t, ?_, rfl⟩)
+  rw [app_graph pt_mem_unitSet]
+  exact mem_sing.mpr rfl
+
+end ListClause
+
+/-! ## The member's own tags
+
+`Tree.node`'s injection is the block's own datum (`mkZero`/`mkInj` of
+`DESIGN-theory.md` §1.2 at component `0`); the falsifier keeps it
+abstract under exactly those two laws plus formation, and exhibits a
+witness (`stdInj`) so that nothing here is vacuous. -/
+structure TreeTags (w : Nat) (injT : Nat → List V → V) : Prop where
+  /-- Formation above `Prop`. -/
+  memU : w ≠ 0 → ∀ l, l ∈ˢ (univ w : V) → injT 0 [l] ∈ˢ (univ w : V)
+  /-- `mkZero`. -/
+  mkZero : w = 0 → ∀ j fs, injT j fs = (pt : V)
+  /-- `mkInj`, at the one constructor. -/
+  mkInj : w ≠ 0 → ∀ l l', injT 0 [l] = injT 0 [l'] → l = l'
+
+/-- A tuple of values as a `kpair` tower. -/
+noncomputable def kTuple : List V → V
+  | [] => pt
+  | x :: xs => kpair x (kTuple xs)
+
+open Classical in
+/-- A witness for `TreeTags`: the tagged tower above `Prop`, the proof
+point at `Prop`. -/
+noncomputable def stdInj (w : Nat) (j : Nat) (fs : List V) : V :=
+  if w = 0 then pt else kpair (vnat j) (kTuple fs)
+
+theorem treeTags_stdInj (w : Nat) : TreeTags w (stdInj (V := V) w) := by
+  refine ⟨fun hw l hl => ?_, fun hw j fs => ?_, fun hw l l' h => ?_⟩
+  · have hU := univ_isTGUniverse (V := V) hw
+    unfold stdInj
+    rw [if_neg hw]
+    exact hU.kpair_mem hl (vnat_mem_univ_pos hw 0)
+      (hU.kpair_mem hl hl (pt_mem_univ hw))
+  · unfold stdInj
+    rw [if_pos hw]
+  · unfold stdInj at h
+    rw [if_neg hw, if_neg hw] at h
+    exact (kpair_inj (kpair_inj h).2).1
+
+/-! ## The block's datum and its two-component operator -/
+
+/-- The data this file reasons about: the container's recorded reading and
+operator, the container's injections, and the member's. -/
+structure TreeListSig (V : Type u) [SetTheory V] where
+  /-- The value level — ONE level: the sort gate makes the container's
+  the block's (`DESIGN-theory.md` §2.5). -/
+  w : Nat
+  /-- The container's recorded reading `⟦List⟧`, as a family. -/
+  LIST : V → V
+  /-- The container's own one-component operator at a parameter. -/
+  ΨL : V → (Nat → V) → Nat → V
+  /-- The container's injections (member-local tags). -/
+  injL : Nat → List V → V
+  /-- `Tree`'s injections. -/
+  injT : Nat → List V → V
+
+/-- The hypotheses: the container's env clause, and the member's tag
+laws.  Nothing else. -/
+structure TreeListOk (S : TreeListSig V) : Prop where
+  /-- The container's env clause, `DESIGN-theory.md` §1.2 at `N = 1`. -/
+  list : ListClause S.w S.LIST S.ΨL S.injL
+  /-- The member's own `mkZero`/`mkInj`/formation. -/
+  tree : TreeTags S.w S.injT
+
+variable {S : TreeListSig V}
+
+/-- Component `0`'s fibre: `{ node l | l ∈ X₁ }`. -/
+noncomputable def nodeFib (S : TreeListSig V) (X : Nat → V) : V :=
+  image (fun l => S.injT 0 [l]) (app (X 1) pt)
+
+/-- The `nil`/`cons` arm over a head set `A` and a tail set `B`, with
+a given family of injections: `{ nil } ∪ { cons h t | h ∈ A, t ∈ B }`.
+It serves both the COPY's fibre (heads in the member's component,
+tails in the copy's) and, at a parameter, the container's own
+operator. -/
+noncomputable def consArm (inj : Nat → List V → V) (A B : V) : V :=
+  binUnion (sing (inj 0 [])) (image (fun p => inj 1 [sfst p, ssnd p]) (sigmaPairs A fun _ => B))
+
+theorem mem_consArm {inj : Nat → List V → V} {A B x : V} :
+    x ∈ˢ consArm inj A B ↔
+      x = inj 0 [] ∨ ∃ h t, h ∈ˢ A ∧ t ∈ˢ B ∧ x = inj 1 [h, t] := by
+  unfold consArm
+  rw [mem_binUnion, mem_sing]
+  refine or_congr Iff.rfl ⟨fun hx => ?_, fun hx => ?_⟩
+  · obtain ⟨p, hp, rfl⟩ := mem_image.mp hx
+    obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
+    rw [sfst_kpair, ssnd_kpair]
+    exact ⟨h, t, hh, ht, rfl⟩
+  · obtain ⟨h, t, hh, ht, rfl⟩ := hx
+    refine mem_image.mpr ⟨kpair h t, mem_sigmaPairs.mpr ⟨h, hh, t, ht, rfl⟩, ?_⟩
+    rw [sfst_kpair, ssnd_kpair]
+
+/-- The `nil`/`cons` arm's formation, above `Prop`. -/
+theorem consArm_mem_univ {w : Nat} (hw : w ≠ 0) {inj : Nat → List V → V} {A B : V}
+    (hA : A ∈ˢ (univ w : V)) (hB : B ∈ˢ (univ w : V))
+    (hnil : inj 0 [] ∈ˢ (univ w : V))
+    (hcons : ∀ h t, h ∈ˢ (univ w : V) → t ∈ˢ (univ w : V) → inj 1 [h, t] ∈ˢ (univ w : V)) :
+    consArm inj A B ∈ˢ (univ w : V) := by
+  have hU := univ_isTGUniverse (V := V) hw
+  refine hU.binUnion_mem hnil (hU.sing_mem hnil hnil) ?_
+  refine hU.image_mem (hU.sigmaPairs_mem hA fun _ _ => hB) fun p hp => ?_
+  obtain ⟨h, hh, t, ht, rfl⟩ := mem_sigmaPairs.mp hp
+  rw [sfst_kpair, ssnd_kpair]
+  exact hcons h t (hU.transitive hA hh) (hU.transitive hB ht)
+
+/-- Component `1`'s fibre — the abstract COPY of `List` at the pin
+`Tree`: `nil : y₁`, `cons : x₀ → y₁ → y₁`, with the CONTAINER's own
+injections. -/
+noncomputable def listFib (S : TreeListSig V) (X : Nat → V) : V :=
+  consArm S.injL (app (X 0) pt) (app (X 1) pt)
+
+/-- **The block's operator**, a plain two-component block operator. -/
+noncomputable def blkΨ (S : TreeListSig V) (X : Nat → V) : Nat → V
+  | 0 => graph (fun _ => nodeFib S X) unitSet
+  | _ + 1 => graph (fun _ => listFib S X) unitSet
+
+theorem app_blkΨ_zero (S : TreeListSig V) (X : Nat → V) :
+    app (blkΨ S X 0) pt = nodeFib S X := app_graph pt_mem_unitSet
+
+theorem app_blkΨ_one (S : TreeListSig V) (X : Nat → V) :
+    app (blkΨ S X 1) pt = listFib S X := app_graph pt_mem_unitSet
+
+theorem mem_nodeFib {X : Nat → V} {x : V} :
+    x ∈ˢ nodeFib S X ↔ ∃ l, l ∈ˢ app (X 1) pt ∧ x = S.injT 0 [l] := mem_image
+
+theorem mem_listFib {X : Nat → V} {x : V} :
+    x ∈ˢ listFib S X ↔
+      x = S.injL 0 [] ∨
+        ∃ h t, h ∈ˢ app (X 0) pt ∧ t ∈ˢ app (X 1) pt ∧ x = S.injL 1 [h, t] := mem_consArm
+
+/-! ## (a) The functor clauses -/
+
+theorem blkΨ_mono (S : TreeListSig V) : MonoTuple S.w 2 uIs (blkΨ S) := by
+  intro X Y hX hY hle c hc i hi x hx
+  obtain rfl := mem_unitSet_iff.mp hi
+  match c, hc with
+  | 0, _ =>
+    rw [app_blkΨ_zero] at hx ⊢
+    obtain ⟨l, hl, rfl⟩ := mem_nodeFib.mp hx
+    exact mem_nodeFib.mpr ⟨l, hle 1 (by omega) pt pt_mem_unitSet l hl, rfl⟩
+  | 1, _ =>
+    rw [app_blkΨ_one] at hx ⊢
+    rcases mem_listFib.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · exact mem_listFib.mpr (Or.inl rfl)
+    · exact mem_listFib.mpr (Or.inr ⟨h, t, hle 0 (by omega) pt pt_mem_unitSet h hh,
+        hle 1 (by omega) pt pt_mem_unitSet t ht, rfl⟩)
+
+theorem blkΨ_fib_mem (hS : TreeListOk S) {X : Nat → V} (hX : InTupleSpace S.w 2 uIs X) :
+    nodeFib S X ∈ˢ (univ S.w : V) ∧ listFib S X ∈ˢ (univ S.w : V) := by
+  by_cases hw : S.w = 0
+  · constructor
+    · rw [hw, univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      obtain ⟨l, -, rfl⟩ := mem_nodeFib.mp hx
+      rw [hS.tree.mkZero hw 0 [l]]
+      exact pt_mem_unitSet
+    · rw [hw, univ_zero]
+      refine mem_univZero.mpr fun x hx => ?_
+      rcases mem_listFib.mp hx with rfl | ⟨h, t, -, -, rfl⟩
+      · rw [hS.list.mkZero hw 0 []]; exact pt_mem_unitSet
+      · rw [hS.list.mkZero hw 1 [h, t]]; exact pt_mem_unitSet
+  · have hU := univ_isTGUniverse (V := V) hw
+    have h0 : app (X 0) pt ∈ˢ (univ S.w : V) := famSpace_app (hX 0 (by omega)) pt_mem_unitSet
+    have h1 : app (X 1) pt ∈ˢ (univ S.w : V) := famSpace_app (hX 1 (by omega)) pt_mem_unitSet
+    constructor
+    · exact hU.image_mem h1 fun l hl => hS.tree.memU hw l (hU.transitive h1 hl)
+    · exact consArm_mem_univ hw h0 h1 (hS.list.nil_mem_univ hw)
+        fun _ _ hh ht => hS.list.cons_mem_univ hw hh ht
+
+theorem blkΨ_maps (hS : TreeListOk S) : MapsTuple S.w 2 uIs (blkΨ S) := by
+  intro X hX c hc
+  match c, hc with
+  | 0, _ =>
+    show graph (fun _ => nodeFib S X) unitSet ∈ˢ famSpace S.w (unitSet : V)
+    exact graph_mem_famSpace fun _ _ => (blkΨ_fib_mem hS hX).1
+  | 1, _ =>
+    show graph (fun _ => listFib S X) unitSet ∈ˢ famSpace S.w (unitSet : V)
+    exact graph_mem_famSpace fun _ _ => (blkΨ_fib_mem hS hX).2
+
+/-! ## (b) (W): the closed tuple
+
+Above `Prop` the block is a plain member container — shapes are the
+constructor tags (there are no hole-free fields), positions are the
+slots — and `tupleContainer_closed_exists` applies with no container
+law of `List` beyond the clause's own `fibre`.  At `Prop`,
+`closedTuple_zero`. -/
+
+/-! ## The datum's TRANSIENT two-component operator
+
+The one place a wide operator appears, and it appears as a BOUND
+(DESIGN 2026-09-21, D-b): `narΨ_closed_of_wide` below solves (W) for
+an INFINITARY container by reading the block plus a COPY of the
+container as a plain two-component member container, whose closed
+tuple exists by `tupleContainer_closed_exists`, and whose component
+`0` bounds the narrow operator by leastness.  Nothing is identified
+with it, no fixed point of it is taken and no consumer of this file
+sees it: it is built here and discarded.  The NARROW carrier below is
+`lfpTuple … 1 …`, one component, as the file's headline says. -/
+
+/-- The shapes: `vnat 0` = `node`, `vnat 1` = `nil`, `vnat 2` = `cons`. -/
+noncomputable def shp : Nat → V → V
+  | 0, _ => sing (vnat 0)
+  | _ + 1, _ => upair (vnat 1) (vnat 2)
+
+/-- The positions of a shape, by tag. -/
+noncomputable def posN : Nat → V
+  | 0 => sing (vnat 0)
+  | 2 => upair (vnat 0) (vnat 1)
+  | _ => empty
+
+/-- The positions of a shape. -/
+noncomputable def posns (a : V) : V := natFibre posN a
+
+theorem posns_vnat (j : Nat) : posns (vnat j : V) = posN j := natFibre_vnat _ j
+
+open Classical in
+/-- The target component of a slot: `node`'s field targets the copy,
+`cons`'s first field the member and its second the copy. -/
+noncomputable def tgtC (a p : V) : Nat :=
+  if a = (vnat 0 : V) then 1 else if p = (vnat 0 : V) then 0 else 1
+
+open Classical in
+/-- The builder. -/
+noncomputable def mkC (S : TreeListSig V) (m : Nat) (a g : V) : V :=
+  if m = 0 then S.injT 0 [app g (vnat 0)]
+  else if a = (vnat 1 : V) then S.injL 0 []
+  else S.injL 1 [app g (vnat 0), app g (vnat 1)]
+
+theorem vnat_ne {j j' : Nat} (h : j ≠ j') : (vnat j : V) ≠ vnat j' := fun he => h (vnat_inj he)
+
+open Classical in
+/-- **(W)**: the block's operator has a closed tuple. -/
+theorem blkΨ_closed (hS : TreeListOk S) : ∃ L, IsClosedTuple S.w 2 uIs (blkΨ S) L := by
+  by_cases hw : S.w = 0
+  · rw [hw]
+    exact closedTuple_zero (hw ▸ blkΨ_maps hS)
+  have hU := univ_isTGUniverse (V := V) hw
+  have hv : ∀ j : Nat, (vnat j : V) ∈ˢ (univ S.w : V) := fun j => vnat_mem_univ_pos hw j
+  refine tupleContainer_closed_exists hw (Is := uIs) (blkΨ S) (shp) posns tgtC (fun _ _ => pt)
+    (mkC S) ?hA ?hB ?htgt ?hmkU ?helim
+  case hA =>
+    intro m hm i hi
+    match m, hm with
+    | 0, _ => exact hU.sing_mem (hv 0) (hv 0)
+    | 1, _ => exact hU.upair_mem (hv 1) (hv 1) (hv 2)
+  case hB =>
+    intro m hm i a hi ha
+    have hcases : a = (vnat 0 : V) ∨ a = (vnat 1 : V) ∨ a = (vnat 2 : V) := by
+      match m, hm with
+      | 0, _ => exact Or.inl (mem_sing.mp ha)
+      | 1, _ => rcases mem_upair.mp ha with h | h
+                · exact Or.inr (Or.inl h)
+                · exact Or.inr (Or.inr h)
+    rcases hcases with rfl | rfl | rfl
+    · rw [posns_vnat]; exact hU.sing_mem (hv 0) (hv 0)
+    · rw [posns_vnat]; exact hU.empty_mem (hv 0)
+    · rw [posns_vnat]; exact hU.upair_mem (hv 0) (hv 0) (hv 1)
+  case htgt =>
+    intro m hm i a p hi ha hp
+    refine ⟨?_, pt_mem_unitSet⟩
+    unfold tgtC
+    split
+    · omega
+    · split <;> omega
+  case hmkU =>
+    intro m hm i a g hi ha hg
+    unfold mkC
+    split
+    · exact hS.tree.memU hw _ (app_mem_univ hw hg _)
+    · split
+      · exact hS.list.nil_mem_univ hw
+      · exact hS.list.cons_mem_univ hw (app_mem_univ hw hg _) (app_mem_univ hw hg _)
+  case helim =>
+    intro X hX m hm i hi x hx
+    obtain rfl := mem_unitSet_iff.mp hi
+    match m, hm with
+    | 0, _ =>
+      rw [app_blkΨ_zero] at hx
+      obtain ⟨l, hl, rfl⟩ := mem_nodeFib.mp hx
+      refine ⟨vnat 0, mem_sing.mpr rfl, graph (fun _ => l) (sing (vnat 0)), ?_, ?_⟩
+      · rw [posns_vnat]
+        refine graph_mem_piSet fun p hp => ?_
+        obtain rfl := mem_sing.mp hp
+        show l ∈ˢ app (X (tgtC (vnat 0) (vnat 0))) pt
+        rw [show tgtC (vnat 0 : V) (vnat 0) = 1 from by unfold tgtC; rw [if_pos rfl]]
+        exact hl
+      · show _ = mkC S 0 (vnat 0) _
+        unfold mkC
+        rw [if_pos rfl, app_graph (mem_sing.mpr rfl)]
+    | 1, _ =>
+      rw [app_blkΨ_one] at hx
+      rcases mem_listFib.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+      · refine ⟨vnat 1, mem_upair.mpr (Or.inl rfl), graph (fun _ => pt) empty, ?_, ?_⟩
+        · rw [posns_vnat]
+          exact graph_mem_piSet fun p hp => absurd hp (not_mem_empty p)
+        · show _ = mkC S 1 (vnat 1) _
+          unfold mkC
+          rw [if_neg (by omega), if_pos rfl]
+      · refine ⟨vnat 2, mem_upair.mpr (Or.inr rfl),
+          graph (fun p => if p = (vnat 0 : V) then h else t) (upair (vnat 0) (vnat 1)), ?_, ?_⟩
+        · rw [posns_vnat]
+          refine graph_mem_piSet fun p hp => ?_
+          rcases mem_upair.mp hp with rfl | rfl
+          · rw [if_pos rfl]
+            show h ∈ˢ app (X (tgtC (vnat 2) (vnat 0))) pt
+            rw [show tgtC (vnat 2 : V) (vnat 0) = 0 from by
+              unfold tgtC; rw [if_neg (vnat_ne (by omega)), if_pos rfl]]
+            exact hh
+          · rw [if_neg (vnat_ne (by omega))]
+            show t ∈ˢ app (X (tgtC (vnat 2) (vnat 1))) pt
+            rw [show tgtC (vnat 2 : V) (vnat 1) = 1 from by
+              unfold tgtC; rw [if_neg (vnat_ne (by omega)), if_neg (vnat_ne (by omega))]]
+            exact ht
+        · show _ = mkC S 1 (vnat 2) _
+          unfold mkC
+          rw [if_neg (by omega), if_neg (vnat_ne (by omega)),
+            app_graph (mem_upair.mpr (Or.inl rfl)), app_graph (mem_upair.mpr (Or.inr rfl)),
+            if_pos rfl, if_neg (vnat_ne (by omega))]
+
 /-! ## The encoding-depth clause
 
 -- F5 FINDING: `DESIGN-theory.md` §1.2's `mkZero`/`mkInj` do NOT
@@ -68,10 +500,10 @@ structure TagDepth (w : Nat) (inj : Nat → List V → V) : Prop where
   /-- Above `Prop`, every field of a constructor value is a subterm of it. -/
   depth : w ≠ 0 → ∀ (j : Nat) (fs : List V) (a : V), a ∈ fs → a ∈ˢ tc (inj j fs)
 
-/-- F5's hypotheses: F0's — the container's env clause and the
+/-- F5's hypotheses: the container's env clause and the
 member's tag laws — plus the encoding depth of both. -/
 structure NarOk (S : TreeListSig V) : Prop where
-  /-- F0's hypotheses, verbatim. -/
+  /-- The container's env clause and the member's tag laws. -/
   ok : TreeListOk S
   /-- The member's constructor is ∈-deep. -/
   depthT : TagDepth S.w S.injT
@@ -203,7 +635,7 @@ shape of this container, not from the clause.  An INFINITARY container
 (`Stream`, `ω → α`) has no such stage bound, and for it the narrow
 route must either record ω-cocontinuity in the clause or fall back on
 a transient wide operator's closed tuple (`tupleContainer_closed_exists`
-at the block+copy, F0's `blkΨ_closed`, whose component `0` bounds the
+at the block+copy — `blkΨ_closed` above, whose component `0` bounds the
 narrow operator by leastness).  This is the ONE place where the narrow
 route is weaker than the wide one. -/
 
@@ -294,8 +726,8 @@ theorem narΨ_closed (hS : NarOk S) : ∃ L, IsClosedTuple S.w 1 uIs (narΨ S) L
 
 /-- **(W), the ALTERNATIVE route** — NOT used by anything below,
 recorded because it is the one the maintainer's ruling allows for an
-INFINITARY container, and because it costs nothing here: F0's
-transient two-component operator (the block plus a COPY of the
+INFINITARY container, and because it costs nothing here: the
+transient two-component operator above (the block plus a COPY of the
 container) has a closed tuple, and its FIRST component already bounds
 the narrow operator — the container's carrier at that component's
 value lies below the copy's component, by leastness against it, and
@@ -382,19 +814,20 @@ tagged value being every union member whose payload is ∈-smaller
 nothing here needs them to be: `WfRecKit` asks only for the motives
 and the step.
 
-Two things are worth noting against F0's `UnionRecKit` instance:
+Two things are worth noting against the `UnionRecKit` instance the
+wide falsifier F0 ran (retired, DESIGN 2026-09-21):
 
 * the predecessor set is NOT characterised.  `tcPred` of `node l`
   contains `l` but also every sub-tree and sub-list of `l`; the step
   reads the entries it wants out of the graph and ignores the rest, so
   only the POSITIVE memberships (`list_pred_node`, `tree_pred_cons`,
   `list_pred_cons` — each one line off the encoding-depth clause) are
-  ever proved.  F0 had to pin the predecessor set down exactly at
+  ever proved.  The wide route had to pin the predecessor set down at
   every constructor (`mem_blkPred_node`, `not_mem_blkPred_nil`,
   `mem_blkPred_cons`, then `blkPred_predsFrom`: ~70 lines);
 * the motives and the step are F0's, unchanged (`blkB`, `blkSt` and
-  their five laws are imported from `EnvClauseTreeList.lean`): the
-  formulation changes the *recursion principle*, not the minors. -/
+  their five laws, carried above since D-e): the formulation changes
+  the *recursion principle*, not the minors. -/
 
 section Rec
 
@@ -455,6 +888,63 @@ theorem list_pred_cons (hS : NarOk S) (hw : S.w ≠ 0) {h t : V} (ht : t ∈ˢ n
   refine mem_tcPred.mpr ⟨list_mem_narIdx ht, ?_⟩
   rw [tagVal_tagged, tagVal_tagged]
   exact hS.depthL.depth hw 1 [h, t] t (List.mem_cons_of_mem h List.mem_cons_self)
+
+/-! ### The bound and the step -/
+
+/-- The bound: the two motives' fibres, selected by the value's tag
+(the block is unindexed, so the motive reads the value alone). -/
+noncomputable def blkB (M₀ M₁ : V → V) (u : V) : V :=
+  natFibre (fun c => (match c with | 0 => M₀ | _ + 1 => M₁) (ssnd (ssnd u))) (sfst u)
+
+theorem blkB_tree (M₀ M₁ : V → V) (x : V) : blkB M₀ M₁ (tagged 0 pt x) = M₀ x := by
+  unfold blkB tagged
+  rw [sfst_kpair, ssnd_kpair, ssnd_kpair, natFibre_vnat]
+
+theorem blkB_list (M₀ M₁ : V → V) (l : V) : blkB M₀ M₁ (tagged 1 pt l) = M₁ l := by
+  unfold blkB tagged
+  rw [sfst_kpair, ssnd_kpair, ssnd_kpair, natFibre_vnat]
+
+open Classical in
+/-- The step: the minors at the predecessors' recursive values. -/
+noncomputable def blkSt (S : TreeListSig V) (mNode : V → V → V) (mNil : V)
+    (mCons : V → V → V → V → V) (u g : V) : V :=
+  if h : ∃ l, u = tagged 0 pt (S.injT 0 [l]) then
+    mNode h.choose (app g (tagged 1 pt h.choose))
+  else if u = tagged 1 pt (S.injL 0 []) then mNil
+  else if h : ∃ q : V × V, u = tagged 1 pt (S.injL 1 [q.1, q.2]) then
+    mCons h.choose.1 h.choose.2 (app g (tagged 0 pt h.choose.1))
+      (app g (tagged 1 pt h.choose.2))
+  else empty
+
+theorem blkSt_node (hS : TreeListOk S) (hw : S.w ≠ 0) (l g : V) :
+    blkSt S mNode mNil mCons (tagged 0 pt (S.injT 0 [l])) g
+      = mNode l (app g (tagged 1 pt l)) := by
+  unfold blkSt
+  rw [dif_pos ⟨l, rfl⟩]
+  have h := Exists.choose_spec
+    (⟨l, rfl⟩ : ∃ y, (tagged 0 pt (S.injT 0 [l]) : V) = tagged 0 pt (S.injT 0 [y]))
+  rw [← hS.tree.mkInj hw _ _ (tagged_inj h).2.2]
+
+theorem blkSt_nil (g : V) :
+    blkSt S mNode mNil mCons (tagged 1 pt (S.injL 0 [])) g = mNil := by
+  unfold blkSt
+  rw [dif_neg (fun ⟨_, h⟩ => Nat.one_ne_zero (tagged_inj h).1), if_pos rfl]
+
+theorem blkSt_cons (hS : TreeListOk S) (hw : S.w ≠ 0) (h t g : V) :
+    blkSt S mNode mNil mCons (tagged 1 pt (S.injL 1 [h, t])) g
+      = mCons h t (app g (tagged 0 pt h)) (app g (tagged 1 pt t)) := by
+  unfold blkSt
+  rw [dif_neg (fun ⟨_, h'⟩ => Nat.one_ne_zero (tagged_inj h').1),
+    if_neg (fun h' => by
+      exact absurd (hS.list.mkInj hw _ _ _ _ (tagged_inj h').2.2).1 (by omega)),
+    dif_pos ⟨(h, t), rfl⟩]
+  have hs := Exists.choose_spec
+    (⟨(h, t), rfl⟩ :
+      ∃ q : V × V, (tagged 1 pt (S.injL 1 [h, t]) : V) = tagged 1 pt (S.injL 1 [q.1, q.2]))
+  obtain ⟨-, he⟩ := hS.list.mkInj hw _ _ _ _ (tagged_inj hs).2.2
+  obtain ⟨h₁, he'⟩ := List.cons.inj he
+  obtain ⟨h₂, -⟩ := List.cons.inj he'
+  rw [← h₁, ← h₂]
 
 /-! ### The kit -/
 
@@ -598,12 +1088,229 @@ end Kit
 
 end Rec
 
-/-! ## Non-vacuity: the standard encoding satisfies the depth clause
+/-! ## Non-vacuity, part 1: the standard `List` models the env clause
 
-F0 already exhibits a model of `ListClause`/`TreeTags` (`stdInj`, the
-tagged `kpair` tower).  The only new hypothesis F5 adds is the
-encoding depth, and the same encoding satisfies it — so every theorem
-of this file has a model at every level. -/
+The development is hypothetical in the container's env clause; this
+section discharges the hypothesis at the STANDARD reading of `List` —
+tagged towers for the injections, the least pre-fixed family of the
+`nil`/`cons` arm for the carrier.  Its (W) is the recipe §2.2 (iii)
+prescribes for the copies, at a container WITH A PARAMETER: the shapes
+carry the HOLE-FREE entry (`cons`'s head, a value of the parameter)
+and the positions are the slots alone. -/
+
+/-! ## Non-vacuity: `ListClause` has a model
+
+The development above is hypothetical in the container's env clause.
+This section discharges the hypothesis at the STANDARD reading of
+`List` — tagged towers for the injections, the least pre-fixed family
+of the `nil`/`cons` arm for the carrier — so that `ListClause` is not
+an empty assumption.  Its (W) is the same recipe §2.2 (iii) prescribes
+for the copies, now at a container WITH A PARAMETER: the shapes carry
+the HOLE-FREE entry (`cons`'s head, a value of the parameter) and the
+positions are the slots alone. -/
+
+section StdList
+
+theorem kTuple_inj : ∀ fs fs' : List V, kTuple fs = kTuple fs' → fs = fs'
+  | [], [], _ => rfl
+  | [], _ :: _, h => absurd h (pt_ne_kpair _ _)
+  | _ :: _, [], h => absurd h.symm (pt_ne_kpair _ _)
+  | x :: xs, y :: ys, h => by
+      obtain ⟨rfl, h'⟩ := kpair_inj h
+      rw [kTuple_inj xs ys h']
+
+theorem kTuple_mem_univ {w : Nat} (hw : w ≠ 0) :
+    ∀ {fs : List V}, (∀ x, x ∈ fs → x ∈ˢ (univ w : V)) → kTuple fs ∈ˢ (univ w : V)
+  | [], _ => pt_mem_univ hw
+  | x :: _xs, h =>
+    (univ_isTGUniverse (V := V) hw).kpair_mem (h x List.mem_cons_self)
+      (h x List.mem_cons_self)
+      (kTuple_mem_univ hw fun y hy => h y (List.mem_cons_of_mem x hy))
+
+theorem stdInj_zero (j : Nat) (fs : List V) : stdInj (V := V) 0 j fs = pt := by
+  unfold stdInj; rw [if_pos rfl]
+
+theorem stdInj_mem_univ {w : Nat} (hw : w ≠ 0) {j : Nat} {fs : List V}
+    (hfs : ∀ x, x ∈ fs → x ∈ˢ (univ w : V)) : stdInj w j fs ∈ˢ (univ w : V) := by
+  unfold stdInj
+  rw [if_neg hw]
+  exact (univ_isTGUniverse (V := V) hw).kpair_mem (vnat_mem_univ_pos hw j)
+    (vnat_mem_univ_pos hw j) (kTuple_mem_univ hw hfs)
+
+theorem stdInj_inj {w : Nat} (hw : w ≠ 0) (j j' : Nat) (fs fs' : List V)
+    (h : stdInj w j fs = stdInj (V := V) w j' fs') : j = j' ∧ fs = fs' := by
+  unfold stdInj at h
+  rw [if_neg hw, if_neg hw] at h
+  obtain ⟨h₁, h₂⟩ := kpair_inj h
+  exact ⟨vnat_inj h₁, kTuple_inj _ _ h₂⟩
+
+/-- The container's own operator at a parameter `α`: one component,
+the `nil`/`cons` arm with `α` for the heads. -/
+noncomputable def stdΨL (w : Nat) (α : V) (Y : Nat → V) : Nat → V :=
+  fun _ => graph (fun _ => consArm (stdInj w) α (app (Y 0) pt)) unitSet
+
+theorem app_stdΨL (w : Nat) (α : V) (Y : Nat → V) :
+    app (stdΨL w α Y 0) pt = consArm (stdInj w) α (app (Y 0) pt) := app_graph pt_mem_unitSet
+
+/-- The container's recorded reading `⟦List⟧ α`. -/
+noncomputable def stdLIST (w : Nat) (α : V) : V := lfpTuple w 1 uIs (stdΨL w α) 0
+
+/-! ### (W) for the container: shapes carry the parameter value -/
+
+/-- The shapes: `⟨1, pt⟩` for `nil`, `⟨2, h⟩` for `cons` at the head
+`h` — a HOLE-FREE entry, so it lives in the shape, not in a
+position. -/
+noncomputable def lsShapes (α : V) : V :=
+  binUnion (sing (kpair (vnat 1) pt)) (image (fun h => kpair (vnat 2) h) α)
+
+theorem mem_lsShapes {α a : V} :
+    a ∈ˢ lsShapes α ↔ a = kpair (vnat 1) pt ∨ ∃ h, h ∈ˢ α ∧ a = kpair (vnat 2) h := by
+  unfold lsShapes
+  rw [mem_binUnion, mem_sing]
+  exact or_congr Iff.rfl ⟨fun hx => by
+      obtain ⟨h, hh, rfl⟩ := mem_image.mp hx; exact ⟨h, hh, rfl⟩,
+    fun ⟨h, hh, hx⟩ => mem_image.mpr ⟨h, hh, hx⟩⟩
+
+/-- The positions of a shape: none for `nil`, one slot for `cons`. -/
+noncomputable def lsPos (a : V) : V :=
+  natFibre (fun j => if j = 2 then sing (vnat 0) else empty) (sfst a)
+
+theorem lsPos_nil : lsPos (kpair (vnat 1) pt : V) = empty := by
+  unfold lsPos; rw [sfst_kpair, natFibre_vnat, if_neg (by omega)]
+
+theorem lsPos_cons (h : V) : lsPos (kpair (vnat 2) h) = sing (vnat 0) := by
+  unfold lsPos; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+/-- The builder: the head comes from the SHAPE, the tail from the
+position function. -/
+noncomputable def lsMk (w : Nat) (a g : V) : V :=
+  natFibre (fun j => if j = 1 then stdInj w 0 [] else stdInj w 1 [ssnd a, app g (vnat 0)])
+    (sfst a)
+
+theorem lsMk_nil (w : Nat) (g : V) : lsMk w (kpair (vnat 1) pt) g = stdInj (V := V) w 0 [] := by
+  unfold lsMk; rw [sfst_kpair, natFibre_vnat, if_pos rfl]
+
+theorem lsMk_cons (w : Nat) (h g : V) :
+    lsMk w (kpair (vnat 2) h) g = stdInj (V := V) w 1 [h, app g (vnat 0)] := by
+  unfold lsMk; rw [sfst_kpair, natFibre_vnat, if_neg (by omega), ssnd_kpair]
+
+theorem stdΨL_maps {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    MapsTuple w 1 uIs (stdΨL w α) := by
+  intro Y hY m hm
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  refine graph_mem_famSpace fun i hi => ?_
+  by_cases hw : w = 0
+  · rw [hw, univ_zero]
+    refine mem_univZero.mpr fun x hx => ?_
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, -, -, rfl⟩
+    · rw [stdInj_zero]; exact pt_mem_unitSet
+    · rw [stdInj_zero]; exact pt_mem_unitSet
+  · exact consArm_mem_univ hw hα (famSpace_app (hY 0 Nat.one_pos) pt_mem_unitSet)
+      (stdInj_mem_univ hw (by simp))
+      (fun h t hh ht => stdInj_mem_univ hw (by
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact hh
+        · rcases List.mem_cons.mp hx with rfl | hx
+          · exact ht
+          · exact absurd hx (List.not_mem_nil)))
+
+theorem stdΨL_mono {w : Nat} (α : V) : MonoTuple w 1 uIs (stdΨL w α) := by
+  intro X Y hX hY hle m hm i hi x hx
+  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+  obtain rfl := mem_unitSet_iff.mp hi
+  rw [app_stdΨL] at hx ⊢
+  rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+  · exact mem_consArm.mpr (Or.inl rfl)
+  · exact mem_consArm.mpr (Or.inr ⟨h, t, hh, hle 0 Nat.one_pos pt pt_mem_unitSet t ht, rfl⟩)
+
+open Classical in
+theorem stdΨL_closed {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V)) :
+    ∃ L, IsClosedTuple w 1 uIs (stdΨL w α) L := by
+  by_cases hw : w = 0
+  · rw [hw]; exact closedTuple_zero (hw ▸ stdΨL_maps hα)
+  have hU := univ_isTGUniverse (V := V) hw
+  refine tupleContainer_closed_exists hw (Is := uIs) (stdΨL w α) (fun _ _ => lsShapes α) lsPos
+    (fun _ _ => 0) (fun _ _ => pt) (fun _ => lsMk w) ?hA ?hB ?htgt ?hmkU ?helim
+  case hA =>
+    intro m hm i hi
+    have hnilS : (kpair (vnat 1) pt : V) ∈ˢ (univ w : V) :=
+      hU.kpair_mem (vnat_mem_univ_pos hw 1) (vnat_mem_univ_pos hw 1) (pt_mem_univ hw)
+    show lsShapes α ∈ˢ (univ w : V)
+    unfold lsShapes
+    exact hU.binUnion_mem hnilS (hU.sing_mem hnilS hnilS)
+      (hU.image_mem hα fun h hh =>
+        hU.kpair_mem hα (vnat_mem_univ_pos hw 2) (hU.transitive hα hh))
+  case hB =>
+    intro m hm i a hi ha
+    rcases mem_lsShapes.mp ha with rfl | ⟨h, hh, rfl⟩
+    · rw [lsPos_nil]; exact hU.empty_mem hα
+    · rw [lsPos_cons]; exact hU.sing_mem (vnat_mem_univ_pos hw 0) (vnat_mem_univ_pos hw 0)
+  case htgt => exact fun m hm i a p hi ha hp => ⟨Nat.one_pos, pt_mem_unitSet⟩
+  case hmkU =>
+    intro m hm i a g hi ha hg
+    rcases mem_lsShapes.mp ha with rfl | ⟨h, hh, rfl⟩
+    · rw [lsMk_nil]; exact stdInj_mem_univ hw (by simp)
+    · rw [lsMk_cons]
+      refine stdInj_mem_univ hw ?_
+      intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact hU.transitive hα hh
+      · rcases List.mem_cons.mp hx with rfl | hx
+        · exact app_mem_univ hw hg _
+        · exact absurd hx (List.not_mem_nil)
+  case helim =>
+    intro X hX m hm i hi x hx
+    obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
+    obtain rfl := mem_unitSet_iff.mp hi
+    rw [app_stdΨL] at hx
+    rcases mem_consArm.mp hx with rfl | ⟨h, t, hh, ht, rfl⟩
+    · refine ⟨kpair (vnat 1) pt, mem_lsShapes.mpr (Or.inl rfl), graph (fun _ => pt) empty, ?_, ?_⟩
+      · rw [lsPos_nil]
+        exact graph_mem_piSet fun p hp => absurd hp (not_mem_empty p)
+      · rw [lsMk_nil]
+    · refine ⟨kpair (vnat 2) h, mem_lsShapes.mpr (Or.inr ⟨h, hh, rfl⟩),
+        graph (fun _ => t) (sing (vnat 0)), ?_, ?_⟩
+      · rw [lsPos_cons]
+        exact graph_mem_piSet fun p hp => ht
+      · rw [lsMk_cons, app_graph (mem_sing.mpr rfl)]
+
+/-- **`ListClause` is not an empty hypothesis**: the standard reading
+of `List` satisfies it at every level. -/
+theorem stdListClause (w : Nat) :
+    ListClause w (stdLIST (V := V) w) (stdΨL w) (stdInj w) where
+  leaf := fun _ _ => rfl
+  mono := fun α _ => stdΨL_mono α
+  maps := fun _ hα => stdΨL_maps hα
+  closed := fun _ hα => stdΨL_closed hα
+  fibre := fun α hα Y hY t ht x => by
+    obtain rfl := mem_unitSet_iff.mp ht
+    rw [app_stdΨL]
+    exact ⟨fun hx => by
+        rcases mem_consArm.mp hx with rfl | ⟨h, t', hh, ht', rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨h, hh, t', ht', rfl⟩,
+      fun hx => by
+        rcases hx with rfl | ⟨h, hh, t', ht', rfl⟩
+        · exact mem_consArm.mpr (Or.inl rfl)
+        · exact mem_consArm.mpr (Or.inr ⟨h, t', hh, ht', rfl⟩)⟩
+  mkZero := fun hw j fs => by unfold stdInj; rw [if_pos hw]
+  mkInj := fun hw j j' fs fs' h => stdInj_inj hw j j' fs fs' h
+
+/-- The container's env clause and the member's tags are satisfiable:
+the standard `List` together with the standard tagged towers. -/
+theorem treeListOk_std (w : Nat) :
+    TreeListOk (V := V) ⟨w, stdLIST w, stdΨL w, stdInj w, stdInj w⟩ :=
+  ⟨stdListClause w, treeTags_stdInj w⟩
+
+end StdList
+
+/-! ## Non-vacuity, part 2: the standard encoding satisfies the depth clause
+
+The section above exhibits a model of `ListClause`/`TreeTags`
+(`stdInj`, the tagged `kpair` tower).  The only hypothesis F5 adds on
+top is the encoding depth, and the same encoding satisfies it — so
+every theorem of this file has a model at every level. -/
 
 theorem mem_tc_kTuple : ∀ (fs : List V) {a : V}, a ∈ fs → a ∈ˢ tc (kTuple fs)
   | [], _, h => absurd h (List.not_mem_nil)
