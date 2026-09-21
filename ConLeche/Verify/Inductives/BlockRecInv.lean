@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.FixRec
-import ConLeche.Kernel.Inductives.BlockInstall
+public import ConLeche.Kernel.Inductives.BlockRec
 
 public section
 

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstall
-public import ConLeche.Kernel.Inductives.BlockParts
+import ConLeche.Kernel.Inductives.BlockParts
 public import ConLeche.Kernel.Inductives.BlockRec
 
 @[expose] public section

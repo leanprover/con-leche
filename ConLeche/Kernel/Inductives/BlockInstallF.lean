@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeInstallF
-public import ConLeche.Kernel.Inductives.BlockInstall
+public import ConLeche.Kernel.Inductives.SumInstallF
 
 @[expose] public section
 
