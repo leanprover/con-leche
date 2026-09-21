@@ -79337,3 +79337,112 @@ per hardware thread and each reserves ~1 GiB of address space (the
 `--jobs=8` remark in `scripts/selfcheck.sh`).  Before the fix the
 declining fixtures never got that far, which is why the cap looked
 sufficient.
+
+## TASK #322 — THE PER-ARGUMENT SUBSTITUTION LOOPS: a measured no (2026-09-21)
+
+**The ask.**  A perf lane reported: "we build 2.5× the nodes, worth
+about a quarter of the gap … con-leche's spine and telescope loops call
+`instantiate1` once per argument, so a telescope of n binders is n
+walks with n−1 intermediate terms interned, where nanoda substitutes
+the whole argument vector in one walk.  The excess is in the binder
+constructors, 5× for `forallE`, and it is the median declaration, not
+outliers."  Replacing the loop by one multi-substitution walk is an
+ALGORITHM change (not representation or caching), so the lane asked for
+a ruling.  This task investigated before the ruling.
+
+### 1. The premise is stale for the shipped core
+
+The per-argument loops are the PURE SPEC's (`ConLeche/Kernel/Core.lean`:
+`whnfCoreBody`'s β, `inferBody`'s app/∀/λ clauses, `iotaCerts`).  The
+shipped core (`ConLeche/Cached/CoreC.lean`) has substituted in bulk at
+every one of those sites for a long time, each identified with the
+chained spec by a proof of its own:
+
+| site | shipped loop | since | identification |
+|---|---|---|---|
+| β on an application spine | `whnfAppI`/`betaPeelI`, one `instListM` per λ-run | task #50 | `Verify/BetaSpine.lean` |
+| the app spine's Π-telescope (both grades) | `inferSpineI`/`inferSpineIOI`, domains against the accumulator | task #50 | `Verify/BetaSpine.lean` |
+| the recursor telescope certificate | `iotaCertsIAux` | task #50 | idem |
+| ∀ / λ chains at the front door | `inferPisI`/`inferLamsI` (open in bulk, one `abstractRange` per domain) | task #72 | `Verify/BinderLoop.lean`, `Verify/Cached/BinderLoopC.lean` |
+| ∀ / λ chains in `annotate` | `annotatePisI`/`annotateLamsI` | task #72 | idem |
+
+The substitution walks return a closed subterm by reference (`bvarB ≤
+d` cutoff, `ExprOpsC.lean`), so nothing below a substituted variable is
+rebuilt either.  What is STILL chained, one `inst1M` per binder:
+
+* the ∀/λ **congruence of `defeq`** (`defeqStepI`, both bodies
+  re-opened at every binder — nanoda's `def_eq_binder_aux` and
+  official's `is_def_eq_binding` loop over the whole telescope with a
+  vector of locals);
+* the **io lane's ∀ and λ clauses** (`inferBodyIOI`; chained by the B4
+  decision that looping the io lane would owe the loop-identification
+  walk family a second, io-graded instance — recorded as a
+  measured-need follow-up).
+
+### 2. The spike: those two sites in bulk, measured
+
+Branch `agent/spike-inst` (commit `18ca6210`, implementation only —
+the Verify tier is not updated, `lake build con-leche` builds): a
+`defeqBindersI` loop (peel matching binder pairs comparing the opened
+domains, open both leaves in bulk, compare once, then the annotation
+agreements innermost-first), and the io ∀/λ clauses routed through
+`inferPisI`/`inferLamsI` (the latter with a flag that skips the
+domain-sort run, as the io clause does).  Against master
+`78ded4b6`'s binary, `--verified --jobs=1`, `instructions:u`, one run
+per stream, verdicts and counts identical on every stream:
+
+| stream | master | spike | Δ |
+|---|---|---|---|
+| `init-full` | 453.97 G | 452.20 G | **−0.4 %** |
+| `init-prelude` | 2.492 G | 2.462 G | −1.2 % |
+| `grind-ring-5` | 17.41 G | 17.33 G | −0.5 % |
+| `beta-ladder` | 13.92 G | 13.81 G | −0.8 % |
+| `let-ladder` | 2.709 G | 2.709 G | 0 |
+| `app-lam` | 70.66 G | 70.66 G | 0 |
+| `church-numerals` | 0.275 G | 0.264 G | −4.2 % |
+
+Below #313's acceptance line (≥ 2 % on `init-full`), and what landing
+would cost is the loop-identification family again — a pure mirror, a
+`_sound_body` theorem against the chained clause, the cached simulation
+walk and the tail composition (`BinderLoop.lean` 1 775 lines,
+`BinderLoopC.lean` 1 452, the `DiscC4` tails) — for the defeq
+congruence and for an io-graded instance.  Not worth 0.4 %.  The spike
+is kept on its branch as the measurement; it is not for landing.
+
+### 3. Where the nodes are, then
+
+`perf record -e instructions:u` of master's binary on `init-prelude`
+(`--verified --jobs=1`, self time by symbol): `lean_dec_ref_cold` 12.5 %,
+`mi_malloc_small` 9.0 %, `mi_free` 8.3 %, `lean_del_core` 4.9 %,
+`mi_free_size` 2.1 %, `mi_malloc` 1.6 % — allocation and reference
+counting ≈ 40 %, as #313 measured (41 % on `init-full`); the
+constructor overrides (the computed-field builders, one call per node
+built): `Expr.app` 4.7 %, `Expr.lam` 0.65 %, `Expr.forallE` 0.57 %; the
+walks: `instantiateRevXP` 3.1 %, `instantiateListXP` 1.5 %,
+`abstractRangeXP` 1.2 %, `instLevelParamsXP` 1.1 %, `instantiate1XP`
+0.6 %; `beqGoX` 4.0 %; the knot memo's hash-map operations ≈ 3 %.
+
+So the report's cost class is real — building and freeing nodes is
+the largest bucket — but its attribution is not: binder nodes are
+built an order of magnitude less often than `app` nodes (the override
+shares), a 5× excess in `forallE` is cheap in instructions, and the
+loops named as the cause are already bulk.  Where a node is built
+cannot be read off this profile: the binary has no frame pointers,
+`--call-graph dwarf` unwinds nothing and `lbr` is unsupported on this
+machine.  A per-site constructor census needs instrumentation (a
+counter in the four overrides keyed by a caller tag, or `perf probe`
+on the overrides with a frame-pointer build).
+
+### 4. What the ruling is actually about
+
+The algorithm-vs-representation question the lane raised does not
+arise for the sites it named: they are bulk already, and the two that
+are not are worth 0.4 %.  The open question is the lane's node census
+itself — what instrument produced "2.5× the nodes, 5× `forallE`", and
+at which construction sites (parse, `annotate`'s rebuild, the loops'
+open/close rebuilds, `instLevelParams` at each `(name, levels)`, the
+memo keys) the count accrues.  Until that is attributed by site, no
+change is indicated.  Measurement protocol as always: one run per
+stream and configuration, `instructions:u`, every run under
+`ulimit -v 16000000` with `--jobs=1` (or `--jobs=8` for a parallel
+run — the default worker count aborts under the cap, task #321).
