@@ -130119,7 +130119,51 @@ That is the work order for `hdom₁`: thread `CopyEntryAOrd` into the
 assembly, split the other two arms by `nestOf`, and spend
 `copyOrdTeleAt` where the tower is real.  No record is requested.
 
-##### (d) THE GATES, AT `a7b56ad9`
+##### (d) OBJECT (2), MEASURED AT THE STATEMENT — THE ERROR SURFACE, AND WHERE THE CONTENT ACTUALLY IS
+
+The statement change was made and BUILT as an experiment, then reverted
+(the tree at this row is green, and none of it is committed).  What it
+measured, so the next session does not re-measure it:
+
+`OrdTargetRead` (`NestedPremise.lean:1133`) at the cut `l +
+tlsl.length`, subject `stripDomPis (ordTargetDom …)`, length conjunct
+dropped, **compiles as stated** — the definition needs nothing new.
+Downstream it breaks in exactly three places, and only the third has
+content:
+
+| site | what breaks | the fix, measured |
+|---|---|---|
+| `ContainerCross.lean:756`/`:760`, `NestedLoop.lean:146`/`:157` | the `obtain ⟨htl, fb, Ps, …⟩` destructurings carry the dropped conjunct | delete `htl` from four patterns — mechanical |
+| `ContainerCross.lean:666` `projFree_ordTargetDom_instSeq` | the subject gained a `stripDomPis` | one `refine ConLeche.rg_noProjAt_stripDomPis _ ?_` before the existing `rw [ordTargetDom]` — three characters of content |
+| `NestedInstMap.lean:3127`, `:3401`, `:4480` | `NestedPinsRun.ordTgtReadAt` / `ordTgtMemReadAt` and their sibling END with `rw [hdep, Nat.add_zero]`, where `hdep : domPiDepth (ordTargetDomL …) = 0` is `hflat` | **this is the work** |
+
+And the third is smaller than the site table feared, because the
+ingredients are all LOCAL to those producers:
+
+* at the FINITARY arm `MutualCtorDataI.tssNone` makes `tlsl` `[]`, so
+  the cut is `l` on the nose and `stripDomPis` is the identity by
+  `stripDomPis_of_depth_zero` off the row's own constant-head guard;
+* at the REFLEXIVE arm the row ALREADY proves the length conjunct
+  (`((tssF …).getD l []).length = domPiDepth (ordTargetDomL …)`), which
+  is precisely the `tlsl.length = D` the new cut wants — so the
+  conjunct should be KEPT on the eight rows and dropped only from
+  `OrdTargetRead`, and `GroupFacts.ordTower` is NOT spent at this tier
+  after all;
+* the outer `stripDomPis` is the identity at both arms because the
+  reflexive row's guard is at `ordHeadRed (instSeq …)` and
+  `notPi_of_ordHeadRed_const_instSeq` (`Verify/Inductives/OrdHeadRed.lean:408`)
+  turns it into "the recomputation is not a binder", i.e.
+  `domPiDepth (ordTargetDom …) = 0`.
+
+So the site table's "the dear half is `ordRead_corr`/`ordReadMem_corr`,
+where `GroupFacts.ordTower`'s statement has to be translated" is
+probably WRONG too: the translation is the rows' own length conjunct,
+one tier down, and `ordTower` is needed only where the recomputation
+DOES plant a tower — which is the same corner §(b) puts outside object
+(2).  That is a prediction from the statement's error surface and not a
+proof; it is recorded as such.
+
+##### (e) THE GATES, AT `a7b56ad9`
 
 `tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
 `shake: 514 removals, all allowlisted`, `pub-imports: 1348 of 2319
