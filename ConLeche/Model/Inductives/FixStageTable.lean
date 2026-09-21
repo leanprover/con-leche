@@ -203,7 +203,11 @@ theorem stageFixTable (mp : EnvModelM V μ env)
           SpineFit ρ ((((ds ψ).drop nP).map (·.2.2)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    Nonempty (EnvModelM V μ envOut) := by
+    ∃ (tbl : ProjTable) (mp' : EnvModelM V μ envOut),
+      envOut = ⟨.projInfo tbl :: env.consts⟩ ∧ tbl.structName = T ∧
+      env.find? (ConstantInfo.projInfo tbl).name = none ∧
+      mp'.base2.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name
+        (fun _ => .sort 0) := by
   have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := ConLeche.checkStructProjTable_inv hTbl
   let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, resSort,
@@ -350,8 +354,9 @@ theorem stageFixTable (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
       ∀ (φ : Name → Nat) (i : Nat), i < tbl.numFields →
         TowerEntryLaw m₂ φ tbl.structName i (tbl.entry i) by
-    obtain ⟨mp', -⟩ := declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
-    exact ⟨mp'⟩
+    obtain ⟨mp', hac'⟩ :=
+      declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
+    exact ⟨tbl, mp', rfl, rfl, hfresh, hac'⟩
   -- the fields' laws
   intro m₂ hac φ i hi
   replace hi : i < nF := hi
@@ -810,23 +815,21 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
               (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
             = mkLamsAV ((ppsAll ψ).map fun d => (p.resSort.eval ψ + 1, d.2.2)) B :=
         fun _ => ⟨_, rfl⟩
-      refine stageFixTable (L := fun ψ =>
+      obtain ⟨-, mp₄, -, -, -, -⟩ := stageFixTable (L := fun ψ =>
           nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
             (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
             (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
             (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)))
         mp₃ hTbl hfT₃ hcaps hlpsT hfC₃ hlpsC hstripC
         hProp hTshape hCshape hresT hresR hresC hnp₃ hFD₃ hCD₃.read hCD₃.len hCD₃.below hleq
-        hleafT₃ hleafC₃ hlam₃ hfoldAt ?_ ?_ ?_ ?_
-      · intro ψ ρ
-        have := hframes₀.1 ψ ρ
-        rwa [hTake] at this
-      · intro ψ ρ hρ
-        exact ⟨(hframes₀.2 ψ ρ hρ).1, (hframes₀.2 ψ ρ hρ).2.1⟩
-      · intro ψ ρ hρ hp
-        exact (hsortsAll ψ ρ hρ).1 hp
-      · intro ψ ρ hρ
-        exact (hsortsAll ψ ρ hρ).2
+        hleafT₃ hleafC₃ hlam₃ hfoldAt
+        (fun ψ ρ => by
+          have := hframes₀.1 ψ ρ
+          rwa [hTake] at this)
+        (fun ψ ρ hρ => ⟨(hframes₀.2 ψ ρ hρ).1, (hframes₀.2 ψ ρ hρ).2.1⟩)
+        (fun ψ ρ hρ hp => (hsortsAll ψ ρ hρ).1 hp)
+        (fun ψ ρ hρ => (hsortsAll ψ ρ hρ).2)
+      exact ⟨mp₄⟩
     · next =>
       obtain rfl := Except.ok.inj hTbl
       exact ⟨mp₃⟩

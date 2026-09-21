@@ -149,6 +149,160 @@ theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
     rw [acvalWith_ne (hne _ (by rw [hfind]; rfl))]
     exact hleaf ψ
 
+/-! ## The member's real chains -/
+
+set_option maxHeartbeats 1600000 in
+/-- **A block member's REAL chains against the LEAF's**
+(`declNative`'s `hreal` at `k` members): constructor by constructor,
+`blockChainReal_of` from the block operator's premise at the leaf's
+chains (`hX`), the per-constructor chain facts at both the leaf's
+chains and the real ones, and their identification off the recursive
+fields (`hord`).  The recursive entries are the TARGET member's leaf,
+read by `hAt` at any frame. -/
+theorem blockChainsReal_of {env' : Env} (m' : EnvModel V env') {d : BlockData V}
+    {lps : List Name} {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {K m : Nat}
+    (hm : m < d.k)
+    (htgtLt : ∀ j i : Nat, d.tgts m j i < K)
+    (hAt : ∀ c : Nat, c < K → ∀ (ψ : Name → Nat) (ρp σ : Nat → V),
+      interp V σ (m'.acval (d.memberName c) ψ)
+        = interp V (fun j => ρp (j + d.nP))
+            (blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss d.tgtss
+              (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
+              (d.ppsM c ψ) c))
+    (hdata : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      BlockCtorDataI m' d.env₀ (d.memberName m) (fun i => d.memberName (d.tgts m j i))
+        (fun i => d.nIdxAt (d.tgts m j i)) lps cA.1 d.nP cA.2 (d.nIdxAt m) d.resSort d.isProp
+        d.large (d.idxF m j) (d.dsF m j) (d.esF m j) (d.srcsF m j) (d.ksF m j) (d.fvsPF m j)
+        (d.xFvsF m j) (d.xrestF m j) (d.eissF m j) (d.tssF m j))
+    (hρpOf : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+      ∀ c, c < d.k → Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρp)
+    (hlenPps : ∀ (c : Nat) (ψ : Name → Nat), c < d.k →
+      (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
+    (hlenIds : ∀ ψ : Name → Nat, (d.IdsM m ψ).length = d.nIdxAt m)
+    (hX : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+      BlockChainsOk d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+        (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fssZ ψ) (fun c => d.Ess c ψ))
+    (hlenZ : ∀ ψ : Name → Nat, (fssZ ψ m).length = (d.ctorsM m).length)
+    (hlenZj : ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM m)[j]? = some cA → ((fssZ ψ m).getD j []).length = cA.2)
+    (hC₀ : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+      ChainFactsB d.k (d.w ψ) d.nP cA.2 ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m
+        (d.ksF m j) ((d.tgtss m).getD j []) ((d.tlss m ψ).getD j []) ((fssZ ψ m).getD j [])
+        ((d.Eiss m ψ).getD j []) ((d.Ess m ψ).getD j []))
+    (hC : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+      ChainFactsB d.k (d.w ψ) d.nP cA.2 ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m
+        (d.ksF m j) ((d.tgtss m).getD j []) ((d.tlss m ψ).getD j []) ((d.Fss m ψ).getD j [])
+        ((d.Eiss m ψ).getD j []) ((d.Ess m ψ).getD j []))
+    (hord : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      ∀ (ψ : Name → Nat) (i : Nat), i < cA.2 → ¬ recAt d.nP (d.ksF m j) (d.nP + i) →
+      ((d.Fss m ψ).getD j []).getD i default = ((fssZ ψ m).getD j []).getD i default) :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
+      ChainsRealBI (blockFam d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss
+          d.tgtss (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fssZ ψ) (fun c => d.Ess c ψ))
+        d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m (d.rss m) (d.tgtss m)
+        (d.tlss m ψ) (d.Eiss m ψ) (fssZ ψ m) (d.Fss m ψ) (d.Ess m ψ) := by
+  have hdata : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      True ∧ True ∧ (c = m → BlockCtorDataI m' d.env₀ (d.memberName c)
+        (fun i => d.memberName (d.tgts c j i)) (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP
+        cA.2 (d.nIdxAt c) d.resSort d.isProp d.large (d.idxF c j) (d.dsF c j) (d.esF c j)
+        (d.srcsF c j) (d.ksF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j) (d.eissF c j)
+        (d.tssF c j)) :=
+    fun c j cA hj => ⟨trivial, trivial, fun hc => by subst hc; exact hdata j cA hj⟩
+
+  -- ## the member's data, by position
+  have hlenFss : ∀ ψ : Name → Nat, (d.Fss m ψ).length = (d.ctorsM m).length := by
+    intro ψ
+    show (fssOfR _ _).length = _
+    rw [fssOfR_length]
+    exact fixCtorDataList_length _ _ _ _ _ _ _ _
+  have hlenEss : ∀ ψ : Name → Nat, (d.Ess m ψ).length = (d.ctorsM m).length := by
+    intro ψ
+    show (essOfR _).length = _
+    rw [essOfR_length]
+    exact fixCtorDataList_length _ _ _ _ _ _ _ _
+  have hFssD : ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM m)[j]? = some cA →
+      (d.Fss m ψ).getD j [] = ((d.dsF m j ψ).drop d.nP).map (·.2.2) :=
+    fun ψ j cA hj => fssOfR_fixCtorDataList_getD hj
+  have hEssD : ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM m)[j]? = some cA → (d.Ess m ψ).getD j [] = d.esF m j ψ :=
+    fun ψ j cA hj => essOfR_fixCtorDataList_getD hj
+  have hTlssD : ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM m)[j]? = some cA → (d.tlss m ψ).getD j [] = d.tssF m j ψ :=
+    fun ψ j cA hj => tlssOfR_fixCtorDataList_getD hj
+  have hEissD : ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM m)[j]? = some cA → (d.Eiss m ψ).getD j [] = d.eissF m j ψ :=
+    fun ψ j cA hj => eissOfR_fixCtorDataList_getD hj
+  have hFssEq : ∀ ψ : Name → Nat,
+      d.Fss m ψ = fssOf d.nP (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0) :=
+    fun ψ => fssOfR_fixCtorDataList _ _ _ _ _ _ _ _ _
+  have hrssD : ∀ (j : Nat), j < (d.ctorsM m).length → (d.rss m).getD j [] = rsOf (d.ksF m j) :=
+    fun j hj => rssOfK_getD hj
+  have hksLen : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      (d.ksF m j).length = cA.2 := fun j cA hj => ((hdata m j cA hj).2.2 rfl).ksLen
+  have htgtsD : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
+      ∀ i, i < cA.2 → ((d.tgtss m).getD j []).getD i 0 = d.tgts m j i := by
+    intro j cA hj i hi
+    have hjl : j < (d.ctorsM m).length := (List.getElem?_eq_some_iff.mp hj).1
+    have hil : i < (d.ksF m j).length := by rw [hksLen j cA hj]; exact hi
+    have h1 : (d.tgtss m).getD j [] = (List.range (d.ksF m j).length).map (d.tgts m j) := by
+      show (((List.range (d.ctorsM m).length).map fun j' =>
+        (List.range (d.ksF m j').length).map (d.tgts m j')).getD j []) = _
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hjl]
+      rfl
+    rw [h1, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hil]
+    rfl
+  -- ## the member's REAL chains against the leaf's
+  intro ψ ρp hρp
+  refine ⟨by rw [hlenZ, hlenFss], by rw [hlenEss, hlenFss], fun j hj => ?_, fun j hj => ?_,
+    fun j hj => ?_⟩
+  · rw [hlenFss] at hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    rw [hEssD ψ j cA hjA, hlenIds]
+    exact ((hdata m j cA hjA).2.2 rfl).lenE ψ
+  · rw [hlenFss] at hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    rw [hlenZj ψ j cA hjA, hFssD ψ j cA hjA]
+    simp [((hdata m j cA hjA).2.2 rfl).len ψ]
+  · rw [hlenFss] at hj
+    obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+    have hD := ((hdata m j cA hjA).2.2 rfl)
+    have hlenD := hD.len ψ
+    have hCj := hC j cA hjA ψ ρp hρp
+    have hC₀j := hC₀ j cA hjA ψ ρp hρp
+    rw [hrssD j hj]
+    refine blockChainReal_of (ppsOf := fun c => d.ppsM c ψ)
+      (AOf := fun i => m'.acval (d.memberName (d.tgts m j i)) ψ)
+      (hX ψ ρp hρp).hI (hX ψ ρp hρp).hok hC₀j
+      (fun c hc => hlenPps c ψ hc) (fun _ _ => rfl) (fun c hc => hρpOf ψ ρp hρp c hc)
+      ?_ ?_ (fun i hi => hCj.nb i hi) (fun i hi hnr => hord j cA hjA ψ i hi hnr) ?_ ?_
+      (fun i hnr => by rw [hTlssD ψ j cA hjA]; exact hD.tssNone ψ i hnr)
+      (fun i dd hdd => by
+        rw [hTlssD ψ j cA hjA] at hdd
+        exact hD.tssBits ψ i dd hdd)
+    · -- the target member's leaf, at any frame
+      intro i hi hr σ
+      rw [htgtsD j cA hjA i hi]
+      exact hAt (d.tgts m j i) (htgtLt j i) ψ ρp σ
+    · rw [hFssD ψ j cA hjA]
+      simp [hlenD]
+    · -- a finitary field's entry
+      intro i hi hk
+      rw [hFssD ψ j cA hjA]
+      rw [drop_map_getD hlenD hi, hD.recEntry ψ i hk hi, hEissD ψ j cA hjA]
+    · -- a reflexive field's entry
+      intro i hi hk
+      rw [hFssD ψ j cA hjA]
+      rw [drop_map_getD hlenD hi, hD.reflEntry ψ i hk hi, hEissD ψ j cA hjA,
+        hTlssD ψ j cA hjA]
+
 /-! ## The stage at one member -/
 
 set_option maxHeartbeats 1600000 in
@@ -307,54 +461,8 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [h1, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hil]
     rfl
   -- ## the member's REAL chains against the leaf's
-  have hreal : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
-      ChainsRealBI (blockFam d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss
-          d.tgtss (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fssZ ψ) (fun c => d.Ess c ψ))
-        d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) m (d.rss m) (d.tgtss m)
-        (d.tlss m ψ) (d.Eiss m ψ) (fssZ ψ m) (d.Fss m ψ) (d.Ess m ψ) := by
-    intro ψ ρp hρp
-    refine ⟨by rw [hlenZ, hlenFss], by rw [hlenEss, hlenFss], fun j hj => ?_, fun j hj => ?_,
-      fun j hj => ?_⟩
-    · rw [hlenFss] at hj
-      obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hEssD ψ j cA hjA, hlenIds]
-      exact (hdata m j cA hjA).2.2.lenE ψ
-    · rw [hlenFss] at hj
-      obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hlenZj ψ j cA hjA, hFssD ψ j cA hjA]
-      simp [(hdata m j cA hjA).2.2.len ψ]
-    · rw [hlenFss] at hj
-      obtain ⟨cA, hjA⟩ : ∃ cA, (d.ctorsM m)[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      have hD := (hdata m j cA hjA).2.2
-      have hlenD := hD.len ψ
-      have hCj := hC j cA hjA ψ ρp hρp
-      have hC₀j := hC₀ j cA hjA ψ ρp hρp
-      rw [hrssD j hj]
-      refine blockChainReal_of (ppsOf := fun c => d.ppsM c ψ)
-        (AOf := fun i => mp.base2.acval (d.memberName (d.tgts m j i)) ψ)
-        (hX ψ ρp hρp).hI (hX ψ ρp hρp).hok hC₀j
-        (fun c hc => hlenPps c ψ hc) (fun _ _ => rfl) (fun c hc => hρpOf ψ ρp hρp c hc)
-        ?_ ?_ (fun i hi => hCj.nb i hi) (fun i hi hnr => hord j cA hjA ψ i hi hnr) ?_ ?_
-        (fun i hnr => by rw [hTlssD ψ j cA hjA]; exact hD.tssNone ψ i hnr)
-        (fun i dd hdd => by
-          rw [hTlssD ψ j cA hjA] at hdd
-          exact hD.tssBits ψ i dd hdd)
-      · -- the target member's leaf, at any frame
-        intro i hi hr σ
-        rw [htgtsD j cA hjA i hi]
-        exact hAt (d.tgts m j i) (htgtLt m j i) ψ ρp σ
-      · rw [hFssD ψ j cA hjA]
-        simp [hlenD]
-      · -- a finitary field's entry
-        intro i hi hk
-        rw [hFssD ψ j cA hjA]
-        rw [drop_map_getD hlenD hi, hD.recEntry ψ i hk hi, hEissD ψ j cA hjA]
-      · -- a reflexive field's entry
-        intro i hi hk
-        rw [hFssD ψ j cA hjA]
-        rw [drop_map_getD hlenD hi, hD.reflEntry ψ i hk hi, hEissD ψ j cA hjA,
-          hTlssD ψ j cA hjA]
+  have hreal := blockChainsReal_of mp.base2 hm (htgtLt m) hAt
+    (fun j cA hj => (hdata m j cA hj).2.2) hρpOf hlenPps hlenIds hX hlenZ hlenZj hC₀ hC hord
   -- ## the fibre law at the member's own index readings
   have hfold : ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
       ∀ (ψ : Name → Nat) (ρ : Nat → V),

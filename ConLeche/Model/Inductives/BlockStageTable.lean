@@ -100,7 +100,11 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
           SpineFit ρ ((((ds ψ).drop nP).map (·.2.2)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    Nonempty (EnvModelM V μ envOut) := by
+    ∃ (tbl : ProjTable) (mp' : EnvModelM V μ envOut),
+      envOut = ⟨.projInfo tbl :: env.consts⟩ ∧ tbl.structName = T ∧
+      env.find? (ConstantInfo.projInfo tbl).name = none ∧
+      mp'.base2.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name
+        (fun _ => .sort 0) := by
   refine stageFixTable mp hTbl hfT hcaps hlpsT hfC hlpsC hstripC hProp hTshape hCshape
     hresT hresR hresC hnp hFD hCDread hCDlen hCDbelow hleq hleafT hleafC
     (fun _ => ⟨_, rfl⟩) ?_ hiff hfields hboundP hsortsF
