@@ -1,7 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageRec
-import ConLeche.Model.Inductives.BlockRecMem
+public import ConLeche.Model.Inductives.BlockRecMem
+import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Model.Inductives.StructRecLawKit
 public import ConLeche.Model.RecRulesCons
 public import ConLeche.Semantics.Tower.BlockRecI
 
@@ -173,5 +176,144 @@ theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List R
     rw [hacvR, hacvC]
     exact hlaw cvj cnP cnF hfcjE usj ρ xs ys _ _ restR restC hxl hyl
       hujl hψ hplain hnested' hpin hTVa' hTVja' hfitR hfitC
+
+/-! ## 2. The split: `RecRules` at the recursors' environment
+
+`find?_consBlockRecs_inv` (`Model/Inductives/BlockStageRec.lean`) is
+the only inversion of the cons the lane needs: a recursor stored at the
+consed environment is either one of the constructors' environment's —
+§1 — or the `j`-th of the block, with `sumRules`' rules and the shape
+`q` dictates.  So `hrecP` is §1 plus ONE premise, per NEW recursor and
+per rule. -/
+
+/-- **`hrecP`, split.**  The pre-existing recursors' rows are §1; the
+`k` new ones' are the premise `hnew`, stated at the rule list the cons
+actually stores. -/
+theorem recRules_consBlockRecs_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+    {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
+    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
+    (m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC))
+    (hac : m₃.acval = acv) (φ : Name → Nat)
+    (hnew : ∀ (j : Nat) (r : RecDatum), r ∈ rs →
+      ∀ rl ∈ ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
+        r.1.type r.2.2.2 r.2.1,
+      RecRule.fire rl ≠ .inert →
+        RecRuleLaw m₃ φ r.1.name r.1 (q.majorIdxAt j) (q.rulePrefixAt j) rl) :
+    RecRules m₃ φ := by
+  intro n cv mI rP rules hf rl hmem hfire
+  rcases find?_consBlockRecs_inv hf with hE | ⟨j, r, hr, rfl, hci⟩
+  · exact recRuleLaw_consBlockRecs_prefix mpC hfr hpsh hag m₃ hac φ hE hmem hfire
+  · obtain ⟨rfl, rfl, rfl, rfl⟩ :
+        cv = r.1 ∧ mI = q.majorIdxAt j ∧ rP = q.rulePrefixAt j ∧
+          rules = ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j)
+            (q.rulePrefixAt j) r.1.type r.2.2.2 r.2.1 := by
+      injection hci with h1 h2 h3 h4
+      exact ⟨h1, h2, h3, h4⟩
+    exact hnew j r hr rl hmem hfire
+
+
+/-! ## 3. The `TeleFitPA → SpineFit` flip
+
+`RecRuleLaw` states its two fits as `TeleFitPA`s of the stored types'
+READINGS; the family's ι law (`blockRecAV_iota`) is stated at
+`SpineFit`s of the binder data.  The flip is the generic kit at
+`k = 1` — `teleFitPA_to_chain` through a `PiTeleAV` of the tower, then
+`spineFit_of_chain` — and its ENTRY CONDITION is that the fitted
+reading BE a `mkPisAV` tower, which for a block recursor is
+`checkBlockRecK_tyPis`' third conjunct (`Model/Inductives/BlockRecMem.lean`:
+the stream's type is stored as is, so its reading is identified by the
+run's own Π-peel). -/
+
+/-- **A fit of a Π-tower reading is a `SpineFit` of its domains.** -/
+theorem spineFit_of_teleFitPA {pds : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm}
+    {ρ : Nat → V} {ws : List AnnotTerm} {rest : AnnotTerm}
+    (hlen : ws.length = pds.length)
+    (hfit : TeleFitPA V ρ (mkPisAV pds b) ws rest) :
+    SpineFit ρ (pds.map (·.2.2)) (ws.map (interp V ρ)) := by
+  have htele := piTeleAV_of_stripPisAV (stripPisAV_mkPisAV pds b)
+  refine spineFit_of_chain (by simpa using hlen) ?_
+  intro n hn
+  have := teleFitPA_to_chain pds.length htele hlen hfit n (by simpa using hn)
+  simpa using this
+
+/-- **The block recursor's own flip**, at the run: whatever fits the
+`i`-th stored recursor type's reading fits its binder data. -/
+theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List RecDatum} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
+    {ρ : Nat → V} {ws : List AnnotTerm} {rest TVa : AnnotTerm}
+    (hTVa : denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some TVa)
+    (hlen : ws.length = p.toBlockShape.majorIdxAt i + 1)
+    (hfit : TeleFitPA V ρ TVa ws rest) :
+    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).map (·.2.2))
+      (ws.map (interp V ρ)) := by
+  obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  obtain rfl : TVa = blockRecTyAV mpC.base2.acval envC rs ψ i :=
+    Option.some.inj (hTVa.symm.trans hread)
+  rw [hpis] at hfit
+  exact spineFit_of_teleFitPA (by rw [hlen, hrdsLen]) hfit
+
+/-! ## 4. The CONVERSION: the ι equation is the rule's equality
+
+`blockRecAV_iota` hands, per class `c` and constructor `j` and per
+fitting spine `xs' ++ fs`, the equation
+
+```
+(xs' ++ (es ++ [mk]).map (interp V σ')).foldl app (a c)
+  = interp V (consList (ihs.map (interp V σ')) σ') Rb
+```
+
+at the chain frame `σ' = consList (xs' ++ fs) (chainFrame K a ρ)`, and
+`RecRuleLaw` wants
+
+```
+interp V ρ (mkAppN L (xs ++ [mkAppN Ca ys]))
+  = interp V ρ (mkAppN Ra (xs.take rP ++ ys.drop nP))
+```
+
+at the AMBIENT frame.  Four identifications bridge them, and each is a
+statement about the rule DATA rather than about the recursion:
+
+* the leaf — `interp V ρ L = a c` (`blockRecAV_facts`' second field at
+  the stage's valuation spelling);
+* the prefix — `xs'` is `xs.take rP` read at `ρ`;
+* the INDEX PIN — `es` read at the chain frame is `xs.drop rP` read at
+  `ρ` (`RecRuleLaw`'s `IotaIndexPin` is what pays for this);
+* the constructor's residual — `mk` read at the chain frame is the
+  fired spine `mkAppN Ca ys` read at `ρ`;
+* the residue — the stored right-hand side's reading applied to
+  `xs.take rP ++ ys.drop nP` is `Rb` at the ih values (β-reduction
+  through the rule's λ-tower, then O-1's `interp_abstractIh`).
+
+The conversion itself is then the spine arithmetic
+`xs.map f = (xs.take rP).map f ++ (xs.drop rP).map f`, which is why it
+is stated with NO mention of the chain frame, of `K` or of the tuple:
+whatever `σ'` and `R` are, the four identifications are the whole
+content. -/
+
+/-- **The ι equation IS the rule's equality.** -/
+theorem blockRecRuleEq_of_iota {ρ σ' : Nat → V} {R : V} {rP nP : Nat}
+    {es ihs xs ys : List AnnotTerm} {mk L Ca Ra Rb : AnnotTerm}
+    (hL : interp V ρ L = R)
+    (hlaw : ((xs.take rP).map (interp V ρ) ++ (es ++ [mk]).map (interp V σ')).foldl
+        SetTheory.app R
+      = interp V (consList (ihs.map (interp V σ')) σ') Rb)
+    (hes : es.map (interp V σ') = (xs.drop rP).map (interp V ρ))
+    (hmk : interp V σ' mk = interp V ρ (AnnotTerm.mkAppN Ca ys))
+    (hRa : interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
+      = interp V (consList (ihs.map (interp V σ')) σ') Rb) :
+    interp V ρ (AnnotTerm.mkAppN L (xs ++ [AnnotTerm.mkAppN Ca ys]))
+      = interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP)) := by
+  have hlist : (xs ++ [AnnotTerm.mkAppN Ca ys]).map (interp V ρ)
+      = (xs.take rP).map (interp V ρ) ++ (es ++ [mk]).map (interp V σ') := by
+    simp only [List.map_append, List.map_cons, List.map_nil]
+    rw [hes, hmk, ← List.append_assoc, ← List.map_append, List.take_append_drop]
+  rw [hRa, ← hlaw, interp_mkAppN_foldl, hL, hlist]
+
 
 end ConLeche.Model
