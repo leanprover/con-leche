@@ -79242,3 +79242,1327 @@ served), streams under `tests/e2e/nested_*.ndjson`, rows at the end of
 `tests/e2e-expected.txt` under a heading naming the same lanes.
 Arena before: `e2e: 195/195`; after: `e2e: 229/229`, every other
 section unchanged, exit 0.
+
+## UNIFORM INDUCTIVES — the overhaul's charter, decisions and plan (2026-09-21, branch `uniform-inds`)
+
+**Maintainer's direction (2026-09-21).**  One uniform native installer
+and ONE proof for every inductive block: a k-member block is the general
+case, and the non-mutual case is what happens when a one-member group
+goes down the general path — NOT a separate mutual route (task #315 on
+branch `mutual-direct`, on hold, built one; its pure set constructions
+may be cherry-picked).  Then recursors are CHECKED instead of generated
+and compared: any family of functions with rules that is primitively
+recursive (every rule matches on a constructor and recurses on the
+constructor's fields, or on reflexive fields applied to enough
+arguments) is accepted — a superset of official is fine.  Then nested
+blocks through a POSITIVITY check that looks through containers at the
+concrete parameter instantiation (`C p x` at a fresh `x`, whnf as needed
+to reach official's verdicts, recursive, memoised), backed by a new
+environment-invariant fact: every stored inductive is a component of the
+least fixed point of an operator defined from its stored constructor
+types.  Official's nested→mutual ENCODING is never mirrored
+syntactically (three long sessions died on reading the minted copies
+back).  Prop: where it must differ is an open question of the direction.
+
+**Where the material is.**  Three read-only surveys and two design
+documents were produced first, under `_tmp/uniform-inds/` (not tracked;
+the two designs are reproduced below in full as the record):
+`SURVEY-native.md` (the native route as it stood at 09c3a50c, with the
+k-ary touch list), `SURVEY-mutual-direct.md` (what `mutual-direct` and
+its siblings hold, the lessons of #315), `SURVEY-official.md` (official
+`inductive.cpp` v4.33.0: positivity, the nested rewrite, the recursor
+rules verbatim, the 34-fixture nested corpus, a container census of
+Mathlib: 41 nested blocks, all core, `List`/`Array`/`Prod`/`Option`, no
+Prop, no reflexive, depth ≤ 3).
+
+**Landed on `uniform-inds` first (bac26f11):** the pure tuple-lfp kit
+cherry-picked as-is — `SetTheory/Derive/LfpTuple.lean` (k-ary least
+pre-fixed tuple, Bekić at a component, `lfpTuple_one`),
+`SetModel/UnionRec.lean` (one recursion over the block's union),
+`SetModel/TupleContainer.lean` ((W) at tuples, `closedTuple_zero`),
+`Semantics/Tower/FixTuple.lean` (the k = 1 identity
+`fixFamI_eq_lfpTuple`).
+
+**Coordinator's decisions (pending the maintainer's confirmation; each
+is contained so an overrule costs a lane, not the route):**
+* D1 — the term datum is a basis CONSTANT `BConst.lfpTuple k` (design
+  §1, option A′).  This re-opens ruling U-6 (1) of #315, whose ground
+  (the k-family syntactic kit) is now the price of ONE installer whatever
+  the datum; the `derived-term-formers` ruling forbids a new AnnotTerm
+  CONSTRUCTOR, and a basis constant is not one (five match sites).
+  Fallback: the tagged seal, +2.5k lines, +2 sessions.
+* D2 — sequencing (ii): the recursor stage is built ONCE, as checking,
+  inside deliverable 1 (design §4).  M1–M4 are common to both orderings;
+  the choice binds only at M5.  Under the literal order, +7 sessions.
+* D3/D5/D7 as the design recommends (guard: body arbitrary, index
+  expressions syntactic; no `EnvModelM` clause in deliverable 1, the
+  record `BlockModelAt` threaded instead, at width N; the target member
+  carried in `RecFieldKind`).  D4 (retire `lfpFam`) and D6 (nothing to
+  master before the flip) at the flip.
+* N1 (theory §1): the recorded clause is WIDE — N = k members + n
+  container instances — and the maintainer's narrow form
+  `I p = μ i. C p i` is derived by Bekić, never recorded; theory §2.7 is
+  the reason (the narrow route's (W) is the "abstract route" assessed
+  dear).  N2 (`all`/`ctors` on `.indInfo`) and N3 (members as fvars in
+  the positivity pass) are deferred to their own small lanes after M1.
+  N7: the falsifier F0 runs first.
+
+**Lanes opened 2026-09-21:** K = kernel at k (`agent/uinds-K`), S = the
+semantic leaf at k with `BConst.lfpTuple` (`agent/uinds-S`), F0 = the
+Tree/List falsifier through the env clause (`agent/uinds-F0`).  The
+route is gated at k = 1 until the flip (M6) so every tree stays a
+complete, proved checker.  Worktrees under `_tmp/uniform-inds/`.
+
+The two design documents follow verbatim (their `file:line` references
+are to the tree at f627c81d).
+
+
+### DESIGN DOCUMENT 1 — deliverable 1: the k-ary uniform route
+
+### DESIGN — deliverable 1: the k-ary UNIFORM inductive route (`uniform-inds`)
+
+Design + work plan, 2026-09-21, against `uniform-inds` = master 09c3a50c + bac26f11
+(the pure tuple kit: `SetTheory/Derive/LfpTuple.lean`, `SetModel/UnionRec.lean`,
+`SetModel/TupleContainer.lean`, `Semantics/Tower/FixTuple.lean`).  Line numbers
+are of that tree.  Inputs: `SURVEY-native.md`, `SURVEY-mutual-direct.md`, DESIGN.md
+138–341/352–625, the maintainer's direction of 2026-09-21, official
+`_tmp/lean4-src/src/kernel/inductive.cpp`.
+
+#### 0. Summary — the decisions, sequencing first
+
+**S1. Sequencing (§4): do the recursor stage ONCE, as CHECKING, inside this
+deliverable — ordering (ii).**  The generated k-motive recursor and its P-side
+syntactic readings (`FixRecRead.lean` 2 420 lines + `FixRecReadDefs`/`FixRecData`/
+`FixRuleData`/`FixRecKFrame`/`FixRecPre`/`FixRuleOk`/`FixRecLaw`/`FixStageRec`
+≈ 7 500 lines, `Verify/Inductives/FixRec.lean` 682, `Semantics/Tower/Fix{Case,RecCore,
+Rec,Elem}I` ≈ 3 200) cost about the same to generalise to k (≈ 7–8 sessions) as to
+replace by a checker + `UnionRec` (≈ 7 sessions), and step 2 deletes the former.
+Literal order (i) ≈ 15 sessions for deliverable 1 then ≈ 7 for step 2 (≈ 22);
+(ii) ≈ 14–16 including step 2.  Risk of (ii): the checker's model is the least-charted
+piece; mitigation: it is the LAST milestone, formers/constructors/tables land first
+with the route flip held (§7).  **Maintainer decision D2.**
+
+**S2. Term datum (§1): a basis CONSTANT `lfpTuple k` (option A′), tuple-typed, with
+per-member sums — NOT the tagged `lfpFam`-at-a-union encoding.**  k = 1 is the existing
+value by `lfpTuple_one` (no hypothesis) + one operator congruence; member-local
+constructor tags by construction; no `W ≠ 0`, no `hu`, no split/join.  Needs
+**U-6 (1) re-opened (D1)** — the reason it was rejected (the k-family syntactic kit)
+is now the price of ONE installer whatever the datum, and is smaller than measured
+because the operator binds ONE tuple-typed family variable.
+
+**S3. Kernel (§2): ONE recogniser/installer over `BlockParts` (k members, shared
+params), install order = official's (all formers, all constructors, all recursors,
+tables per structure-like member), positivity with the TARGET member in the field
+kind, `elim_only_at_universe_zero` verbatim, recursor stage = the check of §4.**
+
+**S4. Prop (§5) is EASIER at k: `closedTuple_zero` replaces the container witness,
+and official forbids large elimination for k ≥ 2, so the squash regime stays k = 1.**
+
+**S5. Env invariant (§6): NO `BlockModels` clause in `EnvModelM` for this deliverable;
+the threaded hypothesis is a NAMED record `BlockModelAt` so step 3 lifts it without
+restating (D5).**
+
+**S6. Plan (§7): 6 milestones, 3 parallel lanes, ≈ 14–16 sessions; first lane =
+the kernel recogniser + install stages 0–2 + tables, route gated at k = 1 until the
+flip.**  Integration branch `uniform-inds`, sorry-free at every milestone (D6).
+
+---------------------------------------------------------------------------
+#### 1. The term-level datum for a k-tuple least fixed point
+
+Today: leaf `nativeTyAVI` = `λ p⃗ ı⃗. app (lfpFam.{u,w} I F) ⟨ı⃗⟩` (FixLeafI.lean:264),
+`lfpFam` a basis constant (Term/Syntax.lean:175, level arity 2 :241; value
+`lfpFamV` SetModel/Value.lean:517; type `BConst.typeAV` Term/Const.lean:152 and
+Semantics/BasisType.lean:222; typing `bval_mem_lfpFam` Semantics/BasisOk.lean:321).
+Those are the FIVE match sites (U-6's measurement); no structural walk of
+`AnnotTerm` mentions a particular `BConst`.
+
+### 1.1 Options
+**(A′) basis constant `BConst.lfpTuple (k : Nat)`**, level list `u⃗ ++ [w]` (arity
+`k + 1`: each member its own index universe, `numLevels` becomes a function of the
+payload), type
+```
+Π (Is : ⟨Sort u_0, …, Sort u_{k-1}⟩) (F : Fams Is → Fams Is), Fams Is
+Fams Is := ⟨proj_0 Is → Sort w, …, proj_{k-1} Is → Sort w⟩      -- the tower kit's non-dependent k-tower
+```
+value `bval (.lfpTuple k) us = lamR … fun Is => lamR … fun F => mkTower ((range k).map
+(lfpTuple w k (fun m => projS m Is) (Φ F)))` with `Φ F X m := projS m (app F (mkTower
+(X 0 … X (k−1))))`; TOTAL (`lfpTuple` is total, LfpTuple.lean:91), so `bval` needs no
+side condition; typing `bval_mem_lfpTuple` = `lfpTuple_mem` :121 per component +
+`mkTower` in the tower type.  Member leaf:
+`T_m := λ p⃗ ı⃗_m. app (projAV m (lfpTuple_k u⃗ w ⟨I_0..⟩ F)) ⟨ı⃗_m⟩`, operator
+`F := λ Xs. ⟨λ t. sumBodyAV w (chains_0 Xs t), …, λ t. sumBodyAV w (chains_{k-1} Xs t)⟩`,
+a recursive slot of target `c`: `app (projAV c Xs) ⟨e⃗⟩` (= `slotXI` FixLeafI.lean:201
+with ONE `projAV` in front of the `bvar`).  Constructor tags: `sumMkAV w j …`
+(SumMk.lean:555) with `j` the MEMBER-LOCAL position — unchanged code, per member.
+k = 1: `projS 0 (mkTower [x]) = x` + `lfpTuple_one` (LfpTuple.lean:374, no hypothesis)
++ `lfpTuple_congr` (operators agreeing on the tuple space; on `agent/uniform-le`'s
+`LfpCompose.lean` at 5fea1316, ~40 lines — cherry-pick or reprove) give
+`⟦blockTyAV_1⟧ = ⟦nativeTyAVI⟧` = `fixFamI`.  The identity is the PORT's bridge (each
+restated Fix* lemma follows from the old one through it); after the port the old leaf
+is retired.
+
+**(B) sealed derived former over `lfpFam` at `Σ_m I_m`** (#315's `tupleLfpAV`): k = 1
+leaf ≠ the existing one (index set `sumSet W [I]` at `W ≥ 1`, tuple `inj 0 ⟨ı⃗⟩`);
+identification through `lfpTuple_splitFun` needs `IdxEnc`, `MonoFam`, `MapsFam`, a
+closed family — hypotheses, not `rfl`; re-grading of every member's telescope at `W`
+(`IdxOk.mono`), `W ≠ 0` forced (the `sumSet 0` collapse), the `hu` agreement, the
+`of_tagged` seam, the global-tag bug (fixed at ~1–2 sessions).  It does NOT save the
+Model-tier regeneralisation: every Fix* file is stated over `fixFamI`, which is not
+the sealed leaf at k = 1 either.  ≈ 2.5k lines of seal to carry for no saving.
+
+**(C) tag as an index OUTSIDE the tuple** (`lfpFam` over `Σ m<k, I_m`, per-member
+bodies selected by the tag): the tag lives in a `sumSet u'` which collapses at
+`u' = 0` (`sumSet_zero_elim` TaggedSum.lean:119, `tupW_zero` FixLeafI.lean:57), so
+`u' := max 1 u` is forced — a `Nat`-like block (`Ids = []`, `u = 0`) gets index set
+`sumSet 1 [pt-tower]` instead of `{pt}`: k = 1 is again a bijection away from the
+existing leaf.  Same seams as (B) minus the split/join.  Rejected for the same reason.
+
+### 1.2 Evaluation against the criteria
+| | k = 1 = existing? | Semantics regeneralisation | seams |
+|---|---|---|---|
+| A′ | value-equal, 2 lemmas, no hypothesis | ~1.8k (FixLeafI+FixFamI at ONE tuple variable) + 400 (BConst) | none |
+| B | no (hypotheses + regrade) | same ~1.8k + seal 2.5k | W≠0, hu, split/join, of_tagged |
+| C | no (u bump) | same ~1.8k + ~1k | W≠0, tag case split |
+
+The `~2.9k` U-6 measured was FixFamI+FixLeafI+FixAssemblyKit at k λ-BOUND family
+variables.  With the operator taking one tuple-typed `Xs` and slots `projAV c Xs`,
+the chain kit stays one-variable: the change is `xEntry`/`SlotFit`/`slotSet`
+(FixFamI.lean:305–347) taking a target, `fixStepI_mono` becoming `MonoTuple`
+(componentwise `piR_mono`), `hclosed` becoming `∃ L, IsClosedTuple`.
+
+### 1.3 Ruling status
+`derived-term-formers` (2026-09-15) forbids a new **AnnotTerm CONSTRUCTOR** ("one arm
+through every structural walk").  A `BConst` is a CONSTANT: the walks have one
+`.const` arm reading `typeAV`/`bval`; A′ touches the five sites above and nothing
+else — the ruling's reason does not apply.  U-6 (1), however, rejected "a tuple-lfp
+primitive" by name.  **A′ needs U-6 (1) re-opened (D1).**  The argument: (a) the
+rejection's ground was the k-family kit cost, which under ONE installer is paid by
+every option (S2), and is ~1.8k not 2.9k at a tuple-typed variable; (b) the
+ruling's *preference* — a private representation — has nothing left to hide under
+A′ (the term IS the concept), whereas (B) hides a representation whose every leak
+(§2.5 of the mutual survey) cost a session.  Fallback if D1 is refused: (B) with
+`CaseFamI`'s member-local tags from the start, +2.5k lines, +2 sessions, and the
+k = 1 route's Model tier restated at the sealed leaf.
+**Retire `BConst.lfpFam` at the flip (D4, minor):** nothing uses the constant once
+the leaf is `lfpTuple`; the set-level `lfpFamSet` stays (RecGraph/Container use it).
+
+---------------------------------------------------------------------------
+#### 2. The kernel side, uniformly at k
+
+### 2.1 Records (`Kernel/Inductives/BlockParts.lean`, replacing `SumParts.InductiveShape`
+:79 + `NativeParts` :179)
+```
+structure MemberShape where cvT : ConstantVal; nIdx : Nat; ctors : List (ConstantVal × Nat)  -- member-local, block order
+                            cvR : ConstantVal; rhss : List Expr
+structure BlockShape  where members : List MemberShape; nP : Nat; elim : Name; resSort : Level; large isProp : Bool
+structure BlockParts extends BlockShape where kinds : List (List (List RecFieldKind)); recPinned : Bool
+inductive RecFieldKind | ordinary | recursive (tgt : Nat) | reflexive (tgt : Nat) | negative | unsupported
+```
+Derived: `k := members.length`, `N := Σ_m n_m`, `offs m := Σ_{c<m} n_c`, `rulePrefix :=
+nP + k + N` (all recursors), `majorIdx m := rulePrefix + nIdx_m`.  `InductiveShape.
+withSort` → per member (the whnf'd telescope's sort, task #195), `resSort` = member
+0's.  The target in the kind (D7): `recIdxOf`, `rsOf` unchanged in meaning, plus
+`tgtsOf ks : List Nat`; `FixOpened` (Model/Inductives/FixData.lean:42) reads the
+target positionally as it reads the kind today.
+
+### 2.2 Recogniser (`blockShape?` / `blockParts?`, replacing `nativeShape?` :570)
+* `blockSplit block = (formers, ctors, recs)`: the `.indInfo` prefix, the `.ctorInfo`
+  middle, the `.recInfo` suffix (`sumSplit` :105 generalised; refuses nothing by count).
+  The parse already orders the constructor records by `types[].ctors` in type order
+  (Frontend/ExportC.lean:449–466, issue #5) and checks every recursor's
+  `numMotives == nTypes`, `numMinors == nCtors`, `numParams`, `numIndices` (:520–560),
+  so the block list carries the constructors GROUPED BY MEMBER in member order.
+* Member assignment: constructor `C` belongs to the member its result head names
+  (`cbody.getAppFn = const T_m`); the assignment must be monotone in block order
+  (member 0's ctors, then member 1's, …) — anything else is `.invalid` (official's
+  minor order IS declared order; a permuted export cannot match the generated
+  recursor).  A ctor whose head is no member: `.invalid` ("invalid return type",
+  `structCtorResidOk` StructParts.lean:199 with the member list).
+* `blockCounts?` per member (`nativeCounts?` :517 at member m's `cvT`, `mI_m`,
+  `rP`); reserved names for every former, ctor, recursor; every ctor `nP` params and
+  the block's lps; `elim`/`large?` read off `cvR_0` and required EQUAL on every
+  `cvR_m` (official: one shared `u`, inductive.cpp:536–548); result sort read off
+  member 0 (placeholder at a def-headed former), `isProp` from it.
+* `blockRecPinOk`: per m: `rP_m == nP + k + N`, `mI_m == rP_m + nIdx_m`,
+  `rules_m.length == n_m`, `rule_{m,j}.ctor == C_{offs m + j}` with its field count;
+  `blockRecLpsOk`: every `cvR_m.levelParams == elim :: lps` (large) or `lps`.
+  Thrown at the recursor stage as today (task #220).
+* `Frontend/ProjRec.lean:359` calls `nativeParts?` with the first type's declared
+  `nP` — unchanged; it now returns `[]` for mutual blocks (no rewrite: the tables
+  serve structure-like members, §2.4).
+
+### 2.3 Positivity across k names (`NativeParts.lean:83–145`)
+`recFamOk`/`recPositivity`/`recFieldKind`/`recCtorKinds` take `names : List Name`
+(the members) and return the TARGET: head `const T_c` with the right params/arity
+and index arguments free of ALL members ⇒ `.recursive c` (k = 0) / `.reflexive c`
+(under binders); head some member with a bad spine ⇒ `.negative`; a domain
+mentioning a member under a binder's domain ⇒ `.negative`; other-constant head ⇒
+`.unsupported` (nested; step 3).  `Expr.mentionsConst T` (StructParts.lean:775,
+memo :926) → `Expr.mentionsAnyConst (names : List Name)` with its own memo
+(`mentionsAnyGo`), `_spec`, `@[csimp]` (the pure definition is what `FixOpened`
+consumes positionally); `memberIdx? names (e.getAppFn)` for the target.  Official's
+`is_valid_ind_app(t, i)`/`check_positivity` (inductive.cpp:340–410) are exactly this
+with `m_ind_cnsts`.  `structUsedLater` (StructParts.lean:638) unchanged (per ctor).
+
+### 2.4 Install stages (`checkBlock`, replacing `checkNative` NativeInstall.lean:617)
+0. all member names + all ctor names `Nodup`; reserved names.
+1. **PASS at `isRec`** (`checkBlockPass`): `checkBlockInds` — for m = 0..k−1:
+   `checkConstantVal`, `checkSumTele` (SumInstall.lean:87; whnf telescope at
+   `nP + nIdx_m`), sort read; for m ≥ 1 official's two agreements
+   (`check_inductive_types` :211–260): parameter domains `isDefEq` member 0's
+   (`checkStructDomsAt` StructInstall.lean:43 at the opened telescopes) and result
+   sorts `Level.isEquiv` (`.invalid` "parameters of all inductive datatypes must
+   match" / "mutually inductive types must live in the same universe" — the
+   `ind_mutual_param_bad`/`ind_mutual_sort_bad` rows' messages become official's);
+   THEN cons all k `.indInfo cvTa_m (blockCapsAt p m isRec)` (official
+   `declare_inductive_types` :317: nothing of a constructor is looked at before every
+   former is in).  `checkSumCtors` per member at the env holding all k formers
+   (resolution guard = that env, as today's `env₁ env₁`), member name `T_m`, `nIdx_m`;
+   `classifyBlockKinds` on the stored ctors (`.negative → .invalid`, `.unsupported →
+   .notImplemented`); `settled := ∀ m, blockCapsAt p m (blockIsRec kinds) == the
+   former's record`.  Two-pass (#268) keyed on `blockRawRec p := some ctor of some
+   member has a declared field domain mentioning some member` — official's `is_rec`
+   :265 is a `find` over ALL constructors of ALL types, block-wide.
+2. **TAIL**: elimination guard (§2.6); index-binder sorts per member
+   (`checkStructFieldSortsI` at each former's opened telescope); `blockFieldsOk` =
+   `nativeFieldsOk` :438 per member with `nativeOpenedOk` :397 reading the field's
+   TARGET (`getAppFn == const T_{tgt}`, `nIdx_{tgt}` args); `consSumCtors` for all
+   members (member order); the recursor stage (§4; interim: §7 M1); cons the k
+   `.recInfo cvRa_m (majorIdx m) rulePrefix (sumRules … ctors_m rhss_m)` — all k
+   rule-less first, then all k with rules (the rules of `rec_m` name `rec_{tgt}` for
+   every target, so scoping needs every recursor consed); `checkNativeTable` :511 per
+   STRUCTURE-LIKE member (`n_m = 1`, `nIdx_m = 0`; `ProjTable.off = 1`, guards from
+   that member's `sortss`).
+Reduction (`Kernel/Core.lean:557 majorToCtor`) reads `rules`/`majorIdx`/`rulePrefix`
+per recursor constant and resolves `rec_{tgt}` in the env: nothing new.
+`Expr.recRulePlain recTy mI rP nP` holds at `rec_m` (its major is `T_m p⃗ ı⃗_m`).
+
+### 2.5 Caps per member (`blockCapsAt p m isRec`, replacing `nativeCapsAt` :87)
+`eta := nIdx_m == 0 ∧ n_m == 1 ∧ ¬isProp ∧ ¬isRec` (official `is_structure_like`
+inductive.cpp:31 with the BLOCK-wide `is_rec`), `etaCtor/etaParams/etaFields` the
+member's, `unitlike := nIdx_m == 0 ∧ n_m == 1 ∧ nF == 0`, `ruleK := k == 1 ∧ n_m == 1
+∧ nF == 0 ∧ isProp` (official `init_K_target` :551: `m_ind_types.size() == 1`),
+`sortZ := zeronessOf resSort`.  `IndCapsWF` per member (`nativeCapsAt_arity`
+FixWF.lean:118 per member).
+
+### 2.6 The elimination guard — official `elim_only_at_universe_zero` (inductive.cpp:479)
+```
+if (m_is_not_zero) return false;                 -- sort provably ≠ 0: large elim allowed
+if (m_ind_types.size() > 1) return true;         -- MUTUAL predicates eliminate into Prop only
+num_intros > 1 → true; num_intros == 0 → false;  -- one type
+one ctor: every non-Prop field must occur among the result's index arguments
+```
+Kernel: `large ∧ ¬resSort.isNeverZero ∧ (k ≥ 2 ∨ N ≥ 2) → .invalid`; `k = 1 ∧ N = 1`
+keeps the per-field subsingleton criterion in `checkStructFieldSortsI`
+(SumInstall.lean:135); `k = 1 ∧ N = 0`: large allowed.  Note official REQUIRES
+`ntypes == 1` for large elimination of a Prop block, so no k ≥ 2 block ever has
+`ℓ ≠ 0 ∧ w = 0` (the squash regime, §5).
+
+### 2.7 Mirrors — keeping the change mechanical
+Five twins per stage: pure (`NativeInstall`/`SumInstall`), `F` (`NativeInstallF`/
+`SumInstallF`), cached `S` (`Cached/CheckerC.lean:179–231`), `_datF`
+(`Verify/BridgeDecl.lean:750–820`), `_yields/_skels` (`Verify/Cached/AgreeFloor.lean:
+463–475, 954–1023`), plus the dispatch copies (`Kernel/Checker.lean:607`,
+`Cached/ParsedC.lean:231–246`, `Semantics/Inductives/DeclNative.lean:215`,
+`Frontend/ProjRec.lean:359`).  Rule: (1) the record type changes ONCE (`BlockParts`
+replaces `NativeParts`; keep the `complete`/`withKinds` `rfl`-simp projections
+NativeParts.lean:225–232 — `declNative`'s `generalize` dance depends on them); (2)
+every stage keeps its `(ops : CheckerOps m)` + representation parameter shape so the
+`F` twin differs only in `w.resolve fe`/`fe.push` as today (NativeInstallF.lean:23–118);
+(3) the skeleton `blockSkels p sk` = `ind_0 … ind_{k−1}`, all ctors, `rec_0 … rec_{k−1}`,
+one `.proj` per structure-like member — the INSTALL ORDER, since the floor agreement
+is positional; (4) `checkBlockPassS/TailS` flush at the same transitions.  Budget:
+~80 lines per twin, one lane-half-day for all.
+
+### 2.8 The modelled route narrows
+`Frontend/InModel.wants` (InModel.lean:36) → `b.types.any (·.numNested > 0)`;
+`generate` → `genNested` only (`Mutual.lean` stays: the nested rung's kit,
+Nested.lean:54/:401/:419; `genMutual` becomes unreachable — delete its body at
+the flip, keep the kit until step 3).  `Frontend/ProjRec.lean:359`: unchanged code;
+the mutual arm of `projRecOwners` (structure-like members needing `_model.proj_i.
+iota`) is dead for mutual, live for nested.  `Kernel/Inductives/Modeled.lean`:
+unchanged.  `tests/inmodel.sh`: drop `inmodel_mutual`, `inmodel_mutual_idx`,
+`ind_mutual_three`, `ind_mutual_idxsort` from the default list (they no longer print
+"modelled in-process" counts; their e2e rows stay `0` through the native route);
+keep `inmodel_nested`, `nested_rec`, `nested_struct_proj`, `inmodel_groups`
+(mutual-and-nested blocks still model: `wants` is on `numNested`).
+
+---------------------------------------------------------------------------
+#### 3. The semantic + model side at k
+
+### 3.1 The block model (Semantics/Tower/`BlockLeafI.lean`, `BlockFamI.lean`)
+Data per member `m`: `Ids_m`, `u_m`, ctors with `Fs, Es, rs, tls, Eis` as today plus
+`tgts` (per recursive field); shared `pps`, `w`.  Terms:
+```
+blockFunAV  u⃗ w Idss …  := λ (Xs : famsTyAV u⃗ w Idss). ⟨λ (t : idxTyAV u_m Ids_m). sumBodyAV w (chainsXI_m Xs t)⟩_m
+blockBodyAV             := mkAppN (.const (.lfpTuple k) (u⃗ ++ [w])) [⟨idxTyAV u_m Ids_m⟩_m, blockFunAV …]
+blockTyAV m             := mkLamsAV (pps ++ Ids_m) (app (projAV m (blockBodyAV.liftN …)) (mkTowerGo u_m Ids_m))
+slotXI_c                := mkPisAV (liftTele2 i tl) (app (projAV c (bvar (i+1+|tl|))) (tupler_c ⟨e⃗_i⟩))
+```
+Semantics: `blockStep m X t := sumSet w (sumFibre w (cons t (cons ⟨X⟩ ρp)) chains_m)`
+(`fixStepI` :273 per member), `blockΦ X m := lamR (w+1) (idxSet u_m ρp Ids_m) (blockStep
+m (mkTower X))` — a META-level tuple operator, `blockFam := lfpTuple w k (fun m => idxSet
+u_m ρp Ids_m) blockΦ`.  Laws: `blockTyAV_mem/_wellDenoted/_fold` per member (the fold:
+`(as ++ is).foldl app ⟦blockTyAV m⟧ = app (blockFam m) (tupW u_m is)`), under `ParamsOkXI`.
+Premise bundle the run supplies (`XChainsOk` FixFamI.lean:649 at k):
+```
+structure BlockChainsOk … : Prop where
+  hI      : ∀ m < k, IdxOk u_m ρp Ids_m
+  hok     : ∀ Xs ∈ famsSpace, ∀ m < k, ∀ t ∈ idxSet u_m …, chains_m graded at (t, Xs)       -- FixChainsOkI at k
+  hfit    : … SlotsFitX with the recursive slot's value = app (projS c Xs) ⟨e⃗⟩            -- target-aware
+  hclosed : ∃ L, IsClosedTuple w k Is blockΦ L
+```
+⇒ `MonoTuple`/`MapsTuple` (from `rss` alone, `chainXIGo_tele_sub` :687 componentwise),
+`app_lfpTuple_eq` (the fixed point), `blockFam_app_eq_sum m` (the fibre at `⟨ı⃗⟩` = the
+restricted tagged union of member m's chains, tag MEMBER-LOCAL — `fixFamI_app_eq_sum`
+:947 per member).  `hclosed`: `tupleContainer_closed_exists` (TupleContainer.lean:127;
+shapes = member m's shadow tuples, positions = spines, `tgtM a p` = the field's target,
+`tgtI` = its index tuple) at `w ≠ 0` — `FixWitness.fixClosed_of` :783 with the
+member paired in, the kit already tags shapes by member; `closedTuple_zero` :209 at
+`w = 0`.  `PredsFrom` (UnionRec.lean:110) from the fibre law + `SlotsFitX`.
+
+### 3.2 The recursor at k (§4 decides the shape; the model under (ii))
+ONE chosen k-tuple pinned by ALL ι equations (#315 §U.4), existence from
+`UnionRecKit` (UnionRec.lean:299).  Under (i) the existing tower
+(`FixCaseI`/`FixRecCoreI`/`FixRecI`/`FixElemI`/`FixIhI`) generalises mechanically
+(motive `c` at `frM` shifted by `k−1−c`, `frR` a k-tower, `caseRecAVI` per member,
+`elemGraph` over the union) but is deleted by step 2 — the survey's §7.5.  Verdict:
+go straight to `UnionRec` (§4.3).
+
+### 3.3 Per-file verdicts (M = mechanical, R = rewrite, K1 = stays the k = 1 instance
+called per member, D = deleted under (ii), lines = changed/new)
+Semantics/Tower: `FixLeafI` 553 R→`BlockLeafI` (~600; `tupW/idxSet/tuplerAV/IdxOk/
+famTyAV` reused per member) · `FixFamI` 1 144 M→`BlockFamI` (~1 200) · `FixTuple` 36
+retire · `IdxEq`, `Sum*`, `Tower*` unchanged · recursor files (§4): (i) M ≈ 3 500 /
+(ii) D, `BlockRecI` ≈ 2 500 new + `FixSquashI` 1 839 recast k = 1 (~800) ·
+`Semantics/Inductives/DeclNative` 221 R→`DeclBlock` (~300).
+Verify/Inductives: `FixParts` 99, `FixInv` 276, `FixWF` 132 M→`Block*` (~700 total:
+`checkBlockInds_shape`, `checkBlockPass_inv`, `direct_block_wf` = `EnvWF` through k
+former conses, N ctor conses, k recursor conses) · `FixRec` 682: (i) M ~900 / (ii) D +
+`BlockRecCheckInv` ~300 · `SumInv`/`SumWF` per-member reuse.
+Model/Inductives: `DeclNative` 1 063 R (~1 200; SPLIT into per-stage theorems —
+the 25.6M-heartbeat single proof will not survive k) · `FixStageFormer` 248 R→
+`stageBlockFormers` loop (~350) · `Sum{StageFormer,StageCtor,StageRec,Data,RecData,
+RecRead,RecFrames}`, `DeclSum` unchanged (per member) · `FixData` 654 M (~150:
+`recEntry_i = acval T_{tgt} ψ (params ++ Eis)`, `tgts`) · `FixCtorReads` 307,
+`FixCtorCross` 143, `FixCtorsLoop` 229 M (~200: loop over members, `leafT`/`hfold`
+per member) · `FixChains` 501, `FixShadow` 335, `FixChainFacts` 427, `FixTeleBound`
+319, `FixNoBVar` 219 M (~150 total: `rsOf` + `tgtsOf`; the shadow context is
+target-blind) · `FixRealChains` 200 M (~80: `fixLeafApp` at `app (projS m L) ⟨ı⃗⟩`) ·
+`FixLeafOk` 604 M/R (~300: grading of the operator tower) · `FixWitness` 806 M
+(~200: `tupleContainer_closed_exists`) · `FixAssemblyKit` 605 M (~200) ·
+`FixStageTable` 837, `FixEntryLaw` 427, `FixZeroField` 205 K1 (per structure-like
+member, `hleafT`/`hfold` restated at the member's fibre law, ~100) · recursor lane
+(`FixStageRec` 1 169, `FixRecRead` 2 420, `FixRecReadDefs` 455, `FixRecData` 242,
+`FixRuleData` 232, `FixRecKFrame` 418, `FixRecPre` 382, `FixRecLaw` 527, `FixRuleOk`
+731, `FixRecLeaf` 183, `FixRecFrames` 155, `FixIntro` 435, `FixRuleKit` 142 ≈ 7 500):
+(i) M ≈ 4 000 changed / (ii) D, replaced by `BlockStageRec` + `BlockRecRead` ≈ 2 500
+new · `Struct*` ≈ 5 000, `TowerCons` unchanged.
+Exposure (survey §7.3): every new Model `def` another file unfolds needs `@[expose]`;
+a missing re-export is a `rfl` that stops closing.
+
+---------------------------------------------------------------------------
+#### 4. Sequencing: generated recursors at k (i) vs checked recursors once (ii)
+
+### 4.1 (i) — the generated shapes at k, precisely
+Member `m`, `N = Σ n_c`, ctor `C_J` (global `J = offs c + j`, member `c`, `nF` fields,
+recursive positions `recIdx`, field `i` with telescope `a⃗ : A⃗_i` and target `tgt i`):
+```
+rec_m : ∀ p⃗ {C_0 : ∀ ı⃗_0 (t : T_0 p⃗ ı⃗_0), Sort ℓ} … {C_{k-1} : …}
+          (minor_0 …) … (minor_{N-1} …) ı⃗_m (t : T_m p⃗ ı⃗_m), C_m ı⃗_m t
+minor_J : ∀ f⃗ (ih_i : ∀ a⃗, C_{tgt i} e⃗_i(a⃗) (f_i a⃗))_{i ∈ recIdx}, C_c e⃗_J (C_J p⃗ f⃗)
+rule_J  : λ p⃗ C⃗ m⃗ f⃗. minor_J f⃗ (λ a⃗. rec_{tgt i} p⃗ C⃗ m⃗ e⃗_i(a⃗) (f_i a⃗))_{i ∈ recIdx}
+```
+(official `mk_rec_infos` :589–670, `mk_rec_rules` :705–735, `declare_recursors`
+:737–765.)  de Bruijn, with `o := k + J` the extras between the parameters and minor
+`J`'s fields: inside minor `J` under `nF` fields, `l` earlier ih binders and `m`
+telescope binders, `C_c` sits at `bvar (nF + o − 1 + l + m − c)` (`structIhPis`
+:295's `nF + o − 1 + l + m` with `− c`), the conclusion's `C_c` at `bvar (nF + o − 1 − c)`
+(`structMinorTyR` :312 with `− c`); in the rule body under `nF` fields (extras
+`k + N`): `p_l` at `bvar (nF + N + k + nP − 1 − l)`, `C_c` at `bvar (nF + N + k − 1 − c)`,
+`minor_J` at `bvar (nF + N − 1 − J)` (`structRuleBodyR` :283, `structRecPrefixAt` :233
+→ `blockRecPrefixAt nP k N nF e`); in `rec_m`'s type after the minors and `nIdx_m`
+indices, `C_m` at `bvar (nIdx_m + N + k − 1 − m)` (+1 under the major; `structRecTyR`
+:349's `nIdx + n + 1`).  `structIhApp` :271 takes `tgt` and names `rec_{tgt}` with
+the SAME level list; `structMinorsPisR/LamsR` :324/:333 walk the N ctors with `o`
+from `k`; `structRecTyR`/`structRecRhsR` per member.  At `k = 1`: `o = 1 + J`,
+`c = m = 0` — every formula is the existing one.  `nativeRulesOk` :460 /
+`nativeRulePrefixOk` :428 at k: rules of `rec_m` against member m's ctors,
+`stripLams (nP + k + N + nF)`, prefix `nP + k + N` against the stream's `rec_m`
+type, minor `J` at `tbs[nP + k + J]`, fields lifted by `N − J`.
+Cost (i): kernel generators 0.5 session; `Verify/FixRec` at k 1; `FixRecRead`+
+`ReadDefs`+`RecData`+`RuleData` 2; `KFrame`/`Pre`/`RuleOk`/`RecLaw`/`StageRec` 2;
+Semantics `Case`/`RecCore`/`RecI`/`Elem` at k (union graph) 2 ⇒ ≈ 7.5, of which
+≈ 6 is deleted by step 2 (which then costs ≈ 7 on its own).
+
+### 4.2 (ii) — the recursor CHECK (kernel)
+`checkBlockRec ops env p cvTas ctorsAs` per member m:
+(a) pins: `cvR_m.name = T_m.rec`, `blockRecLpsOk`, `recPinned` (the argument sums) —
+    `.invalid` as today (task #220).
+(b) TYPE SHAPE: `checkConstantVal` the stream's type; generate
+    `∀ p⃗ C⃗ [the stream's own N minor binders, spliced] ı⃗_m (t : T_m p⃗ ı⃗_m), C_m ı⃗_m t`
+    (`structRecTyR` with the minors read off the stream's type by `stripPis` at
+    `nP + k`, then `N`) and ONE `isDefEq` with the stream's type; STORED := the spliced
+    generated type (the motive binders and the tail are then KNOWN forms for the
+    reading, the minors arbitrary well-formed binders).  This is a superset of
+    official: any minor types.
+(c) RULES: for each local ctor `j` (global `J`, member `c`): `rhs.stripLams (nP + k +
+    N + nF) = some (rbs, body)`; the λ-prefix's binder types against the stored
+    recursor type (`nativeRulePrefixOk` at k); then **the primitive-recursion
+    abstraction**: walk `body`; every occurrence of a block recursor must be the head
+    of a maximal spine `rec_{c'} p⃗ C⃗ m⃗ e⃗ (f_i a⃗)` of length `nP + k + N + nIdx_{c'} + 1`
+    where `p⃗ C⃗ m⃗` are the prefix variables (lifted by the binders crossed), `f_i` a
+    field of kind `.recursive c'`/`.reflexive c'` of THIS constructor, `a⃗` arbitrary
+    terms of the telescope's length, and `e⃗` SYNTACTICALLY the field's index
+    expressions `structFieldIdxOf` instantiated at `a⃗` (`resetMeta`-compared);
+    replace the spine by `ih_i a⃗` (`ih_i` a fresh opener of type `∀ a⃗, C_{c'}
+    e⃗_i(a⃗) (f_i a⃗)` — the generated ih domain); any remaining recursor occurrence
+    → `.invalid`.  The result `body''` is typed at the env holding all k RULE-LESS
+    recursors, under the opened prefix `p⃗ C⃗ m⃗ f⃗ ih⃗` (fvars): `inferType body''`
+    `isDefEq` `C_c e⃗_J (C_J p⃗ f⃗)` (official's rhs types at exactly this).
+    Decisions (D3): body ARBITRARY; recursive calls guarded as above; `e⃗` syntactic
+    (a defeq-loose `e⃗` would make the predecessor's index a defeq class, and a fibre
+    does not determine its index — a `Prop` fibre is `pt` at every inhabited index);
+    `a⃗` arbitrary (the ih variable is a function).  Official's `minor f⃗ ih⃗` bodies
+    abstract to themselves, so no official recursor is lost.
+(d) STORED rule: `RecRule {ctor := C_J, nfields := nF, ctorParams := nP, fire := plain
+    iff recRulePlain, rhs := the ANNOTATED stream rhs (prefix + body as the typing
+    pass annotates a definition's value), paramsBlind := true}` + `recRuleBits`.
+    Nothing of `body''` is stored; it is the model's reading.
+Cost: kernel ≈ 500 lines, `F` twin 150, `S`/`_datF`/`_skels` 100, Verify inversion
+`checkBlockRec_inv` (the abstraction as a spec function `abstractIh`, its
+`instantiate` inverse: `body = body''[ih_i a⃗ ↦ spine]`) ≈ 300.  ≈ 1.5 sessions.
+
+### 4.3 (ii) — the model
+Reading: the stored recursor type reads to `mkPisAV (rebit pps ++ motives ++ minorsAV
+++ idx_m ++ [major]) (recConcAV_m)` where ONLY the motives (`structMotiveTyI`
+:208's reading — the motive half of `denoteMeta_structRecTyR` FixRecRead.lean:1719)
+and the tail are structural; `minorsAV` is whatever the binders read to (`type_reads`).
+The rule: `denoteMeta (rhs with rec_{c'} ↦ opener) = some (mkLamsAV prefixData Rb)`
+at the frame `p⃗ C⃗ m⃗ f⃗` with the recursors as openers below it (the
+`renameConsts`/`openRev` kit: `Verify/InstLevels.lean:262 renameConsts_instantiate1`,
+`Model/Annot/BitRename.lean:115 denoteMeta_renameConsts_resolve`, `RecRuleLaw`'s own
+`openRev` Laws.lean:436); the abstraction transfers: `Rb = Rb''[ih_i a⃗ ↦ spine]` with
+`Rb''` the reading of `body''` (denoteMeta is structural on the spine).
+Leaf: `blockRecAV m := projAV m (.fst (choice.{s} (Σ'.{s,0} (rs : ⟨RecTy_0, …⟩) (IotaAll rs)) .prf))`
+with `IotaAll rs := ⋀_J ∀ p⃗ C⃗ m⃗ f⃗_J, eqE (app^ (projAV c rs) [p⃗ C⃗ m⃗ e⃗_J (C_J p⃗ f⃗)])
+(Rb_J[rec_{c'} ↦ projAV c' rs])` (the `fixSigAVI` :725 pattern with the ι equations
+instead of `Step r = r`; `s = 0 ↔ ℓ = 0` as `fixSortAV`).
+Existence (`UnionRecKit` at the K-frame `(p⃗, C⃗, m⃗)`, per bottom frame as `rStar` is):
+`pred (tagged c i x) := { tagged (tgt i') ⟨e⃗_{i'}(fs, a⃗)⟩ (f_{i'} a⃗) | x = inj j ⟨fs⟩, i' ∈
+recIdx, a⃗ fitting }` (`FixElemI.elemPred` :38 at the union), `B (tagged c i x) := app
+(app^ C_c i) x`, **`st (tagged c i x) g := ⟦Rb''_J⟧ at the frame with f⃗ := fs, ih_{i'} :=
+lamTower over a⃗ of app g (tagged (tgt i') ⟨e⃗_{i'}(a⃗)⟩ (f_{i'} a⃗))`** — TODAY's `ihValsI`
+(FixRecCoreI.lean:375)/`elemSt` (FixElemI.lean:90) with "the minor at the fields"
+replaced by the read body.  This is why the body is abstracted rather than
+interpreted with a junk-extended recursor: `hst : st u g ∈ B u` is the body's TYPING
+at the frame `p⃗ C⃗ m⃗ f⃗ ih⃗` with the ih values in their domains (`graph_mem_B`
+UnionRec.lean:330 + the λ-tower typing = `IhArgsOk` FixCaseI.lean:193), which the
+kernel's `inferType` run certifies (the value-typing consumer that `checkDecl`'s
+`defnDecl` arm already has; `fixRuleOk` FixRuleOk.lean:361's "graded FROM THE
+MODEL" disappears).  A junk-extended total recursor would have to be a member of
+`⟦RecTy⟧` at every point outside `pred u`, i.e. every motive fibre inhabited before
+the recursion exists — circular; the abstraction avoids it.  `PredsFrom` from the
+fibre law; `unionRec_eq` :275 gives every member's ι at once; `unionRec_mem_B` :260
+gives `mem_type` of the tuple; the Σ' is inhabited by `rs* := ⟨λ-tower_m of unionRec ℓ
+w k Is Φ pred B st m ⟨ı⃗⟩ t⟩` and `IotaAll rs*` = `unionRec_eq` + the abstraction's
+instantiation lemma (`⟦Rb_J⟧[rec ↦ rec*] = ⟦Rb''_J⟧[ih ↦ ihVals(rec*)]`, a
+substitution lemma over the spine — `ihAppAV_facts` FixRuleOk.lean:95's content).
+`RecRuleLaw` per stored rule = the Σ'-extracted equation (as `fixSelAVI_facts`
+FixRecI.lean:785 extracts `Step r = r`).
+Regimes: `w ≠ 0` (fields from the element `inj j ⟨fs⟩`, any ℓ incl. `ℓ = 0` — `recGraph
+0` works, `B u ∈ univ 0`, so the small eliminator on a Type-valued block is the SAME
+construction); `w = 0` (the element is `pt`; a fitting spine exists by the fibre law
+`sumSet_zero_elim`; `pred`/`st` at a CHOSEN fitting spine — at `ℓ = 0` its value is
+irrelevant, at `ℓ ≠ 0` (k = 1, one ctor, §2.6) the subsingleton criterion makes the
+value spine-independent: `FixSquashI`'s `srcVals` lemma `sqIhValsK_bottom` :946,
+kept as the one k = 1 arm).  Large elimination of Prop members needs NO other
+special treatment, and checking SIMPLIFIES it: the squash body `sqFixBodyAV`
+(IhSpell.lean:139) is no longer a generated term but the read body at the source
+spine.
+Cost: Semantics `BlockRecI` (Σ' term, abstraction/instantiation lemmas, the two
+arms, kit instantiation, ι, mem, sort bits) ≈ 3 sessions; Model `BlockStageRec` +
+`BlockRecRead` (motives, tail, rule prefix, the opener reading, the typing consumer)
+≈ 2 sessions.  With §4.2: ≈ 6.5–7 sessions, replacing ≈ 11 000 lines by ≈ 5 500.
+Risk: the opener reading and the typing consumer at the opened frame — both have
+counterparts (`RecRuleLaw`'s `openRev`, `fixRuleOk`'s frame); budget +2 sessions.
+
+### 4.4 Recommendation
+**(ii).**  Same cost as (i) for THIS deliverable's recursor stage (7 vs 7.5), and step
+2 becomes free (≈ 7 saved); the maintainer's step-2 acceptance criterion ("a family
+of functions with rules that is primitively recursive") is the check of §4.2; the
+construction is the existing model with the minor application generalised to a
+typed body — the counterpart exists at every step (house rule).  What (i) keeps that
+(ii) drops: official-parity REJECTS of a recursor whose rules are not the generated
+ones — (ii) accepts more (documented superset; a bad twin of each kind, §7).  If the
+maintainer prefers the literal order, (i)'s shapes are §4.1 and every estimate
+below moves by +7.
+
+---------------------------------------------------------------------------
+#### 5. Prop
+
+Where the design special-cases Prop today: the recogniser's `isProp` (`Level.isEquiv s
+.zero == some true`, NativeParts.lean:604) skips the field-universe bound and enables
+the subsingleton criterion (`checkStructFieldSortsI` SumInstall.lean:124–135); caps
+`ruleK := nF == 0 ∧ isProp`, `eta := … ∧ ¬isProp`, `sortZ`; the elimination guard;
+Semantics: the `w = 0` regime of `piR`/`lamR`/`sumSet` (`sumBodyAV 0 = sqSumBodyAV`
+SumLeaf.lean:132, `injW 0 = pt` SumMk.lean:47, `sumSet_zero_elim`), the index
+universe `u = 0` (`tupW_zero`: the index tuple is the point — every index is a
+proposition), the closure witness `fixFunVI_closed_zero` (FixFamI.lean:786),
+the recursor's three regimes (`fixRecBodyAVI` FixRecCoreI.lean:684: `ℓ = 0` the
+point, `w = 0 ∧ ℓ ≠ 0` squash, else graph), the bits `hz`/`hs0` (`FixPre` :774).
+
+At k, per stage:
+* recogniser/install: `isProp` block-wide (official requires equivalent sorts);
+  the guard §2.6 (`k ≥ 2 → ℓ = 0` when the sort may be zero); `ruleK` only at
+  `k = 1`; the per-field bound skipped at every member's ctors.
+* index universe: `u_m` per member (the level list of `lfpTuple k`), so a member
+  whose indices are all propositions keeps `u_m = 0` and the point tuple — no bump,
+  no tag (the reason (C) was rejected).
+* the fixed point at `w = 0`: `closedTuple_zero` (TupleContainer.lean:209) — the
+  top tuple `(graph (λ_. unitSet) I_m)_m` is closed under `MapsTuple` alone, no
+  container witness: the family space at `w = 0` is `I_m → {∅, {pt}}`, a complete
+  lattice, exactly the maintainer's remark.  `MonoTuple` is still required
+  (`lfpTuple_closed/_fixed` take `hmono`) and comes from `rss` as at `w ≠ 0`.
+  `tupleContainer_closed_exists` is only for `w ≠ 0` (its `hw`).
+* constructors: `sumMkAV`'s `w = 0` arm (the point) per member — unchanged.
+* recursor: `ℓ = 0` — the SAME `unionRec` construction at `ℓ = 0` (no arm); the
+  `mem_type` fact is the induction principle (`lfpTuple_induction` behind
+  `unionAcc_all`); `w = 0 ∧ ℓ ≠ 0` — only at `k = 1`, one ctor (§4.3's kept arm).
+So Prop is EASIER at k: one fewer witness, one fewer recursor regime, and nothing
+new in the elimination guard beyond the one official clause.  What stays: the bit
+discipline (`ℓ = 0 ↔ d.2.1 = 0` on every generated binder datum; under checking the
+stored recursor type's binders carry the STREAM's data, read by `rebit` at ℓ's regime
+as today's A2 re-bitting).
+
+---------------------------------------------------------------------------
+#### 6. The environment invariant
+
+Today nothing after `declNative` knows "T is the lfp of its operator": `EnvModelM`
+(Model/Annot/EnvModelM.lean:71) has `mem_type`, `rec_rules`, `caps_ok`, `tower_ok`,
+and the lfp shape is the threaded `hleafT` (FixStageRec.lean:621, FixRecKFrame.lean:268).
+Deliverable 1 has no consumer (every stage is install-local; the recursor check
+consumes the SAME block's fibre law); step 2 has none either (the rules are part of
+the block's `indDecl`).  Step 3 (positivity through an EARLIER block's container)
+is the first consumer and needs the operator + monotonicity in the parameter.
+Adding a clause now costs its preservation across every other declaration kind
+(`Model/Fold.lean:165 declStep_preserves`'s seven arms — the `tower_ok`/`rec_rules`
+pattern, ~1 session) with no consumer: the `consumer-first-hypotheses` rule says no.
+**Recommendation (D5): no clause now; define the RECORD** `BlockModelAt (m : EnvModel V
+env) (names : List Name) (d : BlockData)` (the per-member `acval T_m ψ = blockTyAV
+…` + `BlockChainsOk` at every parameter frame + the fibre law) in
+`Model/Inductives/BlockRep.lean` and thread THAT as the hypothesis of every stage
+(instead of `hleafT`/`hframes`/`hfold` separately — #315's `IsBlockModel` clauses
+`former/functor/fibre/leaf`, BlockRep.lean, are the shape).  Step 3 then adds
+`block_models : ∀ names d, BlocksRecorded env names d → BlockModelAt base2 names d`
+to `EnvModelM` and proves preservation once, with the stages unchanged.
+
+---------------------------------------------------------------------------
+#### 7. Work plan
+
+Session = one Opus lane-day (3–6k lines).  Branch `uniform-inds`; every milestone
+`lake build` + `lake test` warning-free, sorry-free, `tests/arena.sh` green (incl.
+layering, trust-surface, shake, `overview-links.sh`, `quote-gate.sh` — `checkNative`,
+`classifyFixKinds`, `normPosDom`, `container_closed_exists`, `declNative` and
+`lfpFamSpace` are OVERVIEW/README-linked: renames trip the gate; re-read the citing
+paragraph, `--update`, and report README text that ought to change).  The route
+is GATED at `k = 1` (`blockParts?` returns `none` for `k ≥ 2`, one named guard
+`blockRouteK1Only`) until M6, so the modelled route keeps serving mutual blocks and
+every intermediate tree is a complete, proved checker.
+
+**M0 (done, bac26f11)** + M0′ (½ session, any lane): `lfpTuple_congr` (from
+`agent/uniform-le` LfpCompose.lean@5fea1316, or reproved in LfpTuple.lean).
+
+**M1 — kernel at k (lane K, 2 sessions).  THE FIRST LANE, starts tomorrow:**
+* `Kernel/Inductives/BlockParts.lean` (new): `MemberShape`/`BlockShape`/`BlockParts`
+  (§2.1) with the `complete`/`withKinds`/`withSort` `rfl`-simp projections;
+  `blockSplit`, member assignment + grouping check, `blockCounts?`, `blockShape?`,
+  `blockRecPinOk`, `blockRecLpsOk`, `blockParts?` (gated `k == 1`); `RecFieldKind`
+  with targets, `recFamOk`/`recPositivity`/`recFieldKind`/`recCtorKinds` over the
+  member list; `Expr.mentionsAnyConst` + memo + `_spec` + `@[csimp]` in
+  `StructParts.lean`; `NativeParts.lean`/`SumParts.lean` reduced to what the k = 1
+  callers still need (the generators stay for the interim recursor stage).
+* `SumInstall.lean`: `checkBlockInds` (the k-former loop with official's parameter
+  and sort agreement), `checkSumCtors` at a member name; `NativeInstall.lean` →
+  `BlockInstall.lean`: `blockCapsAt`, `blockRawRec`, `blockIsRec`, `classifyBlockKinds`,
+  `nativeOpenedOk` at targets, `checkBlockPass`/`checkBlockTail`/`checkBlock`
+  (stages 0–2 + the recursor stage as the EXISTING `checkNativeRec` at `k = 1` and
+  `.notImplemented` at `k ≥ 2` — replaced in M5 — + tables per member); the `F`/`S`/
+  `_datF`/`_skels` twins; dispatch sites unchanged in shape.
+* Verify: `FixParts`/`FixInv`/`FixWF` restated over `BlockParts` so `declNative`
+  still closes at `k = 1` (the run relation `DeclNativeRun` gains the k-shaped
+  stages with `k = 1` instantiated).
+* Gate: all of the above + a PROBE (not committed as a test) running the mutual
+  fixtures with the gate removed and `CON_LECHE_INMODEL=0`: they must reach the
+  recursor stage's `.notImplemented` (exit 2) and the bad twins must REJECT before
+  it (`ind_mutual_param_bad`/`_sort_bad` → 1 with official's messages).
+**M2 — semantics leaf (lane S, 2 sessions, parallel with M1 after M1 fixes the
+record's field names on day 1):** `BConst.lfpTuple k` (five sites + `numLevels`),
+`BlockLeafI`/`BlockFamI` (§3.1: leaf, operator, `BlockChainsOk`, mono/maps, fixed
+point, fibre law per member, closure at both regimes), the k = 1 identity
+`blockTyAV_one : ⟦blockTyAV_1⟧ = ⟦nativeTyAVI⟧` as the lane's falsifier,
+`Semantics/Inductives/DeclBlock.lean` (the run relation at k).
+**M3 — model formers/ctors/tables at k (lane M, 3 sessions, after M1+M2):** the Fix*
+→ Block* port of §3.3 (formers loop, ctor data with targets, chains/shadow/witness/
+assembly, tables per structure-like member), `Model/Inductives/BlockRep.lean` (§6's
+record), `declBlock` assembled as per-stage theorems with the recursor stage a NAMED
+fact `BlockRecStaged` (consumer-first: the assembly compiles before M5 proves it;
+at `k = 1` it is discharged by the existing `stageFixRec` through the identity).
+**M4 — Verify at k (lane V, 1 session, parallel with M3):** `BlockInv`/`BlockWF`
+(`EnvWF` through k formers, N ctors, k recursors, tables; `IndCapsWF` per member).
+**M5 — the recursor stage as checking (lane R; Semantics 3 sessions can start after
+M2 against the abstract `UnionRecKit`; kernel 1.5 after M1; Model 2 after M3):**
+§4.2 kernel + twins + `checkBlockRec_inv`; `BlockRecI`; `BlockStageRec`/`BlockRecRead`;
+discharges `BlockRecStaged` for all k; deletes the (i)-lane files of §3.3 and
+`Semantics/Tower/Fix{Case,RecCore,Rec,Elem,Ih,Wire}I`, `IhSpell` except the squash
+arm; `FixTuple.lean`.
+**M6 — the flip (1 session):** remove `blockRouteK1Only`; `InModel.wants` nested-only,
+`genMutual` deleted; `tests/inmodel.sh` list (§2.8); `tests/e2e-expected.txt`:
+expected `2 → 0`: `mutual_struct_proj` (reflexive member in a mutual block),
+`ind_defhead_mutual` (def-headed formers), `ind_rec_struct_proj_raw` and
+`ind_proj_mutual_nested` (both decline today at the MUTUAL structure's raw `.proj`,
+now served by the member's table — measure; the latter's nested block stays
+modelled); must STAY `0` (route `inmodel` → `fix`): `inmodel_mutual`,
+`inmodel_mutual_idx`, `ind_mutual_three`, `ind_mutual_idxsort`, `ind_mutual_param_defeq`,
+`ind_mutual_sort_defeq`, `ind_mutual_zero_ctor`, `tower_mutual`; must STAY `1`:
+`ind_mutual_param_bad`, `ind_mutual_sort_bad` (messages change to official's — the
+comment rows say so), `ind_mutual_idxsort_bad`; the 34 `nested_*` rows unchanged
+(`nested_p05`/`nested_p24`/`inmodel_groups` are mutual-AND-nested: still modelled).
+New bad twins (`scripts/mk_mutual_bad.py` extended, from `inmodel_mutual`): minor
+order swapped across members → 1; an ih naming the wrong member's recursor → 1;
+a mutual Prop block claiming a large eliminator → 1; a ctor of member B with result
+head A → 1; a negative occurrence through the other member → 1; under (ii): a rule
+recursing on a non-field → 1, a rule with an unguarded recursor occurrence → 1, and
+one GOOD twin whose rule body is typed but not `minor f⃗ ih⃗` → 0 (documents the
+accept-superset).  Arena 90/92 must hold; route census (`Main.lean` "route … fix")
+on init-full and Mathlib: every mutual block `fix`, Mathlib 654 499 unchanged — ONE
+side-agent sweep at the end, never on the critical path.  DESIGN.md record (the
+summary §"Inductives via generated models" 173–341 rewritten for the block model;
+this document's decisions with their reasons; the route census).  Retire
+`BConst.lfpFam` (D4).
+**Total ≈ 14–16 sessions; wall ≈ 9–10 lane-days** (K ∥ S, then M ∥ V ∥ R-Semantics,
+then R-Model, then M6).  Under (i) instead: M1 +0.5 (generators at k), M4 +0.5, M5
+becomes the (i) port ≈ 5 sessions with no kernel change, total ≈ 15, and step 2 ≈ 7
+later.
+
+### Decisions needed from the maintainer
+* **D1** Re-open U-6 (1): the basis constant `lfpTuple k` (§1.3).  Fallback (B) +2.5k
+  lines, +2 sessions.
+* **D2** Sequencing (ii) — the recursor stage built once as checking inside this
+  deliverable (§4.4) — vs the literal order (i).
+* **D3** The primitive-recursion guard: `e⃗` syntactic, `a⃗` arbitrary, body arbitrary
+  (§4.2 (c)); alternatives narrower (official's exact shape) or wider (defeq `e⃗`).
+* **D4** Retire `BConst.lfpFam` at the flip.
+* **D5** No `EnvModelM` clause now; `BlockModelAt` record threaded (§6).
+* **D6** Integration on `uniform-inds` with the `k = 1` gate until M6, every
+  milestone sorry-free; nothing lands on master before the flip (per
+  `agent-branch-protocol`) — or land M1/M2 on master early (they are k = 1-complete).
+* **D7** `RecFieldKind` carries the target (vs a parallel `tgts` list) — minor.
+
+
+### DESIGN DOCUMENT 2 — theory for steps 2 and 3
+
+### DESIGN — theory for steps 2 and 3: recursor CHECKING and positivity THROUGH containers
+
+Theory design, 2026-09-21, against `uniform-inds` (master 09c3a50c + bac26f11).  Line
+numbers are of that tree unless a branch is named.  Inputs: CLAUDE.md, DESIGN.md
+138–341/352–625, `SURVEY-native.md` (§2, §4.1, §7.7), `SURVEY-official.md` (§1.7, §2.5,
+§3.1, §4), `SURVEY-mutual-direct.md` (§1.1–1.5, §3), `DESIGN-kary.md` (deliverable 1;
+its terminology — `BlockParts`, `blockTyAV`, `blockΦ`, `BlockChainsOk`, `checkBlockRec`,
+`abstractIh`, `BlockModelAt`, `BlockRep.lean` — is used here unchanged), the pure kit
+on this branch, `agent/uniform-le`'s `LfpCompose.lean`, `agent/nested-279m`'s
+`Bekic.lean`, `mutual-direct`'s `BlockRep.lean`/`NestedTreeList.lean`, official
+`inductive.cpp` v4.33.0.  One probe was run: `LfpCompose.lean` at 5fea1316 (segments,
+`lfpTuple_seg`, the clamp, `composeΦ`) compiles UNCHANGED against this branch's kit
+(`_tmp/uniform-inds/theory-probe/LfpCompose5fea.lean`, exit 0).
+
+#### 0. The decisions
+
+**T1 (§1). The env-invariant clause records the WIDE tuple.**  For every stored
+non-basis inductive `I` (member `m` of a block with `k` members and `n` container
+instances, `N = k + n` components): `⟦I⟧ p⃗ ı⃗ = app (lfpTuple w N (Is ρp) (Ψ ρp) m) ⟨ı⃗⟩`,
+where `Ψ` is a V-level operator (option (a)) DEFINED from the stored constructor types
+through a pure syntactic function (`absBlock`, §2.2) that both the checker and the
+model compute — the members' constructors and the containers' constructors at the
+pins, every member/instance occurrence read as a plain component slot.  The clause is
+`mutual-direct`'s `IsBlockModel` (BlockRep.lean:399: `idxOk/functor/fibre/leaf/ctor/
+mkZero/mkInj`) at width `N`, keyed on `env.find?`; `k`-member blocks have `n = 0`, and
+`k = 1` is what `declNative`'s `hleafT` already supplies (§1.5).  The narrow form the
+maintainer wrote (`I p = μ i, C p i`) is DERIVED by Bekić at the member
+(`lfpTuple_eq_section`, LfpTuple.lean:285), never recorded: recording only the narrow
+operator loses the instance components that (i) a later block nesting through `I` and
+(ii) `I`'s own recursor family (one recursor per component, officially) both need.
+
+**T2 (§2). Positivity through containers = official's aux reduction done SEMANTICALLY,
+with no copies minted, stored or type-identified.**  Instances are located
+syntactically before whnf and become fresh VARIABLES `y_q` of type `Π ı⃗_q, Sort w`
+(the members become `x_m`, the maintainer's "`C p x` for a fresh `x`"); the field
+types and the containers' constructor types at the pins are then ordinary
+(member-only) block chains over `x⃗ y⃗`, and the ONE semantic theorem is the
+identification at the least tuple, `⟦C_q Ds_q⟧ = L (k+q)` — a corollary of the
+container's env clause and Bekić at a segment (`lfpTuple_seg_congr`, uniform-le
+LfpCompose.lean:304), by induction on a rank the checker records.  What this makes
+UNNECESSARY: the clamp, `composeΦ`, `pinsCar`, every `FibreConst`/`setJoin` lemma
+except for collapsing pins (§2.6), `unionAcc_of_classAcc`, the level fact `w ≤ w'`
+(K.27's content — it becomes the sort gate), and — perhaps surprisingly — "the lfp is
+monotone in a positive parameter": the hole never sits inside a container's parameter
+semantically, exactly as in official's reduction.  The parametric theorem is what the
+NARROW route would need, and its (W) half is the "abstract route" already assessed
+dear (memory `abstract-route.md`); §2.7 says why.
+
+**T3 (§3). Recursors: DESIGN-kary §4.2/§4.3 as written, at width `N`.**  The family is
+read off the MOTIVES (component `j`'s major type = the member at the block's
+parameters or an instance key up to the check's structural equality), rules match on
+the CONTAINER's constructors at the pins (`nfields` = the container constructor's,
+pins unbound), the primitive-recursion guard is the `abstractIh` abstraction, the
+semantic recursor is `unionRec` over the `N`-component union, the leaf the ι-pinned
+Σ'-chain.  Aux rules fire as `.nested lvls pins` (`Modeled.lean:167 nestedRuleShape`,
+kept); `elim_only_at_universe_zero` counts `N`, and §3.5 shows the exact place the
+soundness proof breaks without it.
+
+**T4 (§4). Prop is easier, and nothing is Prop-specific in the nested arm** beyond
+official's own three clauses (sort gate, elimination guard at `N`, no K).
+
+**T5 (§6). First falsifier: `Tree/List` through the env clause at the set level,
+≤ 1 session**, expected to need NEITHER `unionAcc_of_classAcc` nor `w ≤ w'` — the two
+hypotheses `NestedTreeList.lean` needed — and then the depth-2 `P3` probe for the
+rank induction.  Whole theory ≈ 13–18 sessions after deliverable 1.
+
+---------------------------------------------------------------------------
+#### 1. The env-invariant clause
+
+### 1.1 What the consumers read (why (a) and why wide)
+Three consumers, in the order they arrive:
+1. **Positivity of a LATER block `U` through a container `C`** (§2) needs, for every
+   parameter frame `ρ` in `C`'s `Sat` domain: `C`'s operator as a set-level function
+   of `ρ` and of `C`'s OWN tuple (`functor`: `MonoTuple/MapsTuple/∃ closed`), its
+   `fibre` in terms of the readings of `C`'s STORED constructor field types, and the
+   `leaf` equation.  It reads them at frames whose parameter values are `U`'s
+   carrier components — values, never terms — so a V-level operator (a) suffices; a
+   syntactic operator (b) would only be re-interpreted.  What ties the operator to
+   syntax the checker can inspect is the `fibre` clause: the entries it fits are
+   `denoteMeta` readings of the stored `ctorInfo` types (`domRead` in
+   `BlockCtorData`, mutual-direct BlockRep.lean:155), which is how `RecRuleLaw`
+   (Laws.lean:436) already ties a stored rule's rhs to its reading.
+2. **`U`'s constructor typing** (`EnvModelM.mem_type`, EnvModelM.lean:96): the ordinary
+   reading of `Tree.node : List Tree → Tree` has domain `⟦List⟧⟦Tree⟧`, and the
+   value `inj 0 [l]` is in `U`'s fibre only if `l` is in the aux List-component — the
+   identification of §2.4, which needs `C`'s WIDE tuple when `C` is itself nested
+   (§2.4, the `P4C P4` example).
+3. **`U`'s recursor family**: official emits one recursor per aux key (SURVEY-official
+   §2.4: `Tree.rec_1`, `P3.rec_1..3`); the model's recursor is `unionRec` over the
+   `N` components (§3), so the components must exist in the datum.
+
+### 1.2 The clause
+```
+-- Model/Annot/Laws.lean (new, beside TowerOk :755)
+@[expose] def BlocksOk (m : EnvModel V env) (φ : Name → Nat) : Prop :=
+  ∀ T cvT caps, env.find? T = some (.indInfo cvT caps) →
+    reservedBasisNames.contains T = false →
+    ∃ d : BlockData, blockDataOf env T = some d ∧ BlockModelAt m φ d T
+-- EnvModelM (EnvModelM.lean:71): block_models : ∀ φ, BlocksOk base2 φ
+```
+`blockDataOf env T` is a PURE FUNCTION of the stored block (§2.2 `absBlock`): the
+member list, each member's constructors, `nP`, the instance table with its groups
+and rank, the abstract constructor lists.  It needs the block's member list and
+constructor names to be FINDABLE from `T`: **store `all : List Name` and `ctors :
+List Name` on `.indInfo`** (official's `inductive_val` has `all`, `cnstrs`,
+`numNested`; `IndCaps` Env.lean:352 is the natural home).  Deliverable 1 should add
+the two fields now so the record is stable (a `ConstWF`/`IndCapsWF` clause each,
+Verify/EnvWF.lean:116/147).  `BlockModelAt m φ d T` = `IsBlockModel`'s clauses
+(BlockRep.lean:399–487) at width `d.N`, member index `d.memberIdx T`:
+```
+idxOk   : ∀ ψ ρp, Sat (params ψ).reverse ρp → ∀ c < N, IdxOk (u c ψ) ρp (Ids c ψ)
+functor : ∀ ψ ρp, Sat … ρp → MonoTuple (w ψ) N (Is ψ ρp) (Ψ ψ ρp) ∧ MapsTuple … ∧ ∃ L, IsClosedTuple …
+fibre   : ∀ ψ ρp, Sat … ρp → ∀ X ∈ space, ∀ c < N, ∀ t ∈ Is c, ∀ x,
+            x ∈ app (Ψ ψ ρp X c) t ↔ ∃ j fs, ChainFit ψ ρp X t c j fs ∧ x = inj ψ c j fs
+leaf    : ∀ ψ ρ as is, SpineFit ρ (params ψ) as → SpineFit (consList as ρ) (Ids m ψ) is →
+            (as ++ is).foldl app ⟦acval T ψ⟧ = app (lfpTuple (w ψ) N (Is ψ (consList as ρ)) (Ψ ψ (consList as ρ)) m) (tup m is)
+ctor    : member m's constructor j at fitting params/fields = inj ψ m j fs      -- members only
+mkZero  : w ψ = 0 → inj ψ c j fs = pt ;  mkInj : w ψ ≠ 0 → inj injective within a component
+```
+`ChainFit` (BlockRep.lean:372) is SEMANTIC: entry `i` of component `c`'s constructor `j`
+is a set read at `(ρp, fs prefix)`, a recursive slot is `app (X (tgt c j i)) ⟨e⃗⟩` under
+the field's telescope.  For an instance component `c = k + q` the entries are the
+readings of the container's stored constructor types at the pin (§2.2 (iv)) — the
+`domRead`-style clause quantifies over `ψ` and reads `ctorInfo` types by `denoteMeta`
+at `env`, so the clause never names a container by name.  Nothing in the clause
+mentions `composeΦ`, `pinsCar` or a second install.
+
+### 1.3 Levels, `resetMeta` (question (c))
+Stated at every `ψ : Name → Nat` over the UNINSTANTIATED stored types, like
+`RecRuleLaw`'s `∀ us` and `type_reads`; an occurrence `C.{ls} Ds` in a later block is
+read at `ψ_C := Level.substFn ψ C.lps ls` through `denotePInstLevels`
+(`EnvModelM.constType`, EnvModelM.lean:157 is the worked example).  `resetMeta` is
+irrelevant: the clause reads STORED types through `denoteMeta`, which owns the bits;
+the abstract copies of §2.2 are built from stored types and re-annotated by the
+checker before they are read (as `pisToLams`'s consumers do, ExprOps.lean:1251).
+
+### 1.4 Cost of the clause (question (d))
+The `tower_ok` pattern (task #175 W5): one law in Laws.lean; one `EnvModelM` field
+(EnvModelM.lean:143); four construction sites (`EnvModelM.empty` :232 — vacuous;
+`Install.lean:446 declStep_preserves_of_cons` + `:298 _guarded` — one more
+hypothesis `hblocks_ok`; `Swap.lean:187 EnvModelM.swapP` — the swap changes only
+`recInfo` rule lists, and the clause reads none, so the field transports verbatim
+through `hsame`; `Rules/Inputs.lean` — a read); the generic preservation lemma
+`blocksOk_cons_fresh` (RecRulesCons.lean:372 `towerOk_cons_fresh`'s twin: a cons of a
+name that is not a stored block's member/constructor leaves `blockDataOf` and every
+`denoteMeta` reading unchanged — `denoteMeta_cons_fresh`, Install.lean:86) and
+its use at the ~20 call sites that pass `htower_ok` today (IndCons.lean:102/178/224,
+BasisStep, Harvest, AxiomMem, ProjInstall, RecRulesCons: `grep tower_ok` = 22 files);
+and the ESTABLISHMENT at the block install (`declBlock` supplies `BlockModelAt` for
+the new block, `blocksOk_cons_fresh` for the old ones — the block's own conses are
+`k + nCtors + N` fresh names, each a `cons_fresh` step until the last, where the
+new datum is discharged).  Estimate: **1 session** for the plumbing, following
+`tower_ok` line by line; the establishment is deliverable 1's `BlockModelAt`
+hypothesis handed over (DESIGN-kary §6, D5 — agreed: no clause until step 3, but the
+record's shape is fixed now at width `N`, and `all/ctors` stored now).  Basis blocks
+are excluded (`reservedBasisNames`, as `CapsOk` Laws.lean:301 does); nesting through
+a basis container (`Quot T r`, `Eq (List T) [] l`) DECLINES, positively detected
+(§2.6) — the Mathlib census has none (SURVEY-official §3.1).
+
+### 1.5 The `k = 1` instance is `hleafT`
+`stageFixRec`'s hypotheses (FixStageRec.lean:580–640): `hleafT : acval T ψ =
+nativeTyAVI …`, `hframes : ∀ ψ ρp, Sat → XChainsOk … ∧ ChainsRealI …`, `hleafC` (the
+constructors' `sumMkAV` leaves).  `leaf` = `nativeTyAVI_fold` (FixLeafI.lean:536) +
+`fixFamI_eq_lfpTuple` (FixTuple.lean:27, `lfpTuple_one`); `functor` = `monoTuple_one_of
+(fixFunVI_mono h)` (FixFamI.lean:765), `mapsTuple_one_of (fixFunVI_maps h)` :772,
+`closedTuple_one_of h.hclosed`; `fibre` = `fixFamI_app_eq_sum` :947 through
+`ChainsRealI`; `ctor` = `hleafC` + `sumMkAV_fold` (SumMk.lean:666); `mkZero/mkInj` =
+`injW 0 = pt` / `inj_inj` (TaggedSum.lean:129).  `mutual-direct`'s `BlockModel.ofNative`
+(`BlockRepOne.lean`) did exactly this; reuse its statement.
+
+---------------------------------------------------------------------------
+#### 2. Positivity through containers
+
+### 2.1 The check (kernel), stated to match SURVEY-official §1.7 exactly
+Inputs: the block's members `T_0..T_{k-1}` with formers checked, `nP`, the constructor
+types opened at parameter fvars.  Output: `NestedParts` = the instance TABLE (a list
+of GROUPS) + per-component abstract constructor lists + per-field kinds with targets
++ the rank.  Steps, per constructor field domain `D` (params as fvars `p⃗`, earlier
+fields as fvars):
+1. **Locate** (before any whnf, everywhere in `D` — under λ/Π/let, negative positions
+   included, official `replace` 1044): a subterm `C.{ls} Ds is` with `C` a stored
+   `.indInfo` (a def/abbrev head is NOT located: A11/A25), `|Ds| = C.numParams`, some
+   `Ds[j]` mentioning a member or an already-located instance.  REJECT if some `Ds[j]`
+   has a loose bvar (official 962; A4/A7/A28/A29 — `Eq` has two params, so every
+   `a = a` field pin rejects), REJECT if a member occurs anywhere not as
+   `T_m.{lps} p⃗` (master's `check_uniform_ind_occs`, §1.6 — adopt it), REJECT if
+   `C`'s sort at `ls` is not `Level.isEquiv` the block's (official 251: A5/A24/A26/
+   A34), DECLINE if `C` is reserved (basis) or not stored by the uniform route.  Key
+   = `C Ds` with `p⃗` abstracted, compared by `resetMeta`+`eraseNames` structural
+   equality (official 996 `==`: `List T ≠ List (id T)`, B10).  Memoised.
+2. **Group**: a NEW key `C Ds` opens a group `g = (C, ls, Ds)` whose components are
+   `C`'s own stored table substituted at `Ds` — i.e. `blockDataOf env C` (§1.2) with
+   `C`'s params instantiated — contiguous, `N_C` of them (one per member of `C`'s
+   mutual group and one per instance of `C`'s own table; official 1009 copies every
+   `J ∈ get_all`, then the queue finds the rest).  Each component gets a fresh
+   variable `y_{g,c} : Π ı⃗_c, Sort w` where `ı⃗_c` is that component's index
+   telescope at `Ds` (official `Π As, J.type[params := Ds]` 1015).  Duplicate keys
+   WITHIN a group (collapsing pins, `nested_pin_collide`) — §2.6.
+3. **Abstract**: `D^abs` := `D` with every member application `T_m p⃗ e⃗` replaced by
+   `x_m e⃗` and every located instance `C Ds is` by `y_{g,c} is` (innermost first, so
+   pins inside pins are replaced first).  Then run TODAY's positivity walk on `D^abs`
+   with `names := x⃗ y⃗` (`recPositivity` NativeParts.lean:97 generalised to k names
+   by DESIGN-kary §2.3; the walk is over fvar heads instead of const heads):
+   `normPosDom` (SumInstall.lean:162) whnf's the domain and each Π body AFTER the
+   abstraction (official 394/402: the redex/let/λ pins of §1.5 — A13, A36, D4,
+   `nested_lam_pin_*` — are seen by whnf, `MyList T` is not: its whnf exposes
+   `List x_T`, an inductive head with a variable in a param position that is NOT a
+   located atom → `.negative`, official's "non valid occurrence").  Verdict per
+   field: `.ordinary` | `.recursive tgt` | `.reflexive tgt` | `.negative`, with `tgt`
+   a component index (`x_m ↦ m`, `y_{g,c} ↦ k + off g + c`); indices of a slot must
+   be `x⃗ y⃗`-free (official 349–353: A1/A2).
+4. **Descend** (memoised on the key; the queue of official 1065): for every component
+   of a new group, its container constructor `J.c` at `ls`, params `:= Ds^abs` (the
+   pins with THEIR atoms abstracted): `absCtor := Π As, J.c.type[lps := ls][params
+   := Ds^abs]` (official 1029–1032, `instantiate_pi_params` strips exactly `nP_J` Πs);
+   TYPE-CHECK it at the abstract env (`p⃗`, `x⃗`, `y⃗` as fvars — official checks the
+   aux constructors, `check_constructors` on the aux block; A8 `{l // l.length > 0}`
+   fails here with "application type mismatch", conformance) and run steps 1–3 on
+   each of its field domains; its result must be `y_{g,c} is'` with `is'` atom-free
+   (official 450, "invalid return type"); field universes ≤ `w` or `w ≡ 0`
+   (`checkStructFieldSortsI` SumInstall.lean:124, official 436–441).  The copy's
+   former at `Ds` must be atom-free (D1).
+5. **Rank**: the group dependency graph (edges `g → g'` for every atom of another
+   group read by `g`'s abstract constructors, and for every atom inside `Ds_g`) is
+   topologically sorted; a cycle DECLINES (never expected: an edge either strips a
+   pin layer or moves to a container installed earlier — an argument, not a proof;
+   the checker computes the order and the model consumes it as data, so no
+   meta-argument enters the proof).  `NestedParts` records the order.
+6. The block is then a plain `N`-component block for deliverable 1's installer
+   (`BlockParts` with `N` components: members' constructors + the abstract copies'),
+   EXCEPT that only the `k` members, their constructors and the `N` recursors are
+   STORED; the copies exist only as `absBlock`'s output (never consed: no `_nested`
+   names, no `nested_aux_clash`).
+
+`absBlock env block : Option AbsBlock` is the pure function both sides call
+(steps 1–5 minus the type checks, which are `ops` calls whose results the run record
+carries as claims); its output at a stored block is `blockDataOf` (§1.2).
+
+### 2.2 The semantic aux operator `Ψ` and its laws — FREE from deliverable 1
+`Ψ ψ ρp : (Nat → V) → Nat → V` on `N` components := deliverable 1's `blockΦ`
+(DESIGN-kary §3.1) applied to the abstract constructor lists: component `c`'s
+constructors are the member's (c < k) or the copy's (`absCtor`s of the group),
+every slot plain with a target.  Consequently, WITH NO NEW SEMANTIC WORK:
+(i) `MonoTuple`/`MapsTuple` (`fixStepI_mono` FixFamI.lean:738 at `N`, from the
+kinds); (ii) `fibre` (`fixFamI_app_eq_sum` :947 per component); (iii) (W) at `w ≠ 0`
+by `tupleContainer_closed_exists` (TupleContainer.lean:127) — shapes = the
+hole-free entries, positions = the slots' telescopes, `tgtM` = the target component
+— exactly `FixWitness.fixClosed_of` :783 at `N` components, and `closedTuple_zero`
+:209 at `w = 0`; (iv) the readings: an abstract copy is a constructor type CHECKED at
+the abstract env, so `fixCtorData_of` (FixData.lean:292) reads it as it reads a
+member's, with one simplification — because `x⃗ y⃗` are fvars, the claims hold at
+EVERY value of the components and the shadow context (FixShadow.lean:216, the
+`Sort 0` trick for recursive binders) is not needed for the copies.  **Recommendation
+for alignment with DESIGN-kary**: use the fvar discipline (members as `x_m` fvars of
+their former types) for the positivity/copy pass of ALL blocks, nested or not; the
+stored constructors are still checked at `env₁` for the record.  One reading
+discipline, and the maintainer's "`C p x` for a fresh `x`" literally.
+
+The grading premise (`BlockChainsOk`) needs each abstract entry graded at every
+tuple `X` in the space: for `y_{g,c} is` that is `X (k+off+c)` applied to a fitting
+index tuple (a plain slot); the ONLY new obligation is that a pin `Ds[j]^abs` reads
+into the container's parameter domain at every `X` — which is the abstract copy's
+TYPE CHECK (step 4) at the fvar env, certified by `infer_ev` at fvar contexts.  This
+is K.27's `nestedPinsAbsOk` (uniform-le), now LOAD-BEARING rather than tax: it is
+what lets the container's `functor`/`fibre` be read at the hole.  The level fit
+`w ≤ w'` of `NestedTreeList.lean` is subsumed: the sort gate makes `w' = w`.
+
+### 2.3 What whnf inside the check costs the proof
+Nothing new.  `normPosDom` REPLACES a domain by its whnf'd form and the constructor is
+re-checked on the rebuilt type (`normCtorVal` SumInstall.lean:195: "nothing about the
+reduction is trusted"); the model reads the STORED (normalised) constructor.  For the
+abstract copies the same: the copy's field domains are normalised, the copy re-typed,
+and the model reads the normalised copy.  The whnf equation itself never enters the
+model (`whnf_ev` is not consumed) — as today.  The one place it would have: the
+substitution law "reading `absCtor` at `y⃗ := ordinary values` = reading the stored
+container constructor at `ρ := ⟦Ds⟧`" (§2.4), which is a law about the UNNORMALISED
+copy; so the identification needs `⟦normalised copy⟧ = ⟦copy⟧` at the abstract
+frame — this is `whnf_ev`'s claim at the fvar context, recorded by the run
+(`normPosDom_inv`-style, as `normCtorVal_inv` SumInv.lean:221 records it today: the
+normalised domain is `isDefEq` the declared one and both are checked).  One lemma,
+already of the existing shape.
+
+### 2.4 THE theorem: identification at the least tuple
+Let `L := lfpTuple w N Is Ψ` (at a parameter frame `ρp` in the block's `Sat` domain).
+**Claim.** For every group `g = (C, ls, Ds)` and component `c` of `C`'s table:
+`L (k + off g + c) = ⟦C-table component c⟧ at ρ_C := ⟦Ds⟧^ord`, where `⟦Ds⟧^ord` is the
+ORDINARY reading of the pins with members at `L|members` and inner atoms read
+ordinarily; for `c = 0` (C itself) that is `⟦C Ds⟧`, the domain of `Tree.node`.
+**Proof** by strong induction on the rank of `g` (§2.1 step 5).
+* Bekić at the segment: `lfpTuple_seg` (LfpCompose 5fea1316:215) gives
+  `L (a + c) = lfpTuple w s (Is∘(a+·)) (segSec Ψ a s L) c` for the segment
+  `[a, a + s)` of `g` (`s = N_C`).
+* The section operator `segSec Ψ a s L Y` reads `g`'s abstract copies with `g`'s own
+  atoms at `Y`, the members at `L|members`, and every OTHER group's atoms at `L`'s
+  components — which by the IH (those groups have lower rank) equal their
+  containers' ordinary carriers at `⟦·⟧^ord`.
+* `C`'s env clause (`functor`/`leaf` at `ψ_C`, frame `ρ_C = ⟦Ds⟧^ord` — in `C`'s `Sat`
+  domain by the pins' type check, §2.2) gives `⟦C⟧ ρ_C = lfpTuple w N_C (Is_C ρ_C)
+  (Ψ_C ρ_C) 0`, and `Ψ_C ρ_C Y` reads `C`'s STORED constructors at `ρ_C` with `C`'s own
+  atoms at `Y` and everything else ordinarily.
+* The two `s`-operators agree on the WHOLE tuple space: entry by entry, the abstract
+  copy's reading at `(y⃗_g := Y, x⃗ := L|m, other atoms := ordinary)` equals the stored
+  constructor's reading at `ρ_C` — the SUBSTITUTION LAW `interp (E.instParams Ds^abs)
+  (ρ, y⃗ := …) = interp E (ρ[params := ⟦Ds⟧^ord])` (an `interp_inst`/`denoteMeta_inst`
+  lemma over the constructor telescope, plus §2.3's normalisation transport).
+  Index sets agree likewise.  Hence `lfpTuple_seg_congr` (uniform-le LfpCompose.lean:
+  304, ~40 lines, cherry-pick with `isClosedTuple_congr`/`lfpTuple_congr` :257/:275).
+So the ONLY pure lemmas beyond `LfpTuple`/`UnionRec`/`TupleContainer` are
+`lfpTuple_seg` + `lfpTuple_congr` + `lfpTuple_seg_congr` (≈ 350 lines of 5fea1316 +
+uniform-le, compile as-is).  `lfpFamSet_mono_functor` (nested-279m Bekic.lean:128),
+its tuple twin, `closedTuple_composeAt`, `composeΦ_*`, `pinsCar_lfp`, the clamp
+(`meetT`, `lfpTuple_congr_le_same` :1030) and the `setJoin`/`FibreConst` family are
+NOT needed (§2.6 for the last).  The identification is a fact about ONE install and
+the containers' RECORDED clauses — never about two installs at once (the cost that
+killed M6–M8, SURVEY-mutual-direct §3 lesson 2 (a)).
+
+Consumers of the claim: (1) `mem_type` of the block's constructors (`Tree.node`'s
+domain `⟦List⟧⟦Tree⟧ = L 1`); (2) the ι rules of the aux recursors: `List.cons Tree h t`
+is read ordinarily as `⟦List.cons⟧ ⟦Tree⟧ h t = inj_List 1 [h, t]` (List's `ctor`
+clause) and must be an element of `L 1`'s fibre decomposed by `Ψ`'s `fibre` at
+component 1 — the same equation `L 1 = ⟦List⟧⟦Tree⟧` plus List's `fibre` at `ρ_C`
+(constructor tags are the CONTAINER's, member-local — `injW`, the lesson of
+SURVEY-mutual-direct §2.5).
+
+### 2.5 The universe side
+The sort gate (step 1) makes `C`'s result sort at `ls` `Level.isEquiv` the block's,
+so `(s_C.eval ψ_C) = w.eval ψ` at every `ψ` (`Level.isEquiv` soundness) and `C`'s
+`MapsTuple` puts the segment's fibres in `univ w` — `famSpace w` closure for the
+`N`-tuple.  Index universes are PER COMPONENT (`u_c`; the abstract copy's index
+telescope at `Ds`): the tuple datum `lfpTuple w N Is Ψ` takes `Is : Nat → V` with no
+common index universe, so `TV`'s `Vec TV n` (index `Nat`, `u = 1`) sits beside `TV`
+(`u = 0`) — the `hu` gap of §U.17 does not arise (DESIGN-kary S2's per-member `u⃗`).
+Shapes/positions in `univ w` for (W): the copy's field universes are checked ≤ `w`
+(step 4), and `w ≠ 0` there.
+
+### 2.6 Two positively-detected declines, to land after the arm
+* **Collapsing pins** (`nested_pin_collide{,2}`: `J Collide Collide` makes `Pair α (J α β)`
+  and `Pair β (J α β)` the same key): official collapses structurally equal keys, so
+  its motive count is smaller than `N_C`.  Decline at step 2 ("duplicate key within a
+  group") first; then land uniform-le's `setJoin`/`FibreConst`/`lfpTuple_set_congr`
+  family (LfpCompose.lean:326–1000, proved) as the collapsed-segment congruence.
+  Accept-superset either way; the modeller false-rejects these today (memory).
+* **Basis containers** (`Quot`, `Eq`, `Nat`… — excluded from the clause, §1.4).
+
+### 2.7 Why not the narrow route (the maintainer's "`I p = μ i, C p i` monotone in `i`")
+Recording only `k` components and composing containers at the parameter (the
+#315 `composeΦ` shape) needs, for (W) at `w ≠ 0`, a closed tuple of an operator whose
+fibre contains `⟦C⟧(X)` as a SET (the container's carrier at the hole) — a container
+presentation of that fibre requires decomposing container elements into shapes and
+positions targeting the hole, i.e. `C`'s carrier as a container IN ITS PARAMETER (the
+"user-form operator law at FREE tuples", memory `abstract-route.md`, 11–18 sessions).
+The parametric monotonicity itself is cheap (`lfpFamSet_mono_functor`, five lines at
+tuples), but it does not give (W).  The wide route pays instead the per-copy readings
+of §2.2 — which deliverable 1's kit provides at any width — and the rank induction of
+§2.4.  Recorded as the point where this document deviates from the letter of the
+direction; the narrow view is a theorem (`IsBlockModel.ofMember`, BlockRep.lean:539).
+
+---------------------------------------------------------------------------
+#### 3. Recursor checking — the semantic construction
+
+Adopt DESIGN-kary §4.2 (kernel) and §4.3 (model) verbatim; this section fixes the
+points the nested arm adds and the questions the brief asks.
+
+### 3.1 Family read off the MOTIVES, not the rules
+The stream's recursors `R_0..R_{N-1}` (`recs`, exporter order arbitrary — SURVEY-official
+§2.4 `E.rec_1, E.rec`) share `Π p⃗ (M_0 : Π ı⃗_0 (t : T_0), Sort ℓ) … (M_{N-1} : …)`; `T_j`
+is `T_m p⃗ ı⃗_m` (a member) or `C Ds ı⃗` with `C Ds` a key of the table (structural
+equality) — that assigns component `j` to each motive.  `R_j`'s tail is `Π ı⃗_j
+(t : T_j), M_j ı⃗_j t`; its rules are one per constructor of component `j`: member
+constructors, or the CONTAINER's constructors `J.c` with `nfields` = `J.c`'s field
+count and the rule prefix `λ p⃗ M⃗ m⃗ f⃗` where `f⃗`'s binder types are `J.c`'s field
+types at `[lps := ls][params := Ds]` — checked by `nativeRulePrefixOk` (NativeParts.
+lean:428) against the stored recursor type and `Expr.instPisAt pins` (exactly
+`nestedRuleShape`'s reading, Modeled.lean:167–186).  Motives are the CHECK's
+components: `N` = official's count by construction (§2.1 step 2/4 reproduce the queue;
+collapsing pins §2.6).  Reading from the motives rather than the rules makes a
+recursor with a missing rule (`nested_p07`-style false rejects) a plain `.invalid`
+("rules do not cover the component's constructors") instead of an uncharted shape.
+
+### 3.2 Rule bodies: the `abstractIh` shape (S2 via abstraction), recommended
+DESIGN-kary §4.2 (c): body arbitrary, every recursor occurrence a maximal spine
+`R_{tgt} p⃗ M⃗ m⃗ e⃗ (f_i a⃗)` on a `.recursive tgt`/`.reflexive tgt` field `f_i` of THIS
+constructor with `e⃗` the field's index expressions syntactically at `a⃗`; replaced by
+`ih_i a⃗`; `body''` typed at the env holding the `N` RULE-LESS recursors under the
+opened prefix `p⃗ M⃗ m⃗ f⃗ ih⃗`, `inferType body'' isDefEq M_j e⃗_c (c p⃗ f⃗)` (for an
+aux rule: `M_{k+q} is' (J.c Ds f⃗)`).  This is the maintainer's "recurses on the
+constructor's fields (or on reflexive fields applied to enough arguments)" and covers
+every official rhs (`minor f⃗ ih⃗` abstracts to itself, §5).  Why NOT a general
+congruence lemma: the step `st u g` must be typed into `B u` from the graph `g` on the
+predecessors alone (`UnionRecKit.hst`, UnionRec.lean:299); interpreting a body with
+the recursor bound to a junk-extended total function would require that function to
+inhabit `⟦RecTy⟧` outside the predecessors — every motive fibre inhabited before the
+recursion exists (DESIGN-kary §4.3's argument).  The abstraction turns the guard
+into a SUBSTITUTION lemma (`⟦body⟧[R ↦ R*] = ⟦body''⟧[ih ↦ ihVals R*]`, spine-structural,
+`ihAppAV_facts` FixRuleOk.lean:95's content) — no general congruence over `AnnotTerm`.
+
+### 3.3 The union recursor at width `N`
+`UnionRecKit ℓ w N Is Ψ` (UnionRec.lean:299) at the K-frame `(p⃗, M⃗, m⃗)`:
+* `pred (tagged c i x)` := `{ tagged (tgt c j i') ⟨e⃗_{i'}(fs, a⃗)⟩ (f_{i'} a⃗) | x = inj c j fs
+  (unique by mkInj at w ≠ 0; a chosen fitting spine at w = 0), i' recursive, a⃗ fitting
+  the field's telescope }` — `relPred` (UnionRec.lean:191) over the carrier's union;
+  `PredsFrom` (:110) from `Ψ`'s `fibre` at any `X ≤ L` (the `fibre` clause quantifies
+  over the space, so at `X`) — the fields of a `Ψ X c`-element are in `X`'s components
+  at the targets, which is the definition of `ChainFit`.
+* `B (tagged c i x)` := `app (app^ M_c i) x`; `hB` from `M_c`'s typing (`type_reads` of
+  the stream's recursor type: the motive binders are structural, DESIGN-kary §4.3).
+* `st (tagged c i x) g` := `⟦body''_{c,j}⟧` at `f⃗ := fs`, `ih_{i'} := λ-tower over a⃗ of
+  app g (tagged (tgt) ⟨e⃗⟩ (f a⃗))`; `hst` = the body's certified typing at the frame
+  with `ih` values in their domains (`graph_mem_B` :330 + the λ-tower typing).
+* `unionAcc_all` (:148) reaches every component (all `N` are tuple components — the
+  reason `unionAcc_of_classAcc` :138 and `unionRecC` :360 are not needed);
+  `unionRec_eq` (:275) is every ι rule of every `R_j` at once; `unionRec_mem_B` (:260)
+  the typing.  The leaf: the Σ'-chain `selChainAV s [RecTy_0 … RecTy_{N-1}] IotaAll`
+  (mutual-direct SigChainI.lean:246/256; `fixSelAVI` FixRecCoreI.lean:735's pattern),
+  inhabited by the `unionRec` tuple, its projections' laws by `sigChain_choice`;
+  `RecRuleLaw` (Laws.lean:436) per stored rule is the extracted equation, with the
+  `.nested lvls pins` conjunct discharged by `nestedRuleShape`'s certificate exactly
+  as the modeled route discharges it today (Modeled.lean:288–317: the instantiated
+  pins are fixed points of annotation, `checkAnnotList`/`checkTypedList`).
+* ι at runtime: an aux rule's major `List.cons Tree h t` has constructor params `[Tree]`
+  ≠ the recursor's parameter bvars, so `Expr.recRulePlain` (ExprOps.lean:1238) is
+  false; the rule is stored `.nested lvls pins` and `majorToCtor`'s nested arm
+  (Core.lean:851ff) compares the major's constructor params with the pins.  KEEP
+  `RecRuleFire.nested`, `nestedRuleShape`, the `ConstWF` clause (EnvWF.lean:157) and
+  `RecRuleLaw`'s nested conjunct; DELETE `checkIotaThm`/the `_model` artifacts and the
+  modeller (`Frontend/InModel/*` 3 222 lines, `Kernel/Inductives/Modeled.lean` 837
+  minus `nestedRuleShape`).
+
+### 3.4 What gets deleted (with DESIGN-kary S1 (ii))
+`Semantics/Tower/Fix{Case,RecCore,Rec,Elem,Ih,Wire}I`, `IhSpell` (≈ 4 300) except the
+squash arm's `sqSpine/sqPred/srcVals` (~600 of `FixSquashI` 1 839); Model
+`FixStageRec`, `FixRecRead` (2 420), `FixRecReadDefs`, `FixRecData`, `FixRuleData`,
+`FixRecKFrame`, `FixRecPre`, `FixRecLaw`, `FixRuleOk`, `FixRecLeaf`, `FixRecFrames`,
+`FixIntro` (≈ 7 500); `Verify/Inductives/FixRec.lean` (682); the generators
+`structRecTyR/structRecRhsR/structIhApp/structMinors*` (NativeParts.lean:233–390)
+and `nativeRulesOk` (:460).  Replaced by `checkBlockRec` (~500 kernel + twins),
+`BlockRecI` (~2 500), `BlockStageRec`/`BlockRecRead` (~2 500).
+
+### 3.5 Large elimination from Prop: where soundness breaks without the guard
+Official: `elim_only_at_universe_zero` (inductive.cpp:479) on the AUX block — `N ≥ 2 →
+Prop only`; `N = 1`: `nCtors ≥ 2 → Prop only`, one constructor → the subsingleton
+criterion (every non-Prop field occurs among the result's indices).  The kernel guard
+(NativeInstall.lean:581, DESIGN-kary §2.6) must count `N` (components), not `k`.
+**Where the proof breaks**: at `w = 0` every element is `pt` (`mkZero`), so the
+constructor decomposition `x = inj c j fs` is NOT unique — `mkInj` holds only at `w ≠
+0` — and `st (tagged c i pt) g` cannot be defined as a function of the value.  With
+two constructors `a, b : P` and `ℓ ≠ 0`, `unionRec_eq` would demand
+`st (tagged 0 ⟨⟩ pt) g = ⟦m_a⟧` AND `= ⟦m_b⟧`; the model refutes it at
+`M := λ_. Bool, m_a := true, m_b := false`.  With `N ≥ 2` the same: `P13 : Prop | mk :
+And P13 P13` has a single constructor but its `And`-component would need the values
+of `left`/`right` from `pt`.  Under the guard, `N = 1` and one constructor whose
+non-Prop fields are index arguments: the spine is READ OFF THE INDEX (`sqSpine`,
+FixSquashI.lean:724 — `pred`/`st` at the source spine, `sqIhValsK_bottom` :946 makes
+the value spine-independent), which is `RecGraph` (:53, index-set generic) at the
+index set — `unionRec` at `N = 1` with `pred := sqPred ∘ untag`.  Nothing else is
+Prop-large-specific; `Acc`-style blocks keep working (`direct_fix_acc_large`).
+
+### 3.6 K, η, unit-like
+Unaffected: `ruleK := N = 1 ∧ one ctor ∧ nF = 0 ∧ isProp` (official `init_K_target` :551,
+`m_ind_types.size() == 1` on the aux block → a nested block is never K); η/unit-like
+read official's `is_structure_like` on the RESTORED value (`all.size = 1`, one
+constructor, no indices — so a nested STRUCTURE keeps η, `nested_struct_proj` accepts;
+mutual members never do): `nativeCapsAt` (NativeInstall.lean:87) at `k = 1` whatever
+`n` is, with `¬isRec` read block-wide over `x⃗ y⃗` (a nested structure IS recursive:
+`isRec = true`, so `eta` stays off exactly as the modeled route sets it today —
+verify against `nested_struct_proj`'s current caps before changing anything).  The
+per-structure-like-member table (`checkNativeTable` :511) runs for a `k = 1` nested
+structure with `off = 1` unchanged.
+
+---------------------------------------------------------------------------
+#### 4. Prop
+
+At `w = 0` the family space is `I → {∅, {pt}}`, a complete lattice: the closure witness
+is `closedTuple_zero` (TupleContainer.lean:209, `MapsTuple` alone) — (W) is FREE and the
+container presentation of §2.2 (iii) is never built.  Monotonicity is still required
+(`lfpTuple_closed/_fixed` take `hmono`) and comes from the kinds as at `w ≠ 0`.  What
+else differs, and where the design already has it:
+* The sort gate at a Prop block admits only Prop containers (`And`, `Or`, `∃`,
+  `Nonempty`, `Wrap : Prop → Prop`): their segments' fibres are in `univ 0`, injections
+  are `pt` (`mkZero`), `inj` needs no injectivity.
+* Index universe `u_c = 0` per component (`tupW_zero` FixLeafI.lean:57: the index
+  tuple is the point) — per-component `u⃗` (DESIGN-kary §5), so a member with all
+  indices in Prop keeps `u = 0`; no tag, no bump (the tagged encoding's forced `W ≠ 0`
+  is gone with it).
+* Recursor: nested/mutual Prop blocks are ALWAYS small (§3.5, `N ≥ 2`), so `ℓ = 0` and
+  the `unionRec` value is `pt` at every point — the ι rules and typing are trivial
+  (`piR 0`/`univ 0` regime); the induction principle IS `lfpTuple_induction`
+  (LfpTuple.lean:188).  The squash regime (`w = 0 ∧ ℓ ≠ 0`) exists only at `N = 1`,
+  one constructor (§3.5), the one place the old `sqSpine` kit survives.
+* The elimination guard's `N` (§3.5) is the single Prop-specific change to the
+  KERNEL; the check of §2.1 has no Prop arm (official's `check_positivity` has none,
+  SURVEY-official §4).  `nested_pin_prop_cod`/`P13`/`P6`/`D4` are then ordinary rows.
+Under the uniform route Prop gets simpler than today: `fixFunVI_closed_zero`
+(FixFamI.lean:786) becomes `closedTuple_zero`, the three-regime `fixRecBodyAVI`
+(FixRecCoreI.lean:684) collapses to `unionRec` at `ℓ` with one `N = 1` arm, and the
+modeller's Prop decline (Nested.lean:547) disappears with the modeller.
+
+---------------------------------------------------------------------------
+#### 5. Official's nested recursors against the shape (SURVEY-official §2.4)
+
+Every rule is `λ p⃗ M⃗ m⃗ f⃗, minor f⃗ ih⃗` with each `ih` a guarded call on a field of the
+constructor at its component's target — `abstractIh` maps it to `minor f⃗ ih⃗` with the
+`ih` variables, typed by the stream's minor binder.  Per example (components in the
+check's order; `→` = the target of the recursive call):
+
+| block | components (N) | rules that cross components | shape check |
+|---|---|---|---|
+| `Tree \| node : List Tree` | Tree, `List Tree` (2) | `List.cons` nfields 2: `cons head tail (Tree.rec … head) (Tree.rec_1 … tail)` — `head : Tree` (field of `List.cons` at pin) → 0, `tail` → 1 | both fields of the container constructor at `α := Tree`; targets from the abstract copy `cons : x_Tree → y → y` |
+| `T2 \| mk : List (Option T2)` | T2, `List (Option T2)`, `Option T2` (3) | `List.cons`: `head → 2` (`Option T2` is an atom inside the pin, replaced innermost-first), `tail → 1`; `Option.some val → 0` | depth 2 = a pin containing an atom: the copy `cons : y_Opt → y_List → y_List` |
+| `P3 \| mk : Array (List P3)` | P3, `Array (List P3)`, `List (List P3)`, `List P3` (4) | `Array.mk toList → 2` (an ORDINARY field of `Array` becoming an instance — a new group of lower rank, §2.1 step 5), `List.cons` at `List P3`: `head → 3`, `tail → 2`; at `P3`: `head → 0`, `tail → 3` | the queue on the copy's fields reproduces official's 4 motives (`P3.rec_1..3`) |
+| `P1 \| mk : (Nat → List P1)` | P1, `List P1` (2) | `P1.mk ↦ mk a (fun a_1 => P1.rec_1 … (a a_1))` | reflexive MEMBER field with a container codomain: `.reflexive 1` after abstraction (`Nat → y`), `ih : (a_1 : Nat) → motive_2 (a a_1)`; official prints exactly this |
+| `TV \| node : {n} → Vec TV n` | TV, `Vec TV` (2, indexed, `u_1 = 1`) | `Vec.cons` nfields 3 (`{n} a a_1`): `a → 0`, `a_1 → 1` at index `n`; conclusion `motive_2 (n+1) (Vec.cons a a_1)` | indices of the copy are the container's own (`y_Vec : Nat → Sort w`), pins closed; `TV.rec_1 : {a : Nat} → (t : Vec TV a) → motive_2 a t` |
+| `P13 : Prop \| mk : And P13 P13` | P13, `P13 ∧ P13` (2) | `And.intro left right (P13.rec … left) (P13.rec … right)` — both `→ 0` | small eliminator forced (`N = 2`, §3.5); `And` passes the sort gate; the same pin used twice is ONE key (B9) |
+| `TP : Prop \| mk : Wrap (True → TP)` | TP, `Wrap (True → TP)` (2) | `Wrap.mk ↦ mk_1 a (fun (a_1 : True) => TP.rec … (a a_1))` | reflexive COPY field: copy `mk : (True → x_TP) → y`, kind `.reflexive 0` under the Π; the pin is a closed Π (no loose bvar); `isReflexive = true` in the export is a display bit |
+| mutual `A \| mk : List B`, `B \| mk : Nat → A → B \| leaf` | A, B, `List B` (3) | `A.rec_1`'s `List.cons ↦ cons head tail (B.rec … head) (A.rec_1 … tail)`: `head → 1` | a member other than the one hosting the pin is a target like any other; `A.rec_1` is named after the FIRST member (mk_aux_rec_name_map 1100) — a name pin, checked not generated |
+
+Common to all: `nfields` = the container constructor's field count (the pins `Ds`
+are never λ-bound in an rhs; the rule prefix is `p⃗ M⃗ m⃗ f⃗`), the rule's `ctor` is the
+container's real constructor (restored names), recursive calls' index arguments are
+the field's index expressions syntactically (`Vec.cons`'s `n`), and no rule recurses on
+a pin.  `nested_p05` (mutual container → two components per instance), `nested_p24`
+(mutual + nested, indexed container at a closed index), `nested_p26`/`p22` (λ pins:
+`(fun k => y k) n` whnf's to `y n`), `nested_p20` (Subtype at a constant predicate:
+`property : (fun _ => True) val` whnf's to `True`, hole-free), `nested_p30` (`List.{u}`
+at `Type u`: `ls = [u]`, sort gate `u ≡ u`) all fit the same shape; the 9 reflexive
+declines of the corpus (SURVEY-official §3) are `.reflexive tgt` fields of members or
+copies — nothing more.
+
+---------------------------------------------------------------------------
+#### 6. Risks, order of work, decisions
+
+### 6.1 Falsifiers first (pure Lean, no syntax)
+* **F0 (≤ 1 session): `Tree/List` through the env-clause route.**  Abstract
+  `ListClause : ∀ α ∈ univ w, ⟦List⟧ α = lfpTuple w 1 (Is) (Ψ_List α) 0` with
+  `Ψ_List α Y = {nil} ∪ {cons h t | h ∈ α, t ∈ Y}` given as a `fibre`-shaped law + mono/
+  maps/closed at every `α`.  Build `Ψ` on 2 components (trees at `List`-component 1;
+  lists at member 0), prove: (a) (W) via `tupleContainer_closed_exists` with plain
+  slots; (b) `L 1 = ⟦List⟧ (L 0)` by `lfpTuple_seg` + `lfpTuple_congr` (rank 0); (c)
+  the three ι rules and typing via `UnionRecKit` at 2 components.  PASS criterion:
+  NO `unionAcc_of_classAcc`, NO `w ≤ w'`, NO clamp — the exact hypotheses
+  `NestedTreeList.lean` (mutual-direct) needed; failure names the missing clause.
+  Compare its 739 lines with the new file's size.
+* **F1 (½ session): the depth-2/ordinary-field case `P3 \| Array (List P3)`** at the set
+  level: three groups, the rank induction of §2.4 with one ordinary-field group
+  (`List (List P3)` from `Array.mk`'s field).  Falsifies the rank argument's shape.
+* **F2 (½ session): `Rose T` (nested container, `P4C P4`)** — the seeded-group case:
+  the instance's segment is the container's WIDE table (2 components); tests that the
+  identification uses `C`'s wide clause and not a narrow one.
+
+### 6.2 Lanes and estimates (after deliverable 1's M1–M6, DESIGN-kary §7)
+| lane | content | sessions |
+|---|---|---|
+| E (env clause) | `all/ctors` on `.indInfo` (do in deliverable 1), `BlocksOk` + field + `blocksOk_cons_fresh` + 20 call sites + swap + establishment from `BlockModelAt` | 1–1.5 |
+| K (kernel) | §2.1 locator/groups/abstraction/descent/rank + `absBlock`, the abstract-env type checks (K.27 form), twins (5 per stage), `NestedParts` in `BlockParts`, guard at `N`, `nestedRuleShape` moved to `checkBlockRec`, modeller/`Modeled.lean` deletion, `ExportC`/`InModel.wants` flip | 3 |
+| S (semantics) | nothing new beyond deliverable 1 at width `N` if `blockΦ` takes an arbitrary component count; the abstract copies' `IdxOk` per component; `lfpTuple_seg`/`_congr`/`_seg_congr` cherry-pick | 1 |
+| M (model) | copies read by `fixCtorData_of` at the fvar env; substitution + normalisation-transport lemma (§2.3/2.4); the rank induction; `mem_type` of constructors and the ι-rule readings through the identification; `BlockModelAt` established at width `N` | 4–6 |
+| R (recursors, nested delta over kary §4) | motive→component assignment with instance keys, aux rule prefix at pins, `.nested` fire certificate reuse | 1–2 |
+| T (tests) | 34 `nested_*` rows → expected `0` except the two declines of §2.6 (`nested_pin_collide{,2}` → 2 until the collapse lands, `nested_aux_clash` → 0 stays), bad twins: pin with a loose bvar, non-uniform member occurrence, Prop block through a Type container, an aux rule recursing on a pin, a rule crossing to the wrong component; arena 90/92; ONE side-agent Mathlib/init-full sweep at the end (`no-mathlib-perf-on-critical-path`) | 1 |
+Total ≈ 13–18 sessions (F0–F2 included), the model lane the long pole; the two
+genuinely new proofs are the substitution/normalisation transport (§2.3–2.4, one
+lemma of a known shape) and the rank induction (§2.4, `lfpTuple_seg_congr` applied
+per group).  Everything else is deliverable 1's kit at width `N` or a cherry-pick.
+
+### 6.3 Risks
+1. **The substitution law across normalisation** (§2.3): the copy is normalised by
+   `normPosDom` and re-checked; the identification reads the stored container's
+   UNNORMALISED constructors.  Mitigation: the run records `isDefEq` of the two
+   domains at the abstract frame (as `normCtorVal_inv` does), and the model has
+   `DefEqClaim` at fvar contexts.  If it does not close in one session, fall back to
+   normalising NOTHING in copies (decline redex pins — loses `nested_lam_pin_*`,
+   `p22`, `p26`, `p20`, `redex_*`; none in the Mathlib census, §3.1).
+2. **Rank acyclicity**: computed and checked at install; a cycle declines.  If a real
+   stream ever declines here, the argument in §2.1 step 5 was wrong and the proof needs
+   the joint congruence (`lfpTuple_congr_le_same` with a common closed tuple) instead —
+   a known ~1-session alternative, not a wall.
+3. **Collapsing pins** (§2.6): declined first; uniform-le's kit is proved and applies.
+4. **Exposure/heartbeats**: `declNative` is one 25.6 M-heartbeat proof; at width `N`
+   the assembly MUST be per-stage theorems (DESIGN-kary §3.3 says so); every Model
+   `def` unfolded elsewhere `@[expose]`.
+5. **The stored `all/ctors` fields** change `ConstantInfo`'s inductive arm: every
+   `.indInfo` match site (Env, Frontend/ExportC, ProjRec, Modeled, Verify/EnvWF, the
+   basis pins) — mechanical, best done in deliverable 1's M1.
+
+### 6.4 Decisions for the maintainer
+* **N1** The clause is WIDE (`N` components, §1.2) with the narrow form derived — a
+  deviation from the letter of "`I p = μ i, C p i`"; reasons §1.1/§2.7.
+* **N2** `all : List Name` and `ctors : List Name` stored on `.indInfo` (official's
+  `inductive_val` fields), added in deliverable 1.
+* **N3** The positivity/copy pass runs at an env with members AND instances as fvars
+  (K.27's discipline, now load-bearing) for all blocks — to be aligned with
+  DESIGN-kary's M1/M3 (which currently read members at the consed rule-less formers +
+  the shadow context).
+* **N4** Basis containers and collapsing pins decline first (exit 2, detected); the
+  collapse lands after the arm with uniform-le's kit.
+* **N5** Aux rules keep `RecRuleFire.nested` (no new fire mode; `nestedRuleShape` moves).
+* **N6** Q6 of DESIGN-kary: agreed — no `EnvModelM` clause in deliverable 1; the record
+  `BlockModelAt` is threaded there at width `N` (`n = 0`), and step 3 adds
+  `block_models` keyed by `blockDataOf` (a computed datum, not an existential
+  `BlocksRecorded env names d`).  Disagreement, explicit: DESIGN-kary §6's "step 3
+  needs the operator + monotonicity in the parameter" — under N1 no parametric
+  monotonicity is consumed anywhere (§2.7).
+* **N7** Order: F0 before any lane; if F0 needs a hypothesis outside the clause of
+  §1.2, stop and redesign the clause before deliverable 1 fixes `BlockModelAt`'s shape.
+
