@@ -309,41 +309,6 @@ namespace Expr
 
 variable {T : Name} {i : Nat}
 
-theorem NoProjAt.liftLooseBVars {k : Nat} :
-    ∀ {e : Expr} {c : Nat}, NoProjAt T i e → NoProjAt T i (e.liftLooseBVars k c) := by
-  intro e
-  induction e with
-  | bvar j => intro c _; simp only [Expr.liftLooseBVars]; split <;> simp
-  | fvar idx ty ih => intro c h; simpa [Expr.liftLooseBVars] using h
-  | sort u => intro c _; simp [Expr.liftLooseBVars]
-  | const n us => intro c _; simp [Expr.liftLooseBVars]
-  | lit l => intro c _; simp [Expr.liftLooseBVars]
-  | app f a ihf iha =>
-    intro c h
-    rw [noProjAt_app] at h
-    simp only [Expr.liftLooseBVars, noProjAt_app]
-    exact ⟨ihf h.1, iha h.2⟩
-  | lam ty b m ihty ihb =>
-    intro c h
-    rw [noProjAt_lam] at h
-    simp only [Expr.liftLooseBVars, noProjAt_lam]
-    exact ⟨ihty h.1, ihb h.2⟩
-  | forallE ty b m ihty ihb =>
-    intro c h
-    rw [noProjAt_forallE] at h
-    simp only [Expr.liftLooseBVars, noProjAt_forallE]
-    exact ⟨ihty h.1, ihb h.2⟩
-  | letE t v b iht ihv ihb =>
-    intro c h
-    rw [noProjAt_letE] at h
-    simp only [Expr.liftLooseBVars, noProjAt_letE]
-    exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
-  | proj s j e ih =>
-    intro c h
-    rw [noProjAt_proj] at h
-    simp only [Expr.liftLooseBVars, noProjAt_proj]
-    exact ⟨h.1, ih h.2⟩
-
 theorem NoProjAt.mkAppN :
     ∀ {as : List Expr} {f : Expr}, NoProjAt T i f → (∀ a ∈ as, NoProjAt T i a) →
       NoProjAt T i (Expr.mkAppN f as)

@@ -92,10 +92,12 @@ structure BlockTablesStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : L
   noProjT : ∀ (m c : Nat) (cvTb : ConstantVal), m < d.k → cvTasAll[c]? = some cvTb →
     ∀ i, Expr.NoProjAt (d.memberName m) i cvTb.type
   /-- … nor in a stored constructor's … -/
-  noProjC : ∀ (m c j : Nat) (cA : ConstantVal × Nat), m < d.k → (d.ctorsM c)[j]? = some cA →
+  noProjC : ∀ (m c j : Nat) (cA : ConstantVal × Nat), m < d.k →
+    (∃ cAm, d.ctorsM m = [cAm]) → d.nIdxAt m = 0 → (d.ctorsM c)[j]? = some cA →
     ∀ i, Expr.NoProjAt (d.memberName m) i cA.1.type
   /-- … nor in ANOTHER member's projection-table bodies -/
-  noProjB : ∀ (m c : Nat) (cA : ConstantVal × Nat) (bodies : Array Expr), m < d.k → c < d.k →
+  noProjB : ∀ (m c : Nat) (cA : ConstantVal × Nat) (bodies : Array Expr), m < d.k →
+    (∃ cAm, d.ctorsM m = [cAm]) → d.nIdxAt m = 0 → c < d.k →
     c ≠ m → d.ctorsM c = [cA] →
     ConLeche.structProjBodies (d.memberName c) d.nP cA.2 cA.1.type = some bodies →
     ∀ (i j : Nat), Expr.NoProjAt (d.memberName m) i (bodies.getD j default)
@@ -129,7 +131,10 @@ not an arbitrary term's. -/
             (AnnotTerm.mkAppN (A c ψ) (paramBvars d.nP cA.2 ++ d.esF c j ψ)))) ∧
       (∀ ψ, m'.acval cA.1.name ψ = sumMkAV (d.w ψ) j (d.dsF c j ψ)
         (((d.dsF c j ψ).drop d.nP).map (·.2.2)) (uChains (d.Fss c ψ)))) ∧
-  ∀ c, nc ≤ c → c < d.k → ∀ j, NoProjEnv env (d.memberName c) j
+  -- the members the tables' loop will still treat: their projection
+  -- slots are free (a member with no table of its own is never asked)
+  ∀ c, nc ≤ c → c < d.k → (∃ cA, d.ctorsM c = [cA]) → d.nIdxAt c = 0 →
+    ∀ j, NoProjEnv env (d.memberName c) j
 
 /-- The constructors' stage's invariant, at the tables' stage. -/
 theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
@@ -137,11 +142,12 @@ theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
     {A : Nat → (Name → Nat) → AnnotTerm}
     (hN : BlockNamesOk (V := V) d cvTasAll)
     (h : BlockCtorsCore m' d lps cvTasAll p₁ isRec A d.k)
-    (hnp : ∀ c, c < d.k → ∀ j, NoProjEnv env (d.memberName c) j) :
+    (hnp : ∀ c, c < d.k → (∃ cA, d.ctorsM c = [cA]) → d.nIdxAt c = 0 →
+      ∀ j, NoProjEnv env (d.memberName c) j) :
     BlockTablesCore m' d lps cvTasAll p₁ isRec A 0 := by
   obtain ⟨hnameOf, -, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, -, hdata, hconsed⟩ := h
-  refine ⟨hform, fun c j cA hj => ?_, fun c _ hc j => hnp c hc j⟩
+  refine ⟨hform, fun c j cA hj => ?_, fun c _ hc h1 h2 j => hnp c hc h1 h2 j⟩
   obtain ⟨hfind, hlps, hleafC⟩ := hconsed c (by
     have := hctorLt c j cA hj
     omega) j cA hj
@@ -171,7 +177,8 @@ theorem BlockTablesCore.consTable {env : Env} {m' : EnvModel V env} {d : BlockDa
       ∀ i, Expr.NoProjAt (d.memberName mm) i cvTb.type)
     (hnoC : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       ∀ i, Expr.NoProjAt (d.memberName mm) i cA.1.type)
-    (hnoB : ∀ c, mm + 1 ≤ c → c < d.k → ∀ (i j : Nat), j < tbl.numFields →
+    (hnoB : ∀ c, mm + 1 ≤ c → c < d.k → (∃ cA, d.ctorsM c = [cA]) → d.nIdxAt c = 0 →
+      ∀ (i j : Nat), j < tbl.numFields →
       Expr.NoProjAt (d.memberName c) i (tbl.bodies.getD j default))
     (mC : EnvModel V ⟨.projInfo tbl :: env.consts⟩)
     (hac : mC.acval = acvalWith m'.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0)) :
@@ -182,7 +189,7 @@ theorem BlockTablesCore.consTable {env : Env} {m' : EnvModel V env} {d : BlockDa
     intro n hn hnn
     rw [← hnn, hfresh] at hn
     exact nomatch hn
-  refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_, fun c hc hck j => ?_⟩
+  refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_, fun c hc hck h1 h2 j => ?_⟩
   · obtain ⟨hfind, hres, hleaf, hFD⟩ := hform c cvTb hc
     have hcross : ConsCrossAt (.projInfo tbl) cvTb.type := by
       intro tbl' heq i
@@ -211,12 +218,12 @@ theorem BlockTablesCore.consTable {env : Env} {m' : EnvModel V env} {d : BlockDa
       show acvalWith m'.acval (ConstantInfo.projInfo tbl).name _ cA.1.name ψ = _
       rw [acvalWith_ne (fun hh => hne cA.1.name (by rw [hfind]; rfl) hh.symm)]
       exact hleaf ψ
-  · refine (hnp c (by omega) hck j).cons ⟨?_, (fun _ _ _ hh => nomatch hh),
+  · refine (hnp c (by omega) hck h1 h2 j).cons ⟨?_, (fun _ _ _ hh => nomatch hh),
       (fun _ _ _ _ hh => nomatch hh), fun tbl' heq j' hj' => ?_⟩
     · show Expr.NoProjAt (d.memberName c) j (Expr.sort (.succ .zero))
       simp
     · obtain rfl := ConstantInfo.projInfo.inj heq
-      exact hnoB c hc hck j j' hj'
+      exact hnoB c hc hck h1 h2 j j' hj'
 
 
 /-- **The block's projection tables**: `stageBlockTable` at every
@@ -256,7 +263,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     -- the invariant weakens: this member's table is the last one that may
     -- touch its own slots
     have hcoreW : BlockTablesCore mp.base2 d lps cvTasAll p₁ isRec A (i + 1) :=
-      ⟨hcore.1, hcore.2.1, fun c hc hck j => hcore.2.2 c (by omega) hck j⟩
+      ⟨hcore.1, hcore.2.1, fun c hc hck h1 h2 j => hcore.2.2 c (by omega) hck h1 h2 j⟩
     obtain ⟨ms, ctorsA, sortss⟩ := e
     simp only at hname hnIdx hctors hsorts
     -- a table is consed only at a member with ONE constructor and no index
@@ -342,7 +349,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)
         (hS.resC i cA hik hctorsEq)
-        (by rw [← hTn']; exact hcore.2.2 i (Nat.le_refl _) hik)
+        (by rw [← hTn']; exact hcore.2.2 i (Nat.le_refl _) hik ⟨cA, hctorsEq⟩ hnIdx0)
         (by have := hFD; rwa [hnIdx0, Nat.add_zero] at this)
         (fun ψ => by
           rw [hCDread ψ]
@@ -375,10 +382,10 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     have hcore' : BlockTablesCore mp'.base2 d lps cvTasAll p₁ isRec A (i + 1) :=
       hcore.consTable (by rw [hstructN]; exact hTn'.symm) hfreshT
         (fun c cvTc hc j => hS.noProjT i c cvTc hik hc j)
-        (fun c j cB hj k => hS.noProjC i c j cB hik hj k)
-        (fun c hc hck k j hj => by
+        (fun c j cB hj k => hS.noProjC i c j cB hik ⟨cA, hctorsEq⟩ hnIdx0 hj k)
+        (fun c hc hck h1 h2 k j hj => by
           rw [htblB.1]
-          exact hS.noProjB c i cA bodies hck hik (by omega) hctorsEq
+          exact hS.noProjB c i cA bodies hck h1 h2 hik (by omega) hctorsEq
             (by rw [hTn']; exact hbodies) k j)
         mp'.base2 hac
     exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mp' hl' h hcore'

@@ -81585,3 +81585,18 @@ re-pin the recursor NAME after all.
 #### RULING (2026-09-21, maintainer): arena `bad/135_misnamed_rec_user` and `bad/136_dup_rec_def2` become documented ACCEPT-SUPERSETS
 
 With recursor names free, both accept soundly (135: a definition uses a recursor declared under a non-canonical name; 136: a definition named `T.rec` beside a recursor of another name).  "Keep the ruling, record 135/136 as accept-supersets; maybe we'll add unverified extra checks later."  At the flip `tests/arena-expected.txt` carries both rows as expected accepts with this reason; an optional UNVERIFIED conformance check (canonical-name policing, off the verified path) may be added later.
+
+#### RULING (2026-09-21, maintainer, revising the 135/136 ruling): no red tutorial tests — a simple recursor-NAME conformance check
+
+"Actually, I don't want red tutorial tests.  Do schedule (off the
+critical path) a check that the recursor names are of the expected
+name (but not which is which, keep it simple)."  So: a block's
+recursor names, as a set, must be exactly the names official would
+generate — `{T_m.rec | m a member}` (and, at the nested arm,
+`{T_0.rec_i | i < n}` for the instances) — with no check of WHICH
+recursor carries which name; a recursor's assignment to its component
+stays by its major; the verified route and the model are untouched
+(an extra reject shrinks the accept set only).  Arena 135/136 reject
+again; the `corner_rec_hoolahoop` / `two_recursors` / `two_callees`
+twins become rejects (their comments say why).  Scheduled on lane K2,
+off the flip's critical path.
