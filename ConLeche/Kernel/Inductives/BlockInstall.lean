@@ -420,8 +420,8 @@ parameters and motives the stored recursor type's.
 What is returned — and stored — is the ANNOTATED STREAM right-hand
 side; the abstraction is the model's reading of it and nothing of it
 is kept. -/
-def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
-    (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
+def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
+    (p : BlockShape) (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
     (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind)
     (J : Nat) (rhs : Expr) : m Expr := do
   let nP := p.nP
@@ -432,7 +432,7 @@ def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
   if rhs.hasFvar then
     throw (.invalid s!"free variable in rule of {cvR.name}")
-  let rhsA ← ops.annotate envR 0 rhs
+  let rhsA ← opsR.annotate envR 0 rhs
   unless rhsA.allLevelParamsDefined cvR.levelParams do
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless rhsA.constsResolve envR do
@@ -459,45 +459,64 @@ def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
     (.internal "direct rec: constructor parameter telescope")
   let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest (nP + k + N))
     (.internal "direct rec: constructor field telescope")
+  -- **G2, the rule's λ-domains, BINDER BY BINDER** against the opened
+  -- STORED recursor type's frame (`checkIotaRule`'s move,
+  -- `ConLeche/Kernel/Inductives/Modeled.lean`).  The whole-type
+  -- `isDefEq` of stage (b) compares two CLOSED Π-types and does not
+  -- give per-binder equality of their readings — at `ℓ = 0` both read
+  -- to a truth value, and at `ℓ ≠ 0` an empty fibre makes two
+  -- Π-readings agree at different domains.  The stored right-hand
+  -- side is the annotated STREAM one, so its λ-tower is applied at
+  -- frames of the STORED type at every ι step, and the model has to
+  -- read those binders: this is the check that says they are the
+  -- stored type's.  The fields are the constructor's on both sides
+  -- (the same term), so the content is the parameters, the motives
+  -- and the minors.
+  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
+    (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
+      recursor's prefix and the constructor's fields")
+  checkDefEqList opsT envT (nP + k + N + nF) ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
   let ihTele := blockIhPis nF (k + N) fr.pw (blockTgtsOf ks) fr.teleOf fr.idxOf fr.recIdx 0 body''
   let (_fvsIh, bodyO) ← unwrapOr
     (openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (nP + k + N + nF))
     (.internal "direct rec: inductive-hypothesis telescope")
   let depth := nP + k + N + nF + fr.nR
-  let tyB ← ops.inferType envR depth bodyO
+  let tyB ← opsT.inferType envT depth bodyO
   let motive ← unwrapOr fvsPref[nP + mi]? (.internal "direct rec: motive variable")
   let concl := Expr.mkAppN motive
     ((cbody.getAppArgs.drop nP) ++
       [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take nP ++ fvsF)])
-  unless ← ops.isDefEq envR depth tyB concl do
+  unless ← opsT.isDefEq envT depth tyB concl do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not produce the minor's \
       conclusion")
   pure rhsA
 
 /-- One member's rules, in constructor order (`J` is the constructor's
 GLOBAL index, which is the minor premise it fires). -/
-def checkBlockRules (ops : CheckerOps m) (envR : Env) (p : BlockShape)
-    (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat) (cvR : ConstantVal) :
+def checkBlockRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (envT : Env)
+    (p : BlockShape) (recNames : List Name) (rlvls : List Level) (recTy : Expr) (mi : Nat)
+    (cvR : ConstantVal) :
     List ((ConstantVal × Nat) × List BlockFieldKind) → List Expr → Nat → m (List Expr)
   | [], [], _ => pure []
   | (cA, ks) :: cs, rhs :: rhss, J => do
-    let r ← checkBlockRule ops envR p recNames rlvls recTy mi cvR cA ks J rhs
-    let rest ← checkBlockRules ops envR p recNames rlvls recTy mi cvR cs rhss (J + 1)
+    let r ← checkBlockRule opsR envR opsT envT p recNames rlvls recTy mi cvR cA ks J rhs
+    let rest ← checkBlockRules opsR envR opsT envT p recNames rlvls recTy mi cvR cs rhss (J + 1)
     pure (r :: rest)
   | _, _, _ =>
     throw (.invalid "direct rec: the recursor's rules do not cover its constructors")
 
 /-- Every member's rules, in block order. -/
-def checkBlockMembersRules (ops : CheckerOps m) (envR : Env) (p : BlockParts)
+def checkBlockMembersRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m)
+    (envT : Env) (p : BlockParts)
     (recNames : List Name) (rlvls : List Level) (cvRas : List (ConstantVal × Nat)) :
     List ((MemberShape × List (ConstantVal × Nat)) × List (List BlockFieldKind)) → Nat →
       m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
   | [], _ => pure []
   | ((ms, ctorsA), kss) :: rest, mi => do
     let (cvRa, nIdx) ← unwrapOr cvRas[mi]? (.internal "direct rec: recursor record")
-    let rhss ← checkBlockRules ops envR p.toBlockShape recNames rlvls cvRa.type mi ms.cvR
-      (ctorsA.zip kss) ms.rhss (p.offs mi)
-    let rest' ← checkBlockMembersRules ops envR p recNames rlvls cvRas rest (mi + 1)
+    let rhss ← checkBlockRules opsR envR opsT envT p.toBlockShape recNames rlvls cvRa.type mi
+      ms.cvR (ctorsA.zip kss) ms.rhss (p.offs mi)
+    let rest' ← checkBlockMembersRules opsR envR opsT envT p recNames rlvls cvRas rest (mi + 1)
     pure ((cvRa, rhss, nIdx, ctorsA) :: rest')
 
 /-- **Stage (a): the recursor RECORDS' pins** (task #220 at k
@@ -528,8 +547,18 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   let cvRas ← checkBlockRecTys ops env p.toBlockShape (blockMems p.toBlockShape cvTas)
     (p.members.zip cvTas) 0
   let envR := consBlockRecsBare p.rulePrefix cvRas env
-  -- (c) every member's rules, at the environment holding all k of them
-  checkBlockMembersRules ops envR p (p.members.map (·.cvR.name))
+  -- (c) every member's rules: ANNOTATED and resolved at the
+  -- environment holding all k rule-less recursors (a rule mentions
+  -- them), but TYPED at `env` — the CONSTRUCTORS' environment, before
+  -- they are consed.  **G1**: the abstracted residue and its whole
+  -- opened frame (parameters, motives, minors, fields, `ih` openers)
+  -- are recursor-free BY CONSTRUCTION — that is what the abstraction
+  -- is for — and the model's typing consumer cannot be instantiated
+  -- at an environment holding the very recursors whose typing the
+  -- certificate is being built for: a model of that environment owes
+  -- every constant's leaf a type, and the recursors' is the
+  -- recursion theorem itself.
+  checkBlockMembersRules ops envR ops env p (p.members.map (·.cvR.name))
     ((p.members.head?.map fun ms => ms.cvR.levelParams.map Level.param).getD [])
     cvRas ((p.members.zip ctorsAs).zip p.kinds) 0
 

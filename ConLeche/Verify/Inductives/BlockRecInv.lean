@@ -26,6 +26,42 @@ the form the model tier reads them:
   (`abstractIh_of_recFree`) — the base case of the substitution lemma
   `⟦body⟧[rec ↦ rec*] = ⟦body''⟧[ih ↦ ihVals rec*]` the semantics tier
   builds on;
+## The rule check's two ENVIRONMENT claims (G1, G2)
+
+Two facts about `checkBlockRule`
+(`ConLeche/Kernel/Inductives/BlockInstall.lean`) that the model's
+typing consumer needs by name.  The stage is handed `opsR`/`envR` for
+the ANNOTATION and `opsT`/`envT` for both of these, and
+`checkBlockRecK` instantiates `envT` with the CONSTRUCTORS'
+environment — the one it was called at, before `consBlockRecsBare`.
+
+* **G1 — the abstracted residue is typed at `envT`.**
+  `opsT.inferType envT depth bodyO` and
+  `opsT.isDefEq envT depth tyB (C_m e⃗_J (C_J p⃗ f⃗))` run at the
+  constructors' environment, NOT at the one holding the `k` rule-less
+  recursors.  The residue and its whole opened frame (parameters,
+  motives, minors, fields, `ih` openers) are recursor-free by
+  construction — `abstractIh_of_recFree` below is that fact's
+  syntactic half — and a model of an environment holding the
+  recursors would owe every constant's leaf a type, the recursors'
+  being the recursion theorem the certificate is feeding.  The
+  annotation stays at `envR`: a rule mentions the recursors, and its
+  annotate-claims are not consumable at any model for the same
+  reason.
+
+* **G2 — the rule's λ-domains are compared BINDER BY BINDER** with the
+  opened STORED recursor type's frame:
+  `checkDefEqList opsT envT (nP+k+N+nF) ((fvsPref ++ fvsF).map
+  Expr.fvarTypeD) ldoms`, where `ldoms` comes from
+  `Expr.instLamsAt (fvsPref ++ fvsF) rhsA` — `checkIotaRule`'s move
+  (`ConLeche/Kernel/Inductives/Modeled.lean`).  Stage (b)'s whole-type
+  `isDefEq` compares two CLOSED Π-types and does not give per-binder
+  equality of their readings: at `ℓ = 0` both read to a truth value,
+  and at `ℓ ≠ 0` an empty fibre makes two Π-readings agree at
+  different domains.  The STORED right-hand side is the annotated
+  STREAM one, whose λ-tower the ι step applies at frames of the
+  STORED type, so the model must read those binders.
+
 What is NOT here, and is the semantics tier's (design §4.3): the
 abstraction's own INVERSE, `body = body''[ih_i a⃗ ↦ spine]`.  Its two
 halves are: `blockIhCall?_spine` (every replaced node is the spine)
