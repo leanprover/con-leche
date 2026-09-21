@@ -8,6 +8,7 @@ public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.EnvClauseTreeList
 public import ConLeche.SetModel.EnvClauseP3
 public import ConLeche.SetModel.EnvClauseP4
+public import ConLeche.SetModel.UnionRecIndexed
 
 @[expose] public section
 
@@ -39,6 +40,11 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   container's own clause is WIDE and the identifications run in RANK
   order; `P4 ::= mk (Rose P4)` at three, where the group's whole
   segment is the nested container's wide table seeded at the pin.
+  `UnionRecIndexed` — the falsifier for the recursion kit itself at an
+  INDEXED, PARAMETRIC block with a REFLEXIVE field (`Acc`-shaped in
+  `Type`, at one member and at two mutual ones), together with the
+  `ℓ = 0` arm (`InductionKit`), where the motive fibre's inhabitation
+  comes from the tuple lfp's induction alone.
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing
