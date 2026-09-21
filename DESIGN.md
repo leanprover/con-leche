@@ -128572,3 +128572,47 @@ are the rows' own spellings.  **Until the move lands, those two
 transports and `ErasedEq.ordHeadRed` have no consumer** —
 `tests/unconsumed.sh` goes 204 → 206 of 3888 → 3904 on the two
 transports, and the advisory is right to say so.
+
+##### (e) TWO READINGS OF THE SITE THAT CHANGE THE MOVE'S SHAPE, AND THE GATE NUMBERS
+
+Read against `copyOrdFRightPinOrdTargetRead`'s own proof, two things
+came out that the plan above should be corrected by:
+
+* **`hwc` IS ALREADY THERE AT THE FIRST ROW, AND IT IS NOT
+  `replaceAllNested`'s.**  `R.copyOrdFRightPinCorr` (called at
+  `NestedCopyInst.lean:10572`, from hypotheses the row already holds —
+  `hheadS`, `hrep`, `hstable`, `hea'`, and NOT from the middle step)
+  hands back `hfn : w.getAppFn = .const I lvlsI`.  Moving that `obtain`
+  ABOVE the middle step gives the inversion its `hwc` for free, and the
+  rest of the proof is unchanged: `hconst` already reads `hfn` and
+  `hXhead` together, and it goes through verbatim once `hXhead` is
+  about `ordHeadRed xI.fvarTypeD`.  `replaceAllNested_lamHead` is then
+  the GENERAL spelling — the one a sibling row without a `Corr` record
+  needs — and not the first row's;
+* **`hb` IS THE WHOLE COST, AND IT IS ONE CONJUNCT `copyResid` DOES NOT
+  EXPORT.**  `NestedPinsRun.copyBody` (`:725`) proves
+  `cI.looseBVarsBounded 0 = true` and `copyResid` (`:1105`) drops it.
+  So the move needs either that conjunct added to `copyResid` (22
+  destructuring sites in this one file) or a determinacy bridge from
+  `copyBody`'s `cI` to the row's (`Expr.instPis` at the same member and
+  levels, which `containerInfo?_member_det` already identifies).  With
+  `cI` bounded, `Verify.openPisAtFvars_bounded` + `hopM` give
+  `xI.fvarTypeD.looseBVarsBounded 0` directly — no `instSeq`
+  arithmetic and none of the `l = 0` / `nP = 0` corners the stripped
+  route would have to carry.
+
+**THE GATES**, at `a625f0dc`: `tests/arena.sh` EXIT 0 —
+`proofdeps: 4975 module rows, doors: 0`, `shake: 514 removals, all
+allowlisted`, `pub-imports: 1347 of 2318 public, none demotable (59
+fallbacks)`, `nested-shadow: 46/46`, `e2e: 200/200`, `arena suite:
+91/96`, `annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`,
+`progress lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`,
+`axioms: pinned (20 theorems)`, trusted and `--jobs=1`/`--jobs=4`
+sweeps as at the default, `inmodel: OK`, `overview-links: 112`,
+`quote-gate: 2`, `no-local-paths: OK`, `challenge: OK`.
+`tests/warning-free.sh ebed8f2f` — 4 changed modules, **0 warning
+lines** in both halves.  `lake test` — 0 warnings.  The accept set did
+not move and no fixture was added, so no perf cell is owed (nothing on
+the run path changed: every declaration this session added is a
+`theorem`, and the one `def` touched — `appStep` — only gained
+`@[expose]`).
