@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
-import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!

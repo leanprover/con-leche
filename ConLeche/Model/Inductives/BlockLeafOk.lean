@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixLeafOk
-public import ConLeche.Model.Inductives.BlockRealChains
+import ConLeche.Model.Inductives.BlockChains
 public section
 
 /-!
