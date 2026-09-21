@@ -130320,3 +130320,216 @@ is `p.k + q₀ + dK.tgts i j l`, one of the GROUP's own pins, and
 design question it poses is whether the induction's predicate reaches
 the group's own pins or whether the arm is closed some other way.
 Read off the shapes and the consumer's case split, not proved.
+
+#### WIDE (f3) — THE NAMED SET, SPELLED; K.73 LANDS AND **SUBSUMES** K.72; THE FLATNESS RETIREMENT IS **NOT** A PREMISE SWAP; AND `hdom₁`'s TWO ORDINARY ARMS ARE DISCHARGED (lane LE, 2026-09-21)
+
+Four things, of which two are measured corrections to the previous two
+rows' plan.  Nothing about the wide identification is refuted.
+
+##### (a) THE NAMED SET, AT THE SPELLING THE FILE USES
+
+`nestedPinPairAt_pinσ` begins at
+`Model/Inductives/NestedPinLeafAll.lean:7297` (not `~7360`; the
+signature runs to `:7490`).  Its remaining named hypotheses are
+introduced by a comment line
+
+```
+    -- **THE NAMED SET** (the merge session's work order)
+```
+
+and are, literally, `    (hscope : ∀ l, …` and (since this row)
+`    (hdom₁rec : ∀ l, …` — four leading spaces, then `(`, then the
+name, then ` : `.  A `grep -n '(hscope'` DOES find them; what fails is
+a grep over `Model/Inductives/NestedPins.lean` or over the `~7360`
+line window, since the two hypotheses sit at `:7434` and `:7459`.  Every
+other hypothesis of the assembly is a caller-side fact with a producer
+(`GroupFacts`, `PinShapes`, `ContainerModeled`, `PinGroupView`, the
+run's `hIH`/`hPfGroup`/`hout`).
+
+* `hscope` — per field of the shared container that the container
+  calls ORDINARY and the block's rewrite made RECURSIVE: the stored
+  domain's FLATNESS (`ConLeche.domPiDepth dom.1 = 0`), the owner's
+  firing (`ordRootFired … = true`), the owner's and the block's
+  recomputation HEADS (`… .getAppFn = .const K vs` / `= .const K vsB`),
+  the stored head at a non-empty recorded telescope, and the
+  recomputation's scoping (`looseBVarsBounded l`, `fvarLeaves ⊆
+  containerParamOpeners ciR.nP`).
+* `hdom₁rec` — the container-RECURSIVE arm of `hdom₁`: the copy's slot
+  at the block's own least tuple is inside the container's field
+  domain, read at the block's frame.
+
+##### (b) K.73 — THE COPY'S TOWER IS MEASURED AT THE MINT'S HEAD NORMAL FORM, AND IT **REPLACES** K.72
+
+`nestedOrdNormAt`'s last comparison
+(`Kernel/Inductives/NestedInstall.lean:3251`–`:3255`) now reads
+
+```
+(Expr.piBinders domC.1).1.length ==
+  domPiDepth domJ.1
+    + domPiDepth (ordHeadRed (ordTargetDom Jm.lps ci.nP terms q l domJ.1))
+```
+
+— **the sum with the REDUCED second summand**, and NOT a second
+comparison beside K.72.  The left-hand side measures the STORED copy,
+and the install ran `normPosDomM` — a `whnf`-based walk — over the
+minted domain before storing it, so a mint that is a β/ζ-redex whose
+head normal form is a `Π` is stored WITH that binder
+(`tests/e2e/nested_redex_tower.ndjson`'s own source says so) and the
+raw reading under-counts.  Where the raw one is nevertheless right the
+two are the SAME `Bool`: `ordHeadRed` is the identity at a constant
+head (`ordHeadRed_const`), and the arm above asserts a constant head
+for the block's recomputation at every field whose OWNER's RAW mint
+fires.  So K.73 accepts everything K.72 accepted and one shape more,
+which is why it replaces rather than joins it.  No new
+`DeclNestedRun` conjunct: it is K.69's own `Bool`.
+
+`nestedOrdNormOk_tower` (`Verify/Inductives/NestedCopyKinds.lean:1799`)
+KEEPS K.72's raw conclusion — its guard is the owner's RAW firing, and
+under that guard `nestedOrdNormOk_blkHead` gives the block's constant
+head and `ordHeadRed_const` collapses the reduction away.  Two `have`s
+and one `rw`; `NestedPinsRun.ordTowerAt` and `GroupFacts.ordTower` are
+untouched, and so is every model row.
+
+**AND HERE IS THE CORRECTION TO SESSION 37 §(b).**  That row named the
+redex-tower corner as "a K.73-shaped item" and made
+`normPosDomM_openRedPis_ordHeadRed` its only consumer.  Measured
+against the arm's own guards, **K.73 as an EQUATION cannot be that
+consumer**, because inside `nestedOrdNormAt` the two comparisons
+coincide at all but one shape.  Three cases and they are exhaustive
+over the block's recomputation: it is constant-headed (the first `&&`
+arm, whenever the owner's RAW mint fires) and `ordHeadRed` is the
+identity; it is a `Π`, on which `ordHeadRedGo` stops, and again the
+identity; or it is a redex, and then either `ordRootInst` returns
+`some Wb` — the second `&&` equates the reduct with `Wb`, whose head is
+the owner's REDUCED mint's constant, so both depths are `0` — or it
+returns `none`.  **The `none` branch is the one corner
+where the two differ**, and there the raw comparison can be FALSE at a
+perfectly well-formed stored copy — the reject-on-an-official-accept
+K.73 removes.  The redex-tower corner
+proper — `nested_redex_tower` — is not reached by any of this: the
+guard is `ordRootFired env memsJ ownSelf (ordHeadRed W)`, the reduct
+there is `True → J β`, a `.forallE`, whose `getAppFn` is not a
+`.const`, so `ordRootFired` is FALSE and the arm returns `true` before
+any comparison.  **Making the rows speak there needs the GUARD to
+strip the reduced tower before it reads the head** — a K.67/K.68/K.69
+widening, not an equation change — and that, and only that, is what
+`normPosDomM_openRedPis_ordHeadRed` is waiting for.  It is still the
+one advisory entry (`tests/unconsumed.sh` 205 of 3945).
+
+##### (c) THE FLATNESS RETIREMENT IS **NOT** A PREMISE SWAP — MEASURED AT THE TWO PRODUCERS
+
+The previous row priced the retirement as "replace it, at every one of
+the 27 declarations, by K.72's sum, and re-prove the eight
+`copyOrdFRight*` readings without it".  Reading the two consumers that
+actually spend the premise shows the price is not there:
+
+* `read_of_run` (`NestedPinLeafAll.lean:6564`, the collapse at `:6642`) spends flatness on
+  ONE step — `htl : tlsl.length = 0` — and its CONCLUSION is a
+  `denoteMeta` at the cut `l` over the RAW `ordTargetDom`.  Retiring
+  flatness moves the conclusion to `l + tlsl.length` over
+  `stripDomPis (ordTargetDom …)`;
+* `NestedPinsRun.ordReadAt` (`NestedInstMap.lean:4426`) spends it the
+  same way and its conclusion literally CONTAINS
+  `((mutTlss …).getD l []) = []` — the copy's telescope is empty — which
+  is what its consumers read the field's entry at.
+
+So the 27 declarations are not 27 premise lines to swap: they are a
+chain whose bottom two CONCLUDE finitude, and un-flattening them is the
+entry law at a `Π`-typed field (`tests/e2e/nested_pi_field.ndjson`'s
+`K α | mk (f : Nat → α)` is the shape, an official accept at which
+every one of these rows is vacuous today).  That is `CopyOrdTele`'s
+content and session 36's `copyOrdTeleAt`, one tier lower than the
+pricing put it.  **Honest sizing: three to five sessions**, and the
+first of them is `ordReadAt`'s conclusion, not `PinShapes`' premise
+line.  Object (2) — which DID land — already put `OrdTargetRead` in the
+un-flat-able form, so nothing has to be re-stated there.
+
+##### (d) `hdom₁`'s TWO CONTAINER-ORDINARY ARMS, DISCHARGED — AND §(e)'s THIRD ROW ANSWERED, NEGATIVELY
+
+`nestedPinEntryOutEq` (`NestedPinLeafAll.lean:4677`) publishes the
+EQUALITY `nestedPinEntryOut`'s proof already had
+(`copyEntryAt_of_read`); `nestedPinEntryOut` (`:4734`) is now its
+one-line inclusion reading.  With it, `hdom₁`'s **two** container-
+ORDINARY arms — the previous row's "side 1 fired, side 2 silent" and
+"both fired" — are ONE arm and are discharged inside the assembly: the
+entry is the BLOCK's own fact, side 2's kind never enters it, and the
+direction `hentOrd₁` did not take is exactly `hdom₁`'s.  Neither
+`hslotOrd` nor `hdom₂` nor `hcdom` is spent, so the previous row's
+route for the both-fired arm is superseded by a shorter one.
+
+`nestedPinPairAt_pinσ` now asks `hdom₁rec`, the container-RECURSIVE arm
+alone, and builds the three-arm `hdom₁` in its body.
+
+**The design question §(e) left open has an answer and it is NO.**
+That row asked "whether the induction's predicate reaches the group's
+own pins".  `nestedPinWideStep`'s own docstring
+(`NestedPinsLeInd.lean:220`) already records the ruling for the
+sibling hypothesis `hent`: "`S` at an in-instance target is what an
+induction over instances may not assume".  A container-RECURSIVE
+field's target is `p.k + q₀ + (dJf q₀).tgts …`, one of the mint
+GROUP's own pins, hence in the same instance — so threading the rank
+induction's `S` into the assembly cannot close the arm.  What the arm
+actually needs is weaker than `hIH`'s equality and is read off
+`BlockModel.slotDomT_of_le` (`NestedPinLeafAll.lean:409`): the block's
+carrier at the copy's targets must be IN the container's tuple space
+and BELOW the container's own extended carrier — a `TupleLe`, not an
+identification.  That is the same family as `hent`'s open item
+(`CopyEntryOrd`, `nestedPinWideStep`'s docstring), and it is where
+`hdom₁`'s residue should be attacked.  Recorded, not proved.
+
+##### (e) THE GATES
+
+`tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
+`layering 354/292/3/1 with 0 base->lane and 0 impl->theory edges`,
+`shake: 514 removals, all allowlisted`,
+`pub-imports: 1348 of 2319 public, none demotable (60 fallbacks)`,
+`nested-shadow: 47/47` (`nested_redex_tower`, `nested_redex_owner`,
+`nested_comp_tower`, `nested_bvar_field` and `nested_pi_field` at
+`CON_LECHE_INMODEL=0` all `accept`), `e2e: 200/200`,
+`arena suite: 91/96`, `annot 15/15`, `mode flags 10/10`,
+`prelude counts 3/3`, `progress lane 15/15`, `worker pool 15/15`,
+`DAG-tower 14/14`, `axioms: pinned (20 theorems)`, trusted and the two
+`--jobs` sweeps as at the default, `inmodel: OK`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`.  `tests/warning-free.sh c39d80c2` — 3 changed
+modules, **0 warning lines** in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **205 of 3945** against **205 of 3944**: one
+declaration added (`nestedPinEntryOutEq`) and it has consumers, so the
+advisory count did not move; `normPosDomM_openRedPis_ordHeadRed` is
+still the one entry, for the reason §(b) gives.  `#print axioms` on
+`nestedOrdNormOk_tower`, `nestedOrdNormOk_blkHead`,
+`nestedPinEntryOutEq`, `nestedPinEntryOut` and `nestedPinPairAt_pinσ`:
+`[propext, Classical.choice, Quot.sound]`.  No `sorry`, no new axiom,
+no `maxHeartbeats`.
+
+**THE KERNEL CHANGED**, so the accept set and the cost are both owed.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), `--verified --nested-shadow --jobs=4` | 1 | 1 | 0 |
+| `init-full`, `--trusted --nested-shadow --jobs=4` | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), `--verified --nested-shadow --jobs=4` | 41 | 41 | 0 |
+| Mathlib, `--trusted --nested-shadow --jobs=4` | 41 | 41 | 0 |
+
+THE CONTROL, with the comparison's answer made wrong
+(`… == domPiDepth domJ.1 + (domPiDepth (ordHeadRed …) + 1)`), against
+`tests/nested-shadow.sh`: **42/47 — it fires at 6 blocks in 5 rows**
+(`nested_p04` `P4`, `inmodel_groups` `M` and `H`,
+`nested_pin_nocollide` `NoCollide`, `nested_bvar_field` `BvarField`,
+`nested_redex_owner` `Outer`), which is K.72's control's reach
+EXACTLY — the two comparisons are the same `Bool` at every field any
+fixture reaches, as §(b) argues from the syntax.  `nested_redex_tower`
+is NOT in that list, which is the measurement behind §(b)'s "the arm
+is not reached there": the guard `ordRootFired … (ordHeadRed W)` is
+false at a `Π`-headed reduct.
+
+THE COST, `perf stat -e instructions:u`, one run per cell,
+`--nested-shadow --jobs=1`, against the same tree with the summand at
+the RAW recomputation (K.72).
+
+| run | K.72 (raw) | K.73 (reduced) | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2327 G | 538.2288 G | **−0.0007 %** |
+| `init-full --trusted --nested-shadow` | 520.8983 G | 520.8990 G | **+0.0001 %** |
+
+No Mathlib perf run.
