@@ -130843,12 +130843,34 @@ copy's own domains for `T`.  Two instances of it at one container
 field give two EQUAL `Π`-SETS, and a `Π`-set does not give its domain
 back (nor its telescope at a DIFFERENT body, which is what `slotSet`
 needs).  The object is therefore term-level, and its home is the
-KERNEL: **K.72 strengthened from a LENGTH to a TERM comparison** at
-the same guard and the same addressing — the copy's stored binders
-against the owner's under `ordRootInst`'s substitution at each
-binder's own cut, K.69's shape one level up — then the two sides'
-readings and a `teleOfFields` congruence at `slotSet` to spend it.  It
-owes the full battery, and it belongs in one lane with K.74 and
+KERNEL: **K.69 ONE LEVEL UP, AT THE TOWER** — the BLOCK's recomputed
+tower against the OWNER's under `ordRootInst`'s substitution, binder
+by binder at each binder's own cut `l + i` — with the model side
+mirroring the index spine's three pieces exactly (an `OrdTargetTele`
+beside `OrdTargetRead` as a `PinShapes` conjunct, the block's own
+reading off the run, and a `teleOfFields`/`piTele` congruence at
+`slotSet` to spend them).
+
+**ONE PITFALL, FOUND WHILE PRICING IT.**  The comparison must be
+RECOMPUTATION against RECOMPUTATION, the way K.69 compares the two
+bodies, and NOT the copy's STORED binders against a recomputation the
+way K.72's length arm does.  `ordTargetDom` instantiates the
+container's stored domain at the pin's components and rewrites
+nothing else, while the mint (`replaceAllNested`) replaces every
+nested occurrence inside the domain — binder types included — by a
+pin constant.  The two therefore differ as TERMS at any container
+whose field TOWER mentions its own group, and a stored-against-
+recomputed term comparison would fire on official accepts.  Lengths
+survive the rewrite, which is why K.72's arm can be stated that way
+and this one cannot.  The three shapes the object has to survive are
+already in the tree and already carry their own refutations in their
+sources: `nested_pi_field` (the tower is the CONTAINER's),
+`nested_comp_tower` (the tower is the MINT's, and "a K.72 that
+compares them would fire on an input official accepts") and
+`nested_redex_tower` (the tower appears only after the walk's
+reduction, so the subject is `ordHeadRed`'s — K.74's own move).
+
+It owes the full battery, and it belongs in one lane with K.74 and
 `hfinRefl`, which live in the same `nestedOrdNormAt` arm and are the
 same kind of change.  **Honest sizing for that lane: four to seven
 sessions.**  It is the whole of what stands between the tree and
