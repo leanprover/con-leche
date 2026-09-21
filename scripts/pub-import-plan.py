@@ -99,6 +99,18 @@ FALLBACK = {
     # build with `Unknown identifier DenoteMetaSpine`.
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Annot.BitLemmas'),
+    # task #315 (M5, the leaf's membership): `Model/Inductives/BlockRecMem.lean`
+    # re-exports `Model/Annot/EnvModelM.lean` for the kernel types its public
+    # statements name through the file's `variable` binder (`CheckMode`,
+    # `Env`, `ConstantVal`, `BlockShape`, `RecShape`) and
+    # `Semantics/Tower/BlockRecI.lean` for `blockRecAV`/`BlockRecPre`, which
+    # appear only in HYPOTHESIS binders of `hmem_of_pre`/`hrd_of_pre` and are
+    # attributed to no census row.  MEASURED one at a time: demoting either
+    # line fails the build with `Unknown identifier` at exactly those names.
+    ('ConLeche.Model.Inductives.BlockRecMem',
+     'ConLeche.Model.Annot.EnvModelM'),
+    ('ConLeche.Model.Inductives.BlockRecMem',
+     'ConLeche.Semantics.Tower.BlockRecI'),
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
