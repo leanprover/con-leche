@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.SetModel.UnionRec
-public import ConLeche.SetModel.TupleContainer
+import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetTheory.Derive.LfpCompose
 @[expose] public section
 
