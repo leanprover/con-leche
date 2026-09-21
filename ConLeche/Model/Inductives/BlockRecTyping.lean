@@ -3,7 +3,6 @@ module
 import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Model.Claims
 import ConLeche.Model.Capstone
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.IndFrame
