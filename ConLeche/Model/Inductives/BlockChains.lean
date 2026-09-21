@@ -73,6 +73,22 @@ structure ChainFactsB (k w nP nF : Nat) (ρp : Nat → V) (uf : Nat → Nat)
   grE : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
     ∀ E ∈ Es, WellDenoted V (consList as' ρp) E
 
+/-- **The k-ary record's target-blind half** — the same core the
+one-member record projects onto (`ChainFacts.toS`).  Which member a
+recursive slot reads never reaches the shadow context, so every shadow
+lemma of the witness is stated over this. -/
+theorem ChainFactsB.toS (hC : ChainFactsB k w nP nF ρp uf Idss m ks tgts tls Fs Eis Es) :
+    ChainFactsS w nP nF (Idss m).length ρp ks tls Fs Eis Es where
+  hks := hC.hks
+  hFs := hC.hFs
+  hEs := hC.hEs
+  nb := hC.nb
+  nbT := hC.nbT
+  nbE := hC.nbE
+  nbEs := hC.nbEs
+  gr i hi as' hsp := ⟨(hC.gr i hi as' hsp).1, (hC.gr i hi as' hsp).2.1⟩
+  grE := hC.grE
+
 /-- **The walk**, at `k` members: along the X-chain, beside a shadow
 spine. -/
 theorem blockChainWalk (hIall : BlockIdxOk (V := V) k uf ρp Idss) (hm : m < k) {Y : V}

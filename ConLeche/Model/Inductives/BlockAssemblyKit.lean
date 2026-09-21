@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
+public import ConLeche.Model.Inductives.BlockWitness
 public section
 
 /-!
@@ -11,14 +12,13 @@ functor's whole premise bundle (`BlockChainsOk`, lane S's
 `Semantics/Tower/BlockFamI.lean`) and the chains' bit-validity, from
 the per-member, per-constructor chain facts.
 
-The closure at a `Type`-valued block ((W) at tuples) is a HYPOTHESIS
-here, `hclosedPos`, exactly as it is at `k = 1` a call to
-`FixWitness.fixClosed_of`: the block's container presentation — shapes
-= the shadow tuples TAGGED by (component, constructor), positions =
-the recursive fields' telescope spines, targets = the calls' index
-tuples — is the witness lane's, and it discharges this one hypothesis
-through lane S's `blockPhi_closed_container`.  At a `Prop`-valued
-block the closure is free (`blockPhi_closed_zero`).
+The closure at a `Type`-valued block ((W) at tuples) is
+`BlockWitness.blockClosed_of` — the block's container presentation,
+shapes = the shadow tuples TAGGED by (component, constructor),
+positions = the recursive fields' telescope spines, targets = the
+calls' (member, index tuple) pairs — exactly as it is at `k = 1` a
+call to `FixWitness.fixClosed_of`.  At a `Prop`-valued block the
+closure is free (`blockPhi_closed_zero`).
 -/
 
 namespace ConLeche.Model
@@ -53,8 +53,7 @@ theorem blockChainsOk_of {k w nP : Nat} {ρp : Nat → V} {uf : Nat → Nat}
     (hCV : ∀ m, m < k → ∀ j, j < nOf m →
       ChainValidFacts nP ((Fsss m).getD j []).length ρp (ksF m j) ((tlsss m).getD j [])
         ((Fsss m).getD j []) ((Eisss m).getD j []) ((Esss m).getD j []))
-    (hclosedPos : w ≠ 0 → ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss)
-      (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L) :
+    :
     BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss ∧
     ∀ Y, Y ∈ˢ famsSpaceB k w ρp uf Idss → ∀ m, m < k →
       ∀ t, t ∈ˢ idxSet (uf m) ρp (Idss m) →
@@ -85,7 +84,7 @@ theorem blockChainsOk_of {k w nP : Nat} {ρp : Nat → V} {uf : Nat → Nat}
       (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L := by
     rcases Nat.eq_zero_or_pos w with rfl | hw
     · exact blockPhi_closed_zero_of hok
-    · exact hclosedPos (Nat.pos_iff_ne_zero.mp hw)
+    · exact blockClosed_of (Nat.pos_iff_ne_zero.mp hw) hI hlenF hrss hC
   refine ⟨⟨hI, hok, fun Y hY m hm t ht j hj => ?_, hclosed⟩,
     fun Y hY m hm t ht chain hc => ?_⟩
   · rw [hrss m hm j (by rw [← hlenF m hm]; exact hj)]

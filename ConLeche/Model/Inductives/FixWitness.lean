@@ -41,12 +41,12 @@ variable {V : Type w'} [SetTheory V]
 
 /-- The shadow spine of a field spine from position `i` on: the
 recursive slots hold the shadow value. -/
-noncomputable def shadowOfGo (nP : Nat) (ks : List RecFieldKind) : Nat → List V → List V
+@[expose] noncomputable def shadowOfGo (nP : Nat) (ks : List RecFieldKind) : Nat → List V → List V
   | _, [] => []
   | i, a :: as => (if recAt nP ks (nP + i) then shadowVal else a) :: shadowOfGo nP ks (i + 1) as
 
 /-- The shadow spine of a field spine. -/
-noncomputable def shadowOf (nP : Nat) (ks : List RecFieldKind) (fs : List V) : List V := shadowOfGo nP ks 0 fs
+@[expose] noncomputable def shadowOf (nP : Nat) (ks : List RecFieldKind) (fs : List V) : List V := shadowOfGo nP ks 0 fs
 
 theorem shadowOfGo_length (nP : Nat) (ks : List RecFieldKind) :
     ∀ (i : Nat) (fs : List V), (shadowOfGo nP ks i fs).length = fs.length
@@ -101,10 +101,10 @@ theorem shadowOf_take (nP : Nat) (ks : List RecFieldKind) (fs : List V) (i : Nat
 /-- **The shadow fields are graded** (at a positive sort): the ordinary
 domains by the chain facts at shadow spines, the recursive slots
 `Sort 0` — a member of every positive universe. -/
-theorem shadowFs_okB {u w nP nF : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : List AnnotTerm}
+theorem shadowFs_okB {w nP nF nIdx : Nat} (hw : w ≠ 0) {ρp : Nat → V}
     {ks : List RecFieldKind} {tls : List (List (Nat × Nat × AnnotTerm))} {Fs : List AnnotTerm}
     {Eis : List (List AnnotTerm)} {Es : List AnnotTerm}
-    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) :
+    (hC : ChainFactsS w nP nF nIdx ρp ks tls Fs Eis Es) :
     FieldsOkB w ρp (shadowFs nP ks nF Fs) := by
   refine fieldsOkB_of_pointwise fun i hi as hsp => ?_
   rw [shadowFs_length] at hi
@@ -119,7 +119,7 @@ theorem shadowFs_okB {u w nP nF : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : L
     obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
     exact univ_mono (Nat.succ_le_succ (Nat.zero_le w')) _ (univ_mem_univ 0)
   · rw [if_neg hr]
-    obtain ⟨hok, hmem, -⟩ := hC.gr i hi as hsp
+    obtain ⟨hok, hmem⟩ := hC.gr i hi as hsp
     exact ⟨hok, fun hw' => hmem hr hw'⟩
 
 /-! ## The shapes: the shadow tuples -/
@@ -194,10 +194,10 @@ theorem mem_shapeSet {u w nP : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : List
     exact ⟨pt_mem_unitSet, trivial⟩
 
 /-- **The shape set is a member**: the shadow chains are graded. -/
-theorem shapeSet_mem {u w nP : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : List AnnotTerm}
+theorem shapeSet_mem {u w nP nIdx : Nat} (hw : w ≠ 0) {ρp : Nat → V} {Ids : List AnnotTerm}
     {ksF : Nat → List RecFieldKind} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss : List (List (List AnnotTerm))} {Fss Ess : List (List AnnotTerm)}
-    (hC : ∀ j, j < Fss.length → ChainFacts u w nP (Fss.getD j []).length ρp Ids (ksF j)
+    (hC : ∀ j, j < Fss.length → ChainFactsS w nP (Fss.getD j []).length nIdx ρp (ksF j)
       (tlss.getD j []) (Fss.getD j []) (Eiss.getD j []) (Ess.getD j []))
     (t : V) : shapeSet u w nP ρp Ids ksF Fss Ess t ∈ˢ (univ w : V) := by
   unfold shapeSet
@@ -373,19 +373,19 @@ theorem recTags_mem {w : Nat} (hw : w ≠ 0) (rs : List Bool) (nF : Nat) :
   exact univ_sep_mem (omega_mem_univ_succ w')
 
 /-- The spine set of a telescope at a prefix. -/
-noncomputable def spineSet (w : Nat) (ρp : Nat → V) (tl : List (Nat × Nat × AnnotTerm)) (as : List V) :
+@[expose] noncomputable def spineSet (w : Nat) (ρp : Nat → V) (tl : List (Nat × Nat × AnnotTerm)) (as : List V) :
     V :=
   towerSet w (teleOfFields (consList as ρp) (tl.map (·.2.2)))
 
 /-- The positions of a shape: the recursive fields' spines, tagged. -/
-noncomputable def posSet (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
+@[expose] noncomputable def posSet (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Fss : List (List AnnotTerm)) (a : V) : V :=
   sigmaPairs (recTags (rss.getD (shapeTag a) []) (Fss.getD (shapeTag a) []).length) fun k =>
     spineSet w ρp ((tlss.getD (shapeTag a) []).getD (natIdx k) [])
       ((shapeFields (Fss.getD (shapeTag a) []).length a).take (natIdx k))
 
 /-- The target of a position: the call's index tuple. -/
-noncomputable def posTgt (u : Nat) (ρp : Nat → V) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+@[expose] noncomputable def posTgt (u : Nat) (ρp : Nat → V) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss : List (List (List AnnotTerm))) (Fss : List (List AnnotTerm)) (a p : V) : V :=
   tupW u (((Eiss.getD (shapeTag a) []).getD (natIdx (sfst p)) []).map
     (interp V (consList (projList ((tlss.getD (shapeTag a) []).getD (natIdx (sfst p)) []).length (ssnd p))
@@ -393,7 +393,7 @@ noncomputable def posTgt (u : Nat) (ρp : Nat → V) (tlss : List (List (List (N
 
 /-- The builder: the tuple with the recursive slots holding the curried
 function on spines. -/
-noncomputable def mkShape (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
+@[expose] noncomputable def mkShape (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Fss : List (List AnnotTerm)) (a g : V) : V :=
   inj (shapeTag a) (mkTower (((List.range (Fss.getD (shapeTag a) []).length).map fun i =>
     if (rss.getD (shapeTag a) []).getD i false then
@@ -401,6 +401,34 @@ noncomputable def mkShape (w : Nat) (ρp : Nat → V) (rss : List (List Bool))
         ((tlss.getD (shapeTag a) []).getD i []) fun σ =>
           app g (kpair (vnat i) (mkTower (frameIdx ((tlss.getD (shapeTag a) []).getD i []).length σ)))
     else (shapeFields (Fss.getD (shapeTag a) []).length a).getD i pt) ++ [pt]))
+
+/-! ## Shadow transports over the target-blind facts -/
+
+/-- The moved telescope's `NoBVar` facts in the domain-list form. -/
+theorem nbT_mapS {w nP nF nIdx : Nat} {ρp : Nat → V} {ks : List RecFieldKind}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Fs : List AnnotTerm}
+    {Eis : List (List AnnotTerm)} {Es : List AnnotTerm}
+    (hC : ChainFactsS w nP nF nIdx ρp ks tls Fs Eis Es) {i : Nat} (hik : i < nF)
+    (hr : recAt nP ks (nP + i)) :
+    ∀ q F, ((tls.getD i []).map (·.2.2))[q]? = some F →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + q)) F := by
+  intro q F hq
+  rw [List.getElem?_map] at hq
+  obtain ⟨d, hd, rfl⟩ := Option.map_eq_some_iff.mp hq
+  exact hC.nbT i hik hr q d hd
+
+/-- The index values are read at the shadow spine. -/
+theorem idxValsAt_shadowS {w nP nF nIdx : Nat} {ρp : Nat → V} {ks : List RecFieldKind}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Fs : List AnnotTerm}
+    {Eis : List (List AnnotTerm)} {Es : List AnnotTerm}
+    (hC : ChainFactsS w nP nF nIdx ρp ks tls Fs Eis Es) {fs : List V} (hlen : fs.length = nF) :
+    idxValsAt ρp Es (shadowOf nP ks fs) = idxValsAt ρp Es fs := by
+  unfold idxValsAt
+  apply List.map_congr_left
+  intro E hE
+  have hnb := hC.nbEs E hE
+  rw [← hlen] at hnb
+  exact (interp_congr_noBVar E hnb (agreeOff_shadow (shadowRel_shadowOf nP ks fs) ρp)).symm
 
 section Block
 
@@ -477,7 +505,7 @@ theorem mkShape_mem {t a g : V} (ha : a ∈ˢ shapeSet u w nP ρp Ids ksF Fss Es
     (hg : g ∈ˢ (univ w : V)) : mkShape w ρp rss tlss Fss a g ∈ˢ (univ w : V) := by
   obtain ⟨j, as', hj, rfl, -, hfit, -, htag, hfields⟩ := shapeSet_data hw ha
   have hamem : inj j (mkTower (as' ++ [pt])) ∈ˢ (univ w : V) :=
-    (univ_isTGUniverse hw).transitive (shapeSet_mem hw hC t) ha
+    (univ_isTGUniverse hw).transitive (shapeSet_mem hw (fun j hj => (hC j hj).toS) t) ha
   have hcomp : ∀ x, x ∈ as' → x ∈ˢ (univ w : V) := fun x hx =>
     mkTower_comp_mem hw (inj_comp_mem hw hamem) x (List.mem_append_left _ hx)
   unfold mkShape
@@ -506,17 +534,6 @@ theorem mkShape_mem {t a g : V} (ha : a ∈ˢ shapeSet u w nP ρp Ids ksF Fss Es
 omit [SetTheory V] hw hrss hC in
 theorem agreeOff_symm {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P σ σ') : AgreeOff P σ' σ :=
   fun i hi => (h i hi).symm
-
-omit hw hrss in
-/-- The moved telescope's `NoBVar` facts in the domain-list form. -/
-theorem nbT_map {j : Nat} (hj : j < Fss.length) {i : Nat} (hik : i < (Fss.getD j []).length)
-    (hr : recAt nP (ksF j) (nP + i)) :
-    ∀ k F, (((tlss.getD j []).getD i []).map (·.2.2))[k]? = some F →
-      NoBVar (exclP (fun q => recAt nP (ksF j) q ∧ q < nP + i) (nP + i + k)) F := by
-  intro k F hk
-  rw [List.getElem?_map] at hk
-  obtain ⟨d, hd, rfl⟩ := Option.map_eq_some_iff.mp hk
-  exact (hC j hj).nbT i hik hr k d hd
 
 omit hw in
 /-- **A spine fitting the X-chain has its shadow fitting the shadow
@@ -591,18 +608,6 @@ theorem shadowOf_fits {j : Nat} (hj : j < Fss.length) {X t : V} :
       rw [hsh, ← consList_snoc'] at ih
       exact ih
 
-omit hw hrss in
-/-- The index values are read at the shadow spine. -/
-theorem idxValsAt_shadow {j : Nat} (hj : j < Fss.length) {fs : List V}
-    (hlen : fs.length = (Fss.getD j []).length) :
-    idxValsAt ρp (Ess.getD j []) (shadowOf nP (ksF j) fs) = idxValsAt ρp (Ess.getD j []) fs := by
-  unfold idxValsAt
-  apply List.map_congr_left
-  intro E hE
-  have hnb := (hC j hj).nbEs E hE
-  rw [← hlen] at hnb
-  exact (interp_congr_noBVar E hnb (agreeOff_shadow (shadowRel_shadowOf nP (ksF j) fs) ρp)).symm
-
 include hI in
 set_option maxHeartbeats 3200000 in
 /-- **Every element of the functor's fibre is a container element**: its
@@ -629,7 +634,7 @@ theorem fixStep_elim_container {X : V} (hX : X ∈ˢ lfpFamSpace V w (idxSet u �
     rw [List.drop_zero] at this
     exact this
   have hidx : idxValsAt ρp (Ess.getD j []) (shadowOf nP (ksF j) fs) = isOfW u Ids.length (tupW u is) := by
-    rw [isOfW_tupW hI hsp, idxValsAt_shadow hC hj hlen]
+    rw [isOfW_tupW hI hsp, idxValsAt_shadowS (hC j hj).toS hlen]
     rw [← hlen] at hall
     exact idxValsAt_of_eqsXI hI hsp hEs hall
   refine ⟨inj j (mkTower (shadowOf nP (ksF j) fs ++ [pt])),
@@ -671,7 +676,7 @@ theorem fixStep_elim_container {X : V} (hX : X ∈ˢ lfpFamSpace V w (idxSet u �
       SpineFit (consList ((shadowOf nP (ksF j) fs).take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs ↔
       SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs := fun i hi bs =>
     (spineFit_congr_exclP _ bs (hQ i) (hag i hi)
-      (nbT_map hC hj (mem_recIdx.mp hi).1 (hrecAt i hi))).symm
+      (nbT_mapS (hC j hj).toS (mem_recIdx.mp hi).1 (hrecAt i hi))).symm
   have hEmap : ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length, ∀ bs : List V,
       bs.length = ((tlss.getD j []).getD i []).length →
       ((Eiss.getD j []).getD i []).map (interp V (consList bs (consList ((shadowOf nP (ksF j) fs).take i) ρp)))
@@ -791,7 +796,7 @@ theorem fixClosed_of :
   obtain ⟨L, hL, hclosed⟩ := container_closed_exists hw (I := idxSet u ρp Ids)
     (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (shapeSet u w nP ρp Ids ksF Fss Ess)
     (posSet w ρp rss tlss Fss) (posTgt u ρp tlss Eiss Fss) (mkShape w ρp rss tlss Fss)
-    (fun t _ => shapeSet_mem hw hC t) (fun _ a _ ha => posSet_mem hw hrss hC ha)
+    (fun t _ => shapeSet_mem hw (fun j hj => (hC j hj).toS) t) (fun _ a _ ha => posSet_mem hw hrss hC ha)
     (fun _ a p _ ha hp => posTgt_mem hw hrss hC ha hp) (fun _ a g _ ha hg => mkShape_mem hw hrss hC ha hg)
     (fun X hX t ht x hx => by
       rw [← lfpFamSpace_eq] at hX
