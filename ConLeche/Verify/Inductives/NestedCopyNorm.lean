@@ -9,6 +9,8 @@ import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedElimInv
 -- the container's stored constructors, for the same (task #315 M8)
 import ConLeche.Verify.Inductives.NestedGroupInv
+-- the `whnf` head inversion, for the redex mint (task #315 WIDE (f3))
+import ConLeche.Verify.Inductives.OrdHeadRed
 
 public section
 
@@ -2037,6 +2039,42 @@ theorem normPosDomM_indApp_former {fms : List MutualFormerA} {env : Env}
   obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
   exact normPosDomM_indApp hfind h
 
+/-- **THE REDEX MINT'S TWIN OF `normPosDomM_indApp_cons`** (task #315
+WIDE (f3), the fourth concession): where the mint's head is a `.const`
+already, `normPosDomM_indApp_cons` says the walk is the identity; where
+it is a λ-REDEX the walk REDUCES it, and what it lands on is the pure
+head normal form `ordHeadRed` — `normPosDomM_eq_ordHeadRed`
+(`Verify/Inductives/OrdHeadRed.lean`) transported across the formers'
+conses, for a head the PRE-BLOCK environment records as an inductive. -/
+theorem normPosDomM_ordHeadRed_cons {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
+    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
+    {K : Name} {us : List Level}
+    (hb : W.looseBVarsBounded 0 = true)
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (hred : (ordHeadRed W).getAppFn = .const J lvls)
+    (hwc : w.getAppFn = .const K us)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel W = .ok w) :
+    w = ordHeadRed W := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo (fms := fms) hJ
+  exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
+
+/-- **THE SAME AT A MINTED COPY'S AUXILIARY** — `normPosDomM_indApp_former`'s
+twin at a reduced head. -/
+theorem normPosDomM_ordHeadRed_former {fms : List MutualFormerA} {env : Env}
+    {memberNames : List Name} {F fuel d : Nat} {W w : Expr}
+    {f : MutualFormerA} {lvls : List Level} {K : Name} {us : List Level}
+    (hb : W.looseBVarsBounded 0 = true)
+    (hf : f ∈ fms)
+    (hred : (ordHeadRed W).getAppFn = .const f.cvTa.name lvls)
+    (hwc : w.getAppFn = .const K us)
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+        memberNames d fuel W = .ok w) :
+    w = ordHeadRed W := by
+  obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
+  exact normPosDomM_eq_ordHeadRed hb hfind hred hwc h
+
 
 /-! ## The walk through a `Π`-TOWER (task #315 WIDE (3), step 1)
 
@@ -2128,5 +2166,243 @@ theorem normPosDomM_openPis_indApp {fms : List MutualFormerA} {env : Env}
           have hround : (body'.abstract1 d 0).instantiate1 (.fvar d ty) 0 = body' :=
             abstract1_instantiate1 body' 0 hcons hbbody
           simp only [openPisAtFvars, hround, ih hbody' hwopen hbopen hq]
+
+/-! ## The walk through a `Π`-TOWER AT A REDEX LEAF (task #315 WIDE
+(f3) step 4, lane WHNF)
+
+`normPosDomM_openPis_indApp` is the reflexive arm's use of the walk
+where the tower's leaf is a constant-headed application ALREADY: the
+walk is the identity there, so the two openings end at one term.  A
+mint whose leaf is a λ-REDEX — `tests/e2e/nested_redex_owner.ndjson`'s
+shape, one telescope down — has no constant head until something
+reduces it, and the walk DOES reduce it.  What survives is the same
+statement at the head normal form: the output opens, at the same
+openers, at `ordHeadRed` of the input's leaf.
+
+**And the COUNT comes out with it.**  The finitary arm could read the
+two openings' counts off `openPisAtFvars_count_unique`, because both
+leaves were constant-headed before the walk was inverted.  Here the
+INPUT's leaf need not be: only its head normal form is.  So the count
+is folded into the statement — the caller hands the opening of the
+OUTPUT it already holds (the copy's recorded telescope, whose leaf the
+rewrite made a block member) and gets back that its count is the
+input's tower depth, that its openers are the input's, and that its
+leaf is the reduction's. -/
+
+/-- **TWO OPENINGS AT LEAVES THAT ARE NOT BINDERS PEEL THE SAME NUMBER
+OF BINDERS** — `openPisAtFvars_count_unique` (`NestedCopyKinds.lean`)
+is this at the constant-headed special case, and the special case is
+not enough here: a REDEX leaf is not constant-headed, and what the
+head-normal-form guard gives is exactly that it is not a `∀`. -/
+theorem openPisAtFvars_count_unique_notPi : ∀ (n m : Nat) {e : Expr} {d : Nat}
+    {fvs₁ fvs₂ : List Expr} {leaf₁ leaf₂ : Expr},
+    openPisAtFvars n e d = some (fvs₁, leaf₁) →
+    (∀ (ty bo : Expr) (bm : BinderMeta), leaf₁ ≠ Expr.forallE ty bo bm) →
+    openPisAtFvars m e d = some (fvs₂, leaf₂) →
+    (∀ (ty bo : Expr) (bm : BinderMeta), leaf₂ ≠ Expr.forallE ty bo bm) →
+    n = m := by
+  intro n
+  induction n with
+  | zero =>
+    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ h1 hP1 h2 hP2
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h1
+    obtain ⟨-, rfl⟩ := h1
+    cases m with
+    | zero => rfl
+    | succ m =>
+      match e, h2, hP1 with
+      | .forallE ty rest bm, _, hP1 => exact absurd rfl (hP1 ty rest bm)
+  | succ n ih =>
+    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ h1 hP1 h2 hP2
+    match e, h1 with
+    | .forallE ty rest bm, h1 =>
+      cases m with
+      | zero =>
+        simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h2
+        obtain ⟨-, rfl⟩ := h2
+        exact absurd rfl (hP2 ty rest bm)
+      | succ m =>
+        simp only [openPisAtFvars] at h1 h2
+        cases hq : openPisAtFvars n (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+        | none => rw [hq] at h1; exact nomatch h1
+        | some q1 =>
+          cases hq2 : openPisAtFvars m (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+          | none => rw [hq2] at h2; exact nomatch h2
+          | some q2 =>
+            obtain ⟨a1, b1⟩ := q1
+            obtain ⟨a2, b2⟩ := q2
+            rw [hq] at h1
+            rw [hq2] at h2
+            simp only [Option.some.injEq, Prod.mk.injEq] at h1 h2
+            obtain ⟨-, rfl⟩ := h1
+            obtain ⟨-, rfl⟩ := h2
+            exact congrArg (· + 1) (ih m hq hP1 hq2 hP2)
+
+
+/-- **THE MINT'S TOWER IS THE CONTAINER'S, UNDER A HEAD-NORMAL-FORM
+GUARD** (task #315 WIDE (f3) step 4, lane WHNF): the minted field
+domain is the container's stored one with the pin's COMPONENTS and then
+the field's own openers substituted in, and `ordTargetDom` strips the
+stored tower BEFORE it substitutes.  `stripDomPis_instSeq_tower`
+(`NestedCopyKinds.lean`) prices the difference — each substitution may
+PLANT a `Π` into the stripped body — and the guard pays it: a stripped
+body whose substitution is not a binder plants nothing, so the two
+towers are one and the recomputation's cut is unmoved.
+
+The guard is stated on the SUBSTITUTED leaf and not on the stored one,
+which is the whole point of the move: the stored leaf may be a λ-REDEX
+(`tests/e2e/nested_redex_owner.ndjson`'s shape at a reflexive field),
+and a redex is not a binder either. -/
+theorem stripDomPis_instSeq2_notPi {E : Expr} {V₁ V₂ : List Expr} {t₁ t₂ : Nat}
+    (h₁ : V₁.length ≤ t₁ + 1) (h₂ : V₂.length ≤ t₂ + 1)
+    (hnotPi : ∀ (ty bo : Expr) (bm : BinderMeta),
+      Expr.instSeq V₁ (t₁ + domPiDepth E)
+          (Expr.instSeq V₂ (t₂ + domPiDepth E) (stripDomPis E))
+        ≠ Expr.forallE ty bo bm) :
+    domPiDepth (Expr.instSeq V₁ t₁ (Expr.instSeq V₂ t₂ E)) = domPiDepth E ∧
+      stripDomPis (Expr.instSeq V₁ t₁ (Expr.instSeq V₂ t₂ E))
+        = Expr.instSeq V₁ (t₁ + domPiDepth E)
+            (Expr.instSeq V₂ (t₂ + domPiDepth E) (stripDomPis E)) := by
+  obtain ⟨hdIn, hsIn⟩ := stripDomPis_instSeq_tower E V₂ t₂ h₂
+  -- the COMPONENTS plant nothing: a `Π` there would survive the
+  -- openers' substitution and the guard forbids the result
+  have hCnotPi : ∀ (ty bo : Expr) (bm : BinderMeta),
+      Expr.instSeq V₂ (t₂ + domPiDepth E) (stripDomPis E) ≠ Expr.forallE ty bo bm := by
+    intro ty bo bm hC
+    refine hnotPi (Expr.instSeq V₁ (t₁ + domPiDepth E) ty)
+      (Expr.instSeq V₁ (t₁ + domPiDepth E + 1) bo) bm ?_
+    rw [hC, Expr.instSeq_forallE V₁ (t₁ + domPiDepth E) ty bo bm (by omega)]
+  obtain ⟨hsC, hdC⟩ := stripDomPis_notPi hCnotPi
+  rw [hdC, Nat.add_zero] at hdIn
+  obtain ⟨hdOut, hsOut⟩ :=
+    stripDomPis_instSeq_tower (Expr.instSeq V₂ t₂ E) V₁ t₁ h₁
+  rw [hdIn, hsIn, hsC] at hdOut hsOut
+  -- and the OPENERS plant nothing either, by the guard read directly
+  obtain ⟨hsB, hdB⟩ := stripDomPis_notPi hnotPi
+  rw [hdB, Nat.add_zero] at hdOut
+  exact ⟨hdOut, by rw [hsOut, hsB]⟩
+
+/-- **THE POSITIVITY WALK'S OUTPUT OPENS AT THE LEAF'S HEAD NORMAL
+FORM** (task #315 WIDE (f3) step 4, lane WHNF): at a `∀`-tower whose
+leaf REDUCES to a constant-headed application of an inductive the
+walk's own environment records, the walk's output opens — at the same
+openers — at that reduction; and the opening the caller already has of
+the OUTPUT is that one.
+
+`normPosDomM_openPis_indApp` is this where the leaf is constant-headed
+already (`ordHeadRed` is then the identity, `ordHeadRed_const`).  Three
+places differ, and all three are the same concession the finitary rows
+made in `Verify/Inductives/OrdHeadRed.lean`:
+
+* the LEAF step is `normPosDomM_eq_ordHeadRed` and not
+  `normPosDomM_indApp`, so it asks for the input's boundedness and for
+  the OUTPUT's constant head — the latter is what the caller's own
+  opening carries;
+* the identity arm (the walk handed the whole tower back) is closed by
+  `openPisAtFvars_count_unique_notPi`, since the input's leaf is not
+  constant-headed and only the guard's "not a `∀`" is available;
+* and the `Π` arm's own recursion needs no new fact: the round trip
+  that closes each binder is `normPosDomM_openPis_indApp`'s, character
+  for character. -/
+theorem normPosDomM_openPis_ordHeadRed {fms : List MutualFormerA} {env : Env}
+    (henv : EnvWF (consMutualFormers fms env)) {memberNames : List Name} {F : Nat}
+    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
+    (hJ : (consMutualFormers fms env).find? J = some (.indInfo cv caps)) :
+    ∀ (n n₂ : Nat) {d fuel : Nat} {e w W lw : Expr} {fvsE fvsW : List Expr}
+      {K : Name} {us : List Level},
+      normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+          memberNames d fuel e = .ok w →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      openPisAtFvars n e d = some (fvsE, W) →
+      (ordHeadRed W).getAppFn = Expr.const J lvls →
+      openPisAtFvars n₂ w d = some (fvsW, lw) →
+      lw.getAppFn = Expr.const K us →
+      n₂ = n ∧ fvsW = fvsE ∧ lw = ordHeadRed W := by
+  intro n
+  induction n with
+  | zero =>
+    intro n₂ d fuel e w W lw fvsE fvsW K us h hws hb hopE hred hopW hwc
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopE
+    obtain ⟨rfl, hee⟩ := hopE
+    rw [hee] at h hb
+    have hnotPi := normPosDomM_not_forallE hb hJ hred h
+    cases n₂ with
+    | zero =>
+      simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopW
+      obtain ⟨rfl, rfl⟩ := hopW
+      exact ⟨rfl, rfl, normPosDomM_eq_ordHeadRed hb hJ hred hwc h⟩
+    | succ n₂ =>
+      match w, hopW, hnotPi with
+      | .forallE ty rest bm, _, hnotPi => exact absurd rfl (hnotPi ty rest bm)
+  | succ n ih =>
+    intro n₂ d fuel e w W lw fvsE fvsW K us h hws hb hopE hred hopW hwc
+    match e, hopE, h, hws, hb with
+    | .forallE ty rest bm, hopE, h, hws, hb =>
+      simp only [openPisAtFvars] at hopE
+      cases hq : openPisAtFvars n (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hopE; exact nomatch hopE
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hopE
+        simp only [Option.some.injEq, Prod.mk.injEq] at hopE
+        obtain ⟨rfl, rfl⟩ := hopE
+        simp only [Expr.WScoped] at hws
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        have hwopen : Expr.WScoped (d + 1) (rest.instantiate1 (Expr.fvar d ty) 0) :=
+          Expr.WScoped.instantiate1 hws.1 0 hws.2
+        have hbopen : (rest.instantiate1 (Expr.fvar d ty) 0).looseBVarsBounded 0 = true :=
+          looseBVarsBounded_instantiate1 rest 0 hb.2
+        have hinP : openPisAtFvars (n + 1) (Expr.forallE ty rest bm) d
+            = some (Expr.fvar d ty :: afvs, bodyq) := by
+          simp only [openPisAtFvars, hq]
+        have hnotlw : ∀ (ty' bo' : Expr) (bm' : BinderMeta), lw ≠ Expr.forallE ty' bo' bm' := by
+          intro ty' bo' bm' hl
+          rw [hl] at hwc
+          simp only [Expr.getAppFn] at hwc
+          exact nomatch hwc
+        rcases normPosDomM_forallE_inv h with ⟨-, rfl⟩ | ⟨-, body', fuel', hbody', rfl⟩
+        · -- the walk handed the whole tower back: the two openings are one term's
+          have hn2 : n + 1 = n₂ :=
+            openPisAtFvars_count_unique_notPi _ _ hinP
+              (not_forallE_of_ordHeadRed_const hred) hopW hnotlw
+          subst hn2
+          obtain ⟨rfl, rfl⟩ : Expr.fvar d ty :: afvs = fvsW ∧ bodyq = lw := by
+            have h2 := Option.some.inj (hinP.symm.trans hopW)
+            exact ⟨congrArg Prod.fst h2, congrArg Prod.snd h2⟩
+          exact ⟨rfl, rfl, (ordHeadRed_const hwc).symm⟩
+        · -- the `Π` arm: one binder down, at the round trip that closes it
+          obtain ⟨-, hbbody, hlbody⟩ := normPosDomM_pres henv fuel' hbody' hwopen hbopen
+          have hleaf : Expr.LeafCond d ty (rest.instantiate1 (Expr.fvar d ty) 0) := by
+            intro l hl hd
+            rcases Expr.fvarLeaves_instantiate1 rest 0 hl with h2 | h2
+            · exact absurd hd (by
+                have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+                omega)
+            · rw [Expr.fvarLeaves] at h2
+              rcases List.mem_cons.mp h2 with rfl | h3
+              · rfl
+              · exact absurd hd (by
+                  have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+                  omega)
+          have hcons : Expr.fvarConsistent d ty body' :=
+            Expr.fvarConsistent_of_leafCond body' (fun l hl => hleaf l (hlbody l hl))
+          have hround : (body'.abstract1 d 0).instantiate1 (Expr.fvar d ty) 0 = body' :=
+            abstract1_instantiate1 body' 0 hcons hbbody
+          cases n₂ with
+          | zero =>
+            simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopW
+            obtain ⟨-, rfl⟩ := hopW
+            exact absurd rfl (hnotlw ty (body'.abstract1 d 0) bm)
+          | succ n₂ =>
+            simp only [openPisAtFvars, hround] at hopW
+            cases hq2 : openPisAtFvars n₂ body' (d + 1) with
+            | none => rw [hq2] at hopW; exact nomatch hopW
+            | some q2 =>
+              obtain ⟨bfvs, blw⟩ := q2
+              rw [hq2] at hopW
+              simp only [Option.some.injEq, Prod.mk.injEq] at hopW
+              obtain ⟨rfl, rfl⟩ := hopW
+              obtain ⟨h1, h2, h3⟩ := ih n₂ hbody' hwopen hbopen hq hred hq2 hwc
+              exact ⟨congrArg (· + 1) h1, by rw [h2], h3⟩
 
 end ConLeche
