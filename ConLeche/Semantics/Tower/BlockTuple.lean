@@ -75,6 +75,12 @@ theorem ndMkTowerSet_mem {r : Nat} (hr : r ≠ 0) {F g : Nat → V} :
     exact spair_mem hr (hg s (by omega))
       (ndMkTowerSet_mem hr n (s + 1) fun m hm => hg m (by omega))
 
+theorem ndMkTowerSet_zero (g : Nat → V) (n : Nat) :
+    ndMkTowerSet g 0 n = mkTower ((List.range n).map g) := by
+  rw [ndMkTowerSet_eq_mkTower]
+  congr 1
+  exact List.map_congr_left fun i _ => by rw [Nat.zero_add]
+
 theorem projS_ndMkTowerSet {g : Nat → V} :
     ∀ (n s i : Nat), i < n → projS i (ndMkTowerSet g s n) = g (s + i)
   | 0, _, _, hi => absurd hi (Nat.not_lt_zero _)

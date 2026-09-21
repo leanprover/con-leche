@@ -600,6 +600,15 @@ theorem mkTower_map_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} (G :
   rw [List.getElem_map, List.getElem_range]
   exact hG i hin
 
+/-- The tower reads its components below its own length only. -/
+theorem ndTowerSet_congr {r : Nat} {F F' : Nat → V} :
+    ∀ (n s : Nat), (∀ m, m < s + n → F m = F' m) →
+      ndTowerSet V r F s n = ndTowerSet V r F' s n
+  | 0, _, _ => rfl
+  | n + 1, s, h => by
+    show sigmaSet r (F s) _ = sigmaSet r (F' s) _
+    rw [h s (by omega), ndTowerSet_congr n (s + 1) fun m hm => h m (by omega)]
+
 /-- **Elim**: every component of a member sits in the tower's own. -/
 theorem projS_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
     ∀ (n s : Nat) {x : V}, x ∈ˢ ndTowerSet V r F s n →
