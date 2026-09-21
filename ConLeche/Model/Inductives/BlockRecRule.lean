@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Semantics.Tower.BlockRecI
+public import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 public import ConLeche.Verify.Subst
 public import ConLeche.Model.Inductives.FixRecRead
@@ -1019,5 +1019,105 @@ theorem interp_peelPis_mkPisAV {tlA : List (Nat × Nat × AnnotTerm)} {BodyA A :
   obtain rfl : A = ConLeche.Model.AnnotTerm.instSeq vs (tlA.length - 1) BodyA :=
     (Option.some.inj hpeel).symm
   rw [← hlen, interp_instSeq, chain_eq_consList]
+
+/-! ## The `d`-shift: the generated spine at ih position `d` is the
+design's spine at `0`, lifted
+
+`denoteMeta_blockIhSpinePis` produces the guarded call's reading at ih
+position `d` — `ihIdxAtM nF o i d m`, the applied field at
+`bvar (nF - 1 - i + d + m)` and the prefix at
+`bvar (d + m + nF + rP - 1 - l)`.  The design's data
+(`ihFunAV`, `prefVarsAV`) sit at `d = 0`, read at an environment with
+no `locals` block.  The two are related by `AnnotTerm.liftN d · m`,
+whose environment half is `shiftE_consList_ih` — so these three
+lemmas are the whole of the `d` bookkeeping. -/
+
+theorem liftN_bvar_lt {q k n : Nat} (h : q < k) :
+    (AnnotTerm.bvar q).liftN n k = .bvar q := by
+  simp only [AnnotTerm.liftN_bvar]; rw [if_pos h]
+
+theorem liftN_bvar_ge {q k n : Nat} (h : k ≤ q) :
+    (AnnotTerm.bvar q).liftN n k = .bvar (q + n) := by
+  simp only [AnnotTerm.liftN_bvar]; rw [if_neg (by omega)]
+
+/-- **The lift exchange** the `ih` index expression needs: a lift at
+the telescope's cut and a lift at an OUTER cut commute, the outer cut
+moving by the inner lift's amount. -/
+theorem liftN_shift_comm {A o d : Nat} :
+    ∀ (E : AnnotTerm) (m c : Nat), m ≤ c →
+      ((E.liftN A m).liftN o c).liftN d m = (E.liftN (A + d) m).liftN o (c + d)
+  | .bvar q, m, c, hmc => by
+    rcases Nat.lt_or_ge q m with hq | hq
+    · rw [liftN_bvar_lt hq, liftN_bvar_lt (show q < c from by omega), liftN_bvar_lt hq,
+        liftN_bvar_lt hq, liftN_bvar_lt (show q < c + d from by omega)]
+    · rcases Nat.lt_or_ge (q + A) c with hc | hc
+      · rw [liftN_bvar_ge hq, liftN_bvar_lt hc, liftN_bvar_ge (show m ≤ q + A from by omega),
+          liftN_bvar_ge hq, liftN_bvar_lt (show q + (A + d) < c + d from by omega)]
+        congr 1; omega
+      · rw [liftN_bvar_ge hq, liftN_bvar_ge hc,
+          liftN_bvar_ge (show m ≤ q + A + o from by omega), liftN_bvar_ge hq,
+          liftN_bvar_ge (show c + d ≤ q + (A + d) from by omega)]
+        congr 1; omega
+  | .sort _, _, _, _ | .const .., _, _, _ | .prf, _, _, _ => rfl
+  | .app f a, m, c, hmc => by
+    simp only [AnnotTerm.liftN_app, liftN_shift_comm f m c hmc, liftN_shift_comm a m c hmc]
+  | .eqE a b, m, c, hmc => by
+    simp only [AnnotTerm.liftN_eqE, liftN_shift_comm a m c hmc, liftN_shift_comm b m c hmc]
+  | .fst e, m, c, hmc => by
+    simp only [AnnotTerm.liftN_fst, liftN_shift_comm e m c hmc]
+  | .snd e, m, c, hmc => by
+    simp only [AnnotTerm.liftN_snd, liftN_shift_comm e m c hmc]
+  | .lam u A b, m, c, hmc => by
+    simp only [AnnotTerm.liftN_lam, liftN_shift_comm A m c hmc,
+      show c + d + 1 = (c + 1) + d from by omega,
+      liftN_shift_comm b (m + 1) (c + 1) (by omega)]
+  | .pi u v A B, m, c, hmc => by
+    simp only [AnnotTerm.liftN_pi, liftN_shift_comm A m c hmc,
+      show c + d + 1 = (c + 1) + d from by omega,
+      liftN_shift_comm B (m + 1) (c + 1) (by omega)]
+
+/-- **`ihIdxAtM`'s `d`-shift.** -/
+theorem ihIdxAtM_shift (nF o i d m : Nat) (E : AnnotTerm) :
+    ihIdxAtM nF o i d m E = (ihIdxAtM nF o i 0 m E).liftN d m := by
+  unfold ihIdxAtM
+  rw [show nF - i + 0 = nF - i from by omega, show nF + 0 + m = nF + m from by omega,
+    liftN_shift_comm (A := nF - i) (o := o) (d := d) E m (nF + m) (by omega),
+    show nF + m + d = nF + d + m from by omega]
+
+/-- **The telescope's own variables are below the cut**, so the shift
+leaves them alone. -/
+theorem teleVarsAV_liftN (d m : Nat) :
+    (teleVarsAV m).map (AnnotTerm.liftN d · m) = teleVarsAV m := by
+  unfold teleVarsAV
+  rw [List.map_map]
+  apply List.map_congr_left
+  intro k hk
+  rw [List.mem_range] at hk
+  show (AnnotTerm.bvar (m - 1 - k)).liftN d m = _
+  exact liftN_bvar_lt (by omega)
+
+/-- **The applied field's `d`-shift.** -/
+theorem fieldApp_shift (nF i d m : Nat) :
+    AnnotTerm.mkAppN (.bvar (nF - 1 - i + d + m)) (teleVarsAV m)
+      = (AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)).liftN d m := by
+  rw [liftN_mkAppN, teleVarsAV_liftN, liftN_bvar_ge (show m ≤ nF - 1 - i + 0 + m from by omega)]
+  congr 2
+  omega
+
+/-- **The prefix variables' `d`-shift**: the reading
+`denoteMeta_blockIhSpinePis` produces is the design's `prefVarsAV`,
+lifted. -/
+theorem prefVars_shift (rP nF d m : Nat) :
+    ((List.range rP).map fun l => AnnotTerm.bvar (d + m + nF + rP - 1 - l))
+      = (prefVarsAV rP (nF + m)).map (AnnotTerm.liftN d · m) := by
+  unfold prefVarsAV
+  rw [List.map_map]
+  apply List.map_congr_left
+  intro l hl
+  rw [List.mem_range] at hl
+  show AnnotTerm.bvar _ = (AnnotTerm.bvar (nF + m + rP - 1 - l)).liftN d m
+  rw [liftN_bvar_ge (show m ≤ nF + m + rP - 1 - l from by omega)]
+  congr 1
+  omega
 
 end ConLeche.Model
