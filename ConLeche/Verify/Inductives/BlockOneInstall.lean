@@ -337,7 +337,7 @@ theorem checkBlockPass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
     (k : BlockPass Env × Bool → m β) (k' : NativePass Env × Bool → m β)
     (hk : ∀ (env₁ : Env) (cvTa : ConstantVal) (pC : BlockParts)
         (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
-        (kss : List (List BlockFieldKind)) (b : Bool),
+        (kss : List (List BlockFieldKind)) (b : Bool), pC.members = [ms] →
         k (⟨env₁, [cvTa], pC.withKinds [kss], [ctorsA], [sortss]⟩, b)
           = k' (⟨env₁, cvTa, (pC.withKinds [kss]).toNative, ctorsA, sortss⟩, b)) :
     checkNativePass ops env p₀.toNative isRec >>= k'
@@ -377,7 +377,7 @@ theorem checkBlockPass_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts}
   refine bind_congr fun r => ?_
   rw [classifyMemberKinds_one (m := m) ms.cvT.name ms.cvT.levelParams p₀.nP ms.nIdx]
   refine bind_congr fun kss => ?_
-  rw [hk]
+  rw [hk _ _ _ _ _ _ _ (by simpa using hm)]
   refine congrArg k' ?_
   congr 1
   · simp only [BlockParts.toNative, BlockShape.toInductive, BlockParts.withKinds_kinds,
@@ -522,5 +522,44 @@ theorem checkNativeTail_one (ops : CheckerOps m) (env : Env) {q : BlockPass Env}
                 · simp only [hi, Bool.false_eq_true, if_false]
       · simp only [hr, Bool.false_eq_true, if_false, ThrowBindM.throw_bind]
     · simp only [hf, Bool.false_eq_true, if_false]
+
+theorem withKinds_toNative_kinds (p : BlockParts) (kss : List (List BlockFieldKind)) :
+    (p.withKinds [kss]).toNative.kinds = kss.map (List.map BlockFieldKind.toRec) := rfl
+
+/-- **THE INSTALL BRIDGE**: at ONE member the uniform installer IS the
+one-member installer. -/
+theorem checkBlock_one (ops : CheckerOps m) (env : Env) {p₀ : BlockParts} {ms : MemberShape}
+    (hm : p₀.members = [ms]) :
+    checkNative ops env p₀.toNative = checkBlock ops env p₀ := by
+  have hnd : ((p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup)
+      ↔ (p₀.toNative.ctors.map (·.1.name)).Nodup := by
+    simp only [BlockShape.allCtors, BlockShape.memberNames, BlockParts.toNative,
+      BlockShape.toInductive, hm, List.map_cons, List.map_nil, List.flatten_cons,
+      List.flatten_nil, List.append_nil, List.headD_cons, List.nodup_cons,
+      List.not_mem_nil, not_false_iff, List.nodup_nil, and_true, true_and]
+  simp only [checkNative, checkBlock, ← blockRawRec_one hm, bind_assoc]
+  by_cases hn : (p₀.toNative.ctors.map (·.1.name)).Nodup
+  · rw [if_pos hn, if_pos (hnd.mpr hn)]
+    refine checkBlockPass_one ops env hm _ _ _ ?_
+    intro env₁ cvTa pC ctorsA sortss kss b hpc
+    cases b with
+    | true =>
+      simp only [ite_true]
+      exact (checkNativeTail_one ops env (q := ⟨env₁, [cvTa], pC.withKinds [kss], [ctorsA],
+        [sortss]⟩) (ms := ms) (by simpa using hpc) rfl rfl rfl rfl).symm
+    | false =>
+      simp only [Bool.false_eq_true, ite_false, blockIsRec_one, withKinds_toNative_kinds,
+        BlockParts.withKinds_kinds]
+      refine (checkBlockPass_one ops env hm _ _ _ ?_).symm
+      intro env₁' cvTa' pC' ctorsA' sortss' kss' b' hpc'
+      cases b' with
+      | true =>
+        simp only [ite_true, pure_bind]
+        exact (checkNativeTail_one ops env (q := ⟨env₁', [cvTa'], pC'.withKinds [kss'],
+          [ctorsA'], [sortss']⟩) (ms := ms) (by simpa using hpc') rfl rfl rfl rfl).symm
+      | false =>
+        simp only [Bool.false_eq_true, ite_false, ThrowBindM.throw_bind]
+  · rw [if_neg hn, if_neg (fun h => hn (hnd.mp h))]
+    simp only [ThrowBindM.throw_bind]
 
 end ConLeche
