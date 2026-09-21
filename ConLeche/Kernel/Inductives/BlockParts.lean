@@ -416,15 +416,20 @@ structure BlockShape where
   isProp : Bool
   deriving Repr, Inhabited
 
+/-- The constructors of a list of members, counted (a recursion, not a
+`foldl`, so that ONE member's count is `n + 0` and reduces). -/
+def numCtorsOf : List MemberShape → Nat
+  | [] => 0
+  | ms :: rest => ms.ctors.length + numCtorsOf rest
+
 namespace BlockShape
 
 /-- The number of members. -/
 def k (p : BlockShape) : Nat := p.members.length
 /-- The number of constructors of the whole block. -/
-def numCtors (p : BlockShape) : Nat := ((p.members.map (·.ctors.length)).foldl (· + ·) 0)
+def numCtors (p : BlockShape) : Nat := numCtorsOf p.members
 /-- The constructors of the members before `m`. -/
-def offs (p : BlockShape) (m : Nat) : Nat :=
-  (((p.members.take m).map (·.ctors.length)).foldl (· + ·) 0)
+def offs (p : BlockShape) (m : Nat) : Nat := numCtorsOf (p.members.take m)
 /-- The members' names, in block order (the positivity walk's `names`). -/
 def memberNames (p : BlockShape) : List Name := p.members.map (·.cvT.name)
 /-- The members' index counts, in block order. -/
@@ -543,16 +548,24 @@ def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind)
     (ks : List (List (List BlockFieldKind))) :
     (p.withKinds ks).toBlockShape = p.toBlockShape := rfl
 
-/-- **The one-member reading of the record** (the M1 bridge): at
-`k = 1` a `BlockParts` IS a `NativeParts`, and the install's stages
-agree with the one-member stages through this map
-(`ConLeche/Verify/Inductives/BlockOne.lean`).  At `k ≠ 1` it reads
+/-- **The one-member reading of the shape** (the M1 bridge): at
+`k = 1` a `BlockShape` IS an `InductiveShape`.  At `k ≠ 1` it reads
 member 0 and is junk — nothing consumes it there, because the route is
 gated (`blockRouteK1Only`). -/
-def BlockParts.toNative (p : BlockParts) : NativeParts :=
+def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
   let ms := p.members.headD default
-  ⟨⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, ms.cvR, p.elim, p.resSort, ms.rhss, p.large, p.isProp⟩,
+  ⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, ms.cvR, p.elim, p.resSort, ms.rhss, p.large, p.isProp⟩
+
+/-- **The one-member reading of the record**: the shape's, with the
+kinds' targets forgotten.  The install's stages agree with the
+one-member stages through this map
+(`ConLeche/Verify/Inductives/BlockOne.lean`). -/
+def BlockParts.toNative (p : BlockParts) : NativeParts :=
+  ⟨p.toBlockShape.toInductive,
     (p.kinds.headD []).map (List.map BlockFieldKind.toRec), p.recPinned⟩
+
+@[simp] theorem BlockShape.toInductive_withSort (p : BlockShape) (s : Level) :
+    (p.withSort s).toInductive = p.toInductive.withSort s := rfl
 
 /-! ## Recognition
 
@@ -641,8 +654,8 @@ def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
         rP == p.rulePrefix && mI == p.rulePrefix + ms.nIdx &&
         rules.length == ms.ctors.length &&
         (List.range ms.ctors.length).all fun j =>
-          match rules[j]?, ms.ctors[j]? with
-          | some rule, some (cvC, nF) => rule.ctor == cvC.name && rule.nfields == nF
+          match rules[j]?, cs[p.offs m + j]? with
+          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
           | _, _ => false
       | _, _ => false
   | none => false
@@ -738,10 +751,10 @@ official's positivity walk, and the recursor records' structural pin
 (`blockRecPinOk`), which the recursor stage throws on.  A block with
 two or more members is refused HERE, by the gate alone. -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
-  match blockShape? nPd block with
-  | some p =>
-    if blockRouteK1Only && p.k != 1 then none
-    else some ⟨p, [], blockRecPinOk p block⟩
+  match blockSplit block with
+  | some (cvTs, _, _) =>
+    if blockRouteK1Only && cvTs.length != 1 then none
+    else (blockShape? nPd block).map fun p => ⟨p, [], blockRecPinOk p block⟩
   | none => none
 
 end ConLeche
