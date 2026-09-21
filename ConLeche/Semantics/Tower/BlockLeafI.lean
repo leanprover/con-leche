@@ -3,7 +3,7 @@ module
 public import ConLeche.Semantics.Tower.BlockTuple
 public import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Semantics.Univ
-import ConLeche.SetTheory.Derive.LfpCompose
+import ConLeche.SetTheory.Derive.LfpTuple
 @[expose] public section
 
 /-!
