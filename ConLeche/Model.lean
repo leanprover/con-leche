@@ -19,6 +19,7 @@ public import ConLeche.Model.Inductives.BlockStageTables
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Model.Inductives.BlockRecRead
+public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
 public import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockStageRec
