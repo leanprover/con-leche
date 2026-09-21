@@ -6,6 +6,7 @@ public import ConLeche.Semantics.Tower.BlockRecKitI
 public import ConLeche.Semantics.Tower.BlockRecIndI
 import ConLeche.SetModel.WfRec
 public import ConLeche.SetTheory.Derive.TransClosure
+public import ConLeche.Rules.Rel
 
 public section
 
@@ -222,5 +223,68 @@ theorem hres_of_residueOk {c j : Nat} {xs fs : List V} {T : V}
   ⟨T, hT, h.2⟩
 
 end Regimes
+
+/-! ## G3 — a guarded call's ARGUMENTS are certified against the
+telescope
+
+The residue's typing run infers the opened body at the CONSTRUCTORS'
+environment, and a guarded call's node `ih_r a⃗` is an application
+spine there.  What the regimes need of it — at `ℓ = 0` for the IND
+step, and at the WF kit's graph for `hst` — is that each argument
+`a_t` was certified against the ih opener's own domain, i.e. against
+the field's telescope.  That is one INVERSION of the typing relation,
+and it is clean at the `.full` grade because the io site
+(`Infer.appSkip`, which certifies no argument at all) is not
+available there: `appSkip` is stated at `.io` only.
+
+(At `.io` the claim is FALSE, and that is the io licence, not an
+omission: `Model/IOLicense.lean`'s `io_domain_transfer` is what pays
+for it.  The rule stage runs `inferType` at the checker's certified
+grade, so the `.full` inversion is the one that applies.) -/
+
+/-- **The application node, inverted at the full grade** — the head's
+type reduces to a `∀` and the argument is certified against its
+domain.  `Infer.appSkip` is `.io`-only, so at `.full` there is exactly
+one way to infer an application. -/
+theorem infer_app_inv_full {env : Env} {d : Nat} {f a T : Expr}
+    (h : ConLeche.Rules.Infer env .full d (.app f a) T) :
+    ∃ (tf ty body ta : Expr) (mt : ConLeche.BinderMeta),
+      ConLeche.Rules.Infer env .full d f tf ∧
+      ConLeche.Rules.Red env d tf (.forallE ty body mt) ∧
+      ConLeche.Rules.Infer env .full d a ta ∧
+      ConLeche.Rules.DefEq env d ta ty ∧
+      T = body.instantiate1 a := by
+  cases h with
+  | app hf hr ha hd => exact ⟨_, _, _, _, _, hf, hr, ha, hd, rfl⟩
+
+/-- The head of a `.full`-inferred application spine is itself
+inferred. -/
+theorem infer_mkAppN_head {env : Env} {d : Nat} :
+    ∀ (cs : List Expr) {g T : Expr},
+      ConLeche.Rules.Infer env .full d (Expr.mkAppN g cs) T →
+      ∃ tg : Expr, ConLeche.Rules.Infer env .full d g tg
+  | [], _, T, h => ⟨T, h⟩
+  | c :: cs, g, T, h => by
+    obtain ⟨tg, hg⟩ := infer_mkAppN_head cs (g := .app g c) h
+    obtain ⟨tf, -, -, -, -, hif, -, -, -, -⟩ := infer_app_inv_full hg
+    exact ⟨tf, hif⟩
+
+/-- **G3**: every argument of a `.full`-inferred application spine is
+CERTIFIED — inferred, and definitionally equal to the domain the
+head's type peeled to.  At a guarded call `ih_r a⃗` in the residue,
+that domain is the `ih` opener's own, i.e. the field's telescope
+binder, which is what puts `a⃗` in the telescope. -/
+theorem infer_mkAppN_inv_full {env : Env} {d : Nat} :
+    ∀ (as : List Expr) {f T : Expr},
+      ConLeche.Rules.Infer env .full d (Expr.mkAppN f as) T →
+      ∀ a ∈ as, ∃ ta ty : Expr,
+        ConLeche.Rules.Infer env .full d a ta ∧ ConLeche.Rules.DefEq env d ta ty
+  | [], _, _, _, a, ha => absurd ha (List.not_mem_nil)
+  | b :: bs, f, T, h, a, ha => by
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · obtain ⟨tg, hg⟩ := infer_mkAppN_head bs (g := .app f a) h
+      obtain ⟨-, ty, -, ta, -, -, -, hia, hd, -⟩ := infer_app_inv_full hg
+      exact ⟨ta, ty, hia, hd⟩
+    · exact infer_mkAppN_inv_full bs (f := .app f b) h a ha'
 
 end ConLeche.Model
