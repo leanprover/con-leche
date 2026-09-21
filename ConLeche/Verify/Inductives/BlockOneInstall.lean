@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Verify.Inductives.BlockOne
+import ConLeche.Verify.Inductives.BlockOne
 
 public section
 
