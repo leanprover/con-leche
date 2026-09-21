@@ -2301,10 +2301,6 @@ def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat))
           else none).flatten
         pool.contains qn.pin
 
-@[inline] def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock)
-    (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
-
 /-! ## THE CONTAINER INSTANCE MAP (task #315 K.61 and K.62)
 
 A nested block's expansion mints one mimic per distinct pin EXPRESSION
@@ -2521,6 +2517,90 @@ def nestedOrdOutsideAt (st : ElimState) (maps? : Option (List (List Nat)))
 @[inline] def nestedOrdOutsideOk (env : Env) (p : NestedParts) (b : MutualBlock)
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedOrdOutsideAt st (nestedInstMaps env st) (nestedPinEdges env p b st stored)
+
+/-! ## THE ROOT GROUP'S COVERING, AT THE INDEX LEVEL (task #315 K.75)
+
+K.41 covers every pin of an instance by the root GROUP's pooled own-pin
+TERMS, and K.62/K.66 say where a rewritten ordinary field's target is
+NOT — at the source PIN.  The label half of the wide route's step needs
+the two read against ONE arbitrary member of the root group, and
+neither record is in that shape:
+
+* K.41's pool is a union over the root group's members, so its
+  membership hands over a member and a TERM, not an index; and
+* K.62's negative clause speaks at the source pin's own map alone,
+  while the member K.41 hands over is any member of the group.
+
+K.75 is the pair of clauses that closes exactly that gap, and neither
+walks: both are predicates on tables `nestedPinChecks` already binds
+(`nestedInstMaps`, `nestedPinEdgesAt`, `nestedPinRootGroupAt`).
+
+**MEASURED BEFORE IT LANDED** (DESIGN "WIDE (f4)"): zero fires on the
+shadow suite, `init-full` and Mathlib in BOTH modes.  The control says
+clause (1) is exercised — 18 pins over eleven blocks are NOT members of
+their instance's root group and are covered by the image — and that
+clause (2) is VACUOUS on both corpora (`grpgt1 = 0`: no `ordF`-right
+edge in either has its source in a mint group of more than one member,
+so `nestedOrdOutsideGrpAt` is pointwise `nestedOrdOutsideAt` there).
+Clause (2) is therefore carried on its DESIGN argument — a mutual
+container's members are minted together and their eliminations share
+the occurrence list — and not on a measurement.  The cheaper reading
+(K.62 at the pin plus K.29's contiguity) does NOT close the label
+chain: see DESIGN's WIDE (f5) §(b).
+
+CERTIFICATION-ONLY: gated, with K.41, whose `roots` table it takes. -/
+
+/-- **K.75 CLAUSE (1): THE POOL IS THE INSTANCE MAP'S IMAGE.**  K.41's
+clause with the expr-level `pool.contains qn.pin` replaced by the
+INDEX-level image — every pin of an instance is a member of its root
+group, or lies in the instance map of one of that group's members. -/
+def nestedPinPoolImageAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (roots : List (Option Nat)) : Bool :=
+  match maps? with
+  | some maps =>
+    (List.range st.pins.length).all fun q =>
+      match roots.getD q none with
+      | none => false
+      | some g =>
+        ((st.pins.getD q default).grpBase == g) ||
+          (List.range st.pins.length).any fun i =>
+            ((st.pins.getD i default).grpBase == g) && (maps.getD i []).contains q
+  | none => false
+
+/-- **K.75 CLAUSE (2): K.62 AT THE MINT GROUP.**  At an `ordF`-right row
+`(q, t, false)` the target is outside the instance map's image of EVERY
+member of `q`'s mint group `[grpBase, grpBase + grpSize)`, and not only
+of `q` itself.  VACUOUS on both corpora (`grpgt1 = 0`); see the section
+comment. -/
+def nestedOrdOutsideGrpAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
+  match maps?, edges? with
+  | some maps, some rows =>
+    rows.all fun (q, t, mentions) =>
+      mentions ||
+        (match st.pins[q]? with
+         | some qn =>
+           (List.range qn.grpSize).all fun d =>
+             !((maps.getD (qn.grpBase + d) []).contains t)
+         | none => false)
+  | _, _ => false
+
+/-- The two clauses as one Bool, gated with K.41 (task #315 K.75). -/
+def nestedPinPoolGrpAt (st : ElimState) (maps? : Option (List (List Nat)))
+    (edges? : Option (List (Nat × Nat × Bool))) (roots : List (Option Nat)) : Bool :=
+  nestedPinPoolImageAt st maps? roots && nestedOrdOutsideGrpAt st maps? edges?
+
+/-- The Bool the route records (task #315 K.41, extended by K.75): the
+pairing at a not-own edge AND the two INDEX-level clauses it has to be
+read with — K.41's pool as the instance map's image, and K.62 at the
+whole mint group.  One `roots` table, one recorded conjunct; the three
+`…At` Bools stay separate, and `nestedPinChecks` throws a different
+message at each. -/
+@[inline] def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
+    && nestedPinPoolGrpAt st (nestedInstMaps env st)
+        (nestedPinEdges env p b st stored) (nestedPinRootGroup env p b st stored)
 
 /-- **THE OWNER'S OWN READING OF A CONTAINER FIELD** (task #315 K.67):
 the container `K`'s stored constructor field domain, cut the way K.63
@@ -3888,6 +3968,24 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- ONE equality, off the two recorded tables
   else if !nestedPinRootPairAt env st roots then
     throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- **THE POOL AS THE INSTANCE MAP'S IMAGE, AND K.62 AT THE MINT GROUP**
+  -- (K.75): the two clauses the label half of the WIDE route's step
+  -- reads K.41 and K.62 with — K.41's membership hands over an
+  -- ARBITRARY member of the root group and a pin TERM, and the
+  -- contradiction that puts a rewritten ordinary field's target in
+  -- another instance needs both at the INDEX level, at that member.
+  -- Neither clause walks: both are predicates on the tables already
+  -- bound above.  Measured at zero fires on the shadow suite,
+  -- `init-full` and Mathlib in both modes; see DESIGN "#### K.75".
+  --
+  -- **IF THIS EVER FIRES** either a pin of an instance is not in the
+  -- root group's own-pin image (clause 1), or a rewritten ordinary
+  -- field re-entered a SIBLING member's instance (clause 2) — a defect
+  -- in the ROUTE, not in the stream, and the answer is never to relax
+  -- the check.
+  else if !nestedPinPoolGrpAt st maps? edges? roots then
+    throw (.internal "nested: a pin of an instance is not in the root group's own-pin \
+      image, or a rewritten ordinary field re-enters the mint group's instance")
   -- **THE NOT-OWN REFERENCES' ORDER** (K.57): a reference that LEAVES
   -- the instance goes to a container declared strictly earlier — the
   -- well-founded order the model's step (iii) inducts on at a

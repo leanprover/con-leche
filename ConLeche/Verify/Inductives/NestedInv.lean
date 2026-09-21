@@ -1140,30 +1140,38 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
                   (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)))) = true := by
               simpa using hrh
             split at h
-            case isTrue => close_throw
-            rename_i hord
-            have hord' : nestedPinOrderAt env p st stored
-                (nestedPinKinds p b stored) = true := by
-              simpa using hord
-            obtain ⟨jobs, hjobs, h⟩ := exceptBind_ok h
-            obtain ⟨ws, hws, h⟩ := exceptBind_ok h
-            by_cases hcmp : (ws == jobs.map (·.2.2)) = true
-            case neg => rw [if_neg hcmp] at h; close_throw
-            rw [if_pos hcmp] at h
-            obtain ⟨pd, hpd, h⟩ := exceptBind_ok h
-            obtain ⟨jobsP, hjobsP, h⟩ := exceptBind_ok h
-            obtain ⟨wsP, hwsP, h⟩ := exceptBind_ok h
-            by_cases hrw : nestedPinRewrites env p st pd.1 pd.2 jobsP wsP = true
-            case neg => rw [if_neg (by simpa using hrw)] at h; close_throw
-            exact ⟨by simp [certOnly, nestedCopyTargetsOk, htg'],
-              by simp [certOnly, nestedPinKindsOk, hkd'],
-              by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
-              by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
-                nestedPinEdges, hrh'],
-              by simp [certOnly, nestedPinOrderOk, hord'],
-              fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
-              fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
-                hwsP, hrw⟩, hcpf, hcrf, him, hout, htgt, hstgt, hnrm⟩
+            · close_throw
+            · rename_i hpg
+              have hpg' : nestedPinPoolGrpAt st (nestedInstMaps env st)
+                  (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored))
+                  (nestedPinRootGroupAt p st (nestedPinInstAt st
+                    (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)))) = true := by
+                simpa using hpg
+              split at h
+              case isTrue => close_throw
+              rename_i hord
+              have hord' : nestedPinOrderAt env p st stored
+                  (nestedPinKinds p b stored) = true := by
+                simpa using hord
+              obtain ⟨jobs, hjobs, h⟩ := exceptBind_ok h
+              obtain ⟨ws, hws, h⟩ := exceptBind_ok h
+              by_cases hcmp : (ws == jobs.map (·.2.2)) = true
+              case neg => rw [if_neg hcmp] at h; close_throw
+              rw [if_pos hcmp] at h
+              obtain ⟨pd, hpd, h⟩ := exceptBind_ok h
+              obtain ⟨jobsP, hjobsP, h⟩ := exceptBind_ok h
+              obtain ⟨wsP, hwsP, h⟩ := exceptBind_ok h
+              by_cases hrw : nestedPinRewrites env p st pd.1 pd.2 jobsP wsP = true
+              case neg => rw [if_neg (by simpa using hrw)] at h; close_throw
+              exact ⟨by simp [certOnly, nestedCopyTargetsOk, htg'],
+                by simp [certOnly, nestedPinKindsOk, hkd'],
+                by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
+                by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
+                  nestedPinEdges, hrh', hpg'],
+                by simp [certOnly, nestedPinOrderOk, hord'],
+                fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
+                fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
+                  hwsP, hrw⟩, hcpf, hcrf, him, hout, htgt, hstgt, hnrm⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
       by simp [certOnly, hv], by simp [certOnly, hv],
@@ -2999,7 +3007,101 @@ theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
           nestedPinLvlsDs env (st.pins.getD i default) = some (lvls, Ds) ∧
           containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
           (st.pins.getD q default).pin ∈ own) :=
-  nestedPinRootPairAt_inv h hq
+  nestedPinRootPairAt_inv (by
+    unfold nestedPinRootPairOk at h
+    exact (Bool.and_eq_true _ _ |>.mp h).1) hq
+
+/-! ## K.75's two clauses, inverted (task #315 WIDE, lane DOM's request)
+
+K.41's own inversion above hands over a pin TERM in a POOL; the label
+half of the WIDE route's step reads the covering at the INDEX level,
+against one arbitrary member of the root group, and K.62 at that same
+member.  These two put the recorded Bools in exactly the shape
+`nestedPinOutLabel` (`NestedRootLabel.lean`) and `nestedPinWideStep`
+take them. -/
+
+/-- **K.75 CLAUSE (1), INVERTED**: every pin of an instance is a member
+of its root group, or lies in the instance map of one of that group's
+members. -/
+theorem nestedPinPoolImage_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRootPairOk env p b st stored = true) :
+    ∀ q, q < st.pins.length → ∀ g,
+      (nestedPinRootGroup env p b st stored).getD q none = some g →
+      (st.pins.getD q default).grpBase = g ∨
+        ∃ i, i < st.pins.length ∧ (st.pins.getD i default).grpBase = g ∧
+          ∃ mi, nestedInstMapAt env st i = some mi ∧ mi.contains q = true := by
+  unfold nestedPinRootPairOk at h
+  have h2 := (Bool.and_eq_true _ _ |>.mp h).2
+  unfold nestedPinPoolGrpAt at h2
+  have hpi := (Bool.and_eq_true _ _ |>.mp h2).1
+  unfold nestedPinPoolImageAt at hpi
+  cases hms : nestedInstMaps env st with
+  | none => rw [hms] at hpi; exact absurd hpi (by simp)
+  | some maps =>
+  rw [hms] at hpi
+  simp only [_root_.List.all_eq_true] at hpi
+  intro q hq g hg
+  have hb := hpi q (by simp [hq])
+  rw [hg] at hb
+  simp only [Bool.or_eq_true, beq_iff_eq, _root_.List.any_eq_true] at hb
+  rcases hb with hb | ⟨i, hi, hb⟩
+  · exact Or.inl hb
+  · simp only [Bool.and_eq_true, beq_iff_eq] at hb
+    have hi' : i < st.pins.length := List.mem_range.mp hi
+    obtain ⟨mi, hmi, hmeq⟩ := mapM_option_inv hms i i (by simp [hi'])
+    refine Or.inr ⟨i, hi', hb.1, mi, hmeq, ?_⟩
+    rw [show maps.getD i [] = mi from by rw [List.getD_eq_getElem?_getD, hmi]; rfl] at hb
+    exact hb.2
+
+/-- **K.75 CLAUSE (2), INVERTED**, in the step's own shape: at an
+`ordF`-right row the target is outside the instance map of EVERY member
+of the source's mint group. -/
+theorem nestedOrdOutsideGrp_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRootPairOk env p b st stored = true)
+    {edges : List (Nat × Nat × Bool)}
+    (hedges : nestedPinEdges env p b st stored = some edges) :
+    ∀ s' t', (s', t', false) ∈ edges →
+      ∀ d, d < (st.pins.getD s' default).grpSize →
+      ∀ mi, nestedInstMapAt env st ((st.pins.getD s' default).grpBase + d) = some mi →
+        mi.contains t' = false := by
+  unfold nestedPinRootPairOk at h
+  have h2 := (Bool.and_eq_true _ _ |>.mp h).2
+  unfold nestedPinPoolGrpAt at h2
+  have hog := (Bool.and_eq_true _ _ |>.mp h2).2
+  unfold nestedOrdOutsideGrpAt at hog
+  cases hms : nestedInstMaps env st with
+  | none => rw [hms] at hog; exact absurd hog (by simp)
+  | some maps =>
+  rw [hms, hedges] at hog
+  simp only [_root_.List.all_eq_true] at hog
+  intro s' t' hmem d hd mi hmi
+  have hb := hog _ hmem
+  simp only [Bool.false_or] at hb
+  have hs' : s' < st.pins.length := by
+    rcases Nat.lt_or_ge s' st.pins.length with h' | h'
+    · exact h'
+    · rw [List.getElem?_eq_none h'] at hb; exact absurd hb (by simp)
+  have hgd : st.pins.getD s' default = st.pins[s'] := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hs']; rfl
+  rw [List.getElem?_eq_getElem hs'] at hb
+  simp only [_root_.List.all_eq_true] at hb
+  have hbd := hb d (by rw [List.mem_range, ← hgd]; exact hd)
+  have hlt : (st.pins.getD s' default).grpBase + d < st.pins.length := by
+    rcases Nat.lt_or_ge ((st.pins.getD s' default).grpBase + d) st.pins.length with h' | h'
+    · exact h'
+    · rw [nestedInstMapAt, List.getElem?_eq_none h'] at hmi
+      exact absurd hmi (by simp)
+  obtain ⟨base, hbase⟩ : ∃ base, (st.pins.getD s' default).grpBase + d = base := ⟨_, rfl⟩
+  rw [hbase] at hmi hlt
+  obtain ⟨mi', hmi', hmeq⟩ := mapM_option_inv hms base base (by simp [hlt])
+  rw [hmeq] at hmi
+  rw [← hgd, hbase] at hbd
+  rw [show maps.getD base [] = mi' from by
+    rw [List.getD_eq_getElem?_getD, hmi']; rfl] at hbd
+  rw [← Option.some.inj hmi]
+  simpa using hbd
 
 /-! ## K.37's rank clauses, inverted (task #315, lane L-E's request)
 
