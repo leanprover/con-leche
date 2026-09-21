@@ -80722,3 +80722,4 @@ P` example is covered by `¬nested`.
 
 #### RULINGS (2026-09-21, maintainer): D2 confirmed — the recursor stage is built once, as checking ("no point building a recursor generation that we will drop shortly after").  Lane R's finding: official's rules bind params, motives, minors and fields but NOT the indices; the coherent motive-free reading reads `rulePrefix` and `majorIdx` off the recursor RECORD (params pinned; `nP…rP-1` an arbitrary stretch; then the indices; then the major), rule prefix `rP + nF`; the `rP = nP + k + N` pin survives only in the old k = 1 arm.
 D4 confirmed: `BConst.lfpFam` is dropped at the flip once unused ("drop unused").
+D6 confirmed: nothing touches master before M6 (the flip), "that's when we know that at least the first part makes sense and is useful".
