@@ -367,4 +367,104 @@ theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = tru
   fun ψ ρ =>
     blockRecPre_ind_run hμ (hTy ψ ρ) (hwd ψ ρ) (hind ψ ρ) (hcerts ψ) (hih ψ ρ) (hT ψ ρ)
 
+/-! ## 3. The WF regime's family data, at the block's own carriers
+
+`RecFamData` (`Semantics/Tower/BlockRecKitI.lean`) asks, per PREFIX
+SPINE, for the classes' index sets and ORDINARY carriers, the index
+tuple, a class kit, and the two readings the recursors' TYPES fix.
+For a block the first three are not a choice:
+
+* the prefix spine's first `nP` values ARE the block's parameters (the
+  recursor's rule prefix begins with them, `checkBlockRecTys`), so the
+  parameter frame is `consList (xs.take nP) ρ`;
+* class `c` eliminates the member `mem c`, so its index set is that
+  component's index-tuple set and its carrier the least pre-fixed
+  tuple's component — which is the member's FORMER at the parameter
+  frame, by `BlockModelAt.leaf`.
+
+That last identification is the whole content of `blockWf_hsplit`: the
+major's binder domain is the member's former applied, the clause's
+`leaf` turns the fold into `app (lfpTuple …) ⟨ı⃗⟩`, and the index
+tuple lands in the index set by `tupW_mem`. -/
+
+section WfData
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+
+/-- Class `c`'s index set at a prefix spine: the eliminated
+component's own index-tuple set, at the parameter frame. -/
+@[expose] noncomputable def blockRecIs (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
+    (mem : Nat → Nat) (xs : List V) (c : Nat) : V :=
+  d.idx ψ (consList (xs.take d.nP) ρ) (mem c)
+
+/-- Class `c`'s ORDINARY carrier at a prefix spine: the eliminated
+component of the block's least pre-fixed tuple. -/
+@[expose] noncomputable def blockRecCr (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
+    (mem : Nat → Nat) (xs : List V) (c : Nat) : V :=
+  lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+    (d.Φ ψ (consList (xs.take d.nP) ρ)) (mem c)
+
+/-- **What O-2 owes about a recursor's binder data**: a fitting spine
+of `rec_c`'s type is the rule prefix, the eliminated member's indices
+and the major; the prefix begins with the block's parameters; the
+index values fit the member's own index telescope there; and the
+major lies in the member's former applied to both.  Every conjunct is
+a statement about the STORED type's reading, none about the
+recursion. -/
+@[expose] def BlockRecSplitAt (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
+    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
+  ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (prefOf (rP c) ys).length = rP c ∧
+    ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+    SpineFit ρ (d.params ψ) ((prefOf (rP c) ys).take d.nP) ∧
+    SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c) ψ)
+      (idxOf (rP c) ys) ∧
+    majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl app
+      (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
+
+/-- **`RecFamData.hsplit` at the block's carriers**, from the stored
+type's reading and the representation's `leaf` clause. -/
+theorem blockWf_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
+    {K : Nat} {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+    (hmem : ∀ c, c < K → mem c < d.k)
+    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ) :
+    ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (prefOf (rP c) ys).length = rP c ∧
+      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ mem (prefOf (rP c) ys) c ∧
+      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
+  intro c hc ys hfit
+  obtain ⟨hlen, hdec, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
+  refine ⟨hlen, hdec, tupW_mem hidx, ?_⟩
+  rw [blockRecCr, ← hM.leaf (mem c) (hmem c hc) ψ ρ ((prefOf (rP c) ys).take d.nP)
+    (idxOf (rP c) ys) hpar hidx]
+  exact hmaj
+
+/-- **The WF regime's family data at a block**: `RecFamData` with the
+index sets, the carriers and the index tuple fixed by the
+representation, and the kit F5's (`WfRecKit`, whose motive and step
+are the regime's own). -/
+@[expose] noncomputable def blockWfData {ℓ K : Nat} {rP mem : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ψ : Name → Nat}
+    {ρ : Nat → V} (d : BlockData V)
+    (kitW : ∀ xs : List V, WfRecKit ℓ K (blockRecIs d ψ ρ mem xs) (blockRecCr d ψ ρ mem xs))
+    (hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (prefOf (rP c) ys).length = rP c ∧
+      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ mem (prefOf (rP c) ys) c ∧
+      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
+        (d.tup ψ (mem c) (idxOf (rP c) ys)))
+    (hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (kitW (prefOf (rP c) ys)).B
+          (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
+        = interp V (consList ys ρ) (concl c)) :
+    RecFamData V ℓ K rP rds concl ρ :=
+  wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
+    (blockRecIs d ψ ρ mem) (blockRecCr d ψ ρ mem) (fun c is => d.tup ψ (mem c) is)
+    kitW hsplit hconcl
+
+end WfData
+
 end ConLeche.Model
