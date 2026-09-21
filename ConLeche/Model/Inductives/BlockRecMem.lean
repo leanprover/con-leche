@@ -1,9 +1,9 @@
 module
 
 import ConLeche.Verify.Inductives.BlockWF
-public import ConLeche.Model.Inductives.BlockRecRead
-public import ConLeche.Model.Inductives.StructRead
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockRecRead
+import ConLeche.Model.Inductives.BlockData
+public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Semantics.Tower.BlockRecI
 
 public section
