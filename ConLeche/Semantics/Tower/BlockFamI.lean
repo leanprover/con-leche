@@ -611,6 +611,77 @@ theorem fitsXBI_slot_mem (hIall : BlockIdxOk (V := V) k uf ρp Idss) {Y t : V} {
       rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
       simpa [List.append_assoc] using this
 
+/-- The recursive components of a tuple fitting the X-chain lie in the
+TARGET's component at their own index tuples (finitary fields). -/
+theorem fitsXBI_rec_mem (hIall : BlockIdxOk (V := V) k uf ρp Idss) {Y t : V} {rs : List Bool}
+    {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    (hfin : ∀ i, tls.getD i [] = []) {Eis : List (List AnnotTerm)} :
+    ∀ (Fs : List AnnotTerm) (i : Nat) (as bs : List V), as.length = i →
+      SlotsFitXB k w ρp uf Idss rs tgts tls Eis Y t i as Fs →
+      SpineFit (consList as (cons t (cons Y ρp))) (chainXBIGo uf Idss rs tgts tls Eis Fs i) bs →
+      ∀ l, l < bs.length → rs.getD (i + l) false = true →
+        bs.getD l pt ∈ˢ SetTheory.app (projS (tgts.getD (i + l) 0) Y)
+          (tupW (uf (tgts.getD (i + l) 0))
+            ((Eis.getD (i + l) []).map (interp V (consList (as ++ bs.take l) ρp))))
+  | [], _, _, [], _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
+  | [], _, _, _ :: _, _, _, h, _, _, _ => h.elim
+  | _ :: _, _, _, [], _, _, h, _, _, _ => h.elim
+  | F :: Fs, i, as, b :: bs, hi, hfit, h, l, hl, hr => by
+    subst hi
+    rw [chainXBIGo_cons] at h
+    obtain ⟨hb, hrest⟩ := h
+    cases l with
+    | zero =>
+      rw [Nat.add_zero] at hr
+      obtain ⟨hct, hsf⟩ := hfit.1 hr
+      rw [xEntryB_rec (Y := Y) F as t (hIall _ hct) hr hsf, hfin, slotSet_nil] at hb
+      simpa using hb
+    | succ l =>
+      rw [consList_snoc'] at hrest
+      have := fitsXBI_rec_mem hIall hfin Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
+        (hfit.2 b hb) hrest l (by simpa using hl)
+        (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
+      rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
+      simpa [List.append_assoc] using this
+
+/-- A tuple fitting the X-chain at a family tuple below the carrier
+fits the real chain. -/
+theorem spineFit_real_of_XBI (hIall : BlockIdxOk (V := V) k uf ρp Idss) {μ : Nat → V} {Y t : V}
+    (hYμ : ∀ c, c < k → FamLe (idxSet (uf c) ρp (Idss c)) (projS c Y) (μ c))
+    {rs : List Bool} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eis : List (List AnnotTerm)} :
+    ∀ (Fs₀ Fs : List AnnotTerm) (i : Nat) (as bs : List V), as.length = i →
+      ChainRealBI μ k w ρp uf Idss rs tgts tls Eis i as Fs₀ Fs →
+      SlotsFitXB k w ρp uf Idss rs tgts tls Eis Y t i as Fs₀ →
+      SpineFit (consList as (cons t (cons Y ρp))) (chainXBIGo uf Idss rs tgts tls Eis Fs₀ i) bs →
+      SpineFit (consList as ρp) Fs bs
+  | [], [], _, _, [], _, _, _, _ => trivial
+  | [], [], _, _, _ :: _, _, _, _, h => h.elim
+  | [], _ :: _, _, _, _, _, hc, _, _ => hc.elim
+  | _ :: _, [], _, _, _, _, hc, _, _ => hc.elim
+  | _ :: _, _ :: _, _, _, [], _, _, _, h => h.elim
+  | F₀ :: Fs₀, F :: Fs, i, as, b :: bs, hi, hc, hfit, h => by
+    subst hi
+    rw [chainXBIGo_cons] at h
+    obtain ⟨hb, hrest⟩ := h
+    obtain ⟨hhead, htail⟩ := hc
+    have hb' : b ∈ˢ interp V (consList as ρp) F := by
+      by_cases hri : rs.getD as.length false = true
+      · rw [if_pos hri] at hhead
+        obtain ⟨hct, hf, heq⟩ := hhead
+        rw [xEntryB_rec (Y := Y) F₀ as t (hIall _ hct) hri hf] at hb
+        rw [heq]
+        exact slotSet_mono (hYμ _ hct) hf b hb
+      · have hri' : rs.getD as.length false = false := by simpa using hri
+        rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
+        rw [xEntryB_ord F₀ as t hri'] at hb
+        rw [hhead]
+        exact hb
+    refine ⟨hb', ?_⟩
+    rw [consList_snoc'] at hrest ⊢
+    exact spineFit_real_of_XBI hIall hYμ Fs₀ Fs (as.length + 1) (as ++ [b]) bs
+      (length_snoc' b as) (htail b hb') (hfit.2 b hb) hrest
+
 end Elim
 
 /-! ## (W) at `w ≠ 0`: the block as a member container -/
