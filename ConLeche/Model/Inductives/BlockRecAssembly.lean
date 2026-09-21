@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecLaw
+public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.DeclBlock
-import ConLeche.Model.Inductives.BlockRecTyping
+import ConLeche.Model.Inductives.BlockRecLaw
 import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.Inductives.BlockRecInv
 
