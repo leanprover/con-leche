@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockRec
 public import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Level
 
