@@ -231,4 +231,77 @@ theorem blockDecomp_eq {env : Env} {mo : EnvModel V env} {names : List Name} {d 
   obtain ⟨h1, h2⟩ := blockCarrier_case_unique hM hw hc hj' hj hfit' hfit heq.symm
   exact Prod.ext h1 h2
 
+/-! ## 4. `OneElimLevel` from the check
+
+D-d — one elimination level per family — is `checkBlockRecElimAgree`'s
+own verdict, and `blockRecElimAgree_eval` (`BlockRecRead.lean`) turns
+it into equalities of `Level.eval` at a ground assignment.  What the
+candidate's λ-tower needs (`famCand_hCand`'s `hbits`) is the ZERONESS
+bit of every binder of every class's binder data, and that is the same
+bit once each class's binder numerals follow its own conclusion's sort
+— the reading's fact, taken here as `hbits`. -/
+
+/-- **D-d, in the shape the candidate consumes**: at the family's
+single level `ℓ = (us.headD .zero).eval ψ` every binder numeral of
+every class's binder data is zero exactly when `ℓ` is. -/
+theorem blockRecOneElimLevel {us : List Level}
+    (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (ψ : Name → Nat) {K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {uOf : Nat → Level}
+    (hmem : ∀ c, c < K → uOf c ∈ us)
+    (hbits : ∀ c, c < K → ∀ b ∈ rds c, (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) :
+    OneElimLevel ((us.headD .zero).eval ψ) K rds :=
+  fun c hc b hb => (blockRecElimAgree_zero_iff h ψ (hmem c hc)).trans (hbits c hc b hb).symm
+
+/-! ## 5. Regime IND at the run
+
+At `ℓ = 0` the candidate is the point and `BlockRecPre`'s `hCand`
+reduces to the induction principle (`hind`, the SetModel tier's) and
+the residue's certified typing at every fitting spine — which is
+`BlockRuleCerts.hres`.  The two things a regime still pays for are the
+`ih` openers' `SpineFit` (at `ℓ = 0` the openers' values are the
+point, and their domains are inhabited truth values) and `hT`, the
+conclusion's reading BEING a truth value; both are named premises. -/
+
+section IndRun
+
+variable {envT : Env} {mp : EnvModelM V μ envT} {F s K : Nat} {ψ : Name → Nat}
+  {RecTy : Nat → AnnotTerm} {nCt rP : Nat → Nat} {pdoms : Nat → List AnnotTerm}
+  {fdoms es ihdoms : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+  {ihs : Nat → Nat → List AnnotTerm} {Rb Ca : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+
+/-- **Regime IND, from the run's certificates.**  `blockRecPre_ind`
+with its `hres` discharged per rule by `BlockRuleCerts.hres`. -/
+theorem blockRecPre_ind_run (hμ : μ.verifiedChecks = true)
+    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
+    (hwd : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
+        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+          WellDenoted V (consList ys (consList rs ρ))
+              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
+            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)))
+    (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
+    (hih : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
+        ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))))
+    (hT : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      interp V
+          (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j) ∈ˢ (univZero : V)) :
+    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
+  blockRecPre_ind hTy hwd hind fun c hc j hj xs fs hxl hsp =>
+    (hcerts c hc j hj).hres hμ hsp (hih c hc j hj xs fs hxl hsp)
+      (hT c hc j hj xs fs hxl hsp)
+
+end IndRun
+
 end ConLeche.Model
