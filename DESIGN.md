@@ -132858,9 +132858,26 @@ No `sorry`, no new axiom, no `maxHeartbeats`, no `implemented_by`.
    `nestedSlotOrd_pin` re-proved with the towers tied as terms.  The
    kernel half (K.74/K.76) is landed and `GroupFacts.ordTele` is in
    hand.  **Three to six sessions**, unchanged.
-2. **`hedgeAt`** — lane DOM's (c)(b), the K.32-shaped lookup bridge to
-   `nestedPinEdges_mem`; plumbing with a named theorem behind it.
-   **Half a session to one.**
+2. **`hedgeAt`** — lane DOM's (c)(b), the bridge to
+   `nestedPinEdges_mem`.  It was READ against the tree this session and
+   **it is one session, not half**: `nestedPinEdges_mem`
+   (`Verify/Inductives/NestedInv.lean:2862`) wants fourteen lookups
+   (`kinds[q]?`, `stored[p.k+q]?`, `containerInfo?`,
+   `ci.members[q - grpBase]?`, `a.ctors[j]?`, `J.ctors[j]?`, the
+   stripped telescope, `kf[l]?`, the field domain at `ci.nP + l`), and
+   `NestedPinsRun.copyPinFInstTgt` (`NestedInstMap.lean:334`) is the
+   only place in the tree that assembles them — a hundred-line
+   prologue this theorem would reuse almost verbatim.  Beyond it two
+   things are new and both have their source: the guard bridge
+   (`blkRss`/`mutTgts` against `ksG[l]? = some (r, t)`, by
+   `mutRss_getD`/`rsOf_getD_iff`/`mutTgts_getD`), and the row's OWN
+   BIT — `mentionsMember (ci.members.map (·.name)) domJ.1 = false` from
+   `ContainerModeled.ordFree` (which states it OPENED) through
+   `os_field_domain_free` (`Verify/Inductives/NestedOpenSpine.lean:298`,
+   per CONSTANT, so it is applied under `List.any`).  The target's
+   bound `t - p.k < pinsS.length` is `MutualFormersFacts.ksJ`'s third
+   conjunct at `b.k = p.k + pinsS.length`.  Not attempted here rather
+   than attempted and left open.
 3. **The covering's six run-level exports** — `hroot`/`hpinσ` are
    `pinGroupInst_of`'s σ at its two branches, `hcorr` is
    `instMapPinOwn`, `hpool` is K.75 clause (1) moved to the group base
