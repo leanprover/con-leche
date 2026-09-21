@@ -601,6 +601,9 @@
 #                     occurrence its rules recurse through) named
 #                     `Nat'.not_rec`: official generates only `Nat'.rec`
 #                     and its replay rejects with "No such recursor".
+#                     The uniform route rejects it for the same reason
+#                     (`blockRecNameSetOk`, the conformance ruling of
+#                     2026-09-21).
 #   ind_stub_reclps:  the block intact, its recursor record's level
 #                     parameters `[u, u]` — neither the block's own (the
 #                     small eliminator) nor a fresh one in front (the
@@ -1616,18 +1619,23 @@
 # nothing else (uniform: 1, "large eliminator on a block whose sort
 # may be Prop").  Today the modeller's own type check rejects it.
 1 mutual_rec_prop_concl.ndjson
-# -- the NAMING ruling and D-d (DESIGN.md, 2026-09-21: recursor NAMES
-# are the stream's business, a member carries any number of recursors
-# and a recursor is assigned to its member by its MAJOR; and one
-# elimination level per family).  As above, the column that matters is
-# `uniform:` — none of the four is exporter-producible.
+# -- the NAMING ruling and D-d (DESIGN.md, 2026-09-21: a recursor is
+# assigned to its member by its MAJOR, never by its name; and one
+# elimination level per family) — as REVISED the same day ("no red
+# tutorial tests"): the recursor NAMES, as a SET, must be the ones
+# official generates, `{T_m.rec | m a member}`, which the recursor
+# stage checks (`blockRecNameSetOk`) without ever asking which
+# recursor carries which name.  As above, the column that matters is
+# `uniform:` — none of the five is exporter-producible.
 #
 # a SECOND recursor on `Nat'`, `Nat'.rec2`, shaped like `casesOn` (its
 # `succ` minor has no `n_ih` premise and its rule makes no recursive
-# call).  Both eliminators are checked, and `Nat'.rec` still fires the
-# stream's definitions (uniform: 0).  Today the route is gated at one
-# recursor, so the block goes to the modeller, which has no model for
-# it.
+# call).  Both eliminators are legitimate and both are CHECKED — the
+# route's recursor stage has no objection to either — but two names
+# for one member is not official's name set, so the conformance check
+# rejects the block (uniform: 1, name-set conformance).  Today the
+# route is gated at one recursor, so the block goes to the modeller,
+# which has no model for it.
 2 corner_rec_two_recursors.ndjson
 # the same block with `Nat'.rec2`'s TYPE `Nat'.rec`'s own and its
 # `succ` rule recursing on the field `n` through BOTH recursors —
@@ -1635,14 +1643,28 @@
 #   λ m z s n. s n ((fun _ : m n => Nat'.rec2 m z s n) (Nat'.rec m z s n))
 # Two guarded calls on ONE field with two callees, so the rule's frame
 # carries TWO `ih` openers keyed by (field, callee), each typed from
-# ITS callee (uniform: 0; with one opener per FIELD this rejects as
-# "not a primitive recursion", which is the negative control).
+# ITS callee.  The frame is no longer what decides the verdict: two
+# recursors on one member is not official's name set, so the block is
+# rejected at the stage's pins, before any rule is walked (uniform: 1,
+# name-set conformance).
 2 corner_rec_two_callees.ndjson
 # `Nat'`'s recursor called `Nat'.hoolahoop` — its type, its rules and
 # its major the generated ones, the name renamed everywhere, so the
-# definitions fire iota through it (uniform: 0).  Today the one-member
-# generate-and-compare arm's name pin rejects it.
+# definitions fire iota through it.  The motive-free CHECK accepts it;
+# the name set does not (uniform: 1, name-set conformance).  Today the
+# one-member generate-and-compare arm's name pin rejects it, for its
+# own reason.
 1 corner_rec_hoolahoop.ndjson
+# `Nat'`'s recursor called `List.cons` — a name the `String`-literal
+# guard looks up (`strLitSupported`'s `listConsTyOk` slot).  A
+# recursor stored under a guarded name could FLIP that guard across
+# its own cons, and a string literal would read as one thing below the
+# block's recursors and as another above them, so the stage refuses
+# the name in its own right (`blockRecNamesUnreserved`, the check the
+# model consumes; the conformance check would refuse it too, and runs
+# second).  Uniform: 1.  Today the one-member generate-and-compare
+# arm's name pin rejects it.
+1 corner_rec_reserved_name.ndjson
 # `Nat'.rec` without its `Nat'.zero` rule: rule COMPLETENESS is a
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called (uniform: 1).

@@ -855,6 +855,42 @@ def blockRecLpsOk (p : BlockShape) : Bool :=
     if p.large then rc.cvR.levelParams == p.elim :: p.lps
     else rc.cvR.levelParams == p.lps
 
+/-- **The recursor names, as a SET** (the ruling of 2026-09-21,
+revising the naming ruling of the same day: "no red tutorial tests —
+a simple recursor-NAME conformance check").  A block's recursors must
+carry exactly the names official generates for it, `T_m.rec` at every
+member, each once — as a SET: WHICH recursor carries which name is
+not checked here, and never is, because a recursor is assigned to its
+member by its MAJOR premise (`RecShape.tgt`) and by nothing else.
+
+The member names are pairwise distinct (each former passed
+`checkConstantVal` in the environment the previous ones were consed
+into), so mutual containment at equal length is set equality and a
+repeated recursor name cannot slip through: a duplicate leaves some
+`T_m.rec` unmatched.
+
+This check is a pure accept-shrinker — the verified route and the
+model never read a recursor's name — and it is what keeps a stream
+from declaring a second eliminator on one member, or an eliminator
+under a name the stream's own definitions then use for something
+else. -/
+def blockRecNameSetOk (p : BlockShape) : Bool :=
+  let want := p.members.map fun ms => ms.cvT.name.str "rec"
+  let got := p.recs.map fun rc => rc.cvR.name
+  got.length == want.length &&
+    want.all (fun n => got.contains n) && got.all (fun n => want.contains n)
+
+/-- **No recursor takes a name the environment's own guards look up**
+(`reservedRecName`, `ConLeche/Kernel/CoreDefs.lean`): a basis pin, a
+literal-guard slot or a certified `Nat` operation.  Implied by
+`blockRecNameSetOk` for every block a reasonable stream writes — the
+guards' names do not end in `rec` — but checked in its own right,
+because it is the fact the MODEL consumes (the literal guards are
+congruent across the recursors' cons) and nothing about it should
+depend on the conformance check's exact shape. -/
+def blockRecNamesUnreserved (p : BlockShape) : Bool :=
+  p.recs.all fun rc => reservedRecName rc.cvR.name == false
+
 /-- **The members' index counts**, one `blockCounts?` per member off
 the member's OWN former telescope — and, at a def-headed former (task
 #195) where there is no telescope to read, off the argument sums of a

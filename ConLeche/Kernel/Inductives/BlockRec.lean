@@ -238,8 +238,26 @@ with `rec_{c'}` a block recursor at the block's own level arguments,
 carry the same prefix), `f_i` a field of THIS constructor whose kind
 names the member `rec_{c'}` eliminates, `a⃗` as many arguments as the field's
 telescope has binders and free of any block recursor, and the whole
-spine SYNTACTICALLY the generated call at those arguments (`blockIhSpinePis` instantiated at
-`a⃗`, compared at the parse placeholder's binder data).  The answer is
+spine SYNTACTICALLY the generated call at those arguments
+(`blockIhSpinePis` instantiated at `a⃗`) — compared EXACTLY, binder
+data included.
+
+**Why exactly, and not up to `Expr.resetMeta`** (the comparison the
+one-member generate-and-compare stage makes on a rule body): the
+model's reading is not `resetMeta`-invariant.  `resetMeta` forces
+every binder's datum to `.never`, whose bit is `1`, while a datum that
+holds at `φ` reads `0`, and `interp`'s `lamR`/`piR` take that bit — so
+two `resetMeta`-equal expressions can denote differently
+(`not_denoteMeta_resetMeta_invariant`,
+`ConLeche/Model/Inductives/BlockRecRead.lean`).  Since
+`blockIhCall?`'s comparison is the ONLY tie between the stored
+right-hand side's call node and the spine the ι law is stated at, it
+has to be the equality the reading respects.  Both sides are
+`annotateCore` outputs — the rule body's node is the stream's,
+annotated at the recursors' environment; the generated side is built
+from the constructor's STORED annotated type — and they agree on every
+block the route accepts (measured: the whole arena and e2e batteries
+are unchanged by the strengthening).  The answer is
 the position of the (field, callee) key among the frame's openers —
 the `ih` binder that replaces the call — together with `a⃗`. -/
 def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × List Expr) :=
@@ -276,7 +294,7 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
               (blockIhSpinePis r fr.rlvls fr.pw fr.nP fr.rP fr.nF i d tele (fr.idxOf i)) with
           | none => none
           | some expected =>
-            if Expr.resetMeta e != Expr.resetMeta expected then none
+            if e != expected then none
             else match pairIdxOf? fr.ihKeys (i, c') with
               | none => none
               | some rpos => some (rpos, as)

@@ -67,30 +67,30 @@ theorem blockRecElimAgree_zero_iff {us : List Level}
     ((us.headD .zero).eval ψ = 0 ↔ u.eval ψ = 0) := by
   rw [blockRecElimAgree_eval h ψ u hu]
 
-/-! ## FINDING — `denoteMeta` does not respect `Expr.resetMeta`
+/-! ## The finding, and its RESOLUTION in the kernel
 
-`blockIhCall?` (`Kernel/Inductives/BlockRec.lean`) recognises a guarded
-recursive call by comparing the node with the generated spine **at the
-parse placeholder's binder data**: `Expr.resetMeta e == Expr.resetMeta
-expected`.  `blockIhCall?_spine` exports exactly that equality, and it
-is the ONLY tie between the stored right-hand side's call node and the
-spine the ι law is stated at.
+`denoteMeta` does not respect `Expr.resetMeta`: `resetMeta` forces
+every binder's datum to `⟨.never⟩`, whose bit is `1`, while a datum
+that holds at `φ` reads `0`, and `interp` is not bit-blind —
+`lamR`/`piR` take the bit.  So two `resetMeta`-equal expressions can
+denote differently, which `not_denoteMeta_resetMeta_invariant` below
+witnesses.
 
-It does not transport a READING.  `resetMeta` forces every binder's
-datum to `⟨.never⟩`, whose bit is `1`, while a datum that holds at `φ`
-reads `0`; and `interp` is not bit-blind — `lamR`/`piR` take the bit.
-So two `resetMeta`-equal expressions can denote differently, and this
-is that fact, witnessed:
+`blockIhCall?` (`Kernel/Inductives/BlockRec.lean`) used to recognise a
+guarded recursive call up to exactly that relation, and its
+comparison is the ONLY tie between the stored right-hand side's call
+node and the spine the ι law is stated at — so a reading could not be
+transported across it.  **The kernel comparison was strengthened**
+(lane K2): the node and the generated spine are now compared EXACTLY,
+binder data included (`e != expected`), and `blockIhCall?_spine`
+(`Verify/Inductives/BlockRecInv.lean`) exports `e = expected` — so
+the field's ANNOTATED index expressions in the call node are the
+constructor's stored ones, syntactically.  The whole arena battery and
+the whole e2e suite are unchanged by the strengthening (measured at
+the k = 1 probe, with a negative control showing the comparison is
+what those fixtures' rules pass).
 
-the difference is confined to binder data occurring INSIDE the call's
-arguments that come from the GENERATED side — the field's index
-expressions (`BlockRuleFrame.idxOf`, off the constructor's stored
-annotated type) — since the telescope's own `⟨pw⟩` binders are consumed
-by `instPisAtLift` and the spine's other arguments are the node's own.
-Both sides are outputs of `annotateCore`, so on a well-formed stream
-they agree; what is missing is a lemma saying so (the annotation's
-binder data is a function of the erased term and the environment), or a
-strengthening of the comparison.  See the lane report. -/
+The witness stays as the record of WHY the comparison is exact. -/
 theorem not_denoteMeta_resetMeta_invariant :
     ∃ (e₁ e₂ : Expr) (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
       (φ : Name → Nat) (d : Nat),

@@ -81600,3 +81600,50 @@ stays by its major; the verified route and the model are untouched
 again; the `corner_rec_hoolahoop` / `two_recursors` / `two_callees`
 twins become rejects (their comments say why).  Scheduled on lane K2,
 off the flip's critical path.
+
+#### LANDED (lane K2, task #315 milestone M5): the recursor stage's two NAME checks
+
+Both live in `checkBlockRecPins` (`ConLeche/Kernel/Inductives/BlockInstall.lean`),
+stage (a) of the uniform recursor stage, and therefore behind
+`blockRecCheckOn` — the shipped tree, whose one-member arm is the
+generate-and-compare stage with its own name pin, is unaffected.  The
+cached mirror (`checkBlockRecKS`) calls the same function, so there is
+nothing to twin.
+
+* **`blockRecNamesUnreserved`** (`BlockParts.lean`) refuses a recursor
+  named for a constant the environment's own GUARDS look up:
+  `reservedRecName` (`Kernel/CoreDefs.lean`) = `reservedBasisNames` ∪
+  `litGuardNames` (the ten slots of `natLitSupported` and
+  `strLitSupported`) ∪ `natOpNames` ∪ `natDivModNames`.  This is the
+  check the MODEL consumes.  Without it `strLitSupported` is only
+  MONOTONE across the recursors' cons and refutably so (lane RM2's
+  conjunct 3): `listConsTyOk` asks for
+  `List.cons.{p} : ∀ (α : Type p) (h : α) (t : List.{p} α), List.{p} α`,
+  and a block declaring `List : Type p → Type p` with a RECURSOR of
+  exactly that name and type flips the guard from `false` to `true`
+  across its own stage, so a string literal reads differently below
+  the recursors and above them.  With it, both guards are CONGRUENT:
+  `natLitSupported_consBlockRecs` / `strLitSupported_consBlockRecs`
+  (`Verify/Inductives/BlockWF.lean`), off
+  `checkBlockRecPins_reserved` / `checkBlockRecK_reserved`.
+  The predicate is the RECURSORS' alone: formers and constructors keep
+  `reservedBasisNames`, because a stream must be able to declare
+  `List`, `List.cons` and `Nat.add`.
+* **`blockRecNameSetOk`** is the conformance check of the ruling
+  above: the recursor names, as a SET, are `{T_m.rec | m a member}` —
+  mutual containment at equal length, with the member names' pairwise
+  distinctness (each former passed `checkConstantVal`) making that set
+  equality.  WHICH recursor carries which name is not asked; the
+  assignment stays the MAJOR's (`RecShape.tgt`).  No model consumer:
+  it only shrinks the accept set.  Exposed as
+  `checkBlockRecPins_names` (`Verify/Inductives/BlockRecInv.lean`).
+
+Measured in a scratch build with both gates lifted (the probe is not
+committed): arena `bad/tutorial/135_misnamed_rec_user` and
+`bad/tutorial/136_dup_rec_def2` REJECT again, with the conformance
+message; so do `corner_rec_hoolahoop`, `corner_rec_two_recursors`,
+`corner_rec_two_callees` and `ind_stub_recname` (whose official
+counterpart is "No such recursor"), and the new twin
+`corner_rec_reserved_name` (`Nat'`'s recursor named `List.cons`)
+rejects with the reservation message.  No other e2e fixture and no
+arena test — no `good/` test in particular — reaches either message.

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.FixWF
 import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Shift
 
 public section
@@ -759,6 +760,109 @@ theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockSha
     refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
     intro lvls pins hf
     exact absurd hf (hfire lvls pins)
+
+/-! ## The literal guards across the recursors' cons
+
+The recursors' cons must not change what a `Nat` or `String` literal
+READS.  Both guards decide that by looking fixed names up in the store
+(`litGuardNames`), and the stage refuses a recursor under any of them
+(`blockRecNamesUnreserved`, inverted as `checkBlockRecPins_reserved`),
+so every one of those lookups crosses the cons untouched.
+
+Without the stage's check the `String` guard is only MONOTONE, and
+refutably so: `listConsTyOk` asks for a constant `List.cons.{p} :
+∀ (α : Type p) (h : α) (t : List.{p} α), List.{p} α`, and a block
+declaring `List : Type p → Type p` with a recursor NAMED `List.cons`
+of exactly that type would flip `strLitSupported` from `false` to
+`true` across its own recursor stage. -/
+
+/-- **A name no recursor of the block carries reads through the cons
+unchanged.** -/
+theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} {n : Name} :
+    ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+      {env : Env},
+      (∀ r ∈ rs, n ≠ r.1.name) →
+      (consBlockRecs find? q nP m rs env).find? n = env.find? n
+  | _, [], _, _ => rfl
+  | m, r0 :: rest, env, hne => by
+    rw [consBlockRecs,
+      find?_consBlockRecs_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
+      Env.find?_cons, if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+
+/-- A name a literal guard looks up is no recursor of a CHECKED
+block. -/
+theorem ne_of_reservedRecName
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {n : Name}
+    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false)
+    (hn : reservedRecName n = true) : ∀ r ∈ rs, n ≠ r.1.name := by
+  intro r hr hh
+  rw [hh, hnres r hr] at hn
+  exact nomatch hn
+
+/-- **The `Nat`-literal guard is CONGRUENT across the recursors'
+cons.** -/
+theorem natLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
+    natLitSupported (consBlockRecs find? q nP 0 rs env) = natLitSupported env := by
+  unfold natLitSupported
+  rw [find?_consBlockRecs_of_ne (ne_of_reservedRecName hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := natZeroName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := natSuccName) hnres (by decide))]
+
+/-- **The `String`-literal guard is CONGRUENT across the recursors'
+cons** — the equation the model's reading law needs, and the reason
+`blockRecNamesUnreserved` is checked at all. -/
+theorem strLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
+    strLitSupported (consBlockRecs find? q nP 0 rs env) = strLitSupported env := by
+  unfold strLitSupported
+  rw [natLitSupported_consBlockRecs hnres,
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := stringName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := stringOfListName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listNilName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listConsName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := charName) hnres (by decide)),
+    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := charOfNatName) hnres (by decide))]
+
+/-- **The CHECK's stored recursors take no guarded name** — the stage's
+own `blockRecNamesUnreserved`, transported from the RECORDS to the
+constants the stage stores (`checkConstantVal` keeps a record's
+name). -/
+theorem checkBlockRecK_reserved {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
+    ∀ r ∈ rs, reservedRecName r.1.name = false := by
+  unfold checkBlockRecK at h
+  obtain ⟨u, hpins, h⟩ := exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := exceptBind_ok h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨hlenT, hallT⟩ := checkBlockRecTys_inv htys
+  obtain ⟨hlenR, hallR⟩ := checkBlockRecsRules_facts h
+  have hres := checkBlockRecPins_reserved (p := p) (by cases u; exact hpins)
+  intro r hr
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hi).1
+    omega
+  obtain ⟨rc, r', hrc, hr', hcvRa, -⟩ := hallR i hil
+  obtain rfl := Option.some.inj (hi.symm.trans hr')
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv⟩ := hallT i hil
+  obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
+  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
+    rw [List.getElem?_map, hcu]; rfl
+  have hr1 : r.1 = cvRi := by
+    have := hcvRa
+    rw [Nat.zero_add] at this
+    exact congrArg Prod.fst (Option.some.inj (this.symm.trans hcvRa'))
+  rw [hr1, (checkConstantVal_lps hcv).1]
+  exact hres rc (List.mem_of_getElem? hrc)
 
 /-! ## The projection tables -/
 

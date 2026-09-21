@@ -617,15 +617,36 @@ def checkBlockRecsRules (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m)
 /-- **Stage (a): the recursor RECORDS' pins** (task #220 at k
 members), thrown before anything is computed.
 
-What is NOT here any more (the ruling of 2026-09-21): the `T_m.rec`
-NAME pin — recursor names are the stream's business — and the two
-argument SUMS, which the motive-free check READS off the record.  Both
-live in the one-member generate-and-compare arm, the first inside
-`checkNativeRec` and the second through `BlockParts.toNative`'s
-`recSumsOk`. -/
+What is NOT here (the ruling of 2026-09-21): the two argument SUMS,
+which the motive-free check READS off the record; they live in the
+one-member generate-and-compare arm, through `BlockParts.toNative`'s
+`recSumsOk`.
+
+The NAMES are here, in two checks that do different jobs.
+
+* `blockRecNameSetOk` — the CONFORMANCE check (the maintainer's
+  revising ruling of 2026-09-21, "no red tutorial tests"): the
+  recursors' names are, as a SET, the names official generates,
+  `{T_m.rec | m a member}`.  WHICH recursor carries which name is not
+  checked: a recursor is assigned to its member by its MAJOR, and
+  that stays.  It is a pure accept-shrinker — nothing verified reads a
+  recursor's name — and it is what makes a misnamed or duplicated
+  eliminator a `.invalid` rather than a silently accepted one.
+* `blockRecNamesUnreserved` — the check the MODEL consumes: no
+  recursor takes a name the environment's own guards look up
+  (`reservedRecName`), so consing the block's recursors cannot flip
+  `natLitSupported` or `strLitSupported` and the literal readings are
+  the same below the recursors and above them
+  (`strLitSupported_consBlockRecs`). -/
 def checkBlockRecPins (p : BlockParts) : m Unit := do
   unless blockRecLpsOk p.toBlockShape do
     throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless blockRecNamesUnreserved p.toBlockShape do
+    throw (.invalid "direct rec: a recursor is named for a pinned basis constant, a literal \
+      guard's slot or a certified Nat operation")
+  unless blockRecNameSetOk p.toBlockShape do
+    throw (.invalid "direct rec: the block's recursor names are not the generated ones \
+      (one T.rec per member)")
   unless p.recPinned do
     throw (.invalid "direct rec: the recursor record is not the generated recursor")
 

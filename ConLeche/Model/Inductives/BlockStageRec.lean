@@ -343,18 +343,9 @@ theorem find?_consBlockRecsBare_of_ne {q : BlockShape} {n : Name} :
       ConLeche.Env.find?_cons,
       if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
 
-/-- A name that is none of the `k` recursors' is found as it was. -/
-theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
-    {q : BlockShape} {nP : Nat} {n : Name} :
-    ∀ {m : Nat} {rs : List RecDatum} {env : Env},
-      (∀ r ∈ rs, n ≠ r.1.name) →
-      (consBlockRecs find? q nP m rs env).find? n = env.find? n
-  | _, [], _, _ => rfl
-  | m, r0 :: rest, env, hne => by
-    rw [consBlockRecs,
-      find?_consBlockRecs_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
-      ConLeche.Env.find?_cons,
-      if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+/-! (A name that is none of the `k` recursors' is found as it was:
+`find?_consBlockRecs_of_ne`, `Verify/Inductives/BlockWF.lean`, where
+the literal guards' crossing needs it too.) -/
 
 /-! ## The stage's cons, whole -/
 
