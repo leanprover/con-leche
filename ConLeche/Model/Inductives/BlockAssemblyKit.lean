@@ -52,8 +52,7 @@ theorem blockChainsOk_of {k w nP : Nat} {ρp : Nat → V} {uf : Nat → Nat}
         ((Eisss m).getD j []) ((Esss m).getD j []))
     (hCV : ∀ m, m < k → ∀ j, j < nOf m →
       ChainValidFacts nP ((Fsss m).getD j []).length ρp (ksF m j) ((tlsss m).getD j [])
-        ((Fsss m).getD j []) ((Eisss m).getD j []) ((Esss m).getD j []))
-    :
+        ((Fsss m).getD j []) ((Eisss m).getD j []) ((Esss m).getD j [])) :
     BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss ∧
     ∀ Y, Y ∈ˢ famsSpaceB k w ρp uf Idss → ∀ m, m < k →
       ∀ t, t ∈ˢ idxSet (uf m) ρp (Idss m) →
