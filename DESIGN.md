@@ -128585,3 +128585,200 @@ that is a rename.
 in `NestedStageCtor.lean` are an unrelated local name), and every one
 of them is a consequence of the statement above, not a separate
 decision.
+
+#### WIDE (f3) STEP 5 — THE ASSEMBLY EXISTS, RE-RUN AT `σ`; `hXrec` HAS BOTH ARMS; AND THE `ordF`-RIGHT TELESCOPE IS **NOT** AN `instTele` (lane LE, 2026-09-21)
+
+Step 5's objects, built against the tree with
+`Model/Inductives/NestedCopyInst.lean` and the WHNF lane's five other
+files OFF LIMITS (the concurrent `agent/uniform-whnf` branch holds
+them).  Three findings, one of them a correction to the order's own
+spelling.
+
+##### (a) THE `ordF`-RIGHT TELESCOPE IS `instAll`, NOT `instTele` — AND IT IS NOT A `CopyCtorShape` CLAUSE
+
+The plan asked for the clause K.72's tower fact feeds as
+"`instTele Ds l …`-shaped, as `recF`/`pinF` do".  **Read at the tree
+that shape is FALSE at the arm**, twice over:
+
+* at a container-ORDINARY field the container records NO telescope —
+  `BlockCtorData.tssNone` makes `dJ.tlss` `[]` there — so
+  `instTele Ds l []` is `[]` and the clause would be the FLATNESS that
+  `nested_comp_tower` refutes;
+* "a copy telescope is an `instTele` of a container-side one" is the
+  claim lane L-B could not establish and explicitly does not assume
+  (`EntryRead`'s docstring: `tests/e2e/nested_lam_pin_refl.ndjson`, a
+  container field that is an application of a function PARAMETER minted
+  at an instantiation whose body is an arrow — the copy is REFLEXIVE
+  where the container is ORDINARY).
+
+What the components plant is what `instTele` cannot carry and
+`AnnotTerm.instAll Ds l` — the very term `ordF`'s LEFT arm reads the
+copy's domain as — does.  So the object is
+
+    CopyOrdTele dJ ψJ Ds tls rs i j :=
+      ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+        ((dJ.rss i).getD j []).getD l false = false →
+        rs.getD l false = true →
+        ∃ T body,
+          stripPisAV (tls.getD l []).length
+              (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
+            = some (T, body) ∧
+          (tls.getD l []).map (·.2.2) = T.map (·.2.2)
+
+(`ConLeche/Model/Inductives/NestedFit.lean:997`; only the DOMAINS are
+claimed, `recF`/`pinF`'s own convention).  Its LENGTH reading —
+`CopyOrdTele.length`, `NestedFit.lean:1014` — is `mkPisAV T body` with
+`T.length = (tls.getD l []).length`, and **that is K.72's sum**: the
+container's own `Π`s plus the ones `instAll Ds l` plants, which is
+exactly `domPiDepth dom.1 + domPiDepth (ordTargetDom …)` at the run
+(`GroupFacts.ordTower`, `NestedPinLeafAll.lean`).  The two are one
+statement read at the two tiers; the TERM-level tie between them is
+the mint→recomputation bridge, which is object (2).
+
+**IT IS DELIBERATELY NOT A CLAUSE OF `CopyCtorShape`.**  That
+structure's five arms are PRODUCED in `NestedCopyInst.lean`
+(`nestedPinsShape_of` and the `copyOrdFRight*`/`copyPinF*` family), so
+a sixth field changes a file this session may not touch — and the
+producer of this one would live in that same file anyway, beside
+`copyOrdFRight*`.  Merging the two is a one-line edit for the merge
+session; until then `CopyOrdTele` is carried as a named hypothesis and
+nothing in the tree depends on the choice.
+
+**THE PRODUCER'S STATEMENT, so that the merge session does not
+re-derive it.**  In `Model/Inductives/NestedCopyInst.lean`, beside
+`copyOrdFRight_shape`: the copy's field domain is `replaceAllNested` of
+the minted domain; the mint is the container's stored domain at the
+pin's LEVELS folded onto the pin's COMPONENTS; neither the rewrite nor
+a level instantiation turns a `Π` into a non-`Π` or the other way
+round; and a nested occurrence in a `Π`-DOMAIN is a NEGATIVE
+occurrence and is rejected, so the prefix's domains are not rewritten
+at all.  Hence the copy's recorded telescope (`tssF` through
+`BlockCtorData.reflOpen`/`nestReflOpen`, whose openers are `fvar`s and
+plant no `Π`) is the `Π`-prefix of `instAll Ds l` of the container's
+field domain, domain for domain.
+
+##### (b) `hXrec` HAS BOTH ARMS, AND THE PIN ARM'S HEAD IS FREE — FORWARDS, NOT BACKWARDS
+
+`recσ_of_run` (`NestedPinLeafAll.lean:6321`) is `tgtσ_of_run`'s twin at
+the arm the shared container calls RECURSIVE, split on
+`BlockModel.nestOf`:
+
+* `nestOf = none` — `CopyCtorShape.recF` gives both copies' targets
+  exactly and `recTgt_corr_mem` (K.70's map clause) carries the
+  owner's to the block's;
+* `nestOf = some q` — `ordTgt_corr`, with `CopyShapeA.pinF`'s own
+  `TV.k ≤ tg l` as the bound (which is why K.71 made the bound a
+  hypothesis) and K.68's row WIDENED (`PinShapes.rowTargetOrd`, which
+  lost its container-ordinary premise in K.71) as side 2.
+  `nestedFitc_pin`'s `hrowTgt` is widened to match.
+
+**The head the pin arm needs is free, and the route the step-5 pricing
+named for it is the long way round.**  That row proposed reading
+`ContainerModeled.nestPinSpineAbs`'s equation BACKWARDS — take
+`getAppFn` through both sides and argue that only a `.const` head can
+instantiate to one.  That works (it was written, compiled, and is
+`head_const_of_instantiateList`/`head_const_of_pinSpine` in this
+branch's history), but it is not needed: the head is available
+FORWARDS from `BlockCtorData.opened.nestF` (finitary) and
+`nestReflF` (reflexive) through `blockCtorFieldHead`, which is the
+derivation `NestedPinsRun.copyPinFInstTgt` and its reflexive twin
+already run INLINE.  Extracted as `blockCtorNestedHead`
+(`NestedInstMap.lean:85`), ONE lemma over both kinds, stated at the
+STRIPPED domain because that is what the recomputation reads — the
+strip is the identity at a finitary field (a `const`-headed term is not
+a `Π`) and removes exactly the tower at a reflexive one.  The three
+backwards lemmas were deleted the same session.
+
+The head then reaches the recomputation by
+`getAppFn_ordTargetDom_of_stripDomPis`
+(`Verify/Inductives/NestedCopyKinds.lean:2275`): `ordTargetDom` is the
+stored domain at the copy's levels, `Π`-stripped and cut, and none of
+the three moves a constant head — `stripDomPis_instantiateLevelParams`
+(`:2240`, new, the term twin of `domPiDepth_instantiateLevelParams`),
+`Expr.getAppFn_instantiateLevelParams`, and
+`getAppFn_instantiateList_const`.
+
+**So arm (A)'s pin half carries NO head guard**, and the
+bare-parameter corner that forced step 3(b) cannot arise there: a bare
+parameter is not the head of a field the container calls
+RECURSIVE-nested.
+
+##### (c) THE ASSEMBLY — `nestedPinPairAt_pinσ`, AND WHAT THE REINDEXING BUYS
+
+`nestedPinPairAt_pinσ` (`NestedPinLeafAll.lean:7218`) is
+`nestedPinPairAt_pin` with the relational meet replaced by the wide
+identification's own reindexing — **the owner's tuple is the BLOCK's
+tuple read through the instance map, `Y = X₁ ∘ σ`** — and
+`nestedFitc_pin` in `nestedPinPair_pin`'s place.
+
+**That single choice is what makes the carriers free.**  At
+`Y = X₁ ∘ σ` both carrier premises `nestedFitc_pin` asks for are
+`congrArg X₁` of the CLASS equation and nothing else: `hX` from
+`tgtσ_of_run`, `hXrec` from `recσ_of_run`.  `ClassPinAt`,
+`classPinAt_of_walk`, `relMeet` and `app_relMeet_le_rel` all leave the
+proof with the meet.  (`Y` and `X₁` must be PASSED, not inferred:
+`?Y (tgts j l) =?= X₁ (σ (tgts j l))` is not a Miller pattern and the
+elaborator takes the projection solution `?Y := X₁`.)
+
+DISCHARGED here: the class equation at both arms, both carriers, the
+target universes (`huσ` composed with the class equation), the owner's
+slot bound `hdom₂` (`dom₂_of_run` at the induction's own `hY`/`hYC`),
+the outside entries `hentOrd₁` — `nestedPinEntryOut` at the BLOCK's
+frame, carried to the OWNER's by `IsBlockModel.dom_congr_mem` and
+`spineFit_congr_fields`, which is the `hρ`/`hψ` transport the plan
+names and it is four lines — the index membership
+(`nestedIdx_eq_pinIdx`) and the injections' identity
+(`PinRecLaws.injW` against `NestedPinGroupSyn.inj`).
+
+**THE NAMED SET — THE MERGE SESSION'S WORK ORDER.**  Four names, and
+nothing else in the signature is open:
+
+| name | what it is | what it waits on |
+|---|---|---|
+| `hscope` | the owner's per-field scoping row, stated in its PRE-(2) form — with the FLATNESS conjunct `domPiDepth dom.1 = 0` and the `hfinRefl` conjunct `tls ≠ [] → (stripDomPis …).getAppFn = .const K vsB` | object (2); `stripDomPis_instSeq_tower` retires `hfinRefl` and the total cut retires the flatness |
+| `hread` | the owner's reading at a fitting prefix, `OrdTargetRead`'s own guard; `read_of_run` is its producer TODAY, at the flatness `hscope` carries | object (2): `OrdTargetRead`'s cut becomes the SUM and its subject gains a `stripDomPis` |
+| `_htele : CopyOrdTele …` | §(a)'s object | its producer in `NestedCopyInst.lean`, §(a)'s last paragraph |
+| `hdom₁` | the BLOCK's slot inside the container's field domain | `htele`: its route is `copyTransfer_iff_pin`'s own (`hdom₂` across the slot correspondence with `hcdom` and the entry) and it reads the TELESCOPE on both sides |
+
+`hnormRed : w = ordHeadRed W` is **not** a premise of the assembly and
+does not need to become one: `nestedFitc_pin`'s `hscope` asks the
+owner's firing at the UN-normalised `ordTargetDom` today, so the redex
+corner is inside `hscope`'s shape and moves with it when the WHNF lane
+lands `ordHeadRed` at the eight `copyOrdFRight*OrdTargetRead*` rows.
+
+`hdom₁` is the one item of the order's step 5 that is NOT discharged
+here, and the reason is (a): it is the only remaining consumer that
+reads the copy's telescope on the block's side, so it cannot be built
+before the telescope has a producer.  It is listed above rather than
+claimed.
+
+##### (d) THE MEASUREMENT
+
+No kernel code changed this session — the whole diff is `Model/*` and
+`Verify/*` — so the accept set cannot move, and no firing or
+`instructions:u` cell is owed (the standing ruling: records are
+measured where they are added).
+
+`tests/arena.sh` EXIT 0: `nested-shadow: 46/46`, `e2e: 200/200`,
+`arena suite: 91/96`, `annot suite: 15/15`, `mode flags: 10/10`,
+`prelude counts: 3/3`, `progress lane: 15/15`, `worker pool: 15/15`,
+`DAG-tower gate: 14/14`, `axioms: pinned (20 theorems)`, trusted sweep
+162+200+15 with the 3 recorded divergences, `--jobs=1` and `--jobs=4`
+sweeps as at the default, `inmodel: OK`, `shake: 514 removals, all
+allowlisted`, `overview-links: 112`, `quote-gate: 2`,
+`no-local-paths: OK`, `challenge: OK`, `layering 353/292/3/1 with 0
+base->lane and 0 impl->theory edges`, `proofdeps: 4975 module rows,
+doors: 0`.
+`tests/warning-free.sh 5dbb84cc` 0 lines; `lake test` 0 warnings.
+`tests/unconsumed.sh` **201 of 3897** against **204 of 3890** at
+`5dbb84cc`: seven declarations added and the advisory count fell by
+three, because the assembly finally CONSUMES `tgtσ_of_run`,
+`recTgt_corr_mem`, `dom₂_of_run` and `nestedFitc_pin`, which were
+built against a call site that did not exist.  The two additions with
+no consumer are `CopyOrdTele.length` (the K.72 reading, kept because it
+is the tie the merge session matches `GroupFacts.ordTower` against) and
+`nestedPinPairAt_pinσ` itself, whose caller is step (4).
+`#print axioms` on `CopyOrdTele.length`, `blockCtorNestedHead`,
+`getAppFn_ordTargetDom_of_stripDomPis`, `recσ_of_run` and
+`nestedPinPairAt_pinσ`: all `[propext, Classical.choice, Quot.sound]`.
+No `sorry`, no new axiom, no `maxHeartbeats`.
