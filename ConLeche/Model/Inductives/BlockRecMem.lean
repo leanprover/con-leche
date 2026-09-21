@@ -100,6 +100,9 @@ theorem checkBlockRecTys_open {mode : ConLeche.CheckMode} {env : Env}
     by_cases hle : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
     obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨fvs, concl⟩ := x1
     have hop : ConLeche.openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0
@@ -218,7 +221,7 @@ theorem checkBlockRecK_tyShape {envC : Env} {p : ConLeche.BlockParts}
     omega
   obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
   obtain rfl := Option.some.inj (hr.symm.trans hr')
-  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, hcv, -, -⟩ := hallT i hil
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
   have hr1 : r.1 = cvRi := by
@@ -304,7 +307,7 @@ Three premises, each in the shape its owner exports:
 * `hpre` — the family premise (lane RM3's `blockRecPre_of`). -/
 theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {acv : Name → (Name → Nat) → AnnotTerm} {s K : Nat}
+    {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -312,9 +315,9 @@ theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
         denoteMeta acval envC ψ 0 r.1.type = some (RecTy ψ i))
     (hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
-        acv r.1.name ψ = ConLeche.Semantics.blockRecAV s K (RecTy ψ) (eqs ψ) i)
+        acv r.1.name ψ = ConLeche.Semantics.blockRecAV (s ψ) K (RecTy ψ) (eqs ψ) i)
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s K (RecTy ψ) (eqs ψ) ρ) :
+      ConLeche.Semantics.BlockRecPre V (s ψ) K (RecTy ψ) (eqs ψ) ρ) :
     ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ta : AnnotTerm),
       denoteMeta acval envC ψ 0 r.1.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta := by
@@ -336,7 +339,7 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {acv : Name → (Name → Nat) → AnnotTerm} {s K : Nat}
+    {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hK : rs.length = K)
@@ -345,9 +348,9 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
         denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some (RecTy ψ i))
     (hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
-        acv r.1.name ψ = ConLeche.Semantics.blockRecAV s K (RecTy ψ) (eqs ψ) i)
+        acv r.1.name ψ = ConLeche.Semantics.blockRecAV (s ψ) K (RecTy ψ) (eqs ψ) i)
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s K (RecTy ψ) (eqs ψ) ρ) :
+      ConLeche.Semantics.BlockRecPre V (s ψ) K (RecTy ψ) (eqs ψ) ρ) :
     ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧

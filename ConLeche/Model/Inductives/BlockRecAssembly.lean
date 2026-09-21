@@ -209,7 +209,9 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
     rs.length = p.recs.length ∧
     ∀ i, i < p.recs.length → ∃ rc r, p.recs[i]? = some rc ∧ rs[i]? = some r ∧
       r.1.name = rc.cvR.name ∧
-      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC rc.cvR = .ok r.1 := by
+      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC rc.cvR = .ok r.1 ∧
+      p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
+      ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
   unfold ConLeche.checkBlockRecK at h
   obtain ⟨u, hpins, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
@@ -219,7 +221,7 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
   refine ⟨by cases u; exact hpins, hlenR, ?_⟩
   intro i hil
   obtain ⟨rc, r, hrc, hr, hcvRa, -⟩ := hallR i hil
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, hle, hsum⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
@@ -227,8 +229,11 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
     have hq := hcvRa
     rw [Nat.zero_add] at hq
     exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-  exact ⟨rc, r, hrc, hr, by rw [hr1, (ConLeche.checkConstantVal_lps hcv).1],
-    by rw [hr1]; exact hcv⟩
+  refine ⟨rc, r, hrc, hr, by rw [hr1, (ConLeche.checkConstantVal_lps hcv).1],
+    by rw [hr1]; exact hcv, ?_, ?_⟩
+  · rw [Nat.zero_add] at hle; exact hle
+  · rw [Nat.zero_add] at hsum
+    exact ⟨nIdx, hsum⟩
 
 /-- **`blockRecStaged_of`'s three NAME premises and `hnoTy`**, from the
 per-recursor `checkConstantVal` run: freshness at the constructors'
@@ -250,7 +255,7 @@ theorem checkBlockRecK_cvFacts {envC : Env} {p : BlockParts} {cvTas : List Const
   have hil : i < p.recs.length := by
     have := (List.getElem?_eq_some_iff.mp hi).1
     omega
-  obtain ⟨rc, r', hrc, hr', hname, hcv⟩ := hall i hil
+  obtain ⟨rc, r', hrc, hr', hname, hcv, -, -⟩ := hall i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
   obtain ⟨hfresh, hres, hpsh, -, -, hfv, type, -, -, hann, -, -, -, -, hcv'⟩ :=
     ConLeche.checkConstantVal_inv hcv
@@ -276,7 +281,7 @@ theorem checkBlockRecK_nodup {envC : Env} {p : BlockParts} {cvTas : List Constan
   have hmap : rs.map (·.1.name) = p.recs.map (·.cvR.name) := by
     refine List.ext_getElem? (fun i => ?_)
     by_cases hi : i < p.recs.length
-    · obtain ⟨rc, r, hrc, hr, hname, -⟩ := hall i hi
+    · obtain ⟨rc, r, hrc, hr, hname, -, -, -⟩ := hall i hi
       simp only [List.getElem?_map, hrc, hr, Option.map_some]
       rw [hname]
     · rw [List.getElem?_eq_none (by simp only [List.length_map, hlenR]; omega),
@@ -450,7 +455,7 @@ theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List Con
     have hil : i < p.recs.length := by
       have := (List.getElem?_eq_some_iff.mp hi).1
       omega
-    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv⟩ := hallT i hil
+    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv, -, -⟩ := hallT i hil
     obtain rfl := Option.some.inj (hi.symm.trans hcu)
     obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv hcv
     rw [(ConLeche.checkConstantVal_lps hcv).1]
@@ -528,27 +533,37 @@ the two SEMANTIC seams — the family premise `BlockRecPre` (the
 regimes) and the rule data `hnew` (`hrecP_of`). -/
 
 /-- The `i`-th recursor's LEAF at `ψ`: the `i`-th projection of the
-family's chosen tuple, at the recursor types the run reads. -/
+family's chosen tuple, at the recursor types the run reads.
+
+**The family's level `s` is a FUNCTION of `ψ`**, as it is at `k = 1`
+(`fixLeafAV`'s `sAV : (Name → Nat) → Nat`): a large eliminator carries
+its own level parameter, so a block's recursor types are sets of a
+level that MOVES with the valuation, and `BlockRecPre.hTy` is stated
+at `univ (s ψ)`. -/
 @[expose] noncomputable def blockRecLeafAV (acval : Name → (Name → Nat) → AnnotTerm)
     (envC : Env) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (s : Nat) (eqs : (Name → Nat) → List AnnotTerm) (ψ : Name → Nat) (i : Nat) : AnnotTerm :=
-  ConLeche.Semantics.blockRecAV s rs.length (blockRecTyAV acval envC rs ψ) (eqs ψ) i
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) (ψ : Name → Nat)
+    (i : Nat) : AnnotTerm :=
+  ConLeche.Semantics.blockRecAV (s ψ) rs.length (blockRecTyAV acval envC rs ψ) (eqs ψ) i
 
 /-- The recursors' cons's valuation, at the block's own leaves. -/
 @[expose] noncomputable def blockRecAcv (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (s : Nat) (eqs : (Name → Nat) → List AnnotTerm) : Name → (Name → Nat) → AnnotTerm :=
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) :
+    Name → (Name → Nat) → AnnotTerm :=
   blockRecAcvOf acval (rs.map (·.1.name)) (blockRecLeafAV acval envC rs s eqs)
 
 /-- **The recursor stage, at the run.**  Its premises are the check's
 own success, the two facts `declBlock` hands the lane (the
 recogniser's member names and the constructors' STORAGE), the LEAF's
-five facts, and the two SEMANTIC seams. -/
+five facts — the grading one only AT A BLOCK POSITION, which is where
+`blockRecAV_facts` gives it and where the stage consumes it — and the
+two SEMANTIC seams. -/
 theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F s : Nat}
-    {eqs : (Name → Nat) → List AnnotTerm}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hndM : p.toBlockShape.memberNames.Nodup)
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
@@ -562,17 +577,17 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
         blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
           = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i)
-    (hleafOk : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
+    (hleafOk : ∀ (ψ : Name → Nat) (i : Nat), i < rs.length → ∀ ρ : Nat → V,
       WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
     (hleafVal : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
       AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V s rs.length
+      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
         (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ)
     (hnew : ∀ m₃ : EnvModel V (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC),
       m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs →
       ∀ (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat ×
-        List (ConstantVal × Nat)), r ∈ rs →
+        List (ConstantVal × Nat)), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
         Expr.recRulePlain r.1.type (p.toBlockShape.majorIdxAt j)
@@ -596,7 +611,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
   have hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
         blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ
-          = ConLeche.Semantics.blockRecAV s rs.length
+          = ConLeche.Semantics.blockRecAV (s ψ) rs.length
               (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) i := by
     intro i r hr ψ
     have hi : (rs.map (·.1.name))[i]? = some r.1.name := by
@@ -629,7 +644,8 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
       exact hleafPar i r hi ψ₁ ψ₂ hq)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleafOk ψ i ρ)
+      rw [hacv i r hi ψ]
+      exact hleafOk ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
       rw [hacv i r hi ψ]; exact hleafVal ψ i ρ)

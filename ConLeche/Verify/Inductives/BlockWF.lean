@@ -342,7 +342,9 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
       cvRus.length = recs.length ∧
       ∀ i, i < recs.length → ∃ rc cvRi nIdx u, recs[i]? = some rc ∧
         cvRus[i]? = some (cvRi, nIdx, u) ∧
-        checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi
+        checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi ∧
+        p.nP ≤ p.rulePrefixAt (ri + i) ∧
+        p.majorIdxAt (ri + i) = p.rulePrefixAt (ri + i) + nIdx
   | [], _, cvRus, h => by
     simp only [checkBlockRecTys, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -355,6 +357,9 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
     by_cases hle : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
     obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨fvs, concl⟩ := x1
     obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
     obtain ⟨_, _, h⟩ := exceptBind_ok h
@@ -378,10 +383,13 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
       refine ⟨by simp [hlen], ?_⟩
       intro i hi
       cases i with
-      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv⟩
+      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, by
+          simpa using eq_of_beq hle2⟩
       | succ i =>
-        obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv'⟩ := hall i (by simpa using hi)
-        exact ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv'⟩
+        obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv', hle', hle2'⟩ := hall i (by simpa using hi)
+        refine ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv', ?_, ?_⟩
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle'
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle2'
     case neg =>
       rw [if_neg hlarge] at h
       obtain ⟨b, _, h⟩ := exceptBind_ok h
@@ -395,10 +403,13 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
       refine ⟨by simp [hlen], ?_⟩
       intro i hi
       cases i with
-      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv⟩
+      | zero => exact ⟨rc, cvRi, ms.nIdx, u, rfl, rfl, hcv, hle, by
+          simpa using eq_of_beq hle2⟩
       | succ i =>
-        obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv'⟩ := hall i (by simpa using hi)
-        exact ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv'⟩
+        obtain ⟨rc', cvRi', nIdx', u', hrc, hcu, hcv', hle', hle2'⟩ := hall i (by simpa using hi)
+        refine ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv', ?_, ?_⟩
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle'
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle2'
 
 /-- One recursor's rules: every stored right-hand side is the
 ANNOTATED stream one, scoped at the bare-`k` environment. -/
@@ -530,7 +541,7 @@ theorem checkBlockRecK_facts {env : Env} {p : BlockParts} {cvTas : List Constant
     omega
   obtain ⟨rc, r', hrc, hr', hcvRa, hfacts⟩ := hallR i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
-  obtain ⟨rc'', cvRi, nIdx, u, hrc'', hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u, hrc'', hcu, hcv, -, -⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl
@@ -853,7 +864,7 @@ theorem checkBlockRecK_reserved {env : Env} {p : BlockParts} {cvTas : List Const
     omega
   obtain ⟨rc, r', hrc, hr', hcvRa, -⟩ := hallR i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv⟩ := hallT i hil
+  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
   obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
   have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
     rw [List.getElem?_map, hcu]; rfl

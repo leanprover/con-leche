@@ -526,19 +526,24 @@ theorem find?_consBlockRecs_inv {find? : Name → Option ConstantInfo}
     ∀ {m : Nat} {rs : List RecDatum} {env : Env} {n : Name} {ci : ConstantInfo},
       (consBlockRecs find? q nP m rs env).find? n = some ci →
       env.find? n = some ci ∨
-      ∃ (j : Nat) (r : RecDatum), r ∈ rs ∧ n = r.1.name ∧
-        ci = .recInfo r.1 (q.majorIdxAt j) (q.rulePrefixAt j)
-          (ConLeche.sumRules find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
-            r.1.type r.2.2.2 r.2.1)
+      ∃ (j : Nat) (r : RecDatum), rs[j]? = some r ∧ n = r.1.name ∧
+        ci = .recInfo r.1 (q.majorIdxAt (m + j)) (q.rulePrefixAt (m + j))
+          (ConLeche.sumRules find? r.1.name nP (q.majorIdxAt (m + j))
+            (q.rulePrefixAt (m + j)) r.1.type r.2.2.2 r.2.1)
   | _, [], _, _, _, h => Or.inl h
   | m, r0 :: rest, env, n, ci, h => by
     rw [consBlockRecs] at h
     rcases find?_consBlockRecs_inv h with h' | ⟨j, r, hr, hn, hci⟩
     · rw [ConLeche.Env.find?_cons] at h'
       split at h'
-      next heq => exact Or.inr ⟨m, r0, List.mem_cons_self, heq.symm, (Option.some.inj h').symm⟩
+      next heq =>
+        refine Or.inr ⟨0, r0, rfl, heq.symm, ?_⟩
+        rw [Nat.add_zero]
+        exact (Option.some.inj h').symm
       next => exact Or.inl h'
-    · exact Or.inr ⟨j, r, List.mem_cons_of_mem _ hr, hn, hci⟩
+    · refine Or.inr ⟨j + 1, r, hr, hn, ?_⟩
+      rw [show m + (j + 1) = m + 1 + j from by omega]
+      exact hci
 
 /-- A name found in the constructors' environment is found unchanged
 after the RULE-LESS recursors. -/
@@ -592,7 +597,7 @@ theorem recCtorsHead_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDat
   · obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj hci
     obtain ⟨i, cA, rhs, hi, -, rfl⟩ := ConLeche.sumRules_getElem? hrl
     refine ⟨?_, ?_, ?_⟩
-    · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 hr0 cA (List.mem_of_getElem? hi)
+    · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 (List.mem_of_getElem? hr0) cA (List.mem_of_getElem? hi)
       exact ⟨cvj, cnP, cnF, hkeepB _ _ hfc⟩
     · intro hb
       exact ConLeche.recRuleKOf_mono hkeepB' hb
