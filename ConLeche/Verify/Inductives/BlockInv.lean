@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Inductives.SumInv
-public import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Verify.Inductives.FixParts
 import ConLeche.Kernel.Inductives.BlockInstall
 

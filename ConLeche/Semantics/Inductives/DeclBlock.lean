@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Semantics.Inductives.DeclNative
 public import ConLeche.Verify.Inductives.BlockInv
 
 @[expose] public section
