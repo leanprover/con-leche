@@ -30,6 +30,14 @@ component to cross:
 `fixFibre_elim`/`fixFibre_zero_elim` are the one-constructor fibre's
 eliminations, `wellDenoted_proj1_sum`/`wellDenoted_proj1_pt` grade the tag
 projection.
+
+**The former's leaf is ABSTRACT** (`L`): what the three laws read of it
+is its FOLD (`hfold`) and — in (A) alone, to recover the parameter
+spine from a graded application — that it is the parameters' λ-tower
+(`hlam`).  So the same cores serve the one-family fixpoint leaf
+(`nativeTyAVI`, through `stageFixTable`) and a block member's
+(`blockTyAV`), exactly as `fibreUnitLaw` does for the fieldless
+capability laws (task #315 M3).
 -/
 
 namespace ConLeche.Model
@@ -154,10 +162,8 @@ theorem wellDenoted_projAV_succ_fibre {w i : Nat} {ρ' ρ : Nat → V} {Fs : Lis
 
 /-! ## (A) the typing law -/
 
-theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AnnotTerm)}
-    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : List (List (List AnnotTerm))} {Fss₀ Ess : List (List AnnotTerm)}
-    {R : AnnotTerm} {sorts : List Level} {ψ : Name → Nat}
+theorem fixEntryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AnnotTerm)}
+    {L R : AnnotTerm} {sorts : List Level} {ψ : Name → Nat}
     (hlenDs : ds.length = nP + nF) (hlenPps : pps.length = nP) (hlenEds : eds.length = nP + 1)
     (hiff : ∀ ρ : Nat → V, Sat V (pps.map (·.2.2)).reverse ρ ↔
       Sat V ((ds.take nP).map (·.2.2)).reverse ρ)
@@ -174,9 +180,12 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
     (hfree : ∀ j, j < i → used j = false →
       ∃ X : AnnotTerm, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j))
     (hi : i < nF)
+    -- the leaf is the parameters' λ-tower (the ONLY shape the law reads
+    -- of it; the fixpoint content is `hfold`)
+    (hlam : ∃ B, L = mkLamsAV (pps.map fun d => (w + 1, d.2.2)) B)
     -- the family at the parameters is the one-constructor fibre
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps.map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
+      ts.foldl SetTheory.app (interp V ρ L)
         = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]))
     (hres : ∀ ρ : Nat → V,
       ρ 0 ∈ˢ sumSet w (sumFibre w (fun j => ρ (j + 1)) [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]) →
@@ -190,10 +199,9 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
       WellDenotedV V ρ R) :
     ∀ (ρ : Nat → V) (vs : List AnnotTerm) (x rest : AnnotTerm),
       vs.length = nP →
-      WellDenotedV V ρ (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+      WellDenotedV V ρ (AnnotTerm.mkAppN L vs) →
       WellDenotedV V ρ x →
-      interp V ρ x ∈ˢ interp V ρ
-        (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+      interp V ρ x ∈ˢ interp V ρ (AnnotTerm.mkAppN L vs) →
       ConLeche.Model.AnnotTerm.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
       WellDenotedV V ρ (projAV (i + 1) x) ∧ WellDenotedV V ρ rest ∧
         interp V ρ (projAV (i + 1) x) ∈ˢ interp V ρ rest := by
@@ -201,11 +209,11 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   -- the parameter fit
   have hsp : SpineFit ρ (pps.map (·.2.2)) (vs.map (interp V ρ)) := by
+    obtain ⟨B, hB⟩ := hlam
     have h := spineFit_of_wellDenotedV_mkAppN_lam (lds := pps.map fun d => (w + 1, d.2.2))
-      (b := .app ((fixBodyAVI u w [] 0 rss tlss eiss Fss₀ Ess).liftN 0 0) (mkTowerGo u []))
-      (σ := ρ)
+      (b := B) (σ := ρ)
       (fun d hd => by obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd; exact Nat.succ_ne_zero w)
-      hokApp rfl (by simp [hlenVs, hlenPps])
+      hokApp (by rw [hB]) (by simp [hlenVs, hlenPps])
     simpa [List.map_map, Function.comp_def] using h
   have hlenAs : (vs.map (interp V ρ)).length = nP := by simp [hlenVs]
   -- the member of the fibre
@@ -375,21 +383,19 @@ theorem fixEntryIotaCoreZero {nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm
 
 /-! ## (C) the η law -/
 
-theorem fixEntryEtaCore {u w nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTerm)}
-    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : List (List (List AnnotTerm))} {Fss₀ Ess : List (List AnnotTerm)} {ρ : Nat → V}
+theorem fixEntryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTerm)}
+    {L : AnnotTerm} {ρ : Nat → V}
     (hlenDs : ds.length = nP + nF) (hlenPps : pps.length = nP)
     (hiff : ∀ ρ : Nat → V, Sat V (pps.map (·.2.2)).reverse ρ ↔
       Sat V ((ds.take nP).map (·.2.2)).reverse ρ)
     (hokB : ∀ ρ : Nat → V, Sat V ((ds.take nP).map (·.2.2)).reverse ρ →
       FieldsOkB w ρ ((ds.drop nP).map (·.2.2)))
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps.map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
+      ts.foldl SetTheory.app (interp V ρ L)
         = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP).map (·.2.2)) ++ [idxEqAV []]]))
     (ts : List V) (x : V) (hlen : ts.length = nP)
     (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
-    (hx : x ∈ˢ ts.foldl SetTheory.app
-      (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))) :
+    (hx : x ∈ˢ ts.foldl SetTheory.app (interp V ρ L)) :
     x = (ts ++ (List.range nF).map fun j => projS (j + 1) x).foldl SetTheory.app
       (interp V ρ (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2))
         (uChains [(ds.drop nP).map (·.2.2)]))) := by

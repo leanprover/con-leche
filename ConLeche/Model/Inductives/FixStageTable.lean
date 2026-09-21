@@ -21,7 +21,9 @@ the one-constructor fibre of the tagged union (`sumSet w (sumFibre w
 projection is a TAGGED point-terminated tuple and the fields sit at
 projection offset `1` (`ProjTable.off`).  The three laws are the fix
 entry cores (`FixEntryLawP.lean`); the bodies' frames are
-`bodyFrames` at the fibre's frame.
+`bodyFrames` at the fibre's frame.  **The former's leaf is ABSTRACT**
+there and here (`L`, with `hlam`/`hfold`): a block MEMBER's leaf
+(`blockTyAV`) is the same stage at a different reading (task #315 M3).
 
 `declNativeTable` is the assembly-facing wrapper: the case split
 on `checkNativeTable` (nothing consed at a block that is not
@@ -173,18 +175,15 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     (hCDlen : ∀ ψ, (ds ψ).length = p.nP + nF)
     (hCDbelow : ∀ ψ, DomsBelow 0 (ds ψ))
     (hleq : ∀ k, k < nF → p.isProp = false → Level.leq (sorts.getD k .zero) p.resSort = some true)
-    {u : (Name → Nat) → Nat} {rss : List (List Bool)}
-    {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : (Name → Nat) → List (List (List AnnotTerm))} {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
-    (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
-      = nativeTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
+    {L : (Name → Nat) → AnnotTerm}
+    (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ = L ψ)
     (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
       = sumMkAV (p.resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop p.nP).map (·.2.2))
           (uChains [((ds ψ).drop p.nP).map (·.2.2)]))
+    (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV ((pps ψ).map fun d => (p.resSort.eval ψ + 1, d.2.2)) B)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
+      ts.foldl SetTheory.app (interp V ρ (L ψ))
         = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ) (consList ts ρ)
             [((ds ψ).drop p.nP).map (·.2.2) ++ [idxEqAV []]]))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -431,20 +430,14 @@ theorem stageFixTable (mp : EnvModelM V μ env)
             (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
         fun h0 => hguardSem i hi _ (hguardAt h0)
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = nativeTyAVI (u (Level.substFn φ p.cvT.levelParams us))
-            (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
-            (pps (Level.substFn φ p.cvT.levelParams us)) [] rss
-            (tlss (Level.substFn φ p.cvT.levelParams us))
-            (eiss (Level.substFn φ p.cvT.levelParams us))
-            (Fss₀ (Level.substFn φ p.cvT.levelParams us))
-            (Ess (Level.substFn φ p.cvT.levelParams us)) := by
+          = L (Level.substFn φ p.cvT.levelParams us) := by
         show m₂.acval p.cvT.name (Level.substFn φ p.cvT.levelParams us) = _
         rw [hacT, hleafT]
       rw [hacT'] at hokApp hmem
       exact fixEntryTypingCore (hCDlen _) (hFD.len _) (by simp) (hiff _) (hokB _)
         (hsortsF _) (used := ConLeche.structUsedLater cvCa.type p.nP) hguard' (hfree _ i hi) hi
-        (hfold _) hresFd (hokFd (fun h0 => (hguard' h0).2)) ρ vs x rest hlenVs hokApp hokx hmem
-        hpeel
+        (hlam _) (hfold _) hresFd (hokFd (fun h0 => (hguard' h0).2)) ρ vs x rest hlenVs hokApp
+        hokx hmem hpeel
     · -- (B): the constructor type's reading at the instantiation,
       -- then the two regimes
       refine ⟨mkPisAV (ds (Level.substFn φ p.cvT.levelParams us))
@@ -483,13 +476,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
     · intro ρ ts rest x hlents hfit hmem
       have hsp := spineFit_of_teleFit (by rw [hFD.len]; exact hlents) hfit
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
-          = nativeTyAVI (u (Level.substFn φ p.cvT.levelParams us))
-            (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
-            (pps (Level.substFn φ p.cvT.levelParams us)) [] rss
-            (tlss (Level.substFn φ p.cvT.levelParams us))
-            (eiss (Level.substFn φ p.cvT.levelParams us))
-            (Fss₀ (Level.substFn φ p.cvT.levelParams us))
-            (Ess (Level.substFn φ p.cvT.levelParams us)) := by
+          = L (Level.substFn φ p.cvT.levelParams us) := by
         show m₂.acval p.cvT.name (Level.substFn φ p.cvT.levelParams us) = _
         rw [hacT, hleafT]
       have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
@@ -815,9 +802,21 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
       have hframes₀ := hframes 0 cA rfl
       obtain ⟨sorts'', hsj', -, hleq, hsortsAll⟩ := hsortsOf 0 cA rfl
       obtain rfl : sorts = sorts'' := Option.some.inj hsj'
-      refine stageFixTable mp₃ hTbl hfT₃ hcaps hlpsT hfC₃ hlpsC hstripC
+      have hlam₃ : ∀ ψ : Name → Nat, ∃ B,
+          nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
+              (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
+              (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
+              (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
+            = mkLamsAV ((ppsAll ψ).map fun d => (p.resSort.eval ψ + 1, d.2.2)) B :=
+        fun _ => ⟨_, rfl⟩
+      refine stageFixTable (L := fun ψ =>
+          nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] (rssOfK ksF [cA].length)
+            (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0))
+            (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)) (fssZ ψ)
+            (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ [cA] 0)))
+        mp₃ hTbl hfT₃ hcaps hlpsT hfC₃ hlpsC hstripC
         hProp hTshape hCshape hresT hresR hresC hnp₃ hFD₃ hCD₃.read hCD₃.len hCD₃.below hleq
-        hleafT₃ hleafC₃ hfoldAt ?_ ?_ ?_ ?_
+        hleafT₃ hleafC₃ hlam₃ hfoldAt ?_ ?_ ?_ ?_
       · intro ψ ρ
         have := hframes₀.1 ψ ρ
         rwa [hTake] at this
