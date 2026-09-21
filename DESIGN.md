@@ -128619,3 +128619,174 @@ not move and no fixture was added, so no perf cell is owed (nothing on
 the run path changed: every declaration this session added is a
 `theorem`, and the one `def` touched — `appStep` — only gained
 `@[expose]`).
+
+#### WIDE (f3) — THE READING SITE'S **FINITARY** ROWS MOVE TO THE HEAD NORMAL FORM; `hb` IS NOT A `copyResid` CHANGE; THE REFLEXIVE ROWS ARE BLOCKED ON A FILE THIS LANE DOES NOT OWN (lane WHNF, 2026-09-21)
+
+Session 1 left the eight reading rows unmoved and priced the move at
+"one boundedness chain plus the wrappers' bridge" (§(d)/(e) above).
+Two of the four DEEP rows have moved, with their wrappers; the other
+two have a named blocker that is not cost.
+
+##### (a) `hb` COSTS NOTHING — `copyResid` ALREADY EXPORTS BOTH HALVES OF IT
+
+§(e) said the move needs either `cI.looseBVarsBounded 0` added to
+`copyResid` (22 destructuring sites) or a determinacy bridge from
+`copyBody`.  **Neither.**  `Verify/Inductives/NestedCopyTele.lean:162`
+`looseBVarsBounded_instPis` derives it in four lines from records
+`copyResid` exports already — `hccb` (`cc.type.looseBVarsBounded 0`),
+`hDsB` (the components') and `hinstCI₂` — and
+`Verify/Denote/IndFrame.lean:485` `openPisAtFvars_bounded` carries it
+to the opened field variable.  The file was already doing exactly
+this at three places (`NestedCopyInst.lean:8600`, `:11017`,
+`:12035`); the reflexive row `copyOrdFRightPinOrdTargetReadRefl` has
+carried `hbCI`/`hbxI` since it was written.  So `copyResid` is
+UNTOUCHED and the 22 sites were never in the way.  The session-1
+estimate was read off the STATEMENT of `copyResid` without checking
+whether the conjunct is derivable from its neighbours; it is.
+
+##### (b) THE TWO FINITARY ROWS, MOVED — AND THE WRAPPERS' STATEMENTS ARE BYTE-FOR-BYTE UNCHANGED
+
+`NestedPinsRun.copyOrdFRightPinOrdTargetRead`
+(`Model/Inductives/NestedCopyInst.lean:10364`) and
+`NestedPinsRun.copyOrdFRightMemOrdTargetRead` (`:11420`) now take the
+guard and state the conclusion at
+
+```
+ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+  (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st) (q₀ + i') l domJ.1))
+```
+
+and the middle step is the fourth concession's own lemma instead of
+`normPosDomM_indApp_cons`/`_former`:
+
+* `hredX` is `ErasedEq.ordHeadRed hEr` followed by
+  `erasedEq_getAppFn_const` — the head crosses the annotations, which
+  is the bridge session 1 landed for exactly this;
+* `hb` is §(a)'s four lines;
+* `hwc` — the RESULT's constant head, which kills the stuck-λ arm — is
+  **already at both rows and neither spelling is
+  `replaceAllNested_lamHead`'s**.  At the PIN row it is
+  `copyOrdFRightPinCorr`'s `hfn`, and the only edit is to move that
+  `obtain` above the middle step (it depends on `hheadS`, `hrep`,
+  `hstable`, `hea'` — never on the walk).  At the MEMBER row the run
+  does not rewrite at all: `normPosDomM` returns the block's STORED
+  domain, so `hwc` IS the stored domain's head and the row takes
+  `hheadS` as a hypothesis, which its wrapper supplies from
+  `mutualOpenedOk_recHead` exactly as the pin wrapper does;
+* `hwe` is then `normPosDomM_ordHeadRed_cons` (pin) /
+  `_former` (member), and the final rewrite is
+  `denoteMeta_erasedEq (ErasedEq.ordHeadRed hEr)`.
+
+The wrappers `copyOrdFRightPinOrdTargetReadAt` (`:11188`) and
+`copyOrdFRightMemOrdTargetReadAt` (`:11634`) keep TODAY's guard
+(`(ordTargetDom …).getAppFn = .const K usK`) and TODAY's conclusion
+character for character, and bridge in three lines:
+`instSeq_getAppFn_const` lifts the guard through the opening and
+`ordHeadRed_const` makes the reduction the identity there, so
+`rw [← hid]` turns the wrapper's goal into the deep row's.  The
+consumers `Model/Inductives/NestedInstMap.lean:3008`/`:3017` compile
+untouched, which is the point of the split.
+
+One import is added, `ConLeche.Verify.Inductives.OrdHeadRed` (plain,
+not `public` — `ErasedEq.ordHeadRed` appears only in proofs, while
+`ordHeadRed` itself comes from `Kernel/Inductives/NestedInstall`,
+which the file already re-exports).
+
+##### (c) THE TWO **REFLEXIVE** ROWS ARE BLOCKED ON `NestedCopyKinds.lean`, WHICH THE MAIN LANE OWNS AND HAS ALREADY FIXED
+
+`copyOrdFRightPinOrdTargetReadRefl` (`:10657`) and
+`copyOrdFRightMemOrdTargetReadRefl` do NOT move "the same way", and
+the reason is structural, not effort:
+
+* the reflexive rows' recomputation is a `Π`-TOWER, and `ordHeadRed`
+  is the identity on a `forallE` — the redex to reduce sits at the
+  tower's LEAF.  So `normPosDomM_ordHeadRed_cons` cannot be applied at
+  the top: `hwc` would be about a `forallE` head, which the lemma's
+  own `Π` arm refutes.  What these rows need is the tower-level twin
+  of `normPosDomM_openPis_indApp` — call it
+  `normPosDomM_openPis_ordHeadRed`, stated over the INPUT's and the
+  OUTPUT's openings at one count and depth and concluding
+  `leafW = ordHeadRed leafE`, with the output's leaf head as the arm
+  exclusion.  That lemma belongs in `Verify/Inductives/NestedCopyNorm.lean`,
+  which this lane owns; it is ~60–120 lines of the same induction
+  `normPosDomM_openPis_indApp` already runs;
+* but the rows ALSO instantiate the tower before stripping it, and
+  the commutation they spend for that — `stripDomPis_instSeq`
+  (`Verify/Inductives/NestedCopyKinds.lean:2250`) — is GUARDED on the
+  leaf's constant head *before* instantiation (`hfin'`).  That guard
+  is exactly what the redex mint breaks (a bare-parameter reflexive
+  field `∀ y, α y` has a `.bvar` leaf head), so the reflexive move
+  needs the UNGUARDED commutation.  **The main lane landed it**:
+  `stripDomPis_instSeq_tower` at `agent/uniform-le` `b2a1086a`
+  ("the tower/cut commutation, UNGUARDED — and `stripDomPis_instSeq`
+  becomes its corollary"), in `NestedCopyKinds.lean`, a file this lane
+  must not touch.
+
+So the reflexive rows are a POST-MERGE item, and they are cheap once
+merged: the new `normPosDomM_openPis_ordHeadRed` plus the same four
+edits per row as §(b).  Honest sizing: 1 session for the lemma and the
+two rows together, after `NestedCopyKinds.lean`'s unguarded
+commutation is on one branch with this file.
+
+##### (d) THE UNCONSUMED ADVISORY DOES NOT MOVE — TWO ENTRIES ARE **TRADED**, AND THE THIRD RESIDUAL IS NAMED
+
+Measured: **207 of 3913 before, 207 of 3913 after**, and the identity
+of the entries changed by four:
+
+* `normPosDomM_ordHeadRed_cons` and `…_former` gained consumers (§(b))
+  and LEFT the list — that half of session 1's prediction held;
+* `normPosDomM_indApp_cons` (`NestedCopyNorm.lean:2017`) and
+  `…_indApp_former` (`:2032`) ENTERED it, because the two finitary
+  rows were their only consumers and the `ordHeadRed` pair supersedes
+  them: at a constant head `ordHeadRed` is the identity
+  (`ordHeadRed_const`), so each is now a two-line corollary of its
+  twin.  They are NOT deleted here, and the reason is ownership: a doc
+  comment in `Model/Inductives/NestedInstMap.lean:1297` (the assembly
+  lane's file) still names `normPosDomM_indApp_former`, and
+  `normPosDomM_openPis_indApp` — which the REFLEXIVE rows still spend
+  — is written against the same reading.  The deletion belongs to
+  whoever owns both files at the merge, together with §(c)'s
+  tower-level lemma;
+* `replaceAllNested_lamHead` (`NestedElimInv.lean:303`) did NOT gain a
+  consumer, and the reason is §(b)'s third bullet: **every row that
+  moved holds its `hwc` as a POSITIVE constant head**, from
+  `copyOrdFRightPinCorr` or from the stored domain itself, and
+  `replaceAllNested_lamHead` only excludes a λ.  It is the spelling a
+  row WITHOUT either record would need; no such row exists among the
+  eight.  It stays a residual for the reflexive rows (where
+  `copyOrdFRightPinCorr` speaks at the tower's BODY, so the top-level
+  `hwc` has to be argued rather than read) and for the main lane's
+  `hnormRed` if that arrives without a fire record — and if neither
+  uses it, it should be deleted rather than kept.
+
+##### (d′) THE GATES, AT `63ac5418`
+
+`tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
+`shake: 514 removals, all allowlisted`, `pub-imports: 1347 of 2319
+public, none demotable (59 fallbacks)`, `nested-shadow: 46/46` (so
+`nested_redex_owner` is still `J=accept,Outer=accept`), `inmodel: OK`,
+`axioms: pinned (20 theorems)`, `arena suite: 91/96`, `e2e: 200/200`,
+`annot 15/15`, `mode flags 10/10`, `prelude counts 3/3`, `progress
+lane 15/15`, `worker pool 15/15`, `DAG-tower 14/14`, trusted and the
+`--jobs` sweeps as at the default, `overview-links: 112`,
+`quote-gate: 2`, `no-local-paths: OK`, `challenge: OK`.
+`tests/warning-free.sh 63ac5418` — 1 changed module, **0 warning
+lines** in both halves.  `lake test` — 0 warnings.  `#print axioms` on
+all four moved declarations — `[propext, Classical.choice,
+Quot.sound]`.  Nothing on the run path changed (one `import` line and
+four `theorem`s), so no perf cell is owed.
+
+##### (e) THE MAIN LANE'S `hnormRed` HAS NOT APPEARED YET
+
+`git -C …/uniform-le log --oneline ebed8f2f..HEAD` at the time of this
+row is `b2a1086a` / `15a05f15` / `838ef444` — K.72 at the run and at
+the group, and the tower/cut commutation.  Neither `DESIGN.md` nor any
+`ConLeche/` file on that branch mentions `hnormRed`, so step 4 of this
+lane's order (state the one `exact` that discharges it) has nothing to
+aim at and is NOT attempted.  What the moved rows now offer a caller
+is: the guard and the conclusion at `ordHeadRed (instSeq (openFvars
+b.nP l) (l-1) (ordTargetDom …))`, which is `w` on the nose by
+`normPosDomM_ordHeadRed_cons`; a `hnormRed` of the form
+`w = ordHeadRed W` needs no bridge at all, and one of the form
+`w = <something>` with `<something>` constant-headed is
+`ordHeadRed_const`-away.

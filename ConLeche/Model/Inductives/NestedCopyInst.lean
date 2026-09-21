@@ -11,6 +11,9 @@ import ConLeche.Verify.Inductives.NestedCopyInstU
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.Inductives.NestedCopyRewrite
 import ConLeche.Verify.Inductives.NestedCopyNorm
+-- `ErasedEq` crosses the head reduction, for the redex mint's reading
+-- (task #315 WIDE (f3))
+import ConLeche.Verify.Inductives.OrdHeadRed
 import ConLeche.Verify.Inductives.NestedOpenSpine
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
@@ -10381,8 +10384,9 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     -- (`ordTargetDom_pinTermsSelf_flat`) and the head for the walk's
     -- identity at an inductive application.
     (hflat : ConLeche.domPiDepth domJ.1 = 0)
-    (hheadB : (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
-      (q₀ + i') l domJ.1).getAppFn = .const K usK)
+    (hheadB : (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+      (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l domJ.1))).getAppFn = .const K usK)
     (hciK : ConLeche.containerInfo? env K = some ciK)
     {cI : Expr}
     (hinstCI : Expr.instPis (Expr.instantiateLevelParams J.lps
@@ -10408,9 +10412,9 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
       (b.nP + l) w = some ea') :
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ciK.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+          (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
             (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
-              (q₀ + i') l domJ.1))
+              (q₀ + i') l domJ.1)))
         = some (AnnotTerm.mkAppN fb (Ps ++
             ((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])) := by
@@ -10544,19 +10548,25 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     exact Expr.instSeq_erasedEq_args _ _ (l - 1)
       (Expr.instSeq_erasedEq_args _ _ (dJ.nP - 1 + l) (Expr.ErasedEq.rfl _) hcompEr
         (by rw [List.length_map])) hxfEr hxfLen
-  -- (3) the positivity walk is the identity at the container's head —
-  -- read off the BLOCK's recomputation through the residual's own
-  -- `ErasedEq` (task #315 WIDE (f3) step 3(b))
+  -- (3) the positivity walk lands on the recomputation's pure HEAD
+  -- NORMAL FORM: `ordHeadRed`, which at a constant head is the
+  -- identity (task #315 WIDE (f3) step 3(b)'s reading) and at a
+  -- λ-REDEX mint is the reduction itself (step 4).  The boundedness the
+  -- inversion asks for is the minted telescope's, carried through the
+  -- opening — `copyResid` already exports both halves of it.
   obtain ⟨_, _, _, _, _, _, hfindK, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciK
-  have hXhead : xI.fvarTypeD.getAppFn = Expr.const K usK :=
-    ConLeche.erasedEq_getAppFn_const hEr
-      (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
-  have hXfull : xI.fvarTypeD = Expr.mkAppN (Expr.const K usK) xI.fvarTypeD.getAppArgs := by
-    rw [← hXhead]; exact (Expr.mkAppN_getApp _).symm
-  have hwe : w = xI.fvarTypeD := by
-    rw [hXfull] at hnormW
-    exact (ConLeche.normPosDomM_indApp_cons hfindK hnormW).trans hXfull.symm
-  -- (4) the rewrite threads the index arguments
+  have hbCI : cI.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_instPis _ _ _
+      (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hccb)
+      (fun a ha => hDsB a ha) hinstCI₂
+  have hbxI : (Expr.fvarTypeD xI).looseBVarsBounded 0 = true := by
+    have h := (openPisAtFvars_bounded cAJ.2 hopM hbCI).2 _ (List.mem_of_getElem? hxI)
+    simpa [Expr.fvarTypeD] using h
+  have hredX : (ConLeche.ordHeadRed xI.fvarTypeD).getAppFn = Expr.const K usK :=
+    ConLeche.erasedEq_getAppFn_const (ConLeche.ErasedEq.ordHeadRed hEr) hheadB
+  -- (4) the rewrite threads the index arguments — and its `hfn`, the
+  -- REWRITTEN domain's constant head, is also what kills the
+  -- inversion's stuck-λ arm, so the fire's record comes first
   have hplen : params.length = b.nP := by
     unfold ConLeche.nestedRewriteData at hrwd
     obtain ⟨t₀, -, hrwd⟩ := Option.bind_eq_some_iff.mp hrwd
@@ -10572,8 +10582,10 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
   obtain ⟨I, lvlsI, ci', qq, hqqLt, hidxT, hfn, hci', hnP', hpinEq', hqe⟩ :=
     R.copyOrdFRightPinCorr SF S hPD hi' hj hlF hpinT hheadS hrep hstable
       (fvs := []) (tsq := 0) hea'
+  have hwe : w = ConLeche.ordHeadRed xI.fvarTypeD :=
+    ConLeche.normPosDomM_ordHeadRed_cons hbxI hfindK hredX hfn hnormW
   have hconst : (Expr.const I lvlsI : Expr) = Expr.const K usK := by
-    rw [← hfn, hwe]; exact hXhead
+    rw [← hfn, hwe]; exact hredX
   obtain ⟨hIK, hlvI⟩ : I = K ∧ lvlsI = usK := by
     simpa using hconst
   rw [hIK] at hci'
@@ -10607,8 +10619,8 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetRead {pbs : List (Expr × ConLech
     rw [← hsplen hsp₁, List.length_take]
     omega
   refine ⟨fa, vs₁, hlen₁, ?_⟩
-  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq hEr (b.nP + l), ← hwe, hea', hvseq, hvsSplit,
-    hvs₂]
+  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq (ConLeche.ErasedEq.ordHeadRed hEr) (b.nP + l),
+    ← hwe, hea', hvseq, hvsSplit, hvs₂]
 
 
 /-! ## The tie's denotational half at a REFLEXIVE field (task #315 WIDE
@@ -11260,9 +11272,20 @@ theorem NestedPinsRun.copyOrdFRightPinOrdTargetReadAt {pbs : List (Expr × ConLe
   obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
   obtain ⟨-, hopen, -⟩ := R.h.ksJ _ _ hcA
   refine ⟨by rw [hCD.tssNone ψ l (by rw [hkA]; exact fun h => nomatch h)]; rfl, ?_⟩
+  -- the deep row speaks at the recomputation's HEAD NORMAL FORM; at
+  -- THIS guard the reduction is the identity (`ordHeadRed_const`), so
+  -- the bridge back is free and the wrapper's statement is unmoved
+  have hid : ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+        (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l domJ.1))
+      = Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+        (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l domJ.1) :=
+    ConLeche.ordHeadRed_const (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
+  rw [← hid]
   exact R.copyOrdFRightPinOrdTargetRead SF S hPD hi' hj hlF hkA hpinT hci hJmem hJn hstripJ hdomJ
-    hflat hheadB hciK hinstCI hopM hxI hx'
-    (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hnormW hrep hstable hea'
+    hflat (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hciK hinstCI hopM hxI
+    hx' (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hnormW hrep hstable hea'
 
 /-- **THE TIE'S BLOCK SIDE AT A REFLEXIVE FIELD, FROM THE RUN**
 (task #315 WIDE (3), step 1(a)): the twin of
@@ -11409,8 +11432,9 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
     -- flatness plus the BLOCK's recomputation head, the pin arm's own
     -- guard since task #315 WIDE (f3) step 3(b)
     (hflat : ConLeche.domPiDepth domJ.1 = 0)
-    (hheadB : (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
-      (q₀ + i') l domJ.1).getAppFn = .const K usK)
+    (hheadB : (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+      (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+        (q₀ + i') l domJ.1))).getAppFn = .const K usK)
     (hKmem : ∃ f ∈ fms.take p.k, f.cvTa.name = K)
     {cI : Expr}
     (hinstCI : Expr.instPis (Expr.instantiateLevelParams J.lps
@@ -11419,6 +11443,9 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
     (hopM : ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM))
     {xI : Expr} (hxI : xfvs'[l]? = some xI)
     {x' : Expr} (hx' : (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x')
+    (hheadS : x'.fvarTypeD.getAppFn = Expr.const (mutualNameOf b.members3
+        (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l))
+      (b.lps.map Level.param))
     (hnormW : ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
         (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
         xI.fvarTypeD = .ok x'.fvarTypeD)
@@ -11427,9 +11454,9 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
       (b.nP + l) x'.fvarTypeD = some ea') :
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = b.nP ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l)
-          (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+          (ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
             (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
-              (q₀ + i') l domJ.1))
+              (q₀ + i') l domJ.1)))
         = some (AnnotTerm.mkAppN fb (Ps ++
             ((mutEiss0 ctorsA.length eissF ψ).getD
               (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])) := by
@@ -11563,17 +11590,24 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
     exact Expr.instSeq_erasedEq_args _ _ (l - 1)
       (Expr.instSeq_erasedEq_args _ _ (dJ.nP - 1 + l) (Expr.ErasedEq.rfl _) hcompEr
         (by rw [List.length_map])) hxfEr hxfLen
-  -- (3) the positivity walk is the identity at the MEMBER's head
-  have hXhead : xI.fvarTypeD.getAppFn = Expr.const K usK :=
-    ConLeche.erasedEq_getAppFn_const hEr
-      (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
+  -- (3) the positivity walk lands on the recomputation's pure HEAD
+  -- NORMAL FORM, one lookup over: the head is one of the block's own
+  -- FORMERS, and the REWRITE-free run's own output is the block's
+  -- stored domain, whose constant head kills the stuck-λ arm
+  -- (task #315 WIDE (f3) step 4)
+  have hbCI : cI.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_instPis _ _ _
+      (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hccb)
+      (fun a ha => hDsB a ha) hinstCI₂
+  have hbxI : (Expr.fvarTypeD xI).looseBVarsBounded 0 = true := by
+    have h := (openPisAtFvars_bounded cAJ.2 hopM hbCI).2 _ (List.mem_of_getElem? hxI)
+    simpa [Expr.fvarTypeD] using h
   obtain ⟨f₂, hf₂mem, hf₂name⟩ := hKmem
-  have hXfull : xI.fvarTypeD
-      = Expr.mkAppN (Expr.const f₂.cvTa.name usK) xI.fvarTypeD.getAppArgs := by
-    rw [hf₂name, ← hXhead]; exact (Expr.mkAppN_getApp _).symm
-  have hwe : x'.fvarTypeD = xI.fvarTypeD := by
-    rw [hXfull] at hnormW
-    rw [ConLeche.normPosDomM_indApp_former hf₂mem hnormW, ← hXfull]
+  have hredX : (ConLeche.ordHeadRed xI.fvarTypeD).getAppFn = Expr.const f₂.cvTa.name usK := by
+    rw [hf₂name]
+    exact ConLeche.erasedEq_getAppFn_const (ConLeche.ErasedEq.ordHeadRed hEr) hheadB
+  have hwe : x'.fvarTypeD = ConLeche.ordHeadRed xI.fvarTypeD :=
+    ConLeche.normPosDomM_ordHeadRed_former hbxI hf₂mem hredX hheadS hnormW
   -- (4) the split is the constructor's own datum
   have hlA : l < cA.2 := by rw [hnF]; exact hlcc
   have heaEq : ea' = ((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2 :=
@@ -11582,8 +11616,8 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetRead {pbs : List (Expr × ConLech
       (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l)) ψ,
     paramBvarsAt b.nP (b.nP + l),
     by simp only [paramBvarsAt, List.length_map, List.length_range], ?_⟩
-  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq hEr (b.nP + l), ← hwe, hea', heaEq,
-    hCD.recEntry ψ l hkA hlA]
+  rw [mutEiss0_getD hGlt, denoteMeta_erasedEq (ConLeche.ErasedEq.ordHeadRed hEr) (b.nP + l),
+    ← hwe, hea', heaEq, hCD.recEntry ψ l hkA hlA]
 
 
 /-- **THE TIE'S BLOCK SIDE AT A MEMBER TARGET, FROM THE RUN** (task
@@ -11666,9 +11700,23 @@ theorem NestedPinsRun.copyOrdFRightMemOrdTargetReadAt {pbs : List (Expr × ConLe
   obtain ⟨_cc, _J, _ci, _cI, cA, _cname, -, -, -, -, -, -, -, -, -, hcA, -, -⟩ :=
     R.ctorPair SF S hPD hi' hj
   have hCD := R.h.CD _ _ hcA
+  obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
+  obtain ⟨-, hopen, -⟩ := R.h.ksJ _ _ hcA
   refine ⟨by rw [hCD.tssNone ψ l (by rw [hkA]; exact fun h => nomatch h)]; rfl, ?_⟩
+  -- the deep row speaks at the recomputation's HEAD NORMAL FORM; at
+  -- THIS guard the reduction is the identity (`ordHeadRed_const`), so
+  -- the bridge back is free and the wrapper's statement is unmoved
+  have hid : ConLeche.ordHeadRed (Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+        (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l domJ.1))
+      = Expr.instSeq (ConLeche.Verify.openFvars b.nP l) (l - 1)
+        (ConLeche.ordTargetDom J.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
+          (q₀ + i') l domJ.1) :=
+    ConLeche.ordHeadRed_const (ConLeche.instSeq_getAppFn_const _ _ _ hheadB)
+  rw [← hid]
   exact R.copyOrdFRightMemOrdTargetRead SF S hPD hi' hj hlF hkA hci hJmem hJn hstripJ hdomJ
-    hflat hheadB hKmem hinstCI hopM hxI hx' hnormW hea'
+    hflat (by rw [hid]; exact ConLeche.instSeq_getAppFn_const _ _ _ hheadB) hKmem hinstCI hopM hxI
+    hx' (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hnormW hea'
 
 /-! ## The tie's denotational half at a MEMBER target, REFLEXIVE
 (task #315 WIDE (3), step 3)
