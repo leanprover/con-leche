@@ -214,6 +214,14 @@ def blockRulePrefixOk (recTy : Expr) (nP k N J nF : Nat) (rhs : Expr) : Bool :=
 
 /-! ## The primitive-recursion abstraction -/
 
+/-- **The member a field's kind names**, when the field has an
+inductive hypothesis (`blockTgtsOf`'s answer as an `Option`: a field
+with no hypothesis has no target, rather than the placeholder `0`). -/
+def BlockFieldKind.tgt? : BlockFieldKind → Option Nat
+  | .recursive t => some t
+  | .reflexive t => some t
+  | _ => none
+
 /-- The position of a name in a list (`none` when absent). -/
 def nameIdxOf? (names : List Name) (n : Name) : Option Nat :=
   (List.range names.length).find? fun i => names.getD i default == n
@@ -288,12 +296,7 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
         | .bvar b =>
           if !(decide (d ≤ b) && decide (b < d + fr.nF)) then none else
           let i := d + fr.nF - 1 - b
-          let tgtOk :=
-            match fr.ks.getD i .ordinary with
-            | .recursive t => t == c'
-            | .reflexive t => t == c'
-            | _ => false
-          if !tgtOk then none else
+          if (fr.ks.getD i .ordinary).tgt? != some c' then none else
           let as := maj.getAppArgs
           let tele := fr.teleOf i
           if as.length != tele.length then none else
