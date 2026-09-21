@@ -53,6 +53,7 @@ public import ConLeche.Semantics.Tower.BlockOne
 public import ConLeche.Semantics.Tower.SigChainI
 public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.Semantics.Tower.BlockRecWfI
+public import ConLeche.Semantics.Tower.BlockRecIndI
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun
