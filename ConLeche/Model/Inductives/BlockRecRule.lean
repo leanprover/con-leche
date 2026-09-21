@@ -9,6 +9,7 @@ public import ConLeche.Model.Inductives.FixRecRead
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Model.IndFrame
+import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 
@@ -1289,5 +1290,191 @@ theorem prefVars_shift (rP nF d m : Nat) :
   rw [liftN_bvar_ge (show m ≤ nF + m + rP - 1 - l from by omega)]
   congr 1
   omega
+
+/-! ## `IhSpineFold`, discharged from the run
+
+The wide assembly: `denoteMeta_blockIhSpinePis` (the generated call's
+Π-tower, read) → `instPisAtLift_instSeq` (the check's peel, moved to
+the opened frame) → `denoteMeta_instPisAtLift_peel` → 
+`interp_peelPis_mkPisAV` (the peel, evaluated) → the four `d`-shift
+rewrites under `interp_liftN` and `shiftE_consList_ih` →
+`ihFunAV_fold`.
+
+**The one fact no syntax produces** is `hR`: `ihFunAV`'s head is the
+CHAIN COMPONENT `bvar (… + (K - 1 - c'))` while the reading's head is
+the CONSTANT `acval rec_{c'}`.  They are never equal as terms; what
+closes the gap is the LEAF's value (`blockRecAV_facts`), carried here
+as `hleaf`. -/
+
+theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
+    {cty : Expr} {fvs : List Expr} {cr : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {σchain : Nat → V} {xs fs : List V} {ihvals : List V}
+    (hacl : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (mo.acval n ψ').liftN 1 k = mo.acval n ψ')
+    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (mo.acval n ψ').inst y k = mo.acval n ψ')
+    (hcl : ∀ (n : Name) (ψ' : Name → Nat) (ρ1 ρ2 : Nat → V),
+      interp V ρ1 (mo.acval n ψ') = interp V ρ2 (mo.acval n ψ'))
+    -- the frame's arithmetic
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o)
+    (hxl : xs.length = fr.rP) (hfl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
+    -- the constructor's type and its fields' readings
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs, cr))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hfld : ∀ i, i < fr.nF → FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
+    -- the call's arguments live in the rule body's frame
+    (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
+      Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
+        fr.rP fr.nF i d (fr.teleOf i) (fr.idxOf i)) = some expected →
+      ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false)
+    -- the generated Π-tower is a generated form: no free variable
+    (hnofv : ∀ (d i : Nat) (nm : Name),
+      (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
+        (fr.teleOf i) (fr.idxOf i)).hasFvar = false)
+    -- the callee: stored, at the right level arity, and its leaf is the chain's component
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        interp V (consList (xs ++ fs) σchain)
+            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
+          = σchain (K - 1 - c'))
+    -- the field's index is in range, and the opener's value is the design's ih term
+    (hi : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r → i < fr.nF)
+    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      ihvals.getD r pt
+        = interp V (consList (xs ++ fs) σchain)
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 +
+                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
+    -- G3: the call's arguments fit the field's telescope
+    (hfit : ∀ (i : Nat) (ws : List V), i < fr.nF →
+      ws.length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+      SpineFit (consList (xs ++ fs) σchain)
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2)) ws) :
+    IhSpineFold V mo.acval env ψ fr F (consList (xs ++ fs) σchain) ihvals := by
+  intro d locals nm c' i r as as1 expected A vs hloc h1 hnm hrpos hasl hexp hA hvs
+  have hiF : i < fr.nF := hi i c' r hrpos
+  obtain ⟨ci, hfind, hlvl, hleafv⟩ := hcallee nm c' hnm
+  have hbnd := hargs d i nm as expected hexp
+  have hnof := hnofv d i nm
+  subst hF
+  have hE : 0 < fr.nP + o + fr.nF + d := by omega
+  -- the opening list, as the battery's ascending frame
+  have hclos : ∀ x ∈ as1, x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+    have hql : q < fr.nP + o + fr.nF + d := by
+      rw [← h1.1]; exact (List.getElem?_eq_some_iff.mp hq).1
+    obtain ⟨ty, hty⟩ := h1.2.1 q hql
+    rw [hty] at hq
+    rw [← Option.some.inj hq]
+    rfl
+  have hspcl : ∀ x ∈ as1.reverse, x.looseBVarsBounded 0 = true :=
+    fun x hx => hclos x (List.mem_reverse.mp hx)
+  have hsplen : as1.reverse.length = (fr.nP + o + fr.nF + d - 1) + 1 := by
+    rw [h1.reverse_length]; omega
+  have hopen : ∀ X : Expr,
+      Expr.instSeq as1.reverse (fr.nP + o + fr.nF + d - 1) X = X.instantiateList as1 0 :=
+    fun X => (instantiateList_eq_instSeq_of_fvarList h1 hE X).symm
+  -- (1) the check's peel, moved to the opened frame
+  have hpr : Expr.instPisAtLift (as.map (·.instantiateList as1 0))
+      ((ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
+        (fr.teleOf i) (fr.idxOf i)).instantiateList as1 0)
+      = some (expected.instantiateList as1 0) := by
+    have h := instPisAtLift_instSeq hspcl hsplen as
+      (fun a ha => by rw [show fr.nP + o + fr.nF + d - 1 + 1 = fr.nP + o + fr.nF + d from by omega]
+                      exact (hbnd a ha).1) hexp
+    have hmap : as.map (Expr.instSeq as1.reverse (fr.nP + o + fr.nF + d - 1))
+        = as.map (·.instantiateList as1 0) := List.map_congr_left fun a _ => hopen a
+    rw [hmap, hopen, hopen] at h
+    exact h
+  -- (2) the generated Π-tower, read
+  rw [htele] at hasl
+  rw [htele, hidx] at hexp hpr hnof
+  have hTy := denoteMeta_blockIhSpinePis (m := mo) (ψ := ψ) (nm := nm) (rlvls := fr.rlvls)
+    (pw := fr.pw) (rP := fr.rP) (d := d) (i := i) hop0 hCf hCb hstripC hiF (hfld i hiF) ho h1
+    hfind hlvl
+  -- (3) the peel, read and evaluated
+  obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAtLift_peel
+    hacl hainst (as.map (·.instantiateList as1 0)) hpr
+    (wscoped_instantiateList h1 _ hnof 0)
+    (fun a ha => by
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp ha
+      refine ⟨wscoped_instantiateList h1 y (hbnd y hy).2 0, ?_⟩
+      rw [← hopen]
+      exact looseBVarsBounded_instSeq as1.reverse _ hspcl hsplen
+        (by rw [show fr.nP + o + fr.nF + d - 1 + 1 = fr.nP + o + fr.nF + d from by omega]
+            exact (hbnd y hy).1))
+    hTy hvs
+  obtain rfl : restA = A := Option.some.inj (hrest.symm.trans hA)
+  -- (4) the peel, evaluated
+  have hvlen : vs.length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length := by
+    rw [← hvs.length, List.length_map]; exact hasl
+  have htlen : ∀ l : Nat, (ihTeleAtR fr.nF o i l (rebit (pwBit ψ fr.pw) (tlF i))).length
+      = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length := by
+    intro l; rw [ihTeleAtR_length, rebit_length, (hfld i hiF).1]
+  rw [interp_peelPis_mkPisAV (by rw [hvlen, htlen]) hpeel]
+  -- (5) the `d`-shift, and the fold
+  have hwlen : (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+      = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length := by
+    rw [List.length_map]; exact hvlen
+  have hshift : shiftE d (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length
+      (consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+        (consList locals (consList (xs ++ fs) σchain)))
+      = consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+          (consList (xs ++ fs) σchain) :=
+    shiftE_consList_ih hwlen hloc
+  have hlift : ∀ X : AnnotTerm,
+      interp V (consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+          (consList locals (consList (xs ++ fs) σchain)))
+        (X.liftN d (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+      = interp V (consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+          (consList (xs ++ fs) σchain)) X := by
+    intro X; rw [interp_liftN, hshift]
+  have hEisShift : (EisF i).map
+        (ihIdxAtM fr.nF o i d (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+      = ((EisF i).map
+          (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)).map
+          (AnnotTerm.liftN d ·  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length) := by
+    rw [List.map_map]
+    exact List.map_congr_left fun x _ => ihIdxAtM_shift _ _ _ _ _ x
+  rw [hihv i c' r hrpos,
+    ihFunAV_fold (V := V) (ℓ := ℓ) (K := K) (c' := c') (eis := (EisF i).map
+        (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+      hℓ hleafv.symm hxl hfl (by rw [List.length_map, hvlen, htlen])
+      (hfit i _ hiF hwlen),
+    interp_mkAppN, foldl_app_map, hcl nm _ _ (consList (xs ++ fs) σchain), hleafv,
+    prefVars_shift, fieldApp_shift, hEisShift,
+    show consList (xs ++ fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+          σchain
+        = consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+            (consList (xs ++ fs) σchain) from
+      consList_append _ _ _]
+  simp only [List.map_append, List.map_map, List.map_cons, List.map_nil, Function.comp_def,
+    hlift]
+  have hbslen : (fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+      = fr.nF + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length := by
+    rw [List.length_append, hfl, hwlen]
+  have hpref : (prefVarsAV fr.rP
+        (fr.nF + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)).map
+      (interp V (consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+        (consList (xs ++ fs) σchain))) = xs := by
+    rw [show consList (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
+            (consList (xs ++ fs) σchain)
+          = consList (xs ++ (fs ++ vs.map
+              (interp V (consList locals (consList (xs ++ fs) σchain))))) σchain from by
+        rw [← List.append_assoc]
+        exact (consList_append _ _ _).symm,
+      ← hbslen]
+    exact interp_prefVarsAV hxl
+  rw [hpref, List.append_assoc]
 
 end ConLeche.Model
