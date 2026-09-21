@@ -1325,7 +1325,11 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
     (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
     (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
-    (hfld : ∀ i, i < fr.nF → FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
+    -- the fields with an `ih` opener: the frame's `ihKeys` name exactly the
+    -- RECURSIVE and REFLEXIVE ones (`pairIdxOf_blockIhKeys_kind`), and the
+    -- constructors' stage supplies the package only there
+    (hfld : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
     -- the call's arguments live in the rule body's frame
     (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
       Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
@@ -1400,7 +1404,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
   rw [htele] at hasl
   rw [htele, hidx] at hexp hpr hnof
   have hTy := denoteMeta_blockIhSpinePis (m := mo) (ψ := ψ) (nm := nm) (rlvls := fr.rlvls)
-    (pw := fr.pw) (rP := fr.rP) (d := d) (i := i) hop0 hCf hCb hstripC hiF (hfld i hiF) ho h1
+    (pw := fr.pw) (rP := fr.rP) (d := d) (i := i) hop0 hCf hCb hstripC hiF (hfld i c' r hrpos) ho h1
     hfind hlvl
   -- (3) the peel, read and evaluated
   obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAtLift_peel
@@ -1420,7 +1424,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     rw [← hvs.length, List.length_map]; exact hasl
   have htlen : ∀ l : Nat, (ihTeleAtR fr.nF o i l (rebit (pwBit ψ fr.pw) (tlF i))).length
       = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length := by
-    intro l; rw [ihTeleAtR_length, rebit_length, (hfld i hiF).1]
+    intro l; rw [ihTeleAtR_length, rebit_length, (hfld i c' r hrpos).1]
   rw [interp_peelPis_mkPisAV (by rw [hvlen, htlen]) hpeel]
   -- (5) the `d`-shift, and the fold
   have hwlen : (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
@@ -1499,7 +1503,11 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
     (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
     (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
     (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
-    (hfld : ∀ i, i < fr.nF → FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
+    -- the fields with an `ih` opener: the frame's `ihKeys` name exactly the
+    -- RECURSIVE and REFLEXIVE ones (`pairIdxOf_blockIhKeys_kind`), and the
+    -- constructors' stage supplies the package only there
+    (hfld : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
     (hargs : ∀ (d i : Nat) (nm : Name) (as : List Expr) (expected : Expr),
       Expr.instPisAtLift as (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP
         fr.rP fr.nF i d (fr.teleOf i) (fr.idxOf i)) = some expected →
