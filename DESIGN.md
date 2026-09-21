@@ -80673,3 +80673,36 @@ unsound).  The gaps and their fixes:
 Carry-forwards: the elimination guard must count COMPONENTS `N` once
 instances exist; the union kit is to be exercised once with indices,
 parameters and a reflexive field (falsifier F3) before the model lane.
+
+#### AMENDMENT (2026-09-21, maintainer's ruling): the recursor check knows no motives
+
+The family is the group's recursors; a motive is a parameter like any
+other.  The check reads, per recursor: the stream's type checked as a
+type and STORED AS IS (no generated motive telescope, no splicing); the
+first `nP` binders' domains = the block's parameter domains; the LAST
+binder is the major, `T_m p⃗ ı⃗` for a member `m` (later: a container
+instance), which assigns the recursor to its component; the conclusion
+is arbitrary; `rulePrefix = majorIdx` = the number of binders before
+the major.  Rules: one per constructor of the major's type
+(completeness is a SOUNDNESS requirement: a `Nat` recursor with a rule
+for `zero` only would prove `∀ n, M n` from `M 0`); the rhs's λ-prefix
+= the recursor's binders before the major (per binder defeq, G2) then
+the constructor's fields; the guard as before (every block-recursor
+occurrence a maximal spine of `majorIdx + 1` arguments whose last is a
+recursive/reflexive field of this constructor applied to `a⃗`), each
+spine abstracted to `ih a⃗` whose type is the recursor's type
+instantiated at the spine's arguments (syntactic); the residue typed at
+the constructors' environment (G1) against the conclusion instantiated
+at the rule's prefix and `major := C_J p⃗ f⃗`.  The elimination guard in
+this generality: when the block's sort may be 0 and (N ≥ 2 or the
+component has ≥ 2 constructors) the recursor's CONCLUSION must be a
+proposition (its sort `isDefEq Sort 0` under the binders); one
+constructor: the subsingleton criterion or a Prop conclusion.  "N ≥ 2
+counts COMPONENTS": for a nested Prop block the guard is evaluated over
+the wide block including the container instances, as official does on
+its aux block — `P : Prop | mk : Or True P` is inhabited (`mk (inl
+trivial)`), has one member and one constructor, and a large eliminator
+for it is UNSOUND: at `w = 0` the `Or`-component's element `pt` is
+both `inl trivial` and `inr p`, so `rec₂ pt` would have to equal two
+different minors (refuted at `motive₂ := λ _. Bool`).  DESIGN DOCUMENT
+1 §4.2 (b) is superseded by this amendment.
