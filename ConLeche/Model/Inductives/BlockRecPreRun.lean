@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
-import ConLeche.Model.Inductives.BlockRecData
+public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
@@ -1858,5 +1858,73 @@ theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
   · exact hihChain _
 
 end KitRegimeWf
+
+/-! ## 20. The components at the RUN's spelling (session 4)
+
+RM8's sessions 4–5 name the rule data's syntactic components as
+functions of the run (`M5M-data-REPORT` §A.8): `blockRulePdomsAV`
+(the recursor type's first `rP` binder domains),
+`blockRuleFdomsAV`/`blockRuleEsAV`/`blockRuleMkAV` (the constructor's
+field domains, index expressions and fired spine, read at the rule's
+frame), with `blockRuleData_run` identifying them with what the check
+actually opened.  The ι equations are stated at those components
+LIFTED past the `K` chain binders at their own cutoffs
+(`blockIotaEqsAV`), which is the side this lane parameterises at.
+
+These four definitions are that instantiation, so every premise of
+§19 reads at RM8's names; `hpl` — the rule's prefix domains are as
+long as the rule prefix — is then a theorem, off
+`blockRulePdomsAV_length` and `liftDomsK_length`. -/
+
+section RunComponents
+
+/-- The rule's PREFIX domains at the chain frame. -/
+@[expose] def blockRecPdomsK (K : Nat) (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : ConLeche.BlockShape)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c : Nat) : List AnnotTerm :=
+  liftDomsK K 0 (blockRulePdomsAV acval envC p rs ψ c)
+
+/-- The constructor's FIELD domains at the chain frame. -/
+@[expose] def blockRecFdomsK (K : Nat) (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : ConLeche.BlockShape)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c i : Nat) : List AnnotTerm :=
+  liftDomsK K (blockRulePdomsAV acval envC p rs ψ c).length
+    (blockRuleFdomsAV p rs acval envC ψ c i)
+
+/-- The constructor's INDEX expressions at the chain frame. -/
+@[expose] def blockRecEsK (K : Nat) (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : ConLeche.BlockShape)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c i : Nat) : List AnnotTerm :=
+  (blockRuleEsAV p rs acval envC ψ c i).map fun e =>
+    e.liftN K ((blockRulePdomsAV acval envC p rs ψ c).length
+      + (blockRuleFdomsAV p rs acval envC ψ c i).length)
+
+/-- The FIRED SPINE at the chain frame. -/
+@[expose] def blockRecMkK (K : Nat) (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : ConLeche.BlockShape)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c i : Nat) : AnnotTerm :=
+  (blockRuleMkAV p rs acval envC ψ c i).liftN K
+    ((blockRulePdomsAV acval envC p rs ψ c).length
+      + (blockRuleFdomsAV p rs acval envC ψ c i).length)
+
+/-- **`hpl` at the run**: the rule's prefix domains are as long as the
+rule prefix (`blockRulePdomsAV_length`, unchanged by the lifting). -/
+theorem blockRecPdomsK_length {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F K : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) :
+    (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c := by
+  rw [blockRecPdomsK, liftDomsK_length]
+  exact blockRulePdomsAV_length hμ mpC h hr ψ
+
+end RunComponents
 
 end ConLeche.Model
