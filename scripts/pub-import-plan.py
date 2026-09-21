@@ -86,6 +86,14 @@ FALLBACK = {
     # statement (the #290 class) — the build says so for every substitute
     # tried.
     ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Model.Inductives.FixRecReadDefs'),
+    # task #315 (the uniform block route): `BlockOne`'s public statements
+    # are over `BlockLeafI`'s `blockFam`, `chainXBIGo` and `slotXBI`, and
+    # its `open SetTheory` resolves only through that re-export; nothing
+    # downstream reads them THROUGH `BlockOne`, so the model calls the
+    # edge demotable — and the build then says `unknown identifier
+    # SetTheory`, the #290 class again (a plain import is invisible to a
+    # public statement).
+    ('ConLeche.Semantics.Tower.BlockOne','ConLeche.Semantics.Tower.BlockLeafI'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

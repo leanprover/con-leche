@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Semantics.Tower.TowerIntro
+public import ConLeche.Semantics.BasisOk
 @[expose] public section
 
 /-!
@@ -26,7 +27,11 @@ their interpretation equations:
 * `projAV i` — the tier's structure-independent `projS i = sfst ∘
   ssnd^i`, spelled by the iterated projection formers `.fst ∘ .snd^i`.
   No type arguments, no entry consultation; `projAV_interp` is the
-  definitional commutation.
+  definitional commutation.  The *definition* and `projAV_interp` live
+  one layer down (`Semantics/BasisType.lean`, `Semantics/BasisOk.lean`),
+  because a basis constant's type — `lfpTuple k`'s index-set tuple —
+  reads its arguments with them; the lifting/instantiation laws are
+  here.
 
 `towerBodyAV_wellDenoted` grades the body (`WellDenoted`) from the hereditary
 `FieldsOkB` premise (the domains' own `WellDenoted` + `FieldsBound`);
@@ -81,13 +86,6 @@ theorem towerBodyAV_zero (Fs : List AnnotTerm) :
 
 theorem towerBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
     towerBodyAV w Fs = towerBodyAVPos w Fs := if_neg hw
-
-/-- The uniform projection spelling: `.fst ∘ .snd^i` — the
-`AnnotTerm` form of the tier's `projS i = sfst ∘ ssnd^i`.  Depends only
-on the index. -/
-def projAV : Nat → AnnotTerm → AnnotTerm
-  | 0, e => .fst e
-  | i + 1, e => projAV i (.snd e)
 
 /-- `FieldsOkB w ρ Fs`: the hereditary grading the body's `WellDenoted`
 consumes — each domain is itself graded and, in the graph regime, its
@@ -162,16 +160,13 @@ theorem sqBodyAV_wellDenoted :
 
 /-- The `[w, w]` instance of the pair former's product membership: the
 `.psigma [w, w]` value inhabits the two-step product landing in
-`univ w`.  (`sigma_mem_univ` at the joint level `max w w = w`.) -/
+`univ w`.  (`psigmaV_rr_mem`, `Semantics/BasisOk.lean`, where the
+non-dependent tower of a basis constant's type needs it.) -/
 theorem psigmaV_ww_mem (w : Nat) :
     psigmaV V w w ∈ˢ piR (w + 1) (univ w : V)
       (fun A => piR (w + 1) (psigmaFibreSpace V w A)
-        fun _ => (univ w : V)) := by
-  rw [psigmaV, show Nat.max w w = w from Nat.max_self w]
-  exact lamR_mem fun A hA => lamR_mem fun B hB => by
-    have h := sigma_mem_univ (u := w) (v := w) hA
-      (fun x hx => psigmaFibre_apply V hB hx)
-    rwa [show Nat.max w w = w from Nat.max_self w] at h
+        fun _ => (univ w : V)) :=
+  psigmaV_rr_mem V w
 
 /-- **The carrier body reads back as the tier's carrier**: under the
 hereditary bound (O5's semantic form), the `.psigma` spelling
@@ -225,18 +220,6 @@ theorem towerSet_univ_of_okB {w : Nat} {Fs : List AnnotTerm} {ρ : Nat → V}
     rw [univ_zero]
     exact towerSet_zero_univZero_teleOfFields
   · exact towerSet_univ_teleOfFields (hb hw)
-
-/-- **The uniform projection spelling reads back as `projS`** — the
-definitional commutation, no premises at all (matching the tier's
-unconditional iota discipline). -/
-theorem projAV_interp :
-    ∀ (i : Nat) (e : AnnotTerm) (ρ : Nat → V),
-      interp V ρ (projAV i e) = projS i (interp V ρ e)
-  | 0, _, _ => rfl
-  | i + 1, e, ρ => by
-    show interp V ρ (projAV i (.snd e)) = projS i (ssnd (interp V ρ e))
-    rw [projAV_interp i (.snd e) ρ]
-    rfl
 
 /-- `projAV` commutes with lifting (it introduces no binders). -/
 theorem projAV_liftN :

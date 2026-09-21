@@ -2,10 +2,10 @@ module
 
 public import ConLeche.SetModel.Ops
 public import ConLeche.Term.Const
-public import ConLeche.SetTheory.Derive.Sigma
 public import ConLeche.SetTheory.Derive.Quot
 public import ConLeche.SetTheory.Derive.Choice
-public import ConLeche.SetTheory.Derive.LfpFam
+public import ConLeche.SetTheory.Derive.LfpTuple
+public import ConLeche.SetModel.TupleTower
 
 @[expose] public section
 
@@ -538,6 +538,165 @@ theorem lfpFamV_mem (u w : Nat) :
       piR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun _ => lfpFamSpace V w I :=
   lamR_mem fun I _ => lamR_mem fun F _ => lfpFamSet_mem_space V w I F
 
+section LfpTuple
+
+open ConLeche.SetTheory.Tower (mkTower projS projS_mkTower)
+
+/-! ## `lfpTuple k` (task #315, the uniform block route)
+
+The least pre-fixed point of a functor on **tuples** of `k` families
+(`lfpTuple`, `ConLeche/SetTheory/Derive/LfpTuple.lean`), member `m`'s
+family living over its own index set `I_m : Sort u_m`.  Both of the
+constant's binders range over a right-nested pair tower: the index-set
+tuple `Is` over `⟨Sort u_0, …⟩` and the operator over the arrow on
+`⟨proj_0 Is → Sort w, …⟩`.  Both towers are NON-dependent, so their
+carriers are the plain iterated `sigmaSet` below rather than the
+telescope-indexed `towerSet`; the members' index sets are read off `Is`
+by the uniform projection family `projS`.  Total: the value is a member
+of the family tuple for EVERY operator. -/
+
+/-- The non-dependent pair tower's carrier at level `r`: the components
+`F s, …, F (s + n - 1)`, `unitSet`-terminated. -/
+noncomputable def ndTowerSet (r : Nat) (F : Nat → V) : Nat → Nat → V
+  | _, 0 => unitSet
+  | s, n + 1 => sigmaSet r (F s) fun _ => ndTowerSet r F (s + 1) n
+
+theorem ndTowerSet_mem_univ {r : Nat} {F : Nat → V} :
+    ∀ (n s : Nat), (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
+      ndTowerSet V r F s n ∈ˢ (univ r : V)
+  | 0, _, _ => unitSet_mem_univ r
+  | n + 1, s, hF => by
+    show sigmaSet r (F s) (fun _ => ndTowerSet V r F (s + 1) n) ∈ˢ _
+    have h := sigma_mem_univ (u := r) (v := r) (hF s (by omega))
+      (fun _ _ => ndTowerSet_mem_univ n (s + 1) fun m hm => hF m (by omega))
+    rwa [show Nat.max r r = r from Nat.max_self r] at h
+
+/-- **Intro**: a tuple whose components sit in the tower's components
+is a member (graph regime — the towers here are always at a positive
+level). -/
+theorem mkTower_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
+    ∀ (n : Nat) (as : List V) (s : Nat), as.length = n →
+      (∀ i, ∀ h : i < as.length, as[i] ∈ˢ F (s + i)) →
+      mkTower as ∈ˢ ndTowerSet V r F s n
+  | 0, [], _, _, _ => pt_mem_unitSet
+  | 0, _ :: _, _, hlen, _ => by simp at hlen
+  | _ + 1, [], _, hlen, _ => by simp at hlen
+  | n + 1, a :: as, s, hlen, h => by
+    show spair a (mkTower as) ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n
+    refine spair_mem hr ?_
+      (mkTower_mem_ndTowerSet hr n as (s + 1) (by simpa using hlen) fun i hi => ?_)
+    · have := h 0 (by simp)
+      simpa using this
+    · have := h (i + 1) (by simpa using hi)
+      rw [show s + (i + 1) = s + 1 + i from by omega] at this
+      simpa using this
+
+/-- The intro law at a tower given by a function on positions. -/
+theorem mkTower_map_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} (G : Nat → V)
+    (n s : Nat) (hG : ∀ i, i < n → G i ∈ˢ F (s + i)) :
+    mkTower ((List.range n).map G) ∈ˢ ndTowerSet V r F s n := by
+  refine mkTower_mem_ndTowerSet V hr n _ s (by simp) fun i hi => ?_
+  have hin : i < n := by simpa using hi
+  rw [List.getElem_map, List.getElem_range]
+  exact hG i hin
+
+/-- The tower reads its components below its own length only. -/
+theorem ndTowerSet_congr {r : Nat} {F F' : Nat → V} :
+    ∀ (n s : Nat), (∀ m, m < s + n → F m = F' m) →
+      ndTowerSet V r F s n = ndTowerSet V r F' s n
+  | 0, _, _ => rfl
+  | n + 1, s, h => by
+    show sigmaSet r (F s) _ = sigmaSet r (F' s) _
+    rw [h s (by omega), ndTowerSet_congr n (s + 1) fun m hm => h m (by omega)]
+
+/-- **Elim**: every component of a member sits in the tower's own. -/
+theorem projS_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
+    ∀ (n s : Nat) {x : V}, x ∈ˢ ndTowerSet V r F s n →
+      ∀ i, i < n → projS i x ∈ˢ F (s + i)
+  | 0, _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
+  | n + 1, s, x, hx, i, hi => by
+    have hx' : x ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n := hx
+    obtain ⟨a, b, ha, hb, -, hpos⟩ := mem_sigma_elim hx'
+    subst_vars
+    rw [hpos hr]
+    cases i with
+    | zero => rw [show projS 0 (spair a b) = sfst (spair a b) from rfl, sfst_spair]; simpa using ha
+    | succ i =>
+      rw [show projS (i + 1) (spair a b) = projS i (ssnd (spair a b)) from rfl, ssnd_spair,
+        show s + (i + 1) = s + 1 + i from by omega]
+      exact projS_mem_ndTowerSet hr n (s + 1) hb i (Nat.lt_of_succ_lt_succ hi)
+
+/-- `⟨Sort u_0, …, Sort u_{k-1}⟩`'s carrier — the index-set tuples. -/
+noncomputable def tupleSortsSpace (k : Nat) (us : List Nat) : V :=
+  ndTowerSet V (ConLeche.Term.tupleIdxSort us) (fun m => (univ (lv us m) : V)) 0 k
+
+/-- `⟨proj_0 Is → Sort w, …⟩`'s carrier at an index-set tuple `Is`. -/
+noncomputable def tupleFamsSpace (k : Nat) (us : List Nat) (Is : V) : V :=
+  ndTowerSet V (ConLeche.Term.tupleFamSort k us)
+    (fun m => lfpFamSpace V (lv us k) (projS m Is)) 0 k
+
+/-- The tuple operator an argument `F` of `lfpTuple k` induces:
+component `m` of `F` applied to the tuple of the argument's first `k`
+components. -/
+noncomputable def tupleOpV (k : Nat) (F : V) : (Nat → V) → Nat → V :=
+  fun X m => projS m (app F (mkTower ((List.range k).map X)))
+
+/-- `lfpTuple k.{u_0 … u_{k-1}, w}`; result sort `tupleFamSort k us`. -/
+noncomputable def lfpTupleV (k : Nat) (us : List Nat) : V :=
+  lamR (ConLeche.Term.tupleFamSort k us) (tupleSortsSpace V k us) fun Is =>
+    lamR (ConLeche.Term.tupleFamSort k us)
+      (piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+        fun _ => tupleFamsSpace V k us Is) fun F =>
+      mkTower ((List.range k).map fun m =>
+        lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k F) m)
+
+theorem tupleFamSort_ne_zero (k : Nat) (us : List Nat) :
+    ConLeche.Term.tupleFamSort k us ≠ 0 :=
+  max_succ_ne_zero _ _
+
+theorem tupleIdxSort_ne_zero (us : List Nat) :
+    ConLeche.Term.tupleIdxSort us ≠ 0 := Nat.succ_ne_zero _
+
+/-- Every level a list mentions has its universe inside the list's own
+bound universe — the sorts tower's formation premise, global in the
+index. -/
+theorem univ_lv_mem_tupleIdxSort (us : List Nat) (m : Nat) :
+    (univ (lv us m) : V) ∈ˢ (univ (ConLeche.Term.tupleIdxSort us) : V) :=
+  univ_mono (Nat.succ_le_succ (ConLeche.Term.lv_le_levMax us m)) _ (univ_mem_univ _)
+
+/-- The block carrier's tuple is a member of the family tuple, at every
+index-set tuple and every operator — the constant's totality. -/
+theorem lfpTuple_mkTower_mem (k : Nat) (us : List Nat) (Is Φ : V) :
+    mkTower ((List.range k).map fun m =>
+        lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) m)
+      ∈ˢ tupleFamsSpace V k us Is := by
+  unfold tupleFamsSpace
+  refine mkTower_map_mem_ndTowerSet V (tupleFamSort_ne_zero k us) _ k 0 fun i hi => ?_
+  show lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) i
+    ∈ˢ lfpFamSpace V (lv us k) (projS (0 + i) Is)
+  rw [lfpFamSpace, piR_pos (Nat.succ_ne_zero _), Nat.zero_add]
+  exact lfpTuple_mem (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) i hi
+
+theorem lfpTupleV_app {k : Nat} {us : List Nat} {Is F : V}
+    (hIs : Is ∈ˢ tupleSortsSpace V k us)
+    (hF : F ∈ˢ piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+      fun _ => tupleFamsSpace V k us Is) :
+    app (app (lfpTupleV V k us) Is) F
+      = mkTower ((List.range k).map fun m =>
+          lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k F) m) := by
+  rw [lfpTupleV, app_lamR_pos (tupleFamSort_ne_zero k us) hIs,
+    app_lamR_pos (tupleFamSort_ne_zero k us) hF]
+
+theorem lfpTupleV_mem (k : Nat) (us : List Nat) :
+    lfpTupleV V k us ∈ˢ piR (ConLeche.Term.tupleFamSort k us) (tupleSortsSpace V k us)
+      fun Is => piR (ConLeche.Term.tupleFamSort k us)
+        (piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+          fun _ => tupleFamsSpace V k us Is)
+        fun _ => tupleFamsSpace V k us Is :=
+  lamR_mem fun Is _ => lamR_mem fun F _ => lfpTuple_mkTower_mem V k us Is F
+
+end LfpTuple
+
 /-! ## The value assignment -/
 
 /-- The two-regime value of each built-in constant at a concrete level
@@ -566,5 +725,6 @@ noncomputable def bval : BConst → List Nat → V
   | .propext, _ => pt
   | .choice, us => choiceV V (lv us 0)
   | .lfpFam, us => lfpFamV V (lv us 0) (lv us 1)
+  | .lfpTuple k, us => lfpTupleV V k us
 
 end ConLeche.SetModel

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.WellDenoted
-public import ConLeche.SetModel.TupleTower
 
 @[expose] public section
 
