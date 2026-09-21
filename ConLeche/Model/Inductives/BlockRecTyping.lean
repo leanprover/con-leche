@@ -163,4 +163,148 @@ theorem residueOk_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
     residueMem_of_certs hμ mp hinf hdeq hwsR hbR hLR hwsC hbC hLC hctxR hctxC hRb hCa hokC
   exact ⟨(hok _ hsat).1, hmem _ hsat⟩
 
+/-! ## 2. The frame's valuation — `Sat` at `ih⃗ ⊕ f⃗ ⊕ p⃗` -/
+
+/-- **The opened frame's context is satisfied by the frame's own
+values.**  The frame is three telescopes deep and `Sat` at it is two
+`sat_of_spineFit`s: the regimes hand over
+`SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs)` verbatim (it is
+`blockRecPre_kit`'s and `blockRecPre_ind`'s own hypothesis at
+`ρ₀ := chainFrame K cand ρ`), and the `ih` openers' fit is the one
+thing a REGIME has to pay for: the opener's value must lie in the
+opener's DOMAIN — in WF that is the kit's graph (`graph_mem_B`), in
+IND the truth value (`pt`).
+
+The context's orientation is `Sat`'s own: innermost first, so the
+`ih` block comes first and each telescope is reversed. -/
+theorem sat_blockFrame {ρ₀ : Nat → V} {pdoms fdoms ihdoms : List AnnotTerm}
+    {xs fs ihvals : List V}
+    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals) :
+    Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
+      (consList ihvals (consList (xs ++ fs) ρ₀)) :=
+  sat_of_spineFit (by simpa using sat_of_spineFit (Sat_nil V ρ₀) hsp) hih
+
+/-- The frame's context has the frame's own length — the `Δa.length = d`
+half of `CtxOk`, read off the two telescopes. -/
+theorem sat_blockFrame_length {pdoms fdoms ihdoms : List AnnotTerm}
+    {rP nF nR : Nat} (hp : pdoms.length = rP) (hf : fdoms.length = nF)
+    (hi : ihdoms.length = nR) :
+    (ihdoms.reverse ++ (pdoms ++ fdoms).reverse).length = rP + nF + nR := by
+  simp only [List.length_append, List.length_reverse, hp, hf, hi]
+  omega
+
+/-! ## 3. The frame's context — three openings at consecutive offsets -/
+
+/-- **Opener lists at consecutive offsets concatenate**: entry `j` of
+`fvs₁ ++ fvs₂` is the free variable `i + j`.  Stated over the INDEX
+FACT rather than over `openPisAtFvars` itself so that it chains — the
+rule frame is THREE openings deep (`openPisAtFvars rP recTy 0`,
+`openPisAtFvars nF crest rP`, `openPisAtFvars nR ihTele (rP + nF)`)
+and the middle list is not itself an opening's result.
+
+It is all `ctxOk_of_openers`'s `hshape` asks of the frame. -/
+theorem openers_append_index {i n₁ : Nat} {fvs₁ fvs₂ : List Expr}
+    (h₁ : ∀ (j : Nat) (x : Expr), fvs₁[j]? = some x → ∃ ty, x = Expr.fvar (i + j) ty)
+    (hlen₁ : fvs₁.length = n₁)
+    (h₂ : ∀ (j : Nat) (x : Expr), fvs₂[j]? = some x → ∃ ty, x = Expr.fvar (i + n₁ + j) ty) :
+    ∀ (j : Nat) (x : Expr), (fvs₁ ++ fvs₂)[j]? = some x → ∃ ty, x = Expr.fvar (i + j) ty := by
+  intro j x hx
+  rcases Nat.lt_or_ge j fvs₁.length with hj | hj
+  · rw [List.getElem?_append_left hj] at hx
+    exact h₁ j x hx
+  · rw [List.getElem?_append_right hj] at hx
+    obtain ⟨ty, hty⟩ := h₂ (j - fvs₁.length) x hx
+    rw [hlen₁] at hj
+    exact ⟨ty, by rw [hty, hlen₁]; congr 1; omega⟩
+
+/-- An opening's own index fact, at its offset — `openPisAtFvars_index`
+with the arguments in the shape `openers_append_index` chains at. -/
+theorem openers_index {n i : Nat} {e : Expr} {fvs : List Expr} {b : Expr}
+    (h : openPisAtFvars n e i = some (fvs, b)) :
+    ∀ (j : Nat) (x : Expr), fvs[j]? = some x → ∃ ty, x = Expr.fvar (i + j) ty :=
+  openPisAtFvars_index n e i h
+
+/-- **The opener list's own bound**: an opener sits at its own index,
+so an index read off the list is below the list's length. -/
+theorem openers_lt {fvs : List Expr} {e : Expr}
+    (hshape : ∀ (j : Nat) (x : Expr), fvs[j]? = some x → ∃ ty, x = Expr.fvar j ty) :
+    ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs → l.1 < fvs.length := by
+  intro l _ hmem
+  obtain ⟨p, hp⟩ := List.getElem?_of_mem hmem
+  obtain ⟨ty, hty⟩ := hshape p _ hp
+  have hpl : p < fvs.length := by
+    have := (List.getElem?_eq_some_iff.mp hp).1
+    omega
+  obtain ⟨h1, -⟩ : l.1 = p ∧ l.2 = ty := by
+    injection hty with a b
+    exact ⟨a, b⟩
+  omega
+
+/-! ## 4. `CtxOk` at the rule frame -/
+
+/-- **`CtxOk` at the rule stage's opened frame.**  The frame is
+`p⃗ (the rP stretch) f⃗ ih⃗`, opened by three `openPisAtFvars` calls at
+the offsets `0`, `rP` and `rP + nF`; any term whose free variables are
+among those openers — the residue `bodyO` and the conclusion `concl`
+both are — correlates with the context `Δa` at the frame's full depth.
+
+`hdoms` is the SEAM to O-2 and G2: it says that opener `i`'s STORED
+type reads to the context's entry at that slot.  For the prefix and
+the field openers those entries are the recursor type's and the
+constructor telescope's binder domains (`rds`, `pdoms`/`fdoms`); for
+the `ih` openers they are the generated `blockIhPis` domains.  The
+per-binder `checkDefEqList` of G2 is what makes the rule's own
+λ-domains agree with them. -/
+theorem ctxOk_blockFrame {env : Env} {m : EnvModel V env} {φ : Name → Nat}
+    {rP nF nR : Nat} {recTy crest ihTele : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
+    (hw₃ : Expr.WScoped (rP + nF) ihTele)
+    {Δa : List AnnotTerm} (hlen : Δa.length = rP + nF + nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta m.acval env φ i (Expr.fvarTypeD x)
+        = some (Δa.getD (rP + nF + nR - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + nF + nR → ∀ ρ : Nat → V, Sat V Δa ρ →
+      WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+        (Δa.getD (rP + nF + nR - 1 - i) default))
+    {e : Expr}
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) :
+    CtxOk m φ (rP + nF + nR) Δa e := by
+  have hl₁ : fvsPref.length = rP := openPisAtFvars_length rP h₁
+  have hl₂ : fvsF.length = nF := openPisAtFvars_length nF h₂
+  have hl₃ : fvsIh.length = nR := openPisAtFvars_length nR h₃
+  have hlenF : (fvsPref ++ fvsF ++ fvsIh).length = rP + nF + nR := by
+    simp only [List.length_append, hl₁, hl₂, hl₃]
+  -- the shape, by chaining the three openings
+  have hs₁₂ : ∀ (j : Nat) (x : Expr), (fvsPref ++ fvsF)[j]? = some x →
+      ∃ ty, x = Expr.fvar (0 + j) ty :=
+    openers_append_index (n₁ := rP) (openers_index h₁) hl₁
+      (by simpa using openers_index h₂)
+  have hshape : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      ∃ ty, x = Expr.fvar i ty := by
+    have := openers_append_index (i := 0) (n₁ := rP + nF) hs₁₂
+      (by simp [hl₁, hl₂]) (by simpa using openers_index h₃)
+    simpa using this
+  -- the openers' scoping, at the frame's full depth
+  have hws : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, Expr.WScoped (rP + nF + nR) x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact ((openPisAtFvars_WScoped rP recTy 0 h₁ hw₁).1 x hx'').mono (by omega)
+      · exact ((openPisAtFvars_WScoped nF crest rP h₂ hw₂).1 x hx'').mono (by omega)
+    · exact ((openPisAtFvars_WScoped nR ihTele (rP + nF) h₃ hw₃).1 x hx').mono (by omega)
+  refine ctxOk_of_openers m.acval_closed (fvs := fvsPref ++ fvsF ++ fvsIh)
+    (Aa := fun i => Δa.getD (rP + nF + nR - 1 - i) default) hlen hshape hws hdoms
+    hleaf ?_ ?_ hokΔ
+  · intro l hl
+    have := openers_lt (e := e) hshape l hl (hleaf l hl)
+    omega
+  · intro i hi
+    rw [List.getD, List.getElem?_eq_getElem (by omega)]
+    rfl
+
 end ConLeche.Model
