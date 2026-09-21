@@ -129,3 +129,207 @@ recs[idx:idx] = ins
 recs[idx + len(ins)] = {"ie": md_ty, "sort": new}
 dump("tests/e2e/ind_mutual_sort_bad.ndjson", recs)
 print("ind_mutual_sort_bad.ndjson: MD : Sort (max v u) -> Sort (max u 1)")
+
+
+# ---------------------------------------------------------------------------
+# The RECURSOR-STAGE twins (milestone M5: the recursor stage as CHECKING).
+#
+# All five are surgery on `inmodel_mutual`'s third mutual block
+#
+#     A | mk : B -> A        B | mk : A -> B
+#
+# whose recursors carry no parameters, no indices, two motives and two
+# minor premises, so `A.rec`'s rule for `A.mk` is exactly
+#
+#     lam mA mB minorA minorB f. minorA f (B.rec mA mB minorA minorB f)
+#
+# and a single repointed field of one record makes each of the four BAD
+# shapes the primitive-recursion abstraction (`abstractIh`,
+# `ConLeche/Kernel/Inductives/BlockRec.lean`) is there to refuse.  The
+# fifth is GOOD and documents the ACCEPT-SUPERSET: its body is typed but
+# is not `minor f ih`.
+#
+# NOTE (the gate): the uniform route is gated at one member
+# (`blockRouteK1Only`) and the recursor CHECK at `blockRecCheckOn`, so
+# none of these five is reachable by the shipped checker yet.  Their
+# rows in `tests/e2e-expected.txt` are commented `# pending flip` with
+# the verdict measured in a scratch build with both gates lifted.
+# ---------------------------------------------------------------------------
+
+BASE = "tests/e2e/inmodel_mutual.ndjson"
+
+
+def exprs(recs):
+    """index -> (kind, payload) for every expression record."""
+    out = {}
+    for r in recs:
+        if "ie" in r:
+            k = next(x for x in r if x != "ie")
+            out[r["ie"]] = (k, r[k])
+    return out
+
+
+def find_ab_block(recs, names):
+    """The index of the `A`/`B` inductive record, and its two rec records."""
+    a, b = names["InModelMutual.A"], names["InModelMutual.B"]
+    for i, r in enumerate(recs):
+        if "inductive" in r:
+            ts = [t["name"] for t in r["inductive"]["types"]]
+            if ts == [a, b]:
+                recsd = {rc["name"]: rc for rc in r["inductive"]["recs"]}
+                return i, recsd
+    raise AssertionError("no A/B block")
+
+
+def spine(E, e):
+    """An application spine as (head index, [arg indices], [node indices])."""
+    args, nodes = [], []
+    while E[e][0] == "app":
+        nodes.append(e)
+        args.append(E[e][1]["arg"])
+        e = E[e][1]["fn"]
+    return e, list(reversed(args)), list(reversed(nodes))
+
+
+def rule_parts(recs, names):
+    """`A.rec`'s rule for `A.mk`, decomposed.
+
+    Returns the rule record, the body's outer application nodes (the
+    minor applied to the field and to the recursive call) and the
+    recursive call's own spine.
+    """
+    _, recsd = find_ab_block(recs, names)
+    E = exprs(recs)
+    arec = recsd[names["InModelMutual.A.rec"]]
+    rule = next(ru for ru in arec["rules"] if ru["ctor"] == names["InModelMutual.A.mk"])
+    e = rule["rhs"]
+    lams = []
+    while E[e][0] == "lam":
+        lams.append(e)
+        e = E[e][1]["body"]
+    assert len(lams) == 5, "A.mk's rule does not bind 5 variables"
+    head, args, nodes = spine(E, e)          # minorA f call
+    assert E[head][0] == "bvar" and len(args) == 2
+    chead, cargs, cnodes = spine(E, args[1])  # B.rec mA mB minorA minorB f
+    assert E[chead][0] == "const" and len(cargs) == 5
+    return rule, (head, args, nodes), (chead, cargs, cnodes), E, lams
+
+
+def bvar_node(recs, E, n, ins):
+    """An expression index holding `bvar n` (created if absent)."""
+    for i, (k, v) in E.items():
+        if k == "bvar" and v == n:
+            return i
+    idx = max(list(E) + [r["ie"] for r in ins if "ie" in r]) + 1
+    ins.append({"ie": idx, "bvar": n})
+    return idx
+
+
+def twin(out, mutate, note):
+    recs = load(BASE)
+    names = names_of(recs)
+    mutate(recs, names)
+    dump(out, recs)
+    print("%s: %s" % (out, note))
+
+
+# 1. the recursive call names the WRONG member's recursor
+def _wrong_member(recs, names):
+    rule, outer, call, E, _ = rule_parts(recs, names)
+    chead = call[0]
+    idx = next(i for i, r in enumerate(recs) if r.get("ie") == chead)
+    recs[idx] = {"ie": chead, "const": {"name": names["InModelMutual.A.rec"], "us": []}}
+
+
+twin("tests/e2e/mutual_rec_wrong_member.ndjson", _wrong_member,
+     "A.mk's rule recurses through A.rec on a field of type B")
+
+
+# 2. the recursive call's major is NOT a field of this constructor
+def _nonfield(recs, names):
+    rule, outer, call, E, _ = rule_parts(recs, names)
+    last = call[2][-1]                     # the outermost app of the call
+    idx = next(i for i, r in enumerate(recs) if r.get("ie") == last)
+    ins = []
+    recs[idx]["app"] = dict(recs[idx]["app"], arg=bvar_node(recs, E, 1, ins))
+    recs[idx:idx] = ins
+
+
+twin("tests/e2e/mutual_rec_nonfield.ndjson", _nonfield,
+     "A.mk's rule recurses on the minor premise instead of the field")
+
+
+# 3. an UNGUARDED recursor occurrence: the call is one argument short,
+#    so the recursor is passed as an argument rather than applied
+def _unguarded(recs, names):
+    rule, outer, call, E, _ = rule_parts(recs, names)
+    partial = call[2][-2]                  # the spine without its major
+    node = outer[2][-1]                    # minorA f <call>
+    idx = next(i for i, r in enumerate(recs) if r.get("ie") == node)
+    recs[idx]["app"] = dict(recs[idx]["app"], arg=partial)
+
+
+twin("tests/e2e/mutual_rec_unguarded.ndjson", _unguarded,
+     "A.mk's rule passes B.rec partially applied, as an argument")
+
+
+# 4. the two members' RULES are swapped, so each recursor fires its
+#    constructor with the other member's body (the minors permuted
+#    across members)
+def _swap(recs, names):
+    i, recsd = find_ab_block(recs, names)
+    arec = recsd[names["InModelMutual.A.rec"]]
+    brec = recsd[names["InModelMutual.B.rec"]]
+    ar = next(ru for ru in arec["rules"] if ru["ctor"] == names["InModelMutual.A.mk"])
+    br = next(ru for ru in brec["rules"] if ru["ctor"] == names["InModelMutual.B.mk"])
+    ar["rhs"], br["rhs"] = br["rhs"], ar["rhs"]
+
+
+twin("tests/e2e/mutual_rec_rules_swapped.ndjson", _swap,
+     "A.rec and B.rec exchange their rule bodies")
+
+
+# 5. GOOD: a body that is TYPED but is not `minor f ih` — the canonical
+#    body under an identity redex.  Documents the accept-superset: the
+#    check types the rule's body, it does not compare it with a
+#    generated term.
+def _redex(recs, names):
+    rule, outer, call, E, lams = rule_parts(recs, names)
+    body = outer[2][-1]                    # minorA f (B.rec … f)
+    ins = []
+    b0 = bvar_node(recs, E, 0, ins)
+    b4 = bvar_node(recs, E, 4, ins)
+    nxt = max(list(E) + [r["ie"] for r in ins]) + 1
+    amk = None
+    for i, (k, v) in E.items():
+        if k == "const" and v["name"] == names["InModelMutual.A.mk"] and v["us"] == []:
+            amk = i
+    if amk is None:
+        amk = nxt
+        ins.append({"ie": amk, "const": {"name": names["InModelMutual.A.mk"], "us": []}})
+        nxt += 1
+    mk_f = nxt                              # A.mk f
+    ins.append({"ie": mk_f, "app": {"fn": amk, "arg": b0}})
+    nxt += 1
+    dom = nxt                               # motiveA (A.mk f)
+    ins.append({"ie": dom, "app": {"fn": b4, "arg": mk_f}})
+    nxt += 1
+    idf = nxt                               # fun (x : motiveA (A.mk f)) => x
+    ins.append({"ie": idf, "lam": {"binderInfo": "default",
+                                   "name": names["InModelMutual.A"], "type": dom,
+                                   "body": b0}})
+    nxt += 1
+    red = nxt                               # (fun x => x) (minorA f ih)
+    ins.append({"ie": red, "app": {"fn": idf, "arg": body}})
+    # the new nodes carry indices above every index the file defines
+    # (nothing clashes) and go in FRONT of the record that will use
+    # them — the innermost `λ` of the rule, whose body they replace;
+    # the export's records are not in index order, so the insertion
+    # point is that record's own line
+    idx = next(j for j, r in enumerate(recs) if r.get("ie") == lams[-1])
+    recs[idx]["lam"] = dict(recs[idx]["lam"], body=red)
+    recs[idx:idx] = ins
+
+
+twin("tests/e2e/mutual_rec_body_redex.ndjson", _redex,
+     "A.mk's rule body is the canonical one under an identity redex (GOOD)")

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NativeInstallF
+public import ConLeche.Kernel.Inductives.BlockInstallF
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -230,23 +231,114 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
 
+/-- **The recursor stage through the index** (milestone M5).  The two
+halves run at DIFFERENT environments — the types at the block's, the
+rules at the one holding all `k` RULE-LESS recursors — and the cached
+operations are built at a fixed index, so the composition lives here
+with its own `flushC` and a fresh `sharedOpsC` in between (the
+arrangement `checkIndRecsS` uses for the modelled route).  The pure
+stage (`checkBlockRecK`) is this composition with one `ops`, which is
+the same thing: the generic operations honour the environment they are
+handed. -/
+def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+  checkBlockRecPins (m := CheckCM) p
+  let cvRas ← checkBlockRecTysF (sharedOpsC mode fe) structWalkersC fe p.toBlockShape
+    (blockMems p.toBlockShape cvTas) (p.members.zip cvTas) 0
+  let feR := consBlockRecsBareF p.rulePrefix cvRas fe
+  flushC
+  checkBlockMembersRulesF (sharedOpsC mode feR) structWalkersC feR p
+    (blockRecCallData p).1 (blockRecCallData p).2 cvRas
+    ((p.members.zip ctorsAs).zip p.kinds) 0
+
+/-- `checkBlockRec` through the index (the same gate as the pure
+stage). -/
+def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
+  if blockRecCheckOn then checkBlockRecKS mode fe p cvTas ctorsAs
+  else
+    match p.members, cvTas, ctorsAs with
+    | [ms], [cvTa], [ctorsA] => do
+      let pn := p.toNative
+      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
+          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
+        throw (.invalid "direct rec: recursor rules are not the generated ones")
+      let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe) structWalkersC fe pn cvTa ctorsA
+      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
+    | _, _, _ => do
+      checkBlockRecPins (m := CheckCM) p
+      throw (.notImplemented "block rec: the mutual recursor stage")
+
+/-- **`checkBlockPass` through the index** (milestone M5): the k
+formers checked and consed — one flush entering the environment that
+holds them all — then the constructors per member at that
+environment. -/
+def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
+    CheckCM (BlockPass FEnv × Bool) := do
+  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let pC := p₀.complete p₁
+  flushC
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
+    (pC.members.zip cvTas)
+  let kinds ← classifyBlockKinds (m := CheckCM) pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
+  let p := pC.withKinds kinds
+  pure (⟨fe₁, cvTas, p, ctorsAs, sortsss⟩,
+    (List.range p.k).all fun i => blockCaps p i == blockCapsAt p₁ i isRec)
+
+/-- **`checkBlockTail` through the index** (milestone M5): one flush
+entering the recursors' environment. -/
+def checkBlockTailS (fe : FEnv) (q : BlockPass FEnv) : CheckCM FEnv := do
+  let p := q.p
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
+  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
+    (p.members.zip q.cvTas)
+  unless blockFieldsOkF structWalkersC fe p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
+    throw (.internal "direct rec: field kinds")
+  let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
+  flushC
+  let rs ← checkBlockRecS mode fe₂ p q.cvTas q.ctorsAs
+  let fe₃ := consBlockRecsF fe₂.find? p.nP p.rulePrefix rs fe₂
+  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
+    (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
+
+/-- **`checkBlock` through the index** (milestone M5): the k-ary
+mirror, at any number of members. -/
+def checkBlockKS (fe : FEnv) (p₀ : BlockParts) : CheckCM FEnv := do
+  unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  flushC
+  let (q, settled) ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
+  if settled then checkBlockTailS mode fe q
+  else do
+    flushC
+    let (q', settled') ← checkBlockPassS mode fe p₀ (blockIsRec q.p.kinds)
+    unless settled' do
+      throw (.internal "direct rec: the capability record did not settle")
+    checkBlockTailS mode fe q'
+
 /-- **`checkBlock` through the index** (milestone M1): at ONE member
 the cached mirror IS the one-member mirror (`checkNativeS`), which the
 pure installer's own one-member bridge (`checkBlock_one`) matches, so
 every cached agreement keeps its one-member statement.  The k-ary
-cached mirror arrives with the recursor stage (milestone M5); until
-the route's gate goes (`blockRouteK1Only`), `blockParts?` returns
-`none` for a block with two or more members and the second arm is
-unreachable. -/
+mirror (`checkBlockKS`) serves every other `k`, and takes over at
+`k = 1` too when the recursor stage's gate (`blockRecCheckOn`) is
+lifted. -/
 def checkBlockS (fe : FEnv) (p : BlockParts) : CheckCM FEnv :=
   match p.members with
-  | [_] => checkNativeS mode fe p.toNative
-  | _ => throw (.notImplemented "block: the cached mutual install")
+  | [_] => if blockRecCheckOn then checkBlockKS mode fe p else checkNativeS mode fe p.toNative
+  | _ => checkBlockKS mode fe p
 
-/-- **The cached mirror at ONE member.** -/
+/-- **The cached mirror at ONE member.**  The recursor stage's gate
+(`blockRecCheckOn`) keeps the one-member arm the one-member mirror, so
+the pure installer's own one-member bridge (`checkBlock_one`) matches
+it and every cached agreement keeps its one-member statement. -/
 theorem checkBlockS_one {fe : FEnv} {p : BlockParts} {ms : MemberShape}
     (hm : p.members = [ms]) : checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
-  simp only [checkBlockS, hm]
+  simp only [checkBlockS, hm, blockRecCheckOn, Bool.false_eq_true, if_false]
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

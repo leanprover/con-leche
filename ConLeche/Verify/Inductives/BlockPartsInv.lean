@@ -144,7 +144,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     {p : BlockShape} {cvT0 : ConstantVal} {cvTs' : List ConstantVal}
     {cs : List (ConstantVal × Nat × Nat)}
     {rs : List (ConstantVal × Nat × Nat × List RecRule)} {nIdxs : List Nat}
-    (hsp : blockSplit block = some (cvT0 :: cvTs', cs, rs))
+    (hsp : blockSplitOrdered block = some (cvT0 :: cvTs', cs, rs))
     (hmc : blockMemberCounts? nPd (cvT0 :: cvTs').length cs.length (cvT0 :: cvTs') rs
       = some nIdxs)
     (hresT : ∀ c ∈ cvT0 :: cvTs', reservedBasisNames.contains c.name = false)
@@ -172,7 +172,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     (p.large = false → p.elim = Name.anonymous) ∧
     ∃ (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat))
       (rs : List (ConstantVal × Nat × Nat × List RecRule)) (nIdxs : List Nat),
-      blockSplit block = some (cvTs, cs, rs) ∧
+      blockSplitOrdered block = some (cvTs, cs, rs) ∧
       cvTs.length = p.k ∧ rs.length = p.k ∧ nIdxs.length = p.k ∧
       blockMemberCounts? nPd p.k cs.length cvTs rs = some nIdxs ∧
       (∀ c ∈ cs, c.2.1 = p.nP) ∧
@@ -250,7 +250,7 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     (p.large = false → p.elim = Name.anonymous) ∧
     ∃ (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat))
       (rs : List (ConstantVal × Nat × Nat × List RecRule)) (nIdxs : List Nat),
-      blockSplit block = some (cvTs, cs, rs) ∧
+      blockSplitOrdered block = some (cvTs, cs, rs) ∧
       cvTs.length = p.k ∧ rs.length = p.k ∧ nIdxs.length = p.k ∧
       blockMemberCounts? nPd p.k cs.length cvTs rs = some nIdxs ∧
       (∀ c ∈ cs, c.2.1 = p.nP) ∧
@@ -260,8 +260,8 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
         (fun a => ⟨a.1.1, a.1.2, a.2.1, a.2.2.1, a.2.2.2.2.2.map RecRule.rhs⟩) := by
   unfold blockShape? at h
   obtain ⟨cvTs, cs, rs, hsp⟩ :
-      ∃ cvTs cs rs, blockSplit block = some (cvTs, cs, rs) := by
-    cases hs : blockSplit block with
+      ∃ cvTs cs rs, blockSplitOrdered block = some (cvTs, cs, rs) := by
+    cases hs : blockSplitOrdered block with
     | none => rw [hs] at h; exact nomatch h
     | some q => obtain ⟨a, b, c⟩ := q; exact ⟨a, b, c, rfl⟩
   rw [hsp] at h

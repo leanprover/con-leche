@@ -206,10 +206,17 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
 /-! ## The recursor stage's well-formedness contract -/
 
 /-- **The recursor stage's stored pieces**, as its own guards checked
-them: at ONE member the existing generate-and-compare's
-(`checkNativeRec_facts`), at two or more members the stage declines, so
-the contract holds at every k.  Milestone M5 re-proves it for the CHECK
-that replaces the stage. -/
+them, with the recursor stage's gate down (`blockRecCheckOn`, the
+shipped configuration): at ONE member the existing
+generate-and-compare's (`checkNativeRec_facts`), at two or more
+members the stage declines, so the contract holds at every k.
+
+**Lifting the gate needs this contract RESTATED** (milestone M6's
+entry cost): the CHECK's rules are MUTUALLY recursive, so a rule of
+`rec_0` resolves at the environment holding all `k` RULE-LESS
+recursors and not at the one holding `rec_0` alone — and
+`envWF_consBlockRecs` below, which conses the `k` recursors one at a
+time, has to become a SIMULTANEOUS cons. -/
 theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -223,7 +230,7 @@ theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantV
         (∃ mI rP, rhs.constsResolve
           ⟨.recInfo r.1 mI rP [] :: env.consts⟩ = true) ∧
         rhs.looseBVarsBounded 0 = true := by
-  unfold checkBlockRec at h
+  simp only [checkBlockRec, blockRecCheckOn, Bool.false_eq_true, if_false] at h
   split at h
   case h_2 =>
     exfalso

@@ -618,6 +618,41 @@ def blockSplit : List ConstantInfo →
     (blockSplit rest).map fun q => (cvT :: q.1, q.2)
   | rest => (blockSplitCtors rest).map fun q => ([], q.1, q.2)
 
+/-- **The block's recursors, MATCHED to the members by NAME.**
+
+Official generates one recursor per member, named `T_m.rec`, but the
+EXPORTER's order of the `recs` list is its own (`E.rec_1, E.rec` —
+SURVEY §2.4; `inmodel_mutual` exports `Odd.rec` before `Even.rec`
+while its `types` are `Even, Odd`), so the record cannot pair the two
+lists positionally: it pairs each member with the recursor that NAMES
+it, which is what official's replay does when it looks the generated
+recursor up.
+
+When some member has no `T_m.rec` among them the export order is kept
+and nothing is decided here — the recursor stage's name pin throws
+(task #220: nothing the recursor records claim is a condition of
+recognition).  The LENGTH guard is what keeps a NESTED block out: its
+`recs` are `T.rec, T.rec_1, …` against ONE type former, and picking
+`T.rec` by name would make it look like a one-member block whose
+auxiliary recursors are not there — so a list of a different length is
+left alone, and `blockMemberCounts?` refuses it as it always has.  At
+one member with one recursor the list is unchanged
+(`blockOrderRecs_single`, `ConLeche/Verify/Inductives/BlockOne.lean`). -/
+def blockOrderRecs (cvTs : List ConstantVal)
+    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
+    List (ConstantVal × Nat × Nat × List RecRule) :=
+  if cvTs.length == rs.length &&
+      cvTs.all (fun cvT => (rs.find? (fun r => r.1.name == cvT.name.str "rec")).isSome) then
+    cvTs.filterMap (fun cvT => rs.find? (fun r => r.1.name == cvT.name.str "rec"))
+  else rs
+
+/-- `blockSplit` with the recursors matched to the members
+(`blockOrderRecs`), which is how every consumer reads them. -/
+def blockSplitOrdered (block : List ConstantInfo) :
+    Option (List ConstantVal × List (ConstantVal × Nat × Nat) ×
+      List (ConstantVal × Nat × Nat × List RecRule)) :=
+  (blockSplit block).map fun q => (q.1, q.2.1, blockOrderRecs q.1 q.2.2)
+
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
@@ -664,7 +699,7 @@ exhaust the block's constructors in block order (the generated minors
 are the block's constructors in block order, so a grouping that is not
 monotone cannot match any generated recursor). -/
 def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
-  match blockSplit block with
+  match blockSplitOrdered block with
   | some (cvTs, cs, rs) =>
     cvTs.length == p.k && rs.length == p.k &&
     (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
@@ -711,7 +746,7 @@ throws on them) — the arrangement of task #220, so that a block whose
 recursor record is a stub is REJECTED by its own type and constructors
 rather than declined. -/
 def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
-  match blockSplit block with
+  match blockSplitOrdered block with
   | some (cvTs, cs, rs) =>
     match cvTs, rs with
     | cvT0 :: _, (cvR0, _, _, _) :: _ =>
