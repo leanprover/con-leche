@@ -6,6 +6,9 @@ public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockAssemblyKit
+public import ConLeche.Model.Inductives.BlockModel
+public import ConLeche.Model.Inductives.BlockStageCtors
+import ConLeche.Model.Inductives.FixAssemblyKit
 
 public section
 
@@ -542,5 +545,126 @@ theorem blockTyAV_congr_ord {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List 
     fun m' hm' => chainsXBI_congr_ord (hlen m' hm') (hlenj m' hm') (hord m' hm')
   unfold blockTyAV blockBodyAV
   rw [blockFunAV_congr_chains (w := w) hchains]
+
+/-! ## 8. `BlockModelAt` from the stages' three records
+
+`declBlock` hands the recursor lane the block data `dR` with the three
+records `blockModelAt_of_stages` consumes (`BlockNamesOk`,
+`BlockCtorsStage`, `BlockCtorsCore`) rather than the representation
+itself, because the records state the operator's premise bundle and
+the members' leaves at the DUMMY former's field readings `fssZ` while
+the record wants them at the members' real ones.  Both bridges are
+congruences at the chains — `blockChainsOk_congr_ord` for the operator
+and §7's `blockTyAV_congr_ord` for the leaf — and this is the call.
+
+Three hypotheses are NOT record-derivable and are premises: the
+operator's and the injections' identification (`rfl` at
+`blockDataOf`), and the two parameter-frame facts that
+`blockModelAt_of_stages` states at an UNBOUNDED component index
+(`hlenPps`, `hparams`, `hparamsC`) where every record states them
+below `d.k`.  **That is a finding for the datum lane**: those three
+clauses should be bounded by `d.N`, and then the records suffice. -/
+
+/-- **The block's representation, from the stages' three records.** -/
+theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp
+      = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
+    (hlenPps : ∀ (ψ : Name → Nat) (c : Nat), (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
+    (hparams : ∀ (ψ : Name → Nat) (c : Nat) (ρ : Nat → V),
+      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρ)
+    (hparamsC : ∀ (ψ : Name → Nat) (c j : Nat) (ρ : Nat → V),
+      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ)
+    (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
+      l < ((d.Fss c ψ).getD j []).length →
+      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N) :
+    BlockModelAt mo d.memberNames d := by
+  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
+
+  have hcAof : ∀ (c j : Nat) (hj : j < (d.ctorsM c).length),
+      (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := fun _ _ hj => List.getElem?_eq_getElem hj
+  -- the field chains' shape, off the data
+  have hlenC : ∀ (ψ : Name → Nat) (c : Nat), (d.Fss c ψ).length = (d.ctorsM c).length := by
+    intro ψ c
+    show (fssOfR _ _).length = _
+    rw [fssOfR_length]
+    exact fixCtorDataList_length _ _ _ _ _ _ _ _
+  have hFssD : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some cA →
+      (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+    fun _ _ _ _ hj => fssOfR_fixCtorDataList_getD hj
+  have hdsLenA : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some cA → (d.dsF c j ψ).length = d.nP + cA.2 :=
+    fun ψ c j cA hj => (hcore.2.2.1 c j cA hj).2.2.len ψ
+  have hnF : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some cA → ((d.Fss c ψ).getD j []).length = cA.2 := by
+    intro ψ c j cA hj
+    rw [hFssD ψ c j cA hj, List.length_map, List.length_drop, hdsLenA ψ c j cA hj]
+    omega
+  -- the two chain lists agree: lengths, and the ordinary positions
+  have hlenZF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → (fssZ ψ m).length = (d.Fss m ψ).length :=
+    fun ψ m hm => by rw [hS.lenZ m hm ψ, hlenC ψ m]
+  have hlenjZF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → ∀ j, j < (fssZ ψ m).length →
+      ((fssZ ψ m).getD j []).length = ((d.Fss m ψ).getD j []).length := by
+    intro ψ m hm j hj
+    have hjc : j < (d.ctorsM m).length := by rw [← hS.lenZ m hm ψ]; exact hj
+    rw [hS.lenZj m hm ψ j _ (hcAof m j hjc), hnF ψ m j _ (hcAof m j hjc)]
+  have hordF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → ∀ j, j < (fssZ ψ m).length →
+      ∀ l, l < ((fssZ ψ m).getD j []).length →
+      ((d.rss m).getD j []).getD l false = false →
+      ((fssZ ψ m).getD j []).getD l default = ((d.Fss m ψ).getD j []).getD l default := by
+    intro ψ m hm j hj l hl hr
+    have hjc : j < (d.ctorsM m).length := by rw [← hS.lenZ m hm ψ]; exact hj
+    have hlj : ((fssZ ψ m).getD j []).length = ((d.ctorsM m)[j]).2 :=
+      hS.lenZj m hm ψ j _ (hcAof m j hjc)
+    have hks : (d.ksF m j).length = ((d.ctorsM m)[j]).2 :=
+      (hcore.2.2.1 m j _ (hcAof m j hjc)).2.2.ksLen
+    have hlk : l < (d.ksF m j).length := by rw [hks, ← hlj]; exact hl
+    have hrs : (d.rss m).getD j [] = rsOf (d.ksF m j) := rssOfK_getD hjc
+    have hnrec : ¬ recAt d.nP (d.ksF m j) (d.nP + l) := by
+      rw [recAt_iff_rsOf hlk, ← hrs, hr]
+      exact Bool.false_ne_true
+    exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
+  refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC hlenPps htgts ?_ hparams ?_
+    (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_
+  -- the operator's premise bundle, at the REAL chains
+  · intro ψ ρp hsat
+    rw [hNk]
+    exact blockChainsOk_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ)
+      (hS.chainsOk 0 hk0 ψ ρp ((hparams ψ 0 ρp).mp hsat))
+  -- the members' leaves, at the REAL chains
+  · intro mm hmm ψ
+    obtain ⟨hnameOf, -, -, hlenCv⟩ := hN
+    have hmmlt : mm < cvTas.length := by rw [hlenCv]; exact hmm
+    have hcv : cvTas[mm]? = some cvTas[mm] := List.getElem?_eq_getElem hmmlt
+    rw [hnameOf mm _ hcv, (hcore.1 mm _ hcv).2.2.1 ψ, hS.leaf mm ψ, hNk]
+    exact blockTyAV_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ) _ _
+  -- the constructors' leaves
+  · intro c hc j cA hj ψ
+    exact (hcore.2.2.2 c (by rw [← hNk]; exact hc) j cA hj).2.2 ψ
+  -- the field lists' lengths against the constructors' binder data
+  · intro ψ c j hj
+    rw [hdsLenA ψ c j _ (hcAof c j hj), hnF ψ c j _ (hcAof c j hj)]
+  -- the field chains are graded at every parameter frame
+  · intro ψ ρ hsat c hc
+    refine SumFieldsOkB_uChains fun Fs hFs => ?_
+    obtain ⟨j, hjget⟩ := List.getElem?_of_mem hFs
+    have hjlt : j < (d.Fss c ψ).length := (List.getElem?_eq_some_iff.mp hjget).1
+    have hjc : j < (d.ctorsM c).length := by rw [← hlenC ψ c]; exact hjlt
+    have hFsEq : Fs = ((d.dsF c j ψ).drop d.nP).map (·.2.2) := by
+      rw [← hFssD ψ c j _ (hcAof c j hjc), List.getD_eq_getElem?_getD, hjget]
+      rfl
+    rw [hFsEq]
+    have hfr := hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hjc)
+    exact (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c ρ).mp hsat))).1
 
 end ConLeche.Model
