@@ -258,6 +258,48 @@ theorem wd_iotaEqAV {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTer
   rw [WellDenoted_eqE]
   exact hbody ys hsp
 
+/-- **The two sides of one rule's ι equation**, read at a fitting
+spine `xs ++ fs` of the rule's prefix and the constructor's fields:
+the left is the class's component folded along `(x⃗, e⃗_j, mk_j)`, the
+right is the RESIDUE at the ih values. -/
+theorem iotaEqAV_sides {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
+    {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V} {R : V}
+    (hR : σ (K - 1 - c) = R) {xs fs : List V}
+    (hxl : xs.length = pdoms.length) (hfl : fs.length = fdoms.length) :
+    interp V (consList (xs ++ fs) σ)
+        (AnnotTerm.mkAppN (.bvar (pdoms.length + fdoms.length + (K - 1 - c)))
+          (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk]))
+        = (xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ))).foldl SetTheory.app R ∧
+      interp V (consList (xs ++ fs) σ) (instsAV 0 ihs Rb)
+        = interp V (consList (ihs.map (interp V (consList (xs ++ fs) σ)))
+            (consList (xs ++ fs) σ)) Rb := by
+  refine ⟨?_, interp_instsAV _ _ _⟩
+  have hhead : interp V (consList (xs ++ fs) σ)
+      (.bvar (pdoms.length + fdoms.length + (K - 1 - c))) = R := by
+    show consList (xs ++ fs) σ (pdoms.length + fdoms.length + (K - 1 - c)) = R
+    rw [show pdoms.length + fdoms.length + (K - 1 - c)
+          = (K - 1 - c) + (xs ++ fs).length from by
+        rw [List.length_append, hxl, hfl]; omega,
+      consList_apply_add, hR]
+  have hpre : (prefVarsAV pdoms.length fdoms.length).map (interp V (consList (xs ++ fs) σ))
+      = xs := by
+    have h := interp_prefVarsAV (V := V) (rP := pdoms.length) (xs := xs) (bs := fs) (ρ := σ) hxl
+    rw [hfl] at h
+    exact h
+  have hargs : (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk]).map
+      (interp V (consList (xs ++ fs) σ))
+      = xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ)) := by
+    simp only [List.map_append, hpre, List.append_assoc]
+  rw [interp_mkAppN, foldl_app_map, hhead, hargs]
+
+/-- The length of a fit of the rule's binder data. -/
+theorem iotaEqAV_fs_length {pdoms fdoms : List AnnotTerm} {σ : Nat → V} {xs fs : List V}
+    (hxl : xs.length = pdoms.length) (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs)) :
+    fs.length = fdoms.length := by
+  have h := hsp.length_eq
+  rw [List.length_append, List.length_append, hxl] at h
+  omega
+
 /-- **THE ι LAW, extracted**: at a fitting spine `xs ++ fs` of the
 rule's prefix and the constructor's fields, the class's component
 applied along the rule's left-hand side equals the residue read at the
@@ -273,33 +315,86 @@ theorem iotaEqAV_law {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTe
     ((xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ))).foldl SetTheory.app R)
       = interp V (consList ((ihs.map (interp V (consList (xs ++ fs) σ)))) (consList (xs ++ fs) σ))
           Rb := by
-  have hfl : fs.length = fdoms.length := by
-    have := hsp.length_eq
-    rw [List.length_append, List.length_append, hxl] at this
-    omega
   have heq := (pt_mem_mkPisAV_eqE_iff (V := V) (propBinders_cod (doms := pdoms ++ fdoms))).mp h
     (xs ++ fs) (by rw [propBinders_doms]; exact hsp)
-  rw [interp_mkAppN, interp_instsAV] at heq
-  -- the head: the chain variable, past the rule's own binders
-  have hhead : interp V (consList (xs ++ fs) σ)
-      (.bvar (pdoms.length + fdoms.length + (K - 1 - c))) = R := by
-    show consList (xs ++ fs) σ (pdoms.length + fdoms.length + (K - 1 - c)) = R
-    rw [show pdoms.length + fdoms.length + (K - 1 - c)
-          = (K - 1 - c) + (xs ++ fs).length from by
-        rw [List.length_append, hxl, hfl]; omega,
-      consList_apply_add, hR]
-  -- the arguments: the prefix variables read back the prefix spine
-  have hpre : (prefVarsAV pdoms.length fdoms.length).map (interp V (consList (xs ++ fs) σ))
-      = xs := by
-    have h := interp_prefVarsAV (V := V) (rP := pdoms.length) (xs := xs) (bs := fs) (ρ := σ) hxl
-    rw [hfl] at h
-    exact h
-  have hargs : (prefVarsAV pdoms.length fdoms.length ++ es ++ [mk]).map
-      (interp V (consList (xs ++ fs) σ))
-      = xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ)) := by
-    simp only [List.map_append, hpre, List.append_assoc]
-  rw [foldl_app_map, hhead, hargs] at heq
+  obtain ⟨hl, hr⟩ := iotaEqAV_sides hR hxl (iotaEqAV_fs_length hxl hsp)
+  rw [hl, hr] at heq
   exact heq
+
+/-- **The ι equation is INHABITED** by the laws at every fitting spine —
+the direction the three regimes' candidates are fed through. -/
+theorem pt_mem_iotaEqAV_of {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
+    {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V} {R : V}
+    (hR : σ (K - 1 - c) = R)
+    (h : ∀ xs fs : List V, xs.length = pdoms.length →
+      SpineFit σ (pdoms ++ fdoms) (xs ++ fs) →
+      ((xs ++ (es ++ [mk]).map (interp V (consList (xs ++ fs) σ))).foldl SetTheory.app R)
+        = interp V (consList ((ihs.map (interp V (consList (xs ++ fs) σ))))
+            (consList (xs ++ fs) σ)) Rb) :
+    (pt : V) ∈ˢ interp V σ (iotaEqAV K c pdoms fdoms es mk ihs Rb) := by
+  refine (pt_mem_mkPisAV_eqE_iff (V := V) (propBinders_cod (doms := pdoms ++ fdoms))).mpr
+    fun ys hsp => ?_
+  rw [propBinders_doms] at hsp
+  have hlen : ys.length = pdoms.length + fdoms.length := by
+    rw [hsp.length_eq, List.length_append]
+  have hys : ys = ys.take pdoms.length ++ ys.drop pdoms.length := (List.take_append_drop _ _).symm
+  have hxl : (ys.take pdoms.length).length = pdoms.length := by
+    rw [List.length_take]; omega
+  rw [hys] at hsp ⊢
+  obtain ⟨hl, hr⟩ := iotaEqAV_sides hR hxl (iotaEqAV_fs_length hxl hsp)
+  rw [hl, hr]
+  exact h _ _ hxl hsp
+
+/-! ## The λ-tower whose body sees the spine
+
+The candidate the three regimes supply is a λ-tower over the
+recursor's whole binder data whose body needs the PREFIX values (the
+parameters and the arbitrary stretch: the kit is built per prefix
+frame), the INDEX values and the MAJOR — i.e. the accumulated spine,
+not just the leaf frame.  `lamTowerA` is `lamTower` with that
+accumulator; its two laws are the same two. -/
+
+/-- The semantic λ-tower over binder data, with the body a function of
+the ACCUMULATED spine and the leaf frame. -/
+noncomputable def lamTowerA (m : Nat) :
+    (Nat → V) → List V → List (Nat × Nat × AnnotTerm) → (List V → (Nat → V) → V) → V
+  | ρ, acc, [], g => g acc ρ
+  | ρ, acc, d :: ds, g => lamR m (interp V ρ d.2.2) fun a => lamTowerA m (cons a ρ) (acc ++ [a]) ds g
+
+/-- `lamTowerA`'s walk premise: at every leaf frame reached the body is
+in the conclusion's reading (a truth value at a zero bit). -/
+def TowerWalkA (m : Nat) (C : AnnotTerm) (g : List V → (Nat → V) → V) :
+    (Nat → V) → List V → List (Nat × Nat × AnnotTerm) → Prop
+  | ρ, acc, [] => g acc ρ ∈ˢ interp V ρ C ∧ (m = 0 → interp V ρ C ∈ˢ (univZero : V))
+  | ρ, acc, d :: ds => ∀ a, a ∈ˢ interp V ρ d.2.2 → TowerWalkA m C g (cons a ρ) (acc ++ [a]) ds
+
+/-- **The tower inhabits the Π-tower's reading** — `mem_type` of the
+candidate. -/
+theorem lamTowerA_mem {m : Nat} {C : AnnotTerm} {g : List V → (Nat → V) → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc : List V},
+      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → TowerWalkA m C g ρ acc ds →
+      lamTowerA m ρ acc ds g ∈ˢ interp V ρ (mkPisAV ds C)
+  | [], _, _, _, h => h.1
+  | d :: ds, ρ, acc, hz, h => by
+    show lamR m (interp V ρ d.2.2) (fun a => lamTowerA m (cons a ρ) (acc ++ [a]) ds g)
+      ∈ˢ piR d.2.1 (interp V ρ d.2.2) fun a => interp V (cons a ρ) (mkPisAV ds C)
+    exact lamR_mem_zero_agree (hz d (.head _))
+      fun a ha => lamTowerA_mem (fun d' hd' => hz d' (.tail _ hd')) (h a ha)
+
+/-- **The tower's fold along a fitting spine** (nonzero bit) — the ι
+law's left-hand side. -/
+theorem lamTowerA_fold {m : Nat} (hm : m ≠ 0) {g : List V → (Nat → V) → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {acc bs : List V},
+      SpineFit ρ (ds.map (·.2.2)) bs →
+      bs.foldl SetTheory.app (lamTowerA m ρ acc ds g) = g (acc ++ bs) (consList bs ρ)
+  | [], _, acc, [], _ => by simp [lamTowerA]
+  | [], _, _, _ :: _, hsp => hsp.elim
+  | _ :: _, _, _, [], hsp => hsp.elim
+  | d :: ds, ρ, acc, b :: bs, hsp => by
+    show bs.foldl SetTheory.app (SetTheory.app (lamR m (interp V ρ d.2.2)
+      fun a => lamTowerA m (cons a ρ) (acc ++ [a]) ds g) b) = _
+    rw [app_lamR_pos hm hsp.1, consList_cons, lamTowerA_fold hm hsp.2]
+    simp
 
 /-! ## The family: its ι equations, its leaf, and its facts -/
 
@@ -423,5 +518,58 @@ theorem blockRecAV_iota {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → N
   obtain ⟨a, ha, haEq⟩ := blockRecAV_facts h
   refine ⟨a, ha, fun c hc j hj xs fs hxl hsp => ?_⟩
   exact iotaEqAV_law (chainFrame_apply hc a ρ) (haEq _ (mem_iotaEqsAV hc hj)) hxl hsp
+
+/-! ## The premise's two halves, in the form their owners prove them -/
+
+section Assemble
+
+variable {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm}
+  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+  {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+
+/-- **The ι equations are graded** when every rule's binder data is
+graded along the telescope and both its sides are graded at every
+fitting spine — the Model tier's half (G1's `WellDenotedV` under
+`CtxOk`, and the leaf's own grading for the left-hand side). -/
+theorem hEq_iotaEqsAV_of
+    (hwd : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
+        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+          WellDenoted V (consList ys (consList rs ρ))
+              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
+            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j))) :
+    ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
+        interp V (consList rs ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList rs ρ) e := by
+  intro rs hlen hmem
+  refine forall_iotaEqsAV fun c hc j hj => ⟨iotaEqAV_univZero, ?_⟩
+  obtain ⟨hd, hb⟩ := hwd rs hlen hmem c hc j hj
+  exact wd_iotaEqAV hd hb
+
+/-- **The candidate's obligations, in the form the three regimes prove
+them** (DESIGN v2 §3.2 WF, §3.3 IND, §3.4 SQ): a tuple typed at the
+recursor types whose components satisfy every rule's ι law at every
+fitting spine of the rule's prefix and the constructor's fields. -/
+theorem hCand_iotaEqsAV_of (cand : Nat → V)
+    (hty : ∀ c, c < K → cand c ∈ˢ interp V ρ (RecTy c))
+    (hiota : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K cand ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      (xs ++ (es c j ++ [mk c j]).map
+          (interp V (consList (xs ++ fs) (chainFrame K cand ρ)))).foldl SetTheory.app (cand c)
+        = interp V
+            (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K cand ρ))))
+              (consList (xs ++ fs) (chainFrame K cand ρ))) (Rb c j)) :
+    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
+      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
+        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e :=
+  ⟨cand, hty, forall_iotaEqsAV fun c hc j hj =>
+    pt_mem_iotaEqAV_of (chainFrame_apply hc cand ρ) (hiota c hc j hj)⟩
+
+end Assemble
 
 end ConLeche.Semantics
