@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Inductives.BlockRealChains
 public section
 
 /-!

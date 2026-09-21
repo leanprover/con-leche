@@ -1,0 +1,114 @@
+module
+
+public import ConLeche.Model.Inductives.FixZeroField
+public section
+
+/-!
+# The projection table's cons at a BLOCK member (task #315 M3)
+
+`stageBlockTable`: `stageFixTable` at a structure-like MEMBER of a
+block — one constructor, no index — whose former's leaf is the block's
+`blockTyAV` at that member.  Nothing is re-proved: the table stage is
+abstract in the former's leaf, and the only two things it reads of one
+are its λ-tower shape (by `rfl` at `blockTyAV`) and its FOLD, which at
+a member with no index and one constructor is `blockFoldSingle`.
+
+So a block's tables cost exactly what the one-family route's do; what
+is member-specific is the premise `hXR` — the block's whole chain
+bundle at the member's parameter frame, and the member's real chains
+against it.
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps BinderMeta
+  ProjEntry ProjTable RecRule)
+
+universe w'
+
+variable {V : Type w'} [SetTheory V] {μ : CheckMode} {env : Env}
+
+/-- **The P step at a block member's projection table.** -/
+theorem stageBlockTable (mp : EnvModelM V μ env)
+    {T : Name} {lps : List Name} {nP : Nat} {resSort : Level} {isProp : Bool}
+    {cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
+    {envOut : Env} {caps : IndCaps}
+    (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T cvCa.name
+      lps nP nF resSort
+      (ConLeche.structProjGuards cvCa.type nP nF sorts) 1 cvCa env = .ok envOut)
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hcaps : caps.eta = true → (Level.isEquiv resSort .zero == some true) = false ∧
+      caps.etaCtor = cvCa.name ∧ caps.etaParams = nP ∧ caps.etaFields = nF)
+    (hlpsT : cvTa.levelParams = lps)
+    (hfC : env.find? cvCa.name = some (.ctorInfo cvCa nP nF))
+    (hlpsC : cvCa.levelParams = lps)
+    (hstripC : (cvCa.type.stripPis (nP + nF)).isSome = true)
+    (hProp : isProp = (Level.isEquiv resSort .zero == some true))
+    (hTshape : T.isProjFnShape = false)
+    (hCshape : cvCa.name.isProjFnShape = false)
+    (hresT : ConLeche.reservedBasisNames.contains T = false)
+    (hresR : ConLeche.reservedBasisNames.contains (T.str "rec") = false)
+    (hresC : ConLeche.reservedBasisNames.contains cvCa.name = false)
+    (hnp : ∀ j, NoProjEnv env T j)
+    {pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    (hFD : FormerData mp.base2 cvTa nP resSort pps)
+    (hCDread : ∀ ψ, denoteMeta mp.base2.acval env ψ 0 cvCa.type
+      = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))))
+    (hCDlen : ∀ ψ, (ds ψ).length = nP + nF)
+    (hCDbelow : ∀ ψ, DomsBelow 0 (ds ψ))
+    (hleq : ∀ i, i < nF → isProp = false → Level.leq (sorts.getD i .zero) resSort = some true)
+    -- the member's leaf is the block's fixed-point leaf at its component
+    {k m : Nat} (hm : m < k)
+    {ufOf : (Name → Nat) → Nat → Nat} {IdssOf : (Name → Nat) → Nat → List AnnotTerm}
+    {rsssOf : (Name → Nat) → Nat → List (List Bool)}
+    {tgtsssOf : (Name → Nat) → Nat → List (List Nat)}
+    {tlsssOf : (Name → Nat) → Nat → List (List (List (Nat × Nat × AnnotTerm)))}
+    {EisssOf : (Name → Nat) → Nat → List (List (List AnnotTerm))}
+    {FsssOf EsssOf : (Name → Nat) → Nat → List (List AnnotTerm)}
+    (hleafT : ∀ ψ, mp.base2.acval T ψ
+      = blockTyAV k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ) (tlsssOf ψ)
+          (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) (pps ψ) m)
+    (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
+      = sumMkAV (resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop nP).map (·.2.2))
+          (uChains [((ds ψ).drop nP).map (·.2.2)]))
+    -- the member is structure-like: no index, one constructor
+    (hIdsm : ∀ ψ, IdssOf ψ m = []) (hEssm : ∀ ψ, EsssOf ψ m = [[]])
+    (hXR : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((pps ψ).map (·.2.2)).reverse ρp →
+      BlockChainsOk k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ)
+        (tlsssOf ψ) (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) ∧
+      ChainsRealBI (blockFam k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ)
+          (tlsssOf ψ) (EisssOf ψ) (FsssOf ψ) (EsssOf ψ))
+        k (resSort.eval ψ) ρp (ufOf ψ) (IdssOf ψ) m (rsssOf ψ m) (tgtsssOf ψ m) (tlsssOf ψ m)
+        (EisssOf ψ m) (FsssOf ψ m) [((ds ψ).drop nP).map (·.2.2)] (EsssOf ψ m))
+    (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V ((pps ψ).map (·.2.2)).reverse ρ ↔
+        Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
+    (hfields : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+        FieldsOkB (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2)) ∧
+        FieldsValid ρ (((ds ψ).drop nP).map (·.2.2)))
+    (hboundP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+        isProp = false → FieldsBound (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2)))
+    (hsortsF : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+        ∀ j, j < nF → ∀ as : List V,
+          SpineFit ρ ((((ds ψ).drop nP).map (·.2.2)).take j) as →
+          interp V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
+            ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
+    Nonempty (EnvModelM V μ envOut) := by
+  refine stageFixTable mp hTbl hfT hcaps hlpsT hfC hlpsC hstripC hProp hTshape hCshape
+    hresT hresR hresC hnp hFD hCDread hCDlen hCDbelow hleq hleafT hleafC
+    (fun _ => ⟨_, rfl⟩) ?_ hiff hfields hboundP hsortsF
+  intro ψ ρ ts hsp
+  have hρ : Sat V ((pps ψ).map (·.2.2)).reverse (consList ts ρ) := by
+    have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp
+    rwa [List.append_nil] at this
+  obtain ⟨hok, hreal⟩ := hXR ψ (consList ts ρ) hρ
+  exact blockFoldSingle hm (hIdsm ψ) (hEssm ψ) hsp hok hreal
+
+end ConLeche.Model
