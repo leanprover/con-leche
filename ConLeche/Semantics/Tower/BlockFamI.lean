@@ -373,21 +373,32 @@ theorem blockPhi_mono (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss
   exact hXY c hc
 
 /-- **The block's operator preserves the tuple space.** -/
-theorem blockPhi_maps (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
+theorem blockPhi_maps_of (hok : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
     MapsTuple w k (blockIdx uf ρp Idss)
       (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) := by
   intro X hX m hm
   show lamR (w + 1) (idxSet (uf m) ρp (Idss m)) _ ∈ˢ famSpace w (blockIdx uf ρp Idss m)
   rw [← lfpFamSpace_eq']
   exact lamR_mem fun t ht =>
-    blockStepV_univ h.hok (ndMkTowerSet_mem_famsSpaceB hX) hm ht
+    blockStepV_univ hok (ndMkTowerSet_mem_famsSpaceB hX) hm ht
+
+theorem blockPhi_maps (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
+    MapsTuple w k (blockIdx uf ρp Idss)
+      (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :=
+  blockPhi_maps_of h.hok
 
 /-- **At a `Prop`-valued block the top tuple is closed** — the `w = 0`
 half of (W), with no container at all (`closedTuple_zero`). -/
+theorem blockPhi_closed_zero_of
+    (hok : BlockChainsOkI k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
+    ∃ L, IsClosedTuple 0 k (blockIdx uf ρp Idss)
+      (blockPhi k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L :=
+  closedTuple_zero (blockPhi_maps_of hok)
+
 theorem blockPhi_closed_zero (h : BlockChainsOk k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
     ∃ L, IsClosedTuple 0 k (blockIdx uf ρp Idss)
       (blockPhi k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L :=
-  closedTuple_zero (blockPhi_maps h)
+  blockPhi_closed_zero_of h.hok
 
 /-- The carrier is in the tuple space, with no premise (the least
 pre-fixed tuple is total). -/
