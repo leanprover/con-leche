@@ -401,7 +401,9 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape)
 
 The right-hand side is annotated at the environment holding the `k`
 rule-less recursors, its `λ` prefix is compared with the STREAM's own
-recursor type (`blockRulePrefixOk`; the one-member docstring at
+recursor type — and on the RAW right-hand side, before the
+annotation's zeta expansion, as the one-member stage compares it
+(`blockRulePrefixOk`; the one-member docstring at
 `nativeRulePrefixOk` says why the comparison is against the stream's
 type and not against a generated term — the elaborator spells the
 minors' field domains from a whnf'd telescope, so `HPow`'s parameter
@@ -435,7 +437,7 @@ def checkBlockRule (ops : CheckerOps m) (envR : Env) (p : BlockShape)
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless rhsA.constsResolve envR do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
-  unless blockRulePrefixOk cvR.type nP k N J nF rhsA do
+  unless blockRulePrefixOk cvR.type nP k N J nF rhs do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
       parameters, motives, minor premises and the constructor's fields")
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))

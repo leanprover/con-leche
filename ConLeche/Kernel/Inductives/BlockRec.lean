@@ -298,10 +298,15 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
           let tele := fr.teleOf i
           if as.length != tele.length then none else
           if as.any (fun a => a.mentionsAnyConst fr.recNames) then none else
-          match Expr.instPisAt as
+          -- `instPisAtLift`, not `instPisAt`: the call's arguments are
+          -- terms of the RULE BODY's frame and may mention its binders,
+          -- so the substitution has to lift them past the telescope
+          -- binders it crosses (`instantiate1` requires a `bvar`-closed
+          -- replacement and would capture)
+          match Expr.instPisAtLift as
               (blockIhSpinePis r fr.rlvls fr.pw fr.nP fr.k fr.N fr.nF i d tele (fr.idxOf i)) with
           | none => none
-          | some (_, expected) =>
+          | some expected =>
             if Expr.resetMeta e != Expr.resetMeta expected then none
             else match natIdxOf? fr.recIdx i with
               | none => none

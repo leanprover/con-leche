@@ -247,7 +247,7 @@ def checkBlockRuleF (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (p : B
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless w.resolve feR rhsA do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
-  unless blockRulePrefixOk cvR.type nP k N J nF rhsA do
+  unless blockRulePrefixOk cvR.type nP k N J nF rhs do
     throw (.invalid s!"direct rec: the rule of {cA.1.name} does not bind the recursor's \
       parameters, motives, minor premises and the constructor's fields")
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (nP + k + N + nF))
