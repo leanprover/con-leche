@@ -1470,8 +1470,10 @@ theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts}
   -- and the instantiation; it is ASSERTED here under its own guard
   -- (the RAW mint fired), and read separately by
   -- `nestedOrdNormOk_blkHead`
+  -- the three conjuncts under the guard: the block-head row (WIDE
+  -- (f3) step 2), THIS row's instantiation, and K.72's tower
   simp only [Bool.and_eq_true] at hlv
-  replace hlv := hlv.2
+  replace hlv := hlv.1.2
   rw [hinst] at hlv
   simp only at hlv
   rw [hnormB] at hlv
@@ -1761,10 +1763,131 @@ theorem nestedOrdNormOk_blkHead {env : Env} {p : NestedParts}
   rw [hnorm] at hlv
   rw [if_neg (by simp [hfire]), if_neg (by simp [hrec])] at hlv
   simp only [Bool.and_eq_true] at hlv
-  obtain ⟨hlv, -⟩ := hlv
+  obtain ⟨⟨hlv, -⟩, -⟩ := hlv
   cases hd : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn with
   | const M us => exact ⟨M, us, rfl⟩
   | _ => rw [hd] at hlv; simp [hfireRaw] at hlv
+
+/-- **K.72 — THE COPY'S OWN `Π`-TOWER, AT ONE FIELD** (task #315 WIDE
+(f3) step 4 (3)): at a field the shared container calls ORDINARY and
+the block's rewrite made recursive, the BLOCK's copy of that field
+carries a `Π`-prefix as deep as the container's stored domain's PLUS
+the one the mint's substitution plants into the stripped body.
+
+**Why the SUM, and why one comparison and not two arms.**  The naive
+row — "the copy's depth is the container's stored domain's" — is
+REFUTED by `tests/e2e/nested_comp_tower.ndjson` (`K α | mk (a : α)`
+minted at `K (Nat → J β)`), an official ACCEPT at which the container's
+domain is a bare parameter (depth `0`) and the copy's field is
+`Nat → <copy>` (depth `1`).  The missing summand is exactly the tower
+the COMPONENT brings, and `ordTargetDom` — which strips the container's
+tower and then substitutes the components — measures it:
+`domPiDepth` of the recomputation is the planted depth and nothing
+else.  So the two "arms" the design row named are the two summands of
+ONE equation.
+
+**It cannot fire**, category (B): the copy's field domain is
+`replaceAllNested` of the minted domain, the mint is the container's
+stored domain at the pin's levels folded onto the pin's components, and
+neither the rewrite nor a level instantiation turns a `Π` into a
+non-`Π` or the other way round.  The addressing is K.32's own, so the
+row costs one `stored` read and one `stripPis` on a walk the arm
+already runs.
+
+The lookups are `nestedOrdNormOk_at_refl`'s, character for character;
+what is new is the `stored` chain, which is `nestedCopyTargetsAt`'s. -/
+theorem nestedOrdNormOk_tower {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {m₀ : ContainerMember} (hm₀ : ciJ.members.head? = some m₀)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    (hfireRaw : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = true)
+    -- the BLOCK's copy, at K.32's own addressing
+    {aS : AuxStored} (haS : stored[p.k + q]? = some aS)
+    {cvCa : ConstantVal} {nPc nF : Nat} (hac : aS.ctors[j]? = some (cvCa, nPc, nF))
+    {cbs : List (Expr × BinderMeta)} {rC : Expr}
+    (hsC : cvCa.type.stripPis (p.nP + nF) = some (cbs, rC))
+    {domC : Expr × BinderMeta} (hdC : cbs[p.nP + l]? = some domC) :
+    (Expr.piBinders domC.1).1.length
+      = domPiDepth domJ.1
+        + domPiDepth (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1) := by
+  obtain ⟨M₀, us₀, hhd₀⟩ := getAppFn_const_of_ordRootFired hfireRaw
+  have hnorm : ordHeadRed (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1)
+      = ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1 := ordHeadRed_const hhd₀
+  have hfire := hfireRaw
+  have hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true :=
+    nestedOrdNormOk_fire h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf hcJ hsJ
+      hl hdJ hord hnorm hfire
+  cases hms : nestedInstMaps env st with
+  | none =>
+    unfold nestedOrdNormOk nestedOrdNormAt at h
+    rw [hms] at h; simp at h
+  | some maps =>
+  obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms g g (by simp [hg])
+  have hmeq : m = mapR := by rw [hm] at hmapR; simpa using hmapR
+  unfold nestedOrdNormOk nestedOrdNormAt at h
+  rw [hms, hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hgv := h g hg
+  rw [hgn] at hgv
+  simp only at hgv
+  rw [hciJ] at hgv
+  simp only at hgv
+  rw [hown] at hgv
+  simp only at hgv
+  rw [hm₀] at hgv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hgv
+  have hqv := hgv qK hqK
+  rw [show maps.getD g [] = mapR from by
+    rw [List.getD_eq_getElem?_getD, hmq]; exact hmeq] at hqv
+  rw [hq, hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJm] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hord])] at hlv
+  rw [hnorm] at hlv
+  rw [if_neg (by simp [hfire]), if_neg (by simp [hrec])] at hlv
+  simp only [Bool.and_eq_true] at hlv
+  replace hlv := hlv.2
+  rw [haS] at hlv
+  simp only at hlv
+  rw [hac] at hlv
+  simp only at hlv
+  rw [hsC] at hlv
+  simp only at hlv
+  rw [hdC] at hlv
+  simpa using hlv
 
 /-- **K.69 at a FINITARY field**, where the two cuts are the identity:
 the recomputed domains' heads are `.const`s, so neither is a `Π` and
@@ -2217,57 +2340,63 @@ theorem stripDomPis_notPi {E : Expr} (hnf : ∀ ty bo bm, E ≠ Expr.forallE ty 
   | forallE ty bo bm => exact absurd rfl (hnf ty bo bm)
   | _ => exact ⟨rfl, rfl⟩
 
-/-- The base case of `stripDomPis_instSeq`: at a constant-headed
-domain the substitution cannot plant a binder, so both sides are the
-instantiation itself. -/
-theorem stripDomPis_instSeq_leaf (E : Expr) (vs : List Expr) (t : Nat) {K : Name}
-    {us : List Level} (hK : (stripDomPis E).getAppFn = Expr.const K us)
-    (hnf : ∀ ty bo bm, E ≠ Expr.forallE ty bo bm) :
-    domPiDepth (Expr.instSeq vs t E) = domPiDepth E ∧
-      stripDomPis (Expr.instSeq vs t E)
-        = Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) := by
-  obtain ⟨hs, hd⟩ := stripDomPis_notPi hnf
-  rw [hs] at hK
-  have hfn := instSeq_getAppFn_const vs t E hK
-  have hnf2 : ∀ ty bo bm, Expr.instSeq vs t E ≠ Expr.forallE ty bo bm := by
-    intro ty bo bm h
-    rw [h] at hfn
-    simp only [Expr.getAppFn] at hfn
-    exact nomatch hfn
-  obtain ⟨hs2, hd2⟩ := stripDomPis_notPi hnf2
-  rw [hs, hd, hs2, hd2, Nat.add_zero]
-  exact ⟨rfl, rfl⟩
+/-- **THE `Π`-TOWER AND THE CUT, WITH NO GUARD AT ALL** (task #315
+WIDE (f3) step 4): the mint instantiates a field's WHOLE stored domain
+at the field's own cut; `ordTargetDom` strips the domain's tower first
+and instantiates the BODY at the cut the tower pushes out to.  The two
+end at the same stripped term, and the mint's tower is the stored
+domain's plus whatever the substitution PLANTS into the stripped
+body — which is K.72's equation, read on the mint.
 
-/-- **THE `Π`-TOWER SURVIVES AN INSTANTIATION, AND ITS BODY MOVES BY
-THE TOWER'S DEPTH** (task #315 WIDE (3), lane LE): at a domain whose
-stripped body is headed by a constant — the guard K.63/K.65 dispatch
-on — `Expr.instSeq` leaves `domPiDepth` alone and commutes with
-`stripDomPis` at the cut the tower adds.
+**It needs no head hypothesis**, and that is its whole point: the
+guarded form below asks the stripped body to be constant-headed
+precisely so that the substitution cannot plant a `Π`, and here the
+planted tower is measured instead of excluded.  One induction over the
+`Π`-prefix, `Expr.instSeq_forallE` at each step. -/
+theorem stripDomPis_instSeq_tower :
+    ∀ (E : Expr) (vs : List Expr) (t : Nat), vs.length ≤ t + 1 →
+      domPiDepth (Expr.instSeq vs t E)
+          = domPiDepth E
+            + domPiDepth (Expr.instSeq vs (t + domPiDepth E) (stripDomPis E)) ∧
+        stripDomPis (Expr.instSeq vs t E)
+          = stripDomPis (Expr.instSeq vs (t + domPiDepth E) (stripDomPis E)) := by
+  intro E
+  induction E with
+  | forallE ty bo bm _ ihbo =>
+    intro vs t hlen
+    obtain ⟨hd, hs⟩ := ihbo vs (t + 1) (by omega)
+    rw [Expr.instSeq_forallE vs t ty bo bm hlen]
+    have hcut : t + 1 + domPiDepth bo = t + (domPiDepth bo + 1) := by omega
+    refine ⟨?_, ?_⟩
+    · show domPiDepth (Expr.instSeq vs (t + 1) bo) + 1
+        = domPiDepth bo + 1
+          + domPiDepth (Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo))
+      rw [hd, ← hcut]
+      omega
+    · show stripDomPis (Expr.instSeq vs (t + 1) bo)
+        = stripDomPis (Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo))
+      rw [hs, hcut]
+  | _ =>
+    intro vs t _
+    exact ⟨(Nat.zero_add _).symm, rfl⟩
 
-The head hypothesis is not decoration: without it the body could be a
-`bvar` and the substitution could plant a `Π` there, deepening the
-tower. -/
 theorem stripDomPis_instSeq :
     ∀ (E : Expr) (vs : List Expr) (t : Nat) {K : Name} {us : List Level},
       (stripDomPis E).getAppFn = Expr.const K us → vs.length ≤ t + 1 →
       domPiDepth (Expr.instSeq vs t E) = domPiDepth E ∧
         stripDomPis (Expr.instSeq vs t E)
           = Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) := by
-  intro E
-  induction E with
-  | forallE ty bo bm _ ihbo =>
-    intro vs t K us hK hlen
-    obtain ⟨hd, hs⟩ := ihbo vs (t + 1) (K := K) (us := us) hK (by omega)
-    rw [Expr.instSeq_forallE vs t ty bo bm hlen]
-    refine ⟨?_, ?_⟩
-    · show domPiDepth (Expr.instSeq vs (t + 1) bo) + 1 = domPiDepth bo + 1
-      rw [hd]
-    · show stripDomPis (Expr.instSeq vs (t + 1) bo)
-        = Expr.instSeq vs (t + (domPiDepth bo + 1)) (stripDomPis bo)
-      rw [hs, show t + 1 + domPiDepth bo = t + (domPiDepth bo + 1) from by omega]
-  | _ =>
-    intro vs t K us hK _
-    exact stripDomPis_instSeq_leaf _ vs t hK (fun _ _ _ h => nomatch h)
+  intro E vs t K us hK hlen
+  obtain ⟨hd, hs⟩ := stripDomPis_instSeq_tower E vs t hlen
+  have hfn := instSeq_getAppFn_const vs (t + domPiDepth E) (stripDomPis E) hK
+  have hnf : ∀ ty bo bm,
+      Expr.instSeq vs (t + domPiDepth E) (stripDomPis E) ≠ Expr.forallE ty bo bm := by
+    intro ty bo bm h
+    rw [h] at hfn
+    simp only [Expr.getAppFn] at hfn
+    exact nomatch hfn
+  obtain ⟨hs2, hd2⟩ := stripDomPis_notPi hnf
+  exact ⟨by rw [hd, hd2, Nat.add_zero], by rw [hs, hs2]⟩
 
 
 /-- `stripPis` at a domain's OWN tower depth always succeeds, and its
