@@ -130185,3 +130185,115 @@ demotable and the compiler refuses it — `Unknown identifier
 openRedPisAtFvars` at the theorem's statement plus the two
 `simp only [openRedPisAtFvars]` steps losing their equation lemmas,
 both measured.
+
+#### WIDE (f3) — OBJECT (2) LANDED: `OrdTargetRead` READS AT THE COPY'S OWN TELESCOPE AND AT THE STRIPPED RECOMPUTATION, ITS CONJUNCT IS K.72's **SUM**, AND `hread` LEAVES THE ASSEMBLY (lane LE, 2026-09-21)
+
+Session 37's §(d) predicted the statement change's error surface from a
+build it then reverted.  The surface is exactly as predicted; **the
+prediction about the CONJUNCT was wrong**, and correcting it is what
+makes the object land.
+
+##### (a) WHAT THE PREDICTION MISSED
+
+§(d) said "the conjunct should be KEPT on the eight rows and dropped
+only from `OrdTargetRead`".  Dropping it there was MEASURED to break
+three consumers that §(d) did not list among its three sites, and all
+three break for ONE reason: they need the copy's recorded telescope to
+be EMPTY, and the dropped conjunct was its only producer.
+
+* `NestedPinsRun.ordReadAt` (`NestedInstMap.lean:~4500`) cannot even
+  USE the reading without it — its own cut is `l`, the predicate's is
+  `l + tlsl.length`, and nothing else in scope relates the two;
+* `ordRead_corr` / `ordReadMem_corr` (`NestedPinLeafAll.lean:~5503` /
+  `~5690`) both CONCLUDE the two copies' telescopes are empty, side 2's
+  off that conjunct;
+* `read_of_run` (`:~6590`) collapses the cut with it.
+
+And the emptiness has no other route: it is the OWNER's install fact,
+`PinShapes`' rows take flatness as a PREMISE rather than producing it,
+and the copy's own `reflOpen` measures the BLOCK's rewritten domain,
+not the container's.
+
+##### (b) THE CORRECTION — THE CONJUNCT IS K.72's OWN EQUATION
+
+Keeping the old conjunct would have kept the restriction (it is K.72
+specialised to a mint that plants nothing).  What landed instead is
+K.72's SUM, verbatim at the model (`NestedPremise.lean:1133`):
+
+```
+tlsl.length = domPiDepth (ordTargetDomL lpsC ownSelf q dom)
+            + domPiDepth (ordTargetDom lpsC nPJ ownSelf q l dom)
+```
+
+with the reading at `nP + (l + tlsl.length)` over
+`stripDomPis (ordTargetDom …)`.  Every consumer collapses the two
+summands where it already stands and with what it already holds: the
+first by its flatness guard (`domPiDepth_ordTargetDomL`), the second by
+the recomputation's constant head
+(`domPiDepth_eq_zero_of_getAppFn_const`, which also gives
+`stripDomPis_eq_self_of_getAppFn_const`).  So the un-flat-able form is
+in the tree and the flat consumers are unmoved.
+
+**The finitary and reflexive rows' statements did not change at all.**
+The eight `copyOrdFRight*` theorems in `NestedCopyInst.lean` are
+untouched; the reflexive ones keep their length conjunct, as §(d)
+predicted, and it is exactly what `ordTgtReadAt`'s reflexive arm
+`rw`s the cut with.  `ordTgtReadAt`/`ordTgtMemReadAt`/`ordReadAt` and
+the two `nestedPins*_of` producers keep their conclusions; only their
+tactic scripts move.
+
+`hfinRefl` is **NOT** retired.  It is what the reflexive wrapper's
+`hfin` comes off, and `hfin` asks the STORED domain's stripped head,
+which no run fact produces at a bare-parameter field — the
+`nested_bvar_field` shape.  Retiring it is the same edit as retiring
+`hflat`, and that edit is (c).
+
+##### (c) `hread` IS DISCHARGED; `hscope` IS NOT, AND THE REASON IS NAMED
+
+`nestedPinPairAt_pinσ` (`NestedPinLeafAll.lean:~7360`) no longer takes
+`hread`.  `read_of_run` produces it there from `hscope`'s own flatness
+and head conjuncts, the own-pin table read twice
+(`ContainerModeled.ownPinsSelfAt` against `BlockModel.ownPinTerms`) and
+`ContainerModeled.nP`; its `hscope` hypothesis now asks the OWNER's
+recomputation head beside the flatness, which `hscope` already carries.
+The named set is `hscope` and `hdom₁`.
+
+`hscope` cannot go the same way, and the obstruction is one fact:
+**its FLATNESS conjunct has no producer anywhere.**  It is a PREMISE of
+`PinShapes`' `rowOrdRead`/`rowOrdReadMem` (`NestedPremise.lean:1310` /
+`:1513` / `:1569`), of `GroupFacts.ordTgt`/`ordGe`/`ordRead`, and of
+the `NestedInstMap` rows below them — 27 declarations and 69 use sites
+over eight files.  Retiring it means replacing it, at every one of
+them, by K.72's sum (which the KERNEL checks and `GroupFacts` can
+therefore carry) and re-proving the eight `copyOrdFRight*` readings
+without it — the reflexive half of object (2), where the mint's planted
+`Π`s are real.  **Honest sizing: that is two to four sessions and it is
+the whole of what `hscope` costs.**  Nothing about the wide
+identification is refuted by it.
+
+##### (d) THE GATES, AT `1151da8c`
+
+`tests/arena.sh` EXIT 0 — `proofdeps: 4975 module rows, doors: 0`,
+`layering 354/292/3/1 with 0 base->lane and 0 impl->theory edges`,
+`shake: 514 removals, all allowlisted`,
+`pub-imports: 1348 of 2319 public, none demotable (60 fallbacks)`,
+`nested-shadow: 47/47` (`nested_redex_tower`, `nested_redex_owner`,
+`nested_comp_tower`, `nested_bvar_field` and `nested_pi_field` at
+`CON_LECHE_INMODEL=0` all `accept`), `e2e: 200/200`,
+`arena suite: 91/96`, `annot 15/15`, `mode flags 10/10`,
+`prelude counts 3/3`, `progress lane 15/15`, `worker pool 15/15`,
+`DAG-tower 14/14`, `axioms: pinned (20 theorems)`, trusted and the two
+`--jobs` sweeps as at the default, `inmodel: OK`,
+`overview-links: 112`, `quote-gate: 2`, `no-local-paths: OK`,
+`challenge: OK`.  `tests/warning-free.sh 29b00cb3` — 4 changed
+modules, **0 warning lines** in both halves; `lake test` 0 warnings.
+`tests/unconsumed.sh` **205 of 3944** against **206 of 3944**: ONE
+entry cleared — `read_of_run`, whose consumer is now the assembly.
+`#print axioms` on `read_of_run`, `ordRead_corr`, `ordReadMem_corr`,
+`nestedPinPairAt_pinσ`, `nestedPinsOrdTgt_of`, `nestedPinsOrdTgtMem_of`,
+`projFree_ordTargetDom_instSeq`, `ordTgtReadAt`, `ordTgtMemReadAt` and
+`ordReadAt`: `[propext, Classical.choice, Quot.sound]`.  No `sorry`,
+no new axiom, no `maxHeartbeats`.
+
+**No kernel file changed**, so the accept set cannot have moved and no
+firing or `instructions:u` cell is owed.
