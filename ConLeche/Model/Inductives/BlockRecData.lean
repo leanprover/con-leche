@@ -1,9 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.FixLeafOk
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Verify.Inductives.BlockRecInv
 
 public section
 
@@ -549,6 +550,86 @@ theorem blockRecLeafAV_valid (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
         checkBlockRecK_tyPis hμ mpC h (List.getElem?_eq_getElem hc') ψ
       exact (hwd ρ).2)
     (heqV ψ ρ)
+
+/-! ## C.8 `hpar`'s recursor-type half, DISCHARGED
+
+`hleafPar` asks the recursor types' READINGS to agree at two level
+valuations agreeing on the `i`-th recursor's own `levelParams` — which
+for the OTHER `k − 1` types is a claim about the block's recursors
+SHARING their level parameters.  They do, and it is a run fact: stage
+(a)'s pin `blockRecLpsOk` (`checkBlockRecPins`) says every recursor's
+`levelParams` IS the generated list (`elim :: lps`, or `lps` at a
+small block), and `checkConstantVal` stores the record's
+`levelParams` unchanged. -/
+
+/-- **A block's recursors share their level parameters.** -/
+theorem checkBlockRecK_lps {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i j : Nat} {r r' : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) (hr' : rs[j]? = some r') :
+    r.1.levelParams = r'.1.levelParams := by
+  obtain ⟨hpins, hlenR, hall⟩ := checkBlockRecK_recNames h
+  have hone : ∀ (n : Nat) (q : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[n]? = some q → ∃ rc ∈ p.recs, q.1.levelParams = rc.cvR.levelParams := by
+    intro n q hq
+    have hnl : n < p.recs.length := by
+      have hql := (List.getElem?_eq_some_iff.mp hq).1
+      omega
+    obtain ⟨rc, q', hrc, hq', -, hcv⟩ := hall n hnl
+    obtain rfl := Option.some.inj (hq.symm.trans hq')
+    obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
+      ConLeche.checkConstantVal_inv hcv
+    exact ⟨rc, List.mem_of_getElem? hrc, by rw [hcv']⟩
+  obtain ⟨rc, hrcm, hlv⟩ := hone i r hr
+  obtain ⟨rc', hrcm', hlv'⟩ := hone j r' hr'
+  have hlps := List.all_eq_true.mp (checkBlockRecPins_inv hpins).1 rc hrcm
+  have hlps' := List.all_eq_true.mp (checkBlockRecPins_inv hpins).1 rc' hrcm'
+  rw [hlv, hlv']
+  by_cases hb : p.toBlockShape.large = true
+  · rw [if_pos hb] at hlps hlps'
+    rw [eq_of_beq hlps, eq_of_beq hlps']
+  · rw [if_neg hb] at hlps hlps'
+    rw [eq_of_beq hlps, eq_of_beq hlps']
+
+/-- **The recursor types' readings are φ-congruent at ANY recursor's
+level parameters** — `hleafPar`'s first half, so that what is left of
+it is the equation list's own ψ-dependence. -/
+theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat}
+    (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) {c' : Nat} (hc' : c' < rs.length) :
+    blockRecTyAV mpC.base2.acval envC rs ψ₁ c'
+      = blockRecTyAV mpC.base2.acval envC rs ψ₂ c' := by
+  have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
+  have hlps : rs[c'].1.levelParams = r.1.levelParams := checkBlockRecK_lps h hr' hr
+  have hlpd := (ConLeche.checkBlockRecK_facts h rs[c'] (List.mem_of_getElem? hr')).2.1
+  obtain ⟨-, -, -, hread₁, -⟩ := checkBlockRecK_tyPis hμ mpC h hr' ψ₁
+  obtain ⟨-, -, -, hread₂, -⟩ := checkBlockRecK_tyPis hμ mpC h hr' ψ₂
+  have hext := denoteMeta_params_ext (V := V) mpC.base2
+    (ps := rs[c'].1.levelParams) (by rw [hlps]; exact hq) 0 rs[c'].1.type hlpd
+  rw [hread₁, hread₂] at hext
+  exact Option.some.inj hext
+
+/-- **C-3 at the run, with the types' half discharged**: what is left
+of `hleafPar` is the EQUATION LIST's own ψ-dependence. -/
+theorem blockRecLeafAV_par_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
+        (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → eqs ψ₁ = eqs ψ₂)
+    (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
+    (hr : rs[i]? = some r) (ψ₁ ψ₂ : Name → Nat)
+    (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
+    blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
+      = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i :=
+  blockRecAV_congr (fun _ hc' => blockRecTyAV_params_ext hμ mpC h hr hq hc')
+    (heqP i r hr ψ₁ ψ₂ hq)
 
 end RunLeaf
 
