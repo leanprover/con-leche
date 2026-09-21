@@ -7203,17 +7203,22 @@ membership (`nestedIdx_eq_pinIdx`) and the injections' identity
   `Model/Inductives/NestedCopyInst.lean`, which the WHNF lane holds.
   `read_of_run` is `hread`'s producer TODAY, at the flatness `hscope`
   carries;
-* `htele : CopyOrdTele …` — K.72 at the model (step 5's first object),
-  whose producer lives beside `copyOrdFRight*` in the same held file;
-* `hnormRed` — the redex corner's normalisation, `w = ordHeadRed W`,
-  which the WHNF lane is moving `NestedCopyInst`'s eight
-  `copyOrdFRight*OrdTargetRead*` rows onto;
-* `hdom₁` — the BLOCK's slot inside the container's field domain.  Its
-  route is `copyTransfer_iff_pin`'s own (`hdom₂` across the slot
-  correspondence with `hcdom` and the entry), and it reads the
-  telescope on both sides, so it waits on `htele`.
+* `htele : CopyOrdTele …` is GONE from the signature.  The object is
+  restated as an `interp` equation (its syntactic form is refuted by
+  `tests/e2e/nested_redex_tower.ndjson`) and PROVED at the run
+  (`NestedPinsRun.copyOrdTeleAt`); it was vacuous here — its only
+  consumer is `hdom₁`, and it comes back onto `GroupFacts` the session
+  `hdom₁` does;
+* `hdom₁` — the BLOCK's slot inside the container's field domain.  It
+  is `copyTransfer_iff_pin`'s SIDE 1, symmetric to `hdom₂`, and the
+  route `dom₂_of_run` takes on side 2 (`copyEntryAt_pin` at a STORED
+  block) is unavailable here: the block being installed is not stored.
+  What replaces the stored model is the TELESCOPE — `CopyOrdTele`,
+  which says the container's field domain interprets to a `Π`-tower of
+  the copy's recorded telescope — plus the block's own entry at the
+  tower's body, and the second half is not in the tree yet.
 
-The four `nestedFitc_pin` premises above and `hdom₁` are the merge
+The three `nestedFitc_pin` premises above and `hdom₁` are the next
 session's work order, and nothing else in this signature is open. -/
 theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
@@ -7380,10 +7385,6 @@ theorem nestedPinPairAt_pinσ (hμ : μ.verifiedChecks = true)
         denoteMeta m.acval env₂ ψR (ciR.nP + l)
           (Expr.instSeq (ConLeche.Verify.openFvars ciR.nP l) (l - 1)
             (ConLeche.ordTargetDom lpsC (dJf q₀).nP ownT (q₀' + iq) l dom.1)) = some rx)
-    (_htele : CopyOrdTele (V := V) (dJf q₀) (((D).pinAt (q₀ + iq)).ψJ ψ)
-      (((D).pinAt (q₀ + iq)).Ds ψ)
-      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) [])
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []) ρp iq j)
     (hdom₁ : ∀ l, l < (((dJf q₀).Fss iq (((D).pinAt (q₀ + iq)).ψJ ψ)).getD j []).length →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
