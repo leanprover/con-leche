@@ -467,6 +467,20 @@ theorem findProj?_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDatum}
     rw [hh, hpsh r hr] at hsh
     exact nomatch hsh)]
 
+/-- The RULE-LESS cons stores no projection table either — the bare
+environment is where the stage annotates a rule's right-hand side, so
+its empty slots are `envC`'s. -/
+theorem findProj?_consBlockRecsBare {q : BlockShape} :
+    ∀ {m : Nat} {ls : List (ConstantVal × Nat)} {env : Env},
+      (∀ r ∈ ls, r.1.name.isProjFnShape = false) → ∀ (sn : Name) (i : Nat),
+      (consBlockRecsBare q m ls env).findProj? sn i = env.findProj? sn i := by
+  intro m ls env hpsh sn i
+  unfold ConLeche.Env.findProj?
+  rw [find?_consBlockRecsBare_of_ne (fun r hr hh => by
+    have hsh : (ConLeche.projTableName sn).isProjFnShape = true := rfl
+    rw [hh, hpsh r hr] at hsh
+    exact nomatch hsh)]
+
 /-- **`NoProjEnv` across the recursors' cons.**  A `.proj T i` node can
 enter only through a recursor's stored TYPE or one of its rules'
 right-hand sides; both are premises, and both come from

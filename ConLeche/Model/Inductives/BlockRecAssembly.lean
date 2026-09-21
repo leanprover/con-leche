@@ -290,4 +290,176 @@ theorem checkBlockRecK_nodup {envC : Env} {p : BlockParts} {cvTas : List Constan
   · simp only [List.length_map, hlenR, hlenRM]
     exact Nat.le_refl _
 
+/-! ## 4. The stored RULES are annotated, and therefore mention no
+empty slot
+
+`hnoRhs` is `hnoTy`'s twin one stage down: a stored right-hand side is
+`annotateCore`'s output at the BARE-`k` environment, whose `findProj?`
+is the constructors' (`findProj?_consBlockRecsBare`).  The Verify
+tier's inversions keep the scoping facts and drop the annotation run,
+so the three peels are repeated here for that one witness. -/
+
+section Annot
+
+open ConLeche (checkBlockRule checkBlockRules checkBlockRecsRules annotateCore fueledOps
+  RecShape BlockFieldKind exceptBind_ok)
+
+local macro "close_throw " h:term : tactic =>
+  `(tactic| first
+      | exact nomatch $h
+      | exact absurd $h (by
+          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+          exact fun hh => nomatch hh)
+      | exact absurd $h
+          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- **Stage (c), at ONE rule, inverted at the ANNOTATION**: the stored
+right-hand side is `annotateCore`'s output at the rule environment,
+and the stream's own is free-variable-free. -/
+theorem checkBlockRule_annot {envR envT : Env} {p : BlockShape} {recNames : List Name}
+    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
+    {cvR : ConstantVal} {cA : ConstantVal × Nat} {ks : List BlockFieldKind}
+    {rhs out : Expr} {F : Nat}
+    (h : checkBlockRule (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
+      recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
+    annotateCore μ envR F 0 rhs = .ok out ∧ rhs.hasFvar = false := by
+  unfold checkBlockRule at h
+  obtain ⟨recTy, _, h⟩ := exceptBind_ok h
+  by_cases hbv : Expr.looseBVarsBounded 0 rhs = true
+  case neg => rw [if_neg hbv] at h; close_throw h
+  rw [if_pos hbv] at h
+  by_cases hfv : rhs.hasFvar = true
+  case pos => rw [if_pos hfv] at h; close_throw h
+  rw [if_neg hfv] at h
+  obtain ⟨rhsA, hann, h⟩ := exceptBind_ok h
+  by_cases hlp : Expr.allLevelParamsDefined cvR.levelParams rhsA = true
+  case neg => rw [if_neg hlp] at h; close_throw h
+  rw [if_pos hlp] at h
+  by_cases hres : Expr.constsResolve envR rhsA = true
+  case neg => rw [if_neg hres] at h; close_throw h
+  rw [if_pos hres] at h
+  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x1
+  obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
+  obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x3
+  obtain ⟨x4, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x4
+  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x5
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨x9, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x9
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨b, _, h⟩ := exceptBind_ok h
+  by_cases hd : b = true
+  case neg => rw [if_neg hd] at h; close_throw h
+  rw [if_pos hd] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact ⟨hann, Bool.not_eq_true _ |>.mp hfv⟩
+
+/-- One recursor's rules, at the annotation. -/
+theorem checkBlockRules_annot {envR envT : Env} {p : BlockShape} {recNames : List Name}
+    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
+    {cvR : ConstantVal} {F : Nat} :
+    ∀ {cs : List ((ConstantVal × Nat) × List BlockFieldKind)} {rhss out : List Expr},
+      checkBlockRules (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
+        recTys mIs rPs recTgts ri cvR cs rhss = .ok out →
+      ∀ rhsA ∈ out, ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧ rhs.hasFvar = false
+  | [], [], out, h => by
+    simp only [checkBlockRules, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro rhsA hrhsA
+    simp at hrhsA
+  | (cA, ks) :: cs, rhs0 :: rhss, out, h => by
+    unfold checkBlockRules at h
+    obtain ⟨r, hr, h⟩ := exceptBind_ok h
+    obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro rhsA hrhsA
+    rcases List.mem_cons.mp hrhsA with rfl | hmem
+    · exact ⟨rhs0, checkBlockRule_annot hr⟩
+    · exact checkBlockRules_annot hrest rhsA hmem
+  | [], _ :: _, out, h => by
+    simp only [checkBlockRules] at h
+    close_throw h
+  | _ :: _, [], out, h => by
+    simp only [checkBlockRules] at h
+    close_throw h
+
+/-- Stage (c) at every recursor, at the annotation. -/
+theorem checkBlockRecsRules_annot {envR envT : Env} {p : BlockParts} {recNames : List Name}
+    {rlvls : List Level} {cvRas : List (ConstantVal × Nat)}
+    {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
+    ∀ {recs : List RecShape} {ri : Nat}
+      {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))},
+      checkBlockRecsRules (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
+        cvRas ctorsAs recs ri = .ok rs →
+      ∀ r ∈ rs, ∀ rhsA ∈ r.2.1,
+        ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧ rhs.hasFvar = false
+  | [], _, rs, h => by
+    simp only [checkBlockRecsRules, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro r hr
+    simp at hr
+  | rc :: rest, ri, rs, h => by
+    unfold checkBlockRecsRules at h
+    obtain ⟨ms, _, h⟩ := exceptBind_ok h
+    obtain ⟨ctorsA, _, h⟩ := exceptBind_ok h
+    obtain ⟨kss, _, h⟩ := exceptBind_ok h
+    obtain ⟨cvRn, _, h⟩ := exceptBind_ok h
+    obtain ⟨cvRa, nIdx⟩ := cvRn
+    try simp only at h
+    by_cases hlen : (ctorsA.length == ms.ctors.length) = true
+    case neg => rw [if_neg hlen] at h; close_throw h
+    rw [if_pos hlen] at h
+    obtain ⟨rhss, hrules, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | hmem
+    · exact fun rhsA hrhsA => checkBlockRules_annot hrules rhsA hrhsA
+    · exact checkBlockRecsRules_annot hrest r hmem
+
+/-- **`blockRecStaged_of`'s `hnoRhs`**: a stored rule's right-hand side
+mentions no EMPTY projection slot of the constructors' environment.
+It is `annotateCore_noProjAt` at the environment the stage annotates
+in — the BARE-`k` one, whose `findProj?` is `envC`'s, because no
+recursor's name is projection-shaped. -/
+theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∀ (T : Name) (i : Nat),
+      envC.findProj? T i = none → Expr.NoProjAt T i rhsA := by
+  have hq := h
+  unfold ConLeche.checkBlockRecK at hq
+  obtain ⟨-, -, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨cvRus, htys, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨-, -, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨hlenT, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
+  -- no rule-less recursor's name is projection-shaped, so the bare
+  -- environment's slots are the constructors' environment's
+  have hpsh : ∀ x ∈ cvRus.map (fun q => (q.1, q.2.1)),
+      x.1.name.isProjFnShape = false := by
+    intro x hx
+    obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hy
+    have hil : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hi).1
+      omega
+    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv⟩ := hallT i hil
+    obtain rfl := Option.some.inj (hi.symm.trans hcu)
+    obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv hcv
+    rw [(ConLeche.checkConstantVal_lps hcv).1]
+    exact hps
+  intro r hr rhsA hrhsA T i hslot
+  obtain ⟨rhs, hann, hfv⟩ := checkBlockRecsRules_annot hq r hr rhsA hrhsA
+  refine ConLeche.annotateCore_noProjAt μ hann hfv ?_
+  rw [findProj?_consBlockRecsBare hpsh]
+  exact hslot
+
+end Annot
+
 end ConLeche.Model
