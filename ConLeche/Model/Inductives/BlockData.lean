@@ -101,6 +101,21 @@ theorem getD_blockTgtsOf (ks : List BlockFieldKind) (i : Nat) :
   simp only [ConLeche.blockTgtsOf, List.getD_eq_getElem?_getD, List.getElem?_map]
   cases ks[i]? <;> rfl
 
+/-- **The per-constructor TARGET lists**, read off the KERNEL kinds
+(`rssOfK`'s twin, and the reader `tlssOfR`/`eissOfR` have no analogue
+for: `CtorDatumR` carries no target, and the Model tier's
+`RecFieldKind` deliberately forgets it, so a block's targets can only
+come from the `BlockFieldKind` list the classification produced). -/
+@[expose] def tgtssOfK (kssF : Nat → List BlockFieldKind) (n : Nat) : List (List Nat) :=
+  (List.range n).map fun j => ConLeche.blockTgtsOf (kssF j)
+
+theorem tgtssOfK_length (kssF : Nat → List BlockFieldKind) (n : Nat) :
+    (tgtssOfK kssF n).length = n := by simp [tgtssOfK]
+
+theorem tgtssOfK_getD {kssF : Nat → List BlockFieldKind} {n j : Nat} (hj : j < n) :
+    (tgtssOfK kssF n).getD j [] = ConLeche.blockTgtsOf (kssF j) := by
+  simp [tgtssOfK, List.getD_eq_getElem?_getD, List.getElem?_range hj]
+
 /-- The target of field `i`, as a member name and an index count. -/
 @[expose] def tofOf (names : List Name) (ks : List BlockFieldKind) (i : Nat) : Name :=
   ConLeche.nameAt names ((ConLeche.blockTgtsOf ks).getD i 0)
@@ -108,6 +123,21 @@ theorem getD_blockTgtsOf (ks : List BlockFieldKind) (i : Nat) :
 /-- The target member's index count at field `i`. -/
 @[expose] def nIdxOfOf (nIdxs : List Nat) (ks : List BlockFieldKind) (i : Nat) : Nat :=
   ConLeche.nIdxAt nIdxs ((ConLeche.blockTgtsOf ks).getD i 0)
+
+/-- The two readings agree positionally: constructor `j`'s field `i`
+targets the member `tgtssOfK` records, and `tofOf`/`nIdxOfOf` are that
+member's name and index count. -/
+theorem tofOf_tgtssOfK {names : List Name} {kssF : Nat → List BlockFieldKind} {n j : Nat}
+    (hj : j < n) (i : Nat) :
+    tofOf names (kssF j) i
+      = ConLeche.nameAt names (((tgtssOfK kssF n).getD j []).getD i 0) := by
+  rw [tgtssOfK_getD hj]; rfl
+
+theorem nIdxOfOf_tgtssOfK {nIdxs : List Nat} {kssF : Nat → List BlockFieldKind} {n j : Nat}
+    (hj : j < n) (i : Nat) :
+    nIdxOfOf nIdxs (kssF j) i
+      = ConLeche.nIdxAt nIdxs (((tgtssOfK kssF n).getD j []).getD i 0) := by
+  rw [tgtssOfK_getD hj]; rfl
 
 theorem blockOpened_of {env₀ : Env} {names : List Name} {nIdxs : List Nat} {lps : List Name}
     {nP : Nat} {cty : Expr} {nF : Nat} {ks : List BlockFieldKind}
