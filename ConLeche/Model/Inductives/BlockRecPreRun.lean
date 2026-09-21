@@ -570,13 +570,12 @@ the record wants them at the members' real ones.  Both bridges are
 congruences at the chains — `blockChainsOk_congr_ord` for the operator
 and §7's `blockTyAV_congr_ord` for the leaf — and this is the call.
 
-Three hypotheses are NOT record-derivable and are premises: the
-operator's and the injections' identification (`rfl` at
-`blockDataOf`), and the two parameter-frame facts that
-`blockModelAt_of_stages` states at an UNBOUNDED component index
-(`hlenPps`, `hparams`, `hparamsC`) where every record states them
-below `d.k`.  **That is a finding for the datum lane**: those three
-clauses should be bounded by `d.N`, and then the records suffice. -/
+**Session 2**: the three clauses `blockModelAt_of_stages` used to
+state at an UNBOUNDED component index (`hlenPps`, `hparams`,
+`hparamsC`) are now bounded by `d.N` — at `c ≥ d.N` they were not
+facts about the block at all — so the records suffice and only the
+operator's and the injections' identification stay premises (both
+`rfl` at `blockDataOf`), beside `d.nInst = 0` and `0 < d.k`. -/
 
 /-- **The block's representation, from the stages' three records.** -/
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
@@ -591,15 +590,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
           (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
-    (hlenPps : ∀ (ψ : Name → Nat) (c : Nat), (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
-    (hparams : ∀ (ψ : Name → Nat) (c : Nat) (ρ : Nat → V),
-      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρ)
-    (hparamsC : ∀ (ψ : Name → Nat) (c j : Nat) (ρ : Nat → V),
-      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ)
-    (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
-      l < ((d.Fss c ψ).getD j []).length →
-      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N) :
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) :
     BlockModelAt mo d.memberNames d := by
   have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
 
@@ -623,6 +614,44 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     intro ψ c j cA hj
     rw [hFssD ψ c j cA hj, List.length_map, List.length_drop, hdsLenA ψ c j cA hj]
     omega
+  -- the parameter frame, at every component and every constructor
+  have hlenPps : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
+      (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length :=
+    fun ψ c hc => hS.lenPps c ψ (by rw [← hNk]; exact hc)
+  have hparams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N → ∀ ρ : Nat → V,
+      Sat V (d.params ψ).reverse ρ ↔
+        Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρ := by
+    intro ψ c hc ρ
+    have hck : c < d.k := by rw [← hNk]; exact hc
+    exact ⟨fun h => hS.paramsOf 0 hk0 ψ ρ h c hck, fun h => hS.paramsOf c hck ψ ρ h 0 hk0⟩
+  have hparamsC : ∀ (ψ : Name → Nat) (c j : Nat), c < d.N → j < (d.ctorsM c).length →
+      ∀ ρ : Nat → V,
+      Sat V (d.params ψ).reverse ρ ↔
+        Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ := by
+    intro ψ c j hc hj ρ
+    exact (hparams ψ c hc ρ).trans
+      ((hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hj)).1 ψ ρ)
+  -- the per-field targets, off the data and the names
+  have hks : ∀ (ψ : Name → Nat) (c j : Nat), j < (d.ctorsM c).length →
+      (d.ksF c j).length = ((d.Fss c ψ).getD j []).length := by
+    intro ψ c j hj
+    rw [hnF ψ c j _ (hcAof c j hj)]
+    exact (hcore.2.2.1 c j _ (hcAof c j hj)).2.2.ksLen
+  have htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
+      l < ((d.Fss c ψ).getD j []).length →
+      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N := by
+    intro ψ c j l hj hl
+    have hlk : l < (d.ksF c j).length := by rw [hks ψ c j hj]; exact hl
+    refine ⟨?_, ?_⟩
+    · have hinner : (d.tgtss c).getD j [] = (List.range (d.ksF c j).length).map (d.tgts c j) := by
+        show (((List.range (d.ctorsM c).length).map fun j' =>
+          (List.range (d.ksF c j').length).map (d.tgts c j')).getD j []) = _
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hj]
+        rfl
+      rw [hinner, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hlk]
+      rfl
+    · rw [hNk, ← hN.2.2.2]
+      exact hN.2.1 c j l
   -- the two chain lists agree: lengths, and the ordinary positions
   have hlenZF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → (fssZ ψ m).length = (d.Fss m ψ).length :=
     fun ψ m hm => by rw [hS.lenZ m hm ψ, hlenC ψ m]
@@ -647,13 +676,13 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       rw [recAt_iff_rsOf hlk, ← hrs, hr]
       exact Bool.false_ne_true
     exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
-  refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC hlenPps htgts ?_ hparams ?_
-    (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_
+  refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC (by rw [hNk]; exact hk0) hlenPps
+    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_
   -- the operator's premise bundle, at the REAL chains
   · intro ψ ρp hsat
     rw [hNk]
     exact blockChainsOk_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ)
-      (hS.chainsOk 0 hk0 ψ ρp ((hparams ψ 0 ρp).mp hsat))
+      (hS.chainsOk 0 hk0 ψ ρp ((hparams ψ 0 (by rw [hNk]; exact hk0) ρp).mp hsat))
   -- the members' leaves, at the REAL chains
   · intro mm hmm ψ
     obtain ⟨hnameOf, -, -, hlenCv⟩ := hN
@@ -678,7 +707,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       rfl
     rw [hFsEq]
     have hfr := hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hjc)
-    exact (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c ρ).mp hsat))).1
+    exact (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c hc ρ).mp hsat))).1
 
 /-! ## 9. The WF kit's MOTIVE
 
