@@ -263,15 +263,15 @@ theorem blockRawRec_one {p : BlockParts} {ms : MemberShape} (hm : p.members = [m
 
 theorem checkBlockInds_one (ops : CheckerOps m) (env : Env) {p : BlockParts}
     {ms : MemberShape} (hm : p.members = [ms]) (isRec : Bool) {β : Type}
-    (k : Env × ConstantVal × InductiveShape → m β) :
-    checkSumInd ops env p.toNative.toInductiveShape (fun p₁ => nativeCapsAt p₁ isRec) >>= k
-      = checkBlockInds ops env p isRec >>=
-          fun r => k (r.1, r.2.1.headD default, r.2.2.toInductive) := by
+    (k : Env × List ConstantVal × BlockShape → m β) :
+    checkBlockInds ops env p isRec >>= k
+      = checkSumInd ops env p.toNative.toInductiveShape (fun p₁ => nativeCapsAt p₁ isRec) >>=
+          fun r => k (r.1, [r.2.1], p.toBlockShape.withSort r.2.2.resSort) := by
+  symm
   rw [checkSumInd_tele ops env _ _ ms (by simp [BlockParts.toNative, BlockShape.toInductive, hm])
     (by simp [BlockParts.toNative, BlockShape.toInductive, hm])]
   simp only [checkBlockInds, hm, checkBlockTeles, checkBlockAgree, consBlockInds,
-    bind_assoc, pure_bind, List.map_nil, List.headD_cons,
-    BlockShape.toInductive_withSort]
+    bind_assoc, pure_bind, List.map_nil]
   refine bind_congr fun r => ?_
   rw [blockCapsAt_one (q := p.toBlockShape.withSort r.2) (by simpa using hm) isRec]
   rfl
@@ -279,11 +279,10 @@ theorem checkBlockInds_one (ops : CheckerOps m) (env : Env) {p : BlockParts}
 omit [ThrowBindM m] in
 theorem checkBlockCtors_one (ops : CheckerOps m) (env₀ env : Env) {q : BlockShape}
     {ms : MemberShape} (hm : q.members = [ms]) (cvTa : ConstantVal) {β : Type}
-    (k : List (ConstantVal × Nat) × List (List Level) → m β) :
-    checkSumCtors ops env₀ env ms.cvT.name q.toInductive.cvT.levelParams q.nP ms.nIdx
-        q.resSort q.isProp q.large cvTa ms.ctors >>= k
-      = checkBlockCtors ops env₀ env q [(ms, cvTa)] >>=
-          fun r => k (r.1.headD [], r.2.headD []) := by
+    (k : List (List (ConstantVal × Nat)) × List (List (List Level)) → m β) :
+    checkBlockCtors ops env₀ env q [(ms, cvTa)] >>= k
+      = checkSumCtors ops env₀ env ms.cvT.name q.toInductive.cvT.levelParams q.nP ms.nIdx
+          q.resSort q.isProp q.large cvTa ms.ctors >>= fun r => k ([r.1], [r.2]) := by
   simp only [checkBlockCtors, bind_assoc, pure_bind, List.headD_cons,
     BlockShape.toInductive, hm, List.headD_cons, BlockShape.lps, List.head?_cons,
     Option.map_some, Option.getD_some]
