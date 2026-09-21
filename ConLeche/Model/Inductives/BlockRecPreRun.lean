@@ -2324,4 +2324,234 @@ theorem blockRecCtorFitsFrom {envC : Env} {mpC : EnvModelM V μ envC} {d : Block
 
 end SpineOfChain
 
+/-! ## 25. `hslot` — the slot IS the domain's reading (session 8)
+
+The one piece §24 left open: at a RECURSIVE position the block's slot
+(`slotSet` at the target component of the least tuple) and the
+constructor's own field domain (the target member's FORMER applied to
+the parameters and the field's index readings) are the same set.
+
+It is `blockChainReal_of`'s `hrec` obligation
+(`BlockRealChains.lean`) with `blockLeafApp` replaced by
+`BlockModelAt.leaf` — the same two cases:
+
+* a FINITARY recursive field has an empty telescope
+  (`BlockCtorDataI.tssNone`), so `slotSet_nil` reduces the slot to
+  `app (X tgt) ⟨e⃗⟩` and `recEntry` reduces the domain to the fold of
+  the member's former, which `leaf` identifies;
+* a REFLEXIVE field's domain is `mkPisAV` over its telescope
+  (`reflEntry`), whose reading is the `piTele` the slot already is
+  (`interp_mkPisAV_piTele`), with the same identification one
+  telescope spine deeper.
+
+`hEis` — the field's index readings fit the TARGET's index telescope —
+is the premise this cannot own: it is `ChainFactsB.gr`'s `SlotFit` on
+the stage side, and `leaf`'s second hypothesis here.  It is stated at
+the frames the walk reaches, as §24's `hslot` is. -/
+
+section SlotEntry
+
+/-- **The slot-to-domain identity at a recursive position.** -/
+theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
+    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
+    (hcf : BlockCtorFacts mo d lps c j cA)
+    {ψ : Name → Nat} {ρ : Nat → V} {as bs : List V} {l : Nat}
+    (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
+    (hl : l < cA.2) (hbs : bs.length = l) (htgt : d.tgts c j l < d.k)
+    (hEis : ∀ ts : List V,
+      SpineFit (consList bs (consList as ρ))
+          ((((d.tlss c ψ).getD j []).getD l []).map (·.2.2)) ts →
+      SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
+        ((((d.Eiss c ψ).getD j []).getD l []).map
+          (interp V (consList ts (consList bs (consList as ρ))))))
+    (hrec : ((d.rss c).getD j []).getD l false = true) :
+    d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
+        (consList bs (consList as ρ))
+      = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
+  classical
+  obtain ⟨-, -, hD⟩ := hcf
+  obtain ⟨hj, -⟩ := List.getElem?_eq_some_iff.mp hcj
+  have hlenD : (d.dsF c j ψ).length = d.nP + cA.2 := hD.len ψ
+  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  have hTlD : (d.tlss c ψ).getD j [] = d.tssF c j ψ := tlssOfR_fixCtorDataList_getD hcj
+  have hEiD : (d.Eiss c ψ).getD j [] = d.eissF c j ψ := eissOfR_fixCtorDataList_getD hcj
+  have hksLen : (d.ksF c j).length = cA.2 := hD.ksLen
+  have hkind : (d.ksF c j).getD l .ordinary = .recursive
+      ∨ (d.ksF c j).getD l .ordinary = .reflexive := by
+    have hrs : (d.rss c).getD j [] = rsOf (d.ksF c j) := rssOfK_getD hj
+    rw [hrs] at hrec
+    exact (rsOf_getD_iff (by rw [hksLen]; exact hl)).mp hrec
+  -- the frame, as one list
+  have hfrm : consList bs (consList as ρ) = consList (as ++ bs) ρ := (consList_append as bs ρ).symm
+  have hlenAB : (as ++ bs).length = d.nP + l := by rw [List.length_append, hasLen, hbs]
+  have htakeAB : (as ++ bs).take d.nP = as := by
+    rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+  -- the leaf, at a fitting index spine
+  have hleaf : ∀ is : List V, SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ) is →
+      ∀ σ : Nat → V,
+      (as ++ is).foldl app (interp V σ (mo.acval (d.memberName (d.tgts c j l)) ψ))
+        = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+            (d.tgts c j l)) (tupW (d.uM (d.tgts c j l) ψ) is) := by
+    intro is his σ
+    rw [acval_interp_closedC mo (d.memberName (d.tgts c j l)) ψ σ ρ]
+    exact hM.leaf (d.tgts c j l) htgt ψ ρ as is hps his
+  rw [hFssD, drop_map_getD hlenD hl, BlockData.slotAt]
+  rcases hkind with hk | hk
+  · -- a FINITARY recursive field: an empty telescope
+    have hnone : ((d.tlss c ψ).getD j []).getD l [] = [] := by
+      rw [hTlD]
+      exact hD.tssNone ψ l (by rw [hk]; intro hcon; cases hcon)
+    have hentry : ((d.dsF c j ψ).getD (d.nP + l) default).2.2
+        = AnnotTerm.mkAppN (mo.acval (d.memberName (d.tgts c j l)) ψ)
+            (paramBvarsAt d.nP (d.nP + l) ++ ((d.Eiss c ψ).getD j []).getD l []) := by
+      rw [hEiD]
+      exact hD.recEntry ψ l hk hl
+    have hfit0 := hEis [] (by rw [hnone]; trivial)
+    simp only [consList_nil] at hfit0
+    rw [hentry, hnone, slotSet_nil, interp_mkAppN, foldl_app_map, List.map_append, hfrm,
+      map_bvarAt_take (hD := hlenAB.symm) (by omega), htakeAB]
+    exact (hleaf _ (by rw [hfrm] at hfit0; exact hfit0) _).symm
+  · -- a REFLEXIVE field: the nested product of the target's family
+    have hentry : ((d.dsF c j ψ).getD (d.nP + l) default).2.2
+        = mkPisAV (((d.tlss c ψ).getD j []).getD l [])
+            (AnnotTerm.mkAppN (mo.acval (d.memberName (d.tgts c j l)) ψ)
+              (paramBvarsAt d.nP (d.nP + l + ((((d.tlss c ψ).getD j []).getD l [])).length)
+                ++ ((d.Eiss c ψ).getD j []).getD l [])) := by
+      rw [hEiD, hTlD]
+      exact hD.reflEntry ψ l hk hl
+    have hbits : ∀ dd ∈ ((d.tlss c ψ).getD j []).getD l [], (dd.2.1 = 0 ↔ d.w ψ = 0) := by
+      rw [hTlD]
+      exact fun dd hdd => hD.tssBits ψ l dd hdd
+    rw [hentry]
+    unfold slotSet
+    refine (interp_mkPisAV_piTele (v := d.w ψ) (acc := []) hbits ?_).symm
+    intro ts hsp
+    have htsLen : ts.length = ((((d.tlss c ψ).getD j []).getD l [])).length := by
+      rw [hsp.length_eq, List.length_map]
+    have hfrm2 : consList ts (consList bs (consList as ρ)) = consList (as ++ bs ++ ts) ρ := by
+      rw [consList_append, consList_append]
+    have hlenABT : (as ++ bs ++ ts).length
+        = d.nP + l + ((((d.tlss c ψ).getD j []).getD l [])).length := by
+      rw [List.length_append, hlenAB, htsLen]
+    have htakeABT : (as ++ bs ++ ts).take d.nP = as := by
+      rw [List.take_append_of_le_length (by rw [hlenAB]; omega), htakeAB]
+    have hfit := hEis ts hsp
+    rw [List.nil_append, interp_mkAppN, foldl_app_map, List.map_append, hfrm2,
+      map_bvarAt_take (hD := hlenABT.symm) (by rw [hlenABT]; omega), htakeABT]
+    exact hleaf _ (by rw [hfrm2] at hfit; exact hfit) _
+
+/-- **§24's `hslot`, as a function of the run**: the agreement at
+every recursive position, at every frame the walk reaches.  The only
+thing the frame contributes is the prefix's LENGTH — the fitting
+content is `hEis`, the field's index readings landing in the target
+member's index telescope. -/
+theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
+    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
+    (hcf : BlockCtorFacts mo d lps c j cA)
+    {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
+    (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
+    (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k)
+    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
+      SpineFit (consList bs (consList as ρ))
+          ((((d.tlss c ψ).getD j []).getD l []).map (·.2.2)) ts →
+      SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
+        ((((d.Eiss c ψ).getD j []).getD l []).map
+          (interp V (consList ts (consList bs (consList as ρ)))))) :
+    ∀ l, l < ((d.Fss c ψ).getD j []).length → ∀ bs : List V, bs.length = l →
+      ((d.rss c).getD j []).getD l false = true →
+      d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
+          (consList bs (consList as ρ))
+        = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
+  have hnF : ((d.Fss c ψ).getD j []).length = cA.2 := by
+    obtain ⟨-, -, hD⟩ := hcf
+    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+      fssOfR_fixCtorDataList_getD hcj
+    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
+    omega
+  intro l hl bs hbs hrec
+  rw [hnF] at hl
+  exact blockSlot_eq_entry hM hcj hcf hasLen hps hl hbs (htgt l hl) (hEis l hl bs hbs) hrec
+
+/-- **`hspF` at the run, with `hslot` discharged** — §24's assembly
+over §25's identity. -/
+theorem blockRecSpF_of {envC : Env} {mpC : EnvModelM V μ envC} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mpC.base2 names d) {lps : List Name}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat}
+    {a ρ : Nat → V} {xs fs : List V} {t : V} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
+    (hasLen : (xs.take d.nP).length = d.nP)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
+    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
+      SpineFit (consList bs (consList (xs.take d.nP) ρ))
+          ((((d.tlss (mem c) ψ).getD j []).getD l []).map (·.2.2)) ts →
+      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (d.tgts (mem c) j l) ψ)
+        ((((d.Eiss (mem c) ψ).getD j []).getD l []).map
+          (interp V (consList ts (consList bs (consList (xs.take d.nP) ρ))))))
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c)
+    (hpref : SpineFit (chainFrame K a ρ)
+      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
+    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+        (d.Φ ψ (consList (xs.take d.nP) ρ))) t (mem c) j fs) :
+    SpineFit (chainFrame K a ρ)
+      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs) :=
+  blockRecSpF hμ h hr hfd
+    (fun l hl bs hb hrb => blockSlot_agree hM hcj hcf hasLen hps htgt hEis l hl bs
+      (by have := hb.length_eq; rw [List.length_take] at this; omega) hrb)
+    hxs hpref hfit
+
+/-- **`hctorAt`'s fit half at the run, with `hslot` discharged.** -/
+theorem blockRecCtorFitsFrom_of {envC : Env} {mpC : EnvModelM V μ envC} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mpC.base2 names d) {lps : List Name}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat}
+    {a ρ : Nat → V} {xs fs : List V} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
+    (hasLen : (xs.take d.nP).length = d.nP)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
+    (hEis : ∀ l, l < cA.2 → ∀ bs : List V, bs.length = l → ∀ ts : List V,
+      SpineFit (consList bs (consList (xs.take d.nP) ρ))
+          ((((d.tlss (mem c) ψ).getD j []).getD l []).map (·.2.2)) ts →
+      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (d.tgts (mem c) j l) ψ)
+        ((((d.Eiss (mem c) ψ).getD j []).getD l []).map
+          (interp V (consList ts (consList bs (consList (xs.take d.nP) ρ))))))
+    (hxs : xs.length
+      = (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length)
+    (hsp : SpineFit (chainFrame K a ρ)
+      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs)) :
+    FitsFrom ((d.rss (mem c)).getD j []) (d.slotAt ψ
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) (mem c) j) 0
+      (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs :=
+  blockRecCtorFitsFrom hμ h hr hfd
+    (fun l hl bs hb hrb => blockSlot_agree hM hcj hcf hasLen hps htgt hEis l hl bs
+      (by have := hb.length_eq; rw [List.length_take] at this; omega) hrb)
+    hxs hsp
+
+end SlotEntry
+
 end ConLeche.Model
