@@ -227,14 +227,28 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- **A checked constant's type reads, and the reading is graded.** -/
+/-- **A checked constant's type reads, the reading is graded, AND it
+lands in the universe the check's own `ensureSort` named.**
+
+The sort component is one step further into the pair the grading
+already runs: `checkConstantVal` infers the annotated type and
+`ensureSort`s the result, and `ensureSortCore_inv` turns that into the
+`whnf`-to-a-sort `SortSemAt` asks for — so the same claims
+(`WhnfClaim` + `InferClaim` + `InferReads`) that grade the reading
+also place it in `univ (u.eval ψ)`.
+
+**This is the `hlvl` route**: the level a recursor's type lives at is
+the check's INFERRED one, and it already accounts for the binders'
+levels, so nothing has to pin the reading's binder numerals. -/
 theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {F : Nat} {cv cvA : ConstantVal}
     (h : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cv = .ok cvA)
     (ψ : Name → Nat) :
-    ∃ ta : AnnotTerm, denoteMeta mp.base2.acval env ψ 0 cvA.type = some ta ∧
-      ∀ ρ : Nat → V, WellDenotedV V ρ ta := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type, stype, u, hann, -, -, hrun, -, rfl⟩ :=
+    ∃ (ta : AnnotTerm) (u : Level),
+      denoteMeta mp.base2.acval env ψ 0 cvA.type = some ta ∧
+      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+      ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
+  obtain ⟨-, -, -, -, hlbt, hitf, type, stype, u, hann, -, -, hrun, hsort, rfl⟩ :=
     ConLeche.checkConstantVal_inv h
   obtain ⟨htf', hbt'⟩ := ConLeche.Semantics.annotate_syntax hann hitf hlbt
   have hwt : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar htf'
@@ -243,11 +257,12 @@ theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
     rw [hnlt] at hl
     exact absurd hl (List.not_mem_nil)
   obtain ⟨ta, hta⟩ := acceptedReads_of mp.base2 ψ hrun hwt hbt' hLt
-  refine ⟨ta, hta, fun ρ => ?_⟩
-  obtain ⟨-, -, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
-  obtain ⟨sta, hsta⟩ :=
-    inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ) hrun hwt hbt' hLt (CtxOk.nil hnlt) hta
-  exact (ihi hrun hwt hbt' hLt (CtxOk.nil hnlt) hta hsta).1 ρ (ConLeche.Semantics.Sat_nil V ρ)
+  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
+  have hsem := sortSemAt_of_claims ihw ihi
+    (inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ))
+    (CtxOk.nil hnlt) hwt hbt' hLt hrun (ConLeche.ensureSortCore_inv hsort) hta
+  exact ⟨ta, u, hta, fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).1,
+    fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).2⟩
 
 /-- **`hrd`'s first two components, at the whole recursor stage.**
 Every stored recursor's type reads at the constructors' environment
@@ -260,9 +275,10 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
-    ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
+    ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ (ta : AnnotTerm) (u : Level),
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
-      ∀ ρ : Nat → V, WellDenotedV V ρ ta := by
+      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
+      ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
   unfold ConLeche.checkBlockRecK at h
   obtain ⟨u, hpins, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
@@ -307,7 +323,7 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) := by
   intro r hr ψ
-  obtain ⟨ta, hta, hok⟩ := checkBlockRecK_tyReads hμ mpC h r hr ψ
+  obtain ⟨ta, -, hta, hok, -⟩ := checkBlockRecK_tyReads hμ mpC h r hr ψ
   exact ⟨ta, hta, hok, hmem r hr ψ ta hta⟩
 
 end ConLeche.Model

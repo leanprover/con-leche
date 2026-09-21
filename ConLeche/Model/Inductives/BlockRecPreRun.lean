@@ -1925,4 +1925,67 @@ theorem blockRecPdomsK_length {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end RunComponents
 
+/-! ## 21. The family's LEVEL, and `hTy` without pinning any bit
+(session 5)
+
+The `hlvl` ruling: **do not pin the reading's binder numerals**.  The
+level a recursor's type lives at is the one the CHECK inferred — its
+`ensureSort` names it, and that level already accounts for the
+binders' levels, so the Π-tower's membership needs no per-binder
+hypothesis at all.  `checkConstantVal_reads` (`BlockRecRead.lean`,
+strengthened here) returns it: the same claims that grade the reading
+place it in `univ (u.eval ψ)`, one component further into the
+`InferClaim`/`WhnfClaim` pair (`sortSemAt_of_claims`, at
+`ensureSortCore_inv`).
+
+The family's level is then the MAX over the `K` recursors, and each
+type's membership rises to it by cumulativity (`univ_mono`).  That is
+`blockRecTy_univ_run`, and with it `BlockRecPre.hTy` is a theorem off
+the run alone — no `hlvl`, no `hdom`, no `hcon`. -/
+
+section FamilyLevel
+
+/-- A uniform universe for finitely many members, by cumulativity. -/
+theorem exists_uniform_univ {n : Nat} {g : Nat → (Nat → V) → V}
+    (h : ∀ c, c < n → ∃ s : Nat, ∀ ρ : Nat → V, g c ρ ∈ˢ (univ s : V)) :
+    ∃ s : Nat, ∀ c, c < n → ∀ ρ : Nat → V, g c ρ ∈ˢ (univ s : V) := by
+  induction n with
+  | zero => exact ⟨0, fun c hc => absurd hc (Nat.not_lt_zero c)⟩
+  | succ n ih =>
+    obtain ⟨s₀, hs₀⟩ := ih fun c hc => h c (Nat.lt_succ_of_lt hc)
+    obtain ⟨s₁, hs₁⟩ := h n (Nat.lt_succ_self n)
+    refine ⟨Nat.max s₀ s₁, fun c hc ρ => ?_⟩
+    rcases Nat.lt_succ_iff_lt_or_eq.mp hc with hc' | rfl
+    · exact univ_mono (Nat.le_max_left _ _) _ (hs₀ c hc' ρ)
+    · exact univ_mono (Nat.le_max_right _ _) _ (hs₁ ρ)
+
+/-- **`hTy` at the run, with the level the CHECK chose.**  The family's
+level is the max of the `K` inferred sorts at `ψ`; every recursor
+type's reading lands in it by cumulativity, and its grading is the
+same run's. -/
+theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) :
+    ∃ s : Nat, ∀ c, c < rs.length → ∀ ρ : Nat → V,
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+        WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) := by
+  have hmem : ∀ c, c < rs.length → ∃ s : Nat, ∀ ρ : Nat → V,
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) := by
+    intro c hc
+    obtain ⟨ta, u, hta, -, hu⟩ :=
+      checkBlockRecK_tyReads hμ mpC h rs[c] (List.getElem_mem hc) ψ
+    refine ⟨u.eval ψ, fun ρ => ?_⟩
+    rw [blockRecTyAV_eq (List.getElem?_eq_getElem hc) hta]
+    exact hu ρ
+  obtain ⟨s, hs⟩ := exists_uniform_univ hmem
+  refine ⟨s, fun c hc ρ => ⟨hs c hc ρ, ?_⟩⟩
+  obtain ⟨-, -, -, -, -, -, -, -, -, hwd⟩ :=
+    checkBlockRecK_tyPis hμ mpC h (List.getElem?_eq_getElem hc) ψ
+  exact (hwd ρ).1
+
+end FamilyLevel
+
 end ConLeche.Model
