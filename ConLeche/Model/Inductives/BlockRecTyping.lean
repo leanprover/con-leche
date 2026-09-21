@@ -77,9 +77,14 @@ collected in `BlockRuleCerts` below; extending
 `checkBlockRule_facts` with them is the one item this lane leaves for
 the Verify tier.
 
-The `.full`/`.io` note of `BlockRecRegimes.lean` (G3) applies verbatim:
-the run is `inferTypeCore` at the checker's certified grade, which is
-where `InferClaim` lives.
+**The grade, checked and not assumed** (the brief's question): the
+stage runs `opsT.inferType`, which at `μ = .verified` is
+`inferTypeCore .verified`, and `Rules.inferTypeCore_bridge`
+(`Verify/Rules/Bridge.lean`) sends that to `Infer env .full` — never
+`.io`, which only `inferTypeCoreIO` reaches. So the residue's typing
+IS at the grade G3's argument inversion
+(`infer_mkAppN_inv_full`, `BlockRecRegimes.lean`) needs, and the two
+halves of G1/G3 compose without a grade side condition.
 -/
 
 namespace ConLeche.Model
@@ -306,5 +311,121 @@ theorem ctxOk_blockFrame {env : Env} {m : EnvModel V env} {φ : Name → Nat}
   · intro i hi
     rw [List.getD, List.getElem?_eq_getElem (by omega)]
     rfl
+
+/-- A term whose free variables are among the openers has bounded leaf
+annotations as soon as the OPENERS do — `Expr.LeavesBounded`, which
+`InferClaim` asks of every subject, read off the frame once. -/
+theorem leavesBounded_of_openers {fvs : List Expr} {e : Expr}
+    (hlbF : ∀ x ∈ fvs, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
+    Expr.LeavesBounded e := fun l hl => hlbF _ (hleaf l hl)
+
+/-! ## 5. G1, assembled at the rule frame -/
+
+/-- **G1 at the rule frame** — the lane's deliverable.  From
+
+* the stage's two TYPING runs at the constructors' environment
+  (`inferTypeCore` on the opened residue, `isDefEqCore` against the
+  recursor's conclusion at the rule's prefix, the constructor's index
+  expressions and the major) — see the module docstring on why these
+  are premises and not `checkBlockRule_facts` projections;
+* the frame's three openings and the seam `hdoms`/`hokΔ` to O-2/G2;
+* the regimes' own `SpineFit` for the prefix and the fields, and the
+  `ih` openers' fit, which is what a regime pays for (WF:
+  `graph_mem_B`; IND: `pt`),
+
+`ResidueOk` follows in the shape `hres_of_residueOk` and
+`famCand_hCand`'s `hst` consume.
+
+The residue's and the conclusion's `WScoped` are DERIVED from the
+frame (`CtxOk.wScoped`), and their `LeavesBounded` from the openers'
+own annotations (`leavesBounded_of_openers`); what is irreducibly
+per-term is `looseBVarsBounded 0`, which the stage checks on the rule's
+input right-hand side and `annotateCore_looseBVars` carries across the
+annotation. -/
+theorem residueOk_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {F rP nF nR : Nat}
+    {recTy crest ihTele : Expr} {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
+    (hw₃ : Expr.WScoped (rP + nF) ihTele)
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    {pdoms fdoms ihdoms : List AnnotTerm}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + nF + nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
+    {bodyO ty concl : Expr} {Rb Ca : AnnotTerm}
+    (hinf : ConLeche.inferTypeCore μ envT F (rP + nF + nR) bodyO = .ok ty)
+    (hdeq : ConLeche.isDefEqCore μ envT F (rP + nF + nR) ty concl = .ok true)
+    (hbR : bodyO.looseBVarsBounded 0 = true) (hbC : concl.looseBVarsBounded 0 = true)
+    (hleafR : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
+    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
+    (hokC : ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+      WellDenotedV V ρ Ca)
+    {ρ₀ : Nat → V} {xs fs ihvals : List V}
+    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals) :
+    ResidueOk V Rb ihvals (consList (xs ++ fs) ρ₀)
+      (interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca) := by
+  have hlen := sat_blockFrame_length hp hf hidx
+  have hctxR := ctxOk_blockFrame (V := V) h₁ h₂ h₃ hw₁ hw₂ hw₃ hlen hdoms hokΔ hleafR
+  have hctxC := ctxOk_blockFrame (V := V) h₁ h₂ h₃ hw₁ hw₂ hw₃ hlen hdoms hokΔ hleafC
+  exact residueOk_of_certs hμ mp hinf hdeq hctxR.wScoped hbR
+    (leavesBounded_of_openers hlbF hleafR) hctxC.wScoped hbC
+    (leavesBounded_of_openers hlbF hleafC) hctxR hctxC hRb hCa hokC
+    (sat_blockFrame hsp hih)
+
+/-- **Regime IND's `hres`, from the stage's runs** — the consumer
+`hres_of_residueOk` (`Model/Inductives/BlockRecRegimes.lean`) applied
+to `residueOk_blockFrame`.  `hT` is the conclusion's reading being a
+TRUTH VALUE, which at `ℓ = 0` is O-2's fact about the recursor's stored
+conclusion and not this lane's. -/
+theorem hres_of_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {F rP nF nR : Nat}
+    {recTy crest ihTele : Expr} {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
+    (hw₃ : Expr.WScoped (rP + nF) ihTele)
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    {pdoms fdoms ihdoms : List AnnotTerm}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + nF + nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
+    {bodyO ty concl : Expr} {Rb Ca : AnnotTerm}
+    (hinf : ConLeche.inferTypeCore μ envT F (rP + nF + nR) bodyO = .ok ty)
+    (hdeq : ConLeche.isDefEqCore μ envT F (rP + nF + nR) ty concl = .ok true)
+    (hbR : bodyO.looseBVarsBounded 0 = true) (hbC : concl.looseBVarsBounded 0 = true)
+    (hleafR : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
+    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
+    (hokC : ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+      WellDenotedV V ρ Ca)
+    {ρ₀ : Nat → V} {xs fs ihvals : List V}
+    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals)
+    (hT : interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca ∈ˢ (univZero : V)) :
+    ∃ T : V, T ∈ˢ (univZero : V) ∧
+      interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
+  ⟨_, hT, (residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
+    hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih).2⟩
 
 end ConLeche.Model
