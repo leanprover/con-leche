@@ -3084,6 +3084,7 @@ form is constant-headed, so the block's reduces to its substitution and
 cannot throw, and the arm asserts that.  The LOOKUP arms are K.67's,
 character for character. -/
 def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match maps?, kinds? with
@@ -3174,14 +3175,48 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                      | .const _ _ => true
                                      | _ => !ordRootFired env memsJ ownSelf W)
                                     &&
-                                    match ordRootInst m₀.lps ciJ.nP
+                                    (match ordRootInst m₀.lps ciJ.nP
                                         (l + domPiDepth
                                           (ordTargetDomL Jm.lps ownSelf qK domJ.1))
                                         pinG Wn with
                                     | none => true
                                     | some Wb =>
                                       ordHeadRed
-                                        (ordTargetDom Jm.lps ci.nP terms q l domJ.1) == Wb
+                                        (ordTargetDom Jm.lps ci.nP terms q l domJ.1) == Wb)
+                                    &&
+                                    -- **THE COPY'S OWN TOWER IS THE
+                                    -- CONTAINER'S PLUS THE ONE THE
+                                    -- MINT PLANTS** (task #315 K.72).
+                                    -- The block's copy of this field
+                                    -- carries a `Π`-prefix, and it has
+                                    -- TWO sources: the container's own
+                                    -- stored domain (`domPiDepth
+                                    -- domJ.1`, which `ordTargetDom`
+                                    -- strips before it substitutes)
+                                    -- and the components the mint
+                                    -- plants into the stripped BODY
+                                    -- (`domPiDepth` of the
+                                    -- recomputation itself).  Their
+                                    -- SUM is the copy's, and the
+                                    -- addressing is K.32's own —
+                                    -- `stored`, the copy's stored
+                                    -- constructor, its field `l`.
+                                    match stored[p.k + q]? with
+                                    | none => false
+                                    | some a =>
+                                      match a.ctors[j]? with
+                                      | none => false
+                                      | some (cvCa, _, nF) =>
+                                        match cvCa.type.stripPis (p.nP + nF) with
+                                        | none => false
+                                        | some (cbs, _) =>
+                                          match cbs[p.nP + l]? with
+                                          | none => false
+                                          | some domC =>
+                                            (Expr.piBinders domC.1).1.length ==
+                                              domPiDepth domJ.1
+                                                + domPiDepth (ordTargetDom Jm.lps ci.nP
+                                                    terms q l domJ.1)
                               | _, _ => false
                         | _, _ => false
                 | _, _ => true
@@ -3192,7 +3227,7 @@ table K.61, K.62 and K.67 read and the same field kinds
 `nestedPinKinds` computes. -/
 @[inline] def nestedOrdNormOk (env : Env) (p : NestedParts)
     (b : MutualBlock) (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdNormAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+  nestedOrdNormAt env p st stored (nestedInstMaps env st) (nestedPinKinds p b stored)
 
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
@@ -3590,7 +3625,7 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- not the owner's copy substituted — a defect in the ROUTE, not in
   -- the stream, and the answer is never to relax the check.  See
   -- DESIGN "#### K.69".
-  else if !nestedOrdNormAt env p st maps? kinds? then
+  else if !nestedOrdNormAt env p st stored maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's domain is not the owning \
       container's domain instantiated")
   else if !ops.mode.verifiedChecks then pure () else

@@ -1109,7 +1109,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
   by_cases hstgt : nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hstgt)] at h; close_throw
   rw [if_neg (by simpa using hstgt)] at h
-  by_cases hnrm : nestedOrdNormAt env p st (nestedInstMaps env st)
+  by_cases hnrm : nestedOrdNormAt env p st stored (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hnrm)] at h; close_throw
   rw [if_neg (by simpa using hnrm)] at h
