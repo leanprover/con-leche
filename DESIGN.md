@@ -81472,3 +81472,23 @@ answered (unpinned); the k = 1 generate-and-compare arm keeps its pin
 only while it exists.
 D-d confirmed: within a recursor family the conclusions' sorts must be the same level up to `Level.isEquiv` (official shares one `u` across the block's recursors, so it accepts nothing more); one `ℓ` per family, no `max`.
 D-f REJECTED (maintainer): no recorded per-parameter positivity bits at a container's install — "it is Lean's design to determine positivity at concrete parameters, and that is more general than an abstract install-time analysis."  Positivity through a container is always checked at the concrete instantiation (the abstract copy at the pins), never from a stored verdict.
+
+#### M5m SESSION 1 LANDED (2026-09-21, `agent/uinds-RM`, ff d336f95f): the recursor CHECK's term-level model
+
+`Semantics/Tower/BlockRecI.lean` (743): the leaf `blockRecAV s K RecTy eqs c`
+= `projAV c (choice.{s} (Σ' rs : ⟨RecTy_0 … RecTy_{K-1}⟩, IotaAll rs) prf)`
+(`SigChainI.lean` cherry-picked from `mutual-direct` unchanged; `projChainAV
+= projAV`); the substitution lemma at the SPINE level (`instsAV`/
+`interp_instsAV`: `Rb = Rb''[ih_i ↦ ihFun_i]`, the model never descends
+into the rhs); `ihFunAV` the curried λ-tower over the field's telescope,
+`ihFunAV_fold` = the guarded call; `iotaEqAV(_law)`, `BlockRecPre`,
+`blockRecAV_facts`/`_iota` (one tuple, typed, graded, every rule's
+`RecRuleLaw`-shaped equation).  Regimes: WF (`BlockRecWfI.lean`, F5's
+`WfRecKit`, one kit per prefix frame), IND (`BlockRecIndI.lean`, 89
+lines: candidate `pt`, the induction principle + G1 at ℓ = 0); SQ's
+interface `towerCand_hCand` stated, the arm itself session 2.  Named
+obligations for the Model tier: `OneElimLevel` (D-d; the kernel does not
+check it yet) and `ResidueOk` (G1's shape).  Falsifier
+`BlockRecFalsI.lean`: K = 1 WF and K = 2 IND end to end.  Open: O-1 the
+Model tier's `denoteMeta (stored rhs body) = instsAV 0 ihs Rb''`, O-2 the
+chain-frame lifting of the rule data, O-3/O-5 (session 2), O-4 SQ.
