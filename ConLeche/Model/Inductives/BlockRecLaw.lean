@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
+public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Model.Inductives.StructEntryKit
@@ -530,6 +531,43 @@ theorem hrecP_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
   rw [hpl]
   simp only [if_true]
   exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hpl
+
+
+/-! ## 9. The residue conjunct's O-1 half
+
+`BlockRuleDataAt`'s last conjunct is where the RIGHT-HAND SIDE meets
+the residue, and its content is O-1: the stored body read at the
+rule's frame IS the residue read at the frame extended by the `ih`
+openers' values.  `interp_abstractIh`
+(`Model/Inductives/BlockRecRule.lean`) proves that by structural
+induction over the body with one premise, `IhNodeVal`, and lane RM3's
+`ihNodeVal_of_spine` reduces that premise to `IhSpineFold` — a
+statement about the GENERATED guarded call alone.  Stated here at the
+rule's own depth (`d = 0`, no local binders) it is the equation the
+conjunct needs, modulo the β-reduction of the rule's λ-tower and the
+chain-frame lifting, both of which are the rule-data lane's. -/
+
+/-- **O-1 at the rule's frame**, with `IhSpineFold` as the only
+premise: the stored right-hand side's body and the abstracted residue
+read to the same value once the `ih` openers are given their
+values. -/
+theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → AnnotTerm}
+    {φ : Name → Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
+    (hih : ihvals.length = fr.nR)
+    (hspine : IhSpineFold V acval env φ fr F ρ' ihvals)
+    {body resid : Expr} {as1 as2 : List Expr} {A B : AnnotTerm}
+    (hab : ConLeche.abstractIh fr 0 body = some resid)
+    (hf : body.hasFvar = false)
+    (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
+    (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
+    (hB : denoteMeta acval env φ (F + fr.nR) (resid.instantiateList as2 0) = some B) :
+    interp V ρ' A = interp V (consList ihvals ρ') B := by
+  have h := interp_abstractIh (V := V) hacl hih (ihNodeVal_of_spine hacl hih hspine)
+    body resid 0 [] as1 as2 A B hab hf rfl (by simpa using h1) (by simpa using h2)
+    (by simpa using hA) (by simpa using hB)
+  simpa using h
 
 
 end ConLeche.Model
