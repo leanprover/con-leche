@@ -6038,34 +6038,65 @@ local macro_rules
         | exact absurd $h
             (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
 
-/-! ### The COUNTING guard — NOT read off the verdict here
+/-! ### The COUNTING guard, read off the verdict
 
-This lane had `blockLargeElim_counting`, turning
-`blockLargeElimAllowed q nested = true` at a `Prop` result into the
-guard's four conjuncts (`large`, `k = 1`, `¬nested`, `numCtors ≤ 1`).
-**It is deleted, and the reason is worth a paragraph** because the
-shape recurs.
+`blockLargeElimAllowed` is a disjunction whose first arm
+(`resSort.isNeverZero`) is refuted at a block the SQ regime runs on —
+that regime's guard is `d.w ψ = 0`, i.e. the result sort evaluates to
+zero at this `ψ` — so at `w = 0` the verdict IS the counting guard's
+four facts, and all of them at once:
 
-Two of its four facts now have a STRICTLY BETTER licence: the
-elimination-level PIN gives `large = true` from a non-zero elimination
-level syntactically and **without** the `Prop`-valued hypothesis
-(`blockRecLarge_run`), and the small-elimination counting pass gives
-`k = 1` (`blockRecK1_run`) — both in `BlockRecPreHpre.lean`, both off
-checks that say the fact in the LEVEL currency rather than as a `Bool`
-verdict about a term.
+* `large = true`, which is what the constructors' stage keys its
+  SUBSINGLETON clause on (`CtorDataI.srcProp`) and therefore what
+  `blockRuleChainFit_sq`'s `hlarge` asks for;
+* `k = 1`, which is the dispatch's `hK1`;
+* `nested = false`;
+* `numCtors ≤ 1`, which is `hct1` once the member's own count is read
+  off the block's (at `k = 1` the two are the same number).
 
-The other two (`¬nested`, `numCtors ≤ 1`) were not duplicated — and
-they were also **not usable**, because the only antecedent that
-produces them is `blockLargeElimAllowed = true`, and nothing produces
-THAT: the stage's inversion below hands back the guard's disjunction,
-and refuting its second arm is the deferred inversion of `isDefEq`
-through `whnf` to the sort case.  So every usable part was a duplicate
-and every non-duplicated part had no producer, which is the whole of
-the case for deleting rather than keeping.
+They are one theorem because they are one `&&`: stating them
+separately would mean reading the same guard three times, and the
+reason the arm may read it at all is the same in each case.
 
-The disjunction itself stays in the inversion below (it is what the
-check actually decides, and a consumer of the deferred inversion wants
-it); nothing in the tree consumes its second arm today. -/
+**Deleted once, restored (lane SEC2, 2026-09-22) — and the history is
+the point.**  This theorem was removed on the grounds that every usable
+part was a duplicate and every non-duplicated part had no producer:
+`large` and `k = 1` had better licences off the elimination-level pin
+and the counting pass, while `¬nested` and `numCtors ≤ 1` were gated
+behind `blockLargeElimAllowed = true`, which nothing produced — the
+stage's inversion below hands back the guard's DISJUNCTION, and
+refuting its second arm is the deferred inversion of `isDefEq` through
+`whnf` to the sort case.
+
+That was true when it was written.  What changed is the counting pass:
+`checkBlockRecSmallElim` (`Kernel/Inductives/BlockInstall.lean`) now
+states `blockLargeElimAllowed p nested || every level is zero` — the
+CHECKER's own predicate rather than the one fact its first consumer
+needed — so at a non-zero elimination level the antecedent falls out
+(`blockRecCounting_run`, `Model/Inductives/BlockRecPreHpre.lean`).
+**The pass is the licence; this theorem is the reading.**  The two
+facts that had no producer have one now, and nothing re-derives the
+other two here: `blockRecK1_run` calls this.
+
+(The pin's route to `large = true` survives beside it and is not a
+duplicate — it needs no `Prop`-valued hypothesis, so it still says
+something at a `Type` block where this one says nothing.
+`blockRecLarge_run`'s docstring says which to reach for.) -/
+
+/-- **The counting guard's four facts, from the verdict at a `Prop`
+result.** -/
+theorem blockLargeElim_counting {q : ConLeche.BlockShape} {nested : Bool}
+    (hallow : ConLeche.blockLargeElimAllowed q nested = true)
+    {ψ : Name → Nat} (hz : q.resSort.eval ψ = 0) :
+    q.large = true ∧ q.k = 1 ∧ nested = false ∧ q.numCtors ≤ 1 := by
+  rw [ConLeche.blockLargeElimAllowed, Bool.or_eq_true] at hallow
+  rcases hallow with hnz | hrest
+  · exact absurd hz (ConLeche.Level.isNeverZero_sound ψ _ hnz)
+  · rw [Bool.and_eq_true, Bool.and_eq_true, Bool.and_eq_true] at hrest
+    obtain ⟨⟨⟨hl, hk⟩, hn⟩, hc⟩ := hrest
+    refine ⟨hl, by simpa using hk, by simpa using hn, ?_⟩
+    rcases (Bool.or_eq_true _ _).mp hc with hc' | hc' <;>
+      · rw [beq_iff_eq] at hc'; omega
 
 /-- **Stage (b)'s inversion, WIDENED to the conclusion's SORT and to
 the ELIMINATION VERDICT**: the recursor's opened conclusion is
