@@ -324,7 +324,7 @@ theorem blockRecUOf_run
   rw [hrd, hr1] at hop'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
   obtain rfl : sty' = sty := Except.ok.inj (hsty'.symm.trans hsty)
-  have huu : uOf c = u := Except.ok.inj (hu'.symm.trans hu)
+  have huu : uOf c = u := Except.ok.inj (hu'.symm.trans hu.1)
   have hg : (cvRus.map (·.2.2))[c]? = some u := by rw [List.getElem?_map, hcu]; rfl
   obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
   rw [huu]
