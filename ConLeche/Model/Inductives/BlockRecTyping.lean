@@ -884,6 +884,52 @@ member's telescope.  What carries the fit is the major, and that is
 why the clause is bounded by the prefix's fit — off a fitting prefix
 the grading is not available either. -/
 
+/-- **The major's prefix arguments read to the parameters.**  The
+argument spine is `paramBvarsAt nP (rP + nIdx)` — the block's
+parameter binders seen from the major's own depth — and the frame
+below the major is the prefix followed by the index values, so the
+`k`-th one lands on `xs`'s `k`-th entry. -/
+theorem map_paramBvarsAt_major {nP rP nIdx : Nat} {xs is : List V} {ρ : Nat → V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP) :
+    (paramBvarsAt nP (rP + nIdx)).map (interp V (consList (xs ++ is) ρ)) = xs.take nP := by
+  have htkl : (xs.take nP).length = nP := by rw [List.length_take, hxs]; omega
+  have hfr : consList (xs ++ is) ρ
+      = consList (xs.drop nP ++ is) (consList (xs.take nP) ρ) := by
+    rw [← consList_append, ← List.append_assoc, List.take_append_drop]
+  rw [show rP + nIdx = nP + ((rP - nP) + nIdx) from by omega]
+  rw [map_paramBvarsAt_interp (ρp := consList (xs.take nP) ρ) (fun j => by
+    rw [hfr, show (rP - nP) + nIdx = (xs.drop nP ++ is).length from by
+      rw [List.length_append, List.length_drop, hxs, his]]
+    exact consList_apply_add _ _ j)]
+  rw [← frameIdx_eq_reverse_map]
+  have hfx := frameIdx_consList' (xs.take nP) ρ
+  rw [htkl] at hfx
+  exact hfx
+
+/-- **The major's index arguments read to the index values.** -/
+theorem map_teleVarsAV_major {nIdx : Nat} {xs is : List V} {ρ : Nat → V}
+    (his : is.length = nIdx) :
+    (teleVarsAV nIdx).map (interp V (consList (xs ++ is) ρ)) = is := by
+  rw [consList_append, ← his]
+  exact map_teleVarsAV_interp is (consList xs ρ)
+
+/-- **The MAJOR clause, from the major's READING** — the shape's last
+conjunct, which is the reading folded into applications.  It needs no
+fit and no frame hypothesis: `checkBlockRecTys` pins the major's
+domain to the member's constant applied to the prefix and the index
+binders, and `interp` folds a spine at every frame. -/
+theorem interp_of_major_reading {env : Env} {mo : EnvModel V env} {nm : Name}
+    {ψ : Name → Nat} {ρ : Nat → V} {nP rP nIdx : Nat} {xs is : List V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP)
+    (hcl : ∀ ρ₁ ρ₂ : Nat → V,
+      interp V ρ₁ (mo.acval nm ψ) = interp V ρ₂ (mo.acval nm ψ)) :
+    interp V (consList (xs ++ is) ρ)
+        (AnnotTerm.mkAppN (mo.acval nm ψ) (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx))
+      = (xs.take nP ++ is).foldl SetTheory.app (interp V ρ (mo.acval nm ψ)) := by
+  rw [interp_mkAppN, ← List.foldl_map (g := fun r a => SetTheory.app r a),
+    List.map_append, map_paramBvarsAt_major hxs his hnP, map_teleVarsAV_major his,
+    hcl (consList (xs ++ is) ρ) ρ]
+
 /-- **The eliminated member's index fit, from the MAJOR's grading.**
 
 `Params ++ Ids` is the member's own opened telescope (its first `nP`
@@ -905,28 +951,9 @@ theorem spineFit_of_major_grading {u : Nat} (hu : u ≠ 0)
     SpineFit ρ Params (xs.take nP) ∧
       SpineFit (consList (xs.take nP) ρ) Ids is := by
   have htkl : (xs.take nP).length = nP := by rw [List.length_take, hxs]; omega
-  -- the frame, regrouped at the parameters
-  have hfr : consList (xs ++ is) ρ
-      = consList (xs.drop nP ++ is) (consList (xs.take nP) ρ) := by
-    rw [← consList_append, ← List.append_assoc, List.take_append_drop]
-  -- the argument spine's VALUES: the parameters and the index values
-  have hpar : (paramBvarsAt nP (rP + nIdx)).map (interp V (consList (xs ++ is) ρ))
-      = xs.take nP := by
-    rw [show rP + nIdx = nP + ((rP - nP) + nIdx) from by omega]
-    rw [map_paramBvarsAt_interp (ρp := consList (xs.take nP) ρ) (fun j => by
-      rw [hfr, show (rP - nP) + nIdx = (xs.drop nP ++ is).length from by
-        rw [List.length_append, List.length_drop, hxs, his]]
-      exact consList_apply_add _ _ j)]
-    rw [← frameIdx_eq_reverse_map]
-    have hfx := frameIdx_consList' (xs.take nP) ρ
-    rw [htkl] at hfx
-    exact hfx
-  have hidx : (teleVarsAV nIdx).map (interp V (consList (xs ++ is) ρ)) = is := by
-    rw [consList_append, ← his]
-    exact map_teleVarsAV_interp is (consList xs ρ)
   have hargs : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).map
       (interp V (consList (xs ++ is) ρ)) = xs.take nP ++ is := by
-    rw [List.map_append, hpar, hidx]
+    rw [List.map_append, map_paramBvarsAt_major hxs his hnP, map_teleVarsAV_major his]
   have halen : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).length = nP + nIdx := by
     simp [paramBvarsAt, teleVarsAV]
   have hfit := spineFit_of_wellDenoted_lams (V := V) hu (by rw [halen]; exact hppsLen) hwd hlam
