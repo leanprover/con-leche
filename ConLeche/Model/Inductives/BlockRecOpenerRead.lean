@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.BlockRecRegimes
+import ConLeche.Model.Inductives.BlockRecRead
 
 public section
 
@@ -648,6 +649,354 @@ theorem blockIhOpener_stored
       (fun j y hy => openPisAtFvars_typeWScoped is.length hopen
         (wscoped_instantiateList hL ihTele hfv 0) j y hy)
       (by omega)
+
+/-! ## The opener's CONCLUSION, read — `hconcl`
+
+`blockRuleHopener_of` below reduces the fit's opener premise to ONE
+input: the CALLEE's stored type, peeled at the generated call's spine
+(`blockIhPis`' own `instPisAtLift`) and opened at the rule frame's
+variables, HAS a reading.  This section produces it, and it is the
+`blockIhSpinePis` recipe one level down — the SAME spine, peeling a
+callee's `∀`-telescope instead of applying a constant:
+
+* the spine's elements are bounded at the frame and carry no free
+  variable (`blockIhSpine_closed`), so the check's capture-avoiding
+  peel commutes with the frame's opening (`instPisAtLift_instSeq`,
+  `BlockRecRule.lean`);
+* the opened spine READS — the prefix variables' bvars,
+  `denoteMetaSpine_ihIdx` and the applied field, which are
+  `denoteMeta_blockIhSpinePis`' own three segments
+  (`denoteMetaSpine_blockIhSpine`);
+* the callee's stored type is CLOSED, so the frame's opening leaves it
+  alone and its reading at depth `0` is its reading at the frame
+  (`denoteMeta_deepen`).
+
+`denoteMeta_instPisAtLift_peel` (`BlockRecRead.lean`) then reads the
+peel itself, and the conclusion's reading is whatever it hands back —
+which is all `denoteMeta_blockIhOpenerTy_deep_exists` asks for. -/
+
+section OpenerConcl
+
+open ConLeche (blockRulePrefixVars structFieldIdxOf structFieldTeleOf structIdxAt structTeleVars)
+
+/-- **The generated call's spine is closed at the rule frame**: every
+element is bounded by the frame's depth and carries no free variable.
+Those are the two side conditions both the peel's transport
+(`instPisAtLift_instSeq`) and its reading
+(`denoteMeta_instPisAtLift_peel`) ask of the arguments. -/
+theorem blockIhSpine_closed {nP nF o rP l i : Nat} {cty : Expr}
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hrP : nP + o = rP) :
+    ∀ a ∈ (blockRulePrefixVars rP nF (l + (structFieldTeleOf cty nP nF i).length) ++
+        (structFieldIdxOf cty nP nF i).map
+          (structIdxAt nF o i l (structFieldTeleOf cty nP nF i).length) ++
+        [Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+          (structTeleVars (structFieldTeleOf cty nP nF i).length)]),
+      a.looseBVarsBounded (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length) = true ∧
+        a.hasFvar = false := by
+  intro a ha
+  rcases List.mem_append.mp ha with ha' | ha'
+  · rcases List.mem_append.mp ha' with hpre | hidx
+    · -- the prefix variables: bvars below the frame
+      unfold blockRulePrefixVars at hpre
+      obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hpre
+      rw [List.mem_range] at hq
+      exact ⟨by simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega, rfl⟩
+    · -- the field's index expressions, moved to the rule's frame
+      obtain ⟨e, he, rfl⟩ := List.mem_map.mp hidx
+      obtain ⟨hef, heb⟩ := (structFieldTele_props hCf hCb hstripC hi).2 e he
+      refine ⟨?_, ?_⟩
+      · unfold ConLeche.structIdxAt
+        refine Expr.looseBVarsBounded_mono (by omega)
+          (Expr.looseBVarsBounded_liftLooseBVars o _
+            (Expr.looseBVarsBounded_liftLooseBVars (nF - i + l) e heb))
+      · unfold ConLeche.structIdxAt
+        rw [hasFvar_liftLooseBVars, hasFvar_liftLooseBVars]
+        exact hef
+  · -- the applied field
+    obtain rfl : a = Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+        (structTeleVars (structFieldTeleOf cty nP nF i).length) := by
+      simpa using ha'
+    refine ⟨looseBVarsBounded_mkAppN ?_ ?_, hasFvar_mkAppN rfl ?_⟩
+    · simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega
+    · intro x hx
+      unfold ConLeche.structTeleVars at hx
+      obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hx
+      rw [List.mem_range] at hk
+      simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega
+    · intro x hx
+      unfold ConLeche.structTeleVars at hx
+      obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
+      rfl
+
+/-- **The generated call's spine, READ at the rule frame.**  The three
+segments `denoteMeta_blockIhSpinePis` reads under its head — the
+prefix variables, the field's index expressions
+(`denoteMetaSpine_ihIdx`) and the applied field — with the head left
+off: here the spine is a peel's ARGUMENT list, not a constant's. -/
+theorem denoteMetaSpine_blockIhSpine {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o rP l i : Nat} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis) (hrP : nP + o = rP)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + l) as1) :
+    DenoteMetaSpine m.acval env ψ (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+      ((blockRulePrefixVars rP nF (l + (structFieldTeleOf cty nP nF i).length) ++
+          (structFieldIdxOf cty nP nF i).map
+            (structIdxAt nF o i l (structFieldTeleOf cty nP nF i).length) ++
+          [Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+            (structTeleVars (structFieldTeleOf cty nP nF i).length)]).map
+        (·.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0))
+      (((List.range rP).map fun q =>
+            AnnotTerm.bvar (l + (structFieldTeleOf cty nP nF i).length + nF + rP - 1 - q)) ++
+        Eis.map (ihIdxAtM nF o i l (structFieldTeleOf cty nP nF i).length) ++
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+          (teleVarsAV (structFieldTeleOf cty nP nF i).length)]) := by
+  obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
+  obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
+  have hEM : 0 < nP + o + nF + l + (structFieldTeleOf cty nP nF i).length := by omega
+  have hmapeq : ∀ X : Expr,
+      X.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0
+        = Expr.instSeq (as1.reverse ++ openFvars (nP + o + nF + l)
+            (structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1) X := by
+    intro X
+    rw [instantiateList_eq_instSeq_of_fvarList
+      (h1.openExtend (structFieldTeleOf cty nP nF i).length) hEM,
+      List.reverse_append, List.reverse_reverse]
+  obtain ⟨P, X, F, I, hLsplit, hP, hX, hF, hI, hidxP, hidxX, hidxF, hidxI⟩ :=
+    ascFrame_split (a := nP) (b := o) (c := nF) (e := l) h1.reverse_length h1.reverse_idx
+  have hLlen : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
+    rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
+  have hLidx : ∀ (k : Nat) (x : Expr), (P ++ X ++ F ++ I)[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by rw [← hLsplit]; exact h1.reverse_idx
+  have hS : (fvs0.take (nP + i)).length = nP + i := by
+    rw [List.length_take, hlen0]; omega
+  have hidxS : ∀ (k : Nat) (x : Expr), (fvs0.take (nP + i))[k]? = some x →
+      ∃ ty, x = Expr.fvar k ty := by
+    intro k x hx
+    have hk : k < nP + i := by
+      rcases Nat.lt_or_ge k (nP + i) with h | h
+      · exact h
+      · rw [List.getElem?_eq_none (by rw [hS]; omega)] at hx
+        exact nomatch hx
+    rw [List.getElem?_take, if_pos hk] at hx
+    exact hidx0 k x hx
+  simp only [hmapeq, hLsplit]
+  have hbvarA : ∀ q : Nat,
+      q < nP + o + nF + l + (structFieldTeleOf cty nP nF i).length →
+      denoteMeta m.acval env ψ (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+              (structFieldTeleOf cty nP nF i).length)
+            (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
+        = some (AnnotTerm.bvar q) :=
+    fun q hq => denoteMeta_instSeq_ext_bvar hLlen hLidx hq
+  have hpre : DenoteMetaSpine m.acval env ψ
+      (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+      ((blockRulePrefixVars rP nF (l + (structFieldTeleOf cty nP nF i).length)).map
+        (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+            (structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1)))
+      ((List.range rP).map fun q =>
+        AnnotTerm.bvar (l + (structFieldTeleOf cty nP nF i).length + nF + rP - 1 - q)) := by
+    unfold blockRulePrefixVars
+    rw [List.map_map]
+    simp only [Function.comp_def]
+    refine DenoteMetaSpine.of_map (List.range rP) fun q hq => ?_
+    rw [List.mem_range] at hq
+    exact hbvarA _ (by omega)
+  have hspI := denoteMetaSpine_ihIdx (m := m) (ψ := ψ) (o := o) (l := l) hCf hCb hstripC hi rfl
+    hS hidxS (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF hI hidxP hidxF
+  have hfieldApp : denoteMeta m.acval env ψ
+      (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+        (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
+            (structFieldTeleOf cty nP nF i).length)
+          (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1)
+          (Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+            (structTeleVars (structFieldTeleOf cty nP nF i).length)))
+      = some (AnnotTerm.mkAppN
+          (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+          (teleVarsAV (structFieldTeleOf cty nP nF i).length)) := by
+    rw [Expr.instSeq_mkAppN]
+    refine denoteMeta_mkAppN ?_ (hbvarA _ (by omega))
+    unfold ConLeche.structTeleVars teleVarsAV
+    rw [List.map_map]
+    simp only [Function.comp_def]
+    exact DenoteMetaSpine.of_map (List.range (structFieldTeleOf cty nP nF i).length)
+      (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
+  rw [List.map_append, List.map_append, List.map_cons, List.map_nil, List.map_map]
+  simp only [Function.comp_def]
+  exact (hpre.append hspI).append (.cons hfieldApp .nil)
+
+/-- A frame's entries are bvar-closed: they are `fvar`s. -/
+theorem FvarList.bvarClosed {E : Nat} {xs : List Expr} (h : FvarList E xs) :
+    ∀ x ∈ xs, x.looseBVarsBounded 0 = true := by
+  intro x hx
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+  have hql : q < E := by
+    rw [← h.1]; exact (List.getElem?_eq_some_iff.mp hq).1
+  obtain ⟨ty, hty⟩ := h.2.1 q hql
+  rw [hty] at hq
+  rw [← Option.some.inj hq]
+  rfl
+
+set_option maxHeartbeats 1600000 in
+/-- **`hconcl`, generically**: the CALLEE's stored type peeled at the
+generated call's spine and opened at the rule frame HAS a reading.
+
+The peel is the check's own (`blockIhPis`' `instPisAtLift`), so its
+arguments are OPEN — they mention the rule frame's binders — and the
+reading battery wants them bvar-closed.  `instPisAtLift_instSeq`
+moves the peel to the opened frame, where they are
+(`blockIhSpine_closed` bounds them), the spine's readings are
+`denoteMetaSpine_blockIhSpine`, and the callee's type is closed, so
+the opening leaves it alone and its reading at depth `0` deepens to
+the frame's. -/
+theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o rP l i : Nat} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hacl : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (m.acval n ψ').liftN 1 k = m.acval n ψ')
+    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (m.acval n ψ').inst y k = m.acval n ψ')
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis) (hrP : nP + o = rP)
+    {recTy concl : Expr} (hTyF : recTy.hasFvar = false) (hTyB : recTy.looseBVarsBounded 0 = true)
+    {TVa : AnnotTerm} (hTy : denoteMeta m.acval env ψ 0 recTy = some TVa)
+    (hpr : Expr.instPisAtLift
+        (blockRulePrefixVars rP nF (l + (structFieldTeleOf cty nP nF i).length) ++
+          (structFieldIdxOf cty nP nF i).map
+            (structIdxAt nF o i l (structFieldTeleOf cty nP nF i).length) ++
+          [Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+            (structTeleVars (structFieldTeleOf cty nP nF i).length)])
+        recTy = some concl)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + l) as1) :
+    ∃ conclA, denoteMeta m.acval env ψ
+        (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+        (concl.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
+      = some conclA := by
+  have hD : 0 < nP + o + nF + l + (structFieldTeleOf cty nP nF i).length := by omega
+  have hLfv : FvarList (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+      ((openFvars (nP + o + nF + l) (structFieldTeleOf cty nP nF i).length).reverse ++ as1) :=
+    h1.openExtend (structFieldTeleOf cty nP nF i).length
+  have hspcl : ∀ x ∈ ((openFvars (nP + o + nF + l)
+      (structFieldTeleOf cty nP nF i).length).reverse ++ as1).reverse,
+      x.looseBVarsBounded 0 = true :=
+    fun x hx => hLfv.bvarClosed x (List.mem_reverse.mp hx)
+  have hsplen : ((openFvars (nP + o + nF + l)
+      (structFieldTeleOf cty nP nF i).length).reverse ++ as1).reverse.length
+      = (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1) + 1 := by
+    rw [hLfv.reverse_length]; omega
+  have hopen : ∀ X : Expr,
+      Expr.instSeq ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1).reverse
+        (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1) X
+      = X.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0 :=
+    fun X => (instantiateList_eq_instSeq_of_fvarList hLfv hD X).symm
+  have hcl := blockIhSpine_closed (l := l) hCf hCb hstripC hi hrP
+  -- (1) the peel, moved to the opened frame
+  have hpr' : Expr.instPisAtLift
+      ((blockRulePrefixVars rP nF (l + (structFieldTeleOf cty nP nF i).length) ++
+          (structFieldIdxOf cty nP nF i).map
+            (structIdxAt nF o i l (structFieldTeleOf cty nP nF i).length) ++
+          [Expr.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+            (structTeleVars (structFieldTeleOf cty nP nF i).length)]).map
+        (·.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0))
+      recTy
+      = some (concl.instantiateList ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0) := by
+    have h := instPisAtLift_instSeq hspcl hsplen _
+      (fun a ha => by
+        rw [show nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1 + 1
+              = nP + o + nF + l + (structFieldTeleOf cty nP nF i).length from by omega]
+        exact (hcl a ha).1) hpr
+    rw [show ∀ Y : List Expr, Y.map (Expr.instSeq ((openFvars (nP + o + nF + l)
+          (structFieldTeleOf cty nP nF i).length).reverse ++ as1).reverse
+        (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1))
+        = Y.map (·.instantiateList ((openFvars (nP + o + nF + l)
+            (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0) from
+      fun Y => List.map_congr_left fun a _ => hopen a, hopen, hopen,
+      ConLeche.Expr.instantiateList_eq_self hTyB] at h
+    exact h
+  -- (2) the callee's type, read at the frame
+  have hTyD : denoteMeta m.acval env ψ
+      (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length) recTy
+      = some (TVa.liftN (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length) 0) := by
+    have h := denoteMeta_deepen (m := m) (ψ := ψ) (Expr.WScoped.of_not_hasFvar hTyF) hTy
+      (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
+    rwa [Nat.zero_add] at h
+  -- (3) the spine's readings, and the peel
+  obtain ⟨restA, hrest, -⟩ := denoteMeta_instPisAtLift_peel hacl hainst _ hpr'
+    (Expr.WScoped.of_not_hasFvar hTyF)
+    (fun a ha => by
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp ha
+      refine ⟨wscoped_instantiateList hLfv y (hcl y hy).2 0, ?_⟩
+      rw [← hopen]
+      exact looseBVarsBounded_instSeq _ _ hspcl hsplen
+        (by rw [show nP + o + nF + l + (structFieldTeleOf cty nP nF i).length - 1 + 1
+                  = nP + o + nF + l + (structFieldTeleOf cty nP nF i).length from by omega]
+            exact (hcl y hy).1))
+    hTyD (denoteMetaSpine_blockIhSpine hop0 hCf hCb hstripC hi hfr hrP h1)
+  exact ⟨restA, hrest⟩
+
+/-- **`hconcl` at the rule frame's data** — `blockRuleHopener_of`'s
+last named premise, produced: at every `ih` key the CALLEE's stored
+type is closed and read (the recursor stage's own facts), the field's
+readings are the constructors' stage's, and the battery above does
+the rest.  The two run equations `htele`/`hidx` are the frame's
+components at the constructor's type, exactly as `ihSpineFold_blockRec`
+takes them. -/
+theorem blockRuleHconcl_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {o : Nat} {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr}
+    (hacl : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (mT.acval n ψ').liftN 1 k = mT.acval n ψ')
+    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (mT.acval n ψ').inst y k = mT.acval n ψ')
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hrP : fr.nP + o = fr.rP)
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa) :
+    ∀ (i c' r : Nat) (concl : Expr) (as1 : List Expr),
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      Expr.instPisAtLift
+          (ConLeche.blockRulePrefixVars fr.rP fr.nF (r + (fr.teleOf i).length) ++
+            (fr.idxOf i).map (ConLeche.structIdxAt fr.nF o i r (fr.teleOf i).length) ++
+            [Expr.mkAppN (.bvar (fr.nF - 1 - i + r + (fr.teleOf i).length))
+              (ConLeche.structTeleVars (fr.teleOf i).length)])
+          (recTyOf c') = some concl →
+      FvarList (fr.nP + o + fr.nF + r) as1 →
+      ∃ conclA, denoteMeta mT.acval envT ψ
+          (fr.nP + o + fr.nF + r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+          (concl.instantiateList ((openFvars (fr.nP + o + fr.nF + r)
+            (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length).reverse ++ as1) 0)
+        = some conclA := by
+  intro i c' r concl as1 hrpos hpr h1
+  obtain ⟨hiF, hfr⟩ := hfld i c' r hrpos
+  obtain ⟨hTyF, hTyB, TVa, hTy⟩ := hrecTy i c' r hrpos
+  rw [htele, hidx] at hpr
+  exact denoteMeta_blockIhOpenerConcl hacl hainst hop0 hCf hCb hstripC hiF hfr hrP
+    hTyF hTyB hTy hpr h1
+
+end OpenerConcl
+
+
 
 /-! ## `hopener` — `hop` and the reading, at the consumer's spelling
 
