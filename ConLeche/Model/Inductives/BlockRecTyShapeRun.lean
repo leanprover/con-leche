@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockFieldRead
-import ConLeche.Model.Inductives.BlockRecRule
+public import ConLeche.Model.Inductives.BlockRecRule
 
 public section
 
@@ -707,6 +707,186 @@ theorem blockRuleConclAt_shift {rP nF i m r o : Nat} {T Ca : AnnotTerm}
     rw [List.map_singleton, ← fieldApp_shift]
   rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF] at h
   exact h
+
+
+/-! ## `WalkCtx` at the rule's opened frame
+
+`interp_blockResidue`'s `hW` is the walk's ENTRY context, and the rule
+frame is the one `ctxOk_blockFrame` (`BlockRecTyping.lean`) already
+describes: three openings at the offsets `0`, `rP` and `rP + nF`, the
+context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse`, and a valuation
+`consList ihvals (consList (xs ++ fs) ρ₀)`.
+
+**`WalkCtx` is `CtxOk`'s inputs, re-indexed.**  `ctxOk_blockFrame`
+reads the openers ASCENDING (opener `i` at depth `i`, context slot
+`D - 1 - i`); `WalkCtx` carries the opening LIST, which the walk
+conses onto, so it reads them DESCENDING (`as2 = L.reverse`, slot `j`
+at depth `D - 1 - j`).  The two are the same statement under
+`List.getElem?_reverse`, and `D - 1 - (D - 1 - j) = j` below `D` is
+the whole of the translation.
+
+What `WalkCtx` asks beyond `CtxOk` is the frame's three HEREDITARY
+facts — the openers' annotations are `looseBVarsBounded 0`, bounded by
+`envT`, and draw their own leaves from the frame again.  All three are
+stated over the opener list and are the openings' own
+(`walkCtx_blockFrame_hered`). -/
+
+/-- **`WalkCtx` at the rule stage's opened frame** — `hW` at the
+entry, from exactly `residueOk_blockFrame`'s inputs plus the frame's
+three hereditary facts.
+
+No `w` hypothesis anywhere: the evidence is the two `SpineFit`s and
+the openers' readings, never a membership in the carrier. -/
+theorem walkCtx_blockFrame {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {rP nF nR : Nat} {recTy crest ihTele : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    {pdoms fdoms ihdoms : List AnnotTerm}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta mT.acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + nF + nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    (hcbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x)
+    (hclF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    {ρ₀ : Nat → V} {xs fs ihvals : List V}
+    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals) :
+    WalkCtx V mT ψ (rP + nF + nR) (consList ihvals (consList (xs ++ fs) ρ₀))
+      (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) (fvsPref ++ fvsF ++ fvsIh).reverse := by
+  have hlenL : (fvsPref ++ fvsF ++ fvsIh).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, openPisAtFvars_length rP h₁,
+      openPisAtFvars_length nF h₂, openPisAtFvars_length nR h₃]
+  refine ⟨sat_blockFrame_length hp hf hidx, sat_blockFrame hsp hih, ?_, ?_, ?_, ?_, ?_⟩
+  · intro j x hx
+    have hj : j < rP + nF + nR := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [List.length_reverse, hlenL] at this
+      exact this
+    rw [List.getElem?_reverse (by rw [hlenL]; exact hj), hlenL] at hx
+    have h := hdoms _ x hx
+    rwa [show rP + nF + nR - 1 - (rP + nF + nR - 1 - j) = j from by omega] at h
+  · intro s hs ρ hρ
+    have h := hokΔ (rP + nF + nR - 1 - s) (by omega) ρ hρ
+    rwa [show rP + nF + nR - 1 - (rP + nF + nR - 1 - s) = s from by omega] at h
+  · exact fun x hx => hlbF x (List.mem_reverse.mp hx)
+  · exact fun x hx => hcbF x (List.mem_reverse.mp hx)
+  · exact fun x hx l hl => List.mem_reverse.mpr (hclF x (List.mem_reverse.mp hx) l hl)
+
+
+/-! ## `IhSpineFold` at the run — `ihSpineFold_blockRec`, composed
+
+`ihSpineFold_blockRec` (`BlockRecRule.lean`) carries fifteen premises.
+Eleven of them have producers in the tree; this theorem applies them,
+and what is left is the four that are about the BLOCK rather than
+about the rule's walk.
+
+| premise | producer |
+|---|---|
+| `hacl`/`hainst`/`hcl` | `EnvModel`'s own fields (`blockRuleHainst`, `blockRuleHcl`) |
+| `hfld` | the constructors' stage, MOVED to the consed environment (`fieldReadAt_mono`, AUDIT item 12) |
+| `hnofv` | `blockRuleHnofv_of` at the frame's telescope and index data |
+| `hi` | the field bound `hfld` already carries |
+| `hfit` | `blockRuleHfit_run` — H3′ composed |
+
+**The two environments are named, and they stay apart.**  The field
+readings the CONSTRUCTORS' stage produces are at `envT`; the fold
+reads the guarded call's arguments at the CONSED environment, where
+the rule's recursors live.  `hfld` is therefore stated at `mT` (which
+is where its producer `blockRuleHfld_of` concludes) and transported
+for `ihSpineFold_blockRec`'s own use — `blockRuleHfit_run` wants the
+`envT` form, so the premise is stated once and used at both.
+
+`hcallee` and `hihv` stay premises: the first is a fact about the
+block's LEAF valuation (`blockRuleHcallee_of`), the second the
+identification of the caller's `ihvals` with the design's ih terms,
+and both are the assembly's to pick — this module sits below the
+file that fixes either. -/
+
+/-- **`IhSpineFold` at the run.**  `ihSpineFold_blockRec` with its
+walk-side premises discharged: what remains is the rule frame's own
+data, the three openings of the check, the constructors' field
+readings and the two block facts (`hcallee`, `hihv`).
+
+No `w` hypothesis: every premise is a reading or a scoping fact, and
+the one membership in sight (`hfit`'s conclusion is a `SpineFit`) is
+paid by the certificates, not by a grading against the carrier. -/
+theorem ihSpineFold_blockRec_run {env envT : Env} {mo : EnvModel V env}
+    {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {as2₀ : List Expr}
+    {σchain : Nat → V} {xs fs ihvals : List V}
+    (hin : ConLeche.Model.Rules.RulesInputs V mT ψ)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT ψ D y = some ya → denoteMeta mo.acval env ψ D y = some ya)
+    -- the frame's arithmetic, and the caller's two spines
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hxl : xs.length = fr.rP) (hfl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
+    (hihl : ihvals.length = fr.nR)
+    -- the constructor's stored type, and the frame's components at it
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (hcb : ConstsBound envT cty)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    -- the constructors' stage's field readings, at `envT`
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    -- the callees' stored types
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
+    -- the check's own generated tower and its opening
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    (has2 : as2₀ = (fvsPref ++ fvsF ++ fvsIh).reverse)
+    (hpflen : (fvsPref ++ fvsF).length = fr.rP + fr.nF)
+    -- the block's two facts
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        interp V (consList (xs ++ fs) σchain)
+            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
+          = σchain (K - 1 - c'))
+    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      ihvals.getD r pt
+        = interp V (consList (xs ++ fs) σchain)
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0
+                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 +
+                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)))) :
+    IhSpineFold V mo.acval env mT ψ fr F (consList (xs ++ fs) σchain) ihvals as2₀ :=
+  ihSpineFold_blockRec mo.acval_closed (blockRuleHainst mo) (blockRuleHcl mo)
+    hF ho hxl hfl hℓ hop0 hCf hCb hstripC htele hidx
+    (fun i c' r hr =>
+      fieldReadAt_mono hmono hop0 hcb (hfld i c' r hr).1 (hfld i c' r hr).2)
+    (blockRuleHnofv_of htele hidx hCf hCb hstripC)
+    hcallee
+    (fun i c' r hr => (hfld i c' r hr).1)
+    hihv
+    (blockRuleHfit_run (blockRuleHaclN mo) hin hmono hihl htlen hF ho hrP hop0 hCf hCb
+      hstripC htele hidx hfld hrecTy hpis hihfv hLpf hopen has2 hpflen)
 
 end Run
 
