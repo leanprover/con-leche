@@ -5298,6 +5298,7 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
     (hmemK : ∀ c, c < K → mem c < d.k)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hshape : BlockRecTyShape V mo d ψ K rP mem rds ρ)
+    (hjoinC : BlockRecTyJoin V d ψ K rP mem rds ρ)
     (hbits : OneElimLevel 0 K rds)
     (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
@@ -5387,8 +5388,8 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
       hnE, hnI, htl, hes, hfap, hcon⟩ := hkey c hc j hjn r hr
     rw [hk1] at hbs
     obtain ⟨hxlen, -, hpar, hidxfit, -⟩ := hsplitR c hc ys hys
-    obtain ⟨hnPc, -, -, -, -, -⟩ := hshape c hc
-    obtain ⟨-, hlenDc', -, -, -, -⟩ := hshape c' hc'
+    obtain ⟨hnPc, -, -, -, -⟩ := hshape c hc
+    obtain ⟨-, hlenDc', -, -, -⟩ := hshape c' hc'
     -- the three lengths the bridge is stated at
     have hasl : ((prefOf (rP c) ys).take d.nP).length = d.nP := by
       rw [List.length_take, hxlen]; omega
@@ -5429,7 +5430,7 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         SpineFit (consList (prefOf (rP c) ys) ρ) (((rds c').map (·.2.2)).drop (rP c'))
           (is ++ [maj]) :=
       fun _ _ h1 h2 =>
-        blockRecJoin_of_shape hshape hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
+        blockRecJoin_of_shape hshape hjoinC hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
     -- the callee's arities
     have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
       rw [List.length_map] at hlenDc'

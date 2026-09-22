@@ -718,12 +718,12 @@ binders, then the eliminated member's index telescope, then one more;
 its first `nP` binders CARRY the block's parameter telescope (as an
 implication between fits, not as a syntactic equality — the recursor
 stream stores its own copy of the parameter binders, and only their
-READINGS are owed); the index
-stretch FITS exactly as the member's own telescope does at the
-parameter frame (TWO clauses, one per direction — the two directions
-are the two consumers, and they have two DIFFERENT provenances, which
-is why they are no longer one `↔`); and the last binder reads as the
-member's former applied to the parameters and to the index values.
+READINGS are owed); a fit of the index stretch is a fit of the
+member's own telescope at the parameter frame; and the last binder
+reads as the member's former applied to the parameters and to the
+index values.  The OPPOSITE direction of the index clause is a
+predicate of its own, `BlockRecTyJoin` — it has no producer, and the
+shape must stay payable.
 
 Nothing here is about the recursion or about a rule: every clause is a
 reading of the recursor's own type, which is where the recursor-type
@@ -852,16 +852,39 @@ docstring). -/
       SpineFit (consList xs ρ)
           ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is →
       SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is) ∧
-    (∀ xs is : List V, xs.length = rP c →
-      SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
-      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is →
-      SpineFit (consList xs ρ)
-          ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is) ∧
     (∀ xs is : List V, xs.length = rP c → is.length = (d.IdsM (mem c) ψ).length →
       interp V (consList is (consList xs ρ))
           ((((rds c).map (·.2.2)).drop (rP c)).getD (d.IdsM (mem c) ψ).length default)
         = (xs.take d.nP ++ is).foldl SetTheory.app
             (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
+
+/-- **The index clause's UNPAYABLE half, as a predicate of its own**
+(session 26).
+
+It was the fifth conjunct of `BlockRecTyShape`; session 25 refuted the
+`↔` it lived in and isolated this direction as having NO producer and
+none reachable — the only run fact about the recursor's index binders
+is the per-argument `isDefEq` inside `checkConstantVal`'s INFERENCE of
+the major's domain, and reading it off needs an inversion of
+`inferTypeCore` through a Π-tower and an application spine.
+
+It is a PREDICATE of its own because `BlockRecTyShape` now has a run
+producer (`Model/Inductives/BlockRecTyShapeRun.lean`) and this clause
+would have blocked it.  Its single consumer is `blockRecJoin_of_shape`
+→ `hjoin` in `blockIndRegime_run`, where the IND leaf instantiates the
+induction motive `blockIndP` at a spine it must ASSEMBLE; the ruled
+repair (2026-09-22, the certificate lane's) is to state `blockIndP` at
+the SPLIT data instead, after which this predicate and `hjoin` both
+disappear.  It carries no `mo` and no `env`: it is about the binder
+data alone. -/
+@[expose] def BlockRecTyJoin (V : Type w) [SetTheory V] (d : BlockData V)
+    (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
+  ∀ c, c < K → ∀ xs is : List V, xs.length = rP c →
+    SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
+    SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is →
+    SpineFit (consList xs ρ)
+      ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
 
 /-! ### The index clause's PAYABLE half
 
@@ -980,7 +1003,7 @@ theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDat
       majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl SetTheory.app
         (interp V ρ (mo.acval (d.memberName (mem c)) ψ)) := by
   intro c hc ys hfit
-  obtain ⟨hnP, hlenD, hpar, hidsF, -, hmajR⟩ := h c hc
+  obtain ⟨hnP, hlenD, hpar, hidsF, hmajR⟩ := h c hc
   obtain ⟨xs, is, mj, rfl, hxl, hisl, h1, h3, h4⟩ := spineFit_split_three hlenD hfit
   rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
   refine ⟨hxl, rfl, ?_, hidsF xs is hxl h1 h3, ?_⟩
@@ -998,14 +1021,16 @@ is what the `ih` opener's peel is evaluated against
 theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V}
     {ψ : Name → Nat} {K : Nat} {rP mem : Nat → Nat}
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
+    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ)
+    (hj : BlockRecTyJoin V d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
     {xs is : List V} {maj : V} (hxl : xs.length = rP c)
     (hpref : SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs)
     (hidx : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
     (hmaj : maj ∈ˢ (xs.take d.nP ++ is).foldl SetTheory.app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))) :
     SpineFit (consList xs ρ) (((rds c).map (·.2.2)).drop (rP c)) (is ++ [maj]) := by
-  obtain ⟨hnP, hlenD, hpar, -, hidsB, hmajR⟩ := h c hc
+  obtain ⟨hnP, hlenD, hpar, -, hmajR⟩ := h c hc
+  have hidsB := hj c hc
   have hisl : is.length = (d.IdsM (mem c) ψ).length := hidx.length_eq
   have hdrop : (((rds c).map (·.2.2)).drop (rP c)).length
       = (d.IdsM (mem c) ψ).length + 1 := by rw [List.length_drop, hlenD]; omega
