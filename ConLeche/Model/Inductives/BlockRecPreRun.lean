@@ -3602,7 +3602,15 @@ section CalleeGuard
 
 /-- **A fitting spine transfers along equal READINGS**: `SpineFit`
 mentions the domains only through `interp`, so two domain lists whose
-entries read the same at every frame have the same fitting spines. -/
+entries read the same at every frame have the same fitting spines.
+
+**Its premise is not payable at the run** (§S16.1): a certified
+`isDefEq` yields equal readings at the frames satisfying the
+opening's CONTEXT and at no others.  §35's `spineFit_congr_walk` is
+the version the run can feed — the domains agree at the frames the
+WALK reaches — and `blockRecHpref_run` is the producer.  This one
+stays as the special case, and as the record of what the shape looked
+like before the currency was checked. -/
 theorem spineFit_congr_readings :
     ∀ {Fs Gs : List AnnotTerm} {ρ : Nat → V} {as : List V},
       Fs.length = Gs.length →
@@ -3623,7 +3631,10 @@ theorem spineFit_congr_readings :
 
 /-- **`hpref'`, from the family's shared prefix**: the guard at
 recursor `c` is the guard at recursor `c'` once their domains read the
-same.  §33's consumer takes it at exactly this shape. -/
+same.  §33's consumer takes it at exactly this shape — but through
+§35's `blockRecHpref_run`/`_runK`, which are the RUN-level producers;
+this theorem's `hdoms` quantifies over all frames and nothing at the
+run can supply it (§S16.1). -/
 theorem blockRecHpref {pdoms : Nat → List AnnotTerm} {c c' : Nat} {ρ : Nat → V} {xs : List V}
     (hlen : (pdoms c).length = (pdoms c').length)
     (hdoms : ∀ l, l < (pdoms c).length → ∀ σ : Nat → V,
