@@ -81661,3 +81661,34 @@ recursors, so requiring the family's prefixes to agree binder by binder
 only on paper; reported here per `restrictions-are-findings`, and
 adopted: RULING — the family's recursors share the whole prefix up to
 defeq; `.invalid` otherwise; exported to the model as `pdoms c = pdoms c'`.
+
+#### LANDED (lane RM19 session 2, `6d4a8c02`): the rule stage types its own right-hand side
+
+`checkBlockRule` runs `inferType` on the ANNOTATED rule at `envR` — the
+environment holding the `k` RULE-LESS recursors, where it already
+annotates and resolves — and `checkBlockRuleF` mirrors it.  The step is
+**certification-only**: a rule official generates is a well-typed
+λ-term over the recursor's prefix and the constructor's fields, and it
+types there exactly as it does at the final environment, so no stream
+the stage otherwise accepts is rejected (the certification-tax ledger's
+A-row: official types its own rules' bodies when it elaborates them,
+and the kernel had dropped that).
+
+It is not redundant.  What the stage types otherwise is the ABSTRACTED
+body `bodyO`, in which every guarded call is an `ih` VARIABLE, so the
+calls' own arguments were never checked against the callee's telescope
+— the obligation `abstractIh` opens moves from the kernel to the model.
+The model's need was the right-hand side's READING: `denoteMeta` at
+depth `0` of the stored rule, which the accepted-reads recipe produces
+only at an inference run, and there was none.  With it `hread` is a
+theorem (`blockRuleRhs_read_run`): the recipe at a model of the bare-`k`
+environment (`blockRecBareModel_run`, off `envModelM_consBlockRecsBare`
+at the facts the stage's assembly already has), crossed to the consed
+environment by the RULE-LIST SWAP (`denoteMeta_swap` — the two conses
+differ in the `rules` field alone, and `denoteMeta` reads an
+environment only through its stored level parameters).
+
+Cost: four peels of the stage's bind chain, one line each, two of which
+then export the new witness — the price §S15.5 predicted ("a checker
+stage's bind sequence is an INTERFACE").  e2e 261/261 unmoved; the
+stage is behind `blockRecCheckOn`, so no accepted stream reaches it yet.
