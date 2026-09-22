@@ -945,7 +945,7 @@ thing `IhNodeVal` still wants. -/
   ∀ (d : Nat) (locals : List V) (e : Expr) (r : Nat) (as as1 as2 : List Expr)
     (A : AnnotTerm) (vs : List AnnotTerm),
     e.hasFvar = false → e.looseBVarsBounded (F + d) = true →
-    locals.length = d → FvarList (F + d) as1 →
+    locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
     ConLeche.blockIhCall? fr d e = some (r, as) →
     IhTyped envT (F + fr.nR + d)
       ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
@@ -973,7 +973,7 @@ theorem ihNodeVal_of_fold
   have hfa : ∀ a ∈ maj.getAppArgs, a.hasFvar = false :=
     hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs he maj hmaj)
   obtain ⟨vs, hvs, hval⟩ := interp_ihNode hacl hr hfa h1 h2 hloc hih hB
-  rw [hval, hfold d locals e r maj.getAppArgs as1 as2 A vs he hb hloc h1 hc hty hA hvs]
+  rw [hval, hfold d locals e r maj.getAppArgs as1 as2 A vs he hb hloc h1 h2 hc hty hA hvs]
 
 /-! ## One step further: the STORED node is the GENERATED spine
 
@@ -998,7 +998,7 @@ argument values are identified with the design's
     (node expected : Expr) (A : AnnotTerm) (vs : List AnnotTerm),
     ConLeche.blockIhCall? fr d node = some (r, as) →
     node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
-    locals.length = d → FvarList (F + d) as1 →
+    locals.length = d → FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
     ConLeche.nameIdxOf? fr.recNames nm = some c' →
     ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
     as.length = (fr.teleOf i).length →
@@ -1018,10 +1018,10 @@ generated spine, so its opened reading is too. -/
 theorem ihCallFold_of_spine {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V}
     {ihvals : List V} (h : IhSpineFold V acval env envT φ fr F ρ' ihvals) :
     IhCallFold V acval env envT φ fr F ρ' ihvals := by
-  intro d locals e r as as1 as2 A vs he hb hloc h1 hc hty hA hvs
+  intro d locals e r as as1 as2 A vs he hb hloc h1 h2 hc hty hA hvs
   obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, hexp, rfl⟩ :=
     ConLeche.blockIhCall?_spine hc
-  exact h d locals nm c' i r as as1 as2 e e A vs hc he hb hloc h1 hnm hrpos hasl hexp
+  exact h d locals nm c' i r as as1 as2 e e A vs hc he hb hloc h1 h2 hnm hrpos hasl hexp
     hty hA hvs
 
 /-- **O-1's premise, from the generated spine alone.**  The composite:
@@ -1471,7 +1471,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
       ConLeche.blockIhCall? fr d node = some (r, as) →
       ConLeche.nameIdxOf? fr.recNames nm = some c' →
       ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
-      locals.length = d → i < fr.nF →
+      locals.length = d → i < fr.nF → FvarList (F + fr.nR + d) as2 →
       IhTyped envT (F + fr.nR + d)
         ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
           (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
@@ -1482,7 +1482,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
         ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
         (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))) :
     IhSpineFold V mo.acval env envT ψ fr F (consList (xs ++ fs) σchain) ihvals := by
-  intro d locals nm c' i r as as1 as2 node expected A vs hcall hnodeF hnodeB hloc h1 hnm hrpos hasl hexp htyN hA hvs
+  intro d locals nm c' i r as as1 as2 node expected A vs hcall hnodeF hnodeB hloc h1 h2f hnm hrpos hasl hexp htyN hA hvs
   have hiF : i < fr.nF := hi i c' r hrpos
   obtain ⟨ci, hfind, hlvl, hleafv⟩ := hcallee nm c' hnm
   obtain ⟨maj, hmaj, hasEq⟩ := blockIhCall?_args_sub hcall
@@ -1577,7 +1577,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     ihFunAV_fold (V := V) (ℓ := ℓ) (K := K) (c' := c') (eis := (EisF i).map
         (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
       hℓ hleafv.symm hxl hfl (by rw [List.length_map, hvlen, htlen])
-      (hfit d i c' r nm locals node as as1 as2 vs hcall hnm hrpos hloc hiF htyN hvs hwlen),
+      (hfit d i c' r nm locals node as as1 as2 vs hcall hnm hrpos hloc hiF h2f htyN hvs hwlen),
     interp_mkAppN, foldl_app_map, hcl nm _ _ (consList (xs ++ fs) σchain), hleafv,
     prefVars_shift, fieldApp_shift, hEisShift,
     show consList (xs ++ fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
@@ -1658,7 +1658,7 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
       ConLeche.blockIhCall? fr d node = some (r, as) →
       ConLeche.nameIdxOf? fr.recNames nm = some c' →
       ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
-      locals.length = d → i < fr.nF →
+      locals.length = d → i < fr.nF → FvarList (F + fr.nR + d) as2 →
       IhTyped envT (F + fr.nR + d)
         ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
           (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
