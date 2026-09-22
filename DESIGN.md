@@ -82327,3 +82327,62 @@ identity) grep the tree for its statement shape; and a merge whose
 interval touches your files must be BUILT, never trusted — this is the
 case that proves it, since no review of either diff could have caught
 it.
+
+#### LANDED (lane RM32 = M5M-data session 27, `24eaf7dc`): the rule contract has a COMPOSITION — and the tower fit had no input
+
+`blockRuleDataB_of_residue` (`Model/Inductives/BlockRuleFit.lean:721`)
+is the first theorem whose CONCLUSION is `BlockRuleDataB`.  Every
+ψ-indexed premise is bounded by the contract's own level
+instantiations, and the `w`-guard is one visible line of the signature,
+so the pending `w = 0` ruling replaces one hypothesis rather than
+rippling.  `BlockRuleResidueB` (`BlockRecData.lean:4050`) bundles the
+residue and the tower fit as ONE premise, and asks for the residue at
+the tower's CORE rather than the applied form — the β-reduction is paid
+on the model side (`blockRuleHRa_tower_run`), so the rule lane owes
+exactly `interp_blockResidue`'s own conclusion.
+
+**FINDING — the tower fit had no input at all: the peel dropped the
+defeq-list step.**  `checkBlockRule_data` kept every witness of
+`checkBlockRule` except `checkBlockDefEqList` — the step that compares
+the rule's own λ-domains with the openers' stored types binder by
+binder, and the ONLY thing that can relate them, since nothing
+identifies them syntactically.  Four reports sized that row at "the G2
+bridge, 1 session" while the bridge had no premise.  The general rule:
+***a bridge's size is not estimable until its premise exists*** — when
+sizing, ask which CHECK makes the fact available and whether the
+INVERSION that reads that check keeps it.
+
+**The pairing that tells the two failure modes apart** (they look
+identical from outside, and one grep of the peel for the checker step's
+name separates them):
+* *the check does the work and the inversion discards it* — the tower
+  fit's G2, dropped twice over; the residue's `hab`/`bodyO`/`fvsIh` are
+  in the same state today (returned by the first peel, dropped by the
+  second);
+* *no check exists and the model must pay* — the fit and the index
+  reading, where the rule is `paramsBlind` and the kernel compares the
+  two parameter spines NOWHERE.  Which is exactly why the payment there
+  is a membership, and why those are the conjuncts the `w = 0` hole
+  reaches.
+
+**The `w = 0` boundary, measured rather than assumed**: `hw` is consumed
+in exactly three of the composition's five bullets — the fit, the index
+reading and `mk` — all three through `blockRuleChainFit_run`, whose
+evidence is the major premise's MEMBERSHIP.  The residue and the tower
+fit take no `w` hypothesis anywhere; their evidence is a grading
+against the tower.  So the ruling touches one premise and leaves the
+residue half untouched.
+
+**Residue triage, four reports late**: of `blockRuleHRa_run_val`'s
+twenty-one premises only THREE are content; the rest are produced, five
+lines away, or rows the run-level peel drops.  And three audit items on
+`ihSpineFold_blockRec`'s fit are CLOSED in the tree, with the `ℓ = 0`
+arm present — nobody had re-checked since the audit was written.  Verify
+an audit row against the tree before believing it.
+
+**Naming**: the routed field-domain spelling cost two lines because the
+theorem WAS in the tree — what was missing was the spelling (domains
+lifted vs triples lifted), with the bridge between them already proved
+in the same file.  Two spellings got two names
+(`blockRuleFdomsAV_eq` / `_eq_liftDoms`) with a docstring saying which
+is which, so the duplicate-declaration collision cannot recur there.
