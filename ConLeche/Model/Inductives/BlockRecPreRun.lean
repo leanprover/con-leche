@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.BlockRecOpenerRead
+import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Semantics.Tower.BlockRecSqI
 import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Semantics.Tower.BlockRecWfI
@@ -6400,7 +6401,7 @@ premise is bounded by the fact that produces it. -/
 
 /-- **`hokA` from the three segments.** -/
 theorem blockRuleHokA_of_segments {P F I : List AnnotTerm} {rP nF nR : Nat}
-    (hp : P.length = rP) (hf : F.length = nF) (hidx : I.length = nR)
+    (hp : P.length = rP) (hf : F.length = nF) (_hidx : I.length = nR)
     (hPseg : ∀ l, l < rP → ∀ (σ : Nat → V) (ys : List V),
       SpineFit σ (P.take l) ys → WellDenotedV V (consList ys σ) (P.getD l default))
     (hFseg : ∀ q, q < nF → ∀ (σ : Nat → V) (xs ys : List V),
@@ -6495,6 +6496,88 @@ theorem blockRulePdomsAV_eq_readOpenedDoms {envC : Env} {p : ConLeche.BlockParts
     rw [Nat.zero_add, hreads l x hx, blockRulePdomsAV, List.getD_eq_getElem?_getD,
       List.getElem?_map, hpd]
     rfl
+
+/-! ### 40.6 The CONCLUSION's two scoping arguments
+
+`hbC` and `hleafC` are about the term the rule's residue is compared
+against — the recursor's stored type instantiated at the rule's
+prefix openers, the constructor's result index arguments and the
+fired major.  Every one of those arguments is built from the frame's
+openers over two STORED (fvar-free) types, so both arguments come off
+`instPisAt`'s two batteries once the spine's entries are known to be
+bvar-closed. -/
+
+/-- **`hbC` and `hleafC`, from the run's own conclusion equation.** -/
+theorem blockRuleConclClosed_of {nP rP nF : Nat}
+    {recTy cty crest cbody o₁ concl : Expr} {fvsPref fvsF cpref : List Expr}
+    {cname : Name} {lvls : List Level}
+    (h₁ : ConLeche.openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : ConLeche.openPisAtFvars nF crest rP = some (fvsF, cbody))
+    (hf₁ : recTy.hasFvar = false) (hCf : cty.hasFvar = false)
+    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
+    (hinstC : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest))
+    (hpr : ConLeche.Expr.instPisAtLift
+        (fvsPref ++ cbody.getAppArgs.drop nP
+          ++ [Expr.mkAppN (.const cname lvls) (fvsPref.take nP ++ fvsF)]) recTy = some concl) :
+    concl.looseBVarsBounded 0 = true ∧
+      ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
+  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hf₁
+  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
+  have hcb : cbody.looseBVarsBounded 0 = true := (openPisAtFvars_bounded nF h₂ hb₂).1
+  -- an opener's own leaves are openers
+  have hlP : ∀ a ∈ fvsPref, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves rP h₁ l (Or.inr ⟨a, ha, hl⟩) with h' | h'
+    · rw [hrecNil] at h'; exact nomatch h'
+    · exact h'
+  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro l hl
+    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
+    · rw [hctyNil] at h'; exact nomatch h'
+    · exact hlP a (List.mem_of_mem_take ha) l hla
+  have hlF : ∀ a ∈ fvsF, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves nF h₂ l (Or.inr ⟨a, ha, hl⟩) with h' | h'
+    · exact List.mem_append_left _ (hcrestLeaf l h')
+    · exact List.mem_append_right _ h'
+  have hcbLeaf : ∀ l ∈ cbody.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
+    intro l hl
+    rcases openPisAtFvars_leaves nF h₂ l (Or.inl hl) with h' | h'
+    · exact List.mem_append_left _ (hcrestLeaf l h')
+    · exact List.mem_append_right _ h'
+  -- the spine's entries are bvar-closed
+  have hargs : ∀ a ∈ fvsPref ++ cbody.getAppArgs.drop nP
+      ++ [Expr.mkAppN (.const cname lvls) (fvsPref.take nP ++ fvsF)],
+      a.looseBVarsBounded 0 = true := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha' | ha'
+    · rcases List.mem_append.mp ha' with ha'' | ha''
+      · exact openPisAtFvars_fvars_closed h₁ a ha''
+      · exact ConLeche.looseBVarsBounded_getAppArgs hcb a (List.mem_of_mem_drop ha'')
+    · rw [List.mem_singleton] at ha'
+      subst ha'
+      refine ConLeche.looseBVarsBounded_mkAppN rfl (fun x hx => ?_)
+      rcases List.mem_append.mp hx with hx' | hx'
+      · exact openPisAtFvars_fvars_closed h₁ x (List.mem_of_mem_take hx')
+      · exact openPisAtFvars_fvars_closed h₂ x hx'
+  -- the lift IS the plain instantiation at those arguments
+  rw [ConLeche.instPisAtLift_eq_instPisAt hargs, Option.map_eq_some_iff] at hpr
+  obtain ⟨pr, hinst, rfl⟩ := hpr
+  obtain ⟨ds, res⟩ := pr
+  refine ⟨ConLeche.instPisAt_looseBVars _ recTy hinst hb₁ hargs, fun l hl => ?_⟩
+  rcases ConLeche.instPisAt_fvarLeaves _ recTy hinst l hl with h' | ⟨a, ha, hla⟩
+  · rw [hrecNil] at h'; exact nomatch h'
+  rcases List.mem_append.mp ha with ha' | ha'
+  · rcases List.mem_append.mp ha' with ha'' | ha''
+    · exact List.mem_append_left _ (hlP a ha'' l hla)
+    · exact hcbLeaf l (ConLeche.fvarLeaves_getAppArgs (List.mem_of_mem_drop ha'') l hla)
+  · rw [List.mem_singleton] at ha'
+    subst ha'
+    rcases ConLeche.fvarLeaves_mkAppN hla with h' | ⟨x, hx, hlx⟩
+    · simp [Expr.fvarLeaves] at h'
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact List.mem_append_left _ (hlP x (List.mem_of_mem_take hx') l hlx)
+    · exact hlF x hx' l hlx
 
 end CertsArgs
 
