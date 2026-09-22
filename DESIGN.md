@@ -81957,3 +81957,60 @@ length through the shape's binder count.  (iv) *Restating beat
 instantiating*: the native route's `interp_ihIdxAtM` would have pushed
 `rP > nP` and an `o`-split into every consumer; restating the same
 proof at one prefix list cost five lines.
+
+#### LANDED (lane RM24 = M5M-pre session 21): `BlockRuleCerts`' syntactic half, its two segment readings, and the file off the `k = 1` gate
+
+The rule bundle's thirteen-argument list is seven rows shorter.  Every
+SYNTACTIC argument is closed — the constructor telescope's scoping at
+the rule prefix, the generated `ih` tower's scoping and closedness at
+the frame, the openers' bounded annotations, the residue's and the
+conclusion's bvar-closedness and leaf-containment, the three lengths —
+and so are the two owed segment READINGS, on one observation: the
+segments are spelled with `readOpenedDoms`, which is a reading BY
+CONSTRUCTION, so a segment owes only that its openers' readings EXIST
+(the witness list is built from the readings themselves).  `hF` is
+then `denoteMeta_openPis` at the constructor telescope's lifted
+reading and `hI` is the `ih` opener battery at the opener's OWN depth
+— `blockRuleHopener_of`'s part (4) without the walk's shift.
+`blockRuleCerts_of_openings` composes the bundle from the frame's
+three openings, leaving `hokA`, `hokC`, the two typing runs and the
+two term readings; `hokA` is split into three segments, each stated at
+its own frame, with the prefix segment discharged from §35.
+
+Two findings.  **The `hokA` field segment is not the constructor
+stage's**: `CtorDataI.okTy` grades the ctor's tower at the CTOR's
+parameters and the rule's frame supplies the RECURSOR's, which no rule
+run compares (the rule is `paramsBlind`) — the bridge is the check's
+own parameter chain (the recursor's parameter domains against the type
+former's, the ctor's against the former's) transferred by
+`prefixDoms_spineFit`, so that segment is a hop, not a projection
+(~1 session).  **And a gate's definitional collapse hides mis-typed
+arguments**: `rulePrefixAt i` and `rulePrefixAt 0` are definitionally
+equal while `blockRecCheckOn` is `false`, which is why
+`blockRecHpref_run` fed one recursor's opening where another's prefix
+count was expected.  Marking the gate constants `local irreducible`
+and re-elaborating reproduces the flip's typing with no flip: it named
+the three sites, and after the repair the whole file (6 600 lines)
+re-elaborates clean — a per-file red-census the flip lane can run on
+the remaining files at the cost of one elaboration each.
+
+---------------------------------------------------------------------
+
+**THE PROBE, as the flip's red-census instrument.**  Insert
+`attribute [local irreducible] ConLeche.blockRecCheckOn ConLeche.blockRouteK1Only`
+after a file's `variable` line (a file without one takes it after its
+`open`s), write the result to a scratch path, and elaborate that file
+alone against the built tree:
+
+```bash
+timeout 3000 env LEAN_PATH=.lake/build/lib/lean \
+  ~/.elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /tmp/flipscan.lean
+```
+
+Zero output = gate-clean; every error names a site that goes red at
+the flip.  Cost: one file's elaboration (~3 min for the 6 600-line
+`BlockRecPreRun.lean`).  **Two cautions.**  It is CONSERVATIVE for
+`blockRecCheckOn`: irreducibility blocks the branch that the flip
+merely changes, so surviving the probe implies surviving the flip and
+not conversely.  And it exercises only the file's OWN proofs — an
+imported lemma's gate reliance stays that lemma's file's census entry.
