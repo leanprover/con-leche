@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock
-import ConLeche.Verify.Inductives.BlockOne
 import ConLeche.Verify.Inductives.BlockPartsInv
 public section
 
