@@ -10,20 +10,16 @@ public section
 /-!
 # The uniform block install, assembled (task #315 M3)
 
-`declBlock_one`: **the P carrier survives the UNIFORM install's run at
-one member.**  This is the Model tier's half of the milestone-M1 flip
-stated over the uniform installer itself (`checkBlock`), not over the
-one-member installer it bridges to — the shape `Model/Fold.lean`'s
-dispatch will take once the route is ungated.
+`declBlock`: **the P carrier survives the UNIFORM install's run at `k`
+members.**  This is the Model tier's half of the milestone-M1 flip
+stated over the uniform installer itself (`checkBlock`) — the shape
+`Model/Fold.lean`'s dispatch will take once the route is ungated.
 
-At `k = 1` it is `declNative` through the two bridges of milestone M1:
-the recogniser's (`blockParts?_toNative`: a recognised one-member
-block IS a recognised native block at `BlockParts.toNative`, and its
-member list is a singleton) and the installer's
-(`declNativeRun_of_block_one`: the same `checkBlock … = .ok` is a
-`DeclNativeRun` at that reading, because `checkBlock_one` identifies
-the two installers).  So no stage is re-proved here, and `declNative`
-remains the `k = 1` discharge, exactly as lane V's note says.
+The `k = 1` arm used to have a theorem of its own (`declBlock_one`,
+`declNative` through milestone M1's two bridges).  It had no consumer:
+`Model/Fold.lean` goes through `blockParts?_toNative` directly, and
+`declBlock` covers `k = 1` like every other width, so it is deleted
+rather than carried to the flip.
 
 **What is NOT here**: `declBlock` for all `k`, and the named fact
 `BlockRecStaged` its recursor stage would carry.  Both wait on the
@@ -247,26 +243,6 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     · rw [hden ψ 0 cA.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
     · rw [hag cA.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
 
-/-- **The P carrier survives the uniform install at one member.**  The
-hypothesis is the uniform installer's own success, so the statement
-does not mention `nativeParts?`, `checkNative` or `DeclNativeRun` —
-only milestone M1's two bridges do, inside the proof.
-
-**This theorem goes with the recursor stage's gate.**  Both bridges
-hold because `blockRecCheckOn` is down (`checkBlock_one` is the
-one-member arm only then); when the gate flips, `declBlock` covers
-`k = 1` too and this statement is deleted rather than re-proved. -/
-theorem declBlock_one (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (h : ConLeche.checkBlock (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀
-      = .ok env₂) :
-    Nonempty (EnvModelM V μ env₂) :=
-  declNative hμ mp hE (ConLeche.blockParts?_toNative hdp).1
-    (ConLeche.Semantics.declNativeRun_of_block_one
-      (ConLeche.blockParts?_k1 hdp).1.choose_spec
-      (ConLeche.blockParts?_k1 hdp).2.choose_spec h)
-
 /-- **The P carrier survives the uniform install at `k` members.**
 
 Two things about `hrec`, the recursor stage's obligation:
@@ -275,10 +251,7 @@ Two things about `hrec`, the recursor stage's obligation:
   gated `checkBlockRec` — so `hgate` (`blockRecCheckOn = true`) is
   what carries the run to it.  `hgate` is an equation about a
   COMPILE-TIME constant, not about the input: at the flip it is `rfl`
-  and the hypothesis is deleted along with the gate, and
-  `declBlock_one` — the `k = 1` arm, which goes through the
-  generate-and-compare stage — goes with it, superseded by this
-  theorem at every `k`;
+  and the hypothesis is deleted along with the gate;
 * it is handed everything the CONSTRUCTORS' environment knows: the
   model `mpC`, the block data `dR` with the three records
   `blockModelAt_of_stages` consumes (`BlockNamesOk`,
