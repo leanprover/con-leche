@@ -7342,6 +7342,83 @@ theorem blockRecParamHop_run {envC : Env} {p : ConLeche.BlockParts}
     intro i hi
     exact Or.inr (by rw [htakeA] at hpins; exact hpins i hi)
 
+
+/-- **THE PARAMETER HOP**: the rule frame's first `nP` values fit the
+CONSTRUCTOR's parameter domains.
+
+The two halves of the check's chain, composed through the type former:
+the recursor's comparison (`blockRecParamHop_run`, a `SpineFit`
+transfer) and the constructor's (`hframes`, a satisfaction transfer —
+`BlockCtorsStage.frames` at this member and constructor, which is
+`paramFrames` at `checkStructDomsAt`'s pins).  `hframes` is bounded by
+that clause and by nothing wider: it is about THIS constructor's
+domains and THIS member's former, at this `ψ`. -/
+theorem blockRuleParamFit_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds : List (Nat × Nat × AnnotTerm)} {nF : Nat} (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    {σ : Nat → V} {ps : List V}
+    (hps : SpineFit σ
+      ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take p.nP) ps) :
+    SpineFit σ ((ds.take p.nP).map (·.2.2)) ps := by
+  have hT := blockRecParamHop_run hμ mpC h hr ψ hcvTa hfT hFD hle hps
+  have hlenT : (((pps ψ).take p.nP).map (·.2.2)).length = p.nP := by
+    rw [List.length_map, List.length_take, hFD.len ψ]; omega
+  have hlenC : ((ds.take p.nP).map (·.2.2)).length = p.nP := by
+    rw [List.length_map, List.length_take, hlenD]; omega
+  have hlenps : ps.length = p.nP := by rw [SpineFit.length_eq hT, hlenT]
+  exact (spineFit_iff_sat (by rw [hlenps, hlenC])).mpr
+    ((hframes _).mp ((spineFit_iff_sat (by rw [hlenps, hlenT])).mp hT))
+
+/-- **`hokA`'s FIELD segment, AT THE RUN.**  §40.8's model reasoning
+with its last premise discharged: the frame's prefix values split at
+`nP`, the first `nP` of them fit the constructor's parameter domains
+by the hop, and the rest are the `o = rP - nP` binders the recursor's
+prefix carries between the parameters and the fields. -/
+theorem blockRuleFseg_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm} {nF o : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) :
+    ∀ q, q < nF → ∀ (σ : Nat → V) (xs ys : List V),
+      SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
+      SpineFit (consList xs σ) (((liftDoms o 0 (ds.drop p.nP)).map (·.2.2)).take q) ys →
+      WellDenotedV V (consList ys (consList xs σ))
+        (((liftDoms o 0 (ds.drop p.nP)).map (·.2.2)).getD q default) := by
+  intro q hq σ xs ys hxs hys
+  have hxlen : xs.length = p.toBlockShape.rulePrefixAt c := by
+    rw [SpineFit.length_eq hxs, blockRulePdomsAV_length hμ mpC h hr ψ]
+  have hms : (xs.drop p.nP).length = o := by rw [List.length_drop, hxlen, ho]; omega
+  have hps := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD hle hlenD hframes
+    (spineFit_take_any hxs p.nP)
+  have hsplit : xs.take p.nP ++ xs.drop p.nP = xs := List.take_append_drop _ _
+  rw [← hsplit, consList_append] at hys ⊢
+  exact blockRuleFseg_of_ctorTower hwd hlenD hq hms hps hys
+
 end ParamHop
 
 end CertsArgs
