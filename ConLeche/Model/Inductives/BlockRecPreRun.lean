@@ -499,7 +499,8 @@ every `ρ`, and this is it verbatim — the theorem the coordinator
 /-- **`hpre` at an all-`Prop` family**, in the assembly's spelling and
 at the lanes' shared choice of `K`, `nCt` and `eqs`. -/
 theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = true)
-    {mpC : EnvModelM V μ envC} {mp : EnvModelM V μ envT} {F s : Nat}
+    {mpC : EnvModelM V μ envC} {mp : EnvModelM V μ envT} {F : Nat}
+    {s : (Name → Nat) → Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {rP : Nat → Nat} {pdoms : (Name → Nat) → Nat → List AnnotTerm}
     {fdoms es ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
@@ -507,7 +508,7 @@ theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = tru
     {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {Rb Ca : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
-      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
     (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
       (∀ c, c < rs.length →
@@ -545,7 +546,7 @@ theorem blockRecPre_run_allProp {envC envT : Env} (hμ : μ.verifiedChecks = tru
             (consList (xs ++ fs) (chainFrame rs.length (fun _ => (pt : V)) ρ))) (Ca ψ c j)
         ∈ˢ (univZero : V)) :
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      BlockRecPre V s rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
+      BlockRecPre V (s ψ) rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
         (iotaEqsAV rs.length (blockRecNCt rs) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
           (Rb ψ)) ρ :=
   fun ψ ρ =>
@@ -1526,11 +1527,16 @@ theorem blockRecPre_run {ψ : Name → Nat}
     exact blockRecPre_step_of D hDst hTy hwd hℓ hTyE hbits hpl hrule hstAt hihChain
 
 /-- **`hpre` in every regime**, in `blockRecStaged_run`'s spelling and
-at the lanes' shared choice of `K`, `nCt` and `eqs`.  The family's
-elimination level may depend on the level assignment (the guard is
-`ℓ ψ`), the chain's level `s` is one numeral for the block — which is
-what the assembly takes. -/
-theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : Nat}
+at the lanes' shared choice of `K`, `nCt` and `eqs`.  BOTH levels
+depend on the level assignment: the family's elimination level (the
+guard is `ℓ ψ`) and the CHAIN's level `s ψ` — the latter since
+session 11, the audit's item 4.  One numeral for the whole block is
+refutable at any level-polymorphic family (the parameters' sorts carry
+the level parameter even at a `Prop` motive), and the assembly already
+consumes `hpre` at `s ψ`; §21's `blockRecTy_univ_run` produces `s` in
+the shape `maxLevelEval us`, a function of `ψ` only through
+`Level.eval`. -/
+theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : (Name → Nat) → Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {ℓ : (Name → Nat) → Nat} {rP : Nat → Nat}
     {rds : (Name → Nat) → Nat → List (Nat × Nat × AnnotTerm)}
@@ -1540,7 +1546,7 @@ theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : Nat}
     {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
-      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
     (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
       (∀ c, c < rs.length →
@@ -1567,7 +1573,7 @@ theorem blockRecPre_hpre {envC : Env} {mpC : EnvModelM V μ envC} {s : Nat}
         (blockRecTyAV mpC.base2.acval envC rs ψ) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
         (Rb0 ψ) ρ) :
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      BlockRecPre V s rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
+      BlockRecPre V (s ψ) rs.length (blockRecTyAV mpC.base2.acval envC rs ψ)
         (iotaEqsAV rs.length (blockRecNCt rs) (pdoms ψ) (fdoms ψ) (es ψ) (mk ψ) (ihs ψ)
           (fun c j => (Rb0 ψ c j).liftN rs.length
             ((pdoms ψ c).length + (fdoms ψ c j).length + (ihs ψ c j).length))) ρ :=
@@ -1996,43 +2002,63 @@ the run alone — no `hlvl`, no `hdom`, no `hcon`. -/
 
 section FamilyLevel
 
-/-- A uniform universe for finitely many members, by cumulativity. -/
-theorem exists_uniform_univ {n : Nat} {g : Nat → (Nat → V) → V}
-    (h : ∀ c, c < n → ∃ s : Nat, ∀ ρ : Nat → V, g c ρ ∈ˢ (univ s : V)) :
-    ∃ s : Nat, ∀ c, c < n → ∀ ρ : Nat → V, g c ρ ∈ˢ (univ s : V) := by
+/-- **The family's level, as a FUNCTION of the level assignment**: the
+max of the `Level`s the check inferred for the `K` recursor types.
+Each `u` is a level EXPRESSION the run fixed once (ψ-independent), so
+this is a function of `ψ` only through `Level.eval` — which is what
+makes a consumer's `s ψ₁ = s ψ₂` (at assignments agreeing on the
+block's level parameters) provable. -/
+@[expose] def maxLevelEval (us : List Level) (ψ : Name → Nat) : Nat :=
+  (us.map fun u => u.eval ψ).foldr Nat.max 0
+
+theorem maxLevelEval_cons (u : Level) (us : List Level) (ψ : Name → Nat) :
+    maxLevelEval (u :: us) ψ = Nat.max (u.eval ψ) (maxLevelEval us ψ) := rfl
+
+/-- **A uniform universe for finitely many members, by cumulativity**
+— at a level that is a FUNCTION of the assignment, because a
+level-polymorphic family's types live at a `ψ`-dependent universe
+(the audit's item 4: one numeral for the whole block is refutable at
+any block with a level parameter, the parameters' sorts carrying it
+even at a `Prop` motive). -/
+theorem exists_uniform_univ {n : Nat} {g : (Name → Nat) → Nat → (Nat → V) → V}
+    (h : ∀ c, c < n → ∃ u : Level, ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      g ψ c ρ ∈ˢ (univ (u.eval ψ) : V)) :
+    ∃ us : List Level, ∀ c, c < n → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      g ψ c ρ ∈ˢ (univ (maxLevelEval us ψ) : V) := by
   induction n with
-  | zero => exact ⟨0, fun c hc => absurd hc (Nat.not_lt_zero c)⟩
+  | zero => exact ⟨[], fun c hc => absurd hc (Nat.not_lt_zero c)⟩
   | succ n ih =>
-    obtain ⟨s₀, hs₀⟩ := ih fun c hc => h c (Nat.lt_succ_of_lt hc)
-    obtain ⟨s₁, hs₁⟩ := h n (Nat.lt_succ_self n)
-    refine ⟨Nat.max s₀ s₁, fun c hc ρ => ?_⟩
+    obtain ⟨us₀, hs₀⟩ := ih fun c hc => h c (Nat.lt_succ_of_lt hc)
+    obtain ⟨u₁, hs₁⟩ := h n (Nat.lt_succ_self n)
+    refine ⟨u₁ :: us₀, fun c hc ψ ρ => ?_⟩
+    rw [maxLevelEval_cons]
     rcases Nat.lt_succ_iff_lt_or_eq.mp hc with hc' | rfl
-    · exact univ_mono (Nat.le_max_left _ _) _ (hs₀ c hc' ρ)
-    · exact univ_mono (Nat.le_max_right _ _) _ (hs₁ ρ)
+    · exact univ_mono (Nat.le_max_right _ _) _ (hs₀ c hc' ψ ρ)
+    · exact univ_mono (Nat.le_max_left _ _) _ (hs₁ ψ ρ)
 
 /-- **`hTy` at the run, with the level the CHECK chose.**  The family's
-level is the max of the `K` inferred sorts at `ψ`; every recursor
-type's reading lands in it by cumulativity, and its grading is the
-same run's. -/
+level is the max of the `K` inferred sorts, each of them a `Level` the
+run fixed; every recursor type's reading lands in it by cumulativity,
+and its grading is the same run's. -/
 theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (ψ : Name → Nat) :
-    ∃ s : Nat, ∀ c, c < rs.length → ∀ ρ : Nat → V,
-      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) ∧
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∃ us : List Level, ∀ (ψ : Name → Nat) (c : Nat), c < rs.length → ∀ ρ : Nat → V,
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
+          ∈ˢ (univ (maxLevelEval us ψ) : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) := by
-  have hmem : ∀ c, c < rs.length → ∃ s : Nat, ∀ ρ : Nat → V,
-      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ s : V) := by
+  have hmem : ∀ c, c < rs.length → ∃ u : Level, ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (u.eval ψ) : V) := by
     intro c hc
-    obtain ⟨ta, u, hta, -, hu⟩ :=
-      checkBlockRecK_tyReads hμ mpC h rs[c] (List.getElem_mem hc) ψ
-    refine ⟨u.eval ψ, fun ρ => ?_⟩
+    obtain ⟨u, hru⟩ := checkBlockRecK_tyReads (V := V) hμ mpC h rs[c] (List.getElem_mem hc)
+    refine ⟨u, fun ψ ρ => ?_⟩
+    obtain ⟨ta, hta, -, hu⟩ := hru ψ
     rw [blockRecTyAV_eq (List.getElem?_eq_getElem hc) hta]
     exact hu ρ
-  obtain ⟨s, hs⟩ := exists_uniform_univ hmem
-  refine ⟨s, fun c hc ρ => ⟨hs c hc ρ, ?_⟩⟩
+  obtain ⟨us, hs⟩ := exists_uniform_univ hmem
+  refine ⟨us, fun ψ c hc ρ => ⟨hs c hc ψ ρ, ?_⟩⟩
   obtain ⟨-, -, -, -, -, -, -, -, -, hwd⟩ :=
     checkBlockRecK_tyPis hμ mpC h (List.getElem?_eq_getElem hc) ψ
   exact (hwd ρ).1
