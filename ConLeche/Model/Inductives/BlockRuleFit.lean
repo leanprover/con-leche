@@ -254,4 +254,112 @@ theorem blockRuleChainFit_run (hM : BlockModelAt mpC.base2 names d)
     hfq.length_eq hfit'.length_eq heq
   exact hfit'
 
+/-! ## 3. The two conjuncts -/
+
+variable {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+/-- **`BlockRecSplitAt` at the CONTRACT's own recursor fit.**  The
+contract hands `TeleFitPA` of the recursor type at `xs ++ [maj]`;
+`spineFit_blockRecTy` turns it into a fit of the binder data, which is
+what O-2's split consumes.  Out come the three facts the field half
+needs: the block's PARAMETERS fit at the recursor's own prefix, the
+recursor's index arguments fit the eliminated member's index
+telescope there, and the MAJOR lies in that member's former applied to
+both.
+
+`BlockRecSplitAt` has no producer (`AUDIT-premises.md` §2.6); it is the
+recursor-type lane's, and this theorem is its first consumer. -/
+theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) {ρ : Nat → V}
+    {xs : List AnnotTerm} {maj restR : AnnotTerm}
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) (xs ++ [maj]) restR)
+    {K : Nat} (hcK : c < K) {mem : Nat → Nat}
+    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ) :
+    SpineFit ρ (d.params ψ)
+        (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP) ∧
+      SpineFit (consList
+          (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP) ρ)
+        (d.IdsM (mem c) ψ) ((xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) ∧
+      interp V ρ maj ∈ˢ
+        ((((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP
+            ++ (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).foldl app
+          (interp V ρ (mpC.base2.acval (d.memberName (mem c)) ψ))) := by
+  obtain ⟨-, -, -, hread, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
+    rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  have hws := spineFit_blockRecTy hμ mpC h hr ψ hread
+    (by rw [List.length_append, List.length_singleton, hxl]) hfitR
+  obtain ⟨-, -, hpar, hidx, hmaj⟩ := hsplit c hcK _ hws
+  have hmap : (xs ++ [maj]).map (interp V ρ)
+      = xs.map (interp V ρ) ++ [interp V ρ maj] := by rw [List.map_append]; rfl
+  have hpref : prefOf (p.toBlockShape.rulePrefixAt c) ((xs ++ [maj]).map (interp V ρ))
+      = (xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ) := by
+    rw [prefOf, hmap, List.take_append_of_le_length (by rw [List.length_map]; exact hle),
+      List.map_take]
+  have hidxE : idxOf (p.toBlockShape.rulePrefixAt c) ((xs ++ [maj]).map (interp V ρ))
+      = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ) := by
+    rw [idxOf, hmap, List.drop_append_of_le_length (by rw [List.length_map]; exact hle),
+      List.dropLast_concat, List.map_drop]
+  have hmajE : majOf ((xs ++ [maj]).map (interp V ρ)) = interp V ρ maj := by
+    rw [majOf, hmap, List.reverse_append]; rfl
+  simp only [hpref, hidxE, hmajE] at hpar hidx hmaj
+  exact ⟨hpar, hidx, hmaj⟩
+
+/-- **`BlockRuleDataB`'s FIRST conjunct at the run** — the prefix half
+(`blockRuleHspPref_run`, landed) and the FIELD half, appended.
+
+The field half is `blockRecSpF_of` at `K = 0` (§1) over the
+`ChainFit` at the recursor's parameters (§2), and its three
+block-facing premises come from `BlockRecSplitAt` at the contract's
+own recursor fit.
+
+**`hw : d.w ψ ≠ 0` is essential and the conjunct is REFUTABLE without
+it** — see `blockRuleHsp_zero_counterexample`'s docstring. -/
+theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
+    {ψ ψj : Name → Nat}
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
+    (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
+    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
+    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q) (hw : d.w ψ ≠ 0)
+    {ρ : Nat → V} {xs ys : List AnnotTerm} {restR : AnnotTerm}
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
+      (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
+    {K : Nat} (hcK : c < K)
+    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ)
+    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
+    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
+      ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ))) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+      ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+        ++ (ys.drop d.nP).map (interp V ρ)) := by
+  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
+    rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨hps, hidx, hmaj⟩ :=
+    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hcK hsplit
+  have hxsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
+      = p.toBlockShape.rulePrefixAt c := by
+    rw [List.length_map, List.length_take]; omega
+  refine blockRecSpF_base (j := j) (mem := mem) (cA := cA) hM hμ h hr hcj hcf hfd
+    (by rw [List.length_take, hxsLen]; omega) hps htgt
+    (Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _))
+    (List.getElem?_eq_some_iff.mp hcj).1 (tupW_mem hidx) (lfpTuple_mem _ _ _ _) hxsLen
+    (blockRuleHspPref_run hμ mpC h hr ψ hxl hfitR) ?_
+  exact blockRuleChainFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
+
 end ConLeche.Model
