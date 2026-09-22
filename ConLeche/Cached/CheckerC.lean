@@ -341,10 +341,17 @@ def checkBlockS (fe : FEnv) (p : BlockParts) : CheckCM FEnv :=
 /-- **The cached mirror at ONE member.**  The recursor stage's gate
 (`blockRecCheckOn`) keeps the one-member arm the one-member mirror, so
 the pure installer's own one-member bridge (`checkBlock_one`) matches
-it and every cached agreement keeps its one-member statement. -/
+it and every cached agreement keeps its one-member statement.
+
+As with `blockParts?_k1`, the gate is an explicit HYPOTHESIS (`hg`)
+rather than a fact read off the constant's body: this theorem is in
+the cached tier, inside `Main.lean`'s import closure, and a
+body-reading proof would stop the EXECUTABLE from building at a
+flipped gate — which is what makes the flip unmeasurable. -/
 theorem checkBlockS_one {fe : FEnv} {p : BlockParts} {ms : MemberShape}
-    (hm : p.members = [ms]) : checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
-  simp only [checkBlockS, hm, blockRecCheckOn, Bool.false_eq_true, if_false]
+    (hg : blockRecCheckOn = false) (hm : p.members = [ms]) :
+    checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
+  simp only [checkBlockS, hm, hg, Bool.false_eq_true, if_false]
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

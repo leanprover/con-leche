@@ -1078,7 +1078,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · split
       · split
         · next p hbp =>
-          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hbp
+          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hbp
           exact checkBlock_datF env p hms hrc F
         · exact checkModeled_datF env block F
       · rfl
