@@ -8235,10 +8235,28 @@ produces it:
   the instantiating readings' grading.
 
 `hexF` and `hexI` are the two segments' reading-EXISTENCE premises in
-§40.2's shape (`readOpenedDoms_shift_reads` and
-`blockRuleIhOpenerReads_of` are their producers); they are stated as
-existences, not as list equations, because `readOpenedDoms` is a
-reading by construction and that is all the bundle asks. -/
+§40.2's shape; they are stated as existences, not as list equations,
+because `readOpenedDoms` is a reading by construction and that is all
+the bundle asks.
+
+**Both are produced elsewhere, and the composition is one line each**
+— checked against the producers' own statements, which match these
+antecedents and depths character for character:
+
+* `hexF` is `blockRuleFdomsAV_eq`'s SECOND conjunct
+  (`BlockRecData.lean`), the per-opener reading at
+  `rulePrefixAt c + l`: `fun l x hx => ⟨_, (…).2 l x hx⟩`;
+* `hexI` is `blockIhOpenerDom_run`'s last component
+  (`BlockRecTyShapeRun.lean`) at `rP + nF + r`, through the key
+  (`fr.ihKeys[r]? = some (i, c')`, which every `r < nR` has since
+  `nR = ihKeys.length`).
+
+They stay PREMISES rather than being discharged inside: the two
+producers together take some eighteen arguments — the constructor
+data record, the opener frame and the callee's type facts — and
+trading two bounded existences for eighteen record premises is the
+over-quantification this file has repaired a dozen times.  The caller
+holds those records; the one-liners belong at the call site. -/
 
 section CertsRun
 
@@ -8669,7 +8687,154 @@ theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
     rfl
   exact blockRecConcl_univZero_of_value hμ mpC h hrd ψ hop hinf hens hu0 hys hval
 
+/-- **`h0`, the `ih` segment's BIT CLAUSE, DISCHARGED** — and the
+"frame move" §S25.4 priced for it does not exist.
+
+The clause asks that the guarded call's conclusion be a TRUTH VALUE at
+the segment's own frame.  §37's `blockIndIhLeaf_of` already evaluates
+that conclusion, and it does so with **`blockRecCa_value` applied
+verbatim**: §32's identification of the peel's prefix arguments
+(`prefVarsAV rP (nF + m)` IS `paramBvarsAt rP (rP + nF + m)`) makes
+the `ih` opener's `BlockRuleConclAt` the same object the RULE's
+conclusion is, and the frame `consList bs (consList (xs ++ fs) ρ)`
+is §29's shape with the field telescope's values in the `ih` block's
+slot.  So `h0` is this lane's `univZero` producer (§40.15) composed
+with that evaluation, and nothing about frames had to be said.
+
+Stated at the CALLEE's index `c'`, because that is whose recursor type
+the call's conclusion peels. -/
+theorem blockRuleIseg_h0_of_conclAt {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c' : Nat} {r' : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr' : rs[c']? = some r') (ψ : Name → Nat)
+    {fvs : List Expr} {conclE sty : Expr} {u : Level}
+    (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c' + 1) r'.1.type 0
+      = some (fvs, conclE))
+    (hinf : ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c' + 1) conclE
+      = .ok sty)
+    (hens : ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c' + 1) sty
+      = .ok u)
+    (hu0 : u.eval ψ = 0)
+    {nF m nIdx : Nat} {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
+    (hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') nF m
+      (blockRecTyAV mpC.base2.acval envC rs ψ c') eisA fapA CihR)
+    (hrds : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length
+      = p.toBlockShape.rulePrefixAt c' + nIdx + 1)
+    (hesLen : eisA.length = nIdx)
+    (hconclB : Term.bvarsBelow
+      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length
+      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c').erase)
+    {ρ : Nat → V} {xs fs bs is : List V} {maj : V}
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c') (hfs : fs.length = nF)
+    (hbs : bs.length = m)
+    (hes : eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))) = is)
+    (hmk : interp V (consList bs (consList (xs ++ fs) ρ)) fapA = maj)
+    (hfit : SpineFit ρ
+      ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map (·.2.2))
+      (xs ++ (is ++ [maj]))) :
+    interp V (consList bs (consList (xs ++ fs) ρ)) CihR ∈ˢ (univZero : V) := by
+  obtain ⟨-, -, -, -, hTyE, -, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr' ψ
+  exact blockRecConcl_univZero_of_value hμ mpC h hr' ψ hop hinf hens hu0 hfit
+    (blockRecCa_value hcon hTyE hrds hesLen hconclB hxs hfs hbs hes hmk)
+
 end ConclUniv
+
+/-! ### 40.16 `hwd` — the ι equation list's grading
+
+`hwd` (§5, and the same premise in all three regimes) has three parts
+per rule, and a shape-grep over each — the habit, applied before
+pricing — separates them cleanly:
+
+* `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
+  has **no producer anywhere and no near-miss** (the only theorem
+  concluding it, `fieldsOkB_of_frame` in `StructTele.lean`, is stated
+  over `fieldsFrom`'s reversed-context slicing, a different currency);
+  this is the THIRD cost, and `fieldsOkB_zero_of_spineGrading` below
+  pays it.  At `w = 0` the predicate's middle conjunct is vacuous, so
+  what is left is exactly the hereditary reading of §40.12's
+  ASCENDING per-binder grading — one induction, no new content;
+* the equation's RIGHT-hand side, `instsAV 0 (ihs c j) (Rb c j)`.
+  That is the RESIDUE's grading, which is `BlockRuleCerts`' own first
+  component (`ResidueOk.1`), and `wd_instsAV`
+  (`Semantics/Tower/BlockRecI.lean`) crosses the substitution;
+* the equation's LEFT-hand side, the recursor VARIABLE applied to the
+  rule's spine.  Its head's membership is `hwd`'s own hypothesis (the
+  chain slot inhabits the recursor type's reading), so it is
+  `Rules.wellDenotedV_mkAppN_of_fit` at the RECURSOR's fit — the same
+  shape §40.11's arguments took at the CONSTRUCTOR's. -/
+
+section Hwd
+
+/-- **`FieldsOkB 0` from the ASCENDING per-binder grading** (the
+`hokA` currency).  At `w = 0` the universe clause is vacuous, so the
+predicate is just "every entry is graded under the values of the
+entries before it", which is what a spine-indexed grading says one
+index at a time. -/
+theorem fieldsOkB_zero_of_spineGrading :
+    ∀ (L : List AnnotTerm) {σ : Nat → V},
+      (∀ l, l < L.length → ∀ ys : List V,
+        SpineFit σ (L.take l) ys → WellDenoted V (consList ys σ) (L.getD l default)) →
+      FieldsOkB 0 σ L
+  | [], _, _ => trivial
+  | F :: Fs, σ, hok => by
+    refine ⟨?_, (fun hz => absurd rfl hz), fun a ha => ?_⟩
+    · simpa using hok 0 (by simp) [] trivial
+    · refine fieldsOkB_zero_of_spineGrading Fs (fun l hl ys hys => ?_)
+      have hstep : SpineFit σ ((F :: Fs).take (l + 1)) (a :: ys) := ⟨ha, hys⟩
+      have hq := hok (l + 1) (by simp only [List.length_cons]; omega) (a :: ys) hstep
+      simpa using hq
+
+/-- **`hwd`'s RIGHT-hand side, from the bundle**: the ι equation's
+residue is graded because `BlockRuleCerts.residueOk`'s FIRST component
+says so, and the substitution of the `ih` terms is crossed by
+`wd_instsAV`.  The `ih` values are the ones the regime's own `hih`
+names, so nothing here is quantified past the fit that produces
+them. -/
+theorem blockRuleHwdRhs_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
+    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
+    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
+    (hcerts : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
+    {σ : Nat → V} {xs fs : List V} {ihs : List AnnotTerm}
+    (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs))
+    (hihv : ∀ v ∈ ihs, WellDenoted V (consList (xs ++ fs) σ) v)
+    (hih : SpineFit (consList (xs ++ fs) σ) ihdoms
+      (ihs.map (interp V (consList (xs ++ fs) σ)))) :
+    WellDenoted V (consList (xs ++ fs) σ) (instsAV 0 ihs Rb) :=
+  (wd_instsAV hihv).mpr (hcerts.residueOk hμ hsp hih).1
+
+/-- **`hwd` AT ONE RULE, assembled.**  The three parts in the shape
+the regimes state them: the domain list's `FieldsOkB 0` from §40.12's
+ascending grading, the ι equation's left side from the recursor's fit,
+and its right side from the bundle.
+
+The left side's premise is stated at the spine, not split, because
+only the residue's half needs the prefix/field boundary — and that
+split is `spineFit_append_inv`, not a hypothesis. -/
+theorem blockRuleHwd_of {envT : Env} (hμ : μ.verifiedChecks = true)
+    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
+    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
+    (hcerts : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
+    {σ : Nat → V} {lhs : AnnotTerm} {ihs : List AnnotTerm}
+    (hokA : ∀ l, l < (pdoms ++ fdoms).length → ∀ ys : List V,
+      SpineFit σ ((pdoms ++ fdoms).take l) ys →
+      WellDenoted V (consList ys σ) ((pdoms ++ fdoms).getD l default))
+    (hlhs : ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+      WellDenoted V (consList ys σ) lhs)
+    (hihs : ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+      (∀ v ∈ ihs, WellDenoted V (consList ys σ) v) ∧
+        SpineFit (consList ys σ) ihdoms (ihs.map (interp V (consList ys σ)))) :
+    FieldsOkB 0 σ (pdoms ++ fdoms) ∧
+      ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+        WellDenoted V (consList ys σ) lhs ∧
+          WellDenoted V (consList ys σ) (instsAV 0 ihs Rb) := by
+  refine ⟨fieldsOkB_zero_of_spineGrading _ hokA, fun ys hys => ⟨hlhs ys hys, ?_⟩⟩
+  obtain ⟨xs, fs, rfl, -, -⟩ := spineFit_append_inv hys
+  exact blockRuleHwdRhs_of_certs hμ hcerts hys (hihs _ hys).1 (hihs _ hys).2
+
+end Hwd
 
 end CertsArgs
 
