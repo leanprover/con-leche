@@ -82778,3 +82778,38 @@ wants the same treatment, after which `hihv` and the open `hihFit` both
 fall out.  And the census shrank the body equation's wiring from 45
 premises to 3 items, two of which are this lane's own unconsumed
 producers — Spine A of `RM39`'s census, exactly.
+
+#### LANDED (lane RM37 = M5M-pre session 26, `47234523`): the `univZero` producer — four premises from one place
+
+`blockRecConcl_univ` (`BlockRecPreRun.lean:8428`), its `ℓ = 0` form
+through any value identification (`:8559`), and both halves from the
+run (`blockRecConclUnivZero_run`, `:8596`).  The location was the
+result: **the check already infers the opened conclusion's type and
+`ensureSort`s it** (`BlockInstall.lean:541-542`), storing that level as
+the entry's third component — which IS the level the elimination-level
+theorem reads.  So `ℓ` is the level of the sort the check inferred, and
+`blockLargeElimAllowed` plays no part.  The model step is `SortSemAt`
+at the recursor's own opened frame, and every ingredient was already
+carrying traffic.  Cost of the four consumers afterwards: two from the
+regime's own premises with no new data, one an evaluation away, one
+needing the `ih` twin of that evaluation.
+
+**FINDING — the FOURTH cost, and the rule caught its own author.**  The
+lane priced "widen the inversion to keep what it discards" at ⅓–½
+session, wrote it, and it compiled — and it was a theorem **this same
+lane had landed in an earlier session, in its own file, under another
+name**, with two consumers already.  It was missed because the sizing
+grepped the inversion it expected to widen and read that inversion's
+consumers; the existing recovery is a different peel under a different
+name.  The grep that finds it is over the peels' CONCLUSIONS
+(`ensureSortCore … = .ok u`), one command.
+
+So the standing question — *which check makes this available, and does
+the inversion that reads it keep it?* — has **four** answers, not
+three: the check keeps it (free); the inversion drops it (recover it);
+nobody has it and the model cannot pay (**the checker must say it** — a
+kernel guard); and **someone already recovered it under another name**
+(free, but only if you look for the FACT rather than for the gap).  The
+duplicate was reverted whole; the non-duplicating shape is forced,
+since the two facts come off one peel and an existential per fact could
+not be reconciled.
