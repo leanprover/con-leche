@@ -797,6 +797,9 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
       ((p.toBlockShape.recTgtAt) c))
     (hsrcAt : ∀ xs : List V, ∀ X,
         InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
+        TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
+          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+            (d.Φ ψ (consList (xs.take d.nP) ρ))) →
         ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
           d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
           fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
@@ -875,7 +878,7 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
           srcVals
               (isOfW (d.uM ((p.toBlockShape.recTgtAt) c) ψ) (d.nIdxAt ((p.toBlockShape.recTgtAt)
                 c))
-                (D.tupOf c
+                (d.tup ψ ((p.toBlockShape.recTgtAt) c)
                   (((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c j).map (interp V
                     (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ))))))
               (srcs c)

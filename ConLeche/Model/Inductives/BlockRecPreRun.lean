@@ -3790,18 +3790,22 @@ the block's data decide both:
 * **∈-BELOW**: `blockData_mkDepth` at a finitary field,
   `blockData_mkDepth_app` at a reflexive one (`BlockRecRegimes.lean`).
 
-**`pdoms c = pdoms c'` is a PREMISE, and it has no producer**
-(`hpdU` below).  `checkBlockRecTys` (`Kernel/Inductives/BlockInstall.lean:439`)
-compares the first `nP` binder domains of a recursor's type with the
-block's parameters binder by binder and states, in as many words,
-that "the binders `nP … rP-1` are ARBITRARY — the stretch official
-fills with the motives and the minor premises is never looked
-inside".  So two recursors of one block may carry different motive
-and minor telescopes of the same LENGTH (`blockIhKeys`' filter pins
-only the length, `pairIdxOf_blockIhKeys_rP`), and nothing in the
-recursor stage makes the rule's prefix values fit the CALLEE's
-prefix.  See §S14.2 for the two ways out; the premise is stated here,
-where its run-level consumer is. -/
+**`pdoms c = pdoms c'` is a PREMISE, and it HAS a producer** — it did
+not when this section was written.  Stage (b) alone never gives it:
+`checkBlockRecTys` compares the first `nP` binder domains of a
+recursor's type with the block's parameters binder by binder and
+states, in as many words, that "the binders `nP … rP-1` are
+ARBITRARY — the stretch official fills with the motives and the minor
+premises is never looked inside", so two recursors of one block could
+carry different motive and minor telescopes of the same LENGTH
+(`blockIhKeys`' filter pins only the length,
+`pairIdxOf_blockIhKeys_rP`).  The CHECKER now says it: stage (b')
+`checkBlockRecPrefixAgree` (the ruling of 2026-09-22,
+`Kernel/Inductives/BlockInstall.lean`) requires a family's recursors
+to share their whole rule prefix, and §35's `blockRecHpref_run`
+(`:4472`) / `blockRecHpref_runK` (`:4578`) carry that to the reading.
+The premise stays stated here, where its run-level consumer is, and
+`hpdU` is discharged from the run rather than assumed. -/
 
 section Predecessor
 
@@ -3878,11 +3882,14 @@ per-position `isDefEq` between the two openings
 Two steps take that to the premise, and only the first is semantic:
 
 * **the readings agree** — `DefEqClaim` at the stage's own
-  `isDefEqCore` calls.  It is the ONE step still owed, and it is the
-  standard certified hop (`BlockRecTyping.lean` §1 runs it for the
-  rule stage's own `isDefEq`); its side conditions are the openings'
-  `CtxOk`/`WScoped`/`LeavesBounded`, which `opening_vars` and
-  `checkBlockRecK_tyBounds`' inputs already carry;
+  `isDefEqCore` calls.  This was the ONE step owed when the section
+  was written; §35 runs it end to end, so nothing here is owed any
+  more.  It is the standard certified hop (`BlockRecTyping.lean` §1
+  runs it for the rule stage's own `isDefEq`); its side conditions are
+  the openings' `CtxOk`/`WScoped`/`LeavesBounded`, which
+  `opening_vars` and `checkBlockRecK_tyBounds`' inputs already carry,
+  and §35 pays them at the WALK's frames rather than at all of them
+  (`spineFit_congr_walk`), which is what makes them payable;
 * **a fitting spine transfers** — `spineFit_congr_readings`, below,
   which is a plain induction on the walk. -/
 
@@ -4740,6 +4747,9 @@ theorem blockSqExu (hM : BlockModelAt mo names d) (hw : d.w ψ = 0)
     (hN : d.N = 1) (hmem0 : mem 0 = 0) (hnCt1 : (d.ctorsM 0).length = 1)
     (htgt : ∀ i, d.tgts 0 0 i = 0)
     (hsrcAt : ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
+      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
       ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
         d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
         fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) src)
@@ -4832,7 +4842,7 @@ theorem blockSqExu (hM : BlockModelAt mo names d) (hw : d.w ψ = 0)
   -- the source spine at the constructed element IS the rule's fields
   have hspine : blockSqSpine d ψ mem src (tagged 0 i (d.inj ψ 0 0 fs)) = fs := by
     rw [blockSqSpine_tagged, hmem0]
-    exact (hsrcAt _ hXsp i hi fs hfit).symm
+    exact (hsrcAt _ hXsp (sepTuple_le _ _ _ _ _) i hi fs hfit).symm
   rw [hspine] at hbs htag
   -- the recursive field's value, folded along its telescope
   obtain ⟨hpre, hentry⟩ := FitsFrom.at_pos hfit.1 i' hi'F
@@ -4960,6 +4970,9 @@ noncomputable def blockSqKit (hμ : μ.verifiedChecks = true)
     (htgt : ∀ i, d.tgts 0 0 i = 0)
     (hmemN : ∀ c, c < 1 → mem c < d.N)
     (hsrcAt : ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
+      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
       ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
         d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
         fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
@@ -5006,7 +5019,7 @@ noncomputable def blockSqKit (hμ : μ.verifiedChecks = true)
     intro c hc _ i hi fs hfit
     obtain rfl : c = 0 := by omega
     rw [hmem0] at hi hfit ⊢
-    exact (hsrcAt _ (lfpTuple_mem _ _ _ _) i hi fs hfit).symm
+    exact (hsrcAt _ (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) i hi fs hfit).symm
   have hstP := blockSqStep_hst
     (pr := blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
       (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
@@ -5073,6 +5086,9 @@ noncomputable def blockSqKitFam (hμ : μ.verifiedChecks = true)
     (hmemN : ∀ c, c < 1 → mem c < d.N)
     (hsrcAt : ∀ xs : List V, ∀ X,
       InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
+      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
       ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
         d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
         fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
@@ -5143,7 +5159,34 @@ representation, the certificates and the same reading bridges the WF
 arm takes — with `tcPred` replaced by `blockSqPred` in `hihF`, and the
 subsingleton criterion in two places: at the carrier's case analysis
 (`hsrcAt`, which the kit's `exu` and `hst` consume) and at a rule's own
-spine (`hsrcRule`, which `blockSqStep_at_rule` consumes). -/
+spine (`hsrcRule`, which `blockSqStep_at_rule` consumes).
+
+**Both criteria are stated at the narrowings of 2026-09-22, and both
+narrowings are what makes them producible** (the lift,
+`Model/Inductives/BlockRuleFit.lean` §2c).
+
+* `hsrcAt` carries `TupleLe … X (lfpTuple …)` — `X` BELOW the
+  fixpoint.  Without it the premise quantifies over an arbitrary
+  member of the tuple space and has no producer: the criterion is a
+  WALK (`FieldsBoundSrc` advances only through DOMAIN members) and at
+  `w = 0` a slot member need not be one, so the walk stops at the
+  first sourceless recursive field and every field after it is out of
+  reach.  Below the fixpoint the `ChainFit` transports into the
+  fixpoint's (`blockChainFit_of_le`) and the criterion applies
+  verbatim (`blockChainFit_srcVals_zero`).  It costs the consumers
+  nothing: both pass a tuple below the fixpoint — the fixpoint itself
+  in `blockSqKit`'s `hsrcL` (`TupleLe.refl`), the SEPARATED tuple in
+  `blockSqExu` (`sepTuple_le`, already three lines above the use).
+* `hsrcRule` concludes about `d.tup ψ (mem c)` — the BLOCK's own
+  tuple — and not about `D.tupOf c`.  `RecFamData.tupOf` is an
+  abstract field the structure's laws tie to nothing outside `D`, so
+  at a universally quantified `D` the conclusion is a statement about
+  an unconstrained function and no fact about the block can produce
+  it.  The `∀ D` stays (the FRAME is `chainFrame 1 (famCand D) ρ` and
+  the producer `blockRuleSrcVals_rule` is generic in it); only the
+  conclusion stops speaking about the abstract field.  The regime
+  applies the premise at the one datum it builds, `blockSqData`, whose
+  `tupOf c is` IS `d.tup ψ (mem c) is`. -/
 theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hw : d.w ψ = 0) (hmemK : ∀ c, c < 1 → mem c < d.k)
     (hN : d.N = 1) (hmem0 : mem 0 = 0)
@@ -5155,6 +5198,9 @@ theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hpdE : ∀ c, c < 1 → pdoms c = ((rds c).map (·.2.2)).take (rP c))
     (hsrcAt : ∀ xs : List V, ∀ X,
       InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
+      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
+        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
+          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
       ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
         d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
         fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
@@ -5208,7 +5254,7 @@ theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
       j = 0 ∧
         srcVals
             (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
-              (D.tupOf c
+              (d.tup ψ (mem c)
                 ((es c j).map (interp V (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ))))))
             (srcs c)
           = fs)
