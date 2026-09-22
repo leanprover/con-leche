@@ -5170,4 +5170,443 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
 
 end IndStep
 
-end ConLeche.Model
+
+/-! ## 38. THE BITS LAW — a Π-tower's binder data follows its
+CONCLUSION's sort
+
+`blockRecOneElimLevel` (§4) takes `hbits` — every binder numeral of
+recursor `c`'s binder data is zero exactly when its elimination level
+is — as a premise, and the audit's §2.6 lists it UNOWNED.  This is its
+producer.
+
+**It is a law of the CHECK, not of the annotation pass.**  `annotPwPi`
+(`Kernel/Core.lean`) answers most binders from the head-symbol reader
+(`typeSortPW`) and only falls back to inference, so an annotation-side
+law would have to carry the reader's soundness; `inferBody`'s ∀ clause
+VALIDATES the datum it finds against the codomain sort it infers
+(`(forall-cod)`), which at a verified mode pins every `BinderMeta.pw`
+of a tower with nothing but that clause's own `unless`.
+
+Three steps:
+
+* `inferTypeCore_forallE_peel` — one ∀ binder of a successful
+  inference: the codomain's sort `v`, the datum `mb.pw = zeronessOf v`
+  and the node's own sort `imax u v`;
+* `inferTypeCore_openPis_sortZ` — the tower's inferred sort has the
+  CONCLUSION's zero-ness (`zeronessOf (imax u v) = zeronessOf v` is
+  the whole content, carried down the openers);
+* `stripPisAV_denoteMeta_pw` — every binder numeral of the READING is
+  `pwBit ψ` of that one `PropWhen`, `denoteMeta`'s own
+  `.pi 0 (pwBit φ mb.pw)` composed with the two above.
+
+All three take the conclusion's inference at a SECOND fuel `G ≥ F`:
+the check runs it twice — once inside the tower's own recursion, at
+the fuel left after the peel, and once on its own
+(`checkBlockRecTys`) — and fuel monotonicity (`inferTypeCore_mono`,
+`Verify/Mono.lean`) is what identifies the two. -/
+
+section BitsLaw
+
+/-- `ensureSort` on a BUILT sort — `whnf_sort` at the two fuel steps
+the reduction pays. -/
+theorem ensureSortCore_sort (envK : Env) {G : Nat} (d : Nat) (u : Level) (hG : 2 ≤ G) :
+    ConLeche.ensureSortCore μ envK G d (.sort u) = .ok u := by
+  obtain ⟨G', rfl⟩ : ∃ G', G = G' + 2 := ⟨G - 2, by omega⟩
+  show ConLeche.ensureSort (ConLeche.pureFns μ envK (G' + 2)) envK d (.sort u) = .ok u
+  unfold ConLeche.ensureSort
+  rw [show (ConLeche.pureFns μ envK (G' + 2)).whnf d (Expr.sort u)
+      = ConLeche.whnf μ envK (G' + 2) d (.sort u) from rfl, ConLeche.whnf_sort]
+  rfl
+
+/-- A successful inference at fuel `0` is impossible. -/
+theorem inferTypeCore_pos {envK : Env} {d : Nat} {e r : Expr} {F : Nat}
+    (h : ConLeche.inferTypeCore μ envK F d e = .ok r) : 1 ≤ F := by
+  cases F with
+  | zero =>
+    rw [ConLeche.inferTypeCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ _ => omega
+
+/-- **One ∀ binder of a successful inference, peeled.**  The ∀ clause's
+own witnesses: the codomain's sort `v`, the node's validated datum and
+the node's own sort. -/
+theorem inferTypeCore_forallE_peel (hμ : μ.verifiedChecks = true) {envK : Env}
+    {d F : Nat} {ty bd s : Expr} {mb : ConLeche.BinderMeta}
+    (h : ConLeche.inferTypeCore μ envK F d (.forallE ty bd mb) = .ok s) :
+    ∃ (F₀ : Nat) (udom v : Level) (bt₁ : Expr),
+      F = F₀ + 1 ∧ 1 ≤ F₀ ∧
+      ConLeche.inferTypeCore μ envK F₀ (d + 1) (bd.instantiate1 (.fvar d ty)) = .ok bt₁ ∧
+      ConLeche.ensureSortCore μ envK F₀ (d + 1) bt₁ = .ok v ∧
+      Level.zeronessOf v = mb.pw ∧ s = .sort (.imax udom v) := by
+  cases F with
+  | zero =>
+    rw [ConLeche.inferTypeCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ F₀ =>
+    rw [ConLeche.inferTypeCore_forallE_eq] at h
+    obtain ⟨tty, htty, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨w0, hw0, h⟩ := ConLeche.exceptBind_ok h
+    clear htty hw0
+    cases w0 with
+    | sort udom =>
+      obtain ⟨bt₁, hbt₁, h⟩ := ConLeche.exceptBind_ok h
+      obtain ⟨v, hv, h⟩ := ConLeche.exceptBind_ok h
+      simp only [hμ, if_true, bind, Except.bind] at h
+      by_cases hz : (Level.zeronessOf v == mb.pw) = true
+      · rw [hz] at h
+        refine ⟨F₀, udom, v, bt₁, rfl, inferTypeCore_pos hbt₁, hbt₁, hv,
+          by simpa using hz, ?_⟩
+        simpa [pure, Except.pure] using h.symm
+      · simp only [hz] at h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+    | _ => simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **A Π-tower's inferred sort has its CONCLUSION's zero-ness.** -/
+theorem inferTypeCore_openPis_sortZ (hμ : μ.verifiedChecks = true) {envK : Env} :
+    ∀ (n : Nat) {d F G : Nat} {e : Expr} {fvs : List Expr} {o s bt : Expr} {u : Level},
+      F ≤ G → openPisAtFvars n e d = some (fvs, o) →
+      ConLeche.inferTypeCore μ envK F d e = .ok s →
+      ConLeche.inferTypeCore μ envK G (d + n) o = .ok bt →
+      ConLeche.ensureSortCore μ envK G (d + n) bt = .ok u →
+      ∃ w, ConLeche.ensureSortCore μ envK G d s = .ok w ∧
+        Level.zeronessOf w = Level.zeronessOf u
+  | 0, d, F, G, e, fvs, o, s, bt, u, hFG, hop, hinf, hcon, hsort => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨-, rfl⟩ := hop
+    rw [Nat.add_zero] at hcon hsort
+    obtain rfl : bt = s := by
+      have hh := hcon.symm.trans (ConLeche.inferTypeCore_mono hFG hinf)
+      simpa using hh
+    exact ⟨u, hsort, rfl⟩
+  | n + 1, d, F, G, e, fvs, o, s, bt, u, hFG, hop, hinf, hcon, hsort => by
+    match e, hop with
+    | .forallE ty bd mb, hop =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨-, rfl⟩ := hop
+        obtain ⟨F₀, udom, v, bt₁, rfl, hF₀, hbt₁, hv, hpw, rfl⟩ :=
+          inferTypeCore_forallE_peel hμ hinf
+        have hcon' : ConLeche.inferTypeCore μ envK G (d + 1 + n) o' = .ok bt := by
+          rw [show d + 1 + n = d + (n + 1) from by omega]; exact hcon
+        have hsort' : ConLeche.ensureSortCore μ envK G (d + 1 + n) bt = .ok u := by
+          rw [show d + 1 + n = d + (n + 1) from by omega]; exact hsort
+        obtain ⟨w', hw', hzw'⟩ :=
+          inferTypeCore_openPis_sortZ hμ n (by omega) hop' hbt₁ hcon' hsort'
+        obtain rfl : w' = v := by
+          have hh := hw'.symm.trans (ConLeche.ensureSortCore_mono (f := F₀) (f' := G)
+            (by omega) hv)
+          simpa using hh
+        exact ⟨.imax udom w', ensureSortCore_sort envK d _ (by omega), hzw'⟩
+      · exact nomatch hop
+    | .bvar _, hop => nomatch hop
+    | .fvar _ _, hop => nomatch hop
+    | .sort _, hop => nomatch hop
+    | .const _ _, hop => nomatch hop
+    | .app _ _, hop => nomatch hop
+    | .lam _ _ _, hop => nomatch hop
+    | .letE _ _ _, hop => nomatch hop
+    | .proj _ _ _, hop => nomatch hop
+    | .lit _, hop => nomatch hop
+
+/-- **The bits law.**  Every binder numeral of a checked Π-tower's
+READING is `pwBit φ` of the tower's conclusion's sort. -/
+theorem stripPisAV_denoteMeta_pw {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env}
+    {φ : Name → Nat} (hμ : μ.verifiedChecks = true) :
+    ∀ (n : Nat) {d F G : Nat} {e : Expr} {fvs : List Expr} {o s bt : Expr} {u : Level}
+      {ea : AnnotTerm} {pps : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm},
+      F ≤ G → openPisAtFvars n e d = some (fvs, o) →
+      denoteMeta acval env φ d e = some ea →
+      stripPisAV n ea = some (pps, b) →
+      ConLeche.inferTypeCore μ envK F d e = .ok s →
+      ConLeche.inferTypeCore μ envK G (d + n) o = .ok bt →
+      ConLeche.ensureSortCore μ envK G (d + n) bt = .ok u →
+      ∀ p ∈ pps, p.2.1 = pwBit φ (Level.zeronessOf u)
+  | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hst, _, _, _ => by
+    simp only [stripPisAV, Option.some.injEq, Prod.mk.injEq] at hst
+    obtain ⟨rfl, -⟩ := hst
+    exact fun _ h => nomatch h
+  | n + 1, d, F, G, e, fvs, o, s, bt, u, ea, pps, b, hFG, hop, hr, hst, hinf, hcon, hsort => by
+    match e, hop with
+    | .forallE ty bd mb, hop =>
+      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hr
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨-, rfl⟩ := hop
+        obtain ⟨F₀, udom, v, bt₁, rfl, hF₀, hbt₁, hv, hpw, rfl⟩ :=
+          inferTypeCore_forallE_peel hμ hinf
+        have hcon' : ConLeche.inferTypeCore μ envK G (d + 1 + n) o' = .ok bt := by
+          rw [show d + 1 + n = d + (n + 1) from by omega]; exact hcon
+        have hsort' : ConLeche.ensureSortCore μ envK G (d + 1 + n) bt = .ok u := by
+          rw [show d + 1 + n = d + (n + 1) from by omega]; exact hsort
+        -- the head binder's datum: the tail's own inferred sort
+        obtain ⟨w', hw', hzw'⟩ :=
+          inferTypeCore_openPis_sortZ hμ n (μ := μ) (by omega) hop' hbt₁ hcon' hsort'
+        obtain rfl : w' = v := by
+          have hh := hw'.symm.trans (ConLeche.ensureSortCore_mono (f := F₀) (f' := G)
+            (by omega) hv)
+          simpa using hh
+        simp only [stripPisAV] at hst
+        cases hst' : stripPisAV n ba with
+        | none => rw [hst'] at hst; exact nomatch hst
+        | some q =>
+          rw [hst'] at hst
+          simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hst
+          obtain ⟨rfl, -⟩ := hst
+          intro p hp
+          simp only [List.mem_cons] at hp
+          rcases hp with rfl | hp
+          · show pwBit φ mb.pw = pwBit φ (Level.zeronessOf u)
+            rw [← hpw, hzw']
+          · exact stripPisAV_denoteMeta_pw hμ n (by omega) hop' hba hst' hbt₁ hcon' hsort' p hp
+      · exact nomatch hop
+    | .bvar _, hop => nomatch hop
+    | .fvar _ _, hop => nomatch hop
+    | .sort _, hop => nomatch hop
+    | .const _ _, hop => nomatch hop
+    | .app _ _, hop => nomatch hop
+    | .lam _ _ _, hop => nomatch hop
+    | .letE _ _ _, hop => nomatch hop
+    | .proj _ _ _, hop => nomatch hop
+    | .lit _, hop => nomatch hop
+
+end BitsLaw
+
+/-! ### 38.1 The run: stage (b)'s two CONCLUSION runs, and `hbits`
+
+`checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean`) and
+`checkBlockRecTys_open` (`BlockRecMem.lean`) both discard the stage's
+own sort computation on the opened conclusion — `ops.inferType`
+followed by `ops.ensureSort`, whose level IS the recursor's stored
+elimination level.  Those two runs are the bits law's premises, so the
+peel is widened here (a sixth inversion of that stage; if the Verify
+lane ever keeps the runs, this is its corollary and should go). -/
+
+section ElimRun
+
+local syntax "close_throw" term : tactic
+local macro_rules
+  | `(tactic| close_throw $h:term) =>
+    `(tactic| first
+        | exact nomatch $h
+        | exact absurd $h (by
+            simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+            exact fun hh => nomatch hh)
+        | exact absurd $h
+            (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
+
+/-- **Stage (b)'s inversion, WIDENED to the conclusion's SORT**: the
+recursor's opened conclusion is inferred and `ensureSort`ed at the
+stage's own fuel, and the level that comes back is the entry's third
+component — the elimination level D-d compares. -/
+theorem checkBlockRecTys_elim {env : Env}
+    {p : ConLeche.BlockShape} {nested : Bool} {cvTas : List ConstantVal} {F : Nat} :
+    ∀ {recs : List ConLeche.RecShape} {ri : Nat}
+      {cvRus : List (ConstantVal × Nat × Level)},
+      ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) env p nested cvTas recs ri
+          = .ok cvRus →
+      ∀ i, i < recs.length → ∃ (cvRi : ConstantVal) (nIdx : Nat) (u : Level)
+        (fvs : List Expr) (concl sty : Expr),
+        cvRus[i]? = some (cvRi, nIdx, u) ∧
+        ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi.type 0
+          = some (fvs, concl) ∧
+        ConLeche.inferTypeCore μ env F (p.majorIdxAt (ri + i) + 1) concl = .ok sty ∧
+        ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty = .ok u
+  | [], _, cvRus, _, i, hi => absurd hi (Nat.not_lt_zero i)
+  | rc :: rest, ri, cvRus, h, i, hi => by
+    unfold ConLeche.checkBlockRecTys at h
+    obtain ⟨ms, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvTa, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRi, _, h⟩ := ConLeche.exceptBind_ok h
+    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    case neg => rw [if_neg hle] at h; close_throw h
+    rw [if_pos hle] at h
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
+    obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨fvs, concl⟩ := x1
+    have hop : ConLeche.openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0
+        = some (fvs, concl) := ConLeche.unwrapOr_ok hx1
+    obtain ⟨x2, _, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨_, _⟩ := x2
+    obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨maj, _, h⟩ := ConLeche.exceptBind_ok h
+    by_cases hmaj : (maj.fvarTypeD.getAppFn ==
+          Expr.const ms.cvT.name (p.lps.map .param) &&
+        maj.fvarTypeD.getAppArgs.length == p.nP + ms.nIdx &&
+        maj.fvarTypeD.getAppArgs.take p.nP == fvs.take p.nP &&
+        maj.fvarTypeD.getAppArgs.drop p.nP ==
+          (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx) = true
+    case neg => rw [if_neg hmaj] at h; close_throw h
+    rw [if_pos hmaj] at h
+    obtain ⟨sty, hsty, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨u, hu, h⟩ := ConLeche.exceptBind_ok h
+    have key : ∀ {rs' : List (ConstantVal × Nat × Level)},
+        ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) env p nested cvTas rest
+            (ri + 1) = .ok rs' →
+        cvRus = (cvRi, ms.nIdx, u) :: rs' →
+        ∃ (cvRi' : ConstantVal) (nIdx : Nat) (u' : Level)
+          (fvs' : List Expr) (concl' sty' : Expr),
+          cvRus[i]? = some (cvRi', nIdx, u') ∧
+          ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi'.type 0
+            = some (fvs', concl') ∧
+          ConLeche.inferTypeCore μ env F (p.majorIdxAt (ri + i) + 1) concl' = .ok sty' ∧
+          ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty' = .ok u' := by
+      intro rs' hrest hcv
+      subst hcv
+      cases i with
+      | zero =>
+        refine ⟨cvRi, ms.nIdx, u, fvs, concl, sty, rfl, ?_, ?_, ?_⟩
+        · rw [Nat.add_zero]; exact hop
+        · rw [Nat.add_zero]; exact hsty
+        · rw [Nat.add_zero]; exact hu
+      | succ i =>
+        obtain ⟨cvRi', nIdx, u', fvs', concl', sty', hcu, hop', hsty', hu'⟩ :=
+          checkBlockRecTys_elim hrest i (by simpa using hi)
+        refine ⟨cvRi', nIdx, u', fvs', concl', sty', by simpa using hcu, ?_, ?_, ?_⟩
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hop'
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hsty'
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hu'
+    by_cases hlarge : ConLeche.blockLargeElimAllowed p nested = true
+    case pos =>
+      rw [if_pos hlarge] at h
+      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact key hrest h.symm
+    case neg =>
+      rw [if_neg hlarge] at h
+      obtain ⟨b, _, h⟩ := ConLeche.exceptBind_ok h
+      by_cases hb : b = true
+      case neg => rw [if_neg hb] at h; close_throw h
+      rw [if_pos hb] at h
+      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact key hrest h.symm
+
+/-- **Stage (b) and D-d, off `checkBlockRecK`**: the type stage's own
+list, with its elimination-level verdict. -/
+theorem checkBlockRecK_elimList {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∃ cvRus : List (ConstantVal × Nat × Level),
+      ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
+          (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus ∧
+      ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) (cvRus.map (·.2.2)) = .ok () ∧
+      rs.length = p.recs.length ∧
+      ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        rs[i]? = some r → (cvRus.map (·.1))[i]? = some r.1 := by
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨uf, hfam, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
+  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
+  rw [ConLeche.checkBlockRecFamilyAgree] at hfam
+  obtain ⟨u0, helim, hrest0⟩ := ConLeche.exceptBind_ok hfam
+  clear hrest0
+  refine ⟨cvRus, htys, ?_, hlenR, ?_⟩
+  · cases u0; exact helim
+  intro i r hr
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hr).1
+    omega
+  obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
+  obtain rfl := Option.some.inj (hr.symm.trans hr')
+  obtain ⟨-, cvRi, nIdx, u', -, hcu, -, -, -⟩ := hallT i hil
+  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
+    rw [List.getElem?_map, hcu]; rfl
+  have hr1 : r.1 = cvRi := by
+    have hq := hcvRa
+    rw [Nat.zero_add] at hq
+    exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
+  rw [List.getElem?_map, hcu, hr1]
+  rfl
+
+end ElimRun
+
+/-- **`hbits` AND `hmem`, FROM THE RUN** — the audit's §2.6 item
+`blockRecOneElimLevel`'s premise, discharged.  The binder numerals of
+recursor `c`'s binder data are `pwBit ψ` of the `PropWhen` the ∀
+clause validated at every binder of its stored type, and that datum is
+`zeronessOf` the level stage (b) read off the CONCLUSION — the
+recursor's elimination level. -/
+theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∃ (us : List Level) (uOf : Nat → Level),
+      ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok () ∧
+      (∀ c, c < rs.length → uOf c ∈ us) ∧
+      ∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
+        ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
+          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0) := by
+  obtain ⟨cvRus, htys, helim, hlenR, hbridge⟩ := checkBlockRecK_elimList h
+  have hlenT : cvRus.length = p.recs.length := (ConLeche.checkBlockRecTys_inv htys).1
+  refine ⟨cvRus.map (·.2.2), fun c => ((cvRus.map (·.2.2)).getD c .zero), helim, ?_, ?_⟩
+  · intro c hc
+    have hlt : c < (cvRus.map (·.2.2)).length := by rw [List.length_map, hlenT]; omega
+    have hg : (cvRus.map (·.2.2)).getD c .zero = (cvRus.map (·.2.2))[c] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl
+    show ((cvRus.map (·.2.2)).getD c .zero) ∈ cvRus.map (·.2.2)
+    rw [hg]
+    exact List.getElem_mem hlt
+  · intro ψ c hc b hb
+    obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
+    have hcp : c < p.recs.length := by omega
+    obtain ⟨cvRi, nIdx, u, fvs', concl', sty, hcu, hop', hsty, hu⟩ :=
+      checkBlockRecTys_elim htys c hcp
+    rw [Nat.zero_add] at hop' hsty hu
+    -- the stored recursor IS the type stage's checked constant
+    have hr1 : r.1 = cvRi := by
+      have h' := hbridge c r hr
+      rw [List.getElem?_map, hcu] at h'
+      simp only [Option.map_some, Option.some.injEq] at h'
+      exact h'.symm
+    -- the level the theorem hands back IS stage (b)'s
+    have huOf : ((cvRus.map (·.2.2)).getD c .zero) = u := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcu]; rfl
+    -- the type's own inference (`checkConstantVal`'s second run)
+    obtain ⟨-, hallT2⟩ := ConLeche.checkBlockRecTys_inv htys
+    obtain ⟨rcC, cvRiB, nIdxB, uB, -, hcuB, hcvB, -, -⟩ := hallT2 c hcp
+    have hcvEq : cvRiB = cvRi := congrArg Prod.fst (Option.some.inj (hcuB.symm.trans hcu))
+    obtain ⟨-, -, -, -, -, -, tyA, stype, -, -, -, -, hinfTy, -, hcv'⟩ :=
+      ConLeche.checkConstantVal_inv hcvB
+    have htyA : cvRi.type = tyA := by rw [← hcvEq, hcv']
+    -- the reading, and its Π-peel
+    obtain ⟨fvs, concl, hop, hta, hmk, hlenRds, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+    rw [← hr1] at hop'
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans hop'))
+    -- the reading's Π-peel IS the run's own binder data (O-2's identification)
+    have hst : stripPisAV (p.toBlockShape.majorIdxAt c + 1)
+        (blockRecTyAV mpC.base2.acval envC rs ψ c)
+        = some (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
+            blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) := by
+      rw [hmk, ← hlenRds]
+      exact stripPisAV_mkPisAV _ _
+    have hinfTy' : ConLeche.inferTypeCore μ envC F 0 r.1.type = .ok stype := by
+      rw [hr1, htyA]; exact hinfTy
+    show b.2.1 = 0 ↔ Level.eval ψ ((cvRus.map (·.2.2)).getD c .zero) = 0
+    rw [huOf, stripPisAV_denoteMeta_pw (envK := envC) hμ _ (Nat.le_refl F) hop hta hst
+      hinfTy' (by rw [Nat.zero_add]; exact hsty) (by rw [Nat.zero_add]; exact hu) b hb]
+    exact pwBit_zeronessOf ψ u
+
+/-- **`OneElimLevel` FROM THE RUN** — §4's theorem with BOTH its
+premises discharged.  The level is the family's shared one: the sort
+`checkBlockRecTys` read off the first recursor's conclusion, at `ψ`.
+This is the shape every regime's `hbits` takes
+(`BlockRecRegimes.lean`, and §37's IND arm at `ℓ = 0`). -/
+theorem blockRecOneElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) :
+    ∃ ℓ : Nat, OneElimLevel ℓ rs.length
+      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) := by
+  obtain ⟨us, uOf, helim, hmem, hbits⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  exact ⟨(us.headD .zero).eval ψ, blockRecOneElimLevel helim ψ hmem (hbits ψ)⟩
