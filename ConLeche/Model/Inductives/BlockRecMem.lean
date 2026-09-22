@@ -284,6 +284,74 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
   · rw [hrds]; exact fun j x hx => by simpa using hbind j x hx
   · rw [hcon]; simpa using hb
 
+/-- **The recursor type's readings are BOUNDED at their own depths** —
+binder `l`'s domain below `l`, the conclusion below the binder count.
+
+A SEPARATE theorem rather than two more clauses of
+`checkBlockRecK_tyPis`: five sites destructure that one positionally
+and none of them reads a boundedness, so widening it would make every
+consumer carry what it never uses (session 12's finding 3, a bundle
+per consumer).
+
+This is what §28's `liftDomsK_eq_self_of_bounded` and §29's `hconclB`
+ask for.  The run gives it in one step: the stored type is CLOSED
+(`checkConstantVal_inv`, carried through the annotation by
+`annotateCore_WScoped`/`annotateCore_looseBVars`), so the opening's
+own per-index scoping facts hold
+(`openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`), and
+`bvarsBelow_of_reading` turns a reading at depth `l` into
+`bvarsBelow l`. -/
+theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) (ψ : Name → Nat) :
+    (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length →
+      ConLeche.Term.Term.bvarsBelow l
+        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l
+          default).2.2).erase) ∧
+    ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
+      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i).erase := by
+  obtain ⟨⟨cv, hcv⟩, fvs, concl, hop⟩ := checkBlockRecK_tyShape h hr
+  obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
+  obtain ⟨ta, hta, -, -⟩ := hru ψ
+  obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
+  obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis _ hop hta
+  have hrds : blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i = pps := by
+    rw [blockRecRdsAV, blockRecTyAV_eq hr hta, hst]; rfl
+  have hcon : blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i = b := by
+    rw [blockRecConclAV, blockRecTyAV_eq hr hta, hst]; rfl
+  obtain ⟨-, -, -, -, hlb0, hfv0, tyA, -, -, hann, -, -, -, -, hcv'⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have hrty : r.1.type = tyA := by rw [hcv']
+  have hws0 : Expr.WScoped 0 r.1.type := by
+    rw [hrty]
+    exact ConLeche.annotateCore_WScoped _ _ hann (Expr.WScoped.of_not_hasFvar hfv0)
+  have hlbT : r.1.type.looseBVarsBounded 0 = true := by
+    rw [hrty]
+    exact ConLeche.annotateCore_looseBVars _ _ hann hlb0
+  obtain ⟨hconclB, hfvsB⟩ := ConLeche.Verify.openPisAtFvars_bounded _ hop hlbT
+  obtain ⟨-, hbodyW⟩ := ConLeche.openPisAtFvars_WScoped _ _ _ hop hws0
+  refine ⟨?_, ?_⟩
+  · intro l hl
+    rw [hrds] at hl ⊢
+    obtain ⟨x, hx⟩ : ∃ x, fvs[l]? = some x := by
+      refine ⟨_, List.getElem?_eq_getElem ?_⟩
+      rw [ConLeche.Verify.openPisAtFvars_length _ hop, ← hlen]
+      exact hl
+    obtain ⟨pd, hpd, -, hread⟩ := hbind l x hx
+    rw [Nat.zero_add] at hread
+    rw [List.getD_eq_getElem?_getD, hpd, Option.getD_some]
+    refine bvarsBelow_of_reading (m := mpC.base2) ?_ ?_ hread
+    · have hw := openPisAtFvars_typeWScoped _ hop hws0 l x hx
+      rwa [Nat.zero_add] at hw
+    · exact hfvsB x (List.mem_of_getElem? hx)
+  · rw [hrds, hcon, hlen]
+    refine bvarsBelow_of_reading (m := mpC.base2) ?_ hconclB (by simpa using hb)
+    rwa [Nat.zero_add] at hbodyW
+
 /-! ## The seam: `hmem`
 
 `blockRecAV_facts` (`Semantics/Tower/BlockRecI.lean`) says the class's
