@@ -6664,6 +6664,308 @@ theorem blockRuleConclClosed_of {nP rP nF : Nat}
     · exact List.mem_append_left _ (hlP x (List.mem_of_mem_take hx') l hlx)
     · exact hlF x hx' l hlx
 
+/-! ### 40.7 The GENERATED `ih` tower's two syntactic facts
+
+`blockIhPis` (`Kernel/Inductives/BlockRec.lean`) is the ONE piece of a
+rule's frame the kernel never types: the check opens
+`ihTele.instantiateList (fvsPref ++ fvsF).reverse` and types the
+RESIDUE under it, so nothing in the run says that the tower itself is
+a closed term of the rule's frame.  §40.1 takes both facts as premises
+(`hihfv`, `hihlb`) — as does the opener lane's `blockRuleHopener_of` —
+and this is their proof: an induction over the generator, whose
+binders are the constructor's own telescope moved to the rule's frame
+(`structTeleAt`) over the CALLEE's stored type instantiated at a spine
+of `bvar`s (`instPisAtLift`).
+
+The arithmetic is the whole content.  A field's telescope entry `k` is
+spelled at the CONSTRUCTOR's frame (`nP + i + k`) and `structIdxAt`
+moves it by `nF - i + l` and then by `o = rP - nP`, which lands it at
+`rP + nF + l + k` — exactly where the rule's frame has it — and that
+identity is where `nP ≤ rP` and `i < nF` (the key's own field index)
+are used. -/
+
+/-- `instantiate1Lift` lowers the loose-bvar bound by one, at an
+argument bounded where the binder sits.  (`Verify/Cached/StreamConsts`
+runs the same induction for the zeta walk; that tier is not in this
+file's import closure.) -/
+theorem looseBVarsBounded_instantiate1Lift {a : Expr} :
+    ∀ (e : Expr) (k j : Nat), a.looseBVarsBounded k = true →
+      e.looseBVarsBounded (k + j + 1) = true →
+      (e.instantiate1Lift a j).looseBVarsBounded (k + j) = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at h
+    simp only [Expr.instantiate1Lift]
+    split
+    · rename_i hij; subst hij
+      exact Expr.looseBVarsBounded_liftLooseBVars i a ha
+    · split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
+  | fvar _ _ _ => intro k j _ _; rfl
+  | sort _ => intro k j _ _; rfl
+  | const _ _ => intro k j _ _; rfl
+  | lit _ => intro k j _ _; rfl
+  | app f b ihf ihb =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨ihf k j ha h.1, ihb k j ha h.2⟩
+  | lam ty b bi iht ihb =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨iht k j ha h.1, ?_⟩
+    have := ihb k (j + 1) ha (by rw [show k + (j + 1) + 1 = k + j + 1 + 1 from by omega]; exact h.2)
+    rwa [show k + (j + 1) = k + j + 1 from by omega] at this
+  | forallE ty b bi iht ihb =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨iht k j ha h.1, ?_⟩
+    have := ihb k (j + 1) ha (by rw [show k + (j + 1) + 1 = k + j + 1 + 1 from by omega]; exact h.2)
+    rwa [show k + (j + 1) = k + j + 1 from by omega] at this
+  | letE ty v b iht ihv ihb =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨⟨iht k j ha h.1.1, ihv k j ha h.1.2⟩, ?_⟩
+    have := ihb k (j + 1) ha (by rw [show k + (j + 1) + 1 = k + j + 1 + 1 from by omega]; exact h.2)
+    rwa [show k + (j + 1) = k + j + 1 from by omega] at this
+  | proj s i e ihe =>
+    intro k j ha h
+    simp only [Expr.looseBVarsBounded] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded]
+    exact ihe k j ha h
+
+/-- `instantiate1Lift` keeps a term free of free variables. -/
+theorem hasFvar_instantiate1Lift {a : Expr} (ha : a.hasFvar = false) :
+    ∀ (e : Expr) (j : Nat), e.hasFvar = false → (e.instantiate1Lift a j).hasFvar = false := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j _
+    simp only [Expr.instantiate1Lift]
+    split
+    · rw [hasFvar_liftLooseBVars]; exact ha
+    · split <;> rfl
+  | fvar _ _ _ => intro j h; exact h
+  | sort _ => intro j _; rfl
+  | const _ _ => intro j _; rfl
+  | lit _ => intro j _; rfl
+  | app f b ihf ihb =>
+    intro j h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨ihf j h.1, ihb j h.2⟩
+  | lam ty b bi iht ihb =>
+    intro j h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨iht j h.1, ihb (j + 1) h.2⟩
+  | forallE ty b bi iht ihb =>
+    intro j h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨iht j h.1, ihb (j + 1) h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro j h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨⟨iht j h.1.1, ihv j h.1.2⟩, ihb (j + 1) h.2⟩
+  | proj s i e ihe =>
+    intro j h
+    simp only [Expr.hasFvar] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar]
+    exact ihe j h
+
+/-- **`instPisAtLift` keeps a uniform loose-bvar bound**: every
+argument replaces a binder that sits at the same depth, so nothing
+escapes the bound the arguments already respect. -/
+theorem looseBVarsBounded_instPisAtLift {k : Nat} :
+    ∀ {as : List Expr} {t r : Expr}, (∀ a ∈ as, a.looseBVarsBounded k = true) →
+      t.looseBVarsBounded k = true → ConLeche.Expr.instPisAtLift as t = some r →
+      r.looseBVarsBounded k = true
+  | [], t, r, _, ht, h => by
+    rw [ConLeche.Expr.instPisAtLift] at h; cases Option.some.inj h; exact ht
+  | a :: as, t, r, ha, ht, h => by
+    match t, h with
+    | .forallE dom body mt, h =>
+      rw [ConLeche.Expr.instPisAtLift] at h
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at ht
+      refine looseBVarsBounded_instPisAtLift
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) ?_ h
+      have := looseBVarsBounded_instantiate1Lift body k 0 (ha a List.mem_cons_self)
+        (by simpa using ht.2)
+      simpa using this
+
+/-- **`instPisAtLift` keeps a term free of free variables.** -/
+theorem hasFvar_instPisAtLift :
+    ∀ {as : List Expr} {t r : Expr}, (∀ a ∈ as, a.hasFvar = false) →
+      t.hasFvar = false → ConLeche.Expr.instPisAtLift as t = some r → r.hasFvar = false
+  | [], t, r, _, ht, h => by
+    rw [ConLeche.Expr.instPisAtLift] at h; cases Option.some.inj h; exact ht
+  | a :: as, t, r, ha, ht, h => by
+    match t, h with
+    | .forallE dom body mt, h =>
+      rw [ConLeche.Expr.instPisAtLift] at h
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at ht
+      exact hasFvar_instPisAtLift (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+        (hasFvar_instantiate1Lift (ha a List.mem_cons_self) body 0 ht.2) h
+
+/-- `Expr.mkPisOf` is bounded when each domain is bounded at its own
+depth and the body under all of them. -/
+theorem looseBVarsBounded_mkPisOf : ∀ (bs : List (Expr × ConLeche.BinderMeta)) {body : Expr}
+    {k : Nat}, (∀ (q : Nat) (b : Expr × ConLeche.BinderMeta), bs[q]? = some b →
+        b.1.looseBVarsBounded (k + q) = true) →
+      body.looseBVarsBounded (k + bs.length) = true →
+      (Expr.mkPisOf bs body).looseBVarsBounded k = true
+  | [], body, k, _, hb => by rw [Expr.mkPisOf]; simpa using hb
+  | b :: bs, body, k, hbs, hb => by
+    simp only [Expr.mkPisOf, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨by simpa using hbs 0 b rfl, ?_⟩
+    refine looseBVarsBounded_mkPisOf bs (k := k + 1) (fun q x hx => ?_) ?_
+    · have := hbs (q + 1) x (by simpa using hx)
+      rwa [show k + (q + 1) = k + 1 + q from by omega] at this
+    · have hlen : k + (b :: bs).length = k + 1 + bs.length := by
+        rw [List.length_cons]; omega
+      rwa [hlen] at hb
+
+/-- A `structIdxAt` move raises the bound by its two lifts. -/
+theorem looseBVarsBounded_structIdxAt {nF o i l m B : Nat} {e : Expr}
+    (h : e.looseBVarsBounded B = true) :
+    (ConLeche.structIdxAt nF o i l m e).looseBVarsBounded (B + (nF - i + l) + o) = true :=
+  Expr.looseBVarsBounded_liftLooseBVars o _
+    (Expr.looseBVarsBounded_liftLooseBVars (nF - i + l) e h)
+
+/-- The rule's own prefix variables are `bvar`s inside the frame. -/
+theorem looseBVarsBounded_blockRulePrefixVars {rP nF d B : Nat} (hB : rP + nF + d ≤ B) :
+    ∀ e ∈ ConLeche.blockRulePrefixVars rP nF d, e.looseBVarsBounded B = true := by
+  intro e he
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp he
+  have := List.mem_range.mp hq
+  simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
+  omega
+
+/-- A telescope's own variables are `bvar`s below its length. -/
+theorem looseBVarsBounded_structTeleVars {m B : Nat} (hB : m ≤ B) :
+    ∀ e ∈ ConLeche.structTeleVars m, e.looseBVarsBounded B = true := by
+  intro e he
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp he
+  have := List.mem_range.mp hq
+  simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
+  omega
+
+section IhTower
+
+variable {nP rP nF : Nat} {pw : ConLeche.PropWhen} {recTyOf : Nat → Expr}
+  {teleOf : Nat → List (Expr × ConLeche.BinderMeta)} {idxOf : Nat → List Expr}
+
+/-- **`hihfv` — the generated `ih` tower carries no free variable.**
+Its binders are the constructor's telescope at the rule's frame over
+the callee's STORED type; neither mentions one. -/
+theorem blockIhPis_hasFvar
+    (hrec : ∀ c, (recTyOf c).hasFvar = false)
+    (htele : ∀ i, ∀ b ∈ teleOf i, b.1.hasFvar = false)
+    (hidx : ∀ i, ∀ e ∈ idxOf i, e.hasFvar = false) :
+    ∀ (is : List (Nat × Nat)) (l : Nat) (body ihTele : Expr), body.hasFvar = false →
+      ConLeche.blockIhPis nP rP nF pw recTyOf teleOf idxOf is l body = some ihTele →
+      ihTele.hasFvar = false := by
+  intro is
+  induction is with
+  | nil =>
+    intro l body ihTele hb h
+    rw [ConLeche.blockIhPis] at h
+    cases Option.some.inj h; exact hb
+  | cons ic is ih =>
+    obtain ⟨i, c⟩ := ic
+    intro l body ihTele hb h
+    rw [ConLeche.blockIhPis] at h
+    split at h
+    · exact nomatch h
+    · rename_i concl hinst
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨rest, hrest, rfl⟩ := h
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff]
+      refine ⟨hasFvar_mkPisOf (hasFvar_structTeleAt (htele i)) ?_, ih (l + 1) body rest hb hrest⟩
+      refine hasFvar_instPisAtLift (fun a ha => ?_) (hrec c) hinst
+      rcases List.mem_append.mp ha with ha | ha
+      · rcases List.mem_append.mp ha with ha | ha
+        · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; rfl
+        · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
+          exact hasFvar_structIdxAt (hidx i e he)
+      · obtain rfl := List.mem_singleton.mp ha
+        refine hasFvar_mkAppN rfl (fun x hx => ?_)
+        obtain ⟨q, -, rfl⟩ := List.mem_map.mp hx; rfl
+
+/-- **`hihlb` — the generated `ih` tower is bounded at the rule
+frame's own depth.**  The premises are the CONSTRUCTOR-frame bounds of
+the field data (`nP + i + k` for telescope entry `k`, `nP + i + m` for
+an index expression) and the callee's stored type being closed; `hnP`
+and the keys' `i < nF` are what make `structIdxAt`'s two moves land on
+`rP + nF + l + k`. -/
+theorem blockIhPis_looseBVarsBounded (hnP : nP ≤ rP)
+    (hrec : ∀ c, (recTyOf c).looseBVarsBounded 0 = true)
+    (htele : ∀ (i k : Nat) (b : Expr × ConLeche.BinderMeta), (teleOf i)[k]? = some b →
+      b.1.looseBVarsBounded (nP + i + k) = true)
+    (hidx : ∀ i, ∀ e ∈ idxOf i, e.looseBVarsBounded (nP + i + (teleOf i).length) = true) :
+    ∀ (is : List (Nat × Nat)) (l : Nat) (body ihTele : Expr), (∀ ic ∈ is, ic.1 < nF) →
+      body.looseBVarsBounded (rP + nF + l + is.length) = true →
+      ConLeche.blockIhPis nP rP nF pw recTyOf teleOf idxOf is l body = some ihTele →
+      ihTele.looseBVarsBounded (rP + nF + l) = true := by
+  intro is
+  induction is with
+  | nil =>
+    intro l body ihTele _ hb h
+    rw [ConLeche.blockIhPis] at h
+    cases Option.some.inj h; simpa using hb
+  | cons ic is ih =>
+    obtain ⟨i, c⟩ := ic
+    intro l body ihTele hkeys hb h
+    have hiF : i < nF := hkeys (i, c) List.mem_cons_self
+    rw [ConLeche.blockIhPis] at h
+    split at h
+    · exact nomatch h
+    · rename_i concl hinst
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨rest, hrest, rfl⟩ := h
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      constructor
+      · -- the binder: the field's telescope at the rule's frame, over
+        -- the callee's conclusion
+        refine looseBVarsBounded_mkPisOf _ (fun q b hq => ?_) ?_
+        · have hqlt : q < (teleOf i).length := by
+            have := (List.getElem?_eq_some_iff.mp hq).1
+            rwa [structTeleAt_length] at this
+          obtain ⟨b0, hb0⟩ : ∃ b0, (teleOf i)[q]? = some b0 :=
+            ⟨(teleOf i)[q]'hqlt, List.getElem?_eq_getElem hqlt⟩
+          rw [structTeleAt_getElem? (nF := nF) (o := rP - nP) (i := i) (l := l) (pw := pw) hb0] at hq
+          obtain rfl := Option.some.inj hq
+          have := looseBVarsBounded_structIdxAt (nF := nF) (o := rP - nP) (i := i) (l := l)
+            (m := q) (htele i q b0 hb0)
+          exact Expr.looseBVarsBounded_mono (by omega) this
+        · rw [structTeleAt_length]
+          refine looseBVarsBounded_instPisAtLift (fun a ha => ?_)
+            (Expr.looseBVarsBounded_mono (Nat.zero_le _) (hrec c)) hinst
+          rcases List.mem_append.mp ha with ha | ha
+          · rcases List.mem_append.mp ha with ha | ha
+            · exact looseBVarsBounded_blockRulePrefixVars (by omega) _ ha
+            · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
+              have := looseBVarsBounded_structIdxAt (nF := nF) (o := rP - nP) (i := i) (l := l)
+                (m := (teleOf i).length) (hidx i e he)
+              exact Expr.looseBVarsBounded_mono (by omega) this
+          · obtain rfl := List.mem_singleton.mp ha
+            refine ConLeche.looseBVarsBounded_mkAppN ?_
+              (fun x hx => looseBVarsBounded_structTeleVars (by omega) x hx)
+            simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
+            omega
+      · refine ih (l + 1) body rest (fun q hq => hkeys q (List.mem_cons_of_mem _ hq)) ?_ hrest
+        have hb' : Expr.looseBVarsBounded (rP + nF + l + (is.length + 1)) body = true := hb
+        rw [show rP + nF + (l + 1) + is.length = rP + nF + l + (is.length + 1) from by omega]
+        exact hb'
+
+end IhTower
+
 end CertsArgs
 
 end ConLeche.Model
