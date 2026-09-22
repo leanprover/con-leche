@@ -4953,4 +4953,172 @@ end SqFam
 
 end SqKit
 
+
+/-! ## 37. THE IND ARM'S STEP — `blockIndPt`'s `hstep` (session 18)
+
+§17 reduces regime IND's induction principle to "the conclusion is
+inhabited at every fitting spine" and leaves the STEP — the conclusion
+at a CONSTRUCTED major, with the property already available at the
+recursive fields — as a premise.  This section is that step, from the
+rules' certificates.
+
+The assembly is short because everything it needs already exists: the
+spine splits (`BlockRecSplitAt`), the major decomposes at the
+SEPARATED tuple (`BlockModelAt.fibre` — the separated tuple, not the
+lfp, which is what makes the recursive fields carry the property), and
+`BlockRuleCerts.residueOk` types the residue at the frame.  At `ℓ = 0`
+the conclusion's reading is a TRUTH VALUE (`hT`), so the residue's
+value there IS the point and the conclusion is inhabited.
+
+**What is a premise, and why.**  `hih` — the `ih` openers' fit at the
+frame — is the induction hypothesis itself: at `ℓ = 0` the openers'
+domains are truth values whose inhabitation is the motive at the
+PREDECESSORS, which the separated tuple carries (§33 puts the
+predecessor there, and §35's `hpref'` is what made §33 run).  Turning
+that into the fit needs the openers' domain READING — the per-key
+identification `ihdoms.getD r = (mkPisAV (tlA i) (Cih r)).liftN r 0`
+with `Cih r` the peel of the CALLEE's conclusion — which is lane
+RM19's export and is not landed.  It is named here, consumed at the
+run level in the same section, and becomes an `exact` when RM19's
+`hconcl` lands.  `hT` and `hCaE` are §29's `blockRecCa_run` at
+`ℓ = 0`, in the shape the regime states them. -/
+
+section IndStep
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+  {K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
+  {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
+  {pdoms : Nat → List AnnotTerm} {fdoms ihdoms : Nat → Nat → List AnnotTerm}
+  {ihs : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
+  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+
+/-- **The IND arm's step**, `blockIndPt`'s `hstep`. -/
+theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+    (hspF : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
+    (hih : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
+      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
+        ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ))))
+    (hT : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      interp V
+          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+        ∈ˢ (univZero : V))
+    (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      majOf ys = d.inj ψ (mem c) j fs →
+      interp V
+          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+        = interp V (consList ys ρ) (concl c)) :
+    ∀ as : List V, SpineFit ρ (d.params ψ) as →
+      ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
+        x ∈ˢ app (d.Φ ψ (consList as ρ)
+            (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+              (blockIndP d ψ ρ K rP mem rds concl as)) m) i →
+        blockIndP d ψ ρ K rP mem rds concl as m i x := by
+  intro as hpar m hm i hi x hx c hc hmc ys hys htk hti hmaj
+  subst hmc
+  subst htk
+  subst hti
+  subst hmaj
+  obtain ⟨j, fs, hj, hfit, hxinj⟩ :=
+    (hM.fibre ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.satOfSpine hpar) _
+      (sepTuple_mem _ _ _ _ _) (mem c) hm _ hi (majOf ys)).mp hx
+  have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
+  have hres := (hcerts c hc j hjn).residueOk hμ
+    (hspF c hc ys hys j hjn fs hfit) (hih c hc ys hys j hjn fs hfit)
+  have hTv := hT c hc ys hys j hjn fs
+  rw [← hCaE c hc ys hys j hjn fs hxinj] at *
+  exact (eq_pt_of_mem_univZero hTv hres.2) ▸ hres.2
+
+/-- **`IndRegimeAt` FROM THE RUN**, the dispatch's `ℓ = 0` arm: §17's
+induction with its step discharged (`blockIndStep`), the rules'
+certificates, and the regime's own two premises at the CHAIN frame.
+
+The step's premises are at the BASE frame and the regime's at the
+chain frame; they are genuinely two obligations (the induction is a
+statement about the block's carrier, the ι equations' about the
+chain), which is why both appear. -/
+theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
+    (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
+    (hmemK : ∀ c, c < K → mem c < d.k)
+    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
+    (hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
+    (hbits : OneElimLevel 0 K rds)
+    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
+    (hspF : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
+    (hihStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
+          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
+      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
+        ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ))))
+    (hTStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      interp V
+          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+        ∈ˢ (univZero : V))
+    (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      ∀ j, j < nCt c → ∀ fs : List V,
+      majOf ys = d.inj ψ (mem c) j fs →
+      interp V
+          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+        = interp V (consList ys ρ) (concl c))
+    (hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
+        ((ihs c j).map
+          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))))
+    (hTReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      interp V
+          (consList
+            ((ihs c j).map
+              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j)
+        ∈ˢ (univZero : V)) :
+    IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs Rb ρ :=
+  ⟨envT, mp, F, ihdoms, Ca, hμ,
+    hind_of_spines hbits hTyE
+      (blockIndPt hM hmemK hsplitR
+        (blockIndStep hμ hM hnCt hcerts hspF hihStep hTStep hCaE)),
+    hcerts, hihReg, hTReg⟩
+
+end IndStep
+
 end ConLeche.Model
