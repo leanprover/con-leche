@@ -4231,14 +4231,18 @@ theorem blockRecHpref_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
           ((fvs0.map Expr.fvarTypeD).getD l default)
           ((fvsI.map Expr.fvarTypeD).getD l default) = .ok true :=
       fun l hl => hdeqI l (by omega)
+    -- BOTH openings are passed at recursor `0`'s prefix count, which is
+    -- what stage (b') compares at; `hrP` is the run's own equation and
+    -- the ONLY thing that identifies it with recursor `i`'s (the two are
+    -- definitionally equal only while the route's `k = 1` gate is down).
     constructor
     · intro hz
-      exact prefixDoms_spineFit hμ mpC hopI' hop0 hwI hw0 hbI hb0 hlenI hlen0 hdI hd0
+      exact prefixDoms_spineFit hμ mpC hopI hop0 hwI hw0 hbI hb0 hlenI hlen0 hdI hd0
         (fun l hl σ' ys hys => hokI l (by omega) σ' ys hys)
         (fun l hl σ' ys hys => hok0 l (by omega) σ' ys hys)
         (fun l hl => Or.inr (hdeq0I l hl)) hz
     · intro hz
-      exact prefixDoms_spineFit hμ mpC hop0 hopI' hw0 hwI hb0 hbI hlen0 hlenI hd0 hdI
+      exact prefixDoms_spineFit hμ mpC hop0 hopI hw0 hwI hb0 hbI hlen0 hlenI hd0 hdI
         (fun l hl σ' ys hys => hok0 l (by omega) σ' ys hys)
         (fun l hl σ' ys hys => hokI l (by omega) σ' ys hys)
         (fun l hl => Or.inl (hdeq0I l hl)) hz
