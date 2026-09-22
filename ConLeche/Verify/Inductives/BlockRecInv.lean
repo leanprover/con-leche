@@ -414,6 +414,17 @@ theorem checkBlockRecSmallElim_inv {p : BlockShape} {us : List Level}
     · exact nomatch h
   · exact nomatch h
 
+/-- **The elimination-level PIN, exposed**: every recursor's checked
+conclusion sort is equivalent to `structElimLevel p.elim p.large` — the
+level the rule frame's `PropWhen` datum is computed from. -/
+theorem checkBlockRecElimPin_inv {p : BlockShape} {us : List Level}
+    (h : checkBlockRecElimPin (m := CheckM) p us = .ok ()) :
+    ∀ u ∈ us, Level.isEquiv u (structElimLevel p.elim p.large) = some true := by
+  rw [checkBlockRecElimPin] at h
+  split at h
+  · next hall => exact fun u hu => eq_of_beq (List.all_eq_true.mp hall u hu)
+  · exact nomatch h
+
 /-! ## The two capture-avoiding substitutions, at bvar-closed arguments
 
 `blockIhCall?`, `blockIhPis` and `checkBlockRule`'s conclusion are all

@@ -423,6 +423,37 @@ def openPisParamsIdx (nP nIdx rP : Nat) (ty : Expr) : Option (List Expr × Expr)
     | none => none
     | some (ifvs, rest) => some (pfvs ++ ifvs, rest)
 
+/-- **The CHECKED elimination level IS the GENERATED one** (lane SEC2,
+2026-09-22).
+
+The rule frame the model reads carries
+`pw := Level.zeronessOf (structElimLevel p.elim p.large)`, and nothing
+tied that level to the one stage (b) actually read off the recursors'
+CONCLUSIONS.  `BlockShape.large` is a level-parameter SHAPE, so two
+residues were open: at `large = true` a recursor may carry an unused
+fresh parameter and still conclude in `Prop`, and the frame then reads
+"maybe non-zero" where the truth is zero (conservative); at
+`large = false` with a never-zero result sort `blockLargeElimAllowed`'s
+FIRST disjunct fires, the conclusion is unconstrained, and the frame
+claims the induction binders are PROPOSITIONS while the elimination is
+into `Type` — the wrong direction.
+
+One pure check closes both: every recursor's conclusion sort is
+`Level.isEquiv` to `structElimLevel p.elim p.large`.  It is true of
+every stream official emits — the motive lands in `Sort elim` when the
+eliminator is large and in `Prop` when it is not, and `p.elim` is read
+off the first recursor's own level parameters (`BlockParts.lean`) — and
+it implies D-d.  `checkBlockRecElimAgree` is nevertheless KEPT: it is
+the statement four modules invert.
+
+It does NOT need `checkBlockRecElimAgree`'s arity (the reading that
+parked it): `checkBlockRecFamilyAgree` already holds the shape, so the
+pin is a sibling PASS rather than a widening. -/
+def checkBlockRecElimPin (p : BlockShape) (us : List Level) : m Unit := do
+  unless us.all (fun u => Level.isEquiv u (structElimLevel p.elim p.large) == some true) do
+    throw (.invalid "direct rec: the block's recursors do not eliminate at the generated \
+      elimination level")
+
 /-- **Stage (b''): the recursor's INDEX binder domains ARE the
 member's index telescope** (lane SEC2, 2026-09-22).
 
@@ -559,8 +590,9 @@ elimination level, the ruling of 2026-09-21) and the shared rule
 prefix (the ruling of 2026-09-22).
 
 — and, between them, the COUNTING half of the elimination guard
-(`checkBlockRecSmallElim`) and the recursors' INDEX binder domains
-(`checkBlockRecIdxDomsAt`), both lane SEC2's.
+(`checkBlockRecSmallElim`), the ELIMINATION-LEVEL pin
+(`checkBlockRecElimPin`) and the recursors' INDEX binder domains
+(`checkBlockRecIdxDomsAt`), all three lane SEC2's.
 
 They are ONE stage, and deliberately: `checkBlockRecK`'s inversions
 peel its binds positionally in five modules (two of them another
@@ -571,6 +603,7 @@ def checkBlockRecFamilyAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
     (cvTas : List ConstantVal) (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
   checkBlockRecElimAgree (cvRus.map (·.2.2))
   checkBlockRecSmallElim p (cvRus.map (·.2.2))
+  checkBlockRecElimPin p (cvRus.map (·.2.2))
   checkBlockRecIdxDomsAt ops env p cvTas cvRus 0
   checkBlockRecPrefixAgree ops env p (cvRus.map (·.1))
 

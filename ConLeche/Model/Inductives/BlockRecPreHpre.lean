@@ -265,8 +265,9 @@ ties the package's abstract `us.headD` to the kernel's own list. -/
 
 section Count
 
-/-- **`checkBlockRecK`'s pins and its counting guard**, off the run.
-`checkBlockRecK_elimList` peels the same three binds and drops both. -/
+/-- **`checkBlockRecK`'s pins and its two pure level checks**, off the
+run.  `checkBlockRecK_elimList` peels the same three binds and drops
+all three facts. -/
 theorem checkBlockRecK_count
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
     ConLeche.checkBlockRecPins (m := ConLeche.CheckM) p = .ok () ∧
@@ -274,6 +275,8 @@ theorem checkBlockRecK_count
       ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
           (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus ∧
       ConLeche.checkBlockRecSmallElim (m := ConLeche.CheckM) p.toBlockShape
+        (cvRus.map (·.2.2)) = .ok () ∧
+      ConLeche.checkBlockRecElimPin (m := ConLeche.CheckM) p.toBlockShape
         (cvRus.map (·.2.2)) = .ok () := by
   unfold ConLeche.checkBlockRecK at h
   obtain ⟨u0, hpins, h⟩ := ConLeche.exceptBind_ok h
@@ -281,8 +284,51 @@ theorem checkBlockRecK_count
   obtain ⟨uf, hfam, -⟩ := ConLeche.exceptBind_ok h
   rw [ConLeche.checkBlockRecFamilyAgree] at hfam
   obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨u1, hsmall, -⟩ := ConLeche.exceptBind_ok hfam
-  exact ⟨by cases u0; exact hpins, cvRus, htys, by cases u1; exact hsmall⟩
+  obtain ⟨u1, hsmall, hfam⟩ := ConLeche.exceptBind_ok hfam
+  obtain ⟨u2, hpin, -⟩ := ConLeche.exceptBind_ok hfam
+  exact ⟨by cases u0; exact hpins, cvRus, htys,
+    by cases u1; exact hsmall, by cases u2; exact hpin⟩
+
+/-- **The package's `uOf c` IS stage (b)'s own level**, for every
+recursor of the list.  `blockRecElimLevel_run` hands the level back
+existentially, but its fourth component pins the two RUNS that produced
+it — and `inferTypeCore`/`ensureSortCore` are functions, so the level
+is determined.  This is what lets a fact about the KERNEL's level list
+be read at the package's `us`. -/
+theorem blockRecUOf_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    {cvRus : List (ConstantVal × Nat × Level)}
+    (htys : ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
+      (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus)
+    {c : Nat} (hc : c < rs.length) : uOf c ∈ cvRus.map (·.2.2) := by
+  obtain ⟨cvRus', htys', -, hlenR, hbridge⟩ := checkBlockRecK_elimList h
+  have hcv : cvRus' = cvRus := Except.ok.inj (htys'.symm.trans htys)
+  rw [hcv] at hbridge
+  have hcp : c < p.recs.length := by omega
+  obtain ⟨cvRi, nIdx, u, fvs, concl, sty, hcu, hop, hsty, hu⟩ :=
+    checkBlockRecTys_elim htys c hcp
+  rw [Nat.zero_add] at hop hsty hu
+  obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns c hc
+  obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
+  have hr1 : r0.1 = cvRi := by
+    have h' := hbridge c r0 hr0
+    rw [List.getElem?_map, hcu] at h'
+    simp only [Option.map_some, Option.some.injEq] at h'
+    exact h'.symm
+  have hrd : rs.getD c default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
+  rw [hrd, hr1] at hop'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
+  obtain rfl : sty' = sty := Except.ok.inj (hsty'.symm.trans hsty)
+  have huu : uOf c = u := Except.ok.inj (hu'.symm.trans hu)
+  have hg : (cvRus.map (·.2.2))[c]? = some u := by rw [List.getElem?_map, hcu]; rfl
+  obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
+  rw [huu]
+  exact hEq ▸ List.getElem_mem hlt
 
 omit [SetTheory V] in
 /-- **THE DISPATCH'S `hK1`**: at a `Prop`-valued block eliminating at a
@@ -299,41 +345,69 @@ theorem blockRecK1_run
     (hres : d.resSort = p.toBlockShape.resSort) :
     ∀ ψ : Name → Nat, (us.headD .zero).eval ψ ≠ 0 → d.w ψ = 0 → rs.length = 1 := by
   intro ψ hℓ hw
-  obtain ⟨hpins, cvRus, htys, hsmall⟩ := checkBlockRecK_count h
-  obtain ⟨cvRus', htys', -, hlenR, hbridge⟩ := checkBlockRecK_elimList h
-  obtain rfl : cvRus' = cvRus := Except.ok.inj (htys'.symm.trans htys)
+  obtain ⟨hpins, cvRus, htys, hsmall, -⟩ := checkBlockRecK_count h
+  obtain ⟨-, -, -, hlenR, -⟩ := checkBlockRecK_elimList h
   obtain ⟨hk0, hcase⟩ := ConLeche.checkBlockRecSmallElim_inv hsmall
   have hklen : rs.length = p.toBlockShape.k := by
     rw [hlenR, (ConLeche.checkBlockRecPins_names hpins).1]; rfl
   have hpos : 0 < rs.length := by rw [hklen]; exact hk0
-  -- the FIRST recursor's level: the package's `uOf 0` IS stage (b)'s
-  obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns 0 hpos
-  obtain ⟨cvRi, nIdx, u, fvs, concl, sty, hcu, hop, hsty, hu⟩ :=
-    checkBlockRecTys_elim htys 0 (by omega)
-  rw [Nat.zero_add] at hop hsty hu
-  obtain ⟨r0, hr0⟩ : ∃ r, rs[0]? = some r := ⟨rs[0]'hpos, List.getElem?_eq_getElem hpos⟩
-  have hr1 : r0.1 = cvRi := by
-    have h' := hbridge 0 r0 hr0
-    rw [List.getElem?_map, hcu] at h'
-    simp only [Option.map_some, Option.some.injEq] at h'
-    exact h'.symm
-  have hrd : rs.getD 0 default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
-  rw [hrd, hr1] at hop'
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
-  obtain rfl : sty' = sty := Except.ok.inj (hsty'.symm.trans hsty)
-  have huu : uOf 0 = u := Except.ok.inj (hu'.symm.trans hu)
-  have humem : u ∈ cvRus'.map (·.2.2) := by
-    have hg : (cvRus'.map (·.2.2))[0]? = some u := by rw [List.getElem?_map, hcu]; rfl
-    obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
-    exact hEq ▸ List.getElem_mem hlt
-  have hu0 : Level.eval ψ u ≠ 0 := by
-    rw [← huu, blockRecElimAgree_eval helim ψ (uOf 0) (hmemU 0 hpos)]
-    exact hℓ
+  have humem := blockRecUOf_run h hruns htys hpos
+  have hu0 : Level.eval ψ (uOf 0) ≠ 0 := by
+    rw [blockRecElimAgree_eval helim ψ (uOf 0) (hmemU 0 hpos)]; exact hℓ
   have hnz : Level.eval ψ p.toBlockShape.resSort = 0 := by rw [← hres]; exact hw
   rcases hcase with hk1 | hnever | hzero
   · rw [hklen]; exact hk1
   · exact absurd hnz (ConLeche.Level.isNeverZero_sound ψ _ hnever)
-  · exact absurd (ConLeche.Level.isEquiv_sound (hzero u humem) ψ) hu0
+  · exact absurd (ConLeche.Level.isEquiv_sound (hzero _ humem) ψ) hu0
+
+/-- **The rule frame's level IS the checked one** (SEC1's flagged
+residue, closed).  `blockRuleFrame`'s `pw` is `Level.zeronessOf
+(structElimLevel p.elim p.large)`; this says that level EVALUATES to
+the one the recursors actually eliminate at, at every `ψ`, so the
+frame's binder data is a statement about the elimination the stream
+declares and not about a shape that may disagree with it. -/
+theorem blockRecElimPin_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) :
+    Level.eval ψ (uOf c)
+      = Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
+  obtain ⟨-, cvRus, htys, -, hpin⟩ := checkBlockRecK_count h
+  exact ConLeche.Level.isEquiv_sound
+    (ConLeche.checkBlockRecElimPin_inv hpin _ (blockRecUOf_run h hruns htys hc)) ψ
+
+
+/-- **A non-zero elimination level forces the DECLARED large shape** —
+the antecedent the constructors' stage's subsingleton clause
+(`CtorDataI.srcProp`, keyed on `p.large`) wants, and the squash arm
+through it.
+
+It does NOT go through the type stage's `isDefEq sty (Sort 0)`: that
+run is a verdict about a TERM and inverting it to a statement about a
+LEVEL is an induction over the whole lazy-delta loop.  The
+elimination-level PIN says the same thing syntactically and
+unconditionally — `structElimLevel p.elim p.large` is `Level.zero` at
+`large = false`, so a recursor that eliminates at a non-zero level
+cannot have declared the small shape. -/
+theorem blockRecLarge_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) (hne : Level.eval ψ (uOf c) ≠ 0) :
+    p.toBlockShape.large = true := by
+  cases hb : p.toBlockShape.large with
+  | true => rfl
+  | false =>
+    refine absurd ?_ hne
+    rw [blockRecElimPin_run h hruns ψ hc]
+    simp [ConLeche.structElimLevel, hb, ConLeche.Level.eval]
 
 end Count
 

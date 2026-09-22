@@ -487,9 +487,11 @@ theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
       exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
     rw [List.getElem?_map, hcu, hr1]
     rfl
-  -- stage (b') is the LAST of the family stage's four passes (D-d, the
-  -- counting guard, the index domains, the shared prefix)
+  -- stage (b') is the LAST of the family stage's five passes (D-d, the
+  -- counting guard, the elimination-level pin, the index domains, the
+  -- shared prefix)
   rw [ConLeche.checkBlockRecFamilyAgree] at hfam
+  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
   obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
   obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
   obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
