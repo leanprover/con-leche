@@ -4064,8 +4064,8 @@ theorem blockRuleHsp_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
   blockRuleHsp_of (blockRuleHspPref_run hμ mpC h hr ψ hxl hfit) hfld
 
 /-- **The rule obligation's RESIDUE half, as ONE premise** — the
-FOURTH and FIFTH conjuncts of `BlockRuleDataB`, at the SAME
-∀-telescope and under the same premises.
+FOURTH conjunct of `BlockRuleDataB` at the tower's CORE, at the
+contract's own ∀-telescope and under the same premises.
 
 `BlockRuleDataB`'s six statements split in two by WHAT they are about.
 Three are about the DATA the rule fires with — the prefix-and-fields
@@ -4086,7 +4086,13 @@ form: `blockRuleHRa_tower_run` pays the β-reduction on this side, so
 what the rule lane owes is `interp_blockResidue`'s own conclusion —
 the body's reading against the residue's at the ih values — and the
 `∀ lds A` binders are the ones `mkLamsAV` at a fixed length already
-pins, the same pair the fifth conjunct quantifies.
+pins (`mkLamsAV_length_inj`).
+
+**It is ONE statement, not two** (session 28): the TOWER's FIT, which
+this premise used to carry beside the body equation, is now derived at
+the run from `BlockRuleDataB`'s FIRST conjunct through G2
+(`blockRuleTowerFit_run`, `BlockRuleFit.lean`), so the rule lane owes
+the body equation and nothing else.
 
 `@[expose]`: the composition unfolds it. -/
 @[expose] def BlockRuleResidueB {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
@@ -4133,16 +4139,7 @@ pins, the same pair the fifth conjunct quantifies.
                     p.nP xs ys)))
                 (consList ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
                   ++ (ys.drop p.nP).map (interp V ρ)) ρ))
-              (Rb0 (Level.substFn φ r.1.levelParams us) j i)) ∧
-      (∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm),
-        blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
-            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
-            (Level.substFn φ r.1.levelParams us) = mkLamsAV lds A →
-        lds.length = p.toBlockShape.rulePrefixAt j + cA.2 →
-        SpineFit ρ (lds.map (·.2))
-          ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
-            ++ (ys.drop p.nP).map (interp V ρ)))
+              (Rb0 (Level.substFn φ r.1.levelParams us) j i))
 
 /-- **The seam's rule-side obligation at one (recursor, constructor)
 pair** — §A.5c's contract with both reading binders eliminated, its
