@@ -82600,3 +82600,146 @@ finished bridge with no traffic.  Of the coordinator's three routed
 items, one was already closed a session earlier and one was a theorem
 this lane had written and nothing consumed: **the lanes' ledgers, not
 the tree, are what is stale.**
+
+#### RULING (2026-09-22, maintainer): the rule contract's three membership-fed conjuncts are guarded by `d.w ψ ≠ 0`
+
+"Go with option 1, guard by `w ≠ 0`."
+
+**The hole.**  The iota rule reduces `rec p⃗ C⃗ m⃗ i⃗ (c q⃗ f⃗)` to
+`rhs p⃗ C⃗ m⃗ f⃗`: the rhs's parameter binders are filled with the
+RECURSOR's `p⃗` and the constructor's own `q⃗` are discarded — official
+never needs to compare them, because typing makes them defeq.  (The
+parameters ARE λ-bound in the stored rhs, and the check opens exactly
+those binders; an earlier note of mine saying otherwise was wrong.)
+The MODEL, however, does not fire on syntax: it fires on a value in the
+carrier and decodes which constructor and which spine produced it.  At
+`d.w ψ ≠ 0` that decode is injective and returns the tie.  At
+`d.w ψ = 0` every value in the block is the point, the decode returns
+nothing, and three conjuncts stated over both spines are FALSE —
+witnesses `Exists` (`BlockRuleFit.lean:512`) and
+`Relation.ReflTransGen` (`:730`).
+
+**The repair.**  The three conjuncts — the fit's field half, the index
+reading, and `mk` — are asked only at `d.w ψ ≠ 0`.  The `w = 0` cases
+are carried by the regimes that live there, which is what the
+three-regime split says already: at `ℓ = 0` both sides of the iota
+equation are the point; at `w = 0, ℓ ≠ 0` the squash regime reads the
+recursor's value off an index-determined spine.  The guard is one
+visible line of the composition's signature
+(`blockRuleDataB_of_residue`), and the blast radius was MEASURED before
+the ruling: exactly three of the composition's five bullets consume it,
+all through the major premise's membership, while the residue, the
+tower fit, the recursor-shape clauses and the fused opener premise are
+`w`-free — each verified by its own lane's sweep.  The rule that
+generalises it: ***the `w = 0` repair is needed only where a MEMBERSHIP
+is the evidence.***
+
+**What is NOT yet written**, and is the one risk of the option: the
+`w = 0` ARM of the endpoint — that the staged theorem's consumer really
+does not want those three conjuncts there.  It is a separate lane from
+the guard itself.
+
+**Why not the alternatives.**  Discharging `w = 0` from
+`blockLargeElimAllowed` (every field of a large-eliminating `Prop`
+block is a proof or occurs among the indices) is principled and matches
+official's own condition, but is an unwritten proof about
+subsingleton-eliminating syntax.  A kernel comparison of `q⃗` against
+`p⃗` is possible — the reduction site sees both — but only as a
+PER-CALL gate, against the standing ruling `invariants-over-runtime-gates`.
+
+#### THE UNCONSUMED-PRODUCER CENSUS (lane RM39 = M5M-rule session 6, `92f38741`): 27 rows, and the number that matters is **2**
+
+Run deliberately after five already-closed rows had been found by
+accident.  **236 declarations in the arm's four files; 27 with no
+consumer anywhere in `ConLeche/` or `tests/`**, classified (a) a
+finished bridge whose consumer exists and simply never called it — 7;
+(b) a producer whose consumer is not written yet — 13; (c) superseded,
+duplicated or dead — 7.
+
+**Method matters**: the census needs a COMMENT MASK (per-file
+`/- … -/` and `--`, then every occurrence of the name and its
+dot-notation tail outside comments).  A grep-level filter was wrong in
+BOTH directions here — two false zeros and eleven missed rows — because
+this arm's docstrings name their own producers constantly.
+
+**The real content is that the 27 hang off TWO missing compositions.**
+Spine A: `BlockRuleResidueB` has no producer (four rows are its
+ingredients, one is what it unblocks).  Spine B: the small-elimination
+regime `blockIndRegime_run` is never APPLIED (five rows here, five more
+in the certificate lane's file).  Across `Model/Inductives/` the figure
+is 94 unconsumed of 1276, 44 of them in one file.  So **the unconsumed
+set measures HOLES, not waste** — and it is a cheap progress metric for
+the arm: 27 rows, 2 missing compositions.
+
+**FINDING — a theorem can be finished, green, and in the wrong
+DIRECTION.**  `blockRuleConclAt_shift` moved a peel from level `0` to
+level `r`; the check generates the `r`-th opener AT level `r`, so the
+run produces the `l = r` peel and nothing produces the `l = 0` premise
+the shift wanted.  Shape-greps do not catch this; asking *which side
+the RUN is on* does.  It is the dual of the ingredient rule: **before
+stating a bridge, name the theorem that will supply its PREMISE.**  The
+repair (a converse peel lemma, and a shift producing both halves
+together) landed with it.
+
+**FINDING — an `_exists` wrapper is a bridge that throws away its own
+cargo.**  The fused conjunct's producer is the opener-reading theorem
+*with the shape kept*; the existential version used by the certificate
+bundle is literally `Exists.imp` of it, because that consumer only
+wanted existence.  When a producer's conclusion is existential, check
+whether the witness is DETERMINED before writing a second producer for
+the same reading.
+
+#### MEASURED (lane F7): **nothing Lean produces needs `whnf`** — and F6a's reading of the redex fixture was too broad
+
+The maintainer asked whether the primitive-recursion guard must whnf a
+guarded call's argument vector in order to accept what Lean actually
+emits.  Measured with the flipped checker over three real
+`lean4export` streams:
+
+| stream | toolchain | declarations | guard rejections |
+|---|---|---|---|
+| `init-full` | 4.29.1 | 53 093 | **0** |
+| `mathlib-full` | 4.29.1 | **654 504** | **0** |
+| `lech-export` (this project's own environment) | 4.33.0 | 34 665 | **0** |
+
+**7 953 routed inductive blocks, 7 969 recursors, 11 167 recursor
+rules, zero rejections**, with the same counts as the unflipped
+baseline.  Of 149 rejections across the arena and e2e batteries,
+exactly ONE carries the guard's message: the hand-forged
+`corner_rec_call_redex`.
+
+**The correction.**  F6a read that fixture as "the guard does not
+abstract a defeq-but-not-syntactic argument vector".  Two probes refute
+that reading: a reflexive, NON-indexed block with the identical redex
+in the call's argument vector ACCEPTS, and the very block the fixture
+edits ACCEPTS when the redex is moved to the telescope argument that
+does not carry an index.  The guard **does** abstract the argument
+vector — `blockIhCall?` reads it off the term.  What it demands
+syntactically is the call's **INDEX arguments**, which must be the
+field's stored index expressions at that vector; Lean's own rule
+generator builds them the same way, which is why 11 167 real rules
+pass, including 48 reflexive blocks with non-empty telescopes (`Acc`,
+`WType`, `PSet`, …).  A relaxation, if ever wanted, is far narrower
+than "whnf the vector": defeq on the index arguments alone, at most
+`numIndices` comparisons per guarded call — cheap, but it costs
+`blockIhCall?` being a purely syntactic function, which the model's ι
+law is stated against.  **So the syntactic guard stays and the
+DESIGN text is corrected here rather than the guard relaxed.**
+
+**Scope, stated honestly.**  Nested recursors did NOT reach the check:
+with the modeller narrowed to nested-only all 54 nested blocks went to
+it, and the recogniser refuses them anyway — so the answer covers
+SIMPLE and MUTUAL blocks, and the nested rung owes a re-run of this
+sweep.  Mutual coverage is thin but real (10 mutual blocks, 93
+constructors, 26 recursors, the largest a 7-member block).  Two
+toolchains, one exporter.  A future Lean that β-reduced a rule's index
+arguments is the only realistic Lean-produced way to need the
+relaxation; hand-written streams can trip it, conservatively (reject,
+never accept).
+
+**Also measured**: one arena verdict moves under the flip and it is a
+GAIN — `bad/proj-of-imax-prop` goes from decline to the right reject.
+No good stream moved.  And `PERF.md`'s `_tmp/ref/` artifacts no longer
+exist on this machine; the 4.29.1 Mathlib is the largest real corpus
+left, which is why this project's own 4.33.0 whole-environment export
+was added to cover the newer exporter.
