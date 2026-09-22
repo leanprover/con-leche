@@ -1194,7 +1194,7 @@ theorem blockRuleTowerFit_run {env₃ : Env} {acv : Name → (Name → Nat) → 
       SpineFit ρ (lds.map (·.2)) as := by
   intro lds A hlam hldslen
   -- the run's own peel, and the tower the reading determines
-  obtain ⟨o₁, cpref, rbs, body, ldoms', lrest', hopPref, hinst, hopF, -, hlams', hg2len, hg2⟩ :=
+  obtain ⟨o₁, cpref, rbs, body, ldoms', lrest', hopPref, hinst, hopF, -, hlams', -, hg2len, hg2⟩ :=
     blockRuleData_run h hr hcA hrhs
   have hldEq : ldoms' = ldoms :=
     congrArg Prod.fst (Option.some.inj (hlams'.symm.trans hlams))
@@ -1448,12 +1448,6 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
           (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
           (Level.substFn φ r.1.levelParams us)))
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
-    (hcbLd : ∀ (ldoms : List Expr) (lrest : Expr),
-        ConLeche.Expr.instLamsAt
-            (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i)
-            rhs = some (ldoms, lrest) →
-        ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
-          ConstsBound envC (ldoms.getD l default))
     (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
       ∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs j i)[l]? = some x →
         denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us)
@@ -1493,11 +1487,11 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
       htgt hlv (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
     rwa [hdnP] at hq
-  obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, -, -⟩ :=
+  obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, hcbLdR, -, -⟩ :=
     blockRuleData_run h hr hcA hrhs
   have htow := blockRuleTowerFit_run hμ mpC h hr hcA hrhs hCf hCb (hread us hus)
     (hokRa us hus) hlams
-    (fun l hl => blockRecDenote_cross_eq h _ l _ (hcbLd ldoms lrest hlams l hl))
+    (fun l hl => blockRecDenote_cross_eq h _ l _ (hcbLdR l hl))
     (hdF us hus) (hokF us hus) hsp1
   refine ⟨hsp1, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd htgt hlv
@@ -1650,8 +1644,8 @@ syntactic premise `hcbLd`:
 
     ∀ l, l < rP + nF → ConstsBound envC (ldoms.getD l default)
 
-**and that statement is REFUTABLE against `checkBlockRule` as it
-stands.**
+**and that statement was REFUTABLE against `checkBlockRule` as it
+stood.**
 
 The rule's right-hand side is annotated and consts-resolved at the
 RULE-LESS recursor environment (`checkBlockRecK_facts`:
@@ -1677,30 +1671,34 @@ by `denoteMeta`'s `.const` clause, while the consed reading is `some`
 (`blockRuleTower_run`).  `hcbLd` is false at that stream, and so was
 `hcross` before it.
 
-**The repair is one line in the kernel**, and it is the kind the
-project already prefers (validate once at insertion, never a per-call
-gate): in `checkBlockRule`
+**The repair was one line in the kernel, and it LANDED**, in the kind
+the project already prefers (validate once at insertion, never a
+per-call gate): in `checkBlockRule`
 (`ConLeche/Kernel/Inductives/BlockInstall.lean`), immediately after
 the `instLamsAt` that produces `ldoms` and before the G2 comparison,
 
     unless ldoms.all (fun t => t.constsResolve envT) do
       throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
 
-It rejects nothing official emits: a generated rule's binder domains
-ARE the recursor prefix's stored types and the constructor's field
-types, and both are `constsResolve envC` already
+mirrored in `checkBlockRuleF` (`BlockInstallF.lean`, through
+`w.resolve feT`), so the pure and the cached routes accept the same
+streams.  It rejects nothing official emits: a generated rule's binder
+domains ARE the recursor prefix's stored types and the constructor's
+field types, and both are `constsResolve envC` already
 (`checkBlockRecK_facts`' first bullet for the recursor type, the
-constructors' stage for `cA.1.type`).  With it, `Verify` inverts the
-guard to `ConstsBound envC (ldoms.getD l default)`
-(`constsBound_of_constsResolve`), `hcbLd` is discharged at the run,
-and §6c's three inputs become two.
+constructors' stage for `cA.1.type`); the forged witness above is
+`tests/e2e/corner_rec_dom_recursor.ndjson`.  The peel KEEPS the guard
+(`checkBlockRule_data`'s new row), `blockRuleData_run` states it at
+the frame's own bound through the two openings' lengths, and
+`blockRuleDataB_of_residue` reads it off the run — the premise `hcbLd`
+is gone and §6c's three inputs are two.
 
 **The rule this restates.**  The lane's standing check is *which CHECK
 makes this available, and does the INVERSION that reads it KEEP it?*
-Here the answer is the third one: **no check makes it available at
+Here the answer was the third one: **no check made it available at
 all.**  The route had been described for four reports as a model
 obligation ("someone owes a theorem that the domains do not mention
-the recursors"); it is not a theorem, it is a missing guard, and the
+the recursors"); it was not a theorem, it was a missing guard, and the
 difference is one grep of `checkBlockRule` for what constrains
 `ldoms`. -/
 

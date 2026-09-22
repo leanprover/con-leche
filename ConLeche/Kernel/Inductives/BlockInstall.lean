@@ -612,6 +612,21 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
   let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
+  -- **the domains' SYNTAX, validated once at insertion.**  G2 below
+  -- constrains `ldoms` by a DEFEQ at `envT` alone, and defeq does not
+  -- preserve syntax: a domain `(fun _ : T_rec => A₁) C_rec` mentioning
+  -- a block RECURSOR β-reduces to the opener's type and is accepted,
+  -- while `envT` — the constructors' environment, where the recursors
+  -- are not yet stored — cannot read it.  The model's tower fit needs
+  -- the domains to READ at `envT`, and no other step of this stage
+  -- makes that available (the right-hand side resolves at `envR`,
+  -- which HOLDS the recursors, by design; `stripLams` puts the domains
+  -- in `rbs`, so `abstractIh` and the residue's inference never see
+  -- them).  The guard rejects nothing official emits: a generated
+  -- rule's binder domains ARE the recursor prefix's stored types and
+  -- the constructor's field types, both already `constsResolve envT`.
+  unless ldoms.all (fun t => t.constsResolve envT) do
+    throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
   checkBlockDefEqList opsT envT (rP + nF)
     s!"the rule of {cA.1.name} does not bind the recursor's prefix and the constructor's \
       fields"

@@ -520,3 +520,37 @@ rules2 = [({"ctor": ru["ctor"], "nfields": ru["nfields"],
           for ru in rc["rules"]]
 blk["recs"] = blk["recs"] + [dict(rc, name=rec2n, rules=rules2)]
 t.write("corner_rec_two_callees", "Nat'")
+
+# --- corner_rec_dom_recursor ----------------------------------------
+# `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
+# the recursor CONSTANT:
+#
+#   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
+#
+# The domain β-reduces to `Nat'`, so the rule's own typing (at the
+# RULE-LESS recursor environment, which HOLDS `Nat'.rec`) and the
+# binder-by-binder defeq against the openers' stored types (at the
+# CONSTRUCTORS' environment, where a β-redex never looks the head up)
+# both pass, and `stripLams` puts the domain out of the residue's
+# reach.  Nothing else of the stage constrains a rule's λ-domains, so
+# before the domains' own resolution guard the stream was ACCEPTED
+# while its domain does not READ at the constructors' environment —
+# the model's tower fit needs `ConstsBound envC` there and no check
+# made it available.  TARGET 1.
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+sr = t.rule("Nat'", "Nat'.rec", "Nat'.succ")
+_lps = rc["levelParams"]
+_us = next(r["const"]["us"] for r in t.E.values()
+           if "const" in r and r["const"]["name"] == t.names["Nat'.rec"])
+_dom = t.ex({"app": {
+    "fn": t.ex({"lam": {"binderInfo": "default", "name": t.name("_"),
+                        "type": rc["type"], "body": t.const("Nat'")}}),
+    "arg": t.const("Nat'.rec", _us)}})
+_chain = t.binders(sr["rhs"], 4)
+assert all("lam" in r for r in _chain), "the rule is not a λ-telescope"
+_new = t.ex({"lam": dict(_chain[3]["lam"], type=_dom)})
+for _r in reversed(_chain[:3]):
+    _new = t.ex({"lam": dict(_r["lam"], body=_new)})
+sr["rhs"] = _new
+t.write("corner_rec_dom_recursor", "Nat'")

@@ -1687,6 +1687,25 @@
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called (uniform: 1).
 1 corner_rec_rule_missing.ndjson
+# `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
+# the recursor CONSTANT:
+#   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
+# The domain β-reduces to `Nat'`, so the rule's own typing (at the
+# RULE-LESS recursor environment, which HOLDS the recursors by design)
+# and the binder-by-binder defeq against the openers' stored types (at
+# the CONSTRUCTORS' environment, where a β-redex never looks its head
+# up) both pass, and `stripLams` puts the domain out of the residue's
+# reach.  Nothing else of the recursor stage constrains a rule's
+# λ-domains — a defeq does not preserve syntax — so the uniform route
+# ACCEPTED this stream until the domains' own resolution guard
+# (`checkBlockRule`: `unless ldoms.all (·.constsResolve envT)`), while
+# the model's tower fit needs those domains to READ at the
+# constructors' environment and this one does not.  The guard rejects
+# nothing official emits (a generated rule's domains ARE the recursor
+# prefix's stored types and the constructor's field types).  Uniform:
+# 1.  Today the one-member generate-and-compare arm rejects it for its
+# own reason (the rule is not the generated one).
+1 corner_rec_dom_recursor.ndjson
 # D-d: the mutual block `MutA`/`MutB` (both `Type`) with `MutB.rec`'s
 # OWN motive retyped `MutB -> Type` while `MutA.rec`'s stays
 # `MutA -> Sort u`.  Each recursor is a well-typed eliminator on its

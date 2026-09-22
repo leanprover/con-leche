@@ -279,7 +279,12 @@ theorem checkBlockRule_facts {envR envT : Env} {p : BlockShape} {recNames : List
   obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
   obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x3
   obtain ⟨x4, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x4
-  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x5
+  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨ldoms, lrest⟩ := x5
+  dsimp only at h
+  -- the rule's λ-domains resolve at the CONSTRUCTORS' environment
+  by_cases hcbd : ldoms.all (fun t => Expr.constsResolve envT t) = true
+  case neg => rw [if_neg hcbd] at h; close_throw h
+  rw [if_pos hcbd] at h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
