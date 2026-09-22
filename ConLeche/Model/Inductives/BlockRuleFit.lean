@@ -671,6 +671,619 @@ theorem blockRuleCtorFit_run {mm j : Nat} {cA : ConstantVal × Nat}
   rw [hds] at hsp
   exact blockCtorSpine_split hcj (hD.len ψ) hsp hparamsC hlenP
 
+/-! ## §6 THE TOWER FIT — the G2 bridge, at an arbitrary second side
+
+`BlockRuleDataB`'s FIFTH conjunct compares two readings of the SAME
+binders: the rule's own λ-domains (`lds.map (·.2)`, `blockRuleTower_run`)
+and the OPENERS' stored types (`blockRulePdomsAV ++ blockRuleFdomsAV`).
+Nothing identifies them syntactically; what the checker does about it
+is **G2**, the `checkBlockDefEqList` that compares the two binder by
+binder at the rule frame's depth (`blockRuleData_run`'s last two rows).
+
+The bridge from that comparison to a `SpineFit` transfer is
+`prefixDoms_spineFit`'s (`BlockRecPreRun.lean` §35F), written for two
+`openPisAtFvars` runs of the SAME length.  Here the second side is not
+an opening at all — it is an `instLamsAt` run's domain list — so §35's
+theorem does not apply verbatim; `openerDoms_spineFit` below is that
+theorem with the second side abstracted to an arbitrary list of
+subjects whose leaves are the FIRST side's openers.  Everything else
+is §35's: the depth transport (`denoteMeta_lift` + `interp_liftN`),
+the soundness hop at the frame's context, and `spineFit_congr_walk`.
+
+Two spellings, two names: `prefixDoms_spineFit` stays the
+opening-against-opening version (its `hdeq` is a disjunction, because
+the prefix-agreement check supplies only one orientation); this one
+takes the comparison in the single orientation `checkBlockDefEqList`
+runs it in (openers' stored types on the left, the rule's λ-domains on
+the right). -/
+
+section TowerFit
+
+/-- **A graded λ-tower's domains are graded along their own fitting
+spines** — `piTeleAV_graded`'s λ-side twin, read off `mkLamsAV`
+directly.  Domain `i` (outermost first) is graded at the frame the
+spine's first `i` values push on.
+
+It is what makes the tower fit's `hokB` free: the rule's reading is
+graded at every valuation (`blockRuleRhs_read_run`'s second
+component), and that grading descends to the tower's own domains. -/
+theorem mkLamsAV_doms_graded :
+    ∀ {lds : List (Nat × AnnotTerm)} {b : AnnotTerm} {ρ : Nat → V} {ys : List V} {i : Nat},
+      WellDenotedV V ρ (mkLamsAV lds b) → i < lds.length →
+      SpineFit ρ ((lds.map (·.2)).take i) ys →
+      WellDenotedV V (consList ys ρ) ((lds.map (·.2)).getD i default)
+  | [], _, _, _, _, _, hi, _ => absurd hi (by simp)
+  | ld :: lds, b, ρ, ys, 0, hok, _, hys => by
+    have hyn : ys = [] := by
+      cases ys with
+      | nil => rfl
+      | cons y ys => exact absurd hys (by simp [SpineFit])
+    subst hyn
+    show WellDenotedV V (consList [] ρ) _
+    rw [consList_nil]
+    have h1 : WellDenoted V ρ ld.2 :=
+      ((WellDenoted_lam V ρ ld.1 ld.2 (mkLamsAV lds b)) ▸ hok.1).1
+    have h2 : AnnotValid V ρ ld.2 :=
+      ((AnnotValid_lam V ρ ld.1 ld.2 (mkLamsAV lds b)) ▸ hok.2).1
+    exact ⟨h1, h2⟩
+  | ld :: lds, b, ρ, ys, i + 1, hok, hi, hys => by
+    cases ys with
+    | nil => exact absurd hys (by simp [SpineFit])
+    | cons y ys =>
+      have hmem : y ∈ˢ interp V ρ ld.2 := hys.1
+      have htl : SpineFit (cons y ρ) ((lds.map (·.2)).take i) ys := hys.2
+      have hokb : WellDenotedV V (cons y ρ) (mkLamsAV lds b) :=
+        ⟨((WellDenoted_lam V ρ ld.1 ld.2 (mkLamsAV lds b)) ▸ hok.1).2.1 y hmem,
+          ((AnnotValid_lam V ρ ld.1 ld.2 (mkLamsAV lds b)) ▸ hok.2).2 y hmem⟩
+      have hq := mkLamsAV_doms_graded (lds := lds) (b := b) hokb (by simpa using hi) htl
+      rw [consList_cons]
+      exact hq
+
+/-- **THE G2 BRIDGE** — a spine fitting the OPENERS' stored-type
+readings fits the readings of any second list of domains the checker
+compared them with, binder by binder, at the frame's own depth.
+
+`prefixDoms_spineFit` (`BlockRecPreRun.lean` §35F) with the second
+side generalised: there it is a second `openPisAtFvars` run (whose
+subjects carry their OWN annotations, which is why that proof needs
+`ctxOk_of_openers_congr` with a non-trivial agreement), here it is an
+arbitrary list `bs` whose fvar leaves are the FIRST side's openers —
+which is what an `instLamsAt` run at those openers produces.  Both
+`CtxOk`s are then at one context and the agreement is `rfl`; the
+induction on the position survives, because the SECOND side's
+gradings are still only available along ITS own fitting spines.
+
+The premises are bounded by the position: `hwsB`, `hleafB`, `hlbB`
+and `hdB` speak about slot `i` for `i < n` and about nothing else, and
+`hdeq` is the check's own comparison in the one orientation
+`checkBlockDefEqList` runs it in. -/
+theorem openerDoms_spineFit {envT : Env} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {fuel n : Nat}
+    {fvs : List Expr} (hlfvs : fvs.length = n)
+    (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty)
+    (hws : ∀ x ∈ fvs, Expr.WScoped n x)
+    (hleafA : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      ∀ lf ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvs)
+    (hlbA : ∀ x ∈ fvs, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    {bs : List Expr}
+    (hwsB : ∀ i, i < n → Expr.WScoped i (bs.getD i default))
+    (hleafB : ∀ i, i < n →
+      ∀ lf ∈ (bs.getD i default).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvs)
+    (hlbB : ∀ i, i < n → (bs.getD i default).looseBVarsBounded 0 = true)
+    {domsA domsB : List AnnotTerm}
+    (hlenA : domsA.length = n) (hlenB : domsB.length = n)
+    (hdA : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x) = some (domsA.getD i default))
+    (hdB : ∀ i, i < n →
+      denoteMeta mp.base2.acval envT ψ i (bs.getD i default) = some (domsB.getD i default))
+    (hokA : ∀ i, i < n → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (domsA.take i) ys → WellDenotedV V (consList ys σ) (domsA.getD i default))
+    (hokB : ∀ i, i < n → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (domsB.take i) ys → WellDenotedV V (consList ys σ) (domsB.getD i default))
+    (hdeq : ∀ i, i < n →
+      ConLeche.isDefEqCore μ envT fuel n ((fvs.map Expr.fvarTypeD).getD i default)
+        (bs.getD i default) = .ok true)
+    {ρ₀ : Nat → V} {xs : List V} (hfit : SpineFit ρ₀ domsA xs) :
+    SpineFit ρ₀ domsB xs := by
+  obtain ⟨-, -, ihd, -⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) fuel
+  have hΔlen : domsA.reverse.length = n := by rw [List.length_reverse, hlenA]
+  have hentA : ∀ i, i < n → domsA.reverse[n - 1 - i]? = some (domsA.getD i default) :=
+    fun i hi => getElem?_reverse_entry hlenA hi
+  have key : ∀ l, l < n → ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ domsA ys →
+      interp V (consList (ys.take l) ρ₁) (domsA.getD l default)
+        = interp V (consList (ys.take l) ρ₁) (domsB.getD l default) := by
+    intro l
+    induction l using Nat.strongRecOn with
+    | _ l IH =>
+      intro hl ρ₁ ys hfitY
+      have hylen : ys.length = n := by rw [SpineFit.length_eq hfitY, hlenA]
+      have hbelow : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+          interp V (shiftE (n - i) 0 ρ) (domsA.getD i default)
+            = interp V (shiftE (n - i) 0 ρ) (domsB.getD i default) := by
+        intro i hi ρ hρ
+        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+        rw [shiftE_consList_take i hzlen]
+        exact IH i hi (by omega) ρ₂ zs hfitZ
+      have hokAf : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+          WellDenotedV V (shiftE (n - i) 0 ρ) (domsA.getD i default) := by
+        intro i hi ρ hρ
+        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+        rw [shiftE_consList_take i hzlen]
+        exact hokA i (by omega) ρ₂ (zs.take i) (spineFit_take_any hfitZ i)
+      -- the FIRST side's subject at this position
+      obtain ⟨xA, hxA⟩ : ∃ x, fvs[l]? = some x :=
+        ⟨fvs[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      have hsubA : (fvs.map Expr.fvarTypeD).getD l default = Expr.fvarTypeD xA := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hxA]; rfl
+      have hwl : Expr.WScoped n xA := hws _ (List.mem_of_getElem? hxA)
+      obtain ⟨tyA, rfl⟩ := hshape l xA hxA
+      have hwty : l < n ∧ Expr.WScoped l tyA := by simpa [Expr.WScoped] using hwl
+      have hwsAl : Expr.WScoped l (Expr.fvarTypeD (Expr.fvar l tyA)) := hwty.2
+      have hltA : ∀ lf ∈ (Expr.fvarTypeD (Expr.fvar l tyA)).fvarLeaves, lf.1 < l :=
+        fun lf hlf => Expr.fvarLeaves_lt_of_wscoped hwsAl lf hlf
+      -- `CtxOk` for both subjects, at the FIRST side's own context
+      have hctxA : CtxOk mp.base2 ψ n domsA.reverse (Expr.fvarTypeD (Expr.fvar l tyA)) :=
+        ctxOk_of_openers_congr mp.base2.acval_closed (Aa := fun i => domsA.getD i default)
+          (Ba := fun i => domsA.getD i default) hΔlen hshape hws hdA
+          (hleafA l _ hxA) hltA (fun i hi => hentA i (by omega))
+          (fun _ _ _ _ _ => rfl) (fun i hi _ ρ hρ => hokAf i hi ρ hρ)
+      have hctxB : CtxOk mp.base2 ψ n domsA.reverse (bs.getD l default) :=
+        ctxOk_of_openers_congr mp.base2.acval_closed (Aa := fun i => domsA.getD i default)
+          (Ba := fun i => domsA.getD i default) hΔlen hshape hws hdA
+          (hleafB l hl)
+          (fun lf hlf => Expr.fvarLeaves_lt_of_wscoped (hwsB l hl) lf hlf)
+          (fun i hi => hentA i (by omega))
+          (fun _ _ _ _ _ => rfl) (fun i hi _ ρ hρ => hokAf i hi ρ hρ)
+      -- the syntactic side conditions
+      have hlbAx := hlbA _ (List.mem_of_getElem? hxA)
+      have hlbBx := hlbB l hl
+      have hLA := leavesBounded_of_openers hlbA (hleafA l _ hxA)
+      have hLB := leavesBounded_of_openers hlbA (hleafB l hl)
+      have hwsAn : Expr.WScoped n (Expr.fvarTypeD (Expr.fvar l tyA)) :=
+        hwsAl.mono (by omega)
+      have hwsBn : Expr.WScoped n (bs.getD l default) := (hwsB l hl).mono (by omega)
+      -- the two readings, at the frame's own depth
+      have hrdA : denoteMeta mp.base2.acval envT ψ n (Expr.fvarTypeD (Expr.fvar l tyA))
+          = some ((domsA.getD l default).liftN (n - l) 0) := by
+        rw [denoteMeta_lift mp.base2.acval_closed hwsAl n (by omega), hdA l _ hxA]
+        rfl
+      have hrdB : denoteMeta mp.base2.acval envT ψ n (bs.getD l default)
+          = some ((domsB.getD l default).liftN (n - l) 0) := by
+        rw [denoteMeta_lift mp.base2.acval_closed (hwsB l hl) n (by omega), hdB l hl]
+        rfl
+      -- the two gradings, at the frame's own depth
+      have hokAl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+          WellDenotedV V ρ ((domsA.getD l default).liftN (n - l) 0) := by
+        intro ρ hρ
+        refine (WellDenotedV_liftN V (n - l) _ 0 ρ).mpr ?_
+        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+        rw [shiftE_consList_take l hzlen]
+        exact hokA l hl ρ₂ (zs.take l) (spineFit_take_any hfitZ l)
+      have hokBl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+          WellDenotedV V ρ ((domsB.getD l default).liftN (n - l) 0) := by
+        intro ρ hρ
+        refine (WellDenotedV_liftN V (n - l) _ 0 ρ).mpr ?_
+        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+        rw [shiftE_consList_take l hzlen]
+        refine hokB l hl ρ₂ (zs.take l) ?_
+        refine spineFit_congr_walk (by rw [List.length_take, List.length_take, hlenA, hlenB]) ?_
+          (spineFit_take_any hfitZ l)
+        intro j hj
+        rw [List.length_take, hlenA] at hj
+        have hjl : j < l := by omega
+        rw [getD_take_of_lt hjl, getD_take_of_lt hjl, List.take_take,
+          show min j l = j from by omega]
+        exact IH j hjl (by omega) ρ₂ zs hfitZ
+      -- the hop
+      have hsat : Sat V domsA.reverse (consList ys ρ₁) := by
+        simpa using sat_of_spineFit (Sat_nil V ρ₁) hfitY
+      have heq : interp V (consList ys ρ₁) ((domsA.getD l default).liftN (n - l) 0)
+          = interp V (consList ys ρ₁) ((domsB.getD l default).liftN (n - l) 0) :=
+        ihd (hsubA ▸ hdeq l hl) hwsAn hlbAx hLA hwsBn hlbBx hLB
+          hctxA hctxB hrdA hrdB hokAl hokBl (consList ys ρ₁) hsat
+      rw [interp_liftN, interp_liftN, shiftE_consList_take l hylen] at heq
+      exact heq
+  exact spineFit_congr_walk (by rw [hlenA, hlenB]) (fun l hl => key l (by omega) ρ₀ xs hfit) hfit
+
+end TowerFit
+
+
+/-! ### §6b The bridge at the rule's own TWO-STAGE frame
+
+The rule frame is opened by TWO `openPisAtFvars` calls at the
+consecutive offsets `0` and `rP` — the recursor's stored type and the
+constructor's parameter-instantiated telescope — and the rule's own
+λ-domains come from an `instLamsAt` run at their concatenation.
+`twoStageOpeners_spineFit` is `openerDoms_spineFit` with all of that
+syntax discharged: `instLamsAt_index_WScoped`, `instLamsAt_leaves` and
+`instLamsAt_bounded` on the second side, `openPisAtFvars_leaves` and
+`openPisAtFvars_bounded` on the first. -/
+
+section TwoStage
+
+omit [SetTheory V] μ in
+/-- A λ-tower at a fixed height determines its data: `mkLamsAV` is
+injective on lists of equal length, so the `∀ lds A` binders the
+contract's residue and tower statements carry are TIED and not free.
+(Two spellings, two names: this is about `mkLamsAV`; `lamTele_mkLamsAV`
+is the one about `LamTele`.) -/
+theorem mkLamsAV_length_inj :
+    ∀ {lds lds' : List (Nat × AnnotTerm)} {A A' : AnnotTerm},
+      lds.length = lds'.length → mkLamsAV lds A = mkLamsAV lds' A' → lds = lds' ∧ A = A'
+  | [], [], _, _, _, h => ⟨rfl, h⟩
+  | [], _ :: _, _, _, hl, _ => nomatch hl
+  | _ :: _, [], _, _, hl, _ => nomatch hl
+  | ld :: lds, ld' :: lds', A, A', hl, h => by
+    have h' : AnnotTerm.lam ld.1 ld.2 (mkLamsAV lds A)
+        = AnnotTerm.lam ld'.1 ld'.2 (mkLamsAV lds' A') := h
+    obtain ⟨h1, h2, h3⟩ : ld.1 = ld'.1 ∧ ld.2 = ld'.2 ∧ mkLamsAV lds A = mkLamsAV lds' A' := by
+      injection h' with a b c
+      exact ⟨a, b, c⟩
+    obtain ⟨rfl, rfl⟩ := mkLamsAV_length_inj (by simpa using hl) h3
+    exact ⟨by rw [show ld = ld' from Prod.ext h1 h2], rfl⟩
+
+/-- **The G2 bridge at a TWO-STAGE opened frame** — the rule's shape.
+
+The first side is the rule frame's openers (`fvsP ++ fvsF`, opened at
+`0` and at `rP`), the second the domains of an `instLamsAt` run at
+exactly those openers, and the comparison is the check's own, at the
+frame's depth.  Every syntactic premise `openerDoms_spineFit` asks for
+is discharged here; what is left for the caller is the two READINGS,
+the two GRADINGS and the check. -/
+theorem twoStageOpeners_spineFit {envT : Env} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {fuel rP nF : Nat}
+    {tyR crest rhs o₁ o₂ : Expr} {fvsP fvsF : List Expr}
+    (hopPref : ConLeche.openPisAtFvars rP tyR 0 = some (fvsP, o₁))
+    (hopF : ConLeche.openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (hfvR : tyR.hasFvar = false) (hbR : tyR.looseBVarsBounded 0 = true)
+    (hwC : Expr.WScoped rP crest) (hbC : crest.looseBVarsBounded 0 = true)
+    (hleafC : ∀ lf ∈ crest.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP)
+    {ldoms : List Expr} {lrest : Expr}
+    (hlams : ConLeche.Expr.instLamsAt (fvsP ++ fvsF) rhs = some (ldoms, lrest))
+    (hfvRhs : rhs.hasFvar = false) (hbRhs : rhs.looseBVarsBounded 0 = true)
+    {domsA domsB : List AnnotTerm}
+    (hlenA : domsA.length = rP + nF) (hlenB : domsB.length = rP + nF)
+    (hdA : ∀ (l : Nat) (x : Expr), (fvsP ++ fvsF)[l]? = some x →
+      denoteMeta mp.base2.acval envT ψ l (Expr.fvarTypeD x) = some (domsA.getD l default))
+    (hdB : ∀ l, l < rP + nF →
+      denoteMeta mp.base2.acval envT ψ l (ldoms.getD l default)
+        = some (domsB.getD l default))
+    (hokA : ∀ l, l < rP + nF → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (domsA.take l) ys → WellDenotedV V (consList ys σ) (domsA.getD l default))
+    (hokB : ∀ l, l < rP + nF → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (domsB.take l) ys → WellDenotedV V (consList ys σ) (domsB.getD l default))
+    (hdeq : ∀ l, l < rP + nF →
+      ConLeche.isDefEqCore μ envT fuel (rP + nF)
+        (((fvsP ++ fvsF).map ConLeche.Expr.fvarTypeD).getD l default)
+        (ldoms.getD l default) = .ok true)
+    {ρ₀ : Nat → V} {xs : List V} (hfit : SpineFit ρ₀ domsA xs) :
+    SpineFit ρ₀ domsB xs := by
+  have hwR : Expr.WScoped 0 tyR := Expr.WScoped.of_not_hasFvar hfvR
+  have hlenP : fvsP.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopPref
+  have hlenF : fvsF.length = nF := ConLeche.Verify.openPisAtFvars_length _ hopF
+  have hsplen : (fvsP ++ fvsF).length = rP + nF := by
+    rw [List.length_append, hlenP, hlenF]
+  have hwPref : ∀ x ∈ fvsP, Expr.WScoped rP x := by
+    have hq := (ConLeche.openPisAtFvars_WScoped rP tyR 0 hopPref hwR).1
+    rw [Nat.zero_add] at hq
+    exact hq
+  have hbPref : ∀ x ∈ fvsP, (Expr.fvarTypeD x).looseBVarsBounded 0 = true :=
+    (ConLeche.Verify.openPisAtFvars_bounded _ hopPref hbR).2
+  have hbField : ∀ x ∈ fvsF, (Expr.fvarTypeD x).looseBVarsBounded 0 = true :=
+    (ConLeche.Verify.openPisAtFvars_bounded _ hopF hbC).2
+  have hwField : ∀ x ∈ fvsF, Expr.WScoped (rP + nF) x :=
+    (ConLeche.openPisAtFvars_WScoped nF crest rP hopF hwC).1
+  have hleafPref : ∀ a ∈ fvsP, ∀ lf ∈ a.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP := by
+    intro a ha lf hlf
+    rcases ConLeche.Verify.openPisAtFvars_leaves rP hopPref lf (Or.inr ⟨a, ha, hlf⟩) with hq | hq
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfvR] at hq; exact nomatch hq
+    · exact hq
+  have hleafField : ∀ a ∈ fvsF, ∀ lf ∈ a.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP ++ fvsF := by
+    intro a ha lf hlf
+    rcases ConLeche.Verify.openPisAtFvars_leaves nF hopF lf (Or.inr ⟨a, ha, hlf⟩) with hq | hq
+    · exact List.mem_append_left _ (hleafC lf hq)
+    · exact List.mem_append_right _ hq
+  have hshape : ∀ (l : Nat) (x : Expr), (fvsP ++ fvsF)[l]? = some x →
+      ∃ ty, x = Expr.fvar l ty := by
+    intro l x hx
+    obtain ⟨ty, hty⟩ := blockRuleOpeners_index hopPref hopF l x hx
+    exact ⟨ty, by rw [hty, Nat.zero_add]⟩
+  have hws : ∀ x ∈ fvsP ++ fvsF, Expr.WScoped (rP + nF) x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact (hwPref x hx).mono (by omega)
+    · exact hwField x hx
+  have hlbA : ∀ x ∈ fvsP ++ fvsF, (Expr.fvarTypeD x).looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hbPref x hx
+    · exact hbField x hx
+  have hfvAll : ∀ x ∈ fvsP ++ fvsF, x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨k, hk⟩ := List.getElem?_of_mem hx
+    obtain ⟨ty, rfl⟩ := hshape k x hk
+    have hq := hlbA _ hx
+    simp only [ConLeche.Expr.fvarTypeD] at hq
+    simp [ConLeche.Expr.looseBVarsBounded]
+  have hleafAll : ∀ a ∈ fvsP ++ fvsF,
+      ∀ lf ∈ a.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP ++ fvsF := by
+    intro a ha lf hlf
+    rcases List.mem_append.mp ha with h1 | h1
+    · exact List.mem_append_left _ (hleafPref a h1 lf hlf)
+    · exact hleafField a h1 lf hlf
+  have hleafA : ∀ (l : Nat) (x : Expr), (fvsP ++ fvsF)[l]? = some x →
+      ∀ lf ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP ++ fvsF := by
+    intro l x hx lf hlf
+    obtain ⟨ty, rfl⟩ := hshape l x hx
+    refine hleafAll _ (List.mem_of_getElem? hx) lf ?_
+    simp only [ConLeche.Expr.fvarLeaves]
+    exact List.mem_cons_of_mem _ hlf
+  have hlenLd : ldoms.length = rP + nF := by
+    rw [ConLeche.Verify.instLamsAt_length _ hlams, hsplen]
+  have hwsB : ∀ l, l < rP + nF → Expr.WScoped l (ldoms.getD l default) := by
+    intro l hl
+    obtain ⟨x, hx⟩ : ∃ x, ldoms[l]? = some x :=
+      ⟨ldoms[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    have hq := ConLeche.Verify.instLamsAt_index_WScoped (d := 0) _ hlams
+      (Expr.WScoped.of_not_hasFvar hfvRhs)
+      (fun k a hk => by
+        obtain ⟨ty, rfl⟩ := hshape k a hk
+        have hq : k < rP + nF ∧ Expr.WScoped k ty := by
+          simpa [Expr.WScoped] using hws _ (List.mem_of_getElem? hk)
+        have hq2 : k < 0 + k + 1 ∧ Expr.WScoped k ty := ⟨by omega, hq.2⟩
+        simpa [Expr.WScoped] using hq2) l x hx
+    rw [Nat.zero_add] at hq
+    rw [List.getD_eq_getElem?_getD, hx]
+    exact hq
+  have hleafB : ∀ l, l < rP + nF →
+      ∀ lf ∈ (ldoms.getD l default).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvsP ++ fvsF := by
+    intro l hl lf hlf
+    obtain ⟨x, hx⟩ : ∃ x, ldoms[l]? = some x :=
+      ⟨ldoms[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getD_eq_getElem?_getD, hx] at hlf
+    rcases ConLeche.Verify.instLamsAt_leaves _ hlams lf
+      (Or.inl ⟨x, List.mem_of_getElem? hx, hlf⟩) with hq | hq
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfvRhs] at hq; exact nomatch hq
+    · obtain ⟨a, ha, hla⟩ := hq
+      exact hleafAll a ha lf hla
+  have hlbB : ∀ l, l < rP + nF → (ldoms.getD l default).looseBVarsBounded 0 = true := by
+    intro l hl
+    obtain ⟨x, hx⟩ : ∃ x, ldoms[l]? = some x :=
+      ⟨ldoms[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getD_eq_getElem?_getD, hx]
+    exact (ConLeche.Verify.instLamsAt_bounded _ hlams hbRhs hfvAll).1 x
+      (List.mem_of_getElem? hx)
+  exact openerDoms_spineFit (fuel := fuel) hμ mp hsplen hshape hws hleafA hlbA
+    hwsB hleafB hlbB hlenA hlenB hdA hdB hokA hokB
+    (fun l hl => hdeq l (by omega)) hfit
+
+end TwoStage
+
+
+/-! ### §6c The tower fit AT THE RUN
+
+Every input `twoStageOpeners_spineFit` asks for is a run fact of the
+rule's own frame, except three, and each of the three has a named
+producer in another stage's file:
+
+* **`hdF`** — the FIELD openers' stored types read to
+  `blockRuleFdomsAV`'s entries at their own depths.  It is
+  `readOpenedDoms_eq`'s own hypothesis, and the constructors' stage
+  produces it exactly where `blockRuleFdomsAV_eq` consumes it
+  (`BlockCtorDataI.reflOpen` through `readOpenedDoms_shift`);
+* **`hokF`** — the field domains are graded along their own fitting
+  spines: `blockRuleFseg_of_run` (`BlockRecPreRun.lean`), in the
+  `blockRuleFdomsAV` spelling `blockRuleFdomsAV_eq_liftDoms` converts
+  to;
+* **`hcross`** — the ENVIRONMENT CROSSING.  G2 runs at `envC`; the
+  rule's reading, and with it the tower's domains, is at the CONSED
+  environment.  `blockRecDenote_cross` is the producer, at
+  `ConstsBound envC (ldoms.getD l default)` — which is NOT
+  `checkBlockRecK_facts`' `constsResolve`, since that one is at
+  `consBlockRecsBare`: the right-hand side mentions the recursors by
+  design, and what has to be shown is that its BINDER DOMAINS do not.
+
+The PREFIX half needs no premise at all: its readings are
+`blockRulePdomsAV_reads` and its gradings `blockRulePdomsAV_graded`,
+both already at the run. -/
+
+section TowerFitRun
+
+variable {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+/-- **THE TOWER FIT, AT THE RUN** — `BlockRuleDataB`'s FIFTH conjunct
+from its FIRST.
+
+The fit the block's representation produces is of the OPENERS' domain
+readings (`blockRulePdomsAV ++ blockRuleFdomsAV`); the conjunct asks
+for a fit of the RULE's own λ-domains, and nothing identifies the two
+syntactically.  G2 — the `checkBlockDefEqList` `blockRuleData_run`
+carries — compares them binder by binder at the rule frame's depth,
+and `twoStageOpeners_spineFit` is the transfer.
+
+`hcross`, `hdF` and `hokF` are the three inputs that belong to other
+stages (§6c); everything else is this run's own.  The statement is
+`w`-FREE: the evidence is a grading against the rule's λ-tower, never
+a membership in a carrier. -/
+theorem blockRuleTowerFit_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    {ψ : Name → Nat} {Ra : AnnotTerm}
+    (hread : denoteMeta acv env₃ ψ 0 rhs = some Ra)
+    (hokRa : ∀ σ : Nat → V, WellDenotedV V σ Ra)
+    {ldoms : List Expr} {lrest : Expr}
+    (hlams : ConLeche.Expr.instLamsAt
+        (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)
+        rhs = some (ldoms, lrest))
+    (hcross : ∀ l, l < p.toBlockShape.rulePrefixAt c + cA.2 →
+      denoteMeta mpC.base2.acval envC ψ l (ldoms.getD l default)
+        = denoteMeta acv env₃ ψ l (ldoms.getD l default))
+    (hdF : ∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs c i)[l]? = some x →
+      denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + l)
+          (Expr.fvarTypeD x)
+        = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD l default))
+    (hokF : ∀ q, q < cA.2 → ∀ (σ : Nat → V) (xs ys : List V),
+      SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
+      SpineFit (consList xs σ)
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take q) ys →
+      WellDenotedV V (consList ys (consList xs σ))
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD q default))
+    {ρ : Nat → V} {as : List V}
+    (hfit : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i) as) :
+    ∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A →
+      lds.length = p.toBlockShape.rulePrefixAt c + cA.2 →
+      SpineFit ρ (lds.map (·.2)) as := by
+  intro lds A hlam hldslen
+  -- the run's own peel, and the tower the reading determines
+  obtain ⟨o₁, cpref, rbs, body, ldoms', lrest', hopPref, hinst, hopF, -, hlams', hg2len, hg2⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  have hldEq : ldoms' = ldoms :=
+    congrArg Prod.fst (Option.some.inj (hlams'.symm.trans hlams))
+  rw [hldEq] at hg2 hg2len
+  obtain ⟨ldoms₀, lrest₀, lds₀, A₀, hlams₀, hlam₀, hlen₀, hcore₀, hdoms₀⟩ :=
+    blockRuleTower_run h hr hcA hrhs hread
+  have hld₀ : ldoms₀ = ldoms :=
+    congrArg Prod.fst (Option.some.inj (hlams₀.symm.trans hlams))
+  rw [hld₀] at hdoms₀
+  obtain ⟨rfl, rfl⟩ : lds = lds₀ ∧ A = A₀ :=
+    mkLamsAV_length_inj (by rw [hldslen, hlen₀]) (hlam ▸ hlam₀)
+  -- the frame's two openings, and the constructor telescope's syntax
+  have hlenP : (blockRulePrefFvs p.toBlockShape rs c).length
+      = p.toBlockShape.rulePrefixAt c := ConLeche.Verify.openPisAtFvars_length _ hopPref
+  have hlenF : (blockRuleFieldFvs p.toBlockShape rs c i).length = cA.2 :=
+    ConLeche.Verify.openPisAtFvars_length _ hopF
+  have hlenPd : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hlenFd : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length
+      = cA.2 := by
+    rw [blockRuleFdomsAV, readOpenedDoms_length (fun l x hx => ⟨_, hdF l x hx⟩), hlenF]
+  obtain ⟨hwR, hbR⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨hfvR, -, -, -, hallRhs⟩ :=
+    ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨hfvRhs, -, -, hbRhs⟩ := hallRhs rhs (List.mem_of_getElem? hrhs)
+  have hwPref : ∀ x ∈ blockRulePrefFvs p.toBlockShape rs c,
+      Expr.WScoped (p.toBlockShape.rulePrefixAt c) x := by
+    have hq := (ConLeche.openPisAtFvars_WScoped _ r.1.type 0 hopPref hwR).1
+    rw [Nat.zero_add] at hq
+    exact hq
+  have hfvPref : ∀ x ∈ blockRulePrefFvs p.toBlockShape rs c,
+      x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨k, hk⟩ := List.getElem?_of_mem hx
+    obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hopPref k _ hk
+    have hq := (ConLeche.Verify.openPisAtFvars_bounded _ hopPref hbR).2 _ hx
+    simp only [ConLeche.Expr.fvarTypeD] at hq
+    simp [ConLeche.Expr.looseBVarsBounded]
+  have hleafPref : ∀ a ∈ blockRulePrefFvs p.toBlockShape rs c,
+      ∀ lf ∈ a.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ blockRulePrefFvs p.toBlockShape rs c := by
+    intro a ha lf hlf
+    rcases ConLeche.Verify.openPisAtFvars_leaves _ hopPref lf (Or.inr ⟨a, ha, hlf⟩) with hq | hq
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfvR] at hq; exact nomatch hq
+    · exact hq
+  have hwC : Expr.WScoped (p.toBlockShape.rulePrefixAt c)
+      (blockRuleCrest p.toBlockShape rs c i) :=
+    (ConLeche.instPisAt_WScoped _ cA.1.type hinst (Expr.WScoped.of_not_hasFvar hCf)
+      (fun a ha => hwPref a (List.mem_of_mem_take ha))).2
+  have hbC : (blockRuleCrest p.toBlockShape rs c i).looseBVarsBounded 0 = true :=
+    (ConLeche.Verify.instPisAt_bounded _ hinst hCb
+      (fun a ha => hfvPref a (List.mem_of_mem_take ha))).2
+  have hleafC : ∀ lf ∈ (blockRuleCrest p.toBlockShape rs c i).fvarLeaves,
+      Expr.fvar lf.1 lf.2 ∈ blockRulePrefFvs p.toBlockShape rs c := by
+    intro lf hlf
+    rcases ConLeche.Verify.instPisAt_leaves _ hinst lf (Or.inr hlf) with hq | hq
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf] at hq; exact nomatch hq
+    · obtain ⟨a, ha, hlfa⟩ := hq
+      exact hleafPref a (List.mem_of_mem_take ha) lf hlfa
+  -- the openers' readings, prefix and field
+  have hdA : ∀ (l : Nat) (x : Expr),
+      (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)[l]?
+        = some x →
+      denoteMeta mpC.base2.acval envC ψ l (Expr.fvarTypeD x)
+        = some ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD l default) := by
+    intro l x hx
+    rcases Nat.lt_or_ge l (blockRulePrefFvs p.toBlockShape rs c).length with hlt | hge
+    · rw [List.getElem?_append_left hlt] at hx
+      rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+        ← List.getD_eq_getElem?_getD]
+      exact blockRulePdomsAV_reads hμ mpC h hr ψ hopPref l x hx
+    · rw [List.getElem?_append_right hge, hlenP] at hx
+      rw [hlenP] at hge
+      have hq := hdF (l - p.toBlockShape.rulePrefixAt c) x hx
+      rw [show p.toBlockShape.rulePrefixAt c + (l - p.toBlockShape.rulePrefixAt c) = l from
+        by omega] at hq
+      have hgetD : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD l default
+          = (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD
+              (l - p.toBlockShape.rulePrefixAt c) default := by
+        rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+          List.getElem?_append_right (by rw [hlenPd]; omega), hlenPd]
+      rw [hgetD]
+      exact hq
+  -- the openers' gradings, prefix and field
+  have hokA : ∀ l, l < p.toBlockShape.rulePrefixAt c + cA.2 → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take l) ys →
+      WellDenotedV V (consList ys σ)
+        ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD l default) := by
+    intro l hl σ ys hys
+    rcases Nat.lt_or_ge l (p.toBlockShape.rulePrefixAt c) with hlt | hge
+    · rw [List.take_append_of_le_length (by omega)] at hys
+      rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+        ← List.getD_eq_getElem?_getD]
+      exact blockRulePdomsAV_graded hμ mpC h hr ψ l hlt σ ys hys
+    · obtain ⟨q, rfl⟩ : ∃ q, l = p.toBlockShape.rulePrefixAt c + q :=
+        ⟨l - p.toBlockShape.rulePrefixAt c, by omega⟩
+      have htk : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take
+              (p.toBlockShape.rulePrefixAt c + q)
+          = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take q := by
+        rw [← hlenPd, List.take_append, List.take_of_length_le (Nat.le_add_right _ _),
+          Nat.add_sub_cancel_left]
+      have hgetD : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD
+              (p.toBlockShape.rulePrefixAt c + q) default
+          = (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD q default := by
+        rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+          List.getElem?_append_right (by rw [hlenPd]; omega), hlenPd, Nat.add_sub_cancel_left]
+      rw [htk] at hys
+      obtain ⟨ys₁, ys₂, rfl, hy1, hy2⟩ := spineFit_append_inv hys
+      rw [hgetD, consList_append]
+      exact hokF q (by omega) σ ys₁ ys₂ hy1 hy2
+  -- the tower's domains: readings at `envC` through the crossing, gradings off the tower
+  have hlenLd : ldoms.length = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    rw [ConLeche.Verify.instLamsAt_length _ hlams, List.length_append, hlenP, hlenF]
+  have hdB : ∀ l, l < p.toBlockShape.rulePrefixAt c + cA.2 →
+      denoteMeta mpC.base2.acval envC ψ l (ldoms.getD l default)
+        = some ((lds.map (·.2)).getD l default) := by
+    intro l hl
+    obtain ⟨x, hx⟩ : ∃ x, ldoms[l]? = some x :=
+      ⟨ldoms[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    rw [hcross l hl, List.getD_eq_getElem?_getD, hx]
+    exact hdoms₀ l x hx
+  have hokB : ∀ l, l < p.toBlockShape.rulePrefixAt c + cA.2 → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((lds.map (·.2)).take l) ys →
+      WellDenotedV V (consList ys σ) ((lds.map (·.2)).getD l default) :=
+    fun l hl σ ys hys =>
+      mkLamsAV_doms_graded (b := A) (by rw [← hlam]; exact hokRa σ)
+        (by rw [hldslen]; exact hl) hys
+  exact twoStageOpeners_spineFit (fuel := F) hμ mpC hopPref hopF hfvR hbR hwC hbC hleafC
+    hlams hfvRhs hbRhs
+    (by rw [List.length_append, hlenPd, hlenFd])
+    (by rw [List.length_map, hldslen]) hdA hdB hokA hokB
+    (fun l hl => hg2 l (by rw [List.length_map, List.length_append, hlenP, hlenF]; exact hl))
+    hfit
+
+end TowerFitRun
+
 /-! ## 3d. THE COMPOSITION — a theorem whose CONCLUSION is
 `BlockRuleDataB`
 
@@ -781,6 +1394,35 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
           (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
           (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
           (Level.substFn φ r.1.levelParams us)))
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hcross : ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ (ldoms : List Expr) (lrest : Expr),
+        ConLeche.Expr.instLamsAt
+            (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i)
+            rhs = some (ldoms, lrest) →
+        ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
+          denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us) l
+              (ldoms.getD l default)
+            = denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+                (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+                (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
+                (Level.substFn φ r.1.levelParams us) l (ldoms.getD l default))
+    (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs j i)[l]? = some x →
+        denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us)
+            (p.toBlockShape.rulePrefixAt j + l) (Expr.fvarTypeD x)
+          = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+              (Level.substFn φ r.1.levelParams us) j i).getD l default))
+    (hokF : ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ q, q < cA.2 → ∀ (σ : Nat → V) (vs ws : List V),
+        SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) j) vs →
+        SpineFit (consList vs σ)
+          ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).take q) ws →
+        WellDenotedV V (consList ws (consList vs σ))
+          ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).getD q default))
     (hres : BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs) :
     BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
@@ -790,13 +1432,25 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   have hlv := blockRuleLevelAgree hplain hψ
   obtain ⟨hqs, hfq⟩ := blockRuleCtorFit_run (d := d) hcj hcf hlv (hlenP us hus)
     (hparamsC us hus) (by rw [hyl, hdnP]) (hctorRead _) hfitC
-  obtain ⟨hbody, htow⟩ :=
+  have hbody :=
     hres us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
   subst hpd; subst hfdD; subst hesD; subst hmkD
-  refine ⟨?_, ?_, ?_, ?_, htow⟩
-  · have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
+  -- the FIRST conjunct, and the FIFTH from it through G2
+  have hsp1 : SpineFit ρ
+      (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) j
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i)
+      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+        ++ (ys.drop p.nP).map (interp V ρ)) := by
+    have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
       htgt hlv (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
     rwa [hdnP] at hq
+  obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  have htow := blockRuleTowerFit_run hμ mpC h hr hcA hrhs hCf hCb (hread us hus)
+    (hokRa us hus) hlams (hcross us hus ldoms lrest hlams) (hdF us hus) (hokF us hus) hsp1
+  refine ⟨hsp1, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd htgt hlv
       (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
     rwa [hdnP] at hq
@@ -932,5 +1586,6 @@ because its single constructor forces `i_R = a_R` through `hfitR`.
 
 Until the ruling, the row is closed at `d.w ψ ≠ 0`
 (`blockRuleHes_run`), like the fit. -/
+
 
 end ConLeche.Model
