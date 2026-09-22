@@ -82014,3 +82014,57 @@ the flip.  Cost: one file's elaboration (~3 min for the 6 600-line
 merely changes, so surviving the probe implies surviving the flip and
 not conversely.  And it exercises only the file's OWN proofs — an
 imported lemma's gate reliance stays that lemma's file's census entry.
+
+#### LANDED (lane RM26 = M5M-data session 25, `8876ca60`) + **FINDING: the rule contract's FIT conjunct is FALSE at a `Prop`-valued block**
+
+Two of the per-pair obligation's four open statements closed — the
+fit's FIELD half (`blockRuleHsp_field_run`, `Model/Inductives/BlockRuleFit.lean:325`)
+and `mk` at both `w` (`blockRuleHmk_run` :424, `blockRuleHmk_zero`
+:492) — and the obligation re-sized **5–8 → 3–5 sessions**.  But the
+field half is proved under `hw : d.w ψ ≠ 0`, and that premise is not a
+convenience of the proof:
+
+**The conjunct is refutable at `d.w ψ = 0`, with a witness in every
+real stream.**  A `.plain` rule is `paramsBlind` and the index pin pins
+only the INDEX arguments, so the one thing that could tie the
+recursor's parameter spine to the constructor's is the major premise's
+membership.  At `d.w ψ ≠ 0` that membership is worth the whole tie
+(`mkInj`).  At `d.w ψ = 0` every value in the block is the point
+(`BlockModelAt.mkZero`), so it is worth NOTHING: a constructor built at
+one parameter spine lies in the carrier at every other.  Take `Exists`
+(`nP = 2`, no indices, `mI = rP`, so the pin is vacuous): recursor
+prefix `[Bool, q, motive, minor]`, constructor `[Nat, r, 5, h]`.
+`hfitC` holds, `hfitR` holds (the major's domain is a `Prop`-set and
+the major's value is `pt` by `mkZero`), the level premise is about
+levels — and the conjunct then asks `5 ∈ˢ ⟦Bool⟧`.  No premise of the
+contract excludes it.  The analysis is written out at
+`BlockRuleFit.lean:512`.
+
+`mk` is unaffected (at `w = 0` both sides are the point), so the repair
+is local to the FIT, and it is a DESIGN call — see the ruling section
+that follows.
+
+**Two premises were mis-assigned, and both cost reports rather than
+proofs.**  (i) *The "frame transport" was never an obligation*:
+`blockRecSpF_of`'s `K` and `a` are free variables of the theorem, and
+`K = 0` collapses the chain frame to the base one by `rfl`,
+unconditionally.  Four reports carried that row because the only
+collapse anyone had looked at was §28's, which has a boundedness
+premise and serves a DIFFERENT consumer (the kit's guard at the running
+`K`).  (ii) *`hps` was never this lane's*: it is `BlockRecSplitAt`'s
+third conjunct verbatim, unowned on the audit's list since `b5996eff`.
+Three premises went back to their owners with a consumer each.
+
+**Structural note**: the producers could not live beside the statement.
+`blockRecSpF_of`, `blockSlot_agree`, `blockCarrier_case` and
+`blockRecMkK_value` all live in `BlockRecPreRun.lean`, which
+`public import`s `BlockRecData.lean` — so a new leaf module
+(`Model/Inductives/BlockRuleFit.lean`) holds them.  An obligation's
+STATEMENT can live beside its endpoint; its PRODUCERS often cannot.
+
+**Operational**: `declBlock_one` is deleted (dead, confirmed by a green
+build) with its now-unused import.  And `scripts/pub-import-plan.py`
+gained TWO fallback rows for one new public edge: the plan's fixpoint
+is greedy and order-dependent, so a new edge can make an unrelated one
+look demotable for the first time.  Expect one second-order entry per
+new public edge, and measure both.
