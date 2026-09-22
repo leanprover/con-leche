@@ -83660,3 +83660,66 @@ declared "no producer", and on that ground deleted, were behind an
 antecedent a pass three files away could have handed over, and did,
 once it stopped narrowing.  A premise with no producer is evidence
 about the passes, not only about the premise.
+
+#### THE INVARIANT SWEEP (lane SEC3): 18 rows, **nothing unpinned and unpayable**
+
+Commissioned because three soundness-relevant gaps had been found by
+tripping over them, and written as a DIFF rather than a search: walk the
+generate-and-compare route's own construction and ask of each component
+what pins it on the checked route.
+
+**18 components: PINNED 12, UNPINNED-MODEL-PAYS 6, PINNED-BUT-NOT-
+READABLE 0, UNPINNED-AND-UNPAYABLE 0.**  No witness was forged because
+there is nothing to forge.
+
+**The six that are not simply pinned are ONE decision seen from six
+sides** — five of them the maintainer's "a motive is a parameter like
+any other" ruling — and they cost the model nothing for a structural
+reason worth recording: **every model statement about a recursor goes
+through the recursor's own CONCLUSION instantiated at the caller's
+spine, never through "the motive applied to …"**, and the prefix enters
+only as opaque values at a length.
+
+**The standing rule fired twice on the audit itself**: two of its
+premises were justified by *the generator* — one because "the generator
+stamps the binder datum", one because "the generator shares the prefix".
+Neither transfers to a checked recursor.  Both survive for different
+reasons and are now landed theorems, but **a premise whose stated
+justification is the generator is a premise to re-derive, not to
+inherit.**
+
+**Checked and found already sound**, so the next sweep can skip them:
+the stream may write a binder datum but both load-bearing terms are
+inferred, so the datum is validated; the frame's bit is not pinned by
+the call recogniser but only matters inside the opener's tower, which
+the elimination pin covers; and the subsingleton criterion at a result
+sort that is neither provably `Prop` nor never-zero — the shape that
+looks like a second `0 = 1` hole — is sound because that branch's
+symbolic comparison is strictly STRONGER than official's criterion at
+every `Prop` instantiation.
+
+**A caution for the mutual milestone, not a hole**: at `k ≥ 2` nothing
+forces the `k` recursors to target `k` DISTINCT members — a recursor's
+member is its major, and the name-set check does not constrain which.
+Member 1 may end up with no eliminator and member 0 with two.  One line
+in the model's indexing assumptions.
+
+#### RULING (coordinator, on the sweep's row 13): narrow the guarded call's argument vector to the field telescope's own variables
+
+Generation puts the field telescope's own variables in the `ih` call;
+the recogniser accepts ANY recursor-free vector of the right length.
+It is sound (the residue's typing catches ill-typed arguments) and
+reachable only at reflexive fields — but **it is the source of three of
+the four FALSE premises in the audit's §1.1**.  A ~5-line narrowing
+rejects nothing official emits and kills one of those falsities
+outright.
+
+**Adopted.**  The trade is an accept-superset nobody chose, against
+proof budget in the arm's hardest thread, and this project's own
+measurement answers the only empirical question: 11 167 real recursor
+rules across `init-full`, Mathlib and this project's own environment
+pass the guard, and every one of them is generated with exactly those
+variables.  Per `restrictions-are-findings` it is reported as a
+deliberate narrowing of an accepted superset, not as a conformance fix;
+the remaining audit falsity needs the binder-case fit and is NOT
+claimed to go with it.
