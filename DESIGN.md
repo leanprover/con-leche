@@ -83435,3 +83435,40 @@ Regime-side ledger after this: `hmemK`, `hshape`, `hbits`, `hTyE`,
 `hpdE`, `hconclB`, `hihOpen`, `hCaZ` and `hCaE` all discharged; what
 remains a premise is correctly another lane's or another regime's
 currency.
+
+#### LANDED (lane RM45 = M5M-pre session 37, `08be4f1d`): the squash arm was asking for a verdict the CHECK computes
+
+The subsingleton criterion the squash regime needs **does** have a
+producer — the constructor stage's clause — and it keys on the
+declared-shape flag, exactly as the falsifier warned.  Four hops, all
+present, and the gap was only that flag's truth.  **And the check
+decides it**: the stage runs `isDefEq sty (Sort 0)` *precisely when* the
+elimination guard is false, so a family whose elimination level is
+non-zero at some valuation must have had the guard allow it — and at a
+`Prop`-valued block that reduces to the declared flag plus the
+one-member, non-nested, ≤ 1-constructor conditions, which are the
+squash arm's OWN hypotheses.  The arm was asking for a verdict the
+check computes; nothing carried it out of the run.  The stage's
+inversion had peeled that `unless` and **discarded both branches**; it
+now returns the disjunction, with two in-file consumers dropping it.
+The **third** standing answer (recover what the inversion dropped) — no
+kernel change needed here.
+
+**FINDING — the last step must be SYNTACTIC, and the semantic route is
+refutably wrong.**  From the recovered disjunct one still needs that a
+defeq against `Sort 0` plus a sort inference forces the level to
+evaluate to zero.  A `DefEqClaim` concludes only at frames satisfying
+the recursor's own opened context — the context whose emptiness killed
+another discharge two sessions ago — while this conclusion is a
+statement about a LEVEL, with no frame in it at all: at a block with an
+uninhabited binder the semantic version would typecheck and produce
+nothing.  The right route is syntactic (`ensureSortCore_inv` → `whnf`
+to a sort, then `isDefEq` at two sorts deciding level equivalence,
+whose soundness is already consumed).  The missing piece is an
+inversion of `isDefEqCore` through `whnf` to the SORT case —
+`Verify/Knot.lean` has the successor and zero cases and no sort case —
+so it was ROUTED to the kernel lane rather than taken.
+
+**This is the fourth vacuous-conclusion trap in this window, and the
+first caught BEFORE the theorem was written** rather than after a
+consumer failed to use it.
