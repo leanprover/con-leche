@@ -83361,3 +83361,154 @@ gave for free.**  That is the standing cost of the design decision, and
 it argues for a deliberate sweep of the generate-and-compare route's
 implicit invariants once the arm closes, rather than finding them one
 at a time.
+
+#### RULING (coordinator, on the maintainer's delegation): the rule contract's guard becomes `ℓ ≠ 0`
+
+The maintainer ruled "option 1, whole-contract guard, squash carries
+the rest", adding "I'm relying on you here".  The falsifier commissioned
+to test that ruling before proof effort went into it came back with a
+refinement, and two later lanes confirmed it independently, so the
+guard is **`ℓ ≠ 0`, not `d.w ψ ≠ 0`**:
+
+* the falsifier: `hw` enters the contract's composition through three
+  consumers, and all three use it in ONE place — the chain-fit
+  producer's injectivity step;
+* the data lane, gathered without touching the guard: the residue
+  statement carries `ℓ ≠ 0` and **no `w` hypothesis at all**, its whole
+  `w`-dependence mediated by the contract's FIRST conjunct, and both
+  recorded witnesses (`Exists`, `Relation.ReflTransGen`) are
+  `Prop`-valued blocks WITHOUT large elimination — blocks used only at
+  `ℓ = 0`;
+* the dispatch lane: the `(w, ℓ)` split is one case distinction plus
+  three guard conjuncts, so the switch is **a deletion, not a
+  restructuring**.
+
+**What it buys: one guard and one endpoint arm instead of two.**  At
+`w = 0, ℓ ≠ 0` no endpoint arm is needed — one new chain-fit producer
+that does not go through injectivity carries it (the carrier case is
+already `w`-free; the one-constructor fact is the counting half of the
+elimination guard, being produced on the kernel lane).  The only arm
+left is `ℓ = 0`, which is "both sides are the point", with a landed
+precedent on the fixpoint route.
+
+**One caution recorded with it**: the constructor stage's subsingleton
+clause is keyed on the same declared-shape flag that let the `0 = 1`
+hole through, so after the elimination repair it must key on the
+CHECKED level, or the new producer finds its premise vacuous exactly
+where it needs it.
+
+The executing lane is told that if the switch costs more than a
+deletion it must stop and report, since that would be evidence against
+the ruling and belongs back with the maintainer.
+
+#### LANDED (lane RM45 = M5M-pre session 36, `c18ceae3`): `hCaE` discharged — **the chain fit IDENTIFIES the index values**
+
+The finding is better than the theorem: the fibre's chain fit does not
+merely GUARD that premise, it identifies the split's index values.  The
+fit pins the constructor's result index readings to the components of
+the block's index tuple; an earlier session pinned the SAME readings to
+the components of the rule's index tuple; and two tuples whose
+components agree at every position of a telescope both spines fit are
+the same list.  **So the split's index values were never independent
+data — they ARE the rule's index readings**, and the premise reduces to
+a frame evaluation with nothing left over.  The block-wide conclusion
+matches its consumer's premise character for character, checked by
+normalising both and diffing.
+
+Two inputs stay named with their owners rather than invented, and one
+of them carries a distinction worth keeping: `hfld` is deliberately NOT
+an instance of the generic fits-to-spine converter, because **at the
+SEPARATED tuple that converter's agreement premise is FALSE** — a
+recursive slot is the separated set while the field domain reads to the
+carrier.  What makes the fact true is that separated elements are
+carrier elements: a statement about the REPRESENTATION, not about the
+fit.
+
+**And a distinction that is now load-bearing for the guard switch**:
+the `w` guard pays for **BUILDING** a chain fit out of memberships, and
+an arm that is **HANDED** one does not need it.  That is why nothing in
+the small-elimination arm assumes the `w` form, and why the squash arm
+— the one that must build without injectivity — is where the switch's
+real content sits.
+
+Regime-side ledger after this: `hmemK`, `hshape`, `hbits`, `hTyE`,
+`hpdE`, `hconclB`, `hihOpen`, `hCaZ` and `hCaE` all discharged; what
+remains a premise is correctly another lane's or another regime's
+currency.
+
+#### LANDED (lane RM45 = M5M-pre session 37, `08be4f1d`): the squash arm was asking for a verdict the CHECK computes
+
+The subsingleton criterion the squash regime needs **does** have a
+producer — the constructor stage's clause — and it keys on the
+declared-shape flag, exactly as the falsifier warned.  Four hops, all
+present, and the gap was only that flag's truth.  **And the check
+decides it**: the stage runs `isDefEq sty (Sort 0)` *precisely when* the
+elimination guard is false, so a family whose elimination level is
+non-zero at some valuation must have had the guard allow it — and at a
+`Prop`-valued block that reduces to the declared flag plus the
+one-member, non-nested, ≤ 1-constructor conditions, which are the
+squash arm's OWN hypotheses.  The arm was asking for a verdict the
+check computes; nothing carried it out of the run.  The stage's
+inversion had peeled that `unless` and **discarded both branches**; it
+now returns the disjunction, with two in-file consumers dropping it.
+The **third** standing answer (recover what the inversion dropped) — no
+kernel change needed here.
+
+**FINDING — the last step must be SYNTACTIC, and the semantic route is
+refutably wrong.**  From the recovered disjunct one still needs that a
+defeq against `Sort 0` plus a sort inference forces the level to
+evaluate to zero.  A `DefEqClaim` concludes only at frames satisfying
+the recursor's own opened context — the context whose emptiness killed
+another discharge two sessions ago — while this conclusion is a
+statement about a LEVEL, with no frame in it at all: at a block with an
+uninhabited binder the semantic version would typecheck and produce
+nothing.  The right route is syntactic (`ensureSortCore_inv` → `whnf`
+to a sort, then `isDefEq` at two sorts deciding level equivalence,
+whose soundness is already consumed).  The missing piece is an
+inversion of `isDefEqCore` through `whnf` to the SORT case —
+`Verify/Knot.lean` has the successor and zero cases and no sort case —
+so it was ROUTED to the kernel lane rather than taken.
+
+**This is the fourth vacuous-conclusion trap in this window, and the
+first caught BEFORE the theorem was written** rather than after a
+consumer failed to use it.
+
+#### LANDED (lane RM47 = M5M-data session 33, `5e929463`): the guard switch — **and it was NOT a deletion**
+
+The contract no longer takes the `w` guard.  **Measured: one premise
+out, three in** (`ℓ ≠ 0`, plus the declared-shape and one-constructor
+halves of the same elimination-guard line), and **411 added lines, of
+which ~260 are a NEW PRODUCER** that had to be written for the
+`w = 0, ℓ ≠ 0` region.
+
+**So the "deletion, not a restructuring" measurement was WRONG**, and
+the record says so.  What was measured correctly is the SHAPE: one
+guard reaches the contract, the `w`-split now lives inside a single
+theorem (`blockRuleChainFit_any`, the lane's only case split on `w`),
+and there is one endpoint arm instead of two.  The executing lane did
+not stop, because the arm came in UNDER the falsifier's price — one
+session against two-to-three — so the ruling was not in jeopardy; but
+the framing was, and correcting it is the point of asking a lane to
+report what a change actually cost.
+
+**FINDING — *a hypothesis with no USE is the third member of the
+premise-hygiene family.***  The index pin had sat in the contract's
+telescope since the composition landed and **no proof ever mentioned
+it**: the `w ≠ 0` route went through injectivity instead.  It is the
+ONLY thing that can tie the two frames at `w = 0`.  So the family is
+now: a premise set with no INSTANCE (green, unusable); a premise with
+no DISCHARGE route (green, unprovable); and **a hypothesis with no USE
+(green, and silently carrying the design's actual content)**.  Grep for
+a hypothesis's own name inside the proof that takes it.
+
+Two more.  **The level guard is not where the restriction lives** — a
+caller may always pass a non-zero level; what excludes the two refuting
+witnesses is the declared-shape and constructor-count halves.  The
+ruling's "one guard" is honest because of the guard's CONSEQUENCES, not
+its face.  And **the bridge the new producer needed was already in the
+file, `w`-free**, written earlier for a different conjunct — the
+falsifier's price was set without knowing it existed.
+
+By-product: the squash regime's two unowned premises are now written
+inside the new producer; **lifting them out is a signature, not a
+proof.**
