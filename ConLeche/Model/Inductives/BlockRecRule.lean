@@ -12,6 +12,7 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
+import ConLeche.Semantics.Tower.BlockRecIndI
 
 public section
 
@@ -1187,6 +1188,7 @@ argument values are identified with the design's
     Expr.instPisAtLift as
       (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
         (fr.teleOf i) (fr.idxOf i)) = some expected →
+    node = expected →
     IhTyped envT (F + fr.nR + d)
       ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
         (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
@@ -1204,7 +1206,7 @@ theorem ihCallFold_of_spine {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat 
   obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, hexp, rfl⟩ :=
     ConLeche.blockIhCall?_spine hc
   exact h d locals nm c' i r as as1 as2 e e A vs hc he hb hloc h1 h2 hsx hlf hnm hrpos hasl hexp
-    hty hA hvs
+    rfl hty hA hvs
 
 /-- **O-1's premise, from the generated spine alone.**  The composite:
 `interp_abstractIh`'s `hcall` follows from a statement that mentions
@@ -1667,7 +1669,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
         ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
         (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))) :
     IhSpineFold V mo.acval env envT ψ fr F (consList (xs ++ fs) σchain) ihvals as2₀ := by
-  intro d locals nm c' i r as as1 as2 node expected A vs hcall hnodeF hnodeB hloc h1 h2f hsx hlf hnm hrpos hasl hexp htyN hA hvs
+  intro d locals nm c' i r as as1 as2 node expected A vs hcall hnodeF hnodeB hloc h1 h2f hsx hlf hnm hrpos hasl hexp hne htyN hA hvs
   have hiF : i < fr.nF := hi i c' r hrpos
   obtain ⟨ci, hfind, hlvl, hleafv⟩ := hcallee nm c' hnm
   obtain ⟨maj, hmaj, hasEq⟩ := blockIhCall?_args_sub hcall
@@ -1860,5 +1862,42 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
   ihNodeVal_of_spine haclN hih
     (ihSpineFold_blockRec (fun n ψ' k => haclN n ψ' 1 k) hainst hcl hF ho hxl hfl hℓ
       hop0 hCf hCb hstripC htele hidx hfld hnofv hcallee hi hihv hfit)
+
+/-! ## The ℓ = 0 route (AUDIT item 5)
+
+`ihSpineFold_blockRec` carries `hℓ : ℓ ≠ 0` because `ihFunAV_fold`
+evaluates a λ-tower at bit `ℓ`, so the `hnew` route it feeds covers
+the WF and SQ regimes only.  At `ℓ = 0` the regime is IND, where
+`RecRuleLaw` is still an equation but a trivial one: the family's
+leaf and every `ih` value are the POINT, and `app` at the point
+absorbs any spine (`foldl_app_pt_spine`), so both sides of the fold
+are `pt` and the premise holds with NO fit — no `hfit`, no telescope,
+no `hihv`.
+
+The two premises are the regime's own: the block's recursors read to
+`pt` (`indCand`'s leaf) and so do the `ih` values. -/
+
+/-- **`IhSpineFold` at `ℓ = 0`** — the IND arm of `hnew`, which
+`ihSpineFold_blockRec` does not cover. -/
+theorem ihSpineFold_blockRec_zero {env envT : Env} {mo : EnvModel V env} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
+    {as2₀ : List Expr}
+    (hheadPt : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∀ (dd : Nat) (us : List Level) (Ah : AnnotTerm) (σ : Nat → V),
+        denoteMeta mo.acval env ψ dd (Expr.const nm us) = some Ah → interp V σ Ah = pt)
+    (hihPt : ∀ r : Nat, ihvals.getD r pt = pt) :
+    IhSpineFold V mo.acval env envT ψ fr F ρ' ihvals as2₀ := by
+  intro d locals nm c' i r as as1 as2 node expected A vs hcall hnodeF hnodeB hloc h1 h2
+    hsx hlf hnm hrpos hasl hexp hne hty hA hvs
+  subst hne
+  obtain ⟨nm', c'', i', expected', hfn, hnm', -, -, -, -, -, -, -, -⟩ :=
+    ConLeche.blockIhCall?_spine hcall
+  -- the node is a spine on the callee CONSTANT
+  rw [← ConLeche.Expr.mkAppN_getApp node, hfn, instantiateList_mkAppN,
+    Expr.instantiateList] at hA
+  obtain ⟨Ah, ws, hAh, -, rfl⟩ := denoteMeta_mkAppN_inv hA
+  rw [interp_mkAppN, foldl_app_map,
+    hheadPt nm' c'' hnm' (F + d) fr.rlvls Ah (consList locals ρ') hAh,
+    foldl_app_pt_spine, hihPt r, foldl_app_pt_spine]
 
 end ConLeche.Model
