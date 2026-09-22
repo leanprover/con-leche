@@ -83235,3 +83235,39 @@ to `structElimLevel p.elim p.large` in `checkBlockRecElimAgree`, true of
 every official stream and subsuming an existing check — but it costs
 that function's ARITY, which a do-not-touch theorem's statement names.
 Queued, not landed.
+
+#### LANDED (lane RM46, `9b42fabd`): **the arm's LAST composition** — the three regimes dispatched into the endpoint's premise
+
+`Model/Inductives/BlockRecPreHpre.lean` (575 lines), with
+`blockRecPre_dispatch_run` (:226) concluding the endpoint's premise
+VERBATIM; each kit arm discharges six premises at the run.  Both of the
+census's two missing compositions now exist.
+
+**What it turned out to need**, none of it listed anywhere before:
+
+1. **The dispatch must be stated at the BASE prefix domains.**  The
+   regime predicates are proof-tier `def`s with no exposure, so **no
+   consumer can move a regime between the base form and the chain-frame
+   form**, and all three producers deliver at the base one.  The lane's
+   first version was at the chain form, compiled GREEN, and **had no
+   instance at any producer** — the third theorem-with-no-instance
+   found in this window, and the first caught by its own author before
+   landing.  The collapse is therefore paid once inside the equation
+   list, where the spelling IS exposed.
+2. **The level's skolemisation belongs to the consumer, in the run's
+   currency**: the run hands the level back existentially, and *a guard
+   under an existential is not a guard*.  Once the level list is a
+   parameter and every guard reads its head, the one-level predicate
+   becomes a theorem and leaves both kit arms' premise sets — the one
+   premise all three regimes genuinely shared.
+3. **The squash arm is unstateable at the run without a one-recursor
+   fact** — which is the COUNTING half of the elimination guard: a
+   kernel fact wearing a model premise.
+4. Four definitions and a theorem from earlier sessions had no consumer
+   and now do; they were right, and the only correction the consumer
+   forced was which side of the collapse to stand on.
+
+**And it settles the guard question's cost**: the `(w, ℓ)` split is one
+`by_cases` plus three guard conjuncts, so moving the rule contract's
+guard from `w ≠ 0` to `ℓ ≠ 0` is **a deletion here, not a
+restructuring**.
