@@ -403,3 +403,58 @@ def _prop_concl(recs, names):
 
 twin("tests/e2e/mutual_rec_prop_concl.ndjson", _prop_concl,
      "A.rec's motive is A -> Type on a mutual Prop block")
+
+
+# 6. the two recursors' rule PREFIXES differ: the SECOND recursor's
+#    `minorA` binder gets a different (still well-formed) domain,
+#    `forall (f : B), mB f -> mB f` in place of
+#    `forall (f : B), mB f -> mA (A.mk f)`.  Its own rule's third
+#    lambda is re-annotated to match, so the rule stage's binder-by-binder
+#    comparison with the stored type still passes and the block reaches
+#    the FAMILY check.  Nothing types the guarded call's arguments
+#    against the callee's prefix (`abstractIh` replaces the call before
+#    the residue is typed), so without stage (b') — the ruling of
+#    2026-09-22, `checkBlockRecPrefixAgree` — the block is ACCEPTED with
+#    two recursors whose prefixes disagree, which is exactly what the
+#    model's predecessor fact cannot survive.
+def _prefix_mismatch(recs, names):
+    i, recsd = find_ab_block(recs, names)
+    E = exprs(recs)
+    brec = recsd[names["InModelMutual.B.rec"]]
+    # B.rec's type: walk to the third forallE (the first minor premise)
+    ty = brec["type"]
+    chain = []
+    for _ in range(3):
+        chain.append(ty)
+        ty = E[ty][1]["body"]
+    minor_node = chain[2]
+    # and its rule's third lambda
+    rhs = brec["rules"][0]["rhs"]
+    lam = rhs
+    lams = []
+    for _ in range(3):
+        lams.append(lam)
+        lam = E[lam][1]["body"]
+    lam_node = lams[2]
+    dom = E[minor_node][1]["type"]                     # the shared `minorA` type
+    fty = E[dom][1]["type"]                            # `B`
+    inner = E[dom][1]["body"]                          # `forall (_ : mB f), mA (A.mk f)`
+    mbf = E[inner][1]["type"]                          # `mB f`   (#1 #0)
+    # `mB f` one binder deeper: (#2 #1)
+    deep = next((k for k, (kind, v) in E.items()
+                 if kind == "app" and E[v["fn"]][0] == "bvar" and E[v["fn"]][1] == 2
+                 and E[v["arg"]][0] == "bvar" and E[v["arg"]][1] == 1), None)
+    assert deep is not None, "no `#2 #1` node in the base"
+    nxt = max(E) + 1
+    body2, dom2 = nxt, nxt + 1
+    ins = [{"ie": body2, "forallE": dict(E[inner][1], type=mbf, body=deep)},
+           {"ie": dom2, "forallE": dict(E[dom][1], type=fty, body=body2)}]
+    at = next(j for j, r in enumerate(recs) if r.get("ie") == minor_node)
+    recs[at:at] = ins
+    for node, key in ((minor_node, "forallE"), (lam_node, "lam")):
+        j = next(k for k, r in enumerate(recs) if r.get("ie") == node)
+        recs[j][key] = dict(recs[j][key], type=dom2)
+
+
+twin("tests/e2e/mutual_rec_prefix_mismatch.ndjson", _prefix_mismatch,
+     "B.rec's minorA premise has a different domain from A.rec's")
