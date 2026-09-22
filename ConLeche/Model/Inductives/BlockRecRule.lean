@@ -167,6 +167,77 @@ theorem wscoped_instantiateList {E : Nat} {xs : List Expr} (h : FvarList E xs) :
     simp only [Expr.instantiateList, Expr.WScoped]
     exact ihe hf k
 
+/-- **Opening draws every free variable from the opening list.**  The
+residue's sub-terms carry no `fvar` of their own (`abstractIh` cannot
+introduce one), so every leaf the frame's reading sees belongs to an
+opener — which is what puts a node of the walk in the frame's CONTEXT
+(`CtxOk.of_subset`) and bounds its leaves (`LeavesBounded`).  The
+companion of `wscoped_instantiateList`, proved the same way. -/
+theorem fvarLeaves_instantiateList {E : Nat} {xs : List Expr} (h : FvarList E xs) :
+    ∀ (e : Expr), e.hasFvar = false → ∀ (k : Nat),
+      ∀ l ∈ (e.instantiateList xs k).fvarLeaves, ∃ x ∈ xs, l ∈ x.fvarLeaves := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro _ k l hl
+    rw [Expr.instantiateList] at hl
+    by_cases hjk : j < k
+    · rw [if_pos hjk] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
+    rw [if_neg hjk] at hl
+    by_cases hin : j - k < xs.length
+    · rw [dif_pos hin] at hl
+      obtain ⟨ty, hty⟩ := h.2.1 (j - k) (by rw [h.1] at hin; omega)
+      obtain ⟨hlt', hget⟩ := List.getElem?_eq_some_iff.mp hty
+      refine ⟨xs[j - k], List.getElem_mem hin, ?_⟩
+      rw [hget] at hl ⊢
+      rw [Expr.instantiateList] at hl
+      exact hl
+    · rw [dif_neg hin] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
+  | fvar _ _ => intro hf _; exact absurd hf (by simp [Expr.hasFvar])
+  | sort _ =>
+    intro _ k l hl
+    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
+  | const _ _ =>
+    intro _ k l hl
+    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
+  | lit _ =>
+    intro _ k l hl
+    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
+  | app f a ihf iha =>
+    intro hf k l hl
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihf hf.1 k l hl
+    · exact iha hf.2 k l hl
+  | lam ty b bi ihty ihb =>
+    intro hf k l hl
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihty hf.1 k l hl
+    · exact ihb hf.2 (k + 1) l hl
+  | forallE ty b bi ihty ihb =>
+    intro hf k l hl
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihty hf.1 k l hl
+    · exact ihb hf.2 (k + 1) l hl
+  | letE ty v b ihty ihv ihb =>
+    intro hf k l hl
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append, List.mem_append] at hl
+    rcases hl with (hl | hl) | hl
+    · exact ihty hf.1.1 k l hl
+    · exact ihv hf.1.2 k l hl
+    · exact ihb hf.2 (k + 1) l hl
+  | proj _ _ e ihe =>
+    intro hf k l hl
+    simp only [Expr.hasFvar] at hf
+    rw [Expr.instantiateList, Expr.fvarLeaves] at hl
+    exact ihe hf k l hl
+
 /-! ### Two syntactic facts about the call node
 
 Neither is in `BlockRecInv.lean` (they are this consumer's, not the
