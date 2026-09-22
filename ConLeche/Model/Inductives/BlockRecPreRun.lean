@@ -6292,6 +6292,101 @@ theorem blockRuleIhOpenerReads_of {envT : Env} {mT : EnvModel V envT} {ψ : Name
   rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega, hstored, htele]
   exact hB
 
+/-! ### 40.3 The bundle, from the frame's three openings
+
+`BlockRuleCerts.of_segments` (§39.1) takes the bundle's arguments in
+the producers' spelling; this is the same bundle at the spelling the
+RUN hands over — the three opener LISTS — with every syntactic
+argument discharged by §40.1 and the two owed segment readings
+discharged by §40.2 from their existence alone.
+
+What is left as a premise here is exactly what the check does not
+supply: the frame's GRADING (`hokA`) and the conclusion's
+well-denotedness (`hokC`), which are the audit's §2.6 item, plus the
+two runs and the two term readings, which are stage (c)'s own. -/
+
+omit [SetTheory V] in
+/-- A segment's length is its opener list's, whenever the readings
+exist (the same witness list as `readOpenedDoms_reads`). -/
+theorem readOpenedDoms_length {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
+    {ψ : Name → Nat} {d : Nat} {fvs : List Expr}
+    (hex : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+      ∃ A, denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some A) :
+    (readOpenedDoms acval envC ψ d fvs).length = fvs.length := by
+  have hb : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+      ∃ pd, ((List.range fvs.length).map fun q =>
+            ((0 : Nat), (0 : Nat),
+              (denoteMeta acval envC ψ (d + q)
+                (Expr.fvarTypeD (fvs.getD q default))).getD default))[l]? = some pd ∧
+        denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some pd.2.2 := by
+    intro l x hx
+    have hl : l < fvs.length := (List.getElem?_eq_some_iff.mp hx).1
+    obtain ⟨A, hA⟩ := hex l x hx
+    have hgd : fvs.getD l default = x := by rw [List.getD_eq_getElem?_getD, hx]; rfl
+    refine ⟨(0, 0, (denoteMeta acval envC ψ (d + l)
+      (Expr.fvarTypeD (fvs.getD l default))).getD default), ?_, ?_⟩
+    · rw [List.getElem?_map, List.getElem?_range hl]
+      rfl
+    · rw [hgd, hA, Option.getD_some]
+  rw [readOpenedDoms_eq (acval := acval) (envC := envC) (ψ := ψ) fvs _ d
+    (by rw [List.length_map, List.length_range]) hb, List.length_map, List.length_map,
+    List.length_range]
+
+/-- **`BlockRuleCerts` from the frame's openings.**  The bundle's
+domains are the openers' own readings (`readOpenedDoms`), so the
+producer owes, per segment, only that those readings EXIST. -/
+theorem blockRuleCerts_of_openings {envT : Env} (mp : EnvModelM V μ envT)
+    {ψ : Name → Nat} {fuel rP nF nR : Nat}
+    {recTy crest ihTele' : Expr} {fvsPref fvsF fvsIh : List Expr}
+    {o₁ o₂ bodyO ty concl : Expr} {Rb Ca : AnnotTerm}
+    (h₁ : ConLeche.openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : ConLeche.openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : ConLeche.openPisAtFvars nR ihTele' (rP + nF) = some (fvsIh, bodyO))
+    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
+    (hw₃ : Expr.WScoped (rP + nF) ihTele')
+    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
+    (hb₃ : ihTele'.looseBVarsBounded 0 = true)
+    (hfv₃ : ∀ l ∈ ihTele'.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF)
+    (hexP : ∀ (l : Nat) (x : Expr), fvsPref[l]? = some x →
+      ∃ A, denoteMeta mp.base2.acval envT ψ (0 + l) (Expr.fvarTypeD x) = some A)
+    (hexF : ∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+      ∃ A, denoteMeta mp.base2.acval envT ψ (rP + l) (Expr.fvarTypeD x) = some A)
+    (hexI : ∀ (l : Nat) (x : Expr), fvsIh[l]? = some x →
+      ∃ A, denoteMeta mp.base2.acval envT ψ (rP + nF + l) (Expr.fvarTypeD x) = some A)
+    (hinf : ConLeche.inferTypeCore μ envT fuel (rP + nF + nR) bodyO = .ok ty)
+    (hdeq : ConLeche.isDefEqCore μ envT fuel (rP + nF + nR) ty concl = .ok true)
+    (hbC : concl.looseBVarsBounded 0 = true)
+    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
+    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
+    (hokA : ∀ l, l < rP + nF + nR → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((readOpenedDoms mp.base2.acval envT ψ 0 fvsPref
+        ++ readOpenedDoms mp.base2.acval envT ψ rP fvsF
+        ++ readOpenedDoms mp.base2.acval envT ψ (rP + nF) fvsIh).take l) ys →
+      WellDenotedV V (consList ys σ)
+        ((readOpenedDoms mp.base2.acval envT ψ 0 fvsPref
+          ++ readOpenedDoms mp.base2.acval envT ψ rP fvsF
+          ++ readOpenedDoms mp.base2.acval envT ψ (rP + nF) fvsIh).getD l default))
+    (hokC : ∀ ρ : Nat → V,
+      Sat V ((readOpenedDoms mp.base2.acval envT ψ (rP + nF) fvsIh).reverse
+        ++ (readOpenedDoms mp.base2.acval envT ψ 0 fvsPref
+          ++ readOpenedDoms mp.base2.acval envT ψ rP fvsF).reverse) ρ →
+      WellDenotedV V ρ Ca) :
+    BlockRuleCerts V mp fuel ψ rP nF nR
+      (readOpenedDoms mp.base2.acval envT ψ 0 fvsPref)
+      (readOpenedDoms mp.base2.acval envT ψ rP fvsF)
+      (readOpenedDoms mp.base2.acval envT ψ (rP + nF) fvsIh) Rb Ca := by
+  obtain ⟨hlbF, hbR⟩ := blockRuleHlbF_of h₁ h₂ h₃ hb₁ hb₂ hb₃
+  refine BlockRuleCerts.of_segments mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF
+    (by rw [readOpenedDoms_length hexP, ConLeche.Verify.openPisAtFvars_length _ h₁])
+    (by rw [readOpenedDoms_length hexF, ConLeche.Verify.openPisAtFvars_length _ h₂])
+    (by rw [readOpenedDoms_length hexI, ConLeche.Verify.openPisAtFvars_length _ h₃])
+    (fun l x hx => ?_) (fun l x hx => readOpenedDoms_reads hexF l x hx)
+    (fun l x hx => readOpenedDoms_reads hexI l x hx)
+    hokA hinf hdeq hbR hbC (blockRuleHleaf_of h₃ hfv₃) hleafC hRb hCa hokC
+  have := readOpenedDoms_reads hexP l x hx
+  rwa [Nat.zero_add] at this
+
 end CertsArgs
 
 end ConLeche.Model
