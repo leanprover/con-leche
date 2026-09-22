@@ -13,6 +13,7 @@ import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Semantics.Tower.BlockRecIndI
+import ConLeche.Model.Rules.Sound
 
 public section
 
@@ -781,6 +782,61 @@ theorem LocalsFit.cons {F : Nat} {ρ' : Nat → V} {locals : List V} {as1 : List
     rw [show F + locals.length - 1 - j = F + (locals.length + 1) - 1 - (j + 1) from by omega]
     exact htb
 
+/-! ## The frame, in the shape the reading battery wants
+
+`FvarList E as1` is the check's own opening list — DESCENDING, because
+`instantiateList` consumes `bvar 0` first.  The reading battery
+(`denoteMeta_instSeq_mkPisOf`, `denoteMeta_ihSpineAt`) is stated over
+the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
+They are the same frame reversed, and these three lemmas are the
+bridge. -/
+
+/-- The opening list, reversed, is the ascending frame. -/
+theorem FvarList.reverse_length {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    as1.reverse.length = E := by rw [List.length_reverse, h.1]
+
+theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
+    ∀ (k : Nat) (x : Expr), as1.reverse[k]? = some x → ∃ ty, x = Expr.fvar k ty := by
+  intro k x hx
+  have hk : k < E := by
+    rcases Nat.lt_or_ge k E with hk | hk
+    · exact hk
+    · rw [List.getElem?_eq_none (by rw [h.reverse_length]; omega)] at hx
+      exact nomatch hx
+  rw [List.getElem?_reverse (by rw [h.1]; omega), h.1] at hx
+  obtain ⟨ty, hty⟩ := h.2.1 (E - 1 - k) (by omega)
+  rw [hty] at hx
+  exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
+
+/-- Opening at a `FvarList` IS the battery's `instSeq` at the
+ascending frame. -/
+theorem instantiateList_eq_instSeq_of_fvarList {E : Nat} {as1 : List Expr}
+    (h : FvarList E as1) (hE : 0 < E) (e : Expr) :
+    e.instantiateList as1 0 = Expr.instSeq as1.reverse (E - 1) e := by
+  have hne : as1 ≠ [] := by
+    intro hnil
+    rw [hnil] at h
+    exact absurd h.1.symm (by simp; omega)
+  rw [ConLeche.instantiateList_eq_instSeq hne e, h.1]
+
+theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
+    (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
+    ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
+      (Expr.instSeq sp t a).looseBVarsBounded 0 = true
+  | [], t, _, hlen, _, _ => absurd hlen (by simp)
+  | s :: ss, t, hsp, hlen, a, ha => by
+    have hss : ss.length = t := by simpa using hlen
+    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      exact ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha
+    | succ t' =>
+      show (Expr.instSeq ss t' (a.instantiate1 s (t' + 1))).looseBVarsBounded 0 = true
+      exact looseBVarsBounded_instSeq ss t'
+        (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) hss
+        (ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha)
+
 /-! ## The frame's CONTEXT, threaded with the walk
 
 `hfit`'s discharge runs through `certs_sound`, whose conclusion is
@@ -927,6 +983,115 @@ theorem WalkCtx.cons {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D 
     rcases List.mem_cons.mp hy with rfl | hy'
     · exact List.mem_cons_of_mem _ (hcl l hl)
     · exact List.mem_cons_of_mem _ (hcls y hy' l hl)
+
+/-- **`CtxOk` from the walk's context**, at any node the frame opened:
+`ctxOk_of_openers` at the ASCENDING form of the opening list.  Every
+one of its six inputs is a field of `WalkCtx` or of the `FvarList`;
+nothing is proved per node but the leaf membership, which
+`fvarLeaves_instantiateList` gives for the whole walk at once. -/
+theorem WalkCtx.ctxOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
+    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
+    {e : Expr} (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2) :
+    CtxOk mT φ D Δa e := by
+  obtain ⟨hlen, -, hdoms, hok, -, -, -⟩ := h
+  have hrev : ∀ (i : Nat), i < D → as2.reverse[i]? = as2[D - 1 - i]? := by
+    intro i hi
+    rw [List.getElem?_reverse (by rw [h2.1]; omega), h2.1]
+  refine ctxOk_of_openers hacl (fvs := as2.reverse) (n := D)
+    (Aa := fun i => Δa.getD (D - 1 - i) default) hlen h2.reverse_idx ?_ ?_ ?_ ?_ ?_ ?_
+  · intro x hx
+    exact h2.2.2 x (List.mem_reverse.mp hx)
+  · intro i x hx
+    have hi : i < D := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [h2.reverse_length] at this
+      exact this
+    rw [hrev i hi] at hx
+    have := hdoms (D - 1 - i) x hx
+    rw [show D - 1 - (D - 1 - i) = i from by omega] at this
+    exact this
+  · intro l hl
+    exact List.mem_reverse.mpr (hleaf l hl)
+  · intro l hl
+    obtain ⟨p, hp⟩ := List.getElem?_of_mem (List.mem_reverse.mpr (hleaf l hl))
+    obtain ⟨ty, hty⟩ := h2.reverse_idx p _ hp
+    have hpl : p < D := by
+      have := (List.getElem?_eq_some_iff.mp hp).1
+      rw [h2.reverse_length] at this
+      exact this
+    obtain ⟨h1', -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hty with a b
+      exact ⟨a, b⟩
+    omega
+  · intro i hi
+    rw [List.getD, List.getElem?_eq_getElem (by rw [hlen]; omega)]
+    rfl
+  · intro i hi ρ hρ
+    exact hok (D - 1 - i) (by omega) ρ hρ
+
+/-- **The opened term's leaves ARE frame variables.**
+`fvarLeaves_instantiateList` puts each leaf inside SOME opener; a
+frame that is leaf-closed (`WalkCtx`'s last conjunct) then puts it in
+the frame itself, which is what `WalkCtx.ctxOk` asks. -/
+theorem fvarLeaves_mem_instantiateList {E : Nat} {as : List Expr} (h : FvarList E as)
+    (hcls : ∀ x ∈ as, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ as)
+    {e : Expr} (hf : e.hasFvar = false) (k : Nat) :
+    ∀ l ∈ (e.instantiateList as k).fvarLeaves, Expr.fvar l.1 l.2 ∈ as := by
+  intro l hl
+  obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList h e hf k l hl
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+  have hql : q < E := by
+    have := (List.getElem?_eq_some_iff.mp hq).1
+    rw [h.1] at this; exact this
+  obtain ⟨ty, hty⟩ := h.2.1 q hql
+  obtain rfl : x = Expr.fvar (E - 1 - q) ty := Option.some.inj (hq.symm.trans hty)
+  simp only [Expr.fvarLeaves, List.mem_cons] at hlx
+  rcases hlx with rfl | hl'
+  · exact hx
+  · exact hcls _ hx l hl'
+
+/-- **The opened term is bvar-closed**: the frame's variables are, and
+they replace every loose index. -/
+theorem looseBVarsBounded_open {E : Nat} {as : List Expr} (h : FvarList E as) (hE : 0 < E)
+    {e : Expr} (hb : e.looseBVarsBounded E = true) :
+    (e.instantiateList as 0).looseBVarsBounded 0 = true := by
+  rw [instantiateList_eq_instSeq_of_fvarList h hE]
+  refine looseBVarsBounded_instSeq as.reverse (E - 1) ?_ (by rw [h.reverse_length]; omega) ?_
+  · intro s hs
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hs
+    obtain ⟨ty, hty⟩ := h.reverse_idx q s hq
+    rw [hty]; rfl
+  · rw [show E - 1 + 1 = E from by omega]; exact hb
+
+/-- **Opening one of the WALK's binders**, with every obligation
+discharged from the frame itself: the new slot's domain is bvar-closed
+and `envT`-bounded because the frame is, its leaves are the frame's,
+and its GRADING is the rule stage's own inference at that node
+(`IhTyped`, through `infer_sound`) — which is the one place the
+walk's context needs the check to have typed anything. -/
+theorem WalkCtx.consOpen {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ) {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
+    (hE : 0 < D) (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
+    {ty' : Expr} {tb : AnnotTerm} {x : V}
+    (hfv : ty'.hasFvar = false) (hcb : ConstsBound envT ty')
+    (hbb : ty'.looseBVarsBounded D = true)
+    (htb : denoteMeta mT.acval envT φ D (ty'.instantiateList as2 0) = some tb)
+    (hty : IhTyped envT D (ty'.instantiateList as2 0))
+    (hx : x ∈ˢ interp V ρfull tb) :
+    WalkCtx V mT φ (D + 1) (ConLeche.Semantics.cons x ρfull) (tb :: Δa)
+      (Expr.fvar D (ty'.instantiateList as2 0) :: as2) := by
+  have hcll := fvarLeaves_mem_instantiateList h2 h.2.2.2.2.2.2 hfv 0
+  have hlbb := looseBVarsBounded_open h2 hE hbb
+  have hLB : Expr.LeavesBounded (ty'.instantiateList as2 0) := by
+    intro l hl
+    exact h.2.2.2.2.1 _ (hcll l hl)
+  obtain ⟨t, hInf⟩ := hty
+  obtain ⟨-, -, ta, -, hG, -, -⟩ := Rules.infer_sound hin hInf
+    ⟨wscoped_instantiateList h2 ty' hfv 0, hlbb, hLB⟩ (h.ctxOk hacl h2 hcll) htb
+  exact h.cons htb hlbb (constsBound_instantiateList h2 h.2.2.2.2.2.1 ty' hfv hcb 0) hcll hG hx
 
 /-- An opened variable's inferred type is its STORED annotation —
 `certs_of_infer_mkAppN`'s "the head's type is pinned". -/
@@ -1366,90 +1531,6 @@ theorem ihNodeVal_of_spine
     IhNodeVal V acval env envT φ fr F ρ' ihvals as2₀ :=
   ihNodeVal_of_fold hacl hih (ihCallFold_of_spine h)
 
-/-! ## The frame, in the shape the reading battery wants
-
-`FvarList E as1` is the check's own opening list — DESCENDING, because
-`instantiateList` consumes `bvar 0` first.  The reading battery
-(`denoteMeta_instSeq_mkPisOf`, `denoteMeta_ihSpineAt`) is stated over
-the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
-They are the same frame reversed, and these three lemmas are the
-bridge. -/
-
-/-- The opening list, reversed, is the ascending frame. -/
-theorem FvarList.reverse_length {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
-    as1.reverse.length = E := by rw [List.length_reverse, h.1]
-
-theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
-    ∀ (k : Nat) (x : Expr), as1.reverse[k]? = some x → ∃ ty, x = Expr.fvar k ty := by
-  intro k x hx
-  have hk : k < E := by
-    rcases Nat.lt_or_ge k E with hk | hk
-    · exact hk
-    · rw [List.getElem?_eq_none (by rw [h.reverse_length]; omega)] at hx
-      exact nomatch hx
-  rw [List.getElem?_reverse (by rw [h.1]; omega), h.1] at hx
-  obtain ⟨ty, hty⟩ := h.2.1 (E - 1 - k) (by omega)
-  rw [hty] at hx
-  exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
-
-/-- **`CtxOk` from the walk's context**, at any node the frame opened:
-`ctxOk_of_openers` at the ASCENDING form of the opening list.  Every
-one of its six inputs is a field of `WalkCtx` or of the `FvarList`;
-nothing is proved per node but the leaf membership, which
-`fvarLeaves_instantiateList` gives for the whole walk at once. -/
-theorem WalkCtx.ctxOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
-    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
-    (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
-    {e : Expr} (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2) :
-    CtxOk mT φ D Δa e := by
-  obtain ⟨hlen, -, hdoms, hok, -, -, -⟩ := h
-  have hrev : ∀ (i : Nat), i < D → as2.reverse[i]? = as2[D - 1 - i]? := by
-    intro i hi
-    rw [List.getElem?_reverse (by rw [h2.1]; omega), h2.1]
-  refine ctxOk_of_openers hacl (fvs := as2.reverse) (n := D)
-    (Aa := fun i => Δa.getD (D - 1 - i) default) hlen h2.reverse_idx ?_ ?_ ?_ ?_ ?_ ?_
-  · intro x hx
-    exact h2.2.2 x (List.mem_reverse.mp hx)
-  · intro i x hx
-    have hi : i < D := by
-      have := (List.getElem?_eq_some_iff.mp hx).1
-      rw [h2.reverse_length] at this
-      exact this
-    rw [hrev i hi] at hx
-    have := hdoms (D - 1 - i) x hx
-    rw [show D - 1 - (D - 1 - i) = i from by omega] at this
-    exact this
-  · intro l hl
-    exact List.mem_reverse.mpr (hleaf l hl)
-  · intro l hl
-    obtain ⟨p, hp⟩ := List.getElem?_of_mem (List.mem_reverse.mpr (hleaf l hl))
-    obtain ⟨ty, hty⟩ := h2.reverse_idx p _ hp
-    have hpl : p < D := by
-      have := (List.getElem?_eq_some_iff.mp hp).1
-      rw [h2.reverse_length] at this
-      exact this
-    obtain ⟨h1', -⟩ : l.1 = p ∧ l.2 = ty := by
-      injection hty with a b
-      exact ⟨a, b⟩
-    omega
-  · intro i hi
-    rw [List.getD, List.getElem?_eq_getElem (by rw [hlen]; omega)]
-    rfl
-  · intro i hi ρ hρ
-    exact hok (D - 1 - i) (by omega) ρ hρ
-
-/-- Opening at a `FvarList` IS the battery's `instSeq` at the
-ascending frame. -/
-theorem instantiateList_eq_instSeq_of_fvarList {E : Nat} {as1 : List Expr}
-    (h : FvarList E as1) (hE : 0 < E) (e : Expr) :
-    e.instantiateList as1 0 = Expr.instSeq as1.reverse (E - 1) e := by
-  have hne : as1 ≠ [] := by
-    intro hnil
-    rw [hnil] at h
-    exact absurd h.1.symm (by simp; omega)
-  rw [ConLeche.instantiateList_eq_instSeq hne e, h.1]
-
 /-- **The ascending frame, split in four.**  The reading battery is
 stated over `P ++ X ++ F ++ I` — the parameters, the recursor's
 arbitrary stretch, the constructor's fields and the `ih` openers
@@ -1596,24 +1677,6 @@ theorem instSeq_forallE : ∀ (sp : List Expr) (t : Nat), sp.length = t + 1 →
       show Expr.instSeq ss t' ((Expr.forallE dom body mt).instantiate1 s (t' + 1)) = _
       rw [Expr.instantiate1, instSeq_forallE ss t' hss]
       rfl
-
-theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
-    (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
-    ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
-      (Expr.instSeq sp t a).looseBVarsBounded 0 = true
-  | [], t, _, hlen, _, _ => absurd hlen (by simp)
-  | s :: ss, t, hsp, hlen, a, ha => by
-    have hss : ss.length = t := by simpa using hlen
-    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
-    cases t with
-    | zero =>
-      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
-      exact ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha
-    | succ t' =>
-      show (Expr.instSeq ss t' (a.instantiate1 s (t' + 1))).looseBVarsBounded 0 = true
-      exact looseBVarsBounded_instSeq ss t'
-        (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) hss
-        (ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha)
 
 /-- **The capture-avoiding telescope peel commutes with the frame's
 opening.**  This is what transports the check's own
