@@ -2385,4 +2385,160 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
 
 end ResidueB
 
+/-! ## 11. `hwd` AT THE FAMILY — a fold over the per-rule theorem
+
+`blockRecPre_of`'s `hwd` (`Semantics/Tower/BlockRecI.lean`, and the
+same statement verbatim in `blockRecPre_ind_run` and in all three
+regime theorems) occurs everywhere as a HYPOTHESIS, and the census
+recorded it as having no producer.
+
+**It has one, at ONE rule**: `blockRuleHwd_of`
+(`BlockRecPreRun.lean`, the certificate lane's) concludes
+
+```
+FieldsOkB 0 σ (pdoms ++ fdoms) ∧
+  ∀ ys, SpineFit σ (pdoms ++ fdoms) ys →
+    WellDenoted V (consList ys σ) lhs ∧
+      WellDenoted V (consList ys σ) (instsAV 0 ihs Rb)
+```
+
+and the family's `hwd` is that CONJUNCT for CONJUNCT at
+`σ := consList rs ρ`, `lhs := ` the ι equation's left side and the
+per-`(c, j)` data — so the family version is a λ, not a proof.  This
+is it.
+
+**What the fold does and does not cost.**  `BlockRuleCerts` is
+frame-free by design, so the certificates are supplied ONCE per rule
+and serve at every typed tuple; the three premises that DO mention the
+frame (`hokA`, `hlhs`, `hihs`) have to be quantified over `rs`, and
+that quantifier is the whole remaining content.  It is wider than the
+regimes' own: the regimes state their `ih` fit at the CHOSEN candidate
+(`chainFrame K cand ρ`), while `hEq_iotaEqsAV_of` needs the grading at
+EVERY tuple typed at the recursor types — `consList rs ρ` for any such
+`rs`.  Whoever pays `hihs` pays it there, not at the candidate. -/
+
+section HwdFamily
+
+/-- **`hwd` at the family, from the per-rule certificates.**
+`blockRuleHwd_of` at every `(c, j)` and every typed tuple.
+
+The certificates `hcerts` are stated exactly as `blockRecPre_ind_run`
+and `IndRegimeAt` state them, so a producer of either plugs in
+unchanged; `hokA`, `hlhs` and `hihs` are `blockRuleHwd_of`'s own three
+premises with the frame `σ` replaced by `consList rs ρ` and quantified
+over the typed tuples, which is where the family's `hEq` reads them.
+
+No new statement: every hypothesis is a `∀`-closure of a premise that
+already exists, and the conclusion is `blockRecPre_of`'s `hwd`
+character for character. -/
+theorem blockRecHwd_of_rules {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
+    {Fu K : Nat} {nCt rP : Nat → Nat} {RecTy : Nat → AnnotTerm}
+    {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms ihs : Nat → Nat → List AnnotTerm}
+    {mk Rb Ca : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+    (hμ : μ.verifiedChecks = true)
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp Fu ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
+    (hokA : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ l, l < (pdoms c ++ fdoms c j).length → ∀ ys : List V,
+        SpineFit (consList rs ρ) ((pdoms c ++ fdoms c j).take l) ys →
+        WellDenoted V (consList ys (consList rs ρ))
+          ((pdoms c ++ fdoms c j).getD l default))
+    (hlhs : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+        WellDenoted V (consList ys (consList rs ρ))
+          (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+            (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])))
+    (hihs : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+        (∀ v ∈ ihs c j, WellDenoted V (consList ys (consList rs ρ)) v) ∧
+          SpineFit (consList ys (consList rs ρ)) (ihdoms c j)
+            ((ihs c j).map (interp V (consList ys (consList rs ρ))))) :
+    ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
+        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+          WellDenoted V (consList ys (consList rs ρ))
+              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
+            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)) :=
+  fun rs hlen hmem c hc j hj =>
+    blockRuleHwd_of hμ (hcerts c hc j hj) (hokA rs hlen hmem c hc j hj)
+      (hlhs rs hlen hmem c hc j hj) (hihs rs hlen hmem c hc j hj)
+
+/-- **The instance check, as a call.**  Regime IND's run-level
+producer with its `hwd` supplied by the fold above — so the family
+statement is not merely character-for-character `blockRecPre_of`'s,
+it is ACCEPTED where that hypothesis is consumed, at the same `pdoms`,
+`fdoms`, `es`, `mk`, `ihs`, `Rb` and the same `ρ`.
+
+The certificates appear TWICE — once through the fold for `hwd`, once
+for `blockRecPre_ind_run`'s own `hres` — which is the point: the two
+uses are at the same `BlockRuleCerts`, so a producer supplies it once.
+
+**And `blockRecPre_ind_run`'s `hih` is GONE from the signature**: it
+is the `rs = p⃗t` instance of `hihsWd`'s second conjunct, because
+`chainFrame K (fun _ => pt) ρ` IS `consList ((List.range K).map (fun _
+=> pt)) ρ` and that tuple is typed by `hind`.  The regime asked for
+the ih fit twice — once at the chosen candidate, once (through `hwd`)
+at every typed tuple — and the wide one implies the narrow one. -/
+theorem blockRecPre_ind_certs {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
+    {Fu s K : Nat} {nCt rP : Nat → Nat} {RecTy : Nat → AnnotTerm}
+    {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms ihs : Nat → Nat → List AnnotTerm}
+    {mk Rb Ca : Nat → Nat → AnnotTerm} {ρ : Nat → V}
+    (hμ : μ.verifiedChecks = true)
+    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp Fu ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
+    (hokA : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ l, l < (pdoms c ++ fdoms c j).length → ∀ ys : List V,
+        SpineFit (consList rs ρ) ((pdoms c ++ fdoms c j).take l) ys →
+        WellDenoted V (consList ys (consList rs ρ))
+          ((pdoms c ++ fdoms c j).getD l default))
+    (hlhs : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+        WellDenoted V (consList ys (consList rs ρ))
+          (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
+            (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])))
+    (hihsWd : ∀ rs : List V, rs.length = K →
+      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c →
+      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
+        (∀ v ∈ ihs c j, WellDenoted V (consList ys (consList rs ρ)) v) ∧
+          SpineFit (consList ys (consList rs ρ)) (ihdoms c j)
+            ((ihs c j).map (interp V (consList ys (consList rs ρ)))))
+    (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
+    (hT : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      interp V
+          (consList ((ihs c j).map
+              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
+            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j)
+        ∈ˢ (univZero : V)) :
+    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
+  blockRecPre_ind_run hμ hTy (blockRecHwd_of_rules hμ hcerts hokA hlhs hihsWd) hind
+    hcerts
+    (fun c hc j hj xs fs _hxl hsp =>
+      (hihsWd ((List.range K).map (fun _ => (pt : V))) (by simp)
+        (fun c' hc' => by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc']
+          exact hind c' hc')
+        c hc j hj (xs ++ fs) hsp).2)
+    hT
+
+end HwdFamily
+
 end ConLeche.Model
