@@ -918,6 +918,15 @@ reflexivity); the fold travels with any extension of it. -/
 abstracted residue read to the same value once the `ih` openers are
 given their values.
 
+**The frame block of premises IS `BlockRuleCerts`.**  `hop1`, `hop2`,
+`hopen`, `hpl`, `hfl`, `hil`, `hdoms`, `hokΔ` and `hlbF` are that
+bundle's fields VERBATIM (`BlockRecPreRun.lean` §1, the certificate
+lane's), down to the `rP + nF + nR - 1 - i` indexing of `hdoms` and
+the shifted valuation of `hokΔ`; the consumer destructures the bundle
+and passes them.  Only `hcbF` and `hclF` are not in it, and
+`walkCtx_blockFrame_hered` produces all three from the same three
+openings the bundle's own producer takes.
+
 No `w` hypothesis: the evidence is two `SpineFit`s against the rule's
 own domain readings and a grading, never a membership in the block's
 carrier. -/
