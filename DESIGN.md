@@ -81775,3 +81775,56 @@ never checks and the model must (the audit's §2.6 gap proper).
 **A general rule out of it**: *a datum one pass writes and another
 validates has its law at the VALIDATOR.*  Three reports pointed the
 premise at `annotateCore`; the law was two lines on the check's side.
+
+#### LANDED (lane RM23 = M5M-data session 24, `a6dca5a5`): the rule seam is ONE environment and ONE valuation
+
+**M5M-data (2026-09-22, `agent/uinds-RM23`): the rule seam is ONE
+environment and ONE valuation.**  `BlockRuleRhsOk` posed its five
+statements at the CONSED environment's readings — the recursor's and
+the constructor's types instantiated at the rule's level arguments —
+while every landed producer speaks the constructors' environment's
+at one valuation.  `denoteMeta_instLevels` turns the instantiation
+into a change of valuation and `denoteMeta_consBlockRecs_mono` moves
+a reading up across the `k` recursors' cons at the one hypothesis
+`ConstsBound envC`; since `denoteMeta` is a FUNCTION, the two do not
+relate the readings but ELIMINATE the contract's binders (`TVa` IS
+`blockRecTyAV` at the substituted valuation, `blockRuleTVa_run`;
+`TVja` IS the constructors' stage's reading).  Two of the five
+statements then close outright: the fit's PREFIX half, because
+§A.10's truncation was premised on exactly the reading the contract
+now hands (`blockRuleHspPref_run`), and the applied GRADING, because
+the rule's reading is a λ-tower and a graded tower applied along a
+FITTING spine is graded — so what stands in its place is the tower's
+fit, which the residue statement needs anyway
+(`blockRuleHapp_run`).  `BlockRuleDataB` is the obligation at that
+shape: four base-frame statements plus one shared fit, with no
+`∀ m₃` quantifier (the valuation is spelled `blockRecAcv …`), and
+with the constructors' storage and type reading joined — the price
+of the eliminations, and one the seam already holds
+(`BlockCtorFacts`, `CtorDataI.read`).  `declBlock_data` replaces
+`declBlock_rhs` as the lane's endpoint.  What is left of the per-pair
+obligation is the fit's FIELD half at the base frame, the index
+reading (`IotaIndexPin`'s content, which the block route has not
+written), the fired spine's two parameter fits, the residue's
+twenty premises and the G2 tower-fit bridge — five to eight
+sessions, most of it the rule lane's.
+
+**Three method findings, and a re-sizing.**  (i) *A binder is not a
+premise — it can be eliminated*: `denoteMeta` is a function, so a
+functional tie (`denoteMeta … = some TVa`) COMPUTES the value; four
+reports had threaded that tie as a premise into every producer, and it
+vanished from all of them at once.  (ii) *An obligation can be
+discharged by replacing it with a smaller one a sibling already
+needs.*  (iii) *Eliminations are paid for, and the price should be
+named* — the test for a restatement is not "did the premise shrink"
+but "is each part something the consumer has".  (iv) A universally
+quantified structure used only through an equation is a SPELLING, not
+a quantifier (`∀ m₃` went out entirely).  The re-sizing is the session's
+main negative result: applying §S23.6's own question — *is there a
+theorem whose CONCLUSION is the thing, or only theorems whose
+conclusions are its parts?* — to the per-pair obligation's table turns
+"1–2 sessions" into **5–8**, most of it the rule lane's.
+
+**Operational**: `tests/shake.sh` exits 3 unless
+`lake build ConLeche.PinGen.Prelude` has been run separately — plain
+`lake build` does not reach that target.
