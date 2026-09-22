@@ -1514,9 +1514,9 @@
 # in a design discussion gets an end-to-end fixture at once).  The
 # sources are `tests/e2e/src/corner_*.lean`, exported with the pinned
 # `scripts/export-fixture.sh` (Lean v4.29.1); the forged streams come
-# from `scripts/mk_elim_large_bad.py`, `scripts/mk_basis_pin.py` and
-# `scripts/mk_rec_corner.py`, whose docstrings carry each twin's
-# recipe.  As in the `mutual_rec_*` block above, each row records what
+# from `scripts/mk_elim_large_bad.py`, `scripts/mk_mono_large_bad.py`,
+# `scripts/mk_basis_pin.py` and `scripts/mk_rec_corner.py`, whose
+# docstrings carry each twin's recipe.  As in the `mutual_rec_*` block above, each row records what
 # the checker does TODAY and the comment names the verdict the uniform
 # route / nested arm must produce (`uniform: <n>`); a row whose two
 # numbers differ is the one to revisit at the flip.
@@ -1544,6 +1544,20 @@
 # — official returns true at `m_ind_types.size() > 1` before it looks
 # at the constructors (uniform: 1).
 1 corner_mutual_prop_large_bad.ndjson
+# the ONE-MEMBER, ONE-CONSTRUCTOR case of the same patch — the one
+# official refuses for the PER-FIELD subsingleton reason rather than a
+# counting one, and the SOUNDNESS WITNESS that made lane SEC1
+# (2026-09-22).  `Hidden : Nat -> Prop | mk (n m : Nat) : Hidden (n+1)`
+# with `Hidden.rec`'s motive re-pointed at `Type` (a MONOMORPHIC large
+# eliminator: no fresh elimination level parameter, so
+# `BlockShape.large` stayed `false` and the constructors' stage never
+# ran the criterion), followed by the four declarations that turn it
+# into a proof of `0 = 1` — `myget` reads the second field back out,
+# proof irrelevance equates `mk 0 0` with `mk 0 1`, iota separates them.
+# MEASURED on the scratch flip: exit 0, 18 declarations accepted, before
+# `blockLargeElimAllowed` gained its `p.large` conjunct; exit 1 after
+# (uniform: 1).  Forged by `scripts/mk_mono_large_bad.py`.
+1 corner_rec_mono_large_bad.ndjson
 # -- large elimination from `Prop` where official DOES allow it.
 # `RRefl : Prop | mk : (Nat -> RRefl) -> RRefl`: one member, one
 # constructor, the REFLEXIVE field a proposition (`imax 1 0`

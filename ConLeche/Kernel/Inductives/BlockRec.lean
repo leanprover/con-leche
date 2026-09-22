@@ -153,10 +153,38 @@ container occurrence and at most one constructor — and at one
 constructor the per-field subsingleton criterion, which the
 CONSTRUCTORS' stage has already applied (`checkStructFieldSortsI`'s
 `large` arm).  When this is `false` the recursor's conclusion must be
-a proposition. -/
+a proposition.
+
+**Why `p.large` is a CONJUNCT of the second disjunct** (lane SEC1, the
+falsifier's witness of 2026-09-22).  The route CHECKS the recursor
+instead of generating it, so the two halves of official's criterion
+are split: this one is keyed on the block's counts, while the per-field
+subsingleton half runs in the constructors' stage under `p.isProp &&
+p.large` — and `BlockShape.large` is a LEVEL-PARAMETER SHAPE ("a fresh
+elimination level parameter in front"), not a property of the
+elimination.  A MONOMORPHIC large motive (`{motive : ∀ n, T n → Type}`,
+which needs no level parameter) therefore has `large = false`, so the
+per-field half did not run at all, and this guard — had it kept letting
+a one-member, one-constructor `Prop` block through unconditionally —
+would not have asked for a propositional conclusion either.  Neither
+half fired, and `Hidden : Nat → Prop | mk (n m : Nat) : Hidden (n+1)`
+eliminated into `Type`: proof irrelevance collapses `mk 0 0` and
+`mk 0 1` while the eliminator tells them apart, which is a proof of
+`0 = 1` (fixture `corner_rec_mono_large_bad`).
+
+With `p.large` required, a recursor that does NOT declare the generated
+large shape must conclude in `Sort 0` — checked, not assumed, by the
+`isDefEq` beside the call — so the one flag now implies the other:
+`large = false` ⇒ the elimination level is provably `0`.  That is the
+invariant the model's per-field clause (`CtorDataI.srcProp`, keyed on
+the same `large`) needs to be about the blocks it is used at, and it is
+what the fixpoint route gets for free by GENERATING the recursor
+(`structElimLevel`, which is `Level.zero` at `large = false`).  Nothing
+official emits is lost: official's own recursor for a large-eliminating
+block always carries the fresh parameter. -/
 def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
   p.resSort.isNeverZero ||
-    (p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
+    (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
 /-! ## The primitive-recursion abstraction -/
 
