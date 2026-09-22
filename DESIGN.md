@@ -82646,3 +82646,45 @@ official's own condition, but is an unwritten proof about
 subsingleton-eliminating syntax.  A kernel comparison of `q⃗` against
 `p⃗` is possible — the reduction site sees both — but only as a
 PER-CALL gate, against the standing ruling `invariants-over-runtime-gates`.
+
+#### THE UNCONSUMED-PRODUCER CENSUS (lane RM39 = M5M-rule session 6, `92f38741`): 27 rows, and the number that matters is **2**
+
+Run deliberately after five already-closed rows had been found by
+accident.  **236 declarations in the arm's four files; 27 with no
+consumer anywhere in `ConLeche/` or `tests/`**, classified (a) a
+finished bridge whose consumer exists and simply never called it — 7;
+(b) a producer whose consumer is not written yet — 13; (c) superseded,
+duplicated or dead — 7.
+
+**Method matters**: the census needs a COMMENT MASK (per-file
+`/- … -/` and `--`, then every occurrence of the name and its
+dot-notation tail outside comments).  A grep-level filter was wrong in
+BOTH directions here — two false zeros and eleven missed rows — because
+this arm's docstrings name their own producers constantly.
+
+**The real content is that the 27 hang off TWO missing compositions.**
+Spine A: `BlockRuleResidueB` has no producer (four rows are its
+ingredients, one is what it unblocks).  Spine B: the small-elimination
+regime `blockIndRegime_run` is never APPLIED (five rows here, five more
+in the certificate lane's file).  Across `Model/Inductives/` the figure
+is 94 unconsumed of 1276, 44 of them in one file.  So **the unconsumed
+set measures HOLES, not waste** — and it is a cheap progress metric for
+the arm: 27 rows, 2 missing compositions.
+
+**FINDING — a theorem can be finished, green, and in the wrong
+DIRECTION.**  `blockRuleConclAt_shift` moved a peel from level `0` to
+level `r`; the check generates the `r`-th opener AT level `r`, so the
+run produces the `l = r` peel and nothing produces the `l = 0` premise
+the shift wanted.  Shape-greps do not catch this; asking *which side
+the RUN is on* does.  It is the dual of the ingredient rule: **before
+stating a bridge, name the theorem that will supply its PREMISE.**  The
+repair (a converse peel lemma, and a shift producing both halves
+together) landed with it.
+
+**FINDING — an `_exists` wrapper is a bridge that throws away its own
+cargo.**  The fused conjunct's producer is the opener-reading theorem
+*with the shape kept*; the existential version used by the certificate
+bundle is literally `Exists.imp` of it, because that consumer only
+wanted existence.  When a producer's conclusion is existential, check
+whether the witness is DETERMINED before writing a second producer for
+the same reading.
