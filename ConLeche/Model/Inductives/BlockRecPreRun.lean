@@ -4991,6 +4991,13 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {pdoms : Nat → List AnnotTerm} {fdoms ihdoms : Nat → Nat → List AnnotTerm}
   {ihs : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
   {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+  {ihvals : Nat → Nat → List V}
+
+/-- Every entry of a `pt` replication is the point — the IND regime's
+`ih` VALUES, at every position. -/
+theorem getD_replicate_pt (n r : Nat) : (List.replicate n (pt : V)).getD r pt = pt := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_replicate]
+  split <;> rfl
 
 /-- **The `ih` openers' fit AT `ℓ = 0`** — `blockRecIhvAt_fit`'s twin
 at the zero level, and the half of the IND arm's `hih` that is not
@@ -5041,6 +5048,43 @@ theorem spineFit_ihdoms_zero {σ : Nat → V} {ihKeys : List (Nat × Nat)}
   rw [hvals r hrk, hdom r hrk, hcancel]
   exact pt_mem_mkPisAV_zero _ σ _ (hbits r hrk) (hleaf r hrk)
 
+/-- **The `ih` opener's CONCLUSION is inhabited** — `hihLeaf` at one
+key, and the second half of the IND arm's `hih`.
+
+The opener's body `CihR` is the peel of the CALLEE's recursor type at
+the guarded call's spine (`BlockRuleConclAt` with the field's
+TELESCOPE spine in the `ih` block's place — §32: the peel's prefix
+arguments are `prefVarsAV rP (nF + m)`, which is
+`paramBvarsAt rP (rP + nF + m)` on the nose), so §29's
+`blockRecCa_value` evaluates it to the callee's stored conclusion at
+the spine `(x⃗, e⃗(a⃗), f_i a⃗)` — and the motive at the PREDECESSOR is
+exactly `blockIndP` there.
+
+Both of the block's own facts are the caller's: the spine FITS the
+callee's recursor type (`hfitC'`, the converse of `BlockRecSplitAt`
+at the callee's class) and the predecessor carries the property
+(`hP`, the separated tuple's second component). -/
+theorem blockIndIhLeaf_of {RecTy : Nat → AnnotTerm} {c' : Nat} (hc' : c' < K)
+    {nF nIdx m : Nat} {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
+    {as xs fs bs is : List V} {maj : V}
+    (hcon : BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR)
+    (hTyE : RecTy c' = mkPisAV (rds c') (concl c'))
+    (hrds : (rds c').length = rP c' + nIdx + 1)
+    (hesLen : eisA.length = nIdx)
+    (hconclB : Term.bvarsBelow (rds c').length (concl c').erase)
+    (hxs : xs.length = rP c') (hfs : fs.length = nF) (hbs : bs.length = m)
+    (hes : eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))) = is)
+    (hmk : interp V (consList bs (consList (xs ++ fs) ρ)) fapA = maj)
+    (hfitC' : SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [maj])))
+    (htake : xs.take d.nP = as)
+    (hP : blockIndP d ψ ρ K rP mem rds concl as (mem c') (d.tup ψ (mem c') is) maj) :
+    (pt : V) ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ)) CihR := by
+  rw [blockRecCa_value hcon hTyE hrds hesLen hconclB hxs hfs hbs hes hmk]
+  refine hP c' hc' rfl (xs ++ (is ++ [maj])) hfitC' ?_ ?_ ?_
+  · rw [prefOf_split hxs]; exact htake
+  · rw [idxOf_split hxs]
+  · rw [majOf_split]
+
 /-- **The IND arm's step**, `blockIndPt`'s `hstep`. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
@@ -5062,20 +5106,15 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
           (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
           (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
         (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
-        ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ))))
+      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j) (ihvals c j))
     (hT : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
-      interp V
-          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
-            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+      interp V (consList (ihvals c j) (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
         ∈ˢ (univZero : V))
     (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       majOf ys = d.inj ψ (mem c) j fs →
-      interp V
-          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
-            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+      interp V (consList (ihvals c j) (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
         = interp V (consList ys ρ) (concl c)) :
     ∀ as : List V, SpineFit ρ (d.params ψ) as →
       ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
@@ -5107,6 +5146,9 @@ chain frame; they are genuinely two obligations (the induction is a
 statement about the block's carrier, the ι equations' about the
 chain), which is why both appear. -/
 theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
+    {ihKeys : Nat → Nat → List (Nat × Nat)}
+    {tlA : Nat → Nat → Nat → List (Nat × Nat × AnnotTerm)}
+    {Cih : Nat → Nat → Nat → AnnotTerm}
     (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hmemK : ∀ c, c < K → mem c < d.k)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
@@ -5124,26 +5166,34 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
           (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
         (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
       SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
-    (hihStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hihLen : ∀ c, c < K → ∀ j, j < nCt c → (ihdoms c j).length = (ihKeys c j).length)
+    (hihDom : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
+      (ihdoms c j).getD r default
+        = (mkPisAV (tlA c j ((ihKeys c j).getD r (0, 0)).1) (Cih c j r)).liftN r 0)
+    (hihBits : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
+      ∀ dd ∈ tlA c j ((ihKeys c j).getD r (0, 0)).1, dd.2.1 = 0)
+    (hihLeaf : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
         (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
           (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
           (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
         (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
-        ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ))))
+      ∀ r, r < (ihKeys c j).length → ∀ bs : List V,
+      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ)
+        ((tlA c j ((ihKeys c j).getD r (0, 0)).1).map (·.2.2)) bs →
+      (pt : V) ∈ˢ interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) (Cih c j r))
     (hTStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       interp V
-          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+          (consList (List.replicate (ihdoms c j).length (pt : V))
             (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
         ∈ˢ (univZero : V))
     (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       majOf ys = d.inj ψ (mem c) j fs →
       interp V
-          (consList ((ihs c j).map (interp V (consList (prefOf (rP c) ys ++ fs) ρ)))
+          (consList (List.replicate (ihdoms c j).length (pt : V))
             (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
         = interp V (consList ys ρ) (concl c))
     (hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
@@ -5165,7 +5215,15 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
   ⟨envT, mp, F, ihdoms, Ca, hμ,
     hind_of_spines hbits hTyE
       (blockIndPt hM hmemK hsplitR
-        (blockIndStep hμ hM hnCt hcerts hspF hihStep hTStep hCaE)),
+        (blockIndStep (ihvals := fun c j => List.replicate (ihdoms c j).length (pt : V))
+          hμ hM hnCt hcerts hspF
+          (fun c hc ys hys j hjn fs hfit =>
+            spineFit_ihdoms_zero (hihLen c hc j hjn)
+              (by rw [List.length_replicate]; exact hihLen c hc j hjn)
+              (fun r _ => getD_replicate_pt _ _)
+              (fun r hr => hihDom c hc j hjn r hr) (fun r hr => hihBits c hc j hjn r hr)
+              (fun r hr bs hbs => hihLeaf c hc ys hys j hjn fs hfit r hr bs hbs))
+          hTStep hCaE)),
     hcerts, hihReg, hTReg⟩
 
 end IndStep
