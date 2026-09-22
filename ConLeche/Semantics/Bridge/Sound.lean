@@ -71,7 +71,7 @@ theorem checkDeclRun_ofEnvFactsE
         cases hdf : blockParts? nP block with
         | some p =>
           intro hh
-          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hdf
+          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hdf
           exact declNativeRun_of_block_one hms hrc hh
         | none =>
           intro hh

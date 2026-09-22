@@ -749,8 +749,8 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
   | some p =>
     rw [hfp] at h
     simp only at h
-    obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hfp
-    rw [checkBlockS_one mode hms] at h
+    obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hfp
+    rw [checkBlockS_one mode rfl hms] at h
     obtain ⟨hres, hfe, F, hF⟩ := checkNativeS_run hμ henv hwf h
     refine ⟨hres, hfe, F, ?_⟩
     simp only []
