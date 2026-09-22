@@ -114,9 +114,11 @@ shape's producer. -/
 @[expose] def BlockMembersRun {envC : Env} (mo : EnvModel V envC) (d : BlockData V)
     (q : ConLeche.BlockShape) (cvTas : List ConstantVal) : Prop :=
   d.nP = q.nP ∧ d.k = q.members.length ∧
+  cvTas.length = d.k ∧
   (∀ (m : Nat) (cvTb : ConstantVal), cvTas[m]? = some cvTb →
     d.memberName m = cvTb.name ∧ cvTb.levelParams = q.lps ∧
     (∃ caps, envC.find? cvTb.name = some (.indInfo cvTb caps)) ∧
+    cvTb.type.hasFvar = false ∧ cvTb.type.looseBVarsBounded 0 = true ∧
     FormerData mo cvTb (d.nP + d.nIdxAt m) d.resSort (d.ppsM m)) ∧
   (∀ (m : Nat) (ms : ConLeche.MemberShape), q.members[m]? = some ms →
     d.memberName m = ms.cvT.name ∧ d.nIdxAt m = ms.nIdx) ∧
@@ -163,7 +165,7 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
           (mpC.base2.acval (d.memberName (p.toBlockShape.recTgtAt c)) ψ)
           (paramBvarsAt d.nP (p.toBlockShape.majorIdxAt c)
             ++ teleVarsAV (d.nIdxAt (p.toBlockShape.recTgtAt c))) := by
-  obtain ⟨hnPq, hkq, hcvF, hmsF, -, -⟩ := hmr
+  obtain ⟨hnPq, hkq, -, hcvF, hmsF, -, -⟩ := hmr
   obtain ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hms, hcvTa, hnPle, hmI, hop, hopT, htfl,
     hdeq, hmaj0, hfn, hargl, hargP, hargI⟩ := checkBlockRecK_tyMajor h hr
   obtain ⟨fvsL, conclL, hopL, hread, hmk, hlenRds, hbits, hbind, hconclRead, hwdTy⟩ :=
@@ -173,7 +175,7 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
     exact congrArg Prod.fst hq
   rw [hfvE] at hbind
   obtain ⟨hnameMs, hnIdxMs⟩ := hmsF _ _ hms
-  obtain ⟨hnameCv, hlpsE, ⟨caps, hfind⟩, -⟩ := hcvF _ _ hcvTa
+  obtain ⟨hnameCv, hlpsE, ⟨caps, hfind⟩, -, -, -⟩ := hcvF _ _ hcvTa
   have hmemk : p.toBlockShape.recTgtAt c < d.k := by
     rw [hkq]
     exact (List.getElem?_eq_some_iff.mp hms).1
@@ -253,6 +255,108 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
   refine ⟨hnPle', hmemk, hmI', hlenRds, ?_⟩
   rw [List.getD_eq_getElem?_getD, hpd, Option.getD_some, hnPq, hnIdxMs,
     ← Option.some.inj (hreadB.symm.trans hreadMaj)]
+
+/-! ## 4. The INDEX clause's payable half, at the run
+
+The recursor's own index binders are never inspected by the check, so
+nothing here reads them: what carries the fit is the MAJOR, whose
+domain is the member's FORMER applied to the prefix and index binders.
+The former is a λ-tower whose binder numeral is `w ψ + 1` — **never
+zero**, so this clause survives a `Prop`-valued block, where the
+rule contract's own fit conjunct is refutable. -/
+
+/-- **The eliminated member's index fit, at the run** — clause 4 of
+the shape.  Bounded by the prefix's fit, because the grading it uses
+is the recursor type's own and is available only along a fitting
+spine. -/
+theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs is : List V, xs.length = p.toBlockShape.rulePrefixAt c →
+      SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).take (p.toBlockShape.rulePrefixAt c)) xs →
+      SpineFit (consList xs ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          (p.toBlockShape.rulePrefixAt c)).take
+            (d.IdsM (p.toBlockShape.recTgtAt c) ψ).length) is →
+      SpineFit (consList (xs.take d.nP) ρ)
+        (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is := by
+  intro xs is hxl hpref hidx
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
+  obtain ⟨hnPq, hkq, hlenCv, hcvF, hmsF, hlamF, -⟩ := hmr
+  obtain ⟨-, -, -, -, hmk, -, -, -, -, hwdTy⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[p.toBlockShape.recTgtAt c]? = some cvTa :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmemk)⟩
+  obtain ⟨-, -, -, -, -, hFD⟩ := hcvF _ _ hcvTa
+  obtain ⟨B, hB⟩ := hlamF (p.toBlockShape.recTgtAt c) ψ hmemk
+  -- the member's telescope: `nP` parameters, then its own indices
+  have hppsLen : (d.ppsM (p.toBlockShape.recTgtAt c) ψ).length
+      = d.nP + d.nIdxAt (p.toBlockShape.recTgtAt c) := hFD.len ψ
+  have hIdsLen : (d.IdsM (p.toBlockShape.recTgtAt c) ψ).length
+      = d.nIdxAt (p.toBlockShape.recTgtAt c) := by
+    rw [BlockData.IdsM, List.length_map, List.length_drop, hppsLen]; omega
+  rw [hIdsLen] at hidx
+  -- the two spine lengths
+  have hDlen : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).length
+      = p.toBlockShape.rulePrefixAt c + d.nIdxAt (p.toBlockShape.recTgtAt c) + 1 := by
+    rw [List.length_map, hlenRds, hmI]
+  have hisl : is.length = d.nIdxAt (p.toBlockShape.recTgtAt c) := by
+    rw [hidx.length_eq, List.length_take, List.length_drop, hDlen]; omega
+  -- the frame's fit past the prefix and the indices
+  have happ : SpineFit ρ
+      (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).take
+        (p.toBlockShape.majorIdxAt c)) (xs ++ is) := by
+    rw [hmI, take_add_eq_append]
+    exact SpineFit.append hpref hidx
+  -- the major's domain is GRADED there
+  have hgetD : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).getD (p.toBlockShape.majorIdxAt c) default
+      = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).getD
+        (p.toBlockShape.majorIdxAt c) default).2.2 := by
+    obtain ⟨pd, hpd⟩ : ∃ pd,
+        (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[
+          p.toBlockShape.majorIdxAt c]? = some pd :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenRds]; omega)⟩
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hpd,
+      List.getD_eq_getElem?_getD, hpd]
+    rfl
+  have hwd : WellDenotedV V (consList (xs ++ is) ρ)
+      (AnnotTerm.mkAppN
+        (mpC.base2.acval (d.memberName (p.toBlockShape.recTgtAt c)) ψ)
+        (paramBvarsAt d.nP (p.toBlockShape.majorIdxAt c)
+          ++ teleVarsAV (d.nIdxAt (p.toBlockShape.recTgtAt c)))) := by
+    have happ' : SpineFit ρ
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
+          (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length).map
+            (·.2.2)).take (p.toBlockShape.majorIdxAt c)) (xs ++ is) := by
+      rw [List.take_length]; exact happ
+    have hg := prefixDoms_graded_of_tower (V := V)
+      (rds := blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      (cc := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      (rP := (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length)
+      (Nat.le_refl _) (fun ρ' => by rw [← hmk]; exact hwdTy ρ')
+      (l := p.toBlockShape.majorIdxAt c) (by rw [hlenRds]; omega) happ'
+    rw [List.take_length, hgetD, hmajRead] at hg
+    exact hg
+  rw [hmI] at hwd
+  -- the FORMER's λ-tower, and the fit it carries
+  have hsplitD : ((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take
+        (d.nP + d.nIdxAt (p.toBlockShape.recTgtAt c))).map (·.2.2)
+      = ((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)
+        ++ d.IdsM (p.toBlockShape.recTgtAt c) ψ := by
+    rw [← hppsLen, List.take_length, BlockData.IdsM, ← List.map_append,
+      List.take_append_drop]
+  exact (spineFit_of_major_grading (V := V) (u := d.w ψ + 1) (Nat.succ_ne_zero _)
+    (nm := d.memberName (p.toBlockShape.recTgtAt c)) (B := B)
+    (Params := ((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2))
+    (Ids := d.IdsM (p.toBlockShape.recTgtAt c) ψ)
+    hxl hisl hnPle
+    (by rw [List.length_map, List.length_take, hppsLen]; omega)
+    (Nat.le_of_eq hppsLen.symm)
+    hsplitD
+    (by rw [← hB]; exact acval_interp_closed mpC.base2 _ ψ _ ρ) hwd.1).2
 
 end Run
 
