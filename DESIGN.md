@@ -82387,6 +82387,45 @@ in the same file.  Two spellings got two names
 (`blockRuleFdomsAV_eq` / `_eq_liftDoms`) with a docstring saying which
 is which, so the duplicate-declaration collision cannot recur there.
 
+#### LANDED (lane RM33 = M5M-rule session 4, `e77d6c68`): the `ih` opener's reading is ONE fused premise
+
+`blockIndRegime_run` loses the free function variables `tlA`/`Cih` and
+the three premises `hihDom`, `hihBits`, `hkey`, and gains one:
+`hihOpen`, an existential at each `ih` KEY carrying the key's block
+facts, the index/field spellings, `BlockRuleConclAt`, and the opener's
+domain at that key (lifted by `r`, telescope bits pinned to `0`).
+
+**Three findings, each a rule.**  (i) ***A premise that needs a function
+VARIABLE to be stated has no producer.***  No run object builds such a
+function, so two premises sharing a free function means that function
+is a SEAM: fuse them and delete it.  (ii) ***Folding a side condition
+in can be exactly equivalent — the degenerate case decides.***
+`rebit 0` versus `rebit b` plus a bits premise differ only at an empty
+telescope, where they coincide, so the fusion is not a strengthening.
+(iii) ***A skolemisation is payable only if the non-chosen data is
+DETERMINED.***  The conclusion is chosen; the telescope must not be,
+because the consumer indexes it by the FIELD while keys are positions —
+pinning the bit to `0` is what makes the fused premise consumable at
+all.
+
+Also landed: the `ih` LEVEL's shift at the peel (the run peels at
+`l = r`, the premise is at `l = 0`), and with it `liftN_inst_comm`
+(`BlockRecRule.lean:2097`) — substitution *inside* a lift and *strictly
+above* one were both in the tree; this is the third direction, needed
+because nothing before had peeled a tower under a lift.  One cut serves
+the whole spine, since `peelPis` instantiates at `0` and never descends
+under a binder of its own.
+
+**What it is now blocked on**: `ihdoms` AT THE RUN, which the block
+route does not have — only `BlockRuleCerts.hdoms` can pin it.  So the
+certificate bundle's `ihdoms` spelling now has two consumers, and the
+two lanes are holding one spelling between them.
+
+`w = 0`: no conjunct of the fused premise has a membership as its
+evidence (no `interp`, no `∈ˢ`, no tuple), so by the rule lane's own
+generalisation the pending repair does not touch it — confirmed by
+sweep, not assumed.
+
 #### LANDED (lane RM34 = M5M-pre session 24, `167fb4c5`): `hokA`'s `ih` segment, `hokC`'s peel — and a SILENT duplicate
 
 The `ih` opener's domain is the constructor field's OWN telescope,
