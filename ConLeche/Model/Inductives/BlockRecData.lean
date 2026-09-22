@@ -9,6 +9,8 @@ import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRegimes
+import ConLeche.Model.Inductives.BlockRecOpenerRead
+import ConLeche.Model.Rules.Sound
 
 public section
 
@@ -2653,6 +2655,305 @@ theorem certs_of_ihCall {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat
   exact ⟨tyOp, hhead, certs_of_ihTyped hsp (hpi tyOp hhead)⟩
 
 end HfitRun
+
+/-! ## A.17b `hfld` at BOTH environments (AUDIT item 12)
+
+The composition needs the field's readings TWICE: the OPENER's tower
+is read at `envC`, where the check ran and where the opener's stored
+type lives, and the generated CALL's tower at the CONSED environment,
+because its conclusion mentions the recursor constant.  The producer
+(`blockRuleHfld_of`) gives the `envC` one, and the transport is the
+mono lemma's own direction — its `ConstsBound envC` premise comes off
+the constructor's stored type by four structural steps. -/
+
+section FieldMono
+
+/-- `instSeq` keeps a term's constants bound. -/
+theorem constsBound_instSeq {envC : Env} :
+    ∀ (sp : List Expr) (t : Nat) (e : Expr), (∀ s ∈ sp, ConstsBound envC s) →
+      ConstsBound envC e → ConstsBound envC (Expr.instSeq sp t e)
+  | [], _, _, _, he => he
+  | a :: as, t, e, hsp, he =>
+    constsBound_instSeq as (t - 1) _ (fun s hs => hsp s (List.mem_cons_of_mem _ hs))
+      (ConstsBound.instantiate1 (hsp a List.mem_cons_self) e t he)
+
+/-- A `∀`-telescope's binders and body inherit the term's bound. -/
+theorem constsBound_piBinders {envC : Env} :
+    ∀ {e : Expr}, ConstsBound envC e →
+      (∀ b ∈ (Expr.piBinders e).1, ConstsBound envC b.1) ∧ ConstsBound envC (Expr.piBinders e).2
+  | .forallE ty b mb, h => by
+    rw [constsBound_forallE] at h
+    obtain ⟨hbs, hbody⟩ := constsBound_piBinders h.2
+    refine ⟨fun c hc => ?_, hbody⟩
+    rcases List.mem_cons.mp hc with rfl | hc'
+    · exact h.1
+    · exact hbs c hc'
+  | .bvar _, h | .sort _, h | .const _ _, h | .lit _, h | .fvar _ _, h
+  | .app _ _, h | .lam _ _ _, h | .letE _ _ _, h | .proj _ _ _, h =>
+    ⟨fun _ hc => (nomatch hc), h⟩
+
+/-- `stripPis`' binders and body inherit it too. -/
+theorem constsBound_stripPis {envC : Env} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr},
+      ConstsBound envC e → e.stripPis n = some (bs, body) →
+      (∀ b ∈ bs, ConstsBound envC b.1) ∧ ConstsBound envC body
+  | 0, e, bs, body, he, h => by
+    simp only [ConLeche.Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun _ hc => (nomatch hc), he⟩
+  | n + 1, e, bs, body, he, h => by
+    match e with
+    | .forallE ty b mb =>
+      rw [constsBound_forallE] at he
+      simp only [ConLeche.Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, body₀⟩, hst, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      obtain ⟨hbs, hbody⟩ := constsBound_stripPis n he.2 hst
+      refine ⟨fun c hc => ?_, hbody⟩
+      rcases List.mem_cons.mp hc with rfl | hc'
+      · exact he.1
+      · exact hbs c hc'
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _ _
+    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- The field's own telescope and index expressions are subterms of
+the constructor's stored type. -/
+theorem constsBound_structFieldParts {envC : Env} {cty : Expr} (hcb : ConstsBound envC cty)
+    {nP nF i : Nat} (hi : i < nF) :
+    (∀ b ∈ ConLeche.structFieldTeleOf cty nP nF i, ConstsBound envC b.1) ∧
+      ∀ e ∈ ConLeche.structFieldIdxOf cty nP nF i, ConstsBound envC e := by
+  unfold ConLeche.structFieldTeleOf ConLeche.structFieldIdxOf
+  cases hs : cty.stripPis (nP + nF) with
+  | none => exact ⟨fun _ hb => (nomatch hb), fun _ hb => (nomatch hb)⟩
+  | some q =>
+    obtain ⟨cbs, cbody⟩ := q
+    obtain ⟨hbs, -⟩ := constsBound_stripPis (nP + nF) hcb hs
+    have hcbslen : cbs.length = nP + nF := ConLeche.Expr.stripPis_length _ hs
+    have hfield : ConstsBound envC (cbs.getD (nP + i) default).1 := by
+      have hlt : nP + i < cbs.length := by omega
+      refine hbs _ ?_
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+      exact List.getElem_mem hlt
+    obtain ⟨htl, hbody⟩ := constsBound_piBinders hfield
+    exact ⟨htl, fun e he =>
+      constsBound_getAppArgs _ hbody e (List.mem_of_mem_drop he)⟩
+
+/-- **AUDIT item 12**: the field's readings move to the consed
+environment.  All three of `FieldReadAt`'s conjuncts are `denoteMeta`
+facts about subterms of the constructor's stored type, opened at the
+frame — so one mono step each, at the `ConstsBound envC` the previous
+four lemmas supply. -/
+theorem fieldReadAt_mono {envC env : Env} {mC : EnvModel V envC} {m : EnvModel V env}
+    {ψ : Name → Nat} {nP nF i : Nat} {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envC y →
+      denoteMeta mC.acval envC ψ D y = some ya → denoteMeta m.acval env ψ D y = some ya)
+    (hop0 : ConLeche.openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hcb : ConstsBound envC cty) (hi : i < nF)
+    (h : FieldReadAt mC ψ nP nF i cty fvs0 tl Eis) :
+    FieldReadAt m ψ nP nF i cty fvs0 tl Eis := by
+  obtain ⟨hlen, hdom, heis⟩ := h
+  obtain ⟨hfvs, -⟩ := openPisAtFvars_constsBound (nP + nF) hcb hop0
+  obtain ⟨htl, hidx⟩ := constsBound_structFieldParts hcb hi
+  have hsp : ∀ (k : Nat), ∀ s ∈ fvs0.take (nP + i) ++ ConLeche.Verify.openFvars (nP + i) k,
+      ConstsBound envC s := by
+    intro k s hs
+    rcases List.mem_append.mp hs with hs' | hs'
+    · exact hfvs s (List.mem_of_mem_take hs')
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem hs'
+      have hqk : q < k := by
+        have := (List.getElem?_eq_some_iff.mp hq).1
+        rw [ConLeche.Verify.openFvars_length] at this; exact this
+      rw [ConLeche.Verify.openFvars_getElem? hqk] at hq
+      rw [← Option.some.inj hq]
+      simp
+  refine ⟨hlen, fun k b q hb hq => ?_, ?_⟩
+  · obtain ⟨h1, h2, h3⟩ := hdom k b q hb hq
+    exact ⟨h1, h2, hmono _ _ _
+      (constsBound_instSeq _ _ _ (hsp k) (htl b (List.mem_of_getElem? hb))) h3⟩
+  · refine denoteMetaSpine_mono (fun y ya hcby hy => hmono _ y ya hcby hy) heis ?_
+    intro e he
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp he
+    exact constsBound_instSeq _ _ _ (hsp tl.length) (hidx x hx)
+
+end FieldMono
+
+/-! ## A.18 `hfit`, CLOSED — H3′ composed
+
+Every piece is now a theorem: the `Certs` walk off the residue's own
+typing (`certs_of_ihCall`, session 15), the context it is sound at
+(`WalkCtx`, session 18), the opener's stored type
+(`blockIhOpener_stored`) and its reading
+(`denoteMeta_blockIhOpenerTy_deep_exists`, lane RM15).  What is left
+is the composition, and it is three moves:
+
+1. `certs_sound` at the walk's context — `Frame`/`CtxOk`/`Graded` for
+   the head's stored type is `WalkCtx.annotOk`, for the arguments
+   `WalkCtx.subjOk`;
+2. `spineFit_of_teleFitPA` at the opener's reading, then the DOUBLE
+   shift: the telescope's `ihTeleAtR_shiftAt` down to the design's
+   level `0` and the frame's `shiftE_consList_two` down to the rule's
+   own — RM15's observation that the two cancel, realised;
+3. the values: the residue spine read at `envT` is the same spine read
+   at the consed environment (`denoteMetaSpine_mono` at
+   `blockIhCall?_args_constsBound`'s bound), and
+   `denoteMetaSpine_of_lift` turns it into the fold's own `vs`.
+
+**AUDIT item 4 is discharged, and NOT where the audit expected.**  The
+`SpineFit`s of `pdoms ++ fdoms` and of `ihdoms` are not hypotheses of
+`ihSpineFold_blockRec`: they are what builds `WalkCtx`'s `Sat` at the
+walk's ENTRY (`sat_blockFrame`), so they are consumed by the per-pair
+assembly that constructs the context, not by the fold that travels
+with it. -/
+
+section HfitComp
+
+set_option maxHeartbeats 1600000 in
+/-- **`hfit`, from the run.**  `ihSpineFold_blockRec`'s last named
+premise, discharged: the values a guarded call's own arguments read to
+fit the field's `ih` telescope. -/
+theorem blockRuleHfit_of {env envT : Env} {mo : EnvModel V env} {mT : EnvModel V envT}
+    {ψ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F o : Nat}
+    {cty : Expr} {tlF : Nat → List (Nat × Nat × AnnotTerm)}
+    {σchain : Nat → V} {xs fs ihvals : List V} {as2₀ : List Expr}
+    (haclN : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mo.acval n ψ').liftN m k = mo.acval n ψ')
+    (haclT : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (mT.acval n ψ').liftN 1 k = mT.acval n ψ')
+    (hin : ConLeche.Model.Rules.RulesInputs V mT ψ)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT ψ D y = some ya → denoteMeta mo.acval env ψ D y = some ya)
+    (hihl : ihvals.length = fr.nR)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    -- **`hop`**: the `ih` opener's STORED type, at the walk's frame
+    (hopener : ∀ (d i c' r : Nat) (as2 : List Expr) (tyOp : Expr),
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      as2₀ <:+ as2 → FvarList (F + fr.nR + d) as2 →
+      (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = .fvar (F + r) tyOp →
+      (tyOp.stripPis (fr.teleOf i).length).isSome = true ∧
+      ∃ B : AnnotTerm, denoteMeta mT.acval envT ψ (F + fr.nR + d) tyOp
+        = some (mkPisAV (ihTeleAtR fr.nF o i (fr.nR + d)
+            (rebit (pwBit ψ fr.pw) (tlF i))) B)) :
+    ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
+      (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) →
+      node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
+      ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      locals.length = d → i < fr.nF →
+      FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
+      as2₀ <:+ as2 →
+      LocalsFit V mo.acval env ψ F (consList (xs ++ fs) σchain) locals as1 →
+      ConstsBound envT (Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+        (as.map fun x => x.liftLooseBVars fr.nR d)) →
+      WalkCtx V mT ψ (F + fr.nR + d)
+        (consList locals (consList ihvals (consList (xs ++ fs) σchain))) Δa as2 →
+      IhTyped envT (F + fr.nR + d)
+        ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+          (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
+      DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
+      DenoteMetaSpine mT.acval envT ψ (F + fr.nR + d)
+        (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0) ws →
+      (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+        = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+      SpineFit (consList (xs ++ fs) σchain)
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
+        (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))) := by
+  intro d i c' r nm locals node as as1 as2 Δa vs ws hcall hnodeF hnodeB hnm hrpos hloc hiF
+    h1 h2 hsx hlf hcbe hW htyN hvs hws hwlen
+  have hr : r < fr.nR := pairIdxOf?_lt hrpos
+  -- the call's own key: its field index is this one
+  obtain ⟨nm2, c2, i2, expected, -, -, hrpos2, -, -, -, hasl, -, -, -⟩ :=
+    ConLeche.blockIhCall?_spine hcall
+  obtain ⟨rfl, -⟩ : i = i2 ∧ c' = c2 := by
+    have h := pairIdxOf?_inj hrpos hrpos2
+    injection h with ha hb
+    exact ⟨ha, hb⟩
+  -- the arguments' own bounds
+  obtain ⟨maj, hmaj, hasEq⟩ := blockIhCall?_args_sub hcall
+  have hbnd : ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false := by
+    rw [hasEq]
+    exact fun a ha =>
+      ⟨bounded_of_mem_getAppArgs (bounded_of_mem_getAppArgs hnodeB maj hmaj) a ha,
+        hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs hnodeF maj hmaj) a ha⟩
+  -- (1) the `Certs` walk, and the opener's stored type
+  obtain ⟨tyOp, hhead, hcerts⟩ := certs_of_ihCall h2 hr htyN (fun t ht => by
+    rw [hasl]
+    exact (hopener d i c' r as2 t hrpos hsx h2 ht).1)
+  obtain ⟨B, hTa⟩ := (hopener d i c' r as2 tyOp hrpos hsx h2 hhead).2
+  -- the opener is a frame variable
+  have hj : d + fr.nR - 1 - r < F + fr.nR + d := by omega
+  obtain ⟨ty0, hty0⟩ := h2.2.1 (d + fr.nR - 1 - r) hj
+  rw [show F + fr.nR + d - 1 - (d + fr.nR - 1 - r) = F + r from by omega] at hty0
+  obtain ⟨hlt0, hget0⟩ := List.getElem?_eq_some_iff.mp hty0
+  have hinst : (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = Expr.fvar (F + r) ty0 := by
+    rw [Expr.instantiateList, if_neg (by omega), dif_pos (by omega)]
+    simp only [Nat.sub_zero]
+    rw [show as2[d + fr.nR - 1 - r] = Expr.fvar (F + r) ty0 from hget0, Expr.instantiateList]
+  obtain rfl : ty0 = tyOp := by
+    have h := hinst.symm.trans hhead
+    injection h
+  have hmemOp := List.mem_of_getElem? hty0
+  obtain ⟨hFrOp, hCtxOp, hGrOp⟩ := WalkCtx.annotOk haclT h2 hW hmemOp
+  -- the typed spine, in `mkAppN` shape
+  rw [instantiateList_mkAppN, hhead, List.map_map] at htyN
+  obtain ⟨-, hargTy⟩ := IhTyped.mkAppN_args _ htyN
+  -- (2) the arguments: bounds, `ConstsBound`, frame, context, grading
+  obtain ⟨-, hcbArgs0⟩ := constsBound_mkAppN_args _ hcbe
+  have hcbArgs : ∀ e ∈ (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0),
+      ConstsBound envT e := by
+    intro e he
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+    exact constsBound_instantiateList h2 hW.2.2.2.2.2.1 _
+      (by rw [hasFvar_liftLooseBVars]; exact (hbnd a ha).2)
+      (hcbArgs0 _ (List.mem_map.mpr ⟨a, ha, rfl⟩)) 0
+  have hargOk : ∀ a ∈ as,
+      Rules.Frame (F + fr.nR + d) ((a.liftLooseBVars fr.nR d).instantiateList as2 0) ∧
+      CtxOk mT ψ (F + fr.nR + d) Δa ((a.liftLooseBVars fr.nR d).instantiateList as2 0) ∧
+      ∀ x : AnnotTerm,
+        denoteMeta mT.acval envT ψ (F + fr.nR + d)
+          ((a.liftLooseBVars fr.nR d).instantiateList as2 0) = some x →
+        Rules.Graded V Δa x := by
+    intro a ha
+    obtain ⟨x, -, hxa⟩ := denoteMetaSpine_subj hws _ (List.mem_map.mpr ⟨a, ha, rfl⟩)
+    obtain ⟨hFr, hCtx, hGr⟩ := WalkCtx.subjOk haclT hin h2 hW
+      (e := a.liftLooseBVars fr.nR d)
+      (by rw [hasFvar_liftLooseBVars]; exact (hbnd a ha).2)
+      (by rw [show F + fr.nR + d = F + d + fr.nR from by omega]
+          exact Expr.looseBVarsBounded_liftLooseBVars fr.nR a (hbnd a ha).1)
+      hxa (hargTy _ (List.mem_map.mpr ⟨a, ha, rfl⟩))
+    refine ⟨hFr, hCtx, fun y hy => ?_⟩
+    obtain rfl : y = x := Option.some.inj (hy.symm.trans hxa)
+    exact hGr
+  -- (3) `certs_sound` at the walk's context
+  obtain ⟨resta, hfitPA, -⟩ := Rules.certs_sound hin hcerts (fa := B) hFrOp hCtxOp hTa
+    (hGrOp _ hTa)
+    (fun e he => by
+      obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+      exact ⟨(hargOk a ha).1, (hargOk a ha).2.1⟩)
+    hws
+    (fun x hx => by
+      obtain ⟨e, he, hde⟩ := denoteMetaSpine_mem hws x hx
+      obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+      exact (hargOk a ha).2.2 x hde)
+    (fun h => absurd h (by simp))
+  -- (4) the fit, at the walk's frame
+  have hlenW : ws.length
+      = (ihTeleAtR fr.nF o i (fr.nR + d) (rebit (pwBit ψ fr.pw) (tlF i))).length := by
+    rw [ihTeleAtR_length, rebit_length, htlen i, ← hws.length, List.length_map, hasl, htele]
+  have hSF := spineFit_of_teleFitPA hlenW (hfitPA _ hW.2.1)
+  -- (5) the DOUBLE shift: the telescope to level 0, the frame to the rule's own
+  rw [show fr.nR + d = 0 + (fr.nR + d) from by omega, ihTeleAtR_shiftAt] at hSF
+  rw [spineFit_liftDoms (fr.nR + d), shiftE_consList_two hloc hihl] at hSF
+  -- (6) the values: the `envT` spine is the consed one, and it folds to `vs`
+  have hwsEnv := denoteMetaSpine_mono (fun y ya hcb hy => hmono _ y ya hcb hy) hws hcbArgs
+  obtain ⟨vs', hvs', hmapW⟩ := denoteMetaSpine_of_lift haclN h1 h2 hloc hihl as ws
+    (fun a ha => (hbnd a ha).2) hwsEnv
+  obtain rfl : vs' = vs := denoteMetaSpine_unique hvs' hvs
+  rwa [hmapW] at hSF
+
+end HfitComp
 
 /-! ## A.17 The call's arguments live BELOW the recursors (AUDIT 1.4)
 
