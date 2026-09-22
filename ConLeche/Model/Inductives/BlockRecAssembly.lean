@@ -328,7 +328,8 @@ theorem checkBlockRule_annot {envR envT : Env} {p : BlockShape} {recNames : List
     {rhs out : Expr} {F : Nat}
     (h : checkBlockRule (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
       recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
-    annotateCore μ envR F 0 rhs = .ok out ∧ rhs.hasFvar = false := by
+    annotateCore μ envR F 0 rhs = .ok out ∧ rhs.hasFvar = false ∧
+      ∃ tyR : Expr, inferTypeCore μ envR F 0 out = .ok tyR := by
   unfold checkBlockRule at h
   obtain ⟨recTy, _, h⟩ := exceptBind_ok h
   by_cases hbv : Expr.looseBVarsBounded 0 rhs = true
@@ -344,6 +345,8 @@ theorem checkBlockRule_annot {envR envT : Env} {p : BlockShape} {recNames : List
   by_cases hres : Expr.constsResolve envR rhsA = true
   case neg => rw [if_neg hres] at h; close_throw h
   rw [if_pos hres] at h
+  -- the rule's own typing at the rule-less recursor environment
+  obtain ⟨tyR, htyR, h⟩ := exceptBind_ok h
   obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x1
   obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
   obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x3
@@ -361,7 +364,7 @@ theorem checkBlockRule_annot {envR envT : Env} {p : BlockShape} {recNames : List
   rw [if_pos hd] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨hann, Bool.not_eq_true _ |>.mp hfv⟩
+  exact ⟨hann, Bool.not_eq_true _ |>.mp hfv, tyR, htyR⟩
 
 /-- One recursor's rules, at the annotation. -/
 theorem checkBlockRules_annot {envR envT : Env} {p : BlockShape} {recNames : List Name}
@@ -370,7 +373,8 @@ theorem checkBlockRules_annot {envR envT : Env} {p : BlockShape} {recNames : Lis
     ∀ {cs : List ((ConstantVal × Nat) × List BlockFieldKind)} {rhss out : List Expr},
       checkBlockRules (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
         recTys mIs rPs recTgts ri cvR cs rhss = .ok out →
-      ∀ rhsA ∈ out, ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧ rhs.hasFvar = false
+      ∀ rhsA ∈ out, ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧
+        rhs.hasFvar = false ∧ ∃ tyR : Expr, inferTypeCore μ envR F 0 rhsA = .ok tyR
   | [], [], out, h => by
     simp only [checkBlockRules, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -402,7 +406,8 @@ theorem checkBlockRecsRules_annot {envR envT : Env} {p : BlockParts} {recNames :
       checkBlockRecsRules (fueledOps μ F) envR (fueledOps μ F) envT p recNames rlvls
         cvRas ctorsAs recs ri = .ok rs →
       ∀ r ∈ rs, ∀ rhsA ∈ r.2.1,
-        ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧ rhs.hasFvar = false
+        ∃ rhs : Expr, annotateCore μ envR F 0 rhs = .ok rhsA ∧ rhs.hasFvar = false ∧
+          ∃ tyR : Expr, inferTypeCore μ envR F 0 rhsA = .ok tyR
   | [], _, rs, h => by
     simp only [checkBlockRecsRules, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -461,10 +466,51 @@ theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List Con
     rw [(ConLeche.checkConstantVal_lps hcv).1]
     exact hps
   intro r hr rhsA hrhsA T i hslot
-  obtain ⟨rhs, hann, hfv⟩ := checkBlockRecsRules_annot hq r hr rhsA hrhsA
+  obtain ⟨rhs, hann, hfv, -⟩ := checkBlockRecsRules_annot hq r hr rhsA hrhsA
   refine ConLeche.annotateCore_noProjAt μ hann hfv ?_
   rw [findProj?_consBlockRecsBare hpsh]
   exact hslot
+
+/-- **The rule's own typing run, at the stage's own bare-`k`
+environment.**  The coordinator's step of session 22, exported at the
+list the model's bare cons is built over (`bareOf rs`, spelled out —
+`BlockStageRec`'s abbreviation is not in this file's public view): the
+stage
+conses the TYPE stage's records and the rules are stored against the
+same ones, which is `checkBlockRecK_facts`' `hmap` and is repeated
+here for the one clause that peel drops. -/
+theorem checkBlockRecK_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∃ tyR : Expr,
+      ConLeche.inferTypeCore μ
+          (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) envC) F 0 rhsA
+        = .ok tyR := by
+  have hq := h
+  unfold ConLeche.checkBlockRecK at hq
+  obtain ⟨-, -, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨cvRus, htys, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨-, -, hq⟩ := ConLeche.exceptBind_ok hq
+  obtain ⟨hlenT, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
+  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts hq
+  -- the stage conses the TYPE stage's records, and they ARE the stored ones
+  have hmap : (rs.map fun r => (r.1, r.2.2.1)) = cvRus.map (fun q => (q.1, q.2.1)) := by
+    refine List.ext_getElem? (fun i => ?_)
+    by_cases hi : i < p.recs.length
+    · obtain ⟨rc, r, -, hr, hcv, -⟩ := hallR i hi
+      rw [Nat.zero_add] at hcv
+      simp only [List.getElem?_map] at hcv ⊢
+      rw [hr]
+      exact hcv.symm
+    · have h1 : (rs.map fun r => (r.1, r.2.2.1)).length ≤ i := by
+        simp only [List.length_map, hlenR]; omega
+      have h2 : (cvRus.map (fun q => (q.1, q.2.1))).length ≤ i := by
+        simp only [List.length_map, hlenT]; omega
+      rw [List.getElem?_eq_none h1, List.getElem?_eq_none h2]
+  intro r hr rhsA hrhsA
+  obtain ⟨-, -, -, tyR, htyR⟩ := checkBlockRecsRules_annot hq r hr rhsA hrhsA
+  exact ⟨tyR, by rw [hmap]; exact htyR⟩
 
 end Annot
 

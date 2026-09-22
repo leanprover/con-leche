@@ -585,6 +585,18 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless rhsA.constsResolve envR do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
+  -- **the rule's own type, at the RULE-LESS recursor environment**
+  -- (certification only).  The rule's body is typed below, but only
+  -- AFTER the abstraction — as `bodyO`, the residue opened at the `ih`
+  -- variables — so nothing here types the right-hand side itself, and
+  -- the model needs its READING (`denoteMeta` at depth `0`), which is
+  -- the accepted-reads recipe at an inference run and at nothing else.
+  -- The run is at `envR`, where the `k` recursors are stored
+  -- rule-less, so every rule official generates types here exactly as
+  -- it does at the final environment: the step cannot reject a stream
+  -- the stage otherwise accepts, and its cost is one inference per
+  -- rule.
+  let _tyR ← opsR.inferType envR 0 rhsA
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")

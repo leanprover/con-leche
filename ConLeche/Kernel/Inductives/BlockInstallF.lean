@@ -272,6 +272,9 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
   unless w.resolve feR rhsA do
     throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
+  -- the certification-only typing of the annotated rule at the
+  -- rule-less recursor environment (`checkBlockRule`'s own step)
+  let _tyR ← opsR.inferType feR.env 0 rhsA
   let (_rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")

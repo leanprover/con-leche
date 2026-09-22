@@ -511,6 +511,8 @@ theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : Lis
   by_cases hres : Expr.constsResolve envR rhsA = true
   case neg => rw [if_neg hres] at h; close_throw h
   rw [if_pos hres] at h
+  -- the rule's own typing at the rule-less recursor environment
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x1
   obtain ⟨x2, hx2, h⟩ := exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
   obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, crest⟩ := x3
