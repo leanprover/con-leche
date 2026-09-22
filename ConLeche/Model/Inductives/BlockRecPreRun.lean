@@ -5355,12 +5355,18 @@ rule's own `peelPis` of the recursor type and its `TeleFitPA` at the
 same spine).  The step instantiates it at the frame `hspF` and `hih`
 already build, so the split shape is never asked for.
 
-`hCaE` keeps the guard `x = d.inj ψ (mem c) j fs`: the conclusion
-`Ca c j` is the recursor type peeled at the FIRED spine, so its
-identification with the recursor's conclusion holds at the `ys` whose
-major IS the constructed element and not at an arbitrary fitting one
-— the refutable direction, and the guard costs nothing because the
-fibre's own `hxinj` is in context on the one line that uses it. -/
+`hCaE` keeps the guard `x = d.inj ψ (mem c) j fs` AND takes the
+fibre's `ChainFit`: the conclusion `Ca c j` is the recursor type
+peeled at the FIRED spine, so its identification with the recursor's
+conclusion holds where the major IS the constructed element and the
+INDEX VALUES are that constructor's — and `x = d.inj …` pins only the
+first of those.  Off the `ChainFit` the premise quantifies `is` over
+every fit of the member's index telescope while the left-hand side
+does not move: refutable at any indexed family (`Vector`'s `cons` at
+`is = [5]` against a constructor whose index is `3`).  The `ChainFit`
+pins them (`interp … (Ess c j l) = projS l (d.tup ψ (mem c) is)`) and
+costs nothing: `hspF` and `hih` already take it, and the fibre hands
+it out on the one line that uses `hCaE`. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
@@ -5395,6 +5401,10 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
       SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
       SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
       x = d.inj ψ (mem c) j fs →
       interp V (consList (ihvals c j) (consList (as ++ ms ++ fs) ρ)) (Ca c j)
         = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c)) :
@@ -5417,7 +5427,7 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
   have hTv := hCaZ c hc j hjn ρ (as ++ ms) fs (ihvals c j)
     (hspF c hc as ms is hpar hms his j hjn fs hfit)
     (hih c hc as ms is hpar hms his j hjn fs hfit)
-  rw [← hCaE c hc as ms is x hpar hms his j hjn fs hxinj] at *
+  rw [← hCaE c hc as ms is x hpar hms his j hjn fs hfit hxinj] at *
   exact (eq_pt_of_mem_univZero hTv hres.2) ▸ hres.2
 
 /-- **`IndRegimeAt` FROM THE RUN**, the dispatch's `ℓ = 0` arm: §17's
@@ -5502,6 +5512,10 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
       SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
       SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
       x = d.inj ψ (mem c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))

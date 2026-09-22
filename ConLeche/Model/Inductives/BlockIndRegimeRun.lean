@@ -352,6 +352,12 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
           d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
       SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+        (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
       x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
@@ -525,6 +531,12 @@ theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
           d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
       SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+        (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
       x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
@@ -798,6 +810,12 @@ to. -/
         d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
     SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
     ∀ fs : List V,
+    d.ChainFit ψ (consList as ρ)
+      (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+        (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
+          (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+      (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
     x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
     interp V
         (consList (List.replicate ihdoms.length (pt : V))
@@ -876,8 +894,8 @@ theorem blockIndRegime_of_rules {envC : Env} {mpC : EnvModelM V μ envC}
     (Ca := fun c j => (htot c j).choose.2)
     hμ h hM hmr hnCt hlenP helim hmemU hbitsE hℓ
     (fun c hc j hj σ xs fs vs => ((htot c j).choose_spec hc hj).2.2.2.1 σ xs fs vs)
-    (fun c hc as ms is x has hms his j hj fs =>
-      ((htot c j).choose_spec hc hj).2.2.2.2.1 as ms is x has hms his fs)
+    (fun c hc as ms is x has hms his j hj fs hf =>
+      ((htot c j).choose_spec hc hj).2.2.2.2.1 as ms is x has hms his fs hf)
     (fun c hc j hj xs fs => ((htot c j).choose_spec hc hj).2.2.2.2.2 xs fs)
     (fun c hc j hj => ((htot c j).choose_spec hc hj).1)
     hspF
