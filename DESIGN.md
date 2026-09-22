@@ -81735,3 +81735,43 @@ steps marked landed, but two of them were ingredients whose composition
 had never been written.  The sizing question to ask from now on: is
 there a theorem whose CONCLUSION is the thing, or only theorems whose
 conclusions are its parts?
+
+#### LANDED (lane RM21 = M5M-pre session 20, `c431a09d`): the recursors' binder BITS come off the CHECK, and `BlockRuleCerts`' frame seam
+
+`blockRecOneElimLevel`'s `hbits` — every binder numeral of a
+recursor's binder data is zero exactly when its elimination level is —
+was sized as a law about `annotateCore`'s Π-binder `PropWhen`.  It is
+not one: `annotPwPi` answers most binders from the head-symbol reader
+(`typeSortPW`) and only falls back to inference, so the writer's law
+would have to carry the reader's soundness.  `inferBody`'s ∀ clause
+VALIDATES the datum against the codomain sort it infers, so at a
+verified mode a successful `inferTypeCore` on a Π-tower pins every
+binder's datum, whatever wrote it — the annotation pass is untrusted
+here by design, and this is what paying that off looks like.  The law
+is `inferTypeCore_openPis_sortZ` (the tower's sort has the
+conclusion's zero-ness, `zeronessOf (imax u v) = zeronessOf v` carried
+down the openers) and `stripPisAV_denoteMeta_pw` (every binder numeral
+of the READING is `pwBit ψ` of that one datum); the run-level producer
+is `blockRecElimLevel_run`, on a widened stage-(b) peel
+(`checkBlockRecTys_elim`) that keeps the conclusion's `inferType` and
+`ensureSort` — the level D-d compares, which the two existing
+inversions discard.  The two runs of the conclusion, at the tower's
+residual fuel and at the stage's own, are identified by
+`Verify/Mono.lean`'s fuel monotonicity, which was already in the tree.
+
+`BlockRuleCerts`' two FRAME premises are closed as assemblies:
+`hdoms` and `hokΔ` are stated at the reversed context, the three
+owners state their readings and gradings segment by segment at the
+frame's ascending depths, and `blockRuleHdoms_of` / `blockRuleHokΔ_of`
+are the whole distance (the reversed context IS
+`(pdoms ++ fdoms ++ ihdoms).reverse`; the ascending prefix is its
+SUFFIX, so `spineFit_of_sat` restricts along a `drop`).
+`BlockRuleCerts.of_segments` is then the bundle's introduction rule in
+the producers' own spelling, which makes the remaining cost countable:
+thirteen arguments, seven owed, 2–3 sessions — the largest being the
+well-denotedness of the GENERATED `ih` opener types, which the kernel
+never checks and the model must (the audit's §2.6 gap proper).
+
+**A general rule out of it**: *a datum one pass writes and another
+validates has its law at the VALIDATOR.*  Three reports pointed the
+premise at `annotateCore`; the law was two lines on the check's side.
