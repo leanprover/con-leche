@@ -7422,6 +7422,175 @@ theorem blockRuleFseg_of_run {envC : Env} {p : ConLeche.BlockParts}
 
 end ParamHop
 
+/-! ### 40.10 `hokA`'s `ih` SEGMENT, from the FIELD's telescope
+
+The `ih` opener at position `q` reads to `mkPisAV (ihTeleAtR nF o i q
+(rebit (pwBit ψ pw) tl)) conclA` (`denoteMeta_blockIhOpenerTy`,
+`BlockRecOpenerRead.lean`): the field's OWN telescope `tl`, read at
+the constructor's frame, moved to the rule's — each entry `k` lifted
+past the `nF - i` later fields at the telescope's cutoff `k` and past
+the prefix's `o = rP - nP` extras at the fields' cutoff
+(`ihIdxAtM`) — over whatever the guarded call reads to.
+
+Two observations cut the algebra in half.
+
+*The `ih` level is not a third lift.*  `ihIdxAtM nF o i l m` is
+`ihIdxAtM (nF + l) o i 0 m` whenever `i ≤ nF` (`ihIdxAtM_merge`): the
+`l` ih values already bound sit exactly where fields sit, so the whole
+segment is the `l = 0` statement at the longer field list `fs ++ ys`.
+That is why this section reuses `interp_ihIdxAtM_rule` and
+`spineFit_ihTeleAtGo_rule` (`BlockRecTyping.lean`) verbatim instead of
+restating them at an ih frame.
+
+*The BIT clause is guarded.*  `WellDenotedV` is `WellDenoted ∧
+AnnotValid` and `AnnotValid`'s `.pi` clause carries a third conjunct
+`v = 0 → ∀ x ∈ˢ interp ρ A, interp (cons x ρ) B ∈ˢ univZero`
+(`Model/Annot/Valid.lean`).  `rebit` stamps EVERY binder of the moved
+telescope with `pwBit ψ pw`, which is zero exactly at a
+`Prop`-eliminating recursor (`pwBit_zeronessOf`) — so at a non-`Prop`
+elimination the clause is VACUOUS, and where it bites it reduces to
+ONE fact about the tower's body, the guarded call's reading being a
+truth value.  It is therefore a premise of this section
+(`h0`), guarded by `b = 0` and by nothing wider, and its producer is
+the IND regime's own conclusion-sort fact.
+
+What the segment consumes about the telescope is its hereditary
+grading AT THE FIELD's frame — `FieldsOkB 0` and `FieldsValid` of
+`tl.map (·.2.2)` under the parameters and the `i` earlier fields —
+which is what peeling the constructor's own tower at the field's entry
+gives (`recEntry`/`reflEntry`, `BlockData.lean`). -/
+
+section IhSeg
+
+open ConLeche.Semantics
+
+variable {ρ : Nat → V}
+
+/-- **The `ih` level is not a third lift**: the `l` ih values already
+bound stand exactly where fields stand, so the move to ih level `l` is
+the move at level `0` over `nF + l` "fields". -/
+theorem ihIdxAtM_merge {nF o i l m : Nat} (hi : i ≤ nF) (E : AnnotTerm) :
+    ihIdxAtM nF o i l m E = ihIdxAtM (nF + l) o i 0 m E := by
+  unfold ihIdxAtM
+  rw [show nF - i + l = nF + l - i + 0 from by omega,
+    show nF + l + m = nF + l + 0 + m from by omega]
+
+/-- `ihIdxAtM_merge`, carried down the telescope. -/
+theorem ihTeleAtGo_merge {nF o i l : Nat} (hi : i ≤ nF) :
+    ∀ (k : Nat) (tl : List (Nat × Nat × AnnotTerm)),
+      ihTeleAtGo nF o i l k tl = ihTeleAtGo (nF + l) o i 0 k tl
+  | _, [] => rfl
+  | k, d :: tl => by
+    show (d.1, d.2.1, ihIdxAtM nF o i l k d.2.2) :: ihTeleAtGo nF o i l (k + 1) tl
+      = (d.1, d.2.1, ihIdxAtM (nF + l) o i 0 k d.2.2) :: ihTeleAtGo (nF + l) o i 0 (k + 1) tl
+    rw [ihIdxAtM_merge hi, ihTeleAtGo_merge hi (k + 1) tl]
+
+/-- The whole moved telescope, at the longer field list. -/
+theorem ihTeleAtR_merge {nF o i l : Nat} (hi : i ≤ nF) (tl : List (Nat × Nat × AnnotTerm)) :
+    ihTeleAtR nF o i l tl = ihTeleAtR (nF + l) o i 0 tl :=
+  ihTeleAtGo_merge hi 0 tl
+
+/-- **One entry's GRADING across the two frames** —
+`interp_ihIdxAtM_rule`'s cancellation in the `WellDenotedV` currency:
+the outer lift `o` cancels the prefix's extra binders `x⃗.drop nP`, the
+inner `nF - i` the later fields `f⃗.drop i`. -/
+theorem wellDenotedV_ihIdxAtM_rule {nF o i m : Nat} {xs fs bs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hbl : bs.length = m) (E : AnnotTerm) :
+    WellDenotedV V (consList bs (consList (xs ++ fs) ρ)) (ihIdxAtM nF o i 0 m E)
+      ↔ WellDenotedV V (consList bs (consList (fs.take i) (consList as ρ))) E := by
+  have hdrop : (xs.drop as.length).length = o := by rw [List.length_drop, hxl]; omega
+  have hfd : (fs.drop i).length = nF - i := by rw [List.length_drop, hfl]
+  have e1 : shiftE o (nF + m) (consList bs (consList (xs ++ fs) ρ))
+      = consList (fs ++ bs) (consList as ρ) := by
+    rw [consList_ruleFrame,
+      show nF + m = (fs ++ bs).length from by rw [List.length_append, hfl, hbl],
+      shiftE_consList_len, shiftE_drop_consList xs as.length hdrop ρ, htake]
+  have e2 : shiftE (nF - i) m (consList (fs ++ bs) (consList as ρ))
+      = consList bs (consList (fs.take i) (consList as ρ)) := by
+    rw [consList_append, ← hbl, shiftE_consList_len,
+      shiftE_drop_consList fs i hfd (consList as ρ)]
+  unfold ihIdxAtM
+  simp only [Nat.add_zero]
+  rw [WellDenotedV_liftN, e1, WellDenotedV_liftN, e2]
+
+/-- **The field telescope's HEREDITARY grading across the two
+frames** — `spineFit_ihTeleAtGo_rule`'s induction in the grading
+currency, `FieldsOkB 0` and `FieldsValid` together because each step
+needs both halves of `WellDenotedV` to cross. -/
+theorem fieldsWD_ihTeleAtGo_rule {nF o i : Nat} {xs fs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) :
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (ws : List V),
+      FieldsOkB 0 (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) →
+      FieldsValid (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) →
+      FieldsOkB 0 (consList ws (consList (xs ++ fs) ρ))
+          ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2)) ∧
+        FieldsValid (consList ws (consList (xs ++ fs) ρ))
+          ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2))
+  | [], _, _, _ => ⟨trivial, trivial⟩
+  | d :: tl, ws, hF, hV => by
+    rw [List.map_cons] at hF hV
+    obtain ⟨hok, -, hrest⟩ := hF
+    obtain ⟨hval, hvrest⟩ := hV
+    have hmv := wellDenotedV_ihIdxAtM_rule (ρ := ρ) (i := i) hxl htake hfl (rfl : ws.length = _)
+      d.2.2
+    have hint := interp_ihIdxAtM_rule (ρ := ρ) (i := i) hxl htake hfl (rfl : ws.length = _) d.2.2
+    have htop : WellDenotedV V (consList ws (consList (xs ++ fs) ρ))
+        (ihIdxAtM nF o i 0 ws.length d.2.2) := hmv.mpr ⟨hok, hval⟩
+    refine ⟨⟨htop.1, fun h0 => absurd rfl h0, fun a ha => ?_⟩, ⟨htop.2, fun a ha => ?_⟩⟩
+    · rw [hint] at ha
+      have h := fieldsWD_ihTeleAtGo_rule hxl htake hfl tl (ws ++ [a])
+        (by rw [← consList_snoc']; exact hrest a ha) (by rw [← consList_snoc']; exact hvrest a ha)
+      rw [List.length_append, List.length_singleton, ← consList_snoc' a ws] at h
+      exact h.1
+    · rw [hint] at ha
+      have h := fieldsWD_ihTeleAtGo_rule hxl htake hfl tl (ws ++ [a])
+        (by rw [← consList_snoc']; exact hrest a ha) (by rw [← consList_snoc']; exact hvrest a ha)
+      rw [List.length_append, List.length_singleton, ← consList_snoc' a ws] at h
+      exact h.2
+
+/-- **`hokA`'s `ih` ENTRY, from the FIELD's telescope.**  The opener's
+reading is the field's telescope moved to the rule's frame over the
+guarded call's reading; its grading is the telescope's hereditary
+grading at the CONSTRUCTOR's frame, transported entry by entry, over
+the body's — with the bit clause guarded by `b = 0` and reduced, there,
+to the body's reading being a truth value. -/
+theorem blockRuleIhEntry_of_fieldTele {nF o i l b : Nat} {xs fs ys as : List V}
+    {tl : List (Nat × Nat × AnnotTerm)} {conclA : AnnotTerm}
+    (hi : i ≤ nF)
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hyl : ys.length = l)
+    (hF : FieldsOkB 0 (consList (fs.take i) (consList as ρ)) (tl.map (·.2.2)))
+    (hV : FieldsValid (consList (fs.take i) (consList as ρ)) (tl.map (·.2.2)))
+    (hR : ∀ bs, SpineFit (consList ys (consList fs (consList xs ρ)))
+        ((ihTeleAtR nF o i l (rebit b tl)).map (·.2.2)) bs →
+      WellDenotedV V (consList bs (consList ys (consList fs (consList xs ρ)))) conclA)
+    (h0 : b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs ρ)))
+        ((ihTeleAtR nF o i l (rebit b tl)).map (·.2.2)) bs →
+      interp V (consList bs (consList ys (consList fs (consList xs ρ)))) conclA
+        ∈ˢ (univZero : V)) :
+    WellDenotedV V (consList ys (consList fs (consList xs ρ)))
+      (mkPisAV (ihTeleAtR nF o i l (rebit b tl)) conclA) := by
+  have hfl' : (fs ++ ys).length = nF + l := by rw [List.length_append, hfl, hyl]
+  have htk : (fs ++ ys).take i = fs.take i :=
+    List.take_append_of_le_length (by rw [hfl]; omega)
+  have hframe : consList (xs ++ (fs ++ ys)) ρ = consList ys (consList fs (consList xs ρ)) := by
+    rw [consList_append, consList_append]
+  -- the telescope's grading, transported to the rule's frame
+  have hmv := fieldsWD_ihTeleAtGo_rule (ρ := ρ) (i := i) (fs := fs ++ ys) hxl htake hfl'
+    (rebit b tl) [] (by rw [rebit_map_dom, consList_nil, htk]; exact hF)
+    (by rw [rebit_map_dom, consList_nil, htk]; exact hV)
+  rw [List.length_nil, consList_nil, hframe, ← ihTeleAtR] at hmv
+  rw [ihTeleAtR_merge hi] at hR h0 ⊢
+  refine ⟨WellDenoted_mkPisAV_of (w := 0) hmv.1 fun bs hsp => (hR bs hsp).1,
+    AnnotValid_mkPisAV_of (w := b) (fun d hd => ?_) hmv.2
+      (fun bs hsp => (hR bs hsp).2) (fun hb bs hsp => h0 hb bs hsp)⟩
+  obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
+  rw [he, mem_rebit hd']
+
+end IhSeg
+
 end CertsArgs
 
 end ConLeche.Model
