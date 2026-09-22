@@ -2225,11 +2225,16 @@ conjunct, with the RESIDUE PEEL consumed and the telescope's own four
 facts paid.
 
 `blockRuleResidueData_run` (`BlockRecData.lean`) gets its first
-consumer here: its ten rows are `blockRuleBodyEq_at_run`'s premise
-block verbatim, so what the wrapper does with them is `obtain` them
-and hand them on — and because they arrive EXISTENTIALLY, everything
-else the peel touches has to be quantified over the same outputs,
-which is what `hbody` is.
+consumer here: its rows are `blockRuleBodyEq_at_run`'s premise block
+verbatim, so what the wrapper does with them is `obtain` them and hand
+them on — and because they arrive EXISTENTIALLY, everything else the
+peel touches has to be quantified over the same outputs, which is what
+`hbody` is.  ALL SIXTEEN rows are passed into `hbody`'s antecedents,
+not only the ten the body equation itself reads: a producer that is
+handed the peel's `fr` abstractly and is told nothing about `fr.pw`,
+`fr.recNames` or the residue's two typing runs is STARVED, and a
+premise nobody can discharge is the same defect as a premise set with
+no instance, one level up.
 
 The four facts the wrapper pays:
 
@@ -2302,10 +2307,14 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
       ∀ (ρ : Nat → V) (xs ys : List AnnotTerm) (a : Nat → V),
         xs.length = p.toBlockShape.majorIdxAt j → ys.length = p.nP + cA.2 →
       ∀ (fr : BlockRuleFrame) (recTys : List Expr) (rbody resid ihTele bodyO : Expr)
-        (fvsIh : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)),
+        (fvsIh : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (ty concl : Expr),
         fr.nP = p.nP → fr.rP = p.toBlockShape.rulePrefixAt j → fr.nF = cA.2 →
+        fr.recNames = p.recs.map (·.cvR.name) → fr.recTgts = p.recTgts →
         fr.teleOf = structFieldTeleOf cA.1.type p.nP cA.2 →
         fr.idxOf = structFieldIdxOf cA.1.type p.nP cA.2 →
+        fr.pw = Level.zeronessOf
+          (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) →
+        recTys[j]? = some r.1.type →
         ConLeche.Expr.stripLams (p.toBlockShape.rulePrefixAt j + cA.2) rhs
           = some (rbs, rbody) →
         abstractIh fr 0 rbody = some resid →
@@ -2316,6 +2325,17 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
             (ihTele.instantiateList (blockRulePrefFvs p.toBlockShape rs j
               ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse)
             (p.toBlockShape.rulePrefixAt j + cA.2) = some (fvsIh, bodyO) →
+        ConLeche.inferTypeCore μ envC F
+            (p.toBlockShape.rulePrefixAt j + cA.2 + fr.nR) bodyO = .ok ty →
+        ConLeche.Expr.instPisAtLift
+            (blockRulePrefFvs p.toBlockShape rs j
+              ++ (blockRuleCbody p.toBlockShape rs j i).getAppArgs.drop p.nP
+              ++ [ConLeche.Expr.mkAppN (.const cA.1.name (p.toBlockShape.lps.map .param))
+                  ((blockRulePrefFvs p.toBlockShape rs j).take p.nP
+                    ++ blockRuleFieldFvs p.toBlockShape rs j i)])
+            r.1.type = some concl →
+        ConLeche.isDefEqCore μ envC F
+            (p.toBlockShape.rulePrefixAt j + cA.2 + fr.nR) ty concl = .ok true →
         BlockRuleBodyInputs V mpC p rs (Level.substFn φ r.1.levelParams us) ℓ j i cA lps
           fr recTys resid ihTele fvsIh
           (pdoms0 (Level.substFn φ r.1.levelParams us) j)
@@ -2330,13 +2350,14 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
   intro us hus _usj ρ xs ys _restR _restC hxl hyl _husjl _hψ _hidx _hfitR _hfitC a hleaf
     lds A hlam hldslen
   obtain ⟨fr, recTys, rbs, rbody, resid, ihTele, bodyO, ty, concl, fvsIh,
-    hfrP, hfrR, hfrF, hnames0, -, htele, hidxF, -, -, hstrip, hab, hpis, hopen, -, -, -⟩ :=
-    blockRuleResidueData_run h hr hcA hrhs
+    hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw, hrecTysj, hstrip, hab, hpis,
+    hopen, hinf, hconcl, hdeq⟩ := blockRuleResidueData_run h hr hcA hrhs
   obtain ⟨fvs0, crest0, tlF, EisF, ihdoms, hop0, hCf, hCb, hstripC, hcb, htlen, hfld,
     hrecTy, hrlvls, hihfv, hLpf, hpl, hfl, hil, hdoms, hokΔ, hlbF, hcbF, hclF,
     hihsEq, hihFit, hcbe, h2, hB, hty⟩ :=
-    hbody us hus ρ xs ys a hxl hyl fr recTys rbody resid ihTele bodyO fvsIh rbs
-      hfrP hfrR hfrF htele hidxF hstrip hab hpis hopen
+    hbody us hus ρ xs ys a hxl hyl fr recTys rbody resid ihTele bodyO fvsIh rbs ty concl
+      hfrP hfrR hfrF hnames0 htgts htele hidxF hpw hrecTysj hstrip hab hpis hopen
+      hinf hconcl hdeq
   have hcl : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
   have hmI : p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j :=
     blockRecHrPle h hcl
