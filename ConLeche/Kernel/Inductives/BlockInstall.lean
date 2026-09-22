@@ -405,6 +405,69 @@ def checkBlockRecElimAgree (us : List Level) : m Unit :=
     else throw (.invalid "direct rec: the block's recursors do not all eliminate at \
       one level")
 
+/-- **The family's rule PREFIX is SHARED** (the finding of lane RM16,
+adopted as a ruling on 2026-09-22; DESIGN).
+
+Stage (b) compares a recursor's first `nP` binder domains with the
+block's parameters and leaves the stretch `nP … rP-1` — the motives
+and the minor premises — unread.  That is not enough: a guarded call
+in a rule passes the CALLER's own prefix variables (the strict ruling
+of 2026-09-21), so the caller's prefix values are handed to the
+CALLEE's recursor, and nothing typed them against the callee's prefix
+domains — `checkBlockRule` abstracts the call into an `ih` opener
+whose type is a blind `instPisAtLift` of the callee's type BEFORE the
+residue is typed, so the arguments are never checked at all.
+
+Official generates one shared prefix (the parameters, then ALL the
+motives, then ALL the minors) for a block's recursors, so requiring
+them to agree binder by binder up to defeq accepts every real stream;
+a family whose recursors carry different motive-and-minor telescopes
+is INVALID INPUT.
+
+It is a pass of its own, over the CHECKED constant values stage (b)
+returns, rather than a widening of stage (b)'s own comparison: the
+first recursor's prefix is the reference and stage (b) is a fold with
+no accumulator, and its inversions (`checkBlockRecTys_inv`,
+`checkBlockRecTys_open`) are stated at its current arity. -/
+def checkBlockRecPrefixAt (ops : CheckerOps m) (env : Env) (p : BlockShape) (rP0 : Nat)
+    (doms0 : List Expr) : List ConstantVal → Nat → m Unit
+  | [], _ => pure ()
+  | cv :: rest, ri => do
+    unless p.rulePrefixAt ri == rP0 do
+      throw (.invalid "direct rec: the block's recursors do not share their rule prefix \
+        (their prefixes have different lengths)")
+    let (fvs, _) ← unwrapOr (openPisAtFvars rP0 cv.type 0)
+      (.invalid "direct rec: the recursor's type does not bind the family's rule prefix")
+    checkBlockDefEqList ops env rP0
+      "the block's recursors do not share their rule prefix"
+      doms0 (fvs.map Expr.fvarTypeD)
+    checkBlockRecPrefixAt ops env p rP0 doms0 rest (ri + 1)
+
+/-- **Stage (b'):** the prefix agreement, at the first recursor's own
+opening as the reference. -/
+def checkBlockRecPrefixAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
+    (cvRs : List ConstantVal) : m Unit :=
+  match cvRs with
+  | [] => pure ()
+  | cv0 :: rest => do
+    let (fvs0, _) ← unwrapOr (openPisAtFvars (p.rulePrefixAt 0) cv0.type 0)
+      (.invalid "direct rec: the recursor's type does not bind the family's rule prefix")
+    checkBlockRecPrefixAt ops env p (p.rulePrefixAt 0) (fvs0.map Expr.fvarTypeD) rest 1
+
+/-- **The family's two agreements, in one stage**: D-d (one
+elimination level, the ruling of 2026-09-21) and the shared rule
+prefix (the ruling of 2026-09-22).
+
+They are ONE stage, and deliberately: `checkBlockRecK`'s inversions
+peel its binds positionally in five modules (two of them another
+lane's), so a new bind at the top level would have been a five-file
+edit for no gain.  Both are statements about the LIST stage (b)
+returns and nothing else. -/
+def checkBlockRecFamilyAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
+    (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
+  checkBlockRecElimAgree (cvRus.map (·.2.2))
+  checkBlockRecPrefixAgree ops env p (cvRus.map (·.1))
+
 /-- **Stage (b): every recursor's TYPE.**
 
 The stream's type is checked as a constant's type and STORED AS IS —
@@ -670,7 +733,8 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- (b) every recursor's type, and — D-d — one elimination level for
   -- the whole family
   let cvRus ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds) cvTas p.recs 0
-  checkBlockRecElimAgree (cvRus.map (·.2.2))
+  -- D-d (one elimination level) and the family's SHARED rule prefix
+  checkBlockRecFamilyAgree ops env p.toBlockShape cvRus
   let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the
