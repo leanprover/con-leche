@@ -7877,6 +7877,99 @@ theorem blockRuleHokC_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end HokC
 
+/-! ### 40.12 `hokA` ASSEMBLED, at the run
+
+The three segments (§35 + §40.4 for the prefix, §40.8–§40.9 for the
+fields, §40.10 for the `ih` openers) go into `blockRuleHokA_of_segments`
+at the run's own spellings.  The two spelling equations are premises
+here rather than rewrites inside, because the bundle's three lists are
+`readOpenedDoms` of the openers and each segment is stated at the list
+its OWNER produces: `blockRulePdomsAV_eq_readOpenedDoms` (§40.5) and
+`blockRuleFdomsAV_liftDoms` (§27) are the two producers, and the `ih`
+list's entries come one at a time — which is why `hIent` is an
+existential PER KEY and not a function: the telescope and the
+conclusion are the key's, and no run object is a function of the key
+(the rule lane's own finding).
+
+`hIent`'s frame-dependent half is stated under the segment's own
+`σ`/`xs`/`fs`/`ys`, so nothing in it is quantified past the fit that
+produces it; its frame-INDEPENDENT half (the field index, the
+telescope, the conclusion and the two equations) is hoisted, because
+those are determined by the key alone. -/
+
+section HokAssembly
+
+/-- **`hokA` at the run**, from the three segments. -/
+theorem blockRuleHokA_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm} {nF o nR : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o)
+    {P F' I : List AnnotTerm}
+    (hPE : P = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+    (hFE : F' = (liftDoms o 0 (ds.drop p.nP)).map (·.2.2))
+    (hIlen : I.length = nR)
+    (hIent : ∀ q, q < nR →
+      ∃ (i b : Nat) (tl : List (Nat × Nat × AnnotTerm)) (bodyF conclA : AnnotTerm),
+        i < nF ∧
+        (ds.getD (p.nP + i) default).2.2 = mkPisAV tl bodyF ∧
+        I.getD q default = mkPisAV (ihTeleAtR nF o i q (rebit b tl)) conclA ∧
+        ∀ (σ : Nat → V) (xs fs ys : List V),
+          SpineFit σ P xs → SpineFit (consList xs σ) F' fs →
+          SpineFit (consList fs (consList xs σ)) (I.take q) ys →
+          (∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+            WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA) ∧
+          (b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+            interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+              ∈ˢ (univZero : V))) :
+    ∀ l, l < p.toBlockShape.rulePrefixAt c + nF + nR →
+      ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ ((P ++ F' ++ I).take l) ys →
+        WellDenotedV V (consList ys σ) ((P ++ F' ++ I).getD l default) := by
+  have hp : P.length = p.toBlockShape.rulePrefixAt c := by
+    rw [hPE, blockRulePdomsAV_length hμ mpC h hr ψ]
+  have hf : F'.length = nF := by
+    rw [hFE, List.length_map, liftDoms_length, List.length_drop, hlenD]; omega
+  refine blockRuleHokA_of_segments hp hf hIlen ?_ ?_ ?_
+  · -- the PREFIX segment (§35 + §40.4)
+    intro l hl σ ys hys
+    rw [hPE] at hys ⊢
+    exact blockRulePdomsAV_graded hμ mpC h hr ψ l hl σ ys hys
+  · -- the FIELD segment (§40.8, §40.9)
+    intro q hq σ xs ys hxs hys
+    rw [hFE] at hys ⊢
+    rw [hPE] at hxs
+    exact blockRuleFseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho
+      q hq σ xs ys hxs hys
+  · -- the `ih` segment (§40.10)
+    intro q hq σ xs fs ys hxs hfs hys
+    obtain ⟨i, b, tl, bodyF, conclA, hiF, hentry, hIq, hfr⟩ := hIent q hq
+    obtain ⟨hR, h0⟩ := hfr σ xs fs ys hxs hfs hys
+    have hyl : ys.length = q := by
+      rw [SpineFit.length_eq hys, List.length_take, hIlen]; omega
+    rw [hIq]
+    rw [hPE] at hxs
+    rw [hFE] at hfs
+    exact blockRuleIseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho hiF
+      hentry hxs hfs hyl hR h0
+
+end HokAssembly
+
 end CertsArgs
 
 end ConLeche.Model
