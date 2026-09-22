@@ -83271,3 +83271,42 @@ census's two missing compositions now exist.
 `by_cases` plus three guard conjuncts, so moving the rule contract's
 guard from `w ≠ 0` to `ℓ ≠ 0` is **a deletion here, not a
 restructuring**.
+
+#### LANDED (lane RM44 = M5M-data session 32, `3a2d597f`): the composition is CALLED, the residue peel has a consumer, and `hwd`'s family form is a fold
+
+The body equation now **calls** `blockRuleBodyEq_run` instead of
+inlining its parts, and it compiled on the first attempt — the defect
+really was the shared binder, the proof was always fine.  The call also
+deleted two local facts that existed only because the composition was
+being redone.  `blockRuleResidueB_run` gives the residue peel its first
+consumer, paying the telescope's four facts.  And the routed `hwd` was
+**case two of three: a fold, not a session** — the single-rule theorem's
+conclusion is the family's conjunct for conjunct at the right
+substitution, so the family form is a λ over it, and it is CALLED into
+the regime's certificates, which is the instance check.
+
+**FINDING — *a premise with no DISCHARGE route is the dual of a premise
+set with no INSTANCE*, and neither is visible in a build.**  The
+wrapper's first version passed only ten of the peel's sixteen rows: a
+producer handed the frame abstractly, and told nothing about its
+components, cannot even NAME the remaining premises, so four of them
+had no route — while everything compiled.  Together with the three
+vacuous-premise-set defects, that is the pair of failure modes this
+window has established: a theorem can typecheck with nothing able to
+satisfy it, and a consumer can typecheck with nothing able to discharge
+it.
+
+Two more: **regime IND asks for the `ih` fit twice** — with the fold in
+place, one premise drops out of the composed signature, being the
+point-instance of the family-wide fit the other premise already needs
+(eight premises where two theorems separately take ten).  And **a fit
+crosses into the chain frame for free** when the domains are read at
+their own depths, which is the `K = 0` collapse read upwards; nothing
+had said so.
+
+**Evidence on the guard, gathered without touching it**: the residue
+statement carries `ℓ ≠ 0` and **no `w` hypothesis at all**; its entire
+`w`-dependence is mediated by the contract's FIRST conjunct — exactly
+the one the `Exists` witness refutes — and both recorded witnesses are
+`Prop`-valued blocks WITHOUT large elimination, i.e. blocks used only
+at `ℓ = 0`.
