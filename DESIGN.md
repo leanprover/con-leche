@@ -82950,3 +82950,35 @@ design: it disappears with the motive restatement.  That restatement is
 therefore now the critical path, and it lands as ONE commit across the
 motive, the regime's proof, the predicate's deletion and the
 composition's premise list.
+
+#### MEASURED, not landed (lane RM37 session 30): the motive restatement is **three sites**, and the method is the finding
+
+The lane wrote the split-data `blockIndP`, built the file with nothing
+else changed, and counted: **exactly three errors in 8 700 lines** —
+the conversion lemma (instantiate at the dropped prefix and the index
+list; the middle fit splits out of the existing fit, free, because that
+consumer HAS a spine), the `ih` leaf (**where the join premise and its
+clause disappear, which is the whole point**), and the step (three
+substitutions become one).  Nothing else moves: not the regime's body,
+not the twelve theorems around it, and the new composition's three
+occurrences are motive arguments that do not read the shape.  The only
+CONTENT is that the leaf gets simpler, because the premise it currently
+pays for is the one being deleted.
+
+It then **reverted and left the tree green**, on the grounds that the
+change is one atomic commit across three held files and a partial
+version is not committable — leaving three held files red across a
+hand-off is worse than not starting.
+
+**The general point, and it is worth adopting: when a change is atomic
+and its size is unknown, APPLYING it and counting the errors is cheaper
+than reasoning about it.**  Three errors took one build to find and
+would have taken a session to predict.  The measurement is the plan;
+the next session starts on the first edit with no further exploration.
+
+The restated motive honours the ruling: the middle stretch keeps its
+own `SpineFit` premise, at the parameters' frame — which is also where
+the recursor-shape predicate states the index fit, so the two agree
+without a bridge.  It is precisely the clause a naive rebuild drops
+silently, since the rebuilt spine mentions those binders while the
+kernel never looks inside them.
