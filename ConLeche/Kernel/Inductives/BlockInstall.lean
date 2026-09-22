@@ -405,6 +405,106 @@ def checkBlockRecElimAgree (us : List Level) : m Unit :=
     else throw (.invalid "direct rec: the block's recursors do not all eliminate at \
       one level")
 
+/-- **The member's parameter-and-index telescope, opened at the
+RECURSOR's own binder numbering** (lane SEC2, 2026-09-22).
+
+The parameters take fvars `0 … nP-1` — the recursor's own first `nP`
+binders — and the INDEX telescope takes `rP … rP+nIdx-1`, which is
+where the recursor binds its indices.  Without that offset the two
+telescopes are not comparable at all: an index domain that mentions an
+earlier index names fvar `nP+i` on the member's side and fvar `rP+i`
+on the recursor's, so a binder-by-binder `isDefEq` would fail on every
+family whose indices depend on one another. -/
+def openPisParamsIdx (nP nIdx rP : Nat) (ty : Expr) : Option (List Expr × Expr) :=
+  match openPisAtFvars nP ty 0 with
+  | none => none
+  | some (pfvs, body) =>
+    match openPisAtFvars nIdx body rP with
+    | none => none
+    | some (ifvs, rest) => some (pfvs ++ ifvs, rest)
+
+/-- **Stage (b''): the recursor's INDEX binder domains ARE the
+member's index telescope** (lane SEC2, 2026-09-22).
+
+Stage (b) pins the recursor's first `nP` binder domains to the block's
+parameters and its MAJOR to the member at those parameters and at the
+index binders `rP … mI-1` — but it never looks at those index
+binders' own DOMAINS.  In the real kernel that costs nothing: the
+recursor's type is TYPED, and a major premise `T p⃗ ı⃗` does not type
+unless `ı⃗` inhabits the member's index telescope.  Here the type is
+the stream's and is only checked as a constant's, so the fact is
+simply absent — and the model cannot recover it: the `ih` opener tower
+a rule's abstraction builds is GENERATED (`blockIhPis`) from the
+callee's stored type and never compared with anything, so "the `ih`
+call's spine fits the CALLEE's recursor binder data" has no licence
+at all.
+
+Like stage (b') (the shared rule prefix) this is a pass of its own
+rather than a widening of stage (b): stage (b)'s inversions are peeled
+POSITIONALLY in four modules, three of them other lanes'.
+
+It rejects nothing official emits — its recursors bind the member's
+own index telescope, verbatim.  The comparison is at the recursor's
+own numbering (`openPisParamsIdx`), which is what makes the two
+telescopes comparable when one index depends on an earlier one. -/
+def checkBlockRecIdxDomsAt (ops : CheckerOps m) (env : Env) (p : BlockShape)
+    (cvTas : List ConstantVal) : List (ConstantVal × Nat × Level) → Nat → m Unit
+  | [], _ => pure ()
+  | (cvR, nIdx, _) :: rest, ri => do
+    let cvTa ← unwrapOr cvTas[p.recTgtAt ri]?
+      (.internal "direct rec: type former of the recursor's member")
+    let (fvs, _) ← unwrapOr (openPisAtFvars (p.majorIdxAt ri + 1) cvR.type 0)
+      (.internal "direct rec: the recursor's telescope (index-domain pass)")
+    let (tfvs, _) ← unwrapOr (openPisParamsIdx p.nP nIdx (p.rulePrefixAt ri) cvTa.type)
+      (.internal "direct rec: type former telescope (index-domain pass)")
+    checkBlockDefEqList ops env (p.majorIdxAt ri)
+      "the recursor's index domains are not the member's index telescope"
+      ((tfvs.drop p.nP).map Expr.fvarTypeD)
+      (((fvs.drop (p.rulePrefixAt ri)).take nIdx).map Expr.fvarTypeD)
+    checkBlockRecIdxDomsAt ops env p cvTas rest (ri + 1)
+
+/-- **The COUNTING half of the elimination guard, in the MODEL's
+currency** (lane SEC2, 2026-09-22).
+
+`blockLargeElimAllowed` (`BlockRec.lean`) is read per RECURSOR, and the
+arm it guards is an `isDefEq` of the conclusion's inferred type against
+`Sort 0` — a RUN, not a level.  The model cannot invert that run: what
+it holds of a recursor's conclusion is the LEVEL the stage returned
+(`ensureSort`, the entry's third component), and the only route from
+"the conclusion's type is definitionally `Sort 0`" to "that level
+evaluates to `0`" goes through the whole defeq-soundness pile at the
+recursor's own opened telescope, in a context nothing reconstructs.
+
+So the checker says it in the currency the model reads.  Two clauses:
+
+* **a block declares a family at all** (`0 < p.k`).  Nothing else in
+  the stage says so, and it is what stops "some recursor eliminates at
+  a non-zero level" from being vacuously compatible with an empty
+  recursor list;
+* **a block of SEVERAL families whose sort may be `0` eliminates only
+  at a level equivalent to zero.**  This is official's
+  `elim_only_at_universe_zero` counted: when that criterion fires
+  official's elimination level IS `Level.zero` — the recursor carries
+  no fresh parameter and its motive lands in `Prop` — and when it does
+  not, either the sort is never `0` or the block has one family.  So it
+  rejects nothing official emits.
+
+What it buys is the fact the SQUASH regime is UNSTATEABLE without:
+`blockKitRegime_sq` lives at `K = 1` while every run-level discharge is
+indexed over the recursor list, so `ℓ ψ ≠ 0` and `w ψ = 0` must FORCE
+one member (`blockRecK1_run`,
+`Model/Inductives/BlockRecPreHpre.lean`).  The per-field subsingleton
+half of the same criterion is the constructors' stage's
+(`checkStructFieldSortsI`) and the per-recursor half is
+`blockLargeElimAllowed`'s; this is the third. -/
+def checkBlockRecSmallElim (p : BlockShape) (us : List Level) : m Unit := do
+  unless 0 < p.k do
+    throw (.invalid "direct rec: the block declares no family")
+  unless p.k == 1 || p.resSort.isNeverZero ||
+      us.all (fun u => Level.isEquiv u .zero == some true) do
+    throw (.invalid "direct rec: a block of several families whose sort may be Prop \
+      eliminates only into Prop")
+
 /-- **The family's rule PREFIX is SHARED** (the finding of lane RM16,
 adopted as a ruling on 2026-09-22; DESIGN).
 
@@ -458,14 +558,20 @@ def checkBlockRecPrefixAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
 elimination level, the ruling of 2026-09-21) and the shared rule
 prefix (the ruling of 2026-09-22).
 
+— and, between them, the COUNTING half of the elimination guard
+(`checkBlockRecSmallElim`) and the recursors' INDEX binder domains
+(`checkBlockRecIdxDomsAt`), both lane SEC2's.
+
 They are ONE stage, and deliberately: `checkBlockRecK`'s inversions
 peel its binds positionally in five modules (two of them another
 lane's), so a new bind at the top level would have been a five-file
-edit for no gain.  Both are statements about the LIST stage (b)
+edit for no gain.  All three are statements about the LIST stage (b)
 returns and nothing else. -/
 def checkBlockRecFamilyAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
-    (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
+    (cvTas : List ConstantVal) (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
   checkBlockRecElimAgree (cvRus.map (·.2.2))
+  checkBlockRecSmallElim p (cvRus.map (·.2.2))
+  checkBlockRecIdxDomsAt ops env p cvTas cvRus 0
   checkBlockRecPrefixAgree ops env p (cvRus.map (·.1))
 
 /-- **Stage (b): every recursor's TYPE.**
@@ -481,7 +587,9 @@ argument sums read off the record (`BlockShape.rulePrefixAt` /
   compared BINDER BY BINDER with the member's own opened former
   telescope (the constructors' stage pins them the same way);
 * the binders `nP … rP-1` are ARBITRARY — the stretch official fills
-  with the motives and the minor premises is never looked inside;
+  with the motives and the minor premises is never looked inside — but
+  their INDEX stretch `rP … mI-1` is the member's own index telescope
+  (stage (b''), `checkBlockRecIdxDomsAt`);
 * the binder `mI` — the MAJOR — has type `T_m p⃗ ı⃗` with the head the
   member's own constant at the block's level parameters, `p⃗` the
   first `nP` binders and `ı⃗` EXACTLY the index binders `rP … mI-1`.
@@ -761,7 +869,7 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- the whole family
   let cvRus ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds) cvTas p.recs 0
   -- D-d (one elimination level) and the family's SHARED rule prefix
-  checkBlockRecFamilyAgree ops env p.toBlockShape cvRus
+  checkBlockRecFamilyAgree ops env p.toBlockShape cvTas cvRus
   let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the
