@@ -9,6 +9,7 @@ public import ConLeche.Semantics.Tower.BlockRecSqI
 import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
+import ConLeche.Model.Rules.InferSoundKit
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.BlockModel
@@ -8026,6 +8027,43 @@ theorem blockRuleHokC_args {nP D : Nat} {esA : List AnnotTerm} {mkA : AnnotTerm}
     · exact wellDenotedV_paramBvarsAt a ha''
     · exact hes a ha''
   · rw [List.mem_singleton] at ha'; exact ha' ▸ hmk
+
+/-- **`hokC`'s and `hR`'s ARGUMENTS, from the CONTRACT's constructor
+fit.**  §40.11 reduced the peel's grading obligation to the
+constructor's half; this discharges that half, and — like the FIT —
+against a fact the regime already supplies rather than a producer this
+lane owes.
+
+Both arguments come off `hfitC`, the contract's `TeleFitPA` of the
+CONSTRUCTOR's stored type at the rule's spine
+(`BlockRuleFit.lean`'s `blockCtorSpine_split` consumes the same
+object):
+
+* the index readings `esA` are arguments of the fit's RESIDUAL — the
+  constructor's own conclusion `T p⃗ e⃗` — which `teleFitPA_wellDenotedV`
+  (§40.11) grades and `WellDenotedV_mkAppN_args` then peels;
+* the fired major is the head applied to that same spine, graded by
+  `wellDenotedV_mkAppN_of_fit` at the constructor's value-level fit.
+
+So the whole of `hokC`'s `hargs` — and, at the callee's spine,
+`hR`'s — is the constructor's stage, and the prefix block costs
+nothing (`blockRuleHokC_args`). -/
+theorem blockRuleHokC_args_of_ctor {ρ : Nat → V} {ctorTy restC Chead T : AnnotTerm}
+    {ys esA ps : List AnnotTerm} {nP D : Nat} {rest : V}
+    (hokTy : WellDenotedV V ρ ctorTy)
+    (hys : ∀ a ∈ ys, WellDenotedV V ρ a)
+    (hfitC : TeleFitPA V ρ ctorTy ys restC)
+    (hresC : restC = AnnotTerm.mkAppN T (ps ++ esA))
+    (hC : WellDenotedV V ρ Chead)
+    (hmemC : interp V ρ Chead ∈ˢ interp V ρ ctorTy)
+    (hfitV : TeleFit V ρ ctorTy (ys.map (interp V ρ)) rest) :
+    ∀ a ∈ paramBvarsAt nP D ++ esA ++ [AnnotTerm.mkAppN Chead ys],
+      WellDenotedV V ρ a := by
+  refine blockRuleHokC_args (fun a ha => ?_) ?_
+  · have hok := teleFitPA_wellDenotedV hfitC hokTy hys
+    rw [hresC] at hok
+    exact WellDenotedV_mkAppN_args _ hok a (List.mem_append_right _ ha)
+  · exact (Rules.wellDenotedV_mkAppN_of_fit ys hokTy hC hys hmemC hfitV).1
 
 /-- **`hokC` AT THE RUN**: the peel's tower is the RECURSOR TYPE's
 reading, whose grading at every frame is `checkBlockRecK_tyPis`' last
