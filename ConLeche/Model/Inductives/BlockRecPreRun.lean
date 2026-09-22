@@ -88,12 +88,17 @@ bundled once, per rule, and the frame stays free.
 The bundle is exactly `checkBlockRule_typing`'s output plus the two
 frame premises the typing lane does not own (`hdoms`, `hokΔ`: the
 openers' stored types read to the context's entries, and the context
-is graded); it is a PREMISE here, in the spelling its owners export. -/
+is graded); it is a PREMISE here, in the spelling its owners export.
+
+Its second argument is the checker's FUEL, not a frame depth — the
+audit's item 8, where the same letter `F` means the rule frame's depth
+on the rule lane; the binder is `fuel` here so the two cannot be
+confused when a producer meets both. -/
 
 /-- **One rule's certificates**: everything `residueOk_blockFrame`
 needs that does not mention the frame. -/
 def BlockRuleCerts (V : Type w) [SetTheory V] {μ : CheckMode} {envT : Env}
-    (mp : EnvModelM V μ envT) (F : Nat) (ψ : Name → Nat) (rP nF nR : Nat)
+    (mp : EnvModelM V μ envT) (fuel : Nat) (ψ : Name → Nat) (rP nF nR : Nat)
     (pdoms fdoms ihdoms : List AnnotTerm) (Rb Ca : AnnotTerm) : Prop :=
   ∃ (recTy crest ihTele : Expr) (fvsPref fvsF fvsIh : List Expr)
     (o₁ o₂ o₃ bodyO ty concl : Expr),
@@ -111,8 +116,8 @@ def BlockRuleCerts (V : Type w) [SetTheory V] {μ : CheckMode} {envT : Env}
       ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
         WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
           ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default)) ∧
-    ConLeche.inferTypeCore μ envT F (rP + nF + nR) bodyO = .ok ty ∧
-    ConLeche.isDefEqCore μ envT F (rP + nF + nR) ty concl = .ok true ∧
+    ConLeche.inferTypeCore μ envT fuel (rP + nF + nR) bodyO = .ok ty ∧
+    ConLeche.isDefEqCore μ envT fuel (rP + nF + nR) ty concl = .ok true ∧
     bodyO.looseBVarsBounded 0 = true ∧ concl.looseBVarsBounded 0 = true ∧
     (∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) ∧
     (∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) ∧
@@ -2763,5 +2768,86 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
   rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
 
 end RuleFdoms
+
+/-! ## 28. The `K` lifts of §20 are the IDENTITY (audit item 5)
+
+The guard the kit reads back (`blockRecIs_fits`, §3) is
+`SpineFit ρ (pdoms c) xs` at the BASE frame, while the bridges that
+discharge it (`blockRecSpF_of`, `blockRecCtorFitsFrom_of`) hold at the
+CHAIN frame; §20 instantiates `pdoms := blockRecPdomsK K … =
+liftDomsK K 0 (blockRulePdomsAV …)`, a form lifted past the `K` chain
+binders.  `spineFit_liftDomsK` relates the chain-frame LIFTED data to
+the base-frame UNLIFTED data; it says nothing about the base frame at
+the lifted data.
+
+The gap is not real, and this section says why: every rule datum is
+the reading of a CLOSED expression at its own depth, so the `l`-th
+binder domain mentions no variable at or above `l`
+(`bvarsBelow_of_reading`), and a lift at a cutoff above a term's bound
+is the identity (`AnnotTerm.liftN_eq_self`).  `liftDomsK` walks the
+list raising the cutoff by one per entry, which is exactly the shape
+that bound has, so the whole list is fixed.
+
+The boundedness itself is a named premise here, in the positional
+shape `liftDomsK` needs.  Its producer is the run:
+`checkBlockRecK_tyPis`' binder clause reads the `l`-th opener's stored
+type at DEPTH `l`, and `bvarsBelow_of_reading`
+(`Model/Inductives/StructFrames.lean`) turns a reading at depth `l`
+into `bvarsBelow l` — what it still wants is the openers' own scoping
+facts, which the tyPis theorem does not currently return. -/
+
+section LiftIdentity
+
+/-- **A lift above a telescope's own bounds is the identity.**  Entry
+`l` of `liftDomsK K k Ds` is lifted at the cutoff `k + l`, so a list
+whose `l`-th entry is bounded below `k + l` is fixed. -/
+theorem liftDomsK_eq_self_of_bounded {K : Nat} :
+    ∀ (k : Nat) (Ds : List AnnotTerm),
+      (∀ l, l < Ds.length → Term.bvarsBelow (k + l) ((Ds.getD l default).erase)) →
+      liftDomsK K k Ds = Ds
+  | _, [], _ => rfl
+  | k, D :: Ds, h => by
+    have h0 : Term.bvarsBelow k D.erase := by
+      have hq := h 0 (Nat.succ_pos _)
+      rwa [Nat.add_zero] at hq
+    show AnnotTerm.liftN K D k :: liftDomsK K (k + 1) Ds = D :: Ds
+    rw [AnnotTerm.liftN_eq_self D h0 K]
+    refine congrArg (D :: ·) (liftDomsK_eq_self_of_bounded (k + 1) Ds fun l hl => ?_)
+    have hq := h (l + 1) (by simpa using hl)
+    rw [show k + (l + 1) = k + 1 + l from by omega] at hq
+    simpa using hq
+
+/-- **§20's prefix domains are the base form.**  `blockRecPdomsK` is
+`blockRulePdomsAV` — the `K` lift does nothing to a telescope read at
+its own depths — so the guard and the bridges are at the same data. -/
+theorem blockRecPdomsK_eq {envC : Env} {mpC : EnvModelM V μ envC} {K : Nat}
+    {p : ConLeche.BlockParts}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {ψ : Name → Nat} {c : Nat}
+    (hb : ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+      Term.bvarsBelow l
+        (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).getD l default).erase)) :
+    blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
+      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c := by
+  rw [blockRecPdomsK]
+  exact liftDomsK_eq_self_of_bounded 0 _ (by simpa using hb)
+
+/-- **`hpdE` at the run** (session 7's outstanding item): the rule
+prefix's domains ARE the recursor type's first `rP c` binder domains.
+Off §28's collapse, `blockRulePdomsAV`'s definition and
+`List.map_take`. -/
+theorem blockRecHpdE {envC : Env} {mpC : EnvModelM V μ envC} {K : Nat}
+    {p : ConLeche.BlockParts}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {ψ : Name → Nat} {c : Nat}
+    (hb : ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+      Term.bvarsBelow l
+        (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).getD l default).erase)) :
+    blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
+      = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).take
+          (p.toBlockShape.rulePrefixAt c) := by
+  rw [blockRecPdomsK_eq hb, blockRulePdomsAV, List.map_take]
+
+end LiftIdentity
 
 end ConLeche.Model
