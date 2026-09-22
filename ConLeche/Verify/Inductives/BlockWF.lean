@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.FixWF
 import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Shift
 
@@ -1060,5 +1061,125 @@ theorem direct_block_wf {env env₂ : Env} (henv : EnvWF env)
       q.p.toBlockShape q.p.nP 0 rs (consBlockCtors q.p.nP q.ctorsAs q.env₁)) :=
     envWF_consBlockRecs h2 (checkBlockRec_facts hRec)
   exact direct_block_tables_wf h3 hTbl
+
+/-! ## The family's shared rule PREFIX (the ruling of 2026-09-22)
+
+Stage (b') compares every recursor's opened rule prefix with the FIRST
+one's, binder by binder, up to defeq.  What the model needs of it is
+the per-position `isDefEq`, at the two openings — the fact that lets
+it identify the classes' prefix domains and so put a guarded call's
+predecessor in the CALLEE's class (the lane's `hpref'`). -/
+
+/-- **`checkBlockDefEqList`, inverted**: the lists have the same length
+and every position is defeq at the stage's depth. -/
+theorem checkBlockDefEqList_inv {env : Env} {F depth : Nat} {what : String} :
+    ∀ {as bs : List Expr},
+      checkBlockDefEqList (fueledOps mode F) env depth what as bs = .ok () →
+      as.length = bs.length ∧
+      ∀ l, l < as.length →
+        isDefEqCore mode env F depth (as.getD l default) (bs.getD l default) = .ok true
+  | [], [], _ => ⟨rfl, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
+  | [], _ :: _, h => by
+    simp only [checkBlockDefEqList, throw, throwThe, MonadExceptOf.throw] at h
+    exact nomatch h
+  | _ :: _, [], h => by
+    simp only [checkBlockDefEqList, throw, throwThe, MonadExceptOf.throw] at h
+    exact nomatch h
+  | a :: as, b :: bs, h => by
+    rw [checkBlockDefEqList] at h
+    simp only [fueledOps_isDefEq] at h
+    obtain ⟨c, hc, h⟩ := exceptBind_ok h
+    by_cases hcb : c = true
+    case neg =>
+      rw [Bool.not_eq_true] at hcb
+      subst hcb
+      simp only [Bool.false_eq_true, if_false, throw, throwThe, MonadExceptOf.throw,
+        Bind.bind, Except.bind] at h
+      exact nomatch h
+    subst hcb
+    simp only [if_pos, Bind.bind, Except.bind, pure, Except.pure] at h
+    obtain ⟨hlen, hall⟩ := checkBlockDefEqList_inv h
+    refine ⟨by simp [hlen], fun l hl => ?_⟩
+    cases l with
+    | zero => simpa using hc
+    | succ l => simpa using hall l (by simpa using hl)
+
+/-- **The walk, inverted**: at every position of the tail the prefix
+LENGTH is the reference's and the opened domains are defeq to it. -/
+theorem checkBlockRecPrefixAt_inv {env : Env} {p : BlockShape} {rP0 F : Nat}
+    {doms0 : List Expr} :
+    ∀ {cvRs : List ConstantVal} {ri : Nat},
+      checkBlockRecPrefixAt (fueledOps mode F) env p rP0 doms0 cvRs ri = .ok () →
+      ∀ (i : Nat) (cv : ConstantVal), cvRs[i]? = some cv →
+        p.rulePrefixAt (ri + i) = rP0 ∧
+        ∃ (fvs : List Expr) (o : Expr),
+          openPisAtFvars rP0 cv.type 0 = some (fvs, o) ∧
+          doms0.length = fvs.length ∧
+          ∀ l, l < doms0.length →
+            isDefEqCore mode env F rP0 (doms0.getD l default)
+              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true
+  | [], _, _, i, _, hi => by simp at hi
+  | cv :: rest, ri, h, i, cvi, hi => by
+    rw [checkBlockRecPrefixAt] at h
+    by_cases hlen : (p.rulePrefixAt ri == rP0) = true
+    case neg =>
+      rw [if_neg hlen] at h
+      simp only [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+      exact nomatch h
+    rw [if_pos hlen] at h
+    simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
+    obtain ⟨fvs, o⟩ := x1
+    have hop : openPisAtFvars rP0 cv.type 0 = some (fvs, o) := unwrapOr_ok hx1
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    obtain ⟨hl, hall⟩ := checkBlockDefEqList_inv (what := "the block's recursors do not \
+      share their rule prefix") (by cases u; exact hu)
+    cases i with
+    | zero =>
+      have hcv : cv = cvi := by simpa using hi
+      subst hcv
+      refine ⟨by simpa using eq_of_beq hlen, fvs, o, hop, by simpa using hl, ?_⟩
+      intro l hll
+      exact hall l hll
+    | succ i =>
+      obtain ⟨hr, hrest⟩ := checkBlockRecPrefixAt_inv h i cvi (by simpa using hi)
+      exact ⟨by rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hr, hrest⟩
+
+/-- **Stage (b'), inverted**: the FIRST recursor's opening is the
+reference, and every later recursor's prefix has its length and is
+defeq to it binder by binder. -/
+theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
+    {cvRs : List ConstantVal} {cv0 : ConstantVal}
+    (h : checkBlockRecPrefixAgree (fueledOps mode F) env p cvRs = .ok ())
+    (h0 : cvRs[0]? = some cv0) :
+    ∃ (fvs0 : List Expr) (o0 : Expr),
+      openPisAtFvars (p.rulePrefixAt 0) cv0.type 0 = some (fvs0, o0) ∧
+      ∀ (i : Nat) (cv : ConstantVal), cvRs[i]? = some cv → 0 < i →
+        p.rulePrefixAt i = p.rulePrefixAt 0 ∧
+        ∃ (fvs : List Expr) (o : Expr),
+          openPisAtFvars (p.rulePrefixAt 0) cv.type 0 = some (fvs, o) ∧
+          fvs0.length = fvs.length ∧
+          ∀ l, l < fvs0.length →
+            isDefEqCore mode env F (p.rulePrefixAt 0)
+              ((fvs0.map Expr.fvarTypeD).getD l default)
+              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
+  match cvRs, h0 with
+  | cv :: rest, h0 =>
+    have hcv : cv = cv0 := by simpa using h0
+    rw [checkBlockRecPrefixAgree] at h
+    simp only [Bind.bind, Except.bind] at h
+    obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
+    obtain ⟨fvs0, o0⟩ := x1
+    have hop : openPisAtFvars (p.rulePrefixAt 0) cv0.type 0 = some (fvs0, o0) := by
+      rw [← hcv]; exact unwrapOr_ok hx1
+    refine ⟨fvs0, o0, hop, fun i cvi hi hipos => ?_⟩
+    match i, hipos with
+    | i + 1, _ =>
+      obtain ⟨hr, fvs, o, hop', hlen, hall⟩ :=
+        checkBlockRecPrefixAt_inv h i cvi (by simpa using hi)
+      refine ⟨by rw [show i + 1 = 1 + i from by omega]; exact hr, fvs, o, hop',
+        by simpa using hlen, fun l hl => ?_⟩
+      have := hall l (by simpa using hl)
+      simpa using this
 
 end ConLeche
