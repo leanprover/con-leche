@@ -552,17 +552,19 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
 
 /-! ## 7. The `ih` KEY's block facts (task #315, `hkey` half A)
 
-`blockIndRegime_run`'s `hkey` (`BlockRecPreRun.lean`) has fourteen
-conjuncts and they split in two with very different provenances:
+`blockIndRegime_run`'s `hihOpen` (`BlockRecPreRun.lean`) splits in two
+with very different provenances:
 
 * **(A) the KEY's block facts** — the field is in range, it is
   RECURSIVE or REFLEXIVE, it targets the callee's member, and the
   callee's class is in range.  These are decided by `blockIhKeys`'
   own filter and by the block's tables, and they are proved here;
-* **(B) `tlA`/`eisA`/`fapA`/`BlockRuleConclAt`** — ONE reading of the
-  generated `blockIhPis` opener, which is the same reading `hihDom`
-  is about.  They are NOT proved here: the two are to be FUSED into
-  one opener-reading premise rather than produced twice.
+* **(B) `eisA`/`fapA`/`BlockRuleConclAt` and the DOMAIN equation** —
+  ONE reading of the generated `blockIhPis` opener.  They are NOT
+  proved here; they are the half `blockRuleHopener_of`
+  (`BlockRecOpenerRead.lean`) and `blockRuleHconcl_of` deliver, which
+  is why `hihDom`/`hihBits`/`hkey` are now the single premise
+  `hihOpen` rather than three premises about one term.
 
 The keys are the CHECK's own list (`BlockInstall.lean`'s
 `ihKeys := blockIhKeys rP rPs recTgts ks`), so nothing here is
