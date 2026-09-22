@@ -700,19 +700,35 @@ The three data conjuncts are `blockRuleHsp_field_run`,
 `blockRuleHes_run` and `blockRuleHmk_run`; their own premises `hlv`,
 `hqs` and `hfq` are `blockRuleLevelAgree` and `blockRuleCtorFit_run`
 at the contract's `hψ` and `hfitC` (§3c), so the contract's telescope
-supplies them.  The residue and the tower fit arrive together as
-`hres`.  What is left as a hypothesis is what belongs to another
-stage: the identifications of the rule's field domains and index
-expressions with the datum's (`hfd`, `hes`), the recursor type's
-split (`hsplit`, the recursor-type lane's `BlockRecSplitAt`), the
-constructors' stage's parameter clauses (`hlenP`, `hparamsC`), the
-block's own `d.nP = p.nP`, and the `w`-guard. -/
+supplies them.  The fourth and fifth arrive together as `hres`, and
+the fourth's β-reduction is paid here (`blockRuleHRa_tower_run`, at
+the reading `hread` and the grading `hokRa` the stage's own
+`blockRuleRhs_read_run` produces) — so what `hres` carries is the
+TOWER's core equation and the tower's fit, and nothing about the
+applied form.
+
+The four syntactic components are fixed by `hpd`/`hfdD`/`hesD`/`hmkD`
+rather than written into the statement: `declBlock_data`'s existential
+is instantiated at exactly these readings, and the equations keep the
+signature readable.
+
+What is left as a hypothesis is what belongs to another stage: the
+identifications of the rule's field domains and index expressions with
+the datum's (`hfd`, `hes`), the recursor type's split (`hsplit`, the
+recursor-type lane's `BlockRecSplitAt`), the constructors' stage's
+parameter clauses (`hlenP`, `hparamsC`), the block's own
+`d.nP = p.nP`, and the `w`-guard. -/
 theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {s : (Name → Nat) → Nat} {nCt : Nat → Nat}
-    {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
-    {Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    {pdoms0 : (Name → Nat) → Nat → List AnnotTerm}
+    {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hpd : pdoms0 = fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+    (hfdD : fdoms0 = fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+    (hesD : es0 = fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+    (hmkD : mk0 = fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
     {ctorTy : (Name → Nat) → AnnotTerm} {φ : Name → Nat} {j i : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[j]? = some r)
     {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -751,26 +767,33 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
           (Level.substFn φ r.1.levelParams us) c') ρ)
     (hw : ∀ us : List Level, us.length = r.1.levelParams.length →
       d.w (Level.substFn φ r.1.levelParams us) ≠ 0)
-    (hres : BlockRuleResidueB (V := V) mpC p rs s nCt
-      (fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-      (fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      (fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      ihs
-      (fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      Rb0 ctorTy φ j i r cA rl rhs) :
-    BlockRuleDataB (V := V) mpC p rs s nCt
-      (fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-      (fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      (fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      ihs
-      (fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      Rb0 ctorTy φ j i r cA rl rhs := by
+    (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
+      denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
+          (Level.substFn φ r.1.levelParams us) 0 rhs
+        = some (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (Level.substFn φ r.1.levelParams us)))
+    (hokRa : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
+      WellDenotedV V ρ (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
+          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+          (Level.substFn φ r.1.levelParams us)))
+    (hres : BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+      ctorTy φ j i r cA rl rhs) :
+    BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+      ctorTy φ j i r cA rl rhs := by
   intro us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
   have hnPd : d.nP ≤ p.toBlockShape.rulePrefixAt j := by rw [hdnP]; exact hnP
   have hlv := blockRuleLevelAgree hplain hψ
   obtain ⟨hqs, hfq⟩ := blockRuleCtorFit_run (d := d) hcj hcf hlv (hlenP us hus)
     (hparamsC us hus) (by rw [hyl, hdnP]) (hctorRead _) hfitC
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  obtain ⟨hbody, htow⟩ :=
+    hres us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+  subst hpd; subst hfdD; subst hesD; subst hmkD
+  refine ⟨?_, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
       htgt hlv (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
     rwa [hdnP] at hq
@@ -780,8 +803,9 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   · have hq := blockRuleHmk_run hM hμ h hr hcA hrhs hcj hcf hlps hdnP hnP (hfd us hus)
       hmemk htgt hlv (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
     rwa [hdnP] at hq
-  · exact (hres us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC).1
-  · exact (hres us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC).2
+  · intro a hleaf
+    exact blockRuleHRa_tower_run h hr hcA hrhs (hread us hus) (hokRa us hus ρ) htow
+      (hbody a hleaf)
 
 /-! ## 4. THE FINDING — the FIT conjunct is FALSE at a `Prop`-valued
 block

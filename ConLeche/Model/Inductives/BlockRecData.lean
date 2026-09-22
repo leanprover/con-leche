@@ -3911,6 +3911,51 @@ theorem blockRuleHapp_run {env₃ : Env} {acv : Name → (Name → Nat) → Anno
   · exact Or.inr (by rw [hlam])
   · rw [List.map_append]; exact htow lds A hlam hlen
 
+/-- **The residue conjunct, from the TOWER FIT and the WALK's
+equation.**  §A.5c's FOURTH statement β-reduces along the rule's
+λ-tower (`blockRuleHRa_val`), and the tower is the reading's own
+(§A.19, `blockRuleTower_run`), so what is left of the conjunct once
+the fit is available is ONE equation: the tower's CORE reads, at the
+fired frame, to the residue read at the ih values.
+
+The two premises are stated in the `∀ lds A` shape the contract's
+FIFTH statement already has — `mkLamsAV` at a fixed length pins `lds`
+and `A`, so neither quantifier is free — which is what makes the
+composition's fifth conjunct discharge the fourth's fit premise
+verbatim, with no transport.
+
+**This is `blockRuleHRa_val`'s first consumer**, and it says exactly
+what the residue still costs: the body equation, which is
+`interp_blockResidue`'s conclusion and whose premises are
+`blockRuleHRa_run_val`'s (the rule lane's walk, `hspine`/`hW`/`hB`
+among them). -/
+theorem blockRuleHRa_tower_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ψ : Name → Nat} {Ra : AnnotTerm} (hread : denoteMeta acv env₃ ψ 0 rhs = some Ra)
+    {ρ : Nat → V} (hok : WellDenotedV V ρ Ra)
+    {xs ys : List AnnotTerm} {nP : Nat} {ihvals : List V} {Rb : AnnotTerm}
+    (hsp : ∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A →
+      lds.length = p.toBlockShape.rulePrefixAt c + cA.2 →
+      SpineFit ρ (lds.map (·.2))
+        ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+          ++ (ys.drop nP).map (interp V ρ)))
+    (hbody : ∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A →
+      lds.length = p.toBlockShape.rulePrefixAt c + cA.2 →
+      interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+          ++ (ys.drop nP).map (interp V ρ)) ρ) A
+        = interp V (consList ihvals
+            (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+              ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb) :
+    interp V ρ (AnnotTerm.mkAppN Ra (xs.take (p.toBlockShape.rulePrefixAt c) ++ ys.drop nP))
+      = interp V (consList ihvals
+          (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb := by
+  obtain ⟨-, -, lds, A, -, hlam, hlen, -, -⟩ := blockRuleTower_run h hr hcA hrhs hread
+  exact blockRuleHRa_val hlam hok.1 (hsp lds A hlam hlen) (hbody lds A hlam hlen)
+
 /-- **The fit's PREFIX half is a RUN fact now.**  §A.10's truncation
 needed the recursor type's reading as a premise (`hTVa`); with the
 contract's `TVa` eliminated (`blockRuleTVa_run`) the fit the contract
@@ -3958,13 +4003,20 @@ fit, the index expressions, the fired spine — and are discharged from
 the block's representation (`BlockRuleFit.lean`).  Two are about the
 right-hand side's λ-TOWER — the residue at the ih values, and the
 tower's own fit — and are discharged from the rule's walk
-(`blockRuleHRa_run_val`, and the G2 defeq bridge).  Bundling the
-second pair under the telescope they are discharged at is what lets
-the composition (`blockRuleDataB_of_residue`) take them as ONE
-hypothesis instead of restating thirty lines of conjunct, and it
-bounds them exactly: the producer sees every premise the contract
-hands — the two lengths, `hψ`, `hidx` and both `TeleFitPA`s — and
-nothing is quantified past them.
+(`interp_blockResidue`) and the G2 defeq bridge.  Bundling the second
+pair under the telescope they are discharged at is what lets the
+composition (`blockRuleDataB_of_residue`) take them as ONE hypothesis
+instead of restating thirty lines of conjunct, and it bounds them
+exactly: the producer sees every premise the contract hands — the two
+lengths, `hψ`, `hidx` and both `TeleFitPA`s — and nothing is
+quantified past them.
+
+The residue is asked for **at the tower's CORE**, not at the applied
+form: `blockRuleHRa_tower_run` pays the β-reduction on this side, so
+what the rule lane owes is `interp_blockResidue`'s own conclusion —
+the body's reading against the residue's at the ih values — and the
+`∀ lds A` binders are the ones `mkLamsAV` at a fixed length already
+pins, the same pair the fifth conjunct quantifies.
 
 `@[expose]`: the composition unfolds it. -/
 @[expose] def BlockRuleResidueB {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
@@ -3997,19 +4049,21 @@ nothing is quantified past them.
           interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
             (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)
             (Level.substFn φ r.1.levelParams us) c') = a c') →
-        interp V ρ (AnnotTerm.mkAppN (blockRuleRaOf
-            (blockRecAcv mpC.base2.acval envC rs s
+        ∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm),
+          blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
               (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
-            (Level.substFn φ r.1.levelParams us))
-            (xs.take (p.toBlockShape.rulePrefixAt j) ++ ys.drop p.nP))
-          = interp V (consList
-              ((ihs (Level.substFn φ r.1.levelParams us) j i).map
-                (interp V (blockRuleFrame rs.length a ρ (p.toBlockShape.rulePrefixAt j)
-                  p.nP xs ys)))
-              (consList ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
-                ++ (ys.drop p.nP).map (interp V ρ)) ρ))
-            (Rb0 (Level.substFn φ r.1.levelParams us) j i)) ∧
+              (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+              (Level.substFn φ r.1.levelParams us) = mkLamsAV lds A →
+          lds.length = p.toBlockShape.rulePrefixAt j + cA.2 →
+          interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+              ++ (ys.drop p.nP).map (interp V ρ)) ρ) A
+            = interp V (consList
+                ((ihs (Level.substFn φ r.1.levelParams us) j i).map
+                  (interp V (blockRuleFrame rs.length a ρ (p.toBlockShape.rulePrefixAt j)
+                    p.nP xs ys)))
+                (consList ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+                  ++ (ys.drop p.nP).map (interp V ρ)) ρ))
+              (Rb0 (Level.substFn φ r.1.levelParams us) j i)) ∧
       (∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm),
         blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
             (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
