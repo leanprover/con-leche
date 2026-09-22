@@ -351,4 +351,106 @@ theorem denoteMeta_blockIhOpenerTy {m : EnvModel V env} {ψ : Name → Nat} {nP 
   exact denoteMeta_structTeleAtPis (pw := pw) hop0 hCf hCb hstripC hi hfr hP hX hF hI
     hidxP hidxX hidxF hidxI hconcl
 
+/-! ## The `ih` position's shift
+
+The opener at `ih` position `r` is generated at `l = r` and reads at
+the frame whose tail has `r` entries; a consumer standing `δ` binders
+deeper reads the same data at `l = r + δ`.  `ihIdxAtM_shift`
+(`BlockRecRule.lean`) is the elementwise `0 → d` case of the move;
+these three are the whole telescope's, in the `liftDoms` form
+`liftN_mkPisAV` (`StructRecSpine.lean`) states a lifted Π-tower in —
+so a consumer transports between the two readings with ONE `liftN`,
+the same way `ihSpineFold_blockRec` transports the guarded call's. -/
+
+/-- **`ihIdxAtM`'s shift at any base position** — `ihIdxAtM_shift`
+generalised from `l = 0`. -/
+theorem ihIdxAtM_shiftAt (nF o i l δ m : Nat) (E : AnnotTerm) :
+    ihIdxAtM nF o i (l + δ) m E = (ihIdxAtM nF o i l m E).liftN δ m := by
+  unfold ihIdxAtM
+  rw [liftN_shift_comm (A := nF - i + l) (o := o) (d := δ) E m (nF + l + m) (by omega),
+    show nF - i + l + δ = nF - i + (l + δ) from by omega,
+    show nF + l + m + δ = nF + (l + δ) + m from by omega]
+
+/-- **The moved telescope's shift**: `δ` positions deeper is the
+telescope lifted binderwise. -/
+theorem ihTeleAtR_shiftAt (nF o i l δ : Nat) (tl : List (Nat × Nat × AnnotTerm)) :
+    ihTeleAtR nF o i (l + δ) tl = liftDoms δ 0 (ihTeleAtR nF o i l tl) := by
+  refine List.ext_getElem? fun q => ?_
+  rw [liftDoms_getElem?, ihTeleAtR, ihTeleAtR, ihTeleAtGo_getElem? nF o i l 0 tl q,
+    ihTeleAtGo_getElem? nF o i (l + δ) 0 tl q, Option.map_map]
+  cases tl[q]? with
+  | none => rfl
+  | some d =>
+    simp only [Option.map_some, Function.comp_def, ihIdxAtM_shiftAt]
+
+/-- **The opener's reading, `δ` positions deeper**: the whole
+`mkPisAV` tower lifted. -/
+theorem mkPisAV_ihTeleAtR_shift (nF o i l δ : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (B : AnnotTerm) :
+    mkPisAV (ihTeleAtR nF o i (l + δ) tl) (B.liftN δ tl.length)
+      = (mkPisAV (ihTeleAtR nF o i l tl) B).liftN δ 0 := by
+  rw [liftN_mkPisAV, ihTeleAtR_shiftAt, ihTeleAtR_length, Nat.zero_add]
+
+/-! ## The same reading, at a deeper frame
+
+The consumer of the `ih` opener's type is the rule body's WALK, which
+stands `δ` binders below the opener's own position — and reading the
+SAME (opened, hence `fvar`-carrying) term at a deeper frame is
+reading it at the shallow one and lifting, because `denoteMeta` reads
+`fvar k` at depth `D` as `bvar (D - 1 - k)`
+(`denoteMeta_shiftFromN` at the cut `p = D`).  Composed with the ih
+position's shift, that is the statement at the walk's frame with no
+work left for the consumer. -/
+
+/-- A `shiftFromN` above every reachable `fvar` is the identity —
+`Expr.shiftFrom_eq_self`, iterated. -/
+theorem shiftFromN_eq_self {p : Nat} :
+    ∀ (n : Nat) {e : Expr}, Expr.fvarsBelow p e → Expr.shiftFromN p n e = e
+  | 0, _, _ => rfl
+  | n + 1, e, h => by
+    show Expr.shiftFrom p (Expr.shiftFromN p n e) = e
+    rw [shiftFromN_eq_self n h, Expr.shiftFrom_eq_self h]
+
+/-- **A well-scoped term's reading, deeper**: the reading lifted at
+the cut `0`. -/
+theorem denoteMeta_deepen {m : EnvModel V env} {ψ : Name → Nat} {D : Nat} {e : Expr}
+    {ea : AnnotTerm} (hw : Expr.WScoped D e)
+    (h : denoteMeta m.acval env ψ D e = some ea) (δ : Nat) :
+    denoteMeta m.acval env ψ (D + δ) e = some (ea.liftN δ 0) := by
+  have hs := denoteMeta_shiftFromN (acval := m.acval) (env := env) (φ := ψ) m.acval_closed
+    (p := D) δ (Nat.le_refl D) hw
+  rw [shiftFromN_eq_self δ hw.fvarsBelow, h, Nat.sub_self, Option.map_some] at hs
+  exact hs
+
+/-- **The `ih` opener's stored type, read at the walk's frame.**  At
+`δ` binders below the opener's own position the tower is the one at
+`ih` position `d + δ` — `denoteMeta_blockIhOpenerTy` composed with the
+depth's lift and `mkPisAV_ihTeleAtR_shift`. -/
+theorem denoteMeta_blockIhOpenerTy_deep {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o d i : Nat} {pw : PropWhen} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1)
+    {concl : Expr} {conclA : AnnotTerm}
+    (hnofv : (Expr.mkPisOf
+      (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
+      concl).hasFvar = false)
+    (hconcl : denoteMeta m.acval env ψ
+        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (concl.instantiateList
+          ((openFvars (nP + o + nF + d)
+            (ConLeche.structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
+      = some conclA) (δ : Nat) :
+    denoteMeta m.acval env ψ (nP + o + nF + d + δ)
+        ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
+          concl).instantiateList as1 0)
+      = some (mkPisAV (ihTeleAtR nF o i (d + δ) (rebit (pwBit ψ pw) tl))
+          (conclA.liftN δ tl.length)) := by
+  rw [denoteMeta_deepen (wscoped_instantiateList h1 _ hnofv 0)
+      (denoteMeta_blockIhOpenerTy hop0 hCf hCb hstripC hi hfr h1 hconcl) δ,
+    ← rebit_length (pwBit ψ pw) tl, mkPisAV_ihTeleAtR_shift]
+
 end ConLeche.Model
