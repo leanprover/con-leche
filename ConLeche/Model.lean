@@ -22,6 +22,7 @@ public import ConLeche.Model.Inductives.BlockFieldRead
 public import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
+public import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockStageRec
