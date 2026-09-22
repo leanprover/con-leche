@@ -2850,4 +2850,213 @@ theorem blockRecHpdE {envC : Env} {mpC : EnvModelM V μ envC} {K : Nat}
 
 end LiftIdentity
 
+/-! ## 29. The rule's CONCLUSION, peeled — and `hCaB` (session 12)
+
+`BlockRuleCerts` carries `denoteMeta … concl = some Ca` with `concl`
+EXISTENTIALLY quantified (session 10's finding), so no consumer can
+say what `Ca` is.  `checkBlockRule` says: the recursor's TYPE
+instantiated at the rule's prefix openers, the constructor's result
+index arguments and the fired major
+(`checkBlockRule_data`'s `instPisAtLift` clause).
+
+**What the bundle carries is that form PAST THE PEEL.**
+`denoteMeta_instPisAtLift_peel` turns the check's `instPisAtLift` into
+`AnnotTerm.peelPis` of the recursor type's READING along the
+arguments' readings, and those are: the prefix openers' — bvars, by
+`denoteMeta`'s fvar clause at `openPisAtFvars_index`, which is
+`paramBvarsAt rP (rP + nF + nR)` on the nose — the index arguments'
+(`esA`) and the fired spine's (`mkA`).  Stating the peeled form makes
+the producer pay for the peel's four side conditions (the arguments'
+scoping, their bvar-closedness, the `DenoteMetaSpine`, the type's
+reading) once, where they live, instead of making the bundle carry
+them for a single consumer.
+
+It is a SEPARATE bundle from `BlockRuleCerts` on purpose: the six
+sites that STATE the certificates (the two regimes, the kit, the kit
+family, `IndRegimeAt`, the WF assembly) never read the conclusion's
+shape, and threading three more components through them would be the
+over-quantification this lane has repaired ten times.  Both bundles
+have the same producer and the same run. -/
+
+section RuleConcl
+
+/-- **The rule's conclusion, in the read currency.** -/
+@[expose] def BlockRuleConclAt (rP nF nR : Nat) (RecTy : AnnotTerm)
+    (esA : List AnnotTerm) (mkA Ca : AnnotTerm) : Prop :=
+  ConLeche.Model.AnnotTerm.peelPis RecTy
+    (paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]) = some Ca
+
+omit [SetTheory V] in
+theorem paramBvarsAt_length (nP D : Nat) : (paramBvarsAt nP D).length = nP := by
+  simp [paramBvarsAt]
+
+/-- **`hCaB`'s frame evaluation**: the rule's conclusion read at the
+rule's own frame (the prefix, the fields and the `ih` openers' values)
+is the recursor's conclusion read at the spine the tagged element
+carries (the prefix, the index spine and the major).
+
+Three moves, and none of them is about the block:
+
+1. the peel, evaluated (`interp_peelPis_mkPisAV`) — the reading at the
+   frame extended by the spine's VALUES;
+2. those values.  The frame is
+   `consList ihvals (consList (xs ++ fs) ρ) = consList (xs ++ fs ++ ihvals) ρ`
+   (`consList_append`), a list of length `rP + nF + nR` whose FIRST
+   entries are `xs`; so `map_bvarAt_take` (§22) reads the prefix bvars
+   as `xs` with no premise at all — the ordering is what makes the
+   prefix half free.  The other two are the caller's two value
+   identifications;
+3. the conclusion is bounded below the recursor type's binder count,
+   so the frame below the spine is irrelevant (`interp_congr_below`)
+   and the `ihvals`/`fs` block under it drops out. -/
+theorem blockRecCa_value {rP nF nR nIdx : Nat} {RecTy Ca mkA conclC : AnnotTerm}
+    {esA : List AnnotTerm} {rdsC : List (Nat × Nat × AnnotTerm)}
+    (hcon : BlockRuleConclAt rP nF nR RecTy esA mkA Ca)
+    (hTyE : RecTy = mkPisAV rdsC conclC)
+    (hrds : rdsC.length = rP + nIdx + 1)
+    (hesLen : esA.length = nIdx)
+    (hconclB : Term.bvarsBelow rdsC.length conclC.erase)
+    {ρ : Nat → V} {xs fs ihvals is : List V} {maj : V}
+    (hxs : xs.length = rP) (hfs : fs.length = nF) (hihl : ihvals.length = nR)
+    (hes : esA.map (interp V (consList ihvals (consList (xs ++ fs) ρ))) = is)
+    (hmk : interp V (consList ihvals (consList (xs ++ fs) ρ)) mkA = maj) :
+    interp V (consList ihvals (consList (xs ++ fs) ρ)) Ca
+      = interp V (consList (xs ++ (is ++ [maj])) ρ) conclC := by
+  have hL : consList ihvals (consList (xs ++ fs) ρ) = consList (xs ++ fs ++ ihvals) ρ := by
+    simp only [consList_append]
+  have hLlen : (xs ++ fs ++ ihvals).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, hxs, hfs, hihl]
+  have hisLen : is.length = nIdx := by rw [← hes, List.length_map, hesLen]
+  have hWlen : (xs ++ (is ++ [maj])).length = rdsC.length := by
+    rw [List.length_append, List.length_append, hxs, hisLen, List.length_singleton, hrds]
+    omega
+  have hvlen : (paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]).length = rdsC.length := by
+    rw [List.length_append, List.length_append, paramBvarsAt_length, hesLen,
+      List.length_singleton, hrds]
+  rw [hTyE] at hcon
+  rw [interp_peelPis_mkPisAV hvlen hcon]
+  have hpb : (paramBvarsAt rP (rP + nF + nR)).map
+        (interp V (consList ihvals (consList (xs ++ fs) ρ))) = xs := by
+    rw [hL, map_bvarAt_take (nP := rP) hLlen.symm (by rw [hLlen]; omega),
+      List.append_assoc, List.take_left' hxs]
+  have hmap : (paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]).map
+        (interp V (consList ihvals (consList (xs ++ fs) ρ)))
+      = xs ++ (is ++ [maj]) := by
+    rw [List.map_append, List.map_append, hpb, hes, List.map_cons, List.map_nil, hmk,
+      List.append_assoc]
+  rw [hmap]
+  refine interp_congr_below (V := V) conclC rdsC.length _ _ hconclB fun i hi => ?_
+  have hi' : i < (xs ++ (is ++ [maj])).length := by rw [hWlen]; exact hi
+  rw [consList_getD_of_lt _ _ _ hi', consList_getD_of_lt _ _ _ hi']
+
+/-- **A reading crosses the `ih` openers' block**: the `ih` values are
+the INNERMOST binders, so a form lifted by their count at cutoff `0`
+reads at the frame below them. -/
+theorem interp_liftN_ihvals {ihvals : List V} {σ : Nat → V} (e : AnnotTerm) :
+    interp V (consList ihvals σ) (e.liftN ihvals.length 0) = interp V σ e := by
+  rw [interp_liftN]
+  have h := shiftE_consList_add (V := V) ihvals 0 σ
+  rw [shiftE_zero_zero, Nat.add_zero] at h
+  rw [h]
+
+/-- **`hCaB` at the run's components.**  `blockRecCa_value` with its
+two value identifications taken at the PLAIN frame — which is where
+§22's `blockRecMkK_value` and §26's `blockRecCtorIdx` deliver them
+(both at `K := 0`, where `chainFrame` is `ρ` and the chain lift is the
+identity) — and the `ih` block crossed by `interp_liftN_ihvals`.
+
+The two syntactic identities `hmkL`/`hesL` are the PRODUCER's: the
+bundle's components are the run's readings at depth `rP + nF + nR`,
+and the run's own `blockRuleMkAV`/`blockRuleEsAV` are at depth
+`rP + nF`; a reading at a deeper frame of the same closed-at-`rP+nF`
+expression is that reading lifted at cutoff `0`. -/
+theorem blockRecCa_run {rP nF nR nIdx : Nat} {RecTy Ca mkA mk0 conclC : AnnotTerm}
+    {esA es0 : List AnnotTerm} {rdsC : List (Nat × Nat × AnnotTerm)}
+    (hcon : BlockRuleConclAt rP nF nR RecTy esA mkA Ca)
+    (hTyE : RecTy = mkPisAV rdsC conclC)
+    (hrds : rdsC.length = rP + nIdx + 1)
+    (hesLen : es0.length = nIdx)
+    (hconclB : Term.bvarsBelow rdsC.length conclC.erase)
+    {ρ : Nat → V} {xs fs ihvals is : List V} {maj : V}
+    (hxs : xs.length = rP) (hfs : fs.length = nF) (hihl : ihvals.length = nR)
+    (hmkL : mkA = mk0.liftN nR 0) (hesL : esA = es0.map (·.liftN nR 0))
+    (hmkV : interp V (consList (xs ++ fs) ρ) mk0 = maj)
+    (hesV : es0.map (interp V (consList (xs ++ fs) ρ)) = is) :
+    interp V (consList ihvals (consList (xs ++ fs) ρ)) Ca
+      = interp V (consList (xs ++ (is ++ [maj])) ρ) conclC := by
+  refine blockRecCa_value hcon hTyE hrds (by rw [hesL, List.length_map]; exact hesLen)
+    hconclB hxs hfs hihl ?_ ?_
+  · rw [hesL, List.map_map, ← hesV]
+    refine List.map_congr_left fun e _ => ?_
+    show interp V (consList ihvals (consList (xs ++ fs) ρ)) (e.liftN nR 0) = _
+    rw [← hihl]
+    exact interp_liftN_ihvals e
+  · rw [hmkL, ← hihl]
+    rw [interp_liftN_ihvals mk0]
+    exact hmkV
+
+/-- **`hCaB` in the kit's own spelling**: the rule's conclusion at the
+rule's frame IS the motive at the constructed element.  §29's frame
+evaluation composed with §9's `blockRecMot_tagged`; the index spine is
+the caller's `is` (the `isOfW` retraction of the rule's index tuple,
+§26's business) and the major the caller's `maj` (§22's). -/
+theorem blockRecHCaB {K c : Nat} (hc : c < K) {uOf nIdxOf : Nat → Nat}
+    {concl : Nat → AnnotTerm} {rP nF nR nIdx : Nat} {RecTy Ca mkA mk0 : AnnotTerm}
+    {esA es0 : List AnnotTerm} {rdsC : List (Nat × Nat × AnnotTerm)}
+    (hcon : BlockRuleConclAt rP nF nR RecTy esA mkA Ca)
+    (hTyE : RecTy = mkPisAV rdsC (concl c))
+    (hrds : rdsC.length = rP + nIdx + 1)
+    (hesLen : es0.length = nIdx)
+    (hconclB : Term.bvarsBelow rdsC.length (concl c).erase)
+    {ρ : Nat → V} {xs fs ihvals : List V} {tt maj : V}
+    (hxs : xs.length = rP) (hfs : fs.length = nF) (hihl : ihvals.length = nR)
+    (hmkL : mkA = mk0.liftN nR 0) (hesL : esA = es0.map (·.liftN nR 0))
+    (hmkV : interp V (consList (xs ++ fs) ρ) mk0 = maj)
+    (hesV : es0.map (interp V (consList (xs ++ fs) ρ)) = isOfW (uOf c) (nIdxOf c) tt) :
+    interp V (consList ihvals (consList (xs ++ fs) ρ)) Ca
+      = blockRecMot K concl uOf nIdxOf ρ xs (tagged c tt maj) := by
+  rw [blockRecMot_tagged hc]
+  exact blockRecCa_run hcon hTyE hrds hesLen hconclB hxs hfs hihl hmkL hesL hmkV hesV
+
+/-- **The bundle's producer, at the peel.**  `checkBlockRule`'s own
+`instPisAtLift` equation (`checkBlockRule_data`, through
+`checkBlockRecK_ruleRun`) read at the rule's depth: the peel's four
+side conditions are the run's — the recursor type and the arguments
+are closed expressions scoped at the rule frame, and the arguments
+read to the prefix bvars, the index readings and the fired spine.
+
+This is where the syntactic form lives; the bundle above carries only
+its output, which is the whole point of stating the bundle past the
+peel. -/
+theorem blockRuleConclAt_of {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
+    {rP nF nR : Nat} {recTy concl : Expr} {args : List Expr}
+    {RecTy Ca mkA : AnnotTerm} {esA : List AnnotTerm}
+    (hpr : ConLeche.Expr.instPisAtLift args recTy = some concl)
+    (hw : Expr.WScoped (rP + nF + nR) recTy)
+    (ha : ∀ a ∈ args, Expr.WScoped (rP + nF + nR) a ∧ a.looseBVarsBounded 0 = true)
+    (hty : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) recTy = some RecTy)
+    (hsp : DenoteMetaSpine mp.base2.acval envT ψ (rP + nF + nR) args
+      (paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]))
+    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca) :
+    BlockRuleConclAt rP nF nR RecTy esA mkA Ca := by
+  obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAtLift_peel
+    mp.base2.acval_closed (acval_inst_self mp.base2) args hpr hw ha hty hsp
+  obtain rfl : restA = Ca := Option.some.inj (hrest.symm.trans hCa)
+  exact hpeel
+
+/-- **The prefix openers read to `paramBvarsAt`.**  `openPisAtFvars`
+at index `0` produces `fvar k`s in order, and `denoteMeta` reads
+`fvar k` at depth `D` as `bvar (D - 1 - k)` — which is `paramBvarsAt`
+by definition.  The producer's first spine segment. -/
+theorem denoteMetaSpine_prefFvs {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {D rP : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
+    (hop : ConLeche.openPisAtFvars rP e 0 = some (fvs, body)) (hlen : fvs.length = rP) :
+    DenoteMetaSpine acval env φ D fvs (paramBvarsAt rP D) := by
+  have h := ConLeche.Model.denoteMetaSpine_fvars (acval := acval) (env := env) (φ := φ) D fvs 0
+    (fun k x hx => ConLeche.openPisAtFvars_index _ _ _ hop k x hx)
+  rw [hlen] at h
+  simpa [paramBvarsAt] using h
+
+end RuleConcl
+
 end ConLeche.Model
