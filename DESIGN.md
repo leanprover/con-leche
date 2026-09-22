@@ -82068,3 +82068,70 @@ gained TWO fallback rows for one new public edge: the plan's fixpoint
 is greedy and order-dependent, so a new edge can make an unrelated one
 look demotable for the first time.  Expect one second-order entry per
 new public edge, and measure both.
+
+#### LANDED + FINDING (lane RM27 = M5M-rule session 2): the recursor type's INDEX clause was FALSE as stated
+
+**M5M-rule (2026-09-22, `agent/uinds-RM27`): the recursor type's
+index clause was FALSE as stated; its payable half is proved and its
+unpayable half is isolated.**  `BlockRecTyShape`'s index clause was
+quantified over every prefix spine of the right length, on the ground
+that the recursor's index binders are the member's telescope lifted
+past the prefix's extra binders.  They are not:
+`checkBlockRecTys` stores the stream's recursor type as is and never
+inspects those binders — the only tie is the per-argument `isDefEq`
+inside `checkConstantVal`'s inference of the major's domain, and a
+`DefEqClaim` concludes only at the frames satisfying the opened
+context, so at a junk prefix a defeq-but-differently-spelled index
+binder (which the checker accepts) breaks the equivalence.  The
+clause now takes the prefix fit both consumers already have, and it
+is SPLIT in two, because the two directions have two provenances.
+Forward is `spineFit_of_major_grading`: the major's domain is the
+member's former applied to the prefix and the index binders, so its
+reading is a spine against a λ-tower and the grading carries the fit
+(`spineFit_of_wellDenoted_lams`, `lamR_mem_piR_dom`) — the
+recursor's index binders never enter the proof, which is exactly why
+it works.  The MAJOR clause keeps its all-frames quantification and
+is now produced from the same one syntactic reading
+(`interp_of_major_reading`): a syntactically pinned clause may be
+quantified freely, a clause about binders the checker never inspects
+may not.  Backward has no producer and none is reachable: it would
+need an inversion of `inferTypeCore` through a Π-tower and an
+application spine (2–4 sessions).  The cheap repair is on the
+consumer's side — its single consumer is the IND leaf instantiating
+the induction motive `blockIndP` at a spine it must assemble; state
+`blockIndP` at the SPLIT data instead of at a recursor-spine fit and
+both `hjoin` and the backward clause disappear, since `blockIndPt`
+already converts a spine fit into the split data by the forward
+direction.
+
+**THE RULE this makes explicit**: *a syntactically pinned clause may be
+quantified freely; a clause about binders the checker never inspects
+may not.*  The major clause keeps its all-frames quantification and is
+produced from one syntactic reading; the index clause could not, and
+the difference is exactly whether the check ever looks.  Its companion
+from the data lane is *does the checker ever compare the two
+spellings?* — if it does not, the premise is about READINGS, not
+syntax.
+
+#### RULING (coordinator, 2026-09-22): take the motive restatement, not the inference inversion
+
+The refuted clause's backward direction has no producer and none is
+reachable — it would need an inversion of `inferTypeCore` through a
+Π-tower and an application spine (2–4 sessions).  Its single consumer
+is the small-elimination leaf, which instantiates the induction motive
+`blockIndP` at a spine it must assemble.  **State `blockIndP` at the
+SPLIT data** (prefix fit, index fit, major membership) instead of at a
+recursor-spine fit: `hjoin` and the backward clause both disappear, and
+`blockIndPt` already converts a spine fit into the split data by the
+forward direction, which IS proved (`spineFit_of_major_grading` — the
+major's domain is the member's former applied to the prefix and the
+index binders, so its reading is a spine against a λ-tower and the
+grading carries the fit; the recursor's index binders never enter the
+proof, which is why it works).  One session instead of two-to-four, and
+nothing is preserved that was true.
+
+**Also accepted** (same lane's recommendation): fuse `hkey` and
+`hihDom` into ONE opener-reading premise before either is produced —
+both are one reading of the generated `blockIhPis` opener, and
+`ihNodeVal_blockRec`'s own hypothesis has no producer and that theorem
+has no callers at all.
