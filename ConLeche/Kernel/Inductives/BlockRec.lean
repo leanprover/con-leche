@@ -268,8 +268,9 @@ def BlockRuleFrame.nR (fr : BlockRuleFrame) : Nat := fr.ihKeys.length
 with `rec_{c'}` a block recursor at the block's own level arguments,
 `x⃗` the rule's OWN `rP` prefix variables (which forces `rec_{c'}` to
 carry the same prefix), `f_i` a field of THIS constructor whose kind
-names the member `rec_{c'}` eliminates, `a⃗` as many arguments as the field's
-telescope has binders and free of any block recursor, and the whole
+names the member `rec_{c'}` eliminates, `a⃗` the field telescope's OWN
+variables (`structTeleVars` — as many as the telescope has binders,
+and free of any block recursor by construction), and the whole
 spine SYNTACTICALLY the generated call at those arguments
 (`blockIhSpinePis` instantiated at `a⃗`) — compared EXACTLY, binder
 data included.
@@ -317,6 +318,26 @@ def blockIhCall? (fr : BlockRuleFrame) (d : Nat) (e : Expr) : Option (Nat × Lis
           let tele := fr.teleOf i
           if as.length != tele.length then none else
           if as.any (fun a => a.mentionsAnyConst fr.recNames) then none else
+          -- **the arguments ARE the field telescope's own variables.**
+          -- The generator writes the inductive hypothesis as
+          -- `λ a⃗, rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` with `a⃗` literally
+          -- `structTeleVars m`, and this is the narrowing of
+          -- 2026-09-22: without it any `m` recursor-free terms of the
+          -- rule body's frame are accepted, which is sound (the
+          -- residue is typed with `ih_r : ∀ a⃗ : A⃗, concl` in scope,
+          -- so an ill-typed `a⃗` cannot survive) but expensive — the
+          -- call's arguments are then arbitrary terms under arbitrary
+          -- local binders, and the model's substitution of the opener
+          -- has to carry a local-fit hypothesis for them.  Narrowed,
+          -- the substitution is a known list of bound variables.
+          -- It rejects nothing official emits, and it is reachable at
+          -- REFLEXIVE fields only: at a finitary recursive field
+          -- `tele = []` forces `as = []` and there was never any
+          -- freedom.  Per `restrictions-are-findings` this is a
+          -- deliberate narrowing of an accepted superset — a primitive
+          -- recursion whose hypothesis is applied to a COMPUTED
+          -- argument — not a conformance repair.
+          if as != structTeleVars tele.length then none else
           -- `instPisAtLift`, not `instPisAt`: the call's arguments are
           -- terms of the RULE BODY's frame and may mention its binders,
           -- so the substitution has to lift them past the telescope
@@ -342,10 +363,10 @@ anywhere else.
 The walk is structural: a guarded call is recognised and consumed at
 the `.app` node that heads it, and any recursor occurrence that is not
 consumed there is reached as a bare `.const` leaf and refused.  The
-call's arguments `a⃗` are required to be free of block recursors (they
-are the inductive hypothesis' own arguments; official's are the
-telescope's variables), which is what makes the walk structural — on a
-recursor-free term the walk IS `liftLooseBVars nR d`. -/
+call's arguments `a⃗` ARE the field telescope's own variables
+(`structTeleVars`), hence free of block recursors, which is what makes
+the walk structural — on a recursor-free term the walk IS
+`liftLooseBVars nR d`. -/
 def abstractIh (fr : BlockRuleFrame) : Nat → Expr → Option Expr
   | d, .bvar j => some (if j < d then .bvar j else .bvar (j + fr.nR))
   | _, .sort u => some (.sort u)

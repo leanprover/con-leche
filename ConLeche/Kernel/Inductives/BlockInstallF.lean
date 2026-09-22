@@ -275,9 +275,17 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- the certification-only typing of the annotated rule at the
   -- rule-less recursor environment (`checkBlockRule`'s own step)
   let _tyR ← opsR.inferType feR.env 0 rhsA
-  let (_rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
+  let (rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
+  -- the rule's λ binder data ARE the family's elimination datum
+  -- (`checkBlockRule`'s own guard: the certification inference
+  -- validates them against the sort it infers for the body's type,
+  -- which reaches the elimination level only across the stage's final
+  -- defeq)
+  unless rbs.all (fun b => b.2.pw == Level.zeronessOf (structElimLevel p.elim p.large)) do
+    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not annotate its λ-binders \
+      with the family's elimination datum")
   let (fvsPref, _) ← unwrapOr (openPisAtFvars rP recTy 0)
     (.internal "direct rec: recursor prefix telescope")
   let (_, crest) ← unwrapOr (Expr.instPisAt (fvsPref.take nP) cA.1.type)

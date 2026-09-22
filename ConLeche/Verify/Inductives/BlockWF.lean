@@ -275,7 +275,13 @@ theorem checkBlockRule_facts {envR envT : Env} {p : BlockShape} {recNames : List
   rw [if_pos hres] at h
   -- the rule's own typing at the rule-less recursor environment
   obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x1
+  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨rbs, _⟩ := x1
+  dsimp only at h
+  -- the rule's λ binder DATA: the family's elimination datum
+  by_cases hpw : rbs.all
+      (fun b => b.2.pw == Level.zeronessOf (structElimLevel p.elim p.large)) = true
+  case neg => rw [if_neg hpw] at h; close_throw h
+  rw [if_pos hpw] at h
   obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
   obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x3
   obtain ⟨x4, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x4

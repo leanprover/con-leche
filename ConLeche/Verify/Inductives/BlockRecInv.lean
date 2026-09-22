@@ -92,7 +92,9 @@ the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
 `r` — the opener of the (field, callee) key `(i, c')` — belongs to a
 field `i` of THIS constructor whose kind names the member `rec_{c'}`
 eliminates; the call's arguments `as` are as many as that
-field's telescope has binders and mention no block recursor; and the
+field's telescope has binders, mention no block recursor and ARE that
+telescope's own variables (`structTeleVars`, the narrowing of
+2026-09-22); and the
 whole node IS `blockIhSpinePis` — the generated call
 `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame — instantiated
 at `as`, EXACTLY: `e = expected` as terms, binder data included, so
@@ -117,6 +119,7 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
       e.getAppArgs.length = fr.mIs.getD c' 0 + 1 ∧
       as.length = (fr.teleOf i).length ∧
       (as.any fun a => a.mentionsAnyConst fr.recNames) = false ∧
+      as = structTeleVars (fr.teleOf i).length ∧
       Expr.instPisAtLift as
           (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d (fr.teleOf i)
             (fr.idxOf i)) = some expected ∧
@@ -156,6 +159,9 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   case isTrue => exact nomatch h
   case isFalse hfree =>
   split at h
+  case isTrue => exact nomatch h
+  case isFalse hvars =>
+  split at h
   case h_1 => exact nomatch h
   case h_2 expected hexp =>
   split at h
@@ -168,13 +174,15 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   have hus' : us = fr.rlvls := by simpa using hus
   have hasl' : maj.getAppArgs.length = (fr.teleOf (d + fr.nF - 1 - b)).length := by simpa using hasl
   have hfree' : (maj.getAppArgs.any fun a => a.mentionsAnyConst fr.recNames) = false := by simpa using hfree
+  have hvars' : maj.getAppArgs = structTeleVars (fr.teleOf (d + fr.nF - 1 - b)).length := by
+    simpa using hvars
   have hcmp' : e = expected := by simpa using hcmp
   have htgt' : (fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt?
       = some (fr.recTgts.getD c' fr.recTgts.length) := by
     simpa using htgt
   have hrp' : fr.rPs.getD c' 0 = fr.rP := by simpa using hrp
   exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
-    by simpa using hlen, hasl', hfree', hexp, hcmp'⟩
+    by simpa using hlen, hasl', hfree', hvars', hexp, hcmp'⟩
 
 
 /-! ## The abstraction -/

@@ -335,6 +335,9 @@ theorem blockIhCall?_args_sub {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr
   case isTrue => exact nomatch h
   case isFalse =>
   split at h
+  case isTrue => exact nomatch h
+  case isFalse =>
+  split at h
   case h_1 => exact nomatch h
   case h_2 =>
   split at h
@@ -1683,7 +1686,7 @@ theorem ihNodeVal_of_fold
       obtain ⟨maj, hmaj, hsub⟩ := blockIhCall?_args_sub hc
       exact hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs he maj hmaj) z (hsub ▸ hz)))
     hcbe 0) hB
-  obtain ⟨nm, c', i, expected, hh1, hh2, hrpos, hh4, hh5, hh6, hh7, hh8, hh9, hh10⟩ :=
+  obtain ⟨nm, c', i, expected, hh1, hh2, hrpos, hh4, hh5, hh6, hh7, hh8, -, hh9, hh10⟩ :=
     ConLeche.blockIhCall?_spine hc
   clear hh1 hh2 hh4 hh5 hh6 hh7 hh8 hh9 hh10
   have hr : r < fr.nR := pairIdxOf?_lt hrpos
@@ -1751,7 +1754,7 @@ theorem ihCallFold_of_spine {envT : Env} {mT : EnvModel V envT}
     {ihvals : List V} (h : IhSpineFold V acval env mT φ fr F ρ' ihvals as2₀) :
     IhCallFold V acval env mT φ fr F ρ' ihvals as2₀ := by
   intro d locals e r as as1 as2 Δa A vs ws he hb hcbe hloc h1 h2 hsx hlf hW hc hty hA hvs hws
-  obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, hexp, rfl⟩ :=
+  obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, -, hexp, rfl⟩ :=
     ConLeche.blockIhCall?_spine hc
   exact h d locals nm c' i r as as1 as2 Δa e e A vs ws hc he hb hcbe hloc h1 h2 hsx hlf hW hnm
     hrpos hasl hexp rfl hty hA hvs hws
@@ -2574,7 +2577,7 @@ theorem ihSpineFold_blockRec_zero {env envT : Env} {mo : EnvModel V env}
   intro d locals nm c' i r as as1 as2 Δa node expected A vs ws hcall hnodeF hnodeB hcbe hloc h1 h2
     hsx hlf hW hnm hrpos hasl hexp hne hty hA hvs hws
   subst hne
-  obtain ⟨nm', c'', i', expected', hfn, hnm', -, -, -, -, -, -, -, -⟩ :=
+  obtain ⟨nm', c'', i', expected', hfn, hnm', -, -, -, -, -, -, -, -, -⟩ :=
     ConLeche.blockIhCall?_spine hcall
   -- the node is a spine on the callee CONSTANT
   rw [← ConLeche.Expr.mkAppN_getApp node, hfn, instantiateList_mkAppN,

@@ -748,9 +748,37 @@ def checkBlockRule (opsR : CheckerOps m) (envR : Env) (opsT : CheckerOps m) (env
   -- the stage otherwise accepts, and its cost is one inference per
   -- rule.
   let _tyR ← opsR.inferType envR 0 rhsA
-  let (_rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
+  let (rbs, body) ← unwrapOr (rhsA.stripLams (rP + nF))
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
+  -- **the rule's λ binder DATA is the family's elimination datum.**
+  -- Every binder of a λ-chain carries ONE `PropWhen`, the zero-ness of
+  -- the sort of the innermost body's TYPE (`inferBody`'s
+  -- `(lam-cod-chain)`/`(lam-cod-leaf)` clauses, `Kernel/Core.lean`),
+  -- and for a rule that type is the recursor's conclusion, whose sort
+  -- the stage has already pinned to `structElimLevel p.elim p.large`
+  -- (`checkBlockRecElimPin`).  So the value this compares against is
+  -- the frame's own `pw` three lines below, and the comparison is the
+  -- only thing that makes it a fact: the certification inference above
+  -- validates the data against the sort it INFERS for the body's type,
+  -- which reaches the elimination level only across the stage's final
+  -- `isDefEq tyB concl` — two definitionally equal types may carry
+  -- syntactically different inferred sorts, and nothing here inverts
+  -- that.  The datum is what the model reads for the stored tower's
+  -- head bit (`denoteMeta`'s `pwBit`), so at a `Prop`-valued block's
+  -- ordinary elimination it is the ONLY route to "the rule reads as
+  -- the point": the λ-tower fold is bit-free but its own fit premise
+  -- fails there.
+  --
+  -- It rejects nothing official emits.  The data are `annotate`'s own
+  -- (the parser defaults an unwritten `pw` to `.never` and the pass
+  -- recomputes over it), and `zeronessOf (imax u v) = zeronessOf v`
+  -- makes the chain's value the LEAF codomain's, so a rule whose body
+  -- is itself a λ-telescope carries the same datum — the elimination
+  -- level's zero-ness, which is what a generated rule computes to.
+  unless rbs.all (fun b => b.2.pw == Level.zeronessOf (structElimLevel p.elim p.large)) do
+    throw (.invalid s!"direct rec: the rule of {cA.1.name} does not annotate its λ-binders \
+      with the family's elimination datum")
   -- the frame: the recursor's own prefix, then the CONSTRUCTOR's
   -- fields at those parameters (they are what the ι step substitutes)
   let (fvsPref, _) ← unwrapOr (openPisAtFvars rP recTy 0)

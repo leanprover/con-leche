@@ -1567,6 +1567,8 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
       (resid ihTele : Expr) (fvsIh : List Expr) (bodyO ty concl tyR : Expr),
       recTys[ri]? = some recTy ∧
       ConLeche.Expr.stripLams (p.rulePrefixAt ri + cA.2) out = some (rbs, body) ∧
+      (∀ b ∈ rbs,
+        b.2.pw = Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ∧
       ConLeche.openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
       ConLeche.Expr.instPisAt (fvsPref.take p.nP) cA.1.type = some (cpref, crest) ∧
       ConLeche.openPisAtFvars cA.2 crest (p.rulePrefixAt ri) = some (fvsF, cbody) ∧
@@ -1628,6 +1630,16 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
   -- the rule's own typing at the rule-less recursor environment
   obtain ⟨tyR, htyR, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨rbs, body⟩ := x1
+  dsimp only at h
+  -- **the rule's λ binder DATA**: the family's elimination datum, at
+  -- every binder of the stored telescope (the guard of 2026-09-22)
+  by_cases hpw : rbs.all
+      (fun b => b.2.pw == Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) = true
+  case neg => rw [if_neg hpw] at h; close_throw h
+  rw [if_pos hpw] at h
+  have hpw' : ∀ b ∈ rbs,
+      b.2.pw = Level.zeronessOf (ConLeche.structElimLevel p.elim p.large) := fun b hb =>
+    eq_of_beq ((List.all_eq_true.mp hpw) b hb)
   obtain ⟨x2, hx2, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
   obtain ⟨x3, hx3, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨cpref, crest⟩ := x3
   obtain ⟨x4, hx4, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
@@ -1661,7 +1673,7 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
   subst hout
   exact ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
     resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
-    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx1, ConLeche.unwrapOr_ok hx2,
+    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx1, hpw', ConLeche.unwrapOr_ok hx2,
     ConLeche.unwrapOr_ok hx3, ConLeche.unwrapOr_ok hx4, ConLeche.unwrapOr_ok hx5, hcb,
     (checkBlockDefEqList_inv hG2).1, (checkBlockDefEqList_inv hG2).2,
     ConLeche.unwrapOr_ok hresid, ConLeche.unwrapOr_ok hihTele, ConLeche.unwrapOr_ok hx9,
@@ -2024,7 +2036,7 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     checkBlockRecK_ruleRun h hr hcA hrhs
   obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
     resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
-    hrecTy', hstrip, hop1, hinst, hop2, hlams, hcbd, hg2len, hg2, -, -, -, -, -, -, -, -⟩ :=
+    hrecTy', hstrip, -, hop1, hinst, hop2, hlams, hcbd, hg2len, hg2, -, -, -, -, -, -, -, -⟩ :=
     checkBlockRule_data hrun
   obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
   -- the prefix openers
@@ -2115,7 +2127,7 @@ theorem blockRuleResidueData_run {envC : Env} {p : BlockParts} {cvTas : List Con
     checkBlockRecK_ruleRun h hr hcA hrhs
   obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
     resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
-    hrecTy', hstrip, hop1, hinst, hop2, -, -, -, -, hab, hihTele, hopIh, hinf, hconcl,
+    hrecTy', hstrip, -, hop1, hinst, hop2, -, -, -, -, hab, hihTele, hopIh, hinf, hconcl,
     hdeq, -, -⟩ := checkBlockRule_data hrun
   obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
   have hpref : blockRulePrefFvs p.toBlockShape rs c = fvsPref := by
@@ -3384,7 +3396,7 @@ theorem blockRuleHfit_of {env envT : Env} {mo : EnvModel V env} {mT : EnvModel V
     h1 h2 hsx hlf hcbe hW htyN hvs hws hwlen
   have hr : r < fr.nR := pairIdxOf?_lt hrpos
   -- the call's own key: its field index is this one
-  obtain ⟨nm2, c2, i2, expected, -, -, hrpos2, -, -, -, hasl, -, -, -⟩ :=
+  obtain ⟨nm2, c2, i2, expected, -, -, hrpos2, -, -, -, hasl, -, -, -, -⟩ :=
     ConLeche.blockIhCall?_spine hcall
   obtain ⟨rfl, -⟩ : i = i2 ∧ c' = c2 := by
     have h := pairIdxOf?_inj hrpos hrpos2
@@ -3612,7 +3624,7 @@ theorem blockIhCall?_args_constsBound {fr : ConLeche.BlockRuleFrame} {d : Nat} {
     (hc : ConLeche.blockIhCall? fr d e = some (r, as))
     (hcb : ConstsBound env' e) :
     ∀ a ∈ as, ConstsBound envC a := by
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hfree, -, -⟩ := ConLeche.blockIhCall?_spine hc
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hfree, -, -, -⟩ := ConLeche.blockIhCall?_spine hc
   obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
   intro a ha
   refine constsBound_of_not_mentions hmono a

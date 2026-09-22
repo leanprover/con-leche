@@ -203,7 +203,7 @@ theorem denoteMeta_blockIhCall {acval : Name → (Name → Nat) → AnnotTerm} {
           (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
             (fr.teleOf i) (fr.idxOf i)) = some expected ∧
       ∀ D : Nat, denoteMeta acval env φ D e = denoteMeta acval env φ D expected := by
-  obtain ⟨nm, c', i, expected, h1, h2, h3, -, -, -, h7, -, h9, h10⟩ :=
+  obtain ⟨nm, c', i, expected, h1, h2, h3, -, -, -, h7, -, -, h9, h10⟩ :=
     ConLeche.blockIhCall?_spine h
   exact ⟨nm, c', i, expected, h1, h2, h3, h7, h9, fun D => congrArg _ h10⟩
 
