@@ -83017,3 +83017,38 @@ converse is different in kind: the parameter hop already pays for it at
 the run, so putting it in the predicate costs nothing and spares three
 consumers a premise that is already bought.  Carrying it as a premise
 would manufacture a finished bridge with no traffic on purpose.
+
+#### THE HABIT, in its final form (lane RM37 session 32) — and the RULING that follows
+
+Executing the restatement got the 8 700-line file to ONE error twice
+over, and the last site showed why both measurements under-read it: the
+small-elimination arm's four premises are stated **at a fitting spine**,
+and a fit is exactly what the split data cannot rebuild.  The prefix
+converts (the parameter hop, through the `↔` ruled above) and the major
+converts (the shape's fifth clause, through the model's leaf), but the
+INDEX segment's converse **is `BlockRecTyJoin` itself** — the refuted
+clause — and stating the motive's index premise in the recursor's
+currency only moves the same converse to the leaf.
+
+**So the habit is three steps, not two** — the lane's own synthesis,
+and it is the most transferable thing in this window:
+
+> *The grep habit and apply-and-count are the same question at two
+> scales.*  A count cannot see that a site's fix needs a FACT, and
+> whether that fact has a producer is a property of the TREE, not of
+> the error.  **Count first; read each site; then ask of each missing
+> fact — which check makes it available, and does any inversion keep
+> it?**
+
+**RULING (coordinator): move the FAMILY to the split data.**  Not
+because the motive is wrong, but because the premises were written "at
+a fitting spine" by whoever wrote them first, while **the split data is
+what the run actually has** — and the evidence is that `hspF` is
+already split-shaped and the other two touch the assembled spine only
+through the prefix and major projections the split supplies.  Half a
+session to one, and the refuted clause dies permanently.  The
+alternatives were: keep `BlockRecTyJoin` (leaves the arm's first
+composition carrying an unproduced premise — the arm does not close,
+and the composition is paid for but unusable), or find a run-level
+producer for the converse (the inversion of inference through a Π-tower
+and an application spine, 2–4 sessions, for a fact nothing else needs).
