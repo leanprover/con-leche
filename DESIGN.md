@@ -83630,47 +83630,33 @@ Measured again from scratch after the predicate changed, the new clause
 being strictly stricter: byte-identical on 247 e2e and 182 arena
 streams, `init-full` exit 0 at 53 093 declarations under the flip.
 
-#### RULE (lane SEC2, 2026-09-22): a check that exists to make a model fact reachable states the CHECKER'S OWN predicate
-
-Not the one fact its first consumer needed.  This is a design rule for
-every future pass, and it came out of a measured mistake and its repair
-in the same session.
+**The mistake the rule came out of, concretely** (lane SEC2's own words,
+folded in here rather than under a second heading — the rule above is
+the same rule, and two headings for one rule is the class this session
+spent its evening removing).
 
 `checkBlockRecSmallElim` was added because the squash regime is
 unstateable without `rs.length = 1`, and it was first written to say
 exactly that: `p.k == 1 || p.resSort.isNeverZero || every level is
 zero`.  That statement was **weaker AND more expensive**.  Weaker,
-because the guard it was standing in for — `blockLargeElimAllowed` —
-carries four conjuncts and the narrow clause kept only one of them.
-More expensive, because the other lane already had the READING of that
-guard (`blockLargeElim_counting`: the same `&&` unpacked at a
-`Prop`-valued result sort), so deriving `k = 1` from a narrower clause
-created **one fact under two names in two files** — the duplication
-class nothing catches.
+because the guard it was standing in for carries four conjuncts and the
+narrow clause kept one.  More expensive, because the other lane already
+had the READING of that guard — the same `&&` unpacked at a
+`Prop`-valued result sort — so deriving `k = 1` from a narrower clause
+put one fact under two names in two files.
 
-Restating the pass as `blockLargeElimAllowed p nested || every level is
-zero` — the checker's own predicate, with the arm the model can refute
-in place of the `isDefEq` run it cannot — fixed all three at once:
+The general shape, and why it is a rule and not an anecdote: a kernel
+check that exists to license a model fact sits at a seam between two
+currencies, and the temptation is to state it in the CONSUMER's
+currency at the CONSUMER's width.  Doing so throws away everything the
+checker already decides *and* competes with whatever reading of that
+decision already exists upstream.  State the predicate the checker
+computes; leave the reading where the model already reads it.
 
-* it **deleted the second name**: the run theorem now CALLS the other
-  lane's reading instead of re-deriving one of its conjuncts;
-* it made the pass **stronger**: two further facts (`¬nested`,
-  `numCtors ≤ 1`) that no one had asked for became available, and they
-  are premises the squash arm needs;
-* it made a **deferred proof unnecessary**: the `isDefEqCore`-through-
-  `whnf`-to-sort inversion existed to reach the guard's verdict from a
-  non-zero elimination level, and the pass now reaches it directly.
-
-The general shape: a kernel check that exists to license a model fact
-sits at a seam between two currencies, and the temptation is to state
-it in the consumer's currency at the consumer's width.  Doing so
-throws away everything the checker already decides *and* competes with
-whatever reading of that decision already exists upstream.  State the
-predicate the checker computes; leave the reading where the model
-already reads it.
-
-The corollary for review: **when a premise looks unproducible, check
-whether a pass is stating a narrowed version of the predicate that
-would produce it.**  That is what had happened here — the two facts
-declared "no producer" were behind an antecedent a pass three files
-away could have handed over, and did, once it stopped narrowing.
+**The corollary for review**: when a premise looks unproducible, check
+whether some pass is stating a NARROWED version of the predicate that
+would produce it.  That is what had happened here — the two facts
+declared "no producer", and on that ground deleted, were behind an
+antecedent a pass three files away could have handed over, and did,
+once it stopped narrowing.  A premise with no producer is evidence
+about the passes, not only about the premise.
