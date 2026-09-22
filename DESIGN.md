@@ -82136,9 +82136,7 @@ both are one reading of the generated `blockIhPis` opener, and
 `ihNodeVal_blockRec`'s own hypothesis has no producer and that theorem
 has no callers at all.
 
-#### LANDED (lane RM28 = M5M-pre session 22, `97e18469`)
-
-#### LANDED (lane RM28 = M5M-pre session 22): the generated `ih` tower's two syntactic facts, and the field segment's constructor half
+#### LANDED (lane RM28 = M5M-pre session 22, `97e18469`): the generated `ih` tower's two syntactic facts, and the field segment's constructor half
 
 `blockIhPis` is the one piece of a rule's frame the kernel never
 types — the check opens the tower and types only the residue under it
@@ -82176,18 +82174,6 @@ INVERSION work — two stage re-inversions in the style of
 `checkBlockRecPrefixAt_inv`, plus the type former's own opened
 parameter readings and grading — rather than a composition of
 ingredients on the shelf.
-
----------------------------------------------------------------------
-
-**FINDING that re-sizes the field segment**: *neither defeq comparison
-of the check's parameter chain is readable from the model tier.*
-`checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean:341`) peels
-positionally and DISCARDS the `checkBlockDefEqList` result, and
-`CtorDataI` (`Model/Inductives/SumData.lean:284`) has no field about
-the constructor's parameter domains at all.  So the "~1 session" that
-segment was priced at is a session of INVERSION work in the Verify
-tier — two stage re-inversions plus the type former's own opened
-readings and grading — not of model work; the model half is landed.
 
 **Two operational findings.**  *Growing a file can turn its import gate
 red*: `tests/shake.sh` went red on four of this file's re-exports the
