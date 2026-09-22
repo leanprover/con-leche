@@ -5786,6 +5786,60 @@ theorem blockRuleHokΔ_of {rP nF nR : Nat} {pdoms fdoms ihdoms : List AnnotTerm}
   rw [hval]
   exact this
 
+/-! ### 39.1 The bundle, from the segments
+
+`BlockRuleCerts.of_segments` is the bundle's INTRODUCTION rule in the
+spelling its producers export: the three openings and the two typing
+runs come from stage (c)'s peel (`checkBlockRule_data`), the frame's
+readings and grading come SEGMENT by segment (§39), and the residue's
+and conclusion's own readings are the rule lane's.  Nothing here is
+quantified past the rule it is about, and every semantic premise names
+`envT` — the CONSTRUCTORS' environment, where the check ran — and no
+other. -/
+
+/-- **`BlockRuleCerts`, from its segments.**  What is left to own,
+after this, is exactly the list of its arguments. -/
+theorem BlockRuleCerts.of_segments {envT : Env} (mp : EnvModelM V μ envT)
+    {ψ : Name → Nat} {fuel rP nF nR : Nat}
+    {recTy crest ihTele : Expr} {fvsPref fvsF fvsIh : List Expr}
+    {o₁ o₂ o₃ bodyO ty concl : Expr}
+    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
+    (hw₃ : Expr.WScoped (rP + nF) ihTele)
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hP : ∀ (l : Nat) (x : Expr), fvsPref[l]? = some x →
+      denoteMeta mp.base2.acval envT ψ l (Expr.fvarTypeD x) = some (pdoms.getD l default))
+    (hF : ∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+      denoteMeta mp.base2.acval envT ψ (rP + l) (Expr.fvarTypeD x)
+        = some (fdoms.getD l default))
+    (hI : ∀ (l : Nat) (x : Expr), fvsIh[l]? = some x →
+      denoteMeta mp.base2.acval envT ψ (rP + nF + l) (Expr.fvarTypeD x)
+        = some (ihdoms.getD l default))
+    (hokA : ∀ l, l < rP + nF + nR → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((pdoms ++ fdoms ++ ihdoms).take l) ys →
+      WellDenotedV V (consList ys σ) ((pdoms ++ fdoms ++ ihdoms).getD l default))
+    (hinf : ConLeche.inferTypeCore μ envT fuel (rP + nF + nR) bodyO = .ok ty)
+    (hdeq : ConLeche.isDefEqCore μ envT fuel (rP + nF + nR) ty concl = .ok true)
+    (hbR : bodyO.looseBVarsBounded 0 = true) (hbC : concl.looseBVarsBounded 0 = true)
+    (hleafR : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
+    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
+    (hokC : ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+      WellDenotedV V ρ Ca) :
+    BlockRuleCerts V mp fuel ψ rP nF nR pdoms fdoms ihdoms Rb Ca :=
+  ⟨recTy, crest, ihTele, fvsPref, fvsF, fvsIh, o₁, o₂, o₃, bodyO, ty, concl,
+    h₁, h₂, h₃, hw₁, hw₂, hw₃, hlbF, hp, hf, hidx,
+    blockRuleHdoms_of hp hf hidx (ConLeche.Verify.openPisAtFvars_length _ h₁)
+      (ConLeche.Verify.openPisAtFvars_length _ h₂)
+      (ConLeche.Verify.openPisAtFvars_length _ h₃) hP hF hI,
+    blockRuleHokΔ_of hp hf hidx hokA,
+    hinf, hdeq, hbR, hbC, hleafR, hleafC, hRb, hCa, hokC⟩
+
 end FrameSeam
 
 end ConLeche.Model
