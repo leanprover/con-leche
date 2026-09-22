@@ -3911,6 +3911,43 @@ theorem blockRuleHapp_run {env₃ : Env} {acv : Name → (Name → Nat) → Anno
   · exact Or.inr (by rw [hlam])
   · rw [List.map_append]; exact htow lds A hlam hlen
 
+/-- **The fit's PREFIX half is a RUN fact now.**  §A.10's truncation
+needed the recursor type's reading as a premise (`hTVa`); with the
+contract's `TVa` eliminated (`blockRuleTVa_run`) the fit the contract
+hands IS a fit of that reading, so the premise is discharged by
+`checkBlockRecK_tyPis` and nothing is left of this half. -/
+theorem blockRuleHspPref_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {ρ : Nat → V} {xs : List AnnotTerm} {maj rest : AnnotTerm}
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfit : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) (xs ++ [maj]) rest) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) := by
+  obtain ⟨-, -, -, hread, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  exact spineFit_blockRulePdomsAV_app hμ mpC h hr ψ hread hxl hfit
+
+/-- **`BlockRuleDataB`'s FIRST conjunct, at the lane's own `pdoms0`** —
+the prefix half is the run's (above) and what is left is the FIELD
+half alone, in the shape the representation produces it (RM18's
+`hspF`). -/
+theorem blockRuleHsp_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {ρ : Nat → V} {xs ys : List AnnotTerm} {maj rest : AnnotTerm}
+    {fdoms0 : List AnnotTerm} {nP : Nat}
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfit : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) (xs ++ [maj]) rest)
+    (hfld : SpineFit
+      (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) ρ)
+      fdoms0 ((ys.drop nP).map (interp V ρ))) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms0)
+      ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+        ++ (ys.drop nP).map (interp V ρ)) :=
+  blockRuleHsp_of (blockRuleHspPref_run hμ mpC h hr ψ hxl hfit) hfld
+
 /-- **The seam's rule-side obligation at one (recursor, constructor)
 pair** — §A.5c's contract with both reading binders eliminated, its
 grading statement replaced by the rule tower's FIT, and no `∀ m₃`.
