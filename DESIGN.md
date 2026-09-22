@@ -82459,3 +82459,85 @@ STATEMENT SHAPE, never by the name one intends to give it — and the
 sizing that priced this bridge at a third of a session was pricing a
 theorem that already existed, one rewrite away, which is the third
 audit row this effort has found already closed.
+
+#### LANDED (lane RM35 = M5M-data session 28, `db7d8d94`): the TOWER FIT at the run, and the residue reduced to ONE statement
+
+`blockRuleTowerFit_run` (`Model/Inductives/BlockRuleFit.lean:1109`) is
+`w`-free, with three premises that all have named producers; and
+`BlockRuleResidueB` (`BlockRecData.lean:4179`) is now the BODY EQUATION
+alone, its syntactic half being `blockRuleResidueData_run` (`:2049`).
+`blockRuleDataB_of_residue` discharges four of the contract's five
+conjuncts from the run.  **(C) re-sized 3–5 → 2–3 sessions.**
+
+**FINDING — the "risky step" was already in the tree.**  Four reports
+priced the depth transport as the risk of this row.
+`prefixDoms_spineFit` (`BlockRecPreRun.lean:3929`, the rule lane's
+certified hop from session 16) IS that transport, plus the soundness
+hop, plus the `SpineFit` transfer; it could not be used verbatim only
+because its second side is a second `openPisAtFvars`, and generalising
+that side is the whole content.  **The check to add beside "which CHECK
+makes this available": *which theorem already has this CONCLUSION?*** —
+one grep for the conclusion's shape (`SpineFit ρ₀ domsA xs → SpineFit
+ρ₀ domsB xs`) finds it.
+
+**FINDING — the route had a fourth step nobody listed: the ENVIRONMENT
+CROSSING.**  The defeq step runs at `envC`, while the rule's λ-tower is
+read at the CONSED environment, because the stage's facts give the
+right-hand side resolved against the bare recursors — the rhs mentions
+the recursors by design.  So the fit's two sides are a priori different
+terms.  It is carried as a premise bounded by the run's own
+`instLamsAt` equation, and owed as `blockRecDenote_cross` at
+`ConstsBound envC`.  **Rule: when a bridge's two sides come from a
+CHECK and a READING, count the ENVIRONMENTS before counting the
+steps.**
+
+Two smaller ones: a conjunct can be discharged from ANOTHER conjunct
+(the tower fit follows from the fit's prefix half, which halved the
+seam); and the duplicate-declaration class fired again — the same
+lemma, same name, same namespace, written independently in two lanes,
+textual merge clean, **build caught it**.  That is the benign class;
+the malign one is the same fact under two NAMES, which nothing catches.
+
+`w = 0`: neither new obligation acquired a `w` hypothesis — the
+evidence is a grading against the λ-tower, never a carrier membership,
+exactly as the boundary predicts.
+
+#### LANDED (lane RM36 = M5M-rule session 5, `e6dfffc8`): the BODY EQUATION — the rule side of the contract is closed
+
+`blockRuleBodyEq_run` (`Model/Inductives/BlockRecTyShapeRun.lean:979`)
+is the contract's last non-`w` conjunct, together with the residue's
+two rule-side premises at the run (`ihSpineFold_blockRec_run` :868;
+`walkCtx_blockFrame` :786 with its hereditary form :1111) and the fused
+opener premise's missing lengths.
+
+**FINDING — *an unconsumed producer is a finished bridge with no
+traffic.*** `ihSpineFold_blockRec`'s hardest premise, priced across
+four reports as the obstacle, had been a theorem since the data lane
+finished its half (`blockRuleHfit_run`, `BlockRecData.lean:3260`) and
+NOTHING consumed it; the obligation was one composition.  One grep of
+the ingredient's name for a consumer is the whole check — the cheapest
+of the checks this window has accumulated, and the fourth already-closed
+row it has found.
+
+**FINDING — *a convergence is not a collision, and it is evidence.***
+Nine of `walkCtx_blockFrame`'s premises are `BlockRuleCerts`' fields
+character for character — the three openings, the three lengths,
+`hdoms` down to its indexing, `hokΔ` down to its shifted valuation,
+`hlbF` — written independently in two files a week apart.  Two lanes do
+not converge by accident on eleven premises: **the frame description is
+forced by the check.**  So when a shape-grep hits, the question is
+whether it is one subject at ONE frame (a duplicate — delete one) or
+one subject at TWO frames (a seam — name it).  This is the second kind,
+and it is recorded in the body equation's docstring.
+
+Two smaller ones: `WalkCtx` is `CtxOk`'s inputs RE-INDEXED, and the
+whole translation is `D − 1 − (D − 1 − j) = j` under
+`List.getElem?_reverse` — not the step-by-step `cons` induction the
+definitions suggest.  And **an existential's own choice is not an
+obligation**: of the fused premise's four length conjuncts, two are the
+existential instantiating itself, so four conjuncts cost two theorems.
+
+`w = 0`: all seven statements are `w`-free — `d.w`, `∈ˢ`, `tagged`,
+`tup` and `lfpTuple` occur in none of them, the evidence throughout
+being a fit against the rule's own domain readings, paid by the
+certificates.
