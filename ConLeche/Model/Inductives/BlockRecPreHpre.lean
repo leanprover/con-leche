@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+public import ConLeche.Model.Inductives.BlockRuleFit
 
 public section
 
@@ -48,7 +49,15 @@ listed:
    for both arms at once, from the same three witnesses the IND arm's
    guard is stated over.  It is the one premise the three regimes
    genuinely share.
-4. **The SQ arm needs `rs.length = 1`, and that is a KERNEL fact.**
+4. **The ι equations' grading is NOT a premise of the dispatch.**
+   The rule lane's fold `blockRecHwd_of_rules`
+   (`BlockRuleFit.lean`) is the family's `hwd` conjunct for
+   conjunct at `σ := consList as ρ`, so the dispatch takes the
+   fold's FOUR premises — the per-rule certificates and its three
+   frame premises, ψ- and ρ-quantified — and produces `hwd` itself.
+   A premise with no discharge route is the dual of a premise set
+   with no instance, and neither is visible in a build.
+5. **The SQ arm needs `rs.length = 1`, and that is a KERNEL fact.**
    `blockKitRegime_sq` produces `KitRegimeAt … 1 …`; the dispatch
    consumes `KitRegimeAt … rs.length …`.  The two meet only through
    `hK1`, and `hK1` is exactly what the large-elimination COUNTING
@@ -192,8 +201,8 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V} {s : (Name → Nat) → Nat} {us : List Level}
-  {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
-  {Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+  {ihs ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
+  {Rb0 Ca : (Name → Nat) → Nat → Nat → AnnotTerm}
 
 /-- **The endpoint's equation list, at the BASE prefix domains** — §1
 through §28's collapse. -/
@@ -230,37 +239,66 @@ theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
-    -- the equation list's GRADING at every typed tuple (the rule lane's)
-    (hwd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+    -- the ι equations' GRADING at every typed tuple: NOT a premise of
+    -- its own — the rule lane's fold `blockRecHwd_of_rules` produces
+    -- it from the per-rule certificates and its three frame premises,
+    -- so what the dispatch takes is those four, ψ- and ρ-quantified
+    (hcertsW : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c)
+        (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
+        (ihdoms ψ c j).length
+        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+        (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)
+        (ihdoms ψ c j)
+        ((Rb0 ψ c j).liftN rs.length
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+            + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
+            + (ihs ψ c j).length))
+        (Ca ψ c j))
+    (hokA : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
       (∀ c, c < rs.length →
         as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
       ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-        FieldsOkB 0 (consList as ρ)
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+          ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length →
+      ∀ ys : List V,
+        SpineFit (consList as ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).take l)
+          ys →
+        WellDenoted V (consList ys (consList as ρ))
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).getD l
+            default))
+    (hlhs : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+      (∀ c, c < rs.length →
+        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ ys : List V,
+        SpineFit (consList as ρ)
           (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j) ∧
-        ∀ ys, SpineFit (consList as ρ)
-            (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-              ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j) ys →
-          WellDenoted V (consList ys (consList as ρ))
-              (AnnotTerm.mkAppN
-                (.bvar
-                  ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-                    + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs
-                        ψ c j).length
-                    + (rs.length - 1 - c)))
-                (prefVarsAV
-                    (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-                    (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs
-                      ψ c j).length
-                  ++ blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j
-                  ++ [blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j])) ∧
-            WellDenoted V (consList ys (consList as ρ))
-              (instsAV 0 (ihs ψ c j)
-                ((Rb0 ψ c j).liftN rs.length
-                  ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-                    + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs
-                        ψ c j).length
-                    + (ihs ψ c j).length))))
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j) ys →
+        WellDenoted V (consList ys (consList as ρ))
+          (AnnotTerm.mkAppN
+            (.bvar
+              ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+                + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
+                + (rs.length - 1 - c)))
+            (prefVarsAV (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+                (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
+              ++ blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j
+              ++ [blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j])))
+    (hihsWd : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+      (∀ c, c < rs.length →
+        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ ys : List V,
+        SpineFit (consList as ρ)
+          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j) ys →
+        (∀ v ∈ ihs ψ c j, WellDenoted V (consList ys (consList as ρ)) v) ∧
+          SpineFit (consList ys (consList as ρ)) (ihdoms ψ c j)
+            ((ihs ψ c j).map (interp V (consList ys (consList as ρ)))))
     -- REGIME IND (`ℓ = 0`) — `blockIndRegime_of_run`'s conclusion verbatim
     (hIND : ∀ (ψ : Name → Nat) (ρ : Nat → V), (us.headD .zero).eval ψ = 0 →
       IndRegimeAt V μ rs.length (blockRecNCt rs) p.toBlockShape.rulePrefixAt ψ
@@ -312,7 +350,9 @@ theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
     (rds := blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
     (concl := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
     (rP := p.toBlockShape.rulePrefixAt) (μ := μ) (ψ := ψ)
-    (hTy ψ ρ) (hwd ψ ρ) (hIND ψ ρ) (fun hl => ?_)
+    (hTy ψ ρ)
+    (blockRecHwd_of_rules (mp := mpC) hμ (hcertsW ψ) (hokA ψ ρ) (hlhs ψ ρ) (hihsWd ψ ρ))
+    (hIND ψ ρ) (fun hl => ?_)
   by_cases hw : d.w ψ = 0
   · rw [hK1 ψ hl hw]
     exact hSQ ψ ρ hl hw
