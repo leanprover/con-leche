@@ -640,6 +640,12 @@ theorem IhTyped.appArg {envT : Env} {D : Nat} {f a : Expr} :
     IhTyped envT D (.app f a) → IhTyped envT D a
   | ⟨_, .app _ _ ha _⟩ => ⟨_, ha⟩
 
+/-- An opened variable's inferred type is its STORED annotation —
+`certs_of_infer_mkAppN`'s "the head's type is pinned". -/
+theorem IhTyped.fvarTy {envT : Env} {D idx : Nat} {ty t : Expr}
+    (h : ConLeche.Rules.Infer envT .full D (.fvar idx ty) t) : t = ty := by
+  cases h; rfl
+
 /-- **The guarded call's value.** -/
 @[expose] def IhNodeVal (V : Type uv) [SetTheory V]
     (acval : Name → (Name → Nat) → AnnotTerm) (env envT : Env) (φ : Name → Nat)
@@ -864,6 +870,29 @@ theorem instantiateList_mkAppN :
     show (Expr.mkAppN (.app f a) as).instantiateList xs k = _
     rw [instantiateList_mkAppN as (.app f a) xs k, Expr.instantiateList]
     rfl
+
+/-- **The typed residue node, in `certs_of_infer_mkAppN`'s shape.**
+The guarded call's residue is an application SPINE whose head is the
+`ih` opener's own free variable — position `F + r` of the frame — so
+the head's inferred type is that opener's stored annotation and the
+spine's arguments are the call's own, opened.  This is step 1 of
+`hfit`'s discharge; what is left of it is the opener's Π-count
+(`piSpine_of_stripPis`) and the `Certs` walk. -/
+theorem ihTyped_call_spine {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat}
+    {as as2 : List Expr} (h2 : FvarList (F + fr.nR + d) as2) (hr : r < fr.nR)
+    (hty : IhTyped envT (F + fr.nR + d)
+      ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+        (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0)) :
+    ∃ tyOp : Expr,
+      (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = .fvar (F + r) tyOp ∧
+      IhTyped envT (F + fr.nR + d)
+        (Expr.mkAppN (.fvar (F + r) tyOp)
+          (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0)) := by
+  obtain ⟨tyOp, htyOp⟩ := h2.bvar_lt (j := d + fr.nR - 1 - r) (by omega)
+  rw [show F + fr.nR + d - 1 - (d + fr.nR - 1 - r) = F + r from by omega] at htyOp
+  refine ⟨tyOp, htyOp, ?_⟩
+  rw [instantiateList_mkAppN, htyOp, List.map_map] at hty
+  exact hty
 
 /-- The residue's spine, read: each lifted argument's reading is the
 argument's own, at the frame with the ih block dropped. -/

@@ -8,6 +8,7 @@ import ConLeche.Model.Inductives.StructRecRead
 import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
+import ConLeche.Model.Inductives.BlockRecRegimes
 
 public section
 
@@ -2581,5 +2582,64 @@ theorem blockRuleHcallee_of {mpC : EnvModelM V μ envC}
     exact (ha c' hlt).trans (chainFrame_apply (by omega) a ρ).symm
 
 end Callee
+
+/-! ## A.16 `hfit`'s discharge, steps 1 and 2
+
+Session 14 put the OCCURRENCE in the fold's hands (`IhTyped`); G3
+(session 13) turns a `.full` spine derivation into a `Certs` walk.
+These two meet here, and what the composition needs of the run is one
+number: the `ih` opener's stored type has at least as many leading
+`∀`s as the call has arguments — which is `blockIhPis`' own shape
+(`Expr.mkPisOf (structTeleAt …) concl`, whose tower is the field's
+telescope) read off `checkBlockRule`'s third opening.
+
+What is left after this section is the `Certs` walk's SEMANTICS —
+`certs_sound` at the frame's `CtxOk`/`Sat`, the reading of the opener
+type as a `mkPisAV` tower, and the two transports (the residue
+frame's argument readings to the body frame's, and the `d`-shift of
+the ih telescope).  None of those is a fact about the check. -/
+
+section HfitRun
+
+/-- **Step 2 of `hfit`'s discharge**: the guarded call's residue
+arguments are a `Certs` walk of the `ih` opener's stored type.
+
+Both hypotheses of `certs_of_infer_mkAppN` are discharged here — the
+head's type is PINNED because the head is an opened variable
+(`IhTyped.fvarTy`), and it is a Π-tower because the opener's stored
+type is a generated one (`piSpine_of_stripPis` at the run's own
+`stripPis`). -/
+theorem certs_of_ihTyped {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat}
+    {as as2 : List Expr} {tyOp : Expr}
+    (hty : IhTyped envT (F + fr.nR + d)
+      (Expr.mkAppN (.fvar (F + r) tyOp)
+        (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0)))
+    (hpi : (tyOp.stripPis as.length).isSome = true) :
+    ConLeche.Rules.Certs envT (F + fr.nR + d) false tyOp
+      (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0) := by
+  obtain ⟨t, ht⟩ := hty
+  exact certs_of_infer_mkAppN _ ht (fun _ ht' => IhTyped.fvarTy ht')
+    (piSpine_of_stripPis _ (by rw [List.length_map]; exact hpi))
+
+/-- **Steps 1 and 2 together**, off the fold's own premises: the
+walk's typing hypothesis and the frame's opening list give the
+`Certs` walk directly, with the opener's Π-count as the only run
+input. -/
+theorem certs_of_ihCall {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat}
+    {as as2 : List Expr} (h2 : FvarList (F + fr.nR + d) as2) (hr : r < fr.nR)
+    (hty : IhTyped envT (F + fr.nR + d)
+      ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+        (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0))
+    (hpi : ∀ tyOp : Expr,
+      (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = .fvar (F + r) tyOp →
+      (tyOp.stripPis as.length).isSome = true) :
+    ∃ tyOp : Expr,
+      (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = .fvar (F + r) tyOp ∧
+      ConLeche.Rules.Certs envT (F + fr.nR + d) false tyOp
+        (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0) := by
+  obtain ⟨tyOp, hhead, hsp⟩ := ihTyped_call_spine h2 hr hty
+  exact ⟨tyOp, hhead, certs_of_ihTyped hsp (hpi tyOp hhead)⟩
+
+end HfitRun
 
 end ConLeche.Model

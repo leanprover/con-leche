@@ -437,6 +437,63 @@ inductive PiSpine : Expr → List Expr → Prop
   | cons {ty body a : Expr} {mb : ConLeche.BinderMeta} {as : List Expr} :
       PiSpine (body.instantiate1 a) as → PiSpine (.forallE ty body mb) (a :: as)
 
+/-! ### `PiSpine`, from the run's own Π-count
+
+`PiSpine` is what `certs_of_infer_mkAppN` needs of the head's type,
+and the run states its Π-tower with `stripPis` (`checkBlockRule`'s
+third opening, `blockIhPis`' binders).  The two meet through ONE
+observation: `stripPis` peels a `∀` without instantiating and
+`PiSpine` peels it WITH, and `instantiate1` maps a `∀` to a `∀`, so
+"has at least `n` leading `∀`s" survives every instantiation the
+spine performs. -/
+
+/-- Instantiation preserves the leading Π-count. -/
+theorem stripPis_isSome_instantiate1 :
+    ∀ (n : Nat) {e : Expr} (a : Expr) (k : Nat),
+      (e.stripPis n).isSome = true → ((e.instantiate1 a k).stripPis n).isSome = true
+  | 0, _, _, _, _ => rfl
+  | n + 1, e, a, k, h => by
+    cases e with
+    | forallE ty body mb =>
+      have hb : (body.stripPis n).isSome = true := by
+        simpa only [ConLeche.Expr.stripPis, Option.isSome_map] using h
+      show ((Expr.forallE (ty.instantiate1 a k) (body.instantiate1 a (k + 1)) mb).stripPis
+        (n + 1)).isSome = true
+      simp only [ConLeche.Expr.stripPis, Option.isSome_map]
+      exact stripPis_isSome_instantiate1 n a (k + 1) hb
+    | _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- **The seam**: a head type with at least as many leading `∀`s as
+the spine has arguments IS a `PiSpine`. -/
+theorem piSpine_of_stripPis :
+    ∀ (as : List Expr) {e : Expr}, (e.stripPis as.length).isSome = true → PiSpine e as
+  | [], _, _ => .nil
+  | a :: as, e, h => by
+    cases e with
+    | forallE ty body mb =>
+      have hb : (body.stripPis as.length).isSome = true := by
+        simpa only [List.length_cons, ConLeche.Expr.stripPis, Option.isSome_map] using h
+      exact .cons (piSpine_of_stripPis as (stripPis_isSome_instantiate1 as.length a 0 hb))
+    | _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- A generated Π-tower has its own length's worth of leading `∀`s —
+the shape `blockIhPis` gives every `ih` opener. -/
+theorem stripPis_isSome_mkPisOf :
+    ∀ (tele : List (Expr × ConLeche.BinderMeta)) (body : Expr) (n : Nat),
+      n ≤ tele.length → ((Expr.mkPisOf tele body).stripPis n).isSome = true
+  | _, _, 0, _ => rfl
+  | (ty, mt) :: tele, body, n + 1, h => by
+    show ((Expr.forallE ty (Expr.mkPisOf tele body) mt).stripPis (n + 1)).isSome = true
+    simp only [ConLeche.Expr.stripPis, Option.isSome_map]
+    exact stripPis_isSome_mkPisOf tele body n (by simpa using h)
+
+/-- **`PiSpine` at a generated tower**, the form the `ih` opener's
+stored type takes. -/
+theorem piSpine_mkPisOf {tele : List (Expr × ConLeche.BinderMeta)} {body : Expr}
+    {as : List Expr} (h : as.length ≤ tele.length) :
+    PiSpine (Expr.mkPisOf tele body) as :=
+  piSpine_of_stripPis as (stripPis_isSome_mkPisOf tele body as.length h)
+
 /-- **G3, in the form a consumer can use.**  A `.full`-inferred spine
 whose head's inferred type is pinned (an fvar's is: `Infer.fvar`
 reads the stored annotation) and is a literal Π-tower IS a `Certs`
