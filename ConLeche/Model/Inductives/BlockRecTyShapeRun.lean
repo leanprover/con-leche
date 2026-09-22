@@ -358,6 +358,195 @@ theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     hsplitD
     (by rw [← hB]; exact acval_interp_closed mpC.base2 _ ψ _ ρ) hwd.1).2
 
+/-! ## 5. The PARAMETER clause, at the run
+
+`checkBlockRecTys` compares the recursor's first `nP` binder domains
+BINDER BY BINDER with the ELIMINATED member's own opened former
+telescope — never with the block's, and never syntactically: it is an
+`isDefEq` per position.  So the clause is an implication between FITS
+(`prefixDoms_spineFit`, the certified hop), followed by the members'
+own parameter agreement (`BlockFormerFacts.paramsIff`) from the
+eliminated member's telescope to the block's `d.params`. -/
+
+/-- **The block's parameter telescope fits, at the run** — clause 3 of
+the shape. -/
+theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs : List V,
+      SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).take d.nP) xs → SpineFit ρ (d.params ψ) xs := by
+  intro xs hfit
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
+  obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, hparIff⟩ := hmr
+  obtain ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hms, hcvTa, -, -, hop, hopT, htfl,
+    hdeq, -, -, -, -, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨fvsL, conclL, hopL, hread, hmk, -, -, hbind, -, hwdTy⟩ :=
+    checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hfvE : fvsL = fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
+  rw [hfvE] at hbind
+  obtain ⟨-, -, -, hfvT, hbndT, hFD⟩ := hcvF _ _ hcvTa
+  have hppsLen : (d.ppsM (p.toBlockShape.recTgtAt c) ψ).length
+      = d.nP + d.nIdxAt (p.toBlockShape.recTgtAt c) := hFD.len ψ
+  -- the two openings, at the block's parameter count
+  obtain ⟨hwA, hbA⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨fvsA, fvs', oA, hopA, -, hfvsplit⟩ :=
+    openPisAtFvars_split (e := r.1.type) (d := 0) p.nP
+      (by rw [show p.nP + (p.toBlockShape.majorIdxAt c + 1 - p.nP)
+            = p.toBlockShape.majorIdxAt c + 1 from by omega]
+          exact hop)
+  have hlenA : fvsA.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hopA
+  have hfvsA : fvs.take p.nP = fvsA := by
+    rw [hfvsplit, List.take_append_of_le_length (Nat.le_of_eq hlenA.symm),
+      List.take_of_length_le (Nat.le_of_eq hlenA)]
+  -- the two domain lists, their readings and their gradings
+  have hDomA : ∀ l, l < p.nP →
+      ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).getD l default
+        = (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take p.nP).map
+            (·.2.2)).getD l default := by
+    intro l hl
+    rw [List.map_take, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+      List.getElem?_take, if_pos hl]
+  have hdA : ∀ (i : Nat) (x : Expr), fvsA[i]? = some x →
+      denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x)
+        = some ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take p.nP).map
+            (·.2.2)).getD i default) := by
+    intro i x hx
+    have hi : i < p.nP := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [hlenA] at this; exact this
+    have hx' : fvs[i]? = some x := by
+      rw [← hfvsA, List.getElem?_take, if_pos hi] at hx
+      exact hx
+    obtain ⟨pd, hpd, -, hreadD⟩ := hbind i x hx'
+    rw [hreadD, List.map_take, List.getD_eq_getElem?_getD, List.getElem?_take,
+      if_pos hi, List.getElem?_map, hpd]
+    rfl
+  have hokA : ∀ i, i < p.nP → ∀ (ρ' : Nat → V) (ys : List V),
+      SpineFit ρ' ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
+        p.nP).map (·.2.2)).take i) ys →
+      WellDenotedV V (consList ys ρ')
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take p.nP).map
+          (·.2.2)).getD i default) :=
+    fun i hi ρ' ys hys => prefixDoms_graded_of_tower (V := V)
+      (cc := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      (by rw [hlenRds]; omega) (fun ρ'' => by rw [← hmk]; exact hwdTy ρ'') hi hys
+  -- the member's side
+  obtain ⟨ppsT, bT, hstT, -, hlenT, hbindT⟩ :=
+    denoteMeta_openPis (acval := mpC.base2.acval) (env := envC) (φ := ψ) p.nP hopT (hFD.read ψ)
+  have hppsT : ppsT = (d.ppsM (p.toBlockShape.recTgtAt c) ψ).take p.nP := by
+    have := stripPisAV_mkPisAV_take p.nP (d.ppsM (p.toBlockShape.recTgtAt c) ψ)
+      (.sort (d.resSort.eval ψ)) (by rw [hppsLen, hnPq]; omega)
+    rw [this] at hstT
+    exact congrArg Prod.fst (Option.some.inj hstT.symm)
+  have hdB : ∀ (i : Nat) (x : Expr), tfvs[i]? = some x →
+      denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x)
+        = some ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)).getD i
+            default) := by
+    intro i x hx
+    obtain ⟨pd, hpd, -, hreadD⟩ := hbindT i x hx
+    rw [Nat.zero_add] at hreadD
+    rw [hreadD, hnPq, ← hppsT, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]
+    rfl
+  have hokB : ∀ i, i < p.nP → ∀ (ρ' : Nat → V) (ys : List V),
+      SpineFit ρ' ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)).take i) ys →
+      WellDenotedV V (consList ys ρ')
+        ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)).getD i default) := by
+    intro i hi ρ' ys hys
+    rw [hnPq] at hys ⊢
+    exact prefixDoms_graded_of_tower (V := V) (cc := .sort (d.resSort.eval ψ))
+      (by rw [hppsLen, hnPq]; omega) (fun ρ'' => hFD.okTy ψ ρ'') hi hys
+  -- **the certified hop**
+  have hfitA : SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
+      p.nP).map (·.2.2)) xs := by
+    rw [hnPq] at hfit
+    rw [List.map_take]
+    exact hfit
+  have hfitB := prefixDoms_spineFit (V := V) hμ mpC hopA hopT hwA
+    (Expr.WScoped.of_not_hasFvar hfvT) hbA hbndT
+    (by rw [List.length_map, List.length_take, hlenRds]; omega)
+    (by rw [List.length_map, List.length_take, hppsLen, hnPq]; omega)
+    hdA hdB hokA hokB
+    (fun l hl => Or.inr (by
+      rw [← hfvsA]
+      exact hdeq l hl))
+    hfitA
+  -- the members' own parameter agreement
+  have hxl : xs.length = d.nP := by
+    rw [hfitB.length_eq, List.length_map, List.length_take, hppsLen]; omega
+  have hsat : Sat V ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map
+      (·.2.2)).reverse) (consList xs ρ) := by
+    simpa using sat_of_spineFit (Sat_nil V ρ) hfitB
+  refine spineFit_of_sat_consList ?_ ((hparIff _ hmemk ψ _).mp hsat)
+  obtain ⟨cvT0, hcvT0⟩ : ∃ cvT0, cvTas[0]? = some cvT0 :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; omega)⟩
+  obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
+  rw [hxl, BlockData.params, List.length_map, List.length_take, hFD0.len ψ]
+  omega
+
+/-! ## 6. THE SHAPE, at the run -/
+
+/-- **`BlockRecTyShape` FROM THE RUN** — the recursor-type lane's
+premise, discharged.
+
+Its five clauses, in order: the two the stage's own `unless`es pin
+(`nP ≤ rP`, the binder count), the parameters as an implication
+between FITS (`blockRecParams_run`), the eliminated member's index fit
+(`blockRecIdxFit_run`) and the MAJOR's reading folded into
+applications (`interp_of_major_reading`).
+
+`BlockRecTyJoin` — the index clause's OPPOSITE direction — is NOT
+among them and is not produced here: nothing in the run ties the
+recursor's index binders to the member's telescope. -/
+theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
+    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
+      p.toBlockShape.recTgtAt
+      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ := by
+  intro c hc
+  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hK]; exact hc)⟩
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
+  have hpar := blockRecParams_run hμ mpC h hmr hr ψ ρ
+  have hidxF := blockRecIdxFit_run hμ mpC h hmr hr ψ ρ
+  obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, -⟩ := hmr
+  obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[p.toBlockShape.recTgtAt c]? = some cvTa :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmemk)⟩
+  obtain ⟨-, -, -, -, -, hFD⟩ := hcvF _ _ hcvTa
+  have hIdsLen : (d.IdsM (p.toBlockShape.recTgtAt c) ψ).length
+      = d.nIdxAt (p.toBlockShape.recTgtAt c) := by
+    rw [BlockData.IdsM, List.length_map, List.length_drop, hFD.len ψ]; omega
+  have hDlen : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).length
+      = p.toBlockShape.rulePrefixAt c + d.nIdxAt (p.toBlockShape.recTgtAt c) + 1 := by
+    rw [List.length_map, hlenRds, hmI]
+  refine ⟨hnPle, by rw [hDlen, hIdsLen], hpar, hidxF, ?_⟩
+  -- the MAJOR clause, from the one syntactic reading
+  intro xs is hxl hisl
+  rw [hIdsLen] at hisl
+  have hgetMaj : (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).drop (p.toBlockShape.rulePrefixAt c)).getD
+        (d.nIdxAt (p.toBlockShape.recTgtAt c)) default
+      = AnnotTerm.mkAppN
+          (mpC.base2.acval (d.memberName (p.toBlockShape.recTgtAt c)) ψ)
+          (paramBvarsAt d.nP (p.toBlockShape.majorIdxAt c)
+            ++ teleVarsAV (d.nIdxAt (p.toBlockShape.recTgtAt c))) := by
+    obtain ⟨pd, hpd⟩ : ∃ pd,
+        (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[
+          p.toBlockShape.majorIdxAt c]? = some pd :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenRds]; omega)⟩
+    rw [List.getD_eq_getElem?_getD, List.getElem?_drop, List.getElem?_map,
+      show p.toBlockShape.rulePrefixAt c + d.nIdxAt (p.toBlockShape.recTgtAt c)
+        = p.toBlockShape.majorIdxAt c from hmI.symm, hpd, Option.map_some,
+      Option.getD_some, ← hmajRead, List.getD_eq_getElem?_getD, hpd]
+    rfl
+  rw [hIdsLen, hgetMaj, ← consList_append, hmI]
+  exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
+    (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
+
 end Run
 
 end ConLeche.Model
