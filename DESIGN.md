@@ -83052,3 +83052,30 @@ composition carrying an unproduced premise — the arm does not close,
 and the composition is paid for but unusable), or find a run-level
 producer for the converse (the inversion of inference through a Π-tower
 and an application spine, 2–4 sessions, for a fact nothing else needs).
+
+#### PROCEDURE: when an atomic change cannot be finished, PRESERVE the work outside the repository
+
+Three sessions of the motive restatement closed without a commit,
+because the change is atomic across four files and a partial version is
+not committable.  The third preserved its 131-insertion working file
+under `_tmp/` instead of reverting it away, so the successor starts **at
+the one remaining error** rather than re-deriving a hundred lines.  That
+is the rule: *revert the WORKTREE, keep the WORK.*
+
+The change itself is now one proof body and two named facts from done.
+What it buys is worth restating, because three sessions on one commit
+needs its justification visible: it deletes `BlockRecTyJoin`, whose
+only direction is refuted as stated and whose producer would be the
+inference-inversion route (2–4 sessions, rejected three times), and
+with it the premise `hjoinC` that the arm's FIRST COMPOSITION currently
+carries **with no producer at all**.  Until it lands, that composition
+is paid for and unusable.
+
+Confirmation that the family move was the right ruling: once the
+premises were split-shaped, `blockIndStep`'s proof needed **no reasoning
+beyond its intro pattern** — two substitutions where there had been
+four.  "At a fitting spine" was the first writer's convenience; the
+split data is what the run has.  And the maintainer's middle-stretch
+clause cannot evaporate, because every member of the moved family
+writes the three fits out in order with it first — structural, not
+vigilance.
