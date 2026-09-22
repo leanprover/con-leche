@@ -5380,8 +5380,8 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
       hnE, hnI, htl, hes, hfap, hcon⟩ := hkey c hc j hjn r hr
     rw [hk1] at hbs
     obtain ⟨hxlen, -, hpar, hidxfit, -⟩ := hsplitR c hc ys hys
-    obtain ⟨hnPc, -, -, -, -⟩ := hshape c hc
-    obtain ⟨-, hlenDc', -, -, -⟩ := hshape c' hc'
+    obtain ⟨hnPc, -, -, -, -, -⟩ := hshape c hc
+    obtain ⟨-, hlenDc', -, -, -, -⟩ := hshape c' hc'
     -- the three lengths the bridge is stated at
     have hasl : ((prefOf (rP c) ys).take d.nP).length = d.nP := by
       rw [List.length_take, hxlen]; omega
