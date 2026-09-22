@@ -82688,3 +82688,58 @@ bundle is literally `Exists.imp` of it, because that consumer only
 wanted existence.  When a producer's conclusion is existential, check
 whether the witness is DETERMINED before writing a second producer for
 the same reading.
+
+#### MEASURED (lane F7): **nothing Lean produces needs `whnf`** — and F6a's reading of the redex fixture was too broad
+
+The maintainer asked whether the primitive-recursion guard must whnf a
+guarded call's argument vector in order to accept what Lean actually
+emits.  Measured with the flipped checker over three real
+`lean4export` streams:
+
+| stream | toolchain | declarations | guard rejections |
+|---|---|---|---|
+| `init-full` | 4.29.1 | 53 093 | **0** |
+| `mathlib-full` | 4.29.1 | **654 504** | **0** |
+| `lech-export` (this project's own environment) | 4.33.0 | 34 665 | **0** |
+
+**7 953 routed inductive blocks, 7 969 recursors, 11 167 recursor
+rules, zero rejections**, with the same counts as the unflipped
+baseline.  Of 149 rejections across the arena and e2e batteries,
+exactly ONE carries the guard's message: the hand-forged
+`corner_rec_call_redex`.
+
+**The correction.**  F6a read that fixture as "the guard does not
+abstract a defeq-but-not-syntactic argument vector".  Two probes refute
+that reading: a reflexive, NON-indexed block with the identical redex
+in the call's argument vector ACCEPTS, and the very block the fixture
+edits ACCEPTS when the redex is moved to the telescope argument that
+does not carry an index.  The guard **does** abstract the argument
+vector — `blockIhCall?` reads it off the term.  What it demands
+syntactically is the call's **INDEX arguments**, which must be the
+field's stored index expressions at that vector; Lean's own rule
+generator builds them the same way, which is why 11 167 real rules
+pass, including 48 reflexive blocks with non-empty telescopes (`Acc`,
+`WType`, `PSet`, …).  A relaxation, if ever wanted, is far narrower
+than "whnf the vector": defeq on the index arguments alone, at most
+`numIndices` comparisons per guarded call — cheap, but it costs
+`blockIhCall?` being a purely syntactic function, which the model's ι
+law is stated against.  **So the syntactic guard stays and the
+DESIGN text is corrected here rather than the guard relaxed.**
+
+**Scope, stated honestly.**  Nested recursors did NOT reach the check:
+with the modeller narrowed to nested-only all 54 nested blocks went to
+it, and the recogniser refuses them anyway — so the answer covers
+SIMPLE and MUTUAL blocks, and the nested rung owes a re-run of this
+sweep.  Mutual coverage is thin but real (10 mutual blocks, 93
+constructors, 26 recursors, the largest a 7-member block).  Two
+toolchains, one exporter.  A future Lean that β-reduced a rule's index
+arguments is the only realistic Lean-produced way to need the
+relaxation; hand-written streams can trip it, conservatively (reject,
+never accept).
+
+**Also measured**: one arena verdict moves under the flip and it is a
+GAIN — `bad/proj-of-imax-prop` goes from decline to the right reject.
+No good stream moved.  And `PERF.md`'s `_tmp/ref/` artifacts no longer
+exist on this machine; the 4.29.1 Mathlib is the largest real corpus
+left, which is why this project's own 4.33.0 whole-environment export
+was added to cover the newer exporter.
