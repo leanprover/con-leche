@@ -32,10 +32,14 @@ STREAM's own**, checked as a constant's type and nothing more.
 
 * the ELIMINATION guard is official's `elim_only_at_universe_zero`
   said declaratively (`blockLargeElimAllowed`): unless the block's
-  sort is never `0`, a large eliminator needs ONE member, no container
-  occurrence and at most one constructor — and when it is not allowed,
-  the recursor's CONCLUSION must be a proposition, which is the same
-  statement once the conclusion is arbitrary;
+  sort is never `0`, a large eliminator needs the generated large
+  SHAPE (a fresh elimination level parameter, `BlockShape.large`), ONE
+  member, no container occurrence and at most one constructor — and
+  when it is not allowed, the recursor's CONCLUSION must be a
+  proposition, which is the same statement once the conclusion is
+  arbitrary.  The `large` conjunct is what keys the guard to the
+  eliminator the stream DECLARES rather than to the block alone; see
+  `blockLargeElimAllowed`'s own docstring for the witness that made it;
 * every RULE binds `rP + nF` variables — the recursor's own prefix and
   the constructor's fields — whose domains are compared BINDER BY
   BINDER with the opened stored type and the constructor's telescope;
