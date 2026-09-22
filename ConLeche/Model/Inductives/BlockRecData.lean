@@ -2655,6 +2655,129 @@ theorem certs_of_ihCall {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat
 
 end HfitRun
 
+/-! ## A.17b `hfld` at BOTH environments (AUDIT item 12)
+
+The composition needs the field's readings TWICE: the OPENER's tower
+is read at `envC`, where the check ran and where the opener's stored
+type lives, and the generated CALL's tower at the CONSED environment,
+because its conclusion mentions the recursor constant.  The producer
+(`blockRuleHfld_of`) gives the `envC` one, and the transport is the
+mono lemma's own direction — its `ConstsBound envC` premise comes off
+the constructor's stored type by four structural steps. -/
+
+section FieldMono
+
+/-- `instSeq` keeps a term's constants bound. -/
+theorem constsBound_instSeq {envC : Env} :
+    ∀ (sp : List Expr) (t : Nat) (e : Expr), (∀ s ∈ sp, ConstsBound envC s) →
+      ConstsBound envC e → ConstsBound envC (Expr.instSeq sp t e)
+  | [], _, _, _, he => he
+  | a :: as, t, e, hsp, he =>
+    constsBound_instSeq as (t - 1) _ (fun s hs => hsp s (List.mem_cons_of_mem _ hs))
+      (ConstsBound.instantiate1 (hsp a List.mem_cons_self) e t he)
+
+/-- A `∀`-telescope's binders and body inherit the term's bound. -/
+theorem constsBound_piBinders {envC : Env} :
+    ∀ {e : Expr}, ConstsBound envC e →
+      (∀ b ∈ (Expr.piBinders e).1, ConstsBound envC b.1) ∧ ConstsBound envC (Expr.piBinders e).2
+  | .forallE ty b mb, h => by
+    rw [constsBound_forallE] at h
+    obtain ⟨hbs, hbody⟩ := constsBound_piBinders h.2
+    refine ⟨fun c hc => ?_, hbody⟩
+    rcases List.mem_cons.mp hc with rfl | hc'
+    · exact h.1
+    · exact hbs c hc'
+  | .bvar _, h | .sort _, h | .const _ _, h | .lit _, h | .fvar _ _, h
+  | .app _ _, h | .lam _ _ _, h | .letE _ _ _, h | .proj _ _ _, h =>
+    ⟨fun _ hc => (nomatch hc), h⟩
+
+/-- `stripPis`' binders and body inherit it too. -/
+theorem constsBound_stripPis {envC : Env} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr},
+      ConstsBound envC e → e.stripPis n = some (bs, body) →
+      (∀ b ∈ bs, ConstsBound envC b.1) ∧ ConstsBound envC body
+  | 0, e, bs, body, he, h => by
+    simp only [ConLeche.Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun _ hc => (nomatch hc), he⟩
+  | n + 1, e, bs, body, he, h => by
+    match e with
+    | .forallE ty b mb =>
+      rw [constsBound_forallE] at he
+      simp only [ConLeche.Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, body₀⟩, hst, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      obtain ⟨hbs, hbody⟩ := constsBound_stripPis n he.2 hst
+      refine ⟨fun c hc => ?_, hbody⟩
+      rcases List.mem_cons.mp hc with rfl | hc'
+      · exact he.1
+      · exact hbs c hc'
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _ _
+    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- The field's own telescope and index expressions are subterms of
+the constructor's stored type. -/
+theorem constsBound_structFieldParts {envC : Env} {cty : Expr} (hcb : ConstsBound envC cty)
+    {nP nF i : Nat} (hi : i < nF) :
+    (∀ b ∈ ConLeche.structFieldTeleOf cty nP nF i, ConstsBound envC b.1) ∧
+      ∀ e ∈ ConLeche.structFieldIdxOf cty nP nF i, ConstsBound envC e := by
+  unfold ConLeche.structFieldTeleOf ConLeche.structFieldIdxOf
+  cases hs : cty.stripPis (nP + nF) with
+  | none => exact ⟨fun _ hb => (nomatch hb), fun _ hb => (nomatch hb)⟩
+  | some q =>
+    obtain ⟨cbs, cbody⟩ := q
+    obtain ⟨hbs, -⟩ := constsBound_stripPis (nP + nF) hcb hs
+    have hcbslen : cbs.length = nP + nF := ConLeche.Expr.stripPis_length _ hs
+    have hfield : ConstsBound envC (cbs.getD (nP + i) default).1 := by
+      have hlt : nP + i < cbs.length := by omega
+      refine hbs _ ?_
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+      exact List.getElem_mem hlt
+    obtain ⟨htl, hbody⟩ := constsBound_piBinders hfield
+    exact ⟨htl, fun e he =>
+      constsBound_getAppArgs _ hbody e (List.mem_of_mem_drop he)⟩
+
+/-- **AUDIT item 12**: the field's readings move to the consed
+environment.  All three of `FieldReadAt`'s conjuncts are `denoteMeta`
+facts about subterms of the constructor's stored type, opened at the
+frame — so one mono step each, at the `ConstsBound envC` the previous
+four lemmas supply. -/
+theorem fieldReadAt_mono {envC env : Env} {mC : EnvModel V envC} {m : EnvModel V env}
+    {ψ : Name → Nat} {nP nF i : Nat} {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envC y →
+      denoteMeta mC.acval envC ψ D y = some ya → denoteMeta m.acval env ψ D y = some ya)
+    (hop0 : ConLeche.openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hcb : ConstsBound envC cty) (hi : i < nF)
+    (h : FieldReadAt mC ψ nP nF i cty fvs0 tl Eis) :
+    FieldReadAt m ψ nP nF i cty fvs0 tl Eis := by
+  obtain ⟨hlen, hdom, heis⟩ := h
+  obtain ⟨hfvs, -⟩ := openPisAtFvars_constsBound (nP + nF) hcb hop0
+  obtain ⟨htl, hidx⟩ := constsBound_structFieldParts hcb hi
+  have hsp : ∀ (k : Nat), ∀ s ∈ fvs0.take (nP + i) ++ ConLeche.Verify.openFvars (nP + i) k,
+      ConstsBound envC s := by
+    intro k s hs
+    rcases List.mem_append.mp hs with hs' | hs'
+    · exact hfvs s (List.mem_of_mem_take hs')
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem hs'
+      have hqk : q < k := by
+        have := (List.getElem?_eq_some_iff.mp hq).1
+        rw [ConLeche.Verify.openFvars_length] at this; exact this
+      rw [ConLeche.Verify.openFvars_getElem? hqk] at hq
+      rw [← Option.some.inj hq]
+      simp
+  refine ⟨hlen, fun k b q hb hq => ?_, ?_⟩
+  · obtain ⟨h1, h2, h3⟩ := hdom k b q hb hq
+    exact ⟨h1, h2, hmono _ _ _
+      (constsBound_instSeq _ _ _ (hsp k) (htl b (List.mem_of_getElem? hb))) h3⟩
+  · refine denoteMetaSpine_mono (fun y ya hcby hy => hmono _ y ya hcby hy) heis ?_
+    intro e he
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp he
+    exact constsBound_instSeq _ _ _ (hsp tl.length) (hidx x hx)
+
+end FieldMono
+
 /-! ## A.18 `hfit`, CLOSED — H3′ composed
 
 Every piece is now a theorem: the `Certs` walk off the residue's own
