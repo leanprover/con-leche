@@ -11,10 +11,8 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructWF
-import ConLeche.Model.Inductives.SumData
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.FixStageFormer
-import ConLeche.Semantics.Tower.FixSquashI
 
 public section
 
