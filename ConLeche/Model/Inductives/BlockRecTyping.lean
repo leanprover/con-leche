@@ -11,6 +11,10 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Model.Inductives.SumData
+import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Semantics.Tower.FixSquashI
 
 public section
 
@@ -832,6 +836,79 @@ docstring). -/
           ((((rds c).map (·.2.2)).drop (rP c)).getD (d.IdsM (mem c) ψ).length default)
         = (xs.take d.nP ++ is).foldl SetTheory.app
             (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
+
+/-! ### The index clause's PAYABLE half
+
+The shape's index clause is an `↔` and its two directions have two
+different provenances.  This is the FORWARD one, and it is the whole
+semantic content of the clause: a spine graded against the member's
+FORMER — which is a λ-tower over the member's parameter and index
+telescope — fits that telescope, because every application node's
+product carries the abstraction's own domain
+(`spineFit_of_wellDenoted_lams`, `lamR_mem_piR_dom`).  The major's
+domain is `T_m p⃗ ı⃗` on the nose (`checkBlockRecTys` pins it
+syntactically), so its READING is that spine and the grading is the
+recursor type's own (`piTeleAV_graded` at the major's position).
+
+Nothing here looks at the recursor's index BINDERS: their domains are
+the stream's own copies and the checker never compares them with the
+member's telescope.  What carries the fit is the major, and that is
+why the clause is bounded by the prefix's fit — off a fitting prefix
+the grading is not available either. -/
+
+/-- **The eliminated member's index fit, from the MAJOR's grading.**
+
+`Params ++ Ids` is the member's own opened telescope (its first `nP`
+entries the block's parameters, the rest its indices); `pps` is the
+telescope the former's λ-tower binds.  The conclusion splits at `nP`
+because that is where the two consumers read it. -/
+theorem spineFit_of_major_grading {u : Nat} (hu : u ≠ 0)
+    {env : Env} {mo : EnvModel V env} {nm : Name} {ψ : Name → Nat} {ρ : Nat → V}
+    {pps : List (Nat × Nat × AnnotTerm)} {B : AnnotTerm}
+    {Params Ids : List AnnotTerm} {nP rP nIdx : Nat} {xs is : List V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP)
+    (hPlen : Params.length = nP) (hppsLen : nP + nIdx ≤ pps.length)
+    (hsplitD : (pps.take (nP + nIdx)).map (·.2.2) = Params ++ Ids)
+    (hlam : interp V (consList (xs ++ is) ρ) (mo.acval nm ψ)
+      = interp V ρ (mkLamsC u pps B))
+    (hwd : WellDenoted V (consList (xs ++ is) ρ)
+      (AnnotTerm.mkAppN (mo.acval nm ψ)
+        (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx))) :
+    SpineFit ρ Params (xs.take nP) ∧
+      SpineFit (consList (xs.take nP) ρ) Ids is := by
+  have htkl : (xs.take nP).length = nP := by rw [List.length_take, hxs]; omega
+  -- the frame, regrouped at the parameters
+  have hfr : consList (xs ++ is) ρ
+      = consList (xs.drop nP ++ is) (consList (xs.take nP) ρ) := by
+    rw [← consList_append, ← List.append_assoc, List.take_append_drop]
+  -- the argument spine's VALUES: the parameters and the index values
+  have hpar : (paramBvarsAt nP (rP + nIdx)).map (interp V (consList (xs ++ is) ρ))
+      = xs.take nP := by
+    rw [show rP + nIdx = nP + ((rP - nP) + nIdx) from by omega]
+    rw [map_paramBvarsAt_interp (ρp := consList (xs.take nP) ρ) (fun j => by
+      rw [hfr, show (rP - nP) + nIdx = (xs.drop nP ++ is).length from by
+        rw [List.length_append, List.length_drop, hxs, his]]
+      exact consList_apply_add _ _ j)]
+    rw [← frameIdx_eq_reverse_map]
+    have hfx := frameIdx_consList' (xs.take nP) ρ
+    rw [htkl] at hfx
+    exact hfx
+  have hidx : (teleVarsAV nIdx).map (interp V (consList (xs ++ is) ρ)) = is := by
+    rw [consList_append, ← his]
+    exact map_teleVarsAV_interp is (consList xs ρ)
+  have hargs : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).map
+      (interp V (consList (xs ++ is) ρ)) = xs.take nP ++ is := by
+    rw [List.map_append, hpar, hidx]
+  have halen : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).length = nP + nIdx := by
+    simp [paramBvarsAt, teleVarsAV]
+  have hfit := spineFit_of_wellDenoted_lams (V := V) hu (by rw [halen]; exact hppsLen) hwd hlam
+  rw [halen, hsplitD, hargs] at hfit
+  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
+  have hl1 : as₁.length = nP := by rw [h1.length_eq, hPlen]
+  obtain ⟨he1, he2⟩ := List.append_inj heq (by rw [htkl, hl1])
+  subst he1
+  subst he2
+  exact ⟨h1, h2⟩
 
 /-- **`BlockRecSplitAt`, from the type's shape** — the FORWARD
 direction: a fitting spine decomposes, its prefix's parameters fit the
