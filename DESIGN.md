@@ -82541,3 +82541,62 @@ existential instantiating itself, so four conjuncts cost two theorems.
 `tup` and `lfpTuple` occur in none of them, the evidence throughout
 being a fit against the rule's own domain readings, paid by the
 certificates.
+
+#### LANDED + **FINDING → RULING** (lane RM38 = M5M-data session 29, `dc8c40b1`): the environment crossing was free, and what it hid is a MISSING CHECKER GUARD
+
+**The crossing was free.**  `blockRecDenote_cross_eq`
+(`BlockRecData.lean:4053`): the two readings of a `ConstsBound envC`
+subject, at the constructors' environment and at the recursors', are
+the same `Option` — nine lines, off `denoteMeta_envExtend`
+(`Model/Annot/BitExtend.lean:59`), an EQUATION at `ConstsBound env₀`,
+which the staged theorem's third conjunct already is at this cons.  (The
+two candidates the coordinator suggested were both implications, the
+wrong half and the wrong axis — the grep that works is by the
+conclusion's SHAPE.)  The premise it was carried as is gone.
+
+**What it leaves is refutable against the checker as it stands.**  A
+rule's right-hand side is annotated and consts-resolved at the
+RULE-LESS recursor environment by design (a rule mentions the
+recursors); its BODY is forced back into the constructors' environment
+by `abstractIh` plus the residue's inference; but its **λ-binder
+domains are constrained by a defeq at `envC` alone, and defeq does not
+preserve syntax**.  Witness: a domain `(fun _ : T_rec => A₁) C_rec`
+passes `constsResolve envR`, passes `inferType envR`, passes
+`isDefEq envC` by β — an unstored constant is never looked up on that
+path — and never reaches `abstractIh`.  The stream is ACCEPTED and the
+domain's reading at `envC` is `none`.  The model cannot pay it instead:
+the defeq's evidence lives at `envC` and needs both sides read there.
+
+**RULING (coordinator): adopt the guard.**  One line in
+`checkBlockRule` (`Kernel/Inductives/BlockInstall.lean`), immediately
+after the `instLamsAt` that produces `ldoms` and before the defeq
+comparison:
+
+```lean
+    unless ldoms.all (fun t => t.constsResolve envT) do
+      throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
+```
+
+It rejects nothing official emits — a generated rule's binder domains
+ARE the recursor prefix's stored types and the constructor's field
+types, both already consts-resolved at `envC` — so it is an
+accept-preserving restriction, reported per `restrictions-are-findings`
+and adopted because **the proof cannot close without it**.  The cached
+mirror takes the same line; the gates are the kernel ones (e2e half and
+`tests/arena.sh`), not the model-only list.
+
+**The rule this restates.**  The lane's standing question is *which
+CHECK makes this available, and does the INVERSION that reads it KEEP
+it?*  This is the third answer: **no check makes it available at all,
+and the model cannot pay — so the CHECKER must say it.**  That is the
+one case where the right repair is a kernel line rather than a proof.
+
+Two more rows closed by the sweep habit: `hdF` became
+`blockRuleFdomsAV_eq`'s second conjunct, because `readOpenedDoms_shift`
+had COMPUTED the per-opener readings and its conclusion threw them away
+("check does the work, inversion discards it" — inside a model theorem
+this time); and `hokF` was one rewrite over a landed segment — a
+finished bridge with no traffic.  Of the coordinator's three routed
+items, one was already closed a session earlier and one was a theorem
+this lane had written and nothing consumed: **the lanes' ledgers, not
+the tree, are what is stale.**
