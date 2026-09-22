@@ -5946,12 +5946,18 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     ∃ (us : List Level) (uOf : Nat → Level),
       ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok () ∧
       (∀ c, c < rs.length → uOf c ∈ us) ∧
-      ∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
+      (∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
         ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
-          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0) := by
+          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
+      ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+        ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+            (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty
+          = .ok (uOf c) := by
   obtain ⟨cvRus, htys, helim, hlenR, hbridge⟩ := checkBlockRecK_elimList h
   have hlenT : cvRus.length = p.recs.length := (ConLeche.checkBlockRecTys_inv htys).1
-  refine ⟨cvRus.map (·.2.2), fun c => ((cvRus.map (·.2.2)).getD c .zero), helim, ?_, ?_⟩
+  refine ⟨cvRus.map (·.2.2), fun c => ((cvRus.map (·.2.2)).getD c .zero), helim, ?_, ?_, ?_⟩
   · intro c hc
     have hlt : c < (cvRus.map (·.2.2)).length := by rw [List.length_map, hlenT]; omega
     have hg : (cvRus.map (·.2.2)).getD c .zero = (cvRus.map (·.2.2))[c] := by
@@ -5998,6 +6004,26 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     rw [huOf, stripPisAV_denoteMeta_pw (envK := envC) hμ _ (Nat.le_refl F) hop hta hst
       hinfTy' (by rw [Nat.zero_add]; exact hsty) (by rw [Nat.zero_add]; exact hu) b hb]
     exact pwBit_zeronessOf ψ u
+  · -- **the conclusion's two runs**, at the SAME level the bits law reads
+    intro c hc
+    obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
+    have hcp : c < p.recs.length := by omega
+    obtain ⟨cvRi, nIdx, u, fvs, conclE, sty, hcu, hop, hsty, hu⟩ :=
+      checkBlockRecTys_elim htys c hcp
+    rw [Nat.zero_add] at hop hsty hu
+    have hr1 : r.1 = cvRi := by
+      have h' := hbridge c r hr
+      rw [List.getElem?_map, hcu] at h'
+      simp only [Option.map_some, Option.some.injEq] at h'
+      exact h'.symm
+    have huOf : ((cvRus.map (·.2.2)).getD c .zero) = u := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcu]; rfl
+    have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
+    refine ⟨fvs, conclE, sty, by rw [hrd, hr1]; exact hop, hsty, ?_⟩
+    show ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty
+      = .ok ((cvRus.map (·.2.2)).getD c .zero)
+    rw [huOf]
+    exact hu
 
 /-- **`OneElimLevel` FROM THE RUN** — §4's theorem with BOTH its
 premises discharged.  The level is the family's shared one: the sort
@@ -6012,7 +6038,7 @@ theorem blockRecOneElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     (ψ : Name → Nat) :
     ∃ ℓ : Nat, OneElimLevel ℓ rs.length
       (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) := by
-  obtain ⟨us, uOf, helim, hmem, hbits⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  obtain ⟨us, uOf, helim, hmem, hbits, -⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   exact ⟨(us.headD .zero).eval ψ, blockRecOneElimLevel helim ψ hmem (hbits ψ)⟩
 
 /-! ## 39. `BlockRuleCerts`' FRAME SEAM — `hdoms` and `hokΔ` from the
@@ -8358,6 +8384,242 @@ theorem blockRuleIhHR_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
   blockRuleHokC_of_run hμ mpC h hr' ψ hcon hfit hargs
 
 end IhConcl
+
+/-! ### 40.15 THE `univZero` PRODUCER — the recursor's CONCLUSION
+lands in the universe the CHECK named
+
+`hT` (§5), `hTStep`, `hTReg` (`blockIndRegime_run`) and the `ih`
+segment's `h0` are four premises of ONE fact, and §S25.4 recorded that
+nothing in the tree produced it.  It is produced here, and the source
+is a step the check already takes:
+
+```lean
+    let sty ← ops.inferType env (mI + 1) concl        -- BlockInstall.lean
+    let u   ← ops.ensureSort env (mI + 1) sty
+```
+
+— stage (b) infers the recursor conclusion's type and `ensureSort`s
+it, and STORES that `u` as `cvRus`' third component, which is exactly
+`blockRecElimLevel_run`'s `uOf c`.  So the family's elimination level
+IS the level of the sort the check inferred for the conclusion, and
+the `blockLargeElimAllowed` guard plays no part: `ensureSort` alone
+plus D-d's agreement gives it.
+
+The model step is `SortSemAt` (`Model/Tiers.lean`), the same claim
+`checkConstantVal_reads` uses one level up — at the recursor's OWN
+opened frame instead of the empty one, so the context is the type's
+own binder data reversed (`ctxOk_blockFrame` at a degenerate second
+and third opening, since the recursor's type is opened ONCE). -/
+
+section ConclUniv
+
+omit [SetTheory V] in
+/-- A term scoped at depth `0` has no free-variable leaf. -/
+theorem fvarLeaves_nil_of_wscoped_zero {e : Expr} (hw : Expr.WScoped 0 e) :
+    e.fvarLeaves = [] := by
+  rcases he : e.fvarLeaves with _ | ⟨l, ls⟩
+  · rfl
+  · exact absurd (Expr.fvarLeaves_lt_of_wscoped hw l (by rw [he]; exact List.mem_cons_self))
+      (Nat.not_lt_zero _)
+
+/-- **THE `univZero` PRODUCER**, in its general form: the recursor's
+conclusion reads into `univ (u.eval ψ)` at every frame satisfying the
+type's own binder data. -/
+theorem blockRecConcl_univ {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {fvs : List Expr} {conclE sty : Expr} {u : Level}
+    (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1) r.1.type 0
+      = some (fvs, conclE))
+    (hinf : ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE
+      = .ok sty)
+    (hens : ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok u) :
+    ∀ ρ : Nat → V,
+      Sat V ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).reverse ρ →
+      interp V ρ (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+        ∈ˢ (univ (u.eval ψ) : V) := by
+  obtain ⟨hw₁, hb₁⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, hconclRead, hwdTy⟩ :=
+    checkBlockRecK_tyPis hμ mpC h hr ψ
+  have heqP := Option.some.inj (hop'.symm.trans hop)
+  have hfe : fvs' = fvs := congrArg Prod.fst heqP
+  have hce : concl' = conclE := congrArg Prod.snd heqP
+  rw [hfe] at hdomsR
+  rw [hce] at hconclRead
+  -- the frame's syntax
+  have hlenFvs : fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
+    ConLeche.Verify.openPisAtFvars_length _ hop
+  obtain ⟨hbC, hlbF⟩ := openPisAtFvars_bounded _ hop hb₁
+  have hwsC : Expr.WScoped (p.toBlockShape.majorIdxAt c + 1) conclE := by
+    have hq := (openPisAtFvars_WScoped _ r.1.type 0 hop hw₁).2
+    rwa [Nat.zero_add] at hq
+  have hnilTy : r.1.type.fvarLeaves = [] := fvarLeaves_nil_of_wscoped_zero hw₁
+  have hleaf : ∀ l ∈ conclE.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+    intro l hl
+    rcases openPisAtFvars_leaves _ hop l (Or.inl hl) with h' | h'
+    · rw [hnilTy] at h'; exact nomatch h'
+    · exact h'
+  have hLC : Expr.LeavesBounded conclE := leavesBounded_of_openers hlbF hleaf
+  -- the frame's semantics: the binder data reads, and is graded
+  have hdoms : ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+      denoteMeta mpC.base2.acval envC ψ j (Expr.fvarTypeD x)
+        = some (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+            (·.2.2)).getD j default) := by
+    intro j x hx
+    obtain ⟨pd, hpd, -, hrd⟩ := hdomsR j x hx
+    rw [hrd, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]
+    rfl
+  have hokTower : ∀ l, l < p.toBlockShape.majorIdxAt c + 1 →
+      ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).take l) ys →
+      WellDenotedV V (consList ys σ)
+        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).getD l default) := by
+    intro l hl σ ys hys
+    have hfull : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
+        (p.toBlockShape.majorIdxAt c + 1)
+        = blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c :=
+      List.take_of_length_le (by omega)
+    rw [← hfull] at hys ⊢
+    exact prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC
+        p.toBlockShape rs ψ c) (by omega) (fun ρ' => by rw [← hTyE]; exact hwdTy ρ')
+      hl hys
+  -- the context IS the type's own binder data, reversed
+  have hlenDoms : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+      (·.2.2)).length = p.toBlockShape.majorIdxAt c + 1 := by
+    rw [List.length_map, hlenRds]
+  have hent : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 →
+      (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).reverse)[p.toBlockShape.majorIdxAt c + 1 - 1 - i]?
+        = some (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).getD i default) := by
+    intro i hi
+    rw [List.getElem?_reverse (by omega), hlenDoms,
+      show p.toBlockShape.majorIdxAt c + 1 - 1 - (p.toBlockShape.majorIdxAt c + 1 - 1 - i) = i
+        from by omega,
+      List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (by rw [hlenDoms]; omega)]
+    rfl
+  have hokΔ : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 → ∀ ρ : Nat → V,
+      Sat V ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).reverse ρ →
+      WellDenotedV V (fun j => ρ (j + (p.toBlockShape.majorIdxAt c + 1 - 1 - i) + 1))
+        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+          (·.2.2)).getD i default) := by
+    have hq := blockRuleHokΔ_of (V := V)
+      (pdoms := (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
+      (fdoms := []) (ihdoms := []) (nF := 0) (nR := 0) hlenDoms rfl rfl
+      (by simpa using hokTower)
+    simp only [List.reverse_nil, List.append_nil, List.nil_append] at hq
+    have hgd : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 →
+        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+            (·.2.2)).reverse).getD (p.toBlockShape.majorIdxAt c + 1 - 1 - i) default
+          = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+            (·.2.2)).getD i default := by
+      intro i hi
+      rw [List.getD_eq_getElem?_getD, hent i hi]
+      rfl
+    intro i hi ρ hρ
+    have hq' := hq i hi ρ hρ
+    rwa [hgd i hi] at hq'
+  have hctx : CtxOk mpC.base2 ψ (p.toBlockShape.majorIdxAt c + 1)
+      ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).reverse
+      conclE :=
+    ctxOk_of_openers mpC.base2.acval_closed
+      (Aa := fun i => ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+        (·.2.2)).getD i default)
+      (by rw [List.length_reverse, hlenDoms])
+      (by simpa using ConLeche.openPisAtFvars_index _ r.1.type 0 hop)
+      (by simpa using (openPisAtFvars_WScoped _ r.1.type 0 hop hw₁).1)
+      hdoms hleaf (fun l hl => Expr.fvarLeaves_lt_of_wscoped hwsC l hl) hent hokΔ
+  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mpC ψ) F
+  exact fun ρ hρ => (sortSemAt_of_claims ihw ihi
+    (inferReads_of hμ (Rules.RulesInputs.ofSem mpC ψ))
+    hctx hwsC hbC hLC hinf (ConLeche.ensureSortCore_inv hens) hconclRead ρ hρ).2
+
+/-- **`hT`, `hTStep` and `hTReg`, DISCHARGED at `ℓ = 0`** — and `h0`
+with them, once the `ih` opener's conclusion carries the same value
+identification.
+
+The four premises differ only in the FRAME they are stated at and in
+which conclusion they are about; what they all say is that a reading
+identified with the recursor's own conclusion at a fitting spine is a
+truth value.  So each is this theorem at its own `hval`: the regime's
+`hCaE` for `hTStep` and `hTReg`, §29's `blockRecCa_value` for `hT`,
+and `BlockRuleConclAt`'s evaluation for `h0`.
+
+`hu0` is the regime's own `ℓ = 0` — at which `univ 0` IS `univZero`
+(`univ_zero`), so nothing else about the level is needed. -/
+theorem blockRecConcl_univZero_of_value {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {fvs : List Expr} {conclE sty : Expr} {u : Level}
+    (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1) r.1.type 0
+      = some (fvs, conclE))
+    (hinf : ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE
+      = .ok sty)
+    (hens : ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok u)
+    (hu0 : u.eval ψ = 0)
+    {ρ : Nat → V} {ys : List V}
+    (hys : SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+      (·.2.2)) ys)
+    {X : AnnotTerm} {σ : Nat → V}
+    (hval : interp V σ X = interp V (consList ys ρ)
+      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)) :
+    interp V σ X ∈ˢ (univZero : V) := by
+  rw [hval, ← univ_zero, ← hu0]
+  have hsat := sat_of_spineFit (Δ₀ := []) (ConLeche.Semantics.Sat_nil V ρ) hys
+  rw [List.append_nil] at hsat
+  exact blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
+
+/-- **THE TRUTH-VALUE PREMISE, FROM THE RUN.**  `hT` (§5), `hTStep`
+and `hTReg` (`blockIndRegime_run`) and the `ih` segment's `h0` all
+reduce to this: at the family's elimination level `0`, anything
+identified with a recursor's conclusion at a fitting spine is a truth
+value.
+
+Both halves come off the SAME peel, which is why they are one
+theorem: `blockRecElimLevel_run`'s bits component is what a regime's
+`ℓ = 0` is stated through, and its fourth component supplies the two
+runs `blockRecConcl_univ` needs — at the same level, with no second
+existential to reconcile. -/
+theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) :
+    ∃ uOf : Nat → Level,
+      (∀ c, c < rs.length →
+        ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
+          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
+      ∀ c, c < rs.length → (uOf c).eval ψ = 0 →
+        ∀ (ρ : Nat → V) (ys : List V),
+          SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
+            (·.2.2)) ys →
+          ∀ (X : AnnotTerm) (σ : Nat → V),
+            interp V σ X = interp V (consList ys ρ)
+              (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
+            interp V σ X ∈ˢ (univZero : V) := by
+  obtain ⟨us, uOf, -, -, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  refine ⟨uOf, fun c hc => hbits ψ c hc, fun c hc hu0 ρ ys hys X σ hval => ?_⟩
+  obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c hc
+  have hrd : rs[c]? = some (rs.getD c default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
+    rfl
+  exact blockRecConcl_univZero_of_value hμ mpC h hrd ψ hop hinf hens hu0 hys hval
+
+end ConclUniv
 
 end CertsArgs
 
