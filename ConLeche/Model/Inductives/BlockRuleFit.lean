@@ -12,10 +12,11 @@ public section
 `BlockRuleDataB` (`BlockRecData.lean`) is the seam's rule-side
 obligation at ONE environment and ONE valuation: five statements about
 one (recursor, constructor) pair, all at the BASE frame `ρ`.  This
-file discharges two of them — the first conjunct (the prefix and the
-fields FIT the rule's domains) and the third (the FIRED SPINE reads to
-the constructor at its own parameters) — and the two are one piece of
-work, because both need the same fact:
+file discharges three of them — the first conjunct (the prefix and the
+fields FIT the rule's domains), the second (the INDEX EXPRESSIONS read
+to the recursor's own index arguments) and the third (the FIRED SPINE
+reads to the constructor at its own parameters) — and the three are
+one piece of work, because all three need the same fact:
 
 > the constructor's field values fit the constructor's field domains
 > **at the RECURSOR's parameter frame**, not only at the
@@ -53,7 +54,12 @@ The parts:
   membership and the field spine's `ChainFit`, all at the recursor's
   parameter frame, out of `BlockRecSplitAt` and the constructor's
   reading;
-* **§3 the two conjuncts.**
+* **§3 the fit and the fired spine**, and **§3b the index reading**,
+  which is the same `ChainFit`'s SECOND conjunct read backwards.
+
+Both findings below (§4, §5) are `d.w ψ = 0` refutations: the fit and
+the index reading are BOTH false at a `Prop`-valued block, with
+different witnesses, and both are closed here at `d.w ψ ≠ 0`.
 -/
 
 namespace ConLeche.Model
@@ -509,6 +515,162 @@ theorem blockRuleHmk_zero
     Level.substFn_param_self ψ p.lps,
     mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_map, hzero, hzero]
 
+/-! ## 3b. The INDEX READING -/
+
+/-- **`BlockRuleDataB`'s SECOND conjunct at the run** — the rule's
+INDEX EXPRESSIONS read to the recursor's own index arguments.
+
+This is the block route's `IotaIndexPin` content, and the pin is NOT
+what produces it.  The pin ties the CONSTRUCTOR-frame reading of the
+conclusion's index arguments to `xs.drop rP`; the conjunct asks for
+the RECURSOR-frame reading.  The two frames differ exactly in the
+parameter spine, and — the rule being `paramsBlind` — the only thing
+that relates those is the MAJOR PREMISE.  So the row rides on §2's
+fact, the one the FIT needed: `blockRuleChainFit_run` produces a
+`ChainFit` at the RECURSOR's parameter frame, and `ChainFit`'s SECOND
+conjunct IS the reading equality — against the components of the
+index tuple the carrier membership named, which `projS_tupW` retracts
+to `xs.drop rP` itself.
+
+Two transports and no new mathematics: `hes` (`blockRecCtorIdx`'s own
+named premise — RM11's `blockRuleEsAV_eq` composed with the record's
+`Es`/`Ess` identification) moves the syntactic `es0` onto the datum's
+`Ess`, and `interp_liftN_rule` at `K = 0` moves the reading from the
+rule's frame to the block's.
+
+**`hw : d.w ψ ≠ 0` is essential and the conjunct is REFUTABLE without
+it** — see §5's FINDING, which is a DIFFERENT witness from §4's. -/
+theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
+    {ψ ψj : Name → Nat}
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
+    (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
+    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
+    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q) (hw : d.w ψ ≠ 0)
+    {ρ : Nat → V} {xs ys : List AnnotTerm} {restR : AnnotTerm}
+    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
+    (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
+      (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
+    {K : Nat} (hcK : c < K)
+    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ)
+    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
+    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
+      ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ))) :
+    (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
+        (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+          ++ (ys.drop d.nP).map (interp V ρ)) ρ))
+      = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ) := by
+  have hmN : mem c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
+  have hjl : j < (d.ctorsM (mem c)).length := (List.getElem?_eq_some_iff.mp hcj).1
+  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
+    rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨hps, hidx, hmaj⟩ :=
+    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hcK hsplit
+  have hXsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
+      = p.toBlockShape.rulePrefixAt c := by
+    rw [List.length_map, List.length_take]; omega
+  have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
+      = d.nP := by rw [List.length_take, hXsLen]; omega
+  have hfit := blockRuleChainFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
+  have hfp := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hmN hjl
+    (tupW_mem hidx) (lfpTuple_mem _ _ _ _) hfit
+  have hnF : ((d.Fss (mem c) ψ).getD j []).length = cA.2 := by
+    obtain ⟨-, -, hD⟩ := hcf
+    have hFssD : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
+      fssOfR_fixCtorDataList_getD hcj
+    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
+    omega
+  have hfsLen : ((ys.drop d.nP).map (interp V ρ)).length = cA.2 := by
+    rw [hfq.length_eq, hnF]
+  have hsat := d.satOfSpine hps
+  have hres := hM.resIdxFit ψ _ hsat (mem c) hmN j hjl _ hfp
+  have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
+    have hq := hres.length_eq
+    rwa [List.length_map] at hq
+  have hIdxOk := hM.idxOk ψ _ hsat (mem c) hmN
+  have hmapEq : (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
+        (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+          ++ (ys.drop d.nP).map (interp V ρ)) ρ))
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (interp V (consList ((ys.drop d.nP).map (interp V ρ))
+            (consList (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP)
+              ρ))) := by
+    rw [hes, List.map_map]
+    refine List.map_congr_left fun e _ => ?_
+    have hq := interp_liftN_rule (V := V) (K := 0) (a := fun _ => (pt : V)) (ρ := ρ)
+      (nP := d.nP) hXsLen hfsLen e
+    simpa only [chainFrame_zero, AnnotTerm.liftN_zero, Function.comp_apply] using hq
+  rw [hmapEq]
+  refine List.ext_getElem (by rw [List.length_map, hEsLen, hidx.length_eq]) fun l h1 h2 => ?_
+  have hl : l < (d.IdsM (mem c) ψ).length := by
+    rw [List.length_map, hEsLen] at h1; exact h1
+  have hlE : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
+  have hstep := hfit.2 l hl
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlE, Option.getD_some] at hstep
+  rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx hl,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+
+/-! ## 3c. The three conjuncts' OWN premises, produced
+
+`blockRuleHsp_field_run`, `blockRuleHes_run` and `blockRuleHmk_run`
+each take `hlv` (the constructor's level assignment agrees with the
+recursor's on the block's parameters) and `hqs`/`hfq` (the
+constructor's parameter and field spines fit).  None of the three is
+the seam's to supply: all three are consequences of premises
+`BlockRuleDataB` already hands — `hψ` for the first, `hfitC` for the
+other two — and they are produced here, so that what is left between
+the three conjuncts and the contract is the rule lane's two rows and
+the `w`-ruling and nothing else. -/
+
+/-- **`hlv` at the contract's own `hψ`.**  A block rule is `.plain`,
+so `recFireComparands` copies the recursor's level arguments
+(`recFireComparands_plain`), and the contract's level premise becomes
+`substFn_agree_of_comparand`'s comparand form. -/
+theorem blockRuleLevelAgree {φ : Name → Nat} {lps lpsR : List Name} {us usj : List Level}
+    {rl : ConLeche.RecRule} {rP : Nat} (hplain : ConLeche.RecRule.fire rl = .plain)
+    (hψ : Level.substFn φ lps usj
+      = Level.substFn φ lps (ConLeche.recFireComparands rl lpsR us lps [] rP).1) :
+    ∀ q ∈ lps, Level.substFn φ lps usj q = Level.substFn φ lpsR us q :=
+  substFn_agree_of_comparand (by rw [hψ, recFireComparands_plain hplain])
+
+/-- **`hqs` and `hfq` at the contract's own `hfitC`.**
+
+`CtorDataI.read` says the constructor's type reads as the Π-tower over
+`d.dsF`, so the contract's `ctorTy` IS that tower;
+`spineFit_of_teleFitPA` turns a fit of a tower into a fit of its
+domains; `CtorDataI.params` moves the domains from the constructor's
+own level assignment `ψj` to the recursor's `ψ` (which is exactly what
+`hlv` says); and §2's `blockCtorSpine_split` splits the result at
+`d.nP`.  This is `blockCtorSpine_split`'s first consumer. -/
+theorem blockRuleCtorFit_run {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
+    {ψ ψj : Name → Nat} (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
+    (hlenP : (d.params ψ).length = d.nP)
+    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
+      ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
+    {ρ : Nat → V} {ys : List AnnotTerm} {ctorTy restC : AnnotTerm}
+    (hys : ys.length = d.nP + cA.2)
+    (hctorRead : denoteMeta mpC.base2.acval envC ψj 0 cA.1.type = some ctorTy)
+    (hfitC : TeleFitPA V ρ ctorTy ys restC) :
+    SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)) ∧
+      SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
+        ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)) := by
+  obtain ⟨-, -, hD⟩ := hcf
+  obtain rfl := Option.some.inj (hctorRead.symm.trans (hD.read ψj))
+  have hds : d.dsF mm j ψj = d.dsF mm j ψ := (hD.params ψj ψ hlv).1
+  have hsp := spineFit_of_teleFitPA (by rw [hys, hD.len ψj]) hfitC
+  rw [hds] at hsp
+  exact blockCtorSpine_split hcj (hD.len ψ) hsp hparamsC hlenP
+
 /-! ## 4. THE FINDING — the FIT conjunct is FALSE at a `Prop`-valued
 block
 
@@ -564,5 +726,75 @@ this lane's — is what the contract asks for at `d.w ψ = 0`:
 
 Until it is decided, the fit half is proved under `hw`, and the
 per-pair obligation is closed at `d.w ψ ≠ 0` only. -/
+
+/-! ## 5. THE SECOND FINDING — the INDEX READING is FALSE at a
+`Prop`-valued block too, and the witness is in Mathlib
+
+`BlockRuleDataB`'s second conjunct — the rule's index expressions read
+to the recursor's own index arguments — is **refutable** at
+`d.w ψ = 0`, by a DIFFERENT witness from §4's.  §4's `Exists` cannot
+refute this row at all: it has no indices, so the conjunct is
+`[] = []`.  What this row needs is a block with an INDEX whose
+constructor-side expression is a PARAMETER, and a SECOND constructor
+to keep the carrier inhabited at a *different* index.
+
+**The witness is `Relation.ReflTransGen`.**
+
+```
+inductive ReflTransGen (r : α → α → Prop) (a : α) : α → Prop
+  | refl : ReflTransGen r a a
+  | tail : ReflTransGen r a b → r b c → ReflTransGen r a c
+```
+
+`nP = 3` (`α`, `r`, `a`), one index, `d.w ψ = 0`, and `refl`'s
+conclusion's index argument IS the parameter `a`.  Fire the `refl`
+rule at `α := Bool`, `r := (· ≠ ·)`:
+
+* `xs = [Bool, r, true, motive, m_refl, m_tail, false]` — the
+  recursor's prefix at `a := true` (`motive := fun _ _ => True` and
+  the two minors trivial), with the INDEX argument `i_R = false`;
+* `ys = [Bool, r, false]` — the constructor at `a := false`.
+
+Every premise holds.  `hfitC` is three parameter memberships.
+`hfitR`: the major's value is `d.inj ψ 0 0 [] = pt` (`mkZero`), and
+the major's domain is the carrier at the RECURSOR's parameters and
+index, `⟦ReflTransGen r true false⟧`, which is inhabited — by `tail`,
+since `true ≠ false`.  `IotaIndexPin` holds: `refl`'s residual is
+`ReflTransGen r false false` and its trailing argument reads to
+`false = i_R`.  `hψ` is about levels.  But the conjunct then asks
+
+    interp (consList (x⃗ ++ f⃗) ρ) ⟦a⃗⟧  =  (xs.drop rP).map (interp ρ)
+
+whose left side reads the parameter `a` at the RECURSOR's frame —
+`true` — and whose right side is `[false]`.
+
+**It is the same hole as §4's, one conjunct along.**  The rule is
+`paramsBlind`, so the only tie between the constructor's parameter
+spine and the recursor's is the major premise's membership; at
+`d.w ψ = 0` every value is the point and the membership says only
+that SOME constructor's `ChainFit` holds at the recursor's index
+tuple — here `tail`'s, not `refl`'s.  `blockCarrier_case` delivers a
+`j'`, and it is `mkInj` — `d.w ψ ≠ 0` — that makes `j' = j`.
+
+**Where the two witnesses agree, and what that buys the ruling.**
+Both `Exists` and `ReflTransGen` are `ℓ = 0` blocks: `Exists` is not
+subsingleton-eliminating (its field `w` is neither a proof nor an
+argument of the conclusion) and `ReflTransGen` has two constructors.
+So BOTH refutations live in the region where the ι equation is an
+equation between PROOFS, and the `d.w ψ ≠ 0` guard on both conjuncts
+is the repair the coordinator's first bullet already describes.
+Neither witness reaches the `ℓ ≠ 0` region, and the argument there is
+still unwritten — but it is now narrower for this row than for the
+fit: subsingleton elimination needs ONE constructor, and with one
+constructor `blockCarrier_case`'s `j'` is `j` with no `mkInj` at all.
+What would remain at `ℓ ≠ 0` is the FIELD spine (`fs'` need not be
+`fs` without `mkInj`), so the row closes there exactly when the index
+expressions' readings do not depend on the fields, or where
+`IotaIndexPin` pins the ones that do — `Acc.intro`'s `x` is pinned,
+and `inductive P (α) (a : α) : α → Prop | mk : P α a a` needs no pin
+because its single constructor forces `i_R = a_R` through `hfitR`.
+
+Until the ruling, the row is closed at `d.w ψ ≠ 0`
+(`blockRuleHes_run`), like the fit. -/
 
 end ConLeche.Model

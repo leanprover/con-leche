@@ -82196,3 +82196,46 @@ fixpoint's order-dependence again — and the response is the
 MEASUREMENT (demote each alone, record what breaks), never the
 demotion.  And `obtain`'s `-` on an existential witness clears every
 hypothesis mentioning it, surfacing far away as "unknown identifier".
+
+#### LANDED (lane RM29 = M5M-data session 26, `c0562e2c`): the index reading — and a SECOND `w = 0` refutation, with a Mathlib witness
+
+**The row closed, and the producer was not the pin.**  `es` had no
+producer for four sessions because it was read as `IotaIndexPin`'s
+content and sized against `Model/IndPoint.lean` at 2–3 sessions.  That
+was wrong, and naming the FRAME says why in one line: the pin ties the
+CONSTRUCTOR-frame reading of the conclusion's index arguments to
+`xs.drop rP`, and the conjunct wants the RECURSOR-frame one.  The two
+frames differ exactly in the parameter spine, which a `paramsBlind`
+rule relates only through the major premise — i.e. through
+`blockRuleChainFit_run`, whose `ChainFit`'s second conjunct IS a
+reading equality, retracted by `projS_tupW`.  Two transports and no new
+mathematics (`blockRuleHes_run`, `BlockRuleFit.lean:543`).
+`IndPoint.lean` contributed nothing: its index walk is about a
+GENERATED recursor's `getAppArgs`.  Three premises that had been
+hand-offs in all three of this lane's conjunct theorems (`hlv`, `hqs`,
+`hfq`) now follow from premises the contract already hands
+(`blockRuleLevelAgree` :637, `blockRuleCtorFit_run` :653).
+
+**The second refutation at `d.w ψ = 0`, and the witness is in
+Mathlib.**  `Relation.ReflTransGen r a : α → Prop`: `refl`'s conclusion
+index IS the parameter `a`, and `tail` keeps the carrier inhabited
+elsewhere.  At `α := Bool`, `r := (· ≠ ·)`, recursor prefix at
+`a := true` with index `false`, firing `refl` at `ys = [Bool, r,
+false]`, every premise of the contract holds — `hfitC`, `hfitR` (the
+major is `pt` by `mkZero`, the carrier inhabited through `tail`), the
+pin, the level agreement — and the conjunct then asks `true = false`.
+It is the same hole as the fit's, one conjunct along: `blockCarrier_case`
+lands on `tail`, not `refl`, and only `mkInj` (`w ≠ 0`) identifies
+them.  Note that the two witnesses do not substitute for each other —
+`Exists` has no indices and cannot refute this row; this one does not
+refute the fit usefully.  **One hole, two conjuncts, two witnesses**,
+and both blocks are `ℓ = 0`, so the `w`-split under consideration
+covers both.  Written out at `BlockRuleFit.lean:730`.
+
+**Five of the six statements now have a theorem whose conclusion is
+them** (at `w ≠ 0`).  What is left of the per-pair obligation: the
+residue and the tower fit (the rule lane's), the `w` ruling (≤ ½
+session of Lean once decided), and — newly counted — **the COMPOSITION:
+there is no theorem whose conclusion is `BlockRuleDataB`**.  That is
+the sizing question applied to the obligation itself, and it is one
+session.  (C) re-sized to **4–6 sessions**.
