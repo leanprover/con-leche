@@ -13,7 +13,7 @@ import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Semantics.Tower.BlockRecIndI
-import ConLeche.Model.Rules.Sound
+public import ConLeche.Model.Rules.Sound
 
 public section
 
@@ -665,6 +665,18 @@ theorem denoteMetaSpine_unique {acval : Name → (Name → Nat) → AnnotTerm} {
   | _, _, _, .nil, .nil => rfl
   | _, _, _, .cons ha hrest, .cons ha' hrest' => by
     rw [Option.some.inj (ha.symm.trans ha'), denoteMetaSpine_unique hrest hrest']
+
+/-- Each subject of a read spine has its reading in it. -/
+theorem denoteMetaSpine_subj {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {D : Nat} :
+    ∀ {es : List Expr} {ws : List AnnotTerm}, DenoteMetaSpine acval env φ D es ws →
+      ∀ e ∈ es, ∃ x ∈ ws, denoteMeta acval env φ D e = some x
+  | _, _, .nil, _, he => nomatch he
+  | _, _, .cons (v := v) ha hrest, e, he => by
+    rcases List.mem_cons.mp he with rfl | he'
+    · exact ⟨v, List.mem_cons_self, ha⟩
+    · obtain ⟨x, hx, hde⟩ := denoteMetaSpine_subj hrest e he'
+      exact ⟨x, List.mem_cons_of_mem _ hx, hde⟩
 
 /-- A read spine moves along an environment extension, subject by
 subject. -/
@@ -2137,6 +2149,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
       (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
       ConLeche.blockIhCall? fr d node = some (r, as) →
+      node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
       ConLeche.nameIdxOf? fr.recNames nm = some c' →
       ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
       locals.length = d → i < fr.nF →
@@ -2254,8 +2267,8 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     ihFunAV_fold (V := V) (ℓ := ℓ) (K := K) (c' := c') (eis := (EisF i).map
         (ihIdxAtM fr.nF o i 0 (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
       hℓ hleafv.symm hxl hfl (by rw [List.length_map, hvlen, htlen])
-      (hfit d i c' r nm locals node as as1 as2 Δa vs ws hcall hnm hrpos hloc hiF h1 h2f hsx hlf
-        hcbe hW htyN hvs hws hwlen),
+      (hfit d i c' r nm locals node as as1 as2 Δa vs ws hcall hnodeF hnodeB hnm hrpos hloc hiF
+        h1 h2f hsx hlf hcbe hW htyN hvs hws hwlen),
     interp_mkAppN, foldl_app_map, hcl nm _ _ (consList (xs ++ fs) σchain), hleafv,
     prefVars_shift, fieldApp_shift, hEisShift,
     show consList (xs ++ fs ++ vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))
@@ -2338,6 +2351,7 @@ theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
     (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
       (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
       ConLeche.blockIhCall? fr d node = some (r, as) →
+      node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
       ConLeche.nameIdxOf? fr.recNames nm = some c' →
       ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
       locals.length = d → i < fr.nF →
