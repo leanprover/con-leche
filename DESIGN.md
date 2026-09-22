@@ -81647,3 +81647,17 @@ counterpart is "No such recursor"), and the new twin
 `corner_rec_reserved_name` (`Nat'`'s recursor named `List.cons`)
 rejects with the reservation message.  No other e2e fixture and no
 arena test — no `good/` test in particular — reaches either message.
+
+#### FINDING → RULING (2026-09-22, lane RM16 §S14.2): the recursors of one family must share their whole rule prefix
+
+The uniform check compared only the first `nP` binder domains across a
+block's recursors ("the stretch `nP … rP-1` is arbitrary — never looked
+inside"), and a guarded call passes the CALLER's own prefix variables
+(the strict ruling), so nothing checked that they fit the CALLEE's
+prefix domains; the model's predecessor fact needs exactly that.
+Official generates one shared prefix (motives, minors) for the block's
+recursors, so requiring the family's prefixes to agree binder by binder
+(defeq, `checkBlockDefEqList` across the recursors) is a restriction
+only on paper; reported here per `restrictions-are-findings`, and
+adopted: RULING — the family's recursors share the whole prefix up to
+defeq; `.invalid` otherwise; exported to the model as `pdoms c = pdoms c'`.
