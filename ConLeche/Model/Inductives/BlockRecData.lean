@@ -4009,6 +4009,47 @@ theorem blockRecAcv_stored {mpC : EnvModelM V μ envC}
   rw [hh, (hcv r hr).1] at hn
   exact nomatch hn
 
+/-- **THE ENVIRONMENT CROSSING, as an EQUATION** — the two readings of
+one `ConstsBound envC` subject, at the constructors' environment and
+at the recursors', are the SAME `Option`.
+
+`blockRecDenote_cross` is its monotone half and is all a consumer that
+already HAS the `envC` reading needs.  A consumer that has only the
+CONSED reading — the rule's λ-tower is read there, because the
+right-hand side mentions the recursors by design — needs the other
+direction too, and it is free: `denoteMeta_envExtend` is an equation
+under `ConstsBound env₀`, and the run supplies both of its remaining
+premises (`checkBlockRecK_cvFacts` for the freshness and the
+projection shape, `checkBlockRecK_reserved` for the two literal
+guards, which is exactly the NAME check `blockRecStaged_of` names for
+the same reason).
+
+So the crossing itself is **not** an obligation: what is owed at a
+λ-tower's binder domains is the SYNTACTIC premise `ConstsBound envC`,
+and that premise has no producer in the tree (§A.19c). -/
+theorem blockRecDenote_cross_eq {mpC : EnvModelM V μ envC}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound envC e) :
+    denoteMeta mpC.base2.acval envC ψ d e
+      = denoteMeta (blockRecAcv mpC.base2.acval envC rs s eqs)
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ d e := by
+  have hcv := checkBlockRecK_cvFacts h
+  have hres := ConLeche.checkBlockRecK_reserved h
+  have hkeep := find?_consBlockRecs_keep (q := p.toBlockShape) (nP := p.nP)
+    (fun r hr => (hcv r hr).1)
+  rw [← denoteMeta_envExtend (acval := blockRecAcv mpC.base2.acval envC rs s eqs) (φ := ψ)
+      (fun {n} {ci} hf => hkeep n ci hf)
+      ⟨(ConLeche.natLitSupported_consBlockRecs hres).symm,
+        (ConLeche.strLitSupported_consBlockRecs hres).symm⟩
+      (fun sn i hs => by
+        rw [findProj?_consBlockRecs (fun r hr => (hcv r hr).2.2.1)]; exact hs) d e hcb]
+  refine denoteMeta_acval_congr (fun n hn => ?_) d e
+  refine (blockRecAcvOf_of_ne (fun m hm => ?_)).symm
+  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
+  intro hh
+  rw [hh, (hcv r hr).1] at hn
+  exact nomatch hn
+
 /-- **The contract's `TVa` binder, ELIMINATED**: the recursor type's
 reading at the consed environment, at the rule's level arguments, IS
 `blockRecTyAV` at the substituted valuation. -/
