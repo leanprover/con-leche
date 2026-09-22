@@ -878,7 +878,15 @@ theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
         (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
         (concl.instantiateList ((openFvars (nP + o + nF + l)
           (structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
-      = some conclA := by
+      = some conclA ∧
+      ConLeche.Model.AnnotTerm.peelPis
+          (TVa.liftN (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length) 0)
+          (((List.range rP).map fun q =>
+              AnnotTerm.bvar (l + (structFieldTeleOf cty nP nF i).length + nF + rP - 1 - q)) ++
+            Eis.map (ihIdxAtM nF o i l (structFieldTeleOf cty nP nF i).length) ++
+            [AnnotTerm.mkAppN (.bvar (nF - 1 - i + l + (structFieldTeleOf cty nP nF i).length))
+              (teleVarsAV (structFieldTeleOf cty nP nF i).length)])
+        = some conclA := by
   have hD : 0 < nP + o + nF + l + (structFieldTeleOf cty nP nF i).length := by omega
   have hLfv : FvarList (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
       ((openFvars (nP + o + nF + l) (structFieldTeleOf cty nP nF i).length).reverse ++ as1) :=
@@ -932,7 +940,7 @@ theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
       (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
     rwa [Nat.zero_add] at h
   -- (3) the spine's readings, and the peel
-  obtain ⟨restA, hrest, -⟩ := denoteMeta_instPisAtLift_peel m.acval_closed (acval_inst_self m) _ hpr'
+  obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAtLift_peel m.acval_closed (acval_inst_self m) _ hpr'
     (Expr.WScoped.of_not_hasFvar hTyF)
     (fun a ha => by
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp ha
@@ -943,7 +951,7 @@ theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
                   = nP + o + nF + l + (structFieldTeleOf cty nP nF i).length from by omega]
             exact (hcl y hy).1))
     hTyD (denoteMetaSpine_blockIhSpine hop0 hCf hCb hstripC hi hfr hrP h1)
-  exact ⟨restA, hrest⟩
+  exact ⟨restA, hrest, hpeel⟩
 
 /-- **`hconcl` at the rule frame's data** — `blockRuleHopener_of`'s
 last named premise, produced: at every `ih` key the CALLEE's stored
@@ -976,17 +984,69 @@ theorem blockRuleHconcl_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Na
               (ConLeche.structTeleVars (fr.teleOf i).length)])
           (recTyOf c') = some concl →
       FvarList (fr.nP + o + fr.nF + r) as1 →
+      ∃ conclA TVa, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa ∧
+        denoteMeta mT.acval envT ψ
+          (fr.nP + o + fr.nF + r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+          (concl.instantiateList ((openFvars (fr.nP + o + fr.nF + r)
+            (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length).reverse ++ as1) 0)
+          = some conclA ∧
+        ConLeche.Model.AnnotTerm.peelPis
+            (TVa.liftN (fr.nP + o + fr.nF + r
+              + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length) 0)
+            (((List.range fr.rP).map fun q =>
+                AnnotTerm.bvar (r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length
+                  + fr.nF + fr.rP - 1 - q)) ++
+              (EisF i).map (ihIdxAtM fr.nF o i r
+                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length) ++
+              [AnnotTerm.mkAppN (.bvar (fr.nF - 1 - i + r
+                  + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)])
+          = some conclA := by
+  intro i c' r concl as1 hrpos hpr h1
+  obtain ⟨hiF, hfr⟩ := hfld i c' r hrpos
+  obtain ⟨hTyF, hTyB, TVa, hTy⟩ := hrecTy i c' r hrpos
+  rw [htele, hidx] at hpr
+  obtain ⟨conclA, hconclA, hpeel⟩ := denoteMeta_blockIhOpenerConcl hop0 hCf hCb hstripC hiF hfr
+    hrP hTyF hTyB hTy hpr h1
+  exact ⟨conclA, TVa, hTy, hconclA, hpeel⟩
+
+/-- **`blockRuleHconcl_of`'s reading half** — `blockRuleHopener_of`'s
+premise verbatim, with the peel's identification dropped (the IND
+step reads that one; the fit does not). -/
+theorem blockRuleHconclRead_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {o : Nat} {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr}
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hrP : fr.nP + o = fr.rP)
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa) :
+    ∀ (i c' r : Nat) (concl : Expr) (as1 : List Expr),
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      Expr.instPisAtLift
+          (ConLeche.blockRulePrefixVars fr.rP fr.nF (r + (fr.teleOf i).length) ++
+            (fr.idxOf i).map (ConLeche.structIdxAt fr.nF o i r (fr.teleOf i).length) ++
+            [Expr.mkAppN (.bvar (fr.nF - 1 - i + r + (fr.teleOf i).length))
+              (ConLeche.structTeleVars (fr.teleOf i).length)])
+          (recTyOf c') = some concl →
+      FvarList (fr.nP + o + fr.nF + r) as1 →
       ∃ conclA, denoteMeta mT.acval envT ψ
           (fr.nP + o + fr.nF + r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
           (concl.instantiateList ((openFvars (fr.nP + o + fr.nF + r)
             (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length).reverse ++ as1) 0)
         = some conclA := by
   intro i c' r concl as1 hrpos hpr h1
-  obtain ⟨hiF, hfr⟩ := hfld i c' r hrpos
-  obtain ⟨hTyF, hTyB, TVa, hTy⟩ := hrecTy i c' r hrpos
-  rw [htele, hidx] at hpr
-  exact denoteMeta_blockIhOpenerConcl hop0 hCf hCb hstripC hiF hfr hrP
-    hTyF hTyB hTy hpr h1
+  obtain ⟨conclA, -, -, hconclA, -⟩ :=
+    blockRuleHconcl_of hop0 hCf hCb hstripC htele hidx hrP hfld hrecTy i c' r concl as1
+      hrpos hpr h1
+  exact ⟨conclA, hconclA⟩
 
 end OpenerConcl
 

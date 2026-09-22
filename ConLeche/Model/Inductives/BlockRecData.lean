@@ -3257,7 +3257,7 @@ theorem blockRuleHfit_run {env envT : Env} {mo : EnvModel V env} {mT : EnvModel 
   blockRuleHfit_of haclN mT.acval_closed hin hmono hihl htlen htele
     (blockRuleHopener_of hF ho hrP hop0 hCf hCb hstripC htele hfld hpis hihfv hLpf hopen
       has2 hpflen
-      (blockRuleHconcl_of hop0 hCf hCb hstripC htele hidx hrP hfld hrecTy))
+      (blockRuleHconclRead_of hop0 hCf hCb hstripC htele hidx hrP hfld hrecTy))
 
 /-! ## A.17 The call's arguments live BELOW the recursors (AUDIT 1.4)
 
@@ -3656,6 +3656,128 @@ theorem blockRuleRhsOk_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (RaOf := blockRuleRaOf m₃.acval
       (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs)
     (fun us _ => by rw [hrl]; exact hread φ us) (fun ψ ρ => hok ψ ρ) hpl hdata
+
+/-! ## A.19 The rule's λ-TOWER — the shape the last two conjuncts read
+
+Two of §A.5c's five base-frame statements read the right-hand side's
+reading AS A λ-TOWER `mkLamsAV lds A`: the residue conjunct
+β-reduces along it (`blockRuleHRa_val`) and the applied form is
+graded along it (`mkAppN_wellDenotedV_of_lam`).  §S22.4 recorded the
+shape as still owed; it is a COROLLARY of the reading, through the
+stage's OWN `instLamsAt` run — `checkBlockRule`'s G2 witness, which
+`blockRuleData_run` already names — and `instLamsAt_denotePTele`
+(`Model/IndTowerRead.lean`).
+
+**The tower's domains are the RULE's**, each read at its own depth;
+the lane's `pdoms0 ++ fdoms0` are the RECURSOR's prefix domains and
+the CONSTRUCTOR's field domains.  `checkBlockRule` compares the two
+(`checkBlockDefEqList` at `envT`, the G2 step), so they are DEFEQ and
+not equal, and all either consumer asks of them is that a spine
+fitting the second fits the first — which is how the bridge is
+stated below (`hG2`). -/
+
+section RuleTower
+
+/-- A reversed list's slot, at an index the list has. -/
+theorem getD_reverse_lt {l : List AnnotTerm} {i : Nat} (hi : i < l.length) :
+    l.reverse.getD i default = l.getD (l.length - 1 - i) default := by
+  rw [List.getD, List.getElem?_reverse (by omega), List.getD]
+
+/-- **A λ-telescope IS a `mkLamsAV` tower.**  `LamTele` appends the
+OUTERMOST domain last, so the tower's data is the reversed context —
+which is also the order the two consumers index it in (slot `i0` is
+the `i0`-th binder from the outside). -/
+theorem lamTele_mkLamsAV :
+    ∀ {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm} {R : AnnotTerm},
+      LamTele k T Γ R →
+      ∃ lds : List (Nat × AnnotTerm), lds.map (·.2) = Γ.reverse ∧ T = mkLamsAV lds R := by
+  intro k T Γ R h
+  induction h with
+  | nil => exact ⟨[], rfl, rfl⟩
+  | @cons k v A B R Γ _ ih =>
+    obtain ⟨lds, hmap, hT⟩ := ih
+    exact ⟨(v, A) :: lds, by simp [hmap], by rw [mkLamsAV, hT]⟩
+
+/-- **The rule's opener spine is indexed**: `fvsPref ++ fvsF` is
+`.fvar 0, …, .fvar (rP + nF − 1)`, which is `instLamsAt_denotePTele`'s
+shape premise at depth `0`. -/
+theorem blockRuleOpeners_index {rP nF : Nat} {e₁ e₂ o₁ o₂ : Expr}
+    {fvsPref fvsF : List Expr}
+    (h1 : ConLeche.openPisAtFvars rP e₁ 0 = some (fvsPref, o₁))
+    (h2 : ConLeche.openPisAtFvars nF e₂ rP = some (fvsF, o₂)) :
+    ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF)[i]? = some x →
+      ∃ ty, x = Expr.fvar (0 + i) ty := by
+  intro i x hx
+  have hlen : fvsPref.length = rP := openPisAtFvars_length _ h1
+  rcases Nat.lt_or_ge i fvsPref.length with hi | hi
+  · rw [List.getElem?_append_left hi] at hx
+    obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h1 i x hx
+    exact ⟨ty, hty⟩
+  · rw [List.getElem?_append_right hi] at hx
+    obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h2 (i - fvsPref.length) x hx
+    refine ⟨ty, ?_⟩
+    rw [hty, hlen]
+    congr 1
+    omega
+
+/-- **The rule's reading IS a λ-tower over the run's own domains.**
+
+The tower has one layer per rule-prefix and field binder, its core is
+the reading of the `instLamsAt` run's residual, and its `i0`-th
+domain is the reading of the run's `i0`-th λ-domain AT DEPTH `i0` —
+the same per-depth convention `readOpenedDoms` (and with it
+`blockRulePdomsAV`/`blockRuleFdomsAV`) uses, so the G2 bridge
+compares two readings at one depth and not two frames. -/
+theorem blockRuleTower_run {envC env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ψ : Name → Nat} {Ra : AnnotTerm} (hread : denoteMeta acv env₃ ψ 0 rhs = some Ra) :
+    ∃ (ldoms : List Expr) (lrest : Expr) (lds : List (Nat × AnnotTerm)) (A : AnnotTerm),
+      ConLeche.Expr.instLamsAt
+          (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)
+          rhs = some (ldoms, lrest) ∧
+      Ra = mkLamsAV lds A ∧
+      lds.length = p.toBlockShape.rulePrefixAt c + cA.2 ∧
+      denoteMeta acv env₃ ψ (p.toBlockShape.rulePrefixAt c + cA.2) lrest = some A ∧
+      ∀ (i0 : Nat) (x : Expr), ldoms[i0]? = some x →
+        denoteMeta acv env₃ ψ i0 x = some ((lds.map (·.2)).getD i0 default) := by
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, hlams⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  have hlenP : (blockRulePrefFvs p.toBlockShape rs c).length
+      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+  have hlenF : (blockRuleFieldFvs p.toBlockShape rs c i).length = cA.2 :=
+    openPisAtFvars_length _ hopF
+  have hsplen : (blockRulePrefFvs p.toBlockShape rs c
+      ++ blockRuleFieldFvs p.toBlockShape rs c i).length
+      = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    rw [List.length_append, hlenP, hlenF]
+  obtain ⟨Γ, C, htele, hΓlen, hrest, hdoms⟩ :=
+    instLamsAt_denotePTele (acval := acv) (env := env₃) (φ := ψ) _ hlams
+      (blockRuleOpeners_index hopPref hopF) hread
+  obtain ⟨lds, hmap, hT⟩ := lamTele_mkLamsAV htele
+  have hldslen : lds.length = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    have hq : (lds.map (·.2)).length = Γ.reverse.length := by rw [hmap]
+    simp only [List.length_map, List.length_reverse] at hq
+    rw [hq, hΓlen, hsplen]
+  have hdomslen : ldoms.length = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    rw [ConLeche.Verify.instLamsAt_length _ hlams, hsplen]
+  refine ⟨ldoms, lrest, lds, C, hlams, hT, hldslen, ?_, ?_⟩
+  · rw [Nat.zero_add, hsplen] at hrest
+    exact hrest
+  · intro i0 x hx
+    have hi0 : i0 < p.toBlockShape.rulePrefixAt c + cA.2 := by
+      have hq := (List.getElem?_eq_some_iff.mp hx).1
+      omega
+    have hd := hdoms i0 x hx
+    rw [Nat.zero_add] at hd
+    rw [hd, hmap, getD_reverse_lt (by rw [hΓlen, hsplen]; exact hi0), hΓlen]
+
+end RuleTower
 
 /-! ## A.18 The lane's ENDPOINT — `declBlock` at what is left
 
