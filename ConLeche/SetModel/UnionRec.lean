@@ -151,19 +151,66 @@ theorem accFam_intro {I : V} {Cond : V → Prop} (hpred : ∀ i, i ∈ˢ I → p
   exact pt_mem_truthVal ⟨hC, h⟩
 
 /-- **The recursion data over classes, bundled**: the predecessor map
-stays inside the union, every element of the union is accessible, the
-bound is a set at the level and the step lands in the bound. -/
+stays inside the union, the bound is a set at the level, the step
+lands in the bound — and the recursion theorem HOLDS at that data
+(`exu`).
+
+`exu` is a field, not a consequence of an accessibility field,
+because accessibility is a WAY to the recursion theorem and not the
+only one.  `ofAcc` is that way (every element of the union accessible
+along `pred`, which `SetModel/WfRec.lean` discharges for any classes
+off regularity) and regimes WF and IND take it; regime SQ proves the
+singleton property by the block's OWN lfp induction instead
+(`sqGraph_singleton`, `Semantics/Tower/FixSquashI.lean`) and has no
+accessibility argument to give.  Making the theorem the field is what
+lets both in. -/
 structure UnionRecKitC (ℓ k : Nat) (Is C : Nat → V) where
   pred : V → V
   B : V → V
   st : V → V → V
   predSub : ∀ u, u ∈ˢ unionSet k Is C → pred u ⊆ˢ unionSet k Is C
-  acc : ∀ u, u ∈ˢ unionSet k Is C →
-    ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred (fun _ => True)) u
   hB : ∀ u, u ∈ˢ unionSet k Is C → B u ∈ˢ (univ ℓ : V)
   hst : ∀ u, u ∈ˢ unionSet k Is C → ∀ g,
     g ∈ˢ piSet (pred u) (fun j => app (recGraph ℓ (unionSet k Is C) pred B st) j) →
     st u g ∈ˢ B u
+  /-- **The recursion theorem at this data**: the graph has exactly
+  one value at every union element. -/
+  exu : ∀ u, u ∈ˢ unionSet k Is C →
+    (∃ v, v ∈ˢ app (recGraph ℓ (unionSet k Is C) pred B st) u) ∧
+    ∀ v v', v ∈ˢ app (recGraph ℓ (unionSet k Is C) pred B st) u →
+      v' ∈ˢ app (recGraph ℓ (unionSet k Is C) pred B st) u → v = v'
+
+/-- **The kit from ACCESSIBILITY** — the way regimes WF and IND build
+it: `recGraph_exists_unique` at an accessibility witness. -/
+noncomputable def UnionRecKitC.ofAcc (pred B : V → V) (st : V → V → V)
+    (predSub : ∀ u, u ∈ˢ unionSet k Is C → pred u ⊆ˢ unionSet k Is C)
+    (hB : ∀ u, u ∈ˢ unionSet k Is C → B u ∈ˢ (univ ℓ : V))
+    (hst : ∀ u, u ∈ˢ unionSet k Is C → ∀ g,
+      g ∈ˢ piSet (pred u) (fun j => app (recGraph ℓ (unionSet k Is C) pred B st) j) →
+      st u g ∈ˢ B u)
+    (acc : ∀ u, u ∈ˢ unionSet k Is C →
+      ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred (fun _ => True)) u) :
+    UnionRecKitC ℓ k Is C where
+  pred := pred
+  B := B
+  st := st
+  predSub := predSub
+  hB := hB
+  hst := hst
+  exu := fun u hu => (acc u hu).elim fun y hy =>
+    recGraph_exists_unique hB predSub hst u hu y hy
+
+@[simp] theorem UnionRecKitC.ofAcc_pred (pred B st predSub hB hst acc) :
+    (UnionRecKitC.ofAcc (ℓ := ℓ) (k := k) (Is := Is) (C := C)
+      pred B st predSub hB hst acc).pred = pred := rfl
+
+@[simp] theorem UnionRecKitC.ofAcc_B (pred B st predSub hB hst acc) :
+    (UnionRecKitC.ofAcc (ℓ := ℓ) (k := k) (Is := Is) (C := C)
+      pred B st predSub hB hst acc).B = B := rfl
+
+@[simp] theorem UnionRecKitC.ofAcc_st (pred B st predSub hB hst acc) :
+    (UnionRecKitC.ofAcc (ℓ := ℓ) (k := k) (Is := Is) (C := C)
+      pred B st predSub hB hst acc).st = st := rfl
 
 namespace UnionRecKitC
 
@@ -173,13 +220,12 @@ variable (K : UnionRecKitC ℓ k Is C)
 noncomputable def recAt (c : Nat) (i x : V) : V := unionRecC ℓ k Is C K.pred K.B K.st c i x
 
 /-- **The recursion theorem over classes**: the graph has exactly one
-value at every union element. -/
+value at every union element — the kit's own field. -/
 theorem exists_unique {u : V} (hu : u ∈ˢ unionSet k Is C) :
     (∃ v, v ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u) ∧
     ∀ v v', v ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u →
-      v' ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u → v = v' := by
-  obtain ⟨y, hy⟩ := K.acc u hu
-  exact recGraph_exists_unique K.hB K.predSub K.hst u hu y hy
+      v' ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u → v = v' :=
+  K.exu u hu
 
 /-- The graph's values are bounded. -/
 theorem graph_mem_B {u v : V} (hu : u ∈ˢ unionSet k Is C)
