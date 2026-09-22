@@ -82905,3 +82905,48 @@ which rows are yours, and which PART of them.
 
 With it the certificate lane's queue is empty but for the motive
 restatement, which is held for the sequencing above.
+
+#### LANDED (lane RM41 = M5M-rule session 7, `75a3e35a`): **the small-elimination regime is APPLIED** — the arm's first composition
+
+A new module `Model/Inductives/BlockIndRegimeRun.lean` (831 lines)
+holds the first theorem whose conclusion is the regime at the run.
+Seven census rows gained their first consumer.
+
+**What the composition turned out to need** (nobody knew before it was
+written):
+
+1. **A CURRENCY CHANGE, and a bounded one.**  The fused opener premise
+   speaks the BLOCK DATUM; the run speaks the RULE FRAME.  Written out:
+   nine landed block facts plus five frame identifications, of which
+   exactly ONE is not derivable in the Model tier — the `ih` binders'
+   bit at a level-zero motive, which is the CHECK's datum.  The two
+   "free functions" were never free.
+2. **The key's filter carries the CALLEE's prefix**: the conclusion
+   predicate typechecks against a peel taken at the CALLER's prefix
+   only because the key generator emits a key solely where the two
+   agree — which is what half A's unconsumed fifth conjunct was for.
+3. **An existential producer and a named guard cannot meet.**  The
+   elimination-level theorem returns `∃ ℓ, …`; the dispatch's guard
+   names the caller's `ℓ`.  The composition must take the guard in the
+   RUN's currency.
+4. **Two families must be SKOLEMISED, and the choice belongs to the
+   consumer** — the bundle is at one rule with both witnesses
+   existential, the regime wants families, and the five dependent facts
+   cannot be split because they mention the same two witnesses.
+
+**FINDING — `hTStep` was over-quantified** (the twelfth such refutation
+on this effort).  It asked for the conclusion's reading to be a truth
+value at EVERY fitting spine, while the identification one line below
+gives it only where the major is the constructed element — and the type
+is peeled at the FIRED spine, so the unguarded form asked for something
+no identification can supply.  Measured: adding the guard produces
+exactly ONE error in the 8 700-line file, at the regime's own call
+site.  With it, the `univZero` producer turns the identification into
+the premise, and four open `univZero` premises become three.
+
+**What the arm still owes**: `hjoinC` — the refuted backward clause —
+is carried as a premise of the composition and has no producer, by
+design: it disappears with the motive restatement.  That restatement is
+therefore now the critical path, and it lands as ONE commit across the
+motive, the regime's proof, the predicate's deletion and the
+composition's premise list.
