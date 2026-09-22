@@ -70,25 +70,6 @@ theorem acval_interp_closed {env : Env} (m : EnvModel V env) (n : Name)
     interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
   interp_closed V (by rw [m.acval_erase]; exact m.cval_closed n ψ) ρ ρ'
 
-/-- **`Sat` at a CONSED frame is the spine's own fit** — the converse
-of `sat_of_spineFit` at the frame the spine builds.  `spineFit_of_sat`
-recovers a frame and a spine by its own construction; at
-`consList xs ρ` with the lengths matching, those two ARE `ρ` and
-`xs`. -/
-theorem spineFit_of_sat_consList {Ds : List AnnotTerm} {ρ : Nat → V} {xs : List V}
-    (hlen : xs.length = Ds.length) (h : Sat V Ds.reverse (consList xs ρ)) :
-    SpineFit ρ Ds xs := by
-  have h' : Sat V (Ds.reverse ++ []) (consList xs ρ) := by simpa using h
-  have hsp := spineFit_of_sat (Ds := Ds) (Δ₀ := []) h'
-  have hfr : (fun j => consList xs ρ (j + Ds.length)) = ρ := by
-    funext j
-    rw [← hlen]
-    exact consList_apply_add xs ρ j
-  have hys : (List.range Ds.length).reverse.map (consList xs ρ) = xs := by
-    rw [← frameIdx_eq_reverse_map, ← hlen]
-    exact frameIdx_consList' xs ρ
-  rwa [hfr, hys] at hsp
-
 /-- A list's `take n` and `drop n`'s `take m` reassemble its
 `take (n + m)`. -/
 theorem take_add_eq_append {α : Type u} :

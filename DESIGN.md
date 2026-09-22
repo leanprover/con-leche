@@ -82283,3 +82283,106 @@ Minor sizing note: clause 1 was priced at ½ session as "widen
 widening that was actually needed (the major's pin and the parameter
 `isDefEq` list) went into a separate theorem — `checkBlockRecTys_open`'s
 five positional consumers read no member fact.
+
+#### LANDED (lane RM31 = M5M-pre session 23, `316ca079`): the parameter hop, and the grading's FIELD segment at the run
+
+`hokA`'s field segment is produced (`blockRuleFseg_of_run`,
+`Model/Inductives/BlockRecPreRun.lean:7389`), on the hop the previous
+session priced: the recursor's parameter domains against the type
+former's, re-inverted out of the stage (`checkBlockRecTys_params`,
+`Verify/Inductives/BlockWF.lean:1210`), transferred by
+`spineFit_of_sat_consList` / `blockRecParamHop_run`.
+
+**Half of that estimate was not needed.**  The CONSTRUCTOR half required
+no inversion and `CtorDataI` needs no new field:
+`BlockCtorsStage.frames` already carries the constructor-vs-former
+parameter `Sat`-iff, and the recursor lane already receives that
+record.  Only the recursor's re-inversion was genuinely missing.
+
+**FINDING — the `ih` segment is not "the grading alone".**
+`WellDenotedV` is `WellDenoted ∧ AnnotValid`, and `AnnotValid`'s `.pi`
+clause carries a BIT condition (`v = 0 → ∀ x ∈ A, interp (cons x ρ) B
+∈ˢ univZero`, `Model/Annot/Valid.lean:87`).  The `ih` opener's binders
+are stamped by `rebit` with `pwBit ψ pw`, which is `0` exactly at a
+`Prop`-eliminating recursor — so the segment owes a SORT fact, not a
+grading one.  Two halves: `pwBit ψ pw = 0 ↔ the elim level is zero` is
+owned (`pwBit_zeronessOf`); the conclusion's `univZero` membership is
+`hT`/O-2 territory.  And the load-bearing half is smaller than it
+looks: the clause is guarded by `v = 0`, so **at a non-`Prop`
+elimination it is vacuous** and the obligation bites in the IND regime
+alone, where the conclusion's truth-value fact is already a named
+premise.  Re-sized to ~1–1¼ sessions.  The `WellDenotedV`-of-`mkPisAV`
+intro lemma stays unwritten until that consumer exists — writing it
+first would be a premise invented ahead of its discharge.
+
+**A COLLISION CLASS NO DIFF CAN SHOW.**  Two lanes independently proved
+the same lemma — the converse of `sat_of_spineFit` at a consed frame —
+with the same name, in the same namespace, in the same session.  The
+textual merge was clean and the BUILD failed with "has already been
+declared"; neither side had edited the other's lines, so nothing could
+have flagged it.  The leaf's copy was deleted in favour of the upstream
+one (the leaf imports it).  **Two consequences for lane discipline**:
+before naming a general-purpose lemma (a converse, a transport, a list
+identity) grep the tree for its statement shape; and a merge whose
+interval touches your files must be BUILT, never trusted — this is the
+case that proves it, since no review of either diff could have caught
+it.
+
+#### LANDED (lane RM32 = M5M-data session 27, `24eaf7dc`): the rule contract has a COMPOSITION — and the tower fit had no input
+
+`blockRuleDataB_of_residue` (`Model/Inductives/BlockRuleFit.lean:721`)
+is the first theorem whose CONCLUSION is `BlockRuleDataB`.  Every
+ψ-indexed premise is bounded by the contract's own level
+instantiations, and the `w`-guard is one visible line of the signature,
+so the pending `w = 0` ruling replaces one hypothesis rather than
+rippling.  `BlockRuleResidueB` (`BlockRecData.lean:4050`) bundles the
+residue and the tower fit as ONE premise, and asks for the residue at
+the tower's CORE rather than the applied form — the β-reduction is paid
+on the model side (`blockRuleHRa_tower_run`), so the rule lane owes
+exactly `interp_blockResidue`'s own conclusion.
+
+**FINDING — the tower fit had no input at all: the peel dropped the
+defeq-list step.**  `checkBlockRule_data` kept every witness of
+`checkBlockRule` except `checkBlockDefEqList` — the step that compares
+the rule's own λ-domains with the openers' stored types binder by
+binder, and the ONLY thing that can relate them, since nothing
+identifies them syntactically.  Four reports sized that row at "the G2
+bridge, 1 session" while the bridge had no premise.  The general rule:
+***a bridge's size is not estimable until its premise exists*** — when
+sizing, ask which CHECK makes the fact available and whether the
+INVERSION that reads that check keeps it.
+
+**The pairing that tells the two failure modes apart** (they look
+identical from outside, and one grep of the peel for the checker step's
+name separates them):
+* *the check does the work and the inversion discards it* — the tower
+  fit's G2, dropped twice over; the residue's `hab`/`bodyO`/`fvsIh` are
+  in the same state today (returned by the first peel, dropped by the
+  second);
+* *no check exists and the model must pay* — the fit and the index
+  reading, where the rule is `paramsBlind` and the kernel compares the
+  two parameter spines NOWHERE.  Which is exactly why the payment there
+  is a membership, and why those are the conjuncts the `w = 0` hole
+  reaches.
+
+**The `w = 0` boundary, measured rather than assumed**: `hw` is consumed
+in exactly three of the composition's five bullets — the fit, the index
+reading and `mk` — all three through `blockRuleChainFit_run`, whose
+evidence is the major premise's MEMBERSHIP.  The residue and the tower
+fit take no `w` hypothesis anywhere; their evidence is a grading
+against the tower.  So the ruling touches one premise and leaves the
+residue half untouched.
+
+**Residue triage, four reports late**: of `blockRuleHRa_run_val`'s
+twenty-one premises only THREE are content; the rest are produced, five
+lines away, or rows the run-level peel drops.  And three audit items on
+`ihSpineFold_blockRec`'s fit are CLOSED in the tree, with the `ℓ = 0`
+arm present — nobody had re-checked since the audit was written.  Verify
+an audit row against the tree before believing it.
+
+**Naming**: the routed field-domain spelling cost two lines because the
+theorem WAS in the tree — what was missing was the spelling (domains
+lifted vs triples lifted), with the bridge between them already proved
+in the same file.  Two spellings got two names
+(`blockRuleFdomsAV_eq` / `_eq_liftDoms`) with a docstring saying which
+is which, so the duplicate-declaration collision cannot recur there.
