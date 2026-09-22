@@ -236,6 +236,65 @@ theorem checkBlockRecK_tyShape {envC : Env} {p : ConLeche.BlockParts}
   rw [Nat.zero_add] at hop
   exact ⟨⟨_, hcv⟩, fvs, concl, hop⟩
 
+/-- **The family's SHARED RULE PREFIX, at the run** (the ruling of
+2026-09-22, stage (b')): the first stored recursor's opened prefix is
+the reference, and every other stored recursor's has its length and is
+defeq to it binder by binder.
+
+The bridge from stage (b')'s own list (the TYPE stage's checked
+constant values) to the stored `rs` is `checkBlockRecK_tyShape`'s:
+`checkBlockRecsRules_facts` and `checkBlockRecTys_inv` name the same
+`ConstantVal` at every index. -/
+theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr0 : rs[0]? = some r0) :
+    ∃ (fvs0 : List Expr) (o0 : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r0.1.type 0
+          = some (fvs0, o0) ∧
+      ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        rs[i]? = some r → 0 < i →
+        p.toBlockShape.rulePrefixAt i = p.toBlockShape.rulePrefixAt 0 ∧
+        ∃ (fvs : List Expr) (o : Expr),
+          ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r.1.type 0
+              = some (fvs, o) ∧
+          fvs0.length = fvs.length ∧
+          ∀ l, l < fvs0.length →
+            ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
+              ((fvs0.map Expr.fvarTypeD).getD l default)
+              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨uf, hfam, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
+  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
+  -- the stored recursor at an index IS the type stage's checked one
+  have hbridge : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[i]? = some r → (cvRus.map (·.1))[i]? = some r.1 := by
+    intro i r hr
+    have hil : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hr).1
+      omega
+    obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
+    obtain rfl := Option.some.inj (hr.symm.trans hr')
+    obtain ⟨-, cvRi, nIdx, u', -, hcu, -, -, -⟩ := hallT i hil
+    have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
+      rw [List.getElem?_map, hcu]; rfl
+    have hr1 : r.1 = cvRi := by
+      have hq := hcvRa
+      rw [Nat.zero_add] at hq
+      exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
+    rw [List.getElem?_map, hcu, hr1]
+    rfl
+  -- stage (b') is the second half of the family stage
+  rw [ConLeche.checkBlockRecFamilyAgree] at hfam
+  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
+  obtain ⟨fvs0, o0, hop0, hall⟩ :=
+    ConLeche.checkBlockRecPrefixAgree_inv (by cases uf; exact hfam) (hbridge 0 r0 hr0)
+  exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (hbridge i r hr) hi⟩
+
 /-- **O-2, the identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower
 `mkPisAV rds concl` over the run's own binder data — with the domains'

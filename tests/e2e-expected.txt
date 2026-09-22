@@ -1491,6 +1491,24 @@
 # whose two lists must run out together).  Today the modeller declines
 # it with its own message (uniform: 1, the pin).
 2 mutual_rec_missing_rule.ndjson
+# The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
+# a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
+# different — still perfectly well-formed — domain,
+# `∀ (f : B), mB f → mB f` in place of `∀ (f : B), mB f → mA (A.mk f)`,
+# and its own rule's third λ is re-annotated to match, so the RULE
+# stage's binder-by-binder comparison with the stored type still passes
+# and the block reaches the family check.  Nothing types a guarded
+# call's arguments against the CALLEE's prefix (`abstractIh` replaces
+# the call before the residue is typed), so before stage (b')
+# (`checkBlockRecPrefixAgree`) the uniform route had no reason to
+# refuse it — and the model's predecessor fact cannot survive two
+# recursors whose prefixes disagree.  Today the in-process modeller
+# rejects it at its own fold (application type mismatch), which is the
+# row; uniform: 1 (stage b' throws `.invalid`) — REASONED, not
+# measured: the scratch flip of `blockRouteK1Only` needs the proof at
+# `Kernel/Inductives/BlockParts.lean:1028` repaired first, so the next
+# scratch build should measure this row with the other five.
+1 mutual_rec_prefix_mismatch.ndjson
 # THE CORNER CASES OF THE UNIFORM-INDUCTIVES DESIGN WORK (the `corner_*`
 # fixtures; the maintainer's standing rule that every corner case named
 # in a design discussion gets an end-to-end fixture at once).  The

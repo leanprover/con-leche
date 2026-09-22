@@ -3577,4 +3577,60 @@ theorem blockRecSlot_pred {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} 
 
 end Predecessor
 
+/-! ## 34. `hpref'` — the guard at the CALLEE's class (session 15)
+
+§33's premise `hpref' : SpineFit ρ (pdoms c') xs` is what the ruling
+of 2026-09-22 buys.  The kernel now checks that a family's recursors
+share their whole rule prefix (`checkBlockRecPrefixAgree`, stage (b'),
+`Kernel/Inductives/BlockInstall.lean`), and the run exports it as a
+per-position `isDefEq` between the two openings
+(`checkBlockRecK_prefixAgree`, `BlockRecMem.lean`).
+
+Two steps take that to the premise, and only the first is semantic:
+
+* **the readings agree** — `DefEqClaim` at the stage's own
+  `isDefEqCore` calls.  It is the ONE step still owed, and it is the
+  standard certified hop (`BlockRecTyping.lean` §1 runs it for the
+  rule stage's own `isDefEq`); its side conditions are the openings'
+  `CtxOk`/`WScoped`/`LeavesBounded`, which `opening_vars` and
+  `checkBlockRecK_tyBounds`' inputs already carry;
+* **a fitting spine transfers** — `spineFit_congr_readings`, below,
+  which is a plain induction on the walk. -/
+
+section CalleeGuard
+
+/-- **A fitting spine transfers along equal READINGS**: `SpineFit`
+mentions the domains only through `interp`, so two domain lists whose
+entries read the same at every frame have the same fitting spines. -/
+theorem spineFit_congr_readings :
+    ∀ {Fs Gs : List AnnotTerm} {ρ : Nat → V} {as : List V},
+      Fs.length = Gs.length →
+      (∀ l, l < Fs.length → ∀ σ : Nat → V,
+        interp V σ (Fs.getD l default) = interp V σ (Gs.getD l default)) →
+      SpineFit ρ Fs as → SpineFit ρ Gs as
+  | [], [], _, [], _, _, _ => trivial
+  | [], _ :: _, _, _, hl, _, _ => by simp at hl
+  | _ :: _, [], _, _, hl, _, _ => by simp at hl
+  | _ :: _, _ :: _, _, [], _, _, hf => hf.elim
+  | F :: Fs, G :: Gs, ρ, a :: as, hl, hag, hf => by
+    have h0 := hag 0 (by simp) ρ
+    simp only [List.getD_cons_zero] at h0
+    refine ⟨h0 ▸ hf.1, ?_⟩
+    refine spineFit_congr_readings (by simpa using hl) (fun l hll σ => ?_) hf.2
+    have := hag (l + 1) (by simpa using hll) σ
+    simpa using this
+
+/-- **`hpref'`, from the family's shared prefix**: the guard at
+recursor `c` is the guard at recursor `c'` once their domains read the
+same.  §33's consumer takes it at exactly this shape. -/
+theorem blockRecHpref {pdoms : Nat → List AnnotTerm} {c c' : Nat} {ρ : Nat → V} {xs : List V}
+    (hlen : (pdoms c).length = (pdoms c').length)
+    (hdoms : ∀ l, l < (pdoms c).length → ∀ σ : Nat → V,
+      interp V σ ((pdoms c).getD l default) = interp V σ ((pdoms c').getD l default))
+    (hfit : SpineFit ρ (pdoms c) xs) :
+    SpineFit ρ (pdoms c') xs :=
+  spineFit_congr_readings hlen hdoms hfit
+
+end CalleeGuard
+
 end ConLeche.Model
