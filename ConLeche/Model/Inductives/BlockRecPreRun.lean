@@ -6387,6 +6387,115 @@ theorem blockRuleCerts_of_openings {envT : Env} (mp : EnvModelM V μ envT)
   have := readOpenedDoms_reads hexP l x hx
   rwa [Nat.zero_add] at this
 
+/-! ### 40.4 `hokA`, segment by segment
+
+`hokA` is stated at the ASCENDING frame, so its three segments are a
+`take` split and nothing else — but the split must be taken on the
+ascending side (§S20.7's finding: a `take`-shaped reading of the
+REVERSED context lands on the wrong valuation).  Each segment is
+stated at its own frame: the prefix at the bare `σ`, the fields under
+the prefix's values, the `ih` openers under both — which is the shape
+each owner proves its grading in, and the only shape in which the
+premise is bounded by the fact that produces it. -/
+
+/-- **`hokA` from the three segments.** -/
+theorem blockRuleHokA_of_segments {P F I : List AnnotTerm} {rP nF nR : Nat}
+    (hp : P.length = rP) (hf : F.length = nF) (hidx : I.length = nR)
+    (hPseg : ∀ l, l < rP → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (P.take l) ys → WellDenotedV V (consList ys σ) (P.getD l default))
+    (hFseg : ∀ q, q < nF → ∀ (σ : Nat → V) (xs ys : List V),
+      SpineFit σ P xs → SpineFit (consList xs σ) (F.take q) ys →
+      WellDenotedV V (consList ys (consList xs σ)) (F.getD q default))
+    (hIseg : ∀ q, q < nR → ∀ (σ : Nat → V) (xs fs ys : List V),
+      SpineFit σ P xs → SpineFit (consList xs σ) F fs →
+      SpineFit (consList fs (consList xs σ)) (I.take q) ys →
+      WellDenotedV V (consList ys (consList fs (consList xs σ))) (I.getD q default)) :
+    ∀ l, l < rP + nF + nR → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((P ++ F ++ I).take l) ys →
+      WellDenotedV V (consList ys σ) ((P ++ F ++ I).getD l default) := by
+  intro l hl σ ys hys
+  rcases Nat.lt_or_ge l rP with hlP | hlP
+  · -- the PREFIX segment
+    have htk : (P ++ F ++ I).take l = P.take l := by
+      rw [List.take_append_of_le_length (by rw [List.length_append, hp]; omega),
+        List.take_append_of_le_length (by rw [hp]; omega)]
+    have hgd : (P ++ F ++ I).getD l default = P.getD l default := by
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_append_left (by rw [List.length_append, hp]; omega),
+        List.getElem?_append_left (by rw [hp]; omega)]
+    rw [hgd]
+    exact hPseg l hlP σ ys (by rw [← htk]; exact hys)
+  rcases Nat.lt_or_ge l (rP + nF) with hlF | hlF
+  · -- the FIELD segment
+    have htk : (P ++ F ++ I).take l = P ++ F.take (l - rP) := by
+      rw [List.take_append_of_le_length (by rw [List.length_append, hp, hf]; omega),
+        List.take_append, List.take_of_length_le (by rw [hp]; omega), hp]
+    rw [htk] at hys
+    obtain ⟨xs, zs, rfl, hxs, hzs⟩ := spineFit_append_inv hys
+    have hgd : (P ++ F ++ I).getD l default = F.getD (l - rP) default := by
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_append_left (by rw [List.length_append, hp, hf]; omega),
+        List.getElem?_append_right (by rw [hp]; omega), hp]
+    rw [hgd, consList_append]
+    exact hFseg (l - rP) (by omega) σ xs zs hxs hzs
+  · -- the `ih` segment
+    have htk : (P ++ F ++ I).take l = P ++ F ++ I.take (l - (rP + nF)) := by
+      rw [List.take_append,
+        List.take_of_length_le (by rw [List.length_append, hp, hf]; omega),
+        List.length_append, hp, hf,
+        show l - (rP + nF) = l - (rP + nF) from rfl]
+    rw [htk] at hys
+    obtain ⟨xfs, zs, rfl, hxfs, hzs⟩ := spineFit_append_inv hys
+    obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_inv hxfs
+    have hgd : (P ++ F ++ I).getD l default = I.getD (l - (rP + nF)) default := by
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_append_right (by rw [List.length_append, hp, hf]; omega),
+        List.length_append, hp, hf]
+    rw [consList_append] at hzs
+    rw [hgd, consList_append, consList_append]
+    exact hIseg (l - (rP + nF)) (by omega) σ xs fs zs hxs hfs hzs
+
+/-! ### 40.5 The prefix segment, at the run's spelling
+
+`blockRuleCerts_of_openings` states the bundle's domains as the
+openers' own readings; §35's `blockRulePdomsAV` is the same list read
+off O-2's binder data.  The identification is `readOpenedDoms_eq` at
+that data, and it is what lets the bundle's consumers keep the
+spelling they already use (`blockRecHpref_run`, `BlockRuleDataAt`). -/
+
+theorem blockRulePdomsAV_eq_readOpenedDoms {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) (ψ : Name → Nat) {fvs : List Expr} {o : Expr}
+    (hop : ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt i) r.1.type 0 = some (fvs, o)) :
+    readOpenedDoms mpC.base2.acval envC ψ 0 fvs
+      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i := by
+  have hlfvs : fvs.length = p.toBlockShape.rulePrefixAt i :=
+    ConLeche.Verify.openPisAtFvars_length _ hop
+  have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨-, -, -, -, -, hlenRds, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hreads := blockRulePdomsAV_reads hμ mpC h hr ψ hop
+  have hlenTake : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).take
+      (p.toBlockShape.rulePrefixAt i)).length = p.toBlockShape.rulePrefixAt i := by
+    rw [List.length_take, hlenRds]; omega
+  rw [readOpenedDoms_eq (acval := mpC.base2.acval) (envC := envC) (ψ := ψ) fvs
+    ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).take
+      (p.toBlockShape.rulePrefixAt i)) 0 (by rw [hlfvs, hlenTake]) ?_]
+  · rfl
+  · intro l x hx
+    have hl : l < p.toBlockShape.rulePrefixAt i := by
+      have := (List.getElem?_eq_some_iff.mp hx).1; omega
+    obtain ⟨pd, hpd⟩ : ∃ pd, ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).take
+        (p.toBlockShape.rulePrefixAt i))[l]? = some pd :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenTake]; exact hl)⟩
+    refine ⟨pd, hpd, ?_⟩
+    rw [Nat.zero_add, hreads l x hx, blockRulePdomsAV, List.getD_eq_getElem?_getD,
+      List.getElem?_map, hpd]
+    rfl
+
 end CertsArgs
 
 end ConLeche.Model
