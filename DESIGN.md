@@ -83122,3 +83122,41 @@ all — in which case the two guards collapse into one and the ruling
 costs a guard rather than an arm.  The falsifier lane has been told to
 check it against the now-landed small-elimination application rather
 than reason about it.
+
+#### LANDED (lane RM43, `ae7109db`): the motive is restated at the SPLIT DATA — **`BlockRecTyJoin` and `hjoinC` are gone from the tree**
+
+Five steps in one commit: the length fact carried, the recursor-shape
+predicate's third clause an `↔` with both directions discharged, the
+regime's `hihFit` rewritten at the split, the refuted predicate and its
+only consumer deleted, and the premise family moved in all three
+consumers.  The only remaining hits are two prose sentences documenting
+the deletion.  Every member of the moved family writes its three fits
+out with the middle stretch FIRST, so the maintainer's clause is
+structural rather than a matter of vigilance.
+
+**The one real cost, reported rather than buried**: `hTStep`'s
+discharge does NOT survive the move.  The `univZero` producer licenses
+the truth value only at a fitting spine of the recursor's own binder
+data — the sort claim is an inference at the recursor's opened context,
+and a `DefEqClaim` concludes only at satisfying frames — and carrying
+the split's index values to the recursor's index binders IS the deleted
+converse.  So that premise rejoins the `univZero` family in split
+shape.  The trade is the right way round (a premise of a family one
+producer would close, against a premise NO producer can close), and the
+ledger says so.
+
+**Method note, and it is a new failure mode**: nothing failed to
+compile, because the derivation was simply deleted.  **For a moving
+DISCHARGE the question is not "does it typecheck" but "what licensed
+it, and is that licence still in scope".**  Apply-and-count cannot see
+this one either — the file was green at every step.
+
+Two more.  The vacuous theorem was **repaired rather than deleted**
+(`hop2` got its own binder), on the lane's argument that what it
+composes is exactly what the consumer had inlined three times, **and
+the inlining is what hid the defect for a session** — *a composed
+statement that is CALLED is the only thing that keeps a premise set
+honest.*  And the parameter converse turned out to be already produced:
+the hop takes its comparison as an `Or` and the tree already calls it
+both ways.  Grepping the hop's own statement rather than an expected
+name is what showed it — the habit's tenth firing.
