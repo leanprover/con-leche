@@ -83160,3 +83160,114 @@ honest.*  And the parameter converse turned out to be already produced:
 the hop takes its comparison as an `Or` and the tree already calls it
 both ways.  Grepping the hop's own statement rather than an expected
 name is what showed it — the habit's tenth firing.
+
+#### **SOUNDNESS HOLE FOUND AND CLOSED** (falsifier W0 + lane SEC1, `56cbc0bb`)
+
+**The elimination guard, keyed on the declared shape (lane SEC1,
+2026-09-22).** Because the uniform route CHECKS the recursor instead of
+generating it, official's `elim_only_at_universe_zero` is split across
+two stages here: the counting half in `blockLargeElimAllowed`, read at
+the recursor's checked conclusion sort, and the per-field subsingleton
+half in the constructors' stage, which runs under `p.isProp &&
+p.large`. `BlockShape.large` is a level-parameter SHAPE — a fresh
+elimination level parameter in front — and a monomorphic large motive
+needs no such parameter, so at `Hidden : Nat → Prop | mk (n m : Nat) :
+Hidden (n+1)` with `Hidden.rec`'s motive re-pointed at `Type` neither
+half fired and the route accepted a stream proving `0 = 1` (measured
+on the flip: exit 0, 18 declarations). `blockLargeElimAllowed` now
+carries `p.large` as a conjunct of its second disjunct, so a recursor
+that does not declare the generated large shape must conclude in
+`Sort 0`, checked by the `isDefEq` beside the call. The invariant this
+buys is the one the model consumes: **`large = false` ⇒ the
+elimination level is provably `0`**, which is what the fixpoint route
+gets for free by generating the recursor and what makes
+`CtorDataI.srcProp`'s `large = true` antecedent a statement about the
+blocks it is used at rather than a true implication over a false
+premise. Nothing official emits is lost — its own large eliminators
+always carry the fresh parameter, and `init-full` accepts 53 093
+declarations under the flip with the guard in place. The witness is
+`tests/e2e/corner_rec_mono_large_bad.ndjson`
+(`scripts/mk_mono_large_bad.py`). The other half of the same keying is
+NOT closed: the rule frame's `pw = Level.zeronessOf (structElimLevel
+p.elim p.large)` is still unrelated to the checked elimination level,
+and the pin that would relate them — every `u` `Level.isEquiv` to
+`structElimLevel p.elim p.large`, in `checkBlockRecElimAgree` — costs
+that function's arity, which `checkBlockRecK_elimList`'s statement
+names.
+
+**Measured, before and after, with both binaries kept**: the witness
+accepted at exit 0 with 18 declarations on the flipped pre-repair
+build; after the repair, of 247 e2e fixtures **exactly one row moves**
+(the new witness, 0 → 1), the 182 arena streams are **byte-identical**,
+and `init-full` accepts all 53 093 declarations under the flip.  The
+pre-repair flipped binary is preserved under `_tmp/uniform-inds/sec1/`
+because no branch can rebuild it.
+
+**Why the repair changed the DEFINITION rather than the call site**:
+every consumer splits on the name (`by_cases hlarge :
+blockLargeElimAllowed p nested = true`, in one Verify and three Model
+files), so no inversion, bind chain or signature moves, and the fueled
+mirror inherits it.  Keying on the checked level directly would have
+cost a bind in two stages whose binds are peeled positionally in five
+modules, four of them held by other lanes.
+
+**On `CtorDataI.srcProp`**: it was NOT vacuous as a theorem — its
+producer builds the datum from the constructor stage's own run at the
+same flag, so an antecedent keyed on anything else would have no
+instance at the producer.  What was vacuous was the IDENTIFICATION of
+that flag's level with the one the stream's recursor eliminates at, and
+the repair is what restores it.  The falsifier's caution was right
+about the symptom and wrong about the cure; the cure is the guard.
+
+#### SIBLING, reasoned not measured (SEC1): the rule frame's binder bit is unrelated to the CHECKED elimination level
+
+`pw := Level.zeronessOf (structElimLevel p.elim p.large)` at four sites,
+with nothing pinning the checked level `u` to it.  Two residues: at
+`large = true` the checked level may be anything (conservative
+direction); at `large = false` with a never-zero result sort — a `Type`
+block with a monomorphic recursor — the frame claims the `ih` binders
+are propositions while the elimination is into `Type` (**wrong**
+direction).  **Not a verdict hole**: the binder meta rides on a
+telescope the kernel only opens and compares with `isDefEq`, which
+ignores it.  It is a premise mismatch the model lane owns.  The closing
+pin is one pure check — require every checked `u` to be `Level.isEquiv`
+to `structElimLevel p.elim p.large` in `checkBlockRecElimAgree`, true of
+every official stream and subsuming an existing check — but it costs
+that function's ARITY, which a do-not-touch theorem's statement names.
+Queued, not landed.
+
+#### LANDED (lane RM46, `9b42fabd`): **the arm's LAST composition** — the three regimes dispatched into the endpoint's premise
+
+`Model/Inductives/BlockRecPreHpre.lean` (575 lines), with
+`blockRecPre_dispatch_run` (:226) concluding the endpoint's premise
+VERBATIM; each kit arm discharges six premises at the run.  Both of the
+census's two missing compositions now exist.
+
+**What it turned out to need**, none of it listed anywhere before:
+
+1. **The dispatch must be stated at the BASE prefix domains.**  The
+   regime predicates are proof-tier `def`s with no exposure, so **no
+   consumer can move a regime between the base form and the chain-frame
+   form**, and all three producers deliver at the base one.  The lane's
+   first version was at the chain form, compiled GREEN, and **had no
+   instance at any producer** — the third theorem-with-no-instance
+   found in this window, and the first caught by its own author before
+   landing.  The collapse is therefore paid once inside the equation
+   list, where the spelling IS exposed.
+2. **The level's skolemisation belongs to the consumer, in the run's
+   currency**: the run hands the level back existentially, and *a guard
+   under an existential is not a guard*.  Once the level list is a
+   parameter and every guard reads its head, the one-level predicate
+   becomes a theorem and leaves both kit arms' premise sets — the one
+   premise all three regimes genuinely shared.
+3. **The squash arm is unstateable at the run without a one-recursor
+   fact** — which is the COUNTING half of the elimination guard: a
+   kernel fact wearing a model premise.
+4. Four definitions and a theorem from earlier sessions had no consumer
+   and now do; they were right, and the only correction the consumer
+   forced was which side of the collapse to stand on.
+
+**And it settles the guard question's cost**: the `(w, ℓ)` split is one
+`by_cases` plus three guard conjuncts, so moving the rule contract's
+guard from `w ≠ 0` to `ℓ ≠ 0` is **a deletion here, not a
+restructuring**.
