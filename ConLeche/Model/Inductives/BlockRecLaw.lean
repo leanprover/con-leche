@@ -553,23 +553,33 @@ values. -/
 theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → AnnotTerm}
     {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {envT : Env} {mT : EnvModel V envT}
+    (haclT : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ)
+    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
     {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
     {as2₀ : List Expr}
     (hih : ihvals.length = fr.nR)
-    (hspine : IhSpineFold V acval env envT φ fr F ρ' ihvals as2₀)
-    {body resid : Expr} {as1 as2 : List Expr} {A B : AnnotTerm}
+    (hspine : IhSpineFold V acval env mT φ fr F ρ' ihvals as2₀)
+    {body resid : Expr} {as1 as2 : List Expr} {Δa : List AnnotTerm} {A B : AnnotTerm}
     (hsx : as2₀ <:+ as2)
     (hab : ConLeche.abstractIh fr 0 body = some resid)
     (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
+    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
     (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
+    (hW : WalkCtx V mT φ (F + fr.nR) (consList ihvals ρ') Δa as2)
     (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta acval env φ (F + fr.nR) (resid.instantiateList as2 0) = some B)
+    (hB : denoteMeta mT.acval envT φ (F + fr.nR) (resid.instantiateList as2 0) = some B)
     (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
     interp V ρ' A = interp V (consList ihvals ρ') B := by
-  have h := interp_abstractIh (V := V) hacl hih (ihNodeVal_of_spine hacl hih hspine)
-    body resid 0 [] as1 as2 A B hab hf (by rw [Nat.add_zero]; exact hbB) rfl (by simpa using h1) (by simpa using h2)
-    hsx LocalsFit.nil (by simpa using hA) (by simpa using hB)
-    (by simpa using hty)
+  have h := interp_abstractIh (V := V) hacl haclT hin hproj hmono hih
+    (ihNodeVal_of_spine hacl hmono hih hspine)
+    body resid 0 [] as1 as2 Δa A B hab hf (by rw [Nat.add_zero]; exact hbB) hcbe
+    (by rw [Nat.add_zero]; exact hbT) rfl (by simpa using h1) (by simpa using h2)
+    hsx LocalsFit.nil (by rw [Nat.add_zero]; simpa using hW) (by simpa using hA)
+    (by simpa using hB) (by simpa using hty)
   simpa using h
 
 

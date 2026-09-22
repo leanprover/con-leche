@@ -832,22 +832,33 @@ theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → A
     {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ : Nat → V}
     {Ra Rb0 A : AnnotTerm} {lds : List (Nat × AnnotTerm)}
     {xs ys ihs0 : List AnnotTerm} {rP nP : Nat}
-    {body resid : Expr} {as1 as2 as2₀ : List Expr}
+    {body resid : Expr} {as1 as2 as2₀ : List Expr} {Δa : List AnnotTerm}
     (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
     (hsp : SpineFit ρ (lds.map (·.2))
       ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    {mT : EnvModel V envT}
+    (haclT : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ)
+    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
     (hih : ihs0.length = fr.nR)
-    (hspine : IhSpineFold V acval env envT φ fr F
+    (hspine : IhSpineFold V acval env mT φ fr F
       (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)
       (ihs0.map (interp V
         (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))) as2₀)
     (hsx : as2₀ <:+ as2)
     (hab : ConLeche.abstractIh fr 0 body = some resid)
     (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
+    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
     (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
+    (hW : WalkCtx V mT φ (F + fr.nR)
+      (consList (ihs0.map (interp V
+          (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
+        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) Δa as2)
     (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta acval env φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0)
+    (hB : denoteMeta mT.acval envT φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0)
     (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
     interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
       = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
@@ -855,8 +866,8 @@ theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → A
           (consList ((xs.take rP).map (interp V ρ)
             ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 :=
   blockRuleHRa_of hlam hok hsp
-    (interp_blockResidue hacl (by rw [List.length_map]; exact hih) hspine hsx hab hf hbB h1 h2
-      hA hB hty)
+    (interp_blockResidue hacl haclT hin hproj hmono (by rw [List.length_map]; exact hih) hspine
+      hsx hab hf hbB hcbe hbT h1 h2 hW hA hB hty)
 
 /-! ## A.3 The family's EQUATION LIST, spelled — and item C's two
 obligations at it
