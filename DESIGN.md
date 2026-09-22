@@ -81661,3 +81661,77 @@ recursors, so requiring the family's prefixes to agree binder by binder
 only on paper; reported here per `restrictions-are-findings`, and
 adopted: RULING — the family's recursors share the whole prefix up to
 defeq; `.invalid` otherwise; exported to the model as `pdoms c = pdoms c'`.
+
+#### LANDED (lane RM19 session 2, `6d4a8c02`): the rule stage types its own right-hand side
+
+`checkBlockRule` runs `inferType` on the ANNOTATED rule at `envR` — the
+environment holding the `k` RULE-LESS recursors, where it already
+annotates and resolves — and `checkBlockRuleF` mirrors it.  The step is
+**certification-only**: a rule official generates is a well-typed
+λ-term over the recursor's prefix and the constructor's fields, and it
+types there exactly as it does at the final environment, so no stream
+the stage otherwise accepts is rejected (the certification-tax ledger's
+A-row: official types its own rules' bodies when it elaborates them,
+and the kernel had dropped that).
+
+It is not redundant.  What the stage types otherwise is the ABSTRACTED
+body `bodyO`, in which every guarded call is an `ih` VARIABLE, so the
+calls' own arguments were never checked against the callee's telescope
+— the obligation `abstractIh` opens moves from the kernel to the model.
+The model's need was the right-hand side's READING: `denoteMeta` at
+depth `0` of the stored rule, which the accepted-reads recipe produces
+only at an inference run, and there was none.  With it `hread` is a
+theorem (`blockRuleRhs_read_run`): the recipe at a model of the bare-`k`
+environment (`blockRecBareModel_run`, off `envModelM_consBlockRecsBare`
+at the facts the stage's assembly already has), crossed to the consed
+environment by the RULE-LIST SWAP (`denoteMeta_swap` — the two conses
+differ in the `rules` field alone, and `denoteMeta` reads an
+environment only through its stored level parameters).
+
+Cost: four peels of the stage's bind chain, one line each, two of which
+then export the new witness — the price §S15.5 predicted ("a checker
+stage's bind sequence is an INTERFACE").  e2e 261/261 unmoved; the
+stage is behind `blockRecCheckOn`, so no accepted stream reaches it yet.
+
+#### LANDED (lane RM22 = M5M-data session 23, `c24de9e2`): the small-elimination arm's `ih` values are the POINT, and the opener's leaf comes off the separated tuple
+
+`blockIndStep`'s `ih` premise read the `ih` TERMS at the step's own
+frame, which carries no chain binders: at a FINITARY field the tower is
+empty and the reading folds an arbitrary value of the universally
+quantified ambient valuation, so the premise was **refutable — false,
+not merely unproved**.  The step never reads those values (they occur
+in three premises and in no conclusion), so they are now a parameter,
+and regime IND supplies the design's own choice, the point.  The
+regime's own `hihReg`, at the CHAIN frame where the components ARE the
+point, was sound and is unchanged.
+
+With that, `hih` is `spineFit_ihdoms_zero` at the openers' domain
+reading, and its leaf — the opener's conclusion inhabited at every
+fitting telescope spine — is closed on the BLOCK's side:
+`blockIndPred_of` reads the constructor's walk at the field's position,
+carries the call's index readings into the target member's index
+telescope, and folds the field into the target component **at every
+`w`** (`slotSet_fold_mem` with `inTupleSpace_app_univ`, where §33's
+`blockRecSlot_pred` needed `w ≠ 0` — a restriction of the LEMMA, not of
+the block, since that lemma folds with `piTele_fold`; it can be retired
+in favour of the generic route).  At the SEPARATED tuple that one
+membership is a `sep`, so it yields both the carrier — hence, through
+`BlockModelAt.leaf` read backwards, the major's fit — and the motive at
+the predecessor.  `blockIndIhLeaf_pred` composes that with the callee
+spine's JOIN and the peel's evaluation.  What is left of `hih` is the
+FRAME bridge (the guarded call's arguments read at the rule's frame
+against the block's) and the recursor type's binder-shape converse.
+
+**Three method findings, all of them sizing lessons.**  (i) *A premise
+copied between two frames must be re-checked at both*: `hihReg` and
+`hihStep` were the same spelling, one true because the chain components
+are the point there, the other refutable because the head bvar leaves
+the frame — read where each free bvar of the TERM lands, not whether
+the types match.  (ii) *A value the proof never reads should be a
+parameter*; when a premise looks unprovable, first ask whether the
+consumer reads the thing at all.  (iii) *Ingredients landed is not
+composition landed*: the leaf was sized at half a session with all five
+steps marked landed, but two of them were ingredients whose composition
+had never been written.  The sizing question to ask from now on: is
+there a theorem whose CONCLUSION is the thing, or only theorems whose
+conclusions are its parts?
