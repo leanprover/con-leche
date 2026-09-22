@@ -7747,6 +7747,76 @@ theorem blockRuleIseg_of_run {envC : Env} {p : ConLeche.BlockParts}
 
 end IhSeg
 
+/-! ### 40.11 `hokC` — the CONCLUSION at the satisfied frame
+
+The rule's conclusion `concl` is the RECURSOR's stored type with its
+whole telescope instantiated (`instPisAtLift` at the rule's prefix
+openers, the constructor's result index arguments and the fired
+major, §40.6), so its reading `Ca` is the recursor type's reading
+PEELED along the readings of those arguments
+(`denoteMeta_instPisAtLift_peel`, `BlockRecRead.lean`).
+
+The recursor type's reading is well-denoted at EVERY frame — it is a
+closed reading, and `checkBlockRecK_tyPis`' last component is exactly
+that — so `hokC` is the tower's grading carried down the peel.  Each
+peel step is `WellDenotedV_inst0` at the argument's own grading, which
+is why this is a battery and not a projection: the peel consumes the
+ARGUMENTS' grading too, and that is the one thing the tower does not
+supply. -/
+
+section HokC
+
+/-- **A fit's RESIDUAL is graded**: the tower's grading carried down
+the peel, one `WellDenotedV_inst0` per step. -/
+theorem teleFitPA_wellDenotedV {ρ : Nat → V} :
+    ∀ {T rest : AnnotTerm} {as : List AnnotTerm}, TeleFitPA V ρ T as rest →
+      WellDenotedV V ρ T → (∀ a ∈ as, WellDenotedV V ρ a) → WellDenotedV V ρ rest
+  | _, _, _, .nil, hT, _ => hT
+  | _, _, _, .cons hmem hrest, hT, ha =>
+    teleFitPA_wellDenotedV hrest
+      ((WellDenotedV_inst0 (ha _ List.mem_cons_self)).mpr (WellDenotedV_pi_body hT hmem))
+      (fun a' ha' => ha a' (List.mem_cons_of_mem _ ha'))
+
+/-- **`hokC`, from the PEEL.**  `Ta` is the recursor type's reading —
+a CLOSED reading, graded at every frame — and `vs` the readings of the
+instantiating arguments; `hpeel` is `denoteMeta_instPisAtLift_peel`'s
+output at the run.  The two premises the frame must supply are the
+FIT (the arguments' memberships along the tower, the data lane's
+tower fit) and the arguments' own grading, both bounded by
+`Sat V Δ ρ` — the very frame the obligation is stated at. -/
+theorem blockRuleHokC_of_peel {Ta Ca : AnnotTerm} {vs Δ : List AnnotTerm}
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis Ta vs = some Ca)
+    (hTa : ∀ ρ : Nat → V, WellDenotedV V ρ Ta)
+    (hfit : ∀ ρ : Nat → V, Sat V Δ ρ → ∃ rest, TeleFitPA V ρ Ta vs rest)
+    (hargs : ∀ ρ : Nat → V, Sat V Δ ρ → ∀ a ∈ vs, WellDenotedV V ρ a) :
+    ∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ Ca := by
+  intro ρ hρ
+  obtain ⟨rest, hf⟩ := hfit ρ hρ
+  obtain rfl : rest = Ca := Option.some.inj (hf.peelPis.symm.trans hpeel)
+  exact teleFitPA_wellDenotedV hf (hTa ρ) (hargs ρ hρ)
+
+/-- **`hokC` AT THE RUN**: the peel's tower is the RECURSOR TYPE's
+reading, whose grading at every frame is `checkBlockRecK_tyPis`' last
+component.  What is left is the frame's two: the tower FIT at the
+instantiating readings and their own grading. -/
+theorem blockRuleHokC_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) {Ca : AnnotTerm} {vs Δ : List AnnotTerm}
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis
+      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
+    (hfit : ∀ ρ : Nat → V, Sat V Δ ρ →
+      ∃ rest, TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)
+    (hargs : ∀ ρ : Nat → V, Sat V Δ ρ → ∀ a ∈ vs, WellDenotedV V ρ a) :
+    ∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ Ca := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, hwdTy⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  exact blockRuleHokC_of_peel hpeel hwdTy hfit hargs
+
+end HokC
+
 end CertsArgs
 
 end ConLeche.Model
