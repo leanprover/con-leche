@@ -82982,3 +82982,38 @@ the recursor-shape predicate states the index fit, so the two agree
 without a bridge.  It is precisely the clause a naive rebuild drops
 silently, since the rebuilt spine mentions those binders while the
 kernel never looks inside them.
+
+#### CORRECTION to the apply-and-count rule (lane RM37 session 31), and a RULING on clause direction
+
+Executing the measured restatement, two of the three sites went in as
+predicted — the motive at the split data, the conversion lemma (whose
+rebuild equation turned out to be **`BlockRecSplitAt`'s second
+component, discarded by the old proof with a `-`**: the third time in
+this window a proof has thrown away a component its successor needed),
+and the `ih` leaf, **where the join premise disappears exactly as
+predicted**.  The third site did not: `blockIndStep` proves the motive,
+so it must REBUILD the spine, and while the index stretch and the major
+come out of the recursor-shape predicate's fifth clause (which is why
+the refuted fourth clause is genuinely deletable), the PREFIX does not
+— the motive's parameters fit the block's `d.params`, the rebuilt
+spine's first `nP` entries must fit the RECURSOR's parameter domains,
+and the predicate states that implication the other way.
+
+**So the rule is sharpened, in the lane's words: *the error count is
+cheap and reliable; the per-site cost is not.*  A site whose fix needs
+a premise the file does not carry looks identical, in the error list,
+to one whose fix is a rewrite.  Count first — then READ each site
+before pricing it.**
+
+**RULING (coordinator): the missing direction goes INTO the predicate,
+as an `↔` on its third clause, discharged inside `blockRecTyShape_run`
+— not as a premise on three consumers.**  The principle, which belongs
+in the docstring: ***a clause is stated in the direction(s) that have
+PRODUCERS.***  The predicate's other clauses are one-directional
+because their converses have none — the fourth's converse is exactly
+the `BlockRecTyJoin` being deleted here, refuted as stated and
+unreachable without an inversion of inference through a Π-tower.  This
+converse is different in kind: the parameter hop already pays for it at
+the run, so putting it in the predicate costs nothing and spares three
+consumers a premise that is already bought.  Carrying it as a premise
+would manufacture a finished bridge with no traffic on purpose.
