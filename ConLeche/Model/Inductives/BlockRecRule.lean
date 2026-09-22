@@ -252,6 +252,17 @@ theorem pairIdxOf?_lt {ps : List (Nat × Nat)} {p : Nat × Nat} {i : Nat}
     (h : ConLeche.pairIdxOf? ps p = some i) : i < ps.length :=
   List.mem_range.mp (List.mem_of_find?_eq_some h)
 
+/-- **A found position names ONE pair**: two keys at the same opener
+index are the same key. -/
+theorem pairIdxOf?_inj {ps : List (Nat × Nat)} {p q : Nat × Nat} {i : Nat}
+    (hp : ConLeche.pairIdxOf? ps p = some i) (hq : ConLeche.pairIdxOf? ps q = some i) :
+    p = q := by
+  have h1 : ps.getD i (0, 0) = p := by
+    have := List.find?_some hp; simpa using this
+  have h2 : ps.getD i (0, 0) = q := by
+    have := List.find?_some hq; simpa using this
+  exact h1.symm.trans h2
+
 /-- A spine's arguments are subterms: no free variable in the node, no
 free variable in an argument. -/
 theorem hasFvar_of_mem_getAppArgs :
@@ -632,6 +643,59 @@ theorem shiftE_consList_ih {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → 
       show i' + d + nR = (i' + nR) + locals.length from by omega,
       consList_apply_add, ← hloc, consList_apply_add,
       show i' + nR = i' + ihvals.length from by omega, consList_apply_add]
+
+omit [SetTheory V] in
+/-- **The whole prefix dropped**: `nR + d` below the walk's frame is
+the rule's own — the companion of `shiftE_consList_ih`, at the cut
+`0` a lifted DOMAIN list is read at. -/
+theorem shiftE_consList_two {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → V}
+    (hloc : locals.length = d) (hih : ihvals.length = nR) :
+    shiftE (nR + d) 0 (consList locals (consList ihvals ρ')) = ρ' := by
+  funext i
+  rw [shiftE, if_neg (by omega),
+    show i + (nR + d) = i + nR + locals.length from by omega, consList_apply_add,
+    show i + nR = i + ihvals.length from by omega, consList_apply_add]
+
+/-- Readings are unique, so two read spines of one subject list are
+one. -/
+theorem denoteMetaSpine_unique {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {D : Nat} :
+    ∀ {es : List Expr} {ws ws' : List AnnotTerm},
+      DenoteMetaSpine acval env φ D es ws → DenoteMetaSpine acval env φ D es ws' → ws = ws'
+  | _, _, _, .nil, .nil => rfl
+  | _, _, _, .cons ha hrest, .cons ha' hrest' => by
+    rw [Option.some.inj (ha.symm.trans ha'), denoteMetaSpine_unique hrest hrest']
+
+/-- A read spine moves along an environment extension, subject by
+subject. -/
+theorem denoteMetaSpine_mono {acval acvalT : Name → (Name → Nat) → AnnotTerm}
+    {env envT : Env} {φ : Name → Nat} {D : Nat}
+    (hmono : ∀ (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta acvalT envT φ D y = some ya → denoteMeta acval env φ D y = some ya) :
+    ∀ {es : List Expr} {ws : List AnnotTerm},
+      DenoteMetaSpine acvalT envT φ D es ws → (∀ e ∈ es, ConstsBound envT e) →
+      DenoteMetaSpine acval env φ D es ws := by
+  intro es ws h
+  induction h with
+  | nil => intro _; exact .nil
+  | cons ha _ ih =>
+    intro hcb
+    exact .cons (hmono _ _ (hcb _ List.mem_cons_self) ha)
+      (ih (fun e he => hcb e (List.mem_cons_of_mem _ he)))
+
+/-- A spine's arguments inherit the node's constant bound. -/
+theorem constsBound_mkAppN_args {envT : Env} :
+    ∀ (as : List Expr) {f : Expr}, ConstsBound envT (Expr.mkAppN f as) →
+      ConstsBound envT f ∧ ∀ a ∈ as, ConstsBound envT a
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: as, f, h => by
+    have h' : ConstsBound envT (Expr.mkAppN (Expr.app f a) as) := h
+    obtain ⟨hfa, hargs⟩ := constsBound_mkAppN_args as h'
+    rw [constsBound_app] at hfa
+    refine ⟨hfa.1, fun b hb => ?_⟩
+    rcases List.mem_cons.mp hb with rfl | hb'
+    · exact hfa.2
+    · exact hargs b hb'
 
 /-- **The non-call node's `interp` step**: a subterm the abstraction
 only lifted reads the same, at the frame with the ih block dropped. -/
@@ -1122,6 +1186,49 @@ theorem WalkCtx.consOpen {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat}
   exact h.cons htb (looseBVarsBounded_open h2 hbb)
     (constsBound_instantiateList h2 h.2.2.2.2.2.1 ty' hfv hcb 0)
     (fvarLeaves_mem_instantiateList h2 h.2.2.2.2.2.2 hfv 0) hG hx
+
+/-- **A frame variable's ANNOTATION is a subject of the context.**
+`certs_sound` asks the head's stored type for a `Frame`, a `CtxOk` and
+a grading; all three are the frame's own, because `WalkCtx`'s last
+three conjuncts say the annotations are closed, leaf-closed and
+`envT`-bounded — the grading is `CtxOk`'s own last clause read at the
+leaf. -/
+theorem WalkCtx.annotOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
+    (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
+    {k : Nat} {ty : Expr} (hmem : Expr.fvar k ty ∈ as2) :
+    Rules.Frame D ty ∧ CtxOk mT φ D Δa ty ∧
+      ∀ ta : AnnotTerm, denoteMeta mT.acval envT φ D ty = some ta → Rules.Graded V Δa ta := by
+  have hleafTy : ∀ l ∈ ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2 :=
+    fun l hl => h.2.2.2.2.2.2 _ hmem l hl
+  have hleafV : ∀ l ∈ (Expr.fvar k ty).fvarLeaves, Expr.fvar l.1 l.2 ∈ as2 := by
+    intro l hl
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl'
+    · exact hmem
+    · exact hleafTy l hl'
+  have hws := h2.2.2 _ hmem
+  simp only [Expr.WScoped] at hws
+  have hlb : ty.looseBVarsBounded 0 = true := h.2.2.2.2.1 _ hmem
+  refine ⟨⟨hws.2.mono (by omega), hlb, fun l hl => h.2.2.2.2.1 _ (hleafTy l hl)⟩,
+    h.ctxOk hacl h2 hleafTy, fun ta hta ρ hρ => ?_⟩
+  obtain ⟨-, hleaf⟩ := h.ctxOk (e := Expr.fvar k ty) hacl h2 hleafV
+  obtain ⟨-, -, tya, Aa, htya, -, -, hok⟩ := hleaf (k, ty) (by simp [Expr.fvarLeaves])
+  obtain rfl : tya = ta := Option.some.inj (htya.symm.trans hta)
+  exact hok ρ hρ
+
+/-- A read spine's entries are readings of its subjects. -/
+theorem denoteMetaSpine_mem {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {D : Nat} :
+    ∀ {es : List Expr} {ws : List AnnotTerm}, DenoteMetaSpine acval env φ D es ws →
+      ∀ x ∈ ws, ∃ e ∈ es, denoteMeta acval env φ D e = some x
+  | _, _, .nil, _, hx => nomatch hx
+  | _, _, .cons (a := a) ha hrest, x, hx => by
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · exact ⟨a, List.mem_cons_self, ha⟩
+    · obtain ⟨e, he, hde⟩ := denoteMetaSpine_mem hrest x hx'
+      exact ⟨e, List.mem_cons_of_mem _ he, hde⟩
 
 /-- **A typed application spine's ARGUMENTS are typed.**  `Infer.app`
 is the only `.full` rule for an application, so peeling the spine
