@@ -83723,3 +83723,41 @@ variables.  Per `restrictions-are-findings` it is reported as a
 deliberate narrowing of an accepted superset, not as a conformance fix;
 the remaining audit falsity needs the binder-case fit and is NOT
 claimed to go with it.
+
+#### LANDED (lane SEC4, `06b6774f`): the fourth guard, the narrowing — and *"rejects nothing official emits" ≠ "rejects nothing"*
+
+**The fourth guard is in** (`checkBlockRule`, mirrored in the fueled
+variant; the cached path reaches it through that mirror): the stored
+rule's λ binder data must be the zero-ness of the checked elimination
+level — the frame's own bit three lines below, so it states the
+CHECKER's predicate and creates no second name.  It was re-checked
+against tonight's four passes first, as instructed, and is genuinely
+new: nothing else reads the stored rule's λ data.  **And the threading
+cost the falsifier priced does not exist** — the stage already holds
+the block shape, the same mispricing another lane found one lane
+earlier.  Measured: its message fires **zero times** across all 429
+streams, and `init-full` under the flip is exit 0 at 53 093
+declarations.
+
+**The narrowing is in too** — the call recogniser now requires the
+guarded call's arguments to be the field telescope's own variables —
+**and it is NOT verdict-neutral.**  Two forged fixtures flip to reject:
+precisely the two written earlier tonight to DOCUMENT the superset
+("accepted, because the guard abstracts the vector").  That reading is
+gone and the twins now agree; `init-full` is unchanged, so it rejects
+nothing OFFICIAL emits.
+
+**The finding is the gap between those two sentences.**  *"Rejects
+nothing official emits" and "rejects nothing" came apart here, and only
+the `(uniform: …)` annotations in `tests/e2e-expected.txt` caught it* —
+the shipped gate is down, so the arena battery sees none of this.
+Those annotations are currently **the only instrument that observes a
+flip-only behaviour change**, which is an argument for keeping them
+honest at every kernel change, not only at the flip.
+
+Also flagged, and it explains why a one-line kernel guard was a
+twelve-file edit: `checkBlockRule` has **four positional peels in four
+modules** (only one exports the new value), and the call recogniser's
+conjunct list is a positional interface with **six destructurings in
+four files**.  A bind sequence is an interface, and this arm has two of
+them.
