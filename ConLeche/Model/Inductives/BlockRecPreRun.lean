@@ -7745,6 +7745,23 @@ theorem blockRuleIseg_of_run {envC : Env} {p : ConLeche.BlockParts}
   exact blockRuleIhEntry_of_fieldTele (Nat.le_of_lt hi)
     (by rw [hlenps, hxlen, ho]) (by rw [hlenps]) hfl hyl hFok hVal hR h0
 
+/-- **THE TWO `ihdoms` SPELLINGS ARE ONE.**  This section states the
+`ih` segment at the opener's OWN level `q` (`ihTeleAtR … q`, the shape
+`denoteMeta_blockIhOpenerTy` produces); the regime premise that
+consumes `ihdoms` states it at level `0` LIFTED by the key
+(`(mkPisAV (ihTeleAtR … 0 …) Cih).liftN r 0`, the shape a skolemised
+opener takes).  They are the same term — `mkPisAV_ihTeleAtR_shift`
+(`BlockRecOpenerRead.lean:390`) at `l = 0`, `δ = r` — with the
+conclusion moved by the same lift, and NEITHER lane has to restate.
+The bit is free here and `0` there; at the IND regime, where the
+consumer lives, `0` is the elimination level's own bit
+(`pwBit_zeronessOf`), so the instance is at `b := 0`. -/
+theorem mkPisAV_ihTeleAtR_liftN (nF o i r b : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (B : AnnotTerm) :
+    (mkPisAV (ihTeleAtR nF o i 0 (rebit b tl)) B).liftN r 0
+      = mkPisAV (ihTeleAtR nF o i r (rebit b tl)) (B.liftN r tl.length) := by
+  rw [← mkPisAV_ihTeleAtR_shift nF o i 0 r (rebit b tl) B, Nat.zero_add, rebit_length]
+
 end IhSeg
 
 /-! ### 40.11 `hokC` — the CONCLUSION at the satisfied frame
