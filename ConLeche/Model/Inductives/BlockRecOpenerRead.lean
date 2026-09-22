@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecRule
+import ConLeche.Model.Inductives.BlockRecRegimes
 
 public section
 
@@ -524,5 +525,128 @@ theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name �
       = some (mkPisAV (ihTeleAtR nF o i (d + δ) (rebit (pwBit ψ pw) tl)) B) :=
   hconcl.elim fun _ h =>
     ⟨_, denoteMeta_blockIhOpenerTy_deep hop0 hCf hCb hstripC hi hfr h1 hnofv h δ⟩
+
+/-! ## `hop` — the run's identification of the opener's stored type
+
+`denoteMeta_blockIhOpenerTy` takes the opener's stored type in the
+shape `(Expr.mkPisOf (structTeleAt …) concl).instantiateList as1 0`;
+what the RUN leaves is `checkBlockRule`'s third opening,
+`openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (rP + nF)`.
+The two meet through four facts, all of them now in the tree:
+
+* `openPisAtFvars_fvarTypeD` (`FixRecReadDefs.lean`) — the `r`-th
+  opener's stored type IS the `r`-th stripped binder domain with the
+  `r` earlier openers `instSeq`'d;
+* `stripPis_blockIhPis` (`BlockRecRegimes.lean`) — that binder is the
+  key's own domain at `ih` level `r`;
+* `stripPis_instantiateList` — the frame's opening reaches it at cut
+  `r`;
+* `instantiateList_split` — the `instSeq` and the cut-`r` opening
+  COMPOSE into the single opening list
+  `(fvsIh.take r).reverse ++ (fvsPref ++ fvsF).reverse`, which is a
+  `FvarList (rP + nF + r)` — the battery's `as1`. -/
+
+/-- **The opener list, extended by the openers standing before it**,
+is a frame opening: `openPisAtFvars` puts opener `k` at index
+`rP + nF + k`, so the first `r` of them REVERSED head the opening
+list, exactly as `FvarList`'s descending index wants. -/
+theorem FvarList.openerExtend {E r : Nat} {L fvs : List Expr} (hL : FvarList E L)
+    (hidx : ∀ (j : Nat) (x : Expr), fvs[j]? = some x → ∃ ty, x = Expr.fvar (E + j) ty)
+    (hwsty : ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+      Expr.WScoped (E + j) (Expr.fvarTypeD x))
+    (hlen : r ≤ fvs.length) :
+    FvarList (E + r) ((fvs.take r).reverse ++ L) := by
+  have htl : (fvs.take r).length = r := by rw [List.length_take]; omega
+  refine ⟨by rw [List.length_append, List.length_reverse, htl, hL.1]; omega,
+    fun j hj => ?_, fun x hx => ?_⟩
+  · by_cases hjr : j < r
+    · have hlt : r - 1 - j < (fvs.take r).length := by rw [htl]; omega
+      obtain ⟨y, hy⟩ : ∃ y, (fvs.take r)[r - 1 - j]? = some y :=
+        ⟨(fvs.take r)[r - 1 - j], List.getElem?_eq_getElem hlt⟩
+      obtain ⟨ty, hty⟩ := hidx (r - 1 - j) y (by
+        rw [← hy, List.getElem?_take_of_lt (show r - 1 - j < r from by omega)])
+      refine ⟨ty, ?_⟩
+      rw [List.getElem?_append_left (by rw [List.length_reverse, htl]; omega),
+        List.getElem?_reverse (by rw [htl]; omega), htl, hy, hty]
+      congr 2
+      omega
+    · obtain ⟨ty, hty⟩ := hL.2.1 (j - r) (by omega)
+      refine ⟨ty, ?_⟩
+      rw [List.getElem?_append_right (by rw [List.length_reverse, htl]; omega),
+        List.length_reverse, htl, hty]
+      congr 2
+      omega
+  · rcases List.mem_append.mp hx with hx' | hx'
+    · rw [List.mem_reverse] at hx'
+      obtain ⟨q, hq⟩ := List.getElem?_of_mem hx'
+      have hqr : q < r := by
+        have := (List.getElem?_eq_some_iff.mp hq).1
+        rw [htl] at this; exact this
+      have hq' : fvs[q]? = some x := by
+        rw [← hq, List.getElem?_take_of_lt hqr]
+      obtain ⟨ty, rfl⟩ := hidx q x hq'
+      have := hwsty q _ hq'
+      simp only [Expr.WScoped]
+      exact ⟨by omega, this⟩
+    · exact Expr.WScoped.mono (by omega) (hL.2.2 x hx')
+
+set_option maxHeartbeats 800000 in
+/-- **`hop`, at the run.**  The `r`-th `ih` opener's STORED type is the
+generated Π-tower over field `i`'s telescope at `ih` level `r`, over
+the callee's conclusion, opened at the frame the check built. -/
+theorem blockIhOpener_stored
+    {nP rP nF : Nat} {pw : PropWhen} {recTyOf : Nat → Expr}
+    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
+    {is : List (Nat × Nat)} {body ihTele : Expr} {L fvsIh : List Expr} {bodyO : Expr}
+    (hpis : ConLeche.blockIhPis nP rP nF pw recTyOf teleOf idxOf is 0 body = some ihTele)
+    (hL : FvarList (rP + nF) L) (hfv : ihTele.hasFvar = false)
+    (hopen : ConLeche.openPisAtFvars is.length (ihTele.instantiateList L) (rP + nF)
+      = some (fvsIh, bodyO))
+    {r i c : Nat} (hkey : is[r]? = some (i, c)) {x : Expr} (hx : fvsIh[r]? = some x) :
+    ∃ concl : Expr,
+      Expr.instPisAtLift
+          (ConLeche.blockRulePrefixVars rP nF (r + (teleOf i).length) ++
+            (idxOf i).map (ConLeche.structIdxAt nF (rP - nP) i r (teleOf i).length) ++
+            [Expr.mkAppN (.bvar (nF - 1 - i + r + (teleOf i).length))
+              (ConLeche.structTeleVars (teleOf i).length)])
+          (recTyOf c) = some concl ∧
+      x.fvarTypeD
+        = (Expr.mkPisOf (ConLeche.structTeleAt nF (rP - nP) i r pw (teleOf i))
+            concl).instantiateList ((fvsIh.take r).reverse ++ L) 0 ∧
+      FvarList (rP + nF + r) ((fvsIh.take r).reverse ++ L) := by
+  -- the generator's binder list, and the frame's opening of it
+  obtain ⟨bs, hst, hbslen, hbidx⟩ := stripPis_blockIhPis is 0 body ihTele hpis
+  obtain ⟨bs', hst', hbs'len, hbs'idx⟩ := stripPis_instantiateList L is.length 0 hst
+  obtain ⟨concl, hconcl, hbr⟩ := hbidx r i c hkey
+  rw [Nat.zero_add] at hconcl hbr
+  have hbr' := hbs'idx r _ hbr
+  rw [Nat.zero_add] at hbr'
+  -- the opener's stored type is that binder, with the earlier openers substituted
+  have hfvT := openPisAtFvars_fvarTypeD is.length hopen hst' r _ x hbr' hx
+  -- the two substitutions compose
+  have hrlt : r < fvsIh.length := by
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    exact this
+  have htl : (fvsIh.take r).length = r := by rw [List.length_take]; omega
+  have hseq : ∀ Y : Expr, Expr.instSeq (fvsIh.take r) (r - 1) Y
+      = Y.instantiateList (fvsIh.take r).reverse 0 := by
+    intro Y
+    cases r with
+    | zero => rw [List.take_zero, List.reverse_nil, Expr.instantiateList_nil]; rfl
+    | succ r' =>
+      rw [← Expr.instSpine_eq_instSeq]
+      exact Expr.instSpine_eq_instantiateList (fvsIh.take (r' + 1)) r' Y
+        (by rw [htl])
+  refine ⟨concl, hconcl, ?_, ?_⟩
+  · have hsplit := instantiateList_split (fvsIh.take r).reverse L
+      (Expr.mkPisOf (ConLeche.structTeleAt nF (rP - nP) i r pw (teleOf i)) concl) 0
+    rw [Nat.zero_add, List.length_reverse, htl] at hsplit
+    rw [hfvT, hseq]
+    exact hsplit
+  · exact FvarList.openerExtend hL
+      (fun j y hy => openPisAtFvars_index is.length _ (rP + nF) hopen j y hy)
+      (fun j y hy => openPisAtFvars_typeWScoped is.length hopen
+        (wscoped_instantiateList hL ihTele hfv 0) j y hy)
+      (by omega)
 
 end ConLeche.Model
