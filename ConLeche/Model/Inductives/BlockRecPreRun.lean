@@ -5421,7 +5421,8 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
           (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
         SpineFit (consList (prefOf (rP c) ys) ρ) (((rds c').map (·.2.2)).drop (rP c'))
           (is ++ [maj]) :=
-      fun _ _ h1 h2 => blockRecJoin_of_shape hshape hc' hxs' h1 h2
+      fun _ _ h1 h2 =>
+        blockRecJoin_of_shape hshape hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
     -- the callee's arities
     have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
       rw [List.length_map] at hlenDc'

@@ -724,11 +724,31 @@ to the parameters and to the index values.
 
 Nothing here is about the recursion or about a rule: every clause is a
 reading of the recursor's own type, which is where the recursor-type
-lane delivers it.  The two frame clauses quantify over ALL prefix
-spines of the right length because their content is a LIFTING identity
-— the index domains are the member's lifted past the prefix's
-`rP - nP` extra binders, and a lift does not look at the values it
-crosses. -/
+lane delivers it.
+
+**The index clause is bounded by the prefix's own FIT** (session 25,
+and the correction of session 24's justification).  It was stated at
+EVERY prefix spine of the right length, on the ground that its content
+is "a lifting identity — the index domains are the member's lifted
+past the prefix's `rP - nP` extra binders".  That ground is false:
+`checkBlockRecTys` stores the stream's recursor type AS IS and never
+compares its index binders with the member's telescope — not
+syntactically, and not by an `isDefEq` of its own.  The only tie is
+the MAJOR's domain `T_m p⃗ ı⃗` being TYPE-CORRECT, i.e. the per-argument
+`isDefEq`s inside `checkConstantVal`'s inference, and a `DefEqClaim`
+concludes at the frames satisfying the opened context and at no
+others.  At a prefix spine that fits nothing, a defeq-but-differently-
+spelled index binder (`(fun β => β) α` for `α`, which the checker
+accepts) reads to an application off its own domain and the `↔` fails.
+So the clause takes the prefix fit its two consumers both already
+have.
+
+The MAJOR clause keeps its all-frames quantification, and that is not
+an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the
+major's domain to `.const T_m lvls` applied to the prefix and index
+BINDERS, so its reading is `mkAppN (acval T_m ψ) (bvars)` and `interp`
+folds it into `app`s at every frame, with the bvars landing on the
+spine by position. -/
 
 section TyShape
 
@@ -803,6 +823,7 @@ docstring). -/
     (∀ xs : List V, SpineFit ρ (((rds c).map (·.2.2)).take d.nP) xs →
       SpineFit ρ (d.params ψ) xs) ∧
     (∀ xs is : List V, xs.length = rP c →
+      SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
       (SpineFit (consList xs ρ)
           ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
         ↔ SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)) ∧
@@ -832,7 +853,7 @@ theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDat
   obtain ⟨hnP, hlenD, hpar, hids, hmajR⟩ := h c hc
   obtain ⟨xs, is, mj, rfl, hxl, hisl, h1, h3, h4⟩ := spineFit_split_three hlenD hfit
   rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
-  refine ⟨hxl, rfl, ?_, (hids xs is hxl).mp h3, ?_⟩
+  refine ⟨hxl, rfl, ?_, (hids xs is hxl h1).mp h3, ?_⟩
   · have hp := spineFit_take_le (Fs := ((rds c).map (·.2.2)).take (rP c)) d.nP h1
     rw [List.take_take, Nat.min_eq_left hnP] at hp
     exact hpar _ hp
@@ -849,6 +870,7 @@ theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
     (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
     {xs is : List V} {maj : V} (hxl : xs.length = rP c)
+    (hpref : SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs)
     (hidx : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
     (hmaj : maj ∈ˢ (xs.take d.nP ++ is).foldl SetTheory.app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))) :
@@ -858,7 +880,7 @@ theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V
   have hdrop : (((rds c).map (·.2.2)).drop (rP c)).length
       = (d.IdsM (mem c) ψ).length + 1 := by rw [List.length_drop, hlenD]; omega
   rw [list_drop_last hdrop]
-  refine SpineFit.append ((hids xs is hxl).mpr hidx) (spineFit_one ?_)
+  refine SpineFit.append ((hids xs is hxl hpref).mpr hidx) (spineFit_one ?_)
   rw [hmajR xs is hxl hisl]
   exact hmaj
 
