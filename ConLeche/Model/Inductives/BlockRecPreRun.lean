@@ -2772,14 +2772,16 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
     fssOfR_fixCtorDataList_getD hcj
   rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
 
-/-- **THE `fdoms` SPELLING.**  §40.8 and §40.10 state the FIELD and
-`ih` segments over `(liftDoms o 0 (ds.drop nP)).map (·.2.2)` — the
-constructor's telescope moved binderwise past the `o = rP - nP` extras;
-the bundle states its own `fdoms` as `blockRuleFdomsAV`, the field
-OPENERS' readings.  They are the same list, and the identification is
-`blockRuleFdomsAV_datum` composed with `map_liftDoms`: `liftDoms` on
-the TRIPLES is `liftDomsK` on their domains, which is the one
-difference between the two spellings. -/
+/-- **THE `fdoms` SPELLING, at the DATUM.**  §40.8 and §40.10 state
+the FIELD and `ih` segments over `(liftDoms o 0 (ds.drop nP)).map
+(·.2.2)`; the bundle states its own `fdoms` as `blockRuleFdomsAV`, the
+field OPENERS' readings.  `blockRuleFdomsAV_eq_liftDoms`
+(`BlockRecData.lean`) is that identity at a `BlockCtorDataI`; this is
+it at the BLOCK DATUM, which is the record the recursor lane's
+consumers carry — `blockRuleFdomsAV_datum`'s extraction (the record
+out of `BlockCtorsCore`, the type's fvar-freeness out of the
+environment's well-formedness) with the spelling step DELEGATED
+upstream rather than repeated. -/
 theorem blockRuleFdomsAV_liftDoms {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -2793,15 +2795,16 @@ theorem blockRuleFdomsAV_liftDoms {envC : Env} {mpC : EnvModelM V μ envC} {d : 
     (hcore : BlockCtorsCore mpC.base2 d lps cvTasAll p₁ isRec A d.k)
     {mem : Nat → Nat} {j : Nat} (hmemk : mem c < d.k)
     (hcj : (d.ctorsM (mem c))[j]? = some cA)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) (ψ : Name → Nat) :
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) {o : Nat}
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (ψ : Name → Nat) :
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-      = ((liftDoms (p.toBlockShape.rulePrefixAt c - p.nP) 0
-          ((d.dsF (mem c) j ψ).drop p.nP)).map (·.2.2)) := by
-  have hF0 : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
-    fssOfR_fixCtorDataList_getD hcj
-  have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop p.nP).map (·.2.2) := by
-    rw [hF0, hdnP]
-  rw [blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ, hF, map_liftDoms, hdnP]
+      = (liftDoms o 0 ((d.dsF (mem c) j ψ).drop p.nP)).map (·.2.2) := by
+  have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
+  have hCf : cA.1.type.hasFvar = false :=
+    (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  rw [hdnP] at hcd
+  exact blockRuleFdomsAV_eq_liftDoms h hr hcA hrhs hcd hCf hnP (by omega) ψ
 
 end RuleFdoms
 
