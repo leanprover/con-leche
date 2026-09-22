@@ -618,6 +618,59 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
   rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx hl,
     List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
 
+/-! ## 3c. The three conjuncts' OWN premises, produced
+
+`blockRuleHsp_field_run`, `blockRuleHes_run` and `blockRuleHmk_run`
+each take `hlv` (the constructor's level assignment agrees with the
+recursor's on the block's parameters) and `hqs`/`hfq` (the
+constructor's parameter and field spines fit).  None of the three is
+the seam's to supply: all three are consequences of premises
+`BlockRuleDataB` already hands — `hψ` for the first, `hfitC` for the
+other two — and they are produced here, so that what is left between
+the three conjuncts and the contract is the rule lane's two rows and
+the `w`-ruling and nothing else. -/
+
+/-- **`hlv` at the contract's own `hψ`.**  A block rule is `.plain`,
+so `recFireComparands` copies the recursor's level arguments
+(`recFireComparands_plain`), and the contract's level premise becomes
+`substFn_agree_of_comparand`'s comparand form. -/
+theorem blockRuleLevelAgree {φ : Name → Nat} {lps lpsR : List Name} {us usj : List Level}
+    {rl : ConLeche.RecRule} {rP : Nat} (hplain : ConLeche.RecRule.fire rl = .plain)
+    (hψ : Level.substFn φ lps usj
+      = Level.substFn φ lps (ConLeche.recFireComparands rl lpsR us lps [] rP).1) :
+    ∀ q ∈ lps, Level.substFn φ lps usj q = Level.substFn φ lpsR us q :=
+  substFn_agree_of_comparand (by rw [hψ, recFireComparands_plain hplain])
+
+/-- **`hqs` and `hfq` at the contract's own `hfitC`.**
+
+`CtorDataI.read` says the constructor's type reads as the Π-tower over
+`d.dsF`, so the contract's `ctorTy` IS that tower;
+`spineFit_of_teleFitPA` turns a fit of a tower into a fit of its
+domains; `CtorDataI.params` moves the domains from the constructor's
+own level assignment `ψj` to the recursor's `ψ` (which is exactly what
+`hlv` says); and §2's `blockCtorSpine_split` splits the result at
+`d.nP`.  This is `blockCtorSpine_split`'s first consumer. -/
+theorem blockRuleCtorFit_run {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
+    {ψ ψj : Name → Nat} (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
+    (hlenP : (d.params ψ).length = d.nP)
+    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
+      ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
+    {ρ : Nat → V} {ys : List AnnotTerm} {ctorTy restC : AnnotTerm}
+    (hys : ys.length = d.nP + cA.2)
+    (hctorRead : denoteMeta mpC.base2.acval envC ψj 0 cA.1.type = some ctorTy)
+    (hfitC : TeleFitPA V ρ ctorTy ys restC) :
+    SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)) ∧
+      SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
+        ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)) := by
+  obtain ⟨-, -, hD⟩ := hcf
+  obtain rfl := Option.some.inj (hctorRead.symm.trans (hD.read ψj))
+  have hds : d.dsF mm j ψj = d.dsF mm j ψ := (hD.params ψj ψ hlv).1
+  have hsp := spineFit_of_teleFitPA (by rw [hys, hD.len ψj]) hfitC
+  rw [hds] at hsp
+  exact blockCtorSpine_split hcj (hD.len ψ) hsp hparamsC hlenP
+
 /-! ## 4. THE FINDING — the FIT conjunct is FALSE at a `Prop`-valued
 block
 
