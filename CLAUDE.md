@@ -83,9 +83,17 @@ iteration protocol. Keep it up to date when decisions change.
   elaborated in the private view and is the fix.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
   /tmp and /home are tmpfs).
-* If running the checker may OOM, use a timeout and memory limit
-  (`ulimit -v 16000000` for ordinary runs, 22 GB for Mathlib scale;
-  `timeout` on every checker run; builds get `timeout` only).
+* Put a `timeout` on every checker run (builds get `timeout` only).
+  Do **not** use `ulimit -v`: it caps virtual address space, and the
+  worker pool's thread-stack RESERVATION is charged against it, so the
+  binary aborts before any checking starts — `lean::exception: failed
+  to create thread`, shell `Aborted`, exit 134 (measured at 16 GB and
+  at 22 GB; 40 GB survives a single run and still aborts across a full
+  sweep).  A virtual reservation is not resident memory, so no value
+  both works and bounds anything; `tests/arena.sh` has always used a
+  bare `timeout`.  An `exit 134` from a capped run is therefore not a
+  checker crash — one lane's first e2e sweep reported dozens of
+  spurious "verdict moves" that were all exit 134.
 * Running builds and other long processes (agents): this machine is
   shared by several agents in separate worktrees, and each worktree has
   its own `.lake`, so builds never conflict and there is nothing to wait
