@@ -81909,3 +81909,51 @@ because the worker-thread pool's virtual reservation exceeds the cap;
 22 GB aborts too.  `tests/arena.sh` uses `timeout` alone and always
 has.  An `exit 134` from a memory-capped run is therefore not a checker
 crash, and the recipe needs correcting (maintainer's file).
+
+#### LANDED (lane RM25 = M5M-rule session 1, `19afd393`): the small-elimination arm's `hih` is CLOSED
+
+**M5M-rule (2026-09-22, `agent/uinds-RM25`): the IND arm's `hih` is
+closed — the two-frame bridge, and the recursor type's binder shape
+in both directions.**  The IND leaf is proved at the BLOCK's frame
+(parameters, earlier fields, telescope) and the rule body's guarded
+call is read at the RULE's frame (the recursor prefix, ALL the
+fields, telescope); the two agree nowhere past the telescope,
+because `consList` puts the last value at index 0.  The bridge is
+therefore the evaluation of the rule lane's own move, `ihIdxAtM`:
+its outer lift cancels the prefix's extra binders and its inner lift
+the later fields (`interp_ihIdxAtM_rule`, `spineFit_ihTeleAtR_rule`,
+`interp_fieldApp_rule` — the telescope's version carries the same
+cancellation down the spine, and is blind to `rebit` because binder
+numerals do not reach a fit).  `BlockRecTyShape` then states ONCE
+what the stored recursor type is — `rP` binders, the eliminated
+member's index telescope, the major — and both directions follow:
+`blockRecSplitAt_of_shape` is `BlockRecSplitAt`, which had no
+producer, and `blockRecJoin_of_shape` is its converse, the `hjoin`
+the leaf needs.  Its parameter clause is an implication between
+FITS, not a syntactic equality: the recursor stream stores its own
+copy of the parameter binders and the checker only ever compares
+readings.  With those, `blockIndRegime_run` drops `hihLeaf` and
+`BlockRecSplitAt` and takes the shape, the rule's per-key syntactic
+data, `hpdE`, `blockRecHpref_runK`'s transfer and the conclusion's
+boundedness — all run-level.  The callee's `xs.length = rP c'` needs
+no shared-prefix premise: it comes out of the callee guard's own
+length through the shape's binder count.
+
+**Four method findings.**  (i) *A syntactic premise between two STORED
+copies is the wrong currency*: the shape's parameter clause was first an
+equality between the recursor stream's copy of the parameter binders
+and the block's — nothing at the run pays that, because the checker
+only ever compares READINGS.  As an implication between fits it is
+strictly weaker, is what both consumers use, and is what the existing
+machinery delivers.  The test: *does the checker ever compare the two
+spellings?*  (ii) *Quantify a lifting identity freely* — the shape's
+lifting clauses range over every prefix spine of the right length with
+no fit hypothesis, sound precisely because a lift does not read what it
+crosses (checked at `nIdx = 0`, `rP c = nP`, `m = 0`, and both ends of
+the field range).  (iii) *A length premise beat a sharing premise*: the
+audit's shared-prefix hypothesis looked required for the callee's
+`xs.length = rP c'` and is not — it falls out of the callee guard's own
+length through the shape's binder count.  (iv) *Restating beat
+instantiating*: the native route's `interp_ihIdxAtM` would have pushed
+`rP > nP` and an `o`-split into every consumer; restating the same
+proof at one prefix list cost five lines.
