@@ -6964,7 +6964,183 @@ theorem blockIhPis_looseBVarsBounded (hnP : nP ≤ rP)
         rw [show rP + nF + (l + 1) + is.length = rP + nF + l + (is.length + 1) from by omega]
         exact hb'
 
+
+/-- **The abstraction raises the loose-bvar bound by the `ih` count** —
+the `body''` premise of `blockIhPis_looseBVarsBounded` at the run: the
+check strips the rule's `λ`-telescope, so the body is bounded at
+`rP + nF`, and this puts the abstraction at `rP + nF + nR`, which is
+what the tower's leaf needs.
+on a recursor-free term the walk IS `liftLooseBVars nR d`, and at a
+consumed call it is one of the `nR` new binders applied to lifts of
+the call's own arguments. -/
+theorem abstractIh_looseBVarsBounded {fr : ConLeche.BlockRuleFrame} {B : Nat} :
+    ∀ {e e'' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e'' →
+      e.looseBVarsBounded (d + B) = true → e''.looseBVarsBounded (d + B + fr.nR) = true
+  | .bvar j, e'', d, hab, hb => by
+    rw [ConLeche.abstractIh_bvar] at hab
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
+    rw [← Option.some.inj hab]
+    split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
+  | .sort _, _, _, hab, _ | .lit _, _, _, hab, _ => by rw [← Option.some.inj hab]; rfl
+  | .const n us, e'', d, hab, _ => by
+    rw [ConLeche.abstractIh_const] at hab
+    split at hab
+    · exact nomatch hab
+    · rw [← Option.some.inj hab]; rfl
+  | .fvar _ _, _, _, hab, _ => nomatch hab
+  | .lam ty b bi, e'', d, hab, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
+    obtain ⟨ty', hty', hab⟩ := hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨b', hb', rfl⟩ := hab
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨abstractIh_looseBVarsBounded hty' hb.1, ?_⟩
+    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
+      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
+    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
+  | .forallE ty b bi, e'', d, hab, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
+    obtain ⟨ty', hty', hab⟩ := hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨b', hb', rfl⟩ := hab
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨abstractIh_looseBVarsBounded hty' hb.1, ?_⟩
+    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
+      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
+    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
+  | .letE ty v b, e'', d, hab, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
+    obtain ⟨ty', hty', hab⟩ := hab
+    rw [Option.bind_eq_some_iff] at hab
+    obtain ⟨v', hv', hab⟩ := hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨b', hb', rfl⟩ := hab
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨⟨abstractIh_looseBVarsBounded hty' hb.1.1,
+      abstractIh_looseBVarsBounded hv' hb.1.2⟩, ?_⟩
+    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
+      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
+    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
+  | .proj sn i e, e'', d, hab, hb => by
+    simp only [Expr.looseBVarsBounded] at hb
+    rw [ConLeche.abstractIh] at hab
+    split at hab
+    · exact nomatch hab
+    rw [Option.map_eq_some_iff] at hab
+    obtain ⟨e', he', rfl⟩ := hab
+    simpa only [Expr.looseBVarsBounded] using abstractIh_looseBVarsBounded he' hb
+  | .app f a, e'', d, hab, hb => by
+    rw [ConLeche.abstractIh_app] at hab
+    revert hab
+    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
+    | some ra =>
+      intro hab
+      obtain ⟨r, as⟩ := ra
+      obtain rfl := Option.some.inj hab
+      obtain ⟨_nm0, _c0, _i0, _exp0, _hfn0, _hnm0, hkey, _hrest0⟩ := ConLeche.blockIhCall?_spine hc
+      have hrlt : r < fr.nR := pairIdxOf?_lt hkey
+      obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
+      have hba : ∀ x ∈ maj.getAppArgs, x.looseBVarsBounded (d + B) = true :=
+        ConLeche.looseBVarsBounded_getAppArgs
+          (ConLeche.looseBVarsBounded_getAppArgs hb maj hmaj)
+      refine ConLeche.looseBVarsBounded_mkAppN ?_ (fun x hx => ?_)
+      · simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega
+      · obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+        exact Expr.looseBVarsBounded_liftLooseBVars fr.nR y (hba y hy)
+    | none =>
+      intro hab
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+      rw [Option.bind_eq_some_iff] at hab
+      obtain ⟨f', hf', hab⟩ := hab
+      rw [Option.map_eq_some_iff] at hab
+      obtain ⟨a', ha', rfl⟩ := hab
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨abstractIh_looseBVarsBounded hf' hb.1, abstractIh_looseBVarsBounded ha' hb.2⟩
+
 end IhTower
+
+/-! ### 40.8 `hokA`'s FIELD segment, from the CONSTRUCTOR's tower
+
+The field openers' domains are the CONSTRUCTOR's, read at the
+constructor's own frame and lifted past the `o = rP - nP` binders the
+recursor's prefix carries between the parameters and the fields
+(`ctorResidual_read_lift`).  Their grading is therefore the
+constructor stage's — `CtorDataI.okTy` through `piTeleAV_graded` — but
+at a spine that fits the CONSTRUCTOR's parameter domains, while the
+rule's frame supplies values fitting the RECURSOR's (§S21.2's
+finding).  This section owns everything on the constructor's side of
+that seam: the lift transfer and the tower's grading at an arbitrary
+entry.  What is left is the PARAMETER HOP — that the rule frame's
+first `nP` values fit the constructor's parameter domains — which is
+the check's own chain (the recursor's parameter domains against the
+type former's, `checkBlockRecTys`; the constructor's against the
+former's, `checkSumCtor`'s `checkStructDomsAt`) and needs those two
+comparisons exported from their stages first. -/
+
+/-- **A `.pi` tower's entry `n` is graded at its own fitting spine** —
+`prefixDoms_graded_of_tower` at the whole peel. -/
+theorem towerDom_graded_of_tower {rds : List (Nat × Nat × AnnotTerm)} {cc : AnnotTerm}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV rds cc))
+    {n : Nat} (hn : n < rds.length) {ρ : Nat → V} {ys : List V}
+    (hys : SpineFit ρ ((rds.take n).map (·.2.2)) ys) :
+    WellDenotedV V (consList ys ρ) (rds.getD n default).2.2 := by
+  have hys' : SpineFit ρ (((rds.take rds.length).map fun d : Nat × Nat × AnnotTerm => d.2.2).take n)
+      ys := by
+    rw [List.take_length, ← List.map_take]
+    exact hys
+  have h := prefixDoms_graded_of_tower (V := V) (rds := rds) (cc := cc) (Nat.le_refl _) hwd hn hys'
+  rw [List.take_length, List.getD_eq_getElem?_getD, List.getElem?_map] at h
+  obtain ⟨d, hd⟩ : ∃ d, rds[n]? = some d := ⟨rds[n]'hn, List.getElem?_eq_getElem hn⟩
+  rw [hd, Option.map_some, Option.getD_some] at h
+  rwa [List.getD_eq_getElem?_getD, hd, Option.getD_some]
+
+/-- **`hokA`'s FIELD segment, from the CONSTRUCTOR's tower.** -/
+theorem blockRuleFseg_of_ctorTower {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
+    {nP nF o q : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = nP + nF) (hq : q < nF)
+    {σ : Nat → V} {ps ms ys : List V} (hms : ms.length = o)
+    (hps : SpineFit σ ((ds.take nP).map (·.2.2)) ps)
+    (hys : SpineFit (consList ms (consList ps σ))
+      (((liftDoms o 0 (ds.drop nP)).map (·.2.2)).take q) ys) :
+    WellDenotedV V (consList ys (consList ms (consList ps σ)))
+      (((liftDoms o 0 (ds.drop nP)).map (·.2.2)).getD q default) := by
+  have hdrop : (ds.drop nP).length = nF := by rw [List.length_drop, hlenD]; omega
+  -- the entry, unlifted
+  have hent : ((liftDoms o 0 (ds.drop nP)).map (·.2.2)).getD q default
+      = (((ds.drop nP).getD q default).2.2).liftN o q := by
+    obtain ⟨d, hd⟩ : ∃ d, (ds.drop nP)[q]? = some d :=
+      ⟨(ds.drop nP)[q]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, liftDoms_getElem?, hd,
+      List.getD_eq_getElem?_getD, hd]
+    simp only [Option.map_some, Option.getD_some, Nat.zero_add]
+  -- the spine, at the unlifted domains and the shifted frame
+  have hshift : shiftE o 0 (consList ms (consList ps σ)) = consList ps σ := by
+    rw [← hms]; exact shiftE_consList ms (consList ps σ)
+  have hys' : SpineFit (consList ps σ) (((ds.drop nP).take q).map (·.2.2)) ys := by
+    rw [← hshift]
+    refine (spineFit_liftDoms (V := V) o).mp ?_
+    rw [← liftDoms_take, List.map_take]
+    exact hys
+  have hylen : ys.length = q := by
+    rw [SpineFit.length_eq hys', List.length_map, List.length_take]; omega
+  -- the grading, at the constructor's own tower
+  rw [hent]
+  refine (WellDenotedV_liftN V o _ q (consList ys (consList ms (consList ps σ)))).mpr ?_
+  have hfr : shiftE o q (consList ys (consList ms (consList ps σ))) = consList ys (consList ps σ) := by
+    rw [← hylen, shiftE_consList_len, hshift]
+  rw [hfr]
+  have hnq : nP + q < ds.length := by omega
+  have hgd : (ds.getD (nP + q) default).2.2 = ((ds.drop nP).getD q default).2.2 := by
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
+  have hsplit : (ds.take (nP + q)).map (fun d : Nat × Nat × AnnotTerm => d.2.2)
+      = (ds.take nP).map (·.2.2) ++ ((ds.drop nP).take q).map (·.2.2) := by
+    rw [← List.map_append, List.take_add]
+  rw [← hgd, ← consList_append]
+  exact towerDom_graded_of_tower hwd hnq (by rw [hsplit]; exact SpineFit.append hps hys')
 
 end CertsArgs
 
