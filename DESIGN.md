@@ -81692,3 +81692,86 @@ Cost: four peels of the stage's bind chain, one line each, two of which
 then export the new witness — the price §S15.5 predicted ("a checker
 stage's bind sequence is an INTERFACE").  e2e 261/261 unmoved; the
 stage is behind `blockRecCheckOn`, so no accepted stream reaches it yet.
+
+#### LANDED (lane RM22 = M5M-data session 23, `c24de9e2`): the small-elimination arm's `ih` values are the POINT, and the opener's leaf comes off the separated tuple
+
+`blockIndStep`'s `ih` premise read the `ih` TERMS at the step's own
+frame, which carries no chain binders: at a FINITARY field the tower is
+empty and the reading folds an arbitrary value of the universally
+quantified ambient valuation, so the premise was **refutable — false,
+not merely unproved**.  The step never reads those values (they occur
+in three premises and in no conclusion), so they are now a parameter,
+and regime IND supplies the design's own choice, the point.  The
+regime's own `hihReg`, at the CHAIN frame where the components ARE the
+point, was sound and is unchanged.
+
+With that, `hih` is `spineFit_ihdoms_zero` at the openers' domain
+reading, and its leaf — the opener's conclusion inhabited at every
+fitting telescope spine — is closed on the BLOCK's side:
+`blockIndPred_of` reads the constructor's walk at the field's position,
+carries the call's index readings into the target member's index
+telescope, and folds the field into the target component **at every
+`w`** (`slotSet_fold_mem` with `inTupleSpace_app_univ`, where §33's
+`blockRecSlot_pred` needed `w ≠ 0` — a restriction of the LEMMA, not of
+the block, since that lemma folds with `piTele_fold`; it can be retired
+in favour of the generic route).  At the SEPARATED tuple that one
+membership is a `sep`, so it yields both the carrier — hence, through
+`BlockModelAt.leaf` read backwards, the major's fit — and the motive at
+the predecessor.  `blockIndIhLeaf_pred` composes that with the callee
+spine's JOIN and the peel's evaluation.  What is left of `hih` is the
+FRAME bridge (the guarded call's arguments read at the rule's frame
+against the block's) and the recursor type's binder-shape converse.
+
+**Three method findings, all of them sizing lessons.**  (i) *A premise
+copied between two frames must be re-checked at both*: `hihReg` and
+`hihStep` were the same spelling, one true because the chain components
+are the point there, the other refutable because the head bvar leaves
+the frame — read where each free bvar of the TERM lands, not whether
+the types match.  (ii) *A value the proof never reads should be a
+parameter*; when a premise looks unprovable, first ask whether the
+consumer reads the thing at all.  (iii) *Ingredients landed is not
+composition landed*: the leaf was sized at half a session with all five
+steps marked landed, but two of them were ingredients whose composition
+had never been written.  The sizing question to ask from now on: is
+there a theorem whose CONCLUSION is the thing, or only theorems whose
+conclusions are its parts?
+
+#### LANDED (lane RM21 = M5M-pre session 20, `c431a09d`): the recursors' binder BITS come off the CHECK, and `BlockRuleCerts`' frame seam
+
+`blockRecOneElimLevel`'s `hbits` — every binder numeral of a
+recursor's binder data is zero exactly when its elimination level is —
+was sized as a law about `annotateCore`'s Π-binder `PropWhen`.  It is
+not one: `annotPwPi` answers most binders from the head-symbol reader
+(`typeSortPW`) and only falls back to inference, so the writer's law
+would have to carry the reader's soundness.  `inferBody`'s ∀ clause
+VALIDATES the datum against the codomain sort it infers, so at a
+verified mode a successful `inferTypeCore` on a Π-tower pins every
+binder's datum, whatever wrote it — the annotation pass is untrusted
+here by design, and this is what paying that off looks like.  The law
+is `inferTypeCore_openPis_sortZ` (the tower's sort has the
+conclusion's zero-ness, `zeronessOf (imax u v) = zeronessOf v` carried
+down the openers) and `stripPisAV_denoteMeta_pw` (every binder numeral
+of the READING is `pwBit ψ` of that one datum); the run-level producer
+is `blockRecElimLevel_run`, on a widened stage-(b) peel
+(`checkBlockRecTys_elim`) that keeps the conclusion's `inferType` and
+`ensureSort` — the level D-d compares, which the two existing
+inversions discard.  The two runs of the conclusion, at the tower's
+residual fuel and at the stage's own, are identified by
+`Verify/Mono.lean`'s fuel monotonicity, which was already in the tree.
+
+`BlockRuleCerts`' two FRAME premises are closed as assemblies:
+`hdoms` and `hokΔ` are stated at the reversed context, the three
+owners state their readings and gradings segment by segment at the
+frame's ascending depths, and `blockRuleHdoms_of` / `blockRuleHokΔ_of`
+are the whole distance (the reversed context IS
+`(pdoms ++ fdoms ++ ihdoms).reverse`; the ascending prefix is its
+SUFFIX, so `spineFit_of_sat` restricts along a `drop`).
+`BlockRuleCerts.of_segments` is then the bundle's introduction rule in
+the producers' own spelling, which makes the remaining cost countable:
+thirteen arguments, seven owed, 2–3 sessions — the largest being the
+well-denotedness of the GENERATED `ih` opener types, which the kernel
+never checks and the model must (the audit's §2.6 gap proper).
+
+**A general rule out of it**: *a datum one pass writes and another
+validates has its law at the VALIDATOR.*  Three reports pointed the
+premise at `annotateCore`; the law was two lines on the check's side.
