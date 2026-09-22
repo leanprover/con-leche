@@ -1067,21 +1067,30 @@ rule's own frame, except three, and each of the three has a named
 producer in another stage's file:
 
 * **`hdF`** — the FIELD openers' stored types read to
-  `blockRuleFdomsAV`'s entries at their own depths.  It is
-  `readOpenedDoms_eq`'s own hypothesis, and the constructors' stage
-  produces it exactly where `blockRuleFdomsAV_eq` consumes it
-  (`BlockCtorDataI.reflOpen` through `readOpenedDoms_shift`);
+  `blockRuleFdomsAV`'s entries at their own depths.  **Produced**:
+  `blockRuleFdomsAV_eq`'s SECOND conjunct (`BlockRecData.lean`).  It
+  is `readOpenedDoms_eq`'s own hypothesis, which
+  `readOpenedDoms_shift` computes on the way to the equation and used
+  to discard — the constructors' stage pays for it either way, so the
+  producer costs the assembly a projection;
 * **`hokF`** — the field domains are graded along their own fitting
-  spines: `blockRuleFseg_of_run` (`BlockRecPreRun.lean`), in the
-  `blockRuleFdomsAV` spelling `blockRuleFdomsAV_eq_liftDoms` converts
-  to;
+  spines.  **Produced**: `blockRuleHokF_of_run` (below), which is
+  `blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9) rewritten
+  through `blockRuleFdomsAV_eq_liftDoms` and nothing else;
 * **`hcross`** — the ENVIRONMENT CROSSING.  G2 runs at `envC`; the
   rule's reading, and with it the tower's domains, is at the CONSED
-  environment.  `blockRecDenote_cross` is the producer, at
+  environment.  The crossing itself is a THEOREM
+  (`blockRecDenote_cross_eq`, `BlockRecData.lean`): `denoteMeta` is an
+  EQUATION across the recursors' cons at a `ConstsBound envC` subject,
+  the two literal guards being the recursor stage's own NAME check.
+  What it leaves is the purely syntactic
   `ConstsBound envC (ldoms.getD l default)` — which is NOT
   `checkBlockRecK_facts`' `constsResolve`, since that one is at
   `consBlockRecsBare`: the right-hand side mentions the recursors by
   design, and what has to be shown is that its BINDER DOMAINS do not.
+  **That last statement is REFUTABLE against the checker as it
+  stands** (§7): nothing constrains a rule's λ-domains but a DEFEQ at
+  `envC`, which is not syntax-preserving.
 
 The PREFIX half needs no premise at all: its readings are
 `blockRulePdomsAV_reads` and its gradings `blockRulePdomsAV_graded`,
@@ -1091,6 +1100,48 @@ section TowerFitRun
 
 variable {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+/-- **`hokF`, AT THE RUN** — the tower fit's FIELD-grading input, in
+the `blockRuleFdomsAV` spelling the fit asks it in.
+
+`blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9, the certificate
+lane's) concludes exactly this at the constructors' stage's own binder
+data lifted to the rule's frame, and `blockRuleFdomsAV_eq_liftDoms` is
+the identity between that spelling and `blockRuleFdomsAV`.  So the
+input is a REWRITE, not a proof: a finished bridge that had no
+traffic until the fit asked for it. -/
+theorem blockRuleHokF_of_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSortT : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSortT pps) (hle : p.nP ≤ nFull)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false) (ψ : Name → Nat) {bodyC : AnnotTerm}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV (ds ψ) bodyC))
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ)
+    {o : Nat} (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) :
+    ∀ q, q < cA.2 → ∀ (σ : Nat → V) (xs ys : List V),
+      SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
+      SpineFit (consList xs σ)
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take q) ys →
+      WellDenotedV V (consList ys (consList xs σ))
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD q default) := by
+  rw [blockRuleFdomsAV_eq_liftDoms h hr hcA hrhs hcd hCf (by omega) ho ψ]
+  exact blockRuleFseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd (hcd.len ψ) hframes ho
 
 /-- **THE TOWER FIT, AT THE RUN** — `BlockRuleDataB`'s FIFTH conjunct
 from its FIRST.
@@ -1103,7 +1154,9 @@ carries — compares them binder by binder at the rule frame's depth,
 and `twoStageOpeners_spineFit` is the transfer.
 
 `hcross`, `hdF` and `hokF` are the three inputs that belong to other
-stages (§6c); everything else is this run's own.  The statement is
+stages (§6c); everything else is this run's own.  Two of the three
+now have a theorem (`blockRuleFdomsAV_eq`.2, `blockRuleHokF_of_run`),
+and the third is a CHECKER guard, not a theorem (§7).  The statement is
 `w`-FREE: the evidence is a grading against the rule's λ-tower, never
 a membership in a carrier. -/
 theorem blockRuleTowerFit_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
@@ -1395,18 +1448,12 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
           (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
           (Level.substFn φ r.1.levelParams us)))
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
-    (hcross : ∀ us : List Level, us.length = r.1.levelParams.length →
-      ∀ (ldoms : List Expr) (lrest : Expr),
+    (hcbLd : ∀ (ldoms : List Expr) (lrest : Expr),
         ConLeche.Expr.instLamsAt
             (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i)
             rhs = some (ldoms, lrest) →
         ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
-          denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us) l
-              (ldoms.getD l default)
-            = denoteMeta (blockRecAcv mpC.base2.acval envC rs s
-                (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-                (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
-                (Level.substFn φ r.1.levelParams us) l (ldoms.getD l default))
+          ConstsBound envC (ldoms.getD l default))
     (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
       ∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs j i)[l]? = some x →
         denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us)
@@ -1449,7 +1496,9 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, -, -⟩ :=
     blockRuleData_run h hr hcA hrhs
   have htow := blockRuleTowerFit_run hμ mpC h hr hcA hrhs hCf hCb (hread us hus)
-    (hokRa us hus) hlams (hcross us hus ldoms lrest hlams) (hdF us hus) (hokF us hus) hsp1
+    (hokRa us hus) hlams
+    (fun l hl => blockRecDenote_cross_eq h _ l _ (hcbLd ldoms lrest hlams l hl))
+    (hdF us hus) (hokF us hus) hsp1
   refine ⟨hsp1, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd htgt hlv
       (hw us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq
@@ -1586,6 +1635,74 @@ because its single constructor forces `i_R = a_R` through `hfitR`.
 
 Until the ruling, the row is closed at `d.w ψ ≠ 0`
 (`blockRuleHes_run`), like the fit. -/
+
+
+/-! ## 7. THE THIRD FINDING — the rule's λ-DOMAINS are not
+`ConstsBound envC`, and the checker is what has to say so
+
+The ENVIRONMENT CROSSING (§6c) turned out to be free: `denoteMeta` is
+an EQUATION across the recursors' cons at any `ConstsBound envC`
+subject (`blockRecDenote_cross_eq`), because `denoteMeta_envExtend` is
+one and the recursor stage's NAME check
+(`ConLeche.checkBlockRecK_reserved`) is exactly what makes the two
+literal guards agree.  What the crossing leaves behind is the
+syntactic premise `hcbLd`:
+
+    ∀ l, l < rP + nF → ConstsBound envC (ldoms.getD l default)
+
+**and that statement is REFUTABLE against `checkBlockRule` as it
+stands.**
+
+The rule's right-hand side is annotated and consts-resolved at the
+RULE-LESS recursor environment (`checkBlockRecK_facts`:
+`rhs.constsResolve (consBlockRecsBare …) = true`), because a rule
+mentions the recursors by design.  Its BODY is forced back into
+`envC`: `abstractIh` fails unless every recursor occurrence is a call
+on a recursive field, and the residue is then typed at `envT = envC`.
+Its λ-BINDER DOMAINS are forced by nothing but G2 —
+`checkBlockDefEqList opsT envT (rP + nF) (openers' types) ldoms` — and
+defeq does not preserve syntax.  Take a rule
+
+    fun (x₁ : D₁) … (x_rP : D_rP)
+        (f₁ : (fun _ : T_rec => A₁) C_rec) (f₂ : A₂) … => body
+
+where `T_rec` is the recursor's own stored type, `C_rec` the recursor
+CONSTANT and `A₁` the constructor's first field type.  `instLamsAt`
+returns `(fun _ : T_rec => A₁) C_rec` as `ldoms[rP]`; `isDefEq envC`
+β-reduces it to `A₁` and answers `true`, since an unstored constant is
+never looked up on that path; `stripLams`/`abstractIh`/the residue's
+inference never see it.  So the stream is ACCEPTED, and
+`denoteMeta mpC.base2.acval envC ψ (rP) (ldoms.getD rP default) = none`
+by `denoteMeta`'s `.const` clause, while the consed reading is `some`
+(`blockRuleTower_run`).  `hcbLd` is false at that stream, and so was
+`hcross` before it.
+
+**The repair is one line in the kernel**, and it is the kind the
+project already prefers (validate once at insertion, never a per-call
+gate): in `checkBlockRule`
+(`ConLeche/Kernel/Inductives/BlockInstall.lean`), immediately after
+the `instLamsAt` that produces `ldoms` and before the G2 comparison,
+
+    unless ldoms.all (fun t => t.constsResolve envT) do
+      throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
+
+It rejects nothing official emits: a generated rule's binder domains
+ARE the recursor prefix's stored types and the constructor's field
+types, and both are `constsResolve envC` already
+(`checkBlockRecK_facts`' first bullet for the recursor type, the
+constructors' stage for `cA.1.type`).  With it, `Verify` inverts the
+guard to `ConstsBound envC (ldoms.getD l default)`
+(`constsBound_of_constsResolve`), `hcbLd` is discharged at the run,
+and §6c's three inputs become two.
+
+**The rule this restates.**  The lane's standing check is *which CHECK
+makes this available, and does the INVERSION that reads it KEEP it?*
+Here the answer is the third one: **no check makes it available at
+all.**  The route had been described for four reports as a model
+obligation ("someone owes a theorem that the domains do not mention
+the recursors"); it is not a theorem, it is a missing guard, and the
+difference is one grep of `checkBlockRule` for what constrains
+`ldoms`. -/
 
 
 end ConLeche.Model

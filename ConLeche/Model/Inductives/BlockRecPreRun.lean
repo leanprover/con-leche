@@ -2811,7 +2811,7 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
   rw [hdnP] at hcd
   have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
     fssOfR_fixCtorDataList_getD hcj
-  rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
+  rw [(blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ).1, hF, hdnP]
 
 /-- **THE `fdoms` SPELLING, at the DATUM.**  §40.8 and §40.10 state
 the FIELD and `ih` segments over `(liftDoms o 0 (ds.drop nP)).map

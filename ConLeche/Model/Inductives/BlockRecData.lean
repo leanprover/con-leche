@@ -2400,7 +2400,10 @@ theorem readOpenedDoms_shift {m : EnvModel V envC}
     (hop : ConLeche.openPisAtFvars nF crest' (nP + o) = some (fvsF, cbody)) :
     readOpenedDoms m.acval envC ψ (nP + o) fvsF
         = liftDomsK o 0 ((ds.drop nP).map (·.2.2)) ∧
-      denoteMeta m.acval envC ψ (nP + o + nF) cbody = some (bodyC.liftN o nF) := by
+      denoteMeta m.acval envC ψ (nP + o + nF) cbody = some (bodyC.liftN o nF) ∧
+      (∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+        denoteMeta m.acval envC ψ (nP + o + l) x.fvarTypeD
+          = some ((liftDomsK o 0 ((ds.drop nP).map (·.2.2))).getD l default)) := by
   have hlenDrop : (ds.drop nP).length = nF := by
     rw [List.length_drop, hlenD]; omega
   have hread' : denoteMeta m.acval envC ψ (nP + o) crest'
@@ -2411,14 +2414,18 @@ theorem readOpenedDoms_shift {m : EnvModel V envC}
   have hstEq := stripPisAV_mkPisAV (liftDoms o 0 (ds.drop nP)) (bodyC.liftN o nF)
   rw [liftDoms_length, hlenDrop] at hstEq
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hstEq))
-  refine ⟨?_, hb⟩
-  rw [readOpenedDoms_eq (acval := m.acval) (envC := envC) (ψ := ψ) fvsF
-      (liftDoms o 0 (ds.drop nP)) (nP + o)
-      (by rw [openPisAtFvars_length _ hop, liftDoms_length, hlenDrop])
-      (fun i x hx => by
-        obtain ⟨q, hq, -, hd⟩ := hbind i x hx
-        exact ⟨q, hq, hd⟩)]
-  exact map_liftDoms o 0 (ds.drop nP)
+  refine ⟨?_, hb, fun l x hx => ?_⟩
+  · rw [readOpenedDoms_eq (acval := m.acval) (envC := envC) (ψ := ψ) fvsF
+        (liftDoms o 0 (ds.drop nP)) (nP + o)
+        (by rw [openPisAtFvars_length _ hop, liftDoms_length, hlenDrop])
+        (fun i x hx => by
+          obtain ⟨q, hq, -, hd⟩ := hbind i x hx
+          exact ⟨q, hq, hd⟩)]
+    exact map_liftDoms o 0 (ds.drop nP)
+  · obtain ⟨q, hq, -, hd⟩ := hbind l x hx
+    rw [hd, ← map_liftDoms o 0 (ds.drop nP), List.getD_eq_getElem?_getD,
+      List.getElem?_map, hq]
+    rfl
 
 omit [SetTheory V] in
 /-- Renaming by the identity is the identity — the bridge from
@@ -2436,7 +2443,14 @@ theorem renameConsts_id : ∀ e : Expr, e.renameConsts (fun n => n) = e
 /-- **A-2's FIELD DOMAINS, at the run.**  The rule's field domains ARE
 the constructors' stage's, read `rP − nP` deeper — the identity lane
 RM9's `hspF` needs, and the last reading fact between `BlockRuleDataAt`'s
-second conjunct and the block's representation. -/
+second conjunct and the block's representation.
+
+**Two conjuncts, because the inversion had been discarding one.**  The
+equation is what RM9 asked for; the per-opener READINGS (`hdF`, the
+tower fit's second owed input, §6c of `BlockRuleFit.lean`) are what
+`readOpenedDoms_shift` computes on the way to it and used to throw
+away — `readOpenedDoms_eq`'s hypothesis is exactly `hdF`, so the
+statement is free at this frame and nowhere else. -/
 theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -2457,8 +2471,13 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-      = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
-          (((ds ψ).drop p.nP).map (·.2.2)) := by
+        = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
+            (((ds ψ).drop p.nP).map (·.2.2)) ∧
+      (∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs c i)[l]? = some x →
+        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + l)
+            (Expr.fvarTypeD x)
+          = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD
+              l default)) := by
   obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -, -, -⟩ :=
     blockRuleData_run h hr hcA hrhs
   obtain ⟨crest, hopP, hopX⟩ := hcd.opens
@@ -2512,10 +2531,14 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
           = p.toBlockShape.rulePrefixAt c from by omega]
         exact hopF)
   have hq := hsh.1
+  have hrd := hsh.2.2
   rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-      = p.toBlockShape.rulePrefixAt c from by omega] at hq
-  rw [blockRuleFdomsAV]
-  exact hq
+      = p.toBlockShape.rulePrefixAt c from by omega] at hq hrd
+  have heqF : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
+          (((ds ψ).drop p.nP).map (·.2.2)) := by
+    rw [blockRuleFdomsAV]; exact hq
+  exact ⟨heqF, fun l x hx => by rw [heqF]; exact hrd l x hx⟩
 
 /-- **A-2's FIELD DOMAINS in the CERTIFICATE lane's spelling** — the
 same identity as `blockRuleFdomsAV_eq` with the lifting on the
@@ -2532,8 +2555,8 @@ consumer plugs `ds` and `o` in as parameters and cannot rewrite a
 premise it does not own.
 
 The name is NOT `blockRuleFdomsAV_eq`: that theorem exists (above)
-and concludes the `liftDomsK`-of-`map` form; two spellings, two
-names. -/
+and concludes the `liftDomsK`-of-`map` form (as its FIRST conjunct);
+two spellings, two names. -/
 theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -2557,7 +2580,7 @@ theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = (liftDoms o 0 ((ds ψ).drop p.nP)).map (·.2.2) := by
   have hoq : p.toBlockShape.rulePrefixAt c - p.nP = o := by omega
-  rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hoq, map_liftDoms]
+  rw [(blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ).1, hoq, map_liftDoms]
 
 /-- **A-3's `mk0`, at the run**: the FIRED SPINE's reading is the
 constructor's leaf applied to the rule frame's parameter and field
@@ -2730,7 +2753,7 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
       (blockRuleCbody p.toBlockShape rs c i)
       = some ((ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)).liftN
           (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) := by
-    have := hsh.2
+    have := hsh.2.1
     rwa [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
         = p.toBlockShape.rulePrefixAt c from by omega] at this
   -- the residual's SYNTACTIC spine
@@ -4004,6 +4027,47 @@ theorem blockRecAcv_stored {mpC : EnvModelM V μ envC}
   have hcv := checkBlockRecK_cvFacts h
   rw [hac]
   refine blockRecAcvOf_of_ne (fun m hm => ?_)
+  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
+  intro hh
+  rw [hh, (hcv r hr).1] at hn
+  exact nomatch hn
+
+/-- **THE ENVIRONMENT CROSSING, as an EQUATION** — the two readings of
+one `ConstsBound envC` subject, at the constructors' environment and
+at the recursors', are the SAME `Option`.
+
+`blockRecDenote_cross` is its monotone half and is all a consumer that
+already HAS the `envC` reading needs.  A consumer that has only the
+CONSED reading — the rule's λ-tower is read there, because the
+right-hand side mentions the recursors by design — needs the other
+direction too, and it is free: `denoteMeta_envExtend` is an equation
+under `ConstsBound env₀`, and the run supplies both of its remaining
+premises (`checkBlockRecK_cvFacts` for the freshness and the
+projection shape, `checkBlockRecK_reserved` for the two literal
+guards, which is exactly the NAME check `blockRecStaged_of` names for
+the same reason).
+
+So the crossing itself is **not** an obligation: what is owed at a
+λ-tower's binder domains is the SYNTACTIC premise `ConstsBound envC`,
+and that premise has no producer in the tree (§A.19c). -/
+theorem blockRecDenote_cross_eq {mpC : EnvModelM V μ envC}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound envC e) :
+    denoteMeta mpC.base2.acval envC ψ d e
+      = denoteMeta (blockRecAcv mpC.base2.acval envC rs s eqs)
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ d e := by
+  have hcv := checkBlockRecK_cvFacts h
+  have hres := ConLeche.checkBlockRecK_reserved h
+  have hkeep := find?_consBlockRecs_keep (q := p.toBlockShape) (nP := p.nP)
+    (fun r hr => (hcv r hr).1)
+  rw [← denoteMeta_envExtend (acval := blockRecAcv mpC.base2.acval envC rs s eqs) (φ := ψ)
+      (fun {n} {ci} hf => hkeep n ci hf)
+      ⟨(ConLeche.natLitSupported_consBlockRecs hres).symm,
+        (ConLeche.strLitSupported_consBlockRecs hres).symm⟩
+      (fun sn i hs => by
+        rw [findProj?_consBlockRecs (fun r hr => (hcv r hr).2.2.1)]; exact hs) d e hcb]
+  refine denoteMeta_acval_congr (fun n hn => ?_) d e
+  refine (blockRecAcvOf_of_ne (fun m hm => ?_)).symm
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
   intro hh
   rw [hh, (hcv r hr).1] at hn

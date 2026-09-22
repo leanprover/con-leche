@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockFieldRead
-import ConLeche.Model.Inductives.BlockRecRule
+public import ConLeche.Model.Inductives.BlockRecRule
 
 public section
 
@@ -623,14 +623,16 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
       i < ((d.Fss mm ψ).getD j []).length ∧
       ((d.rss mm).getD j []).getD i false = true ∧
       d.tgts mm j i = mem c' ∧
-      rPs.getD c' 0 = rP := by
+      rPs.getD c' 0 = rP ∧
+      ((d.ksF mm j).getD i .ordinary = .recursive ∨
+        (d.ksF mm j).getD i .ordinary = .reflexive) := by
   have hmem := mem_blockIhKeys_getD hkey hr
   obtain ⟨hiL, hkind⟩ := mem_blockIhKeys_kind hmem
   obtain ⟨hc'L, hrPs, htgt⟩ := mem_blockIhKeys_rP hmem
   have hc'K : c' < K := by rw [← hrecTgtsLen]; exact hc'L
   have hjl : j < (d.ctorsM mm).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hiF : i < ((d.Fss mm ψ).getD j []).length := by rw [hFssLen, ← hksLen]; exact hiL
-  refine ⟨hc'K, hiF, ?_, ?_, hrPs⟩
+  refine ⟨hc'K, hiF, ?_, ?_, hrPs, by rw [hksF]; exact hkind⟩
   · have hrss : (d.rss mm).getD j [] = rsOf (d.ksF mm j) := rssOfK_getD hjl
     rw [hrss, rsOf_getD (by rw [hksF, List.length_map]; exact hiL), hksF,
       getD_map_toRec]
@@ -651,6 +653,50 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
     | ordinary => rw [hq] at htgt; exact nomatch htgt
     | negative => rw [hq] at htgt; exact nomatch htgt
     | unsupported => rw [hq] at htgt; exact nomatch htgt
+
+
+/-- **`hihOpen` half A's two ARITIES at the constructor**, off the
+constructors' stage's own record: the field-domain row's length is the
+constructor's field count, and a RECURSIVE or REFLEXIVE field's index
+readings number the TARGET member's indices.
+
+Both are `hihOpen`'s conjuncts `((d.Fss …).getD j []).length = nF` and
+`(((d.Eiss …).getD j []).getD i []).length = nIdx`; the third length
+(`(((d.tlss …).getD j []).getD i []).length = m`) is the existential's
+own choice of `m` and needs no theorem. -/
+theorem blockIhKey_block_lengths {env : Env} {m : EnvModel V env} {d : BlockData V}
+    {lps : List Name} {mm j i : Nat} {cA : ConstantVal × Nat} (ψ : Name → Nat)
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts m d lps mm j cA) (hi : i < cA.2)
+    (hkind : (d.ksF mm j).getD i .ordinary = .recursive ∨
+      (d.ksF mm j).getD i .ordinary = .reflexive) :
+    ((d.Fss mm ψ).getD j []).length = cA.2 ∧
+      (((d.Eiss mm ψ).getD j []).getD i []).length = d.nIdxAt (d.tgts mm j i) := by
+  obtain ⟨-, -, hcd⟩ := hcf
+  refine ⟨?_, ?_⟩
+  · rw [BlockData.Fss, BlockData.cds, fssOfR_fixCtorDataList_getD hcj,
+      List.length_map, List.length_drop, hcd.len ψ]
+    omega
+  · rw [BlockData.Eiss, BlockData.cds, eissOfR_fixCtorDataList_getD hcj]
+    rcases hkind with hk | hk
+    · exact hcd.eisLen ψ i hk hi
+    · exact hcd.eisLenRefl ψ i hk hi
+
+/-- **`hihOpen` half A's MEMBER arity**: the index telescope a member
+contributes has that member's index count — the last of the fused
+premise's four lengths, and the one that ties the field's readings to
+the CALLEE's telescope (`d.tgts mm j i = mem c'` is the key's own
+fact, `blockIhKey_block_facts`). -/
+theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {q : ConLeche.BlockShape} {cvTas : List ConstantVal}
+    (hmr : BlockMembersRun mo d q cvTas) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :
+    (d.IdsM mm ψ).length = d.nIdxAt mm := by
+  obtain ⟨-, -, hlenCv, hcvF, -, -, -⟩ := hmr
+  obtain ⟨cvTb, hcvTa⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmm)⟩
+  obtain ⟨-, -, -, -, -, hFD⟩ := hcvF _ _ hcvTa
+  rw [BlockData.IdsM, List.length_map, List.length_drop, hFD.len ψ]
+  omega
 
 end Keys
 
@@ -707,6 +753,441 @@ theorem blockRuleConclAt_shift {rP nF i m r o : Nat} {T Ca : AnnotTerm}
     rw [List.map_singleton, ← fieldApp_shift]
   rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF] at h
   exact h
+
+
+/-! ## `WalkCtx` at the rule's opened frame
+
+`interp_blockResidue`'s `hW` is the walk's ENTRY context, and the rule
+frame is the one `ctxOk_blockFrame` (`BlockRecTyping.lean`) already
+describes: three openings at the offsets `0`, `rP` and `rP + nF`, the
+context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse`, and a valuation
+`consList ihvals (consList (xs ++ fs) ρ₀)`.
+
+**`WalkCtx` is `CtxOk`'s inputs, re-indexed.**  `ctxOk_blockFrame`
+reads the openers ASCENDING (opener `i` at depth `i`, context slot
+`D - 1 - i`); `WalkCtx` carries the opening LIST, which the walk
+conses onto, so it reads them DESCENDING (`as2 = L.reverse`, slot `j`
+at depth `D - 1 - j`).  The two are the same statement under
+`List.getElem?_reverse`, and `D - 1 - (D - 1 - j) = j` below `D` is
+the whole of the translation.
+
+What `WalkCtx` asks beyond `CtxOk` is the frame's three HEREDITARY
+facts — the openers' annotations are `looseBVarsBounded 0`, bounded by
+`envT`, and draw their own leaves from the frame again.  All three are
+stated over the opener list and are the openings' own
+(`walkCtx_blockFrame_hered`). -/
+
+/-- **`WalkCtx` at the rule stage's opened frame** — `hW` at the
+entry, from exactly `residueOk_blockFrame`'s inputs plus the frame's
+three hereditary facts.
+
+No `w` hypothesis anywhere: the evidence is the two `SpineFit`s and
+the openers' readings, never a membership in the carrier. -/
+theorem walkCtx_blockFrame {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {rP nF nR : Nat} {recTy crest ihTele : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
+    {pdoms fdoms ihdoms : List AnnotTerm}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta mT.acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + nF + nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    (hcbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x)
+    (hclF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    {ρ₀ : Nat → V} {xs fs ihvals : List V}
+    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals) :
+    WalkCtx V mT ψ (rP + nF + nR) (consList ihvals (consList (xs ++ fs) ρ₀))
+      (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) (fvsPref ++ fvsF ++ fvsIh).reverse := by
+  have hlenL : (fvsPref ++ fvsF ++ fvsIh).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, openPisAtFvars_length rP h₁,
+      openPisAtFvars_length nF h₂, openPisAtFvars_length nR h₃]
+  refine ⟨sat_blockFrame_length hp hf hidx, sat_blockFrame hsp hih, ?_, ?_, ?_, ?_, ?_⟩
+  · intro j x hx
+    have hj : j < rP + nF + nR := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [List.length_reverse, hlenL] at this
+      exact this
+    rw [List.getElem?_reverse (by rw [hlenL]; exact hj), hlenL] at hx
+    have h := hdoms _ x hx
+    rwa [show rP + nF + nR - 1 - (rP + nF + nR - 1 - j) = j from by omega] at h
+  · intro s hs ρ hρ
+    have h := hokΔ (rP + nF + nR - 1 - s) (by omega) ρ hρ
+    rwa [show rP + nF + nR - 1 - (rP + nF + nR - 1 - s) = s from by omega] at h
+  · exact fun x hx => hlbF x (List.mem_reverse.mp hx)
+  · exact fun x hx => hcbF x (List.mem_reverse.mp hx)
+  · exact fun x hx l hl => List.mem_reverse.mpr (hclF x (List.mem_reverse.mp hx) l hl)
+
+
+/-! ## `IhSpineFold` at the run — `ihSpineFold_blockRec`, composed
+
+`ihSpineFold_blockRec` (`BlockRecRule.lean`) carries fifteen premises.
+Eleven of them have producers in the tree; this theorem applies them,
+and what is left is the four that are about the BLOCK rather than
+about the rule's walk.
+
+| premise | producer |
+|---|---|
+| `hacl`/`hainst`/`hcl` | `EnvModel`'s own fields (`blockRuleHainst`, `blockRuleHcl`) |
+| `hfld` | the constructors' stage, MOVED to the consed environment (`fieldReadAt_mono`, AUDIT item 12) |
+| `hnofv` | `blockRuleHnofv_of` at the frame's telescope and index data |
+| `hi` | the field bound `hfld` already carries |
+| `hfit` | `blockRuleHfit_run` — H3′ composed |
+
+**The two environments are named, and they stay apart.**  The field
+readings the CONSTRUCTORS' stage produces are at `envT`; the fold
+reads the guarded call's arguments at the CONSED environment, where
+the rule's recursors live.  `hfld` is therefore stated at `mT` (which
+is where its producer `blockRuleHfld_of` concludes) and transported
+for `ihSpineFold_blockRec`'s own use — `blockRuleHfit_run` wants the
+`envT` form, so the premise is stated once and used at both.
+
+`hcallee` and `hihv` stay premises: the first is a fact about the
+block's LEAF valuation (`blockRuleHcallee_of`), the second the
+identification of the caller's `ihvals` with the design's ih terms,
+and both are the assembly's to pick — this module sits below the
+file that fixes either. -/
+
+/-- **`IhSpineFold` at the run.**  `ihSpineFold_blockRec` with its
+walk-side premises discharged: what remains is the rule frame's own
+data, the three openings of the check, the constructors' field
+readings and the two block facts (`hcallee`, `hihv`).
+
+No `w` hypothesis: every premise is a reading or a scoping fact, and
+the one membership in sight (`hfit`'s conclusion is a `SpineFit`) is
+paid by the certificates, not by a grading against the carrier. -/
+theorem ihSpineFold_blockRec_run {env envT : Env} {mo : EnvModel V env}
+    {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {as2₀ : List Expr}
+    {σchain : Nat → V} {xs fs ihvals : List V}
+    (hin : ConLeche.Model.Rules.RulesInputs V mT ψ)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT ψ D y = some ya → denoteMeta mo.acval env ψ D y = some ya)
+    -- the frame's arithmetic, and the caller's two spines
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hxl : xs.length = fr.rP) (hfl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
+    (hihl : ihvals.length = fr.nR)
+    -- the constructor's stored type, and the frame's components at it
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (hcb : ConstsBound envT cty)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    -- the constructors' stage's field readings, at `envT`
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    -- the callees' stored types
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
+    -- the check's own generated tower and its opening
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    (has2 : as2₀ = (fvsPref ++ fvsF ++ fvsIh).reverse)
+    (hpflen : (fvsPref ++ fvsF).length = fr.rP + fr.nF)
+    -- the block's two facts
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        interp V (consList (xs ++ fs) σchain)
+            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
+          = σchain (K - 1 - c'))
+    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      ihvals.getD r pt
+        = interp V (consList (xs ++ fs) σchain)
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0
+                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 +
+                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)))) :
+    IhSpineFold V mo.acval env mT ψ fr F (consList (xs ++ fs) σchain) ihvals as2₀ :=
+  ihSpineFold_blockRec mo.acval_closed (blockRuleHainst mo) (blockRuleHcl mo)
+    hF ho hxl hfl hℓ hop0 hCf hCb hstripC htele hidx
+    (fun i c' r hr =>
+      fieldReadAt_mono hmono hop0 hcb (hfld i c' r hr).1 (hfld i c' r hr).2)
+    (blockRuleHnofv_of htele hidx hCf hCb hstripC)
+    hcallee
+    (fun i c' r hr => (hfld i c' r hr).1)
+    hihv
+    (blockRuleHfit_run (blockRuleHaclN mo) hin hmono hihl htlen hF ho hrP hop0 hCf hCb
+      hstripC htele hidx hfld hrecTy hpis hihfv hLpf hopen has2 hpflen)
+
+
+/-! ## The BODY EQUATION at the run
+
+`BlockRuleResidueB`'s fourth conjunct (`BlockRecData.lean`) asks for
+`interp_blockResidue`'s own conclusion at the tower's CORE — the rule
+body's reading against the residue's at the `ih` values — and NOT for
+the applied form: the β-reduction to `mkAppN Ra (x⃗ ++ f⃗)` is paid on
+the model side by `blockRuleHRa_tower_run`.  This is that conclusion
+with the two rule-side premises discharged.
+
+`interp_blockResidue` has nineteen premises.  Two of them are this
+lane's — `hspine` (the guarded call's fold) and `hW` (the walk's entry
+context) — and they are the two that carry content; the rest are the
+environment facts, the frame's three openings and the run-level peel
+of the check's own witnesses (`abstractIh`, the scope guards, the two
+readings and `IhTyped`), every one of which `checkBlockRule_data`
+returns.  So the theorem below takes the peel's rows verbatim and
+builds the two content premises itself.
+
+**The frame, once.**  `F = rP + nF` is forced by `hF`/`hrP`, so the
+walk's entry depth `F + nR` IS the frame's `rP + nF + nR`, which is
+where `walkCtx_blockFrame` concludes and where the check's three
+openings sit.  `as2` is the opening list itself (`hsx` is
+reflexivity); the fold travels with any extension of it. -/
+
+/-- **The body equation, at the run.**  The last rule-side statement
+`BlockRuleResidueB` needs: the stored right-hand side's body and the
+abstracted residue read to the same value once the `ih` openers are
+given their values.
+
+**The frame block of premises IS `BlockRuleCerts`.**  `hop1`, `hop2`,
+`hopen`, `hpl`, `hfl`, `hil`, `hdoms`, `hokΔ` and `hlbF` are that
+bundle's fields VERBATIM (`BlockRecPreRun.lean` §1, the certificate
+lane's), down to the `rP + nF + nR - 1 - i` indexing of `hdoms` and
+the shifted valuation of `hokΔ`; the consumer destructures the bundle
+and passes them.  Only `hcbF` and `hclF` are not in it, and
+`walkCtx_blockFrame_hered` produces all three from the same three
+openings the bundle's own producer takes.
+
+No `w` hypothesis: the evidence is two `SpineFit`s against the rule's
+own domain readings and a grading, never a membership in the block's
+carrier. -/
+theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
+    {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {recTy o₁ o₂ : Expr} {fvsPref fvsF fvsIh : List Expr}
+    {σchain : Nat → V} {xs fs ihvals : List V}
+    {pdoms fdoms ihdoms : List AnnotTerm}
+    (hin : ConLeche.Model.Rules.RulesInputs V mT ψ)
+    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT ψ D y = some ya → denoteMeta mo.acval env ψ D y = some ya)
+    -- the frame's arithmetic and the caller's spines
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hxl : xs.length = fr.rP) (hfsl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
+    (hihl : ihvals.length = fr.nR)
+    -- the constructor's stored type, and the frame's components at it
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (hcb : ConstsBound envT cty)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidxF : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
+    -- the check's three openings
+    (hop1 : openPisAtFvars fr.rP recTy 0 = some (fvsPref, o₁))
+    (hop2 : openPisAtFvars fr.nF crest fr.rP = some (fvsF, o₂))
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    -- the block's two facts
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        interp V (consList (xs ++ fs) σchain)
+            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
+          = σchain (K - 1 - c'))
+    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      ihvals.getD r pt
+        = interp V (consList (xs ++ fs) σchain)
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0
+                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 +
+                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
+    -- the frame's context: the three domain lists, their readings and grading
+    (hpl : pdoms.length = fr.rP) (hfl : fdoms.length = fr.nF)
+    (hil : ihdoms.length = fr.nR)
+    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta mT.acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (fr.rP + fr.nF + fr.nR - 1 - i) default))
+    (hokΔ : ∀ i, i < fr.rP + fr.nF + fr.nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (fr.rP + fr.nF + fr.nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (fr.rP + fr.nF + fr.nR - 1 - i) default))
+    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
+    (hcbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x)
+    (hclF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
+    (hspF : SpineFit σchain (pdoms ++ fdoms) (xs ++ fs))
+    (hihFit : SpineFit (consList (xs ++ fs) σchain) ihdoms ihvals)
+    -- the run-level peel of the rule's own witnesses
+    {rbody resid : Expr} {as1 : List Expr} {A B : AnnotTerm}
+    (hab : ConLeche.abstractIh fr 0 rbody = some resid)
+    (hbf : rbody.hasFvar = false) (hbB : rbody.looseBVarsBounded F = true)
+    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
+    (h1 : FvarList F as1)
+    (h2 : FvarList (F + fr.nR) (fvsPref ++ fvsF ++ fvsIh).reverse)
+    (hA : denoteMeta mo.acval env ψ F (rbody.instantiateList as1 0) = some A)
+    (hB : denoteMeta mT.acval envT ψ (F + fr.nR)
+      (resid.instantiateList (fvsPref ++ fvsF ++ fvsIh).reverse 0) = some B)
+    (hty : IhTyped envT (F + fr.nR)
+      (resid.instantiateList (fvsPref ++ fvsF ++ fvsIh).reverse 0)) :
+    interp V (consList (xs ++ fs) σchain) A
+      = interp V (consList ihvals (consList (xs ++ fs) σchain)) B := by
+  have hFrP : F = fr.rP + fr.nF := by omega
+  have hpflen : (fvsPref ++ fvsF).length = fr.rP + fr.nF := by
+    rw [List.length_append, openPisAtFvars_length fr.rP hop1,
+      openPisAtFvars_length fr.nF hop2]
+  refine interp_blockResidue (Δa := ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
+    (blockRuleHaclN mo) mT.acval_closed hin hproj hmono hihl
+    (ihSpineFold_blockRec_run hin hmono hF ho hrP hxl hfsl hℓ hihl hop0 hCf hCb hstripC
+      hcb htele hidxF htlen hfld hrecTy hpis hihfv hLpf hopen rfl hpflen hcallee hihv)
+    (List.suffix_refl _) hab hbf hbB hcbe hbT h1 h2 ?_ hA hB hty
+  have hW := walkCtx_blockFrame (V := V) (mT := mT) (ψ := ψ) hop1 hop2 hopen
+    hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
+  rwa [show fr.rP + fr.nF + fr.nR = F + fr.nR from by omega] at hW
+
+
+/-! ## The frame's three HEREDITARY facts, from the openings
+
+`walkCtx_blockFrame` asks, beyond `ctxOk_blockFrame`'s inputs, that
+the openers' annotations be bvar-closed, bounded by `envT`, and
+leaf-closed inside the frame.  All three are the openings' own, and
+the only content is the LEAF chain: an opener's annotation draws its
+leaves from its opening's SUBJECT or from earlier openers of the same
+opening, and each subject in turn draws its own from the openers
+BEFORE it — `recTy` from nothing (it is stored), `crest` from the
+prefix openers it was instantiated at, and the generated `ih` tower
+from the `rP + nF` openers the check instantiates it with. -/
+
+omit [SetTheory V] in
+/-- An opener's ANNOTATION's leaves are among its own leaves — the
+annotation is the tail of `fvarLeaves` at an `fvar`, and an opening's
+entries are `fvar`s. -/
+theorem openers_typeD_leaves {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr} {b : Expr}
+    (h : openPisAtFvars n e d = some (fvs, b)) :
+    ∀ x ∈ fvs, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, l ∈ x.fvarLeaves := by
+  intro x hx l hl
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index n e d h q x hq
+  simp only [Expr.fvarLeaves, List.mem_cons]
+  exact Or.inr hl
+
+omit [SetTheory V] in
+/-- **The rule frame's three hereditary facts.**  `walkCtx_blockFrame`'s
+last three premises, from the check's three openings and the two
+fvar-free stored subjects. -/
+theorem walkCtx_blockFrame_hered {envT : Env} {nP rP nF nR : Nat}
+    {recTy cty crest ihTele o₁ o₂ o₃ : Expr} {cpref fvsPref fvsF fvsIh : List Expr}
+    (hop1 : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (hop2 : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (hop3 : openPisAtFvars nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (rP + nF) = some (fvsIh, o₃))
+    (hf₁ : recTy.hasFvar = false) (hCf : cty.hasFvar = false)
+    (hihfv : ihTele.hasFvar = false)
+    (hinstC : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest))
+    (hLpf : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
+    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
+    (hb₃ : (ihTele.instantiateList (fvsPref ++ fvsF).reverse).looseBVarsBounded 0 = true)
+    (hcb₁ : ConstsBound envT recTy) (hcb₂ : ConstsBound envT crest)
+    (hcb₃ : ConstsBound envT (ihTele.instantiateList (fvsPref ++ fvsF).reverse)) :
+    (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x) ∧
+      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+        Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) := by
+  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hf₁
+  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
+  -- the prefix openers are leaf-closed among themselves (`recTy` is stored)
+  have hlP : ∀ a ∈ fvsPref, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves rP hop1 l
+        (Or.inr ⟨a, ha, openers_typeD_leaves hop1 a ha l hl⟩) with h' | h'
+    · rw [hrecNil] at h'; exact nomatch h'
+    · exact h'
+  -- the constructor telescope at the rule's parameters draws its leaves from them
+  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro l hl
+    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
+    · rw [hctyNil] at h'; exact nomatch h'
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
+      obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index rP recTy 0 hop1 q _ hq
+      simp only [Expr.fvarLeaves, List.mem_cons] at hla
+      rcases hla with rfl | hla'
+      · exact List.mem_of_mem_take ha
+      · exact hlP _ (List.mem_of_mem_take ha) l hla'
+  have hlF : ∀ a ∈ fvsF, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves nF hop2 l
+        (Or.inr ⟨a, ha, openers_typeD_leaves hop2 a ha l hl⟩) with h' | h'
+    · exact List.mem_append_left _ (hcrestLeaf l h')
+    · exact List.mem_append_right _ h'
+  -- the two first blocks are leaf-closed together, in the REVERSED spelling the
+  -- check instantiates the generated tower with
+  have hcls2 : ∀ x ∈ (fvsPref ++ fvsF).reverse, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ (fvsPref ++ fvsF).reverse := by
+    intro x hx l hl
+    refine List.mem_reverse.mpr ?_
+    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
+    · exact List.mem_append_left _ (hlP x hx' l hl)
+    · exact hlF x hx' l hl
+  have hihLeaf : ∀ l ∈ (ihTele.instantiateList (fvsPref ++ fvsF).reverse).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := fun l hl =>
+    List.mem_reverse.mp (fvarLeaves_mem_instantiateList hLpf hcls2 hihfv 0 l hl)
+  refine ⟨?_, ?_, ?_⟩
+  · intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact (openPisAtFvars_bounded rP hop1 hb₁).2 x hx''
+      · exact (openPisAtFvars_bounded nF hop2 hb₂).2 x hx''
+    · exact (openPisAtFvars_bounded nR hop3 hb₃).2 x hx'
+  · intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact (openPisAtFvars_constsBound rP hcb₁ hop1).1 x hx''
+      · exact (openPisAtFvars_constsBound nF hcb₂ hop2).1 x hx''
+    · exact (openPisAtFvars_constsBound nR hcb₃ hop3).1 x hx'
+  · intro x hx l hl
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact List.mem_append_left _ (List.mem_append_left _ (hlP x hx'' l hl))
+      · exact List.mem_append_left _ (hlF x hx'' l hl)
+    · rcases openPisAtFvars_leaves nR hop3 l
+          (Or.inr ⟨x, hx', openers_typeD_leaves hop3 x hx' l hl⟩) with h' | h'
+      · exact List.mem_append_left _ (hihLeaf l h')
+      · exact List.mem_append_right _ h'
 
 end Run
 
