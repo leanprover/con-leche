@@ -1067,14 +1067,16 @@ rule's own frame, except three, and each of the three has a named
 producer in another stage's file:
 
 * **`hdF`** — the FIELD openers' stored types read to
-  `blockRuleFdomsAV`'s entries at their own depths.  It is
-  `readOpenedDoms_eq`'s own hypothesis, and the constructors' stage
-  produces it exactly where `blockRuleFdomsAV_eq` consumes it
-  (`BlockCtorDataI.reflOpen` through `readOpenedDoms_shift`);
+  `blockRuleFdomsAV`'s entries at their own depths.  **Produced**:
+  `blockRuleFdomsAV_eq`'s SECOND conjunct (`BlockRecData.lean`).  It
+  is `readOpenedDoms_eq`'s own hypothesis, which
+  `readOpenedDoms_shift` computes on the way to the equation and used
+  to discard — the constructors' stage pays for it either way, so the
+  producer costs the assembly a projection;
 * **`hokF`** — the field domains are graded along their own fitting
-  spines: `blockRuleFseg_of_run` (`BlockRecPreRun.lean`), in the
-  `blockRuleFdomsAV` spelling `blockRuleFdomsAV_eq_liftDoms` converts
-  to;
+  spines.  **Produced**: `blockRuleHokF_of_run` (below), which is
+  `blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9) rewritten
+  through `blockRuleFdomsAV_eq_liftDoms` and nothing else;
 * **`hcross`** — the ENVIRONMENT CROSSING.  G2 runs at `envC`; the
   rule's reading, and with it the tower's domains, is at the CONSED
   environment.  The crossing itself is a THEOREM
@@ -1099,6 +1101,48 @@ section TowerFitRun
 variable {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
+/-- **`hokF`, AT THE RUN** — the tower fit's FIELD-grading input, in
+the `blockRuleFdomsAV` spelling the fit asks it in.
+
+`blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9, the certificate
+lane's) concludes exactly this at the constructors' stage's own binder
+data lifted to the rule's frame, and `blockRuleFdomsAV_eq_liftDoms` is
+the identity between that spelling and `blockRuleFdomsAV`.  So the
+input is a REWRITE, not a proof: a finished bridge that had no
+traffic until the fit asked for it. -/
+theorem blockRuleHokF_of_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSortT : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSortT pps) (hle : p.nP ≤ nFull)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false) (ψ : Name → Nat) {bodyC : AnnotTerm}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV (ds ψ) bodyC))
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ)
+    {o : Nat} (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) :
+    ∀ q, q < cA.2 → ∀ (σ : Nat → V) (xs ys : List V),
+      SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
+      SpineFit (consList xs σ)
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).take q) ys →
+      WellDenotedV V (consList ys (consList xs σ))
+        ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD q default) := by
+  rw [blockRuleFdomsAV_eq_liftDoms h hr hcA hrhs hcd hCf (by omega) ho ψ]
+  exact blockRuleFseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd (hcd.len ψ) hframes ho
+
 /-- **THE TOWER FIT, AT THE RUN** — `BlockRuleDataB`'s FIFTH conjunct
 from its FIRST.
 
@@ -1110,7 +1154,9 @@ carries — compares them binder by binder at the rule frame's depth,
 and `twoStageOpeners_spineFit` is the transfer.
 
 `hcross`, `hdF` and `hokF` are the three inputs that belong to other
-stages (§6c); everything else is this run's own.  The statement is
+stages (§6c); everything else is this run's own.  Two of the three
+now have a theorem (`blockRuleFdomsAV_eq`.2, `blockRuleHokF_of_run`),
+and the third is a CHECKER guard, not a theorem (§7).  The statement is
 `w`-FREE: the evidence is a grading against the rule's λ-tower, never
 a membership in a carrier. -/
 theorem blockRuleTowerFit_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
