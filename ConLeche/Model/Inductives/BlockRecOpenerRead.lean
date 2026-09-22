@@ -436,9 +436,9 @@ theorem denoteMeta_blockIhOpenerTy_deep {m : EnvModel V env} {ψ : Name → Nat}
     (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
     {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1)
     {concl : Expr} {conclA : AnnotTerm}
-    (hnofv : (Expr.mkPisOf
-      (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
-      concl).hasFvar = false)
+    (hws : Expr.WScoped (nP + o + nF + d)
+      ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw
+        (ConLeche.structFieldTeleOf cty nP nF i)) concl).instantiateList as1 0))
     (hconcl : denoteMeta m.acval env ψ
         (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
         (concl.instantiateList
@@ -450,7 +450,7 @@ theorem denoteMeta_blockIhOpenerTy_deep {m : EnvModel V env} {ψ : Name → Nat}
           concl).instantiateList as1 0)
       = some (mkPisAV (ihTeleAtR nF o i (d + δ) (rebit (pwBit ψ pw) tl))
           (conclA.liftN δ tl.length)) := by
-  rw [denoteMeta_deepen (wscoped_instantiateList h1 _ hnofv 0)
+  rw [denoteMeta_deepen hws
       (denoteMeta_blockIhOpenerTy hop0 hCf hCb hstripC hi hfr h1 hconcl) δ,
     ← rebit_length (pwBit ψ pw) tl, mkPisAV_ihTeleAtR_shift]
 
@@ -510,9 +510,9 @@ theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name �
     (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
     (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
     {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1) {concl : Expr}
-    (hnofv : (Expr.mkPisOf
-      (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
-      concl).hasFvar = false)
+    (hws : Expr.WScoped (nP + o + nF + d)
+      ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw
+        (ConLeche.structFieldTeleOf cty nP nF i)) concl).instantiateList as1 0))
     (hconcl : ∃ conclA, denoteMeta m.acval env ψ
         (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
         (concl.instantiateList
@@ -524,7 +524,7 @@ theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name �
           concl).instantiateList as1 0)
       = some (mkPisAV (ihTeleAtR nF o i (d + δ) (rebit (pwBit ψ pw) tl)) B) :=
   hconcl.elim fun _ h =>
-    ⟨_, denoteMeta_blockIhOpenerTy_deep hop0 hCf hCb hstripC hi hfr h1 hnofv h δ⟩
+    ⟨_, denoteMeta_blockIhOpenerTy_deep hop0 hCf hCb hstripC hi hfr h1 hws h δ⟩
 
 /-! ## `hop` — the run's identification of the opener's stored type
 
@@ -648,5 +648,149 @@ theorem blockIhOpener_stored
       (fun j y hy => openPisAtFvars_typeWScoped is.length hopen
         (wscoped_instantiateList hL ihTele hfv 0) j y hy)
       (by omega)
+
+/-! ## `hopener` — `hop` and the reading, at the consumer's spelling
+
+`blockRuleHfit_of` (`BlockRecData.lean`) takes the opener's two facts
+as ONE premise, stated the way the fold reaches them: through the
+RESIDUE frame's opening list `as2`, whose suffix is the check's own
+`(fvsPref ++ fvsF ++ fvsIh).reverse`.  Getting from there to
+`fvsIh[r]` is the frame's index arithmetic, and the rest is
+`blockIhOpener_stored` and the reading battery. -/
+
+/-- A found position is the key at that index. -/
+theorem pairIdxOf?_getElem? {ps : List (Nat × Nat)} {p : Nat × Nat} {r : Nat}
+    (h : ConLeche.pairIdxOf? ps p = some r) : ps[r]? = some p := by
+  have hr : r < ps.length := pairIdxOf?_lt h
+  have hp : ps.getD r (0, 0) = p := by
+    have := List.find?_some h; simpa using this
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr, Option.getD_some] at hp
+  rw [List.getElem?_eq_getElem hr, hp]
+
+/-- A suffix is read at the shifted index. -/
+theorem suffix_getElem? {xs ys : List Expr} (h : ys <:+ xs) {n : Nat}
+    (hn : xs.length = n + ys.length) (k : Nat) : ys[k]? = xs[n + k]? := by
+  obtain ⟨pre, rfl⟩ := h
+  have hpre : pre.length = n := by
+    rw [List.length_append] at hn; omega
+  rw [List.getElem?_append_right (by omega), hpre]
+  congr 1
+  omega
+
+set_option maxHeartbeats 1600000 in
+/-- **`hopener`, from the run**: the `ih` opener's stored type has the
+call's Π-count and reads to the design's telescope at the walk's
+frame.  Its `hconcl` premise is the CALLEE's conclusion reading, which
+is what `denoteMeta_instPisAtLift_peel` gives off the run's own
+`Expr.instPisAtLift … (recTyOf c') = some concl`. -/
+theorem blockRuleHopener_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {F o : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr} {as2₀ : List Expr}
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    (has2 : as2₀ = (fvsPref ++ fvsF ++ fvsIh).reverse)
+    (hpflen : (fvsPref ++ fvsF).length = fr.rP + fr.nF)
+    (hconcl : ∀ (i c' r : Nat) (concl : Expr) (as1 : List Expr),
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      Expr.instPisAtLift
+          (ConLeche.blockRulePrefixVars fr.rP fr.nF (r + (fr.teleOf i).length) ++
+            (fr.idxOf i).map (ConLeche.structIdxAt fr.nF o i r (fr.teleOf i).length) ++
+            [Expr.mkAppN (.bvar (fr.nF - 1 - i + r + (fr.teleOf i).length))
+              (ConLeche.structTeleVars (fr.teleOf i).length)])
+          (recTyOf c') = some concl →
+      FvarList (fr.nP + o + fr.nF + r) as1 →
+      ∃ conclA, denoteMeta mT.acval envT ψ
+          (fr.nP + o + fr.nF + r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+          (concl.instantiateList ((openFvars (fr.nP + o + fr.nF + r)
+            (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length).reverse ++ as1) 0)
+        = some conclA) :
+    ∀ (d i c' r : Nat) (as2 : List Expr) (tyOp : Expr),
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      as2₀ <:+ as2 → FvarList (F + fr.nR + d) as2 →
+      (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = .fvar (F + r) tyOp →
+      (tyOp.stripPis (fr.teleOf i).length).isSome = true ∧
+      ∃ B : AnnotTerm, denoteMeta mT.acval envT ψ (F + fr.nR + d) tyOp
+        = some (mkPisAV (ihTeleAtR fr.nF o i (fr.nR + d)
+            (rebit (pwBit ψ fr.pw) (tlF i))) B) := by
+  intro d i c' r as2 tyOp hrpos hsx h2 hhead
+  obtain ⟨hiF, hfr⟩ := hfld i c' r hrpos
+  have hr : r < fr.nR := pairIdxOf?_lt hrpos
+  have hIhlen : fvsIh.length = fr.nR := openPisAtFvars_length fr.nR hopen
+  -- (1) the opener the head names IS `fvsIh[r]`
+  have hj : d + fr.nR - 1 - r < F + fr.nR + d := by omega
+  obtain ⟨ty0, hty0⟩ := h2.2.1 (d + fr.nR - 1 - r) hj
+  rw [show F + fr.nR + d - 1 - (d + fr.nR - 1 - r) = F + r from by omega] at hty0
+  obtain ⟨hlt0, hget0⟩ := List.getElem?_eq_some_iff.mp hty0
+  have hinst : (Expr.bvar (d + fr.nR - 1 - r)).instantiateList as2 0 = Expr.fvar (F + r) ty0 := by
+    rw [Expr.instantiateList, if_neg (by omega), dif_pos (by omega)]
+    simp only [Nat.sub_zero]
+    rw [show as2[d + fr.nR - 1 - r] = Expr.fvar (F + r) ty0 from hget0, Expr.instantiateList]
+  have hEq : ty0 = tyOp := by
+    have h := hinst.symm.trans hhead
+    injection h
+  rw [hEq] at hty0
+  -- the suffix, and the ascending frame's index
+  have hcat : (fvsPref ++ fvsF ++ fvsIh).length = fr.rP + fr.nF + fr.nR := by
+    rw [List.length_append, hpflen, hIhlen]
+  have has2len : as2₀.length = F + fr.nR := by
+    rw [has2, List.length_reverse, hcat]; omega
+  have hsufk := suffix_getElem? hsx (n := d) (by rw [h2.1, has2len]; omega) (fr.nR - 1 - r)
+  rw [show d + (fr.nR - 1 - r) = d + fr.nR - 1 - r from by omega] at hsufk
+  have hIhr : fvsIh[r]? = some (Expr.fvar (F + r) tyOp) := by
+    have h1' := hsufk.trans hty0
+    rw [has2, List.getElem?_reverse (by rw [hcat]; omega), hcat,
+      show fr.rP + fr.nF + fr.nR - 1 - (fr.nR - 1 - r) = (fvsPref ++ fvsF).length + r from by
+        rw [hpflen]; omega,
+      List.getElem?_append_right (by omega)] at h1'
+    rw [← h1']
+    congr 1
+    omega
+  -- (2) `hop`
+  obtain ⟨concl, hconclRun, hstored, hFv1⟩ :=
+    blockIhOpener_stored hpis hLpf hihfv hopen (pairIdxOf?_getElem? hrpos) hIhr
+  rw [show (Expr.fvar (F + r) tyOp).fvarTypeD = tyOp from rfl, ho] at hstored
+  rw [ho] at hconclRun
+  rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega] at hFv1
+  refine ⟨?_, ?_⟩
+  -- (3) the Π-count
+  · rw [hstored]
+    obtain ⟨bs, hbs⟩ : ∃ p, (Expr.mkPisOf (ConLeche.structTeleAt fr.nF o i r fr.pw
+        (fr.teleOf i)) concl).stripPis (fr.teleOf i).length = some p :=
+      Option.isSome_iff_exists.mp (stripPis_isSome_mkPisOf _ _ _
+        (by rw [structTeleAt_length]; omega))
+    obtain ⟨bs', hbs', -, -⟩ := stripPis_instantiateList
+      ((fvsIh.take r).reverse ++ (fvsPref ++ fvsF).reverse) (fr.teleOf i).length 0 hbs
+    rw [hbs']
+    rfl
+  -- (4) the reading, at the walk's frame
+  · have hwsOp : Expr.WScoped (fr.nP + o + fr.nF + r)
+        ((Expr.mkPisOf (ConLeche.structTeleAt fr.nF o i r fr.pw
+          (ConLeche.structFieldTeleOf cty fr.nP fr.nF i)) concl).instantiateList
+          ((fvsIh.take r).reverse ++ (fvsPref ++ fvsF).reverse) 0) := by
+      have hw := h2.2.2 _ (List.mem_of_getElem? hty0)
+      simp only [Expr.WScoped] at hw
+      rw [hF, ← htele, ← hstored]
+      exact hw.2
+    obtain ⟨B, hB⟩ := denoteMeta_blockIhOpenerTy_deep_exists hop0 hCf hCb hstripC hiF hfr
+      hFv1 hwsOp (hconcl i c' r concl _ hrpos hconclRun hFv1) (fr.nR + d - r)
+    refine ⟨B, ?_⟩
+    rw [show fr.nP + o + fr.nF + r + (fr.nR + d - r) = F + fr.nR + d from by omega,
+      show r + (fr.nR + d - r) = fr.nR + d from by omega] at hB
+    rw [hstored, htele]
+    exact hB
 
 end ConLeche.Model
