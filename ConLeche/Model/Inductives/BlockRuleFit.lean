@@ -12,10 +12,11 @@ public section
 `BlockRuleDataB` (`BlockRecData.lean`) is the seam's rule-side
 obligation at ONE environment and ONE valuation: five statements about
 one (recursor, constructor) pair, all at the BASE frame `ρ`.  This
-file discharges two of them — the first conjunct (the prefix and the
-fields FIT the rule's domains) and the third (the FIRED SPINE reads to
-the constructor at its own parameters) — and the two are one piece of
-work, because both need the same fact:
+file discharges three of them — the first conjunct (the prefix and the
+fields FIT the rule's domains), the second (the INDEX EXPRESSIONS read
+to the recursor's own index arguments) and the third (the FIRED SPINE
+reads to the constructor at its own parameters) — and the three are
+one piece of work, because all three need the same fact:
 
 > the constructor's field values fit the constructor's field domains
 > **at the RECURSOR's parameter frame**, not only at the
@@ -53,7 +54,12 @@ The parts:
   membership and the field spine's `ChainFit`, all at the recursor's
   parameter frame, out of `BlockRecSplitAt` and the constructor's
   reading;
-* **§3 the two conjuncts.**
+* **§3 the fit and the fired spine**, and **§3b the index reading**,
+  which is the same `ChainFit`'s SECOND conjunct read backwards.
+
+Both findings below (§4, §5) are `d.w ψ = 0` refutations: the fit and
+the index reading are BOTH false at a `Prop`-valued block, with
+different witnesses, and both are closed here at `d.w ψ ≠ 0`.
 -/
 
 namespace ConLeche.Model
@@ -667,5 +673,75 @@ this lane's — is what the contract asks for at `d.w ψ = 0`:
 
 Until it is decided, the fit half is proved under `hw`, and the
 per-pair obligation is closed at `d.w ψ ≠ 0` only. -/
+
+/-! ## 5. THE SECOND FINDING — the INDEX READING is FALSE at a
+`Prop`-valued block too, and the witness is in Mathlib
+
+`BlockRuleDataB`'s second conjunct — the rule's index expressions read
+to the recursor's own index arguments — is **refutable** at
+`d.w ψ = 0`, by a DIFFERENT witness from §4's.  §4's `Exists` cannot
+refute this row at all: it has no indices, so the conjunct is
+`[] = []`.  What this row needs is a block with an INDEX whose
+constructor-side expression is a PARAMETER, and a SECOND constructor
+to keep the carrier inhabited at a *different* index.
+
+**The witness is `Relation.ReflTransGen`.**
+
+```
+inductive ReflTransGen (r : α → α → Prop) (a : α) : α → Prop
+  | refl : ReflTransGen r a a
+  | tail : ReflTransGen r a b → r b c → ReflTransGen r a c
+```
+
+`nP = 3` (`α`, `r`, `a`), one index, `d.w ψ = 0`, and `refl`'s
+conclusion's index argument IS the parameter `a`.  Fire the `refl`
+rule at `α := Bool`, `r := (· ≠ ·)`:
+
+* `xs = [Bool, r, true, motive, m_refl, m_tail, false]` — the
+  recursor's prefix at `a := true` (`motive := fun _ _ => True` and
+  the two minors trivial), with the INDEX argument `i_R = false`;
+* `ys = [Bool, r, false]` — the constructor at `a := false`.
+
+Every premise holds.  `hfitC` is three parameter memberships.
+`hfitR`: the major's value is `d.inj ψ 0 0 [] = pt` (`mkZero`), and
+the major's domain is the carrier at the RECURSOR's parameters and
+index, `⟦ReflTransGen r true false⟧`, which is inhabited — by `tail`,
+since `true ≠ false`.  `IotaIndexPin` holds: `refl`'s residual is
+`ReflTransGen r false false` and its trailing argument reads to
+`false = i_R`.  `hψ` is about levels.  But the conjunct then asks
+
+    interp (consList (x⃗ ++ f⃗) ρ) ⟦a⃗⟧  =  (xs.drop rP).map (interp ρ)
+
+whose left side reads the parameter `a` at the RECURSOR's frame —
+`true` — and whose right side is `[false]`.
+
+**It is the same hole as §4's, one conjunct along.**  The rule is
+`paramsBlind`, so the only tie between the constructor's parameter
+spine and the recursor's is the major premise's membership; at
+`d.w ψ = 0` every value is the point and the membership says only
+that SOME constructor's `ChainFit` holds at the recursor's index
+tuple — here `tail`'s, not `refl`'s.  `blockCarrier_case` delivers a
+`j'`, and it is `mkInj` — `d.w ψ ≠ 0` — that makes `j' = j`.
+
+**Where the two witnesses agree, and what that buys the ruling.**
+Both `Exists` and `ReflTransGen` are `ℓ = 0` blocks: `Exists` is not
+subsingleton-eliminating (its field `w` is neither a proof nor an
+argument of the conclusion) and `ReflTransGen` has two constructors.
+So BOTH refutations live in the region where the ι equation is an
+equation between PROOFS, and the `d.w ψ ≠ 0` guard on both conjuncts
+is the repair the coordinator's first bullet already describes.
+Neither witness reaches the `ℓ ≠ 0` region, and the argument there is
+still unwritten — but it is now narrower for this row than for the
+fit: subsingleton elimination needs ONE constructor, and with one
+constructor `blockCarrier_case`'s `j'` is `j` with no `mkInj` at all.
+What would remain at `ℓ ≠ 0` is the FIELD spine (`fs'` need not be
+`fs` without `mkInj`), so the row closes there exactly when the index
+expressions' readings do not depend on the fields, or where
+`IotaIndexPin` pins the ones that do — `Acc.intro`'s `x` is pinned,
+and `inductive P (α) (a : α) : α → Prop | mk : P α a a` needs no pin
+because its single constructor forces `i_R = a_R` through `hfitR`.
+
+Until the ruling, the row is closed at `d.w ψ ≠ 0`
+(`blockRuleHes_run`), like the fit. -/
 
 end ConLeche.Model
