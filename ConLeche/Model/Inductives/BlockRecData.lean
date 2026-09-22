@@ -2643,4 +2643,81 @@ theorem certs_of_ihCall {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat
 
 end HfitRun
 
+/-! ## A.17 The call's arguments live BELOW the recursors (AUDIT 1.4)
+
+`hfit`'s spine premise reads the call's arguments at the CONSED
+environment while H3′'s certificates are at `envT` — the
+constructors' one, where the check ran.  The bridge is
+`denoteMeta_consBlockRecs_mono`, whose one hypothesis is
+`ConstsBound envT`; and that IS true of a guarded call's arguments,
+because `blockIhCall?` rejects a block recursor anywhere in them
+(`blockIhCall?_spine`'s eighth conjunct).  The audit names it
+unstated; here it is. -/
+
+section ArgsConsts
+
+/-- A term that mentions none of `names` is bounded by any environment
+that finds everything the bigger one finds EXCEPT those names. -/
+theorem constsBound_of_not_mentions {envC env' : Env} {names : List Name}
+    (hmono : ∀ n : Name, (env'.find? n).isSome = true → names.contains n = false →
+      (envC.find? n).isSome = true) :
+    ∀ e : Expr, ConstsBound env' e → e.mentionsAnyConst names = false →
+      ConstsBound envC e
+  | .bvar _, _, _ => by simp
+  | .sort _, _, _ => by simp
+  | .lit _, _, _ => by simp
+  | .const n _, hcb, hm => by
+    rw [constsBound_const] at hcb ⊢
+    exact hmono n hcb (by simpa [Expr.mentionsAnyConst] using hm)
+  | .fvar _ ty, hcb, hm => by
+    rw [constsBound_fvar] at hcb ⊢
+    exact constsBound_of_not_mentions hmono ty hcb (by simpa [Expr.mentionsAnyConst] using hm)
+  | .app f a, hcb, hm => by
+    rw [constsBound_app] at hcb ⊢
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
+    exact ⟨constsBound_of_not_mentions hmono f hcb.1 hm.1,
+      constsBound_of_not_mentions hmono a hcb.2 hm.2⟩
+  | .lam ty b _, hcb, hm => by
+    rw [constsBound_lam] at hcb ⊢
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
+    exact ⟨constsBound_of_not_mentions hmono ty hcb.1 hm.1,
+      constsBound_of_not_mentions hmono b hcb.2 hm.2⟩
+  | .forallE ty b _, hcb, hm => by
+    rw [constsBound_forallE] at hcb ⊢
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
+    exact ⟨constsBound_of_not_mentions hmono ty hcb.1 hm.1,
+      constsBound_of_not_mentions hmono b hcb.2 hm.2⟩
+  | .letE t v b, hcb, hm => by
+    rw [constsBound_letE] at hcb ⊢
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
+    exact ⟨constsBound_of_not_mentions hmono t hcb.1 hm.1.1,
+      constsBound_of_not_mentions hmono v hcb.2.1 hm.1.2,
+      constsBound_of_not_mentions hmono b hcb.2.2 hm.2⟩
+  | .proj _ _ e, hcb, hm => by
+    rw [constsBound_proj] at hcb ⊢
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
+    exact constsBound_of_not_mentions hmono e hcb hm.2
+
+/-- **A guarded call's arguments are bounded BELOW the recursors**
+(AUDIT 1.4).  `blockIhCall?` accepts only a node whose arguments
+mention no block recursor, and they are subterms of the node, so an
+environment that finds everything the consed one finds except the
+`k` recursor names bounds them. -/
+theorem blockIhCall?_args_constsBound {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr}
+    {r : Nat} {as : List Expr} {envC env' : Env}
+    (hmono : ∀ n : Name, (env'.find? n).isSome = true →
+      fr.recNames.contains n = false → (envC.find? n).isSome = true)
+    (hc : ConLeche.blockIhCall? fr d e = some (r, as))
+    (hcb : ConstsBound env' e) :
+    ∀ a ∈ as, ConstsBound envC a := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hfree, -, -⟩ := ConLeche.blockIhCall?_spine hc
+  obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
+  intro a ha
+  refine constsBound_of_not_mentions hmono a
+    (constsBound_getAppArgs maj (constsBound_getAppArgs e hcb maj hmaj) a ha) ?_
+  have := List.any_eq_false.mp hfree a ha
+  simpa using this
+
+end ArgsConsts
+
 end ConLeche.Model
