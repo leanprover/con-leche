@@ -83558,3 +83558,38 @@ generate-and-compare route's own construction and ask of each component
 what pins it on the checked route.**  About ten components, six or
 seven already pinned, one session to enumerate.  That turns the
 standing cost of the design decision from an anecdote into a list.
+
+#### LANDED (lane RM45 = M5M-pre session 39, `192dc4da`): the reconciliation — a lane deletes its own theorem
+
+Asked to reconcile two routes to the same facts, the regime lane
+checked conjunct by conjunct and **deleted its own**:
+
+| fact | its route | the kernel lane's | verdict |
+|---|---|---|---|
+| declared shape | needs the guard's verdict AND a Prop result sort | off the PIN, no `w = 0`, four lines | the pin's |
+| one member | same antecedents | off the new pass's inversion | the pass's |
+| non-nested, constructor count | its route only | — | **unusable** |
+
+**And the decisive observation: the two facts that are NOT duplicated
+are the two that cannot be used.**  Their only antecedent is the
+guard's verdict, which nothing produces — the stage's recovery hands
+back a DISJUNCTION, and refuting its second arm is exactly the
+inversion that was priced at 1–2 sessions and deferred.  The pin's
+route escapes the problem entirely by never asking for the verdict.
+
+So every usable part was a duplicate and every non-duplicated part had
+no producer.  The theorem is gone, with a docstring in its place naming
+the winning licence so the next lane that reaches for the guard finds
+the pin instead.  **This is the same defect as a theorem with no
+instance, seen one step earlier — at the PREMISE.**
+
+**A kept component, with its reason stated**: the stage's widened
+inversion (the guard's disjunction carried out) now has no consumer.
+It is kept because it is what the check actually DECIDES and the
+deferred inversion's eventual consumer wants that exact component, and
+because reverting it now would break the kernel lane's adaptation in an
+unmerged branch — a conflict created to remove a `-`.  It is explicitly
+NOT kept on "it might be useful", which is the argument the same lane
+had just rejected for its own theorem.  If the tree is to carry no
+unconsumed component, the revert is two lines and belongs with that
+lane's merge.
