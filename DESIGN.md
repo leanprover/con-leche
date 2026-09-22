@@ -83512,3 +83512,120 @@ falsifier's price was set without knowing it existed.
 By-product: the squash regime's two unowned premises are now written
 inside the new producer; **lifting them out is a signature, not a
 proof.**
+
+#### LANDED (lane SEC2, `a4f209aa`): three kernel passes, measured to reject nothing — and two priced costs that did not exist
+
+* **`checkBlockRecSmallElim`** (`Kernel/Inductives/BlockInstall.lean:531`)
+  — the counting guard said a SECOND time in the LEVEL currency,
+  because the guard's own arm is a RUN (`isDefEq` against `Sort 0`)
+  while the model holds only the level.  A sibling pass in the family
+  stage: **no arity change anywhere.**  Its `0 < p.k` clause is not
+  decoration — without it the statement is refutable at an empty
+  recursor list although every instance is fine.
+* **`checkBlockRecElimPin`** (`:452`) — the queued sibling.  **The
+  arity cost the earlier lane priced does not exist**: the stage
+  already holds the shape record, which carries what the pin needs, so
+  it is a sibling pass and the four inversions whose statements were
+  said to block it are untouched.
+* **the index-binder domain comparison** — the check ruled in off the
+  regime lane's finding, landing as a pass of its own with a FOURTH
+  positional inversion of stage (b) that keeps the values the other
+  three discard.
+
+**Measured**: before-vs-after byte-identical on 247 e2e and 182 arena
+streams, and `init-full` accepts 53 093 declarations, exit 0, on the
+flipped build with all three checks.  They reject nothing.
+
+**And the core inversion turned out not to be needed.**  Off the pin,
+the declared-shape flag follows from a non-zero elimination level in
+four lines, syntactically, and **without** the Prop-valued hypothesis —
+a stronger route than the one that wanted the inversion.  The inversion
+itself was priced at 1–2 sessions (an induction over the defeq fuel
+ruling out nine branches, plus whnf determinism) and is **deferred
+until a consumer genuinely needs it**.
+
+That is twice in one session that a "this costs an arity / costs a
+session" note was about a route nobody had looked for.
+
+#### SCHEDULED: the invariant sweep, written as a DIFF rather than a search
+
+Three times tonight the answer to *which check makes this available?*
+was "no check does, the model cannot pay, so the CHECKER must say it" —
+and **every one is a place where CHECKING a recursor drops an invariant
+that GENERATING it gave for free.**  The lane that landed two of them
+proposes the systematic form, and it is right: **walk the
+generate-and-compare route's own construction and ask of each component
+what pins it on the checked route.**  About ten components, six or
+seven already pinned, one session to enumerate.  That turns the
+standing cost of the design decision from an anecdote into a list.
+
+#### LANDED (lane RM45 = M5M-pre session 39, `192dc4da`): the reconciliation — a lane deletes its own theorem
+
+Asked to reconcile two routes to the same facts, the regime lane
+checked conjunct by conjunct and **deleted its own**:
+
+| fact | its route | the kernel lane's | verdict |
+|---|---|---|---|
+| declared shape | needs the guard's verdict AND a Prop result sort | off the PIN, no `w = 0`, four lines | the pin's |
+| one member | same antecedents | off the new pass's inversion | the pass's |
+| non-nested, constructor count | its route only | — | **unusable** |
+
+**And the decisive observation: the two facts that are NOT duplicated
+are the two that cannot be used.**  Their only antecedent is the
+guard's verdict, which nothing produces — the stage's recovery hands
+back a DISJUNCTION, and refuting its second arm is exactly the
+inversion that was priced at 1–2 sessions and deferred.  The pin's
+route escapes the problem entirely by never asking for the verdict.
+
+So every usable part was a duplicate and every non-duplicated part had
+no producer.  The theorem is gone, with a docstring in its place naming
+the winning licence so the next lane that reaches for the guard finds
+the pin instead.  **This is the same defect as a theorem with no
+instance, seen one step earlier — at the PREMISE.**
+
+**A kept component, with its reason stated**: the stage's widened
+inversion (the guard's disjunction carried out) now has no consumer.
+It is kept because it is what the check actually DECIDES and the
+deferred inversion's eventual consumer wants that exact component, and
+because reverting it now would break the kernel lane's adaptation in an
+unmerged branch — a conflict created to remove a `-`.  It is explicitly
+NOT kept on "it might be useful", which is the argument the same lane
+had just rejected for its own theorem.  If the tree is to carry no
+unconsumed component, the revert is two lines and belongs with that
+lane's merge.
+
+#### RULE (lane SEC2, and it generalises past this arm): **a check that exists to make a model fact reachable should state the CHECKER'S OWN predicate, not the one fact its first consumer needed**
+
+The overlap between two routes to the same facts was **not** resolved by
+picking a winner.  The new pass had been stating `p.k == 1` — the one
+fact its first consumer wanted — and that made it *weaker* and created
+the second name.  Restating it as the guard's own predicate
+(`blockLargeElimAllowed p nested || every checked level is zero`, the
+same implication the stage's `isDefEq` arm expresses, with the refutable
+half in the slot the model can actually refute) made it *stronger*,
+deleted the second name, **and unblocked two premises nobody had asked
+for** — the squash arm's constructor-count and non-nestedness.
+
+The other lane's theorem is now the READING and the pass is the
+LICENCE, with no second derivation of anything.  And the deferred
+`isDefEqCore`-through-`whnf` inversion is unnecessary for its other
+would-be consumer as well: it existed precisely to reach the guard's
+verdict from a non-zero level, and the pass reaches it directly.
+
+**The two surviving licences are NOT duplicates**: one gets the
+declared shape from the elimination-level PIN with no Prop-valued
+hypothesis, so it still says something at a `Type` block where the
+counting route says nothing.  Two licences, different domains, with a
+docstring saying which to reach for.
+
+**A sequencing artifact worth recording**: the regime lane deleted that
+theorem as unusable (correctly, when written — its antecedent had no
+producer) in the same hour that this lane made it usable.  The deletion
+is being reverted by the lane that now calls it, as part of its merge.
+When two lanes reconcile a duplication from both sides at once, the one
+that *acquires* a producer wins the sequencing, and the branch that
+merges last carries the repair.
+
+Measured again from scratch after the predicate changed, the new clause
+being strictly stricter: byte-identical on 247 e2e and 182 arena
+streams, `init-full` exit 0 at 53 093 declarations under the flip.
