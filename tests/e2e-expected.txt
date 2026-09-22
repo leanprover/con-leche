@@ -1605,9 +1605,24 @@
 1 corner_rec_no_ih.ndjson
 # `Iter.step`'s rule recurses on `h ((fun x : Nat => x) k) a` — the
 # reflexive field at an argument vector DEFEQ to, but not
-# syntactically, the bound variable; the guard abstracts the spine and
-# the residue types (uniform: 0).
+# syntactically, the bound variable.  The guard DOES abstract the
+# argument vector; what it demands syntactically is the call's INDEX
+# arguments, which must be the field's stored index expressions at
+# that vector — and `k` is exactly the index-carrying one here, so the
+# redex is refused (uniform: 1).  The two accept-side twins below
+# pin the other half of that reading.
 1 corner_rec_call_redex.ndjson
+# `W'` (a W-type) is reflexive and NOT indexed, so no argument of the
+# recursive call carries an index; the same
+# `(fun x : β a => x) b` redex in the call's argument vector is
+# accepted, because the guard abstracts the vector (uniform: 0).
+1 corner_rec_wtype_redex.ndjson
+# the very block `corner_rec_call_redex` edits, with the redex moved
+# from the index-carrying telescope argument `k` to the other one,
+# `a : Nat.le k n`, which carries no index: accepted where its twin is
+# refused, which is what makes the demand the INDEX arguments' and not
+# the spine's (uniform: 0).
+1 corner_rec_redex_nonindex.ndjson
 # the same call at `h Nat.zero a`: a constant where the bound variable
 # belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is
 # ill-typed however the guard reads it — "a different argument vector"
