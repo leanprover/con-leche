@@ -2,13 +2,11 @@ module
 
 import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Semantics.Tower.BlockRecKitI
-public import ConLeche.Semantics.Tower.FixSquashI
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.IndFrame
-import ConLeche.Model.Inductives.StructTele
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.ExceptBind
@@ -715,7 +713,10 @@ producer.
 Both are the same fact about the STORED type, and this section states
 it once.  `BlockRecTyShape` says: `rec_c`'s binder data is `rP c`
 binders, then the eliminated member's index telescope, then one more;
-its first `nP` binders ARE the block's parameter telescope; the index
+its first `nP` binders CARRY the block's parameter telescope (as an
+implication between fits, not as a syntactic equality — the recursor
+stream stores its own copy of the parameter binders, and only their
+READINGS are owed); the index
 stretch FITS exactly as the member's own telescope does at the
 parameter frame (an `↔`, because the two directions are the two
 consumers); and the last binder reads as the member's former applied
@@ -799,7 +800,8 @@ docstring). -/
   ∀ c, c < K →
     d.nP ≤ rP c ∧
     ((rds c).map (·.2.2)).length = rP c + (d.IdsM (mem c) ψ).length + 1 ∧
-    ((rds c).map (·.2.2)).take d.nP = d.params ψ ∧
+    (∀ xs : List V, SpineFit ρ (((rds c).map (·.2.2)).take d.nP) xs →
+      SpineFit ρ (d.params ψ) xs) ∧
     (∀ xs is : List V, xs.length = rP c →
       (SpineFit (consList xs ρ)
           ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
@@ -832,8 +834,8 @@ theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDat
   rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
   refine ⟨hxl, rfl, ?_, (hids xs is hxl).mp h3, ?_⟩
   · have hp := spineFit_take_le (Fs := ((rds c).map (·.2.2)).take (rP c)) d.nP h1
-    rw [List.take_take, Nat.min_eq_left hnP, hpar] at hp
-    exact hp
+    rw [List.take_take, Nat.min_eq_left hnP] at hp
+    exact hpar _ hp
   · rw [hmajR xs is hxl hisl] at h4
     exact h4
 
