@@ -82846,3 +82846,39 @@ guarded use.  This is the same blindness the partition finding exposed
 from the other side: the `w`-sweeps grep statements, and a dependency
 can live in a composition's PROOF.  **"`w`-free by sweep" is a claim
 about a statement, never about a use.**
+
+#### LANDED (lane RM37 = M5M-pre session 28, `c113afd3`) + **HABIT: before pricing any row, grep the tree for the row's own CONCLUSION**
+
+`h0` is discharged in two lines (`blockRuleIseg_h0_of_conclAt`,
+`BlockRecPreRun.lean:8694`): the same lane's own `blockIndIhLeaf_of`
+(`:5223`, an earlier session) already evaluates the `ih` conclusion
+with the value lemma applied verbatim, the peel's prefix spines having
+been identified long ago.  **The "one frame move" that two reports had
+flagged and re-priced at a third of a session does not exist** — the
+ninth firing of the fourth cost in this window, the third inside that
+lane's own file.
+
+So the rule is promoted from caution to habit and belongs in every
+brief: ***before pricing any row, grep the tree for the row's own
+CONCLUSION*** — and grep the statement's own ANTECEDENTS, not any name
+you expect, since none of these producers' names contained the premise
+names they discharge.
+
+Two decisions recorded as CLOSURES rather than deferrals.  The two
+opener-reading producers **stay premises**: discharging them inside the
+bundle's run producer would trade two bounded existences for the
+producers' own eighteen arguments, which the caller holds anyway.  And
+`hwd` is priced as the THIRD cost (no producer, no near-miss — the
+predicate appears only as a premise), which is itself evidence that the
+grep habit is not merely finding free rows: it separates the free ones
+from the ones that are genuinely owed.  It decomposes into a currency
+bridge from the ascending per-binder grading to the concatenated
+statement, plus the equation's spine at the recursor's own fit.
+
+**Sequencing ruling**: the `blockIndP` restatement changes the motive's
+shape, which the small-elimination regime's PROOF consumes, so it moves
+with it — and that proof is what the rule lane is composing right now
+(the regime's first application, the arm's next milestone).  The
+restatement therefore waits for that composition and then lands as ONE
+commit across both lanes' files: the motive, the join premise's
+removal, the predicate's deletion and its consumer's.
