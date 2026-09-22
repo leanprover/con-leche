@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockFieldRead
+import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockRecRule
 
 public section
@@ -805,6 +806,89 @@ theorem blockRuleConclAt_of_shift {rP nF i m r o : Nat} {T T' Cr : AnnotTerm}
           [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
     rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF]
   exact peelPis_liftN_inv r m _ (by rw [hmap, ← hT]; exact hpeel)
+
+/-- **`hihOpen`'s FUSED conjunct, at the run** — the `ih` opener's
+stored type reads to the design's tower over a conclusion the
+CALLEE's own recursor type peels to at `ih` level `0`, and the two
+facts come out of ONE reading.
+
+This is `blockRuleIhOpenerReads_of` (`BlockRecPreRun.lean`) with the
+SHAPE kept.  That theorem answers the bundle's `hI`, which only needs
+the reading to EXIST, so it goes through `denoteMeta_blockIhOpenerTy_exists`
+and the tower is lost in the existential; `hihOpen` needs the tower
+and the conclusion, so the route here is the same one un-hidden —
+`denoteMeta_blockIhOpenerConcl` for the peel (which pins `conclA`)
+and `denoteMeta_blockIhOpenerTy` for the reading (whose `B` IS that
+`conclA`, the `_exists` wrapper being `Exists.imp` of exactly this).
+
+The two levels then meet.  The check generates the `r`-th opener at
+`ih` level `l = r`, so the peel comes out at `l = r`; the premise
+wants it at `l = 0` with the domain carrying `liftN r 0`.
+`blockRuleConclAt_of_shift` supplies the `l = 0` peel and the
+identification together, `denoteMeta_closed` pays the callee type's
+closedness once (both lifts of a depth-`0` reading are the identity),
+and `mkPisAV_ihTeleAtR_liftN` moves the lift out of the tower.
+
+No `w` hypothesis and no regime: the bit `pwBit ψ fr.pw` rides along
+free, and the IND instance is the one where it is `0`
+(`pwBit_zeronessOf`). -/
+theorem blockIhOpenerDom_run {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {o : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr}
+    (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    (hfld : ∀ i c' r : Nat, fr.ihKeys[r]? = some (i, c') →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hrecTy : ∀ i c' r : Nat, fr.ihKeys[r]? = some (i, c') →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.ihKeys.length
+      (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (fr.rP + fr.nF)
+      = some (fvsIh, bodyO)) :
+    ∀ (i c' r : Nat) (x : Expr), fr.ihKeys[r]? = some (i, c') → fvsIh[r]? = some x →
+      ∃ TVa CihR : AnnotTerm,
+        denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa ∧
+        ConLeche.Model.AnnotTerm.peelPis TVa
+            (paramBvarsAt fr.rP (fr.rP + fr.nF + (tlF i).length) ++
+              (EisF i).map (ihIdxAtM fr.nF o i 0 (tlF i).length) ++
+              [AnnotTerm.mkAppN (.bvar (fr.nF - 1 - i + 0 + (tlF i).length))
+                (teleVarsAV (tlF i).length)])
+          = some CihR ∧
+        denoteMeta mT.acval envT ψ (fr.rP + fr.nF + r) (Expr.fvarTypeD x)
+          = some ((mkPisAV (ihTeleAtR fr.nF o i 0
+              (rebit (pwBit ψ fr.pw) (tlF i))) CihR).liftN r 0) := by
+  intro i c' r x hkey hx
+  obtain ⟨hiF, hfr⟩ := hfld i c' r hkey
+  obtain ⟨hTyF, hTyB, TVa, hTy⟩ := hrecTy i c' r hkey
+  obtain ⟨concl, hconclRun, hstored, hFv1⟩ :=
+    blockIhOpener_stored hpis hLpf hihfv hopen hkey hx
+  rw [ho] at hconclRun hstored
+  rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega] at hFv1
+  rw [htele, hidx] at hconclRun
+  obtain ⟨conclA, hconclA, hpeel⟩ := denoteMeta_blockIhOpenerConcl hop0 hCf hCb hstripC hiF hfr
+    hrP hTyF hTyB hTy hconclRun hFv1
+  have hread := denoteMeta_blockIhOpenerTy (pw := fr.pw) hop0 hCf hCb hstripC hiF hfr hFv1 hconclA
+  have hTcl : ∀ n k : Nat, TVa.liftN n k = TVa :=
+    denoteMeta_closed mT.acval_erase mT.cval_closed hTyF hTyB hTy
+  rw [hTcl] at hpeel
+  obtain ⟨CihR, hpeel0, hEq⟩ := blockRuleConclAt_of_shift (T := TVa) (T' := TVa) (r := r)
+    (m := (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length) ((hTcl r _).symm) hpeel
+  refine ⟨TVa, CihR, hTy, ?_, ?_⟩
+  · rw [htlen i]; exact hpeel0
+  · rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega, hstored, htele, hread,
+      mkPisAV_ihTeleAtR_liftN fr.nF o i r (pwBit ψ fr.pw) (tlF i) CihR, hEq, htlen i]
 
 
 /-! ## `WalkCtx` at the rule's opened frame
