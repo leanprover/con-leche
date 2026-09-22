@@ -10,6 +10,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRegimes
 import ConLeche.Model.Inductives.BlockRecOpenerRead
+import ConLeche.Model.Rules.Sound
 
 public section
 

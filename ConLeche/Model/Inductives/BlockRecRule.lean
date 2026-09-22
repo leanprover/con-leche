@@ -13,7 +13,7 @@ import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Semantics.Tower.BlockRecIndI
-public import ConLeche.Model.Rules.Sound
+import ConLeche.Model.Rules.Sound
 
 public section
 
