@@ -82882,3 +82882,26 @@ with it — and that proof is what the rule lane is composing right now
 restatement therefore waits for that composition and then lands as ONE
 commit across both lanes' files: the motive, the join premise's
 removal, the predicate's deletion and its consumer's.
+
+#### LANDED (lane RM37 = M5M-pre session 29, `8e1e824c`): `hwd`, and the grep habit's other edge
+
+The iota equation list's grading, assembled in the regimes' own
+per-rule shape (`blockRuleHwd_of`, `BlockRecPreRun.lean:8804`).  Each of
+its three parts was priced by its own conclusion-grep FIRST, and they
+came out differently: the fields predicate is genuinely owed (the only
+theorem concluding it is over a different currency — no near-miss); the
+equation's RIGHT side is the bundle's own output crossed by a
+substitution lemma; and its LEFT side is the previous session's shape at
+the OTHER fit, the head's membership being `hwd`'s own hypothesis.  At
+`w = 0` the universe clause is vacuous, so the fields predicate is
+exactly the hereditary reading of the ascending per-binder grading —
+one induction, no new content (`fieldsOkB_zero_of_spineGrading`, :8764).
+
+**This is the first row in the window priced as the THIRD cost *after* a
+shape-grep**, and it is the evidence that the habit is not merely a way
+of finding free rows: two of `hwd`'s three parts were already paid, and
+without the grep all three would have been written.  The habit says
+which rows are yours, and which PART of them.
+
+With it the certificate lane's queue is empty but for the motive
+restatement, which is held for the sequencing above.
