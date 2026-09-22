@@ -1023,6 +1023,117 @@ theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
     hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
   rwa [show fr.rP + fr.nF + fr.nR = F + fr.nR from by omega] at hW
 
+
+/-! ## The frame's three HEREDITARY facts, from the openings
+
+`walkCtx_blockFrame` asks, beyond `ctxOk_blockFrame`'s inputs, that
+the openers' annotations be bvar-closed, bounded by `envT`, and
+leaf-closed inside the frame.  All three are the openings' own, and
+the only content is the LEAF chain: an opener's annotation draws its
+leaves from its opening's SUBJECT or from earlier openers of the same
+opening, and each subject in turn draws its own from the openers
+BEFORE it — `recTy` from nothing (it is stored), `crest` from the
+prefix openers it was instantiated at, and the generated `ih` tower
+from the `rP + nF` openers the check instantiates it with. -/
+
+omit [SetTheory V] in
+/-- An opener's ANNOTATION's leaves are among its own leaves — the
+annotation is the tail of `fvarLeaves` at an `fvar`, and an opening's
+entries are `fvar`s. -/
+theorem openers_typeD_leaves {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr} {b : Expr}
+    (h : openPisAtFvars n e d = some (fvs, b)) :
+    ∀ x ∈ fvs, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, l ∈ x.fvarLeaves := by
+  intro x hx l hl
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index n e d h q x hq
+  simp only [Expr.fvarLeaves, List.mem_cons]
+  exact Or.inr hl
+
+omit [SetTheory V] in
+/-- **The rule frame's three hereditary facts.**  `walkCtx_blockFrame`'s
+last three premises, from the check's three openings and the two
+fvar-free stored subjects. -/
+theorem walkCtx_blockFrame_hered {envT : Env} {nP rP nF nR : Nat}
+    {recTy cty crest ihTele o₁ o₂ o₃ : Expr} {cpref fvsPref fvsF fvsIh : List Expr}
+    (hop1 : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (hop2 : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (hop3 : openPisAtFvars nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (rP + nF) = some (fvsIh, o₃))
+    (hf₁ : recTy.hasFvar = false) (hCf : cty.hasFvar = false)
+    (hihfv : ihTele.hasFvar = false)
+    (hinstC : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest))
+    (hLpf : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
+    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
+    (hb₃ : (ihTele.instantiateList (fvsPref ++ fvsF).reverse).looseBVarsBounded 0 = true)
+    (hcb₁ : ConstsBound envT recTy) (hcb₂ : ConstsBound envT crest)
+    (hcb₃ : ConstsBound envT (ihTele.instantiateList (fvsPref ++ fvsF).reverse)) :
+    (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x) ∧
+      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+        Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) := by
+  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hf₁
+  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
+  -- the prefix openers are leaf-closed among themselves (`recTy` is stored)
+  have hlP : ∀ a ∈ fvsPref, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves rP hop1 l
+        (Or.inr ⟨a, ha, openers_typeD_leaves hop1 a ha l hl⟩) with h' | h'
+    · rw [hrecNil] at h'; exact nomatch h'
+    · exact h'
+  -- the constructor telescope at the rule's parameters draws its leaves from them
+  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro l hl
+    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
+    · rw [hctyNil] at h'; exact nomatch h'
+    · obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
+      obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index rP recTy 0 hop1 q _ hq
+      simp only [Expr.fvarLeaves, List.mem_cons] at hla
+      rcases hla with rfl | hla'
+      · exact List.mem_of_mem_take ha
+      · exact hlP _ (List.mem_of_mem_take ha) l hla'
+  have hlF : ∀ a ∈ fvsF, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
+    intro a ha l hl
+    rcases openPisAtFvars_leaves nF hop2 l
+        (Or.inr ⟨a, ha, openers_typeD_leaves hop2 a ha l hl⟩) with h' | h'
+    · exact List.mem_append_left _ (hcrestLeaf l h')
+    · exact List.mem_append_right _ h'
+  -- the two first blocks are leaf-closed together, in the REVERSED spelling the
+  -- check instantiates the generated tower with
+  have hcls2 : ∀ x ∈ (fvsPref ++ fvsF).reverse, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ (fvsPref ++ fvsF).reverse := by
+    intro x hx l hl
+    refine List.mem_reverse.mpr ?_
+    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
+    · exact List.mem_append_left _ (hlP x hx' l hl)
+    · exact hlF x hx' l hl
+  have hihLeaf : ∀ l ∈ (ihTele.instantiateList (fvsPref ++ fvsF).reverse).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := fun l hl =>
+    List.mem_reverse.mp (fvarLeaves_mem_instantiateList hLpf hcls2 hihfv 0 l hl)
+  refine ⟨?_, ?_, ?_⟩
+  · intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact (openPisAtFvars_bounded rP hop1 hb₁).2 x hx''
+      · exact (openPisAtFvars_bounded nF hop2 hb₂).2 x hx''
+    · exact (openPisAtFvars_bounded nR hop3 hb₃).2 x hx'
+  · intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact (openPisAtFvars_constsBound rP hcb₁ hop1).1 x hx''
+      · exact (openPisAtFvars_constsBound nF hcb₂ hop2).1 x hx''
+    · exact (openPisAtFvars_constsBound nR hcb₃ hop3).1 x hx'
+  · intro x hx l hl
+    rcases List.mem_append.mp hx with hx' | hx'
+    · rcases List.mem_append.mp hx' with hx'' | hx''
+      · exact List.mem_append_left _ (List.mem_append_left _ (hlP x hx'' l hl))
+      · exact List.mem_append_left _ (hlF x hx'' l hl)
+    · rcases openPisAtFvars_leaves nR hop3 l
+          (Or.inr ⟨x, hx', openers_typeD_leaves hop3 x hx' l hl⟩) with h' | h'
+      · exact List.mem_append_left _ (hihLeaf l h')
+      · exact List.mem_append_right _ h'
+
 end Run
 
 end ConLeche.Model
