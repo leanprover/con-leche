@@ -83310,3 +83310,54 @@ statement carries `ℓ ≠ 0` and **no `w` hypothesis at all**; its entire
 the one the `Exists` witness refutes — and both recorded witnesses are
 `Prop`-valued blocks WITHOUT large elimination, i.e. blocks used only
 at `ℓ = 0`.
+
+#### LANDED (lane RM45 = M5M-pre session 35): the `univZero` family collapses to ONE premise — and a THIRD kernel gap
+
+Three of the four `univZero` premises (`hT`, `hTStep`, `hTReg`) are one
+frame-generic premise, produced and discharged block-wide
+(`blockRuleConclUnivZero_of_peel`, `Model/Inductives/BlockRecPreRun.lean:8804`;
+`blockIndCaZ_of_run`, `BlockIndRegimeRun.lean:696`), with **no bridge at
+the seam** — the existential level is skolemised inside one proof and
+appears in no statement.
+
+**FINDING — *when a discharge loses its licence, look for a SECOND
+licence before pricing the premise.***  The motive's move cost these
+premises the licence that discharged them; the rule's own typing
+supplies another, because the check types the residue against the
+recursor's stored type Π-INSTANTIATED at the rule's own spine, so the
+certificates already carry the peel and a fit of that tower at the same
+spine.  Two lemmas turn that pair into the producer's antecedents — a
+fit of the recursor's own binder data at the FIRED spine, assembled
+from facts that were already there.  That is the fourth distinct way in
+this window that a row priced as owed turned out not to be.
+
+**And `hCaE` was over-quantified** (the thirteenth): it pinned the major
+but left the index values ranging over every fit of the member's
+telescope while its left-hand side did not move — refutable at any
+indexed family.  The fibre's own chain fit pins them, and adding it
+produced **zero** errors.
+
+#### RULING (coordinator): the recursor stage must compare the INDEX BINDER domains — the third kernel check
+
+`checkBlockRecTys` leaves the recursor's index binders arbitrary and
+never compares their domains with the eliminated member's index
+telescope.  In the real kernel that is free from typing the recursor's
+type; in the model's currency it is unrecoverable.  Two premises hang
+on it — "the `ih` call's spine fits the CALLEE's recursor binder data",
+unlicensed because the `ih` opener tower is GENERATED and never checked
+against the callee's type — and it is **the same root cause that made
+`BlockRecTyJoin` unprovable**, the clause deleted a few hours ago by
+restating the motive.  One `checkBlockDefEqList` in that stage closes
+both premises and the deleted converse, and rejects nothing official
+emits (its recursors' index binders ARE the member's telescope).
+
+**This is the third time in one window** that the answer to *which
+check makes this available?* has been **"no check does, the model
+cannot pay, so the CHECKER must say it"** — after the rule-domain guard
+and the elimination guard that closed the `0 = 1` hole.  The pattern
+worth naming: **every one of the three is a place where CHECKING a
+recursor instead of GENERATING it drops an invariant that generation
+gave for free.**  That is the standing cost of the design decision, and
+it argues for a deliberate sweep of the generate-and-compare route's
+implicit invariants once the arm closes, rather than finding them one
+at a time.
