@@ -7589,6 +7589,98 @@ theorem blockRuleIhEntry_of_fieldTele {nF o i l b : Nat} {xs fs ys as : List V}
   obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
   rw [he, mem_rebit hd']
 
+/-- **The FIELD telescope's hereditary grading, at the field's own
+frame** — the constructor's tower peeled at entry `nP + i`.  The
+premise `hentry` is the reading record's own equation
+(`BlockCtorDataI.recEntry` at a recursive field, an EMPTY telescope;
+`.reflEntry` at a reflexive one), and the two fits are the FIELD
+segment's: the parameters by the hop, the fields by the frame. -/
+theorem blockRuleIhTele_graded_of_ctorTower {ds tl : List (Nat × Nat × AnnotTerm)}
+    {bodyC bodyF : AnnotTerm} {nP nF i : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = nP + nF) (hi : i < nF)
+    (hentry : (ds.getD (nP + i) default).2.2 = mkPisAV tl bodyF)
+    {σ : Nat → V} {ps fs : List V}
+    (hps : SpineFit σ ((ds.take nP).map (·.2.2)) ps)
+    (hfs : SpineFit (consList ps σ) ((ds.drop nP).map (·.2.2)) fs) :
+    FieldsOkB 0 (consList (fs.take i) (consList ps σ)) (tl.map (·.2.2)) ∧
+      FieldsValid (consList (fs.take i) (consList ps σ)) (tl.map (·.2.2)) := by
+  have hnq : nP + i < ds.length := by omega
+  have hsplit : (ds.take (nP + i)).map (fun d : Nat × Nat × AnnotTerm => d.2.2)
+      = (ds.take nP).map (·.2.2) ++ ((ds.drop nP).take i).map (·.2.2) := by
+    rw [← List.map_append, List.take_add]
+  have hfit : SpineFit σ ((ds.take (nP + i)).map (·.2.2)) (ps ++ fs.take i) := by
+    rw [hsplit]
+    exact SpineFit.append hps (by rw [List.map_take]; exact spineFit_take_any hfs i)
+  have h := towerDom_graded_of_tower hwd hnq hfit
+  rw [hentry, consList_append] at h
+  exact ⟨(WellDenoted_mkPisAV_inv h.1).1, (AnnotValid_mkPisAV_inv h.2).1⟩
+
+/-- **`hokA`'s `ih` SEGMENT, AT THE RUN** — §40.10 composed with the
+PARAMETER HOP (§40.9).  The frame is the rule's own: the prefix `x⃗`
+fitting the recursor's domains, the fields `f⃗` fitting the
+constructor's telescope moved past the `o = rP - nP` extras, and the
+`q` `ih` values already bound.  The two premises left are the ones the
+frame cannot supply: the OPENER's own field index and telescope
+(`hentry`, the reading record's equation) and the guarded call's
+reading `conclA` (`hR` and, at a `Prop` elimination only, `h0`) —
+both stated AT THIS FRAME, so neither is quantified past the fact that
+produces it. -/
+theorem blockRuleIseg_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds tl : List (Nat × Nat × AnnotTerm)} {bodyC bodyF conclA : AnnotTerm}
+    {nF o i q b : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (hi : i < nF)
+    (hentry : (ds.getD (p.nP + i) default).2.2 = mkPisAV tl bodyF)
+    {σ : Nat → V} {xs fs ys : List V}
+    (hxs : SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
+    (hfs : SpineFit (consList xs σ) ((liftDoms o 0 (ds.drop p.nP)).map (·.2.2)) fs)
+    (hyl : ys.length = q)
+    (hR : ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+        ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+      WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA)
+    (h0 : b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+        ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+      interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+        ∈ˢ (univZero : V)) :
+    WellDenotedV V (consList ys (consList fs (consList xs σ)))
+      (mkPisAV (ihTeleAtR nF o i q (rebit b tl)) conclA) := by
+  have hxlen : xs.length = p.toBlockShape.rulePrefixAt c := by
+    rw [SpineFit.length_eq hxs, blockRulePdomsAV_length hμ mpC h hr ψ]
+  have hlenps : (xs.take p.nP).length = p.nP := by
+    rw [List.length_take, hxlen, ho]; omega
+  have hms : (xs.drop p.nP).length = o := by rw [List.length_drop, hxlen, ho]; omega
+  have hps := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD hle hlenD hframes
+    (spineFit_take_any hxs p.nP)
+  have hsplit : xs.take p.nP ++ xs.drop p.nP = xs := List.take_append_drop _ _
+  have hregroup : consList xs σ = consList (xs.drop p.nP) (consList (xs.take p.nP) σ) := by
+    rw [← consList_append, hsplit]
+  have hshift : shiftE o 0 (consList xs σ) = consList (xs.take p.nP) σ := by
+    rw [hregroup, ← hms]
+    exact shiftE_consList _ _
+  have hfs' : SpineFit (consList (xs.take p.nP) σ) ((ds.drop p.nP).map (·.2.2)) fs := by
+    rw [← hshift]
+    exact (spineFit_liftDoms (V := V) o).mp hfs
+  have hfl : fs.length = nF := by
+    rw [SpineFit.length_eq hfs', List.length_map, List.length_drop, hlenD]; omega
+  obtain ⟨hFok, hVal⟩ := blockRuleIhTele_graded_of_ctorTower hwd hlenD hi hentry hps hfs'
+  exact blockRuleIhEntry_of_fieldTele (Nat.le_of_lt hi)
+    (by rw [hlenps, hxlen, ho]) (by rw [hlenps]) hfl hyl hFok hVal hR h0
+
 end IhSeg
 
 end CertsArgs
