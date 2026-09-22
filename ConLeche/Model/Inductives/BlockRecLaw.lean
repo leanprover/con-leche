@@ -566,7 +566,7 @@ theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → Ann
     interp V ρ' A = interp V (consList ihvals ρ') B := by
   have h := interp_abstractIh (V := V) hacl hih (ihNodeVal_of_spine hacl hih hspine)
     body resid 0 [] as1 as2 A B hab hf (by rw [Nat.add_zero]; exact hbB) rfl (by simpa using h1) (by simpa using h2)
-    (by simpa using hA) (by simpa using hB) (by simpa using hty)
+    LocalsFit.nil (by simpa using hA) (by simpa using hB) (by simpa using hty)
   simpa using h
 
 
