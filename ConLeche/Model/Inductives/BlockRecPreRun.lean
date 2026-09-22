@@ -5306,7 +5306,17 @@ theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo na
   exact blockIndIhLeaf_of hc' hcon hTyE hrds hesLen hconclB hxs hfs hbsl hesB.symm hmkB.symm
     hfitC' htake hP
 
-/-- **The IND arm's step**, `blockIndPt`'s `hstep`. -/
+/-- **The IND arm's step**, `blockIndPt`'s `hstep`.
+
+`hT` carries the SAME guard as `hCaE` — `majOf ys = d.inj ψ (mem c) j fs`
+— and it costs nothing: the two are used on the one line, where the
+fibre's own `hxinj` is already in context.  Without the guard the
+premise is over-quantified in the refutable direction: the conclusion
+`Ca c j` is the recursor type peeled at the FIRED spine, so its
+identification with the recursor's conclusion holds at the `ys` whose
+major IS the constructed element and not at an arbitrary fitting one
+— which is exactly what makes `hT` derivable from `hCaE` and
+`blockRecConclUnivZero_run` (§40.15) once the guard is there. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
@@ -5330,6 +5340,7 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
       SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j) (ihvals c j))
     (hT : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
+      majOf ys = d.inj ψ (mem c) j fs →
       interp V (consList (ihvals c j) (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
         ∈ˢ (univZero : V))
     (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
@@ -5354,7 +5365,7 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
   have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
   have hres := (hcerts c hc j hjn).residueOk hμ
     (hspF c hc ys hys j hjn fs hfit) (hih c hc ys hys j hjn fs hfit)
-  have hTv := hT c hc ys hys j hjn fs
+  have hTv := hT c hc ys hys j hjn fs hxinj
   rw [← hCaE c hc ys hys j hjn fs hxinj] at *
   exact (eq_pt_of_mem_univZero hTv hres.2) ▸ hres.2
 
@@ -5431,6 +5442,7 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
               (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i []))) CihR).liftN r 0)
     (hTStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
+      majOf ys = d.inj ψ (mem c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
             (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
