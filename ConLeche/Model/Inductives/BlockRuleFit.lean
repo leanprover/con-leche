@@ -2488,7 +2488,18 @@ is the `rs = p⃗t` instance of `hihsWd`'s second conjunct, because
 `chainFrame K (fun _ => pt) ρ` IS `consList ((List.range K).map (fun _
 => pt)) ρ` and that tuple is typed by `hind`.  The regime asked for
 the ih fit twice — once at the chosen candidate, once (through `hwd`)
-at every typed tuple — and the wide one implies the narrow one. -/
+at every typed tuple — and the wide one implies the narrow one.
+
+**The truth-value premise is the REGIME lane's block-wide producer,
+INSTANTIATED, not restated.**  `hCaZ` is `blockIndCaZ_of_run`'s
+conclusion (`BlockIndRegimeRun.lean`) at an arbitrary frame and an
+arbitrary pair of fits — the form that producer already has, because
+the licence it reads is the RULE's peel and not the split's.  What
+`blockRecPre_ind_run` asks for is that statement at
+`σ := chainFrame K (fun _ => pt) ρ` and at the `ih` VALUES, with its
+own length antecedent unused and the second fit supplied by `hihsWd`;
+so the premise is passed through and the fact appears in the tree
+once, under one name. -/
 theorem blockRecPre_ind_certs {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
     {Fu s K : Nat} {nCt rP : Nat → Nat} {RecTy : Nat → AnnotTerm}
     {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms ihs : Nat → Nat → List AnnotTerm}
@@ -2520,14 +2531,10 @@ theorem blockRecPre_ind_certs {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name
           SpineFit (consList ys (consList rs ρ)) (ihdoms c j)
             ((ihs c j).map (interp V (consList ys (consList rs ρ)))))
     (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
-    (hT : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      interp V
-          (consList ((ihs c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j)
-        ∈ˢ (univZero : V)) :
+    (hCaZ : ∀ c, c < K → ∀ j, j < nCt c → ∀ (σ : Nat → V) (xs fs ws : List V),
+      SpineFit σ (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) σ) (ihdoms c j) ws →
+      interp V (consList ws (consList (xs ++ fs) σ)) (Ca c j) ∈ˢ (univZero : V)) :
     BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
   blockRecPre_ind_run hμ hTy (blockRecHwd_of_rules hμ hcerts hokA hlhs hihsWd) hind
     hcerts
@@ -2537,8 +2544,88 @@ theorem blockRecPre_ind_certs {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name
           rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc']
           exact hind c' hc')
         c hc j hj (xs ++ fs) hsp).2)
-    hT
+    (fun c hc j hj xs fs _hxl hsp =>
+      hCaZ c hc j hj (chainFrame K (fun _ => (pt : V)) ρ) xs fs _ hsp
+        (hihsWd ((List.range K).map (fun _ => (pt : V))) (by simp)
+          (fun c' hc' => by
+            rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc']
+            exact hind c' hc')
+          c hc j hj (xs ++ fs) hsp).2)
 
 end HwdFamily
+
+/-! ## 12. `hihFit`'s `hvals` HALF, at `ℓ = 0`
+
+`IndRegimeAt`'s fourth conjunct (§S32.5's `hihFit`, stated in
+`BlockRuleBodyInputs` in the REGIME's own spelling) is
+`spineFit_ihdoms_zero`'s conclusion at `ℓ = 0`, and that theorem's
+four premises split by who owns them: `hdom`, `hbits` and `hleaf` are
+about the `ih` openers' DOMAINS, which the regime lane reads off the
+opener run; `hvals` is about the openers' VALUES, and the values are
+`blockRuleIhsAV`'s — the pinning of §8, which lives here.  So this
+half is stated and proved here, where `blockRuleIhsAV` is.
+
+**Both cases give the point, for different reasons.**  An `ih` opener
+is `ihFunAV ℓ K c' rP nF tl eis fap = mkLamsC ℓ tl (⟨the callee's
+recursor applied⟩)`.  At `ℓ = 0` and a NON-EMPTY telescope the reading
+is `lamR 0 …`, which is the point unconditionally (`lamR_zero`); at an
+EMPTY one it is the chain slot applied along a spine, and the chain
+slot IS the point at the candidate the IND regime runs at
+(`chainFrame K (fun _ => pt) ρ`), so the fold is the point
+(`foldl_app_pt`).  Nothing about the callee, its arguments or
+its level arguments is read in either case. -/
+
+section IhsVals
+
+open ConLeche (BlockRuleFrame)
+
+/-- **An `ih` opener reads to the point at `ℓ = 0`.**  The slot
+premise is asked ONLY at the empty telescope, which is where it is
+true: at a non-empty one the de Bruijn index
+`tl.length + nF + rP + (K - 1 - c')` need not land in the chain at
+all, and nothing needs it to. -/
+theorem interp_ihFunAV_zero {K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)}
+    {eis : List AnnotTerm} {fap : AnnotTerm} {σ : Nat → V}
+    (hslot : tl = [] → σ (tl.length + nF + rP + (K - 1 - c')) = (pt : V)) :
+    interp V σ (ihFunAV 0 K c' rP nF tl eis fap) = (pt : V) := by
+  cases tl with
+  | cons d ds => rw [ihFunAV, mkLamsC, List.map_cons, mkLamsAV, interp_lam, lamR_zero]
+  | nil =>
+    rw [ihFunAV, mkLamsC, List.map_nil, mkLamsAV, interp_mkAppN_map, interp_bvar,
+      hslot rfl]
+    exact foldl_app_pt _
+
+/-- **`spineFit_ihdoms_zero`'s `hvals` at the rule's own `ihs`** — the
+half of the regime's ih fit that the pinning (§8) owns.
+
+The frame is the regime's: the rule's prefix and field values over the
+chain frame at the IND arm's candidate, every component of which is
+the point.  `hkey` is the `ihKeys` bound the opener run already
+carries (a key's callee is one of the block's recursors). -/
+theorem blockRuleIhsAV_vals_zero {K o : Nat} {fr : BlockRuleFrame} {cty : Expr}
+    {ψ : Name → Nat} {tlF : Nat → List (Nat × Nat × AnnotTerm)}
+    {EisF : Nat → List AnnotTerm} {a ρ : Nat → V} {xs fs : List V}
+    (ha : ∀ q, q < K → a q = (pt : V))
+    (hlen : (xs ++ fs).length = fr.rP + fr.nF)
+    (hkey : ∀ r, r < fr.ihKeys.length → (fr.ihKeys.getD r (0, 0)).2 < K) :
+    ∀ r, r < fr.ihKeys.length →
+      ((blockRuleIhsAV 0 K o fr cty ψ tlF EisF).map
+          (interp V (consList (xs ++ fs) (chainFrame K a ρ)))).getD r (pt : V) = (pt : V) := by
+  intro r hr
+  have hk : fr.ihKeys[r]? = some (fr.ihKeys.getD r (0, 0)) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr]
+    rfl
+  rw [blockRuleIhsAV, blockRecIhsAt, List.map_map, List.getD_eq_getElem?_getD,
+    List.getElem?_map, hk]
+  refine interp_ihFunAV_zero (fun htl => ?_)
+  rw [show ((ihTeleAtR fr.nF o (fr.ihKeys.getD r (0, 0)).1 0
+        (rebit (pwBit ψ fr.pw) (tlF (fr.ihKeys.getD r (0, 0)).1))).length
+      + fr.nF + fr.rP + (K - 1 - (fr.ihKeys.getD r (0, 0)).2))
+      = (K - 1 - (fr.ihKeys.getD r (0, 0)).2) + (xs ++ fs).length from by
+      rw [htl, hlen]; simp only [List.length_nil]; omega,
+    consList_apply_add, chainFrame_apply (hkey r hr)]
+  exact ha _ (hkey r hr)
+
+end IhsVals
 
 end ConLeche.Model
