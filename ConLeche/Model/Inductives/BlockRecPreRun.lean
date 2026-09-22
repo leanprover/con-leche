@@ -5048,6 +5048,76 @@ theorem spineFit_ihdoms_zero {σ : Nat → V} {ihKeys : List (Nat × Nat)}
   rw [hvals r hrk, hdom r hrk, hcancel]
   exact pt_mem_mkPisAV_zero _ σ _ (hbits r hrk) (hleaf r hrk)
 
+/-- **A tuple-space component is graded at EVERY index**: on its own
+index set by `famSpace_app`, and off it a family is junk
+(`app_off_dom_of_mem_piSet`), which lies in every universe.  This is
+what `slotSet_fold_mem` asks of the target component, and it is the
+reason the fold needs no `w ≠ 0` split. -/
+theorem inTupleSpace_app_univ {w N : Nat} {Is X : Nat → V}
+    (hX : InTupleSpace w N Is X) {m : Nat} (hm : m < N) (t : V) :
+    SetTheory.app (X m) t ∈ˢ (univ w : V) := by
+  by_cases ht : t ∈ˢ Is m
+  · exact famSpace_app (hX m hm) ht
+  · rw [app_off_dom_of_mem_piSet (hX m hm) ht]
+    exact empty_mem_univ w
+
+/-- **The recursive field's PREDECESSOR data, at the SEPARATED
+tuple** — §33's composition, in the shape the IND step reaches it.
+
+`FitsFrom.at_pos` reads the constructor's walk at the field's
+position, the representation's `idxFit` carries the call's index
+readings into the TARGET member's index telescope (`SlotFit`'s third
+clause), and `slotSet_fold_mem` folds the field along a fitting
+telescope spine into the target component at the call's index tuple
+— at ANY `w`, which is why this is not `blockRecSlot_pred`'s
+`piTele_fold`.
+
+At the separated tuple that component is a `sep` of the carrier, so
+one membership gives BOTH halves the `ih` opener needs: the call's
+major lies in the carrier (through `BlockModelAt.leaf`, at the
+caller) and the motive holds at it. -/
+theorem blockIndPred_of (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp : Nat → V}
+    {P : Nat → V → V → Prop} {c j i : Nat} {t : V} {fs bs : List V}
+    (hsat : Sat V (d.params ψ).reverse ρp)
+    (hc : c < d.N) (ht : t ∈ˢ d.idx ψ ρp c) (hj : j < (d.ctorsM c).length)
+    (hfit : d.ChainFit ψ ρp (sepTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) P) t c j fs)
+    (hi : i < ((d.Fss c ψ).getD j []).length)
+    (hrec : ((d.rss c).getD j []).getD i false = true)
+    (htgtN : d.tgts c j i < d.N)
+    (hbs : SpineFit (consList (fs.take i) ρp)
+      ((((d.tlss c ψ).getD j []).getD i []).map (·.2.2)) bs) :
+    SpineFit ρp (d.IdsM (d.tgts c j i) ψ)
+        ((((d.Eiss c ψ).getD j []).getD i []).map
+          (interp V (consList bs (consList (fs.take i) ρp)))) ∧
+      bs.foldl SetTheory.app (fs.getD i pt)
+        ∈ˢ SetTheory.app
+          (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.tgts c j i))
+          (d.tup ψ (d.tgts c j i)
+            ((((d.Eiss c ψ).getD j []).getD i []).map
+              (interp V (consList bs (consList (fs.take i) ρp))))) ∧
+      P (d.tgts c j i)
+        (d.tup ψ (d.tgts c j i)
+          ((((d.Eiss c ψ).getD j []).getD i []).map
+            (interp V (consList bs (consList (fs.take i) ρp)))))
+        (bs.foldl SetTheory.app (fs.getD i pt)) := by
+  have hXmem := sepTuple_mem (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) P
+  obtain ⟨hpre, hf⟩ := hfit.1.at_pos i hi
+  rw [Nat.zero_add, hrec, if_pos rfl] at hf
+  have hslotFit := hM.idxFit ψ ρp hsat _ hXmem c hc t ht j hj i hi hrec (fs.take i) hpre
+  have hidxfit := (hslotFit.2.2 bs hbs).2
+  rw [consList_append] at hidxfit
+  have htup : tupW (d.uM (d.tgts c j i) ψ)
+      ((((d.Eiss c ψ).getD j []).getD i []).map
+        (interp V (consList bs (consList (fs.take i) ρp))))
+      ∈ˢ d.idx ψ ρp (d.tgts c j i) := tupW_mem hidxfit
+  have hmem := slotSet_fold_mem (inTupleSpace_app_univ hXmem htgtN) hf hbs
+  rw [show (sepTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) P) (d.tgts c j i)
+        = graph (fun i' => sep (SetTheory.app
+            (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.tgts c j i)) i')
+          (P (d.tgts c j i) i')) (d.idx ψ ρp (d.tgts c j i)) from rfl,
+    app_graph htup, mem_sep] at hmem
+  exact ⟨hidxfit, hmem.1, hmem.2⟩
+
 /-- **The `ih` opener's CONCLUSION is inhabited** — `hihLeaf` at one
 key, and the second half of the IND arm's `hih`.
 
@@ -5084,6 +5154,74 @@ theorem blockIndIhLeaf_of {RecTy : Nat → AnnotTerm} {c' : Nat} (hc' : c' < K)
   · rw [prefOf_split hxs]; exact htake
   · rw [idxOf_split hxs]
   · rw [majOf_split]
+
+/-- **`hihLeaf` AT ONE KEY, from the block** — §33's composition
+finished: the separated tuple's two halves (`blockIndPred_of`), the
+major's carrier form (`BlockModelAt.leaf`, read backwards), the
+callee's spine assembled (`hjoin`, the converse of
+`BlockRecSplitAt` — the recursor type's binders past the rule prefix
+ARE the member's index telescope and its former) and the peel
+evaluated at it (`blockIndIhLeaf_of`).
+
+Three premises are the OTHER lanes' and are named in the shape they
+deliver: `hpref'` (the guard at the CALLEE's class, §35's
+`blockRecHpref_run`), `hjoin` and `hpdE` (the recursor stage's, the
+two directions of one type-shape fact), and the TWO-FRAME bridge
+`hesB`/`hmkB` — the guarded call's index readings and its applied
+field, read at the RULE's frame (`prefix ++ fields`) against the
+block's (`parameters ++ earlier fields`).  That bridge is the rule
+lane's `blockRecIhvAt_eq`-shaped fact and the only genuinely new
+content left in the IND arm's `hih`. -/
+theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo names d)
+    {c' cc j i nF nIdx m : Nat} {as xs fs bs : List V} {t : V}
+    {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
+    (hc' : c' < K) (hmk' : mem c' < d.k)
+    (hpar : SpineFit ρ (d.params ψ) as)
+    (hccN : cc < d.N) (ht : t ∈ˢ d.idx ψ (consList as ρ) cc)
+    (hj : j < (d.ctorsM cc).length)
+    (hfit : d.ChainFit ψ (consList as ρ)
+      (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+        (blockIndP d ψ ρ K rP mem rds concl as)) t cc j fs)
+    (hiF : i < ((d.Fss cc ψ).getD j []).length)
+    (hrec : ((d.rss cc).getD j []).getD i false = true)
+    (htgt : d.tgts cc j i = mem c')
+    (hbsB : SpineFit (consList (fs.take i) (consList as ρ))
+      ((((d.tlss cc ψ).getD j []).getD i []).map (·.2.2)) bs)
+    (hesB : (((d.Eiss cc ψ).getD j []).getD i []).map
+        (interp V (consList bs (consList (fs.take i) (consList as ρ))))
+      = eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))))
+    (hmkB : bs.foldl SetTheory.app (fs.getD i pt)
+      = interp V (consList bs (consList (xs ++ fs) ρ)) fapA)
+    (hpdE : pdoms c' = ((rds c').map (·.2.2)).take (rP c'))
+    (hpref' : SpineFit ρ (pdoms c') xs)
+    (htake : xs.take d.nP = as)
+    (hjoin : ∀ (is : List V) (maj : V),
+      SpineFit (consList as ρ) (d.IdsM (mem c') ψ) is →
+      maj ∈ˢ (as ++ is).foldl SetTheory.app
+        (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
+      SpineFit (consList xs ρ) (((rds c').map (·.2.2)).drop (rP c')) (is ++ [maj]))
+    (hcon : BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR)
+    (hTyE : RecTy c' = mkPisAV (rds c') (concl c'))
+    (hrds : (rds c').length = rP c' + nIdx + 1)
+    (hesLen : eisA.length = nIdx)
+    (hconclB : Term.bvarsBelow (rds c').length (concl c').erase)
+    (hxs : xs.length = rP c') (hfs : fs.length = nF) (hbsl : bs.length = m) :
+    (pt : V) ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ)) CihR := by
+  have htgtN : d.tgts cc j i < d.N := by
+    rw [htgt]
+    exact Nat.lt_of_lt_of_le hmk' (Nat.le_add_right _ _)
+  obtain ⟨hidx, hcar, hP⟩ :=
+    blockIndPred_of hM (d.satOfSpine hpar) hccN ht hj hfit hiF hrec htgtN hbsB
+  rw [htgt] at hidx hcar hP
+  rw [← hM.leaf (mem c') hmk' ψ ρ as _ hpar hidx] at hcar
+  have hfitC' : SpineFit ρ ((rds c').map (·.2.2))
+      (xs ++ ((((d.Eiss cc ψ).getD j []).getD i []).map
+          (interp V (consList bs (consList (fs.take i) (consList as ρ))))
+        ++ [bs.foldl SetTheory.app (fs.getD i pt)])) := by
+    rw [← List.take_append_drop (rP c') ((rds c').map (·.2.2))]
+    exact SpineFit.append (hpdE ▸ hpref') (hjoin _ _ hidx hcar)
+  exact blockIndIhLeaf_of hc' hcon hTyE hrds hesLen hconclB hxs hfs hbsl hesB.symm hmkB.symm
+    hfitC' htake hP
 
 /-- **The IND arm's step**, `blockIndPt`'s `hstep`. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
