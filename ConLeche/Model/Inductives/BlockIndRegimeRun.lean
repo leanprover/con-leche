@@ -33,20 +33,23 @@ Two pieces:
   the conclusion's boundedness (`checkBlockRecK_tyPis`,
   `checkBlockRecK_tyBounds`), and `hihOpen` through §1.
 
-**Two premises stay open and are NOT invented here.**  `hjoinC`
-(`BlockRecTyJoin`) is the certificate lane's — nothing in the run ties
-the recursor's index binders to the member's telescope, and that lane
-is restating `blockIndP` around it; and three of the four
-`univZero`/motive facts (`hCaE`, `hihReg`, `hTReg`) are that lane's.
-The FOURTH — `hTStep` — is discharged here: RM37's §40.15 producer
-(`blockRecConclUnivZero_run`) turns any identification of a term with
-the recursor's conclusion at a fitting spine into a truth value at
-elimination level `0`, and `hCaE` IS such an identification once
-`blockIndStep`'s `hT` and `blockIndRegime_run`'s `hTStep` carry the
-guard `hCaE` already carried.  They now do, and the guard costs
-nothing: both are used on the one line of `blockIndStep`, where the
-fibre's `hxinj` is in context (measured — that two-line change is the
-only edit the whole file needs).
+**The premises that stay open are the FOUR `univZero`/motive facts**
+(`hTStep`, `hCaE`, `hihReg`, `hTReg`), and they are the certificate
+lane's, in the shape that lane delivers.  `hjoinC` is GONE: the arm
+states its induction motive at the SPLIT data now, so nothing here
+assembles a recursor spine and the index clause's converse has no
+consumer left.
+
+`hTStep` used to be discharged here from `hCaE` (RM37's §40.15) and
+that derivation does NOT survive the move, which is worth recording.
+The producer (`blockRecConclUnivZero_run`) turns an identification
+with the recursor's CONCLUSION into a truth value only **at a fitting
+spine of the recursor's own binder data** — the sort claim is licensed
+by `checkConstantVal`'s inference at the recursor's own opened
+context, and the split data does not satisfy that context (its index
+values fit the MEMBER's telescope, and carrying them to the
+recursor's index binders is exactly the deleted converse).  So
+`hTStep` rejoins §40.14's four, in the split shape.
 
 No `w` hypothesis: every statement below is a READING, a peel or a
 key's own filter fact, never a membership in the block's carrier
@@ -297,10 +300,12 @@ currency: `(us.headD .zero).eval ψ = 0`, the sort the type stage read
 off the first recursor's conclusion.  That is what the `ℓ = 0` arm
 means at the run, and it is not derivable inside the regime.
 
-**What stays a premise, and whose it is.**  `hjoinC` and the four
-`univZero` facts are the certificate lane's, in the shape that lane
-delivers (§40.14: `hT`, `hTStep`, `hTReg` and the `ih` opener's `h0`
-are four premises of ONE missing producer).  `hcerts`, `hspF`,
+**What stays a premise, and whose it is.**  The four `univZero` facts
+are the certificate lane's, in the shape that lane delivers (§40.14:
+`hT`, `hTStep`, `hTReg` and the `ih` opener's `h0` are four premises
+of ONE missing producer).  `hlenP` — the block's parameter telescope
+has `nP` entries — is the block records', carried as a premise all
+over this tree rather than stored in `BlockData`.  `hcerts`, `hspF`,
 `hihLen` and `hprefU` are the rule lanes', and `hihOpen` is §1b's.
 `hcerts` in particular is NOT discharged here even though
 `blockRuleCerts_of_run` exists: that theorem is stated at ONE rule and
@@ -322,6 +327,7 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hnCt : ∀ c, c < rs.length →
       (d.ctorsM (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c)
+    (hlenP : (d.params ψ).length = d.nP)
     -- the family's elimination level, NAMED, and the arm's guard at it
     (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
@@ -330,16 +336,30 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
         (b.2.1 = 0 ↔ (uOf c).eval ψ = 0))
     (hℓ : (us.headD .zero).eval ψ = 0)
     -- the certificate lane's two open premises
-    (hjoinC : BlockRecTyJoin V d ψ rs.length p.toBlockShape.rulePrefixAt
-      p.toBlockShape.recTgtAt (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) ρ)
-    (hCaE : ∀ c, c < rs.length → ∀ ys : List V,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+    (hTStep : ∀ c, c < rs.length → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
-      majOf ys = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+      x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
-            (consList (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs) ρ)) (Ca c j)
-        = interp V (consList ys ρ)
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        ∈ˢ (univZero : V))
+    (hCaE : ∀ c, c < rs.length → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
+      ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
+      x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+      interp V
+          (consList (List.replicate (ihdoms c j).length (pt : V))
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        = interp V (consList (as ++ ms ++ is ++ [x]) ρ)
             (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c))
     (hihReg : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c → ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
@@ -363,23 +383,22 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
       BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c) (fdoms c j).length
         (ihdoms c j).length (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
         (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hspF : ∀ c, c < rs.length → ∀ ys : List V,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+    (hspF : ∀ c, c < rs.length → ∀ as ms is : List V,
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
-      d.ChainFit ψ
-        (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N
-          (d.idx ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
           (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
             (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP)))
-        (d.tup ψ (p.toBlockShape.recTgtAt c)
-          (idxOf (p.toBlockShape.rulePrefixAt c) ys)) (p.toBlockShape.recTgtAt c) j fs →
+            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+        (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
       SpineFit ρ
         (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms c j)
-        (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs))
+        (as ++ ms ++ fs))
     (hihLen : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       (ihdoms c j).length = (ihKeys c j).length)
     (hprefU : ∀ c, c < rs.length → ∀ c', c' < rs.length → ∀ xs : List V,
@@ -418,8 +437,8 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
   refine blockIndRegime_run (mo := mpC.base2) (names := names) (d := d) (mp := mpC)
     (ihdoms := ihdoms) (Ca := Ca) (ihKeys := ihKeys)
     (concl := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
-    hμ hM ?_ hnCt (blockRecTyShape_run hμ mpC h hmr rfl ψ ρ) hjoinC hbits ?_ hcerts hspF
-    hihLen ?_ hprefU ?_ hihOpen ?_ hCaE hihReg hTReg
+    hμ hM ?_ hlenP hnCt (blockRecTyShape_run hμ mpC h hmr rfl ψ ρ) hbits ?_ hcerts hspF
+    hihLen ?_ hprefU ?_ hihOpen hTStep hCaE hihReg hTReg
   · intro c hc
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     exact (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.1
@@ -431,21 +450,6 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
   · intro c hc
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     exact (checkBlockRecK_tyBounds (V := V) hμ mpC h hr ψ).2
-  · -- **`hTStep` IS `hCaE` at the `univZero` producer** (§40.15), now
-    -- that the guard is on both: the identification names a fitting
-    -- spine, and the producer turns any such identification into a
-    -- truth value at the family's zero elimination level
-    intro c hc ys hys j hj fs hmaj
-    obtain ⟨uOf', hbits', hfact⟩ := blockRecConclUnivZero_run (V := V) hμ mpC h ψ
-    obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-    have hlen := (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.2.2.1
-    have hpos : 0 < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length := by
-      rw [hlen]; omega
-    have hb0 : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[0]'hpos
-        ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c := List.getElem_mem hpos
-    have hu0 : (uOf' c).eval ψ = 0 :=
-      (hbits' c hc _ hb0).mp ((hbits c hc _ hb0).mp rfl)
-    exact hfact c hc hu0 ρ ys hys (Ca c j) _ (hCaE c hc ys hys j hj fs hmaj)
 
 /-! ### 2b. The two halves joined
 
@@ -453,9 +457,9 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
 the callee recursor types are the run's own stored ones
 (`blockRuleRecTy`), so `hRecTy` and `hmemK` are discharged too.  What
 is left is exactly the list §2's docstring names — the certificate
-lane's `hjoinC` and four `univZero` facts, the rule lanes' `hcerts`,
-`hspF`, `hihLen`, `hprefU`, the block-wide key tables and the
-per-rule frame. -/
+lane's four `univZero` facts, the rule lanes' `hcerts`, `hspF`,
+`hihLen`, `hprefU`, the block-wide key tables and the per-rule
+frame. -/
 theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -470,6 +474,7 @@ theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hnCt : ∀ c, c < rs.length →
       (d.ctorsM (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c)
+    (hlenP : (d.params ψ).length = d.nP)
     (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
     (hbitsE : ∀ c, c < rs.length →
@@ -519,16 +524,30 @@ theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
                     (rebit b (((d.tlss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i [])))
                   CihR).liftN r 0)))
     -- the certificate lane's, and the rule lanes'
-    (hjoinC : BlockRecTyJoin V d ψ rs.length p.toBlockShape.rulePrefixAt
-      p.toBlockShape.recTgtAt (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) ρ)
-    (hCaE : ∀ c, c < rs.length → ∀ ys : List V,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+    (hTStep : ∀ c, c < rs.length → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
-      majOf ys = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+      x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
-            (consList (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs) ρ)) (Ca c j)
-        = interp V (consList ys ρ)
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        ∈ˢ (univZero : V))
+    (hCaE : ∀ c, c < rs.length → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
+      ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
+      x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+      interp V
+          (consList (List.replicate (ihdoms c j).length (pt : V))
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        = interp V (consList (as ++ ms ++ is ++ [x]) ρ)
             (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c))
     (hihReg : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c → ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
@@ -551,23 +570,22 @@ theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
       BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c) (fdoms c j).length
         (ihdoms c j).length (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
         (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hspF : ∀ c, c < rs.length → ∀ ys : List V,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+    (hspF : ∀ c, c < rs.length → ∀ as ms is : List V,
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
-      d.ChainFit ψ
-        (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N
-          (d.idx ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
           (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
             (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP)))
-        (d.tup ψ (p.toBlockShape.recTgtAt c)
-          (idxOf (p.toBlockShape.rulePrefixAt c) ys)) (p.toBlockShape.recTgtAt c) j fs →
+            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+        (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
       SpineFit ρ
         (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms c j)
-        (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs))
+        (as ++ ms ++ fs))
     (hihLen : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       (ihdoms c j).length = (ihKeys c j).length)
     (hprefU : ∀ c, c < rs.length → ∀ c', c' < rs.length → ∀ xs : List V,
@@ -589,7 +607,7 @@ theorem blockIndRegime_run_applied {envC : Env} {mpC : EnvModelM V μ envC}
       rw [blockRuleRecTy, List.getD_eq_getElem?_getD, hr]; rfl
     rw [hgd]
     exact (checkBlockRecK_tyPis (V := V) hμ mpC h hr ψ).choose_spec.choose_spec.2.1
-  exact blockIndRegime_of_run hμ h hM hmr hnCt helim hmemU hbitsE hℓ hjoinC hCaE
+  exact blockIndRegime_of_run hμ h hM hmr hnCt hlenP helim hmemU hbitsE hℓ hTStep hCaE
     hihReg hTReg hcerts hspF hihLen hprefU
     (blockIhOpen_of hmr hrecTgtsLen hrecTgts hmemK hrPs hRecTy hframe)
 
@@ -695,8 +713,14 @@ key).  The guard-free total form is the same `by_cases`-then-choose. -/
 
 /-- **One rule's `ℓ = 0` obligation at ONE (recursor, constructor)
 pair**, at that rule's own `ih` domains and conclusion: the
-certificates, the opener count, the fused opener reading and the three
-`univZero`/motive facts. -/
+certificates, the opener count, the fused opener reading and the four
+`univZero`/motive facts.
+
+The three motive facts are at the SPLIT data — the parameters, the
+middle stretch and the member's own index values, each with its own
+fit, written out in that order — because that is what the run has; a
+recursor-spine fit cannot be rebuilt from them and nothing here tries
+to. -/
 @[expose] def BlockIndRuleAt {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat)
     (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -729,14 +753,30 @@ certificates, the opener count, the fused opener reading and the three
         = (mkPisAV (ihTeleAtR nF (p.toBlockShape.rulePrefixAt c - d.nP) i 0
             (rebit 0 (((d.tlss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i [])))
             CihR).liftN r 0) ∧
-  (∀ ys : List V,
-    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+  (∀ (as ms is : List V) (x : V),
+    SpineFit ρ (d.params ψ) as →
+    SpineFit (consList as ρ)
+      ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+        d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+    SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
     ∀ fs : List V,
-    majOf ys = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+    x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
     interp V
         (consList (List.replicate ihdoms.length (pt : V))
-          (consList (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs) ρ)) Ca
-      = interp V (consList ys ρ)
+          (consList (as ++ ms ++ fs) ρ)) Ca
+      ∈ˢ (univZero : V)) ∧
+  (∀ (as ms is : List V) (x : V),
+    SpineFit ρ (d.params ψ) as →
+    SpineFit (consList as ρ)
+      ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+        d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+    SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
+    ∀ fs : List V,
+    x = d.inj ψ (p.toBlockShape.recTgtAt c) j fs →
+    interp V
+        (consList (List.replicate ihdoms.length (pt : V))
+          (consList (as ++ ms ++ fs) ρ)) Ca
+      = interp V (consList (as ++ ms ++ is ++ [x]) ρ)
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)) ∧
   (∀ xs fs : List V,
     xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
@@ -773,31 +813,29 @@ theorem blockIndRegime_of_rules {envC : Env} {mpC : EnvModelM V μ envC}
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hnCt : ∀ c, c < rs.length →
       (d.ctorsM (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c)
+    (hlenP : (d.params ψ).length = d.nP)
     (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
     (hbitsE : ∀ c, c < rs.length →
       ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
         (b.2.1 = 0 ↔ (uOf c).eval ψ = 0))
     (hℓ : (us.headD .zero).eval ψ = 0)
-    (hjoinC : BlockRecTyJoin V d ψ rs.length p.toBlockShape.rulePrefixAt
-      p.toBlockShape.recTgtAt (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) ρ)
-    (hspF : ∀ c, c < rs.length → ∀ ys : List V,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
+    (hspF : ∀ c, c < rs.length → ∀ as ms is : List V,
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).drop
+          d.nP).take (p.toBlockShape.rulePrefixAt c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is →
       ∀ j, j < blockRecNCt rs c → ∀ fs : List V,
-      d.ChainFit ψ
-        (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N
-          (d.idx ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP) ρ))
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
           (blockIndP d ψ ρ rs.length p.toBlockShape.rulePrefixAt p.toBlockShape.recTgtAt
             (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            ((prefOf (p.toBlockShape.rulePrefixAt c) ys).take d.nP)))
-        (d.tup ψ (p.toBlockShape.recTgtAt c)
-          (idxOf (p.toBlockShape.rulePrefixAt c) ys)) (p.toBlockShape.recTgtAt c) j fs →
+            (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) as))
+        (d.tup ψ (p.toBlockShape.recTgtAt c) is) (p.toBlockShape.recTgtAt c) j fs →
       SpineFit ρ
         (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms c j)
-        (prefOf (p.toBlockShape.rulePrefixAt c) ys ++ fs))
+        (as ++ ms ++ fs))
     (hprefU : ∀ c, c < rs.length → ∀ c', c' < rs.length → ∀ xs : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c') xs)
@@ -820,10 +858,13 @@ theorem blockIndRegime_of_rules {envC : Env} {mpC : EnvModelM V μ envC}
     · exact ⟨default, fun hc' _ => absurd hc' hc⟩
   exact blockIndRegime_of_run (ihdoms := fun c j => (htot c j).choose.1)
     (Ca := fun c j => (htot c j).choose.2)
-    hμ h hM hmr hnCt helim hmemU hbitsE hℓ hjoinC
-    (fun c hc ys hys j hj fs => ((htot c j).choose_spec hc hj).2.2.2.1 ys hys fs)
-    (fun c hc j hj xs fs => ((htot c j).choose_spec hc hj).2.2.2.2.1 xs fs)
-    (fun c hc j hj xs fs => ((htot c j).choose_spec hc hj).2.2.2.2.2 xs fs)
+    hμ h hM hmr hnCt hlenP helim hmemU hbitsE hℓ
+    (fun c hc as ms is x has hms his j hj fs =>
+      ((htot c j).choose_spec hc hj).2.2.2.1 as ms is x has hms his fs)
+    (fun c hc as ms is x has hms his j hj fs =>
+      ((htot c j).choose_spec hc hj).2.2.2.2.1 as ms is x has hms his fs)
+    (fun c hc j hj xs fs => ((htot c j).choose_spec hc hj).2.2.2.2.2.1 xs fs)
+    (fun c hc j hj xs fs => ((htot c j).choose_spec hc hj).2.2.2.2.2.2 xs fs)
     (fun c hc j hj => ((htot c j).choose_spec hc hj).1)
     hspF
     (fun c hc j hj => ((htot c j).choose_spec hc hj).2.1)

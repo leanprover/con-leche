@@ -30,11 +30,14 @@ bounded by (`checkBlockRecTys`, `Kernel/Inductives/BlockInstall.lean`):
   — clauses 1 and 2, arithmetic once the member's index count is
   identified with `nIdx_m` (`FormerData.len`);
 * the first `nP` binder DOMAINS are compared BINDER BY BINDER with the
-  member's own opened former telescope — clause 3, and it is an
-  implication between FITS because the two spellings are never
-  compared, only certified defeq: `prefixDoms_spineFit` is the hop,
-  and the member-to-member parameter agreement (`paramsIff`) carries
-  it from the ELIMINATED member's telescope to the block's;
+  member's own opened former telescope — clause 3, and it is an `↔`
+  between FITS (never a syntactic equality: the two spellings are only
+  ever certified defeq).  BOTH directions are paid the same way, which
+  is why the clause is an `↔` and clause 4 is not:
+  `prefixDoms_spineFit` is symmetric in its two openings (it takes the
+  comparison as an `Or`, so the swapped call is the same hop with the
+  disjunct on the other side), and the member-to-member parameter
+  agreement (`paramsIff`) is an `↔` already;
 * the binders `nP … rP-1` and the INDEX binders are never looked
   inside at all.  Clause 4 therefore does not read them: it reads the
   MAJOR, whose domain is `T_m p⃗ ı⃗` on the nose, so its reading is a
@@ -45,10 +48,13 @@ bounded by (`checkBlockRecTys`, `Kernel/Inductives/BlockInstall.lean`):
 * the MAJOR's syntactic pin is clause 6, read off the opening's own
   fvars (`interp_of_major_reading`).
 
-The OPPOSITE direction of clause 4 (`BlockRecTyJoin`) is NOT produced
-here and cannot be: nothing in the run ties the recursor's index
-binders to the member's telescope except the per-argument `isDefEq`
-inside `checkConstantVal`'s inference of the major's domain.
+The OPPOSITE direction of clause 4 is NOT produced here and cannot be:
+nothing in the run ties the recursor's index binders to the member's
+telescope except the per-argument `isDefEq` inside
+`checkConstantVal`'s inference of the major's domain.  It used to be
+a predicate of its own (`BlockRecTyJoin`) and a premise with no
+producer; it is gone, with its one consumer — the IND arm states its
+induction motive at the SPLIT data and assembles no recursor spine.
 -/
 
 namespace ConLeche.Model
@@ -70,17 +76,6 @@ theorem acval_interp_closed {env : Env} (m : EnvModel V env) (n : Name)
     (ψ : Name → Nat) (ρ ρ' : Nat → V) :
     interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
   interp_closed V (by rw [m.acval_erase]; exact m.cval_closed n ψ) ρ ρ'
-
-/-- A list's `take n` and `drop n`'s `take m` reassemble its
-`take (n + m)`. -/
-theorem take_add_eq_append {α : Type u} :
-    ∀ (l : List α) (n m : Nat), l.take (n + m) = l.take n ++ (l.drop n).take m
-  | [], _, _ => by simp
-  | _ :: _, 0, _ => by simp
-  | a :: l, n + 1, m => by
-    rw [show n + 1 + m = (n + m) + 1 from by omega, List.take_succ_cons,
-      List.take_succ_cons, List.drop_succ_cons, take_add_eq_append l n m,
-      List.cons_append]
 
 /-! ## 2. The member-side run facts
 
@@ -349,13 +344,21 @@ theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 `checkBlockRecTys` compares the recursor's first `nP` binder domains
 BINDER BY BINDER with the ELIMINATED member's own opened former
 telescope — never with the block's, and never syntactically: it is an
-`isDefEq` per position.  So the clause is an implication between FITS
-(`prefixDoms_spineFit`, the certified hop), followed by the members'
-own parameter agreement (`BlockFormerFacts.paramsIff`) from the
-eliminated member's telescope to the block's `d.params`. -/
+`isDefEq` per position.  So the clause is an `↔` between FITS
+(`prefixDoms_spineFit`, the certified hop, called once each way),
+composed with the members' own parameter agreement
+(`BlockFormerFacts.paramsIff`, itself an `↔`) between the eliminated
+member's telescope and the block's `d.params`.
 
-/-- **The block's parameter telescope fits, at the run** — clause 3 of
-the shape. -/
+**A clause is stated in the direction(s) that have producers.**  This
+one has both, which is what separates it from the index clause: the
+hop takes its comparison as an `Or` of the two `isDefEq` orientations
+and proves the transfer either way, so swapping its two openings costs
+nothing.  The converse is what the IND arm's `hihFit` needs to rebuild
+the recursor's own prefix spine `as ++ ms` out of the split data. -/
+
+/-- **The block's parameter telescope fits, at the run, IN BOTH
+DIRECTIONS** — clause 3 of the shape. -/
 theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -363,8 +366,8 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs : List V,
       SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-        (·.2.2)).take d.nP) xs → SpineFit ρ (d.params ψ) xs := by
-  intro xs hfit
+        (·.2.2)).take d.nP) xs ↔ SpineFit ρ (d.params ψ) xs := by
+  intro xs
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, hparIff⟩ := hmr
   obtain ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hms, hcvTa, -, -, hop, hopT, htfl,
@@ -444,33 +447,56 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     rw [hnPq] at hys ⊢
     exact prefixDoms_graded_of_tower (V := V) (cc := .sort (d.resSort.eval ψ))
       (by rw [hppsLen, hnPq]; omega) (fun ρ'' => hFD.okTy ψ ρ'') hi hys
-  -- **the certified hop**
-  have hfitA : SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
-      p.nP).map (·.2.2)) xs := by
-    rw [hnPq] at hfit
-    rw [List.map_take]
-    exact hfit
-  have hfitB := prefixDoms_spineFit (V := V) hμ mpC hopA hopT hwA
-    (Expr.WScoped.of_not_hasFvar hfvT) hbA hbndT
-    (by rw [List.length_map, List.length_take, hlenRds]; omega)
-    (by rw [List.length_map, List.length_take, hppsLen, hnPq]; omega)
-    hdA hdB hokA hokB
-    (fun l hl => Or.inr (by
-      rw [← hfvsA]
-      exact hdeq l hl))
-    hfitA
-  -- the members' own parameter agreement
-  have hxl : xs.length = d.nP := by
-    rw [hfitB.length_eq, List.length_map, List.length_take, hppsLen]; omega
-  have hsat : Sat V ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map
-      (·.2.2)).reverse) (consList xs ρ) := by
-    simpa using sat_of_spineFit (Sat_nil V ρ) hfitB
-  refine spineFit_of_sat_consList ?_ ((hparIff _ hmemk ψ _).mp hsat)
+  -- the two telescopes' lengths, shared by the two directions
   obtain ⟨cvT0, hcvT0⟩ : ∃ cvT0, cvTas[0]? = some cvT0 :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; omega)⟩
   obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
-  rw [hxl, BlockData.params, List.length_map, List.length_take, hFD0.len ψ]
-  omega
+  have hlenPD : (d.params ψ).length = d.nP := by
+    rw [BlockData.params, List.length_map, List.length_take, hFD0.len ψ]; omega
+  have hlenT : ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2))).length
+      = d.nP := by
+    rw [List.length_map, List.length_take, hppsLen]; omega
+  -- **the certified hop**, in both directions: `prefixDoms_spineFit` is
+  -- symmetric in its two openings (the comparison travels as an `Or`),
+  -- and the members' own parameter agreement is an `↔` already
+  constructor
+  · intro hfit
+    have hfitA : SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
+        p.nP).map (·.2.2)) xs := by
+      rw [hnPq] at hfit
+      rw [List.map_take]
+      exact hfit
+    have hfitB := prefixDoms_spineFit (V := V) hμ mpC hopA hopT hwA
+      (Expr.WScoped.of_not_hasFvar hfvT) hbA hbndT
+      (by rw [List.length_map, List.length_take, hlenRds]; omega)
+      (by rw [List.length_map, List.length_take, hppsLen, hnPq]; omega)
+      hdA hdB hokA hokB
+      (fun l hl => Or.inr (by
+        rw [← hfvsA]
+        exact hdeq l hl))
+      hfitA
+    have hsat : Sat V ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map
+        (·.2.2)).reverse) (consList xs ρ) := by
+      simpa using sat_of_spineFit (Sat_nil V ρ) hfitB
+    exact spineFit_of_sat_consList (by rw [hfitB.length_eq, hlenT, hlenPD])
+      ((hparIff _ hmemk ψ _).mp hsat)
+  · intro hfit
+    have hsat : Sat V (d.params ψ).reverse (consList xs ρ) := by
+      simpa using sat_of_spineFit (Sat_nil V ρ) hfit
+    have hfitB : SpineFit ρ (((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)) xs :=
+      spineFit_of_sat_consList (by rw [hfit.length_eq, hlenPD, hlenT])
+        ((hparIff _ hmemk ψ _).mpr hsat)
+    have hfitA := prefixDoms_spineFit (V := V) hμ mpC hopT hopA
+      (Expr.WScoped.of_not_hasFvar hfvT) hwA hbndT hbA
+      (by rw [List.length_map, List.length_take, hppsLen, hnPq]; omega)
+      (by rw [List.length_map, List.length_take, hlenRds]; omega)
+      hdB hdA hokB hokA
+      (fun l hl => Or.inl (by
+        rw [← hfvsA]
+        exact hdeq l hl))
+      hfitB
+    rw [hnPq, ← List.map_take]
+    exact hfitA
 
 /-! ## 6. THE SHAPE, at the run -/
 
@@ -478,14 +504,14 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 premise, discharged.
 
 Its five clauses, in order: the two the stage's own `unless`es pin
-(`nP ≤ rP`, the binder count), the parameters as an implication
-between FITS (`blockRecParams_run`), the eliminated member's index fit
+(`nP ≤ rP`, the binder count), the parameters as an `↔` between FITS
+(`blockRecParams_run`), the eliminated member's index fit
 (`blockRecIdxFit_run`) and the MAJOR's reading folded into
 applications (`interp_of_major_reading`).
 
-`BlockRecTyJoin` — the index clause's OPPOSITE direction — is NOT
-among them and is not produced here: nothing in the run ties the
-recursor's index binders to the member's telescope. -/
+The index clause's OPPOSITE direction is not among them and is not
+produced here: nothing in the run ties the recursor's index binders to
+the member's telescope. -/
 theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -1111,11 +1137,24 @@ openings the bundle's own producer takes.
 
 No `w` hypothesis: the evidence is two `SpineFit`s against the rule's
 own domain readings and a grading, never a membership in the block's
-carrier. -/
+carrier.
+
+**`hop0` and `hop2` open DIFFERENT subjects and must not share a
+binder.**  `hop0` is `ihSpineFold_blockRec_run`'s — the constructor's
+stored type opened `nP + nF` deep, whose body is the constructor's
+CONCLUSION — while `hop2` is `walkCtx_blockFrame`'s, and its subject
+is `cty` with only the first `nP` binders instantiated, so it still
+carries `nF` leading `∀`s.  Spelling both bodies `crest` made the
+premise set unsatisfiable at `fr.nF ≥ 1` (`openPisAtFvars (n+1)` is
+`none` off a `.forallE`), i.e. the theorem was true VACUOUSLY and had
+no instance — a defect only a consumer could see, since nothing in a
+build, a `#print axioms` or the flip probe looks at whether a premise
+set is inhabited.  `cmid` is `hop2`'s own binder; the two never
+meet. -/
 theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
     {mT : EnvModel V envT} {ψ : Name → Nat}
     {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
-    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {cty : Expr} {fvs0 : List Expr} {crest cmid : Expr}
     {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
     {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
     {recTy o₁ o₂ : Expr} {fvsPref fvsF fvsIh : List Expr}
@@ -1144,7 +1183,7 @@ theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
         ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
     -- the check's three openings
     (hop1 : openPisAtFvars fr.rP recTy 0 = some (fvsPref, o₁))
-    (hop2 : openPisAtFvars fr.nF crest fr.rP = some (fvsF, o₂))
+    (hop2 : openPisAtFvars fr.nF cmid fr.rP = some (fvsF, o₂))
     (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
       fr.ihKeys 0 body = some ihTele)
     (hihfv : ihTele.hasFvar = false)

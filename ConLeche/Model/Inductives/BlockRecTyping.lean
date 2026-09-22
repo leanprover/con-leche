@@ -704,30 +704,33 @@ theorem interp_fieldApp_rule {nF i m : Nat} {xs fs bs : List V}
 
 end TwoFrame
 
-/-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt` and its
-CONVERSE (task #315, M5M-rule)
+/-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt`
+(task #315, M5M-rule)
 
 `BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the three regimes
 read OFF a fitting spine of `rec_c`'s binder data: the prefix, the
 eliminated member's index values and the major, with the parameters'
-fit and the member's own index fit.  The IND arm's `ih` leaf needs the
-OPPOSITE direction as well — the callee's spine ASSEMBLED, from an
-index spine fitting the member's telescope and a major in the member's
-former (`hjoin`, `blockIndIhLeaf_pred`) — and neither direction had a
-producer.
+fit and the member's own index fit.
 
-Both are the same fact about the STORED type, and this section states
-it once.  `BlockRecTyShape` says: `rec_c`'s binder data is `rP c`
-binders, then the eliminated member's index telescope, then one more;
-its first `nP` binders CARRY the block's parameter telescope (as an
-implication between fits, not as a syntactic equality — the recursor
-stream stores its own copy of the parameter binders, and only their
-READINGS are owed); a fit of the index stretch is a fit of the
-member's own telescope at the parameter frame; and the last binder
-reads as the member's former applied to the parameters and to the
-index values.  The OPPOSITE direction of the index clause is a
-predicate of its own, `BlockRecTyJoin` — it has no producer, and the
-shape must stay payable.
+It is a fact about the STORED type, and this section states it once.
+`BlockRecTyShape` says: `rec_c`'s binder data is `rP c` binders, then
+the eliminated member's index telescope, then one more; its first `nP`
+binders CARRY the block's parameter telescope — an `↔` between FITS,
+not a syntactic equality, because the recursor stream stores its own
+copy of the parameter binders and only their READINGS are owed; a fit
+of the index stretch is a fit of the member's own telescope at the
+parameter frame; and the last binder reads as the member's former
+applied to the parameters and to the index values.
+
+**A clause is stated in the direction(s) that have producers** (the
+maintainer's ruling, 2026-09-22).  The parameter clause is an `↔`
+because BOTH of its directions are the certified hop
+(`prefixDoms_spineFit` with its two openings swapped) followed by the
+members' own parameter agreement, which is itself an `↔`.  The INDEX
+clause is an implication and stays one: its converse has no producer
+and none reachable (see below), and the IND arm — which used to
+assemble a recursor spine and therefore needed it — now states its
+induction motive at the SPLIT data instead and never assembles one.
 
 Nothing here is about the recursion or about a rule: every clause is a
 reading of the recursor's own type, which is where the recursor-type
@@ -763,14 +766,14 @@ payable.
   the per-argument `isDefEq` inside `checkConstantVal`'s inference of
   the major's domain, and reading it off needs an inversion of
   `inferTypeCore` through a Π-tower and an application spine, which
-  does not exist.  Its consumer is `hjoin`/`hfitC'` — the IND arm's
-  leaf, which instantiates the induction MOTIVE (`blockIndP`) at a
-  spine it has to assemble.  The cheaper repair is on the motive's
-  side: state `blockIndP` at the SPLIT data (the prefix's fit, the
-  member's index fit, the major's membership) instead of at a
-  recursor-spine fit, and the assembly disappears — its consumer
-  `blockIndPt` already converts a spine fit into the split data by
-  the FORWARD direction.
+  does not exist.  Its only consumer WAS the IND arm's `ih` leaf,
+  which instantiated the induction MOTIVE (`blockIndP`) at a spine it
+  had to assemble; the motive is now stated at the SPLIT data (the
+  prefix's fit, the middle stretch's fit, the member's index fit, the
+  major's membership), the assembly is gone, and with it the
+  converse's last consumer — `blockIndPt` converts a spine fit into
+  the split data by the FORWARD direction, which is all the arm
+  needs.
 
 The MAJOR clause keeps its all-frames quantification, and that is not
 an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the
@@ -784,6 +787,17 @@ section TyShape
 open ConLeche.Semantics
 
 /-! ### List kit -/
+
+/-- A list's `take n` and `drop n`'s `take m` reassemble its
+`take (n + m)`. -/
+theorem take_add_eq_append {α : Type u} :
+    ∀ (l : List α) (n m : Nat), l.take (n + m) = l.take n ++ (l.drop n).take m
+  | [], _, _ => by simp
+  | _ :: _, 0, _ => by simp
+  | a :: l, n + 1, m => by
+    rw [show n + 1 + m = (n + m) + 1 from by omega, List.take_succ_cons,
+      List.take_succ_cons, List.drop_succ_cons, take_add_eq_append l n m,
+      List.cons_append]
 
 theorem list_eq_singleton {α : Type u} {l : List α} (h : l.length = 1) : ∃ z, l = [z] := by
   match l with
@@ -849,7 +863,7 @@ docstring). -/
   ∀ c, c < K →
     d.nP ≤ rP c ∧
     ((rds c).map (·.2.2)).length = rP c + (d.IdsM (mem c) ψ).length + 1 ∧
-    (∀ xs : List V, SpineFit ρ (((rds c).map (·.2.2)).take d.nP) xs →
+    (∀ xs : List V, SpineFit ρ (((rds c).map (·.2.2)).take d.nP) xs ↔
       SpineFit ρ (d.params ψ) xs) ∧
     (∀ xs is : List V, xs.length = rP c →
       SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
@@ -862,38 +876,10 @@ docstring). -/
         = (xs.take d.nP ++ is).foldl SetTheory.app
             (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
 
-/-- **The index clause's UNPAYABLE half, as a predicate of its own**
-(session 26).
-
-It was the fifth conjunct of `BlockRecTyShape`; session 25 refuted the
-`↔` it lived in and isolated this direction as having NO producer and
-none reachable — the only run fact about the recursor's index binders
-is the per-argument `isDefEq` inside `checkConstantVal`'s INFERENCE of
-the major's domain, and reading it off needs an inversion of
-`inferTypeCore` through a Π-tower and an application spine.
-
-It is a PREDICATE of its own because `BlockRecTyShape` now has a run
-producer (`Model/Inductives/BlockRecTyShapeRun.lean`) and this clause
-would have blocked it.  Its single consumer is `blockRecJoin_of_shape`
-→ `hjoin` in `blockIndRegime_run`, where the IND leaf instantiates the
-induction motive `blockIndP` at a spine it must ASSEMBLE; the ruled
-repair (2026-09-22, the certificate lane's) is to state `blockIndP` at
-the SPLIT data instead, after which this predicate and `hjoin` both
-disappear.  It carries no `mo` and no `env`: it is about the binder
-data alone. -/
-@[expose] def BlockRecTyJoin (V : Type w) [SetTheory V] (d : BlockData V)
-    (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
-  ∀ c, c < K → ∀ xs is : List V, xs.length = rP c →
-    SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
-    SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is →
-    SpineFit (consList xs ρ)
-      ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
-
 /-! ### The index clause's PAYABLE half
 
-The shape's index clause is an `↔` and its two directions have two
-different provenances.  This is the FORWARD one, and it is the whole
+The shape's index clause is an implication, and this is the direction
+it is stated in — the only one with a producer.  It is the whole
 semantic content of the clause: a spine graded against the member's
 FORMER — which is a λ-tower over the member's parameter and index
 telescope — fits that telescope, because every application node's
@@ -1013,35 +999,9 @@ theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDat
   refine ⟨hxl, rfl, ?_, hidsF xs is hxl h1 h3, ?_⟩
   · have hp := spineFit_take_le (Fs := ((rds c).map (·.2.2)).take (rP c)) d.nP h1
     rw [List.take_take, Nat.min_eq_left hnP] at hp
-    exact hpar _ hp
+    exact (hpar _).mp hp
   · rw [hmajR xs is hxl hisl] at h4
     exact h4
-
-/-- **`hjoin` — `BlockRecSplitAt`'s CONVERSE**: an index spine fitting
-the member's own telescope and a major in the member's former assemble
-into a fit of the recursor type's binders PAST the rule prefix.  This
-is what the `ih` opener's peel is evaluated against
-(`blockIndIhLeaf_of`'s `hfitC'`). -/
-theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V}
-    {ψ : Name → Nat} {K : Nat} {rP mem : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ)
-    (hj : BlockRecTyJoin V d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
-    {xs is : List V} {maj : V} (hxl : xs.length = rP c)
-    (hpref : SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs)
-    (hidx : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
-    (hmaj : maj ∈ˢ (xs.take d.nP ++ is).foldl SetTheory.app
-      (interp V ρ (mo.acval (d.memberName (mem c)) ψ))) :
-    SpineFit (consList xs ρ) (((rds c).map (·.2.2)).drop (rP c)) (is ++ [maj]) := by
-  obtain ⟨hnP, hlenD, hpar, -, hmajR⟩ := h c hc
-  have hidsB := hj c hc
-  have hisl : is.length = (d.IdsM (mem c) ψ).length := hidx.length_eq
-  have hdrop : (((rds c).map (·.2.2)).drop (rP c)).length
-      = (d.IdsM (mem c) ψ).length + 1 := by rw [List.length_drop, hlenD]; omega
-  rw [list_drop_last hdrop]
-  refine SpineFit.append (hidsB xs is hxl hpref hidx) (spineFit_one ?_)
-  rw [hmajR xs is hxl hisl]
-  exact hmaj
 
 end TyShape
 

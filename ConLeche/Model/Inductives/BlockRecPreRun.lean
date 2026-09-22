@@ -1720,15 +1720,46 @@ section BlockInd
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
 
-/-- **The induction's motive**: every class eliminating this
-component, at every fitting spine with these parameters, this index
-tuple and this major, has its conclusion inhabited. -/
+/-- **The induction's motive**, at the SPLIT data: every class
+eliminating this component has its conclusion inhabited at the spine
+REBUILT from these parameters, a middle stretch, these indices and
+this major.
+
+Stated at the split rather than at a recursor-spine fit because the
+leaf that instantiates it HAS the split and would otherwise have to
+assemble a fit — and assembling one needs the shape's index clause
+backwards, a direction with no producer and none reachable.  The middle stretch `ms` keeps its OWN
+fit (binders `nP … rP-1`): the kernel never looks inside them while
+the rebuilt spine mentions them, so a rebuild that dropped it would be
+unsound — and it is the clause a rebuild drops silently, so it is
+stated first, here and in every premise that moved with it. -/
 @[expose] def blockIndP (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (K : Nat)
     (rP mem : Nat → Nat) (rds : Nat → List (Nat × Nat × AnnotTerm))
     (concl : Nat → AnnotTerm) (as : List V) (m : Nat) (i x : V) : Prop :=
-  ∀ c, c < K → mem c = m → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
-    (prefOf (rP c) ys).take d.nP = as → d.tup ψ (mem c) (idxOf (rP c) ys) = i →
-    majOf ys = x → (pt : V) ∈ˢ interp V (consList ys ρ) (concl c)
+  ∀ c, c < K → mem c = m → ∀ ms is : List V,
+    SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+    SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
+    d.tup ψ (mem c) is = i →
+    (pt : V) ∈ˢ interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c)
+
+/-- **A fit's TAIL fits, at the frame its head builds.**  The
+companion of `spineFit_take_le`.  `spineFit_split` (`BlockRuleFit.lean`)
+is the same fact DOWNSTREAM of this file, so the duplicate is forced by
+the import order, not chosen. -/
+theorem spineFit_dropAt {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
+    (h : SpineFit ρ Fs as) {n : Nat} (hn : n ≤ Fs.length) :
+    SpineFit (consList (as.take n) ρ) (Fs.drop n) (as.drop n) := by
+  have h' : SpineFit ρ (Fs.take n ++ Fs.drop n) as := by rw [List.take_append_drop]; exact h
+  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv h'
+  have hlen : as₁.length = n := by
+    rw [h1.length_eq, List.length_take]; omega
+  have hta : as.take n = as₁ := by
+    rw [heq, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+  have hdr : as.drop n = as₂ := by
+    rw [heq, List.drop_append_of_le_length (by omega), List.drop_of_length_le (by omega),
+      List.nil_append]
+  rw [hta, hdr]
+  exact h2
 
 /-- **The conclusion at every fitting spine, by the block's own
 induction.**  The outer induction is `lfpTuple_induction` at the
@@ -1738,6 +1769,7 @@ is the premise. -/
 theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat}
     {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
     (hmemK : ∀ c, c < K → mem c < d.k)
+    (hshape : BlockRecTyShape V mo d ψ K rP mem rds ρ)
     (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
     (hstep : ∀ as : List V, SpineFit ρ (d.params ψ) as →
       ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
@@ -1748,7 +1780,7 @@ theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat 
     ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       (pt : V) ∈ˢ interp V (consList ys ρ) (concl c) := by
   intro c hc ys hfit
-  obtain ⟨-, -, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
+  obtain ⟨-, hys2, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
   have hsat := d.satOfSpine hpar
   obtain ⟨hmono, -, hcl⟩ := hM.functor ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) hsat
   have hmemN : mem c < d.N := Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
@@ -1761,10 +1793,24 @@ theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat 
     rw [← hM.leaf (mem c) (hmemK c hc) ψ ρ ((prefOf (rP c) ys).take d.nP) (idxOf (rP c) ys)
       hpar hidx]
     exact hmaj
-  exact lfpTuple_induction hcl hmono
+  -- the MIDDLE stretch's fit, split out of the spine's own (free HERE,
+  -- because this consumer has a spine; it is a premise only at the leaf)
+  obtain ⟨hnP, hlenL, -, -, -⟩ := hshape c hc
+  have hmid := spineFit_dropAt (spineFit_take_le (rP c) hfit) (n := d.nP)
+    (by rw [List.length_take, List.length_map] at *; omega)
+  rw [List.drop_take] at hmid
+  -- **the REBUILD is `BlockRecSplitAt`'s SECOND component** — the split
+  -- predicate states `ys = prefOf ++ (idxOf ++ [majOf])` outright, and
+  -- the old proof discarded it with a `-`.
+  have hrebuild : (prefOf (rP c) ys).take d.nP ++ (prefOf (rP c) ys).drop d.nP
+      ++ idxOf (rP c) ys ++ [majOf ys] = ys := by
+    rw [List.append_assoc, List.take_append_drop]
+    exact hys2.symm
+  have hgoal := lfpTuple_induction hcl hmono
     (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP))
-    (hstep ((prefOf (rP c) ys).take d.nP) hpar) (mem c) hmemN _ hi _ hmajC c hc rfl ys hfit
-    rfl rfl rfl
+    (hstep ((prefOf (rP c) ys).take d.nP) hpar) (mem c) hmemN _ hi _ hmajC c hc rfl
+    ((prefOf (rP c) ys).drop d.nP) (idxOf (rP c) ys) hmid hidx rfl
+  rwa [hrebuild] at hgoal
 
 end BlockInd
 
@@ -5228,15 +5274,15 @@ theorem blockIndIhLeaf_of {RecTy : Nat → AnnotTerm} {c' : Nat} (hc' : c' < K)
     (hxs : xs.length = rP c') (hfs : fs.length = nF) (hbs : bs.length = m)
     (hes : eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))) = is)
     (hmk : interp V (consList bs (consList (xs ++ fs) ρ)) fapA = maj)
-    (hfitC' : SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [maj])))
+    (hmid : SpineFit (consList as ρ)
+      ((((rds c').map (·.2.2)).drop d.nP).take (rP c' - d.nP)) (xs.drop d.nP))
+    (hidxF : SpineFit (consList as ρ) (d.IdsM (mem c') ψ) is)
     (htake : xs.take d.nP = as)
     (hP : blockIndP d ψ ρ K rP mem rds concl as (mem c') (d.tup ψ (mem c') is) maj) :
     (pt : V) ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ)) CihR := by
   rw [blockRecCa_value hcon hTyE hrds hesLen hconclB hxs hfs hbs hes hmk]
-  refine hP c' hc' rfl (xs ++ (is ++ [maj])) hfitC' ?_ ?_ ?_
-  · rw [prefOf_split hxs]; exact htake
-  · rw [idxOf_split hxs]
-  · rw [majOf_split]
+  have hq := hP c' hc' rfl (xs.drop d.nP) is hmid hidxF rfl
+  rwa [← htake, List.take_append_drop, List.append_assoc] at hq
 
 /-- **`hihLeaf` AT ONE KEY, from the block** — §33's composition
 finished: the separated tuple's two halves (`blockIndPred_of`), the
@@ -5277,12 +5323,7 @@ theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo na
       = interp V (consList bs (consList (xs ++ fs) ρ)) fapA)
     (hpdE : pdoms c' = ((rds c').map (·.2.2)).take (rP c'))
     (hpref' : SpineFit ρ (pdoms c') xs)
-    (htake : xs.take d.nP = as)
-    (hjoin : ∀ (is : List V) (maj : V),
-      SpineFit (consList as ρ) (d.IdsM (mem c') ψ) is →
-      maj ∈ˢ (as ++ is).foldl SetTheory.app
-        (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
-      SpineFit (consList xs ρ) (((rds c').map (·.2.2)).drop (rP c')) (is ++ [maj]))
+    (htake : xs.take d.nP = as) (hnP' : d.nP ≤ rP c')
     (hcon : BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR)
     (hTyE : RecTy c' = mkPisAV (rds c') (concl c'))
     (hrds : (rds c').length = rP c' + nIdx + 1)
@@ -5297,14 +5338,13 @@ theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo na
     blockIndPred_of hM (d.satOfSpine hpar) hccN ht hj hfit hiF hrec htgtN hbsB
   rw [htgt] at hidx hcar hP
   rw [← hM.leaf (mem c') hmk' ψ ρ as _ hpar hidx] at hcar
-  have hfitC' : SpineFit ρ ((rds c').map (·.2.2))
-      (xs ++ ((((d.Eiss cc ψ).getD j []).getD i []).map
-          (interp V (consList bs (consList (fs.take i) (consList as ρ))))
-        ++ [bs.foldl SetTheory.app (fs.getD i pt)])) := by
-    rw [← List.take_append_drop (rP c') ((rds c').map (·.2.2))]
-    exact SpineFit.append (hpdE ▸ hpref') (hjoin _ _ hidx hcar)
+  -- the MIDDLE stretch's fit, off the prefix fit the caller already has:
+  -- no JOIN is assembled, which is the point of the split motive
+  have hmid := spineFit_dropAt (hpdE ▸ hpref') (n := d.nP)
+    (by rw [List.length_take, List.length_map, hrds]; omega)
+  rw [htake, List.drop_take] at hmid
   exact blockIndIhLeaf_of hc' hcon hTyE hrds hesLen hconclB hxs hfs hbsl hesB.symm hmkB.symm
-    hfitC' htake hP
+    hmid hidx htake hP
 
 /-- **The IND arm's step**, `blockIndPt`'s `hstep`.
 
@@ -5322,51 +5362,60 @@ theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo name
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
       BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
         (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hspF : ∀ c, c < K → ∀ (as ms is : List V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
-    (hih : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (as ++ ms ++ fs))
+    (hih : ∀ c, c < K → ∀ (as ms is : List V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j) (ihvals c j))
-    (hT : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
+      SpineFit (consList (as ++ ms ++ fs) ρ) (ihdoms c j) (ihvals c j))
+    (hT : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      majOf ys = d.inj ψ (mem c) j fs →
-      interp V (consList (ihvals c j) (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+      x = d.inj ψ (mem c) j fs →
+      interp V (consList (ihvals c j) (consList (as ++ ms ++ fs) ρ)) (Ca c j)
         ∈ˢ (univZero : V))
-    (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hCaE : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      majOf ys = d.inj ψ (mem c) j fs →
-      interp V (consList (ihvals c j) (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
-        = interp V (consList ys ρ) (concl c)) :
+      x = d.inj ψ (mem c) j fs →
+      interp V (consList (ihvals c j) (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c)) :
     ∀ as : List V, SpineFit ρ (d.params ψ) as →
       ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
         x ∈ˢ app (d.Φ ψ (consList as ρ)
             (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
               (blockIndP d ψ ρ K rP mem rds concl as)) m) i →
         blockIndP d ψ ρ K rP mem rds concl as m i x := by
-  intro as hpar m hm i hi x hx c hc hmc ys hys htk hti hmaj
+  intro as hpar m hm i hi x hx c hc hmc ms is hms his hti
   subst hmc
-  subst htk
   subst hti
-  subst hmaj
   obtain ⟨j, fs, hj, hfit, hxinj⟩ :=
-    (hM.fibre ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.satOfSpine hpar) _
-      (sepTuple_mem _ _ _ _ _) (mem c) hm _ hi (majOf ys)).mp hx
+    (hM.fibre ψ (consList as ρ) (d.satOfSpine hpar) _
+      (sepTuple_mem _ _ _ _ _) (mem c) hm _ hi x).mp hx
   have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
   have hres := (hcerts c hc j hjn).residueOk hμ
-    (hspF c hc ys hys j hjn fs hfit) (hih c hc ys hys j hjn fs hfit)
-  have hTv := hT c hc ys hys j hjn fs hxinj
-  rw [← hCaE c hc ys hys j hjn fs hxinj] at *
+    (hspF c hc as ms is hpar hms his j hjn fs hfit)
+    (hih c hc as ms is hpar hms his j hjn fs hfit)
+  have hTv := hT c hc as ms is x hpar hms his j hjn fs hxinj
+  rw [← hCaE c hc as ms is x hpar hms his j hjn fs hxinj] at *
   exact (eq_pt_of_mem_univZero hTv hres.2) ▸ hres.2
 
 /-- **`IndRegimeAt` FROM THE RUN**, the dispatch's `ℓ = 0` arm: §17's
@@ -5400,22 +5449,24 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
     {ihKeys : Nat → Nat → List (Nat × Nat)}
     (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hmemK : ∀ c, c < K → mem c < d.k)
+    (hlenP : (d.params ψ).length = d.nP)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hshape : BlockRecTyShape V mo d ψ K rP mem rds ρ)
-    (hjoinC : BlockRecTyJoin V d ψ K rP mem rds ρ)
     (hbits : OneElimLevel 0 K rds)
     (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
       BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
         (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hspF : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hspF : ∀ c, c < K → ∀ (as ms is : List V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
+      SpineFit ρ (pdoms c ++ fdoms c j) (as ++ ms ++ fs))
     (hihLen : ∀ c, c < K → ∀ j, j < nCt c → (ihdoms c j).length = (ihKeys c j).length)
     (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
     (hprefU : ∀ c, c < K → ∀ c', c' < K → ∀ xs : List V,
@@ -5440,20 +5491,26 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         (ihdoms c j).getD r default
           = (mkPisAV (ihTeleAtR nF (rP c - d.nP) i 0
               (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i []))) CihR).liftN r 0)
-    (hTStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hTStep : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      majOf ys = d.inj ψ (mem c) j fs →
+      x = d.inj ψ (mem c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
-            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
         ∈ˢ (univZero : V))
-    (hCaE : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (hCaE : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      majOf ys = d.inj ψ (mem c) j fs →
+      x = d.inj ψ (mem c) j fs →
       interp V
           (consList (List.replicate (ihdoms c j).length (pt : V))
-            (consList (prefOf (rP c) ys ++ fs) ρ)) (Ca c j)
-        = interp V (consList ys ρ) (concl c))
+            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
+        = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c))
     (hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
@@ -5481,30 +5538,38 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
   -- `spineFit_ihdoms_zero` (which wants one `Cih` for all of them);
   -- the telescope needs no choice, because the key's FIELD index
   -- determines it.
-  have hihFit : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+  have hihFit : ∀ c, c < K → ∀ as ms is : List V,
+      SpineFit ρ (d.params ψ) as →
+      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
+      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
       ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-          (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
+      d.ChainFit ψ (consList as ρ)
+        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ))
+          (d.Φ ψ (consList as ρ))
+          (blockIndP d ψ ρ K rP mem rds concl as))
+        (d.tup ψ (mem c) is) (mem c) j fs →
+      SpineFit (consList (as ++ ms ++ fs) ρ) (ihdoms c j)
         (List.replicate (ihdoms c j).length (pt : V)) := by
-    intro c hc ys hys j hjn fs hfit
-    obtain ⟨hxlen, -, hpar, hidxfit, -⟩ := hsplitR c hc ys hys
-    obtain ⟨hnPc, -, -, -, -⟩ := hshape c hc
+    intro c hc as ms is hpar hms hidxfit j hjn fs hfit
+    obtain ⟨hnPc, hlenDc, hparI, -, -⟩ := hshape c hc
+    -- the SPLIT data is what the run has; the recursor's own prefix
+    -- spine is `as ++ ms`, and it is assembled here from the parameter
+    -- clause's `↔` and the middle stretch's own fit — never from an
+    -- index fit, which is the direction that has no producer
     -- the frame data the bridge is stated at, none of it per key
-    have hasl : ((prefOf (rP c) ys).take d.nP).length = d.nP := by
-      rw [List.length_take, hxlen]; omega
+    have hasl : as.length = d.nP := by rw [hpar.length_eq, hlenP]
+    have hmsl : ms.length = rP c - d.nP := by
+      rw [hms.length_eq, List.length_take, List.length_drop, hlenDc]; omega
     have hfsl : fs.length = ((d.Fss (mem c) ψ).getD j []).length := hfit.1.length_eq
-    have hxl2 : (prefOf (rP c) ys).length
-        = ((prefOf (rP c) ys).take d.nP).length + (rP c - d.nP) := by
-      rw [hasl, hxlen]; omega
-    have htake2 : (prefOf (rP c) ys).take ((prefOf (rP c) ys).take d.nP).length
-        = (prefOf (rP c) ys).take d.nP := by rw [hasl]
-    have hpref : SpineFit ρ (pdoms c) (prefOf (rP c) ys) := by
-      rw [hpdE c hc]
-      exact spineFit_take_le (rP c) hys
+    have hxlen : (as ++ ms).length = rP c := by
+      rw [List.length_append, hasl, hmsl]; omega
+    have hxl2 : (as ++ ms).length = as.length + (rP c - d.nP) := by
+      rw [List.length_append, hmsl]
+    have htake2 : (as ++ ms).take as.length = as := by
+      rw [List.take_append_of_le_length (Nat.le_refl _), List.take_of_length_le (Nat.le_refl _)]
+    have hpref : SpineFit ρ (pdoms c) (as ++ ms) := by
+      rw [hpdE c hc, show rP c = d.nP + (rP c - d.nP) from by omega, take_add_eq_append]
+      exact SpineFit.append ((hparI as).mpr hpar) hms
     -- the opener's two facts at ONE key, with the conclusion still bound
     have hex : ∀ r : Nat, ∃ CihR : AnnotTerm, r < (ihKeys c j).length →
         (ihdoms c j).getD r default
@@ -5513,12 +5578,12 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
                 (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
                   ((ihKeys c j).getD r (0, 0)).1 []))) CihR).liftN r 0 ∧
           ∀ bs : List V,
-            SpineFit (consList (prefOf (rP c) ys ++ fs) ρ)
+            SpineFit (consList ((as ++ ms) ++ fs) ρ)
               ((ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP)
                 ((ihKeys c j).getD r (0, 0)).1 0
                 (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
                   ((ihKeys c j).getD r (0, 0)).1 []))).map (·.2.2)) bs →
-            (pt : V) ∈ˢ interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) CihR := by
+            (pt : V) ∈ˢ interp V (consList bs (consList ((as ++ ms) ++ fs) ρ)) CihR := by
       intro r
       by_cases hr : r < (ihKeys c j).length
       · obtain ⟨i, c', nF, nIdx, m, eisA, fapA, CihR, hk1, hk2, hc', hiF, hrec, htgt,
@@ -5533,29 +5598,21 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         have hbsB := spineFit_ihTeleAtR_rule hxl2 htake2 hfsl' hbs
         have hesB : (((d.Eiss (mem c) ψ).getD j []).getD i []).map
               (interp V (consList bs (consList (fs.take i)
-                (consList ((prefOf (rP c) ys).take d.nP) ρ))))
-            = eisA.map (interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ))) := by
+                (consList (as) ρ))))
+            = eisA.map (interp V (consList bs (consList ((as ++ ms) ++ fs) ρ))) := by
           rw [hes, List.map_map]
           exact (List.map_congr_left fun E _ =>
             interp_ihIdxAtM_rule hxl2 htake2 hfsl' hbsl E).symm
         have hmkB : bs.foldl SetTheory.app (fs.getD i pt)
-            = interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) fapA := by
+            = interp V (consList bs (consList ((as ++ ms) ++ fs) ρ)) fapA := by
           rw [hfap]
           exact (interp_fieldApp_rule hfsl' (by rw [← hnF]; exact hiF) hbsl).symm
         -- the guard at the CALLEE's class, and the callee's spine ASSEMBLED
         have hpref' := hprefU c hc c' hc' _ hpref
-        have hxs' : (prefOf (rP c) ys).length = rP c' := by
+        have hxs' : (as ++ ms).length = rP c' := by
           have hq := hpref'.length_eq
           rw [hpdE c' hc', List.length_take, hlenDc'] at hq
           omega
-        have hjoin : ∀ (is : List V) (maj : V),
-            SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c') ψ) is →
-            maj ∈ˢ ((prefOf (rP c) ys).take d.nP ++ is).foldl SetTheory.app
-              (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
-            SpineFit (consList (prefOf (rP c) ys) ρ) (((rds c').map (·.2.2)).drop (rP c'))
-              (is ++ [maj]) :=
-          fun _ _ h1 h2 =>
-            blockRecJoin_of_shape hshape hjoinC hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
         -- the callee's arities
         have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
           rw [List.length_map] at hlenDc'
@@ -5564,7 +5621,8 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         exact blockIndIhLeaf_pred hM hc' (hmemK c' hc') hpar
           (Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)) (tupW_mem hidxfit)
           (by rw [hnCt c hc]; exact hjn) hfit hiF hrec htgt hbsB hesB hmkB (hpdE c' hc')
-          hpref' rfl hjoin hcon (hTyE c' hc') hrdsLen hesLen (hconclB c' hc') hxs' hfsl' hbsl
+          hpref' (by rw [← hasl]; exact htake2) (hshape c' hc').1 hcon (hTyE c' hc') hrdsLen hesLen (hconclB c' hc')
+          hxs' hfsl' hbsl
       · exact ⟨default, fun h => absurd h hr⟩
     obtain ⟨CF, hCF⟩ := Classical.axiomOfChoice hex
     exact spineFit_ihdoms_zero (ihKeys := ihKeys c j)
@@ -5580,7 +5638,7 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
       (fun r hr bs hbs => (hCF r hr).2 bs hbs)
   exact ⟨envT, mp, F, ihdoms, Ca, hμ,
     hind_of_spines hbits hTyE
-      (blockIndPt hM hmemK hsplitR
+      (blockIndPt hM hmemK hshape hsplitR
         (blockIndStep (ihvals := fun c j => List.replicate (ihdoms c j).length (pt : V))
           hμ hM hnCt hcerts hspF hihFit hTStep hCaE)),
     hcerts, hihReg, hTReg⟩
