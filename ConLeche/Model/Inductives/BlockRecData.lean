@@ -2194,6 +2194,35 @@ theorem instLamsAt_rest_eq :
     | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
       exact absurd h1 (by simp [ConLeche.Expr.instLamsAt])
 
+omit [SetTheory V] in
+/-- A stripped λ-tower's body stays loose-bvar-bounded by the strip
+depth — `stripPis_body_bounded`'s twin, which the residue's `hbB`
+needs off the rule's own `looseBVarsBounded 0`. -/
+theorem stripLams_body_bounded :
+    ∀ (k : Nat) {e : ConLeche.Expr} {bs : List (ConLeche.Expr × ConLeche.BinderMeta)}
+      {body : ConLeche.Expr} {j : Nat},
+      ConLeche.Expr.stripLams k e = some (bs, body) →
+      ConLeche.Expr.looseBVarsBounded j e = true →
+      ConLeche.Expr.looseBVarsBounded (j + k) body = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body j h hb
+    simp only [ConLeche.Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hb
+  | succ k ih =>
+    intro e bs body j h hb
+    match e, h with
+    | .lam ty b m, h =>
+      simp only [ConLeche.Expr.stripLams, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
+      obtain ⟨-, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body := by simpa using heq
+      simp only [ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+      have hq := ih hbstrip hb.2
+      rw [show j + 1 + k = j + (k + 1) from by omega] at hq
+      exact hq
+
 end Peel
 
 /-! ## A.10 A-2, split — the PREFIX half at the run, and what the
