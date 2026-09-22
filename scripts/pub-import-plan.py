@@ -54,6 +54,27 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (M5, the per-pair rule obligation): `BlockRuleFit.lean`
+    # re-exports `Model/Inductives/BlockRecPreRun.lean` because
+    # `BlockRecSplitAt` is named by THREE of its public statements, and
+    # because that line is where the file's `variable` binder gets
+    # `[SetTheory V]` (a class in a variable binder stores no census row —
+    # the `BlockStageRec`/`EnvModelM` case below).  MEASURED: demoting it
+    # fails the build with `Unknown identifier SetTheory`, and adding
+    # `public import ...BlockRecData` instead leaves three `Unknown
+    # identifier BlockRecSplitAt` with the compiler naming the line back.
+    ('ConLeche.Model.Inductives.BlockRuleFit',
+     'ConLeche.Model.Inductives.BlockRecPreRun'),
+    # task #315 (M5, same session): the entry above is a NEW public edge,
+    # and the plan's fixpoint is greedy and order-dependent, so it made
+    # `FixAssemblyKit -> FixWitness` look demotable for the first time —
+    # a second public path to `FixWitness`'s content now exists.  It is
+    # not demotable: MEASURED, demoting it fails the build with
+    # `Unknown identifier recAt_iff_rsOf`, which
+    # `Model/Inductives/BlockRecPreRun.lean` names in a public statement
+    # and reaches only through this re-export.
+    ('ConLeche.Model.Inductives.FixAssemblyKit',
+     'ConLeche.Model.Inductives.FixWitness'),
     ('ConLeche.Model.Install',        'ConLeche.Model.Annot.BitExtend'),
     ('ConLeche.Model.Install',        'ConLeche.Semantics.ConstsBound'),
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),
