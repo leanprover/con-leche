@@ -83593,3 +83593,39 @@ NOT kept on "it might be useful", which is the argument the same lane
 had just rejected for its own theorem.  If the tree is to carry no
 unconsumed component, the revert is two lines and belongs with that
 lane's merge.
+
+#### RULE (lane SEC2, and it generalises past this arm): **a check that exists to make a model fact reachable should state the CHECKER'S OWN predicate, not the one fact its first consumer needed**
+
+The overlap between two routes to the same facts was **not** resolved by
+picking a winner.  The new pass had been stating `p.k == 1` — the one
+fact its first consumer wanted — and that made it *weaker* and created
+the second name.  Restating it as the guard's own predicate
+(`blockLargeElimAllowed p nested || every checked level is zero`, the
+same implication the stage's `isDefEq` arm expresses, with the refutable
+half in the slot the model can actually refute) made it *stronger*,
+deleted the second name, **and unblocked two premises nobody had asked
+for** — the squash arm's constructor-count and non-nestedness.
+
+The other lane's theorem is now the READING and the pass is the
+LICENCE, with no second derivation of anything.  And the deferred
+`isDefEqCore`-through-`whnf` inversion is unnecessary for its other
+would-be consumer as well: it existed precisely to reach the guard's
+verdict from a non-zero level, and the pass reaches it directly.
+
+**The two surviving licences are NOT duplicates**: one gets the
+declared shape from the elimination-level PIN with no Prop-valued
+hypothesis, so it still says something at a `Type` block where the
+counting route says nothing.  Two licences, different domains, with a
+docstring saying which to reach for.
+
+**A sequencing artifact worth recording**: the regime lane deleted that
+theorem as unusable (correctly, when written — its antecedent had no
+producer) in the same hour that this lane made it usable.  The deletion
+is being reverted by the lane that now calls it, as part of its merge.
+When two lanes reconcile a duplication from both sides at once, the one
+that *acquires* a producer wins the sequencing, and the branch that
+merges last carries the repair.
+
+Measured again from scratch after the predicate changed, the new clause
+being strictly stricter: byte-identical on 247 e2e and 182 arena
+streams, `init-full` exit 0 at 53 093 declarations under the flip.
