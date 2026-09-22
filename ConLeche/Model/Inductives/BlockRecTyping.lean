@@ -11,6 +11,8 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.FixStageFormer
 
 public section
 
@@ -718,17 +720,60 @@ implication between fits, not as a syntactic equality — the recursor
 stream stores its own copy of the parameter binders, and only their
 READINGS are owed); the index
 stretch FITS exactly as the member's own telescope does at the
-parameter frame (an `↔`, because the two directions are the two
-consumers); and the last binder reads as the member's former applied
-to the parameters and to the index values.
+parameter frame (TWO clauses, one per direction — the two directions
+are the two consumers, and they have two DIFFERENT provenances, which
+is why they are no longer one `↔`); and the last binder reads as the
+member's former applied to the parameters and to the index values.
 
 Nothing here is about the recursion or about a rule: every clause is a
 reading of the recursor's own type, which is where the recursor-type
-lane delivers it.  The two frame clauses quantify over ALL prefix
-spines of the right length because their content is a LIFTING identity
-— the index domains are the member's lifted past the prefix's
-`rP - nP` extra binders, and a lift does not look at the values it
-crosses. -/
+lane delivers it.
+
+**The index clause is bounded by the prefix's own FIT** (session 25,
+and the correction of session 24's justification).  It was stated at
+EVERY prefix spine of the right length, on the ground that its content
+is "a lifting identity — the index domains are the member's lifted
+past the prefix's `rP - nP` extra binders".  That ground is false:
+`checkBlockRecTys` stores the stream's recursor type AS IS and never
+compares its index binders with the member's telescope — not
+syntactically, and not by an `isDefEq` of its own.  The only tie is
+the MAJOR's domain `T_m p⃗ ı⃗` being TYPE-CORRECT, i.e. the per-argument
+`isDefEq`s inside `checkConstantVal`'s inference, and a `DefEqClaim`
+concludes at the frames satisfying the opened context and at no
+others.  At a prefix spine that fits nothing, a defeq-but-differently-
+spelled index binder (`(fun β => β) α` for `α`, which the checker
+accepts) reads to an application off its own domain and the `↔` fails.
+So the clause takes the prefix fit its two consumers both already
+have — and it is split in two, because only ONE of the directions is
+payable.
+
+* **forward** (a fit of the recursor's index domains is a fit of the
+  member's telescope) is `spineFit_of_major_grading` below: the
+  MAJOR's domain is `T_m p⃗ ı⃗` on the nose, so its reading is a spine
+  against the member's FORMER, and a spine graded against a λ-tower
+  fits the tower's own domains.  The recursor's index binders are not
+  looked at at all — which is exactly why this direction works.
+* **backward** (a fit of the member's telescope is a fit of the
+  recursor's index domains) has NO producer, and none is reachable
+  with today's machinery.  The only run fact about those domains is
+  the per-argument `isDefEq` inside `checkConstantVal`'s inference of
+  the major's domain, and reading it off needs an inversion of
+  `inferTypeCore` through a Π-tower and an application spine, which
+  does not exist.  Its consumer is `hjoin`/`hfitC'` — the IND arm's
+  leaf, which instantiates the induction MOTIVE (`blockIndP`) at a
+  spine it has to assemble.  The cheaper repair is on the motive's
+  side: state `blockIndP` at the SPLIT data (the prefix's fit, the
+  member's index fit, the major's membership) instead of at a
+  recursor-spine fit, and the assembly disappears — its consumer
+  `blockIndPt` already converts a spine fit into the split data by
+  the FORWARD direction.
+
+The MAJOR clause keeps its all-frames quantification, and that is not
+an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the
+major's domain to `.const T_m lvls` applied to the prefix and index
+BINDERS, so its reading is `mkAppN (acval T_m ψ) (bvars)` and `interp`
+folds it into `app`s at every frame, with the bvars landing on the
+spine by position. -/
 
 section TyShape
 
@@ -803,14 +848,120 @@ docstring). -/
     (∀ xs : List V, SpineFit ρ (((rds c).map (·.2.2)).take d.nP) xs →
       SpineFit ρ (d.params ψ) xs) ∧
     (∀ xs is : List V, xs.length = rP c →
-      (SpineFit (consList xs ρ)
-          ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
-        ↔ SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)) ∧
+      SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
+      SpineFit (consList xs ρ)
+          ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is →
+      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is) ∧
+    (∀ xs is : List V, xs.length = rP c →
+      SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs →
+      SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is →
+      SpineFit (consList xs ρ)
+          ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is) ∧
     (∀ xs is : List V, xs.length = rP c → is.length = (d.IdsM (mem c) ψ).length →
       interp V (consList is (consList xs ρ))
           ((((rds c).map (·.2.2)).drop (rP c)).getD (d.IdsM (mem c) ψ).length default)
         = (xs.take d.nP ++ is).foldl SetTheory.app
             (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
+
+/-! ### The index clause's PAYABLE half
+
+The shape's index clause is an `↔` and its two directions have two
+different provenances.  This is the FORWARD one, and it is the whole
+semantic content of the clause: a spine graded against the member's
+FORMER — which is a λ-tower over the member's parameter and index
+telescope — fits that telescope, because every application node's
+product carries the abstraction's own domain
+(`spineFit_of_wellDenoted_lams`, `lamR_mem_piR_dom`).  The major's
+domain is `T_m p⃗ ı⃗` on the nose (`checkBlockRecTys` pins it
+syntactically), so its READING is that spine and the grading is the
+recursor type's own (`piTeleAV_graded` at the major's position).
+
+Nothing here looks at the recursor's index BINDERS: their domains are
+the stream's own copies and the checker never compares them with the
+member's telescope.  What carries the fit is the major, and that is
+why the clause is bounded by the prefix's fit — off a fitting prefix
+the grading is not available either. -/
+
+/-- **The major's prefix arguments read to the parameters.**  The
+argument spine is `paramBvarsAt nP (rP + nIdx)` — the block's
+parameter binders seen from the major's own depth — and the frame
+below the major is the prefix followed by the index values, so the
+`k`-th one lands on `xs`'s `k`-th entry. -/
+theorem map_paramBvarsAt_major {nP rP nIdx : Nat} {xs is : List V} {ρ : Nat → V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP) :
+    (paramBvarsAt nP (rP + nIdx)).map (interp V (consList (xs ++ is) ρ)) = xs.take nP := by
+  have htkl : (xs.take nP).length = nP := by rw [List.length_take, hxs]; omega
+  have hfr : consList (xs ++ is) ρ
+      = consList (xs.drop nP ++ is) (consList (xs.take nP) ρ) := by
+    rw [← consList_append, ← List.append_assoc, List.take_append_drop]
+  rw [show rP + nIdx = nP + ((rP - nP) + nIdx) from by omega]
+  rw [map_paramBvarsAt_interp (ρp := consList (xs.take nP) ρ) (fun j => by
+    rw [hfr, show (rP - nP) + nIdx = (xs.drop nP ++ is).length from by
+      rw [List.length_append, List.length_drop, hxs, his]]
+    exact consList_apply_add _ _ j)]
+  rw [← frameIdx_eq_reverse_map]
+  have hfx := frameIdx_consList' (xs.take nP) ρ
+  rw [htkl] at hfx
+  exact hfx
+
+/-- **The major's index arguments read to the index values.** -/
+theorem map_teleVarsAV_major {nIdx : Nat} {xs is : List V} {ρ : Nat → V}
+    (his : is.length = nIdx) :
+    (teleVarsAV nIdx).map (interp V (consList (xs ++ is) ρ)) = is := by
+  rw [consList_append, ← his]
+  exact map_teleVarsAV_interp is (consList xs ρ)
+
+/-- **The MAJOR clause, from the major's READING** — the shape's last
+conjunct, which is the reading folded into applications.  It needs no
+fit and no frame hypothesis: `checkBlockRecTys` pins the major's
+domain to the member's constant applied to the prefix and the index
+binders, and `interp` folds a spine at every frame. -/
+theorem interp_of_major_reading {env : Env} {mo : EnvModel V env} {nm : Name}
+    {ψ : Name → Nat} {ρ : Nat → V} {nP rP nIdx : Nat} {xs is : List V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP)
+    (hcl : ∀ ρ₁ ρ₂ : Nat → V,
+      interp V ρ₁ (mo.acval nm ψ) = interp V ρ₂ (mo.acval nm ψ)) :
+    interp V (consList (xs ++ is) ρ)
+        (AnnotTerm.mkAppN (mo.acval nm ψ) (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx))
+      = (xs.take nP ++ is).foldl SetTheory.app (interp V ρ (mo.acval nm ψ)) := by
+  rw [interp_mkAppN, ← List.foldl_map (g := fun r a => SetTheory.app r a),
+    List.map_append, map_paramBvarsAt_major hxs his hnP, map_teleVarsAV_major his,
+    hcl (consList (xs ++ is) ρ) ρ]
+
+/-- **The eliminated member's index fit, from the MAJOR's grading.**
+
+`Params ++ Ids` is the member's own opened telescope (its first `nP`
+entries the block's parameters, the rest its indices); `pps` is the
+telescope the former's λ-tower binds.  The conclusion splits at `nP`
+because that is where the two consumers read it. -/
+theorem spineFit_of_major_grading {u : Nat} (hu : u ≠ 0)
+    {env : Env} {mo : EnvModel V env} {nm : Name} {ψ : Name → Nat} {ρ : Nat → V}
+    {pps : List (Nat × Nat × AnnotTerm)} {B : AnnotTerm}
+    {Params Ids : List AnnotTerm} {nP rP nIdx : Nat} {xs is : List V}
+    (hxs : xs.length = rP) (his : is.length = nIdx) (hnP : nP ≤ rP)
+    (hPlen : Params.length = nP) (hppsLen : nP + nIdx ≤ pps.length)
+    (hsplitD : (pps.take (nP + nIdx)).map (·.2.2) = Params ++ Ids)
+    (hlam : interp V (consList (xs ++ is) ρ) (mo.acval nm ψ)
+      = interp V ρ (mkLamsC u pps B))
+    (hwd : WellDenoted V (consList (xs ++ is) ρ)
+      (AnnotTerm.mkAppN (mo.acval nm ψ)
+        (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx))) :
+    SpineFit ρ Params (xs.take nP) ∧
+      SpineFit (consList (xs.take nP) ρ) Ids is := by
+  have htkl : (xs.take nP).length = nP := by rw [List.length_take, hxs]; omega
+  have hargs : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).map
+      (interp V (consList (xs ++ is) ρ)) = xs.take nP ++ is := by
+    rw [List.map_append, map_paramBvarsAt_major hxs his hnP, map_teleVarsAV_major his]
+  have halen : (paramBvarsAt nP (rP + nIdx) ++ teleVarsAV nIdx).length = nP + nIdx := by
+    simp [paramBvarsAt, teleVarsAV]
+  have hfit := spineFit_of_wellDenoted_lams (V := V) hu (by rw [halen]; exact hppsLen) hwd hlam
+  rw [halen, hsplitD, hargs] at hfit
+  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
+  have hl1 : as₁.length = nP := by rw [h1.length_eq, hPlen]
+  obtain ⟨he1, he2⟩ := List.append_inj heq (by rw [htkl, hl1])
+  subst he1
+  subst he2
+  exact ⟨h1, h2⟩
 
 /-- **`BlockRecSplitAt`, from the type's shape** — the FORWARD
 direction: a fitting spine decomposes, its prefix's parameters fit the
@@ -829,10 +980,10 @@ theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDat
       majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl SetTheory.app
         (interp V ρ (mo.acval (d.memberName (mem c)) ψ)) := by
   intro c hc ys hfit
-  obtain ⟨hnP, hlenD, hpar, hids, hmajR⟩ := h c hc
+  obtain ⟨hnP, hlenD, hpar, hidsF, -, hmajR⟩ := h c hc
   obtain ⟨xs, is, mj, rfl, hxl, hisl, h1, h3, h4⟩ := spineFit_split_three hlenD hfit
   rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
-  refine ⟨hxl, rfl, ?_, (hids xs is hxl).mp h3, ?_⟩
+  refine ⟨hxl, rfl, ?_, hidsF xs is hxl h1 h3, ?_⟩
   · have hp := spineFit_take_le (Fs := ((rds c).map (·.2.2)).take (rP c)) d.nP h1
     rw [List.take_take, Nat.min_eq_left hnP] at hp
     exact hpar _ hp
@@ -849,16 +1000,17 @@ theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
     (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
     {xs is : List V} {maj : V} (hxl : xs.length = rP c)
+    (hpref : SpineFit ρ (((rds c).map (·.2.2)).take (rP c)) xs)
     (hidx : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
     (hmaj : maj ∈ˢ (xs.take d.nP ++ is).foldl SetTheory.app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))) :
     SpineFit (consList xs ρ) (((rds c).map (·.2.2)).drop (rP c)) (is ++ [maj]) := by
-  obtain ⟨hnP, hlenD, hpar, hids, hmajR⟩ := h c hc
+  obtain ⟨hnP, hlenD, hpar, -, hidsB, hmajR⟩ := h c hc
   have hisl : is.length = (d.IdsM (mem c) ψ).length := hidx.length_eq
   have hdrop : (((rds c).map (·.2.2)).drop (rP c)).length
       = (d.IdsM (mem c) ψ).length + 1 := by rw [List.length_drop, hlenD]; omega
   rw [list_drop_last hdrop]
-  refine SpineFit.append ((hids xs is hxl).mpr hidx) (spineFit_one ?_)
+  refine SpineFit.append (hidsB xs is hxl hpref hidx) (spineFit_one ?_)
   rw [hmajR xs is hxl hisl]
   exact hmaj
 
