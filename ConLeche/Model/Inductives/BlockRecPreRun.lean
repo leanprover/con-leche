@@ -8223,10 +8223,28 @@ produces it:
   the instantiating readings' grading.
 
 `hexF` and `hexI` are the two segments' reading-EXISTENCE premises in
-§40.2's shape (`readOpenedDoms_shift_reads` and
-`blockRuleIhOpenerReads_of` are their producers); they are stated as
-existences, not as list equations, because `readOpenedDoms` is a
-reading by construction and that is all the bundle asks. -/
+§40.2's shape; they are stated as existences, not as list equations,
+because `readOpenedDoms` is a reading by construction and that is all
+the bundle asks.
+
+**Both are produced elsewhere, and the composition is one line each**
+— checked against the producers' own statements, which match these
+antecedents and depths character for character:
+
+* `hexF` is `blockRuleFdomsAV_eq`'s SECOND conjunct
+  (`BlockRecData.lean`), the per-opener reading at
+  `rulePrefixAt c + l`: `fun l x hx => ⟨_, (…).2 l x hx⟩`;
+* `hexI` is `blockIhOpenerDom_run`'s last component
+  (`BlockRecTyShapeRun.lean`) at `rP + nF + r`, through the key
+  (`fr.ihKeys[r]? = some (i, c')`, which every `r < nR` has since
+  `nR = ihKeys.length`).
+
+They stay PREMISES rather than being discharged inside: the two
+producers together take some eighteen arguments — the constructor
+data record, the opener frame and the callee's type facts — and
+trading two bounded existences for eighteen record premises is the
+over-quantification this file has repaired a dozen times.  The caller
+holds those records; the one-liners belong at the call site. -/
 
 section CertsRun
 
@@ -8656,6 +8674,59 @@ theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
     rfl
   exact blockRecConcl_univZero_of_value hμ mpC h hrd ψ hop hinf hens hu0 hys hval
+
+/-- **`h0`, the `ih` segment's BIT CLAUSE, DISCHARGED** — and the
+"frame move" §S25.4 priced for it does not exist.
+
+The clause asks that the guarded call's conclusion be a TRUTH VALUE at
+the segment's own frame.  §37's `blockIndIhLeaf_of` already evaluates
+that conclusion, and it does so with **`blockRecCa_value` applied
+verbatim**: §32's identification of the peel's prefix arguments
+(`prefVarsAV rP (nF + m)` IS `paramBvarsAt rP (rP + nF + m)`) makes
+the `ih` opener's `BlockRuleConclAt` the same object the RULE's
+conclusion is, and the frame `consList bs (consList (xs ++ fs) ρ)`
+is §29's shape with the field telescope's values in the `ih` block's
+slot.  So `h0` is this lane's `univZero` producer (§40.15) composed
+with that evaluation, and nothing about frames had to be said.
+
+Stated at the CALLEE's index `c'`, because that is whose recursor type
+the call's conclusion peels. -/
+theorem blockRuleIseg_h0_of_conclAt {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c' : Nat} {r' : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr' : rs[c']? = some r') (ψ : Name → Nat)
+    {fvs : List Expr} {conclE sty : Expr} {u : Level}
+    (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c' + 1) r'.1.type 0
+      = some (fvs, conclE))
+    (hinf : ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c' + 1) conclE
+      = .ok sty)
+    (hens : ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c' + 1) sty
+      = .ok u)
+    (hu0 : u.eval ψ = 0)
+    {nF m nIdx : Nat} {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
+    (hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') nF m
+      (blockRecTyAV mpC.base2.acval envC rs ψ c') eisA fapA CihR)
+    (hrds : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length
+      = p.toBlockShape.rulePrefixAt c' + nIdx + 1)
+    (hesLen : eisA.length = nIdx)
+    (hconclB : Term.bvarsBelow
+      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length
+      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c').erase)
+    {ρ : Nat → V} {xs fs bs is : List V} {maj : V}
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c') (hfs : fs.length = nF)
+    (hbs : bs.length = m)
+    (hes : eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))) = is)
+    (hmk : interp V (consList bs (consList (xs ++ fs) ρ)) fapA = maj)
+    (hfit : SpineFit ρ
+      ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map (·.2.2))
+      (xs ++ (is ++ [maj]))) :
+    interp V (consList bs (consList (xs ++ fs) ρ)) CihR ∈ˢ (univZero : V) := by
+  obtain ⟨-, -, -, -, hTyE, -, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr' ψ
+  exact blockRecConcl_univZero_of_value hμ mpC h hr' ψ hop hinf hens hu0 hfit
+    (blockRecCa_value hcon hTyE hrds hesLen hconclB hxs hfs hbs hes hmk)
 
 end ConclUniv
 
