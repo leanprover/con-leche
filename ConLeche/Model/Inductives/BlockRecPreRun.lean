@@ -3267,6 +3267,99 @@ theorem blockRecIhvAt_eq {ℓ K rP nF N : Nat} {a ρ : Nat → V} {xs fs : List 
     show app g _ = interp V (consList bs (consList (xs ++ fs) (chainFrame K a ρ))) _
     rw [hbody, ← hcall key hkm bs hbs]
 
+/-! ### The call's arguments, across the two frames -/
+
+/-- The two towers' LEAF frames agree below the rule's own depth plus
+the telescope's: both are `consList` of the same entries. -/
+theorem consList_chain_agree_leaf {K N : Nat} {a ρ : Nat → V} {ws bs : List V}
+    (hN : N = ws.length) :
+    ∀ i, i < N + bs.length →
+      consList bs (consList ws ρ) i = consList bs (consList ws (chainFrame K a ρ)) i := by
+  intro i hi
+  rw [← consList_append, ← consList_append]
+  exact consList_below_indep _ _ _ i (by rw [List.length_append]; omega)
+
+/-- A form bounded at the leaf frame's depth reads the same under the
+base frame and under the chain frame. -/
+theorem interp_leaf_chain {K N : Nat} {a ρ : Nat → V} {ws bs : List V} {e : AnnotTerm}
+    (hN : N = ws.length) (hb : Term.bvarsBelow (N + bs.length) e.erase) :
+    interp V (consList bs (consList ws ρ)) e
+      = interp V (consList bs (consList ws (chainFrame K a ρ))) e :=
+  interp_congr_below (V := V) e (N + bs.length) _ _ hb (consList_chain_agree_leaf hN)
+
+/-- **`blockRecIhvAt_eq`'s `hcall`, at the run.**  `blockRecIhCall`
+with the call's arguments read at the BASE frame — where the ih VALUES
+live — rather than at the chain frame, where the ih TERMS do; the two
+readings agree because the arguments are bounded at the leaf frame's
+depth (`heisB`, `hfapB`), which is the same premise `htlB` is. -/
+theorem blockRecIhCall_run {ℓ K N : Nat} {rP : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ρ : Nat → V}
+    (D : RecFamData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)
+    {c' : Nat} {xs fs bs : List V} {u : V} {eis : List AnnotTerm} {fap : AnnotTerm}
+    (hN : N = (xs ++ fs).length)
+    (heisB : ∀ e ∈ eis, Term.bvarsBelow (N + bs.length) e.erase)
+    (hfapB : Term.bvarsBelow (N + bs.length) fap.erase)
+    (hxl : xs.length = rP c')
+    (hsp : SpineFit ρ ((rds c').map (·.2.2))
+      (xs ++ (eis.map (interp V (consList bs (consList (xs ++ fs)
+            (chainFrame K (famCand D) ρ))))
+        ++ [interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))) fap])))
+    (hpred : (tagged c'
+        (D.tupOf c' (eis.map (interp V (consList bs (consList (xs ++ fs)
+          (chainFrame K (famCand D) ρ))))))
+        (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))) fap) : V)
+      ∈ˢ (D.kit xs).pred u) :
+    app (kitGraphAt (D.kit xs) u)
+        (tagged c' (D.tupOf c' (eis.map (interp V (consList bs (consList (xs ++ fs) ρ)))))
+          (interp V (consList bs (consList (xs ++ fs) ρ)) fap))
+      = (xs ++ (eis ++ [fap]).map
+          (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))).foldl
+            SetTheory.app (famCand D c') := by
+  have hes : eis.map (interp V (consList bs (consList (xs ++ fs) ρ)))
+      = eis.map (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :=
+    List.map_congr_left fun e he => interp_leaf_chain hN (heisB e he)
+  rw [hes, interp_leaf_chain (K := K) (a := famCand D) hN hfapB,
+    List.map_append, List.map_cons, List.map_nil]
+  exact blockRecIhCall D hℓ hxl hsp hpred
+
 end IhValues
+
+/-! ## 31. The two lanes' `eqs` are ONE term (the audit's item 7)
+
+This lane states `hpre` at `iotaEqsAV` instantiated at §20's
+components; the rule lane states `hnew` at `blockIotaEqsAV`, which is
+the same instantiation written once.  Since §28 the two agree
+everywhere except in the RESIDUE's cutoff: this lane writes the
+LIFTED prefix and field domains' lengths (they come out of its own
+`pdoms`/`fdoms` parameters) and the rule lane the unlifted ones.
+`liftDomsK_length` is a theorem, not `rfl` — a recursion on the list —
+so the two do not typecheck against each other without this. -/
+
+section EqsIdent
+
+/-- **The identification.** -/
+theorem iotaEqsAV_eq_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
+    {pdoms0 : Nat → List AnnotTerm} {fdoms0 es0 ihs : Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : Nat → Nat → AnnotTerm} :
+    iotaEqsAV K nCt (fun c => liftDomsK K 0 (pdoms0 c))
+        (fun c j => liftDomsK K (pdoms0 c).length (fdoms0 c j))
+        (fun c j => (es0 c j).map fun e =>
+          e.liftN K ((pdoms0 c).length + (fdoms0 c j).length))
+        (fun c j => (mk0 c j).liftN K ((pdoms0 c).length + (fdoms0 c j).length))
+        ihs
+        (fun c j => (Rb0 c j).liftN K
+          ((liftDomsK K 0 (pdoms0 c)).length
+            + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
+      = blockIotaEqsAV K nCt pdoms0 fdoms0 es0 ihs mk0 Rb0 := by
+  have hRb : (fun c j => (Rb0 c j).liftN K
+        ((liftDomsK K 0 (pdoms0 c)).length
+          + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
+      = (fun c j => (Rb0 c j).liftN K
+        ((pdoms0 c).length + (fdoms0 c j).length + (ihs c j).length)) := by
+    funext c j
+    rw [liftDomsK_length, liftDomsK_length]
+  rw [hRb, blockIotaEqsAV]
+
+end EqsIdent
 
 end ConLeche.Model
