@@ -33,23 +33,25 @@ Two pieces:
   the conclusion's boundedness (`checkBlockRecK_tyPis`,
   `checkBlockRecK_tyBounds`), and `hihOpen` through §1.
 
-**The premises that stay open are the FOUR `univZero`/motive facts**
-(`hTStep`, `hCaE`, `hihReg`, `hTReg`), and they are the certificate
-lane's, in the shape that lane delivers.  `hjoinC` is GONE: the arm
-states its induction motive at the SPLIT data now, so nothing here
-assembles a recursor spine and the index clause's converse has no
-consumer left.
+**The premises that stay open are the motive facts** (`hCaE`,
+`hihReg`) and the rule lanes'.  `hjoinC` is GONE: the arm states its
+induction motive at the SPLIT data now, so nothing here assembles a
+recursor spine and the index clause's converse has no consumer left.
 
-`hTStep` used to be discharged here from `hCaE` (RM37's §40.15) and
-that derivation does NOT survive the move, which is worth recording.
-The producer (`blockRecConclUnivZero_run`) turns an identification
-with the recursor's CONCLUSION into a truth value only **at a fitting
-spine of the recursor's own binder data** — the sort claim is licensed
-by `checkConstantVal`'s inference at the recursor's own opened
-context, and the split data does not satisfy that context (its index
-values fit the MEMBER's telescope, and carrying them to the
-recursor's index binders is exactly the deleted converse).  So
-`hTStep` rejoins §40.14's four, in the split shape.
+The `univZero` family — §40.14's `hT`, `hTStep`, `hTReg` and the `ih`
+segment's `h0` — is ONE premise `hCaZ` now, and §2d DISCHARGES it.
+The derivation that did not survive the motive's move was the one
+through `hCaE`: `blockRecConclUnivZero_run` licenses the truth value
+only at a fitting spine of the RECURSOR's own binder data, and the
+split data does not carry one (its index values fit the MEMBER's
+telescope, and carrying them to the recursor's index binders is
+exactly the deleted converse).  **The licence the family actually has
+is the RULE's**: `checkBlockRule` types the residue against the
+recursor's type Π-instantiated at the rule's own spine, so the
+certificates already carry a `peelPis` of that tower and a
+`TeleFitPA` of it at the SAME spine — a fit of the recursor's binder
+data at the FIRED spine, produced by the rule's typing run and not
+assembled from anything.
 
 No `w` hypothesis: every statement below is a READING, a peel or a
 key's own filter fact, never a membership in the block's carrier
@@ -300,10 +302,10 @@ currency: `(us.headD .zero).eval ψ = 0`, the sort the type stage read
 off the first recursor's conclusion.  That is what the `ℓ = 0` arm
 means at the run, and it is not derivable inside the regime.
 
-**What stays a premise, and whose it is.**  The four `univZero` facts
-are the certificate lane's, in the shape that lane delivers (§40.14:
-`hT`, `hTStep`, `hTReg` and the `ih` opener's `h0` are four premises
-of ONE missing producer).  `hlenP` — the block's parameter telescope
+**What stays a premise, and whose it is.**  `hCaZ` — §40.14's four
+`univZero` facts in ONE frame-generic statement — is the certificate
+lane's, and §2d produces it from the rule's own peel and tower fit.
+`hlenP` — the block's parameter telescope
 has `nP` entries — is the block records', carried as a premise all
 over this tree rather than stored in `BlockData`.  `hcerts`, `hspF`,
 `hihLen` and `hprefU` are the rule lanes', and `hihOpen` is §1b's.
@@ -657,6 +659,66 @@ theorem blockIhOpenerDom_at_block {envT : Env} {mT : EnvModel V envT} {ψ : Name
   rw [hpw] at hq
   exact hq
 
+
+/-! ### 2d. `hCaZ` DISCHARGED — the family's one premise, at the run
+
+`blockIndRegime_of_run`'s `hCaZ` is the whole of what §40.14 called
+four premises (`hT`, `hTStep`, `hTReg` and the `ih` segment's `h0`):
+one frame-generic statement, at the rule's certificates' own two fits.
+This is its producer, block-wide.
+
+**What it costs the rule lane is nothing new.**  The per-rule datum
+below — a spine `vs` of the recursor type's own length, the syntactic
+peel `peelPis RecTy vs = some (Ca c j)`, and a `TeleFitPA` of the SAME
+tower at the SAME `vs` at every frame satisfying the rule's context —
+is `blockRuleCerts_of_run`'s `hpeel`/`hfit` pair verbatim, the pair
+`hokC` already consumes.  `vs` is existential per rule for the same
+reason `ihdoms` and `Ca` are: it comes out of `checkBlockRule_data`
+at that rule's own openings.
+
+**And the licence is the RULE's, not the split's** — which is why the
+motive's move to the split data costs the arm nothing here: the fit
+this reads is a fit of the recursor's binder data at the FIRED spine,
+produced by the rule's own typing run, and no index clause is
+inverted to get it. -/
+theorem blockIndCaZ_of_run {envC : Env} {mpC : EnvModelM V μ envC}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {ψ : Name → Nat} {us : List Level} {uOf : Nat → Level}
+    {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Ca : Nat → Nat → AnnotTerm}
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
+    (hbitsE : ∀ c, c < rs.length →
+      ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
+        (b.2.1 = 0 ↔ (uOf c).eval ψ = 0))
+    (hℓ : (us.headD .zero).eval ψ = 0)
+    (hpf : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∃ vs : List AnnotTerm,
+        vs.length = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length ∧
+        ConLeche.Model.AnnotTerm.peelPis
+          (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some (Ca c j) ∧
+        (∀ σ : Nat → V,
+          Sat V ((ihdoms c j).reverse
+            ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+              ++ fdoms c j).reverse) σ →
+          ∃ rest, TeleFitPA V σ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)) :
+    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ (σ : Nat → V) (xs fs ws : List V),
+        SpineFit σ
+          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms c j)
+          (xs ++ fs) →
+        SpineFit (consList (xs ++ fs) σ) (ihdoms c j) ws →
+        interp V (consList ws (consList (xs ++ fs) σ)) (Ca c j) ∈ˢ (univZero : V) := by
+  have hbits : OneElimLevel 0 rs.length
+      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) := by
+    rw [← hℓ]
+    exact blockRecOneElimLevel helim ψ hmemU hbitsE
+  intro c hc j hj
+  obtain ⟨vs, hlen, hpeel, hfit⟩ := hpf c hc j hj
+  exact blockRuleConclUnivZero_run hμ mpC h ψ hc hbits hlen hpeel hfit
 
 /-! ## 3. THE SKOLEMISATION — `ihdoms` and `Ca` per RULE, not per BLOCK
 

@@ -5348,15 +5348,19 @@ theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo na
 
 /-- **The IND arm's step**, `blockIndPt`'s `hstep`.
 
-`hT` carries the SAME guard as `hCaE` — `majOf ys = d.inj ψ (mem c) j fs`
-— and it costs nothing: the two are used on the one line, where the
-fibre's own `hxinj` is already in context.  Without the guard the
-premise is over-quantified in the refutable direction: the conclusion
+`hCaZ` — the rule's conclusion reads to a truth value — is stated at
+an ARBITRARY frame and an arbitrary pair of fits, not at the split
+data, because that is the currency its producer has (§40.15b: the
+rule's own `peelPis` of the recursor type and its `TeleFitPA` at the
+same spine).  The step instantiates it at the frame `hspF` and `hih`
+already build, so the split shape is never asked for.
+
+`hCaE` keeps the guard `x = d.inj ψ (mem c) j fs`: the conclusion
 `Ca c j` is the recursor type peeled at the FIRED spine, so its
 identification with the recursor's conclusion holds at the `ys` whose
 major IS the constructed element and not at an arbitrary fitting one
-— which is exactly what makes `hT` derivable from `hCaE` and
-`blockRecConclUnivZero_run` (§40.15) once the guard is there. -/
+— the refutable direction, and the guard costs nothing because the
+fibre's own `hxinj` is in context on the one line that uses it. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
     (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
@@ -8463,9 +8467,9 @@ to a fact the regime already names is wrong on more than the frame:
 `ih` opener's `CihR`.  Both are peels of a block recursor type at
 `ℓ = 0`, so the fact that closes them is the same GENERAL one — a peel
 of `RecTy c'` at a fitting spine lands in `univZero` when the
-elimination level is zero — and that lemma is not in the tree: `hT`
-(§5), `hTStep`, `hTReg` and `h0` are four premises of one missing
-producer. -/
+elimination level is zero.  §40.15 is that lemma and §40.15b is its
+form at a peel, which is what the RULE's own certificates carry; the
+four are one premise (`hCaZ`) and it is produced. -/
 
 section IhConcl
 
