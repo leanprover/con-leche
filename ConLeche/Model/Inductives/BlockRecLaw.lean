@@ -554,9 +554,11 @@ theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → Ann
     {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
     {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
+    {as2₀ : List Expr}
     (hih : ihvals.length = fr.nR)
-    (hspine : IhSpineFold V acval env envT φ fr F ρ' ihvals)
+    (hspine : IhSpineFold V acval env envT φ fr F ρ' ihvals as2₀)
     {body resid : Expr} {as1 as2 : List Expr} {A B : AnnotTerm}
+    (hsx : as2₀ <:+ as2)
     (hab : ConLeche.abstractIh fr 0 body = some resid)
     (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
     (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
@@ -566,7 +568,8 @@ theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → Ann
     interp V ρ' A = interp V (consList ihvals ρ') B := by
   have h := interp_abstractIh (V := V) hacl hih (ihNodeVal_of_spine hacl hih hspine)
     body resid 0 [] as1 as2 A B hab hf (by rw [Nat.add_zero]; exact hbB) rfl (by simpa using h1) (by simpa using h2)
-    (by simpa using hA) (by simpa using hB) (by simpa using hty)
+    hsx LocalsFit.nil (by simpa using hA) (by simpa using hB)
+    (by simpa using hty)
   simpa using h
 
 
