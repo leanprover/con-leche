@@ -82600,3 +82600,49 @@ finished bridge with no traffic.  Of the coordinator's three routed
 items, one was already closed a session earlier and one was a theorem
 this lane had written and nothing consumed: **the lanes' ledgers, not
 the tree, are what is stale.**
+
+#### RULING (2026-09-22, maintainer): the rule contract's three membership-fed conjuncts are guarded by `d.w ψ ≠ 0`
+
+"Go with option 1, guard by `w ≠ 0`."
+
+**The hole.**  The iota rule reduces `rec p⃗ C⃗ m⃗ i⃗ (c q⃗ f⃗)` to
+`rhs p⃗ C⃗ m⃗ f⃗`: the rhs's parameter binders are filled with the
+RECURSOR's `p⃗` and the constructor's own `q⃗` are discarded — official
+never needs to compare them, because typing makes them defeq.  (The
+parameters ARE λ-bound in the stored rhs, and the check opens exactly
+those binders; an earlier note of mine saying otherwise was wrong.)
+The MODEL, however, does not fire on syntax: it fires on a value in the
+carrier and decodes which constructor and which spine produced it.  At
+`d.w ψ ≠ 0` that decode is injective and returns the tie.  At
+`d.w ψ = 0` every value in the block is the point, the decode returns
+nothing, and three conjuncts stated over both spines are FALSE —
+witnesses `Exists` (`BlockRuleFit.lean:512`) and
+`Relation.ReflTransGen` (`:730`).
+
+**The repair.**  The three conjuncts — the fit's field half, the index
+reading, and `mk` — are asked only at `d.w ψ ≠ 0`.  The `w = 0` cases
+are carried by the regimes that live there, which is what the
+three-regime split says already: at `ℓ = 0` both sides of the iota
+equation are the point; at `w = 0, ℓ ≠ 0` the squash regime reads the
+recursor's value off an index-determined spine.  The guard is one
+visible line of the composition's signature
+(`blockRuleDataB_of_residue`), and the blast radius was MEASURED before
+the ruling: exactly three of the composition's five bullets consume it,
+all through the major premise's membership, while the residue, the
+tower fit, the recursor-shape clauses and the fused opener premise are
+`w`-free — each verified by its own lane's sweep.  The rule that
+generalises it: ***the `w = 0` repair is needed only where a MEMBERSHIP
+is the evidence.***
+
+**What is NOT yet written**, and is the one risk of the option: the
+`w = 0` ARM of the endpoint — that the staged theorem's consumer really
+does not want those three conjuncts there.  It is a separate lane from
+the guard itself.
+
+**Why not the alternatives.**  Discharging `w = 0` from
+`blockLargeElimAllowed` (every field of a large-eliminating `Prop`
+block is a proof or occurs among the indices) is principled and matches
+official's own condition, but is an unwritten proof about
+subsingleton-eliminating syntax.  A kernel comparison of `q⃗` against
+`p⃗` is possible — the reduction site sees both — but only as a
+PER-CALL gate, against the standing ruling `invariants-over-runtime-gates`.
