@@ -453,4 +453,76 @@ theorem denoteMeta_blockIhOpenerTy_deep {m : EnvModel V env} {ψ : Name → Nat}
       (denoteMeta_blockIhOpenerTy hop0 hCf hCb hstripC hi hfr h1 hconcl) δ,
     ← rebit_length (pwBit ψ pw) tl, mkPisAV_ihTeleAtR_shift]
 
+/-! ## The consumer's shape, and the two indices it asks about
+
+The rule lane's composition (`M5M-data-REPORT.md` §S16.6) wants the
+existential form — the conclusion's reading is whatever
+`denoteMeta_instPisAtLift_peel` hands it off the run's
+`Expr.instPisAtLift … (recTyOf c') = some concl` — and it asks this
+file to FIX two indices.  Both are fixed here:
+
+* **the `ih` level `l` is the opener's own position `r`**, not `0`:
+  `blockIhPis` generates the binder for the `r`-th key at `l = r`, and
+  the reading is only correct at a frame whose tail has exactly `r`
+  entries (`instSeq_structIdxAtM` couples the two — the second lift's
+  cut `nF + l + j` is where the frame's `o` extras sit).  So the
+  consumer does pay an `l`-shift to reach the design's `l = 0` tower;
+  `ihTeleAtR_shiftAt` above is that shift for the whole telescope, in
+  the form `liftN_mkPisAV` states a lifted tower in.
+* **the depth is the opener's own**, `fr.rP + fr.nF + r`, and it
+  lifts: reading the same (fvar-carrying) term `δ` deeper moves the
+  tower to `l = r + δ` (`denoteMeta_blockIhOpenerTy_deep`).  At the
+  walk's depth `F + fr.nR + d` the level is therefore `fr.nR + d`, NOT
+  `r` — the two are the same statement, and a consumer that reads at
+  the walk's frame should take the `_deep` form and skip the lift. -/
+
+/-- **§S16.6's statement**: the `ih` opener's stored type reads to a
+`mkPisAV` tower over field `i`'s telescope at the opener's own `ih`
+level, whatever its conclusion reads to. -/
+theorem denoteMeta_blockIhOpenerTy_exists {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o d i : Nat} {pw : PropWhen} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1) {concl : Expr}
+    (hconcl : ∃ conclA, denoteMeta m.acval env ψ
+        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (concl.instantiateList
+          ((openFvars (nP + o + nF + d)
+            (ConLeche.structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
+      = some conclA) :
+    ∃ B : AnnotTerm, denoteMeta m.acval env ψ (nP + o + nF + d)
+        ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
+          concl).instantiateList as1 0)
+      = some (mkPisAV (ihTeleAtR nF o i d (rebit (pwBit ψ pw) tl)) B) :=
+  hconcl.imp fun _ h => denoteMeta_blockIhOpenerTy hop0 hCf hCb hstripC hi hfr h1 h
+
+/-- **§S16.6's statement at the WALK's depth**: `δ` binders below the
+opener, the same tower at `ih` level `d + δ`. -/
+theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name → Nat}
+    {nP nF o d i : Nat} {pw : PropWhen} {cty : Expr}
+    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
+    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
+    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
+    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1) {concl : Expr}
+    (hnofv : (Expr.mkPisOf
+      (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
+      concl).hasFvar = false)
+    (hconcl : ∃ conclA, denoteMeta m.acval env ψ
+        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
+        (concl.instantiateList
+          ((openFvars (nP + o + nF + d)
+            (ConLeche.structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
+      = some conclA) (δ : Nat) :
+    ∃ B : AnnotTerm, denoteMeta m.acval env ψ (nP + o + nF + d + δ)
+        ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
+          concl).instantiateList as1 0)
+      = some (mkPisAV (ihTeleAtR nF o i (d + δ) (rebit (pwBit ψ pw) tl)) B) :=
+  hconcl.elim fun _ h =>
+    ⟨_, denoteMeta_blockIhOpenerTy_deep hop0 hCf hCb hstripC hi hfr h1 hnofv h δ⟩
+
 end ConLeche.Model
