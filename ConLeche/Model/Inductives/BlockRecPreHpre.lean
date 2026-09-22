@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.BlockIndRegimeRun
+public import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 
 public section
 
