@@ -82743,3 +82743,106 @@ No good stream moved.  And `PERF.md`'s `_tmp/ref/` artifacts no longer
 exist on this machine; the 4.29.1 Mathlib is the largest real corpus
 left, which is why this project's own 4.33.0 whole-environment export
 was added to cover the newer exporter.
+
+#### LANDED (lane RM40 = M5M-data session 30, `5f084f17`): the ruled kernel guard — and the `w = 0` ruling's PARTITION does not hold
+
+**The kernel guard is in** (`checkBlockRule`, mirrored in
+`checkBlockRuleF`; the cached path needed nothing of its own), with the
+Verify inversion row and a forged fixture
+(`tests/e2e/corner_rec_dom_recursor.ndjson` — `Nat'.rec`'s `succ` rule
+binding its field at `(fun _ : T_rec => Nat') Nat'.rec`), which
+**the uniform route accepted before the guard**.  No verdict moves: the
+stage is behind `blockRecCheckOn`, so no shipped stream reaches it —
+e2e 264/264, arena green, all sweeps unchanged.  Accept-preservation on
+official's output is by CONSTRUCTION, not measurement, and the record
+says so.  With it, `hcbLd` is deleted and the environment crossing is
+fully closed.  The measurement lane's three e2e rows landed alongside.
+
+**FINDING — the `w = 0` ruling assumed a partition that the proof does
+not have.**  Guarding "the three membership-fed conjuncts" frees
+nothing: inside `blockRuleDataB_of_residue`
+(`BlockRuleFit.lean:1477-1502`), the tower fit's own `hfit` argument IS
+conjunct ①, and the residue's `htow` IS conjunct ⑤.  So ④ and ⑤ are
+DOWNSTREAM of ①, and all five conjuncts are downstream of `hw`.  The
+tower fit is `w`-free as a THEOREM (it takes no `w` premise) but not as
+a CONJUNCT (its premise is another conjunct) — a distinction none of
+the `w`-sweeps could see, because they grepped statements for `d.w`,
+`∈ˢ` and the carrier's spellings, and the dependency is in the
+composition's PROOF.  **The lane stopped rather than invent the arm**,
+which is what it was told to do.
+
+Two more: `hihv` is the data lane's after all, and **one definition
+away** — four of the contract's six function variables are already
+pinned by equations in the producer's own signature, and the `ih` list
+wants the same treatment, after which `hihv` and the open `hihFit` both
+fall out.  And the census shrank the body equation's wiring from 45
+premises to 3 items, two of which are this lane's own unconsumed
+producers — Spine A of `RM39`'s census, exactly.
+
+#### LANDED (lane RM37 = M5M-pre session 26, `47234523`): the `univZero` producer — four premises from one place
+
+`blockRecConcl_univ` (`BlockRecPreRun.lean:8428`), its `ℓ = 0` form
+through any value identification (`:8559`), and both halves from the
+run (`blockRecConclUnivZero_run`, `:8596`).  The location was the
+result: **the check already infers the opened conclusion's type and
+`ensureSort`s it** (`BlockInstall.lean:541-542`), storing that level as
+the entry's third component — which IS the level the elimination-level
+theorem reads.  So `ℓ` is the level of the sort the check inferred, and
+`blockLargeElimAllowed` plays no part.  The model step is `SortSemAt`
+at the recursor's own opened frame, and every ingredient was already
+carrying traffic.  Cost of the four consumers afterwards: two from the
+regime's own premises with no new data, one an evaluation away, one
+needing the `ih` twin of that evaluation.
+
+**FINDING — the FOURTH cost, and the rule caught its own author.**  The
+lane priced "widen the inversion to keep what it discards" at ⅓–½
+session, wrote it, and it compiled — and it was a theorem **this same
+lane had landed in an earlier session, in its own file, under another
+name**, with two consumers already.  It was missed because the sizing
+grepped the inversion it expected to widen and read that inversion's
+consumers; the existing recovery is a different peel under a different
+name.  The grep that finds it is over the peels' CONCLUSIONS
+(`ensureSortCore … = .ok u`), one command.
+
+So the standing question — *which check makes this available, and does
+the inversion that reads it keep it?* — has **four** answers, not
+three: the check keeps it (free); the inversion drops it (recover it);
+nobody has it and the model cannot pay (**the checker must say it** — a
+kernel guard); and **someone already recovered it under another name**
+(free, but only if you look for the FACT rather than for the gap).  The
+duplicate was reverted whole; the non-duplicating shape is forced,
+since the two facts come off one peel and an existential per fact could
+not be reconciled.
+
+#### LANDED (lane RM37 = M5M-pre session 27, `ef9e22b4`): the conclusion's arguments — and **clean statement, guarded use**
+
+`blockRuleHokC_args_of_ctor` (`BlockRecPreRun.lean:8051`): the
+conclusion's argument grading discharges against the contract's own
+`TeleFitPA` of the constructor's stored type at the rule's spine.  So
+the conclusion's well-denotedness and the guarded call's are complete
+modulo nothing of that lane's: the fit is the contract's `hfitR`, the
+arguments its `hfitC`, the tower the run's.
+
+**The fourth cost fired twice more in one session.**  Before writing
+either of the next two items the lane shape-grepped their conclusions,
+and both were already produced — one by the data lane
+(`blockRuleFdomsAV_eq`'s SECOND conjunct) and one by the rule lane, **in
+the interval it had just merged** (`blockIhOpenerDom_run`, carrying the
+per-opener reading AND the peel).  The greps that found them were the
+statements' own ANTECEDENTS (`blockRuleFieldFvs … some x →`,
+`fvsIh[r]? = some x`); no name-grep could have, since none of the
+premise names appears in either theorem's name.  One item dropped to a
+quarter session, the other kept only its frame work.
+
+**FINDING — *a statement can be `w`-free and its USE still guarded.***
+The lane had reported, unconditionally, that nothing of its own is
+touched by the `w = 0` question, and corrected itself: its statements
+ARE `w`-free by construction (the certificate bundle's evidence is a
+grading against a tower, never a membership in a carrier — that is what
+the typing lane produces), **but** the conclusion's fit and arguments
+are now the CONTRACT's `hfitR`/`hfitC`, so if those conjuncts sit
+downstream of the guard, its uses inherit the guard.  Clean statement,
+guarded use.  This is the same blindness the partition finding exposed
+from the other side: the `w`-sweeps grep statements, and a dependency
+can live in a composition's PROOF.  **"`w`-free by sweep" is a claim
+about a statement, never about a use.**

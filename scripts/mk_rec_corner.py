@@ -33,8 +33,12 @@ and `direct_fix_refl` (`Iter f n` — a REFLEXIVE field
   corner_rec_call_redex     `Iter.step`'s rule recurses on
       `h ((fun x : Nat => x) k) a` — the reflexive field at an argument
       vector that is DEFEQ to, but not syntactically, the bound
-      variable.  The guard abstracts the spine to `ih ((fun x => x) k) a`
-      and the residue types up to defeq: TARGET 0.
+      variable.  The guard DOES abstract the argument vector; what it
+      demands syntactically is the call's INDEX arguments, which must
+      be the field's stored index expressions at that vector, and `k`
+      is the index-carrying argument here: TARGET 1.  Its two
+      accept-side twins are `corner_rec_wtype_redex` and
+      `corner_rec_redex_nonindex` below.
   corner_rec_call_const_bad the same call at `h Nat.zero a`: a constant
       where the bound variable belongs.  `a : Nat.le k n` is not a
       `Nat.le 0 n`, so the residue is ill-typed however the guard reads
@@ -520,3 +524,86 @@ rules2 = [({"ctor": ru["ctor"], "nfields": ru["nfields"],
           for ru in rc["rules"]]
 blk["recs"] = blk["recs"] + [dict(rc, name=rec2n, rules=rules2)]
 t.write("corner_rec_two_callees", "Nat'")
+
+# --- corner_rec_dom_recursor ----------------------------------------
+# `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
+# the recursor CONSTANT:
+#
+#   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
+#
+# The domain β-reduces to `Nat'`, so the rule's own typing (at the
+# RULE-LESS recursor environment, which HOLDS `Nat'.rec`) and the
+# binder-by-binder defeq against the openers' stored types (at the
+# CONSTRUCTORS' environment, where a β-redex never looks the head up)
+# both pass, and `stripLams` puts the domain out of the residue's
+# reach.  Nothing else of the stage constrains a rule's λ-domains, so
+# before the domains' own resolution guard the stream was ACCEPTED
+# while its domain does not READ at the constructors' environment —
+# the model's tower fit needs `ConstsBound envC` there and no check
+# made it available.  TARGET 1.
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+sr = t.rule("Nat'", "Nat'.rec", "Nat'.succ")
+_lps = rc["levelParams"]
+_us = next(r["const"]["us"] for r in t.E.values()
+           if "const" in r and r["const"]["name"] == t.names["Nat'.rec"])
+_dom = t.ex({"app": {
+    "fn": t.ex({"lam": {"binderInfo": "default", "name": t.name("_"),
+                        "type": rc["type"], "body": t.const("Nat'")}}),
+    "arg": t.const("Nat'.rec", _us)}})
+_chain = t.binders(sr["rhs"], 4)
+assert all("lam" in r for r in _chain), "the rule is not a λ-telescope"
+_new = t.ex({"lam": dict(_chain[3]["lam"], type=_dom)})
+for _r in reversed(_chain[:3]):
+    _new = t.ex({"lam": dict(_r["lam"], body=_new)})
+sr["rhs"] = _new
+t.write("corner_rec_dom_recursor", "Nat'")
+
+# --- corner_rec_redex_nonindex / corner_rec_wtype_redex --------------
+# Where the primitive-recursion guard's SYNTACTIC demand really is.
+# The guard does NOT demand a syntactic argument vector: it abstracts
+# the spine, and what it demands syntactically is the call's INDEX
+# arguments, which must be the recursive field's stored index
+# expressions AT that vector.  These two pin the accept side of that
+# reading, so that nobody "fixes" the guard into accepting less.
+#
+#   corner_rec_wtype_redex      `W'` is reflexive and NOT indexed, so
+#       no argument of the call carries an index; the same
+#       `(fun x : β a => x) b` redex in the recursive call's argument
+#       vector is accepted.  TARGET 0.
+#   corner_rec_redex_nonindex   the very block `corner_rec_call_redex`
+#       edits, with the redex moved from the index-carrying telescope
+#       argument `k` to the other one, `a : Nat.le k n`, which carries
+#       none.  TARGET 0, where the committed twin is TARGET 1.
+t = Twin("direct_fix_wtype")
+ru = t.rule("W'", "W'.rec", "W'.sup")
+body = t.binders(ru["rhs"], 6)[5]["lam"]["body"]   # `minor a f (fun b => rec … (f b))`
+lam_b = t.E[body]["app"]["arg"]
+ty_ba = t.E[lam_b]["lam"]["type"]                  # `β a`, outside the `b` binder
+spine = t.E[lam_b]["lam"]["body"]                  # `W'.rec α β motive sup (f b)`
+major = t.E[spine]["app"]["arg"]                   # `f b`
+assert t.E[t.E[major]["app"]["arg"]].get("bvar") == 0, "not the bound `b`"
+idf = t.ex({"lam": {"binderInfo": "default", "name": t.name("x"),
+                    "type": t.lift(ty_ba, 1), "body": t.ex({"bvar": 0})}})
+redex = t.ex({"app": {"fn": idf, "arg": t.ex({"bvar": 0})}})
+new_major = t.ex({"app": dict(t.E[major]["app"], arg=redex)})
+ru["rhs"] = t.replace(ru["rhs"], spine,
+                      t.ex({"app": dict(t.E[spine]["app"], arg=new_major)}))
+t.write("corner_rec_wtype_redex", "W'")
+
+t = Twin("direct_fix_refl")
+ru = t.rule("Iter", "Iter.rec", "Iter.step")
+inner = t.binders(ru["rhs"], 6)[5]["lam"]["body"]  # `step n h (fun k a => …)`
+lam_k = t.E[inner]["app"]["arg"]
+lam_a = t.E[lam_k]["lam"]["body"]
+ty_a = t.E[lam_a]["lam"]["type"]                   # `Nat.le k n`
+spine = t.E[lam_a]["lam"]["body"]                  # `Iter.rec f m b s k (h k a)`
+major = t.E[spine]["app"]["arg"]                   # `h k a`
+assert t.E[t.E[major]["app"]["arg"]].get("bvar") == 0, "not the bound `a`"
+idf = t.ex({"lam": {"binderInfo": "default", "name": t.name("x"),
+                    "type": t.lift(ty_a, 1), "body": t.ex({"bvar": 0})}})
+redex = t.ex({"app": {"fn": idf, "arg": t.ex({"bvar": 0})}})
+new_major = t.ex({"app": dict(t.E[major]["app"], arg=redex)})
+ru["rhs"] = t.replace(ru["rhs"], spine,
+                      t.ex({"app": dict(t.E[spine]["app"], arg=new_major)}))
+t.write("corner_rec_redex_nonindex", "Iter")
