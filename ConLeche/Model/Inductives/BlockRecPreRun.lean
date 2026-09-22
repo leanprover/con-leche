@@ -2598,7 +2598,13 @@ readings BE the components of the tuple the rule picks
 * `interp_liftN_rule` (§23) at the index expressions, which are single
   forms rather than a binder list;
 * RM11's `es0` (`blockRuleEsAV_eq`) composed with the record's
-  `Es`/`Ess` identification, a named premise here. -/
+  `Es`/`Ess` identification, the ONE named premise left here.
+
+Session 10: the retraction's own hypothesis — that the result index
+readings FIT the member's index telescope — is no longer a premise
+either.  It is `BlockModelAt.resIdxFit`, the constructor's typing read
+off the representation, and it is `idxFit` one position along (§25's
+is at a recursive FIELD, this one at the RESULT). -/
 
 section CtorIdx
 
@@ -2615,29 +2621,57 @@ theorem projS_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxO
       List.getElem?_eq_getElem (by omega), Option.getD_some]
 
 /-- **`hctorAt`'s second conjunct at the run**: the constructor's
-result index readings are the components of the rule's index tuple. -/
+result index readings are the components of the rule's index tuple.
+
+Since session 10 the fit of those readings in the member's own index
+telescope is not a premise but `BlockModelAt.resIdxFit` — the
+constructor's typing, read off the representation — so the theorem's
+only named premise is RM11's `es0` (`blockRuleEsAV_eq`) composed with
+the record's `Es`/`Ess` identification. -/
 theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
-    {p : ConLeche.BlockParts}
+    {names : List Name} {p : ConLeche.BlockParts}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {c i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat} {a ρ : Nat → V} {xs fs : List V}
     {cA : ConstantVal × Nat}
+    (hM : BlockModelAt mpC.base2 names d)
     (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = ((d.Ess (mem c) ψ).getD j []).map (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
     (hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c)
     (hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2)
     (hxs : xs.length = p.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
-    (hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length)
-    (hIdx : IdxOk (d.uM (mem c) ψ) (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ))
-    (hEsFit : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ)
-      ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
-        (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) :
+    (hmem : mem c < d.N) (hjc : j < (d.ctorsM (mem c)).length)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hsf : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs) :
     ∀ l, l < (d.IdsM (mem c) ψ).length →
       interp V (consList fs (consList (xs.take d.nP) ρ))
           (((d.Ess (mem c) ψ).getD j []).getD l default)
         = projS l (d.tup ψ (mem c)
             ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
               (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) := by
+  have hsat : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ) := d.satOfSpine hps
+  have hIdx : IdxOk (d.uM (mem c) ψ) (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) :=
+    hM.idxOk ψ _ hsat (mem c) hmem
+  have hres := hM.resIdxFit ψ _ hsat (mem c) hmem j hjc fs hsf
+  have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
+    have hq := hres.length_eq
+    rwa [List.length_map] at hq
+  have hEsK : blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map fun e =>
+          (e.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2).liftN K
+            (p.toBlockShape.rulePrefixAt c + cA.2) := by
+    rw [blockRecEsK, hes, List.map_map, hpl, hfl]
+    rfl
+  have hmapEq : (blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ))) := by
+    rw [hEsK, List.map_map]
+    exact List.map_congr_left fun e _ => interp_liftN_rule (nP := d.nP) hxs hfs e
+  have hEsFit : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ)
+      ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ)))) := by
+    rw [hmapEq]; exact hres
   intro l hl
   have hlt : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
   have hmapGetD : ∀ (L : List AnnotTerm) (G : AnnotTerm → V), l < L.length →
@@ -2646,12 +2680,6 @@ theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData 
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hL,
       Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem hL, Option.getD_some]
-  have hEsK : blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i
-      = ((d.Ess (mem c) ψ).getD j []).map fun e =>
-          (e.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2).liftN K
-            (p.toBlockShape.rulePrefixAt c + cA.2) := by
-    rw [blockRecEsK, hes, List.map_map, hpl, hfl]
-    rfl
   rw [BlockData.tup, projS_tupW hIdx hEsFit hl, hEsK, List.map_map, hmapGetD _ _ hlt]
   exact (interp_liftN_rule (nP := d.nP) hxs hfs _).symm
 
