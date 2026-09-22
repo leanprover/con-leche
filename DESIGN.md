@@ -83472,3 +83472,43 @@ so it was ROUTED to the kernel lane rather than taken.
 **This is the fourth vacuous-conclusion trap in this window, and the
 first caught BEFORE the theorem was written** rather than after a
 consumer failed to use it.
+
+#### LANDED (lane RM47 = M5M-data session 33, `5e929463`): the guard switch — **and it was NOT a deletion**
+
+The contract no longer takes the `w` guard.  **Measured: one premise
+out, three in** (`ℓ ≠ 0`, plus the declared-shape and one-constructor
+halves of the same elimination-guard line), and **411 added lines, of
+which ~260 are a NEW PRODUCER** that had to be written for the
+`w = 0, ℓ ≠ 0` region.
+
+**So the "deletion, not a restructuring" measurement was WRONG**, and
+the record says so.  What was measured correctly is the SHAPE: one
+guard reaches the contract, the `w`-split now lives inside a single
+theorem (`blockRuleChainFit_any`, the lane's only case split on `w`),
+and there is one endpoint arm instead of two.  The executing lane did
+not stop, because the arm came in UNDER the falsifier's price — one
+session against two-to-three — so the ruling was not in jeopardy; but
+the framing was, and correcting it is the point of asking a lane to
+report what a change actually cost.
+
+**FINDING — *a hypothesis with no USE is the third member of the
+premise-hygiene family.***  The index pin had sat in the contract's
+telescope since the composition landed and **no proof ever mentioned
+it**: the `w ≠ 0` route went through injectivity instead.  It is the
+ONLY thing that can tie the two frames at `w = 0`.  So the family is
+now: a premise set with no INSTANCE (green, unusable); a premise with
+no DISCHARGE route (green, unprovable); and **a hypothesis with no USE
+(green, and silently carrying the design's actual content)**.  Grep for
+a hypothesis's own name inside the proof that takes it.
+
+Two more.  **The level guard is not where the restriction lives** — a
+caller may always pass a non-zero level; what excludes the two refuting
+witnesses is the declared-shape and constructor-count halves.  The
+ruling's "one guard" is honest because of the guard's CONSEQUENCES, not
+its face.  And **the bridge the new producer needed was already in the
+file, `w`-free**, written earlier for a different conjunct — the
+falsifier's price was set without knowing it existed.
+
+By-product: the squash regime's two unowned premises are now written
+inside the new producer; **lifting them out is a signature, not a
+proof.**
