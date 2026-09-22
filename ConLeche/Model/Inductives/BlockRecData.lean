@@ -1563,7 +1563,7 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
     ∃ (recTy : Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr)
       (cpref : List Expr) (crest : Expr) (fvsPref : List Expr) (o₁ : Expr)
       (fvsF : List Expr) (cbody : Expr) (ldoms : List Expr) (lrest : Expr)
-      (resid ihTele : Expr) (fvsIh : List Expr) (bodyO ty concl : Expr),
+      (resid ihTele : Expr) (fvsIh : List Expr) (bodyO ty concl tyR : Expr),
       recTys[ri]? = some recTy ∧
       ConLeche.Expr.stripLams (p.rulePrefixAt ri + cA.2) out = some (rbs, body) ∧
       ConLeche.openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
@@ -1600,7 +1600,9 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
       ConLeche.isDefEqCore μ envT F
           (p.rulePrefixAt ri + cA.2 +
             (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
-          ty concl = .ok true := by
+          ty concl = .ok true ∧
+      ConLeche.annotateCore μ envR F 0 rhs = .ok out ∧
+      ConLeche.inferTypeCore μ envR F 0 out = .ok tyR := by
   unfold checkBlockRule at h
   obtain ⟨recTy, hrecTy, h⟩ := ConLeche.exceptBind_ok h
   by_cases hbv : ConLeche.Expr.looseBVarsBounded 0 rhs = true
@@ -1609,13 +1611,15 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
   by_cases hfv : rhs.hasFvar = true
   case pos => rw [if_pos hfv] at h; close_throw h
   rw [if_neg hfv] at h
-  obtain ⟨rhsA, _, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨rhsA, hann, h⟩ := ConLeche.exceptBind_ok h
   by_cases hlp : ConLeche.Expr.allLevelParamsDefined cvR.levelParams rhsA = true
   case neg => rw [if_neg hlp] at h; close_throw h
   rw [if_pos hlp] at h
   by_cases hres : ConLeche.Expr.constsResolve envR rhsA = true
   case neg => rw [if_neg hres] at h; close_throw h
   rw [if_pos hres] at h
+  -- the rule's own typing at the rule-less recursor environment
+  obtain ⟨tyR, htyR, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨rbs, body⟩ := x1
   obtain ⟨x2, hx2, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
   obtain ⟨x3, hx3, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨cpref, crest⟩ := x3
@@ -1635,11 +1639,11 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
     simpa [pure, Except.pure] using h.symm
   subst hout
   exact ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
-    resid, ihTele, fvsIh, bodyO, ty, concl,
+    resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
     ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx1, ConLeche.unwrapOr_ok hx2,
     ConLeche.unwrapOr_ok hx3, ConLeche.unwrapOr_ok hx4, ConLeche.unwrapOr_ok hx5,
     ConLeche.unwrapOr_ok hresid, ConLeche.unwrapOr_ok hihTele, ConLeche.unwrapOr_ok hx9,
-    hty, ConLeche.unwrapOr_ok hconcl, hb⟩
+    hty, ConLeche.unwrapOr_ok hconcl, hb, hann, htyR⟩
 
 end RuleData
 
@@ -1976,8 +1980,8 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
   obtain ⟨envR, rc, recTys, ks, rhs0, hrc, hrecTy, hrun⟩ :=
     checkBlockRecK_ruleRun h hr hcA hrhs
   obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
-    resid, ihTele, fvsIh, bodyO, ty, concl,
-    hrecTy', hstrip, hop1, hinst, hop2, hlams, -, -, -, -, -, -⟩ :=
+    resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
+    hrecTy', hstrip, hop1, hinst, hop2, hlams, -, -, -, -, -, -, -, -⟩ :=
     checkBlockRule_data hrun
   obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
   -- the prefix openers
