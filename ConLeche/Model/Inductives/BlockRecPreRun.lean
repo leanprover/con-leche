@@ -2810,6 +2810,79 @@ theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData 
 
 end CtorIdx
 
+/-! ### 26b The rule's index readings ARE the SPLIT's index values
+
+§26 says the constructor's result index readings are the components of
+the RULE's index tuple; the fibre's `ChainFit` says the same readings
+are the components of the SPLIT's tuple `d.tup ψ (mem c) is`.  Two
+tuples with the same components at every position of a telescope both
+spines fit are the same list (`projS_tupW` at each side), so
+
+> **`is` IS the rule's index reading**, and the motive's split data is
+> not an independent quantification after all.
+
+This is what makes `hCaE` payable at the split data, and it is the
+whole reason that premise carries the `ChainFit`: without it `is`
+ranges over every fit of the member's index telescope while the rule's
+readings do not move (refutable at any indexed family). -/
+
+section CtorIdxSplit
+
+/-- **The rule's index readings are the split's index values.** -/
+theorem blockRecEsK_eq_is {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {names : List Name} {p : ConLeche.BlockParts}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {c i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat} {a ρ : Nat → V}
+    {xs fs is : List V} {X : Nat → V} {cA : ConstantVal × Nat}
+    (hM : BlockModelAt mpC.base2 names d)
+    (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
+    (hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c)
+    (hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2)
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
+    (hmem : mem c < d.N) (hjc : j < (d.ctorsM (mem c)).length)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hsf : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs)
+    (hIs : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
+    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ) X
+      (d.tup ψ (mem c) is) (mem c) j fs) :
+    (blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ))) = is := by
+  have hsat : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ) := d.satOfSpine hps
+  have hIdx : IdxOk (d.uM (mem c) ψ) (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) :=
+    hM.idxOk ψ _ hsat (mem c) hmem
+  have hres := hM.resIdxFit ψ _ hsat (mem c) hmem j hjc fs hsf
+  have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
+    have hq := hres.length_eq
+    rwa [List.length_map] at hq
+  have hEsK : blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map fun e =>
+          (e.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2).liftN K
+            (p.toBlockShape.rulePrefixAt c + cA.2) := by
+    rw [blockRecEsK, hes, List.map_map, hpl, hfl]
+    rfl
+  have hmapEq : (blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ))) := by
+    rw [hEsK, List.map_map]
+    exact List.map_congr_left fun e _ => interp_liftN_rule (nP := d.nP) hxs hfs e
+  rw [hmapEq]
+  refine List.ext_getElem (by rw [List.length_map, hEsLen, hIs.length_eq]) fun l h1 h2 => ?_
+  have hl : l < (d.IdsM (mem c) ψ).length := by
+    rw [List.length_map, hEsLen] at h1; exact h1
+  have hlt : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
+  have key : interp V (consList fs (consList (xs.take d.nP) ρ))
+        (((d.Ess (mem c) ψ).getD j []).getD l default) = is.getD l pt := by
+    rw [hfit.2 l hl, BlockData.tup, projS_tupW hIdx hIs hl]
+  rw [List.getElem_map, List.getElem_eq_getD (default : AnnotTerm), key,
+    List.getElem_eq_getD (pt : V)]
+
+end CtorIdxSplit
+
+
 /-! ## 27. `hfd` — the rule's field domains ARE the constructor's
 (session 10)
 
@@ -3185,6 +3258,95 @@ theorem denoteMetaSpine_prefFvs {acval : Name → (Name → Nat) → AnnotTerm} 
   simpa [paramBvarsAt] using h
 
 end RuleConcl
+
+/-! ### 29b `hCaE` AT THE SPLIT DATA
+
+§29 evaluates the rule's conclusion at the rule's own components; §26b
+identifies those components' INDEX readings with the split's `is`.
+Together they are `hCaE` — the IND arm's remaining motive premise — at
+the split data, with no index clause inverted and no `w` or `ℓ` guard:
+`blockRecMkK_value` and `blockRecEsK_eq_is` are both unguarded, and
+the fibre's `ChainFit` (which `hCaE` carries for exactly this reason)
+is what pins the index values.
+
+The `++` re-association at the end is the only bookkeeping: §29 states
+its frame as `xs ++ (is ++ [maj])` and the regime states it as
+`as ++ ms ++ is ++ [x]`, which is `((as ++ ms) ++ is) ++ [x]`. -/
+
+section CaESplit
+
+/-- **`hCaE` at ONE rule, from the run.** -/
+theorem blockIndCaE_of_run {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {names : List Name} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mpC.base2 names d)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ci : ConstantInfo} (hfind : envC.find? cA.1.name = some ci)
+    (hlps : ci.toConstantVal.levelParams = p.lps)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hnPd : d.nP = p.nP)
+    {mem : Nat → Nat} {j : Nat} (hmemN : mem c < d.N)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA) (hjc : j < (d.ctorsM (mem c)).length)
+    (ψ : Name → Nat) {nF nR : Nat} {esA : List AnnotTerm} {mkA Ca : AnnotTerm}
+    -- the bundle's peel, and its components at the run's own spellings
+    (hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c) nF nR
+      (blockRecTyAV mpC.base2.acval envC rs ψ c) esA mkA Ca)
+    (hmkL : mkA
+      = (blockRecMkK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).liftN nR 0)
+    (hesL : esA
+      = (blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).map (·.liftN nR 0))
+    -- the run's components against the datum
+    (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
+    (hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c)
+    (hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2)
+    (hrds : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
+      = p.toBlockShape.rulePrefixAt c + (d.IdsM (mem c) ψ).length + 1)
+    (hnFe : cA.2 = nF)
+    -- the SPLIT data
+    {ρ : Nat → V} {xs fs ihvals is : List V} {x : V} {X : Nat → V}
+    (hxs : xs.length = p.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
+    (hihl : ihvals.length = nR)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hsf : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs)
+    (hIs : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
+    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ) X
+      (d.tup ψ (mem c) is) (mem c) j fs)
+    (hxinj : x = d.inj ψ (mem c) j fs) :
+    interp V (consList ihvals (consList (xs ++ fs) ρ)) Ca
+      = interp V (consList (xs ++ is ++ [x]) ρ)
+          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) := by
+  -- the index readings ARE the split's values (§26b)
+  have hesV : (blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+      (interp V (consList (xs ++ fs) ρ)) = is :=
+    blockRecEsK_eq_is (K := 0) (a := fun _ => (pt : V)) hM hes hpl hfl hxs hfs hmemN hjc
+      hps hsf hIs hfit
+  have hesLen : (blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).length
+      = (d.IdsM (mem c) ψ).length := by
+    have hq := congrArg List.length hesV
+    rw [List.length_map] at hq
+    rw [hq, hIs.length_eq]
+  -- the fired major IS the injection (§22)
+  rw [hnPd] at hps hsf
+  have hmkV : interp V (consList (xs ++ fs) ρ)
+      (blockRecMkK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i) = x := by
+    rw [hxinj]
+    exact blockRecMkK_value (K := 0) (a := fun _ => (pt : V)) hM h hr hcA hrhs hfind hlps
+      hnP hmemN hcj ψ hxs hfs (by rw [hpl, hfl, hxs, hfs]) hps hsf
+  obtain ⟨-, -, -, -, hTyE, -, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  have hq := blockRecCa_run (nIdx := (d.IdsM (mem c) ψ).length) hcon hTyE hrds hesLen
+    (checkBlockRecK_tyBounds (V := V) hμ mpC h hr ψ).2 hxs (by rw [hfs, hnFe]) hihl
+    hmkL hesL hmkV hesV
+  rw [← List.append_assoc] at hq
+  exact hq
+
+end CaESplit
+
 
 /-! ## 30. The `ih` openers' VALUES — `ihv` defined, and `hihChain`
 (session 13)
@@ -5876,10 +6038,23 @@ local macro_rules
         | exact absurd $h
             (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
 
-/-- **Stage (b)'s inversion, WIDENED to the conclusion's SORT**: the
-recursor's opened conclusion is inferred and `ensureSort`ed at the
-stage's own fuel, and the level that comes back is the entry's third
-component — the elimination level D-d compares. -/
+/-- **Stage (b)'s inversion, WIDENED to the conclusion's SORT and to
+the ELIMINATION VERDICT**: the recursor's opened conclusion is
+inferred and `ensureSort`ed at the stage's own fuel, the level that
+comes back is the entry's third component — the elimination level D-d
+compares — and the guard's own answer survives.
+
+**The verdict is carried because the inversion used to DROP it**, and
+what it licenses is the only bridge from the CHECKED elimination level
+to the stream's DECLARED shape: `checkBlockRecTys` runs
+`isDefEq sty (Sort 0)` exactly when `blockLargeElimAllowed` is false,
+so a family whose elimination level is not zero at some `ψ` must have
+had the guard allow it — which at a `Prop` block (`w = 0`, i.e.
+`resSort` evaluating to zero, so `isNeverZero` is false) is
+`p.large = true` and nothing else.  The constructors' stage keys its
+subsingleton clause (`CtorDataI.srcProp`) on exactly that flag, so
+without this component regime SQ's `hsrcAt` is unreachable at the
+blocks it exists for. -/
 theorem checkBlockRecTys_elim {env : Env}
     {p : ConLeche.BlockShape} {nested : Bool} {cvTas : List ConstantVal} {F : Nat} :
     ∀ {recs : List ConLeche.RecShape} {ri : Nat}
@@ -5892,7 +6067,10 @@ theorem checkBlockRecTys_elim {env : Env}
         ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi.type 0
           = some (fvs, concl) ∧
         ConLeche.inferTypeCore μ env F (p.majorIdxAt (ri + i) + 1) concl = .ok sty ∧
-        ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty = .ok u
+        ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty = .ok u ∧
+        (ConLeche.blockLargeElimAllowed p nested = true ∨
+          ConLeche.isDefEqCore μ env F (p.majorIdxAt (ri + i) + 1) sty (.sort .zero)
+            = .ok true)
   | [], _, cvRus, _, i, hi => absurd hi (Nat.not_lt_zero i)
   | rc :: rest, ri, cvRus, h, i, hi => by
     unfold ConLeche.checkBlockRecTys at h
@@ -5922,7 +6100,9 @@ theorem checkBlockRecTys_elim {env : Env}
     rw [if_pos hmaj] at h
     obtain ⟨sty, hsty, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨u, hu, h⟩ := ConLeche.exceptBind_ok h
-    have key : ∀ {rs' : List (ConstantVal × Nat × Level)},
+    have key : (ConLeche.blockLargeElimAllowed p nested = true ∨
+          ConLeche.isDefEqCore μ env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true) →
+        ∀ {rs' : List (ConstantVal × Nat × Level)},
         ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) env p nested cvTas rest
             (ri + 1) = .ok rs' →
         cvRus = (cvRi, ms.nIdx, u) :: rs' →
@@ -5932,37 +6112,42 @@ theorem checkBlockRecTys_elim {env : Env}
           ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi'.type 0
             = some (fvs', concl') ∧
           ConLeche.inferTypeCore μ env F (p.majorIdxAt (ri + i) + 1) concl' = .ok sty' ∧
-          ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty' = .ok u' := by
-      intro rs' hrest hcv
+          ConLeche.ensureSortCore μ env F (p.majorIdxAt (ri + i) + 1) sty' = .ok u' ∧
+          (ConLeche.blockLargeElimAllowed p nested = true ∨
+            ConLeche.isDefEqCore μ env F (p.majorIdxAt (ri + i) + 1) sty' (.sort .zero)
+              = .ok true) := by
+      intro hg rs' hrest hcv
       subst hcv
       cases i with
       | zero =>
-        refine ⟨cvRi, ms.nIdx, u, fvs, concl, sty, rfl, ?_, ?_, ?_⟩
+        refine ⟨cvRi, ms.nIdx, u, fvs, concl, sty, rfl, ?_, ?_, ?_, ?_⟩
         · rw [Nat.add_zero]; exact hop
         · rw [Nat.add_zero]; exact hsty
         · rw [Nat.add_zero]; exact hu
+        · rw [Nat.add_zero]; exact hg
       | succ i =>
-        obtain ⟨cvRi', nIdx, u', fvs', concl', sty', hcu, hop', hsty', hu'⟩ :=
+        obtain ⟨cvRi', nIdx, u', fvs', concl', sty', hcu, hop', hsty', hu', hg'⟩ :=
           checkBlockRecTys_elim hrest i (by simpa using hi)
-        refine ⟨cvRi', nIdx, u', fvs', concl', sty', by simpa using hcu, ?_, ?_, ?_⟩
+        refine ⟨cvRi', nIdx, u', fvs', concl', sty', by simpa using hcu, ?_, ?_, ?_, ?_⟩
         · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hop'
         · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hsty'
         · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hu'
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hg'
     by_cases hlarge : ConLeche.blockLargeElimAllowed p nested = true
     case pos =>
       rw [if_pos hlarge] at h
       obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
+      exact key (Or.inl hlarge) hrest h.symm
     case neg =>
       rw [if_neg hlarge] at h
-      obtain ⟨b, _, h⟩ := ConLeche.exceptBind_ok h
+      obtain ⟨b, hbrun, h⟩ := ConLeche.exceptBind_ok h
       by_cases hb : b = true
       case neg => rw [if_neg hb] at h; close_throw h
       rw [if_pos hb] at h
       obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
+      exact key (Or.inr (by rw [hb] at hbrun; exact hbrun)) hrest h.symm
 
 /-- **Stage (b) and D-d, off `checkBlockRecK`**: the type stage's own
 list, with its elimination-level verdict. -/
@@ -6042,7 +6227,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
   · intro ψ c hc b hb
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     have hcp : c < p.recs.length := by omega
-    obtain ⟨cvRi, nIdx, u, fvs', concl', sty, hcu, hop', hsty, hu⟩ :=
+    obtain ⟨cvRi, nIdx, u, fvs', concl', sty, hcu, hop', hsty, hu, -⟩ :=
       checkBlockRecTys_elim htys c hcp
     rw [Nat.zero_add] at hop' hsty hu
     -- the stored recursor IS the type stage's checked constant
@@ -6082,7 +6267,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     intro c hc
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     have hcp : c < p.recs.length := by omega
-    obtain ⟨cvRi, nIdx, u, fvs, conclE, sty, hcu, hop, hsty, hu⟩ :=
+    obtain ⟨cvRi, nIdx, u, fvs, conclE, sty, hcu, hop, hsty, hu, -⟩ :=
       checkBlockRecTys_elim htys c hcp
     rw [Nat.zero_add] at hop hsty hu
     have hr1 : r.1 = cvRi := by
