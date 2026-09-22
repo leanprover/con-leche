@@ -81828,3 +81828,84 @@ conclusions are its parts?* — to the per-pair obligation's table turns
 **Operational**: `tests/shake.sh` exits 3 unless
 `lake build ConLeche.PinGen.Prelude` has been run separately — plain
 `lake build` does not reach that target.
+
+#### MEASURED (lane F6a, flip-prep, `858bdb11`): the flip's verdicts, for the first time not reasoned
+
+Until now every `uniform:` row in the e2e expectations was a
+PREDICTION: no scratch flip built, because two theorems in `Main.lean`'s
+import closure are true only under a gate — `blockParts?_k1`
+(`Kernel/Inductives/BlockParts.lean`) under `blockRouteK1Only`, and
+`checkBlockS_one` (`Cached/CheckerC.lean:345`) under
+`blockRecCheckOn = false`, the second of which nobody had listed.  Both
+now take the gate as an explicit hypothesis and their nine call sites
+pass `rfl`; with both gates flipped `lake build con-leche` succeeds
+(154/154), which is the property, proved rather than argued.  The
+layering rule is what makes this enough: the implementation never
+imports the theory tiers, so the EXECUTABLE builds under a flip even
+while the Verify/Model tiers do not.
+
+**e2e: 6 of 261 rows move; no accept is lost and no `bad` stream
+becomes accepted.**  Four are confirmed predictions
+(`mutual_rec_rules_swapped`, `mutual_rec_missing_rule`,
+`corner_rec_two_recursors`, `corner_rec_two_callees`).  **Two are
+accept GAINS nobody predicted, both matching official**:
+`mutual_struct_proj` (decline → accept) is the residual class the
+mutual rung owed — a reflexive member inside a mutual block — and
+`ind_defhead_mutual` (decline → accept) is the #206 audit's crack C3,
+whose `TODO(#206-A3) official: 0` can go.  Many rows keep their verdict
+but gain official's own message and position ("parameters of all
+inductive datatypes must match", "mutually inductive types must live in
+the same universe") in place of a message about a generated `_model`
+record.
+
+**arena: zero verdict moves** (138/138).  `bad/tutorial/135` and
+`bad/tutorial/136` reject through `blockRecNameSetOk`, which is exactly
+what that check exists for.  All 34 `nested_*` rows and both `_nomodel`
+twins are unchanged.
+
+**Predictions: 26 confirmed, 5 refuted.**  Three refutations are
+bookkeeping (`corner_rec_no_ih`'s row should be 1 — the BLOCK is
+accepted, the superset is real, and it is the stream's own `Nat'.add`
+that then fails against the ih-free eliminator; `corner_rec_extra_binder`
+never reaches a route at all, the export-record validator rejects the
+minor count; `corner_pin_quot_bad`/`corner_pin_eq_bad` are about the
+nested arm, a later milestone).  **One is real and is a DECISION, below.**
+
+**`tests/inmodel.sh`** needs a change at the flip: `inmodel_mutual`,
+`inmodel_mutual_idx` and `ind_mutual_three` model zero blocks, so no
+dump is written and the script fails on its own assumption.
+
+**The flip's price, measured: 16 declarations in 9 files, ~250 lines**
+(found by sorry-to-fixpoint, so the list is exhaustive).  The five
+bridge/cached consumers are confirmed; `BlockOne*.lean` is far narrower
+than its file sizes suggest (4 declarations of 344 lines, 1 of 583, and
+`BlockOneFueled.lean` untouched); `declBlock_one` is **already dead**
+(zero consumers — `Model/Fold.lean` goes through `blockParts?_toNative`),
+so deleting it costs nothing and removes a red site.  **REFUTED: the
+`Fix*` k=1 tower, `BConst.lfpFam` and `BlockData.nInst`/`N` do not go
+red at all** and must not be priced into the flip.  One site was not on
+anyone's list: `blockRecHpref_run` (`Model/Inductives/BlockRecPreRun.lean:4185`)
+relies DEFINITIONALLY on `rulePrefixAt i = rulePrefixAt 0`.
+
+#### FINDING → OPEN DECISION (F6a): the primitive-recursion guard does not abstract a defeq-but-not-syntactic argument vector
+
+`corner_rec_call_redex` was predicted to be an accept-superset.  It
+REJECTS: "the rule of `Iter.step` is not a primitive recursion — a
+block recursor occurs outside a call on a recursive field".  The guard
+matches the call's argument vector SYNTACTICALLY, so a redex in an
+argument (defeq to the field, not syntactically it) is not recognised
+as a guarded call.  This is conservative — a reject, never an accept —
+so it is not a soundness matter, and per `restrictions-are-findings` it
+is reported rather than silently kept.  Either the guard should whnf
+the argument vector before matching, or DESIGN's description of it
+should be corrected; the fixture's comment records today's verdict
+either way.
+
+#### OPERATIONAL FINDING (F6a): `ulimit -v` is the wrong instrument for this binary
+
+`ulimit -v 16000000` — the recipe in `CLAUDE.md` — **aborts**
+`con-leche` with `lean::exception: failed to create thread` (exit 134),
+because the worker-thread pool's virtual reservation exceeds the cap;
+22 GB aborts too.  `tests/arena.sh` uses `timeout` alone and always
+has.  An `exit 134` from a memory-capped run is therefore not a checker
+crash, and the recipe needs correcting (maintainer's file).
