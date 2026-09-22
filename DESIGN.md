@@ -82813,3 +82813,36 @@ kernel guard); and **someone already recovered it under another name**
 duplicate was reverted whole; the non-duplicating shape is forced,
 since the two facts come off one peel and an existential per fact could
 not be reconciled.
+
+#### LANDED (lane RM37 = M5M-pre session 27, `ef9e22b4`): the conclusion's arguments — and **clean statement, guarded use**
+
+`blockRuleHokC_args_of_ctor` (`BlockRecPreRun.lean:8051`): the
+conclusion's argument grading discharges against the contract's own
+`TeleFitPA` of the constructor's stored type at the rule's spine.  So
+the conclusion's well-denotedness and the guarded call's are complete
+modulo nothing of that lane's: the fit is the contract's `hfitR`, the
+arguments its `hfitC`, the tower the run's.
+
+**The fourth cost fired twice more in one session.**  Before writing
+either of the next two items the lane shape-grepped their conclusions,
+and both were already produced — one by the data lane
+(`blockRuleFdomsAV_eq`'s SECOND conjunct) and one by the rule lane, **in
+the interval it had just merged** (`blockIhOpenerDom_run`, carrying the
+per-opener reading AND the peel).  The greps that found them were the
+statements' own ANTECEDENTS (`blockRuleFieldFvs … some x →`,
+`fvsIh[r]? = some x`); no name-grep could have, since none of the
+premise names appears in either theorem's name.  One item dropped to a
+quarter session, the other kept only its frame work.
+
+**FINDING — *a statement can be `w`-free and its USE still guarded.***
+The lane had reported, unconditionally, that nothing of its own is
+touched by the `w = 0` question, and corrected itself: its statements
+ARE `w`-free by construction (the certificate bundle's evidence is a
+grading against a tower, never a membership in a carrier — that is what
+the typing lane produces), **but** the conclusion's fit and arguments
+are now the CONTRACT's `hfitR`/`hfitC`, so if those conjuncts sit
+downstream of the guard, its uses inherit the guard.  Clean statement,
+guarded use.  This is the same blindness the partition finding exposed
+from the other side: the `w`-sweeps grep statements, and a dependency
+can live in a composition's PROOF.  **"`w`-free by sweep" is a claim
+about a statement, never about a use.**
