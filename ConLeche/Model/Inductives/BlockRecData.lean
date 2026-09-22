@@ -2436,6 +2436,48 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   rw [blockRuleFdomsAV]
   exact hq
 
+/-- **A-2's FIELD DOMAINS in the CERTIFICATE lane's spelling** — the
+same identity as `blockRuleFdomsAV_eq` with the lifting on the
+TRIPLES instead of on their domains.
+
+`blockRuleFseg_of_run` (`BlockRecPreRun.lean`) states the field
+segment's grading at `(liftDoms o 0 (ds.drop nP)).map (·.2.2)` — it
+lifts the binder data and reads the domains off — while the
+certificate bundle's `fdoms` is `blockRuleFdomsAV`, a
+`readOpenedDoms`.  The two spellings are the two sides of
+`map_liftDoms` (§A.9's own step), so this is that theorem composed
+with the identity and nothing else; it is stated because the
+consumer plugs `ds` and `o` in as parameters and cannot rewrite a
+premise it does not own.
+
+The name is NOT `blockRuleFdomsAV_eq`: that theorem exists (above)
+and concludes the `liftDomsK`-of-`map` form; two spellings, two
+names. -/
+theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) {o : Nat}
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = (liftDoms o 0 ((ds ψ).drop p.nP)).map (·.2.2) := by
+  have hoq : p.toBlockShape.rulePrefixAt c - p.nP = o := by omega
+  rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hoq, map_liftDoms]
+
 /-- **A-3's `mk0`, at the run**: the FIRED SPINE's reading is the
 constructor's leaf applied to the rule frame's parameter and field
 slots.  No stage comparison is needed — the term the check builds is a
