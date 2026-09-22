@@ -2178,6 +2178,50 @@ theorem peelPis_liftN (r m : Nat) :
     | .snd _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
     | .prf => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
 
+/-- **The Π-peel's lift is REVERSIBLE** — `peelPis_liftN`'s converse,
+and the direction the run actually needs.
+
+A consumer that states its peel at `l = 0` and a CHECK that generates
+the tower at the key's own level `l = r` meet here: the run produces
+the peel of the LIFTED spine and the premise wants the peel of the
+spine itself, so the arrow of `peelPis_liftN` points the wrong way.
+It is reversible because `liftN` preserves the head constructor —
+`(.pi u v A B).liftN r m` is a `.pi` and nothing else lifts to one —
+so at every step the peel's own case analysis is decided on `T`
+rather than on `T.liftN r m`, and the residual comes back by
+`liftN_inst_comm` exactly as it went. -/
+theorem peelPis_liftN_inv (r m : Nat) :
+    ∀ (as : List AnnotTerm) {T C' : AnnotTerm},
+      ConLeche.Model.AnnotTerm.peelPis (T.liftN r m)
+          (as.map (AnnotTerm.liftN r · m))
+        = some C' →
+      ∃ C, ConLeche.Model.AnnotTerm.peelPis T as = some C ∧ C' = C.liftN r m := by
+  intro as
+  induction as with
+  | nil =>
+    intro T C' h
+    exact ⟨T, rfl, (Option.some.inj h).symm⟩
+  | cons a as ih =>
+    intro T C' h
+    match T with
+    | .pi u v A B =>
+      have h' : ConLeche.Model.AnnotTerm.peelPis
+          ((B.liftN r (m + 1)).inst (a.liftN r m) 0)
+          (as.map (AnnotTerm.liftN r · m)) = some C' := h
+      have hc := liftN_inst_comm B a r 0 m (Nat.zero_le _)
+      rw [Nat.sub_zero] at hc
+      rw [← hc] at h'
+      exact ih h'
+    | .bvar _ => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .sort _ => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .const .. => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .app .. => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .lam .. => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .eqE .. => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .fst _ => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .snd _ => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+    | .prf => exact absurd (show (none : Option AnnotTerm) = some C' from h) (by simp)
+
 /-- **The prefix variables' `r`-shift**, at `paramBvarsAt`'s spelling
 — `prefVars_shift`'s twin in the form `BlockRuleConclAt` states its
 peel in. -/

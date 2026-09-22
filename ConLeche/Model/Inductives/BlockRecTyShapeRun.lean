@@ -754,6 +754,58 @@ theorem blockRuleConclAt_shift {rP nF i m r o : Nat} {T Ca : AnnotTerm}
   rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF] at h
   exact h
 
+/-- **`hihOpen`'s `BlockRuleConclAt`, FROM the run's peel** — the
+theorem above read backwards, which is the direction that has a
+producer.
+
+`blockRuleHconcl_of` (`BlockRecOpenerRead.lean`) peels the callee's
+stored type along the spine `blockIhPis` generates for the `r`-th
+key, i.e. at `ih` level `l = r`; `hihOpen` states its
+`BlockRuleConclAt` at `l = 0`, because that is the level
+`blockRecCa_value` reads the conclusion at.  Going `0 → r` needs the
+`l = 0` peel to EXIST first and nothing at the run produces it, so
+the shift alone cannot close the conjunct.  It closes the other way:
+the `l = r` spine IS the `l = 0` spine lifted (the same three shift
+lemmas), and the Π-peel's lift is reversible
+(`peelPis_liftN_inv`, `BlockRecRule.lean`), so the `l = 0` peel and
+the identification `Cr = Ca.liftN r m` come out TOGETHER — the
+existential's own choice of `CihR`, and the equation the domain
+conjunct then carries through `mkPisAV_ihTeleAtR_liftN`.
+
+`hT` is where the callee's type being CLOSED is spent, and it is
+spent once: at the run `T'` is `TVa.liftN (rP + nF + r + m) 0` and
+`T` is `TVa`, so `hT` is two lifts of a closed reading being the
+identity.  Stating it as an equation keeps this module free of any
+closedness predicate. -/
+theorem blockRuleConclAt_of_shift {rP nF i m r o : Nat} {T T' Cr : AnnotTerm}
+    {Eis : List AnnotTerm}
+    (hT : T' = T.liftN r m)
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis T'
+      (((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
+        Eis.map (ihIdxAtM nF o i r m) ++
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)])
+      = some Cr) :
+    ∃ Ca, ConLeche.Model.AnnotTerm.peelPis T
+        (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
+          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)])
+      = some Ca ∧ Cr = Ca.liftN r m := by
+  have hE : (Eis.map (ihIdxAtM nF o i 0 m)).map (AnnotTerm.liftN r · m)
+      = Eis.map (ihIdxAtM nF o i r m) := by
+    rw [List.map_map]
+    exact List.map_congr_left fun E _ => (ihIdxAtM_shift nF o i r m E).symm
+  have hF : [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)].map
+        (AnnotTerm.liftN r · m)
+      = [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
+    rw [List.map_singleton, ← fieldApp_shift]
+  have hmap : (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)]).map
+        (AnnotTerm.liftN r · m)
+      = ((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
+          Eis.map (ihIdxAtM nF o i r m) ++
+          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
+    rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF]
+  exact peelPis_liftN_inv r m _ (by rw [hmap, ← hT]; exact hpeel)
+
 
 /-! ## `WalkCtx` at the rule's opened frame
 
