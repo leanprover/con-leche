@@ -6038,6 +6038,41 @@ local macro_rules
         | exact absurd $h
             (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
 
+/-! ### The COUNTING guard, read off the verdict
+
+`blockLargeElimAllowed` is a disjunction whose first arm
+(`resSort.isNeverZero`) is refuted at a block the SQ regime runs on —
+that regime's guard is `d.w ψ = 0`, i.e. the result sort evaluates to
+zero at this `ψ` — so at `w = 0` the verdict IS the counting guard's
+four facts, and all of them at once:
+
+* `large = true`, which is what the constructors' stage keys its
+  SUBSINGLETON clause on (`CtorDataI.srcProp`) and therefore what
+  `blockRuleChainFit_sq`'s `hlarge` asks for;
+* `k = 1`, which is the dispatch's `hK1`;
+* `nested = false`;
+* `numCtors ≤ 1`, which is `hct1` once the member's own count is read
+  off the block's (at `k = 1` the two are the same number).
+
+They are one theorem because they are one `&&`: stating them
+separately would mean reading the same guard three times, and the
+reason the arm may read it at all is the same in each case. -/
+
+/-- **The counting guard's four facts, from the verdict at a `Prop`
+result.** -/
+theorem blockLargeElim_counting {q : ConLeche.BlockShape} {nested : Bool}
+    (hallow : ConLeche.blockLargeElimAllowed q nested = true)
+    {ψ : Name → Nat} (hz : q.resSort.eval ψ = 0) :
+    q.large = true ∧ q.k = 1 ∧ nested = false ∧ q.numCtors ≤ 1 := by
+  rw [ConLeche.blockLargeElimAllowed, Bool.or_eq_true] at hallow
+  rcases hallow with hnz | hrest
+  · exact absurd hz (ConLeche.Level.isNeverZero_sound ψ _ hnz)
+  · rw [Bool.and_eq_true, Bool.and_eq_true, Bool.and_eq_true] at hrest
+    obtain ⟨⟨⟨hl, hk⟩, hn⟩, hc⟩ := hrest
+    refine ⟨hl, by simpa using hk, by simpa using hn, ?_⟩
+    rcases (Bool.or_eq_true _ _).mp hc with hc' | hc' <;>
+      · rw [beq_iff_eq] at hc'; omega
+
 /-- **Stage (b)'s inversion, WIDENED to the conclusion's SORT and to
 the ELIMINATION VERDICT**: the recursor's opened conclusion is
 inferred and `ensureSort`ed at the stage's own fuel, the level that
