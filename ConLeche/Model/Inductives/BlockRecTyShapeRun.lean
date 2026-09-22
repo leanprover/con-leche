@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockFieldRead
+import ConLeche.Model.Inductives.BlockRecRule
 
 public section
 
@@ -671,6 +672,60 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
     | unsupported => rw [hq] at htgt; exact nomatch htgt
 
 end Keys
+
+
+/-! ## 8. The `ih` LEVEL, at the opener's CONCLUSION (the fused
+opener reading's last syntactic step)
+
+`hihOpen` (`blockIndRegime_run`) states its `BlockRuleConclAt`
+conjunct at `ih` level `l = 0`, and it has to: `blockRecCa_value`
+reads that conclusion at the frame the field TELESCOPE's values sit
+on, and the domain equation carries the `liftN r 0` that cancels the
+`r` earlier openers' values (`spineFit_ihdoms_zero`).  The RUN peels
+the callee's stored type at the generated opener's own level `l = r`
+(`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`), because that is
+where `blockIhPis` puts the `r`-th key's binder.
+
+The two peels are ONE fact.  Each of the spine's three stretches is
+its `l = 0` self lifted at the telescope's cut
+(`paramBvarsAt_shift`, `ihIdxAtM_shift`, `fieldApp_shift`, all
+`BlockRecRule.lean`), and the peel follows a lift of its whole spine
+(`peelPis_liftN`) — so the `l = r` conclusion IS the `l = 0`
+conclusion lifted, which is what `mkPisAV_ihTeleAtR_shift` then needs
+to move the `liftN` out of the tower. -/
+
+/-- **The opener's conclusion at level `r` is its conclusion at level
+`0`, lifted.**  The type is lifted too; at the run it is the CALLEE's
+stored recursor type, which is closed, so the caller's `T.liftN r m`
+is `T`.
+
+The premise is `BlockRuleConclAt rP nF m T (e⃗ at l = 0) (f a⃗ at
+l = 0) Ca` spelled out.  It is spelled out on purpose: the predicate
+lives in `BlockRecPreRun`, this module imports that privately, and
+naming it here would promote the whole module to a public
+re-export for one `@[expose] def` that a caller passes definitionally
+anyway. -/
+theorem blockRuleConclAt_shift {rP nF i m r o : Nat} {T Ca : AnnotTerm}
+    {Eis : List AnnotTerm}
+    (hcon : ConLeche.Model.AnnotTerm.peelPis T
+      (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)]) = some Ca) :
+    ConLeche.Model.AnnotTerm.peelPis (T.liftN r m)
+        (((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
+          Eis.map (ihIdxAtM nF o i r m) ++
+          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)])
+      = some (Ca.liftN r m) := by
+  have h := peelPis_liftN r m _ hcon
+  have hE : (Eis.map (ihIdxAtM nF o i 0 m)).map (AnnotTerm.liftN r · m)
+      = Eis.map (ihIdxAtM nF o i r m) := by
+    rw [List.map_map]
+    exact List.map_congr_left fun E _ => (ihIdxAtM_shift nF o i r m E).symm
+  have hF : [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)].map
+        (AnnotTerm.liftN r · m)
+      = [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
+    rw [List.map_singleton, ← fieldApp_shift]
+  rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF] at h
+  exact h
 
 end Run
 

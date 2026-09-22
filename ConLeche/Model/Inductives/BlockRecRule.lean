@@ -14,6 +14,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Semantics.Tower.BlockRecIndI
 import ConLeche.Model.Rules.Sound
+import ConLeche.Model.Annot.BitInst
 
 public section
 
@@ -2066,6 +2067,129 @@ theorem prefVars_shift (rP nF d m : Nat) :
   rw [List.mem_range] at hl
   show AnnotTerm.bvar _ = (AnnotTerm.bvar (nF + m + rP - 1 - l)).liftN d m
   rw [liftN_bvar_ge (show m ≤ nF + m + rP - 1 - l from by omega)]
+  congr 1
+  omega
+
+/-! ## The `ih` LEVEL's shift, at the PEEL
+
+`blockIhPis` generates the `r`-th `ih` opener at level `l = r`, so the
+run peels the CALLEE's stored type at the `l = r` spine
+(`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`) — while every
+consumer of the opener's DOMAIN wants the `l = 0` tower lifted past
+the `r` earlier openers, because that lift is what cancels their
+values (`spineFit_ihdoms_zero`'s `liftN r 0`, through
+`interp_liftN_ihvals`).  The three component lemmas above move the
+SPINE between the two levels; these move the PEEL, so the `l = r`
+conclusion IS the `l = 0` conclusion lifted at the telescope's own
+cut.
+
+That is the last syntactic step of the fused opener reading
+(`blockIndRegime_run`'s `hihOpen`): its `BlockRuleConclAt` conjunct is
+stated at `l = 0` — it has to be, `blockRecCa_value` reads it at the
+frame the telescope's values sit on — and the run hands out `l = r`. -/
+
+/-- **A lift passes an instantiation.**  `AnnotTerm`'s missing
+commutation at a cut ABOVE the substituted variable: substituting at
+`k` and then lifting at `m ≥ k` is lifting at `m + 1` — the cut the
+peeled binder pushed up — and substituting the lifted value.  The
+`q = k` case is the only one with content, and it is
+`liftN_shift_comm` at `A = 0`. -/
+theorem liftN_inst_comm :
+    ∀ (E a : AnnotTerm) (r k m : Nat), k ≤ m →
+      (E.inst a k).liftN r m = (E.liftN r (m + 1)).inst (a.liftN r (m - k)) k
+  | .bvar q, a, r, k, m, hkm => by
+    rcases Nat.lt_trichotomy q k with hq | hq | hq
+    · rw [AnnotTerm.inst_bvar, if_pos hq, liftN_bvar_lt (show q < m from by omega),
+        liftN_bvar_lt (show q < m + 1 from by omega), AnnotTerm.inst_bvar, if_pos hq]
+    · subst hq
+      rw [AnnotTerm.inst_bvar, if_neg (Nat.lt_irrefl q), if_pos rfl,
+        liftN_bvar_lt (show q < m + 1 from by omega), AnnotTerm.inst_bvar,
+        if_neg (Nat.lt_irrefl q), if_pos rfl]
+      have h := liftN_shift_comm (A := 0) (o := r) (d := q) a 0 (m - q) (Nat.zero_le _)
+      rw [AnnotTerm.liftN_zero, Nat.zero_add, show m - q + q = m from by omega] at h
+      exact h.symm
+    · rw [AnnotTerm.inst_bvar, if_neg (show ¬ q < k from by omega),
+        if_neg (show ¬ q = k from by omega)]
+      by_cases h1 : q < m + 1
+      · rw [liftN_bvar_lt (show q - 1 < m from by omega), liftN_bvar_lt h1,
+          AnnotTerm.inst_bvar, if_neg (show ¬ q < k from by omega),
+          if_neg (show ¬ q = k from by omega)]
+      · rw [liftN_bvar_ge (show m ≤ q - 1 from by omega),
+          liftN_bvar_ge (show m + 1 ≤ q from by omega), AnnotTerm.inst_bvar,
+          if_neg (show ¬ q + r < k from by omega), if_neg (show ¬ q + r = k from by omega)]
+        congr 1
+        omega
+  | .sort _, _, _, _, _, _ | .const .., _, _, _, _, _ | .prf, _, _, _, _, _ => rfl
+  | .app f b, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_app, AnnotTerm.liftN_app,
+      liftN_inst_comm f a r k m hkm, liftN_inst_comm b a r k m hkm]
+  | .eqE b c, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_eqE, AnnotTerm.liftN_eqE,
+      liftN_inst_comm b a r k m hkm, liftN_inst_comm c a r k m hkm]
+  | .fst e, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_fst, AnnotTerm.liftN_fst, liftN_inst_comm e a r k m hkm]
+  | .snd e, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_snd, AnnotTerm.liftN_snd, liftN_inst_comm e a r k m hkm]
+  | .lam u A b, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_lam, AnnotTerm.liftN_lam,
+      liftN_inst_comm A a r k m hkm,
+      liftN_inst_comm b a r (k + 1) (m + 1) (by omega),
+      show m + 1 - (k + 1) = m - k from by omega]
+  | .pi u v A B, a, r, k, m, hkm => by
+    simp only [AnnotTerm.inst_pi, AnnotTerm.liftN_pi,
+      liftN_inst_comm A a r k m hkm,
+      liftN_inst_comm B a r (k + 1) (m + 1) (by omega),
+      show m + 1 - (k + 1) = m - k from by omega]
+
+/-- **The Π-peel commutes with a lift** at a FIXED cut: peeling a
+lifted tower along the lifted spine is the peel, lifted.  The peel
+instantiates at `0` and never descends under a binder of its own, so
+one cut serves the whole spine (`liftN_inst_comm` at `k = 0`). -/
+theorem peelPis_liftN (r m : Nat) :
+    ∀ (as : List AnnotTerm) {T C : AnnotTerm},
+      ConLeche.Model.AnnotTerm.peelPis T as = some C →
+      ConLeche.Model.AnnotTerm.peelPis (T.liftN r m)
+          (as.map (AnnotTerm.liftN r · m))
+        = some (C.liftN r m) := by
+  intro as
+  induction as with
+  | nil =>
+    intro T C h
+    rw [show C = T from (Option.some.inj h).symm]
+    rfl
+  | cons a as ih =>
+    intro T C h
+    match T with
+    | .pi u v A B =>
+      have h' : ConLeche.Model.AnnotTerm.peelPis (B.inst a) as = some C := h
+      show ConLeche.Model.AnnotTerm.peelPis
+        ((B.liftN r (m + 1)).inst (a.liftN r m) 0) _ = _
+      have hc := liftN_inst_comm B a r 0 m (Nat.zero_le _)
+      rw [Nat.sub_zero] at hc
+      rw [← hc]
+      exact ih h'
+    | .bvar _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .sort _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .const .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .app .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .lam .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .eqE .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .fst _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .snd _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+    | .prf => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
+
+/-- **The prefix variables' `r`-shift**, at `paramBvarsAt`'s spelling
+— `prefVars_shift`'s twin in the form `BlockRuleConclAt` states its
+peel in. -/
+theorem paramBvarsAt_shift (rP nF m r : Nat) :
+    (paramBvarsAt rP (rP + nF + m)).map (AnnotTerm.liftN r · m)
+      = (List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l) := by
+  unfold paramBvarsAt
+  rw [List.map_map]
+  refine List.map_congr_left fun l hl => ?_
+  rw [List.mem_range] at hl
+  show (AnnotTerm.bvar (rP + nF + m - 1 - l)).liftN r m = _
+  rw [liftN_bvar_ge (show m ≤ rP + nF + m - 1 - l from by omega)]
   congr 1
   omega
 
