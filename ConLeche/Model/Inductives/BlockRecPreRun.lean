@@ -8730,6 +8730,100 @@ theorem blockRuleIseg_h0_of_conclAt {envC : Env} (hμ : μ.verifiedChecks = true
 
 end ConclUniv
 
+/-! ### 40.16 `hwd` — the ι equation list's grading
+
+`hwd` (§5, and the same premise in all three regimes) has three parts
+per rule, and a shape-grep over each — the habit, applied before
+pricing — separates them cleanly:
+
+* `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
+  has **no producer anywhere and no near-miss** (the only theorem
+  concluding it, `fieldsOkB_of_frame` in `StructTele.lean`, is stated
+  over `fieldsFrom`'s reversed-context slicing, a different currency);
+  this is the THIRD cost, and `fieldsOkB_zero_of_spineGrading` below
+  pays it.  At `w = 0` the predicate's middle conjunct is vacuous, so
+  what is left is exactly the hereditary reading of §40.12's
+  ASCENDING per-binder grading — one induction, no new content;
+* the equation's RIGHT-hand side, `instsAV 0 (ihs c j) (Rb c j)`.
+  That is the RESIDUE's grading, which is `BlockRuleCerts`' own first
+  component (`ResidueOk.1`), and `wd_instsAV`
+  (`Semantics/Tower/BlockRecI.lean`) crosses the substitution;
+* the equation's LEFT-hand side, the recursor VARIABLE applied to the
+  rule's spine.  Its head's membership is `hwd`'s own hypothesis (the
+  chain slot inhabits the recursor type's reading), so it is
+  `Rules.wellDenotedV_mkAppN_of_fit` at the RECURSOR's fit — the same
+  shape §40.11's arguments took at the CONSTRUCTOR's. -/
+
+section Hwd
+
+/-- **`FieldsOkB 0` from the ASCENDING per-binder grading** (the
+`hokA` currency).  At `w = 0` the universe clause is vacuous, so the
+predicate is just "every entry is graded under the values of the
+entries before it", which is what a spine-indexed grading says one
+index at a time. -/
+theorem fieldsOkB_zero_of_spineGrading :
+    ∀ (L : List AnnotTerm) {σ : Nat → V},
+      (∀ l, l < L.length → ∀ ys : List V,
+        SpineFit σ (L.take l) ys → WellDenoted V (consList ys σ) (L.getD l default)) →
+      FieldsOkB 0 σ L
+  | [], _, _ => trivial
+  | F :: Fs, σ, hok => by
+    refine ⟨?_, (fun hz => absurd rfl hz), fun a ha => ?_⟩
+    · simpa using hok 0 (by simp) [] trivial
+    · refine fieldsOkB_zero_of_spineGrading Fs (fun l hl ys hys => ?_)
+      have hstep : SpineFit σ ((F :: Fs).take (l + 1)) (a :: ys) := ⟨ha, hys⟩
+      have hq := hok (l + 1) (by simp only [List.length_cons]; omega) (a :: ys) hstep
+      simpa using hq
+
+/-- **`hwd`'s RIGHT-hand side, from the bundle**: the ι equation's
+residue is graded because `BlockRuleCerts.residueOk`'s FIRST component
+says so, and the substitution of the `ih` terms is crossed by
+`wd_instsAV`.  The `ih` values are the ones the regime's own `hih`
+names, so nothing here is quantified past the fit that produces
+them. -/
+theorem blockRuleHwdRhs_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
+    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
+    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
+    (hcerts : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
+    {σ : Nat → V} {xs fs : List V} {ihs : List AnnotTerm}
+    (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs))
+    (hihv : ∀ v ∈ ihs, WellDenoted V (consList (xs ++ fs) σ) v)
+    (hih : SpineFit (consList (xs ++ fs) σ) ihdoms
+      (ihs.map (interp V (consList (xs ++ fs) σ)))) :
+    WellDenoted V (consList (xs ++ fs) σ) (instsAV 0 ihs Rb) :=
+  (wd_instsAV hihv).mpr (hcerts.residueOk hμ hsp hih).1
+
+/-- **`hwd` AT ONE RULE, assembled.**  The three parts in the shape
+the regimes state them: the domain list's `FieldsOkB 0` from §40.12's
+ascending grading, the ι equation's left side from the recursor's fit,
+and its right side from the bundle.
+
+The left side's premise is stated at the spine, not split, because
+only the residue's half needs the prefix/field boundary — and that
+split is `spineFit_append_inv`, not a hypothesis. -/
+theorem blockRuleHwd_of {envT : Env} (hμ : μ.verifiedChecks = true)
+    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
+    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
+    (hcerts : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
+    {σ : Nat → V} {lhs : AnnotTerm} {ihs : List AnnotTerm}
+    (hokA : ∀ l, l < (pdoms ++ fdoms).length → ∀ ys : List V,
+      SpineFit σ ((pdoms ++ fdoms).take l) ys →
+      WellDenoted V (consList ys σ) ((pdoms ++ fdoms).getD l default))
+    (hlhs : ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+      WellDenoted V (consList ys σ) lhs)
+    (hihs : ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+      (∀ v ∈ ihs, WellDenoted V (consList ys σ) v) ∧
+        SpineFit (consList ys σ) ihdoms (ihs.map (interp V (consList ys σ)))) :
+    FieldsOkB 0 σ (pdoms ++ fdoms) ∧
+      ∀ ys : List V, SpineFit σ (pdoms ++ fdoms) ys →
+        WellDenoted V (consList ys σ) lhs ∧
+          WellDenoted V (consList ys σ) (instsAV 0 ihs Rb) := by
+  refine ⟨fieldsOkB_zero_of_spineGrading _ hokA, fun ys hys => ⟨hlhs ys hys, ?_⟩⟩
+  obtain ⟨xs, fs, rfl, -, -⟩ := spineFit_append_inv hys
+  exact blockRuleHwdRhs_of_certs hμ hcerts hys (hihs _ hys).1 (hihs _ hys).2
+
+end Hwd
+
 end CertsArgs
 
 end ConLeche.Model
