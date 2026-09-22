@@ -985,9 +985,9 @@ tagged element decomposes to and at the ih values the graph `g`
 supplies. -/
 @[expose] noncomputable def blockRecStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
     (ρ : Nat → V) (mem : Nat → Nat) (Rb0 : Nat → Nat → AnnotTerm)
-    (ihv : Nat → Nat → List V → V → List V) (xs : List V) (u g : V) : V :=
+    (ihv : List V → Nat → Nat → List V → V → List V) (xs : List V) (u g : V) : V :=
   interp V
-    (consList (ihv (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1
+    (consList (ihv xs (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1
         (blockDecTag K d ψ ρ mem xs u).2 g)
       (consList (xs ++ (blockDecTag K d ψ ρ mem xs u).2) ρ))
     (Rb0 (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1)
@@ -997,7 +997,7 @@ the constructor and the fields, so the step is the rule's residue at
 the rule's own spine — the ι law's right-hand side. -/
 theorem blockRecStep_at (hM : BlockModelAt mo names d) {K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
     {mem : Nat → Nat} {Rb0 : Nat → Nat → AnnotTerm}
-    {ihv : Nat → Nat → List V → V → List V} {xs : List V} (hw : d.w ψ ≠ 0)
+    {ihv : List V → Nat → Nat → List V → V → List V} {xs : List V} (hw : d.w ψ ≠ 0)
     {c : Nat} (hc : c < K) (hmemN : mem c < d.N) {i : V} {j : Nat} {fs : List V}
     (hj : j < (d.ctorsM (mem c)).length)
     (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
@@ -1005,7 +1005,7 @@ theorem blockRecStep_at (hM : BlockModelAt mo names d) {K : Nat} {ψ : Name → 
         (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs)
     (g : V) :
     blockRecStep K d ψ ρ mem Rb0 ihv xs (tagged c i (d.inj ψ (mem c) j fs)) g
-      = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+      = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
   rw [blockRecStep, blockDecTag, tagDec_tagged hc, blockDecomp_eq hM hw hmemN hj hfit]
 
 /-- **The graph is motive-valued at the predecessors** — stated off the
@@ -1024,7 +1024,7 @@ section Kit
 variable {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt : Nat → Nat} {xs : List V}
   {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
   {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {ihv : Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+  {ihv : List V → Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
   {rP : Nat → Nat}
 
 /-- **The WF regime's kit at a prefix spine**: F5's `WfRecKit` over the
@@ -1060,13 +1060,13 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
           (tagged c i (d.inj ψ (mem c) j fs)) →
         app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
           (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
         = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
             (tagged c i (d.inj ψ (mem c) j fs))) :
     WfRecKit ℓ K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) where
@@ -1119,7 +1119,7 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
   {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
   {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {ihv : Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
+  {ihv : List V → Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
 
 /-- **The kit at EVERY prefix spine**: §11's, whose obligations are
 already vacuous at a non-fitting prefix — the guard sits in
@@ -1156,14 +1156,14 @@ noncomputable def blockWfKitFam (hμ : μ.verifiedChecks = true)
           (tagged c i (d.inj ψ (mem c) j fs)) →
         app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
           (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
         = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
             (tagged c i (d.inj ψ (mem c) j fs)))
     (xs : List V) :
@@ -1216,7 +1216,7 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
   {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
   {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
-  {Rb0 : Nat → Nat → AnnotTerm} {ihv : Nat → Nat → List V → V → List V}
+  {Rb0 : Nat → Nat → AnnotTerm} {ihv : List V → Nat → Nat → List V → V → List V}
 
 /-- **The residue crosses the chain frame**: the base-frame residue
 lifted past the `K` Σ' binders at its own depth reads the same under
@@ -1277,11 +1277,11 @@ theorem blockRecPre_step_of (D : RecFamData V ℓ K rP rds concl ρ) {stp : List
             (D.tupOf c
               ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
             (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j))
+        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j))
     (hihChain : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv c j fs
+      ihv xs c j fs
           (kitGraphAt (D.kit xs)
             (tagged c
               (D.tupOf c
@@ -1330,7 +1330,7 @@ theorem blockRecStep_at_rule (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
             (D.tupOf c
               ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
             (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
   intro c hc j hj xs fs hxl hsp g
   obtain ⟨hfit, hmkv⟩ := hctorAt c hc j hj xs fs hxl hsp
   have hjc : j < (d.ctorsM (mem c)).length := by rw [hnCt c hc]; exact hj
@@ -1358,18 +1358,18 @@ variable {d : BlockData V} {ℓ s K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
   {concl RecTy : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
   {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
   {ihs : Nat → Nat → List AnnotTerm} {Rb0 : Nat → Nat → AnnotTerm}
-  {ihv : Nat → Nat → List V → V → List V} {src : Nat → List (Option Nat)}
+  {ihv : List V → Nat → Nat → List V → V → List V} {src : Nat → List (Option Nat)}
 
 /-- **Regime SQ's step**: the rule's residue read at the SOURCE spine
 — the fields recovered from the tagged element's INDEX, the major
 being the point. -/
 @[expose] noncomputable def blockSqStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
     (ρ : Nat → V) (mem : Nat → Nat) (src : Nat → List (Option Nat))
-    (Rb0 : Nat → Nat → AnnotTerm) (ihv : Nat → Nat → List V → V → List V) (xs : List V)
+    (Rb0 : Nat → Nat → AnnotTerm) (ihv : List V → Nat → Nat → List V → V → List V) (xs : List V)
     (u g : V) : V :=
   interp V
     (consList
-      (ihv (tagDec K u).1 0
+      (ihv xs (tagDec K u).1 0
         (srcVals (isOfW (d.uM (mem (tagDec K u).1) ψ) (d.nIdxAt (mem (tagDec K u).1))
           (tagDec K u).2.1) (src (tagDec K u).1)) g)
       (consList
@@ -1381,7 +1381,7 @@ being the point. -/
 theorem blockSqStep_at {c : Nat} (hc : c < K) {i x : V} {fs : List V}
     (hsrc : srcVals (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i) (src c) = fs) (g : V) :
     blockSqStep K d ψ ρ mem src Rb0 ihv xs (tagged c i x) g
-      = interp V (consList (ihv c 0 fs g) (consList (xs ++ fs) ρ)) (Rb0 c 0) := by
+      = interp V (consList (ihv xs c 0 fs g) (consList (xs ++ fs) ρ)) (Rb0 c 0) := by
   simp only [blockSqStep, tagDec_tagged hc, hsrc]
 
 /-- **Regime SQ's `hstAt`**: at the lone constructor the rule's own
@@ -1406,7 +1406,7 @@ theorem blockSqStep_at_rule (D : RecFamData V ℓ K rP rds concl ρ)
             (D.tupOf c
               ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
             (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
+        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
   intro c hc j hj xs fs hxl hsp g
   obtain ⟨rfl, hsrc⟩ := hsrcAt c hc j hj xs fs hxl hsp
   exact blockSqStep_at hc hsrc g
@@ -1442,7 +1442,7 @@ def KitRegimeAt (V : Type w) [SetTheory V] (ℓ K : Nat) (rP nCt : Nat → Nat)
     (mk : Nat → Nat → AnnotTerm) (ihs : Nat → Nat → List AnnotTerm)
     (Rb0 : Nat → Nat → AnnotTerm) (ρ : Nat → V) : Prop :=
   ∃ (D : RecFamData V ℓ K rP rds concl ρ) (stp : List V → V → V → V)
-    (ihv : Nat → Nat → List V → V → List V),
+    (ihv : List V → Nat → Nat → List V → V → List V),
     (∀ xs : List V, (D.kit xs).st = stp xs) ∧
     (∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c)) ∧
     OneElimLevel ℓ K rds ∧
@@ -1461,11 +1461,11 @@ def KitRegimeAt (V : Type w) [SetTheory V] (ℓ K : Nat) (rP nCt : Nat → Nat)
             (D.tupOf c
               ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
             (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j)) ∧
+        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j)) ∧
     (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv c j fs
+      ihv xs c j fs
           (kitGraphAt (D.kit xs)
             (tagged c
               (D.tupOf c
@@ -1823,7 +1823,7 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
   {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms : Nat → Nat → List AnnotTerm}
   {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
-  {Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : Nat → Nat → List V → V → List V}
+  {Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : List V → Nat → Nat → List V → V → List V}
   {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
 
 /-- **`KitRegimeAt` at the WF regime**, from the representation, the
@@ -1861,14 +1861,14 @@ theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
           (tagged c i (d.inj ψ (mem c) j fs)) →
         app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
           (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv c j fs g))
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
         = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
             (tagged c i (d.inj ψ (mem c) j fs)))
     (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
@@ -1893,7 +1893,7 @@ theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hihChain : ∀ (D : RecFamData V ℓ K rP rds concl ρ), ∀ c, c < K → ∀ j, j < nCt c →
       ∀ xs fs : List V, xs.length = (pdoms c).length →
       SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv c j fs
+      ihv xs c j fs
           (kitGraphAt (D.kit xs)
             (tagged c
               (D.tupOf c
@@ -3058,5 +3058,428 @@ theorem denoteMetaSpine_prefFvs {acval : Name → (Name → Nat) → AnnotTerm} 
   simpa [paramBvarsAt] using h
 
 end RuleConcl
+
+/-! ## 30. The `ih` openers' VALUES — `ihv` defined, and `hihChain`
+(session 13)
+
+Until this section `ihv` was a PARAMETER of the kit, of the abstract
+arm and of `KitRegimeAt`, and the two facts about it (`hihF`, the
+values fit the ih openers' domains; `hihChain`, they ARE the ih terms'
+readings at the chain frame) were premises.  `ihv` is now DEFINED, and
+it may not mention the recursor: the kit's step is what the recursion
+theorem is being handed, so the only thing an ih value may be built
+from is the GRAPH `g` the step receives.
+
+**The design** (`M5M-pre-REPORT` §S6.4 item 2).  A rule's `ih` opener
+for a guarded call `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` is valued at the
+CURRIED λ-tower over the field's telescope (F3's finding 2: the ih's
+domain is the telescope, not the predecessor set) whose body is the
+graph at that call's PREDECESSOR — `blockRecIhvAt`.  The ih TERMS are
+the same towers spelled syntactically under the `K` chain binders
+(`ihFunAV`, whose head is the chain's component) — `blockRecIhsAt`,
+the single definition of `ihs` the two lanes share (the audit's item
+9).
+
+`hihChain` is then a TOWER congruence: the two towers run over the
+same binder data at two frames that agree below the rule's own depth,
+and at a leaf the graph-built body is the call's value
+(`blockRecIhCall`: `app_graph` at the predecessor and `famCand_fold`
+at the candidate) while the syntactic one folds to the same thing
+(`interp_ihFunAV_body`, `ihFunAV_fold`'s core stated at the BODY
+rather than at the fold). -/
+
+section IhValues
+
+/-! ### The tower congruence -/
+
+/-- A frame built by `consList` does not see the environment below it. -/
+theorem consList_below_indep (L : List V) (ρ₁ ρ₂ : Nat → V) :
+    ∀ i, i < L.length → consList L ρ₁ i = consList L ρ₂ i := by
+  intro i hi
+  rw [consList_getD_of_lt _ _ _ hi, consList_getD_of_lt _ _ _ hi]
+
+/-- **A λ-tower congruence at two frames**: towers over the SAME
+binder data agree when the frames agree below the depth the data are
+bounded at — entry `l` at `N + l`, the shape a telescope's own bound
+has (§28's finding) — and their bodies agree at every leaf frame the
+walk reaches. -/
+theorem lamTowerA_congr_below {m : Nat} {g₁ g₂ : List V → (Nat → V) → V} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {N : Nat} {ρ₁ ρ₂ : Nat → V} {acc : List V},
+      (∀ i, i < N → ρ₁ i = ρ₂ i) →
+      (∀ l, l < ds.length → Term.bvarsBelow (N + l) ((ds.getD l default).2.2).erase) →
+      (∀ bs : List V, bs.length = ds.length →
+        g₁ (acc ++ bs) (consList bs ρ₁) = g₂ (acc ++ bs) (consList bs ρ₂)) →
+      lamTowerA m ρ₁ acc ds g₁ = lamTowerA m ρ₂ acc ds g₂
+  | [], _, _, _, acc, _, _, hbody => by
+    have h := hbody [] rfl
+    simpa [lamTowerA] using h
+  | dd :: ds, N, ρ₁, ρ₂, acc, hag, hb, hbody => by
+    have hdom : interp V ρ₁ dd.2.2 = interp V ρ₂ dd.2.2 := by
+      refine interp_congr_below (V := V) dd.2.2 N ρ₁ ρ₂ ?_ hag
+      have h0 := hb 0 (by simp)
+      simpa using h0
+    show lamR m (interp V ρ₁ dd.2.2) (fun a => lamTowerA m (cons a ρ₁) (acc ++ [a]) ds g₁)
+      = lamR m (interp V ρ₂ dd.2.2) (fun a => lamTowerA m (cons a ρ₂) (acc ++ [a]) ds g₂)
+    rw [← hdom]
+    refine lamR_congr fun a _ => ?_
+    refine lamTowerA_congr_below (N := N + 1) (fun i hi => ?_) (fun l hl => ?_) (fun bs hbs => ?_)
+    · cases i with
+      | zero => rfl
+      | succ i => exact hag i (by omega)
+    · have h := hb (l + 1) (by simpa using hl)
+      rw [show N + 1 + l = N + (l + 1) from by omega]
+      simpa using h
+    · have h := hbody (a :: bs) (by simpa using hbs)
+      simpa [List.append_assoc] using h
+
+/-! ### The ih term's body -/
+
+/-- **`ihFunAV_fold`'s core, at the BODY**: the guarded call's spine
+read at a leaf frame of the field's telescope — the chain's component
+folded along the rule's prefix, the field's index readings and the
+applied field.  `ihFunAV_fold` is this plus `lamTowerA_fold`; the
+congruence needs the body, not the fold. -/
+theorem interp_ihFunAV_body {K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)}
+    {eis : List AnnotTerm} {fap : AnnotTerm} {σ : Nat → V} {R : V}
+    (hR : σ (K - 1 - c') = R) {xs fs as : List V}
+    (hxl : xs.length = rP) (hfl : fs.length = nF) (hal : as.length = tl.length) :
+    interp V (consList as (consList (xs ++ fs) σ))
+        (AnnotTerm.mkAppN (.bvar (tl.length + nF + rP + (K - 1 - c')))
+          (prefVarsAV rP (nF + tl.length) ++ eis ++ [fap]))
+      = (xs ++ (eis ++ [fap]).map (interp V (consList as (consList (xs ++ fs) σ)))).foldl
+          SetTheory.app R := by
+  have hfr : consList as (consList (xs ++ fs) σ) = consList (xs ++ (fs ++ as)) σ := by
+    rw [consList_append, consList_append, consList_append]
+  rw [hfr, interp_mkAppN, foldl_app_map]
+  have hlen : (xs ++ (fs ++ as)).length = nF + tl.length + rP := by
+    rw [List.length_append, List.length_append, hxl, hfl, hal]; omega
+  have hhead : interp V (consList (xs ++ (fs ++ as)) σ)
+      (.bvar (tl.length + nF + rP + (K - 1 - c'))) = R := by
+    show consList (xs ++ (fs ++ as)) σ (tl.length + nF + rP + (K - 1 - c')) = R
+    rw [show tl.length + nF + rP + (K - 1 - c')
+          = (K - 1 - c') + (xs ++ (fs ++ as)).length from by rw [hlen]; omega,
+      consList_apply_add, hR]
+  have hpre : (prefVarsAV rP (nF + tl.length)).map (interp V (consList (xs ++ (fs ++ as)) σ))
+      = xs := by
+    have h := interp_prefVarsAV (V := V) (rP := rP) (xs := xs) (bs := fs ++ as) (ρ := σ) hxl
+    rw [List.length_append, hfl, hal] at h
+    exact h
+  rw [hhead]
+  simp only [List.map_append, hpre, List.append_assoc]
+
+/-! ### The two lists -/
+
+/-- **The `ih` openers' TERMS**, one per key: the design's curried
+λ-tower of the guarded call, spelled under the `K` chain binders.
+This is the `ihs` BOTH lanes state their facts at (the audit's item
+9); its per-key syntactic data are the rule lane's
+(`ihNodeVal_blockRec`'s `hihv`: `ihTeleAtR`, the `ihIdxAtM`-moved index
+readings and the applied field). -/
+@[expose] def blockRecIhsAt (ℓ K rP nF : Nat) (ihKeys : List (Nat × Nat))
+    (tlA : Nat → List (Nat × Nat × AnnotTerm)) (eisA : Nat → List AnnotTerm)
+    (fapA : Nat → AnnotTerm) : List AnnotTerm :=
+  ihKeys.map fun key => ihFunAV ℓ K key.2 rP nF (tlA key.1) (eisA key.1) (fapA key.1)
+
+omit [SetTheory V] in
+@[simp] theorem blockRecIhsAt_length (ℓ K rP nF : Nat) (ihKeys : List (Nat × Nat))
+    (tlA : Nat → List (Nat × Nat × AnnotTerm)) (eisA : Nat → List AnnotTerm)
+    (fapA : Nat → AnnotTerm) :
+    (blockRecIhsAt ℓ K rP nF ihKeys tlA eisA fapA).length = ihKeys.length := by
+  simp [blockRecIhsAt]
+
+/-- **The `ih` openers' VALUES**, built from the recursion GRAPH `g`
+alone: per key the λ-tower over the field's telescope whose body is
+`g` at the PREDECESSOR the guarded call names — the field applied to
+the telescope spine, tagged with its class and its index tuple. -/
+@[expose] noncomputable def blockRecIhvAt (ℓ : Nat) (tup : Nat → List V → V) (σ : Nat → V)
+    (ihKeys : List (Nat × Nat)) (tlA : Nat → List (Nat × Nat × AnnotTerm))
+    (eisA : Nat → List AnnotTerm) (fapA : Nat → AnnotTerm) (g : V) : List V :=
+  ihKeys.map fun key =>
+    lamTowerA ℓ σ [] (tlA key.1) fun _ τ =>
+      app g (tagged key.2 (tup key.2 ((eisA key.1).map (interp V τ)))
+        (interp V τ (fapA key.1)))
+
+@[simp] theorem blockRecIhvAt_length (ℓ : Nat) (tup : Nat → List V → V) (σ : Nat → V)
+    (ihKeys : List (Nat × Nat)) (tlA : Nat → List (Nat × Nat × AnnotTerm))
+    (eisA : Nat → List AnnotTerm) (fapA : Nat → AnnotTerm) (g : V) :
+    (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).length = ihKeys.length := by
+  simp [blockRecIhvAt]
+
+/-! ### The graph at a predecessor IS the candidate's fold -/
+
+/-- **The guarded call's value, from the kit's graph.**  At a
+PREDECESSOR of the element the step is running at, the kit's graph is
+the kit's own recursor (`app_graph`, the graph being a function's
+graph over `pred u`), and the candidate folded along the call's spine
+is that recursor (`famCand_fold`).  This is the one fact `hihChain`
+needs of the recursion, and it is not about the block. -/
+theorem blockRecIhCall {ℓ K : Nat} {rP : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ρ : Nat → V}
+    (D : RecFamData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0) {c' : Nat}
+    {xs is : List V} {maj u : V} (hxl : xs.length = rP c')
+    (hsp : SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [maj])))
+    (hpred : (tagged c' (D.tupOf c' is) maj : V) ∈ˢ (D.kit xs).pred u) :
+    app (kitGraphAt (D.kit xs) u) (tagged c' (D.tupOf c' is) maj)
+      = (xs ++ (is ++ [maj])).foldl SetTheory.app (famCand D c') := by
+  rw [famCand_fold D hℓ hxl hsp, kitGraphAt, app_graph hpred]
+  rfl
+
+/-! ### `hihChain`, at the tower level -/
+
+/-- **`hihChain` at the tower level**: the graph-built values ARE the
+ih terms' readings at the chain frame.
+
+Three inputs, and only the third is about the recursion: the callees
+are classes of the block (`hkey`), the telescopes are bounded at their
+own depth (`htlB` — the premise `liftDomsK_eq_self_of_bounded` asks
+too, §28), and at every telescope spine the graph at the call's
+predecessor is the candidate folded along the call's spine (`hcall`,
+`blockRecIhCall` at the run). -/
+theorem blockRecIhvAt_eq {ℓ K rP nF N : Nat} {a ρ : Nat → V} {xs fs : List V} {g : V}
+    {tup : Nat → List V → V} {ihKeys : List (Nat × Nat)}
+    {tlA : Nat → List (Nat × Nat × AnnotTerm)} {eisA : Nat → List AnnotTerm}
+    {fapA : Nat → AnnotTerm}
+    (hxl : xs.length = rP) (hfl : fs.length = nF) (hN : N = (xs ++ fs).length)
+    (hkey : ∀ key ∈ ihKeys, key.2 < K)
+    (htlB : ∀ key ∈ ihKeys, ∀ l, l < (tlA key.1).length →
+      Term.bvarsBelow (N + l) (((tlA key.1).getD l default).2.2).erase)
+    (hcall : ∀ key ∈ ihKeys, ∀ bs : List V, bs.length = (tlA key.1).length →
+      app g (tagged key.2
+          (tup key.2 ((eisA key.1).map (interp V (consList bs (consList (xs ++ fs) ρ)))))
+          (interp V (consList bs (consList (xs ++ fs) ρ)) (fapA key.1)))
+        = (xs ++ ((eisA key.1) ++ [fapA key.1]).map
+            (interp V (consList bs (consList (xs ++ fs) (chainFrame K a ρ))))).foldl
+              SetTheory.app (a key.2)) :
+    blockRecIhvAt ℓ tup (consList (xs ++ fs) ρ) ihKeys tlA eisA fapA g
+      = (blockRecIhsAt ℓ K rP nF ihKeys tlA eisA fapA).map
+          (interp V (consList (xs ++ fs) (chainFrame K a ρ))) := by
+  rw [blockRecIhvAt, blockRecIhsAt, List.map_map]
+  refine List.map_congr_left fun key hkm => ?_
+  show lamTowerA ℓ (consList (xs ++ fs) ρ) [] (tlA key.1) _
+    = interp V (consList (xs ++ fs) (chainFrame K a ρ))
+        (ihFunAV ℓ K key.2 rP nF (tlA key.1) (eisA key.1) (fapA key.1))
+  rw [ihFunAV, interp_mkLamsC_A (acc := ([] : List V))]
+  refine lamTowerA_congr_below (N := N) (fun i hi => ?_) (htlB key hkm) (fun bs hbs => ?_)
+  · exact consList_below_indep (xs ++ fs) ρ (chainFrame K a ρ) i (by rw [← hN]; exact hi)
+  · have hbody := interp_ihFunAV_body (V := V) (K := K) (c' := key.2) (tl := tlA key.1)
+      (eis := eisA key.1) (fap := fapA key.1) (σ := chainFrame K a ρ)
+      (chainFrame_apply (hkey key hkm) a ρ) hxl hfl hbs
+    show app g _ = interp V (consList bs (consList (xs ++ fs) (chainFrame K a ρ))) _
+    rw [hbody, ← hcall key hkm bs hbs]
+
+/-! ### The call's arguments, across the two frames -/
+
+/-- The two towers' LEAF frames agree below the rule's own depth plus
+the telescope's: both are `consList` of the same entries. -/
+theorem consList_chain_agree_leaf {K N : Nat} {a ρ : Nat → V} {ws bs : List V}
+    (hN : N = ws.length) :
+    ∀ i, i < N + bs.length →
+      consList bs (consList ws ρ) i = consList bs (consList ws (chainFrame K a ρ)) i := by
+  intro i hi
+  rw [← consList_append, ← consList_append]
+  exact consList_below_indep _ _ _ i (by rw [List.length_append]; omega)
+
+/-- A form bounded at the leaf frame's depth reads the same under the
+base frame and under the chain frame. -/
+theorem interp_leaf_chain {K N : Nat} {a ρ : Nat → V} {ws bs : List V} {e : AnnotTerm}
+    (hN : N = ws.length) (hb : Term.bvarsBelow (N + bs.length) e.erase) :
+    interp V (consList bs (consList ws ρ)) e
+      = interp V (consList bs (consList ws (chainFrame K a ρ))) e :=
+  interp_congr_below (V := V) e (N + bs.length) _ _ hb (consList_chain_agree_leaf hN)
+
+/-- **`blockRecIhvAt_eq`'s `hcall`, at the run.**  `blockRecIhCall`
+with the call's arguments read at the BASE frame — where the ih VALUES
+live — rather than at the chain frame, where the ih TERMS do; the two
+readings agree because the arguments are bounded at the leaf frame's
+depth (`heisB`, `hfapB`), which is the same premise `htlB` is. -/
+theorem blockRecIhCall_run {ℓ K N : Nat} {rP : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ρ : Nat → V}
+    (D : RecFamData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)
+    {c' : Nat} {xs fs bs : List V} {u : V} {eis : List AnnotTerm} {fap : AnnotTerm}
+    (hN : N = (xs ++ fs).length)
+    (heisB : ∀ e ∈ eis, Term.bvarsBelow (N + bs.length) e.erase)
+    (hfapB : Term.bvarsBelow (N + bs.length) fap.erase)
+    (hxl : xs.length = rP c')
+    (hsp : SpineFit ρ ((rds c').map (·.2.2))
+      (xs ++ (eis.map (interp V (consList bs (consList (xs ++ fs)
+            (chainFrame K (famCand D) ρ))))
+        ++ [interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))) fap])))
+    (hpred : (tagged c'
+        (D.tupOf c' (eis.map (interp V (consList bs (consList (xs ++ fs)
+          (chainFrame K (famCand D) ρ))))))
+        (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))) fap) : V)
+      ∈ˢ (D.kit xs).pred u) :
+    app (kitGraphAt (D.kit xs) u)
+        (tagged c' (D.tupOf c' (eis.map (interp V (consList bs (consList (xs ++ fs) ρ)))))
+          (interp V (consList bs (consList (xs ++ fs) ρ)) fap))
+      = (xs ++ (eis ++ [fap]).map
+          (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))).foldl
+            SetTheory.app (famCand D c') := by
+  have hes : eis.map (interp V (consList bs (consList (xs ++ fs) ρ)))
+      = eis.map (interp V (consList bs (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :=
+    List.map_congr_left fun e he => interp_leaf_chain hN (heisB e he)
+  rw [hes, interp_leaf_chain (K := K) (a := famCand D) hN hfapB,
+    List.map_append, List.map_cons, List.map_nil]
+  exact blockRecIhCall D hℓ hxl hsp hpred
+
+end IhValues
+
+/-! ## 31. The two lanes' `eqs` are ONE term (the audit's item 7)
+
+This lane states `hpre` at `iotaEqsAV` instantiated at §20's
+components; the rule lane states `hnew` at `blockIotaEqsAV`, which is
+the same instantiation written once.  Since §28 the two agree
+everywhere except in the RESIDUE's cutoff: this lane writes the
+LIFTED prefix and field domains' lengths (they come out of its own
+`pdoms`/`fdoms` parameters) and the rule lane the unlifted ones.
+`liftDomsK_length` is a theorem, not `rfl` — a recursion on the list —
+so the two do not typecheck against each other without this. -/
+
+section EqsIdent
+
+/-- **The identification.** -/
+theorem iotaEqsAV_eq_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
+    {pdoms0 : Nat → List AnnotTerm} {fdoms0 es0 ihs : Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : Nat → Nat → AnnotTerm} :
+    iotaEqsAV K nCt (fun c => liftDomsK K 0 (pdoms0 c))
+        (fun c j => liftDomsK K (pdoms0 c).length (fdoms0 c j))
+        (fun c j => (es0 c j).map fun e =>
+          e.liftN K ((pdoms0 c).length + (fdoms0 c j).length))
+        (fun c j => (mk0 c j).liftN K ((pdoms0 c).length + (fdoms0 c j).length))
+        ihs
+        (fun c j => (Rb0 c j).liftN K
+          ((liftDomsK K 0 (pdoms0 c)).length
+            + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
+      = blockIotaEqsAV K nCt pdoms0 fdoms0 es0 ihs mk0 Rb0 := by
+  have hRb : (fun c j => (Rb0 c j).liftN K
+        ((liftDomsK K 0 (pdoms0 c)).length
+          + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
+      = (fun c j => (Rb0 c j).liftN K
+        ((pdoms0 c).length + (fdoms0 c j).length + (ihs c j).length)) := by
+    funext c j
+    rw [liftDomsK_length, liftDomsK_length]
+  rw [hRb, blockIotaEqsAV]
+
+end EqsIdent
+
+/-! ## 32. The `ih` openers' DOMAINS — `hihF` (session 13)
+
+`hihF` says the graph-built towers FIT the `ih` openers' domains.  The
+domain of opener `r` is the reading of `blockIhPis`' `l = r` entry:
+the Π-tower over the field's telescope of the CALLEE's recursor TYPE
+instantiated at the rule's prefix, the field's index expressions and
+the applied field — no constant in sight, so it is §29's
+`BlockRuleConclAt` one telescope deeper, and the SAME peel produces
+it.
+
+Two things make this cheap.
+
+* **The opener's `l`-shift is a `liftN r 0` of the `l = 0` form.**
+  `ihIdxAtM_shift`, `fieldApp_shift`, `prefVars_shift` and
+  `teleVarsAV_liftN` (`BlockRecRule.lean`) say so entry by entry, and
+  a `mkPisAV` lifted at cutoff `0` lifts entry `k` at cutoff `k` and
+  its body at the telescope's length — exactly the shape.  The fit
+  walk reads opener `r` under the `r` earlier ih VALUES, and
+  `interp_liftN_ihvals` (§29) cancels the two: the domain's reading at
+  the walk's frame IS the `l = 0` tower's reading at the rule's frame,
+  which is where the ih VALUE lives.  **No congruence between two
+  different binder-data lists is needed**, which is what the shift
+  first looked like it would cost.
+* **The leaf obligation is `blockRecHCaB` at the PREDECESSOR.**  The
+  peel's prefix arguments are `prefVarsAV rP (nF + m)`, which is
+  `paramBvarsAt rP (rP + nF + m)` on the nose, so §29's
+  `blockRecCa_value` applies verbatim with the telescope spine in the
+  `ih` block's place: the opener's conclusion reads to the motive at
+  the predecessor, and the graph is motive-valued there. -/
+
+section IhDomains
+
+/-- A spine fits when every entry fits at the frame the walk reaches
+it in — the index form of `SpineFit`'s walk. -/
+theorem spineFit_of_getD {σ : Nat → V} :
+    ∀ {Ds : List AnnotTerm} {as : List V}, as.length = Ds.length →
+      (∀ r, r < Ds.length →
+        as.getD r pt ∈ˢ interp V (consList (as.take r) σ) (Ds.getD r default)) →
+      SpineFit σ Ds as
+  | [], [], _, _ => trivial
+  | [], _ :: _, hl, _ => by simp at hl
+  | _ :: _, [], hl, _ => by simp at hl
+  | D :: Ds, a :: as, hl, h => by
+    refine ⟨?_, ?_⟩
+    · have h0 := h 0 (by simp)
+      simpa using h0
+    · refine spineFit_of_getD (by simpa using hl) fun r hr => ?_
+      have hr' := h (r + 1) (by simpa using hr)
+      simpa using hr'
+
+/-- **`hihF` at ONE opener**: the graph-built tower inhabits the ih
+opener's Π-tower.  `lamTowerA_mem` at the walk built from the fits
+(`towerWalkA_of_spines_body`); the leaf obligation is the graph's
+value at the PREDECESSOR lying in the opener's conclusion. -/
+theorem blockRecIhv_mem {ℓ c' : Nat} {tl : List (Nat × Nat × AnnotTerm)} {Cih : AnnotTerm}
+    {tup : Nat → List V → V} {σ : Nat → V} {g : V}
+    {eis : List AnnotTerm} {fap : AnnotTerm} (hℓ : ℓ ≠ 0)
+    (hbits : ∀ dd ∈ tl, (ℓ = 0 ↔ dd.2.1 = 0))
+    (hleaf : ∀ bs : List V, SpineFit σ (tl.map (·.2.2)) bs →
+      app g (tagged c' (tup c' (eis.map (interp V (consList bs σ))))
+          (interp V (consList bs σ) fap))
+        ∈ˢ interp V (consList bs σ) Cih) :
+    lamTowerA ℓ σ [] tl
+        (fun _ τ => app g (tagged c' (tup c' (eis.map (interp V τ))) (interp V τ fap)))
+      ∈ˢ interp V σ (mkPisAV tl Cih) :=
+  lamTowerA_mem hbits (towerWalkA_of_spines_body fun ys hsp =>
+    ⟨hleaf ys hsp, fun h0 => absurd h0 hℓ⟩)
+
+/-- **`hihF` at the whole opener list**: `blockRecIhvAt` fits
+`ihdoms`, given that opener `r`'s domain IS the `l = 0` Π-tower lifted
+past the `r` earlier openers (`hdom`), the telescope carries the
+family's bit (`hbits`) and the graph is motive-valued at every
+predecessor the openers name (`hleaf`). -/
+theorem blockRecIhvAt_fit {ℓ : Nat} {tup : Nat → List V → V} {σ : Nat → V} {g : V}
+    {ihKeys : List (Nat × Nat)} {tlA : Nat → List (Nat × Nat × AnnotTerm)}
+    {eisA : Nat → List AnnotTerm} {fapA : Nat → AnnotTerm}
+    {ihdoms : List AnnotTerm} {Cih : Nat → AnnotTerm} (hℓ : ℓ ≠ 0)
+    (hlen : ihdoms.length = ihKeys.length)
+    (hdom : ∀ r, r < ihKeys.length →
+      ihdoms.getD r default
+        = (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+    (hbits : ∀ r, r < ihKeys.length →
+      ∀ dd ∈ tlA (ihKeys.getD r (0, 0)).1, (ℓ = 0 ↔ dd.2.1 = 0))
+    (hleaf : ∀ r, r < ihKeys.length → ∀ bs : List V,
+      SpineFit σ ((tlA (ihKeys.getD r (0, 0)).1).map (·.2.2)) bs →
+      app g (tagged (ihKeys.getD r (0, 0)).2
+          (tup (ihKeys.getD r (0, 0)).2
+            ((eisA (ihKeys.getD r (0, 0)).1).map (interp V (consList bs σ))))
+          (interp V (consList bs σ) (fapA (ihKeys.getD r (0, 0)).1)))
+        ∈ˢ interp V (consList bs σ) (Cih r)) :
+    SpineFit σ ihdoms (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g) := by
+  refine spineFit_of_getD (by rw [blockRecIhvAt_length, hlen]) fun r hr => ?_
+  have hrk : r < ihKeys.length := by rw [← hlen]; exact hr
+  have hk : ihKeys[r]? = some (ihKeys.getD r (0, 0)) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrk]
+    rfl
+  have hval : (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).getD r pt
+      = lamTowerA ℓ σ [] (tlA (ihKeys.getD r (0, 0)).1)
+          (fun _ τ => app g (tagged (ihKeys.getD r (0, 0)).2
+            (tup (ihKeys.getD r (0, 0)).2
+              ((eisA (ihKeys.getD r (0, 0)).1).map (interp V τ)))
+            (interp V τ (fapA (ihKeys.getD r (0, 0)).1)))) := by
+    rw [blockRecIhvAt, List.getD_eq_getElem?_getD, List.getElem?_map, hk]
+    rfl
+  have htk : ((blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r).length = r := by
+    rw [List.length_take, blockRecIhvAt_length]
+    omega
+  have hcancel : interp V (consList ((blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r) σ)
+        ((mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+      = interp V σ (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)) := by
+    have h := interp_liftN_ihvals (V := V)
+      (ihvals := (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r) (σ := σ)
+      (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r))
+    rw [htk] at h
+    exact h
+  rw [hval, hdom r hrk, hcancel]
+  exact blockRecIhv_mem hℓ (hbits r hrk) (hleaf r hrk)
+
+end IhDomains
 
 end ConLeche.Model
