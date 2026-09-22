@@ -83512,3 +83512,49 @@ falsifier's price was set without knowing it existed.
 By-product: the squash regime's two unowned premises are now written
 inside the new producer; **lifting them out is a signature, not a
 proof.**
+
+#### LANDED (lane SEC2, `a4f209aa`): three kernel passes, measured to reject nothing — and two priced costs that did not exist
+
+* **`checkBlockRecSmallElim`** (`Kernel/Inductives/BlockInstall.lean:531`)
+  — the counting guard said a SECOND time in the LEVEL currency,
+  because the guard's own arm is a RUN (`isDefEq` against `Sort 0`)
+  while the model holds only the level.  A sibling pass in the family
+  stage: **no arity change anywhere.**  Its `0 < p.k` clause is not
+  decoration — without it the statement is refutable at an empty
+  recursor list although every instance is fine.
+* **`checkBlockRecElimPin`** (`:452`) — the queued sibling.  **The
+  arity cost the earlier lane priced does not exist**: the stage
+  already holds the shape record, which carries what the pin needs, so
+  it is a sibling pass and the four inversions whose statements were
+  said to block it are untouched.
+* **the index-binder domain comparison** — the check ruled in off the
+  regime lane's finding, landing as a pass of its own with a FOURTH
+  positional inversion of stage (b) that keeps the values the other
+  three discard.
+
+**Measured**: before-vs-after byte-identical on 247 e2e and 182 arena
+streams, and `init-full` accepts 53 093 declarations, exit 0, on the
+flipped build with all three checks.  They reject nothing.
+
+**And the core inversion turned out not to be needed.**  Off the pin,
+the declared-shape flag follows from a non-zero elimination level in
+four lines, syntactically, and **without** the Prop-valued hypothesis —
+a stronger route than the one that wanted the inversion.  The inversion
+itself was priced at 1–2 sessions (an induction over the defeq fuel
+ruling out nine branches, plus whnf determinism) and is **deferred
+until a consumer genuinely needs it**.
+
+That is twice in one session that a "this costs an arity / costs a
+session" note was about a route nobody had looked for.
+
+#### SCHEDULED: the invariant sweep, written as a DIFF rather than a search
+
+Three times tonight the answer to *which check makes this available?*
+was "no check does, the model cannot pay, so the CHECKER must say it" —
+and **every one is a place where CHECKING a recursor drops an invariant
+that GENERATING it gave for free.**  The lane that landed two of them
+proposes the systematic form, and it is right: **walk the
+generate-and-compare route's own construction and ask of each component
+what pins it on the checked route.**  About ten components, six or
+seven already pinned, one session to enumerate.  That turns the
+standing cost of the design decision from an anecdote into a list.
