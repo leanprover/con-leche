@@ -781,6 +781,153 @@ theorem LocalsFit.cons {F : Nat} {ρ' : Nat → V} {locals : List V} {as1 : List
     rw [show F + locals.length - 1 - j = F + (locals.length + 1) - 1 - (j + 1) from by omega]
     exact htb
 
+/-! ## The frame's CONTEXT, threaded with the walk
+
+`hfit`'s discharge runs through `certs_sound`, whose conclusion is
+`∀ ρ, Sat V Δa ρ → TeleFitPA …`: it needs a CONTEXT at the frame the
+walk has reached — the check's `rP + nF + nR` block extended by the
+`d` binders the walk opened.  §S15.3 (2) sized this as "a second
+threading"; it is ONE predicate, because the residue's opening list
+`as2` and the context `Δa` are INDEX-ALIGNED: `as2[j]` is the frame's
+variable `D - 1 - j`, `Δa[j]` is its domain's reading at its own
+depth, and `Sat`'s orientation (innermost first) is `as2`'s — so all
+four obligations `ctxOk_of_openers` asks are read off one list.
+
+The context lives at `envT`, the CONSTRUCTORS' environment, because
+that is where the rule stage's `inferType` ran; the residue mentions
+no block recursor (`abstractIh` replaced every guarded call by an
+`ih` opener), which is what lets its readings live there at all. -/
+
+/-- **Instantiation stays bounded by the environment** — the
+companion of `wscoped_instantiateList` and `fvarLeaves_instantiateList`
+for `ConstsBound`, proved the same way: the opening list's entries are
+the only constants the result gains. -/
+theorem constsBound_instantiateList {envT : Env} {E : Nat} {xs : List Expr}
+    (h : FvarList E xs) (hxs : ∀ x ∈ xs, ConstsBound envT x) :
+    ∀ (e : Expr), e.hasFvar = false → ConstsBound envT e → ∀ (k : Nat),
+      ConstsBound envT (e.instantiateList xs k) := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro _ _ k
+    rw [Expr.instantiateList]
+    by_cases hjk : j < k
+    · rw [if_pos hjk]; simp
+    rw [if_neg hjk]
+    by_cases hin : j - k < xs.length
+    · rw [dif_pos hin]
+      obtain ⟨ty, hty⟩ := h.2.1 (j - k) (by rw [h.1] at hin; omega)
+      obtain ⟨hlt', hget⟩ := List.getElem?_eq_some_iff.mp hty
+      have hcb := hxs xs[j - k] (List.getElem_mem hin)
+      rw [hget] at hcb ⊢
+      rw [Expr.instantiateList]
+      exact hcb
+    · rw [dif_neg hin]; simp
+  | fvar _ _ => intro hf _ _; exact absurd hf (by simp [Expr.hasFvar])
+  | sort _ => intro _ _ k; simp [Expr.instantiateList]
+  | const _ _ => intro _ hc k; rw [Expr.instantiateList]; exact hc
+  | lit _ => intro _ _ k; simp [Expr.instantiateList]
+  | app f a ihf iha =>
+    intro hf hc k
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [constsBound_app] at hc
+    simp only [Expr.instantiateList, constsBound_app]
+    exact ⟨ihf hf.1 hc.1 k, iha hf.2 hc.2 k⟩
+  | lam ty b bi ihty ihb =>
+    intro hf hc k
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [constsBound_lam] at hc
+    simp only [Expr.instantiateList, constsBound_lam]
+    exact ⟨ihty hf.1 hc.1 k, ihb hf.2 hc.2 (k + 1)⟩
+  | forallE ty b bi ihty ihb =>
+    intro hf hc k
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [constsBound_forallE] at hc
+    simp only [Expr.instantiateList, constsBound_forallE]
+    exact ⟨ihty hf.1 hc.1 k, ihb hf.2 hc.2 (k + 1)⟩
+  | letE ty v b ihty ihv ihb =>
+    intro hf hc k
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
+    rw [constsBound_letE] at hc
+    simp only [Expr.instantiateList, constsBound_letE]
+    exact ⟨ihty hf.1.1 hc.1 k, ihv hf.1.2 hc.2.1 k, ihb hf.2 hc.2.2 (k + 1)⟩
+  | proj _ _ e ihe =>
+    intro hf hc k
+    simp only [Expr.hasFvar] at hf
+    rw [constsBound_proj] at hc
+    simp only [Expr.instantiateList, constsBound_proj]
+    exact ihe hf hc k
+
+/-- **The walk's context**: the residue frame's opening list `as2`,
+the context `Δa` its domains read to, and a valuation satisfying it.
+The last three conjuncts are the frame's HEREDITARY facts — the
+annotations are closed, bounded by `envT`, and draw their own leaves
+from the frame — which is what makes `CtxOk` a projection
+(`WalkCtx.ctxOk`) rather than a construction at every node. -/
+@[expose] def WalkCtx (V : Type uv) [SetTheory V] {envT : Env} (mT : EnvModel V envT)
+    (φ : Name → Nat) (D : Nat) (ρfull : Nat → V) (Δa : List AnnotTerm) (as2 : List Expr) :
+    Prop :=
+  Δa.length = D ∧
+  Sat V Δa ρfull ∧
+  (∀ (j : Nat) (x : Expr), as2[j]? = some x →
+    denoteMeta mT.acval envT φ (D - 1 - j) (Expr.fvarTypeD x) = some (Δa.getD j default)) ∧
+  (∀ s, s < D → ∀ ρ : Nat → V, Sat V Δa ρ →
+    WellDenotedV V (fun j => ρ (j + s + 1)) (Δa.getD s default)) ∧
+  (∀ x ∈ as2, (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+  (∀ x ∈ as2, ConstsBound envT x) ∧
+  (∀ x ∈ as2, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ as2)
+
+/-- **Opening one binder extends the walk's context.**  The new slot
+is the binder's own domain, read at the frame it was opened at; its
+`Sat` obligation is the membership the binder congruences hand over
+(the same one `LocalsFit.cons` consumes) and its `hokΔ` obligation is
+the domain's GRADING, which the rule stage's own inference supplies
+(`infer_sound` at `IhTyped.lamDom`).  Every older slot's obligation
+weakens for free, because it is stated at the slot's own shifted
+valuation and `Sat_tail` is the shift. -/
+theorem WalkCtx.cons {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
+    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
+    (h : WalkCtx V mT φ D ρfull Δa as2) {ty : Expr} {ta : AnnotTerm} {x : V}
+    (hta : denoteMeta mT.acval envT φ D ty = some ta)
+    (hlb : ty.looseBVarsBounded 0 = true) (hcb : ConstsBound envT ty)
+    (hcl : ∀ l ∈ ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2)
+    (hG : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta)
+    (hx : x ∈ˢ interp V ρfull ta) :
+    WalkCtx V mT φ (D + 1) (cons x ρfull) (ta :: Δa) (Expr.fvar D ty :: as2) := by
+  obtain ⟨hlen, hsat, hdoms, hok, hlbs, hcbs, hcls⟩ := h
+  refine ⟨by simp [hlen], Sat_cons V hsat hx, ?_, ?_, ?_, ?_, ?_⟩
+  · intro j y hy
+    cases j with
+    | zero =>
+      obtain rfl : y = Expr.fvar D ty := by simpa using hy.symm
+      rw [show D + 1 - 1 - 0 = D from by omega,
+        show (Expr.fvar D ty).fvarTypeD = ty from rfl]
+      simpa using hta
+    | succ j =>
+      rw [show D + 1 - 1 - (j + 1) = D - 1 - j from by omega]
+      have := hdoms j y (by simpa using hy)
+      simpa using this
+  · intro s hs ρ hρ
+    cases s with
+    | zero => exact hG _ (Sat_tail hρ)
+    | succ s =>
+      have heq : (fun j => ρ (j + (s + 1) + 1)) = fun j => ρ (j + s + 1 + 1) := by
+        funext j; congr 1
+      rw [show ((ta :: Δa).getD (s + 1) default) = Δa.getD s default from rfl, heq]
+      exact hok s (by omega) (fun j => ρ (j + 1)) (Sat_tail hρ)
+  · intro y hy
+    rcases List.mem_cons.mp hy with rfl | hy'
+    · exact hlb
+    · exact hlbs y hy'
+  · intro y hy
+    rcases List.mem_cons.mp hy with rfl | hy'
+    · rw [constsBound_fvar]; exact hcb
+    · exact hcbs y hy'
+  · intro y hy l hl
+    rcases List.mem_cons.mp hy with rfl | hy'
+    · exact List.mem_cons_of_mem _ (hcl l hl)
+    · exact List.mem_cons_of_mem _ (hcls y hy' l hl)
+
 /-- An opened variable's inferred type is its STORED annotation —
 `certs_of_infer_mkAppN`'s "the head's type is pinned". -/
 theorem IhTyped.fvarTy {envT : Env} {D idx : Nat} {ty t : Expr}
@@ -1244,6 +1391,53 @@ theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
   obtain ⟨ty, hty⟩ := h.2.1 (E - 1 - k) (by omega)
   rw [hty] at hx
   exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
+
+/-- **`CtxOk` from the walk's context**, at any node the frame opened:
+`ctxOk_of_openers` at the ASCENDING form of the opening list.  Every
+one of its six inputs is a field of `WalkCtx` or of the `FvarList`;
+nothing is proved per node but the leaf membership, which
+`fvarLeaves_instantiateList` gives for the whole walk at once. -/
+theorem WalkCtx.ctxOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
+    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
+    {e : Expr} (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2) :
+    CtxOk mT φ D Δa e := by
+  obtain ⟨hlen, -, hdoms, hok, -, -, -⟩ := h
+  have hrev : ∀ (i : Nat), i < D → as2.reverse[i]? = as2[D - 1 - i]? := by
+    intro i hi
+    rw [List.getElem?_reverse (by rw [h2.1]; omega), h2.1]
+  refine ctxOk_of_openers hacl (fvs := as2.reverse) (n := D)
+    (Aa := fun i => Δa.getD (D - 1 - i) default) hlen h2.reverse_idx ?_ ?_ ?_ ?_ ?_ ?_
+  · intro x hx
+    exact h2.2.2 x (List.mem_reverse.mp hx)
+  · intro i x hx
+    have hi : i < D := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [h2.reverse_length] at this
+      exact this
+    rw [hrev i hi] at hx
+    have := hdoms (D - 1 - i) x hx
+    rw [show D - 1 - (D - 1 - i) = i from by omega] at this
+    exact this
+  · intro l hl
+    exact List.mem_reverse.mpr (hleaf l hl)
+  · intro l hl
+    obtain ⟨p, hp⟩ := List.getElem?_of_mem (List.mem_reverse.mpr (hleaf l hl))
+    obtain ⟨ty, hty⟩ := h2.reverse_idx p _ hp
+    have hpl : p < D := by
+      have := (List.getElem?_eq_some_iff.mp hp).1
+      rw [h2.reverse_length] at this
+      exact this
+    obtain ⟨h1', -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hty with a b
+      exact ⟨a, b⟩
+    omega
+  · intro i hi
+    rw [List.getD, List.getElem?_eq_getElem (by rw [hlen]; omega)]
+    rfl
+  · intro i hi ρ hρ
+    exact hok (D - 1 - i) (by omega) ρ hρ
 
 /-- Opening at a `FvarList` IS the battery's `instSeq` at the
 ascending frame. -/
