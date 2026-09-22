@@ -512,28 +512,37 @@ So the checker says it in the currency the model reads.  Two clauses:
   the stage says so, and it is what stops "some recursor eliminates at
   a non-zero level" from being vacuously compatible with an empty
   recursor list;
-* **a block of SEVERAL families whose sort may be `0` eliminates only
-  at a level equivalent to zero.**  This is official's
-  `elim_only_at_universe_zero` counted: when that criterion fires
-  official's elimination level IS `Level.zero` — the recursor carries
-  no fresh parameter and its motive lands in `Prop` — and when it does
-  not, either the sort is never `0` or the block has one family.  So it
-  rejects nothing official emits.
+* **a block a large eliminator is not ALLOWED on eliminates at a level
+  equivalent to zero** — literally `blockLargeElimAllowed`, the very
+  disjunction stage (b) reads, with the level list in place of the
+  `isDefEq` run.  It rejects nothing official emits: when official's
+  criterion fires its elimination level IS `Level.zero` (the recursor
+  carries no fresh parameter and its motive lands in `Prop`), so the
+  second disjunct holds; when it does not, the first does.
+
+Stating it as the GUARD rather than as the one counting fact the
+squash arm needed is deliberate: the arm needs four facts, not one, and
+`blockLargeElim_counting` (`Model/Inductives/BlockRecPreRun.lean`)
+already reads all four off the verdict at a `Prop` result sort.  So the
+run gets the VERDICT here and the four facts there — one fact, one
+route, one name — instead of a second derivation of `k = 1` in the
+level currency beside the regime lane's.
 
 What it buys is the fact the SQUASH regime is UNSTATEABLE without:
 `blockKitRegime_sq` lives at `K = 1` while every run-level discharge is
 indexed over the recursor list, so `ℓ ψ ≠ 0` and `w ψ = 0` must FORCE
-one member (`blockRecK1_run`,
+one member (`blockRecCounting_run`,
 `Model/Inductives/BlockRecPreHpre.lean`).  The per-field subsingleton
 half of the same criterion is the constructors' stage's
-(`checkStructFieldSortsI`) and the per-recursor half is
-`blockLargeElimAllowed`'s; this is the third. -/
-def checkBlockRecSmallElim (p : BlockShape) (us : List Level) : m Unit := do
+(`checkStructFieldSortsI`) and the per-recursor half is stage (b)'s
+`isDefEq`; this is the third, and it is the only one the model can
+read. -/
+def checkBlockRecSmallElim (p : BlockShape) (nested : Bool) (us : List Level) : m Unit := do
   unless 0 < p.k do
     throw (.invalid "direct rec: the block declares no family")
-  unless p.k == 1 || p.resSort.isNeverZero ||
+  unless blockLargeElimAllowed p nested ||
       us.all (fun u => Level.isEquiv u .zero == some true) do
-    throw (.invalid "direct rec: a block of several families whose sort may be Prop \
+    throw (.invalid "direct rec: a block a large eliminator is not allowed on \
       eliminates only into Prop")
 
 /-- **The family's rule PREFIX is SHARED** (the finding of lane RM16,
@@ -600,9 +609,10 @@ lane's), so a new bind at the top level would have been a five-file
 edit for no gain.  All three are statements about the LIST stage (b)
 returns and nothing else. -/
 def checkBlockRecFamilyAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
-    (cvTas : List ConstantVal) (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
+    (nested : Bool) (cvTas : List ConstantVal)
+    (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
   checkBlockRecElimAgree (cvRus.map (·.2.2))
-  checkBlockRecSmallElim p (cvRus.map (·.2.2))
+  checkBlockRecSmallElim p nested (cvRus.map (·.2.2))
   checkBlockRecElimPin p (cvRus.map (·.2.2))
   checkBlockRecIdxDomsAt ops env p cvTas cvRus 0
   checkBlockRecPrefixAgree ops env p (cvRus.map (·.1))
@@ -902,7 +912,7 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
   -- the whole family
   let cvRus ← checkBlockRecTys ops env p.toBlockShape (blockNested p.kinds) cvTas p.recs 0
   -- D-d (one elimination level) and the family's SHARED rule prefix
-  checkBlockRecFamilyAgree ops env p.toBlockShape cvTas cvRus
+  checkBlockRecFamilyAgree ops env p.toBlockShape (blockNested p.kinds) cvTas cvRus
   let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let envR := consBlockRecsBare p.toBlockShape 0 cvRas env
   -- (c) every member's rules: ANNOTATED and resolved at the

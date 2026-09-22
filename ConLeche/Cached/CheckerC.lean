@@ -246,7 +246,8 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
   checkBlockRecPins (m := CheckCM) p
   let cvRus ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
     (blockNested p.kinds) cvTas p.recs 0
-  checkBlockRecFamilyAgree (m := CheckCM) (sharedOpsC mode fe) fe.env p.toBlockShape cvTas cvRus
+  checkBlockRecFamilyAgree (m := CheckCM) (sharedOpsC mode fe) fe.env p.toBlockShape
+    (blockNested p.kinds) cvTas cvRus
   let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
   flushC

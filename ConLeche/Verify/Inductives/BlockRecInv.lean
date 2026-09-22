@@ -392,12 +392,14 @@ in the LEVEL currency instead of through a run: at a block whose result
 sort may be `0`, a family of more than one member eliminates only at a
 level equivalent to zero.  Its inversion is the whole content. -/
 
-/-- **The counting guard, exposed**: a block declares a family, and a
-possibly-`Prop` block of more than one family eliminates at a level
-`Level.isEquiv` to zero. -/
-theorem checkBlockRecSmallElim_inv {p : BlockShape} {us : List Level}
-    (h : checkBlockRecSmallElim (m := CheckM) p us = .ok ()) :
-    0 < p.k ∧ (p.k = 1 ∨ p.resSort.isNeverZero = true ∨
+/-- **The counting guard, exposed**: a block declares a family, and
+either a large eliminator is ALLOWED on it (`blockLargeElimAllowed`,
+whose four facts `blockLargeElim_counting` reads off at a `Prop` result
+sort) or every recursor eliminates at a level `Level.isEquiv` to
+zero. -/
+theorem checkBlockRecSmallElim_inv {p : BlockShape} {nested : Bool} {us : List Level}
+    (h : checkBlockRecSmallElim (m := CheckM) p nested us = .ok ()) :
+    0 < p.k ∧ (blockLargeElimAllowed p nested = true ∨
       ∀ u ∈ us, Level.isEquiv u Level.zero = some true) := by
   rw [checkBlockRecSmallElim] at h
   split at h
@@ -406,11 +408,10 @@ theorem checkBlockRecSmallElim_inv {p : BlockShape} {us : List Level}
     split at h
     · next hc =>
       refine ⟨hk, ?_⟩
-      simp only [Bool.or_eq_true, beq_iff_eq] at hc
-      rcases hc with (hc | hc) | hc
+      simp only [Bool.or_eq_true] at hc
+      rcases hc with hc | hc
       · exact .inl hc
-      · exact .inr (.inl hc)
-      · exact .inr (.inr fun u hu => eq_of_beq (List.all_eq_true.mp hc u hu))
+      · exact .inr fun u hu => eq_of_beq (List.all_eq_true.mp hc u hu)
     · exact nomatch h
   · exact nomatch h
 

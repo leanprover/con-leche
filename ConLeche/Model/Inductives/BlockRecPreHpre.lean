@@ -67,10 +67,13 @@ listed:
    own arm is a RUN (`isDefEq` against `Sort 0`) and the model holds
    only the LEVEL `ensureSort` returned, so the checker says the
    counting half a second time in the level currency
-   (`checkBlockRecSmallElim`, lane SEC2) — and §2.5's
-   `blockRecK1_run` turns it into the fact, off the same three
-   package components the kit arms take.  It is a THEOREM here, not a
-   premise.
+   (`checkBlockRecSmallElim`, lane SEC2), stated as the GUARD's own
+   verdict so that the regime lane's `blockLargeElim_counting` reads
+   all FOUR of the squash arm's facts off it rather than this file
+   deriving one of them a second time.  §2.5's `blockRecCounting_run`
+   is the licence and `blockRecK1_run` the dispatch's slice of it, off
+   the same three package components the kit arms take.  It is a
+   THEOREM here, not a premise.
 
 **The guard lives in ONE place.**  `blockRecPre_dispatch_run`'s proof
 contains the only `by_cases` on `d.w ψ`, and the three regime bundles
@@ -275,7 +278,7 @@ theorem checkBlockRecK_count
       ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
           (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus ∧
       ConLeche.checkBlockRecSmallElim (m := ConLeche.CheckM) p.toBlockShape
-        (cvRus.map (·.2.2)) = .ok () ∧
+        (ConLeche.blockNested p.kinds) (cvRus.map (·.2.2)) = .ok () ∧
       ConLeche.checkBlockRecElimPin (m := ConLeche.CheckM) p.toBlockShape
         (cvRus.map (·.2.2)) = .ok () := by
   unfold ConLeche.checkBlockRecK at h
@@ -331,8 +334,57 @@ theorem blockRecUOf_run
   exact hEq ▸ List.getElem_mem hlt
 
 omit [SetTheory V] in
-/-- **THE DISPATCH'S `hK1`**: at a `Prop`-valued block eliminating at a
-non-zero level, the recursor list is a singleton. -/
+/-- **THE COUNTING GUARD'S FOUR FACTS, AT THE RUN.**
+
+At a block whose result sort evaluates to zero and whose recursors
+eliminate at a non-zero level, the pass's disjunction collapses onto
+`blockLargeElimAllowed`'s own verdict — and the regime lane's
+`blockLargeElim_counting` reads all four facts off it.  **That is the
+whole point of stating the pass as the GUARD rather than as the one
+counting fact**: the squash arm wants four facts, and a second
+derivation of `k = 1` in the level currency beside the regime lane's
+would be one fact under two names.
+
+The pass is what licenses the collapse.  Stage (b)'s own disjunction
+(`checkBlockRecTys_elim`, widened by the regime lane) is
+`blockLargeElimAllowed … = true ∨ isDefEq sty (Sort 0) = .ok true`, and
+its second arm is a RUN about a term, which the model cannot refute;
+the pass says the same implication with `every level is zero` in that
+slot, which it can. -/
+theorem blockRecCounting_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) (hℓ : (us.headD .zero).eval ψ ≠ 0)
+    (hw : Level.eval ψ p.toBlockShape.resSort = 0) :
+    0 < rs.length ∧ rs.length = p.toBlockShape.k ∧
+      p.toBlockShape.large = true ∧ p.toBlockShape.k = 1 ∧
+      ConLeche.blockNested p.kinds = false ∧ p.toBlockShape.numCtors ≤ 1 := by
+  obtain ⟨hpins, cvRus, htys, hsmall, -⟩ := checkBlockRecK_count h
+  obtain ⟨-, -, -, hlenR, -⟩ := checkBlockRecK_elimList h
+  obtain ⟨hk0, hcase⟩ := ConLeche.checkBlockRecSmallElim_inv hsmall
+  have hklen : rs.length = p.toBlockShape.k := by
+    rw [hlenR, (ConLeche.checkBlockRecPins_names hpins).1]; rfl
+  have hpos : 0 < rs.length := by rw [hklen]; exact hk0
+  have humem := blockRecUOf_run h hruns htys hpos
+  have hu0 : Level.eval ψ (uOf 0) ≠ 0 := by
+    rw [blockRecElimAgree_eval helim ψ (uOf 0) (hmemU 0 hpos)]; exact hℓ
+  have hallow : ConLeche.blockLargeElimAllowed p.toBlockShape
+      (ConLeche.blockNested p.kinds) = true := by
+    rcases hcase with hg | hzero
+    · exact hg
+    · exact absurd (ConLeche.Level.isEquiv_sound (hzero _ humem) ψ) hu0
+  obtain ⟨hl, hk, hn, hc⟩ := blockLargeElim_counting hallow hw
+  exact ⟨hpos, hklen, hl, hk, hn, hc⟩
+
+omit [SetTheory V] in
+/-- **THE DISPATCH'S `hK1`** — the second of the four facts, at the
+dispatch's own `d.w` currency. -/
 theorem blockRecK1_run
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
@@ -345,20 +397,9 @@ theorem blockRecK1_run
     (hres : d.resSort = p.toBlockShape.resSort) :
     ∀ ψ : Name → Nat, (us.headD .zero).eval ψ ≠ 0 → d.w ψ = 0 → rs.length = 1 := by
   intro ψ hℓ hw
-  obtain ⟨hpins, cvRus, htys, hsmall, -⟩ := checkBlockRecK_count h
-  obtain ⟨-, -, -, hlenR, -⟩ := checkBlockRecK_elimList h
-  obtain ⟨hk0, hcase⟩ := ConLeche.checkBlockRecSmallElim_inv hsmall
-  have hklen : rs.length = p.toBlockShape.k := by
-    rw [hlenR, (ConLeche.checkBlockRecPins_names hpins).1]; rfl
-  have hpos : 0 < rs.length := by rw [hklen]; exact hk0
-  have humem := blockRecUOf_run h hruns htys hpos
-  have hu0 : Level.eval ψ (uOf 0) ≠ 0 := by
-    rw [blockRecElimAgree_eval helim ψ (uOf 0) (hmemU 0 hpos)]; exact hℓ
-  have hnz : Level.eval ψ p.toBlockShape.resSort = 0 := by rw [← hres]; exact hw
-  rcases hcase with hk1 | hnever | hzero
-  · rw [hklen]; exact hk1
-  · exact absurd hnz (ConLeche.Level.isNeverZero_sound ψ _ hnever)
-  · exact absurd (ConLeche.Level.isEquiv_sound (hzero _ humem) ψ) hu0
+  obtain ⟨-, hklen, -, hk1, -, -⟩ :=
+    blockRecCounting_run h helim hmemU hruns ψ hℓ (by rw [← hres]; exact hw)
+  rw [hklen]; exact hk1
 
 /-- **The rule frame's level IS the checked one** (SEC1's flagged
 residue, closed).  `blockRuleFrame`'s `pw` is `Level.zeronessOf
@@ -386,11 +427,17 @@ the antecedent the constructors' stage's subsingleton clause
 (`CtorDataI.srcProp`, keyed on `p.large`) wants, and the squash arm
 through it.
 
-It does NOT go through the type stage's `isDefEq sty (Sort 0)`: that
-run is a verdict about a TERM and inverting it to a statement about a
-LEVEL is an induction over the whole lazy-delta loop.  The
-elimination-level PIN says the same thing syntactically and
-unconditionally — `structElimLevel p.elim p.large` is `Level.zero` at
+`blockRecCounting_run`'s FIRST fact is the same flag, and this is not
+a second derivation of it: that one is the counting guard's reading and
+needs the block's result sort to evaluate to zero, this one is the
+elimination-level PIN's and needs nothing.  Keep both, and reach for
+this one wherever the `Prop`-valued hypothesis is not in hand — at a
+`Type` block the counting route says nothing and this one still does.
+
+Neither goes through the type stage's `isDefEq sty (Sort 0)`: that run
+is a verdict about a TERM and inverting it to a statement about a LEVEL
+is an induction over the whole lazy-delta loop.  The pin says it
+syntactically — `structElimLevel p.elim p.large` is `Level.zero` at
 `large = false`, so a recursor that eliminates at a non-zero level
 cannot have declared the small shape. -/
 theorem blockRecLarge_run
