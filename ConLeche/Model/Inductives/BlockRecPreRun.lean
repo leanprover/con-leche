@@ -7970,6 +7970,176 @@ theorem blockRuleHokA_of_run {envC : Env} {p : ConLeche.BlockParts}
 
 end HokAssembly
 
+/-! ### 40.13 THE PRODUCER — `BlockRuleCerts` AT THE RUN
+
+§40.3 states the bundle at the frame's three opener LISTS; this is
+that theorem at the run, with every argument the check or the model
+already owns discharged, so a consumer takes the BUNDLE and not its
+nineteen parts.
+
+The prefix and field openers are not premises and not existentials:
+`blockRuleData_run` (`BlockRecData.lean`) identifies the run's
+witnesses with `blockRulePrefFvs`/`blockRuleFieldFvs`, the RECOMPUTED
+spellings, and `blockRuleFdomsAV` is by definition `readOpenedDoms` at
+the latter — so the bundle's field segment is the one §27 and §40.8
+are already stated at, with no bridge.
+
+What stays a premise is three groups, each bounded by the fact that
+produces it:
+
+* **stage (c)'s peel** — the `ih` opening `h₃` with the generated
+  tower's three scoping facts (§40.7's, wired), the two typing runs
+  `hinf`/`hdeq`, the conclusion's `instPisAtLift` equation `hpr`, and
+  the two readings `hRb`/`hCa`.  `checkBlockRule_data`
+  (`BlockRecData.lean`) produces every one of them from the rule's own
+  run; what it does NOT produce is the recursor-type list's
+  closedness, which §40.7's wiring needs at EVERY callee index and
+  which `checkBlockRecK_ruleRun` existentially discards;
+* the **record** group the FIELD and `ih` segments consume
+  (§40.8–§40.10) together with §27's `fdoms` spelling, and the
+  per-key `ih` data `hIent`;
+* **`hokC`'s three** (§40.11) — the peel equation, the tower fit and
+  the instantiating readings' grading.
+
+`hexF` and `hexI` are the two segments' reading-EXISTENCE premises in
+§40.2's shape (`readOpenedDoms_shift_reads` and
+`blockRuleIhOpenerReads_of` are their producers); they are stated as
+existences, not as list equations, because `readOpenedDoms` is a
+reading by construction and that is all the bundle asks. -/
+
+section CertsRun
+
+/-- **`BlockRuleCerts`, at the run.** -/
+theorem blockRuleCerts_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    -- the two stored types, off the environment's well-formedness
+    (hf₁ : r.1.type.hasFvar = false) (hCf : cA.1.type.hasFvar = false)
+    (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    -- stage (c)'s peel
+    {ihTele' bodyO ty concl : Expr} {fvsIh : List Expr} {nR : Nat}
+    (h₃ : openPisAtFvars nR ihTele'
+      (p.toBlockShape.rulePrefixAt c + cA.2) = some (fvsIh, bodyO))
+    (hw₃ : Expr.WScoped (p.toBlockShape.rulePrefixAt c + cA.2) ihTele')
+    (hb₃ : ihTele'.looseBVarsBounded 0 = true)
+    (hfv₃ : ∀ l ∈ ihTele'.fvarLeaves, Expr.fvar l.1 l.2 ∈
+      blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i)
+    (hinf : ConLeche.inferTypeCore μ envC F
+      (p.toBlockShape.rulePrefixAt c + cA.2 + nR) bodyO = .ok ty)
+    (hdeq : ConLeche.isDefEqCore μ envC F
+      (p.toBlockShape.rulePrefixAt c + cA.2 + nR) ty concl = .ok true)
+    (hpr : ConLeche.Expr.instPisAtLift
+      (blockRulePrefFvs p.toBlockShape rs c
+        ++ (blockRuleCbody p.toBlockShape rs c i).getAppArgs.drop p.nP
+        ++ [Expr.mkAppN (.const cA.1.name (p.toBlockShape.lps.map .param))
+            ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+              ++ blockRuleFieldFvs p.toBlockShape rs c i)]) r.1.type = some concl)
+    {Rb Ca : AnnotTerm}
+    (hRb : denoteMeta mpC.base2.acval envC ψ
+      (p.toBlockShape.rulePrefixAt c + cA.2 + nR) bodyO = some Rb)
+    (hCa : denoteMeta mpC.base2.acval envC ψ
+      (p.toBlockShape.rulePrefixAt c + cA.2 + nR) concl = some Ca)
+    -- the two segments' readings (§40.2)
+    (hexF : ∀ (l : Nat) (x : Expr),
+      (blockRuleFieldFvs p.toBlockShape rs c i)[l]? = some x →
+      ∃ A, denoteMeta mpC.base2.acval envC ψ
+        (p.toBlockShape.rulePrefixAt c + l) (Expr.fvarTypeD x) = some A)
+    (hexI : ∀ (l : Nat) (x : Expr), fvsIh[l]? = some x →
+      ∃ A, denoteMeta mpC.base2.acval envC ψ
+        (p.toBlockShape.rulePrefixAt c + cA.2 + l) (Expr.fvarTypeD x) = some A)
+    -- the record group (§40.8–§40.10) and §27's `fdoms` spelling
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {dsC : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm} {o : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV dsC bodyC))
+    (hlenD : dsC.length = p.nP + cA.2)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((dsC.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o)
+    (hFE : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = (liftDoms o 0 (dsC.drop p.nP)).map (·.2.2))
+    (hIent : ∀ q, q < nR →
+      ∃ (i' b : Nat) (tl : List (Nat × Nat × AnnotTerm)) (bodyF conclA : AnnotTerm),
+        i' < cA.2 ∧
+        (dsC.getD (p.nP + i') default).2.2 = mkPisAV tl bodyF ∧
+        (readOpenedDoms mpC.base2.acval envC ψ
+            (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh).getD q default
+          = mkPisAV (ihTeleAtR cA.2 o i' q (rebit b tl)) conclA ∧
+        ∀ (σ : Nat → V) (xs fs ys : List V),
+          SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
+          SpineFit (consList xs σ) ((liftDoms o 0 (dsC.drop p.nP)).map (·.2.2)) fs →
+          SpineFit (consList fs (consList xs σ))
+            ((readOpenedDoms mpC.base2.acval envC ψ
+              (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh).take q) ys →
+          (∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR cA.2 o i' q (rebit b tl)).map (·.2.2)) bs →
+            WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA) ∧
+          (b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR cA.2 o i' q (rebit b tl)).map (·.2.2)) bs →
+            interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+              ∈ˢ (univZero : V)))
+    -- `hokC` (§40.11)
+    {vs : List AnnotTerm}
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis
+      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
+    (hfit : ∀ ρ : Nat → V,
+      Sat V ((readOpenedDoms mpC.base2.acval envC ψ
+            (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh).reverse
+          ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).reverse) ρ →
+      ∃ rest, TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)
+    (hargs : ∀ ρ : Nat → V,
+      Sat V ((readOpenedDoms mpC.base2.acval envC ψ
+            (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh).reverse
+          ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).reverse) ρ →
+      ∀ a ∈ vs, WellDenotedV V ρ a) :
+    BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c) cA.2 nR
+      (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+      (readOpenedDoms mpC.base2.acval envC ψ
+        (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh) Rb Ca := by
+  obtain ⟨hw₁, hb₁⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, h₁, hinstC, h₂, -, -, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  -- the constructor's telescope at the rule's parameters is bvar-closed
+  have hb₂ : (blockRuleCrest p.toBlockShape rs c i).looseBVarsBounded 0 = true :=
+    (instPisAt_bounded _ hinstC hCb
+      (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))).2
+  -- the FIELD segment IS `blockRuleFdomsAV`
+  have hfd : readOpenedDoms mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c)
+      (blockRuleFieldFvs p.toBlockShape rs c i)
+      = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i := rfl
+  -- the PREFIX segment is `blockRulePdomsAV` (§40.5)
+  have hpd : readOpenedDoms mpC.base2.acval envC ψ 0 (blockRulePrefFvs p.toBlockShape rs c)
+      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c :=
+    blockRulePdomsAV_eq_readOpenedDoms hμ mpC h hr ψ h₁
+  obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hf₁ hCf hb₁ hb₂ hinstC hpr
+  rw [← hpd, ← hfd]
+  refine blockRuleCerts_of_openings mpC h₁ h₂ h₃ hw₁ (blockRuleHw2_of h₁ hw₁ hCf hinstC) hw₃
+    hb₁ hb₂ hb₃ hfv₃ (fun l x hx => ?_) (fun l x hx => hexF l x hx) hexI hinf hdeq hbC
+    (fun l hl => List.mem_append_left _ (hleafC l hl)) hRb hCa ?_ ?_
+  · have hread := blockRulePdomsAV_reads hμ mpC h hr ψ h₁ l x hx
+    rw [Nat.zero_add]
+    exact ⟨_, hread⟩
+  · rw [hpd, hfd, hFE]
+    exact blockRuleHokA_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho
+      rfl rfl
+      (by rw [readOpenedDoms_length hexI, ConLeche.Verify.openPisAtFvars_length _ h₃]) hIent
+  · rw [hpd, hfd]
+    exact blockRuleHokC_of_run hμ mpC h hr ψ hpeel hfit hargs
+
+end CertsRun
+
 end CertsArgs
 
 end ConLeche.Model
