@@ -405,4 +405,125 @@ theorem recGraph_exists_unique_transport
 
 end Transport
 
+/-! ## Restriction to a `pred`-closed sub-index-set
+
+The transport above asks for a bijection of the WHOLE index sets, and
+regime SQ does not have one: `i ↦ tagged c i pt` sends an index into
+the block's union only where the family's fibre is INHABITED, while
+`sqGraph_singleton` proves the recursion theorem over the whole index
+set.  The missing step is that the graph does not notice: over a
+sub-index-set closed under `pred`, the least pre-fixed family has the
+same fibres as over the whole one.
+
+Both inclusions are `lfpFamSet_le` at a closed family.  One way the
+big graph's restriction is closed for the small functor; the other way
+the small graph PADDED BY THE BOUND is closed for the big one — off
+`I₀` every fibre is inside `B` by `recGraphFibre`'s own separation, so
+the padding costs nothing. -/
+
+section Restrict
+
+variable {ℓ : Nat} {I I₀ : V} {pred B : V → V} {st : V → V → V}
+
+open Classical in
+theorem recGraph_restrict
+    (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
+    (hpredS : ∀ i, i ∈ˢ I → pred i ⊆ˢ I)
+    (hI₀ : I₀ ⊆ˢ I)
+    (hcl : ∀ i, i ∈ˢ I₀ → pred i ⊆ˢ I₀) :
+    ∀ i, i ∈ˢ I₀ →
+      app (recGraph ℓ I₀ pred B st) i = app (recGraph ℓ I pred B st) i := by
+  have hB₀ : ∀ i, i ∈ˢ I₀ → B i ∈ˢ (univ ℓ : V) := fun i hi => hB i (hI₀ i hi)
+  -- (1) the big graph restricted is closed for the small functor
+  have hAmem : graph (fun i => app (recGraph ℓ I pred B st) i) I₀ ∈ˢ famSpace ℓ I₀ :=
+    graph_mem_famSpace fun i hi => famSpace_app (lfpFamSet_mem _ _ _) (hI₀ i hi)
+  have hA : IsClosedFam ℓ I₀ (recGraphStep ℓ I₀ pred B st)
+      (graph (fun i => app (recGraph ℓ I pred B st) i) I₀) := by
+    refine ⟨hAmem, fun i hi v hv => ?_⟩
+    rw [app_app_recGraphStep hAmem hi] at hv
+    obtain ⟨hvB, g, hg, rfl⟩ := mem_recGraphFibre.mp hv
+    have hg' : g ∈ˢ piSet (pred i) (fun j => app (recGraph ℓ I pred B st) j) := by
+      obtain ⟨hsub, htot⟩ := mem_piSet.mp hg
+      refine mem_piSet.mpr ⟨fun q hq => ?_, htot⟩
+      obtain ⟨j, hj, y, hy, rfl⟩ := mem_sigmaPairs.mp (hsub q hq)
+      rw [app_graph (hcl i hi j hj)] at hy
+      exact mem_sigmaPairs.mpr ⟨j, hj, y, hy, rfl⟩
+    rw [app_graph hi, app_recGraph_eq hB hpredS (hI₀ i hi)]
+    exact mem_recGraphFibre.mpr ⟨hvB, g, hg', rfl⟩
+  -- (2) the small graph, padded by the bound, is closed for the big functor
+  have hXmem : graph (fun i => if i ∈ˢ I₀ then app (recGraph ℓ I₀ pred B st) i else B i) I
+      ∈ˢ famSpace ℓ I := by
+    refine graph_mem_famSpace fun i hi => ?_
+    by_cases h : i ∈ˢ I₀
+    · rw [if_pos h]; exact famSpace_app (lfpFamSet_mem _ _ _) h
+    · rw [if_neg h]; exact hB i hi
+  have hX : IsClosedFam ℓ I (recGraphStep ℓ I pred B st)
+      (graph (fun i => if i ∈ˢ I₀ then app (recGraph ℓ I₀ pred B st) i else B i) I) := by
+    refine ⟨hXmem, fun i hi v hv => ?_⟩
+    rw [app_app_recGraphStep hXmem hi] at hv
+    obtain ⟨hvB, g, hg, rfl⟩ := mem_recGraphFibre.mp hv
+    rw [app_graph hi]
+    by_cases h : i ∈ˢ I₀
+    · rw [if_pos h]
+      have hg' : g ∈ˢ piSet (pred i) (fun j => app (recGraph ℓ I₀ pred B st) j) := by
+        obtain ⟨hsub, htot⟩ := mem_piSet.mp hg
+        refine mem_piSet.mpr ⟨fun q hq => ?_, htot⟩
+        obtain ⟨j, hj, y, hy, rfl⟩ := mem_sigmaPairs.mp (hsub q hq)
+        rw [app_graph (hpredS i hi j hj), if_pos (hcl i h j hj)] at hy
+        exact mem_sigmaPairs.mpr ⟨j, hj, y, hy, rfl⟩
+      rw [app_recGraph_eq hB₀ hcl h]
+      exact mem_recGraphFibre.mpr ⟨hvB, g, hg', rfl⟩
+    · rw [if_neg h]; exact hvB
+  intro i hi
+  refine Subset.antisymm ?_ ?_
+  · have h1 := lfpFamSet_le hA i hi
+    rw [app_graph hi] at h1
+    exact h1
+  · have h2 := lfpFamSet_le hX i (hI₀ i hi)
+    rw [app_graph (hI₀ i hi), if_pos hi] at h2
+    exact h2
+
+/-- **The two steps composed**, at `UnionRecKitC.exu`'s shape: a
+recursion theorem proved over an index set `I` transfers to `I'`
+whenever `I'` is in bijection with a `pred`-CLOSED SUBSET `I₀ ⊆ I`.
+
+That is the shape regime SQ needs and the plain transport does not
+cover: `i ↦ tagged c i pt` sends an index into the block's union only
+where the family's fibre is INHABITED, so the union is in bijection
+with the inhabited part of the index set, not with all of it — while
+the recursion theorem (`sqGraph_singleton`) is proved over the whole
+index set.  The inhabited part is `pred`-closed (a constructor's
+recursive fields land in the carrier at their own indices), which is
+exactly `hcl`. -/
+theorem recGraph_exists_unique_restrict_transport {I' : V} {pred' B' : V → V}
+    {st' : V → V → V} {φ θ : V → V}
+    (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
+    (hpredS : ∀ i, i ∈ˢ I → pred i ⊆ˢ I)
+    (hI₀ : I₀ ⊆ˢ I)
+    (hcl : ∀ i, i ∈ˢ I₀ → pred i ⊆ˢ I₀)
+    (hB' : ∀ u, u ∈ˢ I' → B' u ∈ˢ (univ ℓ : V))
+    (hpredS' : ∀ u, u ∈ˢ I' → pred' u ⊆ˢ I')
+    (hφ : ∀ i, i ∈ˢ I₀ → φ i ∈ˢ I')
+    (hθ : ∀ u, u ∈ˢ I' → θ u ∈ˢ I₀)
+    (hθφ : ∀ i, i ∈ˢ I₀ → θ (φ i) = i)
+    (hφθ : ∀ u, u ∈ˢ I' → φ (θ u) = u)
+    (hBm : ∀ i, i ∈ˢ I₀ → B' (φ i) = B i)
+    (hpm : ∀ i, i ∈ˢ I₀ → ∀ v, v ∈ˢ pred' (φ i) ↔ ∃ j, j ∈ˢ pred i ∧ v = φ j)
+    (hsm : ∀ i, i ∈ˢ I₀ → ∀ g,
+      st' (φ i) (graph (fun v => app g (θ v)) (pred' (φ i))) = st i g)
+    (hexu : ∀ i, i ∈ˢ I₀ →
+      (∃ v, v ∈ˢ app (recGraph ℓ I pred B st) i) ∧
+      ∀ v v', v ∈ˢ app (recGraph ℓ I pred B st) i →
+        v' ∈ˢ app (recGraph ℓ I pred B st) i → v = v') :
+    ∀ u, u ∈ˢ I' →
+      (∃ v, v ∈ˢ app (recGraph ℓ I' pred' B' st') u) ∧
+      ∀ v v', v ∈ˢ app (recGraph ℓ I' pred' B' st') u →
+        v' ∈ˢ app (recGraph ℓ I' pred' B' st') u → v = v' := by
+  refine recGraph_exists_unique_transport (fun i hi => hB i (hI₀ i hi)) hcl hB' hpredS'
+    hφ hθ hθφ hφθ hBm hpm hsm fun i hi => ?_
+  rw [recGraph_restrict hB hpredS hI₀ hcl i hi]
+  exact hexu i hi
+
+end Restrict
+
 end ConLeche.SetTheory
