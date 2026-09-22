@@ -2137,13 +2137,24 @@ pins it to `blockRuleIhsAV` (§8) is a conjunct here rather than a
 separate hypothesis because the pinning mentions `fr`, `tlF` and
 `EisF`, all of which are under the peel's quantifier.
 
-**`hihFit` — the eighteenth conjunct — is the REGIME's**, not this
-lane's: with `ihs` pinned it is literally `IndRegimeAt`'s fourth
-conjunct / `KitRegimeAt`'s `hihChain` at this rule's data, and its
-producers (`spineFit_ihdoms_zero` at `ℓ = 0`, `blockRecIhvAt_fit` ∘
-`blockRecIhvAt_eq` at `ℓ ≠ 0`) need the recursion's GRAPH.  It is
-stated here in the shape the regime states it in, so a regime producer
-plugs in unchanged. -/
+**The ih FIT — the conjunct right after the pinning — is the
+REGIME's**, not this lane's.  With `ihs` pinned it is literally
+`IndRegimeAt`'s fourth conjunct (`BlockRecPreRun.lean`, at
+`a = fun _ => pt`) and `KitRegimeAt`'s `hihChain` (at `a = famCand D`)
+at this rule's data:
+
+```
+SpineFit (consList (x⃗ ++ f⃗) (chainFrame K a ρ)) ihdoms
+  (ihs.map (interp V (consList (x⃗ ++ f⃗) (chainFrame K a ρ))))
+```
+
+and its producers (`spineFit_ihdoms_zero` at `ℓ = 0`,
+`blockRecIhvAt_fit` ∘ `blockRecIhvAt_eq` at `ℓ ≠ 0`) need the
+recursion's GRAPH.  It is stated here in the regime's own spelling —
+same frame, same `ihdoms`, same `map` — so a regime producer plugs in
+unchanged; the two side conditions those producers take, the prefix
+length and `SpineFit (chainFrame K a ρ) (pdoms ++ fdoms) (x⃗ ++ f⃗)`,
+are the wrapper's `hxl'`/`hpl` and its `hspF`, at the same frame. -/
 def BlockRuleBodyInputs (V : Type w) [SetTheory V] {μ : CheckMode} {envC : Env}
     (mpC : EnvModelM V μ envC) (p : BlockParts) (rs : List RecDatum)
     (ψ : Name → Nat) (ℓ : Nat) (j i : Nat) (cA : ConstantVal × Nat) (lps : List Name)
