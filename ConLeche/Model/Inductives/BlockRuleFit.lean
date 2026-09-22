@@ -321,7 +321,7 @@ block-facing premises come from `BlockRecSplitAt` at the contract's
 own recursor fit.
 
 **`hw : d.w ψ ≠ 0` is essential and the conjunct is REFUTABLE without
-it** — see `blockRuleHsp_zero_counterexample`'s docstring. -/
+it** — see §4's FINDING. -/
 theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -478,5 +478,91 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
     (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfp)
   rw [chainFrame_zero, blockRecMkK, AnnotTerm.liftN_zero] at hval
   rw [hval, blockCtorMajor_value hM hcj hcf.1 hmN hlv hqs hfq]
+
+/-- **`mk` at a `Prop`-valued block.**  At `d.w ψ = 0` every value in
+the block is the point, so both sides of the conjunct are the point
+and NO fit is needed — the `w`-split that §4's finding forces on the
+FIT half does not reach the fired spine.
+
+`hzero` is the constructors' stage's own clause at `d.w ψ = 0`: the
+constructor's leaf is `sumMkAV 0 …`, whose every application folds to
+the point (`blockModelAt_of_records`' `hctorLeaf`, `sumMkAV_zero`,
+`foldl_app_pt`).  It is not a `BlockModelAt` field, which is why it
+is named here. -/
+theorem blockRuleHmk_zero
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    {rhs : Expr} {ψ ψj : Name → Nat}
+    (hcA : r.2.2.2[i]? = some cA) (hrhs : r.2.1[i]? = some rhs)
+    {nPd nF : Nat} (hfind : envC.find? cA.1.name = some (.ctorInfo cA.1 nPd nF))
+    (hlps : cA.1.levelParams = p.lps)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
+    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
+    {ρ : Nat → V} {L : List V} {ys : List AnnotTerm}
+    (hzero : ∀ vs : List V, vs.foldl app (interp V ρ (mpC.base2.acval cA.1.name ψ)) = pt) :
+    interp V (consList L ρ) (blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+      = interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys) := by
+  rw [blockRuleMkAV_eq h hr hcA hrhs hfind (by rw [← hlps]; rfl) hnP ψ,
+    interp_mkAppN, foldl_app_map,
+    acval_interp_closedC mpC.base2 cA.1.name _ (consList L ρ) ρ,
+    Level.substFn_param_self ψ p.lps,
+    mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_map, hzero, hzero]
+
+/-! ## 4. THE FINDING — the FIT conjunct is FALSE at a `Prop`-valued
+block
+
+`BlockRuleDataB`'s first conjunct — the recursor's prefix and the
+constructor's fields fit the rule's domains — is **refutable** at
+`d.w ψ = 0`, and the `hw` above is not a convenience of the proof.
+
+The rule is `paramsBlind`, so the only thing that ties the
+constructor's parameter spine to the recursor's is the MAJOR
+PREMISE's membership.  At `d.w ψ ≠ 0` that membership is worth the
+whole tie (`mkInj`).  At `d.w ψ = 0` every value in the block is the
+point (`BlockModelAt.mkZero`), so the membership is worth NOTHING: a
+constructor built at one parameter spine lies in the carrier at
+every other.
+
+**The witness is `Exists`**, and it is in every real stream.
+`Exists.{u} {α : Sort u} (p : α → Prop) : Prop` has `nP = 2`, no
+indices, one constructor `Exists.intro (w : α) (h : p w)`, and
+`d.w ψ = 0`.  Take
+
+* `xs = [Bool, q, motive, minor]` — the recursor's rule prefix at
+  `α := Bool` (`rP = nP + 1 + 1 = 4 = mI`, no indices);
+* `ys = [Nat, r, 5, h]` — the constructor at `α := Nat`.
+
+`hfitC` holds: `5 ∈ ⟦Nat⟧`, `h ∈ ⟦r 5⟧`.  `hfitR` holds too: the
+major's domain is `⟦Exists q⟧`, a `Prop`-set, and the major's value is
+`d.inj ψ 0 0 [5, pt] = pt` by `mkZero`, which lies in it as soon as
+`∃ b : Bool, q b` — pick `q` satisfiable.  `IotaIndexPin` is vacuous
+(`mI = rP`).  And `hψ` is about LEVELS, not about values.  But the
+conjunct's field half then asks
+
+    5 ∈ˢ interp V (consList [⟦Bool⟧, ⟦q⟧, …] ρ) (the field `w`'s
+        domain, which is the parameter `α`)  =  5 ∈ˢ ⟦Bool⟧
+
+which is false.  No premise of `BlockRuleDataB` excludes it.
+
+**What this costs and where it goes.**  The other conjunct this lane
+owns, `mk`, is NOT affected: at `d.w ψ = 0` both sides are the point
+(`blockRuleHmk_zero`), with no fit anywhere.  So the repair is local
+to the FIT, and the design question — which is the coordinator's, not
+this lane's — is what the contract asks for at `d.w ψ = 0`:
+
+* at `ℓ = 0` (a `Prop` motive, the ordinary case for a `Prop`-valued
+  block) the ι equation is an equation between PROOFS, both the
+  point, so the fit is not needed at all and the conjunct should be
+  guarded by `d.w ψ ≠ 0`;
+* at `ℓ ≠ 0` (large elimination from a subsingleton) the attack is
+  blocked by `IotaIndexPin` wherever the mismatched field is an INDEX
+  of the result — `Acc.intro`'s `x` is, and the pin forces the
+  recursor's index value to BE the field's value — but that is an
+  argument about the SYNTAX of subsingleton-eliminating blocks and
+  has to be written; it is not a consequence of anything landed.
+
+Until it is decided, the fit half is proved under `hw`, and the
+per-pair obligation is closed at `d.w ψ ≠ 0` only. -/
 
 end ConLeche.Model
