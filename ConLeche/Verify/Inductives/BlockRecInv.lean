@@ -384,6 +384,36 @@ theorem blockRecElimAgree_inv {us : List Level}
       · exact eq_of_beq (List.all_eq_true.mp hall u hu)
     · exact nomatch h
 
+/-! ## The COUNTING half of the elimination guard
+
+`checkBlockRecSmallElim` (`Kernel/Inductives/BlockInstall.lean`) is the
+one clause of official's `elim_only_at_universe_zero` the model reads
+in the LEVEL currency instead of through a run: at a block whose result
+sort may be `0`, a family of more than one member eliminates only at a
+level equivalent to zero.  Its inversion is the whole content. -/
+
+/-- **The counting guard, exposed**: a block declares a family, and a
+possibly-`Prop` block of more than one family eliminates at a level
+`Level.isEquiv` to zero. -/
+theorem checkBlockRecSmallElim_inv {p : BlockShape} {us : List Level}
+    (h : checkBlockRecSmallElim (m := CheckM) p us = .ok ()) :
+    0 < p.k ∧ (p.k = 1 ∨ p.resSort.isNeverZero = true ∨
+      ∀ u ∈ us, Level.isEquiv u Level.zero = some true) := by
+  rw [checkBlockRecSmallElim] at h
+  split at h
+  · next hk =>
+    simp only [bind, Except.bind, pure, Except.pure] at h
+    split at h
+    · next hc =>
+      refine ⟨hk, ?_⟩
+      simp only [Bool.or_eq_true, beq_iff_eq] at hc
+      rcases hc with (hc | hc) | hc
+      · exact .inl hc
+      · exact .inr (.inl hc)
+      · exact .inr (.inr fun u hu => eq_of_beq (List.all_eq_true.mp hc u hu))
+    · exact nomatch h
+  · exact nomatch h
+
 /-! ## The two capture-avoiding substitutions, at bvar-closed arguments
 
 `blockIhCall?`, `blockIhPis` and `checkBlockRule`'s conclusion are all

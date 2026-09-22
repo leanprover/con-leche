@@ -3,6 +3,8 @@ module
 public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Verify.Inductives.BlockRecInv
+import ConLeche.Model.Inductives.BlockRecRead
 
 public section
 
@@ -60,10 +62,15 @@ listed:
 5. **The SQ arm needs `rs.length = 1`, and that is a KERNEL fact.**
    `blockKitRegime_sq` produces `KitRegimeAt … 1 …`; the dispatch
    consumes `KitRegimeAt … rs.length …`.  The two meet only through
-   `hK1`, and `hK1` is exactly what the large-elimination COUNTING
-   guard (`blockLargeElimAllowed`) says: a `Prop` block eliminating
-   large has one member.  It is stated as a premise, in the region
-   where it is needed, because no model-tier fact implies it.
+   `rs.length = 1`, and no model-tier fact implies it: it is what the
+   large-elimination COUNTING guard says.  `blockLargeElimAllowed`'s
+   own arm is a RUN (`isDefEq` against `Sort 0`) and the model holds
+   only the LEVEL `ensureSort` returned, so the checker says the
+   counting half a second time in the level currency
+   (`checkBlockRecSmallElim`, lane SEC2) — and §2.5's
+   `blockRecK1_run` turns it into the fact, off the same three
+   package components the kit arms take.  It is a THEOREM here, not a
+   premise.
 
 **The guard lives in ONE place.**  `blockRecPre_dispatch_run`'s proof
 contains the only `by_cases` on `d.w ψ`, and the three regime bundles
@@ -202,7 +209,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V} {s : (Name → Nat) → Nat} {us : List Level}
   {ihs ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
-  {Rb0 Ca : (Name → Nat) → Nat → Nat → AnnotTerm}
+  {Rb0 Ca : (Name → Nat) → Nat → Nat → AnnotTerm} {uOf : Nat → Level}
 
 /-- **The endpoint's equation list, at the BASE prefix domains** — §1
 through §28's collapse. -/
@@ -231,6 +238,104 @@ theorem blockRecEqs_base (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
   refine iotaEqsAV_congr (fun c hc => ?_) (fun c hc j _ => ?_)
   · exact (blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length).symm
   · rw [blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length]
+
+/-! ## 2.5 THE COUNTING GUARD AT THE RUN — the dispatch's `hK1`
+
+`blockKitRegime_sq` lives at `K = 1` and every run-level discharge is
+indexed over the recursor list, so the SQ arm is unstateable at the run
+without `rs.length = 1`.  That is not a model fact and no model fact
+implies it: it is what the kernel's COUNTING guard says.
+
+`blockLargeElimAllowed`'s own arm is a RUN (`isDefEq` of the
+conclusion's inferred type against `Sort 0`), and the model holds of a
+conclusion only the LEVEL `ensureSort` returned — so the checker says
+the counting half a second time, in the level currency
+(`checkBlockRecSmallElim`, `Kernel/Inductives/BlockInstall.lean`, lane
+SEC2): a block declares a family, and a block of SEVERAL families whose
+result sort may be `0` eliminates only at a level equivalent to zero.
+
+The three premises below (`helim`, `hmemU`, `hruns`) are components
+1, 2 and 4 of `blockRecElimLevel_run`'s package VERBATIM, which is
+where the dispatch's `us` and `uOf` come from; `hres` is `rfl` at
+`blockDataOf` (`resSort := q.resSort`).  The chain is: the pins give
+one recursor per member, stage (b) gives `rs.length = p.recs.length`,
+the counting guard gives `p.k = 1` — and `0 < p.k`, which is what makes
+the FIRST recursor's level nameable at all (`uOf 0`), and hence what
+ties the package's abstract `us.headD` to the kernel's own list. -/
+
+section Count
+
+/-- **`checkBlockRecK`'s pins and its counting guard**, off the run.
+`checkBlockRecK_elimList` peels the same three binds and drops both. -/
+theorem checkBlockRecK_count
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ConLeche.checkBlockRecPins (m := ConLeche.CheckM) p = .ok () ∧
+    ∃ cvRus : List (ConstantVal × Nat × Level),
+      ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
+          (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus ∧
+      ConLeche.checkBlockRecSmallElim (m := ConLeche.CheckM) p.toBlockShape
+        (cvRus.map (·.2.2)) = .ok () := by
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨u0, hpins, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨uf, hfam, -⟩ := ConLeche.exceptBind_ok h
+  rw [ConLeche.checkBlockRecFamilyAgree] at hfam
+  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
+  obtain ⟨u1, hsmall, -⟩ := ConLeche.exceptBind_ok hfam
+  exact ⟨by cases u0; exact hpins, cvRus, htys, by cases u1; exact hsmall⟩
+
+omit [SetTheory V] in
+/-- **THE DISPATCH'S `hK1`**: at a `Prop`-valued block eliminating at a
+non-zero level, the recursor list is a singleton. -/
+theorem blockRecK1_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (hres : d.resSort = p.toBlockShape.resSort) :
+    ∀ ψ : Name → Nat, (us.headD .zero).eval ψ ≠ 0 → d.w ψ = 0 → rs.length = 1 := by
+  intro ψ hℓ hw
+  obtain ⟨hpins, cvRus, htys, hsmall⟩ := checkBlockRecK_count h
+  obtain ⟨cvRus', htys', -, hlenR, hbridge⟩ := checkBlockRecK_elimList h
+  obtain rfl : cvRus' = cvRus := Except.ok.inj (htys'.symm.trans htys)
+  obtain ⟨hk0, hcase⟩ := ConLeche.checkBlockRecSmallElim_inv hsmall
+  have hklen : rs.length = p.toBlockShape.k := by
+    rw [hlenR, (ConLeche.checkBlockRecPins_names hpins).1]; rfl
+  have hpos : 0 < rs.length := by rw [hklen]; exact hk0
+  -- the FIRST recursor's level: the package's `uOf 0` IS stage (b)'s
+  obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns 0 hpos
+  obtain ⟨cvRi, nIdx, u, fvs, concl, sty, hcu, hop, hsty, hu⟩ :=
+    checkBlockRecTys_elim htys 0 (by omega)
+  rw [Nat.zero_add] at hop hsty hu
+  obtain ⟨r0, hr0⟩ : ∃ r, rs[0]? = some r := ⟨rs[0]'hpos, List.getElem?_eq_getElem hpos⟩
+  have hr1 : r0.1 = cvRi := by
+    have h' := hbridge 0 r0 hr0
+    rw [List.getElem?_map, hcu] at h'
+    simp only [Option.map_some, Option.some.injEq] at h'
+    exact h'.symm
+  have hrd : rs.getD 0 default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
+  rw [hrd, hr1] at hop'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
+  obtain rfl : sty' = sty := Except.ok.inj (hsty'.symm.trans hsty)
+  have huu : uOf 0 = u := Except.ok.inj (hu'.symm.trans hu)
+  have humem : u ∈ cvRus'.map (·.2.2) := by
+    have hg : (cvRus'.map (·.2.2))[0]? = some u := by rw [List.getElem?_map, hcu]; rfl
+    obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
+    exact hEq ▸ List.getElem_mem hlt
+  have hu0 : Level.eval ψ u ≠ 0 := by
+    rw [← huu, blockRecElimAgree_eval helim ψ (uOf 0) (hmemU 0 hpos)]
+    exact hℓ
+  have hnz : Level.eval ψ p.toBlockShape.resSort = 0 := by rw [← hres]; exact hw
+  rcases hcase with hk1 | hnever | hzero
+  · rw [hklen]; exact hk1
+  · exact absurd hnz (ConLeche.Level.isNeverZero_sound ψ _ hnever)
+  · exact absurd (ConLeche.Level.isEquiv_sound (hzero u humem) ψ) hu0
+
+end Count
 
 /-- **The endpoint's regime premise, from the three regimes.** -/
 theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
@@ -321,8 +426,19 @@ theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
         (blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ)
         (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ)
         (ihs ψ) (Rb0 ψ) ρ)
-    -- the COUNTING guard's fact: a `Prop` block eliminating large has ONE member
-    (hK1 : ∀ ψ : Name → Nat, (us.headD .zero).eval ψ ≠ 0 → d.w ψ = 0 → rs.length = 1)
+    -- the COUNTING guard's fact — a `Prop` block eliminating at a
+    -- non-zero level has ONE member — NOT a premise: `blockRecK1_run`
+    -- produces it from the kernel's own guard, and these four are its
+    -- inputs (the first three are `blockRecElimLevel_run`'s package
+    -- components 1, 2 and 4 verbatim; `hres` is `rfl` at `blockDataOf`)
+    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (hres : d.resSort = p.toBlockShape.resSort)
     -- REGIME SQ (`ℓ ≠ 0`, `w = 0`), at the ONE member the counting guard leaves
     (hSQ : ∀ (ψ : Name → Nat) (ρ : Nat → V), (us.headD .zero).eval ψ ≠ 0 → d.w ψ = 0 →
       KitRegimeAt V ((us.headD .zero).eval ψ) 1 p.toBlockShape.rulePrefixAt
@@ -354,7 +470,7 @@ theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
     (blockRecHwd_of_rules (mp := mpC) hμ (hcertsW ψ) (hokA ψ ρ) (hlhs ψ ρ) (hihsWd ψ ρ))
     (hIND ψ ρ) (fun hl => ?_)
   by_cases hw : d.w ψ = 0
-  · rw [hK1 ψ hl hw]
+  · rw [blockRecK1_run (d := d) h helim hmemU hruns hres ψ hl hw]
     exact hSQ ψ ρ hl hw
   · exact hWF ψ ρ hl hw
 
