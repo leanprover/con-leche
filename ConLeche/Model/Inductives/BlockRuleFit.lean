@@ -575,6 +575,238 @@ theorem blockRuleIdxPin_run {mm j : Nat} {cA : ConstantVal × Nat}
   unfold chain
   rw [consN_eq_consList]
 
+/-! ### 2c. THE LIFT — the criterion as a STANDALONE producer
+
+§2b's arm identifies the field spine with the SOURCE spine inside its
+own proof.  Regime SQ asks for that identification on its own
+(`blockKitRegime_sq`'s `hsrcAt`, `BlockRecPreRun.lean`), and this
+section is the lift: the same three steps — the `FitsFrom`-to-
+`SpineFit` bridge (§3's `blockRuleFieldSpine_run`), the subsingleton
+criterion (`blockCtorFieldProp`) and `srcVals_of_fit` — at an
+ARBITRARY index tuple and an arbitrary fitting spine instead of at the
+rule's own.
+
+**It is a signature only up to ONE premise, and the premise is not
+cosmetic.**  The regime quantifies over an arbitrary member `X` of the
+TUPLE SPACE, while §2b works at the fixpoint, and the difference is
+real: a `ChainFit` at a general `X` puts a RECURSIVE field's value in
+the SLOT, and the criterion is a statement about the field's DOMAIN.
+At `w = 0` the slot is a truth value (`InTupleSpace 0` puts every
+component in `famSpace 0`), so that field's own value collapses to the
+point — but the criterion cannot be WALKED past it:
+`CtorDataI.srcProp` bounds field `q` only along a spine fitting the
+EARLIER DOMAINS (`FieldsBoundSrc`), and a slot member need not be a
+member of the domain when the domain is the empty truth value.  So the
+collapse closes the recursive position and leaves every position after
+it open.
+
+**What closes it is `TupleLe`, and both call sites already have it.**
+`hsrcAt` is consumed twice: at the fixpoint itself (`blockSqKit`'s
+`hsrcL`, `lfpTuple_mem`) and at the SEPARATED tuple (`blockSqExu`,
+whose `sepTuple_le` is three lines above the use).  A tuple BELOW the
+fixpoint transports its `ChainFit` INTO the fixpoint's
+(`blockChainFit_of_le`, by `slotSet_mono` at every recursive
+position), and there the domains are the slots (`blockSlot_agree`) and
+the criterion applies unchanged.  The producer below therefore takes
+`TupleLe` and does not need the `w = 0` collapse at all; the regime's
+statement is over-quantified by exactly that premise. -/
+
+/-- **`FitsFrom` transports along an INCLUSION of the slots** —
+`spineFit_of_fitsFrom`'s pattern with `⊆ˢ` in place of `=`.  The
+inclusion is asked for only at the positions the walk actually reads,
+and along the walk's own prefixes, which is what lets the slot fit
+(`BlockModelAt.idxFit`) supply it. -/
+theorem fitsFrom_mono {rs : List Bool} {slot slot' : Nat → (Nat → V) → V} :
+    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
+      (∀ l, l < Fs.length → ∀ bs : List V,
+        FitsFrom rs slot i ρ (Fs.take l) bs → rs.getD (i + l) false = true →
+        slot (i + l) (consList bs ρ) ⊆ˢ slot' (i + l) (consList bs ρ)) →
+      FitsFrom rs slot i ρ Fs as → FitsFrom rs slot' i ρ Fs as
+  | _, _, [], [], _, _ => trivial
+  | _, _, [], _ :: _, _, h => h.elim
+  | _, _, _ :: _, [], _, h => h.elim
+  | i, ρ, F :: Fs, a :: as, hag, h => by
+    refine ⟨?_, fitsFrom_mono (fun l hl bs hb hr => ?_) h.2⟩
+    · have h1 : a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) := h.1
+      show a ∈ˢ (if rs.getD i false then slot' i ρ else interp V ρ F)
+      by_cases hr : rs.getD i false = true
+      · rw [if_pos hr] at h1 ⊢
+        have h0 := hag 0 (by simp) [] trivial (by rw [Nat.add_zero]; exact hr)
+        rw [Nat.add_zero] at h0
+        simp only [consList_nil] at h0
+        exact h0 _ h1
+      · have hr' : rs.getD i false = false := by simpa using hr
+        rw [hr'] at h1 ⊢
+        exact h1
+    · have hb' : FitsFrom rs slot i ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨h.1, hb⟩
+      have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
+        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
+      rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
+      exact hag'
+
+/-- **A `ChainFit` at a tuple BELOW the fixpoint is a `ChainFit` at
+the fixpoint.**  The index clause does not mention the tuple at all;
+the entry clause transports at every RECURSIVE position by
+`slotSet_mono`, whose slot fit is `BlockModelAt.idxFit` at the SMALLER
+tuple — which is where the walk's own prefix is available. -/
+theorem blockChainFit_of_le (hM : BlockModelAt mpC.base2 names d)
+    {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
+    {ψ : Name → Nat} {ρ : Nat → V} {ps : List V}
+    (hps : SpineFit ρ (d.params ψ) ps)
+    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
+    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
+    {t : V} (ht : t ∈ˢ d.idx ψ (consList ps ρ) mm)
+    {X : Nat → V}
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList ps ρ)) X)
+    (hle : TupleLe d.N (d.idx ψ (consList ps ρ)) X
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ))))
+    {fs : List V} (hfit : d.ChainFit ψ (consList ps ρ) X t mm j fs) :
+    d.ChainFit ψ (consList ps ρ)
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
+      t mm j fs := by
+  have hnF : ((d.Fss mm ψ).getD j []).length = cA.2 := by
+    obtain ⟨-, -, hCD⟩ := hcf
+    have hFssD : (d.Fss mm ψ).getD j [] = ((d.dsF mm j ψ).drop d.nP).map (·.2.2) :=
+      fssOfR_fixCtorDataList_getD hcj
+    rw [hFssD, List.length_map, List.length_drop, hCD.len ψ]
+    omega
+  refine ⟨fitsFrom_mono (fun l hl bs hb hrb => ?_) hfit.1, hfit.2⟩
+  rw [Nat.zero_add] at hrb ⊢
+  rw [hnF] at hl
+  have hSF := hM.idxFit ψ (consList ps ρ) (d.satOfSpine hps) X hX mm hcN t ht j hjl l
+    (by rw [hnF]; exact hl) hrb bs hb
+  exact slotSet_mono (hle _ (Nat.lt_of_lt_of_le (htgt l hl) (Nat.le_add_right _ _))) hSF
+
+/-- **THE LIFT** — the subsingleton criterion as a producer of regime
+SQ's `hsrcAt`: at a `Prop`-valued block with the declared large shape,
+a spine fitting the lone constructor at a tuple BELOW the fixpoint IS
+the source spine of the index tuple.
+
+`srcs` is `srcList` at the constructor's own index readings, which is
+the shape `srcVals_of_fit` produces and the shape the regime's `srcs`
+parameter is instantiated at. -/
+theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
+    {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
+    (hlarge : d.large = true) {ψ : Name → Nat} (hw : d.w ψ = 0)
+    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
+      ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
+    (hlenIds : (d.IdsM mm ψ).length = d.nIdxAt mm)
+    {ρ : Nat → V} {ps : List V}
+    (hasLen : ps.length = d.nP) (hps : SpineFit ρ (d.params ψ) ps)
+    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
+    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
+    {X : Nat → V}
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList ps ρ)) X)
+    (hle : TupleLe d.N (d.idx ψ (consList ps ρ)) X
+      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ))))
+    {t : V} (ht : t ∈ˢ d.idx ψ (consList ps ρ) mm)
+    {fs : List V} (hfit : d.ChainFit ψ (consList ps ρ) X t mm j fs) :
+    fs = srcVals (isOfW (d.uM mm ψ) (d.nIdxAt mm) t)
+      (srcList ((d.Ess mm ψ).getD j []) ((d.Fss mm ψ).getD j []).length) := by
+  have hIdxOk := hM.idxOk ψ _ (d.satOfSpine hps) mm hcN
+  have hEsLen : ((d.Ess mm ψ).getD j []).length = (d.IdsM mm ψ).length := by
+    obtain ⟨-, -, hCD⟩ := hcf
+    have hEssD : (d.Ess mm ψ).getD j [] = d.esF mm j ψ := essOfR_fixCtorDataList_getD hcj
+    rw [hEssD, hCD.lenE ψ, hlenIds]
+  have ht' : t ∈ˢ idxSet (d.uM mm ψ) (consList ps ρ) (d.IdsM mm ψ) := ht
+  obtain ⟨is, hisp, rfl⟩ := mem_idxSet_elim ht'
+  have hfitL := blockChainFit_of_le hM hcj hcf hps htgt hcN hjl ht hX hle hfit
+  have hsp := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hcN hjl ht
+    (lfpTuple_mem _ _ _ _) hfitL
+  have hidx : idxValsAt (consList ps ρ) ((d.Ess mm ψ).getD j []) fs = is := by
+    show ((d.Ess mm ψ).getD j []).map (interp V (consList fs (consList ps ρ))) = is
+    refine List.ext_getElem (by rw [List.length_map, hEsLen, hisp.length_eq])
+      fun l h1 h2 => ?_
+    rw [List.length_map, hEsLen] at h1
+    have hstep := hfitL.2 l h1
+    rw [List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (by rw [hEsLen]; exact h1), Option.getD_some] at hstep
+    rw [List.getElem_map, hstep, projS_tupW hIdxOk hisp h1,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+  have hprop := blockCtorFieldProp hcj hcf hlarge hw hparamsC (d.satOfSpine hps)
+  rw [show isOfW (d.uM mm ψ) (d.nIdxAt mm) (tupW (d.uM mm ψ) is) = is from by
+    rw [← hlenIds]; exact isOfW_tupW hIdxOk hisp]
+  exact srcVals_of_fit hprop hsp hidx
+
+/-- **THE LIFT, at a RULE's own spine** — regime SQ's `hsrcRule`
+(`blockKitRegime_sq`, `BlockRecPreRun.lean`).
+
+Its antecedent is NOT a `ChainFit`: it is a `SpineFit` of the rule's
+own domains at the CHAIN frame, so the two halves of the lift share
+only their last step.  Everything before it is the rule frame's two
+insertions, and both transports are landed
+(`spineFit_liftDomsK_rule`, `interp_liftN_rule`): the field spine
+descends to the constructor's own domains at the parameter frame, the
+index expressions' readings descend with it, and there the criterion
+applies exactly as in §2b.
+
+**The `∀ D` in the regime's spelling is over-quantification, and this
+theorem is where it shows.**  `RecFamData.tupOf` is an abstract field;
+nothing in the structure ties it to the block, so at an arbitrary `D`
+the conclusion is a statement about an unconstrained function and no
+producer can exist.  The datum the regime actually builds
+(`blockSqData`) has `tupOf c is = d.tup ψ (mem c) is`, which is what
+this theorem concludes at. -/
+theorem blockRuleSrcVals_rule (hM : BlockModelAt mpC.base2 names d)
+    {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
+    (hlarge : d.large = true) {ψ : Name → Nat} (hw : d.w ψ = 0)
+    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
+      ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
+    (hlenIds : (d.IdsM mm ψ).length = d.nIdxAt mm)
+    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
+    {K rP : Nat} {a ρ : Nat → V} {xs fs : List V} {esL : List AnnotTerm}
+    (hxs : xs.length = rP)
+    (hesL : esL = ((d.Ess mm ψ).getD j []).map
+      (fun e => (e.liftN (rP - d.nP) cA.2).liftN K (rP + cA.2)))
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hfit : SpineFit (consList xs (chainFrame K a ρ))
+      (liftDomsK K rP (liftDomsK (rP - d.nP) 0 ((d.Fss mm ψ).getD j []))) fs) :
+    srcVals
+        (isOfW (d.uM mm ψ) (d.nIdxAt mm)
+          (d.tup ψ mm (esL.map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))))
+        (srcList ((d.Ess mm ψ).getD j []) ((d.Fss mm ψ).getD j []).length)
+      = fs := by
+  have hnF : ((d.Fss mm ψ).getD j []).length = cA.2 := by
+    obtain ⟨-, -, hCD⟩ := hcf
+    have hFssD : (d.Fss mm ψ).getD j [] = ((d.dsF mm j ψ).drop d.nP).map (·.2.2) :=
+      fssOfR_fixCtorDataList_getD hcj
+    rw [hFssD, List.length_map, List.length_drop, hCD.len ψ]
+    omega
+  -- the field spine, down at the constructor's own domains
+  have hfs : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss mm ψ).getD j []) fs :=
+    (spineFit_liftDomsK_rule (nP := d.nP) hxs).mp hfit
+  have hfsl : fs.length = cA.2 := by rw [hfs.length_eq, hnF]
+  -- the index readings, down with it
+  have hesMap : esL.map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+      = ((d.Ess mm ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ))) := by
+    rw [hesL, List.map_map]
+    refine List.map_congr_left fun e _ => ?_
+    exact interp_liftN_rule (nP := d.nP) hxs hfsl e
+  rw [hesMap]
+  -- the readings fit the member's index telescope, so the tuple retracts
+  have hres := hM.resIdxFit ψ (consList (xs.take d.nP) ρ) (d.satOfSpine hps) mm hcN j hjl fs hfs
+  have hIdxOk := hM.idxOk ψ _ (d.satOfSpine hps) mm hcN
+  rw [show d.tup ψ mm (((d.Ess mm ψ).getD j []).map
+        (interp V (consList fs (consList (xs.take d.nP) ρ))))
+      = tupW (d.uM mm ψ) (((d.Ess mm ψ).getD j []).map
+        (interp V (consList fs (consList (xs.take d.nP) ρ)))) from rfl,
+    show isOfW (d.uM mm ψ) (d.nIdxAt mm)
+        (tupW (d.uM mm ψ) (((d.Ess mm ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ)))))
+      = ((d.Ess mm ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ))) from by
+      rw [← hlenIds]; exact isOfW_tupW hIdxOk hres]
+  -- the criterion
+  have hprop := blockCtorFieldProp hcj hcf hlarge hw hparamsC (d.satOfSpine hps)
+  exact (srcVals_of_fit hprop hfs rfl).symm
+
 /-- **§2's fact at EITHER regime** — the guard's one case distinction,
 in the one place the lane makes it.  At `d.w ψ ≠ 0` it is §2
 (injectivity); at `d.w ψ = 0` it is §2b (the subsingleton criterion),
