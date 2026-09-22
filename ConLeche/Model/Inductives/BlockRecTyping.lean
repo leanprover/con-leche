@@ -2,6 +2,8 @@ module
 
 import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Semantics.Tower.BlockRecI
+public import ConLeche.Semantics.Tower.FixSquashI
+public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 import ConLeche.Model.CtxOkKit
@@ -533,5 +535,169 @@ theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : Lis
     ConLeche.unwrapOr_ok hx9, hty, ConLeche.unwrapOr_ok hconcl, hb⟩
 
 end Inversion
+
+/-! ## 4. THE TWO-FRAME BRIDGE — the rule's frame against the block's
+(task #315, M5M-rule)
+
+The IND arm's `ih` leaf (`blockIndIhLeaf_pred`, `BlockRecPreRun.lean`)
+is proved from the BLOCK's side: the constructor's walk at the field's
+position, whose index expressions and telescope are the readings at
+the FIELD's own frame
+
+```
+  a⃗ (the parameters)   f⃗.take i (the earlier fields)   b⃗ (the telescope)
+```
+
+while the rule body's guarded call is read at the RULE's frame
+
+```
+  x⃗ (the recursor's prefix: parameters, motive(s), minors)   f⃗ (ALL
+  the fields)   b⃗ (the telescope)
+```
+
+and the two frames agree nowhere past `b⃗`: `consList` puts the LAST
+value at index 0, so the rule frame's index `0` is `f⃗`'s last field
+and the block frame's is field `i - 1`.  The bridge is therefore not a
+congruence but the evaluation of the rule lane's own MOVE, `ihIdxAtM`
+(`Semantics/Tower/IhSpell.lean`): the rule spells the field's
+expression lifted past the `nF - i` later fields (at the telescope's
+cutoff) and past the prefix's `o = rP - nP` extra binders (at the
+fields' cutoff), and each lift cancels against exactly the block the
+rule frame carries and the block frame does not.
+
+`interp_ihIdxAtM` (`Semantics/Tower/FixSquashI.lean`) is the same
+statement for the NATIVE route's frame, where the prefix is spelled
+`ms ++ [M]` — the minors over the motive — above the parameter frame.
+The block route's prefix is ONE list `x⃗` with `x⃗.take nP = a⃗`, so the
+lemma is restated here at that shape rather than instantiated: `o` is
+then `x⃗.drop nP`'s length and never has to be split.
+
+Three forms cross: a single index expression (`interp_ihIdxAtM_rule`),
+the field's telescope as a FIT (`spineFit_ihTeleAtR_rule`, the same
+cancellation carried down the telescope, where the cutoff grows with
+the spine already consumed) and the applied field
+(`interp_fieldApp_rule`, a bvar that lands on `f⃗`'s `i`-th entry, over
+the telescope's own variables). -/
+
+section TwoFrame
+
+open ConLeche.Semantics
+
+variable {ρ : Nat → V}
+
+omit [SetTheory V] in
+/-- The rule's frame, regrouped: the telescope over ALL the fields
+over the prefix. -/
+theorem consList_ruleFrame (bs xs fs : List V) (ρ : Nat → V) :
+    consList bs (consList (xs ++ fs) ρ) = consList (fs ++ bs) (consList xs ρ) := by
+  rw [consList_append, consList_append]
+
+omit [SetTheory V] in
+/-- **Dropping a frame's tail**: the values past `k` are exactly the
+`shiftE` a lift at cutoff `0` performs. -/
+theorem shiftE_drop_consList {n : Nat} (L : List V) (k : Nat)
+    (hk : (L.drop k).length = n) (Z : Nat → V) :
+    shiftE n 0 (consList L Z) = consList (L.take k) Z := by
+  have h : consList L Z = consList (L.drop k) (consList (L.take k) Z) := by
+    rw [← consList_append, List.take_append_drop]
+  rw [h, ← hk, shiftE_consList]
+
+/-- **One index expression across the two frames.**  `ihIdxAtM`'s
+outer lift (`o`, at the fields' cutoff) cancels the prefix's extra
+binders `x⃗.drop nP`; its inner lift (`nF - i`, at the telescope's
+cutoff) cancels the later fields `f⃗.drop i`. -/
+theorem interp_ihIdxAtM_rule {nF o i m : Nat} {xs fs bs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hbl : bs.length = m) (E : AnnotTerm) :
+    interp V (consList bs (consList (xs ++ fs) ρ)) (ihIdxAtM nF o i 0 m E)
+      = interp V (consList bs (consList (fs.take i) (consList as ρ))) E := by
+  have hdrop : (xs.drop as.length).length = o := by
+    rw [List.length_drop, hxl]; omega
+  have hfd : (fs.drop i).length = nF - i := by rw [List.length_drop, hfl]
+  have e1 : shiftE o (nF + m) (consList bs (consList (xs ++ fs) ρ))
+      = consList (fs ++ bs) (consList as ρ) := by
+    rw [consList_ruleFrame,
+      show nF + m = (fs ++ bs).length from by rw [List.length_append, hfl, hbl],
+      shiftE_consList_len, shiftE_drop_consList xs as.length hdrop ρ, htake]
+  have e2 : shiftE (nF - i) m (consList (fs ++ bs) (consList as ρ))
+      = consList bs (consList (fs.take i) (consList as ρ)) := by
+    rw [consList_append, ← hbl, shiftE_consList_len,
+      shiftE_drop_consList fs i hfd (consList as ρ)]
+  unfold ihIdxAtM
+  simp only [Nat.add_zero]
+  rw [interp_liftN, e1, interp_liftN, e2]
+
+/-- **The field's telescope across the two frames, as a FIT** — the
+same cancellation carried down the telescope: entry `k` is moved at
+the cutoff `k`, which is the length of the spine the walk has already
+consumed. -/
+theorem spineFit_ihTeleAtGo_rule {nF o i : Nat} {xs fs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) :
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (ws bs : List V),
+      SpineFit (consList ws (consList (xs ++ fs) ρ))
+          ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2)) bs
+        ↔ SpineFit (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) bs
+  | [], _, [] => Iff.rfl
+  | [], _, _ :: _ => Iff.rfl
+  | _ :: _, _, [] => Iff.rfl
+  | dd :: tl, ws, b :: bs => by
+    have ih := spineFit_ihTeleAtGo_rule (i := i) hxl htake hfl tl (ws ++ [b]) bs
+    rw [List.length_append, List.length_singleton, ← consList_snoc' b ws,
+      ← consList_snoc' b ws] at ih
+    show (b ∈ˢ interp V (consList ws (consList (xs ++ fs) ρ))
+        (ihIdxAtM nF o i 0 ws.length dd.2.2) ∧ _) ↔ (b ∈ˢ _ ∧ _)
+    rw [interp_ihIdxAtM_rule (i := i) hxl htake hfl rfl dd.2.2]
+    exact and_congr Iff.rfl ih
+
+/-- The binder NUMERALS do not reach the fit: `rebit` leaves every
+domain alone. -/
+theorem map_dom_ihTeleAtGo_rebit (nF o i l b : Nat) :
+    ∀ (k : Nat) (tl : List (Nat × Nat × AnnotTerm)),
+      (ihTeleAtGo nF o i l k (rebit b tl)).map (·.2.2)
+        = (ihTeleAtGo nF o i l k tl).map (·.2.2)
+  | _, [] => rfl
+  | k, dd :: tl => by
+    show ihIdxAtM nF o i l k dd.2.2 :: (ihTeleAtGo nF o i l (k + 1) (rebit b tl)).map (·.2.2)
+      = ihIdxAtM nF o i l k dd.2.2 :: (ihTeleAtGo nF o i l (k + 1) tl).map (·.2.2)
+    rw [map_dom_ihTeleAtGo_rebit nF o i l b (k + 1) tl]
+
+/-- **`hbsB`**: a spine fitting the rule's MOVED telescope at the
+rule's frame fits the block's own telescope at the field's frame. -/
+theorem spineFit_ihTeleAtR_rule {nF o i b : Nat} {xs fs as bs : List V}
+    {tl : List (Nat × Nat × AnnotTerm)}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF)
+    (h : SpineFit (consList (xs ++ fs) ρ)
+      ((ihTeleAtR nF o i 0 (rebit b tl)).map (·.2.2)) bs) :
+    SpineFit (consList (fs.take i) (consList as ρ)) (tl.map (·.2.2)) bs := by
+  have hq := spineFit_ihTeleAtGo_rule (ρ := ρ) (i := i) hxl htake hfl tl [] bs
+  rw [List.length_nil] at hq
+  simp only [consList_nil] at hq
+  refine hq.mp ?_
+  rw [ihTeleAtR, map_dom_ihTeleAtGo_rebit] at h
+  exact h
+
+/-- **`hmkB`**: the rule's applied field — the `i`-th field's variable
+at the telescope's own variables — IS the block's fold of the
+telescope spine onto field `i`. -/
+theorem interp_fieldApp_rule {nF i m : Nat} {xs fs bs : List V}
+    (hfl : fs.length = nF) (hi : i < nF) (hbl : bs.length = m) :
+    interp V (consList bs (consList (xs ++ fs) ρ))
+        (AnnotTerm.mkAppN (.bvar (nF - 1 - i + m)) (teleVarsAV m))
+      = bs.foldl SetTheory.app (fs.getD i pt) := by
+  rw [interp_mkAppN, foldl_app_map, map_teleVarsAV_interp' hbl]
+  congr 1
+  show consList bs (consList (xs ++ fs) ρ) (nF - 1 - i + m) = fs.getD i pt
+  rw [← hbl, consList_apply_add,
+    consList_getD_of_lt (xs ++ fs) ρ (nF - 1 - i)
+      (by rw [List.length_append, hfl]; omega),
+    List.length_append, hfl,
+    show xs.length + nF - 1 - (nF - 1 - i) = xs.length + i from by omega,
+    List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+    List.getElem?_append_right (by omega)]
+  simp
+
+end TwoFrame
 
 end ConLeche.Model
