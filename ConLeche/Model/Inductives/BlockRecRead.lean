@@ -242,14 +242,14 @@ the check's INFERRED one, and it already accounts for the binders'
 levels, so nothing has to pin the reading's binder numerals. -/
 theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {F : Nat} {cv cvA : ConstantVal}
-    (h : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cv = .ok cvA)
-    (ψ : Name → Nat) :
-    ∃ (ta : AnnotTerm) (u : Level),
+    (h : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cv = .ok cvA) :
+    ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mp.base2.acval env ψ 0 cvA.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
   obtain ⟨-, -, -, -, hlbt, hitf, type, stype, u, hann, -, -, hrun, hsort, rfl⟩ :=
     ConLeche.checkConstantVal_inv h
+  refine ⟨u, fun ψ => ?_⟩
   obtain ⟨htf', hbt'⟩ := ConLeche.Semantics.annotate_syntax hann hitf hlbt
   have hwt : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar htf'
   have hnlt : type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
@@ -261,7 +261,7 @@ theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
   have hsem := sortSemAt_of_claims ihw ihi
     (inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ))
     (CtxOk.nil hnlt) hwt hbt' hLt hrun (ConLeche.ensureSortCore_inv hsort) hta
-  exact ⟨ta, u, hta, fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).1,
+  exact ⟨ta, hta, fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).1,
     fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).2⟩
 
 /-- **`hrd`'s first two components, at the whole recursor stage.**
@@ -275,7 +275,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
-    ∀ r ∈ rs, ∀ ψ : Name → Nat, ∃ (ta : AnnotTerm) (u : Level),
+    ∀ r ∈ rs, ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
@@ -285,7 +285,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
   obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
   obtain ⟨hlenT, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
   obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
-  intro r hr ψ
+  intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
   have hil : i < p.recs.length := by
     have := (List.getElem?_eq_some_iff.mp hi).1
@@ -301,7 +301,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     rw [Nat.zero_add] at this
     exact congrArg Prod.fst (Option.some.inj (this.symm.trans hcvRa'))
   rw [hr1]
-  exact checkConstantVal_reads hμ mpC hcv ψ
+  exact checkConstantVal_reads hμ mpC hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`checkBlockRecK_tyReads`); what
@@ -323,7 +323,8 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) := by
   intro r hr ψ
-  obtain ⟨ta, -, hta, hok, -⟩ := checkBlockRecK_tyReads hμ mpC h r hr ψ
+  obtain ⟨_, hru⟩ := checkBlockRecK_tyReads (V := V) hμ mpC h r hr
+  obtain ⟨ta, hta, hok, -⟩ := hru ψ
   exact ⟨ta, hta, hok, hmem r hr ψ ta hta⟩
 
 end ConLeche.Model

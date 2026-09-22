@@ -327,6 +327,19 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
         (((d.Fss c ψ).getD j []).take i) as →
       SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
         (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
+  /-- **the constructors' RESULT index fit**: at a fitting parameter
+  frame, a field spine fitting the constructor's own field domains
+  carries the constructor's result index readings into the COMPONENT's
+  own index telescope.  This is a consequence of the constructor's
+  TYPING — its type ends in `T p⃗ e⃗`, inferred at the opened
+  telescope, so the arguments `e⃗` were certified against the
+  member's index binders — and it is `idxFit` at the RESULT rather
+  than at a recursive field; both are `BlockModelAt.leaf`'s second
+  hypothesis, at the two positions a fibre reads. -/
+  resIdxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+    ∀ fs : List V, SpineFit ρp ((d.Fss c ψ).getD j []) fs →
+    SpineFit ρp (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρp)))
   /-- at a `Prop`-valued block every injection is the point -/
   mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
   /-- at a `Type`-valued block a component's injections are injective
