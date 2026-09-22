@@ -6038,4 +6038,119 @@ theorem BlockRuleCerts.of_segments {envT : Env} (mp : EnvModelM V μ envT)
 
 end FrameSeam
 
+/-! ## 40. `BlockRuleCerts`' PRODUCER — the owed arguments, at the run
+
+§39.1 reduced the bundle to a list of named arguments; this section
+owns that list.  The arguments split in three:
+
+* the **scoping** half (`hw₂`, `hw₃`, `hlbF`, `hbR`, `hbC`, `hleafR`,
+  `hleafC`, the three lengths) — plumbing over the frame's three
+  openings, closed here against premises the run supplies;
+* the **reading** half (`hP`, `hF`, `hI`) — the openers' stored types
+  read to the frame's entries.  `hP` is §35's; `hF` and `hI` are
+  closed here, and both go through `readOpenedDoms_reads` below: the
+  SPELLING `readOpenedDoms` is a reading-by-construction, so a
+  segment's own entries need only the readings to EXIST;
+* the **grading** half (`hokA`, `hokC`), which is where the audit's
+  §2.6 gap lives — see §40.5.
+
+The generated `ih` opener tower is the one place where the CHECK
+supplies nothing: `blockIhPis` builds `ihTele` and the kernel never
+types it, so its two syntactic facts (`hasFvar = false`, and
+`looseBVarsBounded (rP + nF)`) are premises here exactly as they are
+on the opener lane (`blockRuleHopener_of`'s `hihfv`). -/
+
+section CertsArgs
+
+open ConLeche (openPisAtFvars)
+
+/-! ### 40.1 The scoping arguments -/
+
+/-- An opener is a free variable, so it is bvar-closed whatever its
+annotation is (`looseBVarsBounded` does not descend into an `fvar`'s
+stored type). -/
+theorem openPisAtFvars_fvars_closed {k : Nat} {e : Expr} {d : Nat} {fvs : List Expr}
+    {body : Expr} (hop : openPisAtFvars k e d = some (fvs, body)) :
+    ∀ x ∈ fvs, x.looseBVarsBounded 0 = true := by
+  intro x hx
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hop q x hq
+  rfl
+
+/-- **`hw₂`** — the constructor's telescope at the rule's parameters is
+scoped at the rule prefix.  The subject is a STORED constructor type
+(fvar-free); the arguments are the prefix openers, which the frame's
+first opening puts below `rP`. -/
+theorem blockRuleHw2_of {rP nP : Nat} {recTy cty crest o₁ : Expr} {fvsPref cpref : List Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (hw₁ : Expr.WScoped 0 recTy) (hCf : cty.hasFvar = false)
+    (hinst : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest)) :
+    Expr.WScoped rP crest := by
+  have hfv := (openPisAtFvars_WScoped rP recTy 0 h₁ hw₁).1
+  rw [Nat.zero_add] at hfv
+  exact (instPisAt_WScoped (d := rP) _ cty hinst (Expr.WScoped.of_not_hasFvar hCf)
+    (fun a ha => hfv a (List.mem_of_mem_take ha))).2
+
+/-- **`hw₃`** — the GENERATED `ih` tower, opened at the rule frame's
+own variables, is scoped there.  The tower mentions no free variable
+(it is built from stored types and de Bruijn spines), so the opening
+list alone bounds it. -/
+theorem blockRuleHw3_of {E : Nat} {ihTele : Expr} {L : List Expr}
+    (hL : FvarList E L) (hihfv : ihTele.hasFvar = false) :
+    Expr.WScoped E (ihTele.instantiateList L) :=
+  wscoped_instantiateList hL ihTele hihfv 0
+
+/-- **The generated tower, opened, is bvar-closed** — `hbR`'s and
+`hlbF`'s `ih` segment.  `hihlb` is the one fact the CHECK does not
+supply: `blockIhPis`' output is bounded at the rule frame's depth. -/
+theorem blockRuleIhTeleClosed {rP nF : Nat} {ihTele : Expr} {L : List Expr}
+    (hL : FvarList (rP + nF) L) (hLcl : ∀ x ∈ L, x.looseBVarsBounded 0 = true)
+    (hihlb : ihTele.looseBVarsBounded (rP + nF) = true) (hE : 0 < rP + nF) :
+    (ihTele.instantiateList L).looseBVarsBounded 0 = true := by
+  rw [instantiateList_eq_instSeq_of_fvarList hL hE]
+  refine looseBVarsBounded_instSeq L.reverse (rP + nF - 1)
+    (fun s hs => hLcl s (List.mem_reverse.mp hs))
+    (by rw [List.length_reverse, hL.1]; omega) ?_
+  rw [show rP + nF - 1 + 1 = rP + nF from by omega]
+  exact hihlb
+
+/-- **`hlbF`, `hbR` and `hbC`** — the frame's openers carry bvar-closed
+annotations, and the opened residue is bvar-closed, as soon as the
+three SUBJECTS are (`openPisAtFvars_bounded`, three times). -/
+theorem blockRuleHlbF_of {rP nF nR : Nat} {recTy crest ihTele' o₁ o₂ o₃ : Expr}
+    {fvsPref fvsF fvsIh : List Expr}
+    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
+    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
+    (h₃ : openPisAtFvars nR ihTele' (rP + nF) = some (fvsIh, o₃))
+    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
+    (hb₃ : ihTele'.looseBVarsBounded 0 = true) :
+    (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+      o₃.looseBVarsBounded 0 = true := by
+  obtain ⟨-, hl₁⟩ := openPisAtFvars_bounded rP h₁ hb₁
+  obtain ⟨-, hl₂⟩ := openPisAtFvars_bounded nF h₂ hb₂
+  obtain ⟨hbo, hl₃⟩ := openPisAtFvars_bounded nR h₃ hb₃
+  refine ⟨fun x hx => ?_, hbo⟩
+  rcases List.mem_append.mp hx with hx' | hx'
+  · rcases List.mem_append.mp hx' with hx'' | hx''
+    · exact hl₁ x hx''
+    · exact hl₂ x hx''
+  · exact hl₃ x hx'
+
+/-- **`hleafR` and `hleafC`** — every free-variable leaf of a term
+built over the frame is one of the frame's openers, as soon as the
+three subjects are closed (`openPisAtFvars_leaves`, three times: a
+leaf of the residue is a leaf of the generated tower or an `ih`
+opener, and so on outwards). -/
+theorem blockRuleHleaf_of {rP nF nR : Nat} {ihTele' o₃ : Expr}
+    {fvsPref fvsF fvsIh : List Expr}
+    (h₃ : openPisAtFvars nR ihTele' (rP + nF) = some (fvsIh, o₃))
+    (hf₃ : ∀ l ∈ ihTele'.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF) :
+    ∀ l ∈ o₃.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh := by
+  intro l hl
+  rcases openPisAtFvars_leaves nR h₃ l (Or.inl hl) with h' | h'
+  · exact List.mem_append_left _ (hf₃ l h')
+  · exact List.mem_append_right _ h'
+
+end CertsArgs
+
 end ConLeche.Model
