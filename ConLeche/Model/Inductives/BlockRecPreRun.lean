@@ -2772,6 +2772,37 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
     fssOfR_fixCtorDataList_getD hcj
   rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
 
+/-- **THE `fdoms` SPELLING.**  §40.8 and §40.10 state the FIELD and
+`ih` segments over `(liftDoms o 0 (ds.drop nP)).map (·.2.2)` — the
+constructor's telescope moved binderwise past the `o = rP - nP` extras;
+the bundle states its own `fdoms` as `blockRuleFdomsAV`, the field
+OPENERS' readings.  They are the same list, and the identification is
+`blockRuleFdomsAV_datum` composed with `map_liftDoms`: `liftDoms` on
+the TRIPLES is `liftDomsK` on their domains, which is the one
+difference between the two spellings. -/
+theorem blockRuleFdomsAV_liftDoms {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTasAll p₁ isRec A d.k)
+    {mem : Nat → Nat} {j : Nat} (hmemk : mem c < d.k)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = ((liftDoms (p.toBlockShape.rulePrefixAt c - p.nP) 0
+          ((d.dsF (mem c) j ψ).drop p.nP)).map (·.2.2)) := by
+  have hF0 : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop p.nP).map (·.2.2) := by
+    rw [hF0, hdnP]
+  rw [blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ, hF, map_liftDoms, hdnP]
+
 end RuleFdoms
 
 /-! ## 28. The `K` lifts of §20 are the IDENTITY (audit item 5)
@@ -7615,6 +7646,36 @@ theorem blockRuleIhTele_graded_of_ctorTower {ds tl : List (Nat × Nat × AnnotTe
   have h := towerDom_graded_of_tower hwd hnq hfit
   rw [hentry, consList_append] at h
   exact ⟨(WellDenoted_mkPisAV_inv h.1).1, (AnnotValid_mkPisAV_inv h.2).1⟩
+
+/-- **`hentry` FROM THE READING RECORD.**  The `ih` segment's one
+datum premise — the field's domain BEING a Π-tower over the telescope
+`blockFieldReadAt_of` hands the opener — is the record's own equation,
+in one spelling for both kinds: at a RECURSIVE field the telescope is
+empty (`tssNone`) and `recEntry`'s bare application IS the empty
+tower; at a REFLEXIVE one it is `reflEntry` verbatim.
+
+Bounded to those two kinds, which is where the `ih` binders sit
+(`pairIdxOf_blockIhKeys_kind`, `BlockFieldRead.lean`). -/
+theorem blockCtorDataI_fieldEntry {envM : Env} {mp : EnvModel V envM} {env₀ : Env}
+    {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name} {cvC : ConstantVal}
+    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind} {fvsP xFvs : List Expr}
+    {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mp env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (ψ : Name → Nat) {i : Nat} (hiF : i < nF)
+    (hk : ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) :
+    ((ds ψ).getD (nP + i) default).2.2
+      = mkPisAV ((tss ψ).getD i [])
+          (AnnotTerm.mkAppN (mp.acval (Tof i) ψ)
+            (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i [])) := by
+  rcases hk with hk | hk
+  · rw [hcd.recEntry ψ i hk hiF,
+      hcd.tssNone ψ i (fun hh => by rw [hk] at hh; exact nomatch hh)]
+    rfl
+  · exact hcd.reflEntry ψ i hk hiF
 
 /-- **`hokA`'s `ih` SEGMENT, AT THE RUN** — §40.10 composed with the
 PARAMETER HOP (§40.9).  The frame is the rule's own: the prefix `x⃗`
