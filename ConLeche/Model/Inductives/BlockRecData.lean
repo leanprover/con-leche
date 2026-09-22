@@ -2955,6 +2955,76 @@ theorem blockRuleHfit_of {env envT : Env} {mo : EnvModel V env} {mT : EnvModel V
 
 end HfitComp
 
+/-- **`hfit` at the run, with no named premise left.**
+`blockRuleHfit_of` at `blockRuleHopener_of` at `blockRuleHconcl_of`
+(`BlockRecOpenerRead.lean`): every input is a fact of the recursor
+stage's own run (the frame's components at the constructor's type, the
+check's three openings, the callee's stored type) or of the
+constructors' stage (the field's readings).  The opener premise and
+its `hconcl` are gone: what is left is the rule frame's data. -/
+theorem blockRuleHfit_run {env envT : Env} {mo : EnvModel V env} {mT : EnvModel V envT}
+    {ψ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F o : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr}
+    {σchain : Nat → V} {xs fs ihvals : List V} {as2₀ : List Expr}
+    (haclN : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mo.acval n ψ').liftN m k = mo.acval n ψ')
+    (hin : ConLeche.Model.Rules.RulesInputs V mT ψ)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT ψ D y = some ya → denoteMeta mo.acval env ψ D y = some ya)
+    (hihl : ihvals.length = fr.nR)
+    (htlen : ∀ i, (tlF i).length = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
+    (hfld : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hrecTy : ∀ i c' r : Nat, ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      (recTyOf c').hasFvar = false ∧ (recTyOf c').looseBVarsBounded 0 = true ∧
+        ∃ TVa : AnnotTerm, denoteMeta mT.acval envT ψ 0 (recTyOf c') = some TVa)
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
+      (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    (has2 : as2₀ = (fvsPref ++ fvsF ++ fvsIh).reverse)
+    (hpflen : (fvsPref ++ fvsF).length = fr.rP + fr.nF) :
+    ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
+      (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
+      ConLeche.blockIhCall? fr d node = some (r, as) →
+      node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
+      ConLeche.nameIdxOf? fr.recNames nm = some c' →
+      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
+      locals.length = d → i < fr.nF →
+      FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
+      as2₀ <:+ as2 →
+      LocalsFit V mo.acval env ψ F (consList (xs ++ fs) σchain) locals as1 →
+      ConstsBound envT (Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+        (as.map fun x => x.liftLooseBVars fr.nR d)) →
+      WalkCtx V mT ψ (F + fr.nR + d)
+        (consList locals (consList ihvals (consList (xs ++ fs) σchain))) Δa as2 →
+      IhTyped envT (F + fr.nR + d)
+        ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
+          (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
+      DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
+      DenoteMetaSpine mT.acval envT ψ (F + fr.nR + d)
+        (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0) ws →
+      (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
+        = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
+      SpineFit (consList (xs ++ fs) σchain)
+        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
+        (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))) :=
+  blockRuleHfit_of haclN mT.acval_closed hin hmono hihl htlen htele
+    (blockRuleHopener_of hF ho hrP hop0 hCf hCb hstripC htele hfld hpis hihfv hLpf hopen
+      has2 hpflen
+      (blockRuleHconcl_of hop0 hCf hCb hstripC htele hidx hrP hfld hrecTy))
+
 /-! ## A.17 The call's arguments live BELOW the recursors (AUDIT 1.4)
 
 `hfit`'s spine premise reads the call's arguments at the CONSED

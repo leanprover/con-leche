@@ -860,9 +860,6 @@ the frame's. -/
 theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
     {nP nF o rP l i : Nat} {cty : Expr}
     {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
-    (hacl : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (m.acval n ψ').liftN 1 k = m.acval n ψ')
-    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (m.acval n ψ').inst y k = m.acval n ψ')
     (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
@@ -935,7 +932,7 @@ theorem denoteMeta_blockIhOpenerConcl {m : EnvModel V env} {ψ : Name → Nat}
       (nP + o + nF + l + (structFieldTeleOf cty nP nF i).length)
     rwa [Nat.zero_add] at h
   -- (3) the spine's readings, and the peel
-  obtain ⟨restA, hrest, -⟩ := denoteMeta_instPisAtLift_peel hacl hainst _ hpr'
+  obtain ⟨restA, hrest, -⟩ := denoteMeta_instPisAtLift_peel m.acval_closed (acval_inst_self m) _ hpr'
     (Expr.WScoped.of_not_hasFvar hTyF)
     (fun a ha => by
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp ha
@@ -959,9 +956,6 @@ theorem blockRuleHconcl_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Na
     {fr : ConLeche.BlockRuleFrame} {o : Nat} {cty : Expr} {fvs0 : List Expr} {crest : Expr}
     {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
     {recTyOf : Nat → Expr}
-    (hacl : ∀ (n : Name) (ψ' : Name → Nat) (k : Nat), (mT.acval n ψ').liftN 1 k = mT.acval n ψ')
-    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (mT.acval n ψ').inst y k = mT.acval n ψ')
     (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
@@ -991,7 +985,7 @@ theorem blockRuleHconcl_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Na
   obtain ⟨hiF, hfr⟩ := hfld i c' r hrpos
   obtain ⟨hTyF, hTyB, TVa, hTy⟩ := hrecTy i c' r hrpos
   rw [htele, hidx] at hpr
-  exact denoteMeta_blockIhOpenerConcl hacl hainst hop0 hCf hCb hstripC hiF hfr hrP
+  exact denoteMeta_blockIhOpenerConcl hop0 hCf hCb hstripC hiF hfr hrP
     hTyF hTyB hTy hpr h1
 
 end OpenerConcl
