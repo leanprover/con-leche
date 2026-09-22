@@ -5610,3 +5610,182 @@ theorem blockRecOneElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
       (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) := by
   obtain ⟨us, uOf, helim, hmem, hbits⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   exact ⟨(us.headD .zero).eval ψ, blockRecOneElimLevel helim ψ hmem (hbits ψ)⟩
+
+/-! ## 39. `BlockRuleCerts`' FRAME SEAM — `hdoms` and `hokΔ` from the
+three segments
+
+`BlockRuleCerts` (§1) states its two frame premises at the REVERSED
+context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse`, because that is
+the order `CtxOk`/`Sat` read a frame in; the three owners state their
+readings and gradings SEGMENT by segment, at the frame's ascending
+depths.  These two theorems are the whole distance between the two
+spellings, and they are pure index algebra: the reversed context IS
+`(pdoms ++ fdoms ++ ihdoms).reverse`, and `L - 1 - i` undoes the
+reversal.
+
+The premise shapes are the owners' own:
+
+* the PREFIX segment is `blockRulePdomsAV_reads` / `_graded` (§35)
+  verbatim;
+* the FIELD segment is `denoteMeta_openPis`' per-binder output at the
+  constructor telescope's opening (what `readOpenedDoms_shift`'s proof
+  obtains and `blockRuleFdomsAV_eq` then folds into a list equation);
+* the `ih` segment is `denoteMeta_blockIhOpenerTy`
+  (`BlockRecOpenerRead.lean`) at the opener's own `ih` level — its
+  depth `nP + o + nF + r` IS `rP + nF + r`.
+
+None of the three is quantified past its own segment, and each names
+the ONE environment its reading ran at. -/
+
+section FrameSeam
+
+/-- **The reversed frame context, read at an ASCENDING index**: the
+entry `BlockRuleCerts` names at `L - 1 - i` is the `i`-th of the
+frame's own three segments in order. -/
+theorem blockFrameCtx_getD {pdoms fdoms ihdoms : List AnnotTerm} {rP nF nR : Nat}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    {i : Nat} (hlt : i < rP + nF + nR) :
+    (ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default
+      = (pdoms ++ fdoms ++ ihdoms).getD i default := by
+  have hL : (pdoms ++ fdoms ++ ihdoms).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, hp, hf, hidx]
+  rw [← List.reverse_append, List.getD_eq_getElem?_getD,
+    List.getElem?_reverse (by rw [hL]; omega), hL,
+    show rP + nF + nR - 1 - (rP + nF + nR - 1 - i) = i from by omega,
+    ← List.getD_eq_getElem?_getD]
+
+/-- The frame's three segments, at an index in the FIRST. -/
+theorem blockFrameCtx_left {pdoms fdoms ihdoms : List AnnotTerm} {rP : Nat}
+    (hp : pdoms.length = rP) {i : Nat} (hi : i < rP) :
+    (pdoms ++ fdoms ++ ihdoms).getD i default = pdoms.getD i default := by
+  rw [List.getD_eq_getElem?_getD,
+    List.getElem?_append_left (by rw [List.length_append, hp]; omega),
+    List.getElem?_append_left (by omega), ← List.getD_eq_getElem?_getD]
+
+/-- The frame's three segments, at an index in the SECOND. -/
+theorem blockFrameCtx_mid {pdoms fdoms ihdoms : List AnnotTerm} {rP nF : Nat}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) {l : Nat} (hl : l < nF) :
+    (pdoms ++ fdoms ++ ihdoms).getD (rP + l) default = fdoms.getD l default := by
+  rw [List.getD_eq_getElem?_getD,
+    List.getElem?_append_left (by rw [List.length_append, hp, hf]; omega),
+    List.getElem?_append_right (by rw [hp]; omega), hp,
+    show rP + l - rP = l from by omega, ← List.getD_eq_getElem?_getD]
+
+/-- The frame's three segments, at an index in the THIRD. -/
+theorem blockFrameCtx_right {pdoms fdoms ihdoms : List AnnotTerm} {rP nF : Nat}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (l : Nat) :
+    (pdoms ++ fdoms ++ ihdoms).getD (rP + nF + l) default = ihdoms.getD l default := by
+  rw [List.getD_eq_getElem?_getD,
+    List.getElem?_append_right (by rw [List.length_append, hp, hf]; omega)]
+  simp only [List.length_append, hp, hf]
+  rw [show rP + nF + l - (rP + nF) = l from by omega, ← List.getD_eq_getElem?_getD]
+
+/-- **`hdoms`, FROM THE THREE SEGMENTS.**  Each opener's stored type
+reads to the frame entry `BlockRuleCerts` names for it. -/
+theorem blockRuleHdoms_of {envT : Env} {acval : Name → (Name → Nat) → AnnotTerm}
+    {ψ : Name → Nat} {rP nF nR : Nat}
+    {pdoms fdoms ihdoms : List AnnotTerm} {fvsPref fvsF fvsIh : List Expr}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hlp : fvsPref.length = rP) (hlf : fvsF.length = nF) (hli : fvsIh.length = nR)
+    (hP : ∀ (l : Nat) (x : Expr), fvsPref[l]? = some x →
+      denoteMeta acval envT ψ l (Expr.fvarTypeD x) = some (pdoms.getD l default))
+    (hF : ∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+      denoteMeta acval envT ψ (rP + l) (Expr.fvarTypeD x) = some (fdoms.getD l default))
+    (hI : ∀ (l : Nat) (x : Expr), fvsIh[l]? = some x →
+      denoteMeta acval envT ψ (rP + nF + l) (Expr.fvarTypeD x)
+        = some (ihdoms.getD l default)) :
+    ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
+      denoteMeta acval envT ψ i (Expr.fvarTypeD x)
+        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default) := by
+  intro i x hx
+  have hlenF : (fvsPref ++ fvsF ++ fvsIh).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, hlp, hlf, hli]
+  have hlt : i < rP + nF + nR := by
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    omega
+  rw [blockFrameCtx_getD hp hf hidx hlt]
+  rcases Nat.lt_or_ge i rP with hi | hi
+  · rw [blockFrameCtx_left hp hi]
+    refine hP i x ?_
+    rw [List.getElem?_append_left (by rw [List.length_append, hlp, hlf]; omega),
+      List.getElem?_append_left (by omega)] at hx
+    exact hx
+  rcases Nat.lt_or_ge i (rP + nF) with hi2 | hi2
+  · obtain ⟨l, rfl⟩ : ∃ l, i = rP + l := ⟨i - rP, by omega⟩
+    rw [blockFrameCtx_mid hp hf (by omega)]
+    refine hF l x ?_
+    rw [List.getElem?_append_left (by rw [List.length_append, hlp, hlf]; omega),
+      List.getElem?_append_right (by rw [hlp]; omega), hlp,
+      show rP + l - rP = l from by omega] at hx
+    exact hx
+  · obtain ⟨l, rfl⟩ : ∃ l, i = rP + nF + l := ⟨i - (rP + nF), by omega⟩
+    rw [blockFrameCtx_right hp hf]
+    refine hI l x ?_
+    rw [List.getElem?_append_right (by rw [List.length_append, hlp, hlf]; omega)] at hx
+    simp only [List.length_append, hlp, hlf] at hx
+    rw [show rP + nF + l - (rP + nF) = l from by omega] at hx
+    exact hx
+
+/-- **`hokΔ`, FROM THE THREE SEGMENTS.**  The frame's context is
+GRADED — each entry well-denoted under the entries standing before it
+— which at `Sat` is the statement `residueOk_blockFrame` consumes.
+
+Each segment is stated in the `SpineFit`-of-its-own-prefix shape the
+owners prove it in (`blockRulePdomsAV_graded`'s), and `spineFit_of_sat`
+is the one bridge: a satisfying frame restricts to a fitting spine at
+every prefix of the ascending context. -/
+theorem blockRuleHokΔ_of {rP nF nR : Nat} {pdoms fdoms ihdoms : List AnnotTerm}
+    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
+    (hok : ∀ l, l < rP + nF + nR → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((pdoms ++ fdoms ++ ihdoms).take l) ys →
+      WellDenotedV V (consList ys σ) ((pdoms ++ fdoms ++ ihdoms).getD l default)) :
+    ∀ i, i < rP + nF + nR →
+      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
+            (rP + nF + nR - 1 - i) default) := by
+  intro i hi ρ hsat
+  have hL : (pdoms ++ fdoms ++ ihdoms).length = rP + nF + nR := by
+    rw [List.length_append, List.length_append, hp, hf, hidx]
+  have hcat : ihdoms.reverse ++ (pdoms ++ fdoms).reverse
+      = (pdoms ++ fdoms ++ ihdoms).reverse := by rw [← List.reverse_append]
+  rw [blockFrameCtx_getD hp hf hidx hi]
+  rw [hcat] at hsat
+  -- the frame beyond this entry satisfies the ASCENDING prefix, reversed
+  have htl : (pdoms ++ fdoms ++ ihdoms).length - i = rP + nF + nR - i := by rw [hL]
+  have hdropEq : ((pdoms ++ fdoms ++ ihdoms).reverse).drop (rP + nF + nR - i)
+      = ((pdoms ++ fdoms ++ ihdoms).take i).reverse := by
+    have hsplit : (pdoms ++ fdoms ++ ihdoms).reverse
+        = ((pdoms ++ fdoms ++ ihdoms).drop i).reverse
+          ++ ((pdoms ++ fdoms ++ ihdoms).take i).reverse := by
+      rw [← List.reverse_append, List.take_append_drop]
+    rw [hsplit,
+      List.drop_append_of_le_length (by rw [List.length_reverse, List.length_drop, hL]; omega),
+      List.drop_eq_nil_of_le (by rw [List.length_reverse, List.length_drop, hL]; omega),
+      List.nil_append]
+  have hsatT : Sat V (((pdoms ++ fdoms ++ ihdoms).take i).reverse ++ [])
+      (fun j => ρ (j + (rP + nF + nR - i))) := by
+    rw [List.append_nil, ← hdropEq]
+    exact Sat_drop hsat (rP + nF + nR - i)
+  have hys := spineFit_of_sat (V := V) hsatT
+  have hti : ((pdoms ++ fdoms ++ ihdoms).take i).length = i := by
+    rw [List.length_take, hL]; omega
+  rw [hti] at hys
+  -- the outer valuation is the one the entry's grading is stated at
+  have hfun : (fun j => ρ (j + i + (rP + nF + nR - i))) = fun j => ρ (j + (rP + nF + nR)) := by
+    funext j; congr 1; omega
+  rw [hfun] at hys
+  have hcons := consList_range_reverse (V := V) i (fun j => ρ (j + (rP + nF + nR - i)))
+  rw [hfun] at hcons
+  have := hok i hi (fun j => ρ (j + (rP + nF + nR))) _ hys
+  rw [hcons] at this
+  have hval : (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
+      = fun j => ρ (j + (rP + nF + nR - i)) := by
+    funext j; congr 1; omega
+  rw [hval]
+  exact this
+
+end FrameSeam
+
+end ConLeche.Model
