@@ -1394,8 +1394,8 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
         cases hbp : blockParts? nP block with
         | none => exact checkIndDeclSF_skels mode h block
         | some p =>
-          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 hbp
-          simp only [checkBlockS_one mode hms, blockSkels_one hms hrc]
+          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hbp
+          simp only [checkBlockS_one mode rfl hms, blockSkels_one hms hrc]
           exact checkNativeS_skels mode h p.toNative
       · exact Yields.ofThrow
 

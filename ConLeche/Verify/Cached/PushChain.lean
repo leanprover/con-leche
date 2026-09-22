@@ -691,8 +691,8 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
       · cases hbp : blockParts? nP block with
         | none => exact checkIndDeclSF_push mode h block
         | some p =>
-          obtain ⟨⟨ms, hms⟩, -⟩ := blockParts?_k1 hbp
-          simp only [checkBlockS_one mode hms]
+          obtain ⟨⟨ms, hms⟩, -⟩ := blockParts?_k1 rfl hbp
+          simp only [checkBlockS_one mode rfl hms]
           exact checkNativeS_push mode h p.toNative
       · exact Yields.ofThrow
 
