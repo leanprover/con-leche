@@ -171,10 +171,9 @@ variable (K : WfRecKit ℓ k Is C)
 /-- The kit is a class kit at `tcPred`: `predSub` is separation and
 `acc` is ∈-induction. -/
 noncomputable def toC : UnionRecKitC ℓ k Is C :=
-  ⟨tcPred (unionSet k Is C), K.B, K.st,
-    fun u _ => tcPred_subset _ u,
-    fun u hu => ⟨pt, tcAcc_all _ u hu⟩,
-    K.hB, K.hst⟩
+  UnionRecKitC.ofAcc (tcPred (unionSet k Is C)) K.B K.st
+    (fun u _ => tcPred_subset _ u) K.hB K.hst
+    fun u hu => ⟨pt, tcAcc_all _ u hu⟩
 
 @[simp] theorem toC_pred : K.toC.pred = tcPred (unionSet k Is C) := rfl
 @[simp] theorem toC_B : K.toC.B = K.B := rfl

@@ -3482,4 +3482,99 @@ theorem blockRecIhvAt_fit {ℓ : Nat} {tup : Nat → List V → V} {σ : Nat →
 
 end IhDomains
 
+/-! ## 33. THE PREDECESSOR — the one fact `hihChain` and `hihF` share
+(session 14)
+
+§30 and §32 both end at the same obligation: the guarded call's
+argument — the recursive field applied along a fitting telescope
+spine — is a PREDECESSOR of the constructed element, i.e. it lies in
+`tcPred (unionSet K Is Cr) u`.  `mem_tcPred` splits that in two, and
+the block's data decide both:
+
+* **in the UNION**: the value lies in the TARGET member's carrier at
+  the call's index tuple, which is what the recursive SLOT says
+  (`slotSet` is the nested product over the field's telescope of the
+  target component at the index tuple — `piTele_fold` at a fitting
+  telescope spine), and the tuple lies in that member's index set by
+  `BlockModelAt.idxFit`'s `SlotFit` plus `tupW_mem`.  The class's
+  guard is `SpineFit ρ (pdoms c') xs` — **at the CALLEE's class**;
+* **∈-BELOW**: `blockData_mkDepth` at a finitary field,
+  `blockData_mkDepth_app` at a reflexive one (`BlockRecRegimes.lean`).
+
+**`pdoms c = pdoms c'` is a PREMISE, and it has no producer**
+(`hpdU` below).  `checkBlockRecTys` (`Kernel/Inductives/BlockInstall.lean:439`)
+compares the first `nP` binder domains of a recursor's type with the
+block's parameters binder by binder and states, in as many words,
+that "the binders `nP … rP-1` are ARBITRARY — the stretch official
+fills with the motives and the minor premises is never looked
+inside".  So two recursors of one block may carry different motive
+and minor telescopes of the same LENGTH (`blockIhKeys`' filter pins
+only the length, `pairIdxOf_blockIhKeys_rP`), and nothing in the
+recursor stage makes the rule's prefix values fit the CALLEE's
+prefix.  See §S14.2 for the two ways out; the premise is stated here,
+where its run-level consumer is. -/
+
+section Predecessor
+
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+
+/-- **The tagged predecessor**, from the two memberships and the
+depth.  The guard is read at the CALLEE's class `c'`. -/
+theorem blockRecPred_of {K c' : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem : Nat → Nat}
+    {pdoms : Nat → List AnnotTerm} {xs : List V} {t x u : V}
+    (hc' : c' < K)
+    (hparFit : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hpref' : SpineFit ρ (pdoms c') xs)
+    (ht : t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c'))
+    (hx : x ∈ˢ app (blockRecCr d ψ ρ mem xs c') t)
+    (hdep : x ∈ˢ ConLeche.SetTheory.tc (tagVal u)) :
+    (tagged c' t x : V)
+      ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)) u := by
+  refine mem_tcPred.mpr ⟨tagged_mem_unionSet hc' ?_ hx, ?_⟩
+  · rw [blockRecIs_pos hparFit hpref']
+    exact ht
+  · rw [tagVal_tagged]
+    exact hdep
+
+/-- **The two memberships, from the recursive SLOT.**  A recursive
+field's value is the nested product over the field's telescope of the
+target component at the call's index tuple, so folding it along a
+fitting telescope spine lands in that component at that tuple
+(`piTele_fold`); and the tuple is in the component's index set by
+`BlockModelAt.idxFit` (its `SlotFit`'s third conjunct is exactly the
+index readings' fit) through `tupW_mem`. -/
+theorem blockRecSlot_pred {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c j i : Nat}
+    {t f : V} {as bs : List V}
+    (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
+    (hsat : Sat V (d.params ψ).reverse ρp)
+    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X)
+    (hc : c < d.N) (ht : t ∈ˢ d.idx ψ ρp c) (hj : j < (d.ctorsM c).length)
+    (hi : i < ((d.Fss c ψ).getD j []).length)
+    (hrec : ((d.rss c).getD j []).getD i false = true)
+    (hpre : FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
+      (((d.Fss c ψ).getD j []).take i) as)
+    (hf : f ∈ˢ d.slotAt ψ X c j i (consList as ρp))
+    (hbs : SpineFit (consList as ρp) ((((d.tlss c ψ).getD j []).getD i []).map (·.2.2)) bs) :
+    d.tup ψ (d.tgts c j i)
+        ((((d.Eiss c ψ).getD j []).getD i []).map (interp V (consList bs (consList as ρp))))
+      ∈ˢ d.idx ψ ρp (d.tgts c j i) ∧
+    bs.foldl SetTheory.app f
+      ∈ˢ app (X (d.tgts c j i))
+        (d.tup ψ (d.tgts c j i)
+          ((((d.Eiss c ψ).getD j []).getD i []).map
+            (interp V (consList bs (consList as ρp))))) := by
+  have hslotFit := hM.idxFit ψ ρp hsat X hX c hc t ht j hj i hi hrec as hpre
+  have hidx := (hslotFit.2.2 bs hbs).2
+  rw [consList_append] at hidx
+  refine ⟨tupW_mem hidx, ?_⟩
+  have hfold := piTele_fold (V := V) hw (B := fun ys =>
+      app (X (d.tgts c j i))
+        (tupW (d.uM (d.tgts c j i) ψ)
+          ((((d.Eiss c ψ).getD j []).getD i []).map (interp V (consList ys (consList as ρp))))))
+    (acc := ([] : List V)) hf (fitsS_teleOfFields.mpr hbs)
+  rw [List.nil_append] at hfold
+  exact hfold
+
+end Predecessor
+
 end ConLeche.Model

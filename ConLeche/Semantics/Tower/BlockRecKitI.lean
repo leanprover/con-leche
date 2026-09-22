@@ -109,7 +109,7 @@ noncomputable def emptyKitC (ℓ k : Nat) :
   B := fun _ => pt
   st := fun _ _ => pt
   predSub := fun _ hu => absurd hu not_mem_unionSet_empty
-  acc := fun _ hu => absurd hu not_mem_unionSet_empty
+  exu := fun _ hu => absurd hu not_mem_unionSet_empty
   hB := fun _ hu => absurd hu not_mem_unionSet_empty
   hst := fun _ hu => absurd hu not_mem_unionSet_empty
 

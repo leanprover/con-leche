@@ -304,7 +304,10 @@ item 6, the half the KEYS decide).  `blockIhKeys` emits a key
 this rule's `rP` — the filter that makes the call's argument count
 come out — so a prefix spine of the right length for recursor `c` has
 the right length for recursor `c'`, which is what
-`famCand_fold`/`blockRecIhCall` ask at the PREDECESSOR's class.
+`famCand_fold`/`blockRecIhCall` ask at the PREDECESSOR's class.  The
+filter's OTHER conjunct comes back with it: the field's kind names the
+CALLEE's member as its target, which is what the predecessor's SLOT is
+read at (`BlockRecPreRun.lean` §33).
 
 (The other half of item 6 — the prefix binder DATA agreeing,
 `pdoms c = pdoms c'` — is about the recursors' TYPES, not about the
@@ -313,15 +316,16 @@ FALSE: the recursors' motives differ.) -/
 theorem pairIdxOf_blockIhKeys_rP {rP : Nat} {rPs recTgts : List Nat}
     {ks : List BlockFieldKind} {i c' r : Nat}
     (h : ConLeche.pairIdxOf? (ConLeche.blockIhKeys rP rPs recTgts ks) (i, c') = some r) :
-    c' < recTgts.length ∧ rPs.getD c' 0 = rP := by
+    c' < recTgts.length ∧ rPs.getD c' 0 = rP ∧
+      (ks.getD i .ordinary).tgt? = some (recTgts.getD c' recTgts.length) := by
   have hmem := mem_of_pairIdxOf? h
   simp only [ConLeche.blockIhKeys, List.mem_flatMap, List.mem_filterMap, List.mem_range] at hmem
   obtain ⟨i', -, c'', hc'', hite⟩ := hmem
   split at hite
   · rename_i hcond
-    obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hite)
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hite)
     simp only [Bool.and_eq_true] at hcond
-    exact ⟨hc'', by simpa using hcond.2⟩
+    exact ⟨hc'', by simpa using hcond.2, by simpa using hcond.1⟩
   · exact nomatch hite
 
 end ConLeche.Model
