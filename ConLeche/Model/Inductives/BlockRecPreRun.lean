@@ -7976,10 +7976,46 @@ theorem blockRuleHokC_of_peel {Ta Ca : AnnotTerm} {vs Δ : List AnnotTerm}
   obtain rfl : rest = Ca := Option.some.inj (hf.peelPis.symm.trans hpeel)
   exact teleFitPA_wellDenotedV hf (hTa ρ) (hargs ρ hρ)
 
+/-- Every entry of the prefix spine is a `bvar`, and `WellDenotedV` of
+a `.bvar` is `True` — so the peel's prefix arguments are graded for
+free. -/
+theorem wellDenotedV_paramBvarsAt {nP D : Nat} {ρ : Nat → V} :
+    ∀ a ∈ paramBvarsAt nP D, WellDenotedV V ρ a := by
+  intro a ha
+  obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
+  exact ⟨trivial, trivial⟩
+
+/-- **`hokC`'s `hargs`, reduced to the CONSTRUCTOR's half.**  The peel
+instantiates the recursor's telescope at the rule's prefix openers,
+the constructor's result index arguments and the fired major; the
+first block is bvars and costs nothing, so the grading obligation is
+only about the last two — which are the constructor's stage, not the
+recursor's. -/
+theorem blockRuleHokC_args {nP D : Nat} {esA : List AnnotTerm} {mkA : AnnotTerm}
+    {ρ : Nat → V} (hes : ∀ a ∈ esA, WellDenotedV V ρ a) (hmk : WellDenotedV V ρ mkA) :
+    ∀ a ∈ paramBvarsAt nP D ++ esA ++ [mkA], WellDenotedV V ρ a := by
+  intro a ha
+  rcases List.mem_append.mp ha with ha' | ha'
+  · rcases List.mem_append.mp ha' with ha'' | ha''
+    · exact wellDenotedV_paramBvarsAt a ha''
+    · exact hes a ha''
+  · rw [List.mem_singleton] at ha'; exact ha' ▸ hmk
+
 /-- **`hokC` AT THE RUN**: the peel's tower is the RECURSOR TYPE's
 reading, whose grading at every frame is `checkBlockRecK_tyPis`' last
-component.  What is left is the frame's two: the tower FIT at the
-instantiating readings and their own grading. -/
+component.  What is left is the frame's two, and neither is a new
+object:
+
+* the **fit** is the RULE CONTRACT's own `hfitR` — `TeleFitPA V ρ
+  (blockRecTyAV … c) (xs ++ [maj]) restR` at exactly this tower, the
+  premise `blockRecSplit_at_rule` and `blockRecSpF_of_rule`
+  (`BlockRuleFit.lean`) already consume — with `xs` the prefix bvars
+  followed by the index readings and `maj` the fired spine, which is
+  `BlockRuleConclAt`'s `paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]`
+  re-associated.  No producer is owed: a regime supplies it when it
+  instantiates the rule, exactly as it supplies `residueOk`'s spine;
+* the **arguments' grading** reduces by `blockRuleHokC_args` to the
+  constructor's half, the prefix being bvars. -/
 theorem blockRuleHokC_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
