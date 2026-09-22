@@ -832,7 +832,7 @@ theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → A
     {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ : Nat → V}
     {Ra Rb0 A : AnnotTerm} {lds : List (Nat × AnnotTerm)}
     {xs ys ihs0 : List AnnotTerm} {rP nP : Nat}
-    {body resid : Expr} {as1 as2 : List Expr}
+    {body resid : Expr} {as1 as2 as2₀ : List Expr}
     (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
     (hsp : SpineFit ρ (lds.map (·.2))
       ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
@@ -841,7 +841,8 @@ theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → A
     (hspine : IhSpineFold V acval env envT φ fr F
       (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)
       (ihs0.map (interp V
-        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))))
+        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))) as2₀)
+    (hsx : as2₀ <:+ as2)
     (hab : ConLeche.abstractIh fr 0 body = some resid)
     (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
     (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
@@ -854,7 +855,7 @@ theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → A
           (consList ((xs.take rP).map (interp V ρ)
             ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 :=
   blockRuleHRa_of hlam hok hsp
-    (interp_blockResidue hacl (by rw [List.length_map]; exact hih) hspine hab hf hbB h1 h2
+    (interp_blockResidue hacl (by rw [List.length_map]; exact hih) hspine hsx hab hf hbB h1 h2
       hA hB hty)
 
 /-! ## A.3 The family's EQUATION LIST, spelled — and item C's two
