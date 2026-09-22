@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecPreRun
-public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockModel
@@ -1926,7 +1926,6 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
     -- the residue's own typing certificates
     (hin : ConLeche.Model.Rules.RulesInputs V mpC.base2 ψ)
     (hcbe : ConstsBound envC resid)
-    (hbT : resid.looseBVarsBounded (p.toBlockShape.rulePrefixAt c + cA.2 + fr.nR) = true)
     (h2 : FvarList (p.toBlockShape.rulePrefixAt c + cA.2 + fr.nR)
       (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i
         ++ fvsIh).reverse)
@@ -1940,11 +1939,11 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
         ++ blockRuleFieldFvs p.toBlockShape rs c i ++ fvsIh).reverse 0)) :
     ∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A →
       lds.length = p.toBlockShape.rulePrefixAt c + cA.2 →
-      interp V (consList (xs ++ fs) (chainFrame rs.length a ρ)) A
+      interp V (consList (xs ++ fs) ρ) A
         = interp V (consList
             ((blockRuleIhsAV ℓ rs.length (fr.rP - fr.nP) fr cA.1.type ψ tlF EisF).map
               (interp V (consList (xs ++ fs) (chainFrame rs.length a ρ))))
-            (consList (xs ++ fs) (chainFrame rs.length a ρ))) B := by
+            (consList (xs ++ fs) ρ)) B := by
   intro lds A hlam hldslen
   have hcv := checkBlockRecK_cvFacts h
   -- the rule's own openings, and the tower the reading determines
@@ -2001,6 +2000,46 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
   -- the walk's context, and the fold at the frame's own data
   have hW := walkCtx_blockFrame (V := V) (mT := mpC.base2) (ψ := ψ) hop1 hop2 hopIh
     hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
+  have hbT : resid.looseBVarsBounded (fr.rP + fr.nF + fr.nR) = true := by
+    have hq := abstractIh_looseBVarsBounded (B := fr.rP + fr.nF) hab
+      (by rw [Nat.zero_add, hfrR, hfrF]; exact hbB)
+    rwa [Nat.zero_add] at hq
+  have hresfv : resid.hasFvar = false := abstractIh_hasFvar hab hbf
+  have h2' : FvarList (fr.rP + fr.nF + fr.nR)
+      (blockRulePrefFvs p.toBlockShape rs c ++ blockRuleFieldFvs p.toBlockShape rs c i
+        ++ fvsIh).reverse := by rw [hfrR, hfrF]; exact h2
+  have hcoreA : denoteMeta m₃.acval
+      (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ (fr.rP + fr.nF)
+      (rbody.instantiateList (blockRulePrefFvs p.toBlockShape rs c
+        ++ blockRuleFieldFvs p.toBlockShape rs c i).reverse 0) = some A := by
+    rw [hfrR, hfrF, ← hrest]; exact hcore₀
+  have hB' : denoteMeta mpC.base2.acval envC ψ (fr.rP + fr.nF + fr.nR)
+      (resid.instantiateList (blockRulePrefFvs p.toBlockShape rs c
+        ++ blockRuleFieldFvs p.toBlockShape rs c i ++ fvsIh).reverse 0) = some B := by
+    rw [hfrR, hfrF]; exact hB
+  -- the two readings are bvar-bounded by their own frames, so the CHAIN binders
+  -- below them are invisible: the contract states the equation at `ρ`
+  have hAb : Term.bvarsBelow (fr.rP + fr.nF) A.erase :=
+    bvarsBelow_of_reading (wscoped_instantiateList hLpf' rbody hbf 0)
+      (looseBVarsBounded_open hLpf' (by rw [hfrR, hfrF]; exact hbB)) hcoreA
+  have hBb : Term.bvarsBelow (fr.rP + fr.nF + fr.nR) B.erase :=
+    bvarsBelow_of_reading (wscoped_instantiateList h2' resid hresfv 0)
+      (looseBVarsBounded_open h2' hbT) hB'
+  have hxfl : (xs ++ fs).length = fr.rP + fr.nF := by
+    rw [List.length_append, hxl, hfsl]
+  have hihvl : ((blockRuleIhsAV ℓ rs.length (fr.rP - fr.nP) fr cA.1.type ψ tlF EisF).map
+      (interp V (consList (xs ++ fs) (chainFrame rs.length a ρ)))).length = fr.nR := by
+    rw [List.length_map, blockRuleIhsAV_length]
+  rw [interp_congr_below (V := V) A (fr.rP + fr.nF) (consList (xs ++ fs) ρ)
+      (consList (xs ++ fs) (chainFrame rs.length a ρ)) hAb
+      (fun q hq => consList_below_indep _ _ _ q (by rw [hxfl]; exact hq)),
+    interp_congr_below (V := V) B (fr.rP + fr.nF + fr.nR)
+      (consList _ (consList (xs ++ fs) ρ))
+      (consList _ (consList (xs ++ fs) (chainFrame rs.length a ρ))) hBb
+      (fun q hq => by
+        rw [← consList_append, ← consList_append]
+        exact consList_below_indep _ _ _ q
+          (by rw [List.length_append, hxfl, hihvl]; omega))]
   refine interp_blockResidue (Δa := ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
     (F := fr.rP + fr.nF) (blockRuleHaclN m₃) mpC.base2.acval_closed hin
     (fun sn q => (findProj?_consBlockRecs (fun r₀ hr₀ => (hcv r₀ hr₀).2.2.1) sn q).symm)
@@ -2017,10 +2056,8 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
       (blockRuleHcallee_of h hndM (fun r₀ hr₀ => (hcv r₀ hr₀).1) hleafCl hac hnames hrlvls
         hlps0 ha rfl)
       blockRuleHihv_of)
-    (List.suffix_refl _) hab hbf (by rw [hfrR, hfrF]; exact hbB) hcbe
-    (by rw [hfrR, hfrF]; exact hbT) hLpf' (by rw [hfrR, hfrF]; exact h2) hW
-    (by rw [hfrR, hfrF, ← hrest]; exact hcore₀) (by rw [hfrR, hfrF]; exact hB)
-    (by rw [hfrR, hfrF]; exact hty)
+    (List.suffix_refl _) hab hbf (by rw [hfrR, hfrF]; exact hbB) hcbe hbT hLpf' h2' hW
+    hcoreA hB' (by rw [hfrR, hfrF]; exact hty)
 
 end BodyEqRun
 
