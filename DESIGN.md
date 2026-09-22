@@ -83400,3 +83400,38 @@ where it needs it.
 The executing lane is told that if the switch costs more than a
 deletion it must stop and report, since that would be evidence against
 the ruling and belongs back with the maintainer.
+
+#### LANDED (lane RM45 = M5M-pre session 36, `c18ceae3`): `hCaE` discharged — **the chain fit IDENTIFIES the index values**
+
+The finding is better than the theorem: the fibre's chain fit does not
+merely GUARD that premise, it identifies the split's index values.  The
+fit pins the constructor's result index readings to the components of
+the block's index tuple; an earlier session pinned the SAME readings to
+the components of the rule's index tuple; and two tuples whose
+components agree at every position of a telescope both spines fit are
+the same list.  **So the split's index values were never independent
+data — they ARE the rule's index readings**, and the premise reduces to
+a frame evaluation with nothing left over.  The block-wide conclusion
+matches its consumer's premise character for character, checked by
+normalising both and diffing.
+
+Two inputs stay named with their owners rather than invented, and one
+of them carries a distinction worth keeping: `hfld` is deliberately NOT
+an instance of the generic fits-to-spine converter, because **at the
+SEPARATED tuple that converter's agreement premise is FALSE** — a
+recursive slot is the separated set while the field domain reads to the
+carrier.  What makes the fact true is that separated elements are
+carrier elements: a statement about the REPRESENTATION, not about the
+fit.
+
+**And a distinction that is now load-bearing for the guard switch**:
+the `w` guard pays for **BUILDING** a chain fit out of memberships, and
+an arm that is **HANDED** one does not need it.  That is why nothing in
+the small-elimination arm assumes the `w` form, and why the squash arm
+— the one that must build without injectivity — is where the switch's
+real content sits.
+
+Regime-side ledger after this: `hmemK`, `hshape`, `hbits`, `hTyE`,
+`hpdE`, `hconclB`, `hihOpen`, `hCaZ` and `hCaE` all discharged; what
+remains a premise is correctly another lane's or another regime's
+currency.
