@@ -1184,4 +1184,119 @@ theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
       have := hall l (by simpa using hl)
       simpa using this
 
+/-! ## Stage (b)'s PARAMETER CHAIN (the comparison `checkBlockRecTys_inv`
+discards)
+
+`checkBlockRecTys` compares the recursor's first `nP` binder domains,
+binder by binder at the block's parameter depth, with the MEMBER'S OWN
+type former's opened parameter telescope (`checkBlockDefEqList` at
+`p.nP`).  `checkBlockRecTys_inv` peels that bind positionally and
+throws the result away — and so does every inversion built on it — so
+the model tier cannot see the one fact that ties the rule frame's
+parameter values to the CONSTRUCTOR's domains (whose own comparison is
+against the same former, `checkSumCtor`'s `checkStructDomsAt`).
+
+This is a SEPARATE re-inversion in the style of
+`checkBlockRecPrefixAt_inv` rather than a widening of
+`checkBlockRecTys_inv`: the latter is peeled positionally in five
+modules, two of them other lanes'.  The comparison runs at the FIXED
+depth `p.nP` (not per binder), which is `prefixDoms_spineFit`'s shape
+— the certified hop was written for exactly this kind of stage. -/
+
+/-- **Stage (b)'s parameter chain, inverted**: recursor `i`'s stored
+type opens, its member's type former opens at the block's parameter
+count, and the two openings' domains are defeq position by position at
+depth `p.nP`. -/
+theorem checkBlockRecTys_params {env : Env} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {F : Nat} :
+    ∀ {recs : List RecShape} {ri : Nat} {cvRus : List (ConstantVal × Nat × Level)},
+      checkBlockRecTys (fueledOps mode F) env p nested cvTas recs ri = .ok cvRus →
+      ∀ i, i < recs.length →
+        ∃ (cvRi cvTa : ConstantVal) (nIdx : Nat) (u : Level)
+          (tfvs fvs : List Expr) (trest concl : Expr),
+          cvRus[i]? = some (cvRi, nIdx, u) ∧
+          cvTas[p.recTgtAt (ri + i)]? = some cvTa ∧
+          openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
+          openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi.type 0 = some (fvs, concl) ∧
+          tfvs.length = (fvs.take p.nP).length ∧
+          ∀ l, l < tfvs.length →
+            isDefEqCore mode env F p.nP ((tfvs.map Expr.fvarTypeD).getD l default)
+              (((fvs.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true
+  | [], _, _, _, i, hi => absurd hi (Nat.not_lt_zero i)
+  | rc :: rest, ri, cvRus, h, i, hi => by
+    unfold checkBlockRecTys at h
+    obtain ⟨ms, _, h⟩ := exceptBind_ok h
+    obtain ⟨cvTa, hcvTa, h⟩ := exceptBind_ok h
+    obtain ⟨cvRi, _, h⟩ := exceptBind_ok h
+    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    case neg => rw [if_neg hle] at h; close_throw h
+    rw [if_pos hle] at h
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
+    obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
+    obtain ⟨fvs, concl⟩ := x1
+    have hop : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl) :=
+      unwrapOr_ok hx1
+    obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
+    obtain ⟨tfvs, trest⟩ := x2
+    have hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) := unwrapOr_ok hx2
+    obtain ⟨ud, hud, h⟩ := exceptBind_ok h
+    obtain ⟨hlenD, hallD⟩ := checkBlockDefEqList_inv
+      (what := s!"the recursor {rc.cvR.name}'s parameter domains are not the block's")
+      (by cases ud; exact hud)
+    simp only [List.length_map] at hlenD hallD
+    obtain ⟨maj, _, h⟩ := exceptBind_ok h
+    by_cases hmaj : (maj.fvarTypeD.getAppFn == Expr.const ms.cvT.name (p.lps.map .param) &&
+        maj.fvarTypeD.getAppArgs.length == p.nP + ms.nIdx &&
+        maj.fvarTypeD.getAppArgs.take p.nP == fvs.take p.nP &&
+        maj.fvarTypeD.getAppArgs.drop p.nP ==
+          (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx) = true
+    case neg => rw [if_neg hmaj] at h; close_throw h
+    rw [if_pos hmaj] at h
+    obtain ⟨sty, _, h⟩ := exceptBind_ok h
+    obtain ⟨u, _, h⟩ := exceptBind_ok h
+    have key : ∀ {rs' : List (ConstantVal × Nat × Level)},
+        checkBlockRecTys (fueledOps mode F) env p nested cvTas rest (ri + 1) = .ok rs' →
+        cvRus = (cvRi, ms.nIdx, u) :: rs' →
+        ∃ (cvRi' cvTa' : ConstantVal) (nIdx : Nat) (u' : Level)
+          (tfvs' fvs' : List Expr) (trest' concl' : Expr),
+          cvRus[i]? = some (cvRi', nIdx, u') ∧
+          cvTas[p.recTgtAt (ri + i)]? = some cvTa' ∧
+          openPisAtFvars p.nP cvTa'.type 0 = some (tfvs', trest') ∧
+          openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi'.type 0 = some (fvs', concl') ∧
+          tfvs'.length = (fvs'.take p.nP).length ∧
+          ∀ l, l < tfvs'.length →
+            isDefEqCore mode env F p.nP ((tfvs'.map Expr.fvarTypeD).getD l default)
+              (((fvs'.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true := by
+      intro rs' hrest hcv
+      subst hcv
+      cases i with
+      | zero =>
+        exact ⟨cvRi, cvTa, ms.nIdx, u, tfvs, fvs, trest, concl, rfl,
+          by simpa using unwrapOr_ok hcvTa, by simpa using hopT, by simpa using hop,
+          by simpa using hlenD, by simpa using hallD⟩
+      | succ i =>
+        obtain ⟨cvRi', cvTa', nIdx, u', tfvs', fvs', trest', concl', hcu, hcvT, hopT',
+          hop', hlenD', hallD'⟩ := checkBlockRecTys_params hrest i (by simpa using hi)
+        refine ⟨cvRi', cvTa', nIdx, u', tfvs', fvs', trest', concl', by simpa using hcu, ?_, hopT',
+          ?_, hlenD', hallD'⟩
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hcvT
+        · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hop'
+    by_cases hlarge : blockLargeElimAllowed p nested = true
+    case pos =>
+      rw [if_pos hlarge] at h
+      obtain ⟨rs', hrest, h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact key hrest h.symm
+    case neg =>
+      rw [if_neg hlarge] at h
+      obtain ⟨b, _, h⟩ := exceptBind_ok h
+      by_cases hb : b = true
+      case neg => rw [if_neg hb] at h; close_throw h
+      rw [if_pos hb] at h
+      obtain ⟨rs', hrest, h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact key hrest h.symm
+
 end ConLeche
