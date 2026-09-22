@@ -3362,4 +3362,124 @@ theorem iotaEqsAV_eq_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
 
 end EqsIdent
 
+/-! ## 32. The `ih` openers' DOMAINS — `hihF` (session 13)
+
+`hihF` says the graph-built towers FIT the `ih` openers' domains.  The
+domain of opener `r` is the reading of `blockIhPis`' `l = r` entry:
+the Π-tower over the field's telescope of the CALLEE's recursor TYPE
+instantiated at the rule's prefix, the field's index expressions and
+the applied field — no constant in sight, so it is §29's
+`BlockRuleConclAt` one telescope deeper, and the SAME peel produces
+it.
+
+Two things make this cheap.
+
+* **The opener's `l`-shift is a `liftN r 0` of the `l = 0` form.**
+  `ihIdxAtM_shift`, `fieldApp_shift`, `prefVars_shift` and
+  `teleVarsAV_liftN` (`BlockRecRule.lean`) say so entry by entry, and
+  a `mkPisAV` lifted at cutoff `0` lifts entry `k` at cutoff `k` and
+  its body at the telescope's length — exactly the shape.  The fit
+  walk reads opener `r` under the `r` earlier ih VALUES, and
+  `interp_liftN_ihvals` (§29) cancels the two: the domain's reading at
+  the walk's frame IS the `l = 0` tower's reading at the rule's frame,
+  which is where the ih VALUE lives.  **No congruence between two
+  different binder-data lists is needed**, which is what the shift
+  first looked like it would cost.
+* **The leaf obligation is `blockRecHCaB` at the PREDECESSOR.**  The
+  peel's prefix arguments are `prefVarsAV rP (nF + m)`, which is
+  `paramBvarsAt rP (rP + nF + m)` on the nose, so §29's
+  `blockRecCa_value` applies verbatim with the telescope spine in the
+  `ih` block's place: the opener's conclusion reads to the motive at
+  the predecessor, and the graph is motive-valued there. -/
+
+section IhDomains
+
+/-- A spine fits when every entry fits at the frame the walk reaches
+it in — the index form of `SpineFit`'s walk. -/
+theorem spineFit_of_getD {σ : Nat → V} :
+    ∀ {Ds : List AnnotTerm} {as : List V}, as.length = Ds.length →
+      (∀ r, r < Ds.length →
+        as.getD r pt ∈ˢ interp V (consList (as.take r) σ) (Ds.getD r default)) →
+      SpineFit σ Ds as
+  | [], [], _, _ => trivial
+  | [], _ :: _, hl, _ => by simp at hl
+  | _ :: _, [], hl, _ => by simp at hl
+  | D :: Ds, a :: as, hl, h => by
+    refine ⟨?_, ?_⟩
+    · have h0 := h 0 (by simp)
+      simpa using h0
+    · refine spineFit_of_getD (by simpa using hl) fun r hr => ?_
+      have hr' := h (r + 1) (by simpa using hr)
+      simpa using hr'
+
+/-- **`hihF` at ONE opener**: the graph-built tower inhabits the ih
+opener's Π-tower.  `lamTowerA_mem` at the walk built from the fits
+(`towerWalkA_of_spines_body`); the leaf obligation is the graph's
+value at the PREDECESSOR lying in the opener's conclusion. -/
+theorem blockRecIhv_mem {ℓ c' : Nat} {tl : List (Nat × Nat × AnnotTerm)} {Cih : AnnotTerm}
+    {tup : Nat → List V → V} {σ : Nat → V} {g : V}
+    {eis : List AnnotTerm} {fap : AnnotTerm} (hℓ : ℓ ≠ 0)
+    (hbits : ∀ dd ∈ tl, (ℓ = 0 ↔ dd.2.1 = 0))
+    (hleaf : ∀ bs : List V, SpineFit σ (tl.map (·.2.2)) bs →
+      app g (tagged c' (tup c' (eis.map (interp V (consList bs σ))))
+          (interp V (consList bs σ) fap))
+        ∈ˢ interp V (consList bs σ) Cih) :
+    lamTowerA ℓ σ [] tl
+        (fun _ τ => app g (tagged c' (tup c' (eis.map (interp V τ))) (interp V τ fap)))
+      ∈ˢ interp V σ (mkPisAV tl Cih) :=
+  lamTowerA_mem hbits (towerWalkA_of_spines_body fun ys hsp =>
+    ⟨hleaf ys hsp, fun h0 => absurd h0 hℓ⟩)
+
+/-- **`hihF` at the whole opener list**: `blockRecIhvAt` fits
+`ihdoms`, given that opener `r`'s domain IS the `l = 0` Π-tower lifted
+past the `r` earlier openers (`hdom`), the telescope carries the
+family's bit (`hbits`) and the graph is motive-valued at every
+predecessor the openers name (`hleaf`). -/
+theorem blockRecIhvAt_fit {ℓ : Nat} {tup : Nat → List V → V} {σ : Nat → V} {g : V}
+    {ihKeys : List (Nat × Nat)} {tlA : Nat → List (Nat × Nat × AnnotTerm)}
+    {eisA : Nat → List AnnotTerm} {fapA : Nat → AnnotTerm}
+    {ihdoms : List AnnotTerm} {Cih : Nat → AnnotTerm} (hℓ : ℓ ≠ 0)
+    (hlen : ihdoms.length = ihKeys.length)
+    (hdom : ∀ r, r < ihKeys.length →
+      ihdoms.getD r default
+        = (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+    (hbits : ∀ r, r < ihKeys.length →
+      ∀ dd ∈ tlA (ihKeys.getD r (0, 0)).1, (ℓ = 0 ↔ dd.2.1 = 0))
+    (hleaf : ∀ r, r < ihKeys.length → ∀ bs : List V,
+      SpineFit σ ((tlA (ihKeys.getD r (0, 0)).1).map (·.2.2)) bs →
+      app g (tagged (ihKeys.getD r (0, 0)).2
+          (tup (ihKeys.getD r (0, 0)).2
+            ((eisA (ihKeys.getD r (0, 0)).1).map (interp V (consList bs σ))))
+          (interp V (consList bs σ) (fapA (ihKeys.getD r (0, 0)).1)))
+        ∈ˢ interp V (consList bs σ) (Cih r)) :
+    SpineFit σ ihdoms (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g) := by
+  refine spineFit_of_getD (by rw [blockRecIhvAt_length, hlen]) fun r hr => ?_
+  have hrk : r < ihKeys.length := by rw [← hlen]; exact hr
+  have hk : ihKeys[r]? = some (ihKeys.getD r (0, 0)) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrk]
+    rfl
+  have hval : (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).getD r pt
+      = lamTowerA ℓ σ [] (tlA (ihKeys.getD r (0, 0)).1)
+          (fun _ τ => app g (tagged (ihKeys.getD r (0, 0)).2
+            (tup (ihKeys.getD r (0, 0)).2
+              ((eisA (ihKeys.getD r (0, 0)).1).map (interp V τ)))
+            (interp V τ (fapA (ihKeys.getD r (0, 0)).1)))) := by
+    rw [blockRecIhvAt, List.getD_eq_getElem?_getD, List.getElem?_map, hk]
+    rfl
+  have htk : ((blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r).length = r := by
+    rw [List.length_take, blockRecIhvAt_length]
+    omega
+  have hcancel : interp V (consList ((blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r) σ)
+        ((mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+      = interp V σ (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)) := by
+    have h := interp_liftN_ihvals (V := V)
+      (ihvals := (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).take r) (σ := σ)
+      (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r))
+    rw [htk] at h
+    exact h
+  rw [hval, hdom r hrk, hcancel]
+  exact blockRecIhv_mem hℓ (hbits r hrk) (hleaf r hrk)
+
+end IhDomains
+
 end ConLeche.Model
