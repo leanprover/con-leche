@@ -494,6 +494,79 @@ theorem piSpine_mkPisOf {tele : List (Expr × ConLeche.BinderMeta)} {body : Expr
     PiSpine (Expr.mkPisOf tele body) as :=
   piSpine_of_stripPis as (stripPis_isSome_mkPisOf tele body as.length h)
 
+/-! ### The opener's stored type, as the run leaves it (`hop`'s kit)
+
+`openPisAtFvars_fvarTypeD` (`Model/Inductives/FixRecReadDefs.lean`)
+says the `r`-th opener's STORED type is the `r`-th `∀`-binder domain of
+the peeled term, with the `r` earlier openers `instSeq`'d — so the
+run's identification of `tyOp` (`M5M-opener-REPORT.md` §4.1) is that
+binder list plus TWO generic facts, and these are they:
+
+* `stripPis_instantiateList` — opening a Π-tower's frame opens its
+  binders, each at its own depth (the `∀` clause of
+  `Expr.instantiateList` raises the cut, which is exactly the offset
+  the `l`-th binder stands at);
+* `instantiateList_split` — the peel's `instSeq` and the frame's
+  `instantiateList` COMPOSE into one opening, which is the single
+  `FvarList` the reading battery
+  (`denoteMeta_blockIhOpenerTy`) takes.
+-/
+
+/-- **Opening commutes with the Π-peel**, binderwise: the `q`-th
+binder of the opened tower is the `q`-th binder opened at cut
+`k + q`. -/
+theorem stripPis_instantiateList (L : List Expr) :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr} (k : Nat),
+      e.stripPis n = some (bs, body) →
+      ∃ bs' : List (Expr × ConLeche.BinderMeta),
+        (e.instantiateList L k).stripPis n = some (bs', body.instantiateList L (k + n)) ∧
+        bs'.length = bs.length ∧
+        ∀ (q : Nat) (b : Expr × ConLeche.BinderMeta), bs[q]? = some b →
+          bs'[q]? = some (b.1.instantiateList L (k + q), b.2)
+  | 0, e, bs, body, k, h => by
+    simp only [ConLeche.Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], by simp [ConLeche.Expr.stripPis], rfl, fun q b hb => nomatch hb⟩
+  | n + 1, e, bs, body, k, h => by
+    match e with
+    | .forallE ty b mb =>
+      simp only [ConLeche.Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs₀, body₀⟩, hst, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      obtain ⟨bs', hst', hlen', hidx'⟩ := stripPis_instantiateList L n (k + 1) hst
+      refine ⟨(ty.instantiateList L k, mb) :: bs', ?_, by simp [hlen'], ?_⟩
+      · rw [Expr.instantiateList, ConLeche.Expr.stripPis, hst',
+          show k + (n + 1) = k + 1 + n from by omega]
+        simp only [Option.map_some]
+      · intro q c hc
+        cases q with
+        | zero =>
+          obtain rfl : c = (ty, mb) := by simpa using hc.symm
+          simp
+        | succ q =>
+          have := hidx' q c (by simpa using hc)
+          rw [List.getElem?_cons_succ]
+          rw [show k + 1 + q = k + (q + 1) from by omega] at this
+          exact this
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _ _
+    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- **The peel's spine and the frame's opening COMPOSE.**  A term
+opened at cut `n` and then at cut `0` by a list of length `n` is
+opened once by the concatenation — which is the single opening list
+`FvarList` describes, and the one the reading battery takes. -/
+theorem instantiateList_split :
+    ∀ (P L : List Expr) (e : Expr) (d : Nat),
+      (e.instantiateList L (d + P.length)).instantiateList P d = e.instantiateList (P ++ L) d
+  | [], L, e, d => by simp [Expr.instantiateList_nil]
+  | v :: P', L, e, d => by
+    rw [show d + (v :: P').length = d + 1 + P'.length from by
+        simp only [List.length_cons]; omega,
+      Expr.instantiateList_cons P' (e.instantiateList L (d + 1 + P'.length)) v d,
+      instantiateList_split P' L e (d + 1), List.cons_append,
+      Expr.instantiateList_cons (P' ++ L) e v d]
+
 /-- **G3, in the form a consumer can use.**  A `.full`-inferred spine
 whose head's inferred type is pinned (an fvar's is: `Infer.fvar`
 reads the stored annotation) and is a literal Π-tower IS a `Certs`
