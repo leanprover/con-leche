@@ -4992,6 +4992,55 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {ihs : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
   {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
 
+/-- **The `ih` openers' fit AT `ℓ = 0`** — `blockRecIhvAt_fit`'s twin
+at the zero level, and the half of the IND arm's `hih` that is not
+about the block.
+
+At `ℓ = 0` every opener's domain is a `Prop` Π-tower over the field's
+telescope (`hbits`, `OneElimLevel` at the family's level), so the
+point inhabits it exactly when its BODY is inhabited at every fitting
+telescope spine (`pt_mem_mkPisAV_zero`, §16); and the ih VALUES are
+the point there, which is the one thing the `ℓ ≠ 0` route cannot say.
+The domain shape `hdom` is the per-key identification `blockIhPis`
+produces (opener `r`'s domain is the `l = 0` tower lifted past the `r`
+earlier openers, §32), and its BODY `Cih r` is the CALLEE's
+conclusion peeled at the call's prefix, index expressions and target
+— the component `blockRuleHconcl_of` (`BlockRecOpenerRead.lean`) now
+exports beside the reading.
+
+What is left over after this lemma is `hleaf`: that peel IS the
+motive at the PREDECESSOR (§29's `blockRecCa_value` at the callee's
+class `c'`) and the motive holds there (`blockIndP`, §33's
+predecessor with §35's `hpref'`). -/
+theorem spineFit_ihdoms_zero {σ : Nat → V} {ihKeys : List (Nat × Nat)}
+    {tlA : Nat → List (Nat × Nat × AnnotTerm)} {Cih : Nat → AnnotTerm}
+    {ihdoms : List AnnotTerm} {ihvals : List V}
+    (hlen : ihdoms.length = ihKeys.length) (hvlen : ihvals.length = ihKeys.length)
+    (hvals : ∀ r, r < ihKeys.length → ihvals.getD r pt = (pt : V))
+    (hdom : ∀ r, r < ihKeys.length →
+      ihdoms.getD r default
+        = (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+    (hbits : ∀ r, r < ihKeys.length →
+      ∀ dd ∈ tlA (ihKeys.getD r (0, 0)).1, dd.2.1 = 0)
+    (hleaf : ∀ r, r < ihKeys.length → ∀ bs : List V,
+      SpineFit σ ((tlA (ihKeys.getD r (0, 0)).1).map (·.2.2)) bs →
+      (pt : V) ∈ˢ interp V (consList bs σ) (Cih r)) :
+    SpineFit σ ihdoms ihvals := by
+  refine spineFit_of_getD (by rw [hvlen, hlen]) fun r hr => ?_
+  have hrk : r < ihKeys.length := by rw [← hlen]; exact hr
+  have htk : (ihvals.take r).length = r := by
+    rw [List.length_take, hvlen]
+    omega
+  have hcancel : interp V (consList (ihvals.take r) σ)
+        ((mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
+      = interp V σ (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)) := by
+    have hq := interp_liftN_ihvals (V := V) (ihvals := ihvals.take r) (σ := σ)
+      (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r))
+    rw [htk] at hq
+    exact hq
+  rw [hvals r hrk, hdom r hrk, hcancel]
+  exact pt_mem_mkPisAV_zero _ σ _ (hbits r hrk) (hleaf r hrk)
+
 /-- **The IND arm's step**, `blockIndPt`'s `hstep`. -/
 theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
