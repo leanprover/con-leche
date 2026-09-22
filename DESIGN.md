@@ -82743,3 +82743,38 @@ No good stream moved.  And `PERF.md`'s `_tmp/ref/` artifacts no longer
 exist on this machine; the 4.29.1 Mathlib is the largest real corpus
 left, which is why this project's own 4.33.0 whole-environment export
 was added to cover the newer exporter.
+
+#### LANDED (lane RM40 = M5M-data session 30, `5f084f17`): the ruled kernel guard — and the `w = 0` ruling's PARTITION does not hold
+
+**The kernel guard is in** (`checkBlockRule`, mirrored in
+`checkBlockRuleF`; the cached path needed nothing of its own), with the
+Verify inversion row and a forged fixture
+(`tests/e2e/corner_rec_dom_recursor.ndjson` — `Nat'.rec`'s `succ` rule
+binding its field at `(fun _ : T_rec => Nat') Nat'.rec`), which
+**the uniform route accepted before the guard**.  No verdict moves: the
+stage is behind `blockRecCheckOn`, so no shipped stream reaches it —
+e2e 264/264, arena green, all sweeps unchanged.  Accept-preservation on
+official's output is by CONSTRUCTION, not measurement, and the record
+says so.  With it, `hcbLd` is deleted and the environment crossing is
+fully closed.  The measurement lane's three e2e rows landed alongside.
+
+**FINDING — the `w = 0` ruling assumed a partition that the proof does
+not have.**  Guarding "the three membership-fed conjuncts" frees
+nothing: inside `blockRuleDataB_of_residue`
+(`BlockRuleFit.lean:1477-1502`), the tower fit's own `hfit` argument IS
+conjunct ①, and the residue's `htow` IS conjunct ⑤.  So ④ and ⑤ are
+DOWNSTREAM of ①, and all five conjuncts are downstream of `hw`.  The
+tower fit is `w`-free as a THEOREM (it takes no `w` premise) but not as
+a CONJUNCT (its premise is another conjunct) — a distinction none of
+the `w`-sweeps could see, because they grepped statements for `d.w`,
+`∈ˢ` and the carrier's spellings, and the dependency is in the
+composition's PROOF.  **The lane stopped rather than invent the arm**,
+which is what it was told to do.
+
+Two more: `hihv` is the data lane's after all, and **one definition
+away** — four of the contract's six function variables are already
+pinned by equations in the producer's own signature, and the `ih` list
+wants the same treatment, after which `hihv` and the open `hihFit` both
+fall out.  And the census shrank the body equation's wiring from 45
+premises to 3 items, two of which are this lane's own unconsumed
+producers — Spine A of `RM39`'s census, exactly.
