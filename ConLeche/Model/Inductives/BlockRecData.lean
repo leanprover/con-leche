@@ -3948,6 +3948,78 @@ theorem blockRuleHsp_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
         ++ (ys.drop nP).map (interp V ρ)) :=
   blockRuleHsp_of (blockRuleHspPref_run hμ mpC h hr ψ hxl hfit) hfld
 
+/-- **The rule obligation's RESIDUE half, as ONE premise** — the
+FOURTH and FIFTH conjuncts of `BlockRuleDataB`, at the SAME
+∀-telescope and under the same premises.
+
+`BlockRuleDataB`'s six statements split in two by WHAT they are about.
+Three are about the DATA the rule fires with — the prefix-and-fields
+fit, the index expressions, the fired spine — and are discharged from
+the block's representation (`BlockRuleFit.lean`).  Two are about the
+right-hand side's λ-TOWER — the residue at the ih values, and the
+tower's own fit — and are discharged from the rule's walk
+(`blockRuleHRa_run_val`, and the G2 defeq bridge).  Bundling the
+second pair under the telescope they are discharged at is what lets
+the composition (`blockRuleDataB_of_residue`) take them as ONE
+hypothesis instead of restating thirty lines of conjunct, and it
+bounds them exactly: the producer sees every premise the contract
+hands — the two lengths, `hψ`, `hidx` and both `TeleFitPA`s — and
+nothing is quantified past them.
+
+`@[expose]`: the composition unfolds it. -/
+@[expose] def BlockRuleResidueB {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
+    (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
+    (fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
+    (mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm)
+    (ctorTy : (Name → Nat) → AnnotTerm) (φ : Name → Nat) (j i : Nat)
+    (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
+    (cA : ConstantVal × Nat) (rl : ConLeche.RecRule) (rhs : Expr) : Prop :=
+∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm) (restR restC : AnnotTerm),
+        xs.length = p.toBlockShape.majorIdxAt j →
+        ys.length = p.nP + cA.2 →
+        usj.length = cA.1.levelParams.length →
+        Level.substFn φ cA.1.levelParams usj
+          = Level.substFn φ cA.1.levelParams
+              (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+                (p.toBlockShape.rulePrefixAt j)).1 →
+        IotaIndexPin (V := V) ρ restC p.nP
+          (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) xs →
+        TeleFitPA V ρ
+          (blockRecTyAV mpC.base2.acval envC rs (Level.substFn φ r.1.levelParams us) j)
+          (xs ++ [AnnotTerm.mkAppN
+            (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
+        TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+    (∀ a : Nat → V,
+        (∀ c', c' < rs.length →
+          interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)
+            (Level.substFn φ r.1.levelParams us) c') = a c') →
+        interp V ρ (AnnotTerm.mkAppN (blockRuleRaOf
+            (blockRecAcv mpC.base2.acval envC rs s
+              (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (Level.substFn φ r.1.levelParams us))
+            (xs.take (p.toBlockShape.rulePrefixAt j) ++ ys.drop p.nP))
+          = interp V (consList
+              ((ihs (Level.substFn φ r.1.levelParams us) j i).map
+                (interp V (blockRuleFrame rs.length a ρ (p.toBlockShape.rulePrefixAt j)
+                  p.nP xs ys)))
+              (consList ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+                ++ (ys.drop p.nP).map (interp V ρ)) ρ))
+            (Rb0 (Level.substFn φ r.1.levelParams us) j i)) ∧
+      (∀ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm),
+        blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (Level.substFn φ r.1.levelParams us) = mkLamsAV lds A →
+        lds.length = p.toBlockShape.rulePrefixAt j + cA.2 →
+        SpineFit ρ (lds.map (·.2))
+          ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+            ++ (ys.drop p.nP).map (interp V ρ)))
+
 /-- **The seam's rule-side obligation at one (recursor, constructor)
 pair** — §A.5c's contract with both reading binders eliminated, its
 grading statement replaced by the rule tower's FIT, and no `∀ m₃`.
