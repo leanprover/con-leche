@@ -287,6 +287,11 @@ def checkBlockRuleF (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsPref ++ fvsF) rhsA)
     (.invalid s!"direct rec: the rule of {cA.1.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
+  -- the domains' syntax at the CONSTRUCTORS' environment
+  -- (`checkBlockRule`'s own guard: G2 is a defeq, and defeq does not
+  -- preserve syntax)
+  unless ldoms.all (fun t => w.resolve feT t) do
+    throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
   checkBlockDefEqList opsT feT.env (rP + nF)
     s!"the rule of {cA.1.name} does not bind the recursor's prefix and the constructor's \
       fields"

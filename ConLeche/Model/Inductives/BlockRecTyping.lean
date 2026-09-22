@@ -519,7 +519,11 @@ theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : Lis
   obtain ⟨x2, hx2, h⟩ := exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
   obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, crest⟩ := x3
   obtain ⟨x4, hx4, h⟩ := exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
-  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x5
+  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨ldoms, lrest⟩ := x5
+  dsimp only at h
+  by_cases hcbd : ldoms.all (fun t => Expr.constsResolve envT t) = true
+  case neg => rw [if_neg hcbd] at h; close_throw h
+  rw [if_pos hcbd] at h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨ihTele, _, h⟩ := exceptBind_ok h

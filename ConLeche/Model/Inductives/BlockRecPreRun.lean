@@ -8295,7 +8295,7 @@ theorem blockRuleCerts_of_run {envC : Env} {p : ConLeche.BlockParts}
       (readOpenedDoms mpC.base2.acval envC ψ
         (p.toBlockShape.rulePrefixAt c + cA.2) fvsIh) Rb Ca := by
   obtain ⟨hw₁, hb₁⟩ := checkBlockRecK_tyClosed h hr
-  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, h₁, hinstC, h₂, -, -, -, -⟩ :=
+  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, h₁, hinstC, h₂, -, -, -, -, -⟩ :=
     blockRuleData_run h hr hcA hrhs
   -- the constructor's telescope at the rule's parameters is bvar-closed
   have hb₂ : (blockRuleCrest p.toBlockShape rs c i).looseBVarsBounded 0 = true :=
