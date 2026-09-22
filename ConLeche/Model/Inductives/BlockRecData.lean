@@ -827,7 +827,7 @@ The `IhSpineFold` premise is `ihSpineFold_blockRec`
 (`BlockRecRule.lean`) — this theorem does not repeat its fifteen
 premises, so that the composition can be checked, and read, on its
 own. -/
-theorem blockRuleHRa_run {env : Env} {acval : Name → (Name → Nat) → AnnotTerm}
+theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → AnnotTerm}
     {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ : Nat → V}
     {Ra Rb0 A : AnnotTerm} {lds : List (Nat × AnnotTerm)}
     {xs ys ihs0 : List AnnotTerm} {rP nP : Nat}
@@ -837,7 +837,7 @@ theorem blockRuleHRa_run {env : Env} {acval : Name → (Name → Nat) → AnnotT
       ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
     (hih : ihs0.length = fr.nR)
-    (hspine : IhSpineFold V acval env φ fr F
+    (hspine : IhSpineFold V acval env envT φ fr F
       (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)
       (ihs0.map (interp V
         (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))))
@@ -845,7 +845,8 @@ theorem blockRuleHRa_run {env : Env} {acval : Name → (Name → Nat) → AnnotT
     (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
     (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
     (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta acval env φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0) :
+    (hB : denoteMeta acval env φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0)
+    (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
     interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
       = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
             ++ (ys.drop nP).map (interp V ρ)) ρ)))
@@ -853,7 +854,7 @@ theorem blockRuleHRa_run {env : Env} {acval : Name → (Name → Nat) → AnnotT
             ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 :=
   blockRuleHRa_of hlam hok hsp
     (interp_blockResidue hacl (by rw [List.length_map]; exact hih) hspine hab hf hbB h1 h2
-      hA hB)
+      hA hB hty)
 
 /-! ## A.3 The family's EQUATION LIST, spelled — and item C's two
 obligations at it
