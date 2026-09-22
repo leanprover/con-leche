@@ -2,6 +2,8 @@ module
 
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Semantics.Tower.BlockRecSqI
 import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Semantics.Tower.BlockRecWfI
@@ -6150,6 +6152,145 @@ theorem blockRuleHleaf_of {rP nF nR : Nat} {ihTele' o₃ : Expr}
   rcases openPisAtFvars_leaves nR h₃ l (Or.inl hl) with h' | h'
   · exact List.mem_append_left _ (hf₃ l h')
   · exact List.mem_append_right _ h'
+
+/-! ### 40.2 The reading arguments — `hF` and `hI`
+
+`hP` is §35's (`blockRulePdomsAV_reads`).  The other two segments are
+spelled with `readOpenedDoms` (`BlockRecData.lean`), which is a
+reading BY CONSTRUCTION: its `l`-th entry IS the `l`-th opener's
+reading whenever that reading exists at all.  So both segments reduce
+to an EXISTENCE statement, which is the shape their owners already
+prove — `denoteMeta_openPis`' per-binder output for the fields, and
+the `ih` opener battery's `_exists` form for the openers.
+
+`readOpenedDoms`' own equations do not leave its module (the
+proof-tier `def` trap, §S20.2), so the bridge is `readOpenedDoms_eq`
+at a witness list built from the readings themselves. -/
+
+section Readings
+
+variable {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env} {ψ : Name → Nat}
+
+omit [SetTheory V] in
+/-- **A segment's entries, from the readings' EXISTENCE alone.** -/
+theorem readOpenedDoms_reads {d : Nat} {fvs : List Expr}
+    (hex : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+      ∃ A, denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some A) :
+    ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+      denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x)
+        = some ((readOpenedDoms acval envC ψ d fvs).getD l default) := by
+  have hb : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+      ∃ pd, ((List.range fvs.length).map fun q =>
+            ((0 : Nat), (0 : Nat),
+              (denoteMeta acval envC ψ (d + q)
+                (Expr.fvarTypeD (fvs.getD q default))).getD default))[l]? = some pd ∧
+        denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some pd.2.2 := by
+    intro l x hx
+    have hl : l < fvs.length := (List.getElem?_eq_some_iff.mp hx).1
+    obtain ⟨A, hA⟩ := hex l x hx
+    have hgd : fvs.getD l default = x := by rw [List.getD_eq_getElem?_getD, hx]; rfl
+    refine ⟨(0, 0, (denoteMeta acval envC ψ (d + l)
+      (Expr.fvarTypeD (fvs.getD l default))).getD default), ?_, ?_⟩
+    · rw [List.getElem?_map, List.getElem?_range hl]
+      rfl
+    · rw [hgd, hA, Option.getD_some]
+  have heq := readOpenedDoms_eq (acval := acval) (envC := envC) (ψ := ψ) fvs _ d
+    (by rw [List.length_map, List.length_range]) hb
+  intro l x hx
+  obtain ⟨pd, hpd, hread⟩ := hb l x hx
+  rw [heq, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]
+  exact hread
+
+end Readings
+
+/-- **`hF` generically** — the rule's FIELD openers read to
+`blockRuleFdomsAV`'s entries.  `readOpenedDoms_shift` folds the same
+`denoteMeta_openPis` output into a list equation; this keeps the
+per-opener readings, which is what the bundle's argument is. -/
+theorem readOpenedDoms_shift_reads {envC : Env} {m : EnvModel V envC} {ψ : Name → Nat}
+    {crest crest' : Expr} {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
+    {nP nF o : Nat}
+    (hread : denoteMeta m.acval envC ψ nP crest = some (mkPisAV (ds.drop nP) bodyC))
+    (hw : Expr.WScoped nP crest) (hlenD : ds.length = nP + nF)
+    (heq : Expr.ErasedEq crest crest')
+    {fvsF : List Expr} {cbody : Expr}
+    (hop : ConLeche.openPisAtFvars nF crest' (nP + o) = some (fvsF, cbody)) :
+    ∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+      denoteMeta m.acval envC ψ (nP + o + l) (Expr.fvarTypeD x)
+        = some ((readOpenedDoms m.acval envC ψ (nP + o) fvsF).getD l default) := by
+  have hread' : denoteMeta m.acval envC ψ (nP + o) crest'
+      = some (mkPisAV (liftDoms o 0 (ds.drop nP)) (bodyC.liftN o nF)) := by
+    rw [← denoteMeta_erasedEq heq]
+    exact ctorResidual_read_lift hread hw hlenD o
+  obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis nF hop hread'
+  refine readOpenedDoms_reads (fun l x hx => ?_)
+  obtain ⟨q, hq, -, hd⟩ := hbind l x hx
+  exact ⟨q.2.2, hd⟩
+
+/-- **`hI`'s existence half, at the run**: every `ih` opener's STORED
+type has a reading AT ITS OWN DEPTH `rP + nF + r`.
+
+This is `blockRuleHopener_of`'s part (4) with no shift: that lemma
+reads the same openers at the WALK's depth (`F + nR + d`, where the
+tower lands at `ih` level `nR + d`), which is what the fit's opener
+premise asks; the bundle's `hI` asks at the opener's own depth, where
+`denoteMeta_blockIhOpenerTy` applies at `d := r` directly.
+
+The keys are named by `getElem?` rather than by `pairIdxOf?` — the
+premise's content depends only on the FIELD index, and the check's
+key list is what the run hands over; `pairIdxOf?_getElem?` turns the
+opener lane's spelling into this one. -/
+theorem blockRuleIhOpenerReads_of {envT : Env} {mT : EnvModel V envT} {ψ : Name → Nat}
+    {fr : ConLeche.BlockRuleFrame} {o : Nat}
+    {cty : Expr} {fvs0 : List Expr} {crest : Expr}
+    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
+    {recTyOf : Nat → Expr} {body ihTele bodyO : Expr}
+    {fvsPref fvsF fvsIh : List Expr}
+    (ho : fr.rP - fr.nP = o) (hrP : fr.nP + o = fr.rP)
+    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs0, crest))
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
+    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
+    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
+    (hfld : ∀ i c' r : Nat, fr.ihKeys[r]? = some (i, c') →
+      i < fr.nF ∧ FieldReadAt mT ψ fr.nP fr.nF i cty fvs0 (tlF i) (EisF i))
+    (hpis : ConLeche.blockIhPis fr.nP fr.rP fr.nF fr.pw recTyOf fr.teleOf fr.idxOf
+      fr.ihKeys 0 body = some ihTele)
+    (hihfv : ihTele.hasFvar = false)
+    (hLpf : FvarList (fr.rP + fr.nF) (fvsPref ++ fvsF).reverse)
+    (hopen : ConLeche.openPisAtFvars fr.ihKeys.length
+      (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (fr.rP + fr.nF) = some (fvsIh, bodyO))
+    (hconcl : ∀ (i c' r : Nat) (concl : Expr) (as1 : List Expr),
+      fr.ihKeys[r]? = some (i, c') →
+      Expr.instPisAtLift
+          (ConLeche.blockRulePrefixVars fr.rP fr.nF (r + (fr.teleOf i).length) ++
+            (fr.idxOf i).map (ConLeche.structIdxAt fr.nF o i r (fr.teleOf i).length) ++
+            [Expr.mkAppN (.bvar (fr.nF - 1 - i + r + (fr.teleOf i).length))
+              (ConLeche.structTeleVars (fr.teleOf i).length)])
+          (recTyOf c') = some concl →
+      FvarList (fr.nP + o + fr.nF + r) as1 →
+      ∃ conclA, denoteMeta mT.acval envT ψ
+          (fr.nP + o + fr.nF + r + (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length)
+          (concl.instantiateList ((openFvars (fr.nP + o + fr.nF + r)
+            (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length).reverse ++ as1) 0)
+        = some conclA) :
+    ∀ (r : Nat) (x : Expr), fvsIh[r]? = some x →
+      ∃ A, denoteMeta mT.acval envT ψ (fr.rP + fr.nF + r) (Expr.fvarTypeD x) = some A := by
+  intro r x hx
+  have hrlt : r < fvsIh.length := (List.getElem?_eq_some_iff.mp hx).1
+  have hIhlen : fvsIh.length = fr.ihKeys.length := openPisAtFvars_length _ hopen
+  obtain ⟨key, hkey⟩ : ∃ k, fr.ihKeys[r]? = some k :=
+    ⟨fr.ihKeys[r]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨i, c'⟩ := key
+  obtain ⟨hiF, hfr⟩ := hfld i c' r hkey
+  obtain ⟨concl, hconclRun, hstored, hFv1⟩ :=
+    blockIhOpener_stored hpis hLpf hihfv hopen hkey hx
+  rw [ho] at hconclRun hstored
+  rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega] at hFv1
+  obtain ⟨B, hB⟩ := denoteMeta_blockIhOpenerTy_exists (pw := fr.pw) hop0 hCf hCb hstripC hiF hfr
+    hFv1 (hconcl i c' r concl _ hkey hconclRun hFv1)
+  refine ⟨mkPisAV (ihTeleAtR fr.nF o i r (rebit (pwBit ψ fr.pw) (tlF i))) B, ?_⟩
+  rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega, hstored, htele]
+  exact hB
 
 end CertsArgs
 
