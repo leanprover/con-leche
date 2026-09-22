@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Semantics.Tower.BlockRecI
+public import ConLeche.Semantics.Tower.BlockRecKitI
 public import ConLeche.Semantics.Tower.FixSquashI
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Annot.EnvModelM
@@ -699,5 +699,167 @@ theorem interp_fieldApp_rule {nF i m : Nat} {xs fs bs : List V}
   simp
 
 end TwoFrame
+
+/-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt` and its
+CONVERSE (task #315, M5M-rule)
+
+`BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the three regimes
+read OFF a fitting spine of `rec_c`'s binder data: the prefix, the
+eliminated member's index values and the major, with the parameters'
+fit and the member's own index fit.  The IND arm's `ih` leaf needs the
+OPPOSITE direction as well — the callee's spine ASSEMBLED, from an
+index spine fitting the member's telescope and a major in the member's
+former (`hjoin`, `blockIndIhLeaf_pred`) — and neither direction had a
+producer.
+
+Both are the same fact about the STORED type, and this section states
+it once.  `BlockRecTyShape` says: `rec_c`'s binder data is `rP c`
+binders, then the eliminated member's index telescope, then one more;
+its first `nP` binders ARE the block's parameter telescope; the index
+stretch FITS exactly as the member's own telescope does at the
+parameter frame (an `↔`, because the two directions are the two
+consumers); and the last binder reads as the member's former applied
+to the parameters and to the index values.
+
+Nothing here is about the recursion or about a rule: every clause is a
+reading of the recursor's own type, which is where the recursor-type
+lane delivers it.  The two frame clauses quantify over ALL prefix
+spines of the right length because their content is a LIFTING identity
+— the index domains are the member's lifted past the prefix's
+`rP - nP` extra binders, and a lift does not look at the values it
+crosses. -/
+
+section TyShape
+
+open ConLeche.Semantics
+
+/-! ### List kit -/
+
+theorem list_eq_singleton {α : Type u} {l : List α} (h : l.length = 1) : ∃ z, l = [z] := by
+  match l with
+  | [] => exact absurd h (by simp)
+  | [z] => exact ⟨z, rfl⟩
+  | _ :: _ :: _ => exact absurd h (by simp)
+
+theorem list_drop_last {α : Type u} [Inhabited α] {l : List α} {n : Nat}
+    (h : l.length = n + 1) : l = l.take n ++ [l.getD n default] := by
+  obtain ⟨z, hz⟩ := list_eq_singleton (l := l.drop n) (by rw [List.length_drop, h]; omega)
+  have hgz : l.getD n default = z := by
+    rw [List.getD_eq_getElem?_getD,
+      show l[n]? = (l.drop n)[0]? from by simp [List.getElem?_drop], hz]
+    rfl
+  rw [hgz, ← hz, List.take_append_drop]
+
+/-! ### Fit kit -/
+
+/-- A fitting spine's prefix fits the domains' prefix. -/
+theorem spineFit_take_le :
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V} (i : Nat),
+      SpineFit ρ Fs as → SpineFit ρ (Fs.take i) (as.take i)
+  | [], _, [], i, _ => by rw [List.take_nil, List.take_nil]; trivial
+  | [], _, _ :: _, _, h => h.elim
+  | _ :: _, _, [], _, h => h.elim
+  | _ :: _, _, _ :: _, 0, _ => trivial
+  | _ :: _, _, _ :: _, _ + 1, h => ⟨h.1, spineFit_take_le _ h.2⟩
+
+/-- A singleton chain's fit is one membership. -/
+theorem spineFit_one {D : AnnotTerm} {ρ : Nat → V} {a : V}
+    (h : a ∈ˢ interp V ρ D) : SpineFit ρ [D] [a] := ⟨h, trivial⟩
+
+/-- **A fit of `rp + nI + 1` binders, decomposed** — the prefix, the
+index stretch and the ONE last value, each at its own frame. -/
+theorem spineFit_split_three {Ds : List AnnotTerm} {ρ : Nat → V} {ys : List V}
+    {rp nI : Nat} (hlen : Ds.length = rp + nI + 1) (hfit : SpineFit ρ Ds ys) :
+    ∃ (xs is : List V) (mj : V), ys = xs ++ (is ++ [mj]) ∧
+      xs.length = rp ∧ is.length = nI ∧
+      SpineFit ρ (Ds.take rp) xs ∧
+      SpineFit (consList xs ρ) ((Ds.drop rp).take nI) is ∧
+      mj ∈ˢ interp V (consList is (consList xs ρ)) ((Ds.drop rp).getD nI default) := by
+  have hdrop : (Ds.drop rp).length = nI + 1 := by rw [List.length_drop, hlen]; omega
+  have hD : Ds = Ds.take rp
+      ++ ((Ds.drop rp).take nI ++ [(Ds.drop rp).getD nI default]) := by
+    rw [← list_drop_last hdrop, List.take_append_drop]
+  rw [hD] at hfit
+  obtain ⟨xs, rest, hyeq, h1, h2⟩ := spineFit_append_inv hfit
+  obtain ⟨is, mjs, hreq, h3, h4⟩ := spineFit_append_inv h2
+  have hxl : xs.length = rp := by
+    rw [h1.length_eq, List.length_take]; omega
+  have hisl : is.length = nI := by
+    rw [h3.length_eq, List.length_take]; omega
+  obtain ⟨mj, rfl⟩ := list_eq_singleton (l := mjs) (by rw [h4.length_eq, List.length_singleton])
+  exact ⟨xs, is, mj, by rw [hyeq, hreq], hxl, hisl, h1, h3, h4.1⟩
+
+/-! ### The shape -/
+
+/-- **The recursor type's binder shape** (see the section
+docstring). -/
+@[expose] def BlockRecTyShape (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
+    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
+  ∀ c, c < K →
+    d.nP ≤ rP c ∧
+    ((rds c).map (·.2.2)).length = rP c + (d.IdsM (mem c) ψ).length + 1 ∧
+    ((rds c).map (·.2.2)).take d.nP = d.params ψ ∧
+    (∀ xs is : List V, xs.length = rP c →
+      (SpineFit (consList xs ρ)
+          ((((rds c).map (·.2.2)).drop (rP c)).take (d.IdsM (mem c) ψ).length) is
+        ↔ SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)) ∧
+    (∀ xs is : List V, xs.length = rP c → is.length = (d.IdsM (mem c) ψ).length →
+      interp V (consList is (consList xs ρ))
+          ((((rds c).map (·.2.2)).drop (rP c)).getD (d.IdsM (mem c) ψ).length default)
+        = (xs.take d.nP ++ is).foldl SetTheory.app
+            (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
+
+/-- **`BlockRecSplitAt`, from the type's shape** — the FORWARD
+direction: a fitting spine decomposes, its prefix's parameters fit the
+block's telescope, its index values fit the member's, and its major
+lies in the member's former. -/
+theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V}
+    {ψ : Name → Nat} {K : Nat} {rP mem : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
+    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) :
+    ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (prefOf (rP c) ys).length = rP c ∧
+      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+      SpineFit ρ (d.params ψ) ((prefOf (rP c) ys).take d.nP) ∧
+      SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c) ψ)
+        (idxOf (rP c) ys) ∧
+      majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl SetTheory.app
+        (interp V ρ (mo.acval (d.memberName (mem c)) ψ)) := by
+  intro c hc ys hfit
+  obtain ⟨hnP, hlenD, hpar, hids, hmajR⟩ := h c hc
+  obtain ⟨xs, is, mj, rfl, hxl, hisl, h1, h3, h4⟩ := spineFit_split_three hlenD hfit
+  rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
+  refine ⟨hxl, rfl, ?_, (hids xs is hxl).mp h3, ?_⟩
+  · have hp := spineFit_take_le (Fs := ((rds c).map (·.2.2)).take (rP c)) d.nP h1
+    rw [List.take_take, Nat.min_eq_left hnP, hpar] at hp
+    exact hp
+  · rw [hmajR xs is hxl hisl] at h4
+    exact h4
+
+/-- **`hjoin` — `BlockRecSplitAt`'s CONVERSE**: an index spine fitting
+the member's own telescope and a major in the member's former assemble
+into a fit of the recursor type's binders PAST the rule prefix.  This
+is what the `ih` opener's peel is evaluated against
+(`blockIndIhLeaf_of`'s `hfitC'`). -/
+theorem blockRecJoin_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V}
+    {ψ : Name → Nat} {K : Nat} {rP mem : Nat → Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
+    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) {c : Nat} (hc : c < K)
+    {xs is : List V} {maj : V} (hxl : xs.length = rP c)
+    (hidx : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) is)
+    (hmaj : maj ∈ˢ (xs.take d.nP ++ is).foldl SetTheory.app
+      (interp V ρ (mo.acval (d.memberName (mem c)) ψ))) :
+    SpineFit (consList xs ρ) (((rds c).map (·.2.2)).drop (rP c)) (is ++ [maj]) := by
+  obtain ⟨hnP, hlenD, hpar, hids, hmajR⟩ := h c hc
+  have hisl : is.length = (d.IdsM (mem c) ψ).length := hidx.length_eq
+  have hdrop : (((rds c).map (·.2.2)).drop (rP c)).length
+      = (d.IdsM (mem c) ψ).length + 1 := by rw [List.length_drop, hlenD]; omega
+  rw [list_drop_last hdrop]
+  refine SpineFit.append ((hids xs is hxl).mpr hidx) (spineFit_one ?_)
+  rw [hmajR xs is hxl hisl]
+  exact hmaj
+
+end TyShape
 
 end ConLeche.Model
