@@ -1008,9 +1008,18 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 /-- **The gate, as the consumers read it**: a block the route takes has
 exactly one member and exactly one recursor (milestone M1;
-`blockRouteK1Only`). -/
+`blockRouteK1Only`).
+
+The gate is an explicit HYPOTHESIS (`hg`), not a fact read off the
+constant's body: this theorem lives in the kernel tier, inside
+`Main.lean`'s import closure, so a body-reading proof would make the
+EXECUTABLE stop building the moment the gate is flipped — and then the
+flip cannot be measured at all.  With `hg` the whole closure builds at
+either setting, every consumer passes `rfl` while the gate is up, and
+at the flip the six call sites are exactly the list of what the model
+tier owes. -/
 theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
-    (h : blockParts? nPd block = some p) :
+    (hg : blockRouteK1Only = true) (h : blockParts? nPd block = some p) :
     (∃ ms, p.members = [ms]) ∧ (∃ rc, p.recs = [rc]) := by
   unfold blockParts? at h
   split at h
@@ -1023,7 +1032,7 @@ theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
           · exact nomatch h
           · rename_i q _ _ hk
             obtain rfl := Option.some.inj h
-            simp only [blockRouteK1Only, Bool.true_and, Bool.or_eq_true, bne_iff_ne,
+            simp only [hg, Bool.true_and, Bool.or_eq_true, bne_iff_ne,
               ne_eq, not_or, Decidable.not_not] at hk
             have hm : q.members.length = 1 := by simpa [BlockShape.k] using hk.1
             have hr : q.recs.length = 1 := hk.2

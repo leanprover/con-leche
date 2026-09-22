@@ -81828,3 +81828,189 @@ conclusions are its parts?* — to the per-pair obligation's table turns
 **Operational**: `tests/shake.sh` exits 3 unless
 `lake build ConLeche.PinGen.Prelude` has been run separately — plain
 `lake build` does not reach that target.
+
+#### MEASURED (lane F6a, flip-prep, `858bdb11`): the flip's verdicts, for the first time not reasoned
+
+Until now every `uniform:` row in the e2e expectations was a
+PREDICTION: no scratch flip built, because two theorems in `Main.lean`'s
+import closure are true only under a gate — `blockParts?_k1`
+(`Kernel/Inductives/BlockParts.lean`) under `blockRouteK1Only`, and
+`checkBlockS_one` (`Cached/CheckerC.lean:345`) under
+`blockRecCheckOn = false`, the second of which nobody had listed.  Both
+now take the gate as an explicit hypothesis and their nine call sites
+pass `rfl`; with both gates flipped `lake build con-leche` succeeds
+(154/154), which is the property, proved rather than argued.  The
+layering rule is what makes this enough: the implementation never
+imports the theory tiers, so the EXECUTABLE builds under a flip even
+while the Verify/Model tiers do not.
+
+**e2e: 6 of 261 rows move; no accept is lost and no `bad` stream
+becomes accepted.**  Four are confirmed predictions
+(`mutual_rec_rules_swapped`, `mutual_rec_missing_rule`,
+`corner_rec_two_recursors`, `corner_rec_two_callees`).  **Two are
+accept GAINS nobody predicted, both matching official**:
+`mutual_struct_proj` (decline → accept) is the residual class the
+mutual rung owed — a reflexive member inside a mutual block — and
+`ind_defhead_mutual` (decline → accept) is the #206 audit's crack C3,
+whose `TODO(#206-A3) official: 0` can go.  Many rows keep their verdict
+but gain official's own message and position ("parameters of all
+inductive datatypes must match", "mutually inductive types must live in
+the same universe") in place of a message about a generated `_model`
+record.
+
+**arena: zero verdict moves** (138/138).  `bad/tutorial/135` and
+`bad/tutorial/136` reject through `blockRecNameSetOk`, which is exactly
+what that check exists for.  All 34 `nested_*` rows and both `_nomodel`
+twins are unchanged.
+
+**Predictions: 26 confirmed, 5 refuted.**  Three refutations are
+bookkeeping (`corner_rec_no_ih`'s row should be 1 — the BLOCK is
+accepted, the superset is real, and it is the stream's own `Nat'.add`
+that then fails against the ih-free eliminator; `corner_rec_extra_binder`
+never reaches a route at all, the export-record validator rejects the
+minor count; `corner_pin_quot_bad`/`corner_pin_eq_bad` are about the
+nested arm, a later milestone).  **One is real and is a DECISION, below.**
+
+**`tests/inmodel.sh`** needs a change at the flip: `inmodel_mutual`,
+`inmodel_mutual_idx` and `ind_mutual_three` model zero blocks, so no
+dump is written and the script fails on its own assumption.
+
+**The flip's price, measured: 16 declarations in 9 files, ~250 lines**
+(found by sorry-to-fixpoint, so the list is exhaustive).  The five
+bridge/cached consumers are confirmed; `BlockOne*.lean` is far narrower
+than its file sizes suggest (4 declarations of 344 lines, 1 of 583, and
+`BlockOneFueled.lean` untouched); `declBlock_one` is **already dead**
+(zero consumers — `Model/Fold.lean` goes through `blockParts?_toNative`),
+so deleting it costs nothing and removes a red site.  **REFUTED: the
+`Fix*` k=1 tower, `BConst.lfpFam` and `BlockData.nInst`/`N` do not go
+red at all** and must not be priced into the flip.  One site was not on
+anyone's list: `blockRecHpref_run` (`Model/Inductives/BlockRecPreRun.lean:4185`)
+relies DEFINITIONALLY on `rulePrefixAt i = rulePrefixAt 0`.
+
+#### FINDING → OPEN DECISION (F6a): the primitive-recursion guard does not abstract a defeq-but-not-syntactic argument vector
+
+`corner_rec_call_redex` was predicted to be an accept-superset.  It
+REJECTS: "the rule of `Iter.step` is not a primitive recursion — a
+block recursor occurs outside a call on a recursive field".  The guard
+matches the call's argument vector SYNTACTICALLY, so a redex in an
+argument (defeq to the field, not syntactically it) is not recognised
+as a guarded call.  This is conservative — a reject, never an accept —
+so it is not a soundness matter, and per `restrictions-are-findings` it
+is reported rather than silently kept.  Either the guard should whnf
+the argument vector before matching, or DESIGN's description of it
+should be corrected; the fixture's comment records today's verdict
+either way.
+
+#### OPERATIONAL FINDING (F6a): `ulimit -v` is the wrong instrument for this binary
+
+`ulimit -v 16000000` — the recipe in `CLAUDE.md` — **aborts**
+`con-leche` with `lean::exception: failed to create thread` (exit 134),
+because the worker-thread pool's virtual reservation exceeds the cap;
+22 GB aborts too.  `tests/arena.sh` uses `timeout` alone and always
+has.  An `exit 134` from a memory-capped run is therefore not a checker
+crash, and the recipe needs correcting (maintainer's file).
+
+#### LANDED (lane RM25 = M5M-rule session 1, `19afd393`): the small-elimination arm's `hih` is CLOSED
+
+**M5M-rule (2026-09-22, `agent/uinds-RM25`): the IND arm's `hih` is
+closed — the two-frame bridge, and the recursor type's binder shape
+in both directions.**  The IND leaf is proved at the BLOCK's frame
+(parameters, earlier fields, telescope) and the rule body's guarded
+call is read at the RULE's frame (the recursor prefix, ALL the
+fields, telescope); the two agree nowhere past the telescope,
+because `consList` puts the last value at index 0.  The bridge is
+therefore the evaluation of the rule lane's own move, `ihIdxAtM`:
+its outer lift cancels the prefix's extra binders and its inner lift
+the later fields (`interp_ihIdxAtM_rule`, `spineFit_ihTeleAtR_rule`,
+`interp_fieldApp_rule` — the telescope's version carries the same
+cancellation down the spine, and is blind to `rebit` because binder
+numerals do not reach a fit).  `BlockRecTyShape` then states ONCE
+what the stored recursor type is — `rP` binders, the eliminated
+member's index telescope, the major — and both directions follow:
+`blockRecSplitAt_of_shape` is `BlockRecSplitAt`, which had no
+producer, and `blockRecJoin_of_shape` is its converse, the `hjoin`
+the leaf needs.  Its parameter clause is an implication between
+FITS, not a syntactic equality: the recursor stream stores its own
+copy of the parameter binders and the checker only ever compares
+readings.  With those, `blockIndRegime_run` drops `hihLeaf` and
+`BlockRecSplitAt` and takes the shape, the rule's per-key syntactic
+data, `hpdE`, `blockRecHpref_runK`'s transfer and the conclusion's
+boundedness — all run-level.  The callee's `xs.length = rP c'` needs
+no shared-prefix premise: it comes out of the callee guard's own
+length through the shape's binder count.
+
+**Four method findings.**  (i) *A syntactic premise between two STORED
+copies is the wrong currency*: the shape's parameter clause was first an
+equality between the recursor stream's copy of the parameter binders
+and the block's — nothing at the run pays that, because the checker
+only ever compares READINGS.  As an implication between fits it is
+strictly weaker, is what both consumers use, and is what the existing
+machinery delivers.  The test: *does the checker ever compare the two
+spellings?*  (ii) *Quantify a lifting identity freely* — the shape's
+lifting clauses range over every prefix spine of the right length with
+no fit hypothesis, sound precisely because a lift does not read what it
+crosses (checked at `nIdx = 0`, `rP c = nP`, `m = 0`, and both ends of
+the field range).  (iii) *A length premise beat a sharing premise*: the
+audit's shared-prefix hypothesis looked required for the callee's
+`xs.length = rP c'` and is not — it falls out of the callee guard's own
+length through the shape's binder count.  (iv) *Restating beat
+instantiating*: the native route's `interp_ihIdxAtM` would have pushed
+`rP > nP` and an `o`-split into every consumer; restating the same
+proof at one prefix list cost five lines.
+
+#### LANDED (lane RM24 = M5M-pre session 21): `BlockRuleCerts`' syntactic half, its two segment readings, and the file off the `k = 1` gate
+
+The rule bundle's thirteen-argument list is seven rows shorter.  Every
+SYNTACTIC argument is closed — the constructor telescope's scoping at
+the rule prefix, the generated `ih` tower's scoping and closedness at
+the frame, the openers' bounded annotations, the residue's and the
+conclusion's bvar-closedness and leaf-containment, the three lengths —
+and so are the two owed segment READINGS, on one observation: the
+segments are spelled with `readOpenedDoms`, which is a reading BY
+CONSTRUCTION, so a segment owes only that its openers' readings EXIST
+(the witness list is built from the readings themselves).  `hF` is
+then `denoteMeta_openPis` at the constructor telescope's lifted
+reading and `hI` is the `ih` opener battery at the opener's OWN depth
+— `blockRuleHopener_of`'s part (4) without the walk's shift.
+`blockRuleCerts_of_openings` composes the bundle from the frame's
+three openings, leaving `hokA`, `hokC`, the two typing runs and the
+two term readings; `hokA` is split into three segments, each stated at
+its own frame, with the prefix segment discharged from §35.
+
+Two findings.  **The `hokA` field segment is not the constructor
+stage's**: `CtorDataI.okTy` grades the ctor's tower at the CTOR's
+parameters and the rule's frame supplies the RECURSOR's, which no rule
+run compares (the rule is `paramsBlind`) — the bridge is the check's
+own parameter chain (the recursor's parameter domains against the type
+former's, the ctor's against the former's) transferred by
+`prefixDoms_spineFit`, so that segment is a hop, not a projection
+(~1 session).  **And a gate's definitional collapse hides mis-typed
+arguments**: `rulePrefixAt i` and `rulePrefixAt 0` are definitionally
+equal while `blockRecCheckOn` is `false`, which is why
+`blockRecHpref_run` fed one recursor's opening where another's prefix
+count was expected.  Marking the gate constants `local irreducible`
+and re-elaborating reproduces the flip's typing with no flip: it named
+the three sites, and after the repair the whole file (6 600 lines)
+re-elaborates clean — a per-file red-census the flip lane can run on
+the remaining files at the cost of one elaboration each.
+
+---------------------------------------------------------------------
+
+**THE PROBE, as the flip's red-census instrument.**  Insert
+`attribute [local irreducible] ConLeche.blockRecCheckOn ConLeche.blockRouteK1Only`
+after a file's `variable` line (a file without one takes it after its
+`open`s), write the result to a scratch path, and elaborate that file
+alone against the built tree:
+
+```bash
+timeout 3000 env LEAN_PATH=.lake/build/lib/lean \
+  ~/.elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /tmp/flipscan.lean
+```
+
+Zero output = gate-clean; every error names a site that goes red at
+the flip.  Cost: one file's elaboration (~3 min for the 6 600-line
+`BlockRecPreRun.lean`).  **Two cautions.**  It is CONSERVATIVE for
+`blockRecCheckOn`: irreducibility blocks the branch that the flip
+merely changes, so surviving the probe implies surviving the flip and
+not conversely.  And it exercises only the file's OWN proofs — an
+imported lemma's gate reliance stays that lemma's file's census entry.
