@@ -8140,6 +8140,63 @@ theorem blockRuleCerts_of_run {envC : Env} {p : ConLeche.BlockParts}
 
 end CertsRun
 
+/-! ### 40.14 `hR` IS `hokC`, at the `ih` opener's peel
+
+The `ih` segment's first frame premise (`blockRuleIseg_of_run`'s `hR`)
+asks that the guarded call's CONCLUSION `conclA` be graded at the
+segment's frame.  That conclusion is not a new object: `hihOpen`
+(§blockIndRegime_run) exhibits it as `BlockRuleConclAt`, i.e. the
+CALLEE recursor's stored type read and peeled along the call's own
+spine — the prefix bvars, the moved index readings and the fired
+field — which is the very shape §40.11 states `hokC` at.
+
+So `hR` and `hokC` are ONE theorem at TWO frames: the rule's
+conclusion peels `RecTy c` at the rule's spine, the `ih` opener's
+peels `RecTy c'` at the call's.  Naming the seam is what keeps the two
+from being proved twice (§S24.6's duplication class); what it buys is
+that the segment's `hR` and the bundle's `hokC` now owe the SAME two
+facts — the tower fit and the instantiating readings' grading — and
+closing them once closes both.
+
+`h0` does NOT follow the same way, and §S24.12's note that it reduces
+to a fact the regime already names is wrong on more than the frame:
+`hTStep` is about the RULE's conclusion `Ca c j`, `h0` is about the
+`ih` opener's `CihR`.  Both are peels of a block recursor type at
+`ℓ = 0`, so the fact that closes them is the same GENERAL one — a peel
+of `RecTy c'` at a fitting spine lands in `univZero` when the
+elimination level is zero — and that lemma is not in the tree: `hT`
+(§5), `hTStep`, `hTReg` and `h0` are four premises of one missing
+producer. -/
+
+section IhConcl
+
+/-- **`hR` at the run** — `blockRuleHokC_of_run` at the CALLEE's
+recursor type and the `ih` call's own spine.  The peel premise is
+`hihOpen`'s `BlockRuleConclAt` verbatim, so the consumer passes what
+the regime already hands it. -/
+theorem blockRuleIhHR_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c' : Nat} {r' : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr' : rs[c']? = some r') (ψ : Name → Nat) {nF m : Nat} {eisA : List AnnotTerm}
+    {fapA conclA : AnnotTerm} {Δ : List AnnotTerm}
+    (hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') nF m
+      (blockRecTyAV mpC.base2.acval envC rs ψ c') eisA fapA conclA)
+    (hfit : ∀ ρ : Nat → V, Sat V Δ ρ →
+      ∃ rest, TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c')
+        (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+          (p.toBlockShape.rulePrefixAt c' + nF + m) ++ eisA ++ [fapA]) rest)
+    (hargs : ∀ ρ : Nat → V, Sat V Δ ρ →
+      ∀ a ∈ paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+        (p.toBlockShape.rulePrefixAt c' + nF + m) ++ eisA ++ [fapA],
+        WellDenotedV V ρ a) :
+    ∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ conclA :=
+  blockRuleHokC_of_run hμ mpC h hr' ψ hcon hfit hargs
+
+end IhConcl
+
 end CertsArgs
 
 end ConLeche.Model
