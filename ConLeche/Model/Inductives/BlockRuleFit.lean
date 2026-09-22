@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockModel
 
@@ -1702,5 +1704,77 @@ the recursors"); it was not a theorem, it was a missing guard, and the
 difference is one grep of `checkBlockRule` for what constrains
 `ldoms`. -/
 
+
+/-! ## 8. `ihs` PINNED — the ih openers' terms at the rule's frame
+
+`BlockRuleDataB` carries six function variables and four of them are
+pinned by equations in `blockRuleDataB_of_residue`'s own signature
+(`hpd`/`hfdD`/`hesD`/`hmkD`).  `ihs` was the odd one out, and it was
+priced as the ASSEMBLY's only because nobody looked at how its
+siblings are handled: the producer pins them, and `ihs` needs exactly
+the same treatment.
+
+**The definition was already in the tree.**  `blockRecIhsAt`
+(`BlockRecPreRun.lean` §30) is "the `ihs` BOTH lanes state their facts
+at", one `ihFunAV` per key; what was missing is its instantiation at
+the RULE's per-key data — the field's MOVED telescope, its index
+readings moved with it, and the field applied along the telescope —
+which is exactly what `ihSpineFold_blockRec_run`'s `hihv` spells out
+on its right-hand side.  `blockRuleIhsAV` is that instantiation, and
+`hihv` is then `List.getD` of a `map`. -/
+
+section IhsPin
+
+open ConLeche (BlockRuleFrame pairIdxOf? structFieldTeleOf)
+
+/-- **`ihs` at ONE rule's frame** — `blockRecIhsAt` at the rule's own
+per-key syntactic data: field `i`'s telescope moved to the frame
+(`ihTeleAtR`, at the block's elimination bit), its index readings
+moved with it (`ihIdxAtM`) and the field applied along the telescope's
+own variables.
+
+The three `fun i => …` are read off `hihv`'s right-hand side
+verbatim; `tlF` and `EisF` are the CONSTRUCTORS' stage's field
+readings (`FieldReadAt`), which is where the ψ-dependence enters. -/
+@[expose] def blockRuleIhsAV (ℓ K o : Nat) (fr : BlockRuleFrame) (cty : Expr)
+    (ψ : Name → Nat) (tlF : Nat → List (Nat × Nat × AnnotTerm))
+    (EisF : Nat → List AnnotTerm) : List AnnotTerm :=
+  blockRecIhsAt ℓ K fr.rP fr.nF fr.ihKeys
+    (fun i => ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+    (fun i => (EisF i).map (ihIdxAtM fr.nF o i 0 (structFieldTeleOf cty fr.nP fr.nF i).length))
+    (fun i => AnnotTerm.mkAppN
+      (.bvar (fr.nF - 1 - i + 0 + (structFieldTeleOf cty fr.nP fr.nF i).length))
+      (teleVarsAV (structFieldTeleOf cty fr.nP fr.nF i).length))
+
+@[simp] theorem blockRuleIhsAV_length (ℓ K o : Nat) (fr : BlockRuleFrame) (cty : Expr)
+    (ψ : Name → Nat) (tlF : Nat → List (Nat × Nat × AnnotTerm))
+    (EisF : Nat → List AnnotTerm) :
+    (blockRuleIhsAV ℓ K o fr cty ψ tlF EisF).length = fr.nR := by
+  rw [blockRuleIhsAV, blockRecIhsAt_length]
+  rfl
+
+/-- **`hihv`, from the pinning** — `ihSpineFold_blockRec_run`'s and
+`blockRuleBodyEq_run`'s second block fact, at the values the lane's
+own `ihs` reads to.  No content beyond `List.getD` of a `map`: the key
+at position `r` IS `(i, c')` (`pairIdxOf?_getElem?`). -/
+theorem blockRuleHihv_of {ℓ K o : Nat} {fr : BlockRuleFrame} {cty : Expr}
+    {ψ : Name → Nat} {tlF : Nat → List (Nat × Nat × AnnotTerm)}
+    {EisF : Nat → List AnnotTerm} {σ : Nat → V} :
+    ∀ (i c' r : Nat), pairIdxOf? fr.ihKeys (i, c') = some r →
+      ((blockRuleIhsAV ℓ K o fr cty ψ tlF EisF).map (interp V σ)).getD r pt
+        = interp V σ
+            (ihFunAV ℓ K c' fr.rP fr.nF
+              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
+              ((EisF i).map (ihIdxAtM fr.nF o i 0 (structFieldTeleOf cty fr.nP fr.nF i).length))
+              (AnnotTerm.mkAppN
+                (.bvar (fr.nF - 1 - i + 0 + (structFieldTeleOf cty fr.nP fr.nF i).length))
+                (teleVarsAV (structFieldTeleOf cty fr.nP fr.nF i).length))) := by
+  intro i c' r hr
+  have hk : fr.ihKeys[r]? = some (i, c') := pairIdxOf?_getElem? hr
+  rw [blockRuleIhsAV, blockRecIhsAt, List.map_map, List.getD_eq_getElem?_getD,
+    List.getElem?_map, hk]
+  rfl
+
+end IhsPin
 
 end ConLeche.Model

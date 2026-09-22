@@ -2132,6 +2132,67 @@ theorem blockRuleResidueData_run {envC : Env} {p : BlockParts} {cvTas : List Con
   · rw [hpref, hffvs]; exact hopIh
   · rw [hpref, hffvs, hcbody]; exact hconcl
 
+/-! ### The two peels' BODIES are one term
+
+`blockRuleData_run` returns the `instLamsAt` run — the rule's λ-domains
+and its residual `lrest` — and `blockRuleResidueData_run` the
+`stripLams` run — the binder list and the bvar-form `body` that
+`abstractIh` is applied to.  The two are the SAME peel at two
+spellings, and the residue's consumers need them identified: the body
+equation reads `body.instantiateList as1 0` (`interp_blockResidue`'s
+`hA`), while the tower's reading is stated at `lrest`
+(`blockRuleTower_run`).  The identification is generic and costs one
+induction: `instLamsAt` instantiates each binder as it peels, which is
+`instantiateList` at the reversed opener list
+(`instantiateList_append_one` is the step). -/
+
+omit [SetTheory V] in
+/-- **`instLamsAt`'s residual IS the stripped body, opened.**  A term
+that λ-peels `as.length` binders both ways: `instLamsAt` returns the
+body with every binder instantiated, which is `instantiateList` at
+`as.reverse` — the head of the reversed list is the INNERMOST binder,
+which is the one `instantiate1` applies first. -/
+theorem instLamsAt_rest_eq :
+    ∀ (as : List ConLeche.Expr) {e : ConLeche.Expr} {ds : List ConLeche.Expr}
+      {rest : ConLeche.Expr} {bs : List (ConLeche.Expr × ConLeche.BinderMeta)}
+      {body : ConLeche.Expr},
+      ConLeche.Expr.instLamsAt as e = some (ds, rest) →
+      ConLeche.Expr.stripLams as.length e = some (bs, body) →
+      rest = body.instantiateList as.reverse 0 := by
+  intro as
+  induction as with
+  | nil =>
+    intro e ds rest bs body h1 h2
+    simp only [ConLeche.Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h1
+    simp only [List.length_nil, ConLeche.Expr.stripLams, Option.some.injEq,
+      Prod.mk.injEq] at h2
+    obtain ⟨-, rfl⟩ := h1
+    obtain ⟨-, rfl⟩ := h2
+    rw [List.reverse_nil, ConLeche.Expr.instantiateList_nil]
+  | cons a as ih =>
+    intro e ds rest bs body h1 h2
+    match e with
+    | .lam d b m =>
+      simp only [ConLeche.Expr.instLamsAt, Option.map_eq_some_iff] at h1
+      obtain ⟨⟨ds₀, rest₀⟩, hin, heq⟩ := h1
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      simp only [List.length_cons, ConLeche.Expr.stripLams, Option.map_eq_some_iff] at h2
+      obtain ⟨⟨bs₀, body₀⟩, hst, heq2⟩ := h2
+      simp only [Prod.mk.injEq] at heq2
+      obtain ⟨-, rfl⟩ := heq2
+      -- the instantiated tower still peels, and its body is the body instantiated
+      have hsome : ((b.instantiate1 a 0).stripLams as.length).isSome :=
+        ConLeche.Expr.stripLams_instantiate1_isSome as.length 0 (by rw [hst]; rfl)
+      obtain ⟨⟨bs', body'⟩, hst'⟩ := Option.isSome_iff_exists.mp hsome
+      obtain ⟨hbody', -⟩ := ConLeche.Expr.stripLams_instantiate1_eq as.length 0 hst hst'
+      have hres := ih hin hst'
+      rw [hres, hbody', List.reverse_cons,
+        ConLeche.Expr.instantiateList_append_one as.reverse body₀ a 0,
+        List.length_reverse]
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _
+    | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
+      exact absurd h1 (by simp [ConLeche.Expr.instLamsAt])
 
 end Peel
 
