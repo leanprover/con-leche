@@ -1810,7 +1810,17 @@ it; and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
 conjunct of the contract is a KIT-regime statement: at `ℓ = 0` the
 rule's obligation is discharged by `blockRecPre_ind_run` instead, and
 the ih values are the point.  The `w`-guard's arm and the
-elimination-level arm are therefore not independent. -/
+elimination-level arm are therefore not independent.
+
+**The composition CALLS the composed statement.**  This wiring is
+`blockRuleBodyEq_run`'s only consumer, and for one session it inlined
+that theorem's eight-line proof instead of calling it — which is
+exactly what hid the defect the call has since exposed: `hop0` and
+`hop2` shared one binder, so the premise set had no instance at
+`fr.nF ≥ 1` (the binder is split now, `cmid` is `hop2`'s own).  A
+composed statement that is CALLED is the only thing that keeps its
+premise set honest; an inlining proves the PROOF composes and says
+nothing about the STATEMENT. -/
 
 section BodyEqRun
 
@@ -1976,9 +1986,6 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
   have hLpf' : FvarList (fr.rP + fr.nF)
       (blockRulePrefFvs p.toBlockShape rs c
         ++ blockRuleFieldFvs p.toBlockShape rs c i).reverse := hLpf
-  have hpflen' : (blockRulePrefFvs p.toBlockShape rs c
-      ++ blockRuleFieldFvs p.toBlockShape rs c i).length = fr.rP + fr.nF := by
-    rw [hpflen, hfrR, hfrF]
   -- the checked rule's own scoping, through `stripLams`
   obtain ⟨-, -, -, -, hallRhs⟩ :=
     ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
@@ -1997,9 +2004,7 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
       (ihTele.instantiateList (blockRulePrefFvs p.toBlockShape rs c
         ++ blockRuleFieldFvs p.toBlockShape rs c i).reverse) (fr.rP + fr.nF)
       = some (fvsIh, bodyO) := by rw [hfrR, hfrF]; exact hopen
-  -- the walk's context, and the fold at the frame's own data
-  have hW := walkCtx_blockFrame (V := V) (mT := mpC.base2) (ψ := ψ) hop1 hop2 hopIh
-    hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
+  -- the residue's own bounds
   have hbT : resid.looseBVarsBounded (fr.rP + fr.nF + fr.nR) = true := by
     have hq := abstractIh_looseBVarsBounded (B := fr.rP + fr.nF) hab
       (by rw [Nat.zero_add, hfrR, hfrF]; exact hbB)
@@ -2040,24 +2045,24 @@ theorem blockRuleBodyEq_at_run {mpC : EnvModelM V μ envC}
         rw [← consList_append, ← consList_append]
         exact consList_below_indep _ _ _ q
           (by rw [List.length_append, hxfl, hihvl]; omega))]
-  refine interp_blockResidue (Δa := ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
-    (F := fr.rP + fr.nF) (blockRuleHaclN m₃) mpC.base2.acval_closed hin
+  exact blockRuleBodyEq_run (mo := m₃) (mT := mpC.base2) (F := fr.rP + fr.nF)
+    (o := fr.rP - fr.nP) (ℓ := ℓ) (K := rs.length) (cty := cA.1.type)
+    (fvs0 := fvs0) (crest := crest0) (cmid := blockRuleCrest p.toBlockShape rs c i)
+    (tlF := tlF) (EisF := EisF) (recTyOf := fun c' => recTys.getD c' (.sort .zero))
+    (σchain := chainFrame rs.length a ρ)
+    hin
     (fun sn q => (findProj?_consBlockRecs (fun r₀ hr₀ => (hcv r₀ hr₀).2.2.1) sn q).symm)
     (fun D y ya hcby hy => blockRecDenote_cross h hac ψ D y hcby hy)
+    (by omega) rfl (by omega) hxl hfsl hℓ
     (by rw [List.length_map, blockRuleIhsAV_length])
-    (ihSpineFold_blockRec_run (mo := m₃) (mT := mpC.base2) (o := fr.rP - fr.nP)
-      (ℓ := ℓ) (K := rs.length) (cty := cA.1.type) (fvs0 := fvs0) (crest := crest0)
-      (tlF := tlF) (EisF := EisF) (recTyOf := fun c' => recTys.getD c' (.sort .zero))
-      hin (fun D y ya hcby hy => blockRecDenote_cross h hac ψ D y hcby hy)
-      (by omega) rfl (by omega) hxl hfsl hℓ
-      (by rw [List.length_map, blockRuleIhsAV_length])
-      hop0 hCf hCb hstripC hcb htele' hidxF' htlen hfld hrecTy
-      (by rw [hfrP, hfrR, hfrF]; exact hpis) hihfv hLpf' hopIh rfl hpflen'
-      (blockRuleHcallee_of h hndM (fun r₀ hr₀ => (hcv r₀ hr₀).1) hleafCl hac hnames hrlvls
-        hlps0 ha rfl)
-      blockRuleHihv_of)
-    (List.suffix_refl _) hab hbf (by rw [hfrR, hfrF]; exact hbB) hcbe hbT hLpf' h2' hW
-    hcoreA hB' (by rw [hfrR, hfrF]; exact hty)
+    hop0 hCf hCb hstripC hcb htele' hidxF' htlen hfld hrecTy
+    hop1 hop2 (by rw [hfrP, hfrR, hfrF]; exact hpis) hihfv hLpf' hopIh
+    (blockRuleHcallee_of h hndM (fun r₀ hr₀ => (hcv r₀ hr₀).1) hleafCl hac hnames hrlvls
+      hlps0 ha rfl)
+    blockRuleHihv_of
+    hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
+    hab hbf (by rw [hfrR, hfrF]; exact hbB) hcbe hbT hLpf' h2' hcoreA hB'
+    (by rw [hfrR, hfrF]; exact hty)
 
 end BodyEqRun
 
