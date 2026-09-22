@@ -744,7 +744,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       exact Bool.false_ne_true
     exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
   refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC (by rw [hNk]; exact hk0) hlenPps
-    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_
+    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_
   -- the operator's premise bundle, at the REAL chains
   · intro ψ ρp hsat
     rw [hNk]
@@ -775,6 +775,15 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [hFsEq]
     have hfr := hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hjc)
     exact (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c hc ρ).mp hsat))).1
+  -- the constructors' RESULT index readings fit the component's telescope
+  · intro ψ ρ hsat c hc j hj fs hfs
+    have hjc := hcAof c j hj
+    have hfr := hS.frames c (by rw [← hNk]; exact hc) j _ hjc
+    have hFs : SpineFit ρ (((d.dsF c j ψ).drop d.nP).map (·.2.2)) fs := by
+      rw [← hFssD ψ c j _ hjc]; exact hfs
+    have hq := (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c hc ρ).mp hsat))).2.2 fs hFs
+    rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hjc]
+    exact hq
 
 /-! ## 9. The WF kit's MOTIVE
 
@@ -2244,7 +2253,8 @@ where `SpineFit.append` does:
 
 The two identities this takes are named premises in their owners'
 spelling: `hfd` is RM11's `blockRuleFdomsAV_eq` composed with the
-record's `ds`/`Fss` identification, and `hslot` is the slot-to-domain
+record's `ds`/`Fss` identification — §27's `blockRuleFdomsAV_datum`
+since session 10 — and `hslot` is the slot-to-domain
 step at the block's own carrier (`BlockCtorDataI.recEntry`/`.reflEntry`
 through `BlockModelAt.leaf`, the shape `blockChainReal_of` already
 discharges against the stage's tower).
@@ -2589,7 +2599,13 @@ readings BE the components of the tuple the rule picks
 * `interp_liftN_rule` (§23) at the index expressions, which are single
   forms rather than a binder list;
 * RM11's `es0` (`blockRuleEsAV_eq`) composed with the record's
-  `Es`/`Ess` identification, a named premise here. -/
+  `Es`/`Ess` identification, the ONE named premise left here.
+
+Session 10: the retraction's own hypothesis — that the result index
+readings FIT the member's index telescope — is no longer a premise
+either.  It is `BlockModelAt.resIdxFit`, the constructor's typing read
+off the representation, and it is `idxFit` one position along (§25's
+is at a recursive FIELD, this one at the RESULT). -/
 
 section CtorIdx
 
@@ -2606,29 +2622,57 @@ theorem projS_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxO
       List.getElem?_eq_getElem (by omega), Option.getD_some]
 
 /-- **`hctorAt`'s second conjunct at the run**: the constructor's
-result index readings are the components of the rule's index tuple. -/
+result index readings are the components of the rule's index tuple.
+
+Since session 10 the fit of those readings in the member's own index
+telescope is not a premise but `BlockModelAt.resIdxFit` — the
+constructor's typing, read off the representation — so the theorem's
+only named premise is RM11's `es0` (`blockRuleEsAV_eq`) composed with
+the record's `Es`/`Ess` identification. -/
 theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
-    {p : ConLeche.BlockParts}
+    {names : List Name} {p : ConLeche.BlockParts}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {c i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat} {a ρ : Nat → V} {xs fs : List V}
     {cA : ConstantVal × Nat}
+    (hM : BlockModelAt mpC.base2 names d)
     (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = ((d.Ess (mem c) ψ).getD j []).map (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
     (hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c)
     (hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2)
     (hxs : xs.length = p.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
-    (hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length)
-    (hIdx : IdxOk (d.uM (mem c) ψ) (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ))
-    (hEsFit : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ)
-      ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
-        (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) :
+    (hmem : mem c < d.N) (hjc : j < (d.ctorsM (mem c)).length)
+    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
+    (hsf : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs) :
     ∀ l, l < (d.IdsM (mem c) ψ).length →
       interp V (consList fs (consList (xs.take d.nP) ρ))
           (((d.Ess (mem c) ψ).getD j []).getD l default)
         = projS l (d.tup ψ (mem c)
             ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
               (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) := by
+  have hsat : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ) := d.satOfSpine hps
+  have hIdx : IdxOk (d.uM (mem c) ψ) (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ) :=
+    hM.idxOk ψ _ hsat (mem c) hmem
+  have hres := hM.resIdxFit ψ _ hsat (mem c) hmem j hjc fs hsf
+  have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
+    have hq := hres.length_eq
+    rwa [List.length_map] at hq
+  have hEsK : blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map fun e =>
+          (e.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2).liftN K
+            (p.toBlockShape.rulePrefixAt c + cA.2) := by
+    rw [blockRecEsK, hes, List.map_map, hpl, hfl]
+    rfl
+  have hmapEq : (blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (interp V (consList fs (consList (xs.take d.nP) ρ))) := by
+    rw [hEsK, List.map_map]
+    exact List.map_congr_left fun e _ => interp_liftN_rule (nP := d.nP) hxs hfs e
+  have hEsFit : SpineFit (consList (xs.take d.nP) ρ) (d.IdsM (mem c) ψ)
+      ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (interp V (consList (xs ++ fs) (chainFrame K a ρ)))) := by
+    rw [hmapEq]; exact hres
   intro l hl
   have hlt : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
   have hmapGetD : ∀ (L : List AnnotTerm) (G : AnnotTerm → V), l < L.length →
@@ -2637,15 +2681,61 @@ theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData 
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hL,
       Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem hL, Option.getD_some]
-  have hEsK : blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c i
-      = ((d.Ess (mem c) ψ).getD j []).map fun e =>
-          (e.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2).liftN K
-            (p.toBlockShape.rulePrefixAt c + cA.2) := by
-    rw [blockRecEsK, hes, List.map_map, hpl, hfl]
-    rfl
   rw [BlockData.tup, projS_tupW hIdx hEsFit hl, hEsK, List.map_map, hmapGetD _ _ hlt]
   exact (interp_liftN_rule (nP := d.nP) hxs hfs _).symm
 
 end CtorIdx
+
+/-! ## 27. `hfd` — the rule's field domains ARE the constructor's
+(session 10)
+
+The last named premise of §24 (and so of `hspF` and of `hctorAt`'s fit
+half).  RM11's `blockRuleFdomsAV_eq` already says that the rule's
+field domains are the CONSTRUCTOR's own binder readings lifted past
+the recursor prefix's extra `rP − nP` binders; what it states them at
+is the `BlockCtorDataI` record's `ds`, and what the consumer wants is
+the datum's `d.Fss`.  The two are the same list
+(`fssOfR_fixCtorDataList_getD`: the datum's field chain at
+constructor `j` IS `d.dsF` dropped past the parameters), so the
+composition is a rewrite.
+
+Its inputs are the stage's: `BlockCtorsCore` supplies both the
+constructor's reading record and — through the stored `ctorInfo` and
+the environment's well-formedness — the fvar-freeness of its type,
+which `blockRuleFdomsAV_eq` asks for and nothing else in the run
+carries.  The rule's constructor and the member's are named by the
+SAME `cA` (`blockRecMkK_value`'s pattern), so no equation between the
+two positions `i` and `j` is needed. -/
+
+section RuleFdoms
+
+/-- **`hfd` at the run**: the rule's field domains are the datum's own
+field chain, lifted past the recursor prefix's extra binders. -/
+theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTasAll p₁ isRec A d.k)
+    {mem : Nat → Nat} {j : Nat} (hmemk : mem c < d.k)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []) := by
+  have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
+  have hCf : cA.1.type.hasFvar = false :=
+    (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  rw [hdnP] at hcd
+  have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
+
+end RuleFdoms
 
 end ConLeche.Model

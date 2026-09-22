@@ -345,8 +345,10 @@ remaining hypotheses are the stages' own facts: the operator's premise
 bundle at every parameter frame (`hok`), the data's lengths, the
 parameter-telescope interchanges the members and the constructors were
 checked to agree on (`hparams`, `hparamsC` — `blockParamsIff` and
-`ctorFramesGen` at the run), and the per-field target readings
-(`htgts`). -/
+`ctorFramesGen` at the run), the per-field target readings (`htgts`)
+and the constructors' result index fit (`hresFit`, the constructors'
+typing: their result applications were inferred at the opened
+telescope). -/
 theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List Name}
     {d : BlockData V}
     -- what the representation IS
@@ -388,7 +390,12 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       ∀ ρ : Nat → V,
       Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ)
     (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
-      ∀ c, c < d.N → SumFieldsOkB (d.w ψ) ρ (uChains (d.Fss c ψ))) :
+      ∀ c, c < d.N → SumFieldsOkB (d.w ψ) ρ (uChains (d.Fss c ψ)))
+    -- the constructors' RESULT index readings fit the component's telescope
+    (hresFit : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
+      ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+      ∀ fs : List V, SpineFit ρ ((d.Fss c ψ).getD j []) fs →
+      SpineFit ρ (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρ)))) :
     BlockModelAt mo names d := by
   have hlenParams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
       (((d.ppsM c ψ).take d.nP).map (·.2.2)).length = d.nP := by
@@ -412,7 +419,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       omega
     exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
-  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, hresFit, ?_, ?_⟩
   · -- idxOk
     intro ψ ρp hρ c hc
     exact (hok ψ ρp hρ).hI c hc
