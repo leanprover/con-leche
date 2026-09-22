@@ -567,6 +567,62 @@ theorem instantiateList_split :
       instantiateList_split P' L e (d + 1), List.cons_append,
       Expr.instantiateList_cons (P' ++ L) e v d]
 
+/-- **`blockIhPis`' binder list**: the generator's `q`-th `∀` is the
+key `is[q]`'s own domain, at `ih` level `l + q` — which is why the
+opener's reading lands at level `r` (`M5M-opener-REPORT.md` §3) and
+why the domains are `r`-independent apart from that level. -/
+theorem stripPis_blockIhPis {nP rP nF : Nat} {pw : ConLeche.PropWhen} {recTyOf : Nat → Expr}
+    {teleOf : Nat → List (Expr × ConLeche.BinderMeta)} {idxOf : Nat → List Expr} :
+    ∀ (is : List (Nat × Nat)) (l : Nat) (body ihTele : Expr),
+      ConLeche.blockIhPis nP rP nF pw recTyOf teleOf idxOf is l body = some ihTele →
+      ∃ bs : List (Expr × ConLeche.BinderMeta),
+        ihTele.stripPis is.length = some (bs, body) ∧ bs.length = is.length ∧
+        ∀ (q i c : Nat), is[q]? = some (i, c) →
+          ∃ concl : Expr,
+            Expr.instPisAtLift
+                (ConLeche.blockRulePrefixVars rP nF (l + q + (teleOf i).length) ++
+                  (idxOf i).map
+                    (ConLeche.structIdxAt nF (rP - nP) i (l + q) (teleOf i).length) ++
+                  [Expr.mkAppN (.bvar (nF - 1 - i + (l + q) + (teleOf i).length))
+                    (ConLeche.structTeleVars (teleOf i).length)])
+                (recTyOf c) = some concl ∧
+            bs[q]? = some (Expr.mkPisOf
+              (ConLeche.structTeleAt nF (rP - nP) i (l + q) pw (teleOf i)) concl, ⟨pw⟩)
+  | [], l, body, ihTele, h => by
+    rw [ConLeche.blockIhPis] at h
+    obtain rfl : ihTele = body := (Option.some.inj h).symm
+    exact ⟨[], rfl, rfl, fun q i c hq => nomatch hq⟩
+  | (i, c) :: is, l, body, ihTele, h => by
+    rw [ConLeche.blockIhPis] at h
+    split at h
+    · exact nomatch h
+    · next concl hconcl =>
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨rest, hrest, rfl⟩ := h
+      obtain ⟨bs, hst, hlen, hidx⟩ := stripPis_blockIhPis is (l + 1) body rest hrest
+      refine ⟨(Expr.mkPisOf (ConLeche.structTeleAt nF (rP - nP) i l pw (teleOf i)) concl,
+        ⟨pw⟩) :: bs, ?_, by simp [hlen], ?_⟩
+      · rw [List.length_cons, ConLeche.Expr.stripPis, hst]
+        rfl
+      · intro q i' c' hq
+        cases q with
+        | zero =>
+          have hqq : (i, c) = (i', c') := by simpa using hq
+          injection hqq with e1 e2
+          subst e1; subst e2
+          refine ⟨concl, ?_, ?_⟩
+          · rw [show l + 0 = l from by omega]
+            exact hconcl
+          · rw [show l + 0 = l from by omega]
+            simp
+        | succ q =>
+          obtain ⟨cl, h1, h2⟩ := hidx q i' c' (by simpa using hq)
+          refine ⟨cl, ?_, ?_⟩
+          · rw [show l + (q + 1) = l + 1 + q from by omega]
+            exact h1
+          · rw [show l + (q + 1) = l + 1 + q from by omega, List.getElem?_cons_succ]
+            exact h2
+
 /-- **G3, in the form a consumer can use.**  A `.full`-inferred spine
 whose head's inferred type is pinned (an fvar's is: `Infer.fvar`
 reads the stored annotation) and is a literal Π-tower IS a `Certs`
