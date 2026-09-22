@@ -65,6 +65,29 @@ FALLBACK = {
     # identifier BlockRecSplitAt` with the compiler naming the line back.
     ('ConLeche.Model.Inductives.BlockRuleFit',
      'ConLeche.Model.Inductives.BlockRecPreRun'),
+    # task #315 (M5, the pre-run file, session 22): `BlockRecPreRun.lean`'s
+    # four re-exports, each MEASURED by demoting it alone and watching the
+    # build fail — the #290 blind class four times over, a plain import
+    # being invisible to a PUBLIC statement.  They became demotion
+    # candidates for the first time when the file grew §40.7/§40.8 (the
+    # census row grew by 56 constants), which is the greedy fixpoint's
+    # order-dependence again, one entry below the `BlockRuleFit` one.
+    #   BlockRecTyping  — `BlockRecTyShape`, named by `blockIndRegime_run`
+    #                     and its satellites (`Unknown identifier
+    #                     BlockRecTyShape` at `:5300`);
+    #   BlockRecSqI     — `tagIdx` (`:4386`);
+    #   BlockRecWfI     — `WfRecKit`/`wfData`, the WF regime's kit
+    #                     (`:398`, `:410`);
+    #   BlockRecData    — `blockRecTyAV`, which nearly every public
+    #                     statement of the file names (`:521`).
+    ('ConLeche.Model.Inductives.BlockRecPreRun',
+     'ConLeche.Model.Inductives.BlockRecTyping'),
+    ('ConLeche.Model.Inductives.BlockRecPreRun',
+     'ConLeche.Semantics.Tower.BlockRecSqI'),
+    ('ConLeche.Model.Inductives.BlockRecPreRun',
+     'ConLeche.Semantics.Tower.BlockRecWfI'),
+    ('ConLeche.Model.Inductives.BlockRecPreRun',
+     'ConLeche.Model.Inductives.BlockRecData'),
     # task #315 (M5, same session): the entry above is a NEW public edge,
     # and the plan's fixpoint is greedy and order-dependent, so it made
     # `FixAssemblyKit -> FixWitness` look demotable for the first time —

@@ -82135,3 +82135,107 @@ nothing is preserved that was true.
 both are one reading of the generated `blockIhPis` opener, and
 `ihNodeVal_blockRec`'s own hypothesis has no producer and that theorem
 has no callers at all.
+
+#### LANDED (lane RM28 = M5M-pre session 22, `97e18469`)
+
+#### LANDED (lane RM28 = M5M-pre session 22): the generated `ih` tower's two syntactic facts, and the field segment's constructor half
+
+`blockIhPis` is the one piece of a rule's frame the kernel never
+types — the check opens the tower and types only the residue under it
+— so its freedom from free variables and its bound at the rule
+frame's depth were premises on both the pre-run lane and the opener
+lane.  Both are now theorems, by an induction over the generator with
+the two capture-avoiding substitution batteries it needs
+(`instantiate1Lift` and `instPisAtLift`, for bound and for freedom
+alike; the latter keeps a UNIFORM bound because every argument
+replaces a binder at the same depth, and `instPisAtLift_eq_instPisAt`
+does not apply since the spine is `bvar`s).  The whole content is one
+identity: a field's telescope entry is spelled at the CONSTRUCTOR's
+frame and `structIdxAt`'s two moves land it at the rule frame's, which
+is where `nP ≤ rP` and the keys' own `i < nF` are used.  Its leaf
+premise is the abstraction's bound, `abstractIh_looseBVarsBounded` —
+on a recursor-free term the walk IS `liftLooseBVars nR d`, and a
+consumed call is one of the `nR` new binders applied to lifts of the
+call's own arguments.  The pair's premises turn out to be exactly
+`structFieldTele_props`' output, so it asks nothing of the constructor
+that the opener lane does not already carry.
+
+`hokA`'s FIELD segment is split where the previous session said it
+would be.  Everything on the CONSTRUCTOR's side is now a theorem: a
+`.pi` tower's entry is graded at its own fitting spine, and the
+segment is that grading moved across the `o = rP - nP` lift by
+`spineFit_liftDoms` and `WellDenotedV_liftN`.  What is left is the
+PARAMETER HOP — the rule frame's first `nP` values fit the
+CONSTRUCTOR's parameter domains, while the frame gives them fitting
+the RECURSOR's — and **the finding is that neither comparison of the
+check's parameter chain is readable from the model tier**:
+`checkBlockRecTys_inv` peels its stage positionally and discards the
+`checkBlockDefEqList` result, and `CtorDataI` has no field about the
+constructor's parameter domains at all.  So the hop is ~1 session of
+INVERSION work — two stage re-inversions in the style of
+`checkBlockRecPrefixAt_inv`, plus the type former's own opened
+parameter readings and grading — rather than a composition of
+ingredients on the shelf.
+
+---------------------------------------------------------------------
+
+**FINDING that re-sizes the field segment**: *neither defeq comparison
+of the check's parameter chain is readable from the model tier.*
+`checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean:341`) peels
+positionally and DISCARDS the `checkBlockDefEqList` result, and
+`CtorDataI` (`Model/Inductives/SumData.lean:284`) has no field about
+the constructor's parameter domains at all.  So the "~1 session" that
+segment was priced at is a session of INVERSION work in the Verify
+tier — two stage re-inversions plus the type former's own opened
+readings and grading — not of model work; the model half is landed.
+
+**Two operational findings.**  *Growing a file can turn its import gate
+red*: `tests/shake.sh` went red on four of this file's re-exports the
+moment the session's content landed (census +56 constants), the greedy
+fixpoint's order-dependence again — and the response is the
+MEASUREMENT (demote each alone, record what breaks), never the
+demotion.  And `obtain`'s `-` on an existential witness clears every
+hypothesis mentioning it, surfacing far away as "unknown identifier".
+
+#### LANDED (lane RM29 = M5M-data session 26, `c0562e2c`): the index reading — and a SECOND `w = 0` refutation, with a Mathlib witness
+
+**The row closed, and the producer was not the pin.**  `es` had no
+producer for four sessions because it was read as `IotaIndexPin`'s
+content and sized against `Model/IndPoint.lean` at 2–3 sessions.  That
+was wrong, and naming the FRAME says why in one line: the pin ties the
+CONSTRUCTOR-frame reading of the conclusion's index arguments to
+`xs.drop rP`, and the conjunct wants the RECURSOR-frame one.  The two
+frames differ exactly in the parameter spine, which a `paramsBlind`
+rule relates only through the major premise — i.e. through
+`blockRuleChainFit_run`, whose `ChainFit`'s second conjunct IS a
+reading equality, retracted by `projS_tupW`.  Two transports and no new
+mathematics (`blockRuleHes_run`, `BlockRuleFit.lean:543`).
+`IndPoint.lean` contributed nothing: its index walk is about a
+GENERATED recursor's `getAppArgs`.  Three premises that had been
+hand-offs in all three of this lane's conjunct theorems (`hlv`, `hqs`,
+`hfq`) now follow from premises the contract already hands
+(`blockRuleLevelAgree` :637, `blockRuleCtorFit_run` :653).
+
+**The second refutation at `d.w ψ = 0`, and the witness is in
+Mathlib.**  `Relation.ReflTransGen r a : α → Prop`: `refl`'s conclusion
+index IS the parameter `a`, and `tail` keeps the carrier inhabited
+elsewhere.  At `α := Bool`, `r := (· ≠ ·)`, recursor prefix at
+`a := true` with index `false`, firing `refl` at `ys = [Bool, r,
+false]`, every premise of the contract holds — `hfitC`, `hfitR` (the
+major is `pt` by `mkZero`, the carrier inhabited through `tail`), the
+pin, the level agreement — and the conjunct then asks `true = false`.
+It is the same hole as the fit's, one conjunct along: `blockCarrier_case`
+lands on `tail`, not `refl`, and only `mkInj` (`w ≠ 0`) identifies
+them.  Note that the two witnesses do not substitute for each other —
+`Exists` has no indices and cannot refute this row; this one does not
+refute the fit usefully.  **One hole, two conjuncts, two witnesses**,
+and both blocks are `ℓ = 0`, so the `w`-split under consideration
+covers both.  Written out at `BlockRuleFit.lean:730`.
+
+**Five of the six statements now have a theorem whose conclusion is
+them** (at `w ≠ 0`).  What is left of the per-pair obligation: the
+residue and the tower fit (the rule lane's), the `w` ruling (≤ ½
+session of Lean once decided), and — newly counted — **the COMPOSITION:
+there is no theorem whose conclusion is `BlockRuleDataB`**.  That is
+the sizing question applied to the obligation itself, and it is one
+session.  (C) re-sized to **4–6 sessions**.
