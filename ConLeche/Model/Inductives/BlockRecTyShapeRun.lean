@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockRecTyping
+public import ConLeche.Model.Inductives.BlockRecMem
+import ConLeche.Model.Inductives.BlockRecPreRun
 
 public section
 
