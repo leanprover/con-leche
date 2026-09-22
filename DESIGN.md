@@ -82905,3 +82905,150 @@ which rows are yours, and which PART of them.
 
 With it the certificate lane's queue is empty but for the motive
 restatement, which is held for the sequencing above.
+
+#### LANDED (lane RM41 = M5M-rule session 7, `75a3e35a`): **the small-elimination regime is APPLIED** — the arm's first composition
+
+A new module `Model/Inductives/BlockIndRegimeRun.lean` (831 lines)
+holds the first theorem whose conclusion is the regime at the run.
+Seven census rows gained their first consumer.
+
+**What the composition turned out to need** (nobody knew before it was
+written):
+
+1. **A CURRENCY CHANGE, and a bounded one.**  The fused opener premise
+   speaks the BLOCK DATUM; the run speaks the RULE FRAME.  Written out:
+   nine landed block facts plus five frame identifications, of which
+   exactly ONE is not derivable in the Model tier — the `ih` binders'
+   bit at a level-zero motive, which is the CHECK's datum.  The two
+   "free functions" were never free.
+2. **The key's filter carries the CALLEE's prefix**: the conclusion
+   predicate typechecks against a peel taken at the CALLER's prefix
+   only because the key generator emits a key solely where the two
+   agree — which is what half A's unconsumed fifth conjunct was for.
+3. **An existential producer and a named guard cannot meet.**  The
+   elimination-level theorem returns `∃ ℓ, …`; the dispatch's guard
+   names the caller's `ℓ`.  The composition must take the guard in the
+   RUN's currency.
+4. **Two families must be SKOLEMISED, and the choice belongs to the
+   consumer** — the bundle is at one rule with both witnesses
+   existential, the regime wants families, and the five dependent facts
+   cannot be split because they mention the same two witnesses.
+
+**FINDING — `hTStep` was over-quantified** (the twelfth such refutation
+on this effort).  It asked for the conclusion's reading to be a truth
+value at EVERY fitting spine, while the identification one line below
+gives it only where the major is the constructed element — and the type
+is peeled at the FIRED spine, so the unguarded form asked for something
+no identification can supply.  Measured: adding the guard produces
+exactly ONE error in the 8 700-line file, at the regime's own call
+site.  With it, the `univZero` producer turns the identification into
+the premise, and four open `univZero` premises become three.
+
+**What the arm still owes**: `hjoinC` — the refuted backward clause —
+is carried as a premise of the composition and has no producer, by
+design: it disappears with the motive restatement.  That restatement is
+therefore now the critical path, and it lands as ONE commit across the
+motive, the regime's proof, the predicate's deletion and the
+composition's premise list.
+
+#### MEASURED, not landed (lane RM37 session 30): the motive restatement is **three sites**, and the method is the finding
+
+The lane wrote the split-data `blockIndP`, built the file with nothing
+else changed, and counted: **exactly three errors in 8 700 lines** —
+the conversion lemma (instantiate at the dropped prefix and the index
+list; the middle fit splits out of the existing fit, free, because that
+consumer HAS a spine), the `ih` leaf (**where the join premise and its
+clause disappear, which is the whole point**), and the step (three
+substitutions become one).  Nothing else moves: not the regime's body,
+not the twelve theorems around it, and the new composition's three
+occurrences are motive arguments that do not read the shape.  The only
+CONTENT is that the leaf gets simpler, because the premise it currently
+pays for is the one being deleted.
+
+It then **reverted and left the tree green**, on the grounds that the
+change is one atomic commit across three held files and a partial
+version is not committable — leaving three held files red across a
+hand-off is worse than not starting.
+
+**The general point, and it is worth adopting: when a change is atomic
+and its size is unknown, APPLYING it and counting the errors is cheaper
+than reasoning about it.**  Three errors took one build to find and
+would have taken a session to predict.  The measurement is the plan;
+the next session starts on the first edit with no further exploration.
+
+The restated motive honours the ruling: the middle stretch keeps its
+own `SpineFit` premise, at the parameters' frame — which is also where
+the recursor-shape predicate states the index fit, so the two agree
+without a bridge.  It is precisely the clause a naive rebuild drops
+silently, since the rebuilt spine mentions those binders while the
+kernel never looks inside them.
+
+#### CORRECTION to the apply-and-count rule (lane RM37 session 31), and a RULING on clause direction
+
+Executing the measured restatement, two of the three sites went in as
+predicted — the motive at the split data, the conversion lemma (whose
+rebuild equation turned out to be **`BlockRecSplitAt`'s second
+component, discarded by the old proof with a `-`**: the third time in
+this window a proof has thrown away a component its successor needed),
+and the `ih` leaf, **where the join premise disappears exactly as
+predicted**.  The third site did not: `blockIndStep` proves the motive,
+so it must REBUILD the spine, and while the index stretch and the major
+come out of the recursor-shape predicate's fifth clause (which is why
+the refuted fourth clause is genuinely deletable), the PREFIX does not
+— the motive's parameters fit the block's `d.params`, the rebuilt
+spine's first `nP` entries must fit the RECURSOR's parameter domains,
+and the predicate states that implication the other way.
+
+**So the rule is sharpened, in the lane's words: *the error count is
+cheap and reliable; the per-site cost is not.*  A site whose fix needs
+a premise the file does not carry looks identical, in the error list,
+to one whose fix is a rewrite.  Count first — then READ each site
+before pricing it.**
+
+**RULING (coordinator): the missing direction goes INTO the predicate,
+as an `↔` on its third clause, discharged inside `blockRecTyShape_run`
+— not as a premise on three consumers.**  The principle, which belongs
+in the docstring: ***a clause is stated in the direction(s) that have
+PRODUCERS.***  The predicate's other clauses are one-directional
+because their converses have none — the fourth's converse is exactly
+the `BlockRecTyJoin` being deleted here, refuted as stated and
+unreachable without an inversion of inference through a Π-tower.  This
+converse is different in kind: the parameter hop already pays for it at
+the run, so putting it in the predicate costs nothing and spares three
+consumers a premise that is already bought.  Carrying it as a premise
+would manufacture a finished bridge with no traffic on purpose.
+
+#### THE HABIT, in its final form (lane RM37 session 32) — and the RULING that follows
+
+Executing the restatement got the 8 700-line file to ONE error twice
+over, and the last site showed why both measurements under-read it: the
+small-elimination arm's four premises are stated **at a fitting spine**,
+and a fit is exactly what the split data cannot rebuild.  The prefix
+converts (the parameter hop, through the `↔` ruled above) and the major
+converts (the shape's fifth clause, through the model's leaf), but the
+INDEX segment's converse **is `BlockRecTyJoin` itself** — the refuted
+clause — and stating the motive's index premise in the recursor's
+currency only moves the same converse to the leaf.
+
+**So the habit is three steps, not two** — the lane's own synthesis,
+and it is the most transferable thing in this window:
+
+> *The grep habit and apply-and-count are the same question at two
+> scales.*  A count cannot see that a site's fix needs a FACT, and
+> whether that fact has a producer is a property of the TREE, not of
+> the error.  **Count first; read each site; then ask of each missing
+> fact — which check makes it available, and does any inversion keep
+> it?**
+
+**RULING (coordinator): move the FAMILY to the split data.**  Not
+because the motive is wrong, but because the premises were written "at
+a fitting spine" by whoever wrote them first, while **the split data is
+what the run actually has** — and the evidence is that `hspF` is
+already split-shaped and the other two touch the assembled spine only
+through the prefix and major projections the split supplies.  Half a
+session to one, and the refuted clause dies permanently.  The
+alternatives were: keep `BlockRecTyJoin` (leaves the arm's first
+composition carrying an unproduced premise — the arm does not close,
+and the composition is paid for but unusable), or find a run-level
+producer for the converse (the inversion of inference through a Π-tower
+and an application spine, 2–4 sessions, for a fact nothing else needs).
