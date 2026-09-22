@@ -83361,3 +83361,42 @@ gave for free.**  That is the standing cost of the design decision, and
 it argues for a deliberate sweep of the generate-and-compare route's
 implicit invariants once the arm closes, rather than finding them one
 at a time.
+
+#### RULING (coordinator, on the maintainer's delegation): the rule contract's guard becomes `ℓ ≠ 0`
+
+The maintainer ruled "option 1, whole-contract guard, squash carries
+the rest", adding "I'm relying on you here".  The falsifier commissioned
+to test that ruling before proof effort went into it came back with a
+refinement, and two later lanes confirmed it independently, so the
+guard is **`ℓ ≠ 0`, not `d.w ψ ≠ 0`**:
+
+* the falsifier: `hw` enters the contract's composition through three
+  consumers, and all three use it in ONE place — the chain-fit
+  producer's injectivity step;
+* the data lane, gathered without touching the guard: the residue
+  statement carries `ℓ ≠ 0` and **no `w` hypothesis at all**, its whole
+  `w`-dependence mediated by the contract's FIRST conjunct, and both
+  recorded witnesses (`Exists`, `Relation.ReflTransGen`) are
+  `Prop`-valued blocks WITHOUT large elimination — blocks used only at
+  `ℓ = 0`;
+* the dispatch lane: the `(w, ℓ)` split is one case distinction plus
+  three guard conjuncts, so the switch is **a deletion, not a
+  restructuring**.
+
+**What it buys: one guard and one endpoint arm instead of two.**  At
+`w = 0, ℓ ≠ 0` no endpoint arm is needed — one new chain-fit producer
+that does not go through injectivity carries it (the carrier case is
+already `w`-free; the one-constructor fact is the counting half of the
+elimination guard, being produced on the kernel lane).  The only arm
+left is `ℓ = 0`, which is "both sides are the point", with a landed
+precedent on the fixpoint route.
+
+**One caution recorded with it**: the constructor stage's subsingleton
+clause is keyed on the same declared-shape flag that let the `0 = 1`
+hole through, so after the elimination repair it must key on the
+CHECKED level, or the new producer finds its premise vacuous exactly
+where it needs it.
+
+The executing lane is told that if the switch costs more than a
+deletion it must stop and report, since that would be evidence against
+the ruling and belongs back with the maintainer.
