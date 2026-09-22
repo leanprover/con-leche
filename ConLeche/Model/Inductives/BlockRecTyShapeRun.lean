@@ -623,14 +623,16 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
       i < ((d.Fss mm ψ).getD j []).length ∧
       ((d.rss mm).getD j []).getD i false = true ∧
       d.tgts mm j i = mem c' ∧
-      rPs.getD c' 0 = rP := by
+      rPs.getD c' 0 = rP ∧
+      ((d.ksF mm j).getD i .ordinary = .recursive ∨
+        (d.ksF mm j).getD i .ordinary = .reflexive) := by
   have hmem := mem_blockIhKeys_getD hkey hr
   obtain ⟨hiL, hkind⟩ := mem_blockIhKeys_kind hmem
   obtain ⟨hc'L, hrPs, htgt⟩ := mem_blockIhKeys_rP hmem
   have hc'K : c' < K := by rw [← hrecTgtsLen]; exact hc'L
   have hjl : j < (d.ctorsM mm).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hiF : i < ((d.Fss mm ψ).getD j []).length := by rw [hFssLen, ← hksLen]; exact hiL
-  refine ⟨hc'K, hiF, ?_, ?_, hrPs⟩
+  refine ⟨hc'K, hiF, ?_, ?_, hrPs, by rw [hksF]; exact hkind⟩
   · have hrss : (d.rss mm).getD j [] = rsOf (d.ksF mm j) := rssOfK_getD hjl
     rw [hrss, rsOf_getD (by rw [hksF, List.length_map]; exact hiL), hksF,
       getD_map_toRec]
@@ -651,6 +653,50 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
     | ordinary => rw [hq] at htgt; exact nomatch htgt
     | negative => rw [hq] at htgt; exact nomatch htgt
     | unsupported => rw [hq] at htgt; exact nomatch htgt
+
+
+/-- **`hihOpen` half A's two ARITIES at the constructor**, off the
+constructors' stage's own record: the field-domain row's length is the
+constructor's field count, and a RECURSIVE or REFLEXIVE field's index
+readings number the TARGET member's indices.
+
+Both are `hihOpen`'s conjuncts `((d.Fss …).getD j []).length = nF` and
+`(((d.Eiss …).getD j []).getD i []).length = nIdx`; the third length
+(`(((d.tlss …).getD j []).getD i []).length = m`) is the existential's
+own choice of `m` and needs no theorem. -/
+theorem blockIhKey_block_lengths {env : Env} {m : EnvModel V env} {d : BlockData V}
+    {lps : List Name} {mm j i : Nat} {cA : ConstantVal × Nat} (ψ : Name → Nat)
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hcf : BlockCtorFacts m d lps mm j cA) (hi : i < cA.2)
+    (hkind : (d.ksF mm j).getD i .ordinary = .recursive ∨
+      (d.ksF mm j).getD i .ordinary = .reflexive) :
+    ((d.Fss mm ψ).getD j []).length = cA.2 ∧
+      (((d.Eiss mm ψ).getD j []).getD i []).length = d.nIdxAt (d.tgts mm j i) := by
+  obtain ⟨-, -, hcd⟩ := hcf
+  refine ⟨?_, ?_⟩
+  · rw [BlockData.Fss, BlockData.cds, fssOfR_fixCtorDataList_getD hcj,
+      List.length_map, List.length_drop, hcd.len ψ]
+    omega
+  · rw [BlockData.Eiss, BlockData.cds, eissOfR_fixCtorDataList_getD hcj]
+    rcases hkind with hk | hk
+    · exact hcd.eisLen ψ i hk hi
+    · exact hcd.eisLenRefl ψ i hk hi
+
+/-- **`hihOpen` half A's MEMBER arity**: the index telescope a member
+contributes has that member's index count — the last of the fused
+premise's four lengths, and the one that ties the field's readings to
+the CALLEE's telescope (`d.tgts mm j i = mem c'` is the key's own
+fact, `blockIhKey_block_facts`). -/
+theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {q : ConLeche.BlockShape} {cvTas : List ConstantVal}
+    (hmr : BlockMembersRun mo d q cvTas) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :
+    (d.IdsM mm ψ).length = d.nIdxAt mm := by
+  obtain ⟨-, -, hlenCv, hcvF, -, -, -⟩ := hmr
+  obtain ⟨cvTb, hcvTa⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmm)⟩
+  obtain ⟨-, -, -, -, -, hFD⟩ := hcvF _ _ hcvTa
+  rw [BlockData.IdsM, List.length_map, List.length_drop, hFD.len ψ]
+  omega
 
 end Keys
 
