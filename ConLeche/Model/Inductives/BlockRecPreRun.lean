@@ -2772,6 +2772,40 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
     fssOfR_fixCtorDataList_getD hcj
   rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
 
+/-- **THE `fdoms` SPELLING, at the DATUM.**  §40.8 and §40.10 state
+the FIELD and `ih` segments over `(liftDoms o 0 (ds.drop nP)).map
+(·.2.2)`; the bundle states its own `fdoms` as `blockRuleFdomsAV`, the
+field OPENERS' readings.  `blockRuleFdomsAV_eq_liftDoms`
+(`BlockRecData.lean`) is that identity at a `BlockCtorDataI`; this is
+it at the BLOCK DATUM, which is the record the recursor lane's
+consumers carry — `blockRuleFdomsAV_datum`'s extraction (the record
+out of `BlockCtorsCore`, the type's fvar-freeness out of the
+environment's well-formedness) with the spelling step DELEGATED
+upstream rather than repeated. -/
+theorem blockRuleFdomsAV_liftDoms {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTasAll p₁ isRec A d.k)
+    {mem : Nat → Nat} {j : Nat} (hmemk : mem c < d.k)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) {o : Nat}
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = (liftDoms o 0 ((d.dsF (mem c) j ψ).drop p.nP)).map (·.2.2) := by
+  have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
+  have hCf : cA.1.type.hasFvar = false :=
+    (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  rw [hdnP] at hcd
+  exact blockRuleFdomsAV_eq_liftDoms h hr hcA hrhs hcd hCf hnP (by omega) ψ
+
 end RuleFdoms
 
 /-! ## 28. The `K` lifts of §20 are the IDENTITY (audit item 5)
@@ -5289,11 +5323,28 @@ certificates, and the regime's own two premises at the CHAIN frame.
 The step's premises are at the BASE frame and the regime's at the
 chain frame; they are genuinely two obligations (the induction is a
 statement about the block's carrier, the ι equations' about the
-chain), which is why both appear. -/
+chain), which is why both appear.
+
+**`hihOpen` is ONE reading of the generated `blockIhPis` opener**, and
+it is the fusion of what used to be three premises — the opener's
+DOMAIN (`hihDom`), its binder BITS (`hihBits`) and the rule's per-key
+data (`hkey`'s second half).  All three spoke about the same term, and
+they were tied together only by two free function variables (`tlA`,
+`Cih`) that no run object produces; the fused form quantifies the
+telescope and the conclusion existentially at the key and states the
+domain equation about them directly, so the free functions are gone.
+The bits disappear with them: `ihTeleAtGo` copies each binder's
+numeral and `rebit b` overwrites it, so `rebit 0` says exactly what
+`hihBits` said (and says nothing extra at a finitary field, where both
+telescopes are `[]`).
+
+Consuming it costs one skolemisation: `spineFit_ihdoms_zero` wants a
+single conclusion function for all the keys and the reading is
+existential per key, so the body chooses one
+(`Classical.axiomOfChoice`).  The TELESCOPE needs no choice — the
+key's field index determines it. -/
 theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
     {ihKeys : Nat → Nat → List (Nat × Nat)}
-    {tlA : Nat → Nat → Nat → List (Nat × Nat × AnnotTerm)}
-    {Cih : Nat → Nat → Nat → AnnotTerm}
     (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hmemK : ∀ c, c < K → mem c < d.k)
     (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
@@ -5313,17 +5364,12 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
       SpineFit ρ (pdoms c ++ fdoms c j) (prefOf (rP c) ys ++ fs))
     (hihLen : ∀ c, c < K → ∀ j, j < nCt c → (ihdoms c j).length = (ihKeys c j).length)
-    (hihDom : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
-      (ihdoms c j).getD r default
-        = (mkPisAV (tlA c j ((ihKeys c j).getD r (0, 0)).1) (Cih c j r)).liftN r 0)
-    (hihBits : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
-      ∀ dd ∈ tlA c j ((ihKeys c j).getD r (0, 0)).1, dd.2.1 = 0)
     (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
     (hprefU : ∀ c, c < K → ∀ c', c' < K → ∀ xs : List V,
       SpineFit ρ (pdoms c) xs → SpineFit ρ (pdoms c') xs)
     (hconclB : ∀ c, c < K → Term.bvarsBelow (rds c).length (concl c).erase)
-    (hkey : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
-      ∃ (i c' nF nIdx m b : Nat) (eisA : List AnnotTerm) (fapA : AnnotTerm),
+    (hihOpen : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
+      ∃ (i c' nF nIdx m : Nat) (eisA : List AnnotTerm) (fapA CihR : AnnotTerm),
         ((ihKeys c j).getD r (0, 0)).1 = i ∧
         ((ihKeys c j).getD r (0, 0)).2 = c' ∧
         c' < K ∧
@@ -5334,12 +5380,13 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         (((d.tlss (mem c) ψ).getD j []).getD i []).length = m ∧
         (((d.Eiss (mem c) ψ).getD j []).getD i []).length = nIdx ∧
         (d.IdsM (mem c') ψ).length = nIdx ∧
-        tlA c j i = ihTeleAtR nF (rP c - d.nP) i 0
-            (rebit b (((d.tlss (mem c) ψ).getD j []).getD i [])) ∧
         eisA = (((d.Eiss (mem c) ψ).getD j []).getD i []).map
             (ihIdxAtM nF (rP c - d.nP) i 0 m) ∧
         fapA = AnnotTerm.mkAppN (.bvar (nF - 1 - i + m)) (teleVarsAV m) ∧
-        BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA (Cih c j r))
+        BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR ∧
+        (ihdoms c j).getD r default
+          = (mkPisAV (ihTeleAtR nF (rP c - d.nP) i 0
+              (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i []))) CihR).liftN r 0)
     (hTStep : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       interp V
@@ -5371,87 +5418,117 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
     IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs Rb ρ := by
   have hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ := blockRecSplitAt_of_shape hshape
   -- **`hihLeaf`, from the block's leaf and the two-frame bridge.**
-  have hihLeaf : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+  -- **The `ih` openers' fit**, from the FUSED opener reading.  Each
+  -- opener's domain IS the `l = 0` tower over the field's MOVED
+  -- telescope, lifted past the `r` earlier openers, over the callee's
+  -- peeled conclusion; the point inhabits that conclusion by the
+  -- block's leaf, through the two-frame bridge.  The reading is
+  -- existential per key, so the conclusion is skolemised before
+  -- `spineFit_ihdoms_zero` (which wants one `Cih` for all of them);
+  -- the telescope needs no choice, because the key's FIELD index
+  -- determines it.
+  have hihFit : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
       ∀ j, j < nCt c → ∀ fs : List V,
       d.ChainFit ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)
         (sepTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
           (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
           (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP)))
         (d.tup ψ (mem c) (idxOf (rP c) ys)) (mem c) j fs →
-      ∀ r, r < (ihKeys c j).length → ∀ bs : List V,
-      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ)
-        ((tlA c j ((ihKeys c j).getD r (0, 0)).1).map (·.2.2)) bs →
-      (pt : V) ∈ˢ interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ))
-        (Cih c j r) := by
-    intro c hc ys hys j hjn fs hfit r hr bs hbs
-    obtain ⟨i, c', nF, nIdx, m, b, eisA, fapA, hk1, hk2, hc', hiF, hrec, htgt, hnF, hm,
-      hnE, hnI, htl, hes, hfap, hcon⟩ := hkey c hc j hjn r hr
-    rw [hk1] at hbs
+      SpineFit (consList (prefOf (rP c) ys ++ fs) ρ) (ihdoms c j)
+        (List.replicate (ihdoms c j).length (pt : V)) := by
+    intro c hc ys hys j hjn fs hfit
     obtain ⟨hxlen, -, hpar, hidxfit, -⟩ := hsplitR c hc ys hys
     obtain ⟨hnPc, -, -, -, -⟩ := hshape c hc
-    obtain ⟨-, hlenDc', -, -, -⟩ := hshape c' hc'
-    -- the three lengths the bridge is stated at
+    -- the frame data the bridge is stated at, none of it per key
     have hasl : ((prefOf (rP c) ys).take d.nP).length = d.nP := by
       rw [List.length_take, hxlen]; omega
-    have hfsl : fs.length = nF := by rw [hfit.1.length_eq, hnF]
-    have hbsl : bs.length = m := by
-      rw [hbs.length_eq, htl, List.length_map, ihTeleAtR_length, rebit_length, hm]
+    have hfsl : fs.length = ((d.Fss (mem c) ψ).getD j []).length := hfit.1.length_eq
     have hxl2 : (prefOf (rP c) ys).length
         = ((prefOf (rP c) ys).take d.nP).length + (rP c - d.nP) := by
       rw [hasl, hxlen]; omega
     have htake2 : (prefOf (rP c) ys).take ((prefOf (rP c) ys).take d.nP).length
         = (prefOf (rP c) ys).take d.nP := by rw [hasl]
-    -- **the bridge**, at the telescope, at the index readings and at the applied field
-    have hbsB := spineFit_ihTeleAtR_rule hxl2 htake2 hfsl (by rw [← htl]; exact hbs)
-    have hesB : (((d.Eiss (mem c) ψ).getD j []).getD i []).map
-          (interp V (consList bs (consList (fs.take i)
-            (consList ((prefOf (rP c) ys).take d.nP) ρ))))
-        = eisA.map (interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ))) := by
-      rw [hes, List.map_map]
-      exact (List.map_congr_left fun E _ =>
-        interp_ihIdxAtM_rule hxl2 htake2 hfsl hbsl E).symm
-    have hmkB : bs.foldl SetTheory.app (fs.getD i pt)
-        = interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) fapA := by
-      rw [hfap]
-      exact (interp_fieldApp_rule hfsl (by rw [← hnF]; exact hiF) hbsl).symm
-    -- the guard at the CALLEE's class, and the callee's spine ASSEMBLED
     have hpref : SpineFit ρ (pdoms c) (prefOf (rP c) ys) := by
       rw [hpdE c hc]
       exact spineFit_take_le (rP c) hys
-    have hpref' := hprefU c hc c' hc' _ hpref
-    have hxs' : (prefOf (rP c) ys).length = rP c' := by
-      have hq := hpref'.length_eq
-      rw [hpdE c' hc', List.length_take, hlenDc'] at hq
-      omega
-    have hjoin : ∀ (is : List V) (maj : V),
-        SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c') ψ) is →
-        maj ∈ˢ ((prefOf (rP c) ys).take d.nP ++ is).foldl SetTheory.app
-          (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
-        SpineFit (consList (prefOf (rP c) ys) ρ) (((rds c').map (·.2.2)).drop (rP c'))
-          (is ++ [maj]) :=
-      fun _ _ h1 h2 =>
-        blockRecJoin_of_shape hshape hjoinC hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
-    -- the callee's arities
-    have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
-      rw [List.length_map] at hlenDc'
-      rw [hlenDc', hnI]
-    have hesLen : eisA.length = nIdx := by rw [hes, List.length_map, hnE]
-    exact blockIndIhLeaf_pred hM hc' (hmemK c' hc') hpar
-      (Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)) (tupW_mem hidxfit)
-      (by rw [hnCt c hc]; exact hjn) hfit hiF hrec htgt hbsB hesB hmkB (hpdE c' hc')
-      hpref' rfl hjoin hcon (hTyE c' hc') hrdsLen hesLen (hconclB c' hc') hxs' hfsl hbsl
+    -- the opener's two facts at ONE key, with the conclusion still bound
+    have hex : ∀ r : Nat, ∃ CihR : AnnotTerm, r < (ihKeys c j).length →
+        (ihdoms c j).getD r default
+            = (mkPisAV (ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP)
+                ((ihKeys c j).getD r (0, 0)).1 0
+                (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
+                  ((ihKeys c j).getD r (0, 0)).1 []))) CihR).liftN r 0 ∧
+          ∀ bs : List V,
+            SpineFit (consList (prefOf (rP c) ys ++ fs) ρ)
+              ((ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP)
+                ((ihKeys c j).getD r (0, 0)).1 0
+                (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
+                  ((ihKeys c j).getD r (0, 0)).1 []))).map (·.2.2)) bs →
+            (pt : V) ∈ˢ interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) CihR := by
+      intro r
+      by_cases hr : r < (ihKeys c j).length
+      · obtain ⟨i, c', nF, nIdx, m, eisA, fapA, CihR, hk1, hk2, hc', hiF, hrec, htgt,
+          hnF, hm, hnE, hnI, hes, hfap, hcon, hdom⟩ := hihOpen c hc j hjn r hr
+        refine ⟨CihR, fun _ => ⟨by rw [hk1, hnF]; exact hdom, fun bs hbs => ?_⟩⟩
+        rw [hk1, hnF] at hbs
+        obtain ⟨-, hlenDc', -, -, -⟩ := hshape c' hc'
+        have hfsl' : fs.length = nF := by rw [hfsl, hnF]
+        have hbsl : bs.length = m := by
+          rw [hbs.length_eq, List.length_map, ihTeleAtR_length, rebit_length, hm]
+        -- **the bridge**, at the telescope, at the index readings and at the applied field
+        have hbsB := spineFit_ihTeleAtR_rule hxl2 htake2 hfsl' hbs
+        have hesB : (((d.Eiss (mem c) ψ).getD j []).getD i []).map
+              (interp V (consList bs (consList (fs.take i)
+                (consList ((prefOf (rP c) ys).take d.nP) ρ))))
+            = eisA.map (interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ))) := by
+          rw [hes, List.map_map]
+          exact (List.map_congr_left fun E _ =>
+            interp_ihIdxAtM_rule hxl2 htake2 hfsl' hbsl E).symm
+        have hmkB : bs.foldl SetTheory.app (fs.getD i pt)
+            = interp V (consList bs (consList (prefOf (rP c) ys ++ fs) ρ)) fapA := by
+          rw [hfap]
+          exact (interp_fieldApp_rule hfsl' (by rw [← hnF]; exact hiF) hbsl).symm
+        -- the guard at the CALLEE's class, and the callee's spine ASSEMBLED
+        have hpref' := hprefU c hc c' hc' _ hpref
+        have hxs' : (prefOf (rP c) ys).length = rP c' := by
+          have hq := hpref'.length_eq
+          rw [hpdE c' hc', List.length_take, hlenDc'] at hq
+          omega
+        have hjoin : ∀ (is : List V) (maj : V),
+            SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c') ψ) is →
+            maj ∈ˢ ((prefOf (rP c) ys).take d.nP ++ is).foldl SetTheory.app
+              (interp V ρ (mo.acval (d.memberName (mem c')) ψ)) →
+            SpineFit (consList (prefOf (rP c) ys) ρ) (((rds c').map (·.2.2)).drop (rP c'))
+              (is ++ [maj]) :=
+          fun _ _ h1 h2 =>
+            blockRecJoin_of_shape hshape hjoinC hc' hxs' ((hpdE c' hc') ▸ hpref') h1 h2
+        -- the callee's arities
+        have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
+          rw [List.length_map] at hlenDc'
+          rw [hlenDc', hnI]
+        have hesLen : eisA.length = nIdx := by rw [hes, List.length_map, hnE]
+        exact blockIndIhLeaf_pred hM hc' (hmemK c' hc') hpar
+          (Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)) (tupW_mem hidxfit)
+          (by rw [hnCt c hc]; exact hjn) hfit hiF hrec htgt hbsB hesB hmkB (hpdE c' hc')
+          hpref' rfl hjoin hcon (hTyE c' hc') hrdsLen hesLen (hconclB c' hc') hxs' hfsl' hbsl
+      · exact ⟨default, fun h => absurd h hr⟩
+    obtain ⟨CF, hCF⟩ := Classical.axiomOfChoice hex
+    exact spineFit_ihdoms_zero (ihKeys := ihKeys c j)
+      (tlA := fun i => ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP) i 0
+        (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i [])))
+      (Cih := CF) (hihLen c hc j hjn)
+      (by rw [List.length_replicate]; exact hihLen c hc j hjn)
+      (fun r _ => getD_replicate_pt _ _)
+      (fun r hr => (hCF r hr).1)
+      (fun _ _ dd hdd => by
+        obtain ⟨dd', hdd', he⟩ := mem_ihTeleAtGo hdd
+        rw [he, mem_rebit hdd'])
+      (fun r hr bs hbs => (hCF r hr).2 bs hbs)
   exact ⟨envT, mp, F, ihdoms, Ca, hμ,
     hind_of_spines hbits hTyE
       (blockIndPt hM hmemK hsplitR
         (blockIndStep (ihvals := fun c j => List.replicate (ihdoms c j).length (pt : V))
-          hμ hM hnCt hcerts hspF
-          (fun c hc ys hys j hjn fs hfit =>
-            spineFit_ihdoms_zero (hihLen c hc j hjn)
-              (by rw [List.length_replicate]; exact hihLen c hc j hjn)
-              (fun r _ => getD_replicate_pt _ _)
-              (fun r hr => hihDom c hc j hjn r hr) (fun r hr => hihBits c hc j hjn r hr)
-              (fun r hr bs hbs => hihLeaf c hc ys hys j hjn fs hfit r hr bs hbs))
-          hTStep hCaE)),
+          hμ hM hnCt hcerts hspF hihFit hTStep hCaE)),
     hcerts, hihReg, hTReg⟩
 
 end IndStep
@@ -7421,6 +7498,477 @@ theorem blockRuleFseg_of_run {envC : Env} {p : ConLeche.BlockParts}
   exact blockRuleFseg_of_ctorTower hwd hlenD hq hms hps hys
 
 end ParamHop
+
+/-! ### 40.10 `hokA`'s `ih` SEGMENT, from the FIELD's telescope
+
+The `ih` opener at position `q` reads to `mkPisAV (ihTeleAtR nF o i q
+(rebit (pwBit ψ pw) tl)) conclA` (`denoteMeta_blockIhOpenerTy`,
+`BlockRecOpenerRead.lean`): the field's OWN telescope `tl`, read at
+the constructor's frame, moved to the rule's — each entry `k` lifted
+past the `nF - i` later fields at the telescope's cutoff `k` and past
+the prefix's `o = rP - nP` extras at the fields' cutoff
+(`ihIdxAtM`) — over whatever the guarded call reads to.
+
+Two observations cut the algebra in half.
+
+*The `ih` level is not a third lift.*  `ihIdxAtM nF o i l m` is
+`ihIdxAtM (nF + l) o i 0 m` whenever `i ≤ nF` (`ihIdxAtM_merge`): the
+`l` ih values already bound sit exactly where fields sit, so the whole
+segment is the `l = 0` statement at the longer field list `fs ++ ys`.
+That is why this section reuses `interp_ihIdxAtM_rule` and
+`spineFit_ihTeleAtGo_rule` (`BlockRecTyping.lean`) verbatim instead of
+restating them at an ih frame.
+
+*The BIT clause is guarded.*  `WellDenotedV` is `WellDenoted ∧
+AnnotValid` and `AnnotValid`'s `.pi` clause carries a third conjunct
+`v = 0 → ∀ x ∈ˢ interp ρ A, interp (cons x ρ) B ∈ˢ univZero`
+(`Model/Annot/Valid.lean`).  `rebit` stamps EVERY binder of the moved
+telescope with `pwBit ψ pw`, which is zero exactly at a
+`Prop`-eliminating recursor (`pwBit_zeronessOf`) — so at a non-`Prop`
+elimination the clause is VACUOUS, and where it bites it reduces to
+ONE fact about the tower's body, the guarded call's reading being a
+truth value.  It is therefore a premise of this section
+(`h0`), guarded by `b = 0` and by nothing wider, and its producer is
+the IND regime's own conclusion-sort fact.
+
+What the segment consumes about the telescope is its hereditary
+grading AT THE FIELD's frame — `FieldsOkB 0` and `FieldsValid` of
+`tl.map (·.2.2)` under the parameters and the `i` earlier fields —
+which is what peeling the constructor's own tower at the field's entry
+gives (`recEntry`/`reflEntry`, `BlockData.lean`). -/
+
+section IhSeg
+
+open ConLeche.Semantics
+
+variable {ρ : Nat → V}
+
+/-- **The `ih` level is not a third lift**: the `l` ih values already
+bound stand exactly where fields stand, so the move to ih level `l` is
+the move at level `0` over `nF + l` "fields". -/
+theorem ihIdxAtM_merge {nF o i l m : Nat} (hi : i ≤ nF) (E : AnnotTerm) :
+    ihIdxAtM nF o i l m E = ihIdxAtM (nF + l) o i 0 m E := by
+  unfold ihIdxAtM
+  rw [show nF - i + l = nF + l - i + 0 from by omega,
+    show nF + l + m = nF + l + 0 + m from by omega]
+
+/-- `ihIdxAtM_merge`, carried down the telescope. -/
+theorem ihTeleAtGo_merge {nF o i l : Nat} (hi : i ≤ nF) :
+    ∀ (k : Nat) (tl : List (Nat × Nat × AnnotTerm)),
+      ihTeleAtGo nF o i l k tl = ihTeleAtGo (nF + l) o i 0 k tl
+  | _, [] => rfl
+  | k, d :: tl => by
+    show (d.1, d.2.1, ihIdxAtM nF o i l k d.2.2) :: ihTeleAtGo nF o i l (k + 1) tl
+      = (d.1, d.2.1, ihIdxAtM (nF + l) o i 0 k d.2.2) :: ihTeleAtGo (nF + l) o i 0 (k + 1) tl
+    rw [ihIdxAtM_merge hi, ihTeleAtGo_merge hi (k + 1) tl]
+
+/-- The whole moved telescope, at the longer field list. -/
+theorem ihTeleAtR_merge {nF o i l : Nat} (hi : i ≤ nF) (tl : List (Nat × Nat × AnnotTerm)) :
+    ihTeleAtR nF o i l tl = ihTeleAtR (nF + l) o i 0 tl :=
+  ihTeleAtGo_merge hi 0 tl
+
+/-- **One entry's GRADING across the two frames** —
+`interp_ihIdxAtM_rule`'s cancellation in the `WellDenotedV` currency:
+the outer lift `o` cancels the prefix's extra binders `x⃗.drop nP`, the
+inner `nF - i` the later fields `f⃗.drop i`. -/
+theorem wellDenotedV_ihIdxAtM_rule {nF o i m : Nat} {xs fs bs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hbl : bs.length = m) (E : AnnotTerm) :
+    WellDenotedV V (consList bs (consList (xs ++ fs) ρ)) (ihIdxAtM nF o i 0 m E)
+      ↔ WellDenotedV V (consList bs (consList (fs.take i) (consList as ρ))) E := by
+  have hdrop : (xs.drop as.length).length = o := by rw [List.length_drop, hxl]; omega
+  have hfd : (fs.drop i).length = nF - i := by rw [List.length_drop, hfl]
+  have e1 : shiftE o (nF + m) (consList bs (consList (xs ++ fs) ρ))
+      = consList (fs ++ bs) (consList as ρ) := by
+    rw [consList_ruleFrame,
+      show nF + m = (fs ++ bs).length from by rw [List.length_append, hfl, hbl],
+      shiftE_consList_len, shiftE_drop_consList xs as.length hdrop ρ, htake]
+  have e2 : shiftE (nF - i) m (consList (fs ++ bs) (consList as ρ))
+      = consList bs (consList (fs.take i) (consList as ρ)) := by
+    rw [consList_append, ← hbl, shiftE_consList_len,
+      shiftE_drop_consList fs i hfd (consList as ρ)]
+  unfold ihIdxAtM
+  simp only [Nat.add_zero]
+  rw [WellDenotedV_liftN, e1, WellDenotedV_liftN, e2]
+
+/-- **The field telescope's HEREDITARY grading across the two
+frames** — `spineFit_ihTeleAtGo_rule`'s induction in the grading
+currency, `FieldsOkB 0` and `FieldsValid` together because each step
+needs both halves of `WellDenotedV` to cross. -/
+theorem fieldsWD_ihTeleAtGo_rule {nF o i : Nat} {xs fs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) :
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (ws : List V),
+      FieldsOkB 0 (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) →
+      FieldsValid (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) →
+      FieldsOkB 0 (consList ws (consList (xs ++ fs) ρ))
+          ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2)) ∧
+        FieldsValid (consList ws (consList (xs ++ fs) ρ))
+          ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2))
+  | [], _, _, _ => ⟨trivial, trivial⟩
+  | d :: tl, ws, hF, hV => by
+    rw [List.map_cons] at hF hV
+    obtain ⟨hok, -, hrest⟩ := hF
+    obtain ⟨hval, hvrest⟩ := hV
+    have hmv := wellDenotedV_ihIdxAtM_rule (ρ := ρ) (i := i) hxl htake hfl (rfl : ws.length = _)
+      d.2.2
+    have hint := interp_ihIdxAtM_rule (ρ := ρ) (i := i) hxl htake hfl (rfl : ws.length = _) d.2.2
+    have htop : WellDenotedV V (consList ws (consList (xs ++ fs) ρ))
+        (ihIdxAtM nF o i 0 ws.length d.2.2) := hmv.mpr ⟨hok, hval⟩
+    refine ⟨⟨htop.1, fun h0 => absurd rfl h0, fun a ha => ?_⟩, ⟨htop.2, fun a ha => ?_⟩⟩
+    · rw [hint] at ha
+      have h := fieldsWD_ihTeleAtGo_rule hxl htake hfl tl (ws ++ [a])
+        (by rw [← consList_snoc']; exact hrest a ha) (by rw [← consList_snoc']; exact hvrest a ha)
+      rw [List.length_append, List.length_singleton, ← consList_snoc' a ws] at h
+      exact h.1
+    · rw [hint] at ha
+      have h := fieldsWD_ihTeleAtGo_rule hxl htake hfl tl (ws ++ [a])
+        (by rw [← consList_snoc']; exact hrest a ha) (by rw [← consList_snoc']; exact hvrest a ha)
+      rw [List.length_append, List.length_singleton, ← consList_snoc' a ws] at h
+      exact h.2
+
+/-- **`hokA`'s `ih` ENTRY, from the FIELD's telescope.**  The opener's
+reading is the field's telescope moved to the rule's frame over the
+guarded call's reading; its grading is the telescope's hereditary
+grading at the CONSTRUCTOR's frame, transported entry by entry, over
+the body's — with the bit clause guarded by `b = 0` and reduced, there,
+to the body's reading being a truth value. -/
+theorem blockRuleIhEntry_of_fieldTele {nF o i l b : Nat} {xs fs ys as : List V}
+    {tl : List (Nat × Nat × AnnotTerm)} {conclA : AnnotTerm}
+    (hi : i ≤ nF)
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hyl : ys.length = l)
+    (hF : FieldsOkB 0 (consList (fs.take i) (consList as ρ)) (tl.map (·.2.2)))
+    (hV : FieldsValid (consList (fs.take i) (consList as ρ)) (tl.map (·.2.2)))
+    (hR : ∀ bs, SpineFit (consList ys (consList fs (consList xs ρ)))
+        ((ihTeleAtR nF o i l (rebit b tl)).map (·.2.2)) bs →
+      WellDenotedV V (consList bs (consList ys (consList fs (consList xs ρ)))) conclA)
+    (h0 : b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs ρ)))
+        ((ihTeleAtR nF o i l (rebit b tl)).map (·.2.2)) bs →
+      interp V (consList bs (consList ys (consList fs (consList xs ρ)))) conclA
+        ∈ˢ (univZero : V)) :
+    WellDenotedV V (consList ys (consList fs (consList xs ρ)))
+      (mkPisAV (ihTeleAtR nF o i l (rebit b tl)) conclA) := by
+  have hfl' : (fs ++ ys).length = nF + l := by rw [List.length_append, hfl, hyl]
+  have htk : (fs ++ ys).take i = fs.take i :=
+    List.take_append_of_le_length (by rw [hfl]; omega)
+  have hframe : consList (xs ++ (fs ++ ys)) ρ = consList ys (consList fs (consList xs ρ)) := by
+    rw [consList_append, consList_append]
+  -- the telescope's grading, transported to the rule's frame
+  have hmv := fieldsWD_ihTeleAtGo_rule (ρ := ρ) (i := i) (fs := fs ++ ys) hxl htake hfl'
+    (rebit b tl) [] (by rw [rebit_map_dom, consList_nil, htk]; exact hF)
+    (by rw [rebit_map_dom, consList_nil, htk]; exact hV)
+  rw [List.length_nil, consList_nil, hframe, ← ihTeleAtR] at hmv
+  rw [ihTeleAtR_merge hi] at hR h0 ⊢
+  refine ⟨WellDenoted_mkPisAV_of (w := 0) hmv.1 fun bs hsp => (hR bs hsp).1,
+    AnnotValid_mkPisAV_of (w := b) (fun d hd => ?_) hmv.2
+      (fun bs hsp => (hR bs hsp).2) (fun hb bs hsp => h0 hb bs hsp)⟩
+  obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
+  rw [he, mem_rebit hd']
+
+/-- **The FIELD telescope's hereditary grading, at the field's own
+frame** — the constructor's tower peeled at entry `nP + i`.  The
+premise `hentry` is the reading record's own equation
+(`BlockCtorDataI.recEntry` at a recursive field, an EMPTY telescope;
+`.reflEntry` at a reflexive one), and the two fits are the FIELD
+segment's: the parameters by the hop, the fields by the frame. -/
+theorem blockRuleIhTele_graded_of_ctorTower {ds tl : List (Nat × Nat × AnnotTerm)}
+    {bodyC bodyF : AnnotTerm} {nP nF i : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = nP + nF) (hi : i < nF)
+    (hentry : (ds.getD (nP + i) default).2.2 = mkPisAV tl bodyF)
+    {σ : Nat → V} {ps fs : List V}
+    (hps : SpineFit σ ((ds.take nP).map (·.2.2)) ps)
+    (hfs : SpineFit (consList ps σ) ((ds.drop nP).map (·.2.2)) fs) :
+    FieldsOkB 0 (consList (fs.take i) (consList ps σ)) (tl.map (·.2.2)) ∧
+      FieldsValid (consList (fs.take i) (consList ps σ)) (tl.map (·.2.2)) := by
+  have hnq : nP + i < ds.length := by omega
+  have hsplit : (ds.take (nP + i)).map (fun d : Nat × Nat × AnnotTerm => d.2.2)
+      = (ds.take nP).map (·.2.2) ++ ((ds.drop nP).take i).map (·.2.2) := by
+    rw [← List.map_append, List.take_add]
+  have hfit : SpineFit σ ((ds.take (nP + i)).map (·.2.2)) (ps ++ fs.take i) := by
+    rw [hsplit]
+    exact SpineFit.append hps (by rw [List.map_take]; exact spineFit_take_any hfs i)
+  have h := towerDom_graded_of_tower hwd hnq hfit
+  rw [hentry, consList_append] at h
+  exact ⟨(WellDenoted_mkPisAV_inv h.1).1, (AnnotValid_mkPisAV_inv h.2).1⟩
+
+/-- **`hentry` FROM THE READING RECORD.**  The `ih` segment's one
+datum premise — the field's domain BEING a Π-tower over the telescope
+`blockFieldReadAt_of` hands the opener — is the record's own equation,
+in one spelling for both kinds: at a RECURSIVE field the telescope is
+empty (`tssNone`) and `recEntry`'s bare application IS the empty
+tower; at a REFLEXIVE one it is `reflEntry` verbatim.
+
+Bounded to those two kinds, which is where the `ih` binders sit
+(`pairIdxOf_blockIhKeys_kind`, `BlockFieldRead.lean`). -/
+theorem blockCtorDataI_fieldEntry {envM : Env} {mp : EnvModel V envM} {env₀ : Env}
+    {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name} {cvC : ConstantVal}
+    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind} {fvsP xFvs : List Expr}
+    {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mp env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (ψ : Name → Nat) {i : Nat} (hiF : i < nF)
+    (hk : ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) :
+    ((ds ψ).getD (nP + i) default).2.2
+      = mkPisAV ((tss ψ).getD i [])
+          (AnnotTerm.mkAppN (mp.acval (Tof i) ψ)
+            (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i [])) := by
+  rcases hk with hk | hk
+  · rw [hcd.recEntry ψ i hk hiF,
+      hcd.tssNone ψ i (fun hh => by rw [hk] at hh; exact nomatch hh)]
+    rfl
+  · exact hcd.reflEntry ψ i hk hiF
+
+/-- **`hokA`'s `ih` SEGMENT, AT THE RUN** — §40.10 composed with the
+PARAMETER HOP (§40.9).  The frame is the rule's own: the prefix `x⃗`
+fitting the recursor's domains, the fields `f⃗` fitting the
+constructor's telescope moved past the `o = rP - nP` extras, and the
+`q` `ih` values already bound.  The two premises left are the ones the
+frame cannot supply: the OPENER's own field index and telescope
+(`hentry`, the reading record's equation) and the guarded call's
+reading `conclA` (`hR` and, at a `Prop` elimination only, `h0`) —
+both stated AT THIS FRAME, so neither is quantified past the fact that
+produces it. -/
+theorem blockRuleIseg_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds tl : List (Nat × Nat × AnnotTerm)} {bodyC bodyF conclA : AnnotTerm}
+    {nF o i q b : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (hi : i < nF)
+    (hentry : (ds.getD (p.nP + i) default).2.2 = mkPisAV tl bodyF)
+    {σ : Nat → V} {xs fs ys : List V}
+    (hxs : SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
+    (hfs : SpineFit (consList xs σ) ((liftDoms o 0 (ds.drop p.nP)).map (·.2.2)) fs)
+    (hyl : ys.length = q)
+    (hR : ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+        ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+      WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA)
+    (h0 : b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+        ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+      interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+        ∈ˢ (univZero : V)) :
+    WellDenotedV V (consList ys (consList fs (consList xs σ)))
+      (mkPisAV (ihTeleAtR nF o i q (rebit b tl)) conclA) := by
+  have hxlen : xs.length = p.toBlockShape.rulePrefixAt c := by
+    rw [SpineFit.length_eq hxs, blockRulePdomsAV_length hμ mpC h hr ψ]
+  have hlenps : (xs.take p.nP).length = p.nP := by
+    rw [List.length_take, hxlen, ho]; omega
+  have hms : (xs.drop p.nP).length = o := by rw [List.length_drop, hxlen, ho]; omega
+  have hps := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD hle hlenD hframes
+    (spineFit_take_any hxs p.nP)
+  have hsplit : xs.take p.nP ++ xs.drop p.nP = xs := List.take_append_drop _ _
+  have hregroup : consList xs σ = consList (xs.drop p.nP) (consList (xs.take p.nP) σ) := by
+    rw [← consList_append, hsplit]
+  have hshift : shiftE o 0 (consList xs σ) = consList (xs.take p.nP) σ := by
+    rw [hregroup, ← hms]
+    exact shiftE_consList _ _
+  have hfs' : SpineFit (consList (xs.take p.nP) σ) ((ds.drop p.nP).map (·.2.2)) fs := by
+    rw [← hshift]
+    exact (spineFit_liftDoms (V := V) o).mp hfs
+  have hfl : fs.length = nF := by
+    rw [SpineFit.length_eq hfs', List.length_map, List.length_drop, hlenD]; omega
+  obtain ⟨hFok, hVal⟩ := blockRuleIhTele_graded_of_ctorTower hwd hlenD hi hentry hps hfs'
+  exact blockRuleIhEntry_of_fieldTele (Nat.le_of_lt hi)
+    (by rw [hlenps, hxlen, ho]) (by rw [hlenps]) hfl hyl hFok hVal hR h0
+
+/-- **THE TWO `ihdoms` SPELLINGS ARE ONE.**  This section states the
+`ih` segment at the opener's OWN level `q` (`ihTeleAtR … q`, the shape
+`denoteMeta_blockIhOpenerTy` produces); the regime premise that
+consumes `ihdoms` states it at level `0` LIFTED by the key
+(`(mkPisAV (ihTeleAtR … 0 …) Cih).liftN r 0`, the shape a skolemised
+opener takes).  They are the same term — `mkPisAV_ihTeleAtR_shift`
+(`BlockRecOpenerRead.lean:390`) at `l = 0`, `δ = r` — with the
+conclusion moved by the same lift, and NEITHER lane has to restate.
+The bit is free here and `0` there; at the IND regime, where the
+consumer lives, `0` is the elimination level's own bit
+(`pwBit_zeronessOf`), so the instance is at `b := 0`. -/
+theorem mkPisAV_ihTeleAtR_liftN (nF o i r b : Nat) (tl : List (Nat × Nat × AnnotTerm))
+    (B : AnnotTerm) :
+    (mkPisAV (ihTeleAtR nF o i 0 (rebit b tl)) B).liftN r 0
+      = mkPisAV (ihTeleAtR nF o i r (rebit b tl)) (B.liftN r tl.length) := by
+  rw [← mkPisAV_ihTeleAtR_shift nF o i 0 r (rebit b tl) B, Nat.zero_add, rebit_length]
+
+end IhSeg
+
+/-! ### 40.11 `hokC` — the CONCLUSION at the satisfied frame
+
+The rule's conclusion `concl` is the RECURSOR's stored type with its
+whole telescope instantiated (`instPisAtLift` at the rule's prefix
+openers, the constructor's result index arguments and the fired
+major, §40.6), so its reading `Ca` is the recursor type's reading
+PEELED along the readings of those arguments
+(`denoteMeta_instPisAtLift_peel`, `BlockRecRead.lean`).
+
+The recursor type's reading is well-denoted at EVERY frame — it is a
+closed reading, and `checkBlockRecK_tyPis`' last component is exactly
+that — so `hokC` is the tower's grading carried down the peel.  Each
+peel step is `WellDenotedV_inst0` at the argument's own grading, which
+is why this is a battery and not a projection: the peel consumes the
+ARGUMENTS' grading too, and that is the one thing the tower does not
+supply. -/
+
+section HokC
+
+/-- **A fit's RESIDUAL is graded**: the tower's grading carried down
+the peel, one `WellDenotedV_inst0` per step. -/
+theorem teleFitPA_wellDenotedV {ρ : Nat → V} :
+    ∀ {T rest : AnnotTerm} {as : List AnnotTerm}, TeleFitPA V ρ T as rest →
+      WellDenotedV V ρ T → (∀ a ∈ as, WellDenotedV V ρ a) → WellDenotedV V ρ rest
+  | _, _, _, .nil, hT, _ => hT
+  | _, _, _, .cons hmem hrest, hT, ha =>
+    teleFitPA_wellDenotedV hrest
+      ((WellDenotedV_inst0 (ha _ List.mem_cons_self)).mpr (WellDenotedV_pi_body hT hmem))
+      (fun a' ha' => ha a' (List.mem_cons_of_mem _ ha'))
+
+/-- **`hokC`, from the PEEL.**  `Ta` is the recursor type's reading —
+a CLOSED reading, graded at every frame — and `vs` the readings of the
+instantiating arguments; `hpeel` is `denoteMeta_instPisAtLift_peel`'s
+output at the run.  The two premises the frame must supply are the
+FIT (the arguments' memberships along the tower, the data lane's
+tower fit) and the arguments' own grading, both bounded by
+`Sat V Δ ρ` — the very frame the obligation is stated at. -/
+theorem blockRuleHokC_of_peel {Ta Ca : AnnotTerm} {vs Δ : List AnnotTerm}
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis Ta vs = some Ca)
+    (hTa : ∀ ρ : Nat → V, WellDenotedV V ρ Ta)
+    (hfit : ∀ ρ : Nat → V, Sat V Δ ρ → ∃ rest, TeleFitPA V ρ Ta vs rest)
+    (hargs : ∀ ρ : Nat → V, Sat V Δ ρ → ∀ a ∈ vs, WellDenotedV V ρ a) :
+    ∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ Ca := by
+  intro ρ hρ
+  obtain ⟨rest, hf⟩ := hfit ρ hρ
+  obtain rfl : rest = Ca := Option.some.inj (hf.peelPis.symm.trans hpeel)
+  exact teleFitPA_wellDenotedV hf (hTa ρ) (hargs ρ hρ)
+
+/-- **`hokC` AT THE RUN**: the peel's tower is the RECURSOR TYPE's
+reading, whose grading at every frame is `checkBlockRecK_tyPis`' last
+component.  What is left is the frame's two: the tower FIT at the
+instantiating readings and their own grading. -/
+theorem blockRuleHokC_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat) {Ca : AnnotTerm} {vs Δ : List AnnotTerm}
+    (hpeel : ConLeche.Model.AnnotTerm.peelPis
+      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
+    (hfit : ∀ ρ : Nat → V, Sat V Δ ρ →
+      ∃ rest, TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)
+    (hargs : ∀ ρ : Nat → V, Sat V Δ ρ → ∀ a ∈ vs, WellDenotedV V ρ a) :
+    ∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ Ca := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, hwdTy⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  exact blockRuleHokC_of_peel hpeel hwdTy hfit hargs
+
+end HokC
+
+/-! ### 40.12 `hokA` ASSEMBLED, at the run
+
+The three segments (§35 + §40.4 for the prefix, §40.8–§40.9 for the
+fields, §40.10 for the `ih` openers) go into `blockRuleHokA_of_segments`
+at the run's own spellings.  The two spelling equations are premises
+here rather than rewrites inside, because the bundle's three lists are
+`readOpenedDoms` of the openers and each segment is stated at the list
+its OWNER produces: `blockRulePdomsAV_eq_readOpenedDoms` (§40.5) and
+`blockRuleFdomsAV_liftDoms` (§27) are the two producers, and the `ih`
+list's entries come one at a time — which is why `hIent` is an
+existential PER KEY and not a function: the telescope and the
+conclusion are the key's, and no run object is a function of the key
+(the rule lane's own finding).
+
+`hIent`'s frame-dependent half is stated under the segment's own
+`σ`/`xs`/`fs`/`ys`, so nothing in it is quantified past the fit that
+produces it; its frame-INDEPENDENT half (the field index, the
+telescope, the conclusion and the two equations) is hoisted, because
+those are determined by the key alone. -/
+
+section HokAssembly
+
+/-- **`hokA` at the run**, from the three segments. -/
+theorem blockRuleHokA_of_run {envC : Env} {p : ConLeche.BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) (ψ : Name → Nat)
+    {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
+    (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+    (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
+    {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
+    {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm} {nF o nR : Nat}
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
+    (hlenD : ds.length = p.nP + nF)
+    (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+      Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
+    (ho : p.toBlockShape.rulePrefixAt c = p.nP + o)
+    {P F' I : List AnnotTerm}
+    (hPE : P = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+    (hFE : F' = (liftDoms o 0 (ds.drop p.nP)).map (·.2.2))
+    (hIlen : I.length = nR)
+    (hIent : ∀ q, q < nR →
+      ∃ (i b : Nat) (tl : List (Nat × Nat × AnnotTerm)) (bodyF conclA : AnnotTerm),
+        i < nF ∧
+        (ds.getD (p.nP + i) default).2.2 = mkPisAV tl bodyF ∧
+        I.getD q default = mkPisAV (ihTeleAtR nF o i q (rebit b tl)) conclA ∧
+        ∀ (σ : Nat → V) (xs fs ys : List V),
+          SpineFit σ P xs → SpineFit (consList xs σ) F' fs →
+          SpineFit (consList fs (consList xs σ)) (I.take q) ys →
+          (∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+            WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA) ∧
+          (b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+              ((ihTeleAtR nF o i q (rebit b tl)).map (·.2.2)) bs →
+            interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+              ∈ˢ (univZero : V))) :
+    ∀ l, l < p.toBlockShape.rulePrefixAt c + nF + nR →
+      ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ ((P ++ F' ++ I).take l) ys →
+        WellDenotedV V (consList ys σ) ((P ++ F' ++ I).getD l default) := by
+  have hp : P.length = p.toBlockShape.rulePrefixAt c := by
+    rw [hPE, blockRulePdomsAV_length hμ mpC h hr ψ]
+  have hf : F'.length = nF := by
+    rw [hFE, List.length_map, liftDoms_length, List.length_drop, hlenD]; omega
+  refine blockRuleHokA_of_segments hp hf hIlen ?_ ?_ ?_
+  · -- the PREFIX segment (§35 + §40.4)
+    intro l hl σ ys hys
+    rw [hPE] at hys ⊢
+    exact blockRulePdomsAV_graded hμ mpC h hr ψ l hl σ ys hys
+  · -- the FIELD segment (§40.8, §40.9)
+    intro q hq σ xs ys hxs hys
+    rw [hFE] at hys ⊢
+    rw [hPE] at hxs
+    exact blockRuleFseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho
+      q hq σ xs ys hxs hys
+  · -- the `ih` segment (§40.10)
+    intro q hq σ xs fs ys hxs hfs hys
+    obtain ⟨i, b, tl, bodyF, conclA, hiF, hentry, hIq, hfr⟩ := hIent q hq
+    obtain ⟨hR, h0⟩ := hfr σ xs fs ys hxs hfs hys
+    have hyl : ys.length = q := by
+      rw [SpineFit.length_eq hys, List.length_take, hIlen]; omega
+    rw [hIq]
+    rw [hPE] at hxs
+    rw [hFE] at hfs
+    exact blockRuleIseg_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho hiF
+      hentry hxs hfs hyl hR h0
+
+end HokAssembly
 
 end CertsArgs
 

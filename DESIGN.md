@@ -82136,9 +82136,7 @@ both are one reading of the generated `blockIhPis` opener, and
 `ihNodeVal_blockRec`'s own hypothesis has no producer and that theorem
 has no callers at all.
 
-#### LANDED (lane RM28 = M5M-pre session 22, `97e18469`)
-
-#### LANDED (lane RM28 = M5M-pre session 22): the generated `ih` tower's two syntactic facts, and the field segment's constructor half
+#### LANDED (lane RM28 = M5M-pre session 22, `97e18469`): the generated `ih` tower's two syntactic facts, and the field segment's constructor half
 
 `blockIhPis` is the one piece of a rule's frame the kernel never
 types — the check opens the tower and types only the residue under it
@@ -82176,18 +82174,6 @@ INVERSION work — two stage re-inversions in the style of
 `checkBlockRecPrefixAt_inv`, plus the type former's own opened
 parameter readings and grading — rather than a composition of
 ingredients on the shelf.
-
----------------------------------------------------------------------
-
-**FINDING that re-sizes the field segment**: *neither defeq comparison
-of the check's parameter chain is readable from the model tier.*
-`checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean:341`) peels
-positionally and DISCARDS the `checkBlockDefEqList` result, and
-`CtorDataI` (`Model/Inductives/SumData.lean:284`) has no field about
-the constructor's parameter domains at all.  So the "~1 session" that
-segment was priced at is a session of INVERSION work in the Verify
-tier — two stage re-inversions plus the type former's own opened
-readings and grading — not of model work; the model half is landed.
 
 **Two operational findings.**  *Growing a file can turn its import gate
 red*: `tests/shake.sh` went red on four of this file's re-exports the
@@ -82386,3 +82372,90 @@ lifted vs triples lifted), with the bridge between them already proved
 in the same file.  Two spellings got two names
 (`blockRuleFdomsAV_eq` / `_eq_liftDoms`) with a docstring saying which
 is which, so the duplicate-declaration collision cannot recur there.
+
+#### LANDED (lane RM33 = M5M-rule session 4, `e77d6c68`): the `ih` opener's reading is ONE fused premise
+
+`blockIndRegime_run` loses the free function variables `tlA`/`Cih` and
+the three premises `hihDom`, `hihBits`, `hkey`, and gains one:
+`hihOpen`, an existential at each `ih` KEY carrying the key's block
+facts, the index/field spellings, `BlockRuleConclAt`, and the opener's
+domain at that key (lifted by `r`, telescope bits pinned to `0`).
+
+**Three findings, each a rule.**  (i) ***A premise that needs a function
+VARIABLE to be stated has no producer.***  No run object builds such a
+function, so two premises sharing a free function means that function
+is a SEAM: fuse them and delete it.  (ii) ***Folding a side condition
+in can be exactly equivalent — the degenerate case decides.***
+`rebit 0` versus `rebit b` plus a bits premise differ only at an empty
+telescope, where they coincide, so the fusion is not a strengthening.
+(iii) ***A skolemisation is payable only if the non-chosen data is
+DETERMINED.***  The conclusion is chosen; the telescope must not be,
+because the consumer indexes it by the FIELD while keys are positions —
+pinning the bit to `0` is what makes the fused premise consumable at
+all.
+
+Also landed: the `ih` LEVEL's shift at the peel (the run peels at
+`l = r`, the premise is at `l = 0`), and with it `liftN_inst_comm`
+(`BlockRecRule.lean:2097`) — substitution *inside* a lift and *strictly
+above* one were both in the tree; this is the third direction, needed
+because nothing before had peeled a tower under a lift.  One cut serves
+the whole spine, since `peelPis` instantiates at `0` and never descends
+under a binder of its own.
+
+**What it is now blocked on**: `ihdoms` AT THE RUN, which the block
+route does not have — only `BlockRuleCerts.hdoms` can pin it.  So the
+certificate bundle's `ihdoms` spelling now has two consumers, and the
+two lanes are holding one spelling between them.
+
+`w = 0`: no conjunct of the fused premise has a membership as its
+evidence (no `interp`, no `∈ˢ`, no tuple), so by the rule lane's own
+generalisation the pending repair does not touch it — confirmed by
+sweep, not assumed.
+
+#### LANDED (lane RM34 = M5M-pre session 24, `167fb4c5`): `hokA`'s `ih` segment, `hokC`'s peel — and a SILENT duplicate
+
+The `ih` opener's domain is the constructor field's OWN telescope,
+read at the constructor's frame and moved to the rule's: each entry
+lifted past the later fields at the telescope's cutoff and past the
+prefix's extra binders at the fields'.  That move was booked as "the
+`liftDoms` algebra twice over, at two different cuts".  It is not: the
+`ih` values already bound stand exactly where fields stand, so the
+move to `ih` level `l` IS the move at level `0` over `nF + l`
+"fields" — and the whole segment reuses the rule lane's two-frame
+cancellation verbatim instead of restating it at an `ih` frame.  What
+remained was the same cancellation in the grading currency rather than
+the interpretation's, carried hereditarily down the telescope.
+
+The BIT clause resolves the same way.  Well-denotedness is grading and
+annotation validity, and validity's Π clause carries a third conjunct
+about the codomain, guarded by the binder's bit being zero; the
+generated tower stamps every binder with the recursor's
+elimination-level bit.  Guarded means VACUOUS outside the `Prop`
+regime, and inside it the innermost obligation is one fact — the
+guarded call's reading being a truth value — which the regime that
+bites already names.  So the segment's two premises are the opener's
+own field index and telescope (the reading record's equation, which is
+the recursive field's bare application read as the EMPTY tower and the
+reflexive field's tower verbatim) and the guarded call's reading,
+both stated at the segment's own frame.
+
+`hokC` is the same shape one level up.  The rule's conclusion is the
+RECURSOR's stored type with its whole telescope instantiated, so its
+reading is that type's reading peeled along the instantiating
+readings; the recursor type's reading is closed and graded at every
+frame, so `hokC` is the tower's grading carried down the peel, one
+outermost-substitution step per argument.  The peel consumes the
+ARGUMENTS' grading as well as the tower's — that is the one thing the
+tower does not supply, and it is why this is a battery and not a
+projection.
+
+**FINDING — a duplicate no gate can see.**  Two lanes proved the same
+field-domain spelling bridge in the same session, under DIFFERENT
+names and in different files.  The name clash of the previous session
+at least broke the build; this one does not: the textual merge is
+clean, the build is green, and the tree simply carries the same fact
+twice.  A general-purpose bridge must be grepped for by its
+STATEMENT SHAPE, never by the name one intends to give it — and the
+sizing that priced this bridge at a third of a session was pricing a
+theorem that already existed, one rewrite away, which is the third
+audit row this effort has found already closed.
