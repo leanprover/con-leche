@@ -2253,7 +2253,8 @@ where `SpineFit.append` does:
 
 The two identities this takes are named premises in their owners'
 spelling: `hfd` is RM11's `blockRuleFdomsAV_eq` composed with the
-record's `ds`/`Fss` identification, and `hslot` is the slot-to-domain
+record's `ds`/`Fss` identification — §27's `blockRuleFdomsAV_datum`
+since session 10 — and `hslot` is the slot-to-domain
 step at the block's own carrier (`BlockCtorDataI.recEntry`/`.reflEntry`
 through `BlockModelAt.leaf`, the shape `blockChainReal_of` already
 discharges against the stage's tower).
@@ -2684,5 +2685,57 @@ theorem blockRecCtorIdx {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData 
   exact (interp_liftN_rule (nP := d.nP) hxs hfs _).symm
 
 end CtorIdx
+
+/-! ## 27. `hfd` — the rule's field domains ARE the constructor's
+(session 10)
+
+The last named premise of §24 (and so of `hspF` and of `hctorAt`'s fit
+half).  RM11's `blockRuleFdomsAV_eq` already says that the rule's
+field domains are the CONSTRUCTOR's own binder readings lifted past
+the recursor prefix's extra `rP − nP` binders; what it states them at
+is the `BlockCtorDataI` record's `ds`, and what the consumer wants is
+the datum's `d.Fss`.  The two are the same list
+(`fssOfR_fixCtorDataList_getD`: the datum's field chain at
+constructor `j` IS `d.dsF` dropped past the parameters), so the
+composition is a rewrite.
+
+Its inputs are the stage's: `BlockCtorsCore` supplies both the
+constructor's reading record and — through the stored `ctorInfo` and
+the environment's well-formedness — the fvar-freeness of its type,
+which `blockRuleFdomsAV_eq` asks for and nothing else in the run
+carries.  The rule's constructor and the member's are named by the
+SAME `cA` (`blockRecMkK_value`'s pattern), so no equation between the
+two positions `i` and `j` is needed. -/
+
+section RuleFdoms
+
+/-- **`hfd` at the run**: the rule's field domains are the datum's own
+field chain, lifted past the recursor prefix's extra binders. -/
+theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
+    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTasAll p₁ isRec A d.k)
+    {mem : Nat → Nat} {j : Nat} (hmemk : mem c < d.k)
+    (hcj : (d.ctorsM (mem c))[j]? = some cA)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (hdnP : d.nP = p.nP) (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []) := by
+  have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
+  have hCf : cA.1.type.hasFvar = false :=
+    (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  rw [hdnP] at hcd
+  have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  rw [blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ, hF, hdnP]
+
+end RuleFdoms
 
 end ConLeche.Model
