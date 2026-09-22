@@ -83052,3 +83052,73 @@ composition carrying an unproduced premise — the arm does not close,
 and the composition is paid for but unusable), or find a run-level
 producer for the converse (the inversion of inference through a Π-tower
 and an application spine, 2–4 sessions, for a fact nothing else needs).
+
+#### PROCEDURE: when an atomic change cannot be finished, PRESERVE the work outside the repository
+
+Three sessions of the motive restatement closed without a commit,
+because the change is atomic across four files and a partial version is
+not committable.  The third preserved its 131-insertion working file
+under `_tmp/` instead of reverting it away, so the successor starts **at
+the one remaining error** rather than re-deriving a hundred lines.  That
+is the rule: *revert the WORKTREE, keep the WORK.*
+
+The change itself is now one proof body and two named facts from done.
+What it buys is worth restating, because three sessions on one commit
+needs its justification visible: it deletes `BlockRecTyJoin`, whose
+only direction is refuted as stated and whose producer would be the
+inference-inversion route (2–4 sessions, rejected three times), and
+with it the premise `hjoinC` that the arm's FIRST COMPOSITION currently
+carries **with no producer at all**.  Until it lands, that composition
+is paid for and unusable.
+
+Confirmation that the family move was the right ruling: once the
+premises were split-shaped, `blockIndStep`'s proof needed **no reasoning
+beyond its intro pattern** — two substitutions where there had been
+four.  "At a fitting spine" was the first writer's convenience; the
+split data is what the run has.  And the maintainer's middle-stretch
+clause cannot evaporate, because every member of the moved family
+writes the three fits out in order with it first — structural, not
+vigilance.
+
+#### LANDED (lane RM42 = M5M-data session 31, `21211954`): the body equation WIRED — and **a green theorem with no instance**
+
+`blockRuleBodyEq_at_run` (`Model/Inductives/BlockRuleFit.lean:1832`)
+concludes the residue contract's inner statement VERBATIM, with ~19 of
+its 45 premises discharged from the run.  Five census rows gained their
+first consumer, three of them their first LIVE one.
+
+Of the three items the census predicted, two were smaller and one was
+misattributed: the `ih` list needed **no new definition** (the shared
+one already existed; what was missing was its instantiation at the
+rule's per-key readings — the habit's ninth firing, on a row this lane
+had priced twice), while `hihFit` did **not** fall out of pinning it —
+with the list pinned it is *literally* the REGIME's fourth conjunct,
+needing the recursion's graph.  **Pinning a function makes a premise
+statable, not paid.**  One genuinely new fact was needed: that the
+`instLamsAt` peel's residual IS the `stripLams` body opened at the
+reversed opener list, without which the two run peels' consumers could
+not meet.
+
+**FINDING — `blockRuleBodyEq_run` has NO INSTANCE.**  Its signature
+shares one binder between the constructor's stored type opened
+`nP+nF` deep (body: the conclusion) and the check's second opening
+(subject: something with `nF` leading `∀`s).  Since the opener is
+`none` off a non-`.forallE`, at `nF ≥ 1` the premise set is
+**unsatisfiable**: the theorem is true vacuously and unusable.  Two
+landed producers disagreed on a shared binder, and **only a CONSUMER
+could see it** — not the build, not the flip probe, not a shape-grep.
+The repair is one fresh binder; the two premises' owners never meet.
+
+This is the second defect this window visible only from the consumer's
+side (the first: a producer whose existential conclusion was strictly
+weaker than its own proof).  **A green theorem is not a usable one —
+check that a premise set has an INSTANCE at the shapes you need.**
+
+**Evidence for the `w = 0` question, on a second axis**: the residue
+conjunct carries `ℓ ≠ 0`, so the endpoint's use of the contract is not
+uniform in the elimination level either.  A `Prop`-valued block's
+ORDINARY elimination (`w = 0, ℓ = 0`) may not reach `BlockRuleDataB` at
+all — in which case the two guards collapse into one and the ruling
+costs a guard rather than an arm.  The falsifier lane has been told to
+check it against the now-landed small-elimination application rather
+than reason about it.
