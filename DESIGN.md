@@ -82239,3 +82239,91 @@ session of Lean once decided), and — newly counted — **the COMPOSITION:
 there is no theorem whose conclusion is `BlockRuleDataB`**.  That is
 the sizing question applied to the obligation itself, and it is one
 session.  (C) re-sized to **4–6 sessions**.
+
+#### LANDED (lane RM30 = M5M-rule session 3, `d3f28aac`): the recursor type's SHAPE is produced at the run
+
+`BlockRecTyShape` has a run producer, `blockRecTyShape_run`
+(`Model/Inductives/BlockRecTyShapeRun.lean:506`, a new 675-line leaf
+below `BlockRecPreRun`, listed in `ConLeche/Model.lean`).  All five
+payable clauses are proved: `nP ≤ rP`, the binder count, the parameters
+(as FITS), the index fit forward (`blockRecIdxFit_run:275`), the major.
+
+**The structural move came first**: *a predicate is only as payable as
+its weakest clause.*  The refuted backward direction was taken OUT of
+`BlockRecTyShape` and became its own predicate `BlockRecTyJoin`
+(`BlockRecTyping.lean:880`), carried by `blockIndRegime_run` as a named
+premise — so the ruled repair (the motive restatement, on the
+certificate lane) now deletes exactly one `def` and one premise instead
+of editing a conjunction everything depends on.
+
+**The hinge is the major's reading** (`blockRecMajor_run:154`): the
+stage pins the major's domain to the member's constant at the opening's
+parameter and index fvars, and a fvar reads to the bvar its position
+names — so the reading is the member's constant applied to the
+parameter bvars and the telescope variables, exactly the shape the two
+semantic lemmas were already stated against.
+
+**Two findings worth carrying.**  (i) **The index-fit clause SURVIVES
+`d.w ψ = 0`**, so the standing `w = 0` caveat does not propagate: it
+reads its fit off the major's GRADING against a λ-tower whose binder
+numeral is `w ψ + 1`, never zero, rather than off a membership in the
+carrier.  The generalisation for the pending ruling is worth stating
+plainly: ***the `w = 0` repair is needed only where a MEMBERSHIP is the
+evidence.***  (ii) The parameter clause needed a hop nobody had named:
+the check compares the recursor's parameter domains with the ELIMINATED
+MEMBER's opened telescope, while `d.params` is component 0's, and
+nothing syntactic relates them — the only bridge is a `Sat`-iff, and
+turning it into a `SpineFit` transport needed the converse of
+`sat_of_spineFit` at a consed frame, which did not exist.  Any clause
+stated at `d.params` but produced from a member's own opening will need
+it.
+
+Minor sizing note: clause 1 was priced at ½ session as "widen
+`checkBlockRecTys_open`"; the fact was already in the tree, and the
+widening that was actually needed (the major's pin and the parameter
+`isDefEq` list) went into a separate theorem — `checkBlockRecTys_open`'s
+five positional consumers read no member fact.
+
+#### LANDED (lane RM31 = M5M-pre session 23, `316ca079`): the parameter hop, and the grading's FIELD segment at the run
+
+`hokA`'s field segment is produced (`blockRuleFseg_of_run`,
+`Model/Inductives/BlockRecPreRun.lean:7389`), on the hop the previous
+session priced: the recursor's parameter domains against the type
+former's, re-inverted out of the stage (`checkBlockRecTys_params`,
+`Verify/Inductives/BlockWF.lean:1210`), transferred by
+`spineFit_of_sat_consList` / `blockRecParamHop_run`.
+
+**Half of that estimate was not needed.**  The CONSTRUCTOR half required
+no inversion and `CtorDataI` needs no new field:
+`BlockCtorsStage.frames` already carries the constructor-vs-former
+parameter `Sat`-iff, and the recursor lane already receives that
+record.  Only the recursor's re-inversion was genuinely missing.
+
+**FINDING — the `ih` segment is not "the grading alone".**
+`WellDenotedV` is `WellDenoted ∧ AnnotValid`, and `AnnotValid`'s `.pi`
+clause carries a BIT condition (`v = 0 → ∀ x ∈ A, interp (cons x ρ) B
+∈ˢ univZero`, `Model/Annot/Valid.lean:87`).  The `ih` opener's binders
+are stamped by `rebit` with `pwBit ψ pw`, which is `0` exactly at a
+`Prop`-eliminating recursor — so the segment owes a SORT fact, not a
+grading one.  Two halves: `pwBit ψ pw = 0 ↔ the elim level is zero` is
+owned (`pwBit_zeronessOf`); the conclusion's `univZero` membership is
+`hT`/O-2 territory.  And the load-bearing half is smaller than it
+looks: the clause is guarded by `v = 0`, so **at a non-`Prop`
+elimination it is vacuous** and the obligation bites in the IND regime
+alone, where the conclusion's truth-value fact is already a named
+premise.  Re-sized to ~1–1¼ sessions.  The `WellDenotedV`-of-`mkPisAV`
+intro lemma stays unwritten until that consumer exists — writing it
+first would be a premise invented ahead of its discharge.
+
+**A COLLISION CLASS NO DIFF CAN SHOW.**  Two lanes independently proved
+the same lemma — the converse of `sat_of_spineFit` at a consed frame —
+with the same name, in the same namespace, in the same session.  The
+textual merge was clean and the BUILD failed with "has already been
+declared"; neither side had edited the other's lines, so nothing could
+have flagged it.  The leaf's copy was deleted in favour of the upstream
+one (the leaf imports it).  **Two consequences for lane discipline**:
+before naming a general-purpose lemma (a converse, a transport, a list
+identity) grep the tree for its statement shape; and a merge whose
+interval touches your files must be BUILT, never trusted — this is the
+case that proves it, since no review of either diff could have caught
+it.
