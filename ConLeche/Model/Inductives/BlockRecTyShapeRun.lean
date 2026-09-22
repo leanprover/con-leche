@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.Inductives.BlockFieldRead
 
 public section
 
@@ -548,6 +549,126 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hIdsLen, hgetMaj, ← consList_append, hmI]
   exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
+
+/-! ## 7. The `ih` KEY's block facts (task #315, `hkey` half A)
+
+`blockIndRegime_run`'s `hkey` (`BlockRecPreRun.lean`) has fourteen
+conjuncts and they split in two with very different provenances:
+
+* **(A) the KEY's block facts** — the field is in range, it is
+  RECURSIVE or REFLEXIVE, it targets the callee's member, and the
+  callee's class is in range.  These are decided by `blockIhKeys`'
+  own filter and by the block's tables, and they are proved here;
+* **(B) `tlA`/`eisA`/`fapA`/`BlockRuleConclAt`** — ONE reading of the
+  generated `blockIhPis` opener, which is the same reading `hihDom`
+  is about.  They are NOT proved here: the two are to be FUSED into
+  one opener-reading premise rather than produced twice.
+
+The keys are the CHECK's own list (`BlockInstall.lean`'s
+`ihKeys := blockIhKeys rP rPs recTgts ks`), so nothing here is
+quantified over an arbitrary key list; and the block-table bridges are
+premises because they are `rfl` at `blockDataOf` and this module may
+not name that record. -/
+
+section Keys
+
+open ConLeche (BlockFieldKind blockIhKeys blockTgtsOf)
+
+/-- A key at a position is a member of the key list. -/
+theorem mem_blockIhKeys_getD {rP : Nat} {rPs recTgts : List Nat}
+    {ks : List BlockFieldKind} {r i c' : Nat}
+    (hkey : (blockIhKeys rP rPs recTgts ks).getD r (0, 0) = (i, c'))
+    (hr : r < (blockIhKeys rP rPs recTgts ks).length) :
+    (i, c') ∈ blockIhKeys rP rPs recTgts ks := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr, Option.getD_some] at hkey
+  exact hkey ▸ List.getElem_mem hr
+
+/-- **A key's field is RECURSIVE or REFLEXIVE and in range** —
+`pairIdxOf_blockIhKeys_kind`, at membership rather than at a
+`pairIdxOf?` (the regime reads its keys off a POSITION, not off a
+lookup). -/
+theorem mem_blockIhKeys_kind {rP : Nat} {rPs recTgts : List Nat}
+    {ks : List BlockFieldKind} {i c' : Nat}
+    (hmem : (i, c') ∈ blockIhKeys rP rPs recTgts ks) :
+    i < ks.length ∧
+      ((ks.map BlockFieldKind.toRec).getD i .ordinary = .recursive ∨
+        (ks.map BlockFieldKind.toRec).getD i .ordinary = .reflexive) := by
+  simp only [ConLeche.blockIhKeys, List.mem_flatMap, List.mem_filterMap,
+    List.mem_range] at hmem
+  obtain ⟨i', hi', c'', -, hite⟩ := hmem
+  have hiEq : i' = i := by
+    split at hite
+    · exact (Prod.mk.inj (Option.some.inj hite)).1
+    · exact nomatch hite
+  subst hiEq
+  exact mem_blockRecIdxOf hi'
+
+/-- **A key's callee shares the rule's prefix and is the field's
+target** — `pairIdxOf_blockIhKeys_rP`, at membership. -/
+theorem mem_blockIhKeys_rP {rP : Nat} {rPs recTgts : List Nat}
+    {ks : List BlockFieldKind} {i c' : Nat}
+    (hmem : (i, c') ∈ blockIhKeys rP rPs recTgts ks) :
+    c' < recTgts.length ∧ rPs.getD c' 0 = rP ∧
+      (ks.getD i .ordinary).tgt? = some (recTgts.getD c' recTgts.length) := by
+  simp only [ConLeche.blockIhKeys, List.mem_flatMap, List.mem_filterMap,
+    List.mem_range] at hmem
+  obtain ⟨i', -, c'', hc'', hite⟩ := hmem
+  split at hite
+  · rename_i hcond
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hite)
+    simp only [Bool.and_eq_true] at hcond
+    exact ⟨hc'', by simpa using hcond.2, by simpa using hcond.1⟩
+  · exact nomatch hite
+
+omit [SetTheory V] in
+/-- **`hkey`'s half A, at the run.**  Everything the KEY decides,
+read against the block's own tables. -/
+theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
+    {K mm j r i c' rP : Nat} {mem : Nat → Nat}
+    {rPs recTgts : List Nat} {ks : List BlockFieldKind} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hksF : d.ksF mm j = ks.map BlockFieldKind.toRec)
+    (hksLen : ks.length = cA.2)
+    (hFssLen : ((d.Fss mm ψ).getD j []).length = cA.2)
+    (htgtsF : ∀ l, d.tgts mm j l = (blockTgtsOf ks).getD l 0)
+    (hrecTgtsLen : recTgts.length = K)
+    (hrecTgts : ∀ q, q < K → recTgts.getD q K = mem q)
+    (hkey : (blockIhKeys rP rPs recTgts ks).getD r (0, 0) = (i, c'))
+    (hr : r < (blockIhKeys rP rPs recTgts ks).length) :
+    c' < K ∧
+      i < ((d.Fss mm ψ).getD j []).length ∧
+      ((d.rss mm).getD j []).getD i false = true ∧
+      d.tgts mm j i = mem c' ∧
+      rPs.getD c' 0 = rP := by
+  have hmem := mem_blockIhKeys_getD hkey hr
+  obtain ⟨hiL, hkind⟩ := mem_blockIhKeys_kind hmem
+  obtain ⟨hc'L, hrPs, htgt⟩ := mem_blockIhKeys_rP hmem
+  have hc'K : c' < K := by rw [← hrecTgtsLen]; exact hc'L
+  have hjl : j < (d.ctorsM mm).length := (List.getElem?_eq_some_iff.mp hcj).1
+  have hiF : i < ((d.Fss mm ψ).getD j []).length := by rw [hFssLen, ← hksLen]; exact hiL
+  refine ⟨hc'K, hiF, ?_, ?_, hrPs⟩
+  · have hrss : (d.rss mm).getD j [] = rsOf (d.ksF mm j) := rssOfK_getD hjl
+    rw [hrss, rsOf_getD (by rw [hksF, List.length_map]; exact hiL), hksF,
+      getD_map_toRec]
+    refine decide_eq_true ?_
+    rcases hkind with hk | hk <;> rw [getD_map_toRec] at hk
+    · exact Or.inl hk
+    · exact Or.inr hk
+  · -- the target: the kind's `tgt?` and `blockTgtsOf` are one answer
+    rw [htgtsF i, getD_blockTgtsOf]
+    rw [hrecTgtsLen, hrecTgts c' hc'K] at htgt
+    cases hq : ks.getD i .ordinary with
+    | recursive t =>
+      rw [hq] at htgt
+      exact Option.some.inj htgt
+    | reflexive t =>
+      rw [hq] at htgt
+      exact Option.some.inj htgt
+    | ordinary => rw [hq] at htgt; exact nomatch htgt
+    | negative => rw [hq] at htgt; exact nomatch htgt
+    | unsupported => rw [hq] at htgt; exact nomatch htgt
+
+end Keys
 
 end Run
 
