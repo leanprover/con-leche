@@ -297,6 +297,13 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- the constructors' STORAGE, at the lists the recursors carry
         (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
           ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
+        -- the block's REPRESENTATION is the run's own record (lane RM49:
+        -- without it `dR` is over-quantified — nothing ties its `nP`,
+        -- `resSort`, operator or injections to the block, and the
+        -- regimes' `BlockModelAt` cannot be built)
+        (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+            (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     Nonempty (EnvModelM V μ env₂) := by
   classical
@@ -505,7 +512,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       cvTas ctorsAs rs mpC (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) isRec
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
       (by rw [← hRecK]; exact hRec) hndM hN hS.toBlockCtorsStage hcoreC
-      (fun c hc => hctorsAs c hc) hctorsIn
+      (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables
