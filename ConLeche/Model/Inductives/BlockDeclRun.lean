@@ -603,6 +603,8 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
+          (pp.kinds.getD c []).length = ctorsA.length) →
         ∃ s : (Name → Nat) → Nat,
       -- the equation list: bounded, valid, level-parametric
       (∀ ψ : Name → Nat,
@@ -684,10 +686,10 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR => by
+        hctorsAs hctorsIn hdR hkLen => by
       obtain ⟨s, heqB, heqV, heqP, hpre, hokA, hihFit⟩ :=
         howed envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR
+          hcore hctorsAs hctorsIn hdR hkLen
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
       exact ⟨s, blockRecNCt rsR,
         fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ',

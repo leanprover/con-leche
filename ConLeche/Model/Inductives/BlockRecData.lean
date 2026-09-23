@@ -2153,6 +2153,33 @@ theorem checkBlockRecK_ruleRunP {envC : Env} {p : BlockParts} {cvTas : List Cons
   rw [← hksEq, htys] at hone
   exact ⟨_, rc, _, hrc, hone⟩
 
+/-- **Every constructor has its rule**, once the field kinds cover the
+constructors: the rules' stage runs over `ctorsA.zip kss`, so its output
+is as long as the shorter of the two. -/
+theorem checkBlockRecK_rulesLen {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) : r.2.1.length = r.2.2.2.length := by
+  have hcl : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨hlenR, -⟩ := ConLeche.checkBlockRecsRules_facts h
+  have hcp : c < p.recs.length := by omega
+  obtain ⟨rc, r', kss, -, hr', hct, hks, hrun⟩ := checkBlockRecsRules_run h c hcp
+  obtain rfl := Option.some.inj (hr.symm.trans hr')
+  rw [Nat.zero_add] at hrun hks hct
+  obtain ⟨hlenO, -, -⟩ := checkBlockRules_run hrun
+  have hk : kss.length = r.2.2.2.length := by
+    have := hkLen _ _ hct
+    rwa [List.getD_eq_getElem?_getD, hks, Option.getD_some] at this
+  rw [hlenO, List.length_zip, hk, Nat.min_self]
+
 section RuleDefs
 
 variable (pp : ConLeche.BlockParts)
@@ -5273,6 +5300,8 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
+          (pp.kinds.getD c []).length = ctorsA.length) →
         ∃ (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
           (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
           (fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
@@ -5327,11 +5356,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR => by
+        hctorsAs hctorsIn hdR hkLen => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hpos⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR
+          hcore hctorsAs hctorsIn hdR hkLen
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hpos
 
