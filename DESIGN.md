@@ -83813,3 +83813,8 @@ then relax the kernel check to nothing, or at most to what that proof
 genuinely needs.  The frontend's zero-motive rejection is separate: it
 is export-format validation against official's schema, not a kernel
 criterion.
+
+
+#### LANDED (lane FLIP1, `b40aaad4`): the five bridge arms at k members — the tree builds with the gates lifted
+
+*FLIP1 (2026-09-23).* The five bridge/cached consumers of the uniform route are k-ary: `checkDeclRun_ofEnvFactsK` (run bridge, `DeclIndRunDispatchK`), `checkBlock_datF` and `checkBlockS_push` (gate-free), `checkBlockKS_skels` and `checkBlockKS_run` (at the recursor stage's CHECK). The one-member arms that remain case on `blockRecCheckOn` and read the route's gate only through `blockRouteK1Only_of_recOff`; the flip deletes them together with `BlockOne*`, `SoundOne` and `declNativeRun_of_block_one`, and switches the fold to `DeclIndRunDispatchK` (still owed: η-closure of `DeclBlockRun`). A real flipped build is green with only those deleted declarations stubbed. The cached rule stage now flushes at its two environment transitions (`sharedOpsRuleR`): one `CState` threaded across the rule-less recursors' environment and the constructors' was an invariant state of neither. The run bridge's rule stage is a chain of `SimG`s (`SimC` with free entry/exit invariants); the residue's scoping comes from the abstraction being fvar-free by construction.
