@@ -323,6 +323,45 @@ theorem blockRuleCertsW_run (hμ : μ.verifiedChecks = true)
     (hexI rs[c] hr cA hcA)
     hcvTa hfT hFD hle hwd hlenD hframes ho hFE hIent hcon hfit hargs
 
+
+/-- **The certificate family at a CHAIN frame** — `blockRuleCertsW_run`
+past `K` chain binders: the field and `ih` domains' `K` lifts are the
+identity and so is the residue's (`blockRuleCertsChain_eq`).  At the
+pinned `ihdoms := blockRecIhdomsK K` and `Ca := blockRuleCaAV` this is
+the kit arms' `hcerts` row verbatim (`K := rs.length` for WF, `K := 1`
+for SQ); with the residue lifted (`blockRuleCertsChain_eq`'s third
+component) it is regime IND's certificate conjunct. -/
+theorem blockRuleCertsK_run (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d) (K : Nat) :
+    ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c)
+        (blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).length
+        (blockRecIhdomsK K p mpC.base2.acval envC rs ψ c j).length
+        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+        (blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j)
+        (blockRecIhdomsK K p mpC.base2.acval envC rs ψ c j)
+        (blockRuleRbAV p rs mpC.base2.acval envC ψ c j)
+        (blockRuleCaAV p rs mpC.base2.acval envC ψ c j) := by
+  intro ψ c hc j hj
+  have hW := blockRuleCertsW_run hμ h hkLen hdR hN hS hcore hmr hM ψ c hc j hj
+  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨e1, e2, -⟩ := blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj K
+  rw [e1, e2]
+  exact hW
+
 end Certs
 
 end ConLeche.Model
