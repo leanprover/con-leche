@@ -192,8 +192,8 @@ def recTgts (p : BlockShape) : List Nat :=
 /-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 
 It is the RECORD's (`RecShape.rP`): the motive-free check never
-derives the sum, it reads it and requires only `nP + k ≤ rP` (the
-rulings of 2026-09-21 and 2026-09-23). -/
+derives the sum, it reads it and requires only `nP ≤ rP` (the ruling
+of 2026-09-21; no motive-count floor, lane FLOOR). -/
 def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
   (p.recs.getD r default).rP
 

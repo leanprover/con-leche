@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRuleRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Inductives.BlockRecRun
+import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRuleParams
 import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRuleGrading
@@ -27,8 +28,8 @@ file is where they meet.
 ## 1. The `ℓ = 0` arm's LEFT side
 
 The endpoint's `ℓ = 0` arm (`blockRuleRhsOk_base`) asks for two facts:
-the stored rule reads as the point (`blockRuleRaZ_run`, off the fourth
-kernel guard) and the recursor's TYPE is a truth value.  The second is
+the stored rule reads as the point (`blockRuleRaZ_seam`, §1b) and the
+recursor's TYPE is a truth value.  The second is
 here, because it needs the elimination-level package
 (`blockRecElimLevel_run`) and the level PIN (`blockRecElimPin_run`),
 both downstream of the endpoint's file: the type's binder bits follow
@@ -986,6 +987,228 @@ theorem blockRuleIhFit_seam (hμ : μ.verifiedChecks = true)
 
 end MembersRun
 
+/-! ## 1b. The `ℓ = 0` arm's RIGHT side
+
+The stored rule reads as the point at a valuation where the checked
+elimination level is zero.  A rule that binds a variable carries the
+elimination datum on its head binder (`blockRuleRaZ_run`).  A rule that
+binds NONE — the zero-motive recursor `T.rec : (t : T) → True`,
+`T.rec T.c ↦ True.intro`, which the kernel accepts since the
+motive-count floor was removed (lane FLOOR) — is its own residue: no
+field means no guarded call, so the abstraction is the identity on the
+closed right-hand side, and the family's ι law at the empty spine says
+that residue equals the recursor's value, which is the point
+(`blockRecTyZ_run`).  No λ-head bit and no typing of the right-hand side
+is needed: the graph producer's ι law already carries it. -/
+
+section RuleZero
+
+variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+omit [SetTheory V] in
+/-- **The abstraction at a field-less frame is the identity** on a term
+bounded at the walk's depth: with no field there is no guarded call
+(`blockIhCall?` needs the major to be a field), and no bound variable
+reaches the shift. -/
+theorem abstractIh_eq_self_of_nF {fr : ConLeche.BlockRuleFrame} (hnF : fr.nF = 0) :
+    ∀ {e e' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e' →
+      e.looseBVarsBounded d = true → e' = e
+  | .bvar j, e', d, h, hb => by
+    rw [ConLeche.abstractIh_bvar] at h
+    have hj : j < d := by simpa [Expr.looseBVarsBounded] using hb
+    rw [← Option.some.inj h, if_pos hj]
+  | .sort _, _, _, h, _ => (Option.some.inj h).symm
+  | .lit _, _, _, h, _ => (Option.some.inj h).symm
+  | .const n us, e', d, h, _ => by
+    rw [ConLeche.abstractIh_const] at h
+    split at h
+    · exact nomatch h
+    · exact (Option.some.inj h).symm
+  | .fvar _ _, _, _, h, _ => nomatch h
+  | .lam ty b bi, e', d, h, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    rw [abstractIh_eq_self_of_nF hnF hty' hb.1, abstractIh_eq_self_of_nF hnF hb' hb.2]
+  | .forallE ty b bi, e', d, h, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    rw [abstractIh_eq_self_of_nF hnF hty' hb.1, abstractIh_eq_self_of_nF hnF hb' hb.2]
+  | .letE ty v b, e', d, h, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    rw [Option.bind_eq_some_iff] at h
+    obtain ⟨v', hv', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    rw [abstractIh_eq_self_of_nF hnF hty' hb.1.1, abstractIh_eq_self_of_nF hnF hv' hb.1.2,
+      abstractIh_eq_self_of_nF hnF hb' hb.2]
+  | .proj s i e, e', d, h, hb => by
+    simp only [Expr.looseBVarsBounded] at hb
+    rw [ConLeche.abstractIh] at h
+    split at h
+    · exact nomatch h
+    obtain ⟨e'', he', rfl⟩ := Option.map_eq_some_iff.mp h
+    rw [abstractIh_eq_self_of_nF hnF he' hb]
+  | .app f a, e', d, h, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rw [ConLeche.abstractIh_app] at h
+    revert h
+    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
+    | some ra =>
+      obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
+      have := C.hb
+      omega
+    | none =>
+      intro h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨f', hf', h⟩ := h
+      obtain ⟨a', ha', rfl⟩ := Option.map_eq_some_iff.mp h
+      rw [abstractIh_eq_self_of_nF hnF hf' hb.1, abstractIh_eq_self_of_nF hnF ha' hb.2]
+
+/-- **A rule binding no variable reads as the point at `ℓ = 0`** — by
+the family's ι law, not by a λ.  Its right-hand side is closed and
+field-less, so it IS its own residue (`abstractIh_eq_self_of_nF`), and
+the residue's reading is the stored rule's (`blockRecDenote_cross_eq`:
+the residue mentions no recursor).  The ι law at the empty spine
+(`blockRecHiota`, off the graph producer's `hpre`) equates that reading
+with the recursor's value applied to the constructor, and the
+recursor's value is the point, its type being a truth value
+(`blockRecTyZ_run`). -/
+theorem blockRuleRaZ_empty (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {s : (Name → Nat) → Nat} {es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
+        (blockRecTyAV mpC.base2.acval envC rs ψ)
+        (blockRecEqs (blockRecNCt rs) rs
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ')
+          (fun ψ' => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ')
+          es0 ihs mk0 (fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ') ψ) ρ)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hz : p.toBlockShape.rulePrefixAt j + cA.2 = 0)
+    {ψ : Name → Nat} {Ra : AnnotTerm}
+    (hread : denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+        (blockRecEqs (blockRecNCt rs) rs
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ')
+          (fun ψ' => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ')
+          es0 ihs mk0 (fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ')))
+      (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ 0 rhs = some Ra)
+    (hℓ : Level.eval ψ
+      (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0)
+    (ρ : Nat → V) : interp V ρ Ra = pt := by
+  have hj : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+  have hi : i < blockRecNCt rs j := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr]
+    exact (List.getElem?_eq_some_iff.mp hcA).1
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨hfrP, hfrR, hfrF, hnames0, -⟩ := blockRuleFrameAt_rows (pp := p) hct
+  -- the stored rule: closed, fvar-free, resolved at the bare environment
+  obtain ⟨-, -, -, -, hrhsF⟩ := ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨hrf, -, hres, hrb⟩ := hrhsF rhs (List.mem_of_getElem? hrhs)
+  -- the run's peel at an empty telescope: the body is the rule, the
+  -- residue is the body
+  obtain ⟨rbs, -, -, hstrip, hab, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
+  rw [hz] at hstrip
+  have hbody : blockRuleBodyAt p rs j i = rhs := by
+    simp only [ConLeche.Expr.stripLams, Option.some.injEq] at hstrip
+    exact (Prod.mk.inj hstrip).2.symm
+  rw [hbody] at hstrip hab
+  have hresid : blockRuleResidAt p rs j i = rhs :=
+    abstractIh_eq_self_of_nF (by rw [hfrF]; omega) hab hrb
+  -- the residue mentions no recursor: it reads at the constructors'
+  -- environment, and so does the rule
+  have hmono : ∀ n : Name,
+      ((ConLeche.consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1))
+        envC).find? n).isSome = true →
+      (blockRuleFrameAt p rs j i).recNames.contains n = false → (envC.find? n).isSome = true := by
+    intro n hn hnot
+    rcases find?_consBlockRecsBare_isSome 0 _ envC n hn with hm | hm
+    · rw [hnames0, checkBlockRecK_recNamesEq h] at hnot
+      rw [List.map_map] at hm
+      exact absurd (List.contains_iff_mem.mpr hm) (by simpa using hnot)
+    · exact hm
+  have hcb : ConstsBound envC rhs := by
+    have := abstractIh_constsBound hmono hab
+      (constsBound_stripLams _ (constsBound_of_constsResolve _ hres) hstrip)
+    rwa [hresid] at this
+  have hreadC : denoteMeta mpC.base2.acval envC ψ 0 rhs = some Ra :=
+    (blockRecDenote_cross_eq h ψ 0 rhs hcb).trans hread
+  have hRacl : Term.bvarsBelow 0 Ra.erase :=
+    bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hrf) hrb hreadC
+  -- the pinned residue's reading IS the rule's
+  have hRb : blockRuleRbAV p rs mpC.base2.acval envC ψ j i = Ra := by
+    rw [blockRuleRbAV, hresid, ConLeche.Expr.instantiateList_eq_self hrb,
+      denoteMeta_depth_of_closed mpC.base2.acval_closed hrf
+        (fun k => denoteMeta_closed mpC.base2.acval_erase mpC.base2.cval_closed hrf hrb
+          hreadC 1 k) hreadC _]
+    rfl
+  -- the ι law at the empty spine
+  have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length = 0 := by
+    rw [blockRulePdomsAV_length hμ mpC h hr ψ]; omega
+  have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length = 0 := by
+    rw [blockRuleFdomsAV_length_run h hr hcA hrhs ψ]; omega
+  obtain ⟨a, ha, hlaw⟩ := blockRecAV_iota (hpre ψ ρ)
+  -- the recursor's value is the point: its type is a truth value
+  have ha0 : a j = pt :=
+    eq_pt_of_mem_univZero (blockRecTyZ_run hμ mpC h j hj ψ ρ hℓ) (ha j hj).1
+  have hsp : SpineFit (chainFrame rs.length a ρ)
+      (liftDomsK rs.length 0 (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j)
+        ++ liftDomsK rs.length
+          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length
+          (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)) ([] ++ []) := by
+    rw [List.eq_nil_of_length_eq_zero hpl, List.eq_nil_of_length_eq_zero hfl]
+    trivial
+  have hlawE := hlaw j hj i hi [] [] (by simp [hpl]) hsp
+  dsimp only at hlawE
+  rw [ha0, List.nil_append, foldl_app_pt, hRb,
+    liftN_eq_self_of_closed hRacl, interp_closed V hRacl _ ρ] at hlawE
+  exact hlawE.symm
+
+/-- **THE `ℓ = 0` ARM'S RIGHT SIDE, at the seam**: every stored rule
+reads as the point at a valuation where the checked elimination level
+is zero — by its head binder's elimination datum when it binds a
+variable (`blockRuleRaZ_run`), by the ι law when it binds none
+(`blockRuleRaZ_empty`). -/
+theorem blockRuleRaZ_seam (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {s : (Name → Nat) → Nat} {es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
+        (blockRecTyAV mpC.base2.acval envC rs ψ)
+        (blockRecEqs (blockRecNCt rs) rs
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ')
+          (fun ψ' => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ')
+          es0 ihs mk0 (fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ') ψ) ρ) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
+        denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+            (blockRecEqs (blockRecNCt rs) rs
+              (fun ψ' => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ')
+              (fun ψ' => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ')
+              es0 ihs mk0 (fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ')))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ 0 rhs = some Ra →
+        Level.eval ψ
+          (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
+        ∀ ρ : Nat → V, interp V ρ Ra = pt := by
+  intro j r hr i cA rhs hcA hrhs ψ Ra hread hℓ ρ
+  by_cases hz : p.toBlockShape.rulePrefixAt j + cA.2 = 0
+  · exact blockRuleRaZ_empty hμ mpC h hpre hr hcA hrhs hz hread hℓ ρ
+  · exact blockRuleRaZ_run (V := V) h hr hcA hrhs (Nat.pos_of_ne_zero hz) hread hℓ ρ
+
+end RuleZero
+
 /-! ## 2. The composition
 
 `declBlock_run` is `declBlock_data` at the route's component choices —
@@ -1035,8 +1258,9 @@ typing at it).  Paid here as well:
   sides' and the `ih` terms' grading (`blockGradeLhs_run`,
   `blockGradeIhs_run`).
 
-The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
-floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/
+The `ℓ = 0` arm's right side is `blockRuleRaZ_seam`: the head binder's
+elimination datum, or the ι law at a rule binding no variable — no
+motive-count floor. -/
 theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
     (mp : EnvModelM V μ env)
@@ -1085,7 +1309,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hctorsAs heqB heqV heqP hpre
           rfl rfl hokA hihFit,
         blockRecTyZ_run hμ mpC hrec,
-        ConLeche.checkBlockRecK_rulePos hrec⟩
+        blockRuleRaZ_seam hμ mpC hrec hpre⟩
 
 end Compose
 
