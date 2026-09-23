@@ -79337,11 +79337,12 @@ this block wins.
    into a normal form.  The model needs only this least-fixed-point clause
    from each inductive.  (2026-09-21; restated 2026-09-23)
 3. **Positivity.**  There is ONE positivity function in the kernel, and it
-   reduces with the kernel's own verified whnf (β, δ, … as needed to match
-   official's verdicts).  The theorem is "returns true ⇒ the operator is
-   monotone", proved by inversion of that function's run.  There is no
-   separate re-check, exported certificate or "unverified classifier".
-   (2026-09-23)
+   reduces with the kernel's own verified whnf (β, δ, …, at least as far as
+   official does).  It recognises containers AFTER whnf, so it accepts a
+   superset of official (item 8).  The theorem is "returns true ⇒ the
+   operator is monotone", proved by inversion of that function's run.
+   There is no separate re-check, exported certificate or "unverified
+   classifier".  (2026-09-23)
 4. **Containers.**  Positivity looks through containers at the CONCRETE
    instantiation `C (t[X])`.  Positivity and monotonicity are never
    properties of an abstract container: nothing is stated or cached as
@@ -79374,6 +79375,28 @@ this block wins.
    corpus.  "No instance in Mathlib" is not an argument.  "Official never
    generates this" counts only if it holds for all nested inductives.
    (2026-09-18, 2026-09-22)
+8. **Accepted supersets of official (ruled 2026-09-23).**  Each case
+   below is sound and stays accepted.  If one ever becomes an issue, a
+   dedicated reject-only check goes into `ConLeche/Conformance/`; the
+   verified route is not narrowed.
+   * **Zero-motive recursors at k ≥ 2.**  The kernel requires only
+     `nP ≤ rP` (lane FLOOR).  At k = 1 the conformance generator still
+     rejects such a recursor, and at k ≥ 2 it is skipped.  Streams cannot
+     reach the case, because the frontend refuses zero-motive recursors.
+   * **Containers reached by reduction (D1).**  Official recognises nested
+     containers syntactically, anywhere in the constructor type, BEFORE
+     whnf (`replace_all_nested`, `inductive.cpp:1043`), because its
+     encoding needs literal subterms to replace.  So it rejects `FL T`
+     with `FL α := List α`, while `nestPos` recognises `List T` after
+     whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
+     check: every accepted container application occurs syntactically
+     in the original constructor type.
+   * **Unreached members of a container's mutual group (D2).**  Official
+     copies every member of `C`'s group (`get_all()`), while `nestPos`
+     checks only the instantiations a field reaches.  The model needs:
+     if `A`'s constructors never reach `B`, then `A`'s component of the
+     group's lfp is the lfp of `A` alone (Bekić at a component).
+     Fixture: `corner_nestpos_group_bad`.
 
 **Maintainer's direction (2026-09-21).**  One uniform native installer
 and ONE proof for every inductive block: a k-member block is the general
