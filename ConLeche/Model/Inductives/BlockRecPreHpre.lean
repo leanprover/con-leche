@@ -1,10 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecPreRun
-public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockIndRegimeRun
-public import ConLeche.Model.Inductives.BlockStageCtors
-public import ConLeche.Model.Inductives.BlockDatum
+import ConLeche.Model.Inductives.BlockStageCtors
+import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
