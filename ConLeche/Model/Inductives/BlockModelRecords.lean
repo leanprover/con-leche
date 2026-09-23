@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.BlockModel
+import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit

@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.SetTheory.Derive.Omega
-public import ConLeche.SetTheory.Derive.Univ
-public import ConLeche.Semantics.Interp
+import ConLeche.SetTheory.Derive.Omega
+import ConLeche.SetTheory.Derive.Univ
 public section
 
 /-!

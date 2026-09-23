@@ -9,7 +9,6 @@ import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData
-import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.FixAssemblyKit
 

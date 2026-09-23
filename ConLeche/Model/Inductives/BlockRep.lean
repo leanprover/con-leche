@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageRec
-public import ConLeche.Model.Annot.BlockLfp
+import ConLeche.Model.Annot.BlockLfp
 public section
 
 /-!

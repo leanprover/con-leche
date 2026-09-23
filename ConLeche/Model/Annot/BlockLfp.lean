@@ -1,9 +1,7 @@
 module
 
-public import ConLeche.SetTheory.Derive.LfpTuple
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.Semantics.Sat
-public import ConLeche.Semantics.Tower.TowerIntro
 public import ConLeche.Semantics.Tower.FixLeafI
 public section
 

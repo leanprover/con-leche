@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
-public import ConLeche.Model.Inductives.BlockModelRecords
+import ConLeche.Model.Inductives.BlockModelRecords
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 public section
