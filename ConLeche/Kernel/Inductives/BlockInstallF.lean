@@ -222,9 +222,12 @@ def checkBlockRecTysF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested 
     let cvRi ← checkConstantValF ops fe rc.cvR
     let rP := p.rulePrefixAt ri
     let mI := p.majorIdxAt ri
-    unless p.nP ≤ rP do
+    -- the prefix has room for the parameters AND one motive per member
+    -- (official's `nparams + nmotives ≤ rP`; the motives are never
+    -- looked inside, only counted): a rule binds at least one variable
+    unless p.nP + p.k ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
-        parameters")
+        parameters and one motive per member")
     unless mI == rP + ms.nIdx do
       throw (.invalid "direct rec: the recursor's major-premise index is not its rule \
         prefix plus the member's index count")
