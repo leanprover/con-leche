@@ -231,6 +231,36 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkNativeTailS mode fe q'
 
+/-- **The rule stage's operations at the rule-less recursors'
+environment** (lane FLIP1): `sharedOpsC` at `feR`, with a `flushC`
+ENTERING its `annotate` and LEAVING its `inferType`.
+
+One rule runs operations at TWO environments, interleaved: its
+right-hand side is annotated and typed at `feR` (the `k` rule-less
+recursors consed), and everything after — the λ-domains' defeq, the
+residue's inference, the conclusion's defeq — at the constructors'
+index.  The memo caches are keyed by the term alone, and their
+invariant (`CSOK`, `ConLeche/Verify/Cached/SimC.lean`) is a claim at
+ONE environment, so a state threaded unflushed across the two is not
+a state of either: an entry the `feR` half wrote (a term naming a
+recursor, typed where the recursor is stored) is not a claim at the
+constructors' environment, where the recursor is absent.  The flushes
+are the drivers' own discipline (`flushC` at every environment
+transition), placed where the transitions are: the stage's `feR` half
+is exactly those two operations, the `annotate` first and the
+`inferType` last (`checkBlockRuleF`,
+`ConLeche/Kernel/Inductives/BlockInstallF.lean`).  Every other
+operation is `sharedOpsC`'s. -/
+def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
+  { sharedOpsC mode fe with
+    annotate := fun _ d e => do
+      flushC
+      opE mode fe (·.annotate) d e
+    inferType := fun _ d e => do
+      let t ← opE mode fe (·.infer) d e
+      flushC
+      pure t }
+
 /-- **The recursor stage through the index** (milestone M5).  The two
 halves run at DIFFERENT environments — the types at the block's, the
 rules at the one holding all `k` RULE-LESS recursors — and the cached
@@ -239,7 +269,8 @@ with its own `flushC` and a fresh `sharedOpsC` in between (the
 arrangement `checkIndRecsS` uses for the modelled route).  The pure
 stage (`checkBlockRecK`) is this composition with one `ops`, which is
 the same thing: the generic operations honour the environment they are
-handed. -/
+handed.  Inside ONE rule the two environments alternate, and the
+flushes at those transitions are `sharedOpsRuleR`'s. -/
 def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
@@ -250,12 +281,12 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (blockNested p.kinds) cvTas cvRus
   let cvRas := cvRus.map fun q => (q.1, q.2.1)
   let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
-  flushC
   -- the rules are ANNOTATED at `feR` (they mention the k rule-less
   -- recursors) and TYPED at `fe` — the constructors' index, before
   -- they are consed (G1); the cached operations are index-bound, so
-  -- both records are built and handed over
-  checkBlockRecsRulesF (sharedOpsC mode feR) structWalkersC feR
+  -- both records are built and handed over, the `feR` one flushing at
+  -- the two transitions every rule makes (`sharedOpsRuleR`)
+  checkBlockRecsRulesF (sharedOpsRuleR mode feR) structWalkersC feR
     (sharedOpsC mode fe) fe p
     (blockRecCallData p).1 (blockRecCallData p).2 cvRas ctorsAs p.recs 0
 
@@ -353,6 +384,17 @@ theorem checkBlockS_one {fe : FEnv} {p : BlockParts} {ms : MemberShape}
     (hg : blockRecCheckOn = false) (hm : p.members = [ms]) :
     checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
   simp only [checkBlockS, hm, hg, Bool.false_eq_true, if_false]
+
+/-- **The cached mirror with the recursor stage's gate LIFTED** (lane
+FLIP1): at every `k` it is the k-ary mirror.  The gate is a hypothesis,
+as in `checkBlockS_one`, so that the statement is the same at both
+settings and the flip needs no edit here. -/
+theorem checkBlockS_K {fe : FEnv} {p : BlockParts} (hg : blockRecCheckOn = true) :
+    checkBlockS mode fe p = checkBlockKS mode fe p := by
+  unfold checkBlockS
+  split
+  · rw [if_pos hg]
+  · rfl
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/
