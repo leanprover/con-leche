@@ -31,6 +31,7 @@ public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockModelLfpInd
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRuleFit
 public import ConLeche.Model.Inductives.BlockRuleRun
