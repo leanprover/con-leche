@@ -1117,6 +1117,168 @@ def renameConstsFast (f : Name → Name) (e : Expr) : Expr :=
   funext f e
   exact (renameConstsGo_spec e RenameMemoInv.empty).1.symm
 
+/-! ### `replaceConsts`: constants to terms (lane POSPROOF)
+
+The member abstraction of the positivity function (charter item 2:
+"the holes are ordinary open terms (members abstracted to fvars)"):
+every constant `c.{us}` with `f c us = some e` becomes `e`, inside
+`fvar` annotations too; a `.proj` node's structure name is untouched.
+Memoized exactly as `renameConsts` (the memo keyed by the node, dropped
+after each call; `@[csimp]`, kernel-checked, no trust point). -/
+
+/-- Replace the constants `f` maps. -/
+def replaceConsts (f : Name → List Level → Option Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i ty => .fvar i (replaceConsts f ty)
+  | .sort u => .sort u
+  | .const n us => (f n us).getD (.const n us)
+  | .app a b => .app (replaceConsts f a) (replaceConsts f b)
+  | .lam ty body m => .lam (replaceConsts f ty) (replaceConsts f body) m
+  | .forallE ty body m => .forallE (replaceConsts f ty) (replaceConsts f body) m
+  | .letE ty v body =>
+    .letE (replaceConsts f ty) (replaceConsts f v) (replaceConsts f body)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (replaceConsts f e)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ReplaceMemoInv (f : Name → List Level → Option Expr) (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = replaceConsts f k
+
+theorem ReplaceMemoInv.empty {f : Name → List Level → Option Expr} : ReplaceMemoInv f {} := by
+  intro k v h; simp at h
+
+theorem ReplaceMemoInv.insert {f : Name → List Level → Option Expr}
+    {memo : Std.HashMap Expr Expr}
+    (hm : ReplaceMemoInv f memo) {e r : Expr} (heq : r = replaceConsts f e) :
+    ReplaceMemoInv f (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- Memoized `replaceConsts`. -/
+def replaceConstsGo (f : Name → List Level → Option Expr) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | .const n us => ((f n us).getD (.const n us), memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .fvar i ty =>
+          let (t, memo) := replaceConstsGo f memo ty
+          (.fvar i t, memo)
+        | .app a b =>
+          let (a', memo) := replaceConstsGo f memo a
+          let (b', memo) := replaceConstsGo f memo b
+          (.app a' b', memo)
+        | .lam ty body m =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (b, memo) := replaceConstsGo f memo body
+          (.lam t b m, memo)
+        | .forallE ty body m =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (b, memo) := replaceConstsGo f memo body
+          (.forallE t b m, memo)
+        | .letE ty v body =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (v', memo) := replaceConstsGo f memo v
+          let (b, memo) := replaceConstsGo f memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := replaceConstsGo f memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `replaceConsts`.** -/
+theorem replaceConstsGo_spec {f : Name → List Level → Option Expr} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceMemoInv f memo →
+      (replaceConstsGo f memo e).1 = replaceConsts f e ∧
+        ReplaceMemoInv f (replaceConstsGo f memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [replaceConsts, h1], ?_⟩
+      exact h2.insert (by simp [replaceConsts, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [replaceConsts, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [replaceConsts, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [replaceConsts, h1], ?_⟩
+      exact h2.insert (by simp [replaceConsts, h1])
+
+/-- The executed `replaceConsts` (one memoized DAG walk). -/
+def replaceConstsFast (f : Name → List Level → Option Expr) (e : Expr) : Expr :=
+  (replaceConstsGo f {} e).1
+
+@[csimp] theorem replaceConsts_eq_replaceConstsFast :
+    @replaceConsts = @replaceConstsFast := by
+  funext f e
+  exact (replaceConstsGo_spec e ReplaceMemoInv.empty).1.symm
+
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
 def stripLams : Nat → Expr → Option (List (Expr × BinderMeta) × Expr)

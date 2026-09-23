@@ -9,6 +9,7 @@ public import ConLeche.SetModel.WfRec
 public import ConLeche.SetModel.NarrowTreeList
 public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
+public import ConLeche.SetModel.HoleClose
 
 @[expose] public section
 
@@ -46,7 +47,11 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   operator as `Σ ctor, Π fields, ⟦field⟧[members := X]` over a syntax
   of POSITIVE TYPES with no field kinds, monotonicity by induction on
   the positivity derivation, the fibre law, and parameter-monotonicity
-  of any block by leastness (the nested case's only need).
+  of any block by leastness (the nested case's only need);
+* `HoleClose` — closing the holes (lane POSPROOF): the least tuple is
+  monotone in its operator (`lfpTuple_le_of_opLe`, the container case of
+  "positivity ⇒ monotone"), operators compared through their fibre laws,
+  and D2 (an unreached member does not change the reached component).
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and

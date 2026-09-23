@@ -84604,6 +84604,110 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   stores `normPosDom`'s normal form; which of the two the model reads is
   that lane's first decision.
 
+#### LANDED (lane POSPROOF, part 1: abstract walk S1/S2, result indices, `nestPos_sem` modulo `ContSem`)
+
+**Open premises of `nestPos_sem`/`nestMemberCtor_sem`, stated plainly:**
+(1) `ContSem` — the container case (lane HOLE2: section clause in hole
+form + substitution law, per-key typing, cache, relation truncation);
+(2) the typing (`Frame`/`CtxOk`/`Graded`) of the member-abstracted
+constructor types at the holes' context — U2, lane HOLE2;
+(3) `st'.cyclic = false` — to be removed by the S3 RESTART route
+(coordinator's provisional ruling, part 2 of this lane).
+
+Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded (partial;
+S3 for the maintainer).
+
+**Kernel (`Kernel/Inductives/Positivity.lean`, coordinator's ruling on
+S1/S2).**
+- The members are abstracted to free variables BEFORE the walk
+  (`nestAbstract`, unapplied `T_m.{lps} ↦ x_m` at `nP + m`, typed by the
+  former; memoised `Expr.replaceConsts`, `@[csimp]`, `Kernel/ExprOps`).
+- `holeApp` is an fvar head.
+- A container's own constant is abstracted to its FRAME's hole (at
+  `hiAt |prog|`) before its constructors are instantiated.
+  In-progress = that hole at its own `Ds`.  Another `Ds` declines: no
+  installed container has one.
+- An in-progress instantiation met as a CONSTANT (a cycle through a
+  mutual container group) is accepted as before and recorded
+  (`NestedPositivity.cyclic`).
+- Member constructors' result indices are checked inside
+  (`nestMemberCtor`).  TSHADOW's `targetCtorResultsOk` patch is removed.
+- The container branch is `nestCont`, the loops are `nestFields` and
+  `nestCtors`, and `Expr.nestOcc` is a pure definition with a memoised
+  `@[csimp]` twin.  All of these are verdict-neutral refactors.
+- **Verdict-neutrality argument:** a member is an inductive former with
+  no δ and, at positivity time, no ι, so a typed variable in its place
+  changes no reduction.  An installed container's own occurrences are
+  at its canonical parameters.
+- **Gates:** nested-shadow 82/82 and target-shadow 317/317.  One `pos`
+  column moves, accept → reject on `direct_fix_vec_res_occ_bad`: that is
+  the moved result check.  The Mathlib shadow sweep is in the report.
+
+**Proved (no sorry; `[propext, Classical.choice, Quot.sound]`).**
+- `SetModel/HoleClose.lean`:
+  - `lfpTuple_le_of_opLe`: the lfp is monotone in its operator, by
+    leastness;
+  - `tupleLe_of_fibre`;
+  - D2: `lfpTuple_eq_lfpFam_of_indep`.
+- `Semantics/Inductives/HoleMono.lean`: `FrameRel`/`MonoOn`/`ConstOn`
+  and one lemma per case — `MonoOn.of_eqOn` (the whnf step),
+  `ConstOn.of_noBVar`, `MonoOn.pi`, `MonoOn.holeApp`,
+  `MonoOn.holeAppBlind` (a frame's hole), and the telescope
+  (`TeleMonoOn`, `teleOfFields_sub`, `spineFit_mono`).
+- `Model/Annot/BlockLfpMono.lean`:
+  - the clause interface `HoleReading`/`ReadsHoles`;
+  - the consumer `monoTuple_of_holes`;
+  - the container case at the clause, `carrier_le_of_holes` /
+    `leaf_le_of_holes`;
+  - D2 `readsOnly_of_holes`.
+- `Model/BasisLfpHoles.lean`: the `PUnit`/`Empty`/`False` clauses
+  satisfy `ReadsHoles`.  `Nat`'s does not (its fit asks `m ∈ ω`).
+- **`Model/Inductives/NestPosMono.lean`, the run inversion:**
+  - `nestPos_sem`: at `fueledOps .verified F`, every fuel, a successful
+    cycle-free run makes the input's reading `MonoOn` along every
+    `HoleRel`.  `HoleRel` = the relation satisfies the context, agrees
+    off the hole positions, the member holes grow, and the frame holes
+    are parameter-blind and grow.
+  - It is proved by inversion: `red_sound`∘`whnf_bridge` for the whnf
+    step, then `const` (`denoteMeta_noBVar_of_nestOcc`), `pi` (induction
+    at the opened binder), `holeApp`, and the frame hole.
+  - The CONTAINER case is the premise `ContSem` (a successful `nestCont`
+    whose recursive call is positive).
+  - `nestPos_cyc`: the cycle flag only rises.
+  - `nestFields_sem`: a walked telescope is positive field by field.
+  - **`nestMemberCtor_sem`: a member constructor's run gives its
+    fields' positivity in Π-form and its result indices hole-free.**
+    This is the premise `monoTuple_of_holes` consumes.
+
+**S3, stopped (coordinator's stop condition).**
+- In the coordinator's Bekić route, the F-frame reduces F's fields with
+  `G N` as a CONSTANT (G is not in progress when F's frame starts).
+- So the run describes `Φ_F(X, Y_F, ⟦G N⟧_X)`, never `Φ_F(X, Y_F, Y_G)`
+  at `Y_G = inner(X, Y_F)`.  The clause's joint operator is not the
+  product of the per-frame readings.
+- Countermodel to the step: `_probe/posproof/S3.lean`.  Every fact the
+  runs supply holds, and `L_F` is not monotone.
+- `inmodel_groups` has the shape (`N : F N`, `F → G → F`).
+- Proof-feasible routes:
+  - (b) the F-frame restarts with G abstracted once a cycle is seen;
+  - N2: the group recorded on `.indInfo`.
+
+**The container case (`ContSem`), open.**  What it needs:
+- (i) a per-MEMBER section clause for each stored container: `⟦C Ds⟧` =
+  the lfp of C's operator with only C abstracted and the group's other
+  members concrete.  It is derivable from the group clause by
+  `lfpTuple_eq_section` plus `denoteMeta_substFvarAt`, so acyclic
+  mutual reach needs no group record.  It must come with its
+  substitution law: C's hole-field readings at `⟦Ds⟧_ρ` equal the
+  readings of the instantiated fields the frame walks.  HOLE2's work.
+- (ii) the frame's typing: the instantiated container fields typed per
+  key (E2E-DESIGN's U2).
+- (iii) a cache invariant, or caching only keys without frame holes.
+- (iv) truncating the relation to the frame's context.
+
+The consumer at `BlockModel.lean:430` waits for HOLE2's hole
+representation.
+
 #### LANDED (lane TSHADOW, 2026-09-23): the TARGET kernel as a shadow — `--target-shadow`
 
 **The maintainer's request**: write the target kernel code now, behind a

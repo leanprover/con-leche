@@ -101,4 +101,48 @@ reduces with the kernel's whnf (`(fun _ => T) 0 ⇝ T`). -/
 -- `LF (fun _ => T → Nat)`: negative AT this instantiation
 #guard runF (.app cLF (.lam cNat (pi cT cNat) default)) matches .error (.invalid _)
 
+/-! ### The holes are variables (lane POSPROOF, S1/S2)
+
+The members are abstracted to free variables BEFORE the walk
+(unapplied), so a redex that produces a member only after whnf still
+reaches the hole; a container's own occurrences in its constructors are
+its frame's hole; an instantiation in progress met as a CONSTANT (a
+cycle through a mutual container group) is accepted and recorded. -/
+
+-- `(fun (_ : Type) => T) Nat`: a hole only after β
+#guard kindsOf (runT (.app (.lam ty1 cT default) cNat)) == some [.recursive 0]
+-- no cycle through `L`
+#guard (runT (.app cL cT)) matches .ok { cyclic := false, .. }
+
+/-- Mutual containers `A α | mk : B α → A α` and `B α | mk : A α → B α`. -/
+@[expose] def cA : Expr := .const (nm "A") []
+@[expose] def cB : Expr := .const (nm "B") []
+@[expose] def envM : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ {}]⟩
+@[expose] def ctxM : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM.find?, envM.consts⟩
+@[expose] def runM (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envM ctxM [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+-- `A T`: accepted, the cycle `A T → B T → A T` recorded
+#guard (runM (.app cA cT)) matches .ok { cyclic := true, .. }
+#guard keysOf (runM (.app cA cT)) == some [nm "B", nm "A"]
+
+/-- A container whose own constructor uses it at ANOTHER parameter
+(`W α | mk : W Nat → W α`, which no installed inductive has): the
+frame's hole at other parameters is DECLINED. -/
+@[expose] def cW : Expr := .const (nm "W") []
+@[expose] def envW : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "W.mk", [], pi ty1 (pi (.app cW cNat) (.app cW (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "W", [], pi ty1 ty1⟩ {}]⟩
+@[expose] def ctxW : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?, envW.consts⟩
+#guard (nestedBlockPositivity (pureOps .verified) envW ctxW
+    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.notImplemented _)
+
 end ConLecheTests.Nested

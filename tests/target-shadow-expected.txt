@@ -113,7 +113,7 @@ tests/e2e/direct_fix_le.ndjson 1 0 -
 tests/e2e/direct_fix_acc_large.ndjson 1 0 -
 tests/e2e/direct_fix_vec_ih_idx_bad.ndjson 1 1 Vec'=reject/reject/reject/skip/accept/accept/same/ok/0
 tests/e2e/direct_fix_vec_idx_occ_bad.ndjson 1 1 Vec'=reject/reject/skip/skip/reject/reject/-/-/0
-tests/e2e/direct_fix_vec_res_occ_bad.ndjson 1 1 Vec'=reject/reject/skip/skip/accept/reject/-/-/0
+tests/e2e/direct_fix_vec_res_occ_bad.ndjson 1 1 Vec'=reject/reject/skip/skip/reject/reject/-/-/0
 tests/e2e/ind_stub_rec.ndjson 1 1 -
 tests/e2e/ind_stub_pos.ndjson 1 1 -
 tests/e2e/ind_stub_resid.ndjson 1 1 -
