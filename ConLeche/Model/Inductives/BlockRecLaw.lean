@@ -418,7 +418,15 @@ and the parameter comparison is unused (`sumRules` sets
 `paramsBlind := true`).  What is passed through is the rule data
 (`BlockRuleDataAt`) and the grading of the applied right-hand side;
 what is consumed is the family's ι law (`BlockIotaAt`, i.e. lane RM3's
-`BlockRecPre` through `blockIotaAt_of_pre`). -/
+`BlockRecPre` through `blockIotaAt_of_pre`).
+
+**The rule data is ONE arm of a disjunction** (lane RM49): at an
+elimination level `ℓ = 0` the data's fit is REFUTABLE (`Exists`,
+`BlockRuleFit.lean` §4), and the equation holds for a different
+reason — both sides read as the point (the recursor's type is a truth
+value, the rule's λ-tower carries the zero binder datum).  The second
+arm says exactly that, and the ι law is then not consulted at all —
+`FixRecLaw.lean`'s `hℓ0` branch at the block route's spellings. -/
 
 /-- **A new block recursor's rule law.** -/
 theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
@@ -455,7 +463,7 @@ theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Na
               (m₃.acval (RecRule.ctor rl)
                 (Level.substFn φ cvj.levelParams usj)) ys]) restR →
           TeleFitPA V ρ TVja ys restC →
-          (∀ a : Nat → V,
+          ((∀ a : Nat → V,
             (∀ c', c' < K →
               interp V ρ (leafF (Level.substFn φ cv.levelParams us) c') = a c') →
             BlockRuleDataAt V K a
@@ -467,7 +475,13 @@ theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Na
               (RbF (Level.substFn φ cv.levelParams us))
               ρ rP (RecRule.ctorParams rl) xs ys
               (m₃.acval (RecRule.ctor rl)
-                (Level.substFn φ cvj.levelParams usj)) Ra) ∧
+                (Level.substFn φ cvj.levelParams usj)) Ra) ∨
+            -- the `ℓ = 0` arm: both sides of the fired equation are the point
+            (interp V ρ (AnnotTerm.mkAppN (leafF (Level.substFn φ cv.levelParams us) c)
+                (xs ++ [AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+                  (Level.substFn φ cvj.levelParams usj)) ys])) = pt ∧
+              interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))
+                = pt)) ∧
           ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
             WellDenotedV V ρ (AnnotTerm.mkAppN Ra
               (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))) :
@@ -482,7 +496,9 @@ theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Na
       hxl hyl hujl hψ hidx hTVa hTVja hfitR hfitC
     refine ⟨?_, hok⟩
     rw [hleaf]
-    exact blockRecRuleEq_of_data (hiota _ ρ) hc (by rw [hxl]; exact hrPle) hdata
+    rcases hdata with hdata | ⟨hL, hR⟩
+    · exact blockRecRuleEq_of_data (hiota _ ρ) hc (by rw [hxl]; exact hrPle) hdata
+    · exact hL.trans hR.symm
 
 
 /-! ## 8. `hrecP`, as `blockRecStaged_of` consumes it
