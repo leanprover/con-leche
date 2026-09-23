@@ -21,8 +21,8 @@ the form the model tier reads them:
   exactly as terms (see the lemma's docstring for why not up to
   `Expr.resetMeta`);
 * the **abstraction's equations** (`abstractIh_*`);
-* the recursor stage's NAME checks, the one-level (`D-d`), counting and
-  pin halves of the elimination guard, and the two capture-avoiding
+* the recursor stage's NAME checks, the counting and pin halves of the
+  elimination guard, and the two capture-avoiding
   substitutions at bvar-closed arguments.
 
 ## The rule check's two ENVIRONMENT claims (G1, G2)
@@ -374,33 +374,6 @@ theorem checkBlockRecPins_names {p : BlockParts}
       (List.all_eq_true.mp hwant (ms.cvT.name.str "rec") (List.mem_map_of_mem hms))
     obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hmem
     exact ⟨rc, hrc, hn⟩
-
-/-! ## D-d: ONE elimination level per family
-
-The type stage returns, with each recursor's record, the sort the
-kernel's own sort check gave its CONCLUSION; `checkBlockRecElimAgree`
-is the family check over exactly that list.  So the fact the model
-needs — one `ℓ` for the whole family — is a statement about the list
-and nothing else. -/
-
-/-- **D-d, exposed**: every recursor of the block eliminates at a level
-equivalent to the first one's, so the model may take ONE `ℓ` per
-family. -/
-theorem blockRecElimAgree_inv {us : List Level}
-    (h : checkBlockRecElimAgree (m := CheckM) us = .ok ()) :
-    ∀ u ∈ us, Level.isEquiv u (us.headD .zero) = some true := by
-  cases us with
-  | nil => intro u hu; exact nomatch hu
-  | cons u0 rest =>
-    rw [checkBlockRecElimAgree] at h
-    split at h
-    · next hall =>
-      intro u hu
-      simp only [List.mem_cons] at hu
-      rcases hu with rfl | hu
-      · exact Level.isEquiv_of_beq (beq_self_eq_true _)
-      · exact eq_of_beq (List.all_eq_true.mp hall u hu)
-    · exact nomatch h
 
 /-! ## The COUNTING half of the elimination guard
 

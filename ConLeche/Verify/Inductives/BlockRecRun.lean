@@ -356,20 +356,18 @@ theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
       simpa using this
 
 /-- **Stage (b'), the family's agreements**, over the list stage (b)
-returned: D-d, the counting half of the elimination guard, the
-elimination-level PIN, the index domains and the shared rule prefix. -/
+returned: the counting half of the elimination guard, the
+elimination-level PIN (D-d), the index domains and the shared rule
+prefix. -/
 structure RecFamRun (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape) (nested : Bool)
     (cvTas : List ConstantVal) (cvRus : List (ConstantVal × Nat × Level)) : Prop where
-  /-- D-d: one elimination level for the family -/
-  agree : ∀ u ∈ cvRus.map (·.2.2),
-    Level.isEquiv u ((cvRus.map (·.2.2)).headD .zero) = some true
   /-- the block declares a family -/
   k_pos : 0 < p.k
   /-- the counting half of the elimination guard -/
   small : blockLargeElimAllowed p nested = true ∨
     ∀ u ∈ cvRus.map (·.2.2), Level.isEquiv u Level.zero = some true
-  /-- the elimination-level PIN: every conclusion sort is the generated
-  elimination level -/
+  /-- the elimination-level PIN — D-d: every conclusion sort is the
+  generated elimination level -/
   pin : ∀ u ∈ cvRus.map (·.2.2),
     Level.isEquiv u (structElimLevel p.elim p.large) = some true
   /-- stage (b''): the index binder domains -/
@@ -383,12 +381,11 @@ theorem checkBlockRecFamilyAgree_run {env : Env} {p : BlockShape} {nested : Bool
     (h : checkBlockRecFamilyAgree (fueledOps mode F) env p nested cvTas cvRus = .ok ()) :
     RecFamRun mode F env p nested cvTas cvRus := by
   rw [checkBlockRecFamilyAgree] at h
-  obtain ⟨u0, hagree, h⟩ := exceptBind_ok h
   obtain ⟨u1, hsmall, h⟩ := exceptBind_ok h
   obtain ⟨u2, hpin, h⟩ := exceptBind_ok h
   obtain ⟨u3, hidx, h⟩ := exceptBind_ok h
   obtain ⟨hk, hs⟩ := checkBlockRecSmallElim_inv (by cases u1; exact hsmall)
-  exact ⟨blockRecElimAgree_inv (by cases u0; exact hagree), hk, hs,
+  exact ⟨hk, hs,
     checkBlockRecElimPin_inv (by cases u2; exact hpin), by cases u3; exact hidx, h⟩
 
 /-! ## Stage (c): one RULE -/

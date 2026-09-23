@@ -908,14 +908,6 @@ theorem checkBlockRecPrefixAgree_datF (env : Env) (p : BlockShape) (cvRs : List 
   · rfl
   · simp only [FueledM.atF_bind, unwrapOr_atF, checkBlockRecPrefixAt_datF]
 
-theorem checkBlockRecElimAgree_datF (us : List Level) (F : Nat) :
-    (checkBlockRecElimAgree (m := FueledM) us).val F =
-      checkBlockRecElimAgree (m := CheckM) us := by
-  unfold checkBlockRecElimAgree
-  split
-  · rfl
-  · simp only [FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
-
 theorem checkBlockRecSmallElim_datF (p : BlockShape) (nested : Bool) (us : List Level)
     (F : Nat) :
     (checkBlockRecSmallElim (m := FueledM) p nested us).val F =
@@ -934,7 +926,7 @@ theorem checkBlockRecFamilyAgree_datF (env : Env) (p : BlockShape) (nested : Boo
     (checkBlockRecFamilyAgree (fueledOpsM mode) env p nested cvTas cvRus).val F =
       checkBlockRecFamilyAgree (fueledOps mode F) env p nested cvTas cvRus := by
   unfold checkBlockRecFamilyAgree
-  simp only [FueledM.atF_bind, checkBlockRecElimAgree_datF, checkBlockRecSmallElim_datF,
+  simp only [FueledM.atF_bind, checkBlockRecSmallElim_datF,
     checkBlockRecElimPin_datF, checkBlockRecIdxDomsAt_datF, checkBlockRecPrefixAgree_datF]
 
 theorem checkBlockRecTys_datF (env : Env) (p : BlockShape) (nested : Bool)

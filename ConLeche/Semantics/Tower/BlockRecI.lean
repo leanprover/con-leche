@@ -568,8 +568,7 @@ theorem ihFunAV_fold {ℓ K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)
 level.  The leaf is a Σ'-chain at a single `s` and the candidate is a
 λ-tower at a single bit, so every class's binder data must carry the
 SAME zeroness — which is what a common elimination level gives (the
-kernel's elimination-level checks, `checkBlockRecElimAgree` and
-`checkBlockRecElimPin`). -/
+kernel's elimination-level pin, `checkBlockRecElimPin`). -/
 def OneElimLevel (ℓ K : Nat) (rds : Nat → List (Nat × Nat × AnnotTerm)) : Prop :=
   ∀ c, c < K → ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0)
 

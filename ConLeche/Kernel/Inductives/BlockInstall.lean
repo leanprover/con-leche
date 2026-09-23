@@ -381,25 +381,6 @@ def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : S
     checkBlockDefEqList ops env depth what as bs
   | _, _ => throw (.invalid s!"direct rec: {what} (arity)")
 
-/-- **D-d: ONE elimination level for the whole family** (the ruling of
-2026-09-21).  Official shares one elimination level parameter across a
-block's recursors, so the sort the kernel's own sort check returns for
-each recursor's CONCLUSION must be `Level.isEquiv` to the first one's
-— this accepts nothing official produces less, and a family whose
-conclusions live at different levels is INVALID INPUT.
-
-The levels are the type stage's own output (`checkBlockRecTys`), so
-the family fact is a statement about THIS list and nothing else
-(`blockRecElimAgree_inv`, `ConLeche/Verify/Inductives/BlockRecInv.lean`):
-the model may take one `ℓ` per family. -/
-def checkBlockRecElimAgree (us : List Level) : m Unit :=
-  match us with
-  | [] => pure ()
-  | u0 :: rest =>
-    if rest.all (fun u => Level.isEquiv u u0 == some true) then pure ()
-    else throw (.invalid "direct rec: the block's recursors do not all eliminate at \
-      one level")
-
 /-- **The member's parameter-and-index telescope, opened at the
 RECURSOR's own binder numbering** (lane SEC2, 2026-09-22).
 
@@ -437,13 +418,17 @@ One pure check closes both: every recursor's conclusion sort is
 `Level.isEquiv` to `structElimLevel p.elim p.large`.  It is true of
 every stream official emits — the motive lands in `Sort elim` when the
 eliminator is large and in `Prop` when it is not, and `p.elim` is read
-off the first recursor's own level parameters (`BlockParts.lean`) — and
-it implies D-d.  `checkBlockRecElimAgree` is nevertheless KEPT: it is
-the statement four modules invert.
+off the first recursor's own level parameters (`BlockParts.lean`).
 
-It does NOT need `checkBlockRecElimAgree`'s arity (the reading that
-parked it): `checkBlockRecFamilyAgree` already holds the shape, so the
-pin is a sibling PASS rather than a widening. -/
+It IS D-d — one elimination level for the whole family (the ruling of
+2026-09-21): every conclusion sort is equivalent to the same generated
+level, so the model takes one `ℓ` per family
+(`blockRecElimPin_eval`, `Model/Inductives/BlockRecRead.lean`).  The
+separate pairwise check D-d once had (every conclusion sort
+`Level.isEquiv` to the FIRST one's) was deleted by lane INVERT
+(2026-09-23): the pin implies it semantically, which is the currency
+the model reads, and deleting it moved no verdict (arena and e2e
+batteries unchanged). -/
 def checkBlockRecElimPin (p : BlockShape) (us : List Level) : m Unit := do
   unless us.all (fun u => Level.isEquiv u (structElimLevel p.elim p.large) == some true) do
     throw (.invalid "direct rec: the block's recursors do not eliminate at the generated \
@@ -466,8 +451,7 @@ call's spine fits the CALLEE's recursor binder data" has no licence
 at all.
 
 Like stage (b') (the shared rule prefix) this is a pass of its own
-rather than a widening of stage (b): stage (b)'s inversions are peeled
-POSITIONALLY in four modules, three of them other lanes'.
+rather than a widening of stage (b).
 
 It rejects nothing official emits — its recursors bind the member's
 own index telescope, verbatim.  The comparison is at the recursor's
@@ -562,8 +546,7 @@ is INVALID INPUT.
 It is a pass of its own, over the CHECKED constant values stage (b)
 returns, rather than a widening of stage (b)'s own comparison: the
 first recursor's prefix is the reference and stage (b) is a fold with
-no accumulator, and its inversions (`checkBlockRecTys_inv`,
-`checkBlockRecTys_open`) are stated at its current arity. -/
+no accumulator. -/
 def checkBlockRecPrefixAt (ops : CheckerOps m) (env : Env) (p : BlockShape) (rP0 : Nat)
     (doms0 : List Expr) : List ConstantVal → Nat → m Unit
   | [], _ => pure ()
@@ -589,24 +572,17 @@ def checkBlockRecPrefixAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
       (.invalid "direct rec: the recursor's type does not bind the family's rule prefix")
     checkBlockRecPrefixAt ops env p (p.rulePrefixAt 0) (fvs0.map Expr.fvarTypeD) rest 1
 
-/-- **The family's two agreements, in one stage**: D-d (one
-elimination level, the ruling of 2026-09-21) and the shared rule
-prefix (the ruling of 2026-09-22).
-
-— and, between them, the COUNTING half of the elimination guard
-(`checkBlockRecSmallElim`), the ELIMINATION-LEVEL pin
-(`checkBlockRecElimPin`) and the recursors' INDEX binder domains
-(`checkBlockRecIdxDomsAt`), all three lane SEC2's.
-
-They are ONE stage, and deliberately: `checkBlockRecK`'s inversions
-peel its binds positionally in five modules (two of them another
-lane's), so a new bind at the top level would have been a five-file
-edit for no gain.  All three are statements about the LIST stage (b)
-returns and nothing else. -/
+/-- **The family's agreements, in one stage**: the COUNTING half of
+the elimination guard (`checkBlockRecSmallElim`), the
+ELIMINATION-LEVEL pin (`checkBlockRecElimPin`, which is D-d — one
+elimination level, the ruling of 2026-09-21), the recursors' INDEX
+binder domains (`checkBlockRecIdxDomsAt`) and the shared rule prefix
+(the ruling of 2026-09-22).  All are statements about the LIST stage
+(b) returns and nothing else; the model reads them through ONE record
+(`RecFamRun`, `Verify/Inductives/BlockRecRun.lean`). -/
 def checkBlockRecFamilyAgree (ops : CheckerOps m) (env : Env) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (cvRus : List (ConstantVal × Nat × Level)) : m Unit := do
-  checkBlockRecElimAgree (cvRus.map (·.2.2))
   checkBlockRecSmallElim p nested (cvRus.map (·.2.2))
   checkBlockRecElimPin p (cvRus.map (·.2.2))
   checkBlockRecIdxDomsAt ops env p cvTas cvRus 0
@@ -625,7 +601,7 @@ argument sums read off the record (`BlockShape.rulePrefixAt` /
   looked inside (the ruling of 2026-09-23, lane RM49's witness: a
   `Prop` block whose recursor has `rP = 0` passed every stage with an
   EMPTY rule telescope; the model's `ℓ = 0` arm needs every stored rule
-  to bind a variable, `checkBlockRecTys_prefix`) — and the type has
+  to bind a variable, `RecTyEntry.nP_lt`) — and the type has
   `mI + 1 = rP + nIdx_m + 1` `∀` binders;
 * the first `nP` binder DOMAINS are the block's parameter domains,
   compared BINDER BY BINDER with the member's own opened former

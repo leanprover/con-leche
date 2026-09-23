@@ -901,16 +901,6 @@ theorem checkBlockRecPrefixAgreeS_sim (hμ : mode.verifiedChecks = true) (henv :
     obtain ⟨x, hx', rfl⟩ := List.mem_map.mp hy
     exact openers_typeD_WScoped' hx (hl cv0 List.mem_cons_self) (by omega) x hx'
 
-theorem checkBlockRecElimAgreeS_sim {us : List Level} {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (checkBlockRecElimAgree (m := CheckCM) us)
-      (checkBlockRecElimAgree (m := FueledM) us) := by
-  unfold checkBlockRecElimAgree
-  split
-  · exact SimC.pure hs rfl
-  · split
-    · exact SimC.pure hs rfl
-    · exact SimC.throw
-
 theorem checkBlockRecSmallElimS_sim {p : BlockShape} {nested : Bool} {us : List Level}
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC (checkBlockRecSmallElim (m := CheckCM) p nested us)
@@ -943,8 +933,7 @@ theorem checkBlockRecFamilyAgreeS_sim (hμ : mode.verifiedChecks = true) (henv :
       (checkBlockRecFamilyAgree (sharedOpsC mode (mkFEnv env)) env p nested cvTas cvRus)
       (checkBlockRecFamilyAgree (fueledOpsM mode) env p nested cvTas cvRus) := by
   unfold checkBlockRecFamilyAgree
-  refine SimC.bind (checkBlockRecElimAgreeS_sim hs) (fun s₁ _ _ hs₁ _ => ?_)
-  refine SimC.bind (checkBlockRecSmallElimS_sim hs₁) (fun s₂ _ _ hs₂ _ => ?_)
+  refine SimC.bind (checkBlockRecSmallElimS_sim hs) (fun s₂ _ _ hs₂ _ => ?_)
   refine SimC.bind (checkBlockRecElimPinS_sim hs₂) (fun s₃ _ _ hs₃ _ => ?_)
   refine SimC.bind (checkBlockRecIdxDomsAtS_sim hμ henv hT hR
     (fun j q hq => by simpa using hsum j q hq) hs₃) (fun s₄ _ _ hs₄ _ => ?_)
