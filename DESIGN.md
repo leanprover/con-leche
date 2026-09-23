@@ -5876,6 +5876,42 @@ many 1.01, telescope 1.11).
 90/92 + e2e 57/57, axioms of the four soundness/consistency theorems
 exactly `[propext, Classical.choice, Quot.sound]`, no `sorry`s.
 
+## FEnv linearity at the recursor install (2026-09-23, lane LIN1)
+
+**Finding.**  The flip made every one-member block take the uniform
+route, and that route pushed onto the constructors' index `fe₂` twice
+more while `checkBlockTailS` still held it, so each of those pushes
+copied the whole `FEnv.idx` bucket array (Mathlib verified:
+`lean_copy_expand_array` +66 %, ~37 G instructions; `gdb` counts at
+`FEnv.push` with a shared index on init-full: 4 per one-member block
+against master's 2):
+
+1. `consBlockRecsF fe₂.find? … fe₂` — the `find?` argument is a
+   closure over `fe₂`, alive through the whole recursion, so the first
+   push is shared.  **Fix:** `@[csimp] consBlockRecsF_eq_fast` →
+   `consBlockRecsFFast` builds every record first (`blockRecInfosF`),
+   the closure dies, then `FEnv.pushAll` runs on a unique index.  Same
+   value; no proof touched.
+2. The conformance check's generator (`checkNativeRecF`) pushed the
+   rule-less recursor onto `fe₂` — the environment the recursor stage
+   had just built (`consBlockRecsBareF`, its `feR`).  **Fix:**
+   `checkNativeRecF` takes a `hint` (`FEnv.pushRecBare`: a prebuilt
+   environment used when its record is exactly the one to push —
+   name, levels, `Expr` `==`, both sums); `@[csimp]
+   checkBlockRecS_eq_fast` runs `checkBlockRecSFast`, the stage inline
+   with its `feR` handed on (`recBareHint`).  The spec `checkBlockRecS`
+   passes `none`, so its proofs only gained that argument.  The hint
+   misses where the generated type differs syntactically from the
+   stream's (`outParam` wrappers: 97 of 584 blocks on init-full), and
+   those push as before.
+
+Still one shared push per block at the formers (`consBlockIndsF`,
+`fe` held for the second pass and `blockFieldsOkF`) and one at the
+stage's `feR` (two environments genuinely coexist); master had the same
+two.  **Measured** (verified, `--jobs=1`): Mathlib 7 762.7 G → 7 693.4 G
+(−0.89 %; `lean_copy_expand_array` 4 723 → 2 900 samples, master
+2 850), init-full 420.37 G → 420.03 G.  Verdicts byte-identical.
+
 ## Two measured asymptotic fixes: telescope and spine walks (2026-08-24, tasks #97/#96)
 
 Scale-comparison profiling at n = 1600 (con-leche vs official vs nanoda,
