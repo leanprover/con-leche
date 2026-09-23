@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.FixChains
-public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.BlockChains
 import ConLeche.Model.Inductives.FixTeleBound
 public section
@@ -438,35 +438,5 @@ theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     unfold ctorBodyAVI at hokR
     obtain ⟨-, hargs⟩ := WellDenoted.mkAppN_inv hokR.1
     exact hargs E (List.mem_append_right _ hE)
-
-/-- **The chain facts at ONE member**: `blockChainFacts_of` with every
-recursive field targeting the family itself. -/
-theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
-    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
-    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
-    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
-    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
-    (u : Nat) (ψ : Name → Nat) (ρp : Nat → V)
-    (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
-    ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks (tss ψ)
-      (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) :=
-  ChainFactsB.toFix (tgts := [])
-    (blockChainFacts_of hμ mp hCtor hfT hProp hFD hleafT hD ψ ρp
-      (k := 1) (m := 0) (tgts := []) (uf := fun _ => u)
-      (Idss := fun _ => ((ppsAll ψ).drop nP).map (·.2.2)) (ppsOf := fun _ => ppsAll)
-      (fun _ ψ' => hFD.len ψ') (fun _ ψ' => hleafT ψ')
-      (fun _ _ _ => Nat.zero_lt_one) (fun _ _ _ => rfl) rfl hρp)
 
 end ConLeche.Model

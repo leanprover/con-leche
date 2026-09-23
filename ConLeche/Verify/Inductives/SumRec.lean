@@ -22,70 +22,6 @@ namespace ConLeche
 
 open Expr
 
-/-! ## The unfoldings -/
-
-/-! ## The closed spellings under extras -/
-
-/-- The minor premise's conclusion `motive (C p⃗ f⃗)`, spelled under
-`extras.length` binders (the motive first, then the earlier minors),
-instantiated at the parameters and the extras and then at the
-fields: the motive extra applied to the constructor at the
-variables. -/
-theorem instSeq_minorBody_at (tfvs extras xFvs : List Expr) {C : Name}
-    {lps : List Name} {nP nF : Nat} {mfv : Expr}
-    (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
-    (hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true)
-    (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true)
-    (hhead : extras[0]? = some mfv) :
-    instSeq xFvs (nF - 1) (instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-        (.app (.bvar (nF + extras.length - 1)) (structCtorSpineAt C lps extras.length nP nF)))
-      = .app mfv (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)) := by
-  have hpos : 0 < extras.length := by
-    have := (List.getElem?_eq_some_iff.mp hhead).1
-    omega
-  have hcl : ∀ a ∈ tfvs ++ extras, a.looseBVarsBounded 0 = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with h | h
-    · exact hclT a h
-    · exact hclE a h
-  have hlen : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
-  have hclM : mfv.looseBVarsBounded 0 = true := hclE mfv (List.mem_of_getElem? hhead)
-  unfold structCtorSpineAt
-  rw [instSeq_app, instSeq_mkAppN, instSeq_app, instSeq_mkAppN,
-    List.map_append, List.map_append]
-  have hhead' : instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-      (.bvar (nF + extras.length - 1)) = mfv := by
-    have := instSeq_bvar (tfvs ++ extras) (nP + extras.length - 1 + nF) (nF + extras.length - 1)
-      hcl (by omega) (by rw [hlen]; omega)
-    rw [show nP + extras.length - 1 + nF - (nF + extras.length - 1) = nP from by omega,
-      List.getElem?_append_right (by omega), hlenT, Nat.sub_self, hhead] at this
-    exact (Option.some.inj this).symm
-  rw [hhead', instSeq_eq_self _ _ hclM,
-    instSeq_eq_self (e := Expr.const C (lps.map .param)) _ _ rfl,
-    instSeq_eq_self (e := Expr.const C (lps.map .param)) _ _ rfl,
-    show nP + extras.length - 1 + nF = extras.length + nF + nP - 1 from by omega,
-    map_instSeq_structPsAt (tfvs ++ extras) (extras.length + nF) nP hcl (by omega),
-    List.take_append_of_le_length (by omega), List.take_of_length_le (by omega),
-    show extras.length + nF + nP - 1 = nP + extras.length - 1 + nF from by omega,
-    map_instSeq_fieldBvars_above (tfvs ++ extras) (nP + extras.length - 1 + nF) nF
-      (by rw [hlen]; omega),
-    map_instSeq_fieldBvars xFvs nF hclX hlenX]
-  have htfvs : tfvs.map (fun x => instSeq xFvs (nF - 1) x) = tfvs := by
-    apply List.ext_getElem (by simp)
-    intro k h1 h2
-    simp only [List.getElem_map]
-    exact instSeq_eq_self _ _ (hclT _ (List.getElem_mem h2))
-  rw [htfvs]
-
-/-! ## No projection nodes -/
-
-namespace Expr
-
-variable {T : Name} {i : Nat}
-
-end Expr
-
 end ConLeche
 
 namespace ConLeche
@@ -136,8 +72,6 @@ theorem sumRules_getElem? {find? : Name → Option ConstantInfo}
     · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := sumRules_getElem? h
       exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
 
-/-! ## The indexed generators, unfolded (task #175 indexed families) -/
-
 /-! ## Instantiation under a mid-cutoff lift -/
 
 /-- **Lifting above a cutoff and instantiating through the lifted
@@ -181,42 +115,5 @@ theorem instSeq_liftLooseBVars_mid :
       show (pre'.length + c) + rest.length - 1 = pre'.length + rest.length + c - 1 from by omega,
       liftLooseBVars_instantiate1 ha (by omega)]
     exact ih rest (fun x hx => hpre x (List.mem_cons_of_mem _ hx)) hq'
-
-/-- The minor premise's conclusion at an indexed family,
-`motive e⃗ (C p⃗ f⃗)` spelled under `extras.length` binders, instantiated
-at the parameters, the extras and the fields: the motive extra at the
-index expressions (instantiated at the parameters and the fields
-alone) and the constructor at the variables. -/
-theorem instSeq_minorBodyI_at (tfvs extras xFvs : List Expr) {C : Name}
-    {lps : List Name} {nP nF : Nat} {mfv : Expr} {es : List Expr}
-    (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
-    (hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true)
-    (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true)
-    (hhead : extras[0]? = some mfv)
-    (hes : ∀ e ∈ es, e.looseBVarsBounded (nP + nF) = true) :
-    instSeq xFvs (nF - 1) (instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-        (Expr.mkAppN (.bvar (nF + extras.length - 1))
-          (es.map (Expr.liftLooseBVars extras.length nF) ++ [structCtorSpineAt C lps extras.length nP nF])))
-      = Expr.mkAppN mfv
-          (es.map (fun e => instSeq xFvs (nF - 1) (instSeq tfvs (nP + nF - 1) e)) ++
-            [Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)]) := by
-  have hpos : 0 < extras.length := by
-    have := (List.getElem?_eq_some_iff.mp hhead).1
-    omega
-  have hsp := instSeq_minorBody_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead
-    (C := C) (lps := lps)
-  simp only [instSeq_app] at hsp
-  obtain ⟨hhd, hspine⟩ := Expr.app.inj hsp
-  rw [Expr.mkAppN_append_one, Expr.mkAppN_append_one]
-  simp only [instSeq_app, instSeq_mkAppN, hhd, hspine, List.map_map]
-  congr 2
-  apply List.map_congr_left
-  intro e he
-  simp only [Function.comp]
-  congr 1
-  have := instSeq_liftLooseBVars_mid tfvs extras (c := nF) hclT (by rw [hlenT]; exact hes e he)
-  rw [hlenT, show nP + extras.length + nF - 1 = nP + extras.length - 1 + nF from by omega] at this
-  exact this
 
 end ConLeche

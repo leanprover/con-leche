@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Semantics.Tower.FixCaseI
+public import ConLeche.Semantics.Tower.SumRecCase
+public import ConLeche.Semantics.Tower.FixFamI
 public import ConLeche.Semantics.Tower.SumRec
 
 @[expose] public section
@@ -39,7 +40,6 @@ theorem mem_recIdx {rs : List Bool} {k i : Nat} :
     i ∈ recIdx rs k ↔ i < k ∧ rs.getD i false = true := by
   unfold recIdx
   rw [List.mem_filter, List.mem_range]
-
 
 /-! ## The ih frame -/
 
@@ -88,7 +88,6 @@ theorem mem_ihTeleAtGo {nF o i l : Nat} :
     · obtain ⟨d'', hd'', he⟩ := mem_ihTeleAtGo h
       exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
 
-
 /-- The recursor's `(p⃗, M, m⃗)` variables under `m` binders below the
 `nF` fields (`recPrefixBvarsM`'s shape). -/
 def prefixVarsAV (nP n nF m : Nat) : List AnnotTerm :=
@@ -128,22 +127,5 @@ def srcList (Es : List AnnotTerm) (nF : Nat) : List (Option Nat) :=
 between the fields and the parameters), as binder data. -/
 def fieldTeleAt (o : Nat) (Fs : List AnnotTerm) : List (Nat × Nat × AnnotTerm) :=
   (liftFields o 0 Fs).map fun F => (0, 0, F)
-
-/-- **The squash regime's recursor body** at depth `1` below the
-K-frame (task #202 A2): the field telescope (lifted past the major,
-the indices, the minors and the motive) bound at the elimination bit,
-the (only) minor at the field variables and the ih applications (the
-function below the parameters, `nIdx + 1` extras between the fields
-and the minors), applied to the sources — the fields read off the
-index variables. -/
-def sqFixBodyAV (ℓ nP n nIdx : Nat) (Fs Es : List AnnotTerm) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) : AnnotTerm :=
-  AnnotTerm.mkAppN
-    (mkLamsC ℓ (fieldTeleAt (nIdx + n + 2) Fs)
-      (AnnotTerm.mkAppN (.bvar (Fs.length + 1 + nIdx + n - 1))
-        (teleVarsAV Fs.length ++ (recIdx rs Fs.length).map fun i =>
-          ihAppAVb ℓ (fun m => .bvar (m + Fs.length + 1 + nIdx + n + 1 + nP)) nP n Fs.length
-            (nIdx + 1) i (tls.getD i []) (Eis.getD i []))))
-    ((srcList Es Fs.length).map (srcAV nIdx 1))
 
 end ConLeche.Semantics

@@ -39,12 +39,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
   | [], _ => []
   | c :: cs, j => (c.1.name, c.2, dsF j ψ, esF j ψ) :: ctorDataList dsF esF ψ cs (j + 1)
 
-theorem ctorDataList_length (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (ψ : Name → Nat) :
-    ∀ (cs : List (ConstantVal × Nat)) (j : Nat), (ctorDataList dsF esF ψ cs j).length = cs.length
-  | [], _ => rfl
-  | _ :: cs, j => by simp [ctorDataList, ctorDataList_length dsF esF ψ cs (j + 1)]
-
 theorem ctorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (ψ : Name → Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (j i : Nat),
@@ -81,43 +75,5 @@ stored, at the block's level parameters, and its data. -/
   env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2) ∧
   cA.1.levelParams = lps ∧
   CtorDataI m T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j) (srcsF j)
-
-/-! ## The recursor's data -/
-
-/-- **The sum recursor type's reading, peeled.** -/
-structure SumRecData {env : Env} (m : EnvModel V env) (cvR : ConstantVal)
-    (nP n nIdx : Nat) (elimL : Level)
-    (rds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) : Prop where
-  read : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvR.type
-    = some (mkPisAV (rds ψ) (recConcAV n nIdx))
-  len : ∀ ψ : Name → Nat, (rds ψ).length = nP + n + nIdx + 2
-  bits : ∀ (ψ : Name → Nat) (d : Nat × Nat × AnnotTerm), d ∈ rds ψ →
-    (elimL.eval ψ = 0 ↔ d.2.1 = 0)
-  okTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-    WellDenotedV V ρ (mkPisAV (rds ψ) (recConcAV n nIdx))
-  below : ∀ ψ : Name → Nat, DomsBelow 0 (rds ψ)
-  params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvR.levelParams, ψ₁ p = ψ₂ p) →
-    rds ψ₁ = rds ψ₂
-
-/-- The recursor's data crosses a cons whose slot does not mention the
-stored recursor. -/
-theorem SumRecData.cross {m : EnvModel V env} {cvR : ConstantVal}
-    {nP n nIdx : Nat} {elimL : Level}
-    {rds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (h : SumRecData m cvR nP n nIdx elimL rds)
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none) (hat : ConsCrossAt c₀ cvR.type)
-    (hcb : ConstsBound env cvR.type)
-    (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
-    (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    SumRecData m₂ cvR nP n nIdx elimL rds where
-  read ψ := by
-    rw [hac]
-    exact denoteMeta_cons_mono hfresh hat ψ 0 hcb (h.read ψ)
-  len := h.len
-  bits := h.bits
-  okTy := h.okTy
-  below := h.below
-  params := h.params
 
 end ConLeche.Model

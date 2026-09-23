@@ -29,19 +29,6 @@ def checkSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n : Nat)
     let cvTa ← checkConstantValF ops fe { cv with type := closeTelescope bs 0 (.sort s) }
     pure (cvTa, s)
 
-/-- `checkSumInd` through the index. -/
-def checkSumIndF (ops : CheckerOps m) (fe : FEnv) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) :
-    m (FEnv × ConstantVal × InductiveShape) := do
-  let cvTa₀ ← checkConstantValF ops fe p.cvT
-  let (cvTa, s) ← checkSumTeleF ops fe p.cvT (p.nP + p.nIdx) cvTa₀
-  let (_, tbody) ← unwrapOr (cvTa.type.stripPis (p.nP + p.nIdx))
-    (.internal "direct sum: type former telescope")
-  unless tbody == Expr.sort s do
-    throw (.internal "direct sum: type former result sort")
-  let p' := p.withSort s
-  pure (fe.push (.indInfo cvTa (capsOf p')), cvTa, p')
-
 /-- `checkStructFieldSortsI` through the index. -/
 def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)

@@ -34,12 +34,6 @@ local macro_rules
         | (exfalso; exact dThrow_ne_ok
             (by simpa [bind, Except.bind] using ‹_›)))
 
-/-! ## Stage 1: the type former -/
-
-/-! ## Stage 2: the constructor -/
-
-/-! ## Stage 3: the recursor, generated and compared (task #175 S2) -/
-
 /-! ## The frame walks: binder-domain pins and field sorts -/
 
 /-- `checkStructDomsAt`, inverted: every position below the walk's

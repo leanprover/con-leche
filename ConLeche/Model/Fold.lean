@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Model.Inductives.DeclStruct
+import ConLeche.Model.Inductives.StructStageTable
 import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum

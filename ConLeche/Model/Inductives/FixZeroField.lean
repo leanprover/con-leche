@@ -33,50 +33,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-- **The single-constructor fold at no index**: the family at a
-fitting parameter spine is the one-constructor fibre of the tagged
-union (Part A's derivation at the table stage, factored). -/
-theorem fixFoldSingle {u w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)} {Fs : List AnnotTerm}
-    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : List (List (List AnnotTerm))} {Fss₀ Ess : List (List AnnotTerm)} {ρ : Nat → V} {ts : List V}
-    (hlenP : pps.length = nP) (hEss : Ess = [[]])
-    (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
-    (hX : XChainsOk u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u w (consList ts ρ) [] 0 rss tlss eiss Fss₀ Ess)
-      u w (consList ts ρ) [] rss tlss eiss Fss₀ [Fs] Ess) :
-    ts.foldl SetTheory.app (interp V ρ (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess))
-      = sumSet w (sumFibre w (consList ts ρ) [Fs ++ [idxEqAV []]]) := by
-  have hsh : shiftE ([] : List AnnotTerm).length 0 (consList ts ρ) = consList ts ρ :=
-    shiftE_zero_zero _
-  have hfr : ConLeche.Semantics.frameIdx ([] : List AnnotTerm).length (consList ts ρ) = [] := rfl
-  have hbase : FixBaseI u w (consList ts ρ) [] rss tlss eiss Fss₀ Ess := by
-    refine ⟨?_, ?_, ?_⟩
-    · rw [hsh]; exact hX.hI
-    · rw [hsh]; exact hX.hok
-    · rw [hsh, hfr]; trivial
-  have hlenP' : (pps.map (·.2.2)).length = nP := by rw [List.length_map, hlenP]
-  rw [nativeTyAVI_fold hsp hbase, hsh, hfr, fixFamI_app_eq_sum hX hreal (is := []) trivial,
-    consList_nil, hEss]
-  show sumSet _ (sumFibre _ _ (rChains 0 0 [_] [[]])) = _
-  rw [rChains_single_nil]
-
-/-- At zero fields the real chains are the X-source chains. -/
-theorem chainsRealI_zero {μ : V} {u w : Nat} {ρp : Nat → V} {rss : List (List Bool)}
-    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {eiss : List (List (List AnnotTerm))} :
-    ChainsRealI μ u w ρp [] rss tlss eiss [[]] [[]] [[]] :=
-  ⟨rfl, rfl, fun j hj => by
-      simp only [List.length_singleton] at hj
-      obtain rfl : j = 0 := by omega
-      rfl,
-    fun j hj => by
-      simp only [List.length_singleton] at hj
-      obtain rfl : j = 0 := by omega
-      rfl,
-    fun j hj => by
-      simp only [List.length_singleton] at hj
-      obtain rfl : j = 0 := by omega
-      trivial⟩
-
 /-- **Unit-likeness at the dummy former's leaf**: the family with no
 constructor chain is empty, so the law is vacuous. -/
 theorem fixEmptyUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
@@ -201,8 +157,6 @@ theorem fibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
         simp only [List.append_nil, List.map_nil] at hfd
         rw [hfd]
 
-
-
 /-! ## The block member's single-constructor fold -/
 
 /-- **The single-constructor fold at no index, at a block member**
@@ -242,55 +196,5 @@ theorem blockFoldSingle {k w m : Nat} (hm : m < k)
     hIdsm]
   show sumSet _ (sumFibre _ _ (rChains 0 0 [Fs] [[]])) = _
   rw [rChains_single_nil]
-
-/-! ## The one-family instances (statements unchanged) -/
-
-/-- `fibreUnitLaw` at the one-family fixpoint leaf. -/
-theorem fixFibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
-    {cvT : ConstantVal} {caps : IndCaps}
-    {u w : (Name → Nat) → Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : (Name → Nat) → List (List (List AnnotTerm))}
-    {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
-    (hleaf : ∀ ψ, m.acval T ψ
-      = nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
-    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
-      SpineFit ρ ((pps ψ).map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
-        = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
-    (hread : ∀ ψ, denoteMeta m.acval env ψ 0 cvT.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenotedV V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hpar : ∀ ψ, caps.unitParams = (pps ψ).length) :
-    UnitLaw m φ' T cvT caps :=
-  fibreUnitLaw hleaf hfold hread hokTy hpar
-
-/-- `fibreEtaLaw0` at the one-family fixpoint leaf. -/
-theorem fixFibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
-    {cvT : ConstantVal} {caps : IndCaps}
-    {u w : (Name → Nat) → Nat} {pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
-    {eiss : (Name → Nat) → List (List (List AnnotTerm))}
-    {Fss₀ Ess : (Name → Nat) → List (List AnnotTerm)}
-    (hfields : caps.etaFields = 0)
-    (hleaf : ∀ ψ, m.acval T ψ
-      = nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
-    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
-      SpineFit ρ ((pps ψ).map (·.2.2)) ts →
-      ts.foldl SetTheory.app (interp V ρ
-          (nativeTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
-        = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
-    (hleafC : ∀ ψ, m.acval caps.etaCtor ψ = sumMkAV (w ψ) 0 (ds ψ) [] (uChains [[]]))
-    (hread : ∀ ψ, denoteMeta m.acval env ψ 0 cvT.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenotedV V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hfit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
-      SpineFit ρ ((pps ψ).map (·.2.2)) as → SpineFit ρ ((ds ψ).map (·.2.2)) as)
-    (hpar : ∀ ψ, caps.etaParams = (pps ψ).length) :
-    EtaLaw m φ' T cvT caps :=
-  fibreEtaLaw0 hfields hleaf hfold hleafC hread hokTy hfit hpar
 
 end ConLeche.Model

@@ -45,7 +45,7 @@ public import ConLeche.Semantics.Tower.TowerLeaf
 public import ConLeche.Semantics.Tower.TowerMk
 public import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
-public import ConLeche.Semantics.Tower.FixTuple
+public import ConLeche.Semantics.Tower.FixLeafI
 public import ConLeche.Semantics.Tower.BlockTuple
 public import ConLeche.Semantics.Tower.BlockLeafI
 public import ConLeche.Semantics.Tower.BlockFamI

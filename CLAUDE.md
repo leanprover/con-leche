@@ -35,11 +35,12 @@ iteration protocol. Keep it up to date when decisions change.
   `ConLeche/Model/*`.
   Inductive installation has its own directory per layer
   (`Kernel/Inductives/*`, `Verify/Inductives/*`, `Semantics/Inductives/*`,
-  `Model/Inductives/*`); the two routes there are the NATIVE one (the ONE
-  fixpoint route, task #210 — `checkNative`, `Native*.lean`, with the
-  `Struct*`/`Sum*` stage kits it builds on) and the MODELED one
-  (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for mutual and
-  nested blocks).
+  `Model/Inductives/*`); the routes there are the UNIFORM one
+  (`checkBlock`, `Block*.lean`, every non-nested block, with the
+  `Fix*`/`Struct*`/`Sum*` kits it uses as a library) and the MODELED one
+  (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for nested blocks);
+  the old one-member generator (`Native*.lean`) survives only as the
+  recursor conformance check (`checkBlockRecConform`).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs
   importing no other Model/Verify modules) may live with, and be

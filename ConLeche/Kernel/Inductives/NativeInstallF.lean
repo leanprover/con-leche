@@ -19,55 +19,6 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- `nativeOpenedOk` through the index. -/
-def nativeOpenedOkF (w : StructWalkers) (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
-    (cty : Expr) (nF : Nat) (ks : List RecFieldKind) : Bool :=
-  match openPisAtFvars nP cty 0 with
-  | some (fvsP, crest) =>
-    match openPisAtFvars nF crest nP with
-    | some (xFvs, xrest) =>
-      (xrest.getAppArgs.drop nP).all (w.resolve fe₀) &&
-      (List.range nF).all fun i =>
-        match xFvs[i]?, ks.getD i .ordinary with
-        | some x, .ordinary => w.resolve fe₀ x.fvarTypeD
-        | some x, .recursive =>
-          x.fvarTypeD.getAppFn == Expr.const T (lps.map .param) &&
-          x.fvarTypeD.getAppArgs.take nP == fvsP &&
-          x.fvarTypeD.getAppArgs.length == nP + nIdx &&
-          (x.fvarTypeD.getAppArgs.drop nP).all (w.resolve fe₀) &&
-          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-          !xrest.mentionsFvar (nP + i)
-        | some x, .reflexive =>
-          -- the field's own telescope, OPENED at variables at the field's
-          -- depth (as the constructor's was): its domains resolve in
-          -- `env₀` (so they are free of the block), its body is the family
-          -- at the parameter variables and `nIdx` index expressions
-          -- resolving in `env₀` (task #202)
-          match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
-          | some (afvs, body) =>
-            afvs.length != 0 &&
-            afvs.all (fun a => w.resolve fe₀ a.fvarTypeD) &&
-            body.getAppFn == Expr.const T (lps.map .param) &&
-            body.getAppArgs.take nP == fvsP &&
-            body.getAppArgs.length == nP + nIdx &&
-            (body.getAppArgs.drop nP).all (w.resolve fe₀) &&
-            !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-            !xrest.mentionsFvar (nP + i)
-          | none => false
-        | _, _ => false
-    | none => false
-  | none => false
-
-/-- `nativeFieldsOk` through the index. -/
-def nativeFieldsOkF (w : StructWalkers) (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
-    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) : Bool :=
-  ctorsA.length == kinds.length &&
-  (List.range ctorsA.length).all fun j =>
-    match ctorsA[j]?, kinds[j]? with
-    | some cA, some ks =>
-      ks.length == cA.2 && nativeOpenedOkF w fe₀ T lps nP nIdx cA.1.type cA.2 ks
-    | _, _ => false
-
 /-- `checkNativeRules` through the index. -/
 def checkNativeRulesF (w : StructWalkers) (feR : FEnv) (rlps : List Name) (T : Name) (lps : List Name)
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
@@ -113,17 +64,6 @@ def checkNativeRecF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (p : Na
   let rhss ← checkNativeRulesF w feR p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
     cvTa.type ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
   pure (cvRa, rhss)
-
-/-- `checkNativeTable` through the index (task #210 Part A). -/
-def checkNativeTableF (w : StructWalkers) (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (fe : FEnv) : m FEnv :=
-  match ctorsA, sortss with
-  | [cA], [sorts] =>
-    if p.nIdx == 0 then
-      checkStructProjTableF w p.cvT.name cA.1.name p.cvT.levelParams p.nP cA.2 p.resSort
-        (structProjGuards cA.1.type p.nP cA.2 sorts) 1 cA.1 fe
-    else pure fe
-  | _, _ => pure fe
 
 /-- `checkBlockRecConform` through the index: the unverified,
 reject-only recursor CONFORMANCE check (the one-member

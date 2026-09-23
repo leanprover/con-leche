@@ -36,8 +36,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-! ## Inference kit -/
-
 /-! ## Lifted Π-towers -/
 
 /-- The binder data of a lifted Π-tower: each domain lifted at its own
@@ -77,65 +75,6 @@ theorem stripPisAV_mkPisAV_take :
   | n + 1, d :: ds, b, h => by
     simp only [mkPisAV, stripPisAV, List.take_succ_cons, List.drop_succ_cons,
       stripPisAV_mkPisAV_take n ds b (by simpa using h), Option.map_some]
-
-/-! ## The residual of an `instPisAt` run at openers -/
-
-/-- **The residual reads to the tower's core** (`instPisAt_openerDoms`'s
-companion): at an opener spine the run instantiates with the very
-`fvar`s the reading opens with. -/
-theorem instPisAt_openerRes {acval : Name → (Name → Nat) → AnnotTerm} :
-    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {j : Nat} {T : AnnotTerm},
-        (∀ (q : Nat) (x : Expr), sp[q]? = some x →
-          ∃ t, x = Expr.fvar (j + q) t) →
-        denoteMeta acval env φ j ty = some T →
-        ∀ {Γ : List AnnotTerm} {R : AnnotTerm}, PiTeleAV sp.length T Γ R →
-          denoteMeta acval env φ (j + sp.length) rs = some R := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro ty ds rs h j T _ hT Γ R htele
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    cases htele
-    exact hT
-  | cons a sp ih =>
-    intro ty ds rs h j T hshape hT Γ R htele
-    obtain ⟨t0, rfl⟩ := hshape 0 a rfl
-    match ty, h with
-    | .forallE dom bodyE mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar (j + 0) t0)) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      obtain ⟨A, Bv, -, hB, rfl⟩ := denoteMeta_forallE_inv hT
-      obtain ⟨u', v', A', B', Γ', heqT, rfl, htele'⟩ := htele.succ_inv
-      obtain ⟨rfl, rfl⟩ : A' = A ∧ B' = Bv := by
-        injection heqT with _ _ hA' hB'
-        exact ⟨hA'.symm, hB'.symm⟩
-      have hB' : denoteMeta acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar (j + 0) t0)) = some B' := by
-        rw [denoteMeta_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
-          (ConLeche.Expr.ErasedEq.rfl bodyE)
-          (show ConLeche.Expr.ErasedEq (.fvar (j + 0) t0) (.fvar j dom) from by
-            rw [Nat.add_zero]; constructor)) (j + 1)]
-        exact hB
-      have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →
-          ∃ t, x = Expr.fvar (j + 1 + q0) t := by
-        intro q0 x hx
-        obtain ⟨t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
-        exact ⟨t', by rw [hx']; congr 1; omega⟩
-      have := ih h1 hshape' hB' htele'
-      simp only [List.length_cons]
-      rw [show j + (sp.length + 1) = j + 1 + sp.length from by omega]
-      exact this
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [Expr.instPisAt] at h
 
 /-! ## Graded applications along a fit -/
 

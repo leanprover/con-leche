@@ -90,6 +90,4 @@ theorem reverse_map_take_drop (ds : List (Nat × Nat × AnnotTerm)) (nP : Nat) :
       = (((ds.drop nP).map (·.2.2)).reverse) ++ (((ds.take nP).map (·.2.2)).reverse) := by
   rw [← List.reverse_append, ← List.map_append, List.take_append_drop]
 
-/-! ## The constructor's data -/
-
 end ConLeche.Model

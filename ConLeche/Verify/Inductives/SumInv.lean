@@ -82,36 +82,6 @@ theorem checkSumTele_shape {env : Env} {cv : ConstantVal} {n : Nat}
     obtain ⟨rfl, rfl⟩ := h
     exact Or.inr ⟨_, hccv⟩
 
-theorem checkSumInd_shape {env envI : Env} {p p' : InductiveShape}
-    {cvTa : ConstantVal} {F : Nat} {capsOf : InductiveShape → IndCaps}
-    (h : checkSumInd (fueledOps mode F) env p capsOf = .ok (envI, cvTa, p')) :
-    ∃ (cvT : ConstantVal) (s : Level),
-      cvT.name = p.cvT.name ∧ cvT.levelParams = p.cvT.levelParams ∧
-      checkConstantVal (fueledOps mode F) env cvT = .ok cvTa ∧
-      p' = p.withSort s ∧
-      envI = ⟨.indInfo cvTa (capsOf p') :: env.consts⟩ ∧
-      ∃ bs, cvTa.type.stripPis (p.nP + p.nIdx) = some (bs, .sort s) := by
-  unfold checkSumInd at h
-  obtain ⟨cvTa₀, hccv₀, h⟩ := exceptBind_ok h
-  obtain ⟨q, htele, h⟩ := exceptBind_ok h
-  obtain ⟨cvTa', s⟩ := q
-  try simp only at h
-  obtain ⟨q, hq, h⟩ := exceptBind_ok h
-  obtain ⟨bs, tbody⟩ := q
-  have hq' := unwrapOr_ok hq
-  try simp only at h
-  by_cases hc : (tbody == Expr.sort s) = true
-  · rw [if_pos hc] at h
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, rfl⟩ := h
-    have hstrip : cvTa'.type.stripPis (p.nP + p.nIdx) = some (bs, .sort s) := by
-      rw [hq', beq_iff_eq.mp hc]
-    rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-    · exact ⟨p.cvT, s, rfl, rfl, hccv₀, rfl, rfl, bs, hstrip⟩
-    · exact ⟨{ p.cvT with type := ty }, s, rfl, rfl, hccv, rfl, rfl, bs, hstrip⟩
-  · rw [if_neg hc] at h
-    close_throw
-
 /-! ## Stage 2: one constructor -/
 
 /-- `checkStructFieldSortsI`, inverted (task #175 indexed): the sorts
@@ -349,9 +319,5 @@ theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     | succ j =>
       simp only [List.getElem?_cons_succ] at hc' hcA
       exact hall j c' cA hc' hcA
-
-/-! ## Stage 3: the recursor -/
-
-/-! ## The recogniser -/
 
 end ConLeche

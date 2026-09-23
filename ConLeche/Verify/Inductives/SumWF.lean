@@ -22,28 +22,6 @@ namespace ConLeche
 
 variable {mode : CheckMode}
 
-/-- Stage 1 at the run level. -/
-theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
-    {p p' : InductiveShape} {cvTa : ConstantVal} {F : Nat} {capsOf : InductiveShape → IndCaps}
-    (h : checkSumInd (fueledOps mode F) env p capsOf = .ok (env₁, cvTa, p'))
-    -- the capability record names the parameter count as
-    -- its arity (both records do: `nativeCaps`, and the empty one)
-    (hcapsOf : ∀ q : InductiveShape,
-      ((capsOf q).unitlike = true → (capsOf q).unitParams = q.nP) ∧
-      ((capsOf q).eta = true → (capsOf q).etaParams = q.nP)) :
-    EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
-  obtain ⟨cvT, s, -, -, hccv, rfl, rfl, bs, hstrip⟩ := checkSumInd_shape h
-  have hsome : (cvTa.type.stripPis (p.nP + p.nIdx)).isSome = true := by
-    rw [hstrip]; rfl
-  refine ⟨envWF_cons_ind henv hccv (IndCapsWF.of_caps ?_ ?_),
-    (checkConstantVal_typeWF hccv).1⟩
-  · intro hu
-    rw [(hcapsOf _).1 hu, InductiveShape.withSort_nP]
-    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
-  · intro he
-    rw [(hcapsOf _).2 he, InductiveShape.withSort_nP]
-    exact stripPis_isSome_of_le (Nat.le_add_right _ _) hsome
-
 /-- A constructor's run at the former's environment: its type is
 closed and bounded. -/
 theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
@@ -108,21 +86,5 @@ theorem sumRules_mem {find? : Name → Option ConstantInfo} {recName : Name}
       split <;> simp
     · obtain ⟨hm, hf⟩ := sumRules_mem h
       exact ⟨List.mem_cons_of_mem _ hm, hf⟩
-
-/-- Every stored rule of the fixpoint route carries the two rescue
-bits its own install-time lookup computes. -/
-theorem sumRules_bits {find? : Name → Option ConstantInfo} {recName : Name}
-    {nP mI rP : Nat} {recTy : Expr} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ sumRules find? recName nP mI rP recTy ctorsA rhss →
-      r.k = recRuleKOf find? r.ctor ∧
-        r.eta = recRuleEtaOf find? recName r.ctor
-  | [], _, r, h => by simp [sumRules] at h
-  | _ :: _, [], r, h => by simp [sumRules] at h
-  | _ :: cs, _ :: rhss, r, h => by
-    simp only [sumRules, List.mem_cons] at h
-    rcases h with rfl | h
-    · exact ⟨rfl, rfl⟩
-    · exact sumRules_bits h
 
 end ConLeche

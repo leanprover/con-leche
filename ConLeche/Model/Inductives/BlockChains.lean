@@ -214,26 +214,6 @@ theorem blockChain_of (hIall : BlockIdxOk (V := V) k uf ρp Idss) (hm : m < k) {
   rw [chainXBI, hC.hFs]
   exact h
 
-/-- **At ONE member** the block's chain facts ARE the one-member
-file's: the target bound `0 < 1` is trivial and the target's index
-telescope is the family's own. -/
-theorem ChainFactsB.toFix {u w nP nF : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
-    {ks : List RecFieldKind} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
-    {Fs : List AnnotTerm} {Eis : List (List AnnotTerm)} {Es : List AnnotTerm}
-    (h : ChainFactsB (V := V) 1 w nP nF ρp (fun _ => u) (fun _ => Ids) 0 ks tgts tls Fs Eis Es) :
-    ChainFacts (V := V) u w nP nF ρp Ids ks tls Fs Eis Es where
-  hks := h.hks
-  hFs := h.hFs
-  hEs := h.hEs
-  nb := h.nb
-  nbT := h.nbT
-  nbE := h.nbE
-  nbEs := h.nbEs
-  gr := fun i hi as' hsp =>
-    ⟨(h.gr i hi as' hsp).1, (h.gr i hi as' hsp).2.1,
-      fun hr => ((h.gr i hi as' hsp).2.2 hr).2⟩
-  grE := h.grE
-
 end Walk
 
 end ConLeche.Model

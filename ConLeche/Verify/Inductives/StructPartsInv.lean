@@ -23,8 +23,6 @@ recogniser and slot decision:
 
 namespace ConLeche
 
-/-! ## The recogniser -/
-
 /-! ## The guard's spelling -/
 
 theorem structProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i : Nat}

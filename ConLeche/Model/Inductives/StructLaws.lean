@@ -52,6 +52,4 @@ theorem foldl_app_pt : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
   | [] => rfl
   | t :: ts => by rw [List.foldl_cons, app_pt]; exact foldl_app_pt ts
 
-/-! ## The fieldless family's laws -/
-
 end ConLeche.Model

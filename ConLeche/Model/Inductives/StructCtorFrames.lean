@@ -141,6 +141,4 @@ theorem fieldsBound_of_frame {Γ : List AnnotTerm} {k nP nF w : Nat}
     rw [hG, show k - (nP + j) - 1 + 1 = k - (nP + j) from by omega]
     exact Sat_cons V hρ ha
 
-/-! ## The frames -/
-
 end ConLeche.Model

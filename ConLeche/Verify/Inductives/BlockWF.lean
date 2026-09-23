@@ -1,6 +1,9 @@
 module
 
-public import ConLeche.Verify.Inductives.FixWF
+public import ConLeche.Verify.Inductives.SumWF
+public import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.FixParts
+public import ConLeche.Kernel.Inductives.NativeInstall
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Inductives.BlockRecInv

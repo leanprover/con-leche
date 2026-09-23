@@ -182,6 +182,4 @@ theorem mkLamsC_validV {m : Nat} {b : AnnotTerm} :
     rw [AnnotValid_lam]
     exact ⟨h.1, fun a ha => mkLamsC_validV (h.2 a ha)⟩
 
-/-! ## The `WellDenotedV` packages -/
-
 end ConLeche.Model

@@ -353,15 +353,6 @@ theorem DenoteMetaSpine.agree_congr {acval₁ acval₂ : Name → (Name → Nat)
         exact ha)
       (DenoteMetaSpine.agree_congr hag (fun e he => hres e (List.mem_cons_of_mem _ he)) htl)
 
-theorem DenoteMetaSpine.acvalWith_congr {acval : Name → (Name → Nat) → AnnotTerm} {T' : Name}
-    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env} (hfresh : env₀.find? T' = none)
-    {ψ : Name → Nat} {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (hres : ∀ e ∈ as, e.constsResolve env₀ = true)
-    (h : DenoteMetaSpine (acvalWith acval T' A₁) env ψ d as vs) :
-    DenoteMetaSpine (acvalWith acval T' A₂) env ψ d as vs :=
-  DenoteMetaSpine.agree_congr
-    (fun n hn => acvalWith_agree_of_fresh (A₁ := A₁) (A₂ := A₂) hfresh n hn) hres h
-
 /-- The index readings of two data at the same residual agree across
 carriers agreeing at every name the pre-block environment has. -/
 theorem CtorDataI.Es_eq_of_agree {env : Env} {T : Name} {env₀ : Env}
@@ -376,26 +367,6 @@ theorem CtorDataI.Es_eq_of_agree {env : Env} {T : Name} {env₀ : Env}
     (hres : ∀ e ∈ idxArgs, e.constsResolve env₀ = true) (ψ : Name → Nat) :
     Es₁ ψ = Es₂ ψ :=
   DenoteMetaSpine.unique (DenoteMetaSpine.agree_congr hag hres (h₁.idxRead ψ)) (h₂.idxRead ψ)
-
-/-- The index readings of two data at the same residual agree across
-carriers that differ only at an unmentioned constant. -/
-theorem CtorDataI.Es_eq {env : Env} {acval : Name → (Name → Nat) → AnnotTerm} {T T' : Name}
-    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env}
-    {m₁ m₂ : EnvModel V env} (hac₁ : m₁.acval = acvalWith acval T' A₁)
-    (hac₂ : m₂.acval = acvalWith acval T' A₂) (hfresh : env₀.find? T' = none)
-    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {idxArgs : List Expr}
-    {ds₁ ds₂ : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es₁ Es₂ : (Name → Nat) → List AnnotTerm}
-    {srcs₁ srcs₂ : List (Option Nat)}
-    (h₁ : CtorDataI m₁ T lps cvC nP nF nIdx resSort isProp large idxArgs ds₁ Es₁ srcs₁)
-    (h₂ : CtorDataI m₂ T lps cvC nP nF nIdx resSort isProp large idxArgs ds₂ Es₂ srcs₂)
-    (hres : ∀ e ∈ idxArgs, e.constsResolve env₀ = true) (ψ : Name → Nat) :
-    Es₁ ψ = Es₂ ψ :=
-  CtorDataI.Es_eq_of_agree
-    (fun n hn => by
-      rw [hac₁, hac₂]
-      exact acvalWith_agree_of_fresh (A₁ := A₁) (A₂ := A₂) hfresh n hn)
-    h₁ h₂ hres ψ
 
 /-- The constructor's data, from its stage run at the environment
 holding the former. -/

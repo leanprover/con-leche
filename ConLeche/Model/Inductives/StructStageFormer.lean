@@ -36,8 +36,4 @@ theorem stripPisAV_mkPisAV :
     simp only [List.length_cons, mkPisAV, stripPisAV, stripPisAV_mkPisAV pps b,
       Option.map_some]
 
-/-! ## The former's hereditary premises -/
-
-/-! ## The cons -/
-
 end ConLeche.Model

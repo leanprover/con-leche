@@ -272,7 +272,6 @@ macro "datF_step_alt" : tactic =>
     | rfl
     | (simp only []))
 
-
 macro "datF_tac" : tactic =>
   `(tactic| repeat' datF_step_alt)
 
@@ -374,7 +373,6 @@ macro "datF_stepPI_alt" : tactic =>
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
     | (simp only []))
-
 
 theorem checkProjIota_datF (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
     (checkProjIota mode (fueledOpsM mode) env' envSelf T ctorName lps cvj nP nF i).val F =
@@ -638,14 +636,6 @@ theorem checkSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
     cases body <;> simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF,
       checkConstantVal_datF]
 
-theorem checkSumInd_datF (env : Env) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) (F : Nat) :
-    (checkSumInd (fueledOpsM mode) env p capsOf).val F =
-      checkSumInd (fueledOps mode F) env p capsOf := by
-  unfold checkSumInd
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF]
-
 /-- `checkStructFieldSortsI` (task #175 indexed) at fuel `F`. -/
 theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) (F : Nat) :
@@ -773,16 +763,6 @@ theorem checkNativeRec_datF (env : Env) (p : NativeParts)
     FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
     checkNativeRules_datF]
-
-/-- The kinds' classification at fuel `F` (task #210 Part D):
-operation-free, so the fuel is irrelevant. -/
-theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
-    (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
-    (classifyFixKinds (m := FueledM) T lps nP nIdx ctorsA).val F =
-      classifyFixKinds (m := CheckM) T lps nP nIdx ctorsA := by
-  unfold classifyFixKinds
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF]
 
 /-! ### The uniform install at k members (lane FLIP1)
 
@@ -1109,7 +1089,6 @@ macro "datF_step4_alt" : tactic =>
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
     | (simp only []))
-
 
 macro "datF_tac4" : tactic =>
   `(tactic| repeat' datF_step4_alt)

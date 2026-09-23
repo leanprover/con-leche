@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.StructBodyFrames
-public import ConLeche.Model.Inductives.FixRealChains
+public import ConLeche.Model.Inductives.FixChainFacts
 public section
 
 /-!

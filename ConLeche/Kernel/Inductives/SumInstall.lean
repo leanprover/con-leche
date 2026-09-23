@@ -93,24 +93,6 @@ def checkSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
     let cvTa ← checkConstantVal ops env { cv with type := closeTelescope bs 0 (.sort s) }
     pure (cvTa, s)
 
-/-- Stage 1: the type former, stored with the block's capability
-record — `capsOf` at the completed record: `sumCaps` on the sum
-route, `nativeCaps` on the fixpoint route (task #210 Part A) — at
-its telescope (`checkSumTele`); returns the record completed
-with the result sort (`InductiveShape.withSort`), which every later
-stage runs on. -/
-def checkSumInd (ops : CheckerOps m) (env : Env) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) :
-    m (Env × ConstantVal × InductiveShape) := do
-  let cvTa₀ ← checkConstantVal ops env p.cvT
-  let (cvTa, s) ← checkSumTele ops env p.cvT (p.nP + p.nIdx) cvTa₀
-  let (_, tbody) ← unwrapOr (cvTa.type.stripPis (p.nP + p.nIdx))
-    (.internal "direct sum: type former telescope")
-  unless tbody == Expr.sort s do
-    throw (.internal "direct sum: type former result sort")
-  let p' := p.withSort s
-  pure (⟨.indInfo cvTa (capsOf p') :: env.consts⟩, cvTa, p')
-
 /-- The fields' sorts over the opened constructor telescope, with the
 official per-field universe bound unless the family is
 propositional (`checkStructFieldSorts` at an indexed family): at a
@@ -293,10 +275,5 @@ def sumRules (find? : Name → Option ConstantInfo) (recName : Name)
 major index (the rule prefix, then the indices). -/
 def InductiveShape.rulePrefix (p : InductiveShape) : Nat := p.nP + 1 + p.ctors.length
 def InductiveShape.majorIdx (p : InductiveShape) : Nat := p.rulePrefix + p.nIdx
-
-@[simp] theorem InductiveShape.withSort_rulePrefix (p : InductiveShape) (s : Level) :
-    (p.withSort s).rulePrefix = p.rulePrefix := rfl
-@[simp] theorem InductiveShape.withSort_majorIdx (p : InductiveShape) (s : Level) :
-    (p.withSort s).majorIdx = p.majorIdx := rfl
 
 end ConLeche

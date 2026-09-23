@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.StructRecFrames
+public import ConLeche.Model.Inductives.StructRecRead
 public section
 
 /-!

@@ -83,43 +83,6 @@ theorem openPisAtFvars_typeWScoped :
     | .lam _ _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 
-/-- An `instPisAt` residual is scoped at the spine's end. -/
-theorem instPisAt_res_WScoped :
-    ∀ (sp : List Expr) {d : Nat} {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) → Expr.WScoped d ty →
-      (∀ (i : Nat) (a : Expr), sp[i]? = some a → Expr.WScoped (d + i + 1) a) →
-      Expr.WScoped (d + sp.length) rs
-  | [], d, ty, ds, rs, h, hty, _ => by
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    simpa using hty
-  | a :: sp, d, ty, ds, rs, h, hty, hsp => by
-    match ty, h with
-    | .forallE dom body mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p =>
-        rw [h1] at h
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨-, rfl⟩ := h
-        have hty' : Expr.WScoped d dom ∧ Expr.WScoped d body := by
-          simpa only [Expr.WScoped] using hty
-        have ha : Expr.WScoped (d + 1) a := by
-          have := hsp 0 a rfl
-          rwa [Nat.add_zero] at this
-        have hb : Expr.WScoped (d + 1) (body.instantiate1 a) :=
-          Expr.WScoped.instantiate1_gen ha 0 (Expr.WScoped.mono (by omega) hty'.2)
-        have := instPisAt_res_WScoped sp h1 hb (fun i a' ha' => by
-          have := hsp (i + 1) a' (by simpa using ha')
-          rwa [show d + (i + 1) + 1 = d + 1 + i + 1 from by omega] at this)
-        simp only [List.length_cons]
-        rw [show d + (sp.length + 1) = d + 1 + sp.length from by omega]
-        exact this
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [Expr.instPisAt] at h
-
 /-! ## Frame shifts under a consed spine -/
 
 omit [SetTheory V] in
@@ -157,8 +120,6 @@ theorem mkPisAV_append :
       mkPisAV (l₁ ++ l₂) b = mkPisAV l₁ (mkPisAV l₂ b)
   | [], _, _ => rfl
   | d :: l₁, l₂, b => by simp [mkPisAV, mkPisAV_append l₁ l₂ b]
-
-/-! ## The minor space as a Π-tower reading -/
 
 /-! ## Lifted domains, field spines, and frame arithmetic (from the retired
 `StructRecMinorP`, task #175 S2) -/
@@ -214,19 +175,5 @@ theorem consList_apply_lt :
       rw [Nat.zero_add] at this
       rw [this, List.length_cons, show as.length + 1 - 1 - as.length = 0 from by omega,
         List.getElem?_cons_zero, Option.getD_some, cons_zero]
-
-/-- The field variables, read at a consed field spine, are the spine. -/
-theorem map_fieldBvars_interp {nF : Nat} {as : List V} (hlen : as.length = nF)
-    (σ : Nat → V) :
-    ((List.range nF).map fun k => (AnnotTerm.bvar (nF - 1 - k))).map (interp V (consList as σ))
-      = as := by
-  apply List.ext_getElem
-  · simp [hlen]
-  · intro i h1 h2
-    simp only [List.getElem_map, List.getElem_range, interp_bvar]
-    have hi : i < nF := by simpa using h1
-    rw [consList_apply_lt as σ (nF - 1 - i) (by omega), hlen,
-      show nF - 1 - (nF - 1 - i) = i from by omega, List.getElem?_eq_getElem h2,
-      Option.getD_some]
 
 end ConLeche.Model

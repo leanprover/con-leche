@@ -92,42 +92,10 @@ theorem sumTyAV_below {w : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     rw [List.length_map]
     exact sumBodyAV_below hF)
 
-/-- The restricted chains of a family are bounded at a frame `K + d`
-when the field chains are bounded at `K` and the index expressions at
-the constructor frames. -/
-theorem rChains_below {d nIdx K : Nat} (hd : nIdx ≤ d) {Fss Ess : List (List AnnotTerm)}
-    (hF : ∀ Fs ∈ Fss, FieldsBelow K Fs)
-    (hE : ∀ j, j < Fss.length → (Ess.getD j []).length = nIdx ∧
-      ∀ E ∈ Ess.getD j [], Term.bvarsBelow (K + (Fss.getD j []).length) E.erase) :
-    ∀ Fs' ∈ rChains d nIdx Fss Ess, FieldsBelow (K + d) Fs' := by
-  intro Fs' hFs'
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs'
-  rw [rChains_getElem?] at hj
-  cases hFj : Fss[j]? with
-  | none => rw [hFj] at hj; exact nomatch hj
-  | some Fs =>
-    cases hEj : Ess[j]? with
-    | none => rw [hFj, hEj] at hj; exact nomatch hj
-    | some Es =>
-      rw [hFj, hEj] at hj
-      obtain rfl := Option.some.inj hj
-      have hjl : j < Fss.length := (List.getElem?_eq_some_iff.mp hFj).1
-      have hFsD : Fss.getD j [] = Fs := by rw [List.getD_eq_getElem?_getD, hFj]; rfl
-      have hEsD : Ess.getD j [] = Es := by rw [List.getD_eq_getElem?_getD, hEj]; rfl
-      obtain ⟨hlenE, hEb⟩ := hE j hjl
-      rw [hEsD] at hlenE hEb
-      rw [hFsD] at hEb
-      exact FieldsBelow_rChain hd hlenE (hF Fs (List.mem_of_getElem? hFj)) hEb
-
 /-! ## The constructor -/
 
 theorem numeralAV_below (i k : Nat) : Term.bvarsBelow k (numeralAV i).erase :=
   numeralAV_erase_below i k
-
-theorem succsAV_below {k : Nat} : ∀ (j : Nat) {kx : AnnotTerm},
-    Term.bvarsBelow k kx.erase → Term.bvarsBelow k (succsAV j kx).erase
-  | 0, _, h => h
-  | j + 1, _, h => ⟨trivial, succsAV_below j h⟩
 
 theorem sumInjAtAV_below {w K : Nat} {Fss : List (List AnnotTerm)} {d : Nat}
     {tag payload : AnnotTerm} (h : ∀ Fs ∈ Fss, FieldsBelow K Fs)
@@ -197,49 +165,5 @@ theorem sumMkAV_below {w j : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     have := sumInjAtAV_below (w := w) (K := k + nP) (Fss := Fss) (d := Fs.length)
       (tag := numeralAV j) (payload := mkTowerGoU w Fs (idxEqAV [])) hFss (numeralAV_below j _) hmk
     rwa [show k + nP + Fs.length = k + ds.length from by omega] at this)
-
-/-! ## The recursor -/
-
-theorem idxVarsAV_below {nIdx D' K : Nat} (h : nIdx ≤ K) :
-    ∀ a ∈ idxVarsAV nIdx D', Term.bvarsBelow (K + D') a.erase := by
-  intro a ha
-  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp ha
-  have := List.mem_range.mp hl
-  show D' + nIdx - 1 - l < K + D'
-  omega
-
-theorem motAppAV_below {n nIdx D' K : Nat} (h : nIdx + n < K) :
-    Term.bvarsBelow (K + D') (motAppAV n nIdx D').erase := by
-  unfold motAppAV
-  rw [AnnotTerm.erase_mkAppN]
-  refine VExprAux.bvarsBelow_mkAppN (show D' + nIdx + n < K + D' by omega) ?_
-  intro a ha
-  obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha
-  exact idxVarsAV_below (by omega) ea hea
-
-theorem caseMotiveBodyAV_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
-    {Fss : List (List AnnotTerm)} {D j : Nat}
-    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow (K + D + 1) (caseMotiveBodyAV ℓ w Fss n nIdx D j).erase := by
-  refine ⟨?_, ?_⟩
-  · have := caseAVAt_below (w := w) (K := K) (Ts := (Fss.map (towerBodyAV w)).drop j)
-      (d := D + 1) (kx := .bvar 0)
-      (fun T hT => towers_below h T (List.mem_of_mem_drop hT))
-      (show (0 : Nat) < K + (D + 1) by omega)
-    rwa [show K + (D + 1) = K + D + 1 from by omega] at this
-  · refine ⟨?_, ?_⟩
-    · have := motAppAV_below (n := n) (nIdx := nIdx) (D' := D + 2) (K := K) hK
-      rwa [show K + (D + 2) = K + D + 1 + 1 from by omega] at this
-    · have := sumInjAtAV_below (w := w) (K := K) (Fss := Fss) (d := D + 2)
-        (tag := succsAV j (.bvar 1)) (payload := .bvar 0) h
-        (succsAV_below j (show (1 : Nat) < K + (D + 2) by omega))
-        (show (0 : Nat) < K + (D + 2) by omega)
-      rwa [show K + (D + 2) = K + D + 1 + 1 from by omega] at this
-
-theorem caseMotiveAV_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
-    {Fss : List (List AnnotTerm)} {D j : Nat}
-    (h : ∀ Fs ∈ Fss, FieldsBelow K Fs) :
-    Term.bvarsBelow (K + D) (caseMotiveAV ℓ w Fss n nIdx D j).erase :=
-  ⟨trivial, caseMotiveBodyAV_below hK h⟩
 
 end ConLeche.Semantics

@@ -56,14 +56,6 @@ theorem numeralAV_validV (i : Nat) (σ : Nat → V) : AnnotValid V σ (numeralAV
     rw [AnnotValid_app]
     exact ⟨trivial, ih⟩
 
-theorem succsAV_validV : ∀ (j : Nat) {kx : AnnotTerm} {σ : Nat → V},
-    AnnotValid V σ kx → AnnotValid V σ (succsAV j kx)
-  | 0, _, _, h => h
-  | j + 1, kx, σ, h => by
-    show AnnotValid V σ (.app (.const .natSucc []) (succsAV j kx))
-    rw [AnnotValid_app]
-    exact ⟨trivial, succsAV_validV j h⟩
-
 theorem natRecAV_validV {u : Nat} {M z s kx : AnnotTerm} {σ : Nat → V}
     (hM : AnnotValid V σ M) (hz : AnnotValid V σ z) (hs : AnnotValid V σ s)
     (hk : AnnotValid V σ kx) : AnnotValid V σ (natRecAV u M z s kx) := by
@@ -145,65 +137,9 @@ theorem FieldsValid_append_one {E : AnnotTerm} :
     have := hE (a :: bs) ⟨ha, hsp⟩
     rwa [consList_cons] at this
 
-/-- The lifted chain's validity is the chain's at the shifted frame. -/
-theorem FieldsValid_liftFields {n : Nat} :
-    ∀ {Fs : List AnnotTerm} {k : Nat} {σ : Nat → V},
-      FieldsValid σ (liftFields n k Fs) ↔ FieldsValid (shiftE n k σ) Fs
-  | [], _, _ => Iff.rfl
-  | F :: Fs, k, σ => by
-    simp only [liftFields_cons, FieldsValid, AnnotValid_liftN, interp_liftN]
-    refine and_congr Iff.rfl (forall_congr' fun a => imp_congr Iff.rfl ?_)
-    rw [cons_shiftE]
-    exact FieldsValid_liftFields
-
-/-- **The restricted chain is bit-valid** from the fields' validity at
-the shifted frame and the index readings' validity at fitting field
-frames. -/
-theorem rChain_validV {d nIdx : Nat} {Fs Es : List AnnotTerm} {σ : Nat → V}
-    (hv : FieldsValid (shiftE d 0 σ) Fs)
-    (hE : ∀ bs : List V, SpineFit (shiftE d 0 σ) Fs bs →
-      ∀ E ∈ Es, AnnotValid V (consList bs (shiftE d 0 σ)) E) :
-    FieldsValid σ (rChain d nIdx Fs Es) := by
-  unfold rChain
-  refine FieldsValid_append_one (FieldsValid_liftFields.mpr hv) fun bs hsp => ?_
-  have hsp' : SpineFit (shiftE d 0 σ) Fs bs := (spineFit_liftFields d).mp hsp
-  have hlen : bs.length = Fs.length := hsp'.length_eq
-  refine idxEqAV_validV fun e he => ?_
-  obtain ⟨l, -, rfl⟩ := List.mem_map.mp he
-  refine ⟨?_, trivial⟩
-  show AnnotValid V (consList bs σ) ((Es.getD l default).liftN d Fs.length)
-  rw [AnnotValid_liftN, ← hlen, shiftE_consList_len]
-  by_cases hl : l < Es.length
-  · exact hE bs hsp' _ (getD_mem_of_lt hl)
-  · rw [getD_eq_default_of_le (by omega)]
-    trivial
-
 /-- Per-constructor hereditary validity. -/
 @[expose] def SumFieldsValid (ρ : Nat → V) (Fss : List (List AnnotTerm)) : Prop :=
   ∀ Fs ∈ Fss, FieldsValid ρ Fs
-
-/-- The restricted chains are bit-valid. -/
-theorem rChains_validV {d nIdx : Nat} {Fss Ess : List (List AnnotTerm)} {σ : Nat → V}
-    (hv : SumFieldsValid (shiftE d 0 σ) Fss)
-    (hE : ∀ j, j < Fss.length → ∀ bs : List V, SpineFit (shiftE d 0 σ) (Fss.getD j []) bs →
-      ∀ E ∈ Ess.getD j [], AnnotValid V (consList bs (shiftE d 0 σ)) E) :
-    SumFieldsValid σ (rChains d nIdx Fss Ess) := by
-  intro Fs' hFs'
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs'
-  rw [rChains_getElem?] at hj
-  cases hF : Fss[j]? with
-  | none => rw [hF] at hj; exact nomatch hj
-  | some Fs =>
-    cases hEs : Ess[j]? with
-    | none => rw [hF, hEs] at hj; exact nomatch hj
-    | some Es =>
-      rw [hF, hEs] at hj
-      obtain rfl := Option.some.inj hj
-      have hjn : j < Fss.length := (List.getElem?_eq_some_iff.mp hF).1
-      refine rChain_validV (hv Fs (List.mem_of_getElem? hF)) fun bs hsp E hE' => ?_
-      have hFs : Fss.getD j [] = Fs := by rw [List.getD_eq_getElem?_getD, hF]; rfl
-      have hEsD : Ess.getD j [] = Es := by rw [List.getD_eq_getElem?_getD, hEs]; rfl
-      exact hE j hjn bs (hFs ▸ hsp) E (hEsD ▸ hE')
 
 /-- The unit-restricted chains are bit-valid. -/
 theorem uChains_validV {ρ : Nat → V} {Fss : List (List AnnotTerm)} (hv : SumFieldsValid ρ Fss) :
@@ -347,63 +283,5 @@ theorem sumMkAV_wellDenotedV {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
       (pds ++ fds)) :
     WellDenotedV V ρ (sumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss) :=
   ⟨sumMkAV_wellDenoted hz hpre, mkLamsC_validV hval⟩
-
-/-! ## The recursor -/
-
-theorem major_fst_validV (σ : Nat → V) : AnnotValid V σ (.fst (.bvar 0)) := by
-  rw [AnnotValid_fst]; trivial
-
-theorem major_snd_validV (σ : Nat → V) : AnnotValid V σ (.snd (.bvar 0)) := by
-  rw [AnnotValid_snd]; trivial
-
-theorem motAppAV_validV (n nIdx D' : Nat) (σ : Nat → V) :
-    AnnotValid V σ (motAppAV n nIdx D') :=
-  mkAppN_validV trivial fun a ha => by
-    obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
-    trivial
-
-theorem srcAV_validV (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) :
-    AnnotValid V σ (srcAV nIdx D' s) := by
-  cases s <;> trivial
-
-/-- The stage motive body is bit-valid at a tag in `ω`: its `.pi`
-node's zero clause is the motive's application being a truth value. -/
-theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
-    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-    (j : Nat) (k : V) :
-    AnnotValid V (cons k σ)
-      (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
-        Fss.length Ids.length D j) := by
-  have hsh1 : shiftE (D + 1) 0 (cons k σ) = ρ₀ := by rw [shiftE_succ_cons]; exact hfr
-  show AnnotValid V (cons k σ) (.pi w ℓ _ _)
-  rw [AnnotValid_pi]
-  refine ⟨?_, fun y _ => ?_, fun h0 y hy => ?_⟩
-  · refine caseAVAt_validV ?_ trivial
-    rw [hsh1]
-    exact fun T hT => towers_validV hv T (List.mem_of_mem_drop hT)
-  · rw [AnnotValid_app]
-    refine ⟨motAppAV_validV _ _ _ _, sumInjAtAV_validV (by rw [shiftE_step]; exact hfr) hv
-      (succsAV_validV j trivial) trivial⟩
-  · -- the zero clause: the motive's application is a truth value
-    show interp V (cons y (cons k σ))
-      (.app (motAppAV Fss.length Ids.length (D + 2))
-        (sumInjAtAV w _ (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
-      ∈ˢ (univZero : V)
-    rw [interp_app, (motApp_facts (hfr.step y k) hyp).1]
-    exact hyp.hM0 h0 _
-
-theorem motive_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AnnotTerm)}
-    {Ids : List AnnotTerm} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
-    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-    (j : Nat) :
-    AnnotValid V σ
-      (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
-        Fss.length Ids.length D j) := by
-  show AnnotValid V σ (.lam (imaxN w ℓ + 1) natAV _)
-  rw [AnnotValid_lam]
-  exact ⟨trivial, fun k _ => motiveBody_validV hfr hyp hv j k⟩
 
 end ConLeche.Model

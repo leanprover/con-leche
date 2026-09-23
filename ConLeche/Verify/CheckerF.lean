@@ -28,7 +28,6 @@ theorem mkFEnv_find?_fun (env : Env) :
     FEnv.find? (mkFEnv env) = env.find? :=
   funext (mkFEnv_find? env)
 
-
 theorem mkFEnv_env (env : Env) : (mkFEnv env).env = env := rfl
 
 variable {mode : CheckMode}
@@ -396,13 +395,6 @@ theorem consSumCtorsF_mkFEnv (nP : Nat) :
 section FixMirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-
-theorem nativeOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
-    (cty : Expr) (nF : Nat) (ks : List RecFieldKind) :
-    nativeOpenedOkF .plain (mkFEnv env₀) T lps nP nIdx cty nF ks
-      = nativeOpenedOk env₀ T lps nP nIdx cty nF ks := by
-  simp only [nativeOpenedOkF, nativeOpenedOk, StructWalkers.plain, constsResolveF_eq]
-    <;> rfl
 
 theorem checkNativeRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)

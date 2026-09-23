@@ -1,7 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.DeclStruct
-public import ConLeche.Model.Inductives.SumStageRec
+public import ConLeche.Model.Inductives.StructStageTable
+public import ConLeche.Model.Inductives.SumRecFrames
+public import ConLeche.Model.Inductives.SumStageCtor
+public import ConLeche.Model.IndPointKit
 import ConLeche.Verify.Inductives.SumWF
 public section
 
@@ -80,7 +82,5 @@ theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}
     ∀ ψ, m.acval cA.1.name ψ
       = sumMkAV (resSort.eval ψ) i (dsF i ψ) (((dsF i ψ).drop nP).map (·.2.2))
           (uChains (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))
-
-/-! ## The assembly -/
 
 end ConLeche.Model

@@ -121,43 +121,6 @@ theorem denoteMeta_agree_of_resolve
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- Two leaves differing at a name `env₀` lacks agree at every name
-`env₀` has — the agreement `denoteMeta_agree_of_resolve` asks for. -/
-theorem acvalWith_agree_of_fresh {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
-    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ : Env} (hfresh : env₀.find? T = none)
-    (n : Name) (hn : (env₀.find? n).isSome = true) :
-    acvalWith acval T A₁ n = acvalWith acval T A₂ n := by
-  have hne : n ≠ T := by
-    intro h
-    rw [h, hfresh] at hn
-    exact nomatch hn
-  rw [acvalWith_ne hne, acvalWith_ne hne]
-
-/-- A name `env₀` lacks is not consulted: the one-name instance of
-`denoteMeta_agree_of_resolve`. -/
-theorem denoteMeta_acvalWith_unmentioned
-    {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
-    {A : (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
-    (hfresh : env₀.find? T = none) :
-    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
-      denoteMeta (acvalWith acval T A) env φ d e
-        = denoteMeta acval env φ d e :=
-  denoteMeta_agree_of_resolve fun n hn => acvalWith_ne (by
-    intro h
-    rw [h, hfresh] at hn
-    exact nomatch hn)
-
-/-- Two leaves at the block's name read a pre-block term alike. -/
-theorem denoteMeta_acvalWith_unmentioned₂
-    {acval : Name → (Name → Nat) → AnnotTerm} {T : Name}
-    {A₁ A₂ : (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
-    (hfresh : env₀.find? T = none)
-    (d : Nat) (e : Expr) (hcr : Expr.constsResolve env₀ e = true) :
-    denoteMeta (acvalWith acval T A₁) env φ d e
-      = denoteMeta (acvalWith acval T A₂) env φ d e := by
-  rw [denoteMeta_acvalWith_unmentioned hfresh d e hcr,
-    denoteMeta_acvalWith_unmentioned hfresh d e hcr]
-
 /-! ## The reading peel -/
 
 /-- **The peel.**  A Π-prefix opened at `fvar`s reads to a

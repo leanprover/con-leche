@@ -27,8 +27,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-! ## The frame values (from the retired `StructRecLawFitsP`, task #175 S2) -/
-
 /-! ## Fits as spines -/
 
 /-- A fit's chain memberships are a `SpineFit` (the values read at the
@@ -86,7 +84,5 @@ theorem substFn_agree_of_comparand {lps lpsR : List Name} {us usj : List Level}
       = (lps.map Level.param).map (Level.subst lpsR us) := by
     simp [List.map_map, Function.comp_def]
   rw [hmap, Level.substFn_map_subst (by simp) hq, Level.substFn_map_param]
-
-/-! ## The minor at a zero elimination level -/
 
 end ConLeche.Model

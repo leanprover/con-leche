@@ -198,8 +198,6 @@ theorem wellDenoted_projAV_tower {w : Nat} :
         rw [hval]; exact hx'
       · rw [interp_snd, hval]
 
-/-! ## The coarse guard -/
-
 /-! ## The squash prefix -/
 
 /-- The prefix of a fitting spine fits the prefix, and the next field

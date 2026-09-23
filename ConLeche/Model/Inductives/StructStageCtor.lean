@@ -85,8 +85,4 @@ theorem getD_reverse_take {ds : List (Nat × Nat × AnnotTerm)} {nP nF : Nat}
     getD_reverse_of_peel (List.length_take_of_le (by omega)) hi
       (by rw [List.getElem?_take_of_lt hi]; exact List.getElem?_eq_getElem hil)]
 
-/-! ## The constructor leaf's premises -/
-
-/-! ## The cons -/
-
 end ConLeche.Model

@@ -238,7 +238,6 @@ theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat} (hz : za.liftN 1 k = za)
     rw [AnnotTerm.liftN_app, hs, natLitAV_liftN hz hs n]
     rfl
 
-
 /-- **A leaf-free reading is a lift at the leaf's index.**  A term
 without the `q`-th variable as a leaf reads, at depth `d`, as a
 reading lifted over index `d - 1 - q` — the slot that variable would
