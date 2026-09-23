@@ -992,7 +992,9 @@ section Seam
 
 /-- **REGIME WF's owed rows** at one frame, at an elimination level `ℓ`:
 `blockKitRegime_wf_run`'s premises that the seam does not pay, with
-the arm's own witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
+the arm's own witnesses (`ihdoms`, `Ca`, `ihv`) existential.  Paid at
+the seam since RM53: `hspF` (`blockKitSpF_run`), `hctorAt`
+(`blockWfCtorAt_run`), and — KIT1 — `hrule` (`blockWfRule_run`). -/
 @[expose] def BlockWfOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (ℓ : Nat)
@@ -1068,7 +1070,9 @@ the seam fixes the arm's `srcs` here and pays `hsrcAt` with it. -/
   fun _ => srcList ((d.Ess 0 ψ).getD 0 []) ((d.Fss 0 ψ).getD 0 []).length
 
 /-- **REGIME SQ's owed rows** at one frame: `blockKitRegime_sq_run`'s
-premises the seam does not pay (`hsrcAt` it pays, at `blockSqSrcs`),
+premises the seam does not pay (`hsrcAt` it pays, at `blockSqSrcs`;
+since RM53 also `hspF` (`blockKitSpF_run`) and `hsrcRule`
+(`blockSqSrcRule_run`), and — KIT1 — `hrule` (`blockSqRule_run`)),
 witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
 @[expose] def BlockSqOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -1138,9 +1142,10 @@ witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
             p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockSqSrcs d ψ) Rb0 ihv) ρ))))
 
 /-- **REGIME IND's owed rows** at one frame: `blockIndRegime_of_rules`'s
-premises the seam does not pay (`hprefU` it pays, `blockRecHpref_run`),
-at the dispatch's field domains and lifted residues, with the `ih` key
-table existential. -/
+premises the seam does not pay (`hprefU` it pays, `blockRecHpref_run`;
+since RM53 also the split data's `hspF`, `blockIndSpF_run`), at the
+dispatch's field domains and lifted residues, with the `ih` key table
+existential. -/
 @[expose] def BlockIndOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
@@ -1828,9 +1833,13 @@ family's shared prefix, `blockRecHpref_run`) and the SQ arm's `hsrcAt`
 constructors' records — which is why the seam takes `hS`/`hcore`).
 
 What it owes is named: the family level's typing `hTy` at the chosen
-`s` (`blockRecTy_univ_run` produces it at `s := maxLevelEval us`), the
-grading bundle and one bundle per regime, each at the CHECKED
-elimination level. -/
+`s` (`blockRecLevel_run` chooses `s` and produces it, with `s`'s own
+parametricity), the grading bundle (whose `hokA` is the rule frame's
+grading (G) and whose `ih` fit is the typed tuple's (F), both produced
+in `BlockRuleGrading.lean`) and one bundle per regime, each at the
+CHECKED elimination level.  RM53 added `hkLen` (every rule has its
+right-hand side), which pays the kit arms' `hctorAt`/`hsrcRule` and,
+with the field domains' bounds, every `hspF`. -/
 theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
