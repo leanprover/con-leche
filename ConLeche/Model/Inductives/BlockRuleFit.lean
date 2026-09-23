@@ -3670,4 +3670,130 @@ theorem blockRuleIhsAV_vals_zero {K o : Nat} {fr : BlockRuleFrame} {cty : Expr}
 
 end IhsVals
 
+/-! ## 13. The rule domains' bounds at the seam
+
+Upstream of the regime's dispatch (`BlockRecPreHpre.lean`), whose
+`hspF` needs the field half; the seam (`BlockDeclRun.lean`) consumes it
+too. -/
+
+section DomsBounded
+
+variable {envC : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
+  {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+  {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+  {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+
+omit [SetTheory V] in
+/-- A bounded field chain stays bounded, `K` higher, under `liftDomsK` at ANY
+cutoff (`fieldsBelow_liftDomsK` is the cutoff-equals-bound case). -/
+theorem fieldsBelow_liftDomsK_at (K : Nat) :
+    ∀ {m k : Nat} {Fs : List AnnotTerm}, FieldsBelow m Fs → FieldsBelow (m + K) (liftDomsK K k Fs)
+  | _, _, [], _ => trivial
+  | m, k, _ :: Fs, h =>
+    ⟨bvarsBelow_liftN_add h.1 (Nat.le_refl _) k, by
+      have := fieldsBelow_liftDomsK_at K (m := m + 1) (k := k + 1) (Fs := Fs) h.2
+      rwa [show m + 1 + K = m + K + 1 from by omega] at this⟩
+
+omit [SetTheory V] in
+/-- A bounded field chain's entries, one by one. -/
+theorem fieldsBelow_getD :
+    ∀ {m : Nat} {Fs : List AnnotTerm}, FieldsBelow m Fs → ∀ q, q < Fs.length →
+      Term.bvarsBelow (m + q) (Fs.getD q default).erase
+  | _, [], _, _, hq => absurd hq (Nat.not_lt_zero _)
+  | m, _ :: _, h, 0, _ => by simpa using h.1
+  | m, _ :: Fs, h, q + 1, hq => by
+    simp only [List.getD_cons_succ]
+    have := fieldsBelow_getD (m := m + 1) (Fs := Fs) h.2 q (by simpa using hq)
+    rwa [show m + 1 + q = m + (q + 1) from by omega] at this
+
+
+/-- **The rule domains' own bounds, at every level valuation** — the prefix half is `blockRulePdomsAV_bounded`, the
+field half is the constructor's field domains (`CtorDataI.below`,
+dropped past the parameters) lifted past the rule prefix's non-parameter
+stretch (`blockRuleFdomsAV_eq`). -/
+theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC pp cvTas ctorsAs = .ok rs)
+    (hcore : BlockCtorsCore mpC.base2
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
+      pp.toBlockShape isRec A
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k) :
+    ∀ (ψ : Name → Nat) (j : Nat)
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
+      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
+      r.2.1[i]? = some rhs →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).length →
+        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default).erase) := by
+  intro ψ j r hr i cA rhs hcA hrhs l hl
+  -- the member link and the constructor's data
+  obtain ⟨ms, hms, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+  have hmemk : pp.toBlockShape.recTgtAt j
+      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
+    (List.getElem?_eq_some_iff.mp hms).1
+  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+      (pp.toBlockShape.recTgtAt j))[i]? = some cA := by
+    show (ctorsAs.getD _ [])[i]? = _
+    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
+  obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk i cA hcj
+  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ i cA hcj
+  have hCf : cA.1.type.hasFvar = false := (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
+  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+  -- the two halves' bounds
+  have hfd := (blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ).1
+  have hfB : FieldsBelow (pp.toBlockShape.rulePrefixAt j)
+      (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i) := by
+    rw [hfd]
+    have hd := ConLeche.Model.DomsBelow.drop pp.nP (hcd.below ψ)
+    rw [Nat.zero_add] at hd
+    have := fieldsBelow_liftDomsK_at (pp.toBlockShape.rulePrefixAt j - pp.nP) (k := 0) hd.fields
+    rwa [show pp.nP + (pp.toBlockShape.rulePrefixAt j - pp.nP)
+      = pp.toBlockShape.rulePrefixAt j from by omega] at this
+  rcases Nat.lt_or_ge l (pp.toBlockShape.rulePrefixAt j) with hlt | hge
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [hpl]; exact hlt),
+      ← List.getD_eq_getElem?_getD]
+    exact blockRulePdomsAV_bounded hμ mpC h hr ψ l (by rw [hpl]; exact hlt)
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by rw [hpl]; exact hge),
+      ← List.getD_eq_getElem?_getD, hpl]
+    have hq : l - pp.toBlockShape.rulePrefixAt j
+        < (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).length := by
+      rw [List.length_append, hpl] at hl; omega
+    have := fieldsBelow_getD hfB _ hq
+    rwa [show pp.toBlockShape.rulePrefixAt j + (l - pp.toBlockShape.rulePrefixAt j) = l
+      from by omega] at this
+
+
+/-- **The rule domains' own bounds, at the seam** — the residue
+producer's `hbdd`: the prefix half is `blockRulePdomsAV_bounded`, the
+field half is the constructor's field domains (`CtorDataI.below`,
+dropped past the parameters) lifted past the rule prefix's non-parameter
+stretch (`blockRuleFdomsAV_eq`). -/
+theorem blockRuleDoms_bounded_seam (hμ : μ.verifiedChecks = true)
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC pp cvTas ctorsAs = .ok rs)
+    (hcore : BlockCtorsCore mpC.base2
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
+      pp.toBlockShape isRec A
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k) :
+    ∀ (φ : Name → Nat) (j : Nat)
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
+      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
+      r.2.1[i]? = some rhs →
+      ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs
+            (Level.substFn φ r.1.levelParams us) j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).length →
+        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs
+            (Level.substFn φ r.1.levelParams us) j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).getD l default).erase) :=
+  fun φ j r hr i cA rhs hcA hrhs us _ =>
+    blockRuleDoms_bounded_at hμ h hcore (Level.substFn φ r.1.levelParams us) j r hr i cA rhs hcA hrhs
+
+end DomsBounded
+
 end ConLeche.Model
