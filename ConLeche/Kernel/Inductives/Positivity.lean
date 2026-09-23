@@ -541,10 +541,26 @@ section Nested
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- Does a MEMBER occur in `e`?  Official's `has_ind_occ`: constants
-only — a free variable's annotation is NOT looked into (a local's type
-lives in the local context, not in the term) and a `.proj` node's
-structure name is no occurrence.  Memoised on the node. -/
+/-- Does a MEMBER or a HOLE occur in `e`?  Official's `has_ind_occ`:
+member constants, and here also the hole variables `lo ..< hi` — a free
+variable's annotation is NOT looked into (a local's type lives in the
+local context, not in the term) and a `.proj` node's structure name is
+no occurrence.  The pure definition; the executed walk is memoised
+(`nestOccGo`, swapped in by `@[csimp]`). -/
+def Expr.nestOcc (names : List Name) (lo hi : Nat) : Expr → Bool
+  | .bvar _ => false
+  | .sort _ => false
+  | .lit _ => false
+  | .fvar i _ => decide (lo ≤ i ∧ i < hi)
+  | .const n _ => names.contains n
+  | .app f a => nestOcc names lo hi f || nestOcc names lo hi a
+  | .lam ty body _ => nestOcc names lo hi ty || nestOcc names lo hi body
+  | .forallE ty body _ => nestOcc names lo hi ty || nestOcc names lo hi body
+  | .letE ty val body =>
+    nestOcc names lo hi ty || nestOcc names lo hi val || nestOcc names lo hi body
+  | .proj _ _ sub => nestOcc names lo hi sub
+
+/-- The occurrence walk, memoised on the node. -/
 def Expr.nestOccGo (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bool) :
     Expr → Bool × Std.HashMap Expr Bool
   | .bvar _ => (false, memo)
@@ -576,9 +592,140 @@ def Expr.nestOccGo (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bo
         | _ => (false, memo)
       (r, memo.insert e r)
 
-/-- `nestOccGo` from an empty memo. -/
-def Expr.nestOcc (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
+/-- The memo's invariant: every recorded answer is the real one. -/
+def NestOccMemoInv (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (v : Bool), memo[k]? = some v → v = Expr.nestOcc names lo hi k
+
+theorem NestOccMemoInv.insert {names : List Name} {lo hi : Nat} {memo : Std.HashMap Expr Bool}
+    (hm : NestOccMemoInv names lo hi memo) {e : Expr} {r : Bool}
+    (heq : r = e.nestOcc names lo hi) : NestOccMemoInv names lo hi (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- **The memoised walk is `nestOcc`.** -/
+theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Bool}, NestOccMemoInv names lo hi memo →
+      (e.nestOccGo names lo hi memo).1 = e.nestOcc names lo hi ∧
+        NestOccMemoInv names lo hi (e.nestOccGo names lo hi memo).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro memo hm
+    rw [Expr.nestOccGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      dsimp only
+      by_cases hb : (a.nestOccGo names lo hi memo).1 = true
+      · rw [if_pos hb]
+        have : Expr.nestOcc names lo hi (.app a b) = true := by
+          simp [Expr.nestOcc, ← h1, hb]
+        exact ⟨this.symm, h2.insert this.symm⟩
+      · rw [if_neg hb]
+        have ha : a.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
+        have : Expr.nestOcc names lo hi (.app a b) = (b.nestOccGo names lo hi (a.nestOccGo names lo hi memo).2).1 := by
+          simp [Expr.nestOcc, ha, h3]
+        exact ⟨this.symm, h4.insert this.symm⟩
+  | lam ty body mm iht ihb =>
+    intro memo hm
+    rw [Expr.nestOccGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      dsimp only
+      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
+      · rw [if_pos hb]
+        have : Expr.nestOcc names lo hi (.lam ty body mm) = true := by
+          simp [Expr.nestOcc, ← h1, hb]
+        exact ⟨this.symm, h2.insert this.symm⟩
+      · rw [if_neg hb]
+        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
+        have : Expr.nestOcc names lo hi (.lam ty body mm) = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
+          simp [Expr.nestOcc, ha, h3]
+        exact ⟨this.symm, h4.insert this.symm⟩
+  | forallE ty body mm iht ihb =>
+    intro memo hm
+    rw [Expr.nestOccGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      dsimp only
+      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
+      · rw [if_pos hb]
+        have : Expr.nestOcc names lo hi (.forallE ty body mm) = true := by
+          simp [Expr.nestOcc, ← h1, hb]
+        exact ⟨this.symm, h2.insert this.symm⟩
+      · rw [if_neg hb]
+        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
+        have : Expr.nestOcc names lo hi (.forallE ty body mm)
+            = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
+          simp [Expr.nestOcc, ha, h3]
+        exact ⟨this.symm, h4.insert this.symm⟩
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [Expr.nestOccGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      dsimp only
+      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
+      · rw [if_pos hb]
+        have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
+          simp [Expr.nestOcc, ← h1, hb]
+        exact ⟨this.symm, h2.insert this.symm⟩
+      · rw [if_neg hb]
+        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
+        obtain ⟨h3, h4⟩ := ihv h2
+        by_cases hb2 : (v.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 = true
+        · rw [if_pos hb2]
+          have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
+            simp [Expr.nestOcc, ha, ← h3, hb2]
+          exact ⟨this.symm, h4.insert this.symm⟩
+        · rw [if_neg hb2]
+          have hv : v.nestOcc names lo hi = false := by rw [← h3]; simpa using hb2
+          obtain ⟨h5, h6⟩ := ihb h4
+          have : Expr.nestOcc names lo hi (.letE ty v body)
+              = (body.nestOccGo names lo hi
+                (v.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).2).1 := by
+            simp [Expr.nestOcc, ha, hv, h5]
+          exact ⟨this.symm, h6.insert this.symm⟩
+  | proj s i sub ih =>
+    intro memo hm
+    rw [Expr.nestOccGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      dsimp only
+      have : Expr.nestOcc names lo hi (.proj s i sub) = (sub.nestOccGo names lo hi memo).1 := by
+        simp [Expr.nestOcc, h1]
+      exact ⟨this.symm, h2.insert this.symm⟩
+
+/-- `nestOccGo` from an empty memo: the executed `nestOcc`. -/
+def Expr.nestOccFast (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
   (e.nestOccGo names lo hi {}).1
+
+@[csimp] theorem Expr.nestOcc_eq_nestOccFast : @Expr.nestOcc = @Expr.nestOccFast := by
+  funext names lo hi e
+  exact (Expr.nestOccGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- Instantiate the leading `Π` binders of `e` at `args`, in order
 (the parameters of a constructor or a type former). -/

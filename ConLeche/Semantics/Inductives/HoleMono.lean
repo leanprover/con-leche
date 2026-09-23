@@ -22,6 +22,7 @@ the SEMANTIC half of that inversion, over readings (`AnnotTerm`) and
 | `const`: the reduct mentions no hole | `ConstOn.of_noBVar`, `ConstOn.monoOn` |
 | `pi`: hole-free domain, positive codomain | `MonoOn.pi` |
 | `holeApp`: a hole applied to hole-free arguments | `MonoOn.holeApp` |
+| a frame's hole (in progress) at its own parameters | `MonoOn.holeAppBlind` |
 | `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean` (`LfpClause.leaf_le_of_holes`), through the container's lfp clause |
 
 **The relation.**  A `FrameRel` relates a SMALLER frame to a LARGER
@@ -155,16 +156,12 @@ theorem MonoOn.pi {R : FrameRel V} {A B : AnnotTerm} (u v : Nat) (hA : ConstOn R
   rw [interp_pi, interp_pi, ← hA ρ ρ' hR]
   exact piR_subset_mono fun x hx => hB _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩
 
-/-- An application spine `f e₁ … eₙ`. -/
-def appSpine (f : AnnotTerm) (es : List AnnotTerm) : AnnotTerm := es.foldl .app f
-
-theorem interp_appSpine (ρ : Nat → V) :
+theorem interp_mkAppN_map (ρ : Nat → V) :
     ∀ (f : AnnotTerm) (es : List AnnotTerm),
-      interp V ρ (appSpine f es) = (es.map (interp V ρ)).foldl app (interp V ρ f)
+      interp V ρ (AnnotTerm.mkAppN f es) = (es.map (interp V ρ)).foldl app (interp V ρ f)
   | _, [] => rfl
   | f, e :: es => by
-    show interp V ρ (appSpine (.app f e) es) = _
-    rw [interp_appSpine ρ (.app f e) es]
+    rw [AnnotTerm.mkAppN_cons, interp_mkAppN_map ρ (.app f e) es]
     rfl
 
 /-- **The hole order at position `h`**: at related frames the hole's
@@ -183,13 +180,40 @@ theorem HoleOn.under {R : FrameRel V} {h n : Nat} (hh : HoleOn R h n) (A : Annot
 arity, is positive. -/
 theorem MonoOn.holeApp {R : FrameRel V} {h : Nat} {es : List AnnotTerm}
     (hh : HoleOn R h es.length) (hes : ∀ e ∈ es, ConstOn R e) :
-    MonoOn R (appSpine (.bvar h) es) := by
+    MonoOn R (AnnotTerm.mkAppN (.bvar h) es) := by
   intro ρ ρ' hR
-  rw [interp_appSpine, interp_appSpine, interp_bvar, interp_bvar]
+  rw [interp_mkAppN_map, interp_mkAppN_map, interp_bvar, interp_bvar]
   have hmap : es.map (interp V ρ) = es.map (interp V ρ') :=
     List.map_congr_left fun e he => hes e he ρ ρ' hR
   rw [hmap]
   exact hh ρ ρ' hR _ (by simp)
+
+
+/-- **A parameter-blind hole** at position `h`: at related frames its
+values applied to ANY `np` parameter arguments (not necessarily the
+same) and the same `ni` index arguments grow — a container's frame hole
+is its family curried over the parameters and constant in them. -/
+def HoleOnBlind (R : FrameRel V) (h np ni : Nat) : Prop :=
+  ∀ ρ ρ', R ρ ρ' → ∀ as as' is : List V, as.length = np → as'.length = np →
+    is.length = ni → (as ++ is).foldl app (ρ h) ⊆ˢ (as' ++ is).foldl app (ρ' h)
+
+theorem HoleOnBlind.under {R : FrameRel V} {h np ni : Nat} (hh : HoleOnBlind R h np ni)
+    (A : AnnotTerm) : HoleOnBlind (R.under A) (h + 1) np ni := by
+  rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, -⟩ as as' is h1 h2 h3
+  exact hh ρ ρ' hR as as' is h1 h2 h3
+
+/-- **An in-progress hole**: a parameter-blind hole applied to any
+parameters and hole-free indices is positive. -/
+theorem MonoOn.holeAppBlind {R : FrameRel V} {h : Nat} {ds is : List AnnotTerm}
+    (hh : HoleOnBlind R h ds.length is.length) (his : ∀ e ∈ is, ConstOn R e) :
+    MonoOn R (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) := by
+  intro ρ ρ' hR
+  rw [interp_mkAppN_map, interp_mkAppN_map, interp_bvar, interp_bvar, List.map_append,
+    List.map_append]
+  have hmap : is.map (interp V ρ) = is.map (interp V ρ') :=
+    List.map_congr_left fun e he => his e he ρ ρ' hR
+  rw [hmap]
+  exact hh ρ ρ' hR _ _ _ (by simp) (by simp) (by simp)
 
 /-! ## The field telescope -/
 
