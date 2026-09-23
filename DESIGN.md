@@ -84630,9 +84630,9 @@ Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded.
   container's own holes held at the same tuple — no per-container
   premise; only the container clause's fibre, closure and own-hole
   monotonicity); **D2** `readsOnly_of_holes`.
-- `Model/BasisLfp.lean`: the recorded `PUnit`/`Empty`/`False` clauses
-  satisfy `ReadsHoles`; the pinned `Nat`'s does NOT (its `natFits` asks
-  `m ∈ ω` beside the hole) — HOLE2 restates it.
+- `Model/BasisLfpHoles.lean`: the recorded `PUnit`/`Empty`/`False`
+  clauses satisfy `ReadsHoles`; the pinned `Nat`'s does NOT (its `natFits`
+  asks `m ∈ ω` beside the hole) — HOLE2 restates it.
 
 **Finding: the container case never needs joint monotonicity in (X, Y).**
 `lfpTuple_le_of_opLe` compares the two operators at ONE tuple (the larger
