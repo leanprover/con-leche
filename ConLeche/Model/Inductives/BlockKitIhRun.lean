@@ -659,51 +659,6 @@ theorem blockKitIhKey_run
   rw [hEisA, hFapA, List.map_append, hes, List.map_cons, List.map_nil, hmk]
   exact hfitB
 
-/-- **The pinned `ihdoms`' chain lift is the identity** — every opener's
-domain is a reading at its own depth of a type scoped there
-(`openPisAtFvars_typeWScoped`), so it is bounded there. -/
-theorem blockRecIhdomsK_eq
-    (hμ : μ.verifiedChecks = true)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
-      p.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c) (ψ : Name → Nat)
-    (K : Nat) :
-    blockRecIhdomsK K p mpC.base2.acval envC rs ψ c j
-      = blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j := by
-  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-  have hjr : j < rs[c].2.2.2.length := by
-    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
-  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
-  obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
-  have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
-  obtain ⟨rbs, ty, concl, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
-  have hIlen : (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length
-      = (blockRuleFrameAt p rs c j).nR := by
-    rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
-    exact openPisAtFvars_length _ hopen
-  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hfl := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
-  rw [blockRecIhdomsK]
-  refine liftDomsK_eq_self_of_bounded _ _ fun q hq => ?_
-  rw [hIlen] at hq
-  obtain ⟨_, _, _, -, -, -, -, -, -, -, hIB, -⟩ :=
-    blockKitIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hq
-  rw [hpl, hfl]
-  exact hIB
-
 /-- **Every `ih` opener's domain has a reading at its own depth** —
 `blockRuleCerts_of_run`'s `hexI`, at the pinned openers. -/
 theorem blockRuleIhReads_run
@@ -990,7 +945,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
 /-- **REGIME WF's `hihF`, PRODUCED — at the NARROWED row** (`i ∈ d.idx …`,
 the kit step's own `hi`, as `hspF` since RM53): the graph-built `ih`
 values fit the pinned `ih` openers' domains (`blockRecIhdomsK`, whose
-chain lift is the identity, `blockRecIhdomsK_eq`).  Per opener: the
+chain lift is the identity, `blockRuleCertsChain_eq`).  Per opener: the
 tower over the moved telescope inhabits the Π-tower over the callee's
 peeled conclusion `CihR` (`blockRecIhv_mem`), because `CihR` reads to
 the motive at the call's argument (`blockRecCa_value` at the key's
@@ -1065,7 +1020,7 @@ theorem blockWfIhF_run (hμ : μ.verifiedChecks = true)
       = (blockRuleFrameAt p rs c j).nR := by
     rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
     exact openPisAtFvars_length _ hopen
-  rw [blockRecIhdomsK_eq hμ h hkLen hdR' hN hS hcore hmr hM hc hj ψ rs.length]
+  rw [(blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj rs.length).2.1]
   refine spineFit_of_getD (by rw [blockKitIhv_length, hIlen]) fun q hq => ?_
   rw [hIlen] at hq
   obtain ⟨fi, c', CihR, hkeyE, hc'K, hfiC, hrPc', hrss, htgt, hIget, -, hcon, -, -, -, -, -, -, -,
