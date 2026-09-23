@@ -501,6 +501,55 @@ structure TargetFamily where
   mIs : List Nat
   rPs : List Nat
 
+/-- Every field's type, member-abstracted (`absM`), its telescope
+read through whnf at `depth` (`targetWhnfPis`), in field order. -/
+def targetFieldNorms (ops : CheckerOps m) (env : Env) (depth : Nat) (absM : Expr → Expr) :
+    List Expr → m (List Expr)
+  | [] => pure []
+  | f :: fs => do
+    let t ← targetWhnfPis ops env depth 1024 (absM f.fvarTypeD)
+    let ts ← targetFieldNorms ops env depth absM fs
+    pure (t :: ts)
+
+/-- **One call's typing**, on the member-abstracted terms: the field
+is a value of the callee's major type at the call's arguments, under
+the field's own telescope, which is hole-free.  Both abstract sides
+are INFERRED first — the model's defeq reading needs them well-denoted
+at every value of the holes, which only an inference run at the
+abstract context supplies (the concrete terms' checks say nothing
+about the holes). -/
+def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
+    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM : Expr → Expr) (base k : Nat) (ih : TargetIh) : m Unit := do
+  let fty := fnorm.getD ih.field default
+  let tele := teles.getD ih.field []
+  unless tele.all (fun b => targetHoleFree base k b.1) do
+    throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field whose \
+      telescope mentions the block")
+  let some calleeAt := Expr.instPisAtLift (fvsPref ++ ih.idx)
+      (fam.recTys.getD ih.callee (.sort .zero))
+    | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
+        type does not bind the call's arguments")
+  let .forallE majDom _ _ := calleeAt
+    | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
+        type does not bind the call's major")
+  let fld := absM ((fvsF.getD ih.field default).fvarTypeD)
+  let want := Expr.mkPisOf tele (absM majDom)
+  let _ ← opsT.inferType env (base + k) fld
+  let _ ← opsT.inferType env (base + k) want
+  unless ← opsT.isDefEq env (base + k) fty want do
+    throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field that \
+      is not a value of its major type")
+
+/-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
+def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
+    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM : Expr → Expr) (base k : Nat) : List TargetIh → m Unit
+  | [] => pure ()
+  | ih :: ihs => do
+    targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k ih
+    targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k ihs
+
 /-- **Stage (c): ONE rule, at any major** (`checkBlockRuleF` without
 field kinds).  The right-hand side is annotated, resolved and typed at
 the rule-less recursor environment `feR`; it binds the recursor's
@@ -558,7 +607,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   let base := rP + nF
   let k := formerTys.length
   let absM := targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys base)
-  let fnorm ← fvsF.mapM fun f => targetWhnfPis opsT feT.env (base + k) 1024 (absM f.fvarTypeD)
+  let fnorm ← targetFieldNorms opsT feT.env (base + k) absM fvsF
   let fr : TargetFrame :=
     { recNames := fam.recNames, rlvls := fam.rlvls, recTys := fam.recTys, mIs := fam.mIs,
       rPs := fam.rPs, rP := rP, pref := fvsPref, fields := fvsF,
@@ -573,30 +622,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- member-ABSTRACTED, so the defeq holds at every value of the holes;
   -- the telescope the call applies the field along is hole-free (it is
   -- then a concrete telescope, the one the `ih` variable's type binds)
-  for ih in ihs do
-    let fty := fnorm.getD ih.field default
-    let tele := fr.teles.getD ih.field []
-    unless tele.all (fun b => targetHoleFree base k b.1) do
-      throw (.invalid s!"target rec: the rule of {c.1.name} calls a recursor on a field whose \
-        telescope mentions the block")
-    let some calleeAt := Expr.instPisAtLift (fvsPref ++ ih.idx)
-        (fam.recTys.getD ih.callee (.sort .zero))
-      | throw (.invalid s!"target rec: the rule of {c.1.name} recurses into a recursor whose \
-          type does not bind the call's arguments")
-    let .forallE majDom _ _ := calleeAt
-      | throw (.invalid s!"target rec: the rule of {c.1.name} recurses into a recursor whose \
-          type does not bind the call's major")
-    -- both abstract sides INFERRED first: the model's defeq reading
-    -- needs them well-denoted at every value of the holes, which only an
-    -- inference run at the abstract context supplies (the concrete
-    -- terms' checks say nothing about the holes)
-    let fld := absM ((fvsF.getD ih.field default).fvarTypeD)
-    let want := Expr.mkPisOf tele (absM majDom)
-    let _ ← opsT.inferType feT.env (base + k) fld
-    let _ ← opsT.inferType feT.env (base + k) want
-    unless ← opsT.isDefEq feT.env (base + k) fty want do
-      throw (.invalid s!"target rec: the rule of {c.1.name} calls a recursor on a field that \
-        is not a value of its major type")
+  targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k ihs.toList
   let depth := rP + nF + ihs.size
   let tyB ← opsT.inferType feT.env depth bodyO
   let concl ← unwrapOr
@@ -619,48 +645,87 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
   | some (_, _, rs) => rs.map (·.2.2.2)
   | none => []
 
+/-- Stage (b) at every recursor, in the record's order. -/
+def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    List RecShape → m (List (ConstantVal × TargetMajor × Level))
+  | [] => pure []
+  | rc :: rcs => do
+    let t ← targetRecTy ops fe p outside nested cvTas ctorsAs rc
+    let ts ← targetRecTys ops fe p outside nested cvTas ctorsAs rcs
+    pure (t :: ts)
+
+/-- The rule pins at every recursor's major (`targetRulePins`), against
+the stream's rule records, pairwise. -/
+def targetRulePinsAll : List (ConstantVal × TargetMajor × Level) → List (List RecRule) → m Unit
+  | t :: ts, rs :: rss => do
+    targetRulePins t.1 t.2.1 rs
+    targetRulePinsAll ts rss
+  | _, _ => pure ()
+
+/-- **One recursor's rules** (stage (c)), one per constructor of its
+major, in order. -/
+def targetRules (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv) (opsT : CheckerOps m)
+    (feT : FEnv) (p : BlockShape) (formerTys : List Expr) (fam : TargetFamily)
+    (cvRi : ConstantVal) (rP : Nat) (M : TargetMajor) :
+    List (ConstantVal × Nat) → List Expr → m (List Expr)
+  | [], [] => pure []
+  | cA :: cs, rhs :: rhss => do
+    let r ← targetRule opsR w feR opsT feT p formerTys fam cvRi rP cvRi.type M cA rhs
+    let rs ← targetRules opsR w feR opsT feT p formerTys fam cvRi rP M cs rhss
+    pure (r :: rs)
+  | _, _ => throw (.invalid "target rec: the recursor's rules do not cover its major's constructors")
+
+/-- **Every recursor's rules**, in the record's order, each against its
+major's constructors. -/
+def targetRecsRules (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv) (opsT : CheckerOps m)
+    (feT : FEnv) (p : BlockShape) (formerTys : List Expr) (fam : TargetFamily) :
+    List RecShape → List (ConstantVal × TargetMajor × Level) →
+      m (List (ConstantVal × TargetMajor × List Expr))
+  | rc :: rcs, (cvRi, M, _) :: ts => do
+    unless rc.rhss.length == M.ctors.length do
+      throw (.invalid "target rec: the recursor's rules do not cover its major's constructors")
+    let rhssA ← targetRules opsR w feR opsT feT p formerTys fam cvRi rc.rP M M.ctors rc.rhss
+    let rest ← targetRecsRules opsR w feR opsT feT p formerTys fam rcs ts
+    pure ((cvRi, M, rhssA) :: rest)
+  | _, _ => pure []
+
+/-- The family's shared data, from the checked recursors. -/
+def targetFamilyOf (p : BlockShape) (tys : List (ConstantVal × TargetMajor × Level)) :
+    TargetFamily :=
+  { recNames := p.recs.map (·.cvR.name),
+    rlvls := (p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [],
+    recTys := tys.map (·.1.type),
+    mIs := p.recs.map (·.mI),
+    rPs := p.recs.map (·.rP) }
+
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major
-(`targetRecTy`), the family's agreements (the counting guard, the
+(`targetRecTys`), the family's agreements (the counting guard, the
 elimination-level pin, the shared prefix — today's, verbatim), the
 rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
-constructors; `nested` is the elimination guard's container bit.
-Returns every recursor with its major and its annotated right-hand
-sides (what the install stores). -/
+constructors; `outside` admits majors of inductives outside the block
+(a nested block's containers; the shadow passes `true`, the uniform
+route — non-nested blocks — `false` until lane NESTED); `nested` is
+the elimination guard's container bit.  Returns every recursor with
+its major and its annotated right-hand sides (what the install
+stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← p.recs.mapM fun rc => targetRecTy (so.opsAt fe) fe p outside nested cvTas ctorsAs rc
+  let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
   checkBlockRecSmallElim p nested us
   checkBlockRecElimPin p us
   checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  let rules := targetRecRules block
-  for (t, rs) in tys.zip rules do
-    targetRulePins t.1 t.2.1 rs
-  let cvRas := tys.map fun t => (t.1, t.2.1.nIdx)
-  let feR := consBlockRecsBareF p 0 cvRas fe
-  let fam : TargetFamily :=
-    { recNames := p.recs.map (·.cvR.name),
-      rlvls := (p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [],
-      recTys := tys.map (·.1.type),
-      mIs := p.recs.map (·.mI),
-      rPs := p.recs.map (·.rP) }
-  let mut out := #[]
-  for (rc, t) in p.recs.zip tys do
-    let (cvRi, M, _) := t
-    unless rc.rhss.length == M.ctors.length do
-      throw (.invalid "target rec: the recursor's rules do not cover its major's constructors")
-    let mut rhssA := #[]
-    for (cA, rhs) in M.ctors.zip rc.rhss do
-      rhssA := rhssA.push (← targetRule (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-        (cvTas.map (·.type))
-        fam cvRi rc.rP cvRi.type M cA rhs)
-    out := out.push (cvRi, M, rhssA.toList)
+  targetRulePinsAll tys (targetRecRules block)
+  let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+    (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
   so.flush
-  pure out.toList
+  pure out
 
 end ConLeche
