@@ -107,12 +107,11 @@ The members are abstracted to free variables BEFORE the walk
 (unapplied), so a redex that produces a member only after whnf still
 reaches the hole; a container's own occurrences in its constructors are
 its frame's hole; an instantiation in progress met as a CONSTANT (a
-cycle through a mutual container group) is accepted and recorded. -/
+cycle through a mutual container group) restarts its frame with the
+group-mates abstracted too (S3). -/
 
 -- `(fun (_ : Type) => T) Nat`: a hole only after β
 #guard kindsOf (runT (.app (.lam ty1 cT default) cNat)) == some [.recursive 0]
--- no cycle through `L`
-#guard (runT (.app cL cT)) matches .ok { cyclic := false, .. }
 
 /-- Mutual containers `A α | mk : B α → A α` and `B α | mk : A α → B α`. -/
 @[expose] def cA : Expr := .const (nm "A") []
@@ -128,8 +127,9 @@ cycle through a mutual container group) is accepted and recorded. -/
 @[expose] def runM (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envM ctxM [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
--- `A T`: accepted, the cycle `A T → B T → A T` recorded
-#guard (runM (.app cA cT)) matches .ok { cyclic := true, .. }
+-- `A T`: accepted; the cycle `A T → B T → A T` restarts `A T`'s frame
+-- with `B` abstracted too, so both are walked in one frame
+#guard (runM (.app cA cT)) matches .ok _
 #guard keysOf (runM (.app cA cT)) == some [nm "B", nm "A"]
 
 /-- A container whose own constructor uses it at ANOTHER parameter
@@ -144,5 +144,33 @@ frame's hole at other parameters is DECLINED. -/
   ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?, envW.consts⟩
 #guard (nestedBlockPositivity (pureOps .verified) envW ctxW
     [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.notImplemented _)
+
+/-- A cycle through an intermediate container (`F α | mk : L (G α) → F α`,
+`G α | mk : F α → G α`) and a three-member cycle (`P → Q → R → P`). -/
+@[expose] def cF : Expr := .const (nm "F") []
+@[expose] def cG : Expr := .const (nm "G") []
+@[expose] def cP : Expr := .const (nm "P") []
+@[expose] def cQ : Expr := .const (nm "Q") []
+@[expose] def cR : Expr := .const (nm "R") []
+@[expose] def envC : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "R.mk", [], pi ty1 (pi (.app cP (.bvar 0)) (.app cR (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "Q.mk", [], pi ty1 (pi (.app cR (.bvar 0)) (.app cQ (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "P.mk", [], pi ty1 (pi (.app cQ (.bvar 0)) (.app cP (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "R", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "Q", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "P", [], pi ty1 ty1⟩ {},
+  .ctorInfo ⟨nm "G.mk", [], pi ty1 (pi (.app cF (.bvar 0)) (.app cG (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "F.mk", [], pi ty1 (pi (.app cL (.app cG (.bvar 0))) (.app cF (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "G", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "F", [], pi ty1 ty1⟩ {}] ++ envT.consts⟩
+@[expose] def ctxC : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envC.find?, envC.consts⟩
+@[expose] def runC (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envC ctxC [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+#guard (runC (.app cF cT)) matches .ok _
+#guard (runC (.app cP cT)) matches .ok _
+#guard (keysOf (runC (.app cP cT))).map (·.length) == some 3
 
 end ConLecheTests.Nested
