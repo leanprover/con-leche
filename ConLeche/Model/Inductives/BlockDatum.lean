@@ -170,7 +170,7 @@ theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
     (hnameOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.name = q.memberNames.getD j .anonymous) :
     ∀ (m : Nat) (cvTa : ConstantVal), m < q.k → cvTas[m]? = some cvTa →
-      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI q.memberNames cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa
           (q.members.getD m default).ctors
         = .ok (ctorsAs.getD m [], sortsss.getD m []) := by
@@ -194,7 +194,7 @@ theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
 at a block member. -/
 theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : ConstantVal} {m : Nat}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+    (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI q.memberNames cvTa.name q.lps q.nP
         (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa (q.members.getD m default).ctors
       = .ok (ctorsA, sortss))
     (hClps : ∀ c ∈ (q.members.getD m default).ctors, c.1.levelParams = q.lps ∧
@@ -212,7 +212,7 @@ theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : Consta
         (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
         (∃ ty₀ : Expr, ty₀.hasFvar = false ∧
           ConLeche.annotateCore μ envI F 0 ty₀ = .ok cA.1.type) ∧
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI q.memberNames cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) := by
   obtain ⟨hlenA, hlenS, hall⟩ := ConLeche.checkSumCtors_inv hrun
   refine ⟨⟨hlenA, hlenS⟩, fun j cA hj => ?_⟩
@@ -384,33 +384,6 @@ theorem chainsRealBI_zero {k w m : Nat} {mu : Nat → V} {ρp : Nat → V} {uf :
     obtain rfl : j = 0 := by omega
     trivial
 
-/-- **Every target a constructor's kinds carry names a member** (the
-`blockTgtsOf` reading of `blockCtorKinds_tgt_lt`). -/
-theorem blockTgtsOf_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
-    (hne : names ≠ []) {c : ConstantVal × Nat} {ks : List ConLeche.BlockFieldKind}
-    (h : ConLeche.blockCtorKinds names lps nP nIdxs c = some ks) (i : Nat) :
-    (ConLeche.blockTgtsOf ks).getD i 0 < names.length := by
-  have hpos : 0 < names.length := by
-    cases names with
-    | nil => exact absurd rfl hne
-    | cons a l => simp
-  show ((ks.map _).getD i 0) < names.length
-  rw [List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases hk : ks[i]? with
-  | none => simpa using hpos
-  | some kk =>
-    have hmem : kk ∈ ks := List.mem_of_getElem? hk
-    cases kk with
-    | ordinary => simpa using hpos
-    | negative => simpa using hpos
-    | unsupported => simpa using hpos
-    | recursive t =>
-      show t < names.length
-      exact ConLeche.blockCtorKinds_tgt_lt hne h (Or.inl hmem)
-    | reflexive t =>
-      show t < names.length
-      exact ConLeche.blockCtorKinds_tgt_lt hne h (Or.inr hmem)
-
 /-! ## The constructors' stage, from the run -/
 
 set_option maxHeartbeats 1600000 in
@@ -493,33 +466,9 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     rw [List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem (by rw [hlenCtorsAs]; exact hm)]
     rfl
-  -- the kinds, positionally, and the targets they carry
-  obtain ⟨hlenK, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
-  have hKm : ∀ m, m < q.k →
-      ConLeche.classifyMemberKinds (m := ConLeche.CheckM) q.memberNames q.lps q.nP q.nIdxs
-        (ctorsAs.getD m []) = .ok (kinds.getD m []) := by
-    intro m hm
-    obtain ⟨kss, hkss, hcl⟩ := hallK m (ctorsAs.getD m []) (hCA m hm)
-    have hgd : kinds.getD m [] = kss := by
-      rw [List.getD_eq_getElem?_getD, hkss]; rfl
-    rw [hgd]; exact hcl
-  have htgtLt : ∀ (m : Nat), m < q.k → ∀ j i : Nat,
-      (ConLeche.blockTgtsOf ((kinds.getD m []).getD j [])).getD i 0 < q.memberNames.length := by
-    intro m hm j i
-    obtain ⟨hmapM, -, -, hlen⟩ := ConLeche.classifyMemberKinds_inv (hKm m hm)
-    by_cases hj : j < (kinds.getD m []).length
-    · have hmem : (kinds.getD m []).getD j [] ∈ kinds.getD m [] := getD_mem [] hj
-      obtain ⟨cA, -, hck⟩ := ConLeche.mapM_option_mem hmapM _ hmem
-      exact blockTgtsOf_lt hnames0 hck i
-    · rw [getD_of_le [] (show (kinds.getD m []).length ≤ j from by omega)]
-      simp only [ConLeche.blockTgtsOf, List.map_nil, List.getD_nil]
-      rw [hlenN]; exact hne
-  have htgtLtK : ∀ (m : Nat), m < q.k → ∀ j i : Nat,
-      (ConLeche.blockTgtsOf ((kinds.getD m []).getD j [])).getD i 0 < q.k := by
-    intro m hm j i
-    have h := htgtLt m hm j i
-    rw [hlenN] at h
-    exact h
+  -- the kinds, positionally (their count); the targets they carry are
+  -- read off the re-check below
+  obtain ⟨hlenK, -⟩ := ConLeche.classifyBlockKinds_inv hK
   -- conjunct 7 at one member
   obtain ⟨-, hFOkm'⟩ := ConLeche.blockFieldsOk_inv hFOk
   have hFOkm : ∀ m, m < q.k →
@@ -530,6 +479,16 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     have hgd : kinds.getD m [] = kss := by
       rw [List.getD_eq_getElem?_getD, hkss]; rfl
     rw [hgd]; exact hok
+  have htgtLt : ∀ (m : Nat), m < q.k → ∀ j i : Nat,
+      (ConLeche.blockTgtsOf ((kinds.getD m []).getD j [])).getD i 0 < q.memberNames.length :=
+    -- the target bound, off the RE-CHECK (conjunct 7), not the classifier
+    fun m hm j i => ConLeche.blockMemberFieldsOk_tgtsOf_lt hnames0 (hFOkm m hm) j i
+  have htgtLtK : ∀ (m : Nat), m < q.k → ∀ j i : Nat,
+      (ConLeche.blockTgtsOf ((kinds.getD m []).getD j [])).getD i 0 < q.k := by
+    intro m hm j i
+    have h := htgtLt m hm j i
+    rw [hlenN] at h
+    exact h
   -- the constructors' own facts, per member
   have hmemCtors : ∀ (m : Nat), m < q.k →
       ∀ c ∈ (q.members.getD m default).ctors, c ∈ q.allCtors := by
@@ -553,7 +512,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
           (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
           (∃ ty₀ : Expr, ty₀.hasFvar = false ∧
             ConLeche.annotateCore μ envI F 0 ty₀ = .ok cA.1.type) ∧
-          ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+          ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI q.memberNames cvTa.name q.lps q.nP
             (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) :=
     fun m cvTa hm hcv =>
       blockCtorFacts_of (blockCtorRuns_of hCtors hF.nameOf m cvTa hm hcv)

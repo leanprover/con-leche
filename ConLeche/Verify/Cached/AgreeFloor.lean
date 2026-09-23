@@ -878,9 +878,9 @@ theorem checkSumTeleF_name (ops : CheckerOps CheckCM) (fe : FEnv)
 
 /-- The normalisation stores a constant of the declared name (task
 #210 Part D). -/
-theorem normCtorValF_name (ops : CheckerOps CheckCM) (fe : FEnv) (T : Name) (nP nF : Nat)
+theorem normCtorValF_name (ops : CheckerOps CheckCM) (fe : FEnv) (names : List Name) (nP nF : Nat)
     (cvC cvCa : ConstantVal) (hn : cvCa.name = cvC.name) :
-    Yields (normCtorValF ops fe T nP nF cvC cvCa) (fun r => r.name = cvC.name) := by
+    Yields (normCtorValF ops fe names nP nF cvC cvCa) (fun r => r.name = cvC.name) := by
   unfold normCtorValF
   yields
   all_goals (dsimp only; split)
@@ -889,32 +889,32 @@ theorem normCtorValF_name (ops : CheckerOps CheckCM) (fe : FEnv) (T : Name) (nP 
     | exact Yields.mono (checkConstantValF_name ops fe _) (fun _ h => h)
 
 theorem checkSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
+    (names : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
+    Yields (checkSumCtorF ops fe₀ fe names T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun r => r.1.name = cvC.name) := by
   unfold checkSumCtorF
   refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
-  refine Yields.bind' (normCtorValF_name ops fe T nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
+  refine Yields.bind' (normCtorValF_name ops fe names nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
   yields
   all_goals (apply Yields.pure; exact hn)
 
 /-- The constructor list's names and field counts are the block's, and
 the field-sort lists come one per constructor (task #210 Part A). -/
 theorem checkSumCtorsF_names (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
+    (names : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
+      Yields (checkSumCtorsF ops fe₀ fe names T lps nP nIdx rs isProp large cvTa cs)
         (fun r => r.1.map (fun c => (c.1.name, c.2))
           = cs.map (fun c => (c.1.name, c.2)) ∧ r.2.length = cs.length)
   | [] => Yields.pure ⟨rfl, rfl⟩
   | c :: cs => by
     unfold checkSumCtorsF
-    refine Yields.bind' (checkSumCtorF_name ops fe₀ fe T lps nP nIdx rs isProp
+    refine Yields.bind' (checkSumCtorF_name ops fe₀ fe names T lps nP nIdx rs isProp
       large c.1 c.2 cvTa) fun q hn => ?_
     obtain ⟨cvCa, sorts⟩ := q
-    refine Yields.bind' (checkSumCtorsF_names ops fe₀ fe T lps nP nIdx rs isProp
+    refine Yields.bind' (checkSumCtorsF_names ops fe₀ fe names T lps nP nIdx rs isProp
       large cvTa cs) fun rest hrest => ?_
     obtain ⟨rest, srest⟩ := rest
     have hn' : cvCa.name = c.1.name := hn
@@ -982,32 +982,32 @@ theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
   all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
 theorem checkSumCtorF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
+    (names : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
+    Yields (checkSumCtorF ops fe₀ fe names T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun r => r.1.name = cvC.name ∧ fe.find? cvC.name = none) := by
   unfold checkSumCtorF
   refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun cvCa₀ h₀ => ?_
   obtain ⟨hn₀, hfr⟩ := h₀
-  refine Yields.bind' (normCtorValF_name ops fe T nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
+  refine Yields.bind' (normCtorValF_name ops fe names nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
   yields
   all_goals (apply Yields.pure; exact ⟨hn, hfr⟩)
 
 theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
+    (names : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
+      Yields (checkSumCtorsF ops fe₀ fe names T lps nP nIdx rs isProp large cvTa cs)
         (fun r => r.1.map (·.1.name) = cs.map (·.1.name) ∧
           ∀ c ∈ r.1, fe.find? c.1.name = none)
   | [] => Yields.pure ⟨rfl, fun _ hc => nomatch hc⟩
   | c :: cs => by
     unfold checkSumCtorsF
-    refine Yields.bind' (checkSumCtorF_fresh ops fe₀ fe T lps nP nIdx rs isProp
+    refine Yields.bind' (checkSumCtorF_fresh ops fe₀ fe names T lps nP nIdx rs isProp
       large c.1 c.2 cvTa) fun q hq => ?_
     obtain ⟨cvCa, sorts⟩ := q
     obtain ⟨hn, hfr⟩ := hq
-    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe T lps nP nIdx rs isProp
+    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe names T lps nP nIdx rs isProp
       large cvTa cs) fun rest hrest => ?_
     obtain ⟨rest, srest⟩ := rest
     obtain ⟨hrest, hfrs⟩ := hrest
@@ -1162,9 +1162,9 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
   | (ms, cvTa) :: rest => by
     unfold checkBlockCtorsF
     refine Yields.bind' (Yields.and
-      (checkSumCtorsF_names ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
+      (checkSumCtorsF_names ops fe₀ fe p.memberNames ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
         p.large cvTa ms.ctors)
-      (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
+      (checkSumCtorsF_fresh ops fe₀ fe p.memberNames ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
         p.large cvTa ms.ctors)) fun q hq => ?_
     obtain ⟨ctorsA, sortss⟩ := q
     obtain ⟨⟨hn, hlS⟩, -, hfr⟩ := hq

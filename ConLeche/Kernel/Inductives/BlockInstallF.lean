@@ -100,7 +100,7 @@ def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe p.memberNames ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
     let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
     pure (ctorsA :: restC, sortss :: restS)
@@ -131,6 +131,7 @@ def blockOpenedOkF (w : StructWalkers) (fe₀ : FEnv) (names : List Name) (lps :
         match xFvs[i]?, ks.getD i .ordinary with
         | some x, .ordinary => w.resolve fe₀ x.fvarTypeD
         | some x, .recursive tgt =>
+          decide (tgt < names.length) &&
           x.fvarTypeD.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
           x.fvarTypeD.getAppArgs.take nP == fvsP &&
           x.fvarTypeD.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
@@ -140,6 +141,7 @@ def blockOpenedOkF (w : StructWalkers) (fe₀ : FEnv) (names : List Name) (lps :
         | some x, .reflexive tgt =>
           match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
           | some (afvs, body) =>
+            decide (tgt < names.length) &&
             afvs.length != 0 &&
             afvs.all (fun a => w.resolve fe₀ a.fvarTypeD) &&
             body.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&

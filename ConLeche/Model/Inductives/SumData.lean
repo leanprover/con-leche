@@ -371,11 +371,11 @@ theorem CtorDataI.Es_eq_of_agree {env : Env} {T : Name} {env₀ : Env}
 /-- The constructor's data, from its stage run at the environment
 holding the former. -/
 theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {F : Nat} {T : Name} {names : List Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List (Expr × ConLeche.BinderMeta)}
     {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env names T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -602,10 +602,10 @@ bit-valid, bounded when the family is not `Prop`, and the index
 expressions graded and fitting the former's index telescope at every
 fitting field spine. -/
 theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {F : Nat} {T : Name} {names : List Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env names T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)

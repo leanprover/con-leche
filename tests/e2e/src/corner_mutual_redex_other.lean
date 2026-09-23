@@ -7,9 +7,10 @@
    application) and ACCEPTS; its recursors treat the field as
    recursive (`is_rec_argument` whnf's too).
 
-   con-leche today DECLINES (exit 2): the uniform route's positivity
+   con-leche DECLINED (exit 2) until lane NESTPOS gave the walk the member
+   list (Kernel/Inductives/Positivity.lean; exit 0 since): the uniform route's positivity
    walk `normPosDom` (Kernel/Inductives/SumInstall.lean:162, called from
-   `checkSumCtor` with `ms.cvT.name`, BlockInstall.lean:191) is given
+   `checkSumCtor` with `ms.cvT.name`, BlockInstall.lean:191) was given
    the member's OWN name only, so a domain mentioning only `RB` inside
    `RA`'s constructor is kept unreduced; `blockPositivity`
    (BlockParts.lean) then sees head `Id'`, a non-member constant, and

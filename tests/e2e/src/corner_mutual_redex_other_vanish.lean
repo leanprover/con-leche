@@ -7,7 +7,8 @@
    finds no occurrence of the block and classifies an ORDINARY field
    (no inductive hypothesis in the recursor); it ACCEPTS.
 
-   con-leche today DECLINES (exit 2): `normPosDom` (Kernel/Inductives/
+   con-leche DECLINED (exit 2) until lane NESTPOS gave the walk the member
+   list (Kernel/Inductives/Positivity.lean; exit 0 since): `normPosDom` (Kernel/Inductives/
    SumInstall.lean:162, called with `ms.cvT.name` from
    BlockInstall.lean:191) sees a domain that does not mention `VA`
    and keeps it unreduced; `blockPositivity` then finds `VB` under the

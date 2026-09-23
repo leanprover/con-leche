@@ -133,10 +133,10 @@ theorem consBlockCtors_find?_mem {nP : Nat} :
 /-- **One member's constructor loop, read at the names**: the stored
 constructors carry the member's constructor names and field counts, in
 order, each fresh at the environment the loop checks at. -/
-theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {lps : List Name}
+theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {names : List Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat}
     {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env names T lps nP nIdx resSort isProp large
       cvTa cs = .ok (ctorsA, sortss)) :
     ctorsA.map (fun cA => (cA.1.name, cA.2)) = cs.map (fun c => (c.1.name, c.2)) ∧
     ∀ cA ∈ ctorsA, env.find? cA.1.name = none := by

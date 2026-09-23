@@ -188,7 +188,7 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtors ops env₀ env p.memberNames ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
     let (restC, restS) ← checkBlockCtors ops env₀ env p rest
     pure (ctorsA :: restC, sortss :: restS)
@@ -259,7 +259,15 @@ def nIdxAt (nIdxs : List Nat) (tgt : Nat) : Nat := nIdxs.getD tgt (nIdxs.headD 0
 constructor type OPENED at variables (`nativeOpenedOk` at k members):
 a recursive or reflexive field's domain is the TARGET member at the
 opened parameter variables followed by that member's index
-expressions. -/
+expressions, and the target IS a member (`tgt < names.length`).
+
+**This re-check is the positivity walk's only interface to the
+proofs** (lane NESTPOS, ARCH R2(b)): the target bound used to be read
+back from the walk (`blockPositivity_tgt_lt`, an induction over the
+walk's arms); here it is a conjunct of the check the model already
+inverts (`blockOpenedOk_tgt_lt`, `Verify/Inductives/BlockInv.lean`), so
+the walk (`ConLeche/Kernel/Inductives/Positivity.lean`) has no proof
+consumer at all. -/
 def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat)
     (nIdxs : List Nat) (cty : Expr) (nF : Nat) (ks : List BlockFieldKind) : Bool :=
   match openPisAtFvars nP cty 0 with
@@ -271,6 +279,7 @@ def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat
         match xFvs[i]?, ks.getD i .ordinary with
         | some x, .ordinary => x.fvarTypeD.constsResolve env₀
         | some x, .recursive tgt =>
+          decide (tgt < names.length) &&
           x.fvarTypeD.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
           x.fvarTypeD.getAppArgs.take nP == fvsP &&
           x.fvarTypeD.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
@@ -280,6 +289,7 @@ def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat
         | some x, .reflexive tgt =>
           match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
           | some (afvs, body) =>
+            decide (tgt < names.length) &&
             afvs.length != 0 &&
             afvs.all (fun a => a.fvarTypeD.constsResolve env₀) &&
             body.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&

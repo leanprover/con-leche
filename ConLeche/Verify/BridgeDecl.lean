@@ -653,10 +653,10 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
 
 /-- Official's positivity walk as a normalisation (task #210 Part D)
 at fuel `F`. -/
-theorem normPosDom_datF (env : Env) (T : Name) (F : Nat) (fuel : Nat) :
+theorem normPosDom_datF (env : Env) (names : List Name) (F : Nat) (fuel : Nat) :
     ∀ (d : Nat) (e : Expr),
-      (normPosDom (fueledOpsM mode) env T d fuel e).val F =
-        normPosDom (fueledOps mode F) env T d fuel e := by
+      (normPosDom (fueledOpsM mode) env names d fuel e).val F =
+        normPosDom (fueledOps mode F) env names d fuel e := by
   induction fuel with
   | zero =>
     intro d e
@@ -680,10 +680,10 @@ theorem normPosDom_datF (env : Env) (T : Name) (F : Nat) (fuel : Nat) :
             ih (d + 1) (body.instantiate1 (.fvar d dom))]
       · simp only [FueledM.atF_pure]
 
-theorem normFieldDoms_datF (env : Env) (T : Name) (F : Nat) (n : Nat) :
+theorem normFieldDoms_datF (env : Env) (names : List Name) (F : Nat) (n : Nat) :
     ∀ (i : Nat) (e : Expr),
-      (normFieldDoms (fueledOpsM mode) env T i n e).val F =
-        normFieldDoms (fueledOps mode F) env T i n e := by
+      (normFieldDoms (fueledOpsM mode) env names i n e).val F =
+        normFieldDoms (fueledOps mode F) env names i n e := by
   induction n with
   | zero =>
     intro i e
@@ -693,7 +693,7 @@ theorem normFieldDoms_datF (env : Env) (T : Name) (F : Nat) (n : Nat) :
     intro i e
     match e with
     | .forallE dom body bm =>
-      simp only [normFieldDoms, FueledM.atF_bind, normPosDom_datF env T F 1024 i dom]
+      simp only [normFieldDoms, FueledM.atF_bind, normPosDom_datF env names F 1024 i dom]
       congr 1
       funext dom'
       simp only [FueledM.atF_bind, FueledM.atF_pure,
@@ -702,38 +702,38 @@ theorem normFieldDoms_datF (env : Env) (T : Name) (F : Nat) (n : Nat) :
     | .lit _ | .proj _ _ _ =>
       simp only [normFieldDoms, FueledM.atF_throw]
 
-theorem normCtorVal_datF (env : Env) (T : Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
+theorem normCtorVal_datF (env : Env) (names : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
     (F : Nat) :
-    (normCtorVal (fueledOpsM mode) env T nP nF cvC cvCa).val F =
-      normCtorVal (fueledOps mode F) env T nP nF cvC cvCa := by
+    (normCtorVal (fueledOpsM mode) env names nP nF cvC cvCa).val F =
+      normCtorVal (fueledOps mode F) env names nP nF cvC cvCa := by
   unfold normCtorVal
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantVal_datF, normFieldDoms_datF]
 
-theorem checkSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
+theorem checkSumCtor_datF (env₀ env : Env) (names : List Name) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) (F : Nat) :
-    (checkSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+    (checkSumCtor (fueledOpsM mode) env₀ env names T lps nP nIdx rs isProp large
       cvC nF cvTa).val F =
-      checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+      checkSumCtor (fueledOps mode F) env₀ env names T lps nP nIdx rs isProp large
         cvC nF cvTa := by
   unfold checkSumCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, normCtorVal_datF,
     checkStructFieldSortsI_datF, checkStructDomsAt_datF]
 
-theorem checkSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
+theorem checkSumCtors_datF (env₀ env : Env) (names : List Name) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+      (checkSumCtors (fueledOpsM mode) env₀ env names T lps nP nIdx rs isProp large
         cvTa cs).val F =
-        checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+        checkSumCtors (fueledOps mode F) env₀ env names T lps nP nIdx rs isProp large
           cvTa cs
   | [] => rfl
   | c :: cs => by
     unfold checkSumCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtor_datF,
-      checkSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
+      checkSumCtors_datF env₀ env names T lps nP nIdx rs isProp large cvTa F cs]
 
 /-! ### The direct recursive install (task #188) -/
 

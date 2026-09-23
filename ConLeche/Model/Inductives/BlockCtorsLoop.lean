@@ -61,7 +61,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {names : List Name} {ctorsOf : Name → List Name}
     (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ T → cA.1.name ∉ ctorsOf T'')
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI T
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI names T
       lps nP nIdx resSort isProp large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = lps)

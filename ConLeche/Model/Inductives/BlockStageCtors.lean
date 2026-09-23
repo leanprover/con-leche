@@ -328,7 +328,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
           (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
           (d.ppsM c ψ) c)
     -- the member's constructors, as checked
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name lps d.nP
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI d.memberNames cvTa.name lps d.nP
       (d.nIdxAt m) d.resSort d.isProp d.large cvTa ctors = .ok (d.ctorsM m, sortss))
     (hnd : ((d.ctorsM m).map (·.1.name)).Nodup)
     (hout : ∀ cA ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ cvTa.name → cA.1.name ∉ ctorsOf T'')
@@ -558,7 +558,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       obtain ⟨cA, hiA, rfl⟩ := hcdMem ψ i cd hi
       exact ((hframes i cA hiA).2 ψ ρ (((hframes i cA hiA).1 ψ ρ).mp hρ)).2.1
   -- ## the member's constructors, consed
-  have hCtors' : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI (d.memberName m) lps
+  have hCtors' : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI d.memberNames (d.memberName m) lps
       d.nP (d.nIdxAt m) d.resSort d.isProp d.large cvTa ctors = .ok (d.ctorsM m, sortss) := by
     rw [hTname]; exact hCtors
   have hout' : ∀ cA ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ d.memberName m →
@@ -615,7 +615,7 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
     ∃ (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
-      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name lps d.nP (d.nIdxAt m)
+      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI d.memberNames cvTa.name lps d.nP (d.nIdxAt m)
         d.resSort d.isProp d.large cvTa cs = .ok (d.ctorsM m, sortss)
   nodup : ∀ m, m < d.k → ((d.ctorsM m).map (·.1.name)).Nodup
   out : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
