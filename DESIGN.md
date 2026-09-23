@@ -84822,3 +84822,51 @@ kind-reading check (`blockIhCall?`, `blockIhKeys`, `BlockFieldKind.tgt?`,
 `checkBlockRecTys`/`checkBlockRule(s)`/`checkBlockRecsRules`/
 `checkBlockRecK` and their F twins, `BlockRecRun.lean`) and the proofs
 the census then marks dead, keeping every `@[csimp]` (1).
+
+
+#### RECLIB continuation (branch `agent/uinds-RECLIB`, not landed): B3 checkpoint 1 and the seam map
+
+**Order changed: B3/B4 before B1.**  Flipping `checkBlockTail` first
+would leave the tree red for sessions (33 model files take a
+`checkBlockRecK` run).  The new proofs are built BESIDE the old ones
+over `targetRecCheck` runs, each checkpoint green; B1 (the flip plus
+the cached bridge) comes when `declBlock`'s `hrec` can be discharged
+from a `TargetRecRun`, and B5 deletes the old chain right after.
+
+**Kernel (shadow), checkpoint 1.**  `targetAbstract` now dedupes `ih`
+variables by the CALL (field, callee, index arguments), not by the
+`ih` type.  With a conclusion that does not mention the major (the
+check allows any conclusion), two different calls have one type, and a
+shared variable would stand for two call targets.  The residue's
+typing then covers only the diagonal, which the model cannot use.
+target-shadow 317/317, init-full lines unchanged.
+
+**O-1 for the new abstraction** (`Model/Inductives/TargetRecRead.lean`):
+`interp_targetAbstract`, the stored body read at the frame equals the
+residue read at the frame plus the `ih` values, given
+`TargetNodeVal` (the call node's value) at the call nodes.  The frame is
+free, so the non-call step is `denoteMeta_open_deepen` (one lift of the
+reading, no `Expr` lift); `interp_ihApp` reads the residue's call
+node; `LocalsFit`/`IhTyped` are `BlockRecRule`'s, reused.
+
+**The seam map: what B3 must re-produce.**  `declBlock_data`'s `hseam`
+(`BlockRecData.lean`, §A.18) is kind-free.  Its rule data is
+`pdoms0/fdoms0/es0/ihs/mk0/Rb0`, and only `ihs` (the `ih` terms) and
+`Rb0` (the residue) come from the rule stage's abstraction.  Everything
+stated about the prefix and field domains, index expressions and the
+fired spine (`BlockRuleDataB` conjuncts 1–3 and 5, `hpl`, `hctor`,
+`hnCt`, `hTyZ`) is produced from facts the old check shares with the
+new one (stage (b), G2).  B3 therefore owes the facts that mention
+`ihs`/`Rb0`:
+(1) `heqB`/`heqV`/`heqP` at the new `ihs`/`Rb0`;
+(2) `BlockRuleDataB` conjunct 4, the body equation, which is
+`interp_targetAbstract` plus the `TargetNodeVal` discharge (the stored
+call node reads, at the final family, as the `ih` term's value);
+(3) `hpre` through the graph producer, with `call` read off
+`TargetIh` (the callee's stored type instantiated) instead of
+`blockIhKeys`/`d.tgts`, the certificates off `TargetRuleRun.hty/hdeq`
+(`BlockRuleCerts`, the `ih` telescope synthesised from the `TargetIh`
+types), `hihF` off `TargetCallRun` at the carrier, and `ind` = B4;
+(4) `hRaZ` (the `ℓ = 0` arm, by the ι law as FLOOR did).
+The old producers of exactly these facts die in B5.  The target is a
+contract whose size tracks this list, not the old chain.
