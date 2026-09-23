@@ -13,6 +13,7 @@ public import ConLeche.Model.Inductives.BlockStageFormer
 public import ConLeche.Model.Inductives.BlockCtorsLoop
 public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockModelRecords
+public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.BlockStageTable
 public import ConLeche.Model.Inductives.BlockCaps
 public import ConLeche.Model.Inductives.BlockStageCtors
