@@ -189,6 +189,8 @@ theorem blockKitIhKey_run
       d.tgts (p.toBlockShape.recTgtAt j) i fi = p.toBlockShape.recTgtAt c' ∧
       (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default
         = (mkPisAV (blockKitTlA p rs mpC.base2.acval envC ψ j i fi) CihR).liftN q 0 ∧
+      Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+        ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default).erase ∧
       BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') cA.2
         (blockKitTlA p rs mpC.base2.acval envC ψ j i fi).length
         (blockRecTyAV mpC.base2.acval envC rs ψ c')
@@ -201,6 +203,10 @@ theorem blockKitIhKey_run
       Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2
           + (blockKitTlA p rs mpC.base2.acval envC ψ j i fi).length)
         (blockKitFapA p rs j i fi).erase ∧
+      (∀ x : Expr, (blockRuleFvsIhAt p rs j i)[q]? = some x →
+        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+          (Expr.fvarTypeD x)
+          = some ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default)) ∧
       ∀ (σ : Nat → V) (xs fs : List V),
         SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j) xs →
         SpineFit (consList xs σ) (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
@@ -542,8 +548,20 @@ theorem blockKitIhKey_run
       have := List.mem_range.mp hk
       show _ < _
       omega
-  refine ⟨fi, c', CihR, hkeyE, hc'K, hfiC, hrPc', hrss, htgtc', by rw [hIget, hTlA], hcon, hDB,
-    hEB, hFB, ?_⟩
+  have hIB : Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+      ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default).erase := by
+    obtain ⟨-, -, -, hlb, -, -, -, -, -, -, -, hWt, -⟩ :=
+      blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
+    have hr1 := readOpenedDoms_reads hexI q x hx
+    rw [← hIdomE] at hr1
+    have hW := openPisAtFvars_typeWScoped _ hopen hWt q x hx
+    exact bvarsBelow_of_reading (m := mpC.base2) hW
+      (hlb x (List.mem_append_right _ (List.mem_of_getElem? hx))) hr1
+  refine ⟨fi, c', CihR, hkeyE, hc'K, hfiC, hrPc', hrss, htgtc', by rw [hIget, hTlA], hIB, hcon, hDB,
+    hEB, hFB, fun x' hx' => by
+      have hr1 := readOpenedDoms_reads hexI q x' hx'
+      rw [← hIdomE] at hr1
+      exact hr1, ?_⟩
   intro σ xs fs hxs hfs bs hbsM
   -- the frame's lengths and the prefix's split
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length
@@ -627,6 +645,87 @@ theorem blockKitIhKey_run
   refine ⟨by rw [htlE]; exact hbsC, ?_, by rw [hFapA]; exact hmk⟩
   rw [hEisA, hFapA, List.map_append, hes, List.map_cons, List.map_nil, hmk]
   exact hfitB
+
+/-- **The pinned `ihdoms`' chain lift is the identity** — every opener's
+domain is a reading at its own depth of a type scoped there
+(`openPisAtFvars_typeWScoped`), so it is bounded there. -/
+theorem blockRecIhdomsK_eq
+    (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
+    {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c) (ψ : Name → Nat)
+    (K : Nat) :
+    blockRecIhdomsK K p mpC.base2.acval envC rs ψ c j
+      = blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j := by
+  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+  have hjr : j < rs[c].2.2.2.length := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
+  obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
+    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+  have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨rbs, ty, concl, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
+  have hIlen : (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length
+      = (blockRuleFrameAt p rs c j).nR := by
+    rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
+    exact openPisAtFvars_length _ hopen
+  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hfl := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
+  rw [blockRecIhdomsK]
+  refine liftDomsK_eq_self_of_bounded _ _ fun q hq => ?_
+  rw [hIlen] at hq
+  obtain ⟨_, _, _, -, -, -, -, -, -, -, hIB, -⟩ :=
+    blockKitIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hq
+  rw [hpl, hfl]
+  exact hIB
+
+/-- **Every `ih` opener's domain has a reading at its own depth** —
+`blockRuleCerts_of_run`'s `hexI`, at the pinned openers. -/
+theorem blockRuleIhReads_run
+    (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {j : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[j]? = some cA)
+    (ψ : Name → Nat) :
+    ∀ (l : Nat) (x : Expr), (blockRuleFvsIhAt p rs c j)[l]? = some x →
+      ∃ A, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2 + l)
+        (Expr.fvarTypeD x) = some A := by
+  intro l x hx
+  have hir : j < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
+  obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[j]? = some rhs :=
+    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hir)⟩
+  obtain ⟨rbs, ty, concl, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
+  have hl : l < (blockRuleFrameAt p rs c j).nR := by
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    rwa [openPisAtFvars_length _ hopen] at this
+  obtain ⟨_, _, _, -, -, -, -, -, -, -, -, -, -, -, -, hread, -⟩ :=
+    blockKitIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hl
+  exact ⟨_, hread x hx⟩
 
 end Key
 
