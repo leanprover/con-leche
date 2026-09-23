@@ -820,15 +820,294 @@ theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkNativePass_datF, checkNativeTail_datF]
 
-/-- The uniform install at fuel `F`, through the one-member bridge
-(milestone M1): the route is gated at one member, so the fuel-indexed
-family is the one-member install's. -/
-theorem checkBlock_datF (env : Env) (p : BlockParts) {ms : MemberShape} {rc : RecShape}
-    (hm : p.members = [ms]) (hrr : p.recs = [rc]) (F : Nat) :
+/-! ### The uniform install at k members (lane FLIP1)
+
+Every stage of `checkBlock` at fuel `F`, read off the same program at
+the two monads.  Nothing here reads either gate: the recursor stage's
+dispatch (`checkBlockRec`) is split on `blockRecCheckOn` and both arms
+are closed, so the family is the uniform install's at EVERY `k`. -/
+
+theorem checkBlockTele_datF (env : Env) (nP : Nat) (ms : MemberShape) (F : Nat) :
+    (checkBlockTele (fueledOpsM mode) env nP ms).val F =
+      checkBlockTele (fueledOps mode F) env nP ms := by
+  unfold checkBlockTele
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF]
+
+theorem checkBlockTeles_datF (env : Env) (nP F : Nat) :
+    ∀ mss : List MemberShape,
+      (checkBlockTeles (fueledOpsM mode) env nP mss).val F =
+        checkBlockTeles (fueledOps mode F) env nP mss
+  | [] => rfl
+  | ms :: rest => by
+    unfold checkBlockTeles
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockTele_datF,
+      checkBlockTeles_datF env nP F rest]
+
+theorem checkBlockDomsAt_datF (env : Env) (off : Nat) (fvs doms : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkBlockDomsAt (fueledOpsM mode) env off fvs doms j).val F =
+        checkBlockDomsAt (fueledOps mode F) env off fvs doms j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkBlockDomsAt
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
+      checkBlockDomsAt_datF env off fvs doms F j]
+
+theorem checkBlockAgree_datF (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level)
+    (F : Nat) :
+    ∀ cvs : List (ConstantVal × Level),
+      (checkBlockAgree (fueledOpsM mode) env nP cvTa0 s0 cvs).val F =
+        checkBlockAgree (fueledOps mode F) env nP cvTa0 s0 cvs
+  | [] => rfl
+  | (cvTa, s) :: rest => by
+    unfold checkBlockAgree
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, unwrapOr_atF, checkBlockDomsAt_datF,
+      checkBlockAgree_datF env nP cvTa0 s0 F rest]
+
+theorem checkBlockInds_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
+    (checkBlockInds (fueledOpsM mode) env p isRec).val F =
+      checkBlockInds (fueledOps mode F) env p isRec := by
+  unfold checkBlockInds
+  split
+  · rfl
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockTele_datF,
+      checkBlockTeles_datF, checkBlockAgree_datF]
+
+theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape) (F : Nat) :
+    ∀ l : List (MemberShape × ConstantVal),
+      (checkBlockCtors (fueledOpsM mode) env₀ env p l).val F =
+        checkBlockCtors (fueledOps mode F) env₀ env p l
+  | [] => rfl
+  | (ms, cvTa) :: rest => by
+    unfold checkBlockCtors
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
+      checkBlockCtors_datF env₀ env p F rest]
+
+theorem classifyMemberKinds_datF (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
+    (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (classifyMemberKinds (m := FueledM) names lps nP nIdxs ctorsA).val F =
+      classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA := by
+  unfold classifyMemberKinds
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF]
+
+theorem classifyBlockKinds_datF (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
+    (F : Nat) :
+    ∀ l : List (List (ConstantVal × Nat)),
+      (classifyBlockKinds (m := FueledM) names lps nP nIdxs l).val F =
+        classifyBlockKinds (m := CheckM) names lps nP nIdxs l
+  | [] => rfl
+  | ctorsA :: rest => by
+    unfold classifyBlockKinds
+    simp only [FueledM.atF_bind, FueledM.atF_pure, classifyMemberKinds_datF,
+      classifyBlockKinds_datF names lps nP nIdxs F rest]
+
+theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
+    (checkBlockPass (fueledOpsM mode) env p isRec).val F =
+      checkBlockPass (fueledOps mode F) env p isRec := by
+  unfold checkBlockPass
+  simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockInds_datF, checkBlockCtors_datF,
+    classifyBlockKinds_datF]
+
+theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
+    ∀ l : List (MemberShape × ConstantVal),
+      (checkBlockIdxSorts (fueledOpsM mode) env₁ p l).val F =
+        checkBlockIdxSorts (fueledOps mode F) env₁ p l
+  | [] => rfl
+  | (ms, cvTa) :: rest => by
+    unfold checkBlockIdxSorts
+    simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF,
+      checkStructFieldSortsI_datF, checkBlockIdxSorts_datF env₁ p F rest]
+
+theorem checkBlockDefEqList_datF (env : Env) (depth : Nat) (what : String) (F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkBlockDefEqList (fueledOpsM mode) env depth what as bs).val F =
+        checkBlockDefEqList (fueledOps mode F) env depth what as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkBlockDefEqList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF, checkBlockDefEqList_datF env depth what F as bs]
+
+theorem checkBlockRecIdxDomsAt_datF (env : Env) (p : BlockShape) (cvTas : List ConstantVal)
+    (F : Nat) :
+    ∀ (l : List (ConstantVal × Nat × Level)) (ri : Nat),
+      (checkBlockRecIdxDomsAt (fueledOpsM mode) env p cvTas l ri).val F =
+        checkBlockRecIdxDomsAt (fueledOps mode F) env p cvTas l ri
+  | [], _ => rfl
+  | (cvR, nIdx, u) :: rest, ri => by
+    unfold checkBlockRecIdxDomsAt
+    simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, checkBlockDefEqList_datF,
+      checkBlockRecIdxDomsAt_datF env p cvTas F rest (ri + 1)]
+
+theorem checkBlockRecPrefixAt_datF (env : Env) (p : BlockShape) (rP0 : Nat)
+    (doms0 : List Expr) (F : Nat) :
+    ∀ (l : List ConstantVal) (ri : Nat),
+      (checkBlockRecPrefixAt (fueledOpsM mode) env p rP0 doms0 l ri).val F =
+        checkBlockRecPrefixAt (fueledOps mode F) env p rP0 doms0 l ri
+  | [], _ => rfl
+  | cv :: rest, ri => by
+    unfold checkBlockRecPrefixAt
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      unwrapOr_atF, checkBlockDefEqList_datF,
+      checkBlockRecPrefixAt_datF env p rP0 doms0 F rest (ri + 1)]
+
+theorem checkBlockRecPrefixAgree_datF (env : Env) (p : BlockShape) (cvRs : List ConstantVal)
+    (F : Nat) :
+    (checkBlockRecPrefixAgree (fueledOpsM mode) env p cvRs).val F =
+      checkBlockRecPrefixAgree (fueledOps mode F) env p cvRs := by
+  unfold checkBlockRecPrefixAgree
+  split
+  · rfl
+  · simp only [FueledM.atF_bind, unwrapOr_atF, checkBlockRecPrefixAt_datF]
+
+theorem checkBlockRecElimAgree_datF (us : List Level) (F : Nat) :
+    (checkBlockRecElimAgree (m := FueledM) us).val F =
+      checkBlockRecElimAgree (m := CheckM) us := by
+  unfold checkBlockRecElimAgree
+  split
+  · rfl
+  · simp only [FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+
+theorem checkBlockRecSmallElim_datF (p : BlockShape) (nested : Bool) (us : List Level)
+    (F : Nat) :
+    (checkBlockRecSmallElim (m := FueledM) p nested us).val F =
+      checkBlockRecSmallElim (m := CheckM) p nested us := by
+  unfold checkBlockRecSmallElim
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+
+theorem checkBlockRecElimPin_datF (p : BlockShape) (us : List Level) (F : Nat) :
+    (checkBlockRecElimPin (m := FueledM) p us).val F =
+      checkBlockRecElimPin (m := CheckM) p us := by
+  unfold checkBlockRecElimPin
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+
+theorem checkBlockRecFamilyAgree_datF (env : Env) (p : BlockShape) (nested : Bool)
+    (cvTas : List ConstantVal) (cvRus : List (ConstantVal × Nat × Level)) (F : Nat) :
+    (checkBlockRecFamilyAgree (fueledOpsM mode) env p nested cvTas cvRus).val F =
+      checkBlockRecFamilyAgree (fueledOps mode F) env p nested cvTas cvRus := by
+  unfold checkBlockRecFamilyAgree
+  simp only [FueledM.atF_bind, checkBlockRecElimAgree_datF, checkBlockRecSmallElim_datF,
+    checkBlockRecElimPin_datF, checkBlockRecIdxDomsAt_datF, checkBlockRecPrefixAgree_datF]
+
+theorem checkBlockRecTys_datF (env : Env) (p : BlockShape) (nested : Bool)
+    (cvTas : List ConstantVal) (F : Nat) :
+    ∀ (l : List RecShape) (ri : Nat),
+      (checkBlockRecTys (fueledOpsM mode) env p nested cvTas l ri).val F =
+        checkBlockRecTys (fueledOps mode F) env p nested cvTas l ri
+  | [], _ => rfl
+  | rc :: rest, ri => by
+    unfold checkBlockRecTys
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      unwrapOr_atF, checkConstantVal_datF, checkBlockDefEqList_datF,
+      fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      checkBlockRecTys_datF env p nested cvTas F rest (ri + 1)]
+
+theorem checkBlockRule_datF (envR envT : Env) (p : BlockShape) (recNames : List Name)
+    (rlvls : List Level) (recTys : List Expr) (mIs rPs recTgts : List Nat) (ri : Nat)
+    (cvR : ConstantVal) (cA : ConstantVal × Nat) (ks : List BlockFieldKind) (rhs : Expr)
+    (F : Nat) :
+    (checkBlockRule (fueledOpsM mode) envR (fueledOpsM mode) envT p recNames rlvls recTys
+        mIs rPs recTgts ri cvR cA ks rhs).val F =
+      checkBlockRule (fueledOps mode F) envR (fueledOps mode F) envT p recNames rlvls recTys
+        mIs rPs recTgts ri cvR cA ks rhs := by
+  unfold checkBlockRule
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF, checkBlockDefEqList_datF, fueledOpsM_isDefEq_atF,
+    fueledOpsM_inferType_atF, fueledOpsM_annotate_atF]
+
+theorem checkBlockRules_datF (envR envT : Env) (p : BlockShape) (recNames : List Name)
+    (rlvls : List Level) (recTys : List Expr) (mIs rPs recTgts : List Nat) (ri : Nat)
+    (cvR : ConstantVal) (F : Nat) :
+    ∀ (cs : List ((ConstantVal × Nat) × List BlockFieldKind)) (rhss : List Expr),
+      (checkBlockRules (fueledOpsM mode) envR (fueledOpsM mode) envT p recNames rlvls recTys
+          mIs rPs recTgts ri cvR cs rhss).val F =
+        checkBlockRules (fueledOps mode F) envR (fueledOps mode F) envT p recNames rlvls
+          recTys mIs rPs recTgts ri cvR cs rhss
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | (cA, ks) :: cs, rhs :: rhss => by
+    unfold checkBlockRules
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRule_datF,
+      checkBlockRules_datF envR envT p recNames rlvls recTys mIs rPs recTgts ri cvR F cs rhss]
+
+theorem checkBlockRecsRules_datF (envR envT : Env) (p : BlockParts) (recNames : List Name)
+    (rlvls : List Level) (cvRas : List (ConstantVal × Nat))
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    ∀ (l : List RecShape) (ri : Nat),
+      (checkBlockRecsRules (fueledOpsM mode) envR (fueledOpsM mode) envT p recNames rlvls
+          cvRas ctorsAs l ri).val F =
+        checkBlockRecsRules (fueledOps mode F) envR (fueledOps mode F) envT p recNames rlvls
+          cvRas ctorsAs l ri
+  | [], _ => rfl
+  | rc :: rest, ri => by
+    unfold checkBlockRecsRules
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      unwrapOr_atF, checkBlockRules_datF,
+      checkBlockRecsRules_datF envR envT p recNames rlvls cvRas ctorsAs F rest (ri + 1)]
+
+theorem checkBlockRecPins_datF (p : BlockParts) (F : Nat) :
+    (checkBlockRecPins (m := FueledM) p).val F = checkBlockRecPins (m := CheckM) p := by
+  unfold checkBlockRecPins
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+
+theorem checkBlockRecK_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockRecK (fueledOpsM mode) env p cvTas ctorsAs).val F =
+      checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs := by
+  unfold checkBlockRecK
+  simp only [FueledM.atF_bind, checkBlockRecPins_datF, checkBlockRecTys_datF,
+    checkBlockRecFamilyAgree_datF, checkBlockRecsRules_datF]
+
+theorem checkBlockRec_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockRec (fueledOpsM mode) env p cvTas ctorsAs).val F =
+      checkBlockRec (fueledOps mode F) env p cvTas ctorsAs := by
+  unfold checkBlockRec
+  split
+  · exact checkBlockRecK_datF env p cvTas ctorsAs F
+  · split
+    · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        checkNativeRec_datF]
+    · simp only [FueledM.atF_bind, FueledM.atF_throw, checkBlockRecPins_datF]
+
+theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
+    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),
+      (checkBlockTables (m := FueledM) p l env).val F =
+        checkBlockTables (m := CheckM) p l env
+  | [], _ => rfl
+  | (ms, ctorsA, sortss) :: rest, env => by
+    unfold checkBlockTables
+    rw [FueledM.atF_bind]
+    split
+    · split
+      · rw [checkStructProjTable_datF]
+        congr 1
+        funext env'
+        exact checkBlockTables_datF p F rest env'
+      · exact checkBlockTables_datF p F rest env
+    · exact checkBlockTables_datF p F rest env
+
+theorem checkBlockTail_datF (env : Env) (q : BlockPass Env) (F : Nat) :
+    (checkBlockTail (fueledOpsM mode) env q).val F =
+      checkBlockTail (fueledOps mode F) env q := by
+  unfold checkBlockTail
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF]
+
+/-- **The uniform install at fuel `F`, at k members**: the same program
+at the two monads, stage by stage — no gate is read. -/
+theorem checkBlock_datF (env : Env) (p : BlockParts) (F : Nat) :
     (checkBlock (fueledOpsM mode) env p).val F = checkBlock (fueledOps mode F) env p := by
-  rw [← checkBlock_one (m := FueledM) (fueledOpsM mode) env hm hrr,
-    ← checkBlock_one (m := CheckM) (fueledOps mode F) env hm hrr]
-  exact checkNative_datF env p.toNative F
+  unfold checkBlock
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    checkBlockPass_datF, checkBlockTail_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
@@ -1077,9 +1356,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · exact checkBasisDecl_datF env _ F
     · split
       · split
-        · next p hbp =>
-          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hbp
-          exact checkBlock_datF env p hms hrc F
+        · exact checkBlock_datF env _ F
         · exact checkModeled_datF env block F
       · rfl
 

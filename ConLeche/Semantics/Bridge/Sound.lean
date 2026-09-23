@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNative
+public import ConLeche.Semantics.Inductives.DeclBlock
+public import ConLeche.Semantics.Bridge.SoundOne
 import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
 
@@ -22,47 +24,48 @@ derivation half was absent from every capstone's closure AND from this
 file's own surviving theorem.  It went with the R tier
 (`Bridge/{Main,Decl,DeclInd,…}`, `SetBase/{Rel,Weaken,CtxOkR}`) that
 built it.
+
+**The uniform route's arm, at k members (lane FLIP1).**  The run
+bridge here records it as `DeclBlockRun` (`DeclIndRunDispatchK`), which
+holds at every setting of the two gates; the one-member twin the fold
+still reads (`checkDeclRun_ofEnvFactsE`, at `DeclIndRunDispatch`) is in
+`Bridge/SoundOne.lean`, re-exported from here and deleted at the flip.
 -/
 
 namespace ConLeche.Semantics
 open ConLeche.Term ConLeche.Verify
 
 variable {pins : List NatOpPinSet}
-universe w
 
+/-- **The `.indDecl` dispatch at the run level, at k members**: the
+kernel's own case split (`blockParts?`), with the uniform arm recorded
+as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
+rather than at the one-member reading of the record
+(`DeclIndRunDispatch`).  It reads neither gate: it is the dispatch the
+fold takes at the flip. -/
+def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
+    (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
+  match ConLeche.blockParts? nP block with
+  | some p => DeclBlockRun μ F env p env₂
+  | none => DeclIndRun μ F env block env₂
 
-/-- **The RUN bridge, whole, from an `EnvFacts`** (task #161 S11a): the
-run/guard record, from the checker, with **no derivation on the path
-except through the `ind` kind's premise**.
-
-This is `checkDeclR_ofEnvRE`'s run twin and the theorem the graded
-lane's fold now imports.  The difference is not cosmetic and is the
-batch's whole point (the S10 seal's residual B): the deleted
-`checkDeclRun_sound` — `DeclR.toRun` composed *after*
-`checkDeclR_sound` — projected the derivation conjuncts away in its
-*statement* while keeping them in its *proof term*, so the P lane
-inherited `Red.beta` for a record it never reads.  Here the five
-non-`ind` kinds never build one
-(`checkDeclRun_of`, `SetBase/Bridge/DeclRun.lean`), and the sixth
-enters through `declIndRR` alone — one named door, in the parameter
-slot S4 built for it, which S11b replaces with the `ind` run bridge.
-
-The collapsed lane's projection route (`checkDeclRun_sound`) is gone:
-S11b's opener deleted it, consumer-free. -/
-theorem checkDeclRun_ofEnvFactsE
+/-- **The RUN bridge at k members** (lane FLIP1): `checkDeclRun_ofEnvFactsE`
+with the uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).
+Unlike its one-member twin it holds at EVERY setting of both gates
+(`blockRecCheckOn`, `blockRouteK1Only`): the run relation records the
+recursor stage as one opaque conjunct (`checkBlockRec … = .ok rs`), so
+nothing here reads which stage the gate selects. -/
+theorem checkDeclRun_ofEnvFactsK
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) pins env d = .ok env₂) :
-    DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
+    DeclRun μ F (DeclIndRunDispatchK μ F env) env d env₂ :=
   checkDeclRun_of
-    -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
-    -- clause's own `blockParts?` dispatch — `declNativeRun_of_block_one`
-    -- on the direct arm, `declIndRun_of` on the modeled one.
     (fun {block nP} hpin hh => by
       -- task #293: the pinned-block recognition came first, and this
       -- block is not one of the five
       simp only [checkDecl, hpin] at hh
-      rw [DeclIndRunDispatch]
+      rw [DeclIndRunDispatchK]
       -- the declared parameter count (task #228): a run that reached
       -- the dispatch passed the guard
       by_cases hok : indParamsOk nP block = true
@@ -71,8 +74,7 @@ theorem checkDeclRun_ofEnvFactsE
         cases hdf : blockParts? nP block with
         | some p =>
           intro hh
-          obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hdf
-          exact declNativeRun_of_block_one hms hrc hh
+          exact declBlockRun_of hh
         | none =>
           intro hh
           exact declIndRun_of hh
