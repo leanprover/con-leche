@@ -108,7 +108,7 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
       (d.ctorsM (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c)
     (hlenP : (d.params ψ).length = d.nP)
     -- the family's elimination level, NAMED, and the arm's guard at it
-    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (helim : ∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true)
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
     (hbitsE : ∀ c, c < rs.length →
       ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
@@ -336,7 +336,7 @@ theorem blockIndRegime_of_rules {envC : Env} {mpC : EnvModelM V μ envC}
     (hnCt : ∀ c, c < rs.length →
       (d.ctorsM (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c)
     (hlenP : (d.params ψ).length = d.nP)
-    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (helim : ∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true)
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
     (hbitsE : ∀ c, c < rs.length →
       ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,

@@ -9,6 +9,7 @@ import ConLeche.Model.BasisEmpty
 import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Inductives.BlockRecInv
+import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Inductives.BlockWF
@@ -23,12 +24,14 @@ Facts about how the recursor stage's stored terms read, for
 the family's one elimination level, the `instPisAtLift` reading
 battery, and the stored types' readings with their grading.
 
-The family's level arithmetic rests on `checkBlockRecElimAgree`, which
-compares the sorts the kernel's own sort check gave the recursors'
-conclusions; `blockRecElimAgree_inv` (`Verify/Inductives/BlockRecInv.lean`)
-exposes it as `Level.isEquiv`.  The model consumes `Level.eval` at a
-ground assignment (`Level.isEquiv_sound`), so a family has ONE
-elimination level — `OneElimLevel` at the family's single `ℓ`.
+The family's level arithmetic rests on the elimination-level PIN
+(`checkBlockRecElimPin`): every recursor's conclusion sort — the sort
+the kernel's own sort check gave it — is `Level.isEquiv` to the
+generated level `structElimLevel p.elim p.large` (the family record's
+`RecFamRun.pin`, `Verify/Inductives/BlockRecRun.lean`).  The model
+consumes `Level.eval` at a ground assignment (`Level.isEquiv_sound`),
+so a family has ONE elimination level — `OneElimLevel` at the family's
+single `ℓ`.
 -/
 
 namespace ConLeche.Model
@@ -38,26 +41,30 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 
 /-! ## One elimination level, at the valuation -/
 
-/-- **One elimination level per family, at a ground assignment.**
-`blockRecElimAgree_inv` gives the check's own verdict
-(`Level.isEquiv`); this is the form the model reads — every recursor's
-conclusion sort EVALUATES to the first one's at every `ψ`, so the
+/-- **One elimination level per family, at a ground assignment**, from
+the elimination-level PIN: every level of the list is equivalent to
+`L`, so every one EVALUATES to the first one's at every `ψ`, and the
 Σ'-chain has one level and the candidate one tower bit. -/
-theorem blockRecElimAgree_eval {us : List Level}
-    (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
-    (ψ : Name → Nat) : ∀ u ∈ us, u.eval ψ = (us.headD .zero).eval ψ :=
-  fun u hu => Level.isEquiv_sound (ConLeche.blockRecElimAgree_inv h u hu) ψ
+theorem blockRecElimPin_eval {L : Level} {us : List Level}
+    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
+    (ψ : Name → Nat) : ∀ u ∈ us, u.eval ψ = (us.headD .zero).eval ψ := by
+  intro u hu
+  cases us with
+  | nil => exact absurd hu List.not_mem_nil
+  | cons u0 rest =>
+    rw [List.headD_cons, Level.isEquiv_sound (h u hu) ψ,
+      Level.isEquiv_sound (h u0 List.mem_cons_self) ψ]
 
 /-- **The zeroness bit is the family's**, which is exactly the shape
 `OneElimLevel` (`Semantics/Tower/BlockRecKitI.lean`) asks for once the
 recursors' conclusions' sorts are the readings' binder numerals: at
 the family's single `ℓ := (us.headD .zero).eval ψ`, a conclusion sort
 is zero iff `ℓ` is. -/
-theorem blockRecElimAgree_zero_iff {us : List Level}
-    (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+theorem blockRecElimPin_zero_iff {L : Level} {us : List Level}
+    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
     (ψ : Name → Nat) {u : Level} (hu : u ∈ us) :
     ((us.headD .zero).eval ψ = 0 ↔ u.eval ψ = 0) := by
-  rw [blockRecElimAgree_eval h ψ u hu]
+  rw [blockRecElimPin_eval h ψ u hu]
 
 /-! ## Why `blockIhCall?` compares EXACTLY
 
@@ -201,9 +208,8 @@ theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
 /-- **`hrd`'s first two components, at the whole recursor stage.**
 Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
-`checkConstantVal` runs.  The identification of the stage's tuple with
-the type stage's checked constant is
-`checkBlockRecK_reserved`'s (`Verify/Inductives/BlockWF.lean`). -/
+`checkConstantVal` runs, at the type record of each stored recursor
+(`RecKRun.tyAt`, `Verify/Inductives/BlockRecRun.lean`). -/
 theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -213,29 +219,11 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
-  unfold ConLeche.checkBlockRecK at h
-  obtain ⟨u, hpins, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨hlenT, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-  have hil : i < p.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp hi).1
-    omega
-  obtain ⟨rc, r', hrc, hr', hcvRa, -⟩ := hallR i hil
-  obtain rfl := Option.some.inj (hi.symm.trans hr')
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
-  obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
-  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-    rw [List.getElem?_map, hcu]; rfl
-  have hr1 : r.1 = cvRi := by
-    have := hcvRa
-    rw [Nat.zero_add] at this
-    exact congrArg Prod.fst (Option.some.inj (this.symm.trans hcvRa'))
-  rw [hr1]
-  exact checkConstantVal_reads hμ mpC hcv
+  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hi
+  exact checkConstantVal_reads hμ mpC E.hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`checkBlockRecK_tyReads`); what

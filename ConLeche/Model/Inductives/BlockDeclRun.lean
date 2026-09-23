@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRuleRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Inductives.BlockRecInv
+import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRuleParams
 import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRuleGrading
@@ -163,9 +164,8 @@ theorem blockModelAt_seam
     BlockModelAt mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).memberNames
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) := by
-  obtain ⟨-, cvRus, -, hsmall, -⟩ := checkBlockRecK_count h
-  obtain ⟨hk0, -⟩ := ConLeche.checkBlockRecSmallElim_inv hsmall
-  exact blockModelAt_of_records hN hS hcore rfl hk0 (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
 
 /-- **The seam's canonical constructor-type reading**: the stored type
 of recursor `j`'s `i`-th constructor, read at the constructors'
@@ -893,7 +893,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     intro us _ hne hw0
     have hpos : 0 < rs.length := Nat.lt_of_le_of_lt (Nat.zero_le _) hj
     have hℓ : (usP.headD .zero).eval (Level.substFn φ r.1.levelParams us) ≠ 0 := by
-      rw [← blockRecElimAgree_eval helim _ (uOf 0) (hmemU 0 hpos),
+      rw [← blockRecElimPin_eval helim _ (uOf 0) (hmemU 0 hpos),
         blockRecElimPin_run h hruns _ hpos]
       exact hne
     obtain ⟨-, -, -, -, -, hc⟩ := blockRecCounting_run h helim hmemU hruns _ hℓ hw0

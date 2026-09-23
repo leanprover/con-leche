@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BridgeCSDecl
 import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.FixRec
@@ -1408,18 +1409,18 @@ theorem checkBlockRecKS_run (hμ : mode.verifiedChecks = true) {env₂ : Env} (h
   have hF₂p : checkBlockRecTys (fueledOps mode F₂) env₂ p.toBlockShape (blockNested p.kinds)
       cvTas p.recs 0 = .ok cvRus := by
     rw [← checkBlockRecTys_datF]; exact hF₂
-  obtain ⟨hlenT, hallT⟩ := checkBlockRecTys_inv hF₂p
+  obtain ⟨hlenT, hallT⟩ := checkBlockRecTys_run hF₂p
   have hsum : ∀ (j : Nat) (q : ConstantVal × Nat × Level), cvRus[j]? = some q →
       p.nP ≤ p.toBlockShape.rulePrefixAt j ∧
       p.toBlockShape.majorIdxAt j = p.toBlockShape.rulePrefixAt j + q.2.1 := by
     intro j q hq
     have hj : j < p.recs.length := by
       rw [← hlenT]; exact (List.getElem?_eq_some_iff.mp hq).1
-    obtain ⟨rc, cvRi, nIdx, u, -, hcu, -, hle, hmI⟩ := hallT j hj
+    obtain ⟨rc, cvRi, nIdx, u, -, hcu, ⟨E⟩⟩ := hallT j hj
     rw [hq] at hcu
     obtain rfl := Option.some.inj hcu
-    simp only [Nat.zero_add] at hle hmI
-    exact ⟨hle, hmI⟩
+    rw [Nat.zero_add] at E
+    exact ⟨E.nP_le, E.mI_eq⟩
   -- (b') the family's agreements
   obtain ⟨u₃, s₃, hfam, h⟩ := bindC_ok h
   rw [mkFEnv_env] at hfam
@@ -1435,10 +1436,10 @@ theorem checkBlockRecKS_run (hμ : mode.verifiedChecks = true) {env₂ : Env} (h
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hq
     have hjl : j < p.recs.length := by
       rw [← hlenT]; exact (List.getElem?_eq_some_iff.mp hj).1
-    obtain ⟨rc, cvRi, nIdx, u, -, hcu, hcv, -, -⟩ := hallT j hjl
+    obtain ⟨rc, cvRi, nIdx, u, -, hcu, ⟨E⟩⟩ := hallT j hjl
     rw [hj] at hcu
     obtain rfl := Option.some.inj hcu
-    exact checkConstantVal_typeWF hcv
+    exact checkConstantVal_typeWF E.hcv
   have henvR := envWF_consBlockRecsBare (q := p.toBlockShape) henv₂ hwfR
   simp only [consBlockRecsBareF_mkFEnv, structWalkersC_eq_plain, checkBlockRecsRulesF_eqC] at h
   have hrecW : ∀ q ∈ cvRus.map (fun q => (q.1, q.2.1)), WScoped 0 q.1.type := by

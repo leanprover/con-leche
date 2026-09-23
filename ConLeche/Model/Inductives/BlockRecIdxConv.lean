@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRecRead
+import ConLeche.Verify.Inductives.BlockRecRun
 
 public section
 
@@ -20,11 +21,9 @@ regimes' `hconclTy` needs — a carrier element's index values fit the
 MEMBER's telescope, and the recursor's conclusion is licensed only at a
 fit of the RECURSOR's binder data.
 
-Three pieces:
+Two pieces (the pass's inversion is the family record's `idxDoms`,
+`checkBlockRecIdxDomsAt_inv`, `Verify/Inductives/BlockRecRun.lean`):
 
-* `checkBlockRecIdxDomsAt_elim` / `checkBlockRecK_idxDoms` — the
-  pass's inversion (the four positional peels of stage (b) all discard
-  `checkBlockRecFamilyAgree` past the elimination pin);
 * `defeqDom_agree_at` — ONE position of a binder-by-binder `isDefEq`,
   read at a context that is NOT an opening of either compared type.
   §35's certified hop (`prefixDoms_agree`) reads at the first
@@ -55,76 +54,6 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtF
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-! ## 1. The pass, inverted -/
-
-section Inversion
-
-omit [SetTheory V] in
-/-- **Stage (b'')'s per-recursor comparison.** -/
-theorem checkBlockRecIdxDomsAt_elim {env : Env} {p : ConLeche.BlockShape}
-    {cvTas : List ConstantVal} {F : Nat} :
-    ∀ {l : List (ConstantVal × Nat × Level)} {ri : Nat},
-      ConLeche.checkBlockRecIdxDomsAt (ConLeche.fueledOps μ F) env p cvTas l ri = .ok () →
-      ∀ i, i < l.length → ∃ (cvR : ConstantVal) (nIdx : Nat) (u : Level) (cvTa : ConstantVal)
-          (fvs tfvs : List Expr) (concl trest : Expr),
-        l[i]? = some (cvR, nIdx, u) ∧
-        cvTas[p.recTgtAt (ri + i)]? = some cvTa ∧
-        openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvR.type 0 = some (fvs, concl) ∧
-        ConLeche.openPisParamsIdx p.nP nIdx (p.rulePrefixAt (ri + i)) cvTa.type
-          = some (tfvs, trest) ∧
-        ((tfvs.drop p.nP).map Expr.fvarTypeD).length
-          = (((fvs.drop (p.rulePrefixAt (ri + i))).take nIdx).map Expr.fvarTypeD).length ∧
-        ∀ q, q < ((tfvs.drop p.nP).map Expr.fvarTypeD).length →
-          ConLeche.isDefEqCore μ env F (p.majorIdxAt (ri + i))
-            (((tfvs.drop p.nP).map Expr.fvarTypeD).getD q default)
-            ((((fvs.drop (p.rulePrefixAt (ri + i))).take nIdx).map Expr.fvarTypeD).getD q
-              default) = .ok true
-  | [], _, _, i, hi => absurd hi (Nat.not_lt_zero i)
-  | (cvR, nIdx, u) :: rest, ri, h, i, hi => by
-    unfold ConLeche.checkBlockRecIdxDomsAt at h
-    obtain ⟨cvTa, hx0, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨fvs, concl⟩ := x1
-    obtain ⟨x2, hx2, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨tfvs, trest⟩ := x2
-    obtain ⟨ud, hud, h⟩ := ConLeche.exceptBind_ok h
-    cases i with
-    | zero =>
-      obtain ⟨hlen, hall⟩ := ConLeche.checkBlockDefEqList_inv (by cases ud; exact hud)
-      exact ⟨cvR, nIdx, u, cvTa, fvs, tfvs, concl, trest, rfl,
-        by simpa using ConLeche.unwrapOr_ok hx0, by simpa using ConLeche.unwrapOr_ok hx1,
-        by simpa using ConLeche.unwrapOr_ok hx2, hlen, fun q hq => by simpa using hall q hq⟩
-    | succ i =>
-      obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, b1, b2, b3, b4, b5, b6⟩ :=
-        checkBlockRecIdxDomsAt_elim h i (by simpa using hi)
-      rw [show ri + (i + 1) = ri + 1 + i from by omega]
-      exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, by simpa using b1, b2, b3, b4, b5, b6⟩
-
-omit [SetTheory V] in
-/-- **Stage (b'')'s run, off `checkBlockRecK`** — the pass sits inside
-`checkBlockRecFamilyAgree`, after the elimination pin. -/
-theorem checkBlockRecK_idxDoms {envC : Env} {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
-    ∃ cvRus : List (ConstantVal × Nat × Level),
-      ConLeche.checkBlockRecTys (ConLeche.fueledOps μ F) envC p.toBlockShape
-          (ConLeche.blockNested p.kinds) cvTas p.recs 0 = .ok cvRus ∧
-      ConLeche.checkBlockRecIdxDomsAt (ConLeche.fueledOps μ F) envC p.toBlockShape cvTas
-        cvRus 0 = .ok () := by
-  unfold ConLeche.checkBlockRecK at h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨uf, hfam, -⟩ := ConLeche.exceptBind_ok h
-  rw [ConLeche.checkBlockRecFamilyAgree] at hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨u3, hidx, -⟩ := ConLeche.exceptBind_ok hfam
-  exact ⟨cvRus, htys, by cases u3; exact hidx⟩
-
-end Inversion
 
 /-! ## 2. One position of a comparison, at a context of its own -/
 
@@ -362,19 +291,14 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hnP'] at hnPle hisfit
   -- the kernel's pass, at this recursor
   have hc : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨cvRus, htys, hidx⟩ := checkBlockRecK_idxDoms h
-  obtain ⟨cvRus', htys', -, hlenR, hbridge⟩ := checkBlockRecK_elimList h
-  have hcv : cvRus' = cvRus := Except.ok.inj (htys'.symm.trans htys)
-  rw [hcv] at hbridge
-  obtain ⟨hlenT, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-  have hcR : c < cvRus.length := by omega
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  have hcR : c < R.cvRus.length := by rw [R.lenT, ← R.len]; exact hc
   obtain ⟨cvR, nIdx, u, cvTa', fvs', tfvs, concl', trest, hcu, hcvTa', hop', hopPI, -,
-    hdeqI⟩ := checkBlockRecIdxDomsAt_elim hidx c hcR
+    hdeqI⟩ := ConLeche.checkBlockRecIdxDomsAt_inv R.fam.idxDoms c hcR
   rw [Nat.zero_add] at hcvTa' hop' hopPI hdeqI
-  have hr1 : cvR = r.1 := by
-    have := hbridge c r hr
-    rw [List.getElem?_map, hcu] at this
-    simpa using this
+  obtain ⟨u', hcu'⟩ := R.stored_at hr
+  obtain ⟨hr1, hnn, -⟩ : cvR = r.1 ∧ nIdx = r.2.2.1 ∧ u = u' := by
+    simpa using Option.some.inj (hcu.symm.trans hcu')
   rw [hr1] at hop'
   obtain ⟨rfl, rfl⟩ : fvs' = fvs ∧ concl' = concl := by
     have := Option.some.inj (hop'.symm.trans hop)
@@ -382,12 +306,8 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hmm] at hcvTa'
   have hcvE : cvTa' = cvTa := Option.some.inj (hcvTa'.symm.trans hcvTa)
   rw [hcvE] at hopPI
-  obtain ⟨rc, cvRi, nIdx', u', -, hcu', -, -, hmaj'⟩ := hallT c (by omega)
-  rw [Nat.zero_add] at hmaj'
-  have hnn : nIdx' = nIdx := by
-    have := Option.some.inj (hcu'.symm.trans hcu)
-    simp only [Prod.mk.injEq] at this
-    exact this.2.1
+  obtain ⟨rc, u'', -, -, ⟨E⟩⟩ := R.tyAt hr
+  have hmaj' := E.mI_eq
   have hnIdx : nIdx = nI := by
     have : p.toBlockShape.majorIdxAt c = rP + nI := hmI
     rw [hrP] at hmaj'
@@ -828,7 +748,7 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     {us : List Level} {uOf : Nat → Level}
-    (helim : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
+    (helim : ∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true)
     (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
@@ -924,7 +844,7 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
   rw [hrd] at hop
   have hu := blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
-  rwa [blockRecElimAgree_eval helim ψ (uOf c) (hmemU c hc)] at hu
+  rwa [blockRecElimPin_eval helim ψ (uOf c) (hmemU c hc)] at hu
 
 end ConclTy
 

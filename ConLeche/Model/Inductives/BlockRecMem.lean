@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Annot.EnvModelM
@@ -54,242 +55,6 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-! ## The run's Π-shape
-
-`checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean`) exports the
-per-recursor `checkConstantVal` run but not the Π-peel that precedes
-it; the peel is therefore re-inverted here, in the one shape the
-readings need.  Should `checkBlockRecTys_inv` ever be widened to
-export the peel, this theorem becomes its corollary and should go. -/
-
-local syntax "close_throw" term : tactic
-local macro_rules
-  | `(tactic| close_throw $h:term) =>
-    `(tactic| first
-        | exact nomatch $h
-        | exact absurd $h (by
-            simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
-            exact fun hh => nomatch hh)
-        | exact absurd $h
-            (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
-
-/-- **Stage (b)'s Π-peel, inverted**: a checked recursor's stored type
-binds its parameters, its `nP … rP-1` stretch, its indices and its
-major — `mI + 1` binders in all — over the conclusion.  This is the
-whole shape the reading needs: everything else `checkBlockRecTys`
-checks is about the binders' CONTENTS. -/
-theorem checkBlockRecTys_open {mode : ConLeche.CheckMode} {env : Env}
-    {p : ConLeche.BlockShape} {nested : Bool} {cvTas : List ConstantVal} {F : Nat} :
-    ∀ {recs : List ConLeche.RecShape} {ri : Nat}
-      {cvRus : List (ConstantVal × Nat × Level)},
-      ConLeche.checkBlockRecTys (ConLeche.fueledOps mode F) env p nested cvTas recs ri
-          = .ok cvRus →
-      ∀ i, i < recs.length → ∃ (cvRi : ConstantVal) (nIdx : Nat) (u : Level)
-        (fvs : List Expr) (concl : Expr),
-        cvRus[i]? = some (cvRi, nIdx, u) ∧
-        ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi.type 0
-          = some (fvs, concl)
-  | [], _, cvRus, _, i, hi => absurd hi (Nat.not_lt_zero i)
-  | rc :: rest, ri, cvRus, h, i, hi => by
-    unfold ConLeche.checkBlockRecTys at h
-    obtain ⟨ms, _, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨cvTa, _, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨cvRi, _, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
-    case neg => rw [if_neg hle] at h; close_throw h
-    rw [if_pos hle] at h
-    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
-    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
-    case neg => rw [if_neg hle2] at h; close_throw h
-    rw [if_pos hle2] at h
-    obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨fvs, concl⟩ := x1
-    have hop : ConLeche.openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0
-        = some (fvs, concl) := ConLeche.unwrapOr_ok hx1
-    obtain ⟨x2, _, h⟩ := ConLeche.exceptBind_ok h; obtain ⟨_, _⟩ := x2
-    obtain ⟨_, _, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨maj, _, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hmaj : (maj.fvarTypeD.getAppFn ==
-          Expr.const ms.cvT.name (p.lps.map .param) &&
-        maj.fvarTypeD.getAppArgs.length == p.nP + ms.nIdx &&
-        maj.fvarTypeD.getAppArgs.take p.nP == fvs.take p.nP &&
-        maj.fvarTypeD.getAppArgs.drop p.nP ==
-          (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx) = true
-    case neg => rw [if_neg hmaj] at h; close_throw h
-    rw [if_pos hmaj] at h
-    obtain ⟨sty, _, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨u, _, h⟩ := ConLeche.exceptBind_ok h
-    have key : ∀ {rs' : List (ConstantVal × Nat × Level)},
-        ConLeche.checkBlockRecTys (ConLeche.fueledOps mode F) env p nested cvTas rest
-            (ri + 1) = .ok rs' →
-        cvRus = (cvRi, ms.nIdx, u) :: rs' →
-        ∃ (cvRi' : ConstantVal) (nIdx : Nat) (u' : Level)
-          (fvs' : List Expr) (concl' : Expr),
-          cvRus[i]? = some (cvRi', nIdx, u') ∧
-          ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi'.type 0
-            = some (fvs', concl') := by
-      intro rs' hrest hcv
-      subst hcv
-      cases i with
-      | zero => exact ⟨cvRi, ms.nIdx, u, fvs, concl, rfl, by simpa using hop⟩
-      | succ i =>
-        obtain ⟨cvRi', nIdx, u', fvs', concl', hcu, hop'⟩ :=
-          checkBlockRecTys_open hrest i (by simpa using hi)
-        exact ⟨cvRi', nIdx, u', fvs', concl', by simpa using hcu,
-          by rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hop'⟩
-    by_cases hlarge : ConLeche.blockLargeElimAllowed p nested = true
-    case pos =>
-      rw [if_pos hlarge] at h
-      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
-    case neg =>
-      rw [if_neg hlarge] at h
-      obtain ⟨b, _, h⟩ := ConLeche.exceptBind_ok h
-      by_cases hb : b = true
-      case neg => rw [if_neg hb] at h; close_throw h
-      rw [if_pos hb] at h
-      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
-
-/-- **Stage (b)'s MEMBER-facing checks, inverted** — the three the
-recursor-type shape's run producer needs, which the Π-peel inversion
-above deliberately drops: the member the recursor's record names, the
-arity equation `mI = rP + nIdx_m`, the parameter domains' per-binder
-`isDefEq` against the member's OWN opened former telescope, and the
-MAJOR's syntactic pin.
-
-A SEPARATE theorem rather than four more conjuncts of
-`checkBlockRecTys_open`: that one is destructured positionally by
-`checkBlockRecK_tyShape` and through it by five modules, none of
-which reads a member fact.  The peel is re-inverted here at the cost
-of the same `by_cases` skeleton. -/
-theorem checkBlockRecTys_major {mode : ConLeche.CheckMode} {env : Env}
-    {p : ConLeche.BlockShape} {nested : Bool} {cvTas : List ConstantVal} {F : Nat} :
-    ∀ {recs : List ConLeche.RecShape} {ri : Nat}
-      {cvRus : List (ConstantVal × Nat × Level)},
-      ConLeche.checkBlockRecTys (ConLeche.fueledOps mode F) env p nested cvTas recs ri
-          = .ok cvRus →
-      ∀ i, i < recs.length → ∃ (cvRi : ConstantVal) (u : Level)
-        (ms : ConLeche.MemberShape) (cvTa : ConstantVal) (fvs tfvs : List Expr)
-        (concl to maj : Expr),
-        cvRus[i]? = some (cvRi, ms.nIdx, u) ∧
-        p.members[p.recTgtAt (ri + i)]? = some ms ∧
-        cvTas[p.recTgtAt (ri + i)]? = some cvTa ∧
-        p.nP ≤ p.rulePrefixAt (ri + i) ∧
-        p.majorIdxAt (ri + i) = p.rulePrefixAt (ri + i) + ms.nIdx ∧
-        ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi.type 0
-          = some (fvs, concl) ∧
-        ConLeche.openPisAtFvars p.nP cvTa.type 0 = some (tfvs, to) ∧
-        tfvs.length = p.nP ∧
-        (∀ l, l < p.nP →
-          ConLeche.isDefEqCore mode env F p.nP
-            ((tfvs.map Expr.fvarTypeD).getD l default)
-            (((fvs.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true) ∧
-        fvs[p.majorIdxAt (ri + i)]? = some maj ∧
-        (Expr.fvarTypeD maj).getAppFn = Expr.const ms.cvT.name (p.lps.map .param) ∧
-        (Expr.fvarTypeD maj).getAppArgs.length = p.nP + ms.nIdx ∧
-        (Expr.fvarTypeD maj).getAppArgs.take p.nP = fvs.take p.nP ∧
-        (Expr.fvarTypeD maj).getAppArgs.drop p.nP
-          = (fvs.drop (p.rulePrefixAt (ri + i))).take ms.nIdx
-  | [], _, cvRus, _, i, hi => absurd hi (Nat.not_lt_zero i)
-  | rc :: rest, ri, cvRus, h, i, hi => by
-    unfold ConLeche.checkBlockRecTys at h
-    obtain ⟨ms, hms, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨cvTa, hcvTa, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨cvRi, _, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
-    case neg => rw [if_neg hle] at h; close_throw h
-    rw [if_pos hle] at h
-    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
-    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
-    case neg => rw [if_neg hle2] at h; close_throw h
-    rw [if_pos hle2] at h
-    obtain ⟨x1, hx1, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨fvs, concl⟩ := x1
-    have hop : ConLeche.openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0
-        = some (fvs, concl) := ConLeche.unwrapOr_ok hx1
-    obtain ⟨x2, hx2, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨tfvs, to⟩ := x2
-    have hopT : ConLeche.openPisAtFvars p.nP cvTa.type 0 = some (tfvs, to) :=
-      ConLeche.unwrapOr_ok hx2
-    obtain ⟨ub, hub, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨maj, hmaj0, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hmaj : ((Expr.fvarTypeD maj).getAppFn ==
-          Expr.const ms.cvT.name (p.lps.map .param) &&
-        (Expr.fvarTypeD maj).getAppArgs.length == p.nP + ms.nIdx &&
-        (Expr.fvarTypeD maj).getAppArgs.take p.nP == fvs.take p.nP &&
-        (Expr.fvarTypeD maj).getAppArgs.drop p.nP ==
-          (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx) = true
-    case neg => rw [if_neg hmaj] at h; close_throw h
-    rw [if_pos hmaj] at h
-    obtain ⟨sty, _, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨u, _, h⟩ := ConLeche.exceptBind_ok h
-    have key : ∀ {rs' : List (ConstantVal × Nat × Level)},
-        ConLeche.checkBlockRecTys (ConLeche.fueledOps mode F) env p nested cvTas rest
-            (ri + 1) = .ok rs' →
-        cvRus = (cvRi, ms.nIdx, u) :: rs' →
-        ∃ (cvRi' : ConstantVal) (u' : Level) (ms' : ConLeche.MemberShape)
-          (cvTa' : ConstantVal) (fvs' tfvs' : List Expr) (concl' to' maj' : Expr),
-          cvRus[i]? = some (cvRi', ms'.nIdx, u') ∧
-          p.members[p.recTgtAt (ri + i)]? = some ms' ∧
-          cvTas[p.recTgtAt (ri + i)]? = some cvTa' ∧
-          p.nP ≤ p.rulePrefixAt (ri + i) ∧
-          p.majorIdxAt (ri + i) = p.rulePrefixAt (ri + i) + ms'.nIdx ∧
-          ConLeche.openPisAtFvars (p.majorIdxAt (ri + i) + 1) cvRi'.type 0
-            = some (fvs', concl') ∧
-          ConLeche.openPisAtFvars p.nP cvTa'.type 0 = some (tfvs', to') ∧
-          tfvs'.length = p.nP ∧
-          (∀ l, l < p.nP →
-            ConLeche.isDefEqCore mode env F p.nP
-              ((tfvs'.map Expr.fvarTypeD).getD l default)
-              (((fvs'.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true) ∧
-          fvs'[p.majorIdxAt (ri + i)]? = some maj' ∧
-          (Expr.fvarTypeD maj').getAppFn = Expr.const ms'.cvT.name (p.lps.map .param) ∧
-          (Expr.fvarTypeD maj').getAppArgs.length = p.nP + ms'.nIdx ∧
-          (Expr.fvarTypeD maj').getAppArgs.take p.nP = fvs'.take p.nP ∧
-          (Expr.fvarTypeD maj').getAppArgs.drop p.nP
-            = (fvs'.drop (p.rulePrefixAt (ri + i))).take ms'.nIdx := by
-      intro rs' hrest hcv
-      subst hcv
-      cases i with
-      | zero =>
-        simp only [Nat.add_zero]
-        obtain ⟨hlenD, halld⟩ :=
-          ConLeche.checkBlockDefEqList_inv (mode := mode)
-            (what := s!"the recursor {rc.cvR.name}'s parameter domains are not the block's")
-            (by cases ub; exact hub)
-        have htl : tfvs.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hopT
-        simp only [Bool.and_eq_true, beq_iff_eq] at hmaj
-        exact ⟨cvRi, u, ms, cvTa, fvs, tfvs, concl, to, maj, rfl,
-          ConLeche.unwrapOr_ok hms, ConLeche.unwrapOr_ok hcvTa, hle,
-          by simpa using eq_of_beq hle2, hop, hopT, htl,
-          fun l hl => halld l (by rw [List.length_map, htl]; exact hl),
-          ConLeche.unwrapOr_ok hmaj0,
-          hmaj.1.1.1, hmaj.1.1.2, hmaj.1.2, hmaj.2⟩
-      | succ i =>
-        obtain ⟨cvRi', u', ms', cvTa', fvs', tfvs', concl', to', maj', hcu, hrest'⟩ :=
-          checkBlockRecTys_major hrest i (by simpa using hi)
-        refine ⟨cvRi', u', ms', cvTa', fvs', tfvs', concl', to', maj', by simpa using hcu, ?_⟩
-        rw [show ri + (i + 1) = ri + 1 + i from by omega]
-        exact hrest'
-    by_cases hlarge : ConLeche.blockLargeElimAllowed p nested = true
-    case pos =>
-      rw [if_pos hlarge] at h
-      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
-    case neg =>
-      rw [if_neg hlarge] at h
-      obtain ⟨b, _, h⟩ := ConLeche.exceptBind_ok h
-      by_cases hb : b = true
-      case neg => rw [if_neg hb] at h; close_throw h
-      rw [if_pos hb] at h
-      obtain ⟨rs', hrest, h⟩ := ConLeche.exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact key hrest h.symm
 
 /-! ## The identification: the stored type's reading IS a Π-tower
 
@@ -347,31 +112,9 @@ theorem checkBlockRecK_tyShape {envC : Env} {p : ConLeche.BlockParts}
     ∃ (fvs : List Expr) (concl : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt i + 1) r.1.type 0
         = some (fvs, concl) := by
-  unfold ConLeche.checkBlockRecK at h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
-  have hil : i < p.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp hr).1
-    omega
-  obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
-  obtain rfl := Option.some.inj (hr.symm.trans hr')
-  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, hcv, -, -⟩ := hallT i hil
-  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-    rw [List.getElem?_map, hcu]; rfl
-  have hr1 : r.1 = cvRi := by
-    have hq := hcvRa
-    rw [Nat.zero_add] at hq
-    exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-  obtain ⟨cvRi2, nIdx2, u2, fvs, concl, hcu2, hop⟩ := checkBlockRecTys_open htys i hil
-  obtain rfl : cvRi2 = cvRi := by
-    have := Option.some.inj (hcu2.symm.trans hcu)
-    exact congrArg Prod.fst this
-  rw [hr1]
-  rw [Nat.zero_add] at hop
-  exact ⟨⟨_, hcv⟩, fvs, concl, hop⟩
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hr
+  exact ⟨⟨_, E.hcv⟩, E.fvs, E.concl, E.hopen⟩
 
 /-- **The MEMBER-facing checks at the STORED recursor**, the run-level
 form: `checkBlockRecTys_major` carried across the two inversions that
@@ -404,36 +147,11 @@ theorem checkBlockRecK_tyMajor {envC : Env} {p : ConLeche.BlockParts}
       (Expr.fvarTypeD maj).getAppArgs.take p.nP = fvs.take p.nP ∧
       (Expr.fvarTypeD maj).getAppArgs.drop p.nP
         = (fvs.drop (p.toBlockShape.rulePrefixAt i)).take ms.nIdx := by
-  unfold ConLeche.checkBlockRecK at h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
-  have hil : i < p.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp hr).1
-    omega
-  obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
-  obtain rfl := Option.some.inj (hr.symm.trans hr')
-  obtain ⟨rc2, cvRi, nIdx, u', -, hcu, -, -, -⟩ := hallT i hil
-  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-    rw [List.getElem?_map, hcu]; rfl
-  have hr1 : r.1 = cvRi := by
-    have hq := hcvRa
-    rw [Nat.zero_add] at hq
-    exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-  obtain ⟨cvRi2, u2, ms, cvTa, fvs, tfvs, concl, to, maj, hcu2, hrest⟩ :=
-    checkBlockRecTys_major htys i hil
-  obtain rfl : cvRi2 = cvRi := by
-    have := Option.some.inj (hcu2.symm.trans hcu)
-    exact congrArg Prod.fst this
-  rw [hr1]
-  rw [Nat.zero_add] at hrest
-  exact ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hrest.1, hrest.2.1, hrest.2.2.1,
-    hrest.2.2.2.1, hrest.2.2.2.2.1, hrest.2.2.2.2.2.1, hrest.2.2.2.2.2.2.1,
-    hrest.2.2.2.2.2.2.2.1, hrest.2.2.2.2.2.2.2.2.1, hrest.2.2.2.2.2.2.2.2.2.1,
-    hrest.2.2.2.2.2.2.2.2.2.2.1, hrest.2.2.2.2.2.2.2.2.2.2.2.1,
-    hrest.2.2.2.2.2.2.2.2.2.2.2.2⟩
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hr
+  exact ⟨E.ms, E.cvTa, E.fvs, E.tfvs, E.concl, E.trest, E.maj, E.hms, E.hcvTa, E.nP_le,
+    E.hmI, E.hopen, E.hopenT, E.htfvs, E.hparams, E.hmaj, E.hmajFn, E.hmajLen,
+    E.hmajParams, E.hmajIdx⟩
 
 /-- **The family's SHARED RULE PREFIX, at the run** (stage (b')): the
 first stored recursor's opened prefix is
@@ -463,41 +181,10 @@ theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
             ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
               ((fvs0.map Expr.fvarTypeD).getD l default)
               ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
-  unfold ConLeche.checkBlockRecK at h
-  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨uf, hfam, h⟩ := ConLeche.exceptBind_ok h
-  obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-  obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts h
-  -- the stored recursor at an index IS the type stage's checked one
-  have hbridge : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → (cvRus.map (·.1))[i]? = some r.1 := by
-    intro i r hr
-    have hil : i < p.recs.length := by
-      have := (List.getElem?_eq_some_iff.mp hr).1
-      omega
-    obtain ⟨-, r', -, hr', hcvRa, -⟩ := hallR i hil
-    obtain rfl := Option.some.inj (hr.symm.trans hr')
-    obtain ⟨-, cvRi, nIdx, u', -, hcu, -, -, -⟩ := hallT i hil
-    have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-      rw [List.getElem?_map, hcu]; rfl
-    have hr1 : r.1 = cvRi := by
-      have hq := hcvRa
-      rw [Nat.zero_add] at hq
-      exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-    rw [List.getElem?_map, hcu, hr1]
-    rfl
-  -- stage (b') is the LAST of the family stage's five passes (D-d, the
-  -- counting guard, the elimination-level pin, the index domains, the
-  -- shared prefix)
-  rw [ConLeche.checkBlockRecFamilyAgree] at hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
-  obtain ⟨-, -, hfam⟩ := ConLeche.exceptBind_ok hfam
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
   obtain ⟨fvs0, o0, hop0, hall⟩ :=
-    ConLeche.checkBlockRecPrefixAgree_inv (by cases uf; exact hfam) (hbridge 0 r0 hr0)
-  exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (hbridge i r hr) hi⟩
+    ConLeche.checkBlockRecPrefixAgree_inv R.fam.prefixAgree (R.stored_fst hr0)
+  exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (R.stored_fst hr) hi⟩
 
 /-- **The identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower

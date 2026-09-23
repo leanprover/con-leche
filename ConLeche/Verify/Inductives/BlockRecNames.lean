@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Verify.ProjSlots
-import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 
@@ -47,28 +47,10 @@ theorem checkBlockRecK_recNames {envC : Env} {p : BlockParts} {cvTas : List Cons
       checkConstantVal (fueledOps μ F) envC rc.cvR = .ok r.1 ∧
       p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
       ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
-  unfold checkBlockRecK at h
-  obtain ⟨u, hpins, h⟩ := exceptBind_ok h
-  obtain ⟨cvRus, htys, h⟩ := exceptBind_ok h
-  obtain ⟨-, -, h⟩ := exceptBind_ok h
-  obtain ⟨-, hallT⟩ := checkBlockRecTys_inv htys
-  obtain ⟨hlenR, hallR⟩ := checkBlockRecsRules_facts h
-  refine ⟨by cases u; exact hpins, hlenR, ?_⟩
-  intro i hil
-  obtain ⟨rc, r, hrc, hr, hcvRa, -⟩ := hallR i hil
-  obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, hle, hsum⟩ := hallT i hil
-  obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
-  have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-    rw [List.getElem?_map, hcu]; rfl
-  have hr1 : r.1 = cvRi := by
-    have hq := hcvRa
-    rw [Nat.zero_add] at hq
-    exact congrArg Prod.fst (Option.some.inj (hq.symm.trans hcvRa'))
-  refine ⟨rc, r, hrc, hr, by rw [hr1, (checkConstantVal_lps hcv).1],
-    by rw [hr1]; exact hcv, ?_, ?_⟩
-  · rw [Nat.zero_add] at hle; exact hle
-  · rw [Nat.zero_add] at hsum
-    exact ⟨nIdx, hsum⟩
+  obtain ⟨R⟩ := checkBlockRecK_run h
+  refine ⟨R.pins, R.len, fun i hil => ?_⟩
+  obtain ⟨rc, r, u, hrc, hr, -, ⟨E⟩⟩ := R.tyAt' hil
+  exact ⟨rc, r, hrc, hr, E.name_eq, E.hcv, E.nP_le, r.2.2.1, E.mI_eq⟩
 
 /-- **The stored recursors' name facts and `hnoTy`**, from the
 per-recursor `checkConstantVal` run: freshness at the constructors'
