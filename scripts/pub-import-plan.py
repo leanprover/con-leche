@@ -54,6 +54,17 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (lane ETA1, the k-ary η-closure): `DeclBlockEta.lean`'s two
+    # re-exports are named by its PUBLIC statements (`BlockShape`,
+    # `consBlockInds`, … through `DeclBlock`; `ExtEta`, `EtaFamiliesClosed`
+    # through `EnvGuards`), yet the model reports each individually
+    # demotable.  MEASURED, each alone: demoting `DeclBlock` fails with
+    # `Unknown identifier BlockShape` (`:53`), demoting `EnvGuards` with
+    # `Unknown identifier ExtEta` (`:294`).
+    ('ConLeche.Semantics.Inductives.DeclBlockEta',
+     'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Semantics.Inductives.DeclBlockEta',
+     'ConLeche.Verify.EnvGuards'),
     # task #315 (lane RM52, the level-parameter kit): `BlockRuleParams.lean`
     # re-exports `Model/Inductives/BlockRuleRun.lean` because its `variable`
     # binder gets `[SetTheory V]` through that line and its public statements
