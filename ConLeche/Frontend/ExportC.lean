@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Export
 public import ConLeche.Frontend.InModel
+public import ConLeche.Frontend.ProjRec
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the

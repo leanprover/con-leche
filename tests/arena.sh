@@ -193,7 +193,7 @@ if tests/challenge.sh; then :; else fail=1; fi
 if tests/shake.sh; then :; else fail=1; fi
 
 # THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
-# model source since #207): the raw mutual/nested fixtures through the
+# model source since #207): the raw nested fixtures through the
 # generator, the debug dump re-checked in both modes, and the off
 # switch.  See tests/inmodel.sh's header.
 if tests/inmodel.sh; then :; else fail=1; fi

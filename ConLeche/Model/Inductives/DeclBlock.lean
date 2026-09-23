@@ -14,11 +14,8 @@ members.**  This is the Model tier's half of the milestone-M1 flip
 stated over the uniform installer itself (`checkBlock`) — the shape
 `Model/Fold.lean`'s dispatch will take once the route is ungated.
 
-The `k = 1` arm used to have a theorem of its own (`declBlock_one`,
-`declNative` through milestone M1's two bridges).  It had no consumer:
-`Model/Fold.lean` goes through `blockParts?_toNative` directly, and
-`declBlock` covers `k = 1` like every other width, so it is deleted
-rather than carried to the flip.
+`declBlock` covers `k = 1` like every other width; the fold reaches it
+through `declBlock_run` (`Model/Inductives/BlockDeclRun.lean`).
 
 **What is NOT here**: `declBlock` for all `k`, and the named fact
 `BlockRecStaged` its recursor stage would carry.  Both wait on the
@@ -246,11 +243,9 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
 
 Two things about `hrec`, the recursor stage's obligation:
 
-* it is stated at **`checkBlockRecK`**, the UNIFORM check, not at the
-  gated `checkBlockRec` — so `hgate` (`blockRecCheckOn = true`) is
-  what carries the run to it.  `hgate` is an equation about a
-  COMPILE-TIME constant, not about the input: at the flip it is `rfl`
-  and the hypothesis is deleted along with the gate;
+* it is stated at **`checkBlockRecK`**, the UNIFORM check, which the
+  stage `checkBlockRec` runs before its reject-only conformance check
+  (`checkBlockRecK_of_gate`, at the lifted gate);
 * it is handed everything the CONSTRUCTORS' environment knows: the
   model `mpC`, the block data `dR` with the three records
   `blockModelAt_of_stages` consumes (`BlockNamesOk`,
@@ -275,7 +270,6 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
-    (hgate : ConLeche.blockRecCheckOn = true)
     (hrec : ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
         (ctorsAsR : List (List (ConstantVal × Nat)))
         (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -396,10 +390,10 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [hmnameEq m hm]
     exact hpull _ (blockTablesTblFree (q := p₁) (p₁.members.zip (ctorsAs.zip sortsss)) _ env₂
       hTbl m _ (hzipEntry m hm) cA sorts hcA hs hn0)
-  -- ## the recursor stage's gate: with it LIFTED the stage IS the
-  -- uniform check, read through the conformance check after it
-  -- (`checkBlockRecK_of_gate`; the flip deletes the gate hypothesis)
-  have hRecK := checkBlockRecK_of_gate hgate hRec
+  -- ## the recursor stage IS the uniform check, read through the
+  -- conformance check after it (`checkBlockRecK_of_gate`; the gate
+  -- is lifted, so `rfl`)
+  have hRecK := checkBlockRecK_of_gate rfl hRec
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk

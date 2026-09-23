@@ -7,7 +7,6 @@ public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.InstalledC
-import ConLeche.Semantics.Bridge.SoundOne
 
 public section
 
@@ -676,7 +675,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     ∃ c ∈ env₂.consts, c.name = cv.name ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
       AnnotOf cv.type c.toConstantVal.type := by
-  have hrun := ConLeche.Semantics.checkDeclRun_ofEnvFactsE h
+  have hrun := ConLeche.Semantics.checkDeclRun_ofEnvFactsK h
   cases pd with
   | defnDecl cv₀ value hint =>
     obtain rfl : cv = cv₀ := hcv

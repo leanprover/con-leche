@@ -2,11 +2,10 @@ module
 
 public import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
-import ConLeche.Verify.Inductives.BlockOne
+import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
-import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Model.BasisFalse
@@ -165,7 +164,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 reads, and no step below changed a line. -/
 theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatch μ F env)
+    (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatchK μ F env)
       env d env₂) :
     EnvModelOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
@@ -174,9 +173,9 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
   -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndRun` alone, so the
   -- fold consults no install obligation for its η half at all.
   -- task #175 wiring W5: the η half is FLAG-AGNOSTIC — the `.indDecl`
-  -- dispatch's own case split (`declIndRunDispatchEtaClosed`)
+  -- dispatch's own case split (`declIndRunDispatchKEtaClosed`)
   refine ⟨?_, ConLeche.Semantics.declEtaStepRun
-    (fun h' => ConLeche.Semantics.declIndRunDispatchEtaClosed hE h') hE hrun⟩
+    (fun h' => ConLeche.Semantics.declIndRunDispatchKEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -212,15 +211,14 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
     · exact basisStepPB_of mp hrun
-    · have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
-      unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
+    · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK μ F env block nP env₂ := hrun
+      unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
       | some p =>
         rw [hdf] at hrun'
-        -- milestone M1: the route is the k-ary recogniser's, gated at
-        -- ONE member, and the run is recorded at the one-member
-        -- reading of the record (`blockParts?_toNative`)
-        exact declNative hμ mp hE (ConLeche.blockParts?_toNative hdf).1 hrun'
+        -- the uniform route, at any number of members: the k-ary
+        -- run, and the recursors CHECKED (`declBlock_run`)
+        exact declBlock_run hμ mp hE hdf hrun'
       | none =>
         rw [hdf] at hrun'
         exact indStepPB_of hμ mp hE hrun'
@@ -249,8 +247,8 @@ theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
           -- projection `EnvModelM.toEnvFacts`; S11a makes it
           -- *derivation*-free at the five non-`ind` kinds, so the only
           -- route from here into the relation tier is the `Ind`
-          -- premise `checkDeclRun_ofEnvFactsE` fills with `declIndRR`.
-          (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hd)) h
+          -- premise `checkDeclRun_ofEnvFactsK` fills (`DeclIndRunDispatchK`).
+          (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'

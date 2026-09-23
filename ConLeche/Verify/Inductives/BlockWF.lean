@@ -31,12 +31,8 @@ and `SumWF.lean` at k members:
   (`SumWF.lean`) are the block's rule facts unchanged;
 * **the projection tables** (`direct_block_tables_wf`).
 
-`checkBlockRec_facts` is the recursor stage's WF contract, proved at
-EITHER setting of the stage's gate (`blockRecCheckOn`, split on rather
-than unfolded): with the gate down at ONE member the existing
-generate-and-compare's (`checkNativeRec_facts`) and at two or more
-vacuous, with the gate lifted the CHECK's own
-(`checkBlockRecK_facts`, off `checkBlockRecTys_inv` /
+`checkBlockRec_facts` is the recursor stage's WF contract: the CHECK's
+own (`checkBlockRecK_facts`, off `checkBlockRecTys_inv` /
 `checkBlockRule_facts` / `checkBlockRules_facts` /
 `checkBlockRecsRules_facts`).
 
@@ -668,9 +664,12 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {
   subst h
   exact hs
 
-/-- **The recursor stage with its gate lifted, read back to the
-CHECK**: `checkBlockRec` succeeded only if `checkBlockRecK` did, with
-the same result (the conformance check after it only rejects). -/
+/-- **The recursor stage read back to the CHECK**: `checkBlockRec`
+succeeded only if `checkBlockRecK` did, with the same result (the
+conformance check after it only rejects).  The gate hypothesis is
+`rfl` at every consumer; it stays in the statement only while
+`checkBlockRec_fresh` (`Semantics/Inductives/DeclBlockEta.lean`) still
+cases on `blockRecCheckOn`. -/
 theorem checkBlockRecK_of_gate {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
@@ -705,10 +704,7 @@ theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List Consta
   omega
 
 /-- **The recursor stage's stored pieces**, as its own guards checked
-them — at EITHER setting of the stage's gate (`blockRecCheckOn`): with
-the gate down at ONE member the existing generate-and-compare's
-(`checkNativeRec_facts`), at two or more the stage declines; with it
-lifted the CHECK's own (`checkBlockRecK_facts`), read through the
+them: the CHECK's own (`checkBlockRecK_facts`), read through the
 conformance check after it (`checkBlockRecK_of_gate`).
 
 The rules' scoping clause is stated at the BARE-`k` environment
@@ -731,39 +727,8 @@ theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantV
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
-        rhs.looseBVarsBounded 0 = true := by
-  by_cases hg : blockRecCheckOn = true
-  · exact checkBlockRecK_facts (checkBlockRecK_of_gate hg h)
-  unfold checkBlockRec at h
-  rw [if_neg hg] at h
-  split at h
-  case h_2 =>
-    exfalso
-    simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-    repeat' split at h
-    all_goals exact nomatch h
-  case h_1 ms cvTa ctorsA hms hcvTas hctorsAs =>
-  simp only [bind, Except.bind] at h
-  split at h
-  case isFalse => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  case isTrue =>
-  obtain ⟨r0, hrec, h⟩ := exceptBind_ok h
-  obtain ⟨cvRa, rhss⟩ := r0
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, -, hall⟩ := checkNativeRec_facts hrec
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  subst hr
-  refine ⟨htf, htp, htr, htb, ?_⟩
-  intro rhs hrhs
-  obtain ⟨g1, g2, g3, g4⟩ := hall rhs hrhs
-  refine ⟨g1, g2, ?_, g4⟩
-  simp only [List.map_cons, List.map_nil, consBlockRecsBare]
-  exact Expr.constsResolve_of_find
-    (find?_isSome_cons_same (c := .recInfo cvRa p.toNative.majorIdx p.toNative.rulePrefix [])
-      (c' := .recInfo cvRa (p.toBlockShape.majorIdxAt 0) (p.toBlockShape.rulePrefixAt 0) [])
-      rfl) g3
+        rhs.looseBVarsBounded 0 = true :=
+  checkBlockRecK_facts (checkBlockRecK_of_gate rfl h)
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/
 

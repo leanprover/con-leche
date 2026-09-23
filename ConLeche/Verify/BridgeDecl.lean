@@ -1,7 +1,6 @@
 module
 
-import ConLeche.Verify.Fueled
-public import ConLeche.Verify.Inductives.BlockOneFueled
+public import ConLeche.Verify.Fueled
 public import ConLeche.Kernel.Checker
 
 public section
@@ -775,19 +774,6 @@ theorem checkNativeRec_datF (env : Env) (p : NativeParts)
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
     checkNativeRules_datF]
 
-/-- The projection table at a structure-like block (task #210 Part A)
-at fuel `F`: operation-free, so the fuel is irrelevant. -/
-theorem checkNativeTable_datF (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (env : Env) (F : Nat) :
-    (checkNativeTable (m := FueledM) p ctorsA sortss env).val F =
-      checkNativeTable (m := CheckM) p ctorsA sortss env := by
-  unfold checkNativeTable
-  split
-  · split
-    · rw [checkStructProjTable_datF]
-    · rfl
-  · rfl
-
 /-- The kinds' classification at fuel `F` (task #210 Part D):
 operation-free, so the fuel is irrelevant. -/
 theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
@@ -797,28 +783,6 @@ theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
   unfold classifyFixKinds
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF]
-
-theorem checkNativePass_datF (env : Env) (p : NativeParts) (isRec : Bool) (F : Nat) :
-    (checkNativePass (fueledOpsM mode) env p isRec).val F =
-      checkNativePass (fueledOps mode F) env p isRec := by
-  unfold checkNativePass
-  simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumInd_datF, checkSumCtors_datF,
-    classifyFixKinds_datF]
-
-theorem checkNativeTail_datF (env : Env) (q : NativePass Env) (F : Nat) :
-    (checkNativeTail (fueledOpsM mode) env q).val F =
-      checkNativeTail (fueledOps mode F) env q := by
-  unfold checkNativeTail
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkNativeTable_datF, checkNativeRec_datF, unwrapOr_atF,
-    checkStructFieldSortsI_datF]
-
-theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
-    (checkNative (fueledOpsM mode) env p).val F =
-      checkNative (fueledOps mode F) env p := by
-  unfold checkNative
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkNativePass_datF, checkNativeTail_datF]
 
 /-! ### The uniform install at k members (lane FLIP1)
 

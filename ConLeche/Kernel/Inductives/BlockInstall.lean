@@ -27,14 +27,10 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    consed, the recursor stage, and the projection table at every
    structure-like member.
 
-The recursor stage is milestone M5's: until then it is the one-member
-stage (`checkNativeRec`, `ConLeche/Kernel/Inductives/NativeInstall.lean`)
-at `k = 1` and a decline at `k ≥ 2` — which the route's gate
-(`blockRouteK1Only`) makes unreachable.  Every stage agrees with the
-one-member stage at `k = 1`
-(`ConLeche/Verify/Inductives/BlockOneInstall.lean`), which is what lets
-the run relation, the P tier and the cached mirrors keep their
-one-member statements while the route is the k-ary one.
+The recursor stage CHECKS the stream's recursors (primitive
+recursion, `checkBlockRecK`) at every `k`, then runs the one-member
+generator (`checkNativeRec`, `ConLeche/Kernel/Inductives/NativeInstall.lean`)
+as a reject-only conformance check (`checkBlockRecConform`).
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -355,9 +351,8 @@ def consBlockRecs (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : 
 
 `ConLeche/Kernel/Inductives/BlockRec.lean` holds the generated pieces
 and the primitive-recursion abstraction; here are the three stages
-that consume them — the pins, the types, the rules — and the dispatch
-that keeps the one-member generate-and-compare stage live behind
-`blockRecCheckOn`. -/
+that consume them — the pins, the types, the rules — and the
+reject-only conformance check after them. -/
 
 /-- The `k` RULE-LESS recursors, consed in block order: the
 environment a rule's right-hand side is annotated, resolved and typed
@@ -991,7 +986,7 @@ verdict back to official's on a stream whose recursor is a valid
 primitive recursion but not the one official generates (the argument
 sums, the rule bodies, the recursor's type).
 
-It is exactly the gated-off arm of `checkBlockRec` below — the
+It is the old one-member route's generate-and-compare stage — the
 stream's rules against the generated ones (`nativeRulesOk`), then the
 recursor generated and compared (`checkNativeRec`) — with the results
 discarded.
@@ -1022,35 +1017,13 @@ def checkBlockRecChecked (ops : CheckerOps m) (env : Env) (p : BlockParts)
   thenConform (checkBlockRecK ops env p cvTas ctorsAs)
     (checkBlockRecConform ops env p cvTas ctorsAs)
 
-/-- **The recursor stage, behind its gate** (`blockRecCheckOn`).
+/-- **The recursor stage** (`checkBlockRecChecked`: the CHECK, then
+the conformance check).
 
-With the gate LIFTED the stage is the CHECK of milestone M5
-(`checkBlockRecK`) at every `k`, followed by the unverified
-conformance check (`checkBlockRecChecked`).  With it down — the shipped
-configuration — the stage is milestone M1's interim one: at ONE member
-the existing generate-and-compare (the stream's rules against the
-generated ones, `nativeRulesOk`, then the recursor generated and
-compared, `checkNativeRec`), at two or more a positive decline, which
-the route's own gate (`blockRouteK1Only`) makes unreachable.
-
-Why BOTH arms are gated, and not only the one-member one:
-
-* at `k = 1` the CHECK accepts more than the generate-and-compare
-  stage (any primitively recursive rule body, not only the generated
-  one), so the two are not equal and the one-member bridge
-  `checkBlock_one` — which the P tier's `declNative` reaches the route
-  through — would stop being an equality;
-* at `k ≥ 2` the CHECK's rules are MUTUALLY recursive: a rule of
-  `rec_0` may name `rec_1`, so its right-hand side resolves at the
-  environment holding all `k` RULE-LESS recursors and NOT at the one
-  holding `rec_0` alone.  The WF chain is written for that
-  (`ConLeche/Verify/Inductives/BlockWF.lean`): `checkBlockRec_facts`
-  states the rules' scoping at `consBlockRecsBare … env` and holds at
-  either setting of this gate, and `envWF_consBlockRecs` conses the
-  `k` recursors SIMULTANEOUSLY — so `EnvWF` through the block install
-  (`direct_block_wf`) is not what keeps this arm gated any more.
-
-Both go with `blockRouteK1Only` at the flip. -/
+The `else` arm is DEAD — `blockRecCheckOn` is `true` since the flip —
+and is the old one-member route's interim stage.  It stays only while
+`checkBlockRec_fresh` (`ConLeche/Semantics/Inductives/DeclBlockEta.lean`)
+still peels it, and goes with `blockRecCheckOn` then. -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=

@@ -14,15 +14,13 @@ their own index counts, constructors and recursors, the shared
 parameter count, the shared elimination level and result sort.  The
 `k = 1` instance is the record the one-member route has always used
 (`NativeParts`, `ConLeche/Kernel/Inductives/NativeParts.lean`);
-`BlockParts.toNative` is that reading, and the install's stages agree
-with the one-member stages through it
-(`ConLeche/Verify/Inductives/BlockOne.lean`).
+`BlockParts.toNative` is that reading, which only the reject-only
+conformance check (`checkBlockRecConform`) still uses.
 
-**The route is gated at `k = 1`** (`blockRouteK1Only`): `blockParts?`
-returns `none` for a block with two or more type formers, so a mutual
-block is still the in-process modeller's and every tree between here
-and the flip is a complete, proved checker.  The gate is ONE named
-constant, deleted at the flip.
+**The route takes every non-nested block**, at any number of members:
+`blockParts?` refuses only a block whose recursors eliminate out of a
+constant outside the block (a nested block's auxiliary recursors),
+which is the in-process modeller's.
 
 The three pieces:
 
@@ -387,24 +385,18 @@ def blockTgtsOf (ks : List BlockFieldKind) : List Nat :=
 
 /-! ## The gates -/
 
-/-- **THE RECURSOR STAGE'S GATE** (milestone M5): the k-ary recursor
-CHECK is written, but the route runs the one-member
-generate-and-compare stage at `k = 1` until the model side (lane M)
-lands, so that
+/-- **THE RECURSOR STAGE'S GATE — LIFTED** (the flip, milestone M6):
+the recursor stage is the CHECK (`checkBlockRecK`, primitive
+recursion) at EVERY `k`, followed by the reject-only conformance check.
 
-* the one-member bridge `checkBlock_one`
-  (`ConLeche/Verify/Inductives/BlockOneInstall.lean`) keeps closing —
-  the k = 1 instance of the new check ACCEPTS MORE than the old stage
-  (any primitively recursive rule body, not only the generated one),
-  so the two are not equal and the bridge would have to be restated
-  against a model that does not exist yet; and
-* every intermediate tree stays a complete, proved, sorry-free
-  checker.
-
-Flipping this constant makes the new check live at EVERY `k`
-(including `k = 1`); it is what a scratch build and the probes of
-milestone M5 do.  It goes with `blockRouteK1Only` at the flip. -/
-def blockRecCheckOn : Bool := false
+The constant survives, `true`, only because the pure stage's
+gated-off arm (`checkBlockRec`'s `else`, dead at run time) is still
+peeled by one proof outside the flip's file set, `checkBlockRec_fresh`
+(`ConLeche/Semantics/Inductives/DeclBlockEta.lean`), which cases on it.
+It goes — with that arm and the `if`s of `recTgtAt`/`rulePrefixAt`/
+`majorIdxAt` — once that proof stops casing on it.  No other proof
+reads it: the model endpoint passes `rfl` (`declBlock`). -/
+def blockRecCheckOn : Bool := true
 
 /-! ## The record -/
 
@@ -504,18 +496,15 @@ def allCtors (p : BlockShape) : List (ConstantVal × Nat) :=
   (p.members.map (·.ctors)).flatten
 /-- Every recursor's rule prefix AT THE GENERATED SHAPE: the
 parameters, the k motives and the block's minors (official's
-`nparams + ntypes + nminors`).  This is what the generate-and-compare
-stage builds and compares, and it is the block-wide number every
-`k = 1` bridge reads. -/
+`nparams + ntypes + nminors`).  This is what the reject-only
+conformance check's generator builds and compares. -/
 def rulePrefix (p : BlockShape) : Nat := p.nP + p.k + p.numCtors
 
 /-- **The member recursor `r` belongs to, as the INSTALL uses it.**
 
-With the recursor stage's gate down (`blockRecCheckOn`, the shipped
-configuration) the route takes one member with one recursor, so the
-recursor's position IS its member's; with the gate LIFTED it is the
-target the recogniser read off the MAJOR (`RecShape.tgt`).  The `if`
-goes with the gate at the flip, leaving the record's. -/
+It is the target the recogniser read off the MAJOR (`RecShape.tgt`):
+the recursor stage's gate (`blockRecCheckOn`) is lifted, and the `if`
+goes with that constant. -/
 def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
   if blockRecCheckOn then (p.recs.getD r default).tgt else r
 
@@ -528,22 +517,15 @@ def recTgts (p : BlockShape) : List Nat :=
 
 /-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 
-With the recursor stage's gate down (`blockRecCheckOn`, the shipped
-configuration) this is the generated shape's block-wide number, which
-is what the one-member bridges and the generate-and-compare stage
-need; the recursor records' pin (`blockRecPinOk`) refuses anything
-else, so no stream reaches the install with a different one.
-
-With the gate LIFTED it is the RECORD's (`RecShape.rP`): the
-motive-free check never derives the sum, it reads it and requires only
-`nP ≤ rP` (the ruling of 2026-09-21).  The `if` goes with the gate at
-the flip, leaving the record's. -/
+It is the RECORD's (`RecShape.rP`): the motive-free check never
+derives the sum, it reads it and requires only `nP + k ≤ rP` (the
+rulings of 2026-09-21 and 2026-09-23).  The recursor stage's gate
+(`blockRecCheckOn`) is lifted, and the `if` goes with that constant. -/
 def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
   if blockRecCheckOn then (p.recs.getD r default).rP else p.rulePrefix
 
 /-- Recursor `r`'s major-premise index, at the same reading — the
-RECORD's (`RecShape.mI`) with the gate lifted, the generated shape's
-while it is down. -/
+RECORD's (`RecShape.mI`). -/
 def majorIdxAt (p : BlockShape) (r : Nat) : Nat :=
   if blockRecCheckOn then (p.recs.getD r default).mI
   else p.rulePrefix + (p.members.getD r default).nIdx
@@ -554,7 +536,7 @@ def majorIdx (p : BlockShape) (m : Nat) : Nat :=
   p.rulePrefix + (p.members.getD m default).nIdx
 
 /-- **The recursor records' two argument SUMS at the GENERATED
-shape**: the pin the one-member generate-and-compare arm makes (the
+shape**: the pin the one-member conformance check makes (the
 ruling of 2026-09-21 moved it there, out of `blockRecPinOk`, because
 the motive-free check reads the sums and derives nothing).  It is what
 `BlockParts.toNative` adds to the record's own pin. -/
@@ -686,8 +668,9 @@ def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind)
 
 /-- **The one-member reading of the shape** (the M1 bridge): at
 `k = 1` a `BlockShape` IS an `InductiveShape`.  At `k ≠ 1` it reads
-member 0 and is junk — nothing consumes it there, because the route is
-gated (`blockRouteK1Only`). -/
+member 0 and is junk — its only consumer is the reject-only
+conformance check (`checkBlockRecConform`), which runs at one member
+with one recursor and is skipped at every other shape. -/
 def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
   let ms := p.members.headD default
   let rc := p.recs.headD default
@@ -696,9 +679,8 @@ def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
 /-- **The one-member reading of the record**: the shape's, with the
 kinds' targets forgotten and the recursor record's two argument SUMS
 added to the pin — at `k = 1` the generate-and-compare arm is where
-they belong (the ruling of 2026-09-21), and `toNative` IS that arm's
-reading.  The install's stages agree with the one-member stages
-through this map (`ConLeche/Verify/Inductives/BlockOne.lean`). -/
+they belong (the ruling of 2026-09-21), and `toNative` IS that
+check's reading. -/
 def BlockParts.toNative (p : BlockParts) : NativeParts :=
   ⟨p.toBlockShape.toInductive,
     (p.kinds.headD []).map (List.map BlockFieldKind.toRec),
@@ -965,89 +947,25 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
     | _, _ => none
   | none => none
 
-/-- **THE ROUTE'S GATE** (decision D6, milestone M1): the uniform
-installer is written at any number of members, but the route takes only
-ONE-MEMBER blocks until the flip (milestone M6), so that the in-process
-modeller keeps serving mutual blocks and every tree in between is a
-complete, proved checker.  Deleting this constant — and the guard in
-`blockParts?` it names — is the flip. -/
-def blockRouteK1Only : Bool := true
-
-/-- **The two gates go together** (lane FLIP1): the recursor stage's
-CHECK is off only while the route is still one-member.  Every consumer
-that must still read the one-member arm cases on `blockRecCheckOn` and
-takes the route's gate from here, so that its k-ary arm — the one that
-survives the flip — reads neither gate.  At the flip this proof becomes
-`fun h => nomatch h`, and the theorem goes with `blockRouteK1Only`. -/
-theorem blockRouteK1Only_of_recOff (_h : blockRecCheckOn = false) :
-    blockRouteK1Only = true := rfl
-
-/-- Recognise a block for the uniform fixpoint route: its SHAPE
-(`blockShape?`), with the fields' kinds a PLACEHOLDER the install fills
-(`BlockParts.withKinds`) after normalising every field domain by
-official's positivity walk, and the recursor records' structural pin
-(`blockRecPinOk`), which the recursor stage throws on.  A block with
-two or more members is refused HERE, by the gate alone. -/
+/-- Recognise a block for the uniform fixpoint route, at any number of
+members: its SHAPE (`blockShape?`), with the fields' kinds a
+PLACEHOLDER the install fills (`BlockParts.withKinds`) after
+normalising every field domain by official's positivity walk, and the
+recursor records' structural pin (`blockRecPinOk`), which the recursor
+stage throws on. -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
-  match blockSplit block with
-  | some (cvTs, _, rs) =>
-    if blockRouteK1Only && (cvTs.length != 1 || rs.length != 1) then none
-    else
-      match blockShape? nPd block with
-      | some p =>
-        -- **the nested rung's gate** (the ruling of 2026-09-21, in
-        -- place of the recursor list's old length guard): a recursor
-        -- whose MAJOR heads a constant OUTSIDE the block is a NESTED
-        -- block's auxiliary recursor, and the block belongs to the
-        -- MODELLED route — so the RECOGNISER refuses it, as it always
-        -- has (a decline from the stage would have no fallback: the
-        -- dispatch is the recogniser alone, task #219).  A recursor
-        -- whose type has no major AT ALL is a broken record of this
-        -- block's own recursor and stays here, to be rejected
-        if p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type) then none
-        -- the SAME gate on the record the recogniser built, so that a
-        -- block on the route is known to have one member and one
-        -- recursor — the shape the one-member generate-and-compare arm
-        -- reads — without re-reading the split (all of it goes at the
-        -- flip)
-        else if blockRouteK1Only && (p.k != 1 || p.recs.length != 1) then none
-        else some ⟨p, [], blockRecPinOk p block⟩
-      | none => none
+  match blockShape? nPd block with
+  | some p =>
+    -- **the nested rung's gate** (the ruling of 2026-09-21, in place
+    -- of the recursor list's old length guard): a recursor whose MAJOR
+    -- heads a constant OUTSIDE the block is a NESTED block's auxiliary
+    -- recursor, and the block belongs to the MODELLED route — so the
+    -- RECOGNISER refuses it (a decline from the stage would have no
+    -- fallback: the dispatch is the recogniser alone, task #219).  A
+    -- recursor whose type has no major AT ALL is a broken record of
+    -- this block's own recursor and stays here, to be rejected
+    if p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type) then none
+    else some ⟨p, [], blockRecPinOk p block⟩
   | none => none
-
-/-- **The gate, as the consumers read it**: a block the route takes has
-exactly one member and exactly one recursor (milestone M1;
-`blockRouteK1Only`).
-
-The gate is an explicit HYPOTHESIS (`hg`), not a fact read off the
-constant's body: this theorem lives in the kernel tier, inside
-`Main.lean`'s import closure, so a body-reading proof would make the
-EXECUTABLE stop building the moment the gate is flipped — and then the
-flip cannot be measured at all.  With `hg` the whole closure builds at
-either setting, every consumer passes `rfl` while the gate is up, and
-at the flip the six call sites are exactly the list of what the model
-tier owes. -/
-theorem blockParts?_k1 {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
-    (hg : blockRouteK1Only = true) (h : blockParts? nPd block = some p) :
-    (∃ ms, p.members = [ms]) ∧ (∃ rc, p.recs = [rc]) := by
-  unfold blockParts? at h
-  split at h
-  · split at h
-    · exact nomatch h
-    · split at h
-      · split at h
-        · exact nomatch h
-        · split at h
-          · exact nomatch h
-          · rename_i q _ _ hk
-            obtain rfl := Option.some.inj h
-            simp only [hg, Bool.true_and, Bool.or_eq_true, bne_iff_ne,
-              ne_eq, not_or, Decidable.not_not] at hk
-            have hm : q.members.length = 1 := by simpa [BlockShape.k] using hk.1
-            have hr : q.recs.length = 1 := hk.2
-            match q, hm, hr with
-            | ⟨ms :: [], rc :: [], _, _, _, _, _⟩, _, _ => exact ⟨⟨ms, rfl⟩, ⟨rc, rfl⟩⟩
-      · exact nomatch h
-  · exact nomatch h
 
 end ConLeche

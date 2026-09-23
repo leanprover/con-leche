@@ -179,31 +179,6 @@ theorem checkSumTeleS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     obtain ⟨rfl, hTw'⟩ := hP
     exact SimC.pure hs₂ ⟨rfl, hTw'⟩
 
-/-- Stage 1 (the type former) of the sum route at the shared
-operations. -/
-theorem checkSumIndS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : InductiveShape}
-    {capsOf : InductiveShape → IndCaps} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.fst (Prod.snd v)).type)
-      (checkSumInd (sharedOpsC mode (mkFEnv env)) env p capsOf)
-      (checkSumInd (fueledOpsM mode) env p capsOf) := by
-  unfold checkSumInd
-  refine SimC.bind (checkConstantValS_sim hμ henv hs)
-    (fun s₁ cvTa₀ cvTa₀' hs₁ hP => ?_)
-  obtain ⟨rfl, hTw₀⟩ := hP
-  refine SimC.bind (checkSumTeleS_sim hμ henv hs₁ hTw₀)
-    (fun s₂ r r' hs₂ hR => ?_)
-  obtain ⟨rfl, hTw⟩ := hR
-  obtain ⟨cvTa, sx⟩ := r
-  dsimp only
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ q q' hs₃ hQ => ?_)
-  obtain ⟨rfl, -⟩ := hQ
-  obtain ⟨tbs, tbody⟩ := q
-  dsimp only
-  by_cases h1 : (tbody == Expr.sort sx) = true
-  case neg => simp only [if_neg h1]; exact SimC.throw_bind
-  simp only [if_pos h1]
-  exact SimC.pure hs₃ ⟨rfl, hTw⟩
-
 /-- Official's positivity walk (task #210 Part D) at the shared
 operations: every `whnf` is the shared one, on a well-scoped input at
 its depth. -/

@@ -3,7 +3,10 @@
 #
 # For each raw fixture below, the in-process modeller
 # (`ConLeche/Frontend/InModel/*`) generates the `_model` families of its
-# mutual/nested blocks at parse time.  The generated AUXILIARY family is a
+# NESTED blocks at parse time (every other block is the uniform route's;
+# the pure-mutual fixtures `inmodel_mutual`, `inmodel_mutual_idx` and
+# `ind_mutual_three` left this list at the flip, as they model no block
+# any more — the e2e battery keeps them).  The generated AUXILIARY family is a
 # recursive indexed inductive the direct fixpoint route (task #188)
 # installs, so the raw run ACCEPTS outright.
 #
@@ -38,10 +41,9 @@ BIN=.lake/build/bin/con-leche
 
 fixtures=("$@")
 if [ ${#fixtures[@]} = 0 ]; then
-  fixtures=(tests/e2e/inmodel_mutual.ndjson tests/e2e/inmodel_mutual_idx.ndjson
-            tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
+  fixtures=(tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
             tests/e2e/nested_struct_proj.ndjson tests/e2e/inmodel_groups.ndjson
-            tests/e2e/ind_mutual_three.ndjson tests/e2e/ind_mutual_idxsort.ndjson)
+            tests/e2e/ind_mutual_idxsort.ndjson)
 fi
 
 WORK=$(mktemp -d "$TMPDIR/inmodel.XXXXXX")

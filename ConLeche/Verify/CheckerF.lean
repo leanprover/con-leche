@@ -404,12 +404,6 @@ theorem nativeOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx 
   simp only [nativeOpenedOkF, nativeOpenedOk, StructWalkers.plain, constsResolveF_eq]
     <;> rfl
 
-theorem nativeFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
-    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
-    nativeFieldsOkF .plain (mkFEnv env₀) T lps nP nIdx ctorsA kinds
-      = nativeFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
-  simp only [nativeFieldsOkF, nativeFieldsOk, nativeOpenedOkF_eq] <;> rfl
-
 theorem checkNativeRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :

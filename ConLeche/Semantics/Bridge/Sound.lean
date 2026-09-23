@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclBlock
-public import ConLeche.Semantics.Bridge.SoundOne
+import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.DeclIndRun
+import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -27,10 +29,8 @@ file's own surviving theorem.  It went with the R tier
 built it.
 
 **The uniform route's arm, at k members (lane FLIP1).**  The run
-bridge here records it as `DeclBlockRun` (`DeclIndRunDispatchK`), which
-holds at every setting of the two gates; the one-member twin the fold
-still reads (`checkDeclRun_ofEnvFactsE`, at `DeclIndRunDispatch`) is in
-`Bridge/SoundOne.lean`, re-exported from here and deleted at the flip.
+bridge here records it as `DeclBlockRun` (`DeclIndRunDispatchK`), the
+dispatch the fold (`Model/Fold.lean`) takes.
 -/
 
 namespace ConLeche.Semantics
@@ -41,21 +41,17 @@ variable {pins : List NatOpPinSet}
 /-- **The `.indDecl` dispatch at the run level, at k members**: the
 kernel's own case split (`blockParts?`), with the uniform arm recorded
 as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
-rather than at the one-member reading of the record
-(`DeclIndRunDispatch`).  It reads neither gate: it is the dispatch the
-fold takes at the flip. -/
+at any number of members. -/
 def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
   | some p => DeclBlockRun μ F env p env₂
   | none => DeclIndRun μ F env block env₂
 
-/-- **The RUN bridge at k members** (lane FLIP1): `checkDeclRun_ofEnvFactsE`
-with the uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).
-Unlike its one-member twin it holds at EVERY setting of both gates
-(`blockRecCheckOn`, `blockRouteK1Only`): the run relation records the
-recursor stage as one opaque conjunct (`checkBlockRec … = .ok rs`), so
-nothing here reads which stage the gate selects. -/
+/-- **The RUN bridge** (lane FLIP1): `checkDecl` → `DeclRun`, with the
+uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).  The run
+relation records the recursor stage as one opaque conjunct
+(`checkBlockRec … = .ok rs`). -/
 theorem checkDeclRun_ofEnvFactsK
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {d : Declaration}
@@ -82,12 +78,9 @@ theorem checkDeclRun_ofEnvFactsK
       · rw [if_neg hok] at hh
         exact nomatch hh) h
 
-/-- **The `.indDecl` run dispatch at k members keeps the η-families
-closed** (lane ETA1): `declIndRunDispatchEtaClosed` at
-`DeclIndRunDispatchK`, by the kernel's own case split — the uniform
-arm's `declBlockRun_etaClosed`, the modeled arm's `declIndEtaClosedRun`
-unchanged.  Like the dispatch, it reads neither gate: it is the η half
-the fold takes at the flip. -/
+/-- **The `.indDecl` run dispatch keeps the η-families closed** (lane
+ETA1), by the kernel's own case split — the uniform arm's
+`declBlockRun_etaClosed`, the modeled arm's `declIndEtaClosedRun`. -/
 theorem declIndRunDispatchKEtaClosed {μ : CheckMode} {F : Nat}
     {env envI : Env} {block : List ConstantInfo} {nP : Nat}
     (hE : EtaFamiliesClosed env)

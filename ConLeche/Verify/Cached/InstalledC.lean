@@ -329,7 +329,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hstepC'
       exact ⟨declStep_preserves hμ mp hE
-          (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF), hres₁, F, hF⟩
+          (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
     have value : ∀ (kind : ValueKind) (mk : ConstantVal → Expr → ConstantInfo)
@@ -363,7 +363,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       -- the two halves are the declaration's check
       obtain ⟨F', hF⟩ := hsplit F₂ hC
       have hm₁ : EnvModelOk V μ (fe.push (mk cvA jv)).env :=
-        declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF)
+        declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
       exact ⟨hm₁, hres₁, F', hdrel ▸ hF⟩
     cases pd with
     | defnDecl cv val hint =>

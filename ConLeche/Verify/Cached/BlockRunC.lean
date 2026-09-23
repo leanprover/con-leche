@@ -18,13 +18,10 @@ public section
 
 `checkBlockKS` (`ConLeche/Cached/CheckerC.lean`), the cached mirror of
 the uniform installer at any number of members, is reproduced by the
-pure fueled `checkBlock` — the k-ary twin of `checkNativeS_run`
-(`ConLeche/Verify/Cached/BridgeCSDecl.lean`), at the recursor stage's
-CHECK (`blockRecCheckOn = true`).  With it, the `.indDecl` dispatch of
-the cached driver (`checkModeledOrNativeSF_run`, moved here from
-`BridgeCSDecl.lean`) takes the k-ary route whenever the gate is lifted,
-and reads the route's gate only on the one-member arm that goes at the
-flip.
+pure fueled `checkBlock`.  With it, the `.indDecl` dispatch of the
+cached driver (`checkModeledOrNativeSF_run`, moved here from
+`BridgeCSDecl.lean`) takes the uniform route at every recognised
+block.
 
 The file follows `BridgeCSDecl.lean`'s layout:
 
@@ -1683,7 +1680,7 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
 /-- **The install after the pass, at k members and at the recursor
 stage's CHECK, at the cached driver**, is reproduced by the pure fueled
 `checkBlockTail`. -/
-theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecCheckOn = true)
+theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     {env env₁ : Env} (henv₁ : EnvWF env₁) {cvTas : List ConstantVal} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
@@ -1718,7 +1715,6 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecChe
   obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
   obtain ⟨rs, s₃, hrec, h⟩ := bindC_ok h
   unfold checkBlockRecS at hrec
-  rw [if_pos hK] at hrec
   -- the check, then the reject-only conformance check (lane CONF1)
   unfold thenConform at hrec
   obtain ⟨rs', s₄, hrecK, hrec⟩ := bindC_ok hrec
@@ -1753,7 +1749,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecChe
       rw [← checkBlockRecConform_datF]
       exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
     unfold checkBlockRec checkBlockRecChecked thenConform
-    rw [if_pos hK]
+    rw [if_pos (show blockRecCheckOn = true from rfl)]
     simp only [Bind.bind, Except.bind, gK, gC, pure, Except.pure]
   rw [checkBlockTail_datF]
   unfold checkBlockTail
@@ -1771,9 +1767,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecChe
 /-- **The uniform install at k members, at the recursor stage's CHECK,
 at the cached driver**, is reproduced by the pure fueled `checkBlock`:
 the pass at the syntactic reading, again at the classified verdict
-where it overshot, and the install after the settled one — the k-ary
-twin of `checkNativeS_run`. -/
-theorem checkBlockKS_run (hμ : mode.verifiedChecks = true) (hK : blockRecCheckOn = true)
+where it overshot, and the install after the settled one. -/
+theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
     {env : Env} (henv : EnvWF env) {p₀ : BlockParts} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : checkBlockKS mode (mkFEnv env) p₀ s₀ = .ok (feOut, s')) :
@@ -1797,7 +1792,7 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true) (hK : blockRecCheckO
   cases settled with
   | true =>
     simp only [↓reduceIte] at h
-    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ hK henv₁ hT hct henv₂ hs₁ h
+    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct henv₂ hs₁ h
     refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
     have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀)
         = .ok (⟨env₁, cvTas, p, ctorsAs, sortsss⟩, true) := by
@@ -1830,7 +1825,7 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true) (hK : blockRecCheckO
     exact absurd h throwC_bind_ok
   | true =>
   simp only [↓reduceIte] at h
-  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkBlockTailS_run hμ hK henv₁' hT' hct' henv₂' hs₁' h
+  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkBlockTailS_run hμ henv₁' hT' hct' henv₂' hs₁' h
   obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
     ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
@@ -1855,7 +1850,7 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true) (hK : blockRecCheckO
 variable {pins : List NatOpPinSet}
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkBlockS`, everything else to `checkIndDeclSF`,
+block goes to `checkBlockKS`, everything else to `checkIndDeclSF`,
 and either way the pure fueled `checkDecl` reproduces the run. -/
 theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
@@ -1863,7 +1858,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : (match blockParts? nP block with
-          | some p => checkBlockS mode (mkFEnv env) p
+          | some p => checkBlockKS mode (mkFEnv env) p
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
@@ -1887,20 +1882,9 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
   | some p =>
     rw [hfp] at h
     simp only at h
-    -- the k-ary route at the recursor stage's CHECK; the one-member arm
-    -- below it reads the route's gate and goes with both gates at the flip
-    by_cases hK : blockRecCheckOn = true
-    · rw [checkBlockS_K mode hK] at h
-      obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run hμ hK henv hwf h
-      exact ⟨hres, hfe, F, hF⟩
-    · have hK' : blockRecCheckOn = false := by simpa using hK
-      obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 (blockRouteK1Only_of_recOff hK') hfp
-      rw [checkBlockS_one mode hK' hms] at h
-      obtain ⟨hres, hfe, F, hF⟩ := checkNativeS_run hμ henv hwf h
-      refine ⟨hres, hfe, F, ?_⟩
-      simp only []
-      rw [← checkBlock_one (m := CheckM) (fueledOps mode F) env hms hrc]
-      exact hF
+    -- the uniform route, at any number of members
+    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run hμ henv hwf h
+    exact ⟨hres, hfe, F, hF⟩
   | none =>
     rw [hfp] at h
     obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h

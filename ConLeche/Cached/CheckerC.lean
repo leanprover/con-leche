@@ -175,62 +175,6 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
-/-- `checkNativePass` through the index (task #268): one flush per
-environment transition. -/
-def checkNativePassS (fe : FEnv) (p₀ : NativeParts) (isRec : Bool) :
-    CheckCM (NativePass FEnv × Bool) := do
-  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
-    (fun p₁ => nativeCapsAt p₁ isRec)
-  let pC := p₀.complete p₁
-  flushC
-  let (ctorsA, sortss) ← checkSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.cvT.name
-    pC.cvT.levelParams pC.nP pC.nIdx pC.resSort pC.isProp pC.large cvTa pC.ctors
-  let kinds ← classifyFixKinds (m := CheckCM) pC.cvT.name pC.cvT.levelParams pC.nP pC.nIdx
-    ctorsA
-  let p := pC.withKinds kinds
-  pure (⟨fe₁, cvTa, p, ctorsA, sortss⟩, nativeCaps p == nativeCapsAt p₁ isRec)
-
-/-- `checkNativeTail` through the index: one flush entering the
-recursor's environment. -/
-def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
-  let p := q.p
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
-    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
-  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) q.cvTa.type 0)
-    (.internal "direct rec: type former telescope")
-  let _isorts ← checkStructFieldSortsIF (sharedOpsC mode q.env₁) q.env₁ true false p.resSort
-    p.nP (tq.1.drop p.nP) [] p.nIdx
-  unless nativeFieldsOkF structWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx q.ctorsA
-      p.kinds do
-    throw (.internal "direct rec: field kinds")
-  unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      q.ctorsA p.kinds p.rhss p.cvR.type do
-    throw (.invalid "direct rec: recursor rules are not the generated ones")
-  let fe₂ := consSumCtorsF p.nP q.ctorsA q.env₁
-  flushC
-  let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p q.cvTa q.ctorsA
-  -- the projection table at a structure-like block (task #210 Part A)
-  checkNativeTableF (m := CheckCM) structWalkersC p q.ctorsA q.sortss (fe₂.push (.recInfo cvRa
-    p.majorIdx p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
-      cvRa.type q.ctorsA rhss)))
-
-/-- `checkNative` through the index (task #188): the pass at the
-syntactic `is_rec` reading, again at the classified verdict where the
-reading overshot (task #268), and the install after it. -/
-def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
-  unless (p₀.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct rec: duplicate constructor")
-  flushC
-  let (q, settled) ← checkNativePassS mode fe p₀ (nativeRawRec p₀)
-  if settled then checkNativeTailS mode fe q
-  else do
-    flushC
-    let (q', settled') ← checkNativePassS mode fe p₀ (nativeIsRec q.p.kinds)
-    unless settled' do
-      throw (.internal "direct rec: the capability record did not settle")
-    checkNativeTailS mode fe q'
-
 /-- **The rule stage's operations at the rule-less recursors'
 environment** (lane FLIP1): `sharedOpsC` at `feR`, with a `flushC`
 ENTERING its `annotate` and LEAVING its `inferType`.
@@ -290,25 +234,16 @@ def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (sharedOpsC mode fe) fe p
     (blockRecCallData p).1 (blockRecCallData p).2 cvRas ctorsAs p.recs 0
 
-/-- `checkBlockRec` through the index (the same gate as the pure
-stage). -/
+/-- `checkBlockRec` through the index: the CHECK
+(`checkBlockRecKS`), then the reject-only conformance check at the
+constructors' index (`checkBlockRecConformF`, lane CONF1).  The
+`flushC` is there because the check finishes with its caches at the
+recursors' index. -/
 def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  if blockRecCheckOn then thenConform (checkBlockRecKS mode fe p cvTas ctorsAs)
+  thenConform (checkBlockRecKS mode fe p cvTas ctorsAs)
     (flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe p cvTas ctorsAs)
-  else
-    match p.members, cvTas, ctorsAs with
-    | [ms], [cvTa], [ctorsA] => do
-      let pn := p.toNative
-      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
-          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
-        throw (.invalid "direct rec: recursor rules are not the generated ones")
-      let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe) structWalkersC fe pn cvTa ctorsA
-      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-    | _, _, _ => do
-      checkBlockRecPins (m := CheckCM) p
-      throw (.notImplemented "block rec: the mutual recursor stage")
 
 /-- **`checkBlockPass` through the index** (milestone M5): the k
 formers checked and consed — one flush entering the environment that
@@ -358,44 +293,6 @@ def checkBlockKS (fe : FEnv) (p₀ : BlockParts) : CheckCM FEnv := do
     unless settled' do
       throw (.internal "direct rec: the capability record did not settle")
     checkBlockTailS mode fe q'
-
-/-- **`checkBlock` through the index** (milestone M1): at ONE member
-the cached mirror IS the one-member mirror (`checkNativeS`), which the
-pure installer's own one-member bridge (`checkBlock_one`) matches, so
-every cached agreement keeps its one-member statement.  The k-ary
-mirror (`checkBlockKS`) serves every other `k`, and takes over at
-`k = 1` too when the recursor stage's gate (`blockRecCheckOn`) is
-lifted. -/
-def checkBlockS (fe : FEnv) (p : BlockParts) : CheckCM FEnv :=
-  match p.members with
-  | [_] => if blockRecCheckOn then checkBlockKS mode fe p else checkNativeS mode fe p.toNative
-  | _ => checkBlockKS mode fe p
-
-/-- **The cached mirror at ONE member.**  The recursor stage's gate
-(`blockRecCheckOn`) keeps the one-member arm the one-member mirror, so
-the pure installer's own one-member bridge (`checkBlock_one`) matches
-it and every cached agreement keeps its one-member statement.
-
-As with `blockParts?_k1`, the gate is an explicit HYPOTHESIS (`hg`)
-rather than a fact read off the constant's body: this theorem is in
-the cached tier, inside `Main.lean`'s import closure, and a
-body-reading proof would stop the EXECUTABLE from building at a
-flipped gate — which is what makes the flip unmeasurable. -/
-theorem checkBlockS_one {fe : FEnv} {p : BlockParts} {ms : MemberShape}
-    (hg : blockRecCheckOn = false) (hm : p.members = [ms]) :
-    checkBlockS mode fe p = checkNativeS mode fe p.toNative := by
-  simp only [checkBlockS, hm, hg, Bool.false_eq_true, if_false]
-
-/-- **The cached mirror with the recursor stage's gate LIFTED** (lane
-FLIP1): at every `k` it is the k-ary mirror.  The gate is a hypothesis,
-as in `checkBlockS_one`, so that the statement is the same at both
-settings and the flip needs no edit here. -/
-theorem checkBlockS_K {fe : FEnv} {p : BlockParts} (hg : blockRecCheckOn = true) :
-    checkBlockS mode fe p = checkBlockKS mode fe p := by
-  unfold checkBlockS
-  split
-  · rw [if_pos hg]
-  · rfl
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

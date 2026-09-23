@@ -353,26 +353,6 @@ theorem checkIndDeclSF_push (mode : CheckMode) {env : Env} {fe : FEnv}
 
 /-! ## The fixpoint route -/
 
-theorem checkSumIndF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
-    (ops : CheckerOps CheckCM) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) :
-    Yields (checkSumIndF ops fe p capsOf)
-      (fun r => PushChain env r.1 ∧ ∃ s, r.2.2 = p.withSort s) := by
-  unfold checkSumIndF
-  refine Yields.bind' (checkConstantValF_fresh ops fe p.cvT) fun cvTa₀ h₀ => ?_
-  obtain ⟨hn₀, hfr⟩ := h₀
-  refine Yields.bind' (checkSumTeleF_name ops fe p.cvT _ cvTa₀) fun r hn => ?_
-  obtain ⟨cvTa, s⟩ := r
-  have hn' : cvTa.name = p.cvT.name := by
-    rcases hn with h1 | h1
-    · exact h1.trans hn₀
-    · exact h1
-  yields
-  all_goals
-    (refine Yields.pure ⟨h.push ?_, s, rfl⟩
-     show fe.find? cvTa.name = none
-     rw [hn']; exact hfr)
-
 /-- The constructors' conses: a fresh chain from the former's index. -/
 theorem consSumCtorsF_push (nP : Nat) :
     ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {fe : FEnv},
@@ -386,25 +366,6 @@ theorem consSumCtorsF_push (nP : Nat) :
     exact consSumCtorsF_push nP (ctorsA := cs) (h.push hfr)
       (FreshNames.step (c := .ctorInfo c.1 nP c.2) hf)
 
-theorem checkNativeRecF_fresh (ops : CheckerOps CheckCM) {w : StructWalkers}
-    (fe : FEnv) (p : NativeParts) (cvTa : ConstantVal)
-    (ctorsA : List (ConstantVal × Nat)) :
-    Yields (checkNativeRecF ops w fe p cvTa ctorsA)
-      (fun r => r.1.name = p.cvR.name ∧ fe.find? p.cvR.name = none) := by
-  unfold checkNativeRecF
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.bind' (checkConstantValF_fresh ops fe p.cvR) fun cvRi hcv => ?_
-  yields
-  all_goals (apply Yields.pure; exact ⟨rfl, hcv.2⟩)
-
 theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
     (h : PushChain env fe) (T C : Name) (lps : List Name) (nP nF : Nat)
     (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) :
@@ -414,122 +375,6 @@ theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
   unfold checkStructProjTableF
   yields
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
-
-theorem checkNativeTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) :
-    Yields (checkNativeTableF (m := CheckCM) w p ctorsA sortss fe)
-      (fun fe' => PushChain env fe') := by
-  unfold checkNativeTableF
-  split
-  · split
-    · exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
-    · exact Yields.pure h
-  · exact Yields.pure h
-
-/-- One pass (task #268): the former's cons keeps the chain, the
-constructors are the block's by name and fresh at its environment. -/
-theorem checkNativePassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) (isRec : Bool) :
-    Yields (checkNativePassS mode fe p isRec)
-      (fun r => PushChain env r.1.env₁ ∧ r.1.p.ctors = p.ctors ∧
-        r.1.ctorsA.map (·.1.name) = r.1.p.ctors.map (·.1.name) ∧
-        ∀ c ∈ r.1.ctorsA, r.1.env₁.find? c.1.name = none) := by
-  unfold checkNativePassS
-  refine Yields.bind' (checkSumIndF_push h _ p.toInductiveShape
-    (fun p₁ => nativeCapsAt p₁ isRec)) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTa, p₁⟩ := r₁
-  obtain ⟨h₁, s, hps⟩ := h₁
-  try simp only [] at hps
-  subst hps
-  try simp only []
-  ybind
-  refine Yields.bind' (checkSumCtorsF_fresh _ fe₁ fe₁ _ _ _ _ _ _ _ cvTa _) fun r hr => ?_
-  obtain ⟨ctorsA, sortss⟩ := r
-  obtain ⟨hns, hfrs⟩ := hr
-  try simp only []
-  refine Yields.bind fun kinds => ?_
-  refine Yields.pure ⟨h₁, ?_, ?_, hfrs⟩
-  · simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
-  · rw [hns]
-    simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
-
-/-- The install after the pass keeps the chain. -/
-theorem checkNativeTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    {q : NativePass FEnv} (h₁ : PushChain env q.env₁)
-    (hnd : (q.p.ctors.map (·.1.name)).Nodup)
-    (hns : q.ctorsA.map (·.1.name) = q.p.ctors.map (·.1.name))
-    (hfrs : ∀ c ∈ q.ctorsA, q.env₁.find? c.1.name = none) :
-    Yields (checkNativeTailS mode fe q) (fun fe' => PushChain env fe') := by
-  unfold checkNativeTailS
-  -- the elimination restriction, on the completed record
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => Yields.ofThrowBind)
-  case elim =>
-  ybind
-  refine Yields.bind fun _isorts => ?_
-  try simp only []
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue hk =>
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  ybind
-  have hbase : PushChain env (consSumCtorsF q.p.nP q.ctorsA q.env₁) := by
-    refine consSumCtorsF_push q.p.nP h₁ ⟨?_, ?_⟩
-    · rw [hns]; exact hnd
-    · intro n hn
-      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
-      rw [← h₁.find?]
-      exact hfrs c hc
-  refine Yields.bind' (checkNativeRecF_fresh _ (consSumCtorsF q.p.nP q.ctorsA q.env₁) q.p q.cvTa
-    q.ctorsA) fun r₃ h₃ => ?_
-  obtain ⟨cvRa, rhss⟩ := r₃
-  obtain ⟨hnR, hfrR⟩ := h₃
-  try simp only [] at hnR hfrR
-  try simp only []
-  have hpush := hbase.push (ci := .recInfo cvRa q.p.majorIdx q.p.rulePrefix
-    (sumRules (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name
-      q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss))
-    (by show (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name = none
-        rw [hnR]; exact hfrR)
-  exact checkNativeTableF_push hpush q.p q.ctorsA q.sortss
-
-theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) :
-    Yields (checkNativeS mode fe p) (fun fe' => PushChain env fe') := by
-  unfold checkNativeS
-  -- the front guard: the distinct constructor names
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
-  case main =>
-  ybind
-  -- the pass at the syntactic reading, and again where it overshot
-  refine Yields.bind' (checkNativePassS_push mode h p (nativeRawRec p)) fun r hr => ?_
-  obtain ⟨q, settled⟩ := r
-  obtain ⟨h₁, hpC, hns, hfrs⟩ := hr
-  try simp only [] at h₁ hpC hns hfrs
-  try simp only []
-  cases settled with
-  | true =>
-    simp only [↓reduceIte]
-    exact checkNativeTailS_push mode h₁ (by rw [hpC]; exact hnd) hns hfrs
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte]
-  ybind
-  refine Yields.bind' (checkNativePassS_push mode h p (nativeIsRec q.p.kinds)) fun r' hr' => ?_
-  obtain ⟨q', settled'⟩ := r'
-  obtain ⟨h₁', hpC', hns', hfrs'⟩ := hr'
-  try simp only [] at h₁' hpC' hns' hfrs'
-  try simp only []
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  exact checkNativeTailS_push mode h₁' (by rw [hpC']; exact hnd) hns' hfrs'
 
 /-! ## The uniform route at k members (lane FLIP1)
 
@@ -734,32 +579,16 @@ theorem checkBlockRecKS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
   obtain ⟨q, hq, hqn⟩ := List.mem_map.mp hmem
   rw [← hqn]; exact hn.2 q hq
 
-/-- The recursor stage, at EITHER setting of its gate, stores fresh,
-distinct names: the check's (`checkBlockRecKS_fresh`) or the one
-generated recursor of the one-member arm. -/
+/-- The recursor stage stores fresh, distinct names: the check's
+(`checkBlockRecKS_fresh`), through the reject-only conformance check
+after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hnd : (p.members.map (·.cvT.name)).Nodup) :
     Yields (checkBlockRecS mode fe p cvTas ctorsAs)
       (fun rs => (rs.map (·.1.name)).Nodup ∧ ∀ r ∈ rs, fe.find? r.1.name = none) := by
   unfold checkBlockRecS
-  split
-  · exact Yields.thenConform (checkBlockRecKS_fresh mode fe p cvTas ctorsAs hnd)
-  · split
-    · dsimp only
-      split
-      case isFalse => exact Yields.ofThrowBind
-      case isTrue =>
-      refine Yields.bind' (checkNativeRecF_fresh _ fe p.toNative _ _) fun r hr => ?_
-      obtain ⟨cvRa, rhss⟩ := r
-      refine Yields.pure ⟨by simp, ?_⟩
-      intro r' hr'
-      rw [List.mem_singleton] at hr'
-      subst hr'
-      show fe.find? cvRa.name = none
-      rw [hr.1]; exact hr.2
-    · refine Yields.bind fun _ => ?_
-      exact Yields.ofThrow
+  exact Yields.thenConform (checkBlockRecKS_fresh mode fe p cvTas ctorsAs hnd)
 
 /-- The recursors' conses: a fresh chain. -/
 theorem consBlockRecsF_push (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat)
@@ -865,19 +694,6 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   case isFalse => exact Yields.ofThrowBind
   case isTrue _ =>
   exact checkBlockTailS_push mode h₁' (by rw [hns']; exact hndC) (by rw [hm']; exact hndM) hfrs'
-
-/-- **The cached uniform install keeps the chain**, at every setting of
-both gates: the one-member mirror's (`checkNativeS_push`) or the k-ary
-one's (`checkBlockKS_push`). -/
-theorem checkBlockS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : BlockParts) :
-    Yields (checkBlockS mode fe p) (fun fe' => PushChain env fe') := by
-  unfold checkBlockS
-  split
-  · split
-    · exact checkBlockKS_push mode h p
-    · exact checkNativeS_push mode h p.toNative
-  · exact checkBlockKS_push mode h p
 
 /-! ## The declaration clause and the two drivers' steps -/
 
@@ -991,7 +807,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · split
       · cases hbp : blockParts? nP block with
         | none => exact checkIndDeclSF_push mode h block
-        | some p => exact checkBlockS_push mode h p
+        | some p => exact checkBlockKS_push mode h p
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}

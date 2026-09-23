@@ -61,7 +61,6 @@ public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun
 public import ConLeche.Semantics.Bridge.DeclIndRun
-public import ConLeche.Semantics.Bridge.SoundOne
 public import ConLeche.Semantics.Bridge.Sound
 
 @[expose] public section

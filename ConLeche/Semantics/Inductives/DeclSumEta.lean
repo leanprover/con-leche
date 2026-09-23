@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNative
+public import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Inductives.DeclStructEta
 
 @[expose] public section
@@ -190,18 +191,5 @@ theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     ⟨.indInfo cvTa (nativeCaps p) :: env.consts⟩).find?
       cvRa.name = none
   rw [hnR]; exact hfR
-
-/-! ## The dispatch -/
-
-/-- The `.indDecl` run dispatch keeps the η-families closed, by the
-kernel's own case split. -/
-theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
-    {env envI : Env} {block : List ConstantInfo} {nP : Nat}
-    (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatch μ F env block nP envI) : EtaFamiliesClosed envI := by
-  unfold DeclIndRunDispatch at h
-  split at h
-  · exact declNativeRun_etaClosed hE h
-  · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics

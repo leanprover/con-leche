@@ -1052,10 +1052,9 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
-    (hgate : ConLeche.blockRecCheckOn = true) :
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂) :
     Nonempty (EnvModelM V μ env₂) :=
-  declBlock_data hμ mp hE hdp hrun hgate
+  declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hkLen => by
       -- the family level `s`, chosen with its parametricity and its typing
