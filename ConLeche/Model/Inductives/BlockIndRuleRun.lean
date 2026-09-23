@@ -210,7 +210,7 @@ end ConclFit
 * the conclusion's TRUTH VALUE at every certified frame (`hCaZ`) —
   `blockRuleConclUnivZero_run` with the peel (`blockRuleCaAV_run`) and
   §1's fit, the `K` lifts of the field and `ih` domains being the
-  identity (`blockRecFdomsK_eq_of_bounded`, `blockRecIhdomsK_eq`);
+  identity (`blockRuleCertsChain_eq`, RM54);
 * the conclusion at the SPLIT data (`hCaE`) — `blockIndCaE_of_rules` at
   the pinned `hdat` (`blockIndCaE_hdat_run`).
 
@@ -286,9 +286,7 @@ theorem blockIndRuleRows_run (hμ : μ.verifiedChecks = true)
     hFss, hrdsLen, hmemN⟩ := blockRuleCaAV_pair hμ h hkLen hcore hmr rfl hctM ψ hc hj
   obtain rfl : r = rs[c] := Option.some.inj (hr'.symm.trans hr)
   -- the `K` lifts are the identity
-  have hFK := blockRecFdomsK_eq_of_bounded (blockRuleDoms_bounded_at hμ h hcore ψ) hr hcA hrhs
-    rs.length
-  have hIK := blockRecIhdomsK_eq hμ h hkLen hdR hN hS hcore hmr hM hc hj ψ rs.length
+  obtain ⟨hFK, hIK, -⟩ := blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj rs.length
   refine ⟨hih, ?_, ?_⟩
   · -- `hCaZ`: the peel, §1's fit and the checked level
     obtain ⟨us, uOf, helim, hmemU, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
@@ -410,9 +408,9 @@ theorem blockIndIhOpen_run (hμ : μ.verifiedChecks = true)
           = (mkPisAV (ihTeleAtR nF (p.toBlockShape.rulePrefixAt c - d.nP) i 0
               (rebit 0 (((d.tlss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i [])))
               CihR).liftN r 0 := by
-  have hIK := blockRecIhdomsK_eq hμ h hkLen hdR hN hS hcore hmr hM hc hj ψ rs.length
   have hdR' := hdR
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR'
+  obtain ⟨-, hIK, -⟩ := blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj rs.length
   intro q hq
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hjr : j < rs[c].2.2.2.length := by
