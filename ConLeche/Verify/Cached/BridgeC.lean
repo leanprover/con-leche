@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.BridgeCSDecl
+public import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Cached.ParsedC
 
 public section
