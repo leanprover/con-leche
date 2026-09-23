@@ -264,7 +264,8 @@ stage). -/
 def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  if blockRecCheckOn then checkBlockRecKS mode fe p cvTas ctorsAs
+  if blockRecCheckOn then thenConform (checkBlockRecKS mode fe p cvTas ctorsAs)
+    (flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe p cvTas ctorsAs)
   else
     match p.members, cvTas, ctorsAs with
     | [ms], [cvTa], [ctorsA] => do

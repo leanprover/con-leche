@@ -625,7 +625,13 @@ What is checked is the SHAPE the ruling of 2026-09-21 fixes, with the
 argument sums read off the record (`BlockShape.rulePrefixAt` /
 `majorIdxAt`):
 
-* `nP ≤ rP`, and the type has `mI + 1 = rP + nIdx_m + 1` `∀` binders;
+* `nP + k ≤ rP` — room for the parameters and one motive per member,
+  official's `nparams + nmotives ≤ rP` with the motives COUNTED, never
+  looked inside (the ruling of 2026-09-23, lane RM49's witness: a
+  `Prop` block whose recursor has `rP = 0` passed every stage with an
+  EMPTY rule telescope; the model's `ℓ = 0` arm needs every stored rule
+  to bind a variable, `checkBlockRecTys_prefix`) — and the type has
+  `mI + 1 = rP + nIdx_m + 1` `∀` binders;
 * the first `nP` binder DOMAINS are the block's parameter domains,
   compared BINDER BY BINDER with the member's own opened former
   telescope (the constructors' stage pins them the same way);
@@ -662,9 +668,12 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested :
     let cvRi ← checkConstantVal ops env rc.cvR
     let rP := p.rulePrefixAt ri
     let mI := p.majorIdxAt ri
-    unless p.nP ≤ rP do
+    -- the prefix has room for the parameters AND one motive per member
+    -- (official's `nparams + nmotives ≤ rP`; the motives are never
+    -- looked inside, only counted): a rule binds at least one variable
+    unless p.nP + p.k ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
-        parameters")
+        parameters and one motive per member")
     unless mI == rP + ms.nIdx do
       throw (.invalid "direct rec: the recursor's major-premise index is not its rule \
         prefix plus the member's index count")
@@ -958,10 +967,66 @@ def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
     ((p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [])
     cvRas ctorsAs p.recs 0
 
+/-- **Run a stage, then a reject-only check; return the stage's
+result.**  The seam between a verified stage and an unverified
+conformance check: the check can only turn an `ok` into an error,
+never change what the stage returned, so a proof about the stage
+reads through it with one lemma (`thenConform_ok`,
+`ConLeche/Verify/Inductives/BlockWF.lean`) and never peels the check. -/
+@[inline] def thenConform {α : Type} (stage : m α) (conform : m Unit) : m α := do
+  let r ← stage
+  conform
+  pure r
+
+/-- **The recursor CONFORMANCE check** (the maintainer's decision of
+2026-09-23, lane CONF1): the one-member route's GENERATE-AND-COMPARE,
+kept after the recursor stage became a check.
+
+Unverified and reject-only — the same status as the recursor
+name-set check (`blockRecNameSetOk`): no model consumer, it only
+shrinks the accept set.  Soundness comes from the primitive-recursion
+check (`checkBlockRecK`), which runs FIRST (`checkBlockRecChecked`),
+so that the check is exercised on every block; this then brings the
+verdict back to official's on a stream whose recursor is a valid
+primitive recursion but not the one official generates (the argument
+sums, the rule bodies, the recursor's type).
+
+It is exactly the gated-off arm of `checkBlockRec` below — the
+stream's rules against the generated ones (`nativeRulesOk`), then the
+recursor generated and compared (`checkNativeRec`) — with the results
+discarded.
+
+**Coverage: ONE member with ONE recursor only.**  For a mutual block
+(`k ≥ 2`) the kernel has NO generator (the old route handed mutual
+blocks to the untrusted modeller), so the check is SKIPPED there, and
+such a block's recursors are held to the primitive-recursion check
+and the records' pins (`checkBlockRecPins`) alone. -/
+def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) : m Unit :=
+  match p.members, p.recs, cvTas, ctorsAs with
+  | [_], [_], [cvTa], [ctorsA] => do
+    let pn := p.toNative
+    unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
+        pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
+      throw (.invalid "direct rec: recursor rules are not the generated ones")
+    discard <| checkNativeRec ops env pn cvTa ctorsA
+  | _, _, _, _ => pure ()
+
+/-- **The recursor stage with the gate lifted**: the CHECK
+(`checkBlockRecK`), then the conformance check
+(`checkBlockRecConform`), returning the check's result unchanged
+(`thenConform`). -/
+def checkBlockRecChecked (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
+  thenConform (checkBlockRecK ops env p cvTas ctorsAs)
+    (checkBlockRecConform ops env p cvTas ctorsAs)
+
 /-- **The recursor stage, behind its gate** (`blockRecCheckOn`).
 
 With the gate LIFTED the stage is the CHECK of milestone M5
-(`checkBlockRecK`) at every `k`.  With it down — the shipped
+(`checkBlockRecK`) at every `k`, followed by the unverified
+conformance check (`checkBlockRecChecked`).  With it down — the shipped
 configuration — the stage is milestone M1's interim one: at ONE member
 the existing generate-and-compare (the stream's rules against the
 generated ones, `nativeRulesOk`, then the recursor generated and
@@ -989,7 +1054,7 @@ Both go with `blockRouteK1Only` at the flip. -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  if blockRecCheckOn then checkBlockRecK ops env p cvTas ctorsAs
+  if blockRecCheckOn then checkBlockRecChecked ops env p cvTas ctorsAs
   else
     match p.members, cvTas, ctorsAs with
     | [ms], [cvTa], [ctorsA] => do

@@ -385,15 +385,9 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     exact hpull _ (blockTablesTblFree (q := p₁) (p₁.members.zip (ctorsAs.zip sortsss)) _ env₂
       hTbl m _ (hzipEntry m hm) cA sorts hcA hs hn0)
   -- ## the recursor stage's gate: with it LIFTED the stage IS the
-  -- uniform check (the flip deletes this equation with the gate)
-  have hRecK : ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
-      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
-      ((p₀.complete p₁).withKinds kinds) cvTas ctorsAs
-    = ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
-      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
-      ((p₀.complete p₁).withKinds kinds) cvTas ctorsAs := by
-    unfold ConLeche.checkBlockRec
-    rw [if_pos hgate]
+  -- uniform check, read through the conformance check after it
+  -- (`checkBlockRecK_of_gate`; the flip deletes the gate hypothesis)
+  have hRecK := checkBlockRecK_of_gate hgate hRec
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk
@@ -488,7 +482,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? cA.1.name
           = some (.ctorInfo cvj cnP cnF) := by
     intro r hr cA hcA
-    obtain ⟨c, hc⟩ := checkBlockRecK_ctorsIdx (by rw [← hRecK]; exact hRec) r hr
+    obtain ⟨c, hc⟩ := checkBlockRecK_ctorsIdx hRecK r hr
     have hcl : c < ctorsAs.length := by
       have := (List.getElem?_eq_some_iff.mp hc).1
       omega
@@ -504,7 +498,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       ((p₀.complete p₁).withKinds kinds)
       cvTas ctorsAs rs mpC (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) isRec
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
-      (by rw [← hRecK]; exact hRec) hndM hN hS.toBlockCtorsStage hcoreC
+      hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
