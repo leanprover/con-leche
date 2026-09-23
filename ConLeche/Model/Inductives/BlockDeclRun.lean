@@ -10,6 +10,7 @@ import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockIndRuleRun
 import ConLeche.Model.Inductives.BlockKitIhRun
+import ConLeche.Model.Inductives.BlockRecGraph
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockModelRecords
 
@@ -1057,7 +1058,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hkLen => by
+        hctorsAs hctorsIn hdR hlfp hkLen => by
       -- the family level `s`, chosen with its parametricity and its typing
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
@@ -1074,82 +1075,12 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       have heqV := blockRecEqs_valid_seam hμ hrec hnames hstage hcore hkLen hokA hval
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (blockRecEqs_params_seam hμ hrec hcore hkLen i r hr ψ₁ ψ₂ hq)
-      -- the three regime bundles, PRODUCED at the pinned `ihdoms`/`Ca`/`ihv`
-      have hdR : ∃ (env₀' : Env) (pk' : Nat → BlockMemberPick)
-          (uOfD' : Nat → (Name → Nat) → Nat)
-          (ppsOf' : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-          blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf
-            = blockDataOf V pp.toBlockShape env₀' ctorsAsR pp.kinds pk' uOfD' ppsOf' :=
-        ⟨env₀, pk, uOfD, ppsOf, rfl⟩
-      have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-          rsR[c]? = some r →
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).ctorsM
-            (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
-        intro c r hr
-        obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt hrec hr
-        show ctorsAsR.getD _ [] = _
-        rw [List.getD_eq_getElem?_getD, hctA]; rfl
-      have hcertsK := blockRuleCertsK_run hμ hrec hkLen hdR hnames hstage hcore hmr hM
-      -- REGIME IND: the pinned certificates, count, opener reading, `hCaZ`, `hCaE`, and
-      -- the `ih` openers' fit at every typed tuple ((F), carried to the chain frame)
-      have hI : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
-          BlockIndOwed mpC F pp rsR
-            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
-            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
-        intro ψ ρ hℓ
-        refine ⟨fun c j => (blockRuleFrameAt pp rsR c j).ihKeys, fun c hc j hj =>
-          ⟨blockRecIhdomsK rsR.length pp mpC.base2.acval envC rsR ψ c j,
-            blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, ?_⟩⟩
-        obtain ⟨hlen, hZ, hE⟩ := blockIndRuleRows_run hμ hrec hkLen hdR hnames hstage hcore hmr hM
-          ψ ρ hℓ hc hj
-        refine ⟨?_, hlen, blockIndIhOpen_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ hℓ hc hj,
-          hZ, hE, fun as hl ht ys hys =>
-            blockRecIhsFit_chain hμ hrec hl hc (hfitF ψ ρ as hl ht c hc j hj) ys hys⟩
-        obtain ⟨-, -, e3⟩ := blockRuleCertsChain_eq hμ hrec hkLen hcore ψ hc hj rsR.length
-        dsimp only
-        rw [e3]
-        exact hcertsK rsR.length ψ c hc j hj
-      -- REGIME WF: certificates, `hihF`, `hCaB`, `hihChain`
-      have hW : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).w ψ ≠ 0 →
-          BlockWfOwed mpC F pp rsR
-            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
-            (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
-        intro ψ ρ hℓ hw
-        exact ⟨_, fun c j => blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, _,
-          hcertsK rsR.length ψ,
-          blockWfIhF_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw,
-          blockWfCaB_run hμ hrec hkLen hcore hmr hM hnames rfl hctM ψ ρ
-            (fun xs c j fs g => blockKitIhv_length pp rsR mpC.base2.acval envC ψ _ _ ρ xs c j fs g),
-          blockWfIhChain_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ _ hℓ hw⟩
-      -- REGIME SQ, at the one class the counting guard leaves
-      have hSq : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).w ψ = 0 →
-          BlockSqOwed mpC F pp rsR
-            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
-            (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
-        intro ψ ρ hℓ hw
-        have hpos : 0 < rsR.length := (blockRecLen_run hrec).1
-        exact ⟨_, fun c j => blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, _,
-          fun c hc j hj => hcertsK 1 ψ c (Nat.lt_of_lt_of_le hc hpos) j hj,
-          blockSqIhF_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw,
-          blockSqCaB_run hμ hrec hkLen hcore hmr hM hnames rfl hctM hpos ψ ρ
-            (fun xs c j fs g => blockKitIhv_length pp rsR mpC.base2.acval envC ψ _ _ ρ xs c j fs g),
-          blockSqIhChain_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw _⟩
-      have hpre := blockRecPre_seam hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore
-        hmr hM hkLen hTy hokA hfitF rfl rfl
+      -- the recursor model: ONE producer, the graph kit
+      have hpre := blockRecPre_graph hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore
+        hmr hM hkLen hlfp hTy hokA hfitF
         (blockRuleCertsW_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM)
         ⟨blockGradeLhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM,
           blockGradeIhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM⟩
-        hI hW hSq
       -- the `ih` openers' fit, off the regime
       have hihFit := blockRuleIhFit_seam hμ hrec hkLen hnames hstage hcore hpre
       exact ⟨s, blockRecNCt rsR,
