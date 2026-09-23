@@ -1480,7 +1480,12 @@
 # A.rec and B.rec exchange their rule bodies (uniform: 1)
 2 mutual_rec_rules_swapped.ndjson
 # GOOD: the canonical body under an identity redex — typed, but not
-# `minor f ih` (uniform: 0, the accept-superset)
+# `minor f ih` (uniform: 0, the accept-superset).  Official rejects
+# it; the recursor CONFORMANCE check that runs after the uniform
+# route's check (`checkBlockRecConform`) covers ONE member only — the
+# kernel has no mutual generator — so at k = 2 the superset stays
+# (measured on the scratch flip, 2026-09-23).  The k = 1 twin is
+# `corner_rec_body_redex` below.
 0 mutual_rec_body_redex.ndjson
 # A recursor with a MISSING rule.  Completeness is a SOUNDNESS
 # requirement — `Nat.rec` with a rule for `zero` only would prove
@@ -1583,14 +1588,17 @@
 # `is_inductive()`), so there is no nested occurrence to find and the
 # field is a "non valid occurrence": official REJECTS.  TODAY the
 # checker declines ("direct rec: a nested occurrence of the block");
-# the flip turns that into a reject (uniform: 1).
+# the flip turns that into a reject (uniform: 1 — the TARGET; measured
+# on the scratch flip of 2026-09-23 it is still 2, the same decline:
+# the nested arm that would reject it is not built).
 2 corner_pin_quot_bad.ndjson
 # `EFree : Prop | mk : @Eq Prop False False -> EFree`, accepted
 # (uniform: 0).
 0 corner_pin_eq_free.ndjson
 # the same at `@Eq Prop EFree EFree`: `Eq`'s only PARAMETER is `α`, so
 # both member occurrences are index arguments and official again finds
-# no nested occurrence and rejects.  Declines today (uniform: 1).
+# no nested occurrence and rejects.  Declines today (uniform: 1 — the
+# TARGET; still 2 on the scratch flip of 2026-09-23, as above).
 2 corner_pin_eq_bad.ndjson
 # -- an INDEXED container from a NON-parametric member,
 # `TVN | node : (n : Nat) -> VecC TVN n -> TVN`: the index is an
@@ -1604,18 +1612,34 @@
 # off the RECORD, the rule's residue is TYPED, and no rule is compared
 # with a generated term).  None of the seven is exporter-producible —
 # official generates recursors, it does not read them — so the column
-# that matters is `uniform:`.  The three accept-supersets are the
-# point of the exercise: today's route rejects them because it compares
-# the record with the recursor it would have generated.
+# that matters is `uniform:`.  The accept-supersets were the point of
+# the exercise: today's route rejects them because it compares the
+# record with the recursor it would have generated.  Since lane CONF1
+# (2026-09-23) the uniform route does that TOO, after its check: the
+# one-member generate-and-compare is kept as an unverified, reject-only
+# CONFORMANCE check (`checkBlockRecConform`) that runs after the
+# primitive-recursion check, so at k = 1 an accept-superset of the
+# CHECK is refused by the conformance check (`corner_rec_body_redex`
+# is its witness).  The `uniform:` numbers below are measured on the
+# scratch flip with the conformance check in place.
 #
 # an extra minor premise `(junk : Nat')` between `Nat'.rec`'s minors
 # and its major, `numMinors` bumped to match: a self-consistent record
-# for a WEAKER eliminator (uniform: 0).
+# for a WEAKER eliminator.  Uniform: 1 — and not for the recursor
+# stage's reason: the stream's own field validation refuses the record
+# before any route runs ("declares 3 minor premises; the block has 2
+# constructors"), so the check never sees it (measured on the scratch
+# flip, before and after the conformance check, 2026-09-23).
 1 corner_rec_extra_binder.ndjson
 # `Nat'.rec` shaped like `casesOn` — the `succ` minor has no
 # `n_ih : motive n` premise and its rule makes no recursive call, so
 # the body has no inductive hypothesis to ignore.  A legitimate
-# primitive recursion (uniform: 0).
+# primitive recursion, which the CHECK accepts — but not the generated
+# rule, so the conformance check refuses the block (uniform: 1,
+# "recursor rules are not the generated ones").  Before the
+# conformance check the scratch flip accepted the block and the stream
+# rejected LATER, at `Nat'.add` (its definitions were written against
+# the generated `Nat'.rec`), with the same exit code.
 1 corner_rec_no_ih.ndjson
 # `Iter.step`'s rule recurses on `h ((fun x : Nat => x) k) a` — the
 # reflexive field at an argument vector DEFEQ to, but not
@@ -1643,6 +1667,28 @@
 # narrowing makes the spine's demand syntactic too, so the twins now
 # agree (uniform: 1).
 1 corner_rec_redex_nonindex.ndjson
+# `Nat'.rec`'s `succ` rule is the generated body under an identity
+# redex, `λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))`:
+# a valid primitive recursion that is not the generated rule, so
+# official rejects it.  THE WITNESS OF THE CONFORMANCE CHECK: the
+# scratch flip accepted it (20 declarations, iota firing through the
+# rule) until the check ran after the primitive-recursion check;
+# today's one-member arm and the flip both reject it now with the same
+# message (uniform: 1, "recursor rules are not the generated ones").
+# The k = 2 twin, `mutual_rec_body_redex`, stays accepted: no mutual
+# generator.  Forged by `scripts/mk_rec_corner.py`.
+1 corner_rec_body_redex.ndjson
+# `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
+# EMPTY rule prefix (no motive, no minor) — with the rule
+# `T.rec T.c ↦ True.intro`, which binds no variable (lane RM49's
+# witness).  The equation is true, but the model's `ℓ = 0` arm needs
+# every stored rule to bind one, so the recursor stage requires the
+# prefix to hold the parameters and one motive per member
+# (`nP + k ≤ rP`, the ruling of 2026-09-23).  From a stream the record
+# is refused earlier still, by the frontend's field validation
+# ("declares 0 motives"), today and on the scratch flip alike
+# (uniform: 1, the same message).  Forged by `scripts/mk_rec_corner.py`.
+1 corner_rec_empty_prefix.ndjson
 # the same call at `h Nat.zero a`: a constant where the bound variable
 # belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is
 # ill-typed however the guard reads it — "a different argument vector"

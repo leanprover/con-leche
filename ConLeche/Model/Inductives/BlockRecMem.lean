@@ -97,9 +97,10 @@ theorem checkBlockRecTys_open {mode : ConLeche.CheckMode} {env : Env}
     obtain ⟨ms, _, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨cvTa, _, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨cvRi, _, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
     by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
@@ -201,9 +202,10 @@ theorem checkBlockRecTys_major {mode : ConLeche.CheckMode} {env : Env}
     obtain ⟨ms, hms, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨cvTa, hcvTa, h⟩ := ConLeche.exceptBind_ok h
     obtain ⟨cvRi, _, h⟩ := ConLeche.exceptBind_ok h
-    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
     by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
