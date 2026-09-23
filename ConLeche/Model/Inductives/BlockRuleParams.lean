@@ -151,77 +151,29 @@ theorem lpDefF_stripLams :
 
 omit [SetTheory V] in
 /-- **The abstraction keeps the footprint**: a guarded call becomes a
-bound variable applied to (lifted) sub-arguments of the call. -/
-theorem lpDefF_abstractIh {fr : ConLeche.BlockRuleFrame} :
-    ∀ {e e'' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e'' →
-      lpDefF ps e = true → lpDefF ps e'' = true
-  | .bvar j, e'', d, hab, _ => by
-    rw [ConLeche.abstractIh_bvar] at hab
-    rw [← Option.some.inj hab]
-    split <;> rfl
-  | .sort _, _, _, hab, h | .lit _, _, _, hab, h => by
-    rw [← Option.some.inj hab]; exact h
-  | .const n us, e'', d, hab, h => by
-    rw [ConLeche.abstractIh_const] at hab
-    split at hab
-    · exact nomatch hab
-    · rw [← Option.some.inj hab]; exact h
-  | .fvar _ _, _, _, hab, _ => nomatch hab
-  | .lam ty b bi, e'', d, hab, h => by
-    simp only [lpDefF, Bool.and_eq_true] at h
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [lpDefF, lpDefF_abstractIh hty' h.1.1, lpDefF_abstractIh hb' h.1.2, h.2,
-      Bool.and_self]
-  | .forallE ty b bi, e'', d, hab, h => by
-    simp only [lpDefF, Bool.and_eq_true] at h
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [lpDefF, lpDefF_abstractIh hty' h.1.1, lpDefF_abstractIh hb' h.1.2, h.2,
-      Bool.and_self]
-  | .letE ty v b, e'', d, hab, h => by
-    simp only [lpDefF, Bool.and_eq_true] at h
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.bind_eq_some_iff] at hab
-    obtain ⟨v', hv', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [lpDefF, lpDefF_abstractIh hty' h.1.1, lpDefF_abstractIh hv' h.1.2,
-      lpDefF_abstractIh hb' h.2, Bool.and_self]
-  | .proj sn i e, e'', d, hab, h => by
-    simp only [lpDefF] at h
-    rw [ConLeche.abstractIh] at hab
-    split at hab
-    · exact nomatch hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨e', he', rfl⟩ := hab
-    simp only [lpDefF, lpDefF_abstractIh he' h]
-  | .app f a, e'', d, hab, h => by
-    rw [ConLeche.abstractIh_app] at hab
-    revert hab
-    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
-    | some ra =>
-      intro hab
-      obtain ⟨r, as⟩ := ra
-      obtain rfl := Option.some.inj hab
+bound variable applied to (lifted) sub-arguments of the call
+(`abstractIh_preserves`). -/
+theorem lpDefF_abstractIh {fr : ConLeche.BlockRuleFrame} {e e'' : Expr} {d : Nat}
+    (hab : ConLeche.abstractIh fr d e = some e'') (hl : lpDefF ps e = true) :
+    lpDefF ps e'' = true :=
+  ConLeche.abstractIh_preserves (fun _ e => lpDefF ps e = true) (fun _ e => lpDefF ps e = true)
+    (fun _ _ _ => by split <;> rfl) (fun _ _ h => h) (fun _ _ h => h) (fun _ _ _ _ h => h)
+    (fun _ _ _ _ _ hc h => by
       obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
       have hmajD := lpDefF_getAppArgs _ h maj hmaj
       refine lpDefF_mkAppN _ rfl (fun x hx => ?_)
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      exact lpDefF_liftLooseBVars _ y _ (lpDefF_getAppArgs maj hmajD y hy)
-    | none =>
-      intro hab
-      simp only [lpDefF, Bool.and_eq_true] at h
-      rw [Option.bind_eq_some_iff] at hab
-      obtain ⟨f', hf', hab⟩ := hab
-      rw [Option.map_eq_some_iff] at hab
-      obtain ⟨a', ha', rfl⟩ := hab
-      simp only [lpDefF, lpDefF_abstractIh hf' h.1, lpDefF_abstractIh ha' h.2, Bool.and_self]
+      exact lpDefF_liftLooseBVars _ y _ (lpDefF_getAppArgs maj hmajD y hy))
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      simp only [lpDefF, Bool.and_eq_true] at h ⊢; exact ⟨⟨i1 h.1.1, i2 h.1.2⟩, h.2⟩)
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      simp only [lpDefF, Bool.and_eq_true] at h ⊢; exact ⟨⟨i1 h.1.1, i2 h.1.2⟩, h.2⟩)
+    (fun _ _ _ _ _ _ _ h i1 i2 i3 => by
+      simp only [lpDefF, Bool.and_eq_true] at h ⊢; exact ⟨⟨i1 h.1.1, i2 h.1.2⟩, i3 h.2⟩)
+    (fun _ _ _ _ _ h i1 => by simp only [lpDefF] at h ⊢; exact i1 h)
+    (fun _ _ _ _ _ h i1 i2 => by
+      simp only [lpDefF, Bool.and_eq_true] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    hab hl
 
 omit [SetTheory V] in
 /-- **An opening at fvars keeps the footprint** — whatever the openers'

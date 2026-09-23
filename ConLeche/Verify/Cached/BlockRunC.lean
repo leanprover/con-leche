@@ -395,71 +395,26 @@ theorem blockIhPis_ws0 {nP rP nF : Nat} {pw : PropWhen} {recTyOf : Nat → Expr}
 variable**: a free variable of the body is refused outright, and a
 guarded call is replaced by an `ih` variable applied to the field
 telescope's own bound variables. -/
-theorem abstractIh_ws0 {fr : BlockRuleFrame} :
-    ∀ {e : Expr} {d : Nat} {e' : Expr}, abstractIh fr d e = some e' → WScoped 0 e' := by
-  intro e
-  induction e with
-  | bvar j =>
-    intro d e' h
-    simp only [abstractIh_bvar, Option.some.injEq] at h
-    subst h; split <;> simp [WScoped]
-  | fvar => intro d e' h; simp at h
-  | sort u => intro d e' h; simp only [abstractIh_sort, Option.some.injEq] at h; subst h; simp [WScoped]
-  | lit l => intro d e' h; simp only [abstractIh_lit, Option.some.injEq] at h; subst h; simp [WScoped]
-  | const n us =>
-    intro d e' h
-    simp only [abstractIh_const] at h
-    split at h
-    · exact nomatch h
-    · simp only [Option.some.injEq] at h; subst h; simp [WScoped]
-  | app f a ihf iha =>
-    intro d e' h
-    rw [abstractIh_app] at h
-    split at h
-    · next rpos as hcall =>
-      simp only [Option.some.injEq] at h
-      subst h
-      obtain ⟨_nm, _c, _i, _ex, -, -, -, -, -, -, -, -, hvars, -, -⟩ := blockIhCall?_spine hcall
+theorem abstractIh_ws0 {fr : BlockRuleFrame} {e : Expr} {d : Nat} {e' : Expr}
+    (h : abstractIh fr d e = some e') : WScoped 0 e' :=
+  abstractIh_preserves (fun _ _ => True) (fun _ e => WScoped 0 e)
+    (fun _ _ _ => by split <;> simp [WScoped]) (fun _ _ _ => by simp [WScoped])
+    (fun _ _ _ => by simp [WScoped]) (fun _ _ _ _ _ => by simp [WScoped])
+    (fun _ _ _ _ _ hcall _ => by
+      obtain ⟨C⟩ := blockIhCall?_run hcall
       refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
       intro x hx
       simp only [List.mem_map] at hx
       obtain ⟨y, hy, rfl⟩ := hx
-      rw [hvars] at hy
-      exact WScoped.liftLooseBVars' (structTeleVars_WScoped y hy)
-    · obtain ⟨f', hf', h⟩ := Option.bind_eq_some_iff.mp h
-      obtain ⟨a', ha', rfl⟩ := Option.map_eq_some_iff.mp h
-      simp only [WScoped]
-      exact ⟨ihf hf', iha ha'⟩
-  | lam ty b bi ih1 ih2 =>
-    intro d e' h
-    simp only [abstractIh] at h
-    obtain ⟨ty', h1, h⟩ := Option.bind_eq_some_iff.mp h
-    obtain ⟨b', h2, rfl⟩ := Option.map_eq_some_iff.mp h
-    simp only [WScoped]
-    exact ⟨ih1 h1, ih2 h2⟩
-  | forallE ty b bi ih1 ih2 =>
-    intro d e' h
-    simp only [abstractIh] at h
-    obtain ⟨ty', h1, h⟩ := Option.bind_eq_some_iff.mp h
-    obtain ⟨b', h2, rfl⟩ := Option.map_eq_some_iff.mp h
-    simp only [WScoped]
-    exact ⟨ih1 h1, ih2 h2⟩
-  | letE ty v b ih1 ih2 ih3 =>
-    intro d e' h
-    simp only [abstractIh] at h
-    obtain ⟨ty', h1, h⟩ := Option.bind_eq_some_iff.mp h
-    obtain ⟨v', h2, h⟩ := Option.bind_eq_some_iff.mp h
-    obtain ⟨b', h3, rfl⟩ := Option.map_eq_some_iff.mp h
-    simp only [WScoped]
-    exact ⟨ih1 h1, ih2 h2, ih3 h3⟩
-  | proj s i e ih =>
-    intro d e' h
-    simp only [abstractIh] at h
-    split at h
-    · exact nomatch h
-    · obtain ⟨x, hx, rfl⟩ := Option.map_eq_some_iff.mp h
-      simp only [WScoped]
-      exact ih hx
+      rw [C.hvars] at hy
+      exact WScoped.liftLooseBVars' (structTeleVars_WScoped y hy))
+    (fun _ _ _ _ _ _ _ i1 i2 => by simp only [WScoped]; exact ⟨i1 trivial, i2 trivial⟩)
+    (fun _ _ _ _ _ _ _ i1 i2 => by simp only [WScoped]; exact ⟨i1 trivial, i2 trivial⟩)
+    (fun _ _ _ _ _ _ _ _ i1 i2 i3 => by
+      simp only [WScoped]; exact ⟨i1 trivial, i2 trivial, i3 trivial⟩)
+    (fun _ _ _ _ _ _ i1 => by simp only [WScoped]; exact i1 trivial)
+    (fun _ _ _ _ _ _ i1 i2 => by simp only [WScoped]; exact ⟨i1 trivial, i2 trivial⟩)
+    h trivial
 
 theorem piBinders_ws0 : ∀ {e : Expr}, WScoped 0 e →
     (∀ b ∈ e.piBinders.1, WScoped 0 b.1) ∧ WScoped 0 e.piBinders.2

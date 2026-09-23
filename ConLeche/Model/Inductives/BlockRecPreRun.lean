@@ -6691,75 +6691,19 @@ what the tower's leaf needs.  On a recursor-free term the walk IS
 `liftLooseBVars nR d`, and at a
 consumed call it is one of the `nR` new binders applied to lifts of
 the call's own arguments. -/
-theorem abstractIh_looseBVarsBounded {fr : ConLeche.BlockRuleFrame} {B : Nat} :
-    ∀ {e e'' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e'' →
-      e.looseBVarsBounded (d + B) = true → e''.looseBVarsBounded (d + B + fr.nR) = true
-  | .bvar j, e'', d, hab, hb => by
-    rw [ConLeche.abstractIh_bvar] at hab
-    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
-    rw [← Option.some.inj hab]
-    split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
-  | .sort _, _, _, hab, _ | .lit _, _, _, hab, _ => by rw [← Option.some.inj hab]; rfl
-  | .const n us, e'', d, hab, _ => by
-    rw [ConLeche.abstractIh_const] at hab
-    split at hab
-    · exact nomatch hab
-    · rw [← Option.some.inj hab]; rfl
-  | .fvar _ _, _, _, hab, _ => nomatch hab
-  | .lam ty b bi, e'', d, hab, hb => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-    refine ⟨abstractIh_looseBVarsBounded hty' hb.1, ?_⟩
-    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
-      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
-    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
-  | .forallE ty b bi, e'', d, hab, hb => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-    refine ⟨abstractIh_looseBVarsBounded hty' hb.1, ?_⟩
-    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
-      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
-    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
-  | .letE ty v b, e'', d, hab, hb => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.bind_eq_some_iff] at hab
-    obtain ⟨v', hv', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-    refine ⟨⟨abstractIh_looseBVarsBounded hty' hb.1.1,
-      abstractIh_looseBVarsBounded hv' hb.1.2⟩, ?_⟩
-    have := abstractIh_looseBVarsBounded (B := B) (d := d + 1) hb'
-      (by rw [show d + 1 + B = d + B + 1 from by omega]; exact hb.2)
-    rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this
-  | .proj sn i e, e'', d, hab, hb => by
-    simp only [Expr.looseBVarsBounded] at hb
-    rw [ConLeche.abstractIh] at hab
-    split at hab
-    · exact nomatch hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨e', he', rfl⟩ := hab
-    simpa only [Expr.looseBVarsBounded] using abstractIh_looseBVarsBounded he' hb
-  | .app f a, e'', d, hab, hb => by
-    rw [ConLeche.abstractIh_app] at hab
-    revert hab
-    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
-    | some ra =>
-      intro hab
-      obtain ⟨r, as⟩ := ra
-      obtain rfl := Option.some.inj hab
-      obtain ⟨_nm0, _c0, _i0, _exp0, _hfn0, _hnm0, hkey, _hrest0⟩ := ConLeche.blockIhCall?_spine hc
-      have hrlt : r < fr.nR := pairIdxOf?_lt hkey
+theorem abstractIh_looseBVarsBounded {fr : ConLeche.BlockRuleFrame} {B : Nat} {e e'' : Expr}
+    {d : Nat} (hab : ConLeche.abstractIh fr d e = some e'')
+    (hb : e.looseBVarsBounded (d + B) = true) :
+    e''.looseBVarsBounded (d + B + fr.nR) = true :=
+  ConLeche.abstractIh_preserves (fun d e => e.looseBVarsBounded (d + B) = true)
+    (fun d e => e.looseBVarsBounded (d + B + fr.nR) = true)
+    (fun _ _ h => by
+      simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at h
+      split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega)
+    (fun _ _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ _ _ _ => rfl)
+    (fun d _ _ r _ hc hb => by
+      obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
+      have hrlt : r < fr.nR := pairIdxOf?_lt C.hkey
       obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
       have hba : ∀ x ∈ maj.getAppArgs, x.looseBVarsBounded (d + B) = true :=
         ConLeche.looseBVarsBounded_getAppArgs
@@ -6767,16 +6711,26 @@ theorem abstractIh_looseBVarsBounded {fr : ConLeche.BlockRuleFrame} {B : Nat} :
       refine ConLeche.looseBVarsBounded_mkAppN ?_ (fun x hx => ?_)
       · simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega
       · obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-        exact Expr.looseBVarsBounded_liftLooseBVars fr.nR y (hba y hy)
-    | none =>
-      intro hab
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-      rw [Option.bind_eq_some_iff] at hab
-      obtain ⟨f', hf', hab⟩ := hab
-      rw [Option.map_eq_some_iff] at hab
-      obtain ⟨a', ha', rfl⟩ := hab
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-      exact ⟨abstractIh_looseBVarsBounded hf' hb.1, abstractIh_looseBVarsBounded ha' hb.2⟩
+        exact Expr.looseBVarsBounded_liftLooseBVars fr.nR y (hba y hy))
+    (fun d _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      refine ⟨i1 h.1, ?_⟩
+      have := i2 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
+      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
+    (fun d _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      refine ⟨i1 h.1, ?_⟩
+      have := i2 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
+      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
+    (fun d _ _ _ _ _ _ h i1 i2 i3 => by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      refine ⟨⟨i1 h.1.1, i2 h.1.2⟩, ?_⟩
+      have := i3 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
+      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
+    (fun _ _ _ _ _ h i1 => by simp only [Expr.looseBVarsBounded] at h ⊢; exact i1 h)
+    (fun _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    hab hb
 
 end IhTower
 

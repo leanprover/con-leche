@@ -291,59 +291,12 @@ theorem bounded_of_mem_getAppArgs {k : Nat} :
   | .letE .., _, a, ha | .proj .., _, a, ha => absurd ha (by simp [Expr.getAppArgs])
 
 /-- **The call's arguments are the MAJOR's arguments**, and the major
-is one of the node's — `blockIhCall?` inverted just far enough to move
-`hasFvar` down. -/
+is one of the node's (`IhCallRun.hmaj`/`hasMaj`). -/
 theorem blockIhCall?_args_sub {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr}
     {r : Nat} {as : List Expr} (h : ConLeche.blockIhCall? fr d e = some (r, as)) :
     ∃ maj ∈ e.getAppArgs, as = maj.getAppArgs := by
-  simp only [ConLeche.blockIhCall?] at h
-  split at h
-  case h_2 => exact nomatch h
-  case h_1 =>
-  split at h
-  case h_1 => exact nomatch h
-  case h_2 =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case h_1 => exact nomatch h
-  case h_2 maj hmaj =>
-  have hmem : maj ∈ e.getAppArgs := List.mem_of_getElem? hmaj
-  split at h
-  case h_2 => exact nomatch h
-  case h_1 =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case h_1 => exact nomatch h
-  case h_2 =>
-  split at h
-  case isTrue => exact nomatch h
-  case isFalse =>
-  split at h
-  case h_1 => exact nomatch h
-  case h_2 =>
-  exact ⟨maj, hmem, (Prod.mk.inj (Option.some.inj h)).2.symm⟩
+  obtain ⟨C⟩ := ConLeche.blockIhCall?_run h
+  exact ⟨C.maj, List.mem_of_getElem? C.hmaj, C.hasMaj⟩
 
 theorem hasFvar_liftLooseBVars {n c : Nat} :
     ∀ {e : Expr}, (e.liftLooseBVars n c).hasFvar = e.hasFvar
@@ -369,76 +322,29 @@ theorem hasFvar_mkAppN : ∀ {as : List Expr} {f : Expr}, f.hasFvar = false →
     simp [Expr.hasFvar, hf, ha a List.mem_cons_self]
 
 /-- **The abstraction brings no free variable**: it only moves bound
-ones and replaces spines by `ih` openers. -/
-theorem abstractIh_hasFvar {fr : ConLeche.BlockRuleFrame} :
-    ∀ {e e'' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e'' →
-      e.hasFvar = false → e''.hasFvar = false
-  | .bvar j, e'', d, hab, _ => by
-    rw [ConLeche.abstractIh_bvar] at hab
-    rw [← Option.some.inj hab]
-    split <;> rfl
-  | .sort _, _, _, hab, _ | .lit _, _, _, hab, _ => by rw [← Option.some.inj hab]; rfl
-  | .const n us, e'', d, hab, _ => by
-    rw [ConLeche.abstractIh_const] at hab
-    split at hab
-    · exact nomatch hab
-    · rw [← Option.some.inj hab]; rfl
-  | .fvar _ _, _, _, hab, _ => nomatch hab
-  | .lam ty b bi, e'', d, hab, hf => by
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp [Expr.hasFvar, abstractIh_hasFvar hty' hf.1, abstractIh_hasFvar hb' hf.2]
-  | .forallE ty b bi, e'', d, hab, hf => by
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp [Expr.hasFvar, abstractIh_hasFvar hty' hf.1, abstractIh_hasFvar hb' hf.2]
-  | .letE ty v b, e'', d, hab, hf => by
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.bind_eq_some_iff] at hab
-    obtain ⟨v', hv', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    simp [Expr.hasFvar, abstractIh_hasFvar hty' hf.1.1, abstractIh_hasFvar hv' hf.1.2,
-      abstractIh_hasFvar hb' hf.2]
-  | .proj sn i e, e'', d, hab, hf => by
-    simp only [Expr.hasFvar] at hf
-    rw [ConLeche.abstractIh] at hab
-    split at hab
-    · exact nomatch hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨e', he', rfl⟩ := hab
-    simpa [Expr.hasFvar] using abstractIh_hasFvar he' hf
-  | .app f a, e'', d, hab, hf => by
-    rw [ConLeche.abstractIh_app] at hab
-    revert hab
-    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
-    | some ra =>
-      intro hab
-      obtain ⟨r, as⟩ := ra
-      obtain rfl := Option.some.inj hab
+ones and replaces spines by `ih` openers (`abstractIh_preserves`). -/
+theorem abstractIh_hasFvar {fr : ConLeche.BlockRuleFrame} {e e'' : Expr} {d : Nat}
+    (hab : ConLeche.abstractIh fr d e = some e'') (hf : e.hasFvar = false) :
+    e''.hasFvar = false :=
+  ConLeche.abstractIh_preserves (fun _ e => e.hasFvar = false) (fun _ e => e.hasFvar = false)
+    (fun _ _ _ => by split <;> rfl) (fun _ _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ _ _ h => h)
+    (fun _ _ _ _ _ hc hf => by
       obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
-      have hfa : ∀ x ∈ maj.getAppArgs, x.hasFvar = false :=
-        hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs hf maj hmaj)
       refine hasFvar_mkAppN rfl fun x hx => ?_
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
       rw [hasFvar_liftLooseBVars]
-      exact hfa y hy
-    | none =>
-      intro hab
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-      rw [Option.bind_eq_some_iff] at hab
-      obtain ⟨f', hf', hab⟩ := hab
-      rw [Option.map_eq_some_iff] at hab
-      obtain ⟨a', ha', rfl⟩ := hab
-      simp [Expr.hasFvar, abstractIh_hasFvar hf' hf.1, abstractIh_hasFvar ha' hf.2]
+      exact hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs hf maj hmaj) y hy)
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    (fun _ _ _ _ _ _ _ h i1 i2 i3 => by
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢
+      exact ⟨⟨i1 h.1.1, i2 h.1.2⟩, i3 h.2⟩)
+    (fun _ _ _ _ _ h i1 => by simp only [Expr.hasFvar] at h ⊢; exact i1 h)
+    (fun _ _ _ _ _ h i1 i2 => by
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    hab hf
 
 /-! ## The literal readings are lift-invariant
 
@@ -1684,10 +1590,8 @@ theorem ihNodeVal_of_fold
       obtain ⟨maj, hmaj, hsub⟩ := blockIhCall?_args_sub hc
       exact hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs he maj hmaj) z (hsub ▸ hz)))
     hcbe 0) hB
-  obtain ⟨nm, c', i, expected, hh1, hh2, hrpos, hh4, hh5, hh6, hh7, hh8, -, hh9, hh10⟩ :=
-    ConLeche.blockIhCall?_spine hc
-  clear hh1 hh2 hh4 hh5 hh6 hh7 hh8 hh9 hh10
-  have hr : r < fr.nR := pairIdxOf?_lt hrpos
+  obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
+  have hr : r < fr.nR := pairIdxOf?_lt C.hkey
   obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
   have hfa : ∀ a ∈ maj.getAppArgs, a.hasFvar = false :=
     hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs he maj hmaj)
@@ -1700,7 +1604,7 @@ theorem ihNodeVal_of_fold
 
 /-! ## One step further: the STORED node is the GENERATED spine
 
-`blockIhCall?_spine` exports `e = expected` as TERMS (the kernel's
+`IhCallRun.heq` exports `e = expected` as TERMS (the kernel's
 exact comparison), so the stored node's reading at the rule's frame IS the
 generated call's — `congrArg` through the opening.  That removes
 `blockIhCall?` from the obligation altogether and leaves a statement
@@ -1752,10 +1656,11 @@ theorem ihCallFold_of_spine {envT : Env} {mT : EnvModel V envT}
     {ihvals : List V} (h : IhSpineFold V acval env mT φ fr F ρ' ihvals as2₀) :
     IhCallFold V acval env mT φ fr F ρ' ihvals as2₀ := by
   intro d locals e r as as1 as2 Δa A vs ws he hb hcbe hloc h1 h2 hsx hlf hW hc hty hA hvs hws
-  obtain ⟨nm, c', i, expected, -, hnm, hrpos, -, -, -, hasl, -, -, hexp, rfl⟩ :=
-    ConLeche.blockIhCall?_spine hc
-  exact h d locals nm c' i r as as1 as2 Δa e e A vs ws hc he hb hcbe hloc h1 h2 hsx hlf hW hnm
-    hrpos hasl hexp rfl hty hA hvs hws
+  obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
+  have hexp := C.hexp
+  rw [← C.heq] at hexp
+  exact h d locals C.nm C.c' C.i r as as1 as2 Δa e e A vs ws hc he hb hcbe hloc h1 h2 hsx hlf
+    hW C.hnm C.hkey C.haslen hexp rfl hty hA hvs hws
 
 /-- **O-1's premise, from the generated spine alone.**  The composite:
 `interp_abstractIh`'s `hcall` follows from a statement that mentions

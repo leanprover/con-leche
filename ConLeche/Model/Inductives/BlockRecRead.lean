@@ -76,7 +76,7 @@ denote differently.  `blockIhCall?`'s comparison
 (`Kernel/Inductives/BlockRec.lean`) is the ONLY tie between the stored
 right-hand side's call node and the spine the ι law is stated at, so
 it compares EXACTLY, binder data included (`e != expected`), and
-`blockIhCall?_spine` (`Verify/Inductives/BlockRecInv.lean`) exports
+`IhCallRun` (`Verify/Inductives/BlockRecInv.lean`) exports
 `e = expected`: the call node's annotated index expressions are the
 constructor's stored ones, syntactically.  A comparison up to
 `resetMeta` would leave a reading that cannot be transported. -/
@@ -145,7 +145,7 @@ theorem denoteMeta_instPisAtLift_peel
 `interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')` has one case
 that is not structural: the node the abstraction REPLACES, where the
 stored node and the generated spine must read alike.  With the exact
-comparison above that is `congrArg`: `blockIhCall?_spine` exports
+comparison above that is `congrArg`: `IhCallRun.heq` exports
 `e = expected` as TERMS. -/
 
 /-! ## The stored types READ, and their readings are GRADED

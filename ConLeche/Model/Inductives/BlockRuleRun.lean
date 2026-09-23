@@ -402,80 +402,28 @@ constant it keeps is one the rule mentioned outside a guarded call, and
 no such constant is a block recursor. -/
 theorem abstractIh_constsBound {envC env' : Env} {fr : ConLeche.BlockRuleFrame}
     (hmono : ∀ n : Name, (env'.find? n).isSome = true →
-      fr.recNames.contains n = false → (envC.find? n).isSome = true) :
-    ∀ {e e'' : Expr} {d : Nat}, ConLeche.abstractIh fr d e = some e'' →
-      ConstsBound env' e → ConstsBound envC e''
-  | .bvar j, e'', d, hab, _ => by
-    rw [ConLeche.abstractIh_bvar] at hab
-    rw [← Option.some.inj hab]
-    split <;> simp
-  | .sort _, _, _, hab, _ | .lit _, _, _, hab, _ => by rw [← Option.some.inj hab]; simp
-  | .const n us, e'', d, hab, hcb => by
-    rw [ConLeche.abstractIh_const] at hab
-    split at hab
-    · exact nomatch hab
-    · rename_i hn
-      rw [← Option.some.inj hab, constsBound_const]
-      rw [constsBound_const] at hcb
-      exact hmono n hcb (by simpa using hn)
-  | .fvar _ _, _, _, hab, _ => nomatch hab
-  | .lam ty b bi, e'', d, hab, hcb => by
-    rw [constsBound_lam] at hcb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    rw [constsBound_lam]
-    exact ⟨abstractIh_constsBound hmono hty' hcb.1, abstractIh_constsBound hmono hb' hcb.2⟩
-  | .forallE ty b bi, e'', d, hab, hcb => by
-    rw [constsBound_forallE] at hcb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    rw [constsBound_forallE]
-    exact ⟨abstractIh_constsBound hmono hty' hcb.1, abstractIh_constsBound hmono hb' hcb.2⟩
-  | .letE ty v b, e'', d, hab, hcb => by
-    rw [constsBound_letE] at hcb
-    rw [ConLeche.abstractIh, Option.bind_eq_some_iff] at hab
-    obtain ⟨ty', hty', hab⟩ := hab
-    rw [Option.bind_eq_some_iff] at hab
-    obtain ⟨v', hv', hab⟩ := hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨b', hb', rfl⟩ := hab
-    rw [constsBound_letE]
-    exact ⟨abstractIh_constsBound hmono hty' hcb.1, abstractIh_constsBound hmono hv' hcb.2.1,
-      abstractIh_constsBound hmono hb' hcb.2.2⟩
-  | .proj sn i e, e'', d, hab, hcb => by
-    rw [constsBound_proj] at hcb
-    rw [ConLeche.abstractIh] at hab
-    split at hab
-    · exact nomatch hab
-    rw [Option.map_eq_some_iff] at hab
-    obtain ⟨e', he', rfl⟩ := hab
-    rw [constsBound_proj]
-    exact abstractIh_constsBound hmono he' hcb
-  | .app f a, e'', d, hab, hcb => by
-    rw [ConLeche.abstractIh_app] at hab
-    revert hab
-    cases hc : ConLeche.blockIhCall? fr d (.app f a) with
-    | some ra =>
-      intro hab
-      obtain ⟨r, as⟩ := ra
-      obtain rfl := Option.some.inj hab
-      have has := blockIhCall?_args_constsBound hmono hc hcb
+      fr.recNames.contains n = false → (envC.find? n).isSome = true)
+    {e e'' : Expr} {d : Nat} (hab : ConLeche.abstractIh fr d e = some e'')
+    (hcb : ConstsBound env' e) : ConstsBound envC e'' :=
+  ConLeche.abstractIh_preserves (fun _ e => ConstsBound env' e) (fun _ e => ConstsBound envC e)
+    (fun _ _ _ => by split <;> simp) (fun _ _ _ => by simp) (fun _ _ _ => by simp)
+    (fun _ n _ hn h => by
+      rw [constsBound_const] at h ⊢; exact hmono n h hn)
+    (fun _ _ _ _ _ hc h => by
+      have has := blockIhCall?_args_constsBound hmono hc h
       refine constsBound_mkAppN _ (by simp) (fun x hx => ?_)
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      exact constsBound_liftLooseBVars _ y _ (has y hy)
-    | none =>
-      intro hab
-      rw [constsBound_app] at hcb
-      rw [Option.bind_eq_some_iff] at hab
-      obtain ⟨f', hf', hab⟩ := hab
-      rw [Option.map_eq_some_iff] at hab
-      obtain ⟨a', ha', rfl⟩ := hab
-      rw [constsBound_app]
-      exact ⟨abstractIh_constsBound hmono hf' hcb.1, abstractIh_constsBound hmono ha' hcb.2⟩
+      exact constsBound_liftLooseBVars _ y _ (has y hy))
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      rw [constsBound_lam] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    (fun _ _ _ _ _ _ h i1 i2 => by
+      rw [constsBound_forallE] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    (fun _ _ _ _ _ _ _ h i1 i2 i3 => by
+      rw [constsBound_letE] at h ⊢; exact ⟨i1 h.1, i2 h.2.1, i3 h.2.2⟩)
+    (fun _ _ _ _ _ h i1 => by rw [constsBound_proj] at h ⊢; exact i1 h)
+    (fun _ _ _ _ _ h i1 i2 => by
+      rw [constsBound_app] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
+    hab hcb
 
 omit [SetTheory V] in
 /-- The recursors' bare environment finds only the recursors' names and

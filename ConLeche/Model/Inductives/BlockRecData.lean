@@ -3181,12 +3181,11 @@ theorem blockRuleHfit_of {env envT : Env} {mo : EnvModel V env} {mT : EnvModel V
     h1 h2 hsx hlf hcbe hW htyN hvs hws hwlen
   have hr : r < fr.nR := pairIdxOf?_lt hrpos
   -- the call's own key: its field index is this one
-  obtain ⟨nm2, c2, i2, expected, -, -, hrpos2, -, -, -, hasl, -, -, -, -⟩ :=
-    ConLeche.blockIhCall?_spine hcall
-  obtain ⟨rfl, -⟩ : i = i2 ∧ c' = c2 := by
-    have h := pairIdxOf?_inj hrpos hrpos2
+  obtain ⟨C⟩ := ConLeche.blockIhCall?_run hcall
+  have hasl : as.length = (fr.teleOf i).length := by
+    have h := pairIdxOf?_inj hrpos C.hkey
     injection h with ha hb
-    exact ⟨ha, hb⟩
+    rw [ha]; exact C.haslen
   -- the arguments' own bounds
   obtain ⟨maj, hmaj, hasEq⟩ := blockIhCall?_args_sub hcall
   have hbnd : ∀ a ∈ as, a.looseBVarsBounded (F + d) = true ∧ a.hasFvar = false := by
@@ -3350,7 +3349,7 @@ one, where the check ran.  The bridge is
 `denoteMeta_consBlockRecs_mono`, whose one hypothesis is
 `ConstsBound envT`; and that IS true of a guarded call's arguments,
 because `blockIhCall?` rejects a block recursor anywhere in them
-(`blockIhCall?_spine`'s eighth conjunct). -/
+(`IhCallRun.hfree`). -/
 
 section ArgsConsts
 
@@ -3408,7 +3407,8 @@ theorem blockIhCall?_args_constsBound {fr : ConLeche.BlockRuleFrame} {d : Nat} {
     (hc : ConLeche.blockIhCall? fr d e = some (r, as))
     (hcb : ConstsBound env' e) :
     ∀ a ∈ as, ConstsBound envC a := by
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hfree, -, -, -⟩ := ConLeche.blockIhCall?_spine hc
+  obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
+  have hfree := C.hfree
   obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
   intro a ha
   refine constsBound_of_not_mentions hmono a

@@ -14,7 +14,7 @@ public section
 What `ConLeche/Kernel/Inductives/BlockRec.lean`'s pieces are, said in
 the form the model tier reads them:
 
-* the **guarded call's characterisation** (`blockIhCall?_spine`): a
+* the **guarded call's characterisation** (`IhCallRun`, `blockIhCall?_run`): a
   node the abstraction replaces IS the generated recursive call
   `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
   THIS constructor whose kind names the member `rec_{c'}` eliminates,
@@ -64,7 +64,7 @@ environment — the one it was called at, before `consBlockRecsBare`.
 
 What is NOT here, and is the semantics tier's (design §4.3): the
 abstraction's own INVERSE, `body = body''[ih_i a⃗ ↦ spine]`.  Its
-syntactic half is `blockIhCall?_spine` (every replaced node is the
+syntactic half is `blockIhCall?_run` (every replaced node is the
 spine); the substitution lemma is stated over the DENOTATION
 (`interp_instsAV`, `Semantics/Tower/BlockRecI.lean`).
 -/
@@ -79,45 +79,63 @@ open Expr
 
 /-! ## The guarded recursive call -/
 
-set_option maxHeartbeats 1000000 in
-
 /-- **A node the abstraction replaces IS the generated recursive
-call.**  `blockIhCall? fr d e = some (r, as)` says: the node's head is
-a block recursor `rec_{c'}` at the block's own level arguments and at
-the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
-`r` — the opener of the (field, callee) key `(i, c')` — belongs to a
-field `i` of THIS constructor whose kind names the member `rec_{c'}`
-eliminates; the call's arguments `as` are as many as that
-field's telescope has binders, mention no block recursor and ARE that
-telescope's own variables (`structTeleVars`); and the
-whole node IS `blockIhSpinePis` — the generated call
-`rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame — instantiated
-at `as`, EXACTLY: `e = expected` as terms, binder data included, so
-the field's index expressions `e⃗_i(a⃗)` in the node are the ANNOTATED
-ones the constructor's stored type carries, not merely their erasures.
+call** — `blockIhCall?`'s run, every bind named.  `blockIhCall? fr d e
+= some (r, as)` says: the node's head is a block recursor `rec_{c'}`
+(`nm`) at the block's own level arguments and at the rule's OWN prefix
+(which forces `rP_{c'} = rP`); its MAJOR `maj` — the argument at the
+callee's major index — is a field `i` of THIS constructor applied to
+`as`, the field's kind names the member `rec_{c'}` eliminates, and the
+`ih` binder `r` is the opener of the (field, callee) key `(i, c')`;
+the arguments `as` are as many as that field's telescope has binders,
+mention no block recursor and ARE that telescope's own variables
+(`structTeleVars`); and the whole node IS `blockIhSpinePis` — the
+generated call `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame —
+instantiated at `as`, EXACTLY: `e = expected` as terms, binder data
+included, so the field's index expressions `e⃗_i(a⃗)` in the node are
+the ANNOTATED ones the constructor's stored type carries, not merely
+their erasures.
 
 The equality has to be exact because the model's reading is not
-`Expr.resetMeta`-invariant: `resetMeta` forces
-every binder datum to `.never` (bit `1`) while a datum that holds
-reads `0`, and `interp` takes the bit.  This equality is the only tie
-between the stored right-hand side's call node and the spine the ι law
-is stated at, so it is stated at the terms the reading sees. -/
-theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
+`Expr.resetMeta`-invariant: `resetMeta` forces every binder datum to
+`.never` (bit `1`) while a datum that holds reads `0`, and `interp`
+takes the bit.  This equality is the only tie between the stored
+right-hand side's call node and the spine the ι law is stated at, so
+it is stated at the terms the reading sees. -/
+structure IhCallRun (fr : BlockRuleFrame) (d : Nat) (e : Expr) (r : Nat) (as : List Expr) :
+    Type where
+  /-- the callee recursor's name, its position, the field and the major -/
+  nm : Name
+  c' : Nat
+  i : Nat
+  maj : Expr
+  /-- the major's head variable -/
+  b : Nat
+  expected : Expr
+  hfn : e.getAppFn = .const nm fr.rlvls
+  hnm : nameIdxOf? fr.recNames nm = some c'
+  hkey : pairIdxOf? fr.ihKeys (i, c') = some r
+  htgt : (fr.ks.getD i .ordinary).tgt? = some (fr.recTgts.getD c' fr.recTgts.length)
+  hrP : fr.rPs.getD c' 0 = fr.rP
+  hlen : e.getAppArgs.length = fr.mIs.getD c' 0 + 1
+  hmaj : e.getAppArgs[fr.mIs.getD c' 0]? = some maj
+  hmajFn : maj.getAppFn = .bvar b
+  hb : d ≤ b ∧ b < d + fr.nF
+  hi : i = d + fr.nF - 1 - b
+  hasMaj : as = maj.getAppArgs
+  haslen : as.length = (fr.teleOf i).length
+  hfree : (as.any fun a => a.mentionsAnyConst fr.recNames) = false
+  hvars : as = structTeleVars (fr.teleOf i).length
+  hexp : Expr.instPisAtLift as
+      (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d (fr.teleOf i)
+        (fr.idxOf i)) = some expected
+  heq : e = expected
+
+set_option maxHeartbeats 1000000 in
+/-- **`blockIhCall?`, inverted.** -/
+theorem blockIhCall?_run {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
     {as : List Expr} (h : blockIhCall? fr d e = some (r, as)) :
-    ∃ (nm : Name) (c' i : Nat) (expected : Expr),
-      e.getAppFn = .const nm fr.rlvls ∧
-      nameIdxOf? fr.recNames nm = some c' ∧
-      pairIdxOf? fr.ihKeys (i, c') = some r ∧
-      (fr.ks.getD i .ordinary).tgt? = some (fr.recTgts.getD c' fr.recTgts.length) ∧
-      fr.rPs.getD c' 0 = fr.rP ∧
-      e.getAppArgs.length = fr.mIs.getD c' 0 + 1 ∧
-      as.length = (fr.teleOf i).length ∧
-      (as.any fun a => a.mentionsAnyConst fr.recNames) = false ∧
-      as = structTeleVars (fr.teleOf i).length ∧
-      Expr.instPisAtLift as
-          (blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d (fr.teleOf i)
-            (fr.idxOf i)) = some expected ∧
-      e = expected := by
+    Nonempty (IhCallRun fr d e r as) := by
   simp only [blockIhCall?] at h
   split at h
   case h_2 => exact nomatch h
@@ -166,17 +184,14 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   case h_2 rpos hrpos =>
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h)
   have hus' : us = fr.rlvls := by simpa using hus
-  have hasl' : maj.getAppArgs.length = (fr.teleOf (d + fr.nF - 1 - b)).length := by simpa using hasl
-  have hfree' : (maj.getAppArgs.any fun a => a.mentionsAnyConst fr.recNames) = false := by simpa using hfree
-  have hvars' : maj.getAppArgs = structTeleVars (fr.teleOf (d + fr.nF - 1 - b)).length := by
-    simpa using hvars
-  have hcmp' : e = expected := by simpa using hcmp
-  have htgt' : (fr.ks.getD (d + fr.nF - 1 - b) BlockFieldKind.ordinary).tgt?
-      = some (fr.recTgts.getD c' fr.recTgts.length) := by
-    simpa using htgt
-  have hrp' : fr.rPs.getD c' 0 = fr.rP := by simpa using hrp
-  exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
-    by simpa using hlen, hasl', hfree', hvars', hexp, hcmp'⟩
+  have hrange' : d ≤ b ∧ b < d + fr.nF := by simpa using hrange
+  exact ⟨{
+    nm := nm, c' := c', i := d + fr.nF - 1 - b, maj := maj, b := b, expected := expected,
+    hfn := hus' ▸ hfn, hnm := hnm, hkey := hrpos, htgt := by simpa using htgt,
+    hrP := by simpa using hrp, hlen := by simpa using hlen, hmaj := hmaj, hmajFn := hb,
+    hb := hrange', hi := rfl, hasMaj := rfl, haslen := by simpa using hasl,
+    hfree := by simpa using hfree, hvars := by simpa using hvars, hexp := hexp,
+    heq := by simpa using hcmp }⟩
 
 /-! ## The abstraction -/
 
@@ -205,6 +220,89 @@ theorem abstractIh_app {fr : BlockRuleFrame} {d : Nat} {f a : Expr} :
        | none =>
          (abstractIh fr d f).bind fun f' =>
            (abstractIh fr d a).map fun a' => .app f' a') := rfl
+
+/-- **The abstraction's structural walk, ONCE.**  A property of the
+input (`Pin`, at the binder depth) carries to a property of the output
+(`Pout`) through `abstractIh` as soon as it does at the four LEAVES the
+walk keeps (a shifted bound variable, a sort, a literal, a
+non-recursor constant), at the one node it REPLACES (a guarded call,
+by an `ih` variable applied to lifts of the call's arguments), and
+across each node former given the sub-results.  Every structural fact
+about the residue — free variables, loose bound variables, the
+level-parameter footprint, the constant bound, the scoping — is an
+instance. -/
+theorem abstractIh_preserves {fr : BlockRuleFrame} (Pin Pout : Nat → Expr → Prop)
+    (hbvar : ∀ d j, Pin d (.bvar j) →
+      Pout d (if j < d then .bvar j else .bvar (j + fr.nR)))
+    (hsort : ∀ d u, Pin d (.sort u) → Pout d (.sort u))
+    (hlit : ∀ d l, Pin d (.lit l) → Pout d (.lit l))
+    (hconst : ∀ d n us, fr.recNames.contains n = false → Pin d (.const n us) →
+      Pout d (.const n us))
+    (hcall : ∀ d f a r as, blockIhCall? fr d (.app f a) = some (r, as) → Pin d (.app f a) →
+      Pout d (Expr.mkAppN (.bvar (d + fr.nR - 1 - r)) (as.map fun x => x.liftLooseBVars fr.nR d)))
+    (hlam : ∀ d ty b bi ty' b', Pin d (.lam ty b bi) → (Pin d ty → Pout d ty') →
+      (Pin (d + 1) b → Pout (d + 1) b') → Pout d (.lam ty' b' bi))
+    (hpi : ∀ d ty b bi ty' b', Pin d (.forallE ty b bi) → (Pin d ty → Pout d ty') →
+      (Pin (d + 1) b → Pout (d + 1) b') → Pout d (.forallE ty' b' bi))
+    (hlet : ∀ d ty v b ty' v' b', Pin d (.letE ty v b) → (Pin d ty → Pout d ty') →
+      (Pin d v → Pout d v') → (Pin (d + 1) b → Pout (d + 1) b') → Pout d (.letE ty' v' b'))
+    (hproj : ∀ d s i e e', Pin d (.proj s i e) → (Pin d e → Pout d e') →
+      Pout d (.proj s i e'))
+    (happ : ∀ d f a f' a', Pin d (.app f a) → (Pin d f → Pout d f') → (Pin d a → Pout d a') →
+      Pout d (.app f' a')) :
+    ∀ {e e' : Expr} {d : Nat}, abstractIh fr d e = some e' → Pin d e → Pout d e'
+  | .bvar j, e', d, h, hp => by
+    rw [abstractIh_bvar] at h; rw [← Option.some.inj h]; exact hbvar d j hp
+  | .sort _, _, d, h, hp => by rw [← Option.some.inj h]; exact hsort d _ hp
+  | .lit _, _, d, h, hp => by rw [← Option.some.inj h]; exact hlit d _ hp
+  | .const n us, e', d, h, hp => by
+    rw [abstractIh_const] at h
+    split at h
+    · exact nomatch h
+    · rename_i hn
+      rw [← Option.some.inj h]; exact hconst d n us (by simpa using hn) hp
+  | .fvar _ _, _, _, h, _ => nomatch h
+  | .lam ty b bi, e', d, h, hp => by
+    rw [abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    exact hlam d ty b bi ty' b' hp (go hty') (go hb')
+  | .forallE ty b bi, e', d, h, hp => by
+    rw [abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    exact hpi d ty b bi ty' b' hp (go hty') (go hb')
+  | .letE ty v b, e', d, h, hp => by
+    rw [abstractIh, Option.bind_eq_some_iff] at h
+    obtain ⟨ty', hty', h⟩ := h
+    rw [Option.bind_eq_some_iff] at h
+    obtain ⟨v', hv', h⟩ := h
+    obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp h
+    exact hlet d ty v b ty' v' b' hp (go hty') (go hv') (go hb')
+  | .proj s i e, e', d, h, hp => by
+    rw [abstractIh] at h
+    split at h
+    · exact nomatch h
+    obtain ⟨e'', he', rfl⟩ := Option.map_eq_some_iff.mp h
+    exact hproj d s i e e'' hp (go he')
+  | .app f a, e', d, h, hp => by
+    rw [abstractIh_app] at h
+    revert h
+    cases hc : blockIhCall? fr d (.app f a) with
+    | some ra =>
+      intro h
+      obtain ⟨r, as⟩ := ra
+      obtain rfl := Option.some.inj h
+      exact hcall d f a r as hc hp
+    | none =>
+      intro h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨f', hf', h⟩ := h
+      obtain ⟨a', ha', rfl⟩ := Option.map_eq_some_iff.mp h
+      exact happ d f a f' a' hp (go hf') (go ha')
+where
+  go {e e' : Expr} {d : Nat} (h : abstractIh fr d e = some e') : Pin d e → Pout d e' :=
+    abstractIh_preserves Pin Pout hbvar hsort hlit hconst hcall hlam hpi hlet hproj happ h
 
 /-! ## Stage (a)'s two NAME checks, exposed
 
