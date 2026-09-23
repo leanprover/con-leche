@@ -83927,3 +83927,18 @@ spine, on RM51's index converse), and it is `hihsWd.2` restated at the pinned `i
 
 `blockRuleDoms_bounded_seam` moved to `BlockRuleFit.lean` §13 (as `_at`, every ψ), where
 the dispatch can reach it.
+
+
+#### LANDED (lane RM54, `6866e3a2`): `howed` chooses nothing — the level rows, (G)/(F) and the openers' fit discharged at the seam
+
+**LANDED (lane RM54, `6866e3a2`): `howed` chooses nothing and owes only the regime's rows. `s` is chosen at the seam; (G)/(F) are out of the grading bundle; the `ih` openers' fit is PRODUCED; the certificate family is owed in its producer's spelling.**
+
+`declBlock_run` chooses `s` itself (`blockRecLevel_run`: parametricity and typing), so `howed` has no existential. (G) and (F) enter `blockRecPre_seam` as separate premises in their producers' spellings (`blockRuleGrading_run`, `blockIhFitTyped_run`), so `BlockGradeOwed` no longer restates them.
+
+The rule stage's `ih` openers' fit (`BlockRuleIhFitOwed`) is (F) at the CHAIN frame at the leaf's tuple (`blockIhFitChain_run`). The leaf's tuple is typed because the leaf is `blockRecAV` (`blockRecAV_facts`). The chain frame is `consList` of the tuple. The base-frame spine fit it needs is the contract's first conjunct, which the residue producer already holds (`hsp`), so `BlockRuleBodyOwed`/`BlockRuleIhFitOwed` take it as an antecedent. `blockRuleIhFit_seam` produces the family.
+
+The certificate family `hcertsW` is owed at the BASE frame at the rule's own openers, which is `blockRuleCerts_of_run`'s conclusion verbatim. `blockRuleCertsChain_eq` lifts it past the chain: the field domains, `ih` domains (`blockRuleIhdomsAV_below`) and residue are bounded at their own depths, so every `K` lift is the identity.
+
+`howed` = `BlockGradeOwed` (certs, `hlhs`, the `ih` terms' grading) ∧ the three regime bundles. What blocks the certificates is `hokC`: the rule conclusion's peel spine (`hcon`/`hesL`/`hmkL`), which nobody produces. The IND arm's `hCaE` needs the same spine. `hfit` is then `blockKitRule_run` at `K = 0`, and `hargs` is `blockRuleHokC_args_of_ctor`.
+
+---------------------------------------------------------------------

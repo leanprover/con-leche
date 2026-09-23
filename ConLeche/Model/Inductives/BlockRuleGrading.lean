@@ -1321,6 +1321,86 @@ theorem blockIhFitTyped_run
     refine ⟨?_, fun hℓ0 => H0 ((pwBit_zeronessOf ψ _).mpr hℓ0)⟩
     exact VAL _ (htyped c' hc'K)
 
+
+/-- **(F) at the CHAIN frame** — the typed tuple's `ih` fit with the
+domains read where the values are: under the tuple itself.  This is
+the spelling the rule stage's peel consumes (`BlockRuleIhFitOwed`, at
+`chainFrame K a ρ`, which IS `consList` of the tuple).  It is
+`blockIhFitTyped_run` at the base frame `consList tup ρ`: the prefix
+and field domains are bounded (`blockRuleDoms_bounded_at`), the
+recursor types closed (`closed_blockRecTyAV`), and the `ih` terms read
+nothing past the tuple (`blockRuleIhsRunAV_below`), so the second copy
+of the tuple the base-frame statement puts under them is invisible. -/
+theorem blockIhFitChain_run
+    (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
+      (∀ mm, mm < rs.length →
+        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ mm)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c → ∀ ys : List V,
+        SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j) ys →
+        SpineFit (consList ys (consList tup ρ)) (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j)
+          ((blockRuleIhsRunAV p rs mpC.base2.acval envC ψ c j).map
+            (interp V (consList ys (consList tup ρ)))) := by
+  intro ψ ρ tup htupl htyped c hc j hj ys hys
+  have hF := blockIhFitTyped_run hμ h hkLen hdR hN hS hcore hmr hM
+  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+  have hjr : j < rs[c].2.2.2.length := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
+  obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
+    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+  obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+  have hcj : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+      (p.toBlockShape.recTgtAt c))[j]? = some cA := by
+    show (ctorsAs.getD _ [])[j]? = _
+    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
+  -- the base frame `consList tup ρ`: the spine still fits, the tuple is still typed
+  have hys' : SpineFit (consList tup ρ)
+      (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j) ys :=
+    spineFit_frame_of_bounded (blockRuleDoms_bounded_at hμ h hcore ψ c rs[c] hr j cA rhs hcA hrhs)
+      hys
+  have htyped' : ∀ mm, mm < rs.length →
+      tup.getD mm pt ∈ˢ interp V (consList tup ρ) (blockRecTyAV mpC.base2.acval envC rs ψ mm) :=
+    fun mm hmm => by
+      rw [interp_closed (V := V) (closed_blockRecTyAV hμ mpC h (List.getElem?_eq_getElem hmm) ψ)
+        (consList tup ρ) ρ]
+      exact htyped mm hmm
+  have hq := hF ψ (consList tup ρ) tup htupl htyped' c hc j hj ys hys'
+  -- the `ih` terms read nothing past the tuple
+  have hbd := blockRuleIhsRunAV_below (mpC := mpC) h hr hcA hcore hcj rfl
+    (by rw [blockDataOf_ksF]; rfl) ψ
+  have hyl : ys.length = p.toBlockShape.rulePrefixAt c + cA.2 := by
+    rw [hys.length_eq, List.length_append, blockRulePdomsAV_length hμ mpC h hr ψ,
+      blockRuleFdomsAV_length_run h hr hcA hrhs ψ]
+  have hmap : (blockRuleIhsRunAV p rs mpC.base2.acval envC ψ c j).map
+        (interp V (consList ys (consList tup (consList tup ρ))))
+      = (blockRuleIhsRunAV p rs mpC.base2.acval envC ψ c j).map
+        (interp V (consList ys (consList tup ρ))) := by
+    refine List.map_congr_left fun v hv => ?_
+    refine interp_congr_below (V := V) v (rs.length + p.toBlockShape.rulePrefixAt c + cA.2) _ _
+      (hbd v hv) fun l hl => ?_
+    rw [← consList_append tup ys (consList tup ρ), ← consList_append tup ys ρ]
+    exact consList_below_indep (tup ++ ys) _ _ l (by rw [List.length_append, htupl, hyl]; omega)
+  rw [hmap] at hq
+  exact hq
+
 end Grading
 
 end ConLeche.Model
