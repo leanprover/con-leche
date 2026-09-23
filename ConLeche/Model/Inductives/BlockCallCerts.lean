@@ -1,40 +1,18 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Semantics.Tower.BlockRecKitI
-import ConLeche.Semantics.Tower.BlockRecIndI
 
 public section
 
 /-!
-# The three regimes, wired to the block's representation
+# A guarded call's arguments, certified against the telescope (G3)
 
-`blockRecStaged_of`'s `hrecP` is, through `blockRecAV_iota`
-(`Semantics/Tower/BlockRecI.lean`), the family premise
-`BlockRecPre`.  Its three fields are owed by three different tiers,
-and this file is where they meet:
-
-| field | who proves it |
-|---|---|
-| `hTy` | the identification — the recursor's stored type reads to `mkPisAV rds concl` and the reading is a set of the family's level (`BlockRecRead.lean`) |
-| `hEq` | the ι equations' grading, `hEq_iotaEqsAV_of` at the rule data |
-| `hCand` | **the recursion theorem** — one of the three regimes |
-
-and the regimes are:
-
-* **WF** (`w ≠ 0 ∧ ℓ ≠ 0`) — `famCand_hCand` at a `WfRecKit` family:
-  the recursion is over the tagged union of the classes' carriers,
-  ∈-smaller elements are the predecessors, and the depth obligation is
-  that the block's injections put a constructor's fields ∈-below the
-  constructed value;
-* **IND** (`ℓ = 0`) — `indCand_hCand`: the candidate is the point and
-  the regime is the induction principle plus `ResidueOk` at every
-  fitting spine;
-* **SQ** (`w = 0 ∧ ℓ ≠ 0`) — `famCand_hCand` at the squash kit, whose
-  step is the residue read at the SOURCE spine (`BlockRecSqI.lean`).
-
-Nothing here re-proves a regime: each is a theorem of the semantics
-tier, and what this file adds is the *dispatch*.
+The residue's typing run infers a guarded call's `ih r a⃗` node as an
+application spine at the constructors' environment; what the recursor
+model needs of it is that each argument was certified against the
+`ih` opener's own domain — the field's telescope.  This file is that
+inversion (`certs_of_infer_mkAppN`) and the Π-tower bookkeeping it
+stands on (`PiSpine`, the opener's stored type as the run leaves it).
 -/
 
 namespace ConLeche.Model
@@ -49,127 +27,6 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 universe w
 
 variable {V : Type w} [SetTheory V]
-
-/-! ## `BlockRecPre`, assembled -/
-
-section Pre
-
-variable {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm}
-  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
-
-/-- **The family premise, assembled** — the shape `blockRecAV_iota`
-consumes, with its three fields in the form their owners prove them:
-the types' reading, the ι equations' grading
-(`hEq_iotaEqsAV_of`), and the recursion theorem (a regime). -/
-theorem blockRecPre_of
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList rs ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)))
-    (hCand : ∃ cand : Nat → V, (∀ c, c < K → cand c ∈ˢ interp V ρ (RecTy c)) ∧
-      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
-        (pt : V) ∈ˢ interp V (chainFrame K cand ρ) e) :
-    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ where
-  hTy := hTy
-  hEq := hEq_iotaEqsAV_of hwd
-  hCand := hCand
-
-end Pre
-
-/-! ## The three regimes, as the dispatch reads them
-
-Each is `blockRecPre_of` at the `hCand` its own tier proves.  The
-regimes are DISJOINT and EXHAUSTIVE on the pair `(w, ℓ)`: `ℓ = 0` is
-IND (every conclusion is a proposition — D-d makes it one bit for the
-family), `ℓ ≠ 0 ∧ w ≠ 0` is WF, and `ℓ ≠ 0 ∧ w = 0` is SQ, where the
-guard leaves a lone non-nested block with at most one constructor
-under the subsingleton criterion. -/
-
-section Regimes
-
-variable {ℓ s K : Nat} {rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-  {concl RecTy : Nat → AnnotTerm} {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm}
-  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm} {ρ : Nat → V}
-
-/-- **Regimes WF and SQ**: the candidate is the class kit's recursor,
-and `ResidueOk` at the rule's own spine is the kit's step
-(`famCand_hCand`'s `hst`). -/
-theorem blockRecPre_kit
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList rs ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)))
-    (D : RecFamData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds)
-    (hpl : ∀ c, c < K → (pdoms c).length = rP c)
-    (hrule : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
-          ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)])))
-    (hst : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      (D.kit xs).st
-          (tagged c
-            (D.tupOf c ((es c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)))
-          (kitGraphAt (D.kit xs)
-            (tagged c
-              (D.tupOf c ((es c j).map
-                (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
-        = interp V
-            (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))
-              (consList (xs ++ fs) (chainFrame K (famCand D) ρ))) (Rb c j)) :
-    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
-  blockRecPre_of hTy hwd (famCand_hCand D hℓ hTyE hbits hpl hrule hst)
-
-/-- **Regime IND** (`ℓ = 0`): the candidate is the point, and the two
-obligations are the induction principle and `ResidueOk` at `ℓ = 0` —
-the residue's reading is a member of a truth value. -/
-theorem blockRecPre_ind
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList rs ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)))
-    (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
-    (hres : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ∃ T : V, T ∈ˢ (univZero : V) ∧
-        interp V
-            (consList
-              ((ihs c j).map
-                (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-              (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Rb c j) ∈ˢ T) :
-    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
-  blockRecPre_of hTy hwd (indCand_hCand hind hres)
-
-end Regimes
 
 /-! ## G3 — a guarded call's ARGUMENTS are certified against the
 telescope

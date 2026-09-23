@@ -494,7 +494,7 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     hfl, hih, hFssLen, ?_, Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)⟩
   rw [hlenRds, hmI, blockMembers_IdsM_length hmr hmemk ψ]
 
-/-! ## 5. The kit arms' `hCaB`, at the NARROWED row
+/-! ## 5. The graph kit's `hCaB`, at the NARROWED row
 
 The row asks, at a prefix `x⃗` fitting the parameters and the rule's
 prefix and a field spine `f⃗` whose `ChainFit` at the fixpoint carries
@@ -505,10 +505,10 @@ index set (the narrowing), `i` IS the tuple of an index spine `ı⃗`
 (`mem_idxSet_elim`), the field spine fits the constructor's own field
 domains (`blockRecSpF_base`, through the slot agreement), and §29b's
 `blockIndCaE_of_run` evaluates `Ca`; the motive decodes `ı⃗` back out of
-its tuple (`isOfW_tupW`).  The generic form is at any class count `K`
-with `c < K` (WF: `K = rs.length`; SQ: `K = 1`). -/
+its tuple (`isOfW_tupW`). -/
 
-/-- **`hCaB`, generic in the class count.** -/
+/-- **`hCaB`**: the rule's conclusion at the rule's frame is the bound
+at the constructed element. -/
 theorem blockKitCaB_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
@@ -521,9 +521,8 @@ theorem blockKitCaB_run (hμ : μ.verifiedChecks = true)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
     (ψ : Name → Nat) (ρ : Nat → V) {ihv : List V → Nat → Nat → List V → V → List V}
-    (hihl : ∀ xs c j fs g, (ihv xs c j fs g).length = (blockRuleFrameAt p rs c j).nR)
-    {K : Nat} :
-    ∀ xs : List V, ∀ c, c < K → c < rs.length →
+    (hihl : ∀ xs c j fs g, (ihv xs c j fs g).length = (blockRuleFrameAt p rs c j).nR) :
+    ∀ xs : List V, ∀ c, c < rs.length →
       SpineFit ρ (d.params ψ) (xs.take d.nP) →
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
       ∀ j, j < blockRecNCt rs c → ∀ (i : V) (fs : List V),
@@ -533,11 +532,11 @@ theorem blockKitCaB_run (hμ : μ.verifiedChecks = true)
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (p.toBlockShape.recTgtAt c) j fs → ∀ g : V,
       interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ))
           (blockRuleCaAV p rs mpC.base2.acval envC ψ c j)
-        = blockRecMot K (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
+        = blockRecMot rs.length (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
             (fun c' => d.uM (p.toBlockShape.recTgtAt c') ψ)
             (fun c' => d.nIdxAt (p.toBlockShape.recTgtAt c')) ρ xs
             (tagged c i (d.inj ψ (p.toBlockShape.recTgtAt c) j fs)) := by
-  intro xs c hcK hc hps hpref j hj i fs hi hfit g
+  intro xs c hc hps hpref j hj i fs hi hfit g
   obtain ⟨r, cA, rhs, ci, hr, hcA, hrhs, hfind, hlps, hnP, hcj, hjc, hcon, hes, hpl, hfl, -,
     -, hrds, hmemN⟩ := blockRuleCaAV_pair hμ h hkLen hcore hmr hdnP hctM ψ hc hj
   obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
@@ -568,77 +567,13 @@ theorem blockKitCaB_run (hμ : μ.verifiedChecks = true)
   -- the conclusion, evaluated (§29b)
   have hCaE := blockIndCaE_of_run hμ hM h hr hcA hrhs hfind hlps hnP hdnP hmemN hcj hjc ψ
     hcon rfl rfl hes hpl hfl hrds rfl hxs hfsl (hihl xs c j fs g) hps hsf hIs hfit rfl
-  rw [hCaE, blockRecMot_tagged hcK]
+  rw [hCaE, blockRecMot_tagged hc]
   have hIdx := hM.idxOk ψ _ (d.satOfSpine hps) _ hmemN
   have hret : isOfW (d.uM (p.toBlockShape.recTgtAt c) ψ) (d.nIdxAt (p.toBlockShape.recTgtAt c))
       (tupW (d.uM (p.toBlockShape.recTgtAt c) ψ) is) = is := by
     rw [← blockMembers_IdsM_length hmr hmemk ψ]
     exact isOfW_tupW hIdx hIs
   rw [hret, List.append_assoc]
-
-/-- **REGIME WF's `hCaB`, PRODUCED** — `BlockWfOwed`'s row at the
-pinned `Ca`, narrowed by the class index `i ∈ d.idx …`. -/
-theorem blockWfCaB_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    {names : List Name} (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) (ρ : Nat → V) {ihv : List V → Nat → Nat → List V → V → List V}
-    (hihl : ∀ xs c j fs g, (ihv xs c j fs g).length = (blockRuleFrameAt p rs c j).nR) :
-    ∀ xs : List V, ∀ c, c < rs.length →
-        SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
-          envC p.toBlockShape rs ψ) c) xs →
-        ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
-        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
-        d.ChainFit ψ (consList (xs.take d.nP) ρ)
-          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-            (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
-        interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ))
-            ((fun c j => blockRuleCaAV p rs mpC.base2.acval envC ψ c j) c j)
-          = blockRecMot rs.length (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) (fun
-            c' => d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt
-            ((p.toBlockShape.recTgtAt) c')) ρ xs
-              (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)) :=
-  fun xs c hc => blockKitCaB_run hμ h hkLen hcore hmr hM hN hdnP hctM ψ ρ hihl xs c hc hc
-
-/-- **REGIME SQ's `hCaB`, PRODUCED** — `BlockSqOwed`'s row (`c < 1`,
-`K = 1`) at the pinned `Ca`, narrowed by the class index. -/
-theorem blockSqCaB_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    {names : List Name} (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (hpos : 0 < rs.length)
-    (ψ : Name → Nat) (ρ : Nat → V) {ihv : List V → Nat → Nat → List V → V → List V}
-    (hihl : ∀ xs c j fs g, (ihv xs c j fs g).length = (blockRuleFrameAt p rs c j).nR) :
-    ∀ xs : List V, ∀ c, c < 1 →
-        SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
-          envC p.toBlockShape rs ψ) c) xs →
-        ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
-        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
-        d.ChainFit ψ (consList (xs.take d.nP) ρ)
-          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-            (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
-        interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ))
-            ((fun c j => blockRuleCaAV p rs mpC.base2.acval envC ψ c j) c j)
-          = blockRecMot 1 (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) (fun c' =>
-            d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt ((p.toBlockShape.recTgtAt)
-            c')) ρ xs
-              (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)) :=
-  fun xs c hc => blockKitCaB_run hμ h hkLen hcore hmr hM hN hdnP hctM ψ ρ hihl xs c hc
-    (by omega)
 
 end CaRun
 

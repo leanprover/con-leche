@@ -51,10 +51,6 @@ public import ConLeche.Semantics.Tower.BlockLeafI
 public import ConLeche.Semantics.Tower.BlockFamI
 public import ConLeche.Semantics.Tower.SigChainI
 public import ConLeche.Semantics.Tower.BlockRecI
-public import ConLeche.Semantics.Tower.BlockRecKitI
-public import ConLeche.Semantics.Tower.BlockRecWfI
-public import ConLeche.Semantics.Tower.BlockRecSqI
-public import ConLeche.Semantics.Tower.BlockRecIndI
 public import ConLeche.Semantics.Tower.BlockRecGraphI
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl

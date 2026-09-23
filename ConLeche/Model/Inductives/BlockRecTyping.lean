@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Semantics.Tower.BlockRecKitI
+public import ConLeche.Semantics.Tower.BlockRecGraphI
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone

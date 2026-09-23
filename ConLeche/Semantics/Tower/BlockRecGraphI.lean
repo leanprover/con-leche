@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.BlockRecKitI
+public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.SetModel.GraphRec
 import ConLeche.Semantics.Tower.FixLeafI
 @[expose] public section
@@ -46,6 +46,36 @@ open ConLeche.SetTheory.Tower
 universe uv
 
 variable {V : Type uv} [SetTheory V]
+
+/-! ## The recursor's spine, decomposed
+
+A fitting spine of `rec_c`'s type is `x⃗ ++ ı⃗ ++ [t]`: the rule prefix
+(`rP c` binders — record-read, PER RECURSOR), the class's indices, the
+major. -/
+
+/-- The rule prefix of a spine. -/
+def prefOf (rP : Nat) (ys : List V) : List V := ys.take rP
+
+/-- The index values of a spine. -/
+def idxOf (rP : Nat) (ys : List V) : List V := (ys.drop rP).dropLast
+
+/-- The major of a spine. -/
+noncomputable def majOf (ys : List V) : V := ys.reverse.headD pt
+
+omit [SetTheory V] in
+@[simp] theorem prefOf_split {rP : Nat} {xs is : List V} {t : V} (hx : xs.length = rP) :
+    prefOf rP (xs ++ (is ++ [t])) = xs := by
+  rw [prefOf, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+
+omit [SetTheory V] in
+@[simp] theorem idxOf_split {rP : Nat} {xs is : List V} {t : V} (hx : xs.length = rP) :
+    idxOf rP (xs ++ (is ++ [t])) = is := by
+  rw [idxOf, List.drop_append_of_le_length (by omega),
+    List.drop_of_length_le (by omega), List.nil_append, List.dropLast_concat]
+
+@[simp] theorem majOf_split {xs is : List V} {t : V} :
+    majOf (xs ++ (is ++ [t])) = t := by
+  simp [majOf]
 
 /-- **The recursion data of a recursor family over the graph kit**, at
 the base frame `ρ`: per PREFIX SPINE a `GraphRecKit` over the tagged

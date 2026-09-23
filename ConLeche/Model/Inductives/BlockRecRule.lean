@@ -2181,7 +2181,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     -- and `(i, c')` the frame's key for the `ih` binder `r`.  The
     -- third is `IhTyped`: the residue's node was inferred by the rule
     -- stage's own run, which is what `certs_of_infer_mkAppN`
-    -- (`BlockRecRegimes.lean`) inverts.
+    -- (`BlockCallCerts.lean`) inverts.
     (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
       (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
       ConLeche.blockIhCall? fr d node = some (r, as) →

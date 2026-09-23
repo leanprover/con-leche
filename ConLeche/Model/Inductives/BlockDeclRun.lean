@@ -8,7 +8,6 @@ import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
-import ConLeche.Model.Inductives.BlockIndRuleRun
 import ConLeche.Model.Inductives.BlockKitIhRun
 import ConLeche.Model.Inductives.BlockRecGraph
 import ConLeche.Model.Inductives.BlockRecRead

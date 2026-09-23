@@ -636,7 +636,7 @@ equal, or the bound is a subsingleton.
 * `ℓ = 0`: the bound is a truth value (`hconclTy` at level `0`);
 * `w ≠ 0`: the injection is injective (`mkInj`,
   `blockCarrier_case_unique`);
-* `w = 0, ℓ ≠ 0`: the counting guard (`blockSqGuard_run`) leaves one
+* `w = 0, ℓ ≠ 0`: the counting guard (`blockCountingGuard_run`) leaves one
   recursor of one member with at most one constructor, of the declared
   large shape, and the subsingleton criterion makes that constructor's
   fields a function of the INDEX (`blockChainFit_srcVals_zero`). -/
@@ -711,7 +711,7 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
     Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   by_cases hw : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).w ψ = 0
   · -- the subsingleton criterion: the fields are a function of the index
-    obtain ⟨hK1, hmem0, hct1, hlarge⟩ := blockSqGuard_run hμ h hmr ψ hℓ hw
+    obtain ⟨hK1, hmem0, hct1, hlarge⟩ := blockCountingGuard_run hμ h hmr ψ hℓ hw
     obtain rfl : c = 0 := by omega
     have hj0 : j = 0 := by omega
     have hj'0 : j' = 0 := by omega
@@ -1060,7 +1060,7 @@ theorem blockRecPre_graph (hμ : μ.verifiedChecks = true)
     (blockRuleCertsK_run hμ h hkLen hdR' hN hS hcore hmr hM rs.length ψ)
     (blockKitSpF_run hμ h hkLen hcore hmr hM hN rfl hctM ψ hbnd ρ rs.length)
     (fun xs => blockGraphIhF_run hμ h hkLen hdR' hN hS hcore hmr hM ψ ρ xs (hconclTy xs))
-    (blockWfCaB_run hμ h hkLen hcore hmr hM hN rfl hctM ψ ρ
+    (blockKitCaB_run hμ h hkLen hcore hmr hM hN rfl hctM ψ ρ
       (fun xs c j fs g => blockKitIhv_length p rs mpC.base2.acval envC ψ _ _ ρ xs c j fs g))
     (fun xs => blockGraphUniq_run hμ h hdR' hN hS hcore hmr hM ψ ρ xs (hconclTy xs))
     (fun xs => blockGraphInd_run hμ h hkLen hdR' hN hS hcore hmr hM (mpC.lfp_ok _ hlfp).1 ψ ρ xs)
