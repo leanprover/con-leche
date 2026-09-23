@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.BlockIndRuleRun
-public import ConLeche.Model.Inductives.BlockGradeRowsRun
+public import ConLeche.Model.Inductives.BlockRuleCaRun
+import ConLeche.Model.Inductives.BlockIndRuleRun
+import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Annot.BitInst
 
 public section
