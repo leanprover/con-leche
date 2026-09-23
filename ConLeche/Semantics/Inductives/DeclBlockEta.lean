@@ -9,6 +9,7 @@ import ConLeche.Verify.Inductives.FixWF
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Inductives.BlockRecNames
 
 @[expose] public section
 
@@ -228,9 +229,8 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
 
 /-- **The recursor stage stores names fresh at the constructors'
 environment**, at EITHER setting of its gate: with it lifted the
-CHECK's type stage checks every record's constant there
-(`checkBlockRecTys_inv`) and the rules' stage stores that constant
-(`checkBlockRecsRules_facts`); with it down the one generated
+CHECK's own name facts (`checkBlockRecK_cvFacts`,
+`Verify/Inductives/BlockRecNames.lean`); with it down the one generated
 recursor's constant check (`checkNativeRec_shape`). -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -238,29 +238,8 @@ theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     (h : ConLeche.checkBlockRec (fueledOps mode F) envC p cvTas ctorsAs = .ok rs) :
     ∀ r ∈ rs, envC.find? r.1.name = none := by
   by_cases hg : ConLeche.blockRecCheckOn = true
-  · have hK := ConLeche.checkBlockRecK_of_gate hg h
-    unfold ConLeche.checkBlockRecK at hK
-    obtain ⟨-, -, hK⟩ := exceptBind_ok hK
-    obtain ⟨cvRus, htys, hK⟩ := exceptBind_ok hK
-    obtain ⟨-, -, hK⟩ := exceptBind_ok hK
-    obtain ⟨-, hallT⟩ := ConLeche.checkBlockRecTys_inv htys
-    obtain ⟨hlenR, hallR⟩ := ConLeche.checkBlockRecsRules_facts hK
-    intro r hr
-    obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-    have hil : i < p.recs.length := by
-      have := (List.getElem?_eq_some_iff.mp hi).1
-      omega
-    obtain ⟨rc, r', hrc, hr', hcvRa, -⟩ := hallR i hil
-    obtain rfl := Option.some.inj (hi.symm.trans hr')
-    obtain ⟨rc'', cvRi, nIdx, u', hrc'', hcu, hcv, -, -⟩ := hallT i hil
-    obtain rfl := Option.some.inj (hrc.symm.trans hrc'')
-    have hcvRa' : (cvRus.map (fun q => (q.1, q.2.1)))[i]? = some (cvRi, nIdx) := by
-      rw [List.getElem?_map, hcu]; rfl
-    have hr1 : r.1 = cvRi := by
-      rw [Nat.zero_add] at hcvRa
-      exact congrArg Prod.fst (Option.some.inj (hcvRa.symm.trans hcvRa'))
-    obtain ⟨hf, -, -, -, -, -, _, _, _, -, -, -, -, -, heq⟩ := ConLeche.checkConstantVal_inv hcv
-    rw [hr1, heq]; exact hf
+  · exact fun r hr =>
+      (ConLeche.checkBlockRecK_cvFacts (ConLeche.checkBlockRecK_of_gate hg h) r hr).1
   · unfold ConLeche.checkBlockRec at h
     rw [if_neg hg] at h
     split at h

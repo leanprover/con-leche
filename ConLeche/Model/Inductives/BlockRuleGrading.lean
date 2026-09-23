@@ -457,22 +457,94 @@ theorem blockRuleIhKey_run
             (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi + ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) (teleVarsAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) ∧
       DomsBelow (p.nP + fi) ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []) ∧
       (∀ E ∈ (d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi [], Term.bvarsBelow (p.nP + fi + ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length) E.erase) ∧
+      -- the key's block facts
+      p.toBlockShape.rulePrefixAt c' = p.toBlockShape.rulePrefixAt j ∧
+      ((d.rss (p.toBlockShape.recTgtAt j)).getD i []).getD fi false = true ∧
+      d.tgts (p.toBlockShape.recTgtAt j) i fi = p.toBlockShape.recTgtAt c' ∧
+      -- the opener's domain: its bound and its reading (`hexI` at `q`)
+      Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+        ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default).erase ∧
+      (∀ x : Expr, (blockRuleFvsIhAt p rs j i)[q]? = some x →
+        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+          (Expr.fvarTypeD x)
+          = some ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default)) ∧
+      -- the rule's field reads ARE the block's rows
+      blockRuleTlAV p rs mpC.base2.acval envC ψ j i fi
+        = (d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi [] ∧
+      blockRuleEisAV p rs mpC.base2.acval envC ψ j i fi
+        = (d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi [] ∧
+      (ConLeche.structFieldTeleOf (blockRuleCtorOf rs j i).1.type (blockRuleFrameAt p rs j i).nP
+          (blockRuleFrameAt p rs j i).nF fi).length
+        = ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length ∧
+      (d.tlss (p.toBlockShape.recTgtAt j) ψ).getD i [] = d.tssF (p.toBlockShape.recTgtAt j) i ψ ∧
+      (d.Eiss (p.toBlockShape.recTgtAt j) ψ).getD i [] = d.eissF (p.toBlockShape.recTgtAt j) i ψ ∧
+      -- the callee's conclusion, peeled along the call's spine
+      BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') cA.2
+        ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length
+        (blockRecTyAV mpC.base2.acval envC rs ψ c')
+        (((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+          (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+            ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+        (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi +
+          ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+          (teleVarsAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) CihR ∧
       ∀ (σ : Nat → V) (xs fs : List V),
         SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j) xs →
         SpineFit (consList xs σ) (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
           fs →
+        xs.length = p.toBlockShape.rulePrefixAt j ∧ fs.length = cA.2 ∧
+        -- the field's telescope, graded at the call's frame
+        (FieldsOkB 0 (consList (fs.take fi) (consList (xs.take p.nP) σ))
+            (((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (·.2.2)) ∧
+          FieldsValid (consList (fs.take fi) (consList (xs.take p.nP) σ))
+            (((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (·.2.2))) ∧
+        -- a spine of the MOVED telescope fits the field's own
+        (∀ bs : List V, SpineFit (consList (xs ++ fs) σ)
+            ((ihTeleAtR cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+              (rebit (pwBit ψ (blockRuleFrameAt p rs j i).pw)
+                ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []))).map (·.2.2)) bs →
+          SpineFit (consList (fs.take fi) (consList (xs.take p.nP) σ))
+            (((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (·.2.2)) bs) ∧
         ∀ bs : List V, SpineFit (consList (fs.take fi) (consList (xs.take p.nP) σ))
           (((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (·.2.2)) bs →
         WellDenotedV V (consList bs (consList (xs ++ fs) σ)) CihR ∧
           (pwBit ψ (blockRuleFrameAt p rs j i).pw = 0 →
             interp V (consList bs (consList (xs ++ fs) σ)) CihR ∈ˢ (univZero : V)) ∧
-          ∀ R : V, R ∈ˢ interp V σ (blockRecTyAV mpC.base2.acval envC rs ψ c') →
-            (xs ++ ((((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+          (∀ R : V, R ∈ˢ interp V σ (blockRecTyAV mpC.base2.acval envC rs ψ c') →
+            (xs ++ ((((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+              (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
                 ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi + ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+              ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi +
+                ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
                   (teleVarsAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
                 (interp V (consList bs (consList (xs ++ fs) σ)))).foldl SetTheory.app R
-              ∈ˢ interp V (consList bs (consList (xs ++ fs) σ)) CihR := by
+              ∈ˢ interp V (consList bs (consList (xs ++ fs) σ)) CihR) ∧
+          -- the call's spine fits the callee's binder data (the MOVED fit)
+          SpineFit σ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map (·.2.2))
+            (xs ++ (((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+                (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ))))
+              ++ [bs.foldl SetTheory.app (fs.getD fi pt)])) ∧
+          -- the call's arguments, read at the call's frame
+          interp V (consList bs (consList (xs ++ fs) σ))
+              (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi +
+                ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+                (teleVarsAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+            = bs.foldl SetTheory.app (fs.getD fi pt) ∧
+          (((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+            (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+                ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)).map
+              (interp V (consList bs (consList (xs ++ fs) σ)))
+            = ((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+              (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ)))) ∧
+          -- and are graded there
+          (∀ a ∈ ((d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+            (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+                ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length),
+            WellDenotedV V (consList bs (consList (xs ++ fs) σ)) a) ∧
+          WellDenotedV V (consList bs (consList (xs ++ fs) σ))
+            (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi +
+              ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+              (teleVarsAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) := by
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   have hjR : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
   -- the rule's right-hand side (the kinds cover the constructors)
@@ -539,7 +611,7 @@ theorem blockRuleIhKey_run
     rw [blockDataOf_ksF]; rfl
   have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
     have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
-  obtain ⟨hihfv, hL2, -, -, -, -, -, -, -, -, -⟩ :=
+  obtain ⟨hihfv, hL2, -, hlb, -, -, -, -, -, -, -, hWt, -⟩ :=
     blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
   have hrow1 : ConLeche.openPisAtFvars ((blockRuleFrameAt p rs j i).nP
       + (blockRuleFrameAt p rs j i).nF) cA.1.type 0
@@ -720,298 +792,314 @@ theorem blockRuleIhKey_run
       List.getElem?_map, hkeyE, Option.map_some, Option.getD_some]
     simp only [hct]
     rw [← hrow3 fi, eT, eE, hfrR, hfrF, Nat.add_zero]
-  refine ⟨fi, c', CihR, hkeyE, hc'K, hfiC, blockCtorDataI_fieldEntry hcdP ψ hfiC hkind, hIget,
-    hihsGet, hcdP.tssBelow ψ fi, hcdP.eissBelow ψ fi, ?_⟩
-  · intro σ xs fs hxs hfs
-    -- names for the key's data
-    have htlE : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
-        (p.toBlockShape.recTgtAt j) ψ).getD i []
-        = (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-          (p.toBlockShape.recTgtAt j) i ψ := by
-      rw [BlockData.tlss, BlockData.cds, tlssOfR_fixCtorDataList_getD hcj]
-    have hEisE : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Eiss
-        (p.toBlockShape.recTgtAt j) ψ).getD i []
-        = (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-          (p.toBlockShape.recTgtAt j) i ψ := by
-      rw [BlockData.Eiss, BlockData.cds, eissOfR_fixCtorDataList_getD hcj]
-    -- the frame's lengths and the prefix's split
-    have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length
-        = p.toBlockShape.rulePrefixAt j := blockRulePdomsAV_length hμ mpC h hr ψ
-    have hxlen : xs.length = p.toBlockShape.rulePrefixAt j := by rw [hxs.length_eq, hpl]
-    have hlenps : (xs.take p.nP).length = p.nP := by rw [List.length_take, hxlen]; omega
-    have hms : (xs.drop p.nP).length = p.toBlockShape.rulePrefixAt j - p.nP := by
-      rw [List.length_drop, hxlen]
-    have hshift : shiftE (p.toBlockShape.rulePrefixAt j - p.nP) 0 (consList xs σ)
-        = consList (xs.take p.nP) σ := by
-      have hregroup : consList xs σ = consList (xs.drop p.nP) (consList (xs.take p.nP) σ) := by
-        rw [← consList_append, List.take_append_drop]
-      rw [hregroup, ← hms]
-      exact shiftE_consList _ _
-    have hfsB0 : SpineFit (consList (xs.take p.nP) σ)
-        ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).dsF
-          (p.toBlockShape.recTgtAt j) i ψ).drop p.nP).map (·.2.2)) fs := by
-      rw [← hshift]
-      rw [hFE] at hfs
-      exact (spineFit_liftDoms (V := V) _).mp hfs
-    have hFssD : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
-        (p.toBlockShape.recTgtAt j) ψ).getD i []
-        = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).dsF
-          (p.toBlockShape.recTgtAt j) i ψ).drop p.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    have hfsB : SpineFit (consList (xs.take p.nP) σ)
-        (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
-          (p.toBlockShape.recTgtAt j) ψ).getD i []) fs := by
-      rw [hFssD]; exact hfsB0
-    have hfsl : fs.length = cA.2 := by rw [hfsB.length_eq, hFssLen]
-    -- the parameters: the block's, and the constructor's own
-    have hps : SpineFit σ
-        ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).params ψ)
-        (xs.take p.nP) := by
-      have ht := spineFit_take hxs (i := p.nP) (by rw [hpl]; exact hnP)
-      have hte : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).take p.nP
-          = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ j).map (·.2.2)).take
-            p.nP := by
-        rw [blockRulePdomsAV, List.map_take, List.take_take, Nat.min_eq_left hnP]
-      rw [hte] at ht
-      exact (blockRecParams_run hμ mpC h hmr hr ψ σ _).mp ht
-    have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
-      (hcd.len ψ) hframes (spineFit_take_any hxs p.nP)
-    -- the callee's prefix is the rule's
-    have hprefR : SpineFit σ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
-        (·.2.2)).take (p.toBlockShape.rulePrefixAt c')) xs := by
-      rw [← List.map_take]
-      exact blockRecHpref_run hμ mpC h ψ hr hr' hxs
-    have htgts : ∀ l, l < cA.2 →
-        (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tgts
-          (p.toBlockShape.recTgtAt j) i l
-        < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k := by
-      intro l _
-      rw [← hN.2.2.2]
-      exact hN.2.1 _ i l
-    -- the callee's type, its binder data and its conclusion
-    obtain ⟨-, -, -, hreadT, hTyE, hrdsLen, -, -, -, hwdTy⟩ :=
-      checkBlockRecK_tyPis hμ mpC h hr' ψ
-    have hTVaE : TVa = blockRecTyAV mpC.base2.acval envC rs ψ c' := by
-      have hg : (rs.map (·.1.type)).getD c' (.sort .zero) = rs[c'].1.type := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
-      rw [hg] at hTVa
-      exact Option.some.inj (hTVa.symm.trans hreadT)
-    obtain ⟨hnPle', -, hmI', hlenRds', -⟩ := blockRecMajor_run hμ mpC h hmr hr' ψ
-    obtain ⟨hbndR, hconclB⟩ := checkBlockRecK_tyBounds hμ mpC h hr' ψ
-    obtain ⟨-, hEl⟩ := blockIhKey_block_lengths (V := V) ψ hcj hcf hfiC hkind
-    rw [htgtc'] at hEl
-    -- the key's spine, in the frame's own spelling
-    have hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') cA.2
-        (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-          (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length
-        (blockRecTyAV mpC.base2.acval envC rs ψ c')
-        ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+  -- the opener's domain: its reading at `q`, and its bound
+  have hreadQ : ∀ x' : Expr, (blockRuleFvsIhAt p rs j i)[q]? = some x' →
+      denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+        (Expr.fvarTypeD x')
+        = some ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default) := by
+    intro x' hx'
+    have hr1 := readOpenedDoms_reads hexI q x' hx'
+    rw [← hIdomE] at hr1
+    exact hr1
+  have hIB : Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+      ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default).erase := by
+    have hW := openPisAtFvars_typeWScoped _ hopen hWt q x hx
+    exact bvarsBelow_of_reading (m := mpC.base2) hW
+      (hlb x (List.mem_append_right _ (List.mem_of_getElem? hx))) (hreadQ x hx)
+  -- the block's rows, at the constructor
+  have htlE : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+      (p.toBlockShape.recTgtAt j) ψ).getD i []
+      = (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+        (p.toBlockShape.recTgtAt j) i ψ := by
+    rw [BlockData.tlss, BlockData.cds, tlssOfR_fixCtorDataList_getD hcj]
+  have hEisE : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Eiss
+      (p.toBlockShape.recTgtAt j) ψ).getD i []
+      = (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+        (p.toBlockShape.recTgtAt j) i ψ := by
+    rw [BlockData.Eiss, BlockData.cds, eissOfR_fixCtorDataList_getD hcj]
+  have hm : (ConLeche.structFieldTeleOf (blockRuleCtorOf rs j i).1.type
+        (blockRuleFrameAt p rs j i).nP (blockRuleFrameAt p rs j i).nF fi).length
+      = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+          (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
+    rw [hct, ← hrow3 fi, eT]
+  -- the callee's type, its binder data and its conclusion
+  obtain ⟨-, -, -, hreadT, hTyE, hrdsLen, -, -, -, hwdTy⟩ :=
+    checkBlockRecK_tyPis hμ mpC h hr' ψ
+  have hTVaE : TVa = blockRecTyAV mpC.base2.acval envC rs ψ c' := by
+    have hg : (rs.map (·.1.type)).getD c' (.sort .zero) = rs[c'].1.type := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
+    rw [hg] at hTVa
+    exact Option.some.inj (hTVa.symm.trans hreadT)
+  obtain ⟨hnPle', -, hmI', hlenRds', -⟩ := blockRecMajor_run hμ mpC h hmr hr' ψ
+  obtain ⟨hbndR, hconclB⟩ := checkBlockRecK_tyBounds hμ mpC h hr' ψ
+  obtain ⟨-, hEl⟩ := blockIhKey_block_lengths (V := V) ψ hcj hcf hfiC hkind
+  rw [htgtc'] at hEl
+  -- the key's spine, in the frame's own spelling
+  have hcon : BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') cA.2
+      (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length
+      (blockRecTyAV mpC.base2.acval envC rs ψ c')
+      ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+        (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+          (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+      (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+        (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) CihR := by
+    rw [← hTVaE, hrPc']
+    rw [hfrR, hfrF, eT, eE, Nat.add_zero] at hpeel
+    exact hpeel
+  have hentry := blockCtorDataI_fieldEntry hcdP ψ hfiC hkind
+  refine ⟨fi, c', CihR, hkeyE, hc'K, hfiC, hentry, hIget,
+    hihsGet, hcdP.tssBelow ψ fi, hcdP.eissBelow ψ fi, hrPc', hrss, htgtc', hIB, hreadQ, eT, eE,
+    hm, htlE, hEisE, hcon, ?_⟩
+  intro σ xs fs hxs hfs
+  -- the frame's lengths and the prefix's split
+  have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length
+      = p.toBlockShape.rulePrefixAt j := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hxlen : xs.length = p.toBlockShape.rulePrefixAt j := by rw [hxs.length_eq, hpl]
+  have hlenps : (xs.take p.nP).length = p.nP := by rw [List.length_take, hxlen]; omega
+  have hms : (xs.drop p.nP).length = p.toBlockShape.rulePrefixAt j - p.nP := by
+    rw [List.length_drop, hxlen]
+  have hshift : shiftE (p.toBlockShape.rulePrefixAt j - p.nP) 0 (consList xs σ)
+      = consList (xs.take p.nP) σ := by
+    have hregroup : consList xs σ = consList (xs.drop p.nP) (consList (xs.take p.nP) σ) := by
+      rw [← consList_append, List.take_append_drop]
+    rw [hregroup, ← hms]
+    exact shiftE_consList _ _
+  have hfsB0 : SpineFit (consList (xs.take p.nP) σ)
+      ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).dsF
+        (p.toBlockShape.recTgtAt j) i ψ).drop p.nP).map (·.2.2)) fs := by
+    rw [← hshift]
+    rw [hFE] at hfs
+    exact (spineFit_liftDoms (V := V) _).mp hfs
+  have hFssD : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
+      (p.toBlockShape.recTgtAt j) ψ).getD i []
+      = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).dsF
+        (p.toBlockShape.recTgtAt j) i ψ).drop p.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  have hfsB : SpineFit (consList (xs.take p.nP) σ)
+      (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
+        (p.toBlockShape.recTgtAt j) ψ).getD i []) fs := by
+    rw [hFssD]; exact hfsB0
+  have hfsl : fs.length = cA.2 := by rw [hfsB.length_eq, hFssLen]
+  -- the parameters: the block's, and the constructor's own
+  have hps : SpineFit σ
+      ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).params ψ)
+      (xs.take p.nP) := by
+    have ht := spineFit_take hxs (i := p.nP) (by rw [hpl]; exact hnP)
+    have hte : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).take p.nP
+        = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ j).map (·.2.2)).take
+          p.nP := by
+      rw [blockRulePdomsAV, List.map_take, List.take_take, Nat.min_eq_left hnP]
+    rw [hte] at ht
+    exact (blockRecParams_run hμ mpC h hmr hr ψ σ _).mp ht
+  have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+    (hcd.len ψ) hframes (spineFit_take_any hxs p.nP)
+  -- the callee's prefix is the rule's
+  have hprefR : SpineFit σ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
+      (·.2.2)).take (p.toBlockShape.rulePrefixAt c')) xs := by
+    rw [← List.map_take]
+    exact blockRecHpref_run hμ mpC h ψ hr hr' hxs
+  have htgts : ∀ l, l < cA.2 →
+      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tgts
+        (p.toBlockShape.recTgtAt j) i l
+      < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k := by
+    intro l _
+    rw [← hN.2.2.2]
+    exact hN.2.1 _ i l
+  have hxl : xs.length = (xs.take p.nP).length + (p.toBlockShape.rulePrefixAt j - p.nP) := by
+    rw [hlenps, hxlen]; omega
+  have htake : xs.take (xs.take p.nP).length = xs.take p.nP := by rw [hlenps]
+  have hxlen' : xs.length = p.toBlockShape.rulePrefixAt c' := by rw [hrPc', hxlen]
+  refine ⟨hxlen, hfsl,
+    blockRuleIhTele_graded_of_ctorTower (hcd.okTy ψ) (hcd.len ψ) hfiC hentry hpc hfsB0,
+    fun bs hbs => spineFit_ihTeleAtR_rule (ρ := σ) (i := fi) hxl htake hfsl hbs, ?_⟩
+  -- THE CORE, at ih level 0: the call at the call's own frame
+  intro bs hbsC
+  have hbl : bs.length
+      = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
+    rw [hbsC.length_eq, List.length_map]
+  obtain ⟨hDwd, hDom, hEwd, hfitB⟩ := blockIhCallFit_of hμ mpC h hmr hM hcj hcf hmmN htgts
+    hfiC hkind hrss hr' htgtc' hprefR hps hpc hfsB (by rw [htlE]; exact hbsC)
+  rw [htlE, hEisE] at hDom
+  rw [hEisE] at hEwd hfitB
+  have hes : ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+        (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+          (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)).map
+        (interp V (consList bs (consList (xs ++ fs) σ)))
+      = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+        (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ)))) := by
+    rw [List.map_map]
+    exact List.map_congr_left fun E _ => interp_ihIdxAtM_rule (i := fi) hxl htake hfsl hbl E
+  have hmk := interp_fieldApp_rule (ρ := σ) (xs := xs) hfsl hfiC hbl
+  -- the call's arguments are graded: the moved index readings ...
+  have hEsWd : ∀ a ∈ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+        (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+        (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+          (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length),
+      WellDenotedV V (consList bs (consList (xs ++ fs) σ)) a := by
+    intro a ha
+    obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+    exact (wellDenotedV_ihIdxAtM_rule (i := fi) hxl htake hfsl hbl E).mpr (hEwd E hE)
+  -- ... and the applied field: the field's value along its own domain
+  have hFapWd : WellDenotedV V (consList bs (consList (xs ++ fs) σ))
+      (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+        (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) := by
+    have hval : interp V (consList bs (consList (xs ++ fs) σ))
+        (.bvar (cA.2 - 1 - fi
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+        = fs.getD fi pt := by
+      rw [consList_ruleFrame]
+      have hk : fi < (fs ++ bs).length := by rw [List.length_append]; omega
+      have hidx : cA.2 - 1 - fi
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length
+          = (fs ++ bs).length - 1 - fi := by
+        rw [List.length_append, hfsl, hbl]; omega
+      rw [hidx, interp_bvarAt hk, List.getD_eq_getElem?_getD,
+        List.getElem?_append_left (by omega), ← List.getD_eq_getElem?_getD]
+    have hmemB := FixKI.spineFit_getD_mem' hfsB (l := fi) (by rw [hFssLen]; exact hfiC)
+    rw [hDom] at hmemB hDwd
+    rw [← hval] at hmemB
+    have hTeleFit := teleFit_mkPisAV_of_spineFit
+      (B := AnnotTerm.mkAppN (mpC.base2.acval (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk
+          uOfD ppsOf |>.memberName (p.toBlockShape.recTgtAt c')) ψ)
+        (paramBvarsAt (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP
+          ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP + fi
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+          ++ ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi [])) hbsC
+    rw [← map_teleVarsAV_interp' hbl (consList (xs ++ fs) σ)] at hTeleFit
+    exact (Rules.wellDenotedV_mkAppN_of_fit _
+      (f := .bvar (cA.2 - 1 - fi
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) hDwd ⟨trivial, trivial⟩
+      (fun x hx => by
+        obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
+        exact ⟨trivial, trivial⟩) hmemB hTeleFit).1
+  refine ⟨?_, fun hb0 => ?_, fun R hR => ?_, hfitB, hmk, hes, hEsWd, hFapWd⟩
+  · -- the grading: the callee's tower, fitted at the call's spine and peeled
+    have hL : consList bs (consList (xs ++ fs) σ) = consList (xs ++ fs ++ bs) σ := by
+      simp only [consList_append]
+    have hLlen : (xs ++ fs ++ bs).length
+        = p.toBlockShape.rulePrefixAt c' + cA.2
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
+      rw [List.length_append, List.length_append, hxlen', hfsl, hbl]
+    have hpb : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+        (p.toBlockShape.rulePrefixAt c' + cA.2
+          + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)).map
+        (interp V (consList bs (consList (xs ++ fs) σ))) = xs := by
+      rw [hL, map_bvarAt_take (hD := hLlen.symm) (by rw [hLlen]; omega), List.append_assoc,
+        List.take_left' hxlen']
+    have hmapS : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+          (p.toBlockShape.rulePrefixAt c' + cA.2
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
           (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
           (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
             (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-        (AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
             + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
               (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
           (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) CihR := by
-      rw [← hTVaE, hrPc']
-      rw [hfrR, hfrF, eT, eE, Nat.add_zero] at hpeel
-      exact hpeel
-    have hxl : xs.length = (xs.take p.nP).length + (p.toBlockShape.rulePrefixAt j - p.nP) := by
-      rw [hlenps, hxlen]; omega
-    have htake : xs.take (xs.take p.nP).length = xs.take p.nP := by rw [hlenps]
-    have hxlen' : xs.length = p.toBlockShape.rulePrefixAt c' := by rw [hrPc', hxlen]
-    -- THE CORE, at ih level 0: the call's conclusion at the call's own frame
-    have hcore0 : ∀ bs : List V,
-        SpineFit (consList (fs.take fi) (consList (xs.take p.nP) σ))
-          ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map (·.2.2)) bs →
-        WellDenotedV V (consList bs (consList (xs ++ fs) σ)) CihR ∧
-          (pwBit ψ (blockRuleFrameAt p rs j i).pw = 0 →
-            interp V (consList bs (consList (xs ++ fs) σ)) CihR ∈ˢ (univZero : V)) ∧
-          ∀ R : V, R ∈ˢ interp V σ (blockRecTyAV mpC.base2.acval envC rs ψ c') →
-            (xs ++ (((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-                (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-                (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
-                  (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                    (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
-                  + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                    (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-                  (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD
-                    ppsOf).tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
-                (interp V (consList bs (consList (xs ++ fs) σ)))).foldl SetTheory.app R
-              ∈ˢ interp V (consList bs (consList (xs ++ fs) σ)) CihR := by
-      intro bs hbsC
-      have hbl : bs.length
-          = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
-        rw [hbsC.length_eq, List.length_map]
-      obtain ⟨hDwd, hDom, hEwd, hfitB⟩ := blockIhCallFit_of hμ mpC h hmr hM hcj hcf hmmN htgts
-        hfiC hkind hrss hr' htgtc' hprefR hps hpc hfsB (by rw [htlE]; exact hbsC)
-      rw [htlE, hEisE] at hDom
-      rw [hEisE] at hEwd hfitB
-      have hes : ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-            (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
-              (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)).map
-            (interp V (consList bs (consList (xs ++ fs) σ)))
-          = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-            (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-            (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ)))) := by
-        rw [List.map_map]
-        exact List.map_congr_left fun E _ => interp_ihIdxAtM_rule (i := fi) hxl htake hfsl hbl E
-      have hmk := interp_fieldApp_rule (ρ := σ) (xs := xs) hfsl hfiC hbl
-      refine ⟨?_, fun hb0 => ?_, fun R hR => ?_⟩
-      · -- the grading: the callee's tower, fitted at the call's spine and peeled
-        have hL : consList bs (consList (xs ++ fs) σ) = consList (xs ++ fs ++ bs) σ := by
-          simp only [consList_append]
-        have hLlen : (xs ++ fs ++ bs).length
-            = p.toBlockShape.rulePrefixAt c' + cA.2
-              + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
-          rw [List.length_append, List.length_append, hxlen', hfsl, hbl]
-        have hpb : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
-            (p.toBlockShape.rulePrefixAt c' + cA.2
-              + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)).map
-            (interp V (consList bs (consList (xs ++ fs) σ))) = xs := by
-          rw [hL, map_bvarAt_take (hD := hLlen.symm) (by rw [hLlen]; omega), List.append_assoc,
-            List.take_left' hxlen']
-        have hmapS : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
-              (p.toBlockShape.rulePrefixAt c' + cA.2
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-              (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
-                (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
-            (interp V (consList bs (consList (xs ++ fs) σ)))
-          = xs ++ ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-              (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ))))
-            ++ [bs.foldl SetTheory.app (fs.getD fi pt)]) := by
-          rw [List.map_append, List.map_append, hpb, hes, List.map_cons, List.map_nil, hmk,
-            List.append_assoc]
-        -- the fit, moved to the call's frame (the binder data is bounded at its depths)
-        have hbnd : ∀ l, l < ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
-            (fun d : Nat × Nat × AnnotTerm => d.2.2)).length →
-            Term.bvarsBelow l ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
-              (fun d : Nat × Nat × AnnotTerm => d.2.2)).getD l default).erase) := by
-          intro l hl
-          rw [List.length_map] at hl
-          have hq := hbndR l hl
-          rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl]
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl] at hq
-          exact hq
-        have hfit1 : SpineFit (consList bs (consList (xs ++ fs) σ))
-            ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map (·.2.2))
-            ((paramBvarsAt (p.toBlockShape.rulePrefixAt c')
-              (p.toBlockShape.rulePrefixAt c' + cA.2
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-              (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
-                (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
-            (interp V (consList bs (consList (xs ++ fs) σ)))) := by
-          rw [hmapS]
-          exact spineFit_frame_of_bounded hbnd hfitB
-        have hSlen : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
-              (p.toBlockShape.rulePrefixAt c' + cA.2
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
-              (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
-                (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-            ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).length
-            = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length := by
-          rw [List.length_append, List.length_append, paramBvarsAt_length, List.length_map,
-            List.length_singleton, ← hEisE, hEl, hlenRds', hmI']
-        obtain ⟨rest, hTF⟩ := teleFitPA_mkPisAV_of_spineFit
-          (b := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c') hSlen hfit1
-        rw [← hTyE] at hTF
-        obtain rfl : rest = CihR := Option.some.inj (hTF.peelPis.symm.trans hcon)
-        refine teleFitPA_wellDenotedV hTF (hwdTy _)
-          (blockRuleHokC_args (fun a ha => ?_) ?_)
-        · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
-          exact (wellDenotedV_ihIdxAtM_rule (i := fi) hxl htake hfsl hbl E).mpr (hEwd E hE)
-        · -- the applied field: the field's value along its own domain
-          have hval : interp V (consList bs (consList (xs ++ fs) σ))
-              (.bvar (cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
-              = fs.getD fi pt := by
-            rw [consList_ruleFrame]
-            have hk : fi < (fs ++ bs).length := by rw [List.length_append]; omega
-            have hidx : cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length
-                = (fs ++ bs).length - 1 - fi := by
-              rw [List.length_append, hfsl, hbl]; omega
-            rw [hidx, interp_bvarAt hk, List.getD_eq_getElem?_getD,
-              List.getElem?_append_left (by omega), ← List.getD_eq_getElem?_getD]
-          have hmemB := FixKI.spineFit_getD_mem' hfsB (l := fi) (by rw [hFssLen]; exact hfiC)
-          rw [hDom] at hmemB hDwd
-          rw [← hval] at hmemB
-          have hTeleFit := teleFit_mkPisAV_of_spineFit
-            (B := AnnotTerm.mkAppN (mpC.base2.acval (blockDataOf V p.toBlockShape env₀ ctorsAs
-                p.kinds pk uOfD ppsOf |>.memberName (p.toBlockShape.recTgtAt c')) ψ)
-              (paramBvarsAt (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP
-                ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP + fi
-                  + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                    (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
-                ++ ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi [])) hbsC
-          rw [← map_teleVarsAV_interp' hbl (consList (xs ++ fs) σ)] at hTeleFit
-          exact (Rules.wellDenotedV_mkAppN_of_fit _
-            (f := .bvar (cA.2 - 1 - fi
-                + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
-                  (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)) hDwd ⟨trivial, trivial⟩
-            (fun x hx => by
-              obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
-              exact ⟨trivial, trivial⟩) hmemB hTeleFit).1
-      · -- the truth value: the elimination level is zero, and the spine fits
-        obtain ⟨us, uOf, -, -, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
-        obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c' hc'K
-        have hrd : rs.getD c' default = rs[c'] := by
-          rw [List.getD_eq_getElem?_getD, hr']; rfl
-        rw [hrd] at hop
-        have hu0 : (uOf c').eval ψ = 0 := by
-          rw [blockRecElimPin_run h hruns ψ hc'K]
-          exact (pwBit_zeronessOf ψ _).mp (by rw [← hpw]; exact hb0)
-        exact blockRuleIseg_h0_of_conclAt hμ mpC h hr' ψ hop hinf hens hu0 hcon
-          (by rw [hlenRds', hmI'])
-          (by rw [List.length_map, ← hEisE]; exact hEl)
-          hconclB hxlen' hfsl hbl hes hmk hfitB
-      · -- the value: the callee's type, applied along a fitting spine, lands in the peel
-        rw [List.map_append, hes, List.map_cons, List.map_nil, hmk]
-        rw [hTyE] at hR
-        have hmemR := foldl_app_mem_mkPisAV (by rw [← hTyE]; exact (hwdTy σ).2) hfitB hR
-        rw [blockRecCa_value hcon hTyE (by rw [hlenRds', hmI'])
-          (by rw [List.length_map, ← hEisE]; exact hEl) hconclB hxlen' hfsl hbl hes hmk]
-        exact hmemR
-    exact hcore0
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
+        (interp V (consList bs (consList (xs ++ fs) σ)))
+      = xs ++ ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+          (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+          (interp V (consList bs (consList (fs.take fi) (consList (xs.take p.nP) σ))))
+        ++ [bs.foldl SetTheory.app (fs.getD fi pt)]) := by
+      rw [List.map_append, List.map_append, hpb, hes, List.map_cons, List.map_nil, hmk,
+        List.append_assoc]
+    -- the fit, moved to the call's frame (the binder data is bounded at its depths)
+    have hbnd : ∀ l, l < ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
+        (fun d : Nat × Nat × AnnotTerm => d.2.2)).length →
+        Term.bvarsBelow l ((((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map
+          (fun d : Nat × Nat × AnnotTerm => d.2.2)).getD l default).erase) := by
+      intro l hl
+      rw [List.length_map] at hl
+      have hq := hbndR l hl
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl]
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl] at hq
+      exact hq
+    have hfit1 : SpineFit (consList bs (consList (xs ++ fs) σ))
+        ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').map (·.2.2))
+        ((paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+          (p.toBlockShape.rulePrefixAt c' + cA.2
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+          (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+          (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+            (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+          (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).map
+        (interp V (consList bs (consList (xs ++ fs) σ)))) := by
+      rw [hmapS]
+      exact spineFit_frame_of_bounded hbnd hfitB
+    have hSlen : (paramBvarsAt (p.toBlockShape.rulePrefixAt c')
+          (p.toBlockShape.rulePrefixAt c' + cA.2
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).eissF
+          (p.toBlockShape.recTgtAt j) i ψ).getD fi []).map
+          (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) fi 0
+            (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)
+        ++ [AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+            + (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length))
+          (teleVarsAV (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
+              (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length)]).length
+        = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c').length := by
+      rw [List.length_append, List.length_append, paramBvarsAt_length, List.length_map,
+        List.length_singleton, ← hEisE, hEl, hlenRds', hmI']
+    obtain ⟨rest, hTF⟩ := teleFitPA_mkPisAV_of_spineFit
+      (b := blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c') hSlen hfit1
+    rw [← hTyE] at hTF
+    obtain rfl : rest = CihR := Option.some.inj (hTF.peelPis.symm.trans hcon)
+    exact teleFitPA_wellDenotedV hTF (hwdTy _) (blockRuleHokC_args hEsWd hFapWd)
+  · -- the truth value: the elimination level is zero, and the spine fits
+    obtain ⟨us, uOf, -, -, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+    obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c' hc'K
+    have hrd : rs.getD c' default = rs[c'] := by
+      rw [List.getD_eq_getElem?_getD, hr']; rfl
+    rw [hrd] at hop
+    have hu0 : (uOf c').eval ψ = 0 := by
+      rw [blockRecElimPin_run h hruns ψ hc'K]
+      exact (pwBit_zeronessOf ψ _).mp (by rw [← hpw]; exact hb0)
+    exact blockRuleIseg_h0_of_conclAt hμ mpC h hr' ψ hop hinf hens hu0 hcon
+      (by rw [hlenRds', hmI'])
+      (by rw [List.length_map, ← hEisE]; exact hEl)
+      hconclB hxlen' hfsl hbl hes hmk hfitB
+  · -- the value: the callee's type, applied along a fitting spine, lands in the peel
+    rw [List.map_append, hes, List.map_cons, List.map_nil, hmk]
+    rw [hTyE] at hR
+    have hmemR := foldl_app_mem_mkPisAV (by rw [← hTyE]; exact (hwdTy σ).2) hfitB hR
+    rw [blockRecCa_value hcon hTyE (by rw [hlenRds', hmI'])
+      (by rw [List.length_map, ← hEisE]; exact hEl) hconclB hxlen' hfsl hbl hes hmk]
+    exact hmemR
 
 /-- **The rule's RECORD group at the run** — the constructor's reading
 record at the rule's member (its former, the former's data, the
@@ -1111,7 +1199,8 @@ theorem blockRuleRecord_run
   refine ⟨cvTa, _, _, _, _, _, _, hcvTa, hfT, hFD, Nat.le_add_right _ _, hcd.okTy ψ, hcd.len ψ,
     hframes, ho, hFE, hIlen, ?_⟩
   intro q hq
-  obtain ⟨fi, c', CihR, -, -, hfiC, hentry, hIget, -, -, -, hcall⟩ := hkey q hq
+  obtain ⟨fi, c', CihR, -, -, hfiC, hentry, hIget, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    hcall⟩ := hkey q hq
   refine ⟨fi, pwBit ψ (blockRuleFrameAt p rs j i).pw,
     ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tssF
       (p.toBlockShape.recTgtAt j) i ψ).getD fi [], _,
@@ -1157,12 +1246,12 @@ theorem blockRuleRecord_run
           ppsOf).tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
         rw [(htr bs hb).length_eq, List.length_map]
       rw [WellDenotedV_liftN, ← hbl, shiftE_consList_ih rfl hyl, hfr0]
-      exact (hcall σ xs fs hxs hfs bs (htr bs hb)).1
+      exact ((hcall σ xs fs hxs hfs).2.2.2.2 bs (htr bs hb)).1
     · have hbl : bs.length = (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD
           ppsOf).tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
         rw [(htr bs hb).length_eq, List.length_map]
       rw [interp_liftN, ← hbl, shiftE_consList_ih rfl hyl, hfr0]
-      exact (hcall σ xs fs hxs hfs bs (htr bs hb)).2.1 hb0
+      exact ((hcall σ xs fs hxs hfs).2.2.2.2 bs (htr bs hb)).2.1 hb0
 
 
 /-- **(G) THE RULE FRAME'S GRADING, AT THE RUN** — the
@@ -1263,36 +1352,9 @@ theorem blockIhFitTyped_run
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   -- the frame split
   obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
-  have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-      = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hxlen : xs.length = p.toBlockShape.rulePrefixAt c := by rw [hxs.length_eq, hpl]
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
-  have hlenps : (xs.take p.nP).length = p.nP := by rw [List.length_take, hxlen]; omega
-  have hxl : xs.length = (xs.take p.nP).length + (p.toBlockShape.rulePrefixAt c - p.nP) := by
-    rw [hlenps, hxlen]; omega
-  have htake : xs.take (xs.take p.nP).length = xs.take p.nP := by rw [hlenps]
-  -- the constructor's record, for the field count
-  have hir := hjr
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hir)⟩
-  obtain ⟨ms, hms, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
-  have hmemk : p.toBlockShape.recTgtAt c
-      < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k :=
-    (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
-  have hctM : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
-      (p.toBlockShape.recTgtAt c) = rs[c].2.2.2 := by
-    show ctorsAs.getD _ [] = _
-    rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hcj : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
-      (p.toBlockShape.recTgtAt c))[j]? = some cA := by rw [hctM]; exact hcA
-  have hcd := blockCtorData_of_core hcore hcj
-  have ho : p.toBlockShape.rulePrefixAt c = p.nP + (p.toBlockShape.rulePrefixAt c - p.nP) := by
-    omega
-  have hFE := blockRuleFdomsAV_liftDoms h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
-  have hfsl : fs.length = cA.2 := by
-    rw [hfs.length_eq, hFE, List.length_map, liftDoms_length, List.length_drop, hcd.len ψ]
-    show p.nP + cA.2 - p.nP = cA.2
-    omega
+    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
   have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
   obtain ⟨rbs, ty, concl, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
   have hIlen : (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length
@@ -1305,7 +1367,9 @@ theorem blockIhFitTyped_run
     rw [List.length_map, blockRuleIhsRunAV, blockRuleIhsAV_length]
   refine spineFit_of_getD (by rw [hvlen, hIlen]) fun q hq => ?_
   rw [hIlen] at hq
-  obtain ⟨fi, c', CihR, -, hc'K, hfiC, -, hIget, hihsGet, hTlB, hEisB, hcall⟩ := hkey q hq
+  obtain ⟨fi, c', CihR, -, hc'K, hfiC, -, hIget, hihsGet, hTlB, hEisB, -, -, -, -, -, -, -, -, -,
+    -, -, hcallF⟩ := hkey q hq
+  obtain ⟨hxlen, hfsl, -, hconv, hcall⟩ := hcallF ρ xs fs hxs hfs
   -- the domain, past the `q` values already bound
   have htk : ((((blockRuleIhsRunAV p rs mpC.base2.acval envC ψ c j).map
       (interp V (consList (xs ++ fs) (consList tup ρ))))).take q).length = q := by
@@ -1388,8 +1452,7 @@ theorem blockIhFitTyped_run
   · obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hdd
     rw [he, mem_rebit hd']
     exact (pwBit_zeronessOf ψ _).symm
-  · have hbsC := spineFit_ihTeleAtR_rule (ρ := ρ) (i := fi) hxl htake hfsl hsp
-    obtain ⟨-, H0, VAL⟩ := hcall ρ xs fs hxs hfs bs hbsC
+  · obtain ⟨-, H0, VAL, -⟩ := hcall bs (hconv bs hsp)
     refine ⟨?_, fun hℓ0 => H0 ((pwBit_zeronessOf ψ _).mpr hℓ0)⟩
     exact VAL _ (htyped c' hc'K)
 
