@@ -2854,6 +2854,11 @@ def BlockRuleBodyOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : Bl
         (Level.substFn φ r.1.levelParams us) c') = a c') →
   ∀ (fr : BlockRuleFrame) (recTys : List Expr) (rbody resid ihTele bodyO : Expr)
     (fvsIh : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (ty concl : Expr),
+    -- the peel's outputs are the run's own (§A.9b's definitions)
+    fr = blockRuleFrameAt p rs j i → recTys = rs.map (·.1.type) →
+    rbody = blockRuleBodyAt p rs j i → resid = blockRuleResidAt p rs j i →
+    ihTele = blockRuleIhTeleAt p rs j i → fvsIh = blockRuleFvsIhAt p rs j i →
+    bodyO = blockRuleBodyOAt p rs j i →
     fr.nP = p.nP → fr.rP = p.toBlockShape.rulePrefixAt j → fr.nF = cA.2 →
     fr.recNames = p.recs.map (·.cvR.name) → fr.recTgts = p.recTgts →
     fr.teleOf = structFieldTeleOf cA.1.type p.nP cA.2 →
@@ -2996,23 +3001,26 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
       ctorTy φ j i r cA rl rhs := by
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
     lds A hlam hldslen
-  obtain ⟨fr, recTys, rbs, rbody, resid, ihTele, bodyO, ty, concl, fvsIh,
-    hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw, hrecTysj, hstrip, hab, hpis,
-    hopen, hinf, hconcl, hdeq⟩ := blockRuleResidueData_run h hr hcA hrhs
+  obtain ⟨rbs, ty, concl, hstrip, hab, hpis, hopen, hinf, hconcl, hdeq⟩ :=
+    blockRuleResidueData_runP h hr hcA hrhs
+  obtain ⟨hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw⟩ :=
+    blockRuleFrameAt_rows (pp := p) (blockRuleCtorOf_eq hr hcA)
+  have hrecTysj : (rs.map (·.1.type))[j]? = some r.1.type := by
+    rw [List.getElem?_map, hr]; rfl
   obtain ⟨fvs0, crest0, tlF, EisF, ihdoms, hop0, hCf, hCb, hstripC, hcb, htlen, hfld,
     hrecTy, hrlvls, hihfv, hLpf, hpl, hfl, hil, hdoms, hokΔ, hlbF, hcbF, hclF,
     hihsEq, hihFit, hcbe, h2, hB, hty⟩ :=
     hbody us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
-      fr recTys rbody resid ihTele bodyO fvsIh rbs ty concl
+      _ _ _ _ _ _ _ rbs ty concl rfl rfl rfl rfl rfl rfl rfl
       hfrP hfrR hfrF hnames0 htgts htele hidxF hpw hrecTysj hstrip hab hpis hopen
       hinf hconcl hdeq
   have hcl : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
   have hmI : p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j :=
     blockRecHrPle h hcl
   have hxl' : ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)).length
-      = fr.rP := by
+      = (blockRuleFrameAt p rs j i).rP := by
     rw [List.length_map, List.length_take, hxl, hfrR]; omega
-  have hfsl' : ((ys.drop p.nP).map (interp V ρ)).length = fr.nF := by
+  have hfsl' : ((ys.drop p.nP).map (interp V ρ)).length = (blockRuleFrameAt p rs j i).nF := by
     rw [List.length_map, List.length_drop, hyl, hfrF]; omega
   have hspF := spineFit_chainFrame_of_bounded (K := rs.length) (a := a)
     (hbdd us hus)
