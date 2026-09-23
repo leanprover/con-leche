@@ -531,8 +531,13 @@ frame, residue and openers that need no reading of the constructor's
 fields: the tower's scoping, the three opener lists, the openers'
 closedness, constants and leaves, the residue's constants, and the
 opened residue — the residue opened at the whole frame, scoped,
-bvar-closed and TYPED there (so every valuation reads it). -/
-theorem blockRuleOpened_run (mpC : EnvModelM V μ envC)
+bvar-closed and TYPED there (so every valuation reads it).
+
+`_Full` also returns the generated `ih` tower's three facts at the
+prefix and field openers — its closedness, its leaves and its constants
+(`blockRuleCerts_of_run`'s `hb₃`/`hfv₃`/`hc₃`, lane RM56); the unsuffixed
+form below drops them. -/
+theorem blockRuleOpenedFull_run (mpC : EnvModelM V μ envC)
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -568,8 +573,17 @@ theorem blockRuleOpened_run (mpC : EnvModelM V μ envC)
     Expr.WScoped (p.toBlockShape.rulePrefixAt j + cA.2)
       ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
         ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse) ∧
-    ∀ ψ : Name → Nat, ∃ B, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
-      (blockRuleBodyOAt p rs j i) = some B := by
+    (∀ ψ : Name → Nat, ∃ B, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      (blockRuleBodyOAt p rs j i) = some B) ∧
+    ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
+      ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).looseBVarsBounded 0 = true ∧
+    (∀ l ∈ ((blockRuleIhTeleAt p rs j i).instantiateList
+        (blockRulePrefFvs p.toBlockShape rs j
+          ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ blockRulePrefFvs p.toBlockShape rs j
+        ++ blockRuleFieldFvs p.toBlockShape rs j i) ∧
+    ConstsBound envC ((blockRuleIhTeleAt p rs j i).instantiateList
+      (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse) := by
   have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
   obtain ⟨hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw⟩ :=
     blockRuleFrameAt_rows (pp := p) hct
@@ -764,9 +778,55 @@ theorem blockRuleOpened_run (mpC : EnvModelM V μ envC)
       (by rw [List.reverse_append]; exact hL2) _ hihfv 0)).2
   refine ⟨hihfv, hL2, hL3, hlbF, blockRuleHcbF_of h₁ h₂ hopen2 hcT hc₂ hc₃, hclF, hcbR, hbodyO,
     hWS, hbO, blockRuleHleaf_of hopen2 hfv₃,
-    wscoped_instantiateList (by rw [List.reverse_append]; exact hL2) _ hihfv 0, fun ψ => ?_⟩
+    wscoped_instantiateList (by rw [List.reverse_append]; exact hL2) _ hihfv 0, fun ψ => ?_,
+    hb₃, hfv₃, hc₃⟩
   exact acceptedReads_of mpC.base2 ψ hinf hWS hbO
     (fun l hl => hlbF _ (blockRuleHleaf_of hopen2 hfv₃ l hl))
+
+/-- **The rule's opened frame at the run** — `blockRuleOpenedFull_run`
+without the tower's three facts. -/
+theorem blockRuleOpened_run (mpC : EnvModelM V μ envC)
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hcbC : ConstsBound envC cA.1.type)
+    (hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true)
+    (hksLen : (blockRuleKsOf p j i).length = cA.2) :
+    (blockRuleIhTeleAt p rs j i).hasFvar = false ∧
+    FvarList (p.toBlockShape.rulePrefixAt j + cA.2)
+      ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse) ∧
+    FvarList (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      ((blockRuleFvsIhAt p rs j i).reverse ++ ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse)) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), ConstsBound envC x) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i)) ∧
+    ConstsBound envC (blockRuleResidAt p rs j i) ∧
+    blockRuleBodyOAt p rs j i
+      = (blockRuleResidAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i).reverse 0 ∧
+    Expr.WScoped (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR) (blockRuleBodyOAt p rs j i) ∧
+    (blockRuleBodyOAt p rs j i).looseBVarsBounded 0 = true ∧
+    (∀ l ∈ (blockRuleBodyOAt p rs j i).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i)) ∧
+    Expr.WScoped (p.toBlockShape.rulePrefixAt j + cA.2)
+      ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
+        ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse) ∧
+    ∀ ψ : Name → Nat, ∃ B, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      (blockRuleBodyOAt p rs j i) = some B := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, -⟩ :=
+    blockRuleOpenedFull_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
+
 
 /-- **The rule frame's openers READ to its context** — the certificate
 bundle's `hdoms` row at the pinned openers and domains: the prefix off

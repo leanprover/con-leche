@@ -42,6 +42,7 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 public import ConLeche.Model.Inductives.BlockRuleGrading
 public import ConLeche.Model.Inductives.BlockIndRuleRun
 public import ConLeche.Model.Inductives.BlockGradeRowsRun
+public import ConLeche.Model.Inductives.BlockRuleCertsRun
 public import ConLeche.Model.Inductives.BlockDeclRun
 public import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.ClaimsIO
