@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
+public import ConLeche.Cached.TargetShadowC
 
 @[expose] public section
 
@@ -64,6 +65,40 @@ because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
 def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
+/-- **The diagnostic shadows** the install loop runs beside the fold:
+`--nested-shadow` (lane NESTPOS) and `--target-shadow` (lane TSHADOW).
+Neither reaches the fold: each runs on the pre-block index and state,
+and its state is discarded. -/
+structure Shadows where
+  /-- `--nested-shadow`: positivity through containers at nested blocks -/
+  nested : Bool := false
+  /-- `--target-shadow`: the target installer at every inductive block -/
+  target : Bool := false
+
+/-- The verdict word of a fold step's outcome (`accept` on success). -/
+def stepWord {α : Type} : Except (ConLeche.CheckError × Nat) α → String
+  | .ok _ => "accept"
+  | .error (.invalid _, _) => "reject"
+  | .error (.notImplemented _, _) => "decline"
+  | .error (.internal _, _) => "error"
+
+/-- **The target shadow's line** (`--target-shadow`, lane TSHADOW):
+today's verdict for the block (the fold step's), the target
+installer's, and the three pieces' own:
+
+    con-leche: target-shadow <block> today=<w> target=<w> rec=<w>
+      conf=<w> pos=<w> cls=<w> kinds=<same|differ|-> fields=<ok|fail|n/a|->
+      aux=<n> keys=[…] | <messages>
+
+`tests/target-shadow.sh` reads it. -/
+def targetShadowLine (nm : ConLeche.Name) (today todayMsg : String)
+    (r : ConLeche.TargetShadowReport) : String :=
+  let msgs := [("today", todayMsg), ("target", r.install.msg), ("rec", r.recCheck.msg), ("pos", r.pos.msg),
+      ("conf", r.conf.msg), ("kinds", r.kindsNote)].filterMap fun (k, v) => if v.isEmpty then none else some s!"{k}: {v}"
+  s!"con-leche: target-shadow {nm} today={today} target={r.install.word} \
+    rec={r.recCheck.word} conf={r.conf.word} pos={r.pos.word} cls={r.cls.word} kinds={r.kinds} \
+    fields={r.fields} aux={r.auxRecs} keys={r.keys} | {" ; ".intercalate msgs}\n"
+
 /-- **Phase A's loop — the driver's install pass, carrying its own
 accepting run.**  Each record is installed by
 `ConLeche.Cached.annotDeclStep`: a separable value declaration is
@@ -104,7 +139,7 @@ the stream's record index: the parse folds the basis and `quot` blocks
 into single records and generates the in-process models, so the two
 drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (shadow : Bool)
+    (stride total t0 : Nat) (shadow : Shadows)
     (ds : Array ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
     (i : Nat) →
@@ -136,7 +171,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
       -- is untouched; `tests/nested-shadow.sh` compares the verdicts
       -- with official's.  It goes when the nested model lands and the
       -- recogniser takes nested blocks.
-      if shadow then
+      if shadow.nested then
         match pd with
         | .indDecl block nP =>
           if (ConLeche.blockShape? nP block).isSome && (ConLeche.basisPinHit block).isNone then
@@ -154,6 +189,33 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
               err.putStr s!"con-leche: nested-shadow {nm} {v}\n"
               err.flush
         | _ => pure ()
+      -- **THE TARGET SHADOW** (`--target-shadow`, lane TSHADOW): at
+      -- every inductive block that is not a pinned basis block, the
+      -- target installer (`ConLeche.targetShadow`: `nestPos` for the
+      -- classifier, the classification-free recursor check on the
+      -- stream's family) runs on the very same pre-block index and
+      -- state, its state discarded; its report is printed after the
+      -- fold's step, beside that step's verdict.  Nothing of it reaches
+      -- the fold.
+      let target : Option (ConLeche.Name × ConLeche.TargetShadowReport) :=
+        if shadow.target then
+          match pd with
+          | .indDecl block nP =>
+            if (ConLeche.basisPinHit block).isNone then
+              let nm := (block.head?.map (·.name)).getD .anonymous
+              match (ConLeche.Cached.targetShadowS mode p.2.1 nP block).run s with
+              | .ok (r, _) => some (nm, r)
+              | .error e => some (nm, { install := .fail e })
+            else none
+          | _ => none
+        else none
+      if let some (nm, r) := target then
+        let st := ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s
+        let msg := match st with
+          | .error (e, _) => toString e
+          | .ok _ => ""
+        err.putStr (targetShadowLine nm (stepWord st) msg r)
+        err.flush
       match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s with
       | .ok (p₁, s₁) =>
         installLoop mode err stride total t0 shadow ds p₀ s₀ (i + 1) p₁ s₁ (by
@@ -360,7 +422,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark shadow : Bool) (ds : Array ConLeche.Declaration) :
+    (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -518,7 +580,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
-    (noMark shadow : Bool) : IO UInt32 := do
+    (noMark : Bool) (shadow : Shadows) : IO UInt32 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
@@ -835,6 +897,14 @@ def usage : String := String.intercalate "\n" [
   "                    on STDERR (accept/reject/decline/error).  A",
   "                    diagnostic: the install and the verdict are",
   "                    unchanged.",
+  "  --target-shadow   at every inductive block, run the TARGET",
+  "                    installer beside the install (positivity through",
+  "                    containers for the classifier, the classification-",
+  "                    free recursor check on the stream's recursor",
+  "                    family) and print",
+  "                      con-leche: target-shadow <block> today=<w> ...",
+  "                    on STDERR.  A diagnostic: the install and the",
+  "                    verdict are unchanged.",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
@@ -996,6 +1066,11 @@ structure Args where
   install at every nested block and print its verdict (a diagnostic;
   no verdict changes).  `tests/nested-shadow.sh` is its caller. -/
   nestedShadow : Bool := false
+  /-- `--target-shadow`: run the target installer beside the install at
+  every inductive block and print its report beside today's verdict (a
+  diagnostic; no verdict changes).  `tests/target-shadow.sh` is its
+  caller. -/
+  targetShadow : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -1015,6 +1090,8 @@ def parseArgs : List String → Args → Args
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   -- The nested shadow: a diagnostic beside the install, no verdict moves.
   | "--nested-shadow" :: rest, a => parseArgs rest { a with nestedShadow := true }
+  -- The target shadow: a diagnostic beside the install, no verdict moves.
+  | "--target-shadow" :: rest, a => parseArgs rest { a with targetShadow := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -1055,7 +1132,8 @@ def main (args : List String) : IO UInt32 := do
     let jobs := a.jobs.getD
       (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
        if hw = 0 then 1 else hw)
-    checkMain file a.mode a.progress jobs a.noMark a.nestedShadow
+    checkMain file a.mode a.progress jobs a.noMark
+      { nested := a.nestedShadow, target := a.targetShadow }
   | _ =>
     IO.eprintln usage
     return 3

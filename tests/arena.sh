@@ -204,6 +204,14 @@ if tests/inmodel.sh; then :; else fail=1; fi
 # disagreement).  See tests/nested-shadow.sh's header.
 if tests/nested-shadow.sh; then :; else fail=1; fi
 
+# THE TARGET SHADOW (lane TSHADOW): the target installer (`nestPos` for
+# the classifier, the classification-free recursor check on the stream's
+# recursor family), GATED out of the install, run beside it by
+# `--target-shadow` on the e2e corpus; every block's report is pinned
+# against today's verdict, and the flag must move no exit code.  See
+# tests/target-shadow.sh's header.
+if tests/target-shadow.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
