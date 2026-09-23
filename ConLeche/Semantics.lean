@@ -33,6 +33,7 @@ public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Semantics.Inductives.DeclSumEta
 public import ConLeche.Semantics.Inductives.DeclBlock
+public import ConLeche.Semantics.Inductives.HoleMono
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
