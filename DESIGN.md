@@ -84611,8 +84611,25 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
 form + substitution law, per-key typing, cache, relation truncation);
 (2) the typing (`Frame`/`CtxOk`/`Graded`) of the member-abstracted
 constructor types at the holes' context — U2, lane HOLE2;
-(3) `st'.cyclic = false` — to be removed by the S3 RESTART route
-(coordinator's provisional ruling, part 2 of this lane).
+(3) ~~`st'.cyclic = false`~~ — gone (part 2 below).
+
+**Part 2 (landed): S3 by RESTART** (coordinator's provisional ruling;
+N2 may still overrule — the change is contained in `nestCont`/
+`nestFrame`).  A frame's holes are the REACHED part of its container's
+group at one instantiation (`NestHole` = key + frame base).  Meeting an
+in-progress instantiation as a constant (a cycle) sets
+`NestState.restart` to (that frame, the group-mates of the frames above
+it at the same instantiation); every step unwinds; the frame walks
+again from its entry state with them abstracted too (`nestFrame`, at
+most 64 restarts, running out declines; a cycle across two
+instantiations declines).  So no accepted run contains a cycle:
+`cyclic` is deleted, `nestPos_sem`'s premise is "no pending restart",
+discharged at the top — `nestMemberCtor_sem` has none.  An accepted
+frame's readings are the reached group's joint operator at the
+instantiation (the section of the group clause at the reached set:
+HOLE2's `ContSem`).  Gates: nested-shadow 82/82 (`inmodel_groups`
+accepts), target-shadow 317/317, e2e 301/301, arena green; tests: the
+A/B cycle, a cycle through `L`, a three-member cycle.
 
 Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded (partial;
 S3 for the maintainer).

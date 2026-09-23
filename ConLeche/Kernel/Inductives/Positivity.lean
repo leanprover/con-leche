@@ -474,8 +474,12 @@ changes no reduction; an installed container's own occurrences are at
 its canonical parameters, so its frame's hole is met at the frame's
 own `Ds` (anything else declines).  An instantiation in progress met as
 a CONSTANT — from inside ANOTHER instantiation's constructors, i.e. a
-cycle through a container's mutual group — is accepted as before and
-recorded (`NestedPositivity.cyclic`).
+cycle through a container's mutual group — RESTARTS that instantiation's
+frame with the group-mates the cycle passed through abstracted as holes
+too (`nestFrame`, bounded; running out declines), so an accepted frame
+reads the joint operator of the reached group at the instantiation
+(S3, coordinator's provisional ruling: the restart route, not a group
+record).
 
 **`nestPos`, the function**, by structural recursion on its fuel; its
 cases are the monotonicity induction's:
@@ -743,6 +747,14 @@ structure NestKey where
   ds : List Expr
   deriving DecidableEq, Repr, Inhabited
 
+/-- A HOLE of the walk: the instantiation it stands for, and the first
+hole index of its frame (a frame has one hole per member of the
+container's group it has reached). -/
+structure NestHole where
+  key : NestKey
+  base : Nat
+  deriving DecidableEq, Repr, Inhabited
+
 /-- An accepted instantiation: its key and its index count. -/
 structure NestKeyInfo where
   key : NestKey
@@ -784,10 +796,10 @@ environment, not a fact about the container. -/
 structure NestState where
   keys : Array NestKeyInfo := #[]
   ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
-  /-- an instantiation in progress was met as a CONSTANT, from inside
-  another instantiation's constructors: a cycle through a container's
-  mutual group (lane POSPROOF, S3 — accepted as before, recorded) -/
-  cyclic : Bool := false
+  /-- a RESTART request (S3): the frame whose holes start at the first
+  component must be walked again with the named group-mates abstracted
+  too; every step unwinds while it is set -/
+  restart : Option (Nat × List Name) := none
   deriving Inhabited
 
 /-- What the run found: the accepted instantiations and every member
@@ -795,8 +807,6 @@ constructor's field kinds. -/
 structure NestedPositivity where
   keys : Array NestKeyInfo
   kinds : List (List (List NestFieldKind))
-  /-- the run met a cycle through a container's mutual group (`NestState.cyclic`) -/
-  cyclic : Bool := false
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read
@@ -865,55 +875,105 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
 /-- A constructor's field telescope `cur` (`nF` fields from field `j`),
 each field through `rec` at its depth `base + j`, the field opened at the
 variable `base + j`: the fields' kinds, the result (all fields opened)
-and the state.  `err` is thrown at a telescope that is too short. -/
+and the state.  `err` is thrown at a telescope that is too short.  A
+pending restart (`NestState.restart`) unwinds at once. -/
 def nestFields
-    (rec : List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
-    (prog : List NestKey) (base : Nat) (err : CheckError) :
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestHole) (base : Nat) (err : CheckError) :
     Nat → Nat → Expr → NestState → m (List NestFieldKind × Expr × NestState)
   | 0, _, cur, st => pure ([], cur, st)
   | nF + 1, j, cur, st =>
     match cur with
     | .forallE a b _ => do
       let (k, st) ← rec prog (base + j) 0 a st
+      if st.restart.isSome then return ([k], cur, st)
       let (ks, res, st) ← nestFields rec prog base err nF (j + 1)
         (b.instantiate1 (.fvar (base + j) a)) st
       pure (k :: ks, res, st)
     | _ => throw err
 
-/-- A container frame's constructors: each abstracted (`n.{us} ↦ y`),
-instantiated at `ds`, its fields through `rec` above `hi'`, and its
-result indices hole-free below `hi'`. -/
+/-- A frame's constructors: each with the frame's group abstracted
+(`sub`), instantiated at `ds`, its fields through `rec` above `hi`, and
+its result indices hole-free below `hi`.  A pending restart unwinds. -/
 def nestCtors (ctx : NestCtx)
-    (rec : List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
-    (prog : List NestKey) (hi : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
-    (y : Expr) : List (ConstantVal × Nat) → NestState → m NestState
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
+    (sub : Name → List Level → Option Expr) :
+    List (ConstantVal × Nat) → NestState → m NestState
   | [], st => pure st
   | (cv, nF) :: cs, st => do
-    let ty := (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
-      fun c us' => if c == n && us' == us then some y else none
+    let ty := (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub
     let some crest := instPisWith ds ty
       | throw (.notImplemented "nested positivity: container constructor telescope")
-    let (_, cur, st) ← nestFields rec prog (hi + 1)
+    let (_, cur, st) ← nestFields rec prog hi
       (.notImplemented "nested positivity: container constructor fields") nF 0 crest st
+    if st.restart.isSome then return st
     -- official's "invalid return type" on the instantiated constructor
-    unless (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP (hi + 1)) do
+    unless (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
-    nestCtors ctx rec prog hi n us ds nPc y cs st
+    nestCtors ctx rec prog hi us ds nPc sub cs st
+
+/-- The constructors of every container in `cs` (at one parameter
+count), read off the environment. -/
+def nestGroupCtors (ctx : NestCtx) (nPc : Nat) :
+    List Name → NestState → m (List (ConstantVal × Nat) × NestState)
+  | [], st => pure ([], st)
+  | c :: cs, st => do
+    let (ci, st) := nestContainerC ctx st c
+    let some (nPc', ctors) := ci | throw nestNonValid
+    unless nPc' == nPc || ctors.isEmpty do
+      throw (.notImplemented "nested positivity: a container group at two parameter counts")
+    let (rest, st) ← nestGroupCtors ctx nPc cs st
+    pure (ctors ++ rest, st)
+
+/-- **A container frame** at the instantiation `(us, ds)`, its holes
+the reached part of the container's group `grp` (at `hi, hi + 1, …`,
+typed by `tys`), every one of their constructors walked with all of
+them abstracted.  When the walk meets one of its instantiations as a
+CONSTANT (a cycle, S3), the frame is walked again from its entry state
+with the group-mates the cycle passed through abstracted as well —
+bounded by `r`, running out DECLINES.  So an accepted frame's readings
+are the joint operator of the reached group at the instantiation. -/
+def nestFrame (ctx : NestCtx)
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat) :
+    Nat → List (Name × Expr) → NestState → m (List (Name × Expr) × NestState)
+  | 0, _, _ => throw (.notImplemented "nested positivity: restart fuel")
+  | r + 1, grp, st₀ => do
+    let holes := grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)
+    let prog' := (grp.mapIdx fun _ (c, _) =>
+      ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
+    let sub (c : Name) (us' : List Level) : Option Expr :=
+      if us' == us then (holes.lookup c) else none
+    let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st₀
+    let st ← nestCtors ctx rec prog' (hi + grp.length) us ds nPc sub ctors st
+    match st.restart with
+    | some (b, adds) =>
+      if b == hi then
+        let new := adds.eraseDups.filter fun c => !(grp.map (·.1)).contains c
+        if new.isEmpty then
+          throw (.notImplemented "nested positivity: a cycle this frame cannot absorb")
+        let mut grp' := grp
+        for c in new do
+          let (_, cty) ← nestInstType ctx hi ⟨c, us, ds⟩
+          grp' := grp' ++ [(c, cty)]
+        nestFrame ctx rec prog hi us ds nPc r grp' { st₀ with ctorsOf := st.ctorsOf }
+      else pure (grp, st)
+    | none => pure (grp, st)
 
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
 inductive `n.{us}` applied to `args` (`contApp`), `rec` the function
-itself one fuel lower (at a frame's fields).  An instantiation in
-progress met as a constant is a cycle through a container's mutual
-group (S3: accepted, recorded); an accepted one is a cache hit; else its
-checks, then the frame — `n.{us}` abstracted to the hole `y` at `hi`
-before the constructors are instantiated at `Ds`, the fields above it —
-and every field through `rec`, and every instantiated constructor's
-result indices hole-free.  Split off so that the monotonicity theorem
-can take the container case as its own lemma. -/
+itself one fuel lower (at a frame's fields).  An instantiation IN
+PROGRESS met as a constant is a cycle through a container's mutual
+group: a restart request to its frame, naming the group-mates of the
+frames above it at the same instantiation (S3).  An accepted one is a
+cache hit; else its checks, then the frame (`nestFrame`).  Split off so
+that the monotonicity theorem can take the container case as its own
+lemma. -/
 def nestCont (ctx : NestCtx)
-    (rec : List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
-    (prog : List NestKey) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
   let hi := ctx.hiAt prog.length
   let free (xs : List Expr) : Bool := xs.all fun x => !x.nestOcc ctx.names ctx.nP hi
@@ -934,17 +994,30 @@ def nestCont (ctx : NestCtx)
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
   let key : NestKey := ⟨n, us, ds⟩
-  -- an instantiation in progress met as a constant: a cycle through
-  -- a container's mutual group (S3), accepted and recorded
-  if prog.contains key then return (.inProgress, { st with cyclic := true })
+  match prog.find? (·.key == key) with
+  | some h =>
+    -- a cycle: restart `h`'s frame with the frames above it at the same
+    -- instantiation abstracted too
+    let adds := (prog.filter fun e => h.base < e.base && e.key.lvls == us && e.key.ds == ds).map
+      (·.key.cname)
+    if adds.isEmpty then
+      throw (.notImplemented "nested positivity: a cycle through containers at two \
+        instantiations")
+    return (.inProgress, { st with restart := some (h.base, adds) })
+  | none =>
   match st.keys.findIdx? (·.key == key) with
   | some q => return (.nested q (kb != 0), st)
   | none =>
     let (nIdx, cty) ← nestInstType ctx hi key
-    -- the frame: `C.{us}` abstracted to the hole `y` at `hi`, then
-    -- the constructors instantiated at `Ds`; the fields above it
-    let y : Expr := .fvar hi cty
-    let st ← nestCtors ctx rec (key :: prog) hi n us ds nPc y ctors st
+    let (grp, st) ← nestFrame ctx rec prog hi us ds nPc 64 [(n, cty)] st
+    if st.restart.isSome then return (.inProgress, st)
+    -- the reached group-mates are accepted with it
+    let mut st := st
+    for (c, _) in grp.drop 1 do
+      let k' : NestKey := ⟨c, us, ds⟩
+      if !(st.keys.any (·.key == k')) then
+        let (ni, _) ← nestInstType ctx hi k'
+        st := { st with keys := st.keys.push ⟨k', ni⟩ }
     if st.keys.size ≥ 4096 then
       throw (.notImplemented "nested positivity: instantiation fuel")
     return (.nested st.keys.size (kb != 0),
@@ -962,7 +1035,7 @@ variable of the term `ops.whnf` reduces.  Throws official's verdict on
 a non-positive or non-valid occurrence; returns the field's kind and
 the cache. -/
 def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    Nat → List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState)
+    Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState)
   | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
   | fuel + 1, prog, dep, kb, e, st => do
     let hi := ctx.hiAt prog.length
@@ -993,9 +1066,9 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
           -- at its own parameters, with hole-free indices
           match prog.reverse[i - ctx.hiAt 0]? with
           | none => throw (.internal "nested positivity: frame hole without a frame")
-          | some key =>
-            if key.ds.length ≤ args.length && args.take key.ds.length == key.ds then
-              if (args.drop key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
+          | some h =>
+            if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds then
+              if (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
                 return (.inProgress, st)
               else throw nestNonValid
             else
@@ -1019,6 +1092,8 @@ def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (
   let base := ctx.hiAt 0
   let (ks, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
     (.notImplemented "nested positivity: constructor field telescope") nF 0 crest st
+  if st.restart.isSome then
+    throw (.internal "nested positivity: a restart request without its frame")
   unless (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
       index mentions the block")
@@ -1064,7 +1139,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
       st := st'
       kss := kss.push ks
     kinds := kinds.push kss.toList
-  pure ⟨st.keys, kinds.toList, st.cyclic⟩
+  pure ⟨st.keys, kinds.toList⟩
 
 end Nested
 
