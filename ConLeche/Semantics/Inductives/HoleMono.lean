@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Semantics.NoBVar
 public import ConLeche.Semantics.Tower.TowerIntro
-public import ConLeche.SetModel.HoleOp
+public import ConLeche.SetModel.TowerMono
+import ConLeche.SetModel.HoleOp
 
 @[expose] public section
 
