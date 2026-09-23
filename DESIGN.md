@@ -85037,3 +85037,94 @@ closed, `= a c` by the conjunct's hypothesis) folded along the prefix,
 `targetAbs` stays separate from `replaceConsts`: that function rewrites
 fvar annotations, and the frame's fields must keep their concrete
 types (documented in `RecCheck.lean`).
+
+#### RECLIB session 2 (branch `agent/uinds-RECLIB`, not landed): the body equation proved over the target check; two kernel additions
+
+**Status.**  Green checkpoints on the branch, nothing landed (no
+checkpoint has its seam consumer yet: the body equation's consumer is
+`BlockRuleDataB`'s fourth conjunct at the seam, B3's remaining work).
+The live recursor stage is still `checkBlockRecK`.
+
+**Kernel (shadow; verdict-neutral: target-shadow 317/317, arena tutorial
+324 and init-full 585 block lines identical to session 1).**
+1. *The call is typed at the frame and its telescope*
+   (`targetCallOk`): `λ a⃗ : A⃗, c x⃗ e⃗ (f a⃗)` — the callee a VARIABLE of
+   its stored type right after the frame, the λ-binders at the family's
+   elimination datum — is inferred (`TargetCallRun.hcall`).  Reason: the
+   concrete rule body types a call only under the local binders the body
+   happens to open, which may be uninhabited (`fun h : False => …`); the
+   model reads the `ih` term — this λ — at EVERY value of the telescope
+   (its grading in `heqV`, the `ih` types' grading in the walk's context,
+   the `ih` values' fit), so the index arguments `e⃗` must fit the
+   callee's binders there.  The old check had this by construction (its
+   `e⃗` were the constructor's own index expressions).
+2. *The `ih` types' binders carry the elimination datum*
+   (`TargetFrame.pw`, `targetIhTy`): they carried the FIELD's binder data,
+   whose zeroness describes the field's codomain, not the motive's sort
+   the `ih` type ends in — at a zero bit the annotation claims a
+   truth-value codomain the model cannot validate.  Now the `ih` type's
+   `∀`-tower and the call's λ-tower have one binder list.
+
+**Model (all `sorry`-free).**
+* `Model/Inductives/TargetRecRead.lean`: `interp_targetAbstract` threads
+  the residue's context — `WalkCtx` over the opened locals above the
+  rule's frame `frameIh` (prefix, fields, `ih` variables: free variables
+  the residue already mentions) — with the fvar-carrying opening lemmas
+  (`AllFvars`, `openedOk`, `WalkCtx.subjOkL`/`consOpenL`).
+  `TargetNodeVal` hands the call node that context; `TargetIhWF` records
+  each entry's `ih` type.
+* `Model/Inductives/TargetNodeRead.lean`: `targetNodeVal_of` discharges
+  `TargetNodeVal`.  **The `ih` value of a call is the reading of the λ
+  the kernel inferred (`targetCallE`) at the callee's value.**  One
+  telescope reader, `teleDoms`, serves the `ih` type's `∀`-tower and the
+  λ-tower (`denoteMeta_mkPisOf`/`_mkLamsOf`); `teleDoms_deepen` moves it
+  between depths; `ihCall_fit` gets the call's spine fit from the residue
+  node's typing (`certs_sound` in the walk's context); `mkLamsAV_fold`
+  folds the λ; `interp_open_indep` equates the stored node's arguments
+  with the λ-body's; `targetCall?_inv` inverts the recogniser to the
+  call's spine.  `targetRuleBodyEq` is the body equation at one rule's
+  frame: `interp_targetAbstract` at the walk's entry with that premise
+  discharged.
+* `Model/Inductives/TargetRuleData.lean`: the target run's rule data
+  RECOMPUTED from the stored family `tgtRs out` (the §A.8/§A.9b pattern)
+  — openers, the major's parameters, body, abstract telescopes, frame,
+  abstraction — and the new `ihs` (`tgtIhsAV`: the call λ's reading, its
+  callee variable instantiated at the family's chain variable
+  `bvar (B + K-1-c)`) and `Rb0` (`tgtRbAV`); `targetRuleAt` pins them to
+  the `(j, i)`-th `TargetRuleRun`.
+
+**Next (B3, in order).**
+(a) The walk's entry context for the target frame: `WalkCtx` over
+`targetFrameIh` from the frame's readings/grading and the two fits (the
+analogue of `walkCtx_blockFrame`; `ihdoms` = the `ih` types' readings).
+(b) The `ih` terms' soundness from `TargetCallRun.hcall`: `infer_sound` at
+the context `[frame; callee : RecTy_c]` valued at a typed chain value
+gives the λ's grading and its membership in the inferred type — feeds
+`heqV` (the ι equations' grading), the `ih` fit (`hihFit`) and the `ih`
+slots' `hokΔ`.  Open premise to settle: `ConstsBound envT (targetCallE …)`
+(for the env transport of `hihv`).
+(c) `BlockRuleDataB` conjunct 4 at the seam from `targetRuleBodyEq` +
+`targetRuleAt`: `hihv` is `interp_inst` at the chain frame; the β-step
+`mkAppN Ra (x⃗ ++ f⃗)` ↦ the λ-tower's core is the old
+`blockRuleHRa_tower_run`, which reads the run only through
+`blockRuleTower_run` (kind-free: the generic record below covers it);
+`targetRuleBodyEq` concludes exactly `BlockRuleResidueB`'s inner
+statement (`BlockRecData.lean`), modulo the base-vs-chain frame swap the
+old §9 does with `interp_congr_below`.
+(d) `heqB`/`heqP` at `tgtIhsAV`/`tgtRbAV` (bvar bounds: the λ reading is
+below `B + 1`, instantiated → below `B + K`).  The other rule data
+(`pdoms0`/`fdoms0`/`es0`/`mk0`) can stay the old definitions if
+`tgtCrest = blockRuleCrest` (the first `nP` openers of the `rP`- and the
+`mI+1`-opening agree; `instPisWith` vs `instPisAt`) — prove that once.
+(e) `hpre` through the graph producer (call targets from `TargetIh`),
+`ind` = B4, `hRaZ`.
+**B1 plan (the generic stage record).**  `blockRecStaged_data` and the
+seam consume `checkBlockRecK … = .ok rs` through ~20 inversion lemmas
+(`checkBlockRecK_tyPis`/`_facts`/`_tyAt`/`_ctorsAt`/`_rulesLen`/…).
+One record of the kind-free facts, produced from BOTH runs, lets the
+flip re-point those lemmas instead of re-proving rows.  Two facts need
+care: the old records index the member by the RECORD's `recTgtAt j`,
+the target check by the major's head (`targetMajorOf`) — equal because
+`recTgtAt` is `recTargetOf` of the same type's major head (lemma owed);
+and `_rulesLen` reads the field kinds' lengths (`hkLen`), which the
+target check replaces by `rc.rhss.length = M.ctors.length`.
