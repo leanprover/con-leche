@@ -233,19 +233,148 @@ uniform route at every `k`.  The one-member route's proof tower
 bridges) went with the flip; `declNative` and the `Fix*` tower no longer
 serve a checker run and await their own census.)
 
-**Modeled inductives are opaque (decision 2026-08-19, per review)** —
-unchanged, now about NESTED blocks only: … (keep the paragraph; replace
-"a mutual or nested block" by "a nested block").
+**Modeled inductives are opaque (decision 2026-08-19, per review).** A
+modeled inductive `T` is *not* installed as an alias definition
+`T := T._model` — it is stored as a real inductive-kind constant
+(indInfo/ctorInfo/recInfo), i.e. a whnf head form. The `_model` family
+(checked earlier in the stream as ordinary defs/thms) is consulted only
+(1) at install time, to check that the inductive matches the model it
+claims — member types under the public↔`_model` constant-name rewrite,
+iota rules against the `R._model.iota_j` theorems, and (as features
+land) `unitlike`/`eta`/`ruleK` theorems — and (2) in the consistency
+proofs, where `⟦T⟧ := ⟦T._model⟧` supplies the values and each checked
+theorem `a = b` yields `⟦a⟧ = ⟦b⟧` through `mem_eqv`.  Type checking of
+code *using* `T` never unfolds it: whnf stops at `T` applications, iota
+fires on `T.rec` through the stored rules, and projections use the
+stored constructor telescope.  Projections annotate into applications
+of installed `T.proj.i` functions (checked against `_model.proj_i` at
+install); when no projection function is installed — Prop
+structure-likes with data fields, whose projections only *exist* at
+certain level instantiations, so level-polymorphic artifacts cannot
+cover them — `annotateProjRec` permanently falls back to inlining the
+recursor elimination at the use site's concrete levels (constant
+motive = the field's type with earlier fields as projections, minor =
+the constructor telescope as `λ`s returning the field), re-annotated
+so the ordinary rules re-check it; the official kernel's Prop
+restrictions are mirrored in the telescope walk.  (Aliasing was tried first and makes whnf
+see through `T` into the model's encoding — tagged sigmas etc. — so the
+kernel-level projection/eta/K rules on `T` become untypeable.)
 
-**The projection-function rewrite reads the `_model` output**: keep the
-paragraph, but "for a structure-like member the direct install does not
-serve (mutual, recursive, nested)" becomes "(nested)" — mutual and
-recursive structure-likes get the uniform route's projection tables —
-and "`InModel/Mutual.lean` emits `T._model.proj_i.iota`" becomes
-"`InModel/Nested.lean` emits …".
+**One more thing the checker reads off the `_model` output (2026-09-06,
+the projection-function rewrite — its own record at the end of this
+file):** for a structure-like member the direct install does not
+serve (nested) — mutual and recursive structure-likes get the uniform route's projection tables, the frontend rewrites the
+elaborator's projection function `T.f := fun p⃗ self => .proj T i self`
+into a `T.rec` application, and the recursor's elimination level — the
+sort of the field, which the frontend cannot infer — is taken from the
+`Eq` level of the artifact `T._model.proj_i.iota`
+(`ConLeche/Frontend/ProjRec.lean`).  Since task #207 the ONLY source of
+that artifact is the in-process modeller, so the contract is ours to
+keep: for every projectable field `i` of every structure-like non-`Prop`
+member it models, `InModel/Nested.lean` emits
+`T._model.proj_i.iota : ∀ …, @Eq.{ℓ} F_i … …` with `ℓ` the field's
+sort, before the block.  A missing artifact costs no verdict beyond the
+pre-existing decline of the `.proj`.
 
-(The environment-invariant, basis-block and axiom paragraphs that
-follow are not affected by the flip.)
+Consequently the environment invariant carries per-stored-constant
+semantic facts abstractly — for every stored fireable recursor rule a
+**total λ-equality** (`RecRulesOk`, task #58): the canonical
+frame/body decomposition `ruleLhsParts` computes, is well-formed and
+resolves, and for every level assignment the closed left-hand λ-tower
+(`closeLamsAt fvms bL`) is `AnnotOk` and interprets to the same value
+as the stored rule right-hand side; analogous records for projections
+and unit-like/eta/K as those land.  Basis blocks discharge these facts from
+the hand-written set values (`ConLeche/SetP/Basis{Eq,Cons,Empty,Quot}P.lean`
+today; the citation used to read `ConLeche/Model/BasisIota.lean`, a tier
+deleted at #148 T7); modeled
+blocks discharge them at install from the checked `_model` theorems.
+`whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
+and never identifies constants by name.
+
+Only the "basis" inductives get hand-written models: `Eq`, `Nat`,
+`PUnit`, `Quot` (plus the direct `Empty` clause).  `PUnit` gets a custom
+model (level-zero-or-not case distinction may be needed).  These live
+in modules analogous to `derived/` in nanodatg.  The preprocessor's
+`PSigma'` was a pinned basis block until task #175 W6 (2026-09-06); it
+is now an ordinary two-field simple structure on the direct install
+path (tower projection entries) — see the W6 record.
+
+Axioms: only the standard axioms are supported; anything else is
+"declined" (lean kernel arena exit convention).  This is a deliberate
+ceiling (owner ruling, 2026-08-21): acceptance routes for custom
+axioms (opaque-with-witness, unfoldable-definition storage,
+canonical-value models) were explored and rejected: none is wanted.
+Refinement (user rulings, 2026-08-22/24, revised for task #95, and
+again for task #292): the one axiom tolerated as a *declaration* is
+`sorryAx` (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).  Its
+record is FORWARDED to the fold like any other: the type is checked
+and the record installs **nothing** — there is no set model for it —
+so a stream that merely declares the axiom is accepted, and any USE of
+the name DECLINES at the record that uses it.  The fold owns that
+decision (`unknownConstError` in `ConLeche/Kernel/Core.lean`,
+`unresolvedConstsError` in `ConLeche/Kernel/CheckerBase.lean`); the
+parser has no taint machinery at all.  The `Init` **compiler-trust family
+is installed** instead (task #95, user design 2026-08-24):
+`Lean.trustCompiler : True` is trivially realizable and installs like
+a checked `opaque` realized by `True.intro` over the pinned `True`
+family; `Lean.reduceNat`/`Lean.reduceBool` then check as ordinary
+opaques, pin-gated against the toolchain's own defining expressions
+plus an identity certificate; and `Lean.ofReduceNat`/
+`Lean.ofReduceBool` install as pinned axioms whose types are trivially
+inhabited once the reduce opaques are the identity (see "The
+compiler-trust axiom family" below).  Any other `axiom` record is
+forwarded and positively declined by the checker at its own record,
+after well-formedness-checking — a garbage record such as arena
+`bad/011_nonTypeAxiom` keeps *rejecting*; the two tutorial tests
+scaffolded by custom axioms (`032_letTypeDep`, `033_letRed`) decline
+at their custom `axiom` record, exit 2, so the vendored tutorial
+snapshot stays at 90/92 accepted, the full non-axiom set.  *Uses* of
+a tainted constant are never accepted, but no longer stop the stream
+either (skip-and-continue, user directive 2026-08-24): a declaration
+whose type/value (transitively) references a tainted name is *skipped*
+at parse time — absent from the parsed declarations, so it can never
+be checked or installed — its declared names are tainted in turn (so
+transitive users skip too), and the rest of the stream is checked as
+usual.  `Frontend.ParseResult.taintSkipped` records the skips (name +
+whitelisted axiom root); the driver declines the input as a whole
+(exit 2) whenever it is nonempty, even if every remaining declaration
+checks, and prints a per-root summary (`Frontend.taintSummary`).  A
+stream with no tainted uses behaves exactly as before.  With the
+compiler-trust family installed, the full `Init` export has **zero**
+skips and exits 0 (`sorryAx` is declared but unused in `Init`).
+`Quot.sound` is part
+of the pinned quotient basis block; `propext` and `Classical.choice`
+are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
+requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
+(for `propext`) resp. `Nonempty` (for `choice`) families, and matches
+the checked type against annotated pins (`ConLeche/Kernel/StdAxioms.lean`).
+Since the exporter's hygienic binder names are unstable across
+preprocessor runs, pin matching compares types up to binder names
+(`Expr.eraseNames`); the pins themselves carry only `.default` binder
+annotations, matching the frontend's parse-time strip (task #142
+below).  The interpretation never reads what is erased
+(`Expr.ErasedEq.of_eraseNames` + `interp_erasedEq` transport the model
+facts from the pin to the stored type).  Models: `propext` is the
+proof point `pt`, true by propositional extensionality of the set
+model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
+`Classical.choice` is a function tower ending in a global choice
+operator (`SetTheory.schoice`), with nonemptiness extracted from the
+stored `Nonempty.rec`'s member fact (`ConLeche/Model/StdAxioms.lean`).
+
+Consequence for the arena's non-tutorial good roots (finding,
+2026-08-22, task #67): `good/proof-irrel.ndjson`,
+`good/level-index-out-of-order.ndjson` and
+`good/sparse-name-index.ndjson` all *decline* (exit 2) **because they
+are scaffolded by custom axioms** (`axiom foo : Sort 2`, `axiom foo :
+Prop`, and an `A`/`P`/`Q`/`foo` axiom frame respectively) — exactly
+the pinned `custom_axiom_declined` e2e behavior, not a frontend
+restriction.  The features their names advertise are in fact
+supported: the export tables are hash-map-backed, so sparse and
+out-of-order `in`/`il`/`ie` indices parse fine (the declines name the
+axioms, which requires the sparse indices to have resolved), and
+algorithmic proof irrelevance is implemented (`proofIrrel`,
+exercised by the accepted `subject-reduction-redex` test).  These
+three stay declined by design under the axiom ceiling.
 
 ## Term representation
 
