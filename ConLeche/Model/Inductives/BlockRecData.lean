@@ -4791,7 +4791,10 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
         ConstsBound envC cA.1.type ∧
         ∀ ψ : Name → Nat,
           denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy j i ψ))
-    (hdataS : ∀ (φ : Name → Nat) (j : Nat)
+    (hdataS : ∀ m₃ : EnvModel V (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC),
+      m₃.acval = blockRecAcv mpC.base2.acval envC rs s
+        (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) →
+      ∀ (φ : Name → Nat) (j : Nat)
         (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
@@ -4819,7 +4822,7 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
     (fun ψ _ hi ρ => blockRecLeafAV_wd hpre ψ hi ρ)
     (blockRecLeafAV_valid hμ mpC h heqV)
     hpre hac hr hrhs hcA rfl rfl rfl rfl hcfind hcb hread (fun ψ => hpl ψ j)
-    (hdataS φ j r hr i cA rhs hcA hrhs)
+    (hdataS m₃ hac φ j r hr i cA rhs hcA hrhs)
     (hTyZ j (List.getElem?_eq_some_iff.mp hr).1) (hpos j r hr i cA hcA)
 
 end SeamShape
@@ -4911,7 +4914,10 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         ConstsBound envC cA.1.type ∧
         ∀ ψ : Name → Nat,
           denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy j i ψ)) ∧
-      (∀ (φ : Name → Nat) (j : Nat)
+      (∀ m₃ : EnvModel V (consBlockRecs envC.find? pp.toBlockShape pp.nP 0 rsR envC),
+        m₃.acval = blockRecAcv mpC.base2.acval envC rsR s
+          (blockRecEqs nCt rsR pdoms0 fdoms0 es0 ihs mk0 Rb0) →
+      ∀ (φ : Name → Nat) (j : Nat)
           (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rsR[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →

@@ -2890,16 +2890,49 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
         Term.bvarsBelow l (((pdoms0 (Level.substFn φ r.1.levelParams us) j
           ++ fdoms0 (Level.substFn φ r.1.levelParams us) j i).getD l default).erase))
     (hsp : ∀ us : List Level, us.length = r.1.levelParams.length →
-      ∀ (ρ : Nat → V) (xs ys : List AnnotTerm),
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm) (restR restC : AnnotTerm),
         xs.length = p.toBlockShape.majorIdxAt j → ys.length = p.nP + cA.2 →
+        usj.length = cA.1.levelParams.length →
+        Level.substFn φ cA.1.levelParams usj
+          = Level.substFn φ cA.1.levelParams
+              (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+                (p.toBlockShape.rulePrefixAt j)).1 →
+        IotaIndexPin (V := V) ρ restC p.nP
+          (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) xs →
+        TeleFitPA V ρ
+          (blockRecTyAV mpC.base2.acval envC rs (Level.substFn φ r.1.levelParams us) j)
+          (xs ++ [AnnotTerm.mkAppN
+            (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
+        TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
         SpineFit ρ (pdoms0 (Level.substFn φ r.1.levelParams us) j
             ++ fdoms0 (Level.substFn φ r.1.levelParams us) j i)
           ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
             ++ (ys.drop p.nP).map (interp V ρ)))
     -- and everything the PEEL determines, at the peel's own outputs
     (hbody : ∀ us : List Level, us.length = r.1.levelParams.length →
-      ∀ (ρ : Nat → V) (xs ys : List AnnotTerm) (a : Nat → V),
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm) (restR restC : AnnotTerm),
         xs.length = p.toBlockShape.majorIdxAt j → ys.length = p.nP + cA.2 →
+        usj.length = cA.1.levelParams.length →
+        Level.substFn φ cA.1.levelParams usj
+          = Level.substFn φ cA.1.levelParams
+              (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+                (p.toBlockShape.rulePrefixAt j)).1 →
+        IotaIndexPin (V := V) ρ restC p.nP
+          (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) xs →
+        TeleFitPA V ρ
+          (blockRecTyAV mpC.base2.acval envC rs (Level.substFn φ r.1.levelParams us) j)
+          (xs ++ [AnnotTerm.mkAppN
+            (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
+        TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+      ∀ a : Nat → V,
+        (∀ c', c' < rs.length →
+          interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)
+            (Level.substFn φ r.1.levelParams us) c') = a c') →
       ∀ (fr : BlockRuleFrame) (recTys : List Expr) (rbody resid ihTele bodyO : Expr)
         (fvsIh : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (ty concl : Expr),
         fr.nP = p.nP → fr.rP = p.toBlockShape.rulePrefixAt j → fr.nF = cA.2 →
@@ -2943,7 +2976,7 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
           (Rb0 (Level.substFn φ r.1.levelParams us) j i)) :
     BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  intro us hus hℓ _usj ρ xs ys _restR _restC hxl hyl _husjl _hψ _hidx _hfitR _hfitC a hleaf
+  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
     lds A hlam hldslen
   obtain ⟨fr, recTys, rbs, rbody, resid, ihTele, bodyO, ty, concl, fvsIh,
     hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw, hrecTysj, hstrip, hab, hpis,
@@ -2951,7 +2984,8 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
   obtain ⟨fvs0, crest0, tlF, EisF, ihdoms, hop0, hCf, hCb, hstripC, hcb, htlen, hfld,
     hrecTy, hrlvls, hihfv, hLpf, hpl, hfl, hil, hdoms, hokΔ, hlbF, hcbF, hclF,
     hihsEq, hihFit, hcbe, h2, hB, hty⟩ :=
-    hbody us hus ρ xs ys a hxl hyl fr recTys rbody resid ihTele bodyO fvsIh rbs ty concl
+    hbody us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
+      fr recTys rbody resid ihTele bodyO fvsIh rbs ty concl
       hfrP hfrR hfrF hnames0 htgts htele hidxF hpw hrecTysj hstrip hab hpis hopen
       hinf hconcl hdeq
   have hcl : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
@@ -2963,7 +2997,8 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
   have hfsl' : ((ys.drop p.nP).map (interp V ρ)).length = fr.nF := by
     rw [List.length_map, List.length_drop, hyl, hfrF]; omega
   have hspF := spineFit_chainFrame_of_bounded (K := rs.length) (a := a)
-    (hbdd us hus) (hsp us hus ρ xs ys hxl hyl)
+    (hbdd us hus)
+    (hsp us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC)
   have hread' : denoteMeta m₃.acval
       (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
       (Level.substFn φ r.1.levelParams us) 0 rhs
