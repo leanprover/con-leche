@@ -83761,3 +83761,35 @@ modules** (only one exports the new value), and the call recogniser's
 conjunct list is a positional interface with **six destructurings in
 four files**.  A bind sequence is an interface, and this arm has two of
 them.
+
+
+#### LANDED (lane CONF1, `161d4134`, maintainer's decision): recursor GENERATION kept as a reject-only CONFORMANCE check after the primrec check; and the `nP + k ≤ rP` floor
+
+**The recursor conformance check (lane CONF1, 2026-09-23; the
+maintainer's decision).**  The uniform route CHECKS recursors
+(`checkBlockRecK`, primitive recursion), and soundness rests on that
+alone.  The one-member route's GENERATE-AND-COMPARE is kept, not
+deleted, as an unverified, reject-only conformance check
+(`checkBlockRecConform`, and `checkBlockRecConformF` for the cached
+driver).  It has the status of `blockRecNameSetOk`: no model consumer,
+it only shrinks the accept set.  It runs AFTER the check
+(`checkBlockRecChecked = thenConform checkBlockRecK checkBlockRecConform`),
+so the check is exercised on every block, and it returns the check's
+result unchanged.  The proofs read through it with one lemma,
+`checkBlockRecK_of_gate` (`thenConform_ok`), at the dispatch's two
+inversions, and never peel it.  **Coverage: one member with one
+recursor.  At `k ≥ 2` it is SKIPPED**, because the kernel has no mutual
+generator (the modeller encodes mutual blocks through a tag and one aux
+family and never generates a mutual recursor).  So a mutual
+accept-superset such as `mutual_rec_body_redex` stays accepted after the
+flip.  A k-ary generator would cost 1–2 sessions of unverified kernel
+code.  Measured on the scratch flip: `init-full` is unchanged (53 093,
++0.2 % instructions), no e2e or arena exit code moves, and the new k = 1
+witness `corner_rec_body_redex` moves 0 → 1.  **Stage (b)'s floor
+(ruling of 2026-09-23)**: every recursor's rule prefix holds the
+parameters and one motive per member, `nP + k ≤ rP` (official's
+`nparams + nmotives ≤ rP`), so a stored rule binds a variable.  It is
+inverted as `checkBlockRecTys_prefix` / `checkBlockRecK_prefix` /
+`checkBlockRecK_rulePos`, which is the model's `hpos`.  From a stream,
+the frontend's field validation already refuses the witness
+(`corner_rec_empty_prefix`).
