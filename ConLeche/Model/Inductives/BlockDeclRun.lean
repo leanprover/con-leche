@@ -7,6 +7,7 @@ import ConLeche.Model.Inductives.BlockRuleParams
 import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRuleCertsRun
+import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRecRead
 
 public section
@@ -1034,10 +1035,13 @@ typing at it), so `howed` chooses nothing.  Paid here as well:
 * the rule certificates at the base frame, at the PINNED conclusion
   `blockRuleCaAV` (`blockRuleCertsW_run`, lane RM56).
 
-What `howed` still owes is the regime's ROWS: the rest of the grading
-bundle `BlockGradeOwed` (the left-hand sides' and the `ih` terms'
-grading) and one bundle per regime (`BlockIndOwed`, `BlockWfOwed`,
-`BlockSqOwed`) at the checked elimination level.
+* the rest of the grading bundle `BlockGradeOwed` — the left-hand
+  sides' and the `ih` terms' grading (`blockGradeLhs_run`,
+  `blockGradeIhs_run`, lane RM55).
+
+What `howed` still owes is the regime's ROWS: one bundle per regime
+(`BlockIndOwed`, `BlockWfOwed`, `BlockSqOwed`) at the checked
+elimination level.
 
 The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
 floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/
@@ -1069,9 +1073,8 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →
       -- the family's regime, OWED as rows (`blockRecPre_seam` produces
-      -- `hpre` from them): the rest of the grading, and one bundle per
-      -- regime at the checked elimination level
-      BlockGradeOwed mpC pp rsR (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ') ∧
+      -- `hpre` from them): one bundle per regime at the checked
+      -- elimination level
       (∀ (ψ : Name → Nat) (ρ : Nat → V),
         Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
         BlockIndOwed mpC F pp rsR dR ψ ρ (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
@@ -1094,7 +1097,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
   declBlock_data hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hkLen => by
-      obtain ⟨hG, hI, hW, hSq⟩ :=
+      obtain ⟨hI, hW, hSq⟩ :=
         howed envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
           hcore hctorsAs hctorsIn hdR hkLen
       -- the family level `s`, chosen with its parametricity and its typing
@@ -1116,7 +1119,9 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       have hpre := blockRecPre_seam hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore
         hmr hM hkLen hTy hokA hfitF rfl rfl
         (blockRuleCertsW_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM)
-        hG hI hW hSq
+        ⟨blockGradeLhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM,
+          blockGradeIhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM⟩
+        hI hW hSq
       -- the `ih` openers' fit, off the regime
       have hihFit := blockRuleIhFit_seam hμ hrec hkLen hnames hstage hcore hpre
       exact ⟨s, blockRecNCt rsR,
