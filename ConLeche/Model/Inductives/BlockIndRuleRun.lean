@@ -365,6 +365,149 @@ theorem blockIndRuleRows_run (hμ : μ.verifiedChecks = true)
       (by rw [hrdsLen]) rfl hxs hfsl (by rw [List.length_replicate, hih]) hpar hsf his hfit hx
     exact hq
 
+/-- **Regime IND's fused `ih` opener reading** (`BlockIndRuleAt`'s third
+row, `hihOpen` at one pair) at the pinned `ihdoms`: the IH sub-lane's
+key (`blockKitIhKey_run`: the callee's peel and the opener's domain, at
+the frame's MOVED telescope) restated at the BLOCK's rows — its three
+row identities — with the tower's bit `0` at the IND regime
+(`pwBit_zeronessOf` at the checked elimination level). -/
+theorem blockIndIhOpen_run (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
+    (ψ : Name → Nat)
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0)
+    {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c) :
+    ∀ r, r < ((blockRuleFrameAt p rs c j).ihKeys).length →
+      ∃ (i c' nF nIdx m : Nat) (eisA : List AnnotTerm) (fapA CihR : AnnotTerm),
+        (((blockRuleFrameAt p rs c j).ihKeys).getD r (0, 0)).1 = i ∧
+        (((blockRuleFrameAt p rs c j).ihKeys).getD r (0, 0)).2 = c' ∧
+        c' < rs.length ∧
+        i < ((d.Fss (p.toBlockShape.recTgtAt c) ψ).getD j []).length ∧
+        ((d.rss (p.toBlockShape.recTgtAt c)).getD j []).getD i false = true ∧
+        d.tgts (p.toBlockShape.recTgtAt c) j i = p.toBlockShape.recTgtAt c' ∧
+        ((d.Fss (p.toBlockShape.recTgtAt c) ψ).getD j []).length = nF ∧
+        (((d.tlss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i []).length = m ∧
+        (((d.Eiss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i []).length = nIdx ∧
+        (d.IdsM (p.toBlockShape.recTgtAt c') ψ).length = nIdx ∧
+        eisA = (((d.Eiss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i []).map
+            (ihIdxAtM nF (p.toBlockShape.rulePrefixAt c - d.nP) i 0 m) ∧
+        fapA = AnnotTerm.mkAppN (.bvar (nF - 1 - i + m)) (teleVarsAV m) ∧
+        BlockRuleConclAt (p.toBlockShape.rulePrefixAt c') nF m
+          (blockRecTyAV mpC.base2.acval envC rs ψ c') eisA fapA CihR ∧
+        (blockRecIhdomsK rs.length p mpC.base2.acval envC rs ψ c j).getD r default
+          = (mkPisAV (ihTeleAtR nF (p.toBlockShape.rulePrefixAt c - d.nP) i 0
+              (rebit 0 (((d.tlss (p.toBlockShape.recTgtAt c) ψ).getD j []).getD i [])))
+              CihR).liftN r 0 := by
+  have hIK := blockRecIhdomsK_eq hμ h hkLen hdR hN hS hcore hmr hM hc hj ψ rs.length
+  have hdR' := hdR
+  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR'
+  intro q hq
+  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+  have hjr : j < rs[c].2.2.2.length := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
+  have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨hfrP, -, hfrF, -, -, -, -, hpw⟩ := blockRuleFrameAt_rows (pp := p) hct
+  obtain ⟨fi, c', CihR, hkeyE, hc'K, hfiC, -, hrss, htgt, hIget, -, hcon, -, -, -, -, eT, eE,
+    eL, -⟩ := blockKitIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hq
+  -- the member, the constructor's record and the field's kind
+  obtain ⟨ms, hms, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+  have hmemk : p.toBlockShape.recTgtAt c
+      < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k :=
+    (List.getElem?_eq_some_iff.mp hms).1
+  have hcj : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+      (p.toBlockShape.recTgtAt c))[j]? = some cA := by
+    show (ctorsAs.getD _ [])[j]? = _
+    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
+  obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
+  have hcd := blockCtorData_of_core hcore hcj
+  have hcf : BlockCtorFacts mpC.base2
+      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf) p.lps
+      (p.toBlockShape.recTgtAt c) j cA := ⟨hfindC, hlpsC, hcd⟩
+  have hks : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ksF
+      (p.toBlockShape.recTgtAt c) j = (blockRuleKsOf p c j).map ConLeche.BlockFieldKind.toRec := by
+    rw [blockDataOf_ksF]; rfl
+  have hksLen : (blockRuleKsOf p c j).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  have hFssLen : (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
+      (p.toBlockShape.recTgtAt c) ψ).getD j []).length = cA.2 := by
+    rw [BlockData.Fss, BlockData.cds, fssOfR_fixCtorDataList_getD hcj, List.length_map,
+      List.length_drop, hcd.len ψ]
+    show p.nP + cA.2 - p.nP = cA.2
+    omega
+  obtain ⟨-, hlenR, -⟩ := checkBlockRecK_recNames h
+  have hrecTgtsLen : p.recTgts.length = rs.length := by
+    show ((List.range p.recs.length).map p.toBlockShape.recTgtAt).length = _
+    rw [List.length_map, List.length_range, hlenR]
+  have hrecTgts : ∀ e, e < rs.length → p.recTgts.getD e rs.length = p.toBlockShape.recTgtAt e := by
+    intro e he
+    show ((List.range p.recs.length).map p.toBlockShape.recTgtAt).getD e rs.length = _
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by omega)]
+    rfl
+  have hkey' : (ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt c)
+      ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
+      (blockRuleKsOf p c j)).getD q (0, 0) = (fi, c') := by
+    show ((blockRuleFrameAt p rs c j).ihKeys).getD q (0, 0) = _
+    rw [List.getD_eq_getElem?_getD, hkeyE]; rfl
+  obtain ⟨-, -, -, -, -, hkind⟩ :=
+    blockIhKey_block_facts (d := blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+      (ψ := ψ) (K := rs.length) (mem := p.toBlockShape.recTgtAt) hcj hks hksLen hFssLen
+      (fun _ => rfl) hrecTgtsLen hrecTgts hkey' (by exact hq)
+  obtain ⟨-, hEl⟩ := blockIhKey_block_lengths (V := V) ψ hcj hcf hfiC hkind
+  rw [htgt] at hEl
+  have hmemk' : p.toBlockShape.recTgtAt c'
+      < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k := by
+    obtain ⟨r', hr'⟩ : ∃ r', rs[c']? = some r' := ⟨rs[c']'hc'K, List.getElem?_eq_getElem hc'K⟩
+    exact (blockRecMajor_run (V := V) hμ mpC h hmr hr' ψ).2.1
+  have hIds := blockMembers_IdsM_length hmr hmemk' ψ
+  -- the tower's bit at the IND regime
+  have hb0 : pwBit ψ (blockRuleFrameAt p rs c j).pw = 0 := by
+    rw [hpw, pwBit_zeronessOf]; exact hℓ
+  -- the key's moved data, at the block's rows
+  have hTl : blockKitTlA p rs mpC.base2.acval envC ψ c j fi
+      = ihTeleAtR cA.2 (p.toBlockShape.rulePrefixAt c - p.nP) fi 0
+          (rebit 0 (((
+            (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+              (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi [])) := by
+    rw [blockKitTlA, hb0, eT, hfrF]
+  have hEis : blockKitEisA p rs mpC.base2.acval envC ψ c j fi
+      = ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Eiss
+          (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi []).map
+        (ihIdxAtM cA.2 (p.toBlockShape.rulePrefixAt c - p.nP) fi 0
+          ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+            (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi []).length) := by
+    rw [blockKitEisA, eE, eL, hfrF]
+  have hFap : blockKitFapA p rs c j fi
+      = AnnotTerm.mkAppN (.bvar (cA.2 - 1 - fi
+          + ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+            (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi []).length))
+        (teleVarsAV ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+            (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi []).length) := by
+    rw [blockKitFapA, eL, hfrF, Nat.add_zero]
+  have hTlLen : (blockKitTlA p rs mpC.base2.acval envC ψ c j fi).length
+      = ((((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tlss
+            (p.toBlockShape.recTgtAt c) ψ).getD j []).getD fi []).length := by
+    rw [hTl, ihTeleAtR_length, rebit_length]
+  rw [hTlLen, hEis, hFap] at hcon
+  refine ⟨fi, c', cA.2, _, _, _, _, CihR, ?_, ?_, hc'K, by rw [hFssLen]; exact hfiC, hrss, htgt,
+    hFssLen, rfl, by rw [hEl, hIds], rfl, rfl, rfl, hcon, ?_⟩
+  · rw [List.getD_eq_getElem?_getD, hkeyE]; rfl
+  · rw [List.getD_eq_getElem?_getD, hkeyE]; rfl
+  · rw [hIK, hIget, hTl]
+    rfl
+
 end IndRows
 
 end ConLeche.Model
