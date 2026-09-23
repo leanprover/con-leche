@@ -84718,3 +84718,104 @@ surprises show up before the proofs.  Report:
   the field applied to its own telescope variables), so it rejects
   `corner_tshadow_aux_nonfield_bad` (`(fun x => x) tail`), which today's
   MODELLED route accepts.
+
+#### NOT LANDED (lane RECLIB, 2026-09-23, branch `agent/uinds-RECLIB`): the classification-free check made provable — a stop-and-name, its kernel fix, and the run records
+
+**Status.**  Partial; NOT fast-forwarded (the brief: a kernel switch
+without its proofs must not land).  The live recursor stage is still
+`checkBlockRec` → `checkBlockRecK` (kind-reading).  Report:
+`_tmp/uniform-inds/RECLIB.md`.
+
+**Stop-and-name (charter item 5's `ind`).**  With TSHADOW's call typing
+— the called field's type defeq to the callee's major domain, run on
+the CONCRETE terms at the constructors' environment — the graph
+producer's induction does not close without a field classification.
+`blockGraphInd_run` (`Model/Inductives/BlockRecGraph.lean`) needs, at
+every call target `(c', ⟦e⃗⟧, f a⃗)` of an lfp-step decoding whose fields
+fit at the SEPARATED tuple, the property at that target; today it gets
+it from `blockIndPred_of` (`BlockRecPreRun.lean`), i.e. from the
+datum's `rss`/`tgts` at the field together with `blockKitIhKey_run`'s
+`htgt` — the kernel's `BlockFieldKind.tgt?` check.  A concrete defeq's
+soundness (`DefEqClaim`) equates the two readings only where the
+members read as their CARRIERS; it says nothing at the separated tuple,
+and "the field is a hole at the callee's class" is not derivable from
+soundness-only claims (a field whose type reads to the callee's class
+set at the carrier without being a hole — refuted by the kernel,
+unrefuted by any claim — gets no induction hypothesis).  The missing
+fact is exactly **the field-vs-major equation at every value of the
+holes**, the separated tuple included.
+
+**The fix (kernel, shadow, measured).**  `targetCallOk`
+(`Kernel/Inductives/RecCheck.lean`) now types each call on the
+member-ABSTRACTED terms — members at the block's levels replaced by the
+frame's holes `.fvar (rP + nF + t) T_t.type` (`targetAbs`,
+`targetHoles`; charter item 2's "holes are ordinary open terms") — at
+depth `rP + nF + k`: the field's abstract type through whnf
+(`targetFieldNorms`) is defeq to `∀ a⃗, <the callee's abstract major
+type at x⃗ e⃗>`, the telescope `a⃗` is hole-free (`targetHoleFree`; then
+it IS the concrete telescope the `ih` variable binds), and both
+abstract sides are INFERRED first (the model's `DefEqClaim` needs them
+well-denoted at every hole value, which only an inference at the
+abstract context supplies).  The concrete rule body is already typed by
+the certification inference, so the abstract check rejects nothing a
+well-typed rule reaches: target-shadow 317/317, arena tutorial 324
+block lines and init-full 585 block lines identical to TSHADOW's.
+With it, `ind` needs no kind: prove by `LfpClause.ind` the CLASS-AGNOSTIC
+predicate `Q y := ∀ c j, tagged c j y ∈ majors → P (tagged c j y)`;
+at a call, `DefEqClaim` at the hole valuation `X := sep` (members'
+families: `sep` at the frame's parameters, the carrier elsewhere) puts
+`f a⃗` in `sep_{m''}` for every `a⃗` of the hole-free telescope, hence
+`Q (f a⃗)`.  Still owed there (B4 below): the valuation's `Sat`/`CtxOk`
+for the hole-extended context, and "`ChainFit` at `X` ⇒ the field lies
+in its ABSTRACT type's reading at `X`" (per kind off the datum until
+HOLE2 re-bases the clause on `ReadsHoles`).
+
+**Kernel restructuring (verdict-neutral).**  `targetRecTy`/
+`targetRecCheck` take `outside : Bool` (the outside-major arm is
+reachable only where it is `true`: the shadow; the uniform route passes
+`false`); the arm lives in `targetMajorOf`, the index domains in
+`targetIdxDoms`, the constructor at the major's levels in
+`targetCtorAt`; every `mapM`/`for` loop is an explicit recursion
+(`targetRecTys`, `targetRulePinsAll`, `targetRules`, `targetRecsRules`,
+`targetFieldNorms`, `targetCallsOk`); `ShadowOps.fueled mode F` is the
+instantiation the model reads (`ShadowOps.pure` is it at `checkFuel`).
+
+**Run records (Phase B's first brick).**  `Verify/Inductives/RecCheckRun.lean`:
+`TargetMajorRun` (+`targetMajorOf_run`), `targetIdxDoms_member`,
+`TargetTyEntry` (+`targetRecTy_run`, `targetRecTys_run`),
+`TargetCallRun` (+`targetCallOk_run`, `targetCallsOk_run`),
+`targetFieldNorms_run`, `TargetRuleRun` (+`targetRule_run`, `.call`),
+`TargetRulesRun`, `targetRecsRules_run`, `TargetRecRun`
+(+`targetRecCheck_run`) — INVERT's pattern at `outside = false`.  No
+consumer yet.
+
+**The nested extension point.**  `TargetMajorRun` has one constructor,
+`member`; lane NESTED adds `outside` (the `none` arm of `targetMajorOf`
+at `outside = true`) and the matching case of `targetMajorOf_run`.
+Every other record is stated over the resolved `TargetMajor`.  The call
+typing already abstracts the holes inside container instances
+(`List (X_T ps)`), so `ind`'s nested case is E2E-DESIGN's strengthened
+predicate (risk 3) applied at `f a⃗ ∈ ⟦C⟧(sep)` — one added case of the
+class-agnostic induction.
+
+**Resume plan** (ordered; estimates in lane sessions):
+B1 integration — `checkBlockTail` calls `targetRecCheck
+(ShadowOps.fueled …) (mkFEnv env₂) p false false …` in place of
+`checkBlockRecK` (the raw `block` or its split must reach the tail for
+`targetRecPins`/`targetRecRules`), the conformance check after it, the
+recursors consed from its output; the cached fold runs the same
+function at `shadowOpsC`; the cached bridge (`BlockRunC`/`BridgeDecl`)
+re-proved positionally (1.5–3).  B3 the rule contract re-derived off
+`TargetRuleRun`: the body equation for `targetAbstract` (the analogue of
+`interp_abstractIh`, `BlockRecRule.lean:1210`; the local binders read
+alike at both depths, the frame shifts by `ihs.size`), the `ih`
+openers from `TargetIh` (field, callee, `e⃗`, type) replacing
+`blockIhKeys`/`blockKitTlA`/`blockKitEisA`/`blockKitFapA`/
+`blockRuleIhdomsAV`, `hihF` from `TargetCallRun` + the graph values,
+the grading and tower-fit rows, `BlockRuleCerts` off `hty`/`hdeq` at
+`rP + nF + ihs.size` (6–10).  B4 `ind` as above (1–2).  B5 delete the
+kind-reading check (`blockIhCall?`, `blockIhKeys`, `BlockFieldKind.tgt?`,
+`BlockRuleFrame.ks/recTgts`, `abstractIh`, `blockNested`,
+`checkBlockRecTys`/`checkBlockRule(s)`/`checkBlockRecsRules`/
+`checkBlockRecK` and their F twins, `BlockRecRun.lean`) and the proofs
+the census then marks dead, keeping every `@[csimp]` (1).

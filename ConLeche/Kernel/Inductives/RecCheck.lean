@@ -40,7 +40,11 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
   replaced by an `ih` variable whose type is `rec_c`'s STORED type
   instantiated at exactly the call's arguments, under `∀ a⃗`; the
   field's type must be `rec_c`'s major domain at `x⃗ e⃗` (defeq, under
-  `∀ a⃗`).  Nothing is keyed by a field kind or a target member: the
+  a hole-free `∀ a⃗`), compared with the block's members ABSTRACTED to
+  free variables — the holes of charter item 2 — so that the equation
+  holds at every value of the holes (lane RECLIB: the graph recursor's
+  induction needs it at the separated tuple, where a concrete defeq
+  says nothing).  Nothing is keyed by a field kind or a target member: the
   `ih` variables are the calls the body makes, in order of first
   occurrence, identical calls sharing one;
 * the residue is TYPED, as today, against the recursor's conclusion at

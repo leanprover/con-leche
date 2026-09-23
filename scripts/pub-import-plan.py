@@ -68,6 +68,12 @@ FALLBACK = {
     # dot-notation blind class).
     ('ConLeche.Verify.Inductives.BlockRecRun',
      'ConLeche.Kernel.Inductives.BlockInstall'),
+    # task #315 (lane RECLIB, the target check's run records): the same
+    # class as `BlockRecRun`'s — the records are stated over the kernel's
+    # stage functions (`Unknown identifier BlockShape`, `:65`), MEASURED
+    # by demoting it alone.
+    ('ConLeche.Verify.Inductives.RecCheckRun',
+     'ConLeche.Kernel.Inductives.RecCheck'),
     ('ConLeche.Model.Inductives.BlockRecAssembly',
      'ConLeche.Verify.Inductives.BlockRecNames'),
     ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
