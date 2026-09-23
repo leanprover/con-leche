@@ -83818,3 +83818,71 @@ criterion.
 #### LANDED (lane FLIP1, `b40aaad4`): the five bridge arms at k members — the tree builds with the gates lifted
 
 *FLIP1 (2026-09-23).* The five bridge/cached consumers of the uniform route are k-ary: `checkDeclRun_ofEnvFactsK` (run bridge, `DeclIndRunDispatchK`), `checkBlock_datF` and `checkBlockS_push` (gate-free), `checkBlockKS_skels` and `checkBlockKS_run` (at the recursor stage's CHECK). The one-member arms that remain case on `blockRecCheckOn` and read the route's gate only through `blockRouteK1Only_of_recOff`; the flip deletes them together with `BlockOne*`, `SoundOne` and `declNativeRun_of_block_one`, and switches the fold to `DeclIndRunDispatchK` (still owed: η-closure of `DeclBlockRun`). A real flipped build is green with only those deleted declarations stubbed. The cached rule stage now flushes at its two environment transitions (`sharedOpsRuleR`): one `CState` threaded across the rule-less recursors' environment and the constructors' was an invariant state of neither. The run bridge's rule stage is a chain of `SimG`s (`SimC` with free entry/exit invariants); the residue's scoping comes from the abstraction being fvar-free by construction.
+
+
+#### LANDED (lane RM50, `f3e0eba7`): `ihs`/`Rb0` pinned by definition; the rule body produced; `heqB` paid
+
+**LANDED (lane RM50, `f3e0eba7`): `ihs`/`Rb0` DEFINED, the rule stage's
+peel obligation PRODUCED, and `heqB` PAID.** The rule frame came back from the run
+existentially "with five unpinned fields" only because the peel dropped two
+of `checkBlockRule`'s arguments — the recursor-type list and the field kinds.
+Kept (`checkBlockRecK_ruleRunP`), every field is a projection of the run, and
+the frame, residue, `ih` tower, its openers, `ihdoms` and `Rb0` are now
+definitions (`BlockRecData.lean` §A.9b); `ihs := blockRuleIhsRunAV` is
+`blockRuleIhsAV` at them. `declBlock_run`'s `howed` chooses only `s`.
+`BlockRuleBodyOwed` — which had quantified over every frame satisfying eight
+field equations, five fields free — receives the pinning and is PRODUCED
+(`blockRuleBodyOwed_run`, `Model/Inductives/BlockRuleRun.lean`), CALLED in
+`blockRuleDataB_seam`: 28 of `BlockRuleBodyInputs`' 30 rows from the run, the
+constructors' record (`fieldReadAt_eq`: the record's picked readings ARE the
+spelled ones) and a `ConstsBound` kit through the abstraction. What it
+owes is two rows that are not the rule stage's: the frame's GRADING (`hokA`,
+`blockRuleHokA_of_run`'s conclusion — the certificate lane's, the same fact
+RM51's certificate families miss) and the `ih` FIT (`BlockRuleIhFitOwed`,
+the regime's, now statable). `heqB` is paid at the seam
+(`blockRecEqs_below_seam`: every component bound from the run and the
+constructors' record). Finding: the rules' stage runs over
+`ctors.zip kinds`, so shorter kinds would silently drop rules while the
+equation list ranges over every constructor; the classification pins it at
+the run, and the seam now hands it (`checkBlockRecK_rulesLen`). `hpos` is
+gone (CONF1's floor). Next on the rule side: `heqP` (one session: a
+level-parameter twin of the `ConstsBound` kit plus the record's `params`
+clauses), `heqV` (rides on the grading).
+
+
+#### LANDED (lane RM51, `5a3a5943`): `hpre` produced at the seam (`blockRecPre_seam`)
+
+**LANDED (lane RM51, `5a3a5943`): the regime premise PRODUCED at the seam —
+`blockRecPre_seam`.**
+
+Three defects stood between the dispatch and `declBlock_run`, and all three are
+repaired.
+- **Over-quantification, fixed at the datum.** The kit arms' rule bridges (WF `hrule`,
+  `hctorAt`, `hihChain`; SQ `hrule`, `hsrcRule`, `hihChain`) quantified over every
+  `RecFamData` while reading its abstract `tupOf`/`kit`. They are stated at the one
+  datum each arm builds. A datum's candidate and graph depend only on its data fields
+  (`kitCandOf`/`kitGraphOf`, `rfl`-equal to `famCand`/`kitGraphAt`), so they are
+  nameable without the kit's proofs. This is the sixteenth over-quantification, and the
+  last in the arms.
+- **Zero constructors, by widening.** The SQ arm had no zero-constructor case. It
+  needed a widening, not an arm: every use of `numCtors = 1` read `j = 0` off
+  `j < numCtors`, so the arm is stated at the counting guard's own `numCtors ≤ 1`.
+- **`hsrcAt`'s fit.** It takes the parameter fit (and the lone constructor's
+  existence), both in scope at both consumers.
+
+`blockRecPre_seam` then calls all three arms and pays everything the seam has. That
+includes two rows priced as owed that already had producers: IND `hprefU`
+(`blockRecHpref_run`) and SQ `hsrcAt` (`blockChainFit_srcVals_zero`, with `srcs`
+fixed to `blockSqSrcs`). What remains is four named bundles, stated at the CHECKED
+elimination level so that `howed` can state them before the package is unpacked:
+`BlockGradeOwed`, `BlockIndOwed`, `BlockWfOwed`, `BlockSqOwed`.
+
+The rows left are:
+- **composable**: `hsrcRule`, `hctorAt`, `hspF`, the IND `hspF`, `hokA`;
+- **the rule lane's O-2**: the certificate families, the `ih` rows, `hrule`/`hlhs`
+  through the rule's typing licence;
+- **no producer**: the kit's `hconclTy`. It is the index-clause converse deleted with
+  `BlockRecTyJoin`, and it is needed before the recursion graph exists, so the rule's
+  licence cannot pay it. The fix is either a kernel comparison of the recursor's index
+  binders with the member's telescope (the parameters' `checkBlockDefEqList`, which
+  rejects nothing official emits) or a guarded kit motive.

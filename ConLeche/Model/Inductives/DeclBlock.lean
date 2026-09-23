@@ -304,6 +304,11 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+        -- the field kinds cover every constructor (the classification is a
+        -- `mapM` over the constructors — lane RM50: without it the rules'
+        -- stage's `zip` could drop rules and `nCt` would outrun them)
+        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
+          (pp.kinds.getD c []).length = ctorsA.length) →
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     Nonempty (EnvModelM V μ env₂) := by
   classical
@@ -507,6 +512,12 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
       hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
+      (fun c ctorsA hc => by
+        obtain ⟨-, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
+        obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc
+        show (kinds.getD c []).length = _
+        rw [List.getD_eq_getElem?_getD, hk, Option.getD_some]
+        exact (ConLeche.classifyMemberKinds_inv hcl).2.2.2)
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables
