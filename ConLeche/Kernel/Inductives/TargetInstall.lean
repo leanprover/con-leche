@@ -206,6 +206,28 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   match pos with
   | .error e => return { rep with install := .fail e }
   | .ok r =>
+  -- `nestPos`'s normal forms against the stored (already normalised)
+  -- constructors: a measurement for the flip, never a verdict
+  let rep := if r.normals == ctorsAs.map (·.map (·.1.type)) then rep
+    else { rep with kindsNote := rep.kindsNote ++ " [nestPos normal forms differ from the \
+      stored constructors]" }
+  -- and on the DECLARED constructors (the flip's input): `nestPos`'s
+  -- normal forms against `normCtorVal`'s stored ones
+  so.flush
+  let decl ← shadowTry (p₁.members.mapM fun ms => ms.ctors.mapM fun c => do
+    let cvCa ← checkConstantValF (so.opsAt fe₁) fe₁ c.1
+    pure (cvCa, c.2))
+  let rep ← match decl with
+    | .ok declAs => do
+      let posD ← shadowTry (nestedBlockPositivity (so.opsAt fe₁) fe₁.env
+        ⟨p₁.memberNames, p₁.lps, p₁.nP, p₁.nIdxs, params, p₁.resSort, fe₁.find?,
+          fe₁.env.consts⟩ declAs)
+      pure <| match posD with
+        | .ok rD =>
+          if rD.normals == ctorsAs.map (·.map (·.1.type)) then rep
+          else { rep with kindsNote := rep.kindsNote ++ " [normDecl differs]" }
+        | .error _ => { rep with kindsNote := rep.kindsNote ++ " [normDecl rejects]" }
+    | .error _ => pure rep
   let rep := { rep with keys := r.keys.toList.map fun (k : NestKeyInfo) => k.key.cname }
   -- the capability record at `nestPos`'s `is_rec`, settled as today
   let isRec := nestIsRec r.kinds

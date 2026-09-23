@@ -173,4 +173,31 @@ frame's hole at other parameters is DECLINED. -/
 #guard (runC (.app cP cT)) matches .ok _
 #guard (keysOf (runC (.app cP cT))).map (·.length) == some 3
 
+/-! ### U4 and the normal form (lane POSPROOF)
+
+U4: a later field using a recursive field declines — reachable only in
+a hand-built environment (`F4 : T → Type` after `T`): on a stream
+official accepts, a later field's normal form never mentions a
+recursive field (anything applied to it would mention the block, which
+official rejects).  The normal form: `nestedBlockPositivity` returns
+every constructor's type in official's `check_positivity` form (a
+field `Id' T` stored as `T`), the one function's product. -/
+
+@[expose] def cF4 : Expr := .const (nm "F4") []
+@[expose] def cId : Expr := .const (nm "Id'") []
+@[expose] def envU : Env := ⟨[
+  .axiomInfo ⟨nm "F4", [], pi cT ty1⟩,
+  .defnInfo ⟨nm "Id'", [], pi ty1 ty1⟩ (.lam ty1 (.bvar 0) default) .abbrev] ++ envT.consts⟩
+@[expose] def ctxU : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envU.find?, envU.consts⟩
+
+-- `(t : T) → F4 t → T`: a later field uses the recursive field: DECLINED
+#guard (nestedBlockPositivity (pureOps .verified) envU ctxU
+    [[(⟨nm "T.mk", [], pi cT (pi (.app cF4 (.bvar 0)) cT)⟩, 2)]])
+  matches .error (.notImplemented _)
+-- `Id' T → T`: recursive after δβ; stored as `T → T`
+#guard (nestedBlockPositivity (pureOps .verified) envU ctxU
+    [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)
+  == some [[pi cT cT]]
+
 end ConLecheTests.Nested

@@ -203,7 +203,7 @@ theorem normPosDomS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (n
       · next dom body bm =>
         simp only [WScoped] at hw'
         split
-        · exact SimC.throw
+        · exact SimC.pure hs₁ rfl
         · refine SimC.bind (normPosDomS_sim hμ henv names hs₁ (WScoped.instantiate1 hw'.1 0 hw'.2))
             (fun s₂ b b' hs₂ hB => ?_)
           obtain rfl : b = b' := hB
