@@ -79354,8 +79354,16 @@ this block wins.
    recursion: every rule matches a constructor and recurses only on that
    constructor's fields (reflexive fields applied to enough arguments).
    It is as liberal as possible: calls on fields of ANY inductive type,
-   with no field classification and no target member.  Prop needs extra
-   care.  Accepting more than official is fine.  (2026-09-21, 2026-09-22)
+   with no field classification and no target member.  Accepting more
+   than official is fine.  The model of EVERY checked recursor, at every
+   sort, is the GRAPH route.  The recursor family's graph is the lfp of
+   its rules read as closure conditions.  Exactly one value exists at
+   every major, by one induction over the majors plus `huniq` (either the
+   decodings are equal or the motive is a subsingleton), and `huniq` is
+   exactly the kernel's `blockLargeElimAllowed`.  The model uses nothing
+   from an inductive but its lfp clause (item 2).  No per-sort regimes,
+   no second carrier, no depth or regularity.  (2026-09-21, 2026-09-22;
+   graph route ruled 2026-09-23)
 6. **Conformance.**  The old recursor generator survives as a reject-only,
    unverified conformance check.  It runs AFTER the primitive-recursion
    check, is called from the fold, has a verified cached bridge, and lives
