@@ -84306,3 +84306,77 @@ checkpoint and may be its first step.
 
 **Gates** (`52324b72`): `lake build` 625 jobs / 0 warnings, `lake test` 0
 warnings, `tests/layering.sh` clean, 25 theorems audited at the standard axioms.
+
+
+#### LANDED (lane NESTPOS)
+
+**Positivity: one module, one function; positivity through containers
+GATED (lane NESTPOS, 2026-09-23; deliverable 3's checker side).**
+Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
+
+- **One module** (ARCH R2(c)): `Kernel/Inductives/Positivity.lean` holds
+  the occurrence test (`mentionsAnyConst`, `@[csimp]`-memoised), the
+  classifier (`blockPositivity`/`blockFieldKind`/`blockCtorKinds`, today
+  the install's and the recursor check's kinds), the normalisation
+  (`normPosDom`/`normFieldDoms`/`normCtorVal`) and `nestPos`.
+  `BlockParts` and `SumInstall` import it.
+- **The member list** (the CONF-E2E gap): the normalisation takes the
+  whole member list (`checkSumCtor(s)`/`…F` gain `names`, threaded from
+  `checkBlockCtors` as `p.memberNames`).  `corner_mutual_redex_other`,
+  `_refl`, `_vanish`, `_neg_bad`: 2,2,2,2 → 0,0,0,1, their targets.
+- **The target bound is the re-check's** (ARCH R2(b)): `blockOpenedOk`
+  (+ `blockOpenedOkF`) carries `tgt < names.length` in its recursive and
+  reflexive arms; `blockOpenedOk_tgt_lt`/`blockMemberFieldsOk_tgtsOf_lt`
+  (`Verify/Inductives/BlockInv.lean`) read it; `BlockDatum` takes it off
+  conjunct 7.  `blockPositivity_tgt_lt` & co. are deleted: today's
+  classifier has no proof consumer beyond the fuel/cache simulations.
+  R2(a) (`BlockOpened` as a per-field sum) is NOT done: under charter
+  item 3 the model's interface becomes the inversion of `nestPos`'s run,
+  not a re-checked record.
+- **`nestPos`, the ONE positivity function** (charter items 3–4), GATED.
+  Structural recursion on fuel; whnf only through `ops.whnf`; its cases
+  are the monotonicity induction's: the reduct mentions no member
+  (`const`); a `Π` with a member-free domain (`pi`, recurse on the
+  body); a member at the block's levels and parameters with member-free
+  indices (`holeApp`); a stored inductive `C` applied to parameters
+  `Ds` (no field or binder variable in them) and member-free indices
+  (`contApp`): an instantiation in progress is a `Y` hole, an accepted
+  one a cache hit (the only cache, keyed by the instantiation
+  `(C, levels, Ds)`), else (N2) its index telescope at `Ds` names no
+  member, (N3) its sort `Level.isEquiv` the block's, and `nestPos` on
+  every field of every constructor of `C` AT the instantiation — λ-pins
+  included, their redexes reduced by whnf — with the instantiated
+  results' indices member-free.  Basis containers reject (2026-09-21
+  ruling).  No copy, no transport, no per-container premise, no
+  re-check beside it: an intermediate `posE`/`blockFieldOk` re-check and
+  a reduced-form export were built this session and DELETED on the
+  maintainer's retraction.  **Amends HOLEOP's record**: the kernel
+  exports no Bool re-check — one function, proof by run inversion; and
+  HOLEOP's caveat 3 (λ-pins through a copy route) is obsolete.
+- **Departures from official, recorded** (accept-supersets, each with a
+  fixture, raised with the maintainer per the charter): (1) official
+  locates containers SYNTACTICALLY before any whnf, so `FL T` with
+  `FL α := List α` is a "non valid occurrence" there; `nestPos` reads
+  the container off the whnf and accepts (`corner_nestpos_redex_bad`);
+  (2) official copies every member of the container's mutual group,
+  reachable or not; `nestPos` checks only the instantiations a field
+  reaches (`.indInfo` records no `all`; `corner_nestpos_group_bad`).
+  A container with no constructor declines (no recorded parameter
+  count).
+- **The gate**: nothing on the install path calls `nestPos`; the
+  recogniser still routes nested blocks to the modeller.
+  `--nested-shadow` (`Main.lean`; cached twin `Cached.nestedShadowS`,
+  pure `nestedShadow` in `BlockInstall.lean`) runs it beside the install;
+  `tests/nested-shadow.sh` (in `tests/arena.sh`) compares it with
+  official on the e2e corpus; `tests/ConLecheTests/NestedTests.lean` runs
+  the pure path (λ-pin instantiations included).  Mathlib: all 41 nested
+  blocks accept.
+- **Fixtures**: `corner_nestpos_<class>_{free,bad}` for nine official
+  reject classes (negative, negative one deeper, index type (N2), index
+  value, the two mixed sorts, local-variable parameter, container only by
+  reduction, unreached group member); the bad ones forged by
+  `scripts/mk_nestpos_bad.py`; today 2, target 1.
+- **For the next lane** (the model of `nestPos`): the install will call
+  `nestPos` on the DECLARED (annotated) constructor types — today it
+  stores `normPosDom`'s normal form; which of the two the model reads is
+  that lane's first decision.

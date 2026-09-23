@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.StructInstall
-public import ConLeche.Kernel.Inductives.SumParts
+import ConLeche.Kernel.Inductives.SumParts
 public import ConLeche.Kernel.Inductives.Positivity
 
 @[expose] public section

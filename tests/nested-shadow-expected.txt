@@ -17,13 +17,17 @@
 #     containers, the non-nested negative/ill-indexed fixtures, and
 #     `nested_unused_param` — whose ill-typed constructor the shadow's
 #     own constructor check refuses);
-#   * ONE disagreement, recorded: `corner_nestpos_group_bad` — official
-#     rejects (an UNREACHED member of the container's mutual group is
-#     negative), the shadow accepts (it descends only into the instances
-#     a field reaches; the environment records no mutual group).
+#   * TWO disagreements, recorded (accept-supersets): `corner_nestpos_group_bad`
+#     — official rejects (an UNREACHED member of the container's mutual
+#     group is negative), the function accepts (it checks only the
+#     instantiations a field reaches; the environment records no mutual
+#     group); `corner_nestpos_redex_bad` — official locates containers
+#     before any whnf and rejects `FL RedT` (`FL α := List α`), the ONE
+#     positivity function reads the container off the whnf (the charter,
+#     item 3) and accepts.
 #   * `nested_nonuniform_param`: official v4.33 accepts, v4.34.0-rc2
 #     rejects (`check_uniform_ind_occs`); the arena says `either`.
-
+#
 tests/e2e/corner_idx_container.ndjson 1 TVN=accept,
 tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 RA=reject,
 tests/e2e/corner_nest_and_prop_large_bad.ndjson 1 P13=accept,
@@ -36,7 +40,8 @@ tests/e2e/corner_nestpos_idxval_bad.ndjson 1 IdxVT=reject,
 tests/e2e/corner_nestpos_local_bad.ndjson 1 LocT=reject,
 tests/e2e/corner_nestpos_neg_bad.ndjson 1 NegT=reject,
 tests/e2e/corner_nestpos_negdeep_bad.ndjson 1 NegDT=reject,
-tests/e2e/corner_nestpos_redex_bad.ndjson 1 RedT=reject,
+# a recorded departure: official REJECTS (see the header)
+tests/e2e/corner_nestpos_redex_bad.ndjson 1 RedT=accept,
 tests/e2e/corner_nestpos_sort_bad.ndjson 1 SortT=reject,
 tests/e2e/corner_nestpos_sortprop_bad.ndjson 1 SortP=reject,
 tests/e2e/corner_pin_eq_bad.ndjson 1 EFree=reject,
@@ -101,3 +106,5 @@ tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
 tests/e2e/nested_unused_param.ndjson 0 E=reject,
 tests/e2e/presieve_ofarrows_cone.ndjson 1 Lean.Syntax=accept,
 tests/e2e/tower_nested.ndjson 1 NTow=accept,
+tests/e2e/nest_rose_prop.ndjson 1 RP=accept,P=accept,
+tests/e2e/nest_rose_tree.ndjson 1 R=accept,T=accept,

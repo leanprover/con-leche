@@ -1816,7 +1816,9 @@
 # is quoted).  None carries an auxiliary recursor, so the recogniser
 # routes it to the uniform route, which DECLINES today ("a nested
 # occurrence of the block"); TARGET 1 once the nested arm is on.  The
-# `--nested-shadow` verdicts are in `tests/nested-shadow-expected.txt`.
+# `--nested-shadow` verdicts are in `tests/nested-shadow-expected.txt`;
+# the shadow rejects every bad stream but two, `group` and `redex`, the
+# two recorded accept-superset departures.
 # neg: a NEGATIVE occurrence through a container: `NegC α | mk : (α →
 # Nat) → NegC α`, nested at `NegC NegT`.  Official 1: "(kernel) arg #1
 # of '_nested.NegC_1.mk' has a non positive occurrence of the datatypes
@@ -1872,7 +1874,10 @@
 # member head.  Official 1: "(kernel) arg #1 of 'RedT.mk' contains a non
 # valid occurrence of the datatypes being declared".
 0 corner_nestpos_redex_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1.  The shadow ACCEPTS this one: the ONE positivity function
+# reads the container off the whnf (the charter, item 3), so `FL RedT`
+# is the instantiation `List RedT` — an accept-superset departure from
+# official's syntactic locate, recorded and raised with the maintainer.
 2 corner_nestpos_redex_bad.ndjson
 # group: a container whose MUTUAL GROUP has an UNREACHED member negative
 # in the parameter: `GT` nests through `GC1` only, but official copies
@@ -1884,5 +1889,5 @@
 # TARGET 1.  The shadow ACCEPTS this one: the walk descends only into
 # the instances a field reaches, and the environment records no mutual
 # group (`.indInfo` has no `all`) — an accept-superset deviation, the
-# lane's one recorded disagreement with official.
+# first of the lane's two recorded departures from official.
 2 corner_nestpos_group_bad.ndjson

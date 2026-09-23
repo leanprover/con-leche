@@ -2,10 +2,10 @@
 # tests/nested-shadow.sh — POSITIVITY THROUGH CONTAINERS, measured
 # against official (lane NESTPOS, deliverable 3's checker side).
 #
-# The check (`nestedBlockPositivity`, ConLeche/Kernel/Inductives/
-# Positivity.lean) is GATED: the recogniser still routes every nested
-# block to the modelled path, so no verdict of the shipped checker
-# depends on it.  `--nested-shadow` runs it BESIDE the install at every
+# The check (`nestPos`, the ONE positivity function with its container
+# case, ConLeche/Kernel/Inductives/Positivity.lean) is GATED: the
+# recogniser still routes every nested block to the modelled path, so
+# no verdict of the shipped checker depends on it.  `--nested-shadow` runs it BESIDE the install at every
 # block with a block shape and prints
 #
 #     con-leche: nested-shadow <block> <accept|reject|decline|error> ...

@@ -80,4 +80,25 @@ containers with their constructors, and the member's former. -/
     [[(⟨nm "T.mk", [], pi ty1 (pi (.app cL (pi (.bvar 0) cT)) cT)⟩, 2)]])
   matches .error (.invalid _)
 
+/-! ### The container case at a CONCRETE instantiation, λ included -/
+
+/-- `LF (f : Nat → Type) | mk : f 0 → LF f` — its parameter is a
+FUNCTION, so an instantiation at a λ creates a redex the function
+reduces with the kernel's whnf (`(fun _ => T) 0 ⇝ T`). -/
+@[expose] def cLF : Expr := .const (nm "LF") []
+@[expose] def envF : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "LF.mk", [], pi (pi cNat ty1) (pi (.app (.bvar 0) (.lit (.natVal 0)))
+    (.app cLF (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "LF", [], pi (pi cNat ty1) ty1⟩ {}] ++ envT.consts⟩
+@[expose] def ctxF : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envF.find?, envF.consts⟩
+@[expose] def runF (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envF ctxF [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+-- `LF (fun _ => T)`: the λ-pin is an ordinary instantiation
+#guard kindsOf (runF (.app cLF (.lam cNat cT default))) == some [.nested 0 false]
+-- `LF (fun _ => T → Nat)`: negative AT this instantiation
+#guard runF (.app cLF (.lam cNat (pi cT cNat) default)) matches .error (.invalid _)
+
 end ConLecheTests.Nested

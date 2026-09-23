@@ -18,10 +18,10 @@ constructor field lives here, and nothing about it anywhere else:
 * **the classifier** (`blockPositivity`/`blockFieldKind`/
   `blockCtorKinds`): official's walk at k names, a recursive occurrence
   carrying the member it TARGETS;
-* **positivity through containers** (`nestedBlockPositivity`, the last
-  section): official's nested class (N1)–(N4) decided at the concrete
-  parameter instantiation, recursively and memoised on the container
-  instance — GATED: the recogniser still routes a nested block to the
+* **positivity through containers** (`nestPos`, the last section): ONE
+  function, official's walk with a container case that recurses into the
+  container's constructors at the CONCRETE instantiation (the charter,
+  items 3–4) — GATED: the recogniser still routes a nested block to the
   modelled path, and only the `--nested-shadow` run and the tests call it.
 
 **The walk has no proof consumer.**  Its verdict reaches the proofs
@@ -444,89 +444,77 @@ def normCtorVal (ops : CheckerOps m) (env : Env) (names : List Name) (nP nF : Na
 
 end Norm
 
-/-! ## Positivity through containers — official's nested class, GATED
+/-! ## Positivity through containers — ONE function, GATED
 
-The maintainer's direction (DESIGN, the uniform charter): a field
-`C a⃗ (… T …)` whose head `C` is an inductive ALREADY in the environment
-is positive when, after instantiating `C`'s constructors at those
-parameters, the block occurs positively in them — recursively (a
-container's constructors may themselves nest), memoised on the
-container INSTANCE, at the CONCRETE parameters.  Official's
-nested→mutual encoding is NOT mirrored: no auxiliary type, constructor
-or name is minted, nothing is stored, and the instance a field nests
-through is stood for, during the walk only, by a free variable
-(`y_q`, the placeholder) the way DESIGN theory v2 §2.1 "abstracts" it.
+The charter (DESIGN.md, "THE CHARTER", items 3–4): there is ONE
+positivity function in the kernel; it reduces with the kernel's own
+verified whnf (`ops.whnf`, β, δ, ι, …); the theorem to come is
+"returns ⇒ the operator is monotone", by inversion of its run.  It
+looks through a container at the CONCRETE instantiation `C (t[X])`:
+the arguments `t[X]` — λ or not — are substituted into `C`'s
+constructors and positivity is checked there, jointly in the member
+holes `X` and in the instantiation's own recursive occurrences `Y`.
+Nothing is stated or cached about a container in the abstract: the
+only cache is keyed by the instantiation.  Official's nested→mutual
+encoding is never mirrored: no auxiliary type, constructor or name.
 
-**Official's class** (`_tmp/lean4-src/src/kernel/inductive.cpp`,
-`elim_nested_inductive_fn` :894–1090 then `add_inductive_fn` on the
-auxiliary declaration; TWIN-O §6.2, TWIN-F §9.2), and where each
-clause is decided here:
+**`nestPos`, the function**, by structural recursion on its fuel; its
+cases are the monotonicity induction's:
 
-* **(N1) detection is syntactic** (`is_nested_inductive_app` :932,
-  `replace_all_nested` :1043): a subterm `C Ds is` of a constructor's
-  DECLARED field type, `C` an inductive of the environment, some
-  parameter in `Ds` naming a member; OUTERMOST first (`replace` does not
-  descend into a replaced node); a `Ds` with a loose bound variable —
-  a field or a binder of the field's own telescope — is a REJECT
-  ("nested inductive datatypes parameters cannot contain local
-  variables").  `nestLocate`, before any `whnf`: a container reached
-  only by reduction (`F T` with `F α := List α`) is not located, and
-  the walk then rejects it as official does ("non valid occurrence").
-* **(N2) the instance's type former is checked BEFORE the block
-  exists** (:219): the container's index telescope at `Ds` may not
-  mention a member (official: "unknown constant").  `nestKeyOf`.
-* **(N3) one sort** (:250): the container's sort at its levels is
-  `Level.isEquiv` the block's.  `nestKeyOf`.  A `Prop` block therefore
-  nests only through `Prop` containers.
-* **(N4) the auxiliary block passes the non-nested checks**: the walk
-  (`nestWalk`, official's `check_positivity` :393 with `whnf` exactly
-  where official has it — the field's domain and every `Π` body) on
-  every member field AND every instantiated container constructor,
-  a located instance counting as a member (`is_valid_ind_app` :338: its
-  index arguments free of the block); an instantiated constructor's
-  RESULT indices free of the block (`check_constructors`' "invalid
-  return type").  The field-universe bound of the auxiliary
-  constructors follows from (N3) and the container's own install (its
-  fields are below its sort at every level instantiation).
+* the whnf of the domain mentions no member — hole-free (`const`);
+* a `Π` whose domain mentions no member — recurse on the body (`pi`);
+* a member at the block's levels and parameters with member-free
+  indices — a hole (`holeApp`, official's `is_valid_ind_app` :338);
+* a stored inductive `C` (not a member) applied to parameters `Ds`
+  (some mentioning a member, none a field or binder variable — official
+  :962) and member-free indices (`contApp`): an instantiation IN
+  PROGRESS is a `Y` hole; one already accepted is a cache hit; else its
+  checks — (N2) the instantiated index telescope names no member
+  (official checks the auxiliary type former before the block exists,
+  :219), (N3) its sort `Level.isEquiv` the block's (:250) — and then
+  `nestPos` on every field of every constructor of `C` AT the
+  instantiation, the instantiation pushed onto the in-progress list,
+  and the constructor's result indices member-free;
+* anything else — official's "non valid occurrence".
 
-**Two conscious deviations**, both accept-supersets and both recorded
-as findings in the lane's report:
+Basis containers are the maintainer's ruling (2026-09-21): a reserved
+basis name at the head of a container application is INVALID.
+
+**Recorded departures from official** (all accept-supersets, each with
+an e2e fixture; raised with the maintainer per the charter):
+* official locates nested instances SYNTACTICALLY, before any whnf
+  (`replace_all_nested` :1043), so a container reached only by
+  reduction (`F T`, `F α := List α`) is a "non valid occurrence" there;
+  here the container case reads the whnf, so it accepts
+  (`corner_nestpos_redex_bad`);
 * official copies EVERY member of the container's mutual group
-  (`I_val->get_all()`, :1009), reachable or not; the walk descends
-  only into the instances a field reaches (the environment stores no
-  mutual group: `.indInfo` has no `all` — the charter's deferred item
-  N2).  A container group with an UNREACHED member that is negative in
-  its parameter is rejected by official and accepted here
-  (`corner_nestpos_group_bad`);
-* a container with NO constructor has no recorded parameter count; it
+  (:1009), reachable or not; here only the instantiations a field
+  reaches are checked (`corner_nestpos_group_bad`).
+* a container with NO constructor has no recorded parameter count and
   is DECLINED (exit 2), never guessed.
-
-Basis containers are the maintainer's ruling (DESIGN, 2026-09-21): a
-located instance headed by a reserved basis name is INVALID (`Quot` is
-no inductive for official; `Eq` always fails (N1)/(N4) there).
 
 **The gate.**  Nothing in the install calls this section: the
 recogniser (`blockParts?`) still routes every nested block to the
-modelled path.  It is run beside the install by `--nested-shadow`
-(`Main.lean`, `tests/nested-shadow.sh`) and by the unit tests.
+modelled path.  `--nested-shadow` (`Main.lean`, `tests/nested-shadow.sh`)
+runs it beside the install, and the unit tests run its pure
+instantiation.
 -/
 
 section Nested
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- Does `e` occur the block — a member constant, or a placeholder
-`fvar i` with `lo ≤ i < hi`?  Official's `has_ind_occ`: constants only
-(a free variable's annotation is NOT looked into — a local constant's
-type lives in the local context, not in the term), and a `.proj` node's
+/-- Does a MEMBER occur in `e`?  Official's `has_ind_occ`: constants
+only — a free variable's annotation is NOT looked into (a local's type
+lives in the local context, not in the term) and a `.proj` node's
 structure name is no occurrence.  Memoised on the node. -/
-def Expr.nestOccGo (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bool) :
+def Expr.nestOccGo (names : List Name) (memo : Std.HashMap Expr Bool) :
     Expr → Bool × Std.HashMap Expr Bool
   | .bvar _ => (false, memo)
   | .sort _ => (false, memo)
   | .lit _ => (false, memo)
+  | .fvar _ _ => (false, memo)
   | .const n _ => (names.contains n, memo)
-  | .fvar i _ => (decide (lo ≤ i ∧ i < hi), memo)
   | e =>
     match memo[e]? with
     | some r => (r, memo)
@@ -534,26 +522,26 @@ def Expr.nestOccGo (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bo
       let (r, memo) : Bool × Std.HashMap Expr Bool :=
         match e with
         | .app f a =>
-          let (b₁, memo) := nestOccGo names lo hi memo f
-          if b₁ then (true, memo) else nestOccGo names lo hi memo a
+          let (b₁, memo) := nestOccGo names memo f
+          if b₁ then (true, memo) else nestOccGo names memo a
         | .lam ty body _ =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
-          if b₁ then (true, memo) else nestOccGo names lo hi memo body
+          let (b₁, memo) := nestOccGo names memo ty
+          if b₁ then (true, memo) else nestOccGo names memo body
         | .forallE ty body _ =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
-          if b₁ then (true, memo) else nestOccGo names lo hi memo body
+          let (b₁, memo) := nestOccGo names memo ty
+          if b₁ then (true, memo) else nestOccGo names memo body
         | .letE ty val body =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
+          let (b₁, memo) := nestOccGo names memo ty
           if b₁ then (true, memo) else
-          let (b₂, memo) := nestOccGo names lo hi memo val
-          if b₂ then (true, memo) else nestOccGo names lo hi memo body
-        | .proj _ _ sub => nestOccGo names lo hi memo sub
+          let (b₂, memo) := nestOccGo names memo val
+          if b₂ then (true, memo) else nestOccGo names memo body
+        | .proj _ _ sub => nestOccGo names memo sub
         | _ => (false, memo)
       (r, memo.insert e r)
 
 /-- `nestOccGo` from an empty memo. -/
-def Expr.nestOcc (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
-  (e.nestOccGo names lo hi {}).1
+def Expr.nestOcc (names : List Name) (e : Expr) : Bool :=
+  (e.nestOccGo names {}).1
 
 /-- Instantiate the leading `Π` binders of `e` at `args`, in order
 (the parameters of a constructor or a type former). -/
@@ -562,42 +550,39 @@ def instPisWith : List Expr → Expr → Option Expr
   | a :: as, .forallE _ body _ => instPisWith as (body.instantiate1 a)
   | _ :: _, _ => none
 
-/-- A container INSTANCE — official's `I Ds`, the key of its auxiliary
-type: the container, its universe levels and its parameters, scoped at
-the block's canonical parameter variables `0 ..< nP`. -/
+/-- A container INSTANTIATION `C.{lvls} Ds`, its parameters scoped at the
+block's canonical parameter variables `0 ..< nP` — the key of the only
+cache there is. -/
 structure NestKey where
   cname : Name
   lvls : List Level
   ds : List Expr
   deriving DecidableEq, Repr, Inhabited
 
-/-- One located instance: its key, the container's parameter and
-index counts, the instance's index telescope ending in its sort
-(scoped at `nP`; the placeholder's annotation) and the container's
-constructors with their field counts. -/
+/-- An accepted instantiation: its key and its index count. -/
 structure NestKeyInfo where
   key : NestKey
   nIdx : Nat
-  ty : Expr
-  ctors : List (ConstantVal × Nat)
   deriving Repr, Inhabited
 
-/-- The kind of a field under positivity through containers: official's
-verdict on the auxiliary block, read back without its encoding.  A
-`.nested q refl` field reaches the block only through the instance
-`q` (a reflexive one under `Π` binders). -/
+/-- The field's kind as the run found it: hole-free, a member hole
+(finitary or under `Π` binders), an instantiation IN PROGRESS (a `Y`
+hole — only inside a container's constructors), or an accepted
+instantiation `key` (index into the table; under `Π` binders when
+`refl`). -/
 inductive NestFieldKind where
   | ordinary
   | recursive (tgt : Nat)
   | reflexive (tgt : Nat)
+  | inProgress
   | nested (key : Nat) (refl : Bool)
   deriving DecidableEq, Repr, Inhabited
 
-/-- The block, as the walk needs it: the members, their level
+/-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,
 the canonical parameter variables, the block's sort, and the
-environment's lookup and constant list (the pure `Env`'s or the
-cached index's). -/
+environment's lookup and constant list (the pure `Env`'s or the cached
+index's). -/
 structure NestCtx where
   names : List Name
   lps : List Name
@@ -608,16 +593,17 @@ structure NestCtx where
   find? : Name → Option ConstantInfo
   consts : List ConstantInfo
 
-/-- The walk's state: the instance table (the MEMO — insertion order,
-looked up structurally, official's `m_nested_aux`) and the per-
-container cache of constructor lists (`none`: no inductive). -/
+/-- The run's state: the accepted instantiations (the cache, keyed by the
+instantiation, in completion order) and the environment lookups of
+container constructor lists (`none`: no inductive) — a reading of the
+environment, not a fact about the container. -/
 structure NestState where
   keys : Array NestKeyInfo := #[]
-  cache : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
+  ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
   deriving Inhabited
 
-/-- Everything the check found: the instance table in completion
-order and every member constructor's field kinds. -/
+/-- What the run found: the accepted instantiations and every member
+constructor's field kinds. -/
 structure NestedPositivity where
   keys : Array NestKeyInfo
   kinds : List (List (List NestFieldKind))
@@ -645,242 +631,151 @@ def nestContainer (ctx : NestCtx) (C : Name) : Option (Nat × List (ConstantVal 
     | (_, nPc, _) :: _ => some (nPc, (cs.map fun c => (c.1, c.2.2)).reverse)
   | _ => none
 
-/-- `nestContainer`, cached in the state. -/
+/-- `nestContainer`, looked up once per name. -/
 def nestContainerC (ctx : NestCtx) (st : NestState) (C : Name) :
     Option (Nat × List (ConstantVal × Nat)) × NestState :=
-  match st.cache.lookup C with
+  match st.ctorsOf.lookup C with
   | some r => (r, st)
   | none =>
     let r := nestContainer ctx C
-    (r, { st with cache := (C, r) :: st.cache })
+    (r, { st with ctorsOf := (C, r) :: st.ctorsOf })
 
-/-- **Register an instance** (official's `replace_if_nested`, :965): the
-key's index in the table — an existing entry structurally (the memo),
-else a new one, checked for (N2) and (N3) on the way in. -/
-def nestKeyOf (ctx : NestCtx) (st : NestState) (C : Name) (ls : List Level) (nPc : Nat)
-    (ctors : List (ConstantVal × Nat)) (ds : List Expr) : m (Nat × NestState) := do
-  let key : NestKey := ⟨C, ls, ds⟩
-  match st.keys.findIdx? (fun ki => ki.key == key) with
-  | some q => pure (q, st)
-  | none =>
-    if st.keys.size ≥ 4096 then
-      throw (.notImplemented "nested positivity: container instance fuel")
-    let some (.indInfo cvC _) := ctx.find? C
-      | throw (.internal "nested positivity: container vanished")
-    let ty0 := cvC.type.instantiateLevelParams cvC.levelParams ls
-    let some ty := instPisWith ds ty0
-      | throw (.notImplemented "nested positivity: container type telescope")
-    let (ibs, s) := ty.piBinders
-    let .sort s := s
-      | throw (.notImplemented "nested positivity: container type is not a syntactic telescope")
-    -- (N2): the instance's type former is checked before the block
-    -- exists — its index telescope may not name a member
-    if ibs.any (fun b => b.1.mentionsAnyConst ctx.names) then
-      throw (.invalid "nested positivity: a container's index telescope mentions the block \
-        (official: unknown constant)")
-    -- (N3): one sort for the auxiliary block
-    unless Level.isEquiv s ctx.sort == some true do
-      throw (.invalid "nested positivity: mutually inductive types must live in the \
-        same universe")
-    let _ := nPc
-    pure (st.keys.size, { st with keys := st.keys.push ⟨key, ibs.length, ty, ctors⟩ })
-
-/-- **Locate** (N1): the field's declared domain `e` at depth `d` with
-every nested instance `C Ds` replaced by its placeholder
-`.fvar (d + q) ty_q` (the index arguments stay applied), outermost
-first — a replaced node is not descended into, official's `replace`;
-memoised on the node within one domain. -/
-def nestLocate (ctx : NestCtx) (d : Nat) :
-    Expr → NestState → Std.HashMap Expr Expr → m (Expr × NestState × Std.HashMap Expr Expr)
-  | e, st, memo =>
-    if !e.nestOcc ctx.names 0 0 then pure (e, st, memo) else
-    match memo[e]? with
-    | some r => pure (r, st, memo)
-    | none => do
-      let (r, st, memo) ← (match e with
-        | .app f a => do
-          let args := e.getAppArgs
-          let cand : Option (Name × List Level) :=
-            match e.getAppFn with
-            | .const C ls => if ctx.names.contains C then none else some (C, ls)
-            | _ => none
-          let (inst, st) : Option (Name × List Level × Nat × List (ConstantVal × Nat)) ×
-              NestState :=
-            match cand with
-            | some (C, ls) =>
-              match nestContainerC ctx st C with
-              | (some (nPc, ctors), st) => (some (C, ls, nPc, ctors), st)
-              | (none, st) => (none, st)
-            | none => (none, st)
-          match inst with
-          | some (C, ls, nPc, ctors) =>
-            if ctors.isEmpty && args.any (fun x => x.nestOcc ctx.names 0 0) then
-              throw (.notImplemented "nested positivity: a container without constructors \
-                (its parameter count is not recorded)")
-            let ds := args.take nPc
-            if nPc ≤ args.length && ds.any (fun x => x.nestOcc ctx.names 0 0) then
-              if reservedBasisNames.contains C then
-                throw (.invalid "nested positivity: non valid occurrence of the datatypes \
-                  being declared (a basis container)")
-              unless ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.nP) do
-                throw (.invalid "nested positivity: nested inductive datatypes parameters \
-                  cannot contain local variables")
-              let (q, st) ← nestKeyOf ctx st C ls nPc ctors ds
-              let ki := st.keys[q]!
-              pure (Expr.mkAppN (.fvar (d + q) ki.ty) (args.drop nPc), st, memo)
-            else do
-              let (f', st, memo) ← nestLocate ctx d f st memo
-              let (a', st, memo) ← nestLocate ctx d a st memo
-              pure (.app f' a', st, memo)
-          | none => do
-            let (f', st, memo) ← nestLocate ctx d f st memo
-            let (a', st, memo) ← nestLocate ctx d a st memo
-            pure (.app f' a', st, memo)
-        | .lam ty body bm => do
-          let (ty', st, memo) ← nestLocate ctx d ty st memo
-          let (body', st, memo) ← nestLocate ctx d body st memo
-          pure (.lam ty' body' bm, st, memo)
-        | .forallE ty body bm => do
-          let (ty', st, memo) ← nestLocate ctx d ty st memo
-          let (body', st, memo) ← nestLocate ctx d body st memo
-          pure (.forallE ty' body' bm, st, memo)
-        | .letE ty val body => do
-          let (ty', st, memo) ← nestLocate ctx d ty st memo
-          let (val', st, memo) ← nestLocate ctx d val st memo
-          let (body', st, memo) ← nestLocate ctx d body st memo
-          pure (.letE ty' val' body', st, memo)
-        | .proj s i sub => do
-          let (sub', st, memo) ← nestLocate ctx d sub st memo
-          pure (.proj s i sub', st, memo)
-        | e => pure (e, st, memo))
-      pure (r, st, memo.insert e r)
-
-/-- The official "non valid occurrence" (`check_positivity` :405). -/
+/-- Official's "non valid occurrence" (`check_positivity` :405). -/
 def nestNonValid : CheckError :=
   .invalid "nested positivity: non valid occurrence of the datatypes being declared"
 
-/-- **The walk** — official's `check_positivity` (:393) on the LOCATED
-domain, `whnf` exactly where official has it (the domain, and every `Π`
-body), the members and the placeholders `lo ..< hi` both counting as
-the block (official's auxiliary block): a `Π` whose domain mentions the
-block is the "non positive occurrence"; the head must be a member at
-the block's levels and parameters, or a placeholder, with every index
-argument free of the block (`is_valid_ind_app` :338).  `k` counts the
-`Π` binders peeled (a reflexive field). -/
-def nestWalk (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (keys : Array NestKeyInfo)
-    (lo hi : Nat) : Nat → Nat → Nat → Expr → m NestFieldKind
-  | 0, _, _, _ => throw (.notImplemented "nested positivity: walk fuel")
-  | fuel + 1, dep, k, e => do
+/-- The instantiation's type former, checked as official checks the
+auxiliary type BEFORE the block exists: (N2) its index telescope at
+`Ds` names no member (official: "unknown constant"), (N3) its sort is
+`Level.isEquiv` the block's.  Returns the index count. -/
+def nestInstType (ctx : NestCtx) (key : NestKey) : m Nat := do
+  let some (.indInfo cvC _) := ctx.find? key.cname
+    | throw (.internal "nested positivity: container vanished")
+  let ty0 := cvC.type.instantiateLevelParams cvC.levelParams key.lvls
+  let some ty := instPisWith key.ds ty0
+    | throw (.notImplemented "nested positivity: container type telescope")
+  let (ibs, s) := ty.piBinders
+  let .sort s := s
+    | throw (.notImplemented "nested positivity: container type is not a syntactic telescope")
+  if ibs.any (fun b => b.1.mentionsAnyConst ctx.names) then
+    throw (.invalid "nested positivity: a container's index telescope mentions the block \
+      (official: unknown constant)")
+  unless Level.isEquiv s ctx.sort == some true do
+    throw (.invalid "nested positivity: mutually inductive types must live in the \
+      same universe")
+  pure ibs.length
+
+/-- **The positivity function** (see the section header): the domain
+`e` at depth `dep`, `kb` `Π` binders into the field, `prog` the
+instantiations in progress.  Throws official's verdict on a
+non-positive or non-valid occurrence; returns the field's kind and the
+cache. -/
+def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+    Nat → List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState)
+  | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
+  | fuel + 1, prog, dep, kb, e, st => do
     let w ← ops.whnf env dep e
-    if !w.nestOcc ctx.names lo hi then pure .ordinary else
+    -- `const`: the reduct mentions no member
+    if !w.nestOcc ctx.names then return (.ordinary, st)
     match w with
-    | .forallE dom body _ =>
-      if dom.nestOcc ctx.names lo hi then
+    | .forallE a b _ =>
+      -- `pi`: the domain member-free, the codomain positive
+      if a.nestOcc ctx.names then
         throw (.invalid "nested positivity: non positive occurrence of the datatypes \
           being declared")
-      else nestWalk ops env ctx keys lo hi fuel (dep + 1) (k + 1) (body.instantiate1 (.fvar dep dom))
+      nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
     | _ =>
       let args := w.getAppArgs
-      let free (xs : List Expr) : Bool := xs.all fun a => !a.nestOcc ctx.names lo hi
+      let free (xs : List Expr) : Bool := xs.all fun x => !x.nestOcc ctx.names
       match w.getAppFn with
       | .const n us =>
         match ctx.names.findIdx? (· == n) with
         | some t =>
+          -- `holeApp`: a member at the block's levels and parameters
           if us == ctx.lps.map .param && args.length == ctx.nP + ctx.nIdxs.getD t 0 &&
               args.take ctx.nP == ctx.params && free (args.drop ctx.nP) then
-            pure (if k == 0 then .recursive t else .reflexive t)
+            return (if kb == 0 then .recursive t else .reflexive t, st)
           else throw nestNonValid
-        | none => throw nestNonValid
-      | .fvar i _ =>
-        if lo ≤ i && i < hi && args.length == (keys.getD (i - lo) default).nIdx && free args then
-          pure (.nested (i - lo) (k != 0))
-        else throw nestNonValid
+        | none =>
+          -- `contApp`: a stored inductive at a concrete instantiation
+          let (ci, st) := nestContainerC ctx st n
+          let some (nPc, ctors) := ci | throw nestNonValid
+          if ctors.isEmpty then
+            throw (.notImplemented "nested positivity: a container without constructors \
+              (its parameter count is not recorded)")
+          if args.length < nPc || !free (args.drop nPc) then throw nestNonValid
+          if reservedBasisNames.contains n then
+            throw (.invalid "nested positivity: non valid occurrence of the datatypes \
+              being declared (a basis container)")
+          let ds := args.take nPc
+          unless ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.nP) do
+            throw (.invalid "nested positivity: nested inductive datatypes parameters \
+              cannot contain local variables")
+          let key : NestKey := ⟨n, us, ds⟩
+          if prog.contains key then return (.inProgress, st)
+          match st.keys.findIdx? (·.key == key) with
+          | some q => return (.nested q (kb != 0), st)
+          | none =>
+            let nIdx ← nestInstType ctx key
+            let prog' := key :: prog
+            let mut st := st
+            for (cv, nF) in ctors do
+              let ty := cv.type.instantiateLevelParams cv.levelParams us
+              let some crest := instPisWith ds ty
+                | throw (.notImplemented "nested positivity: container constructor telescope")
+              let mut cur := crest
+              for j in List.range nF do
+                match cur with
+                | .forallE a b _ =>
+                  let (_, st') ← nestPos ops env ctx fuel prog' (ctx.nP + j) 0 a st
+                  st := st'
+                  cur := b.instantiate1 (.fvar (ctx.nP + j) a)
+                | _ => throw (.notImplemented "nested positivity: container constructor fields")
+              -- official's "invalid return type" on the instantiated constructor
+              unless free (cur.getAppArgs.drop nPc) do
+                throw (.invalid "nested positivity: invalid return type of an instantiated \
+                  container constructor (an index mentions the block)")
+            if st.keys.size ≥ 4096 then
+              throw (.notImplemented "nested positivity: instantiation fuel")
+            return (.nested st.keys.size (kb != 0),
+              { st with keys := st.keys.push ⟨key, nIdx⟩ })
       | _ => throw nestNonValid
 
-/-- One field: locate at its depth `d`, then walk at `d + N` (the `N`
-placeholders sit at `d ..< d + N`). -/
-def nestField (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (d : Nat) (dom : Expr)
-    (st : NestState) : m (NestFieldKind × NestState) := do
-  let (abs, st, _) ← nestLocate ctx d dom st {}
-  let n := st.keys.size
-  let k ← nestWalk ops env ctx st.keys d (d + n) 1024 (d + n) 0 abs
-  pure (k, st)
+/-- The fields of one member constructor (the parameters instantiated
+at the canonical variables), each through `nestPos` at its depth. -/
+def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
+    (st : NestState) : m (List NestFieldKind × NestState) := do
+  let mut st := st
+  let mut cur := crest
+  let mut ks : Array NestFieldKind := #[]
+  for j in List.range nF do
+    match cur with
+    | .forallE a b _ =>
+      let (k, st') ← nestPos ops env ctx 1024 [] (ctx.nP + j) 0 a st
+      st := st'
+      ks := ks.push k
+      cur := b.instantiate1 (.fvar (ctx.nP + j) a)
+    | _ => throw (.notImplemented "nested positivity: constructor field telescope")
+  pure (ks.toList, st)
 
-/-- A constructor's `n` fields, opened at `d, d + 1, …`; returns their
-kinds and the residual (the constructor's result). -/
-def nestFields (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    Nat → Nat → Expr → NestState → m (List NestFieldKind × Expr × NestState)
-  | 0, _, e, st => pure ([], e, st)
-  | n + 1, d, .forallE dom body _, st => do
-    let (k, st) ← nestField ops env ctx d dom st
-    let (ks, r, st) ← nestFields ops env ctx n (d + 1) (body.instantiate1 (.fvar d dom)) st
-    pure (k :: ks, r, st)
-  | _ + 1, _, _, _ => throw (.notImplemented "nested positivity: constructor field telescope")
-
-/-- A member's constructors, at the canonical parameter variables. -/
-def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind) × NestState)
-  | [], st => pure ([], st)
-  | c :: cs, st => do
-    let some crest := instPisWith ctx.params c.1.type
-      | throw (.notImplemented "nested positivity: constructor parameter telescope")
-    let (ks, _, st) ← nestFields ops env ctx c.2 ctx.nP crest st
-    let (kss, st) ← nestMemberCtors ops env ctx cs st
-    pure (ks :: kss, st)
-
-/-- Every member's constructors. -/
-def nestMembers (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    List (List (ConstantVal × Nat)) → NestState →
-      m (List (List (List NestFieldKind)) × NestState)
-  | [], st => pure ([], st)
-  | cs :: rest, st => do
-    let (kss, st) ← nestMemberCtors ops env ctx cs st
-    let (ksss, st) ← nestMembers ops env ctx rest st
-    pure (kss :: ksss, st)
-
-/-- An instance's constructors — the container's, at the instance's
-levels and parameters (official's auxiliary constructors, :1027),
-their fields opened after the block's parameters — through the same
-locate-and-walk; the RESULT's index arguments free of the block
-(official's "invalid return type" on the auxiliary constructor). -/
-def nestInstCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (key : NestKey) :
-    List (ConstantVal × Nat) → NestState → m NestState
-  | [], st => pure st
-  | (cv, nF) :: cs, st => do
-    let ty := cv.type.instantiateLevelParams cv.levelParams key.lvls
-    let some crest := instPisWith key.ds ty
-      | throw (.notImplemented "nested positivity: container constructor telescope")
-    let (_, resid, st) ← nestFields ops env ctx nF ctx.nP crest st
-    unless (resid.getAppArgs.drop key.ds.length).all (fun a => !a.nestOcc ctx.names 0 0) do
-      throw (.invalid "nested positivity: invalid return type of an instantiated container \
-        constructor (an index mentions the block)")
-    nestInstCtors ops env ctx key cs st
-
-/-- The instance table, in order, each entry's constructors once — new
-entries found on the way are appended and reached (official's queue,
-:1066). -/
-def nestInstances (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    Nat → Nat → NestState → m NestState
-  | 0, _, _ => throw (.notImplemented "nested positivity: container instance fuel")
-  | fuel + 1, q, st =>
-    if h : q < st.keys.size then do
-      let ki := st.keys[q]
-      let st ← nestInstCtors ops env ctx ki.key ki.ctors st
-      nestInstances ops env ctx fuel (q + 1) st
-    else pure st
-
-/-- **Positivity through containers, for a whole block**: every
-member constructor's fields, then every located instance's
-constructors, sharing one instance table (the memo).  Throws official's
-verdict on a block outside the class (`.invalid`), declines what it
-cannot read (`.notImplemented`), and returns the table and the members'
-field kinds otherwise.  `ctorss` are the members' constructors,
-ANNOTATED and NOT normalised (official locates on the declared types). -/
+/-- **Positivity through containers, for a whole block**: every member
+constructor's fields through `nestPos`, sharing one cache.  `ctorss`
+are the members' constructors ANNOTATED (not normalised: the function
+reduces itself). -/
 def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
-  let (kinds, st) ← nestMembers ops env ctx ctorss {}
-  let st ← nestInstances ops env ctx 4097 0 st
-  pure ⟨st.keys, kinds⟩
+  let mut st : NestState := {}
+  let mut kinds : Array (List (List NestFieldKind)) := #[]
+  for cs in ctorss do
+    let mut kss : Array (List NestFieldKind) := #[]
+    for c in cs do
+      let some crest := instPisWith ctx.params c.1.type
+        | throw (.notImplemented "nested positivity: constructor parameter telescope")
+      let (ks, st') ← nestMemberCtor ops env ctx c.2 crest st
+      st := st'
+      kss := kss.push ks
+    kinds := kinds.push kss.toList
+  pure ⟨st.keys, kinds.toList⟩
 
 end Nested
 
