@@ -84558,16 +84558,23 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   maintainer's retraction.  **Amends HOLEOP's record**: the kernel
   exports no Bool re-check — one function, proof by run inversion; and
   HOLEOP's caveat 3 (λ-pins through a copy route) is obsolete.
-- **Departures from official, recorded** (accept-supersets, each with a
-  fixture, raised with the maintainer per the charter): (1) official
-  locates containers SYNTACTICALLY before any whnf, so `FL T` with
+- **Accepted supersets, charter item 8 (ruled 2026-09-23)** — no
+  syntactic-occurrence record is added to `nestPos`; a reject-only check
+  would go into `Conformance/` if ever needed.  (D1) official locates
+  containers SYNTACTICALLY before any whnf, so `FL T` with
   `FL α := List α` is a "non valid occurrence" there; `nestPos` reads
-  the container off the whnf and accepts (`corner_nestpos_redex_bad`);
-  (2) official copies every member of the container's mutual group,
+  the container off the whnf and accepts (`corner_nestpos_redex_bad`).
+  (D2) official copies every member of the container's mutual group,
   reachable or not; `nestPos` checks only the instantiations a field
   reaches (`.indInfo` records no `all`; `corner_nestpos_group_bad`).
-  A container with no constructor declines (no recorded parameter
-  count).
+  **The model lemma D2 needs (for the POSPROOF brief): Bekić at a
+  component — if `A`'s constructors never reach `B`, then `A`'s
+  component of the group's lfp is the lfp of `A` alone ("an unreached
+  member doesn't change the reached component";
+  `SetTheory/Derive/LfpTuple.lean` has the section law,
+  `lfpTuple_eq_section`).**  Both
+  fixtures' target is 0, not 1.  A container with no constructor
+  declines (no recorded parameter count).
 - **The gate**: nothing on the install path calls `nestPos`; the
   recogniser still routes nested blocks to the modeller.
   `--nested-shadow` (`Main.lean`; cached twin `Cached.nestedShadowS`,

@@ -495,16 +495,18 @@ holds at most 4096 instantiations; running out of either THROWS
 non-uniformly growing instantiation (`C α | mk : C (List α) → C α`,
 which official's parameters forbid) is the shape that could reach it.
 
-**Recorded departures from official** (all accept-supersets, each with
-an e2e fixture; raised with the maintainer per the charter):
+**Accepted supersets of official** (the charter's item 8, ruled
+2026-09-23; each with an e2e fixture; a reject-only check for either
+would go into `ConLeche/Conformance/`, never into this function):
 * official locates nested instances SYNTACTICALLY, before any whnf
   (`replace_all_nested` :1043), so a container reached only by
   reduction (`F T`, `F α := List α`) is a "non valid occurrence" there;
   here the container case reads the whnf, so it accepts
-  (`corner_nestpos_redex_bad`);
+  (`corner_nestpos_redex_bad`, D1);
 * official copies EVERY member of the container's mutual group
   (:1009), reachable or not; here only the instantiations a field
-  reaches are checked (`corner_nestpos_group_bad`).
+  reaches are checked (`corner_nestpos_group_bad`, D2).
+And one decline:
 * a container with NO constructor has no recorded parameter count and
   is DECLINED (exit 2), never guessed.
 

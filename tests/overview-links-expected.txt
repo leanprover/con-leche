@@ -769,23 +769,23 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L399
    399  def normPosDom (ops : CheckerOps m) (env : Env) (names : List Name) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L220
-   220  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L221
+   221  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L924-L930
-   924  /-- **The recursor stage as CHECKING, at any number of members**
-   925  (milestone M5, design §4.2): the recursor records' pins, then every
-   926  member's type, then — at the environment holding all `k` rule-less
-   927  recursors — every member's rules. -/
-   928  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
-   929      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-   930      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L925-L931
+   925  /-- **The recursor stage as CHECKING, at any number of members**
+   926  (milestone M5, design §4.2): the recursor records' pins, then every
+   927  member's type, then — at the environment holding all `k` rule-less
+   928  recursors — every member's rules. -/
+   929  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
+   930      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+   931      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
 
-== ConLeche/Conformance/RecConform.lean#L117
-   117  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
+== ConLeche/Conformance/RecConform.lean#L115
+   115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1028
-  1028  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L1029
+  1029  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

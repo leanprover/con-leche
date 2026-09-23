@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.SumParts
-public import ConLeche.Kernel.Inductives.FieldTele
 public import ConLeche.Kernel.Inductives.BlockParts
 
 @[expose] public section

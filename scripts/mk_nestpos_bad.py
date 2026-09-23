@@ -26,7 +26,8 @@ The block's recursor records are repointed with it; official never
 reaches them.  None of the forged streams carries an auxiliary
 recursor, so the RECOGNISER routes each block to the uniform route,
 where today's verdict is a decline ("a nested occurrence of the
-block"); the target is official's reject.
+block"); the target is official's reject, except `redex` and `group`,
+accepted supersets (charter item 8, D1/D2), whose target is 0.
 
 Usage: scripts/mk_nestpos_bad.py   (reads and writes under tests/e2e/)
 """

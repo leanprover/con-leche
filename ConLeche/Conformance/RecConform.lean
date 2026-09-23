@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.SumInstall
-public import ConLeche.Kernel.Inductives.BlockParts
 public import ConLeche.Conformance.RecGen
 
 @[expose] public section
