@@ -83980,3 +83980,25 @@ The certificate family `hcertsW` is owed at the BASE frame at the rule's own ope
 `howed` = `BlockGradeOwed` (certs, `hlhs`, the `ih` terms' grading) ∧ the three regime bundles. What blocks the certificates is `hokC`: the rule conclusion's peel spine (`hcon`/`hesL`/`hmkL`), which nobody produces. The IND arm's `hCaE` needs the same spine. `hfit` is then `blockKitRule_run` at `K = 0`, and `hargs` is `blockRuleHokC_args_of_ctor`.
 
 ---------------------------------------------------------------------
+
+#### RULING (maintainer, 2026-09-23): conformance-only code lives in its own directory
+
+"The conformance-only code should be clearly recognized as such …
+that should be all code that only serves as additional checks, and is
+unverified and not necessary for soundness.  This will help understand
+also loc counts for components.  It can still be called from the fold
+and have a verified bridge to the C world."
+
+Criterion (measurable, not argued): code is CONFORMANCE-ONLY iff it only
+ever rejects, and deleting it breaks no proof except its own cached↔pure
+bridge.  Candidates: the recursor generate-and-compare
+(`checkBlockRecConform(F)` and the `NativeInstall*` generator it keeps
+alive), the recursor name-set check (`blockRecNameSetOk`), possibly parts
+of the frontend's export-format validation.  Placement: a checker-tier
+directory (`ConLeche/Conformance/`, same layering rules as `Kernel/`),
+still called from the fold, with its verified cached bridge.  Scheduled
+after lane D-OLD lands (it prunes the same `Native*` files).
+
+Also noted (maintainer): every conformance GAP gets an e2e fixture — the
+positivity walk's single-member-name call (ARCH §1) is being pinned by
+lane CONF-E2E.
