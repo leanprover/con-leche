@@ -200,6 +200,43 @@ def consBlockRecsF (find? : Name → Option ConstantInfo) (p : BlockShape) (nP :
       (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
         (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)))
 
+/-- The records `consBlockRecsF` pushes, in push order. -/
+def blockRecInfosF (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+    Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → List ConstantInfo
+  | _, [] => []
+  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest =>
+    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
+        (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)
+      :: blockRecInfosF find? p nP (m + 1) rest
+
+/-- Push a list of records, head first. -/
+def FEnv.pushAll : List ConstantInfo → FEnv → FEnv
+  | [], fe => fe
+  | ci :: rest, fe => FEnv.pushAll rest (fe.push ci)
+
+/-- **`consBlockRecsF`, every record built before the first push** (lane
+LIN1).  The driver hands `consBlockRecsF` a `find?` that is a closure
+over the very `FEnv` it pushes onto (`fe₂.find?`, `checkBlockTailS`);
+threaded through the recursion, that closure holds the index at RC 2
+across the first `FEnv.push`, which then copies the whole bucket array
+— one full index copy per inductive block.  Here every record is read
+first, the closure dies, and the pushes run on a unique index.  Same
+value (`consBlockRecsF_eq_fast`, `@[csimp]`): `find?` is a parameter,
+not the accumulated environment, so reading it early changes nothing. -/
+def consBlockRecsFFast (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat)
+    (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (fe : FEnv) : FEnv :=
+  FEnv.pushAll (blockRecInfosF find? p nP m rs) fe
+
+@[csimp] theorem consBlockRecsF_eq_fast : @consBlockRecsF = @consBlockRecsFFast := by
+  funext find? p nP m rs fe
+  induction rs generalizing m fe with
+  | nil => rfl
+  | cons r rest ih =>
+    obtain ⟨cvRa, rhss, nIdx, ctorsA⟩ := r
+    simp only [consBlockRecsF, consBlockRecsFFast, blockRecInfosF, FEnv.pushAll]
+    exact ih (m + 1) _
+
 /-! ## The recursor stage (milestone M5) -/
 
 /-- `consBlockRecsBare` through the index. -/

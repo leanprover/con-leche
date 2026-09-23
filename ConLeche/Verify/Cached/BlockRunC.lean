@@ -1619,7 +1619,7 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     {ctorsAs : List (List (ConstantVal × Nat))} {s₀ : CState} (hwf : CSOKF s₀)
     {u : Unit} {s' : CState}
     (h : (flushC *> checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) structWalkersC
-      (mkFEnv env₂) p cvTas ctorsAs) s₀ = .ok (u, s')) :
+      (mkFEnv env₂) none p cvTas ctorsAs) s₀ = .ok (u, s')) :
     CSOKF s' ∧ ∃ F, checkBlockRecConform (fueledOps mode F) env₂ p cvTas ctorsAs = .ok () := by
   simp only [SeqRight.seqRight, bind_pure_comp] at h
   obtain ⟨u0, s₁, hfl, h⟩ := bindC_ok h
@@ -1664,7 +1664,7 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     rw [hF']
     rfl
   · have eF : checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) StructWalkers.plain
-        (mkFEnv env₂) p cvTas ctorsAs = pure () := by
+        (mkFEnv env₂) none p cvTas ctorsAs = pure () := by
       unfold checkBlockRecConformF
       split
       · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, rfl⟩
