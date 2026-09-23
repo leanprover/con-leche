@@ -15,7 +15,7 @@ public section
 `BlockRuleCerts` carries the rule's conclusion `Ca` as the reading of
 an EXISTENTIAL `concl` (`denoteMeta … concl = some Ca`), and every
 consumer that evaluates `Ca` — the kit arms' `hCaB`, the IND arm's
-`hCaE` through `blockIndCaE_of_rules`'s `hdat` — needs it as
+`hCaE` through `blockIndCaE_of_run` (`blockIndRuleRows_run`) — needs it as
 `BlockRuleConclAt`: the recursor type's reading peeled along the rule's
 spine.  Nothing in the tree chose one `Ca` per rule, so the two could
 not meet.
@@ -32,8 +32,8 @@ and the run proves:
   exactly `blockRuleCerts_of_run`'s `hCa` premise, so the certificate
   lane states its bundle at this `Ca`;
 * `blockRuleCaAV_conclAt` — `BlockRuleConclAt` at the run's own
-  components (`hcon`/`hmkL`/`hesL` of `blockIndCaE_of_rules`'s `hdat`
-  and of `blockRecHCaB`): the index arguments and the fired spine read,
+  components (`hcon`/`hmkL`/`hesL` of `blockIndCaE_of_run` and of
+  `blockRecHCaB`): the index arguments and the fired spine read,
   at the deeper frame, to the rule-frame readings lifted past the `ih`
   block (`denoteMeta_lift`).
 
@@ -152,7 +152,7 @@ reads at the whole rule frame to `blockRuleCaAV` — the `hCa` premise of
 the recursor type's reading along the rule's spine, the index arguments
 and the fired spine being the rule-frame readings (`blockRecEsK 0`,
 `blockRecMkK 0`) lifted past the `ih` block — the `hcon`/`hmkL`/`hesL`
-triple of `blockIndCaE_of_rules`'s `hdat` and of `blockRecHCaB`.
+triple of `blockIndCaE_of_run` and of `blockRecHCaB`.
 
 The inputs are the run and the constructor's reading record (`hcd`,
 out of `BlockCtorsCore`), the constructor's stored level parameters and
@@ -396,15 +396,15 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
 
 /-! ## 4. The per-pair data, at the block datum
 
-`blockIndCaE_of_rules`' `hdat` and the kit arms' `hCaB` read the same
-per-(recursor, constructor) facts: the rule's constructor IS the
-member's `j`-th (the counting stage's `hctM`), its record, and the
+The IND arm's `hCaE` (`blockIndRuleRows_run`) and the kit arms' `hCaB`
+read the same per-(recursor, constructor) facts: the rule's constructor
+IS the member's `j`-th (the counting stage's `hctM`), its record, and the
 pinned `Ca`'s peel.  They are named once here. -/
 
 variable {d : BlockData V}
 
-/-- **One pair's data**, at the run and the block datum: every row of
-`blockIndCaE_of_rules`' `hdat` at the pinned `Ca` (`blockRuleCaAV`), the
+/-- **One pair's data**, at the run and the block datum: every per-rule
+input of `blockIndCaE_of_run` at the pinned `Ca` (`blockRuleCaAV`), the
 pinned `ih` domains (`blockRecIhdomsK`) and the frame's `nR`, the rule
 index being the constructor's own, plus the two facts `hCaB` also needs
 (the member is a component, the recursor's binder data is as long as
@@ -493,51 +493,6 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     (List.getElem?_eq_some_iff.mp hcj).1, hcon, hes, blockRulePdomsAV_length hμ mpC h hr ψ,
     hfl, hih, hFssLen, ?_, Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)⟩
   rw [hlenRds, hmI, blockMembers_IdsM_length hmr hmemk ψ]
-
-/-- **`blockIndCaE_of_rules`' `hdat`, PRODUCED** — at the pinned
-`Ca := blockRuleCaAV` and `ihdoms := blockRecIhdomsK`, with the rule
-index the constructor's own and `nR` the rule frame's. -/
-theorem blockIndCaE_hdat_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) :
-    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∃ (i nF nR : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
-        (cA : ConstantVal × Nat) (rhs : Expr) (ci : ConstantInfo)
-        (esA : List AnnotTerm) (mkA : AnnotTerm),
-        rs[c]? = some r ∧ r.2.2.2[i]? = some cA ∧ r.2.1[i]? = some rhs ∧
-        envC.find? cA.1.name = some ci ∧ ci.toConstantVal.levelParams = p.lps ∧
-        p.nP ≤ p.toBlockShape.rulePrefixAt c ∧
-        (d.ctorsM (p.toBlockShape.recTgtAt c))[j]? = some cA ∧
-        j < (d.ctorsM (p.toBlockShape.recTgtAt c)).length ∧
-        BlockRuleConclAt (p.toBlockShape.rulePrefixAt c) nF nR
-          (blockRecTyAV mpC.base2.acval envC rs ψ c) esA mkA
-          ((fun c j => blockRuleCaAV p rs mpC.base2.acval envC ψ c j) c j) ∧
-        mkA = (blockRecMkK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).liftN nR 0 ∧
-        esA = (blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).map
-          (·.liftN nR 0) ∧
-        blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-          = ((d.Ess (p.toBlockShape.recTgtAt c) ψ).getD j []).map
-              (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2) ∧
-        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-          = p.toBlockShape.rulePrefixAt c ∧
-        (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2 ∧
-        cA.2 = nF ∧
-        ((fun c j => blockRecIhdomsK rs.length p mpC.base2.acval envC rs ψ c j) c j).length
-          = nR ∧
-        ((d.Fss (p.toBlockShape.recTgtAt c) ψ).getD j []).length = cA.2 := by
-  intro c hc j hj
-  obtain ⟨r, cA, rhs, ci, hr, hcA, hrhs, hfind, hlps, hnP, hcj, hjc, hcon, hes, hpl, hfl, hih,
-    hFss, -, -⟩ := blockRuleCaAV_pair hμ h hkLen hcore hmr hdnP hctM ψ hc hj
-  exact ⟨j, cA.2, _, r, cA, rhs, ci, _, _, hr, hcA, hrhs, hfind, hlps, hnP, hcj, hjc, hcon, rfl,
-    rfl, hes, hpl, hfl, rfl, hih, hFss⟩
 
 /-! ## 5. The kit arms' `hCaB`, at the NARROWED row
 
