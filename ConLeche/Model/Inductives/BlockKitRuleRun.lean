@@ -1,9 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecIdxConv
-public import ConLeche.Model.Inductives.BlockStageCtors
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+public import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.Inductives.BlockRecIdxConv
+import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.BlockRecRead
 
 public section
 
