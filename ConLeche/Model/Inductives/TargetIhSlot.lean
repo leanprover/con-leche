@@ -2,6 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.TargetRuleData
 import ConLeche.Model.Rules.Sound
+import ConLeche.Verify.Inductives.RecCheckScope
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Rules.Bridge
 
 public section
@@ -367,5 +370,366 @@ theorem walkCtx_targetEntry (hμ : μ.verifiedChecks = true) {envT : Env} {mT : 
     rw [e1, e2]
   rw [eTy, eT, eV]
   exact ⟨hlT, hbT, hcbT, hT, hGT, hv⟩
+
+/-! ## The `ih` types' and the calls' scoping, from the run -/
+
+/-- **The walk's new entries** carry index arguments that are sub-terms
+of the walked term: their leaves are its leaves. -/
+theorem targetAbstract_entries {fr : ConLeche.TargetFrame} {B : Nat}
+    (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0) :
+    ∀ (d : Nat) (e : Expr) (acc : Array TargetIh) (e' : Expr) (acc' : Array TargetIh),
+      ConLeche.targetAbstract fr B d e acc = some (e', acc') →
+      ∀ ih ∈ acc'.toList, ih ∈ acc.toList ∨ ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, l ∈ e.fvarLeaves
+  | _, .bvar _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .sort _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .lit _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .fvar _ _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .const n us, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | d, .lam ty b bi, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_entries hle (d + 1) b acc1 b' acc2 h2 ih hih with hA | hA
+    · rcases targetAbstract_entries hle d ty acc ty' acc1 h1 ih hA with hB | hB
+      · exact Or.inl hB
+      · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hB x hx l hl]
+    · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hA x hx l hl]
+  | d, .forallE ty b bi, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_entries hle (d + 1) b acc1 b' acc2 h2 ih hih with hA | hA
+    · rcases targetAbstract_entries hle d ty acc ty' acc1 h1 ih hA with hB | hB
+      · exact Or.inl hB
+      · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hB x hx l hl]
+    · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hA x hx l hl]
+  | d, .letE ty v b, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨v', acc2⟩, h2, ⟨b', acc3⟩, h3, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_entries hle (d + 1) b acc2 b' acc3 h3 ih hih with hA | hA
+    · rcases targetAbstract_entries hle d v acc1 v' acc2 h2 ih hA with hB | hB
+      · rcases targetAbstract_entries hle d ty acc ty' acc1 h1 ih hB with hC | hC
+        · exact Or.inl hC
+        · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hC x hx l hl]
+      · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hB x hx l hl]
+    · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hA x hx l hl]
+  | d, .proj sn i x, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨x', acc1⟩, h1, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      intro ih hih
+      rcases targetAbstract_entries hle d x acc x' acc1 h1 ih hih with hA | hA
+      · exact Or.inl hA
+      · exact Or.inr fun y hy l hl => by simpa [Expr.fvarLeaves] using hA y hy l hl
+  | d, .app f a, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · next i c m idx hc =>
+      simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨ty, hty, h⟩ := h
+      split at h
+      · simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+      · simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        intro ih hih
+        rw [Array.toList_push, List.mem_append, List.mem_singleton] at hih
+        rcases hih with hih | rfl
+        · exact Or.inl hih
+        · refine Or.inr fun x hx l hl => ?_
+          obtain ⟨rn, he, -⟩ := targetCall?_inv hc hle
+          rw [he]
+          exact mem_fvarLeaves_mkAppN_arg _ _ x
+            (List.mem_append_left _ (List.mem_append_right _ hx)) l hl
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨f', acc1⟩, h1, ⟨a', acc2⟩, h2, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      intro ih hih
+      rcases targetAbstract_entries hle d a acc1 a' acc2 h2 ih hih with hA | hA
+      · rcases targetAbstract_entries hle d f acc f' acc1 h1 ih hA with hB | hB
+        · exact Or.inl hB
+        · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hB x hx l hl]
+      · exact Or.inr fun x hx l hl => by simp [Expr.fvarLeaves, hA x hx l hl]
+
+/-- An opened sub-term's constants are the term's. -/
+theorem constsBound_of_instantiate1 {env₀ : Env} {v : Expr} :
+    ∀ (e : Expr) (k : Nat), ConstsBound env₀ (e.instantiate1 v k) → ConstsBound env₀ e := by
+  intro e
+  induction e with
+  | bvar i => intro _ _; simp
+  | fvar i ty _ => intro k h; simpa [Expr.instantiate1] using h
+  | sort u => intro _ _; simp
+  | lit l => intro _ _; simp
+  | const n us => intro k h; simpa [Expr.instantiate1] using h
+  | app f a ihf iha =>
+    intro k h; simp only [Expr.instantiate1, constsBound_app] at h ⊢
+    exact ⟨ihf k h.1, iha k h.2⟩
+  | lam ty b m iht ihb =>
+    intro k h; simp only [Expr.instantiate1, constsBound_lam] at h ⊢
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE ty b m iht ihb =>
+    intro k h; simp only [Expr.instantiate1, constsBound_forallE] at h ⊢
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | letE ty v' b iht ihv ihb =>
+    intro k h; simp only [Expr.instantiate1, constsBound_letE] at h ⊢
+    exact ⟨iht k h.1, ihv k h.2.1, ihb (k + 1) h.2.2⟩
+  | proj s i x ih =>
+    intro k h; simp only [Expr.instantiate1, constsBound_proj] at h ⊢
+    exact ih k h
+
+/-- **A term inferred at the certified grade names only stored
+constants**, once its free variables' annotations do. -/
+theorem infer_constsBound_of_full {env : Env} :
+    ∀ {g : Rules.Grade} {d : Nat} {e t : Expr}, Rules.Infer env g d e t → g = .full →
+      (∀ l ∈ e.fvarLeaves, ConstsBound env l.2) → ConstsBound env e
+  | _, _, _, _, .sort, _, _ => by simp
+  | _, _, _, _, @Rules.Infer.fvar _ _ _ idx ty _, _, hl => by
+    simp only [constsBound_fvar]
+    exact hl (idx, ty) (by simp [Expr.fvarLeaves])
+  | _, _, _, _, .const hf _ _, _, _ => by simp [hf]
+  | _, _, _, _, .natLit _, _, _ => by simp
+  | _, _, _, _, .strLit _, _, _ => by simp
+  | _, _, _, _, .forallE hs _ hbs _ _, hg, hl => by
+    have hty := infer_constsBound_of_full hs hg (fun l h => hl l (by simp [Expr.fvarLeaves, h]))
+    simp only [constsBound_forallE]
+    refine ⟨hty, constsBound_of_instantiate1 _ 0 (infer_constsBound_of_full hbs hg ?_)⟩
+    intro l h
+    rcases ConLeche.Expr.fvarLeaves_instantiate1 _ 0 h with h' | h'
+    · exact hl l (by simp [Expr.fvarLeaves, h'])
+    · simp only [Expr.fvarLeaves, List.mem_cons] at h'
+      rcases h' with rfl | h'
+      · exact hty
+      · exact hl l (by simp [Expr.fvarLeaves, h'])
+  | _, _, _, _, .lam hs _ hbt _ _ _ _, hg, hl => by
+    have hty := infer_constsBound_of_full (hs hg) rfl
+      (fun l h => hl l (by simp [Expr.fvarLeaves, h]))
+    simp only [constsBound_lam]
+    refine ⟨hty, constsBound_of_instantiate1 _ 0 (infer_constsBound_of_full hbt hg ?_)⟩
+    intro l h
+    rcases ConLeche.Expr.fvarLeaves_instantiate1 _ 0 h with h' | h'
+    · exact hl l (by simp [Expr.fvarLeaves, h'])
+    · simp only [Expr.fvarLeaves, List.mem_cons] at h'
+      rcases h' with rfl | h'
+      · exact hty
+      · exact hl l (by simp [Expr.fvarLeaves, h'])
+  | _, _, _, _, .app hf _ ha _, hg, hl => by
+    simp only [constsBound_app]
+    exact ⟨infer_constsBound_of_full hf hg (fun l h => hl l (by simp [Expr.fvarLeaves, h])),
+      infer_constsBound_of_full ha hg (fun l h => hl l (by simp [Expr.fvarLeaves, h]))⟩
+  | _, _, _, _, .appSkip .., hg, _ => nomatch hg
+  | _, _, _, _, .proj hp .., hg, hl => by
+    simp only [constsBound_proj]
+    exact infer_constsBound_of_full hp hg (fun l h => hl l (by simpa [Expr.fvarLeaves] using h))
+
+/-- An entry of an opener list is a free variable. -/
+theorem FvarList.mem_fvar {E : Nat} {xs : List Expr} (h : FvarList E xs) {x : Expr}
+    (hx : x ∈ xs) : ∃ i ty, x = Expr.fvar i ty := by
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+  have hjl : j < E := by
+    have := (List.getElem?_eq_some_iff.mp hj).1
+    rw [h.1] at this; exact this
+  obtain ⟨ty, hty⟩ := h.2.1 j hjl
+  rw [hj] at hty
+  exact ⟨_, _, Option.some.inj hty⟩
+
+theorem fvarLeaves_default : (default : Expr).fvarLeaves = [] := by
+  have h : (default : Expr) = .bvar default := rfl
+  rw [h]; simp [Expr.fvarLeaves]
+
+set_option maxHeartbeats 2000000 in
+/-- **Every `ih` type and every call's λ is scoped by the rule's frame**:
+their leaves are the frame's entries (the λ's also the callee's slot),
+they have no loose bound variable, and the `ih` type names only stored
+constants — from the rule's run (`TargetRuleRun`: the walk's entries,
+the fields' whnf-telescopes, the calls' typing runs) and the frame's own
+hereditary facts. -/
+theorem targetIh_scope (hμ : μ.verifiedChecks = true)
+    {F : Nat} {feR feT : ConLeche.FEnv} {p : ConLeche.BlockShape} {formerTys : List Expr}
+    {fam : TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr} {M : ConLeche.TargetMajor}
+    {c : ConstantVal × Nat} {rhs out : Expr}
+    (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    (henv : ConLeche.EnvWF feT.env)
+    (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hbf : R.body.hasFvar = false)
+    (hFr : FvarList (rP + c.2) (R.fvsPref ++ R.fvsF).reverse)
+    (hher : ∀ x ∈ R.fvsPref ++ R.fvsF, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF)
+    (hcbF : ∀ x ∈ R.fvsPref ++ R.fvsF, ConstsBound feT.env x)
+    (hformer : ∀ t ∈ formerTys, t.hasFvar = false)
+    (hRf : ∀ c', (fam.recTys.getD c' (.sort .zero)).hasFvar = false)
+    {ih : TargetIh} (hih : ih ∈ R.ihs.toList) :
+    (∀ l ∈ ih.ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ (R.fvsPref ++ R.fvsF).reverse) ∧
+    ih.ty.looseBVarsBounded 0 = true ∧ ConstsBound feT.env ih.ty ∧
+    (∀ l ∈ (targetCallLam fam R.fvsPref R.fvsF (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Expr.fvar (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
+        :: (R.fvsPref ++ R.fvsF).reverse) ∧
+    (targetCallLam fam R.fvsPref R.fvsF (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih).looseBVarsBounded 0
+      = true := by
+  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
+  obtain ⟨C⟩ := R.call hih
+  -- the frame's entries' leaves are the frame's
+  have hframeL : ∀ x ∈ R.fvsPref ++ R.fvsF, ∀ l ∈ x.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    intro x hx l hl
+    obtain ⟨i, ty, rfl⟩ := hFr.mem_fvar (List.mem_reverse.mpr hx)
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact hx
+    · exact hher _ hx l hl
+  -- the walk's entry: its `ih` type
+  have hwf : TargetIhWF (ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (rP + c.2) R.ihs :=
+    (targetAbstract_acc 0 _ #[] _ _ R.habs).2 (fun r hr => absurd hr (by simp))
+  obtain ⟨r, hr, hget⟩ := List.getElem_of_mem hih
+  have hr' : r < R.ihs.size := by simpa using hr
+  obtain ⟨-, htyW⟩ := hwf r hr'
+  have hget' : R.ihs[r] = ih := by simpa using hget
+  rw [hget'] at htyW
+  unfold ConLeche.targetIhTy at htyW
+  obtain ⟨X, hX, hXeq⟩ := Option.map_eq_some_iff.mp htyW
+  simp only [ConLeche.targetFrameOf] at hX hXeq
+  -- the index arguments: sub-terms of the opened body
+  have hidx : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (B := rP + c.2) hle
+        0 _ #[] _ _ R.habs ih hih with h0 | h0
+    · simp at h0
+    · intro x hx l hl
+      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr R.body hbf 0 l (h0 x hx l hl)
+      exact hframeL y (List.mem_reverse.mp hy) l hly
+  -- the field
+  have hfld : ∀ l ∈ (R.fvsF.getD ih.field default).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    intro l hl
+    rcases Nat.lt_or_ge ih.field R.fvsF.length with hi | hi
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some] at hl
+      exact hframeL _ (List.mem_append_right _ (List.getElem_mem hi)) l hl
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hi, Option.getD_none,
+        fvarLeaves_default] at hl
+      exact nomatch hl
+  -- the arguments of the call
+  have hargs : ∀ a ∈ R.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (R.fvsF.getD ih.field default)
+        (ConLeche.structTeleVars ((R.fnorm.map fun t => t.piBinders.1).getD ih.field []).length)],
+      ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    intro a ha l hl
+    simp only [List.mem_append, List.mem_singleton] at ha
+    rcases ha with (ha | ha) | rfl
+    · exact hframeL a (List.mem_append_left _ ha) l hl
+    · exact hidx a ha l hl
+    · rcases ConLeche.fvarLeaves_mkAppN hl with h1 | ⟨y, hy, h1⟩
+      · exact hfld l h1
+      · rw [structTeleVars_fvarLeaves _ y hy] at h1; exact nomatch h1
+  -- the field's telescope: its domains' leaves are the field type's
+  have htele : ∀ b ∈ (R.fnorm.map fun t => t.piBinders.1).getD ih.field [],
+      ∀ l ∈ b.1.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    intro b hb l hl
+    obtain ⟨hlenN, hallN⟩ := ConLeche.targetFieldNorms_run R.hfnorm
+    rcases Nat.lt_or_ge ih.field R.fvsF.length with hi | hi
+    · obtain ⟨t, ht, hrun⟩ := hallN ih.field _ (List.getElem?_eq_getElem hi)
+      have hbt : b ∈ t.piBinders.1 := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, ht] at hb; simpa using hb
+      have hlt := piBinders_dom_fvarLeaves t b hbt l hl
+      -- the field's own type is scoped by the frame
+      have hfmem : R.fvsF[ih.field] ∈ R.fvsPref ++ R.fvsF :=
+        List.mem_append_right _ (List.getElem_mem hi)
+      obtain ⟨i0, ty0, hf0⟩ := hFr.mem_fvar (List.mem_reverse.mpr hfmem)
+      have hws0 : Expr.WScoped (rP + c.2) ty0 := by
+        have h := hFr.2.2 _ (List.mem_reverse.mpr hfmem)
+        rw [hf0] at h
+        unfold Expr.WScoped at h
+        exact h.2.mono (by omega)
+      have hholes : ∀ h ∈ ConLeche.targetHoles formerTys (rP + c.2),
+          Expr.WScoped (rP + c.2 + formerTys.length) h := by
+        intro h hh
+        simp only [ConLeche.targetHoles, List.mem_map, List.mem_range] at hh
+        obtain ⟨t', ht', rfl⟩ := hh
+        unfold Expr.WScoped
+        refine ⟨by omega, Expr.WScoped.of_not_hasFvar (hformer _ ?_)⟩
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht', Option.getD_some]
+        exact List.getElem_mem ht'
+      have hwsA := ConLeche.targetAbs_WScoped (names := p.memberNames) (lvls := p.lps.map .param)
+        hholes ty0 (hws0.mono (by omega))
+      have hfT : (R.fvsF[ih.field]).fvarTypeD = ty0 := by rw [hf0]; rfl
+      rw [hfT] at hrun
+      obtain ⟨-, hlw⟩ := ConLeche.targetWhnfPis_scope henv 1024 _ _ t hrun hwsA
+      rcases ConLeche.targetAbs_fvarLeaves ty0 l (hlw l hlt) with h1 | ⟨h, hh, h1⟩
+      · have := hher _ hfmem l
+        rw [hfT] at this
+        exact this h1
+      · -- a hole's leaf is excluded by the hole-free check
+        exfalso
+        simp only [ConLeche.targetHoles, List.mem_map, List.mem_range] at hh
+        obtain ⟨t', ht', rfl⟩ := hh
+        have hcl : (formerTys.getD t' default).hasFvar = false := by
+          apply hformer
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht', Option.getD_some]
+          exact List.getElem_mem ht'
+        simp only [Expr.fvarLeaves, List.mem_cons,
+          ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl, List.not_mem_nil, or_false] at h1
+        have hfree := C.htele b hb
+        simp only [ConLeche.targetHoleFree, List.all_eq_true, List.mem_range] at hfree
+        have := hfree t' ht'
+        simp only [ConLeche.Expr.mentionsFvar, Bool.not_eq_true', List.any_eq_false] at this
+        exact this l hl (by rw [h1]; simp)
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simpa [hlenN] using hi),
+        Option.getD_none] at hb
+      exact nomatch hb
+  -- the `ih` type's leaves
+  have hlT : ∀ l ∈ ih.ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.fvsPref ++ R.fvsF := by
+    intro l hl
+    rw [← hXeq] at hl
+    rcases ConLeche.mkPisOf_fvarLeaves _ X l hl with ⟨b, hb, h1⟩ | h1
+    · obtain ⟨b0, hb0, rfl⟩ := List.mem_map.mp hb
+      exact htele b0 hb0 l h1
+    · rcases ConLeche.instPisAtLift_fvarLeaves _ _ hX l h1 with h2 | ⟨a, ha, h2⟩
+      · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar (hRf _)] at h2; exact nomatch h2
+      · exact hargs a ha l h2
+  refine ⟨fun l hl => List.mem_reverse.mpr (hlT l hl),
+    ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge C.hihTy),
+    infer_constsBound_of_full (Rules.inferTypeCore_bridge C.hihTy) rfl
+      (fun l hl => by
+        have := hcbF _ (hlT l hl)
+        simpa using this),
+    ?_, ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge C.hcall)⟩
+  -- the call's λ's leaves
+  intro l hl
+  rcases ConLeche.mkLamsOf_fvarLeaves _ _ l hl with ⟨b, hb, h1⟩ | h1
+  · obtain ⟨b0, hb0, rfl⟩ := List.mem_map.mp hb
+    exact List.mem_cons_of_mem _ (List.mem_reverse.mpr (htele b0 hb0 l h1))
+  · rcases ConLeche.fvarLeaves_mkAppN h1 with h2 | ⟨a, ha, h2⟩
+    · simp only [Expr.fvarLeaves, List.mem_cons,
+        ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar (hRf _), List.not_mem_nil,
+        or_false] at h2
+      subst h2
+      exact List.mem_cons_self
+    · exact List.mem_cons_of_mem _ (List.mem_reverse.mpr (hargs a ha l h2))
 
 end ConLeche.Model

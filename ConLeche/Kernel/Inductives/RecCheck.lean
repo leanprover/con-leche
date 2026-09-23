@@ -354,13 +354,54 @@ must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
 holed, and put hole variables into the `ih` types. -/
 
-/-- The member abstraction, memoised (the executed definition; the
-shadow is unverified). -/
+/-- The member abstraction of one term: every member at the block's
+levels becomes its hole; `fvar` annotations are not entered. -/
+def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i ty => .fvar i ty
+  | .sort u => .sort u
+  | .lit l => .lit l
+  | e@(.const n us) =>
+    if us == lvls then
+      match names.findIdx? (· == n) with
+      | some t => holes.getD t e
+      | none => e
+    else e
+  | .app a b => .app (targetAbs names lvls holes a) (targetAbs names lvls holes b)
+  | .lam ty body bm => .lam (targetAbs names lvls holes ty) (targetAbs names lvls holes body) bm
+  | .forallE ty body bm =>
+    .forallE (targetAbs names lvls holes ty) (targetAbs names lvls holes body) bm
+  | .letE ty v body =>
+    .letE (targetAbs names lvls holes ty) (targetAbs names lvls holes v)
+      (targetAbs names lvls holes body)
+  | .proj s i sub => .proj s i (targetAbs names lvls holes sub)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def TargetAbsMemoInv (names : List Name) (lvls : List Level) (holes : List Expr)
+    (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = targetAbs names lvls holes k
+
+theorem TargetAbsMemoInv.insert {names : List Name} {lvls : List Level} {holes : List Expr}
+    {memo : Std.HashMap Expr Expr}
+    (hm : TargetAbsMemoInv names lvls holes memo) {e r : Expr}
+    (heq : r = targetAbs names lvls holes e) :
+    TargetAbsMemoInv names lvls holes (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- The member abstraction, memoised on the node (tower DAGs). -/
 def targetAbsGo (names : List Name) (lvls : List Level) (holes : List Expr)
     (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
   | e@(.bvar _) => (e, memo)
   | e@(.sort _) => (e, memo)
   | e@(.lit _) => (e, memo)
+  | e@(.fvar _ _) => (e, memo)
   | e@(.const n us) =>
     if us == lvls then
       match names.findIdx? (· == n) with
@@ -396,9 +437,81 @@ def targetAbsGo (names : List Name) (lvls : List Level) (holes : List Expr)
         | e => (e, memo)
       (r, memo.insert e r)
 
-/-- The member abstraction of one term. -/
-def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
+/-- **The memoised walk is `targetAbs`.** -/
+theorem targetAbsGo_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, TargetAbsMemoInv names lvls holes memo →
+      (targetAbsGo names lvls holes memo e).1 = targetAbs names lvls holes e ∧
+        TargetAbsMemoInv names lvls holes (targetAbsGo names lvls holes memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us =>
+    intro memo hm
+    simp only [targetAbsGo, targetAbs]
+    split
+    · split <;> exact ⟨rfl, hm⟩
+    · exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro memo hm
+    rw [targetAbsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
+      exact h4.insert (by simp [targetAbs, h1, h3])
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [targetAbsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
+      exact h4.insert (by simp [targetAbs, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [targetAbsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
+      exact h4.insert (by simp [targetAbs, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [targetAbsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [targetAbs, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [targetAbs, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [targetAbsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [targetAbs, h1], ?_⟩
+      exact h2.insert (by simp [targetAbs, h1])
+
+/-- The executed member abstraction (one memoised DAG walk). -/
+def targetAbsFast (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
   (targetAbsGo names lvls holes {} e).1
+
+@[csimp] theorem targetAbs_eq_targetAbsFast : @targetAbs = @targetAbsFast := by
+  funext names lvls holes e
+  exact (targetAbsGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- The holes of a rule frame of width `base`: member `t` is
 `.fvar (base + t)` at its former's type. -/
