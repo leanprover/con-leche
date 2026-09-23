@@ -108,6 +108,16 @@ FALLBACK = {
     # SetTheory` (`:62`).
     ('ConLeche.Model.Inductives.BlockIndRuleRun',
      'ConLeche.Model.Inductives.BlockRuleCaRun'),
+    # task #315 (lane FLOOR, the shake-gate follow-up): `BlockDeclRun`'s
+    # two `public import`s, each MEASURED by demoting it alone.  Without
+    # `BlockRuleRun` the file's `variable` binder loses `[SetTheory V]`
+    # and its public statements `BlockNamesOk`/`blockRecEqs`/`blockRecAcv`
+    # (`Unknown identifier SetTheory`, `:48`); without `BlockRecTyShapeRun`
+    # its public statements lose `BlockMembersRun` (`:118`).
+    ('ConLeche.Model.Inductives.BlockDeclRun',
+     'ConLeche.Model.Inductives.BlockRuleRun'),
+    ('ConLeche.Model.Inductives.BlockDeclRun',
+     'ConLeche.Model.Inductives.BlockRecTyShapeRun'),
     # task #315 (lane ETA1, the k-ary η-closure): `DeclBlockEta.lean`'s two
     # re-exports are named by its PUBLIC statements (`BlockShape`,
     # `consBlockInds`, … through `DeclBlock`; `ExtEta`, `EtaFamiliesClosed`
