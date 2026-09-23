@@ -4876,6 +4876,9 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
         (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
           ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
+        (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+            (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
         ∃ (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
           (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
           (fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
@@ -4926,11 +4929,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn => by
+        hctorsAs hctorsIn hdR => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hpos⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn
+          hcore hctorsAs hctorsIn hdR
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hpos
 
