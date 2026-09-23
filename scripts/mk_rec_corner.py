@@ -607,3 +607,63 @@ new_major = t.ex({"app": dict(t.E[major]["app"], arg=redex)})
 ru["rhs"] = t.replace(ru["rhs"], spine,
                       t.ex({"app": dict(t.E[spine]["app"], arg=new_major)}))
 t.write("corner_rec_redex_nonindex", "Iter")
+
+# --- corner_rec_body_redex (lane CONF1, 2026-09-23) -------------------
+# `Nat'.rec`'s `succ` rule is the generated body under an identity
+# redex:
+#
+#   λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))
+#
+# A valid primitive recursion — the rule's residue types, the guarded
+# call is the generated one — but not the rule official generates, so
+# official rejects it.  The k = 1 twin of `mutual_rec_body_redex`: at
+# one member the recursor CONFORMANCE check (the generate-and-compare
+# kept after the primitive-recursion check, `checkBlockRecConform`)
+# brings the verdict back to official's; at two members no generator
+# exists and the twin stays the accept-superset.  The definitions stay
+# (only a rule changes), so iota still fires through the rule.
+# TARGET 1 (conformance).
+t = Twin("direct_fix_nat")
+sr = t.rule("Nat'", "Nat'.rec", "Nat'.succ")
+body = t.binders(sr["rhs"], 4)[3]["lam"]["body"]                # `s n (Nat'.rec m z s n)`
+_dom = t.ex({"app": {"fn": t.ex({"bvar": 3}),                   # `m (Nat'.succ n)`
+                     "arg": t.ex({"app": {"fn": t.const("Nat'.succ"),
+                                          "arg": t.ex({"bvar": 0})}})}})
+_idf = t.ex({"lam": {"binderInfo": "default", "name": t.name("x"),
+                     "type": _dom, "body": t.ex({"bvar": 0})}})
+sr["rhs"] = rebuild_prefix(t, sr["rhs"], 4,
+                           lambda _e: t.ex({"app": {"fn": _idf, "arg": body}}))
+t.write("corner_rec_body_redex", "Nat'")
+
+# --- corner_rec_empty_prefix (lane CONF1, 2026-09-23; lane RM49's witness)
+# `inductive T : Prop | c` closed by a recursor with an EMPTY rule
+# prefix: `T.rec : (t : T) → True` — no motive, no minor, so
+# `numParams + numMotives + numMinors = 0` — and the rule
+# `T.rec T.c ↦ True.intro`, which binds no variable at all.  The
+# equation is true, but the model's `ℓ = 0` arm needs every stored
+# rule to bind one, so the recursor stage requires the prefix to hold
+# the parameters AND one motive per member (`nP + k ≤ rP`, official's
+# `nparams + nmotives ≤ rP`).  From a STREAM the record is refused
+# even earlier, by the frontend's field validation ("declares 0
+# motives"), which is what the fixture pins today; the kernel check is
+# that fact for the checker's own proof.  TARGET 1.
+t = Twin("and_rec_opaque")
+_T = t.fresh_name(["T"])
+_Tc = t.nxt_in; t.nxt_in += 1; t.ins.append({"in": _Tc, "str": {"pre": _T, "str": "c"}})
+_Tr = t.nxt_in; t.nxt_in += 1; t.ins.append({"in": _Tr, "str": {"pre": _T, "str": "rec"}})
+_tn = t.name("t")
+_prop = next(r["ie"] for r in t.recs if r.get("sort") == 0 and "ie" in r)
+_constT = t.ex({"const": {"name": _T, "us": []}})
+_recTy = t.ex({"forallE": {"binderInfo": "default", "name": _tn, "type": _constT,
+                           "body": t.const("True", [])}})
+_intro = t.const("True.intro", [])
+_blk = {"inductive": {
+    "ctors": [{"cidx": 0, "induct": _T, "isUnsafe": False, "levelParams": [], "name": _Tc,
+               "numFields": 0, "numParams": 0, "type": _constT}],
+    "recs": [{"all": [_T], "isUnsafe": False, "k": True, "levelParams": [], "name": _Tr,
+              "numIndices": 0, "numMinors": 0, "numMotives": 0, "numParams": 0,
+              "rules": [{"ctor": _Tc, "nfields": 0, "rhs": _intro}], "type": _recTy}],
+    "types": [{"all": [_T], "ctors": [_Tc], "isRec": False, "isReflexive": False,
+               "isUnsafe": False, "levelParams": [], "name": _T, "numIndices": 0,
+               "numNested": 0, "numParams": 0, "type": _prop}]}}
+dump("corner_rec_empty_prefix.ndjson", t.recs + t.ins + [_blk])

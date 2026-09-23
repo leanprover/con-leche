@@ -125,6 +125,26 @@ def checkNativeTableF (w : StructWalkers) (p : NativeParts) (ctorsA : List (Cons
     else pure fe
   | _, _ => pure fe
 
+/-- `checkBlockRecConform` through the index: the unverified,
+reject-only recursor CONFORMANCE check (the one-member
+generate-and-compare, `checkNativeRecF`), at ONE member with ONE
+recursor; SKIPPED at `k ≥ 2`, where the kernel has no generator.  The
+cached driver runs it after the recursor stage's check
+(`checkBlockRecKS`), through `thenConform`.  It lives here, beside the
+generator it runs, rather than with the block mirrors
+(`BlockInstallF.lean`): those do not import the one-member mirror. -/
+def checkBlockRecConformF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
+    (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    m Unit :=
+  match p.members, p.recs, cvTas, ctorsAs with
+  | [_], [_], [cvTa], [ctorsA] => do
+    let pn := p.toNative
+    unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
+        pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
+      throw (.invalid "direct rec: recursor rules are not the generated ones")
+    discard <| checkNativeRecF ops w fe pn cvTa ctorsA
+  | _, _, _, _ => pure ()
+
 end Mirrors
 
 end ConLeche

@@ -368,9 +368,10 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
     obtain ⟨ms, _, h⟩ := exceptBind_ok h
     obtain ⟨cvTa, _, h⟩ := exceptBind_ok h
     obtain ⟨cvRi, hcv, h⟩ := exceptBind_ok h
-    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
     by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
@@ -424,6 +425,86 @@ theorem checkBlockRecTys_inv {env : Env} {p : BlockShape} {nested : Bool}
         refine ⟨rc', cvRi', nIdx', u', by simpa using hrc, by simpa using hcu, hcv', ?_, ?_⟩
         · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle'
         · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hle2'
+
+/-- **Stage (b)'s rule-prefix floor, inverted** (the ruling of
+2026-09-23): every recursor's rule prefix has room for the block's
+parameters and one motive per member, `nP + k ≤ rP` — the checker's
+own predicate — and, since the stage found the recursor's member, the
+block has one, so the prefix is STRICTLY longer than the parameters:
+a stored rule binds at least one variable.  A separate re-inversion
+rather than a widening of `checkBlockRecTys_inv`, which is peeled
+positionally elsewhere. -/
+theorem checkBlockRecTys_prefix {env : Env} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {F : Nat} :
+    ∀ {recs : List RecShape} {ri : Nat} {cvRus : List (ConstantVal × Nat × Level)},
+      checkBlockRecTys (fueledOps mode F) env p nested cvTas recs ri = .ok cvRus →
+      ∀ i, i < recs.length →
+        p.nP + p.k ≤ p.rulePrefixAt (ri + i) ∧ p.nP < p.rulePrefixAt (ri + i)
+  | [], _, _, _, i, hi => absurd hi (Nat.not_lt_zero i)
+  | rc :: rest, ri, cvRus, h, i, hi => by
+    unfold checkBlockRecTys at h
+    obtain ⟨ms, hms, h⟩ := exceptBind_ok h
+    have hk : 0 < p.k := by
+      have := unwrapOr_ok hms
+      unfold BlockShape.k
+      exact List.length_pos_of_mem (List.mem_of_getElem? this)
+    obtain ⟨cvTa, _, h⟩ := exceptBind_ok h
+    obtain ⟨cvRi, _, h⟩ := exceptBind_ok h
+    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
+    case neg => rw [if_neg hle] at h; close_throw h
+    rw [if_pos hle] at h
+    cases i with
+    | zero => rw [Nat.add_zero]; exact ⟨hle, by omega⟩
+    | succ i =>
+    by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
+    case neg => rw [if_neg hle2] at h; close_throw h
+    rw [if_pos hle2] at h
+    obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨fvs, concl⟩ := x1
+    obtain ⟨x2, _, h⟩ := exceptBind_ok h; obtain ⟨_, _⟩ := x2
+    obtain ⟨_, _, h⟩ := exceptBind_ok h
+    obtain ⟨maj, _, h⟩ := exceptBind_ok h
+    by_cases hmaj : (maj.fvarTypeD.getAppFn == Expr.const ms.cvT.name (p.lps.map .param) &&
+        maj.fvarTypeD.getAppArgs.length == p.nP + ms.nIdx &&
+        maj.fvarTypeD.getAppArgs.take p.nP == fvs.take p.nP &&
+        maj.fvarTypeD.getAppArgs.drop p.nP ==
+          (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx) = true
+    case neg => rw [if_neg hmaj] at h; close_throw h
+    rw [if_pos hmaj] at h
+    obtain ⟨sty, _, h⟩ := exceptBind_ok h
+    obtain ⟨u, _, h⟩ := exceptBind_ok h
+    have hi' : i < rest.length := by simpa using hi
+    rw [show ri + (i + 1) = ri + 1 + i from by omega]
+    by_cases hlarge : blockLargeElimAllowed p nested = true
+    case pos =>
+      rw [if_pos hlarge] at h
+      obtain ⟨rs', hrest, -⟩ := exceptBind_ok h
+      exact checkBlockRecTys_prefix hrest i hi'
+    case neg =>
+      rw [if_neg hlarge] at h
+      obtain ⟨b, _, h⟩ := exceptBind_ok h
+      by_cases hb : b = true
+      case neg => rw [if_neg hb] at h; close_throw h
+      rw [if_pos hb] at h
+      obtain ⟨rs', hrest, -⟩ := exceptBind_ok h
+      exact checkBlockRecTys_prefix hrest i hi'
+
+/-- **The recursor stage's rule-prefix floor** (the ruling of
+2026-09-23, for the model's `ℓ = 0` arm, which carried it as `hpos`):
+every recursor of a block the CHECK accepted has a rule prefix with
+room for the parameters and one motive per member, hence strictly
+longer than the parameters. -/
+theorem checkBlockRecK_prefix {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
+    ∀ i, i < p.recs.length →
+      p.nP + p.toBlockShape.k ≤ p.toBlockShape.rulePrefixAt i ∧
+        p.nP < p.toBlockShape.rulePrefixAt i := by
+  unfold checkBlockRecK at h
+  obtain ⟨_, _, h⟩ := exceptBind_ok h
+  obtain ⟨_, htys, -⟩ := exceptBind_ok h
+  intro i hi
+  simpa using checkBlockRecTys_prefix htys i hi
 
 /-- One recursor's rules: every stored right-hand side is the
 ANNOTATED stream one, scoped at the bare-`k` environment. -/
@@ -573,11 +654,62 @@ theorem checkBlockRecK_facts {env : Env} {p : BlockParts} {cvTas : List Constant
   rw [hmap]
   exact f3
 
+/-- **The conformance seam reads through** (lane CONF1): a stage
+followed by a reject-only check (`thenConform`) succeeded only if the
+stage did, with the same result.  This is the ONE fact the proofs need
+about the unverified recursor conformance check
+(`checkBlockRecConform`): they never peel it. -/
+theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {r : α}
+    (h : thenConform stage conform = .ok r) : stage = .ok r := by
+  unfold thenConform at h
+  obtain ⟨a, hs, h⟩ := exceptBind_ok h
+  obtain ⟨u, -, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact hs
+
+/-- **The recursor stage with its gate lifted, read back to the
+CHECK**: `checkBlockRec` succeeded only if `checkBlockRecK` did, with
+the same result (the conformance check after it only rejects). -/
+theorem checkBlockRecK_of_gate {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    (hg : blockRecCheckOn = true) (h : checkBlockRec ops env p cvTas ctorsAs = .ok rs) :
+    checkBlockRecK ops env p cvTas ctorsAs = .ok rs := by
+  unfold checkBlockRec at h
+  rw [if_pos hg] at h
+  exact thenConform_ok h
+
+/-- **Every stored rule binds at least one variable** — the model's
+`hpos` (`declBlock_run`, `ConLeche/Model/Inductives/BlockDeclRun.lean`),
+in its own shape: recursor `j`'s rule for a constructor with `nF`
+fields has the λ-prefix `rP_j + nF`, and `rP_j > nP ≥ 0`
+(`checkBlockRecK_prefix`). -/
+theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      0 < p.toBlockShape.rulePrefixAt j + cA.2 := by
+  intro j r hr _ _ _
+  have hlen : rs.length = p.recs.length := by
+    have h' := h
+    unfold checkBlockRecK at h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    exact (checkBlockRecsRules_facts h').1
+  have hj : j < p.recs.length := hlen ▸ (List.getElem?_eq_some_iff.mp hr).1
+  have := (checkBlockRecK_prefix h j hj).2
+  omega
+
 /-- **The recursor stage's stored pieces**, as its own guards checked
 them — at EITHER setting of the stage's gate (`blockRecCheckOn`): with
 the gate down at ONE member the existing generate-and-compare's
 (`checkNativeRec_facts`), at two or more the stage declines; with it
-lifted the CHECK's own (`checkBlockRecK_facts`).
+lifted the CHECK's own (`checkBlockRecK_facts`), read through the
+conformance check after it (`checkBlockRecK_of_gate`).
 
 The rules' scoping clause is stated at the BARE-`k` environment
 `consBlockRecsBare … env` — the environment holding all `k`
@@ -601,9 +733,7 @@ theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantV
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true := by
   by_cases hg : blockRecCheckOn = true
-  · unfold checkBlockRec at h
-    rw [if_pos hg] at h
-    exact checkBlockRecK_facts h
+  · exact checkBlockRecK_facts (checkBlockRecK_of_gate hg h)
   unfold checkBlockRec at h
   rw [if_neg hg] at h
   split at h
@@ -1239,9 +1369,10 @@ theorem checkBlockRecTys_params {env : Env} {p : BlockShape} {nested : Bool}
     obtain ⟨ms, _, h⟩ := exceptBind_ok h
     obtain ⟨cvTa, hcvTa, h⟩ := exceptBind_ok h
     obtain ⟨cvRi, _, h⟩ := exceptBind_ok h
-    by_cases hle : p.nP ≤ p.rulePrefixAt ri
+    by_cases hle : p.nP + p.k ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hle] at h; close_throw h
     rw [if_pos hle] at h
+    replace hle : p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) hle
     by_cases hle2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
     case neg => rw [if_neg hle2] at h; close_throw h
     rw [if_pos hle2] at h
