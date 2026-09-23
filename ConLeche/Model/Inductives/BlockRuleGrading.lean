@@ -8,6 +8,7 @@ import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockFieldRead
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Model.Inductives.BlockLfpHoles
 
 public section
 

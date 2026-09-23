@@ -7,6 +7,7 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Inductives.BlockLfpHoles
 
 public section
 

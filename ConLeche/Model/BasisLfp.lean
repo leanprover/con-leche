@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.EnvModelM
-import ConLeche.SetTheory.Derive.Omega
-import ConLeche.SetTheory.Derive.Univ
+import ConLeche.SetTheory.Derive.Universe
 public section
 
 /-!

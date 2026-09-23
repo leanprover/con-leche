@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Annot.BlockLfpMono
+import ConLeche.Semantics.Kit
 import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.NatEqs

@@ -84969,3 +84969,67 @@ kind-reading check (`blockIhCall?`, `blockIhKeys`, `BlockFieldKind.tgt?`,
 `checkBlockRecTys`/`checkBlockRule(s)`/`checkBlockRecsRules`/
 `checkBlockRecK` and their F twins, `BlockRecRun.lean`) and the proofs
 the census then marks dead, keeping every `@[csimp]` (1).
+
+#### LANDED (lane HOLE2, checkpoint (a) part 1: the lfp clause in hole form, 2026-09-23)
+
+Report: `_tmp/uniform-inds/HOLE2.md`.  Charter item 2: the recorded clause
+now says what its operator IS — the constructors' fields with holes at the
+members — and carries U3.
+
+- **The datum** (`LfpDatum`, `Model/Annot/BlockLfp.lean`) gains the hole
+  reading: `nctors`, `ctorName`, `fields` (per component and constructor,
+  the fields with holes, at the layout `nestPos` walks: parameters, member
+  `m` at `nP + m`, the earlier fields above), `resIdx` (the result index
+  readings below them).  The hole FRAME is a definition, not data:
+  `LfpDatum.frame` puts at member `m`'s hole `holeVal` — the λ-tower over
+  the parameters and `m`'s indices of `X m` at the index tuple, blind in
+  the parameters (a hole is only ever applied to the block's own
+  parameters, `nestPos`'s `holeApp`); `holeVal_app` computes it there.
+  `HFits` (the hole fit; the result indices are the tuple's components
+  pointwise, as `ChainFit` states them) and `ReadsHoles` move from
+  POSPROOF's interface into the clause file; `BlockLfpMono` is restated
+  over the datum (`CtorPos`, `hfits_mono`; the consumer
+  `monoTuple_of_holes` and the container case unchanged in content).
+- **The clause** (`LfpClause`) gains `holes : ReadsHoles` (the fit IS the
+  hole fit), `mkZero`, `mkInj` and `ctor` (U3; `ctor` at the hole fit at
+  the carrier).  Derived: `fibre_holes`, `carrier_case_holes`, and the
+  SECTION law (`section_eq`: a component is the least family of its
+  section at the carrier, `lfpTuple_eq_section`; `section_fibre`: the
+  section's fibre at `Y` is the hole fit at the carrier updated at the
+  component — POSPROOF §4's per-key frame, only the container a hole).
+- **Stored** (`EnvModelM.lfp_ok`): `LfpStored` — the members stored formers
+  AND the constructors stored `ctorInfo`s (`ctor` reads their leaves);
+  `lfp_ok_transport` takes find-preservation and leaf agreement at every
+  non-recursor name (the cons funnel and the swap supply both unchanged).
+- **Uniform blocks**: `BlockData.absField`/`absF`/`absE` (`BlockRep.lean`)
+  build the fields with holes from the data — a hole-free field is its
+  reading lifted over the holes; a field reading a member is the member's
+  hole applied to the parameters and the field's index readings, under its
+  own telescope lifted (`liftTeleK`).  `Model/Inductives/BlockLfpHoles.lean`:
+  `interp_absField_ord`/`interp_absField_rec` (an entry reads at the hole
+  frame of `X` as `ChainFit`'s entry at `X`; the index fit is
+  `BlockModelAt.idxFit`), `spineFit_map_iff_fitsFrom`, `blockReadsHoles`
+  (`ChainFit` ↔ `HFits`), `BlockModelAt.toLfp` (now with
+  `BlockHoleFacts`: the constructors' facts, targets, two lengths);
+  `blockLfpClause_of_records` (`BlockModelRecords.lean`) produces it at
+  install; `declBlock` records it with `LfpStored`.
+- **Pinned basis** (`Model/BasisLfp.lean`): `lfp0` with empty telescopes and
+  the constructors' fields with holes; `Nat` RESTATED in hole form (fit
+  `m ∈ S` with no `m ∈ ω`, operator `{∅} ∪ vsucc[S]`, same least fixed
+  point `ω`; `vsucc_inj` by regularity); `PUnit` and `Nat` are recorded at
+  their LAST constructor's cons (`extendPUnitUnit`, `extendNatSucc`), not
+  at the former, because `ctor` reads the constructors' leaves.
+  `BasisLfpHoles.lean` is deleted (its instances are the clause's `holes`).
+- **Moved, not changed**: `blockSlot_eq_entry`, `blockSlot_agree`,
+  `interp_bvarAt`, `take_eq_map_getD`, `map_bvarAt_take` from
+  `BlockRecPreRun` to `BlockLfpHoles` (the install records the clause
+  before the recursor stage, and `BlockRecPreRun` is above `DeclBlock`);
+  `spineFit_frameIdx_of_sat` from `BlockRuleCertsRun` to `BlockLfp`.
+- **Open (part 2)**: the reading theorem — `absF` IS the Π-domains of the
+  reading of the member-abstracted stored constructor type, the terms
+  `nestPos` walks (the Expr bridge `holeAbs` = `nestAbstract ∘ shiftFromN`,
+  commuting with opening; in progress) — and the container substitution
+  law, both consumed by (b) `ContSem` and (c) the consumer.
+- **Gates**: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green
+  (arena 90/92, e2e 301/301, nested-shadow 82/82, target-shadow 317/317,
+  axioms pinned); no exit code moved (proof-only change).

@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockModel
-public import ConLeche.Model.Inductives.BlockLfpHoles
+import ConLeche.Model.Inductives.BlockLfpHoles
 
 public section
 
