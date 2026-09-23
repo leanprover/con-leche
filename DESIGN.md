@@ -84473,6 +84473,7 @@ lines were dropped.
 `tests/layering.sh`, `tests/overview-links.sh` (after `--update`: four
 `BlockInstall` anchors repointed, `checkBlockRecConform`'s link now on
 `Conformance/RecConform.lean`) and `tests/quote-gate.sh` are all clean.
-`tests/shake.sh` flags only the `SetModel/HoleOp.lean` rows it already
-flagged before this lane; the five allowlist rows were renamed with their
-files.  The arena and e2e battery moved no exit code.
+The five `tests/shake.sh` allowlist rows were renamed with their files,
+and after the merge of `f259883f` the gate is clean (483 removals, all
+allowlisted).  `tests/arena.sh` exits 0: 90/92 arena, e2e 273/273, all
+sweeps as expected, no exit code moved.
