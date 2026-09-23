@@ -1061,4 +1061,35 @@ def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := d
       throw (.internal "direct rec: the capability record did not settle")
     checkBlockTail ops env q'
 
+/-! ## Positivity through containers, beside the install (GATED)
+
+The shadow entry of `nestedBlockPositivity`
+(`ConLeche/Kernel/Inductives/Positivity.lean`): the block's formers
+checked and consed exactly as the install's stage 1 does, its
+constructors ANNOTATED but not normalised (official locates nested
+instances on the declared types), then the walk through containers.
+Nothing calls it on the install path — the recogniser still routes a
+nested block to the modelled route; `--nested-shadow` runs the cached
+twin (`ConLeche.Cached.nestedShadowS`) beside it, and the tests run
+this one. -/
+
+/-- **The nested shadow** on a raw block (the declared parameter count
+`nPd`): the verdict official's nested class gives it, or the instance
+table and the members' field kinds. -/
+def nestedShadow (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
+    m NestedPositivity := do
+  let some p := blockShape? nPd block
+    | throw (.notImplemented "nested shadow: the block's shape is not recognised")
+  let p₀ : BlockParts := ⟨p, [], blockRecPinOk p block⟩
+  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ (blockRawRec p₀)
+  let some cvTa0 := cvTas.head? | throw (.internal "nested shadow: no type former")
+  let some (params, _) := openPisAtFvars p₁.nP cvTa0.type 0
+    | throw (.notImplemented "nested shadow: type former telescope")
+  let ctorss ← p₁.members.mapM fun ms => ms.ctors.mapM fun c => do
+    let cvCa ← checkConstantVal ops env₁ c.1
+    pure (cvCa, c.2)
+  nestedBlockPositivity ops env₁
+    ⟨p₁.memberNames, p₁.lps, p₁.nP, p₁.nIdxs, params, p₁.resSort, env₁.find?, env₁.consts⟩
+    ctorss
+
 end ConLeche

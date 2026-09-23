@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L714
-   714  def usage : String := String.intercalate "\n" [
+== Main.lean#L743
+   743  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -144,11 +144,11 @@
    366      (e : InstalledEnv mode pins ds) (k : Nat)
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L176
-   176  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L205
+   205  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L294
-   294  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L323
+   323  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    402      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L333-L336
-   333  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   334      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   335      IO (Except (ConLeche.CheckError × Nat)
-   336        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L362-L365
+   362  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   363      (noMark shadow : Bool) (ds : Array ConLeche.Declaration) :
+   364      IO (Except (ConLeche.CheckError × Nat)
+   365        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L936
-   936  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L627
+   627  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L614-L621
    614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -766,26 +766,26 @@
    620      | .ctorInfo _ nPc _ => nPc == nP
    621      | _ => true
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L144
-   144  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
+== ConLeche/Kernel/Inductives/Positivity.lean#L399
+   399  def normPosDom (ops : CheckerOps m) (env : Env) (names : List Name) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L211
    211  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L905-L911
-   905  /-- **The recursor stage as CHECKING, at any number of members**
-   906  (milestone M5, design §4.2): the recursor records' pins, then every
-   907  member's type, then — at the environment holding all `k` rule-less
-   908  recursors — every member's rules. -/
-   909  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
-   910      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-   911      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L915-L921
+   915  /-- **The recursor stage as CHECKING, at any number of members**
+   916  (milestone M5, design §4.2): the recursor records' pins, then every
+   917  member's type, then — at the environment holding all `k` rule-less
+   918  recursors — every member's rules. -/
+   919  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
+   920      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+   921      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L975
-   975  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L985
+   985  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1043
-  1043  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L1053
+  1053  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -1092,15 +1092,15 @@
    226        else if cvA.name = sorryAxName then
    227          pure fe
 
-== Main.lean#L747
-   747    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L776
+   776    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L992
-   992  def main (args : List String) : IO UInt32 := do
+== Main.lean#L1034
+  1034  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1224,6 +1224,6 @@
    414    private ofRepr ::
    415    private repr : PropWhenRepr
 
-== Main.lean#L730
-   730    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L759
+   759    "  --trusted         the unverified mode: the SAME checker bodies as",
 

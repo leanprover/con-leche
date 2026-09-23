@@ -358,6 +358,31 @@ def checkBlockKS (fe : FEnv) (p₀ : BlockParts) : CheckCM FEnv := do
       throw (.internal "direct rec: the capability record did not settle")
     checkBlockTailS mode fe q'
 
+/-- **The nested shadow through the index** (lane NESTPOS): the pure
+`nestedShadow`'s twin — the formers checked and consed by the install's
+own stage (`checkBlockIndsF`, one flush entering the environment that
+holds them), the constructors annotated at it (`checkConstantValF`, not
+normalised), then `nestedBlockPositivity` at the index's lookup.  Run by
+`--nested-shadow` beside the install, its state discarded: nothing of
+it reaches the fold. -/
+def nestedShadowS (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) :
+    CheckCM NestedPositivity := do
+  let some p := blockShape? nPd block
+    | throw (.notImplemented "nested shadow: the block's shape is not recognised")
+  let p₀ : BlockParts := ⟨p, [], blockRecPinOk p block⟩
+  flushC
+  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ (blockRawRec p₀)
+  flushC
+  let some cvTa0 := cvTas.head? | throw (.internal "nested shadow: no type former")
+  let some (params, _) := openPisAtFvars p₁.nP cvTa0.type 0
+    | throw (.notImplemented "nested shadow: type former telescope")
+  let ctorss ← p₁.members.mapM fun ms => ms.ctors.mapM fun c => do
+    let cvCa ← checkConstantValF (sharedOpsC mode fe₁) fe₁ c.1
+    pure (cvCa, c.2)
+  nestedBlockPositivity (sharedOpsC mode fe₁) fe₁.env
+    ⟨p₁.memberNames, p₁.lps, p₁.nP, p₁.nIdxs, params, p₁.resSort, fe₁.find?, fe₁.env.consts⟩
+    ctorss
+
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/
 def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :

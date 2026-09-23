@@ -1,0 +1,103 @@
+# tests/nested-shadow.sh's expectations (lane NESTPOS).  One row per
+# fixture:
+#
+#     <fixture> <CON_LECHE_INMODEL> <block=word,...>
+#
+# the verdict WORD only (`accept`, `reject`, `decline`, `error`), in
+# fold order; the message is not part of the gate.  `INMODEL=0` rows are
+# fixtures whose nested block the in-process modeller declines at parse
+# time, so the fold reaches it only with the modeller off.
+#
+# THE ROWS ARE THE e2e CORPUS'S CENSUS: every fixture (plain and `.gz`)
+# on which the shadow prints anything.  Against official (the fixture's
+# `tests/e2e-expected.txt` comment, or its source header):
+#   * every nested block official ACCEPTS is accepted;
+#   * every block official REJECTS for a positivity/nesting reason is
+#     rejected (the `corner_nestpos_*_bad` classes, the basis
+#     containers, the non-nested negative/ill-indexed fixtures, and
+#     `nested_unused_param` — whose ill-typed constructor the shadow's
+#     own constructor check refuses);
+#   * ONE disagreement, recorded: `corner_nestpos_group_bad` — official
+#     rejects (an UNREACHED member of the container's mutual group is
+#     negative), the shadow accepts (it descends only into the instances
+#     a field reaches; the environment records no mutual group).
+#   * `nested_nonuniform_param`: official v4.33 accepts, v4.34.0-rc2
+#     rejects (`check_uniform_ind_occs`); the arena says `either`.
+
+tests/e2e/corner_idx_container.ndjson 1 TVN=accept,
+tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 RA=reject,
+tests/e2e/corner_nest_and_prop_large_bad.ndjson 1 P13=accept,
+tests/e2e/corner_nest_or_prop_large_bad.ndjson 1 NOr=accept,
+tests/e2e/corner_nest_or_prop.ndjson 1 NOr=accept,
+# the recorded disagreement: official REJECTS (see the header)
+tests/e2e/corner_nestpos_group_bad.ndjson 1 GT=accept,
+tests/e2e/corner_nestpos_idxty_bad.ndjson 1 IdxT=reject,
+tests/e2e/corner_nestpos_idxval_bad.ndjson 1 IdxVT=reject,
+tests/e2e/corner_nestpos_local_bad.ndjson 1 LocT=reject,
+tests/e2e/corner_nestpos_neg_bad.ndjson 1 NegT=reject,
+tests/e2e/corner_nestpos_negdeep_bad.ndjson 1 NegDT=reject,
+tests/e2e/corner_nestpos_redex_bad.ndjson 1 RedT=reject,
+tests/e2e/corner_nestpos_sort_bad.ndjson 1 SortT=reject,
+tests/e2e/corner_nestpos_sortprop_bad.ndjson 1 SortP=reject,
+tests/e2e/corner_pin_eq_bad.ndjson 1 EFree=reject,
+tests/e2e/corner_pin_quot_bad.ndjson 1 QFree=reject,
+tests/e2e/direct_fix_nat_neg_bad.ndjson 1 Nat'=reject,
+tests/e2e/direct_fix_refl_neg_bad.ndjson 1 Iter=reject,
+tests/e2e/direct_fix_vec_idx_occ_bad.ndjson 1 Vec'=reject,
+tests/e2e/direct_fix_wtype_neg_bad.ndjson 1 W'=reject,
+tests/e2e/indexed_nested_aux.ndjson 1 TV=accept,
+tests/e2e/ind_mutual_idxsort_bad.ndjson 1 IdxSort.MA=reject,
+tests/e2e/ind_mutual_idxsort.ndjson 1 IdxSort.NT=accept,IdxSort.NU=accept,
+tests/e2e/ind_mutual_param_bad.ndjson 1 MA2=reject,
+tests/e2e/ind_mutual_sort_bad.ndjson 1 MC=reject,
+tests/e2e/ind_nest_inf.ndjson 0 InfNest=accept,
+tests/e2e/ind_nest_prop.ndjson 1 PNonempty=accept,PAnd=accept,
+tests/e2e/ind_nest_two_pins.ndjson 1 TwoPins=accept,
+tests/e2e/ind_nest_via_refl.ndjson 0 ViaRefl=accept,
+tests/e2e/ind_proj_mutual_nested.ndjson 1 NT=accept,
+tests/e2e/ind_rec_struct_proj_raw.ndjson 1 NT=accept,
+tests/e2e/inmodel_groups.ndjson 1 InModelGroups.TT=accept,InModelGroups.M=accept,InModelGroups.N=accept,InModelGroups.H=accept,InModelGroups.P=accept,
+tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=accept,InModelNested.Op=accept,InModelNested.W=accept,InModelNested.PT=accept,InModelNested.NTree=accept,InModelNested.A=accept,
+tests/e2e/let_rec_rhs.ndjson 1 Lean.Syntax=accept,
+tests/e2e/nested_aux_clash.ndjson 1 P3=accept,
+tests/e2e/nested_bvar_field.ndjson 1 J=accept,BvarField=accept,
+tests/e2e/nested_comp_tower.ndjson 0 J=accept,
+tests/e2e/nested_lam_pin_prop.ndjson 1 T=accept,
+tests/e2e/nested_lam_pin_refl.ndjson 0 T=accept,
+tests/e2e/nested_nonuniform_param.ndjson 1 E=accept,
+tests/e2e/nested_p01.ndjson 0 P1=accept,
+tests/e2e/nested_p02.ndjson 1 P2=accept,
+tests/e2e/nested_p03.ndjson 1 P3=accept,
+tests/e2e/nested_p04.ndjson 1 P4C=accept,P4=accept,
+tests/e2e/nested_p05.ndjson 1 P5=accept,
+tests/e2e/nested_p06.ndjson 1 P6=accept,
+tests/e2e/nested_p07.ndjson 1 P7=accept,
+tests/e2e/nested_p10.ndjson 0 P10=accept,
+tests/e2e/nested_p13.ndjson 1 P13=accept,
+tests/e2e/nested_p20.ndjson 1 P20=accept,
+tests/e2e/nested_p22.ndjson 1 P22=accept,
+tests/e2e/nested_p24.ndjson 1 P24A=accept,
+tests/e2e/nested_p25.ndjson 1 P25=accept,
+tests/e2e/nested_p26.ndjson 1 P26=accept,
+tests/e2e/nested_p30.ndjson 1 P30=accept,
+tests/e2e/nested_p31.ndjson 0 P31=accept,
+tests/e2e/nested_pi_field.ndjson 0 J=accept,
+tests/e2e/nested_pin_collide2.ndjson 1 J=accept,
+tests/e2e/nested_pin_collide2_nomodel.ndjson 1 J._model._impl.tag=reject,
+tests/e2e/nested_pin_collide.ndjson 1 J=accept,
+tests/e2e/nested_pin_collide_nomodel.ndjson 1 J._model._impl.tag=reject,
+tests/e2e/nested_pin_names.ndjson 1 PTree=accept,
+tests/e2e/nested_pin_nocollide.ndjson 1 J=accept,NoCollide=accept,
+tests/e2e/nested_pin_prop_cod.ndjson 0 T=accept,
+tests/e2e/nested_prop_idx.ndjson 1 T=accept,
+tests/e2e/nested_rec.ndjson 1 Tree=accept,
+tests/e2e/nested_redex_owner.ndjson 1 J=accept,Outer=accept,
+tests/e2e/nested_redex_tower.ndjson 0 J=accept,
+tests/e2e/nested_refl_pin.ndjson 0 J=accept,
+tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
+# official REJECTS (the ill-typed pin, leanprover/lean4#14577); the shadow's own
+# constructor check refuses it too.  The modeller rejects at a generated record
+# first, so the row runs with it off.
+tests/e2e/nested_unused_param.ndjson 0 E=reject,
+tests/e2e/presieve_ofarrows_cone.ndjson 1 Lean.Syntax=accept,
+tests/e2e/tower_nested.ndjson 1 NTow=accept,

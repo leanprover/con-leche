@@ -1795,3 +1795,85 @@
 # says so on the same block written in Lean).  The checker rejects on
 # the same walk ("non positive occurrence").  Was 2.
 1 corner_mutual_redex_other_neg_bad.ndjson
+#
+# -- POSITIVITY THROUGH CONTAINERS: official's reject classes (lane
+# NESTPOS 2026-09-23).  Each pair is a GOOD twin (source
+# `tests/e2e/src/corner_nestpos_<class>_free.lean`, an ordinary block
+# whose
+# would-be nested occurrence names an unrelated pin type) and the forged
+# BAD stream (`scripts/mk_nestpos_bad.py`, the pin repointed to the
+# member inside the block).  Official rejects every bad stream (Lean
+# v4.29.1 and v4.34.0, the block written in Lean; the kernel message
+# is quoted).  None carries an auxiliary recursor, so the recogniser
+# routes it to the uniform route, which DECLINES today ("a nested
+# occurrence of the block"); TARGET 1 once the nested arm is on.  The
+# `--nested-shadow` verdicts are in `tests/nested-shadow-expected.txt`.
+# neg: a NEGATIVE occurrence through a container: `NegC α | mk : (α →
+# Nat) → NegC α`, nested at `NegC NegT`.  Official 1: "(kernel) arg #1
+# of '_nested.NegC_1.mk' has a non positive occurrence of the datatypes
+# being declared".
+0 corner_nestpos_neg_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_neg_bad.ndjson
+# negdeep: a negative occurrence one container DEEPER: `NegD α | mk :
+# List (α → Nat) → NegD α`, nested at `NegD NegDT` (the instance `List
+# (NegDT → Nat)` is the negative one).  Official 1: "(kernel) arg #1 of
+# '_nested.List_2.cons' has a non positive occurrence of the datatypes
+# being declared".
+0 corner_nestpos_negdeep_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_negdeep_bad.ndjson
+# idxty: a container whose INDEX TYPE depends on its parameter (`IdxC α
+# : Idx α → Type`), nested at `IdxC IdxT 0`: the auxiliary type former
+# `Idx IdxT → Type` is checked before the block exists (official (N2)).
+# Official 1: "(kernel) unknown constant 'IdxT'".
+0 corner_nestpos_idxty_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_idxty_bad.ndjson
+# idxval: a nested instance whose INDEX VALUE mentions the block: `IdxV
+# IdxVT (List.length [h])` with `h : IdxVT` an earlier field
+# (`is_valid_ind_app` on the auxiliary application: an index with a
+# block occurrence).  Official 1: "(kernel) arg #2 of 'IdxVT.mk'
+# contains a non valid occurrence of the datatypes being declared".
+0 corner_nestpos_idxval_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_idxval_bad.ndjson
+# sort: a MIXED-SORT nested block: the `Type` block `SortT` through the
+# `Prop` container `Nonempty`.  Official 1: "(kernel) mutually inductive
+# types must live in the same universe".
+0 corner_nestpos_sort_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_sort_bad.ndjson
+# sortprop: a MIXED-SORT nested block the other way: the `Prop` block
+# `SortP` through the `Type` container `PLift`.  Official 1: "(kernel)
+# mutually inductive types must live in the same universe".
+0 corner_nestpos_sortprop_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_sortprop_bad.ndjson
+# local: a container PARAMETER that mentions a field: `Prod LocT (Fin
+# n)` with `n` the constructor's own field.  Official 1: "(kernel)
+# invalid nested inductive datatype 'Prod', nested inductive datatypes
+# parameters cannot contain local variables.".
+0 corner_nestpos_local_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_local_bad.ndjson
+# redex: a container reached only by REDUCTION: `FL RedT` with `FL α :=
+# List α` — official locates nested instances syntactically, before any
+# `whnf`, so `FL` is no container and the reduct `List RedT` is a non-
+# member head.  Official 1: "(kernel) arg #1 of 'RedT.mk' contains a non
+# valid occurrence of the datatypes being declared".
+0 corner_nestpos_redex_free.ndjson
+# TARGET 1 (the shadow rejects with official's reason).
+2 corner_nestpos_redex_bad.ndjson
+# group: a container whose MUTUAL GROUP has an UNREACHED member negative
+# in the parameter: `GT` nests through `GC1` only, but official copies
+# every member of `GC1`'s group (`I_val->get_all()`,
+# inductive.cpp:1009), and `GC2`'s copy `(GT → Nat) → …` is negative.
+# Official 1: "(kernel) arg #1 of '_nested.GC2_2.mk' has a non positive
+# occurrence of the datatypes being declared".
+0 corner_nestpos_group_free.ndjson
+# TARGET 1.  The shadow ACCEPTS this one: the walk descends only into
+# the instances a field reaches, and the environment records no mutual
+# group (`.indInfo` has no `all`) — an accept-superset deviation, the
+# lane's one recorded disagreement with official.
+2 corner_nestpos_group_bad.ndjson

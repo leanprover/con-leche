@@ -198,6 +198,12 @@ if tests/shake.sh; then :; else fail=1; fi
 # switch.  See tests/inmodel.sh's header.
 if tests/inmodel.sh; then :; else fail=1; fi
 
+# THE NESTED SHADOW (lane NESTPOS): positivity through containers, GATED
+# out of the install, run beside it by `--nested-shadow` on the e2e
+# corpus and compared with official's verdicts (one recorded
+# disagreement).  See tests/nested-shadow.sh's header.
+if tests/nested-shadow.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
