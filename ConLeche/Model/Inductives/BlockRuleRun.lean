@@ -523,6 +523,241 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
+/-- **The rule's opened frame at the run** — the facts about the pinned
+frame, residue and openers that need no reading of the constructor's
+fields: the tower's scoping, the three opener lists, the openers'
+closedness, constants and leaves, the residue's constants, and the
+opened residue — the residue opened at the whole frame, scoped,
+bvar-closed and TYPED there (so every valuation reads it). -/
+theorem blockRuleOpened_run (mpC : EnvModelM V μ envC)
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hcbC : ConstsBound envC cA.1.type)
+    (hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true)
+    (hksLen : (blockRuleKsOf p j i).length = cA.2) :
+    (blockRuleIhTeleAt p rs j i).hasFvar = false ∧
+    FvarList (p.toBlockShape.rulePrefixAt j + cA.2)
+      ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse) ∧
+    FvarList (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      ((blockRuleFvsIhAt p rs j i).reverse ++ ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse)) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), ConstsBound envC x) ∧
+    (∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i), ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i)) ∧
+    ConstsBound envC (blockRuleResidAt p rs j i) ∧
+    blockRuleBodyOAt p rs j i
+      = (blockRuleResidAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i
+        ++ blockRuleFvsIhAt p rs j i).reverse 0 ∧
+    Expr.WScoped (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR) (blockRuleBodyOAt p rs j i) ∧
+    (blockRuleBodyOAt p rs j i).looseBVarsBounded 0 = true ∧
+    ∀ ψ : Name → Nat, ∃ B, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      (blockRuleBodyOAt p rs j i) = some B := by
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw⟩ :=
+    blockRuleFrameAt_rows (pp := p) hct
+  have hj : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨rbs, ty, concl, hstrip, hab, hpis, hopen, hinf, hconcl, hdeq⟩ :=
+    blockRuleResidueData_runP h hr hcA hrhs
+  obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -, -, -, -, -⟩ :=
+    blockRuleData_run h hr hcA hrhs
+  -- the stored facts of the recursor type and of the rule
+  obtain ⟨hTf, -, -, hTb, hrhsF⟩ := ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨hrf, -, -, hrb⟩ := hrhsF rhs (List.mem_of_getElem? hrhs)
+  have hw₁ : Expr.WScoped 0 r.1.type := (checkBlockRecK_tyClosed h hr).1
+  have hbodyF : (blockRuleBodyAt p rs j i).hasFvar = false :=
+    (ConLeche.stripLams_not_hasFvar _ hstrip hrf).2
+  have hresF : (blockRuleResidAt p rs j i).hasFvar = false := abstractIh_hasFvar hab hbodyF
+  have hrecF : ∀ c' : Nat, ((rs.map (·.1.type)).getD c' (Expr.sort .zero)).hasFvar = false := by
+    intro c'
+    by_cases hc' : c' < rs.length
+    · have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']
+      exact (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr')).1
+    · rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_none (by rw [List.length_map]; omega)]
+      rfl
+  have hihfv : (blockRuleIhTeleAt p rs j i).hasFvar = false := by
+    refine blockIhPis_hasFvar (teleOf := (blockRuleFrameAt p rs j i).teleOf)
+      (idxOf := (blockRuleFrameAt p rs j i).idxOf) hrecF (fun q b hb => ?_) (fun q e he => ?_)
+      _ 0 _ _ hresF hpis
+    · rw [htele] at hb; exact (structFieldParts_hasFvar hCf hCb hstripC).1 b hb
+    · rw [hidxF] at he; exact (structFieldParts_hasFvar hCf hCb hstripC).2 e he
+  -- the frame's three opener lists
+  have hL1 : FvarList (p.toBlockShape.rulePrefixAt j)
+      (blockRulePrefFvs p.toBlockShape rs j).reverse := by
+    have := fvarList_of_open fvarList_nil h₁ hw₁
+    rwa [Nat.zero_add, List.append_nil] at this
+  have hL2 : FvarList (p.toBlockShape.rulePrefixAt j + cA.2)
+      ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse) :=
+    fvarList_of_open hL1 h₂ (blockRuleHw2_of h₁ hw₁ hCf hinstC)
+  have hL3 : FvarList (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      ((blockRuleFvsIhAt p rs j i).reverse ++ ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
+        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse)) := by
+    have hopen' := hopen
+    rw [List.reverse_append] at hopen'
+    exact fvarList_of_open hL2 hopen' (wscoped_instantiateList hL2 _ hihfv 0)
+  have hkeys : (blockRuleFrameAt p rs j i).ihKeys
+      = ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt j)
+        ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
+        (blockRuleKsOf p j i) := rfl
+  have hrecB : ∀ c' : Nat,
+      ((rs.map (·.1.type)).getD c' (Expr.sort .zero)).looseBVarsBounded 0 = true := by
+    intro c'
+    by_cases hc' : c' < rs.length
+    · have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']
+      exact (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr')).2.2.2.1
+    · rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_none (by rw [List.length_map]; omega)]
+      rfl
+  have hopen2 : ConLeche.openPisAtFvars (blockRuleFrameAt p rs j i).nR
+      ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
+        ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse)
+      (p.toBlockShape.rulePrefixAt j + cA.2)
+      = some (blockRuleFvsIhAt p rs j i, blockRuleBodyOAt p rs j i) := hopen
+  have hnPr : p.nP ≤ p.toBlockShape.rulePrefixAt j := by
+    obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
+    obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by omega)
+    exact hle
+  have hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2 :=
+    ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
+  -- the three subjects' constant scoping
+  have hcT : ConstsBound envC r.1.type :=
+    constsBound_of_constsResolve _ (ConLeche.checkBlockRecK_facts h r
+      (List.mem_of_getElem? hr)).2.2.1
+  have hc₂ : ConstsBound envC (blockRuleCrest p.toBlockShape rs j i) :=
+    constsBound_instPisAt _ hinstC hcbC
+      (fun a ha => (openPisAtFvars_constsBound _ hcT h₁).1 a (List.mem_of_mem_take ha))
+  have hmono : ∀ n : Name,
+      ((ConLeche.consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1))
+        envC).find? n).isSome = true →
+      (blockRuleFrameAt p rs j i).recNames.contains n = false → (envC.find? n).isSome = true := by
+    intro n hn hnot
+    rcases find?_consBlockRecsBare_isSome 0 _ envC n hn with hm | hm
+    · rw [hnames0, checkBlockRecK_recNamesEq h] at hnot
+      rw [List.map_map] at hm
+      exact absurd (List.contains_iff_mem.mpr hm) (by simpa using hnot)
+    · exact hm
+  have hcbRhs := (ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)).2.2.2.2 rhs
+    (List.mem_of_getElem? hrhs)
+  have hcbR : ConstsBound envC (blockRuleResidAt p rs j i) :=
+    abstractIh_constsBound hmono hab
+      (constsBound_stripLams _ (constsBound_of_constsResolve _ hcbRhs.2.2.1) hstrip)
+  have hcbI : ConstsBound envC (blockRuleIhTeleAt p rs j i) := by
+    refine constsBound_blockIhPis (teleOf := (blockRuleFrameAt p rs j i).teleOf)
+      (idxOf := (blockRuleFrameAt p rs j i).idxOf) (fun c' => ?_) (fun q b hb => ?_)
+      (fun q e he => ?_) _ 0 _ _ hcbR hpis
+    · by_cases hc' : c' < rs.length
+      · have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']
+        exact constsBound_of_constsResolve _
+          (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr')).2.2.1
+      · rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_none (by rw [List.length_map]; omega)]
+        simp
+    · rw [htele] at hb
+      by_cases hq : q < cA.2
+      · exact (constsBound_structFieldParts hcbC hq).1 b hb
+      · rw [(structFieldParts_nil hstripC hq).1] at hb; exact absurd hb List.not_mem_nil
+    · rw [hidxF] at he
+      by_cases hq : q < cA.2
+      · exact (constsBound_structFieldParts hcbC hq).2 e he
+      · rw [(structFieldParts_nil hstripC hq).2] at he; exact absurd he List.not_mem_nil
+  have hc₃ : ConstsBound envC ((blockRuleIhTeleAt p rs j i).instantiateList
+      (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse) := by
+    refine constsBound_instantiateList (by rw [List.reverse_append]; exact hL2) (fun x hx => ?_)
+      _ hihfv hcbI 0
+    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
+    · exact (openPisAtFvars_constsBound _ hcT h₁).1 x hx'
+    · exact (openPisAtFvars_constsBound _ hc₂ h₂).1 x hx'
+  -- the three subjects' closedness, and the tower's
+  have hb₂ : (blockRuleCrest p.toBlockShape rs j i).looseBVarsBounded 0 = true :=
+    (instPisAt_bounded _ hinstC hCb
+      (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))).2
+  have hbodyB : (blockRuleBodyAt p rs j i).looseBVarsBounded
+      (0 + (p.toBlockShape.rulePrefixAt j + cA.2)) = true := by
+    exact stripLams_body_bounded (p.toBlockShape.rulePrefixAt j + cA.2) (j := 0) hstrip hrb
+  have hresB := abstractIh_looseBVarsBounded hab hbodyB
+  have hihlb : (blockRuleIhTeleAt p rs j i).looseBVarsBounded
+      (p.toBlockShape.rulePrefixAt j + cA.2) = true := by
+    have hq := blockIhPis_looseBVarsBounded (teleOf := (blockRuleFrameAt p rs j i).teleOf)
+      (idxOf := (blockRuleFrameAt p rs j i).idxOf) hnPr hrecB
+      (fun q k b hb => by
+        rw [htele] at hb; exact (structFieldParts_bounded hCf hCb hstripC q).1 k b hb)
+      (fun q e he => by
+        rw [hidxF] at he; rw [htele]; exact (structFieldParts_bounded hCf hCb hstripC q).2 e he)
+      (blockRuleFrameAt p rs j i).ihKeys 0 _ _
+      (fun ic hic => by
+        rw [hkeys] at hic
+        have := (mem_blockIhKeys_kind (i := ic.1) (c' := ic.2) hic).1
+        omega)
+      (by rw [Nat.add_zero, ← Nat.zero_add (p.toBlockShape.rulePrefixAt j + cA.2)]
+          exact hresB) hpis
+    rwa [Nat.add_zero] at hq
+  have hLcl : ∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j
+      ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse, x.looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
+    · exact openPisAtFvars_fvars_closed h₁ x hx'
+    · exact openPisAtFvars_fvars_closed h₂ x hx'
+  have hb₃ : ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
+      ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).looseBVarsBounded 0 = true :=
+    blockRuleIhTeleClosed (by rw [List.reverse_append]; exact hL2) hLcl hihlb hpos
+  obtain ⟨hlbF, hbO⟩ := blockRuleHlbF_of h₁ h₂ hopen2 hTb hb₂ hb₃
+  -- the prefix and field openers' leaf closure (an empty third opening)
+  have hclF0 := blockRuleHclF_of (nR := 0) (ihTele' := Expr.sort .zero) (o₃ := Expr.sort .zero)
+    (fvsIh := []) h₁ h₂ rfl hTf hCf hinstC (fun l hl => by simp [Expr.fvarLeaves] at hl)
+  have hfv₃ : ∀ l ∈ ((blockRuleIhTeleAt p rs j i).instantiateList
+      (blockRulePrefFvs p.toBlockShape rs j
+        ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ blockRulePrefFvs p.toBlockShape rs j
+        ++ blockRuleFieldFvs p.toBlockShape rs j i := by
+    intro l hl
+    obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList
+      (by rw [List.reverse_append]; exact hL2) _ hihfv 0 l hl
+    have hx' := List.mem_reverse.mp hx
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx'
+    have hidxq : ∃ ty, x = Expr.fvar q ty := by
+      rcases Nat.lt_or_ge q (blockRulePrefFvs p.toBlockShape rs j).length with hq' | hq'
+      · rw [List.getElem?_append_left hq'] at hq
+        obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h₁ q x hq
+        exact ⟨ty, by rw [hty, Nat.zero_add]⟩
+      · rw [List.getElem?_append_right hq', openPisAtFvars_length _ h₁] at hq
+        obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h₂ _ x hq
+        exact ⟨ty, by rw [hty]; congr 1; rw [openPisAtFvars_length _ h₁] at hq'; omega⟩
+    obtain ⟨ty, rfl⟩ := hidxq
+    simp only [Expr.fvarLeaves, List.mem_cons] at hlx
+    rcases hlx with hlx | hlx
+    · rw [hlx]; exact hx'
+    · have hq := hclF0 _ (List.mem_append_left _ hx') l hlx
+      rwa [List.append_nil] at hq
+  have hclF := blockRuleHclF_of h₁ h₂ hopen2 hTf hCf hinstC hfv₃
+  -- the opened residue IS the residue opened at the whole frame
+  obtain ⟨bsI, hstI, -, -⟩ := stripPis_blockIhPis _ 0 _ _ hpis
+  have hbodyO : blockRuleBodyOAt p rs j i
+      = (blockRuleResidAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
+          ++ blockRuleFieldFvs p.toBlockShape rs j i ++ blockRuleFvsIhAt p rs j i).reverse 0 := by
+    rw [List.reverse_append (as := blockRulePrefFvs p.toBlockShape rs j
+      ++ blockRuleFieldFvs p.toBlockShape rs j i)]
+    exact openPis_body_instantiateList hstI hopen2
+  have hWS : Expr.WScoped (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR) (blockRuleBodyOAt p rs j i) :=
+    (ConLeche.openPisAtFvars_WScoped _ _ _ hopen2 (wscoped_instantiateList
+      (by rw [List.reverse_append]; exact hL2) _ hihfv 0)).2
+  refine ⟨hihfv, hL2, hL3, hlbF, blockRuleHcbF_of h₁ h₂ hopen2 hcT hc₂ hc₃, hclF, hcbR, hbodyO,
+    hWS, hbO, fun ψ => ?_⟩
+  exact acceptedReads_of mpC.base2 ψ hinf hWS hbO
+    (fun l hl => hlbF _ (blockRuleHleaf_of hopen2 hfv₃ l hl))
+
 /-- **`BlockRuleBodyInputs` at the run**, at the pinned frame, residue,
 openers, `ihs` and `Rb0`.  Every row is the check's or the model's:
 the constructor's opening and its field readings (the constructors'
@@ -596,43 +831,14 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
     rw [blockRuleCtorFvs, hct, hop0]; rfl
   obtain ⟨bsC, bodyC0, hstC, -, -, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hop0
   have hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true := by rw [hstC]; rfl
-  -- the stored facts of the recursor type and of the rule
-  obtain ⟨hTf, -, -, hTb, hrhsF⟩ := ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
-  obtain ⟨hrf, -, -, hrb⟩ := hrhsF rhs (List.mem_of_getElem? hrhs)
-  have hw₁ : Expr.WScoped 0 r.1.type := (checkBlockRecK_tyClosed h hr).1
-  have hbodyF : (blockRuleBodyAt p rs j i).hasFvar = false :=
-    (ConLeche.stripLams_not_hasFvar _ hstrip hrf).2
-  have hresF : (blockRuleResidAt p rs j i).hasFvar = false := abstractIh_hasFvar hab hbodyF
-  have hrecF : ∀ c' : Nat, ((rs.map (·.1.type)).getD c' (Expr.sort .zero)).hasFvar = false := by
-    intro c'
-    by_cases hc' : c' < rs.length
-    · have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
-      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']
-      exact (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr')).1
-    · rw [List.getD_eq_getElem?_getD,
-        List.getElem?_eq_none (by rw [List.length_map]; omega)]
-      rfl
-  have hihfv : (blockRuleIhTeleAt p rs j i).hasFvar = false := by
-    refine blockIhPis_hasFvar (teleOf := (blockRuleFrameAt p rs j i).teleOf)
-      (idxOf := (blockRuleFrameAt p rs j i).idxOf) hrecF (fun q b hb => ?_) (fun q e he => ?_)
-      _ 0 _ _ hresF hpis
-    · rw [htele] at hb; exact (structFieldParts_hasFvar hCf hCb hstripC).1 b hb
-    · rw [hidxF] at he; exact (structFieldParts_hasFvar hCf hCb hstripC).2 e he
-  -- the frame's three opener lists
-  have hL1 : FvarList (p.toBlockShape.rulePrefixAt j)
-      (blockRulePrefFvs p.toBlockShape rs j).reverse := by
-    have := fvarList_of_open fvarList_nil h₁ hw₁
-    rwa [Nat.zero_add, List.append_nil] at this
-  have hL2 : FvarList (p.toBlockShape.rulePrefixAt j + cA.2)
-      ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
-        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse) :=
-    fvarList_of_open hL1 h₂ (blockRuleHw2_of h₁ hw₁ hCf hinstC)
-  have hL3 : FvarList (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
-      ((blockRuleFvsIhAt p rs j i).reverse ++ ((blockRuleFieldFvs p.toBlockShape rs j i).reverse
-        ++ (blockRulePrefFvs p.toBlockShape rs j).reverse)) := by
-    have hopen' := hopen
-    rw [List.reverse_append] at hopen'
-    exact fvarList_of_open hL2 hopen' (wscoped_instantiateList hL2 _ hihfv 0)
+  have hkeys : (blockRuleFrameAt p rs j i).ihKeys
+      = ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt j)
+        ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
+        (blockRuleKsOf p j i) := rfl
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  obtain ⟨hihfv, hL2, hL3, hlbF, hcbF, hclF, hcbR, hbodyO, hWS, hbO, hreadAll⟩ :=
+    blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
   -- ROW: the constructor's opening
   have hrow1 : ConLeche.openPisAtFvars ((blockRuleFrameAt p rs j i).nP
       + (blockRuleFrameAt p rs j i).nF) cA.1.type 0
@@ -649,12 +855,6 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
     intro q
     simp only [blockRuleTlAV, hct, hfrP, hfrF, List.length_map, List.length_range]
   -- ROW: the fields' readings, at every key
-  have hkeys : (blockRuleFrameAt p rs j i).ihKeys
-      = ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt j)
-        ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
-        (blockRuleKsOf p j i) := rfl
-  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
-    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
   have hfldM : ∀ q c' : Nat, (q, c') ∈ (blockRuleFrameAt p rs j i).ihKeys →
       q < (blockRuleFrameAt p rs j i).nF ∧
         FieldReadAt mpC.base2 ψ (blockRuleFrameAt p rs j i).nP (blockRuleFrameAt p rs j i).nF q
@@ -773,132 +973,7 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
       ((blockRuleFrameAt p rs j i).ihKeys[l]).2 l x (List.getElem?_eq_getElem hl) hx
     rw [hfrR, hfrF] at hread
     exact ⟨_, hread⟩
-  -- the three subjects' constant scoping
-  have hcT : ConstsBound envC r.1.type :=
-    constsBound_of_constsResolve _ (ConLeche.checkBlockRecK_facts h r
-      (List.mem_of_getElem? hr)).2.2.1
-  have hc₂ : ConstsBound envC (blockRuleCrest p.toBlockShape rs j i) :=
-    constsBound_instPisAt _ hinstC hcbC
-      (fun a ha => (openPisAtFvars_constsBound _ hcT h₁).1 a (List.mem_of_mem_take ha))
-  have hmono : ∀ n : Name,
-      ((ConLeche.consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1))
-        envC).find? n).isSome = true →
-      (blockRuleFrameAt p rs j i).recNames.contains n = false → (envC.find? n).isSome = true := by
-    intro n hn hnot
-    rcases find?_consBlockRecsBare_isSome 0 _ envC n hn with hm | hm
-    · rw [hnames0, checkBlockRecK_recNamesEq h] at hnot
-      rw [List.map_map] at hm
-      exact absurd (List.contains_iff_mem.mpr hm) (by simpa using hnot)
-    · exact hm
-  have hcbRhs := (ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)).2.2.2.2 rhs
-    (List.mem_of_getElem? hrhs)
-  have hcbR : ConstsBound envC (blockRuleResidAt p rs j i) :=
-    abstractIh_constsBound hmono hab
-      (constsBound_stripLams _ (constsBound_of_constsResolve _ hcbRhs.2.2.1) hstrip)
-  have hcbI : ConstsBound envC (blockRuleIhTeleAt p rs j i) := by
-    refine constsBound_blockIhPis (teleOf := (blockRuleFrameAt p rs j i).teleOf)
-      (idxOf := (blockRuleFrameAt p rs j i).idxOf) (fun c' => ?_) (fun q b hb => ?_)
-      (fun q e he => ?_) _ 0 _ _ hcbR hpis
-    · by_cases hc' : c' < rs.length
-      · have hr' : rs[c']? = some rs[c'] := List.getElem?_eq_getElem hc'
-        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hr']
-        exact constsBound_of_constsResolve _
-          (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr')).2.2.1
-      · rw [List.getD_eq_getElem?_getD,
-          List.getElem?_eq_none (by rw [List.length_map]; omega)]
-        simp
-    · rw [htele] at hb
-      by_cases hq : q < cA.2
-      · exact (constsBound_structFieldParts hcbC hq).1 b hb
-      · rw [(structFieldParts_nil hstripC hq).1] at hb; exact absurd hb List.not_mem_nil
-    · rw [hidxF] at he
-      by_cases hq : q < cA.2
-      · exact (constsBound_structFieldParts hcbC hq).2 e he
-      · rw [(structFieldParts_nil hstripC hq).2] at he; exact absurd he List.not_mem_nil
-  have hc₃ : ConstsBound envC ((blockRuleIhTeleAt p rs j i).instantiateList
-      (blockRulePrefFvs p.toBlockShape rs j ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse) := by
-    refine constsBound_instantiateList (by rw [List.reverse_append]; exact hL2) (fun x hx => ?_)
-      _ hihfv hcbI 0
-    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
-    · exact (openPisAtFvars_constsBound _ hcT h₁).1 x hx'
-    · exact (openPisAtFvars_constsBound _ hc₂ h₂).1 x hx'
-  -- the three subjects' closedness, and the tower's
-  have hb₂ : (blockRuleCrest p.toBlockShape rs j i).looseBVarsBounded 0 = true :=
-    (instPisAt_bounded _ hinstC hCb
-      (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))).2
-  have hbodyB : (blockRuleBodyAt p rs j i).looseBVarsBounded
-      (0 + (p.toBlockShape.rulePrefixAt j + cA.2)) = true := by
-    exact stripLams_body_bounded (p.toBlockShape.rulePrefixAt j + cA.2) (j := 0) hstrip hrb
-  have hresB := abstractIh_looseBVarsBounded hab hbodyB
-  have hihlb : (blockRuleIhTeleAt p rs j i).looseBVarsBounded
-      (p.toBlockShape.rulePrefixAt j + cA.2) = true := by
-    have hq := blockIhPis_looseBVarsBounded (teleOf := (blockRuleFrameAt p rs j i).teleOf)
-      (idxOf := (blockRuleFrameAt p rs j i).idxOf) hnPr (fun c' => (hrecTyM c').2.1)
-      (fun q k b hb => by
-        rw [htele] at hb; exact (structFieldParts_bounded hCf hCb hstripC q).1 k b hb)
-      (fun q e he => by
-        rw [hidxF] at he; rw [htele]; exact (structFieldParts_bounded hCf hCb hstripC q).2 e he)
-      (blockRuleFrameAt p rs j i).ihKeys 0 _ _
-      (fun ic hic => by
-        rw [hkeys] at hic
-        have := (mem_blockIhKeys_kind (i := ic.1) (c' := ic.2) hic).1
-        omega)
-      (by rw [Nat.add_zero, ← Nat.zero_add (p.toBlockShape.rulePrefixAt j + cA.2)]
-          exact hresB) hpis
-    rwa [Nat.add_zero] at hq
-  have hLcl : ∀ x ∈ (blockRulePrefFvs p.toBlockShape rs j
-      ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse, x.looseBVarsBounded 0 = true := by
-    intro x hx
-    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
-    · exact openPisAtFvars_fvars_closed h₁ x hx'
-    · exact openPisAtFvars_fvars_closed h₂ x hx'
-  have hb₃ : ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
-      ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).looseBVarsBounded 0 = true :=
-    blockRuleIhTeleClosed (by rw [List.reverse_append]; exact hL2) hLcl hihlb hpos
-  obtain ⟨hlbF, hbO⟩ := blockRuleHlbF_of h₁ h₂ hopen2 hTb hb₂ hb₃
-  -- the prefix and field openers' leaf closure (an empty third opening)
-  have hclF0 := blockRuleHclF_of (nR := 0) (ihTele' := Expr.sort .zero) (o₃ := Expr.sort .zero)
-    (fvsIh := []) h₁ h₂ rfl hTf hCf hinstC (fun l hl => by simp [Expr.fvarLeaves] at hl)
-  have hfv₃ : ∀ l ∈ ((blockRuleIhTeleAt p rs j i).instantiateList
-      (blockRulePrefFvs p.toBlockShape rs j
-        ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ blockRulePrefFvs p.toBlockShape rs j
-        ++ blockRuleFieldFvs p.toBlockShape rs j i := by
-    intro l hl
-    obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList
-      (by rw [List.reverse_append]; exact hL2) _ hihfv 0 l hl
-    have hx' := List.mem_reverse.mp hx
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx'
-    have hidxq : ∃ ty, x = Expr.fvar q ty := by
-      rcases Nat.lt_or_ge q (blockRulePrefFvs p.toBlockShape rs j).length with hq' | hq'
-      · rw [List.getElem?_append_left hq'] at hq
-        obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h₁ q x hq
-        exact ⟨ty, by rw [hty, Nat.zero_add]⟩
-      · rw [List.getElem?_append_right hq', openPisAtFvars_length _ h₁] at hq
-        obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h₂ _ x hq
-        exact ⟨ty, by rw [hty]; congr 1; rw [openPisAtFvars_length _ h₁] at hq'; omega⟩
-    obtain ⟨ty, rfl⟩ := hidxq
-    simp only [Expr.fvarLeaves, List.mem_cons] at hlx
-    rcases hlx with hlx | hlx
-    · rw [hlx]; exact hx'
-    · have hq := hclF0 _ (List.mem_append_left _ hx') l hlx
-      rwa [List.append_nil] at hq
-  have hclF := blockRuleHclF_of h₁ h₂ hopen2 hTf hCf hinstC hfv₃
-  -- the opened residue IS the residue opened at the whole frame
-  obtain ⟨bsI, hstI, -, -⟩ := stripPis_blockIhPis _ 0 _ _ hpis
-  have hbodyO : blockRuleBodyOAt p rs j i
-      = (blockRuleResidAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
-          ++ blockRuleFieldFvs p.toBlockShape rs j i ++ blockRuleFvsIhAt p rs j i).reverse 0 := by
-    rw [List.reverse_append (as := blockRulePrefFvs p.toBlockShape rs j
-      ++ blockRuleFieldFvs p.toBlockShape rs j i)]
-    exact openPis_body_instantiateList hstI hopen2
-  have hreadO : ∃ B, denoteMeta mpC.base2.acval envC ψ
-      (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
-      (blockRuleBodyOAt p rs j i) = some B :=
-    acceptedReads_of mpC.base2 ψ hinf
-      ((ConLeche.openPisAtFvars_WScoped _ _ _ hopen2 (wscoped_instantiateList
-        (by rw [List.reverse_append]; exact hL2) _ hihfv 0)).2)
-      hbO (fun l hl => hlbF _ (blockRuleHleaf_of hopen2 hfv₃ l hl))
+  have hreadO := hreadAll ψ
   refine (blockRuleBodyInputs_iff ..).mpr ⟨blockRuleCtorFvs p rs j i,
     ((ConLeche.openPisAtFvars (p.nP + cA.2) cA.1.type 0).map (·.2)).getD default,
     blockRuleTlAV p rs mpC.base2.acval envC ψ j i, blockRuleEisAV p rs mpC.base2.acval envC ψ j i,
@@ -916,9 +991,7 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
     rw [hfrR, hfrF]
     exact blockRuleHokΔ_of (hlenP.trans hfrR) (hlenF.trans hfrF) hlenI hokA
   · exact hlbF
-  · exact blockRuleHcbF_of h₁ h₂ hopen2
-      (constsBound_of_constsResolve _ (ConLeche.checkBlockRecK_facts h r
-        (List.mem_of_getElem? hr)).2.2.1) hc₂ hc₃
+  · exact hcbF
   · exact hclF
   · -- `ihs` IS the pinned list
     simp only [blockRuleIhsRunAV, hfrR, hfrP, hct]
@@ -932,6 +1005,188 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
     rw [← hbodyO]
     obtain rfl := CheckMode.eq_verified hμ
     exact ⟨ty, ConLeche.Rules.inferTypeCore_bridge hinf⟩
+
+/-- **The spelled field readings ARE the record's**, at every field the
+frame keys an `ih` opener to (`fieldReadAt_eq` against the record's own
+`FieldReadAt`) — so `ihs` is the record's `ih` list wherever it reads. -/
+theorem blockRuleTlEis_eq_record {mpC : EnvModelM V μ envC}
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {d : BlockData V} {lps : List Name} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    (hcj : (d.ctorsM (p.toBlockShape.recTgtAt j))[i]? = some cA)
+    (hdnP : d.nP = p.nP)
+    (hks : d.ksF (p.toBlockShape.recTgtAt j) i
+      = (blockRuleKsOf p j i).map BlockFieldKind.toRec)
+    (ψ : Name → Nat) {q c' : Nat} (hm : (q, c') ∈ (blockRuleFrameAt p rs j i).ihKeys) :
+    blockRuleTlAV p rs mpC.base2.acval envC ψ j i q
+        = (d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q [] ∧
+      blockRuleEisAV p rs mpC.base2.acval envC ψ j i q
+        = (d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD q [] := by
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  have hcd := blockCtorData_of_core hcore hcj
+  rw [hdnP] at hcd
+  obtain ⟨crestC, hoP, hoF⟩ := hcd.opens
+  have hop0 : ConLeche.openPisAtFvars (p.nP + cA.2) cA.1.type 0
+      = some (d.fvsPF (p.toBlockShape.recTgtAt j) i ++ d.xFvsF (p.toBlockShape.recTgtAt j) i,
+          d.xrestF (p.toBlockShape.recTgtAt j) i) :=
+    openPisAtFvars_add p.nP hoP (by rw [Nat.zero_add]; exact hoF)
+  have hcfv : blockRuleCtorFvs p rs j i
+      = d.fvsPF (p.toBlockShape.recTgtAt j) i ++ d.xFvsF (p.toBlockShape.recTgtAt j) i := by
+    rw [blockRuleCtorFvs, hct, hop0]; rfl
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  obtain ⟨hqF, hk⟩ := mem_blockIhKeys_kind (rPs := (List.range p.recs.length).map
+    p.toBlockShape.rulePrefixAt) (recTgts := p.recTgts) (rP := p.toBlockShape.rulePrefixAt j) hm
+  have hF := blockFieldReadAt_of (ψ := ψ) hcd hop0 (show q < cA.2 by omega)
+    (by rw [hks]; exact hk)
+  obtain ⟨e1, e2⟩ := fieldReadAt_eq hF
+  exact ⟨by rw [e1]; simp only [blockRuleTlAV, hct, hcfv],
+    by rw [e2]; simp only [blockRuleEisAV, hct, hcfv]⟩
+
+/-- **`ihs` is bounded at the chain frame**: every `ih` opener's term
+reads under the `K` chain binders and the rule's own frame. -/
+theorem blockRuleIhsRunAV_below {mpC : EnvModelM V μ envC}
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {d : BlockData V} {lps : List Name} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    (hcj : (d.ctorsM (p.toBlockShape.recTgtAt j))[i]? = some cA)
+    (hdnP : d.nP = p.nP)
+    (hks : d.ksF (p.toBlockShape.recTgtAt j) i
+      = (blockRuleKsOf p j i).map BlockFieldKind.toRec)
+    (ψ : Name → Nat) :
+    ∀ v ∈ blockRuleIhsRunAV p rs mpC.base2.acval envC ψ j i,
+      Term.bvarsBelow (rs.length + p.toBlockShape.rulePrefixAt j + cA.2) v.erase := by
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨hfrP, hfrR, hfrF, -, -, -, -, -⟩ := blockRuleFrameAt_rows (pp := p) hct
+  have hcd := blockCtorData_of_core hcore hcj
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  have hnPr : p.nP ≤ p.toBlockShape.rulePrefixAt j := by
+    obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
+    obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega)
+    exact hle
+  have hlenR : rs.length = p.recs.length := (checkBlockRecK_recNames h).2.1
+  intro v hv
+  rw [blockRuleIhsRunAV, blockRuleIhsAV, blockRecIhsAt, List.mem_map] at hv
+  obtain ⟨key, hkey, rfl⟩ := hv
+  obtain ⟨q, c'⟩ := key
+  have hkey' : (q, c') ∈ ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt j)
+      ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
+      (blockRuleKsOf p j i) := hkey
+  obtain ⟨hqF, -⟩ := mem_blockIhKeys_kind hkey'
+  obtain ⟨hc', -, -⟩ := mem_blockIhKeys_rP hkey'
+  have hc'K : c' < rs.length := by
+    rw [ConLeche.BlockShape.recTgts, List.length_map, List.length_range] at hc'
+    omega
+  obtain ⟨eT, eE⟩ := blockRuleTlEis_eq_record hr hcA hcore hcj hdnP hks ψ hkey
+  have hq : q < cA.2 := by omega
+  simp only [hct, eT, eE, hfrR, hfrP, hfrF]
+  rw [hdnP] at hcd
+  have hTB : DomsBelow (p.nP + q) ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []) :=
+    hcd.tssBelow ψ q
+  have hEB := hcd.eissBelow ψ q
+  refine mkLamsC_below ?_ ?_
+  · -- the moved telescope
+    have hq2 := ihTeleAtGo_below (nF := cA.2) (o := p.toBlockShape.rulePrefixAt j - p.nP) (i := q)
+      (l := 0) (K := rs.length + p.nP + q) (k := 0)
+      (tl := rebit (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+        ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []))
+      (by
+        rw [Nat.add_zero]
+        refine domsBelow_mono (k := p.nP + q) (by omega) ?_
+        have : ∀ {k : Nat} (ds : List (Nat × Nat × AnnotTerm)) (b : Nat),
+            DomsBelow k ds → DomsBelow k (rebit b ds) := by
+          intro k ds b hd
+          induction ds generalizing k with
+          | nil => trivial
+          | cons x xs ih => exact ⟨hd.1, ih hd.2⟩
+        exact this _ _ hTB)
+    rw [show rs.length + p.nP + q + (cA.2 - q + 0) + (p.toBlockShape.rulePrefixAt j - p.nP) + 0
+      = rs.length + p.toBlockShape.rulePrefixAt j + cA.2 from by omega] at hq2
+    exact hq2
+  · -- the guarded call's spine
+    rw [AnnotTerm.erase_mkAppN]
+    refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+    · show _ < _
+      rw [ihTeleAtR_length]
+      simp only [rebit, List.length_map]
+      omega
+    · intro x hx
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+      rcases List.mem_append.mp hy with hy | hy
+      · rcases List.mem_append.mp hy with hy | hy
+        · refine bvarsBelow_prefVarsAV ?_ y hy
+          rw [ihTeleAtR_length]; simp only [rebit, List.length_map]; omega
+        · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp hy
+          have := ihIdxAtM_below (nF := cA.2) (o := p.toBlockShape.rulePrefixAt j - p.nP)
+            (i := q) (l := 0)
+            (m := (ConLeche.structFieldTeleOf cA.1.type p.nP cA.2 q).length) (hEB E hE)
+          refine Term.bvarsBelow.mono ?_ this
+          rw [ihTeleAtR_length]; simp only [rebit, List.length_map]
+          omega
+      · obtain rfl := List.mem_singleton.mp hy
+        have hTL : ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []).length
+            = (ConLeche.structFieldTeleOf cA.1.type p.nP cA.2 q).length := by
+          rw [← eT]; simp only [blockRuleTlAV, hct, List.length_map, List.length_range]
+        rw [AnnotTerm.erase_mkAppN]
+        refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+        · show _ < _
+          rw [ihTeleAtR_length]; simp only [rebit, List.length_map]
+          omega
+        · intro x hx
+          obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+          obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hy
+          have := List.mem_range.mp hk
+          show _ < _
+          rw [ihTeleAtR_length]; simp only [rebit, List.length_map]
+          omega
+
+/-- **`Rb0` reads the opened residue, and is bounded at the whole
+frame**: the residue is typed there, so the reading exists
+(`blockRuleOpened_run`), and a scoped, bvar-closed term reads below its
+depth (`denote_bvarsBelow`). -/
+theorem blockRuleRbAV_below {mpC : EnvModelM V μ envC}
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {d : BlockData V} {lps : List Name} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    (hcj : (d.ctorsM (p.toBlockShape.recTgtAt j))[i]? = some cA)
+    (hdnP : d.nP = p.nP)
+    (hks : d.ksF (p.toBlockShape.recTgtAt j) i
+      = (blockRuleKsOf p j i).map BlockFieldKind.toRec)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hcbC : ConstsBound envC cA.1.type) (ψ : Name → Nat) :
+    Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR)
+      (blockRuleRbAV p rs mpC.base2.acval envC ψ j i).erase := by
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  have hcd := blockCtorData_of_core hcore hcj
+  rw [hdnP] at hcd
+  obtain ⟨crestC, hoP, hoF⟩ := hcd.opens
+  have hop0 : ConLeche.openPisAtFvars (p.nP + cA.2) cA.1.type 0
+      = some (d.fvsPF (p.toBlockShape.recTgtAt j) i ++ d.xFvsF (p.toBlockShape.recTgtAt j) i,
+          d.xrestF (p.toBlockShape.recTgtAt j) i) :=
+    openPisAtFvars_add p.nP hoP (by rw [Nat.zero_add]; exact hoF)
+  obtain ⟨bsC, bodyC0, hstC, -, -, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hop0
+  have hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true := by rw [hstC]; rfl
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  obtain ⟨-, -, -, -, -, -, -, hbodyO, hWS, hbO, hread⟩ :=
+    blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
+  obtain ⟨B, hB⟩ := hread ψ
+  have hRb : blockRuleRbAV p rs mpC.base2.acval envC ψ j i = B := by
+    rw [blockRuleRbAV, hct, ← hbodyO, hB]; rfl
+  rw [hRb]
+  exact denote_bvarsBelow mpC.base2.cval_closed _ _ hWS hbO
+    (denoteMeta_erase mpC.base2.acval_erase _ _ hB)
 
 /-- **The `ih` openers' FIT, at the residue producer's telescope** —
 `BlockRuleBodyInputs`' one REGIME conjunct (`IndRegimeAt`'s fourth,
