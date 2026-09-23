@@ -4782,7 +4782,8 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
         (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ) ρ)
     (hnCt : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[j]? = some r → r.2.2.2.length ≤ nCt j)
-    (hpl : ∀ (ψ : Name → Nat) (j : Nat),
+    (hpl : ∀ (ψ : Name → Nat) (j : Nat)
+      (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
       (pdoms0 ψ j).length = p.toBlockShape.rulePrefixAt j)
     {ctorTy : Nat → Nat → (Name → Nat) → AnnotTerm}
     (hctor : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -4821,7 +4822,7 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
     (blockRecLeafAV_par_run hμ mpC h heqP)
     (fun ψ _ hi ρ => blockRecLeafAV_wd hpre ψ hi ρ)
     (blockRecLeafAV_valid hμ mpC h heqV)
-    hpre hac hr hrhs hcA rfl rfl rfl rfl hcfind hcb hread (fun ψ => hpl ψ j)
+    hpre hac hr hrhs hcA rfl rfl rfl rfl hcfind hcb hread (fun ψ => hpl ψ j r hr)
     (hdataS m₃ hac φ j r hr i cA rhs hcA hrhs)
     (hTyZ j (List.getElem?_eq_some_iff.mp hr).1) (hpos j r hr i cA hcA)
 
@@ -4906,8 +4907,9 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (blockRecEqs nCt rsR pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ) ρ) ∧
       (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rsR[j]? = some r → r.2.2.2.length ≤ nCt j) ∧
-      (∀ (ψ : Name → Nat) (j : Nat),
-      (pdoms0 ψ j).length = pp.toBlockShape.rulePrefixAt j) ∧
+      (∀ (ψ : Name → Nat) (j : Nat)
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rsR[j]? = some r →
+        (pdoms0 ψ j).length = pp.toBlockShape.rulePrefixAt j) ∧
       (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rsR[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 pp.nP cA.2) ∧
