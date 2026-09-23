@@ -1632,6 +1632,51 @@ theorem blockSqSrcRule_run (hμ : μ.verifiedChecks = true)
   rw [blockRecEsK, hes, List.map_map, hpl, hfl]
   rfl
 
+/-- **The family's level `s`, CHOSEN — with both facts it owes.**
+`s` is the max of the check's inferred sorts (`blockRecTy_univ_run`)
+read at the level assignment RESTRICTED to the family's level
+parameters (zero elsewhere).  So `s`'s parametricity — `heqP`'s `s`
+half, owed by whoever fixes `s` — is definitional: two assignments that
+agree on the family's parameters restrict to the same one.  The typing
+`hTy` survives the restriction because the recursor types' READINGS are
+themselves parametric (`blockRecTyAV_params_ext`: every recursor carries
+the family's one parameter list).  No level-footprint fact about the
+inferred sorts is needed. -/
+theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    ∃ s : (Name → Nat) → Nat,
+      (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
+          (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
+        interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
+          WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) := by
+  obtain ⟨us, hus⟩ := blockRecTy_univ_run (V := V) hμ mpC h
+  let lps := (rs.getD 0 default).1.levelParams
+  let res : (Name → Nat) → Name → Nat := fun ψ q => if q ∈ lps then ψ q else 0
+  refine ⟨fun ψ => maxLevelEval us (res ψ), fun i r hr ψ₁ ψ₂ hq => ?_, fun ψ ρ c hc => ?_⟩
+  · have hi : i < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+    have hr0 : rs[0]? = some (rs.getD 0 default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+    have hl : lps = r.1.levelParams := checkBlockRecK_lps h hr0 hr
+    have hres : res ψ₁ = res ψ₂ := by
+      funext q
+      by_cases hqm : q ∈ lps
+      · show (if q ∈ lps then ψ₁ q else 0) = (if q ∈ lps then ψ₂ q else 0)
+        rw [if_pos hqm, if_pos hqm]
+        exact hq q (hl ▸ hqm)
+      · show (if q ∈ lps then ψ₁ q else 0) = (if q ∈ lps then ψ₂ q else 0)
+        rw [if_neg hqm, if_neg hqm]
+    show maxLevelEval us (res ψ₁) = maxLevelEval us (res ψ₂)
+    rw [hres]
+  · have hr0 : rs[0]? = some (rs.getD 0 default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+    have hext := blockRecTyAV_params_ext (V := V) hμ mpC h hr0 (ψ₁ := ψ) (ψ₂ := res ψ)
+      (fun q hqm => by show ψ q = if q ∈ lps then ψ q else 0; rw [if_pos hqm]) hc
+    refine ⟨?_, (hus ψ c hc ρ).2⟩
+    rw [hext]
+    exact (hus (res ψ) c hc ρ).1
+
 /-- A tuple of the family's length IS the chain frame's block. -/
 theorem consList_eq_chainFrame' {K : Nat} {tup : List V} (hlen : tup.length = K) (ρ : Nat → V) :
     consList tup ρ = chainFrame K (fun c => tup.getD c pt) ρ := by
