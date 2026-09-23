@@ -65,9 +65,8 @@ This file is the hop between the two, in three parts.
   `∃ ty, x = .fvar i ty` list and `ctxOk_of_openers`
   (`Model/IndFrame.lean`) applies unchanged.
 
-The two runs are premises here; `checkBlockRule_facts`
-(`Verify/Inductives/BlockWF.lean`) peels the stage's bind chain only
-down to its scoping facts.  The other premises are the seam to the
+The two runs are premises here; they are fields of the stage's rule
+record (`RuleRun.hty`/`hdeq`, `Verify/Inductives/BlockRecRun.lean`).  The other premises are the seam to the
 readings: `hdoms` (opener `i`'s stored type reads to the context entry
 at that slot — the type readings plus the per-binder
 `checkDefEqList`), `hokΔ` (the context's own grading), and the `ih`

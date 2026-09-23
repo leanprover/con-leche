@@ -251,7 +251,8 @@ theorem blockKitIhKey_run
       = ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length := by
     rw [hTlA, ihTeleAtR_length, rebit_length]
   -- the bounds, at the moved spelling
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hDB : DomsBelow (p.toBlockShape.rulePrefixAt j + cA.2)
       (blockKitTlA p rs mpC.base2.acval envC ψ j i fi) := by
     have hD := ihTeleAtGo_below (nF := cA.2) (o := p.toBlockShape.rulePrefixAt j - p.nP)
@@ -1092,7 +1093,8 @@ theorem blockSqIhF_run (hμ : μ.verifiedChecks = true)
             (p.toBlockShape.recTgtAt 0) ψ).getD 0 []).length := by
       rw [hmem0]; rfl
     rw [hsrcs]
-    obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+    have hnP := TE.nP_le
     refine blockChainFit_srcVals_zero hM hcj hcf hlarge hw
       (fun σ => ⟨fun hσ => ((hS.frames _ hmemk 0 cA hcj).1 ψ σ).mp
           (hS.paramsOf 0 hk0 ψ σ hσ _ hmemk),

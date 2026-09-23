@@ -2171,7 +2171,7 @@ field types, and both are `constsResolve envC` already
 (`checkBlockRecK_facts`' first bullet for the recursor type, the
 constructors' stage for `cA.1.type`); the forged witness above is
 `tests/e2e/corner_rec_dom_recursor.ndjson`.  The peel keeps the guard
-(`checkBlockRule_data`'s row), `blockRuleData_run` states it at the
+(`RuleRun.hldomsRes`), `blockRuleData_run` states it at the
 frame's own bound through the two openings' lengths, and
 `blockRuleDataB_of_residue` reads it off the run. -/
 
@@ -3461,7 +3461,8 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk i cA hcj
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ i cA hcj
   have hCf : cA.1.type.hasFvar = false := (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
   -- the two halves' bounds
   have hfd := (blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ).1

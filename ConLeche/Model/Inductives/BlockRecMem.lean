@@ -97,71 +97,14 @@ theorem blockRecTyAV_eq {acval : Name → (Name → Nat) → AnnotTerm} {envC : 
     blockRecTyAV acval envC rs ψ c = ta := by
   simp [blockRecTyAV, hr, hta]
 
-/-- **The stage's tuple is the type stage's checked constant, and its
-type is Π-peeled** — `checkBlockRecK_tyReads`' identification
-(`checkBlockRecK_reserved`'s, `Verify/Inductives/BlockWF.lean`) at an
-INDEX, carrying the peel with it. -/
-theorem checkBlockRecK_tyShape {envC : Env} {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[i]? = some r) :
-    (∃ cv : ConstantVal,
-      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC cv = .ok r.1) ∧
-    ∃ (fvs : List Expr) (concl : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt i + 1) r.1.type 0
-        = some (fvs, concl) := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
-  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hr
-  exact ⟨⟨_, E.hcv⟩, E.fvs, E.concl, E.hopen⟩
-
-/-- **The MEMBER-facing checks at the STORED recursor**, the run-level
-form: `checkBlockRecTys_major` carried across the two inversions that
-name the same `ConstantVal` at every index, exactly as
-`checkBlockRecK_tyShape` carries the peel. -/
-theorem checkBlockRecK_tyMajor {envC : Env} {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[i]? = some r) :
-    ∃ (ms : ConLeche.MemberShape) (cvTa : ConstantVal) (fvs tfvs : List Expr)
-      (concl to maj : Expr),
-      p.toBlockShape.members[p.toBlockShape.recTgtAt i]? = some ms ∧
-      cvTas[p.toBlockShape.recTgtAt i]? = some cvTa ∧
-      p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
-      p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + ms.nIdx ∧
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt i + 1) r.1.type 0
-        = some (fvs, concl) ∧
-      ConLeche.openPisAtFvars p.nP cvTa.type 0 = some (tfvs, to) ∧
-      tfvs.length = p.nP ∧
-      (∀ l, l < p.nP →
-        ConLeche.isDefEqCore μ envC F p.nP
-          ((tfvs.map Expr.fvarTypeD).getD l default)
-          (((fvs.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true) ∧
-      fvs[p.toBlockShape.majorIdxAt i]? = some maj ∧
-      (Expr.fvarTypeD maj).getAppFn
-        = Expr.const ms.cvT.name (p.toBlockShape.lps.map .param) ∧
-      (Expr.fvarTypeD maj).getAppArgs.length = p.nP + ms.nIdx ∧
-      (Expr.fvarTypeD maj).getAppArgs.take p.nP = fvs.take p.nP ∧
-      (Expr.fvarTypeD maj).getAppArgs.drop p.nP
-        = (fvs.drop (p.toBlockShape.rulePrefixAt i)).take ms.nIdx := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
-  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hr
-  exact ⟨E.ms, E.cvTa, E.fvs, E.tfvs, E.concl, E.trest, E.maj, E.hms, E.hcvTa, E.nP_le,
-    E.hmI, E.hopen, E.hopenT, E.htfvs, E.hparams, E.hmaj, E.hmajFn, E.hmajLen,
-    E.hmajParams, E.hmajIdx⟩
-
 /-- **The family's SHARED RULE PREFIX, at the run** (stage (b')): the
 first stored recursor's opened prefix is
 the reference, and every other stored recursor's has its length and is
 defeq to it binder by binder.
 
 The bridge from stage (b')'s own list (the TYPE stage's checked
-constant values) to the stored `rs` is `checkBlockRecK_tyShape`'s:
-`checkBlockRecsRules_facts` and `checkBlockRecTys_inv` name the same
-`ConstantVal` at every index. -/
+constant values) to the stored `rs` is the run record's
+(`RecKRun.stored_fst`). -/
 theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -218,7 +161,9 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
       denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt i + 1) concl
           = some (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ (blockRecTyAV mpC.base2.acval envC rs ψ i)) := by
-  obtain ⟨⟨cv, hcv⟩, fvs, concl, hop⟩ := checkBlockRecK_tyShape h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hop := TE.hopen
+  have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
   obtain ⟨ta, hta, hwd, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
@@ -227,7 +172,7 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
     rw [blockRecRdsAV, blockRecTyAV_eq hr hta, hst]; rfl
   have hcon : blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i = b := by
     rw [blockRecConclAV, blockRecTyAV_eq hr hta, hst]; rfl
-  refine ⟨fvs, concl, hop, hta, ?_, ?_, ?_, ?_, ?_, hwd⟩
+  refine ⟨TE.fvs, TE.concl, hop, hta, ?_, ?_, ?_, ?_, ?_, hwd⟩
   · rw [hrds, hcon]; exact (stripPisAV_eq_mkPis hst).1
   · rw [hrds]; exact hlen
   · rw [hrds]; exact fun pd hpd => stripPisAV_denoteMeta_bits _ hop hta hst pd hpd
@@ -263,7 +208,9 @@ theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
           default).2.2).erase) ∧
     ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
       (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i).erase := by
-  obtain ⟨⟨cv, hcv⟩, fvs, concl, hop⟩ := checkBlockRecK_tyShape h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hop := TE.hopen
+  have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
   obtain ⟨ta, hta, -, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
@@ -286,7 +233,7 @@ theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
   refine ⟨?_, ?_⟩
   · intro l hl
     rw [hrds] at hl ⊢
-    obtain ⟨x, hx⟩ : ∃ x, fvs[l]? = some x := by
+    obtain ⟨x, hx⟩ : ∃ x, TE.fvs[l]? = some x := by
       refine ⟨_, List.getElem?_eq_getElem ?_⟩
       rw [ConLeche.Verify.openPisAtFvars_length _ hop, ← hlen]
       exact hl

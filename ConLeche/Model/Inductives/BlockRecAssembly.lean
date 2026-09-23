@@ -28,7 +28,7 @@ What the run supplies, and where it comes from:
 |---|---|
 | `hty`, `hrhs` | `checkBlockRecK_facts` |
 | `hresRec` | `checkBlockRecK_reserved` |
-| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor run `checkBlockRecK_tyShape` names |
+| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`checkBlockRecK_tyAt`) |
 | `hnoTy` | `annotateCore_noProjAt` at the SAME run |
 | `hrd` | `hrd_of_pre`, at the family premise |
 | `hrecP` | `hrecP_of`, at the rule data |

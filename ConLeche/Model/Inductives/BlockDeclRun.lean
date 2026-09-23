@@ -295,7 +295,8 @@ theorem blockRecEqs_below_seam (hμ : μ.verifiedChecks = true)
     have hCf : cA.1.type.hasFvar = false := hwfC.1
     have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
     have hcbC : ConstsBound envC cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-    obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+    have hnP := TE.nP_le
     have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
     have hks : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ksF
         (pp.toBlockShape.recTgtAt c) j = (blockRuleKsOf pp c j).map ConLeche.BlockFieldKind.toRec := by
@@ -411,7 +412,8 @@ theorem blockRecEqs_params_seam (hμ : μ.verifiedChecks = true)
   have hcd := blockCtorData_of_core hcore hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hks : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ksF
       (pp.toBlockShape.recTgtAt c) j = (blockRuleKsOf pp c j).map ConLeche.BlockFieldKind.toRec := by
     rw [blockDataOf_ksF]; rfl
@@ -465,7 +467,8 @@ theorem blockRuleEsAV_valid_seam (hμ : μ.verifiedChecks = true)
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   have hcd := blockCtorData_of_core hcore hcj
   have hCf : cA.1.type.hasFvar = false := (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   rw [blockRuleEsAV_eq h hr hcA hrhs hcd hCf hnP ψ] at he
   obtain ⟨E, hE, rfl⟩ := List.mem_map.mp he
   -- the frame's two segments
@@ -668,7 +671,8 @@ theorem blockRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
       rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
     obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
     have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-    obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+    have hnP := TE.nP_le
     have hks : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ksF
         (pp.toBlockShape.recTgtAt c) j
         = (blockRuleKsOf pp c j).map ConLeche.BlockFieldKind.toRec := by
@@ -837,7 +841,9 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
-  obtain ⟨_, cvTa, _, _, _, _, _, -, hcvTa, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  have hnP := TE.nP_le
   -- the elimination level package, and the pin
   obtain ⟨usP, uOf, helim, hmemU, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   have hk0 : 0 < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
@@ -910,7 +916,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     exact hokR _ ρ
   case hokF =>
     intro us _
-    obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ cvTa hcvTa
+    obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
     exact blockRuleHokF_of_run hμ mpC h hr hcA hrhs hcvTa hfT hFD
       (Nat.le_add_right _ _) hcd hCf _ (fun ρ => hcd.okTy _ ρ)
       ((hS.frames _ hmemk i cA hcj).1 _) (o := pp.toBlockShape.rulePrefixAt j - pp.nP)

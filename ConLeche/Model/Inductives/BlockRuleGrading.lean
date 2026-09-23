@@ -577,8 +577,10 @@ theorem blockRuleIhKey_run
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
   have hcbC : ConstsBound envC cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-  obtain ⟨_, cvTa, _, _, _, _, _, -, hcvTa, hnP, -⟩ := checkBlockRecK_tyMajor h hr
-  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ cvTa hcvTa
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  have hnP := TE.nP_le
+  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk i cA hcj).1 ψ
   have ho : p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) := by
     omega
@@ -1184,8 +1186,10 @@ theorem blockRuleRecord_run
   have hcj : ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j))[i]? = some cA := by rw [hctM]; exact hcA
   have hcd := blockCtorData_of_core hcore hcj
-  obtain ⟨_, cvTa, _, _, _, _, _, -, hcvTa, hnP, -⟩ := checkBlockRecK_tyMajor h hr
-  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ cvTa hcvTa
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  have hnP := TE.nP_le
+  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk i cA hcj).1 ψ
   have ho : p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) := by
     omega
@@ -1196,7 +1200,7 @@ theorem blockRuleRecord_run
       = (blockRuleFrameAt p rs j i).nR := by
     rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
     exact openPisAtFvars_length _ hopen
-  refine ⟨cvTa, _, _, _, _, _, _, hcvTa, hfT, hFD, Nat.le_add_right _ _, hcd.okTy ψ, hcd.len ψ,
+  refine ⟨TE.cvTa, _, _, _, _, _, _, hcvTa, hfT, hFD, Nat.le_add_right _ _, hcd.okTy ψ, hcd.len ψ,
     hframes, ho, hFE, hIlen, ?_⟩
   intro q hq
   obtain ⟨fi, c', CihR, -, -, hfiC, hentry, hIget, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
@@ -1354,7 +1358,8 @@ theorem blockIhFitTyped_run
   obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
   obtain ⟨rbs, ty, concl, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
   have hIlen : (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length

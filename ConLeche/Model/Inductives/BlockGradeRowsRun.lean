@@ -266,8 +266,9 @@ theorem blockGradeLhs_run
       = fs.length := by
     rw [blockRecFdomsK, liftDomsK_length, hfl, hfsl]
   -- the constructor's parameter fit (the hop through the member's former)
-  obtain ⟨_, cvTa, _, _, _, _, _, -, hcvTa, -, -⟩ := checkBlockRecK_tyMajor h hr
-  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ cvTa hcvTa
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk j cA hcj).1 ψ
   have hcd := hcf.2.2
   have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
@@ -403,7 +404,8 @@ theorem blockGradeIhs_run
   obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hkey := fun q (hq : q < (blockRuleFrameAt p rs c j).nR) =>
     blockRuleIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hq
   obtain ⟨env₀, pk, uOfD, ppsOf, hdE⟩ := hdR

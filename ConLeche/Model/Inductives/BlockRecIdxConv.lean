@@ -274,15 +274,19 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
   have hlenIds := blockMembers_IdsM_length hmr hmemk ψ
   obtain ⟨hnPq, -, -, hcvF, -, -, -⟩ := hmr
-  obtain ⟨ms, cvTa, fvs, tfvs0, concl, to, maj, -, hcvTa, -, -, hop, hopT, htfl,
-    hdeqP, -, -, -, -, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  have hop := TE.hopen
+  have hopT := TE.hopenT
+  have htfl := TE.htfvs
+  have hdeqP := TE.hparams
   obtain ⟨fvsL, conclL, hopL, -, hmk, -, -, hbind, -, hwdTy⟩ :=
     checkBlockRecK_tyPis hμ mpC h hr ψ
-  have hfvE : fvsL = fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
+  have hfvE : fvsL = TE.fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
   rw [hfvE] at hbind
   obtain ⟨-, -, -, hfvT, hbndT, hFD⟩ := hcvF _ _ hcvTa
   obtain ⟨hwR, hbR⟩ := checkBlockRecK_tyClosed h hr
-  have hwT : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar hfvT
+  have hwT : Expr.WScoped 0 TE.cvTa.type := Expr.WScoped.of_not_hasFvar hfvT
   -- names
   generalize hrP : p.toBlockShape.rulePrefixAt c = rP at *
   generalize hmm : p.toBlockShape.recTgtAt c = mm at *
@@ -300,11 +304,11 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   obtain ⟨hr1, hnn, -⟩ : cvR = r.1 ∧ nIdx = r.2.2.1 ∧ u = u' := by
     simpa using Option.some.inj (hcu.symm.trans hcu')
   rw [hr1] at hop'
-  obtain ⟨rfl, rfl⟩ : fvs' = fvs ∧ concl' = concl := by
+  obtain ⟨rfl, rfl⟩ : fvs' = TE.fvs ∧ concl' = TE.concl := by
     have := Option.some.inj (hop'.symm.trans hop)
     exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
   rw [hmm] at hcvTa'
-  have hcvE : cvTa' = cvTa := Option.some.inj (hcvTa'.symm.trans hcvTa)
+  have hcvE : cvTa' = TE.cvTa := Option.some.inj (hcvTa'.symm.trans hcvTa)
   rw [hcvE] at hopPI
   obtain ⟨rc, u'', -, -, ⟨E⟩⟩ := R.tyAt hr
   have hmaj' := E.mI_eq
@@ -314,11 +318,11 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     omega
   rw [hnIdx, hrP] at hopPI hdeqI
   -- the member's opening at the recursor's numbering
-  obtain ⟨ifvs, hopI, htfvs⟩ : ∃ ifvs, openPisAtFvars nI to rP = some (ifvs, trest) ∧
-      tfvs = tfvs0 ++ ifvs := by
+  obtain ⟨ifvs, hopI, htfvs⟩ : ∃ ifvs, openPisAtFvars nI TE.trest rP = some (ifvs, trest) ∧
+      tfvs = TE.tfvs ++ ifvs := by
     unfold ConLeche.openPisParamsIdx at hopPI
     rw [hopT] at hopPI
-    cases h2 : openPisAtFvars nI to rP with
+    cases h2 : openPisAtFvars nI TE.trest rP with
     | none => simp [h2] at hopPI
     | some pr =>
       obtain ⟨ifvs, tr⟩ := pr
@@ -326,11 +330,11 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
       obtain ⟨rfl, rfl⟩ := hopPI
       exact ⟨ifvs, rfl, rfl⟩
   subst htfvs
-  have hdropT : (tfvs0 ++ ifvs).drop p.nP = ifvs := by
+  have hdropT : (TE.tfvs ++ ifvs).drop p.nP = ifvs := by
     rw [List.drop_append_of_le_length (by omega), List.drop_of_length_le (by omega),
       List.nil_append]
   rw [hdropT] at hdeqI
-  have hlenF : fvs'.length = rP + nI + 1 := by
+  have hlenF : TE.fvs.length = rP + nI + 1 := by
     rw [ConLeche.Verify.openPisAtFvars_length _ hop, hmI]
   have hlenIf : ifvs.length = nI := ConLeche.Verify.openPisAtFvars_length _ hopI
   rw [hmI] at hlenRds hop hdeqI
@@ -355,10 +359,10 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [stripPisAV_mkPisAV_take p.nP _ _ (by omega)] at hstT
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hstT)
   rw [Nat.zero_add] at hbT
-  have hwTo : Expr.WScoped p.nP to := by
-    have := (ConLeche.openPisAtFvars_WScoped p.nP cvTa.type 0 hopT hwT).2
+  have hwTo : Expr.WScoped p.nP TE.trest := by
+    have := (ConLeche.openPisAtFvars_WScoped p.nP TE.cvTa.type 0 hopT hwT).2
     rwa [Nat.zero_add] at this
-  have hopI' : openPisAtFvars nI to (p.nP + (rP - p.nP)) = some (ifvs, trest) := by
+  have hopI' : openPisAtFvars nI TE.trest (p.nP + (rP - p.nP)) = some (ifvs, trest) := by
     rw [show p.nP + (rP - p.nP) = rP from by omega]; exact hopI
   obtain ⟨-, -, hrdI⟩ := readOpenedDoms_shift (m := mpC.base2) (ψ := ψ) (o := rP - p.nP)
     hbT hwTo hppsLen (Expr.ErasedEq.rfl _) hopI'
@@ -421,18 +425,18 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hlbTl := (ConLeche.Verify.openPisAtFvars_bounded _ hopT hbndT).2
   have hlbIl := (ConLeche.Verify.openPisAtFvars_bounded _ hopI
     (ConLeche.Verify.openPisAtFvars_bounded _ hopT hbndT).1).2
-  obtain ⟨LR, hLR⟩ : ∃ L, L = fvs'.take (rP + nI) := ⟨_, rfl⟩
-  obtain ⟨LM, hLM⟩ : ∃ L, L = tfvs0 ++ (fvs'.drop p.nP).take (rP - p.nP) ++ ifvs := ⟨_, rfl⟩
-  have hLRget : ∀ i x, LR[i]? = some x → i < rP + nI ∧ fvs'[i]? = some x := by
+  obtain ⟨LR, hLR⟩ : ∃ L, L = TE.fvs.take (rP + nI) := ⟨_, rfl⟩
+  obtain ⟨LM, hLM⟩ : ∃ L, L = TE.tfvs ++ (TE.fvs.drop p.nP).take (rP - p.nP) ++ ifvs := ⟨_, rfl⟩
+  have hLRget : ∀ i x, LR[i]? = some x → i < rP + nI ∧ TE.fvs[i]? = some x := by
     intro i x hx
     rw [hLR, List.getElem?_take] at hx
     by_cases hi : i < rP + nI
     · rw [if_pos hi] at hx; exact ⟨hi, hx⟩
     · rw [if_neg hi] at hx; exact absurd hx (by simp)
-  have hlenMid : ((fvs'.drop p.nP).take (rP - p.nP)).length = rP - p.nP := by
+  have hlenMid : ((TE.fvs.drop p.nP).take (rP - p.nP)).length = rP - p.nP := by
     rw [List.length_take, List.length_drop, hlenF]; omega
   have hLMget : ∀ i x, LM[i]? = some x →
-      (i < p.nP ∧ tfvs0[i]? = some x) ∨ (p.nP ≤ i ∧ i < rP ∧ fvs'[i]? = some x) ∨
+      (i < p.nP ∧ TE.tfvs[i]? = some x) ∨ (p.nP ≤ i ∧ i < rP ∧ TE.fvs[i]? = some x) ∨
         (rP ≤ i ∧ ifvs[i - rP]? = some x) := by
     intro i x hx
     rw [hLM] at hx
@@ -497,7 +501,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     openPisAtFvars_split (e := r.1.type) (d := 0) p.nP
       (by rw [show p.nP + (rP + nI + 1 - p.nP) = rP + nI + 1 from by omega]; exact hop)
   have hlenA : fvsA.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hopA
-  have hfvsA : fvs'.take p.nP = fvsA := by
+  have hfvsA : TE.fvs.take p.nP = fvsA := by
     rw [hfvsplit, List.take_append_of_le_length (Nat.le_of_eq hlenA.symm),
       List.take_of_length_le (Nat.le_of_eq hlenA)]
   have hdA0 : ∀ (i : Nat) (x : Expr), fvsA[i]? = some x →
@@ -505,11 +509,11 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
         = some ((dR.take p.nP).getD i default) := by
     intro i x hx
     have hi : i < p.nP := by have := (List.getElem?_eq_some_iff.mp hx).1; omega
-    have hx' : fvs'[i]? = some x := by
+    have hx' : TE.fvs[i]? = some x := by
       rw [← hfvsA, List.getElem?_take, if_pos hi] at hx; exact hx
     obtain ⟨pd, hpd, -, hrd⟩ := hbind i x hx'
     rw [hrd, getD_take' hi, hdR, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
-  have hdB0 : ∀ (i : Nat) (x : Expr), tfvs0[i]? = some x →
+  have hdB0 : ∀ (i : Nat) (x : Expr), TE.tfvs[i]? = some x →
       denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x) = some (dP.getD i default) := by
     intro i x hx
     obtain ⟨pd, hpd, -, hrd⟩ := hbindT i x hx
@@ -572,7 +576,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
       · exact absurd (Expr.fvarLeaves_lt_of_wscoped hwT lf h'') (Nat.not_lt_zero _)
       · rw [hLM]; exact List.mem_append_left _ (List.mem_append_left _ h'')
     · rw [hLM]; exact List.mem_append_right _ h'
-  have leafR : ∀ (i : Nat) (x : Expr), i < rP + nI → fvs'[i]? = some x →
+  have leafR : ∀ (i : Nat) (x : Expr), i < rP + nI → TE.fvs[i]? = some x →
       ∀ lf ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ LR := by
     intro i x hi hx lf hlf
     have hm := openerType_leaves hop hwR hx lf hlf
@@ -581,7 +585,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     have hkl : lf.1 = 0 + k := by injection hty
     have hlt : lf.1 < i := Expr.fvarLeaves_lt_of_wscoped (by simpa using hwsR i x hx) lf hlf
     rw [hLR]
-    exact List.mem_of_getElem? (show (fvs'.take (rP + nI))[k]? = some _ from by
+    exact List.mem_of_getElem? (show (TE.fvs.take (rP + nI))[k]? = some _ from by
       rw [List.getElem?_take, if_pos (by omega)]; exact hk)
   -- THE INDUCTION on the index position
   have agreeI : ∀ q, q < nI → ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ dC ys →
@@ -622,8 +626,8 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     -- the two subjects
     obtain ⟨xA, hxA⟩ : ∃ x, ifvs[q]? = some x :=
       ⟨ifvs[q]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨xB, hxB⟩ : ∃ x, fvs'[rP + q]? = some x :=
-      ⟨fvs'[rP + q]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨xB, hxB⟩ : ∃ x, TE.fvs[rP + q]? = some x :=
+      ⟨TE.fvs[rP + q]'(by omega), List.getElem?_eq_getElem (by omega)⟩
     have hxA' : LM[rP + q]? = some xA := by
       rw [hLM, List.getElem?_append_right (by rw [List.length_append, htfl, hlenMid]; omega),
         List.length_append, htfl, hlenMid, show rP + q - (p.nP + (rP - p.nP)) = q from by omega]
@@ -634,7 +638,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
         (Expr.fvarTypeD xB) = .ok true := by
       have h0 := hdeqI q (by rw [List.length_map, hlenIf]; exact hq)
       rw [getD_map_of_getElem? hxA, getD_map_of_getElem? (show
-        (List.take nI (List.drop rP fvs'))[q]? = some xB from by
+        (List.take nI (List.drop rP TE.fvs))[q]? = some xB from by
           rw [List.getElem?_take, if_pos hq, List.getElem?_drop]; exact hxB)] at h0
       exact h0
     -- the member's side agrees with the context below the position

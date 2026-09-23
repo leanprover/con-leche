@@ -229,7 +229,7 @@ block, and six of its premises are stated at them.  The RUN produces
 neither: `blockRuleCerts_of_run` is stated at one rule and one
 constructor, its `ihdoms` is `readOpenedDoms` at THAT rule's own `ih`
 opening `fvsIh`, and both that opening and the conclusion `Ca` come
-out of `checkBlockRule_data` existentially.  So a family must be
+out of the rule record (`RuleRun`) existentially.  So a family must be
 chosen, and this section chooses it.
 
 `BlockIndRuleAt` is the six `ihdoms`/`Ca`-dependent

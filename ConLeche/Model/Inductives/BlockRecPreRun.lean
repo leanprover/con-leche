@@ -2775,7 +2775,7 @@ EXISTENTIALLY quantified, so no consumer can say what `Ca` is.
 `checkBlockRule` says: the recursor's TYPE
 instantiated at the rule's prefix openers, the constructor's result
 index arguments and the fired major
-(`checkBlockRule_data`'s `instPisAtLift` clause).
+(`RuleRun.hconcl`, the `instPisAtLift` clause).
 
 **What the bundle carries is that form PAST THE PEEL.**
 `denoteMeta_instPisAtLift_peel` turns the check's `instPisAtLift` into
@@ -3772,9 +3772,9 @@ theorem checkBlockRecK_tyClosed
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) :
     Expr.WScoped 0 r.1.type ∧ r.1.type.looseBVarsBounded 0 = true := by
-  obtain ⟨⟨cv, hcv⟩, -, -, -⟩ := checkBlockRecK_tyShape h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
   obtain ⟨-, -, -, -, hlb0, hfv0, tyA, -, -, hann, -, -, -, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv hcv
+    ConLeche.checkConstantVal_inv TE.hcv
   have hrty : r.1.type = tyA := by rw [hcv']
   exact ⟨by
       rw [hrty]
@@ -5810,7 +5810,7 @@ theorem blockRuleHokΔ_of {rP nF nR : Nat} {pdoms fdoms ihdoms : List AnnotTerm}
 
 `BlockRuleCerts.of_segments` is the bundle's INTRODUCTION rule in the
 spelling its producers export: the three openings and the two typing
-runs come from stage (c)'s peel (`checkBlockRule_data`), the frame's
+runs come from stage (c)'s record (`RuleRun`), the frame's
 readings and grading come SEGMENT by segment (§39), and the residue's
 and conclusion's own readings are the rule stage's.  Nothing here is
 quantified past the rule it is about, and every semantic premise names
@@ -6826,10 +6826,9 @@ opened parameter telescope: the recursor's by `checkBlockRecTys`'
 The constructor half of the chain is already a semantic fact — it is
 what `BlockCtorsStage.frames` carries, `paramFrames` at the pins
 (`ctorFramesGen`'s first output).  The recursor half is
-`checkBlockRecTys_params` (`Verify/Inductives/BlockWF.lean`): the
-`checkBlockDefEqList` result `checkBlockRecTys_inv` discards,
-re-inverted in the style of `checkBlockRecPrefixAt_inv`; this section
-is its run-level consumer.
+the type record's `hparams` (`RecTyEntry`,
+`Verify/Inductives/BlockRecRun.lean`); this section is its run-level
+consumer.
 
 Which currency each half speaks is forced by the CHECK, not chosen
 here: `checkBlockDefEqList` compares at ONE fixed depth (`nP`), which
@@ -6873,27 +6872,6 @@ theorem spineFit_iff_sat {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
   ⟨fun hsp => by simpa using sat_of_spineFit (Δ₀ := ([] : List AnnotTerm)) (Sat_nil V ρ) hsp,
     spineFit_of_sat_consList hlen⟩
 
-/-- **Stage (b)'s parameter chain, at the run**: `checkBlockRecK`'s
-own recursor-type stage compared recursor `c`'s first `nP` binder
-domains with its member's type former's, binder by binder at depth
-`nP`. -/
-theorem checkBlockRecK_paramPins {envC : Env} {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) :
-    ∃ (cvTa : ConstantVal) (tfvs fvs : List Expr) (trest concl : Expr),
-      cvTas[p.toBlockShape.recTgtAt c]? = some cvTa ∧
-      openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
-      openPisAtFvars (p.toBlockShape.majorIdxAt c + 1) r.1.type 0 = some (fvs, concl) ∧
-      ∀ l, l < p.nP →
-        ConLeche.isDefEqCore μ envC F p.nP ((tfvs.map Expr.fvarTypeD).getD l default)
-          (((fvs.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
-  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hr
-  exact ⟨E.cvTa, E.tfvs, E.fvs, E.trest, E.concl, E.hcvTa, E.hopenT, E.hopen, E.hparams⟩
-
 /-- **THE PARAMETER HOP, at the run**: a spine fitting recursor `c`'s
 first `nP` prefix domains fits the TYPE FORMER's parameter telescope
 of the member `c` eliminates.
@@ -6920,12 +6898,13 @@ theorem blockRecParamHop_run {envC : Env} {p : ConLeche.BlockParts}
       ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take p.nP) ps) :
     SpineFit σ (((pps ψ).take p.nP).map (·.2.2)) ps := by
   have hcl : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨cvTa', tfvs, fvs, trest, concl, hcvTa', hopT, hopR, hpins⟩ :=
-    checkBlockRecK_paramPins h hr
-  obtain rfl : cvTa' = cvTa := Option.some.inj (hcvTa'.symm.trans hcvTa)
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hopT := TE.hopenT
+  have hopR := TE.hopen
+  have hpins := TE.hparams
+  obtain rfl : TE.cvTa = cvTa := Option.some.inj (TE.hcvTa.symm.trans hcvTa)
   -- the recursor type's own `nP`-opening, off the stage's `mI + 1` one
-  obtain ⟨-, hlenR, hallR⟩ := checkBlockRecK_recNames h
-  obtain ⟨-, -, -, -, -, -, hnP, -⟩ := hallR c (by omega)
+  have hnP := TE.nP_le
   have hmI : p.toBlockShape.rulePrefixAt c ≤ p.toBlockShape.majorIdxAt c :=
     blockRecHrPle (p := p) h hcl
   obtain ⟨mm, hmm⟩ : ∃ mm, p.toBlockShape.majorIdxAt c + 1 = p.nP + mm :=
@@ -6933,14 +6912,14 @@ theorem blockRecParamHop_run {envC : Env} {p : ConLeche.BlockParts}
   rw [hmm] at hopR
   obtain ⟨fvsA, fvsA', oA, hopA, -, hfvsEq⟩ := openPisAtFvars_split p.nP hopR
   have hlA : fvsA.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hopA
-  have htakeA : fvs.take p.nP = fvsA := by
+  have htakeA : TE.fvs.take p.nP = fvsA := by
     rw [hfvsEq, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
   -- and the one at the RULE PREFIX, which is where the domains are read
   obtain ⟨mm2, hmm2⟩ : ∃ mm2, p.toBlockShape.majorIdxAt c + 1
       = p.toBlockShape.rulePrefixAt c + mm2 :=
     ⟨p.toBlockShape.majorIdxAt c + 1 - p.toBlockShape.rulePrefixAt c, by omega⟩
   have hopR2 : openPisAtFvars (p.toBlockShape.rulePrefixAt c + mm2) r.1.type 0
-      = some (fvs, concl) := by rw [← hmm2, hmm]; exact hopR
+      = some (TE.fvs, TE.concl) := by rw [← hmm2, hmm]; exact hopR
   obtain ⟨fvsP, -, oP, hopP, -, -⟩ := openPisAtFvars_split _ hopR2
   -- the two domain lists
   have hlenPd := blockRulePdomsAV_length hμ mpC h hr ψ
@@ -7594,11 +7573,10 @@ produces it:
 * **stage (c)'s peel** — the `ih` opening `h₃` with the generated
   tower's three scoping facts (§40.7's, wired), the two typing runs
   `hinf`/`hdeq`, the conclusion's `instPisAtLift` equation `hpr`, and
-  the two readings `hRb`/`hCa`.  `checkBlockRule_data`
-  (`BlockRecData.lean`) produces every one of them from the rule's own
-  run; what it does NOT produce is the recursor-type list's
-  closedness, which §40.7's wiring needs at EVERY callee index and
-  which `checkBlockRecK_ruleRun` existentially discards;
+  the two readings `hRb`/`hCa`.  The rule record (`RuleRun`)
+  carries every one of them from the rule's own run; what it does NOT
+  carry is the recursor-type list's closedness, which §40.7's wiring
+  needs at EVERY callee index;
 * the **record** group the FIELD and `ih` segments consume
   (§40.8–§40.10) together with §27's `fdoms` spelling, and the
   per-key `ih` data `hIent`;

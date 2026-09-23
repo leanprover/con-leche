@@ -132,7 +132,8 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
   have hCf : cA.1.type.hasFvar = false :=
     (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hxs' : xs.length = p.toBlockShape.rulePrefixAt c := by rw [hxs, hpl]

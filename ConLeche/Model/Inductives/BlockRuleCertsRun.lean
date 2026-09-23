@@ -146,8 +146,9 @@ theorem blockRuleConclArgs_run (hμ : μ.verifiedChecks = true)
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 :=
     blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
   -- the constructor's parameter fit (the hop through the member's former)
-  obtain ⟨_, cvTa, _, _, _, _, _, -, hcvTa, -, -⟩ := checkBlockRecK_tyMajor h hr
-  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ cvTa hcvTa
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hcvTa := TE.hcvTa
+  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk j cA hcj).1 ψ
   have hcd := hcf.2.2
   have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
@@ -262,7 +263,8 @@ theorem blockRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
   have hcbC : ConstsBound envC cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-  obtain ⟨_, _, _, _, _, _, _, -, -, hnP, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hnP := TE.nP_le
   have hct : blockRuleCtorOf rs c j = cA := blockRuleCtorOf_eq hr hcA
   -- the constructor's opened telescope: `hstripC`, `hksLen`
   obtain ⟨crestC, hoP, hoF⟩ := hcd.opens

@@ -19,7 +19,7 @@ This file produces it from the recursor stage's run and the members'
 own former data.
 
 It is a LEAF module and it has to be: it consumes `prefixDoms_spineFit`
-(`BlockRecPreRun`) and `checkBlockRecK_tyPis`/`checkBlockRecK_tyMajor`
+(`BlockRecPreRun`) and `checkBlockRecK_tyPis`/`checkBlockRecK_tyAt`
 (`BlockRecMem`, which `BlockRecPreRun` sits above), so it can be an
 addition to neither.
 
@@ -144,11 +144,23 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
           (paramBvarsAt d.nP (p.toBlockShape.majorIdxAt c)
             ++ teleVarsAV (d.nIdxAt (p.toBlockShape.recTgtAt c))) := by
   obtain ⟨hnPq, hkq, -, hcvF, hmsF, -, -⟩ := hmr
-  obtain ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hms, hcvTa, hnPle, hmI, hop, hopT, htfl,
-    hdeq, hmaj0, hfn, hargl, hargP, hargI⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hms := TE.hms
+  have hcvTa := TE.hcvTa
+  have hnPle := TE.nP_le
+  have hmI := TE.hmI
+  have hop := TE.hopen
+  have hopT := TE.hopenT
+  have htfl := TE.htfvs
+  have hdeq := TE.hparams
+  have hmaj0 := TE.hmaj
+  have hfn := TE.hmajFn
+  have hargl := TE.hmajLen
+  have hargP := TE.hmajParams
+  have hargI := TE.hmajIdx
   obtain ⟨fvsL, conclL, hopL, hread, hmk, hlenRds, hbits, hbind, hconclRead, hwdTy⟩ :=
     checkBlockRecK_tyPis hμ mpC h hr ψ
-  have hfvE : fvsL = fvs := by
+  have hfvE : fvsL = TE.fvs := by
     have hq := Option.some.inj (hopL.symm.trans hop)
     exact congrArg Prod.fst hq
   rw [hfvE] at hbind
@@ -162,29 +174,29 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
       = p.toBlockShape.rulePrefixAt c + d.nIdxAt (p.toBlockShape.recTgtAt c) := by
     rw [hnIdxMs]; exact hmI
   -- the major's TYPE, reassembled from the pin
-  have hmajTy : Expr.fvarTypeD maj
-      = Expr.mkAppN (.const ms.cvT.name (p.toBlockShape.lps.map .param))
-        (fvs.take p.nP
-          ++ (fvs.drop (p.toBlockShape.rulePrefixAt c)).take ms.nIdx) := by
-    conv => lhs; rw [← ConLeche.Expr.mkAppN_getApp (Expr.fvarTypeD maj)]
+  have hmajTy : Expr.fvarTypeD TE.maj
+      = Expr.mkAppN (.const TE.ms.cvT.name (p.toBlockShape.lps.map .param))
+        (TE.fvs.take p.nP
+          ++ (TE.fvs.drop (p.toBlockShape.rulePrefixAt c)).take TE.ms.nIdx) := by
+    conv => lhs; rw [← ConLeche.Expr.mkAppN_getApp (Expr.fvarTypeD TE.maj)]
     rw [hfn, ← hargP, ← hargI, List.take_append_drop]
   -- the head
-  have hnameEq : ms.cvT.name = cvTa.name := by rw [← hnameMs, hnameCv]
+  have hnameEq : TE.ms.cvT.name = TE.cvTa.name := by rw [← hnameMs, hnameCv]
   have hconst : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt c)
-      (.const ms.cvT.name (p.toBlockShape.lps.map .param))
+      (.const TE.ms.cvT.name (p.toBlockShape.lps.map .param))
       = some (mpC.base2.acval (d.memberName (p.toBlockShape.recTgtAt c)) ψ) := by
-    rw [denoteMeta_const (ci := .indInfo cvTa caps) (by rw [hnameEq]; exact hfind)
-      (by rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl, hlpsE,
+    rw [denoteMeta_const (ci := .indInfo TE.cvTa caps) (by rw [hnameEq]; exact hfind)
+      (by rw [show (ConstantInfo.indInfo TE.cvTa caps).toConstantVal = TE.cvTa from rfl, hlpsE,
         List.length_map])]
-    rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl, hlpsE,
+    rw [show (ConstantInfo.indInfo TE.cvTa caps).toConstantVal = TE.cvTa from rfl, hlpsE,
       Level.substFn_param_self, hnameMs]
   -- the two argument spines
-  have hlenFvs : fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
+  have hlenFvs : TE.fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
     ConLeche.Verify.openPisAtFvars_length _ hop
   have hidxFvs := ConLeche.openPisAtFvars_index _ _ _ hop
-  have hlenTake : (fvs.take p.nP).length = p.nP := by
+  have hlenTake : (TE.fvs.take p.nP).length = p.nP := by
     rw [List.length_take, hlenFvs]; omega
-  have hidxTake : ∀ (k : Nat) (x : Expr), (fvs.take p.nP)[k]? = some x →
+  have hidxTake : ∀ (k : Nat) (x : Expr), (TE.fvs.take p.nP)[k]? = some x →
       ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     have hk : k < p.nP := by
@@ -195,41 +207,41 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
     exact ⟨ty, by rw [hty, Nat.zero_add]⟩
   have hspP := denoteMetaSpine_params (acval := mpC.base2.acval) (env := envC) (φ := ψ)
     (p.toBlockShape.majorIdxAt c) hlenTake hidxTake
-  have hlenI : ((fvs.drop (p.toBlockShape.rulePrefixAt c)).take ms.nIdx).length = ms.nIdx := by
+  have hlenI : ((TE.fvs.drop (p.toBlockShape.rulePrefixAt c)).take TE.ms.nIdx).length = TE.ms.nIdx := by
     rw [List.length_take, List.length_drop, hlenFvs]; omega
   have hidxI : ∀ (k : Nat) (x : Expr),
-      ((fvs.drop (p.toBlockShape.rulePrefixAt c)).take ms.nIdx)[k]? = some x →
+      ((TE.fvs.drop (p.toBlockShape.rulePrefixAt c)).take TE.ms.nIdx)[k]? = some x →
       ∃ ty, x = Expr.fvar (p.toBlockShape.rulePrefixAt c + k) ty := by
     intro k x hx
-    have hk : k < ms.nIdx := by
+    have hk : k < TE.ms.nIdx := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       rw [hlenI] at this; exact this
     rw [List.getElem?_take, if_pos hk, List.getElem?_drop] at hx
     obtain ⟨ty, hty⟩ := hidxFvs _ x hx
     exact ⟨ty, by rw [hty, Nat.zero_add]⟩
   have hspI0 := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ)
-    (p.toBlockShape.majorIdxAt c) ((fvs.drop (p.toBlockShape.rulePrefixAt c)).take ms.nIdx)
+    (p.toBlockShape.majorIdxAt c) ((TE.fvs.drop (p.toBlockShape.rulePrefixAt c)).take TE.ms.nIdx)
     (p.toBlockShape.rulePrefixAt c) hidxI
   rw [hlenI] at hspI0
-  have hteleE : ((List.range ms.nIdx).map fun k =>
+  have hteleE : ((List.range TE.ms.nIdx).map fun k =>
         (AnnotTerm.bvar (p.toBlockShape.majorIdxAt c - 1
           - (p.toBlockShape.rulePrefixAt c + k))))
-      = teleVarsAV ms.nIdx := by
+      = teleVarsAV TE.ms.nIdx := by
     rw [teleVarsAV]
     refine List.map_congr_left fun k hk => ?_
-    have hk' : k < ms.nIdx := by simpa using hk
+    have hk' : k < TE.ms.nIdx := by simpa using hk
     rw [hmI]
     congr 1
     omega
   rw [hteleE] at hspI0
   -- the reading, and its position in the binder data
   have hreadMaj : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt c)
-      (Expr.fvarTypeD maj)
+      (Expr.fvarTypeD TE.maj)
       = some (AnnotTerm.mkAppN
           (mpC.base2.acval (d.memberName (p.toBlockShape.recTgtAt c)) ψ)
-          (paramBvarsAt p.nP (p.toBlockShape.majorIdxAt c) ++ teleVarsAV ms.nIdx)) := by
+          (paramBvarsAt p.nP (p.toBlockShape.majorIdxAt c) ++ teleVarsAV TE.ms.nIdx)) := by
     rw [hmajTy, denoteMeta_mkAppN_of _ hconst (DenoteMetaSpine.append hspP hspI0)]
-  obtain ⟨pd, hpd, -, hreadB⟩ := hbind _ maj hmaj0
+  obtain ⟨pd, hpd, -, hreadB⟩ := hbind _ TE.maj hmaj0
   refine ⟨hnPle', hmemk, hmI', hlenRds, ?_⟩
   rw [List.getD_eq_getElem?_getD, hpd, Option.getD_some, hnPq, hnIdxMs,
     ← Option.some.inj (hreadB.symm.trans hreadMaj)]
@@ -367,11 +379,16 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
   intro xs
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, hparIff⟩ := hmr
-  obtain ⟨ms, cvTa, fvs, tfvs, concl, to, maj, hms, hcvTa, -, -, hop, hopT, htfl,
-    hdeq, -, -, -, -, -⟩ := checkBlockRecK_tyMajor h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  have hms := TE.hms
+  have hcvTa := TE.hcvTa
+  have hop := TE.hopen
+  have hopT := TE.hopenT
+  have htfl := TE.htfvs
+  have hdeq := TE.hparams
   obtain ⟨fvsL, conclL, hopL, hread, hmk, -, -, hbind, -, hwdTy⟩ :=
     checkBlockRecK_tyPis hμ mpC h hr ψ
-  have hfvE : fvsL = fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
+  have hfvE : fvsL = TE.fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
   rw [hfvE] at hbind
   obtain ⟨-, -, -, hfvT, hbndT, hFD⟩ := hcvF _ _ hcvTa
   have hppsLen : (d.ppsM (p.toBlockShape.recTgtAt c) ψ).length
@@ -384,7 +401,7 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
             = p.toBlockShape.majorIdxAt c + 1 from by omega]
           exact hop)
   have hlenA : fvsA.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hopA
-  have hfvsA : fvs.take p.nP = fvsA := by
+  have hfvsA : TE.fvs.take p.nP = fvsA := by
     rw [hfvsplit, List.take_append_of_le_length (Nat.le_of_eq hlenA.symm),
       List.take_of_length_le (Nat.le_of_eq hlenA)]
   -- the two domain lists, their readings and their gradings
@@ -403,7 +420,7 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     have hi : i < p.nP := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       rw [hlenA] at this; exact this
-    have hx' : fvs[i]? = some x := by
+    have hx' : TE.fvs[i]? = some x := by
       rw [← hfvsA, List.getElem?_take, if_pos hi] at hx
       exact hx
     obtain ⟨pd, hpd, -, hreadD⟩ := hbind i x hx'
@@ -427,7 +444,7 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
       (.sort (d.resSort.eval ψ)) (by rw [hppsLen, hnPq]; omega)
     rw [this] at hstT
     exact congrArg Prod.fst (Option.some.inj hstT.symm)
-  have hdB : ∀ (i : Nat) (x : Expr), tfvs[i]? = some x →
+  have hdB : ∀ (i : Nat) (x : Expr), TE.tfvs[i]? = some x →
       denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x)
         = some ((((d.ppsM (p.toBlockShape.recTgtAt c) ψ).take d.nP).map (·.2.2)).getD i
             default) := by
@@ -1055,8 +1072,8 @@ with the two rule-side premises discharged.
 content — `hspine` (the guarded call's fold) and `hW` (the walk's entry
 context); the rest are the environment facts, the frame's three openings and the run-level peel
 of the check's own witnesses (`abstractIh`, the scope guards, the two
-readings and `IhTyped`), every one of which `checkBlockRule_data`
-returns.  So the theorem below takes the peel's rows verbatim and
+readings and `IhTyped`), every one of which the rule record
+(`RuleRun`) carries.  So the theorem below takes the peel's rows verbatim and
 builds the two content premises itself.
 
 **The frame, once.**  `F = rP + nF` is forced by `hF`/`hrP`, so the

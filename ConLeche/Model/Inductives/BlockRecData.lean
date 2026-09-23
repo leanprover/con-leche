@@ -2833,7 +2833,7 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
 
 /-- **The frame's recursor names ARE the stored data's.**  The rule
 stage is called at `p.recs.map (·.cvR.name)`
-(`checkBlockRecK_ruleRun`) and `checkConstantVal` stores the record's
+(`RecKRun.ruleAt`) and `checkConstantVal` stores the record's
 name unchanged, so the two spellings agree list-wise. -/
 theorem checkBlockRecK_recNamesEq
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :

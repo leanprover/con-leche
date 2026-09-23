@@ -903,6 +903,28 @@ theorem ruleOf (R : RecKRun mode F env p cvTas ctorsAs rs)
 
 end RecKRun
 
+/-- **Stage (b)'s record at a STORED recursor, off the run.** -/
+theorem checkBlockRecK_tyAt {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) {i : Nat}
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[i]? = some r) :
+    ∃ rc u, p.recs[i]? = some rc ∧
+      Nonempty (RecTyEntry mode F env p.toBlockShape (blockNested p.kinds) cvTas i rc r.1
+        r.2.2.1 u) := by
+  obtain ⟨R⟩ := checkBlockRecK_run h
+  obtain ⟨rc, u, hrc, -, E⟩ := R.tyAt hr
+  exact ⟨rc, u, hrc, E⟩
+
+/-- **One stored recursor per record.** -/
+theorem checkBlockRecK_len {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
+    rs.length = p.recs.length := by
+  obtain ⟨R⟩ := checkBlockRecK_run h
+  exact R.len
+
 /-- **The CHECK's own well-formedness contract**: every stored
 recursor type is a CHECKED constant's, and every stored rule is the
 ANNOTATED stream right-hand side, scoped at the BARE-`k` environment. -/
