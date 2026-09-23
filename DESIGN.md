@@ -84703,7 +84703,8 @@ surprises show up before the proofs.  Report:
   where today accepts the block and rejects its model record) or a
   charter item 8 superset (`corner_nestpos_{redex,group}_bad`).
   Arena: 324 blocks, all agree.  init-full: 585 blocks, all agree.
-  Mathlib: see the report.
+  Mathlib: 6721 blocks, all agree (41 nested: accepted end to end, `rec`
+  on the full auxiliary family); exit 0.
 - **Questions for the maintainer** (fixtures forged by
   `scripts/mk_tshadow_corner.py`): **Q1** — a family recursor whose major
   is an OUTSIDE inductive in ANOTHER universe than the block
