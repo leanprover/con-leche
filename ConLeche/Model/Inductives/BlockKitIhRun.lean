@@ -1,14 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.BlockRecIdxConv
-import ConLeche.Model.Inductives.BlockModel
+import ConLeche.Model.Inductives.BlockRuleGrading
 public import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockKitRuleRun
 import ConLeche.Model.Inductives.BlockFieldRead
-import ConLeche.Model.Inductives.BlockRecRegimes
 import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Rules.InferSoundKit
 
 public section
 
@@ -1055,7 +1051,9 @@ theorem blockWfIhF_run (hμ : μ.verifiedChecks = true)
     rfl
   rw [hval]
   obtain ⟨-, -, -, -, -, -, -, hpw⟩ := blockRuleFrameAt_rows (pp := p) hct
-  refine blockRecIhv_mem hℓ (fun dd hdd => ?_) (fun bs hbs => ?_)
+  refine blockRecIhv_mem (V := V) (c' := c')
+    (tup := fun c'' is => (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tup ψ
+      (p.toBlockShape.recTgtAt c'') is) hℓ (fun dd hdd => ?_) (fun bs hbs => ?_)
   · unfold blockKitTlA at hdd
     obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hdd
     rw [he, mem_rebit hd', hpw]
@@ -1499,7 +1497,9 @@ theorem blockSqIhF_run (hμ : μ.verifiedChecks = true)
     rfl
   rw [hval]
   obtain ⟨-, -, -, -, -, -, -, hpw⟩ := blockRuleFrameAt_rows (pp := p) hct
-  refine blockRecIhv_mem hℓ (fun dd hdd => ?_) (fun bs hbs => ?_)
+  refine blockRecIhv_mem (V := V) (c' := c')
+    (tup := fun c'' is => (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).tup ψ
+      (p.toBlockShape.recTgtAt c'') is) hℓ (fun dd hdd => ?_) (fun bs hbs => ?_)
   · unfold blockKitTlA at hdd
     obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hdd
     rw [he, mem_rebit hd', hpw]

@@ -1,7 +1,7 @@
 module
 
+import ConLeche.Model.Inductives.BlockRuleFit
 public import ConLeche.Model.Inductives.BlockRecPreRun
-public import ConLeche.Model.Inductives.BlockRuleFit
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Annot.BitInst

@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (lane RM55, regime IND's rows): `BlockIndRuleRun.lean`'s one
+    # remaining `public import` is where its `variable` binder gets
+    # `[SetTheory V]` and its public statements get `blockRuleCaAV`.
+    # MEASURED: demoting it alone fails the build with `Unknown identifier
+    # SetTheory` (`:62`).
+    ('ConLeche.Model.Inductives.BlockIndRuleRun',
+     'ConLeche.Model.Inductives.BlockRuleCaRun'),
     # task #315 (lane ETA1, the k-ary η-closure): `DeclBlockEta.lean`'s two
     # re-exports are named by its PUBLIC statements (`BlockShape`,
     # `consBlockInds`, … through `DeclBlock`; `ExtEta`, `EtaFamiliesClosed`

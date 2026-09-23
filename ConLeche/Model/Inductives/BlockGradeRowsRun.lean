@@ -1,7 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRuleGrading
-public import ConLeche.Model.Inductives.BlockKitRuleRun
+public import ConLeche.Model.Inductives.BlockRuleRun
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRuleGrading
+import ConLeche.Model.Inductives.BlockKitRuleRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Rules.InferSoundKit

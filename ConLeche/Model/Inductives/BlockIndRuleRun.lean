@@ -1,12 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockKitRuleRun
-public import ConLeche.Model.Inductives.BlockRuleGrading
-public import ConLeche.Model.Inductives.BlockIndRegimeRun
+import ConLeche.Model.Inductives.BlockKitIhRun
+import ConLeche.Model.Inductives.BlockRuleGrading
+import ConLeche.Model.Inductives.BlockKitRuleRun
 public import ConLeche.Model.Inductives.BlockRuleCaRun
-public import ConLeche.Model.Inductives.BlockKitIhRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Annot.BitInst
 
 public section
 

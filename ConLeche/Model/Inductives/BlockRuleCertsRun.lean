@@ -1,5 +1,8 @@
 module
 
+import ConLeche.Model.Inductives.BlockKitIhRun
+import ConLeche.Model.Inductives.BlockRuleGrading
+import ConLeche.Model.Inductives.BlockKitRuleRun
 public import ConLeche.Model.Inductives.BlockRuleCaRun
 import ConLeche.Model.Inductives.BlockIndRuleRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
