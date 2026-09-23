@@ -4,6 +4,8 @@ public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.Bridge.SoundOne
 import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
+import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.IndBlockRun
 
 @[expose] public section
 
@@ -79,5 +81,20 @@ theorem checkDeclRun_ofEnvFactsK
           exact declIndRun_of hh
       · rw [if_neg hok] at hh
         exact nomatch hh) h
+
+/-- **The `.indDecl` run dispatch at k members keeps the η-families
+closed** (lane ETA1): `declIndRunDispatchEtaClosed` at
+`DeclIndRunDispatchK`, by the kernel's own case split — the uniform
+arm's `declBlockRun_etaClosed`, the modeled arm's `declIndEtaClosedRun`
+unchanged.  Like the dispatch, it reads neither gate: it is the η half
+the fold takes at the flip. -/
+theorem declIndRunDispatchKEtaClosed {μ : CheckMode} {F : Nat}
+    {env envI : Env} {block : List ConstantInfo} {nP : Nat}
+    (hE : EtaFamiliesClosed env)
+    (h : DeclIndRunDispatchK μ F env block nP envI) : EtaFamiliesClosed envI := by
+  unfold DeclIndRunDispatchK at h
+  split at h
+  · exact declBlockRun_etaClosed hE h
+  · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics
