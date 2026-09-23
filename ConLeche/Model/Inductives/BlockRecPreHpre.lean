@@ -700,56 +700,65 @@ theorem blockKitRegime_wf_run (hμ : μ.verifiedChecks = true)
             c' => d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt
             ((p.toBlockShape.recTgtAt) c')) ρ xs
               (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)))
-    (hrule : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) rs.length (p.toBlockShape.rulePrefixAt)
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockRecConclAV mpC.base2.acval
-      envC p.toBlockShape rs ψ) ρ), ∀ c, c < rs.length → ∀ j, j < (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame rs.length (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape
-          rs ψ) c j) (xs ++ fs) →
-        SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) c).map (·.2.2))
-          (xs ++ (((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j).map
-            (interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)))
-            ++ [interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)) ((blockRecMkK
-              rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j)])))
-    (hctorAt : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) rs.length
-      (p.toBlockShape.rulePrefixAt) (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) ρ), ∀ c, c < rs.length → ∀ j, j <
-      (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame rs.length (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape
-          rs ψ) c j) (xs ++ fs) →
+    -- the three rule bridges at the ONE datum the arm builds (RM51)
+    (hrule : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
+          (xs ++ ((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+            (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)))
+            ++ [interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ))
+              (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)])))
+    (hctorAt : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
             (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
               (d.Φ ψ (consList (xs.take d.nP) ρ)))
-            (d.tup ψ ((p.toBlockShape.recTgtAt) c)
-              (((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j).map (interp
-                V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)))))
-            ((p.toBlockShape.recTgtAt) c) j fs ∧
-          interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)) ((blockRecMkK
-            rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j)
-            = d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)
-    (hihChain : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) rs.length
-      (p.toBlockShape.rulePrefixAt) (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) ρ), ∀ c, c < rs.length → ∀ j, j <
-      (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame rs.length (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape
-          rs ψ) c j) (xs ++ fs) →
+            (d.tup ψ (p.toBlockShape.recTgtAt c)
+              ((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+                (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)))))
+            (p.toBlockShape.recTgtAt c) j fs ∧
+          interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ))
+              (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)
+            = d.inj ψ (p.toBlockShape.recTgtAt c) j fs)
+    (hihChain : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
         ihv xs c j fs
-            (kitGraphAt (D.kit xs)
+            (blockWfGraph ((us.headD .zero).eval ψ) rs.length d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+              p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv xs
               (tagged c
-                (D.tupOf c
-                  (((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j).map
-                    (interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)))))
-                (interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)) ((blockRecMkK
-                  rs.length mpC.base2.acval envC p.toBlockShape rs ψ) c j))))
-          = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame rs.length (famCand D) ρ)))) :
+                (d.tup ψ (p.toBlockShape.recTgtAt c)
+                  ((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+                    (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)))))
+                (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ))
+                  (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j))))
+          = (ihs c j).map
+              (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)))) :
     KitRegimeAt V ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
       (blockRecNCt rs) (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
       (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
@@ -790,12 +799,13 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
     (hw : d.w ψ = 0)
     (hN : d.N = 1)
     (hmem0 : (p.toBlockShape.recTgtAt) 0 = 0)
-    (hnCt1 : ∀ c, c < 1 → (d.ctorsM ((p.toBlockShape.recTgtAt) c)).length = 1)
-    (hnCt : ∀ c, c < 1 → (blockRecNCt rs) c = 1)
+    (hnCt1 : ∀ c, c < 1 → (d.ctorsM ((p.toBlockShape.recTgtAt) c)).length ≤ 1)
+    (hnCt : ∀ c, c < 1 → (d.ctorsM ((p.toBlockShape.recTgtAt) c)).length = (blockRecNCt rs) c)
     (htgt : ∀ i, d.tgts 0 0 i = 0)
     (hlenIds : ∀ c, c < 1 → (d.IdsM ((p.toBlockShape.recTgtAt) c) ψ).length = d.nIdxAt
       ((p.toBlockShape.recTgtAt) c))
-    (hsrcAt : ∀ xs : List V, ∀ X,
+    (hsrcAt : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
+        0 < (d.ctorsM 0).length → ∀ X,
         InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
         TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
@@ -853,53 +863,61 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
             d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt ((p.toBlockShape.recTgtAt)
             c')) ρ xs
               (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)))
-    (hrule : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) 1 (p.toBlockShape.rulePrefixAt)
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockRecConclAV mpC.base2.acval
-      envC p.toBlockShape rs ψ) ρ), ∀ c, c < 1 → ∀ j, j < (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame 1 (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c
-          j) (xs ++ fs) →
-        SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) c).map (·.2.2))
-          (xs ++ (((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c j).map (interp V
-            (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ)))
-            ++ [interp V (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ)) ((blockRecMkK 1
-              mpC.base2.acval envC p.toBlockShape rs ψ) c j)])))
-    (hsrcRule : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) 1 (p.toBlockShape.rulePrefixAt)
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockRecConclAV mpC.base2.acval
-      envC p.toBlockShape rs ψ) ρ), ∀ c, c < 1 → ∀ j, j < (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame 1 (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c
-          j) (xs ++ fs) →
+    -- the four rule bridges at the ONE datum the arm builds (RM51)
+    (hrule : ∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
+          (xs ++ ((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+            (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)))
+            ++ [interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ))
+              (blockRecMkK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)])))
+    (hsrcRule : ∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
         j = 0 ∧
           srcVals
-              (isOfW (d.uM ((p.toBlockShape.recTgtAt) c) ψ) (d.nIdxAt ((p.toBlockShape.recTgtAt)
-                c))
-                (d.tup ψ ((p.toBlockShape.recTgtAt) c)
-                  (((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c j).map (interp V
-                    (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ))))))
+              (isOfW (d.uM (p.toBlockShape.recTgtAt c) ψ) (d.nIdxAt (p.toBlockShape.recTgtAt c))
+                (d.tup ψ (p.toBlockShape.recTgtAt c)
+                  ((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+                    (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ))))))
               (srcs c)
             = fs)
-    (hihChain : ∀ (D : RecFamData V ((us.headD .zero).eval ψ) 1 (p.toBlockShape.rulePrefixAt)
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockRecConclAV mpC.base2.acval
-      envC p.toBlockShape rs ψ) ρ), ∀ c, c < 1 → ∀ j, j < (blockRecNCt rs) c →
-        ∀ xs fs : List V, xs.length = ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          c).length →
-        SpineFit (chainFrame 1 (famCand D) ρ) ((blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) c ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c
-          j) (xs ++ fs) →
+    (hihChain : ∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
+        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
         ihv xs c j fs
-            (kitGraphAt (D.kit xs)
+            (blockSqGraph ((us.headD .zero).eval ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+              p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv xs
               (tagged c
-                (D.tupOf c
-                  (((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ) c j).map (interp V
-                    (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ)))))
-                (interp V (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ)) ((blockRecMkK 1
-                  mpC.base2.acval envC p.toBlockShape rs ψ) c j))))
-          = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame 1 (famCand D) ρ)))) :
+                (d.tup ψ (p.toBlockShape.recTgtAt c)
+                  ((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+                    (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)))))
+                (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ))
+                  (blockRecMkK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j))))
+          = (ihs c j).map
+              (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)))) :
     KitRegimeAt V ((us.headD .zero).eval ψ) 1 p.toBlockShape.rulePrefixAt
       (blockRecNCt rs) (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ)
       (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ)
