@@ -675,7 +675,7 @@ theorem normPosDom_datF (env : Env) (names : List Name) (F : Nat) (fuel : Nat) :
     · split
       · rename_i dom body bm _
         split
-        · simp only [FueledM.atF_throw]
+        · simp only [FueledM.atF_pure]
         · simp only [FueledM.atF_bind, FueledM.atF_pure,
             ih (d + 1) (body.instantiate1 (.fvar d dom))]
       · simp only [FueledM.atF_pure]

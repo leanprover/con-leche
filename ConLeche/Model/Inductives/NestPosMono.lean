@@ -48,7 +48,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level CheckError CheckM NestCtx NestKey NestState NestFieldKind
+open ConLeche (Env Expr Name Level CheckError CheckM NestCtx NestKey NestHole NestState NestFieldKind
   nestPos nestCont fueledOps)
 
 universe w
@@ -300,18 +300,18 @@ theorem constOn_spine {names : List Name} {lo hi d : Nat} {R : FrameRel V}
 frames satisfy the context, agree off the hole positions, the member
 holes grow (at their full arity), and every frame's hole is
 parameter-blind and grows. -/
-structure HoleRel (ctx : NestCtx) (prog : List NestKey) (d : Nat) (Δa : List AnnotTerm)
+structure HoleRel (ctx : NestCtx) (prog : List NestHole) (d : Nat) (Δa : List AnnotTerm)
     (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
   agree : R.AgreesOff (holeP d ctx.nP (ctx.hiAt prog.length))
   member : ∀ t, t < ctx.names.length →
     HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nP + ctx.nIdxs.getD t 0)
-  frame : ∀ i key, prog.reverse[i]? = some key → ∀ ni,
-    HoleOnBlind R (d - 1 - (ctx.hiAt 0 + i)) key.ds.length ni
+  frame : ∀ i hk, prog.reverse[i]? = some hk → ∀ ni,
+    HoleOnBlind R (d - 1 - (ctx.hiAt 0 + i)) hk.key.ds.length ni
 
 /-- **Under a positive binder** (a hole-free domain, or an earlier field)
 the relation is the same one level deeper. -/
-theorem HoleRel.under {ctx : NestCtx} {prog : List NestKey} {d : Nat} {Δa : List AnnotTerm}
+theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
     {R : FrameRel V} (h : HoleRel ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
     {ta : AnnotTerm} (hA : MonoOn R ta) :
     HoleRel ctx prog (d + 1) (ta :: Δa) (R.under ta) where
@@ -343,11 +343,11 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestKey} {d : Nat} {Δa : Lis
 /-- A run of the positivity function (or of its recursive call one fuel
 lower) whose reading is proved positive. -/
 @[expose] def NestPosSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)) :
+    (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
     Prop :=
-  ∀ (prog : List NestKey) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
-    (st' : NestState),
-    rec prog dep kb e st = .ok (k, st') → st'.cyclic = false →
+  ∀ (prog : List NestHole) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
+    (nf : Expr) (st' : NestState),
+    rec prog dep kb e st = .ok (k, nf, st') → st'.restart = none →
     ctx.hiAt prog.length ≤ dep → Frame dep e →
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
       CtxOk m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
@@ -357,12 +357,12 @@ lower) whose reading is proved positive. -/
 successful `nestCont` at a container reduct whose recursive call is
 positive makes the reduct's reading positive. -/
 @[expose] def ContSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)) :
+    (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
     Prop :=
-  ∀ (prog : List NestKey) (dep kb : Nat) (w : Expr) (n : Name) (us : List Level)
+  ∀ (prog : List NestHole) (dep kb : Nat) (w : Expr) (n : Name) (us : List Level)
     (st : NestState) (k : NestFieldKind) (st' : NestState),
     w.getAppFn = .const n us → ctx.names.contains n = false →
-    nestCont ctx rec prog kb n us w.getAppArgs st = .ok (k, st') → st'.cyclic = false →
+    nestCont ctx rec prog kb n us w.getAppArgs st = .ok (k, st') → st'.restart = none →
     ctx.hiAt prog.length ≤ dep → Frame dep w →
     ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
       CtxOk m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
@@ -370,7 +370,7 @@ positive makes the reduct's reading positive. -/
 
 /-- **THE THEOREM (non-container cases): a run of `nestPos` is positive.**
 If the positivity function returns (at the pure verified instantiation,
-at any fuel), with no cycle through a container's mutual group, then
+at any fuel), leaving no restart request pending, then
 the reading of its input is monotone along every hole relation — at
 every valuation of the other variables satisfying the context.  By
 inversion of the run: the whnf step by `red_sound`, then `const`,
@@ -382,10 +382,10 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
   intro fuel
   induction fuel with
   | zero =>
-    intro prog dep kb e st k st' hrun
+    intro prog dep kb e st k nf st' hrun
     simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
   | succ fuel ih =>
-    intro prog dep kb e st k st' hrun hcyc hhi hfr Δa ea R hC hea hgr hR
+    intro prog dep kb e st k nf st' hrun hcyc hhi hfr Δa ea R hC hea hgr hR
     rw [nestPos] at hrun
     cases hw : ConLeche.whnf .verified env F dep e with
     | error err =>
@@ -419,7 +419,13 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
           (denoteMeta_noBVar_of_nestOcc dep a hws.1 hhi (by simpa using ha) hta)
         obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgw
         have hCop := CtxOk.openS hCw.forallE_ty hCw.forallE_body hta hgA
-        have hB := ih prog (dep + 1) (kb + 1) _ st k st' hrun hcyc (by omega)
+        split at hrun
+        · simp at hrun
+        rename_i v hv
+        obtain ⟨k₁, nb, st₁⟩ := v
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨-, -, rfl⟩ := hrun
+        have hB := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv hcyc (by omega)
           (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hCop hba hgB (hR.under hhi hA.monoOn)
         exact MonoOn.pi 0 _ hA hB
       · -- a head applied to arguments
@@ -465,19 +471,19 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
               split at hrun
               · simp [throw, throwThe, MonadExceptOf.throw] at hrun
               · rename_i key hk
-                by_cases hpar : (decide (key.ds.length ≤ w.getAppArgs.length) &&
-                    (List.take key.ds.length w.getAppArgs == key.ds)) = true
+                by_cases hpar : (decide (key.key.ds.length ≤ w.getAppArgs.length) &&
+                    (List.take key.key.ds.length w.getAppArgs == key.key.ds)) = true
                 · rw [if_pos hpar] at hrun
-                  by_cases hidx : ((w.getAppArgs.drop key.ds.length).all fun x =>
+                  by_cases hidx : ((w.getAppArgs.drop key.key.ds.length).all fun x =>
                       !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x) = true
                   · simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
                     simp only [List.all_eq_true, Bool.not_eq_true'] at hidx
-                    rw [← List.take_append_drop key.ds.length w.getAppArgs] at hsp
+                    rw [← List.take_append_drop key.key.ds.length w.getAppArgs] at hsp
                     obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
                     have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
                       ⟨hwsargs a (List.mem_of_mem_drop ha), by simpa using hidx a ha⟩
                     have hh := hR.frame (i - ctx.hiAt 0) key hk vs₂.length
-                    have hl₁ : key.ds.length = vs₁.length := by
+                    have hl₁ : key.key.ds.length = vs₁.length := by
                       rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]; omega
                     rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega,
                       hl₁] at hh
@@ -494,129 +500,15 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
           · rw [if_pos hnm] at hrun
             simp [throw, throwThe, MonadExceptOf.throw] at hrun
           rw [if_neg hnm] at hrun
-          exact hcont _ ih prog dep kb w n us st k st' hfn (by simpa using hnm) hrun hcyc hhi
+          split at hrun
+          · simp at hrun
+          rename_i v hv
+          obtain ⟨k₁, st₁⟩ := v
+          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+          obtain ⟨-, -, rfl⟩ := hrun
+          exact hcont _ ih prog dep kb w n us st k₁ _ hfn (by simpa using hnm) hv hcyc hhi
             hfrw hCw hwa hgw hR
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
-
-/-! ## The cycle flag only ever rises -/
-
-/-- A run never lowers the cycle flag. -/
-@[expose] def CycMono
-    (rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)) :
-    Prop :=
-  ∀ (prog : List NestKey) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
-    (st' : NestState), rec prog dep kb e st = .ok (k, st') → st.cyclic = true →
-    st'.cyclic = true
-
-theorem nestContainerC_cyclic (ctx : NestCtx) (st : NestState) (n : Name) :
-    (ConLeche.nestContainerC ctx st n).2.cyclic = st.cyclic := by
-  unfold ConLeche.nestContainerC
-  split <;> rfl
-
-theorem nestFields_cyc
-    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
-    (hrec : CycMono rec) {prog : List NestKey} {base : Nat} {err : CheckError} :
-    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind) (res : Expr)
-      (st' : NestState), ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, res, st') →
-      st.cyclic = true → st'.cyclic = true := by
-  intro nF
-  induction nF with
-  | zero =>
-    intro j cur st ks res st' h hc
-    simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    rw [← h.2.2]; exact hc
-  | succ nF ih =>
-    intro j cur st ks res st' h hc
-    unfold ConLeche.nestFields at h
-    split at h
-    · simp only [bind, Except.bind] at h
-      split at h
-      · exact nomatch h
-      · rename_i r₁ hr₁
-        obtain ⟨k₁, st₁⟩ := r₁
-        simp only at h
-        split at h
-        · exact nomatch h
-        · rename_i r₂ hr₂
-          obtain ⟨ks₂, res₂, st₂⟩ := r₂
-          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-          rw [← h.2.2]
-          exact ih _ _ _ _ _ _ hr₂ (hrec _ _ _ _ _ _ _ hr₁ hc)
-    · exact nomatch h
-
-@[simp] theorem throw_checkM_ne_ok {α : Type} (e : CheckError) (x : α) :
-    ((throw e : CheckM α) = .ok x) ↔ False := by
-  simp [throw, throwThe, MonadExceptOf.throw]
-
-theorem nestCtors_cyc
-    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
-    (hrec : CycMono rec) {ctx : NestCtx} {prog : List NestKey} {hi : Nat} {n : Name}
-    {us : List Level} {ds : List Expr} {nPc : Nat} {y : Expr} :
-    ∀ (cs : List (ConLeche.ConstantVal × Nat)) (st st' : NestState),
-      ConLeche.nestCtors ctx rec prog hi n us ds nPc y cs st = .ok st' →
-      st.cyclic = true → st'.cyclic = true := by
-  intro cs
-  induction cs with
-  | nil =>
-    intro st st' h hc
-    simp only [ConLeche.nestCtors, pure, Except.pure, Except.ok.injEq] at h
-    rw [← h]; exact hc
-  | cons c cs ih =>
-    intro st st' h hc
-    obtain ⟨cv, nF⟩ := c
-    unfold ConLeche.nestCtors at h
-    simp only [bind, Except.bind] at h
-    split at h
-    · split at h
-      · exact nomatch h
-      · rename_i r hr
-        obtain ⟨ks, cur, st₁⟩ := r
-        simp only at h
-        have hc₁ := nestFields_cyc hrec _ _ _ _ _ _ _ hr hc
-        split at h <;> first
-          | exact ih _ _ h hc₁
-          | simp [throw, throwThe, MonadExceptOf.throw] at h
-    · simp at h
-
-theorem nestCont_cyc
-    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
-    (hrec : CycMono rec) {ctx : NestCtx} {prog : List NestKey} {kb : Nat} {n : Name}
-    {us : List Level} {args : List Expr} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestCont ctx rec prog kb n us args st = .ok (k, st')) (hc : st.cyclic = true) :
-    st'.cyclic = true := by
-  have hc₀ : (ConLeche.nestContainerC ctx st n).2.cyclic = true := by
-    rw [nestContainerC_cyclic]; exact hc
-  unfold nestCont at h
-  generalize ConLeche.nestContainerC ctx st n = p at h hc₀
-  obtain ⟨ci, st₀⟩ := p
-  simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-  repeat' split at h
-  all_goals first
-    | (simp at h; done)
-    | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨-, rfl⟩ := h; first | rfl | exact hc₀)
-    | (rename_i hctors _
-       simp only [Except.ok.injEq, Prod.mk.injEq] at h
-       obtain ⟨-, rfl⟩ := h
-       have hv := nestCtors_cyc hrec _ _ _ hctors (by simpa using hc₀)
-       exact hv)
-
-theorem nestPos_cyc (ops : ConLeche.CheckerOps CheckM) (ctx : NestCtx) :
-    ∀ fuel, CycMono (nestPos ops env ctx fuel) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-    intro prog dep kb e st k st' h
-    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at h
-  | succ fuel ih =>
-    intro prog dep kb e st k st' h hc
-    rw [nestPos] at h
-    simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-    repeat' split at h
-    all_goals first
-      | (simp at h; done)
-      | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨-, rfl⟩ := h; exact hc)
-      | exact ih _ _ _ _ _ _ _ h hc
-      | exact nestCont_cyc ih h hc
 
 /-! ## A constructor's field telescope -/
 
@@ -639,13 +531,13 @@ recursive call is positive makes every walked field's reading positive
 under the earlier fields, and leaves the result reading at the relation
 under all of them. -/
 theorem nestFields_sem
-    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
-    {ctx : NestCtx} (hrec : NestPosSem m φ ctx rec) (hcyc : CycMono rec)
-    {prog : List NestKey} {base : Nat} {err : CheckError} :
-    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind) (res : Expr)
-      (st' : NestState) (D : Nat),
-      ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, res, st') →
-      st'.cyclic = false → D = base + j + nF →
+    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    {ctx : NestCtx} (hrec : NestPosSem m φ ctx rec)
+    {prog : List NestHole} {base : Nat} {err : CheckError} :
+    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
+      (nds : List (Expr × ConLeche.BinderMeta)) (res : Expr) (st' : NestState) (D : Nat),
+      ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
+      st'.restart = none → D = base + j + nF →
       ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur →
       ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
         CtxOk m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
@@ -654,13 +546,13 @@ theorem nestFields_sem
   intro nF
   induction nF with
   | zero =>
-    intro j cur st ks res st' D h _ hD _ hfr Δa ca R _ hca _ hR
+    intro j cur st ks nds res st' D h _ hD _ hfr Δa ca R _ hca _ hR
     simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl, -⟩ := h
+    obtain ⟨-, -, rfl, -⟩ := h
     subst hD
     exact ⟨hR.agree, hca, hfr.1⟩
   | succ nF ih =>
-    intro j cur st ks res st' D h hc hD hhi hfr Δa ca R hC hca hgr hR
+    intro j cur st ks nds res st' D h hc hD hhi hfr Δa ca R hC hca hgr hR
     unfold ConLeche.nestFields at h
     split at h
     · rename_i a b mb
@@ -668,18 +560,21 @@ theorem nestFields_sem
       split at h
       · simp at h
       · rename_i r₁ hr₁
-        obtain ⟨k₁, st₁⟩ := r₁
+        obtain ⟨k₁, nd₁, st₁⟩ := r₁
         simp only at h
+        by_cases hrs : st₁.restart.isSome = true
+        · rw [if_pos hrs] at h
+          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+          obtain ⟨-, -, -, rfl⟩ := h
+          rw [hc] at hrs; exact nomatch hrs
+        rw [if_neg hrs] at h
+        have hc₁ : st₁.restart = none := by simpa using hrs
         split at h
         · simp at h
         · rename_i r₂ hr₂
-          obtain ⟨ks₂, res₂, st₂⟩ := r₂
+          obtain ⟨ks₂, nds₂, res₂, st₂⟩ := r₂
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-          obtain ⟨-, rfl, rfl⟩ := h
-          have hc₁ : st₁.cyclic = false := by
-            cases h1 : st₁.cyclic
-            · rfl
-            · rw [nestFields_cyc hcyc _ _ _ _ _ _ _ hr₂ h1] at hc; exact nomatch hc
+          obtain ⟨-, -, rfl, rfl⟩ := h
           obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
           obtain ⟨hws, hb, hLb⟩ := hfr
           simp only [Expr.WScoped] at hws
@@ -688,13 +583,13 @@ theorem nestFields_sem
           have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
           obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
           have hA : MonoOn R ta :=
-            hrec prog (base + j) 0 a st k₁ st₁ hr₁ hc₁ hhi ⟨hws.1, hb.1, hLa⟩
+            hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ hc₁ hhi ⟨hws.1, hb.1, hLa⟩
               hC.forallE_ty hta hgA hR
           refine ⟨hA, ?_⟩
           have hCop := CtxOk.openS hC.forallE_ty hC.forallE_body hta hgA
           have hfr' := frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd
           rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
-          exact ih (j + 1) _ st₁ ks₂ res₂ st₂ D hr₂ hc (by omega) (by omega) hfr' hCop hba hgB
+          exact ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ D hr₂ hc (by omega) (by omega) hfr' hCop hba hgB
             (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
     · simp at h
 
@@ -714,7 +609,7 @@ arguments after the parameters (the result's indices) are hole-free. -/
 
 /-- **THE CONSUMER'S PREMISE, from the run: a member constructor is
 positive.**  A successful `nestMemberCtor` (every field through
-`nestPos`, then the result indices checked), with no cycle, makes every
+`nestPos`, then the result indices checked) makes every
 field's reading positive under the earlier fields along the hole
 relation, and the result's indices hole-free — the `CtorPos` of
 `Model/Annot/BlockLfpMono.lean`, in the constructor type's own Π-form.
@@ -723,9 +618,10 @@ constructor type at the holes' context) are the abstract typing pass's
 (E2E-DESIGN's U2). -/
 theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     (hcont : ∀ rec, NestPosSem m φ ctx rec → ContSem m φ ctx rec)
-    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, st'))
-    (hc : st'.cyclic = false) (hfr : Frame (ctx.hiAt 0) crest)
+    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
+    {st' : NestState}
+    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, tyN, st'))
+    (hfr : Frame (ctx.hiAt 0) crest)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
     (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
@@ -736,14 +632,18 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
   split at h
   · simp at h
   · rename_i r hr
-    obtain ⟨ks₁, res, st₁⟩ := r
+    obtain ⟨ks₁, nds₁, res, st₁⟩ := r
     simp only at h
     split at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    rename_i hnr
+    have hc : st₁.restart = none := by simpa using hnr
+    split at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    split at h
     · rename_i hok
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨-, rfl⟩ := h
-      have hsem := nestFields_sem (nestPos_sem hin ctx F hcont 1024) (nestPos_cyc _ ctx 1024)
-        nF 0 crest st ks₁ res st₁ (ctx.hiAt 0 + nF) hr hc (by omega) (by simp) hfr
+      have hsem := nestFields_sem (nestPos_sem hin ctx F hcont 1024)
+        nF 0 crest st ks₁ nds₁ res st₁ (ctx.hiAt 0 + nF) hr hc (by omega) (by simp) hfr
         hC hca hgr hR
       refine PiPosThen.mono (fun R' r hres => ?_) nF R ca hsem
       obtain ⟨hag, hrd, hws⟩ := hres
