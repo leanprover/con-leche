@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecPreHpre
-public import ConLeche.Model.Inductives.BlockRuleRun
+import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRuleParams
 import ConLeche.Model.Capstone
