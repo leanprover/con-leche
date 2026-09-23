@@ -4288,6 +4288,156 @@ theorem sat_reverse_cases {doms : List AnnotTerm} {rP : Nat} (hlen : doms.length
     rw [shiftE_zero] at this
     exact this.symm
 
+/-- **The certified hop's READING half** (lane RM51): the two openings'
+domains read the same at every position, at the frames the FIRST
+opening's fitting spines reach — `prefixDoms_spineFit`'s induction,
+exported, because a consumer comparing a THIRD telescope against the
+first (stage (b'')'s index pass, `BlockRecIdxConv.lean`) needs the
+readings and not the fit. -/
+theorem prefixDoms_agree {envT : Env} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {fuel rP : Nat}
+    {tyA tyB : Expr} {fvsA fvsB : List Expr} {oA oB : Expr}
+    (hopA : openPisAtFvars rP tyA 0 = some (fvsA, oA))
+    (hopB : openPisAtFvars rP tyB 0 = some (fvsB, oB))
+    (hwA : Expr.WScoped 0 tyA) (hwB : Expr.WScoped 0 tyB)
+    (hbA : tyA.looseBVarsBounded 0 = true) (hbB : tyB.looseBVarsBounded 0 = true)
+    {domsA domsB : List AnnotTerm}
+    (hlenA : domsA.length = rP) (hlenB : domsB.length = rP)
+    (hdA : ∀ (i : Nat) (x : Expr), fvsA[i]? = some x →
+      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x) = some (domsA.getD i default))
+    (hdB : ∀ (i : Nat) (x : Expr), fvsB[i]? = some x →
+      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x) = some (domsB.getD i default))
+    (hokA : ∀ i, i < rP → ∀ (ρ : Nat → V) (ys : List V),
+      SpineFit ρ (domsA.take i) ys → WellDenotedV V (consList ys ρ) (domsA.getD i default))
+    (hokB : ∀ i, i < rP → ∀ (ρ : Nat → V) (ys : List V),
+      SpineFit ρ (domsB.take i) ys → WellDenotedV V (consList ys ρ) (domsB.getD i default))
+    (hdeq : ∀ i, i < rP →
+      ConLeche.isDefEqCore μ envT fuel rP ((fvsA.map Expr.fvarTypeD).getD i default)
+          ((fvsB.map Expr.fvarTypeD).getD i default) = .ok true ∨
+        ConLeche.isDefEqCore μ envT fuel rP ((fvsB.map Expr.fvarTypeD).getD i default)
+          ((fvsA.map Expr.fvarTypeD).getD i default) = .ok true)
+    :
+    ∀ l, l < rP → ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ domsA ys →
+      interp V (consList (ys.take l) ρ₁) (domsA.getD l default)
+        = interp V (consList (ys.take l) ρ₁) (domsB.getD l default) := by
+  obtain ⟨-, -, ihd, -⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) fuel
+  have hlA : fvsA.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopA
+  have hlB : fvsB.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopB
+  have hlbA := (ConLeche.Verify.openPisAtFvars_bounded _ hopA hbA).2
+  have hlbB := (ConLeche.Verify.openPisAtFvars_bounded _ hopB hbB).2
+  have hentA : ∀ i, i < rP → domsA.reverse[rP - 1 - i]? = some (domsA.getD i default) :=
+    fun i hi => getElem?_reverse_entry hlenA hi
+  -- the agreement, position by position, at every fitting spine's frame
+  intro l
+  induction l using Nat.strongRecOn with
+  | _ l IH =>
+    intro hl ρ₁ ys hfitY
+    have hylen : ys.length = rP := by rw [SpineFit.length_eq hfitY, hlenA]
+    -- the agreements below `l`, at every context-satisfying frame
+    have hbelow : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+        interp V (shiftE (rP - i) 0 ρ) (domsA.getD i default)
+          = interp V (shiftE (rP - i) 0 ρ) (domsB.getD i default) := by
+      intro i hi ρ hρ
+      obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+      rw [shiftE_consList_take i hzlen]
+      exact IH i hi (by omega) ρ₂ zs hfitZ
+    have hokAf : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+        WellDenotedV V (shiftE (rP - i) 0 ρ) (domsA.getD i default) := by
+      intro i hi ρ hρ
+      obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+      rw [shiftE_consList_take i hzlen]
+      exact hokA i (by omega) ρ₂ (zs.take i) (spineFit_take_any hfitZ i)
+    have hokBf : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+        WellDenotedV V (shiftE (rP - i) 0 ρ) (domsB.getD i default) := by
+      intro i hi ρ hρ
+      obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+      rw [shiftE_consList_take i hzlen]
+      refine hokB i (by omega) ρ₂ (zs.take i) ?_
+      refine spineFit_congr_walk (by rw [List.length_take, List.length_take, hlenA, hlenB]) ?_
+        (spineFit_take_any hfitZ i)
+      intro j hj
+      rw [List.length_take, hlenA] at hj
+      have hji : j < i := by omega
+      rw [getD_take_of_lt hji, getD_take_of_lt hji, List.take_take,
+        show min j i = j from by omega]
+      exact IH j (by omega) (by omega) ρ₂ zs hfitZ
+    -- the two subjects
+    obtain ⟨xA, hxA⟩ : ∃ x, fvsA[l]? = some x :=
+      ⟨fvsA[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨xB, hxB⟩ : ∃ x, fvsB[l]? = some x :=
+      ⟨fvsB[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    have hsubA : (fvsA.map Expr.fvarTypeD).getD l default = Expr.fvarTypeD xA := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hxA]; rfl
+    have hsubB : (fvsB.map Expr.fvarTypeD).getD l default = Expr.fvarTypeD xB := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hxB]; rfl
+    -- `CtxOk` for both, at the FIRST opening's context
+    have hctxA : CtxOk mp.base2 ψ rP domsA.reverse (Expr.fvarTypeD xA) :=
+      ctxOk_openerType hopA hwA (by simp [hlenA]) hdA hentA hl hxA
+        (fun i hi ρ hρ => rfl) hokAf
+    have hctxB : CtxOk mp.base2 ψ rP domsA.reverse (Expr.fvarTypeD xB) :=
+      ctxOk_openerType hopB hwB (by simp [hlenA]) hdB hentA hl hxB
+        (fun i hi ρ hρ => (hbelow i hi ρ hρ).symm) hokBf
+    -- the readings at the opening's own depth
+    have hwsA : Expr.WScoped rP (Expr.fvarTypeD xA) := by
+      have := openPisAtFvars_typeWScoped rP hopA hwA l xA hxA
+      rw [Nat.zero_add] at this
+      exact this.mono (by omega)
+    have hwsB : Expr.WScoped rP (Expr.fvarTypeD xB) := by
+      have := openPisAtFvars_typeWScoped rP hopB hwB l xB hxB
+      rw [Nat.zero_add] at this
+      exact this.mono (by omega)
+    have hrdA : denoteMeta mp.base2.acval envT ψ rP (Expr.fvarTypeD xA)
+        = some ((domsA.getD l default).liftN (rP - l) 0) := by
+      have hw := openPisAtFvars_typeWScoped rP hopA hwA l xA hxA
+      rw [Nat.zero_add] at hw
+      rw [denoteMeta_lift mp.base2.acval_closed hw rP (by omega), hdA l xA hxA]
+      rfl
+    have hrdB : denoteMeta mp.base2.acval envT ψ rP (Expr.fvarTypeD xB)
+        = some ((domsB.getD l default).liftN (rP - l) 0) := by
+      have hw := openPisAtFvars_typeWScoped rP hopB hwB l xB hxB
+      rw [Nat.zero_add] at hw
+      rw [denoteMeta_lift mp.base2.acval_closed hw rP (by omega), hdB l xB hxB]
+      rfl
+    -- the gradings at the opening's own depth
+    have hokAl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+        WellDenotedV V ρ ((domsA.getD l default).liftN (rP - l) 0) := by
+      intro ρ hρ
+      refine (WellDenotedV_liftN V (rP - l) _ 0 ρ).mpr ?_
+      obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+      rw [shiftE_consList_take l hzlen]
+      exact hokA l hl ρ₂ (zs.take l) (spineFit_take_any hfitZ l)
+    have hokBl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
+        WellDenotedV V ρ ((domsB.getD l default).liftN (rP - l) 0) := by
+      intro ρ hρ
+      refine (WellDenotedV_liftN V (rP - l) _ 0 ρ).mpr ?_
+      obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
+      rw [shiftE_consList_take l hzlen]
+      refine hokB l hl ρ₂ (zs.take l) ?_
+      refine spineFit_congr_walk (by rw [List.length_take, List.length_take, hlenA, hlenB]) ?_
+        (spineFit_take_any hfitZ l)
+      intro j hj
+      rw [List.length_take, hlenA] at hj
+      have hjl : j < l := by omega
+      rw [getD_take_of_lt hjl, getD_take_of_lt hjl, List.take_take,
+        show min j l = j from by omega]
+      exact IH j hjl (by omega) ρ₂ zs hfitZ
+    -- the hop
+    have hlbAx := hlbA xA (List.mem_of_getElem? hxA)
+    have hlbBx := hlbB xB (List.mem_of_getElem? hxB)
+    have hLA := leavesBounded_of_openers hlbA (openerType_leaves hopA hwA hxA)
+    have hLB := leavesBounded_of_openers hlbB (openerType_leaves hopB hwB hxB)
+    have hsat : Sat V domsA.reverse (consList ys ρ₁) := by
+      simpa using sat_of_spineFit (Sat_nil V ρ₁) hfitY
+    have heq : interp V (consList ys ρ₁) ((domsA.getD l default).liftN (rP - l) 0)
+        = interp V (consList ys ρ₁) ((domsB.getD l default).liftN (rP - l) 0) := by
+      rcases hdeq l hl with hd | hd
+      · exact ihd (hsubA ▸ hsubB ▸ hd) hwsA hlbAx hLA hwsB hlbBx hLB
+          hctxA hctxB hrdA hrdB hokAl hokBl (consList ys ρ₁) hsat
+      · exact (ihd (hsubA ▸ hsubB ▸ hd) hwsB hlbBx hLB hwsA hlbAx hLA
+          hctxB hctxA hrdB hrdA hokBl hokAl (consList ys ρ₁) hsat).symm
+    rw [interp_liftN, interp_liftN, shiftE_consList_take l hylen] at heq
+    exact heq
+
 /-- **THE CERTIFIED HOP** — a fitting spine of the FIRST opening's
 domains fits the SECOND's, as soon as the check compared the two
 openings' binder domains position by position.
@@ -4325,128 +4475,10 @@ theorem prefixDoms_spineFit {envT : Env} (hμ : μ.verifiedChecks = true)
         ConLeche.isDefEqCore μ envT fuel rP ((fvsB.map Expr.fvarTypeD).getD i default)
           ((fvsA.map Expr.fvarTypeD).getD i default) = .ok true)
     {ρ₀ : Nat → V} {xs : List V} (hfit : SpineFit ρ₀ domsA xs) :
-    SpineFit ρ₀ domsB xs := by
-  obtain ⟨-, -, ihd, -⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) fuel
-  have hlA : fvsA.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopA
-  have hlB : fvsB.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopB
-  have hlbA := (ConLeche.Verify.openPisAtFvars_bounded _ hopA hbA).2
-  have hlbB := (ConLeche.Verify.openPisAtFvars_bounded _ hopB hbB).2
-  have hentA : ∀ i, i < rP → domsA.reverse[rP - 1 - i]? = some (domsA.getD i default) :=
-    fun i hi => getElem?_reverse_entry hlenA hi
-  -- the agreement, position by position, at every fitting spine's frame
-  have key : ∀ l, l < rP → ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ domsA ys →
-      interp V (consList (ys.take l) ρ₁) (domsA.getD l default)
-        = interp V (consList (ys.take l) ρ₁) (domsB.getD l default) := by
-    intro l
-    induction l using Nat.strongRecOn with
-    | _ l IH =>
-      intro hl ρ₁ ys hfitY
-      have hylen : ys.length = rP := by rw [SpineFit.length_eq hfitY, hlenA]
-      -- the agreements below `l`, at every context-satisfying frame
-      have hbelow : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
-          interp V (shiftE (rP - i) 0 ρ) (domsA.getD i default)
-            = interp V (shiftE (rP - i) 0 ρ) (domsB.getD i default) := by
-        intro i hi ρ hρ
-        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
-        rw [shiftE_consList_take i hzlen]
-        exact IH i hi (by omega) ρ₂ zs hfitZ
-      have hokAf : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
-          WellDenotedV V (shiftE (rP - i) 0 ρ) (domsA.getD i default) := by
-        intro i hi ρ hρ
-        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
-        rw [shiftE_consList_take i hzlen]
-        exact hokA i (by omega) ρ₂ (zs.take i) (spineFit_take_any hfitZ i)
-      have hokBf : ∀ i, i < l → ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
-          WellDenotedV V (shiftE (rP - i) 0 ρ) (domsB.getD i default) := by
-        intro i hi ρ hρ
-        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
-        rw [shiftE_consList_take i hzlen]
-        refine hokB i (by omega) ρ₂ (zs.take i) ?_
-        refine spineFit_congr_walk (by rw [List.length_take, List.length_take, hlenA, hlenB]) ?_
-          (spineFit_take_any hfitZ i)
-        intro j hj
-        rw [List.length_take, hlenA] at hj
-        have hji : j < i := by omega
-        rw [getD_take_of_lt hji, getD_take_of_lt hji, List.take_take,
-          show min j i = j from by omega]
-        exact IH j (by omega) (by omega) ρ₂ zs hfitZ
-      -- the two subjects
-      obtain ⟨xA, hxA⟩ : ∃ x, fvsA[l]? = some x :=
-        ⟨fvsA[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-      obtain ⟨xB, hxB⟩ : ∃ x, fvsB[l]? = some x :=
-        ⟨fvsB[l]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-      have hsubA : (fvsA.map Expr.fvarTypeD).getD l default = Expr.fvarTypeD xA := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hxA]; rfl
-      have hsubB : (fvsB.map Expr.fvarTypeD).getD l default = Expr.fvarTypeD xB := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_map, hxB]; rfl
-      -- `CtxOk` for both, at the FIRST opening's context
-      have hctxA : CtxOk mp.base2 ψ rP domsA.reverse (Expr.fvarTypeD xA) :=
-        ctxOk_openerType hopA hwA (by simp [hlenA]) hdA hentA hl hxA
-          (fun i hi ρ hρ => rfl) hokAf
-      have hctxB : CtxOk mp.base2 ψ rP domsA.reverse (Expr.fvarTypeD xB) :=
-        ctxOk_openerType hopB hwB (by simp [hlenA]) hdB hentA hl hxB
-          (fun i hi ρ hρ => (hbelow i hi ρ hρ).symm) hokBf
-      -- the readings at the opening's own depth
-      have hwsA : Expr.WScoped rP (Expr.fvarTypeD xA) := by
-        have := openPisAtFvars_typeWScoped rP hopA hwA l xA hxA
-        rw [Nat.zero_add] at this
-        exact this.mono (by omega)
-      have hwsB : Expr.WScoped rP (Expr.fvarTypeD xB) := by
-        have := openPisAtFvars_typeWScoped rP hopB hwB l xB hxB
-        rw [Nat.zero_add] at this
-        exact this.mono (by omega)
-      have hrdA : denoteMeta mp.base2.acval envT ψ rP (Expr.fvarTypeD xA)
-          = some ((domsA.getD l default).liftN (rP - l) 0) := by
-        have hw := openPisAtFvars_typeWScoped rP hopA hwA l xA hxA
-        rw [Nat.zero_add] at hw
-        rw [denoteMeta_lift mp.base2.acval_closed hw rP (by omega), hdA l xA hxA]
-        rfl
-      have hrdB : denoteMeta mp.base2.acval envT ψ rP (Expr.fvarTypeD xB)
-          = some ((domsB.getD l default).liftN (rP - l) 0) := by
-        have hw := openPisAtFvars_typeWScoped rP hopB hwB l xB hxB
-        rw [Nat.zero_add] at hw
-        rw [denoteMeta_lift mp.base2.acval_closed hw rP (by omega), hdB l xB hxB]
-        rfl
-      -- the gradings at the opening's own depth
-      have hokAl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
-          WellDenotedV V ρ ((domsA.getD l default).liftN (rP - l) 0) := by
-        intro ρ hρ
-        refine (WellDenotedV_liftN V (rP - l) _ 0 ρ).mpr ?_
-        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
-        rw [shiftE_consList_take l hzlen]
-        exact hokA l hl ρ₂ (zs.take l) (spineFit_take_any hfitZ l)
-      have hokBl : ∀ ρ : Nat → V, Sat V domsA.reverse ρ →
-          WellDenotedV V ρ ((domsB.getD l default).liftN (rP - l) 0) := by
-        intro ρ hρ
-        refine (WellDenotedV_liftN V (rP - l) _ 0 ρ).mpr ?_
-        obtain ⟨ρ₂, zs, hzlen, hfitZ, rfl⟩ := sat_reverse_cases hlenA hρ
-        rw [shiftE_consList_take l hzlen]
-        refine hokB l hl ρ₂ (zs.take l) ?_
-        refine spineFit_congr_walk (by rw [List.length_take, List.length_take, hlenA, hlenB]) ?_
-          (spineFit_take_any hfitZ l)
-        intro j hj
-        rw [List.length_take, hlenA] at hj
-        have hjl : j < l := by omega
-        rw [getD_take_of_lt hjl, getD_take_of_lt hjl, List.take_take,
-          show min j l = j from by omega]
-        exact IH j hjl (by omega) ρ₂ zs hfitZ
-      -- the hop
-      have hlbAx := hlbA xA (List.mem_of_getElem? hxA)
-      have hlbBx := hlbB xB (List.mem_of_getElem? hxB)
-      have hLA := leavesBounded_of_openers hlbA (openerType_leaves hopA hwA hxA)
-      have hLB := leavesBounded_of_openers hlbB (openerType_leaves hopB hwB hxB)
-      have hsat : Sat V domsA.reverse (consList ys ρ₁) := by
-        simpa using sat_of_spineFit (Sat_nil V ρ₁) hfitY
-      have heq : interp V (consList ys ρ₁) ((domsA.getD l default).liftN (rP - l) 0)
-          = interp V (consList ys ρ₁) ((domsB.getD l default).liftN (rP - l) 0) := by
-        rcases hdeq l hl with hd | hd
-        · exact ihd (hsubA ▸ hsubB ▸ hd) hwsA hlbAx hLA hwsB hlbBx hLB
-            hctxA hctxB hrdA hrdB hokAl hokBl (consList ys ρ₁) hsat
-        · exact (ihd (hsubA ▸ hsubB ▸ hd) hwsB hlbBx hLB hwsA hlbAx hLA
-            hctxB hctxA hrdB hrdA hokBl hokAl (consList ys ρ₁) hsat).symm
-      rw [interp_liftN, interp_liftN, shiftE_consList_take l hylen] at heq
-      exact heq
-  exact spineFit_congr_walk (by rw [hlenA, hlenB]) (fun l hl => key l (by omega) ρ₀ xs hfit) hfit
+    SpineFit ρ₀ domsB xs :=
+  spineFit_congr_walk (by rw [hlenA, hlenB])
+    (fun l hl => prefixDoms_agree hμ mp hopA hopB hwA hwB hbA hbB hlenA hlenB hdA hdB hokA hokB
+      hdeq l (by omega) ρ₀ xs hfit) hfit
 
 /-! ## G. The run's side -/
 
