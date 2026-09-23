@@ -79319,6 +79319,54 @@ section unchanged, exit 0.
 
 ## UNIFORM INDUCTIVES — the overhaul's charter, decisions and plan (2026-09-21, branch `uniform-inds`)
 
+### THE CHARTER (canonical; amended only after discussion with the maintainer)
+
+Every lane brief quotes the items it touches.  A design that departs from
+an item is raised with the maintainer as a question, never adopted as a
+fact.  The paragraphs below this block are history; where they disagree,
+this block wins.
+
+1. **One installer, one proof.**  Every inductive block goes through one
+   uniform installer and one proof.  k = 1 is an instance of the general
+   route, never a special case.  (2026-09-21)
+2. **Theory.**  Every stored `I p⃗` is the least fixed point of its
+   right-hand-side operator: the interpretation of its constructor types
+   with holes at the block's members.  The holes are ordinary open terms
+   (members abstracted to fvars): no new syntax, no per-field
+   classification.  Monotonicity is DERIVED FROM POSITIVITY, never built
+   into a normal form.  The model needs only this least-fixed-point clause
+   from each inductive.  (2026-09-21; restated 2026-09-23)
+3. **Positivity.**  There is ONE positivity function in the kernel, and it
+   reduces with the kernel's own verified whnf (β, δ, … as needed to match
+   official's verdicts).  The theorem is "returns true ⇒ the operator is
+   monotone", proved by inversion of that function's run.  There is no
+   separate re-check, exported certificate or "unverified classifier".
+   (2026-09-23)
+4. **Containers.**  Positivity looks through containers at the CONCRETE
+   instantiation `C (t[X])`.  Positivity and monotonicity are never
+   properties of an abstract container: nothing is stated or cached as
+   "C is positive/monotone in its parameter", and any cache is keyed by
+   the instantiation.  Monotonicity in the holes follows from joint
+   positivity at the instantiation plus the lfp's monotonicity in its
+   parameter.  Official's nested→mutual encoding is never mirrored.
+   (2026-09-21; restated 2026-09-23)
+5. **Recursors are CHECKED, not generated.**  The check is primitive
+   recursion: every rule matches a constructor and recurses only on that
+   constructor's fields (reflexive fields applied to enough arguments).
+   It is as liberal as possible: calls on fields of ANY inductive type,
+   with no field classification and no target member.  Prop needs extra
+   care.  Accepting more than official is fine.  (2026-09-21, 2026-09-22)
+6. **Conformance.**  The old recursor generator survives as a reject-only,
+   unverified conformance check.  It runs AFTER the primitive-recursion
+   check, is called from the fold, has a verified cached bridge, and lives
+   in its own directory (`ConLeche/Conformance/`) so that its code is
+   recognisable as not needed for soundness.  Conformance gaps get e2e
+   fixtures.  (2026-09-22)
+7. **Arguments.**  A proof's case split is over the syntax, never a
+   corpus.  "No instance in Mathlib" is not an argument.  "Official never
+   generates this" counts only if it holds for all nested inductives.
+   (2026-09-18, 2026-09-22)
+
 **Maintainer's direction (2026-09-21).**  One uniform native installer
 and ONE proof for every inductive block: a k-member block is the general
 case, and the non-mutual case is what happens when a one-member group
