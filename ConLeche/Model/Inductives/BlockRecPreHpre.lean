@@ -9,6 +9,7 @@ import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRuleRun
+public import ConLeche.Model.Inductives.BlockRuleCaRun
 
 public section
 
@@ -1161,36 +1162,21 @@ existential. -/
             + (ihs c j).length)) ihKeys c j ihdoms Ca)
 
 /-- **The ι equations' GRADING inputs** — what is left of the dispatch's
-four `blockRecHwd_of_rules` premises once the seam pays two of them
-itself: the certificate family (`Ca` existential; owed at the BASE
-frame at the rule's own openers' domains `blockRuleIhdomsAV`, which is
-`blockRuleCerts_of_run`'s conclusion at the pinned `ih` opening — the
-seam lifts it past the chain, `blockRuleCertsChain_eq`), the left-hand
-sides' grading and the `ih` terms' grading.
+four `blockRecHwd_of_rules` premises once the seam pays the rest
+itself: the left-hand sides' grading and the `ih` terms' grading.
 
 The dispatch's `hokA` is the rule frame's grading (G) and the FIT half
 of its `hihsWd` is the typed tuple's (F): both have producers
 (`blockRuleGrading_run`, `blockIhFitTyped_run`, `BlockRuleGrading.lean`),
 so `blockRecPre_seam` takes them as separate premises in exactly those
-producers' spellings and the bundle no longer carries them (lane RM54). -/
-@[expose] def BlockGradeOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat)
+producers' spellings (lane RM54).  The certificate family left the
+bundle in lane RM56: its conclusion is PINNED (`blockRuleCaAV`) and the
+family is produced (`blockRuleCertsW_run`), so the seam takes it as a
+premise in that producer's spelling too. -/
+@[expose] def BlockGradeOwed {envC : Env} (mpC : EnvModelM V μ envC)
     (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
-    (Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm) : Prop :=
-  ∃ (Ca : (Name → Nat) → Nat → Nat → AnnotTerm),
-    -- `hcertsW`, at the BASE frame: the per-rule certificates at the
-    -- rule's own openers — `blockRuleCerts_of_run`'s conclusion at the
-    -- pinned `ih` opening (the seam lifts it past the chain,
-    -- `blockRuleCertsChain_eq`)
-    (∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c)
-        (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length
-        (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length
-        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-        (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j)
-        (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j)
-        (Rb0 ψ c j) (Ca ψ c j)) ∧
+    (ihs : (Name → Nat) → Nat → Nat → List AnnotTerm) : Prop :=
     -- `hlhs`
     (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
       (∀ c, c < rs.length →
@@ -1928,8 +1914,19 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     -- the rules' `ih` openers and residue readings are the run's own
     (hihsE : ihs = fun ψ' => blockRuleIhsRunAV p rs mpC.base2.acval envC ψ')
     (hRbE : Rb0 = fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ')
+    -- the rule certificates at the BASE frame, at the pinned conclusion —
+    -- `blockRuleCertsW_run`'s conclusion (lane RM56)
+    (hcertsB : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c)
+        (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length
+        (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length
+        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+        (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j)
+        (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j)
+        (blockRuleRbAV p rs mpC.base2.acval envC ψ c j)
+        (blockRuleCaAV p rs mpC.base2.acval envC ψ c j))
     -- OWED: the rest of the ι equations' grading inputs
-    (hG : BlockGradeOwed mpC F p rs ihs Rb0)
+    (hG : BlockGradeOwed mpC p rs ihs)
     -- OWED: the three regimes' rows, at the checked elimination level
     (hI : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
@@ -1987,7 +1984,7 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  obtain ⟨CaG, hcertsB, hlhs, hihsWd1⟩ := hG
+  obtain ⟨hlhs, hihsWd1⟩ := hG
   subst hihsE hRbE
   -- the certificates, lifted past the chain: every lift is the identity
   have hcertsW : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
@@ -2001,13 +1998,14 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
           ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
             + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
             + (blockRuleIhsRunAV p rs mpC.base2.acval envC ψ c j).length))
-        (CaG ψ c j) := by
+        (blockRuleCaAV p rs mpC.base2.acval envC ψ c j) := by
     intro ψ c hc j hj
     obtain ⟨e1, e2, e3⟩ := blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj rs.length
     rw [e3, e1, e2]
     exact hcertsB ψ c hc j hj
   refine blockRecPre_dispatch_run (us := us) (uOf := uOf)
-    (ihdoms := fun ψ => blockRecIhdomsK rs.length p mpC.base2.acval envC rs ψ) (Ca := CaG)
+    (ihdoms := fun ψ => blockRecIhdomsK rs.length p mpC.base2.acval envC rs ψ)
+    (Ca := fun ψ c j => blockRuleCaAV p rs mpC.base2.acval envC ψ c j)
     (d := blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
     hμ h hTy hcertsW
     (blockGradeHokA_chain hμ h hkLen (blockRuleDoms_bounded_at hμ h hcore) hokG) hlhs

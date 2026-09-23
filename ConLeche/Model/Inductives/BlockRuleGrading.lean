@@ -1013,14 +1013,15 @@ theorem blockRuleIhKey_run
         exact hmemR
     exact hcore0
 
-/-- **(G) THE RULE FRAME'S GRADING, AT THE RUN** — the
-spelling `declBlock_run` passes on: `blockRuleHokA_of_run` at the pinned
-`blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleIhdomsAV`, its `ih`
-segment's `hIent` off `blockRuleIhKey_run`, carried from `ih` level `0`
-to the opener's own level `q` (the `q` values already bound stand where
-fields stand, `ihTeleAtR_merge`; the conclusion's lift drops over them,
-`shiftE_consList_ih`). -/
-theorem blockRuleGrading_run
+/-- **The rule's RECORD group at the run** — the constructor's reading
+record at the rule's member (its former, the former's data, the
+stored type's reading and its length, the parameter frames), §27's
+field-domain spelling, and the `ih` segment's per-key data `hIent` at
+the pinned openers, carried from `ih` level `0` to the opener's own
+level `q` (`blockRuleIhKey_run`, `ihTeleAtR_merge`,
+`shiftE_consList_ih`).  It is the input group that `blockRuleHokA_of_run`
+and `blockRuleCerts_of_run` share, named once (lane RM56). -/
+theorem blockRuleRecord_run
     (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
@@ -1039,15 +1040,44 @@ theorem blockRuleGrading_run
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
       ∀ ψ : Name → Nat,
-      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
-      ∀ (σ' : Nat → V) (ys : List V),
-        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
-            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take l) ys →
-        WellDenotedV V (consList ys σ')
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
-            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD l default) := by
+      ∃ (cvTa : ConstantVal) (caps : ConLeche.IndCaps) (nFull : Nat) (resSort : Level)
+        (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+        (dsC : List (Nat × Nat × AnnotTerm)) (bodyC : AnnotTerm),
+        cvTas[p.toBlockShape.recTgtAt j]? = some cvTa ∧
+        envC.find? cvTa.name = some (.indInfo cvTa caps) ∧
+        FormerData mpC.base2 cvTa nFull resSort pps ∧ p.nP ≤ nFull ∧
+        (∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV dsC bodyC)) ∧
+        dsC.length = p.nP + cA.2 ∧
+        (∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+          Sat V ((dsC.take p.nP).map (·.2.2)).reverse ρ) ∧
+        p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) ∧
+        blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+          = (liftDoms (p.toBlockShape.rulePrefixAt j - p.nP) 0 (dsC.drop p.nP)).map (·.2.2) ∧
+        (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).length
+          = (blockRuleFrameAt p rs j i).nR ∧
+        (∀ q, q < (blockRuleFrameAt p rs j i).nR →
+          ∃ (i' b : Nat) (tl : List (Nat × Nat × AnnotTerm)) (bodyF conclA : AnnotTerm),
+            i' < cA.2 ∧
+            (dsC.getD (p.nP + i') default).2.2 = mkPisAV tl bodyF ∧
+            (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default
+              = mkPisAV (ihTeleAtR cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) i' q
+                  (rebit b tl)) conclA ∧
+            ∀ (σ : Nat → V) (xs fs ys : List V),
+              SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j) xs →
+              SpineFit (consList xs σ)
+                ((liftDoms (p.toBlockShape.rulePrefixAt j - p.nP) 0 (dsC.drop p.nP)).map
+                  (·.2.2)) fs →
+              SpineFit (consList fs (consList xs σ))
+                ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take q) ys →
+              (∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+                  ((ihTeleAtR cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) i' q
+                    (rebit b tl)).map (·.2.2)) bs →
+                WellDenotedV V (consList bs (consList ys (consList fs (consList xs σ)))) conclA) ∧
+              (b = 0 → ∀ bs, SpineFit (consList ys (consList fs (consList xs σ)))
+                  ((ihTeleAtR cA.2 (p.toBlockShape.rulePrefixAt j - p.nP) i' q
+                    (rebit b tl)).map (·.2.2)) bs →
+                interp V (consList bs (consList ys (consList fs (consList xs σ)))) conclA
+                  ∈ˢ (univZero : V))) := by
   intro j r hr i cA hcA ψ
   have hkey := fun q (hq : q < (blockRuleFrameAt p rs j i).nR) =>
     blockRuleIhKey_run hμ h hkLen hdR hN hS hcore hmr hM hr hcA ψ hq
@@ -1078,8 +1108,8 @@ theorem blockRuleGrading_run
       = (blockRuleFrameAt p rs j i).nR := by
     rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
     exact openPisAtFvars_length _ hopen
-  refine blockRuleHokA_of_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
-    (hcd.okTy ψ) (hcd.len ψ) hframes ho rfl hFE hIlen ?_
+  refine ⟨cvTa, _, _, _, _, _, _, hcvTa, hfT, hFD, Nat.le_add_right _ _, hcd.okTy ψ, hcd.len ψ,
+    hframes, ho, hFE, hIlen, ?_⟩
   intro q hq
   obtain ⟨fi, c', CihR, -, -, hfiC, hentry, hIget, -, -, -, hcall⟩ := hkey q hq
   refine ⟨fi, pwBit ψ (blockRuleFrameAt p rs j i).pw,
@@ -1089,6 +1119,7 @@ theorem blockRuleGrading_run
       (p.toBlockShape.recTgtAt j) i ψ).getD fi []).length, hfiC, hentry, ?_, ?_⟩
   · rw [hIget, mkPisAV_ihTeleAtR_liftN]
   · intro σ xs fs ys hxs hfs hys
+    rw [← hFE] at hfs
     have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j).length
         = p.toBlockShape.rulePrefixAt j := blockRulePdomsAV_length hμ mpC h hr ψ
     have hxlen : xs.length = p.toBlockShape.rulePrefixAt j := by rw [hxs.length_eq, hpl]
@@ -1132,6 +1163,47 @@ theorem blockRuleGrading_run
         rw [(htr bs hb).length_eq, List.length_map]
       rw [interp_liftN, ← hbl, shiftE_consList_ih rfl hyl, hfr0]
       exact (hcall σ xs fs hxs hfs bs (htr bs hb)).2.1 hb0
+
+
+/-- **(G) THE RULE FRAME'S GRADING, AT THE RUN** — the
+spelling `declBlock_run` passes on: `blockRuleHokA_of_run` at the pinned
+`blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleIhdomsAV`, its record
+group and `ih` segment's `hIent` off `blockRuleRecord_run`. -/
+theorem blockRuleGrading_run
+    (hμ : μ.verifiedChecks = true)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+      p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      ∀ ψ : Name → Nat,
+      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
+      ∀ (σ' : Nat → V) (ys : List V),
+        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take l) ys →
+        WellDenotedV V (consList ys σ')
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD l default) := by
+  intro j r hr i cA hcA ψ
+  obtain ⟨cvTa, caps, nFull, resSort, pps, dsC, bodyC, hcvTa, hfT, hFD, hle, hwd, hlenD, hframes,
+    ho, hFE, hIlen, hIent⟩ :=
+    blockRuleRecord_run hμ h hkLen hdR hN hS hcore hmr hM j r hr i cA hcA ψ
+  rw [hFE]
+  exact blockRuleHokA_of_run hμ mpC h hr ψ hcvTa hfT hFD hle hwd hlenD hframes ho rfl rfl hIlen
+    hIent
 
 /-! ## 4. (F) THE TYPED TUPLE'S `ih` FIT
 
