@@ -640,13 +640,13 @@ t.write("corner_rec_body_redex", "Nat'")
 # prefix: `T.rec : (t : T) → True` — no motive, no minor, so
 # `numParams + numMotives + numMinors = 0` — and the rule
 # `T.rec T.c ↦ True.intro`, which binds no variable at all.  The
-# equation is true, but the model's `ℓ = 0` arm needs every stored
-# rule to bind one, so the recursor stage requires the prefix to hold
-# the parameters AND one motive per member (`nP + k ≤ rP`, official's
-# `nparams + nmotives ≤ rP`).  From a STREAM the record is refused
-# even earlier, by the frontend's field validation ("declares 0
-# motives"), which is what the fixture pins today; the kernel check is
-# that fact for the checker's own proof.  TARGET 1.
+# equation is true and the kernel's recursor CHECK accepts it (lane
+# FLOOR removed the `nP + k ≤ rP` floor: a motive is a parameter like
+# any other; the model reads a rule binding no variable through the ι
+# law).  From a STREAM the record is refused by the frontend's field
+# validation ("declares 0 motives"), which is what the fixture pins,
+# and the one-member conformance check would refuse it behind that.
+# TARGET 1.
 t = Twin("and_rec_opaque")
 _T = t.fresh_name(["T"])
 _Tc = t.nxt_in; t.nxt_in += 1; t.ins.append({"in": _Tc, "str": {"pre": _T, "str": "c"}})

@@ -584,4 +584,74 @@ halves of `Expr.zeta` a reader is most likely to get wrong. -/
 example : ConLeche.AnnotOf
     (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0)) (.const (Name.anonymous.str "v") []) := rfl
 
+/-! ## Zero-motive recursors (lane FLOOR: the motive-count floor removed)
+
+A motive is a parameter like any other (the maintainer's docket of
+2026-09-23): the recursor check asks only that the rule prefix start
+with the block's parameters (`nP ≤ rP`), never that it hold one motive
+per member.  The witness is `inductive ZT : Prop | c` closed by
+`ZT.rec : (t : ZT) → ZT` with the rule `ZT.rec ZT.c ↦ ZT.c` — an EMPTY
+rule prefix, a rule binding no variable (the model reads it as the
+point by the family's ι law, `blockRuleRaZ_empty`).  From a stream the
+frontend still refuses such a record ("declares 0 motives", e2e
+`corner_rec_empty_prefix`), so these drive the kernel directly. -/
+
+private def zNm (s : String) : Name := .str .anonymous s
+
+private def zRule (c : Name) (rhs : Expr) : RecRule :=
+  { ctor := c, nfields := 0, ctorParams := 0, fire := .inert, rhs := rhs }
+
+/-- `inductive T : Prop | c` with the zero-motive `T.rec : (t : T) → T`
+and the given rule right-hand side. -/
+private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
+  [.indInfo ⟨T, [], .sort .zero⟩ {},
+    .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0,
+    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T []) default⟩ 0 0
+      [zRule (T.str "c") rhs]]
+
+/-- The kernel's recursor CHECK (`checkBlockRecK`, the stage the
+soundness proof rests on) on a one-member block, after the pass over
+the formers and the constructors: the number of recursors it stores. -/
+private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
+  let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
+  let (q, _) ← checkBlockPass (pureOps .verified) Env.empty p₀ false
+  let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
+  let rs ← checkBlockRecK (pureOps .verified) env₂ q.p q.cvTas q.ctorsAs
+  pure rs.length
+
+-- The check ACCEPTS the zero-motive recursor and its correct rule.
+#guard zRecK (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) matches .ok 1
+
+-- A zero-motive recursor with a WRONG rule is still rejected: `ZT` is
+-- not a proof of `ZT`.
+#guard zRecK (zBlock (zNm "ZT") (.const (zNm "ZT") [])) matches .error (.invalid _)
+
+-- The whole fold on the one-member witness: the check passes and the
+-- reject-only CONFORMANCE check (the generated recursor has a motive)
+-- brings the verdict back to official's.
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [.indDecl (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) 0]
+  matches .error (.invalid _)
+
+/-- The MUTUAL twin: `ZA ZB : Prop`, one constructor each, each with a
+zero-motive recursor.  The conformance check is skipped at two members,
+so the fold's verdict is the check's. -/
+private def zMutual (rA rB : Expr) : Declaration :=
+  let A := zNm "ZA"; let B := zNm "ZB"
+  .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
+    .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0,
+    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A []) default⟩ 0 0
+      [zRule (A.str "c") rA],
+    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B []) default⟩ 0 0
+      [zRule (B.str "c") rB]] 0
+
+-- Accepted end to end by the kernel's fold.
+#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [zMutual (.const ((zNm "ZA").str "c") []) (.const ((zNm "ZB").str "c") [])]).toBool
+
+-- And rejected when one rule is wrong.
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [zMutual (.const ((zNm "ZA").str "c") []) (.const (zNm "ZB") [])]
+  matches .error (.invalid _)
+
 end ConLecheTests

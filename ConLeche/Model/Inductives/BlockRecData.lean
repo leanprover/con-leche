@@ -1475,9 +1475,9 @@ omit [SetTheory V] in
 /-- An opened telescope's readings are bounded at their own depths
 when every opener is an `fvar` at its depth whose type is scoped there
 and bvar-closed — a reading below its depth, or the default `bvar 0`
-under a non-empty frame. -/
+under a non-empty frame (an empty frame opens nothing). -/
 theorem readOpenedDoms_below {m : EnvModel V envC} {ψ : Name → Nat} :
-    ∀ (d : Nat) (fvs : List Expr), 0 < d →
+    ∀ (d : Nat) (fvs : List Expr), 0 < d ∨ fvs = [] →
       (∀ (q : Nat) (x : Expr), fvs[q]? = some x →
         Expr.WScoped (d + q) (Expr.fvarTypeD x) ∧ (Expr.fvarTypeD x).looseBVarsBounded 0 = true) →
       ∀ q, q < fvs.length →
@@ -1489,13 +1489,13 @@ theorem readOpenedDoms_below {m : EnvModel V envC} {ψ : Name → Nat} :
       ((denoteMeta m.acval envC ψ d x.fvarTypeD).getD default).erase
     rw [Nat.add_zero] at hw ⊢
     cases hA : denoteMeta m.acval envC ψ d x.fvarTypeD with
-    | none => exact hd
+    | none => exact hd.resolve_right (List.cons_ne_nil _ _)
     | some A => exact bvarsBelow_of_reading (m := m) hw hb hA
   | d, x :: fvs, hd, hx, q + 1, hq => by
     show Term.bvarsBelow (d + (q + 1))
       ((readOpenedDoms m.acval envC ψ (d + 1) fvs).getD q default).erase
     rw [show d + (q + 1) = d + 1 + q from by omega]
-    exact readOpenedDoms_below (d + 1) fvs (by omega)
+    exact readOpenedDoms_below (d + 1) fvs (Or.inl (by omega))
       (fun q' x' hx' => by
         have := hx (q' + 1) x' hx'
         rwa [show d + (q' + 1) = d + 1 + q' from by omega] at this)
@@ -1843,9 +1843,9 @@ so the reading is `lamR 0 … = pt`.
 
 `hpos` is the telescope's NON-EMPTINESS: a rule binding no variables
 has no binder to carry the datum.  Nothing in the check forces it —
-stage (b) asks only `nP ≤ rP` — so it is a named premise (a recursor
-with `nP = 0`, `rP = 0` and a field-less constructor passes every
-stage). -/
+stage (b) asks only `nP ≤ rP` — and a rule binding none is read as the
+point by the family's ι law instead (`blockRuleRaZ_empty`,
+`BlockDeclRun.lean`); `blockRuleRaZ_seam` dispatches the two. -/
 theorem blockRuleRaZ_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -4325,12 +4325,18 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
     (hdataB : BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs)
     -- the `ℓ = 0` arm: the recursor's type is a truth value, and the
-    -- rule's telescope is non-empty (so its head binder carries the
-    -- elimination datum, `blockRuleRaZ_run`)
+    -- stored rule reads as the point there (`blockRuleRaZ_seam`: by its
+    -- head binder's elimination datum, or by the ι law when it binds
+    -- no variable)
     (hTyZ : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ j) ∈ˢ (univZero : V))
-    (hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2) :
+    (hRaZ : ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
+      denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+        (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ 0 rhs = some Ra →
+      Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
+      ∀ ρ : Nat → V, interp V ρ Ra = pt) :
     BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
       (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
       (blockRecLeafAV mpC.base2.acval envC rs s
@@ -4381,7 +4387,7 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
   by_cases hℓ : Level.eval (Level.substFn φ r.1.levelParams us)
       (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0
   · -- THE `ℓ = 0` ARM: both sides are the point
-    have hRa := blockRuleRaZ_run (V := V) h hrj hcA hrhs hpos hreadRa hℓ ρ
+    have hRa := hRaZ _ _ hreadRa hℓ ρ
     have hL : interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
         (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)
         (Level.substFn φ r.1.levelParams us) j) = pt := by
@@ -4467,13 +4473,19 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
             { ctor := cA.1.name, nfields := cA.2, ctorParams := p.nP,
               fire := .plain, rhs := rhs, paramsBlind := true }) rhs)
     -- the `ℓ = 0` arm: every recursor's type is a truth value there, and
-    -- every rule binds at least one variable
+    -- every stored rule reads as the point there
     (hTyZ : ∀ j, j < rs.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ j) ∈ˢ (univZero : V))
-    (hpos : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        0 < p.toBlockShape.rulePrefixAt j + cA.2) :
+    (hRaZ : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
+        denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) ψ 0 rhs = some Ra →
+        Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
+        ∀ ρ : Nat → V, interp V ρ Ra = pt) :
     BlockRecStaged (V := V) μ envC p.toBlockShape p.nP rs mpC := by
   refine blockRecStaged_rhs hμ mpC h hndM hctorsIn heqB heqV heqP hpre hnCt ?_
   intro m₃ hac φ j r hr i cA rhs hcA hrhs
@@ -4486,7 +4498,7 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
     (blockRecLeafAV_valid hμ mpC h heqV)
     hpre hac hr hrhs hcA rfl rfl rfl rfl hcfind hcb hread (fun ψ => hpl ψ j r hr)
     (hdataS m₃ hac φ j r hr i cA rhs hcA hrhs)
-    (hTyZ j (List.getElem?_eq_some_iff.mp hr).1) (hpos j r hr i cA hcA)
+    (hTyZ j (List.getElem?_eq_some_iff.mp hr).1) (hRaZ j r hr i cA rhs hcA hrhs)
 
 end SeamShape
 
@@ -4591,17 +4603,24 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
         interp V ρ (blockRecTyAV mpC.base2.acval envC rsR ψ j) ∈ˢ (univZero : V)) ∧
       (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-        rsR[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-          0 < pp.toBlockShape.rulePrefixAt j + cA.2)) :
+        rsR[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+        r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+        ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
+          denoteMeta (blockRecAcv mpC.base2.acval envC rsR s
+              (blockRecEqs nCt rsR pdoms0 fdoms0 es0 ihs mk0 Rb0))
+            (consBlockRecs envC.find? pp.toBlockShape pp.nP 0 rsR envC) ψ 0 rhs = some Ra →
+          Level.eval ψ
+            (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
+          ∀ ρ : Nat → V, interp V ρ Ra = pt)) :
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hlfp hkLen => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
-          hnCt, hpl, hctor, hdataS, hTyZ, hpos⟩ :=
+          hnCt, hpl, hctor, hdataS, hTyZ, hRaZ⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
           hcore hctorsAs hctorsIn hdR hlfp hkLen
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
-        hctor hdataS hTyZ hpos
+        hctor hdataS hTyZ hRaZ
 
 end ConLeche.Model

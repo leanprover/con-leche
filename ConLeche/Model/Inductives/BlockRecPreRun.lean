@@ -3432,11 +3432,16 @@ theorem blockRuleHw2_of {rP nP : Nat} {recTy cty crest o₁ : Expr} {fvsPref cpr
 
 /-- **The generated tower, opened, is bvar-closed** — `hbR`'s and
 `hlbF`'s `ih` segment.  `hihlb` is the one fact the CHECK does not
-supply: `blockIhPis`' output is bounded at the rule frame's depth. -/
+supply: `blockIhPis`' output is bounded at the rule frame's depth.  An
+EMPTY frame (a rule binding no variable) instantiates nothing. -/
 theorem blockRuleIhTeleClosed {rP nF : Nat} {ihTele : Expr} {L : List Expr}
     (hL : FvarList (rP + nF) L) (hLcl : ∀ x ∈ L, x.looseBVarsBounded 0 = true)
-    (hihlb : ihTele.looseBVarsBounded (rP + nF) = true) (hE : 0 < rP + nF) :
+    (hihlb : ihTele.looseBVarsBounded (rP + nF) = true) :
     (ihTele.instantiateList L).looseBVarsBounded 0 = true := by
+  rcases Nat.eq_zero_or_pos (rP + nF) with h0 | hE
+  · obtain rfl : L = [] := List.eq_nil_of_length_eq_zero (hL.1.trans h0)
+    rw [ConLeche.Expr.instantiateList_nil, ← h0]
+    exact hihlb
   rw [instantiateList_eq_instSeq_of_fvarList hL hE]
   refine looseBVarsBounded_instSeq L.reverse (rP + nF - 1)
     (fun s hs => hLcl s (List.mem_reverse.mp hs))

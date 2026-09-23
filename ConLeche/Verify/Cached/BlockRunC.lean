@@ -713,7 +713,7 @@ theorem checkBlockRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     refine SimC.bind (checkConstantValS_sim hμ henv hs₂) (fun s₃ cvRi cvRi' hs₃ hR => ?_)
     obtain ⟨rfl, hwR⟩ := hR
     dsimp only
-    by_cases h1 : p.nP + p.k ≤ p.rulePrefixAt ri
+    by_cases h1 : p.nP ≤ p.rulePrefixAt ri
     case neg => simp only [h1, if_false]; exact SimC.throw_bind
     simp only [h1, if_true]
     by_cases h2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true

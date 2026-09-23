@@ -605,12 +605,12 @@ What is checked is the SHAPE the ruling of 2026-09-21 fixes, with the
 argument sums read off the record (`BlockShape.rulePrefixAt` /
 `majorIdxAt`):
 
-* `nP + k ≤ rP` — room for the parameters and one motive per member,
-  official's `nparams + nmotives ≤ rP` with the motives COUNTED, never
-  looked inside (the ruling of 2026-09-23, lane RM49's witness: a
-  `Prop` block whose recursor has `rP = 0` passed every stage with an
-  EMPTY rule telescope; the model's `ℓ = 0` arm needs every stored rule
-  to bind a variable, `RecTyEntry.nP_lt`) — and the type has
+* `nP ≤ rP` — the prefix starts with the block's parameters; nothing
+  is counted after them (a motive is a parameter like any other, the
+  maintainer's docket of 2026-09-23, lane FLOOR: official's
+  `nparams + nmotives ≤ rP` is NOT required; a zero-motive recursor's
+  rule may bind no variable, and the model's `ℓ = 0` arm reads it as
+  the point by the ι law, `blockRuleRaZ_empty`) — and the type has
   `mI + 1 = rP + nIdx_m + 1` `∀` binders;
 * the first `nP` binder DOMAINS are the block's parameter domains,
   compared BINDER BY BINDER with the member's own opened former
@@ -648,12 +648,12 @@ def checkBlockRecTys (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested :
     let cvRi ← checkConstantVal ops env rc.cvR
     let rP := p.rulePrefixAt ri
     let mI := p.majorIdxAt ri
-    -- the prefix has room for the parameters AND one motive per member
-    -- (official's `nparams + nmotives ≤ rP`; the motives are never
-    -- looked inside, only counted): a rule binds at least one variable
-    unless p.nP + p.k ≤ rP do
+    -- the prefix starts with the block's parameters; what follows them
+    -- (official's motives and minor premises) is never looked inside,
+    -- nor counted: a motive is a parameter like any other
+    unless p.nP ≤ rP do
       throw (.invalid "direct rec: the recursor's rule prefix is shorter than the block's \
-        parameters and one motive per member")
+        parameters")
     unless mI == rP + ms.nIdx do
       throw (.invalid "direct rec: the recursor's major-premise index is not its rule \
         prefix plus the member's index count")

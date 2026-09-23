@@ -601,8 +601,6 @@ theorem blockRuleOpenedFull_run (mpC : EnvModelM V μ envC)
     obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
     obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by omega)
     exact hle
-  have hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2 :=
-    ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
   -- the three subjects' constant scoping
   have hcT : ConstsBound envC r.1.type :=
     constsBound_of_constsResolve _ (ConLeche.checkBlockRecK_facts h r
@@ -684,7 +682,7 @@ theorem blockRuleOpenedFull_run (mpC : EnvModelM V μ envC)
     · exact openPisAtFvars_fvars_closed h₂ x hx'
   have hb₃ : ((blockRuleIhTeleAt p rs j i).instantiateList (blockRulePrefFvs p.toBlockShape rs j
       ++ blockRuleFieldFvs p.toBlockShape rs j i).reverse).looseBVarsBounded 0 = true :=
-    blockRuleIhTeleClosed (by rw [List.reverse_append]; exact hL2) hLcl hihlb hpos
+    blockRuleIhTeleClosed (by rw [List.reverse_append]; exact hL2) hLcl hihlb
   obtain ⟨hlbF, hbO⟩ := blockRuleHlbF_of h₁ h₂ hopen2 hTb hb₂ hb₃
   -- the prefix and field openers' leaf closure (an empty third opening)
   have hclF0 := blockRuleHclF_of (nR := 0) (ihTele' := Expr.sort .zero) (o₃ := Expr.sort .zero)
@@ -933,13 +931,11 @@ theorem blockRuleFrameReads_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
       = (blockRuleFrameAt p rs j i).nR := by
     rw [blockRuleIhdomsAV, readOpenedDoms_length_eq]
     exact openPisAtFvars_length _ hopen2
-  -- the recursor's prefix floor, and the rule's non-empty frame
+  -- the recursor's prefix floor
   have hnPr : p.nP ≤ p.toBlockShape.rulePrefixAt j := by
     obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
     obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by omega)
     exact hle
-  have hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2 :=
-    ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
   -- the `ih` openers' readings (`blockIhOpenerDom_run`)
   have hpisF : ConLeche.blockIhPis (blockRuleFrameAt p rs j i).nP (blockRuleFrameAt p rs j i).rP
       (blockRuleFrameAt p rs j i).nF (blockRuleFrameAt p rs j i).pw
@@ -1154,13 +1150,11 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
       = (blockRuleFrameAt p rs j i).nR := by
     rw [blockRuleIhdomsAV, readOpenedDoms_length_eq]
     exact openPisAtFvars_length _ hopen2
-  -- the recursor's prefix floor, and the rule's non-empty frame
+  -- the recursor's prefix floor
   have hnPr : p.nP ≤ p.toBlockShape.rulePrefixAt j := by
     obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
     obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by omega)
     exact hle
-  have hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2 :=
-    ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
   have hreadO := hreadAll ψ
   refine (blockRuleBodyInputs_iff ..).mpr ⟨blockRuleCtorFvs p rs j i,
     ((ConLeche.openPisAtFvars (p.nP + cA.2) cA.1.type 0).map (·.2)).getD default,
@@ -1410,7 +1404,16 @@ theorem blockRuleIhdomsAV_below {mpC : EnvModelM V μ envC}
   obtain ⟨-, -, hL3, hlbF, -, -, -, -, -, -, -, -, -⟩ :=
     blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
   obtain ⟨-, -, -, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
-  have hpos := ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
+  -- a rule binding no variable has no field, hence no `ih` opener
+  have hpos : 0 < p.toBlockShape.rulePrefixAt j + cA.2 ∨ blockRuleFvsIhAt p rs j i = [] := by
+    rcases Nat.eq_zero_or_pos (p.toBlockShape.rulePrefixAt j + cA.2) with h0 | h0
+    · right
+      have hks0 : blockRuleKsOf p j i = [] := List.eq_nil_of_length_eq_zero (by omega)
+      have hnR : (blockRuleFrameAt p rs j i).nR = 0 := by
+        simp [ConLeche.BlockRuleFrame.nR, blockRuleFrameAt, hks0, ConLeche.blockIhKeys,
+          ConLeche.blockRecIdxOf]
+      exact List.eq_nil_of_length_eq_zero ((openPisAtFvars_length _ hopen).trans hnR)
+    · exact Or.inl h0
   rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
   refine readOpenedDoms_below (m := mpC.base2) (ψ := ψ) _ _ hpos fun q x hx => ?_
   obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen q x hx
