@@ -84685,3 +84685,118 @@ the consumer: `blockModelAt_of_stages`'s functor conjunct
 `chainXBIGo_tele_sub` (`Semantics/Tower/BlockFamI.lean:259`) becomes
 `teleOfFields_sub`), with `ReadsHoles` proved beside the fibre there and
 recorded at `declBlock`'s `addLfp`.
+
+#### LANDED (lane TSHADOW, 2026-09-23): the TARGET kernel as a shadow — `--target-shadow`
+
+**The maintainer's request**: write the target kernel code now, behind a
+flag, run it beside today's install and compare verdicts, so that kernel
+surprises show up before the proofs.  Report:
+`_tmp/uniform-inds/TSHADOW.md`.
+
+- **Code** (kernel tier, `module` + `@[expose] public section`, no theory
+  import; nothing on the install or verified path calls it):
+  `Kernel/Inductives/RecCheck.lean` (piece 1, `targetRecCheck`),
+  `Kernel/Inductives/TargetInstall.lean` (pieces 2–3, `targetShadow`),
+  `Cached/TargetShadowC.lean` (the cached instantiation).  Written ONCE
+  over an `FEnv`, parameterised by `ShadowOps` (operations at an index,
+  the rule variant, a flush, the walkers): `ShadowOps.pure` is `pureOps`
+  (the unit tests, `tests/ConLecheTests/TargetShadowTests.lean`),
+  `shadowOpsC` is `sharedOpsC`/`sharedOpsRuleR`/`flushC`.
+- **How the flag reaches it**: `--target-shadow` sets `Args.targetShadow`;
+  `main` hands `Shadows {nested, target}` to `checkMain` →
+  `checkDeclsIO` → `installLoop` (the former `shadow : Bool` became the
+  record).  At an `.indDecl` that is not a basis pin hit, `installLoop`
+  runs `Cached.targetShadowS` on the PRE-block index and state, discards
+  its state, and prints one line after the fold's own step, beside that
+  step's verdict.  No proved function's statement changed (`installLoop`
+  carries the fold's run, its extra argument is data); no env var, no
+  tombstone.
+- **(1) The classification-free recursor check** (charter item 5).  The
+  family is every recursor record of the block, nested auxiliaries
+  included.  Per recursor: the major is `I.{us} D⃗ ı⃗` for ANY stored
+  inductive `I` (a member at the block's levels/parameters as today;
+  otherwise not `Quot`, `D⃗` over the parameter binders only); rules one
+  per constructor of `I` in `I`'s order, the constructor instantiated at
+  `(us, D⃗)`; every recursive call `rec_c x⃗ e⃗ (f a⃗)` with `rec_c` in the
+  family at the family's levels and the caller's OWN prefix, `f` a field,
+  `a⃗ = structTeleVars m` where `m` is the field's telescope READ THROUGH
+  WHNF (`targetWhnfPis`: a λ-pinned container's field is a redex),
+  `e⃗` recursor-free over `a⃗` and the frame; the `ih` variable's type is
+  `rec_c`'s STORED type at the call's arguments under `∀ a⃗`; the field
+  must be a value of `rec_c`'s major type there (defeq).  `ih` variables
+  are the calls in order of first occurrence (equal types share one); no
+  field kind, no target member, no (field, callee) key.
+  **Carried over unchanged**: the elimination guard's formula
+  (`blockLargeElimAllowed`), the counting guard and the elimination-level
+  pin, `nP ≤ rP`, the shared prefix, the level-parameter and
+  reserved-name pins, the rule's certification inference, λ-datum, G2
+  binder-by-binder domains and their resolution at the constructors'
+  environment, the residue typing.  **Generalised** (a major may be any
+  inductive's application): `mI = rP + nIdx` at the MAJOR's index count;
+  (b'') the index domains against the major's instantiated index
+  telescope; the rule's constructor at the major's `(us, D⃗)` and the
+  conclusion's major `c.{us} D⃗ f⃗`; the name set (member recursors
+  `{T_m.rec}`, auxiliaries `{T_0.rec_i}`); the rule pins against the
+  major's constructors; the guard's `nested` bit — read from the family
+  (an outside major) or `nestPos` (a container instance), not
+  `blockNested p.kinds` (always false on today's route); stored
+  auxiliary rules get `ctorParams := nPc` and fire `.inert` (ι for an
+  auxiliary major needs a firing mode — install-side, no verdict).
+- **(2) `nestPos` on every block**: on the STORED constructors, beside
+  today's classifier on the same ones.  e2e + arena + init-full: kinds
+  `same` on every block both classify; no `differ`.  Negative fields are
+  refused by the constructor stage's `normPosDom` before either runs
+  (`direct sum: non positive occurrence`) — `--nested-shadow` covers
+  `nestPos` on the declared types there.  **Wish for POSPROOF**:
+  `nestPos` (`nestMemberCtor`) does not check a MEMBER constructor's
+  result indices (official's "invalid return type"; the classifier
+  does); the target installer checks it beside the call
+  (`targetCtorResultsOk`) — `direct_fix_vec_res_occ_bad` was the witness.
+- **(3) The target installer** (every block, nested ones included):
+  formers, constructors (normalised), `nestPos` for the classifier,
+  `is_rec` from `nestPos`'s kinds, the elimination restriction, index
+  sorts, (1), the reject-only conformance check where `nestPos`'s kinds
+  are expressible, the recursors consed, the tables.  It accepts every
+  nested block of the corpus (INMODEL=0 ones included) end to end.
+  **Kind-dependent pieces with no `nestPos` replacement** (the main
+  finding; file:line at `e7dfb7ae`'s base): `blockOpenedOk`/
+  `blockMemberFieldsOk`/`blockFieldsOk` (`BlockInstall.lean:281/317/328`,
+  called at `:1017`; F twins `BlockInstallF.lean:123`) — no arm for a
+  container occurrence, and the model's `BlockDatum` reads it (measured
+  on the side as `fields`: `ok` wherever expressible); the conformance
+  generator (`Conformance/RecConformF.lean:133`, via
+  `BlockParts.toNative` `RecGen.lean:365`) — reads `RecFieldKind`s and
+  generates no auxiliary recursor (runs only where kinds are
+  expressible); `normPosDom`/`normCtorVal` (`Positivity.lean:399/433`,
+  called from `SumInstall.lean:129`) — a SECOND positivity verdict
+  (its Π-domain reject) and the stored normal form, beside the charter's
+  one function; `BlockParts.kinds`/`withKinds` (`BlockParts.lean:246/287`)
+  and every consumer of today's check (`blockIsRec :77`,
+  `checkBlockRecTys :650`, `checkBlockRecsRules :877`, `blockNested`,
+  `BlockFieldKind.tgt?`, `blockIhKeys`, `BlockRuleFrame.ks/recTgts`,
+  `blockIhCall? :315` in `BlockRec.lean`), all replaced by (1);
+  `blockRecPinOk`/`blockRecNameSetOk`/`blockParts?`'s foreign-major gate
+  (`BlockParts.lean:434/479/587`) — member-only, generalised in (1).
+- **Measured** (no exit code moved; `tests/target-shadow.sh` in
+  `tests/arena.sh`, 317 runs pinned): every today≠target block is
+  official's verdict (nine `corner_nestpos_*_bad`, `corner_pin_{eq,quot}_bad`,
+  `nested_unused_param`: reject; twelve INMODEL=0 nested fixtures:
+  accept; `corner_nest_{or,and}_prop_large_bad`: rejected AT the block,
+  where today accepts the block and rejects its model record) or a
+  charter item 8 superset (`corner_nestpos_{redex,group}_bad`).
+  Arena: 324 blocks, all agree.  init-full: 585 blocks, all agree.
+  Mathlib: 6721 blocks, all agree (41 nested: accepted end to end, `rec`
+  on the full auxiliary family); exit 0.
+- **Questions for the maintainer** (fixtures forged by
+  `scripts/mk_tshadow_corner.py`): **Q1** — a family recursor whose major
+  is an OUTSIDE inductive in ANOTHER universe than the block
+  (`corner_tshadow_aux_prop_bad`: a `Type` block eliminating a
+  two-constructor `Prop` into `Sort u`, which proves `False`); the
+  target refuses it provisionally ("an outside major lives in the
+  block's universe"); **Q2** — a family recursor on an outside inductive
+  the block never reaches (`corner_tshadow_aux_unreached`): item 5 read
+  literally accepts (so does today's modelled route); official rejects;
+  **Q3** — the target keeps the syntactic narrowing (a call's major is
+  the field applied to its own telescope variables), so it rejects
+  `corner_tshadow_aux_nonfield_bad` (`(fun x => x) tail`), which today's
+  MODELLED route accepts.

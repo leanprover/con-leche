@@ -1919,3 +1919,32 @@
 # datatypes parameters cannot contain local variables".
 0 corner_nestpos_eqlocal_free.ndjson
 2 corner_nestpos_eqlocal_bad.ndjson
+# ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
+# cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
+# cannot export a family it does not generate).  Each row is TODAY's
+# exit; `tests/target-shadow.sh` pins the target's.
+# corner_tshadow_aux_good: a hand-written nested block `Tr | node : L Tr
+# → Tr` with official's two-recursor family.  Today 0 (modelled route);
+# TARGET 0 (nestPos + the classification-free check on the family).
+0 corner_tshadow_aux_good.ndjson
+# corner_tshadow_aux_nonfield_bad: `Tr.rec_1`'s `cons` rule recurses on
+# `(fun x => x) tail` — definitionally the field, not the field.  Today
+# 0: the MODELLED route accepts it (an accept-superset of official, whose
+# replay compares with the generated rule: 1).  TARGET 1: not a primitive
+# recursion (the syntactic narrowing of 2026-09-22, kept).
+0 corner_tshadow_aux_nonfield_bad.ndjson
+# corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
+# carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
+# eliminating into `Sort u` — large elimination out of a proposition
+# (with proof irrelevance, `False`).  Today 2 (the in-process modeller
+# declines it: "eliminates into Prop only but the block is not Prop").
+# Official 1 (not generated).  TARGET 1 under the lane's provisional
+# answer to MAINTAINER QUESTION Q1 (an outside major must live in the
+# block's universe).
+2 corner_tshadow_aux_prop_bad.ndjson
+# corner_tshadow_aux_unreached: the same at an outside `Type` inductive
+# `N | z | s` the block never reaches.  Today 0 (the modelled route
+# accepts the family — an accept-superset of official, which generates
+# only `T.rec`: 1).  TARGET 0 (charter item 5 read literally: "calls on
+# fields of ANY inductive type").  MAINTAINER QUESTION Q2.
+0 corner_tshadow_aux_unreached.ndjson
