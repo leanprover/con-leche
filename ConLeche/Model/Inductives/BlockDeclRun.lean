@@ -528,7 +528,7 @@ theorem blockRecNCt_ge {rs : List (ConstantVal × List Expr × Nat × List (Cons
   exact Nat.le_refl _
 
 /-- **`declBlock` at the run** — the uniform install's carrier, with
-the recursor stage's obligation discharged down to `howed` and `hpos`.
+the recursor stage's obligation discharged down to `howed`.
 
 Discharged here, at the seam: the rule count (`blockRecNCt_ge`), the
 prefix length (`blockRulePdomsAV_length`), every carried constructor's
@@ -553,23 +553,14 @@ existential and five of its fields are unpinned), and at that choice:
 * the rule stage's peel obligation `BlockRuleBodyOwed` (nothing in the
   tree concludes `BlockRuleBodyInputs`).
 
-Owed (`hpos`): every stored rule binds at least one variable; the
-KERNEL's to say (stage (b) asks only `nP ≤ rP`, so a recursor with
-`nP = rP = 0` at a field-less constructor passes every stage). -/
+The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
+floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/
 theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
     (hgate : ConLeche.blockRecCheckOn = true)
-    (hpos : ∀ (envC : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
-        (ctorsAsR : List (List (ConstantVal × Nat)))
-        (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
-        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTasR
-          ctorsAsR = .ok rsR →
-        ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-          rsR[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-          0 < pp.toBlockShape.rulePrefixAt j + cA.2)
     (howed : ∀ (envC envI : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
         (ctorsAsR : List (List (ConstantVal × Nat)))
         (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -667,7 +658,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         blockRecCtor_seam hrec hnames hcore hctorsAs,
         blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hctorsAs heqB heqV heqP hpre hbody,
         blockRecTyZ_run hμ mpC hrec,
-        hpos envC pp cvTasR ctorsAsR rsR hrec⟩
+        ConLeche.checkBlockRecK_rulePos hrec⟩
 
 end Compose
 
