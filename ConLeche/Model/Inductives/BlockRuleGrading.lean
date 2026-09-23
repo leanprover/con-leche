@@ -393,8 +393,9 @@ end CallFit
 
 /-! ## 3. THE GRADING — `blockRuleHokA_of_run` at the run, every rule
 
-The statement is `declBlock_run`'s `howed` conjunct "the rule frame's
-GRADING" verbatim: every entry of the three segments
+The statement is the rule frame's GRADING (G), the spelling
+`blockRecEqs_valid_seam` and `blockRuleDataB_seam` take (`declBlock_run`
+pays both with it): every entry of the three segments
 `pdoms ++ fdoms ++ ihdoms` of every rule is graded at every frame
 fitting the entries before it.  The prefix and field segments are
 `blockRuleHokA_of_run`'s own; the `ih` segment's `hIent` is produced
@@ -1012,8 +1013,8 @@ theorem blockRuleIhKey_run
         exact hmemR
     exact hcore0
 
-/-- **(G) THE RULE FRAME'S GRADING, AT THE RUN** — `declBlock_run`'s
-`howed` conjunct verbatim: `blockRuleHokA_of_run` at the pinned
+/-- **(G) THE RULE FRAME'S GRADING, AT THE RUN** — the
+spelling `declBlock_run` passes on: `blockRuleHokA_of_run` at the pinned
 `blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleIhdomsAV`, its `ih`
 segment's `hIent` off `blockRuleIhKey_run`, carried from `ih` level `0`
 to the opener's own level `q` (the `q` values already bound stand where

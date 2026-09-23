@@ -1167,7 +1167,7 @@ openers' domains at the chain frame (`blockRecIhdomsK`).
 
 The fourth premise (`hihsWd`) is owed in two halves: the `ih` terms'
 grading, and their FIT — which is stated at the BASE frame, in the
-exact spelling of `declBlock_run`'s typed-tuple `ih` fit
+exact spelling of the typed tuple's `ih` fit
 (`BlockIhFitTypedOwed`), so the two are ONE fact with one producer
 (`blockIhFitTyped_run`); the seam carries it to the chain frame
 (`blockRecIhsFit_chain`). -/
@@ -1190,8 +1190,8 @@ exact spelling of `declBlock_run`'s typed-tuple `ih` fit
             + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
             + (ihs ψ c j).length))
         (Ca ψ c j)) ∧
-    -- `hokA`: owed as the RULE FRAME's grading (G), in `declBlock_run`'s
-    -- spelling — `blockRuleGrading_run` pays it; the seam reads the
+    -- `hokA`: owed as the RULE FRAME's grading (G) —
+    -- `blockRuleGrading_run` pays it; the seam reads the
     -- dispatch's chain-frame form off its prefix and field segments
     -- (`blockGradeHokA_chain`)
     (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -1765,7 +1765,7 @@ theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
     exact (hus (res ψ) c hc ρ).1
 
 /-- A tuple of the family's length IS the chain frame's block. -/
-theorem consList_eq_chainFrame' {K : Nat} {tup : List V} (hlen : tup.length = K) (ρ : Nat → V) :
+theorem consList_eq_chainFrame {K : Nat} {tup : List V} (hlen : tup.length = K) (ρ : Nat → V) :
     consList tup ρ = chainFrame K (fun c => tup.getD c pt) ρ := by
   have hmap : (List.range K).map (fun c => tup.getD c pt) = tup := by
     refine List.ext_getElem? fun n => ?_
@@ -1800,7 +1800,7 @@ theorem blockRecIhsFit_chain (hμ : μ.verifiedChecks = true)
         (ihs.map (interp V (consList ys (consList as ρ)))) := by
   intro ys hys
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-  have hch := consList_eq_chainFrame' (V := V) hlen ρ
+  have hch := consList_eq_chainFrame (V := V) hlen ρ
   obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
   have hxl : xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length :=
     hxs.length_eq
