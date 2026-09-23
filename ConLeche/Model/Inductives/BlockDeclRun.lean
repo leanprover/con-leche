@@ -63,7 +63,7 @@ theorem blockRecTyZ_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ e
       Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ j) ∈ˢ (univZero : V) := by
   intro j hj ψ ρ hℓ
-  obtain ⟨_, uOf, -, -, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  obtain ⟨uOf, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   have hu : (uOf j).eval ψ = 0 := by
     have := blockRecElimPin_run h hruns ψ hj
     rw [hℓ] at this
@@ -845,7 +845,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
   have hcvTa := TE.hcvTa
   have hnP := TE.nP_le
   -- the elimination level package, and the pin
-  obtain ⟨usP, uOf, helim, hmemU, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   have hk0 : 0 < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     Nat.lt_of_le_of_lt (Nat.zero_le _) hmemk
   -- the rule's reading, off the leaf's facts
@@ -897,12 +897,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     exact hne
   case hct1 =>
     intro us _ hne hw0
-    have hpos : 0 < rs.length := Nat.lt_of_le_of_lt (Nat.zero_le _) hj
-    have hℓ : (usP.headD .zero).eval (Level.substFn φ r.1.levelParams us) ≠ 0 := by
-      rw [← blockRecElimPin_eval helim _ (uOf 0) (hmemU 0 hpos),
-        blockRecElimPin_run h hruns _ hpos]
-      exact hne
-    obtain ⟨-, -, -, -, -, hc⟩ := blockRecCounting_run h helim hmemU hruns _ hℓ hw0
+    obtain ⟨-, -, -, -, -, hc⟩ := blockRecCounting_run h hruns _ hne hw0
     rw [hctM, hlenms]
     exact Nat.le_trans (numCtorsOf_ge_of_mem (List.mem_of_getElem? hms)) hc
   case hread =>

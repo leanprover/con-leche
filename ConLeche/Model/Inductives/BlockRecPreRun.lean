@@ -335,23 +335,23 @@ end WfData
 D-d — one elimination level per family — follows from the
 elimination-level PIN (`checkBlockRecElimPin`: every conclusion sort is
 equivalent to the generated `structElimLevel p.elim p.large`), and
-`blockRecElimPin_eval` (`BlockRecRead.lean`) turns it into equalities
-of `Level.eval` at a ground assignment.  What the candidate's λ-tower
-needs (`famCand_hCand`'s `hbits`) is the ZERONESS bit of every binder
+`blockRecElimPin_run` (§38.1) turns it into equalities of
+`Level.eval` at a ground assignment.  What the candidate's λ-tower
+needs (`famCandG_hCand`'s `hbits`) is the ZERONESS bit of every binder
 of every class's binder data, and that is the same bit once each
 class's binder numerals follow its own conclusion's sort — the
 reading's fact, taken here as `hbits`. -/
 
 /-- **D-d, in the shape the candidate consumes**: at the family's
-single level `ℓ = (us.headD .zero).eval ψ` every binder numeral of
-every class's binder data is zero exactly when `ℓ` is. -/
-theorem blockRecOneElimLevel {L : Level} {us : List Level}
-    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
-    (ψ : Name → Nat) {K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {uOf : Nat → Level}
-    (hmem : ∀ c, c < K → uOf c ∈ us)
+single level `ℓ` — every recursor's own level evaluates to it (the
+pin, `blockRecElimPin_run`) — every binder numeral of every class's
+binder data is zero exactly when `ℓ` is. -/
+theorem blockRecOneElimLevel {ℓ : Nat} (ψ : Name → Nat) {K : Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {uOf : Nat → Level}
+    (hpin : ∀ c, c < K → (uOf c).eval ψ = ℓ)
     (hbits : ∀ c, c < K → ∀ b ∈ rds c, (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) :
-    OneElimLevel ((us.headD .zero).eval ψ) K rds :=
-  fun c hc b hb => (blockRecElimPin_zero_iff h ψ (hmem c hc)).trans (hbits c hc b hb).symm
+    OneElimLevel ℓ K rds :=
+  fun c hc b hb => by rw [hbits c hc b hb, hpin c hc]
 
 /-! ## 6. The rule count -/
 
@@ -3075,9 +3075,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
-    ∃ (us : List Level) (uOf : Nat → Level),
-      (∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true) ∧
-      (∀ c, c < rs.length → uOf c ∈ us) ∧
+    ∃ uOf : Nat → Level,
       (∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
         ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
           (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
@@ -3093,16 +3091,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
       ((R.cvRus.map (·.2.2)).getD c .zero) = u := by
     intro c r u hcu
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcu]; rfl
-  refine ⟨R.cvRus.map (·.2.2), fun c => ((R.cvRus.map (·.2.2)).getD c .zero), R.fam.pin,
-    ?_, ?_, ?_⟩
-  · intro c hc
-    have hlt : c < (R.cvRus.map (·.2.2)).length := by
-      rw [List.length_map, R.lenT, ← R.len]; exact hc
-    have hg : (R.cvRus.map (·.2.2)).getD c .zero = (R.cvRus.map (·.2.2))[c] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl
-    show ((R.cvRus.map (·.2.2)).getD c .zero) ∈ R.cvRus.map (·.2.2)
-    rw [hg]
-    exact List.getElem_mem hlt
+  refine ⟨fun c => ((R.cvRus.map (·.2.2)).getD c .zero), ?_, ?_⟩
   · intro ψ c hc b hb
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr
@@ -3136,6 +3125,54 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
       = .ok ((R.cvRus.map (·.2.2)).getD c .zero)
     rw [huOf hcu]
     exact E.hu
+
+/-- **The package's `uOf c` IS stage (b)'s own level**, for every
+recursor of the list: `blockRecElimLevel_run` hands the level back
+existentially, but its runs pin it — `inferTypeCore`/`ensureSortCore`
+are functions — so a fact about the KERNEL's level list is read at
+`uOf`. -/
+theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {uOf : Nat → Level} (R : ConLeche.RecKRun μ F envC p cvTas ctorsAs rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    {c : Nat} (hc : c < rs.length) : uOf c ∈ R.cvRus.map (·.2.2) := by
+  obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
+  obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr0
+  obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns c hc
+  have hrd : rs.getD c default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
+  rw [hrd] at hop'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
+  obtain rfl : sty' = E.sty := Except.ok.inj (hsty'.symm.trans E.hsty)
+  have huu : uOf c = u := Except.ok.inj (hu'.symm.trans E.hu)
+  have hg : (R.cvRus.map (·.2.2))[c]? = some u := by rw [List.getElem?_map, hcu]; rfl
+  obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
+  rw [huu]
+  exact hEq ▸ List.getElem_mem hlt
+
+/-- **THE LEVEL CURRENCY**: every recursor of the family eliminates at
+the CHECKED elimination level `structElimLevel p.elim p.large`, at
+every `ψ` — the elimination-level pin (`RecFamRun.pin`) read at the
+package's `uOf`. -/
+theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {uOf : Nat → Level}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) :
+    Level.eval ψ (uOf c)
+      = Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  exact ConLeche.Level.isEquiv_sound (R.fam.pin _ (blockRecUOf_run R hruns hc)) ψ
 
 /-! ## 39. `BlockRuleCerts`' FRAME SEAM — `hdoms` and `hokΔ` from the
 three segments
@@ -5477,7 +5514,7 @@ theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
             interp V σ X = interp V (consList ys ρ)
               (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
             interp V σ X ∈ˢ (univZero : V) := by
-  obtain ⟨us, uOf, -, -, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  obtain ⟨uOf, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   refine ⟨uOf, fun c hc => hbits ψ c hc, fun c hc hu0 ρ ys hys X σ hval => ?_⟩
   obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c hc
   have hrd : rs[c]? = some (rs.getD c default) := by

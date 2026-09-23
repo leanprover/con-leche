@@ -985,8 +985,7 @@ theorem blockRecPre_graph (hμ : μ.verifiedChecks = true)
   intro ψ ρ
   have hdR' := hdR
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
-  obtain ⟨us, uOf, helim, hmemU, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
-  have hℓeq := blockRecHeadLevel_run h helim hmemU hruns
+  obtain ⟨uOf, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   have hmemk : ∀ c, c < rs.length → p.toBlockShape.recTgtAt c
       < (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k := fun c hc =>
     (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
@@ -1031,9 +1030,7 @@ theorem blockRecPre_graph (hμ : μ.verifiedChecks = true)
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
         ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
           p.toBlockShape.large)) : V) := by
-    intro xs c hc i hi x hx
-    rw [← hℓeq ψ]
-    exact blockRecConclTy_run hμ mpC h hmr hM helim hmemU hruns ψ ρ xs c hc i hi x hx
+    exact blockRecConclTy_run hμ mpC h hmr hM hruns ψ ρ
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
   -- the family
   let D := blockGraphFam (V := V) (μ := μ) (mo := mpC.base2) (names := names)
@@ -1077,8 +1074,7 @@ theorem blockRecPre_graph (hμ : μ.verifiedChecks = true)
       (checkBlockRecK_tyPis (V := V) hμ mpC h (List.getElem?_eq_getElem hc)
         ψ).choose_spec.choose_spec.2.2.1
   -- one elimination level
-  · have hb := blockRecOneElimLevel helim ψ hmemU (hbitsE ψ)
-    rwa [hℓeq ψ] at hb
+  · exact blockRecOneElimLevel ψ (fun c hc => blockRecElimPin_run h hruns ψ hc) (hbitsE ψ)
   · exact fun c hc => blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ
   -- the rule's spine fits the recursor's type
   · exact blockKitRule_run hμ h hkLen hcore hmr hM hN rfl hctM ψ rs.length _ ρ

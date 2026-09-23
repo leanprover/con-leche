@@ -391,11 +391,10 @@ theorem blockCountingGuard_run (hμ : μ.verifiedChecks = true)
       ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt 0)).length ≤ 1 ∧
       (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).large = true := by
-  obtain ⟨us, uOf, helim, hmemU, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
-  have hℓeq := blockRecHeadLevel_run h helim hmemU hruns
+  obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   obtain ⟨hpos, hklen⟩ := blockRecLen_run h
   obtain ⟨-, -, hlarge, hk1, -, hnc⟩ :=
-    blockRecCounting_run h helim hmemU hruns ψ (by rw [hℓeq ψ]; exact hℓ) hw
+    blockRecCounting_run h hruns ψ hℓ hw
   have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hpos) ψ).2.1
   have hk1d : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k = 1 := hk1
   rw [hk1d] at hmemk

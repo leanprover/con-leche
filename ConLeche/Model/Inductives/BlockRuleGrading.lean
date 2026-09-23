@@ -1083,7 +1083,7 @@ theorem blockRuleIhKey_run
     obtain rfl : rest = CihR := Option.some.inj (hTF.peelPis.symm.trans hcon)
     exact teleFitPA_wellDenotedV hTF (hwdTy _) (blockRuleHokC_args hEsWd hFapWd)
   · -- the truth value: the elimination level is zero, and the spine fits
-    obtain ⟨us, uOf, -, -, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+    obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
     obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c' hc'K
     have hrd : rs.getD c' default = rs[c'] := by
       rw [List.getD_eq_getElem?_getD, hr']; rfl
