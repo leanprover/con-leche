@@ -437,7 +437,12 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
     caps_ok := hcaps_ok
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
-    tower_ok := htower_ok }, rfl⟩
+    tower_ok := htower_ok
+    -- the recorded lfp clauses: a fresh cons re-reads no stored name
+    lfpBlocks := mp.lfpBlocks
+    lfp_ok := mp.lfp_ok_transport (fun _ _ _ hf => findPreserved_cons hfresh hf)
+      (fun n _ _ hf => acvalWith_ne fun h => by
+        rw [h, hfresh] at hf; exact nomatch hf) }, rfl⟩
 
 
 /-- **The P step at a cons, at an unconditional membership premise**

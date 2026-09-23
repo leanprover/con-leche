@@ -53,6 +53,7 @@ public import ConLeche.Model.CtxOkKit
 public import ConLeche.Model.Currency
 public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Annot.Laws
+public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.Tiers
