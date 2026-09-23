@@ -1779,6 +1779,35 @@ omit [SetTheory V] in
   | d, _ :: xs => by
     simp only [readOpenedDoms, List.length_cons, readOpenedDoms_length_eq acval env ψ (d + 1) xs]
 
+/-- An opened telescope's readings are bounded at their own depths
+when every opener is an `fvar` at its depth whose type is scoped there
+and bvar-closed — a reading below its depth, or the default `bvar 0`
+under a non-empty frame. -/
+theorem readOpenedDoms_below {m : EnvModel V envC} {ψ : Name → Nat} :
+    ∀ (d : Nat) (fvs : List Expr), 0 < d →
+      (∀ (q : Nat) (x : Expr), fvs[q]? = some x →
+        Expr.WScoped (d + q) (Expr.fvarTypeD x) ∧ (Expr.fvarTypeD x).looseBVarsBounded 0 = true) →
+      ∀ q, q < fvs.length →
+        Term.bvarsBelow (d + q) ((readOpenedDoms m.acval envC ψ d fvs).getD q default).erase
+  | _, [], _, _, q, hq => absurd hq (Nat.not_lt_zero q)
+  | d, x :: fvs, hd, hx, 0, _ => by
+    obtain ⟨hw, hb⟩ := hx 0 x rfl
+    show Term.bvarsBelow (d + 0)
+      ((denoteMeta m.acval envC ψ d x.fvarTypeD).getD default).erase
+    rw [Nat.add_zero] at hw ⊢
+    cases hA : denoteMeta m.acval envC ψ d x.fvarTypeD with
+    | none => exact hd
+    | some A => exact bvarsBelow_of_reading (m := m) hw hb hA
+  | d, x :: fvs, hd, hx, q + 1, hq => by
+    show Term.bvarsBelow (d + (q + 1))
+      ((readOpenedDoms m.acval envC ψ (d + 1) fvs).getD q default).erase
+    rw [show d + (q + 1) = d + 1 + q from by omega]
+    exact readOpenedDoms_below (d + 1) fvs (by omega)
+      (fun q' x' hx' => by
+        have := hx (q' + 1) x' hx'
+        rwa [show d + (q' + 1) = d + 1 + q' from by omega] at this)
+      q (by simpa using hq)
+
 section Components
 
 variable (p : ConLeche.BlockShape)
