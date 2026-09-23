@@ -1148,6 +1148,42 @@ theorem blockWfIhF_run (hμ : μ.verifiedChecks = true)
 
 end IhFWf
 
+section SqGuard
+
+variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
+  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+
+/-- **The counting guard at regime SQ, from the run** (`ℓ ≠ 0 ∧ w = 0`):
+one recursor, its member the block's first, at most one constructor,
+large elimination — `blockRecCounting_run` at the checked level. -/
+theorem blockSqGuard_run (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hmr : BlockMembersRun mpC.base2 (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+      p.toBlockShape cvTas)
+    (ψ : Name → Nat)
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0)
+    (hw : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).w ψ = 0) :
+    rs.length = 1 ∧ p.toBlockShape.recTgtAt 0 = 0 ∧
+      ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+        (p.toBlockShape.recTgtAt 0)).length ≤ 1 ∧
+      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).large = true := by
+  obtain ⟨us, uOf, helim, hmemU, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  have hℓeq := blockRecHeadLevel_run h helim hmemU hruns
+  obtain ⟨hpos, hklen⟩ := blockRecLen_run h
+  obtain ⟨-, -, hlarge, hk1, -, hnc⟩ :=
+    blockRecCounting_run h helim hmemU hruns ψ (by rw [hℓeq ψ]; exact hℓ) hw
+  have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hpos) ψ).2.1
+  have hk1d : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k = 1 := hk1
+  rw [hk1d] at hmemk
+  exact ⟨by rw [hklen, hk1], by omega,
+    Nat.le_trans (blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
+      (ppsOf := ppsOf) h 0 hpos).2 hnc, hlarge⟩
+
+end SqGuard
+
 section Sq
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
@@ -1180,8 +1216,7 @@ theorem blockSqIhChain_run
     (hM : BlockModelAt mpC.base2 names d)
     (ψ : Name → Nat) (ρ : Nat → V)
     (hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0)
-    (hw : d.w ψ = 0) (hK1 : rs.length = 1) (hmem0 : p.toBlockShape.recTgtAt 0 = 0)
-    (hct1 : (d.ctorsM (p.toBlockShape.recTgtAt 0)).length ≤ 1) (hlarge : d.large = true)
+    (hw : d.w ψ = 0)
     (Rb0 : Nat → Nat → AnnotTerm) :
     (∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
         ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
@@ -1211,6 +1246,7 @@ theorem blockSqIhChain_run
   obtain rfl : c = 0 := by omega
   have hdR' := hdR
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨hK1, hmem0, hct1, hlarge⟩ := blockSqGuard_run hμ h hmr ψ hℓ hw
   have h0 : 0 < rs.length := by rw [hK1]; exact Nat.one_pos
   have hr : rs[0]? = some rs[0] := List.getElem?_eq_getElem h0
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -1335,8 +1371,7 @@ theorem blockSqIhF_run (hμ : μ.verifiedChecks = true)
     (hM : BlockModelAt mpC.base2 names d)
     (ψ : Name → Nat) (ρ : Nat → V)
     (hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0)
-    (hw : d.w ψ = 0) (hK1 : rs.length = 1) (hmem0 : p.toBlockShape.recTgtAt 0 = 0)
-    (hct1 : (d.ctorsM (p.toBlockShape.recTgtAt 0)).length ≤ 1) (hlarge : d.large = true) :
+    (hw : d.w ψ = 0) :
     (∀ xs : List V, ∀ c, c < 1 →
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
@@ -1356,9 +1391,10 @@ theorem blockSqIhF_run (hμ : μ.verifiedChecks = true)
         SpineFit (consList (xs ++ fs) ρ) (blockRecIhdomsK 1 p mpC.base2.acval envC rs ψ c j) ((blockKitIhv p rs mpC.base2.acval envC ψ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large)) d ρ) xs c j fs g)) := by
   intro xs c hc hpar hpref j hj i fs hi hfit g hg
   have hc0 : c = 0 := by omega
-  have hc : c < rs.length := by rw [hK1]; exact hc
   have hdR' := hdR
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨hK1, hmem0, hct1, hlarge⟩ := blockSqGuard_run hμ h hmr ψ hℓ hw
+  have hc : c < rs.length := by rw [hK1]; exact hc
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r →
