@@ -31,6 +31,7 @@ public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.BlockRecInv
+public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Semantics.Inductives.DeclSumEta
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.Inductives.HoleMono

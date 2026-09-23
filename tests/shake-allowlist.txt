@@ -323,6 +323,7 @@ ConLeche/Model/Tiers.lean	public import ConLeche.Model.Rules.Recompose	# compens
 ConLeche/PinGen/Dump.lean	public import Lean	# `import Lean` is the intended spelling for the generator cone (task #223 section 8)
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.BlockPartsInv	# the aggregator root's reachability line, as the SumWF one above: nothing else imports the module and `lake build` must build it
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.BlockRecInv	# the aggregator root's reachability line, as the SumWF one above: the recursor CHECK's inversion has no consumer until milestone M5's model port and `lake build` must build it
+ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.RecCheckRun	# the aggregator root's reachability line, as the BlockRecInv one above: the target recursor check's run records have no consumer until lane RECLIB's model port (Phase B) and `lake build` must build them
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.BlockWF	# the aggregator root's reachability line, as the SumWF one above: nothing else imports the module and `lake build` must build it
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.SumWF	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Semantics/Bridge/Decl.lean	import ConLeche.Verify.IotaWalkInv	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
