@@ -7,7 +7,7 @@ public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.InstalledC
-import ConLeche.Semantics.Bridge.Sound
+import ConLeche.Semantics.Bridge.SoundOne
 
 public section
 
