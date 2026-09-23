@@ -46,7 +46,8 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
   induction needs it at the separated tuple, where a concrete defeq
   says nothing).  Nothing is keyed by a field kind or a target member: the
   `ih` variables are the calls the body makes, in order of first
-  occurrence, identical calls sharing one;
+  occurrence, identical calls (same field, callee and index arguments)
+  sharing one;
 * the residue is TYPED, as today, against the recursor's conclusion at
   the prefix, the constructor's result indices and the major
   `c.{us} D⃗ f⃗`.
@@ -405,7 +406,7 @@ def targetHoleFree (base k : Nat) (e : Expr) : Bool :=
   (List.range k).all fun t => !e.mentionsFvar (base + t)
 
 /-- One `ih` variable of a rule's frame: the call it stands for, keyed
-by its own type (identical calls share one variable). -/
+by the call itself (identical calls share one variable). -/
 structure TargetIh where
   /-- the field the call recurses on -/
   field : Nat
@@ -508,7 +509,11 @@ def targetAbstract (fr : TargetFrame) (base : Nat) :
     match targetCall? fr d (.app f a) with
     | some (i, c, m, idx) => do
       let ty ← targetIhTy fr i c m idx
-      match acc.findIdx? (·.ty == ty) with
+      -- identical CALLS share one variable (the same field, callee and
+      -- index arguments — hence the same target at every reading);
+      -- two different calls never do, even at one type: the model reads
+      -- each variable as ONE call target's value (lane RECLIB)
+      match acc.findIdx? (fun x => x.field == i && x.callee == c && x.idx == idx) with
       | some r =>
         let fv := (acc.getD r default).fv
         pure (Expr.mkAppN fv (structTeleVars m), acc)
