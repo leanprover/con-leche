@@ -1980,14 +1980,19 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
         p.toBlockShape.rulePrefixAt mem
         (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs
           (Level.substFn φ r.1.levelParams us) c') ρ)
-    -- **THE GUARD**: `ℓ ≠ 0`, and under it the COUNTING guard's two
-    -- facts.  `hlarge`/`hct1` are the KERNEL's, in the dispatch lane's
-    -- own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 → rs.length = 1` is the
-    -- same guard's one-member half).
-    {ℓ : Nat} (hℓ : ℓ ≠ 0)
-    (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length → ℓ ≠ 0 →
+    -- **THE GUARD** is the contract's own (`BlockRuleDataB`'s
+    -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
+    -- `structElimLevel p.elim p.large`), and under it the COUNTING
+    -- guard's two facts.  `hlarge`/`hct1` are the KERNEL's, in the
+    -- dispatch lane's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
+    -- rs.length = 1` is the same guard's one-member half).
+    (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length →
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
       d.w (Level.substFn φ r.1.levelParams us) = 0 → d.large = true)
-    (hct1 : ∀ us : List Level, us.length = r.1.levelParams.length → ℓ ≠ 0 →
+    (hct1 : ∀ us : List Level, us.length = r.1.levelParams.length →
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
       d.w (Level.substFn φ r.1.levelParams us) = 0 → (d.ctorsM (mem j)).length ≤ 1)
     (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
       denoteMeta (blockRecAcv mpC.base2.acval envC rs s
@@ -2024,13 +2029,13 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
       ctorTy φ j i r cA rl rhs) :
     BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  intro us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
   have hnPd : d.nP ≤ p.toBlockShape.rulePrefixAt j := by rw [hdnP]; exact hnP
   have hlv := blockRuleLevelAgree hplain hψ
   obtain ⟨hqs, hfq⟩ := blockRuleCtorFit_run (d := d) hcj hcf hlv (hlenP us hus)
     (hparamsC us hus) (by rw [hyl, hdnP]) (hctorRead _) hfitC
   have hbody :=
-    hres us hus usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+    hres us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
   -- THE INDEX PIN, in the model's currency (the contract's `hidx`, at
   -- last consumed): the squash arm's tie between the two frames
   have hmN : mem j < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
@@ -2866,7 +2871,6 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
     {lps : List Name}
     (hlps0 : ∀ r₀ : RecDatum, rs[0]? = some r₀ → r₀.1.levelParams = lps)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
-    {ℓ : Nat} (hℓ : ℓ ≠ 0)
     -- the right-hand side's reading, and the rules' inputs
     (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
       denoteMeta (blockRecAcv mpC.base2.acval envC rs s
@@ -2926,7 +2930,9 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
             r.1.type = some concl →
         ConLeche.isDefEqCore μ envC F
             (p.toBlockShape.rulePrefixAt j + cA.2 + fr.nR) ty concl = .ok true →
-        BlockRuleBodyInputs V mpC p rs (Level.substFn φ r.1.levelParams us) ℓ j i cA lps
+        BlockRuleBodyInputs V mpC p rs (Level.substFn φ r.1.levelParams us)
+          (Level.eval (Level.substFn φ r.1.levelParams us)
+            (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large)) j i cA lps
           fr recTys resid ihTele fvsIh
           (pdoms0 (Level.substFn φ r.1.levelParams us) j)
           (fdoms0 (Level.substFn φ r.1.levelParams us) j i)
@@ -2937,7 +2943,7 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
           (Rb0 (Level.substFn φ r.1.levelParams us) j i)) :
     BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  intro us hus _usj ρ xs ys _restR _restC hxl hyl _husjl _hψ _hidx _hfitR _hfitC a hleaf
+  intro us hus hℓ _usj ρ xs ys _restR _restC hxl hyl _husjl _hψ _hidx _hfitR _hfitC a hleaf
     lds A hlam hldslen
   obtain ⟨fr, recTys, rbs, rbody, resid, ihTele, bodyO, ty, concl, fvsIh,
     hfrP, hfrR, hfrF, hnames0, htgts, htele, hidxF, hpw, hrecTysj, hstrip, hab, hpis,
