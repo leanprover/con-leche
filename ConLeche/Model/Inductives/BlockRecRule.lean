@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.Annot.Bit
-public import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 public import ConLeche.Model.Inductives.FixRecRead
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructStageCtor
