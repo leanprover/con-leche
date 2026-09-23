@@ -84604,7 +84604,15 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   stores `normPosDom`'s normal form; which of the two the model reads is
   that lane's first decision.
 
-#### LANE RECORD (lane POSPROOF, 2026-09-23): PARTIAL — `nestPos` walks holes (S1/S2), its run proved positive except the container case; S3 stopped
+#### LANDED (lane POSPROOF, part 1: abstract walk S1/S2, result indices, `nestPos_sem` modulo `ContSem`)
+
+**Open premises of `nestPos_sem`/`nestMemberCtor_sem`, stated plainly:**
+(1) `ContSem` — the container case (lane HOLE2: section clause in hole
+form + substitution law, per-key typing, cache, relation truncation);
+(2) the typing (`Frame`/`CtxOk`/`Graded`) of the member-abstracted
+constructor types at the holes' context — U2, lane HOLE2;
+(3) `st'.cyclic = false` — to be removed by the S3 RESTART route
+(coordinator's provisional ruling, part 2 of this lane).
 
 Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded (partial;
 S3 for the maintainer).
