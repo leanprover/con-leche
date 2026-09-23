@@ -680,6 +680,30 @@ theorem checkBlockRecK_of_gate {ops : CheckerOps CheckM} {env : Env} {p : BlockP
   rw [if_pos hg] at h
   exact thenConform_ok h
 
+/-- **Every stored rule binds at least one variable** — the model's
+`hpos` (`declBlock_run`, `ConLeche/Model/Inductives/BlockDeclRun.lean`),
+in its own shape: recursor `j`'s rule for a constructor with `nF`
+fields has the λ-prefix `rP_j + nF`, and `rP_j > nP ≥ 0`
+(`checkBlockRecK_prefix`). -/
+theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      0 < p.toBlockShape.rulePrefixAt j + cA.2 := by
+  intro j r hr _ _ _
+  have hlen : rs.length = p.recs.length := by
+    have h' := h
+    unfold checkBlockRecK at h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    obtain ⟨_, _, h'⟩ := exceptBind_ok h'
+    exact (checkBlockRecsRules_facts h').1
+  have hj : j < p.recs.length := hlen ▸ (List.getElem?_eq_some_iff.mp hr).1
+  have := (checkBlockRecK_prefix h j hj).2
+  omega
+
 /-- **The recursor stage's stored pieces**, as its own guards checked
 them — at EITHER setting of the stage's gate (`blockRecCheckOn`): with
 the gate down at ONE member the existing generate-and-compare's
