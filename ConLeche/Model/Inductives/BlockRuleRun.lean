@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockFieldRead
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Inductives.BlockRecRegimes
