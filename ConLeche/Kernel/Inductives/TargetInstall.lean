@@ -143,20 +143,6 @@ def targetPass (so : ShadowOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool)
   let (ctorsAs, sortsss) ← checkBlockCtorsF (so.opsAt fe₁) fe₁ fe₁ p₁ (p₁.members.zip cvTas)
   pure (fe₁, cvTas, p₁, ctorsAs, sortsss)
 
-/-- **The member constructors' result indices mention no member**
-(official's `check_constructors`, "invalid return type": the result is
-`is_valid_ind_app`).  Today's classifier carries it (`blockCtorKinds`
-marks every field negative); `nestPos` checks it at a CONTAINER's
-instantiated constructors but not at the block's own, so the target
-installer checks it beside the `nestPos` call — the wish for lane
-POSPROOF is that `nestedBlockPositivity` check it itself. -/
-def targetCtorResultsOk (names : List Name) (nP : Nat)
-    (ctorsAs : List (List (ConstantVal × Nat))) : Bool :=
-  ctorsAs.all fun cs => cs.all fun c =>
-    match c.1.type.stripPis (nP + c.2) with
-    | some (_, cbody) => (cbody.getAppArgs.drop nP).all fun a => !a.mentionsAnyConst names
-    | none => false
-
 /-- The records the target install conses for the family: each
 recursor's stored rules at its major's constructors (`sumRules` with
 the major's parameter count; an outside major's rules are `.inert`,
@@ -220,9 +206,6 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   match pos with
   | .error e => return { rep with install := .fail e }
   | .ok r =>
-  unless targetCtorResultsOk p₁.memberNames p₁.nP ctorsAs do
-    return { rep with install := .fail (.invalid "target: invalid return type — a constructor's \
-      result index mentions the block") }
   let rep := { rep with keys := r.keys.toList.map fun (k : NestKeyInfo) => k.key.cname }
   -- the capability record at `nestPos`'s `is_rec`, settled as today
   let isRec := nestIsRec r.kinds
