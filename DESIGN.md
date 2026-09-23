@@ -84038,3 +84038,56 @@ after lane D-OLD lands (it prunes the same `Native*` files).
 Also noted (maintainer): every conformance GAP gets an e2e fixture — the
 positivity walk's single-member-name call (ARCH §1) is being pinned by
 lane CONF-E2E.
+
+#### RULING (maintainer, 2026-09-23): the recursor model moves to the GRAPH route; tag `uinds-flipped` marks the fallback
+
+Four independent design lanes (a proof-relevant Prop "twin", and
+"recursion from induction via the graph", each designed separately by a
+Fable and an Opus agent) all came back TRUE-WITH-CAVEATS, with
+set-level falsifiers and no `sorry`.  The graph route dominates:
+
+* **The mechanism.**  A checked recursor family's graph is the lfp of
+  its rules read as closure conditions over decodings.  Exactly one
+  value at every major follows from ONE induction principle over the
+  majors plus `huniq`: *either the decodings are equal or the motive is
+  a subsingleton*.  `huniq` is exactly `blockLargeElimAllowed`
+  (official's `elim_only_at_universe_zero`), so the kernel check does not
+  change.  The recursor is the unique value; the ι laws are the graph's
+  closure rules read backwards.  (GRAPH-F `SetModel/GraphRec.lean`,
+  `GraphRecKit.exu`; GRAPH-O `graph_exists_unique` plus the bridge
+  `acc_of_someDecInd` into the existing `UnionRecKitC.ofAcc`.)
+* **What the model needs from an inductive: ONLY its lfp clause** —
+  `⟦I⟧ p⃗` is the lfp of its right-hand-side operator with holes for the
+  recursive fields.  Induction is a corollary (`lfpTuple_induction`);
+  Bekić is not needed.  No second carrier, no regularity, no
+  ∈-recursion, no `mkDepth`, no set-level choice (description plus
+  replacement).
+* **Coverage, under the maintainer's criterion** (everything official
+  accepts; source-cited, not measured): `Inf`, `Acc`, `Eq`, indexed,
+  reflexive over large domains, proof-irrelevance-dependent Props,
+  nested `List`-shaped at every sort, the liberal `List (List α)`
+  family, pinned `Nat`, and both negative controls (no ι-satisfying
+  function exists).  Official's nested class, (N1)–(N4) from
+  `inductive.cpp`, excludes container indices that depend on the block;
+  that is confirmed by three lanes against the v4.33.0 kernel.
+* The twin route is retired.  Its branches `agent/uinds-TWIN{F,O}` stay
+  as the record.
+
+**Plan.**
+1. INVERT — one run record per kernel stage.
+2. The lfp clause in the environment invariant, per inductive, with the
+   pinned basis types by hand.
+3. One graph producer replacing IND/WF/SQ and their dispatch, and the
+   regularity/depth machinery beneath them.
+4. Seam/contract consolidation.
+5. The liberal recursor check.
+6. Deliverable 3, positivity through containers.
+
+The open proof risk is the term-level producer: the rule body read at
+the decoded fields.
+
+**Fallback.**  Tag `uinds-flipped` (`ee92c2e9`) is the post-flip,
+post-deletion state with the three-regime model: all gates green,
+Mathlib and init-full verdicts identical to master, +1.42 % instructions.
+No merge to master until the recursor model is in better shape
+(maintainer).
