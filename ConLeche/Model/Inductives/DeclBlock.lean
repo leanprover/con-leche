@@ -69,14 +69,6 @@ theorem noProjEnv_consBlockCtors {T : Name} {i nP : Nat} :
       (noProjEnv_consSumCtors h (hall ctorsA List.mem_cons_self)) ?_
     exact fun l hl => hall l (List.mem_cons_of_mem _ hl)
 
-/-- A name absent above the `k` formers' cons was absent below it. -/
-theorem find?_none_consBlockInds {p₁ : ConLeche.BlockShape} {isRec : Bool} {n : Name} :
-    ∀ {cvTas : List ConstantVal} {j : Nat} {env₀ : Env},
-      (ConLeche.consBlockInds p₁ isRec cvTas j env₀).find? n = none → env₀.find? n = none
-  | [], _, _, h => h
-  | _ :: rest, j, _env₀, h =>
-    find?_none_of_consB (find?_none_consBlockInds (cvTas := rest) (j := j + 1) h)
-
 /-- A name absent above the constructors' conses was absent below them. -/
 theorem find?_none_consBlockCtors {nP : Nat} {n : Name} :
     ∀ {ctorsAs : List (List (ConstantVal × Nat))} {env₀ : Env},

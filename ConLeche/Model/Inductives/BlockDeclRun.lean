@@ -15,7 +15,7 @@ import ConLeche.Model.Inductives.BlockRecRead
 public section
 
 /-!
-# `declBlock` at the run — the composition (task #315, lane RM49)
+# `declBlock` at the run — the composition (task #315)
 
 `declBlock` (`DeclBlock.lean`) takes the recursor stage as ONE
 hypothesis, `hrec`; `blockRecStaged_data` (`BlockRecData.lean` §A.18)
@@ -85,8 +85,8 @@ end TyZero
 
 All three regimes and the recursor type's split take the block's
 members' run facts as ONE record, `BlockMembersRun`
-(`BlockRecTyShapeRun.lean`), and nothing produced it.  At the run's own
-block data (`blockDataOf`, which the seam now hands) it is the
+(`BlockRecTyShapeRun.lean`).  At the run's own
+block data (`blockDataOf`, which the seam hands) it is the
 constructors' three records read member by member: the names and the
 count off `BlockNamesOk`, the former's storage, reading and leaf off
 `BlockCtorsCore`, the leaf's λ-shape and the parameter agreement off
@@ -518,7 +518,7 @@ recursive calls land in the callee's conclusion.  The residue's
 validity is read at those values (`blockRuleRbAV_wdV_run` grades it at
 every valuation satisfying the frame).
 
-It is the regime lane's fact in the TUPLE's currency (`hihF` states it
+It is the regime's fact in the TUPLE's currency (`hihF` states it
 at the graph's candidate, `BlockGradeOwed`'s `hihsWd` at the typed tuple
 over an existential `ihdoms`): the callee's recursor type must fit at
 the call's spine — the prefix by the family's shared rule prefix, the
@@ -550,9 +550,8 @@ theorem blockIhFitTypedOwed_iff (mpC : EnvModelM V μ envC) (pp : ConLeche.Block
 the PINNED `ihs`/`Rb0` is bit-valid at every typed tuple:
 `annotValid_blockIotaEqsAV` with
 
-* the frame's validity off the GRADING (`hokA`, the certificate lane's
-  `blockRuleHokA_of_run` conclusion — the spelling `blockRuleGrading_run`
-  produces), through `fieldsValid_of_grading`;
+* the frame's validity off the GRADING (`hokA`, `blockRuleHokA_of_run`'s
+  conclusion — the spelling `blockRuleGrading_run` produces), through `fieldsValid_of_grading`;
 * the fired spine's validity FREE (a leaf applied to bound variables,
   `acval_validV`);
 * the residue's validity off its own TYPING at the frame
@@ -711,8 +710,7 @@ domains' own bounds (`blockRuleDoms_bounded_seam`).
 `ihs`/`Rb0` are the run's own (`hihsE`/`hRbE`, `BlockRuleRun.lean`),
 and the rule stage's peel obligation is `blockRuleBodyOwed_run` CALLED
 here.  What is left of it is two facts that are not the rule stage's:
-the frame's grading `hokA` (the certificate lane's,
-`blockRuleHokA_of_run`'s conclusion) and the `ih` openers' fit
+the frame's grading `hokA` (`blockRuleHokA_of_run`'s conclusion) and the `ih` openers' fit
 `hihFit` (`BlockRuleIhFitOwed`, which `blockRuleIhFit_seam` produces
 off the regime).  The equation list's
 facts (`heqB`/`heqP`/`heqV`) and the regime (`hpre`) enter only
@@ -774,7 +772,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     -- `ihs`/`Rb0` are the RUN'S OWN (`BlockRuleRun.lean` §2, `BlockRecData.lean` §A.9b)
     (hihsE : ihs = fun ψ' => blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ')
     (hRbE : Rb0 = fun ψ' => blockRuleRbAV pp rs mpC.base2.acval envC ψ')
-    -- the rule frame's GRADING (the certificate lane's: `blockRuleHokA_of_run`)
+    -- the rule frame's GRADING (`blockRuleHokA_of_run`)
     (hokA : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
       ∀ ψ : Name → Nat,
@@ -990,11 +988,10 @@ end MembersRun
 
 /-! ## 2. The composition
 
-`declBlock_run` is `declBlock_data` at the lane's component choices —
+`declBlock_run` is `declBlock_data` at the route's component choices —
 `nCt := blockRecNCt`, the four syntactic components
 `blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleEsAV`/`blockRuleMkAV` —
-with every seam conjunct DISCHARGED from the run.  Until lane RM55 the
-rest was named in one premise, `howed`; it is now empty and gone. -/
+with every seam conjunct DISCHARGED from the run. -/
 
 section Compose
 
@@ -1030,16 +1027,14 @@ typing at it).  Paid here as well:
 * the rule stage's `ih` openers' FIT (`BlockRuleIhFitOwed`), off the
   regime itself (`blockRuleIhFit_seam`: the leaf's tuple is typed);
 * the rule certificates at the base frame, at the PINNED conclusion
-  `blockRuleCaAV` (`blockRuleCertsW_run`, lane RM56).
-
+  `blockRuleCaAV` (`blockRuleCertsW_run`);
 * the rest of the grading bundle `BlockGradeOwed` — the left-hand
   sides' and the `ih` terms' grading (`blockGradeLhs_run`,
-  `blockGradeIhs_run`, lane RM55).
-
+  `blockGradeIhs_run`);
 * the three regime bundles (`BlockIndOwed`, `BlockWfOwed`,
   `BlockSqOwed`) at the pinned `ihdoms := blockRecIhdomsK`,
-  `Ca := blockRuleCaAV` and — in the kit arms — `ihv := blockKitIhv`
-  (lane RM55): the certificates (`blockRuleCertsK_run`), IND's count,
+  `Ca := blockRuleCaAV` and — in the kit arms — `ihv := blockKitIhv`:
+  the certificates (`blockRuleCertsK_run`), IND's count,
   opener reading, `hCaZ`, `hCaE` (`blockIndRuleRows_run`,
   `blockIndIhOpen_run`) and its `ih` fit at every typed tuple ((F),
   `blockRecIhsFit_chain`); the kits' `hihF`, `hCaB`, `hihChain`
@@ -1073,7 +1068,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       have heqV := blockRecEqs_valid_seam hμ hrec hnames hstage hcore hkLen hokA hval
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (blockRecEqs_params_seam hμ hrec hcore hkLen i r hr ψ₁ ψ₂ hq)
-      -- the three regime bundles, PRODUCED at the pinned `ihdoms`/`Ca`/`ihv` (lane RM55)
+      -- the three regime bundles, PRODUCED at the pinned `ihdoms`/`Ca`/`ihv`
       have hdR : ∃ (env₀' : Env) (pk' : Nat → BlockMemberPick)
           (uOfD' : Nat → (Name → Nat) → Nat)
           (ppsOf' : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),

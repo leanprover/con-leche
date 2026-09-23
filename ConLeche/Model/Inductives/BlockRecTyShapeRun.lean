@@ -10,13 +10,13 @@ public import ConLeche.Model.Inductives.BlockRecRule
 public section
 
 /-!
-# The recursor type's binder SHAPE, at the run (task #315, M5M-rule)
+# The recursor type's binder SHAPE, at the run
 
 `BlockRecTyShape` (`Model/Inductives/BlockRecTyping.lean`) is what the
 three regimes read off the stored recursor types: the arity, the
 parameters, the eliminated member's index telescope and the major.
-Every clause of it was a premise; this file is its PRODUCER, from the
-recursor stage's run and the members' own former data.
+This file produces it from the recursor stage's run and the members'
+own former data.
 
 It is a LEAF module and it has to be: it consumes `prefixDoms_spineFit`
 (`BlockRecPreRun`) and `checkBlockRecK_tyPis`/`checkBlockRecK_tyMajor`
@@ -48,13 +48,11 @@ bounded by (`checkBlockRecTys`, `Kernel/Inductives/BlockInstall.lean`):
 * the MAJOR's syntactic pin is clause 6, read off the opening's own
   fvars (`interp_of_major_reading`).
 
-The OPPOSITE direction of clause 4 is NOT produced here and cannot be:
-nothing in the run ties the recursor's index binders to the member's
-telescope except the per-argument `isDefEq` inside
-`checkConstantVal`'s inference of the major's domain.  It used to be
-a predicate of its own (`BlockRecTyJoin`) and a premise with no
-producer; it is gone, with its one consumer — the IND arm states its
-induction motive at the SPLIT data and assembles no recursor spine.
+The OPPOSITE direction of clause 4 is not produced: nothing in the run
+ties the recursor's index binders to the member's telescope except the
+per-argument `isDefEq` inside `checkConstantVal`'s inference of the
+major's domain, and no consumer needs it (the IND arm states its
+induction motive at the SPLIT data).
 -/
 
 namespace ConLeche.Model
@@ -89,9 +87,8 @@ count, the leaf's λ-TOWER shape (`blockLeafZ`, whose binder numeral is
 (`BlockFormerFacts.paramsIff`).
 
 It is a bundle and not five premises because every clause below needs
-two or three of them, and the audit's lesson about bundles
-(one per consumer) cuts the other way here: there is ONE consumer, the
-shape's producer. -/
+two or three of them, and it has exactly one consumer, the shape's
+producer. -/
 @[expose] def BlockMembersRun {envC : Env} (mo : EnvModel V envC) (d : BlockData V)
     (q : ConLeche.BlockShape) (cvTas : List ConstantVal) : Prop :=
   d.nP = q.nP ∧ d.k = q.members.length ∧
@@ -500,8 +497,7 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 
 /-! ## 6. THE SHAPE, at the run -/
 
-/-- **`BlockRecTyShape` FROM THE RUN** — the recursor-type lane's
-premise, discharged.
+/-- **`BlockRecTyShape` FROM THE RUN.**
 
 Its five clauses, in order: the two the stage's own `unless`es pin
 (`nP ≤ rP`, the binder count), the parameters as an `↔` between FITS
@@ -559,7 +555,7 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
 
-/-! ## 7. The `ih` KEY's block facts (task #315, `hkey` half A)
+/-! ## 7. The `ih` KEY's block facts (`hkey` half A)
 
 `blockIndRegime_run`'s `hihOpen` (`BlockRecPreRun.lean`) splits in two
 with very different provenances:
@@ -569,11 +565,10 @@ with very different provenances:
   callee's class is in range.  These are decided by `blockIhKeys`'
   own filter and by the block's tables, and they are proved here;
 * **(B) `eisA`/`fapA`/`BlockRuleConclAt` and the DOMAIN equation** —
-  ONE reading of the generated `blockIhPis` opener.  They are NOT
-  proved here; they are the half `blockRuleHopener_of`
-  (`BlockRecOpenerRead.lean`) and `blockRuleHconcl_of` deliver, which
-  is why `hihDom`/`hihBits`/`hkey` are now the single premise
-  `hihOpen` rather than three premises about one term.
+  ONE reading of the generated `blockIhPis` opener, delivered by
+  `blockRuleHopener_of` (`BlockRecOpenerRead.lean`) and
+  `blockRuleHconcl_of` — which is why they form the single premise
+  `hihOpen` rather than several premises about one term.
 
 The keys are the CHECK's own list (`BlockInstall.lean`'s
 `ihKeys := blockIhKeys rP rPs recTgts ks`), so nothing here is
@@ -594,9 +589,8 @@ theorem mem_blockIhKeys_getD {rP : Nat} {rPs recTgts : List Nat}
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr, Option.getD_some] at hkey
   exact hkey ▸ List.getElem_mem hr
 
-/-- **A key's field is RECURSIVE or REFLEXIVE and in range** —
-`pairIdxOf_blockIhKeys_kind`, at membership rather than at a
-`pairIdxOf?` (the regime reads its keys off a POSITION, not off a
+/-- **A key's field is RECURSIVE or REFLEXIVE and in range**, at
+membership (the regime reads its keys off a POSITION, not off a
 lookup). -/
 theorem mem_blockIhKeys_kind {rP : Nat} {rPs recTgts : List Nat}
     {ks : List BlockFieldKind} {i c' : Nat}
@@ -615,7 +609,7 @@ theorem mem_blockIhKeys_kind {rP : Nat} {rPs recTgts : List Nat}
   exact mem_blockRecIdxOf hi'
 
 /-- **A key's callee shares the rule's prefix and is the field's
-target** — `pairIdxOf_blockIhKeys_rP`, at membership. -/
+target**, at membership. -/
 theorem mem_blockIhKeys_rP {rP : Nat} {rPs recTgts : List Nat}
     {ks : List BlockFieldKind} {i c' : Nat}
     (hmem : (i, c') ∈ blockIhKeys rP rPs recTgts ks) :
@@ -681,7 +675,6 @@ theorem blockIhKey_block_facts {d : BlockData V} {ψ : Name → Nat}
     | negative => rw [hq] at htgt; exact nomatch htgt
     | unsupported => rw [hq] at htgt; exact nomatch htgt
 
-
 /-- **`hihOpen` half A's two ARITIES at the constructor**, off the
 constructors' stage's own record: the field-domain row's length is the
 constructor's field count, and a RECURSIVE or REFLEXIVE field's index
@@ -727,7 +720,6 @@ theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockD
 
 end Keys
 
-
 /-! ## 8. The `ih` LEVEL, at the opener's CONCLUSION (the fused
 opener reading's last syntactic step)
 
@@ -744,46 +736,11 @@ The two peels are ONE fact.  Each of the spine's three stretches is
 its `l = 0` self lifted at the telescope's cut
 (`paramBvarsAt_shift`, `ihIdxAtM_shift`, `fieldApp_shift`, all
 `BlockRecRule.lean`), and the peel follows a lift of its whole spine
-(`peelPis_liftN`) — so the `l = r` conclusion IS the `l = 0`
+(`peelPis_liftN_inv`) — so the `l = r` conclusion IS the `l = 0`
 conclusion lifted, which is what `mkPisAV_ihTeleAtR_shift` then needs
 to move the `liftN` out of the tower. -/
 
-/-- **The opener's conclusion at level `r` is its conclusion at level
-`0`, lifted.**  The type is lifted too; at the run it is the CALLEE's
-stored recursor type, which is closed, so the caller's `T.liftN r m`
-is `T`.
-
-The premise is `BlockRuleConclAt rP nF m T (e⃗ at l = 0) (f a⃗ at
-l = 0) Ca` spelled out.  It is spelled out on purpose: the predicate
-lives in `BlockRecPreRun`, this module imports that privately, and
-naming it here would promote the whole module to a public
-re-export for one `@[expose] def` that a caller passes definitionally
-anyway. -/
-theorem blockRuleConclAt_shift {rP nF i m r o : Nat} {T Ca : AnnotTerm}
-    {Eis : List AnnotTerm}
-    (hcon : ConLeche.Model.AnnotTerm.peelPis T
-      (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
-        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)]) = some Ca) :
-    ConLeche.Model.AnnotTerm.peelPis (T.liftN r m)
-        (((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
-          Eis.map (ihIdxAtM nF o i r m) ++
-          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)])
-      = some (Ca.liftN r m) := by
-  have h := peelPis_liftN r m _ hcon
-  have hE : (Eis.map (ihIdxAtM nF o i 0 m)).map (AnnotTerm.liftN r · m)
-      = Eis.map (ihIdxAtM nF o i r m) := by
-    rw [List.map_map]
-    exact List.map_congr_left fun E _ => (ihIdxAtM_shift nF o i r m E).symm
-  have hF : [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)].map
-        (AnnotTerm.liftN r · m)
-      = [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
-    rw [List.map_singleton, ← fieldApp_shift]
-  rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF] at h
-  exact h
-
-/-- **`hihOpen`'s `BlockRuleConclAt`, FROM the run's peel** — the
-theorem above read backwards, which is the direction that has a
-producer.
+/-- **`hihOpen`'s `BlockRuleConclAt`, FROM the run's peel.**
 
 `blockRuleHconcl_of` (`BlockRecOpenerRead.lean`) peels the callee's
 stored type along the spine `blockIhPis` generates for the `r`-th
@@ -836,16 +793,9 @@ theorem blockRuleConclAt_of_shift {rP nF i m r o : Nat} {T T' Cr : AnnotTerm}
 /-- **`hihOpen`'s FUSED conjunct, at the run** — the `ih` opener's
 stored type reads to the design's tower over a conclusion the
 CALLEE's own recursor type peels to at `ih` level `0`, and the two
-facts come out of ONE reading.
-
-This is `blockRuleIhOpenerReads_of` (`BlockRecPreRun.lean`) with the
-SHAPE kept.  That theorem answers the bundle's `hI`, which only needs
-the reading to EXIST, so it goes through `denoteMeta_blockIhOpenerTy_exists`
-and the tower is lost in the existential; `hihOpen` needs the tower
-and the conclusion, so the route here is the same one un-hidden —
-`denoteMeta_blockIhOpenerConcl` for the peel (which pins `conclA`)
-and `denoteMeta_blockIhOpenerTy` for the reading (whose `B` IS that
-`conclA`, the `_exists` wrapper being `Exists.imp` of exactly this).
+facts come out of ONE reading: `denoteMeta_blockIhOpenerConcl` for the
+peel (which pins `conclA`) and `denoteMeta_blockIhOpenerTy` for the
+reading (whose `B` IS that `conclA`).
 
 The two levels then meet.  The check generates the `r`-th opener at
 `ih` level `l = r`, so the peel comes out at `l = r`; the premise
@@ -916,7 +866,6 @@ theorem blockIhOpenerDom_run {envT : Env} {mT : EnvModel V envT} {ψ : Name → 
   · rw [show fr.rP + fr.nF + r = fr.nP + o + fr.nF + r from by omega, hstored, htele, hread,
       mkPisAV_ihTeleAtR_liftN fr.nF o i r (pwBit ψ fr.pw) (tlF i) CihR, hEq, htlen i]
 
-
 /-! ## `WalkCtx` at the rule's opened frame
 
 `interp_blockResidue`'s `hW` is the walk's ENTRY context, and the rule
@@ -935,9 +884,8 @@ the whole of the translation.
 
 What `WalkCtx` asks beyond `CtxOk` is the frame's three HEREDITARY
 facts — the openers' annotations are `looseBVarsBounded 0`, bounded by
-`envT`, and draw their own leaves from the frame again.  All three are
-stated over the opener list and are the openings' own
-(`walkCtx_blockFrame_hered`). -/
+`envT`, and draw their own leaves from the frame again, all stated
+over the opener list. -/
 
 /-- **`WalkCtx` at the rule stage's opened frame** — `hW` at the
 entry, from exactly `residueOk_blockFrame`'s inputs plus the frame's
@@ -989,7 +937,6 @@ theorem walkCtx_blockFrame {envT : Env} {mT : EnvModel V envT} {ψ : Name → Na
   · exact fun x hx => hcbF x (List.mem_reverse.mp hx)
   · exact fun x hx l hl => List.mem_reverse.mpr (hclF x (List.mem_reverse.mp hx) l hl)
 
-
 /-! ## `IhSpineFold` at the run — `ihSpineFold_blockRec`, composed
 
 `ihSpineFold_blockRec` (`BlockRecRule.lean`) carries fifteen premises.
@@ -1000,7 +947,7 @@ about the rule's walk.
 | premise | producer |
 |---|---|
 | `hacl`/`hainst`/`hcl` | `EnvModel`'s own fields (`blockRuleHainst`, `blockRuleHcl`) |
-| `hfld` | the constructors' stage, MOVED to the consed environment (`fieldReadAt_mono`, AUDIT item 12) |
+| `hfld` | the constructors' stage, MOVED to the consed environment (`fieldReadAt_mono`) |
 | `hnofv` | `blockRuleHnofv_of` at the frame's telescope and index data |
 | `hi` | the field bound `hfld` already carries |
 | `hfit` | `blockRuleHfit_run` — H3′ composed |
@@ -1008,10 +955,9 @@ about the rule's walk.
 **The two environments are named, and they stay apart.**  The field
 readings the CONSTRUCTORS' stage produces are at `envT`; the fold
 reads the guarded call's arguments at the CONSED environment, where
-the rule's recursors live.  `hfld` is therefore stated at `mT` (which
-is where its producer `blockRuleHfld_of` concludes) and transported
-for `ihSpineFold_blockRec`'s own use — `blockRuleHfit_run` wants the
-`envT` form, so the premise is stated once and used at both.
+the rule's recursors live.  `hfld` is therefore stated at `mT` and
+transported for `ihSpineFold_blockRec`'s own use — `blockRuleHfit_run`
+wants the `envT` form, so the premise is stated once and used at both.
 
 `hcallee` and `hihv` stay premises: the first is a fact about the
 block's LEAF valuation (`blockRuleHcallee_of`), the second the
@@ -1096,7 +1042,6 @@ theorem ihSpineFold_blockRec_run {env envT : Env} {mo : EnvModel V env}
     (blockRuleHfit_run (blockRuleHaclN mo) hin hmono hihl htlen hF ho hrP hop0 hCf hCb
       hstripC htele hidx hfld hrecTy hpis hihfv hLpf hopen has2 hpflen)
 
-
 /-! ## The BODY EQUATION at the run
 
 `BlockRuleResidueB`'s fourth conjunct (`BlockRecData.lean`) asks for
@@ -1106,10 +1051,9 @@ the applied form: the β-reduction to `mkAppN Ra (x⃗ ++ f⃗)` is paid on
 the model side by `blockRuleHRa_tower_run`.  This is that conclusion
 with the two rule-side premises discharged.
 
-`interp_blockResidue` has nineteen premises.  Two of them are this
-lane's — `hspine` (the guarded call's fold) and `hW` (the walk's entry
-context) — and they are the two that carry content; the rest are the
-environment facts, the frame's three openings and the run-level peel
+`interp_blockResidue` has nineteen premises.  Two of them carry
+content — `hspine` (the guarded call's fold) and `hW` (the walk's entry
+context); the rest are the environment facts, the frame's three openings and the run-level peel
 of the check's own witnesses (`abstractIh`, the scope guards, the two
 readings and `IhTyped`), every one of which `checkBlockRule_data`
 returns.  So the theorem below takes the peel's rows verbatim and
@@ -1128,12 +1072,10 @@ given their values.
 
 **The frame block of premises IS `BlockRuleCerts`.**  `hop1`, `hop2`,
 `hopen`, `hpl`, `hfl`, `hil`, `hdoms`, `hokΔ` and `hlbF` are that
-bundle's fields VERBATIM (`BlockRecPreRun.lean` §1, the certificate
-lane's), down to the `rP + nF + nR - 1 - i` indexing of `hdoms` and
-the shifted valuation of `hokΔ`; the consumer destructures the bundle
-and passes them.  Only `hcbF` and `hclF` are not in it, and
-`walkCtx_blockFrame_hered` produces all three from the same three
-openings the bundle's own producer takes.
+bundle's fields VERBATIM (`BlockRecPreRun.lean` §1), down to the
+`rP + nF + nR - 1 - i` indexing of `hdoms` and the shifted valuation
+of `hokΔ`; the consumer destructures the bundle and passes them.  Only
+`hcbF` and `hclF` are not in it.
 
 No `w` hypothesis: the evidence is two `SpineFit`s against the rule's
 own domain readings and a grading, never a membership in the block's
@@ -1144,13 +1086,11 @@ binder.**  `hop0` is `ihSpineFold_blockRec_run`'s — the constructor's
 stored type opened `nP + nF` deep, whose body is the constructor's
 CONCLUSION — while `hop2` is `walkCtx_blockFrame`'s, and its subject
 is `cty` with only the first `nP` binders instantiated, so it still
-carries `nF` leading `∀`s.  Spelling both bodies `crest` made the
+carries `nF` leading `∀`s.  Spelling both bodies `crest` makes the
 premise set unsatisfiable at `fr.nF ≥ 1` (`openPisAtFvars (n+1)` is
-`none` off a `.forallE`), i.e. the theorem was true VACUOUSLY and had
-no instance — a defect only a consumer could see, since nothing in a
-build, a `#print axioms` or the flip probe looks at whether a premise
-set is inhabited.  `cmid` is `hop2`'s own binder; the two never
-meet. -/
+`none` off a `.forallE`), i.e. the theorem true VACUOUSLY — which no
+build or `#print axioms` detects.  `cmid` is `hop2`'s own binder; the
+two never meet. -/
 theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
     {mT : EnvModel V envT} {ψ : Name → Nat}
     {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
@@ -1252,117 +1192,6 @@ theorem blockRuleBodyEq_run {env envT : Env} {mo : EnvModel V env}
   have hW := walkCtx_blockFrame (V := V) (mT := mT) (ψ := ψ) hop1 hop2 hopen
     hpl hfl hil hdoms hokΔ hlbF hcbF hclF hspF hihFit
   rwa [show fr.rP + fr.nF + fr.nR = F + fr.nR from by omega] at hW
-
-
-/-! ## The frame's three HEREDITARY facts, from the openings
-
-`walkCtx_blockFrame` asks, beyond `ctxOk_blockFrame`'s inputs, that
-the openers' annotations be bvar-closed, bounded by `envT`, and
-leaf-closed inside the frame.  All three are the openings' own, and
-the only content is the LEAF chain: an opener's annotation draws its
-leaves from its opening's SUBJECT or from earlier openers of the same
-opening, and each subject in turn draws its own from the openers
-BEFORE it — `recTy` from nothing (it is stored), `crest` from the
-prefix openers it was instantiated at, and the generated `ih` tower
-from the `rP + nF` openers the check instantiates it with. -/
-
-omit [SetTheory V] in
-/-- An opener's ANNOTATION's leaves are among its own leaves — the
-annotation is the tail of `fvarLeaves` at an `fvar`, and an opening's
-entries are `fvar`s. -/
-theorem openers_typeD_leaves {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr} {b : Expr}
-    (h : openPisAtFvars n e d = some (fvs, b)) :
-    ∀ x ∈ fvs, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, l ∈ x.fvarLeaves := by
-  intro x hx l hl
-  obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index n e d h q x hq
-  simp only [Expr.fvarLeaves, List.mem_cons]
-  exact Or.inr hl
-
-omit [SetTheory V] in
-/-- **The rule frame's three hereditary facts.**  `walkCtx_blockFrame`'s
-last three premises, from the check's three openings and the two
-fvar-free stored subjects. -/
-theorem walkCtx_blockFrame_hered {envT : Env} {nP rP nF nR : Nat}
-    {recTy cty crest ihTele o₁ o₂ o₃ : Expr} {cpref fvsPref fvsF fvsIh : List Expr}
-    (hop1 : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
-    (hop2 : openPisAtFvars nF crest rP = some (fvsF, o₂))
-    (hop3 : openPisAtFvars nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
-      (rP + nF) = some (fvsIh, o₃))
-    (hf₁ : recTy.hasFvar = false) (hCf : cty.hasFvar = false)
-    (hihfv : ihTele.hasFvar = false)
-    (hinstC : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest))
-    (hLpf : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
-    (hb₁ : recTy.looseBVarsBounded 0 = true) (hb₂ : crest.looseBVarsBounded 0 = true)
-    (hb₃ : (ihTele.instantiateList (fvsPref ++ fvsF).reverse).looseBVarsBounded 0 = true)
-    (hcb₁ : ConstsBound envT recTy) (hcb₂ : ConstsBound envT crest)
-    (hcb₃ : ConstsBound envT (ihTele.instantiateList (fvsPref ++ fvsF).reverse)) :
-    (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true) ∧
-      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ConstsBound envT x) ∧
-      (∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
-        Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh) := by
-  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hf₁
-  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
-  -- the prefix openers are leaf-closed among themselves (`recTy` is stored)
-  have hlP : ∀ a ∈ fvsPref, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ fvsPref := by
-    intro a ha l hl
-    rcases openPisAtFvars_leaves rP hop1 l
-        (Or.inr ⟨a, ha, openers_typeD_leaves hop1 a ha l hl⟩) with h' | h'
-    · rw [hrecNil] at h'; exact nomatch h'
-    · exact h'
-  -- the constructor telescope at the rule's parameters draws its leaves from them
-  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
-    intro l hl
-    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
-    · rw [hctyNil] at h'; exact nomatch h'
-    · obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
-      obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index rP recTy 0 hop1 q _ hq
-      simp only [Expr.fvarLeaves, List.mem_cons] at hla
-      rcases hla with rfl | hla'
-      · exact List.mem_of_mem_take ha
-      · exact hlP _ (List.mem_of_mem_take ha) l hla'
-  have hlF : ∀ a ∈ fvsF, ∀ l ∈ (Expr.fvarTypeD a).fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
-    intro a ha l hl
-    rcases openPisAtFvars_leaves nF hop2 l
-        (Or.inr ⟨a, ha, openers_typeD_leaves hop2 a ha l hl⟩) with h' | h'
-    · exact List.mem_append_left _ (hcrestLeaf l h')
-    · exact List.mem_append_right _ h'
-  -- the two first blocks are leaf-closed together, in the REVERSED spelling the
-  -- check instantiates the generated tower with
-  have hcls2 : ∀ x ∈ (fvsPref ++ fvsF).reverse, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ (fvsPref ++ fvsF).reverse := by
-    intro x hx l hl
-    refine List.mem_reverse.mpr ?_
-    rcases List.mem_append.mp (List.mem_reverse.mp hx) with hx' | hx'
-    · exact List.mem_append_left _ (hlP x hx' l hl)
-    · exact hlF x hx' l hl
-  have hihLeaf : ∀ l ∈ (ihTele.instantiateList (fvsPref ++ fvsF).reverse).fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := fun l hl =>
-    List.mem_reverse.mp (fvarLeaves_mem_instantiateList hLpf hcls2 hihfv 0 l hl)
-  refine ⟨?_, ?_, ?_⟩
-  · intro x hx
-    rcases List.mem_append.mp hx with hx' | hx'
-    · rcases List.mem_append.mp hx' with hx'' | hx''
-      · exact (openPisAtFvars_bounded rP hop1 hb₁).2 x hx''
-      · exact (openPisAtFvars_bounded nF hop2 hb₂).2 x hx''
-    · exact (openPisAtFvars_bounded nR hop3 hb₃).2 x hx'
-  · intro x hx
-    rcases List.mem_append.mp hx with hx' | hx'
-    · rcases List.mem_append.mp hx' with hx'' | hx''
-      · exact (openPisAtFvars_constsBound rP hcb₁ hop1).1 x hx''
-      · exact (openPisAtFvars_constsBound nF hcb₂ hop2).1 x hx''
-    · exact (openPisAtFvars_constsBound nR hcb₃ hop3).1 x hx'
-  · intro x hx l hl
-    rcases List.mem_append.mp hx with hx' | hx'
-    · rcases List.mem_append.mp hx' with hx'' | hx''
-      · exact List.mem_append_left _ (List.mem_append_left _ (hlP x hx'' l hl))
-      · exact List.mem_append_left _ (hlF x hx'' l hl)
-    · rcases openPisAtFvars_leaves nR hop3 l
-          (Or.inr ⟨x, hx', openers_typeD_leaves hop3 x hx' l hl⟩) with h' | h'
-      · exact List.mem_append_left _ (hihLeaf l h')
-      · exact List.mem_append_right _ h'
 
 end Run
 

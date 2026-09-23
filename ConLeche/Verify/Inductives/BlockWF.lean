@@ -18,7 +18,7 @@ and `SumWF.lean` at k members:
 * **the k formers consed at once** (`envWF_consBlockInds`,
   `direct_block_inds_wf`), each with ITS capability record at the
   block's `is_rec` verdict; the record names the parameter count as its
-  arity (`blockCapsAt_arity`, `blockCaps_arity`), which is what makes
+  arity (`blockCapsAt_arity`), which is what makes
   `IndCapsWF` hold at every former's cons;
 * **the N constructors consed, member by member**
   (`envWF_consBlockCtors`, `direct_block_ctors_wf`);
@@ -28,13 +28,11 @@ and `SumWF.lean` at k members:
   RULE-LESS recursors, which finds exactly the names the stored cons
   finds (`find?_consBlockRecs_of_bare`); the rules themselves are
   `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
-  (`SumWF.lean`) are the block's rule facts unchanged;
-* **the projection tables** (`direct_block_tables_wf`).
+  (`SumWF.lean`) are the block's rule facts unchanged.
 
-`checkBlockRec_facts` is the recursor stage's WF contract: the CHECK's
-own (`checkBlockRecK_facts`, off `checkBlockRecTys_inv` /
-`checkBlockRule_facts` / `checkBlockRules_facts` /
-`checkBlockRecsRules_facts`).
+`checkBlockRecK_facts` is the recursor stage's WF contract (off
+`checkBlockRecTys_inv` / `checkBlockRule_facts` /
+`checkBlockRules_facts` / `checkBlockRecsRules_facts`).
 
 **Why the recursors are consed SIMULTANEOUSLY** (milestone M6's entry
 cost): the CHECK's rules are MUTUALLY recursive — a rule of `rec_0`
@@ -66,23 +64,7 @@ theorem blockCapsAt_arity (p : BlockShape) (mi : Nat) (isRec : Bool) :
   · exact ⟨fun _ => rfl, fun _ => rfl⟩
   · exact ⟨(fun h => nomatch h), (fun h => nomatch h)⟩
 
-/-- `blockCapsAt_arity` at the classified verdict. -/
-theorem blockCaps_arity (p : BlockParts) (mi : Nat) :
-    ((blockCaps p mi).unitlike = true → (blockCaps p mi).unitParams = p.nP) ∧
-    ((blockCaps p mi).eta = true → (blockCaps p mi).etaParams = p.nP) :=
-  blockCapsAt_arity p.toBlockShape mi (blockIsRec p.kinds)
-
 /-! ## Stage 1: the k formers consed at once -/
-
-/-- Resolution carries along the members' formers' conses. -/
-theorem constsResolve_consBlockInds {p₁ : BlockShape} {isRec : Bool} {e : Expr} :
-    ∀ {cvTas : List ConstantVal} {i : Nat} {env : Env},
-      e.constsResolve env = true →
-      e.constsResolve (consBlockInds p₁ isRec cvTas i env) = true
-  | [], _, _, h => h
-  | _ :: _, _, _, h => by
-    simp only [consBlockInds]
-    exact constsResolve_consBlockInds (Expr.constsResolve_mono h)
 
 /-- **One former's cons keeps well-formedness**: the stored former is a
 checked constant whose telescope strips at the parameter count, which is
@@ -174,15 +156,6 @@ theorem constsResolve_consSumCtors {nP : Nat} {e : Expr} :
     simp only [consSumCtors]
     exact constsResolve_consSumCtors (Expr.constsResolve_mono h)
 
-/-- Resolution carries along all the members' constructors' conses. -/
-theorem constsResolve_consBlockCtors {nP : Nat} {e : Expr} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {env : Env},
-      e.constsResolve env = true → e.constsResolve (consBlockCtors nP ctorsAs env) = true
-  | [], _, h => h
-  | _ :: _, _, h => by
-    simp only [consBlockCtors]
-    exact constsResolve_consBlockCtors (constsResolve_consSumCtors h)
-
 /-- **The members' constructors' conses keep well-formedness**
 (`envWF_consSumCtors` at k members). -/
 theorem envWF_consBlockCtors {nP : Nat} :
@@ -228,10 +201,6 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
   exact direct_sum_ctor_typeWF hctor
 
 /-! ## The CHECK, inverted (lane V2 scratch) -/
-
-private theorem vThrow_ne_ok {α : Type} {e : CheckError} {a : α}
-    (h : (throw e : CheckM α) = .ok a) : False := by
-  simp [throw, throwThe, MonadExceptOf.throw] at h
 
 local syntax "close_throw" term : tactic
 local macro_rules
@@ -304,7 +273,6 @@ theorem checkBlockRule_facts {envR envT : Env} {p : BlockShape} {recNames : List
   exact Expr.not_hasFvar_of_fvarsBelow_zero
     ((annotateCore_WScoped F rhs hann'
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ |>.mp hfv))).fvarsBelow)
-
 
 /-- A checked constant keeps the record's name and level parameters:
 only its type is replaced, by the annotated one. -/
@@ -698,33 +666,6 @@ theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List Consta
   have := (checkBlockRecK_prefix h j hj).2
   omega
 
-/-- **The recursor stage's stored pieces**, as its own guards checked
-them: the CHECK's own (`checkBlockRecK_facts`), read through the
-conformance check after it (`checkBlockRecK_of_rec`).
-
-The rules' scoping clause is stated at the BARE-`k` environment
-`consBlockRecsBare … env` — the environment holding all `k`
-RULE-LESS recursors, which is where the new stage annotates, resolves
-and scopes a rule's right-hand side.  It has to be: the CHECK's rules
-are MUTUALLY recursive, so a rule of `rec_0` may name `rec_1` and
-resolves at no environment holding `rec_0` alone.  `EnvWF`'s recursor
-clause is checked at the environment the constant is consed into, so
-`envWF_consBlockRecs` below is a SIMULTANEOUS cons. -/
-theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : checkBlockRec (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
-    ∀ r ∈ rs, r.1.type.hasFvar = false ∧
-      r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
-      r.1.type.constsResolve env = true ∧
-      r.1.type.looseBVarsBounded 0 = true ∧
-      ∀ rhs ∈ r.2.1, rhs.hasFvar = false ∧
-        rhs.allLevelParamsDefined r.1.levelParams = true ∧
-        rhs.constsResolve
-          (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
-        rhs.looseBVarsBounded 0 = true :=
-  checkBlockRecK_facts (checkBlockRecK_of_rec h)
-
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/
 
 /-- Well-formedness of a stored constant transfers along a lookup
@@ -750,19 +691,6 @@ theorem ConstWF.mono {envA envB : Env}
   exact ⟨n1, n2, fun pin hpin =>
     let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
     ⟨p1, p2, Expr.constsResolve_le hf p3, p4⟩, n4⟩
-
-/-- A name found above one cons is found above two. -/
-theorem find?_isSome_cons_under {a b : ConstantInfo} {env : Env} (n : Name)
-    (h : (Env.find? ⟨a :: env.consts⟩ n).isSome = true) :
-    (Env.find? ⟨a :: b :: env.consts⟩ n).isSome = true := by
-  rw [Env.find?_cons] at h
-  show (Env.find? ⟨a :: (Env.mk (b :: env.consts)).consts⟩ n).isSome = true
-  rw [Env.find?_cons]
-  split at h
-  · next hn => rw [if_pos hn]; simp
-  · next hn =>
-    rw [if_neg hn, Env.find?_cons]
-    split <;> simp_all
 
 /-- Conses of the SAME name over dominating environments dominate. -/
 theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c'.name)
@@ -979,36 +907,6 @@ theorem checkBlockRecK_reserved {env : Env} {p : BlockParts} {cvTas : List Const
   rw [hr1, (checkConstantVal_lps hcv).1]
   exact hres rc (List.mem_of_getElem? hrc)
 
-/-! ## The projection tables -/
-
-/-- **The tables at the run level**: a table is consed at every
-structure-like member and nothing at any other, and either keeps
-well-formedness. -/
-theorem direct_block_tables_wf {q : BlockShape} :
-    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))}
-      {env env₂ : Env},
-      EnvWF env → checkBlockTables (m := CheckM) q l env = .ok env₂ → EnvWF env₂
-  | [], env, env₂, henv, h => by
-    simp only [checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ henv
-  | (ms, ctorsA, sortss) :: rest, env, env₂, henv, h => by
-    unfold checkBlockTables at h
-    obtain ⟨env', henv', h⟩ := exceptBind_ok h
-    refine direct_block_tables_wf ?_ h
-    revert henv'
-    split
-    · split
-      · intro hh; exact direct_table_wf henv hh
-      · intro hh
-        simp only [pure, Except.pure, Except.ok.injEq] at hh
-        exact hh ▸ henv
-    · intro hh
-      simp only [pure, Except.pure, Except.ok.injEq] at hh
-      exact hh ▸ henv
-
-/-! ## The whole install -/
-
-
 /-! ## The block's η invariant, established -/
 
 /-- A `Nodup` concatenation of per-element lists has DISJOINT members
@@ -1146,24 +1044,6 @@ theorem blockCtorNames_out {p₁ : BlockShape}
     rwa [this] at hnd
   exact flatten_disjoint_of_nodup hflat hjm hj hm c.1.name
     (List.mem_map.mpr ⟨c, hc, rfl⟩) n hn hcn
-
-/-- **`EnvWF` through the whole uniform install**: the k formers, the
-N constructors, the k recursors with their rules, and the projection
-tables. -/
-theorem direct_block_wf {env env₂ : Env} (henv : EnvWF env)
-    {p₀ : BlockParts} {isRec b : Bool} {q : BlockPass Env} {F : Nat}
-    (hP : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok (q, b))
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) env q = .ok env₂) :
-    EnvWF env₂ := by
-  obtain ⟨p₁, kinds, hInd, hCtors, -, hp, -⟩ := checkBlockPass_inv hP
-  obtain ⟨isorts, rs, -, -, -, hRec, hTbl⟩ := checkBlockTail_inv h
-  have h1 : EnvWF q.env₁ := (direct_block_inds_wf henv hInd).1
-  have h2 : EnvWF (consBlockCtors q.p.nP q.ctorsAs q.env₁) :=
-    direct_block_ctors_wf h1 hCtors
-  have h3 : EnvWF (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-      q.p.toBlockShape q.p.nP 0 rs (consBlockCtors q.p.nP q.ctorsAs q.env₁)) :=
-    envWF_consBlockRecs h2 (checkBlockRec_facts hRec)
-  exact direct_block_tables_wf h3 hTbl
 
 /-! ## The family's shared rule PREFIX (the ruling of 2026-09-22)
 

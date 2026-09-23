@@ -9,7 +9,7 @@ import ConLeche.Verify.InstSpine
 public section
 
 /-!
-# The recursor CHECK at k members, inverted (milestone M5)
+# The recursor CHECK at k members, inverted
 
 What `ConLeche/Kernel/Inductives/BlockRec.lean`'s pieces are, said in
 the form the model tier reads them:
@@ -17,15 +17,13 @@ the form the model tier reads them:
 * the **guarded call's characterisation** (`blockIhCall?_spine`): a
   node the abstraction replaces IS the generated recursive call
   `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
-  THIS constructor whose kind names the member `rec_{c'}` eliminates —
-  up to
-  `Expr.resetMeta`, which is the comparison the stage makes (and the
-  comparison the one-member stage has always made on rule bodies);
-* the **abstraction's equations** and the fact that on a term free of
-  block recursors the walk IS `liftLooseBVars` past the `ih` binders
-  (`abstractIh_of_recFree`) — the base case of the substitution lemma
-  `⟦body⟧[rec ↦ rec*] = ⟦body''⟧[ih ↦ ihVals rec*]` the semantics tier
-  builds on.
+  THIS constructor whose kind names the member `rec_{c'}` eliminates,
+  exactly as terms (see the lemma's docstring for why not up to
+  `Expr.resetMeta`);
+* the **abstraction's equations** (`abstractIh_*`);
+* the recursor stage's NAME checks, the one-level (`D-d`), counting and
+  pin halves of the elimination guard, and the two capture-avoiding
+  substitutions at bvar-closed arguments.
 
 ## The rule check's two ENVIRONMENT claims (G1, G2)
 
@@ -43,8 +41,8 @@ environment — the one it was called at, before `consBlockRecsBare`.
   constructors' environment, NOT at the one holding the `k` rule-less
   recursors.  The residue and its whole opened frame (the recursor's
   own prefix, the fields, the `ih` openers) are recursor-free by
-  construction — `abstractIh_of_recFree` below is that fact's
-  syntactic half — and a model of an environment holding the
+  construction (the abstraction replaces every guarded call and fails
+  at any other recursor constant, `abstractIh_const`), and a model of an environment holding the
   recursors would owe every constant's leaf a type, the recursors'
   being the recursion theorem the certificate is feeding.  The
   annotation stays at `envR`: a rule mentions the recursors, and its
@@ -65,12 +63,10 @@ environment — the one it was called at, before `consBlockRecsBare`.
   STORED type, so the model must read those binders.
 
 What is NOT here, and is the semantics tier's (design §4.3): the
-abstraction's own INVERSE, `body = body''[ih_i a⃗ ↦ spine]`.  Its two
-halves are: `blockIhCall?_spine` (every replaced node is the spine)
-and `abstractIh_of_recFree` (every other node only moved); the
-substitution lemma that puts them together is stated over the
-DENOTATION, `⟦body⟧[rec ↦ rec*] = ⟦body''⟧[ih ↦ ihVals rec*]`, and
-belongs with the union recursor it is proved against.
+abstraction's own INVERSE, `body = body''[ih_i a⃗ ↦ spine]`.  Its
+syntactic half is `blockIhCall?_spine` (every replaced node is the
+spine); the substitution lemma is stated over the DENOTATION
+(`interp_instsAV`, `Semantics/Tower/BlockRecI.lean`).
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -93,8 +89,7 @@ the rule's OWN prefix (which forces `rP_{c'} = rP`); the `ih` binder
 field `i` of THIS constructor whose kind names the member `rec_{c'}`
 eliminates; the call's arguments `as` are as many as that
 field's telescope has binders, mention no block recursor and ARE that
-telescope's own variables (`structTeleVars`, the narrowing of
-2026-09-22); and the
+telescope's own variables (`structTeleVars`); and the
 whole node IS `blockIhSpinePis` — the generated call
 `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at the rule body's frame — instantiated
 at `as`, EXACTLY: `e = expected` as terms, binder data included, so
@@ -102,8 +97,7 @@ the field's index expressions `e⃗_i(a⃗)` in the node are the ANNOTATED
 ones the constructor's stored type carries, not merely their erasures.
 
 The equality has to be exact because the model's reading is not
-`Expr.resetMeta`-invariant (`not_denoteMeta_resetMeta_invariant`,
-`ConLeche/Model/Inductives/BlockRecRead.lean`): `resetMeta` forces
+`Expr.resetMeta`-invariant: `resetMeta` forces
 every binder datum to `.never` (bit `1`) while a datum that holds
 reads `0`, and `interp` takes the bit.  This equality is the only tie
 between the stored right-hand side's call node and the spine the ι law
@@ -184,7 +178,6 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
     by simpa using hlen, hasl', hfree', hvars', hexp, hcmp'⟩
 
-
 /-! ## The abstraction -/
 
 @[simp] theorem abstractIh_bvar {fr : BlockRuleFrame} {d j : Nat} :
@@ -213,91 +206,10 @@ theorem abstractIh_app {fr : BlockRuleFrame} {d : Nat} {f a : Expr} :
          (abstractIh fr d f).bind fun f' =>
            (abstractIh fr d a).map fun a' => .app f' a') := rfl
 
-/-- A head that is a block recursor makes the node mention one. -/
-theorem mentionsAnyConst_of_getAppFn {names : List Name} {nm : Name} {us : List Level} :
-    ∀ {e : Expr}, e.getAppFn = .const nm us → names.contains nm = true →
-      e.mentionsAnyConst names = true
-  | .app f a, h, hn => by
-    have : (Expr.app f a).getAppFn = f.getAppFn := rfl
-    simp only [Expr.mentionsAnyConst, mentionsAnyConst_of_getAppFn (this ▸ h) hn,
-      Bool.true_or]
-  | .const n _, h, hn => by
-    cases h; simpa [Expr.mentionsAnyConst] using hn
-  | .bvar _, h, _ | .sort _, h, _ | .lit _, h, _ | .fvar .., h, _
-  | .lam .., h, _ | .forallE .., h, _ | .letE .., h, _ | .proj .., h, _ => nomatch h
-
-/-- **A node free of block recursors is no guarded call**: the call's
-head has to BE a block recursor. -/
-theorem blockIhCall?_eq_none_of_recFree {fr : BlockRuleFrame} {d : Nat} {e : Expr}
-    (h : e.mentionsAnyConst fr.recNames = false) : blockIhCall? fr d e = none := by
-  unfold blockIhCall?
-  split
-  · rename_i nm us hfn
-    split
-    · rfl
-    · rename_i c' hnm
-      refine absurd (mentionsAnyConst_of_getAppFn (names := fr.recNames) hfn ?_) (by simp [h])
-      obtain ⟨hval, hlt, -⟩ :
-          fr.recNames[c']?.getD default = nm ∧ c' < fr.recNames.length ∧
-            ∀ j, j < c' → ¬ fr.recNames[j]?.getD default = nm := by
-        simpa [nameIdxOf?] using hnm
-      rw [← hval, List.getElem?_eq_getElem hlt, Option.getD_some]
-      exact List.elem_eq_true_of_mem (List.getElem_mem hlt)
-  · rfl
-
-/-- **On a term free of block recursors the abstraction IS the lift
-past the `ih` binders.**  This is the substitution lemma's base case:
-everything the abstraction did not replace it only moved. -/
-theorem abstractIh_of_recFree {fr : BlockRuleFrame} :
-    ∀ {e : Expr} {d : Nat}, e.mentionsAnyConst fr.recNames = false → e.hasFvar = false →
-      abstractIh fr d e = some (e.liftLooseBVars fr.nR d)
-  | .bvar j, d, _, _ => by
-    simp only [abstractIh_bvar, Expr.liftLooseBVars]
-    split <;> rename_i hj
-    · rw [if_neg (by omega)]
-    · rw [if_pos (by omega), Nat.add_comm]
-  | .sort _, _, _, _ => rfl
-  | .lit _, _, _, _ => rfl
-  | .const n us, d, h, _ => by
-    simp only [Expr.mentionsAnyConst] at h
-    simp only [abstractIh_const, h, Bool.false_eq_true, if_false, Expr.liftLooseBVars]
-  | .fvar _ _, _, _, hf => absurd hf (by simp [Expr.hasFvar])
-  | .lam ty b bi, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
-  | .forallE ty b bi, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
-  | .letE ty v b, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1.1 hf.1.1,
-      abstractIh_of_recFree h.1.2 hf.1.2, abstractIh_of_recFree h.2 hf.2,
-      Option.bind_some, Option.map_some, Expr.liftLooseBVars]
-  | .proj s i e, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar] at hf
-    simp only [abstractIh, h.1, Bool.false_eq_true, if_false,
-      abstractIh_of_recFree h.2 hf, Option.map_some, Expr.liftLooseBVars]
-  | .app f a, d, h, hf => by
-    have hnone : blockIhCall? fr d (.app f a) = none := blockIhCall?_eq_none_of_recFree h
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh_app, hnone, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
-
 /-! ## Stage (a)'s two NAME checks, exposed
 
 `checkBlockRecPins` refuses a recursor named for one of the constants
-the environment's own guards look up (`reservedRecName`) and, since
-the maintainer's ruling of 2026-09-21 ("no red tutorial tests"), a
+the environment's own guards look up (`reservedRecName`) and a
 block whose recursor names are not, as a SET, official's
 `{T_m.rec | m a member}`.  The first is what the MODEL consumes — it
 makes `natLitSupported` and `strLitSupported` congruent across the
@@ -340,7 +252,7 @@ theorem checkBlockRecPins_reserved {p : BlockParts}
   exact eq_of_beq (by simpa using this)
 
 /-- **A checked block carries one recursor per member, named
-`T_m.rec`** (the conformance ruling of 2026-09-21): as many recursors
+`T_m.rec`** (official's naming, for conformance): as many recursors
 as members, each named for a member and each member named by one.
 WHICH recursor is which member's is NOT said here — that is its
 MAJOR's business (`RecShape.tgt`). -/
@@ -445,7 +357,7 @@ body is OPENED, the frame `denoteMeta` reads at — both collapse onto
 operations the model already owns**: `instPisAtLift` onto `instPisAt`
 (nothing to lift, `instantiate1Lift_eq_instantiate1`), and
 `instantiateList` onto `instSeq` (through `instSpine`).  These are the
-two syntactic halves of the batteries the M5 model half needs. -/
+two syntactic halves of the batteries the model tier needs. -/
 
 /-- **`instPisAtLift` is `instPisAt` at bvar-closed arguments.** -/
 theorem instPisAtLift_eq_instPisAt :

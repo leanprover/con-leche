@@ -10,15 +10,15 @@ import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!
-# The rule's CONCLUSION `Ca`, pinned — and the kit arms' `hCaB` (lane RM55, sub-lane CA)
+# The rule's CONCLUSION `Ca`, pinned — and the kit arms' `hCaB`
 
 `BlockRuleCerts` carries the rule's conclusion `Ca` as the reading of
 an EXISTENTIAL `concl` (`denoteMeta … concl = some Ca`), and every
 consumer that evaluates `Ca` — the kit arms' `hCaB`, the IND arm's
 `hCaE` through `blockIndCaE_of_run` (`blockIndRuleRows_run`) — needs it as
 `BlockRuleConclAt`: the recursor type's reading peeled along the rule's
-spine.  Nothing in the tree chose one `Ca` per rule, so the two could
-not meet.
+spine.  So one `Ca` per rule has to be chosen, and both sides stated
+at it.
 
 `checkBlockRule` DOES compute it: the conclusion the residue is
 compared against is `instPisAtLift` of the recursor's stored type at
@@ -30,22 +30,22 @@ and the run proves:
 
 * `blockRuleCaAV_reads` — the reading exists and IS the definition:
   exactly `blockRuleCerts_of_run`'s `hCa` premise, so the certificate
-  lane states its bundle at this `Ca`;
+  bundle is stated at this `Ca`;
 * `blockRuleCaAV_conclAt` — `BlockRuleConclAt` at the run's own
-  components (`hcon`/`hmkL`/`hesL` of `blockIndCaE_of_run` and of
-  `blockRecHCaB`): the index arguments and the fired spine read,
+  components (`hcon`/`hmkL`/`hesL` of `blockIndCaE_of_run`): the index
+  arguments and the fired spine read,
   at the deeper frame, to the rule-frame readings lifted past the `ih`
   block (`denoteMeta_lift`).
 
-**`hCaB` is over-quantified** (the twentieth): its antecedent is a
-`ChainFit` at the fixpoint for an ARBITRARY `i : V`.  Evaluating `Ca`
+**`hCaB` is narrowed to `i ∈ d.idx …`**: a `ChainFit` at the fixpoint
+for an ARBITRARY `i : V` is not enough.  Evaluating `Ca`
 needs the fired spine's value (`blockRecMkK_value`) and the index
 readings' values (`blockRecEsK_eq_is`), and both need the FIELD fit
 `SpineFit … Fss fs`, which a `ChainFit` gives only through the slot
 agreement (`blockSlot_agree`) — whose witness is `i ∈ d.idx …`.  The
 kit's step (`blockWfKit`'s `hst`, and the SQ kit's) has it (`hi`, off
-`blockRecIs_pos`), exactly as for `hspF` (RM53 §4.1).  The producers
-below are stated at the narrowed row.
+`blockRecIs_pos`), exactly as for `hspF`.  The producers below are
+stated at the narrowed row.
 -/
 
 namespace ConLeche.Model
@@ -152,7 +152,7 @@ reads at the whole rule frame to `blockRuleCaAV` — the `hCa` premise of
 the recursor type's reading along the rule's spine, the index arguments
 and the fired spine being the rule-frame readings (`blockRecEsK 0`,
 `blockRecMkK 0`) lifted past the `ih` block — the `hcon`/`hmkL`/`hesL`
-triple of `blockIndCaE_of_run` and of `blockRecHCaB`.
+triple of `blockIndCaE_of_run`.
 
 The inputs are the run and the constructor's reading record (`hcd`,
 out of `BlockCtorsCore`), the constructor's stored level parameters and

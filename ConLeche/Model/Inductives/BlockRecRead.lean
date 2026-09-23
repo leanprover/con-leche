@@ -8,7 +8,6 @@ import ConLeche.Verify.Shift
 import ConLeche.Model.BasisEmpty
 import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
@@ -17,23 +16,19 @@ import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
-# The recursor stage's READINGS (task #315, milestone M5, the Model half)
+# The recursor stage's readings
 
-What `blockRecStaged_of`'s two open premises
-(`Model/Inductives/BlockStageRec.lean`) are made of: the recursors'
-stored types read to a Π-tower whose binder data is the semantics
-tier's `rds`, the rule's prefix binders read to the SAME data (G2), and
-the stored right-hand side's body reads to the residue at the `ih`
-openers' values (O-1).
+Facts about how the recursor stage's stored terms read, for
+`blockRecStaged_of`'s premises (`Model/Inductives/BlockStageRec.lean`):
+the family's one elimination level, the `instPisAtLift` reading
+battery, and the stored types' readings with their grading.
 
-**D-d first**, because it is one line and the whole family's level
-arithmetic rests on it: `checkBlockRecElimAgree` compares the sorts the
-kernel's own sort check gave the recursors' CONCLUSIONS, and
-`blockRecElimAgree_inv` (`Verify/Inductives/BlockRecInv.lean`) exposes
-that comparison as `Level.isEquiv`.  The model does not consume
-`isEquiv`; it consumes `Level.eval` at a ground assignment, which is
-what `Level.isEquiv_sound` turns it into.  With that, a family has ONE
-elimination level — `M5m`'s `OneElimLevel` at the family's single `ℓ`.
+The family's level arithmetic rests on `checkBlockRecElimAgree`, which
+compares the sorts the kernel's own sort check gave the recursors'
+conclusions; `blockRecElimAgree_inv` (`Verify/Inductives/BlockRecInv.lean`)
+exposes it as `Level.isEquiv`.  The model consumes `Level.eval` at a
+ground assignment (`Level.isEquiv_sound`), so a family has ONE
+elimination level — `OneElimLevel` at the family's single `ℓ`.
 -/
 
 namespace ConLeche.Model
@@ -41,7 +36,7 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche.Semantics SetTheory
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 
-/-! ## D-d, at the valuation -/
+/-! ## One elimination level, at the valuation -/
 
 /-- **One elimination level per family, at a ground assignment.**
 `blockRecElimAgree_inv` gives the check's own verdict
@@ -52,13 +47,6 @@ theorem blockRecElimAgree_eval {us : List Level}
     (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
     (ψ : Name → Nat) : ∀ u ∈ us, u.eval ψ = (us.headD .zero).eval ψ :=
   fun u hu => Level.isEquiv_sound (ConLeche.blockRecElimAgree_inv h u hu) ψ
-
-/-- The same, between any two of the family's conclusions. -/
-theorem blockRecElimAgree_eval_pair {us : List Level}
-    (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
-    (ψ : Name → Nat) {u v : Level} (hu : u ∈ us) (hv : v ∈ us) :
-    u.eval ψ = v.eval ψ :=
-  (blockRecElimAgree_eval h ψ u hu).trans (blockRecElimAgree_eval h ψ v hv).symm
 
 /-- **The zeroness bit is the family's**, which is exactly the shape
 `OneElimLevel` (`Semantics/Tower/BlockRecKitI.lean`) asks for once the
@@ -71,30 +59,23 @@ theorem blockRecElimAgree_zero_iff {us : List Level}
     ((us.headD .zero).eval ψ = 0 ↔ u.eval ψ = 0) := by
   rw [blockRecElimAgree_eval h ψ u hu]
 
-/-! ## The finding, and its RESOLUTION in the kernel
+/-! ## Why `blockIhCall?` compares EXACTLY
 
 `denoteMeta` does not respect `Expr.resetMeta`: `resetMeta` forces
 every binder's datum to `⟨.never⟩`, whose bit is `1`, while a datum
 that holds at `φ` reads `0`, and `interp` is not bit-blind —
 `lamR`/`piR` take the bit.  So two `resetMeta`-equal expressions can
-denote differently, which `not_denoteMeta_resetMeta_invariant` below
-witnesses.
+denote differently.  `blockIhCall?`'s comparison
+(`Kernel/Inductives/BlockRec.lean`) is the ONLY tie between the stored
+right-hand side's call node and the spine the ι law is stated at, so
+it compares EXACTLY, binder data included (`e != expected`), and
+`blockIhCall?_spine` (`Verify/Inductives/BlockRecInv.lean`) exports
+`e = expected`: the call node's annotated index expressions are the
+constructor's stored ones, syntactically.  A comparison up to
+`resetMeta` would leave a reading that cannot be transported. -/
 
-`blockIhCall?` (`Kernel/Inductives/BlockRec.lean`) used to recognise a
-guarded recursive call up to exactly that relation, and its
-comparison is the ONLY tie between the stored right-hand side's call
-node and the spine the ι law is stated at — so a reading could not be
-transported across it.  **The kernel comparison was strengthened**
-(lane K2): the node and the generated spine are now compared EXACTLY,
-binder data included (`e != expected`), and `blockIhCall?_spine`
-(`Verify/Inductives/BlockRecInv.lean`) exports `e = expected` — so
-the field's ANNOTATED index expressions in the call node are the
-constructor's stored ones, syntactically.  The whole arena battery and
-the whole e2e suite are unchanged by the strengthening (measured at
-the k = 1 probe, with a negative control showing the comparison is
-what those fixtures' rules pass).
-
-The witness stays as the record of WHY the comparison is exact. -/
+/-- The witness: two `resetMeta`-equal expressions whose readings
+differ (`⟨.never⟩` against `⟨.ifAllZero []⟩` on a λ-binder). -/
 theorem not_denoteMeta_resetMeta_invariant :
     ∃ (e₁ e₂ : Expr) (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
       (φ : Name → Nat) (d : Nat),
@@ -113,21 +94,18 @@ theorem not_denoteMeta_resetMeta_invariant :
   rw [e1, e1, pwBit_never, pwBit_ifAllZero_nil]
   simp
 
-/-! ## The two missing `denoteMeta` batteries (O-1's prerequisites)
+/-! ## The `instPisAtLift` reading battery
 
 `blockIhCall?`, `blockIhPis` and `checkBlockRule`'s conclusion are
 built with `Expr.instPisAtLift`, and the ih telescope is opened with
-`Expr.instantiateList`; neither had a reading lemma, because both are
-written for arguments that may mention the ambient binders and
-`denoteMeta_beta` wants a bvar-CLOSED replacement.
-
-The way through is not a generalised `denoteMeta_beta` but the
-observation that at the frame `denoteMeta` actually reads — the rule
-body OPENED at fvars — the arguments ARE bvar-closed, and there both
+`Expr.instantiateList`; both are written for arguments that may mention
+the ambient binders, while `denoteMeta_beta` wants a bvar-CLOSED
+replacement.  At the frame `denoteMeta` actually reads — the rule body
+OPENED at fvars — the arguments ARE bvar-closed, and there both
 operations collapse onto ones the model owns
 (`instPisAtLift_eq_instPisAt`, `instantiateList_eq_instSeq`,
-`Verify/Inductives/BlockRecInv.lean`).  So the batteries are
-corollaries, not new inductions. -/
+`Verify/Inductives/BlockRecInv.lean`), so the readings are corollaries,
+not new inductions. -/
 
 variable {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
 
@@ -155,59 +133,15 @@ theorem denoteMeta_instPisAtLift_peel
     obtain rfl : p.2 = rest := Option.some.inj hpr
     exact ConLeche.Model.Rules.denoteMeta_instPisAt_peel hacl hainst args (ds := p.1) (by rw [hpa]) hw ha hty hsp
 
-/-- **The reading of an `instantiateList` opening**, at bvar-closed
-values: `denoteMeta_openRev` through `instantiateList_eq_instSeq`. -/
-theorem denoteMeta_instantiateList
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ)
-    {vs : List Expr} (hne : vs ≠ []) {e : Expr} {d : Nat}
-    (hv : ∀ a ∈ vs, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
-    (hfb : Expr.fvarsBelow d e) (hb : e.looseBVarsBounded vs.length = true)
-    {xs : List AnnotTerm} (hsp : DenoteMetaSpine acval env φ d vs.reverse xs) :
-    denoteMeta acval env φ d (e.instantiateList vs 0)
-      = (denoteMeta acval env φ (d + vs.length)
-          (ConLeche.Verify.openRev d vs.length e)).map (ConLeche.Model.AnnotTerm.instRevChain xs) := by
-  have hlen : vs.reverse.length = vs.length := List.length_reverse
-  rw [ConLeche.instantiateList_eq_instSeq hne e]
-  have := ConLeche.Model.Rules.denoteMeta_openRev (acval := acval) (env := env) (φ := φ) hacl hainst
-    vs.reverse (e := e) (d := d)
-    (fun a hmem => hv a (List.mem_reverse.mp hmem)) hfb (by rw [hlen]; exact hb) hsp
-  rw [hlen] at this
-  exact this
+/-! ## The guarded-call case of the abstraction's inverse
 
-/-! ## O-1's guarded-call case, discharged
+`interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')` has one case
+that is not structural: the node the abstraction REPLACES, where the
+stored node and the generated spine must read alike.  With the exact
+comparison above that is `congrArg`: `blockIhCall?_spine` exports
+`e = expected` as TERMS. -/
 
-O-1 — `interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')`, the
-abstraction's inverse at the denotation — has one case that is not
-structural: the node the abstraction REPLACES.  There the model must
-know that the stored node and the generated spine read alike.
-
-With lane K2's comparison that is **free**: `blockIhCall?_spine`
-exports `e = expected` as TERMS, binder data included, so the reading
-claim is `congrArg`.  (Before K2 it was a premise; the witness above
-records why it could not be one.) -/
-
-/-- **Every node the abstraction replaces reads as the generated
-spine.**  O-1's guarded-call case, with no premise left. -/
-theorem denoteMeta_blockIhCall {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
-    {as : List Expr} (h : ConLeche.blockIhCall? fr d e = some (r, as)) :
-    ∃ (nm : Name) (c' i : Nat) (expected : Expr),
-      e.getAppFn = .const nm fr.rlvls ∧
-      ConLeche.nameIdxOf? fr.recNames nm = some c' ∧
-      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r ∧
-      as.length = (fr.teleOf i).length ∧
-      Expr.instPisAtLift as
-          (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
-            (fr.teleOf i) (fr.idxOf i)) = some expected ∧
-      ∀ D : Nat, denoteMeta acval env φ D e = denoteMeta acval env φ D expected := by
-  obtain ⟨nm, c', i, expected, h1, h2, h3, -, -, -, h7, -, -, h9, h10⟩ :=
-    ConLeche.blockIhCall?_spine h
-  exact ⟨nm, c', i, expected, h1, h2, h3, h7, h9, fun D => congrArg _ h10⟩
-
-/-! ## O-2, part 1 — the stored types READ, and their readings are GRADED
+/-! ## The stored types READ, and their readings are GRADED
 
 `blockRecStaged_of`'s `hrd` has three components: the recursor's
 stored type reads, its reading is graded, and the leaf inhabits it.
@@ -215,7 +149,7 @@ The first two are **run facts** — `checkConstantVal` ran `inferType`
 on the ANNOTATED type at the constructors' environment, which is
 exactly the hypothesis `acceptedReads_of` and the infer claim want —
 and this is them.  The third is the recursion theorem and belongs to
-the regimes (lane RM3).
+the regimes.
 
 The recipe is the one every harvest uses (`harvestDefn`,
 `Model/Harvest.lean`): `annotate_syntax` for the primed form's
@@ -306,9 +240,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`checkBlockRecK_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
-which is the regimes' deliverable (lane RM3).  This is the seam
-between the two halves: RM3 exports `hmem` in this shape and `hrd`
-follows. -/
+which the regimes deliver as `hmem` in this shape. -/
 theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}

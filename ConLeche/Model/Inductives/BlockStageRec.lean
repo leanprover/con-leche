@@ -10,7 +10,7 @@ import ConLeche.Verify.Inductives.SumRec
 public section
 
 /-!
-# The recursor stage's discharge, Model tier (task #315, milestone M5)
+# The recursor stage's discharge, Model tier (task #315)
 
 The stage conses the block's `k` recursors — each with its rules —
 onto the CONSTRUCTORS' environment, and the P carrier has to survive
@@ -33,8 +33,8 @@ The route here is the one the group rule-list swap already paved:
    (`swapShList_consBlockRecs`).  The swap takes `EnvWF`,
    `RecCtorsStored`, `BasisPinnedTT`, `ProjOkT` and `RecRules` at the
    stored environment as hypotheses — the first is
-   `envWF_consBlockRecs` and the last is the ι content this lane's
-   consumer supplies.
+   `envWF_consBlockRecs` and the last is the ι content the caller
+   supplies.
 
 `blockRecStaged_of` is the proposition `Model/Inductives/DeclBlock.lean`
 consumes, stated literally.
@@ -516,7 +516,7 @@ theorem noProjEnv_consBlockRecs {find? : Name → Option ConstantInfo}
 `blockRecStaged_of`'s `hnew` — the `RecCtorsStored` head facts of the
 stored rules — is not a run fact but a consequence of `sumRules`' own
 construction, once the cons is inverted.  That inversion is the only
-place the lane looks INSIDE `consBlockRecs`. -/
+place this file looks INSIDE `consBlockRecs`. -/
 
 /-- **The recursors' cons, inverted**: a constant found above the `k`
 recursors is one of them, with its rules `sumRules`', or was stored
@@ -606,7 +606,7 @@ theorem recCtorsHead_consBlockRecs {q : BlockShape} {nP : Nat} {rs : List RecDat
 
 /-! ## The stage's proposition -/
 
-/-- **`BlockRecStaged`, discharged** (task #315 M5, the Model half).
+/-- **`BlockRecStaged`, discharged.**
 
 The carrier at the recursors' environment, with the four facts the
 tables' stage and the final assembly read off it: the valuation is the
@@ -616,7 +616,7 @@ no stored piece mentioned is still mentioned by none.
 
 Two premises beyond the cons's own are worth naming.  `hresRec` is
 the recursor stage's own NAME check
-(`ConLeche.checkBlockRecK_reserved`, lane K2): without it the
+(`ConLeche.checkBlockRecK_reserved`): without it the
 `String`-literal guard is monotone but not congruent — nothing else
 would forbid a recursor from being named `List.cons` at a block that
 declares `List` — and conjunct 3's EQUATION (as opposed to its

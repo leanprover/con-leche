@@ -4,7 +4,7 @@ public import ConLeche.Semantics.Tower.BlockRecI
 @[expose] public section
 
 /-!
-# Regime IND: the recursor family's candidate at `ℓ = 0` (task #315, M5 model half)
+# Regime IND: the recursor family's candidate at `ℓ = 0` (task #315)
 
 DESIGN "DESIGN DOCUMENT 2, v2" §3.3.  When every conclusion is a
 proposition (`allProp`, which every mutual or nested `Prop` block is,
@@ -12,15 +12,12 @@ by the elimination guard) the recursor's TYPE is a proposition, so
 inhabiting it IS the induction principle and the value is the point:
 
 * the candidate is `fun _ => pt` — nothing is built, and the whole
-  regime reduces to `pt ∈ˢ ⟦RecTy_c⟧`, which is the nested induction
-  (outer `lfpTuple_induction` on the block's narrow tuple, inner
-  `KeyInd` per container key: the SetModel tier's kit, F3's
-  `InductionKit` generalised);
+  regime reduces to `pt ∈ˢ ⟦RecTy_c⟧`, which is the block's induction
+  (`lfpTuple_induction` on the block's tuple);
 * every ι law is `pt = pt`: the left-hand side collapses by `app_pt`
   (the recursor value is the point, and applying the point is the
   point), the right-hand side because the residue's reading lies in a
-  truth value — G4's repair, the residue's certified typing (G1) at
-  `ℓ = 0`.
+  truth value — the residue's certified typing (G1) at `ℓ = 0`.
 
 So this file is the whole of regime IND at the TERM level: the two
 collapses, and the reduction of `BlockRecPre.hCand` to the induction

@@ -31,7 +31,7 @@ loops call:
   against the WHOLE member list, so every target a kind carries is a
   member of the block (`blockCtorKinds_tgt_lt`);
 * **the tail** (`checkBlockIdxSorts_inv`, `blockOpenedOk_inv`,
-  `blockFieldsOk_inv`, `checkBlockTables_inv`, `checkBlockTail_inv`)
+  `blockFieldsOk_inv`, `checkBlockTail_inv`)
   and **the pass** (`checkBlockPass_inv`).
 
 The recursor stage stays OPAQUE here — `checkBlockTail_inv` exposes it
@@ -462,18 +462,6 @@ theorem blockCtorKinds_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List N
               exact blockFieldKind_tgt_lt hne _ _ _ (Or.inr hfk))
            | injection hi)
 
-/-- **The classified kinds' targets are members of the block.** -/
-theorem classifyMemberKinds_tgt_lt {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
-    (hne : names ≠ []) {ctorsA : List (ConstantVal × Nat)}
-    {kss : List (List BlockFieldKind)}
-    (h : classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA = .ok kss)
-    {ks : List BlockFieldKind} (hks : ks ∈ kss) {t : Nat}
-    (ht : BlockFieldKind.recursive t ∈ ks ∨ BlockFieldKind.reflexive t ∈ ks) :
-    t < names.length := by
-  obtain ⟨hmap, -, -, -⟩ := classifyMemberKinds_inv h
-  obtain ⟨c, -, hc⟩ := mapM_option_mem hmap ks hks
-  exact blockCtorKinds_tgt_lt hne hc ht
-
 /-! ## The pass -/
 
 /-- **One pass's shape at k members** (`checkNativePass_inv` at the
@@ -593,59 +581,6 @@ theorem blockFieldsOk_inv {env₀ : Env} {names lps : List Name} {nP : Nat}
   | some kss =>
     rw [hk] at this
     exact ⟨kss, rfl, this⟩
-
-/-! ## The tables -/
-
-/-- **The projection tables**, member by member: at a structure-like
-member (one constructor, no index) the member's table is consed at
-offset 1, at every other member nothing is.  `envs` is the chain of
-environments the loop threads. -/
-theorem checkBlockTables_inv {q : BlockShape} :
-    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))}
-      {env env₂ : Env},
-      checkBlockTables (m := CheckM) q l env = .ok env₂ →
-      ∃ envs : List Env, envs.length = l.length + 1 ∧ envs[0]? = some env ∧
-        envs[l.length]? = some env₂ ∧
-        ∀ (i : Nat) (e : MemberShape × List (ConstantVal × Nat) × List (List Level)),
-          l[i]? = some e →
-          ∃ ei ei', envs[i]? = some ei ∧ envs[i + 1]? = some ei' ∧
-            (ei' = ei ∨ ∃ cA sorts, e.2.1 = [cA] ∧ e.2.2 = [sorts] ∧ e.1.nIdx = 0 ∧
-              checkStructProjTable (m := CheckM) e.1.cvT.name cA.1.name q.lps q.nP cA.2
-                q.resSort (structProjGuards cA.1.type q.nP cA.2 sorts) 1 cA.1 ei = .ok ei')
-  | [], env, env₂, h => by
-    simp only [checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨[env], rfl, rfl, by simp [h], fun i e he => by simp at he⟩
-  | (ms, ctorsA, sortss) :: rest, env, env₂, h => by
-    unfold checkBlockTables at h
-    obtain ⟨env', henv', h⟩ := exceptBind_ok h
-    obtain ⟨envs, hlen, h0, hlast, hall⟩ := checkBlockTables_inv h
-    refine ⟨env :: envs, by simp [hlen], rfl, by simpa using hlast, ?_⟩
-    intro i e he
-    cases i with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at he
-      subst he
-      refine ⟨env, env', rfl, by simpa using h0, ?_⟩
-      dsimp only
-      rcases ctorsA with _ | ⟨cA, ctorsA'⟩
-      · left; simp only [pure, Except.pure, Except.ok.injEq] at henv'; exact henv'.symm
-      rcases ctorsA' with _ | ⟨cA2, ctorsA''⟩
-      case cons =>
-        left; simp only [pure, Except.pure, Except.ok.injEq] at henv'; exact henv'.symm
-      rcases sortss with _ | ⟨sorts, sortss'⟩
-      · left; simp only [pure, Except.pure, Except.ok.injEq] at henv'; exact henv'.symm
-      rcases sortss' with _ | ⟨s2, ss2⟩
-      case cons =>
-        left; simp only [pure, Except.pure, Except.ok.injEq] at henv'; exact henv'.symm
-      simp only at henv'
-      split at henv'
-      · next hn =>
-        exact Or.inr ⟨cA, sorts, rfl, rfl, by simpa using hn, henv'⟩
-      · left; simp only [pure, Except.pure, Except.ok.injEq] at henv'; exact henv'.symm
-    | succ i =>
-      simp only [List.getElem?_cons_succ] at he
-      obtain ⟨ei, ei', h1, h2, h3⟩ := hall i e he
-      exact ⟨ei, ei', by simpa using h1, by simpa using h2, h3⟩
 
 /-! ## The install after the pass -/
 

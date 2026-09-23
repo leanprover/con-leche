@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
-import ConLeche.Model.Inductives.BlockFieldRead
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.StructRecRead
 import ConLeche.Model.Inductives.FixLeafOk
@@ -17,12 +16,10 @@ public section
 
 /-!
 # The recursor family's LEAF: its structural facts, and the rule data
-(task #315, M5, model half — lane RM8)
 
-Two things live here, and they are entangled through the equation
-list `eqs`:
+Two things live here, entangled through the equation list `eqs`:
 
-* **item C** — the five facts `blockRecStaged_of`
+* **C** — the five facts `blockRecStaged_of`
   (`Model/Inductives/BlockStageRec.lean`) asks of the stage's
   VALUATION, at the block route's leaf
   `blockRecAV s K RecTy eqs c` (`Semantics/Tower/BlockRecI.lean`):
@@ -39,8 +36,9 @@ list `eqs`:
   binders).  The equations' half is then discharged, once, at the
   shape the design uses — `iotaEqAV`.
 
-* **item A** — `BlockRuleDataAt` (`Model/Inductives/BlockRecLaw.lean`)
-  at a stored rule.
+* **A** — `BlockRuleDataAt` (`Model/Inductives/BlockRecLaw.lean`)
+  at a stored rule, narrowed to the seam's one-environment form
+  `BlockRuleDataB` (§A.19b), and the endpoint `declBlock_data` (§A.18).
 -/
 
 namespace ConLeche.Model
@@ -137,15 +135,6 @@ theorem closed_blockRecAV {s K : Nat} {RecTy : Nat → AnnotTerm} {eqs : List An
   refine bvarsBelow_sigChainAV (n := 0) (closed_blockTsAV hT) ?_
   rw [Nat.zero_add, blockTsAV_length]
   exact bvarsBelow_andChainAV heq
-
-omit [SetTheory V] in
-/-- **C-2: lifting the leaf at any cut is a no-op** — a corollary of
-C-1 (`liftN_eq_self_of_closed`). -/
-theorem liftN_blockRecAV {s K : Nat} {RecTy : Nat → AnnotTerm} {eqs : List AnnotTerm} {c : Nat}
-    (hT : ∀ c', c' < K → Term.Closed (RecTy c').erase)
-    (heq : ∀ e ∈ eqs, Term.bvarsBelow K e.erase) (n k : Nat) :
-    (blockRecAV s K RecTy eqs c).liftN n k = blockRecAV s K RecTy eqs c :=
-  liftN_eq_self_of_closed (closed_blockRecAV hT heq) k n
 
 omit [SetTheory V] in
 /-- **C-3: the leaf reads only the `K` types and the equations** — so a
@@ -472,8 +461,8 @@ theorem annotValid_iotaEqAV {K c : Nat} {pdoms fdoms es ihs : List AnnotTerm}
 `blockRecAV s rs.length (blockRecTyAV …) (eqs ψ) i` — so each is the
 battery above at the run's own two inputs: the recursor types'
 readings (`checkBlockRecK_tyPis`, whose closedness is one
-`bvarsBelow_of_reading`) and the equation list `eqs`, which is
-RM9's choice and is left as the named premise here. -/
+`bvarsBelow_of_reading`) and the equation list `eqs`, which is left as
+a named premise here. -/
 
 /-- The `i`-th stored recursor type's READING is closed — the stored
 type has no free variable and no loose bvar, and `denoteMeta` at depth
@@ -515,22 +504,6 @@ theorem blockRecLeafAV_liftN (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
     (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).liftN 1 k
       = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i :=
   liftN_eq_self_of_closed (blockRecLeafAV_closed hμ mpC h heqB ψ i) k 1
-
-/-- **C-3 at the run**: the stage's leaf reads a level valuation only
-through the recursor types' readings and the equations. -/
-theorem blockRecLeafAV_par {mpC : EnvModelM V μ envC}
-    (hpar : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
-        s ψ₁ = s ψ₂ ∧
-        (∀ c', c' < rs.length → blockRecTyAV mpC.base2.acval envC rs ψ₁ c'
-            = blockRecTyAV mpC.base2.acval envC rs ψ₂ c') ∧ eqs ψ₁ = eqs ψ₂)
-    (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
-    (hr : rs[i]? = some r) (ψ₁ ψ₂ : Name → Nat)
-    (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
-    blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
-      = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i :=
-  blockRecAV_congr (hpar i r hr ψ₁ ψ₂ hq).1 (hpar i r hr ψ₁ ψ₂ hq).2.1
-    (hpar i r hr ψ₁ ψ₂ hq).2.2
 
 /-- **C-4 at the run**: the stage's leaf is graded — `blockRecAV_facts`
 at the family premise, one line.  **The block position is needed**:
@@ -646,12 +619,11 @@ end RunLeaf
 
 `BlockRuleDataAt` (`BlockRecLaw.lean`) states the rule data at the
 CHAIN frame — under the `K` Σ' binders the family's tuple introduces —
-while every reading the check produces lives at the BASE frame.  That
-gap is O-2's bookkeeping (`M5m-REPORT` §7), and it is ONE move: a form
-standing under `k` of the rule's own binders is the base-frame form
-lifted by `K` at the cutoff `k`, because the chain frame is
-`consList ((List.range K).map a) ρ` and `shiftE K k` of the extended
-frame drops exactly that block (`shiftE_consList_ih`).
+while every reading the check produces lives at the BASE frame.  The
+gap is ONE move: a form standing under `k` of the rule's own binders
+is the base-frame form lifted by `K` at the cutoff `k`, because the
+chain frame is `consList ((List.range K).map a) ρ` and `shiftE K k` of
+the extended frame drops exactly that block (`shiftE_consList_ih`).
 
 `liftDomsK` is the same move on a BINDER LIST, each domain at its own
 depth; `blockRuleDataAt_of_base` is the whole of
@@ -660,7 +632,7 @@ depth; `blockRuleDataAt_of_base` is the whole of
 /-- A binder list moved under the `K` chain binders: domain `i` is
 lifted at the cutoff `k + i`.
 
-`@[expose]`: lane RM9's fit transport is a structural recursion ON
+`@[expose]`: a downstream fit transport is a structural recursion ON
 this definition, so its body must unfold outside this module. -/
 @[expose] def liftDomsK (K : Nat) : Nat → List AnnotTerm → List AnnotTerm
   | _, [] => []
@@ -714,7 +686,7 @@ theorem spineFit_liftDomsK {K : Nat} {a ρ : Nat → V} :
 The five conjuncts at the chain frame follow from the same five at
 the RULE's own frame, once the data are the base-frame forms lifted
 past the `K` chain binders at their own depths.  Nothing here is about
-the check: it is the whole of O-2's move, once. -/
+the check: it is the whole chain-frame move, once. -/
 theorem blockRuleDataAt_of_base {K rP nP : Nat} {a ρ : Nat → V}
     {pdoms0 fdoms0 es0 ihs : List AnnotTerm} {mk0 Rb0 : AnnotTerm}
     {xs ys : List AnnotTerm} {Ca Ra : AnnotTerm}
@@ -779,9 +751,9 @@ side APPLIED to the rule's spine with the residue read at the ih
 values.  The right-hand side's reading is the rule's λ-tower
 (`rP + nF` binders), so the left side β-reduces along the spine, and
 what is left is exactly `interp_blockResidue`'s conclusion
-(`BlockRecLaw.lean` §9) — O-1 at the rule's own frame.  The two
-lemmas below are that split: the β-reduction is generic, and the
-composition is one rewrite. -/
+(`BlockRecLaw.lean` §9) at the rule's own frame.  The two lemmas below
+are that split: the β-reduction is generic, and the composition is one
+rewrite. -/
 
 /-- **A λ-tower applied along a fitting spine reads as its body.** -/
 theorem interp_mkAppN_mkLamsAV {lds : List (Nat × AnnotTerm)} {b Ra : AnnotTerm}
@@ -794,91 +766,11 @@ theorem interp_mkAppN_mkLamsAV {lds : List (Nat × AnnotTerm)} {b Ra : AnnotTerm
   rw [interp_mkAppN, foldl_app_map]
   exact mkLamsAV_fold_graded hok hsp
 
-/-- **`blockRuleDataAt_of_base`'s `hRa`, from O-1.**  Give the stored
-right-hand side's reading as the rule's λ-tower, its grading, the
-spine's fit and `interp_blockResidue`'s equation at the rule's frame,
-and the conjunct follows by β-reduction. -/
-theorem blockRuleHRa_of {ρ : Nat → V} {Ra Rb0 A : AnnotTerm}
-    {lds : List (Nat × AnnotTerm)} {xs ys : List AnnotTerm} {rP nP : Nat}
-    {ihs0 : List AnnotTerm}
-    (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
-    (hsp : SpineFit ρ (lds.map (·.2))
-      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
-    (hres : interp V (consList ((xs.take rP).map (interp V ρ)
-          ++ (ys.drop nP).map (interp V ρ)) ρ) A
-      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)))
-          (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0) :
-    interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
-      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)))
-          (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 := by
-  rw [← hres, interp_mkAppN_mkLamsAV hlam hok (by rw [List.map_append]; exact hsp),
-    List.map_append]
-
-/-- **A-4, composed**: `blockRuleDataAt_of_base`'s `hRa` from O-1.
-
-`interp_blockResidue` (`BlockRecLaw.lean` §9) is the body's reading
-against the residue's at the ih values; `blockRuleHRa_of` is the
-β-reduction that turns it into the conjunct's shape.  The ih values
-are the design's `ihs0`, read at the rule's own frame — which is the
-frame `blockRuleDataAt_of_base` reads them at
-(`blockRuleFrame`), so the two spellings meet with no transport.
-
-The `IhSpineFold` premise is `ihSpineFold_blockRec`
-(`BlockRecRule.lean`) — this theorem does not repeat its fifteen
-premises, so that the composition can be checked, and read, on its
-own. -/
-theorem blockRuleHRa_run {env envT : Env} {acval : Name → (Name → Nat) → AnnotTerm}
-    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ : Nat → V}
-    {Ra Rb0 A : AnnotTerm} {lds : List (Nat × AnnotTerm)}
-    {xs ys ihs0 : List AnnotTerm} {rP nP : Nat}
-    {body resid : Expr} {as1 as2 as2₀ : List Expr} {Δa : List AnnotTerm}
-    (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
-    (hsp : SpineFit ρ (lds.map (·.2))
-      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
-    {mT : EnvModel V envT}
-    (haclT : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ)
-    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
-    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
-      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
-    (hih : ihs0.length = fr.nR)
-    (hspine : IhSpineFold V acval env mT φ fr F
-      (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)
-      (ihs0.map (interp V
-        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ))) as2₀)
-    (hsx : as2₀ <:+ as2)
-    (hab : ConLeche.abstractIh fr 0 body = some resid)
-    (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
-    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
-    (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
-    (hW : WalkCtx V mT φ (F + fr.nR)
-      (consList (ihs0.map (interp V
-          (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)))
-        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) Δa as2)
-    (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta mT.acval envT φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0)
-    (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
-    interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
-      = interp V (consList (ihs0.map (interp V (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)))
-          (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 :=
-  blockRuleHRa_of hlam hok hsp
-    (interp_blockResidue hacl haclT hin hproj hmono (by rw [List.length_map]; exact hih) hspine
-      hsx hab hf hbB hcbe hbT h1 h2 hW hA hB hty)
-
-/-- **The residue conjunct at the ih VALUES.**  `blockRuleHRa_of`
-with `ihs0` replaced by the values themselves.  The conjunct
+/-- **The residue conjunct at the ih VALUES.**  The conjunct
 `blockRuleDataAt_of_base` asks reads the ih TERMS at the CHAIN frame
 (their heads are the chain's components) while the fold delivers them
 at the rule's own, so the two spellings meet at the VALUES and not at
-a list of terms — which is where `interp_blockResidue` already states
-it. -/
+a list of terms — which is where `interp_blockResidue` states it. -/
 theorem blockRuleHRa_val {ρ : Nat → V} {Ra Rb0 A : AnnotTerm}
     {lds : List (Nat × AnnotTerm)} {xs ys : List AnnotTerm} {rP nP : Nat}
     {ihvals : List V}
@@ -895,54 +787,15 @@ theorem blockRuleHRa_val {ρ : Nat → V} {Ra Rb0 A : AnnotTerm}
   rw [← hres, interp_mkAppN_mkLamsAV hlam hok (by rw [List.map_append]; exact hsp),
     List.map_append]
 
-/-- **A-4 at the ih VALUES** — `blockRuleHRa_run`'s twin, and the one
-the base-frame obligation (§A.5c) consumes. -/
-theorem blockRuleHRa_run_val {env envT : Env} {acval : Name → (Name → Nat) → AnnotTerm}
-    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ : Nat → V}
-    {Ra Rb0 A : AnnotTerm} {lds : List (Nat × AnnotTerm)}
-    {xs ys : List AnnotTerm} {ihvals : List V} {rP nP : Nat}
-    {body resid : Expr} {as1 as2 as2₀ : List Expr} {Δa : List AnnotTerm}
-    (hlam : Ra = mkLamsAV lds A) (hok : WellDenoted V ρ Ra)
-    (hsp : SpineFit ρ (lds.map (·.2))
-      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)))
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
-    {mT : EnvModel V envT}
-    (hin : Rules.RulesInputs V mT φ)
-    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
-    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
-      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
-    (hih : ihvals.length = fr.nR)
-    (hspine : IhSpineFold V acval env mT φ fr F
-      (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)
-      ihvals as2₀)
-    (hsx : as2₀ <:+ as2)
-    (hab : ConLeche.abstractIh fr 0 body = some resid)
-    (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
-    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
-    (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
-    (hW : WalkCtx V mT φ (F + fr.nR)
-      (consList ihvals
-        (consList ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) ρ)) Δa as2)
-    (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta mT.acval envT φ (F + fr.nR) (resid.instantiateList as2 0) = some Rb0)
-    (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
-    interp V ρ (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop nP))
-      = interp V (consList ihvals
-          (consList ((xs.take rP).map (interp V ρ)
-            ++ (ys.drop nP).map (interp V ρ)) ρ)) Rb0 :=
-  blockRuleHRa_val hlam hok hsp
-    (interp_blockResidue hacl mT.acval_closed hin hproj hmono hih hspine
-      hsx hab hf hbB hcbe hbT h1 h2 hW hA hB hty)
-
-/-! ## A.3 The family's EQUATION LIST, spelled — and item C's two
+/-! ## A.3 The family's EQUATION LIST, spelled — and C's two
 obligations at it
 
 `blockIotaEqsAV` is the `eqs` of `blockRecStaged_run` at the block's
 own data: the six components are given at the BASE frame, one per
 (class, rule) pair, and lifted past the `K` chain binders exactly as
-`blockRuleDataAt_of_base` requires.  RM9 states `hpre` at THIS list;
-item C's `heqB`/`heqV` are then §2's two theorems under the lifting,
-and that is what the rest of this section proves. -/
+`blockRuleDataAt_of_base` requires.  The regime `hpre` is stated at
+THIS list; C's `heqB`/`heqV` are then §C.6's two theorems under the
+lifting, and that is what the rest of this section proves. -/
 
 omit [SetTheory V] in
 /-- The chain binders inserted: a base-frame binder list, each domain
@@ -981,9 +834,9 @@ theorem fieldsValid_liftDomsK {K : Nat} {a ρ : Nat → V} :
 
 /-- **The family's ι equations at the block's own data.**
 
-`@[expose]`: lane RM9 states its `hpre` at this term, so the body must
-unfold outside this module — `blockRecEqs` is exposed but reduces to
-this. -/
+`@[expose]`: the regimes' `hpre` is stated at this term, so the body
+must unfold outside this module — `blockRecEqs` is exposed but reduces
+to this. -/
 @[expose] def blockIotaEqsAV (K : Nat) (nCt : Nat → Nat) (pdoms0 : Nat → List AnnotTerm)
     (fdoms0 es0 ihs : Nat → Nat → List AnnotTerm) (mk0 Rb0 : Nat → Nat → AnnotTerm) :
     List AnnotTerm :=
@@ -1096,12 +949,12 @@ theorem annotValid_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
 
 `hnew` (`blockRecStaged_run`) is `blockRecRuleLaw_of`
 (`BlockRecLaw.lean`) at one (recursor, constructor) pair, and four of
-its six premises are free once the lane's `eqs` is fixed to
-`blockIotaEqsAV`: the firing (`recRuleBits_fire`), the recursor's
-argument sums (`checkBlockRecK_recNames`, now that the stage pins them
-— §4a of session 1), the valuation's reading at the block position,
-and the family's ι law.  What is left is the right-hand side's, and it
-enters `blockRuleDataAt_of_base` (§3.1). -/
+its six premises are free once `eqs` is fixed to `blockIotaEqsAV`: the
+firing (`recRuleBits_fire`), the recursor's argument sums
+(`checkBlockRecK_recNames`: the stage pins them), the valuation's
+reading at the block position, and the family's ι law.  What is left
+is the right-hand side's, and it enters `blockRuleDataAt_of_base`
+(§3.1). -/
 
 section Hnew
 
@@ -1112,7 +965,7 @@ variable {envC : Env} {p : ConLeche.BlockParts}
   {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
   {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
 
-/-- The lane's `eqs`: the family's ι equations at the block's own
+/-- The family's `eqs`: the family's ι equations at the block's own
 base-frame data (§A.3). -/
 @[expose] def blockRecEqs (nCt : Nat → Nat)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -1139,7 +992,7 @@ theorem blockRecHleaf {mpC : EnvModelM V μ envC}
 
 /-- **`hiota`**: the family's ι law at the `j`-th class and the `i`-th
 rule, in `blockRecRuleLaw_of`'s spelling — `blockIotaAt_of_pre` at the
-regimes' `hpre`, with the lane's `eqs`. -/
+regimes' `hpre`, at `blockRecEqs`. -/
 theorem blockRecHiota {mpC : EnvModelM V μ envC}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
@@ -1176,8 +1029,8 @@ constructor) pair: `blockRecRuleLaw_of`'s `hrhs`, named.  Naming it is
 what makes A-5 (`blockRecHnew_of`) three lines — the obligation is
 stated once here, consumed by `blockRecRuleLaw_run`, and discharged by
 the rule-data chapter (`blockRuleDataAt_of_base` for its fourth
-conjunct's rule datum, `blockRuleHRa_of ∘ interp_blockResidue` for the
-residue inside it).
+conjunct's rule datum, `blockRuleHRa_val` and `interp_blockResidue`
+for the residue inside it).
 
 The family's leaf enters only through `leaf`, so the obligation does
 not mention the equation list it was built from.
@@ -1239,7 +1092,7 @@ must unfold outside this module. -/
               ρ (p.toBlockShape.rulePrefixAt j) (ConLeche.RecRule.ctorParams rl) xs ys
               (m₃.acval (ConLeche.RecRule.ctor rl)
                 (Level.substFn φ cvj.levelParams usj)) Ra) ∨
-            -- the `ℓ = 0` arm (lane RM49): both sides are the point
+            -- the `ℓ = 0` arm: both sides are the point
             (interp V ρ (AnnotTerm.mkAppN (leaf (Level.substFn φ r.1.levelParams us) j)
                 (xs ++ [AnnotTerm.mkAppN (m₃.acval (ConLeche.RecRule.ctor rl)
                   (Level.substFn φ cvj.levelParams usj)) ys])) = pt ∧
@@ -1348,7 +1201,7 @@ storage, the equation list's three (`heqB`/`heqV`/`heqP` — §A.3's two
 lemmas cut the first two down to the six components), the family's
 regime `hpre` and the per-pair `BlockRuleRhsOk`. -/
 
-/-- **The recursor stage, with `hnew` applied** — the lane's `eqs`
+/-- **The recursor stage, with `hnew` applied** — `eqs`
 fixed to `blockRecEqs` and the leaf's five facts discharged. -/
 theorem blockRecStaged_rhs (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
@@ -1407,12 +1260,12 @@ undoes the first and naming the reading undoes the second.  What is
 left is five statements at the rule's OWN frame, per level
 instantiation and per fired spine:
 
-1. the prefix and the fields FIT (`blockRuleHsp_of`, whose two halves
-   are §A.10's prefix truncation and the representation's fibre);
+1. the prefix and the fields FIT (two halves: §A.10's prefix
+   truncation and the representation's fibre);
 2. the index expressions read to the recursor's index arguments
    (`blockRuleEsAV_eq` at the constructors' stage);
 3. the fired spine's reading is the constructor at its own parameters
-   (`blockRuleMkAV_eq` + `blockCtorFold_params_blind`);
+   (`blockRuleMkAV_eq`; the value is parameter-blind, `BlockModelAt.ctor`);
 4. the residue, at the ih VALUES (`blockRuleHRa_val` below, at
    `ihSpineFold_blockRec` — whose G3 premise is §A.16's
    `blockRuleHfit_run`);
@@ -1518,10 +1371,10 @@ theorem blockRuleRhsOk_of
 
 `pdoms0` — the rule's prefix domains at the base frame — needs no new
 reading: it is the `rP` first entries of the recursor type's own
-binder data, which RM4 already named (`blockRecRdsAV`) and
-`checkBlockRecK_tyPis` already identifies.  Its length conjunct (the
-first of `BlockRuleDataAt`'s five) is then the stage's two pins
-together: `rds.length = mI + 1` and `mI = rP + nIdx`. -/
+binder data (`blockRecRdsAV`), which `checkBlockRecK_tyPis`
+identifies.  Its length conjunct (the first of `BlockRuleDataAt`'s
+five) is then the stage's two pins together: `rds.length = mI + 1` and
+`mI = rP + nIdx`. -/
 
 /-- **The `c`-th rule's prefix domains, at the BASE frame.** -/
 @[expose] def blockRulePdomsAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
@@ -1549,14 +1402,11 @@ end Hnew
 
 /-! ## A.5 Stage (c)'s peel, WIDENED — the rule's own data, named
 
-`checkBlockRule_typing` (`BlockRecTyping.lean`) keeps the two typing
-runs and the three openings; the rule DATA needs four more witnesses
-the same bind chain produces and that peel discards — the λ-tower's
-body, the constructor's instantiated telescope, the abstraction's
-residue and the `ih` telescope — each with its DEFINING equation, so
-that the components below are functions of the run and not
-existentials.  (Fifth peel of stage (c) in the tree; V2's open item 3
-stands.) -/
+Beyond the two typing runs and the three openings, the rule DATA
+needs four more witnesses of the same bind chain — the λ-tower's body,
+the constructor's instantiated telescope, the abstraction's residue
+and the `ih` telescope — each with its DEFINING equation, so that the
+components below are functions of the run and not existentials. -/
 
 section RuleData
 
@@ -1698,12 +1548,11 @@ theorem checkBlockRule_data {envR envT : Env} {p : BlockShape} {recNames : List 
 
 end RuleData
 
-/-! ## A.7 The ruling of session 4, resolved: NO interface change
+/-! ## A.7 The constructors' reading record, in scope
 
-The coordinator's option (i) — "thread the per-field `FieldReadAt`
-package into `declBlock`'s `hrec` and `blockRecStaged_run`" — turns
-out to need NO threading at all.  RM7's session-2 `hrec` already hands
-the recursor lane the block's whole representation, including
+The per-field readings the rule data needs are in scope where `hnew`
+is proved: `hrec` hands the recursor stage the block's whole
+representation, including
 
 ```
 BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k
@@ -1711,30 +1560,12 @@ BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k
 
 whose third clause carries, per (member `c`, constructor `j`), the
 constructors' reading record `BlockCtorDataI` — the block route's
-counterpart of the native route's `CtorReadR`.  So the data IS in
-scope where `hnew` is proved; `blockCtorData_of_core` is the one-line
-projection that names the entry point.
-
-**What the ruling actually reduces to is ONE owed theorem**, the block
-analogue of `fieldReadAt_of` (`FixRecRead.lean:965`, which builds
-`FieldReadAt` out of `CtorReadR`):
-
-```lean
-theorem blockFieldReadAt_of (hcd : BlockCtorDataI mpC.base2 … (d.eissF c j) (d.tssF c j))
-    {fvs : List Expr} {o : Expr}
-    (hop : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0 = some (fvs, o))
-    {i : Nat} (hi : i < cA.2) :
-    FieldReadAt mpC.base2 ψ d.nP cA.2 i cA.1.type fvs
-      ((d.tssF c j ψ).getD i []) ((d.eissF c j ψ).getD i [])
-```
-
-`BlockCtorDataI.reflOpen` is its content — the field's telescope
-OPENED at the field's depth, its domains reading to the telescope's
-entries and its body's index expressions to the field's readings —
-and the gap to `FieldReadAt` is the same `instSeq`/`openFvars` algebra
-`fieldReadAt_of` performs against `CtorReadR`'s
-`fieldRead`/`recEntry`/`fieldArity`/`teleLen`.  It belongs in M3's
-tier (beside `BlockCtorDataI`), not here. -/
+counterpart of the native route's `CtorReadR`.  `blockCtorData_of_core`
+is the one-line projection that names the entry point, and
+`blockFieldReadAt_of` (`BlockFieldRead.lean`) turns its `reflOpen` —
+the field's telescope OPENED at the field's depth, its domains reading
+to the telescope's entries and its body's index expressions to the
+field's readings — into `FieldReadAt`. -/
 
 /-- The constructors' reading record for one (member, constructor),
 off the stage's core invariant — `blockFieldReadAt_of`'s entry. -/
@@ -1758,9 +1589,8 @@ constructor's stored type determine every Expr
 `checkBlockRule` opens (§A.5's equations), so recomputing the same
 `openPisAtFvars` / `instPisAt` here and reading the result is the
 definition.  The identification — that the run's witnesses ARE these —
-is `Option` determinism against `checkBlockRule_data`, once
-`checkBlockRecsRules` is peeled to reach one rule; that peel, and
-A-2/A-3's uses of these, are not in the tree. -/
+is `Option` determinism against `checkBlockRule_data`, at the one-rule
+peel of §A.9 (`blockRuleData_run`). -/
 
 /-- The readings of an opened telescope's fvar types, each at its own
 depth. -/
@@ -1862,7 +1692,7 @@ end Components
 
 /-! ## A.9 The peel to ONE rule
 
-`checkBlockRecsRules_facts` (V2) and `checkBlockRules_facts` keep the
+`checkBlockRecsRules_facts` and `checkBlockRules_facts` keep the
 four scoping facts and drop the RUNS; `checkBlockRule_data` (§A.5) is
 stated about one run.  These two peels join them: from
 `checkBlockRecsRules … = .ok rs` to the `checkBlockRule` run of the
@@ -2328,7 +2158,7 @@ The last two rows are **G2**, the step that compares the rule's own
 input the TOWER FIT (`BlockRuleDataB`'s fifth conjunct) can have — the
 fit compares `lds.map (·.2)`, the reading of `ldoms`, with
 `blockRulePdomsAV ++ blockRuleFdomsAV`, the reading of exactly those
-stored types — and until this session the peel DROPPED it. -/
+stored types. -/
 theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -2400,10 +2230,10 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     by rw [hpref, hffvs]; exact hg2len,
     by rw [hpref, hffvs]; exact hg2⟩
 
-/-- **The stored rule's λ binder DATA, at the run** — the fourth
-kernel guard (lane SEC4: `checkBlockRule` requires every λ binder of
-the stored right-hand side's `rP + nF` telescope to carry
-`Level.zeronessOf (structElimLevel p.elim p.large)`), read off the one
+/-- **The stored rule's λ binder DATA, at the run** — the kernel guard
+that `checkBlockRule` requires every λ binder of the stored right-hand
+side's `rP + nF` telescope to carry
+`Level.zeronessOf (structElimLevel p.elim p.large)`, read off the one
 peel that exports it (`checkBlockRule_data`). -/
 theorem blockRuleBinderData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -2433,17 +2263,17 @@ theorem interp_mkAppN_of_pt {ρ : Nat → V} :
 /-- **THE `ℓ = 0` ARM'S RIGHT SIDE**: at a valuation where the family's
 elimination level is zero, the stored rule reads as the POINT.
 
-The rule's outermost λ binder carries the elimination datum (the fourth
-guard, `blockRuleBinderData_run`), `denoteMeta` turns a binder datum
-into its bit at the valuation (`pwBit`), and that bit is zero exactly
-when the level evaluates to zero (`pwBit_zeronessOf`) — so the reading
-is `lamR 0 … = pt`.  `FixRecLaw.lean`'s `hRaPt`, at the block route.
+The rule's outermost λ binder carries the elimination datum (the
+binder-data guard, `blockRuleBinderData_run`), `denoteMeta` turns a
+binder datum into its bit at the valuation (`pwBit`), and that bit is
+zero exactly when the level evaluates to zero (`pwBit_zeronessOf`) —
+so the reading is `lamR 0 … = pt`.
 
 `hpos` is the telescope's NON-EMPTINESS: a rule binding no variables
 has no binder to carry the datum.  Nothing in the check forces it —
-stage (b) asks only `nP ≤ rP` — so it is a named premise; see the
-report of lane RM49 (a recursor with `nP = 0`, `rP = 0` and a
-field-less constructor passes every stage). -/
+stage (b) asks only `nP ≤ rP` — so it is a named premise (a recursor
+with `nP = 0`, `rP = 0` and a field-less constructor passes every
+stage). -/
 theorem blockRuleRaZ_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -2476,86 +2306,6 @@ theorem blockRuleRaZ_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal
       have hb : pwBit ψ mb.pw = 0 := by rw [hmb]; exact (pwBit_zeronessOf ψ _).mpr hℓ
       rw [interp_lam, hb, ConLeche.SetModel.lamR_zero]
 
-/-- **Stage (c)'s RESIDUE rows, AT THE RUN** — everything
-`checkBlockRule_data` returns PAST the `instLamsAt`, in the lane's own
-spelling.
-
-`blockRuleData_run` stops at G2 because its consumers stop there (the
-tower and the fit); the RESIDUE's consumers — `blockRuleHRa_run_val`
-and, under it, `interp_blockResidue` — need the `ih` opening, the
-`abstractIh` run and the two typing certificates, and the run-level
-peel dropped them a second time.  **Two spellings, two names**: this
-theorem is `blockRuleData_run`'s twin on the residue's side, and it
-repeats `stripLams` because the residue's `body` has to be the same
-one.
-
-The FRAME is existential and its fields are pinned by equations, which
-is the shape the consumer wants: `blockRuleHRa_run_val` takes `fr`
-abstractly and reads `fr.nR`, `fr.nP`, `fr.rP`, `fr.nF` off it. -/
-theorem blockRuleResidueData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
-    ∃ (fr : ConLeche.BlockRuleFrame) (recTys : List Expr)
-      (rbs : List (Expr × ConLeche.BinderMeta))
-      (body resid ihTele bodyO ty concl : Expr) (fvsIh : List Expr),
-      fr.nP = p.nP ∧ fr.rP = p.toBlockShape.rulePrefixAt c ∧ fr.nF = cA.2 ∧
-      fr.recNames = p.recs.map (·.cvR.name) ∧ fr.recTgts = p.recTgts ∧
-      fr.teleOf = ConLeche.structFieldTeleOf cA.1.type p.nP cA.2 ∧
-      fr.idxOf = ConLeche.structFieldIdxOf cA.1.type p.nP cA.2 ∧
-      fr.pw = Level.zeronessOf
-        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ∧
-      recTys[c]? = some r.1.type ∧
-      ConLeche.Expr.stripLams (p.toBlockShape.rulePrefixAt c + cA.2) rhs = some (rbs, body) ∧
-      ConLeche.abstractIh fr 0 body = some resid ∧
-      ConLeche.blockIhPis p.nP (p.toBlockShape.rulePrefixAt c) cA.2 fr.pw
-          (fun c' => recTys.getD c' (.sort .zero)) fr.teleOf fr.idxOf fr.ihKeys 0 resid
-        = some ihTele ∧
-      ConLeche.openPisAtFvars fr.nR
-          (ihTele.instantiateList (blockRulePrefFvs p.toBlockShape rs c
-            ++ blockRuleFieldFvs p.toBlockShape rs c i).reverse)
-          (p.toBlockShape.rulePrefixAt c + cA.2) = some (fvsIh, bodyO) ∧
-      ConLeche.inferTypeCore μ envC F
-          (p.toBlockShape.rulePrefixAt c + cA.2 + fr.nR) bodyO = .ok ty ∧
-      ConLeche.Expr.instPisAtLift
-          (blockRulePrefFvs p.toBlockShape rs c
-            ++ (blockRuleCbody p.toBlockShape rs c i).getAppArgs.drop p.nP
-            ++ [ConLeche.Expr.mkAppN (.const cA.1.name (p.toBlockShape.lps.map .param))
-                ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
-                  ++ blockRuleFieldFvs p.toBlockShape rs c i)])
-          r.1.type = some concl ∧
-      ConLeche.isDefEqCore μ envC F
-          (p.toBlockShape.rulePrefixAt c + cA.2 + fr.nR) ty concl = .ok true := by
-  have hrd : rs.getD c default = r := by
-    rw [List.getD_eq_getElem?_getD, hr]; rfl
-  have hcd : r.2.2.2.getD i default = cA := by
-    rw [List.getD_eq_getElem?_getD, hcA]; rfl
-  have hty : blockRuleRecTy rs c = r.1.type := by rw [blockRuleRecTy, hrd]
-  have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcd]
-  obtain ⟨envR, rc, recTys, ks, rhs0, hrc, hrecTy, hrun⟩ :=
-    checkBlockRecK_ruleRun h hr hcA hrhs
-  obtain ⟨recTy, rbs, body, cpref, crest, fvsPref, o₁, fvsF, cbody, ldoms, lrest,
-    resid, ihTele, fvsIh, bodyO, ty, concl, tyR,
-    hrecTy', hstrip, -, hop1, hinst, hop2, -, -, -, -, hab, hihTele, hopIh, hinf, hconcl,
-    hdeq, -, -⟩ := checkBlockRule_data hrun
-  obtain rfl : recTy = r.1.type := Option.some.inj (hrecTy'.symm.trans hrecTy)
-  have hpref : blockRulePrefFvs p.toBlockShape rs c = fvsPref := by
-    rw [blockRulePrefFvs, hty, hop1]; rfl
-  have hcrest : blockRuleCrest p.toBlockShape rs c i = crest := by
-    rw [blockRuleCrest, hpref, hct, hinst]; rfl
-  have hffvs : blockRuleFieldFvs p.toBlockShape rs c i = fvsF := by
-    rw [blockRuleFieldFvs, hcrest, hct, hop2]; rfl
-  have hcbody : blockRuleCbody p.toBlockShape rs c i = cbody := by
-    rw [blockRuleCbody, hcrest, hct, hop2]; rfl
-  refine ⟨_, recTys, rbs, body, resid, ihTele, bodyO, ty, concl, fvsIh,
-    rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, hrecTy, hstrip, hab,
-    hihTele, ?_, hinf, ?_, hdeq⟩
-  · rw [hpref, hffvs]; exact hopIh
-  · rw [hpref, hffvs, hcbody]; exact hconcl
-
 /-- The recomputed constructor and right-hand side ARE the run's. -/
 theorem blockRuleCtorOf_eq {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -2585,13 +2335,13 @@ theorem blockRuleFrameAt_rows {pp : BlockParts}
   subst hct
   exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
-/-- **Stage (c)'s residue rows, PINNED** — `blockRuleResidueData_run`
-with no existential left in the frame: the frame, the body, the
-residue, the `ih` tower, its openers and the opened residue ARE §A.9b's
-definitions (`Option` determinism against `checkBlockRule_data`, at
-the run `checkBlockRecK_ruleRunP` keeps the kinds and the type list
-of).  What stays existential is only what no consumer reads through a
-definition: the λ binder list and the two typing runs' outputs. -/
+/-- **Stage (c)'s residue rows, PINNED** — no existential left in the
+frame: the frame, the body, the residue, the `ih` tower, its openers
+and the opened residue ARE §A.9b's definitions (`Option` determinism
+against `checkBlockRule_data`, at the run `checkBlockRecK_ruleRunP`
+keeps the kinds and the type list of).  What stays existential is only
+what no consumer reads through a definition: the λ binder list and the
+two typing runs' outputs. -/
 theorem blockRuleResidueData_runP {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -2686,7 +2436,7 @@ theorem blockRuleResidueData_runP {envC : Env} {p : BlockParts} {cvTas : List Co
 /-! ### The two peels' BODIES are one term
 
 `blockRuleData_run` returns the `instLamsAt` run — the rule's λ-domains
-and its residual `lrest` — and `blockRuleResidueData_run` the
+and its residual `lrest` — and `blockRuleResidueData_runP` the
 `stripLams` run — the binder list and the bvar-form `body` that
 `abstractIh` is applied to.  The two are the SAME peel at two
 spellings, and the residue's consumers need them identified: the body
@@ -2777,46 +2527,43 @@ theorem stripLams_body_bounded :
 end Peel
 
 /-! ## A.10 A-2, split — the PREFIX half at the run, and what the
-FIELD half really is
+FIELD half is
 
 `BlockRuleDataAt`'s second conjunct is a fit of `pdoms0 ++ fdoms0`
 against `(xs.take rP) ++ (ys.drop nP)`, so `SpineFit.append` splits it
 at `rP`:
 
 * the **prefix half** — `SpineFit ρ pdoms0 ((xs.take rP).map ⟦·⟧)` —
-  is RM6's `spineFit_blockRecTy` truncated: the contract's `hfitR`
-  fits the stored recursor type's reading, `pdoms0` is that reading's
-  binder data cut at `rP`, and a fit truncates.  That is this
-  section;
+  is `spineFit_blockRecTy` truncated: the contract's `hfitR` fits the
+  stored recursor type's reading, `pdoms0` is that reading's binder
+  data cut at `rP`, and a fit truncates.  That is this section;
 * the **field half** — `SpineFit (consList ((xs.take rP).map ⟦·⟧) ρ)
   fdoms0 ((ys.drop nP).map ⟦·⟧)` — is NOT a truncation of the
-  contract's `hfitC`, and this is the session's main finding.
-  `hfitC` fits the constructor's fields at the CONSTRUCTOR's own
-  parameters (`ys.take nP`); the conjunct asks them to fit at the
-  RECURSOR's (`xs.take nP`), and the rule is `paramsBlind`, so no run
-  fact compares the two spines.  What supplies it is the block's
-  REPRESENTATION: the major premise's membership
-  (`hfitR`'s last step, at the member's carrier at `xs`' parameters
-  and indices) inverts through `BlockModelAt.fibre` into "the value is
-  `d.inj ψ c j fs` with `fs` fitting component `c`'s constructor `j`
-  AT THOSE PARAMETERS", and `BlockModelAt.mkInj` identifies that `fs`
-  with `(ys.drop nP)`'s values.  The same inversion is what lane RM9
-  calls `hspF`, and its remaining gap there is the SHIFT — the rule's
-  field domains are the block's `d.Fss` read `rP − nP` deeper, because
-  the rule's prefix carries the recursor's `nP … rP-1` stretch:
+  contract's `hfitC`.  `hfitC` fits the constructor's fields at the
+  CONSTRUCTOR's own parameters (`ys.take nP`); the conjunct asks them
+  to fit at the RECURSOR's (`xs.take nP`), and the rule is
+  `paramsBlind`, so no run fact compares the two spines.  What
+  supplies it is the block's REPRESENTATION: the major premise's
+  membership (`hfitR`'s last step, at the member's carrier at `xs`'
+  parameters and indices) inverts through `BlockModelAt.fibre` into
+  "the value is `d.inj ψ c j fs` with `fs` fitting component `c`'s
+  constructor `j` AT THOSE PARAMETERS", and `BlockModelAt.mkInj`
+  identifies that `fs` with `(ys.drop nP)`'s values.  That inversion
+  is the kits' `hspF`; what it leaves is the SHIFT — the rule's field
+  domains are the block's `d.Fss` read `rP − nP` deeper, because the
+  rule's prefix carries the recursor's `nP … rP-1` stretch:
 
   ```
   blockRuleFdomsAV acval envC p rs ψ c i
     = liftDomsK (p.rulePrefixAt c - p.nP) 0 ((d.Fss c ψ).getD i [])
   ```
 
-  (the same `o = rP − nP` shift `ihNodeVal_blockRec` carries).  That
-  identity, and its twins for `es0`/`mk0`, are A-2/A-3's remaining
-  content; they are reading identifications between the CHECK's opened
-  frame (parameters at fvars `0 … nP-1`, fields at `rP … rP+nF-1`) and
-  the CONSTRUCTORS' stage's (`d.fvsPF`/`d.xFvsF`, at `0 … nP+nF-1`) —
-  the same Exprs opened at different fvar bases and read at different
-  depths. -/
+  (the same `o = rP − nP` shift the `ih` spine fold carries).  That
+  identity (§A.13) and its twins for `es0`/`mk0` are reading
+  identifications between the CHECK's opened frame (parameters at
+  fvars `0 … nP-1`, fields at `rP … rP+nF-1`) and the CONSTRUCTORS'
+  stage's (`d.fvsPF`/`d.xFvsF`, at `0 … nP+nF-1`) — the same Exprs
+  opened at different fvar bases and read at different depths. -/
 
 section HspRun
 
@@ -2868,63 +2615,16 @@ theorem spineFit_blockRulePdomsAV_app (hμ : μ.verifiedChecks = true)
     (by rw [List.length_append, List.length_singleton, hxl]) hfit
   rwa [List.take_append_of_le_length hle] at hq
 
-/-- **A-2, assembled**: `blockRuleDataAt_of_base`'s `hsp` is the two
-halves appended.  The field half is stated here in the exact shape the
-representation produces it (lane RM9's `hspF`). -/
-theorem blockRuleHsp_of {pdoms0 fdoms0 : List AnnotTerm} {ρ : Nat → V}
-    {xs ys : List AnnotTerm} {rP nP : Nat}
-    (hpre : SpineFit ρ pdoms0 ((xs.take rP).map (interp V ρ)))
-    (hfld : SpineFit (consList ((xs.take rP).map (interp V ρ)) ρ) fdoms0
-      ((ys.drop nP).map (interp V ρ))) :
-    SpineFit ρ (pdoms0 ++ fdoms0)
-      ((xs.take rP).map (interp V ρ) ++ (ys.drop nP).map (interp V ρ)) :=
-  SpineFit.append hpre hfld
-
 end HspRun
-
-/-! ## A.11 A-3's core: the constructor's value is PARAMETER-BLIND
-
-`BlockRuleDataAt`'s fourth conjunct (`hmk`) compares the FIRED SPINE
-read at the rule's frame — the constructor at the RECURSOR's
-parameters and the rule's field openers — with `mkAppN Ca ys`, the
-constructor at its OWN parameters.  A `.plain` block rule is
-`paramsBlind`, so `RecRuleLaw` supplies no comparison of the two
-parameter spines (`Model/Annot/Laws.lean`: the comparison clause is
-guarded by `paramsBlind rl = false`), and none is derivable from the
-run.  What makes the conjunct TRUE is the model: `BlockModelAt.ctor`
-says a constructor folded along fitting parameters and fields IS
-`d.inj ψ c j fs` — a value that does not mention the parameters at
-all.  So `hmk` is that clause used twice, and the two remaining
-obligations are the two parameter spines' fits. -/
-
-section CtorBlind
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-
-/-- **The constructor's value ignores its parameters.**  `hmk`'s whole
-content, once the two readings are named. -/
-theorem blockCtorFold_params_blind (hM : BlockModelAt mo names d)
-    {c : Nat} (hc : c < d.N) {j : Nat} {cA : ConstantVal × Nat}
-    (hj : (d.ctorsM c)[j]? = some cA) (ψ : Name → Nat) {ρ : Nat → V}
-    {ps qs fs : List V}
-    (hps : SpineFit ρ (d.params ψ) ps) (hqs : SpineFit ρ (d.params ψ) qs)
-    (hfp : SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs)
-    (hfq : SpineFit (consList qs ρ) ((d.Fss c ψ).getD j []) fs) :
-    (ps ++ fs).foldl SetTheory.app (interp V ρ (mo.acval cA.1.name ψ))
-      = (qs ++ fs).foldl SetTheory.app (interp V ρ (mo.acval cA.1.name ψ)) := by
-  rw [hM.ctor c hc j cA hj ψ ρ ps fs hps hfp, hM.ctor c hc j cA hj ψ ρ qs fs hqs hfq]
-
-end CtorBlind
 
 /-! ## A.12 A-4's `hfld`, at the run
 
-`ihSpineFold_blockRec`/`ihNodeVal_blockRec` (RM3, `BlockRecRule.lean`)
-ask their field readings only where the rule's frame has an `ih`
-opener — lane RM10's bound.  The frame's `ihKeys` ARE
-`blockIhKeys rP rPs recTgts ks` by `checkBlockRule`'s construction, and
-`pairIdxOf_blockIhKeys_kind` (RM10) says a key names a RECURSIVE or
-REFLEXIVE field, which is exactly where `BlockCtorDataI` supplies the
-telescope; `blockFieldReadAt_of` (RM10) turns that into `FieldReadAt`.
+`ihSpineFold_blockRec` (`BlockRecRule.lean`) asks its field readings
+only where the rule's frame has an `ih` opener.  The frame's `ihKeys`
+ARE `blockIhKeys rP rPs recTgts ks` by `checkBlockRule`'s construction,
+a key names a RECURSIVE or REFLEXIVE field, which is exactly where
+`BlockCtorDataI` supplies the telescope, and `blockFieldReadAt_of`
+turns that into `FieldReadAt`.
 
 One bridge is owed and is named as a premise: the block data's field
 KINDS at `(c, j)` are the check's, through `BlockFieldKind.toRec`.  It
@@ -2939,28 +2639,9 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {lps : List 
   {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
   {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
 
-/-- **`hfld` at the run**: the per-field reading package, at every
-field the rule's frame gives an `ih` opener. -/
-theorem blockRuleHfld_of (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
-    {c j : Nat} {cA : ConstantVal × Nat} (hcA : (d.ctorsM c)[j]? = some cA)
-    {fvs : List Expr} {o : Expr}
-    (hop : ConLeche.openPisAtFvars (d.nP + cA.2) cA.1.type 0 = some (fvs, o))
-    {ksB : List BlockFieldKind} (hksLen : ksB.length = cA.2)
-    (hks : d.ksF c j = ksB.map BlockFieldKind.toRec)
-    {rP : Nat} {rPs recTgts : List Nat} {ihKeys : List (Nat × Nat)}
-    (hkeys : ihKeys = blockIhKeys rP rPs recTgts ksB) (ψ : Name → Nat) :
-    ∀ (i c' r : Nat), pairIdxOf? ihKeys (i, c') = some r →
-      FieldReadAt mpC.base2 ψ d.nP cA.2 i cA.1.type fvs
-        ((d.tssF c j ψ).getD i []) ((d.eissF c j ψ).getD i []) := by
-  intro i c' r hrpos
-  rw [hkeys] at hrpos
-  obtain ⟨hiF, hk⟩ := pairIdxOf_blockIhKeys_kind hrpos
-  exact blockFieldReadAt_of (blockCtorData_of_core hcore hcA) hop
-    (by rw [← hksLen]; exact hiF) (by rw [hks]; exact hk)
-
 /-- **`hnofv`**: the generated guarded-call Π-tower has no free
 variable — `hasFvar_blockIhSpinePis` at `structFieldParts_hasFvar`,
-which is all the premise ever was (`M5M-rule-REPORT` §S6.5). -/
+which is all the premise is. -/
 theorem blockRuleHnofv_of {fr : ConLeche.BlockRuleFrame} {cty : Expr}
     (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
     (hidxF : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
@@ -2997,17 +2678,16 @@ fvars `0 … nP-1` (the RECURSOR's prefix openers) and the fields at
 `rP … rP+nF-1`; the constructors' stage opens the SAME telescope at
 `0 … nP+nF-1`.  Reading an opened fvar `i` at depth `d` gives
 `.bvar (d-1-i)`, so the two readings differ exactly by a lift of
-`rP − nP` at each entry's own cutoff — the `o = rP − nP` shift
-`ihNodeVal_blockRec` already carries.
+`rP − nP` at each entry's own cutoff — the `o = rP − nP` shift the
+`ih` spine fold carries.
 
-**It is not a new battery.**  The move is not to compare two openings
-but to read ONE instantiated telescope (`crest`, whose free variables
-are the `nP` parameter openers) at the DEEPER depth: that is
-`ctorResidual_read_lift` (`StructRecRead.lean`, the `k = 1` route's),
-`denoteMeta_lift` through `liftN_mkPisAV`.  `denoteMeta_openPis` then
-hands the shifted tower's binder data back as the opened fvars'
-readings, and the two frames' `crest`s are `ErasedEq` because the
-reading is blind to an opener's annotation. -/
+The move is not to compare two openings but to read ONE instantiated
+telescope (`crest`, whose free variables are the `nP` parameter
+openers) at the DEEPER depth: that is `ctorResidual_read_lift`
+(`StructRecRead.lean`), `denoteMeta_lift` through `liftN_mkPisAV`.
+`denoteMeta_openPis` then hands the shifted tower's binder data back as
+the opened fvars' readings, and the two frames' `crest`s are `ErasedEq`
+because the reading is blind to an opener's annotation. -/
 
 section Shift
 
@@ -3104,16 +2784,15 @@ theorem renameConsts_id : ∀ e : Expr, e.renameConsts (fun n => n) = e
   | .proj sn i e => by rw [ConLeche.Expr.renameConsts, renameConsts_id e]
 
 /-- **A-2's FIELD DOMAINS, at the run.**  The rule's field domains ARE
-the constructors' stage's, read `rP − nP` deeper — the identity lane
-RM9's `hspF` needs, and the last reading fact between `BlockRuleDataAt`'s
-second conjunct and the block's representation.
+the constructors' stage's, read `rP − nP` deeper — the identity the
+kits' `hspF` needs, and the last reading fact between
+`BlockRuleDataAt`'s second conjunct and the block's representation.
 
-**Two conjuncts, because the inversion had been discarding one.**  The
-equation is what RM9 asked for; the per-opener READINGS (`hdF`, the
-tower fit's second owed input, §6c of `BlockRuleFit.lean`) are what
-`readOpenedDoms_shift` computes on the way to it and used to throw
-away — `readOpenedDoms_eq`'s hypothesis is exactly `hdF`, so the
-statement is free at this frame and nowhere else. -/
+**Two conjuncts**: the equation, and the per-opener READINGS (`hdF`,
+the tower fit's second input, §6c of `BlockRuleFit.lean`), which
+`readOpenedDoms_shift` computes on the way to it —
+`readOpenedDoms_eq`'s hypothesis is exactly `hdF`, so the statement is
+free at this frame and nowhere else. -/
 theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -3203,7 +2882,7 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     rw [blockRuleFdomsAV]; exact hq
   exact ⟨heqF, fun l x hx => by rw [heqF]; exact hrd l x hx⟩
 
-/-- **A-2's FIELD DOMAINS in the CERTIFICATE lane's spelling** — the
+/-- **A-2's FIELD DOMAINS in the CERTIFICATES' spelling** — the
 same identity as `blockRuleFdomsAV_eq` with the lifting on the
 TRIPLES instead of on their domains.
 
@@ -3212,14 +2891,9 @@ segment's grading at `(liftDoms o 0 (ds.drop nP)).map (·.2.2)` — it
 lifts the binder data and reads the domains off — while the
 certificate bundle's `fdoms` is `blockRuleFdomsAV`, a
 `readOpenedDoms`.  The two spellings are the two sides of
-`map_liftDoms` (§A.9's own step), so this is that theorem composed
-with the identity and nothing else; it is stated because the
-consumer plugs `ds` and `o` in as parameters and cannot rewrite a
-premise it does not own.
-
-The name is NOT `blockRuleFdomsAV_eq`: that theorem exists (above)
-and concludes the `liftDomsK`-of-`map` form (as its FIRST conjunct);
-two spellings, two names. -/
+`map_liftDoms`, so this is that theorem composed with the identity and
+nothing else; it is stated because the consumer plugs `ds` and `o` in
+as parameters and cannot rewrite a premise it does not own. -/
 theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -3368,7 +3042,7 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -, -, -, -⟩ :=
     blockRuleData_run h hr hcA hrhs
   obtain ⟨crest, hopP, hopX⟩ := hcd.opens
-  -- the shift's body half (session 7's `readOpenedDoms_shift`)
+  -- the shift's body half (`readOpenedDoms_shift`)
   obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
   have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
     (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)) (by rw [hcd.len ψ]; omega)
@@ -3477,12 +3151,12 @@ end Shift
 
 /-! ## A.14 A-4's ENVIRONMENT premises
 
-`ihSpineFold_blockRec`/`ihNodeVal_blockRec` (RM3) open with three
-facts about the leaf valuation — it is closed at every lift, fixed by
-every instantiation, and its reading does not depend on the
-environment.  All three are `EnvModel` fields, or one lemma away from
-one; naming them here is what lets the A-4 assembly pass them by
-`exact` instead of re-deriving them at each of the ~15 premise slots. -/
+`ihSpineFold_blockRec` opens with three facts about the leaf valuation
+— it is closed at every lift, fixed by every instantiation, and its
+reading does not depend on the environment.  All three are `EnvModel`
+fields, or one lemma away from one; naming them here is what lets the
+A-4 assembly pass them by `exact` instead of re-deriving them at each
+of the ~15 premise slots. -/
 
 section EnvFacts
 
@@ -3512,11 +3186,11 @@ end EnvFacts
 
 /-! ## A.15 A-4's CALLEE premise, at the run
 
-`ihSpineFold_blockRec`'s `hcallee` is the one premise of O-1 that no
-amount of substitution algebra produces (`M5M-rule-REPORT` §S6.6
-finding 3): a guarded call's head is the CONSTANT `rec_{c'}`, while
-the design's ih tower reads its head off the chain frame, and what
-ties the two is the LEAF's value.  Its three conjuncts are
+`ihSpineFold_blockRec`'s `hcallee` is the one premise no amount of
+substitution algebra produces: a guarded call's head is the CONSTANT
+`rec_{c'}`, while the design's ih tower reads its head off the chain
+frame, and what ties the two is the LEAF's value.  Its three conjuncts
+are
 
 * the callee is stored — the recursors' cons finds it
   (`find?_consBlockRecs_at` below);
@@ -3670,19 +3344,19 @@ end Callee
 
 /-! ## A.16 `hfit`'s discharge, steps 1 and 2
 
-Session 14 put the OCCURRENCE in the fold's hands (`IhTyped`); G3
-(session 13) turns a `.full` spine derivation into a `Certs` walk.
-These two meet here, and what the composition needs of the run is one
-number: the `ih` opener's stored type has at least as many leading
-`∀`s as the call has arguments — which is `blockIhPis`' own shape
-(`Expr.mkPisOf (structTeleAt …) concl`, whose tower is the field's
-telescope) read off `checkBlockRule`'s third opening.
+The fold carries the OCCURRENCE (`IhTyped`), and
+`certs_of_infer_mkAppN` turns a `.full` spine derivation into a
+`Certs` walk.  The two meet here, and what the composition needs of
+the run is one number: the `ih` opener's stored type has at least as
+many leading `∀`s as the call has arguments — which is `blockIhPis`'
+own shape (`Expr.mkPisOf (structTeleAt …) concl`, whose tower is the
+field's telescope) read off `checkBlockRule`'s third opening.
 
-What is left after this section is the `Certs` walk's SEMANTICS —
-`certs_sound` at the frame's `CtxOk`/`Sat`, the reading of the opener
-type as a `mkPisAV` tower, and the two transports (the residue
-frame's argument readings to the body frame's, and the `d`-shift of
-the ih telescope).  None of those is a fact about the check. -/
+The `Certs` walk's SEMANTICS — `certs_sound` at the frame's
+`CtxOk`/`Sat`, the reading of the opener type as a `mkPisAV` tower, and
+the two transports (the residue frame's argument readings to the body
+frame's, and the `d`-shift of the ih telescope) — is §A.18; none of it
+is a fact about the check. -/
 
 section HfitRun
 
@@ -3727,15 +3401,16 @@ theorem certs_of_ihCall {envT : Env} {fr : ConLeche.BlockRuleFrame} {F d r : Nat
 
 end HfitRun
 
-/-! ## A.17b `hfld` at BOTH environments (AUDIT item 12)
+/-! ## A.17b `hfld` at BOTH environments
 
 The composition needs the field's readings TWICE: the OPENER's tower
 is read at `envC`, where the check ran and where the opener's stored
 type lives, and the generated CALL's tower at the CONSED environment,
-because its conclusion mentions the recursor constant.  The producer
-(`blockRuleHfld_of`) gives the `envC` one, and the transport is the
-mono lemma's own direction — its `ConstsBound envC` premise comes off
-the constructor's stored type by four structural steps. -/
+because its conclusion mentions the recursor constant.  The
+constructors' stage gives the `envC` one (`blockFieldReadAt_of`), and
+the transport is the mono lemma's own direction — its
+`ConstsBound envC` premise comes off the constructor's stored type by
+four structural steps. -/
 
 section FieldMono
 
@@ -3810,7 +3485,7 @@ theorem constsBound_structFieldParts {envC : Env} {cty : Expr} (hcb : ConstsBoun
     exact ⟨htl, fun e he =>
       constsBound_getAppArgs _ hbody e (List.mem_of_mem_drop he)⟩
 
-/-- **AUDIT item 12**: the field's readings move to the consed
+/-- **The field's readings, crossed**: they move to the consed
 environment.  All three of `FieldReadAt`'s conjuncts are `denoteMeta`
 facts about subterms of the constructor's stored type, opened at the
 frame — so one mono step each, at the `ConstsBound envC` the previous
@@ -3850,14 +3525,13 @@ theorem fieldReadAt_mono {envC env : Env} {mC : EnvModel V envC} {m : EnvModel V
 
 end FieldMono
 
-/-! ## A.18 `hfit`, CLOSED — H3′ composed
+/-! ## A.18 `hfit`, CLOSED
 
-Every piece is now a theorem: the `Certs` walk off the residue's own
-typing (`certs_of_ihCall`, session 15), the context it is sound at
-(`WalkCtx`, session 18), the opener's stored type
-(`blockIhOpener_stored`) and its reading
-(`denoteMeta_blockIhOpenerTy_deep_exists`, lane RM15).  What is left
-is the composition, and it is three moves:
+The pieces: the `Certs` walk off the residue's own typing
+(`certs_of_ihCall`), the context it is sound at (`WalkCtx`), the
+opener's stored type (`blockIhOpener_stored`) and its reading
+(`denoteMeta_blockIhOpenerTy_deep_exists`).  The composition is three
+moves:
 
 1. `certs_sound` at the walk's context — `Frame`/`CtxOk`/`Graded` for
    the head's stored type is `WalkCtx.annotOk`, for the arguments
@@ -3865,18 +3539,17 @@ is the composition, and it is three moves:
 2. `spineFit_of_teleFitPA` at the opener's reading, then the DOUBLE
    shift: the telescope's `ihTeleAtR_shiftAt` down to the design's
    level `0` and the frame's `shiftE_consList_two` down to the rule's
-   own — RM15's observation that the two cancel, realised;
+   own — the two cancel;
 3. the values: the residue spine read at `envT` is the same spine read
    at the consed environment (`denoteMetaSpine_mono` at
    `blockIhCall?_args_constsBound`'s bound), and
    `denoteMetaSpine_of_lift` turns it into the fold's own `vs`.
 
-**AUDIT item 4 is discharged, and NOT where the audit expected.**  The
-`SpineFit`s of `pdoms ++ fdoms` and of `ihdoms` are not hypotheses of
-`ihSpineFold_blockRec`: they are what builds `WalkCtx`'s `Sat` at the
-walk's ENTRY (`sat_blockFrame`), so they are consumed by the per-pair
-assembly that constructs the context, not by the fold that travels
-with it. -/
+The `SpineFit`s of `pdoms ++ fdoms` and of `ihdoms` are not
+hypotheses of `ihSpineFold_blockRec`: they build `WalkCtx`'s `Sat` at
+the walk's ENTRY (`sat_blockFrame`), so they are consumed by the
+per-pair assembly that constructs the context, not by the fold that
+travels with it. -/
 
 section HfitComp
 
@@ -4096,16 +3769,15 @@ theorem blockRuleHfit_run {env envT : Env} {mo : EnvModel V env} {mT : EnvModel 
       has2 hpflen
       (blockRuleHconclRead_of hop0 hCf hCb hstripC htele hidx hrP hfld hrecTy))
 
-/-! ## A.17 The call's arguments live BELOW the recursors (AUDIT 1.4)
+/-! ## A.17 The call's arguments live BELOW the recursors
 
 `hfit`'s spine premise reads the call's arguments at the CONSED
-environment while H3′'s certificates are at `envT` — the
-constructors' one, where the check ran.  The bridge is
+environment while the certificates are at `envT` — the constructors'
+one, where the check ran.  The bridge is
 `denoteMeta_consBlockRecs_mono`, whose one hypothesis is
 `ConstsBound envT`; and that IS true of a guarded call's arguments,
 because `blockIhCall?` rejects a block recursor anywhere in them
-(`blockIhCall?_spine`'s eighth conjunct).  The audit names it
-unstated; here it is. -/
+(`blockIhCall?_spine`'s eighth conjunct). -/
 
 section ArgsConsts
 
@@ -4151,8 +3823,8 @@ theorem constsBound_of_not_mentions {envC env' : Env} {names : List Name}
     simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
     exact constsBound_of_not_mentions hmono e hcb hm.2
 
-/-- **A guarded call's arguments are bounded BELOW the recursors**
-(AUDIT 1.4).  `blockIhCall?` accepts only a node whose arguments
+/-- **A guarded call's arguments are bounded BELOW the recursors.**
+`blockIhCall?` accepts only a node whose arguments
 mention no block recursor, and they are subterms of the node, so an
 environment that finds everything the consed one finds except the
 `k` recursor names bounds them. -/
@@ -4176,12 +3848,11 @@ end ArgsConsts
 /-! ## A.17c The BARE-`k` model, and the rule's own reading
 
 The rule stage ANNOTATES the right-hand side at the environment
-holding the `k` RULE-LESS recursors and — since the coordinator's
-ruling of session 22 — TYPES it there too, so the accepted-reads
-recipe applies at that environment and nowhere below it (the rule
-mentions the recursors).  What is needed to run the recipe is a MODEL
-of that environment, and it is `envModelM_consBlockRecsBare` at
-exactly the facts `blockRecStaged_run` already assembles. -/
+holding the `k` RULE-LESS recursors and TYPES it there too, so the
+accepted-reads recipe applies at that environment and nowhere below it
+(the rule mentions the recursors).  What is needed to run the recipe
+is a MODEL of that environment, and it is `envModelM_consBlockRecsBare`
+at exactly the facts `blockRecStaged_run` already assembles. -/
 
 theorem blockRecBareModel_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
@@ -4276,11 +3947,11 @@ theorem blockRecBareModel_run {envC : Env} (hμ : μ.verifiedChecks = true)
       rw [he]; exact hrd r hr ψ)
 
 /-- **A checked right-hand side READS, and its reading is graded.**
-The accepted-reads recipe (RM2's `checkConstantVal_reads`) at the
-stage's OWN inference run — the coordinator's step of session 22,
-`checkBlockRule`'s `inferType` on the annotated rule at the rule-less
-recursor environment.  The subject is not a type, so the grading is
-the INFER claim's first component rather than the sort's. -/
+The accepted-reads recipe (`checkConstantVal_reads`) at the stage's
+OWN inference run — `checkBlockRule`'s `inferType` on the annotated
+rule at the rule-less recursor environment.  The subject is not a
+type, so the grading is the INFER claim's first component rather than
+the sort's. -/
 theorem blockRuleRhs_reads {envR : Env} (hμ : μ.verifiedChecks = true)
     (mpR : EnvModelM V μ envR) {F : Nat} {out tyR : Expr}
     (hfv : out.hasFvar = false) (hb : out.looseBVarsBounded 0 = true)
@@ -4384,10 +4055,10 @@ theorem blockRuleRhs_read_run {envC : Env} (hμ : μ.verifiedChecks = true)
 
 /-- **`BlockRuleRhsOk` at the run, with the reading discharged.**
 `blockRuleRhsOk_of` at `blockRuleRhs_read_run`: what is left of the
-per-pair obligation is `hpl` (the prefix length, a run fact at the
-lane's own `pdoms0`) and the five BASE-FRAME statements — the fit, the
-index expressions, the fired spine, the residue at the ih values
-(`blockRuleHRa_run_val`) and the applied grading. -/
+per-pair obligation is `hpl` (the prefix length, a run fact at
+`pdoms0`) and the five BASE-FRAME statements — the fit, the index
+expressions, the fired spine, the residue at the ih values and the
+applied grading. -/
 theorem blockRuleRhsOk_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -4510,15 +4181,14 @@ theorem blockRuleRhsOk_run {envC : Env} (hμ : μ.verifiedChecks = true)
 Two of §A.5c's five base-frame statements read the right-hand side's
 reading AS A λ-TOWER `mkLamsAV lds A`: the residue conjunct
 β-reduces along it (`blockRuleHRa_val`) and the applied form is
-graded along it (`mkAppN_wellDenotedV_of_lam`).  §S22.4 recorded the
-shape as still owed; it is a COROLLARY of the reading, through the
-stage's OWN `instLamsAt` run — `checkBlockRule`'s G2 witness, which
-`blockRuleData_run` already names — and `instLamsAt_denotePTele`
-(`Model/IndTowerRead.lean`).
+graded along it (`mkAppN_wellDenotedV_of_lam`).  The shape is a
+COROLLARY of the reading, through the stage's OWN `instLamsAt` run —
+`checkBlockRule`'s G2 witness, which `blockRuleData_run` names — and
+`instLamsAt_denotePTele` (`Model/IndTowerRead.lean`).
 
 **The tower's domains are the RULE's**, each read at its own depth;
-the lane's `pdoms0 ++ fdoms0` are the RECURSOR's prefix domains and
-the CONSTRUCTOR's field domains.  `checkBlockRule` compares the two
+the rule data's `pdoms0 ++ fdoms0` are the RECURSOR's prefix domains
+and the CONSTRUCTOR's field domains.  `checkBlockRule` compares the two
 (`checkBlockDefEqList` at `envT`, the G2 step), so they are DEFEQ and
 not equal, and all either consumer asks of them is that a spine
 fitting the second fits the first — which is how the bridge is
@@ -4637,7 +4307,7 @@ envC`, at one valuation).  Two lemmas cross the gap, and only one
 direction of each exists:
 
 * `denoteMeta_instLevels` turns the level instantiation into a CHANGE
-  OF VALUATION — which is why the lane's data is indexed by `ψ` at
+  OF VALUATION — which is why the rule data is indexed by `ψ` at
   all;
 * `denoteMeta_consBlockRecs_mono` moves a reading UP across the `k`
   recursors' cons, at the one hypothesis `ConstsBound envC`.  The run
@@ -4652,7 +4322,7 @@ two readings: it ELIMINATES the contract's binder.  `TVa` IS
 leaf IS the constructors' environment's.
 
 Two more things fall out.  The contract's FIFTH statement — the
-applied right-hand side is graded — is no longer an obligation: the
+applied right-hand side is graded — is not an obligation: the
 rule's reading is a λ-tower (§A.19) and a graded tower applied along a
 FITTING spine is graded (`mkAppN_wellDenotedV_of_lam`), so what is
 owed in its place is the tower's FIT, which the residue statement
@@ -4769,12 +4439,12 @@ theorem blockRuleTVa_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
 /-- **§A.5c's FIFTH statement is not an obligation.**  The rule's
 reading is a λ-tower over the run's own domains (§A.19), and a graded
 tower applied along a FITTING spine is graded — so the grading follows
-from the TOWER'S FIT, which the residue statement (§A.4's
-`blockRuleHRa_run_val`, premise `hsp`) asks for anyway.
+from the TOWER'S FIT, which the residue statement (§A.4's `hsp`) asks
+for anyway.
 
 `htow` is stated at the tower the reading determines: `mkLamsAV` at a
-fixed length pins `lds` and `A`, so the quantifier is TIED, not free
-(the premise discipline of `_tmp/uniform-inds/AUDIT-premises.md`). -/
+fixed length pins `lds` and `A`, so the quantifier is TIED, not
+free. -/
 theorem blockRuleHapp_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -4811,13 +4481,9 @@ The two premises are stated in the `∀ lds A` shape the contract's
 FIFTH statement already has — `mkLamsAV` at a fixed length pins `lds`
 and `A`, so neither quantifier is free — which is what makes the
 composition's fifth conjunct discharge the fourth's fit premise
-verbatim, with no transport.
-
-**This is `blockRuleHRa_val`'s first consumer**, and it says exactly
-what the residue still costs: the body equation, which is
-`interp_blockResidue`'s conclusion and whose premises are
-`blockRuleHRa_run_val`'s (the rule lane's walk, `hspine`/`hW`/`hB`
-among them). -/
+verbatim, with no transport.  What the residue then costs is the body
+equation: `interp_blockResidue`'s conclusion, whose premises include
+the rule's walk (`hspine`/`hW`/`hB`). -/
 theorem blockRuleHRa_tower_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -4845,8 +4511,8 @@ theorem blockRuleHRa_tower_run {env₃ : Env} {acv : Name → (Name → Nat) →
   obtain ⟨-, -, lds, A, -, hlam, hlen, -, -⟩ := blockRuleTower_run h hr hcA hrhs hread
   exact blockRuleHRa_val hlam hok.1 (hsp lds A hlam hlen) (hbody lds A hlam hlen)
 
-/-- **The fit's PREFIX half is a RUN fact now.**  §A.10's truncation
-needed the recursor type's reading as a premise (`hTVa`); with the
+/-- **The fit's PREFIX half is a RUN fact.**  §A.10's truncation
+takes the recursor type's reading as a premise (`hTVa`); with the
 contract's `TVa` eliminated (`blockRuleTVa_run`) the fit the contract
 hands IS a fit of that reading, so the premise is discharged by
 `checkBlockRecK_tyPis` and nothing is left of this half. -/
@@ -4862,31 +4528,11 @@ theorem blockRuleHspPref_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
   obtain ⟨-, -, -, hread, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
   exact spineFit_blockRulePdomsAV_app hμ mpC h hr ψ hread hxl hfit
 
-/-- **`BlockRuleDataB`'s FIRST conjunct, at the lane's own `pdoms0`** —
-the prefix half is the run's (above) and what is left is the FIELD
-half alone, in the shape the representation produces it (RM18's
-`hspF`). -/
-theorem blockRuleHsp_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) (ψ : Name → Nat)
-    {ρ : Nat → V} {xs ys : List AnnotTerm} {maj rest : AnnotTerm}
-    {fdoms0 : List AnnotTerm} {nP : Nat}
-    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
-    (hfit : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) (xs ++ [maj]) rest)
-    (hfld : SpineFit
-      (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) ρ)
-      fdoms0 ((ys.drop nP).map (interp V ρ))) :
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms0)
-      ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
-        ++ (ys.drop nP).map (interp V ρ)) :=
-  blockRuleHsp_of (blockRuleHspPref_run hμ mpC h hr ψ hxl hfit) hfld
-
 /-- **The rule obligation's RESIDUE half, as ONE premise** — the
 FOURTH conjunct of `BlockRuleDataB` at the tower's CORE, at the
 contract's own ∀-telescope and under the same premises.
 
-`BlockRuleDataB`'s six statements split in two by WHAT they are about.
+`BlockRuleDataB`'s statements split in two by WHAT they are about.
 Three are about the DATA the rule fires with — the prefix-and-fields
 fit, the index expressions, the fired spine — and are discharged from
 the block's representation (`BlockRuleFit.lean`).  Two are about the
@@ -4902,16 +4548,15 @@ quantified past them.
 
 The residue is asked for **at the tower's CORE**, not at the applied
 form: `blockRuleHRa_tower_run` pays the β-reduction on this side, so
-what the rule lane owes is `interp_blockResidue`'s own conclusion —
+what the rule side owes is `interp_blockResidue`'s own conclusion —
 the body's reading against the residue's at the ih values — and the
 `∀ lds A` binders are the ones `mkLamsAV` at a fixed length already
 pins (`mkLamsAV_length_inj`).
 
-**It is ONE statement, not two** (session 28): the TOWER's FIT, which
-this premise used to carry beside the body equation, is now derived at
-the run from `BlockRuleDataB`'s FIRST conjunct through G2
-(`blockRuleTowerFit_run`, `BlockRuleFit.lean`), so the rule lane owes
-the body equation and nothing else.
+**It is ONE statement**: the TOWER's FIT is derived at the run from
+`BlockRuleDataB`'s FIRST conjunct through G2 (`blockRuleTowerFit_run`,
+`BlockRuleFit.lean`), so the rule side owes the body equation and
+nothing else.
 
 `@[expose]`: the composition unfolds it. -/
 @[expose] def BlockRuleResidueB {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
@@ -5048,19 +4693,18 @@ statement discharged.
 
 What the premise `hdataB` says, and nothing more: at every level
 instantiation and every fired spine, the recursor's PREFIX and the
-constructor's FIELDS fit the lane's domains, the index expressions
-read to the recursor's index arguments, the fired spine reads to the
-constructor at its own parameters, the residue holds at the ih values
-— and the rule's λ-tower is FITTED by the same spine (the shared
-premise §A.4's `hsp` and the grading both live on).
+constructor's FIELDS fit the rule data's domains, the index
+expressions read to the recursor's index arguments, the fired spine
+reads to the constructor at its own parameters, the residue holds at
+the ih values — and the rule's λ-tower is FITTED by the same spine
+(the shared premise §A.4's `hsp` and the grading both live on).
 
-Three binders are gone.  `TVa` and `TVja` were the contract's way of
-naming readings it could not compute; `denoteMeta` is a function, so
-the run's own reading (`blockRecTyAV`) and the constructors' stage's
-(`ctorTy`) ARE them.  And `∀ m₃` is gone from the premise: with `hac`
-used to spell the valuation, `hdataB` mentions
-`blockRecAcv mpC.base2.acval envC rs s eqs` and the two environments
-and no model of the consed environment at all. -/
+Three binders are eliminated.  `TVa` and `TVja` name readings the
+contract cannot compute; `denoteMeta` is a function, so the run's own
+reading (`blockRecTyAV`) and the constructors' stage's (`ctorTy`) ARE
+them.  And `hdataB` has no `∀ m₃`: with `hac` used to spell the
+valuation, it mentions `blockRecAcv mpC.base2.acval envC rs s eqs` and
+the two environments and no model of the consed environment at all. -/
 theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -5189,14 +4833,13 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
 /-- **The recursor stage at the seam's shape** — `blockRecStaged_rhs`
 with the rule-side premise replaced by `BlockRuleDataB`.
 
-Three things left the premise and one joined it.  Gone: the two
-reading binders (`TVa`, `TVja` — eliminated by the crossing), the
-grading statement (a corollary of the tower's fit) and the `∀ m₃`
-quantifier.  Joined: the CONSTRUCTORS' side of the pair — the stored
-`ctorInfo`, the type's `ConstsBound` and its reading `ctorTy` — which
-is what the eliminations are paid for with, and which the
-constructors' stage owns (`BlockCtorFacts`'s first field and
-`CtorDataI.read`). -/
+The premise loses the two reading binders (`TVa`, `TVja` — eliminated
+by the crossing), the grading statement (a corollary of the tower's
+fit) and the `∀ m₃` quantifier, and gains the CONSTRUCTORS' side of
+the pair — the stored `ctorInfo`, the type's `ConstsBound` and its
+reading `ctorTy` — which is what the eliminations are paid for with,
+and which the constructors' stage owns (`BlockCtorFacts`'s first field
+and `CtorDataI.read`). -/
 theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -5274,36 +4917,31 @@ theorem blockRecStaged_data {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end SeamShape
 
-/-! ## A.18 The lane's ENDPOINT — `declBlock` at what is left
+/-! ## A.18 The ENDPOINT — `declBlock` at what is left
 
 `declBlock` (`DeclBlock.lean`) takes the recursor stage as a
 hypothesis `hrec` and hands it everything the constructors'
 environment knows; §A.5b turns that hypothesis into the stage's
 REMAINING obligations and §A.19b narrows them to ONE environment and
-ONE valuation.  Stating the composition is the honest accounting of
-the lane: the P carrier survives the uniform install at `k` members
-as soon as, for every block the run accepts, there is a choice of the
-family's level, of the rule data
+ONE valuation.  The composition says: the P carrier survives the
+uniform install at `k` members as soon as, for every block the run
+accepts, there is a choice of the family's level, of the rule data
 (`pdoms0`/`fdoms0`/`es0`/`ihs`/`mk0`/`Rb0`, `nCt`) and of the
 constructors' type readings (`ctorTy`) for which
 
 * the equation list is bounded, valid and level-parametric
   (`heqB`/`heqV`/`heqP` — §A.3's two lemmas reduce the first two to
   the six components' own facts),
-* the family's regime holds (`hpre`, the model lane's
-  `blockRecPre_run`),
+* the family's regime holds (`hpre`, `blockRecPre_run`),
 * the rule prefix has the length the stage pins (`hpl` —
-  `blockRulePdomsAV_length` at the lane's own `pdoms0`),
+  `blockRulePdomsAV_length` at `pdoms0`),
 * every constructor the recursors carry is STORED with the block's
   arity and its type READS (`hctor` — `BlockCtorFacts`'s first field
   and `CtorDataI.read`), and
 * every (recursor, constructor) pair satisfies `BlockRuleDataB`
   (§A.19b: the fit, the index expressions, the fired spine, the
   residue and the rule tower's fit — five statements at the
-  constructors' environment and one valuation).
-
-Nothing else stands between the tree and an unconditional
-`declBlock`. -/
+  constructors' environment and one valuation). -/
 
 theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env)

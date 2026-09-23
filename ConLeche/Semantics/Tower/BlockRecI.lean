@@ -7,10 +7,10 @@ import ConLeche.Semantics.Kit
 @[expose] public section
 
 /-!
-# The recursor family of a k-member block: the leaf and its ι laws (task #315, M5 model half)
+# The recursor family of a k-member block: the leaf and its ι laws (task #315)
 
 The uniform route's recursor stage CHECKS the stream's recursors
-(lane R, `ConLeche/Kernel/Inductives/BlockRec.lean`) instead of
+(`ConLeche/Kernel/Inductives/BlockRec.lean`) instead of
 generating them.  What the model owes in exchange is a VALUE for each
 of the `K` recursors of the block that satisfies exactly the equations
 the check certified — one chosen tuple, pinned by its ι equations
@@ -25,8 +25,8 @@ with `RecTy_c` the READING of the stream's recursor type of class `c`
     IotaAll rs  =  ⋀_{c,j} ∀ x⃗ f⃗, eqE (app^ (projAV c rs) [x⃗, e⃗_j, C_j p⃗ f⃗]) (Rb_{c,j}[rec ↦ rs])
 
 the conjunction over every class `c` and constructor `j` of the rule's
-equation at the rule's own prefix `x⃗` (`rP` binders — record-read,
-M5k §13) and the constructor's fields `f⃗`.
+equation at the rule's own prefix `x⃗` (`rP` binders, read off the
+recursor's record) and the constructor's fields `f⃗`.
 
 **Where the recursor occurrences went.**  The stored right-hand side's
 recursor occurrences are the GUARDED SPINES `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)`
@@ -34,7 +34,7 @@ the check abstracted to `ih` openers (`abstractIh`,
 `ConLeche/Verify/Inductives/BlockRecInv.lean`), so the substitution
 `[rec ↦ rs]` is performed AT THE SPINE LEVEL, once per ih opener:
 `Rb = Rb''[ih_i ↦ ihFun_i]` with `Rb''` the RESIDUE — recursor-free by
-`abstractIh_of_recFree`, which is why the residue may be typed at the
+construction, which is why the residue may be typed at the
 CONSTRUCTORS' environment (G1).  `instsAV` below is that substitution,
 and `interp_instsAV` is the substitution lemma: reading the
 substituted body at a frame is reading the residue at the frame
@@ -81,16 +81,6 @@ theorem consList_getD_of_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < 
       rw [← Nat.zero_add as.length, consList_apply_add, cons_zero, List.length_cons,
         show as.length + 1 - 1 - (0 + as.length) = 0 from by omega, List.getD_cons_zero]
 
-/-! ## The chain's projection IS the pair-tower's projection
-
-`projChainAV` (the Σ'-chain kit) and `projAV` (the basis pair tower)
-are the same function; the leaf is stated with either. -/
-
-omit [SetTheory V] in
-theorem projChainAV_eq_projAV : ∀ (i : Nat) (e : AnnotTerm), projChainAV i e = projAV i e
-  | 0, _ => rfl
-  | i + 1, e => projChainAV_eq_projAV i (.snd e)
-
 /-! ## Substituting a block of innermost binders
 
 `instsAV d vs e` replaces the `vs.length` innermost binders of `e` by
@@ -119,7 +109,7 @@ theorem interp_instsAV_go : ∀ (vs : List AnnotTerm) (pre : List V) (e : AnnotT
     rw [h]
     simp
 
-/-- **THE SUBSTITUTION LEMMA** (review attack 3, spine-structural): the
+/-- **THE SUBSTITUTION LEMMA** (spine-structural): the
 body with the ih openers substituted, read at a frame, is the RESIDUE
 read at that frame extended by the ih VALUES.  The recursion through
 the right-hand side's syntax is the check's (`abstractIh`), not the
@@ -163,17 +153,13 @@ theorem foldl_app_map (f : AnnotTerm → V) (b : V) :
 
 A rule binds `rP + nF` λs: the recursor's own prefix (the parameters
 and the arbitrary stretch), then the constructor's fields.  A guarded
-call's prefix arguments are the rule's OWN prefix variables (M5k §14.2,
-answer 2 strict), and so is the ι equation's left-hand side's prefix. -/
+call's prefix arguments are the rule's OWN prefix variables (the kernel
+requires `rP_{c'} = rP`), and so is the ι equation's left-hand side's prefix. -/
 
 /-- The `rP` prefix variables as bvars, at the frame
 `prefix ++ (nF further binders)`. -/
 def prefVarsAV (rP nF : Nat) : List AnnotTerm :=
   (List.range rP).map fun l => .bvar (nF + rP - 1 - l)
-
-omit [SetTheory V] in
-@[simp] theorem prefVarsAV_length (rP nF : Nat) : (prefVarsAV rP nF).length = rP := by
-  simp [prefVarsAV]
 
 /-- **The prefix variables read back the prefix spine.** -/
 theorem interp_prefVarsAV {rP : Nat} {xs bs : List V} {ρ : Nat → V} (hx : xs.length = rP) :
@@ -438,14 +424,6 @@ def blockRecAV (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c
     AnnotTerm :=
   blockRecAVI s K RecTy eqs c
 
-omit [SetTheory V] in
-/-- The leaf, spelled: `projAV c (choice.{s} (Σ' rs : ⟨RecTy⃗⟩, IotaAll rs) prf)`. -/
-theorem blockRecAV_eq (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c : Nat) :
-    blockRecAV s K RecTy eqs c
-      = projAV c (AnnotTerm.mkAppN (.const .choice [s])
-          [sigChainAV s (blockTsAV K RecTy) (andChainAV eqs), .prf]) := by
-  rw [blockRecAV, blockRecAVI, projChainAV_eq_projAV, selChainAV]
-
 /-- The chain frame of a tuple: the base frame under the `K` Σ'
 binders, class `c`'s component at `bvar (K-1-c)`. -/
 noncomputable def chainFrame (K : Nat) (a ρ : Nat → V) : Nat → V :=
@@ -523,8 +501,8 @@ theorem blockRecAV_iota {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → N
 
 A rule's `ih` opener for a recursive/reflexive/nested field `f_i` is
 valued, in the design, at the CURRIED λ-tower over the field's
-TELESCOPE (F3 finding 2: the ih's domain is the telescope, not the
-predecessor set) of the guarded call `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)` — the
+TELESCOPE (the ih's domain is the telescope, not the predecessor set)
+of the guarded call `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)` — the
 very spine the check abstracted.  At the chain frame that call's head
 is class `c'`'s component, so the tower is spellable here, and its
 FOLD along a fitting telescope spine is the call's value. -/
@@ -584,23 +562,21 @@ theorem ihFunAV_fold {ℓ K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)
   rw [hxsfs]
   simp only [List.map_append, hpre, List.append_assoc]
 
-/-! ## Two named obligations: D-d and G1 -/
+/-! ## Two named obligations: one elimination level (D-d) and the residue (G1) -/
 
-/-- **D-d, stated** (the maintainer's decision of 2026-09-21, recorded
-in DESIGN v2 §3.2): the family eliminates at ONE level.  The leaf is a
-Σ'-chain at a single `s` and the candidate is a λ-tower at a single
-bit, so every class's binder data must carry the SAME zeroness — which
-is what a common elimination level gives.  The KERNEL's corresponding
-check is `Level.isEquiv` across the family's conclusions' sorts
-(official's shared `u`); the stage does not do it today, and this
-predicate is the name the obligation is discharged against. -/
+/-- **D-d, stated** (DESIGN v2 §3.2): the family eliminates at ONE
+level.  The leaf is a Σ'-chain at a single `s` and the candidate is a
+λ-tower at a single bit, so every class's binder data must carry the
+SAME zeroness — which is what a common elimination level gives (the
+kernel's elimination-level checks, `checkBlockRecElimAgree` and
+`checkBlockRecElimPin`). -/
 def OneElimLevel (ℓ K : Nat) (rds : Nat → List (Nat × Nat × AnnotTerm)) : Prop :=
   ∀ c, c < K → ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0)
 
 /-- **G1's shape, stated**: what the Model tier owes about ONE rule's
 RESIDUE at ONE frame — it is graded, and its value lands in the
 target, at the frame `(x⃗, f⃗)` extended by the ih openers' VALUES.
-The residue is recursor-free (`abstractIh_of_recFree`), which is why
+The residue is recursor-free by construction, which is why
 this is a statement about the CONSTRUCTORS' environment and not about
 one holding the recursors.
 
@@ -682,62 +658,5 @@ theorem towerWalkA_of_spines_body {m : Nat} {C : AnnotTerm} {g : List V → (Nat
     have := h (a :: ys) ⟨ha, hsp⟩
     rw [consList_cons] at this
     simpa using this
-
-/-! ## The candidate from a BODY FUNCTION — the regimes' common shape
-
-At `ℓ ≠ 0` every regime's candidate is the λ-tower over the recursor
-type's binder data of some assignment of a value to each class and
-fitting spine: regime WF's is the kit's `recAt` at the spine's index
-tuple and major (`wfCand`), and regime SQ's will be the residue at the
-SOURCE spine (`sqSpine`/`srcVals`, `FixSquashI.lean`, re-targeted).
-This is the reduction they share: a body function that lands in the
-conclusion's reading and satisfies each rule's equation at the rule's
-own spine IS the candidate. -/
-
-section Body
-
-variable {ℓ K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
-  {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
-  {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
-  {ρ : Nat → V}
-
-/-- The λ-tower over the recursor type's binder data of a body
-function of the spine. -/
-noncomputable def towerCand (ℓ : Nat) (ρ : Nat → V)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (body : Nat → List V → V) (c : Nat) : V :=
-  lamTowerA ℓ ρ [] (rds c) fun ys _ => body c ys
-
-/-- **The regimes' common reduction** at `ℓ ≠ 0`. -/
-theorem towerCand_hCand (hℓ : ℓ ≠ 0) (body : Nat → List V → V)
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds)
-    (hmem : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      body c ys ∈ˢ interp V (consList ys ρ) (concl c))
-    (hiota : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (towerCand ℓ ρ rds body) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ (es c j ++ [mk c j]).map
-          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ)))) ∧
-      body c (xs ++ (es c j ++ [mk c j]).map
-          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
-        = interp V
-            (consList ((ihs c j).map
-                (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
-              (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))) (Rb c j)) :
-    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
-      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
-        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
-  refine hCand_iotaEqsAV_of (towerCand ℓ ρ rds body) (fun c hc => ?_)
-    fun c hc j hj xs fs hxl hsp => ?_
-  · rw [hTyE c hc]
-    exact lamTowerA_mem (hbits c hc)
-      (towerWalkA_of_spines_body fun ys hsp => ⟨by simpa using hmem c hc ys hsp,
-        fun h0 => absurd h0 hℓ⟩)
-  · obtain ⟨hfit, hbody⟩ := hiota c hc j hj xs fs hxl hsp
-    rw [towerCand, lamTowerA_fold hℓ hfit]
-    simpa using hbody
-
-end Body
 
 end ConLeche.Semantics

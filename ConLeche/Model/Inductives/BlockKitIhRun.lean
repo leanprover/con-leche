@@ -7,15 +7,15 @@ import ConLeche.Model.Inductives.BlockKitRuleRun
 public section
 
 /-!
-# The kit arms' `ih` values — `ihv` pinned, `hihChain` and `hihF` (lane RM55, sub-lane IH)
+# The kit arms' `ih` values — `ihv` pinned, `hihChain` and `hihF`
 
 `BlockWfOwed` / `BlockSqOwed` (`BlockRecPreHpre.lean`) quantify the
 arm's `ih` values `ihv` existentially.  They are pinned here
 (`blockKitIhv`): per key the λ-tower over the rule frame's MOVED field
 telescope whose body is the recursion graph at the PREDECESSOR the
 guarded call names — `blockRecIhvAt` at exactly the per-key data the
-pinned `ih` TERMS `blockRuleIhsRunAV` use, so `blockRecIhvAt_eq`
-relates the two verbatim.
+pinned `ih` TERMS `blockRuleIhsRunAV` use, so the two are related
+verbatim (`blockRecIhvAt_eq_fit`, §5).
 -/
 
 namespace ConLeche.Model
@@ -94,8 +94,8 @@ end Pin
 /-! ## 2. The graph at a predecessor IS the candidate's fold — at the
 kit family's DATA fields
 
-`blockRecIhCall` (`BlockRecPreRun.lean` §30) at `kitCandOf`/`kitGraphOf`:
-it reads no law of the kit — the candidate's fold is `lamTowerA_fold`,
+The graph at a predecessor, applied, is the candidate folded along the
+call's spine, at `kitCandOf`/`kitGraphOf`.  It reads no law of the kit — the candidate's fold is `lamTowerA_fold`,
 the graph's value at a predecessor is `app_graph` — so it holds at the
 data fields alone, with no kit (whose typing obligations would include
 the very rows produced here). -/
@@ -148,8 +148,7 @@ there is the recursion GRAPH, not a member of the callee's type — and
 binder data at the rule's MOVED readings.  The key lemma exports both
 (`hcon`, the moved fit); this lemma only restates them at the kit's
 spelling (`blockKitTlA`/`blockKitEisA`/`blockKitFapA`) and adds the
-moved telescope's bounds (lane CLEAN-M folded its copy of the key
-lemma's prelude). -/
+moved telescope's bounds. -/
 
 section Key
 
@@ -375,8 +374,8 @@ theorem lamTowerA_congr_fit {m : Nat} {g₁ g₂ : List V → (Nat → V) → V}
     · have h := hbody (a :: bs) ⟨ha, hbs⟩
       simpa [List.append_assoc] using h
 
-/-- **`blockRecIhvAt_eq` with the call obligation at FITTING telescope
-spines only** — the one `hcall` the run can pay: off the telescope the
+/-- **The `ih` value at a key IS the `ih` term's reading, with the call
+obligation at FITTING telescope spines only** — the one `hcall` the run can pay: off the telescope the
 recursion graph and the candidate are both junk, and not the same junk. -/
 theorem blockRecIhvAt_eq_fit {ℓ K rP nF N : Nat} {a ρ : Nat → V} {xs fs : List V} {g : V}
     {tup : Nat → List V → V} {ihKeys : List (Nat × Nat)}
@@ -587,7 +586,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {names : List Name} {d : BlockData V}
 
 /-- **REGIME WF's `hihF`, PRODUCED — at the NARROWED row** (`i ∈ d.idx …`,
-the kit step's own `hi`, as `hspF` since RM53): the graph-built `ih`
+the kit step's own `hi`, as `hspF`): the graph-built `ih`
 values fit the pinned `ih` openers' domains (`blockRecIhdomsK`, whose
 chain lift is the identity, `blockRuleCertsChain_eq`).  Per opener: the
 tower over the moved telescope inhabits the Π-tower over the callee's

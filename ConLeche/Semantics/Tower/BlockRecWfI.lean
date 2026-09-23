@@ -5,28 +5,27 @@ public import ConLeche.SetModel.WfRec
 @[expose] public section
 
 /-!
-# Regime WF: the class kit is F5's `WfRecKit` (task #315, M5 model half)
+# Regime WF: the class kit is `WfRecKit` (task #315)
 
 DESIGN "DESIGN DOCUMENT 2, v2" §3.2.  At `¬allProp ∧ w ≠ 0` the
 recursion is **well-founded recursion on the global subterm relation**
 `x ⊏ y := x ∈ tc y` over the tagged union of the majors' ORDINARY
-carriers — lane F5's `WfRecKit` (`ConLeche/SetModel/WfRec.lean`), which
-asks nothing of the carriers: no fixed-point structure, no
-`PredsFrom`, no simultaneous accessibility.
+carriers — `WfRecKit` (`ConLeche/SetModel/WfRec.lean`), which asks
+nothing of the carriers: no fixed-point structure, no `PredsFrom`, no
+simultaneous accessibility.
 
 `WfRecKit.toC` is that kit as a `UnionRecKitC`, so the whole regime is
 `BlockRecKitI`'s arm at `toC`: `wfData` below builds the family's data
-and `wfCand_hCand` is `famCand_hCand`.  Nothing in the arm knows about
-`tc`, which is why regime SQ (`BlockRecSqI.lean`) reuses it unchanged
-at a different predecessor.
+and `famCand_hCand` gives the candidate.  Nothing in the arm knows
+about `tc`, which is why regime SQ (`BlockRecSqI.lean`) reuses it
+unchanged at a different predecessor.
 
-**What the Model tier owes** is unchanged by the repackaging:
-everything that mentions the STORED forms — that a rule's spine fits
-the recursor's type, that the conclusion reads to the kit's motive,
-and that the kit's step reads to the residue at the ih values.  The
-kit's own two obligations (`hB`, `hst`) are F5's shape and the Model
-tier's content: `hst` is G1, the residue's certified typing at the
-constructors' environment (`ResidueOk`).
+**What the Model tier owes**: everything that mentions the STORED
+forms — that a rule's spine fits the recursor's type, that the
+conclusion reads to the kit's motive, and that the kit's step reads to
+the residue at the ih values.  The kit's own `hst` is G1, the
+residue's certified typing at the constructors' environment
+(`ResidueOk`).
 -/
 
 namespace ConLeche.Semantics
@@ -45,7 +44,7 @@ section Wf
 variable {ℓ K : Nat} {rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
   {concl : Nat → AnnotTerm} {ρ : Nat → V}
 
-/-- **The WF regime's data**: `RecFamData` at F5's `WfRecKit`, whose
+/-- **The WF regime's data**: `RecFamData` at `WfRecKit`, whose
 predecessors are the ∈-smaller elements of the tagged union (`tcPred`)
 and whose accessibility is regularity (`tcAcc_all`).  The two readings
 are stated at the `WfRecKit`'s own `B`, which `toC` keeps. -/
@@ -66,18 +65,6 @@ noncomputable def wfData (Is Cr : List V → Nat → V) (tupOf : Nat → List V 
   kit := fun xs => (kitW xs).toC
   hsplit := hsplit
   hconcl := hconcl
-
-@[simp] theorem wfData_kit (Is Cr : List V → Nat → V) (tupOf : Nat → List V → V)
-    (kitW : ∀ xs : List V, WfRecKit ℓ K (Is xs) (Cr xs)) (hsplit) (hconcl) (xs : List V) :
-    (wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
-      Is Cr tupOf kitW hsplit hconcl).kit xs = (kitW xs).toC := rfl
-
-/-- The candidate's body is the `WfRecKit`'s own recursor. -/
-theorem wfData_recAt (Is Cr : List V → Nat → V) (tupOf : Nat → List V → V)
-    (kitW : ∀ xs : List V, WfRecKit ℓ K (Is xs) (Cr xs)) (hsplit) (hconcl)
-    (xs : List V) (c : Nat) (i x : V) :
-    ((wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
-      Is Cr tupOf kitW hsplit hconcl).kit xs).recAt c i x = (kitW xs).recAt c i x := rfl
 
 end Wf
 

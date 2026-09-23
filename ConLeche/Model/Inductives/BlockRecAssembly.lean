@@ -10,7 +10,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 public section
 
 /-!
-# The recursor stage, assembled at the run (task #315, M5, model half)
+# The recursor stage, assembled at the run
 
 `blockRecStaged_of` (`Model/Inductives/BlockStageRec.lean`) is the
 recursor stage's cons, stated at eighteen premises; `declBlock`
@@ -18,23 +18,23 @@ recursor stage's cons, stated at eighteen premises; `declBlock`
 `BlockRecStaged`.  This module is the seam between them: it discharges
 from the CHECK'S OWN RUN every premise that is a syntactic fact about
 the stored recursors, so that what is left of the Model half is the
-two SEMANTIC seams — the family premise (`BlockRecPre`, lane RM3's
-regimes) and the rule data (`BlockRuleDataAt`, lane RM6's `hnew`).
+two SEMANTIC seams — the family premise (`BlockRecPre`, the regimes)
+and the rule data (`BlockRuleDataAt`, `hnew`).
 
 What the run supplies, and where it comes from:
 
 | premise | source |
 |---|---|
-| `hty`, `hrhs` | `checkBlockRecK_facts` (lane V2) |
-| `hresRec` | `checkBlockRecK_reserved` (lane K2) |
+| `hty`, `hrhs` | `checkBlockRecK_facts` |
+| `hresRec` | `checkBlockRecK_reserved` |
 | `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor run `checkBlockRecK_tyShape` names |
 | `hnoTy` | `annotateCore_noProjAt` at the SAME run |
-| `hrd` | `hrd_of_pre` (lane RM4), at the family premise |
-| `hrecP` | `hrecP_of` (lane RM6), at the rule data |
+| `hrd` | `hrd_of_pre`, at the family premise |
+| `hrecP` | `hrecP_of`, at the rule data |
 
 and the generated guarded call's freedom from free variables
-(`hnofv`, which `ihNodeVal_blockRec` asks for) is here too, beside the
-other facts about the generated forms.
+(`hnofv`) is here too, beside the other facts about the generated
+forms.
 -/
 
 namespace ConLeche.Model
@@ -51,9 +51,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. The generated guarded call carries no free variable
 
-`ihNodeVal_blockRec` (`Model/Inductives/BlockRecRule.lean`, lane RM3)
-asks for `hnofv`: the Π-tower `blockIhSpinePis` builds has
-`hasFvar = false`.  It is a one-level computation — the tower's binder
+`hnofv`: the Π-tower `blockIhSpinePis` builds has `hasFvar = false`.
+It is a one-level computation — the tower's binder
 domains are `structIdxAt`-lifts of the constructor's own field
 telescope, the spine is the rule's prefix `bvar`s, the field's index
 expressions (again `structIdxAt`-lifted) and one applied `bvar`, and
@@ -86,12 +85,6 @@ theorem hasFvar_structTeleAt {nF o i l : Nat} {pw : ConLeche.PropWhen}
   obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hb
   refine hasFvar_structIdxAt ?_
   exact ht _ (getD_mem _ (by simpa using List.mem_range.mp hk))
-
-/-- The prefix and telescope variables are `bvar`s. -/
-theorem hasFvar_bvars {L : List Nat} : ∀ e ∈ L.map (Expr.bvar ·), e.hasFvar = false := by
-  intro e he
-  obtain ⟨k, -, rfl⟩ := List.mem_map.mp he
-  rfl
 
 /-- **`hnofv`**: the generated guarded call's Π-tower has no free
 variable. -/
@@ -146,7 +139,7 @@ theorem structFieldParts_hasFvar {cty : Expr} {nP nF i : Nat}
 The `k` recursors are checked at ONE environment — the constructors' —
 so `checkConstantVal`'s freshness says each is fresh THERE and says
 nothing about the `k` names being pairwise distinct.  That is the
-NAME-SET check's (`blockRecNameSetOk`, lane K2): the stored names are,
+NAME-SET check's (`blockRecNameSetOk`): the stored names are,
 as a set, exactly `{T.rec : T a member}`, and there are as many of them
 as there are members.  With the members' own names distinct, a
 pigeonhole closes it. -/
@@ -421,13 +414,12 @@ theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List Con
   exact hslot
 
 /-- **The rule's own typing run, at the stage's own bare-`k`
-environment.**  The coordinator's step of session 22, exported at the
-list the model's bare cons is built over (`bareOf rs`, spelled out —
-`BlockStageRec`'s abbreviation is not in this file's public view): the
-stage
-conses the TYPE stage's records and the rules are stored against the
-same ones, which is `checkBlockRecK_facts`' `hmap` and is repeated
-here for the one clause that peel drops. -/
+environment**, stated at the list the model's bare cons is built over
+(`bareOf rs`, spelled out — `BlockStageRec`'s abbreviation is not in
+this file's public view): the stage conses the TYPE stage's records
+and the rules are stored against the same ones, which is
+`checkBlockRecK_facts`' `hmap` and is repeated here for the one clause
+that peel drops. -/
 theorem checkBlockRecK_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -466,7 +458,7 @@ end Annot
 /-! ## 5. The stage's VALUATION
 
 `blockRecStaged_of` takes the post-cons carrier's valuation `acv` as a
-parameter with six facts about it.  The recursor lane CHOOSES it —
+parameter with six facts about it.  The recursor stage CHOOSES it —
 the `i`-th stored recursor's leaf is the `i`-th projection of the
 family's chosen tuple and every other name reads as before — so it is
 defined here and three of the six facts (`hag`, the valuation
@@ -530,8 +522,7 @@ regimes) and the rule data `hnew` (`hrecP_of`). -/
 /-- The `i`-th recursor's LEAF at `ψ`: the `i`-th projection of the
 family's chosen tuple, at the recursor types the run reads.
 
-**The family's level `s` is a FUNCTION of `ψ`**, as it is at `k = 1`
-(`fixLeafAV`'s `sAV : (Name → Nat) → Nat`): a large eliminator carries
+**The family's level `s` is a FUNCTION of `ψ`**: a large eliminator carries
 its own level parameter, so a block's recursor types are sets of a
 level that MOVES with the valuation, and `BlockRecPre.hTy` is stated
 at `univ (s ψ)`. -/
@@ -549,7 +540,7 @@ at `univ (s ψ)`. -/
   blockRecAcvOf acval (rs.map (·.1.name)) (blockRecLeafAV acval envC rs s eqs)
 
 /-- **The recursor stage, at the run.**  Its premises are the check's
-own success, the two facts `declBlock` hands the lane (the
+own success, the two facts `declBlock` hands the stage (the
 recogniser's member names and the constructors' STORAGE), the LEAF's
 five facts — the grading one only AT A BLOCK POSITION, which is where
 `blockRecAV_facts` gives it and where the stage consumes it — and the

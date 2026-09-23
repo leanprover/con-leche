@@ -153,34 +153,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockStageRec',
      'ConLeche.Semantics.IndBlockFacts'),
     # task #315 (M5, O-1's file): `Model/Inductives/BlockRecRule.lean`
-    # re-exports `Model/Annot/Bit.lean` for `ConLeche.Expr` and its
-    # `Expr.instantiateList`/`Expr.mkAppN` field notation, which every one
-    # of the file's PUBLIC statements uses and which no census row
-    # attributes to `Annot.Bit` (the constants belong to `Kernel/Expr` and
-    # `Kernel/ExprOps`, reached through this re-export and through DOT
-    # NOTATION).  MEASURED: demoting the line fails the build with
-    # `Unknown identifier Expr` at `FvarList`; importing `Kernel.ExprOps`
-    # publicly instead does not fix it, because `denoteMeta` itself is in
-    # the statements.
-    ('ConLeche.Model.Inductives.BlockRecRule',
-     'ConLeche.Model.Annot.Bit'),
-    # task #315 (M5, O-1's file, session 2): the same file re-exports
-    # `Model/Annot/BitLemmas.lean` for `DenoteMetaSpine`, which the
-    # EXPOSED `def IhCallFold`/`IhSpineFold : Prop` name in their BODIES —
-    # the `PushChain` case above.  MEASURED: demoting the line fails the
-    # build with `Unknown identifier DenoteMetaSpine`.
-    ('ConLeche.Model.Inductives.BlockRecRule',
-     'ConLeche.Model.Annot.BitLemmas'),
-    # task #315 (M5, O-1's file, session 3): two more of the same file's
-    # re-exports, each MEASURED by demoting it alone and watching the
-    # build fail.  `Verify/Subst.lean` carries `Expr.instSeq`, which the
-    # STATEMENT of `instantiateList_eq_instSeq_of_fvarList` names (the
-    # census attributes the `Expr.` prefix to the type's module, not to
-    # the one defining the operation); `Model/Inductives/FixRecRead.lean`
-    # carries `EnvModel`, `FieldReadAt`, `ihTeleAtR`, `ihIdxAtM` and
-    # `teleVarsAV`, all of which `denoteMeta_blockIhSpinePis` states.
-    ('ConLeche.Model.Inductives.BlockRecRule',
-     'ConLeche.Verify.Subst'),
+    # re-exports `Model/Inductives/FixRecRead.lean` for `EnvModel`,
+    # `FieldReadAt`, `ihTeleAtR`, `ihIdxAtM` and `teleVarsAV`, all of which
+    # `denoteMeta_blockIhSpinePis` states.  MEASURED (again at D-NEW):
+    # demoting the line alone fails the build with `Unknown identifier
+    # ConstsBound`.
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Inductives.FixRecRead'),
     # task #315 (M5, O-1's file, session 5): the same file re-exports
@@ -250,14 +227,6 @@ FALLBACK = {
     # failure on to `AnnotTerm`/`WellDenotedV`/`Sat` — both blind classes
     # (#223 §6's first and the #290 one) in one line.
     ('ConLeche.Model.Inductives.BlockStageFormer','ConLeche.Model.Inductives.BlockLeafOk'),
-    # task #315 (the uniform block route): `BlockOne`'s public statements
-    # are over `BlockLeafI`'s `blockFam`, `chainXBIGo` and `slotXBI`, and
-    # its `open SetTheory` resolves only through that re-export; nothing
-    # downstream reads them THROUGH `BlockOne`, so the model calls the
-    # edge demotable — and the build then says `unknown identifier
-    # SetTheory`, the #290 class again (a plain import is invisible to a
-    # public statement).
-    ('ConLeche.Semantics.Tower.BlockOne','ConLeche.Semantics.Tower.BlockLeafI'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

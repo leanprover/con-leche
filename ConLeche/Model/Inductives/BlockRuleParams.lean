@@ -7,7 +7,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 public section
 
 /-!
-# The equation list's LEVEL-PARAMETER invariance (task #315, lane RM52)
+# The equation list's LEVEL-PARAMETER invariance
 
 `heqP` — the equation list reads alike at two level valuations that
 agree on a recursor's own `levelParams` — needs every one of the six
@@ -24,9 +24,9 @@ and that predicate looks INSIDE an `fvar`'s type annotation — which
 the kit here is `lpDefF`, the same footprint with the `fvar` types
 ignored: the residue has it (it is fvar-free and its parameters are
 the stored rule's), an opening at fvars keeps it, and the reading is
-ψ-congruent under it.  No opener TYPE has to be tracked, which is what
-RM50's pricing of a full level-parameter twin of the `ConstsBound` kit
-(`blockIhPis`, the openers' types, the binder datum) assumed. -/
+ψ-congruent under it.  No opener TYPE has to be tracked, so no
+level-parameter twin of the `ConstsBound` kit (over `blockIhPis`, the
+openers' types and the binder datum) is needed. -/
 
 namespace ConLeche.Model
 open ConLeche.Semantics
@@ -270,17 +270,6 @@ theorem lpDefF_instantiateList {vs : List Expr}
     simp only [lpDefF] at h
     rw [Expr.instantiateList]
     simp only [lpDefF, ihe d h]
-
-omit [SetTheory V] in
-/-- Every member of an opener list is an `fvar`. -/
-theorem FvarList.mem_fvar {E : Nat} {xs : List Expr} (h : FvarList E xs) :
-    ∀ x ∈ xs, ∃ (i : Nat) (t : Expr), x = .fvar i t := by
-  intro x hx
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-  have hjl : j < E := by rw [← h.1]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨ty, hty⟩ := h.2.1 j hjl
-  rw [hj] at hty
-  exact ⟨_, ty, Option.some.inj hty⟩
 
 end LpDefF
 

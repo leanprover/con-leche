@@ -14,7 +14,7 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 public section
 
 /-!
-# The regime DISPATCH at the run — `hpre` for the endpoint (task #315, M5M-hpre)
+# The regime DISPATCH at the run — `hpre` for the endpoint
 
 `declBlock_data` (`BlockRecData.lean` §A.18) asks the seam for, among
 eight conjuncts, the family's **regime**:
@@ -26,66 +26,45 @@ eight conjuncts, the family's **regime**:
 
 Three producers stand behind it — `blockIndRegime_run` at `ℓ = 0`,
 `blockKitRegime_wf` at `ℓ ≠ 0 ∧ w ≠ 0`, `blockKitRegime_sq` at
-`ℓ ≠ 0 ∧ w = 0` (`BlockRecPreRun.lean` §5, §19, §36) — and
-`blockRecPre_hpre` (§15) is the dispatch over them, but stated in the
-DISPATCH's own currency and with the two regime bundles as free
-hypotheses.  This file is the composition: the currency change, the
-level's skolemisation, the `(w, ℓ)` split and the `K = 1` transport,
-in one theorem whose conclusion is the endpoint's premise verbatim.
+`ℓ ≠ 0 ∧ w = 0` (`BlockRecPreRun.lean` §5, §19, §36).  This file
+composes them into one theorem whose conclusion is the endpoint's
+premise verbatim:
 
-**What the composition turned out to need** — four things nobody had
-listed:
-
-1. **The equation list is the rule lane's, the dispatch's is the model
-   lane's.**  `blockRecPre_hpre` concludes at `iotaEqsAV` over
+1. **The equation list.**  The regimes conclude at `iotaEqsAV` over
    components the caller supplies; the endpoint asks for `blockRecEqs`
    = `blockIotaEqsAV` over the run's BASE components.  §1 is that
-   identification, and it is exactly §20's four `…K` definitions fed
-   to §31's `iotaEqsAV_eq_blockIotaEqsAV` — which, before this file,
-   had no consumer.
-2. **The level must be skolemised by the CONSUMER.**  Every regime's
-   guard is a statement about a natural number `ℓ`, and the run hands
-   the level back existentially (`blockRecElimLevel_run`,
-   `blockRecOneElimLevel_run`).  A guard on an existential level is
-   not a guard, so `us` is a PARAMETER here and the guard reads
-   `(us.headD .zero).eval ψ = 0` — the run's own currency, and the
-   spelling `blockIndRegime_of_run` already takes.
+   identification: §20's four `…K` definitions fed to §31's
+   `iotaEqsAV_eq_blockIotaEqsAV`.
+2. **The level is skolemised by the CONSUMER.**  Every regime's guard
+   is a statement about a natural number `ℓ`, and the run hands the
+   level back existentially (`blockRecElimLevel_run`).  A guard on an
+   existential level is not a guard, so `us` is a PARAMETER here and
+   the guard reads `(us.headD .zero).eval ψ = 0` — the run's own
+   currency, and the spelling `blockIndRegime_of_run` takes.
 3. **`OneElimLevel` leaves both kit regimes' premise sets.**  `hbits`
-   is a premise of `blockKitRegime_wf` and of `blockKitRegime_sq`, and
-   with the level named it is `blockRecOneElimLevel` — discharged here
-   for both arms at once, from the same three witnesses the IND arm's
-   guard is stated over.  It is the one premise the three regimes
-   genuinely share.
-4. **The ι equations' grading is NOT a premise of the dispatch.**
-   The rule lane's fold `blockRecHwd_of_rules`
-   (`BlockRuleFit.lean`) is the family's `hwd` conjunct for
-   conjunct at `σ := consList as ρ`, so the dispatch takes the
-   fold's FOUR premises — the per-rule certificates and its three
-   frame premises, ψ- and ρ-quantified — and produces `hwd` itself.
-   A premise with no discharge route is the dual of a premise set
-   with no instance, and neither is visible in a build.
+   is a premise of `blockKitRegime_wf` and of `blockKitRegime_sq`; with
+   the level named it is `blockRecOneElimLevel`, discharged here for
+   both arms at once.  It is the one premise the three regimes share.
+4. **The ι equations' grading is NOT a premise of the dispatch.**  The
+   fold `blockRecHwd_of_rules` (`BlockRuleFit.lean`) is the family's
+   `hwd` conjunct at `σ := consList as ρ`, so the dispatch takes the
+   fold's FOUR premises — the per-rule certificates and its three frame
+   premises, ψ- and ρ-quantified — and produces `hwd` itself.
 5. **The SQ arm needs `rs.length = 1`, and that is a KERNEL fact.**
    `blockKitRegime_sq` produces `KitRegimeAt … 1 …`; the dispatch
-   consumes `KitRegimeAt … rs.length …`.  The two meet only through
-   `rs.length = 1`, and no model-tier fact implies it: it is what the
-   large-elimination COUNTING guard says.  `blockLargeElimAllowed`'s
-   own arm is a RUN (`isDefEq` against `Sort 0`) and the model holds
-   only the LEVEL `ensureSort` returned, so the checker says the
-   counting half a second time in the level currency
-   (`checkBlockRecSmallElim`, lane SEC2), stated as the GUARD's own
-   verdict so that the regime lane's `blockLargeElim_counting` reads
-   all FOUR of the squash arm's facts off it rather than this file
-   deriving one of them a second time.  §2.5's `blockRecCounting_run`
-   is the licence and `blockRecK1_run` the dispatch's slice of it, off
-   the same three package components the kit arms take.  It is a
-   THEOREM here, not a premise.
+   consumes `KitRegimeAt … rs.length …`.  No model-tier fact implies
+   `rs.length = 1`: it is the large-elimination COUNTING guard, which
+   the checker states in the level currency (`checkBlockRecSmallElim`,
+   §2.5) as the guard's own verdict, so that `blockLargeElim_counting`
+   reads all four of the squash arm's facts off it.
+   `blockRecCounting_run` is that reading and `blockRecK1_run` the
+   dispatch's slice of it — a THEOREM here, not a premise.
 
 **The guard lives in ONE place.**  `blockRecPre_dispatch_run`'s proof
 contains the only `by_cases` on `d.w ψ`, and the three regime bundles
-name their guards once each.  If the rule contract's guard moves from
-`d.w ψ ≠ 0` to `ℓ ψ ≠ 0` (the W0 report's recommendation), the change
-here is the `hWF`/`hSQ` premises' guards and nothing else; the
-dispatch's `ℓ`-split is already the outer one.
+name their guards once each.  Moving the rule contract's guard from
+`d.w ψ ≠ 0` to `ℓ ψ ≠ 0` would change the `hWF`/`hSQ` premises' guards
+and nothing else; the dispatch's `ℓ`-split is already the outer one.
 -/
 
 namespace ConLeche.Model
@@ -100,17 +79,15 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. THE CURRENCY — the dispatch's equations ARE the endpoint's
 
-The dispatch parameterises at the ι equations' components AT THE CHAIN
-FRAME (§20's `blockRecPdomsK`/`blockRecFdomsK`/`blockRecEsK`/
-`blockRecMkK`); the endpoint states its premise at `blockRecEqs`, the
-rule lane's `blockIotaEqsAV` over the BASE components.  The two are
-one term, and the only thing separating them is the residue's cutoff —
-the dispatch writes the LIFTED prefix and field lengths, the rule lane
-the unlifted ones, and `liftDomsK_length` is a theorem, not `rfl`.
-
-The identification is §31's; what is new here is that the four `…K`
-definitions are its instance, so the two lanes' `eqs` meet at a NAMED
-term rather than at a pair of matching parameter choices. -/
+The dispatch parameterises the ι equations at their components AT THE
+CHAIN FRAME (§20's `blockRecPdomsK`/`blockRecFdomsK`/`blockRecEsK`/
+`blockRecMkK`); the endpoint states its premise at `blockRecEqs`,
+`blockIotaEqsAV` over the BASE components.  The two are one term, and
+only the residue's cutoff separates them — the dispatch writes the
+LIFTED prefix and field lengths, `blockRecEqs` the unlifted ones, and
+`liftDomsK_length` is a theorem, not `rfl`.  The identification is
+§31's, at the four `…K` definitions, so the two sides meet at a NAMED
+term. -/
 
 section Currency
 
@@ -149,40 +126,33 @@ end Currency
 
 /-! ## 2. THE DISPATCH — the endpoint's premise, from the three regimes
 
-`blockRecPre_hpre` (§15) splits on `ℓ = 0`; the `w` split lives in
-whoever supplies `KitRegimeAt`, which is here.  Everything the three
+The dispatch splits on `ℓ = 0`, then on `w`.  Everything the three
 producers cannot see is paid in this one theorem:
 
 * the family's elimination LEVEL is NAMED (`us`, a parameter), so each
   regime's guard is a statement about a numeral rather than a
-  hypothesis under an existential — and it is named in the RUN's
-  currency, `(us.headD .zero).eval ψ`, which is the sort stage (b)
-  read off the first recursor's conclusion and the spelling
-  `blockIndRegime_of_run` already asks for;
+  hypothesis under an existential — named in the RUN's currency,
+  `(us.headD .zero).eval ψ`, the sort stage (b) read off the first
+  recursor's conclusion;
 * the ι equations are re-spelled from the dispatch's currency to the
   endpoint's (§1, and the `pdoms` collapse below);
 * the SQ arm arrives at `K = 1` and is transported to `rs.length` by
   `hK1`;
 * the `(w, ℓ)` split itself.
 
-**The guard is in ONE place**: the `by_cases` in the proof, and the
-three bundles' own guards.  Moving the contract's guard from
-`d.w ψ ≠ 0` to `ℓ ψ ≠ 0` is an edit to `hWF`/`hSQ`'s statements and to
-nothing else; the `ℓ`-split is already the outer one.
-
-**The `pdoms` currency, and why it is the BASE form.**  §20 states the
-dispatch's components at the CHAIN frame (`blockRecPdomsK` =
+**The `pdoms` currency is the BASE form.**  §20 states the dispatch's
+components at the CHAIN frame (`blockRecPdomsK` =
 `liftDomsK K 0 ∘ blockRulePdomsAV`), and the endpoint's `blockRecEqs`
-lifts the base ones the same way — but all THREE producers hand their
-regime back at the BASE form: `blockKitRegime_wf`/`_sq` because
-`hpdE` pins `pdoms` to the recursor type's own first `rP` binder
-domains, and `blockIndRegime_of_run` because it states its conclusion
-at `blockRulePdomsAV` outright.  Since `IndRegimeAt` and `KitRegimeAt`
-are proof-tier `def`s, opaque outside `BlockRecPreRun.lean`, a
-consumer cannot move a regime from one form to the other; so the
-dispatch is stated at the BASE form and the collapse is paid ONCE, in
-the equation list, where `iotaEqsAV` is exposed and a congruence is
-available (§28's `blockRecPdomsK_run` is what makes it true). -/
+lifts the base ones the same way — but all three producers hand their
+regime back at the BASE form: `blockKitRegime_wf`/`_sq` because `hpdE`
+pins `pdoms` to the recursor type's own first `rP` binder domains, and
+`blockIndRegime_of_run` because it states its conclusion at
+`blockRulePdomsAV` outright.  `IndRegimeAt` and `KitRegimeAt` are
+proof-tier `def`s, opaque outside `BlockRecPreRun.lean`, so a consumer
+cannot move a regime from one form to the other; the dispatch is
+stated at the BASE form and the collapse is paid ONCE, in the equation
+list, where `iotaEqsAV` is exposed and a congruence is available
+(§28's `blockRecPdomsK_run` is what makes it true). -/
 
 section Dispatch
 
@@ -251,25 +221,25 @@ theorem blockRecEqs_base (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
 
 `blockKitRegime_sq` lives at `K = 1` and every run-level discharge is
 indexed over the recursor list, so the SQ arm is unstateable at the run
-without `rs.length = 1`.  That is not a model fact and no model fact
-implies it: it is what the kernel's COUNTING guard says.
+without `rs.length = 1`.  No model fact implies it: it is what the
+kernel's COUNTING guard says.
 
 `blockLargeElimAllowed`'s own arm is a RUN (`isDefEq` of the
 conclusion's inferred type against `Sort 0`), and the model holds of a
 conclusion only the LEVEL `ensureSort` returned — so the checker says
 the counting half a second time, in the level currency
-(`checkBlockRecSmallElim`, `Kernel/Inductives/BlockInstall.lean`, lane
-SEC2): a block declares a family, and a block of SEVERAL families whose
-result sort may be `0` eliminates only at a level equivalent to zero.
+(`checkBlockRecSmallElim`, `Kernel/Inductives/BlockInstall.lean`): a
+block of SEVERAL families whose result sort may be `0` eliminates only
+at a level equivalent to zero.
 
-The three premises below (`helim`, `hmemU`, `hruns`) are components
-1, 2 and 4 of `blockRecElimLevel_run`'s package VERBATIM, which is
-where the dispatch's `us` and `uOf` come from; `hres` is `rfl` at
-`blockDataOf` (`resSort := q.resSort`).  The chain is: the pins give
-one recursor per member, stage (b) gives `rs.length = p.recs.length`,
-the counting guard gives `p.k = 1` — and `0 < p.k`, which is what makes
-the FIRST recursor's level nameable at all (`uOf 0`), and hence what
-ties the package's abstract `us.headD` to the kernel's own list. -/
+The premises `helim`, `hmemU`, `hruns` below are components 1, 2 and 4
+of `blockRecElimLevel_run`'s package verbatim, which is where the
+dispatch's `us` and `uOf` come from; `hres` is `rfl` at `blockDataOf`
+(`resSort := q.resSort`).  The chain: the pins give one recursor per
+member, stage (b) gives `rs.length = p.recs.length`, the counting guard
+gives `p.k = 1` — and `0 < p.k`, which makes the FIRST recursor's level
+nameable at all (`uOf 0`), and hence ties the package's abstract
+`us.headD` to the kernel's own list. -/
 
 section Count
 
@@ -343,15 +313,14 @@ omit [SetTheory V] in
 
 At a block whose result sort evaluates to zero and whose recursors
 eliminate at a non-zero level, the pass's disjunction collapses onto
-`blockLargeElimAllowed`'s own verdict — and the regime lane's
-`blockLargeElim_counting` reads all four facts off it.  **That is the
-whole point of stating the pass as the GUARD rather than as the one
-counting fact**: the squash arm wants four facts, and a second
-derivation of `k = 1` in the level currency beside the regime lane's
-would be one fact under two names.
+`blockLargeElimAllowed`'s own verdict, and `blockLargeElim_counting`
+reads all four facts off it.  The pass is stated as the GUARD rather
+than as the one counting fact because the squash arm wants all four,
+and a second derivation of `k = 1` in the level currency would be one
+fact under two names.
 
 The pass is what licenses the collapse.  Stage (b)'s own disjunction
-(`checkBlockRecTys_elim`, widened by the regime lane) is
+(`checkBlockRecTys_elim`) is
 `blockLargeElimAllowed … = true ∨ isDefEq sty (Sort 0) = .ok true`, and
 its second arm is a RUN about a term, which the model cannot refute;
 the pass says the same implication with `every level is zero` in that
@@ -406,12 +375,12 @@ theorem blockRecK1_run
     blockRecCounting_run h helim hmemU hruns ψ hℓ (by rw [← hres]; exact hw)
   rw [hklen]; exact hk1
 
-/-- **The rule frame's level IS the checked one** (SEC1's flagged
-residue, closed).  `blockRuleFrame`'s `pw` is `Level.zeronessOf
-(structElimLevel p.elim p.large)`; this says that level EVALUATES to
-the one the recursors actually eliminate at, at every `ψ`, so the
-frame's binder data is a statement about the elimination the stream
-declares and not about a shape that may disagree with it. -/
+/-- **The rule frame's level IS the checked one.**  `blockRuleFrame`'s
+`pw` is `Level.zeronessOf (structElimLevel p.elim p.large)`; this says
+that level EVALUATES to the one the recursors actually eliminate at, at
+every `ψ`, so the frame's binder data is a statement about the
+elimination the stream declares and not about a shape that may disagree
+with it. -/
 theorem blockRecElimPin_run
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
@@ -471,7 +440,7 @@ theorem blockRecPre_dispatch_run (hμ : μ.verifiedChecks = true)
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
         WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c))
     -- the ι equations' GRADING at every typed tuple: NOT a premise of
-    -- its own — the rule lane's fold `blockRecHwd_of_rules` produces
+    -- its own — the fold `blockRecHwd_of_rules` produces
     -- it from the per-rule certificates and its three frame premises,
     -- so what the dispatch takes is those four, ψ- and ρ-quantified
     (hcertsW : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
@@ -607,25 +576,22 @@ end Dispatch
 
 §2's `hWF` and `hSQ` are `blockKitRegime_wf`'s and `blockKitRegime_sq`'s
 conclusions at the run's components; these two theorems are that
-application, so the dispatch's premises are demonstrably inhabited and
-what is LEFT of each kit regime is a named list rather than a guess.
+application, so what is LEFT of each kit regime is a named list.
 
 **Six premises leave both arms at the run** — `hμ` aside, they are
 `hmemK` (`blockRecMajor_run`), `hsplitR` (`blockRecTyShape_run` through
 `blockRecSplitAt_of_shape`), `hpdE` (`blockRulePdomsAV`'s definition
 and `List.map_take`), `hTyE` (`checkBlockRecK_tyPis`), `hbits`
 (`blockRecOneElimLevel` at the NAMED level) and `hpl`
-(`blockRulePdomsAV_length`).  `hbits` is the one that could not be paid
-before the level was named, and it is paid identically in both arms —
-the only premise the three regimes genuinely share.
+(`blockRulePdomsAV_length`).  `hbits` needs the level named, and is
+paid identically in both arms.
 
-**The SQ arm additionally needs `rs.length = 1`** and needs it as a
-PREMISE (`hK1`): `blockKitRegime_sq` is stated at `K = 1`, and every
-run discharge above is indexed by `c < rs.length`, so without the
-counting guard's fact the arm cannot even reach its own hypotheses.
-That is the composition's sharpest finding: the SQ regime does not
-merely happen to be about one-member blocks, it is UNSTATEABLE at the
-run without the kernel guard that makes them one-member. -/
+**The SQ arm additionally needs `rs.length = 1`** as a PREMISE (`hK1`):
+`blockKitRegime_sq` is stated at `K = 1`, and every run discharge above
+is indexed by `c < rs.length`, so without the counting guard's fact the
+arm cannot even reach its own hypotheses — the SQ regime is
+UNSTATEABLE at the run without the kernel guard that makes its blocks
+one-member. -/
 
 section KitArms
 
@@ -708,7 +674,7 @@ theorem blockKitRegime_wf_run (hμ : μ.verifiedChecks = true)
             c' => d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt
             ((p.toBlockShape.recTgtAt) c')) ρ xs
               (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)))
-    -- the three rule bridges at the ONE datum the arm builds (RM51)
+    -- the three rule bridges at the ONE datum the arm builds
     (hrule : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
         ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
         SpineFit (chainFrame rs.length (blockWfCand ((us.headD .zero).eval ψ) rs.length p.toBlockShape.rulePrefixAt
@@ -874,7 +840,7 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
             d.uM ((p.toBlockShape.recTgtAt) c') ψ) (fun c' => d.nIdxAt ((p.toBlockShape.recTgtAt)
             c')) ρ xs
               (tagged c i (d.inj ψ ((p.toBlockShape.recTgtAt) c) j fs)))
-    -- the four rule bridges at the ONE datum the arm builds (RM51)
+    -- the four rule bridges at the ONE datum the arm builds
     (hrule : ∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
         ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
         SpineFit (chainFrame 1 (blockSqCand ((us.headD .zero).eval ψ) p.toBlockShape.rulePrefixAt
@@ -959,15 +925,10 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
 
 end KitArms
 
-/-! ## 4. THE SEAM — the regime premise PRODUCED, owing named rows (lane RM51)
+/-! ## 4. THE SEAM — the regime premise PRODUCED, owing named rows
 
-`declBlock_run`'s `howed` carried the regime (`hpre`) as a bare
-premise, because the dispatch's WF/SQ arms relayed premises quantified
-over EVERY family datum (the abstract-field defect, fixed in §19a of
-`BlockRecPreRun.lean`) and the SQ arm had no zero-constructor case (it
-is stated at `numCtors ≤ 1` now).  With both repaired, `hpre` is
-PRODUCED here, from the seam's own facts and four named bundles of
-rows, one per regime plus the grading.
+`hpre` is produced here, from the seam's own facts and four named
+bundles of rows, one per regime plus the grading.
 
 **Everything the seam pays is paid here**: the representation and the
 members' records (premises: `declBlock_run` produces them), the
@@ -986,20 +947,19 @@ unpacking).  The dispatch's `(us.headD .zero).eval ψ` is the same number
 at every `ψ` (`blockRecHeadLevel_run`: the package's agreement check
 and the elimination PIN), and the bundles cross by `subst`.
 
-**What the bundles hold is what the arms still RELAY** — the rows
-priced in `RM51-REPORT.md` §2.  Each is stated exactly as its arm
-consumes it, with the arm's own auxiliary witnesses (the certificate
-family's `ihdoms`/`Ca`, the ih values `ihv`, the source lists `srcs`,
-the ih key table) existential at the frame, so a producer chooses them
-where they are produced. -/
+**The bundles hold what the arms still RELAY**, each stated exactly as
+its arm consumes it, with the arm's own auxiliary witnesses (the
+certificate family's `ihdoms`/`Ca`, the ih values `ihv`, the source
+lists `srcs`, the ih key table) existential at the frame, so a producer
+chooses them where they are produced. -/
 
 section Seam
 
 /-- **REGIME WF's owed rows** at one frame, at an elimination level `ℓ`:
 `blockKitRegime_wf_run`'s premises that the seam does not pay, with
-the arm's own witnesses (`ihdoms`, `Ca`, `ihv`) existential.  Paid at
-the seam since RM53: `hspF` (`blockKitSpF_run`), `hctorAt`
-(`blockWfCtorAt_run`), and — KIT1 — `hrule` (`blockWfRule_run`). -/
+the arm's own witnesses (`ihdoms`, `Ca`, `ihv`) existential.  The seam
+pays `hspF` (`blockKitSpF_run`), `hctorAt` (`blockWfCtorAt_run`) and
+`hrule` (`blockWfRule_run`). -/
 @[expose] def BlockWfOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (ℓ : Nat)
@@ -1077,10 +1037,10 @@ the seam fixes the arm's `srcs` here and pays `hsrcAt` with it. -/
   fun _ => srcList ((d.Ess 0 ψ).getD 0 []) ((d.Fss 0 ψ).getD 0 []).length
 
 /-- **REGIME SQ's owed rows** at one frame: `blockKitRegime_sq_run`'s
-premises the seam does not pay (`hsrcAt` it pays, at `blockSqSrcs`;
-since RM53 also `hspF` (`blockKitSpF_run`) and `hsrcRule`
-(`blockSqSrcRule_run`), and — KIT1 — `hrule` (`blockSqRule_run`)),
-witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
+premises the seam does not pay (it pays `hsrcAt` at `blockSqSrcs`,
+`hspF` (`blockKitSpF_run`), `hsrcRule` (`blockSqSrcRule_run`) and
+`hrule` (`blockSqRule_run`)), witnesses (`ihdoms`, `Ca`, `ihv`)
+existential. -/
 @[expose] def BlockSqOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (ℓ : Nat)
@@ -1151,9 +1111,9 @@ witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
             p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) (blockSqSrcs d ψ) Rb0 ihv) ρ))))
 
 /-- **REGIME IND's owed rows** at one frame: `blockIndRegime_of_rules`'s
-premises the seam does not pay (`hprefU` it pays, `blockRecHpref_run`;
-since RM53 also the split data's `hspF`, `blockIndSpF_run`), at the
-dispatch's field domains and lifted residues, with the `ih` key table
+premises the seam does not pay (it pays `hprefU`, `blockRecHpref_run`,
+and the split data's `hspF`, `blockIndSpF_run`), at the dispatch's
+field domains and lifted residues, with the `ih` key table
 existential. -/
 @[expose] def BlockIndOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -1173,14 +1133,12 @@ existential. -/
 four `blockRecHwd_of_rules` premises once the seam pays the rest
 itself: the left-hand sides' grading and the `ih` terms' grading.
 
-The dispatch's `hokA` is the rule frame's grading (G) and the FIT half
-of its `hihsWd` is the typed tuple's (F): both have producers
-(`blockRuleGrading_run`, `blockIhFitTyped_run`, `BlockRuleGrading.lean`),
+The dispatch's `hokA` is the rule frame's grading (G), the FIT half of
+its `hihsWd` is the typed tuple's (F), and the certificate family's
+conclusion is PINNED (`blockRuleCaAV`); all three have producers
+(`blockRuleGrading_run`, `blockIhFitTyped_run`, `blockRuleCertsW_run`),
 so `blockRecPre_seam` takes them as separate premises in exactly those
-producers' spellings (lane RM54).  The certificate family left the
-bundle in lane RM56: its conclusion is PINNED (`blockRuleCaAV`) and the
-family is produced (`blockRuleCertsW_run`), so the seam takes it as a
-premise in that producer's spelling too. -/
+producers' spellings. -/
 @[expose] def BlockGradeOwed {envC : Env} (mpC : EnvModelM V μ envC)
     (p : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -1476,8 +1434,7 @@ that theorem at the run's block datum).
 
 The index-tuple membership `i ∈ d.idx …` is the kit's own: the step
 reads `i` off the class index set (`blockRecIs_pos`), and without it
-the slot agreement has no witness — the `hspF` premise was stated one
-fact too wide (lane RM53 narrowed it in both kits). -/
+the slot agreement has no witness. -/
 theorem blockKitSpF_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
@@ -1872,9 +1829,9 @@ parametricity), the rule frame's grading (G) `hokG` and the typed
 tuple's `ih` fit (F) `hihsFit` (both produced in
 `BlockRuleGrading.lean`, in exactly these spellings), the rest of the
 grading bundle and one bundle per regime, each at the CHECKED
-elimination level.  RM53 added `hkLen` (every rule has its
-right-hand side), which pays the kit arms' `hctorAt`/`hsrcRule` and,
-with the field domains' bounds, every `hspF`. -/
+elimination level.  `hkLen` (every rule has its right-hand side) pays
+the kit arms' `hctorAt`/`hsrcRule` and, with the field domains' bounds,
+every `hspF`. -/
 theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
@@ -1923,7 +1880,7 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     (hihsE : ihs = fun ψ' => blockRuleIhsRunAV p rs mpC.base2.acval envC ψ')
     (hRbE : Rb0 = fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ')
     -- the rule certificates at the BASE frame, at the pinned conclusion —
-    -- `blockRuleCertsW_run`'s conclusion (lane RM56)
+    -- `blockRuleCertsW_run`'s conclusion
     (hcertsB : ∀ (ψ : Name → Nat), ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c)
         (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length

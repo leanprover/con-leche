@@ -6,10 +6,10 @@ import ConLeche.Model.Inductives.FixCtorReads
 public section
 
 /-!
-# A block field's readings (task #315 M3)
+# A block field's readings (task #315)
 
 `FieldReadAt` (`ConLeche/Model/Inductives/FixRecRead.lean`) — the
-per-field package the recursor lane's `ihNodeVal_blockRec` consumes —
+per-field package the rule stage consumes (`BlockRuleRun.lean`) —
 off a BLOCK constructor's reading record `BlockCtorDataI`
 (`BlockData.lean`), the block route's counterpart of the native
 route's `CtorReadR`.
@@ -27,11 +27,10 @@ is that at the block's per-field target.
 **The bound.**  The package exists at a field whose domain is (a
 Π-tower over) a member of the block — the RECURSIVE and REFLEXIVE
 fields.  At an ordinary field `BlockCtorDataI` supplies no telescope
-(`tssNone`) and no readings (`ordNone`), and nothing asks: the
-recursor lane's `hfld` is bounded to the fields the frame's `ihKeys`
-name (`BlockRecRule.lean`), and `blockIhKeys` ranges over
-`blockRecIdxOf` — exactly the recursive and reflexive positions
-(`pairIdxOf_blockIhKeys_kind`).
+(`tssNone`) and no readings (`ordNone`), and nothing asks: the rule
+stage reads the package only at the fields the frame's `ihKeys` name,
+and `blockIhKeys` ranges over `blockRecIdxOf` — exactly the recursive
+and reflexive positions (`mem_blockRecIdxOf`).
 -/
 
 namespace ConLeche.Model
@@ -276,56 +275,5 @@ theorem mem_blockRecIdxOf {ks : List BlockFieldKind} {i : Nat}
   | reflexive t => exact Or.inr rfl
   | negative => rw [hq] at h2; exact nomatch h2
   | unsupported => rw [hq] at h2; exact nomatch h2
-
-/-- **The `ih` binders sit at the recursive and reflexive fields.**
-`blockIhKeys` flat-maps over `blockRecIdxOf`, so a key's field index
-is in range and its kind carries a target — which is the bound
-`ihNodeVal_blockRec`'s `hfld` is stated at, and the bound
-`blockFieldReadAt_of` is proved at. -/
-theorem pairIdxOf_blockIhKeys_kind {rP : Nat} {rPs recTgts : List Nat}
-    {ks : List BlockFieldKind} {i c' r : Nat}
-    (h : ConLeche.pairIdxOf? (ConLeche.blockIhKeys rP rPs recTgts ks) (i, c') = some r) :
-    i < ks.length ∧
-      ((ks.map BlockFieldKind.toRec).getD i .ordinary = .recursive ∨
-        (ks.map BlockFieldKind.toRec).getD i .ordinary = .reflexive) := by
-  have hmem := mem_of_pairIdxOf? h
-  simp only [ConLeche.blockIhKeys, List.mem_flatMap, List.mem_filterMap, List.mem_range] at hmem
-  obtain ⟨i', hi', c'', -, hite⟩ := hmem
-  have hiEq : i' = i := by
-    split at hite
-    · exact (Prod.mk.inj (Option.some.inj hite)).1
-    · exact nomatch hite
-  subst hiEq
-  exact mem_blockRecIdxOf hi'
-
-/-- **A guarded call's callee shares the rule's PREFIX** (the audit's
-item 6, the half the KEYS decide).  `blockIhKeys` emits a key
-`(i, c')` only where the callee's own rule prefix `rPs.getD c' 0` IS
-this rule's `rP` — the filter that makes the call's argument count
-come out — so a prefix spine of the right length for recursor `c` has
-the right length for recursor `c'`, which is what
-`famCand_fold`/`blockRecIhCall` ask at the PREDECESSOR's class.  The
-filter's OTHER conjunct comes back with it: the field's kind names the
-CALLEE's member as its target, which is what the predecessor's SLOT is
-read at (`BlockRecPreRun.lean` §33).
-
-(The other half of item 6 — the prefix binder DATA agreeing,
-`pdoms c = pdoms c'` — is about the recursors' TYPES, not about the
-keys.  The `rds c = rds c'` a naive reading of the audit suggests is
-FALSE: the recursors' motives differ.) -/
-theorem pairIdxOf_blockIhKeys_rP {rP : Nat} {rPs recTgts : List Nat}
-    {ks : List BlockFieldKind} {i c' r : Nat}
-    (h : ConLeche.pairIdxOf? (ConLeche.blockIhKeys rP rPs recTgts ks) (i, c') = some r) :
-    c' < recTgts.length ∧ rPs.getD c' 0 = rP ∧
-      (ks.getD i .ordinary).tgt? = some (recTgts.getD c' recTgts.length) := by
-  have hmem := mem_of_pairIdxOf? h
-  simp only [ConLeche.blockIhKeys, List.mem_flatMap, List.mem_filterMap, List.mem_range] at hmem
-  obtain ⟨i', -, c'', hc'', hite⟩ := hmem
-  split at hite
-  · rename_i hcond
-    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hite)
-    simp only [Bool.and_eq_true] at hcond
-    exact ⟨hc'', by simpa using hcond.2, by simpa using hcond.1⟩
-  · exact nomatch hite
 
 end ConLeche.Model

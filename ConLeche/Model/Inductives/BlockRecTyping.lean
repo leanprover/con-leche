@@ -9,15 +9,13 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Model.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.StructWF
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.FixStageFormer
 
 public section
 
 /-!
-# G1 — `ResidueOk` from the rule stage's TYPING certificates (task #315, M5)
+# `ResidueOk` from the rule stage's TYPING certificates
 
 `checkBlockRule` (`Kernel/Inductives/BlockInstall.lean`) closes with
 two runs at the CONSTRUCTORS' environment `envT`, at the depth
@@ -44,16 +42,15 @@ def ResidueOk (V) (Rb : AnnotTerm) (ihvals : List V) (ρ' : Nat → V) (B : V) :
   WellDenoted V (consList ihvals ρ') Rb ∧ interp V (consList ihvals ρ') Rb ∈ˢ B
 ```
 
-This file is the hop between the two, and it has exactly three parts.
+This file is the hop between the two, in three parts.
 
 * **The certified hop** (`residueOk_of_certs`): `InferClaim` at the
   residue plus `DefEqClaim` between the inferred type and the
   conclusion, both at the frame's context `Δa`, give membership at
   every `Δa`-satisfying valuation.  This is `sidesMem`
   (`Model/IndFire.lean`) with one side instead of two, packaged as
-  `ResidueOk`; the k = 0 precedent is `checkConstantVal_reads`
-  (`BlockRecRead.lean`), and **what is new is only that the context is
-  not nil** — everything else is the same three lemmas.
+  `ResidueOk`; the only difference from `checkConstantVal_reads`
+  (`BlockRecRead.lean`) is that the context is not nil.
 * **The frame's valuation** (`sat_blockFrame`): the context is
   `ihdoms.reverse ++ (pdoms ++ fdoms).reverse` and `Sat` at it is two
   applications of `sat_of_spineFit` — the regimes' own
@@ -68,31 +65,20 @@ This file is the hop between the two, and it has exactly three parts.
   `∃ ty, x = .fvar i ty` list and `ctxOk_of_openers`
   (`Model/IndFrame.lean`) applies unchanged.
 
-**Where the two runs come from.**  `checkBlockRule_facts`
-(`Verify/Inductives/BlockWF.lean`, lane V2) peels the stage's bind
-chain but stops at SCOPING — fvar-freedom, level closure, resolution
-and `looseBVarsBounded` of the returned right-hand side — and V2's
-report says so in as many words ("the stage facts stop at scoping …
-it says nothing about what the stage CHECKED").  §6 below is the SAME
-peel with the typing witnesses kept (`checkBlockRule_typing`), so G1
-is a fact about the CHECK and not about a pair of hypothetical runs.
-That theorem belongs beside `checkBlockRule_facts`; it is here only
-because this lane owns one file.
+The two runs are premises here; `checkBlockRule_facts`
+(`Verify/Inductives/BlockWF.lean`) peels the stage's bind chain only
+down to its scoping facts.  The other premises are the seam to the
+readings: `hdoms` (opener `i`'s stored type reads to the context entry
+at that slot — the type readings plus the per-binder
+`checkDefEqList`), `hokΔ` (the context's own grading), and the `ih`
+openers' `SpineFit`, which is the regime's to pay.
 
-What stays a premise is the SEAM to the other halves of M5: `hdoms`,
-saying that opener `i`'s stored type reads to the context entry at
-that slot (O-2's type readings and G2's per-binder `checkDefEqList`),
-`hokΔ`, the context's own grading, and the `ih` openers' `SpineFit`,
-which is the regime's to pay.
-
-**The grade, checked and not assumed** (the brief's question): the
-stage runs `opsT.inferType`, which at `μ = .verified` is
-`inferTypeCore .verified`, and `Rules.inferTypeCore_bridge`
-(`Verify/Rules/Bridge.lean`) sends that to `Infer env .full` — never
-`.io`, which only `inferTypeCoreIO` reaches. So the residue's typing
-IS at the grade G3's argument inversion
-(`infer_mkAppN_inv_full`, `BlockRecRegimes.lean`) needs, and the two
-halves of G1/G3 compose without a grade side condition.
+**The grade is checked, not assumed**: the stage runs
+`opsT.inferType`, which at `μ = .verified` is `inferTypeCore
+.verified`, and `Rules.inferTypeCore_bridge` (`Verify/Rules/Bridge.lean`)
+sends that to `Infer env .full` — never `.io`, which only
+`inferTypeCoreIO` reaches.  So the residue's typing is at the grade an
+argument inversion at `.full` needs, with no grade side condition.
 -/
 
 namespace ConLeche.Model
@@ -151,8 +137,8 @@ theorem residueMem_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
   have heq := ihd hdeq hwsT hbT hLT hwsC hbC hLC hctxT hctxC hta hCa hokT hokC ρ hρ
   exact heq ▸ hmem ρ hρ
 
-/-- **G1, at one valuation**: `ResidueOk` in the shape
-`hres_of_residueOk` and `famCand_hCand`'s `hst` consume — the residue
+/-- **`ResidueOk` at one valuation**, in the shape `famCand_hCand`'s
+`hst` consumes — the residue
 reads, is graded, and lands in the conclusion's reading, at the frame
 `ρ'` extended by the `ih` openers' VALUES. -/
 theorem residueOk_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
@@ -262,13 +248,13 @@ the offsets `0`, `rP` and `rP + nF`; any term whose free variables are
 among those openers — the residue `bodyO` and the conclusion `concl`
 both are — correlates with the context `Δa` at the frame's full depth.
 
-`hdoms` is the SEAM to O-2 and G2: it says that opener `i`'s STORED
-type reads to the context's entry at that slot.  For the prefix and
-the field openers those entries are the recursor type's and the
-constructor telescope's binder domains (`rds`, `pdoms`/`fdoms`); for
-the `ih` openers they are the generated `blockIhPis` domains.  The
-per-binder `checkDefEqList` of G2 is what makes the rule's own
-λ-domains agree with them. -/
+`hdoms` is the seam to the readings: opener `i`'s STORED type reads to
+the context's entry at that slot.  For the prefix and the field
+openers those entries are the recursor type's and the constructor
+telescope's binder domains (`rds`, `pdoms`/`fdoms`); for the `ih`
+openers they are the generated `blockIhPis` domains.  The per-binder
+`checkDefEqList` is what makes the rule's own λ-domains agree with
+them. -/
 theorem ctxOk_blockFrame {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     {rP nF nR : Nat} {recTy crest ihTele : Expr}
     {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
@@ -328,22 +314,20 @@ theorem leavesBounded_of_openers {fvs : List Expr} {e : Expr}
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
     Expr.LeavesBounded e := fun l hl => hlbF _ (hleaf l hl)
 
-/-! ## 5. G1, assembled at the rule frame -/
+/-! ## 5. `ResidueOk`, assembled at the rule frame -/
 
-/-- **G1 at the rule frame** — the lane's deliverable.  From
+/-- **`ResidueOk` at the rule frame.**  From
 
 * the stage's two TYPING runs at the constructors' environment
   (`inferTypeCore` on the opened residue, `isDefEqCore` against the
   recursor's conclusion at the rule's prefix, the constructor's index
-  expressions and the major) — see the module docstring on why these
-  are premises and not `checkBlockRule_facts` projections;
-* the frame's three openings and the seam `hdoms`/`hokΔ` to O-2/G2;
+  expressions and the major);
+* the frame's three openings and the seam `hdoms`/`hokΔ`;
 * the regimes' own `SpineFit` for the prefix and the fields, and the
   `ih` openers' fit, which is what a regime pays for (WF:
   `graph_mem_B`; IND: `pt`),
 
-`ResidueOk` follows in the shape `hres_of_residueOk` and
-`famCand_hCand`'s `hst` consume.
+`ResidueOk` follows in the shape `famCand_hCand`'s `hst` consumes.
 
 The residue's and the conclusion's `WScoped` are DERIVED from the
 frame (`CtxOk.wScoped`), and their `LeavesBounded` from the openers'
@@ -393,161 +377,7 @@ theorem residueOk_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
     (leavesBounded_of_openers hlbF hleafC) hctxR hctxC hRb hCa hokC
     (sat_blockFrame hsp hih)
 
-/-- **Regime IND's `hres`, from the stage's runs** — the consumer
-`hres_of_residueOk` (`Model/Inductives/BlockRecRegimes.lean`) applied
-to `residueOk_blockFrame`.  `hT` is the conclusion's reading being a
-TRUTH VALUE, which at `ℓ = 0` is O-2's fact about the recursor's stored
-conclusion and not this lane's. -/
-theorem hres_of_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
-    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {F rP nF nR : Nat}
-    {recTy crest ihTele : Expr} {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
-    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
-    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
-    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
-    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
-    (hw₃ : Expr.WScoped (rP + nF) ihTele)
-    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
-    {pdoms fdoms ihdoms : List AnnotTerm}
-    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
-    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
-      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x)
-        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
-            (rP + nF + nR - 1 - i) default))
-    (hokΔ : ∀ i, i < rP + nF + nR →
-      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
-        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
-          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
-    {bodyO ty concl : Expr} {Rb Ca : AnnotTerm}
-    (hinf : ConLeche.inferTypeCore μ envT F (rP + nF + nR) bodyO = .ok ty)
-    (hdeq : ConLeche.isDefEqCore μ envT F (rP + nF + nR) ty concl = .ok true)
-    (hbR : bodyO.looseBVarsBounded 0 = true) (hbC : concl.looseBVarsBounded 0 = true)
-    (hleafR : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
-    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
-    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
-    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
-    (hokC : ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
-      WellDenotedV V ρ Ca)
-    {ρ₀ : Nat → V} {xs fs ihvals : List V}
-    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals)
-    (hT : interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca ∈ˢ (univZero : V)) :
-    ∃ T : V, T ∈ˢ (univZero : V) ∧
-      interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
-  ⟨_, hT, (residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
-    hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih).2⟩
-
-/-! ## 6. The stage's own runs, named
-
-`checkBlockRule_facts` (`Verify/Inductives/BlockWF.lean`) peels the
-same bind chain and DISCARDS every witness but the four scoping facts
-`EnvWF` needs.  This is that peel with the typing witnesses KEPT — the
-two runs `residueOk_blockFrame` consumes, the three openings that
-build the frame, and the conclusion the residue is compared against.
-It belongs beside `checkBlockRule_facts` in the Verify tier
-(V2's open item 3); it is here because this lane owns one file. -/
-
-section Inversion
-
-open ConLeche (checkBlockRule BlockShape ConstantVal BlockFieldKind Level BlockRuleFrame)
-
-local macro "close_throw " h:term : tactic =>
-  `(tactic| first
-      | exact nomatch $h
-      | exact absurd $h (by
-          simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
-          exact fun hh => nomatch hh)
-      | exact absurd $h
-          (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
-
-/-- **Stage (c)'s TYPING certificates, named.**  A successful
-`checkBlockRule` ran, at the CONSTRUCTORS' environment `envT` and at
-the depth of the frame it opened,
-
-* `inferTypeCore` on the opened residue `bodyO`, and
-* `isDefEqCore` between its result and the recursor's own conclusion
-  instantiated at the rule's prefix, the constructor's index
-  expressions and the major `C_J p⃗ f⃗`,
-
-and the frame is the three openings at the offsets `0`, `rP` and
-`rP + nF`.  Feeding these to `residueOk_blockFrame` is what makes G1 a
-fact about the CHECK rather than about a pair of hypothetical runs. -/
-theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : List Name}
-    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
-    {cvR : ConstantVal} {cA : ConstantVal × Nat} {ks : List BlockFieldKind}
-    {rhs out : Expr} {F : Nat}
-    (h : checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
-      recNames rlvls recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
-    ∃ (recTy crest ihTele : Expr) (fvsPref fvsF fvsIh : List Expr)
-      (o₁ cbody bodyO ty concl : Expr),
-      recTys[ri]? = some recTy ∧
-      openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
-      openPisAtFvars cA.2 crest (p.rulePrefixAt ri) = some (fvsF, cbody) ∧
-      openPisAtFvars
-          (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length
-          (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
-          (p.rulePrefixAt ri + cA.2) = some (fvsIh, bodyO) ∧
-      ConLeche.inferTypeCore μ envT F
-          (p.rulePrefixAt ri + cA.2 +
-            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
-          bodyO = .ok ty ∧
-      Expr.instPisAtLift
-          (fvsPref ++ cbody.getAppArgs.drop p.nP ++
-            [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take p.nP ++ fvsF)])
-          recTy = some concl ∧
-      ConLeche.isDefEqCore μ envT F
-          (p.rulePrefixAt ri + cA.2 +
-            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
-          ty concl = .ok true := by
-  unfold checkBlockRule at h
-  obtain ⟨recTy, hrecTy, h⟩ := exceptBind_ok h
-  by_cases hbv : Expr.looseBVarsBounded 0 rhs = true
-  case neg => rw [if_neg hbv] at h; close_throw h
-  rw [if_pos hbv] at h
-  by_cases hfv : rhs.hasFvar = true
-  case pos => rw [if_pos hfv] at h; close_throw h
-  rw [if_neg hfv] at h
-  obtain ⟨rhsA, _, h⟩ := exceptBind_ok h
-  by_cases hlp : Expr.allLevelParamsDefined cvR.levelParams rhsA = true
-  case neg => rw [if_neg hlp] at h; close_throw h
-  rw [if_pos hlp] at h
-  by_cases hres : Expr.constsResolve envR rhsA = true
-  case neg => rw [if_neg hres] at h; close_throw h
-  rw [if_pos hres] at h
-  -- the rule's own typing at the rule-less recursor environment
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨rbs, _⟩ := x1
-  dsimp only at h
-  -- the rule's λ binder DATA: the family's elimination datum
-  by_cases hpw : rbs.all
-      (fun b => b.2.pw == Level.zeronessOf (structElimLevel p.elim p.large)) = true
-  case neg => rw [if_neg hpw] at h; close_throw h
-  rw [if_pos hpw] at h
-  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
-  obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, crest⟩ := x3
-  obtain ⟨x4, hx4, h⟩ := exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
-  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨ldoms, lrest⟩ := x5
-  dsimp only at h
-  by_cases hcbd : ldoms.all (fun t => Expr.constsResolve envT t) = true
-  case neg => rw [if_neg hcbd] at h; close_throw h
-  rw [if_pos hcbd] at h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨ihTele, _, h⟩ := exceptBind_ok h
-  obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨fvsIh, bodyO⟩ := x9
-  obtain ⟨ty, hty, h⟩ := exceptBind_ok h
-  obtain ⟨concl, hconcl, h⟩ := exceptBind_ok h
-  obtain ⟨b, hb, h⟩ := exceptBind_ok h
-  by_cases hd : b = true
-  case neg => rw [if_neg hd] at h; close_throw h
-  subst hd
-  exact ⟨recTy, crest, ihTele, fvsPref, fvsF, fvsIh, o₁, cbody, bodyO, ty, concl,
-    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx2, ConLeche.unwrapOr_ok hx4,
-    ConLeche.unwrapOr_ok hx9, hty, ConLeche.unwrapOr_ok hconcl, hb⟩
-
-end Inversion
-
 /-! ## 4. THE TWO-FRAME BRIDGE — the rule's frame against the block's
-(task #315, M5M-rule)
 
 The IND arm's `ih` leaf (`blockIndIhLeaf_pred`, `BlockRecPreRun.lean`)
 is proved from the BLOCK's side: the constructor's walk at the field's
@@ -568,7 +398,7 @@ while the rule body's guarded call is read at the RULE's frame
 and the two frames agree nowhere past `b⃗`: `consList` puts the LAST
 value at index 0, so the rule frame's index `0` is `f⃗`'s last field
 and the block frame's is field `i - 1`.  The bridge is therefore not a
-congruence but the evaluation of the rule lane's own MOVE, `ihIdxAtM`
+congruence but the evaluation of the rule's own MOVE, `ihIdxAtM`
 (`Semantics/Tower/IhSpell.lean`): the rule spells the field's
 expression lifted past the `nF - i` later fields (at the telescope's
 cutoff) and past the prefix's `o = rP - nP` extra binders (at the
@@ -711,7 +541,6 @@ theorem interp_fieldApp_rule {nF i m : Nat} {xs fs bs : List V}
 end TwoFrame
 
 /-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt`
-(task #315, M5M-rule)
 
 `BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the three regimes
 read OFF a fitting spine of `rec_c`'s binder data: the prefix, the
@@ -728,37 +557,23 @@ of the index stretch is a fit of the member's own telescope at the
 parameter frame; and the last binder reads as the member's former
 applied to the parameters and to the index values.
 
-**A clause is stated in the direction(s) that have producers** (the
-maintainer's ruling, 2026-09-22).  The parameter clause is an `↔`
-because BOTH of its directions are the certified hop
-(`prefixDoms_spineFit` with its two openings swapped) followed by the
-members' own parameter agreement, which is itself an `↔`.  The INDEX
-clause is an implication and stays one: its converse has no producer
-and none reachable (see below), and the IND arm — which used to
-assemble a recursor spine and therefore needed it — now states its
-induction motive at the SPLIT data instead and never assembles one.
+**Each clause is stated in the direction(s) that have producers.**  The
+parameter clause is an `↔` because both of its directions are the
+certified hop (`prefixDoms_spineFit` with its two openings swapped)
+followed by the members' own parameter agreement, itself an `↔`.  The
+INDEX clause is an implication.  Every clause is a reading of the
+recursor's own type; nothing here is about the recursion or a rule.
 
-Nothing here is about the recursion or about a rule: every clause is a
-reading of the recursor's own type, which is where the recursor-type
-lane delivers it.
-
-**The index clause is bounded by the prefix's own FIT** (session 25,
-and the correction of session 24's justification).  It was stated at
-EVERY prefix spine of the right length, on the ground that its content
-is "a lifting identity — the index domains are the member's lifted
-past the prefix's `rP - nP` extra binders".  That ground is false:
+**The index clause is bounded by the prefix's own FIT.**
 `checkBlockRecTys` stores the stream's recursor type AS IS and never
 compares its index binders with the member's telescope — not
 syntactically, and not by an `isDefEq` of its own.  The only tie is
-the MAJOR's domain `T_m p⃗ ı⃗` being TYPE-CORRECT, i.e. the per-argument
-`isDefEq`s inside `checkConstantVal`'s inference, and a `DefEqClaim`
-concludes at the frames satisfying the opened context and at no
-others.  At a prefix spine that fits nothing, a defeq-but-differently-
-spelled index binder (`(fun β => β) α` for `α`, which the checker
-accepts) reads to an application off its own domain and the `↔` fails.
-So the clause takes the prefix fit its two consumers both already
-have — and it is split in two, because only ONE of the directions is
-payable.
+the MAJOR's domain `T_m p⃗ ı⃗` being TYPE-CORRECT (the per-argument
+`isDefEq`s inside `checkConstantVal`'s inference), and a `DefEqClaim`
+concludes only at the frames satisfying the opened context.  At a
+prefix spine that fits nothing, a defeq-but-differently-spelled index
+binder (`(fun β => β) α` for `α`, which the checker accepts) reads to
+an application off its own domain, so an unbounded clause is false.
 
 * **forward** (a fit of the recursor's index domains is a fit of the
   member's telescope) is `spineFit_of_major_grading` below: the
@@ -767,19 +582,13 @@ payable.
   fits the tower's own domains.  The recursor's index binders are not
   looked at at all — which is exactly why this direction works.
 * **backward** (a fit of the member's telescope is a fit of the
-  recursor's index domains) has NO producer, and none is reachable
-  with today's machinery.  The only run fact about those domains is
-  the per-argument `isDefEq` inside `checkConstantVal`'s inference of
-  the major's domain, and reading it off needs an inversion of
-  `inferTypeCore` through a Π-tower and an application spine, which
-  does not exist.  Its only consumer WAS the IND arm's `ih` leaf,
-  which instantiated the induction MOTIVE (`blockIndP`) at a spine it
-  had to assemble; the motive is now stated at the SPLIT data (the
-  prefix's fit, the middle stretch's fit, the member's index fit, the
-  major's membership), the assembly is gone, and with it the
-  converse's last consumer — `blockIndPt` converts a spine fit into
-  the split data by the FORWARD direction, which is all the arm
-  needs.
+  recursor's index domains) is not stated: its only run source would
+  be the per-argument `isDefEq` inside the major domain's inference,
+  and reading that off needs an inversion of `inferTypeCore` through a
+  Π-tower and an application spine.  No consumer needs it: the IND
+  arm states its motive (`blockIndP`) at the SPLIT data, and
+  `blockIndPt` converts a spine fit into that data by the forward
+  direction.
 
 The MAJOR clause keeps its all-frames quantification, and that is not
 an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the
@@ -831,10 +640,6 @@ theorem spineFit_take_le :
   | _ :: _, _, [], _, h => h.elim
   | _ :: _, _, _ :: _, 0, _ => trivial
   | _ :: _, _, _ :: _, _ + 1, h => ⟨h.1, spineFit_take_le _ h.2⟩
-
-/-- A singleton chain's fit is one membership. -/
-theorem spineFit_one {D : AnnotTerm} {ρ : Nat → V} {a : V}
-    (h : a ∈ˢ interp V ρ D) : SpineFit ρ [D] [a] := ⟨h, trivial⟩
 
 /-- **A fit of `rp + nI + 1` binders, decomposed** — the prefix, the
 index stretch and the ONE last value, each at its own frame. -/

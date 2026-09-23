@@ -11,7 +11,7 @@ import ConLeche.Model.Inductives.StructRecLawKit
 public section
 
 /-!
-# The LAST HOP: every stored rule's `RecRuleLaw` (task #315, M5, model half)
+# The LAST HOP: every stored rule's `RecRuleLaw`
 
 `blockRecStaged_of` (`Model/Inductives/BlockStageRec.lean`) owes one
 premise about the ι content of the recursors' cons:
@@ -38,13 +38,13 @@ disjoint halves:
   flipped to the `SpineFit`s the ι law is stated at, (b) the stored
   right-hand side's reading is exhibited as the residue's λ-tower and
   its application β-reduced, and (c) the residue's reading at the ih
-  values is identified with the stored body's — O-1,
+  values is identified with the stored body's —
   `interp_abstractIh` (`Model/Inductives/BlockRecRule.lean`).
 
 The rule data (`pdoms`/`fdoms`/`es`/`mk`/`ihs`/`Rb`) is NOT re-derived
 here: it is named, in the spelling the family premise `BlockRecPre`
-(lane RM3's `blockRecPre_of`) is stated at, and the run's own
-identification of it is that lane's.  What this module owns is the
+(`blockRecPre_of`) is stated at, and the run's own identification of
+it lives with the rule data.  What this module owns is the
 CONVERSION — from the semantic ι law to the syntactic contract — and
 the two `TeleFitPA → SpineFit` flips it needs.
 -/
@@ -180,7 +180,7 @@ theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List R
 /-! ## 2. The split: `RecRules` at the recursors' environment
 
 `find?_consBlockRecs_inv` (`Model/Inductives/BlockStageRec.lean`) is
-the only inversion of the cons the lane needs: a recursor stored at the
+the only inversion of the cons needed here: a recursor stored at the
 consed environment is either one of the constructors' environment's —
 §1 — or the `j`-th of the block, with `sumRules`' rules and the shape
 `q` dictates.  So `hrecP` is §1 plus ONE premise, per NEW recursor and
@@ -289,7 +289,7 @@ statement about the rule DATA rather than about the recursion:
   fired spine `mkAppN Ca ys` read at `ρ`;
 * the residue — the stored right-hand side's reading applied to
   `xs.take rP ++ ys.drop nP` is `Rb` at the ih values (β-reduction
-  through the rule's λ-tower, then O-1's `interp_abstractIh`).
+  through the rule's λ-tower, then `interp_abstractIh`).
 
 The conversion itself is then the spine arithmetic
 `xs.map f = (xs.take rP).map f ++ (xs.drop rP).map f`, which is why it
@@ -342,7 +342,7 @@ def BlockIotaAt (V : Type w) [SetTheory V] (K c : Nat) (leaf : Nat → AnnotTerm
         = interp V (consList (ihs.map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))
             (consList (xs ++ fs) (chainFrame K a ρ))) Rb
 
-/-- **The regimes' seam**: `BlockRecPre` — lane RM3's `blockRecPre_of`
+/-- **The regimes' seam**: `BlockRecPre` — `blockRecPre_of`'s conclusion
 — gives `BlockIotaAt` at every class and constructor of the family. -/
 theorem blockIotaAt_of_pre {s K c j : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat}
     {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
@@ -365,11 +365,11 @@ long as the recursor's rule prefix, the prefix and field values fit
 them at the chain frame, the constructor's index expressions read to
 the application's index arguments (`IotaIndexPin`'s content), its
 residual to the fired spine, and the stored right-hand side applied to
-the residue at the `ih` values (the rule's λ-tower β-reduced, then O-1
+the residue at the `ih` values (the rule's λ-tower β-reduced, then
 `interp_abstractIh`).
 
-Both are `@[expose]` because the lane that derives them
-(the rule-data lane, RM3) builds them from the run in another file. -/
+Both are `@[expose]` because the rule-data modules build them from the
+run in another file. -/
 
 /-- The rule's frame: the prefix values and the constructor's field
 values, under the `K` chain binders. -/
@@ -417,16 +417,15 @@ vacuous, the level instantiation is carried by the reading premise,
 and the parameter comparison is unused (`sumRules` sets
 `paramsBlind := true`).  What is passed through is the rule data
 (`BlockRuleDataAt`) and the grading of the applied right-hand side;
-what is consumed is the family's ι law (`BlockIotaAt`, i.e. lane RM3's
+what is consumed is the family's ι law (`BlockIotaAt`, i.e.
 `BlockRecPre` through `blockIotaAt_of_pre`).
 
-**The rule data is ONE arm of a disjunction** (lane RM49): at an
+**The rule data is ONE arm of a disjunction**: at an
 elimination level `ℓ = 0` the data's fit is REFUTABLE (`Exists`,
 `BlockRuleFit.lean` §4), and the equation holds for a different
 reason — both sides read as the point (the recursor's type is a truth
 value, the rule's λ-tower carries the zero binder datum).  The second
-arm says exactly that, and the ι law is then not consulted at all —
-`FixRecLaw.lean`'s `hℓ0` branch at the block route's spellings. -/
+arm says exactly that, and the ι law is then not consulted at all. -/
 
 /-- **A new block recursor's rule law.** -/
 theorem blockRecRuleLaw_of {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
@@ -548,21 +547,21 @@ theorem hrecP_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
   exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hpl
 
 
-/-! ## 9. The residue conjunct's O-1 half
+/-! ## 9. The residue conjunct: the abstraction's reading
 
 `BlockRuleDataAt`'s last conjunct is where the RIGHT-HAND SIDE meets
-the residue, and its content is O-1: the stored body read at the
+the residue, and its content is this: the stored body read at the
 rule's frame IS the residue read at the frame extended by the `ih`
 openers' values.  `interp_abstractIh`
 (`Model/Inductives/BlockRecRule.lean`) proves that by structural
-induction over the body with one premise, `IhNodeVal`, and lane RM3's
+induction over the body with one premise, `IhNodeVal`, and
 `ihNodeVal_of_spine` reduces that premise to `IhSpineFold` — a
 statement about the GENERATED guarded call alone.  Stated here at the
 rule's own depth (`d = 0`, no local binders) it is the equation the
 conjunct needs, modulo the β-reduction of the rule's λ-tower and the
-chain-frame lifting, both of which are the rule-data lane's. -/
+chain-frame lifting, both of which are the rule data's. -/
 
-/-- **O-1 at the rule's frame**, with `IhSpineFold` as the only
+/-- **The abstraction's reading at the rule's frame**, with `IhSpineFold` as the only
 premise: the stored right-hand side's body and the abstracted residue
 read to the same value once the `ih` openers are given their
 values. -/

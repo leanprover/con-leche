@@ -5,10 +5,10 @@ import ConLeche.Model.Inductives.BlockWitness
 public section
 
 /-!
-# Kit for the uniform block install's assembly (task #315 M3)
+# Kit for the uniform block install's assembly (task #315)
 
 `FixAssemblyKit.lean`'s X-chain half at `k` members: the block
-functor's whole premise bundle (`BlockChainsOk`, lane S's
+functor's whole premise bundle (`BlockChainsOk`,
 `Semantics/Tower/BlockFamI.lean`) and the chains' bit-validity, from
 the per-member, per-constructor chain facts.
 
@@ -18,7 +18,7 @@ shapes = the shadow tuples TAGGED by (component, constructor),
 positions = the recursive fields' telescope spines, targets = the
 calls' (member, index tuple) pairs — exactly as it is at `k = 1` a
 call to `FixWitness.fixClosed_of`.  At a `Prop`-valued block the
-closure is free (`blockPhi_closed_zero`).
+closure is free (`blockPhi_closed_zero_of`).
 -/
 
 namespace ConLeche.Model
