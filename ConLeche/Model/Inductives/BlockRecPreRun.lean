@@ -1100,6 +1100,7 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
       SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
     (hihF : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -1111,6 +1112,7 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
       SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -1136,9 +1138,9 @@ noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
       fun v hv => app_mem_B_of_piSet (blockRecMot_mem_univ hconclTy) hg hv
     have hres := (hcerts c hc j hjn).residueOk hμ
       (hspF c hc hparFit hprefFit j hjn i fs hi hfit)
-      (hihF c hc hparFit hprefFit j hjn i fs hfit g hgB)
+      (hihF c hc hparFit hprefFit j hjn i fs hi hfit g hgB)
     rw [blockRecStep_at hM hw hc (hmemN c hc) hj hfit,
-      ← hCaB c hc hparFit hprefFit j hjn i fs hfit g]
+      ← hCaB c hc hparFit hprefFit j hjn i fs hi hfit g]
     exact hres.2
 
 end Kit
@@ -1197,6 +1199,7 @@ noncomputable def blockWfKitFam (hμ : μ.verifiedChecks = true)
     (hihF : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -1209,6 +1212,7 @@ noncomputable def blockWfKitFam (hμ : μ.verifiedChecks = true)
     (hCaB : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -2021,6 +2025,7 @@ theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hihF : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -2033,6 +2038,7 @@ theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hCaB : ∀ xs : List V, ∀ c, c < K →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5047,6 +5053,7 @@ theorem blockSqStep_hst {pr : V → V} (hμ : μ.verifiedChecks = true)
       SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
     (hihF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5056,6 +5063,7 @@ theorem blockSqStep_hst {pr : V → V} (hμ : μ.verifiedChecks = true)
       SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5087,9 +5095,9 @@ theorem blockSqStep_hst {pr : V → V} (hμ : μ.verifiedChecks = true)
       (hsub _ hu v hv)
   have hres := (hcerts c hc 0 hjn).residueOk hμ
     (hspF c hc hparFit hprefFit 0 hjn i fs hi hfit)
-    (hihF c hc hparFit hprefFit 0 hjn i fs hfit g hgB)
+    (hihF c hc hparFit hprefFit 0 hjn i fs hi hfit g hgB)
   rw [blockSqStep_at hc (hsrcL c hc hparFit hj i hi fs hfit) g,
-    ← hCaB c hc hparFit hprefFit 0 hjn i fs hfit g]
+    ← hCaB c hc hparFit hprefFit 0 hjn i fs hi hfit g]
   exact hres.2
 
 /-- **Regime SQ's kit at a prefix spine**: a `UnionRecKitC` whose
@@ -5129,6 +5137,7 @@ noncomputable def blockSqKit (hμ : μ.verifiedChecks = true)
       SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
     (hihF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5140,6 +5149,7 @@ noncomputable def blockSqKit (hμ : μ.verifiedChecks = true)
       SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
     (hCaB : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5249,6 +5259,7 @@ noncomputable def blockSqKitFam (hμ : μ.verifiedChecks = true)
     (hihF : ∀ xs : List V, ∀ c, c < 1 →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5261,6 +5272,7 @@ noncomputable def blockSqKitFam (hμ : μ.verifiedChecks = true)
     (hCaB : ∀ xs : List V, ∀ c, c < 1 →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5408,6 +5420,7 @@ theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hihF : ∀ xs : List V, ∀ c, c < 1 →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5420,6 +5433,7 @@ theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo
     (hCaB : ∀ xs : List V, ∀ c, c < 1 →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
       ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
       d.ChainFit ψ (consList (xs.take d.nP) ρ)
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
           (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
@@ -5925,12 +5939,12 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
           (consList (List.replicate (ihdoms c j).length (pt : V))
             (consList (as ++ ms ++ fs) ρ)) (Ca c j)
         = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c))
-    (hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
-        ((ihs c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))) :
+    (hihTy : ∀ as : List V, as.length = K →
+      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ ys : List V,
+        SpineFit (consList as ρ) (pdoms c ++ fdoms c j) ys →
+        SpineFit (consList ys (consList as ρ)) (ihdoms c j)
+          ((ihs c j).map (interp V (consList ys (consList as ρ))))) :
     IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs Rb ρ := by
   have hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ := blockRecSplitAt_of_shape hshape
   -- **`hihLeaf`, from the block's leaf and the two-frame bridge.**
@@ -6041,12 +6055,26 @@ theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → Ann
         obtain ⟨dd', hdd', he⟩ := mem_ihTeleAtGo hdd
         rw [he, mem_rebit hdd'])
       (fun r hr bs hbs => (hCF r hr).2 bs hbs)
-  exact ⟨envT, mp, F, ihdoms, Ca, hμ,
+  have hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c) :=
     hind_of_spines hbits hTyE
       (blockIndPt hM hmemK hshape hsplitR
         (blockIndStep (ihvals := fun c j => List.replicate (ihdoms c j).length (pt : V))
-          hμ hM hnCt hcerts hspF hihFit hCaZ hCaE)),
-    hcerts, hihReg,
+          hμ hM hnCt hcerts hspF hihFit hCaZ hCaE))
+  -- the chain frame at the point tuple IS the point tuple's frame, and
+  -- the point tuple is typed (`hind`): the `ih` fit there is `hihTy`'s
+  have hptF : consList (List.replicate K (pt : V)) ρ = chainFrame K (fun _ => (pt : V)) ρ := by
+    rw [chainFrame, List.map_const', List.length_range]
+  have hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
+        ((ihs c j).map
+          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))) := by
+    intro c hc j hj xs fs _ hsp
+    rw [← hptF] at hsp ⊢
+    exact hihTy _ List.length_replicate
+      (fun c' hc' => by rw [getD_replicate_pt]; exact hind c' hc') c hc j hj _ hsp
+  exact ⟨envT, mp, F, ihdoms, Ca, hμ, hind, hcerts, hihReg,
     fun c hc j hj xs fs hxl hsp =>
       hCaZ c hc j hj (chainFrame K (fun _ => (pt : V)) ρ) xs fs _ hsp (hihReg c hc j hj xs fs hxl hsp)⟩
 
@@ -9263,7 +9291,7 @@ nose.
 So the whole family is ONE theorem at a frame that is **generic**: it
 is stated over an arbitrary `σ` and an arbitrary pair of fits, so the
 same instance pays `hT` and `hTStep` (at the split frame, through
-`hspF`/`hihFit`) and `hTReg` (at the CHAIN frame, through `hihReg`).
+`hspF`/`hihFit`) and `hTReg` (at the CHAIN frame, through the `ih` fit at the point tuple, `hihTy` instantiated after `hind`).
 Nothing in it mentions the split, the member's telescope or the
 index clause — which is why the restatement's cost is paid rather
 than moved. -/

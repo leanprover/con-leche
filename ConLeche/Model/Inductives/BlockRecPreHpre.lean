@@ -683,6 +683,7 @@ theorem blockKitRegime_wf_run (hμ : μ.verifiedChecks = true)
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -698,6 +699,7 @@ theorem blockKitRegime_wf_run (hμ : μ.verifiedChecks = true)
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -846,6 +848,7 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -862,6 +865,7 @@ theorem blockKitRegime_sq_run (hμ : μ.verifiedChecks = true)
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -1014,6 +1018,7 @@ the seam since RM53: `hspF` (`blockKitSpF_run`), `hctorAt`
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -1030,6 +1035,7 @@ the seam since RM53: `hspF` (`blockKitSpF_run`), `hctorAt`
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -1092,6 +1098,7 @@ witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,
@@ -1109,6 +1116,7 @@ witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
         SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ ((blockRulePdomsAV mpC.base2.acval
           envC p.toBlockShape rs ψ) c) xs →
         ∀ j, j < (blockRecNCt rs) c → ∀ (i : V) (fs : List V),
+        i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) ((p.toBlockShape.recTgtAt) c) →
         d.ChainFit ψ (consList (xs.take d.nP) ρ)
           (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
             (d.Φ ψ (consList (xs.take d.nP) ρ))) i ((p.toBlockShape.recTgtAt) c) j fs → ∀ g : V,

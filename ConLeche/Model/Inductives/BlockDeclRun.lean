@@ -8,6 +8,8 @@ import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
+import ConLeche.Model.Inductives.BlockIndRuleRun
+import ConLeche.Model.Inductives.BlockKitIhRun
 import ConLeche.Model.Inductives.BlockRecRead
 
 public section
@@ -991,13 +993,8 @@ end MembersRun
 `declBlock_run` is `declBlock_data` at the lane's component choices —
 `nCt := blockRecNCt`, the four syntactic components
 `blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleEsAV`/`blockRuleMkAV` —
-with every seam conjunct that the run already pays DISCHARGED and the
-rest named in ONE premise, `howed`, quantified over exactly what the
-seam hands (the recursor stage's run and the constructors' records,
-and — lane RM49's widening — that the block data IS the run's
-`blockDataOf`).  `howed`'s conjuncts are the honest list of what the
-composition still needs; each carries its owner in the comment above
-it. -/
+with every seam conjunct DISCHARGED from the run.  Until lane RM55 the
+rest was named in one premise, `howed`; it is now empty and gone. -/
 
 section Compose
 
@@ -1009,7 +1006,7 @@ theorem blockRecNCt_ge {rs : List (ConstantVal × List Expr × Nat × List (Cons
   exact Nat.le_refl _
 
 /-- **`declBlock` at the run** — the uniform install's carrier, with
-the recursor stage's obligation discharged down to `howed`.
+the recursor stage's obligation DISCHARGED — it takes no owed premise.
 
 Discharged here, at the seam: the rule count (`blockRecNCt_ge`), the
 prefix length (`blockRulePdomsAV_length`), every carried constructor's
@@ -1022,7 +1019,7 @@ The rules' `ih` openers and residue readings are PINNED
 (`blockRuleIhsRunAV`/`blockRuleRbAV`, functions of the run through
 §A.9b's definitions), and the family's level `s` is CHOSEN here
 (`blockRecLevel_run`, with its parametricity and the recursor types'
-typing at it), so `howed` chooses nothing.  Paid here as well:
+typing at it).  Paid here as well:
 * the equation list's three facts: `heqV` is `blockRecEqs_valid_seam`
   at the grading (G) (`blockRuleGrading_run`) and the typed tuple's
   `ih` fit (F) (`blockIhFitTyped_run`), `heqB` is
@@ -1039,9 +1036,15 @@ typing at it), so `howed` chooses nothing.  Paid here as well:
   sides' and the `ih` terms' grading (`blockGradeLhs_run`,
   `blockGradeIhs_run`, lane RM55).
 
-What `howed` still owes is the regime's ROWS: one bundle per regime
-(`BlockIndOwed`, `BlockWfOwed`, `BlockSqOwed`) at the checked
-elimination level.
+* the three regime bundles (`BlockIndOwed`, `BlockWfOwed`,
+  `BlockSqOwed`) at the pinned `ihdoms := blockRecIhdomsK`,
+  `Ca := blockRuleCaAV` and — in the kit arms — `ihv := blockKitIhv`
+  (lane RM55): the certificates (`blockRuleCertsK_run`), IND's count,
+  opener reading, `hCaZ`, `hCaE` (`blockIndRuleRows_run`,
+  `blockIndIhOpen_run`) and its `ih` fit at every typed tuple ((F),
+  `blockRecIhsFit_chain`); the kits' `hihF`, `hCaB`, `hihChain`
+  (`blockWfIhF_run`/`blockSqIhF_run`, `blockWfCaB_run`/`blockSqCaB_run`,
+  `blockWfIhChain_run`/`blockSqIhChain_run`).
 
 The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
 floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/
@@ -1050,56 +1053,11 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
-    (hgate : ConLeche.blockRecCheckOn = true)
-    (howed : ∀ (envC envI : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
-        (ctorsAsR : List (List (ConstantVal × Nat)))
-        (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-        (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-        (A : Nat → (Name → Nat) → AnnotTerm)
-        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)),
-        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTasR
-          ctorsAsR = .ok rsR →
-        pp.toBlockShape.memberNames.Nodup →
-        BlockNamesOk (V := V) dR cvTasR →
-        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A fssZ envI
-          pp.ctorNamesAt →
-        BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k →
-        (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
-        (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
-          ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
-        (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-            (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
-        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
-          (pp.kinds.getD c []).length = ctorsA.length) →
-      -- the family's regime, OWED as rows (`blockRecPre_seam` produces
-      -- `hpre` from them): one bundle per regime at the checked
-      -- elimination level
-      (∀ (ψ : Name → Nat) (ρ : Nat → V),
-        Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
-        BlockIndOwed mpC F pp rsR dR ψ ρ (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-          (blockRuleRbAV pp rsR mpC.base2.acval envC ψ)) ∧
-      (∀ (ψ : Name → Nat) (ρ : Nat → V),
-        Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
-        dR.w ψ ≠ 0 →
-        BlockWfOwed mpC F pp rsR dR ψ ρ
-          (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-          (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-          (blockRuleRbAV pp rsR mpC.base2.acval envC ψ)) ∧
-      (∀ (ψ : Name → Nat) (ρ : Nat → V),
-        Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
-        dR.w ψ = 0 →
-        BlockSqOwed mpC F pp rsR dR ψ ρ
-          (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-          (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
-          (blockRuleRbAV pp rsR mpC.base2.acval envC ψ))) :
+    (hgate : ConLeche.blockRecCheckOn = true) :
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hkLen => by
-      obtain ⟨hI, hW, hSq⟩ :=
-        howed envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR hkLen
       -- the family level `s`, chosen with its parametricity and its typing
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
@@ -1116,6 +1074,76 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       have heqV := blockRecEqs_valid_seam hμ hrec hnames hstage hcore hkLen hokA hval
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (blockRecEqs_params_seam hμ hrec hcore hkLen i r hr ψ₁ ψ₂ hq)
+      -- the three regime bundles, PRODUCED at the pinned `ihdoms`/`Ca`/`ihv` (lane RM55)
+      have hdR : ∃ (env₀' : Env) (pk' : Nat → BlockMemberPick)
+          (uOfD' : Nat → (Name → Nat) → Nat)
+          (ppsOf' : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+          blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf
+            = blockDataOf V pp.toBlockShape env₀' ctorsAsR pp.kinds pk' uOfD' ppsOf' :=
+        ⟨env₀, pk, uOfD, ppsOf, rfl⟩
+      have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+          rsR[c]? = some r →
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).ctorsM
+            (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
+        intro c r hr
+        obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt hrec hr
+        show ctorsAsR.getD _ [] = _
+        rw [List.getD_eq_getElem?_getD, hctA]; rfl
+      have hcertsK := blockRuleCertsK_run hμ hrec hkLen hdR hnames hstage hcore hmr hM
+      -- REGIME IND: the pinned certificates, count, opener reading, `hCaZ`, `hCaE`, and
+      -- the `ih` openers' fit at every typed tuple ((F), carried to the chain frame)
+      have hI : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
+          BlockIndOwed mpC F pp rsR
+            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
+            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
+            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
+        intro ψ ρ hℓ
+        refine ⟨fun c j => (blockRuleFrameAt pp rsR c j).ihKeys, fun c hc j hj =>
+          ⟨blockRecIhdomsK rsR.length pp mpC.base2.acval envC rsR ψ c j,
+            blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, ?_⟩⟩
+        obtain ⟨hlen, hZ, hE⟩ := blockIndRuleRows_run hμ hrec hkLen hdR hnames hstage hcore hmr hM
+          ψ ρ hℓ hc hj
+        refine ⟨?_, hlen, blockIndIhOpen_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ hℓ hc hj,
+          hZ, hE, fun as hl ht ys hys =>
+            blockRecIhsFit_chain hμ hrec hl hc (hfitF ψ ρ as hl ht c hc j hj) ys hys⟩
+        obtain ⟨-, -, e3⟩ := blockRuleCertsChain_eq hμ hrec hkLen hcore ψ hc hj rsR.length
+        dsimp only
+        rw [e3]
+        exact hcertsK rsR.length ψ c hc j hj
+      -- REGIME WF: certificates, `hihF`, `hCaB`, `hihChain`
+      have hW : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).w ψ ≠ 0 →
+          BlockWfOwed mpC F pp rsR
+            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
+            (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
+            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
+        intro ψ ρ hℓ hw
+        exact ⟨_, fun c j => blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, _,
+          hcertsK rsR.length ψ,
+          blockWfIhF_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw,
+          blockWfCaB_run hμ hrec hkLen hcore hmr hM hnames rfl hctM ψ ρ
+            (fun xs c j fs g => blockKitIhv_length pp rsR mpC.base2.acval envC ψ _ _ ρ xs c j fs g),
+          blockWfIhChain_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ _ hℓ hw⟩
+      -- REGIME SQ, at the one class the counting guard leaves
+      have hSq : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).w ψ = 0 →
+          BlockSqOwed mpC F pp rsR
+            (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) ψ ρ
+            (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+            (blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ)
+            (blockRuleRbAV pp rsR mpC.base2.acval envC ψ) := by
+        intro ψ ρ hℓ hw
+        have hpos : 0 < rsR.length := (blockRecLen_run hrec).1
+        exact ⟨_, fun c j => blockRuleCaAV pp rsR mpC.base2.acval envC ψ c j, _,
+          fun c hc j hj => hcertsK 1 ψ c (Nat.lt_of_lt_of_le hc hpos) j hj,
+          blockSqIhF_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw,
+          blockSqCaB_run hμ hrec hkLen hcore hmr hM hnames rfl hctM hpos ψ ρ
+            (fun xs c j fs g => blockKitIhv_length pp rsR mpC.base2.acval envC ψ _ _ ρ xs c j fs g),
+          blockSqIhChain_run hμ hrec hkLen hdR hnames hstage hcore hmr hM ψ ρ hℓ hw _⟩
       have hpre := blockRecPre_seam hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore
         hmr hM hkLen hTy hokA hfitF rfl rfl
         (blockRuleCertsW_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM)
