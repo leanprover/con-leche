@@ -347,8 +347,12 @@ frame's fields keep their concrete types (a field's value fits them at
 the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
 hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped DAG fields,
-`tower_struct`).  This is lane POSPROOF's `replaceConsts` at the
-member map; switch to it once that lane lands. -/
+`tower_struct`).  It is NOT lane POSPROOF's `replaceConsts`
+(`Kernel/ExprOps.lean`) at the member map, on purpose: that one
+rewrites free variables' annotations too, and here the frame's fields
+must keep their concrete types (see below) — an abstracted annotation
+would make every domain that names an earlier recursive field look
+holed, and put hole variables into the `ih` types. -/
 
 /-- The member abstraction, memoised (the executed definition; the
 shadow is unverified). -/
