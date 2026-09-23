@@ -53,13 +53,6 @@ theorem blockRecElimAgree_eval {us : List Level}
     (ψ : Name → Nat) : ∀ u ∈ us, u.eval ψ = (us.headD .zero).eval ψ :=
   fun u hu => Level.isEquiv_sound (ConLeche.blockRecElimAgree_inv h u hu) ψ
 
-/-- The same, between any two of the family's conclusions. -/
-theorem blockRecElimAgree_eval_pair {us : List Level}
-    (h : ConLeche.checkBlockRecElimAgree (m := ConLeche.CheckM) us = .ok ())
-    (ψ : Name → Nat) {u v : Level} (hu : u ∈ us) (hv : v ∈ us) :
-    u.eval ψ = v.eval ψ :=
-  (blockRecElimAgree_eval h ψ u hu).trans (blockRecElimAgree_eval h ψ v hv).symm
-
 /-- **The zeroness bit is the family's**, which is exactly the shape
 `OneElimLevel` (`Semantics/Tower/BlockRecKitI.lean`) asks for once the
 recursors' conclusions' sorts are the readings' binder numerals: at
@@ -95,23 +88,6 @@ the k = 1 probe, with a negative control showing the comparison is
 what those fixtures' rules pass).
 
 The witness stays as the record of WHY the comparison is exact. -/
-theorem not_denoteMeta_resetMeta_invariant :
-    ∃ (e₁ e₂ : Expr) (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
-      (φ : Name → Nat) (d : Nat),
-      Expr.resetMeta e₁ = Expr.resetMeta e₂ ∧
-      denoteMeta acval env φ d e₁ ≠ denoteMeta acval env φ d e₂ := by
-  refine ⟨.lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.never⟩,
-    .lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.ifAllZero []⟩,
-    (fun _ _ => .prf), ⟨[]⟩, (fun _ => 0), 0, rfl, ?_⟩
-  have e1 : ∀ pw : ConLeche.PropWhen,
-      denoteMeta (fun _ _ => AnnotTerm.prf) (⟨[]⟩ : Env) (fun _ => 0) 0
-          (Expr.lam (.sort .zero) (.sort .zero) ⟨pw⟩)
-        = some (.lam (pwBit (fun _ => 0) pw) (.sort 0) (.sort 0)) := by
-    intro pw
-    rw [denoteMeta]
-    simp [denoteMeta_sort, Expr.instantiate1, Level.eval]
-  rw [e1, e1, pwBit_never, pwBit_ifAllZero_nil]
-  simp
 
 /-! ## The two missing `denoteMeta` batteries (O-1's prerequisites)
 
@@ -155,28 +131,6 @@ theorem denoteMeta_instPisAtLift_peel
     obtain rfl : p.2 = rest := Option.some.inj hpr
     exact ConLeche.Model.Rules.denoteMeta_instPisAt_peel hacl hainst args (ds := p.1) (by rw [hpa]) hw ha hty hsp
 
-/-- **The reading of an `instantiateList` opening**, at bvar-closed
-values: `denoteMeta_openRev` through `instantiateList_eq_instSeq`. -/
-theorem denoteMeta_instantiateList
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ)
-    {vs : List Expr} (hne : vs ≠ []) {e : Expr} {d : Nat}
-    (hv : ∀ a ∈ vs, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
-    (hfb : Expr.fvarsBelow d e) (hb : e.looseBVarsBounded vs.length = true)
-    {xs : List AnnotTerm} (hsp : DenoteMetaSpine acval env φ d vs.reverse xs) :
-    denoteMeta acval env φ d (e.instantiateList vs 0)
-      = (denoteMeta acval env φ (d + vs.length)
-          (ConLeche.Verify.openRev d vs.length e)).map (ConLeche.Model.AnnotTerm.instRevChain xs) := by
-  have hlen : vs.reverse.length = vs.length := List.length_reverse
-  rw [ConLeche.instantiateList_eq_instSeq hne e]
-  have := ConLeche.Model.Rules.denoteMeta_openRev (acval := acval) (env := env) (φ := φ) hacl hainst
-    vs.reverse (e := e) (d := d)
-    (fun a hmem => hv a (List.mem_reverse.mp hmem)) hfb (by rw [hlen]; exact hb) hsp
-  rw [hlen] at this
-  exact this
-
 /-! ## O-1's guarded-call case, discharged
 
 O-1 — `interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')`, the
@@ -188,24 +142,6 @@ With lane K2's comparison that is **free**: `blockIhCall?_spine`
 exports `e = expected` as TERMS, binder data included, so the reading
 claim is `congrArg`.  (Before K2 it was a premise; the witness above
 records why it could not be one.) -/
-
-/-- **Every node the abstraction replaces reads as the generated
-spine.**  O-1's guarded-call case, with no premise left. -/
-theorem denoteMeta_blockIhCall {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
-    {as : List Expr} (h : ConLeche.blockIhCall? fr d e = some (r, as)) :
-    ∃ (nm : Name) (c' i : Nat) (expected : Expr),
-      e.getAppFn = .const nm fr.rlvls ∧
-      ConLeche.nameIdxOf? fr.recNames nm = some c' ∧
-      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r ∧
-      as.length = (fr.teleOf i).length ∧
-      Expr.instPisAtLift as
-          (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
-            (fr.teleOf i) (fr.idxOf i)) = some expected ∧
-      ∀ D : Nat, denoteMeta acval env φ D e = denoteMeta acval env φ D expected := by
-  obtain ⟨nm, c', i, expected, h1, h2, h3, -, -, -, h7, -, -, h9, h10⟩ :=
-    ConLeche.blockIhCall?_spine h
-  exact ⟨nm, c', i, expected, h1, h2, h3, h7, h9, fun D => congrArg _ h10⟩
 
 /-! ## O-2, part 1 — the stored types READ, and their readings are GRADED
 

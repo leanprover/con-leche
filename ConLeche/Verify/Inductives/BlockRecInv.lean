@@ -184,7 +184,6 @@ theorem blockIhCall?_spine {fr : BlockRuleFrame} {d : Nat} {e : Expr} {r : Nat}
   exact ⟨nm, c', d + fr.nF - 1 - b, expected, hus' ▸ hfn, hnm, hrpos, htgt', hrp',
     by simpa using hlen, hasl', hfree', hvars', hexp, hcmp'⟩
 
-
 /-! ## The abstraction -/
 
 @[simp] theorem abstractIh_bvar {fr : BlockRuleFrame} {d j : Nat} :
@@ -212,86 +211,6 @@ theorem abstractIh_app {fr : BlockRuleFrame} {d : Nat} {f a : Expr} :
        | none =>
          (abstractIh fr d f).bind fun f' =>
            (abstractIh fr d a).map fun a' => .app f' a') := rfl
-
-/-- A head that is a block recursor makes the node mention one. -/
-theorem mentionsAnyConst_of_getAppFn {names : List Name} {nm : Name} {us : List Level} :
-    ∀ {e : Expr}, e.getAppFn = .const nm us → names.contains nm = true →
-      e.mentionsAnyConst names = true
-  | .app f a, h, hn => by
-    have : (Expr.app f a).getAppFn = f.getAppFn := rfl
-    simp only [Expr.mentionsAnyConst, mentionsAnyConst_of_getAppFn (this ▸ h) hn,
-      Bool.true_or]
-  | .const n _, h, hn => by
-    cases h; simpa [Expr.mentionsAnyConst] using hn
-  | .bvar _, h, _ | .sort _, h, _ | .lit _, h, _ | .fvar .., h, _
-  | .lam .., h, _ | .forallE .., h, _ | .letE .., h, _ | .proj .., h, _ => nomatch h
-
-/-- **A node free of block recursors is no guarded call**: the call's
-head has to BE a block recursor. -/
-theorem blockIhCall?_eq_none_of_recFree {fr : BlockRuleFrame} {d : Nat} {e : Expr}
-    (h : e.mentionsAnyConst fr.recNames = false) : blockIhCall? fr d e = none := by
-  unfold blockIhCall?
-  split
-  · rename_i nm us hfn
-    split
-    · rfl
-    · rename_i c' hnm
-      refine absurd (mentionsAnyConst_of_getAppFn (names := fr.recNames) hfn ?_) (by simp [h])
-      obtain ⟨hval, hlt, -⟩ :
-          fr.recNames[c']?.getD default = nm ∧ c' < fr.recNames.length ∧
-            ∀ j, j < c' → ¬ fr.recNames[j]?.getD default = nm := by
-        simpa [nameIdxOf?] using hnm
-      rw [← hval, List.getElem?_eq_getElem hlt, Option.getD_some]
-      exact List.elem_eq_true_of_mem (List.getElem_mem hlt)
-  · rfl
-
-/-- **On a term free of block recursors the abstraction IS the lift
-past the `ih` binders.**  This is the substitution lemma's base case:
-everything the abstraction did not replace it only moved. -/
-theorem abstractIh_of_recFree {fr : BlockRuleFrame} :
-    ∀ {e : Expr} {d : Nat}, e.mentionsAnyConst fr.recNames = false → e.hasFvar = false →
-      abstractIh fr d e = some (e.liftLooseBVars fr.nR d)
-  | .bvar j, d, _, _ => by
-    simp only [abstractIh_bvar, Expr.liftLooseBVars]
-    split <;> rename_i hj
-    · rw [if_neg (by omega)]
-    · rw [if_pos (by omega), Nat.add_comm]
-  | .sort _, _, _, _ => rfl
-  | .lit _, _, _, _ => rfl
-  | .const n us, d, h, _ => by
-    simp only [Expr.mentionsAnyConst] at h
-    simp only [abstractIh_const, h, Bool.false_eq_true, if_false, Expr.liftLooseBVars]
-  | .fvar _ _, _, _, hf => absurd hf (by simp [Expr.hasFvar])
-  | .lam ty b bi, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
-  | .forallE ty b bi, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
-  | .letE ty v b, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh, abstractIh_of_recFree h.1.1 hf.1.1,
-      abstractIh_of_recFree h.1.2 hf.1.2, abstractIh_of_recFree h.2 hf.2,
-      Option.bind_some, Option.map_some, Expr.liftLooseBVars]
-  | .proj s i e, d, h, hf => by
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar] at hf
-    simp only [abstractIh, h.1, Bool.false_eq_true, if_false,
-      abstractIh_of_recFree h.2 hf, Option.map_some, Expr.liftLooseBVars]
-  | .app f a, d, h, hf => by
-    have hnone : blockIhCall? fr d (.app f a) = none := blockIhCall?_eq_none_of_recFree h
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    simp only [abstractIh_app, hnone, abstractIh_of_recFree h.1 hf.1,
-      abstractIh_of_recFree h.2 hf.2, Option.bind_some, Option.map_some,
-      Expr.liftLooseBVars]
 
 /-! ## Stage (a)'s two NAME checks, exposed
 

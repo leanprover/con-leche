@@ -67,18 +67,6 @@ noncomputable def wfData (Is Cr : List V → Nat → V) (tupOf : Nat → List V 
   hsplit := hsplit
   hconcl := hconcl
 
-@[simp] theorem wfData_kit (Is Cr : List V → Nat → V) (tupOf : Nat → List V → V)
-    (kitW : ∀ xs : List V, WfRecKit ℓ K (Is xs) (Cr xs)) (hsplit) (hconcl) (xs : List V) :
-    (wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
-      Is Cr tupOf kitW hsplit hconcl).kit xs = (kitW xs).toC := rfl
-
-/-- The candidate's body is the `WfRecKit`'s own recursor. -/
-theorem wfData_recAt (Is Cr : List V → Nat → V) (tupOf : Nat → List V → V)
-    (kitW : ∀ xs : List V, WfRecKit ℓ K (Is xs) (Cr xs)) (hsplit) (hconcl)
-    (xs : List V) (c : Nat) (i x : V) :
-    ((wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
-      Is Cr tupOf kitW hsplit hconcl).kit xs).recAt c i x = (kitW xs).recAt c i x := rfl
-
 end Wf
 
 end ConLeche.Semantics

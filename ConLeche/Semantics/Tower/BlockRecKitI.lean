@@ -96,23 +96,6 @@ at empty carriers the tagged union is empty and ALL FOUR obligations
 are vacuous, so the instantiator never has to invent a recursion
 there.  This is that kit. -/
 
-theorem not_mem_unionSet_empty {k : Nat} {u : V} :
-    ¬ u ∈ˢ unionSet k (fun _ => (empty : V)) (fun _ => (empty : V)) := by
-  intro h
-  obtain ⟨c, -, i, hi, -⟩ := mem_unionSet.mp h
-  exact not_mem_empty _ hi
-
-/-- **The empty kit**: no carrier, no obligation. -/
-noncomputable def emptyKitC (ℓ k : Nat) :
-    UnionRecKitC ℓ k (fun _ => (empty : V)) (fun _ => (empty : V)) where
-  pred := fun _ => empty
-  B := fun _ => pt
-  st := fun _ _ => pt
-  predSub := fun _ hu => absurd hu not_mem_unionSet_empty
-  exu := fun _ hu => absurd hu not_mem_unionSet_empty
-  hB := fun _ hu => absurd hu not_mem_unionSet_empty
-  hst := fun _ hu => absurd hu not_mem_unionSet_empty
-
 /-! ## The family's data -/
 
 /-- **The recursion data of a recursor family** at the base frame `ρ`:
@@ -157,17 +140,6 @@ noncomputable def famCand {ℓ K : Nat} {rP : Nat → Nat}
     (D : RecFamData V ℓ K rP rds concl ρ) (c : Nat) : V :=
   lamTowerA ℓ ρ [] (rds c) fun ys _ =>
     (D.kit (prefOf (rP c) ys)).recAt c (D.tupOf c (idxOf (rP c) ys)) (majOf ys)
-
-/-- The candidate is the common `towerCand` shape (`BlockRecI`) at the
-kit's `recAt`. -/
-theorem famCand_eq_towerCand {ℓ K : Nat} {rP : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ρ : Nat → V}
-    (D : RecFamData V ℓ K rP rds concl ρ) (c : Nat) :
-    famCand D c
-      = towerCand ℓ ρ rds
-          (fun c ys =>
-            (D.kit (prefOf (rP c) ys)).recAt c (D.tupOf c (idxOf (rP c) ys)) (majOf ys)) c :=
-  rfl
 
 /-- **`mem_type` of the candidate**: it inhabits the recursor's type. -/
 theorem famCand_mem {ℓ K : Nat} {rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}

@@ -271,17 +271,6 @@ theorem lpDefF_instantiateList {vs : List Expr}
     rw [Expr.instantiateList]
     simp only [lpDefF, ihe d h]
 
-omit [SetTheory V] in
-/-- Every member of an opener list is an `fvar`. -/
-theorem FvarList.mem_fvar {E : Nat} {xs : List Expr} (h : FvarList E xs) :
-    ∀ x ∈ xs, ∃ (i : Nat) (t : Expr), x = .fvar i t := by
-  intro x hx
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-  have hjl : j < E := by rw [← h.1]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨ty, hty⟩ := h.2.1 j hjl
-  rw [hj] at hty
-  exact ⟨_, ty, Option.some.inj hty⟩
-
 end LpDefF
 
 /-! ## 2. The reading is ψ-congruent at the `lpDefF` footprint

@@ -87,12 +87,6 @@ theorem hasFvar_structTeleAt {nF o i l : Nat} {pw : ConLeche.PropWhen}
   refine hasFvar_structIdxAt ?_
   exact ht _ (getD_mem _ (by simpa using List.mem_range.mp hk))
 
-/-- The prefix and telescope variables are `bvar`s. -/
-theorem hasFvar_bvars {L : List Nat} : ∀ e ∈ L.map (Expr.bvar ·), e.hasFvar = false := by
-  intro e he
-  obtain ⟨k, -, rfl⟩ := List.mem_map.mp he
-  rfl
-
 /-- **`hnofv`**: the generated guarded call's Π-tower has no free
 variable. -/
 theorem hasFvar_blockIhSpinePis {nm : Name} {rlvls : List Level} {pw : ConLeche.PropWhen}

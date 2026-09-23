@@ -2144,43 +2144,6 @@ theorem liftN_inst_comm :
       liftN_inst_comm B a r (k + 1) (m + 1) (by omega),
       show m + 1 - (k + 1) = m - k from by omega]
 
-/-- **The Π-peel commutes with a lift** at a FIXED cut: peeling a
-lifted tower along the lifted spine is the peel, lifted.  The peel
-instantiates at `0` and never descends under a binder of its own, so
-one cut serves the whole spine (`liftN_inst_comm` at `k = 0`). -/
-theorem peelPis_liftN (r m : Nat) :
-    ∀ (as : List AnnotTerm) {T C : AnnotTerm},
-      ConLeche.Model.AnnotTerm.peelPis T as = some C →
-      ConLeche.Model.AnnotTerm.peelPis (T.liftN r m)
-          (as.map (AnnotTerm.liftN r · m))
-        = some (C.liftN r m) := by
-  intro as
-  induction as with
-  | nil =>
-    intro T C h
-    rw [show C = T from (Option.some.inj h).symm]
-    rfl
-  | cons a as ih =>
-    intro T C h
-    match T with
-    | .pi u v A B =>
-      have h' : ConLeche.Model.AnnotTerm.peelPis (B.inst a) as = some C := h
-      show ConLeche.Model.AnnotTerm.peelPis
-        ((B.liftN r (m + 1)).inst (a.liftN r m) 0) _ = _
-      have hc := liftN_inst_comm B a r 0 m (Nat.zero_le _)
-      rw [Nat.sub_zero] at hc
-      rw [← hc]
-      exact ih h'
-    | .bvar _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .sort _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .const .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .app .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .lam .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .eqE .. => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .fst _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .snd _ => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-    | .prf => exact absurd (show (none : Option AnnotTerm) = some C from h) (by simp)
-
 /-- **The Π-peel's lift is REVERSIBLE** — `peelPis_liftN`'s converse,
 and the direction the run actually needs.
 
@@ -2466,89 +2429,6 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     exact interp_prefVarsAV hxl
   rw [hpref, List.append_assoc]
 
-/-- **O-1's premise, from the run.**  `ihNodeVal_of_spine` at
-`ihSpineFold_blockRec`: `interp_abstractIh`'s `hcall` with no
-proof obligation left but the run's own facts. -/
-theorem ihNodeVal_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Nat}
-    {envT : Env} {mT : EnvModel V envT}
-    {fr : ConLeche.BlockRuleFrame} {F o ℓ K : Nat}
-    {cty : Expr} {fvs : List Expr} {cr : Expr}
-    {tlF : Nat → List (Nat × Nat × AnnotTerm)} {EisF : Nat → List AnnotTerm}
-    {σchain : Nat → V} {xs fs : List V} {ihvals : List V}
-    (haclN : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
-      (mo.acval n ψ').liftN m k = mo.acval n ψ')
-    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
-      denoteMeta mT.acval envT ψ D y = some ya →
-      denoteMeta mo.acval env ψ D y = some ya)
-    (hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (mo.acval n ψ').inst y k = mo.acval n ψ')
-    (hcl : ∀ (n : Name) (ψ' : Name → Nat) (ρ1 ρ2 : Nat → V),
-      interp V ρ1 (mo.acval n ψ') = interp V ρ2 (mo.acval n ψ'))
-    (hih : ihvals.length = fr.nR)
-    (hF : fr.nP + o + fr.nF = F) (ho : fr.rP - fr.nP = o)
-    (hxl : xs.length = fr.rP) (hfl : fs.length = fr.nF) (hℓ : ℓ ≠ 0)
-    (hop0 : ConLeche.openPisAtFvars (fr.nP + fr.nF) cty 0 = some (fvs, cr))
-    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hstripC : (cty.stripPis (fr.nP + fr.nF)).isSome = true)
-    (htele : fr.teleOf = ConLeche.structFieldTeleOf cty fr.nP fr.nF)
-    (hidx : fr.idxOf = ConLeche.structFieldIdxOf cty fr.nP fr.nF)
-    -- the fields with an `ih` opener: the frame's `ihKeys` name exactly the
-    -- RECURSIVE and REFLEXIVE ones (`pairIdxOf_blockIhKeys_kind`), and the
-    -- constructors' stage supplies the package only there
-    (hfld : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
-      FieldReadAt mo ψ fr.nP fr.nF i cty fvs (tlF i) (EisF i))
-    (hnofv : ∀ (d i : Nat) (nm : Name),
-      (ConLeche.blockIhSpinePis nm fr.rlvls fr.pw fr.nP fr.rP fr.nF i d
-        (fr.teleOf i) (fr.idxOf i)).hasFvar = false)
-    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
-      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
-        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
-        interp V (consList (xs ++ fs) σchain)
-            (mo.acval nm (Level.substFn ψ ci.toConstantVal.levelParams fr.rlvls))
-          = σchain (K - 1 - c'))
-    (hi : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r → i < fr.nF)
-    (hihv : ∀ (i c' r : Nat), ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
-      ihvals.getD r pt
-        = interp V (consList (xs ++ fs) σchain)
-            (ihFunAV ℓ K c' fr.rP fr.nF
-              (ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
-              ((EisF i).map (ihIdxAtM fr.nF o i 0
-                (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
-              (AnnotTerm.mkAppN
-                (.bvar (fr.nF - 1 - i + 0 +
-                  (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
-                (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
-    -- **G3**, at THE CALL the fold is at (see `ihSpineFold_blockRec`)
-    (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
-      (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
-      ConLeche.blockIhCall? fr d node = some (r, as) →
-      node.hasFvar = false → node.looseBVarsBounded (F + d) = true →
-      ConLeche.nameIdxOf? fr.recNames nm = some c' →
-      ConLeche.pairIdxOf? fr.ihKeys (i, c') = some r →
-      locals.length = d → i < fr.nF →
-      FvarList (F + d) as1 → FvarList (F + fr.nR + d) as2 →
-      as2₀ <:+ as2 →
-      LocalsFit V mo.acval env ψ F (consList (xs ++ fs) σchain) locals as1 →
-      ConstsBound envT (Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
-        (as.map fun x => x.liftLooseBVars fr.nR d)) →
-      WalkCtx V mT ψ (F + fr.nR + d)
-        (consList locals (consList ihvals (consList (xs ++ fs) σchain))) Δa as2 →
-      IhTyped envT (F + fr.nR + d)
-        ((Expr.mkAppN (.bvar (d + fr.nR - 1 - r))
-          (as.map fun x => x.liftLooseBVars fr.nR d)).instantiateList as2 0) →
-      DenoteMetaSpine mo.acval env ψ (F + d) (as.map (·.instantiateList as1 0)) vs →
-      DenoteMetaSpine mT.acval envT ψ (F + fr.nR + d)
-        (as.map fun x => (x.liftLooseBVars fr.nR d).instantiateList as2 0) ws →
-      (vs.map (interp V (consList locals (consList (xs ++ fs) σchain)))).length
-        = (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length →
-      SpineFit (consList (xs ++ fs) σchain)
-        ((ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i))).map (·.2.2))
-        (vs.map (interp V (consList locals (consList (xs ++ fs) σchain))))) :
-    IhNodeVal V mo.acval env mT ψ fr F (consList (xs ++ fs) σchain) ihvals as2₀ :=
-  ihNodeVal_of_spine haclN hmono hih
-    (ihSpineFold_blockRec (fun n ψ' k => haclN n ψ' 1 k) hainst hcl hF ho hxl hfl hℓ
-      hop0 hCf hCb hstripC htele hidx hfld hnofv hcallee hi hihv hfit)
-
 /-! ## The ℓ = 0 route (AUDIT item 5)
 
 `ihSpineFold_blockRec` carries `hℓ : ℓ ≠ 0` because `ihFunAV_fold`
@@ -2562,29 +2442,5 @@ no `hihv`.
 
 The two premises are the regime's own: the block's recursors read to
 `pt` (`indCand`'s leaf) and so do the `ih` values. -/
-
-/-- **`IhSpineFold` at `ℓ = 0`** — the IND arm of `hnew`, which
-`ihSpineFold_blockRec` does not cover. -/
-theorem ihSpineFold_blockRec_zero {env envT : Env} {mo : EnvModel V env}
-    {mT : EnvModel V envT} {ψ : Name → Nat}
-    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
-    {as2₀ : List Expr}
-    (hheadPt : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c' →
-      ∀ (dd : Nat) (us : List Level) (Ah : AnnotTerm) (σ : Nat → V),
-        denoteMeta mo.acval env ψ dd (Expr.const nm us) = some Ah → interp V σ Ah = pt)
-    (hihPt : ∀ r : Nat, ihvals.getD r pt = pt) :
-    IhSpineFold V mo.acval env mT ψ fr F ρ' ihvals as2₀ := by
-  intro d locals nm c' i r as as1 as2 Δa node expected A vs ws hcall hnodeF hnodeB hcbe hloc h1 h2
-    hsx hlf hW hnm hrpos hasl hexp hne hty hA hvs hws
-  subst hne
-  obtain ⟨nm', c'', i', expected', hfn, hnm', -, -, -, -, -, -, -, -, -⟩ :=
-    ConLeche.blockIhCall?_spine hcall
-  -- the node is a spine on the callee CONSTANT
-  rw [← ConLeche.Expr.mkAppN_getApp node, hfn, instantiateList_mkAppN,
-    Expr.instantiateList] at hA
-  obtain ⟨Ah, ws, hAh, -, rfl⟩ := denoteMeta_mkAppN_inv hA
-  rw [interp_mkAppN, foldl_app_map,
-    hheadPt nm' c'' hnm' (F + d) fr.rlvls Ah (consList locals ρ') hAh,
-    foldl_app_pt_spine, hihPt r, foldl_app_pt_spine]
 
 end ConLeche.Model

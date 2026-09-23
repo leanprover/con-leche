@@ -393,49 +393,6 @@ theorem residueOk_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
     (leavesBounded_of_openers hlbF hleafC) hctxR hctxC hRb hCa hokC
     (sat_blockFrame hsp hih)
 
-/-- **Regime IND's `hres`, from the stage's runs** — the consumer
-`hres_of_residueOk` (`Model/Inductives/BlockRecRegimes.lean`) applied
-to `residueOk_blockFrame`.  `hT` is the conclusion's reading being a
-TRUTH VALUE, which at `ℓ = 0` is O-2's fact about the recursor's stored
-conclusion and not this lane's. -/
-theorem hres_of_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
-    (mp : EnvModelM V μ envT) {ψ : Name → Nat} {F rP nF nR : Nat}
-    {recTy crest ihTele : Expr} {fvsPref fvsF fvsIh : List Expr} {o₁ o₂ o₃ : Expr}
-    (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
-    (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
-    (h₃ : openPisAtFvars nR ihTele (rP + nF) = some (fvsIh, o₃))
-    (hw₁ : Expr.WScoped 0 recTy) (hw₂ : Expr.WScoped rP crest)
-    (hw₃ : Expr.WScoped (rP + nF) ihTele)
-    (hlbF : ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, (Expr.fvarTypeD x).looseBVarsBounded 0 = true)
-    {pdoms fdoms ihdoms : List AnnotTerm}
-    (hp : pdoms.length = rP) (hf : fdoms.length = nF) (hidx : ihdoms.length = nR)
-    (hdoms : ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF ++ fvsIh)[i]? = some x →
-      denoteMeta mp.base2.acval envT ψ i (Expr.fvarTypeD x)
-        = some ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD
-            (rP + nF + nR - 1 - i) default))
-    (hokΔ : ∀ i, i < rP + nF + nR →
-      ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
-        WellDenotedV V (fun j => ρ (j + (rP + nF + nR - 1 - i) + 1))
-          ((ihdoms.reverse ++ (pdoms ++ fdoms).reverse).getD (rP + nF + nR - 1 - i) default))
-    {bodyO ty concl : Expr} {Rb Ca : AnnotTerm}
-    (hinf : ConLeche.inferTypeCore μ envT F (rP + nF + nR) bodyO = .ok ty)
-    (hdeq : ConLeche.isDefEqCore μ envT F (rP + nF + nR) ty concl = .ok true)
-    (hbR : bodyO.looseBVarsBounded 0 = true) (hbC : concl.looseBVarsBounded 0 = true)
-    (hleafR : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
-    (hleafC : ∀ l ∈ concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh)
-    (hRb : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) bodyO = some Rb)
-    (hCa : denoteMeta mp.base2.acval envT ψ (rP + nF + nR) concl = some Ca)
-    (hokC : ∀ ρ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) ρ →
-      WellDenotedV V ρ Ca)
-    {ρ₀ : Nat → V} {xs fs ihvals : List V}
-    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals)
-    (hT : interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca ∈ˢ (univZero : V)) :
-    ∃ T : V, T ∈ˢ (univZero : V) ∧
-      interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
-  ⟨_, hT, (residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
-    hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih).2⟩
-
 /-! ## 6. The stage's own runs, named
 
 `checkBlockRule_facts` (`Verify/Inductives/BlockWF.lean`) peels the
@@ -458,91 +415,6 @@ local macro "close_throw " h:term : tactic =>
           exact fun hh => nomatch hh)
       | exact absurd $h
           (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
-
-/-- **Stage (c)'s TYPING certificates, named.**  A successful
-`checkBlockRule` ran, at the CONSTRUCTORS' environment `envT` and at
-the depth of the frame it opened,
-
-* `inferTypeCore` on the opened residue `bodyO`, and
-* `isDefEqCore` between its result and the recursor's own conclusion
-  instantiated at the rule's prefix, the constructor's index
-  expressions and the major `C_J p⃗ f⃗`,
-
-and the frame is the three openings at the offsets `0`, `rP` and
-`rP + nF`.  Feeding these to `residueOk_blockFrame` is what makes G1 a
-fact about the CHECK rather than about a pair of hypothetical runs. -/
-theorem checkBlockRule_typing {envR envT : Env} {p : BlockShape} {recNames : List Name}
-    {rlvls : List Level} {recTys : List Expr} {mIs rPs recTgts : List Nat} {ri : Nat}
-    {cvR : ConstantVal} {cA : ConstantVal × Nat} {ks : List BlockFieldKind}
-    {rhs out : Expr} {F : Nat}
-    (h : checkBlockRule (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
-      recNames rlvls recTys mIs rPs recTgts ri cvR cA ks rhs = .ok out) :
-    ∃ (recTy crest ihTele : Expr) (fvsPref fvsF fvsIh : List Expr)
-      (o₁ cbody bodyO ty concl : Expr),
-      recTys[ri]? = some recTy ∧
-      openPisAtFvars (p.rulePrefixAt ri) recTy 0 = some (fvsPref, o₁) ∧
-      openPisAtFvars cA.2 crest (p.rulePrefixAt ri) = some (fvsF, cbody) ∧
-      openPisAtFvars
-          (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length
-          (ihTele.instantiateList (fvsPref ++ fvsF).reverse)
-          (p.rulePrefixAt ri + cA.2) = some (fvsIh, bodyO) ∧
-      ConLeche.inferTypeCore μ envT F
-          (p.rulePrefixAt ri + cA.2 +
-            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
-          bodyO = .ok ty ∧
-      Expr.instPisAtLift
-          (fvsPref ++ cbody.getAppArgs.drop p.nP ++
-            [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take p.nP ++ fvsF)])
-          recTy = some concl ∧
-      ConLeche.isDefEqCore μ envT F
-          (p.rulePrefixAt ri + cA.2 +
-            (ConLeche.blockIhKeys (p.rulePrefixAt ri) rPs recTgts ks).length)
-          ty concl = .ok true := by
-  unfold checkBlockRule at h
-  obtain ⟨recTy, hrecTy, h⟩ := exceptBind_ok h
-  by_cases hbv : Expr.looseBVarsBounded 0 rhs = true
-  case neg => rw [if_neg hbv] at h; close_throw h
-  rw [if_pos hbv] at h
-  by_cases hfv : rhs.hasFvar = true
-  case pos => rw [if_pos hfv] at h; close_throw h
-  rw [if_neg hfv] at h
-  obtain ⟨rhsA, _, h⟩ := exceptBind_ok h
-  by_cases hlp : Expr.allLevelParamsDefined cvR.levelParams rhsA = true
-  case neg => rw [if_neg hlp] at h; close_throw h
-  rw [if_pos hlp] at h
-  by_cases hres : Expr.constsResolve envR rhsA = true
-  case neg => rw [if_neg hres] at h; close_throw h
-  rw [if_pos hres] at h
-  -- the rule's own typing at the rule-less recursor environment
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨x1, _, h⟩ := exceptBind_ok h; obtain ⟨rbs, _⟩ := x1
-  dsimp only at h
-  -- the rule's λ binder DATA: the family's elimination datum
-  by_cases hpw : rbs.all
-      (fun b => b.2.pw == Level.zeronessOf (structElimLevel p.elim p.large)) = true
-  case neg => rw [if_neg hpw] at h; close_throw h
-  rw [if_pos hpw] at h
-  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h; obtain ⟨fvsPref, o₁⟩ := x2
-  obtain ⟨x3, _, h⟩ := exceptBind_ok h; obtain ⟨_, crest⟩ := x3
-  obtain ⟨x4, hx4, h⟩ := exceptBind_ok h; obtain ⟨fvsF, cbody⟩ := x4
-  obtain ⟨x5, _, h⟩ := exceptBind_ok h; obtain ⟨ldoms, lrest⟩ := x5
-  dsimp only at h
-  by_cases hcbd : ldoms.all (fun t => Expr.constsResolve envT t) = true
-  case neg => rw [if_neg hcbd] at h; close_throw h
-  rw [if_pos hcbd] at h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨ihTele, _, h⟩ := exceptBind_ok h
-  obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨fvsIh, bodyO⟩ := x9
-  obtain ⟨ty, hty, h⟩ := exceptBind_ok h
-  obtain ⟨concl, hconcl, h⟩ := exceptBind_ok h
-  obtain ⟨b, hb, h⟩ := exceptBind_ok h
-  by_cases hd : b = true
-  case neg => rw [if_neg hd] at h; close_throw h
-  subst hd
-  exact ⟨recTy, crest, ihTele, fvsPref, fvsF, fvsIh, o₁, cbody, bodyO, ty, concl,
-    ConLeche.unwrapOr_ok hrecTy, ConLeche.unwrapOr_ok hx2, ConLeche.unwrapOr_ok hx4,
-    ConLeche.unwrapOr_ok hx9, hty, ConLeche.unwrapOr_ok hconcl, hb⟩
 
 end Inversion
 
@@ -831,10 +703,6 @@ theorem spineFit_take_le :
   | _ :: _, _, [], _, h => h.elim
   | _ :: _, _, _ :: _, 0, _ => trivial
   | _ :: _, _, _ :: _, _ + 1, h => ⟨h.1, spineFit_take_le _ h.2⟩
-
-/-- A singleton chain's fit is one membership. -/
-theorem spineFit_one {D : AnnotTerm} {ρ : Nat → V} {a : V}
-    (h : a ∈ˢ interp V ρ D) : SpineFit ρ [D] [a] := ⟨h, trivial⟩
 
 /-- **A fit of `rp + nI + 1` binders, decomposed** — the prefix, the
 index stretch and the ONE last value, each at its own frame. -/

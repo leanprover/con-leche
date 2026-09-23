@@ -167,101 +167,6 @@ the field at its own telescope variables.  Nothing else of the
 original proof survives, which is the check that the generalisation
 lost nothing. -/
 
-set_option maxHeartbeats 3200000 in
-/-- **`denoteMeta_ihSpineAt`, from `denoteMeta_structTeleAtPis`** —
-the same statement, verbatim. -/
-theorem denoteMeta_ihSpineAt_ofGen {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i : Nat}
-    {pw : PropWhen} {cty : Expr}
-    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
-    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
-    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
-    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
-    {P X F I : List Expr} (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF)
-    (hI : I.length = l)
-    (hidxP : ∀ (k : Nat) (x : Expr), P[k]? = some x → ∃ ty, x = Expr.fvar k ty)
-    (hidxX : ∀ (k : Nat) (x : Expr), X[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty)
-    (hidxF : ∀ (k : Nat) (x : Expr), F[k]? = some x →
-      ∃ ty, x = Expr.fvar (nP + o + k) ty)
-    (hidxI : ∀ (k : Nat) (x : Expr), I[k]? = some x →
-      ∃ ty, x = Expr.fvar (nP + o + nF + k) ty)
-    {hd : Expr} {pre : List Expr} {hdA : AnnotTerm} {preA : List AnnotTerm}
-    (hhd : denoteMeta m.acval env ψ
-        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-        (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-            (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) hd)
-        = some hdA)
-    (hpre : DenoteMetaSpine m.acval env ψ
-        (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-        (pre.map (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-            (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1))) preA) :
-    denoteMeta m.acval env ψ (nP + o + nF + l)
-        (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
-          (Expr.mkPisOf (ConLeche.structTeleAt nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i))
-            (Expr.mkAppN hd
-              (pre ++ (ConLeche.structFieldIdxOf cty nP nF i).map
-                  (ConLeche.structIdxAt nF o i l (ConLeche.structFieldTeleOf cty nP nF i).length) ++
-                [Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-                  (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)]))))
-      = some (mkPisAV (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl))
-          (AnnotTerm.mkAppN hdA
-            (preA ++ Eis.map (ihIdxAtM nF o i l (ConLeche.structFieldTeleOf cty nP nF i).length) ++
-              [AnnotTerm.mkAppN
-                (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-                (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)]))) := by
-  obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
-  obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
-  have hS : (fvs0.take (nP + i)).length = nP + i := by
-    rw [List.length_take, hlen0]
-    omega
-  have hidxS : ∀ (k : Nat) (x : Expr), (fvs0.take (nP + i))[k]? = some x →
-      ∃ ty, x = Expr.fvar k ty := by
-    intro k x hx
-    have hk : k < nP + i := by
-      rcases Nat.lt_or_ge k (nP + i) with h | h
-      · exact h
-      · rw [List.getElem?_eq_none (by rw [hS]; omega)] at hx
-        exact nomatch hx
-    rw [List.getElem?_take, if_pos hk] at hx
-    exact hidx0 k x hx
-  have hlenL : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
-    rw [List.length_append, List.length_append, List.length_append, hP, hX, hF, hI]
-  have hLidx := frameIdx hP hX hF hidxP hidxX hidxF hidxI
-  have hbvarA : ∀ q : Nat, q < nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length →
-      denoteMeta m.acval env ψ (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-              (ConLeche.structFieldTeleOf cty nP nF i).length)
-            (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
-        = some (AnnotTerm.bvar q) :=
-    fun q hq => denoteMeta_instSeq_ext_bvar hlenL hLidx hq
-  refine denoteMeta_structTeleAtPis (pw := pw) hop0 hCf hCb hstripC hi
-    ⟨hlenTl, hbind, hspSrc⟩ hP hX hF hI hidxP hidxX hidxF hidxI ?_
-  have hspI := denoteMetaSpine_ihIdx (m := m) (ψ := ψ) (o := o) (l := l) hCf hCb hstripC hi rfl
-    hS hidxS (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF hI hidxP hidxF
-  have hfieldApp : denoteMeta m.acval env ψ
-      (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length)
-        (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-            (ConLeche.structFieldTeleOf cty nP nF i).length)
-          (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
-          (Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-            (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)))
-      = some (AnnotTerm.mkAppN
-          (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-          (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)) := by
-    rw [Expr.instSeq_mkAppN]
-    refine denoteMeta_mkAppN ?_ (hbvarA _ (by omega))
-    unfold ConLeche.structTeleVars teleVarsAV
-    rw [List.map_map]
-    simp only [Function.comp_def]
-    exact DenoteMetaSpine.of_map (List.range (ConLeche.structFieldTeleOf cty nP nF i).length)
-      (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
-  rw [Expr.instSeq_mkAppN, List.map_append, List.map_append, List.map_map, List.map_cons,
-    List.map_nil]
-  simp only [Function.comp_def]
-  rw [denoteMeta_mkAppN ((hpre.append hspI).append (.cons hfieldApp .nil)) hhd]
-
 /-! ## The opener's stored type, at the CHECK's own opening list
 
 The rule lane spells its frames as `FvarList E as1` and opens with
@@ -477,29 +382,6 @@ file to FIX two indices.  Both are fixed here:
   walk's depth `F + fr.nR + d` the level is therefore `fr.nR + d`, NOT
   `r` — the two are the same statement, and a consumer that reads at
   the walk's frame should take the `_deep` form and skip the lift. -/
-
-/-- **§S16.6's statement**: the `ih` opener's stored type reads to a
-`mkPisAV` tower over field `i`'s telescope at the opener's own `ih`
-level, whatever its conclusion reads to. -/
-theorem denoteMeta_blockIhOpenerTy_exists {m : EnvModel V env} {ψ : Name → Nat}
-    {nP nF o d i : Nat} {pw : PropWhen} {cty : Expr}
-    {fvs0 : List Expr} {crest : Expr} {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
-    (hop0 : openPisAtFvars (nP + nF) cty 0 = some (fvs0, crest))
-    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
-    (hfr : FieldReadAt m ψ nP nF i cty fvs0 tl Eis)
-    {as1 : List Expr} (h1 : FvarList (nP + o + nF + d) as1) {concl : Expr}
-    (hconcl : ∃ conclA, denoteMeta m.acval env ψ
-        (nP + o + nF + d + (ConLeche.structFieldTeleOf cty nP nF i).length)
-        (concl.instantiateList
-          ((openFvars (nP + o + nF + d)
-            (ConLeche.structFieldTeleOf cty nP nF i).length).reverse ++ as1) 0)
-      = some conclA) :
-    ∃ B : AnnotTerm, denoteMeta m.acval env ψ (nP + o + nF + d)
-        ((Expr.mkPisOf (ConLeche.structTeleAt nF o i d pw (ConLeche.structFieldTeleOf cty nP nF i))
-          concl).instantiateList as1 0)
-      = some (mkPisAV (ihTeleAtR nF o i d (rebit (pwBit ψ pw) tl)) B) :=
-  hconcl.imp fun _ h => denoteMeta_blockIhOpenerTy hop0 hCf hCb hstripC hi hfr h1 h
 
 /-- **§S16.6's statement at the WALK's depth**: `δ` binders below the
 opener, the same tower at `ih` level `d + δ`. -/
@@ -1049,8 +931,6 @@ theorem blockRuleHconclRead_of {envT : Env} {mT : EnvModel V envT} {ψ : Name �
   exact ⟨conclA, hconclA⟩
 
 end OpenerConcl
-
-
 
 /-! ## `hopener` — `hop` and the reading, at the consumer's spelling
 

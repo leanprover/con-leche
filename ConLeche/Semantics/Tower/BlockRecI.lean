@@ -86,11 +86,6 @@ theorem consList_getD_of_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < 
 `projChainAV` (the Σ'-chain kit) and `projAV` (the basis pair tower)
 are the same function; the leaf is stated with either. -/
 
-omit [SetTheory V] in
-theorem projChainAV_eq_projAV : ∀ (i : Nat) (e : AnnotTerm), projChainAV i e = projAV i e
-  | 0, _ => rfl
-  | i + 1, e => projChainAV_eq_projAV i (.snd e)
-
 /-! ## Substituting a block of innermost binders
 
 `instsAV d vs e` replaces the `vs.length` innermost binders of `e` by
@@ -170,10 +165,6 @@ answer 2 strict), and so is the ι equation's left-hand side's prefix. -/
 `prefix ++ (nF further binders)`. -/
 def prefVarsAV (rP nF : Nat) : List AnnotTerm :=
   (List.range rP).map fun l => .bvar (nF + rP - 1 - l)
-
-omit [SetTheory V] in
-@[simp] theorem prefVarsAV_length (rP nF : Nat) : (prefVarsAV rP nF).length = rP := by
-  simp [prefVarsAV]
 
 /-- **The prefix variables read back the prefix spine.** -/
 theorem interp_prefVarsAV {rP : Nat} {xs bs : List V} {ρ : Nat → V} (hx : xs.length = rP) :
@@ -438,14 +429,6 @@ def blockRecAV (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c
     AnnotTerm :=
   blockRecAVI s K RecTy eqs c
 
-omit [SetTheory V] in
-/-- The leaf, spelled: `projAV c (choice.{s} (Σ' rs : ⟨RecTy⃗⟩, IotaAll rs) prf)`. -/
-theorem blockRecAV_eq (s K : Nat) (RecTy : Nat → AnnotTerm) (eqs : List AnnotTerm) (c : Nat) :
-    blockRecAV s K RecTy eqs c
-      = projAV c (AnnotTerm.mkAppN (.const .choice [s])
-          [sigChainAV s (blockTsAV K RecTy) (andChainAV eqs), .prf]) := by
-  rw [blockRecAV, blockRecAVI, projChainAV_eq_projAV, selChainAV]
-
 /-- The chain frame of a tuple: the base frame under the `K` Σ'
 binders, class `c`'s component at `bvar (K-1-c)`. -/
 noncomputable def chainFrame (K : Nat) (a ρ : Nat → V) : Nat → V :=
@@ -700,43 +683,6 @@ variable {ℓ K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl Rec
   {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
   {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
   {ρ : Nat → V}
-
-/-- The λ-tower over the recursor type's binder data of a body
-function of the spine. -/
-noncomputable def towerCand (ℓ : Nat) (ρ : Nat → V)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (body : Nat → List V → V) (c : Nat) : V :=
-  lamTowerA ℓ ρ [] (rds c) fun ys _ => body c ys
-
-/-- **The regimes' common reduction** at `ℓ ≠ 0`. -/
-theorem towerCand_hCand (hℓ : ℓ ≠ 0) (body : Nat → List V → V)
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds)
-    (hmem : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      body c ys ∈ˢ interp V (consList ys ρ) (concl c))
-    (hiota : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (towerCand ℓ ρ rds body) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ (es c j ++ [mk c j]).map
-          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ)))) ∧
-      body c (xs ++ (es c j ++ [mk c j]).map
-          (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
-        = interp V
-            (consList ((ihs c j).map
-                (interp V (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))))
-              (consList (xs ++ fs) (chainFrame K (towerCand ℓ ρ rds body) ρ))) (Rb c j)) :
-    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
-      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs Rb,
-        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
-  refine hCand_iotaEqsAV_of (towerCand ℓ ρ rds body) (fun c hc => ?_)
-    fun c hc j hj xs fs hxl hsp => ?_
-  · rw [hTyE c hc]
-    exact lamTowerA_mem (hbits c hc)
-      (towerWalkA_of_spines_body fun ys hsp => ⟨by simpa using hmem c hc ys hsp,
-        fun h0 => absurd h0 hℓ⟩)
-  · obtain ⟨hfit, hbody⟩ := hiota c hc j hj xs fs hxl hsp
-    rw [towerCand, lamTowerA_fold hℓ hfit]
-    simpa using hbody
 
 end Body
 

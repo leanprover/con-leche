@@ -1016,36 +1016,6 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
   rw [chainFrame_zero, blockRecMkK, AnnotTerm.liftN_zero] at hval
   rw [hval, blockCtorMajor_value hM hcj hcf.1 hmN hlv hqs hfq]
 
-/-- **`mk` at a `Prop`-valued block.**  At `d.w ψ = 0` every value in
-the block is the point, so both sides of the conjunct are the point
-and NO fit is needed — the `w`-split that §4's finding forces on the
-FIT half does not reach the fired spine.
-
-`hzero` is the constructors' stage's own clause at `d.w ψ = 0`: the
-constructor's leaf is `sumMkAV 0 …`, whose every application folds to
-the point (`blockModelAt_of_records`' `hctorLeaf`, `sumMkAV_zero`,
-`foldl_app_pt`).  It is not a `BlockModelAt` field, which is why it
-is named here. -/
-theorem blockRuleHmk_zero
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    {rhs : Expr} {ψ ψj : Name → Nat}
-    (hcA : r.2.2.2[i]? = some cA) (hrhs : r.2.1[i]? = some rhs)
-    {nPd nF : Nat} (hfind : envC.find? cA.1.name = some (.ctorInfo cA.1 nPd nF))
-    (hlps : cA.1.levelParams = p.lps)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
-    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    {ρ : Nat → V} {L : List V} {ys : List AnnotTerm}
-    (hzero : ∀ vs : List V, vs.foldl app (interp V ρ (mpC.base2.acval cA.1.name ψ)) = pt) :
-    interp V (consList L ρ) (blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      = interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys) := by
-  rw [blockRuleMkAV_eq h hr hcA hrhs hfind (by rw [← hlps]; rfl) hnP ψ,
-    interp_mkAppN, foldl_app_map,
-    acval_interp_closedC mpC.base2 cA.1.name _ (consList L ρ) ρ,
-    Level.substFn_param_self ψ p.lps,
-    mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_map, hzero, hzero]
-
 /-! ## 3b. The INDEX READING -/
 
 /-- **`BlockRuleDataB`'s SECOND conjunct at the run** — the rule's
@@ -1432,7 +1402,6 @@ theorem openerDoms_spineFit {envT : Env} (hμ : μ.verifiedChecks = true)
 
 end TowerFit
 
-
 /-! ### §6b The bridge at the rule's own TWO-STAGE frame
 
 The rule frame is opened by TWO `openPisAtFvars` calls at the
@@ -1603,7 +1572,6 @@ theorem twoStageOpeners_spineFit {envT : Env} (hμ : μ.verifiedChecks = true)
     (fun l hl => hdeq l (by omega)) hfit
 
 end TwoStage
-
 
 /-! ### §6c The tower fit AT THE RUN
 
@@ -2227,7 +2195,6 @@ subsingleton criterion at the two frames (§2b), the index values on
 the two sides being the rule's own INDEX PIN
 (`blockRuleIdxPin_run`). -/
 
-
 /-! ## 7. THE THIRD FINDING — the rule's λ-DOMAINS are not
 `ConstsBound envC`, and the checker is what has to say so
 
@@ -2298,7 +2265,6 @@ obligation ("someone owes a theorem that the domains do not mention
 the recursors"); it was not a theorem, it was a missing guard, and the
 difference is one grep of `checkBlockRule` for what constrains
 `ldoms`. -/
-
 
 /-! ## 8. `ihs` PINNED — the ih openers' terms at the rule's frame
 
@@ -3532,85 +3498,6 @@ theorem blockRecHwd_of_rules {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name 
     blockRuleHwd_of hμ (hcerts c hc j hj) (hokA rs hlen hmem c hc j hj)
       (hlhs rs hlen hmem c hc j hj) (hihs rs hlen hmem c hc j hj)
 
-/-- **The instance check, as a call.**  Regime IND's run-level
-producer with its `hwd` supplied by the fold above — so the family
-statement is not merely character-for-character `blockRecPre_of`'s,
-it is ACCEPTED where that hypothesis is consumed, at the same `pdoms`,
-`fdoms`, `es`, `mk`, `ihs`, `Rb` and the same `ρ`.
-
-The certificates appear TWICE — once through the fold for `hwd`, once
-for `blockRecPre_ind_run`'s own `hres` — which is the point: the two
-uses are at the same `BlockRuleCerts`, so a producer supplies it once.
-
-**And `blockRecPre_ind_run`'s `hih` is GONE from the signature**: it
-is the `rs = p⃗t` instance of `hihsWd`'s second conjunct, because
-`chainFrame K (fun _ => pt) ρ` IS `consList ((List.range K).map (fun _
-=> pt)) ρ` and that tuple is typed by `hind`.  The regime asked for
-the ih fit twice — once at the chosen candidate, once (through `hwd`)
-at every typed tuple — and the wide one implies the narrow one.
-
-**The truth-value premise is the REGIME lane's block-wide producer,
-INSTANTIATED, not restated.**  `hCaZ` is `blockIndCaZ_of_run`'s
-conclusion (`BlockIndRegimeRun.lean`) at an arbitrary frame and an
-arbitrary pair of fits — the form that producer already has, because
-the licence it reads is the RULE's peel and not the split's.  What
-`blockRecPre_ind_run` asks for is that statement at
-`σ := chainFrame K (fun _ => pt) ρ` and at the `ih` VALUES, with its
-own length antecedent unused and the second fit supplied by `hihsWd`;
-so the premise is passed through and the fact appears in the tree
-once, under one name. -/
-theorem blockRecPre_ind_certs {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
-    {Fu s K : Nat} {nCt rP : Nat → Nat} {RecTy : Nat → AnnotTerm}
-    {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms ihs : Nat → Nat → List AnnotTerm}
-    {mk Rb Ca : Nat → Nat → AnnotTerm} {ρ : Nat → V}
-    (hμ : μ.verifiedChecks = true)
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp Fu ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hokA : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ l, l < (pdoms c ++ fdoms c j).length → ∀ ys : List V,
-        SpineFit (consList rs ρ) ((pdoms c ++ fdoms c j).take l) ys →
-        WellDenoted V (consList ys (consList rs ρ))
-          ((pdoms c ++ fdoms c j).getD l default))
-    (hlhs : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-        WellDenoted V (consList ys (consList rs ρ))
-          (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-            (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])))
-    (hihsWd : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ ys : List V, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-        (∀ v ∈ ihs c j, WellDenoted V (consList ys (consList rs ρ)) v) ∧
-          SpineFit (consList ys (consList rs ρ)) (ihdoms c j)
-            ((ihs c j).map (interp V (consList ys (consList rs ρ)))))
-    (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
-    (hCaZ : ∀ c, c < K → ∀ j, j < nCt c → ∀ (σ : Nat → V) (xs fs ws : List V),
-      SpineFit σ (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) (ihdoms c j) ws →
-      interp V (consList ws (consList (xs ++ fs) σ)) (Ca c j) ∈ˢ (univZero : V)) :
-    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
-  blockRecPre_ind_run hμ hTy (blockRecHwd_of_rules hμ hcerts hokA hlhs hihsWd) hind
-    hcerts
-    (fun c hc j hj xs fs _hxl hsp =>
-      (hihsWd ((List.range K).map (fun _ => (pt : V))) (by simp)
-        (fun c' hc' => by
-          rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc']
-          exact hind c' hc')
-        c hc j hj (xs ++ fs) hsp).2)
-    (fun c hc j hj xs fs _hxl hsp =>
-      hCaZ c hc j hj (chainFrame K (fun _ => (pt : V)) ρ) xs fs _ hsp
-        (hihsWd ((List.range K).map (fun _ => (pt : V))) (by simp)
-          (fun c' hc' => by
-            rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc']
-            exact hind c' hc')
-          c hc j hj (xs ++ fs) hsp).2)
-
 end HwdFamily
 
 /-! ## 12. `hihFit`'s `hvals` HALF, at `ℓ = 0`
@@ -3637,53 +3524,6 @@ its level arguments is read in either case. -/
 section IhsVals
 
 open ConLeche (BlockRuleFrame)
-
-/-- **An `ih` opener reads to the point at `ℓ = 0`.**  The slot
-premise is asked ONLY at the empty telescope, which is where it is
-true: at a non-empty one the de Bruijn index
-`tl.length + nF + rP + (K - 1 - c')` need not land in the chain at
-all, and nothing needs it to. -/
-theorem interp_ihFunAV_zero {K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)}
-    {eis : List AnnotTerm} {fap : AnnotTerm} {σ : Nat → V}
-    (hslot : tl = [] → σ (tl.length + nF + rP + (K - 1 - c')) = (pt : V)) :
-    interp V σ (ihFunAV 0 K c' rP nF tl eis fap) = (pt : V) := by
-  cases tl with
-  | cons d ds => rw [ihFunAV, mkLamsC, List.map_cons, mkLamsAV, interp_lam, lamR_zero]
-  | nil =>
-    rw [ihFunAV, mkLamsC, List.map_nil, mkLamsAV, interp_mkAppN_map, interp_bvar,
-      hslot rfl]
-    exact foldl_app_pt _
-
-/-- **`spineFit_ihdoms_zero`'s `hvals` at the rule's own `ihs`** — the
-half of the regime's ih fit that the pinning (§8) owns.
-
-The frame is the regime's: the rule's prefix and field values over the
-chain frame at the IND arm's candidate, every component of which is
-the point.  `hkey` is the `ihKeys` bound the opener run already
-carries (a key's callee is one of the block's recursors). -/
-theorem blockRuleIhsAV_vals_zero {K o : Nat} {fr : BlockRuleFrame} {cty : Expr}
-    {ψ : Name → Nat} {tlF : Nat → List (Nat × Nat × AnnotTerm)}
-    {EisF : Nat → List AnnotTerm} {a ρ : Nat → V} {xs fs : List V}
-    (ha : ∀ q, q < K → a q = (pt : V))
-    (hlen : (xs ++ fs).length = fr.rP + fr.nF)
-    (hkey : ∀ r, r < fr.ihKeys.length → (fr.ihKeys.getD r (0, 0)).2 < K) :
-    ∀ r, r < fr.ihKeys.length →
-      ((blockRuleIhsAV 0 K o fr cty ψ tlF EisF).map
-          (interp V (consList (xs ++ fs) (chainFrame K a ρ)))).getD r (pt : V) = (pt : V) := by
-  intro r hr
-  have hk : fr.ihKeys[r]? = some (fr.ihKeys.getD r (0, 0)) := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr]
-    rfl
-  rw [blockRuleIhsAV, blockRecIhsAt, List.map_map, List.getD_eq_getElem?_getD,
-    List.getElem?_map, hk]
-  refine interp_ihFunAV_zero (fun htl => ?_)
-  rw [show ((ihTeleAtR fr.nF o (fr.ihKeys.getD r (0, 0)).1 0
-        (rebit (pwBit ψ fr.pw) (tlF (fr.ihKeys.getD r (0, 0)).1))).length
-      + fr.nF + fr.rP + (K - 1 - (fr.ihKeys.getD r (0, 0)).2))
-      = (K - 1 - (fr.ihKeys.getD r (0, 0)).2) + (xs ++ fs).length from by
-      rw [htl, hlen]; simp only [List.length_nil]; omega,
-    consList_apply_add, chainFrame_apply (hkey r hr)]
-  exact ha _ (hkey r hr)
 
 end IhsVals
 
@@ -3723,7 +3563,6 @@ theorem fieldsBelow_getD :
     simp only [List.getD_cons_succ]
     have := fieldsBelow_getD (m := m + 1) (Fs := Fs) h.2 q (by simpa using hq)
     rwa [show m + 1 + q = m + (q + 1) from by omega] at this
-
 
 /-- **The rule domains' own bounds, at every level valuation** — the prefix half is `blockRulePdomsAV_bounded`, the
 field half is the constructor's field domains (`CtorDataI.below`,
@@ -3781,7 +3620,6 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
     have := fieldsBelow_getD hfB _ hq
     rwa [show pp.toBlockShape.rulePrefixAt j + (l - pp.toBlockShape.rulePrefixAt j) = l
       from by omega] at this
-
 
 /-- **The rule domains' own bounds, at the seam** — the residue
 producer's `hbdd`: the prefix half is `blockRulePdomsAV_bounded`, the

@@ -64,27 +64,6 @@ encoding the law is one rewrite of `mem_tc_inj_mkTower`
 (`SetModel/WfRec.lean`), off the SAME `hinj` hypothesis
 `blockModelAt_of_stages` already takes. -/
 
-/-- **The constructor's fields are ∈-below the constructed value.**
-The WF regime's encoding-depth obligation at the block's injections. -/
-theorem blockData_mkDepth {d : BlockData V}
-    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
-    {ψ : Name → Nat} (hw : d.w ψ ≠ 0) (c j : Nat) (fs : List V) {a : V} (ha : a ∈ fs) :
-    a ∈ˢ ConLeche.SetTheory.tc (d.inj ψ c j fs) := by
-  rw [hinj, if_neg hw]
-  exact mem_tc_inj_mkTower j fs ha
-
-/-- The reflexive field's half: the image of a graph field at an
-argument is ∈-below the constructed value. -/
-theorem blockData_mkDepth_app {d : BlockData V}
-    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
-    {ψ : Name → Nat} (hw : d.w ψ ≠ 0) (c j : Nat) (fs : List V) {g : V} (hg : g ∈ fs)
-    {A x : V} {B : V → V} (hpi : g ∈ˢ piSet A B) (hx : x ∈ˢ A) :
-    app g x ∈ˢ ConLeche.SetTheory.tc (d.inj ψ c j fs) := by
-  rw [hinj, if_neg hw]
-  exact app_field_mem_tc hg hpi hx
-
 /-! ## `BlockRecPre`, assembled -/
 
 section Pre
@@ -204,22 +183,6 @@ theorem blockRecPre_ind
     BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
   blockRecPre_of hTy hwd (indCand_hCand hind hres)
 
-/-- **`ResidueOk` IS regime IND's `hres`** at `ℓ = 0`: a residue that
-is graded and lands in a truth value is what `indCand_hCand` asks
-for. -/
-theorem hres_of_residueOk {c j : Nat} {xs fs : List V} {T : V}
-    (hT : T ∈ˢ (univZero : V))
-    (h : ResidueOk V (Rb c j)
-      ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-      (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) T) :
-    ∃ T : V, T ∈ˢ (univZero : V) ∧
-      interp V
-          (consList
-            ((ihs c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Rb c j) ∈ˢ T :=
-  ⟨T, hT, h.2⟩
-
 end Regimes
 
 /-! ## G3 — a guarded call's ARGUMENTS are certified against the
@@ -266,24 +229,6 @@ theorem infer_mkAppN_head {env : Env} {d : Nat} :
     obtain ⟨tg, hg⟩ := infer_mkAppN_head cs (g := .app g c) h
     obtain ⟨tf, -, -, -, -, hif, -, -, -, -⟩ := infer_app_inv_full hg
     exact ⟨tf, hif⟩
-
-/-- **G3**: every argument of a `.full`-inferred application spine is
-CERTIFIED — inferred, and definitionally equal to the domain the
-head's type peeled to.  At a guarded call `ih_r a⃗` in the residue,
-that domain is the `ih` opener's own, i.e. the field's telescope
-binder, which is what puts `a⃗` in the telescope. -/
-theorem infer_mkAppN_inv_full {env : Env} {d : Nat} :
-    ∀ (as : List Expr) {f T : Expr},
-      ConLeche.Rules.Infer env .full d (Expr.mkAppN f as) T →
-      ∀ a ∈ as, ∃ ta ty : Expr,
-        ConLeche.Rules.Infer env .full d a ta ∧ ConLeche.Rules.DefEq env d ta ty
-  | [], _, _, _, a, ha => absurd ha (List.not_mem_nil)
-  | b :: bs, f, T, h, a, ha => by
-    rcases List.mem_cons.mp ha with rfl | ha'
-    · obtain ⟨tg, hg⟩ := infer_mkAppN_head bs (g := .app f a) h
-      obtain ⟨-, ty, -, ta, -, -, -, hia, hd, -⟩ := infer_app_inv_full hg
-      exact ⟨ta, ty, hia, hd⟩
-    · exact infer_mkAppN_inv_full bs (f := .app f b) h a ha'
 
 /-! ### G3 as a TELESCOPE certificate
 
@@ -486,13 +431,6 @@ theorem stripPis_isSome_mkPisOf :
     show ((Expr.forallE ty (Expr.mkPisOf tele body) mt).stripPis (n + 1)).isSome = true
     simp only [ConLeche.Expr.stripPis, Option.isSome_map]
     exact stripPis_isSome_mkPisOf tele body n (by simpa using h)
-
-/-- **`PiSpine` at a generated tower**, the form the `ih` opener's
-stored type takes. -/
-theorem piSpine_mkPisOf {tele : List (Expr × ConLeche.BinderMeta)} {body : Expr}
-    {as : List Expr} (h : as.length ≤ tele.length) :
-    PiSpine (Expr.mkPisOf tele body) as :=
-  piSpine_of_stripPis as (stripPis_isSome_mkPisOf tele body as.length h)
 
 /-! ### The opener's stored type, as the run leaves it (`hop`'s kit)
 

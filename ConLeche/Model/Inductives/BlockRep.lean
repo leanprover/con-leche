@@ -168,9 +168,6 @@ components share their parameters). -/
 @[expose] def IdsM (c : Nat) (ψ : Name → Nat) : List AnnotTerm :=
   ((d.ppsM c ψ).drop d.nP).map (·.2.2)
 
-/-- The block's constructor count (the recursors' minor count). -/
-@[expose] def nCtors : Nat := ((List.range d.k).map fun mm => (d.ctorsM mm).length).sum
-
 /-- Component `c`'s constructor data list (the fixpoint route's). -/
 @[expose] def cds (c : Nat) (ψ : Name → Nat) : List CtorDatumR :=
   fixCtorDataList (d.dsF c) (d.esF c) (d.ksF c) (d.eissF c) (d.tssF c) ψ (d.ctorsM c) 0
