@@ -677,6 +677,106 @@ theorem targetNodeVal_of {envT : Env} {mT : EnvModel V envT}
     consList_apply_add]
   rfl
 
+/-! ## The body equation at a rule's frame -/
+
+/-- The walk's frame list: the rule's prefix and fields (`fvsFr`, in
+order), then its `ih` variables, reversed into opening order. -/
+@[expose] def targetFrameIh (fvsFr : List Expr) (ihs : Array ConLeche.TargetIh) : List Expr :=
+  (fvsFr ++ ihs.toList.map (·.fv)).reverse
+
+theorem FvarList.locList {E : Nat} {xs : List Expr} (h : FvarList E xs) : LocList 0 E xs :=
+  ⟨h.1, fun j hj => by simpa using h.2.1 j hj⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **The body equation of one rule, at its frame**: the stored rule's
+body, read at the frame's values, is the residue read at the frame
+extended by the `ih` values — `interp_targetAbstract` at the walk's
+entry, its premise discharged by `targetNodeVal_of`.  What stays a
+premise is the frame's own data: the `ih` values' identification with
+the call's λ (`hihv`, the model's choice of `ih` terms), the callee's
+value (`hcallee`), the walk's context at the entry (`hW`: the frame's
+readings, grading and fit), and the residue's scoping and typing. -/
+theorem targetRuleBodyEq {envT : Env} {mT : EnvModel V envT}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    (haclT : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ)
+    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
+      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
+    {fr : ConLeche.TargetFrame} {B : Nat} {body bodyO : Expr} {ihs : Array ConLeche.TargetIh}
+    {fvsFr : List Expr}
+    (habs : ConLeche.targetAbstract fr B 0 (body.instantiateList fvsFr.reverse 0) #[]
+      = some (bodyO, ihs))
+    (hbf : body.hasFvar = false) (hFr : FvarList B fvsFr.reverse)
+    {ρ' : Nat → V} {ihvals : List V} {R : Nat → V} {pw : ConLeche.PropWhen}
+    (hbit : pwBit φ pw ≠ 0) (hih : ihvals.length = ihs.size)
+    (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0)
+    (hpref : ∀ x ∈ fr.pref, x.looseBVarsBounded 0 = true)
+    (hfields : ∀ x ∈ fr.fields, x.looseBVarsBounded 0 = true)
+    (hcallee : ∀ (nm : Name) (c : Nat), ConLeche.nameIdxOf? fr.recNames nm = some c →
+      ∃ ci : ConstantInfo, env.find? nm = some ci ∧
+        fr.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        ∀ ρ : Nat → V,
+          interp V ρ (acval nm (Level.substFn φ ci.toConstantVal.levelParams fr.rlvls)) = R c)
+    (hteles : ∀ (r : Nat) (ih : ConLeche.TargetIh), ihs[r]? = some ih →
+      ∀ t ∈ (fr.teles.getD ih.field []).map (·.1), ∀ l ∈ t.fvarLeaves, l.1 < B)
+    (hihv : ∀ (r : Nat) (ih : ConLeche.TargetIh), ihs[r]? = some ih →
+      ∃ L : AnnotTerm, denoteMeta acval env φ (B + 1) (targetCallE fr B pw ih) = some L ∧
+        ihvals.getD r pt = interp V (cons (R ih.callee) ρ') L)
+    {Δa : List AnnotTerm}
+    (hL : FvarList (B + ihs.size) (targetFrameIh fvsFr ihs))
+    (hW : WalkCtx V mT φ (B + ihs.size) (consList ihvals ρ') Δa (targetFrameIh fvsFr ihs))
+    (hlL : ∀ l ∈ bodyO.fvarLeaves, Expr.fvar l.1 l.2 ∈ targetFrameIh fvsFr ihs)
+    (hbT : bodyO.looseBVarsBounded 0 = true) (hcbe : ConstsBound envT bodyO)
+    (hty : IhTyped envT (B + ihs.size) bodyO)
+    {as1 : List Expr} (h1 : LocList 0 B as1) {A Bv : AnnotTerm}
+    (hA : denoteMeta acval env φ B (body.instantiateList as1 0) = some A)
+    (hB : denoteMeta mT.acval envT φ (B + ihs.size) bodyO = some Bv) :
+    interp V ρ' A = interp V (consList ihvals ρ') Bv := by
+  -- the accumulator's entries: the frame's `ih` variables at their `ih` types
+  obtain ⟨-, hwf⟩ := targetAbstract_acc (fr := fr) (B := B) 0 _ #[] bodyO ihs habs
+  have hwfF : TargetIhWF fr B ihs := hwf (fun r hr => absurd hr (by simp))
+  have hcall : TargetNodeVal V acval env φ mT fr B ihs (targetFrameIh fvsFr ihs) ρ' ihvals := by
+    refine targetNodeVal_of hacl haclT hin hmono hbit hih hle hpref hfields hcallee ?_
+    intro r ih hr
+    obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
+    obtain ⟨hfv, hty'⟩ := hwfF r hrl
+    rw [hrget] at hfv hty'
+    refine ⟨?_, ?_, hteles r ih hr, hihv r ih hr⟩
+    · rw [targetFrameIh, List.mem_reverse, ← hfv]
+      refine List.mem_append_right _ (List.mem_map.mpr ⟨ih, ?_, rfl⟩)
+      rw [← hrget]
+      exact Array.getElem_mem_toList hrl
+    · unfold ConLeche.targetIhTy at hty'
+      obtain ⟨X, -, hX⟩ := Option.map_eq_some_iff.mp hty'
+      exact ⟨X, hX.symm⟩
+  -- the stored body's leaves are the frame's
+  have hlF : ∀ l ∈ (body.instantiateList fvsFr.reverse 0).fvarLeaves, l.1 < B := by
+    intro l hl
+    obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList hFr body hbf 0 l hl
+    exact ConLeche.Expr.fvarLeaves_lt_of_wscoped (hFr.2.2 x hx) l hlx
+  -- the reading at the caller's openers is the reading at the frame's
+  have hd := denoteMeta_open_deepen (acval := acval) (env := env) (φ := φ) hacl 0 0 body B as1
+    fvsFr.reverse (by simp [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hbf]) h1
+    (by simpa using hFr.locList)
+  simp only [Nat.zero_add] at hd
+  rw [hA] at hd
+  cases hA' : denoteMeta acval env φ B (body.instantiateList fvsFr.reverse 0) with
+  | none => rw [hA'] at hd; exact nomatch hd
+  | some A' =>
+    rw [hA', Option.map_some] at hd
+    obtain rfl : A = A' := by
+      rw [Option.some.inj hd, ConLeche.Semantics.AnnotTerm.liftN_zero]
+    have := interp_targetAbstract hacl haclT hin hproj hmono hih hcall
+      (body.instantiateList fvsFr.reverse 0) 0 #[] bodyO ihs [] [] [] Δa A Bv habs
+      (List.prefix_refl _) (fun r hr => absurd hr (by simp)) hlF hlL hbT hcbe
+      (LocList.nil B) (LocList.nil (B + ihs.size)) (by simpa using hL) rfl LocalsFit.nil
+      (by simpa using hW)
+      (by simpa [ConLeche.Expr.instantiateList_nil] using hty)
+      (by simpa [ConLeche.Expr.instantiateList_nil] using hA')
+      (by simpa [ConLeche.Expr.instantiateList_nil] using hB)
+    simpa using this
+
 end NodeVal
 
 end ConLeche.Model
