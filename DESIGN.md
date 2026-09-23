@@ -83886,3 +83886,44 @@ The rows left are:
   licence cannot pay it. The fix is either a kernel comparison of the recursor's index
   binders with the member's telescope (the parameters' `checkBlockDefEqList`, which
   rejects nothing official emits) or a guarded kit motive.
+
+
+#### LANDED (lane RM52, `4305ff62`): `heqP` paid; `heqV` wired through the grading plus one typed-ih-fit row — the rule side of `howed` is empty
+
+**LANDED (lane RM52, `4305ff62`): `heqP` paid, `heqV` paid down to the typed tuple's `ih`
+fit; the rule side of `howed` is empty.**
+
+`heqP`'s equation half is `blockRecEqs_params_seam`: every component of the pinned
+equation list is ψ-congruent at any recursor's parameters.
+- The prefix goes through the recursor type's reading.
+- The fields, indices and `ih` terms go through the constructors' record (`params`,
+  `tssParams`, `eissParams`). The constructor's parameters are the block's, a sub-list
+  of the recursor's pinned `elim :: lps`.
+- The fired spine goes through `acval_params`.
+- The residue goes through `lpDefF`, the level footprint `denoteMeta` actually reads,
+  with `fvar` annotations ignored. An opening at fvars keeps it, and
+  `denoteMeta_params_extF` is the congruence. No opener type is ever tracked, so RM50's
+  "level twin of the ConstsBound kit" was the wrong predicate, not a missing kit.
+
+`howed` keeps only `s`'s own parametricity.
+
+`heqV` is `blockRecEqs_valid_seam`, `annotValid_blockIotaEqsAV` at the pinned choice.
+Each piece is paid as follows:
+- the frame: off the rule frame's GRADING (`howed`'s `hokA`, `blockRuleHokA_of_run`'s
+  conclusion, spelling unchanged);
+- the fired spine: free (`acval_validV`);
+- the index readings: off the constructor's stored type at its binder data. The prefix
+  fits through the stage's `frames` (`blockRuleEsAV_valid_seam`).
+- the `ih` terms: off the grading's FIELD segment, since a field's domain is the Π-tower
+  the `ih` term re-uses (`blockRuleIhsRunAV_valid_run`);
+- the residue: off its own typing at the frame (`blockRuleRbAV_wdV_run`, `checkSoundAt`
+  at the frame's `CtxOk`).
+
+What remains is ONE row, `BlockIhFitTypedOwed`: at every typed tuple, the `ih` terms'
+values fit the pinned `ihdoms`. The grading cannot carry it. `AnnotValid`'s Π clause
+makes the residue's validity depend on the `ih` VALUES, and the certified reading holds
+only where they fit. The fit is the regime's (the callee's type fitting at the call's
+spine, on RM51's index converse), and it is `hihsWd.2` restated at the pinned `ihdoms`.
+
+`blockRuleDoms_bounded_seam` moved to `BlockRuleFit.lean` §13 (as `_at`, every ψ), where
+the dispatch can reach it.
