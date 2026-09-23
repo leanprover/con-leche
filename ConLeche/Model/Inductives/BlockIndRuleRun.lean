@@ -38,6 +38,17 @@ the context's own values, `K = 0`, carried to a `TeleFitPA` by RM53's
 components (`blockRuleFdomsAV`, `blockRuleIhdomsAV` — the spelling
 `blockRuleCerts_of_run` concludes at); nothing is stated at a frame
 that does not satisfy it.
+
+**Regime IND's rows (§2)** at the pinned witnesses (`ihKeys` the rule
+frame's, `ihdoms := blockRecIhdomsK`, `Ca := blockRuleCaAV`): the count,
+the fused opener reading, `hCaZ` and `hCaE`.  The bundle's last row (the
+openers' fit at the POINT tuple's chain frame) is (F) at that tuple and
+needs the arm's own induction to know the tuple is typed; the tested
+patch `rm55-ind-hihTy.patch` restates it at every typed tuple, where
+`blockIhFitTyped_run` pays it.
+
+**The certificate family (§3)** at the pinned `Ca`, which closes
+`BlockGradeOwed`'s `hcertsW` and regime IND's first row.
 -/
 
 namespace ConLeche.Model
@@ -213,8 +224,13 @@ end ConclFit
   `blockRuleConclUnivZero_run` with the peel (`blockRuleCaAV_run`) and
   §1's fit, the `K` lifts of the field and `ih` domains being the
   identity (`blockRuleCertsChain_eq`, RM54);
-* the conclusion at the SPLIT data (`hCaE`) — `blockIndCaE_of_rules` at
-  the pinned `hdat` (`blockIndCaE_hdat_run`).
+* the conclusion at the SPLIT data (`hCaE`) — §29b's `blockIndCaE_of_run`
+  at the pinned peel, the fields' fit at the parameter frame taken off
+  the split's own `hspF` (`blockIndSpF_run`, peeled by
+  `blockRuleSpine_peel`).  `blockIndCaE_of_rules`' `hfld` is NOT used:
+  it quantifies over an index spine `is0` with no fit, and the slot
+  agreement needs the tuple in the member's index set — over-quantified,
+  and its one use has the fit (`his`) in scope.
 
 **The frame.**  `hCaZ` is stated at every `σ` and every pair of fits,
 exactly as the bundle states it (the consumer instantiates it at the
