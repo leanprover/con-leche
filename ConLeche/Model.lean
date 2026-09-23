@@ -36,6 +36,7 @@ public import ConLeche.Model.Inductives.BlockRuleRun
 public import ConLeche.Model.Inductives.BlockRuleParams
 public import ConLeche.Model.Inductives.BlockIndRegimeRun
 public import ConLeche.Model.Inductives.BlockRecPreHpre
+public import ConLeche.Model.Inductives.BlockRecIdxConv
 public import ConLeche.Model.Inductives.BlockDeclRun
 public import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.ClaimsIO
