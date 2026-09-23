@@ -101,6 +101,11 @@ def structTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bva
 def Expr.mkPisOf : List (Expr × BinderMeta) → Expr → Expr
   | [], body => body
   | (ty, mt) :: bs, body => .forallE ty (mkPisOf bs body) mt
+
+/-- `λ tele, body` over a binder list (outermost first). -/
+def Expr.mkLamsOf : List (Expr × BinderMeta) → Expr → Expr
+  | [], body => body
+  | (ty, mt) :: bs, body => .lam ty (mkLamsOf bs body) mt
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/
 def Expr.mentionsFvar (q : Nat) (e : Expr) : Bool := e.fvarLeaves.any fun l => l.1 == q

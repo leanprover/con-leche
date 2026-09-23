@@ -57,11 +57,6 @@ def structRecPrefixAt (nP n nF e : Nat) : List Expr :=
   structPsAt (e + nF + n + 1) nP ++ [Expr.bvar (e + nF + n)] ++
     (List.range n).map fun l => Expr.bvar (e + nF + n - 1 - l)
 
-/-- `λ tele, body` over a binder list (outermost first). -/
-def Expr.mkLamsOf : List (Expr × BinderMeta) → Expr → Expr
-  | [], body => body
-  | (ty, mt) :: bs, body => .lam ty (mkLamsOf bs body) mt
-
 /-- The inductive hypothesis' value for recursive field `i` with
 telescope `tele` and index expressions `idx`, spelled under the fields
 of a rule body (the motive and the `n` minors are the extras):

@@ -311,7 +311,7 @@ at the call's arguments, both abstract sides inferred, and the
 field-vs-major defeq at the depth past the holes. -/
 structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (ih : TargetIh) : Type where
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) : Type where
   calleeAt : Expr
   majDom : Expr
   majBody : Expr
@@ -332,14 +332,24 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
   abstract major type at the call's arguments -/
   hdeq : isDefEqCore mode env F (base + k) (fnorm.getD ih.field default)
     (Expr.mkPisOf (teles.getD ih.field []) (absM majDom)) = .ok true
+  /-- the call's own type at the frame and the telescope -/
+  callTy : Expr
+  /-- THE CALL IS WELL-TYPED: `λ a⃗ : A⃗, c x⃗ e⃗ (f a⃗)`, the callee a
+  variable of its stored type after the frame -/
+  hcall : inferTypeCore mode env F (base + 1)
+    (Expr.mkLamsOf ((teles.getD ih.field []).map fun b => (b.1, ⟨pw⟩))
+      (Expr.mkAppN (.fvar base (fam.recTys.getD ih.callee (.sort .zero)))
+        (fvsPref ++ ih.idx ++
+          [Expr.mkAppN (fvsF.getD ih.field default)
+            (structTeleVars (teles.getD ih.field []).length)]))) = .ok callTy
 
 /-- **One call's typing, inverted.** -/
 theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
     {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {ih : TargetIh}
-    (h : targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k ih
+    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {ih : TargetIh}
+    (h : targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ih
       = .ok ()) :
-    Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k ih) := by
+    Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k pw ih) := by
   unfold targetCallOk at h
   by_cases htele : ((teles.getD ih.field []).all fun b => targetHoleFree base k b.1) = true
   case neg => rw [if_neg htele] at h; close_throw h
@@ -355,22 +365,25 @@ theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
       by_cases hbt : b = true
       case neg => rw [if_neg hbt] at h; close_throw h
       subst hbt
+      rw [if_pos rfl] at h
+      obtain ⟨callTy, hcallTy, h⟩ := exceptBind_ok h
       exact ⟨{ calleeAt := .forallE majDom majBody majBm, majDom := majDom, majBody := majBody,
                majBm := majBm, fldTy := fldTy, wantTy := wantTy,
                htele := fun b hb => List.all_eq_true.mp htele b hb,
                hcallee := hcallee, hmajDom := rfl, hfld := hfld, hwant := hwant,
-               hdeq := hb }⟩
+               hdeq := hb, callTy := callTy, hcall := hcallTy }⟩
     · close_throw h
   · close_throw h
 
 /-- **Every call's typing, inverted**: one `TargetCallRun` per call. -/
 theorem targetCallsOk_run {env : Env} {cn : Name} {fam : TargetFamily}
     {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} :
+    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} :
     ∀ {ihs : List TargetIh},
-      targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k ihs
+      targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
         = .ok () →
-      ∀ ih ∈ ihs, Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k ih)
+      ∀ ih ∈ ihs,
+        Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k pw ih)
   | [], _, ih, hih => nomatch hih
   | ih0 :: ihs, h, ih, hih => by
     unfold targetCallsOk at h
@@ -444,7 +457,8 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
   hcalls : targetCallsOk (fueledOps mode F) feT.env c.1.name fam fvsPref fvsF fnorm
     (fnorm.map fun t => t.piBinders.1)
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
-    (rP + c.2) formerTys.length ihs.toList = .ok ()
+    (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large)) ihs.toList
+    = .ok ()
   hty : inferTypeCore mode feT.env F (rP + c.2 + ihs.size) bodyO = .ok ty
   hconcl : Expr.instPisAtLift
       (fvsPref ++ (cbody.getAppArgs.drop M.nPc) ++
@@ -464,7 +478,7 @@ theorem call (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c 
     Nonempty (TargetCallRun mode F feT.env fam R.fvsPref R.fvsF R.fnorm
       (R.fnorm.map fun t => t.piBinders.1)
       (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
-      (rP + c.2) formerTys.length ih) :=
+      (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large)) ih) :=
   targetCallsOk_run R.hcalls ih hih
 
 end TargetRuleRun

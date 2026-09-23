@@ -562,10 +562,13 @@ the field's own telescope, which is hole-free.  Both abstract sides
 are INFERRED first — the model's defeq reading needs them well-denoted
 at every value of the holes, which only an inference run at the
 abstract context supplies (the concrete terms' checks say nothing
-about the holes). -/
+about the holes).  Then the call itself, `λ a⃗, c x⃗ e⃗ (f a⃗)` with the
+callee a variable of its stored type, is inferred at the frame: its
+index arguments fit the callee's binders at every value of the
+telescope. -/
 def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (ih : TargetIh) : m Unit := do
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) : m Unit := do
   let fty := fnorm.getD ih.field default
   let tele := teles.getD ih.field []
   unless tele.all (fun b => targetHoleFree base k b.1) do
@@ -585,15 +588,27 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   unless ← opsT.isDefEq env (base + k) fty want do
     throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field that \
       is not a value of its major type")
+  -- the call is WELL-TYPED at the frame and the field's telescope
+  -- alone: `λ a⃗ : A⃗, c x⃗ e⃗ (f a⃗)` with the callee a variable of its
+  -- stored type (after the frame), its λ-binders at the family's
+  -- elimination datum `pw` (the rule's own).  The concrete rule body types the
+  -- call only under the local binders the body happens to open, which
+  -- may be uninhabited; the model reads the `ih` term — this λ — at
+  -- EVERY value of the telescope, so the index arguments must fit the
+  -- callee's binders there (lane RECLIB)
+  let callee : Expr := .fvar base (fam.recTys.getD ih.callee (.sort .zero))
+  let fap := Expr.mkAppN (fvsF.getD ih.field default) (structTeleVars tele.length)
+  let _ ← opsT.inferType env (base + 1)
+    (Expr.mkLamsOf (tele.map fun b => (b.1, ⟨pw⟩)) (Expr.mkAppN callee (fvsPref ++ ih.idx ++ [fap])))
 
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) : List TargetIh → m Unit
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) : List TargetIh → m Unit
   | [] => pure ()
   | ih :: ihs => do
-    targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k ih
-    targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k ihs
+    targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ih
+    targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
 
 /-- **Stage (c): ONE rule, at any major** (`checkBlockRuleF` without
 field kinds).  The right-hand side is annotated, resolved and typed at
@@ -664,7 +679,8 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- member-ABSTRACTED, so the defeq holds at every value of the holes;
   -- the telescope the call applies the field along is hole-free (it is
   -- then a concrete telescope, the one the `ih` variable's type binds)
-  targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k ihs.toList
+  targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k
+    (Level.zeronessOf (structElimLevel p.elim p.large)) ihs.toList
   let depth := rP + nF + ihs.size
   let tyB ← opsT.inferType feT.env depth bodyO
   let concl ← unwrapOr
