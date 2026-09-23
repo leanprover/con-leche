@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.SumIntro
-public import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixSquashI
 
 public section
 

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Tower.FixRecCoreI
-public import ConLeche.SetModel.RecGraph
 
 @[expose] public section
 

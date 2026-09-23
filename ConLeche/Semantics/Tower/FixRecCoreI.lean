@@ -3,7 +3,7 @@ module
 import ConLeche.Semantics.Tower.SumRecCase
 import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Semantics.Tower.SumRec
-public import ConLeche.Semantics.Tower.SumWire
+import ConLeche.Semantics.Tower.SumWire
 public import ConLeche.Semantics.Tower.IhSpell
 
 @[expose] public section

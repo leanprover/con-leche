@@ -10,6 +10,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Rules.Recompose
 import ConLeche.Model.Tiers
 import ConLeche.Model.Inductives.BlockRecIdxConv
+import ConLeche.Model.Inductives.FixIntro
 
 public section
 

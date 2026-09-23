@@ -54,6 +54,22 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (lane D-OLD, the old one-member route's dead code
+    # deleted): three re-exports the model calls demotable, each MEASURED
+    # by demoting it alone.  `StructStageTable.lean`'s `variable` binder
+    # gets `[SetTheory V]` through `StructBodyFrames` (`Unknown identifier
+    # SetTheory`, `:41`).  `DeclSum` -> `StructStageTable` and
+    # `FixAssemblyKit` -> `FixCtorsLoop` are the chain by which the Block
+    # route's files see `Model.DomsBelow.getD_below`, a name that
+    # `Semantics.DomsBelow.getD_below` shadows once the chain breaks
+    # (`BlockRuleGrading.lean:1419`, `BlockKitIhRun.lean:518`: an
+    # application type mismatch, the dot-notation blind class).
+    ('ConLeche.Model.Inductives.StructStageTable',
+     'ConLeche.Model.Inductives.StructBodyFrames'),
+    ('ConLeche.Model.Inductives.DeclSum',
+     'ConLeche.Model.Inductives.StructStageTable'),
+    ('ConLeche.Model.Inductives.FixAssemblyKit',
+     'ConLeche.Model.Inductives.FixCtorsLoop'),
     # task #315 (lane RM55, regime IND's rows): `BlockIndRuleRun.lean`'s one
     # remaining `public import` is where its `variable` binder gets
     # `[SetTheory V]` and its public statements get `blockRuleCaAV`.

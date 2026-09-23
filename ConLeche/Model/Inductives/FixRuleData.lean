@@ -1,15 +1,15 @@
 module
 
-public import ConLeche.Model.Inductives.FixRecRead
+import ConLeche.Model.Inductives.FixRecRead
 public import ConLeche.Model.Inductives.FixCtorReads
-public import ConLeche.Verify.Inductives.SumInv
-public import ConLeche.Verify.Inductives.FixParts
-public import ConLeche.Kernel.Inductives.NativeInstall
-public import ConLeche.Verify.Inductives.SumWF
-public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Model.Inductives.SumStageCtor
-public import ConLeche.Model.IndPointKit
-public import ConLeche.Model.Annot.BitLevels
+import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Verify.Inductives.FixParts
+import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Model.Inductives.SumRecFrames
+import ConLeche.Model.Inductives.SumStageCtor
+import ConLeche.Model.IndPointKit
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

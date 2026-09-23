@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Verify.Inductives.SumWF
-public import ConLeche.Verify.Inductives.SumInv
-public import ConLeche.Verify.Inductives.FixParts
-public import ConLeche.Kernel.Inductives.NativeInstall
-public import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Verify.Inductives.FixParts
+import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Inductives.DeclStructEta
 
 @[expose] public section

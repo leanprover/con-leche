@@ -1,11 +1,11 @@
 module
 
 public import ConLeche.Model.Inductives.FixRuleData
-public import ConLeche.Model.Inductives.FixRecReadDefs
-public import ConLeche.Model.Inductives.FixChainFacts
-public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Semantics.Tower.FixSquashI
-public import ConLeche.Kernel.PropWhen
+import ConLeche.Model.Inductives.FixRecReadDefs
+import ConLeche.Model.Inductives.FixChainFacts
+import ConLeche.Model.Inductives.SumRecFrames
+import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Kernel.PropWhen
 public import ConLeche.Model.Inductives.FixRecLaw
 import ConLeche.Model.Inductives.FixIntro
 import ConLeche.Semantics.Tower.FixWire

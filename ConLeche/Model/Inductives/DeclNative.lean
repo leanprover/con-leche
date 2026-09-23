@@ -3,9 +3,9 @@ module
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.FixStageTable
 public import ConLeche.Model.Inductives.FixZeroField
-public import ConLeche.Verify.Inductives.SumWF
-public import ConLeche.Verify.Inductives.SumInv
-public import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Kernel.Inductives.NativeInstall
 import ConLeche.Verify.Inductives.FixParts
 public section
 

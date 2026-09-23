@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.StructStageTable
 public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Model.Inductives.SumStageCtor
-public import ConLeche.Model.IndPointKit
+import ConLeche.Model.Inductives.SumStageCtor
+import ConLeche.Model.IndPointKit
 import ConLeche.Verify.Inductives.SumWF
 public section
 

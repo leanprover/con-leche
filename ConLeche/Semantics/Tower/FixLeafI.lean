@@ -2,7 +2,7 @@ module
 
 import ConLeche.Semantics.Tower.SumLeaf
 public import ConLeche.Semantics.Tower.SumMk
-public import ConLeche.Semantics.NoBVar
+import ConLeche.Semantics.NoBVar
 import ConLeche.SetModel.Iter
 public import ConLeche.SetModel.TowerMono
 import ConLeche.Semantics.Univ
