@@ -423,16 +423,15 @@ recursor types, every rule's frame (the prefix and the fields, at the
 base frame `ρ`) carries:
 
 * the constructor's INDEX readings, bit-valid;
-* the pinned `ih` terms, bit-valid at the chain frame (the tuple under
-  the rule's frame);
-* the `ih` terms' VALUES fitting the pinned `ih` openers' domains
+* the pinned `ih` terms' VALUES (at the chain frame: the tuple under
+  the rule's frame) fitting the pinned `ih` openers' domains
   `ihdoms` — the typed tuple's recursive calls land in the callee's
   conclusion.  The residue's validity is read at those values, and it
   is what makes the residue's own reading (typed at the frame,
   `blockRuleRbAV_wdV_run`) applicable.
 
 Everything else `heqV` needs — the frame's validity, the fired spine,
-the residue — is paid from the run and the grading
+the `ih` terms, the residue — is paid from the run and the grading
 (`blockRecEqs_valid_seam`). -/
 def BlockEqsValidOwed (mpC : EnvModelM V μ envC) (pp : ConLeche.BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -442,8 +441,6 @@ def BlockEqsValidOwed (mpC : EnvModelM V μ envC) (pp : ConLeche.BlockParts)
       ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j) ys →
     (∀ e ∈ blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j,
       AnnotValid V (consList ys ρ) e) ∧
-    (∀ v ∈ blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ c j,
-      AnnotValid V (consList ys (consList tup ρ)) v) ∧
     SpineFit (consList ys ρ) (blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ c j)
       ((blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ c j).map
         (interp V (consList ys (consList tup ρ))))
@@ -458,8 +455,6 @@ theorem blockEqsValidOwed_iff (mpC : EnvModelM V μ envC) (pp : ConLeche.BlockPa
       ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j) ys →
     (∀ e ∈ blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j,
       AnnotValid V (consList ys ρ) e) ∧
-    (∀ v ∈ blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ c j,
-      AnnotValid V (consList ys (consList tup ρ)) v) ∧
     SpineFit (consList ys ρ) (blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ c j)
       ((blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ c j).map
         (interp V (consList ys (consList tup ρ)))) := Iff.rfl
@@ -490,8 +485,10 @@ the PINNED `ihs`/`Rb0` is bit-valid at every typed tuple:
   (`blockRuleRbAV_wdV_run`: the stage's `inferTypeCore` run, the
   openers' readings and the same grading), at the `ih` values the owed
   row fits;
-* the index readings, the `ih` terms and the `ih` fit OWED
-  (`BlockEqsValidOwed`). -/
+* the `ih` terms' validity off the grading's FIELD segment
+  (`blockRuleIhsRunAV_valid_run`: a field's domain is the Π-tower over
+  its telescope of the target former at the field's index readings);
+* the index readings and the `ih` fit OWED (`BlockEqsValidOwed`). -/
 theorem blockRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC pp cvTas ctorsAs = .ok rs)
@@ -579,7 +576,7 @@ theorem blockRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
     exact hq.2
   · dsimp only at hys ⊢
     obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
-    obtain ⟨hes, hih, hfit⟩ := hv c hc j hj ys hys
+    obtain ⟨hes, hfit⟩ := hv c hc j hj ys hys
     -- the constructor's record
     obtain ⟨ms, hms, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
     have hmemk : pp.toBlockShape.recTgtAt c
@@ -596,7 +593,10 @@ theorem blockRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
         (pp.toBlockShape.recTgtAt c) j
         = (blockRuleKsOf pp c j).map ConLeche.BlockFieldKind.toRec := by
       rw [blockDataOf_ksF]; rfl
-    refine ⟨hes, ?_, by rw [← hcf]; exact hih, ?_⟩
+    refine ⟨hes, ?_, blockRuleIhsRunAV_valid_run hμ h hr hcA hrhs hcore hcj rfl hks hwfC.1 ψ
+      (hokA c r hr j cA hcA ψ) _ ys
+      (spineFit_chainFrame_of_bounded (blockRuleDoms_bounded_at hμ h hcore ψ c r hr j cA rhs hcA hrhs)
+        hys), ?_⟩
     · -- the fired spine: a leaf applied to bound variables
       rw [blockRuleMkAV_eq h hr hcA hrhs hfindC hlpsC hnP ψ]
       refine annotValid_mkAppN (mpC.acval_validV _ _ _) (fun a ha => ?_)
@@ -874,8 +874,8 @@ The rules' `ih` openers and residue readings are PINNED
 §A.9b's definitions), so `howed` chooses only the family's level `s`,
 and owes at that choice:
 * of the equation list's three facts, only what `heqV` needs past the
-  grading — `BlockEqsValidOwed` (the index readings' and the `ih`
-  terms' validity, and the typed tuple's `ih` fit); the rest of `heqV`
+  grading — `BlockEqsValidOwed` (the index readings' validity and the
+  typed tuple's `ih` fit); the rest of `heqV`
   is `blockRecEqs_valid_seam`, its bound `heqB` is
   `blockRecEqs_below_seam` and its parametricity `heqP` is
   `blockRecEqs_params_seam`, all paid here — and the level's own

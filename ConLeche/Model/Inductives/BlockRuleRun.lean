@@ -9,6 +9,7 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Rules.Recompose
 import ConLeche.Model.Tiers
+import ConLeche.Model.Inductives.BlockRecIdxConv
 
 public section
 
@@ -1467,6 +1468,196 @@ theorem blockRuleRbAV_wdV_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM 
     (blockRuleHokΔ_of hlenP hlenF hlenI hokA) hleafO
   rw [hRb]
   exact wellDenotedV_of_infer hμ mpC hinf hWS hbO (leavesBounded_of_openers hlbF hleafO) hctx hB
+
+/-- The `AnnotValid` twin of `interp_ihIdxAtM_rule`: one index expression
+across the rule's frame and the field's frame. -/
+theorem annotValid_ihIdxAtM_rule {ρ : Nat → V} {nF o i m : Nat} {xs fs bs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) (hbl : bs.length = m) (E : AnnotTerm) :
+    AnnotValid V (consList bs (consList (xs ++ fs) ρ)) (ihIdxAtM nF o i 0 m E)
+      ↔ AnnotValid V (consList bs (consList (fs.take i) (consList as ρ))) E := by
+  have hdrop : (xs.drop as.length).length = o := by
+    rw [List.length_drop, hxl]; omega
+  have hfd : (fs.drop i).length = nF - i := by rw [List.length_drop, hfl]
+  have e1 : shiftE o (nF + m) (consList bs (consList (xs ++ fs) ρ))
+      = consList (fs ++ bs) (consList as ρ) := by
+    rw [consList_ruleFrame,
+      show nF + m = (fs ++ bs).length from by rw [List.length_append, hfl, hbl],
+      shiftE_consList_len, shiftE_drop_consList xs as.length hdrop ρ, htake]
+  have e2 : shiftE (nF - i) m (consList (fs ++ bs) (consList as ρ))
+      = consList bs (consList (fs.take i) (consList as ρ)) := by
+    rw [consList_append, ← hbl, shiftE_consList_len,
+      shiftE_drop_consList fs i hfd (consList as ρ)]
+  unfold ihIdxAtM
+  simp only [Nat.add_zero]
+  rw [AnnotValid_liftN, e1, AnnotValid_liftN, e2]
+
+/-- **A field's telescope's validity, moved to the rule's frame** — the
+validity twin of `spineFit_ihTeleAtGo_rule`. -/
+theorem fieldsValid_ihTeleAtGo_rule {ρ : Nat → V} {nF o i : Nat} {xs fs as : List V}
+    (hxl : xs.length = as.length + o) (htake : xs.take as.length = as)
+    (hfl : fs.length = nF) :
+    ∀ (tl : List (Nat × Nat × AnnotTerm)) (ws : List V),
+      FieldsValid (consList ws (consList (fs.take i) (consList as ρ))) (tl.map (·.2.2)) →
+      FieldsValid (consList ws (consList (xs ++ fs) ρ))
+        ((ihTeleAtGo nF o i 0 ws.length tl).map (·.2.2))
+  | [], _, _ => trivial
+  | dd :: tl, ws, hF => by
+    rw [List.map_cons] at hF
+    obtain ⟨hv, hrest⟩ := hF
+    show FieldsValid _ (ihIdxAtM nF o i 0 ws.length dd.2.2 ::
+      (ihTeleAtGo nF o i 0 (ws.length + 1) tl).map (·.2.2))
+    refine ⟨(annotValid_ihIdxAtM_rule hxl htake hfl rfl dd.2.2).mpr hv, fun b hb => ?_⟩
+    rw [interp_ihIdxAtM_rule hxl htake hfl rfl dd.2.2] at hb
+    have ih := fieldsValid_ihTeleAtGo_rule (i := i) hxl htake hfl tl (ws ++ [b])
+      (by rw [← consList_snoc']; exact hrest b hb)
+    rw [length_snoc', ← consList_snoc'] at ih
+    exact ih
+
+/-- **The `ih` terms are bit-valid at the rule's frame** — off the
+GRADING's field segment alone: field `q`'s domain at the rule frame is
+the constructors' record's entry lifted past the prefix's extra binders
+(`blockRuleFdomsAV_eq`), and that entry IS the Π-tower over the field's
+telescope of the target former at the parameters and the field's index
+readings (`recEntry`/`reflEntry`); its validity hands the telescope's
+and the index readings', which the `ih` term's λ-tower and spine carry
+moved to the rule's frame (`fieldsValid_ihTeleAtGo_rule`,
+`annotValid_ihIdxAtM_rule`). -/
+theorem blockRuleIhsRunAV_valid_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM V μ envC}
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {d : BlockData V} {lps : List Name} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    (hcj : (d.ctorsM (p.toBlockShape.recTgtAt j))[i]? = some cA)
+    (hdnP : d.nP = p.nP)
+    (hks : d.ksF (p.toBlockShape.recTgtAt j) i
+      = (blockRuleKsOf p j i).map BlockFieldKind.toRec)
+    (hCf : cA.1.type.hasFvar = false) (ψ : Name → Nat)
+    (hokA : ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
+      ∀ (σ' : Nat → V) (ys : List V),
+        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take l) ys →
+        WellDenotedV V (consList ys σ')
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD l default)) :
+    ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i) ys →
+      ∀ v ∈ blockRuleIhsRunAV p rs mpC.base2.acval envC ψ j i,
+        AnnotValid V (consList ys σ) v := by
+  intro σ ys hys v hv
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  obtain ⟨hfrP, hfrR, hfrF, -, -, -, -, -⟩ := blockRuleFrameAt_rows (pp := p) hct
+  have hcd := blockCtorData_of_core hcore hcj
+  rw [hdnP] at hcd
+  obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, -, -, h₂, -⟩ := blockRuleData_run h hr hcA hrhs
+  have hnPr : p.nP ≤ p.toBlockShape.rulePrefixAt j := by
+    obtain ⟨-, hlenR, hall⟩ := checkBlockRecK_recNames h
+    obtain ⟨-, -, -, -, -, -, hle, -⟩ := hall j (by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega)
+    exact hle
+  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hflen : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length = cA.2 := by
+    rw [blockRuleFdomsAV, readOpenedDoms_length_eq, openPisAtFvars_length _ h₂]
+  have hFeq := (blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnPr ψ).1
+  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_inv hys
+  have hxl : xs.length = p.toBlockShape.rulePrefixAt j := by rw [hxs.length_eq, hpl]
+  have hfl : fs.length = cA.2 := by rw [hfs.length_eq, hflen]
+  have hasl : (xs.take p.nP).length = p.nP := by rw [List.length_take]; omega
+  have hxl' : xs.length = (xs.take p.nP).length + (p.toBlockShape.rulePrefixAt j - p.nP) := by
+    rw [hasl]; omega
+  have htake : xs.take (xs.take p.nP).length = xs.take p.nP := by rw [hasl]
+  -- the key
+  rw [blockRuleIhsRunAV, blockRuleIhsAV, blockRecIhsAt, List.mem_map] at hv
+  obtain ⟨⟨q, c'⟩, hkey, rfl⟩ := hv
+  have hkey' : (q, c') ∈ ConLeche.blockIhKeys (p.toBlockShape.rulePrefixAt j)
+      ((List.range p.recs.length).map p.toBlockShape.rulePrefixAt) p.recTgts
+      (blockRuleKsOf p j i) := hkey
+  obtain ⟨hqK, hkind⟩ := mem_blockIhKeys_kind hkey'
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  have hq : q < cA.2 := by omega
+  rw [← hks] at hkind
+  obtain ⟨eT, eE⟩ := blockRuleTlEis_eq_record hr hcA hcore hcj hdnP hks ψ hkey
+  have hTL : ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []).length
+      = (ConLeche.structFieldTeleOf cA.1.type p.nP cA.2 q).length := by
+    rw [← eT]; simp only [blockRuleTlAV, hct, List.length_map, List.length_range]
+  -- the field's domain, as the Π-tower over its telescope
+  have hD : ((d.dsF (p.toBlockShape.recTgtAt j) i ψ).getD (p.nP + q) default).2.2
+      = mkPisAV ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q [])
+          (AnnotTerm.mkAppN (mpC.base2.acval (d.memberName (d.tgts (p.toBlockShape.recTgtAt j) i q)) ψ)
+            (paramBvarsAt p.nP (p.nP + q + ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []).length)
+              ++ (d.eissF (p.toBlockShape.recTgtAt j) i ψ).getD q [])) := by
+    rcases hkind with hk | hk
+    · have hnr : (d.ksF (p.toBlockShape.recTgtAt j) i).getD q .ordinary ≠ .reflexive := by
+        rw [hk]; exact nofun
+      rw [hcd.recEntry ψ q hk hq, hcd.tssNone ψ q hnr]
+      rfl
+    · exact hcd.reflEntry ψ q hk hq
+  -- the grading at the field's position
+  have hfitG : SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+      ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+      ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take
+        (p.toBlockShape.rulePrefixAt j + q)) (xs ++ fs.take q) := by
+    rw [List.take_append_of_le_length (by rw [List.length_append, hpl, hflen]; omega),
+      ← hpl, List.take_length_add_append]
+    exact SpineFit.append hxs (spineFit_take_any hfs q)
+  have hgd : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+      ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+      ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD
+        (p.toBlockShape.rulePrefixAt j + q) default
+      = (((d.dsF (p.toBlockShape.recTgtAt j) i ψ).getD (p.nP + q) default).2.2).liftN
+          (p.toBlockShape.rulePrefixAt j - p.nP) q := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_left
+      (by rw [List.length_append, hpl, hflen]; omega),
+      List.getElem?_append_right (by rw [hpl]; omega), hpl, Nat.add_sub_cancel_left,
+      ← List.getD_eq_getElem?_getD, hFeq,
+      liftDomsK_getD _ 0 _ q (by rw [List.length_map, List.length_drop, hcd.len ψ]; omega),
+      Nat.zero_add, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop]
+    rw [List.getElem?_eq_getElem (by rw [hcd.len ψ]; omega)]
+    simp only [Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (by rw [hcd.len ψ]; omega : p.nP + q < (d.dsF _ i ψ).length)]
+  have hg := (hokA _ (by omega) σ _ hfitG).2
+  rw [hgd, AnnotValid_liftN] at hg
+  have hsh : shiftE (p.toBlockShape.rulePrefixAt j - p.nP) q (consList (xs ++ fs.take q) σ)
+      = consList (fs.take q) (consList (xs.take p.nP) σ) := by
+    have hq' : (fs.take q).length = q := by rw [List.length_take]; omega
+    have e := shiftE_consList_len (p.toBlockShape.rulePrefixAt j - p.nP) (fs.take q) (consList xs σ)
+    rw [hq'] at e
+    rw [consList_append, e, shiftE_drop_consList xs p.nP (by rw [List.length_drop]; omega) σ]
+  rw [hsh, hD] at hg
+  obtain ⟨hFV, hB⟩ := AnnotValid_mkPisAV_inv hg
+  -- the `ih` term
+  simp only [hct, eT, eE, hfrR, hfrP, hfrF]
+  refine mkLamsC_validV (underTowerValid_of_fieldsValid ?_ fun bs hbs => ?_)
+  · rw [ihTeleAtR, map_dom_ihTeleAtGo_rebit]
+    have := fieldsValid_ihTeleAtGo_rule (ρ := σ) (i := q) hxl' htake hfl
+      ((d.tssF (p.toBlockShape.recTgtAt j) i ψ).getD q []) [] (by simpa using hFV)
+    simpa using this
+  · have hbs' := spineFit_ihTeleAtR_rule hxl' htake hfl hbs
+    have hbl : bs.length = (ConLeche.structFieldTeleOf cA.1.type p.nP cA.2 q).length := by
+      rw [hbs'.length_eq, List.length_map, hTL]
+    obtain ⟨-, hargs⟩ := AnnotValid.mkAppN_inv (hB bs hbs')
+    refine annotValid_mkAppN trivial (fun a ha => ?_)
+    rcases List.mem_append.mp ha with ha | ha
+    · rcases List.mem_append.mp ha with ha | ha
+      · simp only [prefVarsAV, List.mem_map] at ha
+        obtain ⟨k, -, rfl⟩ := ha
+        trivial
+      · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+        exact (annotValid_ihIdxAtM_rule hxl' htake hfl hbl E).mpr
+          (hargs E (List.mem_append_right _ hE))
+    · rw [List.mem_singleton] at ha
+      subst ha
+      refine annotValid_mkAppN trivial (fun a ha => ?_)
+      simp only [teleVarsAV, List.mem_map] at ha
+      obtain ⟨k, -, rfl⟩ := ha
+      trivial
 
 /-- **The `ih` openers' FIT, at the residue producer's telescope** —
 `BlockRuleBodyInputs`' one REGIME conjunct (`IndRegimeAt`'s fourth,
