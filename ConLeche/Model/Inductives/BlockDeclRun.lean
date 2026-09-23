@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecPreHpre
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRecPreHpre
 public import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Verify.Inductives.BlockRecInv
@@ -532,16 +533,29 @@ the recursor stage's obligation discharged down to `howed` and `hpos`.
 Discharged here, at the seam: the rule count (`blockRecNCt_ge`), the
 prefix length (`blockRulePdomsAV_length`), every carried constructor's
 storage and reading (`blockRecCtor_seam`, at the canonical
-`blockRecCtorTy`), and the `ℓ = 0` arm's type fact (`blockRecTyZ_run`).
+`blockRecCtorTy`), the `ℓ = 0` arm's type fact (`blockRecTyZ_run`),
+and the whole per-pair RULE CONTRACT but one premise
+(`blockRuleDataB_seam`).
 
-Owed (`howed`): a choice of the family's level `s` and of the rules'
-`ih` openers `ihs` and residue readings `Rb0` — no definition in the
-tree computes the latter two as functions of the run — and, at that
-choice, the equation list's three facts, the family's regime and the
-per-pair rule contract.
+Owed (`howed`) — a choice of the family's level `s`, the rules' `ih`
+openers `ihs` and residue readings `Rb0` (no definition in the tree
+computes the latter two as functions of the run: the peel's frame is
+existential and five of its fields are unpinned), and at that choice:
+* the equation list's three facts `heqB`/`heqV`/`heqP` (the rule
+  lanes'; `§A.3` reduces the first two to per-component facts, none of
+  them produced for `ihs`/`Rb0`);
+* the family's regime `hpre` (the dispatch lane's
+  `blockRecPre_dispatch_run` concludes it, but its WF/SQ arms relay
+  premises quantified over EVERY `D : RecFamData` whose conclusions read
+  `D.tupOf`/`D.kit` — `hihChain`, and the SQ arm has no case for a
+  zero-constructor `Prop` block with large elimination — so relaying
+  them here would make this premise set uninhabitable);
+* the rule stage's peel obligation `BlockRuleBodyOwed` (nothing in the
+  tree concludes `BlockRuleBodyInputs`).
 
 Owed (`hpos`): every stored rule binds at least one variable; the
-KERNEL's to say (stage (b) asks only `nP ≤ rP`). -/
+KERNEL's to say (stage (b) asks only `nP ≤ rP`, so a recursor with
+`nP = rP = 0` at a field-less constructor passes every stage). -/
 theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
     (mp : EnvModelM V μ env)
