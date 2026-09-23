@@ -54,6 +54,16 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (lane RM52, the level-parameter kit): `BlockRuleParams.lean`
+    # re-exports `Model/Inductives/BlockRuleRun.lean` because its `variable`
+    # binder gets `[SetTheory V]` through that line and its public statements
+    # name `blockRuleIhsRunAV`/`BlockCtorDataI`/`FvarList` (the census sees
+    # none of a variable binder's class).  MEASURED: demoting it alone fails
+    # the build with `Unknown identifier SetTheory` (`:39`); making
+    # `BitLevels` public instead leaves `Unknown identifier FvarList` and
+    # `EnvModelM`, the compiler naming `BlockRecRule` back.
+    ('ConLeche.Model.Inductives.BlockRuleParams',
+     'ConLeche.Model.Inductives.BlockRuleRun'),
     # task #315 (M5, the per-pair rule obligation): `BlockRuleFit.lean`
     # re-exports `Model/Inductives/BlockRecPreRun.lean` because
     # `BlockRecSplitAt` is named by THREE of its public statements, and

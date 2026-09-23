@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Model.Annot.BitLevels
-import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.BlockRecInv
 
 public section
