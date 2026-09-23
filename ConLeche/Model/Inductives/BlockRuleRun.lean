@@ -1363,6 +1363,54 @@ theorem blockRuleRbAV_below {mpC : EnvModelM V μ envC}
   exact denote_bvarsBelow mpC.base2.cval_closed _ _ hWS hbO
     (denoteMeta_erase mpC.base2.acval_erase _ _ hB)
 
+/-- **`ihdoms` is bounded at its own depths** — each `ih` opener is an
+`fvar` at its depth (`openPisAtFvars_index`), scoped there by the
+frame's `FvarList` and bvar-closed (`blockRuleOpened_run`), so its
+reading mentions nothing past the openers before it.  With
+`blockRuleRbAV_below` it is what makes the chain lift of the rule's
+certificates the identity. -/
+theorem blockRuleIhdomsAV_below {mpC : EnvModelM V μ envC}
+    (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {d : BlockData V} {lps : List Name} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
+    (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
+    (hcj : (d.ctorsM (p.toBlockShape.recTgtAt j))[i]? = some cA)
+    (hdnP : d.nP = p.nP)
+    (hks : d.ksF (p.toBlockShape.recTgtAt j) i
+      = (blockRuleKsOf p j i).map BlockFieldKind.toRec)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hcbC : ConstsBound envC cA.1.type) (ψ : Name → Nat) :
+    ∀ q, q < (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).length →
+      Term.bvarsBelow (p.toBlockShape.rulePrefixAt j + cA.2 + q)
+        ((blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD q default).erase := by
+  have hct : blockRuleCtorOf rs j i = cA := blockRuleCtorOf_eq hr hcA
+  have hcd := blockCtorData_of_core hcore hcj
+  rw [hdnP] at hcd
+  obtain ⟨crestC, hoP, hoF⟩ := hcd.opens
+  have hop0 : ConLeche.openPisAtFvars (p.nP + cA.2) cA.1.type 0
+      = some (d.fvsPF (p.toBlockShape.recTgtAt j) i ++ d.xFvsF (p.toBlockShape.recTgtAt j) i,
+          d.xrestF (p.toBlockShape.recTgtAt j) i) :=
+    openPisAtFvars_add p.nP hoP (by rw [Nat.zero_add]; exact hoF)
+  obtain ⟨bsC, bodyC0, hstC, -, -, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hop0
+  have hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true := by rw [hstC]; rfl
+  have hksLen : (blockRuleKsOf p j i).length = cA.2 := by
+    have := hcd.ksLen; rw [hks, List.length_map] at this; exact this
+  obtain ⟨-, -, hL3, hlbF, -, -, -, -, -, -, -, -, -⟩ :=
+    blockRuleOpened_run mpC h hr hcA hrhs hCf hCb hcbC hstripC hksLen
+  obtain ⟨-, -, -, -, -, -, hopen, -, -, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
+  have hpos := ConLeche.checkBlockRecK_rulePos h j r hr i cA hcA
+  rw [blockRuleIhdomsAV, hct, readOpenedDoms_length_eq]
+  refine readOpenedDoms_below (m := mpC.base2) (ψ := ψ) _ _ hpos fun q x hx => ?_
+  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen q x hx
+  have hmem : Expr.fvar (p.toBlockShape.rulePrefixAt j + cA.2 + q) ty
+      ∈ blockRuleFvsIhAt p rs j i := List.mem_of_getElem? hx
+  have hw := hL3.2.2 _ (List.mem_append_left _ (List.mem_reverse.mpr hmem))
+  simp only [Expr.WScoped] at hw
+  exact ⟨hw.2, hlbF _ (List.mem_append_right _ hmem)⟩
+
 /-- **Bit validity from a grading** — the `AnnotValid` twin of
 `fieldsOkB_zero_of_spineGrading`: a binder list each of whose entries is
 valid under every spine fitting the entries before it is hereditarily

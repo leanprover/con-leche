@@ -1112,7 +1112,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (blockRecEqs_params_seam hμ hrec hcore hkLen i r hr ψ₁ ψ₂ hq)
       have hpre := blockRecPre_seam hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore
-        hmr hM hkLen hTy hokA hfitF hG hI hW hSq
+        hmr hM hkLen hTy hokA hfitF rfl rfl hG hI hW hSq
       -- the `ih` openers' fit, off the regime
       have hihFit := blockRuleIhFit_seam hμ hrec hkLen hnames hstage hcore hpre
       exact ⟨s, blockRecNCt rsR,
