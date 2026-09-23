@@ -586,7 +586,15 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     let .forallE majDom _ _ := calleeAt
       | throw (.invalid s!"target rec: the rule of {c.1.name} recurses into a recursor whose \
           type does not bind the call's major")
-    unless ← opsT.isDefEq feT.env (base + k) fty (Expr.mkPisOf tele (absM majDom)) do
+    -- both abstract sides INFERRED first: the model's defeq reading
+    -- needs them well-denoted at every value of the holes, which only an
+    -- inference run at the abstract context supplies (the concrete
+    -- terms' checks say nothing about the holes)
+    let fld := absM ((fvsF.getD ih.field default).fvarTypeD)
+    let want := Expr.mkPisOf tele (absM majDom)
+    let _ ← opsT.inferType feT.env (base + k) fld
+    let _ ← opsT.inferType feT.env (base + k) want
+    unless ← opsT.isDefEq feT.env (base + k) fty want do
       throw (.invalid s!"target rec: the rule of {c.1.name} calls a recursor on a field that \
         is not a value of its major type")
   let depth := rP + nF + ihs.size
