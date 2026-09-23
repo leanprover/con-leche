@@ -973,6 +973,15 @@ complete, proved checker.  Deleting this constant — and the guard in
 `blockParts?` it names — is the flip. -/
 def blockRouteK1Only : Bool := true
 
+/-- **The two gates go together** (lane FLIP1): the recursor stage's
+CHECK is off only while the route is still one-member.  Every consumer
+that must still read the one-member arm cases on `blockRecCheckOn` and
+takes the route's gate from here, so that its k-ary arm — the one that
+survives the flip — reads neither gate.  At the flip this proof becomes
+`fun h => nomatch h`, and the theorem goes with `blockRouteK1Only`. -/
+theorem blockRouteK1Only_of_recOff (_h : blockRecCheckOn = false) :
+    blockRouteK1Only = true := rfl
+
 /-- Recognise a block for the uniform fixpoint route: its SHAPE
 (`blockShape?`), with the fields' kinds a PLACEHOLDER the install fills
 (`BlockParts.withKinds`) after normalising every field domain by

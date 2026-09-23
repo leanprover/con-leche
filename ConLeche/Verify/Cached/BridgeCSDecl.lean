@@ -14,8 +14,10 @@ public section
 Port of `ConLeche/Verify/BridgeSDecl.lean` for the cached tier.  The tail
 of the per-declaration composition whose bulk is
 `ConLeche/Verify/Cached/BridgeCS4.lean`: the inductive-block driver
-(`checkIndDeclSF_run`), its dispatch (`checkModeledOrNativeSF_run`), and the
-per-declaration bridge (`checkDeclSharedF_bridge`).
+(`checkIndDeclSF_run`) and the per-declaration bridge
+(`checkDeclSharedF_bridge`).  The `.indDecl` dispatch
+(`checkModeledOrNativeSF_run`) is in `ConLeche/Verify/Cached/BlockRunC.lean`,
+beside the uniform route's k-ary run it dispatches to.
 
 As in the interned original the *direct simple-structure* run has no
 bridge here: `structsEnabled = false` makes the arm that would
@@ -715,50 +717,5 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
           hF₁p'.symm.trans hok
         injection hv
       exact hF₂p
-
-/-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkBlockS`, everything else to `checkIndDeclSF`,
-and either way the pure fueled `checkDecl` reproduces the run. -/
-theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
-    (hok : indParamsOk nP block = true)
-    {s₀ : CState} (hwf : CSOKF s₀)
-    {feOut : FEnv} {s' : CState}
-    (h : (match blockParts? nP block with
-          | some p => checkBlockS mode (mkFEnv env) p
-          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
-      .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
-      .ok feOut.env := by
-  -- the declared parameter count (task #228) is a pure guard shared by
-  -- the two drivers: `hok` is the branch both take
-  show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match basisPinHit block with
-      | some kind => checkBasisDecl (m := CheckM) env kind
-      | none =>
-        if indParamsOk nP block = true then
-          (match blockParts? nP block with
-            | some p => checkBlock (fueledOps mode F) env p
-            | none => checkModeled mode (fueledOps mode F) env block)
-        else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
-  -- task #293: this block is not one of the five pinned ones (the
-  -- recognition happened before the dispatch, on both sides)
-  simp only [hpin, if_pos hok]
-  cases hfp : blockParts? nP block with
-  | some p =>
-    rw [hfp] at h
-    simp only at h
-    obtain ⟨⟨ms, hms⟩, rc, hrc⟩ := blockParts?_k1 rfl hfp
-    rw [checkBlockS_one mode rfl hms] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkNativeS_run hμ henv hwf h
-    refine ⟨hres, hfe, F, ?_⟩
-    simp only []
-    rw [← checkBlock_one (m := CheckM) (fueledOps mode F) env hms hrc]
-    exact hF
-  | none =>
-    rw [hfp] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
 
 end ConLeche.Cached
