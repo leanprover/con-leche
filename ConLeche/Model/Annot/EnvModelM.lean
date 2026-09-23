@@ -4,6 +4,7 @@ public import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Semantics.EnvFacts
+public import ConLeche.Model.Annot.BlockLfp
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
 
@@ -141,6 +142,19 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   install and by nothing else, so the supplier is the direct install
   step.  Consumed by the `.proj` rows' tower branches) -/
   tower_ok : ∀ φ : Name → Nat, TowerOk base2 φ
+  /-- **the recorded blocks** (lane ENVLFP): the lfp data of the
+  inductive blocks whose lfp clause this carrier records — a ghost
+  list, filled by the uniform block install at its constructors'
+  environment (`declBlock`, `EnvModelM.addLfp`) and copied by every
+  other extension -/
+  lfpBlocks : List (LfpDatum V)
+  /-- **the lfp clause of every recorded block** (`Annot/BlockLfp.lean`):
+  its members' denotations are the least fixed point of its operator,
+  whose fibres are the constructors' injections; and its members are
+  stored inductive formers (which is what lets every extension
+  transport the clause: an extension never re-reads a stored name) -/
+  lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧
+    ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)
 
 namespace EnvModelM
 
@@ -273,6 +287,61 @@ binder. -/
     have : Env.empty.findProj? T i = none := rfl
     rw [this] at hf
     exact nomatch hf
+  lfpBlocks := []
+  lfp_ok := fun _ hD => nomatch hD
+
+/-! ## The recorded lfp clauses (lane ENVLFP) -/
+
+namespace EnvModelM
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+
+/-- **Record a block's lfp clause** — the block install's production
+step (`declBlock`, at the constructors' environment).  Everything but
+the recorded list is unchanged, so `(mp.addLfp …).base2 = mp.base2`
+definitionally. -/
+@[expose] def addLfp (mp : EnvModelM V μ env) (D : LfpDatum V)
+    (hL : LfpClause mp.base2.acval D)
+    (hst : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)) :
+    EnvModelM V μ env :=
+  { mp with
+    lfpBlocks := D :: mp.lfpBlocks
+    lfp_ok := fun D' hD' => by
+      rcases List.mem_cons.mp hD' with rfl | h
+      · exact ⟨hL, hst⟩
+      · exact mp.lfp_ok D' h }
+
+theorem addLfp_base2 (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) :
+    (mp.addLfp D hL hst).base2 = mp.base2 := rfl
+
+theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) :
+    D ∈ (mp.addLfp D hL hst).lfpBlocks := List.mem_cons_self
+
+/-- A recorded block's clause, read off the carrier. -/
+theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
+    LfpClause mp.base2.acval D :=
+  (mp.lfp_ok D hD).1
+
+/-- **The recorded clauses cross an environment extension** that keeps
+every stored inductive former and its leaf — the transport every
+construction site of the invariant (the cons funnel, the rule-list
+swap) instantiates. -/
+theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
+    {acval' : Name → (Name → Nat) → AnnotTerm}
+    (hfind : ∀ n cv caps, env.find? n = some (.indInfo cv caps) →
+      env'.find? n = some (.indInfo cv caps))
+    (hag : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → acval' n = mp.base2.acval n) :
+    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧
+      ∀ mm, mm < D.k → ∃ cv caps, env'.find? (D.member mm) = some (.indInfo cv caps) := by
+  intro D hD
+  obtain ⟨hL, hst⟩ := mp.lfp_ok D hD
+  refine ⟨hL.congr fun mm hmm => ?_, fun mm hmm => ?_⟩
+  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+    exact hag _ cv caps hf
+  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+    exact ⟨cv, caps, hfind _ cv caps hf⟩
+
+end EnvModelM
 
 /-! ## The `Nat`-op guard law -/
 

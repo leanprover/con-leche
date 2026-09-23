@@ -12,6 +12,7 @@ public import ConLeche.Model.Inductives.CopyTransport
 public import ConLeche.Model.Inductives.BlockStageFormer
 public import ConLeche.Model.Inductives.BlockCtorsLoop
 public import ConLeche.Model.Inductives.BlockModel
+public import ConLeche.Model.Inductives.BlockModelRecords
 public import ConLeche.Model.Inductives.BlockStageTable
 public import ConLeche.Model.Inductives.BlockCaps
 public import ConLeche.Model.Inductives.BlockStageCtors
@@ -30,6 +31,7 @@ public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockModelLfpInd
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRuleFit
 public import ConLeche.Model.Inductives.BlockRuleRun
@@ -53,7 +55,9 @@ public import ConLeche.Model.CtxOkKit
 public import ConLeche.Model.Currency
 public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Annot.Laws
+public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.Tiers
 public import ConLeche.Model.Install

@@ -7,6 +7,7 @@ public import ConLeche.Model.BasisEmpty
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
+import ConLeche.Model.BasisLfp
 public section
 
 /-!
@@ -61,7 +62,10 @@ theorem extendFalse (mp : EnvModelM V μ env)
     (hfresh : env.find? falseName = none)
     (hwf : EnvWF ⟨falseA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨falseA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
+  refine nonempty_addLfp_of_exists (D := emptyLfp falseName 0)
+    (hL := emptyLfp_clause 0 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
+    (declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [0]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

@@ -9,6 +9,7 @@ public import ConLeche.Semantics.BasisRules
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Model.Annot.BitInst
 
+import ConLeche.Model.BasisLfp
 public section
 
 /-!
@@ -463,7 +464,10 @@ theorem extendPUnit (mp : EnvModelM V μ env)
     (hfresh : env.find? punitName = none)
     (hwf : EnvWF ⟨punitA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨punitA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
+  refine nonempty_addLfp_of_exists (D := punitLfp punitName fun ψ => ψ uN)
+    (hL := punitLfp_clause _ (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
+    (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -874,7 +878,10 @@ theorem extendNat (mp : EnvModelM V μ env)
     (hguard : ConLeche.natLitSupported ⟨natA :: env.consts⟩ = false)
     (hwf : EnvWF ⟨natA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨natA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
+  refine nonempty_addLfp_of_exists (D := natLfp natName)
+    (hL := natLfp_clause (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
+    (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .nat []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))

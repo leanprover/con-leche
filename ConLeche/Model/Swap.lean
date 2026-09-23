@@ -249,7 +249,13 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             caps_ok := ?_
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
-            tower_ok := ?_ },
+            tower_ok := ?_
+            -- the recorded lfp clauses: the swap touches recursors only,
+            -- and keeps every leaf
+            lfpBlocks := mp.lfpBlocks
+            lfp_ok := mp.lfp_ok_transport
+              (fun n cv caps hf => (hsame n _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hf)
+              (fun _ _ _ _ => rfl) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ
