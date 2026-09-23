@@ -617,4 +617,84 @@ theorem nestPos_cyc (ops : ConLeche.CheckerOps CheckM) (ctx : NestCtx) :
       | exact ih _ _ _ _ _ _ _ h hc
       | exact nestCont_cyc ih h hc
 
+/-! ## A constructor's field telescope -/
+
+/-- **The first `n` Π-domains of a reading positive**, each under the
+earlier ones, and `P` of the relation and the reading below them. -/
+@[expose] def PiPosThen (P : FrameRel V → AnnotTerm → Prop) :
+    Nat → FrameRel V → AnnotTerm → Prop
+  | 0, R, r => P R r
+  | n + 1, R, .pi _ _ A B => MonoOn R A ∧ PiPosThen P n (R.under A) B
+  | _ + 1, _, _ => False
+
+/-- What a telescope walk leaves at its result `res`, at depth `D`: the
+relation still agrees off the hole positions, and the result reads. -/
+@[expose] def ResultAt (m : EnvModel V env) (φ : Name → Nat) (lo hi D : Nat) (res : Expr)
+    (R : FrameRel V) (r : AnnotTerm) : Prop :=
+  R.AgreesOff (holeP D lo hi) ∧ denoteMeta m.acval env φ D res = some r ∧ Expr.WScoped D res
+
+/-- **The telescope walk is positive**: a successful `nestFields` whose
+recursive call is positive makes every walked field's reading positive
+under the earlier fields, and leaves the result reading at the relation
+under all of them. -/
+theorem nestFields_sem
+    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
+    {ctx : NestCtx} (hrec : NestPosSem m φ ctx rec) (hcyc : CycMono rec)
+    {prog : List NestKey} {base : Nat} {err : CheckError} :
+    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind) (res : Expr)
+      (st' : NestState) (D : Nat),
+      ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, res, st') →
+      st'.cyclic = false → D = base + j + nF →
+      ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur →
+      ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
+        CtxOk m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
+        Graded V Δa ca → HoleRel ctx prog (base + j) Δa R →
+        PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur st ks res st' D h _ hD _ hfr Δa ca R _ hca _ hR
+    simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl, -⟩ := h
+    subst hD
+    exact ⟨hR.agree, hca, hfr.1⟩
+  | succ nF ih =>
+    intro j cur st ks res st' D h hc hD hhi hfr Δa ca R hC hca hgr hR
+    unfold ConLeche.nestFields at h
+    split at h
+    · rename_i a b mb
+      simp only [bind, Except.bind] at h
+      split at h
+      · simp at h
+      · rename_i r₁ hr₁
+        obtain ⟨k₁, st₁⟩ := r₁
+        simp only at h
+        split at h
+        · simp at h
+        · rename_i r₂ hr₂
+          obtain ⟨ks₂, res₂, st₂⟩ := r₂
+          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+          obtain ⟨-, rfl, rfl⟩ := h
+          have hc₁ : st₁.cyclic = false := by
+            cases h1 : st₁.cyclic
+            · rfl
+            · rw [nestFields_cyc hcyc _ _ _ _ _ _ _ hr₂ h1] at hc; exact nomatch hc
+          obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
+          obtain ⟨hws, hb, hLb⟩ := hfr
+          simp only [Expr.WScoped] at hws
+          simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+          have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
+          have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
+          obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
+          have hA : MonoOn R ta :=
+            hrec prog (base + j) 0 a st k₁ st₁ hr₁ hc₁ hhi ⟨hws.1, hb.1, hLa⟩
+              hC.forallE_ty hta hgA hR
+          refine ⟨hA, ?_⟩
+          have hCop := CtxOk.openS hC.forallE_ty hC.forallE_body hta hgA
+          have hfr' := frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd
+          rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
+          exact ih (j + 1) _ st₁ ks₂ res₂ st₂ D hr₂ hc (by omega) (by omega) hfr' hCop hba hgB
+            (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
+    · simp at h
+
 end ConLeche.Model
