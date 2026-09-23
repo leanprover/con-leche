@@ -566,7 +566,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   member list, normalises every constructor field domain by official's
   positivity walk — weak head normal form before classifying, again
   under each Π binder
-  ([function `normPosDom` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L162)) —
+  ([function `normPosDom` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L144)) —
   classifies each field against all the members
   ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L211)),
   and runs official's checks — universe bound, elimination restriction

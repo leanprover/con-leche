@@ -766,8 +766,8 @@
    620      | .ctorInfo _ nPc _ => nPc == nP
    621      | _ => true
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L162
-   162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
+== ConLeche/Kernel/Inductives/SumInstall.lean#L144
+   144  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L211
    211  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
