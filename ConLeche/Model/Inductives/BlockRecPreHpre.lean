@@ -1202,22 +1202,22 @@ exact spelling of `declBlock_run`'s typed-tuple `ih` fit
             + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
             + (ihs ψ c j).length))
         (Ca ψ c j)) ∧
-    -- `hokA`
-    (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
-      (∀ c, c < rs.length →
-        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
-      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length →
-      ∀ ys : List V,
-        SpineFit (consList as ρ)
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).take l)
-          ys →
-        WellDenoted V (consList ys (consList as ρ))
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).getD l
-            default)) ∧
+    -- `hokA`: owed as the RULE FRAME's grading (G), in `declBlock_run`'s
+    -- spelling — `blockRuleGrading_run` pays it; the seam reads the
+    -- dispatch's chain-frame form off its prefix and field segments
+    -- (`blockGradeHokA_chain`)
+    (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      ∀ ψ : Name → Nat,
+      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
+      ∀ (σ' : Nat → V) (ys : List V),
+        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take l) ys →
+        WellDenotedV V (consList ys σ')
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD l default)) ∧
     -- `hlhs`
     (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
       (∀ c, c < rs.length →
@@ -1334,6 +1334,115 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {names : List Name} {d : BlockData V}
 
+/-- The rule's field domains number the constructor's fields. -/
+theorem blockRuleFdomsAV_length_run
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) (ψ : Name → Nat) :
+    (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2 := by
+  obtain ⟨_, _, _, _, _, _, -, -, h₂, -, -, -, -, -⟩ := blockRuleData_run h hr hcA hrhs
+  rw [blockRuleFdomsAV, readOpenedDoms_length_eq]
+  exact openPisAtFvars_length _ h₂
+
+/-- **The field domains' chain lift is the identity** — they are
+bounded at their own depths (`hbnd`, `blockRuleDoms_bounded_at` at the
+run's block datum). -/
+theorem blockRecFdomsK_eq_of_bounded {ψ : Name → Nat}
+    (hbnd : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length →
+        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l
+            default).erase))
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {j : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[j]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[j]? = some rhs) (K : Nat) :
+    blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j
+      = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j := by
+  rw [blockRecFdomsK]
+  refine liftDomsK_eq_self_of_bounded _ _ fun l hl => ?_
+  have hb := hbnd c r hr j cA rhs hcA hrhs
+    ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length + l)
+    (by rw [List.length_append]; omega)
+  rwa [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
+    Nat.add_sub_cancel_left, ← List.getD_eq_getElem?_getD] at hb
+
+/-- **The dispatch's `hokA`, from the rule frame's grading (G)** — its
+prefix and field segments, at the chain frame (any frame will do: (G)
+is stated at every one), the field domains' chain lift being the
+identity. -/
+theorem blockGradeHokA_chain (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
+      (p.kinds.getD c []).length = ctorsA.length)
+    (hbnd : ∀ (ψ : Name → Nat) (j : Nat)
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length →
+        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l
+            default).erase))
+    (hG : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      ∀ ψ : Name → Nat,
+      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
+      ∀ (σ' : Nat → V) (ys : List V),
+        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).take l) ys →
+        WellDenotedV V (consList ys σ')
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ j i).getD l default)) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
+      (∀ c, c < rs.length →
+        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
+      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+          ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length →
+      ∀ ys : List V,
+        SpineFit (consList as ρ)
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).take l)
+          ys →
+        WellDenoted V (consList ys (consList as ρ))
+          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).getD l
+            default) := by
+  intro ψ ρ as _ _ c hc j hj l hl ys hys
+  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+  have hjr : j < rs[c].2.2.2.length := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
+  obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
+    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+  rw [blockRecFdomsK_eq_of_bounded (hbnd ψ) hr hcA hrhs] at hl hys ⊢
+  have hlP := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hlF := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
+  have hl' : l ≤ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+      ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length := by omega
+  have htk : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
+        ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).take l
+      = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).take l :=
+    List.take_append_of_le_length hl'
+  have hgd : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
+        ++ blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).getD l default
+      = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).getD l default := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_left hl, ← List.getD_eq_getElem?_getD]
+  have hq := hG c rs[c] hr j cA hcA ψ l
+    (by rw [List.length_append, hlP, hlF] at hl; omega) (consList as ρ) ys (by rw [htk]; exact hys)
+  rw [hgd] at hq
+  exact hq.1
+
 /-- **BOTH kit arms' `hspF`, at the run** — at the base frame and at
 any chain width `K` (the WF arm's is `rs.length`, the SQ arm's `1`).
 §24's bridge at `K = 0` (`blockRecSpF_base`) with the carrier's slots
@@ -1402,16 +1511,7 @@ theorem blockKitSpF_run (hμ : μ.verifiedChecks = true)
     ⟨hfindC, hlpsC, hcd⟩ hfd hasLen hps (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l)
     (Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)) (List.getElem?_eq_some_iff.mp hcj).1 hi
     (lfpTuple_mem _ _ _ _) hxs hpref hfit
-  have hK : blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j
-      = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j := by
-    rw [blockRecFdomsK]
-    refine liftDomsK_eq_self_of_bounded _ _ fun l hl => ?_
-    have hb := hbnd c rs[c] hr j cA rhs hcA hrhs
-      ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length + l)
-      (by rw [List.length_append]; omega)
-    rwa [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
-      Nat.add_sub_cancel_left, ← List.getD_eq_getElem?_getD] at hb
-  rw [hK]
+  rw [blockRecFdomsK_eq_of_bounded hbnd hr hcA hrhs K]
   exact hq
 
 /-- **REGIME WF's `hctorAt`, at the run** — at ANY chain frame (the
@@ -1746,11 +1846,12 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
     obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  obtain ⟨CaG, hcertsW, hokA, hlhs, hihsWd1, hihsFit⟩ := hG
+  obtain ⟨CaG, hcertsW, hokG, hlhs, hihsWd1, hihsFit⟩ := hG
   refine blockRecPre_dispatch_run (us := us) (uOf := uOf)
     (ihdoms := fun ψ => blockRecIhdomsK rs.length p mpC.base2.acval envC rs ψ) (Ca := CaG)
     (d := blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
-    hμ h hTy hcertsW hokA hlhs
+    hμ h hTy hcertsW
+    (blockGradeHokA_chain hμ h hkLen (blockRuleDoms_bounded_at hμ h hcore) hokG) hlhs
     (fun ψ ρ as hl ht c hc j hj ys hys => ⟨hihsWd1 ψ ρ as hl ht c hc j hj ys hys,
       blockRecIhsFit_chain hμ h hl hc (hihsFit ψ ρ as hl ht c hc j hj) ys hys⟩)
     ?_ ?_ helim hmemU hruns rfl ?_
