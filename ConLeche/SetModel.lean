@@ -7,6 +7,7 @@ public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.WfRec
 public import ConLeche.SetModel.NarrowTreeList
+public import ConLeche.SetModel.HoleOp
 
 @[expose] public section
 
@@ -35,7 +36,12 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   ordinarily at the hole, with the recursion run by ∈-recursion on the
   global subterm relation (`SetTheory/Derive/TransClosure.lean`) over
   the two majors' ordinary carriers — no wide tuple, no identification,
-  no per-block accessibility.
+  no per-block accessibility;
+* `HoleOp` — the HOLE operator (design lane HOLEOP): a block's
+  operator as `Σ ctor, Π fields, ⟦field⟧[members := X]` over a syntax
+  of POSITIVE TYPES with no field kinds, monotonicity by induction on
+  the positivity derivation, the fibre law, and parameter-monotonicity
+  of any block by leastness (the nested case's only need).
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and
