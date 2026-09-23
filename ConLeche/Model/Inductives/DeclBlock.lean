@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
+public import ConLeche.Model.Inductives.BlockModelRecords
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 public section
@@ -304,7 +305,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   obtain ⟨hshape, -, -⟩ := ConLeche.blockParts?_inv hdp
   obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
-  obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, -, hq, hcons, -, -, -⟩ :=
+  obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, -, -, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
   have hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps :=
     fun ms hms => (hmembersOk ms hms).1
@@ -396,10 +397,32 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     show ctorsAs[c]? = some (ctorsAs.getD c [])
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
     rfl
-  obtain ⟨mpC, hEtaC, hcoreC⟩ :=
+  obtain ⟨mpC₀, hEtaC, hcoreC⟩ :=
     stageBlockCtors hμ hN hN.2.2.2 hS.toBlockCtorsStage hlenCtorsAs hctorsAs ctorsAs 0 env₁ mpI
       (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hEtaI hcore
       (fun c _ j cA hj => hfreshC c j cA hj)
+  -- ## the block's LFP CLAUSE, recorded at the constructors' environment
+  -- (lane ENVLFP): the representation is built from the stages' three
+  -- records (`blockModelAt_of_records`) and its `functor`/`fibre`/`leaf`
+  -- enter the invariant (`EnvModelM.addLfp`), so the recursor stage
+  -- below — and every later environment — carries it
+  have hk0 : 0 < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
+    rw [← hN.2.2.2, hcvTas]; exact Nat.succ_pos _
+  have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+  have hstC : ∀ mm, mm < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp.k →
+      ∃ cv caps, (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
+        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp.member mm)
+          = some (.indInfo cv caps) := by
+    intro mm hmm
+    obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hmm)⟩
+    have hname := hN.1 mm cvTb hcv
+    exact ⟨cvTb, _, by
+      show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
+        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName mm) = _
+      rw [hname]; exact (hcoreC.1 mm cvTb hcv).1⟩
+  let mpC := mpC₀.addLfp (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp hMC.toLfp hstC
   -- ## every member's projection slots, free at the constructors' environment
   have hnpEnvC : ∀ c, c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k →
       (∃ cA, (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c = [cA]) →

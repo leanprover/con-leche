@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageRec
+public import ConLeche.Model.Annot.BlockLfp
 public section
 
 /-!
@@ -345,6 +346,47 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     j < (d.ctorsM c).length → j' < (d.ctorsM c).length →
     fs.length = ((d.Fss c ψ).getD j []).length → fs'.length = ((d.Fss c ψ).getD j' []).length →
     d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
+
+/-! ## The block's LFP CLAUSE (lane ENVLFP)
+
+The part of the representation the environment invariant records
+(`Model/Annot/BlockLfp.lean`): the datum is `d`'s own fields — the
+operator IS `d.Φ` — and the clause is `functor`, `fibre` and `leaf`
+read off `BlockModelAt`, nothing re-proved. -/
+
+/-- **A block's lfp datum**: its fields are `d`'s. -/
+@[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
+  names := d.memberNames
+  k := d.k
+  N := d.N
+  w := d.w
+  params := d.params
+  ids := fun c ψ => d.IdsM c ψ
+  u := fun c ψ => d.uM c ψ
+  Φ := d.Φ
+  fits := fun ψ ρp X t c j fs => j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs
+  inj := d.inj
+
+theorem BlockData.toLfp_idx (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V) :
+    d.toLfp.idx ψ ρp = d.idx ψ ρp := rfl
+
+theorem BlockData.toLfp_carrier (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V) :
+    d.toLfp.carrier ψ ρp = lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := rfl
+
+/-- **The representation's lfp clause** — `functor`, `fibre` and
+`leaf`, verbatim. -/
+theorem BlockModelAt.toLfp {m : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt m names d) : LfpClause m.acval d.toLfp where
+  kN := Nat.le_add_right _ _
+  functor := hM.functor
+  fibre := fun ψ ρp hsat X hX c hc t ht x => by
+    show x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+      ∃ j fs, (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ∧ x = d.inj ψ c j fs
+    rw [hM.fibre ψ ρp hsat X hX c hc t ht x]
+    constructor
+    · rintro ⟨j, fs, hj, hfit, rfl⟩; exact ⟨j, fs, ⟨hj, hfit⟩, rfl⟩
+    · rintro ⟨j, fs, ⟨hj, hfit⟩, rfl⟩; exact ⟨j, fs, hj, hfit, rfl⟩
+  leaf := hM.leaf
 
 /-! ## Derived laws -/
 
