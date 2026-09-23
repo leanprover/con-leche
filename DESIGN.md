@@ -84631,6 +84631,32 @@ HOLE2's `ContSem`).  Gates: nested-shadow 82/82 (`inmodel_groups`
 accepts), target-shadow 317/317, e2e 301/301, arena green; tests: the
 A/B cycle, a cycle through `L`, a three-member cycle.
 
+**Part 3 (landed): U4 and the normal form — `normPosDom` decides nothing.**
+- `nestPos` returns each field's NORMAL FORM (official's
+  `check_positivity` form, `normPosDom`'s rules: the input when it
+  mentions no hole, else the reduct, Π bodies normalised).
+  `nestedBlockPositivity` returns every constructor's normalised type
+  (members restored, parameters closed): the product the install stores.
+  Measured in the target shadow, from the stored AND from the DECLARED
+  constructors, against `normCtorVal`'s: equal on all 2075 accepted
+  blocks of the corpus.  So at the flip the install can take the one
+  function's output and `normCtorVal` goes.
+- `normPosDom` no longer throws at a negative Π domain; the walk stops
+  there.  The verdict is `nestPos`'s (target path) or the live
+  classifier's (until the flip), charter item 3.  Verdicts are
+  unchanged.  Four negative fixtures' `pos`/`cls` columns move
+  skip → reject in `tests/target-shadow-expected.txt`.
+- **U4** (closure witness's class condition): a later field or the
+  result using a recursive/reflexive field, on the NORMALISED telescope
+  (today's `structUsedLater`), DECLINES in `nestMemberCtor`.  Finding:
+  the class is EMPTY on streams official accepts.  Anything applied to a
+  recursive field's value mentions the block, which official rejects.
+  E2E-DESIGN's `Vec ((fun _ => Nat) t) 3` is REJECTED by official
+  ("nested inductive datatypes parameters cannot contain local
+  variables", probed with Lean v4.29.1 via `scripts/export-fixture.sh`).
+  So there is no e2e fixture: the decline is a unit test in a
+  hand-built environment (`tests/ConLecheTests/NestedTests.lean`).
+
 Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded (partial;
 S3 for the maintainer).
 
