@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeInstall
+public import ConLeche.Conformance.RecConform
 import ConLeche.Kernel.Inductives.BlockParts
 public import ConLeche.Kernel.Inductives.BlockRec
 
@@ -28,9 +28,10 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    structure-like member.
 
 The recursor stage CHECKS the stream's recursors (primitive
-recursion, `checkBlockRecK`) at every `k`, then runs the one-member
-generator (`checkNativeRec`, `ConLeche/Kernel/Inductives/NativeInstall.lean`)
-as a reject-only conformance check (`checkBlockRecConform`).
+recursion, `checkBlockRecK`) at every `k`, then runs the reject-only,
+unverified conformance check (`checkBlockRecConform`, in
+`ConLeche/Conformance/`: the one-member recursor generator, generate
+and compare), through `thenConform`.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -43,12 +44,20 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-! ## The capability record, per member -/
 
-/-- **The capability record of member `m`** (`nativeCapsAt` at a
-member): official's `is_structure_like` is `ncnstrs == 1 &&
-nindices == 0 && !is_rec` with `is_rec` read over ALL constructors of
-ALL members, so η and unit-likeness are the MEMBER's data at the
-BLOCK's recursion verdict; rule K is official's `is_K_target`, which
-requires `m_ind_types.size() == 1` — a one-member block. -/
+/-- **The capability record of member `m`**: official's
+`is_structure_like` is `ncnstrs == 1 && nindices == 0 && !is_rec` with
+`is_rec` read over ALL constructors of ALL members, so η and
+unit-likeness are the MEMBER's data at the BLOCK's recursion verdict;
+rule K is official's `is_K_target`, which requires
+`m_ind_types.size() == 1` — a one-member block.  At a FIELDLESS
+constructor the record claims BOTH unit-likeness and η, as official's
+`is_structure_like` does: the recursor's major-premise rescue
+(`Core.lean`, the `etaFields = 0` arm — arena
+`073_typeSingletonRecReduction`) keys on η.  (Granting η at a
+recursive structure-like was tried and is UNSOUND IN PRACTICE though
+sound in the model: on `ind_nest_via_refl` the tool's nested model over
+a reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
+through η-expansion — official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
@@ -876,13 +885,13 @@ one-member generate-and-compare arm, through `BlockParts.toNative`'s
 
 The NAMES are here, in two checks that do different jobs.
 
-* `blockRecNameSetOk` — the CONFORMANCE check (the maintainer's
-  revising ruling of 2026-09-21, "no red tutorial tests"): the
-  recursors' names are, as a SET, the names official generates,
-  `{T_m.rec | m a member}`.  WHICH recursor carries which name is not
-  checked: a recursor is assigned to its member by its MAJOR, and
-  that stays.  It is a pure accept-shrinker — nothing verified reads a
-  recursor's name — and it is what makes a misnamed or duplicated
+* `blockRecNameSetOk` — the recursors' names are, as a SET, the names
+  official generates, `{T_m.rec | m a member}` (the maintainer's ruling
+  of 2026-09-21, "no red tutorial tests").  WHICH recursor carries
+  which name is not checked: a recursor is assigned to its member by its
+  MAJOR.  It is NOT conformance-only: the proofs read it (distinct
+  recursor names, `blockRecNameSetOk_nodup`; one recursor per member,
+  `checkBlockRecPins_names`), and it makes a misnamed or duplicated
   eliminator a `.invalid` rather than a silently accepted one.
 * `blockRecNamesUnreserved` — the check the MODEL consumes: no
   recursor takes a name the environment's own guards look up
@@ -948,40 +957,6 @@ reads through it with one lemma (`thenConform_ok`,
   let r ← stage
   conform
   pure r
-
-/-- **The recursor CONFORMANCE check** (the maintainer's decision of
-2026-09-23, lane CONF1): the one-member route's GENERATE-AND-COMPARE,
-kept after the recursor stage became a check.
-
-Unverified and reject-only — the same status as the recursor
-name-set check (`blockRecNameSetOk`): no model consumer, it only
-shrinks the accept set.  Soundness comes from the primitive-recursion
-check (`checkBlockRecK`), which runs FIRST (`checkBlockRec`),
-so that the check is exercised on every block; this then brings the
-verdict back to official's on a stream whose recursor is a valid
-primitive recursion but not the one official generates (the argument
-sums, the rule bodies, the recursor's type).
-
-It is the old one-member route's generate-and-compare stage — the
-stream's rules against the generated ones (`nativeRulesOk`), then the
-recursor generated and compared (`checkNativeRec`) — with the results
-discarded.
-
-**Coverage: ONE member with ONE recursor only.**  For a mutual block
-(`k ≥ 2`) the kernel has NO generator (the old route handed mutual
-blocks to the untrusted modeller), so the check is SKIPPED there, and
-such a block's recursors are held to the primitive-recursion check
-and the records' pins (`checkBlockRecPins`) alone. -/
-def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) : m Unit :=
-  match p.members, p.recs, cvTas, ctorsAs with
-  | [_], [_], [cvTa], [ctorsA] => do
-    let pn := p.toNative
-    unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
-        pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
-      throw (.invalid "direct rec: recursor rules are not the generated ones")
-    discard <| checkNativeRec ops env pn cvTa ctorsA
-  | _, _, _, _ => pure ()
 
 /-- **The recursor stage**: the CHECK (`checkBlockRecK`, primitive
 recursion) at every `k`, then the reject-only conformance check

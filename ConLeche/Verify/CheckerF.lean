@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
 import ConLeche.Kernel.Inductives.SumInstallF
-public import ConLeche.Kernel.Inductives.NativeInstallF
+public import ConLeche.Conformance.RecConformF
 
 public section
 

@@ -40,7 +40,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape
-  NativeParts BinderMeta ProjEntry ProjTable RecRule RecFieldKind projTableName)
+  BinderMeta ProjEntry ProjTable RecRule RecFieldKind projTableName)
 
 universe w
 
@@ -60,19 +60,6 @@ unrestricted chain closed by the trivial index equation. -/
 theorem rChains_single_nil (Fs : List AnnotTerm) :
     rChains 0 0 [Fs] [[]] = [Fs ++ [idxEqAV []]] := by
   simp [rChains, rChain, idxEqsAt, liftFields_zero]
-
-/-- The capability record at a structure-like block, spelled out. -/
-theorem _root_.ConLeche.nativeCaps_single {p : NativeParts} {c : ConstantVal × Nat}
-    (h : p.ctors = [c]) :
-    ConLeche.nativeCaps p =
-      { eta := p.nIdx == 0 && !p.isProp &&
-          !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive),
-        etaCtor := c.1.name, etaParams := p.nP,
-        etaFields := c.2, unitlike := p.nIdx == 0 && c.2 == 0, unitParams := p.nP,
-        ruleK := c.2 == 0 && p.isProp,
-        sortZ := Level.zeronessOf p.resSort } := by
-  unfold ConLeche.nativeCaps ConLeche.nativeCapsAt ConLeche.nativeIsRec
-  rw [h]
 
 /-- `NoProjEnv` across the constructors' conses. -/
 theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :

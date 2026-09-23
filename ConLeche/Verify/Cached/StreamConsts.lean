@@ -50,9 +50,9 @@ nothing of its own.
 not laziness.**  Three of the block's constants are stored as something
 other than the annotation of what the record declares:
 
-* the **recursor**'s stored type is the one the checker GENERATES from
-  the block (`ConLeche/Kernel/Inductives/NativeInstall.lean`); the
-  stream's own record is compared against it by `isDefEq` and then
+* the **recursor**'s stored type was, on the one-member route, GENERATED
+  (that generator is now the conformance check, `ConLeche/Conformance/`);
+  the stream's own record was compared against it by `isDefEq` and then
   discarded, exactly as official's replay does;
 * the **type former**'s stored type, on the native route, is the
   annotation of the *whnf'd* telescope whenever the declared type is not

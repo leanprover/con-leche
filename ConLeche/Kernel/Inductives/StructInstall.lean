@@ -10,8 +10,9 @@ public import ConLeche.Kernel.TrustAxioms
 
 What survives of the simple-structure installer (deleted at task #210
 Part C): the field-domain walk and the projection TABLE the fixpoint
-route stores at a structure-like block (`checkNativeTable`,
-`ConLeche/Kernel/Inductives/NativeInstall.lean`).  The index-threaded twins
+route stores at a structure-like block (`checkStructProjTable`,
+run per member by `checkBlockTables`,
+`ConLeche/Kernel/Inductives/BlockInstall.lean`).  The index-threaded twins
 are `ConLeche/Kernel/Inductives/StructInstallF.lean`.
 -/
 

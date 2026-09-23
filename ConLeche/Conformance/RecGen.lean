@@ -1,109 +1,35 @@
 module
 
 public import ConLeche.Kernel.Inductives.SumParts
+public import ConLeche.Kernel.Inductives.FieldTele
 
 @[expose] public section
 
 /-!
-# The direct recursive class: recognition and the generated recursor
-(task #188)
+# CONFORMANCE: the generated recursor at one member
 
-A **direct recursive** block is a non-nested inductive family with
-any number of constructors and any number of indices in which the
-type former occurs in some constructor field, every such occurrence
-being **finitary and strictly positive**: the field's domain is
-exactly the family at the block's parameters followed by index
-expressions, `T p⃗ e⃗` (`Nat`, `List`, binary trees, `Vector`-like
-families, `Lean.Level`, `Lean.Expr`, `Lean.Name`, …; a structure with a
-recursive field is the one-constructor instance).  The model is the
-Knaster–Tarski least pre-fixed FAMILY of the constructor-tower functor
-over the index-tuple set (`ConLeche/SetTheory/Derive/LfpFam.lean`,
-`ConLeche/Semantics/Tower/FixLeafI.lean`), and the recursor the fixed
-point of its own one-step unfolding
-(`ConLeche/Semantics/Tower/FixRecI.lean`).
+**Not needed for soundness.**  Everything under `ConLeche/Conformance/`
+is an unverified, reject-only check (charter item 6): the fold runs it
+after the primitive-recursion check (`thenConform`,
+`ConLeche/Kernel/Inductives/BlockInstall.lean`), it can only turn an
+accept into a reject, and no model proof reads it.
 
-**Positivity** mirrors the official `check_positivity`
-(`inductive.cpp`; lean4lean `Inductive/Add.lean:184-199`) syntactically
-on each field's domain: a domain that does not mention the block is
-ordinary (`.ordinary`); one that is `T p⃗ e⃗` with the block's own
-parameters and index expressions free of the block is a finitary
-recursive field (`.recursive`); one whose own `∀`-telescope binds a domain
-mentioning the block is a NON-POSITIVE occurrence, rejected as the
-official kernel rejects it (`.negative`, `.invalid` at install); a
-family application at the head with other parameters, levels or
-argument count is the official "non valid occurrence", also rejected;
-anything else the official kernel accepts or handles by nested
-elimination — a reflexive field `∀ y⃗, T p⃗ e⃗`, a nested occurrence
-`List (T p⃗)`, an occurrence under a redex, an index expression
-mentioning the block or an earlier recursive field — is NOT this
-route's (`.unsupported`; the block falls through to the modeled path):
-the ω-iterate is a closed member only for finitary constructors, the
-functor is graded at an arbitrary family, and the nested translation
-is a later task.  The recogniser classifies the raw types; the install
-re-checks the classification on the annotated types
-(`nativeFieldsOk`), so the proof reads it off the stored constants.
-
-**The recursor** is generated and compared (task #175 S2): each
-minor premise binds the constructor's fields, then one **inductive
-hypothesis** `f_i_ih : motive e⃗_i f_i` per recursive field in field
-order (`e⃗_i` the field's index expressions), and concludes
-`motive e⃗ (C p⃗ f⃗)` (official `mk_rec_infos`:
-`mkForall bu (mkForall v motiveApp)`); rule `j`'s right-hand side is
-`λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…` (official
-`mk_rec_rules`: the minor at the fields, then the recursor at every
-recursive field).  The generators below are the indexed ones of
-`ConLeche/Kernel/Inductives/StructParts.lean` with the `ih` binders threaded.
+This file is the one-member route's recursor GENERATOR (task #188,
+task #175 S2): the record it reads (`NativeParts`, built from the
+uniform route's parts by `BlockParts.toNative`), the recursor type with
+the inductive-hypothesis binders (`structRecTyR`, official's
+`mk_rec_infos`: each minor premise binds the constructor's fields, then
+one `f_i_ih : motive e⃗_i f_i` per recursive field, and concludes
+`motive e⃗ (C p⃗ f⃗)`), the rules (`structRecRhsR`, official's
+`mk_rec_rules`: `λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…`),
+and the comparisons of the stream's rules with them (`nativeRulesOk`,
+`nativeRulePrefixOk`).  The generators are the indexed ones of
+`ConLeche/Kernel/Inductives/StructParts.lean` with the `ih` binders
+threaded.  The checks that run them are `RecConform.lean` and its
+index-threaded twin `RecConformF.lean`.
 -/
 
 namespace ConLeche
-
-/-- The kind of a constructor field of a recursive block (see the
-module docstring). -/
-inductive RecFieldKind where
-  /-- the domain does not mention the block -/
-  | ordinary
-  /-- the domain is exactly `T p⃗ e⃗`: a finitary recursive field -/
-  | recursive
-  /-- the domain is `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` with `A⃗` free of the block: a
-  REFLEXIVE (function-space) recursive field (task #202) -/
-  | reflexive
-  /-- a non-positive (or non-valid) occurrence: the official kernel
-  rejects the block -/
-  | negative
-  /-- an occurrence the official kernel accepts (reflexive, nested,
-  under a redex) that this route does not model yet -/
-  | unsupported
-  deriving Repr, DecidableEq, Inhabited
-
-/-- All leading `∀` binders of an expression (outermost first) and
-the body — a recursive field's own telescope (`[]` at a finitary
-field, the `a⃗ : A⃗` of a reflexive one, task #202). -/
-def Expr.piBinders : Expr → List (Expr × BinderMeta) × Expr
-  | .forallE ty b m =>
-    let (bs, e) := piBinders b
-    ((ty, m) :: bs, e)
-  | e => ([], e)
-
-/-- Field `i`'s own telescope `a⃗ : A⃗` (at the field's frame: the
-parameters and the earlier fields), off the constructor's type. -/
-def structFieldTeleOf (cty : Expr) (nP nF i : Nat) : List (Expr × BinderMeta) :=
-  match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).1
-  | none => []
-
-/-- The index expressions of field `i`'s domain `Π a⃗, T p⃗ e⃗` (under
-the field's own telescope, at the field's frame), off the
-constructor's type; `[]` when the field is not of that shape. -/
-def structFieldIdxOf (cty : Expr) (nP nF i : Nat) : List Expr :=
-  match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).2.getAppArgs.drop nP
-  | none => []
-
-/-- The positions of the recursive fields (finitary or reflexive: the
-ones with an inductive hypothesis). -/
-def recIdxOf (ks : List RecFieldKind) : List Nat :=
-  (List.range ks.length).filter fun i =>
-    ks.getD i .ordinary == .recursive || ks.getD i .ordinary == .reflexive
 
 /-- The pieces of a recognised direct recursive block: the sum parts
 (with the family's index count) and the per-constructor field kinds. -/
@@ -131,30 +57,7 @@ def structRecPrefixAt (nP n nF e : Nat) : List Expr :=
   structPsAt (e + nF + n + 1) nP ++ [Expr.bvar (e + nF + n)] ++
     (List.range n).map fun l => Expr.bvar (e + nF + n - 1 - l)
 
-/-- An expression of recursive field `i`'s domain sitting under `m`
-binders of the field's own telescope, spelled at the field's frame
-(the parameters, the `i` earlier fields), moved under all `nF` fields,
-`l` further binders below them and `o` extras between the parameters
-and the fields: the earlier fields move by `nF - i + l`, the
-parameters by `o` more; the `m` telescope binders stay. -/
-def structIdxAt (nF o i l m : Nat) (e : Expr) : Expr :=
-  (e.liftLooseBVars (nF - i + l) m).liftLooseBVars o (nF + l + m)
-
-/-- Field `i`'s own telescope moved as `structIdxAt` moves its
-expressions (binder `k` sits under `k` earlier telescope binders). -/
-def structTeleAt (nF o i l : Nat) (pw : PropWhen) (tele : List (Expr × BinderMeta)) :
-    List (Expr × BinderMeta) :=
-  (List.range tele.length).map fun k =>
-    let b := tele.getD k default
-    (structIdxAt nF o i l k b.1, ⟨pw⟩)
-
-/-- The variables of an `m`-binder telescope, innermost last. -/
-def structTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bvar (m - 1 - k)
-
-/-- `∀ tele, body` / `λ tele, body` over a binder list (outermost first). -/
-def Expr.mkPisOf : List (Expr × BinderMeta) → Expr → Expr
-  | [], body => body
-  | (ty, mt) :: bs, body => .forallE ty (mkPisOf bs body) mt
+/-- `λ tele, body` over a binder list (outermost first). -/
 def Expr.mkLamsOf : List (Expr × BinderMeta) → Expr → Expr
   | [], body => body
   | (ty, mt) :: bs, body => .lam ty (mkLamsOf bs body) mt

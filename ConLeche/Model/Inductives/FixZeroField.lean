@@ -10,7 +10,7 @@ public section
 
 On the fixpoint route's constant-functor arm a fieldless, index-free,
 one-constructor block (`Unit`-shaped; `True`-shaped at `Prop`) claims
-unit-likeness (`nativeCaps`: not η — official's `try_eta_struct` at
+unit-likeness (`blockCapsAt`: not η — official's `try_eta_struct` at
 zero fields is decided by `is_def_eq_unit_like` already), and the P
 tier owes `UnitLaw` at every carrier from the former's cons on.  The
 law reads off the former's fold alone: at the dummy former the family

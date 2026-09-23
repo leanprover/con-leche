@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeParts
+public import ConLeche.Conformance.RecGen
 
 @[expose] public section
 

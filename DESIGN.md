@@ -84362,3 +84362,71 @@ checkpoint and may be its first step.
 
 **Gates** (`52324b72`): `lake build` 625 jobs / 0 warnings, `lake test` 0
 warnings, `tests/layering.sh` clean, 25 theorems audited at the standard axioms.
+
+
+#### LANDED (lane CONFDIR, 2026-09-23): the conformance-only code in its own directory, `ConLeche/Conformance/` (charter item 6)
+
+**What moved.**  A verdict-neutral refactor: the one-member recursor
+GENERATOR and the check that runs it now live in `ConLeche/Conformance/`,
+an implementation-tier directory (`module`, `@[expose] public section`, no
+theory import; `tests/layering.sh` counts it in `IMPL_DIRS`).  The fold still
+calls it (`checkBlockRec = thenConform checkBlockRecK checkBlockRecConform`,
+`BlockInstall.lean`; `checkBlockRecS`, `CheckerC.lean`), and its fueled and
+cached bridges stay in `Verify/` (`BridgeDecl`, `CheckerF`, `BridgeCS3`,
+`BlockRunC`, `AgreeFloor`), with only their imports repointed.
+
+| file | lines (code) | holds |
+|---|---|---|
+| `Conformance/RecGen.lean` | 312 (136) | `NativeParts`; the generators `structRecTyR`/`structRecRhsR` and their helpers (`structRecPrefixAt`, `Expr.mkLamsOf`, `structIhApp`, `structRuleBodyR`, `structIhPis`, `structMinorTyR`, `structMinorsPisR`/`LamsR`, `nativeCtors4`); the comparisons `nativeRulesOk`, `nativeRulePrefixOk`, `nativeRecLpsOk` |
+| `Conformance/RecConform.lean` | 127 (58) | `checkNativeRules`, `checkNativeRec`, `checkBlockRecConform` (the last moved out of `BlockInstall.lean`) |
+| `Conformance/RecConformF.lean` | 148 (101) | the index-threaded twins: `checkNativeRulesF`, `FEnv.pushRecBare`(`_eq`), `checkNativeRecF`(`_hint`), `checkBlockRecConformF` |
+| **total** | **587 (295)** | |
+
+**The census: decided by consumers.**  A Lean script walked the
+dependency graph of the full environment.  Roots were every constant of
+`MainTheorem` and `Verify/Cached/MainC`, and the walk was cut at
+`checkBlockRecConform`/`checkBlockRecConformF` and at every constant whose TYPE
+mentions them (their bridge lemmas).  A kernel or cached definition is
+conformance-only when the conformance roots reach it and the cut walk does
+not.  That set is exactly the table above, plus the rows below that could
+not move:
+
+| definition | where | status |
+|---|---|---|
+| `BlockParts.toNative`, `BlockShape.toInductive`, `BlockShape.recSumsOk`, `BlockShape.rulePrefix` (and their `withSort` simp lemmas) | `Kernel/Inductives/BlockParts.lean` | conformance-only, but LEFT IN PLACE: lane NESTPOS holds the file.  Follow-up: move them to `Conformance/` once NESTPOS lands.  Then `BlockParts` imports `FieldTele` instead of `Conformance/RecGen` (today its one import of the conformance tier, for `toNative`'s type). |
+| `InductiveShape.rulePrefix`, `InductiveShape.majorIdx` | `Kernel/Inductives/SumInstall.lean` | conformance-only, LEFT IN PLACE (NESTPOS holds the file); same follow-up |
+| `InductiveShape.ctors`/`cvR`/`rhss` | `SumParts.lean` | fields of a shared structure: stay |
+
+**Shared, stays** (a live proof or the uniform route consumes it):
+`RecFieldKind` (`BlockFieldKind.toRec`, the model's `blockDataOf`), `recIdxOf`
+(`fixCtorDataList`), `Expr.piBinders`, `structFieldTeleOf`/`IdxOf`,
+`structIdxAt`, `structTeleAt`, `structTeleVars`, `Expr.mkPisOf` (the rule
+stage `checkBlockRule(F)`, `blockIhPis`), `Expr.mentionsFvar` with its
+memoised csimp twin (`blockFieldsOkF`).  They were split out of
+`NativeParts`/`NativeInstall` into the new kernel file
+`Kernel/Inductives/FieldTele.lean` (353 lines).  Also shared:
+`Expr.resetMeta` (`StreamConsts`, `BlockRecInv`) and `normPosDom` (the
+uniform route's positivity walk).
+
+**Finding: `blockRecNameSetOk` is NOT conformance-only.**  CONF1's record
+calls it "no model consumer", and so did two docstrings.  But the proofs
+consume it: `Cached.blockRecNameSetOk_nodup` (the recursors' names are
+distinct) is on the path `checkBlockRecKS_fresh` → … → `checkDecls_sound`,
+and `checkBlockRecPins_names` (one recursor per member) on
+`blockRecCounting_run` → `declBlock_run`.  It stays in `BlockParts`, and the
+two docstrings are corrected.
+
+**Dead code deleted.**  `nativeCapsAt`/`nativeIsRec`/`nativeCaps` and the
+theorem about them, `nativeCaps_single` (`FixStageTable.lean`), were reached
+from nothing, conformance included.  Their design note (η at a fieldless
+constructor; η at a recursive structure-like is unsound in practice) moved
+into `blockCapsAt`'s docstring.  Three stale `open ConLeche (… NativeParts …)`
+lines were dropped.
+
+**Gates.**  `lake build` and `lake test` both pass with 0 warnings.
+`tests/layering.sh`, `tests/overview-links.sh` (after `--update`: four
+`BlockInstall` anchors repointed, `checkBlockRecConform`'s link now on
+`Conformance/RecConform.lean`) and `tests/quote-gate.sh` are all clean.
+`tests/shake.sh` flags only the `SetModel/HoleOp.lean` rows it already
+flagged before this lane; the five allowlist rows were renamed with their
+files.  The arena and e2e battery moved no exit code.
