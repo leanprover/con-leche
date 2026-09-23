@@ -913,15 +913,6 @@ theorem checkBlockRecK_tyAt {env : Env} {p : BlockParts} {cvTas : List ConstantV
   obtain ⟨rc, u, hrc, -, E⟩ := R.tyAt hr
   exact ⟨rc, u, hrc, E⟩
 
-/-- **One stored recursor per record.** -/
-theorem checkBlockRecK_len {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
-    rs.length = p.recs.length := by
-  obtain ⟨R⟩ := checkBlockRecK_run h
-  exact R.len
-
 /-- **The CHECK's own well-formedness contract**: every stored
 recursor type is a CHECKED constant's, and every stored rule is the
 ANNOTATED stream right-hand side, scoped at the BARE-`k` environment. -/
