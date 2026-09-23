@@ -84448,8 +84448,20 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   member, (N3) its sort `Level.isEquiv` the block's, and `nestPos` on
   every field of every constructor of `C` AT the instantiation — λ-pins
   included, their redexes reduced by whnf — with the instantiated
-  results' indices member-free.  Basis containers reject (2026-09-21
-  ruling).  No copy, no transport, no per-container premise, no
+  results' indices member-free.  **No basis special-casing but
+  `Quot`** (the coordinator's question, 2026-09-23): the pinned
+  `Eq`/`Nat`/`PUnit`/`Empty`/`False` are read from the environment like
+  any stored inductive (their constructors are `.ctorInfo` records with
+  parameter counts); only `Quot`, an `.indInfo` that is no inductive for
+  official, is a non-valid container head.  `Eq` (parameters `α`, `a`)
+  ends in official's verdicts by the ordinary cases — member in `α`:
+  (N2); member only in `a`: `refl`'s result index; field in `a`: local
+  variable — fixtures `corner_nestpos_eq{ret,idx,local}_{free,bad}`
+  (official 1 each, probed; no accepting nesting through a pinned basis
+  type exists, the parameter-free ones never being containers).
+  **Fuel**: explicit, 1024 per member field (one unit per `Π` body and
+  per container-field descent) and at most 4096 cached instantiations;
+  exhaustion THROWS `.notImplemented` — a decline, never an accept.  No copy, no transport, no per-container premise, no
   re-check beside it: an intermediate `posE`/`blockFieldOk` re-check and
   a reduced-form export were built this session and DELETED on the
   maintainer's retraction.  **Amends HOLEOP's record**: the kernel

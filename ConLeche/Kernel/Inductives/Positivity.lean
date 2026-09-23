@@ -477,8 +477,23 @@ cases are the monotonicity induction's:
   and the constructor's result indices member-free;
 * anything else — official's "non valid occurrence".
 
-Basis containers are the maintainer's ruling (2026-09-21): a reserved
-basis name at the head of a container application is INVALID.
+**No basis special-casing** but one: `Quot`, stored as an `.indInfo`
+yet no inductive for official, is a "non valid occurrence" as a
+container head.  The pinned `Eq`/`Nat`/`PUnit`/`Empty`/`False` (and the
+stream's `And`) are read from the environment like any stored inductive
+— their constructors are `.ctorInfo` records with parameter counts.
+The parameter-free ones never reach the container case; `Eq` (two
+parameters, `α` and `a`, as official) always ends in official's
+verdicts: a field in `a` is a local variable, `@Eq Prop (T p) True`
+fails the instantiated `refl`'s result index ("invalid return type"),
+`@Eq Prop T T` has a member in an index (probes, lane NESTPOS).
+
+**Fuel**: `nestPos` recurses on an explicit fuel (1024 per member field,
+one unit per `Π` body and per container field descent) and the cache
+holds at most 4096 instantiations; running out of either THROWS
+`.notImplemented` — a decline (exit 2), never an accept.  A
+non-uniformly growing instantiation (`C α | mk : C (List α) → C α`,
+which official's parameters forbid) is the shape that could reach it.
 
 **Recorded departures from official** (all accept-supersets, each with
 an e2e fixture; raised with the maintainer per the charter):
@@ -704,9 +719,12 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
             throw (.notImplemented "nested positivity: a container without constructors \
               (its parameter count is not recorded)")
           if args.length < nPc || !free (args.drop nPc) then throw nestNonValid
-          if reservedBasisNames.contains n then
-            throw (.invalid "nested positivity: non valid occurrence of the datatypes \
-              being declared (a basis container)")
+          -- `Quot` is stored as an `.indInfo` but is no inductive for
+          -- official (`is_nested_inductive_app` asks `is_inductive()`):
+          -- the one name read here.  Every other basis type (`Eq`, `Nat`,
+          -- `PUnit`, `Empty`, `False`, and `And`) is a container like any
+          -- stored inductive.
+          if n == quotName then throw nestNonValid
           let ds := args.take nPc
           unless ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.nP) do
             throw (.invalid "nested positivity: nested inductive datatypes parameters \

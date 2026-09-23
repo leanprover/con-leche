@@ -18,6 +18,9 @@ none is exporter-producible.
   corner_nestpos_local_bad     Prod LocT (Fin n): parameters cannot contain local variables
   corner_nestpos_redex_bad     FL RedT, `FL α := List α`: non valid occurrence (no container)
   corner_nestpos_group_bad     GC1 GT, GC1's group member GC2 negative: non positive
+  corner_nestpos_eqret_bad     @Eq Prop (PEq p) True (pinned Eq): invalid return type
+  corner_nestpos_eqidx_bad     @Eq Prop PEqI PEqI: non valid occurrence (index)
+  corner_nestpos_eqlocal_bad   @Eq PEqL h h: parameters cannot contain local variables
 
 The block's recursor records are repointed with it; official never
 reaches them.  None of the forged streams carries an auxiliary
@@ -140,6 +143,7 @@ def repin(src, out, member_name, pin_name):
 for cls, member, pin in [
         ("neg", "NegT", "NPin"), ("negdeep", "NegDT", "DPin"), ("idxty", "IdxT", "IPin"),
         ("idxval", "IdxVT", "VPin"), ("sort", "SortT", "SPin"), ("sortprop", "SortP", "PPin"),
-        ("local", "LocT", "LPin"), ("redex", "RedT", "RPin"), ("group", "GT", "GPin")]:
+        ("local", "LocT", "LPin"), ("redex", "RedT", "RPin"), ("group", "GT", "GPin"),
+        ("eqret", "PEq", "EPin"), ("eqidx", "PEqI", "IPinE"), ("eqlocal", "PEqL", "LPinE")]:
     repin("corner_nestpos_%s_free.ndjson" % cls, "corner_nestpos_%s_bad.ndjson" % cls,
           member, pin)

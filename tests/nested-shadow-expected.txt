@@ -108,3 +108,7 @@ tests/e2e/presieve_ofarrows_cone.ndjson 1 Lean.Syntax=accept,
 tests/e2e/tower_nested.ndjson 1 NTow=accept,
 tests/e2e/nest_rose_prop.ndjson 1 RP=accept,P=accept,
 tests/e2e/nest_rose_tree.ndjson 1 R=accept,T=accept,
+# the pinned `Eq` as a container: official rejects all three
+tests/e2e/corner_nestpos_eqret_bad.ndjson 1 PEq=reject,
+tests/e2e/corner_nestpos_eqidx_bad.ndjson 1 PEqI=reject,
+tests/e2e/corner_nestpos_eqlocal_bad.ndjson 1 PEqL=reject,

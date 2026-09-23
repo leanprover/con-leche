@@ -1896,3 +1896,26 @@
 # group (`.indInfo` has no `all`) — an accept-superset deviation, the
 # first of the lane's two recorded departures from official.
 2 corner_nestpos_group_bad.ndjson
+# -- the PINNED `Eq` as a container (lane NESTPOS, the coordinator's
+# question on basis special-casing): the positivity function reads the
+# pinned basis types from the environment like any stored inductive;
+# only `Quot` (an `.indInfo` that is no inductive for official) is a
+# non-valid head.  `Eq` has two parameters (`α`, `a`) and official
+# rejects every nesting through it — over the syntax: a member in `α`
+# puts it in the instantiated index telescope `(b : α)` (N2), a member
+# in `a` only puts it in `refl`'s result index (`a`), and a field in `a`
+# is a local variable.  No exported accept exists (the stream's `And`,
+# `nested_p06`/`nested_p13`, is the accepted Prop container).  Each pair
+# as above; the bad stream declines today, TARGET 1; the shadow rejects
+# each with official's reason.
+# eqret: `@Eq Prop (PEq p) True`.  Official 1: "(kernel) invalid return
+# type for '_nested.Eq_1.refl'".
+0 corner_nestpos_eqret_free.ndjson
+2 corner_nestpos_eqret_bad.ndjson
+# eqidx: `@Eq Prop PEqI PEqI`.  Official 1: "non valid occurrence".
+0 corner_nestpos_eqidx_free.ndjson
+2 corner_nestpos_eqidx_bad.ndjson
+# eqlocal: `(h : PEqL) → @Eq PEqL h h`.  Official 1: "nested inductive
+# datatypes parameters cannot contain local variables".
+0 corner_nestpos_eqlocal_free.ndjson
+2 corner_nestpos_eqlocal_bad.ndjson
