@@ -342,6 +342,11 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
         (fvsPref ++ ih.idx ++
           [Expr.mkAppN (fvsF.getD ih.field default)
             (structTeleVars (teles.getD ih.field []).length)]))) = .ok callTy
+  /-- the `ih` variable's type is inferred at the frame -/
+  ihTyTy : Expr
+  hihTy : inferTypeCore mode env F base ih.ty = .ok ihTyTy
+  /-- and it IS the call's type -/
+  hcallEq : isDefEqCore mode env F (base + 1) callTy ih.ty = .ok true
 
 /-- **One call's typing, inverted.** -/
 theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
@@ -367,11 +372,17 @@ theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
       subst hbt
       rw [if_pos rfl] at h
       obtain ⟨callTy, hcallTy, h⟩ := exceptBind_ok h
+      obtain ⟨ihTyTy, hihTy, h⟩ := exceptBind_ok h
+      obtain ⟨b2, hb2, h⟩ := exceptBind_ok h
+      by_cases hbt2 : b2 = true
+      case neg => rw [if_neg hbt2] at h; close_throw h
+      subst hbt2
       exact ⟨{ calleeAt := .forallE majDom majBody majBm, majDom := majDom, majBody := majBody,
                majBm := majBm, fldTy := fldTy, wantTy := wantTy,
                htele := fun b hb => List.all_eq_true.mp htele b hb,
                hcallee := hcallee, hmajDom := rfl, hfld := hfld, hwant := hwant,
-               hdeq := hb, callTy := callTy, hcall := hcallTy }⟩
+               hdeq := hb, callTy := callTy, hcall := hcallTy, ihTyTy := ihTyTy, hihTy := hihTy,
+               hcallEq := hb2 }⟩
     · close_throw h
   · close_throw h
 

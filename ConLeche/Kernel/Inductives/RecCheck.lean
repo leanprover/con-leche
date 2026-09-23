@@ -604,8 +604,17 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- callee's binders there (lane RECLIB)
   let callee : Expr := .fvar base (fam.recTys.getD ih.callee (.sort .zero))
   let fap := Expr.mkAppN (fvsF.getD ih.field default) (structTeleVars tele.length)
-  let _ ← opsT.inferType env (base + 1)
+  let callTy ← opsT.inferType env (base + 1)
     (Expr.mkLamsOf (tele.map fun b => (b.1, ⟨pw⟩)) (Expr.mkAppN callee (fvsPref ++ ih.idx ++ [fap])))
+  -- the `ih` variable's TYPE is well-formed at the frame, and it IS the
+  -- call's type: the model grades the `ih` slot of the residue's context
+  -- by the first and places the call's value in it by the second (lane
+  -- RECLIB, session 3 — `InferClaim` at the `ih` type, `DefEqClaim` at
+  -- the pair; the two are syntactically equal on every run so far)
+  let _ ← opsT.inferType env base ih.ty
+  unless ← opsT.isDefEq env (base + 1) callTy ih.ty do
+    throw (.invalid s!"target rec: the rule of {cn} makes a recursive call whose type is \
+      not its ih variable's")
 
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
