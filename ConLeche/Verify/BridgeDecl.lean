@@ -787,9 +787,7 @@ theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
 /-! ### The uniform install at k members (lane FLIP1)
 
 Every stage of `checkBlock` at fuel `F`, read off the same program at
-the two monads.  Nothing here reads either gate: the recursor stage's
-dispatch (`checkBlockRec`) is split on `blockRecCheckOn` and both arms
-are closed, so the family is the uniform install's at EVERY `k`. -/
+the two monads, at EVERY `k`. -/
 
 theorem checkBlockTele_datF (env : Env) (nP : Nat) (ms : MemberShape) (F : Nat) :
     (checkBlockTele (fueledOpsM mode) env nP ms).val F =
@@ -1051,15 +1049,9 @@ theorem checkBlockRec_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVa
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockRec (fueledOpsM mode) env p cvTas ctorsAs).val F =
       checkBlockRec (fueledOps mode F) env p cvTas ctorsAs := by
-  unfold checkBlockRec
-  split
-  · unfold checkBlockRecChecked thenConform
-    simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecK_datF,
-      checkBlockRecConform_datF]
-  · split
-    · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-        checkNativeRec_datF]
-    · simp only [FueledM.atF_bind, FueledM.atF_throw, checkBlockRecPins_datF]
+  unfold checkBlockRec thenConform
+  simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecK_datF,
+    checkBlockRecConform_datF]
 
 theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),

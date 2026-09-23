@@ -666,18 +666,13 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {
 
 /-- **The recursor stage read back to the CHECK**: `checkBlockRec`
 succeeded only if `checkBlockRecK` did, with the same result (the
-conformance check after it only rejects).  The gate hypothesis is
-`rfl` at every consumer; it stays in the statement only while
-`checkBlockRec_fresh` (`Semantics/Inductives/DeclBlockEta.lean`) still
-cases on `blockRecCheckOn`. -/
-theorem checkBlockRecK_of_gate {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
+conformance check after it only rejects). -/
+theorem checkBlockRecK_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (hg : blockRecCheckOn = true) (h : checkBlockRec ops env p cvTas ctorsAs = .ok rs) :
-    checkBlockRecK ops env p cvTas ctorsAs = .ok rs := by
-  unfold checkBlockRec at h
-  rw [if_pos hg] at h
-  exact thenConform_ok h
+    (h : checkBlockRec ops env p cvTas ctorsAs = .ok rs) :
+    checkBlockRecK ops env p cvTas ctorsAs = .ok rs :=
+  thenConform_ok h
 
 /-- **Every stored rule binds at least one variable** — the model's
 `hpos` (`declBlock_run`, `ConLeche/Model/Inductives/BlockDeclRun.lean`),
@@ -705,7 +700,7 @@ theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List Consta
 
 /-- **The recursor stage's stored pieces**, as its own guards checked
 them: the CHECK's own (`checkBlockRecK_facts`), read through the
-conformance check after it (`checkBlockRecK_of_gate`).
+conformance check after it (`checkBlockRecK_of_rec`).
 
 The rules' scoping clause is stated at the BARE-`k` environment
 `consBlockRecsBare … env` — the environment holding all `k`
@@ -728,7 +723,7 @@ theorem checkBlockRec_facts {env : Env} {p : BlockParts} {cvTas : List ConstantV
         rhs.constsResolve
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true :=
-  checkBlockRecK_facts (checkBlockRecK_of_gate rfl h)
+  checkBlockRecK_facts (checkBlockRecK_of_rec h)
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/
 

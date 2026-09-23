@@ -225,10 +225,10 @@ end ConclFit
 * the conclusion at the SPLIT data (`hCaE`) — §29b's `blockIndCaE_of_run`
   at the pinned peel, the fields' fit at the parameter frame taken off
   the split's own `hspF` (`blockIndSpF_run`, peeled by
-  `blockRuleSpine_peel`).  `blockIndCaE_of_rules`' `hfld` is NOT used:
-  it quantifies over an index spine `is0` with no fit, and the slot
-  agreement needs the tuple in the member's index set — over-quantified,
-  and its one use has the fit (`his`) in scope.
+  `blockRuleSpine_peel`).  The fit is the split's own, not a field
+  hypothesis over every index spine `is0`: the slot agreement needs the
+  tuple in the member's index set, which only the fitted spine (`his`)
+  gives.
 
 **The frame.**  `hCaZ` is stated at every `σ` and every pair of fits,
 exactly as the bundle states it (the consumer instantiates it at the

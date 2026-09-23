@@ -383,21 +383,6 @@ def blockTgtsOf (ks : List BlockFieldKind) : List Nat :=
     | .reflexive t => t
     | _ => 0
 
-/-! ## The gates -/
-
-/-- **THE RECURSOR STAGE'S GATE — LIFTED** (the flip, milestone M6):
-the recursor stage is the CHECK (`checkBlockRecK`, primitive
-recursion) at EVERY `k`, followed by the reject-only conformance check.
-
-The constant survives, `true`, only because the pure stage's
-gated-off arm (`checkBlockRec`'s `else`, dead at run time) is still
-peeled by one proof outside the flip's file set, `checkBlockRec_fresh`
-(`ConLeche/Semantics/Inductives/DeclBlockEta.lean`), which cases on it.
-It goes — with that arm and the `if`s of `recTgtAt`/`rulePrefixAt`/
-`majorIdxAt` — once that proof stops casing on it.  No other proof
-reads it: the model endpoint passes `rfl` (`declBlock`). -/
-def blockRecCheckOn : Bool := true
-
 /-! ## The record -/
 
 /-- One member of a block: its type former, its own index count and
@@ -502,14 +487,12 @@ def rulePrefix (p : BlockShape) : Nat := p.nP + p.k + p.numCtors
 
 /-- **The member recursor `r` belongs to, as the INSTALL uses it.**
 
-It is the target the recogniser read off the MAJOR (`RecShape.tgt`):
-the recursor stage's gate (`blockRecCheckOn`) is lifted, and the `if`
-goes with that constant. -/
+It is the target the recogniser read off the MAJOR (`RecShape.tgt`). -/
 def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
-  if blockRecCheckOn then (p.recs.getD r default).tgt else r
+  (p.recs.getD r default).tgt
 
 /-- **Every recursor's target member**, in recursor order, at the
-gated reading (`recTgtAt`): the rule stage's frame carries it, and the
+install's reading (`recTgtAt`): the rule stage's frame carries it, and the
 `ih` openers are keyed by (recursive field, CALLEE recursor) against
 it. -/
 def recTgts (p : BlockShape) : List Nat :=
@@ -519,16 +502,14 @@ def recTgts (p : BlockShape) : List Nat :=
 
 It is the RECORD's (`RecShape.rP`): the motive-free check never
 derives the sum, it reads it and requires only `nP + k ≤ rP` (the
-rulings of 2026-09-21 and 2026-09-23).  The recursor stage's gate
-(`blockRecCheckOn`) is lifted, and the `if` goes with that constant. -/
+rulings of 2026-09-21 and 2026-09-23). -/
 def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
-  if blockRecCheckOn then (p.recs.getD r default).rP else p.rulePrefix
+  (p.recs.getD r default).rP
 
 /-- Recursor `r`'s major-premise index, at the same reading — the
 RECORD's (`RecShape.mI`). -/
 def majorIdxAt (p : BlockShape) (r : Nat) : Nat :=
-  if blockRecCheckOn then (p.recs.getD r default).mI
-  else p.rulePrefix + (p.members.getD r default).nIdx
+  (p.recs.getD r default).mI
 
 /-- Member `m`'s recursor's major-premise index at the GENERATED
 shape. -/
@@ -694,8 +675,7 @@ def BlockParts.toNative (p : BlockParts) : NativeParts :=
 The block's members after the type formers: the constructors, then the
 closing recursors — `sumSplit` (`ConLeche/Kernel/Inductives/SumParts.lean`)
 at k formers and k recursors.  Nothing is refused by COUNT here: a
-block with two formers splits, and `blockParts?`'s gate is what keeps
-it off the route until the flip. -/
+block with any number of formers splits. -/
 
 /-- The closing recursors. -/
 def blockSplitRecs : List ConstantInfo →

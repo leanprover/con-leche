@@ -7,8 +7,8 @@ public import ConLeche.Kernel.Inductives.StructParts
 /-!
 # The in-process modeller's kit (task #200)
 
-Shared pieces of the in-process construction of `_model` families for
-nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
+The pieces of the in-process construction of `_model` families for
+nested inductive blocks (`ConLeche/Frontend/InModel/Nested.lean`):
 
 * the naming scheme (lean-inductive-models' `_impl` names, so the two
   generators' streams are diffable — none of these names is special to
@@ -16,8 +16,6 @@ nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
   by the modeled install);
 * telescope helpers over `ConLeche.Expr` (de Bruijn frames spelled out at
   every use);
-* `specFam`, the syntactic rewrite of every member occurrence
-  `T_m p⃗` into the auxiliary family at its tag, `aux p⃗ (tag.m p⃗ ı⃗)`;
 * the **kernel-shape recursor** of an indexed recursive family with
   inductive hypotheses — `structRecTyI`/`structRecRhsI`
   (`ConLeche/Kernel/Inductives/StructParts.lean`) with the `ih` binders of the
@@ -32,7 +30,9 @@ nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
   Where it fails the artifact is skipped or the block declines —
   never a wrong accept: everything generated is checked by the fold;
 * definitional heights, computed as the kernel does (one above the
-  highest constant the value mentions).
+  highest constant the value mentions);
+* the parsed-block records the modeller reads (`BlockRec` and its
+  members, `Ctx`).
 -/
 
 namespace ConLeche.Frontend.InModel
@@ -105,100 +105,6 @@ def constP (n : Name) (lps : List Name) : Expr := .const n (lps.map .param)
 /-- The domains of a `∀`-telescope's binder list. -/
 def piBinders (bs : List (Expr × BinderMeta)) : List Expr :=
   bs.map (·.1)
-
-/-! ## Family occurrences -/
-
-mutual
-
-/-- Rewrite every occurrence `T_m a⃗` (exactly `nP + nIdx_m` arguments)
-of a member of the block into `aux a⃗_P (tag.m a⃗_P a⃗_I)` — the
-auxiliary family at the member's tag constructor carrying the index
-arguments.  `members` lists `(T_m, m, nIdx_m)`.  An occurrence with any
-other arity is left alone (the caller's field classification rejects
-such blocks).
-
-One memoized DAG walk (keyed by the node — the rewrite reads no binder
-cursor), and, like `mentionsAnyGo`, with no spec lemma: the modeller
-is untrusted.  Without it the rebuild runs once per path, which is what
-`tests/e2e/tower_mutual.ndjson` exposes. -/
-partial def specFamGo (T : Name) (lps : List Name) (nP : Nat)
-    (members : List (Name × Nat × Nat)) (memo : Std.HashMap Expr Expr) :
-    Expr → Expr × Std.HashMap Expr Expr
-  | .bvar i => (.bvar i, memo)
-  | .sort u => (.sort u, memo)
-  | .fvar i t => (.fvar i t, memo)
-  | .lit l => (.lit l, memo)
-  | .const n us =>
-    match members.find? (·.1 == n) with
-    | some (_, m, nIdx) =>
-      if nP + nIdx == 0 && us == lps.map .param then
-        (Expr.mkAppN (constP (auxName T) lps) [constP (tagCtorName T m) lps], memo)
-      else (.const n us, memo)
-    | none => (.const n us, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | e@(.app _ _) =>
-          let f := e.getAppFn
-          let args := e.getAppArgs
-          match f with
-          | .const n us =>
-            match members.find? (·.1 == n) with
-            | some (_, m, nIdx) =>
-              if args.length == nP + nIdx && us == lps.map .param then
-                let (ps, memo) := specFamGoList T lps nP members memo (args.take nP)
-                let (is, memo) := specFamGoList T lps nP members memo (args.drop nP)
-                (Expr.mkAppN (constP (auxName T) lps)
-                  (ps ++ [Expr.mkAppN (constP (tagCtorName T m) lps) (ps ++ is)]), memo)
-              else
-                let (f', memo) := specFamGo T lps nP members memo f
-                let (as, memo) := specFamGoList T lps nP members memo args
-                (Expr.mkAppN f' as, memo)
-            | none =>
-              let (as, memo) := specFamGoList T lps nP members memo args
-              (Expr.mkAppN f as, memo)
-          | _ =>
-            let (f', memo) := specFamGo T lps nP members memo f
-            let (as, memo) := specFamGoList T lps nP members memo args
-            (Expr.mkAppN f' as, memo)
-        | .lam d b m =>
-          let (d', memo) := specFamGo T lps nP members memo d
-          let (b', memo) := specFamGo T lps nP members memo b
-          (.lam d' b' m, memo)
-        | .forallE d b m =>
-          let (d', memo) := specFamGo T lps nP members memo d
-          let (b', memo) := specFamGo T lps nP members memo b
-          (.forallE d' b' m, memo)
-        | .letE t v b =>
-          let (t', memo) := specFamGo T lps nP members memo t
-          let (v', memo) := specFamGo T lps nP members memo v
-          let (b', memo) := specFamGo T lps nP members memo b
-          (.letE t' v' b', memo)
-        | .proj s i x =>
-          let (x', memo) := specFamGo T lps nP members memo x
-          (.proj s i x', memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-@[inherit_doc specFamGo]
-partial def specFamGoList (T : Name) (lps : List Name) (nP : Nat)
-    (members : List (Name × Nat × Nat)) (memo : Std.HashMap Expr Expr) :
-    List Expr → List Expr × Std.HashMap Expr Expr
-  | [] => ([], memo)
-  | x :: xs =>
-    let (y, memo) := specFamGo T lps nP members memo x
-    let (ys, memo) := specFamGoList T lps nP members memo xs
-    (y :: ys, memo)
-
-end
-
-@[inherit_doc specFamGo]
-def specFam (T : Name) (lps : List Name) (nP : Nat)
-    (members : List (Name × Nat × Nat)) (e : Expr) : Expr :=
-  (specFamGo T lps nP members {} e).1
 
 /-- Simultaneous substitution of a parameter block: under `d` binders,
 `bvar (d + j)` (`j < n`, innermost first) becomes `vals[n - 1 - j]`
@@ -594,5 +500,57 @@ def hintFor (heights : Name → Nat) (value : Expr) : ReducibilityHint :=
 def hintHeight : ReducibilityHint → Nat
   | .regular n => n
   | _ => 0
+
+/-! ## The parsed-block records -/
+
+/-- One inductive type of a parsed block, with the export's shape data. -/
+structure IndTypeRec where
+  cv : ConstantVal
+  nP : Nat
+  nIdx : Nat
+  ctors : List Name
+  isRec : Bool
+  isReflexive : Bool
+  numNested : Nat
+  deriving Repr, Inhabited
+
+/-- One constructor of a parsed block. -/
+structure IndCtorRec where
+  cv : ConstantVal
+  nP : Nat
+  nF : Nat
+  deriving Repr, Inhabited
+
+/-- One recursor of a parsed block (`numParams`, `numMotives`,
+`numMinors`, `numIndices` as exported). -/
+structure IndRecRec where
+  cv : ConstantVal
+  nP : Nat
+  nM : Nat
+  nm : Nat
+  nI : Nat
+  rules : List RecRule
+  deriving Repr, Inhabited
+
+/-- A parsed inductive block. -/
+structure BlockRec where
+  types : List IndTypeRec
+  ctors : List IndCtorRec
+  recs : List IndRecRec
+  deriving Repr, Inhabited
+
+/-- What the generator reads besides the block: the declared types of
+the constants so far, and the definitional heights. -/
+structure Ctx where
+  tbl : ConstTable
+  heights : Name → Nat
+  /-- the parsed inductive blocks so far, by member type name (the
+  nested rung reads a container's shape off it) -/
+  blocks : Name → Option BlockRec := fun _ => none
+
+/-- Unwrap a generator step that cannot fail on a well-formed block. -/
+def need (what : String) : Option α → Except String α
+  | some a => pure a
+  | none => throw s!"internal shape failure: {what}"
 
 end ConLeche.Frontend.InModel

@@ -245,7 +245,7 @@ Two things about `hrec`, the recursor stage's obligation:
 
 * it is stated at **`checkBlockRecK`**, the UNIFORM check, which the
   stage `checkBlockRec` runs before its reject-only conformance check
-  (`checkBlockRecK_of_gate`, at the lifted gate);
+  (`checkBlockRecK_of_rec`);
 * it is handed everything the CONSTRUCTORS' environment knows: the
   model `mpC`, the block data `dR` with the three records
   `blockModelAt_of_stages` consumes (`BlockNamesOk`,
@@ -391,9 +391,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     exact hpull _ (blockTablesTblFree (q := p₁) (p₁.members.zip (ctorsAs.zip sortsss)) _ env₂
       hTbl m _ (hzipEntry m hm) cA sorts hcA hs hn0)
   -- ## the recursor stage IS the uniform check, read through the
-  -- conformance check after it (`checkBlockRecK_of_gate`; the gate
-  -- is lifted, so `rfl`)
-  have hRecK := checkBlockRecK_of_gate rfl hRec
+  -- conformance check after it (`checkBlockRecK_of_rec`)
+  have hRecK := checkBlockRecK_of_rec hRec
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk

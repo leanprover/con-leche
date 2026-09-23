@@ -149,11 +149,9 @@ print("ind_mutual_sort_bad.ndjson: MD : Sort (max v u) -> Sort (max u 1)")
 # fifth is GOOD and documents the ACCEPT-SUPERSET: its body is typed but
 # is not `minor f ih`.
 #
-# NOTE (the gate): the uniform route is gated at one member
-# (`blockRouteK1Only`) and the recursor CHECK at `blockRecCheckOn`, so
-# none of these five is reachable by the shipped checker yet.  Their
-# rows in `tests/e2e-expected.txt` are commented `# pending flip` with
-# the verdict measured in a scratch build with both gates lifted.
+# Since the flip (2026-09-23) the uniform route installs these blocks,
+# so the shipped checker reaches all five; their rows in
+# `tests/e2e-expected.txt` carry the measured verdicts.
 # ---------------------------------------------------------------------------
 
 BASE = "tests/e2e/inmodel_mutual.ndjson"

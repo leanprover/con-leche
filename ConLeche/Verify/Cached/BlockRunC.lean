@@ -1748,8 +1748,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
         ctorsAs = .ok () := by
       rw [← checkBlockRecConform_datF]
       exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
-    unfold checkBlockRec checkBlockRecChecked thenConform
-    rw [if_pos (show blockRecCheckOn = true from rfl)]
+    unfold checkBlockRec thenConform
     simp only [Bind.bind, Except.bind, gK, gC, pure, Except.pure]
   rw [checkBlockTail_datF]
   unfold checkBlockTail

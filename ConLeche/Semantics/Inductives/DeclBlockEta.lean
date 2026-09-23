@@ -5,7 +5,6 @@ public import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Semantics.Inductives.DeclStructEta
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.FixWF
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
@@ -32,12 +31,8 @@ BELOW it:
   arities; the block's constructor names are distinct (`DeclBlockRun`'s
   conjunct 0), so no later constructor cons shadows it;
 * the recursors (`consBlockRecs`) are fresh at the constructors'
-  environment at EITHER setting of the recursor stage's gate
-  (`checkBlockRec_fresh`) and store no former (`ExtEta`);
+  environment (`checkBlockRec_fresh`) and store no former (`ExtEta`);
 * every projection table is a fresh cons (`checkStructProjTable_etaClosed`).
-
-Nothing here reads either gate: the recursor stage's freshness cases on
-`blockRecCheckOn` by `by_cases`, and each arm is its own stage's fact.
 -/
 
 namespace ConLeche.Semantics
@@ -225,46 +220,18 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
     obtain rfl := Option.some.inj (hi.symm.trans hq')
     exact hone hrun
 
-/-! ## The recursor stage: freshness, at either gate -/
+/-! ## The recursor stage: freshness -/
 
 /-- **The recursor stage stores names fresh at the constructors'
-environment**, at EITHER setting of its gate: with it lifted the
-CHECK's own name facts (`checkBlockRecK_cvFacts`,
-`Verify/Inductives/BlockRecNames.lean`); with it down the one generated
-recursor's constant check (`checkNativeRec_shape`). -/
+environment**: the CHECK's own name facts (`checkBlockRecK_cvFacts`,
+`Verify/Inductives/BlockRecNames.lean`), read through the conformance
+check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.checkBlockRec (fueledOps mode F) envC p cvTas ctorsAs = .ok rs) :
-    ∀ r ∈ rs, envC.find? r.1.name = none := by
-  by_cases hg : ConLeche.blockRecCheckOn = true
-  · exact fun r hr =>
-      (ConLeche.checkBlockRecK_cvFacts (ConLeche.checkBlockRecK_of_gate hg h) r hr).1
-  · unfold ConLeche.checkBlockRec at h
-    rw [if_neg hg] at h
-    split at h
-    case h_2 =>
-      exfalso
-      simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
-      repeat' split at h
-      all_goals exact nomatch h
-    case h_1 ms cvTa ctorsA _ _ _ =>
-    simp only [bind, Except.bind] at h
-    split at h
-    case isFalse => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-    case isTrue =>
-    obtain ⟨r0, hrec, h⟩ := exceptBind_ok h
-    obtain ⟨cvRa, rhss⟩ := r0
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨hnR, -, -, -, -⟩ := ConLeche.checkNativeRec_facts hrec
-    obtain ⟨cvRi, -, -, -, hcvR, -⟩ := ConLeche.checkNativeRec_shape hrec
-    obtain ⟨hfR, -⟩ := ConLeche.checkConstantVal_inv hcvR
-    intro r hr
-    rw [List.mem_singleton] at hr
-    subst hr
-    show envC.find? cvRa.name = none
-    rw [hnR]; exact hfR
+    ∀ r ∈ rs, envC.find? r.1.name = none :=
+  fun r hr => (ConLeche.checkBlockRecK_cvFacts (ConLeche.checkBlockRecK_of_rec h) r hr).1
 
 /-! ## The recursors' and the tables' phases -/
 

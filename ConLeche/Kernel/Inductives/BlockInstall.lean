@@ -980,7 +980,7 @@ kept after the recursor stage became a check.
 Unverified and reject-only — the same status as the recursor
 name-set check (`blockRecNameSetOk`): no model consumer, it only
 shrinks the accept set.  Soundness comes from the primitive-recursion
-check (`checkBlockRecK`), which runs FIRST (`checkBlockRecChecked`),
+check (`checkBlockRecK`), which runs FIRST (`checkBlockRec`),
 so that the check is exercised on every block; this then brings the
 verdict back to official's on a stream whose recursor is a valid
 primitive recursion but not the one official generates (the argument
@@ -1007,41 +1007,15 @@ def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
     discard <| checkNativeRec ops env pn cvTa ctorsA
   | _, _, _, _ => pure ()
 
-/-- **The recursor stage with the gate lifted**: the CHECK
-(`checkBlockRecK`), then the conformance check
+/-- **The recursor stage**: the CHECK (`checkBlockRecK`, primitive
+recursion) at every `k`, then the reject-only conformance check
 (`checkBlockRecConform`), returning the check's result unchanged
 (`thenConform`). -/
-def checkBlockRecChecked (ops : CheckerOps m) (env : Env) (p : BlockParts)
+def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
   thenConform (checkBlockRecK ops env p cvTas ctorsAs)
     (checkBlockRecConform ops env p cvTas ctorsAs)
-
-/-- **The recursor stage** (`checkBlockRecChecked`: the CHECK, then
-the conformance check).
-
-The `else` arm is DEAD — `blockRecCheckOn` is `true` since the flip —
-and is the old one-member route's interim stage.  It stays only while
-`checkBlockRec_fresh` (`ConLeche/Semantics/Inductives/DeclBlockEta.lean`)
-still peels it, and goes with `blockRecCheckOn` then. -/
-def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
-  if blockRecCheckOn then checkBlockRecChecked ops env p cvTas ctorsAs
-  else
-    match p.members, cvTas, ctorsAs with
-    | [ms], [cvTa], [ctorsA] => do
-      let pn := p.toNative
-      unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
-          pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
-        throw (.invalid "direct rec: recursor rules are not the generated ones")
-      let (cvRa, rhss) ← checkNativeRec ops env pn cvTa ctorsA
-      pure [(cvRa, rhss, ms.nIdx, ctorsA)]
-    | _, _, _ => do
-      -- the recursor RECORDS' pins (task #220 at k members) are thrown
-      -- FIRST, as the CHECK's own stage opens with them
-      checkBlockRecPins p
-      throw (.notImplemented "block rec: the mutual recursor stage")
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
 constructor, no index): the member's table at the tagged tower's

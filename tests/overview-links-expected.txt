@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L956
-   956  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L936
+   936  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L614-L621
    614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -784,8 +784,8 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L999
    999  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1093
-  1093  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L1067
+  1067  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -824,8 +824,8 @@
      7  /-!
      8  # The in-process modeller's kit (task #200)
      9  
-    10  Shared pieces of the in-process construction of `_model` families for
-    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
+    10  The pieces of the in-process construction of `_model` families for
+    11  nested inductive blocks (`ConLeche/Frontend/InModel/Nested.lean`):
     12  
     13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
     14    generators' streams are diffable — none of these names is special to
