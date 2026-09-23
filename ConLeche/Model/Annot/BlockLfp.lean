@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.SetModel.UnionRec
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Tower.FixLeafI
 public section

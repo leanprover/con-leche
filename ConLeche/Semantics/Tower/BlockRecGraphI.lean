@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.SetModel.GraphRec
+public import ConLeche.SetModel.UnionRec
 import ConLeche.Semantics.Tower.FixLeafI
 @[expose] public section
 

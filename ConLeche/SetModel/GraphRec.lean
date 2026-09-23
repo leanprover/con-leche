@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.SetModel.UnionRec
+public import ConLeche.SetModel.RecGraph
 @[expose] public section
 
 /-!

@@ -1,8 +1,9 @@
 module
 
 import ConLeche.Model.Inductives.BlockRuleGrading
-public import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.BlockKitRuleRun
+import ConLeche.Model.Inductives.BlockRecPreHpre
+public import ConLeche.Model.Inductives.BlockRuleRun
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 
 public section
 
