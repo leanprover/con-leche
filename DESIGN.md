@@ -84719,11 +84719,14 @@ surprises show up before the proofs.  Report:
   `corner_tshadow_aux_nonfield_bad` (`(fun x => x) tail`), which today's
   MODELLED route accepts.
 
-#### NOT LANDED (lane RECLIB, 2026-09-23, branch `agent/uinds-RECLIB`): the classification-free check made provable — a stop-and-name, its kernel fix, and the run records
+#### LANDED (lane RECLIB, part 1: target check refactor + run records; switch pending, 2026-09-23)
 
-**Status.**  Partial; NOT fast-forwarded (the brief: a kernel switch
-without its proofs must not land).  The live recursor stage is still
-`checkBlockRec` → `checkBlockRecK` (kind-reading).  Report:
+**Status.**  Part 1 landed on the coordinator's ruling (shadow-only
+kernel code and unconsumed run records; the hole-typed call check is
+charter item 2 and stands as ruled).  THE SWITCH IS PENDING: the live
+recursor stage is still `checkBlockRec` → `checkBlockRecK`
+(kind-reading), and it moves only together with its proofs (B1 → B3 →
+B4, then B5), continued on `agent/uinds-RECLIB`.  Report:
 `_tmp/uniform-inds/RECLIB.md`.
 
 **Stop-and-name (charter item 5's `ind`).**  With TSHADOW's call typing
