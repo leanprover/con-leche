@@ -1770,6 +1770,15 @@ def readOpenedDoms (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (
   | d, x :: xs =>
     (denoteMeta acval env ψ d x.fvarTypeD).getD default :: readOpenedDoms acval env ψ (d + 1) xs
 
+omit [SetTheory V] in
+/-- A reading of an opened telescope has one entry per opener. -/
+@[simp] theorem readOpenedDoms_length_eq (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+    (ψ : Name → Nat) : ∀ (d : Nat) (fvs : List Expr),
+      (readOpenedDoms acval env ψ d fvs).length = fvs.length
+  | _, [] => rfl
+  | d, _ :: xs => by
+    simp only [readOpenedDoms, List.length_cons, readOpenedDoms_length_eq acval env ψ (d + 1) xs]
+
 section Components
 
 variable (p : ConLeche.BlockShape)

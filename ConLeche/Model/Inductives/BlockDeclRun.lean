@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 public import ConLeche.Model.Inductives.BlockRuleFit
+public import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Capstone
@@ -316,9 +317,13 @@ the checked elimination level, the rule's reading and grading
 closedness, the rules' inputs, the level parameters and the rule
 domains' own bounds (`blockRuleDoms_bounded_seam`).
 
-What is left is exactly ONE premise, the RULE stage's: `hbody` — the
-peel's `BlockRuleBodyInputs`, which nothing concludes.  The equation
-list's facts (`heqB`/`heqP`/`heqV`) and the regime (`hpre`) enter only
+`ihs`/`Rb0` are the run's own (`hihsE`/`hRbE`, `BlockRuleRun.lean`),
+and the rule stage's peel obligation is `blockRuleBodyOwed_run` CALLED
+here.  What is left of it is two facts that are not the rule stage's:
+the frame's grading `hokA` (the certificate lane's,
+`blockRuleHokA_of_run`'s conclusion) and the `ih` openers' fit
+`hihFit` (the regime's, `BlockRuleIhFitOwed`).  The equation list's
+facts (`heqB`/`heqP`/`heqV`) and the regime (`hpre`) enter only
 through the leaf, and are the seam's own conjuncts. -/
 theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
@@ -374,20 +379,34 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ')
           ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ') Rb0 ψ) ρ)
-    -- THE RULE STAGE'S ONE: the peel's inputs
-    (hbody : ∀ (φ : Name → Nat) (j : Nat)
+    -- `ihs`/`Rb0` are the RUN'S OWN (`BlockRuleRun.lean` §2, `BlockRecData.lean` §A.9b)
+    (hihsE : ihs = fun ψ' => blockRuleIhsRunAV pp rs mpC.base2.acval envC ψ')
+    (hRbE : Rb0 = fun ψ' => blockRuleRbAV pp rs mpC.base2.acval envC ψ')
+    -- the rule frame's GRADING (the certificate lane's: `blockRuleHokA_of_run`)
+    (hokA : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      ∀ ψ : Name → Nat,
+      ∀ l, l < pp.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt pp rs j i).nR →
+      ∀ (σ' : Nat → V) (ys : List V),
+        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ j i).take l) ys →
+        WellDenotedV V (consList ys σ')
+          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i
+            ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ j i).getD l default))
+    -- the `ih` openers' FIT (the regime's)
+    (hihFit : ∀ (φ : Name → Nat) (j : Nat)
         (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-        BlockRuleBodyOwed (V := V) mpC F pp rs s (blockRecNCt rs)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
-          (fun ψ' => blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ')
+        BlockRuleIhFitOwed (V := V) mpC pp rs s (blockRecNCt rs)
           (fun ψ' => blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ')
-          ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ') Rb0
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ')
           (blockRecCtorTy mpC.base2.acval envC rs j i) φ j i r cA
           (ConLeche.recRuleBits envC.find? r.1.name
             { ctor := cA.1.name, nfields := cA.2, ctorParams := pp.nP,
-              fire := .plain, rhs := rhs, paramsBlind := true }) rhs r.1.levelParams) :
+              fire := .plain, rhs := rhs, paramsBlind := true })) :
     ∀ m₃ : EnvModel V (consBlockRecs envC.find? pp.toBlockShape pp.nP 0 rs envC),
       m₃.acval = blockRecAcv mpC.base2.acval envC rs s
         (blockRecEqs (blockRecNCt rs) rs
@@ -452,7 +471,11 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
     (fun r₀ h0 => checkBlockRecK_lps h h0 hr)
     (fun us _ => Rules.RulesInputs.ofSem mpC _)
     (blockRuleDoms_bounded_seam hμ h hcore φ j r hr i cA rhs hcA hrhs)
-    (hbody φ j r hr i cA rhs hcA hrhs)
+    (by
+      subst hihsE hRbE
+      exact blockRuleBodyOwed_run hμ h hr hcA hrhs hcore hcj rfl
+        (by rw [blockDataOf_ksF]; rfl) hCf hCb (constsBound_of_constsResolve _ hwfC.2.2.1)
+        (hokA j r hr i cA hcA) (hihFit φ j r hr i cA rhs hcA hrhs))
   case htgt =>
     intro l _
     rw [← hN.2.2.2]
@@ -537,21 +560,22 @@ storage and reading (`blockRecCtor_seam`, at the canonical
 and the whole per-pair RULE CONTRACT but one premise
 (`blockRuleDataB_seam`).
 
-Owed (`howed`) — a choice of the family's level `s`, the rules' `ih`
-openers `ihs` and residue readings `Rb0` (no definition in the tree
-computes the latter two as functions of the run: the peel's frame is
-existential and five of its fields are unpinned), and at that choice:
+The rules' `ih` openers and residue readings are PINNED
+(`blockRuleIhsRunAV`/`blockRuleRbAV`, functions of the run through
+§A.9b's definitions), so `howed` chooses only the family's level `s`,
+and owes at that choice:
 * the equation list's three facts `heqB`/`heqV`/`heqP` (the rule
-  lanes'; `§A.3` reduces the first two to per-component facts, none of
-  them produced for `ihs`/`Rb0`);
+  lanes'; `§A.3` reduces the first two to per-component facts);
 * the family's regime `hpre` (the dispatch lane's
   `blockRecPre_dispatch_run` concludes it, but its WF/SQ arms relay
   premises quantified over EVERY `D : RecFamData` whose conclusions read
   `D.tupOf`/`D.kit` — `hihChain`, and the SQ arm has no case for a
   zero-constructor `Prop` block with large elimination — so relaying
   them here would make this premise set uninhabitable);
-* the rule stage's peel obligation `BlockRuleBodyOwed` (nothing in the
-  tree concludes `BlockRuleBodyInputs`).
+* of the rule stage's peel obligation (`blockRuleBodyOwed_run`, called
+  in `blockRuleDataB_seam`), the two conjuncts that are not the rule
+  stage's: the frame's GRADING (the certificate lane's) and the `ih`
+  openers' FIT `BlockRuleIhFitOwed` (the regime's).
 
 The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
 floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/
@@ -580,15 +604,16 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
-        ∃ (s : (Name → Nat) → Nat) (ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
-          (Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm),
+        ∃ s : (Name → Nat) → Nat,
       -- the equation list: bounded, valid, level-parametric
       (∀ ψ : Name → Nat,
       ∀ e ∈ blockRecEqs (blockRecNCt rsR) rsR
           (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-          ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0 ψ,
+          (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ') ψ,
         Term.bvarsBelow rsR.length e.erase) ∧
       (∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rsR.length →
       (∀ mm, mm < rsR.length →
@@ -597,7 +622,9 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
           (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-          ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0 ψ,
+          (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ') ψ,
         AnnotValid V (consList tup ρ) e) ∧
       (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rsR[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
@@ -606,12 +633,16 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
               (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
               (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
               (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-              ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0 ψ₁
+              (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ') ψ₁
             = blockRecEqs (blockRecNCt rsR) rsR
               (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
               (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
               (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-              ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0 ψ₂)
+              (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ') ψ₂)
       ∧
       -- the family's regime (`blockRecPre_dispatch_run`'s conclusion)
       (∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -621,42 +652,58 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
           (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-          ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0 ψ) ρ)
+          (fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          (fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ') ψ) ρ)
       ∧
-      -- THE RULE STAGE'S ONE (`blockRuleDataB_seam` pays the rest of the
-      -- contract): the peel's inputs
+      -- the rule frame's GRADING (the certificate lane's: `blockRuleHokA_of_run`)
+      (∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        rsR[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        ∀ ψ : Name → Nat,
+        ∀ l, l < pp.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt pp rsR j i).nR →
+        ∀ (σ' : Nat → V) (ys : List V),
+          SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ j
+              ++ blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ j i
+              ++ blockRuleIhdomsAV pp rsR mpC.base2.acval envC ψ j i).take l) ys →
+          WellDenotedV V (consList ys σ')
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ j
+              ++ blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ j i
+              ++ blockRuleIhdomsAV pp rsR mpC.base2.acval envC ψ j i).getD l default))
+      ∧
+      -- the `ih` openers' FIT (the regime's)
       (∀ (φ : Name → Nat) (j : Nat)
           (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rsR[j]? = some r →
         ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
           r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-          BlockRuleBodyOwed (V := V) mpC F pp rsR s (blockRecNCt rsR)
-            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ')
-            (fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
+          BlockRuleIhFitOwed (V := V) mpC pp rsR s (blockRecNCt rsR)
             (fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
-            ihs (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ') Rb0
+            (fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ')
             (blockRecCtorTy mpC.base2.acval envC rsR j i) φ j i r cA
             (ConLeche.recRuleBits envC.find? r.1.name
               { ctor := cA.1.name, nfields := cA.2, ctorParams := pp.nP,
-                fire := .plain, rhs := rhs, paramsBlind := true }) rhs r.1.levelParams)) :
+                fire := .plain, rhs := rhs, paramsBlind := true }))) :
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun hgate
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR => by
-      obtain ⟨s, ihs, Rb0, heqB, heqV, heqP, hpre, hbody⟩ :=
+      obtain ⟨s, heqB, heqV, heqP, hpre, hokA, hihFit⟩ :=
         howed envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
           hcore hctorsAs hctorsIn hdR
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
       exact ⟨s, blockRecNCt rsR,
         fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ',
         fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ',
-        fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ', ihs,
-        fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ', Rb0,
+        fun ψ' => blockRuleEsAV pp.toBlockShape rsR mpC.base2.acval envC ψ',
+        fun ψ' => blockRuleIhsRunAV pp rsR mpC.base2.acval envC ψ',
+        fun ψ' => blockRuleMkAV pp.toBlockShape rsR mpC.base2.acval envC ψ',
+        fun ψ' => blockRuleRbAV pp rsR mpC.base2.acval envC ψ',
         blockRecCtorTy mpC.base2.acval envC rsR,
         heqB, heqV, heqP, hpre,
         fun j r hr => blockRecNCt_ge hr,
         fun ψ j r hr => blockRulePdomsAV_length hμ mpC hrec hr ψ,
         blockRecCtor_seam hrec hnames hcore hctorsAs,
-        blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hctorsAs heqB heqV heqP hpre hbody,
+        blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hctorsAs heqB heqV heqP hpre
+          rfl rfl hokA hihFit,
         blockRecTyZ_run hμ mpC hrec,
         ConLeche.checkBlockRecK_rulePos hrec⟩
 
