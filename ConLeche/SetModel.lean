@@ -7,6 +7,7 @@ public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.WfRec
 public import ConLeche.SetModel.NarrowTreeList
+public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
 
 @[expose] public section
@@ -37,6 +38,10 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   global subterm relation (`SetTheory/Derive/TransClosure.lean`) over
   the two majors' ordinary carriers — no wide tuple, no identification,
   no per-block accessibility;
+* `GraphRec` — the recursor family's GRAPH as a least fixed point,
+  functional by the majors' induction alone (`GraphRecKit.exu`): one
+  mechanism at every sort, the recursor model's (DESIGN, ruling of
+  2026-09-23);
 * `HoleOp` — the HOLE operator (design lane HOLEOP): a block's
   operator as `Σ ctor, Π fields, ⟦field⟧[members := X]` over a syntax
   of POSITIVE TYPES with no field kinds, monotonicity by induction on

@@ -595,11 +595,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   which covers finitary and reflexive fields alike, and which a block
   of several members reaches at the disjoint union of their index sets
   ([theorem `tupleContainer_closed_exists` in `ConLeche/SetModel/TupleContainer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/TupleContainer.lean#L127)).
-  The recursors are the components of one function on the disjoint
-  union of the block's values, given by the recursion theorem
-  (`ConLeche/SetModel/UnionRec.lean`, `ConLeche/SetModel/RecGraph.lean`).
+  Each recursor is read as the unique value of its GRAPH, the least
+  relation closed under the recursor's rules read over the ways a
+  value decodes as a constructor application; the block's induction
+  makes that relation a function at every sort
+  (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
+  fact it needs is the kernel's own large-elimination guard.
   The model-tier theorem for the whole install is
-  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1052).
+  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1040).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** are handled by an in-process modeller

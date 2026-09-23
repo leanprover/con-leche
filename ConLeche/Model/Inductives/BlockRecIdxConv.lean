@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.BlockRecRead
 
 public section
 
@@ -722,9 +721,9 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
 
 end Run
 
-/-! ## 5. The kit arms' `hconclTy`, from the converse
+/-! ## 5. The graph kit's `hconclTy`, from the converse
 
-`blockKitRegime_wf`/`_sq`'s `hconclTy` asks that the recursor's
+The graph kit's bound (`blockGraphKit`'s `hB`) asks that the recursor's
 conclusion, read at a prefix `x⃗`, at a carrier element's index values
 and at the element, lie in the family's universe.  The element's class
 index set carries the prefix's FIT (`blockRecIs_fits`) — the frame the
@@ -743,16 +742,13 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V} {names : List Name}
 
-/-- **The kit arms' `hconclTy`, at the run** — both arms', at every
-recursor of the family; the SQ arm's `c < 1` is the counting guard's
-one member. -/
+/-- **The graph kit's `hconclTy`, at the run**: the conclusion read at
+any class element is a set of the CHECKED elimination level. -/
 theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
-    {us : List Level} {uOf : Nat → Level}
-    (helim : ∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true)
-    (hmemU : ∀ c, c < rs.length → uOf c ∈ us)
+    {uOf : Nat → Level}
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
@@ -767,7 +763,8 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
           (consList (xs ++ (isOfW (d.uM (p.toBlockShape.recTgtAt c) ψ)
             (d.nIdxAt (p.toBlockShape.recTgtAt c)) i ++ [x])) ρ)
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-        ∈ˢ (univ ((us.headD .zero).eval ψ) : V) := by
+        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
+          p.toBlockShape.large)) : V) := by
   intro xs c hc i hi x hx
   obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
   obtain ⟨hpar, hpref⟩ := blockRecIs_fits hi
@@ -847,7 +844,7 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
   rw [hrd] at hop
   have hu := blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
-  rwa [blockRecElimPin_eval helim ψ (uOf c) (hmemU c hc)] at hu
+  rwa [blockRecElimPin_run h hruns ψ hc] at hu
 
 end ConclTy
 

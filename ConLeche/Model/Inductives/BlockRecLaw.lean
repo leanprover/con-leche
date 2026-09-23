@@ -43,7 +43,7 @@ disjoint halves:
 
 The rule data (`pdoms`/`fdoms`/`es`/`mk`/`ihs`/`Rb`) is NOT re-derived
 here: it is named, in the spelling the family premise `BlockRecPre`
-(`blockRecPre_of`) is stated at, and the run's own identification of
+(`Semantics/Tower/BlockRecI.lean`) is stated at, and the run's own identification of
 it lives with the rule data.  What this module owns is the
 CONVERSION — from the semantic ι law to the syntactic contract — and
 the two `TeleFitPA → SpineFit` flips it needs.
@@ -342,8 +342,9 @@ def BlockIotaAt (V : Type w) [SetTheory V] (K c : Nat) (leaf : Nat → AnnotTerm
         = interp V (consList (ihs.map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))
             (consList (xs ++ fs) (chainFrame K a ρ))) Rb
 
-/-- **The regimes' seam**: `BlockRecPre` — `blockRecPre_of`'s conclusion
-— gives `BlockIotaAt` at every class and constructor of the family. -/
+/-- **The recursor model's seam**: `BlockRecPre` — `blockRecPre_graph`'s
+conclusion — gives `BlockIotaAt` at every class and constructor of the
+family. -/
 theorem blockIotaAt_of_pre {s K c j : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat}
     {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
     {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}

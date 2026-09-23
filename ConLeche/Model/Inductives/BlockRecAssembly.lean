@@ -19,7 +19,8 @@ recursor stage's cons, stated at eighteen premises; `declBlock`
 `BlockRecStaged`.  This module is the seam between them: it discharges
 from the CHECK'S OWN RUN every premise that is a syntactic fact about
 the stored recursors, so that what is left of the Model half is the
-two SEMANTIC seams — the family premise (`BlockRecPre`, the regimes)
+two SEMANTIC seams — the family premise (`BlockRecPre`, the recursor
+model `blockRecPre_graph`)
 and the rule data (`BlockRuleDataAt`, `hnew`).
 
 What the run supplies, and where it comes from:

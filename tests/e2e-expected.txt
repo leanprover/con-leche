@@ -1519,6 +1519,15 @@
 # member, one constructor, all fields propositions — and SMALL, because
 # the aux block has two types.  Official accepts.
 0 corner_nest_or_prop.ndjson
+# nest_rose_tree / nest_rose_prop (lane NESTTREE, 2026-09-23): a block
+# nested through a container that is ITSELF nested (`T | leaf | mk (R T)`
+# with `R α | node α (L (R α))`), at Type with a large motive and at
+# Prop with Prop motives.  Official's three-recursor family
+# (`T.rec`/`T.rec_1`/`T.rec_2`) is modelled at the set level by
+# `ConLeche/SetModel/GraphRecRose.lean`.  Today: ACCEPT via the modelled
+# route; target under the uniform route: ACCEPT.
+0 nest_rose_tree.ndjson
+0 nest_rose_prop.ndjson
 # the same block with both motives patched to `Type`: the unsound case
 # of the amendment (at `w = 0` the `Or` component's element is both
 # `inl trivial` and `inr p`, so `rec_1` would have to equal two

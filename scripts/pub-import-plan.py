@@ -78,6 +78,13 @@ FALLBACK = {
      'ConLeche.Model.Inductives.BlockRecTyping'),
     ('ConLeche.Model.Inductives.StructRows',
      'ConLeche.Model.Capstone'),
+    # task #315 (lane GRAPH1, the graph producer): MEASURED by demoting
+    # it alone — `BlockRecPreRun`'s own public `@[expose] def
+    # BlockRecSplitAt` names `prefOf`/`idxOf`/`majOf` (`Unknown
+    # identifier prefOf`, `BlockRecPreRun.lean:280`), which the model
+    # does not attribute to an exposed body.
+    ('ConLeche.Model.Inductives.BlockRecPreRun',
+     'ConLeche.Semantics.Tower.BlockRecGraphI'),
     # task #315 (lane D-OLD, the old one-member route's dead code
     # deleted): three re-exports the model calls demotable, each MEASURED
     # by demoting it alone.  `StructStageTable.lean`'s `variable` binder

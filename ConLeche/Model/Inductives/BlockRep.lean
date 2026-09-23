@@ -367,12 +367,6 @@ read off `BlockModelAt`, nothing re-proved. -/
   fits := fun ψ ρp X t c j fs => j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs
   inj := d.inj
 
-theorem BlockData.toLfp_idx (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V) :
-    d.toLfp.idx ψ ρp = d.idx ψ ρp := rfl
-
-theorem BlockData.toLfp_carrier (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V) :
-    d.toLfp.carrier ψ ρp = lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := rfl
-
 /-- **The representation's lfp clause** — `functor`, `fibre` and
 `leaf`, verbatim. -/
 theorem BlockModelAt.toLfp {m : EnvModel V env} {names : List Name} {d : BlockData V}

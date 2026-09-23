@@ -20,7 +20,7 @@ public section
 
 Facts about how the recursor stage's stored terms read, for
 `blockRecStaged_of`'s premises (`Model/Inductives/BlockStageRec.lean`):
-the family's one elimination level, the `instPisAtLift` reading
+the `instPisAtLift` reading
 battery, and the stored types' readings with their grading.
 
 The family's level arithmetic rests on the elimination-level PIN
@@ -28,42 +28,15 @@ The family's level arithmetic rests on the elimination-level PIN
 the kernel's own sort check gave it — is `Level.isEquiv` to the
 generated level `structElimLevel p.elim p.large` (the family record's
 `RecFamRun.pin`, `Verify/Inductives/BlockRecRun.lean`).  The model
-consumes `Level.eval` at a ground assignment (`Level.isEquiv_sound`),
-so a family has ONE elimination level — `OneElimLevel` at the family's
-single `ℓ`.
+reads it at a ground assignment (`blockRecElimPin_run`,
+`BlockRecPreRun.lean` §38.1): the family eliminates at ONE level, the
+checked one.
 -/
 
 namespace ConLeche.Model
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche.Semantics SetTheory
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
-
-/-! ## One elimination level, at the valuation -/
-
-/-- **One elimination level per family, at a ground assignment**, from
-the elimination-level PIN: every level of the list is equivalent to
-`L`, so every one EVALUATES to the first one's at every `ψ`, and the
-Σ'-chain has one level and the candidate one tower bit. -/
-theorem blockRecElimPin_eval {L : Level} {us : List Level}
-    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
-    (ψ : Name → Nat) : ∀ u ∈ us, u.eval ψ = (us.headD .zero).eval ψ := by
-  intro u hu
-  cases us with
-  | nil => exact absurd hu List.not_mem_nil
-  | cons u0 rest =>
-    rw [List.headD_cons, Level.isEquiv_sound (h u hu) ψ,
-      Level.isEquiv_sound (h u0 List.mem_cons_self) ψ]
-
-/-- **The zeroness bit is the family's**, which is exactly the shape
-`OneElimLevel` (`Semantics/Tower/BlockRecKitI.lean`) asks for once the
-recursors' conclusions' sorts are the readings' binder numerals: at
-the family's single `ℓ := (us.headD .zero).eval ψ`, a conclusion sort
-is zero iff `ℓ` is. -/
-theorem blockRecElimPin_zero_iff {L : Level} {us : List Level}
-    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
-    (ψ : Name → Nat) {u : Level} (hu : u ∈ us) :
-    ((us.headD .zero).eval ψ = 0 ↔ u.eval ψ = 0) := by
-  rw [blockRecElimPin_eval h ψ u hu]
 
 /-! ## Why `blockIhCall?` compares EXACTLY
 
@@ -155,7 +128,7 @@ The first two are **run facts** — `checkConstantVal` ran `inferType`
 on the ANNOTATED type at the constructors' environment, which is
 exactly the hypothesis `acceptedReads_of` and the infer claim want —
 and this is them.  The third is the recursion theorem and belongs to
-the regimes.
+the recursor model (`blockRecPre_graph`).
 
 The recipe is the one every harvest uses (`harvestDefn`,
 `Model/Harvest.lean`): `annotate_syntax` for the primed form's
@@ -227,7 +200,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`checkBlockRecK_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
-which the regimes deliver as `hmem` in this shape. -/
+which the recursor model delivers as `hmem` in this shape. -/
 theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}

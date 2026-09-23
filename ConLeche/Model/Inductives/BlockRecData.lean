@@ -8,7 +8,7 @@ import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Verify.Inductives.BlockRecRun
-import ConLeche.Model.Inductives.BlockRecRegimes
+import ConLeche.Model.Inductives.BlockCallCerts
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Swap
@@ -259,7 +259,7 @@ FRAME.  At `eqs = iotaEqsAV K nCt pdoms fdoms es mk ihs Rb` the
 second is a fact about ONE rule's data, and this section proves it:
 the bound at `K + rP + nF`, and the validity at every fitting spine.
 
-The validity half is the exact twin of `blockRecPre_of`'s `hwd` (the
+The validity half is the exact twin of `BlockRecPre.hEq`'s grading (the
 grading of the same two sides); the bound half needs `inst`'s and
 `instsAV`'s own metatheory, which is written here because no consumer
 had wanted it before. -/
@@ -428,7 +428,7 @@ theorem annotValid_instsAV {vs : List AnnotTerm} {e : AnnotTerm} {ρ : Nat → V
   simpa using h
 
 /-- **One rule's ι equation is `AnnotValid`** at the chain frame — the
-exact twin of `blockRecPre_of`'s `hwd`, in the bit currency. -/
+exact twin of `BlockRecPre.hEq`'s grading, in the bit currency. -/
 theorem annotValid_iotaEqAV {K c : Nat} {pdoms fdoms es ihs : List AnnotTerm}
     {mk Rb : AnnotTerm} {σ : Nat → V}
     (hdoms : FieldsValid σ (pdoms ++ fdoms))
@@ -835,7 +835,7 @@ theorem fieldsValid_liftDomsK {K : Nat} {a ρ : Nat → V} :
 
 /-- **The family's ι equations at the block's own data.**
 
-`@[expose]`: the regimes' `hpre` is stated at this term, so the body
+`@[expose]`: the recursor model's `hpre` is stated at this term, so the body
 must unfold outside this module — `blockRecEqs` is exposed but reduces
 to this. -/
 @[expose] def blockIotaEqsAV (K : Nat) (nCt : Nat → Nat) (pdoms0 : Nat → List AnnotTerm)
@@ -886,7 +886,7 @@ theorem bvarsBelow_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
   · exact bvarsBelow_liftN_add (hRb c hc j hj) (by omega) _
 
 /-- **`heqV` at the design's equation list** — the base-frame twin of
-`blockRecPre_of`'s `hwd`. -/
+`BlockRecPre.hEq`'s grading. -/
 theorem annotValid_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
     {pdoms0 : Nat → List AnnotTerm} {fdoms0 es0 ihs : Nat → Nat → List AnnotTerm}
     {mk0 Rb0 : Nat → Nat → AnnotTerm} {a ρ : Nat → V}
@@ -4505,7 +4505,7 @@ constructors' type readings (`ctorTy`) for which
 * the equation list is bounded, valid and level-parametric
   (`heqB`/`heqV`/`heqP` — §A.3's two lemmas reduce the first two to
   the six components' own facts),
-* the family's regime holds (`hpre`, `blockRecPre_run`),
+* the family's recursor model holds (`hpre`, `blockRecPre_graph`),
 * the rule prefix has the length the stage pins (`hpl` —
   `blockRulePdomsAV_length` at `pdoms0`),
 * every constructor the recursors carry is STORED with the block's
@@ -4539,6 +4539,7 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+        dR.toLfp ∈ mpC.lfpBlocks →
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →
         ∃ (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
@@ -4595,11 +4596,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hkLen => by
+        hctorsAs hctorsIn hdR hlfp hkLen => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hpos⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR hkLen
+          hcore hctorsAs hctorsIn hdR hlfp hkLen
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hpos
 

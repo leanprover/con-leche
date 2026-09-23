@@ -159,11 +159,9 @@ lands in the bound — and the recursion theorem HOLDS at that data
 because accessibility is a WAY to the recursion theorem and not the
 only one.  `ofAcc` is that way (every element of the union accessible
 along `pred`, which `SetModel/WfRec.lean` discharges for any classes
-off regularity) and regimes WF and IND take it; regime SQ proves the
-singleton property by the block's OWN lfp induction instead
-(`sqGraph_singleton`, `Semantics/Tower/FixSquashI.lean`) and has no
-accessibility argument to give.  Making the theorem the field is what
-lets both in. -/
+off regularity).  Since the graph route (DESIGN, ruling of 2026-09-23;
+`SetModel/GraphRec.lean`) the recursor model does not use this kit: it
+serves the narrow falsifier `NarrowTreeList` through `WfRec`. -/
 structure UnionRecKitC (ℓ k : Nat) (Is C : Nat → V) where
   pred : V → V
   B : V → V

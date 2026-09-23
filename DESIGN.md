@@ -84165,3 +84165,53 @@ recorded block, `LfpClause base2.acval D` holds and its members are stored
   with the suppliers in `BlockRecData`/`BlockDeclRun`. No coverage clause
   ("every stored inductive is recorded") exists yet; it becomes statable
   once the modelled route is deleted.
+
+
+#### LANDED (lane GRAPH1, 2026-09-23): the recursor model is ONE graph producer; IND/WF/SQ and their dispatch are deleted
+
+**The producer.** `blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) concludes
+`declBlock_data`'s regime conjunct verbatim, at every level assignment and base frame, with
+no level or sort split: the family candidate is `famCandG`
+(`Semantics/Tower/BlockRecGraphI.lean`), one λ-tower of the graph kit's recursor at every
+level (at `ℓ = 0` both it and every graph value are the point), and the ι law at a rule is
+`GraphRecKit.rec_eq` at the RULE'S OWN decoding (`blockRuleDecoding_run`): no decoding is
+ever chosen.  The kit (`SetModel/GraphRec.lean`, lane GRAPH-F's, decodings generalised to
+any type) is instantiated at the block (`blockGraphKit`/`blockGraphFam`):
+
+| field | at the block |
+|---|---|
+| majors | the recursor classes' tagged elements at a prefix spine (`blockRecIs`/`blockRecCr`) |
+| `Dec` | `blockGraphDec`: (class, constructor, fields), the fields fitting at the CARRIER |
+| `pred` | `blockGraphPred`: the majors among the rule's call targets (`blockGraphCall`), by definition — no depth, no subterm relation |
+| `B`, `st` | `blockRecMot`; the residue at the decoding's fields and the graph's `ih` values (`blockKitIhv`) |
+| `hst` | the rule certificates (G1) + `blockGraphIhF_run` + `blockKitCaB_run` |
+| `huniq` | `blockGraphUniq_run`: `ℓ = 0` → `huniq_of_prop`; `w ≠ 0` → `mkInj`; `w = 0, ℓ ≠ 0` → the counting guard + `blockChainFit_srcVals_zero` |
+| `ind` | `blockGraphInd_run`: the block's RECORDED lfp clause (`LfpClause.ind`), the property read per member over all its classes; a call target is a recursive field folded along its telescope, which the separated tuple carries (`blockIndPred_of`) |
+
+**The wiring.** `declBlock`'s `hrec` gains `dR.toLfp ∈ mpC.lfpBlocks`
+(`EnvModelM.mem_addLfp`); `declBlock_run` calls the one producer and still takes NO owed
+premise.
+
+**Deleted.** The three regimes, their dispatch, seam and bundles: `BlockIndRegimeRun`,
+`BlockIndRuleRun` (its conclusion-fit section moved to `BlockRuleCertsRun`),
+`BlockModelLfpInd`, `Semantics/Tower/BlockRec{Kit,Wf,Sq,Ind}I`, BlockRecPreRun's WF kit /
+family / arm, SQ step and kit, IND run / inputs / induction / step and dispatch,
+BlockRecPreHpre's dispatch, kit arms, `Block*Owed` bundles and seam, the WF/SQ rows, the
+IND-only truth-value family (§40.15b), SQ's `blockRuleSrcVals_rule`, `RecGraph`'s
+transport/restrict sections, the lfp clause's component-tagged `KitInd`/`kitInd` (the
+producer reads `LfpClause.ind` at the recursor classes directly).  `BlockRecRegimes` keeps
+only G3 and is `BlockCallCerts`.  ConLeche: +2 191 / −7 168.
+
+**The level currency (G2) is finished.** `blockRecElimLevel_run`'s package has no `us`;
+`blockRecElimPin_run` (every recursor eliminates at `structElimLevel p.elim p.large`) is the
+one currency, and `blockRecOneElimLevel`, `blockRecCounting_run`, `blockRecConclTy_run` are
+stated at it.
+
+**Kept, and why.** `WfRec`, `TransClosure` and `UnionRecKitC` survive only because the
+kept falsifier `NarrowTreeList` imports them; the census marks all four dead.
+
+**Open.** (1) `hlfp` is not load-bearing yet: the recorded clause equals
+`hM.toLfp` for the uniform route, so the producer could read the clause off `hM`; the record
+earns its keep once a consumer has no `BlockModelAt` (nested, the liberal check). (2) The
+set-level instances (GRAPH-F, GRAPH-O, NESTTREE) stay on their branches; the nested
+fixtures `nest_rose_{tree,prop}` are on the tree (today: modelled route, accept).
