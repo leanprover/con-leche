@@ -57,6 +57,7 @@ public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Annot.Laws
 public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.Tiers
 public import ConLeche.Model.Install
