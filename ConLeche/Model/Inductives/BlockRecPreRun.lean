@@ -2149,6 +2149,18 @@ section RunComponents
     ((blockRulePdomsAV acval envC p rs ψ c).length
       + (blockRuleFdomsAV p rs acval envC ψ c i).length)
 
+/-- The `ih` openers' DOMAINS at the chain frame — the PINNED `ihdoms`
+the dispatch's grading bundle states its certificates and its `ih` fit
+at (lane RM53): `blockRuleIhdomsAV` lifted past the `K` chain binders
+at the rule frame's depth, exactly as the field domains are. -/
+@[expose] def blockRecIhdomsK (K : Nat) (pp : ConLeche.BlockParts)
+    (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (ψ : Name → Nat) (c i : Nat) : List AnnotTerm :=
+  liftDomsK K ((blockRulePdomsAV acval envC pp.toBlockShape rs ψ c).length
+      + (blockRuleFdomsAV pp.toBlockShape rs acval envC ψ c i).length)
+    (blockRuleIhdomsAV pp rs acval envC ψ c i)
+
 /-- **`hpl` at the run**: the rule's prefix domains are as long as the
 rule prefix (`blockRulePdomsAV_length`, unchanged by the lifting). -/
 theorem blockRecPdomsK_length {envC : Env} (hμ : μ.verifiedChecks = true)
