@@ -1761,3 +1761,40 @@
 # block's recursors ("the block's recursors do not all eliminate at
 # one level").
 1 mutual_rec_elim_levels.ndjson
+#
+# -- the positivity walk's MEMBER LIST (conformance gap, ARCH-REVIEW
+# §1, lane CONF-E2E 2026-09-23).  The uniform route normalises each
+# field domain with `normPosDom` (Kernel/Inductives/SumInstall.lean:162,
+# the whnf-then-classify walk) before `blockPositivity`
+# (Kernel/Inductives/BlockParts.lean) classifies it against the whole
+# block, but `checkBlockCtors` (BlockInstall.lean:191) calls it through
+# `checkSumCtor` with the member's OWN name (`ms.cvT.name`) only.  A
+# field of one member that mentions ANOTHER member only under a
+# reducible head is therefore kept unreduced, the classifier sees a
+# non-member head, says `.unsupported`, and the block DECLINES ("direct
+# rec: a nested occurrence of the block").  Official whnf's every
+# domain.  At one member the same shapes accept (the walk's one name
+# IS the block).  The fix lives in the walk: pass it the member list
+# (`mentionsAnyConst names` for `mentionsConst T`).  Sources
+# `tests/e2e/src/corner_mutual_redex_other*.lean`.
+#
+# `RA | base | mk : Id' RB -> RA`, `RB | mk : RA -> RB`, `Id'` an
+# abbrev for the identity: whnf gives the member `RB`, a recursive
+# field (the stream's `RA.size` fires its IH).  Official 0.
+# TARGET: 0.
+2 corner_mutual_redex_other.ndjson
+# the reflexive twin, `SA | leaf | node : Fn SB -> SA` with
+# `Fn α := Unit -> α`: whnf gives a Π into the other member.
+# Official 0.  TARGET: 0.
+2 corner_mutual_redex_other_refl.ndjson
+# the vanishing twin, `VA | base | mk : Const' Unit VB -> VA -> VA`
+# with `Const' α _β := α`: whnf ERASES the occurrence, an ordinary
+# field (no IH).  Official 0.  TARGET: 0.
+2 corner_mutual_redex_other_vanish.ndjson
+# the reject twin (forged, `scripts/mk_mutual_redex_neg_bad.py`, off
+# `corner_mutual_redex_other`): `Id'` re-pointed to `Neg' α := α -> α`,
+# so `RA.mk`'s domain whnf's to `RB -> RB`, a NEGATIVE occurrence of the
+# other member.  Official 1 ("non positive occurrence", its kernel
+# says so on the same block written in Lean).  The checker declines
+# for the same reason as above.  TARGET: 1.
+2 corner_mutual_redex_other_neg_bad.ndjson
