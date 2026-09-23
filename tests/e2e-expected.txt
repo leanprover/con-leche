@@ -1664,12 +1664,17 @@
 # `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
 # EMPTY rule prefix (no motive, no minor) — with the rule
 # `T.rec T.c ↦ True.intro`, which binds no variable (lane RM49's
-# witness).  The equation is true, but the model's `ℓ = 0` arm needs
-# every stored rule to bind one, so the recursor stage requires the
-# prefix to hold the parameters and one motive per member
-# (`nP + k ≤ rP`, the ruling of 2026-09-23).  From a stream the record
-# is refused earlier still, by the frontend's field validation
-# ("declares 0 motives").  Forged by `scripts/mk_rec_corner.py`.
+# witness).  The equation is true, and the kernel's recursor CHECK
+# accepts it: a motive is a parameter like any other, so the check asks
+# only `nP ≤ rP` (the motive-count floor was removed, lane FLOOR; the
+# model's `ℓ = 0` arm reads a rule binding no variable through the ι
+# law).  The run still rejects, twice over: the frontend's field
+# validation refuses the record ("declares 0 motives", export-format
+# validation against official's schema), and behind it the one-member
+# conformance check would (the generated recursor has a motive).
+# TARGET 1.  The kernel-level acceptance is pinned in the test library
+# (`zRecK`, and the mutual twin accepted by the fold).  Forged by
+# `scripts/mk_rec_corner.py`.
 1 corner_rec_empty_prefix.ndjson
 # the same call at `h Nat.zero a`: a constant where the bound variable
 # belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is

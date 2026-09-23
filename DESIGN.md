@@ -83924,7 +83924,7 @@ inverted as `checkBlockRecTys_prefix` / `checkBlockRecK_prefix` /
 the frontend's field validation already refuses the witness
 (`corner_rec_empty_prefix`).
 
-#### DOCKET (maintainer, 2026-09-23): after the flip, remove the motive-count floor — "it is desirable to have a clean story here"
+#### DOCKET (maintainer, 2026-09-23): after the flip, remove the motive-count floor — "it is desirable to have a clean story here" — CLOSED by lane FLOOR (below)
 
 The `nP + k ≤ rP` floor (lane CONF1) is in official's shape: at least
 one motive per member.  It exists only because the model's small-
@@ -84362,3 +84362,50 @@ checkpoint and may be its first step.
 
 **Gates** (`52324b72`): `lake build` 625 jobs / 0 warnings, `lake test` 0
 warnings, `tests/layering.sh` clean, 25 theorems audited at the standard axioms.
+
+#### LANDED (lane FLOOR, 2026-09-23): the motive-count floor is gone — the recursor check asks `nP ≤ rP` and nothing more
+
+**Closes the docket** "remove the motive-count floor".  Stage (b)
+(`checkBlockRecTys`/`…F`) now requires only that the rule prefix START
+with the block's parameters, `nP ≤ rP` (the ruling of 2026-09-21);
+official's `nparams + nmotives ≤ rP` is gone: a motive is a parameter
+like any other.  The frontend's zero-motive refusal ("declares 0
+motives") stays: it is export-format validation against official's
+schema, not a kernel criterion.
+
+**What consumed the floor after GRAPH1.**  Exactly one fact:
+`checkBlockRecK_rulePos` (`0 < rP + nF`, from `RecTyEntry.nP_lt`),
+the `ℓ = 0` arm's λ-head bit (`blockRuleRaZ_run` needs a binder to
+carry the elimination datum), reaching the endpoint as
+`declBlock_data`'s `hpos` conjunct.  Two more `rulePos` sites in
+`BlockRuleRun.lean` were bookkeeping: an empty frame instantiates
+nothing (`blockRuleIhTeleClosed` lost its `0 < rP + nF`), and opens no
+`ih` opener (`readOpenedDoms_below` takes `0 < d ∨ fvs = []`); two were
+dead `have`s.  `nP ≤ rP` itself is used at fifteen sites (`TE.nP_le`:
+the prefix spine carries the parameters) and is what the check keeps.
+
+**How the `ℓ = 0` arm is paid now.**  `hpos` is replaced by the arm's
+own statement, `hRaZ` (the stored rule reads as the point at `ℓ = 0`),
+produced at the seam by `blockRuleRaZ_seam` (`BlockDeclRun.lean` §1b):
+a rule binding a variable by the head bit as before; a rule binding
+NONE by `blockRuleRaZ_empty` — the graph producer's ι law, not typing.
+A field-less frame has no guarded call, so the abstraction is the
+identity on the closed right-hand side (`abstractIh_eq_self_of_nF`),
+the pinned residue `blockRuleRbAV` IS the rule's reading
+(`blockRecDenote_cross_eq`, `denoteMeta_depth_of_closed`), and
+`blockRecAV_iota` at the empty spine equates it with the recursor's
+value at the constructor, which is the point (`blockRecTyZ_run`).
+The docket's "second licence" (typing the right-hand side at a
+`Prop`-valued conclusion) was not needed: under GRAPH1 the ι law holds
+at every level, so the right side follows from the left.
+
+**Verdicts.**  The primitive-recursion check accepts the one-member
+witness (`ZT.rec : (t : ZT) → ZT`, `ZT.rec ZT.c ↦ ZT.c`); the fold
+still rejects it through the reject-only conformance check (the
+generated recursor has a motive).  A MUTUAL zero-motive block (k = 2,
+where conformance is skipped) is now accepted by the fold — an
+accept-superset of official, proved sound.  Neither is reachable from
+a stream (frontend refusal); both are pinned in the test library
+(`zRecK`, `zMutual`, with a wrong-rule negative each).  No e2e or arena
+exit code moves; `corner_rec_empty_prefix` stays 1 (its comment
+updated).

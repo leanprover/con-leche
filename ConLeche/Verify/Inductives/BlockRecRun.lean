@@ -81,8 +81,9 @@ structure RecTyEntry (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   hcvTa : cvTas[p.recTgtAt ri]? = some cvTa
   hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi
   hnIdx : nIdx = ms.nIdx
-  /-- room for the parameters and one motive per member -/
-  hroom : p.nP + p.k ≤ p.rulePrefixAt ri
+  /-- the prefix starts with the block's parameters (nothing is counted
+  after them: a motive is a parameter like any other) -/
+  hroom : p.nP ≤ p.rulePrefixAt ri
   hmI : p.majorIdxAt ri = p.rulePrefixAt ri + ms.nIdx
   hopen : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl)
   hopenT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest)
@@ -110,21 +111,11 @@ variable {F : Nat} {env : Env} {p : BlockShape} {nested : Bool} {cvTas : List Co
 
 /-- The rule prefix is longer than the parameters. -/
 theorem nP_le (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    p.nP ≤ p.rulePrefixAt ri := Nat.le_trans (Nat.le_add_right _ _) E.hroom
+    p.nP ≤ p.rulePrefixAt ri := E.hroom
 
 /-- The major-premise index is the rule prefix plus the index count. -/
 theorem mI_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
     p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hnIdx ▸ E.hmI
-
-/-- The block declares a member (the recursor's), so the rule prefix
-is STRICTLY longer than the parameters. -/
-theorem k_pos (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) : 0 < p.k := by
-  unfold BlockShape.k
-  exact List.length_pos_of_mem (List.mem_of_getElem? E.hms)
-
-theorem nP_lt (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    p.nP < p.rulePrefixAt ri := by
-  have := E.k_pos; have := E.hroom; omega
 
 /-- The checked constant keeps the record's name and level parameters. -/
 theorem name_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
@@ -154,7 +145,7 @@ theorem checkBlockRecTys_run {env : Env} {p : BlockShape} {nested : Bool}
     obtain ⟨ms, hms, h⟩ := exceptBind_ok h
     obtain ⟨cvTa, hcvTa, h⟩ := exceptBind_ok h
     obtain ⟨cvRi, hcv, h⟩ := exceptBind_ok h
-    by_cases hroom : p.nP + p.k ≤ p.rulePrefixAt ri
+    by_cases hroom : p.nP ≤ p.rulePrefixAt ri
     case neg => rw [if_neg hroom] at h; close_throw h
     rw [if_pos hroom] at h
     by_cases hmI : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
@@ -938,22 +929,6 @@ theorem checkBlockRecK_facts {env : Env} {p : BlockParts} {cvTas : List Constant
   obtain ⟨i, cA, rc', rhs0, -, -, hrc', ⟨Q⟩⟩ := R.ruleOf hc hrhs
   obtain rfl := Option.some.inj (hrc.symm.trans hrc')
   exact ⟨Q.out_noFvar, by rw [E.lps_eq]; exact Q.hlp, Q.hres, Q.out_bounded⟩
-
-/-- **Every stored rule binds at least one variable**: recursor `j`'s
-rule for a constructor with `nF` fields has the λ-prefix `rP_j + nF`,
-and `rP_j > nP ≥ 0`. -/
-theorem checkBlockRecK_rulePos {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : checkBlockRecK (fueledOps mode F) env p cvTas ctorsAs = .ok rs) :
-    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      0 < p.toBlockShape.rulePrefixAt j + cA.2 := by
-  intro j r hr _ _ _
-  obtain ⟨R⟩ := checkBlockRecK_run h
-  obtain ⟨_, _, -, -, ⟨E⟩⟩ := R.tyAt hr
-  have := E.nP_lt
-  omega
 
 /-- **The CHECK's stored recursors take no guarded name** — the stage's
 own `blockRecNamesUnreserved`, transported from the RECORDS to the
