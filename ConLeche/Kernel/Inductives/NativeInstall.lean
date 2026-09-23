@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.SumInstall
-import ConLeche.Kernel.Inductives.NativeParts
 
 @[expose] public section
 
