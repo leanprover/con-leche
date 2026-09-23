@@ -374,8 +374,9 @@ type only whnf's to an occurrence of the block (`Id' T`, `Nat → Id' T`)
 is recursive for official and invisible to a syntactic reading.  So the
 field's domain is REPLACED by the form official classifies: whnf'd at
 its own depth, and — while the block occurs — walked under its Π
-binders (a Π domain mentioning the block is official's "non positive
-occurrence", INVALID), each body whnf'd in turn.  A domain the block
+binders (a Π domain mentioning the block stops the walk — official's
+"non positive occurrence" is the positivity function's verdict, not this
+normalisation's: lane POSPROOF), each body whnf'd in turn.  A domain the block
 does not occur in is kept as declared, unreduced (official whnf's it
 too, and discards the result: reduction cannot introduce the block);
 one it occurs in only before whnf (`idf (T → Type) (fun _ => N) t`,
@@ -405,8 +406,11 @@ def normPosDom (ops : CheckerOps m) (env : Env) (names : List Name) :
     if !w.mentionsAnyConst names then pure w else
     match w with
     | .forallE dom body bm =>
-      if dom.mentionsAnyConst names then
-        throw (.invalid "direct sum: non positive occurrence of the inductive type")
+      -- a Π domain mentioning the block: the walk stops here and returns
+      -- the reduct — the VERDICT is the positivity function's (charter
+      -- item 3: only `nestPos` decides positivity; the live classifier
+      -- until the flip), never this normalisation's
+      if dom.mentionsAnyConst names then pure w
       else do
         let body' ← normPosDom ops env names (d + 1) fuel (body.instantiate1 (.fvar d dom))
         pure (.forallE dom (body'.abstract1 d) bm)
@@ -807,6 +811,8 @@ constructor's field kinds. -/
 structure NestedPositivity where
   keys : Array NestKeyInfo
   kinds : List (List (List NestFieldKind))
+  /-- every member constructor's normalised type (the install's stored form) -/
+  normals : List (List Expr) := []
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read
@@ -878,25 +884,26 @@ variable `base + j`: the fields' kinds, the result (all fields opened)
 and the state.  `err` is thrown at a telescope that is too short.  A
 pending restart (`NestState.restart`) unwinds at once. -/
 def nestFields
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (base : Nat) (err : CheckError) :
-    Nat → Nat → Expr → NestState → m (List NestFieldKind × Expr × NestState)
-  | 0, _, cur, st => pure ([], cur, st)
+    Nat → Nat → Expr → NestState →
+      m (List NestFieldKind × List (Expr × BinderMeta) × Expr × NestState)
+  | 0, _, cur, st => pure ([], [], cur, st)
   | nF + 1, j, cur, st =>
     match cur with
-    | .forallE a b _ => do
-      let (k, st) ← rec prog (base + j) 0 a st
-      if st.restart.isSome then return ([k], cur, st)
-      let (ks, res, st) ← nestFields rec prog base err nF (j + 1)
+    | .forallE a b bm => do
+      let (k, nd, st) ← rec prog (base + j) 0 a st
+      if st.restart.isSome then return ([k], [(nd, bm)], cur, st)
+      let (ks, nds, res, st) ← nestFields rec prog base err nF (j + 1)
         (b.instantiate1 (.fvar (base + j) a)) st
-      pure (k :: ks, res, st)
+      pure (k :: ks, (nd, bm) :: nds, res, st)
     | _ => throw err
 
 /-- A frame's constructors: each with the frame's group abstracted
 (`sub`), instantiated at `ds`, its fields through `rec` above `hi`, and
 its result indices hole-free below `hi`.  A pending restart unwinds. -/
 def nestCtors (ctx : NestCtx)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr) :
     List (ConstantVal × Nat) → NestState → m NestState
@@ -905,7 +912,7 @@ def nestCtors (ctx : NestCtx)
     let ty := (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub
     let some crest := instPisWith ds ty
       | throw (.notImplemented "nested positivity: container constructor telescope")
-    let (_, cur, st) ← nestFields rec prog hi
+    let (_, _, cur, st) ← nestFields rec prog hi
       (.notImplemented "nested positivity: container constructor fields") nF 0 crest st
     if st.restart.isSome then return st
     -- official's "invalid return type" on the instantiated constructor
@@ -936,7 +943,7 @@ with the group-mates the cycle passed through abstracted as well —
 bounded by `r`, running out DECLINES.  So an accepted frame's readings
 are the joint operator of the reached group at the instantiation. -/
 def nestFrame (ctx : NestCtx)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat) :
     Nat → List (Name × Expr) → NestState → m (List (Name × Expr) × NestState)
   | 0, _, _ => throw (.notImplemented "nested positivity: restart fuel")
@@ -972,7 +979,7 @@ cache hit; else its checks, then the frame (`nestFrame`).  Split off so
 that the monotonicity theorem can take the container case as its own
 lemma. -/
 def nestCont (ctx : NestCtx)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
   let hi := ctx.hiAt prog.length
@@ -1035,20 +1042,24 @@ variable of the term `ops.whnf` reduces.  Throws official's verdict on
 a non-positive or non-valid occurrence; returns the field's kind and
 the cache. -/
 def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState)
+    Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
   | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
   | fuel + 1, prog, dep, kb, e, st => do
     let hi := ctx.hiAt prog.length
     let w ← ops.whnf env dep e
-    -- `const`: the reduct mentions no member and no hole
-    if !w.nestOcc ctx.names ctx.nP hi then return (.ordinary, st)
+    -- `const`: the reduct mentions no member and no hole; the normal
+    -- form is the input when it mentions none either, else the reduct
+    if !w.nestOcc ctx.names ctx.nP hi then
+      return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
     match w with
-    | .forallE a b _ =>
+    | .forallE a b bm =>
       -- `pi`: the domain hole-free, the codomain positive
       if a.nestOcc ctx.names ctx.nP hi then
         throw (.invalid "nested positivity: non positive occurrence of the datatypes \
           being declared")
-      nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+      let (k, nb, st) ←
+        nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+      pure (k, .forallE a (nb.abstract1 dep) bm, st)
     | _ =>
       let args := w.getAppArgs
       match w.getAppFn with
@@ -1059,7 +1070,7 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
           if args.length == ctx.nP + ctx.nIdxs.getD t 0 &&
               args.take ctx.nP == ctx.params &&
               args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-            return (if kb == 0 then .recursive t else .reflexive t, st)
+            return (if kb == 0 then .recursive t else .reflexive t, w, st)
           else throw nestNonValid
         else if ctx.hiAt 0 ≤ i && i < hi then
           -- a frame's hole: the instantiation in progress at that frame,
@@ -1069,7 +1080,7 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
           | some h =>
             if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds then
               if (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-                return (.inProgress, st)
+                return (.inProgress, w, st)
               else throw nestNonValid
             else
               throw (.notImplemented "nested positivity: a container's own occurrence at \
@@ -1079,25 +1090,46 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         -- a member constant left after the abstraction (other levels)
         if ctx.names.contains n then throw nestNonValid
         -- `contApp`: a stored inductive at a concrete instantiation
-        nestCont ctx (nestPos ops env ctx fuel) prog kb n us args st
+        let (k, st) ← nestCont ctx (nestPos ops env ctx fuel) prog kb n us args st
+        pure (k, w, st)
       | _ => throw nestNonValid
 
 /-- The fields of one member constructor (the parameters instantiated
 at the canonical variables, the members abstracted to their holes),
 each through `nestPos` at its depth, the fields above the holes; then
-the constructor's RESULT: its indices mention no member (official's
-`check_constructors`, "invalid return type"). -/
+the checks on the NORMALISED telescope — the fields' normal forms,
+closed back over the fields (`closeTelescope`), official's
+`check_positivity` form (what `normPosDom` produced beside it): U4, no
+later field and no result index uses a recursive or reflexive field
+(the closure witness's class condition, today's `structUsedLater`
+guard; a decline), and the result's indices mention no member
+(official's "invalid return type").  Returns the kinds and the
+normalised telescope. -/
 def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
-    (st : NestState) : m (List NestFieldKind × NestState) := do
+    (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
   let base := ctx.hiAt 0
-  let (ks, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
+  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
     (.notImplemented "nested positivity: constructor field telescope") nF 0 crest st
   if st.restart.isSome then
     throw (.internal "nested positivity: a restart request without its frame")
+  let tyN := closeTelescope nds base cur
+  if (List.range nF).any (fun i =>
+      (match ks.getD i .ordinary with
+        | .recursive _ | .reflexive _ => true
+        | _ => false) && structUsedLater tyN 0 i) then
+    throw (.notImplemented "nested positivity: a later field or the result depends on \
+      a recursive field (the closure witness's class condition)")
   unless (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
       index mentions the block")
-  pure (ks, st)
+  pure (ks, tyN, st)
+
+/-- The member holes back to the members (`nP + m ↦ T_m.{lps}`), on a
+term with no loose bound variable. -/
+def nestConcrete (ctx : NestCtx) (e : Expr) : Expr :=
+  (List.range ctx.names.length).foldl (fun e mm =>
+    (e.abstract1 (ctx.nP + mm) 0).instantiate1
+      (.const (ctx.names.getD mm .anonymous) (ctx.lps.map .param))) e
 
 /-- The member holes: member `m` is the free variable `nP + m`, typed by
 its former's type (closed, so the hole is well-scoped anywhere above
@@ -1123,23 +1155,33 @@ def nestAbstract (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
 /-- **Positivity through containers, for a whole block**: every member
 constructor's fields through `nestPos`, sharing one cache.  `ctorss`
 are the members' constructors ANNOTATED (not normalised: the function
-reduces itself); their member constants are abstracted here. -/
+reduces itself); their member constants are abstracted here.  Returns
+the accepted instantiations, the kinds and every constructor's
+NORMALISED type (official's `check_positivity` form, the members
+restored and the parameters closed back as declared) — the one
+function's output the install stores (`normPosDom`'s product). -/
 def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let some holes := nestHoles ctx
     | throw (.internal "nested positivity: a member is not a stored former")
   let mut st : NestState := {}
   let mut kinds : Array (List (List NestFieldKind)) := #[]
+  let mut normals : Array (List Expr) := #[]
   for cs in ctorss do
     let mut kss : Array (List NestFieldKind) := #[]
+    let mut nss : Array Expr := #[]
     for c in cs do
       let some crest := instPisWith ctx.params c.1.type
         | throw (.notImplemented "nested positivity: constructor parameter telescope")
-      let (ks, st') ← nestMemberCtor ops env ctx c.2 (nestAbstract ctx holes crest) st
+      let some (cbs, _) := c.1.type.stripPis ctx.nP
+        | throw (.notImplemented "nested positivity: constructor parameter telescope")
+      let (ks, tyN, st') ← nestMemberCtor ops env ctx c.2 (nestAbstract ctx holes crest) st
       st := st'
       kss := kss.push ks
+      nss := nss.push (closeTelescope cbs 0 (nestConcrete ctx tyN))
     kinds := kinds.push kss.toList
-  pure ⟨st.keys, kinds.toList⟩
+    normals := normals.push nss.toList
+  pure ⟨st.keys, kinds.toList, normals.toList⟩
 
 end Nested
 

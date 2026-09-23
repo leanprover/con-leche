@@ -106,7 +106,7 @@ tests/e2e/direct_fix_nat.ndjson 1 0 -
 tests/e2e/direct_fix_tree.ndjson 1 0 -
 tests/e2e/direct_fix_prop.ndjson 1 0 -
 tests/e2e/direct_fix_prop_large.ndjson 1 0 -
-tests/e2e/direct_fix_nat_neg_bad.ndjson 1 1 Nat'=reject/reject/skip/skip/skip/skip/-/-/0
+tests/e2e/direct_fix_nat_neg_bad.ndjson 1 1 Nat'=reject/reject/skip/skip/reject/reject/-/-/0
 tests/e2e/direct_fix_nat_ih_bad.ndjson 1 1 Nat'=reject/reject/reject/skip/accept/accept/same/ok/0
 tests/e2e/direct_fix_vec.ndjson 1 0 -
 tests/e2e/direct_fix_le.ndjson 1 0 -
@@ -123,11 +123,11 @@ tests/e2e/ind_stub_reclps.ndjson 1 1 Nat'=reject/reject/reject/skip/accept/accep
 tests/e2e/ind_numparams_bad.ndjson 1 1 -
 tests/e2e/ind_numparams_indices.ndjson 1 0 -
 tests/e2e/direct_fix_refl.ndjson 1 0 -
-tests/e2e/direct_fix_refl_neg_bad.ndjson 1 1 Iter=reject/reject/skip/skip/skip/skip/-/-/0
+tests/e2e/direct_fix_refl_neg_bad.ndjson 1 1 Iter=reject/reject/skip/skip/reject/reject/-/-/0
 tests/e2e/direct_fix_refl_ih_bad.ndjson 1 1 Iter=reject/reject/reject/skip/accept/accept/same/ok/0
 tests/e2e/direct_fix_acc.ndjson 1 0 -
 tests/e2e/direct_fix_wtype.ndjson 1 0 -
-tests/e2e/direct_fix_wtype_neg_bad.ndjson 1 1 W'=reject/reject/skip/skip/skip/skip/-/-/0
+tests/e2e/direct_fix_wtype_neg_bad.ndjson 1 1 W'=reject/reject/skip/skip/reject/reject/-/-/0
 tests/e2e/direct_fix_wtype_ih_bad.ndjson 1 1 W'=reject/reject/reject/skip/accept/accept/same/ok/0
 tests/e2e/direct_fix_term.ndjson 1 0 -
 tests/e2e/direct_fix_struct_proj.ndjson 1 0 -
@@ -292,7 +292,7 @@ tests/e2e/mutual_rec_elim_levels.ndjson 1 1 MutA=reject/reject/reject/skip/accep
 tests/e2e/corner_mutual_redex_other.ndjson 1 0 -
 tests/e2e/corner_mutual_redex_other_refl.ndjson 1 0 -
 tests/e2e/corner_mutual_redex_other_vanish.ndjson 1 0 -
-tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 1 RA=reject/reject/skip/skip/skip/skip/-/-/0
+tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 1 RA=reject/reject/skip/skip/reject/reject/-/-/0
 tests/e2e/corner_nestpos_neg_free.ndjson 1 0 -
 tests/e2e/corner_nestpos_neg_bad.ndjson 1 2 NegT=decline/reject/skip/skip/reject/decline/-/-/0
 tests/e2e/corner_nestpos_negdeep_free.ndjson 1 0 -
