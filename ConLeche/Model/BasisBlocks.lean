@@ -464,10 +464,9 @@ theorem extendPUnit (mp : EnvModelM V μ env)
     (hfresh : env.find? punitName = none)
     (hwf : EnvWF ⟨punitA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨punitA :: env.consts⟩) := by
-  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
-  refine nonempty_addLfp_of_exists (D := punitLfp punitName fun ψ => ψ uN)
-    (hL := punitLfp_clause _ (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
-    (declStep_preserves_of_basis_cons mp
+  -- the pinned block's lfp clause is recorded at its constructor's cons
+  -- (`extendPUnitUnit`: the clause's `ctor` reads the constructor's leaf)
+  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -503,7 +502,22 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
   have hty := fun ψ =>
     denoteMeta_punitUnitA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) ψ hP
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  -- the pinned block's lfp clause, recorded at its constructor's cons
+  -- (lane ENVLFP; the constructor's leaf is read by `ctor`, lane HOLE2)
+  have hTl : ∀ ψ : Name → Nat, mp.base2.acval punitName ψ = AnnotTerm.const .punit [ψ uN] :=
+    fun ψ => acval_basis_pinned (m := mp.base2) hP (by decide) rfl
+  refine nonempty_addLfp_of_exists (D := punitLfp punitName punitUnitName fun ψ => ψ uN)
+    (hL := punitLfp_clause _
+      (fun ψ ρ => by
+        rw [acvalWith_ne (by decide), hTl]; rfl)
+      (fun ψ ρ => by
+        rw [show punitUnitName = punitUnitA.name from rfl, acvalWith_self]; rfl))
+    (hst := lfp0_stored_of
+      ⟨_, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP⟩
+      (fun j hj => ⟨_, _, _, by
+        show (⟨punitUnitA :: env.consts⟩ : ConLeche.Env).find? punitUnitA.name = _
+        rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
+    (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -878,10 +892,9 @@ theorem extendNat (mp : EnvModelM V μ env)
     (hguard : ConLeche.natLitSupported ⟨natA :: env.consts⟩ = false)
     (hwf : EnvWF ⟨natA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨natA :: env.consts⟩) := by
-  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
-  refine nonempty_addLfp_of_exists (D := natLfp natName)
-    (hL := natLfp_clause (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
-    (declStep_preserves_of_basis_cons_gen mp
+  -- the pinned block's lfp clause is recorded at its last constructor's
+  -- cons (`extendNatSucc`: the clause's `ctor` reads the constructors' leaves)
+  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .nat []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -961,7 +974,29 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
   have hty := fun ψ =>
     denoteMeta_natSuccA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natSucc []) ψ hN
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  -- the pinned block's lfp clause, recorded at its last constructor's cons
+  -- (lane ENVLFP; the constructors' leaves are read by `ctor`, lane HOLE2)
+  have hNl0 : ∀ ψ : Name → Nat, mp.base2.acval natName ψ = AnnotTerm.const .nat [] :=
+    fun ψ => acval_basis_pinned (m := mp.base2) hN (by decide) rfl
+  have hZl0 : ∀ ψ : Name → Nat, mp.base2.acval natZeroName ψ = AnnotTerm.const .natZero [] :=
+    fun ψ => acval_basis_pinned (m := mp.base2) hZ (by decide) rfl
+  refine nonempty_addLfp_of_exists (D := natLfp natName natZeroName natSuccName)
+    (hL := natLfp_clause
+      (fun ψ ρ => by rw [acvalWith_ne (by decide), hNl0]; rfl)
+      (fun ψ ρ => by rw [acvalWith_ne (by decide), hZl0]; simp [interp_const, bval, natzero])
+      (fun ψ ρ => by
+        rw [show natSuccName = natSuccA.name from rfl, acvalWith_self]; rfl))
+    (hst := lfp0_stored_of
+      ⟨_, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN⟩
+      (fun j hj => by
+        rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl
+        · exact ⟨_, _, _, by
+            show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natZeroName = _
+            rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hZ⟩
+        · exact ⟨_, _, _, by
+            show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natSuccA.name = _
+            rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
+    (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))

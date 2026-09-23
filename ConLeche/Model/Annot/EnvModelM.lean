@@ -67,6 +67,16 @@ universe w
 
 variable (V : Type w) [SetTheory V]
 
+/-- **A recorded block is stored** (lane ENVLFP; the constructors lane
+HOLE2): its members are stored inductive formers and its constructors
+stored constructors — which is what lets every extension transport the
+clause, whose `leaf` and `ctor` read the leaf valuation at those names
+(an extension never re-reads a stored name). -/
+@[expose] def LfpStored {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
+  (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)) ∧
+  ∀ c, c < D.N → ∀ j, j < D.nctors c →
+    ∃ cv nP nF, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF)
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvModelM (μ : CheckMode) (env : Env) where
@@ -153,8 +163,7 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   whose fibres are the constructors' injections; and its members are
   stored inductive formers (which is what lets every extension
   transport the clause: an extension never re-reads a stored name) -/
-  lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧
-    ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)
+  lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧ LfpStored env D
 
 namespace EnvModelM
 
@@ -301,8 +310,7 @@ step (`declBlock`, at the constructors' environment).  Everything but
 the recorded list is unchanged, so `(mp.addLfp …).base2 = mp.base2`
 definitionally. -/
 @[expose] def addLfp (mp : EnvModelM V μ env) (D : LfpDatum V)
-    (hL : LfpClause mp.base2.acval D)
-    (hst : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)) :
+    (hL : LfpClause mp.base2.acval D) (hst : LfpStored env D) :
     EnvModelM V μ env :=
   { mp with
     lfpBlocks := D :: mp.lfpBlocks
@@ -328,18 +336,22 @@ construction site of the invariant (the cons funnel, the rule-list
 swap) instantiates. -/
 theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     {acval' : Name → (Name → Nat) → AnnotTerm}
-    (hfind : ∀ n cv caps, env.find? n = some (.indInfo cv caps) →
-      env'.find? n = some (.indInfo cv caps))
-    (hag : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → acval' n = mp.base2.acval n) :
-    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧
-      ∀ mm, mm < D.k → ∃ cv caps, env'.find? (D.member mm) = some (.indInfo cv caps) := by
+    (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env'.find? n = some ci)
+    (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      acval' n = mp.base2.acval n) :
+    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D := by
   intro D hD
-  obtain ⟨hL, hst⟩ := mp.lfp_ok D hD
-  refine ⟨hL.congr fun mm hmm => ?_, fun mm hmm => ?_⟩
+  obtain ⟨hL, hst, hstC⟩ := mp.lfp_ok D hD
+  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_), fun mm hmm => ?_, fun c hc j hj => ?_⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact hag _ cv caps hf
+    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
+  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact ⟨cv, caps, hfind _ cv caps hf⟩
+    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
 
 end EnvModelM
 

@@ -7,6 +7,7 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Inductives.BlockLfpHoles
 
 public section
 
@@ -62,17 +63,6 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
 /-! ## 0. The rule's conclusion FITS the recursor's tower -/
 
 section ConclFit
-
-/-- A satisfied reversed context is a fitting spine of its own frame
-index over its shift. -/
-theorem spineFit_frameIdx_of_sat {Ds : List AnnotTerm} {σ : Nat → V}
-    (h : Sat V Ds.reverse σ) :
-    SpineFit (shiftE Ds.length 0 σ) Ds (ConLeche.Semantics.frameIdx Ds.length σ) := by
-  have hlen : (ConLeche.Semantics.frameIdx Ds.length σ).length = Ds.length := by
-    simp [ConLeche.Semantics.frameIdx]
-  refine spineFit_of_sat_consList hlen ?_
-  rw [consList_frameIdx]
-  exact h
 
 /-- **The rule's conclusion FITS the recursor's tower** at every frame
 satisfying the rule's context: the peel's arguments — the prefix

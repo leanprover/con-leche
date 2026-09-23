@@ -61,7 +61,6 @@ public import ConLeche.Model.Annot.BlockLfpMono
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
-public import ConLeche.Model.BasisLfpHoles
 public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.Tiers
 public import ConLeche.Model.Install
