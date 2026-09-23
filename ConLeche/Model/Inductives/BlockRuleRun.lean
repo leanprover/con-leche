@@ -1663,7 +1663,11 @@ theorem blockRuleIhsRunAV_valid_run (hμ : μ.verifiedChecks = true) {mpC : EnvM
 `BlockRuleBodyInputs`' one REGIME conjunct (`IndRegimeAt`'s fourth,
 `KitRegimeAt`'s `hihChain`), stated at the pinned `ihs` and `ihdoms`
 and quantified over exactly the telescope `BlockRuleBodyOwed` hands
-(the contract's own, with the leaf pin): nothing wider. -/
+(the contract's own, with its first conjunct at the base frame and the
+leaf pin): nothing wider.  `blockRuleIhFit_seam` (`BlockDeclRun.lean`)
+produces it: the leaf's tuple is typed, and the chain frame is its
+`consList`, so it is the typed tuple's fit at the chain frame
+(`blockIhFitChain_run`). -/
 def BlockRuleIhFitOwed {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
@@ -1688,6 +1692,15 @@ def BlockRuleIhFitOwed {envC : Env} (mpC : EnvModelM V μ envC) (p : BlockParts)
       (xs ++ [AnnotTerm.mkAppN
         (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
     TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+    -- the contract's FIRST conjunct at this telescope (the residue
+    -- producer's `hsp`): the prefix and the fields fit the rule's
+    -- domains at the BASE frame
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) j
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+          (Level.substFn φ r.1.levelParams us) j i)
+      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+        ++ (ys.drop p.nP).map (interp V ρ)) →
   ∀ a : Nat → V,
     (∀ c', c' < rs.length →
       interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
@@ -1729,6 +1742,15 @@ theorem blockRuleIhFitOwed_iff {envC : Env} (mpC : EnvModelM V μ envC) (p : Blo
       (xs ++ [AnnotTerm.mkAppN
         (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
     TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+    -- the contract's FIRST conjunct at this telescope (the residue
+    -- producer's `hsp`): the prefix and the fields fit the rule's
+    -- domains at the BASE frame
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) j
+        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+          (Level.substFn φ r.1.levelParams us) j i)
+      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+        ++ (ys.drop p.nP).map (interp V ρ)) →
   ∀ a : Nat → V,
     (∀ c', c' < rs.length →
       interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
@@ -1784,12 +1806,12 @@ theorem blockRuleBodyOwed_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM 
       (fun ψ' => blockRuleRbAV p rs mpC.base2.acval envC ψ')
       ctorTy φ j i r cA rl rhs r.1.levelParams := by
   rw [blockRuleBodyOwed_iff]
-  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
+  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC hsp a hleaf
     fr recTys rbody resid ihTele bodyO fvsIh rbs ty concl hfr hrec _ hres hih hfvs _
   intros
   subst hfr hrec hres hih hfvs
   exact blockRuleBodyInputs_run hμ h hr hcA hrhs hcore hcj hdnP hks hCf hCb hcbC _ (hokA _)
-    (hihFit us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf)
+    (hihFit us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC hsp a hleaf)
 
 end BodyRun
 

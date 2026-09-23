@@ -2885,7 +2885,9 @@ theorem blockRuleBodyInputs_iff (V : Type w) [SetTheory V] {μ : CheckMode} {env
 
 /-- **What the rule stage's PEEL owes the residue producer** — the
 `hbody` premise of `blockRuleResidueB_run`, named: at the contract's
-own telescope and the leaf-pinned chain tuple, every run of the peel
+own telescope — with its FIRST conjunct at the base frame, the residue
+producer's own `hsp`, which the `ih` fit is read off (lane RM54) — and
+the leaf-pinned chain tuple, every run of the peel
 (the frame, the abstraction, the `ih` telescope, the opening, the
 residue's typing) yields `BlockRuleBodyInputs` at the lane's `ihs`/`Rb0`.
 The peel's outputs are PINNED to the run's own (§A.9b's definitions,
@@ -2916,6 +2918,13 @@ def BlockRuleBodyOwed {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat) (p : Bl
       (xs ++ [AnnotTerm.mkAppN
         (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
     TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+    -- the contract's FIRST conjunct at this telescope (the residue
+    -- producer's `hsp`, `blockRuleFit_tele`): the rule's prefix and the
+    -- constructor's fields fit the rule's domains at the BASE frame
+    SpineFit ρ (pdoms0 (Level.substFn φ r.1.levelParams us) j
+        ++ fdoms0 (Level.substFn φ r.1.levelParams us) j i)
+      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+        ++ (ys.drop p.nP).map (interp V ρ)) →
   ∀ a : Nat → V,
     (∀ c', c' < rs.length →
       interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
@@ -2994,6 +3003,13 @@ theorem blockRuleBodyOwed_iff {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat)
       (xs ++ [AnnotTerm.mkAppN
         (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
     TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+    -- the contract's FIRST conjunct at this telescope (the residue
+    -- producer's `hsp`, `blockRuleFit_tele`): the rule's prefix and the
+    -- constructor's fields fit the rule's domains at the BASE frame
+    SpineFit ρ (pdoms0 (Level.substFn φ r.1.levelParams us) j
+        ++ fdoms0 (Level.substFn φ r.1.levelParams us) j i)
+      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+        ++ (ys.drop p.nP).map (interp V ρ)) →
   ∀ a : Nat → V,
     (∀ c', c' < rs.length →
       interp V ρ (blockRecLeafAV mpC.base2.acval envC rs s
@@ -3157,7 +3173,8 @@ theorem blockRuleResidueB_run {mpC : EnvModelM V μ envC}
   obtain ⟨fvs0, crest0, tlF, EisF, ihdoms, hop0, hCf, hCb, hstripC, hcb, htlen, hfld,
     hrecTy, hrlvls, hihfv, hLpf, hpl, hfl, hil, hdoms, hokΔ, hlbF, hcbF, hclF,
     hihsEq, hihFit, hcbe, h2, hB, hty⟩ :=
-    hbody us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
+    hbody us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+      (hsp us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC) a hleaf
       _ _ _ _ _ _ _ rbs ty concl rfl rfl rfl rfl rfl rfl rfl
       hfrP hfrR hfrF hnames0 htgts htele hidxF hpw hrecTysj hstrip hab hpis hopen
       hinf hconcl hdeq
