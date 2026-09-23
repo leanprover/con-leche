@@ -439,6 +439,9 @@ structure TargetFrame where
   fields : List Expr
   /-- each field's telescope, read through whnf (`targetWhnfPis`) -/
   teles : List (List (Expr × BinderMeta))
+  /-- the family's elimination datum: the `ih` types' `∀`-binders carry
+  it (their codomain is the motive's sort, not the field's) -/
+  pw : PropWhen
 
 /-- **A recursive call, recognised** at a node under `d` local binders
 of the fvar-world rule body: `rec_c x⃗ e⃗ (f_i a⃗)`, with the family's
@@ -474,10 +477,13 @@ def targetCall? (fr : TargetFrame) (d : Nat) (e : Expr) :
   | _ => none
 
 /-- The `ih` type of a recognised call: `∀ a⃗ : A⃗_i, recTy_c` at
-`x⃗ ++ e⃗ ++ [f_i a⃗]`. -/
+`x⃗ ++ e⃗ ++ [f_i a⃗]`, its binders at the family's elimination datum —
+the codomain is the motive's sort, so the field's own binder data (its
+codomain's) would claim the wrong zeroness (lane RECLIB); these are the
+binders of the call's λ `targetCallOk` infers. -/
 def targetIhTy (fr : TargetFrame) (i c m : Nat) (idx : List Expr) : Option Expr :=
   let f := fr.fields.getD i default
-  let tele := fr.teles.getD i []
+  let tele := (fr.teles.getD i []).map fun b => (b.1, (⟨fr.pw⟩ : BinderMeta))
   (Expr.instPisAtLift (fr.pref ++ idx ++ [Expr.mkAppN f (structTeleVars m)])
     (fr.recTys.getD c (.sort .zero))).map (Expr.mkPisOf tele)
 
@@ -668,7 +674,8 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   let fr : TargetFrame :=
     { recNames := fam.recNames, rlvls := fam.rlvls, recTys := fam.recTys, mIs := fam.mIs,
       rPs := fam.rPs, rP := rP, pref := fvsPref, fields := fvsF,
-      teles := fnorm.map fun t => t.piBinders.1 }
+      teles := fnorm.map fun t => t.piBinders.1,
+      pw := Level.zeronessOf (structElimLevel p.elim p.large) }
   let bodyF := body.instantiateList (fvsPref ++ fvsF).reverse
   let (bodyO, ihs) ← unwrapOr (targetAbstract fr (rP + nF) 0 bodyF #[])
     (.invalid s!"target rec: the rule of {c.1.name} is not a primitive recursion — a family \

@@ -396,11 +396,11 @@ theorem targetCallsOk_run {env : Env} {cn : Name} {fam : TargetFamily}
 
 /-- The rule frame `targetRule` walks against, as the function builds
 it (the record states the abstraction at it). -/
-@[expose] def targetFrameOf (fam : TargetFamily) (rP : Nat) (fvsPref fvsF fnorm : List Expr) :
-    TargetFrame :=
+@[expose] def targetFrameOf (fam : TargetFamily) (rP : Nat) (fvsPref fvsF fnorm : List Expr)
+    (pw : PropWhen) : TargetFrame :=
   { recNames := fam.recNames, rlvls := fam.rlvls, recTys := fam.recTys, mIs := fam.mIs,
     rPs := fam.rPs, rP := rP, pref := fvsPref, fields := fvsF,
-    teles := fnorm.map fun t => t.piBinders.1 }
+    teles := fnorm.map fun t => t.piBinders.1, pw := pw }
 
 /-- **Stage (c) at ONE rule**, every bind of `targetRule`'s body named:
 the stream's right-hand side `rhs` is annotated into `out` (the STORED
@@ -451,7 +451,8 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2))) fvsF
       = .ok fnorm
   /-- THE ABSTRACTION: every call replaced by its `ih` variable -/
-  habs : targetAbstract (targetFrameOf fam rP fvsPref fvsF fnorm) (rP + c.2) 0
+  habs : targetAbstract (targetFrameOf fam rP fvsPref fvsF fnorm
+      (Level.zeronessOf (structElimLevel p.elim p.large))) (rP + c.2) 0
     (body.instantiateList (fvsPref ++ fvsF).reverse) #[] = some (bodyO, ihs)
   /-- every call's typing, on the member-abstracted terms -/
   hcalls : targetCallsOk (fueledOps mode F) feT.env c.1.name fam fvsPref fvsF fnorm

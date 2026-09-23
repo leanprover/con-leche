@@ -582,7 +582,8 @@ theorem targetNodeVal_of {envT : Env} {mT : EnvModel V envT}
           interp V ρ (acval nm (Level.substFn φ ci.toConstantVal.levelParams fr.rlvls)) = R c)
     (hents : ∀ (r : Nat) (ih : ConLeche.TargetIh), ihsF[r]? = some ih →
       Expr.fvar (B + r) ih.ty ∈ frameIh ∧
-      (∃ X : Expr, ih.ty = Expr.mkPisOf (fr.teles.getD ih.field []) X) ∧
+      (∃ X : Expr, ih.ty = Expr.mkPisOf
+        ((fr.teles.getD ih.field []).map fun b => (b.1, (⟨fr.pw⟩ : ConLeche.BinderMeta))) X) ∧
       (∀ t ∈ (fr.teles.getD ih.field []).map (·.1), ∀ l ∈ t.fvarLeaves, l.1 < B) ∧
       ∃ L : AnnotTerm, denoteMeta acval env φ (B + 1) (targetCallE fr B pw ih) = some L ∧
         ihvals.getD r pt = interp V (cons (R ih.callee) ρ') L) :
@@ -593,7 +594,10 @@ theorem targetNodeVal_of {envT : Env} {mT : EnvModel V envT}
   subst hfi hca hid
   -- (1) the call's spine fits the telescope
   obtain ⟨ts, hts, hfit⟩ := ihCall_fit hacl haclT hin hmono h2 hL hW hloc hih hmd hmem hT
-    (by rw [hm]) hleaves hty
+    (by simp [hm]) (by simpa using hleaves) hty
+  rw [show ((fr.teles.getD ih.field []).map
+      fun b => (b.1, (⟨fr.pw⟩ : ConLeche.BinderMeta))).map (·.1)
+      = (fr.teles.getD ih.field []).map (·.1) by simp] at hts
   -- (2) the call's λ, folded along the spine
   unfold targetCallE at hLr
   rw [← ConLeche.Expr.instantiateList_nil (Expr.mkLamsOf _ _) 0,

@@ -90,6 +90,7 @@ block's levels). -/
 @[expose] def tgtFrame (j i : Nat) : TargetFrame :=
   ConLeche.targetFrameOf (tgtFam p rs) (tgtRP p j) (tgtPrefFvs p rs j) (tgtFieldFvs p rs j i)
     (tgtFnorm mode F fe p formerTys rs j i)
+    (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))
 /-- The abstraction: the residue and the `ih` variables. -/
 @[expose] def tgtAbs (j i : Nat) : Expr × Array TargetIh :=
   (ConLeche.targetAbstract (tgtFrame mode F fe p formerTys rs j i) (tgtB p rs j i) 0
