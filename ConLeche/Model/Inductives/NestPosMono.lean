@@ -308,16 +308,16 @@ structure HoleRel (ctx : NestCtx) (prog : List NestKey) (d : Nat) (Δa : List An
   frame : ∀ i key, prog.reverse[i]? = some key → ∀ ni,
     HoleOnBlind R (d - 1 - (ctx.hiAt 0 + i)) key.ds.length ni
 
-/-- **Under a hole-free binder** the relation is the same one level
-deeper. -/
+/-- **Under a positive binder** (a hole-free domain, or an earlier field)
+the relation is the same one level deeper. -/
 theorem HoleRel.under {ctx : NestCtx} {prog : List NestKey} {d : Nat} {Δa : List AnnotTerm}
     {R : FrameRel V} (h : HoleRel ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
-    {ta : AnnotTerm} (hA : ConstOn R ta) :
+    {ta : AnnotTerm} (hA : MonoOn R ta) :
     HoleRel ctx prog (d + 1) (ta :: Δa) (R.under ta) where
   dom := by
     rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩
     obtain ⟨h1, h2⟩ := h.dom ρ ρ' hR
-    exact ⟨Sat_cons V h1 hx, Sat_cons V h2 (by rw [← hA ρ ρ' hR]; exact hx)⟩
+    exact ⟨Sat_cons V h1 hx, Sat_cons V h2 (hA ρ ρ' hR x hx)⟩
   agree := by
     intro σ σ' hr i hi
     exact (h.agree.under ta) σ σ' hr i fun hs => hi (holeP_succ i hs)
@@ -419,7 +419,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
         obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgw
         have hCop := CtxOk.openS hCw.forallE_ty hCw.forallE_body hta hgA
         have hB := ih prog (dep + 1) (kb + 1) _ st k st' hrun hcyc (by omega)
-          (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hCop hba hgB (hR.under hhi hA)
+          (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hCop hba hgB (hR.under hhi hA.monoOn)
         exact MonoOn.pi 0 _ hA hB
       · -- a head applied to arguments
         rename_i hnotpi
@@ -496,5 +496,125 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
           exact hcont _ ih prog dep kb w n us st k st' hfn (by simpa using hnm) hrun hcyc hhi
             hfrw hCw hwa hgw hR
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
+
+/-! ## The cycle flag only ever rises -/
+
+/-- A run never lowers the cycle flag. -/
+@[expose] def CycMono
+    (rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)) :
+    Prop :=
+  ∀ (prog : List NestKey) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
+    (st' : NestState), rec prog dep kb e st = .ok (k, st') → st.cyclic = true →
+    st'.cyclic = true
+
+theorem nestContainerC_cyclic (ctx : NestCtx) (st : NestState) (n : Name) :
+    (ConLeche.nestContainerC ctx st n).2.cyclic = st.cyclic := by
+  unfold ConLeche.nestContainerC
+  split <;> rfl
+
+theorem nestFields_cyc
+    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
+    (hrec : CycMono rec) {prog : List NestKey} {base : Nat} {err : CheckError} :
+    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind) (res : Expr)
+      (st' : NestState), ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, res, st') →
+      st.cyclic = true → st'.cyclic = true := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur st ks res st' h hc
+    simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    rw [← h.2.2]; exact hc
+  | succ nF ih =>
+    intro j cur st ks res st' h hc
+    unfold ConLeche.nestFields at h
+    split at h
+    · simp only [bind, Except.bind] at h
+      split at h
+      · exact nomatch h
+      · rename_i r₁ hr₁
+        obtain ⟨k₁, st₁⟩ := r₁
+        simp only at h
+        split at h
+        · exact nomatch h
+        · rename_i r₂ hr₂
+          obtain ⟨ks₂, res₂, st₂⟩ := r₂
+          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+          rw [← h.2.2]
+          exact ih _ _ _ _ _ _ hr₂ (hrec _ _ _ _ _ _ _ hr₁ hc)
+    · exact nomatch h
+
+@[simp] theorem throw_checkM_ne_ok {α : Type} (e : CheckError) (x : α) :
+    ((throw e : CheckM α) = .ok x) ↔ False := by
+  simp [throw, throwThe, MonadExceptOf.throw]
+
+theorem nestCtors_cyc
+    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
+    (hrec : CycMono rec) {ctx : NestCtx} {prog : List NestKey} {hi : Nat} {n : Name}
+    {us : List Level} {ds : List Expr} {nPc : Nat} {y : Expr} :
+    ∀ (cs : List (ConLeche.ConstantVal × Nat)) (st st' : NestState),
+      ConLeche.nestCtors ctx rec prog hi n us ds nPc y cs st = .ok st' →
+      st.cyclic = true → st'.cyclic = true := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro st st' h hc
+    simp only [ConLeche.nestCtors, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h]; exact hc
+  | cons c cs ih =>
+    intro st st' h hc
+    obtain ⟨cv, nF⟩ := c
+    unfold ConLeche.nestCtors at h
+    simp only [bind, Except.bind] at h
+    split at h
+    · split at h
+      · exact nomatch h
+      · rename_i r hr
+        obtain ⟨ks, cur, st₁⟩ := r
+        simp only at h
+        have hc₁ := nestFields_cyc hrec _ _ _ _ _ _ _ hr hc
+        split at h <;> first
+          | exact ih _ _ h hc₁
+          | simp [throw, throwThe, MonadExceptOf.throw] at h
+    · simp at h
+
+theorem nestCont_cyc
+    {rec : List NestKey → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × NestState)}
+    (hrec : CycMono rec) {ctx : NestCtx} {prog : List NestKey} {kb : Nat} {n : Name}
+    {us : List Level} {args : List Expr} {st : NestState} {k : NestFieldKind} {st' : NestState}
+    (h : nestCont ctx rec prog kb n us args st = .ok (k, st')) (hc : st.cyclic = true) :
+    st'.cyclic = true := by
+  have hc₀ : (ConLeche.nestContainerC ctx st n).2.cyclic = true := by
+    rw [nestContainerC_cyclic]; exact hc
+  unfold nestCont at h
+  generalize ConLeche.nestContainerC ctx st n = p at h hc₀
+  obtain ⟨ci, st₀⟩ := p
+  simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+  repeat' split at h
+  all_goals first
+    | (simp at h; done)
+    | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨-, rfl⟩ := h; first | rfl | exact hc₀)
+    | (rename_i hctors _
+       simp only [Except.ok.injEq, Prod.mk.injEq] at h
+       obtain ⟨-, rfl⟩ := h
+       have hv := nestCtors_cyc hrec _ _ _ hctors (by simpa using hc₀)
+       exact hv)
+
+theorem nestPos_cyc (ops : ConLeche.CheckerOps CheckM) (ctx : NestCtx) :
+    ∀ fuel, CycMono (nestPos ops env ctx fuel) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro prog dep kb e st k st' h
+    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at h
+  | succ fuel ih =>
+    intro prog dep kb e st k st' h hc
+    rw [nestPos] at h
+    simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+    repeat' split at h
+    all_goals first
+      | (simp at h; done)
+      | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨-, rfl⟩ := h; exact hc)
+      | exact ih _ _ _ _ _ _ _ h hc
+      | exact nestCont_cyc ih h hc
 
 end ConLeche.Model
