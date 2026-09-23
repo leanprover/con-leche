@@ -253,7 +253,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
     let fe₂ := consBlockCtorsF p₁.nP ctorsAs fe₁
     so.flush
     -- piece 1, on the stream's family
-    match ← shadowTry (targetRecCheck so fe₂ p₁ nested block cvTas ctorsAs) with
+    match ← shadowTry (targetRecCheck so fe₂ p₁ true nested block cvTas ctorsAs) with
     | .error e => pure (fe₂, .error e, .skip "not reached")
     | .ok rs =>
       -- the reject-only conformance check (charter item 6), where the

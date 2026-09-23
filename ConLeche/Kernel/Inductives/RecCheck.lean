@@ -127,7 +127,7 @@ parameter domains; the major resolved (`TargetMajor`) at exactly the
 index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
-def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvT0 ← unwrapOr cvTas.head? (.internal "target rec: no type former")
@@ -164,7 +164,12 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
         pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
                ctors := ctorsA, member := some t : TargetMajor }
       | none => do
-        -- an OUTSIDE inductive (a nested block's container)
+        -- an OUTSIDE inductive (a nested block's container): only where
+        -- the caller admits them (`outside`; the shadow does, the
+        -- uniform route — non-nested blocks — does not until lane NESTED)
+        unless outside do
+          throw (.invalid "target rec: the recursor's major premise is not a member of the \
+            block")
         if I == quotName then
           throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
         let some (nPc, ctors) := targetCtorsOf fe I
@@ -288,6 +293,88 @@ def targetWhnfPis (ops : CheckerOps m) (env : Env) : Nat → Nat → Expr → m 
       let body' ← targetWhnfPis ops env (d + 1) fuel (body.instantiate1 (.fvar d dom))
       pure (.forallE dom (body'.abstract1 d) bm)
     | _ => pure e
+
+/-! ### The holes: the block's members abstracted to free variables
+
+Charter item 2: *the holes are ordinary open terms (members abstracted
+to fvars)*.  A call's typing (the field is a value of the callee's
+major type) is checked on the member-ABSTRACTED terms, not on the
+concrete ones, because that is the only form whose soundness says
+something at the model's SEPARATED tuple: a defeq run on the concrete
+terms (members as constants, read as their carriers) equates the two
+readings at the carrier alone, and the graph recursor's induction
+(`GraphRecKit.ind`, via the recorded lfp clause) needs the called field
+to land in the separated tuple — "the field is a hole at the callee's
+class", which no carrier-level equation gives (lane RECLIB's
+stop-and-name, DESIGN "LANDED (lane RECLIB …)").  On the abstract
+terms the same defeq holds at EVERY value of the holes, the separated
+tuple included.
+
+Member `t` at the block's levels becomes `.fvar (base + t) T_t.type`
+(the former's own closed type, so the hole is applied to the
+parameters exactly as the member was); a member at other levels stays
+a constant.  A free variable's ANNOTATION is not abstracted: the
+frame's fields keep their concrete types (a field's value fits them at
+the carrier, and the separated tuple lies below it), so a hole occurs
+in the abstract term only where the term itself names a member, and a
+hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped DAG fields,
+`tower_struct`).  This is lane POSPROOF's `replaceConsts` at the
+member map; switch to it once that lane lands. -/
+
+/-- The member abstraction, memoised (the executed definition; the
+shadow is unverified). -/
+def targetAbsGo (names : List Name) (lvls : List Level) (holes : List Expr)
+    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | e@(.const n us) =>
+    if us == lvls then
+      match names.findIdx? (· == n) with
+      | some t => (holes.getD t e, memo)
+      | none => (e, memo)
+    else (e, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .app a b =>
+          let (a', memo) := targetAbsGo names lvls holes memo a
+          let (b', memo) := targetAbsGo names lvls holes memo b
+          (.app a' b', memo)
+        | .lam ty body bm =>
+          let (t, memo) := targetAbsGo names lvls holes memo ty
+          let (b, memo) := targetAbsGo names lvls holes memo body
+          (.lam t b bm, memo)
+        | .forallE ty body bm =>
+          let (t, memo) := targetAbsGo names lvls holes memo ty
+          let (b, memo) := targetAbsGo names lvls holes memo body
+          (.forallE t b bm, memo)
+        | .letE ty v body =>
+          let (t, memo) := targetAbsGo names lvls holes memo ty
+          let (v', memo) := targetAbsGo names lvls holes memo v
+          let (b, memo) := targetAbsGo names lvls holes memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := targetAbsGo names lvls holes memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- The member abstraction of one term. -/
+def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
+  (targetAbsGo names lvls holes {} e).1
+
+/-- The holes of a rule frame of width `base`: member `t` is
+`.fvar (base + t)` at its former's type. -/
+def targetHoles (formerTys : List Expr) (base : Nat) : List Expr :=
+  (List.range formerTys.length).map fun t => .fvar (base + t) (formerTys.getD t default)
+
+/-- No hole of the frame `base … base + k - 1` occurs in `e`. -/
+def targetHoleFree (base k : Nat) (e : Expr) : Bool :=
+  (List.range k).all fun t => !e.mentionsFvar (base + t)
 
 /-- One `ih` variable of a rule's frame: the call it stands for, keyed
 by its own type (identical calls share one variable). -/
@@ -423,7 +510,8 @@ binder by binder (G2, at `feT`); every recursive call is abstracted
 callee's major type at the call's arguments, and the residue typed
 against the recursor's conclusion at the constructor. -/
 def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
-    (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam : TargetFamily)
+    (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
+    (fam : TargetFamily)
     (cvR : ConstantVal) (rP : Nat) (recTy : Expr) (M : TargetMajor)
     (c : ConstantVal × Nat) (rhs : Expr) : m Expr := do
   let nF := c.2
@@ -464,8 +552,13 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     s!"the rule of {c.1.name} does not bind the recursor's prefix and the constructor's \
       fields"
     ((fvsPref ++ fvsF).map Expr.fvarTypeD) ldoms
-  -- each field's telescope through whnf, at the rule frame's depth
-  let fnorm ← fvsF.mapM fun f => targetWhnfPis opsT feT.env (rP + nF) 1024 f.fvarTypeD
+  -- each field's type with the block's members abstracted to the
+  -- frame's HOLES (`targetHoles`, after the fields), its telescope read
+  -- through whnf at the depth past the holes
+  let base := rP + nF
+  let k := formerTys.length
+  let absM := targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys base)
+  let fnorm ← fvsF.mapM fun f => targetWhnfPis opsT feT.env (base + k) 1024 (absM f.fvarTypeD)
   let fr : TargetFrame :=
     { recNames := fam.recNames, rlvls := fam.rlvls, recTys := fam.recTys, mIs := fam.mIs,
       rPs := fam.rPs, rP := rP, pref := fvsPref, fields := fvsF,
@@ -476,10 +569,16 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
       recursor occurs outside a call on a field of this constructor at the rule's own \
       prefix")
   -- every call's field is a value of the callee's major type at the
-  -- call's arguments, under the field's own telescope
+  -- call's arguments, under the field's own telescope — both sides
+  -- member-ABSTRACTED, so the defeq holds at every value of the holes;
+  -- the telescope the call applies the field along is hole-free (it is
+  -- then a concrete telescope, the one the `ih` variable's type binds)
   for ih in ihs do
     let fty := fnorm.getD ih.field default
     let tele := fr.teles.getD ih.field []
+    unless tele.all (fun b => targetHoleFree base k b.1) do
+      throw (.invalid s!"target rec: the rule of {c.1.name} calls a recursor on a field whose \
+        telescope mentions the block")
     let some calleeAt := Expr.instPisAtLift (fvsPref ++ ih.idx)
         (fam.recTys.getD ih.callee (.sort .zero))
       | throw (.invalid s!"target rec: the rule of {c.1.name} recurses into a recursor whose \
@@ -487,7 +586,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     let .forallE majDom _ _ := calleeAt
       | throw (.invalid s!"target rec: the rule of {c.1.name} recurses into a recursor whose \
           type does not bind the call's major")
-    unless ← opsT.isDefEq feT.env (rP + nF) fty (Expr.mkPisOf tele majDom) do
+    unless ← opsT.isDefEq feT.env (base + k) fty (Expr.mkPisOf tele (absM majDom)) do
       throw (.invalid s!"target rec: the rule of {c.1.name} calls a recursor on a field that \
         is not a value of its major type")
   let depth := rP + nF + ihs.size
@@ -521,12 +620,12 @@ rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; `nested` is the elimination guard's container bit.
 Returns every recursor with its major and its annotated right-hand
 sides (what the install stores). -/
-def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← p.recs.mapM fun rc => targetRecTy (so.opsAt fe) fe p nested cvTas ctorsAs rc
+  let tys ← p.recs.mapM fun rc => targetRecTy (so.opsAt fe) fe p outside nested cvTas ctorsAs rc
   let us := tys.map (·.2.2)
   checkBlockRecSmallElim p nested us
   checkBlockRecElimPin p us
@@ -550,6 +649,7 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
     let mut rhssA := #[]
     for (cA, rhs) in M.ctors.zip rc.rhss do
       rhssA := rhssA.push (← targetRule (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+        (cvTas.map (·.type))
         fam cvRi rc.rP cvRi.type M cA rhs)
     out := out.push (cvRi, M, rhssA.toList)
   so.flush
