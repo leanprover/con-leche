@@ -77,9 +77,14 @@ structure ShadowOps (m : Type → Type) where
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- The pure operations at fuel `F`, at every index (the fueled
+instantiation the model reads a run of). -/
+def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
+  ⟨fun _ => fueledOps mode F, fun _ => fueledOps mode F, Pure.pure (), .plain⟩
+
 /-- The pure shadow operations: `pureOps` at the index's environment. -/
 def ShadowOps.pure (mode : CheckMode) : ShadowOps CheckM :=
-  ⟨fun _ => pureOps mode, fun _ => pureOps mode, Pure.pure (), .plain⟩
+  ShadowOps.fueled mode checkFuel
 
 /-! ## The major -/
 
@@ -121,6 +126,81 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 
 /-! ## Stage (b): every recursor's TYPE, at any major -/
 
+/-- **A recursor's major, resolved** from its opened type `mty`
+(`fvs` the recursor type's openers): a MEMBER of the block at the
+block's levels and parameters, or — only where `outside` admits it (a
+nested block's container; the shadow) — any other stored inductive.
+The member arm is the uniform route's; the outside arm is the ONE case
+lane NESTED adds to the model's reading of this function. -/
+def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+    m TargetMajor := do
+  let args := mty.getAppArgs
+  match mty.getAppFn with
+  | .const I us =>
+    match p.memberNames.findIdx? (· == I) with
+    | some t => do
+      -- a MEMBER: at the block's levels and parameters, as today
+      let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
+      let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
+      unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
+        throw (.invalid "target rec: the recursor's major premise is not the member at its \
+          parameters and its index binders")
+      pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
+             ctors := ctorsA, member := some t : TargetMajor }
+    | none => do
+      -- an OUTSIDE inductive (a nested block's container): only where
+      -- the caller admits them (`outside`; the shadow does, the
+      -- uniform route — non-nested blocks — does not until lane NESTED)
+      unless outside do
+        throw (.invalid "target rec: the recursor's major premise is not a member of the \
+          block")
+      if I == quotName then
+        throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+      let some (nPc, ctors) := targetCtorsOf fe I
+        | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+      if ctors.isEmpty then
+        throw (.notImplemented "target rec: a major inductive without constructors (its \
+          parameter count is not recorded)")
+      let ds := args.take nPc
+      unless ds.length == nPc &&
+          ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+        throw (.invalid "target rec: the major's parameters mention more than the \
+          recursor's parameters")
+      let (nIdx, sI) ← targetOutsideInst fe I us ds
+      -- **Q1 (for the maintainer)**: an outside major in ANOTHER
+      -- universe than the block (a Type block's family eliminating a
+      -- Prop inductive, or the converse) is refused here: the
+      -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
+      -- and it says nothing about another universe's inductive
+      unless Level.isEquiv sI p.resSort == some true do
+        throw (.invalid "target rec: the recursor's major lives in another universe than \
+          the block (Q1)")
+      pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+             member := none }
+  | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
+      application")
+
+/-- **The major's index telescope**, the domains the recursor's index
+binders must have: a member's at the member's own opening (as today),
+an outside inductive's at its instantiation. -/
+def targetIdxDoms (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : Nat)
+    (M : TargetMajor) : m (List Expr) :=
+  match M.member with
+  | some t => do
+    let cvTa ← unwrapOr cvTas[t]? (.internal "target rec: type former")
+    let (tfs, _) ← unwrapOr (openPisParamsIdx p.nP M.nIdx rP cvTa.type)
+      (.internal "target rec: type former telescope (index-domain pass)")
+    pure ((tfs.drop p.nP).map Expr.fvarTypeD)
+  | none => do
+    let some (.indInfo cvI _) := fe.find? M.ind
+      | throw (.internal "target rec: major inductive vanished")
+    let some ty := instPisWith M.ds (cvI.type.instantiateLevelParams cvI.levelParams M.lvls)
+      | throw (.internal "target rec: major type former telescope")
+    let (ifs, _) ← unwrapOr (openPisAtFvars M.nIdx ty rP)
+      (.internal "target rec: major index telescope")
+    pure (ifs.map Expr.fvarTypeD)
+
 /-- **One recursor's type** (`checkBlockRecTysF` at any major): the
 constant check; `nP ≤ rP`; the first `nP` binder domains are the block's
 parameter domains; the major resolved (`TargetMajor`) at exactly the
@@ -151,50 +231,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← match mty.getAppFn with
-    | .const I us =>
-      match p.memberNames.findIdx? (· == I) with
-      | some t => do
-        -- a MEMBER: at the block's levels and parameters, as today
-        let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
-        let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
-        unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
-          throw (.invalid "target rec: the recursor's major premise is not the member at its \
-            parameters and its index binders")
-        pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-               ctors := ctorsA, member := some t : TargetMajor }
-      | none => do
-        -- an OUTSIDE inductive (a nested block's container): only where
-        -- the caller admits them (`outside`; the shadow does, the
-        -- uniform route — non-nested blocks — does not until lane NESTED)
-        unless outside do
-          throw (.invalid "target rec: the recursor's major premise is not a member of the \
-            block")
-        if I == quotName then
-          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
-        let some (nPc, ctors) := targetCtorsOf fe I
-          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-        if ctors.isEmpty then
-          throw (.notImplemented "target rec: a major inductive without constructors (its \
-            parameter count is not recorded)")
-        let ds := args.take nPc
-        unless ds.length == nPc &&
-            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
-          throw (.invalid "target rec: the major's parameters mention more than the \
-            recursor's parameters")
-        let (nIdx, sI) ← targetOutsideInst fe I us ds
-        -- **Q1 (for the maintainer)**: an outside major in ANOTHER
-        -- universe than the block (a Type block's family eliminating a
-        -- Prop inductive, or the converse) is refused here: the
-        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
-        -- and it says nothing about another universe's inductive
-        unless Level.isEquiv sI p.resSort == some true do
-          throw (.invalid "target rec: the recursor's major lives in another universe than \
-            the block (Q1)")
-        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-               member := none }
-    | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
-        application")
+  let M ← targetMajorOf fe p outside ctorsAs fvs mty
   unless mI == rP + M.nIdx do
     throw (.invalid "target rec: the recursor's major-premise index is not its rule prefix \
       plus the major's index count")
@@ -202,20 +239,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
     throw (.invalid "target rec: the recursor's major premise is not at its index binders")
   -- (b'') the index binder domains are the major's index telescope at
   -- its instantiation (a member's at the member's own opening, as today)
-  let idoms ← match M.member with
-    | some t => do
-      let cvTa ← unwrapOr cvTas[t]? (.internal "target rec: type former")
-      let (tfs, _) ← unwrapOr (openPisParamsIdx p.nP M.nIdx rP cvTa.type)
-        (.internal "target rec: type former telescope (index-domain pass)")
-      pure ((tfs.drop p.nP).map Expr.fvarTypeD)
-    | none => do
-      let some (.indInfo cvI _) := fe.find? M.ind
-        | throw (.internal "target rec: major inductive vanished")
-      let some ty := instPisWith M.ds (cvI.type.instantiateLevelParams cvI.levelParams M.lvls)
-        | throw (.internal "target rec: major type former telescope")
-      let (ifs, _) ← unwrapOr (openPisAtFvars M.nIdx ty rP)
-        (.internal "target rec: major index telescope")
-      pure (ifs.map Expr.fvarTypeD)
+  let idoms ← targetIdxDoms fe p cvTas rP M
   checkBlockDefEqList ops fe.env mI
     "the recursor's index domains are not the major's index telescope"
     idoms (ixs.map Expr.fvarTypeD)
@@ -493,6 +517,14 @@ def targetAbstract (fr : TargetFrame) (base : Nat) :
       let (a', acc) ← targetAbstract fr base d a acc
       pure (.app f' a', acc)
 
+/-- A constructor's type at the major's LEVELS: a member's is stored at
+the block's own level parameters, which the recursor shares; an outside
+inductive's is instantiated at the major's. -/
+def targetCtorAt (M : TargetMajor) (c : ConstantVal) : Expr :=
+  match M.member with
+  | some _ => c.type
+  | none => c.type.instantiateLevelParams c.levelParams M.lvls
+
 /-- The data every rule of the family shares. -/
 structure TargetFamily where
   recNames : List Name
@@ -585,10 +617,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- the constructor AT THE MAJOR's instantiation: its levels and its
   -- parameters `ds` (a member's: the block's levels and the prefix's
   -- first `nP` variables, as today)
-  let cty := match M.member with
-    | some _ => c.1.type
-    | none => c.1.type.instantiateLevelParams c.1.levelParams M.lvls
-  let crest ← unwrapOr (instPisWith M.ds cty)
+  let crest ← unwrapOr (instPisWith M.ds (targetCtorAt M c.1))
     (.internal "target rec: constructor parameter telescope")
   let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest rP)
     (.internal "target rec: constructor field telescope")
