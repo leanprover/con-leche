@@ -33,10 +33,6 @@ block's semantic operator, and the leaf's three laws
 (`blockTyAV_mem/_wellDenoted/_fold`) under one hereditary premise
 (`ParamsOkXBI`).  The functor's semantic laws (monotonicity, the closed
 tuple, the fixed point, the per-member fibre law) are in `BlockFamI.lean`.
-
-The `Fix*` files are NOT touched: at `k = 1` the two leaves agree
-(`blockTyAV_one`, the lane's falsifier, at the end of this file), which
-is the bridge the Model tier's port crosses one lemma at a time.
 -/
 
 namespace ConLeche.Semantics

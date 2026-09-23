@@ -5,7 +5,7 @@ public import ConLeche.SetModel.UnionRec
 @[expose] public section
 
 /-!
-# The recursor family's candidate from a CLASS KIT (task #315, M5 model half)
+# The recursor family's candidate from a CLASS KIT (task #315)
 
 DESIGN "DESIGN DOCUMENT 2, v2" §3.2/§3.4.  Two of the three regimes —
 WF (`¬allProp ∧ w ≠ 0`) and SQ (`¬allProp ∧ w = 0`) — build the
@@ -14,7 +14,7 @@ classes' carriers, differing ONLY in what a predecessor is and why the
 relation is well-founded.
 
 * WF: predecessors are the ∈-smaller elements (`tcPred`), accessibility
-  is regularity — F5's `WfRecKit`;
+  is regularity — `WfRecKit`;
 * SQ: predecessors are the recursive calls' INDEX tuples (`sqPred`),
   accessibility is the block's own lfp induction — `FixSquashI`'s kit.
 
@@ -24,9 +24,8 @@ interface — `pred`/`B`/`st` with four obligations, giving `recAt`,
 `UnionRecKitC`, and each regime is an instantiation.  Nothing here
 knows about `tc`, about fixed points, or about the sort.
 
-**Classes are the stream's RECURSORS**, not the block's members: under
-the maintainer's naming ruling (2026-09-21) a member may carry any
-number of recursors, each assigned to it by its MAJOR's type and each
+**Classes are the stream's RECURSORS**, not the block's members: a
+member may carry any number of recursors, each assigned to it by its MAJOR's type and each
 with its OWN rule prefix.  So `K` counts recursors and `rP : Nat → Nat`
 is per class.
 -/
@@ -88,14 +87,6 @@ theorem kit_rec_eq {ℓ k : Nat} {Is C : Nat → V} (Kt : UnionRecKitC ℓ k Is 
     Kt.recAt c i x = Kt.st (tagged c i x) (kitGraphAt Kt (tagged c i x)) :=
   Kt.rec_eq hc hi hx
 
-/-! ## The EMPTY kit — O-3's escape
-
-`RecFamData.kit` is total over prefix spines, including spines that
-fit no recursor's prefix.  That is not a burden on an instantiation:
-at empty carriers the tagged union is empty and ALL FOUR obligations
-are vacuous, so the instantiator never has to invent a recursion
-there.  This is that kit. -/
-
 /-! ## The family's data -/
 
 /-- **The recursion data of a recursor family** at the base frame `ρ`:
@@ -104,7 +95,7 @@ the two readings the recursors' TYPES fix.
 
 The kit is indexed by a prefix spine, not by a class: the classes
 recurse SIMULTANEOUSLY, and a guarded call passes the rule's own
-prefix variables (M5k §14.2, answer 2 strict), so two classes that
+prefix variables, so two classes that
 call each other are read at the same spine.  Classes that call nobody
 may have their own `rP c` and are simply read at their own. -/
 structure RecFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → Nat)
@@ -116,7 +107,9 @@ structure RecFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → Nat
   Cr : List V → Nat → V
   /-- The index TUPLE of a class's index spine. -/
   tupOf : Nat → List V → V
-  /-- The kit, one per prefix spine (`emptyKitC` where nothing fits). -/
+  /-- The kit, one per prefix spine.  It is total over prefix spines,
+  including spines that fit no recursor's prefix; that is no burden:
+  at empty carriers all four obligations are vacuous. -/
   kit : ∀ xs : List V, UnionRecKitC ℓ K (Is xs) (Cr xs)
   /-- A fitting spine of `rec_c`'s type is `x⃗ ++ ı⃗ ++ [t]`, its index
   tuple in the class's index set and its major in the class's carrier. -/
@@ -183,9 +176,8 @@ two bridges hold —
   base frame;
 * `hst`: the kit's step at that tagged index, applied to the
   recursor's graph over its predecessors, READS as the residue at the
-  ih values (the ih openers valued in the graph — F3's curried
-  ih-tower finding; the kit's own `hst` is G1, the residue's certified
-  typing).
+  ih values (the ih openers valued in the graph; the kit's own `hst`
+  is G1, the residue's certified typing).
 
 Everything else is this file's. -/
 theorem famCand_hCand (D : RecFamData V ℓ K rP rds concl ρ) (hℓ : ℓ ≠ 0)

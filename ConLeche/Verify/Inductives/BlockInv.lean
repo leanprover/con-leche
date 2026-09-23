@@ -31,7 +31,7 @@ loops call:
   against the WHOLE member list, so every target a kind carries is a
   member of the block (`blockCtorKinds_tgt_lt`);
 * **the tail** (`checkBlockIdxSorts_inv`, `blockOpenedOk_inv`,
-  `blockFieldsOk_inv`, `checkBlockTables_inv`, `checkBlockTail_inv`)
+  `blockFieldsOk_inv`, `checkBlockTail_inv`)
   and **the pass** (`checkBlockPass_inv`).
 
 The recursor stage stays OPAQUE here — `checkBlockTail_inv` exposes it
@@ -581,8 +581,6 @@ theorem blockFieldsOk_inv {env₀ : Env} {names lps : List Name} {nP : Nat}
   | some kss =>
     rw [hk] at this
     exact ⟨kss, rfl, this⟩
-
-/-! ## The tables -/
 
 /-! ## The install after the pass -/
 

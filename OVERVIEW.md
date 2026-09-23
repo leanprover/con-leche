@@ -599,7 +599,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   union of the block's values, given by the recursion theorem
   (`ConLeche/SetModel/UnionRec.lean`, `ConLeche/SetModel/RecGraph.lean`).
   The model-tier theorem for the whole install is
-  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1051).
+  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1046).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** are handled by an in-process modeller

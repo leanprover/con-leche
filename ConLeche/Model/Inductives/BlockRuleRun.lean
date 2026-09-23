@@ -14,13 +14,13 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 public section
 
 /-!
-# The rule stage's peel obligation at the run (task #315, lane RM50)
+# The rule stage's peel obligation at the run
 
 `BlockRuleBodyOwed` (`BlockRuleFit.lean` §10) is what the residue
 producer asks of the rule stage: at the contract's telescope and the
-peel's outputs, `BlockRuleBodyInputs` at the lane's `ihs`/`Rb0`.  Its
-function variables were unpinned — the peel came back existentially
-and no definition computed `ihs` or `Rb0` — so it had no producer.
+peel's outputs, `BlockRuleBodyInputs` at the rule's `ihs`/`Rb0`.  A
+producer needs those two function variables PINNED, not returned
+existentially by the peel.
 
 §A.9b (`BlockRecData.lean`) pins the peel's outputs to definitions;
 this file pins the two function variables the same way
@@ -535,7 +535,7 @@ bvar-closed and TYPED there (so every valuation reads it).
 
 `_Full` also returns the generated `ih` tower's three facts at the
 prefix and field openers — its closedness, its leaves and its constants
-(`blockRuleCerts_of_run`'s `hb₃`/`hfv₃`/`hc₃`, lane RM56); the unsuffixed
+(`blockRuleCerts_of_run`'s `hb₃`/`hfv₃`/`hc₃`); the unsuffixed
 form below drops them. -/
 theorem blockRuleOpenedFull_run (mpC : EnvModelM V μ envC)
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1038,7 +1038,7 @@ for the `ih` segment), and the residue's reading and typing (the opened
 residue IS the residue opened at the whole frame,
 `openPis_body_instantiateList`; `acceptedReads_of`; the certified
 grade).  Two rows stay premises, neither the rule stage's: the
-frame's grading `hokA` (the certificate lane's) and the `ih` fit
+frame's grading `hokA` (the certificates') and the `ih` fit
 `hihFit` (the regime's). -/
 theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM V μ envC}
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1057,7 +1057,7 @@ theorem blockRuleBodyInputs_run (hμ : μ.verifiedChecks = true) {mpC : EnvModel
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hcbC : ConstsBound envC cA.1.type)
     (ψ : Name → Nat) {σ : Nat → V} {xs fs : List V}
-    -- the frame's GRADING (the certificate lane's: `blockRuleHokA_of_run`'s conclusion)
+    -- the frame's GRADING (`blockRuleHokA_of_run`'s conclusion)
     (hokA : ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt p rs j i).nR →
       ∀ (σ' : Nat → V) (ys : List V),
         SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
@@ -1509,8 +1509,8 @@ theorem wellDenotedV_of_infer {envT : Env} (hμ : μ.verifiedChecks = true)
 /-- **`Rb0` is graded at the rule's whole frame** — the opened residue
 is TYPED there (the stage's own `inferTypeCore` run), its openers read
 to the frame's context (`blockRuleFrameReads_run`) and the context is
-graded (`hokA`, the certificate lane's `blockRuleHokA_of_run`
-conclusion), so `checkSoundAt` grades its reading at every valuation
+graded (`hokA`, `blockRuleHokA_of_run`'s conclusion), so
+`checkSoundAt` grades its reading at every valuation
 satisfying the frame. -/
 theorem blockRuleRbAV_wdV_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM V μ envC}
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1875,9 +1875,9 @@ theorem blockRuleIhFitOwed_iff {envC : Env} (mpC : EnvModelM V μ envC) (p : Blo
           ++ (ys.drop p.nP).map (interp V ρ)) (chainFrame rs.length a ρ)))) := Iff.rfl
 
 /-- **`BlockRuleBodyOwed` at the run** — the rule stage's peel
-obligation, at the PINNED `ihs`/`Rb0` (and the lane's own prefix and
+obligation, at the PINNED `ihs`/`Rb0` (and the rule's own prefix and
 field components), from the run, the constructor's record, the frame's
-grading (`hokA`, the certificate lane's `blockRuleHokA_of_run`) and the
+grading (`hokA`, `blockRuleHokA_of_run`) and the
 `ih` openers' fit (`hihFit`, the regime's). -/
 theorem blockRuleBodyOwed_run (hμ : μ.verifiedChecks = true) {mpC : EnvModelM V μ envC}
     (h : checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)

@@ -18,7 +18,7 @@ and `SumWF.lean` at k members:
 * **the k formers consed at once** (`envWF_consBlockInds`,
   `direct_block_inds_wf`), each with ITS capability record at the
   block's `is_rec` verdict; the record names the parameter count as its
-  arity (`blockCapsAt_arity`, `blockCaps_arity`), which is what makes
+  arity (`blockCapsAt_arity`), which is what makes
   `IndCapsWF` hold at every former's cons;
 * **the N constructors consed, member by member**
   (`envWF_consBlockCtors`, `direct_block_ctors_wf`);
@@ -28,13 +28,11 @@ and `SumWF.lean` at k members:
   RULE-LESS recursors, which finds exactly the names the stored cons
   finds (`find?_consBlockRecs_of_bare`); the rules themselves are
   `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
-  (`SumWF.lean`) are the block's rule facts unchanged;
-* **the projection tables** (`direct_block_tables_wf`).
+  (`SumWF.lean`) are the block's rule facts unchanged.
 
-`checkBlockRec_facts` is the recursor stage's WF contract: the CHECK's
-own (`checkBlockRecK_facts`, off `checkBlockRecTys_inv` /
-`checkBlockRule_facts` / `checkBlockRules_facts` /
-`checkBlockRecsRules_facts`).
+`checkBlockRecK_facts` is the recursor stage's WF contract (off
+`checkBlockRecTys_inv` / `checkBlockRule_facts` /
+`checkBlockRules_facts` / `checkBlockRecsRules_facts`).
 
 **Why the recursors are consed SIMULTANEOUSLY** (milestone M6's entry
 cost): the CHECK's rules are MUTUALLY recursive — a rule of `rec_0`
@@ -908,10 +906,6 @@ theorem checkBlockRecK_reserved {env : Env} {p : BlockParts} {cvTas : List Const
     exact congrArg Prod.fst (Option.some.inj (this.symm.trans hcvRa'))
   rw [hr1, (checkConstantVal_lps hcv).1]
   exact hres rc (List.mem_of_getElem? hrc)
-
-/-! ## The projection tables -/
-
-/-! ## The whole install -/
 
 /-! ## The block's η invariant, established -/
 

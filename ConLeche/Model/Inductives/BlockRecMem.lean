@@ -9,7 +9,7 @@ public import ConLeche.Semantics.Tower.BlockRecI
 public section
 
 /-!
-# The recursor leaf's MEMBERSHIP (task #315, milestone M5, the Model half)
+# The recursor leaf's MEMBERSHIP
 
 `blockRecStaged_of`'s `hrd` (`Model/Inductives/BlockStageRec.lean`) is
 reduced by `hrd_of_mem` (`Model/Inductives/BlockRecRead.lean`) to ONE
@@ -33,17 +33,17 @@ This module proves it, from the run and the family premise
   `stripPisAV_eq_mkPis` exhibits the reading as `mkPisAV rds concl`.
   The binder data `rds` and the conclusion `concl` are therefore
   FUNCTIONS OF THE RUN (`blockRecRdsAV`, `blockRecConclAV`), which is
-  what lets the regimes' lane state its `hTyE` at a named spelling
-  rather than at an existential;
+  what lets the regimes state their `hTyE` at a named spelling rather
+  than at an existential;
 * **the seam** — `blockRecAV_facts` at `BlockRecPre` says the leaf of
   class `c` lies in `interp V ρ (RecTy c)`, and `denoteMeta` is a
   function, so the `ta` `hmem` is handed IS `RecTy c` as soon as
   `RecTy c` is the stored type's reading.
 
-Nothing here re-proves a regime or a reading battery: the two lemmas
-it needs of other lanes are taken as premises in the shape they
-export — `BlockRecPre` (RM3's `blockRecPre_of`) and the stage's
-valuation spelling (`blockRecStaged_of`'s `acv`).
+Nothing here re-proves a regime or a reading battery: the two facts it
+needs from other modules are taken as premises in the shape they are
+exported — `BlockRecPre` (`blockRecPre_of`) and the stage's valuation
+spelling (`blockRecStaged_of`'s `acv`).
 -/
 
 namespace ConLeche.Model
@@ -59,10 +59,9 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 `checkBlockRecTys_inv` (`Verify/Inductives/BlockWF.lean`) exports the
 per-recursor `checkConstantVal` run but not the Π-peel that precedes
-it, and this lane may not touch that file; the peel is therefore
-re-inverted here, in the one shape the readings need.  If the Verify
-lane ever widens `checkBlockRecTys_inv`, this theorem is its
-corollary and should go. -/
+it; the peel is therefore re-inverted here, in the one shape the
+readings need.  Should `checkBlockRecTys_inv` ever be widened to
+export the peel, this theorem becomes its corollary and should go. -/
 
 local syntax "close_throw" term : tactic
 local macro_rules
@@ -165,9 +164,8 @@ MAJOR's syntactic pin.
 A SEPARATE theorem rather than four more conjuncts of
 `checkBlockRecTys_open`: that one is destructured positionally by
 `checkBlockRecK_tyShape` and through it by five modules, none of
-which reads a member fact (session 12's finding 3, a bundle per
-consumer).  The peel is re-inverted here at the cost of the same
-`by_cases` skeleton. -/
+which reads a member fact.  The peel is re-inverted here at the cost
+of the same `by_cases` skeleton. -/
 theorem checkBlockRecTys_major {mode : ConLeche.CheckMode} {env : Env}
     {p : ConLeche.BlockShape} {nested : Bool} {cvTas : List ConstantVal} {F : Nat} :
     ∀ {recs : List ConLeche.RecShape} {ri : Nat}
@@ -296,10 +294,10 @@ theorem checkBlockRecTys_major {mode : ConLeche.CheckMode} {env : Env}
 /-! ## The identification: the stored type's reading IS a Π-tower
 
 The stream's recursor type is stored AS IS, so the reading is not
-compared with a generated form (as `denoteMeta_structRecTyR` does at
-`k = 1`): it is IDENTIFIED by the run's own Π-peel.  `rds` and `concl`
-are therefore functions of the run, spelled here so that the regimes'
-lane can state its `hTyE` at a name instead of an existential. -/
+compared with a generated form: it is IDENTIFIED by the run's own
+Π-peel.  `rds` and `concl` are therefore functions of the run, spelled
+here so that the regimes can state their `hTyE` at a name instead of
+an existential. -/
 
 /-- The `i`-th stored recursor type's READING at `ψ` (`default` off
 the list, or at a type that does not read — neither happens under the
@@ -437,8 +435,8 @@ theorem checkBlockRecK_tyMajor {envC : Env} {p : ConLeche.BlockParts}
     hrest.2.2.2.2.2.2.2.2.2.2.1, hrest.2.2.2.2.2.2.2.2.2.2.2.1,
     hrest.2.2.2.2.2.2.2.2.2.2.2.2⟩
 
-/-- **The family's SHARED RULE PREFIX, at the run** (the ruling of
-2026-09-22, stage (b')): the first stored recursor's opened prefix is
+/-- **The family's SHARED RULE PREFIX, at the run** (stage (b')): the
+first stored recursor's opened prefix is
 the reference, and every other stored recursor's has its length and is
 defeq to it binder by binder.
 
@@ -501,7 +499,7 @@ theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
     ConLeche.checkBlockRecPrefixAgree_inv (by cases uf; exact hfam) (hbridge 0 r0 hr0)
   exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (hbridge i r hr) hi⟩
 
-/-- **O-2, the identification**: at every `ψ`, the `i`-th stored
+/-- **The identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower
 `mkPisAV rds concl` over the run's own binder data — with the domains'
 readings, the bits (`0` and at most `1`) and the conclusion's reading
@@ -555,8 +553,7 @@ binder `l`'s domain below `l`, the conclusion below the binder count.
 A SEPARATE theorem rather than two more clauses of
 `checkBlockRecK_tyPis`: five sites destructure that one positionally
 and none of them reads a boundedness, so widening it would make every
-consumer carry what it never uses (session 12's finding 3, a bundle
-per consumer).
+consumer carry what it never uses.
 
 This is what §28's `liftDomsK_eq_self_of_bounded` and §29's `hconclB`
 ask for.  The run gives it in one step: the stored type is CLOSED
@@ -623,8 +620,8 @@ theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
 leaf lies in `interp V ρ (RecTy c)`; `denoteMeta` is a function, so
 the `ta` the seam is handed IS `RecTy c` once `RecTy c` is the stored
 type's reading.  `BlockRecPre` is taken as a PREMISE, in the shape
-lane RM3's `blockRecPre_of` (`Model/Inductives/BlockRecRegimes.lean`)
-concludes in. -/
+`blockRecPre_of` (`Model/Inductives/BlockRecRegimes.lean`) concludes
+in. -/
 
 /-- **`hrd_of_mem`'s `hmem`, proved.**  The `i`-th stored recursor's
 leaf inhabits whatever its stored type reads to, at every `ψ` and
@@ -637,8 +634,8 @@ Three premises, each in the shape its owner exports:
   `RecTy ψ := blockRecTyAV …`);
 * `hacv` — the stage's VALUATION: the `i`-th recursor's leaf is the
   `i`-th projection of the chosen tuple (`blockRecStaged_of`'s `acv`,
-  which the assembly lane picks);
-* `hpre` — the family premise (lane RM3's `blockRecPre_of`). -/
+  which the assembly picks);
+* `hpre` — the family premise (`blockRecPre_of`). -/
 theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}

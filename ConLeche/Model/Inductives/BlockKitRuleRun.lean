@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!
-# The kit arms' `hrule` — the fired spine fits the recursor's type (lane KIT1)
+# The kit arms' `hrule` — the fired spine fits the recursor's type
 
 `blockKitRegime_wf` / `blockKitRegime_sq` (`BlockRecPreRun.lean` §19,
 §36) ask, at the ONE datum each arm builds (§19a: `blockWfCand` /
@@ -22,8 +22,7 @@ SpineFit ρ ((rds c).map (·.2.2)) (x⃗ ++ (e⃗ ++ [mk]))
 ```
 
 whenever `x⃗ ++ f⃗` fits the rule's prefix and field domains at the
-arm's chain frame.  Before RM51 this was the rule lane's (through the
-rule's typing licence); stage (b'')'s converse (`blockRecIdxConv_run`,
+arm's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
 `BlockRecIdxConv.lean`) makes it composable from the run alone:
 
 * **the prefix** — the chain lift of the (closed) prefix domains is the

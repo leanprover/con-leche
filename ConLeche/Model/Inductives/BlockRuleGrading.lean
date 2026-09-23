@@ -12,20 +12,20 @@ import ConLeche.Model.Rules.InferSoundKit
 public section
 
 /-!
-# The rule frame's GRADING, at the run (lane RM53)
+# The rule frame's GRADING, at the run
 
 `blockRuleHokA_of_run` (`BlockRecPreRun.lean` §40.12) assembles the
 grading of a rule frame's three segments — the recursor's prefix
 domains, the constructor's field domains and the `ih` openers' domains
-— from three producers, and two of them were already landed.  The
-third segment's input `hIent` is PER KEY and has two halves:
+— from three producers; the prefix and field segments' are elsewhere.
+The third segment's input `hIent` is PER KEY and has two halves:
 
 * the KEY-STATIC half (the field index, the field's telescope, the
   opener's reading as a Π-tower over the guarded call's conclusion) is
   `blockIhOpenerDom_run` read against the constructor's record;
 * the FRAME-DEPENDENT half (`hR`: the call's conclusion is graded;
   `h0`: at a `Prop` elimination it is a truth value) needs the CALLEE
-  recursor's type to FIT at the call's spine.  That fit is new: the
+  recursor's type to FIT at the call's spine.  That fit: the
   prefix is the family's shared prefix, the index values fit the
   TARGET member's telescope through the recursive slot's `SlotFit`
   (`BlockModelAt.idxFit`) and then the callee's own index binders
@@ -1108,7 +1108,7 @@ field-domain spelling, and the `ih` segment's per-key data `hIent` at
 the pinned openers, carried from `ih` level `0` to the opener's own
 level `q` (`blockRuleIhKey_run`, `ihTeleAtR_merge`,
 `shiftE_consList_ih`).  It is the input group that `blockRuleHokA_of_run`
-and `blockRuleCerts_of_run` share, named once (lane RM56). -/
+and `blockRuleCerts_of_run` share, named once. -/
 theorem blockRuleRecord_run
     (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}

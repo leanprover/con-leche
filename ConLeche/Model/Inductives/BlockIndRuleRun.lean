@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.BlockRecPreHpre
 public section
 
 /-!
-# Regime IND's per-rule bundle at the run (lane RM55)
+# Regime IND's per-rule bundle at the run
 
 `BlockIndOwed`'s one row (`BlockRecPreHpre.lean`) is `BlockIndRuleAt`
 (`BlockIndRegimeRun.lean` §3) at every (recursor, constructor) pair:
@@ -25,9 +25,9 @@ rule's spine (`BlockRuleConclAt`): the certificate producer's `hfit`
 (`blockRuleConclUnivZero_run`'s `hfit`).  Both want the peel's
 arguments — the prefix bvars, the index readings and the fired spine,
 each read one `ih` block deeper — to fit the recursor type's tower at
-EVERY frame satisfying the rule's context.  That is KIT1's
+EVERY frame satisfying the rule's context.  That is
 `blockKitRule_run` (the fired spine fits the recursor's binder data) at
-the context's own values, `K = 0`, carried to a `TeleFitPA` by RM53's
+the context's own values, `K = 0`, carried to a `TeleFitPA` by
 `teleFitPA_mkPisAV_of_spineFit`.  §1 states it once.
 
 **The frame.**  The context is the rule's own
@@ -38,14 +38,13 @@ that does not satisfy it.
 
 **Regime IND's rows (§2)** at the pinned witnesses (`ihKeys` the rule
 frame's, `ihdoms := blockRecIhdomsK`, `Ca := blockRuleCaAV`): the count,
-the fused opener reading, `hCaZ` and `hCaE`.  The bundle's last row (the
-openers' fit at the POINT tuple's chain frame) is (F) at that tuple and
-needs the arm's own induction to know the tuple is typed; the tested
-patch `rm55-ind-hihTy.patch` restates it at every typed tuple, where
+the fused opener reading, `hCaZ` and `hCaE`.  The openers' fit is
+stated at every typed tuple (at the POINT tuple alone it would need the
+arm's own induction to know the tuple is typed), where
 `blockIhFitTyped_run` pays it.
 
-The certificate family at the pinned `Ca` is RM56's
-(`blockRuleCertsW_run`/`blockRuleCertsK_run`, `BlockRuleCertsRun.lean`),
+The certificate family at the pinned `Ca` is
+`blockRuleCertsW_run`/`blockRuleCertsK_run` (`BlockRuleCertsRun.lean`),
 built on §1's fit.
 -/
 
@@ -140,7 +139,7 @@ theorem blockRuleConclFit_run (hμ : μ.verifiedChecks = true)
     hfs.length_eq
   have hwl : ws.length = (blockRuleIhdomsAV p rs mpC.base2.acval envC ψ c j).length :=
     hws.length_eq
-  -- KIT1's fired-spine fit, at `K = 0`
+  -- the kit's fired-spine fit, at `K = 0`
   have hsp0 : SpineFit (chainFrame 0 (fun _ => (pt : V)) σ₀)
       (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
         ++ blockRecFdomsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) := by
@@ -221,8 +220,9 @@ end ConclFit
 * the conclusion's TRUTH VALUE at every certified frame (`hCaZ`) —
   `blockRuleConclUnivZero_run` with the peel (`blockRuleCaAV_run`) and
   §1's fit, the `K` lifts of the field and `ih` domains being the
-  identity (`blockRuleCertsChain_eq`, RM54);
-* the conclusion at the SPLIT data (`hCaE`) — §29b's `blockIndCaE_of_run`
+  identity (`blockRuleCertsChain_eq`);
+* the conclusion at the SPLIT data (`hCaE`) — `blockIndCaE_of_run`
+  (`BlockRecPreRun.lean` §29b)
   at the pinned peel, the fields' fit at the parameter frame taken off
   the split's own `hspF` (`blockIndSpF_run`, peeled by
   `blockRuleSpine_peel`).  The fit is the split's own, not a field
@@ -380,7 +380,7 @@ theorem blockIndRuleRows_run (hμ : μ.verifiedChecks = true)
     exact hq
 
 /-- **Regime IND's fused `ih` opener reading** (`BlockIndRuleAt`'s third
-row, `hihOpen` at one pair) at the pinned `ihdoms`: the IH sub-lane's
+row, `hihOpen` at one pair) at the pinned `ihdoms`: the kit's `ih`
 key (`blockKitIhKey_run`: the callee's peel and the opener's domain, at
 the frame's MOVED telescope) restated at the BLOCK's rows — its three
 row identities — with the tower's bit `0` at the IND regime

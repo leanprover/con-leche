@@ -12,7 +12,7 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The rule certificates at the run — `hcertsW` PRODUCED (lane RM56)
+# The rule certificates at the run — `hcertsW` produced
 
 `blockRuleCerts_of_run` (`BlockRecPreRun.lean` §40.13) states the
 certificate bundle at ONE rule from some thirty inputs.  At the pinned
@@ -26,17 +26,16 @@ data every one of them is a fact of the run:
   leaves and constants, and the opened residue's reading, which IS the
   pinned `Rb0 = blockRuleRbAV`);
 * the conclusion's reading and peel at the pinned `Ca = blockRuleCaAV`
-  (`blockRuleCaAV_run`, lane RM55): `hCa` and `hpeel`;
+  (`blockRuleCaAV_run`): `hCa` and `hpeel`;
 * the two segments' reading existences — `blockRuleFdomsAV_eq` (fields)
-  and `blockRuleIhReads_run` (the `ih` openers, lane RM55);
+  and `blockRuleIhReads_run` (the `ih` openers);
 * the record group and the per-key `ih` data — `blockRuleRecord_run`
   (`BlockRuleGrading.lean`, factored out of the grading producer);
-* `hokC`'s fit — `blockRuleConclFit_run` (lane RM55) — and its
+* `hokC`'s fit — `blockRuleConclFit_run` — and its
   arguments' grading, §1 here.
 
-§2 assembles them: `blockRuleCertsW_run` is `BlockGradeOwed`'s old
-`hcertsW` row at the pinned `Ca`, verbatim, which `declBlock_run` now
-pays itself.
+§2 assembles them: `blockRuleCertsW_run` is the `hcertsW` row at the
+pinned `Ca`, which `declBlock_run` consumes.
 
 **The frame.**  Everything is at the BASE frame: the rule's own
 context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse` with the base
@@ -303,7 +302,7 @@ theorem blockRuleCertsW_run (hμ : μ.verifiedChecks = true)
     obtain ⟨B, hB⟩ := hreadAll ψ
     rw [blockRuleRbAV, hct, ← hbodyO, hB]
     rfl
-  -- the pinned conclusion: its reading and its peel (lane RM55)
+  -- the pinned conclusion: its reading and its peel
   obtain ⟨hCaR, hcon⟩ := blockRuleCaAV_run hμ h hr hcA hrhs hcdP hCf hCb hfindC hlpsC hnP ψ
   -- the record group and the per-key `ih` data
   obtain ⟨cvTa, caps, nFull, resSort, pps, dsC, bodyC, hcvTa, hfT, hFD, hle, hwd, hlenD, hframes,

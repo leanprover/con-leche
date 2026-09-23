@@ -8,10 +8,10 @@ import ConLeche.Model.Inductives.BlockRecRead
 public section
 
 /-!
-# The recursor's INDEX binders ARE the member's index telescope — at the model (lane RM51)
+# The recursor's INDEX binders ARE the member's index telescope — at the model
 
-Stage (b'') (`checkBlockRecIdxDomsAt`, `Kernel/Inductives/BlockInstall.lean`,
-lane SEC2) compares each recursor's index binder domains, binder by
+Stage (b'') (`checkBlockRecIdxDomsAt`, `Kernel/Inductives/BlockInstall.lean`)
+compares each recursor's index binder domains, binder by
 binder, with the eliminated member's index telescope opened at the
 recursor's own numbering (`openPisParamsIdx`).  This file is that
 check's model side: the CONVERSE of the recursor type's index clause
@@ -23,9 +23,8 @@ fit of the RECURSOR's binder data.
 Three pieces:
 
 * `checkBlockRecIdxDomsAt_elim` / `checkBlockRecK_idxDoms` — the
-  pass's inversion (nothing in the tree exported it: the four
-  positional peels of stage (b) all discard `checkBlockRecFamilyAgree`
-  past the elimination pin);
+  pass's inversion (the four positional peels of stage (b) all discard
+  `checkBlockRecFamilyAgree` past the elimination pin);
 * `defeqDom_agree_at` — ONE position of a binder-by-binder `isDefEq`,
   read at a context that is NOT an opening of either compared type.
   §35's certified hop (`prefixDoms_agree`) reads at the first
@@ -320,8 +319,8 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {d : BlockData V}
 
 set_option maxHeartbeats 2000000 in
-/-- **THE INDEX CLAUSE'S CONVERSE, at the run** (stage (b''), lane SEC2's
-check; `blockRecIdxFit_run` is the forward direction).  At a prefix
+/-- **THE INDEX CLAUSE'S CONVERSE, at the run** (stage (b'')'s check;
+`blockRecIdxFit_run` is the forward direction).  At a prefix
 that FITS the recursor's rule-prefix domains, index values fitting the
 eliminated MEMBER's index telescope fit the RECURSOR's index binders.
 

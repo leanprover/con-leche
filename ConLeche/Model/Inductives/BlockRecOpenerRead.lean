@@ -7,7 +7,7 @@ import ConLeche.Model.Inductives.BlockRecRead
 public section
 
 /-!
-# The `ih` OPENER's stored type, read (task #315, milestone M5)
+# The `ih` OPENER's stored type, read
 
 `checkBlockRule`'s third opening
 (`openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) …`)
@@ -22,32 +22,27 @@ STORED TYPE is the matching binder of `blockIhPis`
 
 — a `Expr.mkPisOf (structTeleAt nF o i l pw (teleOf i)) concl` tower.
 
-The `hfit` discharge of the M5M rule lane needs that type's READING,
-and needs it as a `mkPisAV` tower: `spineFit_of_teleFitPA`
+The rule's `hfit` needs that type's READING, and needs it as a
+`mkPisAV` tower: `spineFit_of_teleFitPA`
 (`BlockRecLaw.lean`) is stated at one, and `TeleFitPA` at an arbitrary
 `Ta` says nothing about the domains the certified spine has to fit.
 
-## What is generalised
+## The readings
 
-`denoteMeta_ihSpineAt` (`Model/Inductives/FixRecRead.lean`) already
-reads a `structTeleAt` tower — but only with the CONCLUSION spelled:
-a head applied to leading arguments, the field's index expressions and
-the field at its own telescope variables.  The opener's conclusion is
-not of that shape (it is a callee's stored TYPE instantiated at that
-spine), so the theorem is re-cut one level lower:
+`denoteMeta_ihSpineAt` (`Model/Inductives/FixRecRead.lean`) reads a
+`structTeleAt` tower only with the CONCLUSION spelled (a head applied
+to leading arguments, the field's index expressions and the field at
+its own telescope variables).  The opener's conclusion is not of that
+shape (it is a callee's stored TYPE instantiated at that spine), so the
+reading is cut one level lower:
 
 * `denoteMeta_structTeleAtPis` — the tower over `structTeleAt` with an
   ARBITRARY conclusion, whose reading is a premise.  The whole content
   is the telescope, binderwise (`denoteMeta_ihIdxAtM` at each binder),
   and it lands at `ihTeleAtR`, which is what the consumer needs.
-* `denoteMeta_ihSpineAt_ofGen` — the k = 1 statement, verbatim, as an
-  INSTANCE of it: the conclusion premise is discharged by
-  `denoteMeta_mkAppN` at the head, the leading arguments
-  (`denoteMetaSpine_ihIdx`) and the applied field.  `FixRecRead`'s own
-  proof of `denoteMeta_ihSpineAt` may be replaced by this one.
 * `denoteMeta_blockIhOpenerTy` — the same statement at the CHECK's own
   opening list (`FvarList`, `instantiateList`), which is the shape the
-  rule lane's premises are spelled in; the twin of
+  rule's premises are spelled in; the twin of
   `denoteMeta_blockIhSpinePis` (`BlockRecRule.lean`), which reads the
   guarded CALL's tower rather than the opener's.
 
@@ -156,20 +151,9 @@ theorem denoteMeta_structTeleAtPis {m : EnvModel V env} {ψ : Name → Nat} {nP 
     rw [structTeleAt_length nF o i l pw (ConLeche.structFieldTeleOf cty nP nF i)]
     exact hconcl
 
-/-! ## The k = 1 statement, as an instance
-
-`denoteMeta_ihSpineAt` (`Model/Inductives/FixRecRead.lean`) is the
-theorem above at the conclusion `mkAppN hd (pre ++ e⃗_i ++ [f_i a⃗])`,
-and this is that derivation: the conclusion's reading premise is
-`denoteMeta_mkAppN` at the head (`hhd`), the leading arguments
-(`hpre`), the field's index expressions (`denoteMetaSpine_ihIdx`) and
-the field at its own telescope variables.  Nothing else of the
-original proof survives, which is the check that the generalisation
-lost nothing. -/
-
 /-! ## The opener's stored type, at the CHECK's own opening list
 
-The rule lane spells its frames as `FvarList E as1` and opens with
+The rule's premises spell its frames as `FvarList E as1` and opens with
 `Expr.instantiateList` (`checkBlockRule`'s `(fvsPref ++ fvsF).reverse`),
 not as the battery's ascending split — `instantiateList_eq_instSeq_of_fvarList`
 and `ascFrame_split` (`BlockRecRule.lean`) are the bridge, and this is
@@ -362,11 +346,10 @@ theorem denoteMeta_blockIhOpenerTy_deep {m : EnvModel V env} {ψ : Name → Nat}
 
 /-! ## The consumer's shape, and the two indices it asks about
 
-The rule lane's composition (`M5M-data-REPORT.md` §S16.6) wants the
-existential form — the conclusion's reading is whatever
-`denoteMeta_instPisAtLift_peel` hands it off the run's
-`Expr.instPisAtLift … (recTyOf c') = some concl` — and it asks this
-file to FIX two indices.  Both are fixed here:
+The rule's composition wants the existential form — the conclusion's
+reading is whatever `denoteMeta_instPisAtLift_peel` hands it off the
+run's `Expr.instPisAtLift … (recTyOf c') = some concl` — at two fixed
+indices:
 
 * **the `ih` level `l` is the opener's own position `r`**, not `0`:
   `blockIhPis` generates the binder for the `r`-th key at `l = r`, and
@@ -383,7 +366,7 @@ file to FIX two indices.  Both are fixed here:
   `r` — the two are the same statement, and a consumer that reads at
   the walk's frame should take the `_deep` form and skip the lift. -/
 
-/-- **§S16.6's statement at the WALK's depth**: `δ` binders below the
+/-- **The existential reading at the WALK's depth**: `δ` binders below the
 opener, the same tower at `ih` level `d + δ`. -/
 theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name → Nat}
     {nP nF o d i : Nat} {pw : PropWhen} {cty : Expr}
@@ -415,7 +398,7 @@ theorem denoteMeta_blockIhOpenerTy_deep_exists {m : EnvModel V env} {ψ : Name �
 shape `(Expr.mkPisOf (structTeleAt …) concl).instantiateList as1 0`;
 what the RUN leaves is `checkBlockRule`'s third opening,
 `openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (rP + nF)`.
-The two meet through four facts, all of them now in the tree:
+The two meet through four facts:
 
 * `openPisAtFvars_fvarTypeD` (`FixRecReadDefs.lean`) — the `r`-th
   opener's stored type IS the `r`-th stripped binder domain with the

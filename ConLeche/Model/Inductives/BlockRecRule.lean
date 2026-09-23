@@ -12,20 +12,18 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
-import ConLeche.Semantics.Tower.BlockRecIndI
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Annot.BitInst
 
 public section
 
 /-!
-# O-1: the abstraction's inverse, at the reading (task #315, milestone M5)
+# O-1: the abstraction's inverse, at the reading
 
 `checkBlockRule` stores the ANNOTATED STREAM right-hand side and keeps
 nothing of the abstraction; the model has to read the stored body and
 recover the design's `Rb = Rb''[ih_i ↦ ihFun_i]`.  That is **O-1**,
-and — the correction of the M5M lane's session 2 — it is an `interp`
-equation, not a syntactic one: at a guarded call the abstraction
+and it is an `interp` equation, not a syntactic one: at a guarded call the abstraction
 leaves `ih_r a⃗`, and substituting the ih's λ-tower makes a β-redex,
 which `ihFunAV_fold` (`Semantics/Tower/BlockRecI.lean`) evaluates.
 
@@ -49,10 +47,9 @@ has to know which.
 
 ## What the two lemmas are
 
-* `denoteMeta_liftLooseBVars` — the abstraction's NON-call cases, in
-  one go: `abstractIh` on a recursor-free subterm IS
-  `Expr.liftLooseBVars fr.nR d` (`abstractIh_of_recFree`), and the
-  reading of a lifted term is the reading, lifted
+* `denoteMeta_open_liftLooseBVars` — the abstraction's NON-call
+  cases, in one go: `abstractIh` on a recursor-free subterm IS
+  `Expr.liftLooseBVars fr.nR d`, and the reading of a lifted term is the reading, lifted
   (`AnnotTerm.liftN fr.nR d`).  This also covers the arguments `a⃗` of
   a guarded call, which the abstraction lifts and does not descend
   into.
@@ -484,8 +481,9 @@ opened at a frame of `F + d` variables and the SAME term lifted past
 `nR` binders at cut `d`, opened at a frame of `F + nR + d`, read
 alike up to `AnnotTerm.liftN nR · d`.
 
-This is what `abstractIh_of_recFree` becomes at the denotation — the
-abstraction moved every non-call node and nothing else — and it is
+This is the abstraction on a recursor-free subterm, at the
+denotation — the abstraction moved every non-call node and nothing
+else — and it is
 also the guarded call's ARGUMENTS, which the abstraction lifts without
 descending into them. -/
 theorem denoteMeta_open_liftLooseBVars
@@ -745,7 +743,7 @@ reached was inferred by the rule stage's own run, at the checker's
 CERTIFIED grade (`inferTypeCore μ` at `μ = .verified` is
 `Infer … .full`, `Rules.inferTypeCore_bridge`).
 
-This is what makes G3 usable: the fit of a guarded call's arguments is
+The fit of a guarded call's arguments is
 a fact about an OCCURRENCE — the run certified THAT node's arguments
 — and a premise quantified over every expression of the call's shape
 says nothing about it.  The walk that visits the occurrence is
@@ -793,7 +791,7 @@ theorem IhTyped.appArg {envT : Env} {D : Nat} {f a : Expr} :
     IhTyped envT D (.app f a) → IhTyped envT D a
   | ⟨_, .app _ _ ha _⟩ => ⟨_, ha⟩
 
-/-- **The walk's LOCAL frame fits its own domains** (AUDIT item 1).
+/-- **The walk's LOCAL frame fits its own domains**.
 
 `interp_abstractIh` quantifies `locals` with `locals.length = d` and
 nothing about their VALUES.  That is sound for the walk itself — its
@@ -922,8 +920,8 @@ theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
 `hfit`'s discharge runs through `certs_sound`, whose conclusion is
 `∀ ρ, Sat V Δa ρ → TeleFitPA …`: it needs a CONTEXT at the frame the
 walk has reached — the check's `rP + nF + nR` block extended by the
-`d` binders the walk opened.  §S15.3 (2) sized this as "a second
-threading"; it is ONE predicate, because the residue's opening list
+`d` binders the walk opened.  It is ONE predicate, threaded with the
+walk, because the residue's opening list
 `as2` and the context `Δa` are INDEX-ALIGNED: `as2[j]` is the frame's
 variable `D - 1 - j`, `Δa[j]` is its domain's reading at its own
 depth, and `Sat`'s orientation (innermost first) is `as2`'s — so all
@@ -1638,7 +1636,7 @@ theorem interp_ihNode
 
 /-- **The guarded call's value**, said of the STORED node alone: the
 node reads to the ih value applied along the arguments' readings.
-This is what `denoteMeta_blockIhCall`, `ihFunAV_fold` and the leaf's
+This is what the exact call comparison, `ihFunAV_fold` and the leaf's
 own value (`blockRecAV_facts`) combine to give, and it is the ONLY
 thing `IhNodeVal` still wants. -/
 @[expose] def IhCallFold (V : Type uv) [SetTheory V]
@@ -1702,8 +1700,8 @@ theorem ihNodeVal_of_fold
 
 /-! ## One step further: the STORED node is the GENERATED spine
 
-`blockIhCall?_spine` exports `e = expected` as TERMS (lane K2's exact
-comparison), so the stored node's reading at the rule's frame IS the
+`blockIhCall?_spine` exports `e = expected` as TERMS (the kernel's
+exact comparison), so the stored node's reading at the rule's frame IS the
 generated call's — `congrArg` through the opening.  That removes
 `blockIhCall?` from the obligation altogether and leaves a statement
 about `blockIhSpinePis` alone: the shape the reading batteries
@@ -1893,7 +1891,7 @@ theorem denoteMeta_blockIhSpinePis {env : Env} {m : EnvModel V env} {ψ : Name �
 
 /-! ## The peel, transported to the OPENED frame
 
-`denoteMeta_instPisAtLift_peel` (M5M session 3) reads an
+`denoteMeta_instPisAtLift_peel` (`BlockRecRead.lean`) reads an
 `instPisAtLift` at bvar-CLOSED arguments — which the call's arguments
 are once the rule body is opened, and are NOT before.  The check's
 `instPisAtLift as (blockIhSpinePis …) = some expected` is a fact about
@@ -2144,14 +2142,13 @@ theorem liftN_inst_comm :
       liftN_inst_comm B a r (k + 1) (m + 1) (by omega),
       show m + 1 - (k + 1) = m - k from by omega]
 
-/-- **The Π-peel's lift is REVERSIBLE** — `peelPis_liftN`'s converse,
-and the direction the run actually needs.
+/-- **The Π-peel's lift is REVERSIBLE**: from the peel of a LIFTED
+tower along a lifted spine back to the peel of the tower itself.
 
 A consumer that states its peel at `l = 0` and a CHECK that generates
 the tower at the key's own level `l = r` meet here: the run produces
 the peel of the LIFTED spine and the premise wants the peel of the
-spine itself, so the arrow of `peelPis_liftN` points the wrong way.
-It is reversible because `liftN` preserves the head constructor —
+spine itself.  It is reversible because `liftN` preserves the head constructor —
 `(.pi u v A B).liftN r m` is a `.pi` and nothing else lifts to one —
 so at every step the peel's own case analysis is decided on `T`
 rather than on `T.liftN r m`, and the residual comes back by
@@ -2267,19 +2264,19 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
                 (.bvar (fr.nF - 1 - i + 0 +
                   (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))
                 (teleVarsAV (ConLeche.structFieldTeleOf cty fr.nP fr.nF i).length))))
-    -- **G3**, at THE CALL the fold is at: the values the guarded
+    -- The call's fit, at THE CALL the fold is at: the values the guarded
     -- call's OWN arguments read to fit the field whose `ih` opener the
     -- call abstracts to.  Three bounds are load-bearing — quantified
-    -- over all value lists of the right length the fit is refutable
-    -- (session 10's sweep), quantified over all fields `i` it asks
+    -- over all value lists of the right length the fit is refutable,
+    -- quantified over all fields `i` it asks
     -- the fit at a telescope the call never mentions, and quantified
     -- over all NODES it asks it of a call the rule body does not
     -- contain, which no run certifies.  The index facts are the first
     -- two ties: `nm` is the callee, `c'` its position in the block,
     -- and `(i, c')` the frame's key for the `ih` binder `r`.  The
     -- third is `IhTyped`: the residue's node was inferred by the rule
-    -- stage's own run, which is what G3 (`certs_of_infer_mkAppN`,
-    -- `BlockRecRegimes.lean`) inverts.
+    -- stage's own run, which is what `certs_of_infer_mkAppN`
+    -- (`BlockRecRegimes.lean`) inverts.
     (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
       (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
       ConLeche.blockIhCall? fr d node = some (r, as) →
@@ -2428,19 +2425,5 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
       ← hbslen]
     exact interp_prefVarsAV hxl
   rw [hpref, List.append_assoc]
-
-/-! ## The ℓ = 0 route (AUDIT item 5)
-
-`ihSpineFold_blockRec` carries `hℓ : ℓ ≠ 0` because `ihFunAV_fold`
-evaluates a λ-tower at bit `ℓ`, so the `hnew` route it feeds covers
-the WF and SQ regimes only.  At `ℓ = 0` the regime is IND, where
-`RecRuleLaw` is still an equation but a trivial one: the family's
-leaf and every `ih` value are the POINT, and `app` at the point
-absorbs any spine (`foldl_app_pt_spine`), so both sides of the fold
-are `pt` and the premise holds with NO fit — no `hfit`, no telescope,
-no `hihv`.
-
-The two premises are the regime's own: the block's recursors read to
-`pt` (`indCand`'s leaf) and so do the `ih` values. -/
 
 end ConLeche.Model

@@ -210,7 +210,7 @@ structure BlockChainsOk (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
       SlotsFitXB k w ρp uf Idss ((rsss m).getD j []) ((tgtsss m).getD j [])
         ((tlsss m).getD j []) ((Eisss m).getD j []) Y t 0 [] ((Fsss m).getD j [])
   /-- the closure witness: a closed TUPLE.  At `w = 0` it is
-  `blockPhi_closed_zero` below; at `w ≠ 0` it is the block's member
+  `blockPhi_closed_zero_of` below; at `w ≠ 0` it is the block's member
   container (`tupleContainer_closed_exists`), whose SHAPES must be
   tagged by (component, constructor) globally — falsifier F1's finding:
   the kit strips its own member tag before reading positions and

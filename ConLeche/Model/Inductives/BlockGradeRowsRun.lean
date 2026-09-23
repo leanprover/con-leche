@@ -11,11 +11,11 @@ import ConLeche.Model.Rules.InferSoundKit
 public section
 
 /-!
-# The grading bundle's `hlhs` and the `ih` terms' grading (lane RM55)
+# The grading bundle's `hlhs` and the `ih` terms' grading
 
 `BlockGradeOwed` (`BlockRecPreHpre.lean` §4) owes, besides the
 certificates, the rule frame's grading (G) and the typed tuple's `ih`
-fit (F) — both produced by RM53 — two rows about a TYPED tuple `as`
+fit (F) (`blockRuleGrading_run`, `blockIhFitTyped_run`) — two rows about a TYPED tuple `as`
 (each component in its recursor type's reading) and a rule frame `ys`
 fitting the rule's prefix and field domains at `consList as ρ`:
 
@@ -32,7 +32,7 @@ fitting the rule's prefix and field domains at `consList as ρ`:
 components are lifted past it (§20 of `BlockRecPreRun`).
 
 * `hlhs` is an application chain along the recursor's own type:
-  KIT1's `blockKitRule_run` fits the spine to the recursor's binder
+  `blockKitRule_run` (`BlockKitRuleRun.lean`) fits the spine to the recursor's binder
   data at ANY chain frame; the head reads to the tuple's component,
   which inhabits the type; the arguments are graded — the prefix
   variables trivially, the index readings off the constructor's stored
@@ -43,7 +43,7 @@ components are lifted past it (§20 of `BlockRecPreRun`).
   (`mkLamsC_wellDenoted`), whose leaf is the callee component applied
   along the call's spine: graded as an application chain along the
   CALLEE's type, at the fit `blockIhCallFit_of` exports, landing in the
-  call's peeled conclusion `CihR` (RM53's key lemma).
+  call's peeled conclusion `CihR` (`blockRuleIhKey_run`).
 -/
 
 namespace ConLeche.Model
@@ -197,7 +197,7 @@ section Lhs
 
 /-- **`BlockGradeOwed`'s `hlhs`, at the run** — its row verbatim.  The
 typed tuple's frame is the chain frame (`consList_eq_chainFrame`), at
-which KIT1's `blockKitRule_run` fits the rule's fired spine to the
+which `blockKitRule_run` fits the rule's fired spine to the
 recursor's binder data; the head reads to the tuple's component, which
 inhabits the recursor type's reading; the arguments are graded (§1). -/
 theorem blockGradeLhs_run

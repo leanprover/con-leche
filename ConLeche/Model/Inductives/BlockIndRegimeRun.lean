@@ -6,56 +6,42 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public section
 
 /-!
-# The IND regime, at the run (task #315, M5M-rule)
+# The IND regime, at the run
 
 `blockIndRegime_run` (`BlockRecPreRun.lean`) is the dispatch's
 `ℓ = 0` arm: it turns the block's own induction, the rules'
 certificates and the regime's two chain-frame premises into
-`IndRegimeAt`.  Until this file it was never APPLIED — and it is the
-hinge of the whole arm's `ℓ = 0` half, so twelve landed theorems
-across two lanes had no consumer for want of it.
+`IndRegimeAt`.  This file applies it at the run:
 
-Two pieces:
-
-* **§1 the CROSSING.**  `hihOpen` is stated in the BLOCK datum's
-  currency (`d.Fss`, `d.tlss`, `d.Eiss`, `d.IdsM`, `mem c`, `rP c`)
-  and the run produces it in the rule FRAME's
-  (`fr.nF`, `fr.teleOf`, `fr.idxOf`, `fr.ihKeys`, the callee's stored
-  type).  `blockIhOpen_key_of` is that crossing, at one key: half A's
-  three block facts (`BlockRecTyShapeRun.lean`) decide what the KEY
-  says, and `blockIhOpenerDom_run`'s fused reading supplies the peel,
-  the tower and the domain equation.  Every identification it needs is
-  a premise, because each one is a different lane's fact;
 * **§2 the COMPOSITION.**  `blockIndRegime_of_run` applies
   `blockIndRegime_run` with everything the run already produces
   discharged: the recursor type's shape (`blockRecTyShape_run`), the
   binder bits (`blockRecOneElimLevel`), the Π-tower identification and
   the conclusion's boundedness (`checkBlockRecK_tyPis`,
-  `checkBlockRecK_tyBounds`), and `hihOpen` through §1.
+  `checkBlockRecK_tyBounds`).
+* **§3 the SKOLEMISATION.**  `blockIndRegime_of_rules` chooses the `ih`
+  domains and rule conclusions per rule, so the certificates never have
+  to be built as a block-wide family.
 
-**The premises that stay open are the motive facts** (`hCaE`,
-`hihTy`, the `ih` fit at every typed tuple — lane RM55: it was `hihReg`, the fit at the POINT tuple, which needs the arm's own induction to know the point tuple is typed, so no producer outside the arm) and the rule lanes'.  `hjoinC` is GONE: the arm states its
-induction motive at the SPLIT data now, so nothing here assembles a
-recursor spine and the index clause's converse has no consumer left.
+**The premises that stay open are the motive facts** (`hCaE`, `hihTy`,
+the `ih` fit at every typed tuple — not only at the POINT tuple, whose
+typedness needs the arm's own induction, so has no producer outside the
+arm) and the rules'.  The arm states its induction motive at the SPLIT
+data (parameters, middle stretch, the member's own index values, each
+with its own fit), so nothing here assembles a recursor spine.
 
-The `univZero` family — §40.14's `hT`, `hTStep`, `hTReg` and the `ih`
-segment's `h0` — is ONE premise `hCaZ` now, and §2d DISCHARGES it.
-The derivation that did not survive the motive's move was the one
-through `hCaE`: `blockRecConclUnivZero_run` licenses the truth value
-only at a fitting spine of the RECURSOR's own binder data, and the
-split data does not carry one (its index values fit the MEMBER's
-telescope, and carrying them to the recursor's index binders is
-exactly the deleted converse).  **The licence the family actually has
-is the RULE's**: `checkBlockRule` types the residue against the
-recursor's type Π-instantiated at the rule's own spine, so the
-certificates already carry a `peelPis` of that tower and a
-`TeleFitPA` of it at the SAME spine — a fit of the recursor's binder
-data at the FIRED spine, produced by the rule's typing run and not
-assembled from anything.
+`hCaZ` is the `univZero` family in ONE frame-generic statement.  Its
+licence is the RULE's, not the split data's: `blockRecConclUnivZero_run`
+licenses the truth value only at a fitting spine of the RECURSOR's own
+binder data, which the split data does not carry (its index values fit
+the MEMBER's telescope); but `checkBlockRule` types the residue against
+the recursor's type Π-instantiated at the rule's own spine, so the
+certificates carry a `peelPis` of that tower and a `TeleFitPA` of it at
+the SAME spine — a fit at the FIRED spine, produced by the rule's typing
+run.
 
 No `w` hypothesis: every statement below is a READING, a peel or a
-key's own filter fact, never a membership in the block's carrier
-(the settled criterion, and the `w ≠ 0` ruling's own blast radius).
+key's own filter fact, never a membership in the block's carrier.
 -/
 
 namespace ConLeche.Model
@@ -69,53 +55,9 @@ open ConLeche (BlockFieldKind blockIhKeys blockTgtsOf)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. THE CROSSING — `hihOpen` at ONE key
-
-`blockIndRegime_run`'s `hihOpen` quantifies over `(c, j, r)` and
-produces eight existential witnesses and thirteen conjuncts.  Eleven
-of the thirteen are the KEY's own (half A, `BlockRecTyShapeRun.lean`
-§7) or are `rfl` at the witnesses this theorem chooses; the two that
-carry content are the callee's peel and the opener's domain, and both
-come out of the ONE fused reading `blockIhOpenerDom_run`.
-
-The premises are grouped by who owns them:
-
-* the block datum's tables at this constructor (`hcj`, `hcf`, `hmr`,
-  `hksF`, `hksLen`, `hFssLen`, `htgtsF`, `hrecTgtsLen`, `hrecTgts`,
-  `hmemK`) — the install's;
-* the frame's widths and the callees' prefixes (`hnF`, `hrPs`, `hb`)
-  — the recursor stage's;
-* the callee recursor types' readings (`hRecTy`) — §21's;
-* the openers' slot and their fused reading (`hfvsIh`, `hslot`,
-  `hdom`) — this lane's, `readOpenedDoms_reads` and
-  `blockIhOpenerDom_run`.
-
-`hb` is the generated tower's binder BIT (`pwBit ψ fr.pw`), which
-`hihOpen` asks at `0`: the `ih` binders of a recursor whose motive
-lives at level `0` are `Prop` binders.  It is a premise because the
-datum is the CHECK's (`BlockRuleFrame.pw`) and the identification
-`pwBit ψ fr.pw = 0` at the IND regime is the stage's, not this
-module's. -/
-
-/-! ### 1b. `hihOpen` ASSEMBLED — the same crossing at every key
-
-`blockIndRegime_run`'s `hihOpen` quantifies over the rule `c`, the
-constructor `j` and the opener position `r`; §1 is its body at one
-key.  The per-`(c, j)` data the crossing needs is EXISTENTIAL at the
-run — each rule's frame is produced by that rule's own run, and the
-field kinds, the constructor, the `ih` openers and the tower's bit
-come out of it together — so it is one premise, `hframe`, and not
-thirteen indexed families.  `hmr`, `hrecTgts`, `hmemK`, `hrPs` and
-`hRecTy` are BLOCK-wide and stay outside it.
-
-The `ihKeys` identification is inside `hframe` too: the regime reads
-its keys off a POSITION in its own `ihKeys c j`, and what the check
-generates is `blockIhKeys` at the rule's prefix, the block's prefixes
-and targets and the constructor's kinds. -/
-
 /-! ## 2. THE COMPOSITION — `blockIndRegime_run` APPLIED
 
-`IndRegimeAt` at the run, in `blockRecPre_hpre`'s own spelling
+`IndRegimeAt` at the run, in the run's own spelling
 (`RecTy := blockRecTyAV`, `pdoms := blockRulePdomsAV`,
 `nCt := blockRecNCt rs`, `rP := p.toBlockShape.rulePrefixAt`).
 
@@ -127,34 +69,29 @@ and cost nothing else:
 | `hmemK` | `blockRecMajor_run` (the major's member is in range) |
 | `hshape` | `blockRecTyShape_run` |
 | `hbits` | `blockRecOneElimLevel`, at the family's shared level |
-| `hTyE` | `checkBlockRecK_tyPis` (O-2's Π-tower identification) |
+| `hTyE` | `checkBlockRecK_tyPis` (the Π-tower identification) |
 | `hpdE` | `blockRulePdomsAV`'s own definition — `(l.take n).map f` is `(l.map f).take n`, so this is `List.map_take` and nothing else |
 | `hconclB` | `checkBlockRecK_tyBounds` |
 
-**The elimination level is the composition's one surprise.**  `hbits`
-asks for `OneElimLevel 0`, and the run's producer
-(`blockRecOneElimLevel_run`) hands the level back EXISTENTIALLY —
-`∃ ℓ, OneElimLevel ℓ …` — while the dispatch's guard (`hIND`'s
-`ℓ ψ = 0`) names the caller's OWN `ℓ`.  The two meet only if the
-level is named, so this theorem takes `blockRecElimLevel_run`'s three
+**The elimination level is NAMED.**  `hbits` asks for
+`OneElimLevel 0`, and the dispatch's guard (`hIND`'s `ℓ ψ = 0`) names
+the caller's OWN `ℓ`; an existentially produced level would not meet
+it.  So this theorem takes `blockRecElimLevel_run`'s three
 outputs (`helim`, `hmem`, `hbitsE`) and the guard in the RUN's
 currency: `(us.headD .zero).eval ψ = 0`, the sort the type stage read
 off the first recursor's conclusion.  That is what the `ℓ = 0` arm
 means at the run, and it is not derivable inside the regime.
 
-**What stays a premise, and whose it is.**  `hCaZ` — §40.14's four
-`univZero` facts in ONE frame-generic statement — is the certificate
-lane's, and §2d produces it from the rule's own peel and tower fit.
-`hlenP` — the block's parameter telescope
-has `nP` entries — is the block records', carried as a premise all
-over this tree rather than stored in `BlockData`.  `hcerts`, `hspF`,
-`hihLen` and `hprefU` are the rule lanes', and `hihOpen` is §1b's.
-`hcerts` in particular is NOT discharged here even though
-`blockRuleCerts_of_run` exists: that theorem is stated at ONE rule and
-ONE constructor with the `ih` opening `fvsIh` existential, and
-`IndRegimeAt` wants one `ihdoms` family for all of them — the
-skolemisation is the rule lane's to pay, at the frame where `fvsIh`
-is produced, not here. -/
+**What stays a premise.**  `hCaZ` — the four `univZero` facts in ONE
+frame-generic statement — comes from the rule's own peel and tower fit.
+`hlenP` — the block's parameter telescope has `nP` entries — is the
+block records', carried as a premise rather than stored in `BlockData`.
+`hcerts`, `hspF`, `hihLen` and `hprefU` are the rules', and `hihOpen`
+is the `ih` openers' crossing.  `hcerts` is NOT discharged here even
+though `blockRuleCerts_of_run` exists: that theorem is stated at ONE
+rule and ONE constructor with the `ih` opening `fvsIh` existential,
+and `IndRegimeAt` wants one `ihdoms` family for all of them — §3's
+skolemisation. -/
 theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -177,7 +114,7 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
       ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
         (b.2.1 = 0 ↔ (uOf c).eval ψ = 0))
     (hℓ : (us.headD .zero).eval ψ = 0)
-    -- the certificate lane's two open premises
+    -- the certificates' two open premises
     (hCaZ : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       ∀ (σ : Nat → V) (xs fs vs : List V),
       SpineFit σ
@@ -211,7 +148,7 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
           (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c ++ fdoms c j) ys →
         SpineFit (consList ys (consList as ρ)) (ihdoms c j)
           ((ihs c j).map (interp V (consList ys (consList as ρ)))))
-    -- the rule lanes'
+    -- the rules'
     (hcerts : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       BlockRuleCerts V mpC F ψ (p.toBlockShape.rulePrefixAt c) (fdoms c j).length
         (ihdoms c j).length (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
@@ -237,7 +174,7 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
     (hprefU : ∀ c, c < rs.length → ∀ c', c' < rs.length → ∀ xs : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c') xs)
-    -- §1b's
+    -- the `ih` openers' crossing
     (hihOpen : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
       ∀ r, r < (ihKeys c j).length →
       ∃ (i c' nF nIdx m : Nat) (eisA : List AnnotTerm) (fapA CihR : AnnotTerm),
@@ -284,76 +221,18 @@ theorem blockIndRegime_of_run {envC : Env} {mpC : EnvModelM V μ envC}
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     exact (checkBlockRecK_tyBounds (V := V) hμ mpC h hr ψ).2
 
-/-! ### 2b. The two halves joined
-
-§1b and §2 at ONE instantiation: `hihOpen` is no longer a premise, and
-the callee recursor types are the run's own stored ones
-(`blockRuleRecTy`), so `hRecTy` and `hmemK` are discharged too.  What
-is left is exactly the list §2's docstring names — the certificate
-lane's four `univZero` facts, the rule lanes' `hcerts`, `hspF`,
-`hihLen`, `hprefU`, the block-wide key tables and the per-rule
-frame. -/
-
-/-! ### 2c. `hframe`'s reading conjunct, from the rule's own run
-
-`hframe`'s last conjunct is `blockIhOpenerDom_run`
-(`BlockRecTyShapeRun.lean`) at the BLOCK's rows — the field telescopes
-and index readings taken as `d.tlss`/`d.Eiss` rather than as free
-functions of the field index, which is legitimate because
-`blockFieldReadAt_of` (`BlockFieldRead.lean`) proves `FieldReadAt` at
-exactly those rows (`(d.tlss mm ψ).getD j [] = d.tssF mm j ψ`).
-
-What this theorem adds is the FRAME IDENTIFICATION list, and that is
-its point: the crossing needs the rule frame's four widths and its key
-list to be the block's, and the generated tower's bit to be zero.
-Each is the recursor/rule stage's own fact and none of them is
-derivable here:
-
-* `hnP`/`hrPf`/`hnFf` — the frame's parameter count, rule prefix and
-  field count are the block's `d.nP`, the recursor's
-  `rulePrefixAt c` and the constructor's `cA.2`;
-* `hkeysf` — the frame's `ihKeys` is the regime's;
-* `hpw` — `pwBit ψ fr.pw = 0`, the `ih` binders of a recursor whose
-  motive lives at level `0`.  This is the ONE place the IND regime's
-  guard reaches into the generated tower, and it is the stage's to
-  pay: `BlockRuleFrame.pw` is the check's elimination datum. -/
-
-/-! ### 2d. `hCaZ` DISCHARGED — the family's one premise, at the run
-
-`blockIndRegime_of_run`'s `hCaZ` is the whole of what §40.14 called
-four premises (`hT`, `hTStep`, `hTReg` and the `ih` segment's `h0`):
-one frame-generic statement, at the rule's certificates' own two fits.
-This is its producer, block-wide.
-
-**What it costs the rule lane is nothing new.**  The per-rule datum
-below — a spine `vs` of the recursor type's own length, the syntactic
-peel `peelPis RecTy vs = some (Ca c j)`, and a `TeleFitPA` of the SAME
-tower at the SAME `vs` at every frame satisfying the rule's context —
-is `blockRuleCerts_of_run`'s `hpeel`/`hfit` pair verbatim, the pair
-`hokC` already consumes.  `vs` is existential per rule for the same
-reason `ihdoms` and `Ca` are: it comes out of `checkBlockRule_data`
-at that rule's own openings.
-
-**And the licence is the RULE's, not the split's** — which is why the
-motive's move to the split data costs the arm nothing here: the fit
-this reads is a fit of the recursor's binder data at the FIRED spine,
-produced by the rule's own typing run, and no index clause is
-inverted to get it. -/
-
 /-! ## 3. THE SKOLEMISATION — `ihdoms` and `Ca` per RULE, not per BLOCK
 
-**This is where §2 stops, and the reason is structural.**
 `IndRegimeAt` (and `blockIndRegime_run` under it) wants ONE
 `ihdoms : Nat → Nat → List AnnotTerm` and ONE `Ca` for the whole
 block, and six of its premises are stated at them.  The RUN produces
 neither: `blockRuleCerts_of_run` is stated at one rule and one
 constructor, its `ihdoms` is `readOpenedDoms` at THAT rule's own `ih`
 opening `fvsIh`, and both that opening and the conclusion `Ca` come
-out of `checkBlockRule_data` existentially.  So the certificate lane
-cannot hand §2 a family without first choosing one, and choosing one
-is not its work.
+out of `checkBlockRule_data` existentially.  So a family must be
+chosen, and this section chooses it.
 
-It is this section's.  `BlockIndRuleAt` is the six `ihdoms`/`Ca`-dependent
+`BlockIndRuleAt` is the six `ihdoms`/`Ca`-dependent
 premises at ONE pair, and they have to travel together: every one of
 them mentions the same two witnesses, so splitting the bundle would
 mean six independent choices of what must be one pair.
@@ -440,8 +319,8 @@ to. -/
         ((ihs c j).map (interp V (consList ys (consList as ρ)))))
 
 /-- **`IndRegimeAt` from the PER-RULE bundles** — §2 with the `ih`
-domains and the rule conclusions chosen, so the certificate lane never
-has to build a family. -/
+domains and the rule conclusions chosen, so no certificate family has
+to be built. -/
 theorem blockIndRegime_of_rules {envC : Env} {mpC : EnvModelM V μ envC}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}

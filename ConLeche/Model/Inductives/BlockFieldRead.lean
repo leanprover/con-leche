@@ -6,10 +6,10 @@ import ConLeche.Model.Inductives.FixCtorReads
 public section
 
 /-!
-# A block field's readings (task #315 M3)
+# A block field's readings (task #315)
 
 `FieldReadAt` (`ConLeche/Model/Inductives/FixRecRead.lean`) — the
-per-field package the recursor lane's `ihNodeVal_blockRec` consumes —
+per-field package the rule stage consumes (`BlockRuleRun.lean`) —
 off a BLOCK constructor's reading record `BlockCtorDataI`
 (`BlockData.lean`), the block route's counterpart of the native
 route's `CtorReadR`.
@@ -27,11 +27,10 @@ is that at the block's per-field target.
 **The bound.**  The package exists at a field whose domain is (a
 Π-tower over) a member of the block — the RECURSIVE and REFLEXIVE
 fields.  At an ordinary field `BlockCtorDataI` supplies no telescope
-(`tssNone`) and no readings (`ordNone`), and nothing asks: the
-recursor lane's `hfld` is bounded to the fields the frame's `ihKeys`
-name (`BlockRecRule.lean`), and `blockIhKeys` ranges over
-`blockRecIdxOf` — exactly the recursive and reflexive positions
-(`pairIdxOf_blockIhKeys_kind`).
+(`tssNone`) and no readings (`ordNone`), and nothing asks: the rule
+stage reads the package only at the fields the frame's `ihKeys` name,
+and `blockIhKeys` ranges over `blockRecIdxOf` — exactly the recursive
+and reflexive positions (`mem_blockRecIdxOf`).
 -/
 
 namespace ConLeche.Model

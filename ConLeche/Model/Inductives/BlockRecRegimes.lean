@@ -3,13 +3,11 @@ module
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Semantics.Tower.BlockRecKitI
 import ConLeche.Semantics.Tower.BlockRecIndI
-import ConLeche.SetModel.WfRec
-public import ConLeche.SetTheory.Derive.TransClosure
 
 public section
 
 /-!
-# The three regimes, wired to the block's representation (task #315, M5)
+# The three regimes, wired to the block's representation
 
 `blockRecStaged_of`'s `hrecP` is, through `blockRecAV_iota`
 (`Semantics/Tower/BlockRecI.lean`), the family premise
@@ -18,7 +16,7 @@ and this file is where they meet:
 
 | field | who proves it |
 |---|---|
-| `hTy` | O-2 — the recursor's stored type reads to `mkPisAV rds concl` and the reading is a set of the family's level (`BlockRecRead.lean`) |
+| `hTy` | the identification — the recursor's stored type reads to `mkPisAV rds concl` and the reading is a set of the family's level (`BlockRecRead.lean`) |
 | `hEq` | the ι equations' grading, `hEq_iotaEqsAV_of` at the rule data |
 | `hCand` | **the recursion theorem** — one of the three regimes |
 
@@ -27,8 +25,8 @@ and the regimes are:
 * **WF** (`w ≠ 0 ∧ ℓ ≠ 0`) — `famCand_hCand` at a `WfRecKit` family:
   the recursion is over the tagged union of the classes' carriers,
   ∈-smaller elements are the predecessors, and the depth obligation is
-  `blockData_mkDepth` below — the block's injections put a
-  constructor's fields ∈-below the constructed value;
+  that the block's injections put a constructor's fields ∈-below the
+  constructed value;
 * **IND** (`ℓ = 0`) — `indCand_hCand`: the candidate is the point and
   the regime is the induction principle plus `ResidueOk` at every
   fitting spine;
@@ -36,9 +34,7 @@ and the regimes are:
   step is the residue read at the SOURCE spine (`BlockRecSqI.lean`).
 
 Nothing here re-proves a regime: each is a theorem of the semantics
-tier, and what this file adds is the *dispatch* and the one fact about
-the representation the WF regime needs that `BlockModelAt` does not
-carry.
+tier, and what this file adds is the *dispatch*.
 -/
 
 namespace ConLeche.Model
@@ -54,16 +50,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## `mkDepth` — the WF regime's depth obligation, at the block's
-representation
-
-`BlockModelAt` carries `mkZero` and `mkInj` but no depth law, because
-no earlier consumer needed one: the lfp route pins the predecessor set
-by `mkInj`, and the ∈-recursion does not.  At the uniform tuple
-encoding the law is one rewrite of `mem_tc_inj_mkTower`
-(`SetModel/WfRec.lean`), off the SAME `hinj` hypothesis
-`blockModelAt_of_stages` already takes. -/
-
 /-! ## `BlockRecPre`, assembled -/
 
 section Pre
@@ -74,7 +60,7 @@ variable {s K : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat} {pdoms : Na
 
 /-- **The family premise, assembled** — the shape `blockRecAV_iota`
 consumes, with its three fields in the form their owners prove them:
-the types' reading (O-2), the ι equations' grading
+the types' reading, the ι equations' grading
 (`hEq_iotaEqsAV_of`), and the recursion theorem (a regime). -/
 theorem blockRecPre_of
     (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
@@ -232,7 +218,7 @@ theorem infer_mkAppN_head {env : Env} {d : Nat} :
 
 /-! ### G3 as a TELESCOPE certificate
 
-`infer_mkAppN_inv_full` above says each argument is certified, but
+`infer_app_inv_full` above says each argument is certified, but
 against an EXISTENTIAL domain, which no consumer can use: the fit the
 regimes need is a chain of memberships in the ih opener's OWN
 telescope.  What names those domains is `Certs` (`Rules/Rel.lean`),
@@ -437,8 +423,8 @@ theorem stripPis_isSome_mkPisOf :
 `openPisAtFvars_fvarTypeD` (`Model/Inductives/FixRecReadDefs.lean`)
 says the `r`-th opener's STORED type is the `r`-th `∀`-binder domain of
 the peeled term, with the `r` earlier openers `instSeq`'d — so the
-run's identification of `tyOp` (`M5M-opener-REPORT.md` §4.1) is that
-binder list plus TWO generic facts, and these are they:
+run's identification of `tyOp` is that binder list plus TWO generic
+facts, and these are they:
 
 * `stripPis_instantiateList` — opening a Π-tower's frame opens its
   binders, each at its own depth (the `∀` clause of
@@ -507,8 +493,8 @@ theorem instantiateList_split :
 
 /-- **`blockIhPis`' binder list**: the generator's `q`-th `∀` is the
 key `is[q]`'s own domain, at `ih` level `l + q` — which is why the
-opener's reading lands at level `r` (`M5M-opener-REPORT.md` §3) and
-why the domains are `r`-independent apart from that level. -/
+opener's reading lands at level `r` and why the domains are
+`r`-independent apart from that level. -/
 theorem stripPis_blockIhPis {nP rP nF : Nat} {pw : ConLeche.PropWhen} {recTyOf : Nat → Expr}
     {teleOf : Nat → List (Expr × ConLeche.BinderMeta)} {idxOf : Nat → List Expr} :
     ∀ (is : List (Nat × Nat)) (l : Nat) (body ihTele : Expr),

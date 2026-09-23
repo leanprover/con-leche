@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.BlockModel
 public section
 
 /-!
-# The per-pair rule obligation's FIT and FIRED SPINE (task #315, M5 model half)
+# The per-pair rule obligation's FIT and FIRED SPINE
 
 `BlockRuleDataB` (`BlockRecData.lean`) is the seam's rule-side
 obligation at ONE environment and ONE valuation: five statements about
@@ -42,16 +42,13 @@ constructor's own field spine — read at the recursor's parameters.
 
 The parts:
 
-* **§1 the frame transport.**  Every §24 bridge (`blockRecSpF_of`,
-  `blockRecCtorFitsFrom_of`) concludes at the CHAIN frame over `K`
-  binders, and `K` is a FREE variable of those theorems: the chain is
-  there because the KIT runs under it, not because the bridge needs
-  it.  At `K = 0` the chain frame IS the base frame and `liftDomsK 0`
-  is the identity, both unconditionally, so the bridges' base-frame
-  instances cost two `simp` lemmas and no boundedness premise (§28's
-  `liftDomsK_eq_self_of_bounded` pays for the same collapse at the `K`
-  the kit actually runs at, and is the route for the kit's own guard;
-  it is not the route here);
+* **§1 the frame transport.**  The bridges `blockRecSpF_of` and
+  `blockRecCtorFitsFrom_of` (`BlockRecPreRun.lean`) conclude at the
+  CHAIN frame over `K` binders, with `K` free: the chain is there
+  because the KIT runs under it.  At `K = 0` the chain frame IS the
+  base frame and `liftDomsK 0` is the identity, both unconditionally,
+  so the base-frame instances cost two `simp` lemmas and no
+  boundedness premise;
 * **§2 the major premise's decomposition** — `hps`, the index tuple's
   membership and the field spine's `ChainFit`, all at the recursor's
   parameter frame, out of `BlockRecSplitAt` and the constructor's
@@ -59,9 +56,10 @@ The parts:
 * **§3 the fit and the fired spine**, and **§3b the index reading**,
   which is the same `ChainFit`'s SECOND conjunct read backwards.
 
-Both findings below (§4, §5) are `d.w ψ = 0` refutations: the fit and
-the index reading are BOTH false at a `Prop`-valued block, with
-different witnesses, and both are closed here at `d.w ψ ≠ 0`.
+§4 and §5 give the two `d.w ψ = 0` counterexamples: the fit and the
+index reading are BOTH false at a `Prop`-valued block with `ℓ = 0`.
+The contract is guarded by `ℓ ≠ 0`; the `d.w ψ = 0` case under that
+guard is §2b.
 -/
 
 namespace ConLeche.Model
@@ -91,14 +89,13 @@ omit [SetTheory V] in
 /-- **A zero chain is no chain**: `chainFrame 0` is the base frame. -/
 @[simp] theorem chainFrame_zero (a ρ : Nat → V) : chainFrame 0 a ρ = ρ := rfl
 
-/-- **§24's `hspF`, AT THE BASE FRAME** — `blockRecSpF_of` at `K = 0`.
+/-- **`hspF` AT THE BASE FRAME** — `blockRecSpF_of` at `K = 0`.
 
 `blockRecSpF_of` has `K` and the chain tuple `a` free; its conclusion
 is a chain-frame statement because the KIT consumes it under the `K`
 Σ' binders, not because the bridge needs them.  `BlockRuleDataB`'s
 first conjunct is the same statement at `ρ` and at the UNLIFTED rule
-domains, which is the `K = 0` instance — no boundedness premise, no
-`liftDomsK_eq_self_of_bounded`.
+domains, which is the `K = 0` instance — no boundedness premise.
 
 Every other premise is `blockRecSpF_of`'s own; §2 below produces the
 three that mention the block (`hps`, `ht`, `hfit`). -/
@@ -151,9 +148,9 @@ parameters, and at a `Type`-valued block `mkInj` identifies the two
 decompositions.
 
 **This is `d.w ψ ≠ 0` content, and the restriction is not an
-artefact** — see the FINDING recorded in §4 below.  §2b is the same
-fact at `d.w ψ = 0`, by a different argument, and the contract's guard
-is `ℓ ≠ 0` for both. -/
+artefact** — see the counterexample in §4.  §2b is the same fact at
+`d.w ψ = 0`, by a different argument, under the contract's `ℓ ≠ 0`
+guard. -/
 
 /-- A fit splits at a cutoff: the prefix fits the domains' prefix and
 the suffix fits the rest at the prefix's own frame. -/
@@ -227,7 +224,7 @@ produces it is the MAJOR PREMISE, in four moves:
    so that spine is `fs` and that constructor is `j`.
 
 `hw` is not a convenience: at a `Prop`-valued block step 4 is FALSE
-and so is the conclusion — see §3's FINDING. -/
+and so is the conclusion — see §4. -/
 theorem blockRuleChainFit_run (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
@@ -273,14 +270,12 @@ variable {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 /-- **`BlockRecSplitAt` at the CONTRACT's own recursor fit.**  The
 contract hands `TeleFitPA` of the recursor type at `xs ++ [maj]`;
 `spineFit_blockRecTy` turns it into a fit of the binder data, which is
-what O-2's split consumes.  Out come the three facts the field half
+what the split consumes.  Out come the three facts the field half
 needs: the block's PARAMETERS fit at the recursor's own prefix, the
 recursor's index arguments fit the eliminated member's index
 telescope there, and the MAJOR lies in that member's former applied to
-both.
-
-`BlockRecSplitAt` has no producer (`AUDIT-premises.md` §2.6); it is the
-recursor-type lane's, and this theorem is its first consumer. -/
+both.  `hsplit` itself is produced by `blockRecSplitAt_of_shape`
+(`BlockRecTyping.lean`) from `blockRecTyShape_run`. -/
 theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -322,7 +317,7 @@ theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   exact ⟨hpar, hidx, hmaj⟩
 
 /-- **The field spine as a `SpineFit`** — `ChainFit`'s `FitsFrom` at
-the block's slots, read as a fit of the field domains, through §25's
+the block's slots, read as a fit of the field domains, through the
 slot agreement.  `blockRecSpF` does this inside its own proof; `mk`
 needs it on its own, because `BlockModelAt.ctor` speaks `SpineFit`. -/
 theorem blockRuleFieldSpine_run (hM : BlockModelAt mpC.base2 names d)
@@ -366,11 +361,11 @@ the rule's INDEX PIN, which the contract's telescope already carries.
 `srcProp` is parameter-generic by statement, so ONE instance serves
 both frames.
 
-**Three premises are not this lane's** and are named as such: the
-counting guard's two facts, `hlarge` and `hct1`, are the KERNEL's
-(the dispatch lane's `hK1` is the same guard's one-member half, in
-the same `ℓ ≠ 0 → d.w ψ = 0 → …` spelling), and `hpin` is the rule's
-index pin in the model's currency. -/
+**Three premises come from elsewhere**: the counting guard's two
+facts, `hlarge` and `hct1`, are the KERNEL's (in the same
+`ℓ ≠ 0 → d.w ψ = 0 → …` spelling as the dispatch's `hK1`, the same
+guard's one-member half), and `hpin` is the rule's index pin in the
+model's currency. -/
 
 /-- **The subsingleton criterion at one constructor**, from the
 constructors' stage's own per-field clause: with the block's declared
@@ -413,7 +408,7 @@ theorem blockCtorFieldProp {mm j : Nat} {cA : ConstantVal × Nat}
 
 /-- **§2's fact at `d.w ψ = 0`** — the same `ChainFit`, by the
 subsingleton criterion instead of by injectivity.  See the section
-note for what each premise is and whose it is. -/
+note for the premises. -/
 theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
@@ -586,30 +581,24 @@ criterion (`blockCtorFieldProp`) and `srcVals_of_fit` — at an
 ARBITRARY index tuple and an arbitrary fitting spine instead of at the
 rule's own.
 
-**It is a signature only up to ONE premise, and the premise is not
+**The lift needs ONE extra premise, `TupleLe`, and it is not
 cosmetic.**  The regime quantifies over an arbitrary member `X` of the
-TUPLE SPACE, while §2b works at the fixpoint, and the difference is
-real: a `ChainFit` at a general `X` puts a RECURSIVE field's value in
-the SLOT, and the criterion is a statement about the field's DOMAIN.
-At `w = 0` the slot is a truth value (`InTupleSpace 0` puts every
-component in `famSpace 0`), so that field's own value collapses to the
+TUPLE SPACE, while §2b works at the fixpoint: a `ChainFit` at a
+general `X` puts a RECURSIVE field's value in the SLOT, and the
+criterion is a statement about the field's DOMAIN.  At `w = 0` the
+slot is a truth value, so that field's own value collapses to the
 point — but the criterion cannot be WALKED past it:
 `CtorDataI.srcProp` bounds field `q` only along a spine fitting the
 EARLIER DOMAINS (`FieldsBoundSrc`), and a slot member need not be a
-member of the domain when the domain is the empty truth value.  So the
-collapse closes the recursive position and leaves every position after
-it open.
+member of the domain when the domain is the empty truth value.
 
-**What closes it is `TupleLe`, and both call sites already have it.**
-`hsrcAt` is consumed twice: at the fixpoint itself (`blockSqKit`'s
-`hsrcL`, `lfpTuple_mem`) and at the SEPARATED tuple (`blockSqExu`,
-whose `sepTuple_le` is three lines above the use).  A tuple BELOW the
-fixpoint transports its `ChainFit` INTO the fixpoint's
-(`blockChainFit_of_le`, by `slotSet_mono` at every recursive
-position), and there the domains are the slots (`blockSlot_agree`) and
-the criterion applies unchanged.  The producer below therefore takes
-`TupleLe` and does not need the `w = 0` collapse at all; the regime's
-statement is over-quantified by exactly that premise. -/
+A tuple BELOW the fixpoint transports its `ChainFit` INTO the
+fixpoint's (`blockChainFit_of_le`, by `slotSet_mono` at every
+recursive position), and there the domains are the slots
+(`blockSlot_agree`) and the criterion applies unchanged.  Both call
+sites of `hsrcAt` have `TupleLe`: the fixpoint itself (`blockSqKit`'s
+`hsrcL`, `lfpTuple_mem`) and the SEPARATED tuple (`blockSqExu`,
+`sepTuple_le`). -/
 
 /-- **`FitsFrom` transports along an INCLUSION of the slots** —
 `spineFit_of_fitsFrom`'s pattern with `⊆ˢ` in place of `=`.  The
@@ -738,19 +727,16 @@ theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
 Its antecedent is NOT a `ChainFit`: it is a `SpineFit` of the rule's
 own domains at the CHAIN frame, so the two halves of the lift share
 only their last step.  Everything before it is the rule frame's two
-insertions, and both transports are landed
-(`spineFit_liftDomsK_rule`, `interp_liftN_rule`): the field spine
-descends to the constructor's own domains at the parameter frame, the
-index expressions' readings descend with it, and there the criterion
-applies exactly as in §2b.
+insertions (`spineFit_liftDomsK_rule`, `interp_liftN_rule`): the field
+spine descends to the constructor's own domains at the parameter
+frame, the index expressions' readings descend with it, and there the
+criterion applies exactly as in §2b.
 
-**The `∀ D` in the regime's spelling is over-quantification, and this
-theorem is where it shows.**  `RecFamData.tupOf` is an abstract field;
-nothing in the structure ties it to the block, so at an arbitrary `D`
-the conclusion is a statement about an unconstrained function and no
-producer can exist.  The datum the regime actually builds
-(`blockSqData`) has `tupOf c is = d.tup ψ (mem c) is`, which is what
-this theorem concludes at. -/
+**The conclusion is at `blockSqData`'s `tupOf`, not at an arbitrary
+`D`.**  `RecFamData.tupOf` is an abstract field; nothing in the
+structure ties it to the block, so at an arbitrary `D` no producer
+can exist.  The datum the regime actually builds (`blockSqData`) has
+`tupOf c is = d.tup ψ (mem c) is`. -/
 theorem blockRuleSrcVals_rule (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
@@ -807,10 +793,10 @@ theorem blockRuleSrcVals_rule (hM : BlockModelAt mpC.base2 names d)
   have hprop := blockCtorFieldProp hcj hcf hlarge hw hparamsC (d.satOfSpine hps)
   exact (srcVals_of_fit hprop hfs rfl).symm
 
-/-- **§2's fact at EITHER regime** — the guard's one case distinction,
-in the one place the lane makes it.  At `d.w ψ ≠ 0` it is §2
-(injectivity); at `d.w ψ = 0` it is §2b (the subsingleton criterion),
-whose three extra facts are asked for only there. -/
+/-- **§2's fact at EITHER regime** — the guard's one case distinction.
+At `d.w ψ ≠ 0` it is §2 (injectivity); at `d.w ψ = 0` it is §2b (the
+subsingleton criterion), whose three extra facts are asked for only
+there. -/
 theorem blockRuleChainFit_any (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
@@ -844,18 +830,17 @@ theorem blockRuleChainFit_any (hM : BlockModelAt mpC.base2 names d)
   · exact blockRuleChainFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
 
 /-- **`BlockRuleDataB`'s FIRST conjunct at the run** — the prefix half
-(`blockRuleHspPref_run`, landed) and the FIELD half, appended.
+(`blockRuleHspPref_run`) and the FIELD half, appended.
 
 The field half is `blockRecSpF_of` at `K = 0` (§1) over the
 `ChainFit` at the recursor's parameters (§2), and its three
 block-facing premises come from `BlockRecSplitAt` at the contract's
 own recursor fit.
 
-**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** — see §4's
-FINDING.  The guard is not `d.w ψ ≠ 0` any more: §2b closes the
-`d.w ψ = 0` case whenever the large-elimination counting guard has
-fired, which is exactly the `ℓ ≠ 0` region, so what this theorem takes
-is that guard's two facts and the rule's index pin. -/
+**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** (§4).  §2b
+closes the `d.w ψ = 0` case whenever the large-elimination counting
+guard has fired, which is exactly the `ℓ ≠ 0` region, so what this
+theorem takes is that guard's two facts and the rule's index pin. -/
 theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -869,7 +854,7 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
     (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    -- the COUNTING guard's two facts, the KERNEL's (the dispatch lane's
+    -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
     (hlarge : d.w ψ = 0 → d.large = true)
     (hct1 : d.w ψ = 0 → (d.ctorsM (mem c)).length ≤ 1)
@@ -938,10 +923,8 @@ theorem blockCtorMajor_value (hM : BlockModelAt mpC.base2 names d)
 The rule fires the constructor at the RECURSOR's parameters and the
 rule's field openers; the major is the constructor at its OWN
 parameters.  Both read to `d.inj ψ (mem c) j fs` — the block's
-injection does not mention the parameters at all
-(`blockCtorFold_params_blind`'s content, used here as its two halves)
-— so the conjunct is `blockRecMkK_value` at `K = 0` against
-`blockCtorMajor_value`.
+injection does not mention the parameters at all — so the conjunct is
+`blockRecMkK_value` at `K = 0` against `blockCtorMajor_value`.
 
 The two parameter spines' FITS are what this costs, and both are
 produced: the recursor's by `BlockRecSplitAt` at the contract's own
@@ -962,7 +945,7 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
     (hmemk : mem c < d.k)
     (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    -- the COUNTING guard's two facts, the KERNEL's (the dispatch lane's
+    -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
     (hlarge : d.w ψ = 0 → d.large = true)
     (hct1 : d.w ψ = 0 → (d.ctorsM (mem c)).length ≤ 1)
@@ -1034,15 +1017,15 @@ index tuple the carrier membership named, which `projS_tupW` retracts
 to `xs.drop rP` itself.
 
 Two transports and no new mathematics: `hes` (`blockRecCtorIdx`'s own
-named premise — RM11's `blockRuleEsAV_eq` composed with the record's
+named premise — `blockRuleEsAV_eq` composed with the record's
 `Es`/`Ess` identification) moves the syntactic `es0` onto the datum's
 `Ess`, and `interp_liftN_rule` at `K = 0` moves the reading from the
 rule's frame to the block's.
 
-**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** — see §5's
-FINDING, which is a DIFFERENT witness from §4's.  Like the fit, it is
-closed at `d.w ψ = 0` by §2b under the counting guard, so the premise
-here is that guard's two facts and the pin, not `d.w ψ ≠ 0`. -/
+**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** — §5, a
+DIFFERENT counterexample from §4's.  Like the fit, it is closed at
+`d.w ψ = 0` by §2b under the counting guard, so the premise here is
+that guard's two facts and the pin, not `d.w ψ ≠ 0`. -/
 theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1057,7 +1040,7 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
     (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
     (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    -- the COUNTING guard's two facts, the KERNEL's (the dispatch lane's
+    -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
     (hlarge : d.w ψ = 0 → d.large = true)
     (hct1 : d.w ψ = 0 → (d.ctorsM (mem c)).length ≤ 1)
@@ -1138,12 +1121,9 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
 `blockRuleHsp_field_run`, `blockRuleHes_run` and `blockRuleHmk_run`
 each take `hlv` (the constructor's level assignment agrees with the
 recursor's on the block's parameters) and `hqs`/`hfq` (the
-constructor's parameter and field spines fit).  None of the three is
-the seam's to supply: all three are consequences of premises
-`BlockRuleDataB` already hands — `hψ` for the first, `hfitC` for the
-other two — and they are produced here, so that what is left between
-the three conjuncts and the contract is the rule lane's two rows and
-the `w`-ruling and nothing else. -/
+constructor's parameter and field spines fit).  All three are
+consequences of premises `BlockRuleDataB` already hands — `hψ` for the
+first, `hfitC` for the other two — and are produced here. -/
 
 /-- **`hlv` at the contract's own `hψ`.**  A block rule is `.plain`,
 so `recFireComparands` copies the recursor's level arguments
@@ -1164,7 +1144,7 @@ theorem blockRuleLevelAgree {φ : Name → Nat} {lps lpsR : List Name} {us usj :
 domains; `CtorDataI.params` moves the domains from the constructor's
 own level assignment `ψj` to the recursor's `ψ` (which is exactly what
 `hlv` says); and §2's `blockCtorSpine_split` splits the result at
-`d.nP`.  This is `blockCtorSpine_split`'s first consumer. -/
+`d.nP`. -/
 theorem blockRuleCtorFit_run {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
     (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
@@ -1186,14 +1166,14 @@ theorem blockRuleCtorFit_run {mm j : Nat} {cA : ConstantVal × Nat}
   rw [hds] at hsp
   exact blockCtorSpine_split hcj (hD.len ψ) hsp hparamsC hlenP
 
-/-! ## §6 THE TOWER FIT — the G2 bridge, at an arbitrary second side
+/-! ## §6 THE TOWER FIT — the λ-domain bridge, at an arbitrary second side
 
 `BlockRuleDataB`'s FIFTH conjunct compares two readings of the SAME
 binders: the rule's own λ-domains (`lds.map (·.2)`, `blockRuleTower_run`)
 and the OPENERS' stored types (`blockRulePdomsAV ++ blockRuleFdomsAV`).
 Nothing identifies them syntactically; what the checker does about it
-is **G2**, the `checkBlockDefEqList` that compares the two binder by
-binder at the rule frame's depth (`blockRuleData_run`'s last two rows).
+is the `checkBlockDefEqList` that compares the two binder by binder at
+the rule frame's depth (`blockRuleData_run`'s last two rows).
 
 The bridge from that comparison to a `SpineFit` transfer is
 `prefixDoms_spineFit`'s (`BlockRecPreRun.lean` §35F), written for two
@@ -1254,7 +1234,7 @@ theorem mkLamsAV_doms_graded :
       rw [consList_cons]
       exact hq
 
-/-- **THE G2 BRIDGE** — a spine fitting the OPENERS' stored-type
+/-- **THE λ-DOMAIN BRIDGE** — a spine fitting the OPENERS' stored-type
 readings fits the readings of any second list of domains the checker
 compared them with, binder by binder, at the frame's own depth.
 
@@ -1436,7 +1416,7 @@ theorem mkLamsAV_length_inj :
     obtain ⟨rfl, rfl⟩ := mkLamsAV_length_inj (by simpa using hl) h3
     exact ⟨by rw [show ld = ld' from Prod.ext h1 h2], rfl⟩
 
-/-- **The G2 bridge at a TWO-STAGE opened frame** — the rule's shape.
+/-- **The λ-domain bridge at a TWO-STAGE opened frame** — the rule's shape.
 
 The first side is the rule frame's openers (`fvsP ++ fvsF`, opened at
 `0` and at `rP`), the second the domains of an `instLamsAt` run at
@@ -1576,34 +1556,24 @@ end TwoStage
 /-! ### §6c The tower fit AT THE RUN
 
 Every input `twoStageOpeners_spineFit` asks for is a run fact of the
-rule's own frame, except three, and each of the three has a named
-producer in another stage's file:
+rule's own frame, except these, each produced in another file:
 
 * **`hdF`** — the FIELD openers' stored types read to
-  `blockRuleFdomsAV`'s entries at their own depths.  **Produced**:
-  `blockRuleFdomsAV_eq`'s SECOND conjunct (`BlockRecData.lean`).  It
-  is `readOpenedDoms_eq`'s own hypothesis, which
-  `readOpenedDoms_shift` computes on the way to the equation and used
-  to discard — the constructors' stage pays for it either way, so the
-  producer costs the assembly a projection;
+  `blockRuleFdomsAV`'s entries at their own depths:
+  `blockRuleFdomsAV_eq`'s SECOND conjunct (`BlockRecData.lean`), which
+  is `readOpenedDoms_eq`'s own hypothesis;
 * **`hokF`** — the field domains are graded along their own fitting
-  spines.  **Produced**: `blockRuleHokF_of_run` (below), which is
-  `blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9) rewritten
-  through `blockRuleFdomsAV_eq_liftDoms` and nothing else;
-* **`hcross`** — the ENVIRONMENT CROSSING.  G2 runs at `envC`; the
-  rule's reading, and with it the tower's domains, is at the CONSED
-  environment.  The crossing itself is a THEOREM
-  (`blockRecDenote_cross_eq`, `BlockRecData.lean`): `denoteMeta` is an
-  EQUATION across the recursors' cons at a `ConstsBound envC` subject,
-  the two literal guards being the recursor stage's own NAME check.
-  What it leaves is the purely syntactic
-  `ConstsBound envC (ldoms.getD l default)` — which is NOT
-  `checkBlockRecK_facts`' `constsResolve`, since that one is at
-  `consBlockRecsBare`: the right-hand side mentions the recursors by
-  design, and what has to be shown is that its BINDER DOMAINS do not.
-  **That last statement is REFUTABLE against the checker as it
-  stands** (§7): nothing constrains a rule's λ-domains but a DEFEQ at
-  `envC`, which is not syntax-preserving.
+  spines: `blockRuleHokF_of_run` (below);
+* the ENVIRONMENT CROSSING.  The λ-domain comparison runs at `envC`;
+  the rule's reading, and with it the tower's domains, is at the
+  CONSED environment.  `denoteMeta` is an EQUATION across the
+  recursors' cons at a `ConstsBound envC` subject
+  (`blockRecDenote_cross_eq`, `BlockRecData.lean`), the two literal
+  guards being the recursor stage's own NAME check.  What it leaves is
+  the syntactic `ConstsBound envC (ldoms.getD l default)` — NOT
+  `checkBlockRecK_facts`' `constsResolve`, which is at
+  `consBlockRecsBare` (the right-hand side mentions the recursors by
+  design).  The rule stage's own domain guard supplies it (§7).
 
 The PREFIX half needs no premise at all: its readings are
 `blockRulePdomsAV_reads` and its gradings `blockRulePdomsAV_graded`,
@@ -1617,12 +1587,10 @@ variable {ctorsAs : List (List (ConstantVal × Nat))}
 /-- **`hokF`, AT THE RUN** — the tower fit's FIELD-grading input, in
 the `blockRuleFdomsAV` spelling the fit asks it in.
 
-`blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9, the certificate
-lane's) concludes exactly this at the constructors' stage's own binder
-data lifted to the rule's frame, and `blockRuleFdomsAV_eq_liftDoms` is
-the identity between that spelling and `blockRuleFdomsAV`.  So the
-input is a REWRITE, not a proof: a finished bridge that had no
-traffic until the fit asked for it. -/
+`blockRuleFseg_of_run` (`BlockRecPreRun.lean` §40.9) concludes exactly
+this at the constructors' stage's own binder data lifted to the rule's
+frame, and `blockRuleFdomsAV_eq_liftDoms` is the identity between that
+spelling and `blockRuleFdomsAV`, so the proof is a rewrite. -/
 theorem blockRuleHokF_of_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1662,16 +1630,13 @@ from its FIRST.
 The fit the block's representation produces is of the OPENERS' domain
 readings (`blockRulePdomsAV ++ blockRuleFdomsAV`); the conjunct asks
 for a fit of the RULE's own λ-domains, and nothing identifies the two
-syntactically.  G2 — the `checkBlockDefEqList` `blockRuleData_run`
-carries — compares them binder by binder at the rule frame's depth,
-and `twoStageOpeners_spineFit` is the transfer.
+syntactically.  The `checkBlockDefEqList` `blockRuleData_run` carries
+compares them binder by binder at the rule frame's depth, and
+`twoStageOpeners_spineFit` is the transfer.
 
-`hcross`, `hdF` and `hokF` are the three inputs that belong to other
-stages (§6c); everything else is this run's own.  Two of the three
-now have a theorem (`blockRuleFdomsAV_eq`.2, `blockRuleHokF_of_run`),
-and the third is a CHECKER guard, not a theorem (§7).  The statement is
-`w`-FREE: the evidence is a grading against the rule's λ-tower, never
-a membership in a carrier. -/
+`hdF` and `hokF` are the inputs other stages produce (§6c); everything
+else is this run's own.  The statement is `w`-FREE: the evidence is a
+grading against the rule's λ-tower, never a membership in a carrier. -/
 theorem blockRuleTowerFit_run {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm}
     (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1854,28 +1819,25 @@ end TowerFitRun
 `BlockRuleDataB`
 
 Five of the obligation's six statements have a theorem each (§3, §3b)
-and the sixth pair is the rule lane's; until this section nothing
-COMPOSED them, so the obligation itself was the one statement with no
-producer.  `blockRuleDataB_of_residue` is that producer: it fixes the
-four syntactic components at the lane's own readings
-(`blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleEsAV`/`blockRuleMkAV`,
-which is what `declBlock_data`'s existential is instantiated at),
-takes the residue and the tower fit as the SINGLE premise
-`BlockRuleResidueB`, and discharges the other three conjuncts from the
-run.
+and the sixth pair is the rule stage's.  `blockRuleDataB_of_residue`
+composes them: it fixes the four syntactic components at the route's
+own readings (`blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleEsAV`/
+`blockRuleMkAV`, which is what `declBlock_data`'s existential is
+instantiated at), takes the residue and the tower fit as the SINGLE
+premise `BlockRuleResidueB`, and discharges the other three conjuncts
+from the run.
 
 Every ψ-indexed premise is bounded by the contract's own telescope —
 the level assignment a conjunct is asked at is `Level.substFn φ
 r.1.levelParams us` for a `us` of the recursor's own length, never an
-arbitrary `ψ`.  **The guard is `ℓ ≠ 0`** (ruled 2026-09-22): conjuncts
-① and ② are REFUTABLE at `d.w ψ = 0` with `ℓ = 0` (§4, §5) and at
-`ℓ = 0` the contract is not used at all, while at `ℓ ≠ 0` the
-`d.w ψ = 0` case is closed by §2b — so what the guard brings with it
-is the large-elimination counting guard's two facts, `hlarge` and
-`hct1`, which are the KERNEL's and are stated in the dispatch lane's
-own spelling.  The rule's INDEX PIN, which §2b also needs, is produced
-here (`blockRuleIdxPin_run`) out of the contract's own `IotaIndexPin`
-premise — the premise that had no consumer until now. -/
+arbitrary `ψ`.  **The guard is `ℓ ≠ 0`**: conjuncts ① and ② are
+REFUTABLE at `d.w ψ = 0` with `ℓ = 0` (§4, §5) and at `ℓ = 0` the
+contract is not used at all, while at `ℓ ≠ 0` the `d.w ψ = 0` case is
+closed by §2b — so what the guard brings with it is the
+large-elimination counting guard's two facts, `hlarge` and `hct1`,
+which are the KERNEL's.  The rule's INDEX PIN, which §2b also needs,
+is produced here (`blockRuleIdxPin_run`) out of the contract's own
+`IotaIndexPin` premise. -/
 
 /-- **`BlockRuleDataB` from the run and ONE residue premise.**
 
@@ -1897,10 +1859,10 @@ signature readable.
 
 What is left as a hypothesis is what belongs to another stage: the
 identifications of the rule's field domains and index expressions with
-the datum's (`hfd`, `hes`), the recursor type's split (`hsplit`, the
-recursor-type lane's `BlockRecSplitAt`), the constructors' stage's
-parameter clauses (`hlenP`, `hparamsC`), the block's own
-`d.nP = p.nP`, and the `w`-guard. -/
+the datum's (`hfd`, `hes`), the recursor type's split (`hsplit`,
+`BlockRecSplitAt`), the constructors' stage's parameter clauses
+(`hlenP`, `hparamsC`), the block's own `d.nP = p.nP`, and the
+`w`-guard. -/
 theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -1952,7 +1914,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
     -- `structElimLevel p.elim p.large`), and under it the COUNTING
     -- guard's two facts.  `hlarge`/`hct1` are the KERNEL's, in the
-    -- dispatch lane's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
+    -- dispatch's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
     -- rs.length = 1` is the same guard's one-member half).
     (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length →
       Level.eval (Level.substFn φ r.1.levelParams us)
@@ -2004,8 +1966,8 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hparamsC us hus) (by rw [hyl, hdnP]) (hctorRead _) hfitC
   have hbody :=
     hres us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
-  -- THE INDEX PIN, in the model's currency (the contract's `hidx`, at
-  -- last consumed): the squash arm's tie between the two frames
+  -- THE INDEX PIN, in the model's currency (the contract's `hidx`):
+  -- the squash arm's tie between the two frames
   have hmN : mem j < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : jc < (d.ctorsM (mem j)).length := (List.getElem?_eq_some_iff.mp hcj).1
   obtain ⟨-, hidxS, -⟩ := blockRecSplit_at_rule (d := d) hμ mpC h hr
@@ -2024,7 +1986,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   have hpin := blockRuleIdxPin_run hcj hcf hlv (by rw [hyl, hdnP]) hxl hrPle hnI
     (hctorRead _) hfitC (by rw [hdnP]; exact hidx)
   subst hpd; subst hfdD; subst hesD; subst hmkD
-  -- the FIRST conjunct, and the FIFTH from it through G2
+  -- the FIRST conjunct, and the FIFTH from it through the λ-domain comparison
   have hsp1 : SpineFit ρ
       (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
           (Level.substFn φ r.1.levelParams us) j
@@ -2055,12 +2017,11 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     exact blockRuleHRa_tower_run h hr hcA hrhs (hread us hus) (hokRa us hus ρ) htow
       (hbody a hleaf)
 
-/-! ## 4. THE FINDING — the FIT conjunct is FALSE at a `Prop`-valued
-block
+/-! ## 4. The FIT conjunct is FALSE at a `Prop`-valued block with `ℓ = 0`
 
 `BlockRuleDataB`'s first conjunct — the recursor's prefix and the
 constructor's fields fit the rule's domains — is **refutable** at
-`d.w ψ = 0`, and the `hw` above is not a convenience of the proof.
+`d.w ψ = 0`; the `hw` of §2 is not a convenience of the proof.
 
 The rule is `paramsBlind`, so the only thing that ties the
 constructor's parameter spine to the recursor's is the MAJOR
@@ -2091,44 +2052,25 @@ conjunct's field half then asks
 
 which is false.  No premise of `BlockRuleDataB` excludes it.
 
-**What this costs and where it goes.**  The other conjunct this lane
-owns, `mk`, is NOT affected: at `d.w ψ = 0` both sides are the point
-(`blockRuleHmk_zero`), with no fit anywhere.  So the repair is local
-to the FIT, and the design question — which is the coordinator's, not
-this lane's — is what the contract asks for at `d.w ψ = 0`:
+**Hence the contract's guard `ℓ ≠ 0`.**  At `ℓ = 0` the ι equation is
+an equation between proofs and the rule contract is not used at all.
+At `ℓ ≠ 0` and `d.w ψ = 0` the large-elimination COUNTING guard
+(`blockLargeElimAllowed`, which requires `p.large`) forces the
+generated large shape and at most one constructor, and §2b closes the
+fit there by the SUBSINGLETON criterion — `j' = j` without
+injectivity, both field spines the source spine.
+`blockRuleChainFit_any` is the one case distinction. -/
 
-* at `ℓ = 0` (a `Prop` motive, the ordinary case for a `Prop`-valued
-  block) the ι equation is an equation between PROOFS, both the
-  point, so the fit is not needed at all and the conjunct should be
-  guarded by `d.w ψ ≠ 0`;
-* at `ℓ ≠ 0` (large elimination from a subsingleton) the attack is
-  blocked by `IotaIndexPin` wherever the mismatched field is an INDEX
-  of the result — `Acc.intro`'s `x` is, and the pin forces the
-  recursor's index value to BE the field's value — but that is an
-  argument about the SYNTAX of subsingleton-eliminating blocks and
-  has to be written; it is not a consequence of anything landed.
-
-**RULED (2026-09-22), and the second bullet is now written**: the
-guard is `ℓ ≠ 0`.  At `ℓ = 0` the ι equation is an equation between
-proofs and the rule contract is not used at all, so no arm is needed;
-at `ℓ ≠ 0` and `d.w ψ = 0` the large-elimination COUNTING guard
-(`blockLargeElimAllowed`, with `p.large` required since the
-falsifier's witness) forces the generated large shape and at most one
-constructor, and §2b closes the fit there by the SUBSINGLETON
-criterion — `j' = j` without injectivity, both field spines the source
-spine.  `blockRuleChainFit_any` is the one case distinction, and
-`d.w ψ ≠ 0` has left the contract. -/
-
-/-! ## 5. THE SECOND FINDING — the INDEX READING is FALSE at a
-`Prop`-valued block too, and the witness is in Mathlib
+/-! ## 5. The INDEX READING is FALSE at a `Prop`-valued block with `ℓ = 0`
+too, and the witness is in Mathlib
 
 `BlockRuleDataB`'s second conjunct — the rule's index expressions read
 to the recursor's own index arguments — is **refutable** at
-`d.w ψ = 0`, by a DIFFERENT witness from §4's.  §4's `Exists` cannot
-refute this row at all: it has no indices, so the conjunct is
-`[] = []`.  What this row needs is a block with an INDEX whose
-constructor-side expression is a PARAMETER, and a SECOND constructor
-to keep the carrier inhabited at a *different* index.
+`d.w ψ = 0`, by a DIFFERENT witness from §4's (`Exists` has no
+indices, so there the conjunct is `[] = []`).  The row needs a block
+with an INDEX whose constructor-side expression is a PARAMETER, and a
+SECOND constructor to keep the carrier inhabited at a *different*
+index.
 
 **The witness is `Relation.ReflTransGen`.**
 
@@ -2160,64 +2102,42 @@ since `true ≠ false`.  `IotaIndexPin` holds: `refl`'s residual is
 whose left side reads the parameter `a` at the RECURSOR's frame —
 `true` — and whose right side is `[false]`.
 
-**It is the same hole as §4's, one conjunct along.**  The rule is
-`paramsBlind`, so the only tie between the constructor's parameter
-spine and the recursor's is the major premise's membership; at
-`d.w ψ = 0` every value is the point and the membership says only
-that SOME constructor's `ChainFit` holds at the recursor's index
-tuple — here `tail`'s, not `refl`'s.  `blockCarrier_case` delivers a
-`j'`, and it is `mkInj` — `d.w ψ ≠ 0` — that makes `j' = j`.
+**It is the same hole as §4's, one conjunct along.**  At `d.w ψ = 0`
+the major's membership says only that SOME constructor's `ChainFit`
+holds at the recursor's index tuple — here `tail`'s, not `refl`'s;
+`blockCarrier_case` delivers a `j'`, and only `mkInj` makes `j' = j`.
 
-**Where the two witnesses agree, and what that buys the ruling.**
-Both `Exists` and `ReflTransGen` are `ℓ = 0` blocks: `Exists` is not
-subsingleton-eliminating (its field `w` is neither a proof nor an
-argument of the conclusion) and `ReflTransGen` has two constructors.
-So BOTH refutations live in the region where the ι equation is an
-equation between PROOFS, and the `d.w ψ ≠ 0` guard on both conjuncts
-is the repair the coordinator's first bullet already describes.
-Neither witness reaches the `ℓ ≠ 0` region, and the argument there is
-still unwritten — but it is now narrower for this row than for the
-fit: subsingleton elimination needs ONE constructor, and with one
-constructor `blockCarrier_case`'s `j'` is `j` with no `mkInj` at all.
-What would remain at `ℓ ≠ 0` is the FIELD spine (`fs'` need not be
-`fs` without `mkInj`), so the row closes there exactly when the index
-expressions' readings do not depend on the fields, or where
-`IotaIndexPin` pins the ones that do — `Acc.intro`'s `x` is pinned,
-and `inductive P (α) (a : α) : α → Prop | mk : P α a a` needs no pin
-because its single constructor forces `i_R = a_R` through `hfitR`.
-
-**RULED**: the row is closed at `ℓ ≠ 0` (`blockRuleHes_run` through
-`blockRuleChainFit_any`), like the fit, and the paragraph above says
-why the `ℓ ≠ 0` region is safe for it: one constructor makes
-`blockCarrier_case`'s `j'` this rule's own with no `mkInj`, and the
-FIELD spine — which that paragraph left open — is pinned by the
-subsingleton criterion at the two frames (§2b), the index values on
-the two sides being the rule's own INDEX PIN
+Both witnesses are `ℓ = 0` blocks (`Exists`'s field `w` is neither a
+proof nor an argument of the conclusion; `ReflTransGen` has two
+constructors), so the `ℓ ≠ 0` guard excludes them.  At `ℓ ≠ 0` the row
+is closed like the fit (`blockRuleHes_run` through
+`blockRuleChainFit_any`): one constructor makes `blockCarrier_case`'s
+`j'` this rule's own with no `mkInj`, and the FIELD spine is pinned by
+the subsingleton criterion at the two frames (§2b), the index values
+on the two sides being the rule's own INDEX PIN
 (`blockRuleIdxPin_run`). -/
 
-/-! ## 7. THE THIRD FINDING — the rule's λ-DOMAINS are not
-`ConstsBound envC`, and the checker is what has to say so
+/-! ## 7. The rule's λ-DOMAINS must be `ConstsBound envC`, and the
+checker guards it
 
-The ENVIRONMENT CROSSING (§6c) turned out to be free: `denoteMeta` is
-an EQUATION across the recursors' cons at any `ConstsBound envC`
-subject (`blockRecDenote_cross_eq`), because `denoteMeta_envExtend` is
-one and the recursor stage's NAME check
-(`ConLeche.checkBlockRecK_reserved`) is exactly what makes the two
-literal guards agree.  What the crossing leaves behind is the
-syntactic premise `hcbLd`:
+The ENVIRONMENT CROSSING (§6c) is an EQUATION across the recursors'
+cons at any `ConstsBound envC` subject (`blockRecDenote_cross_eq`),
+because `denoteMeta_envExtend` is one and the recursor stage's NAME
+check (`ConLeche.checkBlockRecK_reserved`) is exactly what makes the
+two literal guards agree.  What the crossing needs is the syntactic
+fact
 
     ∀ l, l < rP + nF → ConstsBound envC (ldoms.getD l default)
 
-**and that statement was REFUTABLE against `checkBlockRule` as it
-stood.**
-
-The rule's right-hand side is annotated and consts-resolved at the
-RULE-LESS recursor environment (`checkBlockRecK_facts`:
-`rhs.constsResolve (consBlockRecsBare …) = true`), because a rule
-mentions the recursors by design.  Its BODY is forced back into
-`envC`: `abstractIh` fails unless every recursor occurrence is a call
-on a recursive field, and the residue is then typed at `envT = envC`.
-Its λ-BINDER DOMAINS are forced by nothing but G2 —
+**and without a guard of its own that fact is false for some accepted
+streams.**  The rule's right-hand side is annotated and
+consts-resolved at the RULE-LESS recursor environment
+(`checkBlockRecK_facts`: `rhs.constsResolve (consBlockRecsBare …) =
+true`), because a rule mentions the recursors by design.  Its BODY is
+forced back into `envC`: `abstractIh` fails unless every recursor
+occurrence is a call on a recursive field, and the residue is then
+typed at `envT = envC`.  Its λ-BINDER DOMAINS would be forced by
+nothing but the comparison
 `checkBlockDefEqList opsT envT (rP + nF) (openers' types) ldoms` — and
 defeq does not preserve syntax.  Take a rule
 
@@ -2229,17 +2149,16 @@ CONSTANT and `A₁` the constructor's first field type.  `instLamsAt`
 returns `(fun _ : T_rec => A₁) C_rec` as `ldoms[rP]`; `isDefEq envC`
 β-reduces it to `A₁` and answers `true`, since an unstored constant is
 never looked up on that path; `stripLams`/`abstractIh`/the residue's
-inference never see it.  So the stream is ACCEPTED, and
+inference never see it.  Then
 `denoteMeta mpC.base2.acval envC ψ (rP) (ldoms.getD rP default) = none`
 by `denoteMeta`'s `.const` clause, while the consed reading is `some`
-(`blockRuleTower_run`).  `hcbLd` is false at that stream, and so was
-`hcross` before it.
+(`blockRuleTower_run`).
 
-**The repair was one line in the kernel, and it LANDED**, in the kind
-the project already prefers (validate once at insertion, never a
+**So the kernel checks it** (validate once at insertion, never a
 per-call gate): in `checkBlockRule`
 (`ConLeche/Kernel/Inductives/BlockInstall.lean`), immediately after
-the `instLamsAt` that produces `ldoms` and before the G2 comparison,
+the `instLamsAt` that produces `ldoms` and before the domain
+comparison,
 
     unless ldoms.all (fun t => t.constsResolve envT) do
       throw (unresolvedConstsError s!"the domains of the rule of {cA.1.name}" rhsA)
@@ -2251,38 +2170,24 @@ domains ARE the recursor prefix's stored types and the constructor's
 field types, and both are `constsResolve envC` already
 (`checkBlockRecK_facts`' first bullet for the recursor type, the
 constructors' stage for `cA.1.type`); the forged witness above is
-`tests/e2e/corner_rec_dom_recursor.ndjson`.  The peel KEEPS the guard
-(`checkBlockRule_data`'s new row), `blockRuleData_run` states it at
-the frame's own bound through the two openings' lengths, and
-`blockRuleDataB_of_residue` reads it off the run — the premise `hcbLd`
-is gone and §6c's three inputs are two.
-
-**The rule this restates.**  The lane's standing check is *which CHECK
-makes this available, and does the INVERSION that reads it KEEP it?*
-Here the answer was the third one: **no check made it available at
-all.**  The route had been described for four reports as a model
-obligation ("someone owes a theorem that the domains do not mention
-the recursors"); it was not a theorem, it was a missing guard, and the
-difference is one grep of `checkBlockRule` for what constrains
-`ldoms`. -/
+`tests/e2e/corner_rec_dom_recursor.ndjson`.  The peel keeps the guard
+(`checkBlockRule_data`'s row), `blockRuleData_run` states it at the
+frame's own bound through the two openings' lengths, and
+`blockRuleDataB_of_residue` reads it off the run. -/
 
 /-! ## 8. `ihs` PINNED — the ih openers' terms at the rule's frame
 
 `BlockRuleDataB` carries six function variables and four of them are
 pinned by equations in `blockRuleDataB_of_residue`'s own signature
-(`hpd`/`hfdD`/`hesD`/`hmkD`).  `ihs` was the odd one out, and it was
-priced as the ASSEMBLY's only because nobody looked at how its
-siblings are handled: the producer pins them, and `ihs` needs exactly
-the same treatment.
+(`hpd`/`hfdD`/`hesD`/`hmkD`); `ihs` is pinned the same way.
 
-**The definition was already in the tree.**  `blockRecIhsAt`
-(`BlockRecPreRun.lean` §30) is "the `ihs` BOTH lanes state their facts
-at", one `ihFunAV` per key; what was missing is its instantiation at
-the RULE's per-key data — the field's MOVED telescope, its index
-readings moved with it, and the field applied along the telescope —
-which is exactly what `ihSpineFold_blockRec_run`'s `hihv` spells out
-on its right-hand side.  `blockRuleIhsAV` is that instantiation, and
-`hihv` is then `List.getD` of a `map`. -/
+`blockRecIhsAt` (`BlockRecPreRun.lean` §30) is the `ihs` the regimes
+state their facts at, one `ihFunAV` per key; `blockRuleIhsAV` is its
+instantiation at the RULE's per-key data — the field's MOVED
+telescope, its index readings moved with it, and the field applied
+along the telescope — which is exactly what
+`ihSpineFold_blockRec_run`'s `hihv` spells out on its right-hand
+side, so `hihv` is `List.getD` of a `map`. -/
 
 section IhsPin
 
@@ -2315,7 +2220,7 @@ readings (`FieldReadAt`), which is where the ψ-dependence enters. -/
   rfl
 
 /-- **`hihv`, from the pinning** — `ihSpineFold_blockRec_run`'s and
-`blockRuleBodyEq_run`'s second block fact, at the values the lane's
+`blockRuleBodyEq_run`'s second block fact, at the values the route's
 own `ihs` reads to.  No content beyond `List.getD` of a `map`: the key
 at position `r` IS `(i, c')` (`pairIdxOf?_getElem?`). -/
 theorem blockRuleHihv_of {ℓ K o : Nat} {fr : BlockRuleFrame} {cty : Expr}
@@ -2342,46 +2247,40 @@ end IhsPin
 
 `blockRuleBodyEq_run` (`BlockRecTyShapeRun.lean`) is the rule
 contract's last conjunct — `interp_blockResidue`'s own conclusion at
-the rule's frame — and it had no consumer: forty-five premises, and
-nothing that fed them.  This section is its application at the run.
+the rule's frame, with forty-five premises.  This section is its
+application at the run.
 
 **What the run pays for.**  The two peels (`blockRuleData_run` for the
-rule's own openings and the λ-tower, `blockRuleResidueData_run` for
-the residue's rows) and the two block facts this lane had landed
-unconsumed (`blockRuleHcallee_of`, and `hihv` off §8's pinning)
-discharge fifteen of the forty-five; the reading of the right-hand
-side is `blockRuleRhs_read_run`'s; the environment crossing is
-`blockRecDenote_cross` and `findProj?_consBlockRecs`; and the two
-residue rows `hbf`/`hbB` are the checked rule's own scoping through
-`stripLams`.
+rule's own openings and the λ-tower, `blockRuleResidueData_runP` for
+the residue's rows) and the two block facts (`blockRuleHcallee_of`,
+and `hihv` off §8's pinning) discharge fifteen of the forty-five; the
+reading of the right-hand side is `blockRuleRhs_read_run`'s; the
+environment crossing is `blockRecDenote_cross` and
+`findProj?_consBlockRecs`; and the two residue rows `hbf`/`hbB` are
+the checked rule's own scoping through `stripLams`.
 
 **What stays a premise, and whose it is.** The constructor's stored
-type and its field readings (`hop0`…`hrecTy`) are M3's tier; the
-frame's eight context rows (`hpl`…`hclF`) are the certificate bundle's
-(`BlockRuleCerts`, stated here at the run's own openers so the
-bundle's producer plugs in unchanged); `hspF` is the contract's FIRST
-conjunct (`blockRuleHsp_field_run`, which is why the `w`-guard reaches
-this far — §S30.4); `hihFit` is the REGIME's, in exactly the shape
-`IndRegimeAt`'s fourth conjunct and `KitRegimeAt`'s `hihChain` state
-it; and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
+type and its field readings (`hop0`…`hrecTy`) are the constructors'
+stage's; the frame's eight context rows (`hpl`…`hclF`) are the
+certificate bundle's (`BlockRuleCerts`, stated here at the run's own
+openers so the bundle's producer plugs in unchanged); `hspF` is the
+contract's FIRST conjunct (`blockRuleHsp_field_run`, which is why the
+`w`-guard reaches this far); `hihFit` is the REGIME's, in exactly the
+shape `IndRegimeAt`'s fourth conjunct and `KitRegimeAt`'s `hihChain`
+state it; and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
 `hty`) are the check's own inference, which the bundle also carries.
 
 **`ℓ ≠ 0` is not incidental.**  `blockRuleBodyEq_run` needs it
 (`ihFunAV_fold` folds a λ-tower at a non-zero level), so THIS
 conjunct of the contract is a KIT-regime statement: at `ℓ = 0` the
 rule's obligation is discharged by `blockRecPre_ind_run` instead, and
-the ih values are the point.  The `w`-guard's arm and the
-elimination-level arm are therefore not independent.
+the ih values are the point.
 
-**The composition CALLS the composed statement.**  This wiring is
-`blockRuleBodyEq_run`'s only consumer, and for one session it inlined
-that theorem's eight-line proof instead of calling it — which is
-exactly what hid the defect the call has since exposed: `hop0` and
-`hop2` shared one binder, so the premise set had no instance at
-`fr.nF ≥ 1` (the binder is split now, `cmid` is `hop2`'s own).  A
-composed statement that is CALLED is the only thing that keeps its
-premise set honest; an inlining proves the PROOF composes and says
-nothing about the STATEMENT. -/
+**The composition CALLS the composed statement** rather than inlining
+its proof: a composed statement that is CALLED is the only thing that
+keeps its premise set honest (an inlining proves the PROOF composes
+and says nothing about whether the STATEMENT's premises are
+satisfiable — cf. `blockRuleBodyEq_run`'s `hop0`/`hop2` note). -/
 
 section BodyEqRun
 
@@ -2391,7 +2290,7 @@ open ConLeche (checkBlockRecK BlockParts BlockRuleFrame pairIdxOf? structFieldTe
 /-- **The body equation at the run.**  `blockRuleBodyEq_run` with
 every premise the RUN determines discharged; the conclusion is
 `BlockRuleResidueB`'s own inner statement — the λ-tower's core read
-against the residue at the ih values — at the lane's pinned `ihs`
+against the residue at the ih values — at the route's pinned `ihs`
 (§8).
 
 The `∀ lds A` binders are the contract's: `mkLamsAV` at a fixed length
@@ -2651,7 +2550,7 @@ and one quantifier:
   the wiring's `Ra` is that value (`hread`, in the spelling
   `blockRuleDataB_of_residue` already asks it in);
 * and everything the PEEL determines is quantified over the peel's own
-  OUTPUTS, because `blockRuleResidueData_run` returns them
+  OUTPUTS, because `blockRuleResidueData_runP` returns them
   existentially.  `BlockRuleBodyInputs` names that premise block, so
   the quantifier is written once.
 
@@ -2699,23 +2598,22 @@ separate hypothesis because the pinning mentions `fr`, `tlF` and
 `EisF`, all of which are under the peel's quantifier.
 
 **The ih FIT — the conjunct right after the pinning — is the
-REGIME's**, not this lane's.  With `ihs` pinned it is literally
-`IndRegimeAt`'s fourth conjunct (`BlockRecPreRun.lean`, at
-`a = fun _ => pt`) and `KitRegimeAt`'s `hihChain` (at `a = famCand D`)
-at this rule's data:
+REGIME's.**  With `ihs` pinned it is literally `IndRegimeAt`'s fourth
+conjunct (`BlockRecPreRun.lean`, at `a = fun _ => pt`) and
+`KitRegimeAt`'s `hihChain` (at `a = famCand D`) at this rule's data:
 
 ```
 SpineFit (consList (x⃗ ++ f⃗) (chainFrame K a ρ)) ihdoms
   (ihs.map (interp V (consList (x⃗ ++ f⃗) (chainFrame K a ρ))))
 ```
 
-and its producers (`spineFit_ihdoms_zero` at `ℓ = 0`,
-`blockRecIhvAt_fit` ∘ `blockRecIhvAt_eq` at `ℓ ≠ 0`) need the
-recursion's GRAPH.  It is stated here in the regime's own spelling —
-same frame, same `ihdoms`, same `map` — so a regime producer plugs in
-unchanged; the two side conditions those producers take, the prefix
-length and `SpineFit (chainFrame K a ρ) (pdoms ++ fdoms) (x⃗ ++ f⃗)`,
-are the wrapper's `hxl'`/`hpl` and its `hspF`, at the same frame. -/
+and its producers (`spineFit_ihdoms_zero` at `ℓ = 0`, the kit's graph
+at `ℓ ≠ 0`) need the recursion's GRAPH.  It is stated here in the
+regime's own spelling — same frame, same `ihdoms`, same `map` — so a
+regime producer plugs in unchanged; the two side conditions those
+producers take, the prefix length and
+`SpineFit (chainFrame K a ρ) (pdoms ++ fdoms) (x⃗ ++ f⃗)`, are the
+wrapper's `hxl'`/`hpl` and its `hspF`, at the same frame. -/
 def BlockRuleBodyInputs (V : Type w) [SetTheory V] {μ : CheckMode} {envC : Env}
     (mpC : EnvModelM V μ envC) (p : BlockParts) (rs : List RecDatum)
     (ψ : Name → Nat) (ℓ : Nat) (j i : Nat) (cA : ConstantVal × Nat) (lps : List Name)
@@ -2852,11 +2750,11 @@ theorem blockRuleBodyInputs_iff (V : Type w) [SetTheory V] {μ : CheckMode} {env
 /-- **What the rule stage's PEEL owes the residue producer** — the
 `hbody` premise of `blockRuleResidueB_run`, named: at the contract's
 own telescope — with its FIRST conjunct at the base frame, the residue
-producer's own `hsp`, which the `ih` fit is read off (lane RM54) — and
-the leaf-pinned chain tuple, every run of the peel
-(the frame, the abstraction, the `ih` telescope, the opening, the
-residue's typing) yields `BlockRuleBodyInputs` at the lane's `ihs`/`Rb0`.
-The peel's outputs are PINNED to the run's own (§A.9b's definitions,
+producer's own `hsp`, which the `ih` fit is read off — and the
+leaf-pinned chain tuple, every run of the peel (the frame, the
+abstraction, the `ih` telescope, the opening, the residue's typing)
+yields `BlockRuleBodyInputs` at the route's `ihs`/`Rb0`.  The peel's
+outputs are PINNED to the run's own (§A.9b's definitions,
 `BlockRecData.lean`), so a producer is told exactly which frame,
 residue and openers it delivers at; `blockRuleBodyOwed_run`
 (`BlockRuleRun.lean`) is that producer, at the pinned `ihs`/`Rb0`. -/
@@ -3032,17 +2930,15 @@ theorem blockRuleBodyOwed_iff {envC : Env} (mpC : EnvModelM V μ envC) (F : Nat)
 conjunct, with the RESIDUE PEEL consumed and the telescope's own four
 facts paid.
 
-`blockRuleResidueData_run` (`BlockRecData.lean`) gets its first
-consumer here: its rows are `blockRuleBodyEq_at_run`'s premise block
-verbatim, so what the wrapper does with them is `obtain` them and hand
-them on — and because they arrive EXISTENTIALLY, everything else the
-peel touches has to be quantified over the same outputs, which is what
-`hbody` is.  ALL SIXTEEN rows are passed into `hbody`'s antecedents,
-not only the ten the body equation itself reads: a producer that is
-handed the peel's `fr` abstractly and is told nothing about `fr.pw`,
-`fr.recNames` or the residue's two typing runs is STARVED, and a
-premise nobody can discharge is the same defect as a premise set with
-no instance, one level up.
+`blockRuleResidueData_runP` (`BlockRecData.lean`) returns the peel's
+rows EXISTENTIALLY, so everything else the peel touches has to be
+quantified over the same outputs, which is what `hbody` is.  ALL
+SIXTEEN rows are passed into `hbody`'s antecedents, not only the ten
+the body equation itself reads: a producer that is handed the peel's
+`fr` abstractly and is told nothing about `fr.pw`, `fr.recNames` or
+the residue's two typing runs is STARVED — a premise nobody can
+discharge is the same defect as a premise set with no instance, one
+level up.
 
 The four facts the wrapper pays:
 
@@ -3285,7 +3181,7 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
 `hres` produced by `blockRuleResidueB_run`, whose `hsp` is
 `blockRuleFit_tele`.  Its premises are the two producers' minus the
 one they share; `hbody` (`BlockRuleBodyOwed`) is the rule stage's and
-`hbdd`'s field half has no producer yet. -/
+`hbdd` is `blockRuleDoms_bounded_seam`'s (§13). -/
 theorem blockRuleDataB_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
@@ -3337,7 +3233,7 @@ theorem blockRuleDataB_run (hM : BlockModelAt mpC.base2 names d)
     -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
     -- `structElimLevel p.elim p.large`), and under it the COUNTING
     -- guard's two facts.  `hlarge`/`hct1` are the KERNEL's, in the
-    -- dispatch lane's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
+    -- dispatch's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
     -- rs.length = 1` is the same guard's one-member half).
     (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length →
       Level.eval (Level.substFn φ r.1.levelParams us)
@@ -3414,11 +3310,8 @@ end DataRun
 
 `blockRecPre_of`'s `hwd` (`Semantics/Tower/BlockRecI.lean`, and the
 same statement verbatim in `blockRecPre_ind_run` and in all three
-regime theorems) occurs everywhere as a HYPOTHESIS, and the census
-recorded it as having no producer.
-
-**It has one, at ONE rule**: `blockRuleHwd_of`
-(`BlockRecPreRun.lean`, the certificate lane's) concludes
+regime theorems) is, at ONE rule, `blockRuleHwd_of`
+(`BlockRecPreRun.lean`):
 
 ```
 FieldsOkB 0 σ (pdoms ++ fdoms) ∧
@@ -3429,8 +3322,7 @@ FieldsOkB 0 σ (pdoms ++ fdoms) ∧
 
 and the family's `hwd` is that CONJUNCT for CONJUNCT at
 `σ := consList rs ρ`, `lhs := ` the ι equation's left side and the
-per-`(c, j)` data — so the family version is a λ, not a proof.  This
-is it.
+per-`(c, j)` data — so the family version is a λ, not a proof.
 
 **What the fold does and does not cost.**  `BlockRuleCerts` is
 frame-free by design, so the certificates are supplied ONCE per rule
@@ -3499,33 +3391,6 @@ theorem blockRecHwd_of_rules {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name 
       (hlhs rs hlen hmem c hc j hj) (hihs rs hlen hmem c hc j hj)
 
 end HwdFamily
-
-/-! ## 12. `hihFit`'s `hvals` HALF, at `ℓ = 0`
-
-`IndRegimeAt`'s fourth conjunct (§S32.5's `hihFit`, stated in
-`BlockRuleBodyInputs` in the REGIME's own spelling) is
-`spineFit_ihdoms_zero`'s conclusion at `ℓ = 0`, and that theorem's
-four premises split by who owns them: `hdom`, `hbits` and `hleaf` are
-about the `ih` openers' DOMAINS, which the regime lane reads off the
-opener run; `hvals` is about the openers' VALUES, and the values are
-`blockRuleIhsAV`'s — the pinning of §8, which lives here.  So this
-half is stated and proved here, where `blockRuleIhsAV` is.
-
-**Both cases give the point, for different reasons.**  An `ih` opener
-is `ihFunAV ℓ K c' rP nF tl eis fap = mkLamsC ℓ tl (⟨the callee's
-recursor applied⟩)`.  At `ℓ = 0` and a NON-EMPTY telescope the reading
-is `lamR 0 …`, which is the point unconditionally (`lamR_zero`); at an
-EMPTY one it is the chain slot applied along a spine, and the chain
-slot IS the point at the candidate the IND regime runs at
-(`chainFrame K (fun _ => pt) ρ`), so the fold is the point
-(`foldl_app_pt`).  Nothing about the callee, its arguments or
-its level arguments is read in either case. -/
-
-section IhsVals
-
-open ConLeche (BlockRuleFrame)
-
-end IhsVals
 
 /-! ## 13. The rule domains' bounds at the seam
 

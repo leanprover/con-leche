@@ -9,7 +9,7 @@ import ConLeche.Verify.ExceptBind
 public section
 
 /-!
-# The recursor CHECK at k members, inverted at the NAMES (lane ETA-DEDUP)
+# The recursor CHECK at k members, inverted at the NAMES
 
 Two kernel-inversion facts about `checkBlockRecK`
 (`ConLeche/Kernel/Inductives/BlockInstall.lean`), MODEL-FREE: what the
@@ -24,8 +24,8 @@ says about the stored constant.
   type mentions no empty projection slot.
 
 They live here, below both consumers: the model tier's recursor-stage
-assembly (`Model/Inductives/BlockRecAssembly.lean`) and the gate-on arm
-of the η-closure's recursor freshness (`checkBlockRec_fresh`,
+assembly (`Model/Inductives/BlockRecAssembly.lean`) and the η-closure's
+recursor freshness (`checkBlockRec_fresh`,
 `Semantics/Inductives/DeclBlockEta.lean`), which may not import Model.
 -/
 
