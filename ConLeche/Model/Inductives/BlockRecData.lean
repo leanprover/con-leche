@@ -1933,6 +1933,75 @@ theorem checkBlockRecsRules_run {envR envT : Env} {p : BlockParts} {recNames : L
       · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hks
       · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hrun
 
+/-- **The rules' stage's MEMBER, kept** — a sibling of
+`checkBlockRecsRules_run` (which drops it): the `i`-th recursor's
+member is in the block, its constructor list IS the member's
+constructors' stage output, and that list is as long as the member's
+declared constructor list (the stage's own length check). -/
+theorem checkBlockRecsRules_len {envR envT : Env} {p : BlockParts} {recNames : List Name}
+    {rlvls : List Level} {cvRas : List (ConstantVal × Nat)}
+    {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
+    ∀ {recs : List RecShape} {ri : Nat}
+      {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))},
+      checkBlockRecsRules (ConLeche.fueledOps μ F) envR (ConLeche.fueledOps μ F) envT p
+          recNames rlvls cvRas ctorsAs recs ri = .ok rs →
+      ∀ i, i < recs.length → ∃ (ms : ConLeche.MemberShape) (r : ConstantVal × List Expr × Nat ×
+          List (ConstantVal × Nat)),
+        p.members[p.recTgtAt (ri + i)]? = some ms ∧ rs[i]? = some r ∧
+        ctorsAs[p.recTgtAt (ri + i)]? = some r.2.2.2 ∧ r.2.2.2.length = ms.ctors.length
+  | [], _, rs, _, i, hi => absurd hi (Nat.not_lt_zero i)
+  | rc :: rest, ri, rs, h, i, hi => by
+    unfold checkBlockRecsRules at h
+    obtain ⟨ms, hms, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨ctorsA, hctorsA, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨kss, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRn, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨cvRa, nIdx⟩ := cvRn
+    try simp only at h
+    by_cases hlen : (ctorsA.length == ms.ctors.length) = true
+    case neg => rw [if_neg hlen] at h; close_throw h
+    rw [if_pos hlen] at h
+    obtain ⟨rhss, _, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := ConLeche.exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    cases i with
+    | zero =>
+      refine ⟨ms, (cvRa, rhss, nIdx, ctorsA), ?_, rfl, ?_, beq_iff_eq.mp hlen⟩
+      · rw [Nat.add_zero]; exact ConLeche.unwrapOr_ok hms
+      · rw [Nat.add_zero]; exact ConLeche.unwrapOr_ok hctorsA
+    | succ i =>
+      obtain ⟨ms', r, hms', hr, hct, hl⟩ :=
+        checkBlockRecsRules_len hrest i (by simpa using hi)
+      refine ⟨ms', r, ?_, by simpa using hr, ?_, hl⟩
+      · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hms'
+      · rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hct
+
+/-- **The `c`-th recursor's constructor list, off `checkBlockRecK`** —
+it is the constructors' stage's list AT THE RECURSOR'S MEMBER
+(`recTgtAt c`), and as long as that member's declared constructors.
+`checkBlockRecK_ctorsIdx` gives only SOME index. -/
+theorem checkBlockRecK_ctorsAt {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) :
+    ∃ ms : ConLeche.MemberShape,
+      p.members[p.toBlockShape.recTgtAt c]? = some ms ∧
+      ctorsAs[p.toBlockShape.recTgtAt c]? = some r.2.2.2 ∧ r.2.2.2.length = ms.ctors.length := by
+  have hcl : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
+  unfold ConLeche.checkBlockRecK at h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨cvRus, htys, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨-, -, h⟩ := ConLeche.exceptBind_ok h
+  obtain ⟨hlenR, -⟩ := ConLeche.checkBlockRecsRules_facts h
+  have hcp : c < p.recs.length := by omega
+  obtain ⟨ms, r', hms, hr', hct, hl⟩ := checkBlockRecsRules_len h c hcp
+  obtain rfl := Option.some.inj (hr.symm.trans hr')
+  rw [Nat.zero_add] at hms hct
+  exact ⟨ms, hms, hct, hl⟩
+
 /-- **The `(c, i)`-th rule's RUN, off `checkBlockRecK`.**  The
 composition of the two peels with the stage's own bind chain: every
 stored right-hand side is a `checkBlockRule` run at the `c`-th
