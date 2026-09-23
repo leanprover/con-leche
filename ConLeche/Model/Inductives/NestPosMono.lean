@@ -1,9 +1,10 @@
 module
 
-public import ConLeche.Kernel.Inductives.Positivity
-public import ConLeche.Model.Rules.Sound
-public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Rules.Inputs
 public import ConLeche.Semantics.Inductives.HoleMono
+import ConLeche.Kernel.Inductives.Positivity
+import ConLeche.Model.Rules.Sound
+import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Annot.BitLemmas
