@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCSDecl
-public import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.FixRec

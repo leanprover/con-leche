@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Semantics.Inductives.DeclNative
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.Bridge.SoundOne
 import ConLeche.Semantics.Bridge.DeclRun
