@@ -760,7 +760,7 @@ theorem checkBlockRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     refine SimC.bind (checkConstantValS_sim hμ henv hs₂) (fun s₃ cvRi cvRi' hs₃ hR => ?_)
     obtain ⟨rfl, hwR⟩ := hR
     dsimp only
-    by_cases h1 : p.nP ≤ p.rulePrefixAt ri
+    by_cases h1 : p.nP + p.k ≤ p.rulePrefixAt ri
     case neg => simp only [h1, if_false]; exact SimC.throw_bind
     simp only [h1, if_true]
     by_cases h2 : (p.majorIdxAt ri == p.rulePrefixAt ri + ms.nIdx) = true
@@ -1611,6 +1611,75 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   simp only [Except.bind]
   rw [hKp]
 
+/-- **The reject-only conformance check (lane CONF1) at the cached
+driver** is reproduced by the pure fueled one.  It opens with its own
+`flushC`, so it starts from any residue: the rule stage before it ends
+at the constructors' index (the `feR` half of every rule is closed by
+`sharedOpsRuleR`'s trailing flush), and this flush only drops what that
+stage cached there — no invariant is carried across it. -/
+theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
+    (henv₂ : EnvWF env₂) {p : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {s₀ : CState} (hwf : CSOKF s₀)
+    {u : Unit} {s' : CState}
+    (h : (flushC *> checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) structWalkersC
+      (mkFEnv env₂) p cvTas ctorsAs) s₀ = .ok (u, s')) :
+    CSOKF s' ∧ ∃ F, checkBlockRecConform (fueledOps mode F) env₂ p cvTas ctorsAs = .ok () := by
+  simp only [SeqRight.seqRight, bind_pure_comp] at h
+  obtain ⟨u0, s₁, hfl, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl
+  injection hfl with hfl
+  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
+  have hs₁ : CSOK mode env₂ s₀.flushed := flushC_csok hwf
+  rw [structWalkersC_eq_plain] at h
+  by_cases hone : ∃ ms rc cvTa ctorsA, p.members = [ms] ∧ p.recs = [rc] ∧
+      cvTas = [cvTa] ∧ ctorsAs = [ctorsA]
+  · obtain ⟨ms, rc, cvTa, ctorsA, hm, hr, hc, hct⟩ := hone
+    unfold checkBlockRecConformF at h
+    unfold checkBlockRecConform
+    simp only [hm, hr, hc, hct] at h ⊢
+    by_cases hok : nativeRulesOk p.toNative.cvR.name (p.toNative.cvR.levelParams.map .param)
+        .never p.toNative.nP p.toNative.ctors.length ctorsA p.toNative.kinds p.toNative.rhss
+        p.toNative.cvR.type = true
+    case neg =>
+      simp only [hok, Bool.false_eq_true, ↓reduceIte] at h
+      exact absurd h throwC_bind_ok
+    simp only [hok, ↓reduceIte] at h ⊢
+    simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def] at h
+    rw [checkNativeRecF_eq] at h
+    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ p.toNative cvTa ctorsA
+        s₀.flushed with
+    | error e =>
+      simp only [StateT.map, hrc, bind, Except.bind] at h
+      exact nomatch h
+    | ok r =>
+    obtain ⟨q, s₂⟩ := r
+    have hs' : s₂ = s' := by
+      simp only [StateT.map, hrc, bind, Except.bind, pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at h
+      exact h.2
+    subst hs'
+    obtain ⟨hs₂, q', hP, F, hF⟩ := checkNativeRecS_sim hμ henv₂ hs₁ q s₂ hrc
+    obtain rfl : q = q' := hP
+    refine ⟨hs₂.residue, F, ?_⟩
+    have hF' : checkNativeRec (fueledOps mode F) env₂ p.toNative cvTa ctorsA = .ok q := by
+      rw [← checkNativeRec_datF]; exact hF
+    simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def]
+    rw [hF']
+    rfl
+  · have eF : checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) StructWalkers.plain
+        (mkFEnv env₂) p cvTas ctorsAs = pure () := by
+      unfold checkBlockRecConformF
+      split
+      · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, rfl⟩
+      · rfl
+    rw [eF] at h
+    obtain ⟨-, rfl⟩ := pureC_ok h
+    refine ⟨hs₁.residue, 0, ?_⟩
+    unfold checkBlockRecConform
+    split
+    · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, rfl⟩
+    · rfl
+
 /-- **The install after the pass, at k members and at the recursor
 stage's CHECK, at the cached driver**, is reproduced by the pure fueled
 `checkBlockTail`. -/
@@ -1650,7 +1719,15 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecChe
   obtain ⟨rs, s₃, hrec, h⟩ := bindC_ok h
   unfold checkBlockRecS at hrec
   rw [if_pos hK] at hrec
-  obtain ⟨hs₃, F₃, hF₃⟩ := checkBlockRecKS_run hμ henv₂ hT hct (flushC_csok hsS.residue) hrec
+  -- the check, then the reject-only conformance check (lane CONF1)
+  unfold thenConform at hrec
+  obtain ⟨rs', s₄, hrecK, hrec⟩ := bindC_ok hrec
+  obtain ⟨hs₄, F₃, hF₃⟩ := checkBlockRecKS_run hμ henv₂ hT hct (flushC_csok hsS.residue) hrecK
+  obtain ⟨u5, s₅, hconf, hrec⟩ := bindC_ok hrec
+  obtain ⟨hs₅, F₅, hF₅⟩ := checkBlockRecConformS_run hμ henv₂ hs₄ hconf
+  obtain ⟨hv, rfl⟩ := pureC_ok hrec
+  subst rs'
+  have hs₃ := hs₅
   have hF₃p : checkBlockRecK (fueledOps mode F₃) (consBlockCtors p.nP ctorsAs env₁) p cvTas ctorsAs
       = .ok rs := by
     rw [← checkBlockRecK_datF]; exact hF₃
@@ -1660,15 +1737,24 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true) (hK : blockRecChe
     = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _,
     consBlockRecsF_mkFEnv] at h
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
-  refine ⟨hwfO, hfeO, max F₀ F₃, ?_⟩
-  have g₀ : checkBlockIdxSorts (fueledOps mode (max F₀ F₃)) env₁ p.toBlockShape
+  obtain ⟨G, hle₀, hle₃, hle₅⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
+    ⟨max F₀ (max F₃ F₅), by omega, by omega, by omega⟩
+  refine ⟨hwfO, hfeO, G, ?_⟩
+  have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
-    rw [← checkBlockIdxSorts_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₀
-  have g₃ : checkBlockRec (fueledOps mode (max F₀ F₃)) (consBlockCtors p.nP ctorsAs env₁) p
+    rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
+  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
       cvTas ctorsAs = .ok rs := by
-    unfold checkBlockRec
-    rw [if_pos hK, ← checkBlockRecK_datF]
-    exact FueledM.up (Nat.le_max_right _ _) hF₃
+    have gK : checkBlockRecK (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
+        ctorsAs = .ok rs := by
+      rw [← checkBlockRecK_datF]; exact FueledM.up hle₃ hF₃
+    have gC : checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
+        ctorsAs = .ok () := by
+      rw [← checkBlockRecConform_datF]
+      exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
+    unfold checkBlockRec checkBlockRecChecked thenConform
+    rw [if_pos hK]
+    simp only [Bind.bind, Except.bind, gK, gC, pure, Except.pure]
   rw [checkBlockTail_datF]
   unfold checkBlockTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]

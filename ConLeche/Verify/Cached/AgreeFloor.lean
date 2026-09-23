@@ -1488,6 +1488,14 @@ theorem checkBlockRulesF_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (fe
       mIs rPs recTgts ri cvR cs rhss) fun rest hrest => ?_
     exact Yields.pure (by simp [hrest])
 
+/-- A stage followed by a reject-only check (`thenConform`, lane CONF1)
+returns the stage's value: whatever the stage yields, the composite
+does. -/
+theorem Yields.thenConform {α : Type} {stage : CheckCM α} {conform : CheckCM Unit}
+    {P : α → Prop} (h : Yields stage P) : Yields (ConLeche.thenConform stage conform) P := by
+  unfold ConLeche.thenConform
+  exact Yields.bind' h fun a ha => Yields.bind fun _ => Yields.pure ha
+
 theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
     Yields (unwrapOr o e : CheckCM α) (fun a => o = some a) := by
   cases o with
@@ -1724,8 +1732,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) (hK : blockRecCheckOn = true) {
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (checkBlockRecKS_skels mode _ q.p q.cvTas q.ctorsAs
-    (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? q.p.nP hct (blockFieldsOkF_len hk) h₂)
+  refine Yields.bind' (Yields.thenConform (checkBlockRecKS_skels mode _ q.p q.cvTas q.ctorsAs
+    (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? q.p.nP hct (blockFieldsOkF_len hk) h₂))
     fun rs hrs => ?_
   exact checkBlockTablesF_skels q.p.toBlockShape q.p.members q.ctorsAs q.sortsss hlenC hlenS hrs
 

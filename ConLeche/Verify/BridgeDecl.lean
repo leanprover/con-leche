@@ -1065,13 +1065,33 @@ theorem checkBlockRecK_datF (env : Env) (p : BlockParts) (cvTas : List ConstantV
   simp only [FueledM.atF_bind, checkBlockRecPins_datF, checkBlockRecTys_datF,
     checkBlockRecFamilyAgree_datF, checkBlockRecsRules_datF]
 
+theorem FueledM.atF_mapConst {α : Type} (x : FueledM α) (F : Nat) :
+    (Functor.mapConst PUnit.unit x : FueledM PUnit).val F
+      = (Functor.mapConst PUnit.unit (x.val F) : CheckM PUnit) := by
+  show (x >>= fun _ => pure PUnit.unit : FueledM PUnit).val F = _
+  rw [FueledM.atF_bind]
+  cases x.val F <;> rfl
+
+/-- The reject-only conformance check (lane CONF1) at fuel `F`. -/
+theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockRecConform (fueledOpsM mode) env p cvTas ctorsAs).val F =
+      checkBlockRecConform (fueledOps mode F) env p cvTas ctorsAs := by
+  unfold checkBlockRecConform
+  split
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      discard, Functor.discard, FueledM.atF_mapConst, checkNativeRec_datF]
+  · rfl
+
 theorem checkBlockRec_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockRec (fueledOpsM mode) env p cvTas ctorsAs).val F =
       checkBlockRec (fueledOps mode F) env p cvTas ctorsAs := by
   unfold checkBlockRec
   split
-  · exact checkBlockRecK_datF env p cvTas ctorsAs F
+  · unfold checkBlockRecChecked thenConform
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecK_datF,
+      checkBlockRecConform_datF]
   · split
     · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
         checkNativeRec_datF]

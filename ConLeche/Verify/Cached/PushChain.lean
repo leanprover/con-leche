@@ -744,7 +744,7 @@ theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
       (fun rs => (rs.map (·.1.name)).Nodup ∧ ∀ r ∈ rs, fe.find? r.1.name = none) := by
   unfold checkBlockRecS
   split
-  · exact checkBlockRecKS_fresh mode fe p cvTas ctorsAs hnd
+  · exact Yields.thenConform (checkBlockRecKS_fresh mode fe p cvTas ctorsAs hnd)
   · split
     · dsimp only
       split
