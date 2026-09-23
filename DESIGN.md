@@ -83793,3 +83793,23 @@ inverted as `checkBlockRecTys_prefix` / `checkBlockRecK_prefix` /
 `checkBlockRecK_rulePos`, which is the model's `hpos`.  From a stream,
 the frontend's field validation already refuses the witness
 (`corner_rec_empty_prefix`).
+
+#### DOCKET (maintainer, 2026-09-23): after the flip, remove the motive-count floor — "it is desirable to have a clean story here"
+
+The `nP + k ≤ rP` floor (lane CONF1) is in official's shape: at least
+one motive per member.  It exists only because the model's small-
+elimination arm argued through the rule's λ-tower head bit, which needs
+a λ to exist.  By the maintainer's own definition, though, a recursor is
+a primitively recursive family with rules, and **a motive is a
+parameter like any other**.  A zero-motive recursor
+(`T.rec : (t : T) → True`, `T.rec T.c ↦ True.intro`) is a perfectly
+good one, and the model never reads motives: every statement goes
+through the recursor's CONCLUSION at the caller's spine.
+
+**After the flip**: prove the `ℓ = 0` arm's right side by the second
+licence (the rule's right-hand side is typed at a `Prop`-valued
+conclusion, so its denotation is the point whether or not it is a λ),
+then relax the kernel check to nothing, or at most to what that proof
+genuinely needs.  The frontend's zero-motive rejection is separate: it
+is export-format validation against official's schema, not a kernel
+criterion.
