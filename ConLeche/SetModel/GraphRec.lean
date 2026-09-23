@@ -73,28 +73,6 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-! ## Two facts about the separated tuple, for the instances' inductions -/
-
-section SepTuple
-
-variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V} {P : Nat → V → V → Prop}
-
-/-- Membership in the separated tuple: in the carrier, and the property. -/
-theorem mem_sepTuple {m : Nat} {i y : V} (hi : i ∈ˢ Is m) :
-    y ∈ˢ app (sepTuple w k Is Φ P m) i ↔ y ∈ˢ app (lfpTuple w k Is Φ m) i ∧ P m i y := by
-  unfold sepTuple
-  rw [app_graph hi, mem_sep]
-
-/-- A value the operator builds from the separated tuple is in the
-carrier. -/
-theorem mem_lfpTuple_of_sepTuple (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
-    {m : Nat} (hm : m < k) {i x : V} (hi : i ∈ˢ Is m)
-    (hx : x ∈ˢ app (Φ (sepTuple w k Is Φ P) m) i) : x ∈ˢ app (lfpTuple w k Is Φ m) i :=
-  lfpTuple_closed h hmono m hm i hi x
-    (hmono _ _ (sepTuple_mem w k Is Φ P) (lfpTuple_mem w k Is Φ) (sepTuple_le w k Is Φ P) m hm i hi x hx)
-
-end SepTuple
-
 /-! ## The graph -/
 
 section Graph
@@ -293,11 +271,6 @@ theorem rec_eq {u : V} {d : R} (hu : u ∈ˢ U) (hd : K.Dec u d) :
     exact (K.exu j (K.hpred u hu d hd j hj)).2 _ _ (app_mem_of_mem_piSet hg₁ hj)
       (K.rec_mem_G (K.hpred u hu d hd j hj))
   · exact hsub _ _ hvB (K.hst u hu d hd _ (K.recGraph_mem_piSet hu hd))
-
-/-- The `ih` at a predecessor reads the recursor. -/
-theorem app_recGraph {d : R} {j : V} (hj : j ∈ˢ K.pred d) :
-    app (graph (fun j => K.recAt j) (K.pred d)) j = K.recAt j :=
-  app_graph hj
 
 end GraphRecKit
 

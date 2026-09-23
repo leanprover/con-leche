@@ -14,7 +14,8 @@ block's right-hand-side operator, with holes for the recursive
 fields.**  The recursor model's graph route (DESIGN, ruling of
 2026-09-23) asks nothing else of an inductive: the recursor's
 uniqueness is ONE induction over the majors, and that induction is a
-corollary of this clause (`LfpClause.ind_tagged`, `LfpClause.kitInd`).
+corollary of this clause (`LfpClause.ind`, which the graph producer's
+`blockGraphInd_run`, `Model/Inductives/BlockRecGraph.lean`, reads).
 
 **Why a separate datum.**  The clause is recorded in `EnvModelM`
 (`Model/Annot/EnvModelM.lean`), which sits BELOW the block
@@ -103,11 +104,6 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
-/-- **The majors**: the carrier's elements, tagged by component and
-index tuple (`unionSet`, the recursor's union). -/
-@[expose] noncomputable def majors (ψ : Name → Nat) (ρp : Nat → V) : V :=
-  unionSet D.N (D.idx ψ ρp) (D.carrier ψ ρp)
-
 end LfpDatum
 
 variable {V : Type w} [SetTheory V]
@@ -195,56 +191,6 @@ theorem ind (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
   obtain ⟨j, fs, hfit, rfl⟩ :=
     (h.fibre ψ ρp hsat _ (sepTuple_mem _ _ _ _ P) c hc t ht x).mp hx
   exact hstep c hc t ht j fs hfit
-
-/-- **The induction over the TAGGED majors** — the form the recursor's
-union reads: a property of majors that holds at `tagged c t (inj …)`
-whenever the spine fits at the separated tuple holds at every major. -/
-theorem ind_tagged (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) (P : V → Prop)
-    (hstep : ∀ c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ j fs,
-      D.fits ψ ρp (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) fun c t x => P (tagged c t x))
-        t c j fs →
-      P (tagged c t (D.inj ψ c j fs))) :
-    ∀ u, u ∈ˢ D.majors ψ ρp → P u := by
-  intro u hu
-  obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
-  exact h.ind hsat (fun c t x => P (tagged c t x)) hstep c hc t ht x hx
-
-/-- **The shape of GRAPH-F's `GraphRecKit.ind`** (`SetModel/GraphRec.lean`
-on `agent/uinds-GRAPHF`), verbatim: the induction principle of a set
-of majors `U` for a decoding relation `Dec` and predecessor sets
-`pred`. -/
-@[expose] def KitInd (U : V) (Dec : V → V → Prop) (pred : V → V) : Prop :=
-  ∀ P : V → Prop,
-    (∀ u, u ∈ˢ U → (∃ d, Dec u d ∧ ∀ j, j ∈ˢ pred d → P j) → P u) → ∀ u, u ∈ˢ U → P u
-
-/-- **The recursor kit's `ind`, from the lfp clause.**  Over the
-block's majors, for ANY decoding relation and predecessor map whose
-reading of a spine fitting at a separated tuple is a decoding with its
-predecessors in the separation (`hlink` — the graph producer's
-structural obligation: the decoding carries the fields' fit, the
-predecessors are the recursive fields' tagged values), the kit's
-induction principle holds.  Nothing but `lfpTuple_induction` and
-`fibre` is used: no Bekić, no regularity. -/
-theorem kitInd (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) (Dec : V → V → Prop) (pred : V → V)
-    (hlink : ∀ (P : V → Prop) c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ j fs,
-      D.fits ψ ρp (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) fun c t x => P (tagged c t x))
-        t c j fs →
-      ∃ d, Dec (tagged c t (D.inj ψ c j fs)) d ∧ ∀ q, q ∈ˢ pred d → P q) :
-    KitInd (D.majors ψ ρp) Dec pred := by
-  intro P hP
-  refine h.ind_tagged hsat P fun c hc t ht j fs hfit => ?_
-  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
-  -- the injection is a major: it is built from the separated tuple
-  have hx : D.inj ψ c j fs ∈ˢ app (D.Φ ψ ρp
-      (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) fun c t x => P (tagged c t x)) c) t :=
-    (h.fibre ψ ρp hsat _ (sepTuple_mem _ _ _ _ _) c hc t ht _).mpr ⟨j, fs, hfit, rfl⟩
-  have hmem : D.inj ψ c j fs ∈ˢ app (D.carrier ψ ρp c) t := by
-    refine lfpTuple_closed hcl hmono c hc t ht _ ?_
-    exact hmono _ _ (sepTuple_mem _ _ _ _ _) (lfpTuple_mem _ _ _ _) (sepTuple_le _ _ _ _ _)
-      c hc t ht _ hx
-  exact hP _ (tagged_mem_unionSet hc ht hmem) (hlink P c hc t ht j fs hfit)
 
 end LfpClause
 

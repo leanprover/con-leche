@@ -32,11 +32,11 @@ run, in the order it composes:
 * **§2 the carrier's case analysis** (`blockCarrier_case`,
   `blockCarrier_case_unique` — `mkInj`, one arm of the kit's `huniq`);
 * **§3 the classes at a prefix spine** (`blockRecIs`, `blockRecCr`,
-  `blockWf_hsplit`): the class's index set is the member's index-tuple
+  `blockRec_hsplit`): the class's index set is the member's index-tuple
   set and its carrier the least pre-fixed tuple's component, i.e. the
   member's former at the prefix frame (`BlockModelAt.leaf`);
 * **§4 `OneElimLevel` from the check** (`blockRecOneElimLevel`);
-* **§9 the bound** (`blockRecMot`, `blockWf_hconcl`);
+* **§9 the bound** (`blockRecMot`, `blockRec_hconcl`);
 * **§20 onward**: the rule data's components at the run's spelling,
   the `ih` values and terms, the certified hop, the certificates'
   producer and the ι equations' grading.
@@ -124,23 +124,6 @@ theorem BlockRuleCerts.residueOk {envT : Env} (hμ : μ.verifiedChecks = true)
   exact residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
     hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih
 
-/-- **Regime IND's per-rule obligation, from the certificates**: at
-`ℓ = 0` the residue's reading lands in a truth value, which is what
-`indCand_hCand`'s `hres` asks for.  `hT` — the conclusion's reading IS
-a truth value — is a reading fact about the recursor's stored
-conclusion. -/
-theorem BlockRuleCerts.hres {envT : Env} (hμ : μ.verifiedChecks = true)
-    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
-    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
-    (h : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
-    {ρ₀ : Nat → V} {xs fs ihvals : List V}
-    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals)
-    (hT : interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca ∈ˢ (univZero : V)) :
-    ∃ T : V, T ∈ˢ (univZero : V) ∧
-      interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
-  ⟨_, hT, (h.residueOk hμ hsp hih).2⟩
-
 /-! ## 2. The carrier's case analysis
 
 The WF regime's step must be DEFINED at an arbitrary element of a
@@ -208,7 +191,7 @@ For a block the first three are not a choice:
   tuple's component — which is the member's FORMER at the parameter
   frame, by `BlockModelAt.leaf`.
 
-That last identification is the whole content of `blockWf_hsplit`: the
+That last identification is the whole content of `blockRec_hsplit`: the
 major's binder domain is the member's former applied, the clause's
 `leaf` turns the fold into `app (lfpTuple …) ⟨ı⃗⟩`, and the index
 tuple lands in the index set by `tupW_mem`. -/
@@ -305,7 +288,7 @@ recursion. -/
 
 /-- **`RecFamData.hsplit` at the block's carriers**, from the stored
 type's reading and the representation's `leaf` clause. -/
-theorem blockWf_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
+theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
     {K : Nat} {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
     {pdoms : Nat → List AnnotTerm}
     (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
@@ -432,7 +415,7 @@ index spine comes back out of its tuple at the member's own index
 telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
 `idxOk` clause), and the spine is the frame by `hsplit`'s
 decomposition. -/
-theorem blockWf_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
     (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat} {rP mem : Nat → Nat}
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
     (hmem : ∀ c, c < K → mem c < d.N)
@@ -5485,172 +5468,12 @@ theorem blockRecConcl_univZero_of_value {envC : Env} (hμ : μ.verifiedChecks = 
   rw [List.append_nil] at hsat
   exact blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
 
-/-- **THE TRUTH-VALUE PREMISE, FROM THE RUN.**  `hT` (§5), `hTStep`
-and `hTReg` (`blockIndRegime_run`) and the `ih` segment's `h0` all
-reduce to this: at the family's elimination level `0`, anything
-identified with a recursor's conclusion at a fitting spine is a truth
-value.
-
-Both halves come off the SAME peel, which is why they are one
-theorem: `blockRecElimLevel_run`'s bits component is what a regime's
-`ℓ = 0` is stated through, and its fourth component supplies the two
-runs `blockRecConcl_univ` needs — at the same level, with no second
-existential to reconcile. -/
-theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (ψ : Name → Nat) :
-    ∃ uOf : Nat → Level,
-      (∀ c, c < rs.length →
-        ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
-          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
-      ∀ c, c < rs.length → (uOf c).eval ψ = 0 →
-        ∀ (ρ : Nat → V) (ys : List V),
-          SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-            (·.2.2)) ys →
-          ∀ (X : AnnotTerm) (σ : Nat → V),
-            interp V σ X = interp V (consList ys ρ)
-              (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
-            interp V σ X ∈ˢ (univZero : V) := by
-  obtain ⟨uOf, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
-  refine ⟨uOf, fun c hc => hbits ψ c hc, fun c hc hu0 ρ ys hys X σ hval => ?_⟩
-  obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c hc
-  have hrd : rs[c]? = some (rs.getD c default) := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
-    rfl
-  exact blockRecConcl_univZero_of_value hμ mpC h hrd ψ hop hinf hens hu0 hys hval
-
-/-! ### 40.15b `hCaZ` — the family's ONE producer, at the RULE's own
-peel
-
-§40.15 licenses the truth value at a fitting spine **of the
-recursor's own binder data**, and the IND arm states its motive at the
-SPLIT data, which does not carry one: the split's index values fit the
-MEMBER's telescope, and carrying them to the recursor's index binders
-is a converse the checker never establishes (`checkBlockRecTys` leaves
-the binders `rP … mI-1` arbitrary and compares nothing about them).
-So `hT`/`hTStep`/`hTReg` cannot be discharged through `hCaE` at the
-split data.
-
-**The licence the family actually has is the RULE's, not the split's.**
-`checkBlockRule` types the residue against `concl`, the recursor's
-stored type Π-INSTANTIATED at the rule's own spine — and the
-certificate producer already carries both halves of that as premises
-(`blockRuleCerts_of_run`'s `hpeel` and `hfit`, which `hokC` consumes):
-the syntactic peel `peelPis RecTy vs = some Ca` and a `TeleFitPA` of
-the SAME tower at the SAME `vs`, at every frame satisfying the rule's
-context.  `spineFit_of_teleFitPA` turns the fit into a `SpineFit` of
-the recursor's binder data, and `interp_peelPis_mkPisAV` turns the
-peel into the value identification — which is §40.15's `hval` on the
-nose.
-
-So the whole family is ONE theorem at a frame that is **generic**: it
-is stated over an arbitrary `σ` and an arbitrary pair of fits, so the
-same instance pays `hT` and `hTStep` (at the split frame, through
-`hspF`/`hihFit`) and `hTReg` (at the CHAIN frame, through the `ih` fit at the point tuple, `hihTy` instantiated after `hind`).
-Nothing in it mentions the split, the member's telescope or the
-index clause. -/
-
-/-- **The two fits ARE the rule's context**: a prefix-and-fields fit
-followed by an `ih` fit satisfies the bundle's own reversed context,
-which is the antecedent every certificate is stated under. -/
-theorem sat_blockRuleCtx_of_fits {pdoms fdoms ihdoms : List AnnotTerm}
-    {σ : Nat → V} {xs fs ws : List V}
-    (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) σ) ihdoms ws) :
-    Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
-      (consList ws (consList (xs ++ fs) σ)) := by
-  have h1 := sat_of_spineFit (Δ₀ := []) (ConLeche.Semantics.Sat_nil V σ) hsp
-  rw [List.append_nil] at h1
-  exact sat_of_spineFit h1 hih
-
-/-- **`hCaZ`, THE `univZero` FAMILY'S PRODUCER** — the rule's
-conclusion reads to a truth value at EVERY frame the rule's own
-certificates are stated at.
-
-`hZ` is `blockRecConclUnivZero_run`'s second component at this `c`
-and at the arm's `ℓ = 0`; `hpeel` and `hfit` are the certificate
-producer's own two premises (`blockRuleHokC_of_run` consumes exactly
-this pair); `hTyE` and `hlen` are `checkBlockRecK_tyPis`'. -/
-theorem blockRuleConclUnivZero_of_peel {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {ψ : Name → Nat} {c : Nat} {Ca : AnnotTerm} {vs : List AnnotTerm}
-    {pdoms fdoms ihdoms : List AnnotTerm}
-    (hTyE : blockRecTyAV mpC.base2.acval envC rs ψ c
-      = mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c))
-    (hlen : vs.length
-      = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis
-      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
-    (hfit : ∀ σ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) σ →
-      ∃ rest, TeleFitPA V σ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)
-    (hZ : ∀ (σ : Nat → V) (ys : List V),
-      SpineFit σ
-        ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
-      ∀ (X : AnnotTerm) (σ' : Nat → V),
-        interp V σ' X = interp V (consList ys σ)
-          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
-        interp V σ' X ∈ˢ (univZero : V)) :
-    ∀ (σ : Nat → V) (xs fs ws : List V),
-      SpineFit σ (pdoms ++ fdoms) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) ihdoms ws →
-      interp V (consList ws (consList (xs ++ fs) σ)) Ca ∈ˢ (univZero : V) := by
-  intro σ xs fs ws hsp hih
-  obtain ⟨rest, hfitPA⟩ := hfit _ (sat_blockRuleCtx_of_fits hsp hih)
-  rw [hTyE] at hpeel hfitPA
-  exact hZ _ _ (spineFit_of_teleFitPA hlen hfitPA) Ca _
-    (interp_peelPis_mkPisAV hlen hpeel _)
-
-/-- **`hCaZ` AT THE RUN** — the producer with its level guard read off
-the arm's own `OneElimLevel 0`.
-
-The two levels meet through the binder data: the recursor's
-binder data is NON-EMPTY (`checkBlockRecK_tyPis` pins its length at
-`majorIdxAt c + 1`), so the regime's `hbits` gives that list's first
-numeral, and `blockRecConclUnivZero_run`'s own bits component reads
-the elimination level back off it.  No second existential is
-reconciled and no level is named twice. -/
-theorem blockRuleConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length)
-    (hbits : OneElimLevel 0 rs.length
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ))
-    {Ca : AnnotTerm} {vs pdoms fdoms ihdoms : List AnnotTerm}
-    (hlen : vs.length
-      = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis
-      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
-    (hfit : ∀ σ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) σ →
-      ∃ rest, TeleFitPA V σ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest) :
-    ∀ (σ : Nat → V) (xs fs ws : List V),
-      SpineFit σ (pdoms ++ fdoms) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) ihdoms ws →
-      interp V (consList ws (consList (xs ++ fs) σ)) Ca ∈ˢ (univZero : V) := by
-  obtain ⟨uOf, hbitsE, hZ⟩ := blockRecConclUnivZero_run (V := V) hμ mpC h ψ
-  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-  obtain ⟨-, -, -, -, hTyE, hrdsLen, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
-  have hpos : 0 < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length := by
-    rw [hrdsLen]; omega
-  have hmem : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[0]'hpos
-      ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c := List.getElem_mem _
-  have hu0 : (uOf c).eval ψ = 0 :=
-    (hbitsE c hc _ hmem).mp ((hbits c hc _ hmem).mp rfl)
-  exact blockRuleConclUnivZero_of_peel hTyE hlen hpeel hfit (hZ c hc hu0)
-
 /-- **`h0`, the `ih` segment's BIT CLAUSE, DISCHARGED**, with no frame
 move.
 
 The clause asks that the guarded call's conclusion be a TRUTH VALUE at
-the segment's own frame.  §37's `blockIndIhLeaf_of` already evaluates
-that conclusion, and it does so with **`blockRecCa_value` applied
-verbatim**: §32's identification of the peel's prefix arguments
+the segment's own frame.  `blockRecCa_value` evaluates that conclusion
+verbatim: §32's identification of the peel's prefix arguments
 (`prefVarsAV rP (nF + m)` IS `paramBvarsAt rP (rP + nF + m)`) makes
 the `ih` opener's `BlockRuleConclAt` the same object the RULE's
 conclusion is, and the frame `consList bs (consList (xs ++ fs) ρ)`

@@ -26,7 +26,7 @@ three ways.
   `blockRecIs`/`blockRecCr`, the retired kit arm's own.
 * **Decodings** (§1, `blockGraphDec`): the class, the constructor and
   the fields, which fit the constructor at the CARRIER and inject to
-  the major.  A rule's own spine is one (`blockWfCtorAt_run`), at ANY
+  the major.  A rule's own spine is one (`blockRuleDecoding_run`), at ANY
   sort — so the ι law never chooses a decoding.
 * **Predecessors** (§1, `blockGraphPred`): the majors among the targets
   of the rule's guarded calls (`blockGraphCall`) — by DEFINITION, so no
@@ -195,7 +195,7 @@ noncomputable def blockGraphKit (hμ : μ.verifiedChecks = true) (xs : List V)
 
 /-- **The graph family at a block**: the kit at every prefix spine,
 over the block's own index sets and carriers, with the two type
-readings (`blockWf_hsplit`, `blockWf_hconcl`). -/
+readings (`blockRec_hsplit`, `blockRec_hconcl`). -/
 noncomputable def blockGraphFam (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
     (hmemK : ∀ c, c < K → mem c < d.k)
     (hlenIds : ∀ c, c < K → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
@@ -257,8 +257,8 @@ noncomputable def blockGraphFam (hμ : μ.verifiedChecks = true) (hM : BlockMode
   tupOf := fun c is => d.tup ψ (mem c) is
   kit := fun xs => blockGraphKit (Rb0 := Rb0) (Ca := Ca) (ihv := ihv) (call := call) hμ xs
     (hconclTy xs) hcerts (hspF xs) (hihF xs) (hCaB xs) (huniq xs) (hind xs)
-  hsplit := blockWf_hsplit hM hpdE hmemK hsplitR
-  hconcl := blockWf_hconcl hM
+  hsplit := blockRec_hsplit hM hpdE hmemK hsplitR
+  hconcl := blockRec_hconcl hM
     (fun c hc => Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)) hlenIds hsplitR
 
 end Kit
@@ -490,7 +490,7 @@ theorem blockGraphIhF_run (hμ : μ.verifiedChecks = true)
     rw [hisOf'] at hmot
     rw [← hmot]
     -- the call's target is a major (the callee's split) and a call (by definition)
-    have hsplit := blockWf_hsplit hM
+    have hsplit := blockRec_hsplit hM
       (pdoms := blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
       (mem := p.toBlockShape.recTgtAt) (rP := p.toBlockShape.rulePrefixAt)
       (rds := fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
@@ -616,7 +616,7 @@ theorem blockGraphIhChain_run (hμ : μ.verifiedChecks = true)
     rw [List.map_append, List.map_singleton] at hspC ⊢
     have hxl' : xs.length = p.toBlockShape.rulePrefixAt c' := by rw [hxs', hrPc']
     -- the call's target is a major (the callee's split) and a call (by definition)
-    have hsplit := blockWf_hsplit hM
+    have hsplit := blockRec_hsplit hM
       (pdoms := blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
       (mem := p.toBlockShape.recTgtAt) (rP := p.toBlockShape.rulePrefixAt)
       (rds := fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
@@ -681,21 +681,18 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
           (fun c' => d.uM (p.toBlockShape.recTgtAt c') ψ)
           (fun c' => d.nIdxAt (p.toBlockShape.recTgtAt c')) ρ xs u →
         v = v' := by
-  intro u hu e e' he he'
+  by_cases hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
+      p.toBlockShape.large) = 0
+  · -- the bound is a truth value
+    refine huniq_of_prop fun u hu => ?_
+    have hmem := blockRecMot_mem_univ (K := rs.length) hconclTy _ hu
+    rwa [hℓ] at hmem
+  refine huniq_of_dec fun u _ e e' he he' => ?_
   obtain ⟨c, j, fs⟩ := e
   obtain ⟨c', j', fs'⟩ := e'
   obtain ⟨hc, hj, i, hi, hfit, rfl⟩ := he
   obtain ⟨-, hj', i', hi', hfit', heq⟩ := he'
   obtain ⟨rfl, rfl, hinj⟩ := tagged_inj heq
-  by_cases hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
-      p.toBlockShape.large) = 0
-  · -- the bound is a truth value
-    right
-    have hmem := blockRecMot_mem_univ (K := rs.length) hconclTy _ hu
-    rw [hℓ, univ_zero] at hmem
-    exact fun v v' hv hv' =>
-      (eq_pt_of_mem_univZero hmem hv).trans (eq_pt_of_mem_univZero hmem hv').symm
-  left
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   obtain ⟨hparFit, hprefFit⟩ := blockRecIs_fits hi
   rw [blockRecIs_pos hparFit hprefFit] at hi
@@ -913,7 +910,7 @@ the graph kit at every level assignment and base frame, with NO level
 or sort split: the family at `blockGraphFam` (whose `huniq` is the
 elimination guard, §4, and whose induction is the block's recorded
 lfp clause, §5) handed to `famCandG_hCand`.  The ι law at a rule is
-`rec_eq` at the rule's own decoding (`blockWfCtorAt_run`), its `ih`
+`rec_eq` at the rule's own decoding (`blockRuleDecoding_run`), its `ih`
 values read off the graph at the call targets (§3).
 
 Taken: the recorded clause `hlfp`, the family level's typing `hTy`,
@@ -1081,7 +1078,7 @@ theorem blockRecPre_graph (hμ : μ.verifiedChecks = true)
   -- the rule's own fields are a decoding of the constructed major
   · intro c hc j hj xs fs hxl hsp
     obtain ⟨hChain, hmkv⟩ :=
-      blockWfCtorAt_run hμ h hkLen hcore hmr hM hN rfl hctM ψ rs.length _ ρ c hc j hj xs fs hxl hsp
+      blockRuleDecoding_run hμ h hkLen hcore hmr hM hN rfl hctM ψ rs.length _ ρ c hc j hj xs fs hxl hsp
     have hfit := blockKitRule_run hμ h hkLen hcore hmr hM hN rfl hctM ψ rs.length _ ρ c hc j hj
       xs fs hxl hsp
     have hxr : xs.length = p.toBlockShape.rulePrefixAt c := by

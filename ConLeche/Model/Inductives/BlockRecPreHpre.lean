@@ -14,57 +14,32 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 public section
 
 /-!
-# The regime DISPATCH at the run — `hpre` for the endpoint
+# The recursor model's seam facts at the run
 
-`declBlock_data` (`BlockRecData.lean` §A.18) asks the seam for, among
-eight conjuncts, the family's **regime**:
+`declBlock_data` (`BlockRecData.lean` §A.18) asks the recursor stage
+for, among eight conjuncts, the family's premise
 
 ```
 ∀ ψ ρ, BlockRecPre V (s ψ) rs.length (blockRecTyAV …)
          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ) ρ
 ```
 
-Three producers stand behind it — `blockIndRegime_run` at `ℓ = 0`,
-`blockKitRegime_wf` at `ℓ ≠ 0 ∧ w ≠ 0`, `blockKitRegime_sq` at
-`ℓ ≠ 0 ∧ w = 0` (`BlockRecPreRun.lean` §5, §19, §36).  This file
-composes them into one theorem whose conclusion is the endpoint's
-premise verbatim:
+which ONE producer supplies, `blockRecPre_graph`
+(`BlockRecGraph.lean`).  This file holds the run facts it reads:
 
-1. **The equation list.**  The regimes conclude at `iotaEqsAV` over
-   components the caller supplies; the endpoint asks for `blockRecEqs`
-   = `blockIotaEqsAV` over the run's BASE components.  §1 is that
-   identification: §20's four `…K` definitions fed to §31's
-   `iotaEqsAV_eq_blockIotaEqsAV`.
-2. **The level is skolemised by the CONSUMER.**  Every regime's guard
-   is a statement about a natural number `ℓ`, and the run hands the
-   level back existentially (`blockRecElimLevel_run`).  A guard on an
-   existential level is not a guard, so `us` is a PARAMETER here and
-   the guard reads `(us.headD .zero).eval ψ = 0` — the run's own
-   currency, and the spelling `blockIndRegime_of_run` takes.
-3. **`OneElimLevel` leaves both kit regimes' premise sets.**  `hbits`
-   is a premise of `blockKitRegime_wf` and of `blockKitRegime_sq`; with
-   the level named it is `blockRecOneElimLevel`, discharged here for
-   both arms at once.  It is the one premise the three regimes share.
-4. **The ι equations' grading is NOT a premise of the dispatch.**  The
-   fold `blockRecHwd_of_rules` (`BlockRuleFit.lean`) is the family's
-   `hwd` conjunct at `σ := consList as ρ`, so the dispatch takes the
-   fold's FOUR premises — the per-rule certificates and its three frame
-   premises, ψ- and ρ-quantified — and produces `hwd` itself.
-5. **The SQ arm needs `rs.length = 1`, and that is a KERNEL fact.**
-   `blockKitRegime_sq` produces `KitRegimeAt … 1 …`; the dispatch
-   consumes `KitRegimeAt … rs.length …`.  No model-tier fact implies
-   `rs.length = 1`: it is the large-elimination COUNTING guard, which
-   the checker states in the level currency (`checkBlockRecSmallElim`,
-   §2.5) as the guard's own verdict, so that `blockLargeElim_counting`
-   reads all four of the squash arm's facts off it.
-   `blockRecCounting_run` is that reading and `blockRecK1_run` the
-   dispatch's slice of it — a THEOREM here, not a premise.
-
-**The guard lives in ONE place.**  `blockRecPre_dispatch_run`'s proof
-contains the only `by_cases` on `d.w ψ`, and the three regime bundles
-name their guards once each.  Moving the rule contract's guard from
-`d.w ψ ≠ 0` to `ℓ ψ ≠ 0` would change the `hWF`/`hSQ` premises' guards
-and nothing else; the dispatch's `ℓ`-split is already the outer one.
+1. **The equation list** (§1–§2): the producer concludes at
+   `iotaEqsAV` over the CHAIN-frame components; the endpoint asks for
+   `blockRecEqs` over the BASE ones.  `blockRecEqs_base` is that
+   identification (§20's `…K` definitions, §31's
+   `iotaEqsAV_eq_blockIotaEqsAV`, §28's `pdoms` collapse).
+2. **The counting guard** (§2.5): at a `Prop` block eliminating above
+   `Prop`, the kernel's large-elimination guard leaves one member with
+   at most one constructor, of the declared large shape
+   (`blockRecCounting_run`) — the graph kit's `huniq` at `w = 0`.
+3. **The seam facts** (§4): the recursor count, the rule counts, the
+   rule frame's lifts, the grading's chain carries, the fields' fit,
+   the fired spine at the rule's frame (`blockRuleDecoding_run` — the
+   rule's own decoding), and the family's level `s`.
 -/
 
 namespace ConLeche.Model
@@ -77,13 +52,13 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. THE CURRENCY — the dispatch's equations ARE the endpoint's
+/-! ## 1. THE CURRENCY — the producer's equations ARE the endpoint's
 
-The dispatch parameterises the ι equations at their components AT THE
+The producer parameterises the ι equations at their components AT THE
 CHAIN FRAME (§20's `blockRecPdomsK`/`blockRecFdomsK`/`blockRecEsK`/
 `blockRecMkK`); the endpoint states its premise at `blockRecEqs`,
 `blockIotaEqsAV` over the BASE components.  The two are one term, and
-only the residue's cutoff separates them — the dispatch writes the
+only the residue's cutoff separates them — the producer writes the
 LIFTED prefix and field lengths, `blockRecEqs` the unlifted ones, and
 `liftDomsK_length` is a theorem, not `rfl`.  The identification is
 §31's, at the four `…K` definitions, so the two sides meet at a NAMED
@@ -91,7 +66,7 @@ term. -/
 
 section Currency
 
-/-- **The dispatch's equation list IS `blockRecEqs`** at the run's own
+/-- **The producer's equation list IS `blockRecEqs`** at the run's own
 components. -/
 theorem blockRecEqs_runK {envC : Env} {acval : Name → (Name → Nat) → AnnotTerm}
     {q : ConLeche.BlockShape}
@@ -124,37 +99,15 @@ theorem blockRecEqs_runK {envC : Env} {acval : Name → (Name → Nat) → Annot
 end Currency
 
 
-/-! ## 2. THE DISPATCH — the endpoint's premise, from the three regimes
+/-! ## 2. The equation list at the BASE prefix domains
 
-The dispatch splits on `ℓ = 0`, then on `w`.  Everything the three
-producers cannot see is paid in this one theorem:
+§20 states the components at the CHAIN frame (`blockRecPdomsK` =
+`liftDomsK K 0 ∘ blockRulePdomsAV`); the prefix domains are closed, so
+their chain lift is the identity (§28's `blockRecPdomsK_run`), and the
+collapse is paid ONCE, in the equation list, where `iotaEqsAV` is
+exposed and a congruence is available. -/
 
-* the family's elimination LEVEL is NAMED (`us`, a parameter), so each
-  regime's guard is a statement about a numeral rather than a
-  hypothesis under an existential — named in the RUN's currency,
-  `(us.headD .zero).eval ψ`, the sort stage (b) read off the first
-  recursor's conclusion;
-* the ι equations are re-spelled from the dispatch's currency to the
-  endpoint's (§1, and the `pdoms` collapse below);
-* the SQ arm arrives at `K = 1` and is transported to `rs.length` by
-  `hK1`;
-* the `(w, ℓ)` split itself.
-
-**The `pdoms` currency is the BASE form.**  §20 states the dispatch's
-components at the CHAIN frame (`blockRecPdomsK` =
-`liftDomsK K 0 ∘ blockRulePdomsAV`), and the endpoint's `blockRecEqs`
-lifts the base ones the same way — but all three producers hand their
-regime back at the BASE form: `blockKitRegime_wf`/`_sq` because `hpdE`
-pins `pdoms` to the recursor type's own first `rP` binder domains, and
-`blockIndRegime_of_run` because it states its conclusion at
-`blockRulePdomsAV` outright.  `IndRegimeAt` and `KitRegimeAt` are
-proof-tier `def`s, opaque outside `BlockRecPreRun.lean`, so a consumer
-cannot move a regime from one form to the other; the dispatch is
-stated at the BASE form and the collapse is paid ONCE, in the equation
-list, where `iotaEqsAV` is exposed and a congruence is available
-(§28's `blockRecPdomsK_run` is what makes it true). -/
-
-section Dispatch
+section BaseEqs
 
 omit [SetTheory V] in
 /-- A `flatMap` congruence at the members — core has none. -/
@@ -217,12 +170,12 @@ theorem blockRecEqs_base (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ 
   · exact (blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length).symm
   · rw [blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length]
 
-/-! ## 2.5 THE COUNTING GUARD AT THE RUN — the dispatch's `hK1`
+/-! ## 2.5 THE COUNTING GUARD AT THE RUN
 
-`blockKitRegime_sq` lives at `K = 1` and every run-level discharge is
-indexed over the recursor list, so the SQ arm is unstateable at the run
-without `rs.length = 1`.  No model fact implies it: it is what the
-kernel's COUNTING guard says.
+At `w = 0, ℓ ≠ 0` the graph kit's `huniq` needs the decoding to be a
+function of the major: one recursor, one member, at most one
+constructor, of the declared large shape.  No model fact implies it:
+it is what the kernel's COUNTING guard says.
 
 `blockLargeElimAllowed`'s own arm is a RUN (`isDefEq` of the
 conclusion's inferred type against `Sort 0`), and the model holds of a
@@ -230,16 +183,9 @@ conclusion only the LEVEL `ensureSort` returned — so the checker says
 the counting half a second time, in the level currency
 (`checkBlockRecSmallElim`, `Kernel/Inductives/BlockInstall.lean`): a
 block of SEVERAL families whose result sort may be `0` eliminates only
-at a level equivalent to zero.
-
-The premises `helim`, `hmemU`, `hruns` below are components 1, 2 and 4
-of `blockRecElimLevel_run`'s package verbatim, which is where the
-dispatch's `us` and `uOf` come from; `hres` is `rfl` at `blockDataOf`
-(`resSort := q.resSort`).  The chain: the pins give one recursor per
-member, stage (b) gives `rs.length = p.recs.length`, the counting guard
-gives `p.k = 1` — and `0 < p.k`, which makes the FIRST recursor's level
-nameable at all (`uOf 0`), and hence ties the package's abstract
-`us.headD` to the kernel's own list. -/
+at a level equivalent to zero.  `hruns` is `blockRecElimLevel_run`'s
+package component, and the level is the CHECKED one
+(`blockRecElimPin_run`). -/
 
 section Count
 
@@ -325,36 +271,18 @@ theorem blockRecLarge_run
 
 end Count
 
-end Dispatch
+end BaseEqs
 
 
-/-! ## 4. THE SEAM — the regime premise PRODUCED, owing named rows
+/-! ## 4. THE SEAM FACTS
 
-`hpre` is produced here, from the seam's own facts and four named
-bundles of rows, one per regime plus the grading.
-
-**Everything the seam pays is paid here**: the representation and the
-members' records (premises: `declBlock_run` produces them), the
-elimination-level package (`blockRecElimLevel_run`), the counting
-guard's facts (`blockRecCounting_run` — `rs.length = 1`, `d.N = 1`, the
-lone member, `numCtors ≤ 1`), the constructor counts
-(`checkBlockRecK_ctorsAt`), the members' index arities
-(`blockMembers_IdsM_length`), the recursive fields' targets (the
-names record) and the parameter telescope's length.
-
-**The level currency is the CHECKED elimination level**
-`structElimLevel p.elim p.large`, the one name for the family's level
-that exists BEFORE the elimination-level package is unpacked (so the
-bundles can be stated in `howed`, which quantifies before any
-unpacking).  The dispatch's `(us.headD .zero).eval ψ` is the same number
-at every `ψ` (`blockRecHeadLevel_run`: the package's agreement check
-and the elimination PIN), and the bundles cross by `subst`.
-
-**The bundles hold what the arms still RELAY**, each stated exactly as
-its arm consumes it, with the arm's own auxiliary witnesses (the
-certificate family's `ihdoms`/`Ca`, the ih values `ihv`, the source
-lists `srcs`, the ih key table) existential at the frame, so a producer
-chooses them where they are produced. -/
+What `blockRecPre_graph` reads of the run besides its rows: the
+recursor count, the constructor counts (`checkBlockRecK_ctorsAt`), the
+rule frame's field lengths and lifts, the certificates' and grading's
+chain carries, the fields' fit at the rule's frame (`blockKitSpF_run`),
+the rule's own decoding (`blockRuleDecoding_run`) and the family's level
+`s` (`blockRecLevel_run`).  The ι equations' remaining grading inputs
+are one bundle, `BlockGradeOwed`, in its producers' spellings. -/
 
 section Seam
 
@@ -707,7 +635,7 @@ candidate).  The fit half is §25's `blockRecCtorFitsFrom_of`, the index
 half §26's `blockRecCtorIdx`, the fired spine §22's
 `blockRecMkK_value`; `blockRuleSpine_peel` (`BlockKitRuleRun.lean`) hands all three their
 inputs. -/
-theorem blockWfCtorAt_run (hμ : μ.verifiedChecks = true)
+theorem blockRuleDecoding_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
       (p.kinds.getD c []).length = ctorsA.length)
