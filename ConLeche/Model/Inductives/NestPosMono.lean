@@ -697,4 +697,75 @@ theorem nestFields_sem
             (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
     · simp at h
 
+theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
+    (hPQ : ∀ R r, P R r → Q R r) :
+    ∀ (n : Nat) (R : FrameRel V) (r : AnnotTerm), PiPosThen P n R r → PiPosThen Q n R r
+  | 0, R, r, h => hPQ R r h
+  | n + 1, R, .pi _ _ A B, h => ⟨h.1, PiPosThen.mono hPQ n (R.under A) B h.2⟩
+  | _ + 1, _, .bvar _, h | _ + 1, _, .sort _, h | _ + 1, _, .const _ _, h
+  | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _, h | _ + 1, _, .eqE _ _, h
+  | _ + 1, _, .fst _, h | _ + 1, _, .snd _, h | _ + 1, _, .prf, h => h.elim
+
+/-- **A member constructor's result**: its reading is a spine whose
+arguments after the parameters (the result's indices) are hole-free. -/
+@[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
+  ∃ fa vs, r = AnnotTerm.mkAppN fa vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
+
+/-- **THE CONSUMER'S PREMISE, from the run: a member constructor is
+positive.**  A successful `nestMemberCtor` (every field through
+`nestPos`, then the result indices checked), with no cycle, makes every
+field's reading positive under the earlier fields along the hole
+relation, and the result's indices hole-free — the `CtorPos` of
+`Model/Annot/BlockLfpMono.lean`, in the constructor type's own Π-form.
+The typing premises (`Frame`, `CtxOk`, `Graded` of the member-abstracted
+constructor type at the holes' context) are the abstract typing pass's
+(E2E-DESIGN's U2). -/
+theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
+    (hcont : ∀ rec, NestPosSem m φ ctx rec → ContSem m φ ctx rec)
+    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {st' : NestState}
+    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, st'))
+    (hc : st'.cyclic = false) (hfr : Frame (ctx.hiAt 0) crest)
+    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
+    (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
+    (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
+    (hR : HoleRel ctx [] (ctx.hiAt 0) Δa R) :
+    PiPosThen (ResultIdxConst ctx.nP) nF R ca := by
+  unfold ConLeche.nestMemberCtor at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  · rename_i r hr
+    obtain ⟨ks₁, res, st₁⟩ := r
+    simp only at h
+    split at h
+    · rename_i hok
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      have hsem := nestFields_sem (nestPos_sem hin ctx F hcont 1024) (nestPos_cyc _ ctx 1024)
+        nF 0 crest st ks₁ res st₁ (ctx.hiAt 0 + nF) hr hc (by omega) (by simp) hfr
+        hC hca hgr hR
+      refine PiPosThen.mono (fun R' r hres => ?_) nF R ca hsem
+      obtain ⟨hag, hrd, hws⟩ := hres
+      have hspine := Expr.mkAppN_getApp res
+      rw [← hspine] at hrd hws
+      obtain ⟨fa, vs, -, hsp, rfl⟩ := denoteMeta_mkAppN_inv hrd
+      rw [← List.take_append_drop ctx.nP res.getAppArgs] at hsp
+      obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
+      refine ⟨fa, vs₁ ++ vs₂, rfl, ?_⟩
+      have hl₁ : vs₁.length ≤ ctx.nP := by
+        rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]; omega
+      intro v hv
+      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hok
+      have hdrop : (vs₁ ++ vs₂).drop ctx.nP ⊆ vs₂ := by
+        intro x hx
+        rw [List.drop_append] at hx
+        rcases List.mem_append.mp hx with hx | hx
+        · rw [List.drop_eq_nil_of_le hl₁] at hx; exact nomatch hx
+        · exact List.mem_of_mem_drop hx
+      have hwsargs := (wScoped_mkAppN _ hws).2
+      refine constOn_spine hag (by simp [NestCtx.hiAt]) hsp₂ (fun a ha => ⟨?_, hok a ha⟩) v
+        (hdrop hv)
+      exact hwsargs a (List.mem_of_mem_drop ha)
+    · simp at h
+
 end ConLeche.Model
