@@ -10,12 +10,12 @@ import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!
-# The rule's CONCLUSION `Ca`, pinned — and the kit arms' `hCaB`
+# The rule's CONCLUSION `Ca`, pinned — and the graph kit's `hCaB`
 
 `BlockRuleCerts` carries the rule's conclusion `Ca` as the reading of
 an EXISTENTIAL `concl` (`denoteMeta … concl = some Ca`), and every
-consumer that evaluates `Ca` — the kit arms' `hCaB`, the IND arm's
-`hCaE` through `blockIndCaE_of_run` (`blockIndRuleRows_run`) — needs it as
+consumer that evaluates `Ca` — the graph kit's `hCaB`, through
+`blockIndCaE_of_run` — needs it as
 `BlockRuleConclAt`: the recursor type's reading peeled along the rule's
 spine.  So one `Ca` per rule has to be chosen, and both sides stated
 at it.
@@ -43,7 +43,7 @@ needs the fired spine's value (`blockRecMkK_value`) and the index
 readings' values (`blockRecEsK_eq_is`), and both need the FIELD fit
 `SpineFit … Fss fs`, which a `ChainFit` gives only through the slot
 agreement (`blockSlot_agree`) — whose witness is `i ∈ d.idx …`.  The
-kit's step (`blockWfKit`'s `hst`, and the SQ kit's) has it (`hi`, off
+kit's typing (`blockGraphKit`'s `hst`) has it (the decoding's `i`, off
 `blockRecIs_pos`), exactly as for `hspF`.  The producers below are
 stated at the narrowed row.
 -/
@@ -396,10 +396,9 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
 
 /-! ## 4. The per-pair data, at the block datum
 
-The IND arm's `hCaE` (`blockIndRuleRows_run`) and the kit arms' `hCaB`
-read the same per-(recursor, constructor) facts: the rule's constructor
+The graph kit's `hCaB` reads the per-(recursor, constructor) facts: the rule's constructor
 IS the member's `j`-th (the counting stage's `hctM`), its record, and the
-pinned `Ca`'s peel.  They are named once here. -/
+pinned `Ca`'s peel, named once here. -/
 
 variable {d : BlockData V}
 

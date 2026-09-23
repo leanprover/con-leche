@@ -1717,8 +1717,8 @@ theorem blockRuleIhsRunAV_valid_run (hμ : μ.verifiedChecks = true) {mpC : EnvM
       trivial
 
 /-- **The `ih` openers' FIT, at the residue producer's telescope** —
-`BlockRuleBodyInputs`' one REGIME conjunct (`IndRegimeAt`'s fourth,
-`KitRegimeAt`'s `hihChain`), stated at the pinned `ihs` and `ihdoms`
+`BlockRuleBodyInputs`' one conjunct about the recursor model (the
+typed tuple's `ih` fit), stated at the pinned `ihs` and `ihdoms`
 and quantified over exactly the telescope `BlockRuleBodyOwed` hands
 (the contract's own, with its first conjunct at the base frame and the
 leaf pin): nothing wider.  `blockRuleIhFit_seam` (`BlockDeclRun.lean`)

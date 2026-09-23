@@ -128,7 +128,7 @@ The first two are **run facts** — `checkConstantVal` ran `inferType`
 on the ANNOTATED type at the constructors' environment, which is
 exactly the hypothesis `acceptedReads_of` and the infer claim want —
 and this is them.  The third is the recursion theorem and belongs to
-the regimes.
+the recursor model (`blockRecPre_graph`).
 
 The recipe is the one every harvest uses (`harvestDefn`,
 `Model/Harvest.lean`): `annotate_syntax` for the primed form's
@@ -200,7 +200,7 @@ theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`checkBlockRecK_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
-which the regimes deliver as `hmem` in this shape. -/
+which the recursor model delivers as `hmem` in this shape. -/
 theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}

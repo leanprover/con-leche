@@ -53,12 +53,11 @@ This file is the hop between the two, in three parts.
   (`BlockRecRead.lean`) is that the context is not nil.
 * **The frame's valuation** (`sat_blockFrame`): the context is
   `ihdoms.reverse ++ (pdoms ++ fdoms).reverse` and `Sat` at it is two
-  applications of `sat_of_spineFit` — the regimes' own
+  applications of `sat_of_spineFit` — the graph kit's own
   `SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs)` for the prefix and
   the fields, and one `SpineFit` for the `ih` openers.  The second is
-  where the regimes pay: the opener's value must lie in the opener's
-  DOMAIN (WF: `graph_mem_B` at the kit's graph; IND: `pt` in the
-  truth value).
+  where the kit pays: the opener's value must lie in the opener's
+  DOMAIN (the graph's value at the call target).
 * **The frame's context** (`ctxOk_blockFrame`): the frame is opened by
   THREE `openPisAtFvars` calls at the consecutive offsets `0`, `rP`
   and `rP + nF`, so the openers' concatenation is an
@@ -136,8 +135,8 @@ theorem residueMem_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
   have heq := ihd hdeq hwsT hbT hLT hwsC hbC hLC hctxT hctxC hta hCa hokT hokC ρ hρ
   exact heq ▸ hmem ρ hρ
 
-/-- **`ResidueOk` at one valuation**, in the shape `famCand_hCand`'s
-`hst` consumes — the residue
+/-- **`ResidueOk` at one valuation**, in the shape the graph kit's
+typing obligation (`blockGraphKit`'s `hst`) consumes — the residue
 reads, is graded, and lands in the conclusion's reading, at the frame
 `ρ'` extended by the `ih` openers' VALUES. -/
 theorem residueOk_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
@@ -165,13 +164,11 @@ theorem residueOk_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
 
 /-- **The opened frame's context is satisfied by the frame's own
 values.**  The frame is three telescopes deep and `Sat` at it is two
-`sat_of_spineFit`s: the regimes hand over
-`SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs)` verbatim (it is
-`blockRecPre_kit`'s and `blockRecPre_ind`'s own hypothesis at
-`ρ₀ := chainFrame K cand ρ`), and the `ih` openers' fit is the one
-thing a REGIME has to pay for: the opener's value must lie in the
-opener's DOMAIN — in WF that is the kit's graph (`graph_mem_B`), in
-IND the truth value (`pt`).
+`sat_of_spineFit`s: the graph kit hands over
+`SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs)` at the decoding's own spine,
+and the `ih` openers' fit is the one thing the kit has to pay for: the
+opener's value must lie in the opener's DOMAIN — the graph's value at
+the call target (`gGraph_mem_B`).
 
 The context's orientation is `Sat`'s own: innermost first, so the
 `ih` block comes first and each telescope is reversed. -/
@@ -322,11 +319,11 @@ theorem leavesBounded_of_openers {fvs : List Expr} {e : Expr}
   recursor's conclusion at the rule's prefix, the constructor's index
   expressions and the major);
 * the frame's three openings and the seam `hdoms`/`hokΔ`;
-* the regimes' own `SpineFit` for the prefix and the fields, and the
-  `ih` openers' fit, which is what a regime pays for (WF:
-  `graph_mem_B`; IND: `pt`),
+* the kit's own `SpineFit` for the prefix and the fields, and the
+  `ih` openers' fit, which is what the kit pays for (the graph's
+  values at the call targets),
 
-`ResidueOk` follows in the shape `famCand_hCand`'s `hst` consumes.
+`ResidueOk` follows in the shape the graph kit's `hst` consumes.
 
 The residue's and the conclusion's `WScoped` are DERIVED from the
 frame (`CtxOk.wScoped`), and their `LeavesBounded` from the openers'
@@ -378,8 +375,8 @@ theorem residueOk_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
 
 /-! ## 4. THE TWO-FRAME BRIDGE — the rule's frame against the block's
 
-The IND arm's `ih` leaf (`blockIndIhLeaf_pred`, `BlockRecPreRun.lean`)
-is proved from the BLOCK's side: the constructor's walk at the field's
+The graph producer's induction (`blockGraphInd_run`,
+`BlockRecGraph.lean`) reads a call target from the BLOCK's side: the constructor's walk at the field's
 position, whose index expressions and telescope are the readings at
 the FIELD's own frame
 
@@ -541,8 +538,8 @@ end TwoFrame
 
 /-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt`
 
-`BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the three regimes
-read OFF a fitting spine of `rec_c`'s binder data: the prefix, the
+`BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the recursor model
+reads OFF a fitting spine of `rec_c`'s binder data: the prefix, the
 eliminated member's index values and the major, with the parameters'
 fit and the member's own index fit.
 
@@ -584,10 +581,9 @@ an application off its own domain, so an unbounded clause is false.
   recursor's index domains) is not stated: its only run source would
   be the per-argument `isDefEq` inside the major domain's inference,
   and reading that off needs an inversion of `inferTypeCore` through a
-  Π-tower and an application spine.  No consumer needs it: the IND
-  arm states its motive (`blockIndP`) at the SPLIT data, and
-  `blockIndPt` converts a spine fit into that data by the forward
-  direction.
+  Π-tower and an application spine.  (The converse the model does
+  use, `blockRecIdxConv_run`, comes from stage (b'')'s own
+  certificate, not from this inference.)
 
 The MAJOR clause keeps its all-frames quantification, and that is not
 an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the

@@ -126,8 +126,7 @@ theorem BlockRuleCerts.residueOk {envT : Env} (hμ : μ.verifiedChecks = true)
 
 /-! ## 2. The carrier's case analysis
 
-The WF regime's step must be DEFINED at an arbitrary element of a
-component's carrier, and the only thing it can be defined by is the
+An element of a component's carrier is the injection of the
 constructor that built it.  `BlockModelAt.fibre` says that at the
 OPERATOR: component `c`'s fibre of `Φ X` at `t` consists exactly of
 the injections of the spines fitting one of `c`'s constructors.  The
@@ -136,8 +135,8 @@ carrier is the least pre-fixed TUPLE, and the fixed-point equation
 statement onto it.
 
 At a `Type`-valued block (`w ψ ≠ 0`) the decomposition is UNIQUE
-(`mkInj`), and `blockDecomp` is that unique pair as a FUNCTION — the
-step reads its residue at those field values. -/
+(`mkInj`) — the graph kit's `huniq` above `Prop`
+(`blockGraphUniq_run`). -/
 
 /-- A fitting field spine is as long as the constructor's field
 list. -/
@@ -176,11 +175,11 @@ theorem blockCarrier_case_unique {env : Env} {mo : EnvModel V env} {names : List
     (heq : d.inj ψ c j fs = d.inj ψ c j' fs') : j = j' ∧ fs = fs' :=
   hM.mkInj ψ hw c hc j fs j' fs' hj hj' hfit.length_eq hfit'.length_eq heq
 
-/-! ## 3. The WF regime's family data, at the block's own carriers
+/-! ## 3. The recursor classes at the block's own carriers
 
-`RecFamData` (`Semantics/Tower/BlockRecKitI.lean`) asks, per PREFIX
+`GraphFamData` (`Semantics/Tower/BlockRecGraphI.lean`) asks, per PREFIX
 SPINE, for the classes' index sets and ORDINARY carriers, the index
-tuple, a class kit, and the two readings the recursors' TYPES fix.
+tuple, a graph kit, and the two readings the recursors' TYPES fix.
 For a block the first three are not a choice:
 
 * the prefix spine's first `nP` values ARE the block's parameters (the
@@ -196,7 +195,7 @@ major's binder domain is the member's former applied, the clause's
 `leaf` turns the fold into `app (lfpTuple …) ⟨ı⃗⟩`, and the index
 tuple lands in the index set by `tupW_mem`. -/
 
-section WfData
+section ClassData
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
 
@@ -286,7 +285,7 @@ recursion. -/
     majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
 
-/-- **`RecFamData.hsplit` at the block's carriers**, from the stored
+/-- **`GraphFamData.hsplit` at the block's carriers**, from the stored
 type's reading and the representation's `leaf` clause. -/
 theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
     {K : Nat} {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
@@ -311,7 +310,7 @@ theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ :
     (idxOf (rP c) ys) hpar hidx]
   exact hmaj
 
-end WfData
+end ClassData
 
 /-! ## 4. `OneElimLevel` from the check
 
@@ -357,10 +356,10 @@ must recover the spine the conclusion is read at: the class, the index
 tuple and the major.  `tagged` is injective (`tagged_inj`), so below
 `K` the decoding is unique and `tagDec` is it as a function; the index
 SPINE comes back out of its tuple by `isOfW` (`isOfW_tupW`, at the
-member's own index telescope), exactly as regime SQ reads it.
+member's own index telescope).
 
 With that the two clauses the kit and the family data owe about the
-motive are one rewrite each: `hconcl` (`RecFamData`'s) says the motive
+motive are one rewrite each: `hconcl` (`GraphFamData`'s) says the motive
 at the tagged index IS the conclusion's reading at the fitting spine,
 and `hB` (the kit's) says it is a set of the family's level, which is
 the conclusion's reading fact restated at the decoded data. -/
@@ -409,7 +408,7 @@ theorem blockRecMot_mem_univ {K ℓ : Nat} {concl : Nat → AnnotTerm} {uOf nIdx
   rw [blockRecMot_tagged hc]
   exact h c hc i hi x hx
 
-/-- **`RecFamData.hconcl` at the block's motive**: the motive at the
+/-- **`GraphFamData.hconcl` at the block's motive**: the motive at the
 tagged index IS the conclusion's reading at the fitting spine.  The
 index spine comes back out of its tuple at the member's own index
 telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
@@ -435,22 +434,13 @@ theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d
     exact isOfW_tupW hIdx hidx
   rw [blockRecMot_tagged hc, hret, ← hdec]
 
-/-! ## 13. The regime arm, over an ABSTRACT step
+/-! ## 13. The residue across the chain frame
 
-`blockRecPre_kit`'s `hst` is the kit's step at the rule's own tagged
-element, and §11's `blockRecStep_at` computes it — once the rule's
-spine is known to be a CONSTRUCTOR application at the carrier
-(`hctorAt`).  Two frame moves finish it: the residue is the BASE-frame
-one lifted past the `K` chain binders (`interp_Rb_chain`), and the ih
-values built from the graph are the ih TERMS' readings at the chain
-frame (`hihChain`, closed by `ihFunAV_fold`).
+The graph producer's ι law reads the kit's step (the BASE-frame
+residue) against the ι equation's right-hand side (the residue lifted
+past the `K` chain binders); `interp_Rb_chain` is that frame move. -/
 
-The `RecFamData` is not a parameter of the construction but of the
-theorem, with its step pinned by `hDst`: that keeps the premises free
-of the kit's own definition, and `blockWfData_st` supplies `hDst` for
-the family §12 builds. -/
-
-section WfRun
+section ChainRb
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {ℓ s K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
@@ -472,7 +462,7 @@ theorem interp_Rb_chain {K : Nat} {a ρ : Nat → V} {ws ihvals : List V} {Rb0 :
   rw [← consList_append, ← consList_append]
   exact h
 
-end WfRun
+end ChainRb
 
 /-! ## 20. The components at the RUN's spelling
 
@@ -1505,10 +1495,9 @@ reading) once, where they live, instead of making the bundle carry
 them for a single consumer.
 
 It is a SEPARATE bundle from `BlockRuleCerts` on purpose: the sites
-that STATE the certificates (the two regimes, the kit, the kit family,
-`IndRegimeAt`, the WF assembly) never read the conclusion's shape, and
-threading three more components through all of them would only widen
-their premises.  Both bundles have the same producer and the same
+that STATE the certificates (the graph kit and its family) never read
+the conclusion's shape, and threading three more components through
+them would only widen their premises.  Both bundles have the same producer and the same
 run. -/
 
 section RuleConcl
@@ -1647,8 +1636,8 @@ end RuleConcl
 
 §29 evaluates the rule's conclusion at the rule's own components; §26b
 identifies those components' INDEX readings with the split's `is`.
-Together they are `hCaE` — the IND arm's remaining motive premise — at
-the split data, with no index clause inverted and no `w` or `ℓ` guard:
+Together they are `hCaE` — the rule's conclusion as the bound at the
+constructed element (`blockKitCaB_run`'s core) — at the split data, with no index clause inverted and no `w` or `ℓ` guard:
 `blockRecMkK_value` and `blockRecEsK_eq_is` are both unguarded, and
 the fibre's `ChainFit` (which `hCaE` carries for exactly this reason)
 is what pins the index values.
@@ -1733,8 +1722,7 @@ end CaESplit
 
 /-! ## 30. The `ih` openers' VALUES — `ihv` defined, and `hihChain`
 
-The ih values `ihv` the kit, the abstract arm and `KitRegimeAt` consume
-are DEFINED here, and they may not mention the recursor: the kit's
+The ih values `ihv` the graph kit consumes are DEFINED here, and they may not mention the recursor: the kit's
 step is what the recursion theorem is being handed, so the only thing
 an ih value may be built from is the GRAPH `g` the step receives.  The
 two facts about them are `hihF` (the values fit the ih openers'
@@ -1752,7 +1740,7 @@ the one definition of `ihs` both the kit and the rule data use.
 `hihChain` is then a TOWER congruence: the two towers run over the
 same binder data at two frames that agree below the rule's own depth,
 and at a leaf the graph-built body is the call's value (`app_graph` at
-the predecessor and `famCand_fold` at the candidate) while the
+the call target and `famCandG_fold` at the candidate) while the
 syntactic one folds to the same thing (`interp_ihFunAV_body`,
 `ihFunAV_fold`'s core stated at the BODY rather than at the fold). -/
 
@@ -2997,9 +2985,9 @@ section ElimRun
 /-! ### The COUNTING guard, read off the verdict
 
 `blockLargeElimAllowed` is a disjunction whose first arm
-(`resSort.isNeverZero`) is refuted at a block the SQ regime runs on —
-that regime's guard is `d.w ψ = 0`, i.e. the result sort evaluates to
-zero at this `ψ` — so at `w = 0` the verdict IS the counting guard's
+(`resSort.isNeverZero`) is refuted at a `Prop` block — `d.w ψ = 0`,
+i.e. the result sort evaluates to zero at this `ψ` — so at `w = 0` the
+verdict IS the counting guard's
 four facts, and all of them at once:
 
 * `large = true`, which is what the constructors' stage keys its
@@ -3023,7 +3011,6 @@ antecedent falls out (`blockRecCounting_run`,
 `Model/Inductives/BlockRecPreHpre.lean`).  (Stage (b)'s inversion alone
 hands back only the guard's DISJUNCTION, and refuting its second arm
 would need an inversion of `isDefEq` through `whnf` to the sort case.)
-`blockRecK1_run` calls this.
 
 The elimination-level pin's route to `large = true` is not a duplicate:
 it needs no `Prop`-valued hypothesis, so it says something at a `Type`
@@ -4603,7 +4590,7 @@ elimination the clause is VACUOUS, and where it bites it reduces to
 ONE fact about the tower's body, the guarded call's reading being a
 truth value.  It is therefore a premise of this section
 (`h0`), guarded by `b = 0` and by nothing wider, and its producer is
-the IND regime's own conclusion-sort fact.
+the conclusion-sort fact (`blockRuleIseg_h0_of_conclAt`).
 
 What the segment consumes about the telescope is its hereditary
 grading AT THE FIELD's frame — `FieldsOkB 0` and `FieldsValid` of
@@ -4870,9 +4857,9 @@ consumes `ihdoms` states it at level `0` LIFTED by the key
 opener takes).  They are the same term — `mkPisAV_ihTeleAtR_shift`
 (`BlockRecOpenerRead.lean`) at `l = 0`, `δ = r` — with the
 conclusion moved by the same lift, so neither side has to restate.
-The bit is free here and `0` there; at the IND regime, where the
-consumer lives, `0` is the elimination level's own bit
-(`pwBit_zeronessOf`), so the instance is at `b := 0`. -/
+The bit is free here and `0` there; where the consumer lives, `0` is
+the elimination level's own bit (`pwBit_zeronessOf`), so the instance
+is at `b := 0`. -/
 theorem mkPisAV_ihTeleAtR_liftN (nF o i r b : Nat) (tl : List (Nat × Nat × AnnotTerm))
     (B : AnnotTerm) :
     (mkPisAV (ihTeleAtR nF o i 0 (rebit b tl)) B).liftN r 0
@@ -5274,8 +5261,8 @@ end CertsRun
 /-! ### 40.15 THE `univZero` PRODUCER — the recursor's CONCLUSION
 lands in the universe the CHECK named
 
-`hT` (§5), `hTStep`, `hTReg` (`blockIndRegime_run`) and the `ih`
-segment's `h0` are four premises of ONE fact: a peel of a recursor
+The `ih` segment's `h0` (`blockRuleIseg_h0_of_conclAt`) rests on ONE
+fact: a peel of a recursor
 type at a fitting spine lands in `univZero` when the elimination level
 is zero.  Its source is a step the check already takes:
 
@@ -5524,8 +5511,7 @@ end ConclUniv
 
 /-! ### 40.16 `hwd` — the ι equation list's grading
 
-`hwd` (§5, and the same premise in all three regimes) has three parts
-per rule:
+`hwd` (`hEq_iotaEqsAV_of`'s premise) has three parts per rule:
 
 * `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
   has **no producer anywhere and no near-miss** (the only theorem
@@ -5585,7 +5571,7 @@ theorem blockRuleHwdRhs_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
   (wd_instsAV hihv).mpr (hcerts.residueOk hμ hsp hih).1
 
 /-- **`hwd` AT ONE RULE, assembled.**  The three parts in the shape
-the regimes state them: the domain list's `FieldsOkB 0` from §40.12's
+`hEq_iotaEqsAV_of` states them: the domain list's `FieldsOkB 0` from §40.12's
 ascending grading, the ι equation's left side from the recursor's fit,
 and its right side from the bundle.
 

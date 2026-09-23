@@ -9,11 +9,11 @@ import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!
-# The kit arms' `hrule` — the fired spine fits the recursor's type
+# The graph kit's `hrule` — the fired spine fits the recursor's type
 
-`blockKitRegime_wf` / `blockKitRegime_sq` (`BlockRecPreRun.lean` §19,
-§36) ask, at the ONE datum each arm builds (§19a: `blockWfCand` /
-`blockSqCand`), that the rule's fired spine — the rule prefix `x⃗`, the
+`famCandG_hCand` (`Semantics/Tower/BlockRecGraphI.lean`) asks, at the
+family `blockRecPre_graph` builds, that the rule's fired spine — the
+rule prefix `x⃗`, the
 constructor's result index readings and the fired constructor
 application — fits the recursor's own binder data:
 
@@ -22,7 +22,7 @@ SpineFit ρ ((rds c).map (·.2.2)) (x⃗ ++ (e⃗ ++ [mk]))
 ```
 
 whenever `x⃗ ++ f⃗` fits the rule's prefix and field domains at the
-arm's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
+candidate's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
 `BlockRecIdxConv.lean`) makes it composable from the run alone:
 
 * **the prefix** — the chain lift of the (closed) prefix domains is the
@@ -39,11 +39,8 @@ arm's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
   (`BlockModelAt.leaf`), which is the major binder's reading
   (`interp_of_major_reading`).
 
-Nothing here reads the chain frame's candidate: the generic statement
-(`blockKitRule_run`) holds at every `chainFrame K a ρ`, and the two
-arm-shaped statements (`blockWfRule_run`, `blockSqRule_run`) are it at
-the arms' own data, spelled exactly as `BlockWfOwed`/`BlockSqOwed`'s
-`hrule` row.
+Nothing here reads the chain frame's candidate: the statement
+(`blockKitRule_run`) holds at every `chainFrame K a ρ`.
 
 **The frame.**  The converse is a `DefEqClaim` read at the recursor's
 rule prefix followed by the member's indices; it concludes only at a
@@ -258,7 +255,7 @@ end Assemble
 
 section Rule
 
-/-- **The kit arms' `hrule`, at ANY chain frame** — nothing here reads
+/-- **The graph kit's `hrule`, at ANY chain frame** — nothing here reads
 the candidate `a`.  The peel (§1) hands the base-frame prefix, the
 parameter fit and the field spine at the parameter frame; the index
 values fit the member's telescope (`resIdxFit`); the fired spine is the

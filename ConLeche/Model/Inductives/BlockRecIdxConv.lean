@@ -722,9 +722,9 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
 
 end Run
 
-/-! ## 5. The kit arms' `hconclTy`, from the converse
+/-! ## 5. The graph kit's `hconclTy`, from the converse
 
-`blockKitRegime_wf`/`_sq`'s `hconclTy` asks that the recursor's
+The graph kit's bound (`blockGraphKit`'s `hB`) asks that the recursor's
 conclusion, read at a prefix `x⃗`, at a carrier element's index values
 and at the element, lie in the family's universe.  The element's class
 index set carries the prefix's FIT (`blockRecIs_fits`) — the frame the

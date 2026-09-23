@@ -474,9 +474,7 @@ theorem blockRuleCertsW_run (hμ : μ.verifiedChecks = true)
 past `K` chain binders: the field and `ih` domains' `K` lifts are the
 identity and so is the residue's (`blockRuleCertsChain_eq`).  At the
 pinned `ihdoms := blockRecIhdomsK K` and `Ca := blockRuleCaAV` this is
-the kit arms' `hcerts` row verbatim (`K := rs.length` for WF, `K := 1`
-for SQ); with the residue lifted (`blockRuleCertsChain_eq`'s third
-component) it is regime IND's certificate conjunct. -/
+the graph kit's `hcerts` verbatim (at `K := rs.length`). -/
 theorem blockRuleCertsK_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}

@@ -84,7 +84,7 @@ end TyZero
 
 /-! ## 1b. `BlockMembersRun` at the seam
 
-All three regimes and the recursor type's split take the block's
+The recursor model and the recursor type's split take the block's
 members' run facts as ONE record, `BlockMembersRun`
 (`BlockRecTyShapeRun.lean`).  At the run's own
 block data (`blockDataOf`, which the seam hands) it is the
@@ -1023,24 +1023,18 @@ typing at it).  Paid here as well:
   `ih` fit (F) (`blockIhFitTyped_run`), `heqB` is
   `blockRecEqs_below_seam`, `heqP` is `blockRecEqs_params_seam` with
   `s`'s own half;
-* the regime's (G) and (F) rows (`blockRecPre_seam` takes them apart
-  from its bundle);
+* the recursor model, `hpre`: ONE producer, `blockRecPre_graph`
+  (`BlockRecGraph.lean`), fed the block's RECORDED lfp clause (`hlfp`,
+  from the constructors' environment), the grading (G) and the typed
+  tuple's `ih` fit (F);
 * the rule stage's `ih` openers' FIT (`BlockRuleIhFitOwed`), off the
-  regime itself (`blockRuleIhFit_seam`: the leaf's tuple is typed);
+  recursor model itself (`blockRuleIhFit_seam`: the leaf's tuple is
+  typed);
 * the rule certificates at the base frame, at the PINNED conclusion
   `blockRuleCaAV` (`blockRuleCertsW_run`);
 * the rest of the grading bundle `BlockGradeOwed` — the left-hand
   sides' and the `ih` terms' grading (`blockGradeLhs_run`,
-  `blockGradeIhs_run`);
-* the three regime bundles (`BlockIndOwed`, `BlockWfOwed`,
-  `BlockSqOwed`) at the pinned `ihdoms := blockRecIhdomsK`,
-  `Ca := blockRuleCaAV` and — in the kit arms — `ihv := blockKitIhv`:
-  the certificates (`blockRuleCertsK_run`), IND's count,
-  opener reading, `hCaZ`, `hCaE` (`blockIndRuleRows_run`,
-  `blockIndIhOpen_run`) and its `ih` fit at every typed tuple ((F),
-  `blockRecIhsFit_chain`); the kits' `hihF`, `hCaB`, `hihChain`
-  (`blockWfIhF_run`/`blockSqIhF_run`, `blockWfCaB_run`/`blockSqCaB_run`,
-  `blockWfIhChain_run`/`blockSqIhChain_run`).
+  `blockGradeIhs_run`).
 
 The `ℓ = 0` arm's non-empty rule telescope is the kernel's rule-prefix
 floor `nP + k ≤ rP` (`checkBlockRecK_rulePos`). -/

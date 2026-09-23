@@ -33,16 +33,17 @@ This module proves it, from the run and the family premise
   `stripPisAV_eq_mkPis` exhibits the reading as `mkPisAV rds concl`.
   The binder data `rds` and the conclusion `concl` are therefore
   FUNCTIONS OF THE RUN (`blockRecRdsAV`, `blockRecConclAV`), which is
-  what lets the regimes state their `hTyE` at a named spelling rather
-  than at an existential;
+  what lets the recursor model state its `hTyE` at a named spelling
+  rather than at an existential;
 * **the seam** — `blockRecAV_facts` at `BlockRecPre` says the leaf of
   class `c` lies in `interp V ρ (RecTy c)`, and `denoteMeta` is a
   function, so the `ta` `hmem` is handed IS `RecTy c` as soon as
   `RecTy c` is the stored type's reading.
 
-Nothing here re-proves a regime or a reading battery: the two facts it
-needs from other modules are taken as premises in the shape they are
-exported — `BlockRecPre` (`blockRecPre_of`) and the stage's valuation
+Nothing here re-proves the recursor model or a reading battery: the
+two facts it needs from other modules are taken as premises in the
+shape they are exported — `BlockRecPre` (`blockRecPre_graph`) and the
+stage's valuation
 spelling (`blockRecStaged_of`'s `acv`).
 -/
 
@@ -60,8 +61,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 The stream's recursor type is stored AS IS, so the reading is not
 compared with a generated form: it is IDENTIFIED by the run's own
 Π-peel.  `rds` and `concl` are therefore functions of the run, spelled
-here so that the regimes can state their `hTyE` at a name instead of
-an existential. -/
+here so that the recursor model can state its `hTyE` at a name
+instead of an existential. -/
 
 /-- The `i`-th stored recursor type's READING at `ψ` (`default` off
 the list, or at a type that does not read — neither happens under the
@@ -132,7 +133,7 @@ theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
 recursor type READS, its reading is GRADED, and it IS the Π-tower
 `mkPisAV rds concl` over the run's own binder data — with the domains'
 readings, the bits (`0` and at most `1`) and the conclusion's reading
-at the full depth.  This is what the regimes consume: `hTyE` at
+at the full depth.  This is what the recursor model consumes: `hTyE` at
 `RecTy ψ c := blockRecTyAV …`, `rds`/`concl` at the two named
 spellings. -/
 theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
@@ -253,7 +254,7 @@ theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
 leaf lies in `interp V ρ (RecTy c)`; `denoteMeta` is a function, so
 the `ta` the seam is handed IS `RecTy c` once `RecTy c` is the stored
 type's reading.  `BlockRecPre` is taken as a PREMISE, in the shape
-`blockRecPre_of` (`Model/Inductives/BlockRecRegimes.lean`) concludes
+`blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) concludes
 in. -/
 
 /-- **`hrd_of_mem`'s `hmem`, proved.**  The `i`-th stored recursor's
@@ -268,7 +269,7 @@ Three premises, each in the shape its owner exports:
 * `hacv` — the stage's VALUATION: the `i`-th recursor's leaf is the
   `i`-th projection of the chosen tuple (`blockRecStaged_of`'s `acv`,
   which the assembly picks);
-* `hpre` — the family premise (`blockRecPre_of`). -/
+* `hpre` — the family premise (`blockRecPre_graph`). -/
 theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}

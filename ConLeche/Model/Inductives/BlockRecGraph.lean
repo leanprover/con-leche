@@ -289,9 +289,8 @@ tagged element at the call's index readings and the applied field. -/
           (interp V (consList bs (consList (xs ++ fs) ρ)))))
       (interp V (consList bs (consList (xs ++ fs) ρ)) (blockKitFapA pp rs c j key.1))
 
-/-- **One opener's tower inhabits its Π-tower**, at EVERY level: the
-retired `blockRecIhv_mem` with its `ℓ ≠ 0` replaced by what `ℓ = 0`
-needs, the opener's conclusion read to a truth value. -/
+/-- **One opener's tower inhabits its Π-tower**, at EVERY level: at
+`ℓ = 0` the opener's conclusion must read to a truth value. -/
 theorem blockGraphIhv_mem {ℓ c' : Nat} {tl : List (Nat × Nat × AnnotTerm)} {Cih : AnnotTerm}
     {tup : Nat → List V → V} {σ : Nat → V} {g : V}
     {eis : List AnnotTerm} {fap : AnnotTerm}

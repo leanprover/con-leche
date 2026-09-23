@@ -573,9 +573,10 @@ theorem blockRuleIdxPin_run {mm j : Nat} {cA : ConstantVal × Nat}
 /-! ### 2c. THE LIFT — the criterion as a STANDALONE producer
 
 §2b's arm identifies the field spine with the SOURCE spine inside its
-own proof.  Regime SQ asks for that identification on its own
-(`blockKitRegime_sq`'s `hsrcAt`, `BlockRecPreRun.lean`), and this
-section is the lift: the same three steps — the `FitsFrom`-to-
+own proof.  The graph kit's `huniq` at `w = 0, ℓ ≠ 0` asks for that
+identification on its own (`blockGraphUniq_run`, `BlockRecGraph.lean`:
+two decodings of one major have the same fields), and this section is
+the lift: the same three steps — the `FitsFrom`-to-
 `SpineFit` bridge (§3's `blockRuleFieldSpine_run`), the subsingleton
 criterion (`blockCtorFieldProp`) and `srcVals_of_fit` — at an
 ARBITRARY index tuple and an arbitrary fitting spine instead of at the
@@ -595,10 +596,8 @@ member of the domain when the domain is the empty truth value.
 A tuple BELOW the fixpoint transports its `ChainFit` INTO the
 fixpoint's (`blockChainFit_of_le`, by `slotSet_mono` at every
 recursive position), and there the domains are the slots
-(`blockSlot_agree`) and the criterion applies unchanged.  Both call
-sites of `hsrcAt` have `TupleLe`: the fixpoint itself (`blockSqKit`'s
-`hsrcL`, `lfpTuple_mem`) and the SEPARATED tuple (`blockSqExu`,
-`sepTuple_le`). -/
+(`blockSlot_agree`) and the criterion applies unchanged.  The graph
+kit's call site is at the fixpoint itself (`TupleLe.refl`). -/
 
 /-- **`FitsFrom` transports along an INCLUSION of the slots** —
 `spineFit_of_fitsFrom`'s pattern with `⊆ˢ` in place of `=`.  The
@@ -2109,8 +2108,8 @@ frame's own bound through the two openings' lengths, and
 pinned by equations in `blockRuleDataB_of_residue`'s own signature
 (`hpd`/`hfdD`/`hesD`/`hmkD`); `ihs` is pinned the same way.
 
-`blockRecIhsAt` (`BlockRecPreRun.lean` §30) is the `ihs` the regimes
-state their facts at, one `ihFunAV` per key; `blockRuleIhsAV` is its
+`blockRecIhsAt` (`BlockRecPreRun.lean` §30) is the `ihs` the recursor
+model states its facts at, one `ihFunAV` per key; `blockRuleIhsAV` is its
 instantiation at the RULE's per-key data — the field's MOVED
 telescope, its index readings moved with it, and the field applied
 along the telescope — which is exactly what
@@ -2193,16 +2192,15 @@ stage's; the frame's eight context rows (`hpl`…`hclF`) are the
 certificate bundle's (`BlockRuleCerts`, stated here at the run's own
 openers so the bundle's producer plugs in unchanged); `hspF` is the
 contract's FIRST conjunct (`blockRuleHsp_field_run`, which is why the
-`w`-guard reaches this far); `hihFit` is the REGIME's, in exactly the
-shape `IndRegimeAt`'s fourth conjunct and `KitRegimeAt`'s `hihChain`
-state it; and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
+`w`-guard reaches this far); `hihFit` is the recursor model's (the
+typed tuple's `ih` fit at the chain frame); and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
 `hty`) are the check's own inference, which the bundle also carries.
 
 **`ℓ ≠ 0` is not incidental.**  `blockRuleBodyEq_run` needs it
 (`ihFunAV_fold` folds a λ-tower at a non-zero level), so THIS
-conjunct of the contract is a KIT-regime statement: at `ℓ = 0` the
-rule's obligation is discharged by `blockRecPre_ind_run` instead, and
-the ih values are the point.
+conjunct of the contract is stated above `Prop`: at `ℓ = 0` the ih
+values are the point and the recursor's type is a truth value
+(`blockRecTyZ_run`), which is how the endpoint reads that case.
 
 **The composition CALLS the composed statement** rather than inlining
 its proof: a composed statement that is CALLED is the only thing that
@@ -2526,20 +2524,18 @@ separate hypothesis because the pinning mentions `fr`, `tlF` and
 `EisF`, all of which are under the peel's quantifier.
 
 **The ih FIT — the conjunct right after the pinning — is the
-REGIME's.**  With `ihs` pinned it is literally `IndRegimeAt`'s fourth
-conjunct (`BlockRecPreRun.lean`, at `a = fun _ => pt`) and
-`KitRegimeAt`'s `hihChain` (at `a = famCand D`) at this rule's data:
+recursor model's.**  With `ihs` pinned it is the typed tuple's `ih` fit
+at this rule's data, at the chain frame of any typed tuple `a`:
 
 ```
 SpineFit (consList (x⃗ ++ f⃗) (chainFrame K a ρ)) ihdoms
   (ihs.map (interp V (consList (x⃗ ++ f⃗) (chainFrame K a ρ))))
 ```
 
-and its producers (`spineFit_ihdoms_zero` at `ℓ = 0`, the kit's graph
-at `ℓ ≠ 0`) need the recursion's GRAPH.  It is stated here in the
-regime's own spelling — same frame, same `ihdoms`, same `map` — so a
-regime producer plugs in unchanged; the two side conditions those
-producers take, the prefix length and
+and its producer (`blockRuleIhFit_seam`, off `BlockRecPre`: the leaf's
+tuple is typed) needs the recursor model.  It is stated here in the
+producer's own spelling — same frame, same `ihdoms`, same `map` — so
+it plugs in unchanged; the two side conditions it takes, the prefix length and
 `SpineFit (chainFrame K a ρ) (pdoms ++ fdoms) (x⃗ ++ f⃗)`, are the
 wrapper's `hxl'`/`hpl` and its `hspF`, at the same frame. -/
 def BlockRuleBodyInputs (V : Type w) [SetTheory V] {μ : CheckMode} {envC : Env}
@@ -3236,9 +3232,8 @@ end DataRun
 
 /-! ## 11. `hwd` AT THE FAMILY — a fold over the per-rule theorem
 
-`blockRecPre_of`'s `hwd` (`Semantics/Tower/BlockRecI.lean`, and the
-same statement verbatim in `blockRecPre_ind_run` and in all three
-regime theorems) is, at ONE rule, `blockRuleHwd_of`
+`BlockRecPre.hEq`'s grading (`hEq_iotaEqsAV_of`'s `hwd`,
+`Semantics/Tower/BlockRecI.lean`) is, at ONE rule, `blockRuleHwd_of`
 (`BlockRecPreRun.lean`):
 
 ```
@@ -3257,8 +3252,8 @@ frame-free by design, so the certificates are supplied ONCE per rule
 and serve at every typed tuple; the three premises that DO mention the
 frame (`hokA`, `hlhs`, `hihs`) have to be quantified over `rs`, and
 that quantifier is the whole remaining content.  It is wider than the
-regimes' own: the regimes state their `ih` fit at the CHOSEN candidate
-(`chainFrame K cand ρ`), while `hEq_iotaEqsAV_of` needs the grading at
+candidate's own: the graph kit reads its `ih` values at the CHOSEN
+candidate (`chainFrame K cand ρ`), while `hEq_iotaEqsAV_of` needs the grading at
 EVERY tuple typed at the recursor types — `consList rs ρ` for any such
 `rs`.  Whoever pays `hihs` pays it there, not at the candidate. -/
 
@@ -3267,14 +3262,13 @@ section HwdFamily
 /-- **`hwd` at the family, from the per-rule certificates.**
 `blockRuleHwd_of` at every `(c, j)` and every typed tuple.
 
-The certificates `hcerts` are stated exactly as `blockRecPre_ind_run`
-and `IndRegimeAt` state them, so a producer of either plugs in
-unchanged; `hokA`, `hlhs` and `hihs` are `blockRuleHwd_of`'s own three
+The certificates `hcerts` are stated exactly as the graph kit states
+them (`blockGraphKit`), so its producer plugs in unchanged; `hokA`, `hlhs` and `hihs` are `blockRuleHwd_of`'s own three
 premises with the frame `σ` replaced by `consList rs ρ` and quantified
 over the typed tuples, which is where the family's `hEq` reads them.
 
 No new statement: every hypothesis is a `∀`-closure of a premise that
-already exists, and the conclusion is `blockRecPre_of`'s `hwd`
+already exists, and the conclusion is `hEq_iotaEqsAV_of`'s `hwd`
 character for character. -/
 theorem blockRecHwd_of_rules {envT : Env} {mp : EnvModelM V μ envT} {ψ : Name → Nat}
     {Fu K : Nat} {nCt rP : Nat → Nat} {RecTy : Nat → AnnotTerm}

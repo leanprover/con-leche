@@ -80,7 +80,7 @@ omit [SetTheory V] in
 /-- **The recursion data of a recursor family over the graph kit**, at
 the base frame `ρ`: per PREFIX SPINE a `GraphRecKit` over the tagged
 union of the classes' ORDINARY carriers, with decodings in `R`, and the
-two readings the recursors' TYPES fix (`RecFamData`'s, verbatim). -/
+two readings the recursors' TYPES fix. -/
 structure GraphFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → Nat)
     (rds : Nat → List (Nat × Nat × AnnotTerm)) (concl : Nat → AnnotTerm) (ρ : Nat → V)
     (R : Type uv) where

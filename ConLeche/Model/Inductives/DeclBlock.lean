@@ -247,8 +247,8 @@ Two things about `hrec`, the recursor stage's obligation:
   names and the STORAGE of the constructors the recursors carry
   (discharged here from `checkBlockRecK_ctorsIdx` and
   `BlockCtorsCore`'s own storage clause).  Building `BlockModelAt`
-  itself from those three records is the regimes' first step and is
-  deliberately not done here.
+  itself from those three records is the recursor model's first step
+  and is deliberately not done here.
 
 The run's nine conjuncts, one stage at a time: the formers' and the
 constructors' stages are `blockTablesStage_of`'s (conjuncts ①②③⑥⑦,

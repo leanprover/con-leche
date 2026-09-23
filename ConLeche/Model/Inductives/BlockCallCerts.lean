@@ -33,8 +33,7 @@ telescope
 
 The residue's typing run infers the opened body at the CONSTRUCTORS'
 environment, and a guarded call's node `ih_r a⃗` is an application
-spine there.  What the regimes need of it — at `ℓ = 0` for the IND
-step, and at the WF kit's graph for `hst` — is that each argument
+spine there.  What the recursor model needs of it is that each argument
 `a_t` was certified against the ih opener's own domain, i.e. against
 the field's telescope.  That is one INVERSION of the typing relation,
 and it is clean at the `.full` grade because the io site

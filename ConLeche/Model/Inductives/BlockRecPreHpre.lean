@@ -286,15 +286,15 @@ are one bundle, `BlockGradeOwed`, in its producers' spellings. -/
 
 section Seam
 
-/-- **The ι equations' GRADING inputs** — what is left of the dispatch's
-four `blockRecHwd_of_rules` premises once the seam pays the rest
+/-- **The ι equations' GRADING inputs** — what is left of
+`blockRecHwd_of_rules`' four premises once the producer pays the rest
 itself: the left-hand sides' grading and the `ih` terms' grading.
 
-The dispatch's `hokA` is the rule frame's grading (G), the FIT half of
-its `hihsWd` is the typed tuple's (F), and the certificate family's
+The fold's `hokA` is the rule frame's grading (G), the FIT half of its
+`hihs` is the typed tuple's (F), and the certificate family's
 conclusion is PINNED (`blockRuleCaAV`); all three have producers
 (`blockRuleGrading_run`, `blockIhFitTyped_run`, `blockRuleCertsW_run`),
-so `blockRecPre_seam` takes them as separate premises in exactly those
+so `blockRecPre_graph` takes them as separate premises in exactly those
 producers' spellings. -/
 @[expose] def BlockGradeOwed {envC : Env} (mpC : EnvModelM V μ envC)
     (p : ConLeche.BlockParts)
@@ -558,8 +558,8 @@ theorem blockGradeHokA_chain (hμ : μ.verifiedChecks = true)
   rw [hgd] at hq
   exact hq.1
 
-/-- **BOTH kit arms' `hspF`, at the run** — at the base frame and at
-any chain width `K` (the WF arm's is `rs.length`, the SQ arm's `1`).
+/-- **The graph kit's `hspF`, at the run** — at the base frame and at
+any chain width `K`.
 §24's bridge at `K = 0` (`blockRecSpF_base`) with the carrier's slots
 agreeing with the field domains' readings (`blockSlot_agree`, whose
 index-tuple witness is the carrier element's own class index `i`), and
@@ -629,9 +629,11 @@ theorem blockKitSpF_run (hμ : μ.verifiedChecks = true)
   rw [blockRecFdomsK_eq_of_bounded hbnd hr hcA hrhs K]
   exact hq
 
-/-- **REGIME WF's `hctorAt`, at the run** — at ANY chain frame (the
-arm's is `chainFrame K (blockWfCand …) ρ`, and nothing here reads the
-candidate).  The fit half is §25's `blockRecCtorFitsFrom_of`, the index
+/-- **The rule's own DECODING, at the run** — at ANY chain frame
+(nothing here reads the candidate): the rule's fields fit its
+constructor at the carrier, at the rule's index readings, and the
+fired spine is the constructor's injection — the decoding the graph
+producer's ι law reads `rec_eq` at.  The fit half is §25's `blockRecCtorFitsFrom_of`, the index
 half §26's `blockRecCtorIdx`, the fired spine §22's
 `blockRecMkK_value`; `blockRuleSpine_peel` (`BlockKitRuleRun.lean`) hands all three their
 inputs. -/
@@ -756,8 +758,8 @@ theorem consList_eq_chainFrame {K : Nat} {tup : List V} (hlen : tup.length = K) 
   rw [chainFrame, hmap]
 
 /-- **The typed tuple's `ih` fit, carried to the chain frame** — the
-dispatch's `hihsWd` second half from (F)'s base-frame spelling
-(`blockRecPre_seam`'s `hihsFit`): the prefix domains are closed (§28), the field domains and
+grading fold's `hihs` second half from (F)'s base-frame spelling
+(`blockRecPre_graph`'s `hihsFit`): the prefix domains are closed (§28), the field domains and
 the pinned `ihdoms` are the base ones lifted past the `K` chain binders
 at the rule frame's depth (`spineFit_liftDomsK`). -/
 theorem blockRecIhsFit_chain (hμ : μ.verifiedChecks = true)
