@@ -84091,3 +84091,77 @@ post-deletion state with the three-regime model: all gates green,
 Mathlib and init-full verdicts identical to master, +1.42 % instructions.
 No merge to master until the recursor model is in better shape
 (maintainer).
+
+
+#### LANDED (lane INVERT)
+
+#### Lane INVERT (2026-09-23): one run record per recursor-stage check; `checkBlockRecElimAgree` deleted
+
+**Records.** Each check of the recursor stage is now inverted exactly once, into a record with
+named fields, in `Verify/Inductives/BlockRecRun.lean`:
+
+| check | record |
+|---|---|
+| `checkBlockRecTys` | `RecTyEntry` |
+| `checkBlockRecFamilyAgree` | `RecFamRun` |
+| `checkBlockRule` | `RuleRun` |
+| `checkBlockRules` | `RulesRun` |
+| `checkBlockRecsRules` | `RecRulesEntry` |
+| `checkBlockRecK` | `RecKRun` |
+
+- **The bridge.** "The stored `rs[i].1` is the checked `cvRus[i].1`" is proved once, as `RecKRun.stored`.
+- **Accessors.** `tyAt`/`rulesAt`/`ruleAt` hand out records at the stored data.
+- **The rule for new checks.** No proof outside that module unfolds a recursor stage. A new kernel
+  check is a new field there and a one-module edit. `Model/Inductives/DeclBlock.lean` still has two
+  hand peels (see the report).
+- **Guarded calls.** The guarded call's inversion is the record `IhCallRun`, which keeps the major.
+- **Structural facts.** Every structural fact about `abstractIh`'s residue is an instance of
+  `abstractIh_preserves`.
+
+**D-d.** D-d is now the elimination-level pin `checkBlockRecElimPin`: every conclusion sort
+`isEquiv` to `structElimLevel p.elim p.large`. The model's level lemmas take the pin
+(`blockRecElimPin_eval`, `blockRecOneElimLevel`). The pairwise check `checkBlockRecElimAgree` is
+deleted from the kernel. It rejects only where `isEquiv` is incomplete, and the full arena, e2e,
+trusted and jobs sweeps show no verdict moved.
+
+**Left to the graph lane.** The regime/dispatch code still threads `us`/`hmemU`, and the level is
+`(us.headD .zero).eval ψ`. Both go when the graph producer replaces IND/WF/SQ.
+
+
+#### LANDED (lane ENVLFP)
+
+**The lfp clause in the environment invariant (lane ENVLFP, 2026-09-23).**
+`EnvModelM` carries `lfpBlocks : List (LfpDatum V)` and `lfp_ok`: for each
+recorded block, `LfpClause base2.acval D` holds and its members are stored
+`indInfo` formers.
+
+- **The clause** (`Model/Annot/BlockLfp.lean`) holds at every level
+  assignment and every parameter frame satisfying the parameters, the
+  quantification of `BlockModelAt`. It has three parts: `functor` (mono,
+  maps, closed tuple), `fibre` (component `c`'s fibre at `(X,t)` is the
+  injections of spines fitting a constructor: the narrow clause) and `leaf`
+  (a member's former at fitting parameters and indices is the `lfpTuple`
+  component at the index tuple).
+- **Why a separate datum.** The clause is stated over `LfpDatum` because
+  `EnvModelM` is below `BlockRep`. A uniform block's datum is
+  `BlockData.toLfp d` (fields are `d`'s, `Φ = d.Φ = blockPhi`), and its
+  clause is `BlockModelAt.toLfp`.
+- **Production.** `declBlock` records the clause at the constructors'
+  environment, before the recursor stage. `blockModelAt_of_records` moved
+  to `BlockModelRecords.lean` for this. The pinned `Empty`/`False`/
+  `PUnit`/`Nat` record hand-proved clauses at their formers
+  (`Model/BasisLfp.lean`, `lfp0_clause`; `Nat` = ω by
+  `omega_subset_inductive`). `Quot` needs none (not an inductive for the
+  recursor check). `Eq` is deferred to the first nested block through it.
+- **Transport.** Every extension (the cons funnel, the swap) copies the
+  list via `lfp_ok_transport`.
+- **Induction.** `LfpClause.ind`/`ind_tagged`, and `kitInd`, whose
+  conclusion is verbatim `GraphRecKit.ind`'s type, given the producer's
+  `hlink`.
+- **Consumer.** `blockIndPt_of_env`: regime IND's induction from the
+  recorded clause alone.
+- **Open.** `hrec` should take `dR.toLfp ∈ mpC.lfpBlocks` so the graph
+  producer reads the record instead of `hM`. That is a one-binder change,
+  with the suppliers in `BlockRecData`/`BlockDeclRun`. No coverage clause
+  ("every stored inductive is recorded") exists yet; it becomes statable
+  once the modelled route is deleted.
