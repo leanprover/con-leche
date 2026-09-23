@@ -84974,3 +84974,23 @@ types), `hihF` off `TargetCallRun` at the carrier, and `ind` = B4;
 (4) `hRaZ` (the `ℓ = 0` arm, by the ι law as FLOOR did).
 The old producers of exactly these facts die in B5.  The target is a
 contract whose size tracks this list, not the old chain.
+
+**`TargetNodeVal`'s discharge, planned (next session).**  The new
+`ihs j i` are the rule's `TargetIh` list mapped to `ihFunAV ℓ K
+ih.callee rP nF tl eis fap` (`Semantics/Tower/BlockRecI.lean`), whose
+parts are:
+- `tl`: the readings of the call's (hole-free) telescope;
+- `eis`: the readings of `ih.idx`;
+- `fap`: the field applied along the telescope variables.
+
+`BlockRuleDataB`'s body conjunct is stated under `ℓ ≠ 0`, which is
+exactly `ihFunAV_fold`'s side condition.  The stored call node reads,
+at the final family, as the recursor leaf's value (`blockRecLeafAV`,
+closed, `= a c` by the conjunct's hypothesis) folded along the prefix,
+`idx` and `f a⃗` readings.  `ihFunAV_fold` gives the same fold from the
+`ih` term, provided the last `m` locals fit `tl`.  That fit comes from
+`LocalsFit` plus the residue node's `IhTyped` (the old
+`certs_of_infer_mkAppN` route).  After the merge of POSPROOF part 1,
+`targetAbs` stays separate from `replaceConsts`: that function rewrites
+fvar annotations, and the frame's fields must keep their concrete
+types (documented in `RecCheck.lean`).
