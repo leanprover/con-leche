@@ -13,20 +13,15 @@ public section
 Charter item 2: "every stored `I p⃗` is the least fixed point of its
 right-hand-side operator: the interpretation of its constructor types
 with holes at the block's members … Monotonicity is DERIVED FROM
-POSITIVITY".  Today's `LfpClause` (`BlockLfp.lean`) records the operator
-`Φ` and the fit relation `fits` as OPAQUE data: nothing says that `fits`
-is the reading of the stored constructor types, so nothing ties `Φ`'s
-dependence on the parameter frame to anything positivity can see.  This
-module states the missing link as an interface and proves, against it,
-the two facts positivity must deliver:
+POSITIVITY".  The clause (`BlockLfp.lean`) carries the hole reading of
+the stored constructors (`LfpDatum.fields`/`resIdx`, the hole frame
+`LfpDatum.frame`) and the link `LfpClause.holes` (`ReadsHoles`: the
+block's fit relation IS the telescope fit of those readings at the hole
+frame — lane HOLE2).  This module proves, against it, the facts
+positivity must deliver:
 
-* **`HoleReading` / `ReadsHoles`** — THE INTERFACE HOLE2 MUST MAKE
-  `LfpClause` DELIVER: the block's fit relation IS the telescope fit of
-  its stored constructors' field readings with holes (`fields`, the
-  member-abstracted constructor domains read by `denoteMeta`), at the
-  hole frame (`frame`: the parameter frame with the tuple's components at
-  the member holes), together with the result index readings
-  (`resIdx`).  No field kinds, no slots.
+* **Positivity of a constructor** along a frame relation (`CtorPos`)
+  and the hole fit's growth along it (`LfpDatum.hfits_mono`).
 * **The consumer** (`monoTuple_of_holes`): the operator is monotone
   (`LfpClause.functor`'s first conjunct, which HOLE2 must PROVE rather
   than record) as soon as every field reading is `MonoOn` the hole order
@@ -58,64 +53,40 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## The interface -/
+/-! ## The interface
 
-/-- **The hole reading of a block's constructors** — the data HOLE2's
-clause must be stated over (HOLEOP §4.3's `absF`): per level assignment,
-component `c` and constructor `j`, the field readings with holes and the
-result index readings, and the hole frame. -/
-structure HoleReading (V : Type w) where
-  /-- component `c`'s constructor count -/
-  nctors : Nat → Nat
-  /-- **the hole frame**: the parameter frame with the tuple's
-  components at the member holes -/
-  frame : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
-  /-- component `c`'s constructor `j`'s field readings (members as holes) -/
-  fields : (Name → Nat) → Nat → Nat → List AnnotTerm
-  /-- component `c`'s constructor `j`'s result index readings, below the fields -/
-  resIdx : (Name → Nat) → Nat → Nat → List AnnotTerm
+The hole reading itself — the fields with holes (`LfpDatum.fields`), the
+result index readings (`resIdx`), the hole frame (`LfpDatum.frame`), the
+hole fit (`HFits`) and the link (`ReadsHoles`) — is part of the datum
+and the clause (`Annot/BlockLfp.lean`, lane HOLE2).  What positivity adds
+is the relation along which a constructor is positive. -/
 
-namespace HoleReading
+namespace LfpDatum
 
-variable (H : HoleReading V)
-
-/-- **The hole fit**: `fs` fits constructor `j` of component `c` at the
-hole frame of `(ρp, X)`, with result index tuple `t`. -/
-@[expose] def Fits (u : Nat → (Name → Nat) → Nat) (ψ : Name → Nat) (ρp X : Nat → V) (t : V)
-    (c j : Nat) (fs : List V) : Prop :=
-  j < H.nctors c ∧ SpineFit (H.frame ψ ρp X) (H.fields ψ c j) fs ∧
-    tupW (u c ψ) ((H.resIdx ψ c j).map (interp V (consList fs (H.frame ψ ρp X)))) = t
+variable (D : LfpDatum V)
 
 /-- **Positivity of a constructor along a frame relation**: every field
 positive under its predecessors, every result index hole-free below
 them. -/
 @[expose] def CtorPos (R : FrameRel V) (ψ : Name → Nat) (c j : Nat) : Prop :=
-  TeleMonoOn R (H.fields ψ c j) ∧
-    ∀ e ∈ H.resIdx ψ c j, ConstOn (R.underTele (H.fields ψ c j)) e
+  TeleMonoOn R (D.fields ψ c j) ∧
+    ∀ e ∈ D.resIdx ψ c j, ConstOn (R.underTele (D.fields ψ c j)) e
+
+variable {D}
 
 /-- **The hole fit grows along a frame relation** at which the
 constructor is positive. -/
-theorem fits_mono {u : Nat → (Name → Nat) → Nat} {R : FrameRel V} {ψ : Name → Nat}
-    {c j : Nat} (hpos : H.CtorPos R ψ c j) {ρp ρp' X X' : Nat → V}
-    (hR : R (H.frame ψ ρp X) (H.frame ψ ρp' X')) {t : V} {fs : List V}
-    (h : H.Fits u ψ ρp X t c j fs) : H.Fits u ψ ρp' X' t c j fs := by
+theorem hfits_mono {R : FrameRel V} {ψ : Name → Nat} {c j : Nat} (hpos : D.CtorPos R ψ c j)
+    {ρp ρp' X X' : Nat → V} (hR : R (D.frame ψ ρp X) (D.frame ψ ρp' X')) {t : V} {fs : List V}
+    (h : D.HFits ψ ρp X t c j fs) : D.HFits ψ ρp' X' t c j fs := by
   obtain ⟨hj, hsp, hres⟩ := h
-  refine ⟨hj, spineFit_mono _ hpos.1 hR hsp, ?_⟩
-  rw [← hres]
-  congr 1
-  refine List.map_congr_left fun e he => ?_
-  exact (hpos.2 e he _ _ (FrameRel.underTele_consList _ fs hR hsp)).symm
+  refine ⟨hj, spineFit_mono _ hpos.1 hR hsp, fun l hl => ?_⟩
+  obtain ⟨e, he, heq⟩ := hres l hl
+  refine ⟨e, he, ?_⟩
+  rw [← heq]
+  exact (hpos.2 e (List.mem_of_getElem? he) _ _ (FrameRel.underTele_consList _ fs hR hsp)).symm
 
-end HoleReading
-
-/-- **THE CLAUSE'S MISSING LINK** (what HOLE2 must make `LfpClause`
-deliver): the block's fit relation is the hole fit of its stored
-constructors. -/
-@[expose] def ReadsHoles (D : LfpDatum V) (H : HoleReading V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
-    ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
-      D.fits ψ ρp X t c j fs ↔ H.Fits D.u ψ ρp X t c j fs
+end LfpDatum
 
 /-! ## The consumer: the operator is monotone, from the field readings -/
 
@@ -124,7 +95,7 @@ conjunct, DERIVED: from the fibre law, the clause's link to the hole
 reading, and positivity of every constructor along the hole order `R`
 (the frames of two ordered tuples are `R`-related).  The positivity
 premise is what `nestPos`'s run on each field delivers. -/
-theorem monoTuple_of_holes {D : LfpDatum V} {H : HoleReading V} (hrd : ReadsHoles D H)
+theorem monoTuple_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
     {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
     (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
       ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
@@ -132,14 +103,14 @@ theorem monoTuple_of_holes {D : LfpDatum V} {H : HoleReading V} (hrd : ReadsHole
     (R : FrameRel V)
     (hR : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
       InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y → TupleLe D.N (D.idx ψ ρp) X Y →
-      R (H.frame ψ ρp X) (H.frame ψ ρp Y))
-    (hpos : ∀ c, c < D.N → ∀ j, j < H.nctors c → H.CtorPos R ψ c j) :
+      R (D.frame ψ ρp X) (D.frame ψ ρp Y))
+    (hpos : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.CtorPos R ψ c j) :
     MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) := by
   intro X Y hX hY hXY
   refine tupleLe_of_fibre (hfib X hX) (hfib Y hY) fun c hc t ht j fs hf => ?_
   have hf' := (hrd ψ ρp hs X hX c hc t ht j fs).mp hf
   exact (hrd ψ ρp hs Y hY c hc t ht j fs).mpr
-    (H.fits_mono (hpos c hc j hf'.1) (hR X Y hX hY hXY) hf')
+    (LfpDatum.hfits_mono (hpos c hc j hf'.1) (hR X Y hX hY hXY) hf')
 
 /-! ## The container case -/
 
@@ -158,14 +129,14 @@ monotonicity in its own holes at the larger one; nothing about the
 container's parameter (charter item 4).  The index sets are the same at
 both frames (the instance's index telescope is hole-free: `nestPos`'s
 (N2)). -/
-theorem carrier_le_of_holes (h : LfpClause acval D) {H : HoleReading V}
-    (hrd : ReadsHoles D H) {ψ : Name → Nat} {ρp ρp' : Nat → V}
+theorem carrier_le_of_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp' : Nat → V}
     (hs : Sat V (D.params ψ).reverse ρp) (hs' : Sat V (D.params ψ).reverse ρp')
     (hidx : D.idx ψ ρp = D.idx ψ ρp') (R : FrameRel V)
     (hR : ∀ Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y →
-      R (H.frame ψ ρp Y) (H.frame ψ ρp' Y))
-    (hpos : ∀ c, c < D.N → ∀ j, j < H.nctors c → H.CtorPos R ψ c j) :
+      R (D.frame ψ ρp Y) (D.frame ψ ρp' Y))
+    (hpos : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.CtorPos R ψ c j) :
     TupleLe D.N (D.idx ψ ρp) (D.carrier ψ ρp) (D.carrier ψ ρp') := by
+  have hrd := h.holes
   obtain ⟨hmono', -, hcl'⟩ := h.functor ψ ρp' hs'
   unfold LfpDatum.carrier
   rw [hidx] at hR ⊢
@@ -176,7 +147,8 @@ theorem carrier_le_of_holes (h : LfpClause acval D) {H : HoleReading V}
   rw [hidx] at hfib
   refine tupleLe_of_fibre hfib hfib' fun c hc t ht j fs hf => ?_
   have hf' := (hrd ψ ρp hs _ (by rw [hidx]; exact hL) c hc t (by rw [hidx]; exact ht) j fs).mp hf
-  exact (hrd ψ ρp' hs' _ hL c hc t ht j fs).mpr (H.fits_mono (hpos c hc j hf'.1) (hR _ hL) hf')
+  exact (hrd ψ ρp' hs' _ hL c hc t ht j fs).mpr
+    (LfpDatum.hfits_mono (hpos c hc j hf'.1) (hR _ hL) hf')
 
 /-- **A container's member, read at two parameter spines**, grows when
 its carrier does (the leaf law at both spines; the member's leaf is a
@@ -198,8 +170,7 @@ theorem leaf_le_of_carrier_le (h : LfpClause acval D) {mm : Nat} (hmm : mm < D.k
 two parameter spines (the instantiation's readings at a smaller and a
 larger frame) and the same indices grows, when its constructors are
 positive at the instantiation's two hole frames. -/
-theorem leaf_le_of_holes (h : LfpClause acval D) {H : HoleReading V}
-    (hrd : ReadsHoles D H) {mm : Nat} (hmm : mm < D.k)
+theorem leaf_le_of_holes (h : LfpClause acval D) {mm : Nat} (hmm : mm < D.k)
     {ψ : Name → Nat} {ρ ρ' : Nat → V} {as as' is : List V}
     (hsa : SpineFit ρ (D.params ψ) as) (hsa' : SpineFit ρ' (D.params ψ) as')
     (hsi : SpineFit (consList as ρ) (D.ids mm ψ) is)
@@ -208,12 +179,12 @@ theorem leaf_le_of_holes (h : LfpClause acval D) {H : HoleReading V}
     (hs' : Sat V (D.params ψ).reverse (consList as' ρ'))
     (hidx : D.idx ψ (consList as ρ) = D.idx ψ (consList as' ρ')) (R : FrameRel V)
     (hR : ∀ Y, InTupleSpace (D.w ψ) D.N (D.idx ψ (consList as ρ)) Y →
-      R (H.frame ψ (consList as ρ) Y) (H.frame ψ (consList as' ρ') Y))
-    (hpos : ∀ c, c < D.N → ∀ j, j < H.nctors c → H.CtorPos R ψ c j) :
+      R (D.frame ψ (consList as ρ) Y) (D.frame ψ (consList as' ρ') Y))
+    (hpos : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.CtorPos R ψ c j) :
     (as ++ is).foldl app (interp V ρ (acval (D.member mm) ψ))
       ⊆ˢ (as' ++ is).foldl app (interp V ρ' (acval (D.member mm) ψ)) :=
   h.leaf_le_of_carrier_le hmm hsa hsa' hsi hsi'
-    (h.carrier_le_of_holes hrd hs hs' hidx R hR hpos)
+    (h.carrier_le_of_holes hs hs' hidx R hR hpos)
 
 end LfpClause
 
@@ -226,7 +197,7 @@ frames of two tuples agreeing at component `m` agree off the positions
 component of the operator is the same at both tuples — so by
 `lfpTuple_eq_lfpFam_of_indep` it is the least family of `m`'s own
 operator, whatever the other members are. -/
-theorem readsOnly_of_holes {D : LfpDatum V} {H : HoleReading V} (hrd : ReadsHoles D H)
+theorem readsOnly_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
     {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N)
     (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
       ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
@@ -234,9 +205,9 @@ theorem readsOnly_of_holes {D : LfpDatum V} {H : HoleReading V} (hrd : ReadsHole
     (hmaps : MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)) (P : Nat → Prop)
     (hag : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
       InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y → X m = Y m →
-      AgreeOff P (H.frame ψ ρp X) (H.frame ψ ρp Y))
-    (hfree : ∀ j, j < H.nctors m → NoBVarTele P (H.fields ψ m j) ∧
-      ∀ e ∈ H.resIdx ψ m j, NoBVar (shiftPN (H.fields ψ m j).length P) e) :
+      AgreeOff P (D.frame ψ ρp X) (D.frame ψ ρp Y))
+    (hfree : ∀ j, j < D.nctors m → NoBVarTele P (D.fields ψ m j) ∧
+      ∀ e ∈ D.resIdx ψ m j, NoBVar (shiftPN (D.fields ψ m j).length P) e) :
     ReadsOnly (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) m := by
   -- one direction of the fit, at any two tuples agreeing at `m`
   have hdir : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
@@ -245,13 +216,14 @@ theorem readsOnly_of_holes {D : LfpDatum V} {H : HoleReading V} (hrd : ReadsHole
     intro X Y hX hY hXY t ht j fs hf
     obtain ⟨hj, hsp, hres⟩ := (hrd ψ ρp hs X hX m hm t ht j fs).mp hf
     have hagXY := hag X Y hX hY hXY
-    refine (hrd ψ ρp hs Y hY m hm t ht j fs).mpr ⟨hj, spineFit_congr_noBVar _ (hfree j hj).1 hagXY hsp, ?_⟩
-    rw [← hres]
-    congr 1
-    refine List.map_congr_left fun e he => ?_
-    have hlen : fs.length = (H.fields ψ m j).length := hsp.length_eq
+    refine (hrd ψ ρp hs Y hY m hm t ht j fs).mpr
+      ⟨hj, spineFit_congr_noBVar _ (hfree j hj).1 hagXY hsp, fun l hl => ?_⟩
+    obtain ⟨e, he, heq⟩ := hres l hl
+    refine ⟨e, he, ?_⟩
+    rw [← heq]
+    have hlen : fs.length = (D.fields ψ m j).length := hsp.length_eq
     refine (interp_congr_noBVar e ?_ (agreeOff_consList fs hagXY)).symm
-    rw [hlen]; exact (hfree j hj).2 e he
+    rw [hlen]; exact (hfree j hj).2 e (List.mem_of_getElem? he)
   intro X Y hX hY hXY
   refine famSpace_ext (hmaps X hX m hm) (hmaps Y hY m hm) fun t ht => ?_
   apply SetTheory.ext

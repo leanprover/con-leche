@@ -440,8 +440,8 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
     tower_ok := htower_ok
     -- the recorded lfp clauses: a fresh cons re-reads no stored name
     lfpBlocks := mp.lfpBlocks
-    lfp_ok := mp.lfp_ok_transport (fun _ _ _ hf => findPreserved_cons hfresh hf)
-      (fun n _ _ hf => acvalWith_ne fun h => by
+    lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => findPreserved_cons hfresh hf)
+      (fun n _ hf _ => acvalWith_ne fun h => by
         rw [h, hfresh] at hf; exact nomatch hf) }, rfl⟩
 
 

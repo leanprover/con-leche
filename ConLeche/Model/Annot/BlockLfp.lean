@@ -57,11 +57,72 @@ member's leaf as a function of the assignment.
 namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetTheory
+open ConLeche.SetModel (lamR app_lamR_pos)
+open ConLeche.SetTheory.Tower (projS)
 
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Name Level)
 
 universe w
+
+section HoleFam
+
+variable {V : Type w} [SetTheory V]
+
+/-- **The λ-tower over a telescope** `Fs`, read progressively from `ρ`,
+of `g` at the bound values — in the graph regime (a type-valued
+function; lane HOLE2's hole values). -/
+@[expose] noncomputable def holeFam (ρ : Nat → V) : List AnnotTerm → (List V → V) → V
+  | [], g => g []
+  | F :: Fs, g => lamR 1 (interp V ρ F) fun a => holeFam (cons a ρ) Fs fun as => g (a :: as)
+
+omit [SetTheory V] in
+theorem shiftE_one_succ (n : Nat) (ρ : Nat → V) :
+    shiftE n 0 (fun j => ρ (j + 1)) = shiftE (n + 1) 0 ρ := by
+  funext i; simp only [shiftE, Nat.not_lt_zero, if_false]; rw [Nat.add_assoc]
+
+omit [SetTheory V] in
+theorem frameIdx_concat (n : Nat) (ρ : Nat → V) :
+    frameIdx (n + 1) ρ = frameIdx n (fun j => ρ (j + 1)) ++ [ρ 0] := by
+  unfold frameIdx
+  rw [List.range_succ, List.map_append]
+  congr 1
+  · apply List.map_congr_left
+    intro l hl
+    have := List.mem_range.mp hl
+    show ρ (n + 1 - 1 - l) = ρ (n - 1 - l + 1)
+    congr 1; omega
+  · simp
+
+/-- `spineFit_frameIdx_of_sat`, by induction on the length. -/
+theorem spineFit_frameIdx_of_sat_len :
+    ∀ (n : Nat) {Ds : List AnnotTerm} {ρ : Nat → V}, Ds.length = n → Sat V Ds.reverse ρ →
+      SpineFit (shiftE Ds.length 0 ρ) Ds (frameIdx Ds.length ρ)
+  | 0, Ds, _, hn, _ => by
+    obtain rfl := List.eq_nil_of_length_eq_zero hn; trivial
+  | n + 1, Ds, ρ, hn, h => by
+    rcases List.eq_nil_or_concat Ds with rfl | ⟨Ds', D, rfl⟩
+    · exact absurd hn (by simp)
+    rw [List.concat_eq_append] at hn h ⊢
+    rw [List.reverse_append, List.reverse_singleton, List.singleton_append] at h
+    have h0 : ρ 0 ∈ˢ interp V (fun j => ρ (j + 1)) D := by
+      have := h 0 D rfl; simpa using this
+    have htl : Sat V Ds'.reverse (fun j => ρ (j + 1)) := Sat_tail h
+    have hlen : Ds'.length = n := by simpa using hn
+    have hih := spineFit_frameIdx_of_sat_len n hlen htl
+    rw [List.length_append, List.length_singleton, frameIdx_concat, ← shiftE_one_succ]
+    refine hih.append ⟨?_, trivial⟩
+    rw [consList_frameIdx]
+    exact h0
+
+/-- **A satisfied reversed context is a fitting spine of its own frame
+index over its shift.** -/
+theorem spineFit_frameIdx_of_sat {Ds : List AnnotTerm} {σ : Nat → V}
+    (h : Sat V Ds.reverse σ) :
+    SpineFit (shiftE Ds.length 0 σ) Ds (frameIdx Ds.length σ) :=
+  spineFit_frameIdx_of_sat_len _ rfl h
+
+end HoleFam
 
 /-- **The part of a block's representation the lfp clause reads** (see
 the module docstring).  A uniform block's is `BlockData.toLfp`. -/
@@ -87,6 +148,19 @@ structure LfpDatum (V : Type w) where
   fits : (Name → Nat) → (Nat → V) → (Nat → V) → V → Nat → Nat → List V → Prop
   /-- the constructor injections -/
   inj : (Name → Nat) → Nat → Nat → List V → V
+  /-- **the hole reading** (charter item 2, lane HOLE2): component `c`'s
+  constructor count -/
+  nctors : Nat → Nat
+  /-- component `c`'s constructor `j`'s name -/
+  ctorName : Nat → Nat → Name
+  /-- component `c`'s constructor `j`'s FIELD READINGS WITH HOLES: the
+  member-abstracted constructor domains, read at the parameters, then
+  one hole per member (member `m` at the variable `nP + m`), then the
+  earlier fields -/
+  fields : (Name → Nat) → Nat → Nat → List AnnotTerm
+  /-- component `c`'s constructor `j`'s result index readings, below the
+  fields -/
+  resIdx : (Name → Nat) → Nat → Nat → List AnnotTerm
 
 namespace LfpDatum
 
@@ -103,7 +177,82 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
+/-- **Member `m`'s hole value** at the tuple `X` (lane HOLE2): the
+λ-tower over the parameters and `m`'s indices (the member former's
+binders, read from below the parameter frame) of `X m` at the index
+tuple — the family of `X`, curried, blind in its parameters (a hole is
+only ever applied to the block's own parameters). -/
+@[expose] noncomputable def holeVal (ψ : Name → Nat) (ρp X : Nat → V) (m : Nat) : V :=
+  holeFam (shiftE (D.params ψ).length 0 ρp) (D.params ψ ++ D.ids m ψ)
+    fun vs => app (X m) (tupW (D.u m ψ) (vs.drop (D.params ψ).length))
+
+/-- **The hole frame** at `(ρp, X)`: the parameter frame with member
+`m`'s hole value at the variable `nP + m` (so the last member is
+innermost). -/
+@[expose] noncomputable def frame (ψ : Name → Nat) (ρp X : Nat → V) : Nat → V :=
+  consList ((List.range D.k).map (D.holeVal ψ ρp X)) ρp
+
+/-- **The hole fit**: `fs` fits component `c`'s constructor `j` at the
+hole frame of `(ρp, X)` — each field in its reading with holes at the
+earlier ones — and its result index readings are the components of the
+index tuple `t`. -/
+@[expose] def HFits (ψ : Name → Nat) (ρp X : Nat → V) (t : V) (c j : Nat) (fs : List V) :
+    Prop :=
+  j < D.nctors c ∧ SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs ∧
+    ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
+      interp V (consList fs (D.frame ψ ρp X)) e = projS l t
+
+/-- **The fit relation IS the hole fit** (POSPROOF's `ReadsHoles`): at
+every parameter frame of the domain, every tuple of the space and every
+index tuple of the component. -/
+@[expose] def ReadsHoles : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+    ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
+      D.fits ψ ρp X t c j fs ↔ D.HFits ψ ρp X t c j fs
+
 end LfpDatum
+
+/-! ## The hole values -/
+
+section HoleVals
+
+variable {V : Type w} [SetTheory V]
+
+/-- A λ-tower applied to a spine fitting its telescope computes. -/
+theorem holeFam_app :
+    ∀ {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V} (g : List V → V),
+      SpineFit ρ Fs as → as.foldl app (holeFam ρ Fs g) = g as
+  | _, [], [], _, _ => rfl
+  | _, [], _ :: _, _, h => h.elim
+  | _, _ :: _, [], _, h => h.elim
+  | ρ, F :: Fs, a :: as, g, h => by
+    show as.foldl app (app (lamR 1 (interp V ρ F) _) a) = g (a :: as)
+    rw [app_lamR_pos (by decide) h.1]
+    exact holeFam_app (fun bs => g (a :: bs)) h.2
+
+namespace LfpDatum
+
+variable {D : LfpDatum V}
+
+/-- **A hole applied to the block's own parameters and fitting indices
+is the tuple's component** at the index tuple. -/
+theorem holeVal_app {ψ : Name → Nat} {ρp X : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+    (m : Nat) {is : List V} (his : SpineFit ρp (D.ids m ψ) is) :
+    (frameIdx (D.params ψ).length ρp ++ is).foldl app (D.holeVal ψ ρp X m)
+      = app (X m) (tupW (D.u m ψ) is) := by
+  have hsp : SpineFit (shiftE (D.params ψ).length 0 ρp) (D.params ψ)
+      (frameIdx (D.params ψ).length ρp) := spineFit_frameIdx_of_sat hs
+  have hlen : (frameIdx (D.params ψ).length ρp).length = (D.params ψ).length := by
+    simp [frameIdx]
+  have hfr : consList (frameIdx (D.params ψ).length ρp) (shiftE (D.params ψ).length 0 ρp) = ρp :=
+    consList_frameIdx _ ρp
+  unfold holeVal
+  rw [holeFam_app _ (hsp.append (by rw [hfr]; exact his)), List.drop_left' hlen]
+
+end LfpDatum
+
+end HoleVals
 
 variable {V : Type w} [SetTheory V]
 
@@ -129,21 +278,46 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
     SpineFit ρ (D.params ψ) as → SpineFit (consList as ρ) (D.ids mm ψ) is →
     (as ++ is).foldl app (interp V ρ (acval (D.member mm) ψ))
       = app (D.carrier ψ (consList as ρ) mm) (tupW (D.u mm ψ) is)
+  /-- **the fit IS the hole fit** (lane HOLE2, charter item 2): a
+  constructor's fields fit exactly when they fit its field readings with
+  holes, read at the hole frame of the tuple -/
+  holes : D.ReadsHoles
+  /-- at a `Prop`-valued block every injection is the point -/
+  mkZero : ∀ ψ : Name → Nat, D.w ψ = 0 → ∀ c j fs, D.inj ψ c j fs = pt
+  /-- at a `Type`-valued block a component's injections are injective
+  across its constructors, at spines of the constructors' lengths -/
+  mkInj : ∀ ψ : Name → Nat, D.w ψ ≠ 0 → ∀ c, c < D.N → ∀ j fs j' fs',
+    j < D.nctors c → j' < D.nctors c →
+    fs.length = (D.fields ψ c j).length → fs'.length = (D.fields ψ c j').length →
+    D.inj ψ c j fs = D.inj ψ c j' fs' → j = j' ∧ fs = fs'
+  /-- **the constructors**: component `c`'s constructor `j`, at fitting
+  parameters and fields fitting its hole reading at the carrier, is its
+  injection -/
+  ctor : ∀ c, c < D.N → ∀ j (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V) (t : V),
+    SpineFit ρ (D.params ψ) as → t ∈ˢ D.idx ψ (consList as ρ) c →
+    D.HFits ψ (consList as ρ) (D.carrier ψ (consList as ρ)) t c j fs →
+    (as ++ fs).foldl app (interp V ρ (acval (D.ctorName c j) ψ)) = D.inj ψ c j fs
 
 namespace LfpClause
 
 variable {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
 
 /-- **Transport**: the clause reads the leaf valuation only at the
-members' names. -/
+members' and the constructors' names. -/
 theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → AnnotTerm}
-    (hag : ∀ mm, mm < D.k → acval' (D.member mm) = acval (D.member mm)) :
+    (hag : ∀ mm, mm < D.k → acval' (D.member mm) = acval (D.member mm))
+    (hagC : ∀ c, c < D.N → ∀ j, j < D.nctors c → acval' (D.ctorName c j) = acval (D.ctorName c j)) :
     LfpClause acval' D where
   kN := h.kN
   functor := h.functor
   fibre := h.fibre
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     rw [hag mm hmm]; exact h.leaf mm hmm ψ ρ as is hsa hsi
+  holes := h.holes
+  mkZero := h.mkZero
+  mkInj := h.mkInj
+  ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
+    rw [hagC c hc j hf.1]; exact h.ctor c hc j ψ ρ as fs t hsa ht hf
 
 /-- **The clause at a universe instantiation**: the leaf at the
 assignment a use `.const (D.member mm) us` under `φ` reads —
@@ -190,6 +364,64 @@ theorem ind (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
   obtain ⟨j, fs, hfit, rfl⟩ :=
     (h.fibre ψ ρp hsat _ (sepTuple_mem _ _ _ _ P) c hc t ht x).mp hx
   exact hstep c hc t ht j fs hfit
+
+/-- **The carrier's case analysis, in hole form**: an element of
+component `c`'s carrier is the injection of a spine fitting one of
+`c`'s constructors' readings with holes, at the hole frame of the
+carrier. -/
+theorem carrier_case_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) {t : V}
+    (ht : t ∈ˢ D.idx ψ ρp c) {x : V} (hx : x ∈ˢ app (D.carrier ψ ρp c) t) :
+    ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs := by
+  obtain ⟨j, fs, hf, rfl⟩ := h.carrier_case hsat hc ht hx
+  exact ⟨j, fs, (h.holes ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht j fs).mp hf, rfl⟩
+
+/-- **The fibre in hole form**: component `c`'s fibre at `(X, t)` is the
+set of injections of the spines fitting one of `c`'s constructors'
+readings with holes at the hole frame of `X`. -/
+theorem fibre_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) {X : Nat → V}
+    (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) {c : Nat} (hc : c < D.N) {t : V}
+    (ht : t ∈ˢ D.idx ψ ρp c) (x : V) :
+    x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs := by
+  rw [h.fibre ψ ρp hsat X hX c hc t ht x]
+  constructor
+  · rintro ⟨j, fs, hf, rfl⟩
+    exact ⟨j, fs, (h.holes ψ ρp hsat X hX c hc t ht j fs).mp hf, rfl⟩
+  · rintro ⟨j, fs, hf, rfl⟩
+    exact ⟨j, fs, (h.holes ψ ρp hsat X hX c hc t ht j fs).mpr hf, rfl⟩
+
+/-! ### The section clause (Bekić, `lfpTuple_eq_section`)
+
+A component of the carrier is the least family of its SECTION: the
+component's own operator with the other components held at the carrier.
+Read through `fibre_holes`, the section's fibre at `Y` is the hole fit at
+the frame of the carrier updated at `m` by `Y` — the other members' holes
+hold their carriers, member `m`'s hole holds `Y`.  This is the per-key
+frame of `nestPos`'s container descent (lane POSPROOF §4): only the
+container is a hole, the rest of its group is read concretely. -/
+
+/-- **The section law**: component `m` of the carrier is the least
+family of its section at the carrier. -/
+theorem section_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N) :
+    D.carrier ψ ρp m
+      = lfpFamSet (D.w ψ) (D.idx ψ ρp m)
+          (secF (D.w ψ) (D.idx ψ ρp) (D.Φ ψ ρp) (D.carrier ψ ρp) m) := by
+  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
+  exact lfpTuple_eq_section hcl hmono hm
+
+/-- **The section's fibre, in hole form**: at a family `Y` of component
+`m`'s space, the section's fibre at `t` is the set of injections of the
+spines fitting one of `m`'s constructors' readings with holes, at the
+hole frame of the carrier with component `m` replaced by `Y`. -/
+theorem section_fibre (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N) {Y : V}
+    (hY : Y ∈ˢ famSpace (D.w ψ) (D.idx ψ ρp m)) {t : V} (ht : t ∈ˢ D.idx ψ ρp m) (x : V) :
+    x ∈ˢ app (app (secF (D.w ψ) (D.idx ψ ρp) (D.Φ ψ ρp) (D.carrier ψ ρp) m) Y) t ↔
+      ∃ j fs, D.HFits ψ ρp (updTuple (D.carrier ψ ρp) m Y) t m j fs ∧ x = D.inj ψ m j fs := by
+  rw [app_secF hY]
+  exact h.fibre_holes hsat (inTupleSpace_updTuple (lfpTuple_mem _ _ _ _) hY) hm ht x
 
 end LfpClause
 

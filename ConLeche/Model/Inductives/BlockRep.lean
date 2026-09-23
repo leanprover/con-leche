@@ -347,12 +347,61 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     fs.length = ((d.Fss c ψ).getD j []).length → fs'.length = ((d.Fss c ψ).getD j' []).length →
     d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
 
+/-! ## The constructors' fields WITH HOLES (lane HOLE2)
+
+Charter item 2: a constructor's fields are read with HOLES at the
+block's members — the member-abstracted constructor domains, read at the
+parameters, then one variable per member (member `m` at `nP + m`), then
+the earlier fields (the layout `nestPos` walks,
+`Kernel/Inductives/Positivity.lean`).  At the data they are the
+constructor's field readings `Fss` with the member holes inserted below
+the fields: a hole-free field is its reading lifted over the holes; a
+field reading a member (finitary or reflexive) is the member's HOLE
+applied to the block's parameters and the field's index readings, under
+the field's own telescope.  `Model/Inductives/BlockLfpHoles.lean` proves
+the fixpoint route's fit (`ChainFit`) IS the telescope fit of these at
+the hole frame (`LfpDatum.ReadsHoles`). -/
+
+namespace BlockData
+
+variable (d : BlockData V)
+
+/-- A telescope's entries lifted over `n` variables inserted below its
+start, the entry `l` of a telescope starting at position `i` at the
+cut `i + l`. -/
+@[expose] def liftTeleK (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
+  | _, [] => []
+  | i, dd :: tl => (dd.1, dd.2.1, dd.2.2.liftN n i) :: liftTeleK n (i + 1) tl
+
+/-- **Field `i` of component `c`'s constructor `j`, read with holes**
+(see the section docstring). -/
+@[expose] def absField (ψ : Name → Nat) (c j i : Nat) : AnnotTerm :=
+  if ((d.rss c).getD j []).getD i false then
+    mkPisAV (liftTeleK d.k i (((d.tlss c ψ).getD j []).getD i []))
+      (AnnotTerm.mkAppN
+        (.bvar (i + (((d.tlss c ψ).getD j []).getD i []).length + (d.k - 1 - d.tgts c j i)))
+        (paramBvarsAt d.nP (d.nP + d.k + i + (((d.tlss c ψ).getD j []).getD i []).length) ++
+          (((d.Eiss c ψ).getD j []).getD i []).map
+            (·.liftN d.k (i + (((d.tlss c ψ).getD j []).getD i []).length))))
+  else (((d.Fss c ψ).getD j []).getD i default).liftN d.k i
+
+/-- Component `c`'s constructor `j`'s fields with holes. -/
+@[expose] def absF (ψ : Name → Nat) (c j : Nat) : List AnnotTerm :=
+  (List.range ((d.Fss c ψ).getD j []).length).map (d.absField ψ c j)
+
+/-- Component `c`'s constructor `j`'s result index readings, below the
+holes and the fields. -/
+@[expose] def absE (ψ : Name → Nat) (c j : Nat) : List AnnotTerm :=
+  ((d.Ess c ψ).getD j []).map (·.liftN d.k ((d.Fss c ψ).getD j []).length)
+
+end BlockData
+
 /-! ## The block's LFP CLAUSE (lane ENVLFP)
 
 The part of the representation the environment invariant records
 (`Model/Annot/BlockLfp.lean`): the datum is `d`'s own fields — the
-operator IS `d.Φ` — and the clause is `functor`, `fibre` and `leaf`
-read off `BlockModelAt`, nothing re-proved. -/
+operator IS `d.Φ` — with the constructors' fields read with holes
+(lane HOLE2).  The clause is produced in `BlockLfpHoles.lean`. -/
 
 /-- **A block's lfp datum**: its fields are `d`'s. -/
 @[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
@@ -366,21 +415,10 @@ read off `BlockModelAt`, nothing re-proved. -/
   Φ := d.Φ
   fits := fun ψ ρp X t c j fs => j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs
   inj := d.inj
-
-/-- **The representation's lfp clause** — `functor`, `fibre` and
-`leaf`, verbatim. -/
-theorem BlockModelAt.toLfp {m : EnvModel V env} {names : List Name} {d : BlockData V}
-    (hM : BlockModelAt m names d) : LfpClause m.acval d.toLfp where
-  kN := Nat.le_add_right _ _
-  functor := hM.functor
-  fibre := fun ψ ρp hsat X hX c hc t ht x => by
-    show x ∈ˢ app (d.Φ ψ ρp X c) t ↔
-      ∃ j fs, (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ∧ x = d.inj ψ c j fs
-    rw [hM.fibre ψ ρp hsat X hX c hc t ht x]
-    constructor
-    · rintro ⟨j, fs, hj, hfit, rfl⟩; exact ⟨j, fs, ⟨hj, hfit⟩, rfl⟩
-    · rintro ⟨j, fs, ⟨hj, hfit⟩, rfl⟩; exact ⟨j, fs, hj, hfit, rfl⟩
-  leaf := hM.leaf
+  nctors := fun c => (d.ctorsM c).length
+  ctorName := fun c j => ((d.ctorsM c).getD j default).1.name
+  fields := d.absF
+  resIdx := d.absE
 
 /-! ## Derived laws -/
 

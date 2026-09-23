@@ -254,7 +254,7 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             -- and keeps every leaf
             lfpBlocks := mp.lfpBlocks
             lfp_ok := mp.lfp_ok_transport
-              (fun n cv caps hf => (hsame n _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hf)
+              (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
               (fun _ _ _ _ => rfl) },
           rfl, rfl⟩
   · -- `type_reads`

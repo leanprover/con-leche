@@ -413,19 +413,35 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [← hN.2.2.2, hcvTas]; exact Nat.succ_pos _
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-  have hstC : ∀ mm, mm < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp.k →
-      ∃ cv caps, (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
-        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp.member mm)
-          = some (.indInfo cv caps) := by
-    intro mm hmm
-    obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hmm)⟩
-    have hname := hN.1 mm cvTb hcv
-    exact ⟨cvTb, _, by
+  have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+  have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
+      (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp := by
+    refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
+    · obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hmm)⟩
+      have hname := hN.1 mm cvTb hcv
+      exact ⟨cvTb, _, by
+        show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
+          ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName mm) = _
+        rw [hname]; exact (hcoreC.1 mm cvTb hcv).1⟩
+    · have hck : c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
+        have : c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k + 0 := hc
+        omega
+      have hcj : ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j]?
+          = some ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j] :=
+        List.getElem?_eq_getElem hj
+      refine ⟨((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j].1,
+        (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).nP,
+        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j].2, ?_⟩
       show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
-        ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName mm) = _
-      rw [hname]; exact (hcoreC.1 mm cvTb hcv).1⟩
-  let mpC := mpC₀.addLfp (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp hMC.toLfp hstC
+        (((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c).getD j default).1.name
+          = some (.ctorInfo ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j].1
+              (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).nP
+              ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j].2)
+      rw [List.getD_eq_getElem?_getD, hcj, Option.getD_some]
+      exact (hcoreC.2.2.2 c hck j _ hcj).1
+  let mpC := mpC₀.addLfp (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp hLC hstC
   -- ## every member's projection slots, free at the constructors' environment
   have hnpEnvC : ∀ c, c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k →
       (∃ cA, (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c = [cA]) →
@@ -523,7 +539,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
       hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
-      (EnvModelM.mem_addLfp mpC₀ _ hMC.toLfp hstC)
+      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC)
       (fun c ctorsA hc => by
         obtain ⟨-, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
         obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc

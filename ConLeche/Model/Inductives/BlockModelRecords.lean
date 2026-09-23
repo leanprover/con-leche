@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit
+public import ConLeche.Model.Inductives.BlockLfpHoles
 public section
 
 /-!
@@ -261,5 +262,42 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     have hq := (hfr.2 ψ ρ ((hfr.1 ψ ρ).mp ((hparams ψ c hc ρ).mp hsat))).2.2 fs hFs
     rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hjc]
     exact hq
+
+/-! ## 9. The block's LFP CLAUSE from the stages' records (lanes ENVLFP, HOLE2)
+
+The clause the install records (`EnvModelM.addLfp`) is the
+representation's (`BlockModelAt.toLfp`, `BlockLfpHoles.lean`), whose
+hole form reads the constructors' facts the records carry
+(`BlockHoleFacts`). -/
+
+/-- **The block's lfp clause, in hole form, from the stages' records.** -/
+theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp
+      = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) :
+    LfpClause mo.acval d.toLfp := by
+  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
+  refine (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj).toLfp (lps := lps)
+    ⟨fun c hc j cA hj => ?_, fun c hc j cA hj l _ => ?_, fun ψ => ?_, fun ψ c hc j hj => ?_⟩
+  · have hck : c < d.k := by rw [← hNk]; exact hc
+    obtain ⟨h1, h2, -⟩ := hcore.2.2.2 c hck j cA hj
+    exact ⟨h1, h2, (hcore.2.2.1 c j cA hj).2.2⟩
+  · rw [← hN.2.2.2]; exact hN.2.1 c j l
+  · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
+    rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
+    omega
+  · have hck : c < d.k := by rw [← hNk]; exact hc
+    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+    rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
+      ((hcore.2.2.1 c j _ hcj).2.2).lenE ψ, hS.lenIds c hck ψ]
 
 end ConLeche.Model
