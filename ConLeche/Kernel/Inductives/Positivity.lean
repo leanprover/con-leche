@@ -862,6 +862,45 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
       same universe")
   pure (ibs.length, ty0)
 
+/-- A constructor's field telescope `cur` (`nF` fields from field `j`),
+each field through `rec` at its depth `base + j`, the field opened at the
+variable `base + j`: the fields' kinds, the result (all fields opened)
+and the state.  `err` is thrown at a telescope that is too short. -/
+def nestFields
+    (rec : List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestKey) (base : Nat) (err : CheckError) :
+    Nat → Nat → Expr → NestState → m (List NestFieldKind × Expr × NestState)
+  | 0, _, cur, st => pure ([], cur, st)
+  | nF + 1, j, cur, st =>
+    match cur with
+    | .forallE a b _ => do
+      let (k, st) ← rec prog (base + j) 0 a st
+      let (ks, res, st) ← nestFields rec prog base err nF (j + 1)
+        (b.instantiate1 (.fvar (base + j) a)) st
+      pure (k :: ks, res, st)
+    | _ => throw err
+
+/-- A container frame's constructors: each abstracted (`n.{us} ↦ y`),
+instantiated at `ds`, its fields through `rec` above `hi'`, and its
+result indices hole-free below `hi'`. -/
+def nestCtors (ctx : NestCtx)
+    (rec : List NestKey → Nat → Nat → Expr → NestState → m (NestFieldKind × NestState))
+    (prog : List NestKey) (hi : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+    (y : Expr) : List (ConstantVal × Nat) → NestState → m NestState
+  | [], st => pure st
+  | (cv, nF) :: cs, st => do
+    let ty := (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+      fun c us' => if c == n && us' == us then some y else none
+    let some crest := instPisWith ds ty
+      | throw (.notImplemented "nested positivity: container constructor telescope")
+    let (_, cur, st) ← nestFields rec prog (hi + 1)
+      (.notImplemented "nested positivity: container constructor fields") nF 0 crest st
+    -- official's "invalid return type" on the instantiated constructor
+    unless (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP (hi + 1)) do
+      throw (.invalid "nested positivity: invalid return type of an instantiated \
+        container constructor (an index mentions the block)")
+    nestCtors ctx rec prog hi n us ds nPc y cs st
+
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
 inductive `n.{us}` applied to `args` (`contApp`), `rec` the function
 itself one fuel lower (at a frame's fields).  An instantiation in
@@ -905,26 +944,7 @@ def nestCont (ctx : NestCtx)
     -- the frame: `C.{us}` abstracted to the hole `y` at `hi`, then
     -- the constructors instantiated at `Ds`; the fields above it
     let y : Expr := .fvar hi cty
-    let prog' := key :: prog
-    let hi' := hi + 1
-    let mut st := st
-    for (cv, nF) in ctors do
-      let ty := (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
-        fun c us' => if c == n && us' == us then some y else none
-      let some crest := instPisWith ds ty
-        | throw (.notImplemented "nested positivity: container constructor telescope")
-      let mut cur := crest
-      for j in List.range nF do
-        match cur with
-        | .forallE a b _ =>
-          let (_, st') ← rec prog' (hi' + j) 0 a st
-          st := st'
-          cur := b.instantiate1 (.fvar (hi' + j) a)
-        | _ => throw (.notImplemented "nested positivity: container constructor fields")
-      -- official's "invalid return type" on the instantiated constructor
-      unless (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi') do
-        throw (.invalid "nested positivity: invalid return type of an instantiated \
-          container constructor (an index mentions the block)")
+    let st ← nestCtors ctx rec (key :: prog) hi n us ds nPc y ctors st
     if st.keys.size ≥ 4096 then
       throw (.notImplemented "nested positivity: instantiation fuel")
     return (.nested st.keys.size (kb != 0),
@@ -997,21 +1017,12 @@ the constructor's RESULT: its indices mention no member (official's
 def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
     (st : NestState) : m (List NestFieldKind × NestState) := do
   let base := ctx.hiAt 0
-  let mut st := st
-  let mut cur := crest
-  let mut ks : Array NestFieldKind := #[]
-  for j in List.range nF do
-    match cur with
-    | .forallE a b _ =>
-      let (k, st') ← nestPos ops env ctx 1024 [] (base + j) 0 a st
-      st := st'
-      ks := ks.push k
-      cur := b.instantiate1 (.fvar (base + j) a)
-    | _ => throw (.notImplemented "nested positivity: constructor field telescope")
+  let (ks, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
+    (.notImplemented "nested positivity: constructor field telescope") nF 0 crest st
   unless (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
       index mentions the block")
-  pure (ks.toList, st)
+  pure (ks, st)
 
 /-- The member holes: member `m` is the free variable `nP + m`, typed by
 its former's type (closed, so the hole is well-scoped anywhere above
