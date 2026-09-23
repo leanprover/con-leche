@@ -9,7 +9,7 @@ public section
 # The generated recursive recursor's readings: the targets (task #188)
 
 The binder data the generated recursor type `structRecTyR`
-(`ConLeche/Kernel/Inductives/NativeParts.lean`) reads to, and the rules' λ-data
+(`ConLeche/Conformance/RecGen.lean`) reads to, and the rules' λ-data
 and cores — the indexed sum route's (`SumRecReadP.lean`) with the
 **inductive-hypothesis binders** in the minors (`ihPisAV`: for each
 recursive field `i`, at ih position `l`, `motive e⃗_i f_i` with the

@@ -84410,6 +84410,74 @@ a stream (frontend refusal); both are pinned in the test library
 exit code moves; `corner_rec_empty_prefix` stays 1 (its comment
 updated).
 
+#### LANDED (lane CONFDIR, 2026-09-23): the conformance-only code in its own directory, `ConLeche/Conformance/` (charter item 6)
+
+**What moved.**  A verdict-neutral refactor: the one-member recursor
+GENERATOR and the check that runs it now live in `ConLeche/Conformance/`,
+an implementation-tier directory (`module`, `@[expose] public section`, no
+theory import; `tests/layering.sh` counts it in `IMPL_DIRS`).  The fold still
+calls it (`checkBlockRec = thenConform checkBlockRecK checkBlockRecConform`,
+`BlockInstall.lean`; `checkBlockRecS`, `CheckerC.lean`), and its fueled and
+cached bridges stay in `Verify/` (`BridgeDecl`, `CheckerF`, `BridgeCS3`,
+`BlockRunC`, `AgreeFloor`), with only their imports repointed.
+
+| file | lines (code) | holds |
+|---|---|---|
+| `Conformance/RecGen.lean` | 312 (136) | `NativeParts`; the generators `structRecTyR`/`structRecRhsR` and their helpers (`structRecPrefixAt`, `Expr.mkLamsOf`, `structIhApp`, `structRuleBodyR`, `structIhPis`, `structMinorTyR`, `structMinorsPisR`/`LamsR`, `nativeCtors4`); the comparisons `nativeRulesOk`, `nativeRulePrefixOk`, `nativeRecLpsOk` |
+| `Conformance/RecConform.lean` | 127 (58) | `checkNativeRules`, `checkNativeRec`, `checkBlockRecConform` (the last moved out of `BlockInstall.lean`) |
+| `Conformance/RecConformF.lean` | 148 (101) | the index-threaded twins: `checkNativeRulesF`, `FEnv.pushRecBare`(`_eq`), `checkNativeRecF`(`_hint`), `checkBlockRecConformF` |
+| **total** | **587 (295)** | |
+
+**The census: decided by consumers.**  A Lean script walked the
+dependency graph of the full environment.  Roots were every constant of
+`MainTheorem` and `Verify/Cached/MainC`, and the walk was cut at
+`checkBlockRecConform`/`checkBlockRecConformF` and at every constant whose TYPE
+mentions them (their bridge lemmas).  A kernel or cached definition is
+conformance-only when the conformance roots reach it and the cut walk does
+not.  That set is exactly the table above, plus the rows below that could
+not move:
+
+| definition | where | status |
+|---|---|---|
+| `BlockParts.toNative`, `BlockShape.toInductive`, `BlockShape.recSumsOk`, `BlockShape.rulePrefix` (and their `withSort` simp lemmas) | `Kernel/Inductives/BlockParts.lean` | conformance-only, but LEFT IN PLACE: lane NESTPOS holds the file.  Follow-up: move them to `Conformance/` once NESTPOS lands.  Then `BlockParts` imports `FieldTele` instead of `Conformance/RecGen` (today its one import of the conformance tier, for `toNative`'s type). |
+| `InductiveShape.rulePrefix`, `InductiveShape.majorIdx` | `Kernel/Inductives/SumInstall.lean` | conformance-only, LEFT IN PLACE (NESTPOS holds the file); same follow-up |
+| `InductiveShape.ctors`/`cvR`/`rhss` | `SumParts.lean` | fields of a shared structure: stay |
+
+**Shared, stays** (a live proof or the uniform route consumes it):
+`RecFieldKind` (`BlockFieldKind.toRec`, the model's `blockDataOf`), `recIdxOf`
+(`fixCtorDataList`), `Expr.piBinders`, `structFieldTeleOf`/`IdxOf`,
+`structIdxAt`, `structTeleAt`, `structTeleVars`, `Expr.mkPisOf` (the rule
+stage `checkBlockRule(F)`, `blockIhPis`), `Expr.mentionsFvar` with its
+memoised csimp twin (`blockFieldsOkF`).  They were split out of
+`NativeParts`/`NativeInstall` into the new kernel file
+`Kernel/Inductives/FieldTele.lean` (353 lines).  Also shared:
+`Expr.resetMeta` (`StreamConsts`, `BlockRecInv`) and `normPosDom` (the
+uniform route's positivity walk).
+
+**Finding: `blockRecNameSetOk` is NOT conformance-only.**  CONF1's record
+calls it "no model consumer", and so did two docstrings.  But the proofs
+consume it: `Cached.blockRecNameSetOk_nodup` (the recursors' names are
+distinct) is on the path `checkBlockRecKS_fresh` → … → `checkDecls_sound`,
+and `checkBlockRecPins_names` (one recursor per member) on
+`blockRecCounting_run` → `declBlock_run`.  It stays in `BlockParts`, and the
+two docstrings are corrected.
+
+**Dead code deleted.**  `nativeCapsAt`/`nativeIsRec`/`nativeCaps` and the
+theorem about them, `nativeCaps_single` (`FixStageTable.lean`), were reached
+from nothing, conformance included.  Their design note (η at a fieldless
+constructor; η at a recursive structure-like is unsound in practice) moved
+into `blockCapsAt`'s docstring.  Three stale `open ConLeche (… NativeParts …)`
+lines were dropped.
+
+**Gates.**  `lake build` and `lake test` both pass with 0 warnings.
+`tests/layering.sh`, `tests/overview-links.sh` (after `--update`: four
+`BlockInstall` anchors repointed, `checkBlockRecConform`'s link now on
+`Conformance/RecConform.lean`) and `tests/quote-gate.sh` are all clean.
+The five `tests/shake.sh` allowlist rows were renamed with their files,
+and after the merge of `f259883f` the gate is clean (483 removals, all
+allowlisted).  `tests/arena.sh` exits 0: 90/92 arena, e2e 273/273, all
+sweeps as expected, no exit code moved.
+
 #### LANDED (lane NESTPOS)
 
 **Positivity: one module, one function; positivity through containers
@@ -84490,6 +84558,17 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   value, the two mixed sorts, local-variable parameter, container only by
   reduction, unreached group member); the bad ones forged by
   `scripts/mk_nestpos_bad.py`; today 2, target 1.
+- **CONFDIR's follow-up** (moved after the census confirmed each is
+  consumed only by `Conformance/*` and its own `withSort_*` rfl-lemmas):
+  `BlockShape.rulePrefix`/`majorIdx`/`recSumsOk`/`toInductive`,
+  `BlockParts.toNative` (+ their `withSort` lemmas) out of `BlockParts`,
+  `InductiveShape.rulePrefix`/`majorIdx` out of `SumInstall`, all into
+  `Conformance/RecGen.lean`.  `BlockParts` now imports only
+  `Positivity` (→ `FieldTele`), no conformance module; `RecGen` imports
+  `BlockParts`, `RecConform` imports `RecGen`.  The one kernel →
+  conformance edge left is `BlockInstall → Conformance.RecConform`, the
+  fold's call of `checkBlockRecConform` (charter item 6: "is called from
+  the fold").
 - **For the next lane** (the model of `nestPos`): the install will call
   `nestPos` on the DECLARED (annotated) constructor types — today it
   stores `normPosDom`'s normal form; which of the two the model reads is

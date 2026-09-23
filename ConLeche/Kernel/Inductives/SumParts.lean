@@ -8,7 +8,8 @@ public import ConLeche.Kernel.Inductives.StructParts
 # The block's shape record and its readers (task #175, kept for the one route)
 
 `InductiveShape` is the shape every block on the fixpoint route is
-read into (`nativeShape?`, `ConLeche/Kernel/Inductives/NativeParts.lean`,
+read into (the uniform route's `BlockShape.toInductive`; the
+conformance check's `NativeParts`, `ConLeche/Conformance/RecGen.lean`,
 extends it with the fields' kinds).  The sum route that named it was
 deleted at task #210 Part C; the recognition helpers below are the
 one route's.  Historically a **direct sum** was a non-recursive,

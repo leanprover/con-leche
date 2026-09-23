@@ -554,7 +554,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   it has one member or several mutually inductive ones: any number of
   parameters, indices, constructors and fields, recursive and reflexive
   fields, `Prop` or `Type`. The recogniser reads the block's shape
-  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L627)) —
+  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L576)) —
   its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
@@ -568,22 +568,22 @@ Inductive blocks are not trusted from the stream. Three cases:
   under each Π binder
   ([function `normPosDom` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L399)) —
   classifies each field against all the members
-  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L211)),
+  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L220)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated:
   their names, level parameters and argument counts must be the ones
   official generates, and every rule must type and be a primitive
   recursion, whose recursive calls are on the constructor's recursive
   fields only
-  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L915-L921)).
+  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L924-L930)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
   in the proof, that brings the verdict back to official's where the
   primitive-recursion check accepts more
-  ([function `checkBlockRecConform` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L985)).
+  ([function `checkBlockRecConform` in `ConLeche/Conformance/RecConform.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Conformance/RecConform.lean#L117)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1053)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1028)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),
@@ -826,8 +826,9 @@ installed by one of two routes: the **uniform** one (`checkBlock`,
 a least fixed point and checks its recursors, and the **modeled** one
 (`checkModeled`, `Kernel/Inductives/Modeled.lean`), which installs a
 nested block through a generated `_model` family.
-`Kernel/Inductives/Native*.lean` holds the one-member recursor
-generator the uniform route's reject-only conformance check runs.
+`ConLeche/Conformance/` holds the one-member recursor generator the
+uniform route's reject-only conformance check runs: code that is not
+needed for soundness.
 `Struct*` and `Sum*` inside those directories are the two stage kits
 the uniform route builds on —
 the structure-shaped kit (projections, η, the entry telescope) and the
@@ -857,7 +858,8 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
-| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Native*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
+| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Block*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
+| `ConLeche/Conformance/` | Unverified, reject-only checks that are not needed for soundness: the recursor conformance check (the one-member recursor generator, generate and compare), which the fold runs after the verified recursor check. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the Nat-op ground reordering of `NatOpGround.lean`); the projection-function rewrite; the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |

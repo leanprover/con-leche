@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.FixParts
-import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Shift
@@ -56,7 +56,7 @@ variable {mode : CheckMode}
 /-! ## The capability record's arity -/
 
 /-- **The block's capability record names the parameter count as its
-arity** (`nativeCapsAt_arity` at a member): what establishes
+arity**: what establishes
 `IndCapsWF` at every former's cons. -/
 theorem blockCapsAt_arity (p : BlockShape) (mi : Nat) (isRec : Bool) :
     ((blockCapsAt p mi isRec).unitlike = true → (blockCapsAt p mi isRec).unitParams = p.nP) ∧

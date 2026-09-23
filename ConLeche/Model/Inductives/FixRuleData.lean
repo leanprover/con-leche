@@ -4,7 +4,7 @@ import ConLeche.Model.Inductives.FixRecRead
 public import ConLeche.Model.Inductives.FixCtorReads
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.FixParts
-import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Model.Inductives.SumRecFrames
 import ConLeche.Model.Inductives.SumStageCtor
@@ -30,8 +30,7 @@ open ConLeche.SetModel
 
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
-  NativeParts)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 

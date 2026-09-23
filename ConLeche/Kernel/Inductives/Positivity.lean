@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.CheckerBase
-public import ConLeche.Kernel.Inductives.NativeParts
+public import ConLeche.Kernel.Inductives.FieldTele
 
 @[expose] public section
 

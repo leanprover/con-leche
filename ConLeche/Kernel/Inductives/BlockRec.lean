@@ -9,7 +9,7 @@ public import ConLeche.Kernel.Inductives.BlockParts
 
 The one-member route GENERATES the recursor and its rules and compares
 them with the stream's (`checkNativeRec`/`nativeRulesOk`,
-`ConLeche/Kernel/Inductives/NativeInstall.lean`).  At k members that
+now the reject-only conformance check in `ConLeche/Conformance/`).  At k members that
 comparison decides nothing useful, and — the maintainer's ruling of
 2026-09-21 — **the check must not know about motives at all**: a
 motive is a parameter like any other, and the family is simply the
@@ -93,7 +93,7 @@ earlier fields — so moving it to a rule's frame lifts the earlier
 fields to all `nF` of them and the parameters past the `rP - nP`
 binders that stand between them and the fields: that is
 `structIdxAt nF (rP - nP) i l m` and `structTeleAt nF (rP - nP) i l`
-(`ConLeche/Kernel/Inductives/NativeParts.lean`). -/
+(`ConLeche/Kernel/Inductives/FieldTele.lean`). -/
 
 /-- **The rule's own prefix variables**, in order, as seen from under
 the `nF` fields and `d` further binders. -/

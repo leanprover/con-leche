@@ -1,111 +1,106 @@
 module
 
-public import ConLeche.Kernel.Inductives.SumInstall
+public import ConLeche.Kernel.ExprOps
 
 @[expose] public section
 
 /-!
-# The direct recursive install (pure fueled checker; task #188)
+# Constructor fields: their kinds and their telescopes
 
-The install stages of a block recognised by `nativeParts?`
-(`ConLeche/Kernel/Inductives/NativeParts.lean`).  The former's and the
-constructors' stages are the sum route's, verbatim
-(`checkSumInd`, `checkSumCtors`): the constructors are
-checked at the environment holding the former, with the pre-block
-resolution guard pointed at THAT environment so that the recursive
-fields `T p⃗` pass it; what the sum route's guard bought — no field
-domain mentions the block — is replaced by the positivity
-classification, re-checked on the annotated types after the stage
-(`nativeFieldsOk`: every field is ordinary, resolving in the
-pre-block environment, or exactly the family at the parameters).
-The recursor stage generates the type with the inductive-hypothesis
-binders (`structRecTyR`), compares it with the stream's by one closed
-`isDefEq` (task #175 S2), and generates the rules (`structRecRhsR`);
-the rules mention the recursor itself, so they are scope-checked at
-the environment holding its constant and NOT inferred — the official
-kernel infers no rule either; the P tier grades the generated form
-from the leaf's own laws.
+The field-level vocabulary the uniform installer (`BlockParts`,
+`BlockRec`, `BlockInstall`), the model and the recursor conformance
+check (`ConLeche/Conformance/`) share:
 
-Front guards, in the official kernel's order: positivity (a
-non-positive occurrence is `.invalid`, an unsupported positive one
-`.notImplemented`), the elimination restriction
-(`elim_only_at_universe_zero`: a large eliminator on a block whose
-sort may be `Prop` is `.invalid` at two or more constructors; at one
-constructor it is the subsingleton case, taken with the per-field
-criterion at `checkStructFieldSortsI` — the recursive squash regime's
-large eliminator, task #202 Stage A2), the constructors' distinct
-names.
+* `RecFieldKind` — a field's kind: `.ordinary` (the domain does not
+  mention the block), `.recursive` (`T p⃗ e⃗`), `.reflexive`
+  (`Π a⃗ : A⃗, T p⃗ e⃗(a⃗)`), `.negative` (a non-positive or non-valid
+  occurrence; the block is rejected) and `.unsupported`;
+* a field's own telescope and index expressions off the constructor's
+  type (`structFieldTeleOf`, `structFieldIdxOf`), the positions with an
+  inductive hypothesis (`recIdxOf`), and those telescopes and indices
+  moved to a rule's frame (`structIdxAt`, `structTeleAt`,
+  `structTeleVars`, `Expr.mkPisOf`);
+* the memoised variable-occurrence test `Expr.mentionsFvar`.
 
-**The recursor pin is the LAST of the block's checks** (task #220):
-everything the stream's recursor RECORD claims — its name, its level
-parameters, its argument sums, its rules — is compared at
-`checkNativeRec`/`nativeRulesOk`, where a mismatch is `.invalid`,
-and none of it is a condition of recognition.  Official never reads the
-exported recursor as an input either: `add_inductive` generates one and
-the replay compares the record with it structurally
-(`checkPostponedRecursors`, `Lean4Checker/Replay.lean` — "Invalid
-recursor", "No such recursor").  So a block whose recursor record is a
-stub is rejected by its own type and constructors, with official's
-message, instead of being declined for a recursor this route was going
-to generate anyway.  The index-threaded twins are
-`ConLeche/Kernel/Inductives/NativeInstallF.lean`.
+(These lived in the one-member route's `NativeParts`/`NativeInstall`
+until lane CONFDIR moved that route's recursor generator to
+`ConLeche/Conformance/`.)
 -/
 
 namespace ConLeche
 
-variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
+/-- The kind of a constructor field of a block (see the module
+docstring). -/
+inductive RecFieldKind where
+  /-- the domain does not mention the block -/
+  | ordinary
+  /-- the domain is exactly `T p⃗ e⃗`: a finitary recursive field -/
+  | recursive
+  /-- the domain is `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` with `A⃗` free of the block: a
+  REFLEXIVE (function-space) recursive field (task #202) -/
+  | reflexive
+  /-- a non-positive (or non-valid) occurrence: the official kernel
+  rejects the block -/
+  | negative
+  /-- an occurrence the official kernel accepts (reflexive, nested,
+  under a redex) that this route does not model yet -/
+  | unsupported
+  deriving Repr, DecidableEq, Inhabited
 
-/-- The capabilities a block on the fixpoint route earns (task #210
-Part A): at a STRUCTURE-LIKE block — one constructor, no index, and NO
-recursive or reflexive field: official's `is_structure_like` is
-`ncnstrs == 1 && nindices == 0 && !is_rec` (kernel/inductive.cpp), and
-its `try_eta_struct` / `is_def_eq_unit_like` fire nowhere else —
-structure eta at a non-`Prop` sort (the tagged tower's own elimination
-law: a member is the constructor at its projections) and
-unit-likeness when the constructor has no field (the fibre is then the
-one tagged empty tuple); rule K exactly at official's `is_K_target` (a
-`Prop` result, one constructor taking only the parameters — at any
-index count, as at the sum route's `Eq`); nothing at any other block.
-The projection TABLE (`checkNativeTable`) does not depend on this
-record: official's `infer_proj` types `.proj` on any one-constructor
-index-free family, recursive or not.  At a FIELDLESS constructor the
-record claims BOTH unit-likeness and η, as official's `is_structure_like`
-does: the recursor's major-premise rescue (`Core.lean`, the
-`etaFields = 0` arm — arena `073_typeSingletonRecReduction`) keys on η,
-and the η law owed there is the constructor at the parameters
-(`FixZeroFieldP.fixFibreEtaLaw0`).  (Granting η at a recursive
-structure-like was tried and is UNSOUND IN PRACTICE though sound in
-the model: on `ind_nest_via_refl` the tool's nested model over a
-reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
-through η-expansion — official's `!is_rec` is load-bearing.)  On the
-sum route's domain (never one constructor without an index) this is
-`sumCaps`.  The `is_rec` verdict is a parameter (task #268): the
-former is installed before the constructors are classified, so the
-install runs at the syntactic reading (`nativeRawRec`) and confirms
-it against the classification (`nativeCaps`). -/
-def nativeCapsAt (p : InductiveShape) (isRec : Bool) : IndCaps :=
-  match p.ctors with
-  | [c] =>
-    { eta := p.nIdx == 0 && !p.isProp && !isRec
-      etaCtor := c.1.name
-      etaParams := p.nP
-      etaFields := c.2
-      unitlike := p.nIdx == 0 && c.2 == 0
-      unitParams := p.nP
-      ruleK := c.2 == 0 && p.isProp
-      sortZ := Level.zeronessOf p.resSort }
-  | _ => {}
+/-- All leading `∀` binders of an expression (outermost first) and
+the body — a recursive field's own telescope (`[]` at a finitary
+field, the `a⃗ : A⃗` of a reflexive one, task #202). -/
+def Expr.piBinders : Expr → List (Expr × BinderMeta) × Expr
+  | .forallE ty b m =>
+    let (bs, e) := piBinders b
+    ((ty, m) :: bs, e)
+  | e => ([], e)
 
-/-- Official's `is_rec` off the classified kinds: some field is
-recursive or reflexive. -/
-def nativeIsRec (kinds : List (List RecFieldKind)) : Bool :=
-  kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive
+/-- Field `i`'s own telescope `a⃗ : A⃗` (at the field's frame: the
+parameters and the earlier fields), off the constructor's type. -/
+def structFieldTeleOf (cty : Expr) (nP nF i : Nat) : List (Expr × BinderMeta) :=
+  match cty.stripPis (nP + nF) with
+  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).1
+  | none => []
 
-/-- The block's capability record at its classified kinds
-(`nativeCapsAt` at `nativeIsRec`). -/
-def nativeCaps (p : NativeParts) : IndCaps :=
-  nativeCapsAt p.toInductiveShape (nativeIsRec p.kinds)
+/-- The index expressions of field `i`'s domain `Π a⃗, T p⃗ e⃗` (under
+the field's own telescope, at the field's frame), off the
+constructor's type; `[]` when the field is not of that shape. -/
+def structFieldIdxOf (cty : Expr) (nP nF i : Nat) : List Expr :=
+  match cty.stripPis (nP + nF) with
+  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).2.getAppArgs.drop nP
+  | none => []
 
+/-- The positions of the recursive fields (finitary or reflexive: the
+ones with an inductive hypothesis). -/
+def recIdxOf (ks : List RecFieldKind) : List Nat :=
+  (List.range ks.length).filter fun i =>
+    ks.getD i .ordinary == .recursive || ks.getD i .ordinary == .reflexive
+
+/-- An expression of recursive field `i`'s domain sitting under `m`
+binders of the field's own telescope, spelled at the field's frame
+(the parameters, the `i` earlier fields), moved under all `nF` fields,
+`l` further binders below them and `o` extras between the parameters
+and the fields: the earlier fields move by `nF - i + l`, the
+parameters by `o` more; the `m` telescope binders stay. -/
+def structIdxAt (nF o i l m : Nat) (e : Expr) : Expr :=
+  (e.liftLooseBVars (nF - i + l) m).liftLooseBVars o (nF + l + m)
+
+/-- Field `i`'s own telescope moved as `structIdxAt` moves its
+expressions (binder `k` sits under `k` earlier telescope binders). -/
+def structTeleAt (nF o i l : Nat) (pw : PropWhen) (tele : List (Expr × BinderMeta)) :
+    List (Expr × BinderMeta) :=
+  (List.range tele.length).map fun k =>
+    let b := tele.getD k default
+    (structIdxAt nF o i l k b.1, ⟨pw⟩)
+
+/-- The variables of an `m`-binder telescope, innermost last. -/
+def structTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bvar (m - 1 - k)
+
+/-- `∀ tele, body` over a binder list (outermost first). -/
+def Expr.mkPisOf : List (Expr × BinderMeta) → Expr → Expr
+  | [], body => body
+  | (ty, mt) :: bs, body => .forallE ty (mkPisOf bs body) mt
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/
 def Expr.mentionsFvar (q : Nat) (e : Expr) : Bool := e.fvarLeaves.any fun l => l.1 == q
@@ -354,62 +349,5 @@ def Expr.mentionsFvarFast (q : Nat) (e : Expr) : Bool :=
     @Expr.mentionsFvar = @Expr.mentionsFvarFast := by
   funext q e
   exact (mentionsFvarGo_spec q e {} MentionsFvarMemoInv.empty).1.symm
-
-/-- The generated rules for constructors `j, j+1, …` (`k` of them),
-each scoped at the environment holding the recursor's constant
-(`envR`): a rule mentions the recursor and is not inferred. -/
-def checkNativeRules (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
-    (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
-    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
-    Nat → Nat → m (List Expr)
-  | 0, _ => pure []
-  | k + 1, j => do
-    let rhs ← unwrapOr (structRecRhsR T lps elim large nP nIdx tty ctors recC rlvls j)
-      (.internal "direct rec: recursor rule")
-    unless rhs.allLevelParamsDefined rlps && rhs.constsResolve envR &&
-        rhs.looseBVarsBounded 0 && !rhs.hasFvar do
-      throw (.internal "direct rec: recursor rule scoping")
-    let rest ← checkNativeRules envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
-      (j + 1)
-    pure (rhs :: rest)
-
-/-- Stage 3: the recursor, generated and compared — the generated
-type has the inductive-hypothesis binders in each minor
-(`structRecTyR`); the generated rules are scoped at the environment
-holding the recursor's constant. -/
-def checkNativeRec (ops : CheckerOps m) (env : Env) (p : NativeParts)
-    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    m (ConstantVal × List Expr) := do
-  -- THE RECURSOR PIN (task #220), split off the type-and-constructor
-  -- gate above and thrown here: official generates the recursor and its
-  -- replay compares the exported record with the generated one
-  -- structurally, so a record naming something other than the generated
-  -- `T.rec` ("No such recursor") or contradicting it in its argument
-  -- sums or its rules ("Invalid recursor") is INVALID INPUT
-  unless p.cvR.name == p.cvT.name.str "rec" do
-    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
-  unless nativeRecLpsOk p.toInductiveShape do
-    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
-  unless p.recPinned do
-    throw (.invalid "direct rec: the recursor record is not the generated recursor")
-  let cvRi ← checkConstantVal ops env p.cvR
-  let T := p.cvT.name
-  let lps := p.cvT.levelParams
-  let ctors := nativeCtors4 ctorsA p.kinds
-  let recTy ← unwrapOr (structRecTyR T lps p.elim p.large p.nP p.nIdx cvTa.type ctors)
-    (.internal "direct rec: recursor type")
-  unless recTy.allLevelParamsDefined p.cvR.levelParams && recTy.constsResolve env &&
-      recTy.looseBVarsBounded 0 && !recTy.hasFvar do
-    throw (.internal "direct rec: recursor type scoping")
-  let sty ← ops.inferType env 0 recTy
-  let _u ← ops.ensureSort env 0 sty
-  -- the stream's recursor is the generated one
-  unless ← ops.isDefEq env 0 cvRi.type recTy do
-    throw (.invalid "direct rec: recursor type is not the generated one")
-  let cvRa : ConstantVal := ⟨p.cvR.name, p.cvR.levelParams, recTy⟩
-  let envR : Env := ⟨.recInfo cvRa p.majorIdx p.rulePrefix [] :: env.consts⟩
-  let rhss ← checkNativeRules envR p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
-    cvTa.type ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
-  pure (cvRa, rhss)
 
 end ConLeche

@@ -14,7 +14,7 @@ their own index counts, constructors and recursors, the shared
 parameter count, the shared elimination level and result sort.  The
 `k = 1` instance is the record the one-member route has always used
 (`NativeParts`, `ConLeche/Kernel/Inductives/NativeParts.lean`);
-`BlockParts.toNative` is that reading, which only the reject-only
+`BlockParts.toNative` (`ConLeche/Conformance/RecGen.lean`) is that reading, which only the reject-only
 conformance check (`checkBlockRecConform`) still uses.
 
 **The route takes every non-nested block**, at any number of members:
@@ -170,12 +170,6 @@ def lps (p : BlockShape) : List Name :=
 /-- The constructors of the whole block, in block order. -/
 def allCtors (p : BlockShape) : List (ConstantVal × Nat) :=
   (p.members.map (·.ctors)).flatten
-/-- Every recursor's rule prefix AT THE GENERATED SHAPE: the
-parameters, the k motives and the block's minors (official's
-`nparams + ntypes + nminors`).  This is what the reject-only
-conformance check's generator builds and compares. -/
-def rulePrefix (p : BlockShape) : Nat := p.nP + p.k + p.numCtors
-
 /-- **The member recursor `r` belongs to, as the INSTALL uses it.**
 
 It is the target the recogniser read off the MAJOR (`RecShape.tgt`). -/
@@ -201,22 +195,6 @@ def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
 RECORD's (`RecShape.mI`). -/
 def majorIdxAt (p : BlockShape) (r : Nat) : Nat :=
   (p.recs.getD r default).mI
-
-/-- Member `m`'s recursor's major-premise index at the GENERATED
-shape. -/
-def majorIdx (p : BlockShape) (m : Nat) : Nat :=
-  p.rulePrefix + (p.members.getD m default).nIdx
-
-/-- **The recursor records' two argument SUMS at the GENERATED
-shape**: the pin the one-member conformance check makes (the
-ruling of 2026-09-21 moved it there, out of `blockRecPinOk`, because
-the motive-free check reads the sums and derives nothing).  It is what
-`BlockParts.toNative` adds to the record's own pin. -/
-def recSumsOk (p : BlockShape) : Bool :=
-  (List.range p.recs.length).all fun r =>
-    (p.recs.getD r default).rP == p.rulePrefix &&
-      (p.recs.getD r default).mI
-        == p.rulePrefix + (p.members.getD (p.recTgtAt r) default).nIdx
 
 /-- The record completed with the former stage's result sort (task
 #195 at k members: the sort is read off member 0's checked telescope,
@@ -246,12 +224,6 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
 @[simp] theorem withSort_lps (p : BlockShape) (s : Level) : (p.withSort s).lps = p.lps := rfl
 @[simp] theorem withSort_allCtors (p : BlockShape) (s : Level) :
     (p.withSort s).allCtors = p.allCtors := rfl
-@[simp] theorem withSort_rulePrefix (p : BlockShape) (s : Level) :
-    (p.withSort s).rulePrefix = p.rulePrefix := rfl
-@[simp] theorem withSort_recSumsOk (p : BlockShape) (s : Level) :
-    (p.withSort s).recSumsOk = p.recSumsOk := rfl
-@[simp] theorem withSort_majorIdx (p : BlockShape) (s : Level) (m : Nat) :
-    (p.withSort s).majorIdx m = p.majorIdx m := rfl
 
 /-- Completing a record that already carries its own sort (with the
 `isProp` flag the recogniser pinned) changes nothing. -/
@@ -337,29 +309,6 @@ def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind)
 @[simp] theorem BlockParts.withKinds_toBlockShape (p : BlockParts)
     (ks : List (List (List BlockFieldKind))) :
     (p.withKinds ks).toBlockShape = p.toBlockShape := rfl
-
-/-- **The one-member reading of the shape** (the M1 bridge): at
-`k = 1` a `BlockShape` IS an `InductiveShape`.  At `k ≠ 1` it reads
-member 0 and is junk — its only consumer is the reject-only
-conformance check (`checkBlockRecConform`), which runs at one member
-with one recursor and is skipped at every other shape. -/
-def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
-  let ms := p.members.headD default
-  let rc := p.recs.headD default
-  ⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, rc.cvR, p.elim, p.resSort, rc.rhss, p.large, p.isProp⟩
-
-/-- **The one-member reading of the record**: the shape's, with the
-kinds' targets forgotten and the recursor record's two argument SUMS
-added to the pin — at `k = 1` the generate-and-compare arm is where
-they belong (the ruling of 2026-09-21), and `toNative` IS that
-check's reading. -/
-def BlockParts.toNative (p : BlockParts) : NativeParts :=
-  ⟨p.toBlockShape.toInductive,
-    (p.kinds.headD []).map (List.map BlockFieldKind.toRec),
-    p.toBlockShape.recSumsOk && p.recPinned⟩
-
-@[simp] theorem BlockShape.toInductive_withSort (p : BlockShape) (s : Level) :
-    (p.withSort s).toInductive = p.toInductive.withSort s := rfl
 
 /-! ## Recognition
 

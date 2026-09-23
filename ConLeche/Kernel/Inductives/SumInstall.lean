@@ -195,9 +195,4 @@ def sumRules (find? : Name → Option ConstantInfo) (recName : Name)
       :: sumRules find? recName nP mI rP recTy cs rhss
   | _, _ => []
 
-/-- The recursor's rule prefix (parameters, motive, minors) and its
-major index (the rule prefix, then the indices). -/
-def InductiveShape.rulePrefix (p : InductiveShape) : Nat := p.nP + 1 + p.ctors.length
-def InductiveShape.majorIdx (p : InductiveShape) : Nat := p.rulePrefix + p.nIdx
-
 end ConLeche

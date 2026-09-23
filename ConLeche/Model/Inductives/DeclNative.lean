@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.FixStageTable
 public import ConLeche.Model.Inductives.FixZeroField
 import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Kernel.Inductives.NativeInstall
+import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.FixParts
 public section
 
@@ -36,7 +36,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps InductiveShape
-  NativeParts BinderMeta RecRule)
+  BinderMeta RecRule)
 
 universe w
 

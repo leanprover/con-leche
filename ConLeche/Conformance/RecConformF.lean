@@ -5,11 +5,15 @@ public import ConLeche.Kernel.Inductives.SumInstallF
 @[expose] public section
 
 /-!
-# The direct recursive install, through the index (task #188)
+# CONFORMANCE: the recursor conformance check, through the index
 
-`checkNative`'s recursor stage (`ConLeche/Kernel/Inductives/NativeInstall.lean`)
-over an `FEnv`, the mirror the cached drivers run; the former's and
-the constructors' stages are the sum route's mirrors.
+**Not needed for soundness** (see `ConLeche/Conformance/RecGen.lean`).
+`checkBlockRecConform`'s stages (`ConLeche/Conformance/RecConform.lean`)
+over an `FEnv`: the mirror the cached driver runs
+(`checkBlockRecS`, `ConLeche/Cached/CheckerC.lean`).  That the mirror
+computes what the plain check computes is proved in
+`ConLeche/Verify/CheckerF.lean`, and the cached simulation of it in
+`ConLeche/Verify/Cached/BlockRunC.lean`.
 -/
 
 namespace ConLeche
