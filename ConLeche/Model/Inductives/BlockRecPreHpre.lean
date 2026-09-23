@@ -2,6 +2,7 @@ module
 
 import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockIndRegimeRun
+import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockRuleFit
@@ -995,16 +996,6 @@ the arm's own witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
     (ihs : Nat → Nat → List AnnotTerm) (Rb0 : Nat → Nat → AnnotTerm) : Prop :=
   ∃ (ihdoms : Nat → Nat → List AnnotTerm) (Ca : Nat → Nat → AnnotTerm)
     (ihv : List V → Nat → Nat → List V → V → List V),
-    -- `hconclTy`
-    (∀ xs : List V,
-        ∀ c, c < rs.length → ∀ i, i ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC
-          p.toBlockShape rs ψ) (p.toBlockShape.recTgtAt) xs c →
-        ∀ x, x ∈ˢ app (blockRecCr d ψ ρ (p.toBlockShape.recTgtAt) xs c) i →
-        interp V
-            (consList (xs ++ (isOfW (d.uM ((p.toBlockShape.recTgtAt) c) ψ) (d.nIdxAt
-              ((p.toBlockShape.recTgtAt) c)) i ++ [x])) ρ) ((blockRecConclAV mpC.base2.acval envC
-              p.toBlockShape rs ψ) c)
-          ∈ˢ (univ ℓ : V)) ∧
     -- `hcerts`
     (∀ c, c < rs.length → ∀ j, j < (blockRecNCt rs) c →
         BlockRuleCerts V mpC F ψ ((p.toBlockShape.rulePrefixAt) c) ((blockRecFdomsK rs.length
@@ -1129,15 +1120,6 @@ witnesses (`ihdoms`, `Ca`, `ihv`) existential. -/
     (ihs : Nat → Nat → List AnnotTerm) (Rb0 : Nat → Nat → AnnotTerm) : Prop :=
   ∃ (ihdoms : Nat → Nat → List AnnotTerm) (Ca : Nat → Nat → AnnotTerm)
     (ihv : List V → Nat → Nat → List V → V → List V),
-    -- `hconclTy`
-    (∀ xs : List V, ∀ c, c < 1 → ∀ i, i ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV
-      mpC.base2.acval envC p.toBlockShape rs ψ) (p.toBlockShape.recTgtAt) xs c →
-        ∀ x, x ∈ˢ app (blockRecCr d ψ ρ (p.toBlockShape.recTgtAt) xs c) i →
-        interp V
-            (consList (xs ++ (isOfW (d.uM ((p.toBlockShape.recTgtAt) c) ψ) (d.nIdxAt
-              ((p.toBlockShape.recTgtAt) c)) i ++ [x])) ρ) ((blockRecConclAV mpC.base2.acval envC
-              p.toBlockShape rs ψ) c)
-          ∈ˢ (univ ℓ : V)) ∧
     -- `hcerts`
     (∀ c, c < 1 → ∀ j, j < (blockRecNCt rs) c →
         BlockRuleCerts V mpC F ψ ((p.toBlockShape.rulePrefixAt) c) ((blockRecFdomsK 1
@@ -1524,7 +1506,8 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
   · intro ψ ρ hℓ hw
     have hW' := hW ψ ρ (by rw [← hℓeq ψ]; exact hℓ) hw
     rw [← hℓeq ψ] at hW'
-    obtain ⟨ihdoms, Ca, ihv, hconclTy, hcerts, hspF, hihF, hCaB, hrule, hctorAt, hihChain⟩ := hW'
+    obtain ⟨ihdoms, Ca, ihv, hcerts, hspF, hihF, hCaB, hrule, hctorAt, hihChain⟩ := hW'
+    have hconclTy := blockRecConclTy_run hμ mpC h hmr hM helim hmemU hruns ψ ρ
     exact blockKitRegime_wf_run (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) hμ h hmr helim hmemU
       (hbitsE ψ) hM hw (fun c hc => (hnCtS c hc).1) (fun c hc => hlenIds ψ _ (hmemk c hc))
       hconclTy hcerts hspF hihF hCaB hrule hctorAt hihChain
@@ -1532,7 +1515,8 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
   · intro ψ ρ hℓ hw
     have hSq' := hSq ψ ρ (by rw [← hℓeq ψ]; exact hℓ) hw
     rw [← hℓeq ψ] at hSq'
-    obtain ⟨ihdoms, Ca, ihv, hconclTy, hcerts, hspF, hihF, hCaB, hrule, hsrcRule,
+    have hconclTy := blockRecConclTy_run hμ mpC h hmr hM helim hmemU hruns ψ ρ
+    obtain ⟨ihdoms, Ca, ihv, hcerts, hspF, hihF, hCaB, hrule, hsrcRule,
       hihChain⟩ := hSq'
     obtain ⟨-, -, hlarge, hk1, -, hnc⟩ := blockRecCounting_run h helim hmemU hruns ψ hℓ hw
     have hK1 : rs.length = 1 := by rw [hklen, hk1]
@@ -1545,7 +1529,8 @@ theorem blockRecPre_seam (hμ : μ.verifiedChecks = true)
       hμ h hmr hK1 helim hmemU (hbitsE ψ) hM hw ?_ hmem0
       (fun c hc => Nat.le_trans (hnCtS c (hlt c hc)).2 hnc)
       (fun c hc => (hnCtS c (hlt c hc)).1) ?_ (fun c hc => hlenIds ψ _ (hmemk c (hlt c hc)))
-      ?_ hconclTy hcerts hspF hihF hCaB hrule hsrcRule hihChain
+      ?_ (fun xs c hc => hconclTy xs c (hlt c hc)) hcerts hspF hihF hCaB hrule hsrcRule
+      hihChain
     · show (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k + 0 = 1
       rw [hk1d]
     · intro i
