@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.SetTheory.Derive.LfpTuple
-public import ConLeche.SetTheory.Derive.Graphs
 @[expose] public section
 
 /-!
