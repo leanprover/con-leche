@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRuleRun
-public import ConLeche.Model.Inductives.BlockRecIdxConv
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockFieldRead
