@@ -84604,87 +84604,101 @@ Report: `_tmp/uniform-inds/NESTPOS-REPORT.md`.
   stores `normPosDom`'s normal form; which of the two the model reads is
   that lane's first decision.
 
-#### LANE RECORD (lane POSPROOF, 2026-09-23): PARTIAL — the semantic cases, the container case and D2 proved; the run inversion STOPPED (three items for the maintainer)
+#### LANE RECORD (lane POSPROOF, 2026-09-23): PARTIAL — `nestPos` walks holes (S1/S2), its run proved positive except the container case; S3 stopped
 
-Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded.
+Report: `_tmp/uniform-inds/POSPROOF.md`.  Not fast-forwarded (partial;
+S3 for the maintainer).
 
-**Proved (no kernel change, no sorry):**
-- `SetModel/HoleClose.lean`: `lfpTuple_le_of_opLe` (the least tuple is
-  monotone in its operator, by leastness; only the LARGER operator's
-  closure and monotonicity are used), `tupleLe_of_fibre` (operators
-  compared through their fibre laws), D2: `lfpTuple_eq_lfpFam_of_indep`
-  (a member whose component reads the tuple only at itself has the least
-  family of its own operator as its component, the others at ANY tuple).
-- `Semantics/Inductives/HoleMono.lean`: `FrameRel`/`MonoOn`/`ConstOn` and
-  one lemma per `nestPos` case — the whnf step (`MonoOn.of_eqOn`, the
-  shape of `WhnfClaim`'s conclusion, `Model/Claims.lean:88`), `const`
-  (`ConstOn.of_noBVar`), `pi` (`MonoOn.pi`), `holeApp` (`MonoOn.holeApp`),
-  and the telescope (`TeleMonoOn`, `teleOfFields_sub`, `spineFit_mono`).
-- `Model/Annot/BlockLfpMono.lean`: **the clause interface** `HoleReading`
-  + `ReadsHoles D H` (the block's `fits` IS the telescope fit of its
-  stored constructors' field readings with holes at the hole frame, and
-  the result index readings); the **consumer** `monoTuple_of_holes`
-  (`LfpClause.functor`'s monotonicity DERIVED from per-constructor
-  `CtorPos`); the **container case** `LfpClause.carrier_le_of_holes` /
-  `leaf_le_of_holes` (two parameter frames of ONE instantiation, the
-  container's own holes held at the same tuple — no per-container
-  premise; only the container clause's fibre, closure and own-hole
-  monotonicity); **D2** `readsOnly_of_holes`.
-- `Model/BasisLfpHoles.lean`: the recorded `PUnit`/`Empty`/`False`
-  clauses satisfy `ReadsHoles`; the pinned `Nat`'s does NOT (its `natFits`
-  asks `m ∈ ω` beside the hole) — HOLE2 restates it.
+**Kernel (`Kernel/Inductives/Positivity.lean`, coordinator's ruling on
+S1/S2).**
+- The members are abstracted to free variables BEFORE the walk
+  (`nestAbstract`, unapplied `T_m.{lps} ↦ x_m` at `nP + m`, typed by the
+  former; memoised `Expr.replaceConsts`, `@[csimp]`, `Kernel/ExprOps`).
+- `holeApp` is an fvar head.
+- A container's own constant is abstracted to its FRAME's hole (at
+  `hiAt |prog|`) before its constructors are instantiated.
+  In-progress = that hole at its own `Ds`.  Another `Ds` declines: no
+  installed container has one.
+- An in-progress instantiation met as a CONSTANT (a cycle through a
+  mutual container group) is accepted as before and recorded
+  (`NestedPositivity.cyclic`).
+- Member constructors' result indices are checked inside
+  (`nestMemberCtor`).  TSHADOW's `targetCtorResultsOk` patch is removed.
+- The container branch is `nestCont`, the loops are `nestFields` and
+  `nestCtors`, and `Expr.nestOcc` is a pure definition with a memoised
+  `@[csimp]` twin.  All of these are verdict-neutral refactors.
+- **Verdict-neutrality argument:** a member is an inductive former with
+  no δ and, at positivity time, no ι, so a typed variable in its place
+  changes no reduction.  An installed container's own occurrences are
+  at its canonical parameters.
+- **Gates:** nested-shadow 82/82 and target-shadow 317/317.  One `pos`
+  column moves, accept → reject on `direct_fix_vec_res_occ_bad`: that is
+  the moved result check.  The Mathlib shadow sweep is in the report.
 
-**Finding: the container case never needs joint monotonicity in (X, Y).**
-`lfpTuple_le_of_opLe` compares the two operators at ONE tuple (the larger
-frame's least tuple); the in-progress holes are CONSTANTS there, and the
-monotonicity in them is the container's own clause.  So the brief's
-"joint (X, Y), then close Y" becomes "monotone in X with Y fixed" — but Y
-must still be a VARIABLE of the reduced term (S2).
+**Proved (no sorry; `[propext, Classical.choice, Quot.sound]`).**
+- `SetModel/HoleClose.lean`:
+  - `lfpTuple_le_of_opLe`: the lfp is monotone in its operator, by
+    leastness;
+  - `tupleLe_of_fibre`;
+  - D2: `lfpTuple_eq_lfpFam_of_indep`.
+- `Semantics/Inductives/HoleMono.lean`: `FrameRel`/`MonoOn`/`ConstOn`
+  and one lemma per case — `MonoOn.of_eqOn` (the whnf step),
+  `ConstOn.of_noBVar`, `MonoOn.pi`, `MonoOn.holeApp`,
+  `MonoOn.holeAppBlind` (a frame's hole), and the telescope
+  (`TeleMonoOn`, `teleOfFields_sub`, `spineFit_mono`).
+- `Model/Annot/BlockLfpMono.lean`:
+  - the clause interface `HoleReading`/`ReadsHoles`;
+  - the consumer `monoTuple_of_holes`;
+  - the container case at the clause, `carrier_le_of_holes` /
+    `leaf_le_of_holes`;
+  - D2 `readsOnly_of_holes`.
+- `Model/BasisLfpHoles.lean`: the `PUnit`/`Empty`/`False` clauses
+  satisfy `ReadsHoles`.  `Nat`'s does not (its fit asks `m ∈ ω`).
+- **`Model/Inductives/NestPosMono.lean`, the run inversion:**
+  - `nestPos_sem`: at `fueledOps .verified F`, every fuel, a successful
+    cycle-free run makes the input's reading `MonoOn` along every
+    `HoleRel`.  `HoleRel` = the relation satisfies the context, agrees
+    off the hole positions, the member holes grow, and the frame holes
+    are parameter-blind and grow.
+  - It is proved by inversion: `red_sound`∘`whnf_bridge` for the whnf
+    step, then `const` (`denoteMeta_noBVar_of_nestOcc`), `pi` (induction
+    at the opened binder), `holeApp`, and the frame hole.
+  - The CONTAINER case is the premise `ContSem` (a successful `nestCont`
+    whose recursive call is positive).
+  - `nestPos_cyc`: the cycle flag only rises.
+  - `nestFields_sem`: a walked telescope is positive field by field.
+  - **`nestMemberCtor_sem`: a member constructor's run gives its
+    fields' positivity in Π-form and its result indices hole-free.**
+    This is the premise `monoTuple_of_holes` consumes.
 
-**Stopped (the run inversion itself), items for the maintainer:**
-- **S1 (every case).**  `nestPos` whnf-reduces the member-CONCRETE term.
-  `WhnfClaim` equates readings at ONE `EnvModel`, where a member constant
-  reads its closed leaf `acval`; no closed `AnnotTerm` denotes an arbitrary
-  family, so the run says nothing about the reading at `X ≠ ⟦T⟧`.  Missing
-  fact: whnf commutes with abstracting an opaque constant to an fvar (a
-  whole-kernel simulation; whnf calls `inferType`/`isDefEq`).  Proposed
-  fix (the coordinator's deferred N3; charter item 2 already says "members
-  abstracted to fvars"): `nestPos` reduces the member-ABSTRACTED term,
-  UNAPPLIED (`T_m.{lps} ↦ x_m : type of T_m`, so a redex producing `T_m p⃗`
-  after whnf is caught), `holeApp` = an fvar hole at the canonical
-  parameters.  Verdict-neutral in intent; every caller abstracts.
-- **S2 (container, in-progress keys).**  Same reason: the in-progress
-  `C Ds` is a constant in the reduced term, so C's fields cannot be read
-  at a FIXED tuple.  Fix: descend into `(C, us, Ds)` with `C.{us}`
-  abstracted to a fresh fvar BEFORE the parameters are instantiated;
-  in-progress = that fvar at the frame's own `Ds` (a different `Ds'` is
-  non-uniform: reject/decline); cached keys mentioning a frame's fvar are
-  frame-local.
-- **S3 (mutual container groups).**  With per-key frames, a cycle through
-  a DIFFERENT in-progress key reached concretely (A's frame reaches `B Ds`,
-  B's frame reaches `A Ds`) is unprovable: A's step needs `⟦B Ds⟧` monotone
-  in X, B's needs `⟦A Ds⟧` monotone — the claim itself; the group lfp
-  would need A's operator at `Y_B ≠ ⟦B Ds⟧`, which A's run (B concrete)
-  does not describe.  In the corpus: `inmodel_groups` (`N : F N`, `F`/`G`
-  mutual, `F → G → F`), official accept.  Options: (a) N2 — the group on
-  `.indInfo`; a frame abstracts the whole group and walks the members its
-  fields reach (D2 kept: `readsOnly_of_holes`); (b) SCC discovery inside
-  `nestPos` (restart a frame with the cycling member added); (c) decline
-  such cycles — a verdict change on `inmodel_groups`, so not (c).
+**S3, stopped (coordinator's stop condition).**
+- In the coordinator's Bekić route, the F-frame reduces F's fields with
+  `G N` as a CONSTANT (G is not in progress when F's frame starts).
+- So the run describes `Φ_F(X, Y_F, ⟦G N⟧_X)`, never `Φ_F(X, Y_F, Y_G)`
+  at `Y_G = inner(X, Y_F)`.  The clause's joint operator is not the
+  product of the per-frame readings.
+- Countermodel to the step: `_probe/posproof/S3.lean`.  Every fact the
+  runs supply holds, and `L_F` is not monotone.
+- `inmodel_groups` has the shape (`N : F N`, `F → G → F`).
+- Proof-feasible routes:
+  - (b) the F-frame restarts with G abstracted once a cycle is seen;
+  - N2: the group recorded on `.indInfo`.
 
-**What HOLE2 must make `LfpClause` deliver** (for the container case and
-the consumer): `LfpDatum` gains a `HoleReading` and `LfpClause` gains
-`ReadsHoles D D.hole`; `fields` are the `denoteMeta` readings of the stored
-constructor domains with the group ABSTRACTED as in S1 (the same terms
-`nestPos` reduces), at a fixed layout (parameters, member holes, fields);
-`frame ψ ρp X` puts at hole `m` the family of `X m` curried over the
-parameters and indices (so `HoleOn` holds); the index sets of an instance
-are hole-free (N2 check) so `idx` agrees at the two frames.  Call site of
-the consumer: `blockModelAt_of_stages`'s functor conjunct
-(`Model/Inductives/BlockModel.lean:430`, today `blockPhi_mono`, whose core
-`chainXBIGo_tele_sub` (`Semantics/Tower/BlockFamI.lean:259`) becomes
-`teleOfFields_sub`), with `ReadsHoles` proved beside the fibre there and
-recorded at `declBlock`'s `addLfp`.
+**The container case (`ContSem`), open.**  What it needs:
+- (i) a per-MEMBER section clause for each stored container: `⟦C Ds⟧` =
+  the lfp of C's operator with only C abstracted and the group's other
+  members concrete.  It is derivable from the group clause by
+  `lfpTuple_eq_section` plus `denoteMeta_substFvarAt`, so acyclic
+  mutual reach needs no group record.  It must come with its
+  substitution law: C's hole-field readings at `⟦Ds⟧_ρ` equal the
+  readings of the instantiated fields the frame walks.  HOLE2's work.
+- (ii) the frame's typing: the instantiated container fields typed per
+  key (E2E-DESIGN's U2).
+- (iii) a cache invariant, or caching only keys without frame holes.
+- (iv) truncating the relation to the frame's context.
+
+The consumer at `BlockModel.lean:430` waits for HOLE2's hole
+representation.
 
 #### LANDED (lane TSHADOW, 2026-09-23): the TARGET kernel as a shadow — `--target-shadow`
 
