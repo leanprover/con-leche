@@ -413,9 +413,9 @@ theorem checkNativeRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : L
 
 theorem checkNativeRecF_eq (ops : CheckerOps m) (env : Env) (p : NativeParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    checkNativeRecF ops .plain (mkFEnv env) p cvTa ctorsA
+    checkNativeRecF ops .plain (mkFEnv env) none p cvTa ctorsA
       = checkNativeRec ops env p cvTa ctorsA := by
-  simp only [checkNativeRecF, checkNativeRec, mkFEnv_env, checkConstantValF_eq,
+  simp only [checkNativeRecF, checkNativeRec, FEnv.pushRecBare, mkFEnv_env, checkConstantValF_eq,
     push_mkFEnv, checkNativeRulesF_eq]
   simp only [StructWalkers.plain, constsResolveF_eq]
 

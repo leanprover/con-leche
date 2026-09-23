@@ -243,7 +243,71 @@ def checkBlockRecS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
   thenConform (checkBlockRecKS mode fe p cvTas ctorsAs)
-    (flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe p cvTas ctorsAs)
+    (flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas ctorsAs)
+
+/-- The rule-less recursor environment the recursor stage built, offered
+to the conformance check (`FEnv.pushRecBare`): at ONE recursor, its
+record and the environment holding it; `none` otherwise. -/
+def recBareHint (p : BlockShape) (cvRas : List (ConstantVal × Nat)) (feR : FEnv) :
+    Option (ConstantVal × Nat × Nat × FEnv) :=
+  match cvRas with
+  | [(cv, _)] => some (cv, p.majorIdxAt 0, p.rulePrefixAt 0, feR)
+  | _ => none
+
+/-- **`checkBlockRecS` as it runs** (lane LIN1, `@[csimp]`
+`checkBlockRecS_eq_fast`): the check's stages inline, so that the
+rule-less recursor environment `feR` it builds is still in hand when the
+conformance check runs, which then reuses it (`recBareHint`) where it
+would push the same record onto `fe` again.  That push is onto the
+constructors' index while the caller (`checkBlockTailS`) still holds it
+for the install that follows, so it copied the whole index — once per
+one-member block.  When the generated recursor type differs from the
+stream's, the conformance check pushes as before. -/
+def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+  checkBlockRecPins (m := CheckCM) p
+  let cvRus ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
+    (blockNested p.kinds) cvTas p.recs 0
+  checkBlockRecFamilyAgree (m := CheckCM) (sharedOpsC mode fe) fe.env p.toBlockShape
+    (blockNested p.kinds) cvTas cvRus
+  let cvRas := cvRus.map fun q => (q.1, q.2.1)
+  let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
+  let rs ← checkBlockRecsRulesF (sharedOpsRuleR mode feR) structWalkersC feR
+    (sharedOpsC mode fe) fe p
+    (blockRecCallData p).1 (blockRecCallData p).2 cvRas ctorsAs p.recs 0
+  flushC
+  checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe
+    (recBareHint p.toBlockShape cvRas feR) p cvTas ctorsAs
+  pure rs
+
+/-- The hint `checkBlockRecSFast` offers is the environment the push
+would build, so the conformance check reads the same environment. -/
+theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
+    [MonadExceptOf CheckError m] (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
+    (q : BlockShape) (cvRas : List (ConstantVal × Nat)) (p : BlockParts)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    checkBlockRecConformF ops w fe (recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe)) p
+      cvTas ctorsAs = checkBlockRecConformF ops w fe none p cvTas ctorsAs := by
+  have hv : ∀ cv' mI' rP' feH,
+      recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe) = some (cv', mI', rP', feH) →
+      feH = fe.push (.recInfo cv' mI' rP' []) := by
+    intro cv' mI' rP' feH h
+    unfold recBareHint at h
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
+      rfl
+    · exact nomatch h
+  unfold checkBlockRecConformF
+  split
+  · simp only [checkNativeRecF_hint ops w fe hv]
+  · rfl
+
+@[csimp] theorem checkBlockRecS_eq_fast : @checkBlockRecS = @checkBlockRecSFast := by
+  funext mode fe p cvTas ctorsAs
+  unfold checkBlockRecS checkBlockRecSFast thenConform checkBlockRecKS
+  simp only [bind_assoc, seqRight_eq_bind, checkBlockRecConformF_recBareHint]
 
 /-- **`checkBlockPass` through the index** (milestone M5): the k
 formers checked and consed — one flush entering the environment that
