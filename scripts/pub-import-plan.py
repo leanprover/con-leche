@@ -54,6 +54,30 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 (lane INVERT, the recursor stage's run records): five
+    # re-exports the model calls demotable once the positional peels
+    # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records
+    # are stated over the kernel's stage functions (`Unknown identifier
+    # CheckMode`, `:63`); `BlockRecAssembly` is how `BlockRecData` sees
+    # `checkBlockRecK_recNames`/`_cvFacts` (`BlockRecData.lean:556`);
+    # `BlockRecTyShapeRun`'s public statements name `blockRecRdsAV`
+    # (`:138`, through `BlockRecMem`), `FieldReadAt` (`:842`, through
+    # `BlockRecRule`) and `BlockData` (`:92`, through `BlockRecTyping`);
+    # `StructRows` -> `Capstone` is how `BlockRecData` reaches
+    # `Rules.RulesInputs.ofSem` (`BlockRecData.lean:3540`, the
+    # dot-notation blind class).
+    ('ConLeche.Verify.Inductives.BlockRecRun',
+     'ConLeche.Kernel.Inductives.BlockInstall'),
+    ('ConLeche.Model.Inductives.BlockRecAssembly',
+     'ConLeche.Verify.Inductives.BlockRecNames'),
+    ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
+     'ConLeche.Model.Inductives.BlockRecMem'),
+    ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
+     'ConLeche.Model.Inductives.BlockRecRule'),
+    ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
+     'ConLeche.Model.Inductives.BlockRecTyping'),
+    ('ConLeche.Model.Inductives.StructRows',
+     'ConLeche.Model.Capstone'),
     # task #315 (lane D-OLD, the old one-member route's dead code
     # deleted): three re-exports the model calls demotable, each MEASURED
     # by demoting it alone.  `StructStageTable.lean`'s `variable` binder

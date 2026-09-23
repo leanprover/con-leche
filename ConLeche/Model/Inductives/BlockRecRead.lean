@@ -12,7 +12,6 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
-import ConLeche.Verify.Inductives.BlockWF
 
 public section
 

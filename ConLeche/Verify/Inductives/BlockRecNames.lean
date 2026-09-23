@@ -4,7 +4,6 @@ public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.ExceptBind
 
 public section
 

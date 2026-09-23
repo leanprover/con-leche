@@ -6,7 +6,6 @@ import ConLeche.Verify.Inductives.FixParts
 import ConLeche.Kernel.Inductives.NativeInstall
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Shift
 
 public section

@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Semantics.Tower.BlockRecSqI
 import ConLeche.Model.Inductives.BlockRecRegimes
 public import ConLeche.Semantics.Tower.BlockRecWfI

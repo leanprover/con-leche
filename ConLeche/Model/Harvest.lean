@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Capstone
 import ConLeche.Model.NatEqs
-public import ConLeche.Model.DivModCert
+import ConLeche.Model.DivModCert
 import ConLeche.Model.Caps
 import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps

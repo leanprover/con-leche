@@ -575,15 +575,15 @@ Inductive blocks are not trusted from the stream. Three cases:
   official generates, and every rule must type and be a primitive
   recursion, whose recursive calls are on the constructor's recursive
   fields only
-  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L929-L935)).
+  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L905-L911)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
   in the proof, that brings the verdict back to official's where the
   primitive-recursion check accepts more
-  ([function `checkBlockRecConform` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L999)).
+  ([function `checkBlockRecConform` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L975)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1067)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1043)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),
@@ -599,7 +599,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   union of the block's values, given by the recursion theorem
   (`ConLeche/SetModel/UnionRec.lean`, `ConLeche/SetModel/RecGraph.lean`).
   The model-tier theorem for the whole install is
-  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1047).
+  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1052).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** are handled by an in-process modeller

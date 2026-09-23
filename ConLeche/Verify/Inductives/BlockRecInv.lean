@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-import ConLeche.Verify.Level
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.InstList
 import ConLeche.Verify.InstSpine

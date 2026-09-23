@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockData

@@ -1,11 +1,8 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.ExceptBind
 

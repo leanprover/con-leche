@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRecRead
-import ConLeche.Verify.Inductives.BlockRecRun
 
 public section
 
