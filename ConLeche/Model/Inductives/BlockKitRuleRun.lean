@@ -9,11 +9,11 @@ import ConLeche.Model.Inductives.FixAssemblyKit
 public section
 
 /-!
-# The kit arms' `hrule` — the fired spine fits the recursor's type
+# The graph kit's `hrule` — the fired spine fits the recursor's type
 
-`blockKitRegime_wf` / `blockKitRegime_sq` (`BlockRecPreRun.lean` §19,
-§36) ask, at the ONE datum each arm builds (§19a: `blockWfCand` /
-`blockSqCand`), that the rule's fired spine — the rule prefix `x⃗`, the
+`famCandG_hCand` (`Semantics/Tower/BlockRecGraphI.lean`) asks, at the
+family `blockRecPre_graph` builds, that the rule's fired spine — the
+rule prefix `x⃗`, the
 constructor's result index readings and the fired constructor
 application — fits the recursor's own binder data:
 
@@ -22,7 +22,7 @@ SpineFit ρ ((rds c).map (·.2.2)) (x⃗ ++ (e⃗ ++ [mk]))
 ```
 
 whenever `x⃗ ++ f⃗` fits the rule's prefix and field domains at the
-arm's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
+candidate's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
 `BlockRecIdxConv.lean`) makes it composable from the run alone:
 
 * **the prefix** — the chain lift of the (closed) prefix domains is the
@@ -39,11 +39,8 @@ arm's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
   (`BlockModelAt.leaf`), which is the major binder's reading
   (`interp_of_major_reading`).
 
-Nothing here reads the chain frame's candidate: the generic statement
-(`blockKitRule_run`) holds at every `chainFrame K a ρ`, and the two
-arm-shaped statements (`blockWfRule_run`, `blockSqRule_run`) are it at
-the arms' own data, spelled exactly as `BlockWfOwed`/`BlockSqOwed`'s
-`hrule` row.
+Nothing here reads the chain frame's candidate: the statement
+(`blockKitRule_run`) holds at every `chainFrame K a ρ`.
 
 **The frame.**  The converse is a `DefEqClaim` read at the recursor's
 rule prefix followed by the member's indices; it concludes only at a
@@ -258,7 +255,7 @@ end Assemble
 
 section Rule
 
-/-- **The kit arms' `hrule`, at ANY chain frame** — nothing here reads
+/-- **The graph kit's `hrule`, at ANY chain frame** — nothing here reads
 the candidate `a`.  The peel (§1) hands the base-frame prefix, the
 parameter fit and the field spine at the parameter frame; the index
 values fit the member's telescope (`resIdxFit`); the fired spine is the
@@ -378,83 +375,5 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
 
 end Rule
 
-/-! ## 4. `hrule` at the arms' own data
-
-`BlockWfOwed`'s and `BlockSqOwed`'s `hrule` rows (`BlockRecPreHpre.lean`
-§4), verbatim: §3 at the chain frame of the ONE datum each arm builds
-(`blockWfCand`, `blockSqCand`, §19a of `BlockRecPreRun`).  The level
-`ℓ`, the residues `Rb0`, the `ih` values `ihv` and (SQ) the source
-lists `srcs` are free — nothing reads them — so each statement is the
-row at whatever witnesses the seam chooses. -/
-
-section Arms
-
-/-- **REGIME WF's `hrule`**, in `BlockWfOwed`'s spelling. -/
-theorem blockWfRule_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) (ρ : Nat → V) (ℓ : Nat) (Rb0 : Nat → Nat → AnnotTerm)
-    (ihv : List V → Nat → Nat → List V → V → List V) :
-    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
-        SpineFit (chainFrame rs.length (blockWfCand ℓ rs.length p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
-          (xs ++ ((blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).map
-            (interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ℓ rs.length p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ)))
-            ++ [interp V (consList (xs ++ fs) (chainFrame rs.length (blockWfCand ℓ rs.length p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) Rb0 ihv) ρ))
-              (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j)])) :=
-  blockKitRule_run hμ h hkLen hcore hmr hM hN hdnP hctM ψ rs.length _ ρ
-
-/-- **REGIME SQ's `hrule`**, in `BlockSqOwed`'s spelling (at any source
-lists `srcs`; the seam's are `blockSqSrcs d ψ`).  `c < 1` reaches the
-family's first recursor through `0 < rs.length` (`blockRecLen_run`). -/
-theorem blockSqRule_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (h0 : 0 < rs.length)
-    (ψ : Name → Nat) (ρ : Nat → V) (ℓ : Nat) (srcs : Nat → List (Option Nat))
-    (Rb0 : Nat → Nat → AnnotTerm) (ihv : List V → Nat → Nat → List V → V → List V) :
-    ∀ c, c < 1 → ∀ j, j < blockRecNCt rs c →
-        ∀ xs fs : List V, xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
-        SpineFit (chainFrame 1 (blockSqCand ℓ p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ++ (blockRecFdomsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)) (xs ++ fs) →
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
-          (xs ++ ((blockRecEsK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j).map
-            (interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ℓ p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ)))
-            ++ [interp V (consList (xs ++ fs) (chainFrame 1 (blockSqCand ℓ p.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ) d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-            p.toBlockShape.recTgtAt (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ) srcs Rb0 ihv) ρ))
-              (blockRecMkK 1 mpC.base2.acval envC p.toBlockShape rs ψ c j)])) :=
-  fun c hc => blockKitRule_run hμ h hkLen hcore hmr hM hN hdnP hctM ψ 1 _ ρ c
-    (Nat.lt_of_lt_of_le hc h0)
-
-end Arms
 
 end ConLeche.Model

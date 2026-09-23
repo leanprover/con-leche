@@ -803,8 +803,8 @@
 == ConLeche/SetModel/TupleContainer.lean#L127
    127  theorem tupleContainer_closed_exists {w : Nat} (hw : w ≠ 0) {k : Nat} {Is : Nat → V}
 
-== ConLeche/Model/Inductives/BlockDeclRun.lean#L1052
-  1052  theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/BlockDeclRun.lean#L1040
+  1040  theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

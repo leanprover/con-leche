@@ -247,8 +247,8 @@ Two things about `hrec`, the recursor stage's obligation:
   names and the STORAGE of the constructors the recursors carry
   (discharged here from `checkBlockRecK_ctorsIdx` and
   `BlockCtorsCore`'s own storage clause).  Building `BlockModelAt`
-  itself from those three records is the regimes' first step and is
-  deliberately not done here.
+  itself from those three records is the recursor model's first step
+  and is deliberately not done here.
 
 The run's nine conjuncts, one stage at a time: the formers' and the
 constructors' stages are `blockTablesStage_of`'s (conjuncts ①②③⑥⑦,
@@ -291,6 +291,9 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+        -- the block's LFP CLAUSE is recorded in the carrier (lane ENVLFP): the
+        -- recursor model's induction reads it (lane GRAPH1)
+        dR.toLfp ∈ mpC.lfpBlocks →
         -- the field kinds cover every constructor (the classification is a
         -- `mapM` over the constructors — lane RM50: without it the rules'
         -- stage's `zip` could drop rules and `nCt` would outrun them)
@@ -520,6 +523,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
       hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
+      (EnvModelM.mem_addLfp mpC₀ _ hMC.toLfp hstC)
       (fun c ctorsA hc => by
         obtain ⟨-, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
         obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc

@@ -1,64 +1,44 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecTyping
+import ConLeche.Model.Inductives.BlockRecTyping
+public import ConLeche.Semantics.Tower.BlockRecGraphI
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.Inductives.BlockRecInv
-public import ConLeche.Semantics.Tower.BlockRecSqI
-import ConLeche.Model.Inductives.BlockRecRegimes
-public import ConLeche.Semantics.Tower.BlockRecWfI
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockModel
-import ConLeche.Model.Inductives.FixAssemblyKit
 
 public section
 
 /-!
-# `BlockRecPre` AT THE RUN — the regime data from `BlockModelAt`
+# The recursor model's run-level library
 
-`blockRecStaged_run` (`Model/Inductives/BlockRecAssembly.lean`) closes
-the recursor stage's syntactic half and leaves two semantic seams.
-This file is the second of them:
+`blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) produces the
+recursor stage's semantic seam
 
 ```
 hpre : ∀ ψ ρ, BlockRecPre V s K (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ
 ```
 
-`blockRecPre_of` / `_kit` / `_ind` (`BlockRecRegimes.lean`) are the
-DISPATCH; this file supplies the regime DATA — a `RecFamData`
-(`Semantics/Tower/BlockRecKitI.lean`) built from the block's
-representation `BlockModelAt` (`BlockRep.lean`), and the per-rule
-certificates that make its step land in the motive.
-
-The parts, in the order they compose:
+from the graph kit.  This file holds what that producer reads at the
+run, in the order it composes:
 
 * **§1 the rule's certificates, bundled** (`BlockRuleCerts`): every
-  run-level argument of `residueOk_blockFrame`
-  (`BlockRecTyping.lean`) except the frame, so that a regime consumes
-  ONE hypothesis per rule and instantiates it at its own spine;
-* **§2 the carrier's case analysis** (`blockCarrier_case`): an element
-  of a component's carrier IS an injection of a spine fitting one of
-  the component's constructors — `BlockModelAt.fibre` at the least
-  pre-fixed tuple, through the fixed-point equation — and at a
-  `Type`-valued block the decomposition is UNIQUE (`mkInj`), which is
-  what lets the WF regime's step be *defined* by it;
-* **§3 the WF regime's family data** (`blockWfData`): `RecFamData` at
-  the block's own index sets and carriers — the index set is the
-  component's index-tuple set and the carrier the least pre-fixed
-  tuple's component, i.e. the member's former at the prefix frame
-  (`BlockModelAt.leaf`);
-* **§4 `OneElimLevel` from the check** (`blockRecOneElimLevel`): D-d
-  at a ground assignment, `blockRecElimPin_eval` (`BlockRecRead.lean`)
-  turned into the bit condition the candidate's λ-tower needs;
-* **§5 regime IND at the run** (`blockRecPre_ind_run`);
-* **§7–§8** (moved to `BlockModelRecords.lean`) the leaf's
-  dummy-to-real bridge and `BlockModelAt` from the stages' three records;
-* **§9–§13 the WF kit**: its motive, its step, the kit at every prefix
-  spine, and the regime arm over an ABSTRACT step;
-* **§14 regime SQ** (the source spine, where `mkInj` fails), and **§15
-  the dispatch** `blockRecPre_run`;
-* **§16 onward**: the arms' remaining inputs, discharged at the run.
+  run-level argument of `residueOk_blockFrame` (`BlockRecTyping.lean`)
+  except the frame, so the kit's typing obligation consumes ONE
+  hypothesis per rule and instantiates it at its own decoding;
+* **§2 the carrier's case analysis** (`blockCarrier_case`,
+  `blockCarrier_case_unique` — `mkInj`, one arm of the kit's `huniq`);
+* **§3 the classes at a prefix spine** (`blockRecIs`, `blockRecCr`,
+  `blockRec_hsplit`): the class's index set is the member's index-tuple
+  set and its carrier the least pre-fixed tuple's component, i.e. the
+  member's former at the prefix frame (`BlockModelAt.leaf`);
+* **§4 `OneElimLevel` from the check** (`blockRecOneElimLevel`);
+* **§9 the bound** (`blockRecMot`, `blockRec_hconcl`);
+* **§20 onward**: the rule data's components at the run's spelling,
+  the `ih` values and terms, the certified hop, the certificates'
+  producer and the ι equations' grading.
 -/
 
 namespace ConLeche.Model
@@ -143,27 +123,9 @@ theorem BlockRuleCerts.residueOk {envT : Env} (hμ : μ.verifiedChecks = true)
   exact residueOk_blockFrame hμ mp h₁ h₂ h₃ hw₁ hw₂ hw₃ hlbF hp hf hidx hdoms hokΔ
     hinf hdeq hbR hbC hleafR hleafC hRb hCa hokC hsp hih
 
-/-- **Regime IND's per-rule obligation, from the certificates**: at
-`ℓ = 0` the residue's reading lands in a truth value, which is what
-`indCand_hCand`'s `hres` asks for.  `hT` — the conclusion's reading IS
-a truth value — is a reading fact about the recursor's stored
-conclusion. -/
-theorem BlockRuleCerts.hres {envT : Env} (hμ : μ.verifiedChecks = true)
-    {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
-    {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
-    (h : BlockRuleCerts V mp F ψ rP nF nR pdoms fdoms ihdoms Rb Ca)
-    {ρ₀ : Nat → V} {xs fs ihvals : List V}
-    (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) ρ₀) ihdoms ihvals)
-    (hT : interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Ca ∈ˢ (univZero : V)) :
-    ∃ T : V, T ∈ˢ (univZero : V) ∧
-      interp V (consList ihvals (consList (xs ++ fs) ρ₀)) Rb ∈ˢ T :=
-  ⟨_, hT, (h.residueOk hμ hsp hih).2⟩
-
 /-! ## 2. The carrier's case analysis
 
-The WF regime's step must be DEFINED at an arbitrary element of a
-component's carrier, and the only thing it can be defined by is the
+An element of a component's carrier is the injection of the
 constructor that built it.  `BlockModelAt.fibre` says that at the
 OPERATOR: component `c`'s fibre of `Φ X` at `t` consists exactly of
 the injections of the spines fitting one of `c`'s constructors.  The
@@ -172,8 +134,8 @@ carrier is the least pre-fixed TUPLE, and the fixed-point equation
 statement onto it.
 
 At a `Type`-valued block (`w ψ ≠ 0`) the decomposition is UNIQUE
-(`mkInj`), and `blockDecomp` is that unique pair as a FUNCTION — the
-step reads its residue at those field values. -/
+(`mkInj`) — the graph kit's `huniq` above `Prop`
+(`blockGraphUniq_run`). -/
 
 /-- A fitting field spine is as long as the constructor's field
 list. -/
@@ -212,46 +174,11 @@ theorem blockCarrier_case_unique {env : Env} {mo : EnvModel V env} {names : List
     (heq : d.inj ψ c j fs = d.inj ψ c j' fs') : j = j' ∧ fs = fs' :=
   hM.mkInj ψ hw c hc j fs j' fs' hj hj' hfit.length_eq hfit'.length_eq heq
 
-open Classical in
-/-- **The decomposition, as a function**: the constructor and the
-field spine that built `x`, at component `c` and index tuple `t`.  Off
-the carrier (and at a block where nothing fits) it is `(0, [])`, which
-no clause ever reads. -/
-noncomputable def blockDecomp (d : BlockData V) (ψ : Name → Nat) (ρp X : Nat → V) (c : Nat)
-    (t x : V) : Nat × List V :=
-  if h : ∃ p : Nat × List V, p.1 < (d.ctorsM c).length ∧
-      d.ChainFit ψ ρp X t c p.1 p.2 ∧ x = d.inj ψ c p.1 p.2 then h.choose else (0, [])
+/-! ## 3. The recursor classes at the block's own carriers
 
-/-- The decomposition's specification, where there is one. -/
-theorem blockDecomp_spec {d : BlockData V} {ψ : Name → Nat} {ρp X : Nat → V} {c : Nat} {t x : V}
-    (h : ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs) :
-    (blockDecomp d ψ ρp X c t x).1 < (d.ctorsM c).length ∧
-      d.ChainFit ψ ρp X t c (blockDecomp d ψ ρp X c t x).1 (blockDecomp d ψ ρp X c t x).2 ∧
-      x = d.inj ψ c (blockDecomp d ψ ρp X c t x).1 (blockDecomp d ψ ρp X c t x).2 := by
-  have hex : ∃ p : Nat × List V, p.1 < (d.ctorsM c).length ∧
-      d.ChainFit ψ ρp X t c p.1 p.2 ∧ x = d.inj ψ c p.1 p.2 := by
-    obtain ⟨j, fs, hj, hfit, hxe⟩ := h
-    exact ⟨(j, fs), hj, hfit, hxe⟩
-  classical
-  rw [blockDecomp, dif_pos hex]
-  exact hex.choose_spec
-
-/-- **The decomposition reads back the constructor it was built
-with**, at a `Type`-valued block. -/
-theorem blockDecomp_eq {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-    (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp X : Nat → V} (hw : d.w ψ ≠ 0)
-    {c : Nat} (hc : c < d.N) {t : V} {j : Nat} {fs : List V}
-    (hj : j < (d.ctorsM c).length) (hfit : d.ChainFit ψ ρp X t c j fs) :
-    blockDecomp d ψ ρp X c t (d.inj ψ c j fs) = (j, fs) := by
-  obtain ⟨hj', hfit', heq⟩ := blockDecomp_spec (x := d.inj ψ c j fs) ⟨j, fs, hj, hfit, rfl⟩
-  obtain ⟨h1, h2⟩ := blockCarrier_case_unique hM hw hc hj' hj hfit' hfit heq.symm
-  exact Prod.ext h1 h2
-
-/-! ## 3. The WF regime's family data, at the block's own carriers
-
-`RecFamData` (`Semantics/Tower/BlockRecKitI.lean`) asks, per PREFIX
+`GraphFamData` (`Semantics/Tower/BlockRecGraphI.lean`) asks, per PREFIX
 SPINE, for the classes' index sets and ORDINARY carriers, the index
-tuple, a class kit, and the two readings the recursors' TYPES fix.
+tuple, a graph kit, and the two readings the recursors' TYPES fix.
 For a block the first three are not a choice:
 
 * the prefix spine's first `nP` values ARE the block's parameters (the
@@ -262,12 +189,12 @@ For a block the first three are not a choice:
   tuple's component — which is the member's FORMER at the parameter
   frame, by `BlockModelAt.leaf`.
 
-That last identification is the whole content of `blockWf_hsplit`: the
+That last identification is the whole content of `blockRec_hsplit`: the
 major's binder domain is the member's former applied, the clause's
 `leaf` turns the fold into `app (lfpTuple …) ⟨ı⃗⟩`, and the index
 tuple lands in the index set by `tupW_mem`. -/
 
-section WfData
+section ClassData
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
 
@@ -357,9 +284,9 @@ recursion. -/
     majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
 
-/-- **`RecFamData.hsplit` at the block's carriers**, from the stored
+/-- **`GraphFamData.hsplit` at the block's carriers**, from the stored
 type's reading and the representation's `leaf` clause. -/
-theorem blockWf_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
+theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
     {K : Nat} {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
     {pdoms : Nat → List AnnotTerm}
     (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
@@ -382,106 +309,30 @@ theorem blockWf_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : 
     (idxOf (rP c) ys) hpar hidx]
   exact hmaj
 
-/-- **The WF regime's family data at a block**: `RecFamData` with the
-index sets, the carriers and the index tuple fixed by the
-representation, and the kit a `WfRecKit` (whose motive and step are
-the regime's own). -/
-@[expose] noncomputable def blockWfData {ℓ K : Nat} {rP mem : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm} {ψ : Name → Nat}
-    {ρ : Nat → V} {pdoms : Nat → List AnnotTerm} (d : BlockData V)
-    (kitW : ∀ xs : List V,
-      WfRecKit ℓ K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-    (hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ pdoms mem (prefOf (rP c) ys) c ∧
-      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
-        (d.tup ψ (mem c) (idxOf (rP c) ys)))
-    (hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (kitW (prefOf (rP c) ys)).B
-          (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c)) :
-    RecFamData V ℓ K rP rds concl ρ :=
-  wfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ)
-    (blockRecIs d ψ ρ pdoms mem) (blockRecCr d ψ ρ mem) (fun c is => d.tup ψ (mem c) is)
-    kitW hsplit hconcl
-
-end WfData
+end ClassData
 
 /-! ## 4. `OneElimLevel` from the check
 
 D-d — one elimination level per family — follows from the
 elimination-level PIN (`checkBlockRecElimPin`: every conclusion sort is
 equivalent to the generated `structElimLevel p.elim p.large`), and
-`blockRecElimPin_eval` (`BlockRecRead.lean`) turns it into equalities
-of `Level.eval` at a ground assignment.  What the candidate's λ-tower
-needs (`famCand_hCand`'s `hbits`) is the ZERONESS bit of every binder
+`blockRecElimPin_run` (§38.1) turns it into equalities of
+`Level.eval` at a ground assignment.  What the candidate's λ-tower
+needs (`famCandG_hCand`'s `hbits`) is the ZERONESS bit of every binder
 of every class's binder data, and that is the same bit once each
 class's binder numerals follow its own conclusion's sort — the
 reading's fact, taken here as `hbits`. -/
 
 /-- **D-d, in the shape the candidate consumes**: at the family's
-single level `ℓ = (us.headD .zero).eval ψ` every binder numeral of
-every class's binder data is zero exactly when `ℓ` is. -/
-theorem blockRecOneElimLevel {L : Level} {us : List Level}
-    (h : ∀ u ∈ us, Level.isEquiv u L = some true)
-    (ψ : Name → Nat) {K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {uOf : Nat → Level}
-    (hmem : ∀ c, c < K → uOf c ∈ us)
+single level `ℓ` — every recursor's own level evaluates to it (the
+pin, `blockRecElimPin_run`) — every binder numeral of every class's
+binder data is zero exactly when `ℓ` is. -/
+theorem blockRecOneElimLevel {ℓ : Nat} (ψ : Name → Nat) {K : Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)} {uOf : Nat → Level}
+    (hpin : ∀ c, c < K → (uOf c).eval ψ = ℓ)
     (hbits : ∀ c, c < K → ∀ b ∈ rds c, (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) :
-    OneElimLevel ((us.headD .zero).eval ψ) K rds :=
-  fun c hc b hb => (blockRecElimPin_zero_iff h ψ (hmem c hc)).trans (hbits c hc b hb).symm
-
-/-! ## 5. Regime IND at the run
-
-At `ℓ = 0` the candidate is the point and `BlockRecPre`'s `hCand`
-reduces to the induction principle (`hind`, the SetModel tier's) and
-the residue's certified typing at every fitting spine — which is
-`BlockRuleCerts.hres`.  The two things a regime still pays for are the
-`ih` openers' `SpineFit` (at `ℓ = 0` the openers' values are the
-point, and their domains are inhabited truth values) and `hT`, the
-conclusion's reading BEING a truth value; both are named premises. -/
-
-section IndRun
-
-variable {envT : Env} {mp : EnvModelM V μ envT} {F s K : Nat} {ψ : Name → Nat}
-  {RecTy : Nat → AnnotTerm} {nCt rP : Nat → Nat} {pdoms : Nat → List AnnotTerm}
-  {fdoms es ihdoms : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb Ca : Nat → Nat → AnnotTerm} {ρ : Nat → V}
-
-/-- **Regime IND, from the run's certificates.**  `blockRecPre_ind`
-with its `hres` discharged per rule by `BlockRuleCerts.hres`. -/
-theorem blockRecPre_ind_run (hμ : μ.verifiedChecks = true)
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ rs : List V, rs.length = K →
-      (∀ c, c < K → rs.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList rs ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList rs ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList rs ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList rs ρ)) (instsAV 0 (ihs c j) (Rb c j)))
-    (hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hih : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
-        ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))))
-    (hT : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      interp V
-          (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j) ∈ˢ (univZero : V)) :
-    BlockRecPre V s K RecTy (iotaEqsAV K nCt pdoms fdoms es mk ihs Rb) ρ :=
-  blockRecPre_ind hTy hwd hind fun c hc j hj xs fs hxl hsp =>
-    (hcerts c hc j hj).hres hμ hsp (hih c hc j hj xs fs hxl hsp)
-      (hT c hc j hj xs fs hxl hsp)
-
-end IndRun
+    OneElimLevel ℓ K rds :=
+  fun c hc b hb => by rw [hbits c hc b hb, hpin c hc]
 
 /-! ## 6. The rule count -/
 
@@ -504,10 +355,10 @@ must recover the spine the conclusion is read at: the class, the index
 tuple and the major.  `tagged` is injective (`tagged_inj`), so below
 `K` the decoding is unique and `tagDec` is it as a function; the index
 SPINE comes back out of its tuple by `isOfW` (`isOfW_tupW`, at the
-member's own index telescope), exactly as regime SQ reads it.
+member's own index telescope).
 
 With that the two clauses the kit and the family data owe about the
-motive are one rewrite each: `hconcl` (`RecFamData`'s) says the motive
+motive are one rewrite each: `hconcl` (`GraphFamData`'s) says the motive
 at the tagged index IS the conclusion's reading at the fitting spine,
 and `hB` (the kit's) says it is a set of the family's level, which is
 the conclusion's reading fact restated at the decoded data. -/
@@ -556,13 +407,13 @@ theorem blockRecMot_mem_univ {K ℓ : Nat} {concl : Nat → AnnotTerm} {uOf nIdx
   rw [blockRecMot_tagged hc]
   exact h c hc i hi x hx
 
-/-- **`RecFamData.hconcl` at the block's motive**: the motive at the
+/-- **`GraphFamData.hconcl` at the block's motive**: the motive at the
 tagged index IS the conclusion's reading at the fitting spine.  The
 index spine comes back out of its tuple at the member's own index
 telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
 `idxOk` clause), and the spine is the frame by `hsplit`'s
 decomposition. -/
-theorem blockWf_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
+theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
     (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat} {rP mem : Nat → Nat}
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
     (hmem : ∀ c, c < K → mem c < d.N)
@@ -582,281 +433,13 @@ theorem blockWf_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d 
     exact isOfW_tupW hIdx hidx
   rw [blockRecMot_tagged hc, hret, ← hdec]
 
-/-! ## 11. The WF kit's STEP, and the kit
+/-! ## 13. The residue across the chain frame
 
-`UnionRecKitC.st` is TOTAL, so the step at a carrier element must name
-the constructor and the fields that built it: §2's `blockDecomp` at
-the tagged element's own component (`blockDecTag`), and the residue
-read at that spine and at the ih values the graph supplies
-(`blockRecStep`).  At a CONSTRUCTED element the decomposition reads
-back what built it (`blockDecomp_eq`, i.e. `mkInj`), which is
-`blockRecStep_at` — the equation the ι law's right-hand side needs.
+The graph producer's ι law reads the kit's step (the BASE-frame
+residue) against the ι equation's right-hand side (the residue lifted
+past the `K` chain binders); `interp_Rb_chain` is that frame move. -/
 
-The kit's `hst` is then `BlockRuleCerts.residueOk` at that spine, with
-three seams, each in the shape its owner exports:
-
-* **`hihF`** — the ih openers' values fit their domains, given that
-  the graph is MOTIVE-VALUED at the predecessors.  That hypothesis on
-  the graph is proved here off the raw recursion-graph lemmas
-  (`app_mem_B_of_piSet`), because the kit is not built yet and
-  `WfRecKit.graph_mem_B` is not available; what remains is the ih
-  openers' own reading (the rule data) together with the block's
-  `mkDepth`, which is what puts the arguments in `tcPred`;
-* **`hspF`** — the fields fitting the constructor at the CARRIER
-  (`ChainFit`) fit the rule's field domains (`SpineFit`); the two
-  differ only at a recursive position, where the block's slot is the
-  member's former applied (`BlockModelAt.leaf`);
-* **`hCaB`** — the recursor's conclusion instantiated at the rule's
-  spine reads to the MOTIVE at the constructed element. -/
-
-section WfStep
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-
-/-- The carrier's decomposition at a TAGGED element: the constructor
-and the field spine that built its value, in its own component. -/
-@[expose] noncomputable def blockDecTag (K : Nat) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (mem : Nat → Nat) (xs : List V) (u : V) : Nat × List V :=
-  blockDecomp d ψ (consList (xs.take d.nP) ρ)
-    (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-      (d.Φ ψ (consList (xs.take d.nP) ρ)))
-    (mem (tagDec K u).1) (tagDec K u).2.1 (tagDec K u).2.2
-
-/-- **The WF kit's step**: the rule's RESIDUE, read at the spine the
-tagged element decomposes to and at the ih values the graph `g`
-supplies. -/
-@[expose] noncomputable def blockRecStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (mem : Nat → Nat) (Rb0 : Nat → Nat → AnnotTerm)
-    (ihv : List V → Nat → Nat → List V → V → List V) (xs : List V) (u g : V) : V :=
-  interp V
-    (consList (ihv xs (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1
-        (blockDecTag K d ψ ρ mem xs u).2 g)
-      (consList (xs ++ (blockDecTag K d ψ ρ mem xs u).2) ρ))
-    (Rb0 (tagDec K u).1 (blockDecTag K d ψ ρ mem xs u).1)
-
-/-- **The step at a CONSTRUCTED element**: the decomposition reads back
-the constructor and the fields, so the step is the rule's residue at
-the rule's own spine — the ι law's right-hand side. -/
-theorem blockRecStep_at (hM : BlockModelAt mo names d) {K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
-    {mem : Nat → Nat} {Rb0 : Nat → Nat → AnnotTerm}
-    {ihv : List V → Nat → Nat → List V → V → List V} {xs : List V} (hw : d.w ψ ≠ 0)
-    {c : Nat} (hc : c < K) (hmemN : mem c < d.N) {i : V} {j : Nat} {fs : List V}
-    (hj : j < (d.ctorsM (mem c)).length)
-    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs)
-    (g : V) :
-    blockRecStep K d ψ ρ mem Rb0 ihv xs (tagged c i (d.inj ψ (mem c) j fs)) g
-      = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
-  rw [blockRecStep, blockDecTag, tagDec_tagged hc, blockDecomp_eq hM hw hmemN hj hfit]
-
-/-- **The graph is motive-valued at the predecessors** — stated off the
-raw recursion-graph lemmas, because the kit whose `graph_mem_B` would
-say it is the one being built. -/
-theorem app_mem_B_of_piSet {ℓ : Nat} {U : V} {B : V → V} {st : V → V → V} {u g : V}
-    (hB : ∀ i, i ∈ˢ U → B i ∈ˢ (univ ℓ : V))
-    (hg : g ∈ˢ piSet (tcPred U u) (fun v => app (recGraph ℓ U (tcPred U) B st) v))
-    {v : V} (hv : v ∈ˢ tcPred U u) : app g v ∈ˢ B v := by
-  have h1 := app_mem_of_mem_piSet hg hv
-  rw [app_recGraph_eq hB (fun i _ => tcPred_subset U i) (tcPred_subset U u v hv)] at h1
-  exact (mem_recGraphFibre.mp h1).1
-
-section Kit
-
-variable {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt : Nat → Nat} {xs : List V}
-  {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
-  {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {ihv : List V → Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-  {rP : Nat → Nat}
-
-/-- **The WF regime's kit at a prefix spine**: a `WfRecKit` over the
-block's own index sets and carriers, with §9's motive and §11's step.
-Its two obligations are the conclusion's reading (`hconclTy`) and the rule's
-certificates at the decomposed spine, under the three seams the
-module docstring names. -/
-noncomputable def blockWfKit (hμ : μ.verifiedChecks = true)
-    (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
-    (hmemN : ∀ c, c < K → mem c < d.N)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (hconclTy : ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs)
-            (blockRecCr d ψ ρ mem xs))
-          (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ c, c < K → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs))) :
-    WfRecKit ℓ K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) where
-  B := blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-  st := blockRecStep K d ψ ρ mem Rb0 ihv xs
-  hB := blockRecMot_mem_univ hconclTy
-  hst := by
-    intro u hu g hg
-    obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
-    obtain ⟨hparFit, hprefFit⟩ := blockRecIs_fits hi
-    rw [blockRecIs_pos hparFit hprefFit] at hi
-    obtain ⟨j, fs, hj, hfit, rfl⟩ :=
-      blockCarrier_case hM (d.satOfSpine hparFit) (hmemN c hc) hi hx
-    have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
-    have hgB : ∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs)
-        (blockRecCr d ψ ρ mem xs)) (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v :=
-      fun v hv => app_mem_B_of_piSet (blockRecMot_mem_univ hconclTy) hg hv
-    have hres := (hcerts c hc j hjn).residueOk hμ
-      (hspF c hc hparFit hprefFit j hjn i fs hi hfit)
-      (hihF c hc hparFit hprefFit j hjn i fs hi hfit g hgB)
-    rw [blockRecStep_at hM hw hc (hmemN c hc) hj hfit,
-      ← hCaB c hc hparFit hprefFit j hjn i fs hi hfit g]
-    exact hres.2
-
-end Kit
-
-end WfStep
-
-/-! ## 12. The kit FAMILY at every prefix spine
-
-`RecFamData.kit` is total over prefix spines.  With the index sets
-guarded (§3, `blockRecIs`) a spine that does not FIT carries EMPTY
-classes, so the kit there has nothing to prove — and the guard is read
-back off a class MEMBERSHIP (`blockRecIs_fits`), so §11's kit is
-already total and
-`blockWfKitFam` is it, with no branch: `RecFamData.hconcl` is stated
-at one spelling because there is only one.
-
-`blockRecPre_wf_run` is then `blockRecPre_kit` at that family: the ι
-law's right-hand side is `blockRecStep_at`, moved to the CHAIN frame
-by the residue's lifting (`interp_liftN_chainFrame`) and by the ih
-values being the ih terms' readings there (`hihChain`, closed by
-`ihFunAV_fold`). -/
-
-section WfFam
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-  {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
-  {concl : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
-  {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {ihv : List V → Nat → Nat → List V → V → List V} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-
-/-- **The kit at EVERY prefix spine**: §11's, whose obligations are
-already vacuous at a non-fitting prefix — the guard sits in
-`blockRecIs`, and `blockRecIs_fits` hands the two fits back to every
-obligation that mentions a class element. -/
-noncomputable def blockWfKitFam (hμ : μ.verifiedChecks = true)
-    (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
-    (hmemN : ∀ c, c < K → mem c < d.N)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (hconclTy : ∀ xs : List V,
-      ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs)
-            (blockRecCr d ψ ρ mem xs))
-          (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs)))
-    (xs : List V) :
-    WfRecKit ℓ K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) :=
-  blockWfKit (nCt := nCt) (rP := rP) (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) hμ hM hw
-    hmemN hnCt (hconclTy xs) hcerts (hspF xs) (hihF xs) (hCaB xs)
-
-/-- The family carries §9's motive. -/
-theorem blockWfKitFam_B (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hw : d.w ψ ≠ 0) (hmemN) (hnCt) (hconclTy) (hcerts) (hspF) (hihF) (hCaB) (xs : List V) :
-    (blockWfKitFam (V := V) (ℓ := ℓ) (K := K) (ρ := ρ) (mem := mem) (nCt := nCt) (rP := rP)
-        (concl := concl) (pdoms := pdoms) (fdoms := fdoms) (ihdoms := ihdoms) (Rb0 := Rb0)
-        (Ca := Ca) (ihv := ihv) (mp := mp) (F := F)
-        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB xs).B
-      = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs := by
-  rfl
-
-/-- The family carries §11's step. -/
-theorem blockWfKitFam_st (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hw : d.w ψ ≠ 0) (hmemN) (hnCt) (hconclTy) (hcerts) (hspF) (hihF) (hCaB) (xs : List V) :
-    (blockWfKitFam (V := V) (ℓ := ℓ) (K := K) (ρ := ρ) (mem := mem) (nCt := nCt) (rP := rP)
-        (concl := concl) (pdoms := pdoms) (fdoms := fdoms) (ihdoms := ihdoms) (Rb0 := Rb0)
-        (Ca := Ca) (ihv := ihv) (mp := mp) (F := F)
-        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB xs).st
-      = blockRecStep K d ψ ρ mem Rb0 ihv xs := by
-  rfl
-
-end WfFam
-
-/-! ## 13. The regime arm, over an ABSTRACT step
-
-`blockRecPre_kit`'s `hst` is the kit's step at the rule's own tagged
-element, and §11's `blockRecStep_at` computes it — once the rule's
-spine is known to be a CONSTRUCTOR application at the carrier
-(`hctorAt`).  Two frame moves finish it: the residue is the BASE-frame
-one lifted past the `K` chain binders (`interp_Rb_chain`), and the ih
-values built from the graph are the ih TERMS' readings at the chain
-frame (`hihChain`, closed by `ihFunAV_fold`).
-
-The `RecFamData` is not a parameter of the construction but of the
-theorem, with its step pinned by `hDst`: that keeps the premises free
-of the kit's own definition, and `blockWfData_st` supplies `hDst` for
-the family §12 builds. -/
-
-section WfRun
+section ChainRb
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {ℓ s K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
@@ -878,660 +461,7 @@ theorem interp_Rb_chain {K : Nat} {a ρ : Nat → V} {ws ihvals : List V} {Rb0 :
   rw [← consList_append, ← consList_append]
   exact h
 
-/-- The family data's step is the kit's. -/
-theorem blockWfData_st {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
-    (kitW : ∀ xs : List V,
-      WfRecKit ℓ K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-    (hsplit) (hconcl) (xs : List V) :
-    ((blockWfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ) d kitW hsplit hconcl).kit
-      xs).st = (kitW xs).st := rfl
-
-/-- **THE REGIME ARM AT THE RUN**, over an abstract step: whatever the
-kit's step is, `BlockRecPre` follows once the step at a RULE's own
-tagged element is the rule's residue at the rule's spine (`hstAt`) —
-which is all that WF (by `mkInj`) and SQ (by the source spine) prove
-differently.  The two frame moves are this theorem's: the residue is
-the base-frame one lifted past the `K` chain binders, and the ih
-values built from the graph are the ih terms' readings there
-(`hihChain`). -/
-theorem blockRecPre_step_of (D : RecFamData V ℓ K rP rds concl ρ) {stp : List V → V → V → V}
-    (hDst : ∀ xs : List V, (D.kit xs).st = stp xs)
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ as : List V, as.length = K →
-      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList as ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList as ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList as ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList as ρ))
-              (instsAV 0 (ihs c j)
-                ((Rb0 c j).liftN K ((pdoms c).length + (fdoms c j).length + (ihs c j).length))))
-    (hℓ : ℓ ≠ 0) (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds) (hpl : ∀ c, c < K → (pdoms c).length = rP c)
-    (hrule : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
-          ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)])))
-    (hstAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
-      stp xs
-          (tagged c
-            (D.tupOf c
-              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j))
-    (hihChain : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv xs c j fs
-          (kitGraphAt (D.kit xs)
-            (tagged c
-              (D.tupOf c
-                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
-        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))) :
-    BlockRecPre V s K RecTy
-      (iotaEqsAV K nCt pdoms fdoms es mk ihs
-        (fun c j => (Rb0 c j).liftN K
-          ((pdoms c).length + (fdoms c j).length + (ihs c j).length))) ρ := by
-  refine blockRecPre_kit hTy hwd D hℓ hTyE hbits hpl hrule ?_
-  intro c hc j hj xs fs hxl hsp
-  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
-    rw [hsp.length_eq, List.length_append]
-  rw [hDst xs, hstAt c hc j hj xs fs hxl hsp, hihChain c hc j hj xs fs hxl hsp,
-    show (pdoms c).length + (fdoms c j).length + (ihs c j).length
-      = (xs ++ fs).length + ((ihs c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))).length from by
-      rw [hlen, List.length_map],
-    interp_Rb_chain]
-
-/-- **Regime WF's `hstAt`**: the rule's spine is a CONSTRUCTOR
-application at the carrier (`hctorAt`), so §11's step reads back the
-rule's residue (`blockRecStep_at`, i.e. `mkInj`). -/
-theorem blockRecStep_at_rule (hM : BlockModelAt mo names d) (hw : d.w ψ ≠ 0)
-    (hmemN : ∀ c, c < K → mem c < d.N)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (D : RecFamData V ℓ K rP rds concl ρ)
-    (hDtup : ∀ (c : Nat) (is : List V), D.tupOf c is = d.tup ψ (mem c) is)
-    (hctorAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-            (d.Φ ψ (consList (xs.take d.nP) ρ)))
-          (d.tup ψ (mem c)
-            ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-          (mem c) j fs ∧
-        interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)
-          = d.inj ψ (mem c) j fs) :
-    ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
-      blockRecStep K d ψ ρ mem Rb0 ihv xs
-          (tagged c
-            (D.tupOf c
-              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
-  intro c hc j hj xs fs hxl hsp g
-  obtain ⟨hfit, hmkv⟩ := hctorAt c hc j hj xs fs hxl hsp
-  have hjc : j < (d.ctorsM (mem c)).length := by rw [hnCt c hc]; exact hj
-  have h2 := blockRecStep_at (Rb0 := Rb0) (ihv := ihv) hM hw hc (hmemN c hc) hjc hfit g
-  rw [hDtup, hmkv]
-  exact h2
-
-end WfRun
-
-/-! ## 14. Regime SQ at the run
-
-At `w = 0` every injection is the point (`BlockModelAt.mkZero`), so the
-major carries no information and the decomposition of §2 is NOT
-available — `mkInj` is exactly what fails there.  What replaces it is
-the subsingleton criterion: the constructor's fields are a FUNCTION of
-the index values (`srcVals` at the index spine, `FixSquashI`'s
-vocabulary, which `BlockRecSqI` re-targets), so the step reads the
-residue at that SOURCE spine.  Only the step changes: §13's arm is
-untouched. -/
-
-section SqRun
-
-variable {d : BlockData V} {ℓ s K : Nat} {ψ : Name → Nat} {ρ : Nat → V}
-  {mem nCt rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-  {concl RecTy : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
-  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb0 : Nat → Nat → AnnotTerm}
-  {ihv : List V → Nat → Nat → List V → V → List V} {src : Nat → List (Option Nat)}
-
-/-- **Regime SQ's step**: the rule's residue read at the SOURCE spine
-— the fields recovered from the tagged element's INDEX, the major
-being the point. -/
-@[expose] noncomputable def blockSqStep (K : Nat) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (mem : Nat → Nat) (src : Nat → List (Option Nat))
-    (Rb0 : Nat → Nat → AnnotTerm) (ihv : List V → Nat → Nat → List V → V → List V) (xs : List V)
-    (u g : V) : V :=
-  interp V
-    (consList
-      (ihv xs (tagDec K u).1 0
-        (srcVals (isOfW (d.uM (mem (tagDec K u).1) ψ) (d.nIdxAt (mem (tagDec K u).1))
-          (tagDec K u).2.1) (src (tagDec K u).1)) g)
-      (consList
-        (xs ++ srcVals (isOfW (d.uM (mem (tagDec K u).1) ψ) (d.nIdxAt (mem (tagDec K u).1))
-          (tagDec K u).2.1) (src (tagDec K u).1)) ρ))
-    (Rb0 (tagDec K u).1 0)
-
-/-- The step at a tagged element whose source spine is known. -/
-theorem blockSqStep_at {c : Nat} (hc : c < K) {i x : V} {fs : List V}
-    (hsrc : srcVals (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i) (src c) = fs) (g : V) :
-    blockSqStep K d ψ ρ mem src Rb0 ihv xs (tagged c i x) g
-      = interp V (consList (ihv xs c 0 fs g) (consList (xs ++ fs) ρ)) (Rb0 c 0) := by
-  simp only [blockSqStep, tagDec_tagged hc, hsrc]
-
-/-- **Regime SQ's `hstAt`**: at the lone constructor the rule's own
-fields ARE the source spine at the rule's index tuple, so the step
-reads back the rule's residue. -/
-theorem blockSqStep_at_rule (D : RecFamData V ℓ K rP rds concl ρ)
-    (hsrcAt : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      j = 0 ∧
-        srcVals
-            (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
-              (D.tupOf c
-                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))))
-            (src c)
-          = fs) :
-    ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
-      blockSqStep K d ψ ρ mem src Rb0 ihv xs
-          (tagged c
-            (D.tupOf c
-              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j) := by
-  intro c hc j hj xs fs hxl hsp g
-  obtain ⟨rfl, hsrc⟩ := hsrcAt c hc j hj xs fs hxl hsp
-  exact blockSqStep_at hc hsrc g
-
-end SqRun
-
-/-! ## 15. The DISPATCH — `hpre` in every regime
-
-The three regimes are disjoint and exhaustive on `(w, ℓ)`: `ℓ = 0` is
-IND, and at `ℓ ≠ 0` the kit arm runs with the WF step (`w ≠ 0`,
-`blockRecStep_at_rule`) or the SQ one (`w = 0`,
-`blockSqStep_at_rule`).  The `w` split is therefore not in the
-dispatch but in whoever supplies `KitRegimeAt`: §13's arm does not
-know which kit it is handed, which is the point of stating it over an
-abstract step.
-
-Both bundles quantify the run data existentially, so the dispatch's
-statement mentions only what the ι equations are built from. -/
-
-section Dispatch
-
-variable {ℓ s K : Nat} {rP nCt : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-  {concl RecTy : Nat → AnnotTerm} {pdoms : Nat → List AnnotTerm}
-  {fdoms es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb0 : Nat → Nat → AnnotTerm} {ρ : Nat → V}
-
-/-- **The kit regimes' input at one frame** (WF at `w ≠ 0`, SQ at
-`w = 0`): a family datum whose step reads the rule's residue at the
-rule's spine, and the ih values from its graph. -/
-def KitRegimeAt (V : Type w) [SetTheory V] (ℓ K : Nat) (rP nCt : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (concl RecTy : Nat → AnnotTerm)
-    (pdoms : Nat → List AnnotTerm) (fdoms es : Nat → Nat → List AnnotTerm)
-    (mk : Nat → Nat → AnnotTerm) (ihs : Nat → Nat → List AnnotTerm)
-    (Rb0 : Nat → Nat → AnnotTerm) (ρ : Nat → V) : Prop :=
-  ∃ (D : RecFamData V ℓ K rP rds concl ρ) (stp : List V → V → V → V)
-    (ihv : List V → Nat → Nat → List V → V → List V),
-    (∀ xs : List V, (D.kit xs).st = stp xs) ∧
-    (∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c)) ∧
-    OneElimLevel ℓ K rds ∧
-    (∀ c, c < K → (pdoms c).length = rP c) ∧
-    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))
-          ++ [interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j)]))) ∧
-    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) → ∀ g : V,
-      stp xs
-          (tagged c
-            (D.tupOf c
-              ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-            (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))) g
-        = interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Rb0 c j)) ∧
-    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (famCand D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv xs c j fs
-          (kitGraphAt (D.kit xs)
-            (tagged c
-              (D.tupOf c
-                ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)))))
-              (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ)) (mk c j))))
-        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCand D) ρ))))
-
-/-- **Regime IND's input at one frame**: the induction principle and
-the rules' certificates, with the run data existential. -/
-def IndRegimeAt (V : Type w) [SetTheory V] (μ : CheckMode) (K : Nat) (nCt rP : Nat → Nat)
-    (ψ : Name → Nat) (RecTy : Nat → AnnotTerm) (pdoms : Nat → List AnnotTerm)
-    (fdoms : Nat → Nat → List AnnotTerm) (ihs : Nat → Nat → List AnnotTerm)
-    (Rb : Nat → Nat → AnnotTerm) (ρ : Nat → V) : Prop :=
-  ∃ (envT : Env) (mp : EnvModelM V μ envT) (F : Nat)
-    (ihdoms : Nat → Nat → List AnnotTerm) (Ca : Nat → Nat → AnnotTerm),
-    μ.verifiedChecks = true ∧
-    (∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c)) ∧
-    (∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j)) ∧
-    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
-        ((ihs c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))) ∧
-    (∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      interp V
-          (consList
-            ((ihs c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))))
-            (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ))) (Ca c j)
-        ∈ˢ (univZero : V))
-
-/-- **`BlockRecPre` at one frame, in EVERY regime.** -/
-theorem blockRecPre_run {ψ : Name → Nat}
-    (hTy : ∀ c, c < K → interp V ρ (RecTy c) ∈ˢ (univ s : V) ∧ WellDenoted V ρ (RecTy c))
-    (hwd : ∀ as : List V, as.length = K →
-      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c →
-        FieldsOkB 0 (consList as ρ) (pdoms c ++ fdoms c j) ∧
-        ∀ ys, SpineFit (consList as ρ) (pdoms c ++ fdoms c j) ys →
-          WellDenoted V (consList ys (consList as ρ))
-              (AnnotTerm.mkAppN (.bvar ((pdoms c).length + (fdoms c j).length + (K - 1 - c)))
-                (prefVarsAV (pdoms c).length (fdoms c j).length ++ es c j ++ [mk c j])) ∧
-            WellDenoted V (consList ys (consList as ρ))
-              (instsAV 0 (ihs c j)
-                ((Rb0 c j).liftN K ((pdoms c).length + (fdoms c j).length + (ihs c j).length))))
-    (hIND : ℓ = 0 → IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs
-      (fun c j => (Rb0 c j).liftN K
-        ((pdoms c).length + (fdoms c j).length + (ihs c j).length)) ρ)
-    (hKIT : ℓ ≠ 0 →
-      KitRegimeAt V ℓ K rP nCt rds concl RecTy pdoms fdoms es mk ihs Rb0 ρ) :
-    BlockRecPre V s K RecTy
-      (iotaEqsAV K nCt pdoms fdoms es mk ihs
-        (fun c j => (Rb0 c j).liftN K
-          ((pdoms c).length + (fdoms c j).length + (ihs c j).length))) ρ := by
-  by_cases hℓ : ℓ = 0
-  · obtain ⟨envT, mp, F, ihdoms, Ca, hμ, hind, hcerts, hih, hT⟩ := hIND hℓ
-    exact blockRecPre_ind_run hμ hTy hwd hind hcerts hih hT
-  · obtain ⟨D, stp, ihv, hDst, hTyE, hbits, hpl, hrule, hstAt, hihChain⟩ := hKIT hℓ
-    exact blockRecPre_step_of D hDst hTy hwd hℓ hTyE hbits hpl hrule hstAt hihChain
-
-end Dispatch
-
-/-! ## 16. The IND arm's inputs
-
-At `ℓ = 0` every binder of a recursor's type is a `Prop` binder
-(`OneElimLevel` at the family's level), so its reading is a Π-tower of
-truth values and inhabiting it is a statement about its BODY at every
-fitting spine (`pt_mem_mkPisAV_zero`).  That is what turns the
-induction principle `hind` into "the conclusion holds at every fitting
-spine", which is where the block's own induction does its work.
-
-`hT` — the rule's conclusion reads to a truth value — is the SAME
-premise the WF regime pays (`hCaB`: the conclusion at the rule's spine
-IS the motive at the constructed element) at `ℓ = 0`, where the
-motive is a member of `univ 0 = univZero`.  The two regimes therefore
-share this input: it is one reading fact, not two. -/
-
-section IndInputs
-
-variable {ρ : Nat → V}
-
-/-- **A `Prop` Π-tower is inhabited by the point** exactly when its
-body is at every fitting spine. -/
-theorem pt_mem_mkPisAV_zero :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (b : AnnotTerm),
-      (∀ dd ∈ ds, dd.2.1 = 0) →
-      (∀ ys : List V, SpineFit ρ (ds.map (·.2.2)) ys →
-        (pt : V) ∈ˢ interp V (consList ys ρ) b) →
-      (pt : V) ∈ˢ interp V ρ (mkPisAV ds b)
-  | [], ρ, b, _, h => h [] trivial
-  | dd :: ds, ρ, b, hbits, h => by
-    show (pt : V) ∈ˢ piR dd.2.1 (interp V ρ dd.2.2) fun x => interp V (cons x ρ) (mkPisAV ds b)
-    rw [hbits dd (.head _)]
-    refine pt_mem_piR_zero_of fun x hx => ?_
-    refine pt_mem_mkPisAV_zero ds (cons x ρ) b (fun d' hd' => hbits d' (.tail _ hd')) ?_
-    intro ys hsp
-    exact h (x :: ys) ⟨hx, hsp⟩
-
-/-- **The IND arm's `hind`, from the conclusion at every fitting
-spine**: the recursor's type is a `Prop` Π-tower (`OneElimLevel` at
-`ℓ = 0`, the bits from `checkBlockRecK_tyPis`), so inhabiting it is
-inhabiting its conclusion along the telescope — which is the block's
-own induction. -/
-theorem hind_of_spines {K : Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-    {concl RecTy : Nat → AnnotTerm} (hbits : OneElimLevel 0 K rds)
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hconclPt : ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (pt : V) ∈ˢ interp V (consList ys ρ) (concl c)) :
-    ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c) := by
-  intro c hc
-  rw [hTyE c hc]
-  exact pt_mem_mkPisAV_zero (rds c) ρ (concl c)
-    (fun dd hd => (hbits c hc dd hd).mp rfl) (hconclPt c hc)
-
-end IndInputs
-
-/-! ## 17. The block's INDUCTION, and `hconclPt`
-
-`hind_of_spines` reduces the IND regime's induction principle to "the
-conclusion is inhabited at every fitting spine", and THAT is the
-block's own simultaneous induction: a fitting spine's major lies in
-the component's carrier (`BlockModelAt.leaf`, §3's identification), so
-`lfpTuple_induction` applies and its step sees the functor at the
-SEPARATED tuple — i.e. a recursive field already satisfies the
-property.
-
-The step is the premise here, and it is what `residueOk_blockFrame`
-discharges once the ih openers' domains are known to be inhabited: at
-`ℓ = 0` the ih values are the point, and their domains are the motive
-at the predecessors, which is exactly what the separated tuple
-carries.  That proof needs the ih openers' READING, so the step is a
-named premise here and is discharged downstream. -/
-
-section BlockInd
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-
-/-- **The induction's motive**, at the SPLIT data: every class
-eliminating this component has its conclusion inhabited at the spine
-REBUILT from these parameters, a middle stretch, these indices and
-this major.
-
-Stated at the split rather than at a recursor-spine fit because the
-leaf that instantiates it HAS the split and would otherwise have to
-assemble a fit — and assembling one needs the shape's index clause
-backwards, a direction with no producer and none reachable.  The middle stretch `ms` keeps its OWN
-fit (binders `nP … rP-1`): the kernel never looks inside them while
-the rebuilt spine mentions them, so a rebuild that dropped it would be
-unsound — and it is the clause a rebuild drops silently, so it is
-stated first, here and in every premise that moved with it. -/
-@[expose] def blockIndP (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V) (K : Nat)
-    (rP mem : Nat → Nat) (rds : Nat → List (Nat × Nat × AnnotTerm))
-    (concl : Nat → AnnotTerm) (as : List V) (m : Nat) (i x : V) : Prop :=
-  ∀ c, c < K → mem c = m → ∀ ms is : List V,
-    SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-    SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-    d.tup ψ (mem c) is = i →
-    (pt : V) ∈ˢ interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c)
-
-/-- **A fit's TAIL fits, at the frame its head builds.**  The
-companion of `spineFit_take_le`.  `spineFit_split` (`BlockRuleFit.lean`)
-is the same fact DOWNSTREAM of this file, so the duplicate is forced by
-the import order, not chosen. -/
-theorem spineFit_dropAt {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
-    (h : SpineFit ρ Fs as) {n : Nat} (hn : n ≤ Fs.length) :
-    SpineFit (consList (as.take n) ρ) (Fs.drop n) (as.drop n) := by
-  have h' : SpineFit ρ (Fs.take n ++ Fs.drop n) as := by rw [List.take_append_drop]; exact h
-  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv h'
-  have hlen : as₁.length = n := by
-    rw [h1.length_eq, List.length_take]; omega
-  have hta : as.take n = as₁ := by
-    rw [heq, List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
-  have hdr : as.drop n = as₂ := by
-    rw [heq, List.drop_append_of_le_length (by omega), List.drop_of_length_le (by omega),
-      List.nil_append]
-  rw [hta, hdr]
-  exact h2
-
-/-- **The conclusion at every fitting spine, by the block's own
-induction.**  The outer induction is `lfpTuple_induction` at the
-block's representation; the step — the conclusion at a CONSTRUCTED
-major, with the property already available at the recursive fields —
-is the premise. -/
-theorem blockIndPt (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat}
-    {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
-    (hmemK : ∀ c, c < K → mem c < d.k)
-    (hshape : BlockRecTyShape V mo d ψ K rP mem rds ρ)
-    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
-    (hstep : ∀ as : List V, SpineFit ρ (d.params ψ) as →
-      ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
-        x ∈ˢ app (d.Φ ψ (consList as ρ)
-            (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-              (blockIndP d ψ ρ K rP mem rds concl as)) m) i →
-        blockIndP d ψ ρ K rP mem rds concl as m i x) :
-    ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (pt : V) ∈ˢ interp V (consList ys ρ) (concl c) := by
-  intro c hc ys hfit
-  obtain ⟨-, hys2, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
-  have hsat := d.satOfSpine hpar
-  obtain ⟨hmono, -, hcl⟩ := hM.functor ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) hsat
-  have hmemN : mem c < d.N := Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
-  have hi : d.tup ψ (mem c) (idxOf (rP c) ys)
-      ∈ˢ d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ) (mem c) := tupW_mem hidx
-  have hmajC : majOf ys ∈ˢ
-      app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ((prefOf (rP c) ys).take d.nP) ρ))
-        (d.Φ ψ (consList ((prefOf (rP c) ys).take d.nP) ρ)) (mem c))
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
-    rw [← hM.leaf (mem c) (hmemK c hc) ψ ρ ((prefOf (rP c) ys).take d.nP) (idxOf (rP c) ys)
-      hpar hidx]
-    exact hmaj
-  -- the MIDDLE stretch's fit, split out of the spine's own (free HERE,
-  -- because this consumer has a spine; it is a premise only at the leaf)
-  obtain ⟨hnP, hlenL, -, -, -⟩ := hshape c hc
-  have hmid := spineFit_dropAt (spineFit_take_le (rP c) hfit) (n := d.nP)
-    (by rw [List.length_take, List.length_map] at *; omega)
-  rw [List.drop_take] at hmid
-  -- **the REBUILD is `BlockRecSplitAt`'s SECOND component** — the split
-  -- predicate states `ys = prefOf ++ (idxOf ++ [majOf])` outright.
-  have hrebuild : (prefOf (rP c) ys).take d.nP ++ (prefOf (rP c) ys).drop d.nP
-      ++ idxOf (rP c) ys ++ [majOf ys] = ys := by
-    rw [List.append_assoc, List.take_append_drop]
-    exact hys2.symm
-  have hgoal := lfpTuple_induction hcl hmono
-    (blockIndP d ψ ρ K rP mem rds concl ((prefOf (rP c) ys).take d.nP))
-    (hstep ((prefOf (rP c) ys).take d.nP) hpar) (mem c) hmemN _ hi _ hmajC c hc rfl
-    ((prefOf (rP c) ys).drop d.nP) (idxOf (rP c) ys) hmid hidx rfl
-  rwa [hrebuild] at hgoal
-
-end BlockInd
-
-/-! ## 19. The WF regime's `KitRegimeAt`, assembled
-
-Everything §11–§13 built, in ONE step: from the representation, the
-rules' certificates and the reading bridges, the dispatch's
-`KitRegimeAt` at `ℓ ≠ 0 ∧ w ≠ 0`.  The family datum is
-`blockWfData` at §12's kit family, its step is §11's, and `hstAt` is
-`blockRecStep_at_rule`.  The bridges are premises at the chain-frame
-components of the rule data (§20). -/
-
-/-! ### 19a. The kit data's CANDIDATE and GRAPH, from the data alone
-
-`KitRegimeAt`'s last three conjuncts read the family datum `D` only
-through `famCand D` (the chain frame), `D.tupOf` and `kitGraphAt
-(D.kit xs)`, and each regime arm builds exactly ONE datum.  The arm's
-`hrule`, `hctorAt` and `hihChain` must therefore be stated at THAT
-datum, not over every `D : RecFamData`: the structure's laws tie its
-fields to nothing outside `D` — `tupOf` is pinned only up to membership
-and `kit` not at all — so no fact about the block could produce the
-universally quantified form.
-
-The candidate and the graph depend on the datum's DATA fields only
-(the index sets, carriers, index tuple, and the kit's `pred`/`B`/`st`),
-never on its proofs, so they are nameable without the kit's typing
-obligations in scope: `kitCandOf`/`kitGraphOf`.  `famCand D` and
-`kitGraphAt (D.kit xs)` ARE these at `D`'s fields (by `rfl`), and each
-arm states its three premises at its own datum's fields. -/
-
-/-- **The candidate of a kit family, from its data fields.** -/
-@[expose] noncomputable def kitCandOf (ℓ K : Nat) (rP : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (Is Cr : List V → Nat → V)
-    (tupOf : Nat → List V → V) (pr B : List V → V → V) (st : List V → V → V → V)
-    (c : Nat) : V :=
-  lamTowerA ℓ ρ [] (rds c) fun ys _ =>
-    unionRecC ℓ K (Is (prefOf (rP c) ys)) (Cr (prefOf (rP c) ys)) (pr (prefOf (rP c) ys))
-      (B (prefOf (rP c) ys)) (st (prefOf (rP c) ys)) c (tupOf c (idxOf (rP c) ys)) (majOf ys)
-
-/-- **The recursion graph over an element's predecessors, from the kit
-family's data fields.** -/
-@[expose] noncomputable def kitGraphOf (ℓ K : Nat) (Is Cr : List V → Nat → V)
-    (pr B : List V → V → V) (st : List V → V → V → V) (xs : List V) (u : V) : V :=
-  graph (fun j => recSel (recGraph ℓ (unionSet K (Is xs) (Cr xs)) (pr xs) (B xs) (st xs)) j)
-    (pr xs u)
-
-/-- **Regime WF's candidate** — `famCand` of the datum `blockKitRegime_wf`
-builds, named without the kit's typing obligations. -/
-@[expose] noncomputable def blockWfCand (ℓ K : Nat) (rP : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (pdoms : Nat → List AnnotTerm) (mem : Nat → Nat) (concl : Nat → AnnotTerm)
-    (Rb0 : Nat → Nat → AnnotTerm) (ihv : List V → Nat → Nat → List V → V → List V) :
-    Nat → V :=
-  kitCandOf ℓ K rP rds ρ (blockRecIs d ψ ρ pdoms mem) (blockRecCr d ψ ρ mem)
-    (fun c is => d.tup ψ (mem c) is)
-    (fun xs => tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-    (blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ)
-    (blockRecStep K d ψ ρ mem Rb0 ihv)
-
-/-- **Regime WF's graph** — `kitGraphAt` of that datum's kit. -/
-@[expose] noncomputable def blockWfGraph (ℓ K : Nat) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (pdoms : Nat → List AnnotTerm) (mem : Nat → Nat) (concl : Nat → AnnotTerm)
-    (Rb0 : Nat → Nat → AnnotTerm) (ihv : List V → Nat → Nat → List V → V → List V) :
-    List V → V → V :=
-  kitGraphOf ℓ K (blockRecIs d ψ ρ pdoms mem) (blockRecCr d ψ ρ mem)
-    (fun xs => tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-    (blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ)
-    (blockRecStep K d ψ ρ mem Rb0 ihv)
-
-section KitRegimeWf
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-  {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
-  {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
-  {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms : Nat → Nat → List AnnotTerm}
-  {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
-  {Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : List V → Nat → Nat → List V → V → List V}
-  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-
-/-- **`KitRegimeAt` at the WF regime**, from the representation, the
-certificates and the reading bridges. -/
-theorem blockKitRegime_wf (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hw : d.w ψ ≠ 0) (hmemK : ∀ c, c < K → mem c < d.k)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (hlenIds : ∀ c, c < K → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
-    (hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ)
-    (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
-    (hconclTy : ∀ xs : List V,
-      ∀ c, c < K → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ tcPred (unionSet K (blockRecIs d ψ ρ pdoms mem xs)
-            (blockRecCr d ψ ρ mem xs))
-          (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot K concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < K →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs)))
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds) (hpl : ∀ c, c < K → (pdoms c).length = rP c)
-    -- the three rule bridges, at the ONE datum this arm builds (§19a):
-    -- its candidate `blockWfCand`, its index tuple `d.tup ψ (mem c)`
-    -- and its graph `blockWfGraph`
-    (hrule : ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ) (pdoms c ++ fdoms c j)
-        (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs)
-            (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)))
-          ++ [interp V (consList (xs ++ fs)
-            (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)) (mk c j)])))
-    (hctorAt : ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ) (pdoms c ++ fdoms c j)
-        (xs ++ fs) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-          (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-            (d.Φ ψ (consList (xs.take d.nP) ρ)))
-          (d.tup ψ (mem c)
-            ((es c j).map (interp V (consList (xs ++ fs)
-              (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)))))
-          (mem c) j fs ∧
-        interp V (consList (xs ++ fs) (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ))
-            (mk c j)
-          = d.inj ψ (mem c) j fs)
-    (hihChain : ∀ c, c < K → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ) (pdoms c ++ fdoms c j)
-        (xs ++ fs) →
-      ihv xs c j fs
-          (blockWfGraph ℓ K d ψ ρ pdoms mem concl Rb0 ihv xs
-            (tagged c
-              (d.tup ψ (mem c)
-                ((es c j).map (interp V (consList (xs ++ fs)
-                  (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)))))
-              (interp V (consList (xs ++ fs)
-                (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)) (mk c j))))
-        = (ihs c j).map (interp V (consList (xs ++ fs)
-            (chainFrame K (blockWfCand ℓ K rP rds d ψ ρ pdoms mem concl Rb0 ihv) ρ)))) :
-    KitRegimeAt V ℓ K rP nCt rds concl RecTy pdoms fdoms es mk ihs Rb0 ρ := by
-  have hmemN : ∀ c, c < K → mem c < d.N :=
-    fun c hc => Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
-  refine ⟨blockWfData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ) d
-      (blockWfKitFam (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) (rP := rP) (nCt := nCt)
-        hμ hM hw hmemN hnCt hconclTy hcerts hspF hihF hCaB)
-      (blockWf_hsplit hM hpdE hmemK hsplitR) ?_,
-    blockRecStep K d ψ ρ mem Rb0 ihv, ihv, ?_, hTyE, hbits, hpl, ?_, ?_, ?_⟩
-  · intro c hc ys hfit
-    rw [blockWfKitFam_B]
-    exact blockWf_hconcl hM hmemN hlenIds hsplitR c hc ys hfit
-  · intro xs
-    rw [blockWfData_st, blockWfKitFam_st]
-  · exact hrule
-  · exact blockRecStep_at_rule hM hw hmemN hnCt _ (fun _ _ => rfl) hctorAt
-  · exact hihChain
-
-end KitRegimeWf
+end ChainRb
 
 /-! ## 20. The components at the RUN's spelling
 
@@ -2564,10 +1494,9 @@ reading) once, where they live, instead of making the bundle carry
 them for a single consumer.
 
 It is a SEPARATE bundle from `BlockRuleCerts` on purpose: the sites
-that STATE the certificates (the two regimes, the kit, the kit family,
-`IndRegimeAt`, the WF assembly) never read the conclusion's shape, and
-threading three more components through all of them would only widen
-their premises.  Both bundles have the same producer and the same
+that STATE the certificates (the graph kit and its family) never read
+the conclusion's shape, and threading three more components through
+them would only widen their premises.  Both bundles have the same producer and the same
 run. -/
 
 section RuleConcl
@@ -2706,8 +1635,8 @@ end RuleConcl
 
 §29 evaluates the rule's conclusion at the rule's own components; §26b
 identifies those components' INDEX readings with the split's `is`.
-Together they are `hCaE` — the IND arm's remaining motive premise — at
-the split data, with no index clause inverted and no `w` or `ℓ` guard:
+Together they are `hCaE` — the rule's conclusion as the bound at the
+constructed element (`blockKitCaB_run`'s core) — at the split data, with no index clause inverted and no `w` or `ℓ` guard:
 `blockRecMkK_value` and `blockRecEsK_eq_is` are both unguarded, and
 the fibre's `ChainFit` (which `hCaE` carries for exactly this reason)
 is what pins the index values.
@@ -2792,8 +1721,7 @@ end CaESplit
 
 /-! ## 30. The `ih` openers' VALUES — `ihv` defined, and `hihChain`
 
-The ih values `ihv` the kit, the abstract arm and `KitRegimeAt` consume
-are DEFINED here, and they may not mention the recursor: the kit's
+The ih values `ihv` the graph kit consumes are DEFINED here, and they may not mention the recursor: the kit's
 step is what the recursion theorem is being handed, so the only thing
 an ih value may be built from is the GRAPH `g` the step receives.  The
 two facts about them are `hihF` (the values fit the ih openers'
@@ -2811,7 +1739,7 @@ the one definition of `ihs` both the kit and the rule data use.
 `hihChain` is then a TOWER congruence: the two towers run over the
 same binder data at two frames that agree below the rule's own depth,
 and at a leaf the graph-built body is the call's value (`app_graph` at
-the predecessor and `famCand_fold` at the candidate) while the
+the call target and `famCandG_fold` at the candidate) while the
 syntactic one folds to the same thing (`interp_ihFunAV_body`,
 `ihFunAV_fold`'s core stated at the BODY rather than at the fold). -/
 
@@ -3039,24 +1967,6 @@ theorem spineFit_of_getD {σ : Nat → V} :
     · refine spineFit_of_getD (by simpa using hl) fun r hr => ?_
       have hr' := h (r + 1) (by simpa using hr)
       simpa using hr'
-
-/-- **`hihF` at ONE opener**: the graph-built tower inhabits the ih
-opener's Π-tower.  `lamTowerA_mem` at the walk built from the fits
-(`towerWalkA_of_spines_body`); the leaf obligation is the graph's
-value at the PREDECESSOR lying in the opener's conclusion. -/
-theorem blockRecIhv_mem {ℓ c' : Nat} {tl : List (Nat × Nat × AnnotTerm)} {Cih : AnnotTerm}
-    {tup : Nat → List V → V} {σ : Nat → V} {g : V}
-    {eis : List AnnotTerm} {fap : AnnotTerm} (hℓ : ℓ ≠ 0)
-    (hbits : ∀ dd ∈ tl, (ℓ = 0 ↔ dd.2.1 = 0))
-    (hleaf : ∀ bs : List V, SpineFit σ (tl.map (·.2.2)) bs →
-      app g (tagged c' (tup c' (eis.map (interp V (consList bs σ))))
-          (interp V (consList bs σ) fap))
-        ∈ˢ interp V (consList bs σ) Cih) :
-    lamTowerA ℓ σ [] tl
-        (fun _ τ => app g (tagged c' (tup c' (eis.map (interp V τ))) (interp V τ fap)))
-      ∈ˢ interp V σ (mkPisAV tl Cih) :=
-  lamTowerA_mem hbits (towerWalkA_of_spines_body fun ys hsp =>
-    ⟨hleaf ys hsp, fun h0 => absurd h0 hℓ⟩)
 
 end IhDomains
 
@@ -3747,43 +2657,6 @@ theorem blockRecPdomsK_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 
 end Run
 
-/-! ## 36. REGIME SQ's KIT — the recursion theorem at `w = 0`
-
-At `w = 0` every injection is the point (`BlockModelAt.mkZero`), so
-regime WF's
-predecessor map is not merely different but DEGENERATE: `tcPred` reads
-the payload's ∈-subterms and every payload is the point, so it is
-empty and the recursion it carries is the trivial one.  Regime SQ's
-predecessors are the INDEX tuples of the lone constructor's recursive
-calls at the element's SOURCE spine (`blockSqPred`), and its
-accessibility argument is the block's OWN lfp induction — which is why
-the recursion theorem is `UnionRecKitC`'s field rather than derived
-from an `Acc` witness.
-
-Four steps:
-
-* `blockSqPred` and `blockSqSpine` — the map, at the source spine the
-  subsingleton criterion recovers from the index;
-* `blockSqExu` — `UnionRecKitC.exu` by `lfpTuple_induction` on the
-  block's representation, with `recGraph_singleton_of_preds`
-  (`SetModel/RecGraph.lean`) at each step.  The step's obligation is
-  that every predecessor's fibre is already a singleton, and the
-  SEPARATED tuple is what carries it: a recursive field's value at the
-  constructed element lies in the separated tuple at the call's index
-  tuple (`blockSqPred_sep`, off `mem_piTele_zero` — the `w = 0` branch
-  of `slotSet_fold_mem`, which needs no `hX`);
-* `blockSqStep_hst` and `blockSqKit` — the kit, at §9's motive and
-  §14's step;
-* `blockSqKitFam`, `blockSqData`, `blockKitRegime_sq` — the family at
-  every prefix spine and the dispatch's `KitRegimeAt`, fed by
-  `blockSqStep_at_rule` (§14).
-
-The induction is run at the block datum itself, exactly as
-`blockIndPt` (§17) runs it for the conclusion: the block's carrier is
-`d.Φ`, characterised only up to `BlockModelAt.fibre`, so there is no
-construction to transport a recursion theorem from.
--/
-
 /-- **A fit, read at ONE position**: the walk's prefix and the entry
 there.  `FitsFrom` is a walk and every consumer that wants a single
 field has been restating it; this is the projection. -/
@@ -3806,723 +2679,15 @@ theorem FitsFrom.at_pos {rs : List Bool} {slot : Nat → (Nat → V) → V} :
     rw [show i + (l + 1) = i + 1 + l from by omega]
     exact h2
 
-/-! ## Regime SQ's kit -/
+/-! ## 37. A recursive field's PREDECESSOR at the separated tuple
 
-section SqKit
+The graph route's induction (`blockGraphInd_run`, `BlockRecGraph.lean`)
+reads the block's lfp clause at a SEPARATED tuple: a recursive field
+folded along a fitting telescope spine lies in the separated tuple's
+target component at the call's index tuple, so the property holds
+there.  These two lemmas are that reading. -/
 
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-  {ℓ : Nat} {ψ : Name → Nat} {ρ ρp : Nat → V} {mem : Nat → Nat}
-  {pdoms : Nat → List AnnotTerm} {xs : List V} {src : List (Option Nat)}
-
-/-- **The SOURCE spine at a tagged element**: the lone constructor's
-fields recovered from the element's index tuple (the subsingleton
-criterion, `srcVals`). -/
-@[expose] noncomputable def blockSqSpine (d : BlockData V) (ψ : Name → Nat) (mem : Nat → Nat)
-    (src : List (Option Nat)) (u : V) : List V :=
-  srcVals (isOfW (d.uM (mem 0) ψ) (d.nIdxAt (mem 0)) (tagIdx u)) src
-
-@[simp] theorem blockSqSpine_tagged (c : Nat) (i x : V) :
-    blockSqSpine d ψ mem src (tagged c i x)
-      = srcVals (isOfW (d.uM (mem 0) ψ) (d.nIdxAt (mem 0)) i) src := by
-  rw [blockSqSpine, tagIdx_tagged]
-
-/-- **Regime SQ's predecessor map at the union**: the index tuples of
-the lone constructor's recursive calls at the element's SOURCE spine.
-
-Regime WF's `tcPred` is not available here and not merely different:
-at `w = 0` every payload is the point (`mkZero`), so `tcPred` — the
-payload's ∈-subterms inside the union — is EMPTY and the recursion it
-carries is the trivial one.  The SQ recursion runs on the INDEX. -/
-@[expose] noncomputable def blockSqPred (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V)
-    (mem : Nat → Nat) (src : List (Option Nat)) (U u : V) : V :=
-  sep U fun v => ∃ i, i < ((d.Fss (mem 0) ψ).getD 0 []).length ∧
-    ((d.rss (mem 0)).getD 0 []).getD i false = true ∧
-    ∃ bs : List V,
-      SpineFit (consList ((blockSqSpine d ψ mem src u).take i) ρp)
-        ((((d.tlss (mem 0) ψ).getD 0 []).getD i []).map (·.2.2)) bs ∧
-      tagIdx v = d.tup ψ (d.tgts (mem 0) 0 i)
-        ((((d.Eiss (mem 0) ψ).getD 0 []).getD i []).map
-          (interp V (consList bs (consList ((blockSqSpine d ψ mem src u).take i) ρp))))
-
-theorem blockSqPred_subset (U u : V) :
-    blockSqPred d ψ ρp mem src U u ⊆ˢ U := sep_subset
-
-/-- The induction's property: the recursor's graph is a SINGLETON at
-the tagged element. -/
-@[expose] def SqSingleton (ℓ : Nat) (U : V) (pr B : V → V) (st : V → V → V)
-    (_m : Nat) (i y : V) : Prop :=
-  (∃ v, v ∈ˢ app (recGraph ℓ U pr B st) (tagged 0 i y)) ∧
-  ∀ v v', v ∈ˢ app (recGraph ℓ U pr B st) (tagged 0 i y) →
-    v' ∈ˢ app (recGraph ℓ U pr B st) (tagged 0 i y) → v = v'
-
-/-- **A recursive field's call lands in the tuple** (`w = 0`): the
-field's value folded along its telescope inhabits the tuple's target
-component at the call's index tuple.  Stated with the tuple `X` a
-VARIABLE, which is what keeps the `w = 0` rewrite off it. -/
-theorem blockSqPred_sep {X : Nat → V} {fs bs : List V} {i' : Nat}
-    (hw : d.w ψ = 0) (htgt0 : d.tgts 0 0 i' = 0)
-    (hf : fs.getD i' pt ∈ˢ d.slotAt ψ X 0 0 i' (consList (fs.take i') ρp))
-    (hbs : SpineFit (consList (fs.take i') ρp)
-      ((((d.tlss 0 ψ).getD 0 []).getD i' []).map (·.2.2)) bs) :
-    ∃ y, y ∈ˢ app (X 0) (d.tup ψ 0 ((((d.Eiss 0 ψ).getD 0 []).getD i' []).map
-      (interp V (consList bs (consList (fs.take i') ρp))))) := by
-  rw [BlockData.slotAt, htgt0, slotSet, hw] at hf
-  have h := mem_piTele_zero hf bs (fitsS_teleOfFields.mpr hbs)
-  rw [List.nil_append] at h
-  exact h
-
-/-- **`UnionRecKitC.exu` for regime SQ**: the recursion theorem at the
-block's TAGGED UNION, by the block's OWN lfp induction.
-
-At `w = 0` accessibility is not available — `tcPred` is empty and the
-∈-order says nothing — so the singleton property is proved the way
-`sqGraph_singleton` proves it for the fix route: by `lfpTuple_induction`
-on the block's representation, with `recGraph_singleton_of_preds` at
-each step.  The step's obligation is that every predecessor's fibre is
-already a singleton, and the SEPARATED tuple is what carries it: a
-recursive field's value at the constructed element lies in the
-separated tuple at the call's index tuple, which is the property at
-that tuple.
-
-The block is the SQ guard's: one class (`K = 1`), one component
-(`d.N = 1`), at most one constructor, every recursive field targeting the lone
-member, and the subsingleton criterion (`hsrcAt`) saying the fields are
-a function of the index. -/
-theorem blockSqExu (hM : BlockModelAt mo names d) (hw : d.w ψ = 0)
-    (hN : d.N = 1) (hmem0 : mem 0 = 0) (hnCt1 : (d.ctorsM 0).length ≤ 1)
-    (htgt : ∀ i, d.tgts 0 0 i = 0)
-    (hsrcAt : SpineFit ρ (d.params ψ) (xs.take d.nP) → 0 < (d.ctorsM 0).length →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
-      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
-      ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
-        d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
-        fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) src)
-    {B : V → V} {st : V → V → V}
-    (hB : ∀ u, u ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) →
-      B u ∈ˢ (univ ℓ : V))
-    (hst : ∀ u, u ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) →
-      ∀ g, g ∈ˢ piSet
-          (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)) u)
-          (fun j => app (recGraph ℓ
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-            (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-              (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-            B st) j) →
-        st u g ∈ˢ B u) :
-    ∀ u, u ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) →
-      (∃ v, v ∈ˢ app (recGraph ℓ
-        (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-        (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-          (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))) B st) u) ∧
-      ∀ v v', v ∈ˢ app (recGraph ℓ
-          (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-          (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))) B st) u →
-        v' ∈ˢ app (recGraph ℓ
-          (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-          (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))) B st) u →
-        v = v' := by
-  intro u hu
-  obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
-  obtain rfl : c = 0 := by omega
-  obtain ⟨hparFit, hprefFit⟩ := blockRecIs_fits ht
-  have hsat := d.satOfSpine hparFit
-  have hmemN : (0 : Nat) < d.N := by omega
-  obtain ⟨hmono, hmaps, hcl⟩ := hM.functor ψ (consList (xs.take d.nP) ρ) hsat
-  have huz : (univ (d.w ψ) : V) = univZero := by rw [hw, univ_zero]
-  rw [blockRecIs_pos hparFit hprefFit, hmem0] at ht
-  rw [blockRecCr, hmem0] at hx
-  refine lfpTuple_induction hcl hmono
-    (SqSingleton ℓ (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-      (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-        (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))) B st)
-    ?_ 0 hmemN t ht x hx
-  -- THE STEP
-  intro m hm i hi y hy
-  obtain rfl : m = 0 := by omega
-  have hXsp := sepTuple_mem (V := V) (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-    (d.Φ ψ (consList (xs.take d.nP) ρ))
-    (SqSingleton ℓ (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-      (blockSqPred d ψ (consList (xs.take d.nP) ρ) mem src
-        (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))) B st)
-  obtain ⟨j, fs, hj, hfit, rfl⟩ :=
-    (hM.fibre ψ (consList (xs.take d.nP) ρ) hsat _ hXsp 0 hmemN i hi y).mp hy
-  obtain rfl : j = 0 := by omega
-  -- the element is the point, and it is in the carrier
-  have hyl : d.inj ψ 0 0 fs ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-      (d.Φ ψ (consList (xs.take d.nP) ρ)) 0) i :=
-    lfpTuple_closed hcl hmono 0 hmemN i hi _
-      (hmono _ _ hXsp (lfpTuple_mem _ _ _ _) (sepTuple_le _ _ _ _ _) 0 hmemN i hi _ hy)
-  have hpt : d.inj ψ 0 0 fs = (pt : V) := hM.mkZero ψ hw 0 0 fs
-  have huU : tagged 0 i (d.inj ψ 0 0 fs)
-      ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) := by
-    refine tagged_mem_unionSet (by omega) ?_ ?_
-    · rw [blockRecIs_pos hparFit hprefFit, hmem0]; exact hi
-    · rw [blockRecCr, hmem0]; exact hyl
-  show SqSingleton ℓ _ _ B st 0 i (d.inj ψ 0 0 fs)
-  refine recGraph_singleton_of_preds hB (fun v _ => blockSqPred_subset _ v) huU
-    (hst _ huU) ?_
-  -- THE PREDECESSORS
-  intro v hv
-  obtain ⟨hvU, i', hi'F, hi'r, bs, hbs, htag⟩ := mem_sep.mp hv
-  rw [hmem0] at hi'F hi'r hbs htag
-  rw [htgt i'] at htag
-  obtain ⟨c', hc', t', ht', x', hx', rfl⟩ := mem_unionSet.mp hvU
-  obtain rfl : c' = 0 := by omega
-  obtain ⟨hparFit', hprefFit'⟩ := blockRecIs_fits ht'
-  rw [blockRecIs_pos hparFit' hprefFit', hmem0] at ht'
-  rw [blockRecCr, hmem0] at hx'
-  -- the payload is the point
-  have hx'pt : x' = (pt : V) := by
-    have hmf : app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ)) 0) t' ∈ˢ (univ (d.w ψ) : V) :=
-      famSpace_app (lfpTuple_mem _ _ _ _ 0 hmemN) ht'
-    rw [huz] at hmf
-    exact eq_pt_of_mem_univZero hmf hx'
-  subst hx'pt
-  rw [tagIdx_tagged] at htag
-  -- the source spine at the constructed element IS the rule's fields
-  have hspine : blockSqSpine d ψ mem src (tagged 0 i (d.inj ψ 0 0 fs)) = fs := by
-    rw [blockSqSpine_tagged, hmem0]
-    exact (hsrcAt hparFit (by omega) _ hXsp (sepTuple_le _ _ _ _ _) i hi fs hfit).symm
-  rw [hspine] at hbs htag
-  -- the recursive field's value, folded along its telescope
-  obtain ⟨hpre, hentry⟩ := FitsFrom.at_pos hfit.1 i' hi'F
-  rw [Nat.zero_add, if_pos hi'r] at hentry
-  obtain ⟨z, hz⟩ := blockSqPred_sep hw (htgt i') hentry hbs
-  rw [← htag] at hz
-  rw [sepTuple, app_graph ht', mem_sep] at hz
-  have hzpt : z = (pt : V) := by
-    have hmf : app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ)) 0) t' ∈ˢ (univ (d.w ψ) : V) :=
-      famSpace_app (lfpTuple_mem _ _ _ _ 0 hmemN) ht'
-    rw [huz] at hmf
-    exact eq_pt_of_mem_univZero hmf hz.1
-  rw [hzpt] at hz
-  exact hz.2
-
-section SqStep
-
-variable {nCt rP : Nat → Nat} {concl : Nat → AnnotTerm}
-  {fdoms ihdoms : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {ihv : List V → Nat → Nat → List V → V → List V} {srcs : Nat → List (Option Nat)}
-  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-
-/-- **The graph's values are bounded, at an ARBITRARY predecessor
-map** — `app_mem_B_of_piSet` (§11) with `tcPred` generalised.  Regime
-SQ's map is not `tcPred`, and unifying a variable map against
-`tcPred`'s `sep` is what makes the elaborator unfold the union. -/
-theorem app_mem_B_of_piSet_pred {ℓ : Nat} {U : V} {pred B : V → V} {st : V → V → V} {u g : V}
-    (hB : ∀ i, i ∈ˢ U → B i ∈ˢ (univ ℓ : V))
-    (hsub : ∀ i, i ∈ˢ U → pred i ⊆ˢ U)
-    (hg : g ∈ˢ piSet (pred u) (fun v => app (recGraph ℓ U pred B st) v))
-    {v : V} (hv : v ∈ˢ pred u) (hvU : v ∈ˢ U) : app g v ∈ˢ B v := by
-  have h1 := app_mem_of_mem_piSet hg hv
-  rw [app_recGraph_eq hB hsub hvU] at h1
-  exact (mem_recGraphFibre.mp h1).1
-
-/-- **Regime SQ's `hst`**: the step lands in the motive.  The
-predecessor map is a PARAMETER — the obligation reads it only through
-`hihF`'s bound on the graph — so this serves whatever map the kit is
-built at. -/
-theorem blockSqStep_hst {pr : V → V} (hμ : μ.verifiedChecks = true)
-    (hM : BlockModelAt mo names d)
-    (hsub : ∀ i, i ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) →
-      pr i ⊆ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-    (hmemN : ∀ c, c < 1 → mem c < d.N)
-    (hnCt1 : ∀ c, c < 1 → (d.ctorsM (mem c)).length ≤ 1)
-    (hnCt : ∀ c, c < 1 → (d.ctorsM (mem c)).length = nCt c)
-    (hsrcL : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) →
-      0 < (d.ctorsM (mem c)).length →
-      ∀ i : V, i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) → ∀ fs : List V,
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) 0 fs →
-      srcVals (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i) (srcs c) = fs)
-    (hconclTy : ∀ c, c < 1 → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < 1 → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ pr (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs))) :
-    ∀ u, u ∈ˢ unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) → ∀ g : V,
-      g ∈ˢ piSet (pr u)
-        (fun j => app (recGraph ℓ
-          (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)) pr
-          (blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs)
-          (blockSqStep 1 d ψ ρ mem srcs Rb0 ihv xs)) j) →
-      blockSqStep 1 d ψ ρ mem srcs Rb0 ihv xs u g
-        ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs u := by
-  intro u hu g hg
-  obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
-  obtain ⟨hparFit, hprefFit⟩ := blockRecIs_fits hi
-  rw [blockRecIs_pos hparFit hprefFit] at hi
-  obtain ⟨j, fs, hj, hfit, rfl⟩ :=
-    blockCarrier_case hM (d.satOfSpine hparFit) (hmemN c hc) hi hx
-  obtain rfl : j = 0 := by
-    have := hnCt1 c hc
-    omega
-  have hjn : (0 : Nat) < nCt c := by rw [← hnCt c hc]; exact hj
-  have hgB : ∀ v, v ∈ˢ pr (tagged c i (d.inj ψ (mem c) 0 fs)) →
-      app g v ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ)
-        (fun c' => d.nIdxAt (mem c')) ρ xs v :=
-    fun v hv => app_mem_B_of_piSet_pred (blockRecMot_mem_univ hconclTy) hsub hg hv
-      (hsub _ hu v hv)
-  have hres := (hcerts c hc 0 hjn).residueOk hμ
-    (hspF c hc hparFit hprefFit 0 hjn i fs hi hfit)
-    (hihF c hc hparFit hprefFit 0 hjn i fs hi hfit g hgB)
-  rw [blockSqStep_at hc (hsrcL c hc hparFit hj i hi fs hfit) g,
-    ← hCaB c hc hparFit hprefFit 0 hjn i fs hi hfit g]
-  exact hres.2
-
-/-- **Regime SQ's kit at a prefix spine**: a `UnionRecKitC` whose
-`pred` is `blockSqPred` and whose `exu` is the block's own lfp
-induction.  It is a `UnionRecKitC` DIRECTLY and not a `WfRecKit`: the
-accessibility route is unavailable at `w = 0`, which is why the
-recursion theorem is the kit's field. -/
-noncomputable def blockSqKit (hμ : μ.verifiedChecks = true)
-    (hM : BlockModelAt mo names d) (hw : d.w ψ = 0)
-    (hN : d.N = 1) (hmem0 : mem 0 = 0)
-    (hnCt1 : ∀ c, c < 1 → (d.ctorsM (mem c)).length ≤ 1)
-    (hnCt : ∀ c, c < 1 → (d.ctorsM (mem c)).length = nCt c)
-    (htgt : ∀ i, d.tgts 0 0 i = 0)
-    (hmemN : ∀ c, c < 1 → mem c < d.N)
-    (hsrcAt : SpineFit ρ (d.params ψ) (xs.take d.nP) → 0 < (d.ctorsM 0).length →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
-      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
-      ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
-        d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
-        fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
-    (hconclTy : ∀ c, c < 1 → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < 1 → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-            (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs))) :
-    UnionRecKitC ℓ 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) :=
-  have hsrcL : ∀ c, c < 1 → SpineFit ρ (d.params ψ) (xs.take d.nP) →
-      0 < (d.ctorsM (mem c)).length → ∀ i : V, i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) → ∀ fs : List V,
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) 0 fs →
-      srcVals (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i) (srcs c) = fs := by
-    intro c hc hpar hct i hi fs hfit
-    obtain rfl : c = 0 := by omega
-    rw [hmem0] at hi hfit hct ⊢
-    exact (hsrcAt hpar hct _ (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) i hi fs hfit).symm
-  have hstP := blockSqStep_hst
-    (pr := blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-      (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-    (nCt := nCt) (rP := rP) (concl := concl) (fdoms := fdoms) (ihdoms := ihdoms)
-    (Rb0 := Rb0) (Ca := Ca) (ihv := ihv) (srcs := srcs) (mp := mp) (F := F)
-    hμ hM (fun i _ => blockSqPred_subset _ i) hmemN hnCt1 hnCt hsrcL hconclTy hcerts hspF
-    hihF hCaB
-  { pred := blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-      (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-    B := blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-    st := blockSqStep 1 d ψ ρ mem srcs Rb0 ihv xs
-    predSub := fun u _ => blockSqPred_subset _ u
-    hB := blockRecMot_mem_univ hconclTy
-    hst := hstP
-    exu := blockSqExu hM hw hN hmem0 (by have := hnCt1 0 (by omega); rwa [hmem0] at this)
-      htgt hsrcAt (blockRecMot_mem_univ hconclTy) hstP }
-
-end SqStep
-
-/-! ## The kit family, the data, and `KitRegimeAt` -/
-
-section SqFam
-
-variable {nCt rP : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-  {concl RecTy : Nat → AnnotTerm} {fdoms es ihdoms : Nat → Nat → List AnnotTerm}
-  {mk : Nat → Nat → AnnotTerm} {ihs : Nat → Nat → List AnnotTerm}
-  {Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : List V → Nat → Nat → List V → V → List V}
-  {srcs : Nat → List (Option Nat)} {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-
-/-- **Regime SQ's data**: `RecFamData` at the block's own index sets
-and carriers, with a `UnionRecKitC` per prefix spine.  The WF regime's
-`blockWfData` goes through `wfData` because its kit is a `WfRecKit`;
-regime SQ's is a class kit already, so this is the structure. -/
-@[expose] noncomputable def blockSqData (d : BlockData V)
-    (kitC : ∀ xs : List V,
-      UnionRecKitC ℓ 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-    (hsplit : ∀ c, c < 1 → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ pdoms mem (prefOf (rP c) ys) c ∧
-      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
-        (d.tup ψ (mem c) (idxOf (rP c) ys)))
-    (hconcl : ∀ c, c < 1 → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (kitC (prefOf (rP c) ys)).B
-          (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c)) :
-    RecFamData V ℓ 1 rP rds concl ρ where
-  Is := blockRecIs d ψ ρ pdoms mem
-  Cr := blockRecCr d ψ ρ mem
-  tupOf := fun c is => d.tup ψ (mem c) is
-  kit := kitC
-  hsplit := hsplit
-  hconcl := hconcl
-
-/-- **The kit at EVERY prefix spine**, regime SQ's: the
-guard sits in `blockRecIs`, so a non-fitting prefix carries empty
-classes and every obligation is vacuous there. -/
-noncomputable def blockSqKitFam (hμ : μ.verifiedChecks = true)
-    (hM : BlockModelAt mo names d) (hw : d.w ψ = 0)
-    (hN : d.N = 1) (hmem0 : mem 0 = 0)
-    (hnCt1 : ∀ c, c < 1 → (d.ctorsM (mem c)).length ≤ 1)
-    (hnCt : ∀ c, c < 1 → (d.ctorsM (mem c)).length = nCt c)
-    (htgt : ∀ i, d.tgts 0 0 i = 0)
-    (hmemN : ∀ c, c < 1 → mem c < d.N)
-    (hsrcAt : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
-      0 < (d.ctorsM 0).length → ∀ X,
-      InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
-      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
-      ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
-        d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
-        fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
-    (hconclTy : ∀ xs : List V, ∀ c, c < 1 → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < 1 → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-            (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs)))
-    (xs : List V) :
-    UnionRecKitC ℓ 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs) :=
-  blockSqKit (nCt := nCt) (rP := rP) (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) (srcs := srcs)
-    hμ hM hw hN hmem0 hnCt1 hnCt htgt hmemN (hsrcAt xs) (hconclTy xs) hcerts (hspF xs)
-    (hihF xs) (hCaB xs)
-
-theorem blockSqKitFam_B (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hw : d.w ψ = 0) (hN) (hmem0) (hnCt1) (hnCt) (htgt) (hmemN) (hsrcAt) (hconclTy) (hcerts)
-    (hspF) (hihF) (hCaB) (xs : List V) :
-    (blockSqKitFam (V := V) (ℓ := ℓ) (ρ := ρ) (mem := mem) (nCt := nCt) (rP := rP)
-        (concl := concl) (pdoms := pdoms) (fdoms := fdoms) (ihdoms := ihdoms) (Rb0 := Rb0)
-        (Ca := Ca) (ihv := ihv) (srcs := srcs) (mp := mp) (F := F)
-        hμ hM hw hN hmem0 hnCt1 hnCt htgt hmemN hsrcAt hconclTy hcerts hspF hihF hCaB xs).B
-      = blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs := by
-  rfl
-
-/-- **Regime SQ's candidate** — `famCand` of the datum
-`blockKitRegime_sq` builds (§19a), named without the kit's obligations. -/
-@[expose] noncomputable def blockSqCand (ℓ : Nat) (rP : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (pdoms : Nat → List AnnotTerm) (mem : Nat → Nat) (concl : Nat → AnnotTerm)
-    (srcs : Nat → List (Option Nat)) (Rb0 : Nat → Nat → AnnotTerm)
-    (ihv : List V → Nat → Nat → List V → V → List V) : Nat → V :=
-  kitCandOf ℓ 1 rP rds ρ (blockRecIs d ψ ρ pdoms mem) (blockRecCr d ψ ρ mem)
-    (fun c is => d.tup ψ (mem c) is)
-    (fun xs => blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-      (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-    (blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ)
-    (blockSqStep 1 d ψ ρ mem srcs Rb0 ihv)
-
-/-- **Regime SQ's graph** — `kitGraphAt` of that datum's kit. -/
-@[expose] noncomputable def blockSqGraph (ℓ : Nat) (d : BlockData V) (ψ : Name → Nat)
-    (ρ : Nat → V) (pdoms : Nat → List AnnotTerm) (mem : Nat → Nat) (concl : Nat → AnnotTerm)
-    (srcs : Nat → List (Option Nat)) (Rb0 : Nat → Nat → AnnotTerm)
-    (ihv : List V → Nat → Nat → List V → V → List V) : List V → V → V :=
-  kitGraphOf ℓ 1 (blockRecIs d ψ ρ pdoms mem) (blockRecCr d ψ ρ mem)
-    (fun xs => blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-      (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs)))
-    (blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ)
-    (blockSqStep 1 d ψ ρ mem srcs Rb0 ihv)
-
-/-- **`KitRegimeAt` at the SQ regime** (`ℓ ≠ 0 ∧ w = 0`), from the
-representation, the certificates and the same reading bridges the WF
-arm takes — with `tcPred` replaced by `blockSqPred` in `hihF`, and the
-subsingleton criterion in two places: at the carrier's case analysis
-(`hsrcAt`, which the kit's `exu` and `hst` consume) and at a rule's own
-spine (`hsrcRule`, which `blockSqStep_at_rule` consumes).
-
-**Both criteria are stated NARROWLY, and the narrowing is what makes
-them producible** (the lift, `Model/Inductives/BlockRuleFit.lean`
-§2c).
-
-* `hsrcAt` carries `TupleLe … X (lfpTuple …)` — `X` BELOW the
-  fixpoint.  Without it the premise quantifies over an arbitrary
-  member of the tuple space and has no producer: the criterion is a
-  WALK (`FieldsBoundSrc` advances only through DOMAIN members) and at
-  `w = 0` a slot member need not be one, so the walk stops at the
-  first sourceless recursive field and every field after it is out of
-  reach.  Below the fixpoint the `ChainFit` transports into the
-  fixpoint's (`blockChainFit_of_le`) and the criterion applies
-  verbatim (`blockChainFit_srcVals_zero`).  It costs the consumers
-  nothing: both pass a tuple below the fixpoint — the fixpoint itself
-  in `blockSqKit`'s `hsrcL` (`TupleLe.refl`), the SEPARATED tuple in
-  `blockSqExu` (`sepTuple_le`, already three lines above the use).
-* `hsrcRule` concludes about `d.tup ψ (mem c)` — the BLOCK's own
-  tuple — and not about `D.tupOf c`.  `RecFamData.tupOf` is an
-  abstract field the structure's laws tie to nothing outside `D`, so
-  at a universally quantified `D` the conclusion is a statement about
-  an unconstrained function and no fact about the block can produce
-  it.  The regime applies the premise at the one datum it builds,
-  `blockSqData`, whose `tupOf c is` IS `d.tup ψ (mem c) is`.
-
-**No premise quantifies over a datum.**  For the same reason all four
-rule bridges are stated at the datum's own candidate and graph
-(`blockSqCand`, `blockSqGraph`, §19a) — and `hsrcRule`'s frame with
-them, which costs its producer nothing (`blockRuleSrcVals_rule` is
-generic in the chain frame's values).
-
-**Two more narrowings, both bounded by the consumers' own context.**
-`hsrcAt` takes the PARAMETER FIT of the prefix spine
-(`blockChainFit_srcVals_zero` needs it; both consumers hold it — the
-`_` of `blockSqKit`'s `hsrcL`, `blockRecIs_fits` in `blockSqExu`) and
-the existence of the lone constructor (both consumers have just
-decomposed an element into one).  And the arm is stated at
-`numCtors ≤ 1`, not `= 1` (`hnCt1`, with `hnCt` in the WF arm's form):
-the kernel licenses large elimination of a `Prop` block with ZERO
-constructors too (the counting guard's `numCtors == 0 ∨ numCtors ==
-1`), no other regime covers that block (IND needs `ℓ = 0`, WF needs
-`w ≠ 0`), and the section needs the count only to read `j = 0` off
-`j < numCtors`, which `≤ 1` gives as well.  At zero constructors
-the carrier is empty, so the kit's obligations and every rule bridge
-are vacuous. -/
-theorem blockKitRegime_sq (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hw : d.w ψ = 0) (hmemK : ∀ c, c < 1 → mem c < d.k)
-    (hN : d.N = 1) (hmem0 : mem 0 = 0)
-    (hnCt1 : ∀ c, c < 1 → (d.ctorsM (mem c)).length ≤ 1)
-    (hnCt : ∀ c, c < 1 → (d.ctorsM (mem c)).length = nCt c)
-    (htgt : ∀ i, d.tgts 0 0 i = 0)
-    (hlenIds : ∀ c, c < 1 → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
-    (hsplitR : BlockRecSplitAt V mo d ψ 1 rP mem rds ρ)
-    (hpdE : ∀ c, c < 1 → pdoms c = ((rds c).map (·.2.2)).take (rP c))
-    (hsrcAt : ∀ xs : List V, SpineFit ρ (d.params ψ) (xs.take d.nP) →
-      0 < (d.ctorsM 0).length → ∀ X,
-      InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X →
-      TupleLe d.N (d.idx ψ (consList (xs.take d.nP) ρ)) X
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) →
-      ∀ t, t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) 0 → ∀ fs,
-        d.ChainFit ψ (consList (xs.take d.nP) ρ) X t 0 0 fs →
-        fs = srcVals (isOfW (d.uM 0 ψ) (d.nIdxAt 0) t) (srcs 0))
-    (hconclTy : ∀ xs : List V, ∀ c, c < 1 → ∀ i, i ∈ˢ blockRecIs d ψ ρ pdoms mem xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ mem xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c)) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < 1 → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      (∀ v, v ∈ˢ blockSqPred d ψ (consList (xs.take d.nP) ρ) mem (srcs 0)
-            (unionSet 1 (blockRecIs d ψ ρ pdoms mem xs) (blockRecCr d ψ ρ mem xs))
-            (tagged c i (d.inj ψ (mem c) j fs)) →
-        app g v ∈ˢ blockRecMot 1 concl (fun c' => d.uM (mem c') ψ)
-          (fun c' => d.nIdxAt (mem c')) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < 1 →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (pdoms c) xs →
-      ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c) →
-      d.ChainFit ψ (consList (xs.take d.nP) ρ)
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-          (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot 1 concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ xs
-            (tagged c i (d.inj ψ (mem c) j fs)))
-    (hTyE : ∀ c, c < 1 → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ 1 rds) (hpl : ∀ c, c < 1 → (pdoms c).length = rP c)
-    -- the four rule bridges, at the ONE datum this arm builds (§19a)
-    (hrule : ∀ c, c < 1 → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)
-        (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs)
-            (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)))
-          ++ [interp V (consList (xs ++ fs)
-            (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)) (mk c j)])))
-    (hsrcRule : ∀ c, c < 1 → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)
-        (pdoms c ++ fdoms c j) (xs ++ fs) →
-      j = 0 ∧
-        srcVals
-            (isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
-              (d.tup ψ (mem c)
-                ((es c j).map (interp V (consList (xs ++ fs)
-                  (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ))))))
-            (srcs c)
-          = fs)
-    (hihChain : ∀ c, c < 1 → ∀ j, j < nCt c →
-      ∀ xs fs : List V, xs.length = (pdoms c).length →
-      SpineFit (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)
-        (pdoms c ++ fdoms c j) (xs ++ fs) →
-      ihv xs c j fs
-          (blockSqGraph ℓ d ψ ρ pdoms mem concl srcs Rb0 ihv xs
-            (tagged c
-              (d.tup ψ (mem c)
-                ((es c j).map (interp V (consList (xs ++ fs)
-                  (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)))))
-              (interp V (consList (xs ++ fs)
-                (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)) (mk c j))))
-        = (ihs c j).map (interp V (consList (xs ++ fs)
-            (chainFrame 1 (blockSqCand ℓ rP rds d ψ ρ pdoms mem concl srcs Rb0 ihv) ρ)))) :
-    KitRegimeAt V ℓ 1 rP nCt rds concl RecTy pdoms fdoms es mk ihs Rb0 ρ := by
-  have hmemN : ∀ c, c < 1 → mem c < d.N :=
-    fun c hc => Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)
-  refine ⟨blockSqData (rds := rds) (concl := concl) (rP := rP) (ρ := ρ) d
-      (blockSqKitFam (ihdoms := ihdoms) (Ca := Ca) (ihv := ihv) (rP := rP) (nCt := nCt)
-        (srcs := srcs) hμ hM hw hN hmem0 hnCt1 hnCt htgt hmemN hsrcAt hconclTy hcerts hspF
-        hihF hCaB)
-      (blockWf_hsplit hM hpdE hmemK hsplitR) ?_,
-    blockSqStep 1 d ψ ρ mem srcs Rb0 ihv, ihv, ?_, hTyE, hbits, hpl, ?_, ?_, ?_⟩
-  · intro c hc ys hfit
-    rw [blockSqKitFam_B]
-    exact blockWf_hconcl hM hmemN hlenIds hsplitR c hc ys hfit
-  · intro xs
-    rfl
-  · exact hrule
-  · exact blockSqStep_at_rule _ hsrcRule
-  · exact hihChain
-
-end SqFam
-
-end SqKit
-
-/-! ## 37. THE IND ARM'S STEP — `blockIndPt`'s `hstep`
-
-§17 reduces regime IND's induction principle to "the conclusion is
-inhabited at every fitting spine" and leaves the STEP — the conclusion
-at a CONSTRUCTED major, with the property already available at the
-recursive fields — as a premise.  This section is that step, from the
-rules' certificates.
-
-The assembly is short because everything it needs already exists: the
-spine splits (`BlockRecSplitAt`), the major decomposes at the
-SEPARATED tuple (`BlockModelAt.fibre` — the separated tuple, not the
-lfp, which is what makes the recursive fields carry the property), and
-`BlockRuleCerts.residueOk` types the residue at the frame.  At `ℓ = 0`
-the conclusion's reading is a TRUTH VALUE (`hT`), so the residue's
-value there IS the point and the conclusion is inhabited.
-
-**What is a premise, and why.**  `hih` — the `ih` openers' fit at the
-frame — is the induction hypothesis itself: at `ℓ = 0` the openers'
-domains are truth values whose inhabitation is the motive at the
-PREDECESSORS, which the separated tuple carries (the predecessor data
-of §35, with `hpref'` at the callee's class).  Turning that into the
-fit needs the openers' domain READING — the per-key identification
-`ihdoms.getD r = (mkPisAV (tlA i) (Cih r)).liftN r 0` with `Cih r` the
-peel of the CALLEE's conclusion (`blockRuleHconcl_of`); `blockIndRegime_run`
-below discharges it.  `hT` and `hCaE` are §29's `blockRecCa_run` at
-`ℓ = 0`, in the shape the regime states them. -/
-
-section IndStep
+section PredSep
 
 variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
@@ -4531,60 +2696,6 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {ihs : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
   {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
   {ihvals : Nat → Nat → List V}
-
-/-- Every entry of a `pt` replication is the point — the IND regime's
-`ih` VALUES, at every position. -/
-theorem getD_replicate_pt (n r : Nat) : (List.replicate n (pt : V)).getD r pt = pt := by
-  rw [List.getD_eq_getElem?_getD, List.getElem?_replicate]
-  split <;> rfl
-
-/-- **The `ih` openers' fit AT `ℓ = 0`** — the half of the IND arm's
-`hih` that is not about the block.
-
-At `ℓ = 0` every opener's domain is a `Prop` Π-tower over the field's
-telescope (`hbits`, `OneElimLevel` at the family's level), so the
-point inhabits it exactly when its BODY is inhabited at every fitting
-telescope spine (`pt_mem_mkPisAV_zero`, §16); and the ih VALUES are
-the point there, which is the one thing the `ℓ ≠ 0` route cannot say.
-The domain shape `hdom` is the per-key identification `blockIhPis`
-produces (opener `r`'s domain is the `l = 0` tower lifted past the `r`
-earlier openers, §32), and its BODY `Cih r` is the CALLEE's
-conclusion peeled at the call's prefix, index expressions and target
-— the component `blockRuleHconcl_of` (`BlockRecOpenerRead.lean`)
-exports beside the reading.
-
-What is left over after this lemma is `hleaf`: that peel IS the
-motive at the PREDECESSOR (§29's `blockRecCa_value` at the callee's
-class `c'`) and the motive holds there (`blockIndP`, at the predecessor
-with §35's `hpref'`). -/
-theorem spineFit_ihdoms_zero {σ : Nat → V} {ihKeys : List (Nat × Nat)}
-    {tlA : Nat → List (Nat × Nat × AnnotTerm)} {Cih : Nat → AnnotTerm}
-    {ihdoms : List AnnotTerm} {ihvals : List V}
-    (hlen : ihdoms.length = ihKeys.length) (hvlen : ihvals.length = ihKeys.length)
-    (hvals : ∀ r, r < ihKeys.length → ihvals.getD r pt = (pt : V))
-    (hdom : ∀ r, r < ihKeys.length →
-      ihdoms.getD r default
-        = (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
-    (hbits : ∀ r, r < ihKeys.length →
-      ∀ dd ∈ tlA (ihKeys.getD r (0, 0)).1, dd.2.1 = 0)
-    (hleaf : ∀ r, r < ihKeys.length → ∀ bs : List V,
-      SpineFit σ ((tlA (ihKeys.getD r (0, 0)).1).map (·.2.2)) bs →
-      (pt : V) ∈ˢ interp V (consList bs σ) (Cih r)) :
-    SpineFit σ ihdoms ihvals := by
-  refine spineFit_of_getD (by rw [hvlen, hlen]) fun r hr => ?_
-  have hrk : r < ihKeys.length := by rw [← hlen]; exact hr
-  have htk : (ihvals.take r).length = r := by
-    rw [List.length_take, hvlen]
-    omega
-  have hcancel : interp V (consList (ihvals.take r) σ)
-        ((mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)).liftN r 0)
-      = interp V σ (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r)) := by
-    have hq := interp_liftN_ihvals (V := V) (ihvals := ihvals.take r) (σ := σ)
-      (mkPisAV (tlA (ihKeys.getD r (0, 0)).1) (Cih r))
-    rw [htk] at hq
-    exact hq
-  rw [hvals r hrk, hdom r hrk, hcancel]
-  exact pt_mem_mkPisAV_zero _ σ _ (hbits r hrk) (hleaf r hrk)
 
 /-- **A tuple-space component is graded at EVERY index**: on its own
 index set by `famSpace_app`, and off it a family is junk
@@ -4655,416 +2766,7 @@ theorem blockIndPred_of (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp 
     app_graph htup, mem_sep] at hmem
   exact ⟨hidxfit, hmem.1, hmem.2⟩
 
-/-- **The `ih` opener's CONCLUSION is inhabited** — `hihLeaf` at one
-key, and the second half of the IND arm's `hih`.
-
-The opener's body `CihR` is the peel of the CALLEE's recursor type at
-the guarded call's spine (`BlockRuleConclAt` with the field's
-TELESCOPE spine in the `ih` block's place — §32: the peel's prefix
-arguments are `prefVarsAV rP (nF + m)`, which is
-`paramBvarsAt rP (rP + nF + m)` on the nose), so §29's
-`blockRecCa_value` evaluates it to the callee's stored conclusion at
-the spine `(x⃗, e⃗(a⃗), f_i a⃗)` — and the motive at the PREDECESSOR is
-exactly `blockIndP` there.
-
-Both of the block's own facts are the caller's: the spine FITS the
-callee's recursor type (`hfitC'`, the converse of `BlockRecSplitAt`
-at the callee's class) and the predecessor carries the property
-(`hP`, the separated tuple's second component). -/
-theorem blockIndIhLeaf_of {RecTy : Nat → AnnotTerm} {c' : Nat} (hc' : c' < K)
-    {nF nIdx m : Nat} {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
-    {as xs fs bs is : List V} {maj : V}
-    (hcon : BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR)
-    (hTyE : RecTy c' = mkPisAV (rds c') (concl c'))
-    (hrds : (rds c').length = rP c' + nIdx + 1)
-    (hesLen : eisA.length = nIdx)
-    (hconclB : Term.bvarsBelow (rds c').length (concl c').erase)
-    (hxs : xs.length = rP c') (hfs : fs.length = nF) (hbs : bs.length = m)
-    (hes : eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))) = is)
-    (hmk : interp V (consList bs (consList (xs ++ fs) ρ)) fapA = maj)
-    (hmid : SpineFit (consList as ρ)
-      ((((rds c').map (·.2.2)).drop d.nP).take (rP c' - d.nP)) (xs.drop d.nP))
-    (hidxF : SpineFit (consList as ρ) (d.IdsM (mem c') ψ) is)
-    (htake : xs.take d.nP = as)
-    (hP : blockIndP d ψ ρ K rP mem rds concl as (mem c') (d.tup ψ (mem c') is) maj) :
-    (pt : V) ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ)) CihR := by
-  rw [blockRecCa_value hcon hTyE hrds hesLen hconclB hxs hfs hbs hes hmk]
-  have hq := hP c' hc' rfl (xs.drop d.nP) is hmid hidxF rfl
-  rwa [← htake, List.take_append_drop, List.append_assoc] at hq
-
-/-- **`hihLeaf` AT ONE KEY, from the block**: the separated tuple's
-two halves (`blockIndPred_of`), the
-major's carrier form (`BlockModelAt.leaf`, read backwards), the
-callee's spine assembled (`hjoin`, the converse of
-`BlockRecSplitAt` — the recursor type's binders past the rule prefix
-ARE the member's index telescope and its former) and the peel
-evaluated at it (`blockIndIhLeaf_of`).
-
-Three premises are named in the shape their producers deliver:
-`hpref'` (the guard at the CALLEE's class, §35's `blockRecHpref_run`),
-`hjoin` and `hpdE` (the recursor stage's, the two directions of one
-type-shape fact), and the TWO-FRAME bridge `hesB`/`hmkB` — the guarded
-call's index readings and its applied field, read at the RULE's frame
-(`prefix ++ fields`) against the block's (`parameters ++ earlier
-fields`). -/
-theorem blockIndIhLeaf_pred {RecTy : Nat → AnnotTerm} (hM : BlockModelAt mo names d)
-    {c' cc j i nF nIdx m : Nat} {as xs fs bs : List V} {t : V}
-    {eisA : List AnnotTerm} {fapA CihR : AnnotTerm}
-    (hc' : c' < K) (hmk' : mem c' < d.k)
-    (hpar : SpineFit ρ (d.params ψ) as)
-    (hccN : cc < d.N) (ht : t ∈ˢ d.idx ψ (consList as ρ) cc)
-    (hj : j < (d.ctorsM cc).length)
-    (hfit : d.ChainFit ψ (consList as ρ)
-      (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-        (blockIndP d ψ ρ K rP mem rds concl as)) t cc j fs)
-    (hiF : i < ((d.Fss cc ψ).getD j []).length)
-    (hrec : ((d.rss cc).getD j []).getD i false = true)
-    (htgt : d.tgts cc j i = mem c')
-    (hbsB : SpineFit (consList (fs.take i) (consList as ρ))
-      ((((d.tlss cc ψ).getD j []).getD i []).map (·.2.2)) bs)
-    (hesB : (((d.Eiss cc ψ).getD j []).getD i []).map
-        (interp V (consList bs (consList (fs.take i) (consList as ρ))))
-      = eisA.map (interp V (consList bs (consList (xs ++ fs) ρ))))
-    (hmkB : bs.foldl SetTheory.app (fs.getD i pt)
-      = interp V (consList bs (consList (xs ++ fs) ρ)) fapA)
-    (hpdE : pdoms c' = ((rds c').map (·.2.2)).take (rP c'))
-    (hpref' : SpineFit ρ (pdoms c') xs)
-    (htake : xs.take d.nP = as) (hnP' : d.nP ≤ rP c')
-    (hcon : BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR)
-    (hTyE : RecTy c' = mkPisAV (rds c') (concl c'))
-    (hrds : (rds c').length = rP c' + nIdx + 1)
-    (hesLen : eisA.length = nIdx)
-    (hconclB : Term.bvarsBelow (rds c').length (concl c').erase)
-    (hxs : xs.length = rP c') (hfs : fs.length = nF) (hbsl : bs.length = m) :
-    (pt : V) ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ)) CihR := by
-  have htgtN : d.tgts cc j i < d.N := by
-    rw [htgt]
-    exact Nat.lt_of_lt_of_le hmk' (Nat.le_add_right _ _)
-  obtain ⟨hidx, hcar, hP⟩ :=
-    blockIndPred_of hM (d.satOfSpine hpar) hccN ht hj hfit hiF hrec htgtN hbsB
-  rw [htgt] at hidx hcar hP
-  rw [← hM.leaf (mem c') hmk' ψ ρ as _ hpar hidx] at hcar
-  -- the MIDDLE stretch's fit, off the prefix fit the caller already has:
-  -- no JOIN is assembled, which is the point of the split motive
-  have hmid := spineFit_dropAt (hpdE ▸ hpref') (n := d.nP)
-    (by rw [List.length_take, List.length_map, hrds]; omega)
-  rw [htake, List.drop_take] at hmid
-  exact blockIndIhLeaf_of hc' hcon hTyE hrds hesLen hconclB hxs hfs hbsl hesB.symm hmkB.symm
-    hmid hidx htake hP
-
-/-- **The IND arm's step**, `blockIndPt`'s `hstep`.
-
-`hCaZ` — the rule's conclusion reads to a truth value — is stated at
-an ARBITRARY frame and an arbitrary pair of fits, not at the split
-data, because that is the currency its producer has (§40.15b: the
-rule's own `peelPis` of the recursor type and its `TeleFitPA` at the
-same spine).  The step instantiates it at the frame `hspF` and `hih`
-already build, so the split shape is never asked for.
-
-`hCaE` keeps the guard `x = d.inj ψ (mem c) j fs` AND takes the
-fibre's `ChainFit`: the conclusion `Ca c j` is the recursor type
-peeled at the FIRED spine, so its identification with the recursor's
-conclusion holds where the major IS the constructed element and the
-INDEX VALUES are that constructor's — and `x = d.inj …` pins only the
-first of those.  Off the `ChainFit` the premise quantifies `is` over
-every fit of the member's index telescope while the left-hand side
-does not move: refutable at any indexed family (`Vector`'s `cons` at
-`is = [5]` against a constructor whose index is `3`).  The `ChainFit`
-pins them (`interp … (Ess c j l) = projS l (d.tup ψ (mem c) is)`) and
-costs nothing: `hspF` and `hih` already take it, and the fibre hands
-it out on the one line that uses `hCaE`. -/
-theorem blockIndStep (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ c, c < K → ∀ (as ms is : List V),
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (as ++ ms ++ fs))
-    (hih : ∀ c, c < K → ∀ (as ms is : List V),
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      SpineFit (consList (as ++ ms ++ fs) ρ) (ihdoms c j) (ihvals c j))
-    (hCaZ : ∀ c, c < K → ∀ j, j < nCt c → ∀ (σ : Nat → V) (xs fs vs : List V),
-      SpineFit σ (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) (ihdoms c j) vs →
-      interp V (consList vs (consList (xs ++ fs) σ)) (Ca c j) ∈ˢ (univZero : V))
-    (hCaE : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      x = d.inj ψ (mem c) j fs →
-      interp V (consList (ihvals c j) (consList (as ++ ms ++ fs) ρ)) (Ca c j)
-        = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c)) :
-    ∀ as : List V, SpineFit ρ (d.params ψ) as →
-      ∀ m, m < d.N → ∀ i, i ∈ˢ d.idx ψ (consList as ρ) m → ∀ x,
-        x ∈ˢ app (d.Φ ψ (consList as ρ)
-            (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-              (blockIndP d ψ ρ K rP mem rds concl as)) m) i →
-        blockIndP d ψ ρ K rP mem rds concl as m i x := by
-  intro as hpar m hm i hi x hx c hc hmc ms is hms his hti
-  subst hmc
-  subst hti
-  obtain ⟨j, fs, hj, hfit, hxinj⟩ :=
-    (hM.fibre ψ (consList as ρ) (d.satOfSpine hpar) _
-      (sepTuple_mem _ _ _ _ _) (mem c) hm _ hi x).mp hx
-  have hjn : j < nCt c := by rw [← hnCt c hc]; exact hj
-  have hres := (hcerts c hc j hjn).residueOk hμ
-    (hspF c hc as ms is hpar hms his j hjn fs hfit)
-    (hih c hc as ms is hpar hms his j hjn fs hfit)
-  have hTv := hCaZ c hc j hjn ρ (as ++ ms) fs (ihvals c j)
-    (hspF c hc as ms is hpar hms his j hjn fs hfit)
-    (hih c hc as ms is hpar hms his j hjn fs hfit)
-  rw [← hCaE c hc as ms is x hpar hms his j hjn fs hfit hxinj] at *
-  exact (eq_pt_of_mem_univZero hTv hres.2) ▸ hres.2
-
-/-- **`IndRegimeAt` FROM THE RUN**, the dispatch's `ℓ = 0` arm: §17's
-induction with its step discharged (`blockIndStep`), the rules'
-certificates, and the regime's own two premises at the CHAIN frame.
-
-The step's premises are at the BASE frame and the regime's at the
-chain frame; they are genuinely two obligations (the induction is a
-statement about the block's carrier, the ι equations' about the
-chain), which is why both appear.
-
-**`hihOpen` is ONE reading of the generated `blockIhPis` opener**: the
-opener's domain, its binder bits and the rule's per-key data are one
-fact about one term.  It quantifies the telescope and the conclusion
-existentially at the key and states the domain equation about them
-directly — split into separate premises, they would be tied together
-only by free function variables (`tlA`, `Cih`) that no run object
-produces.  The binder bits need no clause: `ihTeleAtGo` copies each
-binder's numeral and `rebit b` overwrites it, so `rebit 0` says that
-every binder is a `Prop` binder (and nothing extra at a finitary field,
-where both telescopes are `[]`).
-
-Consuming it costs one skolemisation: `spineFit_ihdoms_zero` wants a
-single conclusion function for all the keys and the reading is
-existential per key, so the body chooses one
-(`Classical.axiomOfChoice`).  The TELESCOPE needs no choice — the
-key's field index determines it. -/
-theorem blockIndRegime_run {RecTy : Nat → AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
-    {ihKeys : Nat → Nat → List (Nat × Nat)}
-    (hμ : μ.verifiedChecks = true) (hM : BlockModelAt mo names d)
-    (hmemK : ∀ c, c < K → mem c < d.k)
-    (hlenP : (d.params ψ).length = d.nP)
-    (hnCt : ∀ c, c < K → (d.ctorsM (mem c)).length = nCt c)
-    (hshape : BlockRecTyShape V mo d ψ K rP mem rds ρ)
-    (hbits : OneElimLevel 0 K rds)
-    (hTyE : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb c j) (Ca c j))
-    (hspF : ∀ c, c < K → ∀ (as ms is : List V),
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (as ++ ms ++ fs))
-    (hihLen : ∀ c, c < K → ∀ j, j < nCt c → (ihdoms c j).length = (ihKeys c j).length)
-    (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
-    (hprefU : ∀ c, c < K → ∀ c', c' < K → ∀ xs : List V,
-      SpineFit ρ (pdoms c) xs → SpineFit ρ (pdoms c') xs)
-    (hconclB : ∀ c, c < K → Term.bvarsBelow (rds c).length (concl c).erase)
-    (hihOpen : ∀ c, c < K → ∀ j, j < nCt c → ∀ r, r < (ihKeys c j).length →
-      ∃ (i c' nF nIdx m : Nat) (eisA : List AnnotTerm) (fapA CihR : AnnotTerm),
-        ((ihKeys c j).getD r (0, 0)).1 = i ∧
-        ((ihKeys c j).getD r (0, 0)).2 = c' ∧
-        c' < K ∧
-        i < ((d.Fss (mem c) ψ).getD j []).length ∧
-        ((d.rss (mem c)).getD j []).getD i false = true ∧
-        d.tgts (mem c) j i = mem c' ∧
-        ((d.Fss (mem c) ψ).getD j []).length = nF ∧
-        (((d.tlss (mem c) ψ).getD j []).getD i []).length = m ∧
-        (((d.Eiss (mem c) ψ).getD j []).getD i []).length = nIdx ∧
-        (d.IdsM (mem c') ψ).length = nIdx ∧
-        eisA = (((d.Eiss (mem c) ψ).getD j []).getD i []).map
-            (ihIdxAtM nF (rP c - d.nP) i 0 m) ∧
-        fapA = AnnotTerm.mkAppN (.bvar (nF - 1 - i + m)) (teleVarsAV m) ∧
-        BlockRuleConclAt (rP c') nF m (RecTy c') eisA fapA CihR ∧
-        (ihdoms c j).getD r default
-          = (mkPisAV (ihTeleAtR nF (rP c - d.nP) i 0
-              (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i []))) CihR).liftN r 0)
-    (hCaZ : ∀ c, c < K → ∀ j, j < nCt c → ∀ (σ : Nat → V) (xs fs vs : List V),
-      SpineFit σ (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) (ihdoms c j) vs →
-      interp V (consList vs (consList (xs ++ fs) σ)) (Ca c j) ∈ˢ (univZero : V))
-    (hCaE : ∀ c, c < K → ∀ (as ms is : List V) (x : V),
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      x = d.inj ψ (mem c) j fs →
-      interp V
-          (consList (List.replicate (ihdoms c j).length (pt : V))
-            (consList (as ++ ms ++ fs) ρ)) (Ca c j)
-        = interp V (consList (as ++ ms ++ is ++ [x]) ρ) (concl c))
-    (hihTy : ∀ as : List V, as.length = K →
-      (∀ c, c < K → as.getD c pt ∈ˢ interp V ρ (RecTy c)) →
-      ∀ c, c < K → ∀ j, j < nCt c → ∀ ys : List V,
-        SpineFit (consList as ρ) (pdoms c ++ fdoms c j) ys →
-        SpineFit (consList ys (consList as ρ)) (ihdoms c j)
-          ((ihs c j).map (interp V (consList ys (consList as ρ))))) :
-    IndRegimeAt V μ K nCt rP ψ RecTy pdoms fdoms ihs Rb ρ := by
-  have hsplitR : BlockRecSplitAt V mo d ψ K rP mem rds ρ := blockRecSplitAt_of_shape hshape
-  -- **`hihLeaf`, from the block's leaf and the two-frame bridge.**
-  -- **The `ih` openers' fit**, from the FUSED opener reading.  Each
-  -- opener's domain IS the `l = 0` tower over the field's MOVED
-  -- telescope, lifted past the `r` earlier openers, over the callee's
-  -- peeled conclusion; the point inhabits that conclusion by the
-  -- block's leaf, through the two-frame bridge.  The reading is
-  -- existential per key, so the conclusion is skolemised before
-  -- `spineFit_ihdoms_zero` (which wants one `Cih` for all of them);
-  -- the telescope needs no choice, because the key's FIELD index
-  -- determines it.
-  have hihFit : ∀ c, c < K → ∀ as ms is : List V,
-      SpineFit ρ (d.params ψ) as →
-      SpineFit (consList as ρ) ((((rds c).map (·.2.2)).drop d.nP).take (rP c - d.nP)) ms →
-      SpineFit (consList as ρ) (d.IdsM (mem c) ψ) is →
-      ∀ j, j < nCt c → ∀ fs : List V,
-      d.ChainFit ψ (consList as ρ)
-        (sepTuple (d.w ψ) d.N (d.idx ψ (consList as ρ))
-          (d.Φ ψ (consList as ρ))
-          (blockIndP d ψ ρ K rP mem rds concl as))
-        (d.tup ψ (mem c) is) (mem c) j fs →
-      SpineFit (consList (as ++ ms ++ fs) ρ) (ihdoms c j)
-        (List.replicate (ihdoms c j).length (pt : V)) := by
-    intro c hc as ms is hpar hms hidxfit j hjn fs hfit
-    obtain ⟨hnPc, hlenDc, hparI, -, -⟩ := hshape c hc
-    -- the SPLIT data is what the run has; the recursor's own prefix
-    -- spine is `as ++ ms`, and it is assembled here from the parameter
-    -- clause's `↔` and the middle stretch's own fit — never from an
-    -- index fit, which is the direction that has no producer
-    -- the frame data the bridge is stated at, none of it per key
-    have hasl : as.length = d.nP := by rw [hpar.length_eq, hlenP]
-    have hmsl : ms.length = rP c - d.nP := by
-      rw [hms.length_eq, List.length_take, List.length_drop, hlenDc]; omega
-    have hfsl : fs.length = ((d.Fss (mem c) ψ).getD j []).length := hfit.1.length_eq
-    have hxlen : (as ++ ms).length = rP c := by
-      rw [List.length_append, hasl, hmsl]; omega
-    have hxl2 : (as ++ ms).length = as.length + (rP c - d.nP) := by
-      rw [List.length_append, hmsl]
-    have htake2 : (as ++ ms).take as.length = as := by
-      rw [List.take_append_of_le_length (Nat.le_refl _), List.take_of_length_le (Nat.le_refl _)]
-    have hpref : SpineFit ρ (pdoms c) (as ++ ms) := by
-      rw [hpdE c hc, show rP c = d.nP + (rP c - d.nP) from by omega, take_add_eq_append]
-      exact SpineFit.append ((hparI as).mpr hpar) hms
-    -- the opener's two facts at ONE key, with the conclusion still bound
-    have hex : ∀ r : Nat, ∃ CihR : AnnotTerm, r < (ihKeys c j).length →
-        (ihdoms c j).getD r default
-            = (mkPisAV (ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP)
-                ((ihKeys c j).getD r (0, 0)).1 0
-                (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
-                  ((ihKeys c j).getD r (0, 0)).1 []))) CihR).liftN r 0 ∧
-          ∀ bs : List V,
-            SpineFit (consList ((as ++ ms) ++ fs) ρ)
-              ((ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP)
-                ((ihKeys c j).getD r (0, 0)).1 0
-                (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD
-                  ((ihKeys c j).getD r (0, 0)).1 []))).map (·.2.2)) bs →
-            (pt : V) ∈ˢ interp V (consList bs (consList ((as ++ ms) ++ fs) ρ)) CihR := by
-      intro r
-      by_cases hr : r < (ihKeys c j).length
-      · obtain ⟨i, c', nF, nIdx, m, eisA, fapA, CihR, hk1, hk2, hc', hiF, hrec, htgt,
-          hnF, hm, hnE, hnI, hes, hfap, hcon, hdom⟩ := hihOpen c hc j hjn r hr
-        refine ⟨CihR, fun _ => ⟨by rw [hk1, hnF]; exact hdom, fun bs hbs => ?_⟩⟩
-        rw [hk1, hnF] at hbs
-        obtain ⟨-, hlenDc', -, -, -⟩ := hshape c' hc'
-        have hfsl' : fs.length = nF := by rw [hfsl, hnF]
-        have hbsl : bs.length = m := by
-          rw [hbs.length_eq, List.length_map, ihTeleAtR_length, rebit_length, hm]
-        -- **the bridge**, at the telescope, at the index readings and at the applied field
-        have hbsB := spineFit_ihTeleAtR_rule hxl2 htake2 hfsl' hbs
-        have hesB : (((d.Eiss (mem c) ψ).getD j []).getD i []).map
-              (interp V (consList bs (consList (fs.take i)
-                (consList (as) ρ))))
-            = eisA.map (interp V (consList bs (consList ((as ++ ms) ++ fs) ρ))) := by
-          rw [hes, List.map_map]
-          exact (List.map_congr_left fun E _ =>
-            interp_ihIdxAtM_rule hxl2 htake2 hfsl' hbsl E).symm
-        have hmkB : bs.foldl SetTheory.app (fs.getD i pt)
-            = interp V (consList bs (consList ((as ++ ms) ++ fs) ρ)) fapA := by
-          rw [hfap]
-          exact (interp_fieldApp_rule hfsl' (by rw [← hnF]; exact hiF) hbsl).symm
-        -- the guard at the CALLEE's class, and the callee's spine ASSEMBLED
-        have hpref' := hprefU c hc c' hc' _ hpref
-        have hxs' : (as ++ ms).length = rP c' := by
-          have hq := hpref'.length_eq
-          rw [hpdE c' hc', List.length_take, hlenDc'] at hq
-          omega
-        -- the callee's arities
-        have hrdsLen : (rds c').length = rP c' + nIdx + 1 := by
-          rw [List.length_map] at hlenDc'
-          rw [hlenDc', hnI]
-        have hesLen : eisA.length = nIdx := by rw [hes, List.length_map, hnE]
-        exact blockIndIhLeaf_pred hM hc' (hmemK c' hc') hpar
-          (Nat.lt_of_lt_of_le (hmemK c hc) (Nat.le_add_right _ _)) (tupW_mem hidxfit)
-          (by rw [hnCt c hc]; exact hjn) hfit hiF hrec htgt hbsB hesB hmkB (hpdE c' hc')
-          hpref' (by rw [← hasl]; exact htake2) (hshape c' hc').1 hcon (hTyE c' hc') hrdsLen hesLen (hconclB c' hc')
-          hxs' hfsl' hbsl
-      · exact ⟨default, fun h => absurd h hr⟩
-    obtain ⟨CF, hCF⟩ := Classical.axiomOfChoice hex
-    exact spineFit_ihdoms_zero (ihKeys := ihKeys c j)
-      (tlA := fun i => ihTeleAtR ((d.Fss (mem c) ψ).getD j []).length (rP c - d.nP) i 0
-        (rebit 0 (((d.tlss (mem c) ψ).getD j []).getD i [])))
-      (Cih := CF) (hihLen c hc j hjn)
-      (by rw [List.length_replicate]; exact hihLen c hc j hjn)
-      (fun r _ => getD_replicate_pt _ _)
-      (fun r hr => (hCF r hr).1)
-      (fun _ _ dd hdd => by
-        obtain ⟨dd', hdd', he⟩ := mem_ihTeleAtGo hdd
-        rw [he, mem_rebit hdd'])
-      (fun r hr bs hbs => (hCF r hr).2 bs hbs)
-  have hind : ∀ c, c < K → (pt : V) ∈ˢ interp V ρ (RecTy c) :=
-    hind_of_spines hbits hTyE
-      (blockIndPt hM hmemK hshape hsplitR
-        (blockIndStep (ihvals := fun c j => List.replicate (ihdoms c j).length (pt : V))
-          hμ hM hnCt hcerts hspF hihFit hCaZ hCaE))
-  -- the chain frame at the point tuple IS the point tuple's frame, and
-  -- the point tuple is typed (`hind`): the `ih` fit there is `hihTy`'s
-  have hptF : consList (List.replicate K (pt : V)) ρ = chainFrame K (fun _ => (pt : V)) ρ := by
-    rw [chainFrame, List.map_const', List.length_range]
-  have hihReg : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K (fun _ => (pt : V)) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)) (ihdoms c j)
-        ((ihs c j).map
-          (interp V (consList (xs ++ fs) (chainFrame K (fun _ => (pt : V)) ρ)))) := by
-    intro c hc j hj xs fs _ hsp
-    rw [← hptF] at hsp ⊢
-    exact hihTy _ List.length_replicate
-      (fun c' hc' => by rw [getD_replicate_pt]; exact hind c' hc') c hc j hj _ hsp
-  exact ⟨envT, mp, F, ihdoms, Ca, hμ, hind, hcerts, hihReg,
-    fun c hc j hj xs fs hxl hsp =>
-      hCaZ c hc j hj (chainFrame K (fun _ => (pt : V)) ρ) xs fs _ hsp (hihReg c hc j hj xs fs hxl hsp)⟩
-
-end IndStep
+end PredSep
 
 /-! ## 38. THE BITS LAW — a Π-tower's binder data follows its
 CONCLUSION's sort
@@ -5282,9 +2984,9 @@ section ElimRun
 /-! ### The COUNTING guard, read off the verdict
 
 `blockLargeElimAllowed` is a disjunction whose first arm
-(`resSort.isNeverZero`) is refuted at a block the SQ regime runs on —
-that regime's guard is `d.w ψ = 0`, i.e. the result sort evaluates to
-zero at this `ψ` — so at `w = 0` the verdict IS the counting guard's
+(`resSort.isNeverZero`) is refuted at a `Prop` block — `d.w ψ = 0`,
+i.e. the result sort evaluates to zero at this `ψ` — so at `w = 0` the
+verdict IS the counting guard's
 four facts, and all of them at once:
 
 * `large = true`, which is what the constructors' stage keys its
@@ -5308,7 +3010,6 @@ antecedent falls out (`blockRecCounting_run`,
 `Model/Inductives/BlockRecPreHpre.lean`).  (Stage (b)'s inversion alone
 hands back only the guard's DISJUNCTION, and refuting its second arm
 would need an inversion of `isDefEq` through `whnf` to the sort case.)
-`blockRecK1_run` calls this.
 
 The elimination-level pin's route to `large = true` is not a duplicate:
 it needs no `Prop`-valued hypothesis, so it says something at a `Type`
@@ -5343,9 +3044,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
-    ∃ (us : List Level) (uOf : Nat → Level),
-      (∀ u ∈ us, Level.isEquiv u (ConLeche.structElimLevel p.elim p.large) = some true) ∧
-      (∀ c, c < rs.length → uOf c ∈ us) ∧
+    ∃ uOf : Nat → Level,
       (∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
         ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
           (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
@@ -5361,16 +3060,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
       ((R.cvRus.map (·.2.2)).getD c .zero) = u := by
     intro c r u hcu
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcu]; rfl
-  refine ⟨R.cvRus.map (·.2.2), fun c => ((R.cvRus.map (·.2.2)).getD c .zero), R.fam.pin,
-    ?_, ?_, ?_⟩
-  · intro c hc
-    have hlt : c < (R.cvRus.map (·.2.2)).length := by
-      rw [List.length_map, R.lenT, ← R.len]; exact hc
-    have hg : (R.cvRus.map (·.2.2)).getD c .zero = (R.cvRus.map (·.2.2))[c] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl
-    show ((R.cvRus.map (·.2.2)).getD c .zero) ∈ R.cvRus.map (·.2.2)
-    rw [hg]
-    exact List.getElem_mem hlt
+  refine ⟨fun c => ((R.cvRus.map (·.2.2)).getD c .zero), ?_, ?_⟩
   · intro ψ c hc b hb
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr
@@ -5404,6 +3094,54 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
       = .ok ((R.cvRus.map (·.2.2)).getD c .zero)
     rw [huOf hcu]
     exact E.hu
+
+/-- **The package's `uOf c` IS stage (b)'s own level**, for every
+recursor of the list: `blockRecElimLevel_run` hands the level back
+existentially, but its runs pin it — `inferTypeCore`/`ensureSortCore`
+are functions — so a fact about the KERNEL's level list is read at
+`uOf`. -/
+theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {uOf : Nat → Level} (R : ConLeche.RecKRun μ F envC p cvTas ctorsAs rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    {c : Nat} (hc : c < rs.length) : uOf c ∈ R.cvRus.map (·.2.2) := by
+  obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
+  obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr0
+  obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns c hc
+  have hrd : rs.getD c default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
+  rw [hrd] at hop'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
+  obtain rfl : sty' = E.sty := Except.ok.inj (hsty'.symm.trans E.hsty)
+  have huu : uOf c = u := Except.ok.inj (hu'.symm.trans E.hu)
+  have hg : (R.cvRus.map (·.2.2))[c]? = some u := by rw [List.getElem?_map, hcu]; rfl
+  obtain ⟨hlt, hEq⟩ := List.getElem?_eq_some_iff.mp hg
+  rw [huu]
+  exact hEq ▸ List.getElem_mem hlt
+
+/-- **THE LEVEL CURRENCY**: every recursor of the family eliminates at
+the CHECKED elimination level `structElimLevel p.elim p.large`, at
+every `ψ` — the elimination-level pin (`RecFamRun.pin`) read at the
+package's `uOf`. -/
+theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    {uOf : Nat → Level}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) :
+    Level.eval ψ (uOf c)
+      = Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
+  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  exact ConLeche.Level.isEquiv_sound (R.fam.pin _ (blockRecUOf_run R hruns hc)) ψ
 
 /-! ## 39. `BlockRuleCerts`' FRAME SEAM — `hdoms` and `hokΔ` from the
 three segments
@@ -6851,7 +4589,7 @@ elimination the clause is VACUOUS, and where it bites it reduces to
 ONE fact about the tower's body, the guarded call's reading being a
 truth value.  It is therefore a premise of this section
 (`h0`), guarded by `b = 0` and by nothing wider, and its producer is
-the IND regime's own conclusion-sort fact.
+the conclusion-sort fact (`blockRuleIseg_h0_of_conclAt`).
 
 What the segment consumes about the telescope is its hereditary
 grading AT THE FIELD's frame — `FieldsOkB 0` and `FieldsValid` of
@@ -7118,9 +4856,9 @@ consumes `ihdoms` states it at level `0` LIFTED by the key
 opener takes).  They are the same term — `mkPisAV_ihTeleAtR_shift`
 (`BlockRecOpenerRead.lean`) at `l = 0`, `δ = r` — with the
 conclusion moved by the same lift, so neither side has to restate.
-The bit is free here and `0` there; at the IND regime, where the
-consumer lives, `0` is the elimination level's own bit
-(`pwBit_zeronessOf`), so the instance is at `b := 0`. -/
+The bit is free here and `0` there; where the consumer lives, `0` is
+the elimination level's own bit (`pwBit_zeronessOf`), so the instance
+is at `b := 0`. -/
 theorem mkPisAV_ihTeleAtR_liftN (nF o i r b : Nat) (tl : List (Nat × Nat × AnnotTerm))
     (B : AnnotTerm) :
     (mkPisAV (ihTeleAtR nF o i 0 (rebit b tl)) B).liftN r 0
@@ -7522,8 +5260,8 @@ end CertsRun
 /-! ### 40.15 THE `univZero` PRODUCER — the recursor's CONCLUSION
 lands in the universe the CHECK named
 
-`hT` (§5), `hTStep`, `hTReg` (`blockIndRegime_run`) and the `ih`
-segment's `h0` are four premises of ONE fact: a peel of a recursor
+The `ih` segment's `h0` (`blockRuleIseg_h0_of_conclAt`) rests on ONE
+fact: a peel of a recursor
 type at a fitting spine lands in `univZero` when the elimination level
 is zero.  Its source is a step the check already takes:
 
@@ -7716,172 +5454,12 @@ theorem blockRecConcl_univZero_of_value {envC : Env} (hμ : μ.verifiedChecks = 
   rw [List.append_nil] at hsat
   exact blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
 
-/-- **THE TRUTH-VALUE PREMISE, FROM THE RUN.**  `hT` (§5), `hTStep`
-and `hTReg` (`blockIndRegime_run`) and the `ih` segment's `h0` all
-reduce to this: at the family's elimination level `0`, anything
-identified with a recursor's conclusion at a fitting spine is a truth
-value.
-
-Both halves come off the SAME peel, which is why they are one
-theorem: `blockRecElimLevel_run`'s bits component is what a regime's
-`ℓ = 0` is stated through, and its fourth component supplies the two
-runs `blockRecConcl_univ` needs — at the same level, with no second
-existential to reconcile. -/
-theorem blockRecConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (ψ : Name → Nat) :
-    ∃ uOf : Nat → Level,
-      (∀ c, c < rs.length →
-        ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
-          (b.2.1 = 0 ↔ (uOf c).eval ψ = 0)) ∧
-      ∀ c, c < rs.length → (uOf c).eval ψ = 0 →
-        ∀ (ρ : Nat → V) (ys : List V),
-          SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-            (·.2.2)) ys →
-          ∀ (X : AnnotTerm) (σ : Nat → V),
-            interp V σ X = interp V (consList ys ρ)
-              (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
-            interp V σ X ∈ˢ (univZero : V) := by
-  obtain ⟨us, uOf, -, -, hbits, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
-  refine ⟨uOf, fun c hc => hbits ψ c hc, fun c hc hu0 ρ ys hys X σ hval => ?_⟩
-  obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns c hc
-  have hrd : rs[c]? = some (rs.getD c default) := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
-    rfl
-  exact blockRecConcl_univZero_of_value hμ mpC h hrd ψ hop hinf hens hu0 hys hval
-
-/-! ### 40.15b `hCaZ` — the family's ONE producer, at the RULE's own
-peel
-
-§40.15 licenses the truth value at a fitting spine **of the
-recursor's own binder data**, and the IND arm states its motive at the
-SPLIT data, which does not carry one: the split's index values fit the
-MEMBER's telescope, and carrying them to the recursor's index binders
-is a converse the checker never establishes (`checkBlockRecTys` leaves
-the binders `rP … mI-1` arbitrary and compares nothing about them).
-So `hT`/`hTStep`/`hTReg` cannot be discharged through `hCaE` at the
-split data.
-
-**The licence the family actually has is the RULE's, not the split's.**
-`checkBlockRule` types the residue against `concl`, the recursor's
-stored type Π-INSTANTIATED at the rule's own spine — and the
-certificate producer already carries both halves of that as premises
-(`blockRuleCerts_of_run`'s `hpeel` and `hfit`, which `hokC` consumes):
-the syntactic peel `peelPis RecTy vs = some Ca` and a `TeleFitPA` of
-the SAME tower at the SAME `vs`, at every frame satisfying the rule's
-context.  `spineFit_of_teleFitPA` turns the fit into a `SpineFit` of
-the recursor's binder data, and `interp_peelPis_mkPisAV` turns the
-peel into the value identification — which is §40.15's `hval` on the
-nose.
-
-So the whole family is ONE theorem at a frame that is **generic**: it
-is stated over an arbitrary `σ` and an arbitrary pair of fits, so the
-same instance pays `hT` and `hTStep` (at the split frame, through
-`hspF`/`hihFit`) and `hTReg` (at the CHAIN frame, through the `ih` fit at the point tuple, `hihTy` instantiated after `hind`).
-Nothing in it mentions the split, the member's telescope or the
-index clause. -/
-
-/-- **The two fits ARE the rule's context**: a prefix-and-fields fit
-followed by an `ih` fit satisfies the bundle's own reversed context,
-which is the antecedent every certificate is stated under. -/
-theorem sat_blockRuleCtx_of_fits {pdoms fdoms ihdoms : List AnnotTerm}
-    {σ : Nat → V} {xs fs ws : List V}
-    (hsp : SpineFit σ (pdoms ++ fdoms) (xs ++ fs))
-    (hih : SpineFit (consList (xs ++ fs) σ) ihdoms ws) :
-    Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse)
-      (consList ws (consList (xs ++ fs) σ)) := by
-  have h1 := sat_of_spineFit (Δ₀ := []) (ConLeche.Semantics.Sat_nil V σ) hsp
-  rw [List.append_nil] at h1
-  exact sat_of_spineFit h1 hih
-
-/-- **`hCaZ`, THE `univZero` FAMILY'S PRODUCER** — the rule's
-conclusion reads to a truth value at EVERY frame the rule's own
-certificates are stated at.
-
-`hZ` is `blockRecConclUnivZero_run`'s second component at this `c`
-and at the arm's `ℓ = 0`; `hpeel` and `hfit` are the certificate
-producer's own two premises (`blockRuleHokC_of_run` consumes exactly
-this pair); `hTyE` and `hlen` are `checkBlockRecK_tyPis`'. -/
-theorem blockRuleConclUnivZero_of_peel {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {ψ : Name → Nat} {c : Nat} {Ca : AnnotTerm} {vs : List AnnotTerm}
-    {pdoms fdoms ihdoms : List AnnotTerm}
-    (hTyE : blockRecTyAV mpC.base2.acval envC rs ψ c
-      = mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c))
-    (hlen : vs.length
-      = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis
-      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
-    (hfit : ∀ σ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) σ →
-      ∃ rest, TeleFitPA V σ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest)
-    (hZ : ∀ (σ : Nat → V) (ys : List V),
-      SpineFit σ
-        ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)) ys →
-      ∀ (X : AnnotTerm) (σ' : Nat → V),
-        interp V σ' X = interp V (consList ys σ)
-          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) →
-        interp V σ' X ∈ˢ (univZero : V)) :
-    ∀ (σ : Nat → V) (xs fs ws : List V),
-      SpineFit σ (pdoms ++ fdoms) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) ihdoms ws →
-      interp V (consList ws (consList (xs ++ fs) σ)) Ca ∈ˢ (univZero : V) := by
-  intro σ xs fs ws hsp hih
-  obtain ⟨rest, hfitPA⟩ := hfit _ (sat_blockRuleCtx_of_fits hsp hih)
-  rw [hTyE] at hpeel hfitPA
-  exact hZ _ _ (spineFit_of_teleFitPA hlen hfitPA) Ca _
-    (interp_peelPis_mkPisAV hlen hpeel _)
-
-/-- **`hCaZ` AT THE RUN** — the producer with its level guard read off
-the arm's own `OneElimLevel 0`.
-
-The two levels meet through the binder data: the recursor's
-binder data is NON-EMPTY (`checkBlockRecK_tyPis` pins its length at
-`majorIdxAt c + 1`), so the regime's `hbits` gives that list's first
-numeral, and `blockRecConclUnivZero_run`'s own bits component reads
-the elimination level back off it.  No second existential is
-reconciled and no level is named twice. -/
-theorem blockRuleConclUnivZero_run {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length)
-    (hbits : OneElimLevel 0 rs.length
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ))
-    {Ca : AnnotTerm} {vs pdoms fdoms ihdoms : List AnnotTerm}
-    (hlen : vs.length
-      = (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis
-      (blockRecTyAV mpC.base2.acval envC rs ψ c) vs = some Ca)
-    (hfit : ∀ σ : Nat → V, Sat V (ihdoms.reverse ++ (pdoms ++ fdoms).reverse) σ →
-      ∃ rest, TeleFitPA V σ (blockRecTyAV mpC.base2.acval envC rs ψ c) vs rest) :
-    ∀ (σ : Nat → V) (xs fs ws : List V),
-      SpineFit σ (pdoms ++ fdoms) (xs ++ fs) →
-      SpineFit (consList (xs ++ fs) σ) ihdoms ws →
-      interp V (consList ws (consList (xs ++ fs) σ)) Ca ∈ˢ (univZero : V) := by
-  obtain ⟨uOf, hbitsE, hZ⟩ := blockRecConclUnivZero_run (V := V) hμ mpC h ψ
-  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-  obtain ⟨-, -, -, -, hTyE, hrdsLen, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
-  have hpos : 0 < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length := by
-    rw [hrdsLen]; omega
-  have hmem : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c)[0]'hpos
-      ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c := List.getElem_mem _
-  have hu0 : (uOf c).eval ψ = 0 :=
-    (hbitsE c hc _ hmem).mp ((hbits c hc _ hmem).mp rfl)
-  exact blockRuleConclUnivZero_of_peel hTyE hlen hpeel hfit (hZ c hc hu0)
-
 /-- **`h0`, the `ih` segment's BIT CLAUSE, DISCHARGED**, with no frame
 move.
 
 The clause asks that the guarded call's conclusion be a TRUTH VALUE at
-the segment's own frame.  §37's `blockIndIhLeaf_of` already evaluates
-that conclusion, and it does so with **`blockRecCa_value` applied
-verbatim**: §32's identification of the peel's prefix arguments
+the segment's own frame.  `blockRecCa_value` evaluates that conclusion
+verbatim: §32's identification of the peel's prefix arguments
 (`prefVarsAV rP (nF + m)` IS `paramBvarsAt rP (rP + nF + m)`) makes
 the `ih` opener's `BlockRuleConclAt` the same object the RULE's
 conclusion is, and the frame `consList bs (consList (xs ++ fs) ρ)`
@@ -7932,8 +5510,7 @@ end ConclUniv
 
 /-! ### 40.16 `hwd` — the ι equation list's grading
 
-`hwd` (§5, and the same premise in all three regimes) has three parts
-per rule:
+`hwd` (`hEq_iotaEqsAV_of`'s premise) has three parts per rule:
 
 * `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
   has **no producer anywhere and no near-miss** (the only theorem
@@ -7993,7 +5570,7 @@ theorem blockRuleHwdRhs_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
   (wd_instsAV hihv).mpr (hcerts.residueOk hμ hsp hih).1
 
 /-- **`hwd` AT ONE RULE, assembled.**  The three parts in the shape
-the regimes state them: the domain list's `FieldsOkB 0` from §40.12's
+`hEq_iotaEqsAV_of` states them: the domain list's `FieldsOkB 0` from §40.12's
 ascending grading, the ι equation's left side from the recursor's fit,
 and its right side from the bundle.
 

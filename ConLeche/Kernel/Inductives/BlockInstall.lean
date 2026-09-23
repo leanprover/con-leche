@@ -433,7 +433,7 @@ off the first recursor's own level parameters (`BlockParts.lean`).
 It IS D-d — one elimination level for the whole family (the ruling of
 2026-09-21): every conclusion sort is equivalent to the same generated
 level, so the model takes one `ℓ` per family
-(`blockRecElimPin_eval`, `Model/Inductives/BlockRecRead.lean`).  The
+(`blockRecElimPin_run`, `Model/Inductives/BlockRecPreRun.lean`).  The
 separate pairwise check D-d once had (every conclusion sort
 `Level.isEquiv` to the FIRST one's) was deleted by lane INVERT
 (2026-09-23): the pin implies it semantically, which is the currency
@@ -517,11 +517,11 @@ run gets the VERDICT here and the four facts there — one fact, one
 route, one name — instead of a second derivation of `k = 1` in the
 level currency beside the regime lane's.
 
-What it buys is the fact the SQUASH regime is UNSTATEABLE without:
-`blockKitRegime_sq` lives at `K = 1` while every run-level discharge is
-indexed over the recursor list, so `ℓ ψ ≠ 0` and `w ψ = 0` must FORCE
-one member (`blockRecCounting_run`,
-`Model/Inductives/BlockRecPreHpre.lean`).  The per-field subsingleton
+What it buys is the fact the recursor model's `huniq` at a `Prop`
+block with a large motive cannot do without: `ℓ ψ ≠ 0` and `w ψ = 0`
+FORCE one member with at most one constructor
+(`blockRecCounting_run`, `Model/Inductives/BlockRecPreHpre.lean`), so
+the decoding of a major is a function of its index.  The per-field subsingleton
 half of the same criterion is the constructors' stage's
 (`checkStructFieldSortsI`) and the per-recursor half is stage (b)'s
 `isDefEq`; this is the third, and it is the only one the model can

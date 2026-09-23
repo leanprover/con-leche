@@ -642,7 +642,7 @@ O-1's only non-structural case: at a node the abstraction replaced by
 `ih_r a⃗`, the stored node's reading and the ih value applied along the
 arguments' readings agree.  That is a statement about the ih VALUES —
 `ihFunAV`'s readings, folded by `ihFunAV_fold` — and about the leaf,
-so it is the regimes' seam and not this induction's. -/
+so it is the recursor model's seam and not this induction's. -/
 
 /-- **The node's own typing**: the residue sub-term the walk has
 reached was inferred by the rule stage's own run, at the checker's
@@ -1983,14 +1983,15 @@ run peels the CALLEE's stored type at the `l = r` spine
 (`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`) — while every
 consumer of the opener's DOMAIN wants the `l = 0` tower lifted past
 the `r` earlier openers, because that lift is what cancels their
-values (`spineFit_ihdoms_zero`'s `liftN r 0`, through
+values (the `liftN r 0` of `blockGraphIhF_run`, through
 `interp_liftN_ihvals`).  The three component lemmas above move the
 SPINE between the two levels; these move the PEEL, so the `l = r`
 conclusion IS the `l = 0` conclusion lifted at the telescope's own
 cut.
 
 That is the last syntactic step of the fused opener reading
-(`blockIndRegime_run`'s `hihOpen`): its `BlockRuleConclAt` conjunct is
+(`blockKitIhKey_run`, `BlockKitIhRun.lean`): its `BlockRuleConclAt`
+conjunct is
 stated at `l = 0` — it has to be, `blockRecCa_value` reads it at the
 frame the telescope's values sit on — and the run hands out `l = r`. -/
 
@@ -2181,7 +2182,7 @@ theorem ihSpineFold_blockRec {env : Env} {mo : EnvModel V env} {ψ : Name → Na
     -- and `(i, c')` the frame's key for the `ih` binder `r`.  The
     -- third is `IhTyped`: the residue's node was inferred by the rule
     -- stage's own run, which is what `certs_of_infer_mkAppN`
-    -- (`BlockRecRegimes.lean`) inverts.
+    -- (`BlockCallCerts.lean`) inverts.
     (hfit : ∀ (d i c' r : Nat) (nm : Name) (locals : List V) (node : Expr)
       (as as1 as2 : List Expr) (Δa : List AnnotTerm) (vs ws : List AnnotTerm),
       ConLeche.blockIhCall? fr d node = some (r, as) →

@@ -13,7 +13,7 @@ public section
 # The recursor type's binder SHAPE, at the run
 
 `BlockRecTyShape` (`Model/Inductives/BlockRecTyping.lean`) is what the
-three regimes read off the stored recursor types: the arity, the
+recursor model reads off the stored recursor types: the arity, the
 parameters, the eliminated member's index telescope and the major.
 This file produces it from the recursor stage's run and the members'
 own former data.
@@ -51,8 +51,8 @@ bounded by (`checkBlockRecTys`, `Kernel/Inductives/BlockInstall.lean`):
 The OPPOSITE direction of clause 4 is not produced: nothing in the run
 ties the recursor's index binders to the member's telescope except the
 per-argument `isDefEq` inside `checkConstantVal`'s inference of the
-major's domain, and no consumer needs it (the IND arm states its
-induction motive at the SPLIT data).
+major's domain, and no consumer needs it (stage (b'')'s converse,
+`blockRecIdxConv_run`, is what the model reads instead).
 -/
 
 namespace ConLeche.Model
@@ -363,8 +363,7 @@ member's telescope and the block's `d.params`.
 one has both, which is what separates it from the index clause: the
 hop takes its comparison as an `Or` of the two `isDefEq` orientations
 and proves the transfer either way, so swapping its two openings costs
-nothing.  The converse is what the IND arm's `hihFit` needs to rebuild
-the recursor's own prefix spine `as ++ ms` out of the split data. -/
+nothing. -/
 
 /-- **The block's parameter telescope fits, at the run, IN BOTH
 DIRECTIONS** — clause 3 of the shape. -/
@@ -574,8 +573,8 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
 
 /-! ## 7. The `ih` KEY's block facts (`hkey` half A)
 
-`blockIndRegime_run`'s `hihOpen` (`BlockRecPreRun.lean`) splits in two
-with very different provenances:
+One `ih` key's reading (`blockKitIhKey_run`, `BlockKitIhRun.lean`)
+splits in two with very different provenances:
 
 * **(A) the KEY's block facts** — the field is in range, it is
   RECURSIVE or REFLEXIVE, it targets the callee's member, and the
@@ -740,11 +739,11 @@ end Keys
 /-! ## 8. The `ih` LEVEL, at the opener's CONCLUSION (the fused
 opener reading's last syntactic step)
 
-`hihOpen` (`blockIndRegime_run`) states its `BlockRuleConclAt`
+One key's reading (`blockKitIhKey_run`) states its `BlockRuleConclAt`
 conjunct at `ih` level `l = 0`, and it has to: `blockRecCa_value`
 reads that conclusion at the frame the field TELESCOPE's values sit
 on, and the domain equation carries the `liftN r 0` that cancels the
-`r` earlier openers' values (`spineFit_ihdoms_zero`).  The RUN peels
+`r` earlier openers' values (`blockGraphIhF_run`).  The RUN peels
 the callee's stored type at the generated opener's own level `l = r`
 (`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`), because that is
 where `blockIhPis` puts the `r`-th key's binder.

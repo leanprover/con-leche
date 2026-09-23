@@ -308,7 +308,8 @@ theorem iotaEqAV_law {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTe
   exact heq
 
 /-- **The ι equation is INHABITED** by the laws at every fitting spine —
-the direction the three regimes' candidates are fed through. -/
+the direction the graph kit's candidate (`famCandG_hCand`) is fed
+through. -/
 theorem pt_mem_iotaEqAV_of {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : AnnotTerm}
     {ihs : List AnnotTerm} {Rb : AnnotTerm} {σ : Nat → V} {R : V}
     (hR : σ (K - 1 - c) = R)
@@ -333,7 +334,7 @@ theorem pt_mem_iotaEqAV_of {K c : Nat} {pdoms fdoms es : List AnnotTerm} {mk : A
 
 /-! ## The λ-tower whose body sees the spine
 
-The candidate the three regimes supply is a λ-tower over the
+The candidate the graph kit supplies (`famCandG`) is a λ-tower over the
 recursor's whole binder data whose body needs the PREFIX values (the
 parameters and the arbitrary stretch: the kit is built per prefix
 frame), the INDEX values and the MAJOR — i.e. the accumulated spine,
@@ -440,9 +441,9 @@ theorem chainFrame_apply {K c : Nat} (hc : c < K) (a ρ : Nat → V) :
 /-- **The premise of the recursor family's leaf** at a base frame `ρ`:
 the `K` recursor types are formed at level `s`, the ι equations are
 truth values and graded at every fitting tuple, and a CANDIDATE tuple
-satisfies them.  The candidate is what the three proof regimes supply
-(DESIGN v2 §3.2 WF, §3.3 IND, §3.4 SQ); everything else is read off the
-check's certificates. -/
+satisfies them.  The candidate is what the recursor model supplies
+(the graph kit, `famCandG_hCand`, DESIGN ruling of 2026-09-23);
+everything else is read off the check's certificates. -/
 structure BlockRecPre (V : Type uv) [SetTheory V] (s K : Nat) (RecTy : Nat → AnnotTerm)
     (eqs : List AnnotTerm) (ρ : Nat → V) : Prop where
   /-- The recursor types are sets of the chain's level, and graded. -/
@@ -530,7 +531,7 @@ theorem interp_mkLamsC_A (m : Nat) (b : AnnotTerm) :
 spine `a⃗` of the field's telescope is the GUARDED CALL's value — class
 `c'`'s component folded along `(x⃗, e⃗(a⃗), f_i a⃗)`.  This is what makes
 the ih openers' values the recursor's own values at the predecessors
-(regime WF: `app g (tagged c' ⟨e⃗(a⃗)⟩ (f_i a⃗))` through `rec_eq`). -/
+(the graph at `tagged c' ⟨e⃗(a⃗)⟩ (f_i a⃗)`, through `rec_eq`). -/
 theorem ihFunAV_fold {ℓ K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)}
     {eis : List AnnotTerm} {fap : AnnotTerm} (hℓ : ℓ ≠ 0) {σ : Nat → V} {R : V}
     (hR : σ (K - 1 - c') = R) {xs fs as : List V}
@@ -579,10 +580,10 @@ The residue is recursor-free by construction, which is why
 this is a statement about the CONSTRUCTORS' environment and not about
 one holding the recursors.
 
-Both regimes consume exactly this: in WF the target is the kit's
-motive `B (tagged c ⟨ı⃗⟩ (C_j p⃗ f⃗))` and the fact IS `WfRecKit.hst`; in
-IND the target is a truth value and the fact is `indCand_hCand`'s
-`hres`.  The grading half is `hEq_iotaEqsAV_of`'s right conjunct. -/
+The graph kit consumes exactly this: the target is the kit's bound
+`B (tagged c ⟨ı⃗⟩ (C_j p⃗ f⃗))` and the fact IS `GraphRecKit.hst`
+(`blockGraphKit`).  The grading half is `hEq_iotaEqsAV_of`'s right
+conjunct. -/
 def ResidueOk (V : Type uv) [SetTheory V] (Rb : AnnotTerm) (ihvals : List V) (ρ' : Nat → V)
     (B : V) : Prop :=
   WellDenoted V (consList ihvals ρ') Rb ∧ interp V (consList ihvals ρ') Rb ∈ˢ B
@@ -618,8 +619,8 @@ theorem hEq_iotaEqsAV_of
   obtain ⟨hd, hb⟩ := hwd rs hlen hmem c hc j hj
   exact wd_iotaEqAV hd hb
 
-/-- **The candidate's obligations, in the form the three regimes prove
-them** (DESIGN v2 §3.2 WF, §3.3 IND, §3.4 SQ): a tuple typed at the
+/-- **The candidate's obligations, in the form the graph kit proves
+them** (`famCandG_hCand`): a tuple typed at the
 recursor types whose components satisfy every rule's ι law at every
 fitting spine of the rule's prefix and the constructor's fields. -/
 theorem hCand_iotaEqsAV_of (cand : Nat → V)

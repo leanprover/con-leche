@@ -84165,3 +84165,144 @@ recorded block, `LfpClause base2.acval D` holds and its members are stored
   with the suppliers in `BlockRecData`/`BlockDeclRun`. No coverage clause
   ("every stored inductive is recorded") exists yet; it becomes statable
   once the modelled route is deleted.
+
+
+#### LANDED (lane GRAPH1, 2026-09-23): the recursor model is ONE graph producer; IND/WF/SQ and their dispatch are deleted
+
+**The producer.** `blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) concludes
+`declBlock_data`'s regime conjunct verbatim, at every level assignment and base frame, with
+no level or sort split: the family candidate is `famCandG`
+(`Semantics/Tower/BlockRecGraphI.lean`), one λ-tower of the graph kit's recursor at every
+level (at `ℓ = 0` both it and every graph value are the point), and the ι law at a rule is
+`GraphRecKit.rec_eq` at the RULE'S OWN decoding (`blockRuleDecoding_run`): no decoding is
+ever chosen.  The kit (`SetModel/GraphRec.lean`, lane GRAPH-F's, decodings generalised to
+any type) is instantiated at the block (`blockGraphKit`/`blockGraphFam`):
+
+| field | at the block |
+|---|---|
+| majors | the recursor classes' tagged elements at a prefix spine (`blockRecIs`/`blockRecCr`) |
+| `Dec` | `blockGraphDec`: (class, constructor, fields), the fields fitting at the CARRIER |
+| `pred` | `blockGraphPred`: the majors among the rule's call targets (`blockGraphCall`), by definition — no depth, no subterm relation |
+| `B`, `st` | `blockRecMot`; the residue at the decoding's fields and the graph's `ih` values (`blockKitIhv`) |
+| `hst` | the rule certificates (G1) + `blockGraphIhF_run` + `blockKitCaB_run` |
+| `huniq` | `blockGraphUniq_run`: `ℓ = 0` → `huniq_of_prop`; `w ≠ 0` → `mkInj`; `w = 0, ℓ ≠ 0` → the counting guard + `blockChainFit_srcVals_zero` |
+| `ind` | `blockGraphInd_run`: the block's RECORDED lfp clause (`LfpClause.ind`), the property read per member over all its classes; a call target is a recursive field folded along its telescope, which the separated tuple carries (`blockIndPred_of`) |
+
+**The wiring.** `declBlock`'s `hrec` gains `dR.toLfp ∈ mpC.lfpBlocks`
+(`EnvModelM.mem_addLfp`); `declBlock_run` calls the one producer and still takes NO owed
+premise.
+
+**Deleted.** The three regimes, their dispatch, seam and bundles: `BlockIndRegimeRun`,
+`BlockIndRuleRun` (its conclusion-fit section moved to `BlockRuleCertsRun`),
+`BlockModelLfpInd`, `Semantics/Tower/BlockRec{Kit,Wf,Sq,Ind}I`, BlockRecPreRun's WF kit /
+family / arm, SQ step and kit, IND run / inputs / induction / step and dispatch,
+BlockRecPreHpre's dispatch, kit arms, `Block*Owed` bundles and seam, the WF/SQ rows, the
+IND-only truth-value family (§40.15b), SQ's `blockRuleSrcVals_rule`, `RecGraph`'s
+transport/restrict sections, the lfp clause's component-tagged `KitInd`/`kitInd` (the
+producer reads `LfpClause.ind` at the recursor classes directly).  `BlockRecRegimes` keeps
+only G3 and is `BlockCallCerts`.  ConLeche: +2 191 / −7 168.
+
+**The level currency (G2) is finished.** `blockRecElimLevel_run`'s package has no `us`;
+`blockRecElimPin_run` (every recursor eliminates at `structElimLevel p.elim p.large`) is the
+one currency, and `blockRecOneElimLevel`, `blockRecCounting_run`, `blockRecConclTy_run` are
+stated at it.
+
+**Kept, and why.** `WfRec`, `TransClosure` and `UnionRecKitC` survive only because the
+kept falsifier `NarrowTreeList` imports them; the census marks all four dead.
+
+**Open.** (1) `hlfp` is not load-bearing yet: the recorded clause equals
+`hM.toLfp` for the uniform route, so the producer could read the clause off `hM`; the record
+earns its keep once a consumer has no `BlockModelAt` (nested, the liberal check). (2) The
+set-level instances (GRAPH-F, GRAPH-O, NESTTREE) stay on their branches; the nested
+fixtures `nest_rose_{tree,prop}` are on the tree (today: modelled route, accept).
+
+
+#### LANDED (lane HOLEOP, 2026-09-23): the uniform operator — ADOPT-WITH-CAVEATS, before nested
+
+**The question.**  The maintainer asked whether a third field kind ("container")
+for nested blocks is a sign of insufficient uniformity, and for the operator
+his charter named: `Φ(X) = Σ ctor, Π fields, ⟦field⟧[members := X]`, with no
+field kinds, one monotonicity theorem from positivity, and nested not special.
+Report: `_tmp/uniform-inds/HOLEOP.md` (falsifier, denotation check, cost,
+kernel export, migration).
+
+**What is proved** (`ConLeche/SetModel/HoleOp.lean`, the kit the
+implementation builds on; sorry-free, `[propext, Classical.choice, Quot.sound]`,
+rooted in `ConLeche/SetModel.lean`):
+- `Pos` — the POSITIVE TYPES over a frame, the hole tuple `X` and a parameter
+  `α`: `const` / `param` / `hole m e⃗` (= `app (X m) ⟦e⃗⟧`) / `pi` / `cont` (a
+  graded, parameter-monotone container at a positive parameter);
+  **`Pos.mono`**: monotone in the hole AND the parameter, by ONE induction on
+  the derivation; `Pos.graded`.
+- `uPhi` — the operator of a block datum (`UBlock`: index sets, constructors =
+  positive field telescopes + a result index tuple); **`mem_uPhi`**, the fibre
+  law by construction (both regimes); `MonoTuple`/`MapsTuple`; (W) at `Prop`.
+- **`UBlock.carrier_mono_param`** — ANY block's carrier is monotone in its
+  parameter by leastness: NESTTREE's `value_mono` as a theorem of the datum,
+  generic; `UBlock.induction` is `lfpTuple_induction` read through the fibre.
+- Nine instances on the same definitions at every level: `Nat`, `W` (reflexive
+  over a large domain), `Vec` (indexed, the hole's index tuple an earlier
+  field), `Even/Odd` (mutual), `List` as a block datum with its
+  parameter-monotonicity DERIVED (`LIST_mono`), `Tree` nested through `List`
+  (one `cont` node), `Rose`/`T` nested through a nested container, `A/B`
+  mutual-and-nested; at `Prop` every closure hypothesis discharged
+  (`mem_TREE_zero`, `mem_RT_zero`).
+- `_probe/holeop/override.lean`: "members := X" as a valuation override IS the
+  fvar abstraction `dom[T_m p⃗ ↦ x_m]` read by the ordinary `denoteMeta`
+  (v2 §1.1's `absF`), tied to the concrete reading by the existing
+  `denoteMeta_substFvarAt` (`denoteMeta_override`, `interp_override`).
+
+**Falsifier: no counter-example.**  Dependent telescopes (in official's class
+no field type ever mentions an earlier RECURSIVE value: a value of `T` enters a
+later type only as a container/member argument, and container indices that
+depend on the block are excluded — the ruling of 2026-09-23), indices (the
+`hole` node needs NO index fit for monotonicity, off the index set both sides
+are `∅`, so `BlockModelAt.idxFit` becomes a theorem), reflexive, `Prop`,
+universe instantiation, the fibre law's non-vacuity (`fits` is MORE concrete:
+`FitsS` of the fields' readings, no per-kind branching), the encoding
+`inj j (mkTower fs)` — all hold.  **Finding**: `structUsedLater` and
+`blockOpenedOk`'s `mentionsFvar` conjuncts are vacuous on official's class;
+they serve only the closure witness's shadow frame, which the class property
+still needs.
+
+**Caveats.**  (1) The closure witness at `w ≠ 0` is where the representation
+buys nothing: a closed tuple needs a container presentation, read off the
+DERIVATION (`hole` = position, `pi` = positions × domain, `const` = shape), so
+`FixWitness`/`BlockWitness` are rewritten at the same size; nested still uses
+DESIGN document 2 v2 §2.5's transient wide operator.  (2) Grading at every
+tuple needs K.27's abstract typing (one kernel `inferType` over `dom^abs` with
+the members as typed fvars) or a term-level `PosA`-grading lemma.  (3) λ-pins
+(`nested_p20/p22/p26`) are not syntax nodes: a `cont` node at a λ-pin goes
+through the COPY route (v2 §2.1(3) + P8), so the uniform operator removes the
+copies from the MODEL's operator, not from the KERNEL's descent.
+
+**Cost against `37c056ff` (GRAPH1 landed).**  ~8–9 k of the installer's
+~19 k lines touched (70 files carry the slot shape; `tgts` 537 hits, `Eiss`
+435, `tlss` 399, `ksF` 217, `recAt` 142), net −2.5 to −3.5 k with ~1.2 k new;
+5–8 sessions, verdict-neutral.  ENVLFP's clause changes only in `fits`
+becoming a definition over recorded field readings `Fss` (so a later block can
+apply `Pos.mono`'s `param` case at a container's fields — the maintainer's
+"`value_mono` is a theorem of the clause" then holds verbatim for type-valued
+pins).  GRAPH1 needs a 0.5-session follow-up (`blockGraphDec`/`blockIndPred_of`
+on the uniform fit); its `ind`, `pred`, `huniq`, `hst` do not see the operator.
+NESTPOS keeps everything and changes only its OUTPUT to the model.
+
+**The kernel export** (replacing `blockOpenedOk`'s three arms and `BlockOpened`):
+per field the ABSTRACT domain `abstractMembers dom` (members opened after the
+parameters) plus one Bool: `constsResolve env₀ dom^abs && posE holes dom^abs
+&& shadowOk` — `posE` = Π-domain hole-free and codomain positive; or hole-free;
+or a hole applied to hole-free args; or a stored non-basis inductive at
+hole-free indices and `posE` parameters (NESTPOS's descent decides it, the
+copies' defeq claims are its own export).  Inverted ONCE into `PosA` of the
+`denoteMeta` reading.  The recursor check's kinds stay kernel-internal.
+
+**Migration** (before nested): NESTPOS's kernel interface (+0.5 session) →
+HOLEOP-term in two checkpoints (the Semantics tier with a kinds⇒derivation
+bridge, then the kinds deleted from the Model tier; replaces ARCH's R1 + R3) →
+GRAPH1's fit follow-up → nested as one node (`cont` + `carrier_mono_param` +
+the copy route + the transient closure + recursor classes at keys; est. 6–9
+sessions instead of v2's 15–19).  ARCH's R1 is a strict subset of the first
+checkpoint and may be its first step.
+
+**Gates** (`52324b72`): `lake build` 625 jobs / 0 warnings, `lake test` 0
+warnings, `tests/layering.sh` clean, 25 theorems audited at the standard axioms.

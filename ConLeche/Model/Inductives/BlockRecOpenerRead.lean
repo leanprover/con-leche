@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecRule
-import ConLeche.Model.Inductives.BlockRecRegimes
+import ConLeche.Model.Inductives.BlockCallCerts
 import ConLeche.Model.Inductives.BlockRecRead
 
 public section
@@ -403,7 +403,7 @@ The two meet through four facts:
 * `openPisAtFvars_fvarTypeD` (`FixRecReadDefs.lean`) — the `r`-th
   opener's stored type IS the `r`-th stripped binder domain with the
   `r` earlier openers `instSeq`'d;
-* `stripPis_blockIhPis` (`BlockRecRegimes.lean`) — that binder is the
+* `stripPis_blockIhPis` (`BlockCallCerts.lean`) — that binder is the
   key's own domain at `ih` level `r`;
 * `stripPis_instantiateList` — the frame's opening reaches it at cut
   `r`;
