@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Inductives.TargetGraph
 public import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Verify.Inductives.BlockRecRun
@@ -559,15 +560,15 @@ end Seam
 `declBlock_data` (`BlockRecData.lean` §A.18) with every seam conjunct at
 the TARGET rule data, for blocks where both checks ran (`htgt`: the
 target check's run at the constructors' environment, its stored family
-today's).  One premise is left, `hpreT`: the family's recursor model at
-the target data — the graph producer (`blockRecPre_graph`) re-instanced
-at the target `ih` terms (its predecessor relation read off the calls,
-B4's induction). -/
+today's).  The family's recursor model at the target data is
+`tgtRecPre_graph` (`TargetGraph.lean`): the graph producer
+(`blockRecPre_graph_gen`) at the target `ih` terms and the hole fit. -/
 
 section Compose
 
 set_option maxHeartbeats 1000000 in
-/-- **`declBlock` at the target data, the recursor model owed.** -/
+/-- **`declBlock` at the target data** — every seam conjunct produced at
+the target rule data, the recursor model by `tgtRecPre_graph`. -/
 theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
     (mp : EnvModelM V μ env)
@@ -582,47 +583,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
         ∃ (fe : FEnv) (nested : Bool) (blk : List ConstantInfo)
           (out : List (ConstantVal × TargetMajor × List Expr)),
           fe.env = envC ∧ rsR = tgtRs out ∧
-          Nonempty (ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out))
-    -- OWED (B3 (e) + B4): the recursor model at the target data
-    (hpreT : ∀ (fe : FEnv) (envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
-        (ctorsAsR : List (List (ConstantVal × Nat))) (nested : Bool) (blk : List ConstantInfo)
-        (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ fe.env)
-        (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
-        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)) (env₀ : Env)
-        (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-        ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out →
-        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) fe.env pp cvTasR
-          ctorsAsR = .ok (tgtRs out) →
-        pp.toBlockShape.memberNames.Nodup →
-        BlockNamesOk (V := V)
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) cvTasR →
-        BlockCtorsStage (V := V) μ F
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
-          pp.toBlockShape isRecR A fssZ envI pp.ctorNamesAt →
-        BlockCtorsCore mpC.base2
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
-          pp.toBlockShape isRecR A
-          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).k →
-        (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).toLfp
-          ∈ mpC.lfpBlocks →
-        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
-          (pp.kinds.getD c []).length = ctorsA.length) →
-        ∀ s : (Name → Nat) → Nat,
-        (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
-          interp V ρ (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ c) ∈ˢ (univ (s ψ) : V) ∧
-            WellDenoted V ρ (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ c)) →
-        ∀ (ψ : Name → Nat) (ρ : Nat → V),
-          ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
-            (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ) ((blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-                (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
-                (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-                (fun ψ' => blockRuleEsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-                (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
-                  mpC.base2.acval fe.env ψ')
-                (fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-                (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
-                  mpC.base2.acval fe.env ψ')) ψ) ρ) :
+          Nonempty (ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)) :
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
@@ -639,8 +600,8 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       have heqV := tgtRecEqs_valid_seam hμ hrec R hnames hstage hcore hmr hkLen hokA
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (tgtRecEqs_params_seam hμ hrec R hcore hkLen i r hr ψ₁ ψ₂ hq)
-      have hpre := hpreT fe envI pp cvTasR ctorsAsR nested blk out mpC isRecR A fssZ env₀ pk uOfD
-        ppsOf R hrec hnd hnames hstage hcore hlfp hkLen s hTy
+      have hpre := tgtRecPre_graph hμ fe envI pp cvTasR ctorsAsR nested blk out mpC isRecR A fssZ
+        env₀ pk uOfD ppsOf R hrec hnd hnames hstage hcore hlfp hkLen s hTy
       refine ⟨s, blockRecNCt (tgtRs out),
         fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ',
         fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ',
