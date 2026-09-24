@@ -201,6 +201,7 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     exact hctor j hj ψ ρ fs hsp'
   parsLen := fun _ _ _ => rfl
   parsSat := fun _ _ _ ρ _ => Sat_nil V ρ
+  parsSatInv := fun _ _ _ ρ _ => Sat_nil V ρ
   holeApp := fun _ _ _ j _ => ⟨hflds j, fun _ he => nomatch he⟩
 
 end Lfp0

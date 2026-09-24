@@ -458,6 +458,8 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
   parsLen : ∀ ψ m, m < d.k → (d.toLfp.pars m ψ).length = d.nP
   parsSat : ∀ ψ m, m < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
     Sat V (d.toLfp.pars m ψ).reverse ρ
+  parsSatInv : ∀ ψ m, m < d.k → ∀ ρ : Nat → V, Sat V (d.toLfp.pars m ψ).reverse ρ →
+    Sat V (d.params ψ).reverse ρ
   lenE : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
@@ -678,6 +680,7 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
     exact hM.ctor c hc j _ hcj ψ ρ as fs hsa hsp
   parsLen := fun mm hmm ψ => (hH.parsLen ψ mm hmm).trans (hH.lenP ψ).symm
   parsSat := fun mm hmm ψ ρ hs => hH.parsSat ψ mm hmm ρ hs
+  parsSatInv := fun mm hmm ψ ρ hs => hH.parsSatInv ψ mm hmm ρ hs
   holeApp := fun ψ c hc j hj => blockHolesApplied hH ψ hc hj
 
 end Clause

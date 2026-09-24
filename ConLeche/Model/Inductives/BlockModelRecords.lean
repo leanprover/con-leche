@@ -135,7 +135,8 @@ theorem blockHoleFacts_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     BlockHoleFacts mo d lps := by
   have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
   refine ⟨fun c hc j cA hj => ?_, fun c hc j cA hj l _ => ?_, fun ψ => ?_, fun ψ mm hmm => ?_,
-      fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm, fun ψ c hc j hj => ?_⟩
+      fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm,
+      fun ψ mm hmm ρ h => hS.paramsOf mm hmm ψ ρ h 0 hk0, fun ψ c hc j hj => ?_⟩
   · have hck : c < d.k := by rw [← hNk]; exact hc
     obtain ⟨h1, h2, -⟩ := hcore.2.2.2 c hck j cA hj
     exact ⟨h1, h2, (hcore.2.2.1 c j cA hj).2.2⟩
