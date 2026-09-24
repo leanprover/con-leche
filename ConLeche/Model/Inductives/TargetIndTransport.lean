@@ -104,6 +104,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (hhv : hv.length = d.k)
     (hfit : SpineFit (consList hv (consList (xs.take d.nP) ρ))
       (d.absF ψ (pp.toBlockShape.recTgtAt c) j) fs)
+    (hsatH : Sat V (d.holeCtx ψ).reverse (consList hv (consList (xs.take d.nP) ρ)))
     {fi : Nat} (hfi : fi < cA.2) (Aty : AnnotTerm)
     (hA : denoteMeta mpC.base2.acval fe.env ψ
       (tgtB pp.toBlockShape (tgtRs out) c j + cvTas.length)
@@ -188,9 +189,13 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     simp only [holes, List.getElem?_map, List.getElem?_range ht, Option.map_some,
       Option.some.injEq] at hy
     exact ⟨_, hy.symm⟩
-  have hread := blockField_holeRead (m := mpC.base2) (env := fe.env) (d := d) (lps := pp.lps)
-    (hcore.2.2.1 _ j cA hcj).2.2.2 (ctx := ctx) rfl rfl rfl hk (holes := holes) hholes
-    (by simp [holes]) hopP (fun i y hy => hD.pIdx i y hy) hwc hopX ψ hx
+  obtain ⟨abD, hlD, hEqF, hreadD⟩ := blockField_holeRead (m := mpC.base2) (env := fe.env) (d := d)
+    (lps := pp.lps) (hcore.2.2.1 _ j cA hcj).2.2.2 (ctx := ctx) rfl rfl rfl hk (holes := holes)
+    hholes (by simp [holes]) hopP (fun i y hy => hD.pIdx i y hy) hwc hopX ψ
+  have hread := hreadD hx
+  -- the fit, through the link, on the declared crest's fields
+  have hfitD : SpineFit (consList hv (consList (xs.take d.nP) ρ)) abD fs :=
+    (hEqF.spineFit_iff hsatH fs).mpr hfit
   -- the renaming
   have hkL : cvTas.length = d.k := hN.2.2
   have h2 := FRen.trans (fren_shiftFromN d.nP ctx.names.length x.fvarTypeD).symm hrel0
@@ -254,7 +259,8 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
       exact hv')
     hread hA'
   -- the field lies in its hole reading
-  have hmemA := ConLeche.Semantics.FixKI.spineFit_getD_mem' hfit (l := fi) (by rw [← hfit.length_eq, hfs]; exact hfi)
+  have hmemA := ConLeche.Semantics.FixKI.spineFit_getD_mem' hfitD (l := fi)
+    (by rw [← hfitD.length_eq, hfs]; exact hfi)
   rw [← consList_append, ← consList_append, hval] at hmemA
   exact hmemA
 

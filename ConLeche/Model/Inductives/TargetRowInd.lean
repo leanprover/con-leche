@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
@@ -216,6 +217,27 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (shiftE (d.toLfp.pars t' ψ).length 0 (consList (xs.take d.nP) ρ))
       (fun _ _ h => h.elim) (hFD.read ψ) (hFD.read ψ)]
     exact hmemT
+  have hsatHV : Sat V (d.holeCtx ψ).reverse (consList ((List.range d.k).map
+      (d.toLfp.holeVal ψ (consList (xs.take d.nP) ρ)
+        (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
+          (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P'))) (consList (xs.take d.nP) ρ)) := by
+    simp only [BlockData.holeCtx, List.reverse_append]
+    refine sat_of_spineFit hsat (spineFit_range_closed d.k (fun t' ht' σ => ?_) _)
+    have ht'' : t' < cvTas.length := by rw [hN.2.2]; exact ht'
+    obtain ⟨T, hT, hmemT⟩ := hvTy t' ht''
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t']? = some cvTb := ⟨_, List.getElem?_eq_getElem ht''⟩
+    obtain ⟨-, -, -, -, -, hFD⟩ := hmr.2.2.2.1 t' cvTb hcvb
+    have hgt : cvTas.getD t' default = cvTb := by rw [List.getD_eq_getElem?_getD, hcvb]; rfl
+    rw [hgt, hFD.read ψ] at hT
+    obtain rfl := Option.some.inj hT
+    rw [hvget t' ht'] at hmemT
+    have hcl : Term.bvarsBelow 0 (mkPisAV (d.ppsM t' ψ) (.sort (d.resSort.eval ψ))).erase := by
+      have := mkPisAV_below_of (C := .sort (d.resSort.eval ψ)) (hFD.below ψ)
+        (by simp [AnnotTerm.erase, Term.bvarsBelow])
+      simpa using this
+    show _ ∈ˢ interp V σ (mkPisAV (d.ppsM t' ψ) (.sort (d.resSort.eval ψ)))
+    rw [interp_closed V hcl σ ρ]
+    exact hmemT
   have hm' := hmK _ hcal
   have hlaw : ∀ is : List V,
       SpineFit (consList (xs.take d.nP) ρ)
@@ -259,7 +281,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))
     (by rw [List.length_map, List.length_range, hN.2.2]) hvTy _ hlaw
     (fun Aty hA => tgtField_transport hμ h R hdR' hN hcore hmr hr hcA hrhs ψ ρ hxs hfsl
-      (by simp only [List.length_map, List.length_range]; rfl) hsepH.2.1 hfi Aty hA) bs hbs
+      (by simp only [List.length_map, List.length_range]; rfl) hsepH.2.1 hsatHV hfi Aty hA) bs hbs
   obtain ⟨hidx, hin⟩ := hcoreT
   simp only [sepTuple] at hin
   rw [app_graph (show _ ∈ˢ d.toLfp.idx ψ (consList (xs.take d.nP) ρ) _ from hidx)] at hin
