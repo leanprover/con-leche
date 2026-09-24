@@ -358,10 +358,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1793-L1795
-  1793  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1794      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1795      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1885-L1887
+  1885  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1886      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1887      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L576
-   576  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L560
+   560  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L614-L621
    614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -772,20 +772,29 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L221
    221  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L977-L983
-   977  /-- **The recursor stage as CHECKING, at any number of members**
-   978  (milestone M5, design §4.2): the recursor records' pins, then every
-   979  member's type, then — at the environment holding all `k` rule-less
-   980  recursors — every member's rules. -/
-   981  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
-   982      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-   983      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L944-L959
+   944  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+   945      (block : List ConstantInfo) (cvTas : List ConstantVal)
+   946      (ctorsAs : List (List (ConstantVal × Nat))) :
+   947      m (List (ConstantVal × TargetMajor × List Expr)) := do
+   948    targetRecPins p block
+   949    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+   950    let us := tys.map (·.2.2)
+   951    checkBlockRecSmallElim p nested us
+   952    checkBlockRecElimPin p us
+   953    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+   954    targetRulePinsAll tys (targetRecRules block)
+   955    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+   956    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+   957      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+   958    so.flush
+   959    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1083
-  1083  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockTail.lean#L105
+   105  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -803,8 +812,8 @@
 == ConLeche/SetModel/TupleContainer.lean#L127
    127  theorem tupleContainer_closed_exists {w : Nat} (hw : w ≠ 0) {k : Nat} {Is : Nat → V}
 
-== ConLeche/Model/Inductives/BlockDeclRun.lean#L1746
-  1746  theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/TargetSeam.lean#L558
+   558  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L347-L358
    347  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
@@ -873,14 +882,14 @@
    417  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L111-L118
-   111  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   112      List (Expr × Expr) → m Bool
-   113    | [] => pure true
-   114    | eq :: rest => do
-   115      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   116        certifyNatEqs ops env rest
-   117      else pure false
-   118  
+   111      List (Expr × Expr) → m Bool
+   112    | [] => pure true
+   113    | eq :: rest => do
+   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   115        certifyNatEqs ops env rest
+   116      else pure false
+   117  
+   118  /-- The pinned defining expression of a pin-certified WF-recursive op
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
