@@ -160,8 +160,8 @@ because accessibility is a WAY to the recursion theorem and not the
 only one.  `ofAcc` is that way (every element of the union accessible
 along `pred`, which `SetModel/WfRec.lean` discharges for any classes
 off regularity).  Since the graph route (DESIGN, ruling of 2026-09-23;
-`SetModel/GraphRec.lean`) the recursor model does not use this kit: it
-serves the narrow falsifier `NarrowTreeList` through `WfRec`. -/
+`SetModel/GraphRec.lean`) the recursor model does not use this kit;
+`WfRec` instantiates it. -/
 structure UnionRecKitC (ℓ k : Nat) (Is C : Nat → V) where
   pred : V → V
   B : V → V

@@ -6,7 +6,6 @@ public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.WfRec
-public import ConLeche.SetModel.NarrowTreeList
 public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
@@ -38,12 +37,10 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   `SetTheory/Derive/LfpTuple`'s tuple lfp; `TupleContainer` — the
   closed tuple of a block presented as a member container ((W) at
   tuples, the `Prop` regime, the nested slot);
-* `WfRec`, `NarrowTreeList` — the NARROW falsifier: a nested block's
-  meaning as the one-component least fixed point reading the container
-  ordinarily at the hole, with the recursion run by ∈-recursion on the
-  global subterm relation (`SetTheory/Derive/TransClosure.lean`) over
-  the two majors' ordinary carriers — no wide tuple, no identification,
-  no per-block accessibility;
+* `WfRec` — recursion by ∈-recursion on the global subterm relation
+  (`SetTheory/Derive/TransClosure.lean`) at arbitrary classes, off
+  regularity — the recursion half of the retired narrow falsifier
+  (its Tree/List instance was superseded by the NESTW-KIT witness below);
 * `GraphRec` — the recursor family's GRAPH as a least fixed point,
   functional by the majors' induction alone (`GraphRecKit.exu`): one
   mechanism at every sort, the recursor model's (DESIGN, ruling of
@@ -78,10 +75,10 @@ The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and
 `UnionRecIndexed`, which modelled a nested block as its members plus a
 COPY of each container and identified the copy's component with the
-container's recorded reading — are retired (DESIGN 2026-09-21): the
-narrow clause replaces the wide tuple, so `NarrowTreeList` is the
-falsifier the route is read against, and it carries its own clause,
-minors and standard model.
+container's recorded reading — are retired (DESIGN 2026-09-21): a
+nested block's clause is the narrow one (the container read ordinarily
+at the hole), and a wide operator appears only transiently, inside the
+closure witness (`NestWide`), where nothing is identified.
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing

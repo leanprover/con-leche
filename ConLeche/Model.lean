@@ -6,7 +6,6 @@ public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockCtorFuns
-public import ConLeche.Model.Inductives.CopyTransport
 public import ConLeche.Model.Inductives.BlockStageFormer
 public import ConLeche.Model.Inductives.BlockCtorsLoop
 public import ConLeche.Model.Inductives.BlockModel
