@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
+import ConLeche.Model.Inductives.BlockPosRun
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 public section
@@ -411,10 +412,38 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- below — and every later environment — carries it
   have hk0 : 0 < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
     rw [← hN.2.2.2, hcvTas]; exact Nat.succ_pos _
+  -- the operator's MONOTONICITY is positivity's (lane HOLE2): every
+  -- constructor positive along the tuple order at the hole frame, from the
+  -- positivity stage's run at the formers' environment (conjunct 7b)
+  have hposC := blockCtorPos_of_run hμ mpI hN hcore hPos rfl rfl rfl rfl
+    (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+      ConLeche.BlockShape.memberNames]) hndM
+    (fun n hn => by
+      obtain ⟨c, hc⟩ := List.getElem?_of_mem hn
+      have hck : c < p₁.k := by
+        have := (List.getElem?_eq_some_iff.mp hc).1
+        simpa [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+          ConLeche.BlockShape.memberNames] using this
+      obtain ⟨cvTa, hcv⟩ : ∃ cvTa, cvTas[c]? = some cvTa :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hF.lenCv]; exact hck)⟩
+      have hname := hN.1 c cvTa hcv
+      have hmn : (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName c = n := by
+        show (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberNames.getD c .anonymous = n
+        rw [List.getD_eq_getElem?_getD, hc]; rfl
+      rw [← hmn, hname]
+      exact hF.freshOf c cvTa hcv)
+    rfl (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc))
+    (fun c j cA hj => by
+      have hck : c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
+        rw [← hN.2.2.2]; exact hN.2.2.1 c j cA hj
+      have hf := (hcoreC.2.2.2 c hck j cA hj).1
+      have hw := mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)
+      exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC rfl hk0 hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
-    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp := by
     refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩

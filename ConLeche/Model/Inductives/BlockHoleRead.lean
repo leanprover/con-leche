@@ -13,7 +13,6 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.NestPosMono
-import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.StructBits
 public section
