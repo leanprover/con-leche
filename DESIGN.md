@@ -87538,3 +87538,65 @@ change; verdict-neutral by construction.
     envI.find? envI.consts`).
 - Axioms: `blockCoverPB_of`, `contCover_of`, `checkDecls_cover`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+
+#### LANDED (lane FUELFIX, 2026-09-24): lane COMPLETE's completeness failures — the fixed fuels become input-derived; a nested block's def-headed former is recognised
+
+Lane COMPLETE (`_tmp/uniform-inds/COMPLETE.md`) found four
+accept-subsets against official v4.34.0 (charter item 9: a resource
+limit that refuses what official accepts is an accept-subset).  All
+four now accept on the target route; e2e fixtures
+`complete_{c02,c03d,c04a,c05b}_*` (sources `tests/e2e/src/`, official
+0, target 0 pinned by `tests/target-shadow.sh`; c02/c04a/c05b also in
+`tests/nested-shadow-expected.txt`).
+
+- **D-F1, the per-field positivity fuel** (`nestMemberCtor` →
+  `nestPos … 1024`) and **the recursor stage's field-telescope fuel**
+  (`targetFieldNorms` → `targetWhnfPis … 1024`, which c03d reached next)
+  are now `whnfWalkFuel e = e.depth + fuelSlack`
+  (`Kernel/Inductives/Positivity.lean`, section "The input-derived
+  fuel"): `Expr.depth` is the term's depth, memoised per node (a
+  `HashMap Expr Nat`, so a DAG costs its distinct nodes; no spec, no
+  csimp — no proof reads the value), `fuelSlack = 1024`.  One fuel unit
+  is one `Π` body or one container descent, and each such step on a
+  path the input writes out goes one level down the term, so a
+  telescope or a nesting in the syntax never exhausts it; the slack
+  covers what the syntax does not show (a container constructor's own
+  fields walked in a frame, a redex reducing to a `Π`) and keeps the
+  fuel ≥ the old 1024, so a run that finished within the old fuel is
+  unchanged (the fuel only guards the zero arm).  Running out still
+  declines: it takes a telescope manufactured by δ/ι beyond both.
+  c03d (a NON-nested reflexive field of 1030 binders — the HOLE2
+  regression: today 2 → 0) and c05b (`List^30 (1000 Π)`) accept.
+- **D-F2, the restart fuel** (`nestContNew` → `nestFrame … 64`) is
+  `nestRestartFuel ctx C = (nestBlockOf ctx C).length + 1`: every
+  restart grows the frame's group by a group-mate not yet in it, inside
+  `C`'s recorded block (G1), else the frame rejects ("cannot absorb") —
+  so the frame is walked at most `|all| + 1` times and the "restart
+  fuel" decline is UNREACHABLE (argued here, not proved: the arm stays).
+  c04a (71-member star) accepts.
+- **D-F3, the key limit 4096** is gone: every cache entry is a frame the
+  walk completed, so the table is bounded by the walk itself.  Two
+  proofs lost the split on it (`nestContNewS_sim`, `ContSem`'s
+  `contNew`).
+- **D-S, c02's cause, confirmed**: `blockShape?` at a def-headed former
+  (task #195) reads the index count off the member's recursor
+  (`blockCounts?`), checking the rule prefix `rP = nP + k + nC`.  At a
+  NESTED block the recursor also carries one motive per auxiliary
+  recursor and the auxiliary constructors' minors (c02: `rP = 0 + 2 + 4`,
+  not `0 + 1 + 2`), so the check failed and the block was "not
+  recognised".  `blockCounts?` takes the block's recursor count `nR`;
+  when `nR > k` (auxiliary recursors ride along) the prefix is only
+  bounded below, `nP + nR + nC ≤ rP` — the aux minors' number is not
+  recorded; a wrong count is rejected by the install's whnf telescope
+  loop (`checkSumTele`).  The non-nested case is exactly as before.
+  c02: target 0 (today stays 2 — the modeller declines "former T is not
+  a telescope ending in a sort").
+- **Verdict moves** (default route): c03d 2 → 0.  No other e2e, arena,
+  nested-shadow or target-shadow row moved.
+- **Performance**: init-full 53 093 accepted, `instructions:u`
+  420.332 G → 420.315 G (−0.004 %, noise): the depth walk is one
+  memoised pass per constructor and per recursor field.
+- Axioms unchanged; no `sorry`.  Proof edits are fuel-parametric
+  substitutions (`nestPos_sem`/`_out`/`_datF`, `targetWhnfPis_sem`/
+  `_scope`/`S_sim` hold at every fuel; `targetCall_gen` takes the fuel
+  as a variable `wf`).
