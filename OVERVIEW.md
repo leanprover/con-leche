@@ -558,7 +558,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L621-L628)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L628-L635)),
   each member's index count off what is left of its type former's
   telescope, as official reads them, and of the stream's recursor
   records only a structural pin the install throws on. The install
@@ -566,9 +566,9 @@ Inductive blocks are not trusted from the stream. Three cases:
   member list, normalises every constructor field domain by official's
   positivity walk — weak head normal form before classifying, again
   under each Π binder, the positivity function's own normal form
-  ([function `nestNormCtor` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1222)) —
+  ([function `nestNormCtor` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1243)) —
   classifies each field against all the members
-  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L243)),
+  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L244)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated,
   and without classifying any field: their names and level parameters
@@ -579,7 +579,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
   value of the members
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L943-L958)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L942-L957)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
