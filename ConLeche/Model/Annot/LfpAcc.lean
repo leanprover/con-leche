@@ -47,12 +47,12 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## A λ-tower at its full arity -/
 
-theorem foldl_app_empty : ∀ (vs : List V), vs.foldl app (empty : V) = empty
+theorem foldlApp_empty : ∀ (vs : List V), vs.foldl app (empty : V) = empty
   | [] => rfl
   | v :: vs => by
     show vs.foldl app (app empty v) = empty
     rw [app_empty]
-    exact foldl_app_empty vs
+    exact foldlApp_empty vs
 
 /-- **A λ-tower applied to a spine of its full length** computes at a
 fitting spine and is junk (`∅`) otherwise. -/
@@ -75,7 +75,7 @@ theorem holeFam_foldl_full :
       · exact Or.inl ⟨⟨ha, hf⟩, he⟩
       · exact Or.inr he
     · rw [app_lamR_of_not_mem (by decide) ha]
-      exact Or.inr (foldl_app_empty vs)
+      exact Or.inr (foldlApp_empty vs)
 
 namespace LfpDatum
 

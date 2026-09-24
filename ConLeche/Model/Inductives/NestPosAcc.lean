@@ -673,7 +673,9 @@ theorem nestMemberCtor_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) 
     (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
     (hR : HoleRelA m φ ctx [] (ctx.hiAt 0) Δa R) (hsm : TeleSmall w nF R ca) :
-    (∃ (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr),
+    (∃ (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr) (err : CheckError),
+      ConLeche.nestFields (nestPos (fueledOps .verified F) env ctx (ConLeche.whnfWalkFuel crest))
+        [] (ctx.hiAt 0) err nF 0 crest st = .ok (ks, nds, cur, st') ∧ st'.restart = none ∧
       tyN = ConLeche.closeTelescope nds (ctx.hiAt 0) cur ∧
       PiAccThen w ctx [] (ResultIdxConst ctx.nP) nF (ctx.hiAt 0) (nds.map (·.1)) R ca) ∧
     I st' := by
@@ -704,7 +706,9 @@ theorem nestMemberCtor_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) 
         hC hca hgr hR hsm
       replace hsem := hsem hc
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      refine ⟨⟨nds₁, res, h.2.1.symm, ?_⟩, by rw [← h.2.2]; exact hI₁⟩
+      obtain ⟨hks', htyN', hst'⟩ := h
+      subst hks' hst'
+      refine ⟨⟨nds₁, res, _, hr, hc, htyN'.symm, ?_⟩, hI₁⟩
       refine PiAccThen.mono (fun R' r hres => ?_) nF _ _ R ca hsem
       obtain ⟨hag, hrd, hws⟩ := hres
       have hspine := Expr.mkAppN_getApp res
