@@ -79397,6 +79397,9 @@ this block wins.
      if `A`'s constructors never reach `B`, then `A`'s component of the
      group's lfp is the lfp of `A` alone (Bekić at a component).
      Fixture: `corner_nestpos_group_bad`.
+     TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
+     restart route, not worth keeping.  The docket item "N2-eager" below
+     removes it.
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -79404,7 +79407,39 @@ this block wins.
    was the counter-example).  "Verdict-neutral on the corpus" does not
    establish that official imposes a restriction.  Each restriction must be
    justified against official's code (`inductive.cpp`, the recursor rules),
-   or else reported as an accept-subset finding.
+   or else reported as an accept-subset finding.  Before a check is called
+   verdict-neutral, try hard to construct an e2e fixture that official
+   ACCEPTS and the check refuses.  If we believe official also rejects what
+   a check refuses, the check REJECTS (exit 1), not declines.  Decline stays
+   for features we positively detect and don't support, and for our own
+   resource limits (fuel, bounds).
+   * **Named restrictions official does not impose** (recorded
+     2026-09-24, lane RESTRICT-FIX, the restriction audit's finding C2):
+     **M2′** (`nestNoMemberConst`, `Kernel/Inductives/Positivity.lean`):
+     a member constant at OTHER universe levels in a constructor type
+     that the positivity walk never reads (a redex whnf drops, a phantom
+     container parameter).  A restriction official does not impose;
+     kernel-only input, unreachable from the `inductive` command (it
+     cannot write `T.{0}` for the type it defines); needed by CONTSEM
+     s2's frame reading (the substitution law of the frame's `sub`
+     against the recorded reading at the block's levels).  It DECLINES
+     (exit 2).  Fixtures `restrict_a27_m2prime_redex`,
+     `restrict_a28_m2prime_phantom` (official 0, target 2); the half
+     official shares — the member at other levels where the walk reads
+     it, `restrict_b02_m2prime_direct_bad` — is the walk's own "non valid
+     occurrence" (exit 1), because M2′ runs after the walk.
+
+**DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
+Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
+now.  Later, replace it with the eager form.  On entering a container `C`,
+make every member of its recorded group (`IndCaps.all`) a hole, and walk
+all of their constructors together in one frame, as official does when it
+copies the whole group.  The maintainer's view: "It is morally correct and
+the right thing to walk all constructors of a mutual group together."
+This removes the restart request, the unwinding and the restart bound, and
+drops the D2 superset from item 8.  The fixture `corner_nestpos_group_bad`
+goes to target 1, matching official.  Cost: about a session in
+`ContWalk`.
 
 **Maintainer's direction (2026-09-21).**  One uniform native installer
 and ONE proof for every inductive block: a k-member block is the general
@@ -86607,3 +86642,78 @@ cached or frontend change; verdict-neutral by construction.
   kinds out of `BlockData`) together with D in one lane, so the slot
   operator and its witness go at once.
 - Gates: see the landing line in `HOLE2.md`.
+
+#### LANDED (lane RESTRICT-FIX, 2026-09-24): the restriction audit's follow-ups — fixtures, C1 fixed, C2 named, nine declines become rejects
+
+Charter item 9.  Input: the read-only audit `_tmp/uniform-inds/RESTRICT-AUDIT.md`
+(every check on inductives and recursors that `uniform-inds` added, against
+official's `inductive.cpp` v4.33.0; official verdicts from Lean v4.29.1's
+kernel; sources, streams and the runner under `_tmp/uniform-inds/RESTRICT/`).
+
+**The audit's classification** (62 rows over the recursor check, positivity
+and the block stages): **A 36** (official imposes it — file:line), **B 10**
+(official imposes something equivalent or stronger on everything it
+accepts), **C 3 rows = 2 findings** (not imposed by official: C1 = P15 + R12,
+C2 = P1), **D 9** (unreachable after earlier checks), **R 1 row** (four
+resource limits: `nestPos` fuel 1024/field, restart bound 64, cache 4096,
+`targetWhnfPis`/`targetFieldNorms` fuel), plus the pre-flip gates (P22
+`checkBlockPositivity`, B6 the modelled route; P23's decline half) and one
+datum row (B9 `IndCaps.all`).  32 adversarial sources, 28 official-accepted:
+nothing moved on the target route but C1/C2.
+
+- **Fixtures** (`tests/e2e/restrict_*.ndjson`, sources
+  `tests/e2e/src/restrict_*.lean` through `scripts/export-fixture.sh`, the
+  audit's streams reproduced byte for byte): all 32 accepted examples, and
+  the two official-rejected ones as forged twins (`scripts/mk_restrict_bad.py`
+  over exported `_free` halves: b01 the member only in a container's index,
+  b02 `mk : T.{0} → T.{u}`).  Rows in `tests/e2e-expected.txt` (today's exit,
+  the target in the comment), `tests/target-shadow-expected.txt` and
+  `tests/nested-shadow-expected.txt` (a06/a08/a25/a33c with the modeller
+  off).  a04 (`T (m) | mk : Vec (T m) m → T m`) is pinned as today's
+  modeller FALSE REJECT (1; official 0, target 0).
+- **C1, constructor-less containers — FIXED.**  `IndCaps.nparams` (official's
+  `inductive_val.nparams`) is recorded at every install: uniform
+  (`blockCapsAt`: `p.nP`), basis (`Eq`: 2, the rest 0), modeller
+  (`checkModeled`/`checkIndDeclSF` now take the declaration's count:
+  `indBlockCaps` `nP`, the generic arm `{ nparams := nPd }`).
+  `nestContainer` reads it for a container with no constructor (a container
+  with constructors keeps reading the first constructor's record);
+  `nestCont`'s and `targetMajorOf`'s declines are deleted.  Proofs:
+  `nestCont_inv` loses `L ≠ []`; `ContBlockOk` gains `noCtors` (a member
+  without constructors: the recorded count is the block's parameter count,
+  its former's level parameters distinct and the block's — the facts the
+  first constructor's record gives otherwise; owed with `ctors` by L8's
+  producer, `contCover_of` takes it as a premise beside `hctors`);
+  `frame_sem` takes `lps.Nodup` as an alternative to a non-empty head;
+  `contSem` splits on the constructor list.  `DeclIndRun`'s generic arm is
+  `∃ nPd, IndMembersRun … { nparams := nPd } …` (`etaPins_empty` became
+  `etaPins_nparams`).  a01/a01b: target 2 → 0.
+- **C2, M2′ — a NAMED restriction** (charter item 9's new bullet): kept, a
+  decline, now run AFTER the walk (`nestMemberCtors`), so the half official
+  shares — the member at other levels where the walk reads it (b02) — is the
+  walk's own member-constant arm, "non valid occurrence", exit 1; the decline
+  fires only where the walk never reads the occurrence (a27 redex, a28
+  phantom parameter; official 0, target 2).  The audit's §4 had said "b02 is
+  already caught by `nestPos`'s own arms with exit 1": false before this lane
+  (M2′ ran first: b02 declined, measured), true after.
+- **Decline → reject** (the audit's §5, every one D-class): repeated container
+  level parameters (P2), a partly applied container instance (P3), the
+  container-type telescope shapes (P4, `nestInstType`), U4 (P8), the three
+  cycle/G1 declines (P10), the non-uniform frame hole (P11), the container
+  group at two parameter counts (P16), the constructor telescope shapes in
+  `nestFields`/`nestMemberCtors` and the two in `targetOutsideInst` — each
+  now `.invalid` with official's wording where official has one ("non valid
+  occurrence", "type expected", "number of parameters mismatch", "duplicate
+  universe level parameter", "ill-formed constructor").  Kept declines: the
+  resource limits, M2′, the pre-flip nested gate.  The proofs needed nothing
+  (decline and reject are both `.error`); the unit tests' guards moved.
+- **Verdicts moved**: only the new fixtures' rows (above).  No existing
+  e2e, arena, target-shadow or nested-shadow row moved (the nine rejects
+  are D-class: no fixture reaches them).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` all sections
+  as expected (e2e 337/337, target-shadow 357/357, nested-shadow 105/105,
+  trusted and `--jobs` sweeps, shake 541/541 allowlisted, pub-imports none
+  demotable) once four OVERVIEW anchors were repointed (moved, unchanged;
+  the link gate then 0).  init-full: exit 0, 53 093 accepted;
+  `--target-shadow` 585 lines and `--nested-shadow` identical to the
+  pre-lane binary's.  No `sorry`, no new axiom.

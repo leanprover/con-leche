@@ -378,6 +378,13 @@ structure IndCaps where
   so an accepted frame's holes are members of ONE recorded block (a pinned
   basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
   all : List Name := []
+  /-- **The family's parameter count** (official's `inductive_val.nparams`,
+  lane RESTRICT-FIX): the block's declared parameter count, recorded at
+  every install (uniform: `BlockShape.nP`; basis: the pin's; modeller:
+  the declaration's).  Read by nested positivity alone, and only for a
+  container WITHOUT constructors (`nestContainer`), whose parameter count
+  no constructor record carries. -/
+  nparams : Nat := 0
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

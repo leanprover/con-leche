@@ -49,8 +49,9 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           unitParams := p₁.nP
           ruleK := p₁.k == 1 && c.2 == 0 && p₁.isProp
           sortZ := Level.zeronessOf p₁.resSort
-          all := p₁.memberNames }) ∨
-    ConLeche.blockCapsAt p₁ mi isRec = { all := p₁.memberNames } := by
+          all := p₁.memberNames
+          nparams := p₁.nP }) ∨
+    ConLeche.blockCapsAt p₁ mi isRec = { all := p₁.memberNames, nparams := p₁.nP } := by
   unfold ConLeche.blockCapsAt
   split
   · next a b hc => exact Or.inl ⟨b, hc, rfl⟩

@@ -530,7 +530,8 @@ with it the run record's last conjunct.) -/
 theorem declIndRun_of
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo}
-    (h : checkModeled (m := CheckM) μ (fueledOps μ F) env block
+    {nPd : Nat}
+    (h : checkModeled (m := CheckM) μ (fueledOps μ F) env nPd block
       = .ok env₂) :
     DeclIndRun μ F env block env₂ := by
   simp only [checkModeled, Bind.bind, Except.bind, pure,
@@ -547,7 +548,7 @@ theorem declIndRun_of
     split at h
     case h_1 => exact nomatch h
     next envM hmemFold =>
-    refine ⟨hsplit, Or.inr ⟨?_, envM,
+    refine ⟨hsplit, Or.inr ⟨?_, nPd, envM,
       indMembersRunRS _ hmemFold, indRecsRunRS _ h⟩⟩
     rintro ⟨cvT, capsT, cvC, nP, nF, hI, hC⟩
     exact hnone cvT capsT cvC nP nF hI hC

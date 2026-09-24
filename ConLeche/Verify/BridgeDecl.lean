@@ -1377,9 +1377,9 @@ macro "datF_step4_alt" : tactic =>
 macro "datF_tac4" : tactic =>
   `(tactic| repeat' datF_step4_alt)
 
-theorem checkModeled_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
-    (checkModeled mode (fueledOpsM mode) env block).val F =
-      checkModeled mode (fueledOps mode F) env block := by
+theorem checkModeled_datF (env : Env) (nPd : Nat) (block : List ConstantInfo) (F : Nat) :
+    (checkModeled mode (fueledOpsM mode) env nPd block).val F =
+      checkModeled mode (fueledOps mode F) env nPd block := by
   unfold checkModeled
   datF_tac4
 
@@ -1596,7 +1596,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · split
       · split
         · exact checkBlock_datF env block _ F
-        · exact checkModeled_datF env block F
+        · exact checkModeled_datF env _ block F
       · rfl
 
 theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :

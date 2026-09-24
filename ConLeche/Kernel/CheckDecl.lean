@@ -192,7 +192,7 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
       -- `checkModeled`.
       match blockParts? nP block with
       | some p => checkBlock ops env block p
-      | none => checkModeled mode ops env block
+      | none => checkModeled mode ops env nP block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- **THE QUOTIENT PACKAGE** (task #293).  The export writes it as

@@ -857,7 +857,7 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     EtaFamiliesClosed env₂ := by
   obtain ⟨hsplit, hmain⟩ := h
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
-    ⟨-, envM, hmem, hrecs⟩
+    ⟨-, _, envM, hmem, hrecs⟩
   · -- the single-constructor arm
     obtain ⟨envM, envR, hmem, hrecs, -, -, hproj⟩ := harm
     have hmemFil : ∀ {p : ConstantInfo → Bool} {x : ConstantInfo},
@@ -890,6 +890,6 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     · obtain ⟨cvC, hfC⟩ := hE T cvT' caps' hfE he hr
       exact ⟨cvC, indRecsRun_keep hrecs _ _
         (indMembersRun_mono _ hmem _ _ hfC)⟩
-    · exact absurd he (by decide)
+    · exact absurd he Bool.false_ne_true
 
 end ConLeche.Semantics

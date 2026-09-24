@@ -431,8 +431,8 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
         block.filter (fun ci => match ci with
           | .ctorInfo _ _ _ => true | _ => false)
           = [.ctorInfo cvC nP nF]) ∧
-    ∃ envM,
-      IndMembersRun μ F blockNames {} env nonrecs envM ∧
+    ∃ nPd envM,
+      IndMembersRun μ F blockNames { nparams := nPd } env nonrecs envM ∧
       IndRecsRun μ F blockNames envM recs env₂))
 
 end ConLeche.Semantics

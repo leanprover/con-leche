@@ -20,6 +20,10 @@
 #     block itself (large elimination from a nested Prop block) —
 #     official's place;
 #   * the `corner_tshadow_*` families: see `tests/e2e-expected.txt`.
+#   * `restrict_a28_m2prime_phantom`: today accepts (the modeller), the
+#     target DECLINES — M2′, the NAMED restriction official does not
+#     impose (charter item 9; `restrict_a27_m2prime_redex` declines on
+#     both).
 tests/e2e/indexed_vec.ndjson 1 0 -
 tests/e2e/prop_proj.ndjson 1 0 -
 tests/e2e/nat_ops.ndjson 1 0 -
@@ -321,6 +325,42 @@ tests/e2e/corner_tshadow_aux_good.ndjson 1 0 Tr=accept/accept/accept/skip/accept
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 1 0 Tr=accept/reject/reject/skip/accept/decline/-/n/a/1
 tests/e2e/corner_tshadow_aux_prop_bad.ndjson 1 2 -
 tests/e2e/corner_tshadow_aux_unreached.ndjson 1 0 T=accept/accept/accept/accept/accept/accept/same/ok/1
+tests/e2e/restrict_a02_nest_sigma.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a03_nest_idx_field.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a05_nest_idx_member.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a07_nest_mutual_cont.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a09_nest_two_keys.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a10_dep_indices.ndjson 1 0 -
+tests/e2e/restrict_a11_let_field.ndjson 1 0 -
+tests/e2e/restrict_a12_mutual_indexed.ndjson 1 0 -
+tests/e2e/restrict_a14_univ_nested.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a15_nest_option_list.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a16_prop_large_struct.ndjson 1 0 -
+tests/e2e/restrict_a26_u4_attempt.ndjson 1 0 -
+tests/e2e/restrict_a32_nest_partial_param.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a34b_sort_u_kernel.ndjson 1 0 -
+tests/e2e/restrict_a37_myeq_k.ndjson 1 0 -
+tests/e2e/restrict_a43_nest_prod_list.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a44_structure_nested.ndjson 1 0 S=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a45_mutual_nested.ndjson 1 0 A=accept/accept/accept/skip/accept/decline/-/n/a/2
+tests/e2e/restrict_a46_univ_max.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a47_empty_prop_idx.ndjson 1 0 -
+tests/e2e/restrict_a48_univ_live.ndjson 1 0 -
+tests/e2e/restrict_a49_imax_field.ndjson 1 0 -
+tests/e2e/restrict_a50_neverzero_shapes.ndjson 1 0 -
+tests/e2e/restrict_a06_nest_refl.ndjson 1 2 -
+tests/e2e/restrict_a08_nest_wcont.ndjson 1 2 -
+tests/e2e/restrict_a25_nest_let_param.ndjson 1 2 -
+tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 1 2 -
+tests/e2e/restrict_a04_nest_idx_param.ndjson 1 1 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a01_ctorless_container.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a01b_ctorless_indexed.ndjson 1 0 T=accept/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a27_m2prime_redex.ndjson 1 2 T=decline/decline/skip/skip/skip/skip/-/-/0
+tests/e2e/restrict_a28_m2prime_phantom.ndjson 1 0 T=accept/decline/skip/skip/skip/skip/-/-/1
+tests/e2e/restrict_b01_idx_only_free.ndjson 1 0 -
+tests/e2e/restrict_b01_idx_only_bad.ndjson 1 1 T=reject/reject/skip/skip/skip/skip/-/-/0
+tests/e2e/restrict_b02_m2prime_direct_free.ndjson 1 0 -
+tests/e2e/restrict_b02_m2prime_direct_bad.ndjson 1 1 T=reject/reject/skip/skip/skip/skip/-/-/0
 tests/e2e/ind_nest_inf.ndjson 0 2 InfNest=decline/accept/accept/skip/accept/decline/-/n/a/1
 tests/e2e/ind_nest_via_refl.ndjson 0 2 ViaRefl=decline/accept/accept/skip/accept/decline/-/n/a/1
 tests/e2e/nested_comp_tower.ndjson 0 2 J=decline/accept/accept/skip/accept/decline/-/n/a/1
@@ -334,6 +374,10 @@ tests/e2e/nested_redex_tower.ndjson 0 2 J=decline/accept/accept/skip/accept/decl
 tests/e2e/nested_refl_pin.ndjson 0 2 J=decline/accept/accept/skip/accept/decline/-/n/a/1
 tests/e2e/nested_unused_param.ndjson 0 2 E=decline/reject/skip/skip/skip/skip/-/-/1
 tests/e2e/corner_tshadow_aux_prop_bad.ndjson 0 2 T=decline/reject/reject/skip/accept/accept/same/ok/1
+tests/e2e/restrict_a06_nest_refl.ndjson 0 2 T=decline/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a08_nest_wcont.ndjson 0 2 T=decline/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a25_nest_let_param.ndjson 0 2 T=decline/accept/accept/skip/accept/decline/-/n/a/1
+tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 0 2 T=decline/accept/accept/skip/accept/decline/-/n/a/1
 tests/e2e/corner_tshadow_aux_good.ndjson 0 2 Tr=decline/accept/accept/skip/accept/decline/-/n/a/1
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 0 2 Tr=decline/reject/reject/skip/accept/decline/-/n/a/1
 tests/e2e/corner_tshadow_aux_unreached.ndjson 0 2 T=decline/accept/accept/accept/accept/accept/same/ok/1

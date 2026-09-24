@@ -137,7 +137,9 @@ group-mates abstracted too (S3). -/
 
 /-- A container whose own constructor uses it at ANOTHER parameter
 (`W α | mk : W Nat → W α`, which no installed inductive has): the
-frame's hole at other parameters is DECLINED. -/
+frame's hole at other parameters is REJECTED (lane RESTRICT-FIX:
+official's parameters are uniform, `is_valid_ind_app`, so it rejects
+every instance). -/
 @[expose] def cW : Expr := .const (nm "W") []
 @[expose] def envW : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
@@ -147,7 +149,7 @@ frame's hole at other parameters is DECLINED. -/
 @[expose] def ctxW : NestCtx :=
   ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?, envW.consts⟩
 #guard (nestedBlockPositivity (pureOps .verified) envW ctxW
-    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.notImplemented _)
+    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.invalid _)
 
 /-- A cycle through an intermediate container (`F α | mk : L (G α) → F α`,
 `G α | mk : F α → G α`) and a three-member cycle (`P → Q → R → P`). -/
@@ -181,7 +183,7 @@ frame's hole at other parameters is DECLINED. -/
 
 The same mutual pair with NO recorded block (`IndCaps.all` empty): the
 restart would abstract a group-mate the container's record does not
-list, and DECLINES. -/
+list, and REJECTS (lane RESTRICT-FIX: never on a checked environment). -/
 @[expose] def envM0 : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
@@ -190,7 +192,7 @@ list, and DECLINES. -/
   .indInfo ⟨nm "A", [], pi ty1 ty1⟩ {}]⟩
 #guard (nestedBlockPositivity (pureOps .verified) envM0
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
-    [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.notImplemented _)
+    [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
 
 /-! ### M2′: a member at other universe levels declines (lane CONTSEM)
 
@@ -211,11 +213,30 @@ drops: the abstracted constructor type still names `T`. -/
         (.app cL (.const (nm "T") [.param (nm "u")]))) (.const (nm "T") [.param (nm "u")])⟩,
       1)]]) matches .ok _
 
+/-! ### A container WITHOUT constructors (lane RESTRICT-FIX, finding C1)
+
+`E (α : Type) : Type` with no constructor: official nests through it
+(its auxiliary type has no constructor).  The parameter count is the
+RECORDED one (`IndCaps.nparams`), so `E T` is an instance whose frame
+walks nothing; `E T` with `E`'s count unrecorded (`0`) reads `T` as an
+index mentioning the block — official's "non valid occurrence". -/
+@[expose] def cE : Expr := .const (nm "E") []
+@[expose] def envE (n : Nat) : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .indInfo ⟨nm "E", [], pi ty1 ty1⟩ { all := [nm "E"], nparams := n }]⟩
+@[expose] def runE (n : Nat) (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) (envE n)
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, (envE n).find?, (envE n).consts⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+#guard (runE 1 (.app cE cT)) matches .ok _
+#guard keysOf (runE 1 (.app cE cT)) == some [nm "E"]
+#guard (runE 0 (.app cE cT)) matches .error (.invalid _)
+
 /-! ### A container instance is fully applied (lane CONTSEM)
 
 `V (α : Type) : Nat → Type | mk : (n : Nat) → V α n`: the field `V T`
-(no index) is a family, not a type — the walk declines it; `V T z` is an
-ordinary instance. -/
+(no index) is a family, not a type — the walk rejects it (official:
+"type expected"; lane RESTRICT-FIX); `V T z` is an ordinary instance. -/
 @[expose] def cV : Expr := .const (nm "V") []
 @[expose] def envV : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
@@ -227,12 +248,12 @@ ordinary instance. -/
   nestedBlockPositivity (pureOps .verified) envV
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envV.find?, envV.consts⟩
     [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
-#guard runV (.app cV cT) matches .error (.notImplemented _)
+#guard runV (.app cV cT) matches .error (.invalid _)
 #guard keysOf (runV (.app (.app cV cT) (.const (nm "z") []))) == some [nm "V"]
 
 /-! ### U4 and the normal form (lane POSPROOF)
 
-U4: a later field using a recursive field declines — reachable only in
+U4: a later field using a recursive field rejects — reachable only in
 a hand-built environment (`F4 : T → Type` after `T`): on a stream
 official accepts, a later field's normal form never mentions a
 recursive field (anything applied to it would mention the block, which
@@ -248,10 +269,10 @@ field `Id' T` stored as `T`), the one function's product. -/
 @[expose] def ctxU : NestCtx :=
   ⟨[nm "T"], [], 0, [0], [], .succ .zero, envU.find?, envU.consts⟩
 
--- `(t : T) → F4 t → T`: a later field uses the recursive field: DECLINED
+-- `(t : T) → F4 t → T`: a later field uses the recursive field: REJECTED
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU
     [[(⟨nm "T.mk", [], pi cT (pi (.app cF4 (.bvar 0)) cT)⟩, 2)]])
-  matches .error (.notImplemented _)
+  matches .error (.invalid _)
 -- `Id' T → T`: recursive after δβ; stored as `T → T`
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU
     [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)

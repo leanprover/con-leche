@@ -55,6 +55,17 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
   ctors : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
     L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
       env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2)
+  /-- a member WITHOUT constructors (lane RESTRICT-FIX, finding C1): the
+  parameter count `nestContainer` reads for it (its former's recorded
+  `IndCaps.nparams`) is the block's, and its former's level parameters
+  are distinct and the block's — what the first constructor's record
+  says of a member with constructors (`LfpCtorReads`, the frame's
+  `Name.nodup` check) -/
+  noCtors : ∀ c, c < D.k → ∀ nP', ConLeche.nestContainer ctx (D.member c) = some (nP', []) →
+    ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧ cv.levelParams.Nodup ∧
+      (∀ ψ, (D.params ψ).length = nP') ∧
+      ∀ mm, mm < D.k → ∃ cvm capsm, env.find? (D.member mm) = some (.indInfo cvm capsm) ∧
+        cvm.levelParams = cv.levelParams
 
 /-- **Coverage** (CONTSEM step 6, L8 owed): the walk's context reads the
 environment, every stored inductive but `Quot` that is not a member of
@@ -201,7 +212,7 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs 
   (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
   (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
   (hlenP : ∀ ψ, (D.params ψ).length = ds.length)
-  (hnL : ∃ L, ConLeche.nestContainer ctx n = some (ds.length, L) ∧ L ≠ [])
+  (hnL : (∃ L, ConLeche.nestContainer ctx n = some (ds.length, L) ∧ L ≠ []) ∨ lps.Nodup)
   (hsc : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
       Expr.WScoped (ctx.hiAt prog.length) x)
 
@@ -263,8 +274,8 @@ theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ :
     rwa [← hhiEq] at this
   have hsem := frame_sem mp hin hD hblk.nodup hkN hcov.find hlps hul
     (fun x hx => hdsw x hx) hdsaL (hlenP _) hblk.ctors hblk.all (cacheInv_ctorsOfOk mp ctx) hrec
-    rfl hR₀ (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit' (n := n) (by
-      obtain ⟨L, hL, hLne⟩ := hnL; exact ⟨_, L, hL, hLne⟩)
+    rfl hR₀ (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit' (n := n)
+      (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
     64 [(n, cty)] st₀ grp' st₁
     ⟨by simp, by simp, fun q hq => by
       simp only [List.mem_singleton] at hq
@@ -336,7 +347,7 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
   obtain ⟨grp', st₁⟩ := gs
   have hsem := frame_sem mp hin hD hblk.nodup hkN hcov.find hlps hul hdsw hdsa (hlenP _) hblk.ctors
     hblk.all (cacheInv_ctorsOfOk mp ctx) hrec rfl hR₀ hΔ hCds hLds hfit (n := D.member mm)
-    (by obtain ⟨L, hL, hLne⟩ := hnL; exact ⟨_, L, hL, hLne⟩)
+    (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
     64 [(D.member mm, cty)] st₀ grp' st₁
     ⟨by simp, by simp, fun q hq => by
       simp only [List.mem_singleton] at hq
@@ -463,7 +474,7 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) (CacheInv mp φ ctx) rec) :
     ContSem mp.base2 φ ctx (fun _ => True) (CacheInv mp φ ctx) F rec := by
   intro prog dep kb w n us st k st' hfn hnm hrun _ hhid hfrw hI Δa wa R hC hwa hgr hR
-  obtain ⟨nPc, L, hq, hLne, hle, hidxfree, hnq, hdsok, nI, cty, hnI, hlen, hkey⟩ :=
+  obtain ⟨nPc, L, hq, hle, hidxfree, hnq, hdsok, nI, cty, hnI, hlen, hkey⟩ :=
     ConLeche.nestCont_inv hrun
   have hIok := cacheInv_ctorsOfOk mp (φ := φ) ctx
   rw [hIok.lookup st hI n] at hq
@@ -476,17 +487,38 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   obtain ⟨nP', L', hL', hlenL', hfL'⟩ := hblk.ctors mm hmm
   rw [hn, hq] at hL'
   obtain ⟨rfl, rfl⟩ : nPc = nP' ∧ L = L' := by simpa using hL'
-  have h0 : 0 < L.length := by
-    cases L with
-    | nil => exact absurd rfl hLne
-    | cons => simp
-  obtain ⟨-, -, -, -, hrdC⟩ := mp.lfp_ok D hD
-  obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, _A, -, hread0⟩ :=
-    hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
-  rw [hfL' 0 h0] at hf0
-  obtain ⟨rfl, rfl, rfl⟩ : L[0].1 = cv0 ∧ nPc = nPc0 ∧ L[0].2 = nF0 := by
-    simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf0
-    exact ⟨hf0.1, hf0.2.1, hf0.2.2⟩
+  -- the level parameters and the parameter count: off the first
+  -- constructor's record, or — a container WITHOUT constructors (lane
+  -- RESTRICT-FIX) — off the recorded former (`ContBlockOk.noCtors`)
+  obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ : ∃ lps : List Name,
+      (∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
+        cv.levelParams = lps) ∧
+      (∀ ψ, (D.params ψ).length = nPc) ∧ cv.levelParams = lps ∧
+      ((∃ L', ConLeche.nestContainer ctx n = some (nPc, L') ∧ L' ≠ []) ∨ lps.Nodup) := by
+    by_cases hLne : L = []
+    · subst hLne
+      obtain ⟨cv', caps', hf', hnd', hlen', hlps'⟩ :=
+        hblk.noCtors mm hmm nPc (by rw [hn]; exact hq)
+      rw [hn, hfc] at hf'
+      obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+      exact ⟨cv.levelParams, hlps', hlen', rfl, Or.inr hnd'⟩
+    · have h0 : 0 < L.length := by
+        cases L with
+        | nil => exact absurd rfl hLne
+        | cons => simp
+      obtain ⟨-, -, -, -, hrdC⟩ := mp.lfp_ok D hD
+      obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, _A, -, hread0⟩ :=
+        hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
+      rw [hfL' 0 h0] at hf0
+      obtain ⟨rfl, rfl, rfl⟩ : L[0].1 = cv0 ∧ nPc = nPc0 ∧ L[0].2 = nF0 := by
+        simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf0
+        exact ⟨hf0.1, hf0.2.1, hf0.2.2⟩
+      have hcvl : cv.levelParams = L[0].1.levelParams := by
+        obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hmm
+        rw [hn, hfc] at hfm
+        obtain ⟨rfl, rfl⟩ : cv = cvm ∧ caps = capsm := by simpa using hfm
+        exact hlm
+      exact ⟨L[0].1.levelParams, hlpsC, fun ψ => (hread0 ψ).1, hcvl, Or.inl ⟨L, hq, hLne⟩⟩
   -- the parameters and the indices
   have hspine := Expr.mkAppN_getApp w
   rw [hfn] at hspine
@@ -495,7 +527,7 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   rw [← List.take_append_drop nPc args] at hwa hC
   have hdl : (args.take nPc).length = nPc := by rw [List.length_take]; omega
   have hlenP : ∀ ψ, (D.params ψ).length = (args.take nPc).length := fun ψ => by
-    rw [hdl]; exact (hread0 ψ).1
+    rw [hdl]; exact hlenP0 ψ
   have hwsargs := (wScoped_mkAppN _ hfrw.1).2
   have hdsw : ∀ x ∈ args.take nPc, Expr.WScoped (ctx.hiAt prog.length) x ∧
       x.looseBVarsBounded 0 = true := by
@@ -513,19 +545,13 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       exact hidxfree a ha⟩
   have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
   -- the levels
-  have hlps : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
-      cv.levelParams = L[0].1.levelParams := hlpsC
   obtain ⟨fa, vs, hfa, -, -⟩ := denoteMeta_mkAppN_inv hwa
   obtain ⟨hul, -⟩ := Rules.denoteMeta_const_arityK hfc hfa
   change us.length = cv.levelParams.length at hul
-  have hcvl : cv.levelParams = L[0].1.levelParams := by
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hmm
-    rw [hn, hfc] at hfm
-    obtain ⟨rfl, rfl⟩ : cv = cvm ∧ caps = capsm := by simpa using hfm
-    exact hlm
   rw [hcvl] at hul
-  have hnL : ∃ L', ConLeche.nestContainer ctx n = some ((args.take nPc).length, L') ∧ L' ≠ [] :=
-    ⟨L, by rw [hdl]; exact hq, hLne⟩
+  have hnL : (∃ L', ConLeche.nestContainer ctx n = some ((args.take nPc).length, L') ∧
+      L' ≠ []) ∨ lps.Nodup := by
+    rw [hdl]; exact hnL0
   -- the instantiation met
   unfold ConLeche.nestContKey at hkey
   split at hkey

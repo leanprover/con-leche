@@ -756,39 +756,39 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L560
    560  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L621-L628
-   621  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   622    block.all fun ci => match ci with
-   623      | .indInfo cvT _ =>
-   624        match cvT.type.piSortTeleLen? with
-   625        | some n => decide (nP ≤ n)
-   626        | none => true
-   627      | .ctorInfo _ nPc _ => nPc == nP
-   628      | _ => true
+== ConLeche/Kernel/Env.lean#L628-L635
+   628  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   629    block.all fun ci => match ci with
+   630      | .indInfo cvT _ =>
+   631        match cvT.type.piSortTeleLen? with
+   632        | some n => decide (nP ≤ n)
+   633        | none => true
+   634      | .ctorInfo _ nPc _ => nPc == nP
+   635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1222
-  1222  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1243
+  1243  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L243
-   243  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L244
+   244  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L943-L958
-   943  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-   944      (block : List ConstantInfo) (cvTas : List ConstantVal)
-   945      (ctorsAs : List (List (ConstantVal × Nat))) :
-   946      m (List (ConstantVal × TargetMajor × List Expr)) := do
-   947    targetRecPins p block
-   948    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
-   949    let us := tys.map (·.2.2)
-   950    checkBlockRecSmallElim p nested us
-   951    checkBlockRecElimPin p us
-   952    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-   953    targetRulePinsAll tys (targetRecRules block)
-   954    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-   955    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-   956      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-   957    so.flush
-   958    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L942-L957
+   942  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+   943      (block : List ConstantInfo) (cvTas : List ConstantVal)
+   944      (ctorsAs : List (List (ConstantVal × Nat))) :
+   945      m (List (ConstantVal × TargetMajor × List Expr)) := do
+   946    targetRecPins p block
+   947    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+   948    let us := tys.map (·.2.2)
+   949    checkBlockRecSmallElim p nested us
+   950    checkBlockRecElimPin p us
+   951    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+   952    targetRulePinsAll tys (targetRecRules block)
+   953    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+   954    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+   955      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+   956    so.flush
+   957    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)

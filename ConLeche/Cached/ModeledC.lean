@@ -103,7 +103,7 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/
-def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
+def checkIndDeclSF (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) :
     CheckCM FEnv := do
   let recs := block.filter (fun ci => match ci with
     | .recInfo _ _ _ _ => true | _ => false)
@@ -135,7 +135,7 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
         fe₃
     else pure fe₃
   | _, _ => do
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames { nparams := nPd }) fe
     checkIndRecsS mode blockNames fe₂ recs
 
 end ConLeche.Cached

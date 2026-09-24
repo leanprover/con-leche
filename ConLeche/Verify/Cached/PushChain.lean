@@ -319,8 +319,8 @@ theorem indBase_push (mode : CheckMode) (blockNames : List Name)
   exact checkIndRecsS_push mode blockNames h₂ recs
 
 theorem checkIndDeclSF_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (block : List ConstantInfo) :
-    Yields (checkIndDeclSF mode fe block)
+    (h : PushChain env fe) (nPd : Nat) (block : List ConstantInfo) :
+    Yields (checkIndDeclSF mode fe nPd block)
       (fun fe' => PushChain env fe') := by
   unfold checkIndDeclSF
   simp only []
@@ -770,7 +770,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · exact checkBasisDeclC_push h _
     · split
       · cases hbp : blockParts? nP block with
-        | none => exact checkIndDeclSF_push mode h block
+        | none => exact checkIndDeclSF_push mode h _ block
         | some p => exact checkBlockKS_push mode h block p
       · exact Yields.ofThrow
 

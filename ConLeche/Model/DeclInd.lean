@@ -122,7 +122,7 @@ theorem declInd (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     · exact Or.inl (indMembersRun_stored _ hmem ci₀ hci₀)
     · exact Or.inr ⟨ci₀, hci₀, rfl⟩
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
-    ⟨-, envM, hmem, hrecs⟩
+    ⟨-, _, envM, hmem, hrecs⟩
   · -- the single-constructor arm
     obtain ⟨envM, envR, hmem, hrecs, -, hprojFresh, hproj⟩ := harm
     have hmemFil : ∀ {p : ConstantInfo → Bool} {x : ConstantInfo},
@@ -284,8 +284,8 @@ theorem declInd (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     obtain ⟨mp₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
       indMembersPM memberEtaLaw memberUnitLaw _ mp hbnNon
-        (fun cv caps₂ _ => ⟨etaPins_empty,
-          ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
+        (fun cv caps₂ _ => ⟨etaPins_nparams,
+          ⟨fun h => absurd h Bool.false_ne_true, fun h => absurd h Bool.false_ne_true⟩⟩)
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     obtain ⟨mp₂, -, -⟩ :=
       indRecs hμ memberEtaLaw memberUnitLaw mp₁ hI₁ hIA₁

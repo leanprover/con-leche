@@ -1364,7 +1364,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
     {feOut : FEnv} {s' : CState}
     (h : (match blockParts? nP block with
           | some p => checkBlockKS mode (mkFEnv env) block p
-          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
+          | none => checkIndDeclSF mode (mkFEnv env) nP block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
@@ -1378,7 +1378,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
         if indParamsOk nP block = true then
           (match blockParts? nP block with
             | some p => checkBlock (fueledOps mode F) env block p
-            | none => checkModeled mode (fueledOps mode F) env block)
+            | none => checkModeled mode (fueledOps mode F) env nP block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   -- task #293: this block is not one of the five pinned ones (the
   -- recognition happened before the dispatch, on both sides)

@@ -117,3 +117,32 @@ tests/e2e/corner_tshadow_aux_good.ndjson 1 Tr=accept,
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 1 Tr=accept,
 tests/e2e/corner_tshadow_aux_prop_bad.ndjson 0 T=accept,
 tests/e2e/corner_tshadow_aux_unreached.ndjson 1 T=accept,
+# lane RESTRICT-FIX: the restriction audit's examples (tests/e2e-expected.txt).
+# a01/a01b: constructor-less containers, official ACCEPTS (finding C1, the
+# recorded `nparams`); a27/a28: M2′, official ACCEPTS — the NAMED
+# restriction (finding C2, charter item 9), a decline; b01/b02: official
+# rejects ("non valid occurrence").  a06/a08/a25/a33c run with the
+# modeller off (it declines them at parse time).
+tests/e2e/restrict_a01_ctorless_container.ndjson 1 T=accept,
+tests/e2e/restrict_a01b_ctorless_indexed.ndjson 1 T=accept,
+tests/e2e/restrict_a02_nest_sigma.ndjson 1 T=accept,
+tests/e2e/restrict_a03_nest_idx_field.ndjson 1 T=accept,
+tests/e2e/restrict_a04_nest_idx_param.ndjson 1 T=accept,
+tests/e2e/restrict_a05_nest_idx_member.ndjson 1 T=accept,
+tests/e2e/restrict_a06_nest_refl.ndjson 0 T=accept,
+tests/e2e/restrict_a07_nest_mutual_cont.ndjson 1 T=accept,
+tests/e2e/restrict_a08_nest_wcont.ndjson 0 T=accept,
+tests/e2e/restrict_a09_nest_two_keys.ndjson 1 T=accept,
+tests/e2e/restrict_a14_univ_nested.ndjson 1 T=accept,
+tests/e2e/restrict_a15_nest_option_list.ndjson 1 T=accept,
+tests/e2e/restrict_a25_nest_let_param.ndjson 0 T=accept,
+tests/e2e/restrict_a27_m2prime_redex.ndjson 1 T=decline,
+tests/e2e/restrict_a28_m2prime_phantom.ndjson 1 T=decline,
+tests/e2e/restrict_a32_nest_partial_param.ndjson 1 T=accept,
+tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 0 T=accept,
+tests/e2e/restrict_a43_nest_prod_list.ndjson 1 T=accept,
+tests/e2e/restrict_a44_structure_nested.ndjson 1 S=accept,
+tests/e2e/restrict_a45_mutual_nested.ndjson 1 A=accept,
+tests/e2e/restrict_a46_univ_max.ndjson 1 T=accept,
+tests/e2e/restrict_b01_idx_only_bad.ndjson 1 T=reject,
+tests/e2e/restrict_b02_m2prime_direct_bad.ndjson 1 T=reject,
