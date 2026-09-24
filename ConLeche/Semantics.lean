@@ -37,6 +37,7 @@ public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Semantics.SubstAV
 public import ConLeche.Semantics.Inductives.HoleMono
+public import ConLeche.Semantics.Inductives.HoleAppGrade
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
@@ -53,6 +54,7 @@ public import ConLeche.Semantics.Tower.FixLeafI
 public import ConLeche.Semantics.Tower.BlockTuple
 public import ConLeche.Semantics.Tower.BlockLeafI
 public import ConLeche.Semantics.Tower.BlockFamI
+public import ConLeche.Semantics.Tower.BlockHoleChain
 public import ConLeche.Semantics.Tower.SigChainI
 public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.Semantics.Tower.BlockRecGraphI
