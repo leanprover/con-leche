@@ -24,10 +24,10 @@ variable {mode : CheckMode}
 
 /-- A constructor's run at the former's environment: its type is
 closed and bounded. -/
-theorem direct_sum_ctor_typeWF {env₀ env : Env} {ctx : NestCtx} {T : Name} {lps : List Name}
+theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
-    (h : checkSumCtor (fueledOps mode F) env₀ env ctx T lps nP nIdx resSort isProp large
+    (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by

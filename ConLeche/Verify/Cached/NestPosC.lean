@@ -536,14 +536,14 @@ theorem nestNoMemberConstS_sim {ctx : NestCtx} {s₀ : CState} (hs : CSOK mode e
   · exact SimC.pure hs ⟨rfl, trivial⟩
 
 theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) {holes : List Expr} {stable : Bool}
+    (hc : NestCtxOk ctx) {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
     (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) {s₀ : CState}, CSOK mode env s₀ →
       (∀ c ∈ cs, c.1.type.hasFvar = false) → NestStOk st →
       SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2.2 ∧ ∀ n ∈ v.2.1, WScoped (ctx.hiAt 0) n)
-        (nestMemberCtors (sharedOpsC mode (mkFEnv env)) env ctx holes stable cs st)
-        (nestMemberCtors (fueledOpsM mode) env ctx holes stable cs st)
+        (nestMemberCtors (sharedOpsC mode (mkFEnv env)) env ctx holes cs st)
+        (nestMemberCtors (fueledOpsM mode) env ctx holes cs st)
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst, fun _ h => nomatch h⟩
   | c :: cs, st, _, hs, hcs, hst => by
     unfold nestMemberCtors
@@ -555,8 +555,6 @@ theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     obtain ⟨rfl, hst₃, hwN⟩ := hR
     rcases r with ⟨ks, tyN, st₃⟩
     dsimp only
-    split
-    · exact SimC.throw_bind
     refine SimC.bind (nestNoMemberConstS_sim hs₃' _) (fun s₃ u u' hs₃ hU => ?_)
     obtain ⟨rfl, -⟩ := hU
     refine SimC.bind (nestMemberCtorsS_sim hμ henv hc hholes hpar cs st₃ hs₃
@@ -569,15 +567,15 @@ theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     · exact hwq n hn
 
 theorem nestBlockCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) {holes : List Expr} {stable : Bool}
+    (hc : NestCtxOk ctx) {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
     (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState) {s₀ : CState},
       CSOK mode env s₀ → (∀ cs ∈ css, ∀ c ∈ cs, c.1.type.hasFvar = false) → NestStOk st →
       SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2.2 ∧
           ∀ ns ∈ v.2.1, ∀ n ∈ ns, WScoped (ctx.hiAt 0) n)
-        (nestBlockCtors (sharedOpsC mode (mkFEnv env)) env ctx holes stable css st)
-        (nestBlockCtors (fueledOpsM mode) env ctx holes stable css st)
+        (nestBlockCtors (sharedOpsC mode (mkFEnv env)) env ctx holes css st)
+        (nestBlockCtors (fueledOpsM mode) env ctx holes css st)
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst, fun _ h => nomatch h⟩
   | cs :: css, st, _, hs, hcs, hst => by
     unfold nestBlockCtors

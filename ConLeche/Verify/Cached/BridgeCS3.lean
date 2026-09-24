@@ -126,52 +126,20 @@ theorem checkSumTeleS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     obtain ⟨rfl, hTw'⟩ := hP
     exact SimC.pure hs₂ ⟨rfl, hTw'⟩
 
-/-- The constructor stage's stored form (`nestNormCtor`: the positivity
-function's normal form, re-checked when it changed anything) at the
-shared operations. -/
-theorem nestNormCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x)
-    {nF : Nat} {cvC cvCa : ConstantVal} (hs : CSOK mode env s₀)
-    (hCw : WScoped 0 cvCa.type) :
-    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.type)
-      (nestNormCtor (sharedOpsC mode (mkFEnv env)) env ctx nF cvC cvCa)
-      (nestNormCtor (fueledOpsM mode) env ctx nF cvC cvCa) := by
-  unfold nestNormCtor
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ holes holes' hs₁ hP => ?_)
-  obtain ⟨rfl, hh⟩ := hP
-  refine SimC.bind (nestMemberCtorsS_sim hμ henv hc (nestHoles_ok hc hh) hpar [(cvCa, nF)] {} hs₁
-    (fun c hc' => by
-      simp only [List.mem_singleton] at hc'
-      subst hc'
-      exact not_hasFvar_of_fvarsBelow_zero hCw.fvarsBelow)
-    (fun _ _ hm => nomatch hm)) (fun s₂ r r' hs₂ hR => ?_)
-  obtain ⟨rfl, -⟩ := hR
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃' tyN tyN' hs₃' hP => ?_)
-  obtain ⟨rfl, -⟩ := hP
-  refine SimC.bind (SimC.unwrapOr' hs₃') (fun s₃ ty ty' hs₃ hP => ?_)
-  obtain ⟨rfl, -⟩ := hP
-  split
-  · exact SimC.pure hs₃ ⟨rfl, hCw⟩
-  · exact checkConstantValS_sim hμ henv hs₃
-
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/
-theorem checkSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {ctx : NestCtx} {T : Name}
+theorem checkSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {T : Name}
     {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvC : ConstantVal} {nF : Nat} {cvTa : ConstantVal}
-    (hc : NestCtxOk ctx) (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x)
     (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env ctx T lps nP
+      (checkSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP
         nIdx resSort isProp large cvC nF cvTa)
-      (checkSumCtor (fueledOpsM mode) env₀ env ctx T lps nP nIdx resSort isProp large
+      (checkSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx resSort isProp large
         cvC nF cvTa) := by
   unfold checkSumCtor
   dsimp only [sharedOpsC]
   refine SimC.bind (checkConstantValS_sim hμ henv hs)
-    (fun s₀' cvCa₀ cvCa₀' hs₀' hP₀ => ?_)
-  obtain ⟨rfl, hCw₀⟩ := hP₀
-  refine SimC.bind (nestNormCtorS_sim hμ henv hc hpar hs₀' hCw₀)
     (fun s₁ cvCa cvCa' hs₁ hP => ?_)
   obtain ⟨rfl, hCw⟩ := hP
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
@@ -238,26 +206,25 @@ theorem checkSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 /-- Stage 2, the whole constructor list: every constructor is checked
 at the *same* environment (the one holding the type former alone), so
 the walk is a plain induction on the list. -/
-theorem checkSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {ctx : NestCtx} {T : Name}
+theorem checkSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {T : Name}
     {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
-    {cvTa : ConstantVal} (hc : NestCtxOk ctx) (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x)
-    (hTf : cvTa.type.hasFvar = false) :
+    {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) :
     ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env ctx T lps
+        (checkSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env T lps
           nP nIdx resSort isProp large cvTa cs)
-        (checkSumCtors (fueledOpsM mode) env₀ env ctx T lps nP nIdx resSort isProp
+        (checkSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx resSort isProp
           large cvTa cs)
   | [], s₀, hs => SimC.pure hs rfl
   | c :: cs, s₀, hs => by
     unfold checkSumCtors
     dsimp only [sharedOpsC]
-    refine SimC.bind (checkSumCtorS_sim hμ henv hc hpar hTf hs)
+    refine SimC.bind (checkSumCtorS_sim hμ henv hTf hs)
       (fun s₁ q q' hs₁ hP => ?_)
     obtain rfl : q = q' := hP
     obtain ⟨cvCa, sorts⟩ := q
     dsimp only
-    refine SimC.bind (checkSumCtorsS_sim hμ henv hc hpar hTf hs₁)
+    refine SimC.bind (checkSumCtorsS_sim hμ henv hTf hs₁)
       (fun s₂ rest rest' hs₂ hR => ?_)
     obtain rfl : rest = rest' := hR
     obtain ⟨rest, srest⟩ := rest

@@ -37,7 +37,7 @@ structure BlockCtorPick where
 /-- **The constructors' data functions at one member of a block**:
 every constructor's data, from its stage run. -/
 theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx} {lps : List Name}
+    {F : Nat} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal}
     {env₁ : Env} {caps : IndCaps} {bs : List (Expr × BinderMeta)}
     {ctorsA : List (ConstantVal × Nat)} {sT : Level}
@@ -47,7 +47,7 @@ theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env ctx T lps nP nIdx
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
           resSort isProp large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))

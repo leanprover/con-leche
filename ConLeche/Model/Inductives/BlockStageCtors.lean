@@ -183,8 +183,8 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
       (d.absF ψ c j) ((d.Fss c ψ).getD j [])
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
-    ∃ (ctx : ConLeche.NestCtx) (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
-      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI ctx cvTa.name lps d.nP (d.nIdxAt m)
+    ∃ (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
+      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name lps d.nP (d.nIdxAt m)
         d.resSort d.isProp d.large cvTa cs = .ok (d.ctorsM m, sortss)
   nodup : ∀ m, m < d.k → ((d.ctorsM m).map (·.1.name)).Nodup
   out : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
@@ -284,7 +284,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       ∀ c, m + 1 ≤ c → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
         (ConLeche.consSumCtors d.nP (d.ctorsM m) env).find? cA.1.name = none := by
   have hH : BlockHoleFacts mp.base2 d lps := blockHoleFacts_of_stage hN hS hinv (by omega)
-  obtain ⟨ctx, ctors, sortss, hCtors⟩ := hS.ctors m cvTa hm hcvTa
+  obtain ⟨ctors, sortss, hCtors⟩ := hS.ctors m cvTa hm hcvTa
   have hframes := hS.frames m hm
   have hlpsA := hS.lpsA m hm
   obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
@@ -404,7 +404,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       obtain ⟨cA, hiA, rfl⟩ := hcdMem ψ i cd hi
       exact ((hframes i cA hiA).2 ψ ρ (((hframes i cA hiA).1 ψ ρ).mp hρ)).2.1
   -- ## the member's constructors, consed
-  have hCtors' : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI ctx (d.memberName m) lps
+  have hCtors' : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI (d.memberName m) lps
       d.nP (d.nIdxAt m) d.resSort d.isProp d.large cvTa ctors = .ok (d.ctorsM m, sortss) := by
     rw [hTname]; exact hCtors
   have hout' : ∀ cA ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ d.memberName m →
@@ -412,7 +412,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
   obtain ⟨mp', hE', hfindT', hFD', hleafT', hconsedAt, hinvC⟩ :=
     blockCtorsLoop (T := d.memberName m) (lps := lps) (nP := d.nP) (nIdx := d.nIdxAt m)
       (resSort := d.resSort) (isProp := d.isProp) (large := d.large)
-      (names := d.memberNames) (ctx := ctx) (ctorsOf := ctorsOf) (ppsAll := d.ppsM m)
+      (names := d.memberNames) (ctorsOf := ctorsOf) (ppsAll := d.ppsM m)
       (idxF := d.idxF m) (dsF := d.dsF m) (esF := d.esF m) (srcsF := d.srcsF m)
       hμ hout' hCtors' (hS.nodup m hm) (hS.lpsT m cvTa hm hcvTa) hlpsA hFssParams hFssBelow
       (fun j cA hj => (hframes j cA hj).1) hFssOkP

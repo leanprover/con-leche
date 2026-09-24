@@ -1229,13 +1229,13 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
   have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p block
-      cvTas ctorsAs = .ok (tgtRs out) := by
+      cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok (tgtRs out) := by
     have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
         p.toBlockShape false false block cvTas ctorsAs = .ok out := by
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)
     have gC : checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-        ctorsAs = .ok () := by
+        (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok () := by
       rw [← checkBlockRecConform_datF]
       exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
     unfold checkBlockRec thenConform checkBlockRecT

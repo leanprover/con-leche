@@ -67,25 +67,11 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     let rest ← checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
-/-- `nestNormCtor` through the index (the walk at `fe.env`, the
-re-check through `checkConstantValF`). -/
-def nestNormCtorF (ops : CheckerOps m) (fe : FEnv) (ctx : NestCtx) (nF : Nat)
-    (cvC cvCa₀ : ConstantVal) : m ConstantVal := do
-  let holes ← unwrapOr (nestHoles ctx)
-    (.internal "nested positivity: a member is not a stored former")
-  let (_, nss, _) ← nestMemberCtors ops fe.env ctx holes false [(cvCa₀, nF)] {}
-  let tyN ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
-  let ty' ← unwrapOr (nestConcreteCtor ctx cvCa₀.type tyN)
-    (.internal "nested positivity: no normal form")
-  if ty' == cvCa₀.type then pure cvCa₀
-  else checkConstantValF ops fe { cvC with type := ty' }
-
 /-- `checkSumCtor` through the index. -/
-def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (ctx : NestCtx) (T : Name)
+def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa₀ ← checkConstantValF ops fe cvC
-  let cvCa ← nestNormCtorF ops fe ctx nF cvC cvCa₀
+  let cvCa ← checkConstantValF ops fe cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result
@@ -114,15 +100,15 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (ctx : NestCtx) (T : Na
   pure (cvCa, sorts)
 
 /-- `checkSumCtors` through the index. -/
-def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (ctx : NestCtx) (T : Name)
+def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe ctx T lps nP nIdx resSort isProp large c.1 c.2
+    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtorsF ops fe₀ fe ctx T lps nP nIdx resSort isProp large cvTa cs
+    let (rest, srest) ← checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- `consSumCtors` through the index. -/

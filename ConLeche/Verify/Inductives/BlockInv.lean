@@ -240,14 +240,14 @@ BLOCK's level parameters, parameter count, result sort and
 elimination data (deviation D-e of milestone M1: official's
 `Level.isEquiv` agreement makes the universe bound and the
 subsingleton criterion the same test for every member). -/
-theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {ctx : NestCtx} {F : Nat} :
+theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
     ∀ {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
       {sortsss : List (List (List Level))},
-      checkBlockCtors (fueledOps mode F) env₀ env q ctx l = .ok (ctorsAs, sortsss) →
+      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
       ctorsAs.length = l.length ∧ sortsss.length = l.length ∧
       ∀ (i : Nat) (mc : MemberShape × ConstantVal), l[i]? = some mc →
         ∃ ctorsA sortss, ctorsAs[i]? = some ctorsA ∧ sortsss[i]? = some sortss ∧
-          checkSumCtors (fueledOps mode F) env₀ env ctx mc.1.cvT.name q.lps q.nP mc.1.nIdx
+          checkSumCtors (fueledOps mode F) env₀ env mc.1.cvT.name q.lps q.nP mc.1.nIdx
             q.resSort q.isProp q.large mc.2 mc.1.ctors = .ok (ctorsA, sortss)
   | [], ctorsAs, sortsss, h => by
     simp only [checkBlockCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
@@ -287,10 +287,8 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
     (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok (q, b)) :
     ∃ (p₁ : BlockShape),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
-      (∃ ctx, blockNestCtxOf (p₀.complete p₁).toBlockShape q.cvTas q.env₁.find? q.env₁.consts
-          = some ctx ∧
-        checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape ctx
-          ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss)) ∧
+      checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
+        ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
         (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs) ∧
       q.p = p₀.complete p₁ ∧
@@ -300,14 +298,13 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
   obtain ⟨env₁, cvTas, p₁⟩ := r₁
   try simp only at h
-  obtain ⟨ctx, hctx, h⟩ := exceptBind_ok h
   obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
   obtain ⟨ctorsAs, sortsss⟩ := r₂
   try simp only at h
   obtain ⟨⟨kinds, nfs⟩, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨p₁, hInd, ⟨ctx, unwrapOr_ok hctx, hCtors⟩, hK, rfl, rfl⟩
+  exact ⟨p₁, hInd, hCtors, hK, rfl, rfl⟩
 
 /-! ## Stage 2: the tail -/
 
@@ -365,7 +362,8 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p block q.cvTas q.ctorsAs = .ok rs ∧
+        q.p block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
+          = .ok rs ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
         (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP 0 rs
@@ -395,7 +393,8 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   rw [hsorts] at h
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p block q.cvTas q.ctorsAs with
+      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p block q.cvTas q.ctorsAs
+      (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
   | error e => rw [hRec] at h; exact nomatch h
   | ok rs =>
   rw [hRec] at h

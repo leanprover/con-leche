@@ -793,7 +793,7 @@ structure BlockMemberPick where
 /-- **The constructors' data functions at ONE member of a block**,
 stated the way `BlockData` reads them: `blockCtorFuns_of` at member
 `m`. -/
-theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true) {F : Nat}
+theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     {envI : Env} (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isRec : Bool} {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {sOf : Nat → Level}
@@ -810,7 +810,7 @@ theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true
       envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q j isRec)))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →

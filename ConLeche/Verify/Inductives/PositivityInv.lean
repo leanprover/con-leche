@@ -30,10 +30,10 @@ namespace ConLeche
 
 /-- **One member's constructors through the walk**, inverted. -/
 theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {holes : List Expr} {stable : Bool} :
+    {holes : List Expr} :
     ∀ {cs : List (ConstantVal × Nat)} {st : NestState} {kss : List (List NestFieldKind)}
       {nss : List Expr} {st' : NestState},
-      nestMemberCtors ops env ctx holes stable cs st = .ok (kss, nss, st') →
+      nestMemberCtors ops env ctx holes cs st = .ok (kss, nss, st') →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
         nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ kss[j]? = some ks ∧
@@ -50,8 +50,6 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i r₁ hr₁
     obtain ⟨ks, tyN, st₁⟩ := r₁
     simp only at h
-    split at h
-    · simp at h
     split at h
     · simp at h
     rename_i u hnm
@@ -79,12 +77,12 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
 
 /-- **Every member's constructors through the walk**, inverted. -/
 theorem nestBlockCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {holes : List Expr} {stable : Bool} :
+    {holes : List Expr} :
     ∀ {css : List (List (ConstantVal × Nat))} {st : NestState}
       {ksss : List (List (List NestFieldKind))} {nsss : List (List Expr)} {st' : NestState},
-      nestBlockCtors ops env ctx holes stable css st = .ok (ksss, nsss, st') →
+      nestBlockCtors ops env ctx holes css st = .ok (ksss, nsss, st') →
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → ∃ st₀ kss nss st₁,
-        nestMemberCtors ops env ctx holes stable cs st₀ = .ok (kss, nss, st₁) ∧
+        nestMemberCtors ops env ctx holes cs st₀ = .ok (kss, nss, st₁) ∧
           ksss[c]? = some kss ∧ nsss[c]? = some nss
   | [], _, _, _, _, _, c, cs, hc => by simp at hc
   | cs₀ :: css, st, ksss, nsss, st', h, c, cs, hc => by

@@ -133,10 +133,10 @@ theorem consBlockCtors_find?_mem {nP : Nat} :
 /-- **One member's constructor loop, read at the names**: the stored
 constructors carry the member's constructor names and field counts, in
 order, each fresh at the environment the loop checks at. -/
-theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {ctx : ConLeche.NestCtx} {lps : List Name}
+theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat}
     {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env ctx T lps nP nIdx resSort isProp large
+    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvTa cs = .ok (ctorsA, sortss)) :
     ctorsA.map (fun cA => (cA.1.name, cA.2)) = cs.map (fun c => (c.1.name, c.2)) ∧
     ∀ cA ∈ ctorsA, env.find? cA.1.name = none := by
@@ -165,10 +165,10 @@ theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {ct
 /-- **The members' constructor loops, read at the names**: member by
 member, the stored constructors carry the members' constructor names
 and field counts, each fresh at the environment the loops check at. -/
-theorem checkBlockCtors_names {mode : CheckMode} {env₀ env : Env} {q : BlockShape} {ctx : ConLeche.NestCtx} {F : Nat} :
+theorem checkBlockCtors_names {mode : CheckMode} {env₀ env : Env} {q : BlockShape} {F : Nat} :
     ∀ {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
       {sortsss : List (List (List Level))},
-      checkBlockCtors (fueledOps mode F) env₀ env q ctx l = .ok (ctorsAs, sortsss) →
+      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
       ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
         = l.map (fun mc => mc.1.ctors.map (fun c => (c.1.name, c.2))) ∧
       ∀ ctorsA ∈ ctorsAs, ∀ cA ∈ ctorsA, env.find? cA.1.name = none
@@ -228,9 +228,9 @@ environment**: the CHECK's own name facts (`recStage_cvFacts`,
 check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+    {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p block cvTas ctorsAs = .ok rs)
+    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p block cvTas ctorsAs ctorsN = .ok rs)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
     ∀ r ∈ rs, envC.find? r.1.name = none := by
@@ -301,7 +301,7 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, isorts, rs,
-    hInd, hp, ⟨ctx, -, hCtors⟩, -, -, -, -, hRec, hTbl⟩ := h
+    hInd, hp, hCtors, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCv : cvTas.length = p₁.members.length := by

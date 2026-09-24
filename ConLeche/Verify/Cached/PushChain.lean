@@ -431,8 +431,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     have := congrArg List.length hn
     simp only [List.length_map] at this
     rw [List.map_fst_zip (by omega)]
-  refine Yields.bind fun ctx => ?_
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _ _) fun r hr => ?_
+  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun r hr => ?_
   obtain ⟨ctorsAs, sortsss⟩ := r
   obtain ⟨hns, -, hfrs⟩ := hr
   try simp only []
@@ -511,9 +510,9 @@ constructors' index (the type stage's lookup) and pairwise distinct
 reject-only conformance check after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat)))
+    (ctorsAs ctorsN : List (List (ConstantVal × Nat)))
     (hnd : (p.members.map (·.cvT.name)).Nodup) :
-    Yields (checkBlockRecS mode fe p block cvTas ctorsAs)
+    Yields (checkBlockRecS mode fe p block cvTas ctorsAs ctorsN)
       (fun rs => (rs.map (·.1.name)).Nodup ∧ ∀ r ∈ rs, fe.find? r.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.bind' (targetRecCheck_member (shadowOpsC mode) fe
@@ -611,7 +610,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p block q.cvTas q.ctorsAs hndM)
+  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p block q.cvTas q.ctorsAs _ hndM)
     fun rs hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn

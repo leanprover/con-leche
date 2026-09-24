@@ -186,30 +186,17 @@ def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
     (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) : NestCtx :=
   ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, consts⟩
 
-/-- The block's positivity context at the head former's opened
-telescope (`none` only at a block without a former, or a former whose
-telescope does not open — neither survives stage 1). -/
-def blockNestCtxOf (p : BlockShape) (cvTas : List ConstantVal)
-    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) : Option NestCtx :=
-  match cvTas.head? with
-  | some cvTa0 =>
-    match openPisAtFvars p.nP cvTa0.type 0 with
-    | some (fvsP, _) => some (p.nestCtx fvsP find? consts)
-    | none => none
-  | none => none
-
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
-the one-member stage does), each normalised by the positivity function
-at the block's context `ctx` (`nestNormCtor`). -/
-def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) (ctx : NestCtx) :
+the one-member stage does), each stored as declared. -/
+def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ctx ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtors ops env₀ env p ctx rest
+    let (restC, restS) ← checkBlockCtors ops env₀ env p rest
     pure (ctorsA :: restC, sortss :: restS)
 
 /-! ## Positivity: the ONE function, on the stored constructors (lane HOLE2)
@@ -281,8 +268,8 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
     (.internal "direct rec: type former telescope")
   let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
-  -- (β′): the walk on the STORED constructors, each its own normal form
-  let (kinds, nfs, _) ← nestBlockCtors ops env₁ ctx holes true ctorsAs {}
+  -- the walk on the STORED (declared) constructors; their normal forms are output only
+  let (kinds, nfs, _) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
   unless kinds.all (·.all (·.all NestFieldKind.flat)) do
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
@@ -297,7 +284,7 @@ structure BlockPass (E : Type) where
   cvTas : List ConstantVal
   /-- the completed record: the sort read -/
   p : BlockParts
-  /-- the annotated (normalised) constructors, per member -/
+  /-- the annotated constructors, per member, AS DECLARED (lane ALPHA1) -/
   ctorsAs : List (List (ConstantVal × Nat))
   /-- the fields' sorts, per member, per constructor -/
   sortsss : List (List (List Level))
@@ -306,6 +293,20 @@ structure BlockPass (E : Type) where
   /-- the positivity function's normal forms, per member, per constructor
   (member-abstracted at the walk's context) -/
   nfs : List (List Expr)
+
+/-- **The constructors at the positivity function's normal forms**
+(lane ALPHA1): each annotated constructor with its type replaced by its
+normal form `nf` (member-abstracted at the walk's context, the pass's
+`nfs`) made concrete again (`nestConcreteCtor`).  Fed ONLY to the
+reject-only recursor conformance check (`checkBlockRecConform`), whose
+one-member generator classifies and generates on the telescope official's
+`check_positivity` sees (the fields whnf'd); nothing the model reads. -/
+def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
+    (nfs : List (List Expr)) : List (List (ConstantVal × Nat)) :=
+  let ctx := p.nestCtx [] (fun _ => none) []
+  (ctorsAs.zip nfs).map fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
+    let ty := (nestConcreteCtor ctx c.1.type n).getD c.1.type
+    ({ c.1 with type := ty }, c.2)
 
 /-- **One pass over the formers and the constructors** at a given
 `is_rec` verdict (task #268 at k members): the formers, the
@@ -316,9 +317,7 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
     m (BlockPass Env × Bool) := do
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
-  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas env₁.find? env₁.consts)
-    (.internal "direct rec: type former telescope")
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape ctx
+  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
   -- positivity: the one function on the stored constructors, and U2
   let (kinds, nfs) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs

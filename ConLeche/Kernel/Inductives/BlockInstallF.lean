@@ -95,14 +95,14 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts) (isRec : B
 /-! ## Stage 1b: the constructors -/
 
 /-- `checkBlockCtors` through the index. -/
-def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) (ctx : NestCtx) :
+def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ctx ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p ctx rest
+    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
     pure (ctorsA :: restC, sortss :: restS)
 
 /-! ## Stage 2: the tail -/

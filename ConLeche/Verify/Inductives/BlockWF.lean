@@ -181,8 +181,7 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     {q : BlockShape} {l : List (MemberShape × ConstantVal)}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {nP F : Nat}
-    {ctx : NestCtx}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q ctx l = .ok (ctorsAs, sortsss)) :
+    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok (ctorsAs, sortsss)) :
     EnvWF (consBlockCtors nP ctorsAs env₁) := by
   obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
   refine envWF_consBlockCtors henv ?_
@@ -271,9 +270,9 @@ succeeded only if the check (`checkBlockRecT`, the target check) did,
 with the same result (the conformance check after it only rejects). -/
 theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+    {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : checkBlockRec ops env p block cvTas ctorsAs = .ok rs) :
+    (h : checkBlockRec ops env p block cvTas ctorsAs ctorsN = .ok rs) :
     checkBlockRecT ops env p block cvTas ctorsAs = .ok rs :=
   thenConform_ok h
 

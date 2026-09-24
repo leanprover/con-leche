@@ -41,15 +41,17 @@ def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts)
   pure (tgtRs out)
 
 /-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
-recursion) at every `k`, then the reject-only conformance check
-(`checkBlockRecConform`), returning the check's result unchanged
+recursion) at every `k`, on the constructors as declared (`ctorsAs`),
+then the reject-only conformance check (`checkBlockRecConform`) on the
+constructors at their positivity normal forms (`ctorsN`,
+`blockNormalCtors`), returning the check's result unchanged
 (`thenConform`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
+    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
   thenConform (checkBlockRecT ops env p block cvTas ctorsAs)
-    (checkBlockRecConform ops env p cvTas ctorsAs)
+    (checkBlockRecConform ops env p cvTas ctorsN)
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
 constructor, no index): the member's table at the tagged tower's
@@ -87,6 +89,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let rs ← checkBlockRec ops env₂ p block q.cvTas q.ctorsAs
+    (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let env₃ := consBlockRecs env₂.find? p.toBlockShape p.nP 0 rs env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃

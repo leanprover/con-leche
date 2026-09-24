@@ -213,11 +213,11 @@ theorem BlockCtorDataI.idxArgs_resolve {env : Env} {m : EnvModel V env} {T : Nam
 /-- **A block constructor's data**, from its stage run at the
 environment holding ALL the block's formers. -/
 theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx}
+    {F : Nat} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env ctx T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)

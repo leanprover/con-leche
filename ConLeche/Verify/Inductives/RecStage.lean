@@ -693,7 +693,8 @@ route's `checkBlockRec` succeeded only through the target check (the
 conformance check after it only rejects), whose run gives the stage
 record at the stored family. -/
 theorem recStage_of_rec {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs = .ok rs)
+    {ctorsN : List (List (ConstantVal × Nat))}
+    (h : checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs ctorsN = .ok rs)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
     ∃ out, rs = tgtRs out ∧

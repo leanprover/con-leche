@@ -61,10 +61,9 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
       = .ok (env₁, cvTas, p₁) ∧
     p = p₀.complete p₁ ∧
     -- 2  the constructors, per member, at the environment holding all k formers,
-    --    each stored in the positivity function's normal form (`nestNormCtor`)
-    (∃ ctx, ConLeche.blockNestCtxOf p.toBlockShape cvTas env₁.find? env₁.consts = some ctx ∧
-      checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape ctx
-        (p.members.zip cvTas) = .ok (ctorsAs, sortsss)) ∧
+    --    each stored as declared (lane ALPHA1)
+    checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape
+      (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
     -- 3  the positivity function on the stored constructors, and their
     --    member-abstracted types typed at the holes' context (lane HOLE2);
     --    its field kinds are the block's `is_rec`, its normal forms (lane
@@ -79,9 +78,11 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts ∧
     -- 8  the recursor stage: the target CHECK on the stream's family, then
-    --    the reject-only conformance check
+    --    the reject-only conformance check (on the constructors at their
+    --    positivity normal forms)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
-      (consBlockCtors p.nP ctorsAs env₁) p block cvTas ctorsAs = .ok rs ∧
+      (consBlockCtors p.nP ctorsAs env₁) p block cvTas ctorsAs
+      (ConLeche.blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok rs ∧
     -- 9  the install spine: the k recursors with their rules, then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))

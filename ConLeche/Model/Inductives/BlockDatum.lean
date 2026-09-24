@@ -167,15 +167,15 @@ theorem reservedBasisNames_str_rec {T : Name}
 /-- **Every member's constructors, positionally** (conjunct 2 read at
 one member): the stored constant's name, level parameters, field count
 and freshness, and the sum route's run that produced it. -/
-theorem blockCtorRuns_of {ctx : ConLeche.NestCtx} {envI : Env} {q : BlockShape} {F : Nat}
+theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {sortsss : List (List (List Level))}
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q ctx
+    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q
       (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
     (hnameOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.name = q.memberNames.getD j .anonymous) :
     ∀ (m : Nat) (cvTa : ConstantVal), m < q.k → cvTas[m]? = some cvTa →
-      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
+      ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa
           (q.members.getD m default).ctors
         = .ok (ctorsAs.getD m [], sortsss.getD m []) := by
@@ -197,9 +197,9 @@ theorem blockCtorRuns_of {ctx : ConLeche.NestCtx} {envI : Env} {q : BlockShape} 
 
 /-- **One member's constructors, as stored**: `declNative`'s `hrunOf`
 at a block member. -/
-theorem blockCtorFacts_of {ctx : ConLeche.NestCtx} {envI : Env} {q : BlockShape} {F : Nat} {cvTa : ConstantVal} {m : Nat}
+theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : ConstantVal} {m : Nat}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
+    (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
         (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa (q.members.getD m default).ctors
       = .ok (ctorsA, sortss))
     (hClps : ∀ c ∈ (q.members.getD m default).ctors, c.1.levelParams = q.lps ∧
@@ -217,7 +217,7 @@ theorem blockCtorFacts_of {ctx : ConLeche.NestCtx} {envI : Env} {q : BlockShape}
         (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
         (∃ ty₀ : Expr, ty₀.hasFvar = false ∧
           ConLeche.annotateCore μ envI F 0 ty₀ = .ok cA.1.type) ∧
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) := by
   obtain ⟨hlenA, hlenS, hall⟩ := ConLeche.checkSumCtors_inv hrun
   refine ⟨⟨hlenA, hlenS⟩, fun j cA hj => ?_⟩
@@ -292,14 +292,14 @@ constructors' freshness at the environment holding all `k` formers: a
 member's η constructor is one of ITS OWN constructors, which is fresh
 there — so it is no former's name, and it was fresh before the block
 too. -/
-theorem blockEtaSide_of {ctx : ConLeche.NestCtx} {env envI : Env} {q : BlockShape} {F : Nat} {isRec : Bool}
+theorem blockEtaSide_of {env envI : Env} {q : BlockShape} {F : Nat} {isRec : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {sortsss : List (List (List Level))}
     (hcons : envI = ConLeche.consBlockInds q isRec cvTas 0 env)
     (hlenCv : cvTas.length = q.k)
     (hnameOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.name = q.memberNames.getD j .anonymous)
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q ctx
+    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q
       (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
     (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false) :
@@ -357,7 +357,7 @@ stage's run (`hPos`, U2) at the dummy carrier; the record is
 through `fssZ` (the slot leaf `blockLeafZ`, the same set as the hole
 leaf, which the constructors' stage still reads) and the identification
 off the recursive fields (`blockCtorDataI_ident`). -/
-theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
@@ -369,7 +369,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       ConLeche.reservedBasisNames.contains c.1.name = false)
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q ctx
+    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q
       (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
     (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI q
       (q.members.zip cvTas) = .ok isorts)
@@ -452,7 +452,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
           (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
           (∃ ty₀ : Expr, ty₀.hasFvar = false ∧
             ConLeche.annotateCore μ envI F 0 ty₀ = .ok cA.1.type) ∧
-          ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
+          ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
             (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) :=
     fun m cvTa hm hcv =>
       blockCtorFacts_of (blockCtorRuns_of hCtors hF.nameOf m cvTa hm hcv)
@@ -1222,7 +1222,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
           (hShR ψ c (Nat.lt_of_lt_of_le hc (Nat.le_add_right _ _)) j hj).congr_leaf
             fun t ht => hacvR t ht ψ
         ctors := fun m cvTa hm hcv =>
-          ⟨_, _, _, blockCtorRuns_of hCtors hF.nameOf m cvTa hm hcv⟩
+          ⟨_, _, blockCtorRuns_of hCtors hF.nameOf m cvTa hm hcv⟩
         nodup := ?_
         out := ?_
         lpsT := fun m cvTa hm hcv => hF.lpsOf m cvTa hcv

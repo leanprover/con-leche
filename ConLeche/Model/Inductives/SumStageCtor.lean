@@ -173,7 +173,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
     rwa [consList_range_reverse] at this
 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
-theorem stageCtorGen {T : Name} {ctx : ConLeche.NestCtx}
+theorem stageCtorGen {T : Name}
     {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     -- **the other stored families' η constructors are not this one**
@@ -188,7 +188,7 @@ theorem stageCtorGen {T : Name} {ctx : ConLeche.NestCtx}
       caps'.etaCtor ≠ cvCa.name)
     (mp : EnvModelM V μ env)
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env₁ ctx T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there

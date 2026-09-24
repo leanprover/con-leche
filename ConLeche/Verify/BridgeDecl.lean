@@ -832,50 +832,41 @@ theorem nestNoMemberConst_datF (ctx : ConLeche.NestCtx) (e : Expr) (F : Nat) :
   simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure]
 
 theorem nestMemberCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
-    (stable : Bool) (F : Nat) :
+    (F : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (st : ConLeche.NestState),
-      (ConLeche.nestMemberCtors (fueledOpsM mode) env ctx holes stable cs st).val F
-        = ConLeche.nestMemberCtors (fueledOps mode F) env ctx holes stable cs st
+      (ConLeche.nestMemberCtors (fueledOpsM mode) env ctx holes cs st).val F
+        = ConLeche.nestMemberCtors (fueledOps mode F) env ctx holes cs st
   | [], _ => rfl
   | c :: cs, st => by
     unfold ConLeche.nestMemberCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, FueledM.atF_throw,
       nestNoMemberConst_datF, unwrapOr_atF, nestMemberCtor_datF,
-      nestMemberCtors_datF env ctx holes stable F cs]
+      nestMemberCtors_datF env ctx holes F cs]
 
-/-- The constructor stage's stored form (`nestNormCtor`) at fuel `F`. -/
-theorem nestNormCtor_datF (env : Env) (ctx : ConLeche.NestCtx) (nF : Nat)
-    (cvC cvCa : ConstantVal) (F : Nat) :
-    (ConLeche.nestNormCtor (fueledOpsM mode) env ctx nF cvC cvCa).val F =
-      ConLeche.nestNormCtor (fueledOps mode F) env ctx nF cvC cvCa := by
-  unfold ConLeche.nestNormCtor
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, checkConstantVal_datF, nestMemberCtors_datF]
-
-theorem checkSumCtor_datF (env₀ env : Env) (ctx : ConLeche.NestCtx) (T : Name) (lps : List Name)
+theorem checkSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) (F : Nat) :
-    (checkSumCtor (fueledOpsM mode) env₀ env ctx T lps nP nIdx rs isProp large
+    (checkSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
       cvC nF cvTa).val F =
-      checkSumCtor (fueledOps mode F) env₀ env ctx T lps nP nIdx rs isProp large
+      checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
         cvC nF cvTa := by
   unfold checkSumCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, nestNormCtor_datF,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
     checkStructFieldSortsI_datF, checkStructDomsAt_datF]
 
-theorem checkSumCtors_datF (env₀ env : Env) (ctx : ConLeche.NestCtx) (T : Name) (lps : List Name)
+theorem checkSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkSumCtors (fueledOpsM mode) env₀ env ctx T lps nP nIdx rs isProp large
+      (checkSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
         cvTa cs).val F =
-        checkSumCtors (fueledOps mode F) env₀ env ctx T lps nP nIdx rs isProp large
+        checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
           cvTa cs
   | [] => rfl
   | c :: cs => by
     unfold checkSumCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtor_datF,
-      checkSumCtors_datF env₀ env ctx T lps nP nIdx rs isProp large cvTa F cs]
+      checkSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
 
 /-! ### The direct recursive install (task #188) -/
 
@@ -960,16 +951,16 @@ theorem checkBlockInds_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat
   · simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockTele_datF,
       checkBlockTeles_datF, checkBlockAgree_datF]
 
-theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape) (ctx : ConLeche.NestCtx)
+theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape)
     (F : Nat) :
     ∀ l : List (MemberShape × ConstantVal),
-      (checkBlockCtors (fueledOpsM mode) env₀ env p ctx l).val F =
-        checkBlockCtors (fueledOps mode F) env₀ env p ctx l
+      (checkBlockCtors (fueledOpsM mode) env₀ env p l).val F =
+        checkBlockCtors (fueledOps mode F) env₀ env p l
   | [] => rfl
   | (ms, cvTa) :: rest => by
     unfold checkBlockCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
-      checkBlockCtors_datF env₀ env p ctx F rest]
+      checkBlockCtors_datF env₀ env p F rest]
 
 theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
     ∀ l : List (MemberShape × ConstantVal),
@@ -1245,9 +1236,9 @@ theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (block : List ConstantI
   rfl
 
 theorem checkBlockRec_datF (env : Env) (p : BlockParts) (block : List ConstantInfo)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env p block cvTas ctorsAs).val F =
-      checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs := by
+    (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockRec (fueledOpsM mode) env p block cvTas ctorsAs ctorsN).val F =
+      checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs ctorsN := by
   unfold checkBlockRec thenConform
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecT_datF,
     checkBlockRecConform_datF]
@@ -1270,17 +1261,17 @@ theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
     · exact checkBlockTables_datF p F rest env
 
 theorem nestBlockCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
-    (stable : Bool) (F : Nat) :
+    (F : Nat) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : ConLeche.NestState),
-      (ConLeche.nestBlockCtors (fueledOpsM mode) env ctx holes stable css st).val F
-        = ConLeche.nestBlockCtors (fueledOps mode F) env ctx holes stable css st
+      (ConLeche.nestBlockCtors (fueledOpsM mode) env ctx holes css st).val F
+        = ConLeche.nestBlockCtors (fueledOps mode F) env ctx holes css st
   | [], _ => rfl
   | cs :: css, st => by
     unfold ConLeche.nestBlockCtors
     simp only [FueledM.atF_bind, nestMemberCtors_datF]
     congr 1
     funext q
-    simp only [FueledM.atF_bind, FueledM.atF_pure, nestBlockCtors_datF env ctx holes stable F css]
+    simp only [FueledM.atF_bind, FueledM.atF_pure, nestBlockCtors_datF env ctx holes F css]
 
 theorem nestedBlockPositivity_datF (env : Env) (ctx : ConLeche.NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) (F : Nat) :

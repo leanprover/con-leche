@@ -110,9 +110,9 @@ def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool
     let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
-/-- Stage 2, one constructor's type: the ordinary constant check, the
-stored form the positivity function normalises it to (`nestNormCtor`,
-at the block's positivity context `ctx`), the annotated result shape (the family at the parameters followed by
+/-- Stage 2, one constructor's type: the ordinary constant check (the
+constructor is stored AS DECLARED, lane ALPHA1), the annotated result
+shape (the family at the parameters followed by
 `nIdx` index expressions), the parameter pins against the type
 former's opened telescope, the pre-block resolution of the field
 domains, and the per-field universe bound (`checkStructCtor`, the
@@ -123,11 +123,10 @@ not mention each other — and the block conses them afterwards
 (`checkSum`).  Returns the annotated constructor and its fields'
 sorts (task #210 Part A: the projection table's guard levels at a
 structure-like block on the fixpoint route are computed from them). -/
-def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (ctx : NestCtx) (T : Name)
+def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa₀ ← checkConstantVal ops env cvC
-  let cvCa ← nestNormCtor ops env ctx nF cvC cvCa₀
+  let cvCa ← checkConstantVal ops env cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result
@@ -162,15 +161,15 @@ def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (ctx : NestCtx) (T : Na
 /-- Stage 2, all constructors' types, at the environment holding the
 type former; returns the annotated constructors with their field
 counts, and beside them the constructors' field sorts. -/
-def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (ctx : NestCtx) (T : Name)
+def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtor ops env₀ env ctx T lps nP nIdx resSort isProp large c.1 c.2
+    let (cvCa, sorts) ← checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtors ops env₀ env ctx T lps nP nIdx resSort isProp large cvTa cs
+    let (rest, srest) ← checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- The constructors' conses, in order (the first constructor deepest). -/
