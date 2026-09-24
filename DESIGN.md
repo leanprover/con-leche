@@ -85718,3 +85718,99 @@ allowlisted, pub-imports none demotable, nested-shadow 82/82,
 target-shadow 317/317, axioms pinned, arena 90/92, e2e 301/301, sweeps);
 K5 verdict-neutral: arena `--target-shadow` 737 lines and init-full 585
 lines identical to K4's.  No `sorry`, no new axioms.
+
+#### LANDED (lane CONTSEM, session 1, 2026-09-24): the clause's M1/M3/M4, the applied-hole agreement, and the frame-hole order made satisfiable
+
+NESTPLAN L3 ("`ContSem`"), first checkpoint: the clause additions R23
+found necessary, produced at every install and consumed by proofs; no
+kernel change, so no verdict can move.  Charter items 3 and 4 are the
+target; this checkpoint is their clause side.  Full report and the resume
+plan: `_tmp/uniform-inds/CONTSEM.md`.
+
+- **Finding — POSPROOF's frame-hole order was unsatisfiable.**
+  `HoleRel.frame` asked `HoleOnBlind`: a frame hole's values grow at
+  ARBITRARY parameter spines.  A hole value satisfying its type (the
+  container's former type) is a graph, and a graph applied off its domain
+  is `∅` (`app_lamR_of_not_mem`), so the smaller side could be inhabited
+  where the larger is empty: no relation with a non-trivial frame hole
+  was a `HoleRel`.  Restated as `HoleOnArgs` (`Semantics/Inductives/HoleMono.lean`):
+  the hole grows applied to the readings of the KEY'S OWN parameter terms
+  (what `nestPos` checks syntactically, `args.take |ds| == key.ds`) and any
+  indices.  `HoleRel` gains `m φ` (it reads the key's parameters) and
+  `dsScoped`; `nestPos_sem` is unchanged in shape.
+- **M1** (`LfpClause.parsLen`/`parsSat`): each member's own parameter
+  telescope is the block's length and satisfied where it is (was a
+  `BlockHoleFacts` field only).
+- **M3** (`LfpClause.holeApp`, `LfpDatum.HolesApplied`;
+  `Semantics/Inductives/HoleApp.lean`): every hole occurrence in the fields
+  and result indices heads a spine whose first `nP` arguments are the
+  parameters (`HoleApp`).  Consumer: `interp_congr_holeApp` /
+  `spineFit_congr_holeApp` — such a term reads the same at frames that
+  agree off the holes and at each hole APPLIED TO THE PARAMETER VALUES and
+  anything after (`HoleAgree`); `hfits_iff_of_holeAgree`
+  (`Model/Annot/BlockLfpTup.lean`).  Uniform producer `blockHolesApplied`
+  (`absField`'s recursive arm is `paramBvarsAt` + lifted indices), pinned
+  producer in `lfp0_clause` (`Nat.succ`'s field is the bare hole).
+- **M4** (`LfpReads`, the third conjunct of `EnvModelM.lfp_ok`): a
+  recorded member's stored type reads as the graph-regime Π-tower over its
+  hole telescope (`pars ++ ids`) ending in the block's sort.  Expr-level,
+  so it is transported by a successful reading of a stored former's type
+  (`lfp_ok_transport`'s new `hread`: the cons crossing `hcompM`, the swap's
+  `denoteMeta_swap`).  Producers: uniform from `FormerData.read`
+  (`DeclBlock.lean`), pinned `lfp0_reads`.  Consumers
+  (`Model/Annot/LfpFormer.lean`): `former_app_eq` — a recorded former,
+  applied to the frame's parameters and then ANYTHING, is its hole value
+  at the carrier so applied (both inhabit the type's tower; they agree on
+  every fitting index spine by `leaf` and `holeVal_app`; tower
+  extensionality `eq_of_mem_mkPisAV_pos`); `holeVal_mem_type` (a hole value
+  inhabits its member's type: the container frame hole's context entry);
+  `holeAgree_instance` (a container instance's frame — the abstracted
+  group's slots holding hole values, the others formers — agrees with the
+  hole frame of the tuple that is `Y` on the group, the carrier elsewhere).
+- **M2 (`readsAbs`) is NOT in yet**: it is the Expr link between the
+  fields and the member-abstracted constructor type, and lands with the
+  substitution law that consumes it (resume plan step 1).
+
+**Open for `ContSem`** (CONTSEM.md §"What ContSem still needs"): M2 + the
+substitution law; per-key typing (kernel, Q-J); the cache (recommended:
+hits only on keys whose parameters mention no FRAME hole — a frame-hole
+key cached under one frame can be hit under a later frame that reuses the
+hole's index and type with other parameters, skipping the uniformity
+check; the restriction makes the cache invariant prog-independent); the
+frame relation by truncation; Bekić over the frame's group; **G1 (new):
+a frame's group lies inside ONE recorded block** — true by install order,
+recorded nowhere; cheapest via N2 (`all` on `.indInfo`) and a decline at
+restart; coverage (L8) as a named premise.
+
+Gates (at `10a4f004`): `lake build`/`lake test` EXIT 0, 0 warnings;
+`tests/arena.sh` EXIT 0 (shake 483/483 allowlisted, pub-imports none
+demotable, nested-shadow 82/82, target-shadow 317/317, axioms pinned,
+arena 90/92, e2e 301/301, DAG-tower 14/14, trusted/jobs sweeps as
+expected).  No kernel change; no `sorry`, no new axioms.
+
+#### LANDED (lane CONTSEM, session 1 addendum): the group case at the set level; finding M2′
+
+- `lfpTuple_le_on` (`SetModel/HoleClose.lean`) and
+  `LfpClause.carrier_le_on_group` (`Model/Annot/BlockLfpMono.lean`): a
+  container frame abstracts only the reached part `G` of its group, the
+  other members read concretely (held at the SMALLER carrier); if every
+  `G`-constructor fitting at the smaller parameter frame with the
+  `G`-holes at the larger carrier fits at the larger frame's carrier, the
+  smaller carrier lies below the larger on `G`.  Induction at the
+  separation "on `G`, inside the larger carrier" — no generalised Bekić
+  is needed (NESTPLAN L3's "Bekić over the SCC" step is retired).  The
+  remaining premise `hwalk` is what the frame walk delivers through the
+  substitution law.
+- **Finding M2′:** the walk abstracts a container's members at the
+  instantiation's levels `us` (`sub` tests `us' == us`); the recorded
+  reading (M2, to come) abstracts them at `lps.map .param`.  A member
+  occurrence at OTHER levels that instantiate to `us` would be a hole on
+  one side only.  Today such an occurrence can survive `nestPos` inside a
+  nested key's PARAMETERS (`nestCont` checks loose bvars and the fvar
+  bound, not member constants: a phantom container `P (A : Type) | mk`
+  and a field `P (C.{v} α)`).  Proposed: `nestCont` rejects a member
+  constant in the key's parameters (measure verdict-neutrality first),
+  after which a successful walk certifies that the walked term has no
+  member constant left.
+
+Gates (at `d2686a72`): see the landing line in CONTSEM.md.

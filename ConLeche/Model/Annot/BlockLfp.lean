@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Tower.FixLeafI
+public import ConLeche.Semantics.Inductives.HoleApp
 public section
 
 /-!
@@ -215,6 +216,16 @@ index tuple of the component. -/
     ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
       D.fits ψ ρp X t c j fs ↔ D.HFits ψ ρp X t c j fs
 
+/-- **The holes occur only applied to the parameters** (lane CONTSEM,
+R23's M3) in component `c`'s constructor `j`'s field readings (field `l`
+below the `l` earlier fields) and result index readings (below all of
+them): the fact that lets a container's instantiation read the fields
+at a frame whose member slots hold group-mates' formers or frame holes
+(`interp_congr_holeApp`). -/
+@[expose] def HolesApplied (ψ : Name → Nat) (c j : Nat) : Prop :=
+  (∀ l F, (D.fields ψ c j)[l]? = some F → HoleApp D.k (D.params ψ).length l F) ∧
+  ∀ e ∈ D.resIdx ψ c j, HoleApp D.k (D.params ψ).length (D.fields ψ c j).length e
+
 end LfpDatum
 
 /-! ## The hole values -/
@@ -301,6 +312,14 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
     SpineFit ρ (D.params ψ) as → t ∈ˢ D.idx ψ (consList as ρ) c →
     D.HFits ψ (consList as ρ) (D.carrier ψ (consList as ρ)) t c j fs →
     (as ++ fs).foldl app (interp V ρ (acval (D.ctorName c j) ψ)) = D.inj ψ c j fs
+  /-- **each member's own parameter telescope is the block's** (R23's M1):
+  as long, and satisfied where the block's is — what `holeVal_app` needs
+  to read a hole applied to the block's parameters -/
+  parsLen : ∀ mm, mm < D.k → ∀ ψ : Name → Nat, (D.pars mm ψ).length = (D.params ψ).length
+  parsSat : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V (D.params ψ).reverse ρ → Sat V (D.pars mm ψ).reverse ρ
+  /-- **the holes occur only applied to the parameters** (R23's M3) -/
+  holeApp : ∀ (ψ : Name → Nat) c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j
 
 namespace LfpClause
 
@@ -322,6 +341,9 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   mkInj := h.mkInj
   ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
     rw [hagC c hc j hf.1]; exact h.ctor c hc j ψ ρ as fs t hsa ht hf
+  parsLen := h.parsLen
+  parsSat := h.parsSat
+  holeApp := h.holeApp
 
 /-- **The clause at a universe instantiation**: the leaf at the
 assignment a use `.const (D.member mm) us` under `φ` reads —

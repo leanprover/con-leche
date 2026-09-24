@@ -148,7 +148,8 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       fs.length = (flds j).length → fs'.length = (flds j').length →
       inj j fs = inj j' fs' → j = j' ∧ fs = fs')
     (hctor : ∀ j, j < n → ∀ (ψ : Name → Nat) (ρ : Nat → V) (fs : List V),
-      SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs) :
+      SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs)
+    (hflds : ∀ j l F, (flds j)[l]? = some F → HoleApp 1 0 l F) :
     LfpClause acval (lfp0 nm w F fits inj n cn flds) where
   kN := Nat.le_refl 1
   functor := fun ψ ρp _ => by
@@ -198,6 +199,9 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       rw [lfp0_frame, consList_nil, lfp0_carrier hmono (hCu ψ) (hC ψ) (hleast ψ)] at this
       exact this
     exact hctor j hj ψ ρ fs hsp'
+  parsLen := fun _ _ _ => rfl
+  parsSat := fun _ _ _ ρ _ => Sat_nil V ρ
+  holeApp := fun _ _ _ j _ => ⟨hflds j, fun _ he => nomatch he⟩
 
 end Lfp0
 
@@ -223,6 +227,7 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ _ _ _ => rfl)
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
+    (fun _ _ _ h => nomatch h)
 
 /-! ## `PUnit`: one constructor, no field -/
 
@@ -260,6 +265,7 @@ theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn :
     (fun j _ ψ ρ fs hsp => by
       obtain rfl := spineFit_nil_iff.mp hsp
       exact hctor ψ ρ)
+    (fun _ _ _ h => nomatch h)
 
 /-! ## `Nat`: zero and successor -/
 
@@ -402,6 +408,15 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
           show app (interp V ρ (acval (if (1 : Nat) = 0 then zn else sn) ψ)) m = natInj 1 [m]
           rw [if_neg (by decide), hsucc, natSuccV_app (V := V) hm]
           simp [natInj, natsucc])
+    (fun j l F h => by
+      unfold natFlds at h
+      split at h
+      · exact nomatch h
+      · match l, h with
+        | 0, h =>
+          obtain rfl := Option.some.inj h
+          exact HoleApp.hole (h := 0) (rest := []) (Nat.le_refl 0) Nat.one_pos
+            (fun _ hr => nomatch hr))
 
 /-! ## Recording a pinned block at its install -/
 
@@ -412,10 +427,23 @@ adds the block's clause, whose leaf is the former's pinned leaf. -/
 theorem nonempty_addLfp_of_exists {μ : ConLeche.CheckMode} {env : ConLeche.Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {c₀ : ConLeche.ConstantInfo}
     (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, mp'.base2.acval = acval)
-    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D) :
+    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D)
+    (hrd : LfpReads acval ⟨c₀ :: env.consts⟩ D) :
     Nonempty (EnvModelM V μ ⟨c₀ :: env.consts⟩) := by
   obtain ⟨mp', hac⟩ := h
-  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst⟩
+  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst (by rw [hac]; exact hrd)⟩
+
+/-- **A one-member unparameterized unindexed block's former reads as its
+sort** (M4: the hole telescope is empty). -/
+theorem lfp0_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}
+    {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps} {nm : Name} {w : (Name → Nat) → Nat}
+    {F : V → V} {fits : V → Nat → List V → Prop} {inj : Nat → List V → V} {n : Nat}
+    {cn : Nat → Name} {flds : Nat → List AnnotTerm}
+    (hf : env.find? nm = some (.indInfo cv caps))
+    (hty : ∀ ψ, denoteMeta acval env ψ 0 cv.type = some (.sort (w ψ))) :
+    LfpReads acval env (lfp0 nm w F fits inj n cn flds) := fun mm hmm => by
+  obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+  exact ⟨cv, caps, hf, fun ψ => ⟨[], hty ψ, rfl, fun _ h => nomatch h⟩⟩
 
 /-- A one-member block without constructors is stored once its former is
 the head of the cons. -/

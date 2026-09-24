@@ -186,6 +186,38 @@ theorem leaf_le_of_holes (h : LfpClause acval D) {mm : Nat} (hmm : mm < D.k)
   h.leaf_le_of_carrier_le hmm hsa hsa' hsi hsi'
     (h.carrier_le_of_holes hs hs' hidx R hR hpos)
 
+open Classical in
+/-- **The container case at a frame's GROUP** (lane CONTSEM): a container
+frame abstracts only the reached part `G` of its group, the other members
+read concretely — at the SMALLER parameter frame they hold the smaller
+carrier.  If every constructor of a member of `G` whose fields fit at the
+smaller parameter frame, with the `G`-holes at the larger carrier and the
+rest at the smaller one, fits at the larger parameter frame's carrier
+(what the frame walk's positivity delivers), then the smaller carrier
+lies below the larger on `G` (`lfpTuple_le_on`: induction, no Bekić). -/
+theorem carrier_le_on_group (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp' : Nat → V}
+    (hs : Sat V (D.params ψ).reverse ρp) (hs' : Sat V (D.params ψ).reverse ρp')
+    (hidx : D.idx ψ ρp = D.idx ψ ρp') (G : Nat → Prop)
+    (hwalk : ∀ g, g < D.N → G g → ∀ t, t ∈ˢ D.idx ψ ρp g → ∀ j fs,
+      D.HFits ψ ρp (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) t g j fs →
+      D.HFits ψ ρp' (D.carrier ψ ρp') t g j fs) :
+    ∀ g, g < D.N → G g → FamLe (D.idx ψ ρp g) (D.carrier ψ ρp g) (D.carrier ψ ρp' g) := by
+  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hs
+  have hL' : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) (D.carrier ψ ρp') := by
+    rw [hidx]; exact lfpTuple_mem _ _ _ _
+  refine lfpTuple_le_on hcl hmono G hL' fun g hg hG t ht x hx => ?_
+  have hZ : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp)
+      (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) := by
+    intro m hm
+    by_cases hGm : G m
+    · simp only [if_pos hGm]; exact hL' m hm
+    · simp only [if_neg hGm]; exact lfpTuple_mem _ _ _ _ m hm
+  obtain ⟨j, fs, hf, rfl⟩ := (h.fibre_holes hs hZ hg ht x).mp hx
+  have hf' := hwalk g hg hG t ht j fs hf
+  rw [← h.carrier_eq hs' hg]
+  exact (h.fibre_holes hs' (lfpTuple_mem _ _ _ _) hg (by rw [← hidx]; exact ht) _).mpr
+    ⟨j, fs, hf', rfl⟩
+
 end LfpClause
 
 /-! ## D2: an unreached member -/

@@ -36,6 +36,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.SetTheory
 open SetTheory
+open ConLeche.SetTheory.Tower (projS)
 
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Name Level)
@@ -112,6 +113,76 @@ theorem frame_param {ψ : Name → Nat} {ρp X : Nat → V} (i : Nat) :
   unfold frame
   have := consList_apply_add ((List.range D.k).map (D.holeVal ψ ρp X)) ρp i
   simpa using this
+
+
+/-- The hole frame's parameter values are the parameter frame's. -/
+theorem holeParamVals_frame (ψ : Name → Nat) (ρp X : Nat → V) (nP : Nat) :
+    holeParamVals D.k nP 0 (D.frame ψ ρp X) = frameIdx nP ρp := by
+  unfold holeParamVals frameIdx LfpDatum.frame
+  refine List.map_congr_left fun p hp => ?_
+  have hp' := List.mem_range.mp hp
+  have hlen : ((List.range D.k).map (D.holeVal ψ ρp X)).length = D.k := by simp
+  rw [show 0 + D.k + nP - 1 - p = (nP - 1 - p) + ((List.range D.k).map (D.holeVal ψ ρp X)).length
+    by rw [hlen]; omega, consList_apply_add]
+
+/-- **A frame agreeing with the hole frame at the holes**: the parameter
+frame below, and member slots whose values, applied to the parameters
+and anything, are the hole values'. -/
+theorem holeAgree_frame {ψ : Name → Nat} {ρp X : Nat → V} {nP : Nat} {vs : List V}
+    (hlen : vs.length = D.k)
+    (hv : ∀ m (hm : m < D.k) (is : List V), (frameIdx nP ρp ++ is).foldl app (D.holeVal ψ ρp X m)
+      = (frameIdx nP ρp ++ is).foldl app (vs[m]'(by rw [hlen]; exact hm))) :
+    HoleAgree D.k nP 0 (D.frame ψ ρp X) (consList vs ρp) := by
+  have hlenF : ((List.range D.k).map (D.holeVal ψ ρp X)).length = D.k := by simp
+  refine ⟨fun i hi => ?_, fun h _ h2 is => ?_⟩
+  · obtain ⟨i', rfl⟩ : ∃ i', i = i' + D.k := ⟨i - D.k, by omega⟩
+    have e1 := consList_apply_add ((List.range D.k).map (D.holeVal ψ ρp X)) ρp i'
+    rw [hlenF] at e1
+    have e2 := consList_apply_add vs ρp i'
+    rw [hlen] at e2
+    show consList _ ρp (i' + D.k) = consList vs ρp (i' + D.k)
+    rw [e1, e2]
+  · rw [holeParamVals_frame]
+    obtain ⟨m, hm, rfl⟩ : ∃ m, m < D.k ∧ h = D.k - 1 - m := ⟨D.k - 1 - h, by omega, by omega⟩
+    rw [frame_hole (ψ := ψ) (ρp := ρp) (X := X) hm, hv m hm is, consList_getD_of_lt vs ρp _ (by rw [hlen]; omega)]
+    have hidx : vs.length - 1 - (D.k - 1 - m) = m := by rw [hlen]; omega
+    rw [hidx, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlen]; exact hm)]
+    rfl
+
+/-- **The hole fit, at an agreeing frame**: a spine fits a constructor's
+fields with holes at the hole frame exactly when it fits them at any
+frame agreeing with it at the holes (M3), its result index readings
+likewise. -/
+theorem hfits_iff_of_holeAgree {ψ : Name → Nat} {ρp X : Nat → V} {c j : Nat}
+    (hha : D.HolesApplied ψ c j) {σ : Nat → V}
+    (hag : HoleAgree D.k (D.params ψ).length 0 (D.frame ψ ρp X) σ) {t : V} {fs : List V} :
+    D.HFits ψ ρp X t c j fs ↔
+      (j < D.nctors c ∧ SpineFit σ (D.fields ψ c j) fs ∧
+        ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
+          interp V (consList fs σ) e = projS l t) := by
+  have hsp : SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs ↔ SpineFit σ (D.fields ψ c j) fs :=
+    spineFit_congr_holeApp _ (fun l F h => by simpa using hha.1 l F h) hag fs
+  unfold HFits
+  constructor
+  · rintro ⟨hj, hs, hr⟩
+    refine ⟨hj, hsp.mp hs, fun l hl => ?_⟩
+    obtain ⟨e, he, heq⟩ := hr l hl
+    refine ⟨e, he, ?_⟩
+    rw [← heq]
+    have hfl : fs.length = (D.fields ψ c j).length := hs.length_eq
+    have hag' := hag.consList fs
+    rw [Nat.zero_add, hfl] at hag'
+    exact (interp_congr_holeApp (hha.2 e (List.mem_of_getElem? he)) hag').symm
+  · rintro ⟨hj, hs, hr⟩
+    refine ⟨hj, hsp.mpr hs, fun l hl => ?_⟩
+    obtain ⟨e, he, heq⟩ := hr l hl
+    refine ⟨e, he, ?_⟩
+    rw [← heq]
+    have hfl : fs.length = (D.fields ψ c j).length := hs.length_eq
+    have hag' := hag.consList fs
+    rw [Nat.zero_add, hfl] at hag'
+    exact interp_congr_holeApp (hha.2 e (List.mem_of_getElem? he)) hag'
+
 
 /-- **The frames agree off the member holes.** -/
 theorem tupRel_agreeOff {ψ : Name → Nat} {ρp : Nat → V} {σ σ' : Nat → V}

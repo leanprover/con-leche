@@ -91,6 +91,8 @@ theorem extendEmpty (mp : EnvModelM V μ env)
   -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
   refine nonempty_addLfp_of_exists (D := emptyLfp emptyName 1)
     (hL := emptyLfp_clause 1 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
+    (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
+      (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
     (declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h)

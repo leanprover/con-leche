@@ -517,6 +517,8 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
       (fun j hj => ⟨_, _, _, by
         show (⟨punitUnitA :: env.consts⟩ : ConLeche.Env).find? punitUnitA.name = _
         rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
+    (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
+      (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
     (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
@@ -996,6 +998,8 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
         · exact ⟨_, _, _, by
             show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natSuccA.name = _
             rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
+    (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
+      (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
     (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)

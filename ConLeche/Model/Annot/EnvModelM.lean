@@ -77,6 +77,21 @@ clause, whose `leaf` and `ctor` read the leaf valuation at those names
   ∀ c, c < D.N → ∀ j, j < D.nctors c →
     ∃ cv nP nF, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF)
 
+/-- **A recorded block's formers read as its hole telescopes** (lane
+CONTSEM, M4): member `mm`'s stored type reads, at every level
+assignment, as the Π-tower over its own parameters and indices (the
+binders of its hole value, `LfpDatum.holeVal`) ending in the block's
+sort, every binder in the graph regime.  What makes a container's frame
+hole — the hole value at the container's instantiation — inhabit the
+container's type (the walk's context), and a group-mate's former agree
+with its hole value applied to the frame's parameters. -/
+@[expose] def LfpReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
+    (env : Env) (D : LfpDatum V) : Prop :=
+  ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+    ∀ ψ : Name → Nat, ∃ ab : List (Nat × Nat × AnnotTerm),
+      denoteMeta acval env ψ 0 cv.type = some (mkPisAV ab (.sort (D.w ψ))) ∧
+      ab.map (·.2.2) = D.pars mm ψ ++ D.ids mm ψ ∧ ∀ d ∈ ab, d.2.1 ≠ 0
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvModelM (μ : CheckMode) (env : Env) where
@@ -163,7 +178,8 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   whose fibres are the constructors' injections; and its members are
   stored inductive formers (which is what lets every extension
   transport the clause: an extension never re-reads a stored name) -/
-  lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧ LfpStored env D
+  lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧ LfpStored env D ∧
+    LfpReads base2.acval env D
 
 namespace EnvModelM
 
@@ -310,20 +326,21 @@ step (`declBlock`, at the constructors' environment).  Everything but
 the recorded list is unchanged, so `(mp.addLfp …).base2 = mp.base2`
 definitionally. -/
 @[expose] def addLfp (mp : EnvModelM V μ env) (D : LfpDatum V)
-    (hL : LfpClause mp.base2.acval D) (hst : LfpStored env D) :
+    (hL : LfpClause mp.base2.acval D) (hst : LfpStored env D)
+    (hrd : LfpReads mp.base2.acval env D) :
     EnvModelM V μ env :=
   { mp with
     lfpBlocks := D :: mp.lfpBlocks
     lfp_ok := fun D' hD' => by
       rcases List.mem_cons.mp hD' with rfl | h
-      · exact ⟨hL, hst⟩
+      · exact ⟨hL, hst, hrd⟩
       · exact mp.lfp_ok D' h }
 
-theorem addLfp_base2 (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) :
-    (mp.addLfp D hL hst).base2 = mp.base2 := rfl
+theorem addLfp_base2 (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) :
+    (mp.addLfp D hL hst hrd).base2 = mp.base2 := rfl
 
-theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) :
-    D ∈ (mp.addLfp D hL hst).lfpBlocks := List.mem_cons_self
+theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) :
+    D ∈ (mp.addLfp D hL hst hrd).lfpBlocks := List.mem_cons_self
 
 /-- A recorded block's clause, read off the carrier. -/
 theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
@@ -331,19 +348,23 @@ theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ 
   (mp.lfp_ok D hD).1
 
 /-- **The recorded clauses cross an environment extension** that keeps
-every stored inductive former and its leaf — the transport every
-construction site of the invariant (the cons funnel, the rule-list
-swap) instantiates. -/
+every stored inductive former and its leaf, and every successful reading
+of a stored former's type — the transport every construction site of
+the invariant (the cons funnel, the rule-list swap) instantiates. -/
 theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     {acval' : Name → (Name → Nat) → AnnotTerm}
     (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env'.find? n = some ci)
     (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      acval' n = mp.base2.acval n) :
-    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D := by
+      acval' n = mp.base2.acval n)
+    (hread : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ∀ (ψ : Name → Nat)
+      (ta : AnnotTerm), denoteMeta mp.base2.acval env ψ 0 cv.type = some ta →
+      denoteMeta acval' env' ψ 0 cv.type = some ta) :
+    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D := by
   intro D hD
-  obtain ⟨hL, hst, hstC⟩ := mp.lfp_ok D hD
-  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_), fun mm hmm => ?_, fun c hc j hj => ?_⟩
+  obtain ⟨hL, ⟨hst, hstC⟩, hrd⟩ := mp.lfp_ok D hD
+  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_),
+    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
@@ -352,6 +373,10 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
     exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+  · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
+    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
+    obtain ⟨ab, hta, h1, h2⟩ := hab ψ
+    exact ⟨ab, hread _ _ _ hf ψ _ hta, h1, h2⟩
 
 end EnvModelM
 
