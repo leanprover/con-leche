@@ -806,19 +806,19 @@
 == ConLeche/Model/Inductives/BlockDeclRun.lean#L1746
   1746  theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
-== ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
-    68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
-    69      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    70      (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
-    71      (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
-    72      let cvt ← unwrapOr
-    73          (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
-    74          (.notImplemented s!"missing iota theorem for {cvName}")
-    75      unless cvt.levelParams = lps do
-    76        throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
-    77      -- open the theorem's telescope: params, motives, minors, fields
-    78      let depth := rP + cnF
-    79      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
+== ConLeche/Kernel/Inductives/Modeled.lean#L347-L358
+   347  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
+   348      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+   349      (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+   350      (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
+   351      let cvt ← unwrapOr
+   352          (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
+   353          (.notImplemented s!"missing iota theorem for {cvName}")
+   354      unless cvt.levelParams = lps do
+   355        throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
+   356      -- open the theorem's telescope: params, motives, minors, fields
+   357      let depth := rP + cnF
+   358      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
 
 == ConLeche/Frontend/InModel/Kit.lean#L7-L15
      7  /-!
@@ -831,77 +831,77 @@
     14    generators' streams are diffable — none of these names is special to
     15    the checker: only the public `_model` slots are consumed, and only
 
-== ConLeche/Frontend/InModel/Nested.lean#L47-L54
-    47  Declines (the residual): a field mentioning the block other than as a
-    48  whole member/mimic carrier (an occurrence under a binder — infinitary
-    49  nesting), a container that is itself nested or mutual or whose mimics
-    50  form a cycle (B4), a reflexive member, a `Prop` block with a large
-    51  eliminator, a container field a later container field depends on, an
-    52  index domain whose sort not even a ceiling bounds (`Kit.sortCeil`,
-    53  task #227).  (Members' parameter telescopes and sorts are not
-    54  compared: task #218, `Mutual.lean`'s header.)
+== ConLeche/Frontend/InModel/Nested.lean#L48-L55
+    48  Declines (the residual): a field mentioning the block other than as a
+    49  whole member/mimic carrier (an occurrence under a binder — infinitary
+    50  nesting), a container that is itself nested or mutual or whose mimics
+    51  form a cycle (B4), a reflexive member, a `Prop` block with a large
+    52  eliminator, a container field a later container field depends on, an
+    53  index domain whose sort not even a ceiling bounds (`Kit.sortCeil`,
+    54  task #227).  (Members' parameter telescopes and sorts are not
+    55  compared: task #218, `Mutual.lean`'s header.)
 
-== ConLeche/Kernel/CoreDefs.lean#L473-L481
-   473  /-- The certified structural-`Nat` operations.  Six of them
-   474  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   475  here without one — it has no fast path (official's `reduce_nat` folds
-   476  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   477  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   478  must be certified for `sub`'s literal fold to be sound. -/
-   479  def natOpNames : List Name :=
-   480    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   481     natBeqName, natBleName]
+== ConLeche/Kernel/CoreDefs.lean#L468-L476
+   468  /-- The certified structural-`Nat` operations.  Six of them
+   469  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   470  here without one — it has no fast path (official's `reduce_nat` folds
+   471  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   472  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   473  must be certified for `sub`'s literal fold to be sound. -/
+   474  def natOpNames : List Name :=
+   475    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   476     natBeqName, natBleName]
 
-== ConLeche/Kernel/CoreDefs.lean#L405-L422
-   405  /-! ## Structural-Nat literal acceleration
-   406  
-   407  The official kernel accelerates the structural `Nat` operations on
-   408  literals (GMP-backed there).  Here the fast path is *certified*: an
-   409  operation participates only when its defining recurrence equations
-   410  hold by definitional equality — checked once, at install: `checkDecl`
-   411  positively rejects a nonstandard definition under one of these names,
-   412  so *presence in the store is the certificate* (no runtime flag, no
-   413  re-checking; a reduction-time re-check would in fact livelock — the
-   414  certification's own `pred zero` equation re-enters the fast path).
-   415  
-   416  The certification runs in the environment *before* the operation is
-   417  stored, on the equations with the operation's self-references replaced
-   418  by its (annotated) definition value (`Expr.substConst0`): running it
-   419  after insertion would let the operation's own just-enabled fast path
-   420  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   421  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   422  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/CoreDefs.lean#L400-L417
+   400  /-! ## Structural-Nat literal acceleration
+   401  
+   402  The official kernel accelerates the structural `Nat` operations on
+   403  literals (GMP-backed there).  Here the fast path is *certified*: an
+   404  operation participates only when its defining recurrence equations
+   405  hold by definitional equality — checked once, at install: `checkDecl`
+   406  positively rejects a nonstandard definition under one of these names,
+   407  so *presence in the store is the certificate* (no runtime flag, no
+   408  re-checking; a reduction-time re-check would in fact livelock — the
+   409  certification's own `pred zero` equation re-enters the fast path).
+   410  
+   411  The certification runs in the environment *before* the operation is
+   412  stored, on the equations with the operation's self-references replaced
+   413  by its (annotated) definition value (`Expr.substConst0`): running it
+   414  after insertion would let the operation's own just-enabled fast path
+   415  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   416  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   417  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L110-L117
-   110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   111      List (Expr × Expr) → m Bool
-   112    | [] => pure true
-   113    | eq :: rest => do
-   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   115        certifyNatEqs ops env rest
-   116      else pure false
-   117  
+== ConLeche/Kernel/Checker.lean#L111-L118
+   111  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+   112      List (Expr × Expr) → m Bool
+   113    | [] => pure true
+   114    | eq :: rest => do
+   115      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   116        certifyNatEqs ops env rest
+   117      else pure false
+   118  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
 
-== ConLeche/Kernel/CoreDefs.lean#L483-L498
-   483  /-- The WF-recursive operations with a *pinned-declaration* certified
-   484  fast path: at install, `checkDecl` compares the stream's definition
-   485  against a vendored pin of the toolchain's own (helper-unfolded)
-   486  definition by definitional equality, and then checks the pinned
-   487  `Nat.ble`-guarded characterization certificates
-   488  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   489  installing them.  Presence in the store is therefore again the
-   490  capability: a stored operation under one of these names has passed pin
-   491  and certificates, or the install declined.  (The name is historic:
-   492  the family started with `Nat.div`/`Nat.mod` and now covers every
-   493  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   494  `Nat.log2` left the list when its fast path did, official folding no
-   495  unary operation but `Nat.succ`.) -/
-   496  def natDivModNames : List Name :=
-   497    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   498     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/CoreDefs.lean#L478-L493
+   478  /-- The WF-recursive operations with a *pinned-declaration* certified
+   479  fast path: at install, `checkDecl` compares the stream's definition
+   480  against a vendored pin of the toolchain's own (helper-unfolded)
+   481  definition by definitional equality, and then checks the pinned
+   482  `Nat.ble`-guarded characterization certificates
+   483  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   484  installing them.  Presence in the store is therefore again the
+   485  capability: a stored operation under one of these names has passed pin
+   486  and certificates, or the install declined.  (The name is historic:
+   487  the family started with `Nat.div`/`Nat.mod` and now covers every
+   488  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   489  `Nat.log2` left the list when its fast path did, official folding no
+   490  unary operation but `Nat.succ`.) -/
+   491  def natDivModNames : List Name :=
+   492    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   493     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module

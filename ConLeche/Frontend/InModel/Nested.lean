@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.InModel.Kit
+public import ConLeche.Kernel.Inductives.Modeled
 
 @[expose] public section
 

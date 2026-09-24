@@ -19,14 +19,293 @@ checks against the `_model.iota_j` theorems, the capability checks
 (`checkEtaThm`/`checkUnitThm`), and the projection-function/template
 installs.  The core checker (`ConLeche/Kernel/Core.lean`,
 `TypeChecker*`) never imports this module; `ConLeche/Kernel/Checker.lean`
-consumes it for `checkDecl`'s `indDecl` arm.  Verification:
-`ConLeche/Verify/Extend/*` and `ConLeche/Model/Ind*P.lean`.
+consumes it for `checkDecl`'s `indDecl` arm (the one kernel import of
+it).  Its index-threaded twins are `ModeledF.lean` beside it, its cached
+twins `ConLeche/Cached/ModeledC.lean`.  Verification:
+`ConLeche/Verify/Extend/*` and `ConLeche/Model/Ind*.lean`.
+
+**Modeller-only, by consumers** (lane SPLITMOD, 2026-09-24): a census
+of the dependency graph from the main theorems and the executable, cut
+at the modeled route's entry points, reaches nothing in this file, so
+deleting the modeller deletes the file whole (the record in DESIGN.md,
+"LANDED (lane SPLITMOD …)").
 -/
 
 namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
+
+/-! ## Helpers only the modeled route uses
+
+Gathered here by lane SPLITMOD (2026-09-24) from `CheckerBase`,
+`CoreDefs`, `Env` and `Level` (the in-process generator,
+`ConLeche/Frontend/InModel/Nested.lean`, imports this file for
+`projModelName`): the census by consumers found no
+consumer of any of them outside the modeled install, its fueled and
+cached twins (`ModeledF`, `Cached/ModeledC`) and their proofs, so they
+go when the modeller goes. -/
+
+/-- The model-side name of field `i`'s projection for `T`
+(the documented public interface of a `_model` family). -/
+def projModelName (T : Name) (i : Nat) : Name :=
+  (T.str "_model").str ("proj_" ++ toString i)
+
+/-- Is this a `_model`-suffixed name (the shape of model companions)? -/
+def Name.isModelSuffix : Name → Bool
+  | .str _ "_model" => true
+  | _ => false
+
+/-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
+right side viewed through `g` (identity, lifting, or renaming). -/
+def domsMatchAux (g : Nat → Expr → Expr)
+    (bs₁ bs₂ : List (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+  (List.range n).all fun i =>
+    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
+    | some b₁, some b₂ => b₁.1 == g i b₂.1
+    | _, _ => false
+
+/-- `domsMatchAux` over arrays (equal to it at `List.toArray`:
+`domsMatchAuxA_eq`) — positional list indexing is linear per access,
+which made the binder-domain comparison quadratic on wide
+telescopes. -/
+def domsMatchAuxA (g : Nat → Expr → Expr)
+    (bs₁ bs₂ : Array (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+  (List.range n).all fun i =>
+    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
+    | some b₁, some b₂ => b₁.1 == g i b₂.1
+    | _, _ => false
+
+/-- Check each expression's inferred type against the corresponding
+expected type (definitionally); throws on a length mismatch.  Used to
+pin a nested rule's stored parameter instantiations to the
+constructor's parameter domains. -/
+def checkTypedList (ops : CheckerOps m) (env : Env) (depth : Nat) :
+    List Expr → List Expr → m Unit
+  | [], [] => pure ()
+  | a :: as, t :: ts => do
+    let ty ← ops.inferType env depth a
+    unless ← ops.isDefEq env depth ty t do
+      throw (.notImplemented "nested pin type mismatch")
+    checkTypedList ops env depth as ts
+  | _, _ => throw (.notImplemented "nested pin arity mismatch")
+
+/-- Check that each expression is a fixed point of the annotation pass
+in the given context: its codomain-sort annotations are exactly the
+ones annotation reconstructs.  Used to certify a nested rule's stored
+parameter instantiations (opened at the rule-prefix variables): the
+soundness layer needs their annotation truthfulness at the canonical
+frame, and index premises between the prefix and the major put them
+out of reach of the recursor-type walk. -/
+def checkAnnotList (ops : CheckerOps m) (env : Env) (depth : Nat) :
+    List Expr → m Unit
+  | [] => pure ()
+  | a :: as => do
+    let aA ← ops.annotate env depth a
+    unless aA == a do
+      throw (.notImplemented "nested pin annotation mismatch")
+    checkAnnotList ops env depth as
+
+/-- Is the expression the pinned equality former at one level? -/
+def isEqHead : Expr → Bool
+  | .const c [_ℓ] => c == eqName
+  | _ => false
+
+/-- The level an equality head carries — the statement's own `Eq.{ℓ}`
+level, read off a head `isEqHead` has accepted (task #146: the iota
+statements' type slot is certified to inhabit *this* sort).  Off shape
+it is `.zero`, which `isEqHead` has already rejected wherever the
+result is used. -/
+def eqHeadLevel : Expr → Level
+  | .const _ [ℓ] => ℓ
+  | _ => .zero
+
+/-- Pairwise definitional-equality check of two spines (throws on any
+mismatch, including a length difference). -/
+def checkDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) :
+    List Expr → List Expr → m Unit
+  | [], [] => pure ()
+  | a :: as, b :: bs => do
+    unless ← ops.isDefEq env depth a b do
+      throw (.notImplemented "iota statement component mismatch")
+    checkDefEqList ops env depth as bs
+  | _, _ => throw (.notImplemented "iota statement component arity")
+
+/-- Stage 2b: the projection type's parameter telescope is
+*syntactically* the constructor's, and the constructor's residual is
+the family applied to exactly the parameters — the syntactic pins the
+rule's total λ-equality derivation folds over (task #58; completeness-
+safe: both telescopes spell the family's parameter types, and a
+structure constructor targets the family at its parameters). -/
+def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
+  let some (_abinders, _) := pty.stripPis nP
+    | throw (.notImplemented "projection type telescope")
+  let some (_, cbody) := ctorTy.stripPis (nP + nF)
+    | throw (.notImplemented "projection constructor telescope")
+  unless cbody.getAppArgs.length == nP do
+    throw (.notImplemented "projection constructor residual arity")
+  match cbody.getAppFn with
+  | .const _ _ => pure ()
+  | _ => throw (.notImplemented "projection constructor residual head")
+
+/-- Stage 3: the reduction rule — λ over the constructor telescope
+returning field `i`, annotated; its λ-domains stay the constructor's. -/
+def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name)
+    (nP nF i : Nat) : m Expr := do
+  let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
+    | throw (.notImplemented "projection rule telescope")
+  unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
+    throw (.notImplemented "projection rule scoping")
+  let rhsA ← ops.annotate env' 0 rhs
+  unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve env' &&
+      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
+    throw (.notImplemented "projection rule wellformedness")
+  let some (rbinders, rrbody) := rhsA.stripLams (nP + nF)
+    | throw (.notImplemented "projection rule telescope")
+  unless rrbody == Expr.bvar (nF - 1 - i) do
+    throw (.notImplemented "projection rule body")
+  let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
+    | throw (.notImplemented "projection constructor telescope")
+  unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
+    throw (.notImplemented "projection rule domain mismatch")
+  -- the frame walks and the definitional parameter/domain pins
+  -- (task #58): the projection type's opened parameter annotations are
+  -- definitionally the constructor's instantiated parameter domains,
+  -- and the whole frame's annotations are definitionally the rule
+  -- λ-tower's instantiated domains
+  let some (fvsP, _) := openPisAtFvars nP pty 0
+    | throw (.notImplemented "projection type telescope")
+  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
+    | throw (.notImplemented "projection constructor telescope")
+  checkDefEqList ops env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
+  let some (xFvs, _) := openPisAtFvars nF crestP nP
+    | throw (.notImplemented "projection constructor telescope")
+  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
+    | throw (.notImplemented "projection rule telescope")
+  checkDefEqList ops env' (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
+    ldoms
+  let _rhsTy ← ops.inferType env' 0 rhsA
+  pure rhsA
+
+/-- **The stored rule of an installed projection function**: the
+degenerate recursor's single rule, at the constructor's arities and
+the generated right-hand side, with the two rescue bits stamped by
+`recRuleBits` (both are `false` at a projection function — its own
+rescue would loop — but the stamping is uniform, so the environment
+invariant reads the same way at every route).  The parameter
+comparison stays: the rule's law reads it. -/
+def projFnRule (find? : Name → Option ConstantInfo) (T ctorName : Name)
+    (pty : Expr) (nP nF i : Nat) (rhsA : Expr) : RecRule :=
+  recRuleBits find? (projFnName T i)
+    { ctor := ctorName, nfields := nF, ctorParams := nP,
+      fire := if Expr.recRulePlain pty nP nP nP then .plain else .inert,
+      rhs := rhsA, paramsBlind := false }
+
+@[simp] theorem projFnRule_ctor (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).ctor = ctorName := rfl
+
+@[simp] theorem projFnRule_rhs (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).rhs = rhsA := rfl
+
+@[simp] theorem projFnRule_nfields (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).nfields = nF := rfl
+
+@[simp] theorem projFnRule_ctorParams (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).ctorParams = nP := rfl
+
+/-! ## The block's recursor suffix, decided on the tags
+
+`checkModeled` (and its cached mirror) asks that a block's recursors
+form a SUFFIX of it, and it asks it as an equation between the block
+and its own stable partition — `block = nonrecs ++ recs`.  The
+statement is the one the fold consumes (`Semantics.DeclIndRun`'s first
+conjunct), so it stays; what changes here is the *decision*.  The
+derived `DecidableEq (List ConstantInfo)` compares every member's TYPE
+structurally, with no pointer shortcut and no memo, so a block whose
+constructor carries a DAG-shared tower is compared as a tree —
+`tests/e2e/tower_mutual.ndjson` and `tests/e2e/tower_nested.ndjson`
+exhaust memory on it.  The equation is decidable on the constructor
+TAGS alone, in one pass and without looking at an expression at all,
+and a `Decidable` instance is a subsingleton, so substituting this one
+leaves every proof about the guard untouched. -/
+
+/-- Do the recursors form a suffix of the block?  The tag pass. -/
+def recsFormSuffix : List ConstantInfo → Bool
+  | [] => true
+  | ci :: rest =>
+    if ci.isRecInfo then rest.all ConstantInfo.isRecInfo
+    else recsFormSuffix rest
+
+/-- The block filters, in terms of the tag. -/
+theorem recsFilterNeg : (fun ci : ConstantInfo => match ci with
+    | .recInfo _ _ _ _ => false | _ => true) = fun ci => !ci.isRecInfo := by
+  funext ci; cases ci <;> rfl
+
+@[inherit_doc recsFilterNeg]
+theorem recsFilterPos : (fun ci : ConstantInfo => match ci with
+    | .recInfo _ _ _ _ => true | _ => false) = ConstantInfo.isRecInfo := by
+  funext ci; cases ci <;> rfl
+
+/-- **The tag pass decides the partition equation**, on the tag. -/
+theorem recsFormSuffix_iff' : ∀ block : List ConstantInfo,
+    recsFormSuffix block = true ↔
+      block = block.filter (fun ci => !ci.isRecInfo)
+        ++ block.filter ConstantInfo.isRecInfo := by
+  intro block
+  induction block with
+  | nil => simp [recsFormSuffix]
+  | cons ci rest ih =>
+    by_cases hci : ci.isRecInfo = true
+    · rw [recsFormSuffix, if_pos hci,
+        List.filter_cons_of_neg (by simp [hci]),
+        List.filter_cons_of_pos hci]
+      constructor
+      · intro hall
+        have hnil : rest.filter (fun x => !x.isRecInfo) = [] := by
+          rw [List.filter_eq_nil_iff]
+          intro x hx
+          simp [List.all_eq_true.mp hall x hx]
+        rw [hnil, List.nil_append, List.cons.injEq]
+        refine ⟨rfl, ?_⟩
+        exact (List.filter_eq_self.mpr
+          (fun x hx => List.all_eq_true.mp hall x hx)).symm
+      · intro heq
+        rcases hp : rest.filter (fun x => !x.isRecInfo) with _ | ⟨y, ys⟩
+        · refine List.all_eq_true.mpr fun x hx => ?_
+          have := (List.filter_eq_nil_iff.mp hp) x hx
+          simpa using this
+        · rw [hp, List.cons_append, List.cons.injEq] at heq
+          have hy : y ∈ rest.filter (fun x => !x.isRecInfo) := by rw [hp]; simp
+          have hy' : (!y.isRecInfo) = true := (List.mem_filter.mp hy).2
+          rw [← heq.1] at hy'
+          simp [hci] at hy'
+    · rw [recsFormSuffix, if_neg hci,
+        List.filter_cons_of_pos (by simp [hci]),
+        List.filter_cons_of_neg (by simp [hci]),
+        List.cons_append, List.cons.injEq]
+      simp [ih]
+
+@[inherit_doc recsFormSuffix_iff']
+theorem recsFormSuffix_iff (block : List ConstantInfo) :
+    recsFormSuffix block = true ↔
+      block = block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => false | _ => true)
+        ++ block.filter (fun ci => match ci with
+          | .recInfo _ _ _ _ => true | _ => false) := by
+  rw [recsFilterNeg, recsFilterPos]
+  exact recsFormSuffix_iff' block
+
+/-- The substituted decision (`recsFormSuffix_iff`). -/
+instance blockRecSuffixDec (block : List ConstantInfo) :
+    Decidable (block = block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => false | _ => true)
+      ++ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => true | _ => false)) :=
+  decidable_of_iff _ (recsFormSuffix_iff block)
 
 /-- Certify that both sides of a modeled iota equation inhabit the
 equation's type (task #100 stage-3 finding: the collapse removed
