@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixZeroField
+public import ConLeche.Semantics.Tower.BlockFamI
 public section
 
 /-!

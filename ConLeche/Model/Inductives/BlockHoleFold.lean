@@ -5,6 +5,7 @@ public import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Semantics.Tower.BlockRecI
+import ConLeche.Semantics.Tower.BlockFamI
 public section
 
 /-!
