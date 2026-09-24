@@ -72,15 +72,15 @@ each lifted past the `ih` block — read along the recursor type's
 Π-tower.  It is `blockRuleCerts_of_run`'s `hfit`, at the peel's own argument
 list. -/
 theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c)
+      memR c → rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
+    (ψ : Name → Nat) {c : Nat} (hm : memR c) (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c)
     (I : List AnnotTerm) :
     ∀ σ : Nat → V,
       Sat V (I.reverse
@@ -128,8 +128,8 @@ theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
         ++ blockRecFdomsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) := by
     rw [chainFrame_zero, blockRecFdomsK, liftDomsK_zero]
     exact hab
-  have hfire := blockKitRule_run hμ h hcore hmr hM hdnP hctM ψ 0 (fun _ => pt) σ₀
-    c hc j hj xs fs hxl hsp0
+  have hfire := blockKitRule_at hμ h hcore hmr hM hdnP hctM ψ 0 (fun _ => pt) σ₀
+    c hc hm j hj xs fs hxl hsp0
   rw [chainFrame_zero] at hfire
   -- the recursor's tower, and its binder data's bounds
   obtain ⟨-, -, -, -, hTyE, -, -, -, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
@@ -208,7 +208,7 @@ rule's base frame (`blockRuleMkAV_wdV`).  The `ih` block is lifted over
 theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {envI : Env}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -216,8 +216,8 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c)
-    (I : List AnnotTerm) :
+    (ψ : Name → Nat) {c : Nat} (hm : memR c) (hc : c < rs.length) {j : Nat}
+    (hj : j < blockRecNCt rs c) (I : List AnnotTerm) :
     ∀ σ : Nat → V,
       Sat V (I.reverse
         ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
@@ -235,11 +235,11 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r →
+      memR c → rs[c]? = some r →
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
-    intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
+    intro c r hmc hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := hmc) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   -- the context's values, split into the prefix, the fields and the `ih` block
@@ -272,18 +272,18 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     rw [chainFrame_zero, blockRecFdomsK, liftDomsK_zero]
     exact hab
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl (fun c r _ hr => hctM c r hr) hr hj hxl hsp0
+    blockRuleSpine_peel (hm := hm) hμ h hcore hmr rfl hctM hr hj hxl hsp0
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 :=
-    blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ
+    blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs ψ
   -- the constructor's parameter fit (the hop through the member's former)
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   have hcvTa := TE.hcvTa
   obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk j cA hcj).1 ψ
   have hcd := hcf.2.2
-  have hpc := blockRuleParamFit_run (hm := trivial) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+  have hpc := blockRuleParamFit_run (hm := hm) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
     (hcd.len ψ) hframes (spineFit_take_any hpre p.nP)
   -- the frame, with the `ih` block on top
   have hframe : consList (xs ++ fs ++ ws) σ₀ = consList ws (consList (xs ++ fs) σ₀) := by
@@ -318,7 +318,7 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
   · -- the fired constructor application
     rw [List.mem_singleton] at ha
     rw [ha, hdrop, blockRecMkK, AnnotTerm.liftN_zero]
-    exact blockRuleMkAV_wdV (hm := trivial) h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
+    exact blockRuleMkAV_wdV (hm := hm) h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
 
 end ConclArgs
 

@@ -282,7 +282,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
       (by rw [hFldEq, hrP]; exact hdF)
       (fun l x hx => nomatch hx) q x (by simpa using hx)
     simpa using hq
-  have hokPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr c r0 hr0 j cA hcA ψ
+  have hokPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr c r0 trivial hr0 j cA hcA ψ
   have hokΔ : ∀ q, q < rc.rP + cA.2 → ∀ ρ' : Nat → V,
       Sat V (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c
             ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).reverse ρ' →

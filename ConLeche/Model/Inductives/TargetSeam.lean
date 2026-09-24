@@ -570,7 +570,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
       have hmr := blockMembersRun_seam hnames hstage hcore
       have hM := blockModelAt_seam hrec hnames hstage hcore hlfp
-      have hPF := blockRuleHokPF_run hμ hrec ⟨pk, uOfD, ppsOf, rfl⟩ hstage hcore hmr
+      have hPF := fun j r hr => blockRuleHokPF_run hμ hrec ⟨pk, uOfD, ppsOf, rfl⟩ hstage hcore hmr j r trivial hr
       have heqB := tgtRecEqs_below_seam hμ hrec R hcore hmr
       have heqV := tgtRecEqs_valid_seam hμ hrec R hnames hstage hcore hmr hPF
       have heqP := fun i r hr ψ₁ ψ₂ hq =>

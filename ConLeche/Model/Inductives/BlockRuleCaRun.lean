@@ -398,7 +398,7 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
+      memR c → rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
     (ψ : Name → Nat) {c : Nat} (hm : memR c) (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c) :
     ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
       (cA : ConstantVal × Nat) (rhs : Expr) (ci : ConstantInfo),
@@ -424,7 +424,7 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hcj : (d.ctorsM (p.toBlockShape.recTgtAt c))[j]? = some cA := by
-    rw [hctM c _ hr]; exact hcA
+    rw [hctM c _ hm hr]; exact hcA
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run (hm := hm) (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj

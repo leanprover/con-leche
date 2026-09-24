@@ -192,7 +192,7 @@ theorem blockRuleHokPF_run
     (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {envI : Env}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -201,7 +201,7 @@ theorem blockRuleHokPF_run
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      memR j → rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
       ∀ ψ : Name → Nat,
       ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
       ∀ (σ' : Nat → V) (ys : List V),
@@ -210,15 +210,15 @@ theorem blockRuleHokPF_run
         WellDenotedV V (consList ys σ')
           ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
             ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default) := by
-  intro j r hr i cA hcA ψ l hl σ' ys hys
+  intro j r hm hr i cA hcA ψ l hl σ' ys hys
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hir : i < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hir)⟩
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
   have hmemk : p.toBlockShape.recTgtAt j
       < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
+    (blockRecMajor_run (hm := hm) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   have hctM : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j) = r.2.2.2 := by
     show ctorsAs.getD _ [] = _
@@ -226,15 +226,15 @@ theorem blockRuleHokPF_run
   have hcj : ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j))[i]? = some cA := by rw [hctM]; exact hcA
   have hcd := blockCtorData_of_core hcore hcj
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   have hcvTa := TE.hcvTa
   have hnP := TE.nP_le
   obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk i cA hcj).1 ψ
   have ho : p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) := by
     omega
-  have hFE := blockRuleFdomsAV_liftDoms (hm := trivial) h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
-  have hq := blockRuleHokA_of_run (hm := trivial) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+  have hFE := blockRuleFdomsAV_liftDoms (hm := hm) h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
+  have hq := blockRuleHokA_of_run (hm := hm) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
     (hcd.okTy ψ) (hcd.len ψ) hframes ho rfl hFE (I := []) (nR := 0) rfl
     (fun q hq => absurd hq (Nat.not_lt_zero q)) l (by omega) σ' ys
     (by simpa only [List.append_nil] using hys)

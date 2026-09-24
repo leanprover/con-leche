@@ -78,7 +78,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   have hdR' := hdR
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   -- the frame's grading on its prefix and fields, and the left-hand side
-  have hPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr
+  have hPF := fun j r hr => blockRuleHokPF_run hμ h hdR' hS hcore hmr j r trivial hr
   have hlhs := blockGradeLhs_run hμ h hdR' hN hS hcore hmr hM
   have hokA := blockGradeHokA_chain hμ h (blockRuleDoms_bounded_at hμ h hcore) hPF
   -- the stored constructor types' scoping and the formers' closedness

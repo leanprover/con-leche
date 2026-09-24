@@ -387,7 +387,7 @@ theorem blockRecFdomsK_eq_of_bounded {ψ : Name → Nat} {c : Nat}
 /-- **The field domains' chain lift is the identity** at every stored
 rule: the rule's field domains are bounded by their own frame. -/
 theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -395,8 +395,8 @@ theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) p.lps cvTas
       p.toBlockShape isRec A
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k)
-    (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c)
-    (K : Nat) :
+    (ψ : Name → Nat) {c : Nat} (hm : memR c) (hc : c < rs.length) {j : Nat}
+    (hj : j < blockRecNCt rs c) (K : Nat) :
     blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j
       = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j := by
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
@@ -405,7 +405,7 @@ theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
   obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
-  exact blockRecFdomsK_eq_of_bounded (blockRuleDoms_bounded_at hμ h hcore ψ _) hr hcA hrhs K
+  exact blockRecFdomsK_eq_of_bounded (blockRuleDoms_bounded_one hμ h hcore ψ c · hm) hr hcA hrhs K
 
 /-- **The dispatch's `hokA`, from the rule frame's grading (G)** — its
 prefix and field segments, at the chain frame (any frame will do: (G)
