@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Model.Annot.BlockLfp
-public import ConLeche.SetModel.NestRecCls
+public import ConLeche.SetModel.NestRec
 public import ConLeche.Model.Inductives.BlockRecGraph
 
 public section
