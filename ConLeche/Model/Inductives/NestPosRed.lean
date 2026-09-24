@@ -268,9 +268,11 @@ theorem nestPos_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) :
               · simp [throw, throwThe, MonadExceptOf.throw] at hrun
               · split at hrun
                 · split at hrun
-                  · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-                    obtain ⟨-, rfl, -⟩ := hrun
-                    exact hW
+                  · split at hrun
+                    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+                      obtain ⟨-, rfl, -⟩ := hrun
+                      exact hW
+                    · simp [throw, throwThe, MonadExceptOf.throw] at hrun
                   · simp [throw, throwThe, MonadExceptOf.throw] at hrun
                 · simp [throw, throwThe, MonadExceptOf.throw] at hrun
             · simp [throw, throwThe, MonadExceptOf.throw] at hrun

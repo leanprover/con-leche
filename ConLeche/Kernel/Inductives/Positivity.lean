@@ -1057,6 +1057,22 @@ def nestBlockOf (ctx : NestCtx) (C : Name) : List Name :=
   | some (.indInfo _ caps) => caps.all
   | _ => []
 
+/-- **A frame hole's full arity**: its container member's recorded type's
+binder count (parameters and indices; a stored inductive's type is a
+syntactic telescope ending in a sort).  Official applies every
+occurrence of a block member — the container's copied members among
+them — to exactly its parameters and indices (`is_valid_ind_app`,
+`inductive.cpp` v4.33.0 :341); a well-typed field's frame hole is
+fully applied anyway (a type former's partial or over-application is
+no type).  The accessibility proof (lane ACCMODEL) reads a frame hole's
+value only at its full arity: a partial application is a λ-graph of
+the container's family, which no support over the family's elements
+carries to another family. -/
+def nestArity (ctx : NestCtx) (C : Name) : Nat :=
+  match ctx.find? C with
+  | some (.indInfo cv _) => cv.type.piBinders.1.length
+  | _ => 0
+
 /-- A frame's group grown by the named containers, each at the frame's
 instantiation, its hole typed by its instantiated former. -/
 def nestGrowGroup (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr) :
@@ -1263,7 +1279,10 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
           | some h =>
             if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds then
               if (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-                return (.inProgress, w, st)
+                -- at its full arity (official `is_valid_ind_app`, :341)
+                if args.length == nestArity ctx h.key.cname then
+                  return (.inProgress, w, st)
+                else throw nestNonValid
               else throw nestNonValid
             else
               throw (.invalid "nested positivity: non valid occurrence of the datatypes \
