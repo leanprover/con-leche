@@ -850,20 +850,4 @@ theorem contSem_flat {I : NestState → Prop} (F : Nat)
   rw [nestCont_not_flat hrun] at hP
   exact absurd hP Bool.false_ne_true
 
-/-- **The section law for a member constructor whose field kinds are
-all flat**: no container premise. -/
-theorem nestMemberCtor_sem_flat (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
-    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
-    {st' : NestState}
-    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, tyN, st'))
-    (hks : ∀ k ∈ ks, k.flat = true)
-    (hfr : Frame (ctx.hiAt 0) crest)
-    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)
-    (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
-    PiPosThen (ResultIdxConst ctx.nP) nF R ca :=
-  (nestMemberCtor_sem hin ctx F (P := fun k => k.flat = true) (I := fun _ => True)
-    (fun rec _ => contSem_flat F rec) h hks hfr trivial hC hca hgr hR).1
-
 end ConLeche.Model

@@ -86961,3 +86961,76 @@ view and constructors installed as given", above), its first bullet.
   after one OVERVIEW anchor repoint (`nestNormCtor`, moved by the new
   docstring lines).  No `sorry`, no new axiom.  Line delta (`ConLeche/`):
   +81 / −65.
+
+#### LANDED (lane HOLE2, checkpoint (d) session 6, part 2: stage E2b — consumers onto the stored field shape facts, the kinds out of the datum, 2026-09-24)
+
+The maintainer's E2 rulings: every consumer of the stored fields' shape
+goes through the ONE interface `StoredFieldShapes` (E2a, 5bc25ab7: its
+single producer `storedFieldShapes_of_run` inverts the (β′) tail run);
+`absF` is a primary datum field; the kinds leave the datum.  No kernel,
+cached or frontend change; verdict-neutral by construction.
+
+- **Consumers on the interface.**  `BlockHoleFacts.tgt` → `shapes`
+  (`StoredFieldShapes` at the model's leaves) and
+  `BlockCtorsStage.shapes` (at the formers' leaves `A`), produced by
+  `blockStoredShapes_of_run` (`BlockHoleGrade.lean`, the datum-level
+  consumer of the producer).  `blockHolesApplied` (M3) is
+  `FlatShape.holeApp`; `blockFlatAt_of`/`blockHoleClosed_of` read the
+  flat shape (U4 included: the `NoBVar` premises and
+  `blockChainNoBVar_of` are gone); the override law is `blockOverride`
+  (`StoredFieldShapes.override`).  Deleted: `interp_absField_override`,
+  `BlockCtorRead.recField`, `absField_holeApp`, the `liftTeleK`/`NoBVar`
+  kit.
+- **`absF` primary** (`BlockData.absFF`, `absF := absFF`; carried by
+  the member pick `BlockMemberPick.absF`, the dummy pick's the real
+  pick's).  Its value: the walked term's reading at the dummy carrier —
+  the canonical crest (`canonAbs` at `canonParams`) read at `nP + k`,
+  its first `nF` domains (`canonFieldsRead`, new file
+  `BlockAbsRead.lean`).  The reading fact `BlockAbsRead` (the canonical
+  crest reads as the Π-tower over `absF`/`absE`) is produced by
+  `blockAbsRead_of_run` (the producer + `canonCrest_of_walk`: the walk's
+  term IS the canonical crest up to erasure), carried by
+  `BlockCtorsCore` (it crosses every cons, `BlockAbsRead.cross`) and
+  `BlockHoleCtxFacts`, and consumed by `blockCtorHoleCtx`,
+  `blockCtorReads_of` (M2) and `tgtField_transport`
+  (`blockField_holeRead`, reproved kind-free).  `blockCtor_walkRead`,
+  `blockCtor_holeRead`, `BlockData.absF_congr` and the kind-reading
+  `holeAbs` lemmas are deleted.
+- **The real carrier reads the same fields** (`canonCrest_read_agree`,
+  `canonFieldsRead_agree`): the carriers agree off the members, and the
+  crest looks up no member — no member constant (M2′, via
+  `Expr.readsAt_of_nestOcc`) and no literal-support constant a reading
+  consults (`blockMembers_notLit`: `Nat.zero`/`Nat.succ` are
+  constructors, the string-support constants' types end in a constant,
+  and `Char` is mentioned by `Char.ofNat`'s stored type, so it is older
+  than the block).  The agreement lemma is the generalised
+  `denoteMeta_agree_of_readsAt` (`Expr.ReadsAt`; `denoteMeta_agree_of_resolve`
+  is now its corollary).  The same agreement gives the real result index
+  readings with holes (`hAbsE`, `BlockDatum.lean`) — no field
+  identification.  Level-parameter congruence: `canonFieldsRead_params`
+  (the `lpDefF` kit moved to `Model/Annot/LpDefF.lean`).
+- **The kinds out of the datum.**  `BlockData` loses `ksF`, `tgts`,
+  `eissF`, `tssF`, `rss`, `tgtss`, `tlss`, `Eiss` (and the ghost
+  `env₀`); `cds` keeps the fixpoint kit's list shape with empty
+  field-kind slots; `blockDataPre`/`blockDataOf` take neither kinds nor
+  an environment.  `BlockCtorDataI` is kind-free (`CtorDataI` + the
+  canonical opening, `domRead`, `resShape`): `BlockOpened`,
+  `blockOpened_of`, the recursive/reflexive entry fields,
+  `blockCtorDataI_ident`, `blockDataOf_ksF`, `FixWitness.lean` and the
+  kit's kind helpers are deleted.  `BlockNamesOk` loses its targets
+  conjunct.  The stage's index arguments resolve by
+  `BlockCtorDataI.idxArgs_resolve` (the opened residual), not the
+  re-check.  Premises dropped: `blockTablesStage_of`'s `hK`/`hFOk`, the
+  members' freshness through the walk-reading chain and
+  `declBlock_data`'s continuation.
+- **ContSem provider**: `blockCtorPos_of_walk` takes a provider
+  (`nestMemberCtor_sem`); `blockCtorPos_of_run` instantiates
+  `contSem_flat` (the tail run's flat kinds); `nestMemberCtor_sem_flat`
+  deleted.
+- **What still reads kinds in the model**: nothing of the datum.  The
+  recursor side passes the kernel's own `pp.kinds` only where the
+  KERNEL's rule stage reads them (`declBlock_data`'s `hkLen`: the
+  classification covers every constructor, a fact about the rules'
+  `zip`) — stage F's.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/overview-links.sh`
+  and `tests/quote-gate.sh` OK.  No `sorry`, no new axiom.

@@ -50,7 +50,8 @@ member constructor is POSITIVE along the tuple order at the hole frame
   (`HoleRel`): the frames satisfy it (a hole value inhabits its member's
   type, `LfpDatum.holeVal_mem`), agree off the holes and grow at every
   member hole (`LfpDatum.holeOn_tupRel`);
-* so `nestMemberCtor_sem_flat` (no container kind) makes every field
+* so `nestMemberCtor_sem` (at a ContSem provider; at the install's
+  flat kinds `contSem_flat`, no container premise) makes every field
   positive under the earlier ones and the result indices hole-free —
   `CtorPos`, read off the Π-tower (`piPosThen_mkPisAV`).
 -/
@@ -442,10 +443,13 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     {crest : Expr}
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
+    {P : NestFieldKind → Prop} {I : NestState → Prop}
+    (hcont : ∀ rec, NestPosSem m ψ (p.nestCtx fvsP env.find? env.consts) P I rec →
+      ContSem m ψ (p.nestCtx fvsP env.find? env.consts) P I F rec)
     {st₀ st₁ : NestState} {ks : List NestFieldKind} {tyN : Expr}
     (hm : nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2
       crest st₀ = .ok (ks, tyN, st₁))
-    (hks : ∀ k ∈ ks, k.flat = true)
+    (hks : ∀ k ∈ ks, P k) (hI : I st₀)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
     {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp) :
@@ -500,7 +504,7 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       intro i hk' h
       simp at h
   -- ## the walk is positive, read off the Π-tower
-  have hpos := nestMemberCtor_sem_flat hin ctx F hm hks hfr hCP hca hgr hR
+  have hpos := (nestMemberCtor_sem hin ctx F hcont hm hks hfr hI hCP hca hgr hR).1
   rw [← habLen] at hpos
   obtain ⟨htele, i', vs, heq, hvs⟩ := piPosThen_mkPisAV ab _ _ hpos
   rw [hab] at htele hvs
@@ -544,6 +548,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
-    hcv0 hop0 hholes hck hcj hCf hCb hcrest hm hks hty hs
+    hcv0 hop0 hholes hck hcj hCf hCb hcrest (P := fun k => k.flat = true) (I := fun _ => True)
+    (fun rec _ => contSem_flat F rec) hm hks trivial hty hs
 
 end ConLeche.Model

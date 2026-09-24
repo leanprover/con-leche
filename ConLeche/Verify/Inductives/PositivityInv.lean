@@ -15,7 +15,8 @@ former's opened telescope, the holes are the members' stored types at
 (`instPisWith params (nestAbstract ctx holes cty)`)
 
 * went through `nestMemberCtor` with only flat kinds (the walk the
-  monotonicity theorem `nestMemberCtor_sem_flat` inverts), and
+  monotonicity theorem `nestMemberCtor_sem` inverts, at the flat kinds'
+  ContSem provider `contSem_flat`), and
 * was inferred at the holes' context (U2, the typing that theorem's
   premises read).
 -/
