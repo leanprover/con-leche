@@ -9,6 +9,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Verify.Inductives.BlockRecRun
+public import ConLeche.Model.Inductives.BlockRuleParams
 
 public section
 
@@ -952,5 +953,256 @@ theorem tgtRule_valid (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       rw [hBv, Option.getD_some]
     rw [hRB, tgtIhs_map_interp mpC.base2 hB hFrEq hAbs hLb _ ρ hyl]
     simpa using hBG.2
+
+/-! ## `heqP`'s target rows: the level footprint -/
+
+section Params
+
+variable {ps : List Name}
+
+omit [SetTheory V] in
+/-- A spine's arguments carry its footprint. -/
+theorem lpDefF_mkAppN_args :
+    ∀ (as : List Expr) {f : Expr}, lpDefF ps (Expr.mkAppN f as) = true →
+      lpDefF ps f = true ∧ ∀ a ∈ as, lpDefF ps a = true
+  | [], f, h => ⟨h, fun a ha => nomatch ha⟩
+  | a :: as, f, h => by
+    obtain ⟨h1, h2⟩ := lpDefF_mkAppN_args as (f := Expr.app f a) h
+    simp only [lpDefF, Bool.and_eq_true] at h1
+    refine ⟨h1.1, fun x hx => ?_⟩
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact h1.2
+    · exact h2 x hx
+
+omit [SetTheory V] in
+/-- A Π-telescope's domains carry the type's footprint. -/
+theorem lpDefF_piBinders :
+    ∀ (e : Expr), e.allLevelParamsDefined ps = true → ∀ b ∈ e.piBinders.1,
+      lpDefF ps b.1 = true := by
+  intro e
+  induction e with
+  | forallE ty body m _ ihb =>
+    intro h b hb
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [Expr.piBinders, List.mem_cons] at hb
+    rcases hb with rfl | hb
+    · exact lpDefF_of_allLevelParamsDefined _ h.1.1
+    · exact ihb h.1.2 b hb
+  | _ => intro _ b hb; simp [Expr.piBinders] at hb
+
+omit [SetTheory V] in
+theorem lpDefF_mkLamsOf :
+    ∀ (bs : List (Expr × ConLeche.BinderMeta)) {body : Expr},
+      (∀ b ∈ bs, lpDefF ps b.1 = true ∧ b.2.pw.paramsDefined ps = true) →
+      lpDefF ps body = true → lpDefF ps (Expr.mkLamsOf bs body) = true
+  | [], _, _, hb => hb
+  | (ty, m) :: bs, body, hbs, hb => by
+    have h0 := hbs (ty, m) List.mem_cons_self
+    simp only [Expr.mkLamsOf, lpDefF, h0.1, h0.2,
+      lpDefF_mkLamsOf bs (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb, Bool.and_self]
+
+omit [SetTheory V] in
+/-- **The target abstraction keeps the footprint**, and so do the calls'
+index arguments it records: a call becomes an `ih` variable applied to
+bound variables; its index arguments are the call's own arguments. -/
+theorem lpDefF_targetAbstract {fr : ConLeche.TargetFrame} {B : Nat}
+    (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0) :
+    ∀ (d : Nat) (e : Expr) (acc : Array TargetIh) (e' : Expr) (acc' : Array TargetIh),
+      ConLeche.targetAbstract fr B d e acc = some (e', acc') →
+      lpDefF ps e = true →
+      (∀ ih ∈ acc.toList, lpDefF ps ih.fv = true ∧ ∀ x ∈ ih.idx, lpDefF ps x = true) →
+      lpDefF ps e' = true ∧
+        ∀ ih ∈ acc'.toList, lpDefF ps ih.fv = true ∧ ∀ x ∈ ih.idx, lpDefF ps x = true
+  | _, .bvar _, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
+  | _, .sort _, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
+  | _, .lit _, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
+  | _, .fvar _ _, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
+  | _, .const n us, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
+  | d, .lam ty b bi, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [lpDefF, Bool.and_eq_true] at he
+    obtain ⟨hty, hacc1⟩ := lpDefF_targetAbstract hle d ty acc ty' acc1 h1 he.1.1 hacc
+    obtain ⟨hb, hacc2⟩ := lpDefF_targetAbstract hle (d + 1) b acc1 b' acc2 h2 he.1.2 hacc1
+    exact ⟨by simp [lpDefF, hty, hb, he.2], hacc2⟩
+  | d, .forallE ty b bi, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [lpDefF, Bool.and_eq_true] at he
+    obtain ⟨hty, hacc1⟩ := lpDefF_targetAbstract hle d ty acc ty' acc1 h1 he.1.1 hacc
+    obtain ⟨hb, hacc2⟩ := lpDefF_targetAbstract hle (d + 1) b acc1 b' acc2 h2 he.1.2 hacc1
+    exact ⟨by simp [lpDefF, hty, hb, he.2], hacc2⟩
+  | d, .letE ty v b, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨v', acc2⟩, h2, ⟨b', acc3⟩, h3, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [lpDefF, Bool.and_eq_true] at he
+    obtain ⟨hty, hacc1⟩ := lpDefF_targetAbstract hle d ty acc ty' acc1 h1 he.1.1 hacc
+    obtain ⟨hv, hacc2⟩ := lpDefF_targetAbstract hle d v acc1 v' acc2 h2 he.1.2 hacc1
+    obtain ⟨hb, hacc3⟩ := lpDefF_targetAbstract hle (d + 1) b acc2 b' acc3 h3 he.2 hacc2
+    exact ⟨by simp [lpDefF, hty, hv, hb], hacc3⟩
+  | d, .proj sn i x, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨x', acc1⟩, h1, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [lpDefF] at he
+      obtain ⟨hx, hacc1⟩ := lpDefF_targetAbstract hle d x acc x' acc1 h1 he hacc
+      exact ⟨by simpa [lpDefF] using hx, hacc1⟩
+  | d, .app f a, acc, _, _, h, he, hacc => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · next i c m idx hc =>
+      simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨ty, hty, h⟩ := h
+      have hout : ∀ fv : Expr, (∃ n t, fv = .fvar n t) →
+          lpDefF ps (Expr.mkAppN fv (ConLeche.structTeleVars m)) = true := by
+        rintro fv ⟨n, t, rfl⟩
+        refine lpDefF_mkAppN _ rfl (fun x hx => ?_)
+        simp only [ConLeche.structTeleVars, List.mem_map] at hx
+        obtain ⟨k, -, rfl⟩ := hx
+        rfl
+      split at h
+      · next r hr =>
+        simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        refine ⟨?_, hacc⟩
+        refine lpDefF_mkAppN _ ?_ (fun x hx => ?_)
+        · simp only [Array.getD]
+          split
+          · next hlt => exact (hacc _ (Array.getElem_mem_toList hlt)).1
+          · rfl
+        · simp only [ConLeche.structTeleVars, List.mem_map] at hx
+          obtain ⟨k, -, rfl⟩ := hx
+          rfl
+      · simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        refine ⟨hout _ ⟨_, _, rfl⟩, fun ih hih => ?_⟩
+        rw [Array.toList_push, List.mem_append, List.mem_singleton] at hih
+        rcases hih with hih | rfl
+        · exact hacc ih hih
+        · refine ⟨rfl, fun x hx => ?_⟩
+          obtain ⟨rn, he', -⟩ := targetCall?_inv hc hle
+          rw [he'] at he
+          exact (lpDefF_mkAppN_args _ he).2 x
+            (List.mem_append_left _ (List.mem_append_right _ hx))
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨f', acc1⟩, h1, ⟨a', acc2⟩, h2, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [lpDefF, Bool.and_eq_true] at he
+      obtain ⟨hf, hacc1⟩ := lpDefF_targetAbstract hle d f acc f' acc1 h1 he.1 hacc
+      obtain ⟨ha, hacc2⟩ := lpDefF_targetAbstract hle d a acc1 a' acc2 h2 he.2 hacc1
+      exact ⟨by simp [lpDefF, hf, ha], hacc2⟩
+
+/-- **`heqP`'s two target rows at one rule**: the target `ih` terms and
+the residue read alike at two level valuations agreeing on the
+recursor's parameters — the stored rule's footprint (the run's `hlp`)
+survives the opening and the abstraction (`lpDefF_targetAbstract`), and
+the call λs' binder domains are the fields' telescopes (K4). -/
+theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
+    {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
+      = .ok (tgtRs out))
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
+    tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₁ j i
+      = tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₂ j i ∧
+    tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₁ j i
+      = tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₂ j i := by
+  obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
+    hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr hcA hrhs
+  -- the opened body's footprint, and the abstraction's
+  have hfvs : ∀ v ∈ (Q.fvsPref ++ Q.fvsF).reverse, ∃ (n : Nat) (t : Expr), v = .fvar n t := by
+    intro v hv
+    rcases List.mem_append.mp (List.mem_reverse.mp hv) with hv | hv
+    · exact openPisAtFvars_mem_fvar Q.hpref v hv
+    · exact openPisAtFvars_mem_fvar Q.hfld v hv
+  have hbody : lpDefF r.1.levelParams (Q.body.instantiateList (Q.fvsPref ++ Q.fvsF).reverse 0)
+      = true :=
+    lpDefF_instantiateList hfvs _ 0
+      (lpDefF_stripLams _ (lpDefF_of_allLevelParamsDefined _ Q.hlp) Q.hstrip)
+  obtain ⟨hbO, hihs⟩ := lpDefF_targetAbstract (ps := r.1.levelParams) (B := rc.rP + cA.2)
+    (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+        pp.toBlockShape.large))) hle 0 _ #[] _ _ Q.habs hbody (by simp)
+  refine ⟨?_, ?_⟩
+  · rw [tgtIhsAV, tgtIhsAV, ← hAbs, hFrEq, hB]
+    refine List.map_congr_left fun ih hih => ?_
+    -- the elimination datum names the recursor's parameters
+    have hpw : (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+        pp.toBlockShape.large)).paramsDefined r.1.levelParams = true := by
+      refine ConLeche.Level.zeronessOf_paramsDefined ?_
+      unfold ConLeche.structElimLevel
+      split
+      · next hb =>
+        simp only [Level.allParamsDefined, List.contains_iff_mem]
+        rw [checkBlockRecK_lpsPin h hr, if_pos hb]
+        exact List.mem_cons_self
+      · rfl
+    have hlam : lpDefF r.1.levelParams
+        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+          Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
+            pp.toBlockShape.elim pp.toBlockShape.large))) (rc.rP + cA.2)
+          (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+            pp.toBlockShape.large)) ih) = true := by
+      refine lpDefF_mkLamsOf _ (fun b hb => ?_) ?_
+      · obtain ⟨b0, hb0, rfl⟩ := List.mem_map.mp hb
+        refine ⟨?_, hpw⟩
+        show lpDefF r.1.levelParams b0.1 = true
+        simp only [ConLeche.targetFrameOf, List.getD_eq_getElem?_getD, List.getElem?_map] at hb0
+        cases ht : Q.fnorm[ih.field]? with
+        | none => rw [ht] at hb0; simp at hb0
+        | some t =>
+          rw [ht] at hb0
+          exact lpDefF_piBinders t (Q.hfnormLp t (List.mem_of_getElem? ht)) b0 hb0
+      · refine lpDefF_mkAppN _ rfl (fun x hx => ?_)
+        rcases List.mem_append.mp hx with hx | hx
+        · rcases List.mem_append.mp hx with hx | hx
+          · obtain ⟨n, t, rfl⟩ := openPisAtFvars_mem_fvar Q.hpref x hx; rfl
+          · exact (hihs ih hih).2 x hx
+        · rw [List.mem_singleton] at hx
+          subst hx
+          refine lpDefF_mkAppN _ ?_ (fun y hy => ?_)
+          · simp only [ConLeche.targetFrameOf, List.getD_eq_getElem?_getD]
+            cases hf : Q.fvsF[ih.field]? with
+            | none => rfl
+            | some x =>
+              obtain ⟨n, t, rfl⟩ := openPisAtFvars_mem_fvar Q.hfld x (List.mem_of_getElem? hf)
+              rfl
+          · simp only [ConLeche.structTeleVars, List.mem_map] at hy
+            obtain ⟨k, -, rfl⟩ := hy
+            rfl
+    rw [denoteMeta_params_extF mT hq _ _ hlam]
+  · rw [tgtRbAV, tgtRbAV, ← hAbs, hB]
+    simp only
+    rw [denoteMeta_params_extF mT hq _ _ hbO]
+
+end Params
 
 end ConLeche.Model

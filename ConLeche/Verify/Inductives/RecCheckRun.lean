@@ -461,6 +461,8 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
   hfnorm : targetFieldNorms (fueledOps mode F) feT.env (rP + c.2 + formerTys.length)
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2))) fvsF
       = .ok fnorm
+  /-- K4: the fields' telescopes name only the recursor's universe parameters -/
+  hfnormLp : ∀ t ∈ fnorm, t.allLevelParamsDefined cvR.levelParams = true
   /-- THE ABSTRACTION: every call replaced by its `ih` variable -/
   habs : targetAbstract (targetFrameOf fam rP fvsPref fvsF fnorm
       (Level.zeronessOf (structElimLevel p.elim p.large))) (rP + c.2) 0
@@ -534,6 +536,9 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
   obtain ⟨u2, hG2, h⟩ := exceptBind_ok h
   cases u2
   obtain ⟨fnorm, hfnorm, h⟩ := exceptBind_ok h
+  by_cases hflp : fnorm.all (fun t => t.allLevelParamsDefined cvR.levelParams) = true
+  case neg => rw [if_neg hflp] at h; close_throw h
+  rw [if_pos hflp] at h
   obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨bodyO, ihs⟩ := x9
   obtain ⟨u3, hcalls, h⟩ := exceptBind_ok h
   cases u3
@@ -556,7 +561,8 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
           hpw := fun b hb => eq_of_beq ((List.all_eq_true.mp hpw) b hb),
           hpref := unwrapOr_ok hx2, hcrest := unwrapOr_ok hcrest, hfld := unwrapOr_ok hx4,
           hlams := unwrapOr_ok hx5, hldomsRes := List.all_eq_true.mp hcbd,
-          hG2len := hG2len, hG2 := hG2all, hfnorm := hfnorm, habs := unwrapOr_ok hx9,
+          hG2len := hG2len, hG2 := hG2all, hfnorm := hfnorm,
+          hfnormLp := List.all_eq_true.mp hflp, habs := unwrapOr_ok hx9,
           hcalls := hcalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
 
 /-! ## Stage (c): one recursor's rules, and every recursor's -/

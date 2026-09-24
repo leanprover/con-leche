@@ -793,6 +793,17 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   let k := formerTys.length
   let absM := targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys base)
   let fnorm ← targetFieldNorms opsT feT.env (base + k) absM fvsF
+  -- K4 (lane RECLIB, shadow): the fields' whnf-telescopes name only the
+  -- recursor's universe parameters.  The call λs bind their domains, and
+  -- the model's ι equations must read alike at two level valuations
+  -- agreeing on those parameters (`heqP`).  Reduction never introduces a
+  -- parameter (δ instantiates a stored value's own parameters away), so
+  -- this rejects nothing the rule's own `allLevelParamsDefined` admits;
+  -- it spares the model a level-footprint theorem for `whnf` (and, through
+  -- the major's constructor expansion, for inference).
+  unless fnorm.all (fun t => t.allLevelParamsDefined cvR.levelParams) do
+    throw (.invalid s!"target rec: a field of {c.1.name} normalises to a type naming a \
+      universe parameter the recursor does not declare")
   let fr : TargetFrame :=
     { recNames := fam.recNames, rlvls := fam.rlvls, recTys := fam.recTys, mIs := fam.mIs,
       rPs := fam.rPs, rP := rP, pref := fvsPref, fields := fvsF,

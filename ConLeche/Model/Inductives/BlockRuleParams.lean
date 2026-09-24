@@ -45,7 +45,7 @@ section LpDefF
 /-- Are the level parameters `denoteMeta` can read among `ps`?
 `Expr.allLevelParamsDefined` with the `fvar` type annotations
 IGNORED (an `fvar` reads as its de Bruijn slot). -/
-def lpDefF (ps : List Name) : Expr → Bool
+@[expose] def lpDefF (ps : List Name) : Expr → Bool
   | .bvar _ => true
   | .fvar _ _ => true
   | .sort u => u.allParamsDefined ps
