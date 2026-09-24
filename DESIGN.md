@@ -87865,6 +87865,76 @@ NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
   `blockParts?`, `nestMemberCtors`, `checkBlockPositivity`,
   `targetRecCheck` moved; every citing paragraph re-read and still true
   with the switch off).  No `sorry`, no new axiom.
+#### LANDED (lane NESTKERN, 2026-09-24): U4 at every non-ordinary field (F-W1), the outside major's pins typed (F2), the container bit from the check's own majors (F4)
+
+Three kernel findings of the nested proof lanes, landed together on
+`nested` ahead of NESTKERN's switch work because lanes NESTW and NESTIND
+wait on them.  Charter items 3, 5 and 9.
+
+- **F-W1 (lane NESTW) — U4 at nested fields, and on container
+  constructors.**  `nestMemberCtor`'s U4 kind test includes `.nested`,
+  and `nestCtors` runs the same test (`structUsedLater` on the walked
+  telescope `closeTelescope nds hi cur`, at every field whose kind is not
+  `.ordinary`) on every container constructor a frame walks at its
+  instantiation; both REJECT (item 9: official rejects every instance —
+  NESTW.md §1: a read of a nested field's value either names the
+  container instance, which the walk already refuses, or is a `.proj`,
+  official's "invalid projection").  **Item-9 adversarial pass**: the test
+  reads the walk's whnf'd telescope, so a later field that mentions a
+  nested or recursive field only inside a term whose whnf drops it is not
+  refused; official v4.34.0 ACCEPTS exactly those (probes under
+  `_tmp/uniform-inds/NESTKERN/u4probe/`, `fix/`): a β-redex at a member
+  constructor (`corner_nestw_u4_beta`), a β-redex in a frame's `snd`
+  (`corner_nestw_u4frame_beta`), a δ-redex (`Subtype (@PD SD)`,
+  `PD _ := True`, `corner_nestw_u4frame_def`); the extended check accepts
+  all three (measured with the route switch on and the modeller off).
+  The instances official rejects that the probes tried (`xs = xs`, `Fin
+  (len xs)`, `Fin a.2`, an opaque predicate, a result index `xs.length`,
+  `@K T5 xs` with `K` a def — the last one we ACCEPT: whnf drops it, an
+  item-8 superset) are all refused by the walk BEFORE U4 or not read by
+  it.  Proofs: `nestCtors_sem` (`ContWalk.lean`) steps over the new
+  branch; nothing is recorded for NESTW's `HoleUnread` yet (its consumer
+  states what it reads).  `corner_nestw_u4{,frame}_bad` move 2 → **1**
+  today (the walk runs on the uniform route before the flat guard), the
+  nested-shadow rows `accept` → `reject`.
+- **F2 (lane NESTIND) — an outside major's parameters, typed at the rule
+  prefix.**  `targetMajorPins` (`RecCheck.lean`, in `targetRecTy` after the
+  major is resolved): at an OUTSIDE major each `D_i` is inferred at depth
+  `rP` (`targetPinTys`); nothing at a member.  The `.nested` rule law
+  reads the pins graded at the prefix, and the recursor type grades them
+  only under its index binders (which may be uninhabited: `C (α : Type) :
+  Empty → Type`).  It refuses nothing the recursor type's own check
+  accepted (the `D⃗` are closed below `rP`); official types the same terms
+  as the auxiliary constructors' parameters (`check_constructors`,
+  `tc().check`, `inductive.cpp` v4.33.0 :426).  Inversions: the entry's
+  run skips the step (`targetRecTy_run`), the cached simulation reduces it
+  at a member (`targetRecTyS_sim`), `targetMajorPins_datF`.  The typing
+  facts themselves are NESTIND's to record (`TargetMajorRun.outside`).
+- **F4 (lane NESTIND) — the elimination guard's container bit from the
+  check's own majors.**  `targetRecCheck`'s counting guard runs at
+  `nested || tys.any (·.2.1.member.isNone)`: any checked major outside
+  the block makes the family eliminate into `Prop` only (NESTPLAN Q-C's
+  disjunction: the caller's walk bit, the check's majors).  Without it a
+  `Prop` block `P | mk : P` (one constructor, no field — large
+  elimination allowed) with an auxiliary recursor on an outside
+  two-constructor `O : Prop` into `Sort u` separates two decodings of one
+  proof.  Forged fixture `corner_nestkern_f4_prop_aux_bad`
+  (`scripts/mk_nestkern_bad.py`): today 2 (the modeller declines), target
+  **1** (measured with the switch on and the modeller off: "target rec:
+  large eliminator on a block whose sort may be Prop" — the recogniser's
+  `rc.tgt ≥ k` reading already sets the bit there; F4 makes the verdict
+  independent of that link).  `TargetRecRun.small` states the combined
+  bit; `recStage_of_target` (member majors only) reduces it to the
+  caller's.  Verdict-neutral with the switch off (every major is a
+  member).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0 (e2e
+356/356, arena 90/92, nested-shadow and target-shadow rows updated for
+the two `_bad` moves and the four new fixtures, OVERVIEW's
+`nestMemberCtors`/`targetRecCheck` anchors repointed — the paragraph is
+still true: with the switch off every major is a member); no `sorry`, no
+new axiom.  With the switch off the three changes are unreachable on
+real streams (they read container kinds and outside majors only).
 
 #### LANDED (lane NESTW, session 3, 2026-09-24): L7 step 3's consumer — (W) at a nested block from its wide fits (`NestWideFits.closed`), the Model→set adapter, and the plug for `hfunZ`
 
@@ -87929,9 +87999,5 @@ verdict-neutral by construction.
   several use sites, so the leaf term's frame-independence carries the
   reading to ONE `NestGroup.ρ`); the key producer from `frame_sem`/
   `crest_read`; the frame-occurrence enumeration (F-W3).
-- **Imports** (the pub-imports/shake gates failed on `nested` after
-  NESTKERN checkpoint 1): `DeclBlock`'s `BlockLfpMono` demoted,
-  `DeclBlockNested`'s unused `Model.Cover` removed, `RecCheckRun`'s
-  `BlockTail` a MEASURED fallback (`scripts/pub-import-plan.py`).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
   No `sorry`, no new axiom.
