@@ -7,6 +7,7 @@ import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.NatEqs
+import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Semantics.Tower.FixLeafI
@@ -183,5 +184,71 @@ theorem monoOn_of_famLe {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D :
     List.map_congr_left fun v hv => his isa hisa v hv ρ ρ' hR
   rw [heq, heq', ← hmap]
   exact hle ρ ρ' hR _ (tupW_mem hfit)
+
+/-- **The key's parameters fit the container's parameter telescope** at
+every valuation where the instance is graded (the index count not yet
+known: only the parameter prefix of the former's tower is read). -/
+theorem keyParamsFit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {dep b : Nat}
+    (hbd : b ≤ dep) {ds is : List Expr} {wa : AnnotTerm}
+    (hwa : denoteMeta mp.base2.acval env φ dep
+      (Expr.mkAppN (.const (D.member mm) us) (ds ++ is)) = some wa)
+    (hlenP : ds.length = (D.params (Level.substFn φ cv.levelParams us)).length)
+    (hdsw : ∀ x ∈ ds, Expr.WScoped b x) {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mp.base2.acval env φ b ds dsa) :
+    ∀ ρ : Nat → V, WellDenotedV V ρ wa →
+      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
+        (keyFrame dsa b (dropV (dep - b) ρ)) := by
+  intro ρ hwd
+  obtain ⟨fa, vs, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv hwa
+  obtain ⟨-, rfl⟩ := Rules.denoteMeta_const_arityK hf hfa
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hwd ⊢
+  obtain ⟨vs₁, vs₂, rfl, hsp₁, -⟩ := DenoteMetaSpine.split _ hsp
+  have hlift := DenoteMetaSpine.lift (m := mp.base2) (φ := φ) hbd hdsw hdsa
+  obtain rfl := DenoteMetaSpine.unique hsp₁ hlift
+  generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlenP hwd ⊢
+  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
+  obtain ⟨cv', caps', hf', hab⟩ := hrd mm hmm
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  obtain ⟨ab, hta, hmap, hbits⟩ := hab ψ
+  have hpl := h.parsLen mm hmm ψ
+  have hmem := ConLeche.Semantics.Env.find?_mem hf
+  have hname := ConLeche.Semantics.Env.find?_name hf
+  have hin := mp.mem_type _ hmem ψ _ hta ρ
+  rw [hname] at hin
+  have hwf := mp.base2.wf _ hmem
+  have hcl : Term.bvarsBelow 0 (mkPisAV ab (.sort (D.w ψ))).erase :=
+    ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closedL 0 _
+      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1
+      (denoteMeta_erase mp.base2.acval_erase 0 _ hta)
+  generalize hτ : (fun j => dropV (dep - b) ρ (j + b)) = τ
+  rw [interp_closed V hcl ρ τ, ← List.take_append_drop ds.length ab, mkPisAV_append'] at hin
+  rw [Rules.AnnotTerm.mkAppN_appendK] at hwd
+  have hwd₁ := WellDenoted_mkAppN_head _ hwd.1
+  have hlab : (ab.take ds.length).length = ds.length := by
+    rw [List.length_take]
+    have := congrArg List.length hmap
+    simp only [List.length_map, List.length_append] at this
+    omega
+  have hsp' := spineFit_of_wellDenoted_mkAppN_pi
+    (fun d hd => hbits d (List.mem_of_mem_take hd)) hwd₁ hin
+    (by rw [List.length_map, ← DenoteMetaSpine.length_eq hdsa, hlab])
+  have hmap₁ : (ab.take ds.length).map (·.2.2) = D.pars mm ψ := by
+    rw [List.map_take, hmap, hlenP, ← hpl, List.take_left' rfl]
+  rw [hmap₁] at hsp'
+  have has : (dsa.map (AnnotTerm.liftN (dep - b) · 0)).map (interp V ρ)
+      = dsa.map (interp V (dropV (dep - b) ρ)) := by
+    rw [List.map_map]
+    exact List.map_congr_left fun a _ => interp_liftN_drop _ ρ a
+  rw [has] at hsp'
+  have hkf : keyFrame dsa b (dropV (dep - b) ρ) = consList (dsa.map (interp V (dropV (dep - b) ρ))) τ := by
+    rw [← hτ]; rfl
+  rw [hkf]
+  have hsatP : Sat V (D.pars mm ψ).reverse (consList (dsa.map (interp V (dropV (dep - b) ρ))) τ) := by
+    have := sat_of_spineFit (Sat_nil V τ) hsp'
+    simpa using this
+  exact h.parsSatInv mm hmm ψ _ hsatP
 
 end ConLeche.Model
