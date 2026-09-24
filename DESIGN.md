@@ -86243,12 +86243,23 @@ change; verdict-neutral by construction (proof tiers only).
     every prefix of the PARAMETERS the second frame's hole accepts every
     argument the first's does" — graphs over the same domain,
     `piR_dom_unique`; beyond the parameters the values agree).
-- **Not done (next session): steps 3–7** — the datum's `Φ` onto
-  `holeOp`, the formers' leaf onto the hole chains, the constructor
+- **Stage A (same session) — the datum's operator IS the hole
+  operator.**  `BlockData.withPhi`'s `Φ := d.toLfp.holeOp`.  The stages
+  still reason at the slot operator (`BlockData.slotPhi`), and
+  `blockModelAt_of_stages` takes `hPhi` ON THE TUPLE SPACE only (maps
+  by rewriting, the closed tuple by `isClosedTuple_congr`, the leaf by
+  `lfpTuple_congr`).  The bridge `blockHoleOp_eq_slot`
+  (`BlockModelRecords.lean`): both are graphs over the index set, their
+  fibres agree — `ChainFit` (`blockSlotFibre`, extracted from
+  `blockModelAt_of_stages`) and `HFits` (`holeOp_fibre`) are one fit
+  (`blockReadsHoles`, with `blockIdxFit_of_chains`).  This is step 2's
+  first consumer: `holeOp_fibre`'s premises (`HoleTmOk`, `HolesApplied`,
+  the result-index lengths) are discharged at the real install by
+  `BlockHoleFacts`/`blockHolesApplied`/`idxOk`.  Callers unchanged
+  (`hPhi := rfl`).
+- **Not done (next session): steps 3–7** — the formers' leaf onto the hole chains, the constructor
   clause by the override law, the witness from the walk, `absF` primary
   and the kinds out of the datum, the recursor readers, the kernel
-  deletion.  The staged route and its first stage (`Φ := holeOp` with
-  `holeOp = slot op` on the tuple space as the bridge, which consumes
-  step 2's lemmas at the real install) are in `HOLE2.md`.  The double
+  deletion.  The staged route (stages B–F after A) is in `HOLE2.md`.  The double
   positivity walk (checkpoint (d) K's deviation) is unchanged: neither
   recorded route was measured this session.
