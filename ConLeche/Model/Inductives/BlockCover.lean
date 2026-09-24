@@ -382,7 +382,7 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     show some (d.nP, _) = _
     rw [← hrev]
     simp [List.map_reverse, List.map_map, Function.comp_def]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_⟩
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
     rw [hN]
@@ -414,5 +414,7 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     refine ⟨cv, caps, hf, hl ▸ hlps, fun ψ => by rw [hnp]; exact hparams ψ, fun mm hmm => ?_⟩
     obtain ⟨cvm, capsm, hfm, -, hlm⟩ := hfindT mm hmm
     exact ⟨cvm, capsm, hfm, by rw [hlm, hl]⟩
+  · obtain ⟨cv, caps, hf, -, hl⟩ := hfindT c hc
+    exact ⟨cv, caps, hf, hl ▸ hlps⟩
 
 end ConLeche.Model

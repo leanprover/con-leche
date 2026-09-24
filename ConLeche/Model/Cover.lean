@@ -147,6 +147,11 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
       (∀ ψ, (D.params ψ).length = nP') ∧
       ∀ mm, mm < D.k → ∃ cvm capsm, env.find? (D.member mm) = some (.indInfo cvm capsm) ∧
         cvm.levelParams = cv.levelParams
+  /-- every member's level parameters are distinct (finding F6: the
+  install's `checkConstantValF` checks it, as official's
+  `check_duplicated_univ_params` does) -/
+  lvlNodup : ∀ c, c < D.k → ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧
+    cv.levelParams.Nodup
 
 omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
@@ -163,6 +168,9 @@ theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
     refine ⟨cv, caps, hfwd _ _ hf, hnd, hlen, fun mm hmm => ?_⟩
     obtain ⟨cvm, capsm, hfm, hl⟩ := hall mm hmm
     exact ⟨cvm, capsm, hfwd _ _ hfm, hl⟩
+  lvlNodup := fun c hc => by
+    obtain ⟨cv, caps, hf, hnd⟩ := h.lvlNodup c hc
+    exact ⟨cv, caps, hfwd _ _ hf, hnd⟩
 
 /-! ### Constructor entries, computed -/
 
@@ -278,14 +286,15 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     (hctors : ∃ nP' L, nestPick caps cs = some (nP', L) ∧ L.length = D.nctors 0 ∧
       ∀ j (hj : j < L.length), env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2))
     (hno : ∀ nP', nestPick caps cs = some (nP', []) →
-      cv.levelParams.Nodup ∧ ∀ ψ, (D.params ψ).length = nP') : LfpOwn env D := by
+      cv.levelParams.Nodup ∧ ∀ ψ, (D.params ψ).length = nP')
+    (hnd : cv.levelParams.Nodup) : LfpOwn env D := by
   have hnc : ConLeche.nestContainer (envCtx env) T = nestPick caps cs := by
     rw [nestContainer_eq]
     show (match env.find? T with
       | some (.indInfo _ caps) => nestPick caps (env.consts.filterMap (ctorEntry T))
       | _ => none) = _
     rw [hf, hcs]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_⟩
   · obtain rfl : c = 0 := by omega
     rw [hm, hnc]; exact hctors
   · obtain rfl : c = 0 := by omega
@@ -294,6 +303,8 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     refine ⟨cv, caps, by rw [hm]; exact hf, h1, h2, fun mm hmm => ?_⟩
     obtain rfl : mm = 0 := by omega
     exact ⟨cv, caps, by rw [hm]; exact hf, rfl⟩
+  · obtain rfl : c = 0 := by omega
+    exact ⟨cv, caps, by rw [hm]; exact hf, hnd⟩
 
 omit [SetTheory V] in
 /-- **Ownership at a one-member block without constructors**, recorded
@@ -309,7 +320,7 @@ theorem lfpOwn_former0 {env : Env} (hwf : ConLeche.EnvWF env) {c₀ : ConstantIn
     (fun nP' h => by
       obtain rfl : caps.nparams = nP' := by
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h; exact h.1
-      exact ⟨hnd, hp⟩)
+      exact ⟨hnd, hp⟩) hnd
   show (_ :: env.consts).filterMap _ = []
   rw [List.filterMap_cons]
   exact ctorEntries_fresh hwf hfresh
