@@ -85711,3 +85711,10 @@ and the ~20 inversion lemmas re-pointed to it (`checkBlockRecK_ctorsAt`,
 `_tyPis`, `_facts`, `_rulesLen`, `_tyAt`, `_recNames`, `blockRecMajor_run`,
 `blockRecElimLevel_run`, …).  B5: delete `checkBlockRecK` and its dead
 proofs, keeping every `@[csimp]`.
+
+**Gates at the landing** (`701d9d48` + this record): `lake build`/`lake
+test` EXIT 0, 0 warnings; `tests/arena.sh` EXIT 0 (shake 483/483
+allowlisted, pub-imports none demotable, nested-shadow 82/82,
+target-shadow 317/317, axioms pinned, arena 90/92, e2e 301/301, sweeps);
+K5 verdict-neutral: arena `--target-shadow` 737 lines and init-full 585
+lines identical to K4's.  No `sorry`, no new axioms.
