@@ -85420,3 +85420,95 @@ supplies it from the positivity stage's run.
   fixpoint equation (`blockFam_app_eq`, `BlockCtorsLoop`,
   `BlockRealChains`, `FixZeroField`) still uses `blockPhi_mono` on the
   slot datum.
+
+#### RECLIB session 4 (branch `agent/uinds-RECLIB`, not landed): B3 (c′), (d) and the `ℓ = 0` arm at the target data; the seam composed, the recursor model owed
+
+**Status.**  Green checkpoints on the branch; nothing landed.  The whole
+`declBlock_data` seam is now produced at the TARGET rule data
+(`ihs := tgtIhsAV`, `Rb0 := tgtRbAV`) for blocks where both checks ran —
+except ONE conjunct, the family's recursor model `hpre` at the target
+data (B3 (e) + B4).  `declBlock_target`
+(`Model/Inductives/TargetSeam.lean`) is `declBlock_data` with every other
+conjunct discharged and `hpreT` as its one owed premise (plus `htgt`,
+"the target check ran on the same family": a `TargetRecRun` at an `fe`
+with `fe.env = envC` and `rs = tgtRs out`).  The first consumed
+checkpoint is `hpreT`'s producer; the live recursor stage is still
+`checkBlockRecK`.
+
+**Kernel (shadow; verdict-neutral).**  K4 — `targetRule` checks that the
+fields' whnf-telescopes (`fnorm`) name only the recursor's universe
+parameters.  Reason: the call λs bind their domains, and the ι equations
+must read alike at two level valuations agreeing on those parameters
+(`heqP`); reduction never introduces a parameter (δ instantiates a stored
+value's own parameters away), but proving that for `whnf` needs a level-
+footprint theorem for `whnf` AND, through `majorToCtor`'s constructor
+expansion, for inference.  Measured: target-shadow 317/317; arena
+`--target-shadow` 737 block lines and init-full 585 identical to K3's
+(`RECLIB/arena-s4k4/`, `RECLIB/initfull-k4.err`).  K1–K4 await the
+maintainer's review.
+
+**Proved (all `sorry`-free).**
+* (c′) `tgtRuleResidueB` (`TargetResidue.lean:93`): `BlockRuleResidueB`
+  at the target data, from `targetRuleBodyEq_run` at the rule run
+  `targetRuleAt` pins.  `targetRuleBodyEq_run` also exports the call λs'
+  bvar bound; `targetRuleAt` exports `M.ds = fvsPref.take nP`.
+* One per-rule facts bundle, `tgtRuleAt_facts` (`:527`).  From the run
+  alone: `targetRule_reads` (`TargetFrame.lean:226`: both readings exist
+  and are bound; the residue's scoping) and `targetRule_graded` (`:339`:
+  every call λ graded at its callee's value — `targetCall_ihSlot` now
+  exports that — and the residue graded at the `ih` values).
+* (d) Today's three producers made GENERIC in `ihs`/`Rb0`
+  (`blockRecEqs_below_gen`/`_params_gen`/`_valid_gen`,
+  `BlockDeclRun.lean:244/420/742`; today's are their instances), fed the
+  target rows `tgtRule_below`/`tgtRule_params`/`tgtRule_valid`
+  (`TargetResidue.lean:619/1124/759`) in `tgtRecEqs_below_seam`/
+  `_valid_seam`/`_params_seam` (`TargetSeam.lean:84/149/207`).
+  `tgtIhs_map_interp` (`:684`): the target `ih` terms at the chain frame
+  are the call λs at the callees' chain values.  `lpDefF_targetAbstract`
+  (`:1008`): the abstraction keeps the level footprint (`lpDefF` is now
+  `@[expose]`).
+* The rule contract: `blockRuleDataB_run_gen` (`BlockRuleFit.lean:3236`)
+  and `blockRuleDataB_seam_gen` (`BlockDeclRun.lean:1172`) take the
+  residue conjunct as a premise (given the rule's reading and the
+  contract's first conjunct); `tgtRuleDataB_seam` (`TargetSeam.lean:245`)
+  feeds them `tgtRuleResidueB`.
+* The `ℓ = 0` arm: `targetAbstract_noFields` (`TargetResidue.lean:1217`),
+  `tgtRuleRaZ_empty`/`tgtRuleRaZ_seam` (`TargetSeam.lean:385/515`).
+
+**Rows still read from today's run** (re-pointed in B1 through the
+generic stage record, deleted with it in B5 only if a kind-free producer
+replaces them): the frame's grading at the prefix and fields (`hokA`,
+`blockRuleGrading_run`, restricted by `blockRuleHokPF_of`: it grades the
+old frame's `ih` openers too — replace by a prefix-and-field grading
+before B5); the field readings (`blockRuleHdF_seam`); the data-side
+contract conjuncts 1–3 and 5 (`blockRuleDataB_of_residue`).
+
+**For HOLE2 (d) — slot reads that remain.**  The target-side files
+(`Target*.lean`) read no `BlockModelAt` slot field.  What still reads
+them on this route: the data-side contract (`blockRuleFit_tele` →
+`blockRuleHsp_field_run`/`blockChainFit_*`: `ChainFit`, `d.tgts`,
+`hM.resIdxFit`/`idxFit`), and the graph producer `blockRecPre_graph`
+(`blockChainFit_of_le`, `blockIndPred_of`'s `d.tgts`).  The target
+re-instance of the producer (next) must read "fields fit at X ⇒ in the
+abstract reading" from HOLE2's hole form (`_tmp/uniform-inds/HOLE2.md`),
+not the slot datum; the data-side conjuncts are next in line after it.
+
+**Next (in order).**
+(e) `hpreT`: `blockRecPre_graph` re-instanced at the target data.  The
+generic kit (`blockGraphFam`) is already data-parametric; owed at the
+target data: `ihdoms` (the `ih` types' readings, `ihDomsLifted`), `ihv`
+(per call, the λ-tower over the call's telescope reading of
+`app g (tagged callee (tup ⟦idx⟧) ⟦f a⃗⟧)` — the old `blockKitIhv` with
+the call's data in place of the key's), `call` (the predecessor
+relation: the calls' targets), `Ca` at depth `B + |ihs|`, the
+certificates (`BlockRuleCerts` from `R.hty`/`hdeq` and the walk), `hihF`
+(K1/K3: the call's type is the `ih` type), `hCaB`, the `IhChain` (the
+graph's `ih` values at the candidate ARE the λs at the chain values —
+`tgtIhs_map_interp` plus `famCandG_fold`), `hwd`, and B4 `ind` (the
+class-agnostic predicate; at a call, `DefEqClaim` at the hole valuation
+`X := sep` via K1's abstract call typing, read through HOLE2's hole form).
+Then consume: `declBlock_target` without `hpreT`, B1, B5.
+
+**Gates at the head.**  `lake build`/`lake test` EXIT 0, 0 warnings (after
+merging `uniform-inds` 57ef3401 — HOLE2's `hlfp` threaded through the
+generic and target seams); `tests/arena.sh`: see `RECLIB.md` §13.
