@@ -85787,3 +85787,30 @@ Gates (at `10a4f004`): `lake build`/`lake test` EXIT 0, 0 warnings;
 demotable, nested-shadow 82/82, target-shadow 317/317, axioms pinned,
 arena 90/92, e2e 301/301, DAG-tower 14/14, trusted/jobs sweeps as
 expected).  No kernel change; no `sorry`, no new axioms.
+
+#### LANDED (lane CONTSEM, session 1 addendum): the group case at the set level; finding M2′
+
+- `lfpTuple_le_on` (`SetModel/HoleClose.lean`) and
+  `LfpClause.carrier_le_on_group` (`Model/Annot/BlockLfpMono.lean`): a
+  container frame abstracts only the reached part `G` of its group, the
+  other members read concretely (held at the SMALLER carrier); if every
+  `G`-constructor fitting at the smaller parameter frame with the
+  `G`-holes at the larger carrier fits at the larger frame's carrier, the
+  smaller carrier lies below the larger on `G`.  Induction at the
+  separation "on `G`, inside the larger carrier" — no generalised Bekić
+  is needed (NESTPLAN L3's "Bekić over the SCC" step is retired).  The
+  remaining premise `hwalk` is what the frame walk delivers through the
+  substitution law.
+- **Finding M2′:** the walk abstracts a container's members at the
+  instantiation's levels `us` (`sub` tests `us' == us`); the recorded
+  reading (M2, to come) abstracts them at `lps.map .param`.  A member
+  occurrence at OTHER levels that instantiate to `us` would be a hole on
+  one side only.  Today such an occurrence can survive `nestPos` inside a
+  nested key's PARAMETERS (`nestCont` checks loose bvars and the fvar
+  bound, not member constants: a phantom container `P (A : Type) | mk`
+  and a field `P (C.{v} α)`).  Proposed: `nestCont` rejects a member
+  constant in the key's parameters (measure verdict-neutrality first),
+  after which a successful walk certifies that the walked term has no
+  member constant left.
+
+Gates (at `d2686a72`): see the landing line in CONTSEM.md.
