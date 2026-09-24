@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Verify.Rules.Bridge
+import ConLeche.Verify.Inductives.RecCheckScope
 
 public section
 
@@ -79,6 +81,51 @@ theorem targetFrame_facts {envT : Env} {rP nF nP : Nat} {recTy cty crest oP cbod
     (fvsIh := []) h₁ h₂ rfl hTf hCf hinstC (fun l hl => by simp [Expr.fvarLeaves] at hl)
   simp only [List.append_nil] at hlb hcb hcl
   exact ⟨by rw [List.reverse_append]; exact hL2, hlb, hcb, hcl⟩
+
+/-- The frame's opener list extended by the `ih` variables. -/
+theorem fvarList_ihs {B : Nat} {L : List Expr} (hL : FvarList B L) (tys : List Expr)
+    (hws : ∀ t ∈ tys, Expr.WScoped B t) :
+    FvarList (B + tys.length) ((ihFvarsAt B tys).reverse ++ L) := by
+  suffices key : ∀ n, n ≤ tys.length →
+      FvarList (B + n)
+        (((List.range n).map fun r => Expr.fvar (B + r) (tys.getD r default)).reverse ++ L) by
+    exact key tys.length (Nat.le_refl _)
+  intro n
+  induction n with
+  | zero => intro _; simpa using hL
+  | succ n ih =>
+    intro hn
+    have h := (ih (by omega)).cons (tys.getD n default)
+      (((hws _ (by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+        exact List.getElem_mem _)).mono (by omega)))
+    simp only [List.range_succ, List.map_append, List.map_cons, List.map_nil,
+      List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append,
+      List.cons_append]
+    rw [show B + (n + 1) = B + n + 1 from by omega]
+    exact h
+
+/-- The `ih` variables are `fvar (B + r)` at their types. -/
+theorem ihs_fv_eq {fr : ConLeche.TargetFrame} {B : Nat} {ihs : Array ConLeche.TargetIh}
+    (hwf : TargetIhWF fr B ihs) :
+    ihs.toList.map (·.fv) = ihFvarsAt B (ihs.toList.map (·.ty)) := by
+  apply List.ext_getElem (by simp [ihFvarsAt])
+  intro r h1 h2
+  simp only [List.getElem_map, ihFvarsAt, List.getElem_range, List.length_map] at h1 ⊢
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, Array.getElem?_toList,
+    Array.getElem?_eq_getElem (by simpa using h1)]
+  simpa using (hwf r (by simpa using h1)).1
+
+/-- A frame entry's leaves are frame entries. -/
+theorem frame_leaves_mem {E : Nat} {Lf : List Expr} (hFr : FvarList E Lf.reverse)
+    (hher : ∀ x ∈ Lf, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ Lf) :
+    ∀ x ∈ Lf, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lf := by
+  intro x hx l hl
+  obtain ⟨i, ty, rfl⟩ := hFr.mem_fvar (List.mem_reverse.mpr hx)
+  simp only [Expr.fvarLeaves, List.mem_cons] at hl
+  rcases hl with rfl | hl
+  · exact hx
+  · exact hher _ hx l hl
 
 universe uv
 
@@ -158,13 +205,206 @@ theorem walkCtx_targetRule (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.
       (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (rP + c.2) R.ihs :=
     (targetAbstract_acc 0 _ #[] _ _ R.habs).2 (fun r hr => absurd hr (by simp))
   have h := walkCtx_targetEntry hμ hacl hin hcalls hwf hFr hW0
-    (fun ih hih => targetIh_scope hμ R mT.wf hle hbf hFr hher hcbF hformer
-      (fun c' => (hRT c').1) hih)
+    (fun ih hih => (targetIh_scope hμ R mT.wf hle hbf hFr hher hcbF hformer
+      (fun c' => (hRT c').1) hih).imp id fun h => h.imp id fun h => h.imp id
+        fun h => h.imp id fun h => h.1)
     (fun ih _ => hRT ih.callee) Rv hR
   have e : targetFrameIh (R.fvsPref ++ R.fvsF) R.ihs
       = (R.ihs.toList.map (·.fv)).reverse ++ (R.fvsPref ++ R.fvsF).reverse := by
     rw [targetFrameIh, List.reverse_append]
   rw [e]
   exact h.2
+
+set_option maxHeartbeats 4000000 in
+/-- **The body equation of one target-checked rule, at its run** (B3 (c),
+the rule side): the stored rule body, opened at the caller's frame and
+read at the consed environment, is the residue read at the frame
+extended by the `ih` values — the calls' λs at the callees' values.
+`targetRuleBodyEq` with every premise the rule's run determines
+discharged: the frame's facts (`targetFrame_facts`), the residue's
+context (`walkCtx_targetRule`), its scoping and typing (the run's
+inference, `targetAbstract_out_leaves`), the `ih` values' identification
+with the λ readings.  Left: the frame's readings, grading and fit, the
+stored types' facts, the callees' values and the two environments'
+agreement. -/
+theorem targetRuleBodyEq_run (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.FEnv}
+    {mT : EnvModel V feT.env} {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
+    (haclT : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ)
+    (hproj : ∀ (sn : Name) (i : Nat), feT.env.findProj? sn i = env.findProj? sn i)
+    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound feT.env y →
+      denoteMeta mT.acval feT.env φ D y = some ya → denoteMeta acval env φ D y = some ya)
+    {F : Nat} {p : ConLeche.BlockShape} {formerTys : List Expr}
+    {fam : ConLeche.TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr}
+    {M : ConLeche.TargetMajor} {c : ConstantVal × Nat} {rhs out : Expr}
+    (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hbf : R.body.hasFvar = false)
+    (hds : M.ds = R.fvsPref.take p.nP)
+    (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
+    (hTc : ConstsBound feT.env recTy)
+    (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)
+    (hCb : (ConLeche.targetCtorAt M c.1).looseBVarsBounded 0 = true)
+    (hCc : ConstsBound feT.env (ConLeche.targetCtorAt M c.1))
+    (hformer : ∀ t ∈ formerTys, t.hasFvar = false)
+    (hRT : ∀ c',
+      (fam.recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      (fam.recTys.getD c' (.sort .zero)).looseBVarsBounded 0 = true ∧
+      ConstsBound feT.env (fam.recTys.getD c' (.sort .zero)) ∧
+      ∃ RTa : AnnotTerm,
+        denoteMeta mT.acval feT.env φ (rP + c.2) (fam.recTys.getD c' (.sort .zero)) = some RTa ∧
+        (∀ σ : Nat → V, WellDenotedV V σ RTa))
+    {pdoms fdoms : List AnnotTerm} (hp : pdoms.length = rP) (hf : fdoms.length = c.2)
+    (hdoms : ∀ (i : Nat) (x : Expr), (R.fvsPref ++ R.fvsF)[i]? = some x →
+      denoteMeta mT.acval feT.env φ i (Expr.fvarTypeD x)
+        = some ((pdoms ++ fdoms).reverse.getD (rP + c.2 - 1 - i) default))
+    (hokΔ : ∀ i, i < rP + c.2 →
+      ∀ ρ : Nat → V, Sat V (pdoms ++ fdoms).reverse ρ →
+        WellDenotedV V (fun j => ρ (j + (rP + c.2 - 1 - i) + 1))
+          ((pdoms ++ fdoms).reverse.getD (rP + c.2 - 1 - i) default))
+    {ρ₀ : Nat → V} {xs fs : List V} (hsp : SpineFit ρ₀ (pdoms ++ fdoms) (xs ++ fs))
+    (hbit : pwBit φ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ≠ 0)
+    (Rv : Nat → V)
+    (hR : ∀ ih ∈ R.ihs.toList, ∀ RTa : AnnotTerm,
+      denoteMeta mT.acval feT.env φ (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
+        = some RTa →
+      Rv ih.callee ∈ˢ interp V (consList (xs ++ fs) ρ₀) RTa)
+    (hcallee : ∀ (nm : Name) (c' : Nat), ConLeche.nameIdxOf? fam.recNames nm = some c' →
+      ∃ ci : ConLeche.ConstantInfo, env.find? nm = some ci ∧
+        fam.rlvls.length = ci.toConstantVal.levelParams.length ∧
+        ∀ ρ : Nat → V,
+          interp V ρ (acval nm (Level.substFn φ ci.toConstantVal.levelParams fam.rlvls)) = Rv c')
+    {as1 : List Expr} (h1 : LocList 0 (rP + c.2) as1) {A : AnnotTerm}
+    (hA : denoteMeta acval env φ (rP + c.2) (R.body.instantiateList as1 0) = some A) :
+    ∃ Bv : AnnotTerm,
+      denoteMeta mT.acval feT.env φ (rP + c.2 + R.ihs.size) R.bodyO = some Bv ∧
+      interp V (consList (xs ++ fs) ρ₀) A
+        = interp V (consList (ihValsAt Rv (consList (xs ++ fs) ρ₀) R.ihs.toList
+            (ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
+              (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+              (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList))
+            (consList (xs ++ fs) ρ₀)) Bv := by
+  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
+  have haclT1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
+    fun n ψ k => haclT n ψ 1 k
+  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts R.hpref R.hcrest hds R.hfld hTf hTb hTc
+    hCf hCb hCc
+  have hframeL := frame_leaves_mem hFr hher
+  have hW := walkCtx_targetRule hμ haclT hin R hle hbf hds hTf hTb hTc hCf hCb hCc hformer hRT
+    hp hf hdoms hokΔ hsp Rv hR
+  have hwf : TargetIhWF (ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (rP + c.2) R.ihs :=
+    (targetAbstract_acc 0 _ #[] _ _ R.habs).2 (fun r hr => absurd hr (by simp))
+  have hscope := fun ih (hih : ih ∈ R.ihs.toList) =>
+    targetIh_scope hμ R mT.wf hle hbf hFr hher hcbF hformer (fun c' => (hRT c').1) hih
+  -- the `ih` variables' list
+  have hfvEq := ihs_fv_eq hwf
+  have hL : FvarList (rP + c.2 + R.ihs.size) (targetFrameIh (R.fvsPref ++ R.fvsF) R.ihs) := by
+    have h := fvarList_ihs hFr (R.ihs.toList.map (·.ty)) (fun t ht => by
+      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
+      exact wscoped_of_leaves_mem hFr _ (hscope ih hih).1)
+    rw [targetFrameIh, List.reverse_append, hfvEq]
+    simpa using h
+  -- the residue's leaves
+  have hlL : ∀ l ∈ R.bodyO.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ targetFrameIh (R.fvsPref ++ R.fvsF) R.ihs := by
+    intro l hl
+    rw [targetFrameIh, List.mem_reverse]
+    rcases targetAbstract_out_leaves 0 _ #[] _ _ R.habs l hl with h0 | ⟨ih, hih, h0⟩
+    · obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList hFr R.body hbf 0 l h0
+      exact List.mem_append_left _ (hframeL x (List.mem_reverse.mp hx) l hlx)
+    · obtain ⟨r, hr, hget⟩ := List.getElem_of_mem hih
+      have hr' : r < R.ihs.size := by simpa using hr
+      obtain ⟨hfv, -⟩ := hwf r hr'
+      have hget' : R.ihs[r] = ih := by simpa using hget
+      rw [hget'] at hfv
+      rw [hfv] at h0
+      simp only [Expr.fvarLeaves, List.mem_cons] at h0
+      rcases h0 with rfl | h0
+      · refine List.mem_append_right _ (List.mem_map.mpr ⟨ih, hih, ?_⟩)
+        exact hfv
+      · exact List.mem_append_left _ ((hscope ih hih).1 l h0 |> List.mem_reverse.mp)
+  have hinfB := Rules.inferTypeCore_bridge R.hty
+  have hbT : R.bodyO.looseBVarsBounded 0 = true := ConLeche.infer_full_bvarClosed hinfB
+  have hcbe : ConstsBound feT.env R.bodyO := by
+    refine infer_constsBound_of_full hinfB rfl (fun l hl => ?_)
+    have h := hW.2.2.2.2.2.1 _ (hlL l hl)
+    simpa using h
+  have hLB : Expr.LeavesBounded R.bodyO := fun l hl => hW.2.2.2.2.1 _ (hlL l hl)
+  obtain ⟨Bv, hBv⟩ := acceptedReads_of mT φ R.hty (wscoped_of_leaves_mem hL _ hlL) hbT hLB
+  refine ⟨Bv, hBv, ?_⟩
+  -- the `ih` values are the λs' readings, transported to the consed environment
+  have hihv : ∀ (r : Nat) (ih : ConLeche.TargetIh), R.ihs[r]? = some ih →
+      ∃ L : AnnotTerm, denoteMeta acval env φ (rP + c.2 + 1)
+          (targetCallE (ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+            (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (rP + c.2)
+            (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) = some L ∧
+        (ihValsAt Rv (consList (xs ++ fs) ρ₀) R.ihs.toList
+            (ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
+              (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+              (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList)).getD r pt
+          = interp V (cons (Rv ih.callee) (consList (xs ++ fs) ρ₀)) L := by
+    intro r ih hr
+    obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
+    have hih : ih ∈ R.ihs.toList := by rw [← hrget]; exact Array.getElem_mem_toList hrl
+    obtain ⟨C⟩ := R.call hih
+    obtain ⟨-, -, -, hlE, -, -⟩ := hscope ih hih
+    -- the λ reads at the constructors' environment
+    obtain ⟨hRf, hRb, hRcb, RTa, hRTa, hRG⟩ := hRT ih.callee
+    have hL1 : FvarList (rP + c.2 + 1)
+        (Expr.fvar (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
+          :: (R.fvsPref ++ R.fvsF).reverse) :=
+      hFr.cons _ (Expr.WScoped.of_not_hasFvar hRf)
+    have hLE : Expr.LeavesBounded (targetCallLam fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+      intro l hl
+      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+      · injection h0 with _ h2; rw [h2]; exact hRb
+      · exact hlbF _ (List.mem_reverse.mp h0)
+    obtain ⟨Lr, hLr⟩ := acceptedReads_of mT φ C.hcall
+      (wscoped_of_leaves_mem hL1 _ hlE) (ConLeche.infer_full_bvarClosed
+        (Rules.inferTypeCore_bridge C.hcall)) hLE
+    have hcbLam : ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+      refine infer_constsBound_of_full (Rules.inferTypeCore_bridge C.hcall) rfl (fun l hl => ?_)
+      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+      · injection h0 with _ h2; rw [h2]; exact hRcb
+      · have := hcbF _ (List.mem_reverse.mp h0); simpa using this
+    refine ⟨Lr, hmono _ _ _ hcbLam hLr, ?_⟩
+    rw [ihValsAt, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_range (by simpa using hrl)]
+    simp only [Option.map_some, Option.getD_some]
+    have e1 : (R.ihs.toList.getD r default) = ih := by
+      rw [List.getD_eq_getElem?_getD, Array.getElem?_toList, hr]; rfl
+    have e2 : (ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList).getD r default
+        = Lr := by
+      have hLr' : denoteMeta mT.acval feT.env φ (rP + c.2 + 1) (targetCallLam fam R.fvsPref
+          R.fvsF (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) = some Lr := hLr
+      rw [ihLamReads, List.getD_eq_getElem?_getD, List.getElem?_map, Array.getElem?_toList, hr]
+      simp [hLr']
+    rw [e1, e2]
+  have hteles : ∀ (r : Nat) (ih : ConLeche.TargetIh), R.ihs[r]? = some ih →
+      ∀ t ∈ ((ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))).teles.getD ih.field []).map
+          (·.1),
+        ∀ l ∈ t.fvarLeaves, l.1 < rP + c.2 := by
+    intro r ih hr t ht l hl
+    obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
+    have hih : ih ∈ R.ihs.toList := by rw [← hrget]; exact Array.getElem_mem_toList hrl
+    obtain ⟨b, hb, rfl⟩ := List.mem_map.mp ht
+    exact leaf_lt_of_mem hFr (fun l' hl' => List.mem_reverse.mpr
+      ((hscope ih hih).2.2.2.2.2 b hb l' hl')) l hl
+  exact targetRuleBodyEq (acval := acval) (env := env) (φ := φ) hacl haclT1 hin hproj hmono
+    R.habs hbf hFr hbit (by simp [ihValsAt]) hle
+    (fun x hx => openPisAtFvars_fvars_closed R.hpref x hx)
+    (fun x hx => openPisAtFvars_fvars_closed R.hfld x hx)
+    hcallee hteles hihv hL hW hlL hbT hcbe ⟨_, hinfB⟩ h1 hA hBv
 
 end ConLeche.Model
