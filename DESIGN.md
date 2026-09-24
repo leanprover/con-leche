@@ -85173,3 +85173,108 @@ supplies it from the positivity stage's run.
   fixpoint equation (`blockFam_app_eq`, `BlockCtorsLoop`,
   `BlockRealChains`, `FixZeroField`) still uses `blockPhi_mono` on the
   slot datum.
+
+#### LANDED (lane SPLITMOD, 2026-09-24, `58fdc743` + `dd842eb8`): the census by consumers of the modeller, and the modeller's implementation gathered into its own files
+
+**The question** (the plan: "split out the iota/projection/eta helpers
+from `Modeled.lean` first"): which definitions in `Modeled.lean` and
+`Frontend/InModel/*`, and which theorems about them, does anything but
+the modeller consume?  **Answer: nothing.**  The move therefore went
+the other way.
+
+**The census** (`_tmp/uniform-inds/SPLITMOD/Reach.lean`, CONFDIR's
+script extended).  Roots: every constant of `MainTheorem`,
+`Verify/Cached/MainC`, `Cached/ParsedC`, `Frontend/ExportC`, `Main`,
+`PinGen/*`, `Kernel/BasisGen`, the test library, and the agreement
+floor's products (`trusted_agrees_*`).  The walk is cut at the
+modeller's entry points (`checkModeled`, `Cached.checkIndDeclSF`,
+`Semantics.DeclIndRun` (the modeled route's run relation),
+`Cached.indDeclSkelsModeled` (its agreement-floor skeleton),
+`InModel.generate`/`wants`/`genNested`, `dumpInModel`) and at every
+constant whose TYPE mentions one, except a dispatch lemma (its type
+matches on `blockParts?`, so it states both routes).  "Modeller-only"
+= reached from the entry points and not from the roots.  Three
+refinements were needed to stop false positives: generic derived
+instances (`Repr`, `Inhabited`, `injEq`, `sizeOf_spec`) and generic
+expression/environment operations are never counted as the modeller's;
+dead constants are the modeller's only when their TYPE mentions a
+modeller constant; and a generic lemma used only by modeller proofs
+is an ORPHAN (it survives the deletion unused), not a deletion.
+
+**Findings.**
+* `Modeled.lean`: 0 of its constants shared.  The uniform route, the
+  core checker, `Quot`, structure η, the conformance tier and
+  `TargetInstall`/`RecCheck` consume none of the iota, projection or
+  η/unit-likeness helpers.  Structure η and projections on the uniform
+  route are the projection TABLE (`checkStructProjTable`) and
+  `blockCapsAt`, not `checkProjFn`/`checkEtaThm`.
+* `Frontend/InModel/*`: the only constants reached without the
+  modeller are Kit's parse-block records (`IndTypeRec`, `IndCtorRec`,
+  `IndRecRec`, `BlockRec`, `Ctx`, `ConstTable`) and `hintHeight`, and
+  only through the parser's modeller plumbing in `ExportC` (the
+  `StateD` fields `constTypes`/`heights`/`indBlocks`/`inModel*`/
+  `genRecords`/`genOwner`, `noteDecl`'s heights, `blockRecOf`,
+  `installIndD`'s generator branch).  They are not generic records:
+  they go with that plumbing.  `Frontend/ExportWrite.lean` is used by
+  nothing but the dump (`InModelDump`).
+* The core checker keeps one modeller-shaped feature that is NOT a
+  pure deletion: the `.nested lvls pins` firing mode of `RecRuleFire`
+  (`Kernel/Env.lean`, consumed by `CoreDefs`' iota and `Cached/CoreC`).
+  Only `checkIotaThmN` produces it; after the modeller goes it is
+  vacuous, and removing it is a follow-up simplification of the core
+  (with its `EnvWF`/iota-soundness cases), not part of the deletion.
+
+**What moved** (verdict-neutral; the modeller's implementation tier is
+now three whole files):
+* into `Kernel/Inductives/Modeled.lean` (section "Helpers only the
+  modeled route uses"): `checkTypedList`, `checkAnnotList`,
+  `checkDefEqList`, `domsMatchAux(A)`, `isEqHead`, `eqHeadLevel`,
+  `checkProjShape`, `checkProjRule` (from `CheckerBase`);
+  `projModelName`, `projFnRule` + its four simp lemmas (from
+  `CoreDefs`); `recsFormSuffix`, `recsFilterNeg/Pos`,
+  `recsFormSuffix_iff(')`, `blockRecSuffixDec` (from `Env`);
+  `Name.isModelSuffix` (from `Level`).
+* new `Kernel/Inductives/ModeledF.lean` (489 lines): the
+  index-threaded twins out of `DeclCheck` (`checkEtaThmF`,
+  `checkUnitThmF`, `ctorResidualOkF`, `indBlockCapsF(_sortZ)`,
+  `checkMemberValF`, `checkIotaThm(N)F`, `nestedRuleShapeF`,
+  `checkIotaRule(s)F`, `checkProjLookups/Ty/Rule/IotaF`).
+* new `Cached/ModeledC.lean` (141 lines): the cached twins out of
+  `CheckerC` (`checkIndMemberS`, `provisionRecsS`, `checkIndRecsS`,
+  `checkProjFnS`, `installProjFnStepS`, `checkIndDeclSF`).
+* imports: `Checker` imports `Modeled` directly (the dispatch; it was
+  reached through `StructInstall`, which no longer imports it — its
+  shake-allowlist row is gone); `ParsedC` imports `ModeledC`;
+  `Verify/CheckerF` imports `ModeledF`; `InModel/Nested` imports
+  `Modeled` for `projModelName`.
+* left in place as generic vocabulary (unused after the deletion, may
+  go with it or stay): `Env.findCV?`, `FEnv.findCV?`,
+  `Expr.lowerBVars`/`pisToLams`/`instLamsAtF`/`instPisAtF`/
+  `replacePiBody`, `piResultIsProp`/`piResultZ`,
+  `ConstantInfo.isRecInfo`, the derived `Repr`/`Inhabited` instances.
+
+**The deletion list** (`_tmp/uniform-inds/SPLITMOD.md`, with line
+counts).  Implementation: `Modeled.lean`, `ModeledF.lean`,
+`Cached/ModeledC.lean`, `Frontend/InModel.lean`, `InModel/Kit.lean`,
+`InModel/Nested.lean`, `InModelDump.lean`, `ExportWrite.lean` whole,
+plus the dispatch arms of `checkDecl`, `Cached.checkDeclC`,
+`Frontend.installIndD` (+ its `StateD` plumbing) and `Main.checkMain`.
+Proofs: 52 further whole files (`Model/Ind*`, `Model/IotaRule*`,
+`Model/Proj*`, `Model/DeclInd`, `Semantics/DeclIndRun`,
+`Semantics/Bridge/DeclIndRun`, `Semantics/IndBlockRun`,
+`Semantics/EnvFactsCons`, `Semantics/IndRecsCore`,
+`Semantics/ProjFnFacts`, `Semantics/ProjPhase`,
+`Verify/Extend/{Iota,Proj,Ind,Block,Modeled}`, `Verify/IotaWalkInv`,
+`Verify/Denote/{Inst,Tele}`) — 60 files, 24 898 lines in all — and
+declarations in 24 shared files (6 211 lines by declaration range, the
+largest `BridgeWfImp` 1 308, `BridgeCS2` 936, `Denote/IndFrame` 774,
+`BridgeCS4` 648), plus the modeled arm at 16 proof dispatch sites
+(`Model/Fold`, `Semantics/Bridge/{Sound,DeclRun}`, `BridgeDecl`,
+`Cached/{BridgeC,PushChain,BlockRunC,AgreeFloor}`,
+`Frontend/ApplyLine`).  Nothing was deleted: nested blocks still need it.
+
+**Gates.**  `lake build` and `lake test` 0 warnings; `tests/arena.sh`
+exit 0 after the merge of `881c352a` (e2e 301/301, nested-shadow
+82/82, target-shadow 317/317, arena 90/92, shake + pub-imports clean,
+six OVERVIEW anchors repointed (README net unchanged), quote gate clean, axioms
+pinned).  No exit code moved.

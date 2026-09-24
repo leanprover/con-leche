@@ -1088,9 +1088,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L227-L228
-   227        else if cvA.name = sorryAxName then
-   228          pure fe
+== ConLeche/Cached/ParsedC.lean#L226-L227
+   226        else if cvA.name = sorryAxName then
+   227          pure fe
 
 == Main.lean#L838
    838    "  --jobs=<n>        the number of worker threads for the check phase",
