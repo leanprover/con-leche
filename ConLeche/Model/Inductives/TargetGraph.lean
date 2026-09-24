@@ -116,13 +116,13 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAsR.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : ∀ (ψ : Name → Nat) c, c < (tgtRs out).length → pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).N := fun ψ c hc =>
     Nat.lt_of_lt_of_le
-      (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
+      (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
       (Nat.le_add_right _ _)
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
     (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).memberNames

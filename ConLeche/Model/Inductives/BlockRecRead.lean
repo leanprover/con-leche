@@ -186,7 +186,7 @@ theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ r ∈ rs, ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
@@ -194,7 +194,7 @@ theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
   obtain ⟨R⟩ := id h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hi
+  obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
   exact checkConstantVal_reads hμ mpC E.hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
@@ -206,7 +206,7 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → AnnotTerm}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmem : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ta : AnnotTerm),
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) :

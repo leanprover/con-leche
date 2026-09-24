@@ -51,11 +51,11 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
 `blockRecLpsOk`, carried to the stored record by `checkConstantVal`
 (`recStage_lps`' own two steps, kept). -/
 theorem recStage_lpsPin
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) :
     r.1.levelParams = if p.toBlockShape.large then p.elim :: p.lps else p.lps := by
-  obtain ⟨hpins, hlenR, hall⟩ := recStage_recNames h
+  obtain ⟨hpins, hlenR, hall⟩ := recStageG_recNames h
   have hnl : i < p.recs.length := by
     have hql := (List.getElem?_eq_some_iff.mp hr).1
     omega
@@ -73,7 +73,7 @@ theorem recStage_lpsPin
 
 /-- The block's own parameters are among every recursor's. -/
 theorem recStage_lps_sub
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) : ∀ q ∈ p.lps, q ∈ r.1.levelParams := by
   intro q hq
@@ -86,7 +86,7 @@ theorem recStage_lps_sub
 (`recStage_tyPis`), which is ψ-congruent at any recursor's
 parameters (`blockRecTyAV_params_ext`). -/
 theorem blockRulePdomsAV_params (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q)
     {c : Nat} (hc : c < rs.length) :
@@ -109,9 +109,9 @@ theorem blockRulePdomsAV_params (hμ : μ.verifiedChecks = true) (mpC : EnvModel
 /-- **`fdoms`** — the constructor's field domains, through the record's
 `params` (`blockRuleFdomsAV_eq`). -/
 theorem blockRuleFdomsAV_params {mpC : EnvModelM V μ envC}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
@@ -125,15 +125,15 @@ theorem blockRuleFdomsAV_params {mpC : EnvModelM V μ envC}
     (hq : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q) :
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ₁ c i
       = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ₂ c i := by
-  rw [(blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ₁).1,
-    (blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP ψ₂).1, (hcd.params ψ₁ ψ₂ hq).1]
+  rw [(blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ₁).1,
+    (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ₂).1, (hcd.params ψ₁ ψ₂ hq).1]
 
 /-- **`es`** — the constructor's index readings, through the record's
 `params` (`blockRuleEsAV_eq`). -/
 theorem blockRuleEsAV_params {mpC : EnvModelM V μ envC}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
@@ -147,15 +147,15 @@ theorem blockRuleEsAV_params {mpC : EnvModelM V μ envC}
     (hq : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q) :
     blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ₁ c i
       = blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ₂ c i := by
-  rw [blockRuleEsAV_eq h hr hcA hrhs hcd hCf hnP ψ₁,
-    blockRuleEsAV_eq h hr hcA hrhs hcd hCf hnP ψ₂, (hcd.params ψ₁ ψ₂ hq).2]
+  rw [blockRuleEsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ₁,
+    blockRuleEsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ₂, (hcd.params ψ₁ ψ₂ hq).2]
 
 /-- **`mk`** — the constructor's leaf at the identity instantiation,
 through the leaf's `acval_params` (`blockRuleMkAV_eq`). -/
 theorem blockRuleMkAV_params {mpC : EnvModelM V μ envC}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     {ci : ConstantInfo} (hfind : envC.find? cA.1.name = some ci)
     (hlps : ci.toConstantVal.levelParams = p.lps)
@@ -163,8 +163,8 @@ theorem blockRuleMkAV_params {mpC : EnvModelM V μ envC}
     (hq : ∀ q ∈ p.lps, ψ₁ q = ψ₂ q) :
     blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ₁ c i
       = blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ₂ c i := by
-  rw [blockRuleMkAV_eq h hr hcA hrhs hfind hlps hnP ψ₁,
-    blockRuleMkAV_eq h hr hcA hrhs hfind hlps hnP ψ₂]
+  rw [blockRuleMkAV_eq (hm := hm) h hr hcA hrhs hfind hlps hnP ψ₁,
+    blockRuleMkAV_eq (hm := hm) h hr hcA hrhs hfind hlps hnP ψ₂]
   have hq' : ∀ q ∈ p.lps, Level.substFn ψ₁ p.lps (p.lps.map Level.param) q
       = Level.substFn ψ₂ p.lps (p.lps.map Level.param) q :=
     Level.substFn_ext hq (fun u hu => by

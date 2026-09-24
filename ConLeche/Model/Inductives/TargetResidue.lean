@@ -220,7 +220,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     rw [blockRuleFieldFvs, blockRuleCtorOf_eq hr hcA, ← hcrestEq, ← hrP, Q.hfld, Option.map_some,
       Option.getD_some]
   -- the family's prefixes lie below its majors
-  obtain ⟨-, hlenR, hallN⟩ := recStage_recNames h
+  obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
   have hle : ∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
       ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0 := by
     intro c'
@@ -275,7 +275,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     rw [blockRulePdomsAV_length hμ mpC h hr, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env
       (Level.substFn φ r.1.levelParams us) j i).length = cA.2 :=
-    blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs _
+    blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs _
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us) q (Expr.fvarTypeD x)
         = some ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out)
@@ -522,7 +522,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
 theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -571,7 +571,7 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
     have hc := Q.hcrest
     rw [hct, hds, instPisWith_eq_instPisAt] at hc
     rw [blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, hc, Option.getD_some]
-  obtain ⟨-, hlenR, hallN⟩ := recStage_recNames h
+  obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
   refine ⟨rc, rhs0, M, Q, hrP, hct, hds, (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2, hTf, hTb,
     constsBound_of_constsResolve _ hTres, fun c' => ?_, fun c' => ?_, hPrefEq, ?_,
     by rw [tgtB_at hr hcA, hrP], ?_, hAbs, hnPc, hlvls⟩
@@ -617,7 +617,7 @@ and abstraction. -/
 theorem tgtRuleAt_facts {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -660,7 +660,7 @@ theorem tgtRule_below (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (mT : EnvModel V fe.env) {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
@@ -801,12 +801,12 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (mpC : EnvModelM V μ fe.env) {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hm : memR j) (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hCc : ConstsBound fe.env cA.1.type)
@@ -874,7 +874,7 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       = rc.rP := by
     rw [blockRulePdomsAV_length hμ mpC h hr, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ j i).length
-      = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs _
+      = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs _
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
         = some ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ j
@@ -1001,12 +1001,12 @@ theorem tgtRule_valid (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (mpC : EnvModelM V μ fe.env) {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hm : memR j) (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hCc : ConstsBound fe.env cA.1.type)
@@ -1036,7 +1036,7 @@ theorem tgtRule_valid (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
         (consList ys ρ))
       (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
         fe.env ψ j i) := by
-  obtain ⟨h1, h2⟩ := tgtRule_wdV hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc hdF hokPF ρ tup
+  obtain ⟨h1, h2⟩ := tgtRule_wdV (hm := hm) hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc hdF hokPF ρ tup
     hlen htyp ys hys
   exact ⟨fun v hv => (h1 v hv).2, h2.2⟩
 
@@ -1210,7 +1210,7 @@ the call λs' binder domains are the fields' telescopes (K4). -/
 theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}

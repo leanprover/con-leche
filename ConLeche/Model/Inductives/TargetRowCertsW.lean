@@ -133,7 +133,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       (tgtRs out)[c]? = some r → d.ctorsM (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
@@ -150,7 +150,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hmemk : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
+    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by rw [hctM c _ hr]; exact hcA
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
@@ -169,8 +169,8 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_facts_major h R hr hcA hrhs
   -- today's openings of the same stored types, and today's conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
-    blockRuleData_run h hr hcA hrhs
-  obtain ⟨concl0, hpr⟩ := blockRuleConcl_run h hr hcA hrhs
+    blockRuleData_run (hm := trivial) h hr hcA hrhs
+  obtain ⟨concl0, hpr⟩ := blockRuleConcl_run (hm := trivial) h hr hcA hrhs
   obtain ⟨hw₁, hb₁⟩ := recStage_tyClosed h hr
   have hb₂ : (blockRuleCrest pp.toBlockShape (tgtRs out) c j).looseBVarsBounded 0 = true :=
     (instPisAt_bounded _ hinstC hCb
@@ -209,7 +209,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hIlen : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j).length = Q.ihs.size := by
     rw [hIdE, ihDomsLifted_length]; simp [ihTyReads]
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
+  have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length = cA.2 := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ
   have hTyLen : (Q.ihs.toList.map (·.ty)).length = Q.ihs.size := by simp
   -- the conclusion: the run's is today's
   have hcrestQ : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) c j := by
@@ -226,7 +226,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     have h1 := Q.hconcl
     rw [hds, hnPc, hlvls, hcbQ, hPrefEq, hFldEq] at h1
     exact Option.some.inj (h1.symm.trans hpr)
-  obtain ⟨hCaR, hcon⟩ := blockRuleCaAt_run hμ h hr hcA hrhs hcdP hCf hCb hfindC hlpsC hnP ψ
+  obtain ⟨hCaR, hcon⟩ := blockRuleCaAt_run (hm := trivial) hμ h hr hcA hrhs hcdP hCf hCb hfindC hlpsC hnP ψ
     Q.ihs.size
   have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ c j
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size)
@@ -250,7 +250,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       = ihFvarsAt (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.ihs.toList.map (·.ty)) := by
     rw [hfvEq, hBB]
   -- the frame's readings and grading, at the target frame (`tgtRule_valid`'s)
-  have hdF := (blockRuleFdomsAV_eq h hr hcA hrhs hcdP hCf hnP ψ).2
+  have hdF := (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcdP hCf hnP ψ).2
   have hokPF := hPF c _ hr j cA hcA ψ
   have hplQ : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = rc.rP := by rw [hpl, hrP]
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
@@ -289,7 +289,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       Q.ihs.toList).length = Q.ihs.size := by simp [ihTyReads]
   rw [hfl, hIlen]
   refine BlockRuleCerts.of_segments mpC h₁ h₂ h₃ hw₁ hw₂ ?_ ?_ ?_ ?_ hpl hfl hIlen
-    (blockRulePdomsAV_reads hμ mpC h hr ψ h₁) (blockRuleFdomsAV_eq h hr hcA hrhs hcdP hCf hnP ψ).2
+    (blockRulePdomsAV_reads hμ mpC h hr ψ h₁) (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcdP hCf hnP ψ).2
     ?_ ?_ (by rw [← hBB]; exact Q.hty) (by rw [← hBB]; exact Q.hdeq) hbT (by rw [hQc]; exact hbC)
     ?_ (by rw [hQc]; exact fun l hl => List.mem_append_left _ (hleafC l hl)) ?_ ?_ ?_
   · -- hw₃

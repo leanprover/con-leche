@@ -87,7 +87,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
@@ -96,7 +96,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   obtain ⟨hparFit, -⟩ := blockRecIs_fits hi
   have hsat := d.satOfSpine hparFit
   have hmK : ∀ c', c' < (tgtRs out).length → pp.toBlockShape.recTgtAt c' < d.k := fun c' hc' =>
-    (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc') ψ).2.1
+    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc') ψ).2.1
   have hmN : ∀ c', c' < (tgtRs out).length → pp.toBlockShape.recTgtAt c' < d.N := fun c' hc' =>
     Nat.lt_of_lt_of_le (hmK c' hc') (Nat.le_add_right _ _)
   -- the property, per MEMBER: every class of it, at every major
@@ -122,7 +122,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     ⟨_, List.getElem?_eq_getElem hjr⟩
   have hcj : (d.ctorsM (pp.toBlockShape.recTgtAt c'))[j]? = some cA := by
     rw [hctM c' _ hr]; exact hcA
-  have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.1
+  have hmemk := (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr ψ).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   -- the fields fit at the CARRIER (the hole fit grows with the tuple), there
@@ -158,7 +158,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     obtain ⟨xs₁, fs₁, heq, h1, hfsR⟩ := spineFit_append_split hspF
     have hl1 : xs₁.length = xs.length := by rw [h1.length_eq, hpref'.length_eq]
     obtain ⟨rfl, rfl⟩ := List.append_inj heq hl1.symm
-    rw [hfsR.length_eq, blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ]
+    rw [hfsR.length_eq, blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ]
   -- the called field is a field of the constructor
   obtain ⟨rc, rhs0, M, Q, -, -, -, -, -, -, -, hAbs, -, -⟩ := targetRuleAt R hr hcA hrhs
   have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j).getD r
@@ -262,7 +262,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
         (consList (xs.take d.nP) ρ) := (hmr.2.2.2.2.2.2 _ hm' ψ _).mpr hsat
     have hxsT : (xs.take d.nP).length = d.nP := by
       rw [List.length_take, hxs]
-      exact Nat.min_eq_left (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).1
+      exact Nat.min_eq_left (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr ψ).1
     have hlenP : (d.toLfp.pars (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape
         (cvTas.map (·.type)) (tgtRs out) c' j).getD r default).callee) ψ).length = d.nP := by
       show (List.map _ (List.take _ _)).length = _
@@ -280,7 +280,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))
     (by rw [List.length_map, List.length_range, hN.2.2]) hvTy _ hlaw
-    (fun Aty hA => tgtField_transport hμ h R hdR' hN hcore hmr hr hcA hrhs ψ ρ hxs hfsl
+    (fun Aty hA => tgtField_transport (hm := trivial) hμ h R hdR' hN hcore hmr hr hcA hrhs ψ ρ hxs hfsl
       (by simp only [List.length_map, List.length_range]; rfl) hsepH.2.1 hsatHV hfi Aty hA) bs hbs
   obtain ⟨hidx, hin⟩ := hcoreT
   simp only [sepTuple] at hin

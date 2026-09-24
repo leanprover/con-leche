@@ -341,7 +341,7 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
 set_option maxHeartbeats 8000000 in
 /-- **One `ih` key of a target rule, read.** -/
 theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
@@ -353,7 +353,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     (hnd : d.memberNames.Nodup)
-    (ψ : Name → Nat) (ρ : Nat → V) {c j : Nat} (hc : c < (tgtRs out).length)
+    (ψ : Name → Nat) (ρ : Nat → V) {c j : Nat} (hm : memR c) (hc : c < (tgtRs out).length)
     (hj : j < blockRecNCt (tgtRs out) c) {xs fs : List V}
     (hsp : SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c
       ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) (xs ++ fs))
@@ -399,7 +399,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   have hihMem : ih ∈ Q.ihs.toList := by rw [hihGet]; exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
   -- the frame
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -437,7 +437,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 :=
     ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStage_recNames h
+  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
   have hcalR : ih.callee < pp.recs.length := by omega
   have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
       = pp.toBlockShape.majorIdxAt ih.callee := by
@@ -527,7 +527,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
       = rc.rP := by rw [blockRulePdomsAV_length hμ mpC h hr0, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr0 hcA hrhs _
+      = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr0 hcA hrhs _
   have hfsl : fs.length = cA.2 := by
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl

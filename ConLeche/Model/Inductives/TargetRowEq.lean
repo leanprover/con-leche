@@ -103,7 +103,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   -- the constructor's record
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
   have hmemk : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
@@ -115,7 +115,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcd := blockCtorData_of_core hcore hcj
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
-  have hdF := fun ψ' => (blockRuleFdomsAV_eq h hr hcA hrhs hcd hwfC.1 TE.nP_le ψ').2
+  have hdF := fun ψ' => (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcd hwfC.1 TE.nP_le ψ').2
   -- the spine, at the base frame
   have hch := consList_eq_chainFrame (V := V) hl ρ
   obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
@@ -129,7 +129,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
     rw [hch, blockRecFdomsK, ← hxl0] at hfs
     exact (spineFit_liftDomsK (K := (tgtRs out).length) (ρ := ρ) _ xs fs).mp hfs
   have hysρ := SpineFit.append hxsρ hfsρ
-  obtain ⟨hIv, hRv⟩ := tgtRule_wdV hμ mpC h R hformer ψ hr hcA hrhs hwfC.1 hwfC.2.2.2.1
+  obtain ⟨hIv, hRv⟩ := tgtRule_wdV (hm := trivial) hμ mpC h R hformer ψ hr hcA hrhs hwfC.1 hwfC.2.2.2.1
     (constsBound_of_constsResolve _ hwfC.2.2.1) (hdF ψ) (hPF c _ hr j cA hcA ψ) ρ as hl ht
     (xs ++ fs) hysρ
   rw [wd_instsAV (fun v hv => (hIv v hv).1)]

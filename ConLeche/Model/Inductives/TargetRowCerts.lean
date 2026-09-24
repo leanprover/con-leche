@@ -86,8 +86,8 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
           (fun c' => d.uM (pp.toBlockShape.recTgtAt c') ψ) (fun c' => d.nIdxAt (pp.toBlockShape.recTgtAt c')) ρ xs (tagged c i (d.inj ψ (pp.toBlockShape.recTgtAt c) j fs)) := by
   intro c hc hps hpref j hj i fs hi hfit g
   obtain ⟨r, cA, rhs, ci, hr, hcA, hrhs, hfind, hlps, hnP, hcj, hjc, hes, hpl, hfl,
-    -, hrds, hmemN⟩ := blockRuleCaAV_pair hμ h hcore hmr hdnP hctM ψ hc hj
-  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
+    -, hrds, hmemN⟩ := blockRuleCaAV_pair (hm := trivial) hμ h hcore hmr hdnP hctM ψ hc hj
+  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   -- the hole fit, as the stored fit (the override law at the carrier)
@@ -96,7 +96,7 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcdP := hcd
   rw [hdnP] at hcdP
-  obtain ⟨-, hcon⟩ := blockRuleCaAt_run hμ h hr hcA hrhs hcdP hwfC.1 hwfC.2.2.2.1 hfindC hlpsC
+  obtain ⟨-, hcon⟩ := blockRuleCaAt_run (hm := trivial) hμ h hr hcA hrhs hcdP hwfC.1 hwfC.2.2.2.1 hfindC hlpsC
     hnP ψ (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).length
   have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ c j
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2
@@ -113,7 +113,7 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   obtain ⟨is, hIs, rfl⟩ := mem_idxSet_elim hi
   -- the field spine fits the constructor's own field domains
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c := by rw [hpref.length_eq, hpl]
-  have hfd := blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
+  have hfd := blockRuleFdomsAV_datum (hm := trivial) h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
   have hq := blockRecSpF_base (mem := pp.toBlockShape.recTgtAt) hμ h hr hfd hxs hpref hfit'.2.1
   obtain ⟨xs', fs', heq, hxs', hfs'⟩ := spineFit_append_inv hq
   obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hxs'.length_eq, hpref.length_eq])
@@ -128,7 +128,7 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
     exact hq'.mp hfs'
   have hfsl : fs.length = cA.2 := by rw [hfs'.length_eq, hfl]
   -- the conclusion, evaluated (§29b)
-  have hCaE := blockIndCaE_of_run hμ hM h hr hcA hrhs hfind hlps hnP hdnP hmemN hcj hjc ψ
+  have hCaE := blockIndCaE_of_run (hm := trivial) hμ hM h hr hcA hrhs hfind hlps hnP hdnP hmemN hcj hjc ψ
     hcon rfl rfl hes hpl hfl hrds rfl hxs hfsl hihl hps hsf hIs hfit' rfl
   rw [hCaE, blockRecMot_tagged hc]
   have hIdx := hM.idxOk ψ _ (d.satOfSpine hps) _ hmemN

@@ -97,7 +97,7 @@ theorem blockCountingGuard_run (hμ : μ.verifiedChecks = true)
   obtain ⟨hpos, hklen⟩ := blockRecLen_run h
   obtain ⟨-, -, hlarge, hk1, hnc⟩ :=
     blockRecCounting_run h hruns ψ hℓ hw
-  have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hpos) ψ).2.1
+  have hmemk := (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hpos) ψ).2.1
   have hk1d : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k = 1 := hk1
   rw [hk1d] at hmemk
   exact ⟨by rw [hklen, hk1], by omega,

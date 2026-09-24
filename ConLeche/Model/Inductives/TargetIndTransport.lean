@@ -88,7 +88,7 @@ hole values `hv` lies in the target check's member-abstracted type of
 that field, read past the rule frame and the holes, at the rule frame
 extended by the same hole values. -/
 theorem tgtField_transport (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
@@ -97,7 +97,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     {c j : Nat} {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[c]? = some r0) {cA : ConstantVal × Nat} (hcA : r0.2.2.2[j]? = some cA)
+    (hm : memR c) (hr : (tgtRs out)[c]? = some r0) {cA : ConstantVal × Nat} (hcA : r0.2.2.2[j]? = some cA)
     {rhs : Expr} (hrhs : r0.2.1[j]? = some rhs)
     (ψ : Name → Nat) (ρ : Nat → V) {xs fs hv : List V}
     (hxs : xs.length = pp.toBlockShape.rulePrefixAt c) (hfs : fs.length = cA.2)
@@ -120,9 +120,9 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
   have hnamesP : d.memberNames = pp.toBlockShape.memberNames := by
     rw [← hdd]; rfl
   -- the constructor at the member
-  have hmaj := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
+  have hmaj := blockRecMajor_run (hm := hm) (V := V) hμ mpC h hmr hr ψ
   have hctM : d.ctorsM (pp.toBlockShape.recTgtAt c) = r0.2.2.2 := by
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
     rw [← hdd]
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl

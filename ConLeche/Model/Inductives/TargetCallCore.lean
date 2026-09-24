@@ -83,8 +83,8 @@ parameters and indices (today's type pin, `RecTyEntry`). -/
 theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[c]? = some r)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hm : memR c) (hr : rs[c]? = some r)
     {args : List Expr} (hcl : ∀ a ∈ args, a.looseBVarsBounded 0 = true)
     (hlen : args.length = pp.toBlockShape.majorIdxAt c) {res : Expr}
     (hres : Expr.instPisAtLift args r.1.type = some res) :
@@ -92,7 +92,7 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       pp.toBlockShape.members[pp.toBlockShape.recTgtAt c]? = some ms ∧
       res = .forallE (Expr.mkAppN (.const ms.cvT.name (pp.toBlockShape.lps.map .param))
         (args.take pp.toBlockShape.nP ++ args.drop (pp.toBlockShape.rulePrefixAt c))) body bm := by
-  obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   obtain ⟨hTf, -, -, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   have hop := TE.hopen
   obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ :=
@@ -241,7 +241,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
   -- the constructor's stored type: closed, bounded
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -260,7 +260,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
       = rc.rP := by rw [blockRulePdomsAV_length hμ mpC h hr0, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr0 hcA hrhs _
+      = cA.2 := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr0 hcA hrhs _
   have hdF : ∀ (l : Nat) (x : Expr),
       (blockRuleFieldFvs pp.toBlockShape (tgtRs out) c j)[l]? = some x →
         denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + l) (Expr.fvarTypeD x)
@@ -268,7 +268,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
               default) := by
     have hcd := blockCtorData_of_core hcore hcj
     obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr0
-    exact (blockRuleFdomsAV_eq h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2
+    exact (blockRuleFdomsAV_eq (hm := trivial) h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
         = some ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c
@@ -375,7 +375,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStage_recNames h
+  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
   have hcalR : ih.callee < pp.recs.length := by omega
   have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
       = pp.toBlockShape.majorIdxAt ih.callee := by
@@ -388,8 +388,8 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
       = r1.1.type := by
     simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
-  obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
-  obtain ⟨hnP0, -, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr0 ψ
+  obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr1 ψ
+  obtain ⟨hnP0, -, -, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr0 ψ
   obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.recStage_tyAt h hr1
   have hdnP : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).nP
       = pp.toBlockShape.nP := hmr.1
@@ -428,7 +428,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     have hlenA : ((Q.fvsPref ++ ih.idx).map (·.instantiateList os 0)).length
         = pp.toBlockShape.majorIdxAt ih.callee := by
       rw [List.length_map, List.length_append, hlp, ← hmIc]; omega
-    obtain ⟨ms, body, bm', hms, heq⟩ := tgtMajDom_open h hr1 hclA hlenA hins
+    obtain ⟨ms, body, bm', hms, heq⟩ := tgtMajDom_open (hm := trivial) h hr1 hclA hlenA hins
     obtain rfl : ms = TE1.ms := Option.some.inj (hms.symm.trans TE1.hms)
     injection heq with hdom
     rw [hdom, List.map_append, List.take_append_of_le_length (by rw [List.length_map, hlp]; omega),

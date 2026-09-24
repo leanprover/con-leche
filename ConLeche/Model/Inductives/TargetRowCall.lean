@@ -82,12 +82,12 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).N :=
-    Nat.lt_of_lt_of_le (blockRecMajor_run (V := V) hμ mpC h hmr hr0 ψ).2.1 (Nat.le_add_right _ _)
+    Nat.lt_of_lt_of_le (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr0 ψ).2.1 (Nat.le_add_right _ _)
   -- the hole fit is the stored fit at the carrier
   have hchain := (hM.carrier ψ _ (BlockData.satOfSpine _ hpar) _ hmN i hi j fs).mp hfit
   have hjr : j < r0.2.2.2.length := by
@@ -112,7 +112,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   have hq' : q < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).length := by
     simpa [tgtIhdomsAV, ihDomsLifted, ihTyReads] using hq
   obtain ⟨hcal, hrPc, hbitsTL, Xr, hTeq, hXval⟩ :=
-    tgtIhKey_run hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxs hq'
+    tgtIhKey_run (hm := trivial) hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxs hq'
   -- the domain, past the values already bound
   have htk : ((tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
@@ -181,7 +181,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     rw [hcq] at hIds hmemX
     have hXv := hXval bs hbs
     obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[cq]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-    obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
+    obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr1 ψ
     have hmN' : pp.toBlockShape.recTgtAt cq
         < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).N :=
       Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
@@ -299,11 +299,11 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   obtain ⟨cA, rhs, hcA, hrhs, -, -, -, -, hxs', hfsl, -, hpre, hps, -, -, -⟩ :=
-    blockRuleSpine_peel hμ h hcore hmr rfl hctM hr0 hj hxs hsp
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr0 hj hxs hsp
   -- the fields at the base frame
   have hfsR : SpineFit (consList xs ρ)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) fs := by
@@ -321,7 +321,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
     obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
     exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -366,7 +366,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     rw [hIhL]; exact hq
   have hxsc : xs.length = pp.toBlockShape.rulePrefixAt c := hxs'
   obtain ⟨hcal, hrPc, hbitsTL, -, -, -⟩ :=
-    tgtIhKey_run hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxsc hq'
+    tgtIhKey_run (hm := trivial) hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxsc hq'
   have hihq : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD q default
       = Q.ihs.toList[q] := by
     rw [hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq]; rfl
@@ -501,7 +501,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
       hspF hxsc hq' bs hbs
     rw [hihq] at hIds hmemX
     obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-    obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
+    obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr1 ψ
     have hpref1 := blockRecHpref_run hμ mpC h ψ hr0 hr1 hpre
     have hIs : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
         (pp.toBlockShape.recTgtAt ih.callee) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
@@ -541,7 +541,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     have hprefR : SpineFit ρ (((blockRecRdsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ
         ih.callee).map (·.2.2)).take (pp.toBlockShape.rulePrefixAt ih.callee)) xs := by
       rw [← List.map_take]; exact hpref1
-    have hspC := blockRecSpineFit_of_parts hμ h hmr hr1 ψ ρ hprefR hIds hmemX
+    have hspC := blockRecSpineFit_of_parts (hm := trivial) hμ h hmr hr1 ψ ρ hprefR hIds hmemX
     rw [List.append_assoc] at hspC
     show app (graph r _) _ = _
     rw [app_graph (mem_blockGraphPred.mpr ⟨hU, hcall⟩), hfold ih.callee hcal _ _ hxl1 hspC]

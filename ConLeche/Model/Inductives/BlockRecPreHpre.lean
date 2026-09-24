@@ -252,7 +252,7 @@ syntactically — `structElimLevel p.elim p.large` is `Level.zero` at
 `large = false`, so a recursor that eliminates at a non-zero level
 cannot have declared the small shape. -/
 theorem blockRecLarge_run
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
@@ -321,7 +321,7 @@ theorem blockRecNCt_seam {pk : Nat → BlockMemberPick}
         ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
           (p.toBlockShape.recTgtAt c)).length ≤ p.toBlockShape.numCtors := by
   intro c hc
-  obtain ⟨ms, hms, hctA, hlenms⟩ := recStage_ctorsAt h (List.getElem?_eq_getElem hc)
+  obtain ⟨ms, hms, hctA, hlenms⟩ := recStage_ctorsAt (hm := trivial) h (List.getElem?_eq_getElem hc)
   have hctM : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt c) = rs[c].2.2.2 := by
     show ctorsAs.getD _ [] = _
@@ -340,12 +340,12 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
 
 /-- The rule's field domains number the constructor's fields. -/
 theorem blockRuleFdomsAV_length_run
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) (ψ : Name → Nat) :
     (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).length = cA.2 := by
-  obtain ⟨_, _, _, _, _, _, -, -, h₂, -, -, -, -, -⟩ := blockRuleData_run h hr hcA hrhs
+  obtain ⟨_, _, _, _, _, _, -, -, h₂, -, -, -, -, -⟩ := blockRuleData_run (hm := hm) h hr hcA hrhs
   rw [blockRuleFdomsAV, readOpenedDoms_length_eq]
   exact openPisAtFvars_length _ h₂
 
@@ -446,7 +446,7 @@ theorem blockGradeHokA_chain (hμ : μ.verifiedChecks = true)
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   rw [blockRecFdomsK_eq_of_bounded (hbnd ψ) hr hcA hrhs] at hl hys ⊢
   have hlP := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hlF := blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
+  have hlF := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ
   have hq := hG c rs[c] hr j cA hcA ψ l
     (by rw [List.length_append, hlP, hlF] at hl; omega) (consList as ρ) ys hys
   exact hq.1
@@ -493,10 +493,10 @@ theorem blockKitSpF_run (hμ : μ.verifiedChecks = true)
   have hcj : (d.ctorsM (p.toBlockShape.recTgtAt c))[j]? = some cA := by
     rw [hctM c _ hr]; exact hcA
   have hmemk : p.toBlockShape.recTgtAt c < d.k :=
-    (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
+    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hnP := TE.nP_le
-  have hfd := blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
+  have hfd := blockRuleFdomsAV_datum (hm := trivial) h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hxs : xs.length = p.toBlockShape.rulePrefixAt c := by rw [hpref.length_eq, hpl]
@@ -538,7 +538,7 @@ theorem blockRuleDecoding_run (hμ : μ.verifiedChecks = true)
             = d.inj ψ (p.toBlockShape.recTgtAt c) j fs := by
   intro c hc j hj xs fs hxs hsp
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfs, hnF, -, hps, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel hμ h hcore hmr hdnP hctM (List.getElem?_eq_getElem hc) hj hxs hsp
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr hdnP hctM (List.getElem?_eq_getElem hc) hj hxs hsp
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hmN : p.toBlockShape.recTgtAt c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM (p.toBlockShape.recTgtAt c)).length :=
@@ -549,7 +549,7 @@ theorem blockRuleDecoding_run (hμ : μ.verifiedChecks = true)
     rw [hfd, liftDomsK_length, hnF]
   refine ⟨⟨hjl, hfb, ?_⟩, ?_⟩
   · exact blockRecCtorIdx (mem := p.toBlockShape.recTgtAt) hM hes hpl hfl hxs' hfs hmN hjl hps hfb
-  · exact blockRecMkK_value (mem := p.toBlockShape.recTgtAt) hM h hr hcA hrhs hcf.1
+  · exact blockRecMkK_value (hm := trivial) (mem := p.toBlockShape.recTgtAt) hM h hr hcA hrhs hcf.1
       (by rw [← hcf.2.1]; rfl) hnP hmN hcj ψ hxs' hfs
       (by rw [hpl, hfl, hxs', hfs]) (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfb)
 

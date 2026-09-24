@@ -132,9 +132,9 @@ frame: the constructor's leaf inhabits its stored type's reading
 field values fit that type's binder data, so the application chain is
 graded (`wellDenotedV_mkAppN_of_fit`). -/
 theorem blockRuleMkAV_wdV
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {j : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[j]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {j : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[j]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[j]? = some rhs) {mm : Nat}
     (hcf : BlockCtorFacts mpC.base2 d p.lps mm j cA)
     (hcj : (d.ctorsM mm)[j]? = some cA) (hdnP : d.nP = p.nP)
@@ -148,7 +148,7 @@ theorem blockRuleMkAV_wdV
   have hcd := hcf.2.2
   have hlps : (ConstantInfo.ctorInfo cA.1 d.nP cA.2).toConstantVal.levelParams = p.lps :=
     hcf.2.1
-  rw [blockRuleMkAV_eq h hr hcA hrhs hcf.1 hlps hnP ψ, Level.substFn_param_self]
+  rw [blockRuleMkAV_eq (hm := hm) h hr hcA hrhs hcf.1 hlps hnP ψ, Level.substFn_param_self]
   have hlenL : (xs ++ fs).length = p.toBlockShape.rulePrefixAt c + cA.2 := by
     rw [List.length_append, hxs, hfsl]
   -- the arguments read the frame's parameters and fields
@@ -242,7 +242,7 @@ theorem blockGradeLhs_run
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hch := consList_eq_chainFrame (V := V) hlen ρ
@@ -255,7 +255,7 @@ theorem blockGradeLhs_run
   have hfit := blockKitRule_run hμ h hcore hmr hM rfl hctM ψ rs.length
     (fun c => as.getD c pt) ρ c hc j hj xs fs hxl hsp
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel hμ h hcore hmr rfl hctM hr hj hxl hsp
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr hj hxl hsp
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 := by
@@ -271,7 +271,7 @@ theorem blockGradeLhs_run
   obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk j cA hcj).1 ψ
   have hcd := hcf.2.2
-  have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+  have hpc := blockRuleParamFit_run (hm := trivial) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
     (hcd.len ψ) hframes (spineFit_take_any hpre p.nP)
   -- the frame, the head, the spine's values
   rw [hch]
@@ -331,7 +331,7 @@ theorem blockGradeLhs_run
   · -- the fired constructor application, lifted past the chain
     rw [List.mem_singleton] at hx
     rw [hx, blockRecMkK, hlenL, wellDenotedV_liftN_chainFrame]
-    exact blockRuleMkAV_wdV h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
+    exact blockRuleMkAV_wdV (hm := trivial) h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
 
 end Lhs
 

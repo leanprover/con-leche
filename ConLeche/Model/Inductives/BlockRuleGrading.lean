@@ -215,10 +215,10 @@ theorem blockRuleHokPF_run
   have hir : i < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hir)⟩
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
   have hmemk : p.toBlockShape.recTgtAt j
       < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
+    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   have hctM : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j) = r.2.2.2 := by
     show ctorsAs.getD _ [] = _
@@ -233,8 +233,8 @@ theorem blockRuleHokPF_run
   have hframes := (hS.frames _ hmemk i cA hcj).1 ψ
   have ho : p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) := by
     omega
-  have hFE := blockRuleFdomsAV_liftDoms h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
-  have hq := blockRuleHokA_of_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+  have hFE := blockRuleFdomsAV_liftDoms (hm := trivial) h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
+  have hq := blockRuleHokA_of_run (hm := trivial) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
     (hcd.okTy ψ) (hcd.len ψ) hframes ho rfl hFE (I := []) (nR := 0) rfl
     (fun q hq => absurd hq (Nat.not_lt_zero q)) l (by omega) σ' ys
     (by simpa only [List.append_nil] using hys)

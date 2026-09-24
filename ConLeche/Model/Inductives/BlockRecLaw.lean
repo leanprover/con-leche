@@ -246,7 +246,7 @@ theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List RecDatum} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
     {ρ : Nat → V} {ws : List AnnotTerm} {rest TVa : AnnotTerm}
     (hTVa : denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some TVa)

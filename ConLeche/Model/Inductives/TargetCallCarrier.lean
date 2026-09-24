@@ -118,9 +118,9 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
       (tgtRs out) c j).getD r default).callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
+  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr1 ψ
   -- the constructor's type and the frame
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -140,7 +140,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
       = rc.rP := by rw [blockRulePdomsAV_length hμ mpC h hr0, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr0 hcA hrhs _
+      = cA.2 := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr0 hcA hrhs _
   have hxl : xs.length = rc.rP := by rw [hxs, hrP]
   have hfsl : fs.length = cA.2 := by
     have hsl := hsp.length_eq
@@ -247,7 +247,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
             default) := by
       have hcd := blockCtorData_of_core hcore hcj
       obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr0
-      have h1 := (blockRuleFdomsAV_eq h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2 fi
+      have h1 := (blockRuleFdomsAV_eq (hm := trivial) h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2 fi
         (Expr.fvar (rc.rP + fi) ty)
         (by rw [← hFldEq, List.getElem?_eq_getElem (by omega)]
             congr 1

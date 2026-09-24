@@ -113,6 +113,7 @@ structure RuleOutOk (mode : CheckMode) (F : Nat) (envR : Env) (cvR : ConstantVal
   hann : annotateCore mode envR F 0 rhs = .ok out
   hlp : out.allLevelParamsDefined cvR.levelParams = true
   hres : out.constsResolve envR = true
+  htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR
 
 namespace RuleOutOk
 
@@ -146,7 +147,7 @@ theorem out_bounded (R : RuleTower mode F envR envT p recTys ri cvR cA rhs out) 
 
 theorem toOut (R : RuleTower mode F envR envT p recTys ri cvR cA rhs out) :
     RuleOutOk mode F envR cvR rhs out :=
-  ⟨R.hbv, R.hfv, R.hann, R.hlp, R.hres⟩
+  ⟨R.hbv, R.hfv, R.hann, R.hlp, R.hres, R.tyR, R.htyR⟩
 
 end RuleTower
 
@@ -357,6 +358,17 @@ theorem ruleAt (R : RecStage mode F env p cvTas ctorsAs rs fun _ => True)
         p.toBlockShape (rs.map (·.1.type)) c rc.cvR cA rhs0 rhs) :=
   R.ruleTower c r i cA rhs trivial hr hcA hrhs
 
+/-- The `(c, i)`-th rule's λ-tower at a MEMBER-major recursor. -/
+theorem ruleAtG (R : RecStage mode F env p cvTas ctorsAs rs mem) {c : Nat} (hm : mem c)
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ rc rhs0, p.recs[c]? = some rc ∧ rc.rhss[i]? = some rhs0 ∧
+      Nonempty (RuleTower mode F
+        (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) env
+        p.toBlockShape (rs.map (·.1.type)) c rc.cvR cA rhs0 rhs) :=
+  R.ruleTower c r i cA rhs hm hr hcA hrhs
+
 /-- **Every constructor has its rule.** -/
 theorem rulesLen (R : RecStage mode F env p cvTas ctorsAs rs mem)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -452,6 +464,26 @@ theorem recStage_tyAt (h : RecStageOk mode F env p cvTas ctorsAs rs) {i : Nat}
       Nonempty (RecTyEntry mode F env p.toBlockShape false cvTas i rc r.1 r.2.2.1 u) := by
   obtain ⟨R⟩ := h
   obtain ⟨rc, u, hrc, -, E⟩ := R.tyAt hr
+  exact ⟨rc, u, hrc, E⟩
+
+/-- **Stage (b)'s major-free record at a STORED recursor** (any major). -/
+theorem recStageG_tyGen {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem)
+    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) :
+    ∃ rc u, p.recs[i]? = some rc ∧
+      Nonempty (RecTyGen mode F env p.toBlockShape false i rc r.1 r.2.2.1 u) := by
+  obtain ⟨R⟩ := h
+  obtain ⟨rc, u, hrc, -, E⟩ := R.tyGenAt hr
+  exact ⟨rc, u, hrc, E⟩
+
+/-- **Stage (b)'s record at a STORED MEMBER-major recursor.** -/
+theorem recStageG_tyAt {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem)
+    {i : Nat} (hm : mem i) {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[i]? = some r) :
+    ∃ rc u, p.recs[i]? = some rc ∧
+      Nonempty (RecTyEntry mode F env p.toBlockShape false cvTas i rc r.1 r.2.2.1 u) := by
+  obtain ⟨R⟩ := h
+  obtain ⟨rc, u, hrc, -, E⟩ := R.tyAtG hm hr
   exact ⟨rc, u, hrc, E⟩
 
 /-- **The CHECK's own well-formedness contract**: every stored
@@ -874,7 +906,8 @@ theorem recStage_of_targetG {outside nested : Bool}
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
-    refine ⟨rc, rhs0, hrc, hrhs0, ⟨Q.hbv, Q.hfv, Q.hann, by rw [← hlp]; exact Q.hlp, ?_⟩⟩
+    refine ⟨rc, rhs0, hrc, hrhs0, ⟨Q.hbv, Q.hfv, Q.hann, by rw [← hlp]; exact Q.hlp, ?_,
+      Q.tyR, Q.htyR⟩⟩
     have h := Q.hres
     simp only [StructWalkers.plain, constsResolveF_eq] at h
     exact h

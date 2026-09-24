@@ -405,7 +405,7 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
       (p.toBlockShape.recTgtAt c)).length := by rw [hnCt]; exact hj
   have hj'c : j' < ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt c)).length := by rw [hnCt]; exact hj'
-  have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
+  have hmemk := (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
   have hmN : p.toBlockShape.recTgtAt c
       < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).N :=
     Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
@@ -726,13 +726,13 @@ theorem blockRecPre_graph_gen (hμ : μ.verifiedChecks = true)
   obtain ⟨uOf, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   have hmemk : ∀ c, c < rs.length → p.toBlockShape.recTgtAt c
       < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k := fun c hc =>
-    (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
+    (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r →
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   -- the conclusion's reading, at the checked elimination level

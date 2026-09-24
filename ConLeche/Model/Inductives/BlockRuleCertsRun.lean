@@ -239,7 +239,7 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   -- the context's values, split into the prefix, the fields and the `ih` block
@@ -272,18 +272,18 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     rw [chainFrame_zero, blockRecFdomsK, liftDomsK_zero]
     exact hab
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel hμ h hcore hmr rfl hctM hr hj hxl hsp0
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr hj hxl hsp0
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 :=
-    blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ
+    blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ
   -- the constructor's parameter fit (the hop through the member's former)
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hcvTa := TE.hcvTa
   obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
   have hframes := (hS.frames _ hmemk j cA hcj).1 ψ
   have hcd := hcf.2.2
-  have hpc := blockRuleParamFit_run hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
+  have hpc := blockRuleParamFit_run (hm := trivial) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
     (hcd.len ψ) hframes (spineFit_take_any hpre p.nP)
   -- the frame, with the `ih` block on top
   have hframe : consList (xs ++ fs ++ ws) σ₀ = consList ws (consList (xs ++ fs) σ₀) := by
@@ -318,7 +318,7 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
   · -- the fired constructor application
     rw [List.mem_singleton] at ha
     rw [ha, hdrop, blockRecMkK, AnnotTerm.liftN_zero]
-    exact blockRuleMkAV_wdV h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
+    exact blockRuleMkAV_wdV (hm := trivial) h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
 
 end ConclArgs
 
