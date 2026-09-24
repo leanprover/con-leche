@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.SetModel.HoleClose
+public import ConLeche.SetTheory.Derive.LfpTuple
+import ConLeche.SetModel.HoleClose
 @[expose] public section
 
 /-!
