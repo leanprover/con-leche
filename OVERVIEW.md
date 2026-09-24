@@ -223,16 +223,16 @@ that is neither `sorryAx`, the axiom record that installs nothing, nor
 the record's own level parameters and with the *annotation* of the
 record's own type: the same term with every `let` inlined and the
 binder data rewritten, and nothing else touched at all
-([`AnnotOf` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L126-L127)).
+([`AnnotOf` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L127-L128)).
 A `basisDecl` record declares nothing of its own — it names one of the
 checker's pinned basis blocks, and what is installed is the pins'.
 
 The members of an inductive block are deliberately outside that claim,
 and the module says why. On the uniform route a type former's telescope
-may be stored reduced to weak head normal form, and a constructor's
-field domains positivity-normalised. Those are definitional
-equalities, not annotations, so the relation above would be false of
-them.
+may be stored reduced to weak head normal form. That is a definitional
+equality, not an annotation, so the relation above would be false of
+it; the constructors are stored as declared, but they are installed
+with their block and are left out with it.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L450-L455))
@@ -416,7 +416,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1868-L1870)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1851-L1853)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -563,13 +563,13 @@ Inductive blocks are not trusted from the stream. Three cases:
   telescope, as official reads them, and of the stream's recursor
   records only a structural pin the install throws on. The install
   checks every type former, then the constructors against the whole
-  member list, normalises every constructor field domain by official's
-  positivity walk — weak head normal form before classifying, again
-  under each Π binder, the positivity function's own normal form
-  ([function `nestNormCtor` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1155)) —
-  runs that one positivity function on the stored constructors, whose
-  field kinds decide official's `is_rec`
-  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L264)),
+  member list, stores each constructor as declared, and runs one
+  positivity function on them — official's walk, weak head normal
+  form before classifying and again under each Π binder
+  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1102)) —
+  whose field kinds decide official's `is_rec` and whose normal forms
+  are the fields the model reads
+  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L262)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated,
   and without classifying any field: their names and level parameters
@@ -588,7 +588,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   primitive-recursion check accepts more
   ([function `checkBlockRecConform` in `ConLeche/Conformance/RecConform.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Conformance/RecConform.lean#L115)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L98)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L101)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),

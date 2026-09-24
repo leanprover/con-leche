@@ -625,7 +625,8 @@ constructor's field kinds. -/
 structure NestedPositivity where
   keys : Array NestKeyInfo
   kinds : List (List (List NestFieldKind))
-  /-- every member constructor's normalised type (the install's stored form) -/
+  /-- every member constructor's normalised type (the positivity function's
+  output; the install stores the declared type) -/
   normals : List (List Expr) := []
   deriving Inhabited
 

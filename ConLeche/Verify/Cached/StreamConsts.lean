@@ -58,11 +58,12 @@ other than the annotation of what the record declares:
   annotation of the *whnf'd* telescope whenever the declared type is not
   already a syntactic Π-telescope ending in a sort
   (`checkSumTele`, `ConLeche/Kernel/Inductives/SumInstall.lean`);
-* a **constructor**'s stored type, on the native route, is the
-  annotation of its type with the field domains *positivity-normalised*
-  (`nestNormCtor`, `Kernel/Inductives/Positivity.lean`), when it changes anything.
+* a **constructor**'s stored type is the annotation of its declared
+  type (lane ALPHA1; the positivity function's normal form is an output
+  the model reads, never stored), but it is installed with its block,
+  whose other members are excluded for the reasons above.
 
-All three are definitional equalities, not annotations, so an `AnnotOf`
+The first two are definitional equalities, not annotations, so an `AnnotOf`
 claim about them would be false.  (The modeled route does store the
 annotation of the declared type for formers and constructors, and its
 run relation — `Semantics.MemberValRun` — already carries the equation;
@@ -623,9 +624,8 @@ kind of record claims a name and a type for:
   pins';
 * an `indDecl` block's members are NOT covered here.  See the module
   docstring: the recursor's stored type is the generated one, and the
-  native route may annotate a *whnf'd* type former telescope or a
-  positivity-normalised constructor type rather than the declared one,
-  so no `AnnotOf` claim is true of them. -/
+  native route may annotate a *whnf'd* type former telescope rather
+  than the declared one, so no `AnnotOf` claim is true of them. -/
 @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
   | .defnDecl cv _ _, cv' => cv' = cv
   | .thmDecl cv _, cv' => cv' = cv

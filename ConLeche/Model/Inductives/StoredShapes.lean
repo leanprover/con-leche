@@ -41,12 +41,17 @@ its concrete stored field readings `S` are related by kind-free facts
   `S` — "members := their own values" is the stored reading.
 
 **The producer** (`storedFieldShapes_of_walk`, the ONLY place that reads
-the stored syntax for these facts): the install's tail run (β′) — the
-walk returns every stored constructor as its own normal form
-(`checkBlockPositivity_inv`) — inverted syntactically
+the walk's syntax for these facts): the positivity walk on the stored
+(DECLARED) constructor returns its normal form `tyN`
+(`checkBlockPositivity_inv`); `tyN` is inverted syntactically
 (`NestPosOut.lean`: every domain hole-free or `HoleIn`, U4), read
-(`denoteMeta_holeIn`), with the bits from the U2 sort row, and the
-override by the substitution lemma iterated (`HoleSubst.lean`).
+(`denoteMeta_holeIn`), with the bits from the U2 sort row on `tyN`, and the
+override by the substitution lemma iterated (`HoleSubst.lean`).  The
+normal form reads like the declared crest along satisfying prefixes
+(`FieldsEqOn`, from `red_sound` through `nestMemberCtor_red`,
+`NestPosRed.lean`): the facts are about `tyN`'s fields, `D.fields`
+reads them, and the declared type is tied to them only semantically
+(lane ALPHA1).
 -/
 
 namespace ConLeche.Model

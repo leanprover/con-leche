@@ -22,14 +22,14 @@ a shape the walk itself checked:
   member hole `nP + t` applied to the parameter variables and hole-free
   index expressions (`HoleOut`, the `holeApp` and `pi` arms).
 
-The install's tail run (β′) makes every stored constructor its own
-normal form (`checkBlockPositivity_inv`: the walk returns `crest` on
-`crest`), so the closing of the outputs (`closeTelescope`) IS the
-walked term, and every field domain of the walked term is
-erasure-equal to its output (`closeTelescope_erasedEq`): the shapes
-transfer to the INPUT domains (`HoleIn`), which are what the reading
-opens.  This file is purely syntactic; the readings are
-`StoredShapes.lean`'s.
+The walk runs on the DECLARED constructor (lane ALPHA1: the install
+stores it as given) and returns the normal form `tyN`, the closing of
+its outputs (`closeTelescope`); every field domain of `tyN` is
+erasure-equal to its output (`closeTelescope_erasedEq`), so the shapes
+hold of `tyN`'s opened domains (`HoleIn`, `storedWalk_fields`), which
+are what the model's fields read.  How `tyN` relates to the declared
+type is semantic (`NestPosRed.lean`).  This file is purely syntactic;
+the readings are `StoredShapes.lean`'s.
 -/
 
 namespace ConLeche.Model
