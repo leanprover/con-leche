@@ -934,6 +934,17 @@ theorem sumRules_map_ctor (find? : Name → Option ConstantInfo)
       recRuleBits_ctor]
     exact sumRules_map_ctor find? recName nP mI rP recTy (by simpa using h)
 
+/-- The rules the uniform route stores at a major are one per
+constructor of the major, in its order (the firing mode aside). -/
+theorem tgtStoredRules_map_ctor (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) {rhss : List Expr}
+    (h : rhss.length = M.ctors.length) :
+    (tgtStoredRules find? resolves cv mI rP M rhss).map (·.ctor) = M.ctors.map (·.1.name) := by
+  unfold tgtStoredRules
+  cases M.member with
+  | none => simp only [List.map_map, Function.comp_def]; exact sumRules_map_ctor _ _ _ _ _ _ h
+  | some _ => exact sumRules_map_ctor _ _ _ _ _ _ h
+
 /-! ### The direct recursive install (task #188) -/
 
 theorem checkNativeRulesF_len {w : StructWalkers} (fe : FEnv)
@@ -1405,6 +1416,55 @@ theorem consBlockRecsF_skelsT (find? : Name → Option ConstantInfo) (p : BlockS
     rw [hci] at h'
     exact h'
 
+/-- The recursors' conses AT THEIR MAJORS (`consBlockRecsTF`) at the
+skeleton level, from the target check's output: each record's name,
+and its major's constructors as its rules. -/
+theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
+    (hct : ∀ i : Nat, (ctorsAs[i]?).map (List.map fun c : ConstantVal × Nat => c.1.name)
+      = (p.members[i]?).map (fun ms : MemberShape => ms.ctors.map (·.1.name))) :
+    ∀ (l : List RecShape) (ri : Nat)
+      (out : List (ConstantVal × TargetMajor × List Expr))
+      (fe : FEnv) (sk : List InstallSkel), l = p.recs.drop ri → out.length = l.length →
+      (∀ (j : Nat) o (rc : RecShape), out[j]? = some o → l[j]? = some rc →
+        o.1.name = rc.cvR.name ∧ ctorsAs[rc.tgt]? = some o.2.1.ctors ∧
+          o.2.2.length = o.2.1.ctors.length) →
+      SkelIs fe sk →
+      SkelIs (consBlockRecsTF find? resolves p ri out fe) (blockRecSkels p ri l sk)
+  | [], _, [], _, _, _, _, _, h => h
+  | [], _, _ :: _, _, _, _, hlen, _, _ => by simp at hlen
+  | _ :: _, _, [], _, _, _, hlen, _, _ => by simp at hlen
+  | rc :: rest, ri, (cv, M, rhss) :: out, fe, sk, hl, hlen, hall, h => by
+    have hrc : p.recs[ri]? = some rc := by
+      rw [← List.head?_drop, ← hl]; rfl
+    have hrest : rest = p.recs.drop (ri + 1) := by
+      rw [← List.drop_drop, ← hl]; rfl
+    obtain ⟨hname, hctA, hrh⟩ := hall 0 _ rc rfl rfl
+    dsimp only at hname hctA hrh
+    have htgt : p.recTgtAt ri = rc.tgt := by
+      simp only [BlockShape.recTgtAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+    have hctn : M.ctors.map (·.1.name)
+        = (p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name) := by
+      have := hct rc.tgt
+      rw [hctA] at this
+      rw [htgt, List.getD_eq_getElem?_getD]
+      cases hm : p.members[rc.tgt]? with
+      | none => rw [hm] at this; exact nomatch this
+      | some ms =>
+        rw [hm] at this
+        exact Option.some.inj this
+    let ci : ConstantInfo := .recInfo cv (p.majorIdxAt ri) (p.rulePrefixAt ri)
+      (tgtStoredRules find? resolves cv (p.majorIdxAt ri) (p.rulePrefixAt ri) M rhss)
+    have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri)
+        ((p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name)) := by
+      simp only [ci, ciSkel, hname, tgtStoredRules_map_ctor _ _ _ _ _ _ hrh, hctn]
+    have h' := consBlockRecsTF_skelsT find? resolves p ctorsAs hct rest (ri + 1) out
+      (fe.push ci) (ciSkel ci :: sk) hrest (by simpa using hlen)
+      (fun j r rc' hj hj' => hall (j + 1) r rc' (by simpa using hj) (by simpa using hj'))
+      (h.push ci)
+    rw [hci] at h'
+    exact h'
+
 /-- The projection tables at the skeleton level: one per
 structure-like member, read off the member's own counts (the stored
 constructor and field-sort lists are one per constructor). -/
@@ -1490,21 +1550,18 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (Yields.thenConform (Yields.bind'
-    (targetRecCheck_member (shadowOpsC mode) _ q.p.toBlockShape false block q.cvTas q.ctorsAs)
-    fun out hout => Yields.pure (P := fun rs => SkelIs (consBlockRecsF
-      (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP 0 rs
-      (consBlockCtorsF q.p.nP q.ctorsAs q.env₁))
-      (blockRecSkels q.p.toBlockShape 0 q.p.recs
-        (blockCtorSkels q.p.nP q.p.members (blockIndSkels q.p.members sk)))) (consBlockRecsF_skelsT
-      (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP q.ctorsAs hct
-      q.p.recs 0 (tgtRs out) _ _ (List.drop_zero (l := q.p.recs)).symm
-      (by simp [tgtRs, hout.2.1]) ?_ h₂))) fun rs hrs => ?_
-  · intro j r rc hj hrc
-    obtain ⟨o, hoj, hname, -, -, hctA, hrh⟩ := hout.2.2 j rc hrc
-    simp only [tgtRs, List.getElem?_map, hoj, Option.map_some, Option.some.injEq] at hj
-    subst hj
-    exact ⟨hname, hctA, hrh⟩
+  refine Yields.bind' (Yields.thenConform
+    (targetRecCheck_member (shadowOpsC mode) _ q.p.toBlockShape _ block q.cvTas q.ctorsAs))
+    fun out hout => ?_
+  have hrs := consBlockRecsTF_skelsT
+      (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?
+      (·.constsResolveF (consBlockCtorsF q.p.nP q.ctorsAs q.env₁)) q.p.toBlockShape q.ctorsAs hct
+      q.p.recs 0 out _ _ (List.drop_zero (l := q.p.recs)).symm hout.2.1
+      (fun j o rc hoj hrc => by
+        obtain ⟨o', hoj', hname, -, -, hctA, hrh⟩ := hout.2.2 j rc hrc
+        rw [hoj] at hoj'
+        obtain rfl := Option.some.inj hoj'
+        exact ⟨hname, hctA, hrh⟩) h₂
   exact checkBlockTablesF_skels q.p.toBlockShape q.p.members q.ctorsAs q.sortsss hlenC hlenS hrs
 
 

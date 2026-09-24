@@ -191,7 +191,7 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
       -- Checker`) is why the dispatch lives here and not inside
       -- `checkModeled`.
       match blockParts? nP block with
-      | some p => checkBlock ops env block p
+      | some p => checkBlock ops env block p uniformNested
       | none => checkModeled mode ops env nP block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>

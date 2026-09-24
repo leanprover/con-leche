@@ -183,11 +183,10 @@ parameters** — the flat shape of the stored field shape facts
 theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c : Nat} (hc : c < d.N)
     {j : Nat} (hj : j < (d.ctorsM c).length) : d.toLfp.HolesApplied ψ c j := by
   have hS := hH.shapes ψ c hc j hj
-  obtain ⟨rec, hrec⟩ := hS.flat
   refine ⟨fun l F hl => ?_, fun e he => ?_⟩
   · show HoleApp d.k (d.params ψ).length l F
     rw [hH.lenP ψ]
-    exact hrec.holeApp l F hl
+    exact hS.holeApp l F hl
   · show HoleApp d.k (d.params ψ).length (d.absF ψ c j).length e
     obtain ⟨E, -, rfl⟩ := List.mem_map.mp he
     rw [hS.len]

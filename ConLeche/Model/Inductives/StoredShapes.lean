@@ -93,7 +93,10 @@ context — lane ALPHA1). -/
 structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
     (leaf : Nat → AnnotTerm) (Δp : List AnnotTerm) (F S : List AnnotTerm) : Prop where
   len : F.length = S.length
-  flat : ∃ rec, FlatShape k nP w nIdxOf F rec
+  /-- every hole occurs applied to the parameters (M3 at every field;
+  lane NESTKERN: a kind-free fact, true at container fields too, where
+  the flat shape below is not) -/
+  holeApp : ∀ (l : Nat) (F' : AnnotTerm), F[l]? = some F' → HoleApp k nP l F'
   override : ∀ hs : List V, hs.length = k →
     (∀ t, t < k → ∀ σ : Nat → V, interp V σ (leaf t) = hs.getD t pt) →
     ∀ (ρ : Nat → V), Sat V Δp ρ → ∀ l, l < F.length → ∀ (as : List V), as.length = l →
@@ -101,12 +104,22 @@ structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : 
       interp V (consList as (consList hs ρ)) (F.getD l default)
         = interp V (consList as ρ) (S.getD l default)
 
+/-- **The flat presentation of the fields with holes** (`FlatShape` at
+some recursive-field reading): what the closure witness (W) of a block
+WITHOUT container fields reads (`blockHoleClosed_of`).  A container
+field (`List (#hole p⃗)`) is neither hole-free nor a member-hole tower,
+so a nested block's fields are not flat; its (W) is lane NESTW's. -/
+@[expose] def StoredFieldsFlat (k nP w : Nat) (nIdxOf : Nat → Nat) (F : List AnnotTerm) :
+    Prop :=
+  ∃ rec, FlatShape k nP w nIdxOf F rec
+
 /-- The facts read the members' leaves below `k` only. -/
 theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
     {nIdxOf : Nat → Nat} {leaf leaf' : Nat → AnnotTerm} {Δp F S : List AnnotTerm}
     (h : StoredFieldShapes V k nP w nIdxOf leaf Δp F S) (hl : ∀ t, t < k → leaf t = leaf' t) :
     StoredFieldShapes V k nP w nIdxOf leaf' Δp F S :=
-  ⟨h.len, h.flat, fun hs hhs hv => h.override hs hhs fun t ht σ => by rw [hl t ht]; exact hv t ht σ⟩
+  ⟨h.len, h.holeApp,
+    fun hs hhs hv => h.override hs hhs fun t ht σ => by rw [hl t ht]; exact hv t ht σ⟩
 
 /-- A Π-telescope whose `l`-th domain is `HoleApp` at `lo + l` and whose
 body is at `lo + |ab|` is `HoleApp` at `lo`. -/
@@ -873,7 +886,9 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       abD.length = nF ∧ abN.length = nF ∧ E = (Es ψ).map (·.liftN ctx.names.length nF) ∧
       StoredFieldShapes V ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
         (fun t => m.acval (ctx.names.getD t .anonymous) ψ) Δp (abN.map (·.2.2))
-        (((ds ψ).drop ctx.nP).map (·.2.2)) := by
+        (((ds ψ).drop ctx.nP).map (·.2.2)) ∧
+      StoredFieldsFlat ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
+        (abN.map (·.2.2)) := by
   classical
   -- ## the context
   have henv : ConLeche.EnvWF env := m.wf
@@ -1165,54 +1180,58 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     subst hy
     rw [hv i hi σ, List.getD_eq_getElem?_getD, hg]
     rfl
-  refine ⟨pps, ppsN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD], ⟨fun l =>
-    if h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
-        ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
-    then some (Classical.choose h.2.2) else none, ?_, ?_, ?_⟩, ?_⟩⟩
+  have hflatS : StoredFieldsFlat ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
+      (ppsN.map (·.2.2)) := by
+    refine ⟨fun l =>
+      if h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
+          ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
+      then some (Classical.choose h.2.2) else none, ?_, ?_, ?_⟩
+    · -- a field with a member hole
+      intro l tl mm es hr
+      try dsimp only at hr
+      split at hr
+      · rename_i h
+        have hs := Classical.choose_spec h.2.2
+        rw [Option.some.inj hr] at hs
+        obtain ⟨hmm, hF, htl, hes, hesl⟩ := hs
+        exact ⟨by simp only [List.length_map, hlN]; exact h.1, hmm, hF, htl, hes, hesl⟩
+      · exact nomatch hr
+    · -- every other field is hole-free
+      intro l hl hr
+      have hl' : l < nF := by simpa [hlN] using hl
+      obtain ⟨x, p, hx, hp, hread⟩ := hfield l hl'
+      have hwx : Expr.WScoped (ctx.hiAt 0 + l) x.fvarTypeD :=
+        openPisAtFvars_typeWScoped nF hopN hWN l x hx
+      rcases hfields l x hx with hocc | ⟨t, hHI, hU⟩
+      · rw [hFget l p hp]
+        exact noBVar_holeSlots_of_nestOcc hwx hocc hread
+      · exfalso
+        obtain ⟨fv, ty, u, hfv, -, hinf, hens, -⟩ := hrows l hl'
+        have hfx : fv = x := by
+          simp only at hfv
+          rw [hx] at hfv
+          exact (Option.some.inj hfv).symm
+        subst hfx
+        have hsh := fieldHoleShape_of_holeIn (m := m) (F := F) hHI hwx
+          (hleafX fv (List.mem_of_getElem? hx)) (hformer' t hHI.lt) hinf hens hread
+        try dsimp only at hr
+        rw [dif_pos ⟨hl', hU, by rw [hFget l p hp]; exact hsh⟩] at hr
+        exact nomatch hr
+    · -- U4: no later field reads a field with a member hole
+      intro l hl hr l' hll hl'
+      have hl'' : l' < nF := by simpa [hlN] using hl'
+      by_cases h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
+          ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
+      · obtain ⟨x, p, hx, hp, hread⟩ := hfield l' hl''
+        rw [hFget l' p hp]
+        exact u4_fieldSlot hopN hWN h.2.1 h.1 hll hx hread
+      · exact absurd (dif_neg h) hr
+  refine ⟨pps, ppsN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD],
+    hflatS.elim fun _ h => FlatShape.holeApp h, ?_⟩, hflatS⟩
   · -- the crest's reading
     rw [hR, hBbE, hHP]
   · -- the normal form's reading
     rw [hRN, hBbE, hHP]
-  · -- a field with a member hole
-    intro l tl mm es hr
-    try dsimp only at hr
-    split at hr
-    · rename_i h
-      have hs := Classical.choose_spec h.2.2
-      rw [Option.some.inj hr] at hs
-      obtain ⟨hmm, hF, htl, hes, hesl⟩ := hs
-      exact ⟨by simp only [List.length_map, hlN]; exact h.1, hmm, hF, htl, hes, hesl⟩
-    · exact nomatch hr
-  · -- every other field is hole-free
-    intro l hl hr
-    have hl' : l < nF := by simpa [hlN] using hl
-    obtain ⟨x, p, hx, hp, hread⟩ := hfield l hl'
-    have hwx : Expr.WScoped (ctx.hiAt 0 + l) x.fvarTypeD :=
-      openPisAtFvars_typeWScoped nF hopN hWN l x hx
-    rcases hfields l x hx with hocc | ⟨t, hHI, hU⟩
-    · rw [hFget l p hp]
-      exact noBVar_holeSlots_of_nestOcc hwx hocc hread
-    · exfalso
-      obtain ⟨fv, ty, u, hfv, -, hinf, hens, -⟩ := hrows l hl'
-      have hfx : fv = x := by
-        simp only at hfv
-        rw [hx] at hfv
-        exact (Option.some.inj hfv).symm
-      subst hfx
-      have hsh := fieldHoleShape_of_holeIn (m := m) (F := F) hHI hwx
-        (hleafX fv (List.mem_of_getElem? hx)) (hformer' t hHI.lt) hinf hens hread
-      try dsimp only at hr
-      rw [dif_pos ⟨hl', hU, by rw [hFget l p hp]; exact hsh⟩] at hr
-      exact nomatch hr
-  · -- U4: no later field reads a field with a member hole
-    intro l hl hr l' hll hl'
-    have hl'' : l' < nF := by simpa [hlN] using hl'
-    by_cases h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
-        ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
-    · obtain ⟨x, p, hx, hp, hread⟩ := hfield l' hl''
-      rw [hFget l' p hp]
-      exact u4_fieldSlot hopN hWN h.2.1 h.1 hll hx hread
-    · exact absurd (dif_neg h) hr
   · -- the override: through the declared crest (at every frame) and the link (at frames
     -- satisfying the walk's context)
     intro hs hsl hv ρ hρ l hl as has hfit

@@ -936,21 +936,47 @@ theorem targetTyEntry_major {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Boo
     M.nPc = p.nP ∧ M.lvls = p.lps.map .param :=
   targetTyEntry_major_of E E.isMember
 
+/-- A resolved major on the uniform route (outside majors not admitted)
+is a member. -/
+theorem targetTyEntry_member {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p false nested cvTas ctorsAs rc cvRi M u) :
+    M.member.isSome = true :=
+  E.isMember
+
+/-- **Every major the check resolved is a member at the block's
+parameter count** (the check admits no outside major): the fact that
+makes the cons at the majors (`consBlockRecsT`) the member cons
+(`consBlockRecs`, `consBlockRecsT_member`). -/
+theorem targetRecRun_majors (R : TargetRecRun mode F fe p false nested block cvTas ctorsAs out) :
+    ∀ t ∈ out, t.2.1.nPc = p.nP ∧ t.2.1.member.isSome = true := by
+  intro t ht
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem ht
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenO, hall⟩ := targetRecsRules_run R.rules
+  have hjl : j < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hj).1
+    omega
+  obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[j]? = some rc := ⟨_, List.getElem?_eq_getElem hjl⟩
+  obtain ⟨cvRi, M, u, htj, ⟨E⟩⟩ := hallT j rc hrc
+  obtain ⟨rhssA, ho, -, -⟩ := hall j rc _ hrc htj
+  rw [hj] at ho
+  obtain rfl := Option.some.inj ho
+  exact ⟨(targetTyEntry_major E).1, targetTyEntry_member E⟩
+
 end RunFacts
 
 /-- **The uniform route's recursor stage, read back to the target check**:
 `checkBlockRecT` at the fueled operations is `targetRecCheck` at
-`ShadowOps.fueled` on the constructors' index, its result `tgtRs` of the
-check's output. -/
-theorem checkBlockRecT_run {env : Env} {p : BlockParts} {block : List ConstantInfo}
+`ShadowOps.fueled` on the constructors' index. -/
+theorem checkBlockRecT_run {env : Env} {p : BlockParts} {nst nested : Bool}
+    {block : List ConstantInfo}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : checkBlockRecT (fueledOps mode F) env p block cvTas ctorsAs = .ok rs) :
-    ∃ out, targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env) p.toBlockShape false false
-        block cvTas ctorsAs = .ok out ∧ rs = tgtRs out := by
-  unfold checkBlockRecT at h
-  obtain ⟨out, hout, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨out, hout, h.symm⟩
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : checkBlockRecT (fueledOps mode F) env p nst nested block cvTas ctorsAs = .ok out) :
+    targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env) p.toBlockShape nst nested
+        block cvTas ctorsAs = .ok out :=
+  h
 
 end ConLeche
