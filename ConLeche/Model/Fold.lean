@@ -9,6 +9,7 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Model.BasisFalse
+public import ConLeche.Model.Cover
 public section
 
 /-!
@@ -68,10 +69,10 @@ def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   -- (`DeclAxiomRun`), which names no valuation — so the carrier `_mp`
   -- no longer appears in the premise's *type*.  It stays as the
   -- invariant the four branches consume.
-  ∀ {F : Nat} {env : Env} (_mp : EnvModelM V μ env)
+  ∀ {F : Nat} {env : Env} (mp : EnvModelM V μ env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomRun μ F env cv env₂ →
-    Nonempty (EnvModelM V μ env₂)
+    CoverStep mp env₂
 
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
 `DeclAxiomR` branches: the two standard axioms (`axiomStd`, ENDGAME
@@ -83,7 +84,7 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   intro _F _env mp _cv _env₂ hR
   -- the `Quot.sound` arm (task #293) installs nothing
   rcases hR with ⟨-, rfl⟩ | hR
-  · exact ⟨mp⟩
+  · exact CoverTo.refl mp []
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -94,10 +95,10 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
 
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  ∀ {env : Env}, EnvModelM V μ env →
-    ∀ {kind : ConLeche.BasisKind} {env₂ : Env},
+  ∀ {env : Env} (mp : EnvModelM V μ env)
+    {kind : ConLeche.BasisKind} {env₂ : Env},
       DeclBasisRun env kind env₂ →
-      Nonempty (EnvModelM V μ env₂)
+      CoverStep mp env₂
 
 /-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
 at task #181): all pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
@@ -144,11 +145,104 @@ theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
   intro _F _env mp _block _env₂ hE h
   exact declInd hμ mp hE h
 
-/-- **The P fold invariant**: the P environment invariant plus the
-η-family closure (the v1 fold's second half, reused verbatim). -/
+/-! ## Coverage through the fold (lane L8a)
+
+Every step but the two inductive-block routes concludes `CoverStep`
+(`Model/Cover.lean`): a carrier at its result to which coverage
+(`LfpCover mp []`) carries.  The two routes enter as premises, in the
+shape a step that NEEDS coverage to build its carrier can meet (a
+nested block's container case reads it, `contCover_of`): coverage in,
+a covered carrier out.  The fold carries coverage under both
+(`EnvModelOk`); discharging them makes it unconditional. -/
+
+/-- **The uniform block step's coverage — THE ADAPTER'S PREMISE.**
+
+TODO (the lane that finishes the uniform block step — HOLE2/α1,
+rewriting `declBlock_target`/`declBlock_data`, `DeclBlock.lean`,
+`BlockDeclRun.lean`): prove this, then drop it from `FoldCoverPB`.  The
+step's cons chain moves the exemption list as the basis blocks' do
+(`Model/BasisBlocks.lean`, `Model/BasisEq.lean`): each former's cons
+`coverTo_pend`/`LfpCover.pend`, each constructor's cons
+`LfpCover.cons`, the record `mpC.addLfp dR.toLfp …` (`DeclBlock.lean`)
+`LfpCover.addLfp` — which needs the block's names `Nodup`,
+`names.length = k`, and every member's stored `caps.all = names` — and
+every recursor and projection cons `LfpCover.cons`, the rule-list swap
+`LfpCover.transport` (`Swap.lean` keeps `lfpBlocks`).  The cons funnel
+exposes only its leaf; `EnvModelM.keepLfp` restores the list.  The input
+coverage is what the container case's `ContCover` reads
+(`contCover_of`; its `ctors`/`noCtors` premises are still owed,
+`_tmp/uniform-inds/L2L8.md` finding 4). -/
+def BlockCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nP : Nat}
+    {p : ConLeche.BlockParts} (mp : EnvModelM V μ env),
+    ConLeche.EtaFamiliesClosed env → ConLeche.blockParts? nP block = some p →
+    ConLeche.Semantics.DeclBlockRun μ F env block p env₂ →
+    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []
+
+/-- **The modeller's step keeps coverage — FALSE until the flip.**
+`declInd` (`Model/DeclInd.lean`) stores `.indInfo`s and records no lfp
+clause, so from a covered carrier no carrier at its result is covered.
+It is left as it is: at the flip (NESTPLAN L9) the dispatch's `none`
+arm becomes a decline, the modeller's run is no longer a fold step,
+and this premise is dropped from `FoldCoverPB`. -/
+def IndCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nP : Nat}
+    (mp : EnvModelM V μ env),
+    ConLeche.EtaFamiliesClosed env → ConLeche.blockParts? nP block = none →
+    DeclIndRun μ F env block env₂ →
+    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []
+
+/-- **What stands between the fold and unconditional coverage**: the
+uniform block step's coverage (owed, `BlockCoverPB`) and the modeller's
+(false until the flip, `IndCoverPB`). -/
+@[expose] def FoldCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  BlockCoverPB V μ ∧ IndCoverPB V μ
+
+/-- **The uniform block step at the fold's coverage — THE ADAPTER.**
+The carrier is `declBlock_target`'s; under the premises, `BlockCoverPB`'s
+(see there for what finishing it takes). -/
+theorem declBlock_cover (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nP : Nat} {p : ConLeche.BlockParts}
+    (mp : EnvModelM V μ env) (hcov : FoldCoverPB V μ → LfpCover mp [])
+    (hE : ConLeche.EtaFamiliesClosed env) (hdf : ConLeche.blockParts? nP block = some p)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p env₂) :
+    ∃ mp' : EnvModelM V μ env₂, FoldCoverPB V μ → LfpCover mp' [] := by
+  by_cases hC : FoldCoverPB V μ
+  · obtain ⟨mp', h'⟩ := hC.1 mp hE hdf hrun (hcov hC)
+    exact ⟨mp', fun _ => h'⟩
+  · obtain ⟨mp'⟩ := declBlock_target hμ mp hE hdf hrun
+    exact ⟨mp', fun h => absurd h hC⟩
+
+/-- **The modeller's step at the fold's coverage**: `declInd`'s carrier;
+under the premises (false until the flip), `IndCoverPB`'s. -/
+theorem declInd_cover (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nP : Nat}
+    (mp : EnvModelM V μ env) (hcov : FoldCoverPB V μ → LfpCover mp [])
+    (hE : ConLeche.EtaFamiliesClosed env) (hdf : ConLeche.blockParts? nP block = none)
+    (hrun : DeclIndRun μ F env block env₂) :
+    ∃ mp' : EnvModelM V μ env₂, FoldCoverPB V μ → LfpCover mp' [] := by
+  by_cases hC : FoldCoverPB V μ
+  · obtain ⟨mp', h'⟩ := hC.2 mp hE hdf hrun (hcov hC)
+    exact ⟨mp', fun _ => h'⟩
+  · obtain ⟨mp'⟩ := indStepPB_of hμ mp hE hrun
+    exact ⟨mp', fun h => absurd h hC⟩
+
+/-- **The P fold invariant**: a P carrier — covered under the fold's
+coverage premises (lane L8a) — plus the η-family closure (the v1 fold's
+second half, reused verbatim). -/
 @[expose] def EnvModelOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
     Prop :=
-  Nonempty (EnvModelM V μ env) ∧ EtaFamiliesClosed env
+  (∃ mp : EnvModelM V μ env, FoldCoverPB V μ → LfpCover mp []) ∧
+    EtaFamiliesClosed env
+
+/-- The invariant's carrier. -/
+theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V μ env) :
+    Nonempty (EnvModelM V μ env) :=
+  h.1.elim fun mp _ => ⟨mp⟩
+
+/-- The invariant at the empty environment. -/
+theorem EnvModelOk.empty : EnvModelOk V μ Env.empty :=
+  ⟨⟨EnvModelM.empty V μ, fun _ => lfpCover_empty⟩, EtaFamiliesClosed.empty⟩
 
 /-- **The per-declaration P step, by dispatch.**
 
@@ -163,7 +257,8 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 `DeclRun`'s `Ind` parameter — so this step consumes exactly what it
 reads, and no step below changed a line. -/
 theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V μ env) (hE : EtaFamiliesClosed env)
+    (mp : EnvModelM V μ env) (hcov : FoldCoverPB V μ → LfpCover mp [])
+    (hE : EtaFamiliesClosed env)
     (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatchK μ F env)
       env d env₂) :
     EnvModelOk V μ env₂ := by
@@ -181,27 +276,27 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefn hμ mp hrun
+    exact (harvestDefn hμ mp hrun).lift hcov
   | thmDecl cv value =>
     have hsh := hrun
     -- one dash fewer than the `DeclR` pattern: the run record has no
     -- is-a-proposition derivation row (task #161 S11a)
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThm hμ mp hrun
+    exact (harvestThm hμ mp hrun).lift hcov
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaque hμ mp hrun
-  | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
-  | basisDecl kind => exact basisStepPB_of mp hrun
+    exact (harvestOpaque hμ mp hrun).lift hcov
+  | axiomDecl cv => exact (axiomStepPB_of hμ mp hrun).lift hcov
+  | basisDecl kind => exact (basisStepPB_of mp hrun).lift hcov
   | quotDecl k cv =>
     -- task #293: the quotient package's `type` record installs the
     -- pinned block; its other records install nothing
     cases k with
-    | type => exact basisStepPB_of mp hrun
-    | _ => exact (show env₂ = env from hrun) ▸ ⟨mp⟩
+    | type => exact (basisStepPB_of mp hrun).lift hcov
+    | _ => exact (CoverTo.of_eq (show env₂ = env from hrun)).lift hcov
   | indDecl block nP =>
     -- task #293: a block the fold recognises as one of the five pinned
     -- ones installs the PIN; everything else takes the `.indDecl`
@@ -210,7 +305,7 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     -- split (task #219)
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
-    · exact basisStepPB_of mp hrun
+    · exact (basisStepPB_of mp hrun).lift hcov
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK μ F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
@@ -218,10 +313,10 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
         rw [hdf] at hrun'
         -- the uniform route, at any number of members: the k-ary
         -- run, and the recursors CHECKED (`declBlock_target`)
-        exact declBlock_target hμ mp hE hdf hrun'
+        exact declBlock_cover hμ mp hcov hE hdf hrun'
       | none =>
         rw [hdf] at hrun'
-        exact indStepPB_of hμ mp hE hrun'
+        exact declInd_cover hμ mp hcov hE hdf hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
@@ -238,9 +333,9 @@ theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
-      obtain ⟨⟨mp⟩, hE⟩ := hm
+      obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
       exact foldPM hμ ds env1
-        (declStep_preserves hμ mp hE
+        (declStep_preserves hμ mp hcov hE
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (task #161 S11a).  S7 (Wall C step (e)) made the bridge
           -- model-free, so the fold's last v1 round trip became the
@@ -257,8 +352,16 @@ theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') :=
-  (foldPM hμ ds Env.empty
-    ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ h).1
+  (foldPM hμ ds Env.empty EnvModelOk.empty h).nonempty
+
+/-- **Coverage at the end of the P fold** (lane L8a), under the fold's
+coverage premises (`FoldCoverPB`: the uniform block step's, owed, and
+the modeller's, false until the flip). -/
+theorem checkDeclsPure_cover (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env} (hC : FoldCoverPB V μ)
+    (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+    ∃ mp : EnvModelM V μ env', LfpCover mp [] :=
+  (foldPM hμ ds Env.empty EnvModelOk.empty h).1.elim fun mp hc => ⟨mp, hc hC⟩
 
 /-- **The capstone, milestone shape**: no proof of `Empty` is ever
 accepted — the collapse-free model of the validated annotations, at

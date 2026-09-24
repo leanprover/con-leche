@@ -314,7 +314,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
     (hB : ∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) :
     EnvModelOk V μ fe₁.env ∧ CSOKF s₁ ∧
       ∃ F, checkDecl μ (fueledOps μ F) pins fe.env pd = .ok fe₁.env := by
-    obtain ⟨⟨mp⟩, hE⟩ := hm
+    obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : Declaration),
@@ -328,7 +328,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       obtain ⟨rfl, rfl⟩ := hv
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hstepC'
-      exact ⟨declStep_preserves hμ mp hE
+      exact ⟨declStep_preserves hμ mp hcov hE
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
@@ -363,7 +363,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       -- the two halves are the declaration's check
       obtain ⟨F', hF⟩ := hsplit F₂ hC
       have hm₁ : EnvModelOk V μ (fe.push (mk cvA jv)).env :=
-        declStep_preserves hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
+        declStep_preserves hμ mp hcov hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
       exact ⟨hm₁, hres₁, F', hdrel ▸ hF⟩
     cases pd with
     | defnDecl cv val hint =>
@@ -486,9 +486,21 @@ theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks =
     Nonempty (EnvModelM V μ fc.env) := by
   obtain ⟨n, s, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  exact (installRun_model (V := V) hμ r rfl
-    ⟨⟨EnvModelM.empty V μ⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
-    (hchain.1.2.2 List.nodup_nil) fc.records).1
+  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
+    (hchain.1.2.2 List.nodup_nil) fc.records).nonempty
+
+/-- **Coverage on the fully checked environment** (lane L8a): every
+stored inductive but `Quot` is a member of a recorded lfp block — under
+the fold's coverage premises (`FoldCoverPB`, `Model/Fold.lean`: the
+uniform block step's, owed, and the modeller's, false until the flip). -/
+theorem fullyChecked_cover (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+    {ds : List Declaration} (fc : FullyChecked μ pins ds) (hC : FoldCoverPB V μ) :
+    ∃ mp : EnvModelM V μ fc.env, LfpCover mp [] := by
+  obtain ⟨n, s, r⟩ := fc.1.run
+  have hchain := installRun_trace μ r (PushChain.refl Env.empty)
+  obtain ⟨⟨mp, hc⟩, -⟩ := installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
+    (hchain.1.2.2 List.nodup_nil) fc.records
+  exact ⟨mp, hc hC⟩
 
 /-- **The letter on the fully checked environment**: such an environment, in
 a validating mode, holds no constant of type `False`.  The step the main

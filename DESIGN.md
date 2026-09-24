@@ -87112,3 +87112,76 @@ positions — the instantiation's reading `⟦Ds⟧[S]`.  No other case failed.
 
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
 `sorry`, no new axiom.  Line delta (`ConLeche/`): +991 / −1 (a new library, nothing deleted).
+
+#### LANDED (lane L8a, 2026-09-24): the fold's step interface carries coverage; `LfpCover` threaded through both folds up to the block adapter
+
+NESTPLAN L8, finding (3) of the L8 record above ("every fold step
+concludes `Nonempty (EnvModelM …)`, forgetting `lfpBlocks`").  Charter
+item 2.  No kernel, cached-checker or frontend change; verdict-neutral
+by construction.
+
+- **The step shape** (`ConLeche/Model/Cover.lean`, new; `LfpCover` and
+  its transports moved here from `Model/Inductives/LfpCover.lean`, which
+  keeps `contCover_of`): a fold step concludes
+  `CoverStep mp env₂ := ∃ mp' : EnvModelM V μ env₂, LfpCover mp [] →
+  LfpCover mp' []` — not `mp.lfpBlocks ⊆ mp'.lfpBlocks ∧ …`: coverage
+  also needs which inductives the step STORES and, at a record, the
+  block's names `Nodup`/length/`all` — facts of the step, so the step
+  proves the implication.  Inside a step the cons chain moves the
+  exemption list, `CoverTo mp ex env' ex'` (`CoverTo.trans`):
+  `coverTo_pend` (a former), `coverTo_cons`/`coverA_cons` (any other
+  fresh cons; `Quot`'s former by name), `coverTo_addLfp` (the record;
+  `lfpAll_one`, `nodup_one`, `filter_not_mem_self` at a one-member
+  block).  The cons funnels are UNTOUCHED (they expose only
+  `mp'.base2.acval`; the Block* files use them):
+  `EnvModelM.keepLfp` rebuilds the funnel's carrier with the input's
+  `lfpBlocks`, re-proving `lfp_ok` as the funnel does
+  (`lfp_ok_transport` at a fresh non-table cons).  New generic lemma
+  `LfpCover.cons` (`pend` is now an instance), `LfpCover.addLfp_to`.
+- **Every step but the block routes returns `CoverStep`**: the four
+  harvests (`harvestDefn/Thm/Opaque/Axiom`), the axiom branches
+  (`axiomStd`, `axiomTrustCompiler`, `axiomOfReduce`, `axiomSkip`), the
+  six basis blocks (`declBasisPB_*K`; their `extend*` links now return
+  `CoverTo …` with the exemption list they move — former `[] → [T]`,
+  record `[T] → []`, the rest general in `ex`; `Eq`'s links keep their
+  leaf and add the coverage conjunct).  `AxiomStepPB`/`BasisStepPB`
+  (the census defs) now conclude `CoverStep`.  Coverage at the basis is
+  PROVED (L8b's findings (1)/(2) consumed): each pinned block's record
+  discharges its former — `all = [T]` by the pin, `Eq` by its hand
+  clause.  `nonempty_of_exists`/`nonempty_addLfp_of_exists` deleted
+  (no consumer left).
+- **The block routes, and the remaining premise, exactly**
+  (`Model/Fold.lean`): `FoldCoverPB V μ := BlockCoverPB V μ ∧
+  IndCoverPB V μ`, both in the shape "covered carrier in ⇒ some covered
+  carrier out" (`LfpCover mp [] → ∃ mp', LfpCover mp' []`) — the shape a
+  nested block, whose container case READS coverage (`contCover_of`),
+  can meet.
+  * `BlockCoverPB` — the uniform block step (`blockParts? = some p`,
+    `DeclBlockRun`).  **OWED** by the lane that finishes that step
+    (HOLE2/α1).  The adapter is `declBlock_cover` (by cases on the
+    premise: `declBlock_target`'s carrier, or the premise's); the TODO
+    on `BlockCoverPB` lists the chain: formers `pend`, constructors
+    `cons`, `mpC.addLfp dR.toLfp` `addLfp` (names `Nodup`, length `k`,
+    each member's stored `caps.all = names`), recursors/projections
+    `cons`, the swap `transport`, `keepLfp` after every funnel call.
+  * `IndCoverPB` — the modeller (`declInd`, `blockParts? = none`).
+    **FALSE until the flip**, left as it is: `declInd` stores `.indInfo`s
+    and records no clause.  At L9 its arm becomes a decline and the
+    premise is dropped.
+- **Threaded through BOTH folds** without a second fold: `EnvModelOk`
+  is now `(∃ mp, FoldCoverPB V μ → LfpCover mp []) ∧
+  EtaFamiliesClosed env`; `declStep_preserves` takes the input's
+  `hcov` (its only statement change; OVERVIEW's link repointed, prose
+  still true).  The P fold (`foldPM`) and the cached fold
+  (`installRun_model`, `annotStepC_model`) carry it unchanged in shape.
+  New corollaries: `checkDeclsPure_cover`, `fullyChecked_cover`,
+  `checkDecls_cover` (`∃ mp, LfpCover mp []` under `FoldCoverPB`).
+  `model_exists`, `checkDecls_sound`, the capstones and every quoted
+  statement are unchanged.
+- **For the flip**: prove `BlockCoverPB` (block lane), make the `none`
+  arm a decline (L9) so `IndCoverPB` goes, then `EnvModelOk`'s
+  conditional drops and `checkDecls_cover` is unconditional.  Still owed
+  besides coverage for `ContCover`: finding (4), `ctors`/`noCtors`
+  (constructor ownership).
+
+Gates: see the landing line below.  Line delta (`ConLeche/`): +623 / −255.
