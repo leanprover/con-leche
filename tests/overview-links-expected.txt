@@ -772,29 +772,29 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L221
    221  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L944-L959
-   944  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-   945      (block : List ConstantInfo) (cvTas : List ConstantVal)
-   946      (ctorsAs : List (List (ConstantVal × Nat))) :
-   947      m (List (ConstantVal × TargetMajor × List Expr)) := do
-   948    targetRecPins p block
-   949    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
-   950    let us := tys.map (·.2.2)
-   951    checkBlockRecSmallElim p nested us
-   952    checkBlockRecElimPin p us
-   953    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-   954    targetRulePinsAll tys (targetRecRules block)
-   955    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-   956    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-   957      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-   958    so.flush
-   959    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L943-L958
+   943  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+   944      (block : List ConstantInfo) (cvTas : List ConstantVal)
+   945      (ctorsAs : List (List (ConstantVal × Nat))) :
+   946      m (List (ConstantVal × TargetMajor × List Expr)) := do
+   947    targetRecPins p block
+   948    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+   949    let us := tys.map (·.2.2)
+   950    checkBlockRecSmallElim p nested us
+   951    checkBlockRecElimPin p us
+   952    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+   953    targetRulePinsAll tys (targetRecRules block)
+   954    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+   955    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+   956      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+   957    so.flush
+   958    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L105
-   105  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L104
+   104  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

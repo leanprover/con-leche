@@ -579,7 +579,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
   value of the members
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L944-L959)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L943-L958)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -587,7 +587,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   primitive-recursion check accepts more
   ([function `checkBlockRecConform` in `ConLeche/Conformance/RecConform.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Conformance/RecConform.lean#L115)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L105)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L104)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),
