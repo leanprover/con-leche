@@ -79437,6 +79437,28 @@ this block wins.
      applied to other arguments than the parameters) is the walk's
      business, not M2′'s, and was not audited by lane L9FIX.
 
+**RULING + DOCKET — the semantic view and constructors installed as
+given (maintainer, 2026-09-24).**  The maintainer likes "a clean semantic
+view", and says "we really should install the constructor as given, not
+changed by what we need".  Sequencing:
+- Build everything out on (β′) first, then refactor once it works.
+- (β′), transitional: the tail positivity run checks that the STORED
+  constructor is its own positivity normal form (`tyN == crest`, internal
+  error / exit 3 otherwise). It must be measured never to fire on e2e,
+  arena, init-full and Mathlib.
+- EVERY consumer of the stored fields' shape (flat, holes applied / M3,
+  U4, the field readings) goes through ONE interface, "stored field
+  shape facts", produced by (β′).  No proof reasons about the stored
+  syntax directly.
+- DOCKET (after the nested flip): (α) + install-as-given, as one
+  refactor.
+  - Store the DECLARED constructor type.
+  - Holes become families over the parameters too, so M3 is not needed.
+  - The shape interface is produced semantically, via whnf's denotation
+    lemma, phrased on functions of X, never on values (Prop).
+  - Drop the (β′) check and the normal-form storage.
+  - Probe the grading of parameter-family holes (Type and Prop) first.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
