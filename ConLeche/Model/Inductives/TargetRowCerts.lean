@@ -71,11 +71,10 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
     (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = pp.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r → d.ctorsM (pp.toBlockShape.recTgtAt c) = r.2.2.2)
-    (hC : LfpClause mpC.base2.acval d.toLfp)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
     ∀ c, c < (tgtRs out).length →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) xs →

@@ -112,7 +112,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   refine hC.ind hsat P' ?_ (pp.toBlockShape.recTgtAt c) (hmN c hc) i hi x hx c hc rfl hu
   intro m _ t ht j fs hfitS c' hc' hmem hu'
   subst hmem
-  obtain ⟨hjl, hfitS'⟩ := hfitS
+  have hjl : j < (d.ctorsM (pp.toBlockShape.recTgtAt c')).length := hfitS.1
   obtain ⟨-, htI, -⟩ := tagged_mem_unionSet_iff.mp hu'
   obtain ⟨hpar', hpref'⟩ := blockRecIs_fits htI
   rw [blockRecIs_pos hpar' hpref'] at htI
@@ -125,15 +125,13 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
-  -- the fields fit at the CARRIER (a slot read: `blockChainFit_of_le`)
-  have hfitC := blockChainFit_of_le hM hcj ⟨hfindC, hlpsC, hcd⟩ hpar'
-    (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l) (hmN c' hc') hjl htI
-    (sepTuple_mem _ _ _ _ _) (sepTuple_le _ _ _ _ _) hfitS'
-  -- … in hole form, at the carrier and at the separated tuple
+  -- the fields fit at the CARRIER (the hole fit grows with the tuple), there
+  -- as stored (the override law)
   have hfitH : blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c' t j fs :=
-    (hC.holes ψ _ hsat _ (lfpTuple_mem _ _ _ _) _ (hmN c' hc') t htI j fs).mp ⟨hjl, hfitC⟩
-  have hsepH := (hC.holes ψ _ hsat _ (sepTuple_mem _ _ _ _ P') _ (hmN c' hc') t htI j fs).mp
-    ⟨hjl, hfitS'⟩
+    hC.fitsMono ψ _ hsat _ _ (sepTuple_mem _ _ _ _ P') (lfpTuple_mem _ _ _ _)
+      (sepTuple_le _ _ _ _ _) _ (hmN c' hc') t j fs hfitS
+  have hfitC := (hM.carrier ψ _ hsat _ (hmN c' hc') t htI j fs).mp hfitH
+  have hsepH := hfitS
   have hjn : j < blockRecNCt (tgtRs out) c' := by
     rw [← (blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
       (ppsOf := ppsOf) h c' hc').1, hdd]; exact hjl

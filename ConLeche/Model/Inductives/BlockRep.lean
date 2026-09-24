@@ -204,52 +204,11 @@ a recursive entry is its TARGET's former applied). -/
 @[expose] noncomputable def tup (ψ : Name → Nat) (c : Nat) (is : List V) : V :=
   tupW (d.uM c ψ) is
 
-/-- **A recursive slot**, as a set, at the frame `ρ` (the parameters
-and the earlier fields) and the tuple `X`: field `i` of component
-`c`'s constructor `j` reads the TARGET component of `X` at the tuple
-of its index expressions under its telescope (`slotSet`). -/
-@[expose] noncomputable def slotAt (ψ : Name → Nat) (X : Nat → V) (c j i : Nat) (ρ : Nat → V) : V :=
-  slotSet (d.w ψ) (d.uM (d.tgts c j i) ψ) ρ (((d.tlss c ψ).getD j []).getD i [])
-    (((d.Eiss c ψ).getD j []).getD i []) (X (d.tgts c j i))
-
 end BlockData
-
-/-- **The fields fit**, from position `i` on, along the domain list
-`Fs` (a suffix of the constructor's), each value in its entry at the
-earlier values — a recursive position (`rs`) in its slot, an ordinary
-one in its domain's reading: `SpineFit`'s shape, and `chainXBIGo`'s
-branching. -/
-@[expose] def FitsFrom (rs : List Bool) (slot : Nat → (Nat → V) → V) :
-    Nat → (Nat → V) → List AnnotTerm → List V → Prop
-  | _, _, [], [] => True
-  | i, ρ, F :: Fs, a :: as =>
-    a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) ∧
-    FitsFrom rs slot (i + 1) (cons a ρ) Fs as
-  | _, _, _, _ => False
-
-theorem FitsFrom.length_eq {rs : List Bool} {slot : Nat → (Nat → V) → V} :
-    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
-      FitsFrom rs slot i ρ Fs as → as.length = Fs.length
-  | _, _, [], [], _ => rfl
-  | _, _, [], _ :: _, h => h.elim
-  | _, _, _ :: _, [], h => h.elim
-  | _, _, _ :: Fs, _ :: as, h =>
-    congrArg Nat.succ (FitsFrom.length_eq (Fs := Fs) (as := as) h.2)
 
 namespace BlockData
 
 variable (d : BlockData V)
-
-/-- **A field spine fits component `c`'s constructor `j` at the
-functor frame `(ρp, X, t)`**: it fits the constructor's entries at
-`X`, and the constructor's index expressions at it are the components
-of the tuple `t` — the elimination shape of the fixpoint route's
-fibre, with the recursive slots at the target components. -/
-@[expose] def ChainFit (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (t : V) (c j : Nat)
-    (fs : List V) : Prop :=
-  FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp ((d.Fss c ψ).getD j []) fs ∧
-  ∀ l, l < (d.IdsM c ψ).length →
-    interp V (consList fs ρp) (((d.Ess c ψ).getD j []).getD l default) = projS l t
 
 /-- **A field spine fits component `c`'s constructor `j` as STORED** at
 the parameter frame `ρp` and the index tuple `t`: its field readings
@@ -363,26 +322,6 @@ operator IS `d.Φ` — with the constructors' fields read with holes
   resIdx := d.absE
 
 /-! ## The clause -/
-
-/-- **The recursive slots' index fit** (`BlockModelAt.idxFit`'s statement). -/
-@[expose] def BlockData.IdxFit (d : BlockData V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
-    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
-    ∀ as : List V,
-      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
-        (((d.Fss c ψ).getD j []).take i) as →
-      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
-        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
-
-/-- **The container functor's fibre** (`BlockModelAt.fibre`'s statement). -/
-@[expose] def BlockData.Fibre (d : BlockData V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
-      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
-        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
 
 /-- **The representation of the block whose members are `names`** at
 the block data `d` (see the module docstring). -/
