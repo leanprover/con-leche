@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecIdxConv
@@ -79,11 +80,9 @@ spine at the chain frame and at the parameter frame (§23's transport),
 and the two syntactic identities `hes`/`hfd`.  The rule's right-hand
 side, which `blockRuleEsAV_eq` and `blockRuleFdomsAV_datum` both name,
 exists because the kinds cover the constructors (`hkLen`,
-`checkBlockRecK_rulesLen`). -/
+`recStage_rulesLen`). -/
 theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -120,7 +119,7 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
   obtain ⟨cA, hcA⟩ : ∃ cA, r.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hcj : (d.ctorsM (p.toBlockShape.recTgtAt c))[j]? = some cA := by
     rw [hctM c r hr]; exact hcA
   have hmemk : p.toBlockShape.recTgtAt c < d.k :=
@@ -129,7 +128,7 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
   have hCf : cA.1.type.hasFvar = false :=
     (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hnP := TE.nP_le
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
@@ -189,7 +188,7 @@ section Assemble
 
 /-- **The recursor's binder data, fitted part by part.** -/
 theorem blockRecSpineFit_of_parts (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) {xs is : List V} {x : V}
@@ -263,9 +262,7 @@ block's injection (`blockRecMkK_value`) of a `ChainFit` spine
 (`blockRecCtorFitsFrom_of`, `blockRecCtorIdx`), hence in the carrier;
 §2 assembles. -/
 theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (p.kinds.getD c []).length = ctorsA.length)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -288,7 +285,7 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
   intro c hc j hj xs fs hxs hsp
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfs, hnF, hpre, hps, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel hμ h hkLen hcore hmr hdnP hctM hr hj hxs hsp
+    blockRuleSpine_peel hμ h hcore hmr hdnP hctM hr hj hxs hsp
   have hmN : p.toBlockShape.recTgtAt c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM (p.toBlockShape.recTgtAt c)).length :=
     (List.getElem?_eq_some_iff.mp hcj).1

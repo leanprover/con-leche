@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst
@@ -256,7 +257,7 @@ followed by the member's lifted indices (`dC` below); its fitting
 spines are exactly `x⃗ ++ ı⃗` with the two hypotheses, which is why the
 statement carries the prefix fit and nothing more. -/
 theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
@@ -272,18 +273,18 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
   have hlenIds := blockMembers_IdsM_length hmr hmemk ψ
   obtain ⟨hnPq, -, -, hcvF, -, -, -⟩ := hmr
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hcvTa := TE.hcvTa
   have hop := TE.hopen
   have hopT := TE.hopenT
   have htfl := TE.htfvs
   have hdeqP := TE.hparams
   obtain ⟨fvsL, conclL, hopL, -, hmk, -, -, hbind, -, hwdTy⟩ :=
-    checkBlockRecK_tyPis hμ mpC h hr ψ
+    recStage_tyPis hμ mpC h hr ψ
   have hfvE : fvsL = TE.fvs := congrArg Prod.fst (Option.some.inj (hopL.symm.trans hop))
   rw [hfvE] at hbind
   obtain ⟨-, -, -, hfvT, hbndT, hFD⟩ := hcvF _ _ hcvTa
-  obtain ⟨hwR, hbR⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨hwR, hbR⟩ := recStage_tyClosed h hr
   have hwT : Expr.WScoped 0 TE.cvTa.type := Expr.WScoped.of_not_hasFvar hfvT
   -- names
   generalize hrP : p.toBlockShape.rulePrefixAt c = rP at *
@@ -293,11 +294,10 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hnP'] at hnPle hisfit
   -- the kernel's pass, at this recursor
   have hc : c < rs.length := (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨R⟩ := id h
   have hcR : c < R.cvRus.length := by rw [R.lenT, ← R.len]; exact hc
   obtain ⟨cvR, nIdx, u, cvTa', fvs', tfvs, concl', trest, hcu, hcvTa', hop', hopPI, -,
-    hdeqI⟩ := ConLeche.checkBlockRecIdxDomsAt_inv R.fam.idxDoms c hcR
-  rw [Nat.zero_add] at hcvTa' hop' hopPI hdeqI
+    hdeqI⟩ := R.fam.idxDoms c hcR
   obtain ⟨u', hcu'⟩ := R.stored_at hr
   obtain ⟨hr1, hnn, -⟩ : cvR = r.1 ∧ nIdx = r.2.2.1 ∧ u = u' := by
     simpa using Option.some.inj (hcu.symm.trans hcu')
@@ -745,7 +745,7 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 /-- **The graph kit's `hconclTy`, at the run**: the conclusion read at
 any class element is a set of the CHECKED elimination level. -/
 theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     {uOf : Nat → Level}

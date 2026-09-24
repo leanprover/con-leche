@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetRowCerts
@@ -74,8 +75,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
-    (h : ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) fe.env pp cvTasR
-      ctorsAsR = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTasR ctorsAsR (tgtRs out))
     (hnd : pp.toBlockShape.memberNames.Nodup)
     (hfresh : ∀ n ∈ (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).memberNames,
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).env₀.find? n = none)
@@ -90,8 +90,6 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).k)
     (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).toLfp
       ∈ mpC.lfpBlocks)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (s : (Name → Nat) → Nat)
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       interp V ρ (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ c) ∈ˢ (univ (s ψ) : V) ∧
@@ -122,7 +120,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAsR.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : ∀ (ψ : Name → Nat) c, c < (tgtRs out).length → pp.toBlockShape.recTgtAt c
@@ -133,7 +131,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
     (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).memberNames
     (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) hμ isRecR A fssZ envI
-    h hdR hnames hstage hcore hmr hM hkLen s hTy
+    h hdR hnames hstage hcore hmr hM s hTy
     (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ')
     (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
@@ -158,12 +156,12 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockHoleFitRel_iff hC hpar (hmN ψ' c hc) hi).mpr
         ⟨by rw [(blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
           (ppsOf := ppsOf) h c hc).1]; exact hj, hf⟩
-  · exact tgtRecEqs_hEq hμ h R hkLen hdR hnames hstage hcore hmr hM
-  · exact tgtRuleCerts_run hμ h R hkLen hdR hnames hstage hcore hmr hM
-  · exact fun ψ' ρ' xs => tgtGraphIhF_run hμ h R hkLen hdR hnames hstage hcore hmr hM hC hnd ψ' ρ' xs
-  · exact fun ψ' ρ' xs => tgtKitCaB_run hμ h R hkLen hcore hmr hM hnames rfl hctM hC ψ' ρ' xs
-  · exact fun ψ' ρ' xs => tgtGraphInd_run hμ h R hkLen hdR hnames hstage hcore hmr hM hC hnd hfresh ψ' ρ' xs
-  · exact fun ψ' ρ' a xs r hfold => tgtGraphIhChain_run hμ h R hkLen hdR hnames hstage hcore hmr
+  · exact tgtRecEqs_hEq hμ h R hdR hnames hstage hcore hmr hM
+  · exact tgtRuleCerts_run hμ h R hdR hnames hstage hcore hmr hM
+  · exact fun ψ' ρ' xs => tgtGraphIhF_run hμ h R hdR hnames hstage hcore hmr hM hC hnd ψ' ρ' xs
+  · exact fun ψ' ρ' xs => tgtKitCaB_run hμ h R hcore hmr hM hnames rfl hctM hC ψ' ρ' xs
+  · exact fun ψ' ρ' xs => tgtGraphInd_run hμ h R hdR hnames hstage hcore hmr hM hC hnd hfresh ψ' ρ' xs
+  · exact fun ψ' ρ' a xs r hfold => tgtGraphIhChain_run hμ h R hdR hnames hstage hcore hmr
       hM hC hnd ψ' ρ' a xs r hfold
 
 end Producer

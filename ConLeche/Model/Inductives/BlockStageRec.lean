@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.IndBlockFacts
@@ -616,7 +617,7 @@ no stored piece mentioned is still mentioned by none.
 
 Two premises beyond the cons's own are worth naming.  `hresRec` is
 the recursor stage's own NAME check
-(`ConLeche.checkBlockRecK_reserved`): without it the
+(`ConLeche.recStage_reserved`): without it the
 `String`-literal guard is monotone but not congruent — nothing else
 would forbid a recursor from being named `List.cons` at a block that
 declares `List` — and conjunct 3's EQUATION (as opposed to its

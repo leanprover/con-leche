@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetCallKit
@@ -341,11 +342,8 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
 set_option maxHeartbeats 8000000 in
 /-- **One `ih` key of a target rule, read.** -/
 theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -388,7 +386,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr0, Option.getD_some] at hj; exact hj
   obtain ⟨cA, hcA⟩ : ∃ cA, r0.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r0.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr0]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr0 hcA hrhs
   have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j = Q.ihs.toList := by
@@ -402,7 +400,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   have hihMem : ih ∈ Q.ihs.toList := by rw [hihGet]; exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
   -- the frame
-  obtain ⟨ms0, hms0, hctA, -⟩ := checkBlockRecK_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -440,7 +438,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 :=
     ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := checkBlockRecK_recNames h
+  obtain ⟨-, hlenR, -⟩ := recStage_recNames h
   have hcalR : ih.callee < pp.recs.length := by omega
   have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
       = pp.toBlockShape.majorIdxAt ih.callee := by
@@ -616,8 +614,8 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     | some A0 => exact ⟨A0, rfl⟩
   obtain ⟨vs, hvs⟩ := denoteMetaSpine_of_reads _ hreads
   -- (e) the callee's type, read, and its peel
-  obtain ⟨hTf1, -, -, -, -⟩ := ConLeche.checkBlockRecK_facts h r1 (List.mem_of_getElem? hr1)
-  obtain ⟨-, -, -, hread0, hTyE, hlenRds, -, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr1 ψ
+  obtain ⟨hTf1, -, -, -, -⟩ := ConLeche.recStage_facts h r1 (List.mem_of_getElem? hr1)
+  obtain ⟨-, -, -, hread0, hTyE, hlenRds, -, -, -, -⟩ := recStage_tyPis hμ mpC h hr1 ψ
   have hcl1 := closed_blockRecTyAV hμ mpC h hr1 ψ
   have hRTd := denoteMeta_depth_of_closed mpC.base2.acval_closed hTf1
     (fun k => liftN_eq_self_of_closed hcl1 k 1) hread0 (rc.rP + cA.2 + m)
@@ -660,7 +658,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     hvalsAt 0 [] xs fs bs ρ _ vs rfl hbl hxl hfsl (locOpen_locList _ _) hvs
   -- (h) the conclusion reads below the spine
   rw [hvals]
-  have hconclB := (checkBlockRecK_tyBounds hμ mpC h hr1 ψ).2
+  have hconclB := (recStage_tyBounds hμ mpC h hr1 ψ).2
   have hLlen : (xs ++ ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
           (tgtRs out) mpC.base2.acval fe.env ψ c j r).map
             (interp V (consList bs (consList (xs ++ fs) ρ)))

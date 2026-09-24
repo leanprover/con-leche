@@ -45,7 +45,7 @@ at any number of members. -/
 def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
-  | some p => DeclBlockRun μ F env p env₂
+  | some p => DeclBlockRun μ F env block p env₂
   | none => DeclIndRun μ F env block env₂
 
 /-- **The RUN bridge** (lane FLIP1): `checkDecl` → `DeclRun`, with the

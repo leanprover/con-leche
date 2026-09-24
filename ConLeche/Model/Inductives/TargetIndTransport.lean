@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIndRen
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Verify.BridgeWfImp
@@ -87,8 +88,7 @@ hole values `hv` lies in the target check's member-abstracted type of
 that field, read past the rule frame and the holes, at the rule frame
 extended by the same hole values. -/
 theorem tgtField_transport (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
@@ -123,7 +123,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
   -- the constructor at the member
   have hmaj := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
   have hctM : d.ctorsM (pp.toBlockShape.recTgtAt c) = r0.2.2.2 := by
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     rw [← hdd]
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl

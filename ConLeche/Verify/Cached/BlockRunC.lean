@@ -178,14 +178,6 @@ theorem consBlockCtorsF_mkFEnv (nP : Nat) :
     simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
     exact consBlockCtorsF_mkFEnv nP rest _
 
-theorem consBlockRecsBareF_mkFEnv (p : BlockShape) :
-    ∀ (m : Nat) (cvRas : List (ConstantVal × Nat)) (env : Env),
-      consBlockRecsBareF p m cvRas (mkFEnv env) = mkFEnv (consBlockRecsBare p m cvRas env)
-  | _, [], _ => rfl
-  | m, (cvRa, nIdx) :: rest, env => by
-    simp only [consBlockRecsBareF, consBlockRecsBare, push_mkFEnv]
-    exact consBlockRecsBareF_mkFEnv p (m + 1) rest _
-
 theorem consBlockRecsF_mkFEnv (find? : Name → Option ConstantInfo) (p : BlockShape)
     (nP : Nat) :
     ∀ (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))

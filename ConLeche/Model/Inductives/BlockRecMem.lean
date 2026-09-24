@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockData
@@ -66,7 +67,7 @@ instead of an existential. -/
 
 /-- The `i`-th stored recursor type's READING at `ψ` (`default` off
 the list, or at a type that does not read — neither happens under the
-run, `checkBlockRecK_tyPis`). -/
+run, `recStage_tyPis`). -/
 def blockRecTyAV (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (ψ : Name → Nat) (c : Nat) : AnnotTerm :=
@@ -105,10 +106,10 @@ defeq to it binder by binder.
 The bridge from stage (b')'s own list (the TYPE stage's checked
 constant values) to the stored `rs` is the run record's
 (`RecKRun.stored_fst`). -/
-theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
+theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr0 : rs[0]? = some r0) :
     ∃ (fvs0 : List Expr) (o0 : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r0.1.type 0
@@ -124,7 +125,7 @@ theorem checkBlockRecK_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
             ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
               ((fvs0.map Expr.fvarTypeD).getD l default)
               ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨R⟩ := id h
   obtain ⟨fvs0, o0, hop0, hall⟩ :=
     ConLeche.checkBlockRecPrefixAgree_inv R.fam.prefixAgree (R.stored_fst hr0)
   exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (R.stored_fst hr) hi⟩
@@ -136,11 +137,11 @@ readings, the bits (`0` and at most `1`) and the conclusion's reading
 at the full depth.  This is what the recursor model consumes: `hTyE` at
 `RecTy ψ c := blockRecTyAV …`, `rds`/`concl` at the two named
 spellings. -/
-theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
+theorem recStage_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     ∃ (fvs : List Expr) (concl : Expr),
@@ -161,7 +162,7 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
       denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt i + 1) concl
           = some (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ (blockRecTyAV mpC.base2.acval envC rs ψ i)) := by
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hop := TE.hopen
   have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
@@ -183,7 +184,7 @@ theorem checkBlockRecK_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
 binder `l`'s domain below `l`, the conclusion below the binder count.
 
 A SEPARATE theorem rather than two more clauses of
-`checkBlockRecK_tyPis`: five sites destructure that one positionally
+`recStage_tyPis`: five sites destructure that one positionally
 and none of them reads a boundedness, so widening it would make every
 consumer carry what it never uses.
 
@@ -195,11 +196,11 @@ own per-index scoping facts hold
 (`openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`), and
 `bvarsBelow_of_reading` turns a reading at depth `l` into
 `bvarsBelow l`. -/
-theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
+theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length →
@@ -208,7 +209,7 @@ theorem checkBlockRecK_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
           default).2.2).erase) ∧
     ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
       (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i).erase := by
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hop := TE.hopen
   have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
@@ -264,7 +265,7 @@ every `ρ`.
 Three premises, each in the shape its owner exports:
 
 * `hty` — the reading, at the spelling the family premise is stated
-  at (`checkBlockRecK_tyPis` gives it at
+  at (`recStage_tyPis` gives it at
   `RecTy ψ := blockRecTyAV …`);
 * `hacv` — the stage's VALUATION: the `i`-th recursor's leaf is the
   `i`-th projection of the chosen tuple (`blockRecStaged_of`'s `acv`,
@@ -298,7 +299,7 @@ theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
   exact hmem
 
 /-- **`blockRecStaged_of`'s `hrd`, end to end**: the reading and the
-grading are the run's (`checkBlockRecK_tyReads`), the membership is
+grading are the run's (`recStage_tyReads`), the membership is
 the family premise's (`hmem_of_pre`). -/
 theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
@@ -306,7 +307,7 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,

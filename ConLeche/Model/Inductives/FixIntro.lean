@@ -33,20 +33,4 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Substitution of the payload's projections -/
 
-/-- `UnderTowerValid` from the domains' validity and the leaf's at
-every fitting spine. -/
-theorem underTowerValid_of_fieldsValid {b : AnnotTerm} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      FieldsValid ρ (ds.map (·.2.2)) →
-      (∀ as, SpineFit ρ (ds.map (·.2.2)) as → AnnotValid V (consList as ρ) b) →
-      UnderTowerValid ρ b ds
-  | [], ρ, _, hb => by
-    show AnnotValid V ρ b
-    simpa using hb [] trivial
-  | d :: ds, ρ, hv, hb => by
-    rw [List.map_cons] at hv
-    refine ⟨hv.1, fun a ha => underTowerValid_of_fieldsValid (hv.2 a ha) fun as hsp => ?_⟩
-    have := hb (a :: as) ⟨ha, hsp⟩
-    rwa [consList_cons] at this
-
 end ConLeche.Model

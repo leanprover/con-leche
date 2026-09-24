@@ -23,33 +23,7 @@ open ConLeche.Term ConLeche.Verify
 
 /-! ## The inductive-hypothesis arguments -/
 
-theorem domsBelow_mono : ∀ {ds : List (Nat × Nat × AnnotTerm)} {k k' : Nat}, k ≤ k' →
-    DomsBelow k ds → DomsBelow k' ds
-  | [], _, _, _, _ => trivial
-  | _ :: ds, k, k', hk, h => ⟨Term.bvarsBelow.mono hk h.1, domsBelow_mono (ds := ds) (by omega) h.2⟩
-
 /-! ## The squash regime's body (task #202 A2) -/
-
-/-- A moved index expression: `ihIdxAtM` lifts by `nF - i + l` and
-then by `o`. -/
-theorem ihIdxAtM_below {nF o i l m K : Nat} {E : AnnotTerm} (hE : Term.bvarsBelow K E.erase) :
-    Term.bvarsBelow (K + (nF - i + l) + o) (ihIdxAtM nF o i l m E).erase := by
-  unfold ihIdxAtM
-  rw [AnnotTerm.erase_liftN, AnnotTerm.erase_liftN]
-  exact VExprAux.bvarsBelow_liftN o _ _ _ (VExprAux.bvarsBelow_liftN (nF - i + l) _ _ _ hE)
-
-/-- A telescope moved to the ih frame is bounded there. -/
-theorem ihTeleAtGo_below {nF o i l K : Nat} :
-    ∀ {tl : List (Nat × Nat × AnnotTerm)} {k : Nat}, DomsBelow (K + k) tl →
-      DomsBelow (K + (nF - i + l) + o + k) (ihTeleAtGo nF o i l k tl)
-  | [], _, _ => trivial
-  | d :: tl, k, h => by
-    refine ⟨?_, ?_⟩
-    · have := ihIdxAtM_below (nF := nF) (o := o) (i := i) (l := l) (m := k) h.1
-      rwa [show K + k + (nF - i + l) + o = K + (nF - i + l) + o + k from by omega] at this
-    · have := ihTeleAtGo_below (nF := nF) (o := o) (i := i) (l := l) (K := K) (tl := tl) (k := k + 1)
-        (by rw [show K + (k + 1) = K + k + 1 from by omega]; exact h.2)
-      rwa [show K + (nF - i + l) + o + (k + 1) = K + (nF - i + l) + o + k + 1 from by omega] at this
 
 /-! ## The leaf -/
 

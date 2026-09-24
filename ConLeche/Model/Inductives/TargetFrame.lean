@@ -30,18 +30,6 @@ open SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckMode)
 
-/-- `instPisWith` is `instPisAt`'s residual. -/
-theorem instPisWith_eq_instPisAt :
-    ∀ (as : List Expr) (e : Expr), ConLeche.instPisWith as e = (Expr.instPisAt as e).map (·.2)
-  | [], e => by simp [ConLeche.instPisWith, Expr.instPisAt]
-  | a :: as, e => by
-    cases e with
-    | forallE dom body bm =>
-      simp only [ConLeche.instPisWith, Expr.instPisAt, Option.map_map]
-      rw [instPisWith_eq_instPisAt as]
-      cases Expr.instPisAt as (body.instantiate1 a) <;> rfl
-    | _ => simp [ConLeche.instPisWith, Expr.instPisAt]
-
 /-- **The target rule's frame facts** from its three openings. -/
 theorem targetFrame_facts {envT : Env} {rP nF nP : Nat} {recTy cty crest oP cbody : Expr}
     {fvsPref fvsF ds : List Expr}

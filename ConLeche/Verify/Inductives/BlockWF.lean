@@ -32,7 +32,7 @@ and `SumWF.lean` at k members:
   `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
   (`SumWF.lean`) are the block's rule facts unchanged.
 
-`checkBlockRecK_facts` is the recursor stage's WF contract; it and
+`recStage_facts` is the recursor stage's WF contract; it and
 every other inversion of the recursor CHECK read the stage's run
 records (`Verify/Inductives/BlockRecRun.lean`).
 
@@ -267,13 +267,14 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {
   exact hs
 
 /-- **The recursor stage read back to the CHECK**: `checkBlockRec`
-succeeded only if `checkBlockRecK` did, with the same result (the
-conformance check after it only rejects). -/
-theorem checkBlockRecK_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+succeeded only if the check (`checkBlockRecT`, the target check) did,
+with the same result (the conformance check after it only rejects). -/
+theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : checkBlockRec ops env p cvTas ctorsAs = .ok rs) :
-    checkBlockRecK ops env p cvTas ctorsAs = .ok rs :=
+    (h : checkBlockRec ops env p block cvTas ctorsAs = .ok rs) :
+    checkBlockRecT ops env p block cvTas ctorsAs = .ok rs :=
   thenConform_ok h
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/

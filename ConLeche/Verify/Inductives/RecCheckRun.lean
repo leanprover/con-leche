@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.ExceptBind
@@ -720,5 +720,128 @@ theorem targetRecCheck_run {fe : FEnv} {p : BlockShape} {nested : Bool}
            pin := checkBlockRecElimPin_inv (by cases u2; exact hpin),
            prefixAgree := by cases u3; exact hpref, rulePins := by cases u4; exact hrp,
            rules := hrules }⟩
+
+/-! ## Facts of a run, shared by the stage record and the model -/
+
+section RunFacts
+
+variable {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool} {block : List ConstantInfo}
+  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- `instPisWith` is `instPisAt`'s residual. -/
+theorem instPisWith_eq_instPisAt :
+    ∀ (as : List Expr) (e : Expr), instPisWith as e = (Expr.instPisAt as e).map (·.2)
+  | [], e => by simp [instPisWith, Expr.instPisAt]
+  | a :: as, e => by
+    cases e with
+    | forallE dom body bm =>
+      simp only [instPisWith, Expr.instPisAt, Option.map_map]
+      rw [instPisWith_eq_instPisAt as]
+      cases Expr.instPisAt as (body.instantiate1 a) <;> rfl
+    | _ => simp [instPisWith, Expr.instPisAt]
+
+theorem targetRecRun_out_fst (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
+    out.map (fun t => (t.1, t.2.1)) = R.tys.map (fun t => (t.1, t.2.1)) := by
+  obtain ⟨hlenT, -⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenO, hall⟩ := targetRecsRules_run R.rules
+  apply List.ext_getElem?
+  intro k
+  simp only [List.getElem?_map]
+  by_cases hk : k < p.recs.length
+  · obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[k]? = some rc := ⟨_, List.getElem?_eq_getElem hk⟩
+    obtain ⟨t, ht⟩ : ∃ t, R.tys[k]? = some t :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenT]; exact hk)⟩
+    obtain ⟨rhssA, ho, -, -⟩ := hall k rc t hrc ht
+    rw [ho, ht]
+    rfl
+  · rw [List.getElem?_eq_none (by rw [hlenO]; omega),
+      List.getElem?_eq_none (by rw [hlenT]; omega)]
+    rfl
+
+theorem targetRecRun_bare_eq (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
+    R.tys.map (fun t => (t.1, t.2.1.nIdx)) = (tgtRs out).map (fun r => (r.1, r.2.2.1)) := by
+  have h0 := targetRecRun_out_fst R
+  have h1 : out.map (fun t => (t.1, t.2.1.nIdx)) = R.tys.map (fun t => (t.1, t.2.1.nIdx)) := by
+    have := congrArg (List.map fun q : ConstantVal × TargetMajor => (q.1, q.2.nIdx)) h0
+    simpa [List.map_map, Function.comp_def] using this
+  simp only [tgtRs, List.map_map, Function.comp_def]
+  rw [← h1]
+
+/-- A member major's parameters are the recursor type's first `nP`
+openers. -/
+theorem TargetTyEntry.ds_eq {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
+    M.ds = E.fvs.take p.nP := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
+    _⟩ := E
+  cases major with
+  | member I t ms ctorsA hfn ht hms hctors hpar => rfl
+
+/-- Opening fewer binders opens a prefix of the same variables. -/
+theorem openPisAtFvars_prefix :
+    ∀ (k n : Nat) (e : Expr) (d : Nat) {fvs : List Expr} {o : Expr}, k ≤ n →
+      openPisAtFvars n e d = some (fvs, o) →
+      ∃ o', openPisAtFvars k e d = some (fvs.take k, o')
+  | 0, _, e, _, _, _, _, _ => ⟨e, rfl⟩
+  | k + 1, 0, _, _, _, _, hk, _ => absurd hk (by omega)
+  | k + 1, n + 1, e, d, fvs, o, hk, h => by
+    cases e with
+    | forallE dom body bm =>
+      simp only [openPisAtFvars] at h ⊢
+      split at h
+      · next fvs' e' h' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨o', ho'⟩ := openPisAtFvars_prefix k n _ (d + 1) (by omega) h'
+        rw [ho']
+        exact ⟨o', by simp⟩
+      · exact nomatch h
+    | _ => simp [openPisAtFvars] at h
+
+/-- **The major's parameters are the rule prefix's first `nP` openers**:
+both openings start at the recursor's stored type, and `nP ≤ rP ≤ mI`. -/
+theorem targetDs_eq_prefTake {F : Nat} {fe : FEnv} {p : BlockShape}
+    {nested : Bool} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
+    {fvsPref : List Expr} {oP : Expr}
+    (hpref : openPisAtFvars rc.rP cvRi.type 0 = some (fvsPref, oP)) :
+    M.ds = fvsPref.take p.nP := by
+  rw [TargetTyEntry.ds_eq E]
+  obtain ⟨o', ho'⟩ := openPisAtFvars_prefix rc.rP (rc.mI + 1) _ 0 (by have := E.hle; omega) E.hopen
+  rw [hpref] at ho'
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj ho')
+  rw [List.take_take, Nat.min_eq_left E.hroom]
+
+/-- A member major's parameter count and levels are the block's. -/
+theorem targetTyEntry_major {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
+    M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
+    _⟩ := E
+  cases major with
+  | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨rfl, rfl⟩
+
+end RunFacts
+
+/-- **The uniform route's recursor stage, read back to the target check**:
+`checkBlockRecT` at the fueled operations is `targetRecCheck` at
+`ShadowOps.fueled` on the constructors' index, its result `tgtRs` of the
+check's output. -/
+theorem checkBlockRecT_run {env : Env} {p : BlockParts} {block : List ConstantInfo}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+    (h : checkBlockRecT (fueledOps mode F) env p block cvTas ctorsAs = .ok rs) :
+    ∃ out, targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env) p.toBlockShape false false
+        block cvTas ctorsAs = .ok out ∧ rs = tgtRs out := by
+  unfold checkBlockRecT at h
+  obtain ⟨out, hout, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨out, hout, h.symm⟩
 
 end ConLeche

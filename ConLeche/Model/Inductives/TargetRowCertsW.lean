@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetRowCertsRun
 import ConLeche.Model.Inductives.BlockRuleCertsRun
@@ -103,11 +104,8 @@ set_option maxHeartbeats 4000000 in
 /-- **The certificates at the target data, at one rule**, at the base
 field domains. -/
 theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -136,13 +134,13 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       (tgtRs out)[c]? = some r → d.ctorsM (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hkLen hcore hmr hM hN hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
-  have hargs := blockRuleConclArgsW_run hμ h hkLen hdR hS hcore hmr ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
-  -- today's grading of the prefix and the fields
-  have hPF := blockRuleHokPF_of hμ h hkLen (blockRuleGrading_run hμ h hkLen hdR hN hS hcore hmr hM)
+  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hN hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
+  have hargs := blockRuleConclArgsW_run hμ h hdR hS hcore hmr ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
+  -- the grading of the prefix and the fields
+  have hPF := blockRuleHokPF_run hμ h hdR hS hcore hmr
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
   have hjr : j < (tgtRs out)[c].2.2.2.length := by
@@ -150,7 +148,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   obtain ⟨cA, hcA⟩ : ∃ cA, (tgtRs out)[c].2.2.2[j]? = some cA :=
     ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hmemk : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
@@ -165,7 +163,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
   have hcbC : ConstsBound fe.env cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hnP := TE.nP_le
   -- the target rule's run
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
@@ -173,8 +171,8 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   -- today's openings of the same stored types, and today's conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
     blockRuleData_run h hr hcA hrhs
-  obtain ⟨-, -, concl0, -, -, -, -, -, hpr, -⟩ := blockRuleResidueData_runP h hr hcA hrhs
-  obtain ⟨hw₁, hb₁⟩ := checkBlockRecK_tyClosed h hr
+  obtain ⟨concl0, hpr⟩ := blockRuleConcl_run h hr hcA hrhs
+  obtain ⟨hw₁, hb₁⟩ := recStage_tyClosed h hr
   have hb₂ : (blockRuleCrest pp.toBlockShape (tgtRs out) c j).looseBVarsBounded 0 = true :=
     (instPisAt_bounded _ hinstC hCb
       (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))).2

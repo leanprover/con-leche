@@ -247,16 +247,6 @@ theorem blockFieldReadAt_of {m : EnvModel V env} {ψ : Name → Nat} {env₀ : E
 
 /-! ## The bound, from the frame's `ihKeys` -/
 
-/-- A found position names its pair. -/
-theorem mem_of_pairIdxOf? {ps : List (Nat × Nat)} {p : Nat × Nat} {r : Nat}
-    (h : ConLeche.pairIdxOf? ps p = some r) : p ∈ ps := by
-  have hr : r < ps.length := List.mem_range.mp (List.mem_of_find?_eq_some h)
-  have hp : ps.getD r (0, 0) = p := by
-    have := List.find?_some h
-    simpa using this
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr] at hp
-  exact hp ▸ List.getElem_mem hr
-
 /-- The recursive positions of a block constructor: in range, and with
 a kind that carries a target. -/
 theorem mem_blockRecIdxOf {ks : List BlockFieldKind} {i : Nat}
