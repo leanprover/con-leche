@@ -2329,7 +2329,7 @@ section DomsBounded
 variable {envC : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+  {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
 
 omit [SetTheory V] in
@@ -2363,9 +2363,9 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
     ∀ (ψ : Name → Nat) (j : Nat)
         (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
@@ -2378,9 +2378,9 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
   -- the member link and the constructor's data
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt j
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt j))[i]? = some cA := by
     show (ctorsAs.getD _ [])[i]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA

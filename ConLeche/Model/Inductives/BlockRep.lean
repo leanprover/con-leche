@@ -101,9 +101,6 @@ structure BlockData (V : Type w) where
   isProp : Bool
   /-- the eliminator is large -/
   large : Bool
-  /-- the pre-block environment (a ghost witness: the ordinary field
-  domains resolve in it) -/
-  env₀ : Env
   /-- the members' names, by position -/
   memberNames : List Name
   /-- per member: its index count -/

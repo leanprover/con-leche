@@ -59,9 +59,9 @@ target in the property. -/
 theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -80,17 +80,17 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
         P u := by
   intro P hP u hu
   have hdR' := hdR
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r →
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
-  generalize hdd : blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf = d at *
+  generalize hdd : blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf = d at *
   obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
   obtain ⟨hparFit, -⟩ := blockRecIs_fits hi
   have hsat := d.satOfSpine hparFit
@@ -132,7 +132,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   have hfitC := (hM.carrier ψ _ hsat _ (hmN c' hc') t htI j fs).mp hfitH
   have hsepH := hfitS
   have hjn : j < blockRecNCt (tgtRs out) c' := by
-    rw [← (blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
+    rw [← (blockRecNCt_seam (V := V) (pk := pk) (uOfD := uOfD)
       (ppsOf := ppsOf) h c' hc').1, hdd]; exact hjl
   refine hP _ hu' ⟨(c', j, fs), ⟨hc', hjn, t, ?_, hfitH, rfl⟩, fun v hv => ?_⟩
   · rw [blockRecIs_pos hpar' hpref']; exact htI

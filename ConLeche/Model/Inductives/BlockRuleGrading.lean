@@ -193,9 +193,9 @@ theorem blockRuleHokPF_run
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
     (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
@@ -211,19 +211,19 @@ theorem blockRuleHokPF_run
           ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
             ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default) := by
   intro j r hr i cA hcA ψ l hl σ' ys hys
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hir : i < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hir)⟩
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : p.toBlockShape.recTgtAt j
-      < (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
-  have hctM : (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hctM : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j) = r.2.2.2 := by
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hcj : ((blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt j))[i]? = some cA := by rw [hctM]; exact hcA
   have hcd := blockCtorData_of_core hcore hcj
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr

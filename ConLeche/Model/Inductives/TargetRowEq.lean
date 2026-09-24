@@ -54,9 +54,9 @@ the chain by `wd_instsAV` and `wellDenotedV_liftN_chainFrame`. -/
 theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -76,7 +76,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
         interp V (consList tup ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList tup ρ) e := by
   intro ψ ρ tup hlen htyp
   have hdR' := hdR
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   -- the frame's grading on its prefix and fields, and the left-hand side
   have hPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr
   have hlhs := blockGradeLhs_run hμ h hdR' hN hS hcore hmr hM
@@ -105,9 +105,9 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   -- the constructor's record
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA

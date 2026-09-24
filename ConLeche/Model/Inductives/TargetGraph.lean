@@ -70,22 +70,21 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (ctorsAsR : List (List (ConstantVal × Nat))) (nested : Bool) (blk : List ConstantInfo)
     (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ fe.env)
     (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
-    (env₀ : Env)
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTasR ctorsAsR (tgtRs out))
     (hnd : pp.toBlockShape.memberNames.Nodup)
     (hnames : BlockNamesOk (V := V)
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) cvTasR)
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) cvTasR)
     (hstage : BlockCtorsStage (V := V) μ F
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) pp.lps cvTasR
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) pp.lps cvTasR
       pp.toBlockShape isRecR A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) pp.lps cvTasR
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) pp.lps cvTasR
       pp.toBlockShape isRecR A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf).k)
-    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf).toLfp
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).toLfp
       ∈ mpC.lfpBlocks)
     (s : (Name → Nat) → Nat)
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
@@ -103,31 +102,31 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
           (fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
           (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
             mpC.base2.acval fe.env ψ') ψ) ρ := by
-  have hdR : ∃ (env₀' : Env) (pk' : Nat → BlockMemberPick)
+  have hdR : ∃ (pk' : Nat → BlockMemberPick)
       (uOfD' : Nat → (Name → Nat) → Nat)
       (ppsOf' : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf
-        = blockDataOf V pp.toBlockShape env₀' ctorsAsR pk' uOfD' ppsOf' :=
-    ⟨env₀, pk, uOfD, ppsOf, rfl⟩
+      blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf
+        = blockDataOf V pp.toBlockShape ctorsAsR pk' uOfD' ppsOf' :=
+    ⟨pk, uOfD, ppsOf, rfl⟩
   have hmr := blockMembersRun_seam hnames hstage hcore
   have hM := blockModelAt_seam h hnames hstage hcore hlfp
   have hC := (mpC.lfp_ok _ hlfp).1
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r →
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf).ctorsM
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAsR.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : ∀ (ψ : Name → Nat) c, c < (tgtRs out).length → pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf).N := fun ψ c hc =>
+      < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).N := fun ψ c hc =>
     Nat.lt_of_lt_of_le
       (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
       (Nat.le_add_right _ _)
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
-    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf).memberNames
-    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) hμ isRecR A envI
+    (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).memberNames
+    (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) hμ isRecR A envI
     h hdR hnames hstage hcore hmr hM s hTy
     (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ')
@@ -139,12 +138,12 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (fun ψ' ρ' => tgtIhv μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ'
       (Level.eval ψ' (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) ρ')
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
     (fun ψ' ρ' => tgtCall μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ'
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) ρ')
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
     (fun ψ' ρ' => blockHoleFitRel
-      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) ψ' ρ'
+      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ψ' ρ'
       pp.toBlockShape.recTgtAt)
   refine hgen ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact fun ψ' ρ' xs c i j fs hc hpar hi hf =>

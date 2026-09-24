@@ -209,9 +209,9 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
     (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
@@ -232,11 +232,11 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
               I.length 0],
         WellDenotedV V σ a := by
   intro σ hsat
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r →
-      (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+      (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr

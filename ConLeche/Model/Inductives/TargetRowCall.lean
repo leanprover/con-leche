@@ -53,9 +53,9 @@ set_option maxHeartbeats 4000000 in
 theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -75,18 +75,18 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       SpineFit (consList (xs ++ fs) ρ) (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j) (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) d ρ xs c j fs g) := by
   intro c hc hpar hpref j hj i fs hi hfit g hg
   have hdR' := hdR
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   obtain ⟨r0, hr0⟩ : ∃ r0, (tgtRs out)[c]? = some r0 := ⟨_, List.getElem?_eq_getElem hc⟩
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r →
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).N :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).N :=
     Nat.lt_of_lt_of_le (blockRecMajor_run (V := V) hμ mpC h hmr hr0 ψ).2.1 (Nat.le_add_right _ _)
   -- the hole fit is the stored fit at the carrier
   have hchain := (hM.carrier ψ _ (BlockData.satOfSpine _ hpar) _ hmN i hi j fs).mp hfit
@@ -116,7 +116,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   -- the domain, past the values already bound
   have htk : ((tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs g).take q).length
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs g).take q).length
       = q := by
     rw [List.length_take]; simp [tgtIhv, hlenK]; omega
   have hdomq : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
@@ -130,7 +130,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   have hcancel := interp_liftN_ihvals (V := V)
     (ihvals := (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs g).take q)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs g).take q)
     (σ := consList (xs ++ fs) ρ)
     ((ihTyReads mpC.base2.acval fe.env ψ (tgtB pp.toBlockShape (tgtRs out) c j)
       (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j)).getD q default)
@@ -140,13 +140,13 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     default).callee = cq at hcal hrPc hXval
   have hval : (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs g).getD q pt
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs g).getD q pt
       = lamTowerA (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
           (consList (xs ++ fs) ρ) []
           (tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ
             c j q)
           (fun _ τ => app g (tagged cq
-            ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+            ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
               (pp.toBlockShape.recTgtAt cq)
               ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
                 fe.env ψ c j q).map (interp V τ)))
@@ -166,7 +166,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   have hleaf : ∀ bs : List V, SpineFit (consList (xs ++ fs) ρ)
       ((tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ
         c j q).map (·.2.2)) bs →
-      app g (tagged cq ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+      app g (tagged cq ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
           (pp.toBlockShape.recTgtAt cq)
           ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
             fe.env ψ c j q).map (interp V (consList bs (consList (xs ++ fs) ρ)))))
@@ -183,28 +183,28 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[cq]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
     obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
     have hmN' : pp.toBlockShape.recTgtAt cq
-        < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).N :=
+        < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).N :=
       Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
     have hIok := hM.idxOk ψ _ (BlockData.satOfSpine _ hpar) _ hmN'
     have hisOf := isOfW_tupW hIok hIds
     rw [blockMembers_IdsM_length hmr hmemk ψ] at hisOf
     have hmot := blockRecMot_tagged (V := V) (K := (tgtRs out).length) hcal
       (concl := blockRecConclAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
-      (uOf := fun c' => (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).uM
+      (uOf := fun c' => (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).uM
         (pp.toBlockShape.recTgtAt c') ψ)
-      (nIdxOf := fun c' => (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD
+      (nIdxOf := fun c' => (blockDataOf V pp.toBlockShape ctorsAs pk uOfD
         ppsOf).nIdxAt (pp.toBlockShape.recTgtAt c')) (ρ := ρ) (xs := xs)
-      (i := (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+      (i := (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
         (pp.toBlockShape.recTgtAt cq) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
           (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
             (interp V (consList bs (consList (xs ++ fs) ρ)))))
       (x := interp V (consList bs (consList (xs ++ fs) ρ)) (tgtFapA μ F fe pp.toBlockShape
         (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j q))
-    have hisOf' : isOfW ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).uM
+    have hisOf' : isOfW ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).uM
         (pp.toBlockShape.recTgtAt cq) ψ)
-        ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).nIdxAt
+        ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).nIdxAt
           (pp.toBlockShape.recTgtAt cq))
-        ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+        ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
           (pp.toBlockShape.recTgtAt cq) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
             (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
               (interp V (consList bs (consList (xs ++ fs) ρ)))))
@@ -214,20 +214,20 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     rw [hisOf'] at hmot
     -- the call's target is a major and a call
     have hpref1 := blockRecHpref_run hμ mpC h ψ hr0 hr1 hpref
-    have hIs : (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+    have hIs : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
         (pp.toBlockShape.recTgtAt cq) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
           (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
             (interp V (consList bs (consList (xs ++ fs) ρ))))
-        ∈ˢ blockRecIs (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ψ ρ
+        ∈ˢ blockRecIs (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ψ ρ
           (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
           pp.toBlockShape.recTgtAt xs cq := by
       rw [blockRecIs_pos hpar hpref1]
       exact tupW_mem hIds
     have hCr : interp V (consList bs (consList (xs ++ fs) ρ)) (tgtFapA μ F fe pp.toBlockShape
           (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j q)
-        ∈ˢ app (blockRecCr (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ψ
+        ∈ˢ app (blockRecCr (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ψ
           ρ pp.toBlockShape.recTgtAt xs cq)
-          ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+          ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
             (pp.toBlockShape.recTgtAt cq) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
               (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
                 (interp V (consList bs (consList (xs ++ fs) ρ))))) := by
@@ -238,8 +238,8 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       simp only [tgtKeys, List.mem_map, List.mem_range]
       exact ⟨q, hq', by rw [hcq]⟩
     have hcall : tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
-        fe.env ψ (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs
-        (tagged cq ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+        fe.env ψ (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs
+        (tagged cq ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
           (pp.toBlockShape.recTgtAt cq)
           ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
             fe.env ψ c j q).map (interp V (consList bs (consList (xs ++ fs) ρ)))))
@@ -254,7 +254,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       rw [h0, univ_zero] at hmem
       exact hmem
   exact blockGraphIhv_mem (V := V) (c' := cq)
-    (tup := fun c'' is => (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+    (tup := fun c'' is => (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
       (pp.toBlockShape.recTgtAt c'') is) hbitsQ hleaf
 
 set_option maxHeartbeats 8000000 in
@@ -265,9 +265,9 @@ along a callee's spine is `r` at the tagged call. -/
 theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -289,14 +289,14 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
         = (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j).map (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))) := by
   intro c hc j hj fs hxs hsp
   have hdR' := hdR
-  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
       (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
   obtain ⟨r0, hr0⟩ : ∃ r0, (tgtRs out)[c]? = some r0 := ⟨_, List.getElem?_eq_getElem hc⟩
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r →
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
@@ -323,9 +323,9 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
   obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
@@ -373,24 +373,24 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
   -- the left: the graph's tower at key `q`
   have hL : (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs
-      (graph r (blockGraphPred (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs
+      (graph r (blockGraphPred (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
         ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
         pp.toBlockShape.recTgtAt (tgtRs out).length
         (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ
-          (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ) xs (c, j, fs))))[q]
+          (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ) xs (c, j, fs))))[q]
       = lamTowerA (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
           (consList (xs ++ fs) ρ) []
           (tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ
             c j q)
-          (fun _ τ => app (graph r (blockGraphPred (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ψ ρ
+          (fun _ τ => app (graph r (blockGraphPred (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ψ ρ
               (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
               pp.toBlockShape.recTgtAt (tgtRs out).length
               (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
-                fe.env ψ (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ)
+                fe.env ψ (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ)
               xs (c, j, fs)))
             (tagged Q.ihs.toList[q].callee
-            ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+            ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
               (pp.toBlockShape.recTgtAt Q.ihs.toList[q].callee)
               ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
                 fe.env ψ c j q).map (interp V τ)))
@@ -503,20 +503,20 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
     obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
     have hpref1 := blockRecHpref_run hμ mpC h ψ hr0 hr1 hpre
-    have hIs : (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+    have hIs : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
         (pp.toBlockShape.recTgtAt ih.callee) ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type))
           (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
             (interp V (consList bs (consList (xs ++ fs) ρ))))
-        ∈ˢ blockRecIs (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ψ ρ
+        ∈ˢ blockRecIs (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ψ ρ
           (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
           pp.toBlockShape.recTgtAt xs ih.callee := by
       rw [blockRecIs_pos hps hpref1]
       exact tupW_mem hIds
     have hCr : interp V (consList bs (consList (xs ++ fs) ρ)) (tgtFapA μ F fe pp.toBlockShape
           (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j q)
-        ∈ˢ app (blockRecCr (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ψ
+        ∈ˢ app (blockRecCr (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ψ
           ρ pp.toBlockShape.recTgtAt xs ih.callee)
-          ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+          ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
             (pp.toBlockShape.recTgtAt ih.callee) ((tgtEisA μ F fe pp.toBlockShape
               (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j q).map
                 (interp V (consList bs (consList (xs ++ fs) ρ))))) := by
@@ -528,8 +528,8 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
       simp only [tgtKeys, List.mem_map, List.mem_range]
       exact ⟨q, hq', by rw [hihq]⟩
     have hcall : tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
-        fe.env ψ (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) ρ xs c j fs
-        (tagged ih.callee ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).tup ψ
+        fe.env ψ (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) ρ xs c j fs
+        (tagged ih.callee ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).tup ψ
           (pp.toBlockShape.recTgtAt ih.callee)
           ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
             fe.env ψ c j q).map (interp V (consList bs (consList (xs ++ fs) ρ)))))

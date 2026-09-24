@@ -82,26 +82,26 @@ elimination — `blockRecCounting_run` at the checked level.  The graph
 kit's `huniq` reads it at a `Prop` block with a large motive. -/
 theorem blockCountingGuard_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hmr : BlockMembersRun mpC.base2 (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
+    (hmr : BlockMembersRun mpC.base2 (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
       p.toBlockShape cvTas)
     (ψ : Name → Nat)
     (hℓ : Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0)
-    (hw : (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).w ψ = 0) :
+    (hw : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).w ψ = 0) :
     rs.length = 1 ∧ p.toBlockShape.recTgtAt 0 = 0 ∧
-      ((blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+      ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt 0)).length ≤ 1 ∧
-      (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).large = true := by
+      (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).large = true := by
   obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
   obtain ⟨hpos, hklen⟩ := blockRecLen_run h
   obtain ⟨-, -, hlarge, hk1, hnc⟩ :=
     blockRecCounting_run h hruns ψ hℓ hw
   have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hpos) ψ).2.1
-  have hk1d : (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k = 1 := hk1
+  have hk1d : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k = 1 := hk1
   rw [hk1d] at hmemk
   exact ⟨by rw [hklen, hk1], by omega,
-    Nat.le_trans (blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
+    Nat.le_trans (blockRecNCt_seam (V := V) (pk := pk) (uOfD := uOfD)
       (ppsOf := ppsOf) h 0 hpos).2 hnc, hlarge⟩
 
 end CountingGuard

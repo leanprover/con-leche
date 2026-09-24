@@ -3697,9 +3697,9 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
         (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
           ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
-        (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) →
+          dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
         dR.toLfp ∈ mpC.lfpBlocks →
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →

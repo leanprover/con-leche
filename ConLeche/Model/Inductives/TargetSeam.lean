@@ -43,7 +43,7 @@ variable {fe : FEnv} {envI : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ fe.env} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
  
-  {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+  {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
   {nested : Bool} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
@@ -52,9 +52,9 @@ the constructors' core record at the member the recursor's list is. -/
 theorem tgtCtor_facts {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs rs)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
     ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat), r.2.2.2[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true ∧
@@ -62,9 +62,9 @@ theorem tgtCtor_facts {rs : List (ConstantVal × List Expr × Nat × List (Const
   intro c r hr j cA hcA
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
@@ -75,7 +75,7 @@ theorem tgtCtor_facts {rs : List (ConstantVal × List Expr × Nat × List (Const
 /-- The formers' types are closed — off the members' run record. -/
 theorem tgtFormer_facts
     (hmr : BlockMembersRun mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas) :
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas) :
     ∀ cv ∈ cvTas, cv.type.hasFvar = false := by
   intro cv hcv
   obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
@@ -87,11 +87,11 @@ theorem tgtRecEqs_below_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
     (hmr : BlockMembersRun mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
     :
     ∀ ψ : Name → Nat,
       ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
@@ -117,9 +117,9 @@ theorem tgtRecEqs_below_seam (hμ : μ.verifiedChecks = true)
 theorem blockRuleHdF_seam {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs rs)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
     ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs → ∀ (ψ : Name → Nat) (l : Nat) (x : Expr),
@@ -130,9 +130,9 @@ theorem blockRuleHdF_seam {rs : List (ConstantVal × List Expr × Nat × List (C
   intro c r hr j cA rhs hcA hrhs ψ
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
@@ -149,16 +149,16 @@ theorem tgtRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
     (hmr : BlockMembersRun mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
     -- the frame's grading on its prefix and fields (`blockRuleHokPF_run`)
     (hPF : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
@@ -203,9 +203,9 @@ theorem tgtRecEqs_params_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
     :
     ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
@@ -240,20 +240,20 @@ theorem tgtRuleDataB_seam (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hndM : pp.toBlockShape.memberNames.Nodup)
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k)
-    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).toLfp
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp
       ∈ mpC.lfpBlocks)
     (hmr : BlockMembersRun mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.toBlockShape cvTas)
     (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
-      ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM c))
+      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM c))
     {s : (Name → Nat) → Nat}
     (heqB : ∀ ψ : Name → Nat, ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
             (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
@@ -567,16 +567,16 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       obtain ⟨out, hrs, ⟨R⟩⟩ := htgtR
       subst hrs
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
-      obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
       have hmr := blockMembersRun_seam hnames hstage hcore
       have hM := blockModelAt_seam hrec hnames hstage hcore hlfp
-      have hPF := blockRuleHokPF_run hμ hrec ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hstage hcore hmr
+      have hPF := blockRuleHokPF_run hμ hrec ⟨pk, uOfD, ppsOf, rfl⟩ hstage hcore hmr
       have heqB := tgtRecEqs_below_seam hμ hrec R hcore hmr
       have heqV := tgtRecEqs_valid_seam hμ hrec R hnames hstage hcore hmr hPF
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (tgtRecEqs_params_seam hμ hrec R hcore i r hr ψ₁ ψ₂ hq)
       have hpre := tgtRecPre_graph hμ (ConLeche.mkFEnv envC) envI pp cvTasR ctorsAsR false block
-        out mpC isRecR A env₀ pk uOfD ppsOf R hrec hnd hnames hstage hcore hlfp
+        out mpC isRecR A pk uOfD ppsOf R hrec hnd hnames hstage hcore hlfp
         s hTy
       refine ⟨s, blockRecNCt (tgtRs out),
         fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ',
