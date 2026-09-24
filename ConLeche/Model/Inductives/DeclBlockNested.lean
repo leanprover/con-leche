@@ -23,12 +23,12 @@ land as CONSUMED checkpoints of it (a premise replaced by its proof).
 
 The owed premises, and who owes what:
 
-* **`NestedClosedOwed`** (`BlockPosRunCont.lean`) — **lane ACCMODEL**:
-  (W), the hole operator uniformly bounded and accessible at `w ≠ 0`,
-  stated directly as its closed tuple, at a block the install walked with
-  the route switch on (maintainer ruling: from accessibility,
-  `closed_of_acc`; with the switch off (W) is `blockHoleClosed_of` from
-  the flat presentation).  Stated as a producer: the datum's records,
+* **`NestedAccOwed`** (`BlockPosRunCont.lean`) — **lane ACCMODEL**:
+  the hole operator accessible at `w ≠ 0` with one bound of the level,
+  at a block the install walked with the route switch on; the block step
+  turns it into (W), the closed tuple, by `closed_of_acc` (maintainer
+  ruling: (W) from accessibility; with the switch off (W) is
+  `blockHoleClosed_of` from the flat presentation).  Stated as a producer: the datum's records,
   the positivity run at the switch, its links to the datum, coverage at
   the walk's carrier and the formers.  It is the one part of the constructors' stage the
   nested run still owes: the rest of `BlockCtorStageAt … true` is
@@ -112,8 +112,8 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    -- OWED: lane ACCMODEL — (W) for the nested hole operator, the closed tuple
-    (hW : NestedClosedOwed V μ F)
+    -- OWED: lane ACCMODEL — the nested hole operator accessible (for (W))
+    (hW : NestedAccOwed V μ F)
     -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
     (hrec : NestedRecStageOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by

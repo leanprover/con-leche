@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Cover
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs
+public import ConLeche.SetModel.Access
 
 public section
 
@@ -161,21 +162,26 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
 With the route switch off, the hole operator's closed tuple at a
 `Type`-valued frame (W) comes from the flat presentation of the fields
 with holes (`blockHoleClosed_of`, `StoredFieldsFlat`).  A container
-field is not flat; (W) for nested blocks comes from accessibility
-(maintainer ruling; lane ACCMODEL).  The premise states the closed tuple
-directly, as a producer would: everything the constructors' stage knows at the point where
-it needs (W) — the datum's records, the positivity run at the switch
-ON, its links to the datum, coverage at the walk's carrier, the formers
-— and `blockHoleClosed_of`'s own inputs but the flat presentation. -/
+field is not flat; (W) for nested blocks comes from ACCESSIBILITY
+(maintainer ruling 2026-09-24): the hole operator is accessible with one
+bound `A` of the level, and `closed_of_acc` (`SetModel/Access.lean`)
+turns that into its closed tuple (the consumer, `BlockDatum.lean`'s
+`hfunZ`).  The premise states the accessibility as a producer would:
+everything the constructors' stage knows at the point where it needs (W)
+— the datum's records, the positivity run at the switch ON, its links to
+the datum, coverage at the walk's carrier, the formers — and
+`blockHoleClosed_of`'s own inputs but the flat presentation.  Joint
+accessibility at the instantiation is an install-time lemma from the
+positivity walk's run, like monotonicity; there is no per-inductive
+"accessible in its parameter" clause fact (ruling). -/
 
-/-- **OWED (lane ACCMODEL)**: (W) for the hole operator of a block the
-install walked with the route switch on — the hole operator is uniformly
-bounded and accessible at `w ≠ 0`, stated directly as its closed tuple
-(the producer left open; maintainer ruling: from accessibility,
-`closed_of_acc`).  The premise of the block step at nested blocks
-(`declBlock_nested`); with the switch off (W) is `blockHoleClosed_of` at
-the flat presentation. -/
-@[expose] def NestedClosedOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat) :
+/-- **OWED (lane ACCMODEL)**: the hole operator of a block the install
+walked with the route switch on is ACCESSIBLE, with a bound `A` that is a
+set of the level, at every `Type`-valued parameter frame — what
+`closed_of_acc` turns into (W).  The premise of the block step at nested
+blocks (`declBlock_nested`); with the switch off (W) is
+`blockHoleClosed_of` at the flat presentation. -/
+@[expose] def NestedAccOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat) :
     Prop :=
   ∀ {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
@@ -205,6 +211,8 @@ the flat presentation. -/
     (∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) →
-    ∃ L, IsClosedTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) (d.toLfp.holeOp ψ ρp) L
+    ∃ A, A ∈ˢ (univ (d.toLfp.w ψ) : V) ∧
+      AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
+        (d.toLfp.holeOp ψ ρp) A
 
 end ConLeche.Model

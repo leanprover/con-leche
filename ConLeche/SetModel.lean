@@ -11,10 +11,7 @@ public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
 public import ConLeche.SetModel.NestRecEx
-public import ConLeche.SetModel.WideFlat
-public import ConLeche.SetModel.NestWide
-public import ConLeche.SetModel.NestWideEx
-public import ConLeche.SetModel.NestWideAt
+public import ConLeche.SetModel.Access
 
 @[expose] public section
 
@@ -62,18 +59,14 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   property") with no container parameter-monotonicity and no Bekić,
   `exu` under `huniq` in both regimes; instances `Tree`/`List`,
   `Rose`/`List`, and the two-level `T`/`Rose T`/`List (Rose T)`;
-* `WideFlat`, `NestWide`, `NestWideEx` — the closure witness (W) of a
-  NESTED block (lane NESTW-KIT): the closed tuple of a FLAT hole-operator
-  block (`UBlock.closed_of_flat`, R3's caveat as the named premise
-  `HoleUnread`), and the transient wide operator (members + one
-  component per container key) with all keys composed away at once
-  (`closed_of_wide_groups`), asking of each container only its lfp
-  clause at the instantiation; instances `Rose`/`List`, the two-level
-  `T`/`Rose T`/`List (Rose T)`, a mutual container group reached by
-  restart, and `Prop`.  The flat kit takes a per-component injection
-  (`uPhiI`, `UBlock.closedI_of_flat`: a key builds its container
-  clause's values); `NestWideAt` packages the whole presentation as
-  one record (`WideAt`, (W) by `WideAt.closed`).
+* `Access` — the closure witness (W) from ACCESSIBILITY (maintainer
+  ruling 2026-09-24, lane ACCMODEL): `closed_of_acc` (a uniformly
+  bounded, accessible operator mapping the tuple space into itself has a
+  closed tuple — ordinal-free, along Brouwer trees coded by their
+  paths), `AccTuple.monoTuple`, the closure lemmas over readings, and
+  `lfpP_acc` (the least tuple of an accessible joint operator is
+  accessible in its parameter — the nested case, no key, no wide
+  operator).
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and
@@ -81,8 +74,7 @@ The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 COPY of each container and identified the copy's component with the
 container's recorded reading — are retired (DESIGN 2026-09-21): a
 nested block's clause is the narrow one (the container read ordinarily
-at the hole), and a wide operator appears only transiently, inside the
-closure witness (`NestWide`), where nothing is identified.
+at the hole).
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing
