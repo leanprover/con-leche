@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit
-public import ConLeche.Model.Inductives.BlockLfpHoles
 public import ConLeche.Model.Annot.BlockLfpTup
 public section
 

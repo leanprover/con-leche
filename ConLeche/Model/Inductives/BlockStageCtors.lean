@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockCtorsLoop
 import ConLeche.Model.Inductives.FixCtorCross
 import ConLeche.Model.Inductives.BlockCaps
-public import ConLeche.Model.Inductives.BlockRep
+import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLfpHoles
