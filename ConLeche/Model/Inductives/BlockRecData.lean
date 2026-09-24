@@ -333,15 +333,6 @@ theorem domsBelow_propBinders : ∀ {Ds : List AnnotTerm} {k : Nat},
   | _ :: _, _, h => ⟨h.1, domsBelow_propBinders h.2⟩
 
 omit [SetTheory V] in
-theorem fieldsBelow_append : ∀ {Ds Es : List AnnotTerm} {k : Nat},
-    FieldsBelow k Ds → FieldsBelow (k + Ds.length) Es → FieldsBelow k (Ds ++ Es)
-  | [], _, k, _, hE => by simpa using hE
-  | D :: Ds, Es, k, hD, hE =>
-    ⟨hD.1, fieldsBelow_append hD.2
-      (by rw [show k + 1 + Ds.length = k + (D :: Ds).length from by
-            rw [List.length_cons]; omega]; exact hE)⟩
-
-omit [SetTheory V] in
 /-- A lifted form's bound, at any slack. -/
 theorem bvarsBelow_liftN_add {K m n : Nat} {e : AnnotTerm} (h : Term.bvarsBelow m e.erase)
     (hn : m + K ≤ n) (k : Nat) : Term.bvarsBelow n (e.liftN K k).erase := by

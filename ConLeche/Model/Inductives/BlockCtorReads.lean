@@ -51,7 +51,7 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
       (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ := ConLeche.checkBlockPositivity_inv hrun
   intro c hc j cA hcj
-  obtain ⟨-, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  obtain ⟨-, -, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   have hn : (p.nestCtx fvsP find? consts).names = d.memberNames := hnames
   rw [hn] at hocc
   rw [← hocc]

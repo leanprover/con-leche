@@ -6,7 +6,6 @@ import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit
 public import ConLeche.Model.Inductives.BlockLfpHoles
 public import ConLeche.Model.Annot.BlockLfpTup
-public import ConLeche.Model.Annot.LfpHoleOp
 public section
 
 /-!
@@ -35,82 +34,16 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 7. The LEAF's bridge from the dummy chains to the real ones
-
-`blockModelAt_of_stages` asks for the members' leaves at the REAL
-field readings `d.Fss`, while every stage supplies them at the dummy
-former's `fssZ` (`BlockCtorsStage.leaf`): the constructors are checked
-against a former whose recursive fields are not yet the member's own.
-The operator's half of that bridge is `blockChainsOk_congr_ord`
-(`BlockAssemblyKit.lean`); the LEAF's half is here, and it is a pure
-CONGRUENCE — `blockTyAV` reads the field lists only through
-`chainsXBI`, and `chainsXBI_congr_ord` already says those are the same
-list when the two readings agree at the ordinary positions. -/
-
-/-- The tuple-maker is congruent in its component function over the
-range it reads. -/
-theorem ndMkTowerAV_congr_lt {r : Nat} {Gty G G' : Nat → AnnotTerm} :
-    ∀ (n s : Nat), (∀ i, i < n → G (s + i) = G' (s + i)) →
-      ndMkTowerAV r Gty G s n = ndMkTowerAV r Gty G' s n
-  | 0, _, _ => rfl
-  | n + 1, s, h => by
-    have h0 : G s = G' s := by simpa using h 0 (Nat.succ_pos n)
-    have hrest : ∀ i, i < n → G (s + 1 + i) = G' (s + 1 + i) := by
-      intro i hi
-      have := h (i + 1) (by omega)
-      rwa [show s + (i + 1) = s + 1 + i from by omega] at this
-    show AnnotTerm.mkAppN _ [_, _, G s, ndMkTowerAV r Gty G (s + 1) n] = _
-    rw [h0, ndMkTowerAV_congr_lt n (s + 1) hrest]
-    rfl
-
-/-- **The block's operator term is congruent** in the field readings,
-at equal chains. -/
-theorem blockFunAV_congr_chains {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-    {Chs Chs' : Nat → List (List AnnotTerm)} (hchains : ∀ m, m < k → Chs m = Chs' m) :
-    blockFunG k w uf Idss Chs = blockFunG k w uf Idss Chs' := by
-  unfold blockFunG
-  refine congrArg _ (ndMkTowerAV_congr_lt k 0 fun i hi => ?_)
-  rw [Nat.zero_add]
-  unfold blockArmG
-  rw [hchains i hi]
-
-/-- **The LEAF's bridge**: a member's former leaf is the same term at
-the dummy former's field readings and at the members' real ones, when
-the two agree at the ORDINARY positions — the `blockTyAV` twin of
-`blockChainsOk_congr_ord`. -/
-theorem blockTyAV_congr_ord {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-    {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Fsss' Esss : Nat → List (List AnnotTerm)}
-    (hlen : ∀ m, m < k → (Fsss m).length = (Fsss' m).length)
-    (hlenj : ∀ m, m < k → ∀ j, j < (Fsss m).length →
-      ((Fsss m).getD j []).length = ((Fsss' m).getD j []).length)
-    (hord : ∀ m, m < k → ∀ j, j < (Fsss m).length → ∀ l, l < ((Fsss m).getD j []).length →
-      ((rsss m).getD j []).getD l false = false →
-      ((Fsss m).getD j []).getD l default = ((Fsss' m).getD j []).getD l default)
-    (pps : List (Nat × Nat × AnnotTerm)) (m : Nat) :
-    blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m
-      = blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss' Esss pps m := by
-  have hchains : ∀ m', m' < k →
-      chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m') (Fsss m')
-          (Esss m')
-        = chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m')
-            (Fsss' m') (Esss m') :=
-    fun m' hm' => chainsXBI_congr_ord (hlen m' hm') (hlenj m' hm') (hord m' hm')
-  unfold blockTyAV blockTyG blockBodyG
-  rw [blockFunAV_congr_chains (w := w) (Chs := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-    (Chs' := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss' Esss) hchains]
-
 /-! ## 8. `BlockModelAt` from the stages' three records
 
 `declBlock` hands the recursor stage the block data `dR` with the three
 records `blockModelAt_of_stages` consumes (`BlockNamesOk`,
 `BlockCtorsStage`, `BlockCtorsCore`) rather than the representation
-itself, because the records state the operator's premise bundle and
-the members' leaves at the DUMMY former's field readings `fssZ` while
-the record wants them at the members' real ones.  Both bridges are
-congruences at the chains — `blockChainsOk_congr_ord` for the operator
-and §7's `blockTyAV_congr_ord` for the leaf — and this is the call.
+itself.  The members' leaves are the block operator at the HOLE chains
+(`BlockCtorsStage.leaf`, lane HOLE2 stage B), whose operator IS the
+datum's; the slot operator's premise bundle is still stated at the DUMMY
+former's field readings `fssZ`, bridged to the real ones by
+`blockChainsOk_congr_ord`, for the fibre and the slots' index fit.
 
 `blockModelAt_of_stages`'s per-component clauses (`hlenPps`, `hparams`,
 `hparamsC`) are bounded by `d.N` — at `c ≥ d.N` they are not facts
@@ -129,12 +62,10 @@ theorem blockHoleFacts_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     (hinst : d.nInst = 0) (hk0 : 0 < d.k) :
     BlockHoleFacts mo d lps := by
   have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
-  refine ⟨fun c hc j cA hj => ?_, fun c hc j cA hj l _ => ?_, fun ψ => ?_, fun ψ mm hmm => ?_,
+  refine ⟨fun c _ j cA hj => (hcore.2.2.1 c j cA hj).2.2, fun c hc j cA hj l _ => ?_,
+      fun ψ => ?_, fun ψ mm hmm => ?_,
       fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm,
       fun ψ mm hmm ρ h => hS.paramsOf mm hmm ψ ρ h 0 hk0, fun ψ c hc j hj => ?_⟩
-  · have hck : c < d.k := by rw [← hNk]; exact hc
-    obtain ⟨h1, h2, -⟩ := hcore.2.2.2 c hck j cA hj
-    exact ⟨h1, h2, (hcore.2.2.1 c j cA hj).2.2⟩
   · rw [← hN.2.2.2]; exact hN.2.1 c j l
   · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
     rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
@@ -317,14 +248,19 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       (blockIdxFit_of_chains hokR hlenC htgts) hinj (blockSlotFibre hinj hokR hlenC htgts)
       (fun ψ ρp hs c hc => (hokR ψ ρp hs).hI c hc) ψ ρp hs X hX c hc
   refine blockModelAt_of_stages mo rfl hPhi' hinj hokR hlenC (by rw [hNk]; exact hk0) hlenPps
-    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_ ?_
-  -- the members' leaves, at the REAL chains
+    htgts (fun ψ => d.toLfp.holeChains ψ) ?_ ?_ hparams ?_
+    (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_ ?_
+  -- the members' leaves: the block operator at the HOLE chains
   · intro mm hmm ψ
     obtain ⟨hnameOf, -, -, hlenCv⟩ := hN
     have hmmlt : mm < cvTas.length := by rw [hlenCv]; exact hmm
     have hcv : cvTas[mm]? = some cvTas[mm] := List.getElem?_eq_getElem hmmlt
     rw [hnameOf mm _ hcv, (hcore.1 mm _ hcv).2.2.1 ψ, hS.leaf mm ψ, hNk]
-    exact blockTyAV_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ) _ _
+  -- the hole chains are graded, and their operator IS the datum's
+  · intro ψ ρp hs
+    refine ⟨by rw [hNk]; exact hS.holeOk ψ ρp hs, fun X _ c _ => ?_⟩
+    rw [hPhi]
+    rfl
   -- the constructors' leaves
   · intro c hc j cA hj ψ
     exact (hcore.2.2.2 c (by rw [← hNk]; exact hc) j cA hj).2.2 ψ

@@ -113,7 +113,10 @@ theorem checkAbsCtorTys_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     ∀ {cs : List (ConstantVal × Nat)}, checkAbsCtorTys ops env ctx holes cs = .ok () →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ty,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
-        ops.inferType env (ctx.hiAt 0) crest = .ok ty
+        ops.inferType env (ctx.hiAt 0) crest = .ok ty ∧
+        ∃ xq sorts, openPisAtFvars cA.2 crest (ctx.hiAt 0) = some xq ∧
+          checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
+            ctx.sort (ctx.hiAt 0) xq.1 [] cA.2 = .ok sorts
   | [], _, j, cA, hj => by simp at hj
   | c :: cs, h, j, cA, hj => by
     simp only [checkAbsCtorTys, bind, Except.bind] at h
@@ -125,13 +128,19 @@ theorem checkAbsCtorTys_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i ty hty
     split at h
     · simp at h
+    split at h
+    · simp at h
+    rename_i xq hxq
+    split at h
+    · simp at h
+    rename_i sorts hsorts
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
       subst hj
       have hc : instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest :=
         unwrapOr_ok hcrest
-      exact ⟨crest, ty, hc, hty⟩
+      exact ⟨crest, ty, hc, hty, xq, sorts, unwrapOr_ok hxq, hsorts⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj
       exact checkAbsCtorTys_inv h j cA hj
@@ -171,6 +180,9 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧ ∀ k ∈ ks, k.flat = true) ∧
           (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty) ∧
+          (∃ xq sorts, openPisAtFvars cA.2 crest ((p.nestCtx fvsP find? consts).hiAt 0) = some xq ∧
+            checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
+              p.resSort ((p.nestCtx fvsP find? consts).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
           (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type).nestOcc
             (p.nestCtx fvsP find? consts).names 0 0 = false := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
@@ -211,11 +223,12 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
   obtain ⟨st₀, kss, nss, st₁, hms, hk⟩ := nestBlockCtors_inv hr c cs hc
   obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, hocc⟩ := nestMemberCtors_inv hms j cA hj
-  obtain ⟨crest', ty, hcrest', hty⟩ :=
+  obtain ⟨crest', ty, hcrest', hty, xq, sorts, hxq, hsorts⟩ :=
     checkAbsCtorTys_inv (checkAbsCtorTysAll_inv h c cs hc) j cA hj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
-  refine ⟨crest, hcrest, ⟨st₂, ks, tyN, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩, hocc⟩
+  refine ⟨crest, hcrest, ⟨st₂, ks, tyN, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩,
+    ⟨xq, sorts, hxq, hsorts⟩, hocc⟩
   simp only [List.all_eq_true] at hall
   exact hall kss (List.mem_of_getElem? hk) ks (List.mem_of_getElem? hks) k hk'
 

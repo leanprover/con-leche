@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.SumIntro
+import ConLeche.Semantics.Tower.BlockFamI
 
 public section
 
@@ -233,18 +234,22 @@ variable {D : LfpDatum V}
 
 /-- **The hole chains are bit-valid** at every tuple of the family space
 when the fields with holes and the result index readings are bit-valid at
-the model's hole frame of every tuple, and the members' telescopes are
-valid. -/
+the model's hole frame of every tuple of the tuple space, and the
+members' telescopes are valid. -/
 theorem holeChains_valid {ψ : Name → Nat} {ρp : Nat → V} (hok : D.HoleTmOk ψ ρp)
     (hP : ∀ m, m < D.k → FieldsValid (shiftE (D.pars m ψ).length 0 ρp) (D.pars m ψ))
     (hIV : ∀ m, m < D.k → FieldsValid ρp (D.ids m ψ))
     (happ : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j)
-    (hF : ∀ X : Nat → V, ∀ c, c < D.N → ∀ j, j < D.nctors c →
+    (hF : ∀ X : Nat → V, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+      ∀ j, j < D.nctors c →
       FieldsValid (D.frame ψ ρp X) (D.fields ψ c j) ∧
       ∀ fs, SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs →
         ∀ e ∈ D.resIdx ψ c j, AnnotValid V (consList fs (D.frame ψ ρp X)) e)
-    (Y t : V) {m : Nat} (hm : m < D.N) :
+    {Y : V} (hY : Y ∈ˢ famsSpaceB D.N (D.w ψ) ρp (fun c => D.u c ψ) (fun c => D.ids c ψ))
+    (t : V) {m : Nat} (hm : m < D.N) :
     SumFieldsValid (cons t (cons Y ρp)) (D.holeChains ψ m) := by
+  have hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) (fun c => SetTheory.Tower.projS c Y) :=
+    fun c hc => by rw [← lfpFamSpace_eq']; exact projS_mem_famsSpaceB hc hY
   have hag : HoleAgreeW D.k (D.params ψ).length 0 (D.frame ψ ρp fun c => SetTheory.Tower.projS c Y)
       (D.holeTmFrame ψ ρp t Y) :=
     holeAgreeW_frame (fun _ _ => rfl) (fun m hm => (hok m hm).1) (fun m hm => (hok m hm).2)
@@ -270,7 +275,7 @@ theorem holeChains_valid {ψ : Name → Nat} {ρp : Nat → V} (hok : D.HoleTmOk
       List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hj']
     rfl
   rw [hgF, hgE]
-  obtain ⟨hFv, hEv⟩ := hF (fun c => SetTheory.Tower.projS c Y) m hm j hj'
+  obtain ⟨hFv, hEv⟩ := hF (fun c => SetTheory.Tower.projS c Y) hX m hm j hj'
   have hFields : ∀ l F, (D.fields ψ m j)[l]? = some F → HoleApp D.k (D.params ψ).length (0 + l) F :=
     fun l F hl => by simpa using (happ m hm j hj').1 l F hl
   refine FieldsValid_append_one ?_ fun bs hbs => ?_

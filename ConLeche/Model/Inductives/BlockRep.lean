@@ -268,6 +268,17 @@ says, a recursive field at the former of the component it targets. -/
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
     (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
 
+/-- **A block component's constructor's READING facts** —
+`BlockCtorFacts` without the storage: what the constructor's stored type
+reads as at the model, whether or not the constructor is stored yet (the
+formers' stage reads the constructors before they are consed). -/
+@[expose] def BlockCtorRead {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
+    (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
+  BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+    (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+    (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
+
 /-! ## The clause -/
 
 /-- **The recursive slots' index fit** (`BlockModelAt.idxFit`'s statement). -/

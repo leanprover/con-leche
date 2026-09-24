@@ -566,6 +566,62 @@ theorem nestedBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : En
   rcases r with ⟨kinds, normals, st⟩
   exact SimC.pure hs₂ rfl
 
+/-- The per-field sort walk of the sum route at the shared operations
+(task #175 indexed: the large-eliminator escape admits a field that is
+one of the residual's index expressions). -/
+theorem checkStructFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {isProp large : Bool}
+    {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
+    (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      WScoped (nP + i) (Expr.fvarTypeD x)) :
+    ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkStructFieldSortsI (sharedOpsC mode (mkFEnv env)) env isProp large
+          s nP fvs idxArgs j)
+        (checkStructFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs j)
+  | 0, s₀, hs => SimC.pure hs rfl
+  | j + 1, s₀, hs => by
+    unfold checkStructFieldSortsI
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ fv fv' hs₁ hP => ?_)
+    obtain ⟨rfl, hfe⟩ := hP
+    refine SimC.bind (opE_infer_sim hμ henv hs₁ (hfvs j fv hfe))
+      (fun s₂ ty ty' hs₂ hP₂ => ?_)
+    obtain ⟨rfl, htyW⟩ := hP₂
+    refine SimC.bind (opS_sim hμ henv hs₂ htyW)
+      (fun s₃ u u' hs₃ hP₃ => ?_)
+    obtain rfl : u = u' := hP₃
+    by_cases hnp : (!isProp) = true
+    · simp only [if_pos hnp]
+      refine SimC.bind (SimC.liftFueled _ _ hs₃)
+        (fun s₃ c c' hs₃ hC => ?_)
+      obtain rfl : c = c' := hC
+      cases c with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimC.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
+    · simp only [if_neg hnp]
+      by_cases hl : large = true
+      · simp only [if_pos hl]
+        by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
+        · simp only [if_pos hz]
+          refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
+            (fun s₄ rest rest' hs₄ hR => ?_)
+          obtain rfl : rest = rest' := hR
+          exact SimC.pure hs₄ rfl
+        · simp only [if_neg hz]
+          exact SimC.throw_bind
+      · simp only [if_neg hl]
+        refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
+
 /-- U2 at the shared operations. -/
 theorem checkAbsCtorTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
     {holes : List Expr} (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
@@ -586,7 +642,20 @@ theorem checkAbsCtorTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     obtain ⟨rfl, hty⟩ := hR
     refine SimC.bind (opS_sim hμ henv hs₂ hty) (fun s₃ u u' hs₃ hU => ?_)
     obtain rfl : u = u' := hU
-    exact checkAbsCtorTysS_sim hμ henv hholes hpar cs hs₃
+    have hW := memberCrest_wscoped hholes hpar (hcs c List.mem_cons_self) hcr
+    refine SimC.bind (SimC.unwrapOr' hs₃) (fun s₄ xq xq' hs₄ hP => ?_)
+    obtain ⟨rfl, hxq⟩ := hP
+    have hxPos : ∀ (i : Nat) (x : Expr), xq.1[i]? = some x →
+        WScoped (ctx.hiAt 0 + i) (Expr.fvarTypeD x) := by
+      intro i x hx
+      obtain ⟨ty, rfl⟩ := openPisAtFvars_index _ _ _ hxq i x hx
+      have hw := (openPisAtFvars_WScoped _ _ _ hxq hW).1 _ (List.mem_of_getElem? hx)
+      simp only [WScoped] at hw
+      exact hw.2
+    refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hxPos hs₄)
+      (fun s₅ r r' hs₅ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact checkAbsCtorTysS_sim hμ henv hholes hpar cs hs₅
       (fun c' hc' => hcs c' (List.mem_cons_of_mem _ hc'))
 
 theorem checkAbsCtorTysAllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)

@@ -430,8 +430,9 @@ end Slot
 clause of `BlockModelAt` at the fixpoint route's data: the operator
 agrees with `blockPhi` at the components' chains ON THE TUPLE SPACE
 (`hPhi` — the datum's operator is the hole operator, lane HOLE2), the injections the
-member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves
-`blockTyAV` (`hleaf`), the constructors' `sumMkAV` (`hctorLeaf`).  The
+member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves the
+block operator at chains agreeing with `d.Φ` (`hleaf`, `hChs` — the hole
+chains), the constructors' `sumMkAV` (`hctorLeaf`).  The
 remaining hypotheses are the stages' own facts: the operator's premise
 bundle at every parameter frame (`hok`), the data's lengths, the
 parameter-telescope interchanges the members and the constructors were
@@ -461,11 +462,18 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
       l < ((d.Fss c ψ).getD j []).length →
       ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N)
-    -- the members' leaves and the members' parameter agreement
+    -- the members' leaves — the block operator at chains `Chs` graded at
+    -- every parameter frame and agreeing with `d.Φ` on the tuple space (lane
+    -- HOLE2: the hole chains, whose operator IS `d.Φ`) — and the members'
+    -- parameter agreement
+    (Chs : (Name → Nat) → Nat → List (List AnnotTerm))
     (hleaf : ∀ mm, mm < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName mm) ψ
-      = blockTyAV d.N (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ)
-          (d.ppsM mm ψ) mm)
+      = blockTyG d.N (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (Chs ψ) (d.ppsM mm ψ) mm)
+    (hChs : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      BlockChainsOkG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (Chs ψ) ∧
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+        blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (Chs ψ) X c
+          = d.Φ ψ ρp X c)
     (hparams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N → ∀ ρ : Nat → V,
       Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρ)
     -- the constructors' leaves and their parameter frames
@@ -551,19 +559,18 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       rwa [shiftE_zero_zero] at this
     have hfr : ConLeche.Semantics.frameIdx (d.IdsM mm ψ).length (consList (as ++ is) ρ) = is :=
       ConLeche.Semantics.frameIdx_of (d.IdsM mm ψ).length hlenI ρ
-    have hbase : BlockBaseI d.N (d.w ψ) (consList (as ++ is) ρ) (fun c => d.uM c ψ)
-        (fun c => d.IdsM c ψ) d.rss d.tgtss (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ)
-        (fun c => d.Fss c ψ) (fun c => d.Ess c ψ) mm := by
+    have hbase : BlockBaseG d.N (d.w ψ) (consList (as ++ is) ρ) (fun c => d.uM c ψ)
+        (fun c => d.IdsM c ψ) (Chs ψ) mm := by
       refine ⟨?_, ?_, ?_⟩
       · rw [hsh]; exact h.hI
-      · rw [hsh]; exact h.hok
+      · rw [hsh]; exact (hChs ψ (consList as ρ) hsat).1
       · rw [hsh, hfr]; exact hsi
     rw [hleaf mm hmm ψ,
       blockTyG_fold (show mm < d.N from Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
         hsp hbase, hsh, hfr]
     congr 1
     exact lfpTuple_congr (fun _ _ => rfl)
-      (fun X hX m hm => (hPhi ψ (consList as ρ) hsat X hX m hm).symm)
+      (fun X hX m hm => (hChs ψ (consList as ρ) hsat).2 X hX m hm)
       (Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
   · -- ctor
     intro c hc j cA hj ψ ρ as fs hsa hsf

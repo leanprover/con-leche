@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.FixStageRec
 public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.FixCtorsLoop
-public import ConLeche.Model.Inductives.FixCtorCross
+import ConLeche.Model.Inductives.FixCtorCross
 public import ConLeche.Model.Inductives.FixWitness
 public section
 

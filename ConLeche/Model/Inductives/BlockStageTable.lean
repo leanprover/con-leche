@@ -8,9 +8,10 @@ public section
 
 `stageBlockTable`: `stageFixTable` at a structure-like MEMBER of a
 block — one constructor, no index — whose former's leaf is the block's
-`blockTyAV` at that member.  Nothing is re-proved: the table stage is
+operator leaf `blockTyG` at that member (at any chains: lane HOLE2's are
+the hole chains).  Nothing is re-proved: the table stage is
 abstract in the former's leaf, and the only two things it reads of one
-are its λ-tower shape (by `rfl` at `blockTyAV`) and its FOLD, which at
+are its λ-tower shape (by `rfl` at `blockTyG`) and its FOLD, which at
 a member with no index and one constructor is `blockFoldSingle`.
 
 So a block's tables cost exactly what the one-family route's do; what
@@ -65,14 +66,9 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
     -- the member's leaf is the block's fixed-point leaf at its component
     {k m : Nat}
     {ufOf : (Name → Nat) → Nat → Nat} {IdssOf : (Name → Nat) → Nat → List AnnotTerm}
-    {rsssOf : (Name → Nat) → Nat → List (List Bool)}
-    {tgtsssOf : (Name → Nat) → Nat → List (List Nat)}
-    {tlsssOf : (Name → Nat) → Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-    {EisssOf : (Name → Nat) → Nat → List (List (List AnnotTerm))}
-    {FsssOf EsssOf : (Name → Nat) → Nat → List (List AnnotTerm)}
+    {ChsOf : (Name → Nat) → Nat → List (List AnnotTerm)}
     (hleafT : ∀ ψ, mp.base2.acval T ψ
-      = blockTyAV k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ) (tlsssOf ψ)
-          (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) (pps ψ) m)
+      = blockTyG k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (ChsOf ψ) (pps ψ) m)
     (hleafC : ∀ ψ, mp.base2.acval cvCa.name ψ
       = sumMkAV (resSort.eval ψ) 0 (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains [((ds ψ).drop nP).map (·.2.2)]))
@@ -83,8 +79,7 @@ theorem stageBlockTable (mp : EnvModelM V μ env)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ).map (·.2.2)) ts →
       ts.foldl SetTheory.app (interp V ρ
-          (blockTyAV k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (rsssOf ψ) (tgtsssOf ψ) (tlsssOf ψ)
-            (EisssOf ψ) (FsssOf ψ) (EsssOf ψ) (pps ψ) m))
+          (blockTyG k (resSort.eval ψ) (ufOf ψ) (IdssOf ψ) (ChsOf ψ) (pps ψ) m))
         = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList ts ρ)
             [((ds ψ).drop nP).map (·.2.2) ++ [idxEqAV []]]))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),

@@ -86327,3 +86327,73 @@ Charter items 2–4.  Report: `_tmp/uniform-inds/CONTSEM.md` "Session 4".
   `nestMemberCtor_sem_cont` with `CacheInv` threaded from
   `cacheInv_empty` and `ContCover` as a premise (with HOLE2 (d)).  L8
   discharges `ContCover` at the flip.
+
+#### LANDED (lane HOLE2, checkpoint (d) session 3: stage B — the formers' leaf on the HOLE chains, 2026-09-24)
+
+Charter item 2 ("the interpretation of its constructor types with holes
+at the block's members … no per-field classification").  Plan:
+`_tmp/uniform-inds/HOLE2.md` "The model rewrite", stage B.
+
+- **The formers are consed with the hole leaf.**  `blockLeafH d c ψ :=
+  blockTyG … (d.toLfp.holeChains ψ) (d.ppsM c ψ) c`
+  (`Model/Inductives/BlockDatum.lean`): the block operator at the
+  constructors' fields with holes — the operator the datum's `Φ` IS
+  (stage A).  `blockRealPass`/`blockLeafWalks`/`stageBlockTable` are
+  generic in the chains (`Chs`), no slot instance left at their call
+  sites; `BlockCtorsStage.leaf` states the hole leaf, and
+  `blockModelAt_of_stages` takes the leaf at any chains whose operator is
+  `d.Φ` on the tuple space (`hChs`), so `BlockModelAt.leaf` is
+  `blockTyG_fold` at the hole chains (the old leaf bridge
+  `blockTyAV_congr_ord`/`blockFunAV_congr_chains`/`ndMkTowerAV_congr_lt`
+  deleted).
+- **The pass takes U2's gradings as a premise** (the ordering trap of
+  session 2): `blockTablesStage_of` takes the positivity stage's run
+  (`hPos`, `DeclBlockRun` 7b, with its parts' links `rfl` at `declBlock`)
+  and grades the hole chains at the DUMMY carrier from it
+  (`blockHoleGrade_of_run` → `blockHoleChains_facts`,
+  `Model/Inductives/BlockHoleGrade.lean`): per constructor, the walk's
+  context (`blockCtorHoleCtx`, extracted from `blockCtorPos_of_walk`,
+  hypotheses narrowed to `BlockHoleCtxFacts` — the formers and the
+  constructors' READINGS, nothing stored) gives the fields with holes
+  graded and bit-valid at the hole frame of every tuple, the result
+  indices graded under them, and their bounds (the reading of a scoped
+  term); `LfpDatum.holeChains_ok/_valid/_below` lift them to the chains.
+- **Finding → kernel addition (U2 extended): the fields' universes at
+  the holes' context.**  The hole operator must map the tuple space into
+  itself: every field with holes must lie in the family's universe at the
+  hole frame of EVERY tuple.  U2's inference of the whole Π-tower cannot
+  give it (a Π-type with an empty codomain lies in every universe,
+  whatever its domain), and no stored reading reaches an arbitrary tuple.
+  So `checkAbsCtorTys` now also runs official's per-field universe bound
+  on the member-abstracted constructor at the holes' context
+  (`checkStructFieldSortsI` at `hiAt 0`, the members variables; `isProp`
+  by `Level.isEquiv`, no large-elimination check).  It is the stored
+  constructor's own check with each member constant replaced by an fvar
+  of the same type, so it passes whenever `checkSumCtor` did —
+  verdict-neutral (measured below).  Cached twin: `checkAbsCtorTysS_sim`
+  (`checkStructFieldSortsIS_sim` moved into `NestPosC.lean`), `_datF`,
+  inversion `checkAbsCtorTys_inv`/`checkBlockPositivity_inv` (a fifth
+  conjunct).  The model reads it through `teleBound_walk`.
+- **Stopgap until stage C: the leaf's value bridge.**  The constructors'
+  stage still proves the constructors' leaves against the SLOT chains
+  (`blockChainsReal_of`, `ChainsRealBI`).  `BlockCtorsStage.leafV` says the
+  hole leaf is, as a set, the slot leaf at the dummy former's chains
+  (`blockTyG_interp_congr`: equal operators on the tuple space — stage
+  A's `blockHoleOp_eq_slot`, now at the dummy data — give equal least
+  pre-fixed tuples); `stageBlockCtorsAt` takes its leaf at that value
+  form, and the unit-like fold and `foldT` go through it.  Stage C
+  replaces it by the override law and deletes the slot side.
+- `BlockHoleFacts.facts` is `BlockCtorRead` (the reading facts, no
+  storage) so the dummy data carries it; `blockSlot_agree`/
+  `blockSlot_eq_entry` take the reading.
+- **Line delta (stage B): +1281 / −366** (the hole route added beside the
+  slot one, which stages C–F delete).
+- **Verdicts: none moved.**  Gates at f8ae287e: `lake build`/`lake test`
+  0 warnings; `tests/arena.sh` EXIT 0 (arena 90/92, e2e 301/301,
+  nested-shadow 82/82, target-shadow 317/317, annot 15/15, sweeps as
+  expected, shake 537/537, pub-imports none demotable — two MEASURED
+  fallbacks for `BlockHoleGrade`, whose public statements name
+  `BlockHoleCtxFacts`/`BlockNamesOk`/`BlockHoleFacts`); init-full: exit 0,
+  53 093 accepted, its 585 `--target-shadow` lines identical to session
+  2's.  No `sorry`, no new axiom.
+- Not done: stages C–F (`HOLE2.md` "resume plan").

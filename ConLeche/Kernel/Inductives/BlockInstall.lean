@@ -374,7 +374,9 @@ classifier still runs beside it (`classifyBlockKinds`); lane HOLE2's
 checkpoint (d) deletes it. -/
 
 /-- **U2**: every member-abstracted constructor type is a type at the
-holes' context (parameters, then one hole per member). -/
+holes' context (parameters, then one hole per member), each of its
+fields' universes bounded by the family's there (at a `Type`-valued
+family). -/
 def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
     List (ConstantVal × Nat) → m Unit
   | [] => pure ()
@@ -383,6 +385,14 @@ def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
       (.internal "direct rec: constructor parameter telescope")
     let ty ← ops.inferType env (ctx.hiAt 0) crest
     let _ ← ops.ensureSort env (ctx.hiAt 0) ty
+    -- the fields' universes AT THE HOLES' CONTEXT (lane HOLE2, stage B):
+    -- official's per-field bound, the members variables — the model's
+    -- hole operator reads every field in the family's universe at every
+    -- tuple of the tuple space, which no stored reading reaches
+    let xq ← unwrapOr (openPisAtFvars c.2 crest (ctx.hiAt 0))
+      (.internal "direct rec: abstracted constructor fields")
+    let _ ← checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
+      ctx.sort (ctx.hiAt 0) xq.1 [] c.2
     checkAbsCtorTys ops env ctx holes cs
 
 /-- `checkAbsCtorTys` on every member's constructors. -/

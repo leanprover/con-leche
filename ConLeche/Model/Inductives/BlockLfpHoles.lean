@@ -93,7 +93,7 @@ section SlotEntry
 theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
     {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
     {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hcf : BlockCtorFacts mo d lps c j cA)
+    (hD : BlockCtorRead mo d lps c j cA)
     {ψ : Name → Nat} {ρ : Nat → V} {as bs : List V} {l : Nat}
     (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
     (hl : l < cA.2) (hbs : bs.length = l) (htgt : d.tgts c j l < d.k)
@@ -104,7 +104,7 @@ theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
         (consList bs (consList as ρ))
       = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
   classical
-  obtain ⟨-, -, hD⟩ := hcf
+  unfold BlockCtorRead at hD
   obtain ⟨hj, -⟩ := List.getElem?_eq_some_iff.mp hcj
   have hlenD : (d.dsF c j ψ).length = d.nP + cA.2 := hD.len ψ
   have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
@@ -185,7 +185,7 @@ member's index telescope. -/
 theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
     {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
     {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hcf : BlockCtorFacts mo d lps c j cA)
+    (hcf : BlockCtorRead mo d lps c j cA)
     {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
     (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
     (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k)
@@ -202,7 +202,8 @@ theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
           (consList bs (consList as ρ))
         = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
   have hnF : ((d.Fss c ψ).getD j []).length = cA.2 := by
-    obtain ⟨-, -, hD⟩ := hcf
+    have hD := hcf
+    unfold BlockCtorRead at hD
     have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
       fssOfR_fixCtorDataList_getD hcj
     rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
@@ -450,7 +451,7 @@ representation: every constructor's reading facts, the recursive
 fields' targets among the members, and the lengths of the parameter
 telescope and of the result index readings. -/
 structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name) : Prop where
-  facts : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → BlockCtorFacts m d lps c j cA
+  facts : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → BlockCtorRead m d lps c j cA
   tgt : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → ∀ l, l < cA.2 → d.tgts c j l < d.k
   lenP : ∀ ψ, (d.params ψ).length = d.nP
   /-- every member's own parameter telescope: `nP` long, satisfied where
@@ -464,10 +465,10 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
 /-- A constructor's field readings number its fields. -/
-theorem BlockCtorFacts.nF {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hcf : BlockCtorFacts m d lps c j cA) (ψ : Name → Nat) :
+theorem BlockCtorRead.nF {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
+    (hD : BlockCtorRead m d lps c j cA) (ψ : Name → Nat) :
     ((d.Fss c ψ).getD j []).length = cA.2 := by
-  obtain ⟨-, -, hD⟩ := hcf
+  unfold BlockCtorRead at hD
   have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
     fssOfR_fixCtorDataList_getD hcj
   rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
@@ -500,7 +501,8 @@ theorem blockReadsHoles (hidx : d.IdxFit) (hH : BlockHoleFacts m d lps) :
     intro l hl as has hpre
     by_cases hr : ((d.rss c).getD j []).getD l false = true
     · rw [if_pos hr]
-      obtain ⟨-, -, hD⟩ := hcf
+      have hD := hcf
+      unfold BlockCtorRead at hD
       have hTl : (d.tlss c ψ).getD j [] = d.tssF c j ψ := tlssOfR_fixCtorDataList_getD hcj
       refine interp_absField_rec (hH.parsSat ψ _ (hH.tgt c hc j _ hcj l (by omega)) ρp hs)
         (hH.parsLen ψ _ (hH.tgt c hc j _ hcj l (by omega))) hr (hH.tgt c hc j _ hcj l (by omega))
