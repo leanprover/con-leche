@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetRuleData
-public import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Model.Inductives.BlockRecPreRun

@@ -85511,4 +85511,10 @@ Then consume: `declBlock_target` without `hpreT`, B1, B5.
 
 **Gates at the head.**  `lake build`/`lake test` EXIT 0, 0 warnings (after
 merging `uniform-inds` 57ef3401 — HOLE2's `hlfp` threaded through the
-generic and target seams); `tests/arena.sh`: see `RECLIB.md` §13.
+generic and target seams); `tests/arena.sh`: every part green (layering,
+links, quotes, shake half (a) 484/484 allowlisted, nested-shadow 82/82,
+target-shadow 317/317, axioms pinned, arena 90/92, e2e 301/301, sweeps)
+except the shake gate's half (b), which flags 10 `public import`s in lane
+HOLE2's files from 57ef3401 (`BlockPosRun`, `NestPosC`, `NestScope`,
+`PositivityInv`; identical to `uniform-inds`) — left to HOLE2.  This
+lane's own flagged edge (`TargetResidue` → `BlockRuleFit`) is demoted.
