@@ -39,6 +39,7 @@ public import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Semantics.SubstAV
 public import ConLeche.Semantics.Inductives.HoleMono
 public import ConLeche.Semantics.Inductives.HoleAcc
+public import ConLeche.Semantics.Inductives.TeleAcc
 public import ConLeche.Semantics.Inductives.HoleAppGrade
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
