@@ -1,0 +1,539 @@
+module
+
+public import ConLeche.Model.Inductives.TargetIhData
+import ConLeche.Model.Rules.Sound
+import ConLeche.Model.CtxOkKit
+import ConLeche.Model.IndDomGrade
+import ConLeche.Verify.Rules.Bridge
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.InstList
+import ConLeche.Verify.Inductives.BlockRecInv
+
+public section
+
+/-!
+# The target call's kit (lane RECLIB, B3 (e))
+
+Generic facts the call's typing (`TargetCallCore.lean`) is read with:
+
+* `targetWhnfPis_sem` — a field's telescope read through whnf
+  (`targetWhnfPis`) keeps the reading's value at every satisfying
+  valuation, is framed, reads and is graded;
+* `interp_mkPisAV_congr` — a Π-tower's value reads only the bits and
+  the domains of its binder data.
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open SetTheory
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Env Expr Name Level ConstantVal CheckMode)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+/-! ## A Π-tower reads only its bits and domains -/
+
+theorem interp_mkPisAV_congr {X : AnnotTerm} :
+    ∀ {ds ds' : List (Nat × Nat × AnnotTerm)}, ds.map (·.2) = ds'.map (·.2) →
+      ∀ ρ : Nat → V, interp V ρ (mkPisAV ds X) = interp V ρ (mkPisAV ds' X)
+  | [], [], _, _ => rfl
+  | [], _ :: _, h, _ => by simp at h
+  | _ :: _, [], h, _ => by simp at h
+  | d :: ds, d' :: ds', h, ρ => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    obtain ⟨h1, h2⟩ := h
+    show interp V ρ (.pi d.1 d.2.1 d.2.2 (mkPisAV ds X))
+      = interp V ρ (.pi d'.1 d'.2.1 d'.2.2 (mkPisAV ds' X))
+    rw [interp_pi, interp_pi, show d.2 = d'.2 from h1]
+    exact piR_congr fun x _ => interp_mkPisAV_congr h2 _
+
+/-! ## Scoping of an opened binder body -/
+
+/-- Every `fvar d` node of `e` carries `ty` when every leaf at `d` does. -/
+theorem fvarConsistent_of_leaves {d : Nat} {ty : Expr} :
+    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, l.1 = d → l.2 = ty) → Expr.fvarConsistent d ty e := by
+  intro e
+  induction e with
+  | fvar idx ty' _ =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    intro hidx
+    exact h (idx, ty') (by simp [Expr.fvarLeaves]) hidx
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    exact ⟨ihf fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
+      iha fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
+  | lam t b _ iht ihb =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
+      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
+  | forallE t b _ iht ihb =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
+      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
+      ihv fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
+      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.fvarConsistent]
+    exact ih fun l hl => h l (by simpa [Expr.fvarLeaves] using hl)
+  | bvar => intro _; simp [Expr.fvarConsistent]
+  | sort => intro _; simp [Expr.fvarConsistent]
+  | const => intro _; simp [Expr.fvarConsistent]
+  | lit => intro _; simp [Expr.fvarConsistent]
+
+/-! ## Syntax helpers -/
+
+theorem annot_inst_mkAppN (a : AnnotTerm) (k : Nat) :
+    ∀ (as : List AnnotTerm) (f : AnnotTerm),
+      (AnnotTerm.mkAppN f as).inst a k = AnnotTerm.mkAppN (f.inst a k) (as.map (·.inst a k))
+  | [], _ => rfl
+  | b :: as, f => by
+    rw [AnnotTerm.mkAppN_cons, annot_inst_mkAppN a k as (.app f b), AnnotTerm.inst_app]
+    rfl
+
+theorem annot_instSeq_mkAppN :
+    ∀ (ws : List AnnotTerm) (t : Nat) (f : AnnotTerm) (as : List AnnotTerm),
+      ConLeche.Model.AnnotTerm.instSeq ws t (AnnotTerm.mkAppN f as)
+        = AnnotTerm.mkAppN (ConLeche.Model.AnnotTerm.instSeq ws t f)
+            (as.map (ConLeche.Model.AnnotTerm.instSeq ws t))
+  | [], _, f, as => by simp [ConLeche.Model.AnnotTerm.instSeq]
+  | w :: ws, t, f, as => by
+    rw [AnnotTerm.instSeq_cons, annot_inst_mkAppN, annot_instSeq_mkAppN ws, List.map_map]
+    rfl
+
+theorem annot_instSeq_of_inst_self {f : AnnotTerm} (h : ∀ (y : AnnotTerm) (k : Nat), f.inst y k = f) :
+    ∀ (ws : List AnnotTerm) (t : Nat), ConLeche.Model.AnnotTerm.instSeq ws t f = f
+  | [], _ => rfl
+  | w :: ws, t => by rw [AnnotTerm.instSeq_cons, h, annot_instSeq_of_inst_self h ws]
+
+theorem looseBVarsBounded_mkAppN_args {k : Nat} :
+    ∀ {as : List Expr} {f : Expr}, (Expr.mkAppN f as).looseBVarsBounded k = true →
+      f.looseBVarsBounded k = true ∧ ∀ a ∈ as, a.looseBVarsBounded k = true
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | b :: as, f, h => by
+    obtain ⟨h1, h2⟩ := looseBVarsBounded_mkAppN_args (as := as) (f := .app f b) h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h1
+    refine ⟨h1.1, fun a ha => ?_⟩
+    rcases List.mem_cons.mp ha with rfl | ha
+    · exact h1.2
+    · exact h2 a ha
+
+theorem looseBVarsBounded_mkLamsOf_body :
+    ∀ (bs : List (Expr × ConLeche.BinderMeta)) (X : Expr) (k : Nat),
+      (Expr.mkLamsOf bs X).looseBVarsBounded k = true → X.looseBVarsBounded (k + bs.length) = true
+  | [], X, k, h => by simpa [Expr.mkLamsOf] using h
+  | (ty, mt) :: bs, X, k, h => by
+    simp only [Expr.mkLamsOf, Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    have := looseBVarsBounded_mkLamsOf_body bs X (k + 1) h.2
+    simpa [Nat.add_assoc, Nat.add_comm 1] using this
+
+/-- The peel commutes with an opening by bvar-closed terms. -/
+theorem instPisAtLift_instantiateList {os : List Expr}
+    (hcl : ∀ s ∈ os, s.looseBVarsBounded 0 = true) :
+    ∀ (args : List Expr) {ty rest : Expr}, (∀ a ∈ args, a.looseBVarsBounded os.length = true) →
+      ty.looseBVarsBounded 0 = true →
+      Expr.instPisAtLift args ty = some rest →
+      Expr.instPisAtLift (args.map (·.instantiateList os 0)) ty = some (rest.instantiateList os 0) := by
+  intro args ty rest hargs hty h
+  cases os with
+  | nil => simpa [ConLeche.Expr.instantiateList_nil] using h
+  | cons o os' =>
+    have hne : (o :: os') ≠ [] := by simp
+    have hlen : (o :: os').reverse.length = ((o :: os').length - 1) + 1 := by simp
+    have hcl' : ∀ s ∈ (o :: os').reverse, s.looseBVarsBounded 0 = true :=
+      fun s hs => hcl s (List.mem_reverse.mp hs)
+    have h2 := instPisAtLift_instSeq hcl' hlen args
+      (fun a ha => by rw [show (o :: os').length - 1 + 1 = (o :: os').length from by simp]; exact hargs a ha) h
+    rw [← ConLeche.instantiateList_eq_instSeq hne, ← ConLeche.instantiateList_eq_instSeq hne,
+      ConLeche.Expr.instantiateList_eq_self hty] at h2
+    rw [← h2]
+    congr 1
+    exact List.map_congr_left fun a _ => ConLeche.instantiateList_eq_instSeq hne a
+
+/-! ## A field's telescope read through whnf -/
+
+section Whnf
+
+variable {μ : CheckMode} {env : Env} {m : EnvModel V env} {φ : Name → Nat}
+
+/-- **`targetWhnfPis` keeps the value.**  At a framed, readable,
+graded subject: the result is framed, adds no leaf, reads, is graded,
+and has the subject's value at every satisfying valuation — the whnf
+steps' own soundness (`Rules.red_sound`), and at each opened binder
+the recursion under the binder's domain. -/
+theorem targetWhnfPis_sem (hμ : μ.verifiedChecks = true) (hin : Rules.RulesInputs V m φ)
+    {F : Nat} :
+    ∀ (fuel d : Nat) (e r : Expr),
+      ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) env d fuel e = .ok r →
+      Rules.Frame d e →
+      ∀ {Δ : List AnnotTerm} {ea : AnnotTerm}, CtxOk m φ d Δ e →
+        denoteMeta m.acval env φ d e = some ea → Rules.Graded V Δ ea →
+        Rules.Frame d r ∧ Rules.LeavesSub r e ∧
+          ∃ ra, denoteMeta m.acval env φ d r = some ra ∧ Rules.Graded V Δ ra ∧
+            ∀ ρ : Nat → V, Sat V Δ ρ → interp V ρ ea = interp V ρ ra
+  | 0, d, e, r, h, _, _, _, _, _, _ => by
+    simp [ConLeche.targetWhnfPis, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, d, e, r, h, hFr, Δ, ea, hC, hea, hG => by
+    have hver : μ = .verified := CheckMode.eq_verified hμ
+    simp only [ConLeche.targetWhnfPis] at h
+    obtain ⟨w, hwr, h⟩ := ConLeche.exceptBind_ok h
+    have hwr0 : ConLeche.whnf μ env F d e = .ok w := hwr
+    have hwr' : ConLeche.whnf .verified env F d e = .ok w := hver ▸ hwr0
+    obtain ⟨hFw, hLw, wa, hwa, hGw, hEw⟩ :=
+      Rules.red_sound hin (Rules.whnf_bridge hwr') hFr hC hea hG
+    split at h
+    · rename_i dom body bm
+      obtain ⟨body', hb', h⟩ := ConLeche.exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      obtain ⟨hwsW, hlbW, hLBW⟩ := hFw
+      unfold Expr.WScoped at hwsW
+      obtain ⟨hwsD, hwsB⟩ := hwsW
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hlbW
+      obtain ⟨hlbD, hlbB⟩ := hlbW
+      obtain ⟨doma, ba, hdoma, hba, rfl⟩ := denoteMeta_forallE_inv hwa
+      have hCw : CtxOk m φ d Δ (.forallE dom body bm) := hC.of_subset hLw
+      have hGd : Rules.Graded V Δ doma := fun ρ hρ => WellDenotedV_pi_dom (hGw ρ hρ)
+      -- the opened body: framed, in context, graded
+      have hFb : Rules.Frame (d + 1) (body.instantiate1 (.fvar d dom)) := by
+        refine ⟨Expr.WScoped.instantiate1 hwsD 0 hwsB, ConLeche.looseBVarsBounded_instantiate1 _ 0 hlbB,
+          fun l hl => ?_⟩
+        rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 hl with h1 | h1
+        · exact hLBW l (by simp [Expr.fvarLeaves, h1])
+        · simp only [Expr.fvarLeaves, List.mem_cons] at h1
+          rcases h1 with rfl | h1
+          · exact hlbD
+          · exact hLBW l (by simp [Expr.fvarLeaves, h1])
+      have hCb : CtxOk m φ (d + 1) (doma :: Δ) (body.instantiate1 (.fvar d dom)) :=
+        CtxOk.open hCw.forallE_body hCw.forallE_ty hdoma hGd
+      have hGb : Rules.Graded V (doma :: Δ) ba := by
+        intro σ hσ
+        obtain ⟨hx, hs⟩ := Sat_cons_inv hσ
+        have h1 := WellDenotedV_pi_body (hGw _ hs) hx
+        rwa [cons_eta] at h1
+      obtain ⟨hFb', hLb', rb, hrb, hGrb, hErb⟩ :=
+        targetWhnfPis_sem hμ hin fuel (d + 1) _ body' hb' hFb hCb hba hGb
+      obtain ⟨hwsb', hlbb', hLBb'⟩ := hFb'
+      -- every leaf of the new body at `d` is the opener
+      have hcons : Expr.fvarConsistent d dom body' := by
+        refine fvarConsistent_of_leaves body' fun l hl hld => ?_
+        rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl) with h1 | h1
+        · exfalso
+          have := ConLeche.Expr.fvarLeaves_lt_of_wscoped hwsB l h1
+          omega
+        · simp only [Expr.fvarLeaves, List.mem_cons] at h1
+          rcases h1 with rfl | h1
+          · rfl
+          · exfalso
+            have := ConLeche.Expr.fvarLeaves_lt_of_wscoped hwsD l h1
+            omega
+      have hround : (body'.abstract1 d 0).instantiate1 (.fvar d dom) 0 = body' :=
+        ConLeche.abstract1_instantiate1 body' 0 hcons hlbb'
+      have hleafR : ∀ l ∈ (Expr.forallE dom (body'.abstract1 d 0) bm).fvarLeaves,
+          l ∈ e.fvarLeaves := by
+        intro l hl
+        simp only [Expr.fvarLeaves, List.mem_append] at hl
+        rcases hl with hl | hl
+        · exact hLw l (by simp [Expr.fvarLeaves, hl])
+        · obtain ⟨hl1, hne⟩ := ConLeche.Expr.fvarLeaves_abstract1_ne body' 0 hwsb' l hl
+          rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl1) with h1 | h1
+          · exact hLw l (by simp [Expr.fvarLeaves, h1])
+          · simp only [Expr.fvarLeaves, List.mem_cons] at h1
+            rcases h1 with rfl | h1
+            · exact absurd rfl hne
+            · exact hLw l (by simp [Expr.fvarLeaves, h1])
+      refine ⟨⟨by unfold Expr.WScoped; exact ⟨hwsD, ConLeche.WScoped.abstract1 0 hwsb'⟩,
+          by simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+             exact ⟨hlbD, ConLeche.looseBVarsBounded_abstract1 body' 0 hlbb'⟩,
+          fun l hl => hLBW l ?_⟩, hleafR, ?_⟩
+      · simp only [Expr.fvarLeaves, List.mem_append] at hl ⊢
+        rcases hl with hl | hl
+        · exact Or.inl hl
+        · obtain ⟨hl1, hne⟩ := ConLeche.Expr.fvarLeaves_abstract1_ne body' 0 hwsb' l hl
+          rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl1) with h1 | h1
+          · exact Or.inr h1
+          · simp only [Expr.fvarLeaves, List.mem_cons] at h1
+            rcases h1 with rfl | h1
+            · exact absurd rfl hne
+            · exact Or.inl h1
+      · refine ⟨.pi 0 (pwBit φ bm.pw) doma rb, ?_, ?_, ?_⟩
+        · rw [denoteMeta_forallE, hdoma]
+          simp only [Option.bind_eq_bind, Option.bind_some]
+          rw [hround, hrb]
+          rfl
+        · intro ρ hρ
+          have hW := hGw ρ hρ
+          refine ⟨?_, ?_⟩
+          · rw [WellDenoted_pi]
+            refine ⟨(hGd ρ hρ).1, fun x hx => ?_⟩
+            exact (hGrb _ (Sat_cons V hρ hx)).1
+          · rw [AnnotValid_pi]
+            have hWv := hW.2
+            rw [AnnotValid_pi] at hWv
+            refine ⟨hWv.1, fun x hx => (hGrb _ (Sat_cons V hρ hx)).2, fun hv0 x hx => ?_⟩
+            rw [← hErb _ (Sat_cons V hρ hx)]
+            exact hWv.2.2 hv0 x hx
+        · intro ρ hρ
+          rw [hEw ρ hρ, interp_pi, interp_pi]
+          exact piR_congr fun x hx => hErb _ (Sat_cons V hρ hx)
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ⟨hFr, fun l hl => hl, ea, hea, hG, fun _ _ => rfl⟩
+
+end Whnf
+
+/-! ## The member abstraction, read at the members' own values -/
+
+/-- Two optional readings agree: both absent, or both present and
+related. -/
+@[expose] def ReadAgree (P : AnnotTerm → AnnotTerm → Prop) : Option AnnotTerm → Option AnnotTerm → Prop
+  | some a2, some a1 => P a2 a1
+  | none, none => True
+  | _, _ => False
+
+/-- A projection spelling keeps a value and a truthfulness transfer. -/
+theorem projAV_agree {ρ : Nat → V} :
+    ∀ (n : Nat) {e2 e1 : AnnotTerm}, interp V ρ e2 = interp V ρ e1 →
+      (WellDenoted V ρ e2 → WellDenoted V ρ e1) →
+      interp V ρ (projAV n e2) = interp V ρ (projAV n e1) ∧
+        (WellDenoted V ρ (projAV n e2) → WellDenoted V ρ (projAV n e1))
+  | 0, e2, e1, hv, hw => by
+    refine ⟨by simp [projAV, hv], fun h => ?_⟩
+    simp only [projAV, WellDenoted_fst] at h ⊢
+    obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
+    exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
+  | n + 1, e2, e1, hv, hw => by
+    refine projAV_agree n (e2 := .snd e2) (e1 := .snd e1) (by simp [hv]) fun h => ?_
+    simp only [WellDenoted_snd] at h ⊢
+    obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
+    exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
+
+section Abs
+
+variable {env : Env} {m : EnvModel V env} {φ : Name → Nat}
+  {names : List Name} {lvls : List Level} {formerTys : List Expr} {B : Nat} {hvC : Nat → V}
+
+/-- The relation `targetAbs_read` concludes: at every valuation whose
+hole slots carry the members' values, the abstract reading has the
+concrete one's value, and its truthfulness gives the concrete one's. -/
+@[expose] def AbsAgree (V : Type w) [SetTheory V] (k d : Nat) (hvC : Nat → V)
+    (a2 a1 : AnnotTerm) : Prop :=
+  ∀ (vals : List V) (τ : Nat → V), vals.length = d → (∀ t, t < k → τ (k - 1 - t) = hvC t) →
+    interp V (consList vals τ) a2 = interp V (consList vals τ) a1 ∧
+      (WellDenoted V (consList vals τ) a2 → WellDenoted V (consList vals τ) a1)
+
+theorem readAgree_refl {k d : Nat} (o : Option AnnotTerm) :
+    ReadAgree (AbsAgree V k d hvC) o o := by
+  cases o with
+  | none => trivial
+  | some a => exact fun _ _ _ _ => ⟨rfl, id⟩
+
+set_option maxHeartbeats 1600000 in
+/-- **The member abstraction read at the members' own values is the
+concrete term**: `targetAbs` replaces a member constant (at the block's
+levels) by its hole; at a valuation carrying, at every hole's slot,
+the member constant's own value, the two readings agree — the same
+reading everywhere else. -/
+theorem targetAbs_read
+    (hnames : ∀ (n : Name) (t : Nat), names.findIdx? (· == n) = some t →
+      t < formerTys.length ∧ ∃ ci : ConLeche.ConstantInfo, env.find? n = some ci ∧
+        lvls.length = ci.toConstantVal.levelParams.length ∧
+        ∀ σ : Nat → V, interp V σ (m.acval n (Level.substFn φ ci.toConstantVal.levelParams lvls))
+          = hvC t) :
+    ∀ (e : Expr) (d : Nat) (as2 as1 : List Expr),
+      LocList (B + formerTys.length) d as2 → LocList (B + formerTys.length) d as1 →
+      ReadAgree (AbsAgree V formerTys.length d hvC)
+        (denoteMeta m.acval env φ (B + formerTys.length + d)
+          ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) e).instantiateList
+            as2 0))
+        (denoteMeta m.acval env φ (B + formerTys.length + d) (e.instantiateList as1 0))
+  | .bvar j, d, as2, as1, h2, h1 => by
+    simp only [ConLeche.targetAbs]
+    rcases Nat.lt_or_ge j d with hjd | hjd
+    · obtain ⟨ty1, he1⟩ := h1.bvar_lt hjd
+      obtain ⟨ty2, he2⟩ := h2.bvar_lt hjd
+      rw [he1, he2, denoteMeta_fvar, denoteMeta_fvar]
+      exact readAgree_refl (V := V) _
+    · rw [h1.bvar_ge hjd, h2.bvar_ge hjd]
+      exact readAgree_refl (V := V) _
+  | .fvar i ty, d, as2, as1, _, _ => by
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta_fvar]
+    exact readAgree_refl (V := V) _
+  | .sort u, d, as2, as1, _, _ => by
+    simp only [ConLeche.targetAbs, Expr.instantiateList]
+    exact readAgree_refl (V := V) _
+  | .lit l, d, as2, as1, _, _ => by
+    simp only [ConLeche.targetAbs, Expr.instantiateList]
+    exact readAgree_refl (V := V) _
+  | .letE ty v b, d, as2, as1, _, _ => by
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
+    trivial
+  | .const n us, d, as2, as1, _, _ => by
+    simp only [ConLeche.targetAbs]
+    split
+    · rename_i hus
+      split
+      · rename_i t ht
+        obtain ⟨htk, ci, hfind, hlen, hval⟩ := hnames n t ht
+        have hus' : us = lvls := by simpa using hus
+        subst hus'
+        rw [List.getD_eq_getElem?_getD, ConLeche.targetHoles, List.getElem?_map,
+          List.getElem?_range htk, Option.map_some, Option.getD_some]
+        simp only [Expr.instantiateList, denoteMeta_fvar]
+        rw [denoteMeta_const hfind hlen]
+        intro vals τ hvl hτ
+        rw [interp_bvar, show B + formerTys.length + d - 1 - (B + t)
+            = (formerTys.length - 1 - t) + vals.length from by omega, consList_apply_add,
+          hτ t htk, hval]
+        exact ⟨rfl, fun _ => m.acval_wellDenoted _ _ _⟩
+      · simp only [Expr.instantiateList]; exact readAgree_refl (V := V) _
+    · simp only [Expr.instantiateList]; exact readAgree_refl (V := V) _
+  | .app f a, d, as2, as1, h2, h1 => by
+    have ihf := targetAbs_read hnames f d as2 as1 h2 h1
+    have iha := targetAbs_read hnames a d as2 as1 h2 h1
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
+    revert ihf iha
+    cases denoteMeta m.acval env φ (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) f).instantiateList as2 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + d) (f.instantiateList as1 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) a).instantiateList as2 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + d) (a.instantiateList as1 0)
+      <;> simp [ReadAgree]
+    intro hf ha vals τ hvl hτ
+    obtain ⟨hfv, hfw⟩ := hf vals τ hvl hτ
+    obtain ⟨hav, haw⟩ := ha vals τ hvl hτ
+    refine ⟨by simp [hfv, hav], fun hw => ?_⟩
+    rw [WellDenoted_app] at hw ⊢
+    obtain ⟨w1, w2, v, A, Bf, h3, h4, h5⟩ := hw
+    exact ⟨hfw w1, haw w2, v, A, Bf, hfv ▸ h3, hav ▸ h4, h5⟩
+  | .proj sn i e, d, as2, as1, h2, h1 => by
+    have ihe := targetAbs_read hnames e d as2 as1 h2 h1
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
+    revert ihe
+    cases denoteMeta m.acval env φ (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) e).instantiateList as2 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + d) (e.instantiateList as1 0)
+      <;> simp [ReadAgree]
+    rename_i e2 e1
+    intro he
+    cases env.findProj? sn i with
+    | some entry =>
+      intro vals τ hvl hτ
+      obtain ⟨hv, hw⟩ := he vals τ hvl hτ
+      exact projAV_agree (i + entry.off) hv hw
+    | none =>
+      rcases i with _ | _ | i
+      · intro vals τ hvl hτ
+        obtain ⟨hv, hw⟩ := he vals τ hvl hτ
+        exact projAV_agree 0 hv hw
+      · intro vals τ hvl hτ
+        obtain ⟨hv, hw⟩ := he vals τ hvl hτ
+        refine ⟨by simp [hv], fun h => ?_⟩
+        simp only [WellDenoted_snd] at h ⊢
+        obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
+        exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
+      · trivial
+  | .lam ty b bi, d, as2, as1, h2, h1 => by
+    have iht := targetAbs_read hnames ty d as2 as1 h2 h1
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
+    revert iht
+    cases hA2 : denoteMeta m.acval env φ (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList as2 0)
+      <;> cases hA1 : denoteMeta m.acval env φ (B + formerTys.length + d) (ty.instantiateList as1 0)
+      <;> simp [ReadAgree]
+    rename_i A2 A1
+    intro hA
+    rw [← Expr.instantiateList_cons, ← Expr.instantiateList_cons,
+      show B + formerTys.length + d + 1 = B + formerTys.length + (d + 1) from by omega]
+    have ihb := targetAbs_read hnames b (d + 1)
+      (Expr.fvar (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
+          as2 0) :: as2)
+      (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1)
+      (h2.cons _) (h1.cons _)
+    revert ihb
+    cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) b).instantiateList
+          (Expr.fvar (B + formerTys.length + d)
+            ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
+              as2 0) :: as2) 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
+        (b.instantiateList (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1) 0)
+      <;> simp [ReadAgree]
+    rename_i b2 b1
+    intro hb vals τ hvl hτ
+    obtain ⟨hAv, hAw⟩ := hA vals τ hvl hτ
+    have hbx : ∀ x : V, interp V (cons x (consList vals τ)) b2 = interp V (cons x (consList vals τ)) b1 ∧
+        (WellDenoted V (cons x (consList vals τ)) b2 → WellDenoted V (cons x (consList vals τ)) b1) := by
+      intro x
+      have := hb (vals ++ [x]) τ (by simp [hvl]) hτ
+      simpa [consList_append] using this
+    refine ⟨?_, fun hw => ?_⟩
+    · rw [interp_lam, interp_lam, hAv]
+      exact lamR_congr fun x _ => (hbx x).1
+    · rw [WellDenoted_lam] at hw ⊢
+      obtain ⟨w1, w2, Bf, w3, w4⟩ := hw
+      refine ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx)), Bf, fun x hx => ?_,
+        fun hv0 x hx => w4 hv0 x (hAv ▸ hx)⟩
+      rw [← (hbx x).1]
+      exact w3 x (hAv ▸ hx)
+  | .forallE ty b bi, d, as2, as1, h2, h1 => by
+    have iht := targetAbs_read hnames ty d as2 as1 h2 h1
+    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
+    revert iht
+    cases hA2 : denoteMeta m.acval env φ (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList as2 0)
+      <;> cases hA1 : denoteMeta m.acval env φ (B + formerTys.length + d) (ty.instantiateList as1 0)
+      <;> simp [ReadAgree]
+    rename_i A2 A1
+    intro hA
+    rw [← Expr.instantiateList_cons, ← Expr.instantiateList_cons,
+      show B + formerTys.length + d + 1 = B + formerTys.length + (d + 1) from by omega]
+    have ihb := targetAbs_read hnames b (d + 1)
+      (Expr.fvar (B + formerTys.length + d)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
+          as2 0) :: as2)
+      (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1)
+      (h2.cons _) (h1.cons _)
+    revert ihb
+    cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) b).instantiateList
+          (Expr.fvar (B + formerTys.length + d)
+            ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
+              as2 0) :: as2) 0)
+      <;> cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
+        (b.instantiateList (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1) 0)
+      <;> simp [ReadAgree]
+    rename_i b2 b1
+    intro hb vals τ hvl hτ
+    obtain ⟨hAv, hAw⟩ := hA vals τ hvl hτ
+    have hbx : ∀ x : V, interp V (cons x (consList vals τ)) b2 = interp V (cons x (consList vals τ)) b1 ∧
+        (WellDenoted V (cons x (consList vals τ)) b2 → WellDenoted V (cons x (consList vals τ)) b1) := by
+      intro x
+      have := hb (vals ++ [x]) τ (by simp [hvl]) hτ
+      simpa [consList_append] using this
+    refine ⟨?_, fun hw => ?_⟩
+    · rw [interp_pi, interp_pi, hAv]
+      exact piR_congr fun x _ => (hbx x).1
+    · rw [WellDenoted_pi] at hw ⊢
+      obtain ⟨w1, w2⟩ := hw
+      exact ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx))⟩
+
+end Abs
+
+end ConLeche.Model
