@@ -289,8 +289,9 @@ structure Ok (Is : Nat → V) (Ψ : (Nat → V) → Nat → V) : Prop where
   cmp_lt : ∀ q, q < n → P.cmp q < P.g (P.grp q)
   /-- distinct keys are distinct components -/
   inj : ∀ q q', q < n → q' < n → P.grp q = P.grp q' → P.cmp q = P.cmp q' → q = q'
-  /-- a key's index set is its component's -/
-  idx : ∀ q, q < n → ∀ W, P.IsG (P.grp q) W (P.cmp q) = Is (k + q)
+  /-- a key's index set is its component's, at every wide tuple of the
+  space (N2: the instance's index telescope is hole-free) -/
+  idx : ∀ q, q < n → ∀ W, InTupleSpace w (k + n) Is W → P.IsG (P.grp q) W (P.cmp q) = Is (k + q)
   /-- **the clause's `functor`** at the instantiation: monotone, closed -/
   functor : ∀ W, InTupleSpace w (k + n) Is W → ∀ q, q < n →
     MonoTuple w (P.g (P.grp q)) (P.IsG (P.grp q) W) (P.Θ (P.grp q) W) ∧
@@ -314,6 +315,24 @@ theorem fill_reached {q : Nat} (hq : q < n)
   obtain ⟨hq', hg, hc⟩ := hR.choose_spec
   rw [hinj _ _ hq' hq hg hc]
 
+/-- **The group's tuple read at the keys lies in the group's tuple
+space**, at a wide tuple of the space: a reached component is its key's
+slot (whose index set is the component's, `idx`), an unreached one the
+group's own least tuple. -/
+theorem fill_inTupleSpace {Is : Nat → V} {W : Nat → V} (hW : InTupleSpace w (k + n) Is W)
+    (hidx : ∀ q, q < n → P.IsG (P.grp q) W (P.cmp q) = Is (k + q)) (G : Nat) :
+    InTupleSpace w (P.g G) (P.IsG G W) (P.fill w k n G W) := by
+  classical
+  intro j hj
+  unfold fill
+  split
+  · next h =>
+    obtain ⟨hq', hg, hc⟩ := h.choose_spec
+    have := hW (k + h.choose) (by omega)
+    rw [← hidx _ hq', hg, hc] at this
+    exact this
+  · exact lfpTuple_mem _ _ _ _ j hj
+
 /-- One group, at a wide tuple pre-fixed at the keys whose deeper keys
 dominate: every key of the group dominates — `lfpTuple_le_on` at the
 group's operator, the reached components compared with `fill`. -/
@@ -327,16 +346,8 @@ theorem dominated_group {Is : Nat → V} {Ψ : (Nat → V) → Nat → V} (hP : 
   classical
   let G := P.grp q
   obtain ⟨hmonoG, hclG⟩ := hP.functor W hW q hq
-  have hfillS : InTupleSpace w (P.g G) (P.IsG G W) (P.fill w k n G W) := by
-    intro j hj
-    unfold fill
-    split
-    · next h =>
-      obtain ⟨hq', hg, hc⟩ := h.choose_spec
-      have := hW (k + h.choose) (by omega)
-      rw [← hP.idx _ hq' W, hg, hc] at this
-      exact this
-    · exact lfpTuple_mem _ _ _ _ j hj
+  have hfillS : InTupleSpace w (P.g G) (P.IsG G W) (P.fill w k n G W) :=
+    fill_inTupleSpace hW (fun q' hq' => hP.idx q' hq' W hW) G
   have hle := lfpTuple_le_on hclG hmonoG (P.Reached n G) hfillS (fun j hj hR => by
     have hfill_eq : (fun x => if P.Reached n G x then P.fill w k n G W x
         else lfpTuple w (P.g G) (P.IsG G W) (P.Θ G W) x) = P.fill w k n G W := by
@@ -349,10 +360,10 @@ theorem dominated_group {Is : Nat → V} {Ψ : (Nat → V) → Nat → V} (hP : 
     have e : P.grp q = P.grp q' := hg.symm
     show FamLe (P.IsG (P.grp q) W (P.cmp q'))
       (P.Θ (P.grp q) W (P.fill w k n (P.grp q) W) (P.cmp q')) (P.fill w k n (P.grp q) W (P.cmp q'))
-    rw [e, hP.idx _ hq' W, fill_reached hq' hP.inj W]
+    rw [e, hP.idx _ hq' W hW, fill_reached hq' hP.inj W]
     exact (hP.sub W hW q' hq' (by rw [← e]; exact hdeep)).trans (hpre q' hq'))
     (P.cmp q) (hP.cmp_lt q hq) ⟨q, hq, rfl, rfl⟩
-  rw [hP.idx _ hq W, fill_reached hq hP.inj W] at hle
+  rw [hP.idx _ hq W hW, fill_reached hq hP.inj W] at hle
   exact hle
 
 /-- **Every key dominates**, at a wide tuple pre-fixed at the keys —
