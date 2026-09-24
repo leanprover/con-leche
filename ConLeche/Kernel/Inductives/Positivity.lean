@@ -786,6 +786,13 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
       | some (.indInfo cv _) => some cv
       | _ => none)
     (.internal "nested positivity: container vanished")
+  -- the container's parameters are a SYNTACTIC telescope (lane CONTSEM:
+  -- its canonical instantiation exists, so the N2 check below reads
+  -- against the container's recorded index telescope; every stored
+  -- inductive's parameters are binders of its type, as official checks)
+  unless (cvC.type.stripPis key.ds.length).isSome do
+    throw (.notImplemented "nested positivity: container parameters are not a syntactic \
+      telescope")
   let ty ← unwrapOr (instPisWith key.ds
       (cvC.type.instantiateLevelParams cvC.levelParams key.lvls))
     (.notImplemented "nested positivity: container type telescope")
@@ -800,6 +807,15 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
   pure (ty.piBinders.1.length, cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
+
+/-- A constructor's result is headed by a variable (its member's hole,
+once the members are abstracted) — `checkSumCtor` already checked the
+result is the member applied, so this never fires on a checked block;
+the monotonicity proof reads the result's spine off it. -/
+def nestResHead (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .fvar .. => true
+  | _ => false
 
 /-- A constructor's field telescope `cur` (`nF` fields from field `j`),
 each field through `rec` at its depth `base + j`, the field opened at the
@@ -849,8 +865,12 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     let (_, _, cur, st) ← nestFields rec prog hi
       (.notImplemented "nested positivity: container constructor fields") nF 0 crest st
     if st.restart.isSome then return st
-    -- official's "invalid return type" on the instantiated constructor
-    unless (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi) do
+    -- official's "invalid return type" on the instantiated constructor; its
+    -- result is headed by its hole (lane CONTSEM: the frame's result reads
+    -- as the hole applied — never fires, a stored constructor's result is
+    -- its inductive at its own levels, which `sub` abstracts)
+    unless nestResHead cur && (cur.getAppArgs.drop nPc).all
+        (fun x => !x.nestOcc ctx.names ctx.nP hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
     nestCtors ctx ops env rec prog hi us ds nPc sub cs st
@@ -1088,15 +1108,6 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
         pure (k, w, st)
       | _ => throw nestNonValid
-
-/-- A constructor's result is headed by a variable (its member's hole,
-once the members are abstracted) — `checkSumCtor` already checked the
-result is the member applied, so this never fires on a checked block;
-the monotonicity proof reads the result's spine off it. -/
-def nestResHead (e : Expr) : Bool :=
-  match e.getAppFn with
-  | .fvar .. => true
-  | _ => false
 
 /-- The fields of one member constructor (the parameters instantiated
 at the canonical variables, the members abstracted to their holes),
