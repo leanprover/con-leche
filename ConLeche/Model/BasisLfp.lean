@@ -619,21 +619,6 @@ end EqLfp
 
 /-! ## Recording a pinned block at its install -/
 
-/-- **Record the lfp clause of a pinned one-member block at its former's
-cons.**  The basis installs build the former's carrier as an existential
-at the cons' leaf valuation (`declStep_preserves_of_basis_cons*`); this
-adds the block's clause, whose leaf is the former's pinned leaf. -/
-theorem nonempty_addLfp_of_exists {μ : ConLeche.CheckMode} {env : ConLeche.Env}
-    {acval : Name → (Name → Nat) → AnnotTerm} {c₀ : ConLeche.ConstantInfo}
-    (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, mp'.base2.acval = acval)
-    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D)
-    (hrd : LfpReads acval ⟨c₀ :: env.consts⟩ D)
-    (hrdC : LfpCtorReads acval ⟨c₀ :: env.consts⟩ D) :
-    Nonempty (EnvModelM V μ ⟨c₀ :: env.consts⟩) := by
-  obtain ⟨mp', hac⟩ := h
-  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst (by rw [hac]; exact hrd)
-    (by rw [hac]; exact hrdC)⟩
-
 /-- **A one-member unparameterized unindexed block's former reads as its
 sort** (M4: the hole telescope is empty). -/
 theorem lfp0_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}

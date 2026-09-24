@@ -161,7 +161,7 @@ nothing (`env₂ = env`), so there is no leaf, no extension and no
 crossing: the P invariant at the successor environment *is* the one
 held at the prefix. -/
 theorem axiomSkip (mp : EnvModelM V μ env) :
-    Nonempty (EnvModelM V μ env) := ⟨mp⟩
+    CoverStep mp env := CoverTo.refl mp []
 
 /-! ## `Lean.trustCompiler` -/
 
@@ -181,8 +181,8 @@ theorem axiomTrustCompiler (hμ : μ.verifiedChecks = true)
     (hname : cv.name = ConLeche.trustCompilerName)
     (hok : ConLeche.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    Nonempty (EnvModelM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+    CoverStep mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv'
@@ -271,8 +271,8 @@ theorem axiomStd (hμ : μ.verifiedChecks = true)
     (hcv : ConstantValRun μ F env cv type')
     (hok : ConLeche.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    Nonempty (EnvModelM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+    CoverStep mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv'

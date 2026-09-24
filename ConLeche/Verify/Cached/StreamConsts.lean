@@ -789,7 +789,7 @@ theorem checkDecls_consts (V : Type w) [SetTheory V]
   have hnd : NodupNames fc.1.fe.env := hchain.1.2.2 List.nodup_nil
   obtain ⟨c, hc, h1, h2, h3⟩ :=
     installRun_declares (V := V) rfl run rfl
-      ⟨⟨EnvModelM.empty V _⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
+      EnvModelOk.empty CSOKF.empty
       hnd fc.records pd (Array.mem_toList_iff.mpr hmem) cv hcv
   exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩
 

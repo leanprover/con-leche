@@ -79450,6 +79450,14 @@ changed by what we need".  Sequencing:
   U4, the field readings) goes through ONE interface, "stored field
   shape facts", produced by (β′).  No proof reasons about the stored
   syntax directly.
+- AMENDED 2026-09-24 (maintainer: "you decide"; ALPHAPROBE split α in two):
+  **α1 runs NEXT, right after HOLE2's E2/F and before the nested proof
+  lanes (L5/NESTW)**: store the DECLARED constructor type, drop (β′) and
+  the normal-form storage, and produce `StoredFieldShapes` and the recorded
+  clause facts' producers (M2/M3) semantically, keeping today's holes.
+  Estimate 2–3 sessions.  **α2** (holes and carrier as parameter families,
+  M3/`HoleAgree` deleted) stays DOCKETED until after the flip.  The
+  original single-refactor plan follows, for α2's content:
 - DOCKET (after the nested flip): (α) + install-as-given, as one
   refactor.
   - Store the DECLARED constructor type.
@@ -87102,3 +87110,236 @@ functions in Mathlib).  Charter item 1.
   `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0 after one
   OVERVIEW anchor repoint (`blockParts?`, moved by the new
   definition).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND-KIT, 2026-09-24): the nested recursor's graph kit over several classes — a pure `SetModel` library, NO Model consumer yet
+
+**Status, plainly.**  This is a SET-LEVEL library for lane L5 (NESTIND,
+`_tmp/uniform-inds/NESTPLAN.md` (b)/(c)); nothing in `Model/*` consumes
+it yet.  It lands ahead of its consumer because it is the generic form
+of E2E-DESIGN §3 risk 3's probe and L5 reads its statements as the
+shape its term-level producers must meet.
+
+**What is proved** (`ConLeche/SetModel/NestRec.lean`, sorry-free,
+`[propext, Classical.choice, Quot.sound]`):
+- `SClause`/`SClause.OkAt` — a class presentation: the set-level lfp
+  clause as a function of its parameter frame (operator, fit relation,
+  injections), and at a frame exactly `LfpClause`'s `functor` (monotone,
+  closed) + `fibre`; `OkAt.ind`, `OkAt.inj_mem`.
+- `NestKit` — majors over classes `b < nC` (members AND container
+  instantiations), each its clause at its TRUE frame `fr b`; majors `U`
+  (tagged, `nenc`), decodings `Dec` (a spine fitting at the true frame
+  and carrier).  Premises: `ok` (the clause at every admissible frame),
+  `trans`, `calls`, `top` (below).
+- `NestKit.claim` — **the strengthened induction**: at an admissible
+  (separated) frame, the class's own `OkAt.ind` with the predicate
+  "in the TRUE class ∧ P"; membership re-established by the true frame's
+  fibre law + closure on the SAME spine; the only inclusion the
+  induction produces is `sep ⊆ carrier`.  Recursion over the nesting
+  depth (deeper classes first), then `top_good` (shallower first).
+- `NestKit.ind` (= `GraphRecKit.ind`), `NestKit.hpred` (derived),
+  `NestKit.toKit`, **`NestKit.exu`** (one graph value at every major of
+  every class, under `hst` and `huniq`), `NestKit.huniq_of_inj`.
+- `UBlock.toSClause` (+ `_ok`, `_fits_mono`, `_inj`): HOLEOP data as
+  classes.
+
+**Instances** (`ConLeche/SetModel/NestRecEx.lean`): `treeKit`
+(`Tree`/`List Tree`, every level; `treeKit_exu_prop` — the nested `Prop`
+example, `huniq_of_prop`, injections not injective), `roseKit`
+(`Rose α₀`/`List (Rose α₀)`; `roseKit_exu_type`, `huniq_of_inj`), `rtKit`
+(`T`/`Rose T`/`List (Rose T)`, two nesting levels, `List (Rose T)`
+reached from `Rose`'s own field at `Rose`'s separated tuple;
+`rtKit_exu_prop`, `rtKit_exu_type`).
+
+**What the kit asks of a class — the facts L5 must produce.**
+- `ok`: `LfpClause.functor`/`fibre` of the container's datum at every
+  admissible frame (`ρp := ⟦Ds⟧` read at the hole frame of a separated
+  tuple — a parameter frame satisfying the container's telescope).
+- `trans` (**the one fact beyond a single clause**): a spine fitting at
+  an admissible frame, at holes below the true carrier, fits at the TRUE
+  frame and TRUE carrier.  Term level: `LfpDatum.hfits_mono` along the
+  relation between the instantiation's hole frames at the separated and
+  the true tuple (`CtorPos R` of the container's constructors AT THE
+  INSTANTIATION — what `nestPos`'s container descent certifies, the same
+  `hpos` `carrier_le_of_holes` takes), then the clause's `fitsMono` at the
+  true frame.  It is keyed by the instantiation (item 4): nothing about
+  the container in its parameter, no `value_mono`, no Bekić.  It must be
+  FIT-level: at `Prop` a value-level inclusion re-decodes the major to
+  SOME spine, not the one the induction hypothesis covers.
+- `calls` (`blockIndPred_of`'s twin): a call target of a spine fitting at
+  an admissible frame is an own recursive field (in the hole tuple), a
+  parameter-position element (satisfying the frame's admissibility
+  predicate `G`), or an element of a DEEPER class at a frame admissible
+  for `G` extended by the current hole tuple.
+- `top`: a class's true frame is admissible once the shallower classes'
+  true elements satisfy `G`.
+- `huniq`: `huniq_of_prop` at `ℓ = 0`; `huniq_of_inj` from `mkInj` of
+  every class's datum at `w ≠ 0` (NESTPLAN (b)).
+
+**Stop-and-name (answered).**  Without `calls`' parameter-position
+clause `ind` is FALSE: `T : Prop ::= node (W T)`, `W α ::= wrap (h : g α)`
+with `g α := {pt}` at every frame — every clause and `trans` hold, the
+major `pt` decodes as `node (wrap pt)` whose call chain cycles back to
+`pt`, and `P := False` is closed.  The missing fact is that a frame read
+at the separated tuple holds separated elements at its parameter
+positions — the instantiation's reading `⟦Ds⟧[S]`.  No other case failed.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
+`sorry`, no new axiom.  Line delta (`ConLeche/`): +991 / −1 (a new library, nothing deleted).
+
+#### LANDED (lane L8a, 2026-09-24): the fold's step interface carries coverage; `LfpCover` threaded through both folds up to the block adapter
+
+NESTPLAN L8, finding (3) of the L8 record above ("every fold step
+concludes `Nonempty (EnvModelM …)`, forgetting `lfpBlocks`").  Charter
+item 2.  No kernel, cached-checker or frontend change; verdict-neutral
+by construction.
+
+- **The step shape** (`ConLeche/Model/Cover.lean`, new; `LfpCover` and
+  its transports moved here from `Model/Inductives/LfpCover.lean`, which
+  keeps `contCover_of`): a fold step concludes
+  `CoverStep mp env₂ := ∃ mp' : EnvModelM V μ env₂, LfpCover mp [] →
+  LfpCover mp' []` — not `mp.lfpBlocks ⊆ mp'.lfpBlocks ∧ …`: coverage
+  also needs which inductives the step STORES and, at a record, the
+  block's names `Nodup`/length/`all` — facts of the step, so the step
+  proves the implication.  Inside a step the cons chain moves the
+  exemption list, `CoverTo mp ex env' ex'` (`CoverTo.trans`):
+  `coverTo_pend` (a former), `coverTo_cons`/`coverA_cons` (any other
+  fresh cons; `Quot`'s former by name), `coverTo_addLfp` (the record;
+  `lfpAll_one`, `nodup_one`, `filter_not_mem_self` at a one-member
+  block).  The cons funnels are UNTOUCHED (they expose only
+  `mp'.base2.acval`; the Block* files use them):
+  `EnvModelM.keepLfp` rebuilds the funnel's carrier with the input's
+  `lfpBlocks`, re-proving `lfp_ok` as the funnel does
+  (`lfp_ok_transport` at a fresh non-table cons).  New generic lemma
+  `LfpCover.cons` (`pend` is now an instance), `LfpCover.addLfp_to`.
+- **Every step but the block routes returns `CoverStep`**: the four
+  harvests (`harvestDefn/Thm/Opaque/Axiom`), the axiom branches
+  (`axiomStd`, `axiomTrustCompiler`, `axiomOfReduce`, `axiomSkip`), the
+  six basis blocks (`declBasisPB_*K`; their `extend*` links now return
+  `CoverTo …` with the exemption list they move — former `[] → [T]`,
+  record `[T] → []`, the rest general in `ex`; `Eq`'s links keep their
+  leaf and add the coverage conjunct).  `AxiomStepPB`/`BasisStepPB`
+  (the census defs) now conclude `CoverStep`.  Coverage at the basis is
+  PROVED (L8b's findings (1)/(2) consumed): each pinned block's record
+  discharges its former — `all = [T]` by the pin, `Eq` by its hand
+  clause.  `nonempty_of_exists`/`nonempty_addLfp_of_exists` deleted
+  (no consumer left).
+- **The block routes, and the remaining premise, exactly**
+  (`Model/Fold.lean`): `FoldCoverPB V μ := BlockCoverPB V μ ∧
+  IndCoverPB V μ`, both in the shape "covered carrier in ⇒ some covered
+  carrier out" (`LfpCover mp [] → ∃ mp', LfpCover mp' []`) — the shape a
+  nested block, whose container case READS coverage (`contCover_of`),
+  can meet.
+  * `BlockCoverPB` — the uniform block step (`blockParts? = some p`,
+    `DeclBlockRun`).  **OWED** by the lane that finishes that step
+    (HOLE2/α1).  The adapter is `declBlock_cover` (by cases on the
+    premise: `declBlock_target`'s carrier, or the premise's); the TODO
+    on `BlockCoverPB` lists the chain: formers `pend`, constructors
+    `cons`, `mpC.addLfp dR.toLfp` `addLfp` (names `Nodup`, length `k`,
+    each member's stored `caps.all = names`), recursors/projections
+    `cons`, the swap `transport`, `keepLfp` after every funnel call.
+  * `IndCoverPB` — the modeller (`declInd`, `blockParts? = none`).
+    **FALSE until the flip**, left as it is: `declInd` stores `.indInfo`s
+    and records no clause.  At L9 its arm becomes a decline and the
+    premise is dropped.
+- **Threaded through BOTH folds** without a second fold: `EnvModelOk`
+  is now `(∃ mp, FoldCoverPB V μ → LfpCover mp []) ∧
+  EtaFamiliesClosed env`; `declStep_preserves` takes the input's
+  `hcov` (its only statement change; OVERVIEW's link repointed, prose
+  still true).  The P fold (`foldPM`) and the cached fold
+  (`installRun_model`, `annotStepC_model`) carry it unchanged in shape.
+  New corollaries: `checkDeclsPure_cover`, `fullyChecked_cover`,
+  `checkDecls_cover` (`∃ mp, LfpCover mp []` under `FoldCoverPB`).
+  `model_exists`, `checkDecls_sound`, the capstones and every quoted
+  statement are unchanged.
+- **For the flip**: prove `BlockCoverPB` (block lane), make the `none`
+  arm a decline (L9) so `IndCoverPB` goes, then `EnvModelOk`'s
+  conditional drops and `checkDecls_cover` is unconditional.  Still owed
+  besides coverage for `ContCover`: finding (4), `ctors`/`noCtors`
+  (constructor ownership).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0 (arena
+90/92, e2e 344/344, nested-shadow 111/111, target-shadow 365/365, annot
+15/15, shake 545/545 allowlisted, pub-imports none demotable).  No `sorry`, no
+new axiom (`checkDecls_cover`: `[propext, Classical.choice, Quot.sound]`).
+Verdicts: none moved.  Line delta (`ConLeche/`): about +620 / −255.
+
+#### LANDED (lane NESTW-KIT, 2026-09-24): (W) for nested blocks through the transient wide operator — a pure `SetModel` library for L7's Model half, NO Model consumer yet
+
+**Status, plainly.**  The SET half of NESTPLAN L7 (NESTW).  Nothing in
+`Model/*` consumes it yet; lane L7's Model half will.  Charter items 2
+and 4.  It generalises R3's probe (`_probe/r23/R3.lean`, `probe/uinds-R23`).
+
+**What is proved** (sorry-free, `[propext, Classical.choice, Quot.sound]`):
+- `SetModel/WideFlat.lean` — `UBlock.closed_of_flat`: (W) at `w ≠ 0` for a
+  HOLEOP block whose constructors are presented FLAT (`FlatCtor`: each
+  field ordinary, or `RTel` — a Π-tower of hole-free domains over a member
+  hole), the set-level twin of `LfpDatum.closed_of_flat`.  **R3's caveat is
+  the named premise `HoleUnread`**: no field type (ordinary type, Π-domain,
+  hole index) reads a recursive field's value — supplied by `nestPos`'s U4
+  decline.  Only U4's FIELD half is needed; the result-index half is not (a
+  shape is cut from the fibre at its own index).  `closed_of_flatAll` adds
+  `Prop` (`closedTuple_zero`); `uPhi_famLe` compares hole operators through
+  their fibre laws.
+- `SetModel/NestWide.lean` — the transient wide operator `Ψ` on `k + n`
+  components (members, then one per key), keys given by their own operator
+  at the instantiation:
+  - `composeKeys` replaces ALL keys at once by the least tuple of the keys'
+    joint section (`keyLfp`); `closedTuple_composeKeys`: a closed tuple of
+    `Ψ` is one of the composed operator.  **Deviation from NESTPLAN L7**: no
+    `closedTuple_composeAll` iterating `closedTuple_composeAt` in reverse key
+    order and no Bekić — one joint lfp does it;
+  - `closed_of_wide`: the block's operator `Φ` has a closed tuple when it
+    lies BELOW `Ψ` at every key tuple dominating the containers' values
+    (`hmem`) and the keys' lfp dominates them (`hdom`).  **Deviation**: no
+    `Ψ^(n) = Φ` identity is needed, `≤` suffices;
+  - `KeyGroups` + `KeyGroups.Ok` + `dominated_of_groups`: `hdom` from
+    exactly what the containers' lfp clauses provide, keyed by the
+    instantiation read off the wide tuple (item 4): per reached container
+    group its operator is monotone and closed there (`Ok.functor` = the
+    clause's `functor`), a key's value is its component of the group's least
+    tuple (`KeyGroups.ev` = the clause's `leaf`), and the substitution law in
+    `≤` form (`Ok.sub`: the group's operator, reached components read at the
+    keys and unreached ones (D2) at the group's own lfp (`fill`), lies below
+    `Ψ`'s key component once the DEEPER keys dominate).  Proof: per group
+    `lfpTuple_le_on` (HoleClose), deeper groups first (`dep`).  No
+    parameter-monotonicity, no container law, no finitarity;
+  - `closed_of_wide_groups` = the two combined — **L7's entry point**;
+  - `composeKeys_eq`: composing all keys away IS `Ψ` at the containers'
+    values (so it leaves the block's operator) — true, but not needed for (W).
+- `SetModel/NestWideEx.lean` — instances, each at EVERY level, no closure
+  hypothesis left: `Rose`/`List` (`roseD_closed`, `mem_ROSE_all`, and
+  `rose_composeKeys_eq`: composing the key away leaves `Rose`'s operator);
+  two-level `T`/`Rose T`/`List (Rose T)` (`rtD_closed`, `mem_RT_all`: the
+  `List` key's parameter is the `Rose T` key's slot, `Rose T`'s `sub` reads
+  the deeper key's domination); a mutual container group reached by restart
+  (`A`/`B`, `T ::= node (A T)`: `taD_closed`, `mem_TA_all`, two keys of one
+  group referring to each other); `Prop` (`mem_TA_prop`, `mem_RT_prop`: the
+  same kit at `w = 0`).  `listD`/`altD` get (W) from the flat kit,
+  `roseD` from this kit — so NESTIND-KIT's `(W)` hypotheses at `w ≠ 0` are
+  now dischargeable for its three instances.
+
+**Stop-and-name.**  No case failed.
+
+**What L7's Model half must do.**
+1. The wide datum: the block's fields with every nested occurrence a hole at
+   its key, the keys' fields their containers' constructors at the
+   instantiation (the walk's `NestState.keys`); its closed tuple from
+   `LfpDatum.closed_of_flat` (U4 conjunct from `nestPos`'s decline), its
+   monotonicity from positivity.
+2. `KeyGroups` at the instantiation: per key its container group's `Φ` at
+   `⟦Ds⟧` read off the wide tuple's hole frame; `Ok.functor` from that
+   container's `LfpClause.functor` (the frame's `Sat`: L3 (ii)'s per-key
+   typing); `Ok.sub` from the container's hole fit at `fill` ⇒ the wide
+   key's hole fit (L3 (i): `readsAbs` + R2's M1/M3 agreement), given the
+   deeper keys' domination; `dep` = walk depth; `inj`/`idx` bookkeeping.
+3. `hmem`: the block's hole fit at `X` ⇒ the wide members' hole fit at
+   `X ⊕ Y` under domination (a nested field reads `⟦C Ds⟧[X]`, the
+   container's `leaf` = `ev`).
+4. Feed `closed_of_wide_groups` to `LfpClause.functor`'s closed tuple at
+   nested blocks (`blockLfpClause_of_records`); then delete
+   `SetModel/NarrowTreeList.lean` and `Model/Inductives/CopyTransport.lean`
+   per NESTPLAN L7.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
+`sorry`, no new axiom.  Line delta (`ConLeche/`): +1 660 / −1 (a new
+library, nothing deleted).

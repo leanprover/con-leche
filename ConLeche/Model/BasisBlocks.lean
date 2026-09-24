@@ -10,6 +10,7 @@ import all ConLeche.Kernel.PropWhen
 import ConLeche.Model.Annot.BitInst
 
 import ConLeche.Model.BasisLfp
+import ConLeche.Model.Cover
 public section
 
 /-!
@@ -463,10 +464,10 @@ theorem punitRecLaw {m : EnvModel V env}
 theorem extendPUnit (mp : EnvModelM V μ env)
     (hfresh : env.find? punitName = none)
     (hwf : EnvWF ⟨punitA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitA :: env.consts⟩) := by
+    CoverTo mp [] ⟨punitA :: env.consts⟩ [punitName] := by
   -- the pinned block's lfp clause is recorded at its constructor's cons
   -- (`extendPUnitUnit`: the clause's `ctor` reads the constructor's leaf)
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine coverTo_pend hfresh (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -498,7 +499,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     (hP : env.find? punitName = some punitA)
     (hfresh : env.find? punitUnitName = none)
     (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitUnitA :: env.consts⟩) := by
+    CoverTo mp [punitName] ⟨punitUnitA :: env.consts⟩ [] := by
   have hty := fun ψ =>
     denoteMeta_punitUnitA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) ψ hP
@@ -506,7 +507,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
   -- (lane ENVLFP; the constructor's leaf is read by `ctor`, lane HOLE2)
   have hTl : ∀ ψ : Name → Nat, mp.base2.acval punitName ψ = AnnotTerm.const .punit [ψ uN] :=
     fun ψ => acval_basis_pinned (m := mp.base2) hP (by decide) rfl
-  refine nonempty_addLfp_of_exists (D := punitLfp punitName punitUnitName fun ψ => ψ uN)
+  refine coverTo_addLfp (D := punitLfp punitName punitUnitName fun ψ => ψ uN)
     (hL := punitLfp_clause _
       (fun ψ ρ => by
         rw [acvalWith_ne (by decide), hTl]; rfl)
@@ -529,7 +530,13 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
         rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
       · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
         rw [denoteMeta_fvar]; rfl)
-    (declStep_preserves_of_basis_cons mp
+    (hnd := nodup_one _) (hlen := rfl)
+    (hall := lfpAll_one (n := punitName) (c := punitA) rfl rfl
+      (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
+      (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hex := filter_not_mem_self _)
+    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
+      declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -562,12 +569,12 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     (hP : env.find? punitName = some punitA)
     (hU : env.find? punitUnitName = some punitUnitA)
     (hfresh : env.find? punitRecA.name = none)
-    (hwf : EnvWF ⟨punitRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitRecA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨punitRecA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨punitRecA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_punitRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -617,7 +624,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
 theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.punitK.declsA env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    CoverStep mp env₂ := by
   rw [show ConLeche.BasisKind.punitK.declsA
     = [punitA, punitUnitA, punitRecA] from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
@@ -632,7 +639,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendPUnit mp hf1  hwf1
+  refine (extendPUnit mp hf1 hwf1).trans fun mp1 => ?_
   have hP1 : (⟨punitA :: env.consts⟩ : Env).find? punitName
       = some punitA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -654,7 +661,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
         = Expr.const punitName [.param uN] from rfl,
       Expr.constsResolve, hf]
     rfl
-  obtain ⟨mp2⟩ := extendPUnitUnit mp1 hP1 hf2  hwf2
+  refine (extendPUnitUnit mp1 hP1 hf2 hwf2).trans fun mp2 => ?_
   have hP2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find?
       punitName = some punitA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP1
@@ -903,10 +910,10 @@ theorem extendNat (mp : EnvModelM V μ env)
     (hfresh : env.find? natName = none)
     (hguard : ConLeche.natLitSupported ⟨natA :: env.consts⟩ = false)
     (hwf : EnvWF ⟨natA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natA :: env.consts⟩) := by
+    CoverTo mp [] ⟨natA :: env.consts⟩ [natName] := by
   -- the pinned block's lfp clause is recorded at its last constructor's
   -- cons (`extendNatSucc`: the clause's `ctor` reads the constructors' leaves)
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  refine coverTo_pend hfresh (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .nat []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -940,12 +947,12 @@ theorem extendNatZero (mp : EnvModelM V μ env)
     (hN : env.find? natName = some natA)
     (hfresh : env.find? natZeroName = none)
     (hguard : ConLeche.natLitSupported ⟨natZeroA :: env.consts⟩ = false)
-    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natZeroA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨natZeroA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_natZeroA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natZero []) ψ hN
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -982,7 +989,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     (hZ : env.find? natZeroName = some natZeroA)
     (hfresh : env.find? natSuccName = none)
     (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natSuccA :: env.consts⟩) := by
+    CoverTo mp [natName] ⟨natSuccA :: env.consts⟩ [] := by
   have hty := fun ψ =>
     denoteMeta_natSuccA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natSucc []) ψ hN
@@ -992,7 +999,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     fun ψ => acval_basis_pinned (m := mp.base2) hN (by decide) rfl
   have hZl0 : ∀ ψ : Name → Nat, mp.base2.acval natZeroName ψ = AnnotTerm.const .natZero [] :=
     fun ψ => acval_basis_pinned (m := mp.base2) hZ (by decide) rfl
-  refine nonempty_addLfp_of_exists (D := natLfp natName natZeroName natSuccName)
+  refine coverTo_addLfp (D := natLfp natName natZeroName natSuccName)
     (hL := natLfp_clause
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hNl0]; rfl)
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hZl0]; simp [interp_const, bval, natzero])
@@ -1029,7 +1036,13 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
         · show denoteMeta _ _ _ 1 (.forallE (.fvar 0 (.sort .zero)) (.fvar 0 (.sort .zero))
             { pw := .never }) = _
           simp [denoteMeta_forallE, ConLeche.Expr.instantiate1, denoteMeta_fvar, mkPisAV])
-    (declStep_preserves_of_basis_cons_gen mp
+    (hnd := nodup_one _) (hlen := rfl)
+    (hall := lfpAll_one (n := natName) (c := natA) rfl rfl
+      (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
+      (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hex := filter_not_mem_self _)
+    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
+      declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -1922,12 +1935,12 @@ theorem extendNatRec (mp : EnvModelM V μ env)
     (hZ : env.find? natZeroName = some natZeroA)
     (hS : env.find? natSuccName = some natSuccA)
     (hfresh : env.find? natRecA.name = none)
-    (hwf : EnvWF ⟨natRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natRecA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨natRecA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨natRecA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_natRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1978,7 +1991,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.natK.declsA env₁) :
-    Nonempty (EnvModelM V μ env₁) := by
+    CoverStep mp env₁ := by
   rw [show ConLeche.BasisKind.natK.declsA
     = [natA, natZeroA, natSuccA, natRecA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, hnil⟩ := h
@@ -1995,10 +2008,10 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
   have hf2 : (⟨natA :: env.consts⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
-  obtain ⟨mp1⟩ := extendNat mp hf1
+  refine (extendNat mp hf1
     (by simp [ConLeche.natLitSupported, ConLeche.natZeroOk,
       show (⟨natA :: env.consts⟩ : Env).find? natZeroName = none
-        from hf2]) hwf1
+        from hf2]) hwf1).trans fun mp1 => ?_
   have hN1 : (⟨natA :: env.consts⟩ : Env).find? natName
       = some natA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -2019,10 +2032,10 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
     simp [Expr.constsResolve, hf]
   have hf3 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find?
       natSuccA.name = none := Option.isNone_iff_eq_none.mp h3
-  obtain ⟨mp2⟩ := extendNatZero mp1 hN1 hf2
+  refine (extendNatZero mp1 hN1 hf2
     (by simp [ConLeche.natLitSupported, ConLeche.natSuccOk,
       show (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccName
-        = none from hf3]) hwf2
+        = none from hf3]) hwf2).trans fun mp2 => ?_
   have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
       = some natA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN1
@@ -2045,7 +2058,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
       = Expr.forallE (.const natName [])
         (.const natName []) { pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨mp3⟩ := extendNatSucc mp2 hN2 hZ2 hf3  hwf3
+  refine (extendNatSucc mp2 hN2 hZ2 hf3 hwf3).trans fun mp3 => ?_
   have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
       : Env).find? natName = some natA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN2

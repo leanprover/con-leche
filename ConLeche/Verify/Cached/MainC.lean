@@ -78,4 +78,14 @@ theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
+/-- **Coverage on what the fold accepts** (lane L8a): a carrier in which
+every stored inductive but `Quot` is a member of a recorded lfp block,
+under the fold's coverage premises (`Model.FoldCoverPB`). -/
+theorem checkDecls_cover (hμ : μ.verifiedChecks = true)
+    {ds : Array Declaration} {env' : Env} (hC : ConLeche.Model.FoldCoverPB V μ)
+    (h : checkDecls μ pins ds = .ok env') :
+    ∃ mp : EnvModelM V μ env', ConLeche.Model.LfpCover mp [] := by
+  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
+  exact fullyChecked_cover V hμ fc hC
+
 end ConLeche.Cached

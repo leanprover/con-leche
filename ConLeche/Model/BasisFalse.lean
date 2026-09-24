@@ -8,6 +8,7 @@ public import ConLeche.Model.BasisEmpty
 import all ConLeche.Kernel.PropWhen
 
 import ConLeche.Model.BasisLfp
+import ConLeche.Model.Cover
 public section
 
 /-!
@@ -61,14 +62,19 @@ theorem denoteMeta_falseA_type
 theorem extendFalse (mp : EnvModelM V μ env)
     (hfresh : env.find? falseName = none)
     (hwf : EnvWF ⟨falseA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨falseA :: env.consts⟩) := by
+    CoverStep mp ⟨falseA :: env.consts⟩ := by
   -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
-  refine nonempty_addLfp_of_exists (D := emptyLfp falseName 0)
+  refine coverTo_addLfp (D := emptyLfp falseName 0)
     (hL := emptyLfp_clause 0 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
     (hrdC := lfp0_ctorReads fun j hj => absurd hj (Nat.not_lt_zero j))
-    (declStep_preserves_of_basis_cons mp
+    (hnd := nodup_one _) (hlen := rfl)
+    (hall := lfpAll_one (n := falseName) (c := falseA) rfl rfl
+      (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
+      (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hex := filter_not_mem_self _)
+    (coverA_pend hfresh <| declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [0]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -162,12 +168,12 @@ theorem bitAgree_falseRecA (ψ : Name → Nat) :
 theorem extendFalseRec (mp : EnvModelM V μ env)
     (hE : env.find? falseName = some falseA)
     (hfresh : env.find? falseRecA.name = none)
-    (hwf : EnvWF ⟨falseRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨falseRecA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨falseRecA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨falseRecA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_falseRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) ψ hE
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -210,7 +216,7 @@ it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `falseK` branch. -/
 theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    CoverStep mp env₂ := by
   rw [show ConLeche.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
@@ -225,7 +231,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendFalse mp hf1 hwf1
+  refine (extendFalse mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨falseA :: env.consts⟩ : Env).find? falseName
       = some falseA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
