@@ -176,7 +176,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
         | .indDecl block nP =>
           if (ConLeche.blockShape? nP block).isSome && (ConLeche.basisPinHit block).isNone then
             let nm := (block.head?.map (·.name)).getD .anonymous
-            let routed := (ConLeche.blockParts? nP block).isNone
+            let routed := !ConLeche.uniformRoute nP block
             let verdict : Option String :=
               match (ConLeche.Cached.nestedShadowS mode p.2.1 nP block).run s with
               | .ok (r, _) =>

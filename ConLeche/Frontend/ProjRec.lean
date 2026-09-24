@@ -331,11 +331,13 @@ def projRecValue (o : ProjRecOwner) (ℓ : Level) (ty val : Expr) (i : Nat) :
 
 /-- Which block members the rewrite serves: the officially
 structure-like ones (one constructor, zero indices) of a block the
-direct install does not recognise — `structPartsCore?` rejects it
-(mutual, multi-constructor, indexed, shape mismatch) or it is
-recursive (the export's `isRec`, or a block name occurring in a
-constructor's binder domains: `structNonRec`'s verdict on a
-well-formed stream).  Propositional owners and owners whose recursor
+UNIFORM route will not install (`uniformRoute` false: today exactly
+the nested blocks, which go to the modelled route; after the flip,
+none with a block shape) — and which is not a non-recursive
+structure (`structPartsCore?` takes it and neither the export's
+`isRec` nor a block name in a constructor's binder domains says
+recursive: `structNonRec`'s verdict on a well-formed stream).
+Propositional owners and owners whose recursor
 carries no elimination level parameter are left out.
 
 `types` are `(name, levelParams, type, numParams, numIndices, ctors,
@@ -352,12 +354,16 @@ def projRecOwners (block : List ConstantInfo)
     ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (d, _) =>
       blockNames.any fun n => occursConstFast n d
   if (structPartsCore? block).isSome && !recursive then []
-  -- a block the fixpoint route takes serves its structure-like
-  -- member's `.proj` nodes natively (task #210 Part A: the projection
-  -- table at a one-constructor, index-free block), so no rewrite
-  -- (the block's DECLARED parameter count, task #228: the first type
-  -- record's, which is the one the parse carries into `indDecl`)
-  else if (blockParts? ((types.head?.map (·.2.2.2.1)).getD 0) block).isSome then []
+  -- a block the UNIFORM route will install serves its structure-like
+  -- members' `.proj` nodes natively (task #210 Part A: the projection
+  -- table at a one-constructor, index-free member), so no rewrite: the
+  -- rewrite would turn `NT.lbl x` into a stuck `NT.rec … x` beside the
+  -- table's `x.1`.  `uniformRoute` is the install dispatch's own test,
+  -- so this gate follows the route switch (`modelledRoute`) at the
+  -- flip (lane PROJFIX).  (The block's DECLARED parameter count, task
+  -- #228: the first type record's, which is the one the parse carries
+  -- into `indDecl`.)
+  else if uniformRoute ((types.head?.map (·.2.2.2.1)).getD 0) block then []
   else
     types.filterMap fun (T, lps, tty, nP, nI, cs, _) => do
       let [C] := cs | none
