@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.StructInstallF
-public import ConLeche.Kernel.Inductives.Positivity
 
 @[expose] public section
 

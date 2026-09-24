@@ -86091,5 +86091,9 @@ function in the kernel"): the separate normalisation walk is gone.
   now rejects in the pass, before the shadow's classifier/positivity
   columns run — `skip`).  Arena 90/92, nested-shadow 82/82, annot 15/15,
   trusted and `--jobs` sweeps unchanged.
+- init-full: exit 0, 53 093 accepted, its 585 `--target-shadow` lines
+  identical to RECLIB session 6's.  Gates (after merging `uniform-inds`
+  f6da5920): `lake build`/`lake test` 0 warnings, `tests/arena.sh` green
+  (shake 538/538, pub-imports none demotable).  No `sorry`, no new axiom.
 - The model rewrite (brief items 1, 2, 4) is planned step by step in
   `_tmp/uniform-inds/HOLE2.md` ("The model rewrite").
