@@ -244,7 +244,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       -- one the modeled path's (its model the in-process modeller's).
       match blockParts? nP block with
       | some p => checkBlockKS mode fe block p
-      | none => checkIndDeclSF mode fe block
+      | none => checkIndDeclSF mode fe nP block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- `checkDecl`'s twin (task #293): the `type` record installs the

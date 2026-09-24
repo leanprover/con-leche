@@ -51,10 +51,12 @@ namespace ConLeche.Semantics
 
 open ConLeche.Term ConLeche.Verify
 
-/-- An empty capability record pins nothing, and asks nothing. -/
-theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
-    {lps : List Name} : EtaPins μ env T lps {} :=
-  ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩
+/-- An empty capability record — carrying only the parameter count (the
+modeled route's generic arm; lane RESTRICT-FIX) — pins nothing, and asks
+nothing. -/
+theorem etaPins_nparams {μ : CheckMode} {env : Env} {T : Name}
+    {lps : List Name} {n : Nat} : EtaPins μ env T lps { nparams := n } :=
+  ⟨fun h => absurd h Bool.false_ne_true, fun h => absurd h Bool.false_ne_true⟩
 
 /-! ## The provisioning's syntactic residue -/
 

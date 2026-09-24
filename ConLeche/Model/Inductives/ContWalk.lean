@@ -1090,7 +1090,8 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hfit : ∀ ρ ρ', R₀ ρ ρ' →
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
-    {n : Name} (hnL : ∃ nP' L, ConLeche.nestContainer ctx n = some (nP', L) ∧ L ≠ []) :
+    {n : Name}
+    (hnL : (∃ nP' L, ConLeche.nestContainer ctx n = some (nP', L) ∧ L ≠ []) ∨ lps.Nodup) :
     ∀ (r : Nat) (grp : List (Name × Expr)) (st₀ : NestState) (grp' : List (Name × Expr))
       (st' : NestState), GrpOk ctx D hi us ds grp → (grp.headD default).1 = n →
       ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog hi us ds ds.length r grp st₀
@@ -1120,30 +1121,33 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
         (grpSub us hi grp) ctors st₁ = .ok st₂ := by
       rw [← mapIdx_news]; exact hwc
-    -- the level parameters are distinct (the head's first constructor's check)
+    -- the level parameters are distinct (the head's first constructor's check,
+    -- or — a container without constructors — the caller's)
     have hnd : lps.Nodup := by
-      obtain ⟨-, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
-      obtain ⟨nP', L, hL, hLne⟩ := hnL
-      have hn : n ∈ grp.map (·.1) := by
-        rw [← hhead]
-        obtain ⟨p, ps, hp⟩ := List.exists_cons_of_ne_nil hg.1
-        subst hp; simp
-      obtain ⟨nP'', L', hL', -, hsub⟩ := hctorsAll n hn
-      rw [hL] at hL'
-      obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L' := by simpa using hL'
-      obtain ⟨y, hy⟩ := List.exists_mem_of_ne_nil _ hLne
-      obtain ⟨x, xs, hxs⟩ := List.exists_cons_of_ne_nil (List.ne_nil_of_mem (hsub y hy))
-      subst hxs
-      have hndx := nestCtors_head_nodup hwc'
-      obtain ⟨cn, hcn, nPx, Lx, hLx, hnPx, hxL⟩ := hctorsIn x List.mem_cons_self
-      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-      obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
-      obtain ⟨nP₃, L₃, hL₃, hlen₃, hfL₃⟩ := hcov c hc
-      rw [hpc, hL₃] at hLx
-      obtain ⟨rfl, rfl⟩ : nP₃ = nPx ∧ L₃ = Lx := by simpa using hLx
-      obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
-      rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
-      exact hndx
+      rcases hnL with hnL | hnd0
+      · obtain ⟨-, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
+        obtain ⟨nP', L, hL, hLne⟩ := hnL
+        have hn : n ∈ grp.map (·.1) := by
+          rw [← hhead]
+          obtain ⟨p, ps, hp⟩ := List.exists_cons_of_ne_nil hg.1
+          subst hp; simp
+        obtain ⟨nP'', L', hL', -, hsub⟩ := hctorsAll n hn
+        rw [hL] at hL'
+        obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L' := by simpa using hL'
+        obtain ⟨y, hy⟩ := List.exists_mem_of_ne_nil _ hLne
+        obtain ⟨x, xs, hxs⟩ := List.exists_cons_of_ne_nil (List.ne_nil_of_mem (hsub y hy))
+        subst hxs
+        have hndx := nestCtors_head_nodup hwc'
+        obtain ⟨cn, hcn, nPx, Lx, hLx, hnPx, hxL⟩ := hctorsIn x List.mem_cons_self
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
+        obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
+        obtain ⟨nP₃, L₃, hL₃, hlen₃, hfL₃⟩ := hcov c hc
+        rw [hpc, hL₃] at hLx
+        obtain ⟨rfl, rfl⟩ : nP₃ = nPx ∧ L₃ = Lx := by simpa using hLx
+        obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
+        rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
+        exact hndx
+      · exact hnd0
     obtain ⟨hI₂, hle⟩ := frameIter mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hIok hrec
       hcov hhi hR₀ hΔ hCds hLds hfit hgc hI₀ hwc'
     split at h

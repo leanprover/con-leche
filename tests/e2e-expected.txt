@@ -1972,3 +1972,102 @@
 # only `T.rec`: 1).  TARGET 0 (charter item 5 read literally: "calls on
 # fields of ANY inductive type").  MAINTAINER QUESTION Q2.
 0 corner_tshadow_aux_unreached.ndjson
+# ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
+# examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
+# check on inductives and recursors the uniform route added, tried
+# against blocks official ACCEPTS).  Sources `tests/e2e/src/restrict_*.lean`
+# (`scripts/export-fixture.sh`; `a27`, `a28`, `a33c`, `a34b` and `b02`'s
+# twin hand the block to the kernel by `addDecl` — the elaborator cannot
+# write it); official = Lean v4.29.1's kernel.  Each row is TODAY's exit;
+# the TARGET verdict (`--target-shadow`) is in the comment and pinned by
+# `tests/target-shadow.sh`.
+#
+# Official 0, today 0, TARGET 0 (each exercises one check; the audit's
+# §7 table): a02 (λ-parameter/whnf field, `Σ n, Vec T n`), a03 (a
+# container index that is a field), a05 (the member's own index as a key
+# argument), a07 (a mutual container group, the restart), a09 (two keys
+# at one container), a10 (a dependent index telescope), a11 (`let`
+# domains), a12 (mutual, indexed, a reflexive cross field), a14/a46
+# (levels in keys, `max u v`), a15 (a container in a parameter), a16
+# (a large-eliminating `Prop` structure), a26 (U4 does not fire:
+# `(fun _ : T => Nat) t` is stored as `Nat`), a32 (a partial application
+# INSIDE a container parameter, `F (Vec T)`), a34b (`Sort u` family,
+# Prop-only elimination), a37 (a user `Eq`, K), a43 (two containers),
+# a44 (a nested structure's projections), a45 (a mutual nested block:
+# `A.rec_1`, `A.rec_2`), a47 (an indexed `Prop` without constructors),
+# a48 (a live universe), a49 (`imax` field sorts, `Level.leq`), a50
+# (never-zero sort shapes).
+0 restrict_a02_nest_sigma.ndjson
+0 restrict_a03_nest_idx_field.ndjson
+0 restrict_a05_nest_idx_member.ndjson
+0 restrict_a07_nest_mutual_cont.ndjson
+0 restrict_a09_nest_two_keys.ndjson
+0 restrict_a10_dep_indices.ndjson
+0 restrict_a11_let_field.ndjson
+0 restrict_a12_mutual_indexed.ndjson
+0 restrict_a14_univ_nested.ndjson
+0 restrict_a15_nest_option_list.ndjson
+0 restrict_a16_prop_large_struct.ndjson
+0 restrict_a26_u4_attempt.ndjson
+0 restrict_a32_nest_partial_param.ndjson
+0 restrict_a34b_sort_u_kernel.ndjson
+0 restrict_a37_myeq_k.ndjson
+0 restrict_a43_nest_prod_list.ndjson
+0 restrict_a44_structure_nested.ndjson
+0 restrict_a45_mutual_nested.ndjson
+0 restrict_a46_univ_max.ndjson
+0 restrict_a47_empty_prop_idx.ndjson
+0 restrict_a48_univ_live.ndjson
+0 restrict_a49_imax_field.ndjson
+0 restrict_a50_neverzero_shapes.ndjson
+# Official 0, today 2 (the in-process modeller declines at parse time:
+# "reflexive member", "k inductive hypotheses for j recursive fields"),
+# TARGET 0 (pinned with the modeller off): a06 (`(Nat → List T) → T`,
+# reflexive nested), a08 (a reflexive container `W`), a25 (a key with a
+# `let`), a33c (δ + projection in a container field; the elaborator
+# overflows on the `inductive` spelling, so the block goes by `addDecl`).
+2 restrict_a06_nest_refl.ndjson
+2 restrict_a08_nest_wcont.ndjson
+2 restrict_a25_nest_let_param.ndjson
+2 restrict_a33c_nest_proj_param_kernel.ndjson
+# a04 (`T (m) | mk : Vec (T m) m → T m`, the block's parameter as a
+# container index): official 0; today 1 — a FALSE REJECT of the modeller
+# ("application type mismatch" at its generated `T._model._impl.rec`); the
+# modeller is deleted at the flip.  TARGET 0.
+1 restrict_a04_nest_idx_param.ndjson
+# FINDING C1, constructor-less containers: `E (α : Type) : Type` with no
+# constructor, `T | mk : E T → T` (a01), and the indexed `E2 T 3` (a01b).
+# Official 0 (its auxiliary type has no constructor, `T.rec_1` no rule).
+# Today 0 (the modeller).  TARGET 0 since lane RESTRICT-FIX (was 2: "a
+# container without constructors (its parameter count is not
+# recorded)"): the install records official's `nparams` on `IndCaps` and
+# `nestContainer`/`targetCtorsOf` read it.
+0 restrict_a01_ctorless_container.ndjson
+0 restrict_a01b_ctorless_indexed.ndjson
+# FINDING C2, M2′ — a NAMED restriction official does not impose
+# (kernel-only input: no `inductive` command writes `T.{0}` for the type
+# it defines; needed by CONTSEM s2's frame reading; DESIGN, charter item
+# 9): a member at OTHER universe levels where the walk never reads it.
+# a27: `T.{u} : Type | mk : (fun _ : Type => Nat) T.{0} → T.{u}` (whnf
+# drops it); a28: `P (α) | mk : P α`, `T.{u} | mk : P T.{0} → T.{u}` (a
+# phantom container parameter).  Official 0 (both).  a27 today 2 (the
+# uniform route: "a member at other universe levels in a constructor
+# type"); a28 today 0 (the modeller).  TARGET 2 (both) — the restriction.
+2 restrict_a27_m2prime_redex.ndjson
+0 restrict_a28_m2prime_phantom.ndjson
+# The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
+# repointed to the member inside the block, levels kept; the `_free`
+# half is the exported, accepted block).
+# b01: the member ONLY in a container's INDEX, `mk : Vi Nat T → T`.
+# Official 1: "arg #1 of 'T.mk' contains a non valid occurrence of the
+# datatypes being declared".  Today 1, TARGET 1 (same reason).
+0 restrict_b01_idx_only_free.ndjson
+1 restrict_b01_idx_only_bad.ndjson
+# b02: the member at other levels AS the field, `mk : T.{0} → T.{u}` —
+# M2′'s half official shares.  Official 1: "non valid occurrence"
+# (`is_valid_ind_app` compares the constant WITH its levels).  Today 1,
+# TARGET 1 (lane RESTRICT-FIX: M2′ runs AFTER the walk, whose member-
+# constant arm rejects with official's reason; before, M2′ ran first and
+# declined, 2).
+0 restrict_b02_m2prime_direct_free.ndjson
+1 restrict_b02_m2prime_direct_bad.ndjson

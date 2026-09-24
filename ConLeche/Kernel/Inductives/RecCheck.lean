@@ -128,10 +128,12 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
   let some (.indInfo cvI _) := fe.find? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
   let some ty := instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us)
-    | throw (.notImplemented "target rec: the major's type former telescope")
+    | throw (.invalid "target rec: the major's type former does not bind its parameters \
+        (official: ill-formed inductive type)")
   let (ibs, s) := ty.piBinders
   let .sort s := s
-    | throw (.notImplemented "target rec: the major's type former is not a syntactic telescope")
+    | throw (.invalid "target rec: the major's type former is not a telescope ending in a \
+        sort (official: type expected)")
   pure (ibs.length, s)
 
 /-! ## Stage (b): every recursor's TYPE, at any major -/
@@ -169,9 +171,6 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
         throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
       let some (nPc, ctors) := targetCtorsOf fe I
         | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-      if ctors.isEmpty then
-        throw (.notImplemented "target rec: a major inductive without constructors (its \
-          parameter count is not recorded)")
       let ds := args.take nPc
       unless ds.length == nPc &&
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do

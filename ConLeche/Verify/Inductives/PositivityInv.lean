@@ -42,14 +42,6 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     simp only [nestMemberCtors, bind, Except.bind] at h
     split at h
     · simp at h
-    rename_i u hnm
-    have hnm' : (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false := by
-      unfold nestNoMemberConst at hnm
-      split at hnm
-      · simp [throw, throwThe, MonadExceptOf.throw] at hnm
-      · rename_i hn; simpa using hn
-    split at h
-    · simp at h
     rename_i crest hcrest
     split at h
     · simp at h
@@ -59,6 +51,14 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i r₁ hr₁
     obtain ⟨ks, tyN, st₁⟩ := r₁
     simp only at h
+    split at h
+    · simp at h
+    rename_i u hnm
+    have hnm' : (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false := by
+      unfold nestNoMemberConst at hnm
+      split at hnm
+      · simp [throw, throwThe, MonadExceptOf.throw] at hnm
+      · rename_i hn; simpa using hn
     split at h
     · simp at h
     rename_i r₂ hr₂

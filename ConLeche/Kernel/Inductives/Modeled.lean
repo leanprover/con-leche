@@ -985,6 +985,7 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
   sortZ := piResultZ cvT.type
+  nparams := nP
 
 /-- The modeled route stores the family's own result-sort datum, so
 `capsNeverZero` at the stored record is `piResultNeverZero` at the
@@ -1043,7 +1044,8 @@ shape exactly as the official kernel does — an inductive proposition
 with a single constructor taking only the parameters; the reduction
 site carries the semantic load (proof irrelevance), so no model
 theorem backs the flag. -/
-def checkModeled (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : m Env := do
+def checkModeled (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
+    m Env := do
   -- the recursors must form a suffix of the block: their rules may
   -- mention each other, so they install as a group after everything
   -- else
@@ -1082,7 +1084,7 @@ def checkModeled (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
         env₃
     else pure env₃
   | _, _ => do
-    let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
+    let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames { nparams := nPd }) env
     checkIndRecs mode ops blockNames env₂ recs
 
 

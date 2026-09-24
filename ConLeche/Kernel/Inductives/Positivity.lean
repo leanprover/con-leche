@@ -449,9 +449,8 @@ would go into `ConLeche/Conformance/`, never into this function):
 * official copies EVERY member of the container's mutual group
   (:1009), reachable or not; here only the instantiations a field
   reaches are checked (`corner_nestpos_group_bad`, D2).
-And one decline:
-* a container with NO constructor has no recorded parameter count and
-  is DECLINED (exit 2), never guessed.
+A container with NO constructor is read at its RECORDED parameter
+count (`IndCaps.nparams`); its frame walks nothing (lane RESTRICT-FIX).
 
 **The gate.**  Nothing in the install calls this section: the
 recogniser (`blockParts?`) still routes every nested block to the
@@ -737,11 +736,14 @@ structure NestedPositivity where
 
 /-- The constructors of the inductive `C` and its parameter count, read
 off the environment (a constructor belongs to the type its result
-names, `ctorMember?`'s reading): `none` when `C` is no inductive;
-`some (0, [])` for an inductive without constructors. -/
+names, `ctorMember?`'s reading): `none` when `C` is no inductive; for
+an inductive without constructors, its RECORDED parameter count
+(`IndCaps.nparams`, official's `inductive_val.nparams`; lane
+RESTRICT-FIX, finding C1: official nests through such a container, its
+auxiliary type simply has no constructor). -/
 def nestContainer (ctx : NestCtx) (C : Name) : Option (Nat × List (ConstantVal × Nat)) :=
   match ctx.find? C with
-  | some (.indInfo _ _) =>
+  | some (.indInfo _ caps) =>
     let cs := ctx.consts.filterMap fun ci =>
       match ci with
       | .ctorInfo cv nPc nF =>
@@ -753,7 +755,7 @@ def nestContainer (ctx : NestCtx) (C : Name) : Option (Nat × List (ConstantVal 
         | none => none
       | _ => none
     match cs with
-    | [] => some (0, [])
+    | [] => some (caps.nparams, [])
     | (_, nPc, _) :: _ => some (nPc, (cs.map fun c => (c.1, c.2.2)).reverse)
   | _ => none
 
@@ -791,15 +793,17 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   -- against the container's recorded index telescope; every stored
   -- inductive's parameters are binders of its type, as official checks)
   unless (cvC.type.stripPis key.ds.length).isSome do
-    throw (.notImplemented "nested positivity: container parameters are not a syntactic \
-      telescope")
+    throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
+      not bind its parameters (official: ill-formed inductive type)")
   let ty ← unwrapOr (instPisWith key.ds
       (cvC.type.instantiateLevelParams cvC.levelParams key.lvls))
-    (.notImplemented "nested positivity: container type telescope")
+    (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
+      its parameters (official: ill-formed inductive type)")
   let s ← unwrapOr (match ty.piBinders.2 with
       | .sort s => some s
       | _ => none)
-    (.notImplemented "nested positivity: container type is not a syntactic telescope")
+    (.invalid "nested positivity: invalid nested inductive datatype, its type is not a \
+      telescope ending in a sort (official: type expected)")
   if ty.piBinders.1.any (fun b => b.1.nestOcc ctx.names ctx.nP hi) then
     throw (.invalid "nested positivity: a container's index telescope mentions the block \
       (official: unknown constant)")
@@ -855,15 +859,18 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     -- substitution law instantiates them as the recorded reading does;
     -- every stored constant passed `checkConstantVal`'s own check)
     unless Name.nodup cv.levelParams do
-      throw (.notImplemented "nested positivity: a container constructor with repeated \
-        level parameters")
+      throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
+        has a duplicate universe level parameter (official: duplicate universe level \
+        parameter)")
     let crest ← unwrapOr
       (instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub))
-      (.notImplemented "nested positivity: container constructor telescope")
+      (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+        does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
     let _ ← ops.ensureSort env hi ty
     let (_, _, cur, st) ← nestFields rec prog hi
-      (.notImplemented "nested positivity: container constructor fields") nF 0 crest st
+      (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+        does not bind its fields (official: ill-formed constructor)") nF 0 crest st
     if st.restart.isSome then return st
     -- official's "invalid return type" on the instantiated constructor; its
     -- result is headed by its hole (lane CONTSEM: the frame's result reads
@@ -885,7 +892,8 @@ def nestGroupCtors (ctx : NestCtx) (nPc : Nat) :
     let st := (nestContainerC ctx st c).2
     let (nPc', ctors) := q
     unless nPc' == nPc || ctors.isEmpty do
-      throw (.notImplemented "nested positivity: a container group at two parameter counts")
+      throw (.invalid "nested positivity: number of parameters mismatch in inductive \
+        datatype declaration (a container's group)")
     let (rest, st) ← nestGroupCtors ctx nPc cs st
     pure (ctors ++ rest, st)
 
@@ -943,13 +951,15 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       if b == hi then
         let new := adds.eraseDups.filter fun c => !(grp.map (·.1)).contains c
         if new.isEmpty then
-          throw (.notImplemented "nested positivity: a cycle this frame cannot absorb")
+          throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+            declared (a container cycle this frame cannot absorb)")
         -- G1 (lane CONTSEM): the frame's holes stay inside ONE recorded
         -- block — the container's (`IndCaps.all`).  Never fires on a
         -- checked environment (a cycle between stored inductives is a
-        -- mutual block, by install order); a decline if it does.
+        -- mutual block, by install order); a reject if it does.
         unless new.all (fun c => (nestBlockOf ctx ((grp.headD default).1)).contains c) do
-          throw (.notImplemented "nested positivity: a cycle through containers of two blocks")
+          throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+            declared (a container cycle through two blocks)")
         let grp' ← nestGrowGroup ctx hi us ds new grp
         nestFrame ctx ops env rec prog hi us ds nPc r grp' { st₀ with ctorsOf := st.ctorsOf }
       else pure (grp, st)
@@ -995,8 +1005,8 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     -- instantiation abstracted too
     if ((prog.filter fun e => h.base < e.base && e.key.lvls == us && e.key.ds == ds).map
         (·.key.cname)).isEmpty then
-      throw (.notImplemented "nested positivity: a cycle through containers at two \
-        instantiations")
+      throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+        declared (a container cycle at two instantiations)")
     else
       pure (.inProgress, { st with restart := some (h.base,
         (prog.filter fun e => h.base < e.base && e.key.lvls == us && e.key.ds == ds).map
@@ -1021,9 +1031,6 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
   let q ← unwrapOr (nestContainerC ctx st n).1 nestNonValid
-  if q.2.isEmpty then
-    throw (.notImplemented "nested positivity: a container without constructors \
-      (its parameter count is not recorded)")
   if args.length < q.1 ||
       !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
     throw nestNonValid
@@ -1042,7 +1049,8 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- A field's domain is a type, so a checked constructor never has one.
   let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
   unless args.length == q.1 + ni.1 do
-    throw (.notImplemented "nested positivity: a container instance that is not fully applied")
+    throw (.invalid "nested positivity: type expected (a container instance that is not \
+      fully applied)")
   nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
 
 /-- **The positivity function** (see the section header): the domain
@@ -1098,8 +1106,8 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
                 return (.inProgress, w, st)
               else throw nestNonValid
             else
-              throw (.notImplemented "nested positivity: a container's own occurrence at \
-                other parameters (non-uniform)")
+              throw (.invalid "nested positivity: non valid occurrence of the datatypes \
+                being declared (a container's own occurrence at other parameters)")
         else throw nestNonValid
       | .const n us =>
         -- a member constant left after the abstraction (other levels)
@@ -1117,14 +1125,15 @@ closed back over the fields (`closeTelescope`), official's
 `check_positivity` form: U4, no
 later field and no result index uses a recursive or reflexive field
 (the closure witness's class condition, today's `structUsedLater`
-guard; a decline), and the result's indices mention no member
+guard; a reject — lane RESTRICT-FIX: official rejects every instance), and the result's indices mention no member
 (official's "invalid return type").  Returns the kinds and the
 normalised telescope. -/
 def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
     (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
   let base := ctx.hiAt 0
   let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
-    (.notImplemented "nested positivity: constructor field telescope") nF 0 crest st
+    (.invalid "nested positivity: a constructor type does not bind its fields (official: \
+      ill-formed constructor)") nF 0 crest st
   if st.restart.isSome then
     throw (.internal "nested positivity: a restart request without its frame")
   let tyN := closeTelescope nds base cur
@@ -1132,8 +1141,8 @@ def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (
       (match ks.getD i .ordinary with
         | .recursive _ | .reflexive _ => true
         | _ => false) && structUsedLater tyN 0 i) then
-    throw (.notImplemented "nested positivity: a later field or the result depends on \
-      a recursive field (the closure witness's class condition)")
+    throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+      declared (a later field or the result depends on a recursive field)")
   unless nestResHead cur && (cur.getAppArgs.drop ctx.nP).all
       (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
@@ -1169,7 +1178,10 @@ def nestAbstract (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
     else none
 
 /-- M2′: a member-abstracted constructor type mentions no member
-CONSTANT (every member occurrence was at the block's own levels). -/
+CONSTANT (every member occurrence was at the block's own levels).  A
+NAMED restriction official does not impose (lane RESTRICT-FIX, finding
+C2): kernel-only input, unreachable from the `inductive` command, needed
+by CONTSEM s2's frame reading; a decline. -/
 def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
   if e.nestOcc ctx.names 0 0 then
     throw (.notImplemented "nested positivity: a member at other universe levels in a \
@@ -1184,16 +1196,25 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
       m (List (List NestFieldKind) × List Expr × NestState)
   | [], st => pure ([], [], st)
   | c :: cs, st => do
+    let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
+      (.invalid "nested positivity: a constructor type does not bind the parameters \
+        (official: ill-formed constructor)")
+    let cq ← unwrapOr (c.1.type.stripPis ctx.nP)
+      (.invalid "nested positivity: a constructor type does not bind the parameters \
+        (official: ill-formed constructor)")
+    let (ks, tyN, st) ← nestMemberCtor ops env ctx c.2 crest st
     -- M2′ (lane CONTSEM): every member occurrence is at the block's own
     -- levels — the abstracted type mentions no member constant — so the
     -- walk's holes are exactly the recorded reading's, at every later
-    -- instantiation of the block as a container
+    -- instantiation of the block as a container.  AFTER the walk (lane
+    -- RESTRICT-FIX): a member at other levels in a position the walk
+    -- reads is official's "non valid occurrence" (a reject, fixture
+    -- `restrict_b02_m2prime_direct_bad`), so this decline fires only where
+    -- the walk never reads the occurrence — a redex whnf drops, a phantom
+    -- container parameter — which official ACCEPTS: a NAMED restriction
+    -- (kernel-only input; `restrict_a27_m2prime_redex`,
+    -- `restrict_a28_m2prime_phantom`; DESIGN, charter item 9)
     nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
-    let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
-      (.notImplemented "nested positivity: constructor parameter telescope")
-    let cq ← unwrapOr (c.1.type.stripPis ctx.nP)
-      (.notImplemented "nested positivity: constructor parameter telescope")
-    let (ks, tyN, st) ← nestMemberCtor ops env ctx c.2 crest st
     let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
     pure (ks :: kss, closeTelescope cq.1 0 (nestConcrete ctx tyN) :: nss, st)
 

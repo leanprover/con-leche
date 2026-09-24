@@ -74,7 +74,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {args : List Expr}
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestCont ctx ops env rec prog kb n us args st = .ok (k, st')) :
-    ∃ nPc L, (nestContainerC ctx st n).1 = some (nPc, L) ∧ L ≠ [] ∧ nPc ≤ args.length ∧
+    ∃ nPc L, (nestContainerC ctx st n).1 = some (nPc, L) ∧ nPc ≤ args.length ∧
       ((args.drop nPc).all fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) = true ∧
       n ≠ quotName ∧
       ((args.take nPc).all fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length))
@@ -90,9 +90,6 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
   have hq' := unwrapOr_ok hq
   obtain ⟨nPc, L⟩ := q
   dsimp only at h
-  by_cases h1 : L.isEmpty = true
-  · rw [if_pos h1] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg h1] at h
   by_cases h2 : (decide (args.length < nPc) ||
       !(List.drop nPc args).all fun x => !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x)
         = true
@@ -119,7 +116,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     · rfl
   rw [if_pos h5] at h
   simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true', not_or] at h2
-  refine ⟨nPc, L, hq', by simpa using h1, by omega, by simpa using h2.2, by simpa using h3, h4,
+  refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4,
     nI, cty, hni, by simpa using h5, h⟩
 
 end ConLeche

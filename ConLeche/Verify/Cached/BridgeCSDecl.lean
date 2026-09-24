@@ -169,11 +169,11 @@ set_option maxHeartbeats 1600000 in
 /-- The inductive block at the cached driver is reproduced by the
 pure fueled `checkModeled`. -/
 theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
+    {nPd : Nat} {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkIndDeclSF mode (mkFEnv env) block s₀ = .ok (feOut, s')) :
+    (h : checkIndDeclSF mode (mkFEnv env) nPd block s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkModeled mode (fueledOps mode F) env block = .ok feOut.env := by
+    ∃ F, checkModeled mode (fueledOps mode F) env nPd block = .ok feOut.env := by
   unfold checkIndDeclSF at h
   have hbnAll : ∀ ci ∈ block.filter (fun ci => match ci with
       | .recInfo _ _ _ _ => true | _ => false),
@@ -340,7 +340,8 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
       foldIndMemberS_run hμ _ env henv hwf
-        (fun _ _ _ _ _ => ⟨(fun h => absurd h (by decide)), (fun h => absurd h (by decide))⟩) hfold
+        (fun _ _ _ _ _ => ⟨(fun h => absurd h Bool.false_ne_true),
+          (fun h => absurd h Bool.false_ne_true)⟩) hfold
     rw [hfe₂] at h
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
       checkIndRecsS_run hμ henv₂ hbnAll hwf₂ h
@@ -351,7 +352,7 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     have hF₂p := FueledM.up (Nat.le_max_right F₁ F₂) hF₂
     rw [checkIndRecs_datF] at hF₂p
     have hF₁p' : List.foldlM (checkIndMember (fueledOps mode (max F₁ F₂))
-        (block.map (·.name)) {}) env _ = .ok fe₂.env := hF₁p
+        (block.map (·.name)) { nparams := nPd }) env _ = .ok fe₂.env := hF₁p
     simp only [checkModeled]
     split
     case isFalse hgs => exact absurd hsplit hgs

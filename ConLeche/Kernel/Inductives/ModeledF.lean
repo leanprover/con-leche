@@ -123,6 +123,7 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
   sortZ := piResultZ cvT.type
+  nparams := nP
 
 /-- `indBlockCaps_sortZ` at the indexed lookup. -/
 @[simp] theorem indBlockCapsF_sortZ (fe : FEnv) (cvT cvC : ConstantVal)

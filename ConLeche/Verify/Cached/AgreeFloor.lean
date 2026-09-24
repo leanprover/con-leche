@@ -808,8 +808,8 @@ theorem indBase_skels (mode : CheckMode) (blockNames : List Name)
   exact checkIndRecsS_skels mode blockNames h₂ recs
 
 theorem checkIndDeclSF_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) :
-    Yields (checkIndDeclSF mode fe block)
+    {sk : List InstallSkel} (h : SkelIs fe sk) (nPd : Nat) (block : List ConstantInfo) :
+    Yields (checkIndDeclSF mode fe nPd block)
       (fun fe' => SkelIs fe' (indDeclSkelsModeled block sk)) := by
   unfold checkIndDeclSF indDeclSkelsModeled
   simp only []
@@ -1788,7 +1788,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
       split
       · unfold indDeclSkels
         cases hbp : blockParts? nP block with
-        | none => exact checkIndDeclSF_skels mode h block
+        | none => exact checkIndDeclSF_skels mode h _ block
         | some p =>
           -- the uniform route, at any number of members
           exact checkBlockKS_skels mode h block p

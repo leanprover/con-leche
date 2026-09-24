@@ -509,18 +509,18 @@ theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst⟩
   | c :: cs, st, _, hs, hcs, hst => by
     unfold nestMemberCtors
-    refine SimC.bind (nestNoMemberConstS_sim hs _) (fun s₀' u u' hs₀' hU => ?_)
-    obtain ⟨rfl, -⟩ := hU
-    refine SimC.bind (SimC.unwrapOr' hs₀') (fun s₁ crest crest' hs₁ hP => ?_)
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ crest crest' hs₁ hP => ?_)
     obtain ⟨rfl, hcr⟩ := hP
     refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ cq cq' hs₂ hP => ?_)
     obtain ⟨rfl, -⟩ := hP
     refine SimC.bind (nestMemberCtorS_sim hμ henv hc c.2
       (memberCrest_wscoped hholes hpar (hcs c List.mem_cons_self) hcr) st hs₂ hst)
-      (fun s₃ r r' hs₃ hR => ?_)
+      (fun s₃' r r' hs₃' hR => ?_)
     obtain ⟨rfl, hst₃⟩ := hR
     rcases r with ⟨ks, tyN, st₃⟩
     dsimp only
+    refine SimC.bind (nestNoMemberConstS_sim hs₃' _) (fun s₃ u u' hs₃ hU => ?_)
+    obtain ⟨rfl, -⟩ := hU
     refine SimC.bind (nestMemberCtorsS_sim hμ henv hc hholes hpar cs st₃ hs₃
       (fun c' hc' => hcs c' (List.mem_cons_of_mem _ hc')) hst₃) (fun s₄ q q' hs₄ hQ => ?_)
     obtain ⟨rfl, hst₄⟩ := hQ
