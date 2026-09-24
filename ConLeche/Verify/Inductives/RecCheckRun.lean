@@ -206,6 +206,8 @@ structure TargetTyEntry (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape
   /-- the elimination restriction's per-recursor half -/
   hsmall : blockLargeElimAllowed p nested = true ∨
     isDefEqCore mode fe.env F (rc.mI + 1) sty (.sort .zero) = .ok true
+  /-- (F2) an outside major's parameters, typed at the rule prefix -/
+  hpinTys : targetMajorPins (fueledOps mode F) fe.env rc.rP M = .ok ()
 
 namespace TargetTyEntry
 
@@ -262,6 +264,24 @@ theorem outside_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs r
   | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc hinst hs =>
     exact ⟨sI, hout, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
 
+/-- **F2, inverted**: at an OUTSIDE major every parameter is typed at
+the rule prefix. -/
+theorem pinTys_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member = none) :
+    ∀ x ∈ M.ds, ∃ T, inferTypeCore mode fe.env F rc.rP x = .ok T := by
+  have h := E.hpinTys
+  simp only [targetMajorPins, hM, Option.isNone_none, if_true] at h
+  generalize M.ds = ds at h
+  induction ds with
+  | nil => intro x hx; exact nomatch hx
+  | cons y ys ih =>
+    simp only [targetPinTys] at h
+    obtain ⟨T, hT, h⟩ := exceptBind_ok h
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact ⟨T, hT⟩
+    · exact ih h x hx
+
 end TargetTyEntry
 
 /-- **Stage (b) at one recursor, inverted** (uniform route). -/
@@ -288,7 +308,7 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {outside nested : Bool}
   case neg => rw [if_neg htgt] at h; close_throw h
   rw [if_pos htgt] at h
   -- F2: the outside major's pins typed (nothing at a member)
-  obtain ⟨_, -, h⟩ := exceptBind_ok h
+  obtain ⟨u0, hpinTys, h⟩ := exceptBind_ok h
   obtain ⟨cvTP, hcvTP, h⟩ := exceptBind_ok h
   obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
   obtain ⟨tfvs, trest⟩ := x2
@@ -322,7 +342,7 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {outside nested : Bool}
           hparLen := hpl, hparams := hpall, hmI := hmI,
           hmajLen := hargs.1, hmajIdx := hargs.2, hidoms := hidoms,
           hidxLen := (by simpa using hil), hidx := fun l hl => hiall l hl, hsty := hsty,
-          hu := hu', hsmall := hsmall }⟩
+          hu := hu', hsmall := hsmall, hpinTys := by cases u0; exact hpinTys }⟩
   by_cases hlarge : blockLargeElimAllowed p nested = true
   case pos =>
     rw [if_pos hlarge] at h

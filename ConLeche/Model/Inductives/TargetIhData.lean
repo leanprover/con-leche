@@ -103,6 +103,25 @@ constructor (today's expression, `blockRuleConclExpr`), read past the
     (tgtB pp.toBlockShape out c j + (tgtIhL mode F fe pp.toBlockShape formerTys out c j).length)
     (tgtConclExpr pp.toBlockShape out c j)).getD default
 
+/-- **`fdoms0` at the MAJOR** (lane NESTIND, item 1): the rule's field
+openers' domains (the constructor at the major's instantiation), read at
+the rule's frame. -/
+@[expose] def tgtFdomsAV (ψ : Name → Nat) (j i : Nat) : List AnnotTerm :=
+  readOpenedDoms acval env ψ (tgtRP p j) (tgtFieldFvs p out j i)
+
+/-- **`es0` at the MAJOR**: the constructor's index expressions (past the
+major's parameter count), read at the rule's frame. -/
+@[expose] def tgtEsAV (ψ : Name → Nat) (j i : Nat) : List AnnotTerm :=
+  ((tgtCbody p out j i).getAppArgs.drop (tgtMajor out j).nPc).map fun e =>
+    (denoteMeta acval env ψ (tgtB p out j i) e).getD default
+
+/-- **`mk0` at the MAJOR**: the fired spine `C.{M.lvls} M.ds f⃗` (the
+target check's), read at the rule's frame. -/
+@[expose] def tgtMkAV (ψ : Name → Nat) (j i : Nat) : AnnotTerm :=
+  (denoteMeta acval env ψ (tgtB p out j i)
+    (ConLeche.Expr.mkAppN (.const (tgtCtorOf out j i).1.name (tgtMajor out j).lvls)
+      ((tgtMajor out j).ds ++ tgtFieldFvs p out j i))).getD default
+
 variable {V : Type w} [SetTheory V]
 
 /-- **The graph-built `ih` values** at the target keys. -/

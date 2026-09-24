@@ -4,6 +4,7 @@ import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleRun
@@ -82,10 +83,68 @@ theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetM
   rw [tgtPrefFvs, blockRulePrefFvs, hT]
   rfl
 
+/-- **At a member major the target's rule data are today's** (lane
+NESTIND, item 1; at EITHER `outside`): the constructor at the major's
+instantiation, its conclusion and field openers are the member-format
+family's; the major's parameters are the prefix's first `nP` openers,
+its levels the block's. -/
+theorem tgtMember_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true) :
+    tgtCrest out j i = blockRuleCrest p (tgtRs out) j i ∧
+    tgtCbody p out j i = blockRuleCbody p (tgtRs out) j i ∧
+    tgtFieldFvs p out j i = blockRuleFieldFvs p (tgtRs out) j i ∧
+    (tgtMajor out j).nPc = p.nP ∧ (tgtMajor out j).lvls = p.lps.map .param ∧
+    (tgtMajor out j).ds = (blockRulePrefFvs p (tgtRs out) j).take p.nP := by
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, hCrest, -, -, -, -⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  rw [← hMaj] at hm ⊢
+  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major_of E hm
+  have hds := targetDs_eq_prefTake_of E hm Q.hpref
+  have hct : ConLeche.targetCtorAt M cA.1 = cA.1.type := by
+    obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hm
+    simp [ConLeche.targetCtorAt, ht]
+  have hPrefEq : tgtPrefFvs p out j = blockRulePrefFvs p (tgtRs out) j :=
+    tgtPrefFvs_eq_block _ _ _
+  have hcrestEq : tgtCrest out j i = blockRuleCrest p (tgtRs out) j i := by
+    have hc := Q.hcrest
+    rw [hct, hds, instPisWith_eq_instPisAt] at hc
+    rw [← hCrest, blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, ← hPref, hc,
+      Option.getD_some]
+  have hcb : tgtCbody p out j i = blockRuleCbody p (tgtRs out) j i := by
+    rw [tgtCbody, blockRuleCbody, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
+    rfl
+  have hfv : tgtFieldFvs p out j i = blockRuleFieldFvs p (tgtRs out) j i := by
+    rw [tgtFieldFvs, blockRuleFieldFvs, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
+    rfl
+  exact ⟨hcrestEq, hcb, hfv, hnPc, hlvls, by rw [hds, hPref, hPrefEq]⟩
+
 /-- **At a member major the target's conclusion is today's**
-(`blockRuleConclExpr` at the member-format family): the major's
-parameters are the prefix's first `nP` openers, its levels the block's,
-its constructor stored at them. -/
+(`blockRuleConclExpr` at the member-format family), at either
+`outside`. -/
+theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true) :
+    tgtConclExpr pp.toBlockShape out j i = blockRuleConclExpr pp (tgtRs out) j i := by
+  obtain ⟨-, hcb, hfv, hnPc, hlvls, hds⟩ := tgtMember_eq_block R hr hcA hrhs hm
+  have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
+    simp only [blockRuleRecTy, tgtRecTy, tgtRs, List.getD_eq_getElem?_getD, List.getElem?_map]
+    cases out[j]? <;> rfl
+  rw [tgtConclExpr, blockRuleConclExpr, hnPc, hlvls, hds, tgtPrefFvs_eq_block, hcb, hfv,
+    tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA, hT]
+
+/-- **At a member major the target's conclusion is today's** — the
+uniform route (`outside = false`). -/
 theorem tgtConclExpr_eq_block {F : Nat} {fe : FEnv} {pp : BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -94,36 +153,54 @@ theorem tgtConclExpr_eq_block {F : Nat} {fe : FEnv} {pp : BlockParts} {nested : 
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
     tgtConclExpr pp.toBlockShape out j i = blockRuleConclExpr pp (tgtRs out) j i := by
-  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, hCrest, hFld, -, -, -⟩ :=
-    targetRuleAtG R hr hcA hrhs
-  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major E
-  have hds := targetDs_eq_prefTake E Q.hpref
-  have hmem := E.isMember
-  have hct : ConLeche.targetCtorAt M cA.1 = cA.1.type := by
-    obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hmem
-    simp [ConLeche.targetCtorAt, ht]
-  have hPrefEq : tgtPrefFvs pp.toBlockShape out j = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
-    tgtPrefFvs_eq_block _ _ _
-  have hrP : rc.rP = pp.toBlockShape.rulePrefixAt j := by
-    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
-  have hcrestEq : tgtCrest out j i = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
-    have hc := Q.hcrest
-    rw [hct, hds, instPisWith_eq_instPisAt] at hc
-    rw [← hCrest, blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, ← hPref, hc,
-      Option.getD_some]
-  have hcb : tgtCbody pp.toBlockShape out j i = blockRuleCbody pp.toBlockShape (tgtRs out) j i := by
-    rw [tgtCbody, blockRuleCbody, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
-    rfl
-  have hfv : tgtFieldFvs pp.toBlockShape out j i
-      = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i := by
-    rw [tgtFieldFvs, blockRuleFieldFvs, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
-    rfl
-  have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
-    simp only [blockRuleRecTy, tgtRecTy, tgtRs, List.getD_eq_getElem?_getD, List.getElem?_map]
-    cases out[j]? <;> rfl
-  rw [tgtConclExpr, blockRuleConclExpr, ← hMaj, hnPc, hlvls, hds, hPref, hPrefEq, hcb, hfv,
-    tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA, hT]
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -⟩ := targetRuleAtG R hr hcA hrhs
+  exact tgtConclExpr_eq_block_of R hr hcA hrhs (by rw [← hMaj]; exact E.isMember)
+
+/-- **At a member major the target's field domains are today's**. -/
+theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    tgtFdomsAV p out acval env ψ j i = blockRuleFdomsAV p (tgtRs out) acval env ψ j i := by
+  obtain ⟨-, -, hfv, -⟩ := tgtMember_eq_block R hr hcA hrhs hm
+  rw [tgtFdomsAV, blockRuleFdomsAV, hfv]
+  rfl
+
+/-- **At a member major the target's index expressions are today's**. -/
+theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    tgtEsAV p out acval env ψ j i = blockRuleEsAV p (tgtRs out) acval env ψ j i := by
+  obtain ⟨-, hcb, -, hnPc, -⟩ := tgtMember_eq_block R hr hcA hrhs hm
+  rw [tgtEsAV, blockRuleEsAV, hcb, hnPc, tgtB, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
+  rfl
+
+/-- **At a member major the target's fired spine is today's**. -/
+theorem tgtMkAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    tgtMkAV p out acval env ψ j i = blockRuleMkAV p (tgtRs out) acval env ψ j i := by
+  obtain ⟨-, -, hfv, -, hlvls, hds⟩ := tgtMember_eq_block R hr hcA hrhs hm
+  rw [tgtMkAV, blockRuleMkAV, hlvls, hds, hfv, tgtB, tgtCtorOf_at hr hcA,
+    blockRuleCtorOf_eq hr hcA]
+  rfl
 
 /-- The recomputed width `tgtB` at a stored rule. -/
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}
