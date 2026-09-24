@@ -101,7 +101,7 @@ theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ (i : V) (fs : List V),
       i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (pp.toBlockShape.recTgtAt c) →
       blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c i j fs → ∀ g : V,
-      interp V (consList (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) d ρ xs c j fs g) (consList (xs ++ fs) ρ)) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)
+      interp V (consList (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) ρ xs c j fs g) (consList (xs ++ fs) ρ)) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)
         = blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
           uX nIdxX ρ xs (tagged c i (d.inj ψ (pp.toBlockShape.recTgtAt c) j fs)) := by
   intro c hc hm huX hnX hps hpref j hj i fs hi hfit g
@@ -126,7 +126,7 @@ theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
   rw [hCaEq]
   have hihl : (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
       fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
-        pp.toBlockShape.large)) d ρ xs c j fs g).length
+        pp.toBlockShape.large)) (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) ρ xs c j fs g).length
       = (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).length := by
     rw [tgtIhv, blockRecIhvAt_length, tgtKeys, List.length_map, List.length_range]
   -- the tuple is an index spine's
@@ -175,7 +175,7 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ (i : V) (fs : List V),
       i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (pp.toBlockShape.recTgtAt c) →
       blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c i j fs → ∀ g : V,
-      interp V (consList (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) d ρ xs c j fs g) (consList (xs ++ fs) ρ)) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)
+      interp V (consList (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) ρ xs c j fs g) (consList (xs ++ fs) ρ)) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)
         = blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
           (fun c' => d.uM (pp.toBlockShape.recTgtAt c') ψ) (fun c' => d.nIdxAt (pp.toBlockShape.recTgtAt c')) ρ xs (tagged c i (d.inj ψ (pp.toBlockShape.recTgtAt c) j fs)) :=
   fun c hc => tgtKitCaB_at hμ h _R hcore hmr hM hdnP (fun c r _ hr => hctM c r hr) ψ ρ xs c hc trivial

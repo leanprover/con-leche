@@ -76,7 +76,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (∀ u, u ∈ˢ unionSet (tgtRs out).length (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs) (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) →
         (∃ e, blockGraphDecF d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (blockRecNCt (tgtRs out)) (tgtRs out).length
             (blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt) xs u e ∧
-          ∀ v, v ∈ˢ blockGraphPred d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (tgtRs out).length (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ d ρ) xs e → P v) → P u) →
+          ∀ v, v ∈ˢ blockGraphPred d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (tgtRs out).length (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) ρ) xs e → P v) → P u) →
       ∀ u, u ∈ˢ unionSet (tgtRs out).length (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs) (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) →
         P u := by
   intro P hP u hu

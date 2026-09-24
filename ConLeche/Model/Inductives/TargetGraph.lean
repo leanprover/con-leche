@@ -138,10 +138,12 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (fun ψ' ρ' => tgtIhv μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ'
       (Level.eval ψ' (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
+      (fun c' is => (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).tup ψ'
+        (pp.toBlockShape.recTgtAt c') is) ρ')
     (fun ψ' ρ' => tgtCall μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ'
-      (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
+      (fun c' is => (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).tup ψ'
+        (pp.toBlockShape.recTgtAt c') is) ρ')
     (fun ψ' ρ' => blockHoleFitRel
       (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ψ' ρ'
       pp.toBlockShape.recTgtAt)

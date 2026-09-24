@@ -124,18 +124,22 @@ target check's), read at the rule's frame. -/
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The graph-built `ih` values** at the target keys. -/
-@[expose] noncomputable def tgtIhv (ψ : Name → Nat) (ℓ : Nat) (d : BlockData V) (ρ : Nat → V) :
-    List V → Nat → Nat → List V → V → List V := fun xs c j fs g =>
-  blockRecIhvAt ℓ (fun c' is => d.tup ψ (p.recTgtAt c') is) (consList (xs ++ fs) ρ)
+/-- **The graph-built `ih` values** at the target keys, at the classes'
+tuple function `tup` (recursor `c'`'s index tuple of an index spine; a
+member class's is `d.tup ψ (p.recTgtAt c')`, an outside class's the
+container's `tupW`). -/
+@[expose] noncomputable def tgtIhv (ψ : Name → Nat) (ℓ : Nat) (tup : Nat → List V → V)
+    (ρ : Nat → V) : List V → Nat → Nat → List V → V → List V := fun xs c j fs g =>
+  blockRecIhvAt ℓ tup (consList (xs ++ fs) ρ)
     (tgtKeys mode F fe p formerTys out c j) (tgtTlA mode F fe p formerTys out acval env ψ c j)
     (tgtEisA mode F fe p formerTys out acval env ψ c j)
     (tgtFapA mode F fe p formerTys out acval env ψ c j) g
 
-/-- **The calls' targets** at the target keys. -/
-@[expose] def tgtCall (ψ : Name → Nat) (d : BlockData V) (ρ : Nat → V) (xs : List V) (c j : Nat)
-    (fs : List V) (v : V) : Prop :=
-  blockGraphCallAt (fun c' is => d.tup ψ (p.recTgtAt c') is)
+/-- **The calls' targets** at the target keys, at the classes' tuple
+function `tup`. -/
+@[expose] def tgtCall (ψ : Name → Nat) (tup : Nat → List V → V) (ρ : Nat → V) (xs : List V)
+    (c j : Nat) (fs : List V) (v : V) : Prop :=
+  blockGraphCallAt tup
     (tgtKeys mode F fe p formerTys out c j) (tgtTlA mode F fe p formerTys out acval env ψ c j)
     (tgtEisA mode F fe p formerTys out acval env ψ c j)
     (tgtFapA mode F fe p formerTys out acval env ψ c j) (consList (xs ++ fs) ρ) v
