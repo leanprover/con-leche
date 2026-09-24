@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst

@@ -1,12 +1,11 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetRowCertsRun
 import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetFrame
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.StructRecKit2

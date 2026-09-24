@@ -10,7 +10,6 @@ import ConLeche.Model.BasisEmpty
 import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 

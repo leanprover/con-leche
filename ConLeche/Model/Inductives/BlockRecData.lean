@@ -1,17 +1,9 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.Inductives.StructRecRead
-import ConLeche.Model.Inductives.FixLeafOk
 import ConLeche.Model.Annot.BitLevels
-import ConLeche.Verify.Inductives.BlockRecInv
-public import ConLeche.Verify.Inductives.BlockRecRun
-import ConLeche.Model.Inductives.BlockCallCerts
-import ConLeche.Model.Inductives.BlockRecOpenerRead
-import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Swap
 
 public section

@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreHpre

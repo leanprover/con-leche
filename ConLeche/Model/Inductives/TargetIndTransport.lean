@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIndRen
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Verify.BridgeWfImp

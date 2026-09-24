@@ -1,10 +1,9 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Semantics.Tower.BlockRecGraphI
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData

@@ -1,12 +1,10 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.FixAssemblyKit
 
 public section
 

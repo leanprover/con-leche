@@ -124,8 +124,6 @@ FALLBACK = {
     # by demoting it alone.
     ('ConLeche.Verify.Inductives.RecCheckRun',
      'ConLeche.Kernel.Inductives.RecCheck'),
-    ('ConLeche.Model.Inductives.BlockRecAssembly',
-     'ConLeche.Verify.Inductives.BlockRecNames'),
     ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
      'ConLeche.Model.Inductives.BlockRecMem'),
     ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
@@ -340,6 +338,13 @@ FALLBACK = {
     # failure on to `AnnotTerm`/`WellDenotedV`/`Sat` — both blind classes
     # (#223 §6's first and the #290 one) in one line.
     ('ConLeche.Model.Inductives.BlockStageFormer','ConLeche.Model.Inductives.BlockLeafOk'),
+    # task #315 (lane RECLIB session 6, the import gate after the old
+    # recursor-stage proofs went): `FixRecRead.lean`'s public statement
+    # `denoteMeta_shiftFromN` names `Expr.shiftFromN`, reached only
+    # through the `Verify/Inductives/FixRec` re-export.  MEASURED:
+    # demoting it alone fails the build with `Unknown constant
+    # ConLeche.Expr.shiftFromN` (`:53`).
+    ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Verify.Inductives.FixRec'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

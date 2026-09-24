@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Checker
 public import ConLeche.Kernel.Inductives.BlockTail
 
 @[expose] public section

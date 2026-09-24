@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecRule
-import ConLeche.Model.Inductives.BlockCallCerts
-import ConLeche.Model.Inductives.BlockRecRead
 
 public section
 

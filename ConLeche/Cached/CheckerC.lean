@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Conformance.RecConformF
-public import ConLeche.Kernel.Inductives.BlockInstallF
 public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Cached.CoreC
 

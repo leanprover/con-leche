@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetRuleData

@@ -1,11 +1,10 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockRecLaw
 import ConLeche.Verify.ProjSlots
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Inductives.BlockRecRun
 
 public section

@@ -2,8 +2,6 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.ExceptBind
 
 public section

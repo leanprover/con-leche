@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreHpre
 public import ConLeche.Model.Inductives.BlockRuleRun

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.IndBlockFacts

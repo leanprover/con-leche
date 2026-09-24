@@ -5,7 +5,7 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Rules.Sound
 public import ConLeche.Model.Inductives.BlockRecRule
-public import ConLeche.Kernel.Inductives.RecCheck
+import ConLeche.Kernel.Inductives.RecCheck
 
 public section
 

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
