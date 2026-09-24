@@ -272,7 +272,7 @@ theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   have hB : tgtB pp.toBlockShape out j i = tgtRP pp.toBlockShape j + cA.2 := by
     rw [tgtB, hct']
   -- the reading, off the recorded constructor
-  obtain ⟨-, -, -, -, -, -, hrdC⟩ :=
+  obtain ⟨-, -, -, -, -, -, hrdC, -⟩ :=
     instCtor_open mpC hcl.hD hcl.hnN hcl.hkN hlps hnd hul hds hdsa hlenP hcl.hmm hiD hfc hcr hfld
   -- the syntax, off F8
   obtain ⟨cv₈, nPc₈, nF₈, hf₈, bs, args, hstrip, hlen⟩ :=

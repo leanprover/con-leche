@@ -103,13 +103,13 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List Consta
   {outside nested : Bool} {block : List ConstantInfo}
 
 set_option maxHeartbeats 2000000 in
-/-- **The instantiated constructor is graded at an outside class**: at a
-prefix spine fitting the rule's prefix domains, the reading of the
-container's constructor at the major's levels and parameters
-(`tgtCrest`) is graded — the stored type's graded reading peeled along
-the parameters' readings, which fit its parameter binders (F9 at the key
-frame, `tgtOutSat`). -/
-theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+/-- **The instantiated constructor, as a fit of the stored type** at an
+outside class: the constructor's stored type reads (at the instantiation's
+levels) as a closed, graded Π-tower with the container's parameter count
+of outer binders, and at a prefix spine fitting the rule's prefix domains
+the parameters' readings FIT it (F9 at the key frame, `tgtOutSat`), the
+residual being the instantiated constructor's reading (`tgtCrest`). -/
+theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
@@ -122,9 +122,17 @@ theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
-    {C : AnnotTerm}
-    (hC : denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtCrest out j i) = some C) :
-    WellDenotedV V (consList xs ρ) C := by
+ :
+    ∃ (T0 : AnnotTerm) (pps : List (Nat × Nat × AnnotTerm)) (b0 : AnnotTerm),
+      ConstantInfo.ctorInfo cA.1 (tgtMajor out j).nPc cA.2 ∈ envC.consts ∧
+      cA.1.levelParams = cvI.levelParams ∧
+      denoteMeta mpC.base2.acval envC (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) 0
+        cA.1.type = some T0 ∧
+      T0 = mkPisAV pps b0 ∧ pps.length = (tgtMajor out j).nPc ∧
+      (∀ σ : Nat → V, WellDenotedV V σ T0) ∧ Term.bvarsBelow 0 T0.erase ∧
+      ∀ C : AnnotTerm,
+        denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtCrest out j i) = some C →
+        TeleFitPA V (consList xs ρ) T0 (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j) C := by
   have hacl := mpC.base2.acval_closed
   obtain ⟨dsa, hdsa, hul, hds, hlenP, hsatW⟩ := tgtOutSatW hμ mpC hcov h R hr hMo hcl ψ
   obtain ⟨hsatK, hdsaW⟩ := hsatW ρ xs hpref
@@ -213,12 +221,49 @@ theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨restA, hrest, hpeel⟩ := Rules.denoteMeta_instPisAt_peel hacl (acval_inst_self mpC.base2)
     _ hinst (Expr.WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact hCf))
     hds hTy hdsa
-  rw [← hQcr, hrest] at hC
-  obtain rfl := Option.some.inj hC
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
   have hpe := hTF.peelPis
   rw [← hT0E, hpeel] at hpe
   obtain rfl := Option.some.inj hpe
-  exact teleFitPA_wellDenotedV hTF (by rw [← hT0E]; exact hT0wd _) hdsaW
+  refine ⟨T0, pps, b0, hcons, hlpsI.symm, by rw [hlpsI]; exact hT0, hT0E, hplen, hT0wd, ?_,
+    fun C hC => ?_⟩
+  · rw [hT0E]; exact hT0cl
+  · rw [← hQcr, hrest] at hC
+    obtain rfl := Option.some.inj hC
+    rw [← hdsaE, hT0E]; exact hTF
+
+set_option maxHeartbeats 1000000 in
+/-- **The instantiated constructor is graded at an outside class**: at a
+prefix spine fitting the rule's prefix domains, the reading of the
+container's constructor at the major's levels and parameters
+(`tgtCrest`) is graded — the stored type's graded reading peeled along
+the parameters' readings (`tgtOutCtorFit`), which are graded
+(`tgtOutSatW`). -/
+theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+    {xs : List V}
+    (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
+    {C : AnnotTerm}
+    (hC : denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtCrest out j i) = some C) :
+    WellDenotedV V (consList xs ρ) C := by
+  obtain ⟨T0, -, -, -, -, -, -, -, hT0wd, -, hfit⟩ :=
+    tgtOutCtorFit hμ hcov h R hr hcA hrhs hMo hcl ψ ρ hpref
+  obtain ⟨dsa, hdsa, -, -, -, hsatW⟩ := tgtOutSatW hμ mpC hcov h R hr hMo hcl ψ
+  obtain ⟨-, hdsaW⟩ := hsatW ρ xs hpref
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  exact teleFitPA_wellDenotedV (hfit C hC) (hT0wd _) hdsaW
 
 end Crest
 

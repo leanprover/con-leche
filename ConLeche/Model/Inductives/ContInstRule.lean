@@ -75,12 +75,21 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
         = some (AnnotTerm.substAV (instTau mp φ D us hi ds)
             (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
               ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-                ++ D.resIdx (Level.substFn φ lps us) c j)) nF) := by
+                ++ D.resIdx (Level.substFn φ lps us) c j)) nF) ∧
+      denoteMeta mp.base2.acval env φ hi crest
+        = some (mkPisAV (AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab)
+            (AnnotTerm.substAV (instTau mp φ D us hi ds)
+              (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
+                ((List.range ds.length).map
+                    (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
+                  ++ D.resIdx (Level.substFn φ lps us) c j)) nF)) := by
   obtain ⟨hlp, crest', ab, hcr', hTy, hlab, hrd⟩ :=
     instCtor_read mp hD hnN hkN hlps hnd hul hds hdsa hlenP hc hj hfc
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   refine ⟨hlp, ab, hTy, hlab, ?_⟩
+  have hrd' := hrd
+  rw [hlab] at hrd'
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis nF hfld hrd
   have hstEq := stripPisAV_mkPisAV (AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab)
     (AnnotTerm.substAV (instTau mp φ D us hi ds)
@@ -91,7 +100,7 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
   rw [hlab] at hst
   rw [hstEq] at hst
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hst.symm)
-  refine ⟨?_, fun l x hx => ?_, hb⟩
+  refine ⟨?_, fun l x hx => ?_, hb, hrd'⟩
   · exact readOpenedDoms_eq fvsF _ hi
       (by rw [openPisAtFvars_length _ hfld, substTele_length, hlab])
       (fun i x hx => by
