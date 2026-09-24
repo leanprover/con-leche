@@ -164,6 +164,66 @@ theorem instPisAtLift_instantiateList {os : List Expr}
     congr 1
     exact List.map_congr_left fun a _ => ConLeche.instantiateList_eq_instSeq hne a
 
+/-! ## A graph's domain is rigid -/
+
+theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) : f ≠ (pt : V) := by
+  intro h
+  have hm : (ptTag : V) ∈ˢ f := h ▸ ptTag_mem_pt
+  obtain ⟨x, -, y, -, hp⟩ := mem_sigmaPairs.mp ((mem_piSet.mp hf).1 _ hm)
+  exact ptTag_ne_kpair x y hp
+
+theorem mem_dom_of_mem_piSet_two {A A' f x : V} {B B' : V → V} (hf : f ∈ˢ piSet A B)
+    (hf' : f ∈ˢ piSet A' B') (hx : x ∈ˢ A') : x ∈ˢ A := by
+  obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf').2 x hx
+  obtain ⟨x', hx', y', -, hp⟩ := mem_sigmaPairs.mp ((mem_piSet.mp hf).1 _ hy)
+  rw [(kpair_inj hp).1]
+  exact hx'
+
+theorem WellDenoted_mkAppN_head {ρ : Nat → V} :
+    ∀ (as : List AnnotTerm) {g : AnnotTerm},
+      WellDenoted V ρ (AnnotTerm.mkAppN g as) → WellDenoted V ρ g
+  | [], _, h => h
+  | a :: as, g, h => by
+    have h1 := WellDenoted_mkAppN_head as (g := .app g a) h
+    exact ((WellDenoted_app V ρ g a) ▸ h1).1
+
+/-- **A graded application spine of a value of a nonzero-bit Π-tower fits
+the tower**: each application node's package puts its argument in a
+domain the head inhabits as a graph, and a graph's domain is rigid. -/
+theorem spineFit_of_wellDenoted_mkAppN_pi {R : AnnotTerm} :
+    ∀ {pds : List (Nat × Nat × AnnotTerm)} {h : AnnotTerm} {args : List AnnotTerm}
+      {τ σ : Nat → V},
+      (∀ d ∈ pds, d.2.1 ≠ 0) →
+      WellDenoted V τ (AnnotTerm.mkAppN h args) →
+      interp V τ h ∈ˢ interp V σ (mkPisAV pds R) →
+      args.length = pds.length →
+      SpineFit σ (pds.map (·.2.2)) (args.map (interp V τ))
+  | [], _, [], _, _, _, _, _, _ => trivial
+  | [], _, _ :: _, _, _, _, _, _, hlen => by simp at hlen
+  | _ :: _, _, [], _, _, _, _, _, hlen => by simp at hlen
+  | d :: pds, h, a :: args, τ, σ, hnz, hwd, hmem, hlen => by
+    simp only [List.map_cons, SpineFit]
+    rw [AnnotTerm.mkAppN_cons] at hwd
+    have hwdA := WellDenoted_mkAppN_head args hwd
+    obtain ⟨-, -, v, A, Bf, hf, ha, -⟩ := (WellDenoted_app V τ h a) ▸ hwdA
+    have hd : d.2.1 ≠ 0 := hnz d List.mem_cons_self
+    have hmem' : interp V τ h ∈ˢ piSet (interp V σ d.2.2)
+        (fun x => interp V (cons x σ) (mkPisAV pds R)) := by
+      have := hmem
+      simp only [mkPisAV, interp_pi] at this
+      rwa [piR_pos hd] at this
+    have hv : v ≠ 0 := by
+      intro hv0
+      rw [hv0, piR_zero] at hf
+      exact ne_pt_of_mem_piSet hmem' (eq_pt_of_mem_truthVal hf)
+    rw [piR_pos hv] at hf
+    have hx : interp V τ a ∈ˢ interp V σ d.2.2 := mem_dom_of_mem_piSet_two hmem' hf ha
+    refine ⟨hx, ?_⟩
+    refine spineFit_of_wellDenoted_mkAppN_pi (R := R) (h := .app h a)
+      (fun d' hd' => hnz d' (List.mem_cons_of_mem _ hd')) hwd ?_ (by simpa using hlen)
+    rw [interp_app]
+    exact app_mem_of_mem_piSet hmem' hx
+
 /-! ## A field's telescope read through whnf -/
 
 section Whnf
