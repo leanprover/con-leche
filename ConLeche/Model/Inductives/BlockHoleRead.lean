@@ -13,7 +13,6 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.NestPosMono
-import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.StructBits
 public section
@@ -671,7 +670,10 @@ variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {d : BlockD
 /-- **Field `i` of a stored constructor, abstracted, reads as `absField`**
 — the hole reading the clause records. -/
 theorem blockField_holeRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hcf : BlockCtorFacts m d lps c j cA)
+    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
+      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
     {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
     (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
     {holes : List Expr} (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
@@ -683,7 +685,7 @@ theorem blockField_holeRead {c j : Nat} {cA : ConstantVal × Nat}
     (ψ : Name → Nat) {i : Nat} {x : Expr} (hx : (d.xFvsF c j)[i]? = some x) :
     denoteMeta m.acval env ψ (d.nP + d.k + i) (holeAbs ctx holes x.fvarTypeD)
       = some (d.absField ψ c j i) := by
-  obtain ⟨-, -, hD⟩ := hcf
+  have hD := hD₀
   have hacl := m.acval_closed
   have hi : i < cA.2 := by rw [← hD.xLen]; exact (List.getElem?_eq_some_iff.mp hx).1
   have hks : i < (d.ksF c j).length := by rw [hD.ksLen]; exact hi
@@ -775,7 +777,10 @@ theorem blockField_holeRead {c j : Nat} {cA : ConstantVal × Nat}
 reading the clause records**: its fields are `absF`, its result the
 component's hole at the parameters and `absE`. -/
 theorem blockCtor_holeRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hcf : BlockCtorFacts m d lps c j cA)
+    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
+      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
     {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
     (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
     {holes : List Expr} (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
@@ -789,8 +794,7 @@ theorem blockCtor_holeRead {c j : Nat} {cA : ConstantVal × Nat}
         = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
       ab.map (·.2.2) = d.absF ψ c j := by
-  have hcf' := hcf
-  obtain ⟨-, -, hD⟩ := hcf'
+  have hD := hD₀
   have hacl := m.acval_closed
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
   have hwc : Expr.WScoped d.nP crest := by
@@ -798,7 +802,11 @@ theorem blockCtor_holeRead {c j : Nat} {cA : ConstantVal × Nat}
     rwa [Nat.zero_add] at this
   have hfresh' : ∀ n, n ∈ ctx.names → d.env₀.find? n = none := by rw [hnames]; exact hfresh
   have hnd' : ctx.names.Nodup := by rw [hnames]; exact hnd
-  have hnF := hcf.nF hcj ψ
+  have hnF : ((d.Fss c ψ).getD j []).length = cA.2 := by
+    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+      fssOfR_fixCtorDataList_getD hcj
+    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
+    omega
   -- the concrete body, peeled off the stored type's reading
   have hopAll : openPisAtFvars (d.nP + cA.2) cA.1.type 0
       = some (d.fvsPF c j ++ d.xFvsF c j, d.xrestF c j) :=
@@ -838,7 +846,7 @@ theorem blockCtor_holeRead {c j : Nat} {cA : ConstantVal × Nat}
         refine ⟨by rw [hnP, Nat.add_zero]; exact hD.domRead ψ i x hx, ?_⟩
         rw [show ctx.nP + ctx.names.length + 0 + i = d.nP + d.k + i by
           rw [hnP, hnames, ← hk, Nat.add_zero]]
-        exact blockField_holeRead hcj hcf hnames hlps hnP hk hh hholes hnd hfresh htgt hwc hopX ψ hx)
+        exact blockField_holeRead hcj hD₀ hnames hlps hnP hk hh hholes hnd hfresh htgt hwc hopX ψ hx)
       (by rw [hnP, Nat.add_zero, Nat.zero_add] at *; exact hB)
       (by rw [show ctx.nP + ctx.names.length + 0 + cA.2 = ctx.nP + ctx.names.length + cA.2 by omega];
           exact haB)
@@ -955,7 +963,10 @@ the walk's depth `nP + k`, as the Π-tower over the clause's fields with
 holes (`absF`) ending in the component's hole at the parameters and the
 clause's result index readings (`absE`). -/
 theorem blockCtor_walkRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hcf : BlockCtorFacts m d lps c j cA)
+    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
+      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
+      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
     {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
     (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
     (hpar : Expr.ErasedEqL ctx.params (d.fvsPF c j))
@@ -971,9 +982,8 @@ theorem blockCtor_walkRead {c j : Nat} {cA : ConstantVal × Nat}
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
       ab.map (·.2.2) = d.absF ψ c j := by
   obtain ⟨crest, ab, hopP, hread, hab⟩ :=
-    blockCtor_holeRead hcj hcf hnames hlps hnP hk hh hholes hnd hfresh htgt hc hwty ψ
-  have hcf' := hcf
-  obtain ⟨-, -, hD⟩ := hcf'
+    blockCtor_holeRead hcj hD₀ hnames hlps hnP hk hh hholes hnd hfresh htgt hc hwty ψ
+  have hD := hD₀
   -- the concrete opening, abstracted
   have hA₂ := nestAbstract_instPisWith (ctx := ctx) hh (instPisWith_of_openPis d.nP hopP)
   have hvars : ∀ x ∈ d.fvsPF c j, ∃ i ty, x = .fvar i ty := by

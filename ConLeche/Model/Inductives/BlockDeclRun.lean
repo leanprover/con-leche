@@ -160,12 +160,17 @@ theorem blockModelAt_seam
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k) :
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).toLfp
+      ∈ mpC.lfpBlocks) :
     BlockModelAt mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).memberNames
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) := by
   obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  -- the operator's monotonicity is the recorded clause's (lane HOLE2: the
+  -- install derived it from positivity when it recorded the clause)
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+    fun _ _ ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1
 
 /-- **The seam's canonical constructor-type reading**: the stored type
 of recursor `j`'s `i`-th constructor, read at the constructors'
@@ -973,6 +978,8 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).toLfp
+      ∈ mpC.lfpBlocks)
     (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
       ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM c))
     {s : (Name → Nat) → Nat} {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
@@ -1064,7 +1071,7 @@ theorem blockRuleDataB_seam (hμ : μ.verifiedChecks = true)
               fire := .plain, rhs := rhs, paramsBlind := true }) rhs := by
   intro m₃ hac φ j r hr i cA rhs hcA hrhs
   have hj : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
-  have hM := blockModelAt_seam h hN hS hcore
+  have hM := blockModelAt_seam h hN hS hcore hlfp
   have hmr := blockMembersRun_seam hN hS hcore
   -- the member link and the constructor's facts
   obtain ⟨ms, hms, hctA, hlenms⟩ := checkBlockRecK_ctorsAt h hr
@@ -1412,6 +1419,8 @@ theorem blockRuleIhFit_seam (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).toLfp
+      ∈ mpC.lfpBlocks)
     {s : (Name → Nat) → Nat}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
@@ -1453,7 +1462,7 @@ theorem blockRuleIhFit_seam (hμ : μ.verifiedChecks = true)
       (blockRecTyAV mpC.base2.acval envC rs (Level.substFn φ r.1.levelParams us) mm))
       (ha' mm hmm).2.1).mpr (ha' mm hmm).1
   exact blockIhFitChain_run hμ h hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hN hS hcore
-    (blockMembersRun_seam hN hS hcore) (blockModelAt_seam h hN hS hcore)
+    (blockMembersRun_seam hN hS hcore) (blockModelAt_seam h hN hS hcore hlfp)
     (Level.substFn φ r.1.levelParams us) ρ _ htl htyped j hj i hi _ hsp
 
 end MembersRun
@@ -1745,7 +1754,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
       have hmr := blockMembersRun_seam hnames hstage hcore
-      have hM := blockModelAt_seam hrec hnames hstage hcore
+      have hM := blockModelAt_seam hrec hnames hstage hcore hlfp
       have heqB := blockRecEqs_below_seam hμ hrec hcore hkLen
       -- the rule frame's grading (G) and the typed tuple's `ih` fit (F)
       have hokA := blockRuleGrading_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage
@@ -1764,7 +1773,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         ⟨blockGradeLhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM,
           blockGradeIhs_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage hcore hmr hM⟩
       -- the `ih` openers' fit, off the regime
-      have hihFit := blockRuleIhFit_seam hμ hrec hkLen hnames hstage hcore hpre
+      have hihFit := blockRuleIhFit_seam hμ hrec hkLen hnames hstage hcore hlfp hpre
       exact ⟨s, blockRecNCt rsR,
         fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rsR ψ',
         fun ψ' => blockRuleFdomsAV pp.toBlockShape rsR mpC.base2.acval envC ψ',
@@ -1777,7 +1786,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         fun j r hr => blockRecNCt_ge hr,
         fun ψ j r hr => blockRulePdomsAV_length hμ mpC hrec hr ψ,
         blockRecCtor_seam hrec hnames hcore hctorsAs,
-        blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hctorsAs heqB heqV heqP hpre
+        blockRuleDataB_seam hμ hrec hnd hnames hstage hcore hlfp hctorsAs heqB heqV heqP hpre
           rfl rfl hokA hihFit,
         blockRecTyZ_run hμ mpC hrec,
         blockRuleRaZ_seam hμ mpC hrec hpre⟩

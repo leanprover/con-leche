@@ -320,8 +320,9 @@ theorem interp_absField_ord {c j i : Nat} (hr : ((d.rss c).getD j []).getD i fal
 /-- **A field reading a member** reads at the hole frame of `X` as the
 fixpoint route's slot at `X`: the hole applied to the parameters and the
 index readings is `X`'s component at their tuple, under the telescope. -/
-theorem interp_absField_rec (hs : Sat V (d.params ψ).reverse ρp)
-    (hlenP : (d.params ψ).length = d.nP) {c j i : Nat}
+theorem interp_absField_rec {c j i : Nat}
+    (hs : Sat V (d.toLfp.pars (d.tgts c j i) ψ).reverse ρp)
+    (hlenP : (d.toLfp.pars (d.tgts c j i) ψ).length = d.nP)
     (hr : ((d.rss c).getD j []).getD i false = true) (ht : d.tgts c j i < d.k)
     (hbits : ∀ dd ∈ ((d.tlss c ψ).getD j []).getD i [], (dd.2.1 = 0 ↔ d.w ψ = 0))
     {as : List V} (has : as.length = i)
@@ -358,7 +359,7 @@ theorem interp_absField_rec (hs : Sat V (d.params ψ).reverse ρp)
     exact interp_liftN_consList2 _ _ _ _
   rw [heis, ← hlenP]
   have hfit := (hSF.2.2 ts hts).2
-  have := d.toLfp.holeVal_app (X := X) hs _ hfit
+  have := d.toLfp.holeVal_app (X := X) hs hfit
   simp only [consList_append] at this ⊢
   exact this
 
@@ -452,6 +453,11 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
   facts : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → BlockCtorFacts m d lps c j cA
   tgt : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → ∀ l, l < cA.2 → d.tgts c j l < d.k
   lenP : ∀ ψ, (d.params ψ).length = d.nP
+  /-- every member's own parameter telescope: `nP` long, satisfied where
+  the block's is -/
+  parsLen : ∀ ψ m, m < d.k → (d.toLfp.pars m ψ).length = d.nP
+  parsSat : ∀ ψ m, m < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
+    Sat V (d.toLfp.pars m ψ).reverse ρ
   lenE : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
@@ -470,7 +476,7 @@ parameter frame of the domain, every tuple of the space and every index
 tuple, a spine fits a constructor's `ChainFit` exactly when it fits the
 constructor's fields with holes at the hole frame, its result index
 readings the tuple's components. -/
-theorem blockReadsHoles (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps) :
+theorem blockReadsHoles (hidx : d.IdxFit) (hH : BlockHoleFacts m d lps) :
     d.toLfp.ReadsHoles := by
   intro ψ ρp hs X hX c hc t ht j fs
   show (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ↔
@@ -494,8 +500,9 @@ theorem blockReadsHoles (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d l
     · rw [if_pos hr]
       obtain ⟨-, -, hD⟩ := hcf
       have hTl : (d.tlss c ψ).getD j [] = d.tssF c j ψ := tlssOfR_fixCtorDataList_getD hcj
-      refine interp_absField_rec hs (hH.lenP ψ) hr (hH.tgt c hc j _ hcj l (by omega))
-        (fun dd hdd => ?_) has (hM.idxFit ψ ρp hs X hX c hc t ht j hj l hl hr as hpre)
+      refine interp_absField_rec (hH.parsSat ψ _ (hH.tgt c hc j _ hcj l (by omega)) ρp hs)
+        (hH.parsLen ψ _ (hH.tgt c hc j _ hcj l (by omega))) hr (hH.tgt c hc j _ hcj l (by omega))
+        (fun dd hdd => ?_) has (hidx ψ ρp hs X hX c hc t ht j hj l hl hr as hpre)
       rw [hTl] at hdd
       exact (hD.tssBits ψ l dd hdd).trans Iff.rfl
     · have hr' : ((d.rss c).getD j []).getD l false = false := by simpa using hr
@@ -564,7 +571,7 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
     · rintro ⟨j, fs, hj, hfit, rfl⟩; exact ⟨j, fs, ⟨hj, hfit⟩, rfl⟩
     · rintro ⟨j, fs, ⟨hj, hfit⟩, rfl⟩; exact ⟨j, fs, hj, hfit, rfl⟩
   leaf := hM.leaf
-  holes := blockReadsHoles hM hH
+  holes := blockReadsHoles hM.idxFit hH
   mkZero := hM.mkZero
   mkInj := fun ψ hw c hc j fs j' fs' hj hj' hl hl' h =>
     hM.mkInj ψ hw c hc j fs j' fs' hj hj'
@@ -575,7 +582,7 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
     have hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList as ρ))
         (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) :=
       lfpTuple_mem _ _ _ _
-    obtain ⟨hj, hcf, -⟩ := (blockReadsHoles hM hH ψ (consList as ρ) hsat _ hX c hc t ht j fs).mpr hf
+    obtain ⟨hj, hcf, -⟩ := (blockReadsHoles hM.idxFit hH ψ (consList as ρ) hsat _ hX c hc t ht j fs).mpr hf
     have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
     have hasLen : as.length = d.nP := by rw [hsa.length_eq]; exact hH.lenP ψ
     have hsp : SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs :=

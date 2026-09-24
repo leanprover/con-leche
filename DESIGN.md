@@ -85367,3 +85367,56 @@ proof consumes, on the verified path, with its bridges.
   bridges and at the gate) — the walk accepts every block the
   classifier accepts, and U2 types every accepted block's abstracted
   constructors.
+
+#### LANDED (lane HOLE2, checkpoint (c) part 2: monotonicity FROM POSITIVITY at the install, 2026-09-24)
+
+Charter item 2's "Monotonicity is DERIVED FROM POSITIVITY", at the
+uniform install: `blockModelAt_of_stages` no longer reads the slot
+functor's `blockPhi_mono`; its `functor` conjunct's monotonicity is a
+hypothesis `hmono : d.IdxFit → d.Fibre → … MonoTuple`, and the install
+supplies it from the positivity stage's run.
+
+- **The relation** (`Model/Annot/BlockLfpTup.lean`): `LfpDatum.tupRel ψ ρp`
+  — the tuple order seen at the hole frame.  Set-level facts: the frames
+  agree off the member holes (`tupRel_agreeOff`); a hole grows at its full
+  arity (`holeOn_tupRel`, via `holeFam_fold_mono`: a λ-tower of graphs over
+  the same domains, leaves ordered on the index set and both empty off
+  it); a hole value inhabits its member's type (`holeVal_mem`, via
+  `holeFam_mem_mkPisAV`).  `monoTuple_of_tupRel` is POSPROOF's
+  `monoTuple_of_holes` at this relation.
+- **Datum change** (`LfpDatum.pars`): a hole's λ-tower is over its
+  MEMBER's own parameter telescope (the hole's type is the member's
+  stored type, which U2 types at; member 0's telescope is only
+  `Sat`-equivalent, not pointwise equal).  `holeVal_app` takes the
+  member's telescope; `BlockHoleFacts` gained `parsLen`/`parsSat`.
+- **Per constructor** (`Model/Inductives/BlockPosRun.lean`,
+  `blockCtorPos_of_walk`): the walk's term reads as `mkPisAV ab (x_c
+  params absE)` (`blockCtor_walkRead`, now over `BlockCtorDataI` so it
+  runs at the formers' model); its context (member 0's parameters, then
+  one hole per member at its stored type) is `CtxOk` by
+  `ctxOk_of_openers`; the reading is GRADED there by U2's `inferTypeCore`
+  run (`infer_sound`); `tupRel` is a `HoleRel` of that context; so
+  `nestMemberCtor_sem_flat` gives `PiPosThen`, read off the Π-tower as
+  `CtorPos` (`piPosThen_mkPisAV`, result spine by `mkAppN_bvar_inj`).
+  `blockCtorPos_of_run`: every constructor, from `DeclBlockRun` 7b.
+- **Kernel**: `nestMemberCtor` also checks the result is headed by a
+  variable (`nestResHead`; never fires after `checkSumCtor`, which checked
+  the result is the member applied) so `ResultIdxConst` names the spine
+  (`∃ i vs, r = mkAppN (.bvar i) vs ∧ …`); run inversion
+  `Verify/Inductives/PositivityInv.lean` (`checkBlockPositivity_inv`);
+  scoping lemmas moved to `Verify/Inductives/NestScope.lean` (shared by
+  the cached simulation and the model).
+- **Wiring**: `blockModelAt_of_records` takes `hmono`; `blockMono_of_pos`
+  builds it from positivity (`blockReadsHoles` now needs only
+  `d.IdxFit`, not the whole `BlockModelAt`); `declBlock` supplies
+  `blockCtorPos_of_run hμ mpI …` at the formers' model; the recursor
+  seam (`blockModelAt_seam`, and `blockRuleDataB_seam` /
+  `blockRuleIhFit_seam` which call it) reads the monotonicity off the
+  RECORDED clause (`hlfp : d.toLfp ∈ mpC.lfpBlocks`, whose `functor` the
+  install proved from positivity) — three hypotheses added in
+  `BlockDeclRun.lean`, nothing else of the recursor model touched.
+- **Still slot-form** (for (d)): `BlockChainsOk` still supplies the
+  operator's `MapsTuple`/closed tuple, and the constructor stage's own
+  fixpoint equation (`blockFam_app_eq`, `BlockCtorsLoop`,
+  `BlockRealChains`, `FixZeroField`) still uses `blockPhi_mono` on the
+  slot datum.

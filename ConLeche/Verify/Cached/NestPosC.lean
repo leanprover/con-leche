@@ -8,6 +8,7 @@ import ConLeche.Verify.Cached.SimCS
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Inductives.NestScope
 public section
 
 /-!
@@ -36,114 +37,12 @@ open Expr
 
 variable {mode : CheckMode}
 
-/-! ## Scoping -/
-
-/-- A well-scoped term whose variables lie below `d'` is well scoped
-there. -/
-theorem WScoped.of_fvarsBelow : ∀ {e : Expr} {d d' : Nat}, WScoped d e →
-    Expr.fvarsBelow d' e → WScoped d' e := by
-  intro e
-  induction e with
-  | fvar idx ty _ =>
-    intro d d' hw hb
-    simp only [WScoped] at hw ⊢
-    exact ⟨hb, hw.2⟩
-  | app f a ihf iha =>
-    intro d d' hw hb
-    simp only [WScoped, Expr.fvarsBelow] at hw hb ⊢
-    exact ⟨ihf hw.1 hb.1, iha hw.2 hb.2⟩
-  | lam ty b m iht ihb =>
-    intro d d' hw hb
-    simp only [WScoped, Expr.fvarsBelow] at hw hb ⊢
-    exact ⟨iht hw.1 hb.1, ihb hw.2 hb.2⟩
-  | forallE ty b m iht ihb =>
-    intro d d' hw hb
-    simp only [WScoped, Expr.fvarsBelow] at hw hb ⊢
-    exact ⟨iht hw.1 hb.1, ihb hw.2 hb.2⟩
-  | letE ty v b iht ihv ihb =>
-    intro d d' hw hb
-    simp only [WScoped, Expr.fvarsBelow] at hw hb ⊢
-    exact ⟨iht hw.1 hb.1, ihv hw.2.1 hb.2.1, ihb hw.2.2 hb.2.2⟩
-  | proj s i e ih =>
-    intro d d' hw hb
-    simp only [WScoped, Expr.fvarsBelow] at hw hb ⊢
-    exact ih hw hb
-  | bvar _ => intros; simp [WScoped]
-  | sort _ => intros; simp [WScoped]
-  | const _ _ => intros; simp [WScoped]
-  | lit _ => intros; simp [WScoped]
-
-/-- Replacing constants of a closed term by well-scoped terms gives a
-well-scoped term. -/
-theorem WScoped.replaceConsts_closed {f : Name → List Level → Option Expr} {d : Nat}
-    (hf : ∀ c us e, f c us = some e → WScoped d e) :
-    ∀ (e : Expr), e.hasFvar = false → WScoped d (e.replaceConsts f) := by
-  intro e
-  induction e with
-  | fvar idx ty _ => intro h; simp [Expr.hasFvar] at h
-  | const c us =>
-    intro _
-    simp only [Expr.replaceConsts]
-    cases hc : f c us with
-    | none => simp [WScoped]
-    | some e => exact hf c us e hc
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
-    simp only [Expr.replaceConsts, WScoped]
-    exact ⟨ihf h.1, iha h.2⟩
-  | lam ty b m iht ihb =>
-    intro h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
-    simp only [Expr.replaceConsts, WScoped]
-    exact ⟨iht h.1, ihb h.2⟩
-  | forallE ty b m iht ihb =>
-    intro h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
-    simp only [Expr.replaceConsts, WScoped]
-    exact ⟨iht h.1, ihb h.2⟩
-  | letE ty v b iht ihv ihb =>
-    intro h
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
-    simp only [Expr.replaceConsts, WScoped]
-    exact ⟨iht h.1.1, ihv h.1.2, ihb h.2⟩
-  | proj s i e ih =>
-    intro h
-    simp only [Expr.hasFvar] at h
-    simp only [Expr.replaceConsts, WScoped]
-    exact ih h
-  | bvar _ => intro _; simp [Expr.replaceConsts, WScoped]
-  | sort _ => intro _; simp [Expr.replaceConsts, WScoped]
-  | lit _ => intro _; simp [Expr.replaceConsts, WScoped]
-
-/-- Instantiating a telescope at well-scoped arguments keeps a term well
-scoped. -/
-theorem wscoped_instPisWith {d : Nat} :
-    ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, WScoped d a) → WScoped d e →
-      ConLeche.instPisWith as e = some r → WScoped d r
-  | [], e, r, _, he, h => by
-    simp only [ConLeche.instPisWith, Option.some.injEq] at h
-    subst h; exact he
-  | a :: as, e, r, ha, he, h => by
-    match e, he, h with
-    | .forallE t b m, he, h =>
-      have h' : ConLeche.instPisWith as (b.instantiate1 a) = some r := h
-      simp only [WScoped] at he
-      exact wscoped_instPisWith (fun x hx => ha x (List.mem_cons_of_mem _ hx))
-        (WScoped.instantiate1_gen (ha a List.mem_cons_self) 0 he.2) h'
-
-
 /-! ## The run's state: container lookups of closed constructor types -/
 
 /-- The container lookups the state records read closed constructor
 types. -/
 @[expose] def NestStOk (st : NestState) : Prop :=
   ∀ C r, (C, r) ∈ st.ctorsOf → ∀ q, r = some q → ∀ x ∈ q.2, x.1.type.hasFvar = false
-
-/-- A context whose stored constants are closed. -/
-@[expose] def NestCtxOk (ctx : NestCtx) : Prop :=
-  (∀ ci ∈ ctx.consts, ci.toConstantVal.type.hasFvar = false) ∧
-  (∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false)
 
 theorem nestContainer_closed {ctx : NestCtx} (hc : NestCtxOk ctx) {C : Name}
     {q : Nat × List (ConstantVal × Nat)} (h : nestContainer ctx C = some q) :
@@ -536,62 +435,6 @@ theorem nestPosS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx 
             exact SimC.pure hs₂ ⟨rfl, hst₂⟩
         · exact SimC.throw
 
-
-/-- An `Option` `mapM`'s outputs come from its inputs. -/
-theorem option_mapM_mem {α β : Type} {f : α → Option β} :
-    ∀ {l : List α} {l' : List β}, l.mapM f = some l' → ∀ y ∈ l', ∃ x ∈ l, f x = some y
-  | [], l', h, y, hy => by
-    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h
-    subst h; exact nomatch hy
-  | a :: l, l', h, y, hy => by
-    rw [List.mapM_cons] at h
-    cases hfa : f a with
-    | none => rw [hfa] at h; exact nomatch h
-    | some b =>
-      rw [hfa] at h
-      cases hl : l.mapM f with
-      | none => simp [hl] at h
-      | some bs =>
-        simp only [hl, Option.bind_eq_bind, Option.bind_some, Option.pure_def,
-          Option.some.injEq] at h
-        subst h
-        rcases List.mem_cons.mp hy with rfl | hy
-        · exact ⟨a, List.mem_cons_self, hfa⟩
-        · obtain ⟨x, hx, hfx⟩ := option_mapM_mem hl y hy
-          exact ⟨x, List.mem_cons_of_mem _ hx, hfx⟩
-
-/-- The member holes are variables, well scoped above them. -/
-theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx) {holes : List Expr}
-    (h : nestHoles ctx = some holes) :
-    ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty := by
-  intro x hx
-  obtain ⟨mm, hmm, hf⟩ := option_mapM_mem h x hx
-  have hmm' := List.mem_range.mp hmm
-  split at hf
-  · next cv caps hfind =>
-    simp only [Option.some.injEq] at hf
-    subst hf
-    refine ⟨?_, _, _, rfl⟩
-    simp only [WScoped, NestCtx.hiAt]
-    exact ⟨by omega, WScoped.of_not_hasFvar (hc.2 _ _ hfind)⟩
-  · exact nomatch hf
-
-/-- A member constructor's abstracted type, instantiated at the canonical
-parameters, is well scoped at the walk's depth. -/
-theorem memberCrest_wscoped {ctx : NestCtx} {holes : List Expr}
-    (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
-    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) {cty crest : Expr}
-    (hcl : cty.hasFvar = false)
-    (h : ConLeche.instPisWith ctx.params (nestAbstract ctx holes cty) = some crest) :
-    WScoped (ctx.hiAt 0) crest := by
-  refine wscoped_instPisWith hpar ?_ h
-  unfold nestAbstract
-  refine WScoped.replaceConsts_closed (fun c us e he => ?_) _ hcl
-  split at he
-  · split at he
-    · exact (hholes e (List.mem_of_getElem? he)).1
-    · exact nomatch he
-  · exact nomatch he
 
 theorem nestMemberCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) (nF : Nat) {crest : Expr} (hw : WScoped (ctx.hiAt 0) crest)

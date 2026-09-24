@@ -270,6 +270,26 @@ says, a recursive field at the former of the component it targets. -/
 
 /-! ## The clause -/
 
+/-- **The recursive slots' index fit** (`BlockModelAt.idxFit`'s statement). -/
+@[expose] def BlockData.IdxFit (d : BlockData V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
+    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
+    ∀ as : List V,
+      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
+        (((d.Fss c ψ).getD j []).take i) as →
+      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
+        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
+
+/-- **The container functor's fibre** (`BlockModelAt.fibre`'s statement). -/
+@[expose] def BlockData.Fibre (d : BlockData V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
+
 /-- **The representation of the block whose members are `names`** at
 the block data `d` (see the module docstring). -/
 structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V) : Prop where
@@ -409,6 +429,7 @@ operator IS `d.Φ` — with the constructors' fields read with holes
   N := d.N
   w := d.w
   params := d.params
+  pars := fun m ψ => ((d.ppsM m ψ).take d.nP).map (·.2.2)
   ids := fun c ψ => d.IdsM c ψ
   u := fun c ψ => d.uM c ψ
   Φ := d.Φ

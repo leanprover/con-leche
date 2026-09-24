@@ -602,7 +602,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
   fact it needs is the kernel's own large-elimination guard.
   The model-tier theorem for the whole install is
-  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1264).
+  [theorem `declBlock_run` in `ConLeche/Model/Inductives/BlockDeclRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockDeclRun.lean#L1273).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** are handled by an in-process modeller

@@ -4,7 +4,8 @@ import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.BlockLfpHoles
+public import ConLeche.Model.Inductives.BlockLfpHoles
+public import ConLeche.Model.Annot.BlockLfpTup
 public section
 
 /-!
@@ -122,6 +123,34 @@ about the block — so the records suffice and only the operator's and
 the injections' identification stay premises (both `rfl` at
 `blockDataOf`), beside `d.nInst = 0` and `0 < d.k`. -/
 
+/-- **The constructors' hole facts, from the stages' records.** -/
+theorem blockHoleFacts_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hinst : d.nInst = 0) (hk0 : 0 < d.k) :
+    BlockHoleFacts mo d lps := by
+  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
+  refine ⟨fun c hc j cA hj => ?_, fun c hc j cA hj l _ => ?_, fun ψ => ?_, fun ψ mm hmm => ?_,
+      fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm, fun ψ c hc j hj => ?_⟩
+  · have hck : c < d.k := by rw [← hNk]; exact hc
+    obtain ⟨h1, h2, -⟩ := hcore.2.2.2 c hck j cA hj
+    exact ⟨h1, h2, (hcore.2.2.1 c j cA hj).2.2⟩
+  · rw [← hN.2.2.2]; exact hN.2.1 c j l
+  · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
+    rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
+    omega
+  · show (((d.ppsM mm ψ).take d.nP).map (·.2.2)).length = d.nP
+    rw [List.length_map, List.length_take, hS.lenPps mm ψ hmm]
+    omega
+  · have hck : c < d.k := by rw [← hNk]; exact hc
+    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+    rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
+      ((hcore.2.2.1 c j _ hcj).2.2).lenE ψ, hS.lenIds c hck ψ]
+
 /-- **The block's representation, from the stages' three records.** -/
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
@@ -135,7 +164,9 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
           (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) :
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
+    (hmono : d.IdxFit → d.Fibre → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) :
     BlockModelAt mo d.memberNames d := by
   have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
 
@@ -222,7 +253,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       exact Bool.false_ne_true
     exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
   refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC (by rw [hNk]; exact hk0) hlenPps
-    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_
+    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_ ?_
   -- the operator's premise bundle, at the REAL chains
   · intro ψ ρp hsat
     rw [hNk]
@@ -263,6 +294,39 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hjc]
     exact hq
 
+  -- the operator's monotonicity (lane HOLE2: positivity's)
+  · exact hmono
+
+/-- **The operator is monotone, from positivity** (lane HOLE2, charter
+item 2: "monotonicity is DERIVED from positivity"): given the fibre law
+and the slots' index fit — which make the block's fit relation the hole
+fit (`blockReadsHoles`) — every constructor positive along the tuple
+order at the hole frame makes the operator monotone
+(`monoTuple_of_tupRel`). -/
+theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
+    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
+    d.IdxFit → d.Fibre → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := by
+  intro hidx hfib ψ ρp hs
+  refine monoTuple_of_tupRel (D := d.toLfp)
+    (blockReadsHoles hidx (blockHoleFacts_of_records hN hS hcore hinst hk0)) hs
+    (fun X hX c hc t ht x => ?_) (hpos ψ ρp hs)
+  show x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+    ∃ j fs, (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ∧ x = d.inj ψ c j fs
+  rw [hfib ψ ρp hs X hX c hc t ht x]
+  constructor
+  · rintro ⟨j, fs, hj, hfit, rfl⟩; exact ⟨j, fs, ⟨hj, hfit⟩, rfl⟩
+  · rintro ⟨j, fs, ⟨hj, hfit⟩, rfl⟩; exact ⟨j, fs, hj, hfit, rfl⟩
+
 /-! ## 9. The block's LFP CLAUSE from the stages' records (lanes ENVLFP, HOLE2)
 
 The clause the install records (`EnvModelM.addLfp`) is the
@@ -283,21 +347,13 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
       = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
           (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) :
-    LfpClause mo.acval d.toLfp := by
-  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
-  refine (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj).toLfp (lps := lps)
-    ⟨fun c hc j cA hj => ?_, fun c hc j cA hj l _ => ?_, fun ψ => ?_, fun ψ c hc j hj => ?_⟩
-  · have hck : c < d.k := by rw [← hNk]; exact hc
-    obtain ⟨h1, h2, -⟩ := hcore.2.2.2 c hck j cA hj
-    exact ⟨h1, h2, (hcore.2.2.1 c j cA hj).2.2⟩
-  · rw [← hN.2.2.2]; exact hN.2.1 c j l
-  · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
-    rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
-    omega
-  · have hck : c < d.k := by rw [← hNk]; exact hc
-    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-    rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
-      ((hcore.2.2.1 c j _ hcj).2.2).lenE ψ, hS.lenIds c hck ψ]
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
+    (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
+    LfpClause mo.acval d.toLfp :=
+  (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
+    (blockMono_of_pos hN hS hcore hinst hk0 hpos)).toLfp (lps := lps)
+    (blockHoleFacts_of_records hN hS hcore hinst hk0)
 
 end ConLeche.Model

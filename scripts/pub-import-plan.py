@@ -65,6 +65,15 @@ FALLBACK = {
     # `TargetIhSlot`'s `variable [SetTheory V]` binder resolves through
     # `TargetRecRead` (`Unknown identifier SetTheory`, `:47`), measured.
     ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Model.Inductives.TargetRecRead'),
+    # lane HOLE2 (the positivity walk's cached simulation): three
+    # re-exports the model calls demotable, each MEASURED by demoting it
+    # alone.  `NestPosC`'s public simulation theorems are stated over
+    # `sharedOpsC` (`CheckerC`; `Unknown identifier sharedOpsC`, `:401`),
+    # `fueledOpsM` (`BridgeDecl`; `:402`) and `SimC`/`CSOK`/`CState`
+    # (`SimC`; `:115`), which the model does not attribute.
+    ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Cached.CheckerC'),
+    ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.BridgeDecl'),
+    ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.Cached.SimC'),
     # task #315 (lane INVERT, the recursor stage's run records): five
     # re-exports the model calls demotable once the positional peels
     # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records

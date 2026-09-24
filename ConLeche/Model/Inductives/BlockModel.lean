@@ -395,7 +395,11 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     (hresFit : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
       ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ fs : List V, SpineFit ρ ((d.Fss c ψ).getD j []) fs →
-      SpineFit ρ (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρ)))) :
+      SpineFit ρ (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρ))))
+    -- the operator's MONOTONICITY, from positivity (lane HOLE2): given the
+    -- fibre law and the slots' index fit (which make the fit the hole fit)
+    (hmono : d.IdxFit → d.Fibre → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) :
     BlockModelAt mo names d := by
   have hlenParams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
       (((d.ppsM c ψ).take d.nP).map (·.2.2)).length = d.nP := by
@@ -419,16 +423,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       omega
     exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
-  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, hresFit, ?_, ?_⟩
-  · -- idxOk
-    intro ψ ρp hρ c hc
-    exact (hok ψ ρp hρ).hI c hc
-  · -- functor
-    intro ψ ρp hρ
-    have h := hok ψ ρp hρ
-    rw [hPhi]
-    exact ⟨blockPhi_mono h, blockPhi_maps h, h.hclosed⟩
-  · -- fibre
+  have hfib : d.Fibre := by
     intro ψ ρp hρ X hX c hc t ht x
     have h := hok ψ ρp hρ
     have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
@@ -453,6 +448,46 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       show _ = slotSet _ _ _ _ _ _
       rw [htg, projS_ndMkTowerSet_zero hlt]
       rfl
+  have hidx : d.IdxFit := by
+    intro ψ ρp hρ X hX c hc t ht j hj i hi hr as hb
+    have h := hok ψ ρp hρ
+    have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
+      (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
+    have hSF := h.hfit _ hY c hc t ht j (by rw [hlenC]; exact hj)
+    have hb' : FitsFrom ((d.rss c).getD j [])
+        (fun m σ => slotSet (d.w ψ) (d.uM (((d.tgtss c).getD j []).getD m 0) ψ) σ
+          (((d.tlss c ψ).getD j []).getD m []) (((d.Eiss c ψ).getD j []).getD m [])
+          (projS (((d.tgtss c).getD j []).getD m 0)
+            (ndMkTowerSet X 0 d.N))) 0 (consList [] ρp)
+        (((d.Fss c ψ).getD j []).take i) as := by
+      rw [consList_nil]
+      refine FitsFrom.congr_slot (fun l hl σ => ?_) hb
+      rw [Nat.zero_add]
+      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj (by
+        have hli : l < i := by
+          have h' := hl
+          rw [List.length_take] at h'
+          omega
+        omega)
+      show _ = slotSet _ _ _ _ _ _
+      rw [htg, projS_ndMkTowerSet_zero hlt]
+      rfl
+    have hq := slotFit_of_slotsFitXB h.hI i ((d.Fss c ψ).getD j []) 0 [] as rfl hSF hb' ?_ hi
+    · obtain ⟨htg, hlt⟩ := htgts ψ c j i hj hi
+      rw [Nat.zero_add, List.nil_append, htg] at hq
+      exact hq.2
+    · rw [Nat.zero_add]; exact hr
+  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, hresFit, ?_, ?_⟩
+  · -- idxOk
+    intro ψ ρp hρ c hc
+    exact (hok ψ ρp hρ).hI c hc
+  · -- functor
+    intro ψ ρp hρ
+    have h := hok ψ ρp hρ
+    refine ⟨hmono hidx hfib ψ ρp hρ, ?_, ?_⟩ <;> rw [hPhi]
+    · exact blockPhi_maps h
+    · exact h.hclosed
+  · exact hfib
   · -- leaf
     intro mm hmm ψ ρ as is hsa hsi
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa
@@ -507,35 +542,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         hw (hspPC ψ c j hc hjl ρ as hsa) h2 (hFssOk ψ (consList as ρ) hsat c hc) h3
       rw [List.take_append_drop] at h4
       exact h4
-  · -- idxFit
-    intro ψ ρp hρ X hX c hc t ht j hj i hi hr as hb
-    have h := hok ψ ρp hρ
-    have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
-      (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
-    have hSF := h.hfit _ hY c hc t ht j (by rw [hlenC]; exact hj)
-    have hb' : FitsFrom ((d.rss c).getD j [])
-        (fun m σ => slotSet (d.w ψ) (d.uM (((d.tgtss c).getD j []).getD m 0) ψ) σ
-          (((d.tlss c ψ).getD j []).getD m []) (((d.Eiss c ψ).getD j []).getD m [])
-          (projS (((d.tgtss c).getD j []).getD m 0)
-            (ndMkTowerSet X 0 d.N))) 0 (consList [] ρp)
-        (((d.Fss c ψ).getD j []).take i) as := by
-      rw [consList_nil]
-      refine FitsFrom.congr_slot (fun l hl σ => ?_) hb
-      rw [Nat.zero_add]
-      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj (by
-        have hli : l < i := by
-          have h' := hl
-          rw [List.length_take] at h'
-          omega
-        omega)
-      show _ = slotSet _ _ _ _ _ _
-      rw [htg, projS_ndMkTowerSet_zero hlt]
-      rfl
-    have hq := slotFit_of_slotsFitXB h.hI i ((d.Fss c ψ).getD j []) 0 [] as rfl hSF hb' ?_ hi
-    · obtain ⟨htg, hlt⟩ := htgts ψ c j i hj hi
-      rw [Nat.zero_add, List.nil_append, htg] at hq
-      exact hq.2
-    · rw [Nat.zero_add]; exact hr
+  · exact hidx
   · -- mkZero
     intro ψ hw c j fs
     rw [hinj, if_pos hw]
