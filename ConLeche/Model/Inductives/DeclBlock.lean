@@ -395,7 +395,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [List.getD_eq_getElem?_getD, hc]; rfl
     rw [← hmn, hname]
     exact hF.freshOf c cvTa hcv
-  have hposC := blockCtorPos_of_run hμ mpI hN hcore hPos rfl rfl rfl rfl
+  have hposC := blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl
     (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]) hndM
     hfreshM
@@ -408,7 +408,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC rfl hk0 (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC hk0 (fun _ _ => rfl) (fun _ _ _ _ => rfl)
       hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
