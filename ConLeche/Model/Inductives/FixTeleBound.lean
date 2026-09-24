@@ -37,62 +37,6 @@ variable {V : Type w'} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The domains' sorts along a Π-inference -/
 
-omit [SetTheory V] in
-/-- **The Π-prefix's domains' sorts**: along an opening of an inferred
-type, each binder's domain infers a sort at most the whole type's
-whenever the whole's is nonzero (`imax` is then `max`). -/
-theorem piDoms_of_infer {mode : CheckMode} :
-    ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr} {opened : Expr},
-      ConLeche.openPisAtFvars n e d = some (fvs, opened) →
-      ConLeche.inferTypeCore mode env F d e = .ok t →
-      ConLeche.ensureSortCore mode env F d t = .ok v₀ →
-      ∀ (k : Nat) (a : Expr), fvs[k]? = some a →
-        ∃ (F' : Nat) (t' : Expr) (u : Level),
-          ConLeche.inferTypeCore mode env F' (d + k) a.fvarTypeD = .ok t' ∧
-          ConLeche.ensureSortCore mode env F' (d + k) t' = .ok u ∧
-          ∀ φ, Level.eval φ v₀ ≠ 0 → Level.eval φ u ≤ Level.eval φ v₀
-  | 0, F, d, e, t, v₀, fvs, opened, hop, _, _, k, a, hk => by
-    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
-    obtain ⟨rfl, -⟩ := hop
-    exact nomatch hk
-  | n + 1, F, d, e, t, v₀, fvs, opened, hop, h, hens, k, a, hk => by
-    match e, hop, h with
-    | .forallE dom body mb, hop, h =>
-      match F, h with
-      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
-      | F + 1, h =>
-        obtain ⟨tty, u, bt, v, hdom, hwh, hbt, hensb, -, rfl⟩ := ConLeche.inferTypeCore_forall_inv h
-        have hv₀ : v₀ = .imax u v := ensureSortCore_sort_eq hens
-        subst hv₀
-        simp only [ConLeche.openPisAtFvars] at hop
-        split at hop
-        · next fvs' e' hop' =>
-          simp only [Option.some.injEq, Prod.mk.injEq] at hop
-          obtain ⟨rfl, rfl⟩ := hop
-          cases k with
-          | zero =>
-            simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
-            subst hk
-            refine ⟨F, tty, u, hdom, ?_, fun φ hne => ?_⟩
-            · rw [Nat.add_zero, ConLeche.ensureSortCore_eq, hwh]; rfl
-            · have hv : Level.eval φ v ≠ 0 := fun h0 => hne ((eval_imax_eq_zero_iff φ u v).mpr h0)
-              simp only [Level.eval, if_neg hv]
-              exact Nat.le_max_left _ _
-          | succ k =>
-            simp only [List.getElem?_cons_succ] at hk
-            obtain ⟨F', t', u', h1, h2, h3⟩ := piDoms_of_infer n hop' hbt hensb k a hk
-            refine ⟨F', t', u', by rw [show d + (k + 1) = d + 1 + k from by omega]; exact h1,
-              by rw [show d + (k + 1) = d + 1 + k from by omega]; exact h2, fun φ hne => ?_⟩
-            have hv : Level.eval φ v ≠ 0 := fun h0 => hne ((eval_imax_eq_zero_iff φ u v).mpr h0)
-            have := h3 φ hv
-            simp only [Level.eval, if_neg hv]
-            exact Nat.le_trans this (Nat.le_max_right _ _)
-        · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
-    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
-    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
-      simp [ConLeche.openPisAtFvars] at hop
-
 /-! ## The bound, walked along the telescope -/
 
 /-- **The telescope's domains are bounded**, binder by binder: at a

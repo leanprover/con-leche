@@ -33,40 +33,6 @@ variable {V : Type w'} [SetTheory V]
 
 /-! ## Validity ignores the variables a term does not mention -/
 
-theorem AnnotValid_congr_noBVar :
-    ∀ (e : AnnotTerm) {P : Nat → Prop} {σ σ' : Nat → V},
-      NoBVar P e → AgreeOff P σ σ' → (AnnotValid V σ e ↔ AnnotValid V σ' e) := by
-  intro e
-  induction e with
-  | bvar i => intros; simp
-  | sort u => intros; simp
-  | const c us => intros; simp
-  | app f a ihf iha =>
-    intro P σ σ' h hag
-    rw [AnnotValid_app, AnnotValid_app, ihf h.1 hag, iha h.2 hag]
-  | lam v A b ihA ihb =>
-    intro P σ σ' h hag
-    rw [AnnotValid_lam, AnnotValid_lam, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
-    exact and_congr Iff.rfl
-      (forall_congr' fun x => imp_congr Iff.rfl (ihb h.2 (agreeOff_cons hag x)))
-  | pi u v A B ihA ihB =>
-    intro P σ σ' h hag
-    rw [AnnotValid_pi, AnnotValid_pi, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
-    refine and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl (ihB h.2 (agreeOff_cons hag x)))
-      (imp_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)))
-    rw [interp_congr_noBVar B h.2 (agreeOff_cons hag x)]
-  | eqE a b iha ihb =>
-    intro P σ σ' h hag
-    rw [AnnotValid, AnnotValid, iha h.1 hag, ihb h.2 hag]
-  | fst e ihe =>
-    intro P σ σ' h hag
-    rw [AnnotValid_fst, AnnotValid_fst, ihe h hag]
-  | snd e ihe =>
-    intro P σ σ' h hag
-    rw [AnnotValid_snd, AnnotValid_snd, ihe h hag]
-  | prf => intros; simp
-
 /-! ## The X-chains, valid at every family -/
 
 section Valid
@@ -74,52 +40,6 @@ section Valid
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {nP nF : Nat} {ks : List RecFieldKind}
   {tls : List (List (Nat × Nat × AnnotTerm))} {Fs : List AnnotTerm} {Eis : List (List AnnotTerm)}
   {Es : List AnnotTerm}
-
-/-- A lifted entry is valid at the X-frame iff at the parameter frame
-under the fields. -/
-theorem AnnotValid_chainXI_ord (F : AnnotTerm) (as : List V) (t X : V) :
-    AnnotValid V (consList as (cons t (cons X ρp))) (F.liftN 2 as.length)
-      ↔ AnnotValid V (consList as ρp) F := by
-  rw [AnnotValid_liftN, shiftE_consList_len, show (2 : Nat) = 1 + 1 from rfl,
-    shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
-
-/-- A telescope valid at the parameter frame under the fields is
-valid, lifted, at the X-frame. -/
-theorem fieldsValid_liftTele2 (t X : V) :
-    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as : List V),
-      FieldsValid (consList as ρp) (tl.map (·.2.2)) →
-      FieldsValid (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))
-  | [], _, _ => trivial
-  | d :: tl, as, hF => by
-    rw [liftTele2_cons, List.map_cons]
-    rw [List.map_cons] at hF
-    obtain ⟨hv, hrest⟩ := hF
-    refine ⟨(AnnotValid_chainXI_ord _ as t X).mpr hv, fun a ha => ?_⟩
-    rw [interp_chainXI_ord] at ha
-    rw [consList_snoc']
-    have := fieldsValid_liftTele2 t X tl (as ++ [a]) (by rw [← consList_snoc']; exact hrest a ha)
-    rw [length_snoc'] at this
-    exact this
-
-/-- A valid telescope carried between frames agreeing off the slots
-its domains do not mention. -/
-theorem fieldsValid_congr_exclP {Q : Nat → Prop} :
-    ∀ (Fs : List AnnotTerm) {d : Nat}, (∀ q, Q q → q < d) → ∀ {σ σ' : Nat → V},
-      AgreeOff (exclP Q d) σ σ' →
-      (∀ k F, Fs[k]? = some F → NoBVar (exclP Q (d + k)) F) →
-      FieldsValid σ' Fs → FieldsValid σ Fs
-  | [], _, _, _, _, _, _, _ => trivial
-  | F :: Fs, d, hQ, σ, σ', hag, hnb, hF => by
-    obtain ⟨hv, hrest⟩ := hF
-    have hnb0 : NoBVar (exclP Q d) F := by simpa using hnb 0 F rfl
-    have hval : interp V σ F = interp V σ' F := interp_congr_noBVar F hnb0 hag
-    refine ⟨(AnnotValid_congr_noBVar F hnb0 hag).mpr hv, fun a ha => ?_⟩
-    rw [hval] at ha
-    refine fieldsValid_congr_exclP Fs (fun q hq => Nat.lt_succ_of_lt (hQ q hq))
-      (agreeOff_exclP_cons hQ hag a) ?_ (hrest a ha)
-    intro k F' hk
-    have := hnb (k + 1) F' (by simpa using hk)
-    rwa [show d + 1 + k = d + (k + 1) from by omega]
 
 /-- A Π-tower over `Prop`-regime binders is a truth value. -/
 theorem interp_mkPisAV_mem_univZero {R : AnnotTerm} :
@@ -184,80 +104,8 @@ theorem AnnotValid_mkPisAV_inv {R : AnnotTerm} :
       rw [consList_cons]
       exact (AnnotValid_mkPisAV_inv (hB a ha)).2 as hsp'
 
-/-- The validity facts beside `ChainFacts`: at a recursive field the
-telescope is valid along the shadow spine and the index expressions
-are valid under every fitting telescope spine (task #202). -/
-structure ChainValidFacts (nP nF : Nat) (ρp : Nat → V) (ks : List RecFieldKind)
-    (tls : List (List (Nat × Nat × AnnotTerm))) (Fs : List AnnotTerm) (Eis : List (List AnnotTerm))
-    (Es : List AnnotTerm) : Prop where
-  grV : ∀ i, i < nF → ∀ as' : List V, SpineFit ρp ((shadowFs nP ks nF Fs).take i) as' →
-    AnnotValid V (consList as' ρp) (Fs.getD i default) ∧
-    (recAt nP ks (nP + i) →
-      FieldsValid (consList as' ρp) ((tls.getD i []).map (·.2.2)) ∧
-      ∀ bs : List V, SpineFit (consList as' ρp) ((tls.getD i []).map (·.2.2)) bs →
-        ∀ E ∈ Eis.getD i [], AnnotValid V (consList (as' ++ bs) ρp) E)
-  grEV : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
-    ∀ E ∈ Es, AnnotValid V (consList as' ρp) E
-
-/-- The λ-tower over valid fields ending in a body valid at every
-fitting spine is valid under the fields. -/
-theorem underTowerValid_of_fields {b : AnnotTerm} {u : Nat} :
-    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsValid ρ Fs →
-      (∀ bs : List V, SpineFit ρ Fs bs → AnnotValid V (consList bs ρ) b) →
-      UnderTowerValid ρ b (Fs.map fun F => (u, u, F))
-  | [], ρ, _, hb => hb [] trivial
-  | F :: Fs, ρ, hv, hb => by
-    refine ⟨hv.1, fun a ha => ?_⟩
-    exact underTowerValid_of_fields (hv.2 a ha) fun bs hsp => by
-      have := hb (a :: bs) ⟨ha, hsp⟩
-      simpa [consList_cons] using this
-
-/-- The tupler is valid at a frame whose index telescope is valid. -/
-theorem tuplerAV_validV (hI : IdxOk u ρp Ids) (hV : FieldsValid ρp Ids) :
-    AnnotValid V ρp (tuplerAV u Ids) := by
-  unfold tuplerAV
-  apply mkLamsC_validV
-  exact underTowerValid_of_fields hV fun bs hsp => mkTowerGo_validV hV (fun _ => hI.2) hsp
-
 end Valid
 
 /-! ## Closedness -/
-
-section Below
-
-variable {u w nP nIdx nF : Nat} {Ids Fs Es : List AnnotTerm} {rs : List Bool}
-  {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
-
-omit [SetTheory V] in
-theorem domsBelow_tuplerData {k : Nat} :
-    ∀ {Ids : List AnnotTerm}, FieldsBelow k Ids → DomsBelow k (Ids.map fun F => (u, u, F))
-  | [], _ => trivial
-  | _ :: _, h => ⟨h.1, domsBelow_tuplerData h.2⟩
-
-omit [SetTheory V] in
-theorem tuplerAV_below (hIds : FieldsBelow nP Ids) :
-    Term.bvarsBelow nP (tuplerAV u Ids).erase := by
-  unfold tuplerAV
-  refine mkLamsC_below (domsBelow_tuplerData hIds) ?_
-  rw [List.length_map]
-  exact mkTowerGo_below hIds
-
-omit [SetTheory V] in
-/-- A field's telescope, lifted to the X-frame, is below it. -/
-theorem domsBelow_liftTele2 {nP : Nat} :
-    ∀ (tl : List (Nat × Nat × AnnotTerm)) (i : Nat), DomsBelow (nP + i) tl →
-      DomsBelow (nP + 2 + i) (liftTele2 i tl)
-  | [], _, _ => trivial
-  | d :: tl, i, h => by
-    rw [liftTele2_cons]
-    refine ⟨?_, ?_⟩
-    · rw [AnnotTerm.erase_liftN]
-      have := VExprAux.bvarsBelow_liftN 2 d.2.2.erase (nP + i) i h.1
-      rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
-    · have := domsBelow_liftTele2 tl (i + 1)
-        (by rw [show nP + (i + 1) = nP + i + 1 from by omega]; exact h.2)
-      rwa [show nP + 2 + (i + 1) = nP + 2 + i + 1 from by omega] at this
-
-end Below
 
 end ConLeche.Model

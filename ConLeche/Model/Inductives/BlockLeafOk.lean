@@ -32,14 +32,6 @@ variable {V : Type w'} [SetTheory V]
 
 /-! ## The validity walk at k -/
 
-section Valid
-
-variable {k w nP nF m : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {ks : List RecFieldKind} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
-  {Fs : List AnnotTerm} {Eis : List (List AnnotTerm)} {Es : List AnnotTerm}
-
-end Valid
-
 /-! ## Closedness -/
 
 section Below
@@ -93,88 +85,6 @@ theorem ndMkTowerAV_below {r b : Nat} {Gty G : Nat → AnnotTerm} :
     · exact nomatch h
 
 /-! ### The chains and the leaf -/
-
-section ChainBelow
-
-variable {k w u nP nIdx : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {rs : List Bool} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
-  {Eis : List (List AnnotTerm)} {Fs Es : List AnnotTerm}
-
-omit [SetTheory V] in
-/-- The block X-chain's entries from position `i` on, below the
-X-frame.  `Idss` is bounded UNBOUNDEDLY in the component: the stage
-builds it so that a component past the block has the empty index
-telescope, and a recursive position's target bound is not a syntactic
-fact here. -/
-theorem chainXBIGo_below (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hTls : ∀ i, DomsBelow (nP + i) (tls.getD i []))
-    (hEis : ∀ i, ∀ E ∈ Eis.getD i [],
-      Term.bvarsBelow (nP + i + (tls.getD i []).length) E.erase) :
-    ∀ (Fs : List AnnotTerm) (i : Nat), FieldsBelow (nP + i) Fs →
-      FieldsBelow (nP + 2 + i) (chainXBIGo uf Idss rs tgts tls Eis Fs i)
-  | [], _, _ => trivial
-  | F :: Fs, i, hF => by
-    rw [chainXBIGo_cons]
-    refine ⟨?_, ?_⟩
-    · unfold xEntryB
-      split
-      · unfold slotXBI
-        refine mkPisAV_below_of (domsBelow_liftTele2 _ i (hTls i)) ?_
-        rw [liftTele2_length]
-        simp only [AnnotTerm.erase_app, Term.bvarsBelow]
-        refine ⟨projAV_below (by simp only [AnnotTerm.erase_bvar, Term.bvarsBelow]; omega), ?_⟩
-        rw [AnnotTerm.erase_mkAppN]
-        refine VExprAux.bvarsBelow_mkAppN ?_ ?_
-        · rw [AnnotTerm.erase_liftN]
-          have := VExprAux.bvarsBelow_liftN (i + 2 + (tls.getD i []).length)
-            (tuplerAV (uf (tgts.getD i 0)) (Idss (tgts.getD i 0))).erase nP 0
-            (tuplerAV_below (u := uf (tgts.getD i 0)) (hIds (tgts.getD i 0)))
-          rwa [show nP + (i + 2 + (tls.getD i []).length) = nP + 2 + i + (tls.getD i []).length
-            from by omega] at this
-        · intro a ha
-          rw [List.map_map] at ha
-          obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
-          simp only [Function.comp, AnnotTerm.erase_liftN]
-          have := VExprAux.bvarsBelow_liftN 2 E.erase (nP + i + (tls.getD i []).length)
-            (i + (tls.getD i []).length) (hEis i E hE)
-          rwa [show nP + i + (tls.getD i []).length + 2 = nP + 2 + i + (tls.getD i []).length
-            from by omega] at this
-      · rw [AnnotTerm.erase_liftN]
-        have := VExprAux.bvarsBelow_liftN 2 F.erase (nP + i) i hF.1
-        rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
-    · have := chainXBIGo_below hIds hTls hEis Fs (i + 1)
-        (by rw [show nP + (i + 1) = nP + i + 1 from by omega]; exact hF.2)
-      rwa [show nP + 2 + (i + 1) = nP + 2 + i + 1 from by omega] at this
-
-omit [SetTheory V] in
-/-- One block constructor's X-chain, below the X-frame. -/
-theorem chainXBI_below (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hTls : ∀ i, DomsBelow (nP + i) (tls.getD i []))
-    (hEis : ∀ i, ∀ E ∈ Eis.getD i [],
-      Term.bvarsBelow (nP + i + (tls.getD i []).length) E.erase)
-    (hFs : FieldsBelow nP Fs) (hEsLen : Es.length = nIdx)
-    (hEs : ∀ E ∈ Es, Term.bvarsBelow (nP + Fs.length) E.erase) :
-    FieldsBelow (nP + 2) (chainXBI uf Idss nIdx rs tgts tls Eis Fs Es) := by
-  unfold chainXBI
-  refine FieldsBelow_append_idxEq
-    (by simpa using chainXBIGo_below hIds hTls hEis Fs 0 (by simpa using hFs)) ?_
-  intro e he
-  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
-  have hl' : l < nIdx := List.mem_range.mp hl
-  rw [chainXBIGo_length]
-  have hmem : Es.getD l default ∈ Es := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hEsLen]; exact hl')]
-    exact List.getElem_mem _
-  constructor
-  · show Term.bvarsBelow _ ((Es.getD l default).liftN 2 Fs.length).erase
-    rw [AnnotTerm.erase_liftN]
-    have := VExprAux.bvarsBelow_liftN 2 (Es.getD l default).erase (nP + Fs.length) Fs.length
-      (hEs _ hmem)
-    rwa [show nP + Fs.length + 2 = nP + 2 + Fs.length from by omega] at this
-  · show Term.bvarsBelow _ (projAV l (.bvar Fs.length)).erase
-    exact projAV_below (by simp [Term.bvarsBelow])
-
-end ChainBelow
 
 /-! ### The operator tower -/
 
