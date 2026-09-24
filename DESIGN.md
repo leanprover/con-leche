@@ -85192,3 +85192,45 @@ members — and carries U3.
 - **Gates**: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green
   (arena 90/92, e2e 301/301, nested-shadow 82/82, target-shadow 317/317,
   axioms pinned); no exit code moved (proof-only change).
+
+#### LANDED (lane HOLE2, checkpoint (a) part 2: the fields with holes ARE the walk's readings, 2026-09-24)
+
+Charter item 2's "the holes are ordinary open terms (members abstracted to
+fvars)", proved for the uniform block: the clause's fields with holes
+(`BlockData.absF`, part 1) are the Π-domains of the reading of exactly the
+term `nestPos` walks.  `Model/Inductives/BlockHoleRead.lean`:
+
+- **The bridge** `holeAbs ctx holes e := nestAbstract ctx holes
+  (Expr.shiftFromN nP k e)` — the concrete opening (parameters, fields; no
+  holes) with the fields moved above the `k` member holes and the members
+  abstracted.  It commutes with opening a field (`holeAbs_instantiate1`,
+  from `Expr.shiftFromN_instantiate1` and `nestAbstract_instantiate1` —
+  constant replacement by `fvar`s commutes with instantiation), so the
+  walk's opening IS the concrete one abstracted (`openPisAtFvars_holeAbs`)
+  and a telescope reads in step with its abstraction, the same binder bits
+  (`denoteMeta_holeAbs_tele`).
+- **Per field**: a hole-free field (resolving before the block) is only
+  shifted, its reading lifted over the holes (`denoteMeta_holeAbs_resolve`,
+  `denoteMeta_shiftFromN`); a member applied is the member's HOLE applied
+  (`holeAbs_member`, `denoteMeta_holeAbs_rec`); a reflexive field is its
+  telescope lifted with the hole under it (`denoteMeta_holeAbs_refl`).
+  `blockField_holeRead`: field `i` of a stored constructor, abstracted,
+  reads as `absField` — by the field's kind, which the kernel's
+  `BlockOpened` inversion supplies (the kinds leave in (d), when the walk's
+  run is the source).
+- **The constructor** (`blockCtor_holeRead`, then `blockCtor_walkRead`):
+  `instPisWith ctx.params cty` member-abstracted reads, at `nP + k`, as
+  `mkPisAV ab (x_c params absE)` with `ab.map (·.2.2) = absF` — through
+  `Expr.ErasedEq` (the walk's parameters carry the former's binder types,
+  the concrete opening the constructor's; the reading ignores `fvar`
+  annotations, `denoteMeta_erasedEq`).  `BlockCtorDataI` gained `resShape`
+  (the opened residual is the member at the parameters and the index
+  arguments), read off `checkSumCtor_shape` in `blockCtorData_of`.
+- **Consumer (c)**: `nestMemberCtor_sem`'s `ca` is this reading, so its
+  `PiPosThen` is the clause's `CtorPos` over `absF`/`absE`.
+- **Not in this part**: the container SUBSTITUTION LAW (for (b)).  It is
+  a theorem of this reading link recorded in the clause plus the reading's
+  instantiation lemmas (levels, parameters `:= Ds`, holes); the record in
+  `EnvModelM` and its transport come with (b).
+- **Gates**: build/test 0 warnings; `tests/arena.sh` green; no exit code
+  moved (proof-only).

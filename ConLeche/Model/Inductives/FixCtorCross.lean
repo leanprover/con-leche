@@ -105,6 +105,7 @@ theorem BlockCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name}
         exact DenoteMetaSpine.cons_mono hfresh hat
           (fun a ha => constsBound_getAppArgs _ hbody a (List.mem_of_mem_drop ha)) hsp
     eisLenRefl := h.eisLenRefl
+    resShape := h.resShape
     reflEntry := fun ψ i hk hi => by
       rw [hac, acvalWith_ne (hTof i)]
       exact h.reflEntry ψ i hk hi }

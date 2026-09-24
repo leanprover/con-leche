@@ -321,6 +321,9 @@ structure BlockCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Na
       = mkPisAV ((tss ψ).getD i [])
           (AnnotTerm.mkAppN (m.acval (Tof i) ψ)
             (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
+  /-- the opened residual is the member at the parameter variables and the
+  index arguments (lane HOLE2: the result the hole reading abstracts) -/
+  resShape : xrest = Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)
 
 end ConLeche.Model
 
@@ -410,7 +413,7 @@ theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
   obtain ⟨-, -, fvsP₂, crest₂, tfvs, trest, xFvs₂, idxArgs₂, hopC, -, -, hopX₂, -, -, -, hsorts⟩ :=
     ConLeche.checkSumCtor_shape hCtor
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
+  obtain ⟨rfl, hxr⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
   obtain ⟨-, hrows⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
   have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX
   have hidxP' : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty := fun k x hx => by
@@ -627,7 +630,7 @@ theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
   refine ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, Tss, ⟨hCD, hO, ⟨crest, hopP, hopX⟩, hks,
     hlenX, hlenP, hidxX',
     hidxP', hidxEq, hdomRead, fun ψ => by simp [Eiss], ?_, ?_, ?_, ?_, ?_, ?_, fun ψ => by simp [Tss],
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · intro ψ i x hx hk
     have hi : i < nF := by rw [← hlenX]; exact (List.getElem?_eq_some_iff.mp hx).1
     rw [hEissGet ψ i hi]
@@ -749,5 +752,9 @@ theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
   · intro ψ i hk hi
     rw [hTssGet ψ i hi, hEissGet ψ i hi]
     exact (hEisR ψ i ⟨hk, hi⟩).2.2.2.1
+  · rw [hidxEq, hxr, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+    rw [List.drop_append_of_le_length (by omega), List.drop_eq_nil_of_le (by omega),
+      List.nil_append]
 
 end ConLeche.Model
