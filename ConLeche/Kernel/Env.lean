@@ -375,8 +375,10 @@ structure IndCaps where
   CONTSEM): the formers installed together with this one, in block
   order, itself included.  Read by nested positivity alone — a container
   frame's restart (`nestFrame`) abstracts only group-mates listed here,
-  so an accepted frame's holes are members of ONE recorded block.  `[]`
-  where no uniform block records it (a pinned basis type: one member). -/
+  so an accepted frame's holes are members of ONE recorded block.  The
+  pinned basis types record their own one-member block (`[T]`, as
+  official does; lane L8b); `[]` only where nothing records one (the
+  quotient former, which is no inductive). -/
   all : List Name := []
   deriving DecidableEq, Repr, Inhabited
 
