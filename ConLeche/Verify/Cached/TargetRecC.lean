@@ -591,7 +591,7 @@ theorem targetFieldNormsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   | [], s₀, _, hs => SimC.pure hs ⟨rfl, fun _ h => nomatch h⟩
   | f :: fs, s₀, hf, hs => by
     unfold targetFieldNorms
-    refine SimC.bind (targetWhnfPisS_sim hμ henv 1024 depth (hf f List.mem_cons_self) hs)
+    refine SimC.bind (targetWhnfPisS_sim hμ henv _ depth (hf f List.mem_cons_self) hs)
       (fun s₁ t t' hs₁ hT => ?_)
     obtain ⟨rfl, hwt⟩ := hT
     refine SimC.bind (targetFieldNormsS_sim hμ henv (fun g hg => hf g (List.mem_cons_of_mem _ hg))

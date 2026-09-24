@@ -284,13 +284,13 @@ data, and the applied field lies in the hole applied to them. -/
 theorem targetCall_gen (hμ : μ.verifiedChecks = true)
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
-    {F rP nF : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
+    {F rP nF wf : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
     {teles : List (List (Expr × ConLeche.BinderMeta))} {names : List Name} {lvls : List Level}
     {formerTys : List Expr} {pw : ConLeche.PropWhen} {ih : TargetIh}
     (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles
       (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))) (rP + nF)
       formerTys.length pw ih)
-    (hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) envT (rP + nF + formerTys.length) 1024
+    (hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) envT (rP + nF + formerTys.length) wf
       (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
         (fvsF.getD ih.field default).fvarTypeD) = .ok (fnorm.getD ih.field default))
     -- the frame
@@ -433,7 +433,7 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
     ⟨_, Rules.inferTypeCore_bridge C.hfld⟩
   -- (3) its telescope through whnf keeps the value
   obtain ⟨hFrN, hLN, fnA, hfnA, hGN, hEN⟩ :=
-    targetWhnfPis_sem (μ := .verified) rfl hin 1024 (D + k) _ _ hfnorm hFrA hCA hAty hGA
+    targetWhnfPis_sem (μ := .verified) rfl hin wf (D + k) _ _ hfnorm hFrA hCA hAty hGA
   have hCN := hCA.of_subset hLN
   -- (4) the major type: framed, read, graded
   have hmajL : ∀ l ∈ C.majDom.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by

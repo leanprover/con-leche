@@ -318,12 +318,15 @@ verdicts: a field in `a` is a local variable, `@Eq Prop (T p) True`
 fails the instantiated `refl`'s result index ("invalid return type"),
 `@Eq Prop T T` has a member in an index (probes, lane NESTPOS).
 
-**Fuel**: `nestPos` recurses on an explicit fuel (1024 per member field,
-one unit per `Π` body and per container field descent) and the cache
-holds at most 4096 instantiations; running out of either THROWS
-`.notImplemented` — a decline (exit 2), never an accept.  A
-non-uniformly growing instantiation (`C α | mk : C (List α) → C α`,
-which official's parameters forbid) is the shape that could reach it.
+**Fuel** (lane FUELFIX: derived from the input, no fixed limit):
+`nestPos` recurses on an explicit fuel, one unit per `Π` body and per
+container field descent — per member constructor `whnfWalkFuel` of its
+type (its depth plus a slack, see "The input-derived fuel" below), so a
+telescope or a nesting written out in the input never exhausts it; a
+frame restarts at most once per member of the container's recorded
+block (`nestRestartFuel`, unreachable).  Running out THROWS
+`.notImplemented` — a decline (exit 2), never an accept.  The cache of
+instantiations is unbounded: every entry is a frame the walk completed.
 
 **Accepted supersets of official** (the charter's item 8, ruled
 2026-09-23; each with an e2e fixture; a reject-only check for either
@@ -559,6 +562,67 @@ structure NestHole where
   key : NestKey
   base : Nat
   deriving DecidableEq, Repr, Inhabited
+
+/-! ### The input-derived fuel (lane FUELFIX)
+
+The walks that read a telescope THROUGH whnf (`nestPos`, and the
+recursor stage's `targetWhnfPis`) recurse on an explicit fuel, one unit
+per `Π` body and per container descent.  The fuel is derived from the
+term the walk starts on: its DEPTH (the longest root-to-leaf path,
+`fvar` annotations not descended) bounds every `Π` and every container
+argument the term carries syntactically, so a telescope or a nesting
+written out in the input never exhausts it; `fuelSlack` on top covers
+what the syntax does not show — a container constructor's own fields
+walked in a frame, a redex that reduces to a `Π` — and keeps the fuel
+at or above the fixed 1024 it replaces, so no verdict that ran within
+the old fuel changes.  Running out still DECLINES (it takes a
+telescope that reduction manufactures beyond both).  No proof reads
+the value: the functions' theorems hold at every fuel. -/
+
+/-- The fuel's slack above the term's depth (see the section header). -/
+def fuelSlack : Nat := 1024
+
+/-- `Expr.depth`'s memoised walk: every node is visited once (the memo
+is keyed by the node), so a DAG costs its distinct nodes, never its
+unfolding. -/
+def Expr.depthGo (memo : Std.HashMap Expr Nat) : Expr → Nat × Std.HashMap Expr Nat
+  | .bvar _ => (1, memo)
+  | .fvar .. => (1, memo)
+  | .sort _ => (1, memo)
+  | .const .. => (1, memo)
+  | .lit _ => (1, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Nat × Std.HashMap Expr Nat :=
+        match e with
+        | .app f a =>
+          let (d₁, memo) := depthGo memo f
+          let (d₂, memo) := depthGo memo a
+          (max d₁ d₂ + 1, memo)
+        | .lam ty body _ | .forallE ty body _ =>
+          let (d₁, memo) := depthGo memo ty
+          let (d₂, memo) := depthGo memo body
+          (max d₁ d₂ + 1, memo)
+        | .letE ty v body =>
+          let (d₁, memo) := depthGo memo ty
+          let (d₂, memo) := depthGo memo v
+          let (d₃, memo) := depthGo memo body
+          (max (max d₁ d₂) d₃ + 1, memo)
+        | .proj _ _ x =>
+          let (d, memo) := depthGo memo x
+          (d + 1, memo)
+        | _ => (1, memo)
+      (r, memo.insert e r)
+
+/-- A term's depth (the longest root-to-leaf path; `fvar` annotations
+not descended), memoised. -/
+def Expr.depth (e : Expr) : Nat := (e.depthGo {}).1
+
+/-- **The fuel of a walk through whnf** starting at `e`: its depth plus
+the slack (see the section header). -/
+def whnfWalkFuel (e : Expr) : Nat := e.depth + fuelSlack
 
 /-- An accepted instantiation: its key and its index count. -/
 structure NestKeyInfo where
@@ -859,6 +923,14 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       else pure (grp, st)
     | none => pure (grp, st)
 
+/-- **The restart fuel** of the frame at the container `C` (lane
+FUELFIX): one walk more than `C`'s recorded block has members.  Every
+restart grows the frame's group by a group-mate not yet in it, all of
+them in that block (G1) — else the frame rejects — so the frame is
+walked at most once per member plus once more, and the "restart fuel"
+decline is unreachable. -/
+def nestRestartFuel (ctx : NestCtx) (C : Name) : Nat := (nestBlockOf ctx C).length + 1
+
 /-- An instantiation's frame (`nestCont`'s last cases): its former's
 checks (`nestInstType`), the frame (`nestFrame`), and — unless a restart
 is pending — the reached group-mates accepted with it and the
@@ -870,15 +942,14 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
   let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
-  let gs ← nestFrame ctx ops env rec prog (ctx.hiAt prog.length) us ds nPc 64 [(n, ni.2)] st
+  let gs ← nestFrame ctx ops env rec prog (ctx.hiAt prog.length) us ds nPc
+    (nestRestartFuel ctx n) [(n, ni.2)] st
   if gs.2.restart.isSome then return (.inProgress, gs.2)
   -- the reached group-mates are accepted with it
   let st ← nestAcceptGroup ctx (ctx.hiAt prog.length) us ds (gs.1.drop 1) gs.2
   match old with
   | some q => return (.nested q (kb != 0), st)
   | none =>
-    if st.keys.size ≥ 4096 then
-      throw (.notImplemented "nested positivity: instantiation fuel")
     return (.nested st.keys.size (kb != 0),
       { st with keys := st.keys.push ⟨⟨n, us, ds⟩, ni.1⟩ })
 
@@ -1025,7 +1096,7 @@ normalised telescope. -/
 def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
     (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
   let base := ctx.hiAt 0
-  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx 1024) [] base
+  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx (whnfWalkFuel crest)) [] base
     (.invalid "nested positivity: a constructor type does not bind its fields (official: \
       ill-formed constructor)") nF 0 crest st
   if st.restart.isSome then

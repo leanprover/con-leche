@@ -686,7 +686,7 @@ theorem targetIh_scope (hμ : μ.verifiedChecks = true)
         hholes ty0 (hws0.mono (by omega))
       have hfT : (R.fvsF[ih.field]).fvarTypeD = ty0 := by rw [hf0]; rfl
       rw [hfT] at hrun
-      obtain ⟨-, hlw⟩ := ConLeche.targetWhnfPis_scope henv 1024 _ _ t hrun hwsA
+      obtain ⟨-, hlw⟩ := ConLeche.targetWhnfPis_scope henv _ _ _ t hrun hwsA
       rcases ConLeche.targetAbs_fvarLeaves ty0 l (hlw l hlt) with h1 | ⟨h, hh, h1⟩
       · have := hher _ hfmem l
         rw [hfT] at this

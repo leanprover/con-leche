@@ -489,7 +489,7 @@ theorem nestMemberCtor_inv {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx :
     {st' : NestState}
     (h : nestMemberCtor ops env ctx nF crest st = .ok (ks, tyN, st')) :
     ∃ (err : CheckError) (nds : List (Expr × BinderMeta)) (cur : Expr),
-      nestFields (nestPos ops env ctx 1024) [] (ctx.hiAt 0) err nF 0 crest st
+      nestFields (nestPos ops env ctx (whnfWalkFuel crest)) [] (ctx.hiAt 0) err nF 0 crest st
         = .ok (ks, nds, cur, st') ∧ st'.restart = none ∧
       tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
       (∀ i, i < nF → (∃ t, ks.getD i .ordinary = .recursive t ∨
@@ -554,7 +554,7 @@ theorem storedWalk_fields {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx
     obtain ⟨k, nd, s1, s2, hk, hnd, hrun⟩ := hall i x hx
     rw [Nat.add_zero] at hrun
     have hkf := hks k (List.mem_of_getElem? hk)
-    obtain ⟨h1, h2, h3⟩ := nestPos_out henv hpl hpar 1024 _ 0 _ s1 k nd s2 hrun hkf
+    obtain ⟨h1, h2, h3⟩ := nestPos_out henv hpl hpar (whnfWalkFuel crest) _ 0 _ s1 k nd s2 hrun hkf
       (hxcl x (List.mem_of_getElem? hx)) (by omega)
     exact ⟨k, nd, hk, hnd, h1, h2, h3, hkf⟩
   have hndcl : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true := by
