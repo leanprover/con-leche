@@ -7,13 +7,11 @@ public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Model.IndFrame
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Model.Inductives.StructRead
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.StructRecSpine
-import ConLeche.Model.IndPointKit
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
@@ -68,41 +66,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## Reading pieces -/
-
-/-- A Π-tower positive along a relation is positive field by field, and
-its body satisfies the predicate under the fields. -/
-theorem piPosThen_mkPisAV {P : FrameRel V → AnnotTerm → Prop} :
-    ∀ (ab : List (Nat × Nat × AnnotTerm)) (R : FrameRel V) (b : AnnotTerm),
-      PiPosThen P ab.length R (mkPisAV ab b) →
-      TeleMonoOn R (ab.map (·.2.2)) ∧ P (R.underTele (ab.map (·.2.2))) b
-  | [], _, _, h => ⟨trivial, h⟩
-  | _ :: ab, R, b, h => by
-    obtain ⟨h1, h2⟩ := h
-    obtain ⟨ht, hp⟩ := piPosThen_mkPisAV ab _ b h2
-    exact ⟨⟨h1, ht⟩, hp⟩
-
-/-- The number of applications on a spine. -/
-def spineLenAV : AnnotTerm → Nat
-  | .app f _ => spineLenAV f + 1
-  | _ => 0
-
-theorem spineLenAV_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
-    spineLenAV (AnnotTerm.mkAppN f as) = spineLenAV f + as.length
-  | [], _ => rfl
-  | a :: as, f => by
-    rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons, spineLenAV_mkAppN as]
-    simp [spineLenAV]; omega
-
-/-- Spines headed by a variable are equal only at equal variables and
-arguments. -/
-theorem mkAppN_bvar_inj {i j : Nat} {as bs : List AnnotTerm}
-    (h : AnnotTerm.mkAppN (.bvar i) as = AnnotTerm.mkAppN (.bvar j) bs) : i = j ∧ as = bs := by
-  have hl := congrArg spineLenAV h
-  rw [spineLenAV_mkAppN, spineLenAV_mkAppN] at hl
-  simp only [spineLenAV, Nat.zero_add] at hl
-  obtain ⟨h1, h2⟩ := AnnotTerm.mkAppN_inj h hl
-  injection h1 with h1
-  exact ⟨h1, h2⟩
 
 /-- Two lists of variables at the same consecutive indices are
 erasure-equal. -/

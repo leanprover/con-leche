@@ -12,6 +12,7 @@ import ConLeche.Model.Annot.BitShift
 import ConLeche.Semantics.Frame
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.InferLemmas
+import ConLeche.Model.IndPointKit
 
 public section
 
@@ -365,20 +366,21 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
 /-! ## The theorem -/
 
 /-- A run of the positivity function (or of its recursive call one fuel
-lower) whose reading is proved positive, and which keeps the state
-invariant `I` (lane CONTSEM: the cache's — every cached instantiation
-the run may hit without walking is positive). -/
+lower) which keeps the state invariant `I` (lane CONTSEM: the cache's —
+every cached instantiation the run may hit without walking is positive),
+also when it ends in a restart request, and whose reading is proved
+positive when it does not. -/
 @[expose] def NestPosSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
     (P : NestFieldKind → Prop) (I : NestState → Prop)
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
     Prop :=
   ∀ (prog : List NestHole) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
     (nf : Expr) (st' : NestState),
-    rec prog dep kb e st = .ok (k, nf, st') → P k → st'.restart = none →
+    rec prog dep kb e st = .ok (k, nf, st') → P k →
     ctx.hiAt prog.length ≤ dep → Frame dep e → I st →
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
       CtxOkP m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
-      HoleRel m φ ctx prog dep Δa R → MonoOn R ea ∧ I st'
+      HoleRel m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none → MonoOn R ea)
 
 /-- **The container case**, as the premise the theorem takes: a
 successful `nestCont` at a container reduct whose recursive call is
@@ -391,11 +393,11 @@ positive makes the reduct's reading positive. -/
     (st : NestState) (k : NestFieldKind) (st' : NestState),
     w.getAppFn = .const n us → ctx.names.contains n = false →
     nestCont ctx (fueledOps .verified F) env rec prog kb n us w.getAppArgs st = .ok (k, st') →
-    P k → st'.restart = none →
+    P k →
     ctx.hiAt prog.length ≤ dep → Frame dep w → I st →
     ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
       CtxOkP m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
-      HoleRel m φ ctx prog dep Δa R → MonoOn R wa ∧ I st'
+      HoleRel m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none → MonoOn R wa)
 
 /-- **THE THEOREM (non-container cases): a run of `nestPos` is positive.**
 If the positivity function returns (at the pure verified instantiation,
@@ -415,7 +417,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     intro prog dep kb e st k nf st' hrun
     simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
   | succ fuel ih =>
-    intro prog dep kb e st k nf st' hrun hP hcyc hhi hfr hI Δa ea R hC hea hgr hR
+    intro prog dep kb e st k nf st' hrun hP hhi hfr hI Δa ea R hC hea hgr hR
     rw [nestPos] at hrun
     cases hw : ConLeche.whnf .verified env F dep e with
     | error err =>
@@ -427,11 +429,11 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
         red_sound hin (ConLeche.Rules.whnf_bridge hw) hfr hC.toCtxOk hea hgr
       have hCw : CtxOkP m φ dep Δa w := hC.of_subset hsub
-      suffices hw2 : MonoOn R wa ∧ I st' from
-        ⟨MonoOn.of_eqOn (Q := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hw2.1, hw2.2⟩
+      suffices hw2 : I st' ∧ (st'.restart = none → MonoOn R wa) from
+        ⟨hw2.1, fun hc => MonoOn.of_eqOn (Q := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) (hw2.2 hc)⟩
       by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
-      · refine ⟨(ConstOn.of_noBVar hR.agree
-          (denoteMeta_noBVar_of_nestOcc dep w hfrw.1 hhi hocc hwa)).monoOn, ?_⟩
+      · refine ⟨?_, fun _ => (ConstOn.of_noBVar hR.agree
+          (denoteMeta_noBVar_of_nestOcc dep w hfrw.1 hhi hocc hwa)).monoOn⟩
         rw [if_pos (by simpa using hocc)] at hrun
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         rw [← hrun.2.2]; exact hI
@@ -459,9 +461,9 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
         obtain ⟨k₁, nb, st₁⟩ := v
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         obtain ⟨rfl, -, rfl⟩ := hrun
-        obtain ⟨hB, hI'⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv hP hcyc (by omega)
+        obtain ⟨hI', hB⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv hP (by omega)
           (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hI hCop hba hgB (hR.under hhi hA.monoOn)
-        exact ⟨MonoOn.pi 0 _ hA hB, hI'⟩
+        exact ⟨hI', fun hc => MonoOn.pi 0 _ hA (hB hc)⟩
       · -- a head applied to arguments
         rename_i hnotpi
         have hspine := Expr.mkAppN_getApp w
@@ -487,7 +489,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
                 = true
             · rw [if_pos hc] at hrun
               simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-              refine ⟨?_, by rw [← hrun.2.2]; exact hI⟩
+              refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
               simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
                 Bool.not_eq_eq_eq_not, Bool.not_true] at hc
               obtain ⟨⟨hlen, -⟩, hfree⟩ := hc
@@ -515,7 +517,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
                       !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x) = true
                   · rw [if_pos hidx] at hrun
                     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-                    refine ⟨?_, by rw [← hrun.2.2]; exact hI⟩
+                    refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
                     simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
                     simp only [List.all_eq_true, Bool.not_eq_true'] at hidx
                     rw [← List.take_append_drop key.key.ds.length w.getAppArgs] at hsp
@@ -545,7 +547,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
           obtain ⟨k₁, st₁⟩ := v
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
           obtain ⟨rfl, -, rfl⟩ := hrun
-          exact hcont _ ih prog dep kb w n us st k₁ _ hfn (by simpa using hnm) hv hP hcyc hhi
+          exact hcont _ ih prog dep kb w n us st k₁ _ hfn (by simpa using hnm) hv hP hhi
             hfrw hI hCw hwa hgw hR
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
 
@@ -577,23 +579,23 @@ theorem nestFields_sem
     ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
       (nds : List (Expr × ConLeche.BinderMeta)) (res : Expr) (st' : NestState) (D : Nat),
       ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
-      (∀ k ∈ ks, P k) →
-      st'.restart = none → D = base + j + nF →
+      (∀ k ∈ ks, P k) → D = base + j + nF →
       ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur → I st →
       ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
         CtxOkP m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
         Graded V Δa ca → HoleRel m φ ctx prog (base + j) Δa R →
-        PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca ∧ I st' := by
+        I st' ∧ (st'.restart = none →
+          PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca) := by
   intro nF
   induction nF with
   | zero =>
-    intro j cur st ks nds res st' D h _ _ hD _ hfr hI Δa ca R _ hca _ hR
+    intro j cur st ks nds res st' D h _ hD _ hfr hI Δa ca R _ hca _ hR
     simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, -, rfl, rfl⟩ := h
     subst hD
-    exact ⟨⟨hR.agree, hca, hfr.1⟩, hI⟩
+    exact ⟨hI, fun _ => ⟨hR.agree, hca, hfr.1⟩⟩
   | succ nF ih =>
-    intro j cur st ks nds res st' D h hks hc hD hhi hfr hI Δa ca R hC hca hgr hR
+    intro j cur st ks nds res st' D h hks hD hhi hfr hI Δa ca R hC hca hgr hR
     unfold ConLeche.nestFields at h
     split at h
     · rename_i a b mb
@@ -603,10 +605,33 @@ theorem nestFields_sem
       · rename_i r₁ hr₁
         obtain ⟨k₁, nd₁, st₁⟩ := r₁
         simp only at h
+        obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
+        obtain ⟨hws, hb, hLb⟩ := hfr
+        simp only [Expr.WScoped] at hws
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
+        have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
+        obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
+        have hk₁ : P k₁ := by
+          by_cases hrs : st₁.restart.isSome = true
+          · rw [if_pos hrs] at h
+            simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, -⟩ := h
+            exact hks k₁ List.mem_cons_self
+          · rw [if_neg hrs] at h
+            split at h
+            · simp at h
+            · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+              obtain ⟨rfl, -⟩ := h
+              exact hks k₁ List.mem_cons_self
+        obtain ⟨hI₁, hA⟩ :=
+          hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ hk₁ hhi ⟨hws.1, hb.1, hLa⟩ hI
+            hC.forallE_ty hta hgA hR
         by_cases hrs : st₁.restart.isSome = true
         · rw [if_pos hrs] at h
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
           obtain ⟨-, -, -, rfl⟩ := h
+          refine ⟨hI₁, fun hc => ?_⟩
           rw [hc] at hrs; exact nomatch hrs
         rw [if_neg hrs] at h
         have hc₁ : st₁.restart = none := by simpa using hrs
@@ -616,25 +641,14 @@ theorem nestFields_sem
           obtain ⟨ks₂, nds₂, res₂, st₂⟩ := r₂
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
           obtain ⟨rfl, -, rfl, rfl⟩ := h
-          obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
-          obtain ⟨hws, hb, hLb⟩ := hfr
-          simp only [Expr.WScoped] at hws
-          simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-          have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-          have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-          obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
-          obtain ⟨hA, hI₁⟩ :=
-            hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ (hks k₁ List.mem_cons_self) hc₁ hhi
-              ⟨hws.1, hb.1, hLa⟩ hI
-              hC.forallE_ty hta hgA hR
           have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgA
           have hfr' := frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd
           rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
-          obtain ⟨hrest, hI₂⟩ := ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ D hr₂
-            (fun k hk => hks k (List.mem_cons_of_mem _ hk)) hc (by omega) (by omega) hfr' hI₁ hCop
+          obtain ⟨hI₂, hrest⟩ := ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ D hr₂
+            (fun k hk => hks k (List.mem_cons_of_mem _ hk)) (by omega) (by omega) hfr' hI₁ hCop
             hba hgB
-            (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
-          exact ⟨⟨hA, hrest⟩, hI₂⟩
+            (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi (hA hc₁))
+          exact ⟨hI₂, fun hc => ⟨hA hc₁, hrest hc⟩⟩
     · simp at h
 
 theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
@@ -645,6 +659,41 @@ theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
   | _ + 1, _, .bvar _, h | _ + 1, _, .sort _, h | _ + 1, _, .const _ _, h
   | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _, h | _ + 1, _, .eqE _ _, h
   | _ + 1, _, .fst _, h | _ + 1, _, .snd _, h | _ + 1, _, .prf, h => h.elim
+
+/-- A Π-tower positive along a relation is positive field by field, and
+its body satisfies the predicate under the fields. -/
+theorem piPosThen_mkPisAV {P : FrameRel V → AnnotTerm → Prop} :
+    ∀ (ab : List (Nat × Nat × AnnotTerm)) (R : FrameRel V) (b : AnnotTerm),
+      PiPosThen P ab.length R (mkPisAV ab b) →
+      TeleMonoOn R (ab.map (·.2.2)) ∧ P (R.underTele (ab.map (·.2.2))) b
+  | [], _, _, h => ⟨trivial, h⟩
+  | _ :: ab, R, b, h => by
+    obtain ⟨h1, h2⟩ := h
+    obtain ⟨ht, hp⟩ := piPosThen_mkPisAV ab _ b h2
+    exact ⟨⟨h1, ht⟩, hp⟩
+
+/-- The number of applications on a spine. -/
+def spineLenAV : AnnotTerm → Nat
+  | .app f _ => spineLenAV f + 1
+  | _ => 0
+
+theorem spineLenAV_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
+    spineLenAV (AnnotTerm.mkAppN f as) = spineLenAV f + as.length
+  | [], _ => rfl
+  | a :: as, f => by
+    rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons, spineLenAV_mkAppN as]
+    simp [spineLenAV]; omega
+
+/-- Spines headed by a variable are equal only at equal variables and
+arguments. -/
+theorem mkAppN_bvar_inj {i j : Nat} {as bs : List AnnotTerm}
+    (h : AnnotTerm.mkAppN (.bvar i) as = AnnotTerm.mkAppN (.bvar j) bs) : i = j ∧ as = bs := by
+  have hl := congrArg spineLenAV h
+  rw [spineLenAV_mkAppN, spineLenAV_mkAppN] at hl
+  simp only [spineLenAV, Nat.zero_add] at hl
+  obtain ⟨h1, h2⟩ := AnnotTerm.mkAppN_inj h hl
+  injection h1 with h1
+  exact ⟨h1, h2⟩
 
 /-- **A member constructor's result**: its reading is a spine whose
 arguments after the parameters (the result's indices) are hole-free. -/
@@ -691,9 +740,10 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       have hks₁ : ∀ k ∈ ks₁, P k := by
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         exact h.1 ▸ hks
-      obtain ⟨hsem, hI₁⟩ := nestFields_sem (nestPos_sem hin ctx F hcont 1024)
-        nF 0 crest st ks₁ nds₁ res st₁ (ctx.hiAt 0 + nF) hr hks₁ hc (by omega) (by simp) hfr hI
+      obtain ⟨hI₁, hsem⟩ := nestFields_sem (nestPos_sem hin ctx F hcont 1024)
+        nF 0 crest st ks₁ nds₁ res st₁ (ctx.hiAt 0 + nF) hr hks₁ (by omega) (by simp) hfr hI
         hC hca hgr hR
+      replace hsem := hsem hc
       refine ⟨?_, by
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         rw [← h.2.2]; exact hI₁⟩

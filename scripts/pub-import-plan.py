@@ -107,6 +107,10 @@ FALLBACK = {
     # `NestPosMono` `PiPosThen` (`:77`), without `PositivityInv`
     # `BlockParts.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
     # WAS demotable and is demoted.)
+    # lane CONTSEM session 4: `ContN2`'s `keyFrame_eq_substE` states
+    # `substTau` (`BitSubstFvars`); MEASURED by demoting it alone
+    # (`Unknown identifier substTau`, `ContN2.lean:295`).
+    ('ConLeche.Model.Inductives.ContN2', 'ConLeche.Model.Annot.BitSubstFvars'),
     ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Kernel.Inductives.Positivity'),
     ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Verify.Shift'),
     ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.Inductives.NestScope'),

@@ -575,3 +575,7 @@ ConLeche/Verify/ReducePinInv.lean	public import ConLeche.Verify.NatOpFrag	# comp
 ConLeche/Verify/StdAxiomPin.lean	import ConLeche.Kernel.Checker	# compensated: +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomPin.lean; +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomReduce.lean (+2 more)
 ConLeche/Verify/StdAxiomPin.lean	public import ConLeche.Verify.OfReducePin	# compensated: +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomPin.lean; +import ConLeche.Verify.OfReducePin in ConLeche/Model/AxiomReduce.lean (+2 more)
 ConLeche/Verify/StrLitExpr.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Verify/StrLitExpr.lean (task #305 prep, as for FEnv.lean)
+ConLeche/Model/Inductives/ContLeaf.lean	import ConLeche.Model.Annot.BitInst	# compensated: moves with ContFrame (lane CONTSEM s4)
+ConLeche/Model/Inductives/ContWalk.lean	import ConLeche.Verify.Inductives.NestContInv	# compensated: moves with ContCtor/ContLeaf (lane CONTSEM s4)
+ConLeche/Model/Inductives/ContWalk.lean	public import ConLeche.Model.Inductives.ContLeaf	# compensated: moves downstream with the frame lemma's statements (lane CONTSEM s4; demoting/removing it alone breaks the build)
+ConLeche/Model/Inductives/ContWalk.lean	import ConLeche.Model.Annot.BlockLfpTup	# compensated: carrier_le_on_group' (BlockLfpMono) reached through it (lane CONTSEM s4; removing it alone breaks the build)

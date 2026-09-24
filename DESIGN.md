@@ -86264,6 +86264,70 @@ change; verdict-neutral by construction (proof tiers only).
   positivity walk (checkpoint (d) K's deviation) is unchanged: neither
   recorded route was measured this session.
 
+#### LANDED (lane CONTSEM, session 4, 2026-09-24): `ContSem` PROVED — `nestMemberCtor_sem` without the container premise
+
+NESTPLAN L3 complete; CONTSEM.md "Resume (session 4)" steps 1–6.
+Charter items 2–4.  Report: `_tmp/uniform-inds/CONTSEM.md` "Session 4".
+- **The theorem** (`Model/Inductives/ContSem.lean`): `contSem` proves
+  the container premise of `nestPos_sem` at the kind predicate `True`
+  and the state invariant `CacheInv` (every looked-up container's list
+  is `nestContainer`'s; every cached instantiation without a frame hole
+  is `KeyPos`: its container's carrier grows between the key frames of
+  every hole relation without frames whose pairs fit the container's
+  parameters); `nestMemberCtor_sem_cont` is `nestMemberCtor_sem` with it
+  discharged.  Coverage is a NAMED premise (`ContCover`, L8 owed): every
+  stored inductive but `Quot` and the block's own members is a member of
+  a recorded block, and every recorded block is `ContBlockOk` (names
+  distinct and its members' `caps.all`, `nestContainer` lists its
+  recorded constructors in order at one parameter count).  Axioms: the
+  standard three.
+- **The frame lemma** (`ContWalk.lean`, `frame_sem`, restarts included):
+  a container frame's run keeps the invariant, and without a pending
+  restart every member of its final group grows between the two key
+  frames of each pair of the enclosing relation — `carrier_le_on_group'`
+  whose walk premise is the per-constructor transfer (`ContCtor.lean`,
+  `ctor_transfer`) along the frame relation (`frameRel_holeRel`: the
+  enclosing relation at the key's depth, `HoleRel.drop`, extended by the
+  group's hole values, `HoleRel.extend`; the new holes grow at ANY arity
+  because their index telescopes read the same at the two key frames,
+  `n2_link`, `ContN2.lean`).  The crest's reading is the substitution
+  law over M2 (`crest_read`), its context and grading the per-key
+  inference (`crest_frame`, `infer_sound`).
+- **Kernel, two checks, both MEASURED verdict-neutral**
+  (`_tmp/uniform-inds/CONTSEM/s4/`: `tests/arena.sh` verdicts as
+  expected — e2e 301/301, nested-shadow 82/82, target-shadow 317/317;
+  init-full `--target-shadow` and `--nested-shadow` output identical to
+  session 3's):
+  * `nestCtors`: the instantiated constructor's result is headed by a
+    variable (`nestResHead`, the proposed check, ruling of 2026-09-24):
+    the result reading splits against the hole's spine.
+  * **Finding — `nestInstType` requires the container's parameters to
+    be a SYNTACTIC telescope** (`stripPis nPc`, a decline): N2 is read
+    against the recorded former telescope (M4) through the canonical
+    opening, which the kernel's instantiation at `ds` does not imply (a
+    body headed by a bound parameter peels further once a Π-typed
+    parameter is substituted; the canonical variable does not).  Every
+    stored inductive's parameters are binders of its type (official's
+    `check_inductive_types` peels them syntactically).
+- **Findings in the proof.**  (1) `NestPosSem` keeps `I` also when the
+  run ends in a restart request: `nestFrame`'s restart branch walks
+  again from the entry state's cache with the restarted run's lookups.
+  (2) The index count (`n2_link`) needs the container's level
+  parameters distinct, which only the frame's walk establishes, so the
+  parameter fit is read from the graded application's parameter prefix
+  alone (`keyParamsFit`).  (3) `KeyPos` is existential in the recorded
+  block (the frame reasons in the head's block, `nestBlockOf`); a push
+  proves it at an arbitrary frameless relation by instantiating the
+  walk's semantics at that relation extended by EMPTY enclosing frames
+  (`HoleRel.extendEmpty`: `∅` at `Sort 0` entries, `HoleOnArgs` trivial
+  at any arity); a hit reads it at the enclosing relation seen at the
+  block's depth (`HoleRel.dropBase`, `contHit`).
+- **Not done.**  The consumer: `blockCtorPos_of_run` (HOLE2) still uses
+  `nestMemberCtor_sem_flat`; at container kinds it takes
+  `nestMemberCtor_sem_cont` with `CacheInv` threaded from
+  `cacheInv_empty` and `ContCover` as a premise (with HOLE2 (d)).  L8
+  discharges `ContCover` at the flip.
+
 #### LANDED (lane HOLE2, checkpoint (d) session 3: stage B — the formers' leaf on the HOLE chains, 2026-09-24)
 
 Charter item 2 ("the interpretation of its constructor types with holes
