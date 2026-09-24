@@ -86961,3 +86961,71 @@ view and constructors installed as given", above), its first bullet.
   after one OVERVIEW anchor repoint (`nestNormCtor`, moved by the new
   docstring lines).  No `sorry`, no new axiom.  Line delta (`ConLeche/`):
   +81 / −65.
+
+#### LANDED (lane PROJFIX, 2026-09-24): the projection rewrite follows the route switch — flip preparation
+
+R1.md's flip item: the frontend's projection-function rewrite
+(`Frontend/ProjRec.lean`, `projRecOwners`) turns `NT.lbl` into
+`NT.rec … self` at every block the uniform route does not take.  Once
+the uniform route installs a nested block it conses the block's
+projection table, and the rewrite would leave a stuck `NT.rec … x`
+where the raw `x.1` type-checks (R1's false rejects on
+`ind_rec_struct_proj_raw`/`ind_proj_mutual_nested`; 40 rewritten
+functions in Mathlib).  Charter item 1.
+
+- **The switch.**  `modelledRoute (p : BlockShape) : Bool`
+  (`Kernel/Inductives/BlockParts.lean`) is the recogniser's one
+  route-dependent conjunct, named: a recursor whose major heads a
+  constant outside the block (`recMajorForeign`).  `blockParts?` refuses
+  a shape exactly when it holds.  `uniformRoute nPd block :=
+  (blockParts? nPd block).isSome` is "the uniform route WILL install
+  this block", the install dispatch's own test (task #219).
+  `projRecOwners` reads `uniformRoute` (it read `blockParts?` inline
+  before, so its value is unchanged), and so does the nested shadow's
+  `routed` in `Main.lean`.  **The flip (L9) sets `modelledRoute` to
+  `false`, or deletes it**; the dispatch, the rewrite and the shadow
+  then move together.  Proofs: `blockParts?_inv` still goes through
+  (`split` on the named `if`); no proof covers the rewrite's CHOICE —
+  `Verify/Frontend/ApplyLine.lean`'s `registerProjOwners_frame` is a
+  frame lemma over any owner list, and a rewritten record is checked by
+  the fold like any other.
+- **The target shadow cannot see it, structurally.**  The rewrite is a
+  PARSE-time transformation of LATER records (the projection
+  functions), and it feeds the LIVE fold, which installs `NT` by the
+  modeller (no table).  `--target-shadow` runs the target installer at
+  the block only, with its state discarded; the declarations after it
+  are checked by the live fold alone.  So the shadow has no fixture-level
+  target verdict to improve: the two rows' block column already reads
+  `NT=accept/accept/…` (the target installs `NT`), and the run's exit
+  (2) is the live fold's.  Applying the post-flip gate under the flag
+  would hand the live (modelled) fold raw `.proj` nodes at every nested
+  structure and move live verdicts (e.g. `nested_struct_proj`), which
+  the flag must not do.
+- **How L9 tests it instead** (measured here by a PROBE binary, not
+  kept: R1's reroute of `checkDeclC`'s `none` arm to `targetShadowS`,
+  with `env?` on the report, plus `uniformRoute := true`; binary only,
+  under `_tmp/uniform-inds/PROJFIX/`): the whole e2e corpus (344 rows)
+  against today's binary moves exactly four rows: `ind_rec_struct_proj_raw`
+  2 → **0**, `ind_proj_mutual_nested` 2 → **0** (official 0 both; R1's
+  probe, with the rewrite still on, had 1), `corner_tshadow_aux_nonfield_bad`
+  0 → 1 and `restrict_a28_m2prime_phantom` 0 → 1 (both official 1, the
+  target's recorded verdicts).  L9's gate is therefore the e2e rows:
+  both fixtures move 2 → 0 with their W5 comments rewritten (NESTPLAN
+  L9 (d) lists `ind_proj_mutual_nested` only; `ind_rec_struct_proj_raw`
+  moves too), and a unit guard pins the coupling now
+  (`tests/ConLecheTests/NestedTests.lean`: a nested `NT` and its
+  non-nested twin, `(projRecOwners …).isEmpty == uniformRoute …` at
+  both; at the flip the nested pair's two guards turn over together).
+  On Mathlib L9 should see the "projection functions … rewritten"
+  count drop from 40 to 0 with the accepted count unchanged.
+- **Not switched here, L9's**: the in-process generator's gate
+  (`InModel.wants`, the export's `numNested`) is not `modelledRoute`;
+  left running after the flip it would still decline a block the
+  uniform route accepts (e.g. infinitary nesting), so L9 makes it read
+  `!uniformRoute` (NESTPLAN L9 (b)'s `installIndD` generator branch).
+  Pre-flip the two tests differ on forged streams, so switching it now
+  could move live verdicts.
+- Verdicts: none moved (the gate's value is unchanged).  Gates:
+  `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0 after one
+  OVERVIEW anchor repoint (`blockParts?`, moved by the new
+  definition).  No `sorry`, no new axiom.
