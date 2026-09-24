@@ -3229,6 +3229,137 @@ theorem blockRuleDataB_run (hM : BlockModelAt mpC.base2 names d)
   subst hpd hfdD hesD hmkD
   exact blockRuleResidueB_run h hndM hr hcA hrhs hac hleafCl hlps0 hnP hread hin hbdd hsp hbody
 
+/-- **The contract at the run, its residue conjunct a premise** (lane
+RECLIB): `blockRuleDataB_run` with the residue producer abstracted —
+any `ihs`/`Rb0` whose residue conjunct follows from the contract's
+first conjunct. -/
+theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
+    (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {s : (Name → Nat) → Nat} {nCt : Nat → Nat}
+    {pdoms0 : (Name → Nat) → Nat → List AnnotTerm}
+    {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hpd : pdoms0 = fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+    (hfdD : fdoms0 = fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+    (hesD : es0 = fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+    (hmkD : mk0 = fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+    {ctorTy : (Name → Nat) → AnnotTerm} {φ : Name → Nat} {j i : Nat}
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[j]? = some r)
+    {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {rl : ConLeche.RecRule} (hplain : ConLeche.RecRule.fire rl = .plain)
+    {mem : Nat → Nat} {jc : Nat}
+    (hcj : (d.ctorsM (mem j))[jc]? = some cA)
+    (hcf : BlockCtorFacts mpC.base2 d lps (mem j) jc cA)
+    (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
+    (hmemk : mem j < d.k)
+    (htgt : ∀ l, l < cA.2 → d.tgts (mem j) jc l < d.k)
+    {K : Nat} (hjK : j < K)
+    (hctorRead : ∀ ψ : Name → Nat,
+      denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
+    (hfd : ∀ us : List Level, us.length = r.1.levelParams.length →
+      blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+          (Level.substFn φ r.1.levelParams us) j i
+        = liftDomsK (p.toBlockShape.rulePrefixAt j - d.nP) 0
+            ((d.Fss (mem j) (Level.substFn φ r.1.levelParams us)).getD jc []))
+    (hes : ∀ us : List Level, us.length = r.1.levelParams.length →
+      blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC
+          (Level.substFn φ r.1.levelParams us) j i
+        = ((d.Ess (mem j) (Level.substFn φ r.1.levelParams us)).getD jc []).map
+            (·.liftN (p.toBlockShape.rulePrefixAt j - d.nP) cA.2))
+    (hlenP : ∀ us : List Level, us.length = r.1.levelParams.length →
+      (d.params (Level.substFn φ r.1.levelParams us)).length = d.nP)
+    (hparamsC : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ σ : Nat → V,
+      Sat V (d.params (Level.substFn φ r.1.levelParams us)).reverse σ
+        ↔ Sat V (((d.dsF (mem j) jc (Level.substFn φ r.1.levelParams us)).take d.nP).map
+            (·.2.2)).reverse σ)
+    (hsplit : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
+      BlockRecSplitAt V mpC.base2 d (Level.substFn φ r.1.levelParams us) K
+        p.toBlockShape.rulePrefixAt mem
+        (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) c') ρ)
+    -- **THE GUARD** is the contract's own (`BlockRuleDataB`'s
+    -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
+    -- `structElimLevel p.elim p.large`), and under it the COUNTING
+    -- guard's two facts.  `hlarge`/`hct1` are the KERNEL's, in the
+    -- dispatch's own spelling (`hK1 : ℓ ≠ 0 → d.w ψ = 0 →
+    -- rs.length = 1` is the same guard's one-member half).
+    (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length →
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+      d.w (Level.substFn φ r.1.levelParams us) = 0 → d.large = true)
+    (hct1 : ∀ us : List Level, us.length = r.1.levelParams.length →
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+      d.w (Level.substFn φ r.1.levelParams us) = 0 → (d.ctorsM (mem j)).length ≤ 1)
+    (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
+      denoteMeta (blockRecAcv mpC.base2.acval envC rs s
+          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
+          (Level.substFn φ r.1.levelParams us) 0 rhs
+        = some (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
+            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (Level.substFn φ r.1.levelParams us)))
+    (hokRa : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
+      WellDenotedV V ρ (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
+          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
+          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+          (Level.substFn φ r.1.levelParams us)))
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs j i)[l]? = some x →
+        denoteMeta mpC.base2.acval envC (Level.substFn φ r.1.levelParams us)
+            (p.toBlockShape.rulePrefixAt j + l) (Expr.fvarTypeD x)
+          = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+              (Level.substFn φ r.1.levelParams us) j i).getD l default))
+    (hokF : ∀ us : List Level, us.length = r.1.levelParams.length →
+      ∀ q, q < cA.2 → ∀ (σ : Nat → V) (vs ws : List V),
+        SpineFit σ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+          (Level.substFn φ r.1.levelParams us) j) vs →
+        SpineFit (consList vs σ)
+          ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).take q) ws →
+        WellDenotedV V (consList ws (consList vs σ))
+          ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+            (Level.substFn φ r.1.levelParams us) j i).getD q default))
+    -- the residue conjunct, given the contract's first one (`blockRuleFit_tele`)
+    (hres : (∀ us : List Level, us.length = r.1.levelParams.length →
+      Level.eval (Level.substFn φ r.1.levelParams us)
+        (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm) (restR restC : AnnotTerm),
+        xs.length = p.toBlockShape.majorIdxAt j → ys.length = p.nP + cA.2 →
+        usj.length = cA.1.levelParams.length →
+        Level.substFn φ cA.1.levelParams usj
+          = Level.substFn φ cA.1.levelParams
+              (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+                (p.toBlockShape.rulePrefixAt j)).1 →
+        IotaIndexPin (V := V) ρ restC p.nP
+          (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) xs →
+        TeleFitPA V ρ
+          (blockRecTyAV mpC.base2.acval envC rs (Level.substFn φ r.1.levelParams us) j)
+          (xs ++ [AnnotTerm.mkAppN
+            (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]) restR →
+        TeleFitPA V ρ (ctorTy (Level.substFn φ cA.1.levelParams usj)) ys restC →
+        SpineFit ρ
+          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
+              (Level.substFn φ r.1.levelParams us) j
+            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
+                (Level.substFn φ r.1.levelParams us) j i)
+          ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
+            ++ (ys.drop p.nP).map (interp V ρ))) →
+      BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+        ctorTy φ j i r cA rl rhs) :
+    BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+      ctorTy φ j i r cA rl rhs := by
+  have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk htgt hjK hctorRead
+    hfd hlenP hparamsC hsplit hlarge hct1
+  exact blockRuleDataB_of_residue hM hμ h hpd hfdD hesD hmkD hr hcA hrhs hplain hcj hcf hlps
+    hdnP hnP hmemk htgt hjK hctorRead hfd hes hlenP hparamsC hsplit hlarge hct1 hread hokRa
+    hCf hCb hdF hokF (hres (by subst hpd hfdD; exact hsp))
+
 end DataRun
 
 /-! ## 11. `hwd` AT THE FAMILY — a fold over the per-rule theorem
