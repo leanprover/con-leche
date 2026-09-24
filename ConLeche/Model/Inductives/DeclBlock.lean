@@ -395,7 +395,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [List.getD_eq_getElem?_getD, hc]; rfl
     rw [← hmn, hname]
     exact hF.freshOf c cvTa hcv
-  have hposC := blockCtorPos_of_run hμ mpI hN hcore hPos rfl rfl rfl rfl
+  have hposC := blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl
     (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]) hndM
     hfreshM

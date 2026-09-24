@@ -192,8 +192,7 @@ def SlotsFitXB (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat) (Idss : Nat → 
 
 /-- **The block functor's full premise** — `XChainsOk` at `k`: the
 members' index telescopes graded, the X-chains graded at every family
-tuple and index tuple, the recursive slots fitting there, and a closed
-TUPLE.  Every clause quantifies over ALL tuples of the family space and
+tuple and index tuple, and the recursive slots fitting there.  Every clause quantifies over ALL tuples of the family space and
 all parameter frames, not over the carrier (falsifier F0's finding: the
 formation of an injection is derivable from the functor's laws only at
 that generality). -/
@@ -209,15 +208,6 @@ structure BlockChainsOk (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
     ∀ j, j < (Fsss m).length →
       SlotsFitXB k w ρp uf Idss ((rsss m).getD j []) ((tgtsss m).getD j [])
         ((tlsss m).getD j []) ((Eisss m).getD j []) Y t 0 [] ((Fsss m).getD j [])
-  /-- the closure witness: a closed TUPLE.  At `w = 0` it is
-  `blockPhi_closed_zero_of` below; at `w ≠ 0` it is the block's member
-  container (`tupleContainer_closed_exists`), whose SHAPES must be
-  tagged by (component, constructor) globally — falsifier F1's finding:
-  the kit strips its own member tag before reading positions and
-  targets off the shape, and the same constructor shape can occur at
-  two components with different targets. -/
-  hclosed : ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss)
-    (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L
 
 /-- A recursive entry reads the target's component of the tuple. -/
 theorem xEntryB_rec {Y : V} {rs : List Bool} {tgts : List Nat}
@@ -363,13 +353,6 @@ theorem blockPhi_maps (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss
       (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :=
   blockPhi_maps_of h.hok
 
-/-- **At a `Prop`-valued block the top tuple is closed** — the `w = 0`
-half of (W), with no container at all (`closedTuple_zero`). -/
-theorem blockPhi_closed_zero_of {Chs : Nat → List (List AnnotTerm)}
-    (hok : BlockChainsOkG k 0 ρp uf Idss Chs) :
-    ∃ L, IsClosedTuple 0 k (blockIdx uf ρp Idss) (blockPhiG k 0 ρp uf Idss Chs) L :=
-  closedTuple_zero (blockPhi_maps_of hok)
-
 /-- **The fixed-point equation at ANY chains**, per member and
 fibrewise, with the operator's monotonicity and a closed tuple as
 PREMISES (lane HOLE2: at the hole chains monotonicity is positivity's,
@@ -450,88 +433,6 @@ theorem blockStepV_zero_elim {m : Nat} {Y t x : V}
   · rw [chainsXBI_getElem?, if_neg hj] at ha
     exact absurd ha (not_mem_empty _)
 
-/-- The recursive components of a tuple fitting the X-chain at a family
-tuple lie in the slot's value at the field's TARGET component. -/
-theorem fitsXBI_slot_mem (hIall : BlockIdxOk (V := V) k uf ρp Idss) {Y t : V} {rs : List Bool}
-    {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
-    {Eis : List (List AnnotTerm)} :
-    ∀ (Fs : List AnnotTerm) (i : Nat) (as bs : List V), as.length = i →
-      SlotsFitXB k w ρp uf Idss rs tgts tls Eis Y t i as Fs →
-      SpineFit (consList as (cons t (cons Y ρp))) (chainXBIGo uf Idss rs tgts tls Eis Fs i) bs →
-      ∀ l, l < bs.length → rs.getD (i + l) false = true →
-        tgts.getD (i + l) 0 < k ∧
-        SlotFit (uf (tgts.getD (i + l) 0)) w ρp (Idss (tgts.getD (i + l) 0))
-          (tls.getD (i + l) []) (Eis.getD (i + l) []) (as ++ bs.take l) ∧
-        bs.getD l pt ∈ˢ slotSet w (uf (tgts.getD (i + l) 0)) (consList (as ++ bs.take l) ρp)
-          (tls.getD (i + l) []) (Eis.getD (i + l) []) (projS (tgts.getD (i + l) 0) Y)
-  | [], _, _, [], _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
-  | [], _, _, _ :: _, _, _, h, _, _, _ => h.elim
-  | _ :: _, _, _, [], _, _, h, _, _, _ => h.elim
-  | F :: Fs, i, as, b :: bs, hi, hfit, h, l, hl, hr => by
-    subst hi
-    rw [chainXBIGo_cons] at h
-    obtain ⟨hb, hrest⟩ := h
-    cases l with
-    | zero =>
-      rw [Nat.add_zero] at hr ⊢
-      obtain ⟨hct, hsf⟩ := hfit.1 hr
-      rw [xEntryB_rec (Y := Y) F as t (hIall _ hct) hr hsf] at hb
-      simpa using ⟨hct, hsf, hb⟩
-    | succ l =>
-      rw [consList_snoc'] at hrest
-      have := fitsXBI_slot_mem hIall Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
-        (hfit.2 b hb) hrest l (by simpa using hl)
-        (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
-      rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
-      simpa [List.append_assoc] using this
-
 end Elim
-
-/-! ## (W) at `w ≠ 0`: the block as a member container -/
-
-section Witness
-
-variable {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
-
-/-- **(W) at a block, graph regime**: `tupleContainer_closed_exists`
-at the block's operator, with the elimination stated at the SPELLED
-fibre.
-
-**The shapes must be tagged by (component, constructor) globally.**
-The kit strips its own member tag before reading positions (`B a`) and
-targets (`tgtM a p`, `tgtI a p`) off the shape, so a shape that is only
-the constructor's shadow tuple does not determine them: falsifier F1
-has `List.cons` occurring at two components with different targets.
-`A m i`'s members must therefore carry `m` and the constructor's
-member-local index themselves.
-
-Note also that `helim` quantifies over ALL tuples of the tuple space
-and the whole parameter frame is free — narrowing either to the carrier
-breaks falsifier F0. -/
-theorem blockPhi_closed_container {Chs : Nat → List (List AnnotTerm)} (hw : w ≠ 0)
-    (A : Nat → V → V) (B : V → V) (tgtM : V → V → Nat) (tgtI : V → V → V)
-    (mk : Nat → V → V → V)
-    (hA : ∀ m, m < k → ∀ i, i ∈ˢ idxSet (uf m) ρp (Idss m) → A m i ∈ˢ (univ w : V))
-    (hB : ∀ m, m < k → ∀ i a, i ∈ˢ idxSet (uf m) ρp (Idss m) → a ∈ˢ A m i →
-      B a ∈ˢ (univ w : V))
-    (htgt : ∀ m, m < k → ∀ i a p, i ∈ˢ idxSet (uf m) ρp (Idss m) → a ∈ˢ A m i → p ∈ˢ B a →
-      tgtM a p < k ∧ tgtI a p ∈ˢ idxSet (uf (tgtM a p)) ρp (Idss (tgtM a p)))
-    (hmkU : ∀ m, m < k → ∀ i a g, i ∈ˢ idxSet (uf m) ρp (Idss m) → a ∈ˢ A m i →
-      g ∈ˢ (univ w : V) → mk m a g ∈ˢ (univ w : V))
-    (helim : ∀ Xs, InTupleSpace w k (blockIdx uf ρp Idss) Xs → ∀ m, m < k →
-      ∀ i, i ∈ˢ idxSet (uf m) ρp (Idss m) →
-      ∀ x, x ∈ˢ blockStepG w ρp Chs m (ndMkTowerSet Xs 0 k) i →
-        ∃ a, a ∈ˢ A m i ∧ ∃ g, g ∈ˢ piSet (B a) (fun p => SetTheory.app (Xs (tgtM a p)) (tgtI a p)) ∧
-          x = mk m a g) :
-    ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs) L :=
-  tupleContainer_closed_exists hw _ A B tgtM tgtI mk hA hB htgt hmkU
-    fun Xs hXs m hm i hi x hx => by
-      rw [app_blockPhi (uf := uf) (Idss := Idss) hi] at hx
-      exact helim Xs hXs m hm i hi x hx
-
-end Witness
 
 end ConLeche.Semantics

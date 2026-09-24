@@ -444,8 +444,8 @@ environment. -/
 theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     (hin : Rules.RulesInputs V m ψ) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockCtorsCore m d lps cvTas p₁ isRec A 0)
+    {isRec : Bool}
+    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
@@ -467,14 +467,14 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp) :
     d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
   obtain ⟨ab, L, hhi, hca, hab, hfr, hCP, hgr, hsatFrame⟩ :=
-    blockCtorHoleCtx hin hN hcore.holeCtx hnames hlps hnP hnIdxs hk hnd hfresh hcv0 hop0 hholes hc hcj
+    blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hnd hfresh hcv0 hop0 hholes hc hcj
       hCf hCb hcrest hinf
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
   have hcI : (p.nestCtx fvsP env.find? env.consts).nIdxs = d.nIdxs := hnIdxs
   rw [← hhi] at hca hgr hfr hCP
   generalize hctx : p.nestCtx fvsP env.find? env.consts = ctx at *
-  have hD₀ := (hcore.2.2.1 c j cA hcj).2.2
+  have hD₀ := hcore.2 c j cA hcj
   -- ## the tuple order at the hole frame is a hole relation of that context
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   have hFDof : ∀ t, t < d.k → ∃ cvTb,
@@ -482,7 +482,7 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     intro t ht
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact ht)⟩
-    exact ⟨cvTb, (hcore.1 t cvTb hcvb).2.2.2⟩
+    exact ⟨cvTb, (hcore.1 t cvTb hcvb).2⟩
   have hR : HoleRel m ψ ctx [] (ctx.hiAt 0) L.reverse (d.toLfp.tupRel ψ ρp) := by
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- dom
@@ -543,8 +543,8 @@ tuple order at the hole frame**, from the install's positivity stage
 theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
     (mp : EnvModelM V μ env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockCtorsCore mp.base2 d lps cvTas p₁ isRec A 0)
+    {isRec : Bool}
+    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs = .ok ())

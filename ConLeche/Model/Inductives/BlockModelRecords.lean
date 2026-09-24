@@ -51,58 +51,6 @@ about the block — so the records suffice and only the operator's and
 the injections' identification stay premises (both `rfl` at
 `blockDataOf`), beside `d.nInst = 0` and `0 < d.k`. -/
 
-/-- **The hole operator IS the slot operator on the tuple space** (lane
-HOLE2, the bridge of the model rewrite's stage A): both are graphs over
-the component's index set, and their fibres agree — the slot operator's
-is `ChainFit` (`blockSlotFibre`), the hole operator's is `HFits`
-(`LfpDatum.holeOp_fibre`), and the two fits are one
-(`blockReadsHoles`). -/
-theorem blockHoleOp_eq_slot {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} (hH : BlockHoleFacts mo d lps) (hidx : d.IdxFit)
-    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
-      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
-    (hslot : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-      ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
-        x ∈ˢ app (d.slotPhi ψ ρp X c) t ↔
-          ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs)
-    (hIdxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)) :
-    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-      d.toLfp.holeOp ψ ρp X c = d.slotPhi ψ ρp X c := by
-  intro ψ ρp hs X hX c hc
-  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
-    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
-      fun _ => (hIdxOk ψ ρp hs m (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _))).2⟩
-  have happ : ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
-    fun j hj => blockHolesApplied hH ψ hc hj
-  have hres : ∀ j, j < d.toLfp.nctors c →
-      (d.toLfp.resIdx ψ c j).length = (d.toLfp.ids c ψ).length := by
-    intro j hj
-    show (d.absE ψ c j).length = (d.IdsM c ψ).length
-    simp only [BlockData.absE, List.length_map]
-    exact hH.lenE ψ c hc j hj
-  have happEq : ∀ t, t ∈ˢ d.idx ψ ρp c →
-      app (d.toLfp.holeOp ψ ρp X c) t = app (d.slotPhi ψ ρp X c) t := by
-    intro t ht
-    refine SetTheory.ext fun x => ?_
-    rw [LfpDatum.holeOp_fibre hok (Nat.le_add_right _ _) X happ hres ht x, hslot ψ ρp hs X hX c hc t ht x]
-    constructor
-    · rintro ⟨j, fs, hf, rfl⟩
-      obtain ⟨hj, hcf⟩ := (blockReadsHoles hidx hH ψ ρp hs X hX c hc t ht j fs).mpr hf
-      exact ⟨j, fs, hj, hcf, (hinj ψ c j fs).symm⟩
-    · rintro ⟨j, fs, hj, hcf, rfl⟩
-      exact ⟨j, fs, (blockReadsHoles hidx hH ψ ρp hs X hX c hc t ht j fs).mp ⟨hj, hcf⟩,
-        hinj ψ c j fs⟩
-  show lamR (d.w ψ + 1) (d.idx ψ ρp c) _ = lamR (d.w ψ + 1) (d.idx ψ ρp c) _
-  refine lamR_congr fun t ht => ?_
-  have h1 := happEq t ht
-  unfold LfpDatum.holeOp BlockData.slotPhi at h1
-  rw [app_blockPhi (uf := fun c => d.toLfp.u c ψ) (Idss := fun c => d.toLfp.ids c ψ) ht,
-    app_blockPhi (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) ht] at h1
-  exact h1
-
 /-- **The members' index telescopes are graded** at every parameter
 frame, from the constructors' stage. -/
 theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
@@ -211,69 +159,6 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     intro ψ c j hc hj ρ
     exact (hparams ψ c hc ρ).trans
       ((hS.frames c (by rw [← hNk]; exact hc) j _ (hcAof c j hj)).1 ψ ρ)
-  -- the per-field targets, off the data and the names
-  have hks : ∀ (ψ : Name → Nat) (c j : Nat), j < (d.ctorsM c).length →
-      (d.ksF c j).length = ((d.Fss c ψ).getD j []).length := by
-    intro ψ c j hj
-    rw [hnF ψ c j _ (hcAof c j hj)]
-    exact (hcore.2.2.1 c j _ (hcAof c j hj)).2.2.ksLen
-  have htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
-      l < ((d.Fss c ψ).getD j []).length →
-      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N := by
-    intro ψ c j l hj hl
-    have hlk : l < (d.ksF c j).length := by rw [hks ψ c j hj]; exact hl
-    refine ⟨?_, ?_⟩
-    · have hinner : (d.tgtss c).getD j [] = (List.range (d.ksF c j).length).map (d.tgts c j) := by
-        show (((List.range (d.ctorsM c).length).map fun j' =>
-          (List.range (d.ksF c j').length).map (d.tgts c j')).getD j []) = _
-        rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hj]
-        rfl
-      rw [hinner, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hlk]
-      rfl
-    · rw [hNk, ← hN.2.2.2]
-      exact hN.2.1 c j l
-  -- the two chain lists agree: lengths, and the ordinary positions
-  have hlenZF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → (fssZ ψ m).length = (d.Fss m ψ).length :=
-    fun ψ m hm => by rw [hS.lenZ m hm ψ, hlenC ψ m]
-  have hlenjZF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → ∀ j, j < (fssZ ψ m).length →
-      ((fssZ ψ m).getD j []).length = ((d.Fss m ψ).getD j []).length := by
-    intro ψ m hm j hj
-    have hjc : j < (d.ctorsM m).length := by rw [← hS.lenZ m hm ψ]; exact hj
-    rw [hS.lenZj m hm ψ j _ (hcAof m j hjc), hnF ψ m j _ (hcAof m j hjc)]
-  have hordF : ∀ (ψ : Name → Nat) (m : Nat), m < d.k → ∀ j, j < (fssZ ψ m).length →
-      ∀ l, l < ((fssZ ψ m).getD j []).length →
-      ((d.rss m).getD j []).getD l false = false →
-      ((fssZ ψ m).getD j []).getD l default = ((d.Fss m ψ).getD j []).getD l default := by
-    intro ψ m hm j hj l hl hr
-    have hjc : j < (d.ctorsM m).length := by rw [← hS.lenZ m hm ψ]; exact hj
-    have hlj : ((fssZ ψ m).getD j []).length = ((d.ctorsM m)[j]).2 :=
-      hS.lenZj m hm ψ j _ (hcAof m j hjc)
-    have hks : (d.ksF m j).length = ((d.ctorsM m)[j]).2 :=
-      (hcore.2.2.1 m j _ (hcAof m j hjc)).2.2.ksLen
-    have hlk : l < (d.ksF m j).length := by rw [hks, ← hlj]; exact hl
-    have hrs : (d.rss m).getD j [] = rsOf (d.ksF m j) := rssOfK_getD hjc
-    have hnrec : ¬ recAt d.nP (d.ksF m j) (d.nP + l) := by
-      rw [recAt_iff_rsOf hlk, ← hrs, hr]
-      exact Bool.false_ne_true
-    exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
-  -- the operator's premise bundle, at the REAL chains
-  have hokR : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      BlockChainsOk d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-        (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ) := by
-    intro ψ ρp hsat
-    rw [hNk]
-    exact blockChainsOk_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ)
-      (hS.chainsOk 0 hk0 ψ ρp ((hparams ψ 0 (by rw [hNk]; exact hk0) ρp).mp hsat))
-  -- the datum's operator is the hole operator, which IS the slot operator
-  -- on the tuple space (the bridge of the model rewrite's stage A)
-  have hPhi' : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-      d.Φ ψ ρp X c = d.slotPhi ψ ρp X c := by
-    intro ψ ρp hs X hX c hc
-    rw [hPhi]
-    exact blockHoleOp_eq_slot (blockHoleFacts_of_stage hN hS hcore hk0)
-      (blockIdxFit_of_chains hokR hlenC htgts) hinj (blockSlotFibre hinj hokR hlenC htgts)
-      (fun ψ ρp hs c hc => (hokR ψ ρp hs).hI c hc) ψ ρp hs X hX c hc
   have hH : BlockHoleFacts mo d lps := blockHoleFacts_of_stage hN hS hcore hk0
   have hidxOk := hS.idxOkAt hk0
   have hfib := blockHoleFib_of_records hN hS hcore hk0 hPhi hinj
@@ -325,15 +210,15 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [hfam]
     exact blockHFits_lfp_iff hH hinst (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
       (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck hover t j fs
-  -- the datum's operator is the hole operator, which IS the slot operator
-  -- on the tuple space (the bridge of the model rewrite's stage A) — the
-  -- closed tuple's source until the witness from the walk
+  -- the closed tuple: the constructors' stage's, of the hole operator (stage D)
   have hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L := by
     intro ψ ρp hs
-    obtain ⟨L, hL⟩ := (hokR ψ ρp hs).hclosed
-    exact ⟨L, (isClosedTuple_congr (fun _ _ => rfl)
-      (fun X hX m hm => (hPhi' ψ ρp hs X hX m hm).symm)).mp hL⟩
+    rw [hPhi]
+    show ∃ L, IsClosedTuple (d.w ψ) d.N (blockIdx (fun c => d.uM c ψ) ρp fun c => d.IdsM c ψ)
+      (blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) L
+    rw [hNk]
+    exact (hS.holeFun ψ ρp hs).2
   have hmaps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := by
     intro ψ ρp hs
