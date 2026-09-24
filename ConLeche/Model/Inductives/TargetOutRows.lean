@@ -314,6 +314,10 @@ theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         ++ (idxOf (tgtRP pp.toBlockShape j) ys ++ [majOf ys]) ∧
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j)
         (prefOf (tgtRP pp.toBlockShape j) ys) ∧
+      SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+          (tgtRP pp.toBlockShape j) (consList (prefOf (tgtRP pp.toBlockShape j) ys) ρ))
+        (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+        (idxOf (tgtRP pp.toBlockShape j) ys) ∧
       tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
           (idxOf (tgtRP pp.toBlockShape j) ys)
         ∈ˢ D.idx (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
@@ -405,11 +409,52 @@ theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [dropV, consList_append, show rc.mI - rc.rP = is.length by rw [hisl]; omega,
       consList_apply_add]
   rw [hdrop, hvals] at hidsF hmemE
-  refine ⟨tupW_mem hidsF, ?_⟩
+  refine ⟨hidsF, tupW_mem hidsF, ?_⟩
   have h4' : mj ∈ˢ interp V (consList (xs ++ is) ρ) pd.2.2 := by
     rw [consList_append, ← hDM, hmajD]; exact h4
   rw [hmemE] at h4'
   exact h4'
+
+/-- **Row `hconcl` at an outside class**: the motive at the tagged index
+tuple and major IS the conclusion's reading at the fitting spine — the
+index values come back out of their tuple at the container's own index
+telescope (`isOfW_tupW`, the clause's `idxOk` at the key frame, which
+satisfies the parameter telescope by `tgtOutSat`), read at the
+container's universe and the kernel's index count (`tgtOutIdx_len`). -/
+theorem tgtOutConcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+    {K : Nat} {concl : Nat → AnnotTerm} {uX nIdxX : Nat → Nat} (hc : j < K)
+    (huX : uX j = D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+    (hnX : nIdxX j = (tgtMajor out j).nIdx) :
+    ∀ ys : List V,
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+        (·.2.2)) ys →
+      blockRecMot K concl uX nIdxX ρ (prefOf (tgtRP pp.toBlockShape j) ys)
+          (tagged j (tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+            (idxOf (tgtRP pp.toBlockShape j) ys)) (majOf ys))
+        = interp V (consList ys ρ) (concl j) := by
+  intro ys hfit
+  obtain ⟨-, hdec, hpref, hidsF, -, -⟩ := tgtOutSplit hμ hcov h R hr hMo hcl ψ ρ ys hfit
+  obtain ⟨dsa, hdsa, -, -, hlenP, hsatF⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  have hlenI := tgtOutIdx_len R hr hMo hcl ψ hlenP
+  obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok D hcl.hD
+  have hIdx := hC.idxOk _ _ (hsatF ρ _ hpref) mm (Nat.lt_of_lt_of_le hcl.hmm hC.kN)
+  have hret : isOfW (uX j) (nIdxX j)
+      (tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+        (idxOf (tgtRP pp.toBlockShape j) ys)) = idxOf (tgtRP pp.toBlockShape j) ys := by
+    rw [huX, hnX, ← hlenI]
+    exact isOfW_tupW hIdx hidsF
+  rw [blockRecMot_tagged hc, hret, ← hdec]
 
 end Rows
 
