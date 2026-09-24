@@ -11,7 +11,6 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.IndPointKit

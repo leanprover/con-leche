@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Currency
+import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Leaves
 import ConLeche.Model.Annot.BitInst
 
