@@ -128,4 +128,44 @@ theorem tupleLe_of_fibre {A B : Nat → V} {fits₁ fits₂ : V → Nat → Nat 
 
 end Fibre
 
+section OnGroup
+
+variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
+
+open Classical in
+/-- **The least tuple lies below `B` on a group `G` of components**
+(lane CONTSEM: a container frame abstracts only the reached part `G` of
+its group; the other components are read concretely, i.e. held at the
+least tuple itself): if the operator, at the least tuple with its
+`G`-components replaced by `B`'s, lies below `B` on `G`, then so does
+the least tuple.  By induction (`lfpTuple_induction`) at the separation
+"on `G`, inside `B`": no Bekić needed. -/
+theorem lfpTuple_le_on (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+    (G : Nat → Prop) {B : Nat → V} (hB : InTupleSpace w k Is B)
+    (hZ : ∀ g, g < k → G g →
+      FamLe (Is g) (Φ (fun x => if G x then B x else lfpTuple w k Is Φ x) g) (B g)) :
+    ∀ g, g < k → G g → FamLe (Is g) (lfpTuple w k Is Φ g) (B g) := by
+  let P : Nat → V → V → Prop := fun m i x => G m → x ∈ˢ app (B m) i
+  have hZmem : InTupleSpace w k Is (fun x => if G x then B x else lfpTuple w k Is Φ x) := by
+    intro m hm
+    by_cases hg : G m
+    · simp only [if_pos hg]; exact hB m hm
+    · simp only [if_neg hg]; exact lfpTuple_mem w k Is Φ m hm
+  have hSZ : TupleLe k Is (sepTuple w k Is Φ P)
+      (fun x => if G x then B x else lfpTuple w k Is Φ x) := by
+    intro m hm i hi y hy
+    have hy' := hy
+    unfold sepTuple at hy'
+    rw [app_graph hi, mem_sep] at hy'
+    by_cases hg : G m
+    · simp only [if_pos hg]; exact hy'.2 hg
+    · simp only [if_neg hg]; exact hy'.1
+  have hind := lfpTuple_induction h hmono P fun m hm i hi x hx hg => by
+    have hx' := hmono _ _ (sepTuple_mem w k Is Φ P) hZmem hSZ m hm i hi x hx
+    exact hZ m hm hg i hi x hx'
+  intro g hg hG i hi x hx
+  exact hind g hg i hi x hx hG
+
+end OnGroup
+
 end ConLeche.SetTheory
