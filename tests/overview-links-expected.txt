@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L525
-   525  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L533
+   533  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L628-L635
    628  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -766,8 +766,8 @@
    634      | .ctorInfo _ nPc _ => nPc == nP
    635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1155
-  1155  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1226
+  1226  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L264
    264  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)

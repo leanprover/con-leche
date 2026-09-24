@@ -554,7 +554,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   it has one member or several mutually inductive ones: any number of
   parameters, indices, constructors and fields, recursive and reflexive
   fields, `Prop` or `Type`. The recogniser reads the block's shape
-  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L525)) —
+  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L533)) —
   its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
@@ -566,7 +566,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   member list, normalises every constructor field domain by official's
   positivity walk — weak head normal form before classifying, again
   under each Π binder, the positivity function's own normal form
-  ([function `nestNormCtor` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1155)) —
+  ([function `nestNormCtor` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1226)) —
   runs that one positivity function on the stored constructors, whose
   field kinds decide official's `is_rec`
   ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L264)),
