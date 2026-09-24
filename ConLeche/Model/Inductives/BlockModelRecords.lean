@@ -65,19 +65,12 @@ theorem ndMkTowerAV_congr_lt {r : Nat} {Gty G G' : Nat → AnnotTerm} :
 /-- **The block's operator term is congruent** in the field readings,
 at equal chains. -/
 theorem blockFunAV_congr_chains {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-    {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Fsss' Esss : Nat → List (List AnnotTerm)}
-    (hchains : ∀ m, m < k →
-      chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) (Esss m)
-        = chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss' m)
-            (Esss m)) :
-    blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss
-      = blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss' Esss := by
-  unfold blockFunAV
+    {Chs Chs' : Nat → List (List AnnotTerm)} (hchains : ∀ m, m < k → Chs m = Chs' m) :
+    blockFunG k w uf Idss Chs = blockFunG k w uf Idss Chs' := by
+  unfold blockFunG
   refine congrArg _ (ndMkTowerAV_congr_lt k 0 fun i hi => ?_)
   rw [Nat.zero_add]
-  unfold blockArmAV
+  unfold blockArmG
   rw [hchains i hi]
 
 /-- **The LEAF's bridge**: a member's former leaf is the same term at
@@ -103,8 +96,9 @@ theorem blockTyAV_congr_ord {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List 
         = chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m')
             (Fsss' m') (Esss m') :=
     fun m' hm' => chainsXBI_congr_ord (hlen m' hm') (hlenj m' hm') (hord m' hm')
-  unfold blockTyAV blockBodyAV
-  rw [blockFunAV_congr_chains (w := w) hchains]
+  unfold blockTyAV blockTyG blockBodyG
+  rw [blockFunAV_congr_chains (w := w) (Chs := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+    (Chs' := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss' Esss) hchains]
 
 /-! ## 8. `BlockModelAt` from the stages' three records
 

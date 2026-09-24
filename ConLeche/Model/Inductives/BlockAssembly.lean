@@ -1040,7 +1040,7 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
         from funext fun c => by rw [hppsParams c ψ₁ ψ₂ hφ']]
   · -- graded
     intro j cvTa hj ψ ρ
-    exact blockTyAV_wellDenoted (by
+    exact blockTyG_wellDenoted (by
       have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this)
       (hwalks j cvTa hj (by
         have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this) ρ ψ).1
@@ -1054,7 +1054,7 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
     intro j cvTa hj ψ ρ
     have hjk : j < q.k := by
       have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this
-    exact blockTyAV_mem hjk (hwalks j cvTa hj hjk ρ ψ).1
+    exact blockTyG_mem hjk (hwalks j cvTa hj hjk ρ ψ).1
   · -- the capability laws at the FIXPOINT leaf
     intro j cvTa hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
     have hFD₂ : FormerData m₂ cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) :=

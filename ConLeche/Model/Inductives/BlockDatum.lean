@@ -996,7 +996,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
             (fun c => dZ.tlss c ψ) (fun c => dZ.Eiss c ψ) (fun c => dZ.Fss c ψ)
             (fun c => dZ.Ess c ψ) (ppsOf j ψ) j := by
     intro j ψ
-    show blockTyAV _ _ _ _ _ _ _ _ _ _ _ _ = _
+    unfold blockLeafZ
     rw [show (fun c => (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).tlss c ψ)
           = (fun c => dZ.tlss c ψ) from funext fun c => hTlssEq c ψ,
       show (fun c => (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Eiss c ψ)

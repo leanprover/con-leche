@@ -515,7 +515,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       · rw [hsh]; exact h.hok
       · rw [hsh, hfr]; exact hsi
     rw [hleaf mm hmm ψ,
-      blockTyAV_fold (show mm < d.N from Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
+      blockTyG_fold (show mm < d.N from Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
         hsp hbase, hsh, hfr, hPhi]
     rfl
   · -- ctor

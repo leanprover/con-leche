@@ -191,7 +191,7 @@ theorem blockFoldSingle {k w m : Nat} (hm : m < k)
     · rw [hsh]; exact hok.hI
     · rw [hsh]; exact hok.hok
     · rw [hsh, hfr, hIdsm]; trivial
-  rw [blockTyAV_fold hm hsp hbase, hsh, hfr,
+  rw [blockTyG_fold hm hsp hbase, hsh, hfr,
     blockFam_app_eq_sum hok hm hreal (is := []) (by rw [hIdsm]; trivial), consList_nil, hEss,
     hIdsm]
   show sumSet _ (sumFibre _ _ (rChains 0 0 [Fs] [[]])) = _
