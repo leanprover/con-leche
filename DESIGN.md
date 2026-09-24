@@ -86695,3 +86695,10 @@ nothing moved on the target route but C1/C2.
 - **Verdicts moved**: only the new fixtures' rows (above).  No existing
   e2e, arena, target-shadow or nested-shadow row moved (the nine rejects
   are D-class: no fixture reaches them).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` all sections
+  as expected (e2e 337/337, target-shadow 357/357, nested-shadow 105/105,
+  trusted and `--jobs` sweeps, shake 541/541 allowlisted, pub-imports none
+  demotable) once four OVERVIEW anchors were repointed (moved, unchanged;
+  the link gate then 0).  init-full: exit 0, 53 093 accepted;
+  `--target-shadow` 585 lines and `--nested-shadow` identical to the
+  pre-lane binary's.  No `sorry`, no new axiom.
