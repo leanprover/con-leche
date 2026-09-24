@@ -86455,3 +86455,68 @@ Report: `_tmp/uniform-inds/L2L8.md`.
   (shake 542/542 with the umbrella's reachability line for
   `TargetAuxFire`, pub-imports none demotable with two MEASURED fallbacks
   for `TargetAuxFire`'s public statements).  No `sorry`, no new axiom.
+
+#### L8 (lane L2L8; ported to `uniform-inds` by lane L8b as a module with no consumer — still NOT threaded before the flip): coverage stated, its producers, and `ContCover` from it
+
+NESTPLAN L8, Q-B.  `Model/Inductives/LfpCover.lean`: `LfpCover mp ex`
+(every stored `.indInfo` but `Quot` and `ex` is a member of a recorded
+block; recorded names `Nodup`, one per member, listed as each member's
+`caps.all`), with `lfpCover_empty`, `LfpCover.transport`/`pend`/`addLfp`
+and `contCover_of` (`ContCover` = `LfpCover mp ctx.names` + the walk
+context's `find` + a `ctors` premise).  NOT threaded through the fold,
+and FALSE today beyond the modeller: (1) the pinned basis blocks store
+`caps.all = []`, so `ContBlockOk.all` fails at Empty/False/PUnit/Nat —
+maintainer's call between recording `all := [T]` at the basis and
+relaxing the clause for singleton blocks; (2) `Eq` records no clause
+(NESTPLAN's `eqLfp` unwritten); (3) every fold step concludes
+`Nonempty (EnvModelM …)` (43 sites), forgetting `lfpBlocks`;
+(4) `ContBlockOk.ctors` needs a constructor-ownership invariant.
+Details: `_tmp/uniform-inds/L2L8.md`.
+
+#### LANDED (lane L8b, 2026-09-24): the pinned basis blocks record `all := [T]`; `Eq`'s hand-written lfp clause; `LfpCover` on `uniform-inds`
+
+NESTPLAN L8, findings (1) and (2) of the L8 record above.  Charter
+item 2 ("the model needs only this least-fixed-point clause from each
+inductive").  Report: `_tmp/uniform-inds/L8b.md`.
+- **Basis `all`** (the maintainer's provisional ruling: as official
+  does).  The raw pins of `Empty`, `False`, `PUnit`, `Nat` and `Eq`
+  (`Kernel/Basis/*.lean`) now store `caps.all = [T]`; `Quot` keeps `[]`
+  (not an inductive, excluded from coverage by name).  `IndCaps.all`'s
+  docstring says so.  Verdict-neutral by construction: the pin match
+  (`basisPinHit`, `canonEqList`) canonicalises `.indInfo` caps to `{}`,
+  and `all` is read only by `nestBlockOf` at a frame restart, where a
+  one-member block's list never contains a name outside the frame's
+  group.  **No proof changed**: every basis proof reads the caps through
+  `decide`/`rfl` on the generated `*A` constants.
+- **`Eq`'s clause** (`Model/BasisLfp.lean`, section `EqLfp`).  Datum
+  `eqLfp nm cn lv`: `k = N = 1`, `w = 0`, params/pars `[Sort lv, #0]`,
+  ids `[#1]` (`b : α`), `u = lv` (the index tuple at `α`'s level), one
+  constructor with no field and result index `[#1]` (`a`, below the one
+  hole).  The operator is CONSTANT in the tuple:
+  `Φ = graph (eqFib ρp) (idxSet lv ρp [#1])`, `eqFib ρp t = truthVal
+  (ρp 0 = projS 0 t)`; so the carrier is that value
+  (`app_eqLfp_carrier`: `lfpTuple_le` at the constant closed tuple +
+  `lfpTuple_closed`).  `eqFib_tupW`: at `u ≠ 0` the tuple's first
+  projection is `b` (`sfst_spair`); at `Prop` (`u = 0`) the tuple is
+  `pt`, and `a`, `b` are `pt` too (`eq_pt_of_mem_univZero`) — no
+  conjunct fails for the indexed family.  `eqLfp_clause` gives every
+  conjunct of `LfpClause` (functor, fibre, leaf, holes, mkZero, mkInj —
+  vacuous at `w = 0` — ctor, parsLen/Sat/SatInv, holeApp — `#1` is a
+  parameter, not the hole) from two leaf facts: the former's value at a
+  fitting spine is `eqv a b`, the constructor's is `pt`.  `eqLfp_reads`
+  (M4), `eqLfp_stored`.
+- **Recorded** at `Eq.refl`'s cons in `declBasisPB_eqK`
+  (`Model/BasisEq.lean`): `mp2.addLfp (eqLfp eqName eqReflName (· uN))`
+  with the leaves `eqValAV_app₃`/`eqReflValAV_interp` and the M2 reading
+  (`LfpCtorReads`) written out: `canonAbs` of `Eq.refl`'s type
+  instantiated at the canonical parameters is `#hole α a a`,
+  `nestOcc = false` by `decide`, the reading
+  `(#0 #2 #1) #1` at depth 3.  `Eq.rec`'s install then runs on the
+  extended carrier (`base2` unchanged).  `denoteMeta_eqA_type` is now
+  stated at any environment (`Eq`'s type mentions no constant).
+- **`LfpCover`** (L8's `Model/Inductives/LfpCover.lean`, branch commit
+  `cbcd1d6f`) cherry-picked as is, imported by the `Model` umbrella, no
+  consumer.  Findings (1)/(2) of its record are now resolved on the
+  basis side; (3) (the 43 fold step lemmas forget `lfpBlocks`) and (4)
+  (`ContBlockOk.ctors` needs constructor ownership) remain, and the
+  whole stays false while the modeller installs `.indInfo` (Q-B, L9).

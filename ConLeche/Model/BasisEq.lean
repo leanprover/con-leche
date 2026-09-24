@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.BasisQuot
 import ConLeche.Semantics.BasisRules
+import ConLeche.Model.BasisLfp
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
@@ -115,9 +116,9 @@ def eqReflTy (ψ : Name → Nat) : AnnotTerm :=
   .pi 0 0 (.sort (ψ uN)) (.pi 0 0 (.bvar 0) (eqSpine ψ 1 0 0))
 
 /-- **`Eq`'s type reading.** -/
-theorem denoteMeta_eqA_type
+theorem denoteMeta_eqA_type {env' : Env}
     {acval : Name → (Name → Nat) → AnnotTerm} (ψ : Name → Nat) :
-    denoteMeta acval ⟨eqA :: env.consts⟩ ψ 0 eqA.toConstantVal.type
+    denoteMeta acval env' ψ 0 eqA.toConstantVal.type
       = some (eqTy ψ) := by
   simp [eqA, ConstantInfo.toConstantVal, denoteMeta_forallE, denoteMeta_sort,
     denoteMeta_fvar, Expr.instantiate1, eqTy, pwBit_never, Level.eval, uN]
@@ -1289,6 +1290,29 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       = eqReflValAV ψ := by
     intro ψ
     rw [hac2, show eqReflName = eqReflA.name from rfl, acvalWith_self]
+  -- the pinned block's lfp clause, recorded at its constructor's cons
+  -- (lane L8b; NESTPLAN L8's hand clause `eqLfp`)
+  let mp2' := mp2.addLfp (eqLfp eqName eqReflName fun ψ => ψ uN)
+    (eqLfp_clause
+      (fun ψ ρ A a b hA ha hb => by
+        rw [hEv2]; exact eqValAV_app₃ ψ ρ A a b hA ha hb)
+      (fun ψ ρ => by rw [hRv2]; exact eqReflValAV_interp ψ ρ))
+    (eqLfp_stored ⟨_, _, hE2⟩ ⟨_, _, _, hR2⟩)
+    (eqLfp_reads hE2 fun ψ => denoteMeta_eqA_type ψ)
+    ⟨rfl, fun c hc j hj => by
+      obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      refine ⟨eqReflA.toConstantVal, 2, 0, hR2, rfl,
+        fun mm hmm => ⟨eqA.toConstantVal, _, by
+          obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+          exact hE2, rfl⟩,
+        (by decide : (canonAbs [eqName] [uN] 2 1 eqReflA.toConstantVal.type).nestOcc
+          [eqName] 0 0 = false),
+        .app (.app (.app (.fvar 2 (.sort .zero)) (.fvar 0 (.sort .zero)))
+          (.fvar 1 (.sort .zero))) (.fvar 1 (.sort .zero)), rfl,
+        fun ψ => ⟨rfl, rfl, [], ?_, rfl⟩⟩
+      simp [denoteMeta_app, denoteMeta_fvar, mkPisAV, eqLfp]
+      rfl⟩
   have hf3 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find?
       eqRecA.name = none := Option.isNone_iff_eq_none.mp h3
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ := by
@@ -1343,7 +1367,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3, -⟩ := extendEqRec mp2 hE2 hR2 hEv2 hRv2 hf3 hwf3
+  obtain ⟨mp3, -⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3
   exact ⟨mp3⟩
 
 end Eq

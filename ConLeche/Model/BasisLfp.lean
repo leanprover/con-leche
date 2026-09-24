@@ -26,20 +26,21 @@ each type contributes its fibre function `F`, the carrier `C`, and
 `C`'s LEASTNESS among the `F`-closed sets (for `Nat` that is `ω`'s own
 induction, `omega_subset_inductive` — GRAPH-F's `natT_eq_omega`).
 
-`Eq` and `Quot` are argued in the lane report rather than proved: `Quot`
-is not an inductive for the recursor check (official installs it as a
-builtin; no recursor is checked against it and no nested occurrence
-goes through it), and `Eq` — the only pinned type with a TYPE parameter,
-hence the only one a nested block can use as a container — needs its
-clause only when a nested block through it is installed (GRAPH-F's
-`eqKit` is its induction), which the uniform route does not do yet.
+`Eq` (lane L8b) has its own datum (`eqLfp`): two parameters `α a`, the
+index `b`, one field-less constructor, so its operator is constant — the
+fibre over the index tuple is the truth value of `a = b` (`eqFib`) — and
+its clause (`eqLfp_clause`) is recorded at `Eq.refl`'s cons
+(`declBasisPB_eqK`, `Model/BasisEq.lean`).  `Quot` is argued rather than
+proved: it is not an inductive for the recursor check (official installs
+it as a builtin; no recursor is checked against it and no nested
+occurrence goes through it), and coverage excludes it by name.
 -/
 
 namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetTheory
 open ConLeche.SetModel
-open ConLeche.SetTheory.Tower (towerSet_nil)
+open ConLeche.SetTheory.Tower (towerSet_nil projS mkTower)
 
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Name Level)
@@ -418,6 +419,169 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
           obtain rfl := Option.some.inj h
           exact HoleApp.hole (h := 0) (rest := []) (Nat.le_refl 0) Nat.one_pos
             (fun _ hr => nomatch hr))
+
+/-! ## `Eq`: two parameters, one index, one field-less constructor
+
+`Eq.{u} {α : Sort u} (a : α) : α → Prop` is the one pinned block with
+parameters and an index (NESTPLAN L8's `eqLfp`, GRAPH-F's `eqKit`
+shape).  Its constructor `refl` has no field, so its operator is
+CONSTANT in the tuple: at the parameter frame `ρp` (`a` at `0`, `α` at
+`1`) the fibre over the index tuple `t` is the truth value of
+`a = projS 0 t` (`eqFib`), and the least fixed point is that constant.
+The index tuple is at `α`'s level (`tupW`): at `Prop` (level `0`) it
+collapses to the point, where `a` and `b` are the point too. -/
+
+/-- `Eq`'s fibre at the parameter frame `ρp` over the index tuple `t`:
+`a = t.0`, as a truth value. -/
+@[expose] noncomputable def eqFib (ρp : Nat → V) (t : V) : V := truthVal (ρp 0 = projS 0 t)
+
+/-- **`Eq`'s datum**: parameters `α : Sort lv` and `a : α`, the index
+`b : α`, the constructor `cn` with no field and the result index `a`
+(the variable `1` below the one hole). -/
+@[expose] noncomputable def eqLfp (nm cn : Name) (lv : (Name → Nat) → Nat) : LfpDatum V where
+  names := [nm]
+  k := 1
+  N := 1
+  w := fun _ => 0
+  params := fun ψ => [.sort (lv ψ), .bvar 0]
+  pars := fun _ ψ => [.sort (lv ψ), .bvar 0]
+  ids := fun _ _ => [.bvar 1]
+  u := fun _ ψ => lv ψ
+  Φ := fun ψ ρp _ _ => graph (eqFib ρp) (idxSet (lv ψ) ρp [.bvar 1])
+  fits := fun _ ρp _ t _ j fs => j = 0 ∧ fs = [] ∧ ρp 0 = projS 0 t
+  inj := fun _ _ _ _ => pt
+  nctors := fun _ => 1
+  ctorName := fun _ _ => cn
+  fields := fun _ _ _ => []
+  resIdx := fun _ _ _ => [.bvar 1]
+
+section EqLfp
+
+variable {nm cn : Name} {lv : (Name → Nat) → Nat}
+
+/-- `Eq`'s operator is constant, so its carrier IS the operator's value. -/
+theorem app_eqLfp_carrier {ψ : Name → Nat} {ρp : Nat → V} {t : V}
+    (ht : t ∈ˢ idxSet (lv ψ) ρp [.bvar 1]) :
+    app ((eqLfp (V := V) nm cn lv).carrier ψ ρp 0) t = eqFib ρp t := by
+  let D := eqLfp (V := V) nm cn lv
+  let K : Nat → V := fun _ => graph (eqFib ρp) (idxSet (lv ψ) ρp [.bvar 1])
+  have hK : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) K := fun _ _ =>
+    graph_mem_famSpace fun _ _ => by
+      show _ ∈ˢ (univ 0 : V); rw [univ_zero]; exact truthVal_mem_univZero _
+  have hcl : IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) K :=
+    ⟨hK, TupleLe.refl _ _ _⟩
+  have hmono : MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+    fun _ _ _ _ _ => TupleLe.refl _ _ _
+  have h1 := lfpTuple_le hcl 0 Nat.one_pos t ht
+  have h2 := lfpTuple_closed ⟨K, hcl⟩ hmono 0 Nat.one_pos t ht
+  have hKt : app (K 0) t = eqFib ρp t := app_graph ht
+  rw [← hKt]
+  exact Subset.antisymm h1 h2
+
+/-- The index tuple's first projection is the index — at `Prop` both are
+the point. -/
+theorem eqFib_tupW {ψ : Name → Nat} {ρ : Nat → V} {A a b : V}
+    (hA : A ∈ˢ (univ (lv ψ) : V)) (ha : a ∈ˢ A) (hb : b ∈ˢ A) :
+    eqFib (consList [A, a] ρ) (tupW (lv ψ) [b]) = eqv a b := by
+  unfold eqFib eqv
+  refine truthVal_congr ?_
+  show a = projS 0 (tupW (lv ψ) [b]) ↔ a = b
+  by_cases hu : lv ψ = 0
+  · rw [hu, univ_zero] at hA
+    rw [hu, tupW_zero, eq_pt_of_mem_univZero hA ha, eq_pt_of_mem_univZero hA hb]
+    show pt = sfst pt ↔ pt = pt
+    rw [sfst_pt]
+  · rw [tupW_pos hu]
+    show a = sfst (spair b (mkTower [])) ↔ a = b
+    rw [sfst_spair]
+
+/-- **`Eq`'s clause**, from its former's value at a fitting spine (the
+truth value of the equation) and its constructor's (the point). -/
+theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
+    (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V) (A a b : V), A ∈ˢ (univ (lv ψ) : V) →
+      a ∈ˢ A → b ∈ˢ A → [A, a, b].foldl app (interp V ρ (acval nm ψ)) = eqv a b)
+    (hctor : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval cn ψ) = pt) :
+    LfpClause acval (eqLfp (V := V) nm cn lv) where
+  kN := Nat.le_refl 1
+  functor := fun ψ ρp _ => by
+    have hmaps : ∀ X, InTupleSpace 0 1 ((eqLfp (V := V) nm cn lv).idx ψ ρp)
+        ((eqLfp (V := V) nm cn lv).Φ ψ ρp X) := fun _ _ _ =>
+      graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact truthVal_mem_univZero _
+    exact ⟨fun _ _ _ _ _ => TupleLe.refl _ _ _, fun X _ => hmaps X,
+      ⟨_, hmaps (fun _ => empty), TupleLe.refl _ _ _⟩⟩
+  fibre := fun ψ ρp _ X _ c _ t ht x => by
+    show x ∈ˢ app (graph (eqFib ρp) _) t ↔ _
+    rw [app_graph (show t ∈ˢ idxSet (lv ψ) ρp [.bvar 1] from ht)]
+    unfold eqFib
+    rw [mem_truthVal]
+    exact ⟨fun ⟨h, hx⟩ => ⟨0, [], ⟨rfl, rfl, h⟩, hx⟩, fun ⟨_, _, ⟨_, _, h⟩, hx⟩ => ⟨h, hx⟩⟩
+  leaf := fun mm hmm ψ ρ as is hsa hsi => by
+    obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+    match as, is, hsa, hsi with
+    | [A, a], [b], ⟨hA, ha, _⟩, ⟨hb, _⟩ =>
+      have hA' : A ∈ˢ (univ (lv ψ) : V) := by simpa using hA
+      have ha' : a ∈ˢ A := by simpa [cons] using ha
+      have hb' : b ∈ˢ A := by simpa [consList_cons, consList_nil, cons] using hb
+      show ([A, a] ++ [b]).foldl app (interp V ρ (acval nm ψ))
+        = app ((eqLfp (V := V) nm cn lv).carrier ψ (consList [A, a] ρ) 0) (tupW (lv ψ) [b])
+      rw [app_eqLfp_carrier (tupW_mem (u := lv ψ) (show SpineFit (consList [A, a] ρ)
+        [AnnotTerm.bvar 1] [b] from ⟨hb, trivial⟩)), eqFib_tupW hA' ha' hb']
+      exact hleaf ψ ρ A a b hA' ha' hb'
+  holes := fun ψ ρp _ X _ c _ t _ j fs => by
+    have hfr : (eqLfp (V := V) nm cn lv).frame ψ ρp X 1 = ρp 0 := by
+      show consList [_] ρp 1 = ρp 0
+      rw [consList_cons, consList_nil]; rfl
+    show (j = 0 ∧ fs = [] ∧ ρp 0 = projS 0 t) ↔ (j < 1 ∧ SpineFit _ [] fs ∧
+      ∀ l, l < 1 → ∃ e, ([AnnotTerm.bvar 1] : List AnnotTerm)[l]? = some e ∧
+        interp V (consList fs ((eqLfp (V := V) nm cn lv).frame ψ ρp X)) e = projS l t)
+    rw [spineFit_nil_iff]
+    constructor
+    · rintro ⟨rfl, rfl, h⟩
+      refine ⟨Nat.one_pos, rfl, fun l hl => ?_⟩
+      obtain rfl : l = 0 := Nat.lt_one_iff.mp hl
+      refine ⟨_, rfl, ?_⟩
+      rw [consList_nil, interp_bvar, hfr, h]
+    · rintro ⟨hj, rfl, h⟩
+      obtain ⟨e, he, hv⟩ := h 0 Nat.one_pos
+      obtain rfl := Option.some.inj he.symm
+      rw [consList_nil, interp_bvar, hfr] at hv
+      exact ⟨Nat.lt_one_iff.mp hj, rfl, hv⟩
+  mkZero := fun _ _ _ _ _ => rfl
+  mkInj := fun _ hw => absurd rfl hw
+  ctor := fun _ _ _ ψ ρ as fs _ _ _ _ => by
+    show (as ++ fs).foldl app (interp V ρ (acval cn ψ)) = pt
+    rw [hctor]
+    exact foldl_app_pt' _
+  parsLen := fun _ _ _ => rfl
+  parsSat := fun _ _ _ _ h => h
+  parsSatInv := fun _ _ _ _ h => h
+  holeApp := fun _ _ _ _ _ => ⟨fun _ _ h => (nomatch h), fun e he => by
+    obtain rfl := List.mem_singleton.mp he
+    exact (HoleApp.bvar (by decide) : HoleApp 1 2 0 (.bvar 1))⟩
+
+/-- `Eq`'s former reads as its hole telescope (M4). -/
+theorem eqLfp_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}
+    {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
+    (hf : env.find? nm = some (.indInfo cv caps))
+    (hty : ∀ ψ, denoteMeta acval env ψ 0 cv.type = some
+      (.pi 0 1 (.sort (lv ψ)) (.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0))))) :
+    LfpReads acval env (eqLfp (V := V) nm cn lv) := fun mm hmm => by
+  obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+  exact ⟨cv, caps, hf, fun ψ => ⟨[(0, 1, .sort (lv ψ)), (0, 1, .bvar 0), (0, 1, .bvar 1)],
+    hty ψ, rfl, fun d hd => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hd
+      rcases hd with rfl | rfl | rfl <;> exact Nat.one_ne_zero⟩⟩
+
+/-- `Eq` is stored at an environment holding its former and constructor. -/
+theorem eqLfp_stored {env : ConLeche.Env}
+    (hT : ∃ cv caps, env.find? nm = some (.indInfo cv caps))
+    (hC : ∃ cv nP nF, env.find? cn = some (.ctorInfo cv nP nF)) :
+    LfpStored env (eqLfp (V := V) nm cn lv) := by
+  refine ⟨fun mm hmm => ?_, fun _ _ _ _ => hC⟩
+  obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+  exact hT
+
+end EqLfp
 
 /-! ## Recording a pinned block at its install -/
 
