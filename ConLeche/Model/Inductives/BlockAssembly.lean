@@ -787,6 +787,8 @@ structure BlockMemberPick where
   member's run — the block's datum chooses them once, at the dummy
   carrier, and every pick of the block carries the same -/
   absF : Nat → (Name → Nat) → List AnnotTerm
+  /-- the positivity walk's normal forms (`BlockData.nfFF`), shared like `absF` -/
+  nf : Nat → Expr
 
 /-- **The constructors' data functions at ONE member of a block**,
 stated the way `BlockData` reads them: `blockCtorFuns_of` at member

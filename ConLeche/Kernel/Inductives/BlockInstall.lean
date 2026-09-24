@@ -228,53 +228,65 @@ kinds are the capability record's `is_rec` (`checkBlockPass`); there is
 no other classifier. -/
 
 /-- **U2**: every member-abstracted constructor type is a type at the
-holes' context (parameters, then one hole per member), each of its
-fields' universes bounded by the family's there (at a `Type`-valued
-family). -/
+holes' context (parameters, then one hole per member), and the fields of
+its positivity NORMAL FORM `tyN` (the walk's output, lane ALPHA1) have
+their universes bounded by the family's there (at a `Type`-valued
+family).  The row reads the normal form, not the declared type: the
+model's fields with holes ARE the normal form's readings (their binder
+bits and universes are read off this row).  Beside it, an internal
+scoping assertion on `tyN`: its level parameters are the block's (whnf
+unfolds at the use site's levels, so it never fires; the model's
+readings of `tyN` are level-congruent through it). -/
 def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (ConstantVal × Nat) → m Unit
-  | [] => pure ()
-  | c :: cs => do
+    List (ConstantVal × Nat) → List Expr → m Unit
+  | c :: cs, tyN :: ns => do
     let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
       (.internal "direct rec: constructor parameter telescope")
     let ty ← ops.inferType env (ctx.hiAt 0) crest
     let _ ← ops.ensureSort env (ctx.hiAt 0) ty
+    unless tyN.allLevelParamsDefined ctx.lps do
+      throw (.internal "direct rec: a positivity normal form outside the block's level \
+        parameters")
     -- the fields' universes AT THE HOLES' CONTEXT (lane HOLE2, stage B):
     -- official's per-field bound, the members variables — the model's
     -- hole operator reads every field in the family's universe at every
     -- tuple of the tuple space, which no stored reading reaches
-    let xq ← unwrapOr (openPisAtFvars c.2 crest (ctx.hiAt 0))
+    let xq ← unwrapOr (openPisAtFvars c.2 tyN (ctx.hiAt 0))
       (.internal "direct rec: abstracted constructor fields")
     let _ ← checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
       ctx.sort (ctx.hiAt 0) xq.1 [] c.2
-    checkAbsCtorTys ops env ctx holes cs
+    checkAbsCtorTys ops env ctx holes cs ns
+  | _, _ => pure ()
 
 /-- `checkAbsCtorTys` on every member's constructors. -/
 def checkAbsCtorTysAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (List (ConstantVal × Nat)) → m Unit
-  | [] => pure ()
-  | cs :: css => do
-    checkAbsCtorTys ops env ctx holes cs
-    checkAbsCtorTysAll ops env ctx holes css
+    List (List (ConstantVal × Nat)) → List (List Expr) → m Unit
+  | cs :: css, ns :: nss => do
+    checkAbsCtorTys ops env ctx holes cs ns
+    checkAbsCtorTysAll ops env ctx holes css nss
+  | _, _ => pure ()
 
 /-- **The block's positivity, on its stored constructors** (see the
 section docstring): the canonical parameter variables are the first
 former's opened telescope; `find?`/`consts` are the environment's lookup
-(the pure `Env`'s or the index's).  Returns the walk's field kinds. -/
+(the pure `Env`'s or the index's).  Returns the walk's field kinds and
+its normal forms (member-abstracted, at the walk's context; OUTPUT only:
+nothing is stored from them). -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) : m (List (List (List NestFieldKind))) := do
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (List (List NestFieldKind)) × List (List Expr)) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   -- (β′): the walk on the STORED constructors, each its own normal form
-  let (kinds, _, _) ← nestBlockCtors ops env₁ ctx holes true ctorsAs {}
+  let (kinds, nfs, _) ← nestBlockCtors ops env₁ ctx holes true ctorsAs {}
   unless kinds.all (·.all (·.all NestFieldKind.flat)) do
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
-  checkAbsCtorTysAll ops env₁ ctx holes ctorsAs
-  pure kinds
+  checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
+  pure (kinds, nfs)
 
 /-- **What one pass over the formers and the constructors yields**
 (`NativePass` at k members). -/
@@ -291,6 +303,9 @@ structure BlockPass (E : Type) where
   sortsss : List (List (List Level))
   /-- the positivity function's field kinds, per member, per constructor -/
   kinds : List (List (List NestFieldKind))
+  /-- the positivity function's normal forms, per member, per constructor
+  (member-abstracted at the walk's context) -/
+  nfs : List (List Expr)
 
 /-- **One pass over the formers and the constructors** at a given
 `is_rec` verdict (task #268 at k members): the formers, the
@@ -306,8 +321,8 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
   -- positivity: the one function on the stored constructors, and U2
-  let kinds ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
-  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds⟩,
+  let (kinds, nfs) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
+  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs⟩,
     (List.range pC.k).all fun i =>
       blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
 

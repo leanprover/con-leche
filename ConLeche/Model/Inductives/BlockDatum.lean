@@ -83,6 +83,7 @@ injections**, at a chosen per-member constructor pick. -/
   xFvsF := fun c j => (pk c).xFvsF j
   xrestF := fun c j => (pk c).xrestF j
   absFF := fun c j => (pk c).absF j
+  nfFF := fun c j => (pk c).nf j
   Φ := fun _ _ X => X
   inj := fun _ _ _ _ => SetTheory.pt
 
@@ -374,7 +375,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       (q.members.zip cvTas) = .ok isorts)
     -- the positivity stage (`DeclBlockRun` 7b): U2 grades the fields with holes
     {pP : BlockParts}
-    {posKs : List (List (List ConLeche.NestFieldKind))}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
       envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
     (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
@@ -1429,7 +1430,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       (fun ρp hs => fun c hc => (hIdxOf c (hcvOf c hc).choose (hcvOf c hc).choose_spec ψ ρp
         (hρpOf ψ ρp 0 hk0 hs c hc)).1)
       (fun ρp hs => hSC.holeOk ψ ρp hs) (hSC.holeFun ψ)
-      (fun ρp _ j' hj' => blockOverride hHR (fun t ht => hacvR t ht ψ) ρp
+      (fun ρp hsρ j' hj' => blockOverride hHR (fun t ht => hacvR t ht ψ) ρp hsρ
         (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _)) hj')
       hsp
     rw [hFss1, hEss0, rChains_single_nil] at h

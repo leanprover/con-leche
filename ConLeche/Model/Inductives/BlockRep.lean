@@ -129,6 +129,11 @@ structure BlockData (V : Type w) where
   the walked term's reading, members abstracted to the holes
   (`BlockAbsRead`) -/
   absFF : Nat → Nat → (Name → Nat) → List AnnotTerm
+  /-- per component and constructor: the positivity walk's NORMAL FORM of
+  the member-abstracted constructor type (lane ALPHA1), at the walk's
+  context (parameters `0 ..< nP`, member `m` at `nP + m`) — the term the
+  fields with holes are the readings of (`BlockAbsRead`) -/
+  nfFF : Nat → Nat → Expr
   /-- **the tuple operator**, at a level assignment and a parameter
   frame: a meta-level function on tuples of families, component `c` a
   set-level family over component `c`'s index-tuple set -/

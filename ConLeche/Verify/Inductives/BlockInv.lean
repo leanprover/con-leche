@@ -292,7 +292,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
         checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape ctx
           ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss)) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok q.kinds ∧
+        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs) ∧
       q.p = p₀.complete p₁ ∧
       b = ((List.range q.p.k).all fun i =>
         blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) == blockCapsAt p₁ i isRec) := by
@@ -304,7 +304,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
   obtain ⟨ctorsAs, sortsss⟩ := r₂
   try simp only at h
-  obtain ⟨kinds, hK, h⟩ := exceptBind_ok h
+  obtain ⟨⟨kinds, nfs⟩, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
   exact ⟨p₁, hInd, ⟨ctx, unwrapOr_ok hctx, hCtors⟩, hK, rfl, rfl⟩

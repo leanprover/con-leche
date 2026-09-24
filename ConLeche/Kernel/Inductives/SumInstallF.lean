@@ -74,7 +74,9 @@ def nestNormCtorF (ops : CheckerOps m) (fe : FEnv) (ctx : NestCtx) (nF : Nat)
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
   let (_, nss, _) ← nestMemberCtors ops fe.env ctx holes false [(cvCa₀, nF)] {}
-  let ty' ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  let tyN ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  let ty' ← unwrapOr (nestConcreteCtor ctx cvCa₀.type tyN)
+    (.internal "nested positivity: no normal form")
   if ty' == cvCa₀.type then pure cvCa₀
   else checkConstantValF ops fe { cvC with type := ty' }
 

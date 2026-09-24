@@ -153,7 +153,7 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
   interface every reading of the fields' shape goes through) -/
   shapes : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
     StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => m.acval (d.memberName t) ψ)
-      (d.absF ψ c j) ((d.Fss c ψ).getD j [])
+      (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j [])
   lenP : ∀ ψ, (d.params ψ).length = d.nP
   /-- every member's own parameter telescope: `nP` long, satisfied where
   the block's is -/

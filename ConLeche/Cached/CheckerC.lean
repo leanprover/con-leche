@@ -239,9 +239,9 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     (.internal "direct rec: type former telescope")
   let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
-  let kinds ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? fe₁.env.consts pC cvTas
-    ctorsAs
-  pure (⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds⟩,
+  let (kinds, nfs) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? fe₁.env.consts
+    pC cvTas ctorsAs
+  pure (⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs⟩,
     (List.range pC.k).all fun i =>
       blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
 

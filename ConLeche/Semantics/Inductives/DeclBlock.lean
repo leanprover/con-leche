@@ -52,7 +52,8 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
-    (kinds : List (List (List NestFieldKind))) (isorts : List (List Level))
+    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
+    (isorts : List (List Level))
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
     -- 1  the k formers: the constant check, official's telescope loop, the
     --    sort, official's two agreements from member 1 on, then all k consed
@@ -66,9 +67,10 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
         (p.members.zip cvTas) = .ok (ctorsAs, sortsss)) ∧
     -- 3  the positivity function on the stored constructors, and their
     --    member-abstracted types typed at the holes' context (lane HOLE2);
-    --    its field kinds are the block's `is_rec`
+    --    its field kinds are the block's `is_rec`, its normal forms (lane
+    --    ALPHA1) the model's fields with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
-      cvTas ctorsAs = .ok kinds ∧
+      cvTas ctorsAs = .ok (kinds, nfs) ∧
     -- 4  the capability record the block owes is the one every former carries
     (∀ i, i < p.k → blockCapsAt p.toBlockShape i (nestIsRec kinds) = blockCapsAt p₁ i isRec) ∧
     -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
@@ -100,7 +102,7 @@ theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
     intro i hi
     have := List.all_eq_true.mp hb.symm i (List.mem_range.mpr hi)
     exact beq_iff_eq.mp this
-  refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds, isorts, rs,
+  refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, isorts, rs,
     hInd, hp, ?_, ?_, hcaps, helim, hsorts, hRec, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hK

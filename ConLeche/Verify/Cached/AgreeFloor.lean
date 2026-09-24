@@ -884,6 +884,7 @@ theorem nestNormCtorF_name (ops : CheckerOps CheckCM) (fe : FEnv) (ctx : NestCtx
   unfold nestNormCtorF
   refine Yields.bind fun holes => ?_
   refine Yields.bind fun q => ?_
+  refine Yields.bind fun tyN => ?_
   refine Yields.bind fun ty' => ?_
   split
   · exact Yields.pure hn

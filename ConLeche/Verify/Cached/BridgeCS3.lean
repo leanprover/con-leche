@@ -146,7 +146,9 @@ theorem nestNormCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
       exact not_hasFvar_of_fvarsBelow_zero hCw.fvarsBelow)
     (fun _ _ hm => nomatch hm)) (fun s₂ r r' hs₂ hR => ?_)
   obtain ⟨rfl, -⟩ := hR
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ ty ty' hs₃ hP => ?_)
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃' tyN tyN' hs₃' hP => ?_)
+  obtain ⟨rfl, -⟩ := hP
+  refine SimC.bind (SimC.unwrapOr' hs₃') (fun s₃ ty ty' hs₃ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
   split
   · exact SimC.pure hs₃ ⟨rfl, hCw⟩

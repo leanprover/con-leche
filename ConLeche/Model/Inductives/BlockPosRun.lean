@@ -6,6 +6,7 @@ import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
+public import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Model.Rules.Sound
@@ -125,37 +126,48 @@ GRADED there because U2 inferred the term at that context
 space satisfies that context (a hole value inhabits its member's type,
 `LfpDatum.holeVal_mem`).  The positivity proof and the hole chains'
 grading (`BlockHoleGrade.lean`) both start here. -/
-theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
+theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     (hin : Rules.RulesInputs V m ψ) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
+      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
     (hholes : nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes)
-    {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA)
+    {cA : ConstantVal × Nat}
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     {crest : Expr}
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
-      ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty) :
-    ∃ (ab : List (Nat × Nat × AnnotTerm)) (L : List AnnotTerm),
+      ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
+    {tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
+    (hm : nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2
+      crest st₀ = .ok (ks, tyN, st₁))
+    {ca : AnnotTerm} (hca₀ : denoteMeta m.acval env ψ (d.nP + d.k) crest = some ca) :
+    ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
       (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k ∧
-      denoteMeta m.acval env ψ (d.nP + d.k) crest
-        = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
-      ab.map (·.2.2) = d.absF ψ c j ∧ ab.length = cA.2 ∧
+      ca = mkPisAV abD B ∧
+      denoteMeta m.acval env ψ (d.nP + d.k) tyN = some (mkPisAV abN B) ∧
+      abD.length = cA.2 ∧ abN.length = cA.2 ∧
+      abD.map (fun x => (x.1, x.2.1)) = abN.map (fun x => (x.1, x.2.1)) ∧
       Rules.Frame (d.nP + d.k) crest ∧
-      CtxOkP m ψ (d.nP + d.k) L.reverse crest ∧
-      Rules.Graded V L.reverse (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+      CtxOkP m ψ (d.nP + d.k) (d.holeCtx ψ).reverse crest ∧
+      Rules.Graded V (d.holeCtx ψ).reverse ca ∧
+      Rules.Frame (d.nP + d.k) tyN ∧
+      CtxOkP m ψ (d.nP + d.k) (d.holeCtx ψ).reverse tyN ∧
+      Rules.Graded V (d.holeCtx ψ).reverse (mkPisAV abN B) ∧
+      FieldsEqOn V (d.holeCtx ψ).reverse (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
+      Rules.LeavesSub tyN crest ∧
       (∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
         ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
-          Sat V L.reverse (d.toLfp.frame ψ ρp X)) := by
+          Sat V (d.holeCtx ψ).reverse (d.toLfp.frame ψ ρp X)) := by
   -- ## the context
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
@@ -175,7 +187,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
      fun n ci hf => by rw [hcF] at hf; exact (hwfF n ci hf).1⟩
   -- ## the head former and the members' formers
   have hcv0' : cvTas[0]? = some cvTa0 := by rwa [List.head?_eq_getElem?] at hcv0
-  obtain ⟨hfind0, hFD0⟩ := hcore.1 0 cvTa0 hcv0'
+  obtain ⟨hfind0, hFD0⟩ := hF 0 cvTa0 hcv0'
   have hT0f : cvTa0.type.hasFvar = false := (hwfF _ _ hfind0).1
   have hT0b : cvTa0.type.looseBVarsBounded 0 = true := (hwfF _ _ hfind0).2.2.2.1
   have hlenF : fvsP.length = d.nP := ConLeche.Verify.openPisAtFvars_length _ hop0
@@ -191,7 +203,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       nestHoles_getElem? hholes (show t < ctx.names.length by rw [hcN, ← hk]; exact ht)
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
-    obtain ⟨hfb, hFDt⟩ := hcore.1 t cvTb hcvb
+    obtain ⟨hfb, hFDt⟩ := hF t cvTb hcvb
     have hname : ctx.names.getD t .anonymous = cvTb.name := by
       rw [hcN]; exact hN.1 t cvTb hcvb
     rw [hname, hcF, hfb] at hf
@@ -210,27 +222,8 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     obtain ⟨cvTb, h1, h2, h3, h4, h5⟩ := hhole t ht
     rw [htx] at h5
     exact ⟨t, ht, cvTb, h1, h2, h3, h4, Option.some.inj h5⟩
-  -- ## the reading: the Π-tower over the fields with holes (the datum's
-  -- reading fact at the canonical crest, which the walk's term is up to
-  -- erasure)
-  obtain ⟨A, hA, hR⟩ := (hcore.2 c j cA hcj).2
-  obtain ⟨ab, hAr, hlab, hab⟩ := hR ψ
-  obtain ⟨A', hA', herased⟩ := canonCrest_of_walk (ctx := ctx) (k := d.k)
-    (fun i x hx => by rw [hcPar] at hx; simpa using hidxF i x hx)
-    (by rw [hcPar, hlenF, hcP])
-    (fun t x hx => by
-      have ht : t < d.k := by rw [← hlenH]; exact (List.getElem?_eq_some_iff.mp hx).1
-      obtain ⟨cvTb, -, -, -, -, h⟩ := hhole t ht
-      rw [h] at hx
-      exact ⟨_, by rw [hcP]; exact (Option.some.inj hx).symm⟩)
-    hlenH (by rw [hcPar]; exact hcrest)
-  rw [hcN, hcL, hcP, hA] at hA'
-  obtain rfl := Option.some.inj hA'
-  have hca : denoteMeta m.acval env ψ (d.nP + d.k) crest
-      = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-          (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) := by
-    rw [denoteMeta_erasedEq herased]; exact hAr
-  rw [← hhi] at hca
+  -- ## the reading
+  have hca : denoteMeta m.acval env ψ (ctx.hiAt 0) crest = some ca := by rw [hhi]; exact hca₀
   -- ## the frame
   have hparW : ∀ x ∈ ctx.params, Expr.WScoped (ctx.hiAt 0) x := by
     intro x hx
@@ -411,8 +404,99 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     show _ ∈ˢ interp V σ (mkPisAV (d.ppsM t ψ) (.sort (d.resSort.eval ψ)))
     rw [interp_closed V (hholeClosed t ht) σ (shiftE (d.toLfp.pars t ψ).length 0 ρp)]
     exact hmem
-  rw [hhi] at hca hgr hfr hCP
-  exact ⟨ab, L, hhi, hca, hab, hlab, hfr, hCP, hgr, hsatFrame⟩
+  -- ## the normal form reads like the crest (the walk's semantic link)
+  obtain ⟨abD, abN, B, hcaE, hNE, hlD, hlN, hbits, hEq, hgN, hfrN, hsubN⟩ :=
+    nestMemberCtor_red hin ctx F hm hfr hCP hca hgr
+  have hLeq : L = d.holeCtx ψ := rfl
+  have hCPN := hCP.of_subset hsubN
+  rw [hhi] at hfr hCP hfrN hCPN hNE
+  rw [hLeq] at hCP hgr hCPN hgN hEq hsatFrame
+  exact ⟨abD, abN, B, hhi, hcaE, hNE, hlD, hlN, hbits, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, hsubN,
+    hsatFrame⟩
+
+/-- **A member constructor's walk context, at the datum**: `blockWalkCtx`
+at the datum's reading fact (`BlockAbsRead`): the crest reads as the
+canonical crest does, the normal form as the datum's fields with holes. -/
+theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
+    (hin : Rules.RulesInputs V m ψ) {F : Nat}
+    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {isRec : Bool}
+    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
+    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
+    {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
+    (hcv0 : cvTas.head? = some cvTa0)
+    (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
+    (hholes : nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes)
+    {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    {crest : Expr}
+    (hcrest : instPisWith fvsP
+      (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+      ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
+    {tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
+    (hm : nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2
+      crest st₀ = .ok (ks, tyN, st₁))
+    (hnf : d.nfFF c j = tyN) :
+    ∃ (abD abN : List (Nat × Nat × AnnotTerm)),
+      (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k ∧
+      denoteMeta m.acval env ψ (d.nP + d.k) crest
+        = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
+            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+      denoteMeta m.acval env ψ (d.nP + d.k) tyN
+        = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
+            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+      abN.map (·.2.2) = d.absF ψ c j ∧ abD.length = cA.2 ∧ abN.length = cA.2 ∧
+      Rules.Frame (d.nP + d.k) crest ∧
+      CtxOkP m ψ (d.nP + d.k) (d.holeCtx ψ).reverse crest ∧
+      Rules.Graded V (d.holeCtx ψ).reverse (mkPisAV abD (AnnotTerm.mkAppN
+        (.bvar (cA.2 + (d.k - 1 - c))) (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+      Rules.Frame (d.nP + d.k) tyN ∧
+      CtxOkP m ψ (d.nP + d.k) (d.holeCtx ψ).reverse tyN ∧
+      Rules.Graded V (d.holeCtx ψ).reverse (mkPisAV abN (AnnotTerm.mkAppN
+        (.bvar (cA.2 + (d.k - 1 - c))) (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+      FieldsEqOn V (d.holeCtx ψ).reverse (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
+      (∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
+        ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
+          Sat V (d.holeCtx ψ).reverse (d.toLfp.frame ψ ρp X)) := by
+  have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
+  have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
+  have hcL : (p.nestCtx fvsP env.find? env.consts).lps = lps := hlps
+  have hcPar : (p.nestCtx fvsP env.find? env.consts).params = fvsP := rfl
+  have hlenF : fvsP.length = d.nP := by
+    rw [← hnP]; exact ConLeche.Verify.openPisAtFvars_length _ hop0
+  have hidxF := ConLeche.openPisAtFvars_index _ _ _ hop0
+  have hlenH : holes.length = d.k := by rw [nestHoles_length hholes, hcN, hk]
+  -- the reading: the datum's reading fact at the canonical crest, which the
+  -- walk's term is up to erasure
+  obtain ⟨-, A, hA, hR⟩ := (hcore.2 c j cA hcj).2
+  obtain ⟨ab, abN, hAr, hNr, hlab, hlabN, -, hab, -⟩ := hR ψ
+  rw [hnf] at hNr
+  obtain ⟨A', hA', herased⟩ := canonCrest_of_walk (ctx := p.nestCtx fvsP env.find? env.consts)
+    (k := d.k)
+    (fun i x hx => by rw [hcPar] at hx; simpa using hidxF i x hx)
+    (by rw [hcPar, hlenF, hcP])
+    (fun t x hx => by
+      have ht : t < (p.nestCtx fvsP env.find? env.consts).names.length := by
+        rw [← nestHoles_length hholes]; exact (List.getElem?_eq_some_iff.mp hx).1
+      obtain ⟨cv, caps, -, hget⟩ := nestHoles_getElem? hholes ht
+      rw [hget] at hx
+      exact ⟨_, (Option.some.inj hx).symm⟩)
+    (by rw [nestHoles_length hholes, hcN, hk]) hcrest
+  rw [hcN, hcL, hcP, hA] at hA'
+  obtain rfl := Option.some.inj hA'
+  have hca : denoteMeta m.acval env ψ (d.nP + d.k) crest
+      = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
+          (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) := by
+    rw [denoteMeta_erasedEq herased]; exact hAr
+  obtain ⟨abD, abN', B, hhi, hcaE, hNE, hlD, hlN, -, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, -,
+    hsatFrame⟩ := blockWalkCtx hin hN hcore.1 hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb
+      hcrest hinf hm hca
+  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hlab.trans hlD.symm) hcaE
+  rw [hNr] at hNE
+  obtain ⟨rfl, -⟩ := mkPisAV_inj (hlabN.trans hlN.symm) (Option.some.inj hNE)
+  exact ⟨ab, abN, hhi, hca, hNr, hab, hlab, hlabN, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, hsatFrame⟩
 
 /-- **A member constructor is positive along the tuple order at the
 hole frame**, from its walk (`nestMemberCtor`, flat kinds) and its U2
@@ -443,11 +527,13 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     (hks : ∀ k ∈ ks, P k) (hI : I st₀)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
+    (hnf : d.nfFF c j = tyN)
     {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp) :
     d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
-  obtain ⟨ab, L, hhi, hca, hab, habLen, hfr, hCP, hgr, hsatFrame⟩ :=
+  obtain ⟨ab, abN, hhi, hca, -, hab, habLen, -, hfr, hCP, hgr, -, -, -, hEq, hsatFrame⟩ :=
     blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hc hcj
-      hCf hCb hcrest hinf
+      hCf hCb hcrest hinf hm hnf
+  generalize hL : d.holeCtx ψ = L at hCP hgr hEq hsatFrame
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
   have hcI : (p.nestCtx fvsP env.find? env.consts).nIdxs = d.nIdxs := hnIdxs
@@ -498,8 +584,11 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
   have hpos := (nestMemberCtor_sem hin ctx F hcont hm hks hfr hI hCP hca hgr hR).1
   rw [← habLen] at hpos
   obtain ⟨htele, i', vs, heq, hvs⟩ := piPosThen_mkPisAV ab _ _ hpos
-  rw [hab] at htele hvs
-  refine ⟨htele, fun e he => hvs e ?_⟩
+  -- through the link, onto the normal form's fields (the datum's)
+  obtain ⟨hteleN, hU⟩ := FieldsEqOn.teleMonoOn hEq (fun ρ ρ' hr => hR.dom ρ ρ' hr) htele
+  rw [hab] at hteleN hU
+  rw [hU] at hvs
+  refine ⟨hteleN, fun e he => hvs e ?_⟩
   obtain ⟨-, rfl⟩ := mkAppN_bvar_inj heq.symm
   rw [hcP, List.drop_append_of_le_length (by simp [paramBvarsAt]),
     List.drop_eq_nil_of_le (by simp [paramBvarsAt]), List.nil_append]
@@ -516,7 +605,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind))}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
@@ -524,11 +613,13 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hinst : d.nInst = 0)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true) :
+      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
+    (hnfs : ∀ c j, d.nfFF c j = (posKs.2.getD c []).getD j default) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
+  obtain ⟨kinds, nfs⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
     ConLeche.checkBlockPositivity_inv hrun
   intro ψ ρp hs c hc j hj
@@ -536,11 +627,11 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, hcrest, ⟨st₀, ks, st₁, hm, hks⟩, ⟨ty, hty⟩, -⟩ :=
+  obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, hks⟩, ⟨ty, hty⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
     hcv0 hop0 hholes hck hcj hCf hCb hcrest (P := fun k => k.flat = true) (I := fun _ => True)
-    (fun rec _ => contSem_flat F rec) hm hks trivial hty hs
+    (fun rec _ => contSem_flat F rec) hm hks trivial hty (by rw [hnfs]; exact hnfe) hs
 
 end ConLeche.Model

@@ -196,6 +196,7 @@ theorem nestNormCtor_inv {env : Env} {ctx : NestCtx} {nF : Nat} {cvC cvCa₀ cvC
   unfold nestNormCtor at h
   obtain ⟨holes, -, h⟩ := exceptBind_ok h
   obtain ⟨q, -, h⟩ := exceptBind_ok h
+  obtain ⟨tyN, -, h⟩ := exceptBind_ok h
   obtain ⟨ty', -, h⟩ := exceptBind_ok h
   split at h
   · simp only [pure, Except.pure, Except.ok.injEq] at h

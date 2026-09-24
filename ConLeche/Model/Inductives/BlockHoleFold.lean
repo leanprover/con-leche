@@ -179,14 +179,16 @@ members' leaves' values, is the stored field read at the parameter
 frame. -/
 theorem blockOverride (hH : BlockHoleFacts mo d lps) {A : Nat → (Name → Nat) → AnnotTerm}
     {ψ : Name → Nat} (hleaf : ∀ t, t < d.k → mo.acval (d.memberName t) ψ = A t ψ)
-    (ρp : Nat → V) {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length) :
+    (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp) {c : Nat} (hc : c < d.N) {j : Nat}
+    (hj : j < (d.ctorsM c).length) :
     ∀ i, i < ((d.Fss c ψ).getD j []).length → ∀ as : List V, as.length = i →
+      SpineFit ρp (((d.Fss c ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
           interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ c j).getD i default)
         = interp V (consList as ρp) (((d.Fss c ψ).getD j []).getD i default) := by
-  intro i hi as has
+  intro i hi as has hfit
   have hS := hH.shapes ψ c hc j hj
-  refine hS.override _ (by simp) (fun t ht σ => ?_) i (by rw [hS.len]; exact hi) as ρp has
+  refine hS.override _ (by simp) (fun t ht σ => ?_) ρp hs i (by rw [hS.len]; exact hi) as has hfit
   show interp V σ (mo.acval (d.memberName t) ψ) = _
   rw [interp_closed V (by rw [mo.acval_erase]; exact mo.cval_closed _ ψ) σ (shiftE d.nP 0 ρp),
     hleaf t ht, List.getD_eq_getElem?_getD,
@@ -238,7 +240,7 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
       (d.toLfp.holeChains ψ))
     {m : Nat} (hm : m < d.k)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
-      ∀ as : List V, as.length = i →
+      ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
           interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
@@ -269,8 +271,9 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
   have hsp : SpineFit (consList ((List.range d.k).map fun c =>
         interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) (d.toLfp.fields ψ m j) fs ↔
       SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
-    spineFit_map_congr (hH.shapes ψ m hmN j hj).len
-      (fun i hi as has => hover j hj i hi as has) fs
+    spineFit_congr_fit (by rw [(hH.shapes ψ m hmN j hj).len])
+      (fun i as hi has hfit => hover j hj i (by rw [← (hH.shapes ψ m hmN j hj).len]; exact hi)
+        as has hfit) fs
   -- the result index readings, lifted over the holes and the fields
   have hgetE : ∀ l, l < ((d.Ess m ψ).getD j []).length →
       (d.absE ψ m j)[l]? = some ((((d.Ess m ψ).getD j []).getD l default).liftN d.k
@@ -329,7 +332,7 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
       (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) L)
     {m : Nat} (hm : m < d.k)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
-      ∀ as : List V, as.length = i →
+      ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
           interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
@@ -442,8 +445,9 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
   have hsp : SpineFit (consList ((List.range d.k).map fun c =>
         interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) (d.toLfp.fields ψ m j) fs ↔
       SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
-    spineFit_map_congr (hH.shapes ψ m hmN j hj).len
-      (fun i hi as has => hover j hj i hi as has) fs
+    spineFit_congr_fit (by rw [(hH.shapes ψ m hmN j hj).len])
+      (fun i as hi has hfit => hover j hj i (by rw [← (hH.shapes ψ m hmN j hj).len]; exact hi)
+        as has hfit) fs
   have hspL : SpineFit (consList is ρp) (liftFields (d.IdsM m ψ).length 0 ((d.Fss m ψ).getD j [])) fs ↔
       SpineFit ρp ((d.Fss m ψ).getD j []) fs := by
     rw [spineFit_liftFields, ← hislen, shiftE_consList]
@@ -511,7 +515,7 @@ theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0
           (d.toLfp.holeChains ψ)) L)
     (hover : ∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
       ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
-      ∀ as : List V, as.length = i →
+      ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
           interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))

@@ -522,30 +522,70 @@ theorem nestMemberCtor_inv {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx :
       simpa using hresult.2 a ha
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-/-- **A stored constructor that is its own positivity normal form, field
-by field** (the (β′) run): its telescope opens at the walk's depth; the
-result's index expressions are hole-free; every field domain is hole-free
-at an ordinary kind, or of member-hole shape (`HoleIn`) with no later
-field and not the result using it (U4). -/
+/-- **Opening a term erasure-equal to a closed telescope**: it opens, its
+body is the telescope's body and its domains the closed pieces, up to
+erasure. -/
+theorem open_of_erasedEq_closeTelescope :
+    ∀ (nds : List (Expr × BinderMeta)) (d : Nat) (body e : Expr),
+      (∀ p ∈ nds, p.1.looseBVarsBounded 0 = true) → body.looseBVarsBounded 0 = true →
+      Expr.ErasedEq e (closeTelescope nds d body) →
+      ∃ xs rest, openPisAtFvars nds.length e d = some (xs, rest) ∧ Expr.ErasedEq rest body ∧
+        ∀ (i : Nat) (x nd : Expr), xs[i]? = some x → nds[i]?.map (·.1) = some nd →
+          Expr.ErasedEq x.fvarTypeD nd
+  | [], d, body, e, _, _, he => by
+    refine ⟨[], e, by simp [openPisAtFvars], by simpa [closeTelescope] using he,
+      fun i x nd hx _ => nomatch hx⟩
+  | (dom, bm) :: nds, d, body, e, hcl, hb, he => by
+    cases e with
+    | forallE a b bm' =>
+      simp only [closeTelescope] at he
+      obtain ⟨-, ha, hbE⟩ := he
+      have hcl' : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true :=
+        fun p hp => hcl p (List.mem_cons_of_mem _ hp)
+      have hC := closeTelescope_closed nds (d + 1) body hcl' hb
+      have hE : Expr.ErasedEq (b.instantiate1 (.fvar d a)) (closeTelescope nds (d + 1) body) :=
+        Expr.ErasedEq.trans (Expr.ErasedEq.instantiate1 hbE (v' := .fvar d dom) rfl)
+          (erasedEq_abstract1_instantiate1 _ 0 hC)
+      obtain ⟨xs, rest, hop, hrest, hdoms⟩ :=
+        open_of_erasedEq_closeTelescope nds (d + 1) body _ hcl' hb hE
+      refine ⟨.fvar d a :: xs, rest, ?_, hrest, fun i x nd hx hnd => ?_⟩
+      · simp only [List.length_cons, openPisAtFvars, hop]
+      · cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          simp only [List.getElem?_cons_zero, Option.map_some, Option.some.injEq] at hnd
+          subst hx hnd
+          exact ha
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx hnd
+          exact hdoms i x nd hx hnd
+    | _ => simp [closeTelescope, Expr.ErasedEq] at he
+
+/-- **A member constructor's positivity normal form, field by field** (the
+walk's output `tyN` on the member-abstracted type `crest`): its telescope
+opens at the walk's depth; the result's index expressions are hole-free;
+every field domain is hole-free at an ordinary kind, or of member-hole
+shape (`HoleIn`) with no later field and not the result using it (U4, the
+walk's own check on its normal form). -/
 theorem storedWalk_fields {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat}
     (hpl : ctx.params.length = ctx.nP)
     (hpar : ∀ (p : Nat) (x : Expr), ctx.params[p]? = some x → ∃ ty, x = .fvar p ty)
-    {nF : Nat} {crest : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
+    {nF : Nat} {crest tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
     (hcl : crest.looseBVarsBounded 0 = true)
-    (hm : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, crest, st₁))
+    (hm : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁))
     (hks : ∀ k ∈ ks, k.flat = true) :
-    ∃ (xs : List Expr) (rest : Expr), openPisAtFvars nF crest (ctx.hiAt 0) = some (xs, rest) ∧
+    ∃ (xs : List Expr) (rest : Expr), openPisAtFvars nF tyN (ctx.hiAt 0) = some (xs, rest) ∧
       (∀ a ∈ rest.getAppArgs.drop ctx.nP, a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) ∧
       ∀ (i : Nat) (x : Expr), xs[i]? = some x →
         x.fvarTypeD.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false ∨
-        ∃ t, HoleIn ctx t (ctx.hiAt 0 + i) x.fvarTypeD ∧ structUsedLater crest 0 i = false := by
+        ∃ t, HoleIn ctx t (ctx.hiAt 0 + i) x.fvarTypeD ∧ structUsedLater tyN 0 i = false := by
   obtain ⟨err, nds, cur, hf, hr, htyN, hU4, hres⟩ := nestMemberCtor_inv hm
-  obtain ⟨xs, hop, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
-  rw [Nat.add_zero] at hop
-  obtain ⟨hcurcl, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop hcl
-  have hxl : xs.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop
+  obtain ⟨xs₀, hop₀, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
+  rw [Nat.add_zero] at hop₀
+  obtain ⟨hcurcl, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop₀ hcl
+  have hxl₀ : xs₀.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop₀
   -- every field's run, read off
-  have hfield : ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k nd,
+  have hfield : ∀ (i : Nat) (x : Expr), xs₀[i]? = some x → ∃ k nd,
       ks[i]? = some k ∧ nds[i]?.map (·.1) = some nd ∧ nd.looseBVarsBounded 0 = true ∧
       (k = .ordinary → nd.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) ∧
       (∀ t, (k = .recursive t ∨ k = .reflexive t) → HoleOut ctx t (ctx.hiAt 0 + i) nd) ∧
@@ -560,30 +600,43 @@ theorem storedWalk_fields {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx
   have hndcl : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true := by
     intro p hp
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hp
-    have hil : i < xs.length := by
-      rw [hxl, ← hnl]; exact (List.getElem?_eq_some_iff.mp hi).1
+    have hil : i < xs₀.length := by
+      rw [hxl₀, ← hnl]; exact (List.getElem?_eq_some_iff.mp hi).1
     obtain ⟨k, nd, -, hnd, hcl', -⟩ := hfield i _ (List.getElem?_eq_getElem hil)
     rw [hi, Option.map_some, Option.some.injEq] at hnd
     rw [hnd]; exact hcl'
-  refine ⟨xs, cur, hop, hres, fun i x hx => ?_⟩
-  obtain ⟨k, nd, hk, hnd, -, hord, hhole, hkf⟩ := hfield i x hx
-  have hE : Expr.ErasedEq x.fvarTypeD nd :=
-    closeTelescope_erasedEq nF crest (ctx.hiAt 0) xs cur nds hop hnl hndcl hcurcl
-      (by rw [← htyN]; exact Expr.ErasedEq.rfl _) i x nd hx hnd
-  have hi : i < nF := by rw [← hxl]; exact (List.getElem?_eq_some_iff.mp hx).1
-  have hkD : ks.getD i .ordinary = k := by
-    rw [List.getD_eq_getElem?_getD, hk]; rfl
-  cases k with
-  | ordinary => exact Or.inl (by rw [erasedEq_nestOcc _ _ hE]; exact hord rfl)
-  | recursive t =>
-    refine Or.inr ⟨t, (hhole t (Or.inl rfl)).erased hE, ?_⟩
-    rw [htyN] at hU4 ⊢
-    exact hU4 i hi ⟨t, Or.inl hkD⟩
-  | reflexive t =>
-    refine Or.inr ⟨t, (hhole t (Or.inr rfl)).erased hE, ?_⟩
-    rw [htyN] at hU4 ⊢
-    exact hU4 i hi ⟨t, Or.inr hkD⟩
-  | inProgress => exact absurd hkf (by decide)
-  | nested q r => exact absurd hkf (by simp [NestFieldKind.flat])
+  -- the normal form, opened
+  obtain ⟨xs, rest, hop, hrest, hdoms⟩ := open_of_erasedEq_closeTelescope nds (ctx.hiAt 0) cur
+    tyN hndcl hcurcl (by rw [htyN]; exact Expr.ErasedEq.rfl _)
+  rw [hnl] at hop
+  have hxl : xs.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop
+  refine ⟨xs, rest, hop, fun a ha => ?_, fun i x hx => ?_⟩
+  · -- the result's indices, through the erasure
+    obtain ⟨-, hlen, hargs⟩ := erasedEq_getApp rest cur hrest
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+    rw [List.getElem?_drop] at hq
+    have hql : ctx.nP + q < cur.getAppArgs.length := by
+      rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hq).1
+    have hy := List.getElem?_eq_getElem hql
+    rw [erasedEq_nestOcc _ _ (hargs _ a _ hq hy)]
+    exact hres _ (List.mem_iff_getElem?.mpr ⟨q, by rw [List.getElem?_drop]; exact hy⟩)
+  · have hi : i < nF := by rw [← hxl]; exact (List.getElem?_eq_some_iff.mp hx).1
+    obtain ⟨x₀, hx₀⟩ : ∃ x₀, xs₀[i]? = some x₀ := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨k, nd, hk, hnd, -, hord, hhole, hkf⟩ := hfield i x₀ hx₀
+    have hE : Expr.ErasedEq x.fvarTypeD nd := hdoms i x nd hx hnd
+    have hkD : ks.getD i .ordinary = k := by
+      rw [List.getD_eq_getElem?_getD, hk]; rfl
+    cases k with
+    | ordinary => exact Or.inl (by rw [erasedEq_nestOcc _ _ hE]; exact hord rfl)
+    | recursive t =>
+      refine Or.inr ⟨t, (hhole t (Or.inl rfl)).erased hE, ?_⟩
+      rw [htyN] at hU4 ⊢
+      exact hU4 i hi ⟨t, Or.inl hkD⟩
+    | reflexive t =>
+      refine Or.inr ⟨t, (hhole t (Or.inr rfl)).erased hE, ?_⟩
+      rw [htyN] at hU4 ⊢
+      exact hU4 i hi ⟨t, Or.inr hkD⟩
+    | inProgress => exact absurd hkf (by decide)
+    | nested q r => exact absurd hkf (by simp [NestFieldKind.flat])
 
 end ConLeche.Model

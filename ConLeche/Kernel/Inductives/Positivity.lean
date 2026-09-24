@@ -1092,23 +1092,19 @@ def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
   else pure ()
 
 /-- One member's constructors through `nestMemberCtor`, sharing the
-cache: their kinds and NORMALISED types (the parameters closed back as
-declared, the members restored).  With `stable` (the install's tail run
-on the STORED constructors, lane HOLE2 (β′)), each member-abstracted
-constructor must BE its own normal form (`tyN == crest`) — an internal
-error otherwise: the stored constructor is `nestNormCtor`'s output, so
-this never fires (whnf is the identity on a `Π` and on a hole- or
-constant-free domain); it lets the model read the stored fields' shapes
-off the walk's output (`StoredFieldShapes`). -/
+cache: their kinds and the walk's NORMAL FORMS, member-abstracted at the
+walk's context (the parameters at `ctx.params`, member `m` at `nP + m`).
+With `stable` (the install's tail run on the STORED constructors, lane
+HOLE2 (β′)), each member-abstracted constructor must BE its own normal
+form (`tyN == crest`) — an internal error otherwise: the stored
+constructor is `nestNormCtor`'s output, so this never fires (whnf is the
+identity on a `Π` and on a hole- or constant-free domain). -/
 def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
     (stable : Bool) : List (ConstantVal × Nat) → NestState →
       m (List (List NestFieldKind) × List Expr × NestState)
   | [], st => pure ([], [], st)
   | c :: cs, st => do
     let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
-      (.invalid "nested positivity: a constructor type does not bind the parameters \
-        (official: ill-formed constructor)")
-    let cq ← unwrapOr (c.1.type.stripPis ctx.nP)
       (.invalid "nested positivity: a constructor type does not bind the parameters \
         (official: ill-formed constructor)")
     let (ks, tyN, st) ← nestMemberCtor ops env ctx c.2 crest st
@@ -1128,7 +1124,7 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
     -- occurrence (`check_uniform_ind_occs`; DESIGN, charter item 9)
     nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
     let (kss, nss, st) ← nestMemberCtors ops env ctx holes stable cs st
-    pure (ks :: kss, closeTelescope cq.1 0 (nestConcrete ctx tyN) :: nss, st)
+    pure (ks :: kss, tyN :: nss, st)
 
 /-- Every member's constructors, in block order, sharing the cache. -/
 def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
@@ -1139,6 +1135,12 @@ def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Lis
     let (kss, nss, st) ← nestMemberCtors ops env ctx holes stable cs st
     let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes stable css st
     pure (kss :: ksss, nss :: nsss, st)
+
+/-- A constructor's normal form made concrete again: the members
+restored (`nestConcrete`) and the parameters closed back over the
+declared type's own parameter binders. -/
+def nestConcreteCtor (ctx : NestCtx) (cty tyN : Expr) : Option Expr :=
+  (cty.stripPis ctx.nP).map fun cq => closeTelescope cq.1 0 (nestConcrete ctx tyN)
 
 /-- **A constructor's STORED form** (lane HOLE2, checkpoint (d); charter
 item 3: one positivity function): the positivity function's normal form
@@ -1157,7 +1159,9 @@ def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
   let (_, nss, _) ← nestMemberCtors ops env ctx holes false [(cvCa₀, nF)] {}
-  let ty' ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  let tyN ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  let ty' ← unwrapOr (nestConcreteCtor ctx cvCa₀.type tyN)
+    (.internal "nested positivity: no normal form")
   if ty' == cvCa₀.type then pure cvCa₀
   else checkConstantVal ops env { cvC with type := ty' }
 
@@ -1175,8 +1179,9 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  let (kinds, normals, st) ← nestBlockCtors ops env ctx holes false ctorss {}
-  pure ⟨st.keys, kinds, normals⟩
+  let (kinds, nfs, st) ← nestBlockCtors ops env ctx holes false ctorss {}
+  pure ⟨st.keys, kinds, (ctorss.zip nfs).map fun (cs, ns) =>
+    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n⟩
 
 end Nested
 

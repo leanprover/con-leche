@@ -190,7 +190,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [hfam]
     exact blockHFits_lfp_iff hH hinst (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
       (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck
-      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρp hc hj') t j fs
+      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρp hs hc hj') t j fs
   -- the closed tuple: the constructors' stage's, of the hole operator (stage D)
   have hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L := by

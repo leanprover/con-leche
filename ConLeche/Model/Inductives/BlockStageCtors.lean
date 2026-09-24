@@ -179,8 +179,8 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
   inst : d.nInst = 0
   /-- the stored field shape facts, the members' leaves the formers' -/
   shapes : ∀ (ψ : Name → Nat) (c : Nat), c < d.k → ∀ j, j < (d.ctorsM c).length →
-    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => A t ψ) (d.absF ψ c j)
-      ((d.Fss c ψ).getD j [])
+    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => A t ψ) (d.params ψ).reverse
+      (d.absF ψ c j) ((d.Fss c ψ).getD j [])
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
     ∃ (ctx : ConLeche.NestCtx) (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
@@ -332,7 +332,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     have hfl := blockHoleFold hH hS.inst (fun c _ => hS.leaf c ψ) hs0
       (fun c hc => hS.lenPps c ψ hc) (hS.idxOk m hm ψ ρ hρ) (hS.holeOk ψ ρ hs0)
       (hS.holeFun ψ ρ hs0).1 (hS.holeFun ψ ρ hs0).2 hm
-      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρ
+      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρ hs0
         (show m < d.N by simp [BlockData.N, hS.inst]; exact hm) hj') hspE
     rw [ConLeche.Semantics.interp_mkAppN_foldl, List.map_append, paramBvars_eq_paramBvarsAt,
       map_paramBvarsAt_interp (ρp := ρ) (e := cA.2)

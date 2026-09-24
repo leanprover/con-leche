@@ -37,7 +37,7 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
         nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ kss[j]? = some ks ∧
-        (stable = true → tyN = crest) ∧
+        nss[j]? = some tyN ∧
         (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false
   | [], _, _, _, _, _, j, cA, hj => by simp at hj
   | c :: cs, st, kss, nss, st', h, j, cA, hj => by
@@ -47,18 +47,9 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i crest hcrest
     split at h
     · simp at h
-    rename_i cq hcq
-    split at h
-    · simp at h
     rename_i r₁ hr₁
     obtain ⟨ks, tyN, st₁⟩ := r₁
     simp only at h
-    have hstab : stable = true → tyN = crest := by
-      intro hs
-      split at h
-      · simp at h
-      · rename_i hne
-        simpa [hs] using hne
     split at h
     · simp at h
     split at h
@@ -74,14 +65,14 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i r₂ hr₂
     obtain ⟨kss₂, nss₂, st₂⟩ := r₂
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -, -⟩ := h
+    obtain ⟨rfl, rfl, -⟩ := h
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
       subst hj
       have hc : instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest :=
         unwrapOr_ok hcrest
-      exact ⟨crest, st, ks, tyN, st₁, hc, hr₁, rfl, hstab, hnm'⟩
+      exact ⟨crest, st, ks, tyN, st₁, hc, hr₁, rfl, rfl, hnm'⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ⊢
       exact nestMemberCtors_inv hr₂ j cA hj
@@ -94,7 +85,7 @@ theorem nestBlockCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
       nestBlockCtors ops env ctx holes stable css st = .ok (ksss, nsss, st') →
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → ∃ st₀ kss nss st₁,
         nestMemberCtors ops env ctx holes stable cs st₀ = .ok (kss, nss, st₁) ∧
-          ksss[c]? = some kss
+          ksss[c]? = some kss ∧ nsss[c]? = some nss
   | [], _, _, _, _, _, c, cs, hc => by simp at hc
   | cs₀ :: css, st, ksss, nsss, st', h, c, cs, hc => by
     simp only [nestBlockCtors, bind, Except.bind] at h
@@ -108,28 +99,33 @@ theorem nestBlockCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     rename_i r₂ hr₂
     obtain ⟨ksss₂, nsss₂, st₂⟩ := r₂
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -, -⟩ := h
+    obtain ⟨rfl, rfl, -⟩ := h
     cases c with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
       subst hc
-      exact ⟨st, kss, nss, st₁, hr₁, rfl⟩
+      exact ⟨st, kss, nss, st₁, hr₁, rfl, rfl⟩
     | succ c =>
       simp only [List.getElem?_cons_succ] at hc ⊢
       exact nestBlockCtors_inv hr₂ c cs hc
 
-/-- **U2 at one member's constructors**, inverted. -/
+/-- **U2 at one member's constructors**, inverted: the declared crest
+inferred, the normal form's fields' sorts, the normal form's level
+parameters the block's. -/
 theorem checkAbsCtorTys_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {holes : List Expr} :
-    ∀ {cs : List (ConstantVal × Nat)}, checkAbsCtorTys ops env ctx holes cs = .ok () →
-      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ty,
+    ∀ {cs : List (ConstantVal × Nat)} {ns : List Expr}, checkAbsCtorTys ops env ctx holes cs ns = .ok () →
+      ∀ (j : Nat) (cA : ConstantVal × Nat) (tyN : Expr), cs[j]? = some cA → ns[j]? = some tyN →
+        ∃ crest ty,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
         ops.inferType env (ctx.hiAt 0) crest = .ok ty ∧
-        ∃ xq sorts, openPisAtFvars cA.2 crest (ctx.hiAt 0) = some xq ∧
+        tyN.allLevelParamsDefined ctx.lps = true ∧
+        ∃ xq sorts, openPisAtFvars cA.2 tyN (ctx.hiAt 0) = some xq ∧
           checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
             ctx.sort (ctx.hiAt 0) xq.1 [] cA.2 = .ok sorts
-  | [], _, j, cA, hj => by simp at hj
-  | c :: cs, h, j, cA, hj => by
+  | [], _, _, j, cA, _, hj, _ => by simp at hj
+  | _ :: _, [], _, j, cA, _, _, hn => by simp at hn
+  | c :: cs, n :: ns, h, j, cA, tyN, hj, hn => by
     simp only [checkAbsCtorTys, bind, Except.bind] at h
     split at h
     · simp at h
@@ -139,6 +135,10 @@ theorem checkAbsCtorTys_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i ty hty
     split at h
     · simp at h
+    by_cases hlp' : n.allLevelParamsDefined ctx.lps = true
+    case neg =>
+      simp [hlp', throw, throwThe, MonadExceptOf.throw] at h
+    simp only [hlp', ↓reduceIte] at h
     split at h
     · simp at h
     rename_i xq hxq
@@ -147,52 +147,60 @@ theorem checkAbsCtorTys_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
     rename_i sorts hsorts
     cases j with
     | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
-      subst hj
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hj hn
+      subst hj hn
       have hc : instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest :=
         unwrapOr_ok hcrest
-      exact ⟨crest, ty, hc, hty, xq, sorts, unwrapOr_ok hxq, hsorts⟩
+      exact ⟨crest, ty, hc, hty, hlp', xq, sorts, unwrapOr_ok hxq, hsorts⟩
     | succ j =>
-      simp only [List.getElem?_cons_succ] at hj
-      exact checkAbsCtorTys_inv h j cA hj
+      simp only [List.getElem?_cons_succ] at hj hn
+      exact checkAbsCtorTys_inv h j cA tyN hj hn
 
 /-- **U2 at every member's constructors**, inverted. -/
 theorem checkAbsCtorTysAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {holes : List Expr} :
-    ∀ {css : List (List (ConstantVal × Nat))}, checkAbsCtorTysAll ops env ctx holes css = .ok () →
-      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → checkAbsCtorTys ops env ctx holes cs = .ok ()
-  | [], _, c, cs, hc => by simp at hc
-  | cs₀ :: css, h, c, cs, hc => by
+    ∀ {css : List (List (ConstantVal × Nat))} {nss : List (List Expr)},
+      checkAbsCtorTysAll ops env ctx holes css nss = .ok () →
+      ∀ (c : Nat) (cs : List (ConstantVal × Nat)) (ns : List Expr), css[c]? = some cs →
+        nss[c]? = some ns → checkAbsCtorTys ops env ctx holes cs ns = .ok ()
+  | [], _, _, c, cs, _, hc, _ => by simp at hc
+  | _ :: _, [], _, c, cs, _, _, hn => by simp at hn
+  | cs₀ :: css, ns₀ :: nss, h, c, cs, ns, hc, hn => by
     simp only [checkAbsCtorTysAll, bind, Except.bind] at h
     split at h
     · simp at h
     rename_i u hu
     cases c with
     | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
-      subst hc
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc hn
+      subst hc hn
       exact hu
     | succ c =>
-      simp only [List.getElem?_cons_succ] at hc
-      exact checkAbsCtorTysAll_inv h c cs hc
+      simp only [List.getElem?_cons_succ] at hc hn
+      exact checkAbsCtorTysAll_inv h c cs ns hc hn
 
-/-- **The install's positivity stage, constructor by constructor.** -/
+/-- **The install's positivity stage, constructor by constructor**: the
+declared crest `crest` walked to its normal form `tyN` (the run's output
+list's entry), the crest typed, the normal form's fields' sorts and
+level parameters, M2′. -/
 theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok kinds) :
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs → ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-        ∃ crest, instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
+        ∃ crest tyN, instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
             = some crest ∧
+          (nfs.getD c []).getD j default = tyN ∧
           (∃ st₀ ks st₁,
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
-              = .ok (ks, crest, st₁) ∧ ∀ k ∈ ks, k.flat = true) ∧
+              = .ok (ks, tyN, st₁) ∧ ∀ k ∈ ks, k.flat = true) ∧
           (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty) ∧
-          (∃ xq sorts, openPisAtFvars cA.2 crest ((p.nestCtx fvsP find? consts).hiAt 0) = some xq ∧
+          tyN.allLevelParamsDefined p.lps = true ∧
+          (∃ xq sorts, openPisAtFvars cA.2 tyN ((p.nestCtx fvsP find? consts).hiAt 0) = some xq ∧
             checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
               p.resSort ((p.nestCtx fvsP find? consts).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
           (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type).nestOcc
@@ -224,18 +232,21 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   · simp at h
   rename_i u hA
   cases u
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨st₀, kss, nss, st₁, hms, hk⟩ := nestBlockCtors_inv hr c cs hc
-  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, hstab, hocc⟩ :=
+  obtain ⟨st₀, kss, nss, st₁, hms, hk, hn⟩ := nestBlockCtors_inv hr c cs hc
+  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, hnj, hocc⟩ :=
     nestMemberCtors_inv hms j cA hj
-  obtain rfl := hstab rfl
-  obtain ⟨crest', ty, hcrest', hty, xq, sorts, hxq, hsorts⟩ :=
-    checkAbsCtorTys_inv (checkAbsCtorTysAll_inv hA c cs hc) j cA hj
+  obtain ⟨crest', ty, hcrest', hty, hlp, xq, sorts, hxq, hsorts⟩ :=
+    checkAbsCtorTys_inv (checkAbsCtorTysAll_inv hA c cs nss hc hn) j cA tyN hj hnj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
-  refine ⟨tyN, hcrest, ⟨st₂, ks, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩,
+  refine ⟨crest, tyN, hcrest, ?_, ⟨st₂, ks, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩, hlp,
     ⟨xq, sorts, hxq, hsorts⟩, hocc⟩
-  simp only [List.all_eq_true] at hall
-  exact hall kss (List.mem_of_getElem? hk) ks (List.mem_of_getElem? hks) k hk'
+  · have hg : normals.getD c [] = nss := by rw [List.getD_eq_getElem?_getD, hn]; rfl
+    rw [hg, List.getD_eq_getElem?_getD, hnj]; rfl
+  · simp only [List.all_eq_true] at hall
+    exact hall kss (List.mem_of_getElem? hk) ks (List.mem_of_getElem? hks) k hk'
 
 end ConLeche

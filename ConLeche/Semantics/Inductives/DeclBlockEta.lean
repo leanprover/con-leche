@@ -300,7 +300,7 @@ record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, isorts, rs,
+  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, isorts, rs,
     hInd, hp, ⟨ctx, -, hCtors⟩, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd

@@ -1290,23 +1290,26 @@ theorem nestedBlockPositivity_datF (env : Env) (ctx : ConLeche.NestCtx)
   simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, nestBlockCtors_datF]
 
 theorem checkAbsCtorTys_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
-    ∀ cs : List (ConstantVal × Nat),
-      (checkAbsCtorTys (fueledOpsM mode) env ctx holes cs).val F
-        = checkAbsCtorTys (fueledOps mode F) env ctx holes cs
-  | [] => rfl
-  | c :: cs => by
+    ∀ (cs : List (ConstantVal × Nat)) (ns : List Expr),
+      (checkAbsCtorTys (fueledOpsM mode) env ctx holes cs ns).val F
+        = checkAbsCtorTys (fueledOps mode F) env ctx holes cs ns
+  | [], _ => rfl
+  | _ :: _, [] => rfl
+  | c :: cs, n :: ns => by
     unfold checkAbsCtorTys
-    simp only [FueledM.atF_bind, unwrapOr_atF, fueledOpsM_inferType_atF,
-      fueledOpsM_ensureSort_atF, checkStructFieldSortsI_datF, checkAbsCtorTys_datF env ctx holes F cs]
+    simp only [FueledM.atF_bind, unwrapOr_atF, fueledOpsM_inferType_atF, FueledM.atF_ite,
+      FueledM.atF_throw, FueledM.atF_pure, fueledOpsM_ensureSort_atF, checkStructFieldSortsI_datF,
+      checkAbsCtorTys_datF env ctx holes F cs ns]
 
 theorem checkAbsCtorTysAll_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
-    ∀ css : List (List (ConstantVal × Nat)),
-      (checkAbsCtorTysAll (fueledOpsM mode) env ctx holes css).val F
-        = checkAbsCtorTysAll (fueledOps mode F) env ctx holes css
-  | [] => rfl
-  | cs :: css => by
+    ∀ (css : List (List (ConstantVal × Nat))) (nss : List (List Expr)),
+      (checkAbsCtorTysAll (fueledOpsM mode) env ctx holes css nss).val F
+        = checkAbsCtorTysAll (fueledOps mode F) env ctx holes css nss
+  | [], _ => rfl
+  | _ :: _, [] => rfl
+  | cs :: css, ns :: nss => by
     unfold checkAbsCtorTysAll
-    simp only [FueledM.atF_bind, checkAbsCtorTys_datF, checkAbsCtorTysAll_datF env ctx holes F css]
+    simp only [FueledM.atF_bind, checkAbsCtorTys_datF, checkAbsCtorTysAll_datF env ctx holes F css nss]
 
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
