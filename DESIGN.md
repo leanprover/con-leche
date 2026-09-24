@@ -88042,6 +88042,12 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
     …").  Today 0 (the modeller), target 1.  At flat kinds the walk's own
     arms establish the check (it never fires there).
     Reading: `holeApp_of_holesApplied` (`StoredShapes.lean`).
+    **Second fixture moved**: `nested_nonuniform_param` (`E.mk : (w : W)
+    → L (E ⟨false⟩) → E w`, the member applied to a non-parameter inside
+    a container's parameter; official v4.33.0 0, v4.33.1+ 1, arena
+    `either`): target-shadow `accept → reject`, nested-shadow row
+    `accept → reject`; today (the modeller) unchanged 0.  M3 is false
+    there, so the uniform model could not have carried it.
   * **M2′ on the normal form** (`tyN` names no member constant,
     `blockRunLink`'s `hoccN`): the same check (`holesApplied_nestOcc_zero`)
     — `storedWalk_nestOcc` (flat kinds) is no longer used by the chain.
@@ -88064,3 +88070,8 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
   `blockCtorStageAt_nested`, `blockCtorPos_of_run_gen`,
   `holeApp_of_holesApplied`, `blockTablesStage_of_gen`, `lfpCover_formers`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+- **Next.**  L7 (NESTW): produce `NestedWideOwed` (the member and key
+  producers of `NestWideFits` from the run; `HoleUnread` from the U4
+  extension of the U4/F2/F4 landing).  L5 + L6 (NESTIND):
+  `NestedRecStageOwed`, unchanged.  The kernel side of `declBlock_nested`
+  is complete.

@@ -1374,7 +1374,9 @@
 # nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
 # Official v4.33.0 ACCEPTS, v4.34.0-rc2 REJECTS with
 # `check_uniform_ind_occs`; the arena's expected outcome for the shape
-# is `either`.  This checker accepts it.
+# is `either`.  This checker accepts it today (the modeller); the
+# uniform route REJECTS it (lane NESTKERN s2: M3 on the walk's normal
+# form — the hole applied to a non-parameter), official v4.33.1+'s verdict.
 0 nested_nonuniform_param.ndjson
 # nested_aux_clash: `nested_p03`'s stream with one ordinary definition
 # NAMED `_nested.List_2.cons` inserted before the block — the name the

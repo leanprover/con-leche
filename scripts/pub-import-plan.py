@@ -54,6 +54,10 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTKERN session 2: `TargetRecC`'s statement at :1001 names
+    # `TargetTyEntry` (`RecCheckRun`); MEASURED by demoting it alone
+    # (`Unknown identifier TargetTyEntry`, `TargetRecC.lean:1001`).
+    ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # lane NESTKERN: `checkBlockRecT_run`'s public statement names the
     # kernel's `checkBlockRecT` (`BlockTail`); MEASURED by demoting it alone
     # (`Unknown identifier checkBlockRecT`, `RecCheckRun.lean:873`).
