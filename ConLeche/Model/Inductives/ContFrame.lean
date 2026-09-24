@@ -60,13 +60,6 @@ theorem DenoteMetaSpine.unlift {h D : Nat} (hle : h ≤ D) :
     obtain ⟨v, hv, rfl⟩ := Option.map_eq_some_iff.mp ha
     exact ⟨v :: vs, .cons hv hvs, rfl⟩
 
-omit [SetTheory V] in
-theorem shiftE_consList (xs : List V) (ρ : Nat → V) :
-    shiftE xs.length 0 (consList xs ρ) = ρ := by
-  funext i
-  simp only [shiftE, Nat.not_lt_zero, if_false]
-  exact consList_apply_add xs ρ i
-
 /-- A lifted reading, read below a spine of the lift's length. -/
 theorem interp_liftN_consList (xs : List V) (ρ : Nat → V) (a : AnnotTerm) :
     interp V (consList xs ρ) (a.liftN xs.length 0) = interp V ρ a := by
