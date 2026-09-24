@@ -92,6 +92,10 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (nR : Nat) :
+    denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i + nR)
+        (tgtConclExpr pp.toBlockShape out j i)
+      = some ((denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i + nR)
+          (tgtConclExpr pp.toBlockShape out j i)).getD default) ∧
     BlockRuleConclAt (tgtRP pp.toBlockShape j) cA.2 nR
       (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ j)
       ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ j i).map (·.liftN nR 0))
@@ -258,7 +262,7 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAtLift_peel hacl (acval_inst_self mpC.base2)
     _ Q.hconcl (Expr.WScoped.mono (Nat.zero_le _) hw₁) ha htyD hsp
   rw [hE, hB, hrest]
-  exact hpeel
+  exact ⟨rfl, hpeel⟩
 
 set_option maxHeartbeats 2000000 in
 /-- **Row `hCaB` at an outside class**: at a prefix `xs` fitting the
@@ -351,8 +355,8 @@ theorem tgtOutCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       mpC.base2.acval envC ψ ℓ tup ρ xs j i fs g).length
       = (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out j i).length := by
     rw [tgtIhv, blockRecIhvAt_length, tgtKeys, List.length_map, List.length_range]
-  have hcon := tgtOutCaAt hμ hcov h R hr hcA hrhs hMo hcl ψ
-    (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out j i).length
+  have hcon := (tgtOutCaAt hμ hcov h R hr hcA hrhs hMo hcl ψ
+    (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out j i).length).2
   have hEs := tgtEsAV_outside hμ hcov h R hr hcA hrhs hMo hcl ψ
   have hxs : xs.length = tgtRP pp.toBlockShape j := by
     rw [hxl, blockRulePdomsAV_length hμ mpC h hr ψ]; rfl

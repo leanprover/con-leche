@@ -648,6 +648,49 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   rw [hRB, hIH]
   exact heq
 
+/-- **The stored family's facts every rule row reads** (at any major):
+each recursor's rule prefix lies below its major index, and every
+recursor type is closed and names stored constants. -/
+theorem tgtFam_facts {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) :
+    (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      (∀ c',
+        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+          = true ∧
+        ConstsBound envC ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) := by
+  obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
+  refine ⟨fun c' => ?_, fun c' => ?_⟩
+  · by_cases hc' : c' < pp.recs.length
+    · obtain ⟨rc', -, hrc', -, -, -, -, nIdx, hmI⟩ := hallN c' hc'
+      simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
+      rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc']
+      simp only [BlockShape.majorIdxAt, BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD] at hmI
+      rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc'] at hmI
+      simp only [Option.map_some, Option.getD_some] at hmI ⊢
+      omega
+    · simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
+      rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_none (by omega)]
+      simp
+  · by_cases hc' : c' < (tgtRs out).length
+    · have hr' : (tgtRs out)[c']? = some (tgtRs out)[c'] := List.getElem?_eq_getElem hc'
+      have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+          = (tgtRs out)[c'].1.type := by
+        simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
+      rw [hg]
+      obtain ⟨hf, -, hres, hb, -⟩ :=
+        ConLeche.recStage_facts h _ (List.mem_of_getElem? hr')
+      exact ⟨hf, hb, constsBound_of_constsResolve _ hres⟩
+    · have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+          = .sort .zero := by
+        simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
+        rw [List.getElem?_eq_none (by omega)]; rfl
+      rw [hg]
+      exact ⟨rfl, rfl, by simp⟩
+
 /-- `tgtRuleAt_facts` with the major's parameter count and levels (a MEMBER major). -/
 theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
@@ -702,36 +745,10 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
     have hc := Q.hcrest
     rw [hct, hds, instPisWith_eq_instPisAt] at hc
     rw [blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, hc, Option.getD_some]
-  obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
+  obtain ⟨hle, hRT⟩ := tgtFam_facts h
   refine ⟨rc, rhs0, M, Q, hrP, hct, hds, (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2, hTf, hTb,
-    constsBound_of_constsResolve _ hTres, fun c' => ?_, fun c' => ?_, hPrefEq, ?_,
+    constsBound_of_constsResolve _ hTres, hle, hRT, hPrefEq, ?_,
     by rw [tgtB_at hr hcA, hrP], ?_, hAbs, hnPc, hlvls⟩
-  · by_cases hc' : c' < pp.recs.length
-    · obtain ⟨rc', -, hrc', -, -, -, -, nIdx, hmI⟩ := hallN c' hc'
-      simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
-      rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc']
-      simp only [BlockShape.majorIdxAt, BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD] at hmI
-      rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc'] at hmI
-      simp only [Option.map_some, Option.getD_some] at hmI ⊢
-      omega
-    · simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
-      rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_none (by omega)]
-      simp
-  · by_cases hc' : c' < (tgtRs out).length
-    · have hr' : (tgtRs out)[c']? = some (tgtRs out)[c'] := List.getElem?_eq_getElem hc'
-      have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
-          = (tgtRs out)[c'].1.type := by
-        simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
-      rw [hg]
-      obtain ⟨hf, -, hres, hb, -⟩ :=
-        ConLeche.recStage_facts h _ (List.mem_of_getElem? hr')
-      exact ⟨hf, hb, constsBound_of_constsResolve _ hres⟩
-    · have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
-          = .sort .zero := by
-        simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
-        rw [List.getElem?_eq_none (by omega)]; rfl
-      rw [hg]
-      exact ⟨rfl, rfl, by simp⟩
   · rw [blockRuleFieldFvs, blockRuleCtorOf_eq hr hcA, ← hcrestEq, ← hrP, Q.hfld, Option.map_some,
       Option.getD_some]
   · rw [tgtFrame, ← hPref, ← hFld, ← hFn]

@@ -104,7 +104,10 @@ theorem tgtOutOpen
         ab.length = cA.2 ∧
         tgtFdomsAV p out mpC.base2.acval envC ψ j i
           = (AnnotTerm.substTele (instTau mpC ψ D (tgtMajor out j).lvls (tgtRP p j)
-              (tgtMajor out j).ds) 0 ab).map (·.2.2) := by
+              (tgtMajor out j).ds) 0 ab).map (·.2.2) ∧
+        (∀ (l : Nat) (x : Expr), (tgtFieldFvs p out j i)[l]? = some x →
+          denoteMeta mpC.base2.acval envC ψ (tgtRP p j + l) x.fvarTypeD
+            = some ((tgtFdomsAV p out mpC.base2.acval envC ψ j i).getD l default)) := by
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, _, _, hFld, _, _, _⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
@@ -145,10 +148,15 @@ theorem tgtOutOpen
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   have hfld : ConLeche.openPisAtFvars cA.2 Q.crest (tgtRP p j) = some (Q.fvsF, Q.cbody) := by
     rw [hRP]; exact Q.hfld
-  obtain ⟨-, ab, ⟨Tys, hlT, hTys, hEq⟩, hlab, hrdF, -, -⟩ :=
+  obtain ⟨-, ab, ⟨Tys, hlT, hTys, hEq⟩, hlab, hrdF, hrdL, -⟩ :=
     instCtor_open mpC hcl.hD hcl.hnN hcl.hkN hlps hnd hul hds hdsa hlenP hcl.hmm hiD hfc hcr hfld
-  refine ⟨ab, Tys, hlT, hTys, hEq, hlab, ?_⟩
-  rw [tgtFdomsAV, ← hFld, hrdF]
+  have hfdE : tgtFdomsAV p out mpC.base2.acval envC ψ j i
+      = (AnnotTerm.substTele (instTau mpC ψ D (tgtMajor out j).lvls (tgtRP p j)
+          (tgtMajor out j).ds) 0 ab).map (·.2.2) := by
+    rw [tgtFdomsAV, ← hFld, hrdF]
+  refine ⟨ab, Tys, hlT, hTys, hEq, hlab, hfdE, fun l x hx => ?_⟩
+  rw [hfdE]
+  exact hrdL l x (by rw [hFld]; exact hx)
 
 /-- **Row `hspF` at an outside class**: at a prefix spine fitting the
 rule's prefix domains, a hole fit of `D`'s constructor `(mm, i)` at the
@@ -180,7 +188,7 @@ theorem tgtOutSpF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     denoteMetaSpine_eq_map hdsa
   subst hdsaE
   have hs := hsatF ρ xs hpref
-  obtain ⟨hiD, -, hlps, ab, Tys, hlT, hTys, hEq, hlab, hfd⟩ :=
+  obtain ⟨hiD, -, hlps, ab, Tys, hlT, hTys, hEq, hlab, hfd, -⟩ :=
     tgtOutOpen R hr hcA hrhs hMo hcl hul hds ψ hdsa hlenP
   obtain ⟨hF, -⟩ := instCtor_fit mpC hcl.hD hcl.hnN hcl.hkN hlps hcl.hnd hul hds hdsa hlenP
     hcl.hmm hiD hlT hTys hEq hlab hs
