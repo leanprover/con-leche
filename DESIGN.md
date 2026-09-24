@@ -88555,3 +88555,78 @@ Ruling "(W) by ACCESSIBILITY"; charter items 2, 4, 9.  Resume note
   Then items 4–5 (monotonicity from accessibility; NESTIND consumes
   `KeyPos`'s transfer for `trans`).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
+
+#### LANDED (lane NESTIND, session 7, 2026-09-24, `agent/uinds-NESTIND` → `nested`): `hCaB` and `hcerts` at outside classes; finding F9 recorded and consumed — `NestedRecStageOwed` NOT yet discharged
+
+Charter items 2, 5 and 9.  No kernel change; verdict-neutral by construction.
+Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 7".
+
+- **`ihv`/`call` over a class tuple function** (`TargetIhData.lean`):
+  `tgtIhv`/`tgtCall` take `tup : Nat → List V → V` (recursor `c'`'s index
+  tuple of an index spine) instead of the block datum; a member class's is
+  `fun c' is => d.tup ψ (p.recTgtAt c') is` (every member row passes it),
+  an outside class's the container's `tupW`.
+- **`hCaB` at an outside class** (`TargetOutCa.lean`): `tgtOutCaAt` (the
+  peel `BlockRuleConclAt` at the TARGET spellings — prefix openers,
+  `tgtEsAV`, `tgtMkAV` lifted past the `ih` block — plus the conclusion's
+  reading), `tgtOutMkAV_eq` (the fired spine reads as the constructor's
+  leaf at the parameters' readings and the fields' variables), and
+  **`tgtOutCaB`**: the index values at a hole fit at a tuple `t` of the
+  class are `t`'s components (the fit's result indices against the rule's
+  own decoding `tgtOutDec`, `projS_tupW`), the fired spine reads to the
+  injection, `blockRecCa_run` evaluates the peel.
+- **Finding F9 — a recorded constructor's parameters are the block's;
+  RECORDED** (`LfpCtorReads`, `Model/Annot/EnvModelM.lean`): at every
+  level assignment, if the constructor's stored type reads as
+  `mkPisAV dsC bodyC` with at least `nPc` binders, then its first `nPc`
+  binders are satisfied wherever the block's parameter telescope is.  No
+  recorded fact graded an outside class's fields: the instantiated
+  constructor's field domains (`tgtFdomsAV`) are graded only if the
+  parameters' readings FIT the constructor's own parameter binders, and
+  `tgtOutSat` gives their fit to the BLOCK's parameters (the former's).
+  It is the install's constructor check (the constructors' frames,
+  `ctorFramesGen`: the parameter domains definitionally the former's) and
+  official's (`check_constructors`, "arg #i of 'c' does not match
+  inductive datatype parameters", `inductive.cpp`) — a recorded fact, not
+  a restriction.  Producers: `blockCtorReads_of` (new premise `hpars`,
+  from `BlockCtorsStage.frames`/`paramsOf` in `DeclBlock.lean`),
+  `lfp0_ctorReads` (vacuous, `nPc = 0`), `Eq` (by the reading of
+  `Eq.refl`'s type, `BasisEq.lean`).  Transport: `lfp_ok_transport` gains
+  `hreadT` (the constructors' type readings cross; its four callers prove
+  it as they prove `hread`).  Stated universally over the reading (not
+  existentially), so `lfp0` needs no reading of its constructors' types.
+- **The target frame over the major's parameters** (`TargetFrame.lean`):
+  `TgtDsOk` (the major's parameters scoped at the prefix, bounded, naming
+  stored constants, their leaves prefix openers) replaces the member
+  equation `M.ds = fvsPref.take nP` in `targetFrame_facts`,
+  `walkCtx_targetRule`, `targetRule_reads`, `targetRule_graded`; members
+  pass `tgtDsOk_of_take`; `blockRuleHclF_of` takes the crest's leaves,
+  `blockRuleConclClosed_of` any major's parameters (`prefLeaves_of_open`,
+  `crestLeaf_of_inst`); `tgtFam_facts` factored out of
+  `tgtRuleAt_facts_major`.
+- **`hcerts` at an outside class** (`TargetOutGrade.lean`,
+  `TargetOutCerts.lean`): `tgtOutCtorFit` (the constructor's stored type
+  reads as a closed graded tower whose parameter binders the parameters'
+  readings fit — F9 at the key frame — the residual being the
+  instantiated constructor's reading), `tgtOutCrestWd` (that reading is
+  graded at every fitting prefix), `wdV_mkPisAV_dom`/`_body`,
+  `tgtOutDsOk`, `tgtOutConclFit`/`tgtOutConclArgs` (`hokC`'s two
+  premises: the outside `hrule` at `K = 0`; the index expressions graded
+  as arguments of the instantiated conclusion, the fired spine as the
+  leaf applied along the stored type then the instantiated constructor),
+  and **`tgtOutCertsW`**: `BlockRuleCerts` at the target data
+  (`tgtFdomsAV`, `tgtIhdomsAV`, `tgtRbAV`, `tgtCaAV`) at the base frame.
+  `instCtor_open`/`tgtOutOpen` export the crest's reading and the fields'
+  readings.
+- **Still owed for `NestedRecStageOwed`** (resume note): the chain lift of
+  the target field domains (`tgtFdomsK K = tgtFdomsAV`, by the domains'
+  bounds); the class data function and `graphRecPre_core`'s wiring with
+  the member rows restated at the target components (`tgt*_eq_block`);
+  `hihF`/`hchain` over classes (the callee's conclusion typing through the
+  class tuple); item 4 (`trans`/`calls`/`top` — `KeyPos`'s hole-fit
+  transfer; `huniq`, F4); L6 `hpins`; the recursor stage over
+  `consBlockRecsT` with `.nested` rules (the `blockRecStaged_*` chain
+  generic in the classes).
+- Gates: `lake build`/`lake test` 0 warnings; axioms standard
+  (`NESTIND/s7/axioms.lean`); `tests/arena.sh` see the resume note.
+  No `sorry`, no new axiom.
