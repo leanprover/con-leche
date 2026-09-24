@@ -160,7 +160,7 @@ per-member hypotheses of `stageBlockCtorsAt`, gathered so that the
 loop over the `k` members carries ONE obligation. -/
 structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : List Name)
     (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm) (fssZ : (Name → Nat) → Nat → List (List AnnotTerm))
+    (A : Nat → (Name → Nat) → AnnotTerm)
     (envI : Env) (ctorsOf : Name → List Name) : Prop where
   /-- the leaves the `k` formers were consed with: the block operator at
   the HOLE chains (lane HOLE2, stage B — charter item 2) -/
@@ -198,16 +198,10 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
     ∀ c, c < d.k → Sat V (((d.ppsM c ψ).take d.nP).map (·.2.2)).reverse ρp
   lenPps : ∀ (c : Nat) (ψ : Name → Nat), c < d.k → (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length
   lenIds : ∀ m, m < d.k → ∀ ψ : Name → Nat, (d.IdsM m ψ).length = d.nIdxAt m
-  chainsOk : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+  /-- the members' index telescopes are graded at every parameter frame -/
+  idxOk : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
     Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρp →
-    BlockChainsOk d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-      (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fssZ ψ) (fun c => d.Ess c ψ)
-  lenZ : ∀ m, m < d.k → ∀ ψ : Name → Nat, (fssZ ψ m).length = (d.ctorsM m).length
-  lenZj : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (j : Nat) (cA : ConstantVal × Nat),
-    (d.ctorsM m)[j]? = some cA → ((fssZ ψ m).getD j []).length = cA.2
-  ord : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
-    ∀ (ψ : Name → Nat) (i : Nat), i < cA.2 → ¬ recAt d.nP (d.ksF m j) (d.nP + i) →
-    ((d.Fss m ψ).getD j []).getD i default = ((fssZ ψ m).getD j []).getD i default
+    BlockIdxOk (V := V) d.k (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ)
   frames : ∀ m, m < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM m)[j]? = some cA →
     (∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρ ↔
@@ -235,9 +229,9 @@ number of members' constructors consed). -/
 theorem blockHoleFacts_of_stage {F : Nat} {envC envI : Env} {mo : EnvModel V envC}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name} {nc : Nat}
+    {ctorsOf : Name → List Name} {nc : Nat}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A nc) (hk0 : 0 < d.k) :
     BlockHoleFacts mo d lps := by
   have hNk : d.N = d.k := by rw [BlockData.N, hS.inst]; rfl
@@ -268,10 +262,10 @@ member's `consSumCtors`, with the core invariant one member on. -/
 theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
+   
     {envI env : Env} {ctorsOf : Name → List Name} {m : Nat} {cvTa : ConstantVal}
     (hN : BlockNamesOk (V := V) d cvTasAll)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTasAll p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTasAll p₁ isRec A envI ctorsOf)
     (hm : m < d.k) (hcvTa : cvTasAll[m]? = some cvTa)
     (mp : EnvModelM V μ env)
     (hE : ConLeche.BlockEtaInv env d.memberNames ctorsOf)
@@ -345,7 +339,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
         List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range htgt]
       rfl
     have hfl := blockHoleFold hH hS.inst (fun c _ => hS.leaf c ψ) hs0
-      (fun c hc => hS.lenPps c ψ hc) (hS.chainsOk m hm ψ ρ hρ).hI (hS.holeOk ψ ρ hs0)
+      (fun c hc => hS.lenPps c ψ hc) (hS.idxOk m hm ψ ρ hρ) (hS.holeOk ψ ρ hs0)
       (hS.holeFun ψ ρ hs0).1 (hS.holeFun ψ ρ hs0).2 hm hover hspE
     rw [ConLeche.Semantics.interp_mkAppN_foldl, List.map_append, paramBvars_eq_paramBvarsAt,
       map_paramBvarsAt_interp (ρp := ρ) (e := cA.2)
@@ -464,11 +458,11 @@ invariant one member further on at each step. -/
 theorem stageBlockCtors (hμ : μ.verifiedChecks = true) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env} {ctorsOf : Name → List Name}
+    {envI : Env} {ctorsOf : Name → List Name}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (hN : BlockNamesOk (V := V) d cvTasAll)
     (hlenCv : cvTasAll.length = d.k)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTasAll p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTasAll p₁ isRec A envI ctorsOf)
     (hk : ctorsAs.length = d.k)
     (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some (d.ctorsM c)) :
     ∀ (rest : List (List (ConstantVal × Nat))) (i : Nat) (env : Env) (mp : EnvModelM V μ env),

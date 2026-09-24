@@ -56,13 +56,13 @@ frame, from the constructors' stage. -/
 theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf) (hk0 : 0 < d.k) :
+    {ctorsOf : Name → List Name}
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ) := by
   intro ψ ρp hs c hc
   have hNk : d.N = d.k := by rw [BlockData.N, hS.inst]; rfl
-  exact (hS.chainsOk 0 hk0 ψ ρp hs).hI c (by rw [← hNk]; exact hc)
+  exact hS.idxOk 0 hk0 ψ ρp hs c (by rw [← hNk]; exact hc)
 
 /-- **The operator's fibre is the hole fit**, from the stages' records:
 the datum's operator is the hole operator (`hPhi`), whose fibre is the
@@ -70,9 +70,9 @@ hole fit (`LfpDatum.holeOp_fibre`). -/
 theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -105,9 +105,9 @@ theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -279,9 +279,9 @@ along the tuple order at the hole frame makes it monotone
 theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -320,9 +320,9 @@ hole form reads the constructors' facts the records carry
 theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
+    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)

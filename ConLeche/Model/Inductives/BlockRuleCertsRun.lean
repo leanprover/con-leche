@@ -207,12 +207,12 @@ rule's base frame (`blockRuleMkAV_wdV`).  The `ih` block is lifted over
 (`WellDenotedV_liftN`, `shiftE_consList_ih`). -/
 theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)

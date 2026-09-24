@@ -100,7 +100,7 @@ section MembersRun
 variable {envC envI : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
+ 
   {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
 
@@ -111,7 +111,7 @@ theorem blockMembersRun_seam
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -157,7 +157,7 @@ theorem blockModelAt_seam
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -468,7 +468,7 @@ theorem blockRuleEsAV_valid_seam (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -564,7 +564,7 @@ theorem blockRecEqs_valid_gen (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -692,7 +692,7 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A

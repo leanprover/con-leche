@@ -70,7 +70,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (ctorsAsR : List (List (ConstantVal × Nat))) (nested : Bool) (blk : List ConstantInfo)
     (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ fe.env)
     (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
-    (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)) (env₀ : Env)
+    (env₀ : Env)
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
@@ -82,7 +82,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) cvTasR)
     (hstage : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
-      pp.toBlockShape isRecR A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRecR A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
       pp.toBlockShape isRecR A
@@ -129,7 +129,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (Nat.le_add_right _ _)
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
     (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).memberNames
-    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) hμ isRecR A fssZ envI
+    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) hμ isRecR A envI
     h hdR hnames hstage hcore hmr hM s hTy
     (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ')

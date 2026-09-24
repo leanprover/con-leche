@@ -3732,13 +3732,13 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
         (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
         (A : Nat → (Name → Nat) → AnnotTerm)
-        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)),
+       ,
         (∃ out, rsR = ConLeche.tgtRs out ∧ Nonempty (ConLeche.TargetRecRun μ F
           (ConLeche.mkFEnv envC) pp.toBlockShape false block cvTasR ctorsAsR out)) →
         ConLeche.RecStageOk μ F envC pp cvTasR ctorsAsR rsR →
         pp.toBlockShape.memberNames.Nodup →
         BlockNamesOk (V := V) dR cvTasR →
-        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A fssZ envI
+        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
           pp.ctorNamesAt →
         BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k →
         (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
@@ -3811,11 +3811,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           ∀ ρ : Nat → V, interp V ρ Ra = pt)) :
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun
-    fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ htgtR hrec hnd hnames hstage hcore
+    fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hlfp hkLen hfresh => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hRaZ⟩ :=
-        hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ htgtR hrec hnd hnames hstage
+        hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage
           hcore hctorsAs hctorsIn hdR hlfp hkLen hfresh
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hRaZ

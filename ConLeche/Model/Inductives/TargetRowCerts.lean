@@ -38,7 +38,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ fe.env}
   {names : List Name} {d : BlockData V}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+  {envI : Env}
 
 /-- **Row: the certificates at the target data** (B3 (e) 4–5). -/
 theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
@@ -48,7 +48,7 @@ theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
