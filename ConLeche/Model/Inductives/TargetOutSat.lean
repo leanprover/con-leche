@@ -158,7 +158,7 @@ read at the rule prefix (`dsa`), at the inductive's level arity, scoped,
 as many as `D`'s parameters — and at every prefix spine fitting the
 rule's prefix domains they satisfy `D`'s parameter telescope at the key
 frame (F2-extended: the instantiation infers at the prefix). -/
-theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
+theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
     (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {outside nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -180,7 +180,8 @@ theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM
       ∀ (σ : Nat → V) (xs : List V),
         SpineFit σ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
         Sat V (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).reverse
-          (keyFrame dsa (tgtRP pp.toBlockShape j) (consList xs σ)) := by
+          (keyFrame dsa (tgtRP pp.toBlockShape j) (consList xs σ)) ∧
+        ∀ a ∈ dsa, WellDenotedV V (consList xs σ) a := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
   generalize hMg : tgtMajor out j = M at hMo hcl E ⊢
@@ -285,7 +286,7 @@ theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM
     Rules.infer_sound (Rules.RulesInputs.ofSem mpC ψ) (Rules.inferTypeCore_bridge hinf')
       ⟨hwsE, hbE, hLE⟩ hCE hwa
   rw [he] at hwa
-  obtain ⟨fa, dsa, hfa, hdsa, -⟩ := denoteMeta_mkAppN_inv hwa
+  obtain ⟨fa, dsa, hfa, hdsa, hwaE⟩ := denoteMeta_mkAppN_inv hwa
   obtain ⟨caps, hfI⟩ := hcl.hfind
   obtain ⟨hul, -⟩ := Rules.denoteMeta_const_arityK hfI hfa
   -- the parameter count: off the first constructor's reading, or the
@@ -318,6 +319,37 @@ theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM
   have := keyParamsFit mpC hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI) (Nat.le_refl _) hwa'
     (by rw [hlenP]) (fun x hx => (hsc x hx).1.mono hnP) hdsa (consList xs σ) (hgr _ hsat)
   have e0 : dropV 0 (consList xs σ) = consList xs σ := funext fun _ => rfl
-  rwa [Nat.sub_self, e0] at this
+  rw [Nat.sub_self, e0] at this
+  refine ⟨this, fun a ha => ?_⟩
+  have hg := hgr _ hsat
+  rw [hwaE] at hg
+  exact WellDenotedV_mkAppN_args _ hg a ha
+
+/-- `tgtOutSatW` without the parameters' grading. -/
+theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
+    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {outside nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    ∃ dsa : List AnnotTerm,
+      DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtMajor out j).ds dsa ∧
+      (tgtMajor out j).lvls.length = cvI.levelParams.length ∧
+      (∀ x ∈ (tgtMajor out j).ds, Expr.WScoped (tgtRP pp.toBlockShape j) x ∧
+        x.looseBVarsBounded 0 = true) ∧
+      (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).length
+        = (tgtMajor out j).ds.length ∧
+      ∀ (σ : Nat → V) (xs : List V),
+        SpineFit σ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
+        Sat V (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).reverse
+          (keyFrame dsa (tgtRP pp.toBlockShape j) (consList xs σ)) := by
+  obtain ⟨dsa, h1, h2, h3, h4, h5⟩ := tgtOutSatW hμ mpC hcov h R hr hMo hcl ψ
+  exact ⟨dsa, h1, h2, h3, h4, fun σ xs hf => (h5 σ xs hf).1⟩
 
 end ConLeche.Model
