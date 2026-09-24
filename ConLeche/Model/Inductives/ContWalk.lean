@@ -67,25 +67,26 @@ theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
     {sub : Name → List Level → Option Expr} (hhi : ctx.hiAt prog.length = hi)
     {Δ : List AnnotTerm} {R : FrameRel V} (hR : HoleRel m φ ctx prog hi Δ R)
-    (hprem : ∀ (x : ConstantVal × Nat) (crest : Expr),
+    {Q : ConstantVal × Nat → Prop}
+    (hprem : ∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
         = some crest →
       (∃ ty, ConLeche.inferTypeCore .verified env F hi crest = .ok ty) →
       ∃ ca, Frame hi crest ∧ CtxOkP m φ hi Δ crest ∧
         denoteMeta m.acval env φ hi crest = some ca ∧ Graded V Δ ca) :
-    ∀ (ctors : List (ConstantVal × Nat)) (st st' : NestState),
+    ∀ (ctors : List (ConstantVal × Nat)) (st st' : NestState), (∀ x ∈ ctors, Q x) →
       ConLeche.nestCtors ctx (fueledOps .verified F) env rec prog hi us ds nPc sub ctors st
         = .ok st' → I st →
       I st' ∧ (st'.restart = none → ∀ x ∈ ctors, CtorWalked m φ ctx hi us ds nPc sub R x) := by
   intro ctors
   induction ctors with
   | nil =>
-    intro st st' h hI
+    intro st st' _ h hI
     simp only [ConLeche.nestCtors, pure, Except.pure, Except.ok.injEq] at h
     subst h
     exact ⟨hI, fun _ x hx => nomatch hx⟩
   | cons x cs ih =>
-    intro st st' h hI
+    intro st st' hQ h hI
     obtain ⟨cv, nF⟩ := x
     simp only [ConLeche.nestCtors, bind, Except.bind] at h
     have hnd : Name.nodup cv.levelParams = true := by
@@ -104,7 +105,8 @@ theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
     split at h
     · simp at h
     rename_i sv hsv
-    obtain ⟨ca, hfr, hC, hca, hgr⟩ := hprem (cv, nF) crest hcrest' ⟨ty, hty⟩
+    obtain ⟨ca, hfr, hC, hca, hgr⟩ := hprem (cv, nF) crest (hQ _ List.mem_cons_self) hcrest'
+      ⟨ty, hty⟩
     split at h
     · simp at h
     rename_i r hr
@@ -123,7 +125,7 @@ theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
     have hc₁ : st₁.restart = none := by simpa using hrs
     split at h
     · rename_i hok
-      obtain ⟨hI', hrest⟩ := ih st₁ st' h hI₁
+      obtain ⟨hI', hrest⟩ := ih st₁ st' (fun x hx => hQ x (List.mem_cons_of_mem _ hx)) h hI₁
       refine ⟨hI', fun hc x hx => ?_⟩
       rcases List.mem_cons.mp hx with rfl | hx
       · simp only [Bool.and_eq_true] at hok
@@ -131,6 +133,77 @@ theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
         have := hpos hc₁
         rwa [hhi] at this
       · exact hrest hc x hx
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The first constructor a successful frame walk meets has distinct
+level parameters (the check precedes its walk). -/
+theorem nestCtors_head_nodup {ctx : NestCtx} {F : Nat}
+    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
+    {sub : Name → List Level → Option Expr} {x : ConstantVal × Nat} {cs : List (ConstantVal × Nat)}
+    {st st' : NestState}
+    (h : ConLeche.nestCtors ctx (fueledOps .verified F) env rec prog hi us ds nPc sub (x :: cs) st
+      = .ok st') : x.1.levelParams.Nodup := by
+  obtain ⟨cv, nF⟩ := x
+  simp only [ConLeche.nestCtors, bind, Except.bind] at h
+  refine nodup_of_nameNodup ?_
+  rcases hb : Name.nodup cv.levelParams
+  · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
+  · rfl
+
+/-- **What the state invariant must say about the container lookups**:
+a looked-up container's constructor list is the environment's, the
+lookup keeps the invariant, and a restart keeps it (the entry state's
+cache with the restarted run's lookups). -/
+structure CtorsOfOk (ctx : NestCtx) (I : NestState → Prop) : Prop where
+  lookup : ∀ st, I st → ∀ c, (ConLeche.nestContainerC ctx st c).1 = ConLeche.nestContainer ctx c
+  insert : ∀ st, I st → ∀ c, I (ConLeche.nestContainerC ctx st c).2
+  mix : ∀ st₀ st, I st₀ → I st → I { st₀ with ctorsOf := st.ctorsOf }
+
+/-- **A frame's constructors, looked up**: every listed container's
+constructors (at the frame's parameter count, or none), and nothing else. -/
+theorem nestGroupCtors_sem {ctx : NestCtx} {I : NestState → Prop} (hI : CtorsOfOk ctx I)
+    {nPc : Nat} :
+    ∀ (cs : List Name) (st : NestState) (ctors : List (ConstantVal × Nat)) (st' : NestState),
+      ConLeche.nestGroupCtors (m := CheckM) ctx nPc cs st = .ok (ctors, st') → I st →
+      I st' ∧ (∀ x ∈ ctors, ∃ c ∈ cs, ∃ nP' L, ConLeche.nestContainer ctx c = some (nP', L) ∧
+          (nP' = nPc ∨ L = []) ∧ x ∈ L) ∧
+        ∀ c ∈ cs, ∃ nP' L, ConLeche.nestContainer ctx c = some (nP', L) ∧
+          (nP' = nPc ∨ L = []) ∧ ∀ x ∈ L, x ∈ ctors
+  | [], st, ctors, st', h, hst => by
+    simp only [ConLeche.nestGroupCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hst, fun _ hx => by simp at hx, fun _ hc => by simp at hc⟩
+  | c :: cs, st, ctors, st', h, hst => by
+    simp only [ConLeche.nestGroupCtors, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i q hq
+    have hq' := unwrapOr_ok hq
+    rw [hI.lookup st hst c] at hq'
+    obtain ⟨nP', L⟩ := q
+    dsimp only at h
+    split at h
+    · rename_i hok
+      split at h
+      · simp at h
+      rename_i r hr
+      obtain ⟨rest, st₁⟩ := r
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hok' : nP' = nPc ∨ L = [] := by
+        simp only [Bool.or_eq_true, beq_iff_eq, List.isEmpty_iff] at hok
+        exact hok
+      obtain ⟨hI₁, hall, hsub⟩ := nestGroupCtors_sem hI cs _ rest st₁ hr (hI.insert st hst c)
+      refine ⟨hI₁, fun x hx => ?_, fun c' hc' => ?_⟩
+      · rcases List.mem_append.mp hx with hx | hx
+        · exact ⟨c, List.mem_cons_self, nP', L, hq', hok', hx⟩
+        · obtain ⟨c', hc', rest'⟩ := hall x hx
+          exact ⟨c', List.mem_cons_of_mem _ hc', rest'⟩
+      · rcases List.mem_cons.mp hc' with rfl | hc'
+        · exact ⟨nP', L, hq', hok', fun x hx => List.mem_append_left _ hx⟩
+        · obtain ⟨nP'', L', h1, h2, h3⟩ := hsub c' hc'
+          exact ⟨nP'', L', h1, h2, fun x hx => List.mem_append_right _ (h3 x hx)⟩
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## The frame's group, its holes and its relation -/
