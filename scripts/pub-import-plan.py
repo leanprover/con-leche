@@ -63,6 +63,31 @@ FALLBACK = {
     ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Cached.CheckerC'),
     ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.BridgeDecl'),
     ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.Cached.SimC'),
+    # lane RECLIB session 5 (HOLE2's files, after HOLE2 closed): nine
+    # more, each MEASURED by demoting it alone.  WHY the model calls them
+    # demotable: at the tree as it stands it already reports `('pub', M)`
+    # imprecision for all four modules (`BlockPosRun`, `NestPosC`,
+    # `NestScope`, `PositivityInv`), and the token is per MODULE, so the
+    # rebased baseline masks every further demotion there.  Measured
+    # failures: `NestScope` without `Positivity` loses `NestCtx`
+    # (`:121`), without `Shift` loses `WScoped` (`:27`); `NestPosC`
+    # without `NestScope` loses `NestCtxOk` (`:47`); `PositivityInv`
+    # without `BlockInstall` loses `BlockParts`/`Expr` (`:26`);
+    # `BlockPosRun` without `BlockLfpTup` loses `LfpDatum.CtorPos`
+    # (`:185`), without `BlockHoleRead` `Expr.ErasedEqL` (`:114`),
+    # without `BlockStageCtors` `BlockNamesOk` (`:165`), without
+    # `NestPosMono` `PiPosThen` (`:77`), without `PositivityInv`
+    # `BlockParts.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
+    # WAS demotable and is demoted.)
+    ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.Inductives.NestScope'),
+    ('ConLeche.Verify.Inductives.PositivityInv', 'ConLeche.Kernel.Inductives.BlockInstall'),
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Annot.BlockLfpTup'),
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.BlockHoleRead'),
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.BlockStageCtors'),
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Verify.Inductives.PositivityInv'),
     # task #315 (lane INVERT, the recursor stage's run records): five
     # re-exports the model calls demotable once the positional peels
     # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records
