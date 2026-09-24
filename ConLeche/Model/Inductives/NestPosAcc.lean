@@ -9,10 +9,8 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Annot.BitShift
 import ConLeche.Semantics.Frame
 import ConLeche.Verify.InferLemmas
-import ConLeche.Model.IndPointKit
 
 public section
 
