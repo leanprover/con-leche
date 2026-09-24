@@ -538,60 +538,6 @@ theorem blockRuleEsAV_valid_seam (hμ : μ.verifiedChecks = true)
   rw [ctorBodyAVI, consList_append] at hb
   exact (AnnotValid.mkAppN_inv hb).2 E (List.mem_append_right _ hE)
 
-/-- **The whole frame's grading, restricted to the prefix and the
-fields** — the `take l` of `pdoms ++ fdoms ++ ihdoms` below the first
-two segments is the `take l` of the first two. -/
-theorem blockRuleHokPF_of (hμ : μ.verifiedChecks = true)
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
-    (hokA : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      ∀ ψ : Name → Nat,
-      ∀ l, l < pp.toBlockShape.rulePrefixAt j + cA.2 + (blockRuleFrameAt pp rs j i).nR →
-      ∀ (σ' : Nat → V) (ys : List V),
-        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i
-            ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ j i).take l) ys →
-        WellDenotedV V (consList ys σ')
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i
-            ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ j i).getD l default)) :
-    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      ∀ ψ : Name → Nat,
-      ∀ l, l < pp.toBlockShape.rulePrefixAt j + cA.2 →
-      ∀ (σ' : Nat → V) (ys : List V),
-        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).take l) ys →
-        WellDenotedV V (consList ys σ')
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default) := by
-  intro c r hr j cA hcA ψ l hl σ' ys hys
-  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
-  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, -, -, h₂, -⟩ :=
-    blockRuleData_run h hr hcA (List.getElem?_eq_getElem (by
-      rw [recStage_rulesLen h hr]; exact (List.getElem?_eq_some_iff.mp hcA).1))
-  have hfl' : (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 := by
-    rw [blockRuleFdomsAV, readOpenedDoms_length_eq, openPisAtFvars_length _ h₂]
-  have hl' : l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ c
-      ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).length := by
-    rw [List.length_append, hpl, hfl']; exact hl
-  have htk : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ c
-        ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j
-        ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ c j).take l
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ c
-        ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).take l :=
-    List.take_append_of_le_length (by omega)
-  have hgd : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ c
-        ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j
-        ++ blockRuleIhdomsAV pp rs mpC.base2.acval envC ψ c j).getD l default
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ c
-        ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).getD l default := by
-    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
-      List.getElem?_append_left hl']
-  have hq := hokA c r hr j cA hcA ψ l (by omega) σ' ys (by rw [htk]; exact hys)
-  rwa [hgd] at hq
-
 /-- **`heqV` at the run, through the grading** — the equation list at
 the PINNED `ihs`/`Rb0` is bit-valid at every typed tuple:
 `annotValid_blockIotaEqsAV` with
@@ -982,13 +928,6 @@ that residue equals the recursor's value, which is the point
 (`blockRecTyZ_run`).  No λ-head bit and no typing of the right-hand side
 is needed: the graph producer's ι law already carries it. -/
 
-section RuleZero
-
-variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-
-end RuleZero
 
 /-! ## 2. The composition
 

@@ -134,35 +134,6 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
       flushC
       pure t }
 
-/-- **The recursor stage through the index** (milestone M5).  The two
-halves run at DIFFERENT environments — the types at the block's, the
-rules at the one holding all `k` RULE-LESS recursors — and the cached
-operations are built at a fixed index, so the composition lives here
-with its own `flushC` and a fresh `sharedOpsC` in between (the
-arrangement `checkIndRecsS` uses for the modelled route).  The pure
-stage (`checkBlockRecK`) is this composition with one `ops`, which is
-the same thing: the generic operations honour the environment they are
-handed.  Inside ONE rule the two environments alternate, and the
-flushes at those transitions are `sharedOpsRuleR`'s. -/
-def checkBlockRecKS (fe : FEnv) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    CheckCM (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
-  checkBlockRecPins (m := CheckCM) p
-  let cvRus ← checkBlockRecTysF (sharedOpsC mode fe) fe p.toBlockShape
-    (blockNested p.kinds) cvTas p.recs 0
-  checkBlockRecFamilyAgree (m := CheckCM) (sharedOpsC mode fe) fe.env p.toBlockShape
-    (blockNested p.kinds) cvTas cvRus
-  let cvRas := cvRus.map fun q => (q.1, q.2.1)
-  let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
-  -- the rules are ANNOTATED at `feR` (they mention the k rule-less
-  -- recursors) and TYPED at `fe` — the constructors' index, before
-  -- they are consed (G1); the cached operations are index-bound, so
-  -- both records are built and handed over, the `feR` one flushing at
-  -- the two transitions every rule makes (`sharedOpsRuleR`)
-  checkBlockRecsRulesF (sharedOpsRuleR mode feR) structWalkersC feR
-    (sharedOpsC mode fe) fe p
-    (blockRecCallData p).1 (blockRecCallData p).2 cvRas ctorsAs p.recs 0
-
 /-- **The shadow operations of the cached driver**: the index-bound
 operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
 each of a rule's two environment transitions), `flushC` at every

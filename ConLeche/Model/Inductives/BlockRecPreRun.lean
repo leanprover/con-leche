@@ -517,18 +517,6 @@ section RunComponents
     ((blockRulePdomsAV acval envC p rs ψ c).length
       + (blockRuleFdomsAV p rs acval envC ψ c i).length)
 
-/-- The `ih` openers' DOMAINS at the chain frame — the PINNED `ihdoms`
-the dispatch's grading bundle states its certificates and its `ih` fit
-at: `blockRuleIhdomsAV` lifted past the `K` chain binders
-at the rule frame's depth, exactly as the field domains are. -/
-@[expose] def blockRecIhdomsK (K : Nat) (pp : ConLeche.BlockParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
-    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (ψ : Name → Nat) (c i : Nat) : List AnnotTerm :=
-  liftDomsK K ((blockRulePdomsAV acval envC pp.toBlockShape rs ψ c).length
-      + (blockRuleFdomsAV pp.toBlockShape rs acval envC ψ c i).length)
-    (blockRuleIhdomsAV pp rs acval envC ψ c i)
-
 end RunComponents
 
 /-! ## 21. The family's LEVEL, and `hTy` without pinning any bit
@@ -2427,17 +2415,6 @@ folded along a fitting telescope spine lies in the separated tuple's
 target component at the call's index tuple, so the property holds
 there.  These two lemmas are that reading. -/
 
-section PredSep
-
-variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-  {K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {mem nCt rP : Nat → Nat}
-  {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
-  {pdoms : Nat → List AnnotTerm} {fdoms ihdoms : Nat → Nat → List AnnotTerm}
-  {ihs : Nat → Nat → List AnnotTerm} {Rb0 Ca : Nat → Nat → AnnotTerm}
-  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-  {ihvals : Nat → Nat → List V}
-
-end PredSep
 
 /-! ## 38. THE BITS LAW — a Π-tower's binder data follows its
 CONCLUSION's sort
@@ -3780,55 +3757,6 @@ theorem blockIhPis_looseBVarsBounded (hnP : nP ≤ rP)
         rw [show rP + nF + (l + 1) + is.length = rP + nF + l + (is.length + 1) from by omega]
         exact hb'
 
-/-- **The abstraction raises the loose-bvar bound by the `ih` count** —
-the `body''` premise of `blockIhPis_looseBVarsBounded` at the run: the
-check strips the rule's `λ`-telescope, so the body is bounded at
-`rP + nF`, and this puts the abstraction at `rP + nF + nR`, which is
-what the tower's leaf needs.  On a recursor-free term the walk IS
-`liftLooseBVars nR d`, and at a
-consumed call it is one of the `nR` new binders applied to lifts of
-the call's own arguments. -/
-theorem abstractIh_looseBVarsBounded {fr : ConLeche.BlockRuleFrame} {B : Nat} {e e'' : Expr}
-    {d : Nat} (hab : ConLeche.abstractIh fr d e = some e'')
-    (hb : e.looseBVarsBounded (d + B) = true) :
-    e''.looseBVarsBounded (d + B + fr.nR) = true :=
-  ConLeche.abstractIh_preserves (fun d e => e.looseBVarsBounded (d + B) = true)
-    (fun d e => e.looseBVarsBounded (d + B + fr.nR) = true)
-    (fun _ _ h => by
-      simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at h
-      split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega)
-    (fun _ _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ _ _ _ => rfl)
-    (fun d _ _ r _ hc hb => by
-      obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
-      have hrlt : r < fr.nR := pairIdxOf?_lt C.hkey
-      obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
-      have hba : ∀ x ∈ maj.getAppArgs, x.looseBVarsBounded (d + B) = true :=
-        ConLeche.looseBVarsBounded_getAppArgs
-          (ConLeche.looseBVarsBounded_getAppArgs hb maj hmaj)
-      refine ConLeche.looseBVarsBounded_mkAppN ?_ (fun x hx => ?_)
-      · simp only [Expr.looseBVarsBounded, decide_eq_true_eq]; omega
-      · obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-        exact Expr.looseBVarsBounded_liftLooseBVars fr.nR y (hba y hy))
-    (fun d _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-      refine ⟨i1 h.1, ?_⟩
-      have := i2 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
-      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
-    (fun d _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-      refine ⟨i1 h.1, ?_⟩
-      have := i2 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
-      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
-    (fun d _ _ _ _ _ _ h i1 i2 i3 => by
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-      refine ⟨⟨i1 h.1.1, i2 h.1.2⟩, ?_⟩
-      have := i3 (by rw [show d + 1 + B = d + B + 1 from by omega]; exact h.2)
-      rwa [show d + 1 + B + fr.nR = d + B + fr.nR + 1 from by omega] at this)
-    (fun _ _ _ _ _ h i1 => by simp only [Expr.looseBVarsBounded] at h ⊢; exact i1 h)
-    (fun _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    hab hb
-
 end IhTower
 
 /-! ### 40.8 `hokA`'s FIELD segment, from the CONSTRUCTOR's tower
@@ -4704,9 +4632,6 @@ trading two bounded existences for eighteen record premises would
 widen every consumer.  The caller holds those records; the one-liners
 belong at the call site. -/
 
-section CertsRun
-
-end CertsRun
 
 /-! ### 40.15 THE `univZero` PRODUCER — the recursor's CONCLUSION
 lands in the universe the CHECK named

@@ -47,7 +47,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockRuleFrame)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 universe w
 

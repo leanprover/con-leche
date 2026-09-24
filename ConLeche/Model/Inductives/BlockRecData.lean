@@ -1563,7 +1563,7 @@ data. -/
 
 section Peel
 
-open ConLeche (checkBlockRule checkBlockRules checkBlockRecsRules BlockShape BlockParts
+open ConLeche (BlockShape BlockParts
   BlockFieldKind RecShape)
 
 /-- **The `c`-th recursor's constructor list, off `checkBlockRecK`** —
@@ -1608,24 +1608,6 @@ section RuleDefs
 variable (pp : ConLeche.BlockParts)
   (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
 
-/-- **The `(c, i)`-th rule's FRAME**, as `checkBlockRule` builds it at
-the run (`RecKRun.ruleAt`'s arguments). -/
-@[expose] def blockRuleFrameAt (c i : Nat) : ConLeche.BlockRuleFrame :=
-  { recNames := pp.recs.map (·.cvR.name),
-    rlvls := (pp.recs.head?.map fun q => q.cvR.levelParams.map Level.param).getD [],
-    mIs := (List.range pp.recs.length).map pp.toBlockShape.majorIdxAt,
-    rPs := (List.range pp.recs.length).map pp.toBlockShape.rulePrefixAt,
-    recTgts := pp.recTgts, nP := pp.nP, rP := pp.toBlockShape.rulePrefixAt c,
-    nF := (blockRuleCtorOf rs c i).2, ks := blockRuleKsOf pp c i,
-    teleOf := ConLeche.structFieldTeleOf (blockRuleCtorOf rs c i).1.type pp.nP
-      (blockRuleCtorOf rs c i).2,
-    idxOf := ConLeche.structFieldIdxOf (blockRuleCtorOf rs c i).1.type pp.nP
-      (blockRuleCtorOf rs c i).2,
-    ihKeys := ConLeche.blockIhKeys (pp.toBlockShape.rulePrefixAt c)
-      ((List.range pp.recs.length).map pp.toBlockShape.rulePrefixAt) pp.recTgts
-      (blockRuleKsOf pp c i),
-    pw := Level.zeronessOf (ConLeche.structElimLevel pp.elim pp.large) }
-
 /-- The `(c, i)`-th stored right-hand side. -/
 @[expose] def blockRuleRhsOf (c i : Nat) : Expr := ((rs.getD c default).2.1).getD i default
 
@@ -1634,48 +1616,7 @@ the run (`RecKRun.ruleAt`'s arguments). -/
   (((blockRuleRhsOf rs c i).stripLams
     (pp.toBlockShape.rulePrefixAt c + (blockRuleCtorOf rs c i).2)).map (·.2)).getD default
 
-/-- The rule's RESIDUE: the body with its guarded calls abstracted. -/
-@[expose] def blockRuleResidAt (c i : Nat) : Expr :=
-  (ConLeche.abstractIh (blockRuleFrameAt pp rs c i) 0 (blockRuleBodyAt pp rs c i)).getD
-    default
-
-/-- The generated `ih` tower over the residue. -/
-@[expose] def blockRuleIhTeleAt (c i : Nat) : Expr :=
-  (ConLeche.blockIhPis pp.nP (pp.toBlockShape.rulePrefixAt c) (blockRuleCtorOf rs c i).2
-    (blockRuleFrameAt pp rs c i).pw (fun c' => (rs.map (·.1.type)).getD c' (.sort .zero))
-    (blockRuleFrameAt pp rs c i).teleOf (blockRuleFrameAt pp rs c i).idxOf
-    (blockRuleFrameAt pp rs c i).ihKeys 0 (blockRuleResidAt pp rs c i)).getD default
-
-/-- The `ih` tower's opening at the rule frame's own openers — its
-openers (`.1`) and its body (`.2`). -/
-@[expose] def blockRuleIhOpenAt (c i : Nat) : List Expr × Expr :=
-  (ConLeche.openPisAtFvars (blockRuleFrameAt pp rs c i).nR
-    ((blockRuleIhTeleAt pp rs c i).instantiateList
-      (blockRulePrefFvs pp.toBlockShape rs c ++ blockRuleFieldFvs pp.toBlockShape rs c i).reverse)
-    (pp.toBlockShape.rulePrefixAt c + (blockRuleCtorOf rs c i).2)).getD ([], default)
-
-/-- The `ih` openers. -/
-@[expose] def blockRuleFvsIhAt (c i : Nat) : List Expr := (blockRuleIhOpenAt pp rs c i).1
-
-/-- The opened residue the stage TYPES. -/
-@[expose] def blockRuleBodyOAt (c i : Nat) : Expr := (blockRuleIhOpenAt pp rs c i).2
-
 variable (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env) (ψ : Name → Nat)
-
-/-- **`ihdoms`** — the `ih` openers' domains, each read at its own
-depth. -/
-@[expose] def blockRuleIhdomsAV (c i : Nat) : List AnnotTerm :=
-  readOpenedDoms acval envC ψ (pp.toBlockShape.rulePrefixAt c + (blockRuleCtorOf rs c i).2)
-    (blockRuleFvsIhAt pp rs c i)
-
-/-- **`Rb0`** — the residue, opened at the whole frame and read there. -/
-@[expose] def blockRuleRbAV (c i : Nat) : AnnotTerm :=
-  (denoteMeta acval envC ψ
-    (pp.toBlockShape.rulePrefixAt c + (blockRuleCtorOf rs c i).2
-      + (blockRuleFrameAt pp rs c i).nR)
-    ((blockRuleResidAt pp rs c i).instantiateList
-      (blockRulePrefFvs pp.toBlockShape rs c ++ blockRuleFieldFvs pp.toBlockShape rs c i
-        ++ blockRuleFvsIhAt pp rs c i).reverse 0)).getD default
 
 /-- The constructor's own opening at its full telescope — the openers
 `FieldReadAt` reads the fields' telescopes against. -/
@@ -1887,22 +1828,6 @@ theorem blockRuleRhsOf_eq {rs : List (ConstantVal × List Expr × Nat × List (C
     (hr : rs[c]? = some r) {i : Nat} {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
     blockRuleRhsOf rs c i = rhs := by
   simp only [blockRuleRhsOf, List.getD_eq_getElem?_getD, hr, Option.getD_some, hrhs]
-
-/-- The pinned frame's fields, at the run's constructor. -/
-theorem blockRuleFrameAt_rows {pp : BlockParts}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {c i : Nat}
-    {cA : ConstantVal × Nat} (hct : blockRuleCtorOf rs c i = cA) :
-    (blockRuleFrameAt pp rs c i).nP = pp.nP ∧
-    (blockRuleFrameAt pp rs c i).rP = pp.toBlockShape.rulePrefixAt c ∧
-    (blockRuleFrameAt pp rs c i).nF = cA.2 ∧
-    (blockRuleFrameAt pp rs c i).recNames = pp.recs.map (·.cvR.name) ∧
-    (blockRuleFrameAt pp rs c i).recTgts = pp.recTgts ∧
-    (blockRuleFrameAt pp rs c i).teleOf = ConLeche.structFieldTeleOf cA.1.type pp.nP cA.2 ∧
-    (blockRuleFrameAt pp rs c i).idxOf = ConLeche.structFieldIdxOf cA.1.type pp.nP cA.2 ∧
-    (blockRuleFrameAt pp rs c i).pw
-      = Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) := by
-  subst hct
-  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- **The rule's conclusion row** — the recursor's conclusion at the
 rule's prefix, the constructor's result indices and the constructed
@@ -2145,7 +2070,7 @@ not the recursors'. -/
 
 section HfldRun
 
-open ConLeche (BlockFieldKind pairIdxOf? blockIhKeys)
+open ConLeche (BlockFieldKind pairIdxOf?)
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {lps : List Name}
   {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
@@ -2653,11 +2578,6 @@ fields, or one lemma away from one; naming them here is what lets the
 A-4 assembly pass them by `exact` instead of re-deriving them at each
 of the ~15 premise slots. -/
 
-section EnvFacts
-
-variable {env : Env} (mo : EnvModel V env)
-
-end EnvFacts
 
 /-! ## A.15 A-4's CALLEE premise, at the run
 
@@ -2768,9 +2688,6 @@ the two transports (the residue frame's argument readings to the body
 frame's, and the `d`-shift of the ih telescope) — is §A.18; none of it
 is a fact about the check. -/
 
-section HfitRun
-
-end HfitRun
 
 /-! ## A.17b `hfld` at BOTH environments
 
@@ -2875,9 +2792,6 @@ the walk's ENTRY (`sat_blockFrame`), so they are consumed by the
 per-pair assembly that constructs the context, not by the fold that
 travels with it. -/
 
-section HfitComp
-
-end HfitComp
 
 /-! ## A.17 The call's arguments live BELOW the recursors
 
@@ -2932,27 +2846,6 @@ theorem constsBound_of_not_mentions {envC env' : Env} {names : List Name}
     rw [constsBound_proj] at hcb ⊢
     simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
     exact constsBound_of_not_mentions hmono e hcb hm.2
-
-/-- **A guarded call's arguments are bounded BELOW the recursors.**
-`blockIhCall?` accepts only a node whose arguments
-mention no block recursor, and they are subterms of the node, so an
-environment that finds everything the consed one finds except the
-`k` recursor names bounds them. -/
-theorem blockIhCall?_args_constsBound {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr}
-    {r : Nat} {as : List Expr} {envC env' : Env}
-    (hmono : ∀ n : Name, (env'.find? n).isSome = true →
-      fr.recNames.contains n = false → (envC.find? n).isSome = true)
-    (hc : ConLeche.blockIhCall? fr d e = some (r, as))
-    (hcb : ConstsBound env' e) :
-    ∀ a ∈ as, ConstsBound envC a := by
-  obtain ⟨C⟩ := ConLeche.blockIhCall?_run hc
-  have hfree := C.hfree
-  obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
-  intro a ha
-  refine constsBound_of_not_mentions hmono a
-    (constsBound_getAppArgs maj (constsBound_getAppArgs e hcb maj hmaj) a ha) ?_
-  have := List.any_eq_false.mp hfree a ha
-  simpa using this
 
 end ArgsConsts
 

@@ -248,14 +248,6 @@ theorem hasFvar_of_mem_getAppArgs :
   | .fvar .., _, a, ha | .lam .., _, a, ha | .forallE .., _, a, ha
   | .letE .., _, a, ha | .proj .., _, a, ha => absurd ha (by simp [Expr.getAppArgs])
 
-/-- **The call's arguments are the MAJOR's arguments**, and the major
-is one of the node's (`IhCallRun.hmaj`/`hasMaj`). -/
-theorem blockIhCall?_args_sub {fr : ConLeche.BlockRuleFrame} {d : Nat} {e : Expr}
-    {r : Nat} {as : List Expr} (h : ConLeche.blockIhCall? fr d e = some (r, as)) :
-    ∃ maj ∈ e.getAppArgs, as = maj.getAppArgs := by
-  obtain ⟨C⟩ := ConLeche.blockIhCall?_run h
-  exact ⟨C.maj, List.mem_of_getElem? C.hmaj, C.hasMaj⟩
-
 theorem hasFvar_liftLooseBVars {n c : Nat} :
     ∀ {e : Expr}, (e.liftLooseBVars n c).hasFvar = e.hasFvar
   | .bvar _ => by rw [Expr.liftLooseBVars]; split <;> rfl
@@ -278,31 +270,6 @@ theorem hasFvar_mkAppN : ∀ {as : List Expr} {f : Expr}, f.hasFvar = false →
   | a :: as, f, hf, ha => by
     refine hasFvar_mkAppN (f := .app f a) ?_ fun x hx => ha x (List.mem_cons_of_mem _ hx)
     simp [Expr.hasFvar, hf, ha a List.mem_cons_self]
-
-/-- **The abstraction brings no free variable**: it only moves bound
-ones and replaces spines by `ih` openers (`abstractIh_preserves`). -/
-theorem abstractIh_hasFvar {fr : ConLeche.BlockRuleFrame} {e e'' : Expr} {d : Nat}
-    (hab : ConLeche.abstractIh fr d e = some e'') (hf : e.hasFvar = false) :
-    e''.hasFvar = false :=
-  ConLeche.abstractIh_preserves (fun _ e => e.hasFvar = false) (fun _ e => e.hasFvar = false)
-    (fun _ _ _ => by split <;> rfl) (fun _ _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ _ _ h => h)
-    (fun _ _ _ _ _ hc hf => by
-      obtain ⟨maj, hmaj, rfl⟩ := blockIhCall?_args_sub hc
-      refine hasFvar_mkAppN rfl fun x hx => ?_
-      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      rw [hasFvar_liftLooseBVars]
-      exact hasFvar_of_mem_getAppArgs (hasFvar_of_mem_getAppArgs hf maj hmaj) y hy)
-    (fun _ _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    (fun _ _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    (fun _ _ _ _ _ _ _ h i1 i2 i3 => by
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢
-      exact ⟨⟨i1 h.1.1, i2 h.1.2⟩, i3 h.2⟩)
-    (fun _ _ _ _ _ h i1 => by simp only [Expr.hasFvar] at h ⊢; exact i1 h)
-    (fun _ _ _ _ _ h i1 i2 => by
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    hab hf
 
 /-! ## The literal readings are lift-invariant
 

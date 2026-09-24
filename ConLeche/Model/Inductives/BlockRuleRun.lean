@@ -36,7 +36,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockRuleFrame)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
@@ -398,35 +398,6 @@ theorem constsBound_stripLams :
     | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripLams])
 
 omit [SetTheory V] in
-/-- **The abstraction's residue is bounded BELOW the recursors**: every
-constant it keeps is one the rule mentioned outside a guarded call, and
-no such constant is a block recursor. -/
-theorem abstractIh_constsBound {envC env' : Env} {fr : ConLeche.BlockRuleFrame}
-    (hmono : ∀ n : Name, (env'.find? n).isSome = true →
-      fr.recNames.contains n = false → (envC.find? n).isSome = true)
-    {e e'' : Expr} {d : Nat} (hab : ConLeche.abstractIh fr d e = some e'')
-    (hcb : ConstsBound env' e) : ConstsBound envC e'' :=
-  ConLeche.abstractIh_preserves (fun _ e => ConstsBound env' e) (fun _ e => ConstsBound envC e)
-    (fun _ _ _ => by split <;> simp) (fun _ _ _ => by simp) (fun _ _ _ => by simp)
-    (fun _ n _ hn h => by
-      rw [constsBound_const] at h ⊢; exact hmono n h hn)
-    (fun _ _ _ _ _ hc h => by
-      have has := blockIhCall?_args_constsBound hmono hc h
-      refine constsBound_mkAppN _ (by simp) (fun x hx => ?_)
-      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      exact constsBound_liftLooseBVars _ y _ (has y hy))
-    (fun _ _ _ _ _ _ h i1 i2 => by
-      rw [constsBound_lam] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    (fun _ _ _ _ _ _ h i1 i2 => by
-      rw [constsBound_forallE] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    (fun _ _ _ _ _ _ _ h i1 i2 i3 => by
-      rw [constsBound_letE] at h ⊢; exact ⟨i1 h.1, i2 h.2.1, i3 h.2.2⟩)
-    (fun _ _ _ _ _ h i1 => by rw [constsBound_proj] at h ⊢; exact i1 h)
-    (fun _ _ _ _ _ h i1 i2 => by
-      rw [constsBound_app] at h ⊢; exact ⟨i1 h.1, i2 h.2⟩)
-    hab hcb
-
-omit [SetTheory V] in
 /-- The recursors' bare environment finds only the recursors' names and
 what the constructors' environment finds. -/
 theorem find?_consBlockRecsBare_isSome {p : ConLeche.BlockShape} :
@@ -448,23 +419,6 @@ end ConstsKit
 
 /-! ## 2. `ihs`, as a function of the run -/
 
-section IhsRun
-
-variable (pp : ConLeche.BlockParts)
-  (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-  (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
-
-/-- **`ihs`, PINNED** — `blockRuleIhsAV` (§8 of `BlockRuleFit.lean`)
-at the run's own frame, the checked elimination level and the spelled
-field readings.  No choice is made anywhere, so the list is a function
-of `ψ` through the readings alone. -/
-@[expose] def blockRuleIhsRunAV (ψ : Name → Nat) (c i : Nat) : List AnnotTerm :=
-  blockRuleIhsAV (Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large)) rs.length
-    (pp.toBlockShape.rulePrefixAt c - pp.nP) (blockRuleFrameAt pp rs c i)
-    (blockRuleCtorOf rs c i).1.type ψ (blockRuleTlAV pp rs acval envC ψ c i)
-    (blockRuleEisAV pp rs acval envC ψ c i)
-
-end IhsRun
 
 /-! ## 3. `BlockRuleBodyInputs` at the run -/
 

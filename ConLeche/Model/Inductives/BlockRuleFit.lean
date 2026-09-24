@@ -2120,33 +2120,7 @@ side, so `hihv` is `List.getD` of a `map`. -/
 
 section IhsPin
 
-open ConLeche (BlockRuleFrame pairIdxOf? structFieldTeleOf)
-
-/-- **`ihs` at ONE rule's frame** — `blockRecIhsAt` at the rule's own
-per-key syntactic data: field `i`'s telescope moved to the frame
-(`ihTeleAtR`, at the block's elimination bit), its index readings
-moved with it (`ihIdxAtM`) and the field applied along the telescope's
-own variables.
-
-The three `fun i => …` are read off `hihv`'s right-hand side
-verbatim; `tlF` and `EisF` are the CONSTRUCTORS' stage's field
-readings (`FieldReadAt`), which is where the ψ-dependence enters. -/
-@[expose] def blockRuleIhsAV (ℓ K o : Nat) (fr : BlockRuleFrame) (cty : Expr)
-    (ψ : Name → Nat) (tlF : Nat → List (Nat × Nat × AnnotTerm))
-    (EisF : Nat → List AnnotTerm) : List AnnotTerm :=
-  blockRecIhsAt ℓ K fr.rP fr.nF fr.ihKeys
-    (fun i => ihTeleAtR fr.nF o i 0 (rebit (pwBit ψ fr.pw) (tlF i)))
-    (fun i => (EisF i).map (ihIdxAtM fr.nF o i 0 (structFieldTeleOf cty fr.nP fr.nF i).length))
-    (fun i => AnnotTerm.mkAppN
-      (.bvar (fr.nF - 1 - i + 0 + (structFieldTeleOf cty fr.nP fr.nF i).length))
-      (teleVarsAV (structFieldTeleOf cty fr.nP fr.nF i).length))
-
-@[simp] theorem blockRuleIhsAV_length (ℓ K o : Nat) (fr : BlockRuleFrame) (cty : Expr)
-    (ψ : Name → Nat) (tlF : Nat → List (Nat × Nat × AnnotTerm))
-    (EisF : Nat → List AnnotTerm) :
-    (blockRuleIhsAV ℓ K o fr cty ψ tlF EisF).length = fr.nR := by
-  rw [blockRuleIhsAV, blockRecIhsAt_length]
-  rfl
+open ConLeche (pairIdxOf? structFieldTeleOf)
 
 end IhsPin
 
@@ -2190,7 +2164,7 @@ satisfiable — cf. `blockRuleBodyEq_run`'s `hop0`/`hop2` note). -/
 
 section BodyEqRun
 
-open ConLeche (BlockParts BlockRuleFrame pairIdxOf? structFieldTeleOf
+open ConLeche (BlockParts pairIdxOf? structFieldTeleOf
   nameIdxOf? openPisAtFvars)
 
 end BodyEqRun
@@ -2230,8 +2204,8 @@ lengths — and the peel's outputs are bound by the peel's own rows. -/
 
 section ResidueB
 
-open ConLeche (BlockParts BlockRuleFrame pairIdxOf? structFieldTeleOf
-  structFieldIdxOf nameIdxOf? openPisAtFvars abstractIh blockIhPis)
+open ConLeche (BlockParts pairIdxOf? structFieldTeleOf
+  structFieldIdxOf nameIdxOf? openPisAtFvars blockIhPis)
 
 end ResidueB
 
@@ -2249,7 +2223,7 @@ is the two producers' premises minus the one they share. -/
 
 section DataRun
 
-open ConLeche (BlockParts BlockRuleFrame abstractIh blockIhPis openPisAtFvars)
+open ConLeche (BlockParts blockIhPis openPisAtFvars)
 
 /-- **The contract's first conjunct over its own telescope.** -/
 theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
@@ -2504,9 +2478,6 @@ candidate (`chainFrame K cand ρ`), while `hEq_iotaEqsAV_of` needs the grading a
 EVERY tuple typed at the recursor types — `consList rs ρ` for any such
 `rs`.  Whoever pays `hihs` pays it there, not at the candidate. -/
 
-section HwdFamily
-
-end HwdFamily
 
 /-! ## 13. The rule domains' bounds at the seam
 
