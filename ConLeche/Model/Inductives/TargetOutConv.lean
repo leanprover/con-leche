@@ -7,7 +7,6 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockHoleValid
-import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.StructRead
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.StructRecSpine

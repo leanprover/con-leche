@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.TargetOutConv
+public import ConLeche.Model.Inductives.TargetOutRows
+import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutSat
-import ConLeche.Model.Inductives.TargetOutIdx
-import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.StructRecKit2

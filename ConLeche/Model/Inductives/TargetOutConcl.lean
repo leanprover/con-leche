@@ -1,16 +1,15 @@
 module
 
-public import ConLeche.Model.Inductives.TargetOutChain
+public import ConLeche.Model.Inductives.TargetOutRow
+import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Subst
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.EnvBound
 
 public section
 
