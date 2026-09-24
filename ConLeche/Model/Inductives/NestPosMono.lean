@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Semantics.Inductives.HoleMono
+import ConLeche.Semantics.Inductives.HoleMono
 import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Model.Rules.Sound
 public import ConLeche.Model.CtxOkP

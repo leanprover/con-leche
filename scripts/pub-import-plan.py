@@ -395,9 +395,24 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.BlockData'),
     ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosOut'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Verify.Inductives.PositivityInv'),
     ('ConLeche.Model.Inductives.BlockHoleRead','ConLeche.Model.Annot.Bit'),
     ('ConLeche.Model.Inductives.FixStageRec','ConLeche.Model.Inductives.FixRecLaw'),
+    # lane ALPHA1: after the positivity files' imports narrowed, the model
+    # calls six more edges demotable; each MEASURED by demoting it alone,
+    # all coverage failures one tier down: `IndFieldGrade` without
+    # `IndParamGrade`'s `IndDomGrade` loses `instPisAt_length` (`:117`),
+    # without its `IndRuns` `defEqListOk_getD` (`:272`); `IndZipper`
+    # without `IndPlainParam`'s `IndFieldGrade` loses `fieldGradeFire`
+    # (`:289`), without its `IndPrefixGrade` `prefixGradeFire` (`:258`);
+    # `BlockHoleRead` without `FixRec` loses `Expr.ErasedEq` (`:70`);
+    # `StructBodyFrames` without `StructRecSpine`'s `IndProjKit` loses
+    # `wellDenotedV_instSeq` (`:295`).
+    ('ConLeche.Model.IndParamGrade', 'ConLeche.Model.IndDomGrade'),
+    ('ConLeche.Model.IndParamGrade', 'ConLeche.Model.IndRuns'),
+    ('ConLeche.Model.IndPlainParam', 'ConLeche.Model.IndFieldGrade'),
+    ('ConLeche.Model.IndPlainParam', 'ConLeche.Model.IndPrefixGrade'),
+    ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.FixRec'),
+    ('ConLeche.Model.Inductives.StructRecSpine', 'ConLeche.Model.IndProjKit'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

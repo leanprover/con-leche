@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Semantics.SubstAV
-public import ConLeche.Semantics.Inductives.FieldsEqOn
+import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.InferLemmas

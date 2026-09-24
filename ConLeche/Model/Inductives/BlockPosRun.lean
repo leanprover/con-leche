@@ -6,7 +6,7 @@ import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
-public import ConLeche.Model.Inductives.NestPosRed
+import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Model.Rules.Sound

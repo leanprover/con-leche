@@ -9,7 +9,6 @@ import ConLeche.Model.Inductives.StructStageFormer
 import ConLeche.Model.Install
 import ConLeche.Model.Inductives.StoredShapes
 public import ConLeche.Model.Inductives.BlockHoleRead
-public import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.NestScope

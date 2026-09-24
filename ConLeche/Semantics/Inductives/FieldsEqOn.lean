@@ -3,7 +3,6 @@ module
 public import ConLeche.Semantics.Inductives.HoleMono
 public import ConLeche.Semantics.Tower.TowerLeaf
 public import ConLeche.Semantics.Sat
-import ConLeche.SetModel.Ops
 
 @[expose] public section
 

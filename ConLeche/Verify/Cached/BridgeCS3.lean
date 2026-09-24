@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Cached.BridgeCS2
 import ConLeche.Verify.Cached.NestPosC
-public import ConLeche.Verify.Inductives.NestScope
 
 public section
 

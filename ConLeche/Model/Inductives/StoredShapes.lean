@@ -4,10 +4,8 @@ public import ConLeche.Model.Annot.LfpHoleWitness
 import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
-public import ConLeche.Model.Inductives.NestPosRed
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
-public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Inductives.StructRead

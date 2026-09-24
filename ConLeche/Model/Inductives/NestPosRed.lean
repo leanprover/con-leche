@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.NestPosOut
-public import ConLeche.Semantics.Inductives.FieldsEqOn
-public import ConLeche.Model.Inductives.NestPosMono
+import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Semantics.Inductives.FieldsEqOn
 public import ConLeche.Model.Rules.Inputs
 public import ConLeche.Model.CtxOkP
 import ConLeche.Model.Rules.Sound
