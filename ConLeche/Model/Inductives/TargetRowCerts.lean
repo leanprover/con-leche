@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetRowCertsCa
+import ConLeche.Model.Inductives.TargetRowCertsW
+import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Annot.BitInst
@@ -61,7 +63,13 @@ theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
       BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c)
         (blockRecFdomsK (tgtRs out).length mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c j).length (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j).length
         (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) (blockRecFdomsK (tgtRs out).length mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c j) (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j) (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j) (tgtCaAV μ F fe (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ c j) := by
-  sorry
+  intro ψ c hc j hj
+  have hW := tgtRuleCertsW_run hμ h R hkLen hdR hN hS hcore hmr hM ψ hc hj
+  obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+  -- the field domains' chain lift is the identity
+  obtain ⟨e1, -, -⟩ := blockRuleCertsChain_eq hμ h hkLen hcore ψ hc hj (tgtRs out).length
+  rw [e1]
+  exact hW
 
 /-- **Row: the rule's conclusion at the rule's frame is the bound at
 the constructed element** (B3 (e) 4). -/
