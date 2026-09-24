@@ -170,7 +170,9 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
           (∃ st₀ ks tyN st₁,
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧ ∀ k ∈ ks, k.flat = true) ∧
-          ∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty := by
+          (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty) ∧
+          (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type).nestOcc
+            (p.nestCtx fvsP find? consts).names 0 0 = false := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -208,12 +210,12 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   obtain rfl := Option.some.inj hh₀
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
   obtain ⟨st₀, kss, nss, st₁, hms, hk⟩ := nestBlockCtors_inv hr c cs hc
-  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, -⟩ := nestMemberCtors_inv hms j cA hj
+  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, hocc⟩ := nestMemberCtors_inv hms j cA hj
   obtain ⟨crest', ty, hcrest', hty⟩ :=
     checkAbsCtorTys_inv (checkAbsCtorTysAll_inv h c cs hc) j cA hj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
-  refine ⟨crest, hcrest, ⟨st₂, ks, tyN, st₃, hm, fun k hk' => ?_⟩, ty, hty⟩
+  refine ⟨crest, hcrest, ⟨st₂, ks, tyN, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩, hocc⟩
   simp only [List.all_eq_true] at hall
   exact hall kss (List.mem_of_getElem? hk) ks (List.mem_of_getElem? hks) k hk'
 

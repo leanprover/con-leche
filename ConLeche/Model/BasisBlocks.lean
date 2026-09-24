@@ -519,6 +519,16 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
         rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
+    (hrdC := lfp0_ctorReads fun j hj => by
+      obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+      refine ⟨punitUnitA.toConstantVal, 0, ?_, rfl,
+        ⟨punitA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP,
+          rfl⟩,
+        by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
+      · show (⟨punitUnitA :: env.consts⟩ : ConLeche.Env).find? punitUnitA.name = _
+        rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
+      · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
+        rw [denoteMeta_fvar]; rfl)
     (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
@@ -1000,6 +1010,25 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
             rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
+    (hrdC := lfp0_ctorReads fun j hj => by
+      rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl
+      · refine ⟨natZeroA.toConstantVal, 0, ?_, rfl,
+          ⟨natA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN,
+            rfl⟩,
+          by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
+        · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natZeroName = _
+          rw [ConLeche.Env.find?_cons, if_neg (by decide)]; rw [hZ]; rfl
+        · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
+          rw [denoteMeta_fvar]; rfl
+      · refine ⟨natSuccA.toConstantVal, 1, ?_, rfl,
+          ⟨natA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN,
+            rfl⟩,
+          by decide, fun ψ => ⟨rfl, [(0, pwBit ψ .never, .bvar 0)], ?_, rfl⟩⟩
+        · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natSuccA.name = _
+          rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
+        · show denoteMeta _ _ _ 1 (.forallE (.fvar 0 (.sort .zero)) (.fvar 0 (.sort .zero))
+            { pw := .never }) = _
+          simp [denoteMeta_forallE, ConLeche.Expr.instantiate1, denoteMeta_fvar, mkPisAV])
     (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)

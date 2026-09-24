@@ -218,6 +218,46 @@ theorem carrier_le_on_group (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp
   exact (h.fibre_holes hs' (lfpTuple_mem _ _ _ _) hg (by rw [← hidx]; exact ht) _).mpr
     ⟨j, fs, hf', rfl⟩
 
+open Classical in
+/-- **`carrier_le_on_group` with the index sets agreeing on `G` only**
+(lane CONTSEM): the frame's key checks the index telescopes of the
+REACHED group-mates alone (`nestInstType`'s N2), so only they are known
+to have the same index sets at the two parameter frames.  The bound is
+taken at the tuple that is the larger carrier on `G` and the smaller one
+elsewhere, which lies in the smaller frame's tuple space. -/
+theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp' : Nat → V}
+    (hs : Sat V (D.params ψ).reverse ρp) (hs' : Sat V (D.params ψ).reverse ρp')
+    (G : Nat → Prop) (hidx : ∀ g, g < D.N → G g → D.idx ψ ρp g = D.idx ψ ρp' g)
+    (hwalk : ∀ g, g < D.N → G g → ∀ t, t ∈ˢ D.idx ψ ρp g → ∀ j fs,
+      D.HFits ψ ρp (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) t g j fs →
+      D.HFits ψ ρp' (D.carrier ψ ρp') t g j fs) :
+    ∀ g, g < D.N → G g → FamLe (D.idx ψ ρp g) (D.carrier ψ ρp g) (D.carrier ψ ρp' g) := by
+  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hs
+  let B : Nat → V := fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x
+  have hB : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) B := by
+    intro m hm
+    by_cases hGm : G m
+    · simp only [B, if_pos hGm, hidx m hm hGm]; exact lfpTuple_mem _ _ _ _ m hm
+    · simp only [B, if_neg hGm]; exact lfpTuple_mem _ _ _ _ m hm
+  have hle := lfpTuple_le_on hcl hmono G hB fun g hg hG t ht x hx => ?_
+  · intro g hg hG
+    have := hle g hg hG
+    simp only [B, if_pos hG] at this
+    exact this
+  · change x ∈ˢ app (D.Φ ψ ρp (fun x => if G x then B x else D.carrier ψ ρp x) g) t at hx
+    have hZeq : (fun x => if G x then B x else D.carrier ψ ρp x)
+        = fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x := by
+      funext x; by_cases hx : G x <;> simp [B, hx]
+    rw [hZeq] at hx
+    have hZ : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp)
+        (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) := hB
+    obtain ⟨j, fs, hf, rfl⟩ := (h.fibre_holes hs hZ hg ht x).mp hx
+    have hf' := hwalk g hg hG t ht j fs hf
+    simp only [B, if_pos hG]
+    rw [← h.carrier_eq hs' hg]
+    exact (h.fibre_holes hs' (lfpTuple_mem _ _ _ _) hg (by rw [← hidx g hg hG]; exact ht) _).mpr
+      ⟨j, fs, hf', rfl⟩
+
 end LfpClause
 
 /-! ## D2: an unreached member -/

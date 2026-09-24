@@ -86097,3 +86097,95 @@ function in the kernel"): the separate normalisation walk is gone.
   (shake 538/538, pub-imports none demotable).  No `sorry`, no new axiom.
 - The model rewrite (brief items 1, 2, 4) is planned step by step in
   `_tmp/uniform-inds/HOLE2.md` ("The model rewrite").
+
+#### LANDED (lane CONTSEM, session 3, checkpoint 1): M2 recorded, M1′, and two kernel checks the container case needs
+
+NESTPLAN L3, CONTSEM.md resume steps 1–3.  Charter items 2–4.
+- **M2 (`LfpCtorReads`, the fourth conjunct of `EnvModelM.lfp_ok`,
+  `Model/Annot/EnvModelM.lean`).**  Per member `c`, constructor `j`: the
+  stored `.ctorInfo cv nPc nF`, `cv.type` closed, every member's former
+  at `cv.levelParams`, M2′ at the CANONICAL abstraction (`canonAbs`:
+  parameters the variables `0 ..< nP`, member `m` the variable `nP + m`,
+  every annotation `Sort 0` — `nestAbstract` reads only names and levels
+  and the reading ignores annotations), and the canonical crest
+  `instPisWith (canonParams nPc) (canonAbs …)` reading at depth `nPc + k`
+  as the Π-tower over the clause's fields ending in the member's hole at
+  the parameters and the result indices.  Producers: uniform
+  `blockCtorReads_of` (`Model/Inductives/BlockCtorReads.lean`:
+  `blockCtor_walkRead` at the canonical context; M2′ from the positivity
+  run, `canonOcc_of_positivity` + `nestOcc_nestAbstract_blind`), pinned
+  `lfp0_ctorReads` (`PUnit.unit`, `Nat.zero`, `Nat.succ` computed;
+  `Empty`/`False` vacuous).  Transport: `lfp_ok_transport` gains `hreadC`
+  (cons: the canonical crest is prefix-bound and crosses every cons its
+  type crosses, `Model/Annot/CanonCrest.lean`; swap: `denoteMeta_swap`).
+- **M1′ (`LfpClause.parsSatInv`)**: a member's own parameter telescope
+  is satisfied only where the block's is (uniform
+  `BlockCtorsStage.paramsOf`, pinned trivial) — the leaf reads a
+  container instance's parameters, typed by the container's own former
+  telescope, at the block's.
+- **Kernel (`Kernel/Inductives/Positivity.lean`), both MEASURED
+  verdict-neutral** (`_tmp/uniform-inds/CONTSEM/s3/`: `tests/arena.sh`
+  verdicts as expected, e2e 301/301, nested-shadow 82/82, target-shadow
+  317/317; init-full `--target-shadow` and `--nested-shadow` output
+  identical to session 2's):
+  * `nestCtors` declines a container constructor with repeated level
+    parameters (the substitution law instantiates them as the record
+    does; every stored constant passed `checkConstantVal`'s check).
+  * **Finding — `nestCont` must see a FULLY applied instance.**  The
+    container case compares the container's family at the index tuple;
+    a partial application `C ds is'` reads as a function, whose graph
+    does not grow when its values do, so `ContSem` is false at one (the
+    frame-hole case is not affected: both sides are the same hole value
+    and N2 makes the remaining domains equal).  Nothing in
+    `NestPosSem`'s premises says the walked term is a type, and "is a
+    type" is not a semantic property here (a graph is a set in a
+    universe too).  So `nestCont` now checks `args.length = nPc + nIdx`
+    (`nestInstType` at the key) and declines otherwise; a checked
+    field's domain is a type, so it never fires on a checked
+    constructor.  Unit tests in `NestedTests` (`V T` declines, `V T z`
+    accepted).
+
+Gates (after merging `uniform-inds` cfcc7f89): `lake build`/`lake test`
+0 warnings; `tests/arena.sh` green (shake 538/538, pub-imports none
+demotable, overview anchor re-pointed).  No `sorry`, no new axiom.
+Next: the frame relation, the cache invariant and `ContSem` itself
+(CONTSEM.md "Resume (session 3 → 4)").
+
+#### LANDED (lane CONTSEM, session 3, checkpoint 2): the walk's theorem threads the cache invariant and a prefix-intrinsic context discipline
+
+NESTPLAN L3 (iii)/(iv) groundwork; no kernel change.
+- **`NestPosSem`/`ContSem` thread a state invariant `I`**
+  (`Model/Inductives/NestPosMono.lean`): a run from a state satisfying
+  `I` ends in one satisfying `I` (under the same context premises as the
+  positivity conclusion).  `ContSem` will be proved at `I = CacheInv`
+  (every cached frame-hole-free instantiation is positive along every
+  hole relation at depth `hiAt 0`); the flat consumer uses `I = True`.
+- **`HoleRel.dsScoped`** now says the frames' parameter terms are scoped
+  below the frames' holes (`hiAt |prog|`, what the kernel checks at each
+  frame's entry) instead of at the depth — independent of the depth, so
+  truncation keeps it.
+- **Finding — `CtxOk` does not survive truncation; `CtxOkP`
+  (`Model/CtxOkP.lean`).**  `CtxOk` states each leaf's link to its entry,
+  and its annotation's grading, under valuations satisfying the WHOLE
+  context.  A container frame is walked in the context truncated at its
+  key's depth; a valuation of the truncated context need not extend to
+  the whole one (a later entry may be an empty type), so those facts do
+  not transfer.  `CtxOkP` states them under the context BELOW the leaf,
+  the annotation read at its own depth.  It implies `CtxOk`, is kept by
+  opening a binder (the domain's grading IS a prefix fact), and survives
+  truncation (`CtxOkP.drop`) and extension by new top entries
+  (`CtxOkP.extend`).  `NestPosSem`/`ContSem`/`nestFields_sem`/
+  `nestMemberCtor_sem` take it; `blockCtorPos_of_walk` builds it
+  (`ctxOkP_of_openers`, the U2 context's gradings are prefix facts).
+- On the lane branch only (no consumer yet, restored after the landing
+  for session 4): the frame relation (`HoleRel.drop`/`HoleRel.extend`,
+  `ContFrame.lean`) and N2 read (`PiDomsFree`,
+  `noBVarTele_of_piDomsFree`, `ContN2.lean`).
+
+Gates: see the landing line in `_tmp/uniform-inds/CONTSEM.md`.  Next:
+CONTSEM.md "Resume (session 4)" — N2 linked to the clause, the
+per-constructor transfer (one more kernel check proposed there:
+`nestResHead` on an instantiated container constructor, to be measured),
+the `nestCtors` inversion, the frame lemma, `ContSem` with the cache
+invariant, and `nestMemberCtor_sem` at container kinds with coverage
+(L8) as a named premise.

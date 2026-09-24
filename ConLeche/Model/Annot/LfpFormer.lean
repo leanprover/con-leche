@@ -99,7 +99,7 @@ theorem former_app_eq (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.
         (interp V ρ (mp.base2.acval (D.member mm) ψ))
       = (frameIdx (D.params ψ).length ρp ++ is).foldl app
           (D.holeVal ψ ρp (D.carrier ψ ρp) mm) := by
-  obtain ⟨h, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
   obtain ⟨ab, hta, hmap, hbits⟩ := hab ψ
   have hpl := h.parsLen mm hmm ψ
@@ -154,7 +154,7 @@ theorem holeVal_mem_type (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ 
     (hta : denoteMeta mp.base2.acval env ψ 0 cv.type = some ta) {ρp X : Nat → V}
     (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) (σ : Nat → V) :
     D.holeVal ψ ρp X mm ∈ˢ interp V σ ta := by
-  obtain ⟨h, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv', caps', hf', hab⟩ := hrd mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by

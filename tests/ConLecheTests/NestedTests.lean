@@ -211,6 +211,25 @@ drops: the abstracted constructor type still names `T`. -/
         (.app cL (.const (nm "T") [.param (nm "u")]))) (.const (nm "T") [.param (nm "u")])⟩,
       1)]]) matches .ok _
 
+/-! ### A container instance is fully applied (lane CONTSEM)
+
+`V (α : Type) : Nat → Type | mk : (n : Nat) → V α n`: the field `V T`
+(no index) is a family, not a type — the walk declines it; `V T z` is an
+ordinary instance. -/
+@[expose] def cV : Expr := .const (nm "V") []
+@[expose] def envV : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .axiomInfo ⟨nm "z", [], cNat⟩,
+  .ctorInfo ⟨nm "V.mk", [], pi ty1 (pi cNat (.app (.app cV (.bvar 1)) (.bvar 0)))⟩ 1 1,
+  .indInfo ⟨nm "V", [], pi ty1 (pi cNat ty1)⟩ {},
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+@[expose] def runV (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envV
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envV.find?, envV.consts⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+#guard runV (.app cV cT) matches .error (.notImplemented _)
+#guard keysOf (runV (.app (.app cV cT) (.const (nm "z") []))) == some [nm "V"]
+
 /-! ### U4 and the normal form (lane POSPROOF)
 
 U4: a later field using a recursive field declines — reachable only in

@@ -11,7 +11,6 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Semantics.Tower.FixWire
 import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.IndPointKit
@@ -383,12 +382,11 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       show d.nP + d.k - 1 - (d.nP + d.k - 1 - i) = i by omega,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hLlen]; exact hi)]
     rfl
-  have hokA : ∀ i, i < d.nP + d.k → ∀ ρ : Nat → V, Sat V L.reverse ρ →
-      WellDenotedV V (fun j => ρ (j + (d.nP + d.k - 1 - i) + 1)) (L.getD i default) := by
-    intro i hi ρ hρ
+  have hokA : ∀ i, i < d.nP + d.k → ∀ σ : Nat → V, Sat V (L.reverse.drop (d.nP + d.k - i)) σ →
+      WellDenotedV V σ (L.getD i default) := by
+    intro i hi σ hdrop
     by_cases hiP : i < d.nP
-    · have hdrop := Sat_drop hρ (d.nP + d.k - i)
-      rw [List.drop_reverse, hLlen, show d.nP + d.k - (d.nP + d.k - i) = i by omega] at hdrop
+    · rw [List.drop_reverse, hLlen, show d.nP + d.k - (d.nP + d.k - i) = i by omega] at hdrop
       have htake : L.take i = ((d.ppsM 0 ψ).take i).map (·.2.2) := by
         have h1 : L.take i = (d.params ψ).take i :=
           List.take_append_of_le_length (by rw [hlenParams]; omega)
@@ -399,18 +397,16 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
         ⟨_, List.getElem?_eq_getElem (by rw [hlenP0]; omega)⟩
       have hgd := wellDenotedV_mkPisAV_dom (Δa := []) (fun ρ _ => hFD0.okTy ψ ρ) i x hx _
         (by rw [List.append_nil]; exact hdrop)
-      have hval : (fun j => ρ (j + (d.nP + d.k - 1 - i) + 1)) = fun j => ρ (j + (d.nP + d.k - i)) := by
-        funext j; congr 1; omega
-      rw [hval, hLpar i hiP]
+      rw [hLpar i hiP]
       simp only [BlockData.params, List.getD_eq_getElem?_getD, List.getElem?_map,
         List.getElem?_take_of_lt hiP, hx]
       exact hgd
     · obtain ⟨cvTb, -, hFDt, -⟩ := hhole (i - d.nP) (by omega)
       rw [show i = d.nP + (i - d.nP) by omega, hLhole _ (by omega)]
       exact hFDt.okTy ψ _
-  have hC : CtxOk m ψ (ctx.hiAt 0) L.reverse crest := by
+  have hCP : CtxOkP m ψ (ctx.hiAt 0) L.reverse crest := by
     rw [hhi]
-    exact ctxOk_of_openers m.acval_closed (by rw [List.length_reverse, hLlen]) hshape hws hdoms
+    exact ctxOkP_of_openers (by rw [List.length_reverse, hLlen]) hshape hws hdoms
       hleaf (fun l hl => by
         obtain ⟨q, hq⟩ := List.getElem?_of_mem (hleaf l hl)
         obtain ⟨ty, hty⟩ := hshape q _ hq
@@ -420,6 +416,7 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
         rw [List.length_append, hlenF, hlenH] at this
         exact this)
       hent hokA
+  have hC : CtxOk m ψ (ctx.hiAt 0) L.reverse crest := hCP.toCtxOk
   -- ## U2: the reading is graded at that context
   have hIS : Rules.InferSemFull m ψ (ctx.hiAt 0) crest ty :=
     Rules.infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hinf)
@@ -473,7 +470,7 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       intro i hk' h
       simp at h
   -- ## the walk is positive, read off the Π-tower
-  have hpos := nestMemberCtor_sem_flat hin ctx F hm hks hfr hC hca hgr hR
+  have hpos := nestMemberCtor_sem_flat hin ctx F hm hks hfr hCP hca hgr hR
   have habLen : ab.length = cA.2 := by
     have h1 := congrArg List.length hab
     rw [List.length_map] at h1
@@ -522,7 +519,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, hcrest, ⟨st₀, ks, tyN, st₁, hm, hks⟩, ty, hty⟩ :=
+  obtain ⟨crest, hcrest, ⟨st₀, ks, tyN, st₁, hm, hks⟩, ⟨ty, hty⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk

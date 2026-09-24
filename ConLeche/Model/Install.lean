@@ -5,6 +5,7 @@ public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.ConstsBound
 public import ConLeche.Verify.Extend.Sibs
+import ConLeche.Model.Annot.CanonCrest
 
 public section
 
@@ -445,7 +446,11 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
         rw [h, hfresh] at hf; exact nomatch hf)
       (fun _ _ _ hf ψ _ hta =>
         have hm := ConLeche.Semantics.Env.find?_mem hf
-        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta) }, rfl⟩
+        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta)
+      (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        denoteMeta_cons_mono hfresh (canonCrest_consCrossAt (hh.projTower.type hm) hA) ψ _
+          (canonCrest_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
 
 
 /-- **The P step at a cons, at an unconditional membership premise**

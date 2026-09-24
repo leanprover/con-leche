@@ -318,6 +318,11 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   parsLen : ∀ mm, mm < D.k → ∀ ψ : Name → Nat, (D.pars mm ψ).length = (D.params ψ).length
   parsSat : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (D.params ψ).reverse ρ → Sat V (D.pars mm ψ).reverse ρ
+  /-- **… and satisfied only where the block's is** (lane CONTSEM, M1′):
+  a container instance's parameters are typed by the container's own
+  former telescope, the leaf reads them at the block's -/
+  parsSatInv : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V (D.pars mm ψ).reverse ρ → Sat V (D.params ψ).reverse ρ
   /-- **the holes occur only applied to the parameters** (R23's M3) -/
   holeApp : ∀ (ψ : Name → Nat) c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j
 
@@ -343,6 +348,7 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
     rw [hagC c hc j hf.1]; exact h.ctor c hc j ψ ρ as fs t hsa ht hf
   parsLen := h.parsLen
   parsSat := h.parsSat
+  parsSatInv := h.parsSatInv
   holeApp := h.holeApp
 
 /-- **The clause at a universe instantiation**: the leaf at the
