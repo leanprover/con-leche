@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane HOLE2 session 3: `BlockHoleGrade`'s public statements name
+    # `BlockHoleCtxFacts`/`BlockNamesOk` (through `BlockPosRun`) and
+    # `BlockHoleFacts` (`BlockLfpHoles`); each MEASURED by demoting it alone
+    # (`Unknown identifier BlockNamesOk`/`BlockHoleCtxFacts`, `:104`;
+    # `Unknown identifier BlockHoleFacts`, `:433`).
+    ('ConLeche.Model.Inductives.BlockHoleGrade', 'ConLeche.Model.Inductives.BlockPosRun'),
+    ('ConLeche.Model.Inductives.BlockHoleGrade', 'ConLeche.Model.Inductives.BlockLfpHoles'),
     # lane CONTSEM session 2: `Expr.substFvars`/`frameCrest_eq` are stated
     # over the kernel's `instPisWith`/`nestAbstract`/`NestCtx` and `Expr`;
     # MEASURED by demoting it alone (`Unknown identifier Expr`,
