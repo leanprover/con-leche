@@ -948,36 +948,6 @@ def recRuleBits (find? : Name → Option ConstantInfo) (recName : Name)
     (rs.map (recRuleBits find? recName)).map (·.ctor) = rs.map (·.ctor) := by
   simp [List.map_map, Function.comp_def]
 
-/-- **The stored rule of an installed projection function**: the
-degenerate recursor's single rule, at the constructor's arities and
-the generated right-hand side, with the two rescue bits stamped by
-`recRuleBits` (both are `false` at a projection function — its own
-rescue would loop — but the stamping is uniform, so the environment
-invariant reads the same way at every route).  The parameter
-comparison stays: the rule's law reads it. -/
-def projFnRule (find? : Name → Option ConstantInfo) (T ctorName : Name)
-    (pty : Expr) (nP nF i : Nat) (rhsA : Expr) : RecRule :=
-  recRuleBits find? (projFnName T i)
-    { ctor := ctorName, nfields := nF, ctorParams := nP,
-      fire := if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-      rhs := rhsA, paramsBlind := false }
-
-@[simp] theorem projFnRule_ctor (find? : Name → Option ConstantInfo)
-    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
-    (projFnRule find? T ctorName pty nP nF i rhsA).ctor = ctorName := rfl
-
-@[simp] theorem projFnRule_rhs (find? : Name → Option ConstantInfo)
-    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
-    (projFnRule find? T ctorName pty nP nF i rhsA).rhs = rhsA := rfl
-
-@[simp] theorem projFnRule_nfields (find? : Name → Option ConstantInfo)
-    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
-    (projFnRule find? T ctorName pty nP nF i rhsA).nfields = nF := rfl
-
-@[simp] theorem projFnRule_ctorParams (find? : Name → Option ConstantInfo)
-    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
-    (projFnRule find? T ctorName pty nP nF i rhsA).ctorParams = nP := rfl
-
 /-- Is a recursor K-flagged?  The stored bit of its single rule
 (`RecRule.k`, computed at the block's install by `recRuleKOf`); the
 official kernel reads `recursor_val::is_k()` here in just the same

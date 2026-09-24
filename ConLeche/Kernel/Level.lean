@@ -215,11 +215,6 @@ def Name.nodup : List Name → Bool
   | [] => true
   | n :: ns => !ns.contains n && Name.nodup ns
 
-/-- Is this a `_model`-suffixed name (the shape of model companions)? -/
-def Name.isModelSuffix : Name → Bool
-  | .str _ "_model" => true
-  | _ => false
-
 /-- Is this shaped like an installed projection function's name
 (`(T.proj).i`, the modeled path's projection functions) or a
 projection table's (`(T.projTable).0`, task #175 S1)?  Both shapes

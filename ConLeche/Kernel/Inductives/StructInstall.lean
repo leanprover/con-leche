@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.Modeled
+public import ConLeche.Kernel.CheckerBase
 public import ConLeche.Kernel.TrustAxioms
 
 @[expose] public section

@@ -612,7 +612,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   equations, and installs the block through the modeled route, which
   checks those theorems like any other declaration and uses their
   equations semantically
-  ([function `checkIotaThm` in `ConLeche/Kernel/Inductives/Modeled.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Modeled.lean#L68-L79)).
+  ([function `checkIotaThm` in `ConLeche/Kernel/Inductives/Modeled.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Modeled.lean#L340-L351)).
   The construction and the code are a port of the maintainer's
   [lean-inductive-models](https://github.com/nomeata/lean-inductive-models),
   a standalone tool that translates mutual and nested inductive types
@@ -649,7 +649,7 @@ instead of trusting the operation's name.
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
   ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L405-L422),
-  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L110-L117)).
+  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L111-L118)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
   The model side reads the operation's membership off its pinned type
@@ -824,7 +824,8 @@ Three words name things rather than tiers. An inductive block is
 installed by one of two routes: the **uniform** one (`checkBlock`,
 `Kernel/Inductives/Block*.lean`), which builds the block's carrier as
 a least fixed point and checks its recursors, and the **modeled** one
-(`checkModeled`, `Kernel/Inductives/Modeled.lean`), which installs a
+(`checkModeled`, `Kernel/Inductives/Modeled.lean`, with its twins
+`ModeledF.lean` and `Cached/ModeledC.lean`), which installs a
 nested block through a generated `_model` family.
 `ConLeche/Conformance/` holds the one-member recursor generator the
 uniform route's reject-only conformance check runs: code that is not
@@ -858,7 +859,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
-| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Block*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
+| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Block*.lean` and `Modeled*.lean`), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Conformance/` | Unverified, reject-only checks that are not needed for soundness: the recursor conformance check (the one-member recursor generator, generate and compare), which the fold runs after the verified recursor check. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the Nat-op ground reordering of `NatOpGround.lean`); the projection-function rewrite; the in-process modeller (`InModel/`) — the only source of a block's model. |

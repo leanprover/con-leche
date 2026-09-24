@@ -38,7 +38,9 @@ iteration protocol. Keep it up to date when decisions change.
   `Model/Inductives/*`); the routes there are the UNIFORM one
   (`checkBlock`, `Block*.lean`, every non-nested block, with the
   `Fix*`/`Struct*`/`Sum*` kits it uses as a library) and the MODELED one
-  (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for nested blocks);
+  (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for nested blocks,
+  with its twins `Kernel/Inductives/ModeledF.lean` and
+  `Cached/ModeledC.lean`: modeller-only, deleted whole with it);
   the old one-member recursor generator survives only as the
   recursor conformance check (`checkBlockRecConform`), which lives in
   `ConLeche/Conformance/` (charter item 6): that directory holds ALL

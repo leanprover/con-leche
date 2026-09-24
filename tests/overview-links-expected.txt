@@ -806,19 +806,19 @@
 == ConLeche/Model/Inductives/BlockDeclRun.lean#L1273
   1273  theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
-== ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
-    68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
-    69      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    70      (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
-    71      (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
-    72      let cvt ← unwrapOr
-    73          (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
-    74          (.notImplemented s!"missing iota theorem for {cvName}")
-    75      unless cvt.levelParams = lps do
-    76        throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
-    77      -- open the theorem's telescope: params, motives, minors, fields
-    78      let depth := rP + cnF
-    79      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
+== ConLeche/Kernel/Inductives/Modeled.lean#L340-L351
+   340  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
+   341      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+   342      (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+   343      (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
+   344      let cvt ← unwrapOr
+   345          (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
+   346          (.notImplemented s!"missing iota theorem for {cvName}")
+   347      unless cvt.levelParams = lps do
+   348        throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
+   349      -- open the theorem's telescope: params, motives, minors, fields
+   350      let depth := rP + cnF
+   351      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
 
 == ConLeche/Frontend/InModel/Kit.lean#L7-L15
      7  /-!
@@ -872,15 +872,15 @@
    421  `beq zero zero ≡ true`) vacuously — accepting definitions that
    422  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L110-L117
-   110  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   111      List (Expr × Expr) → m Bool
-   112    | [] => pure true
-   113    | eq :: rest => do
-   114      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   115        certifyNatEqs ops env rest
-   116      else pure false
-   117  
+== ConLeche/Kernel/Checker.lean#L111-L118
+   111  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+   112      List (Expr × Expr) → m Bool
+   113    | [] => pure true
+   114    | eq :: rest => do
+   115      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   116        certifyNatEqs ops env rest
+   117      else pure false
+   118  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
@@ -1088,9 +1088,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L226-L227
-   226        else if cvA.name = sorryAxName then
-   227          pure fe
+== ConLeche/Cached/ParsedC.lean#L227-L228
+   227        else if cvA.name = sorryAxName then
+   228          pure fe
 
 == Main.lean#L838
    838    "  --jobs=<n>        the number of worker threads for the check phase",
