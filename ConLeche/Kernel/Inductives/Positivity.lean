@@ -1133,6 +1133,15 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         pure (k, w, st)
       | _ => throw nestNonValid
 
+/-- A constructor's result is headed by a variable (its member's hole,
+once the members are abstracted) — `checkSumCtor` already checked the
+result is the member applied, so this never fires on a checked block;
+the monotonicity proof reads the result's spine off it. -/
+def nestResHead (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .fvar .. => true
+  | _ => false
+
 /-- The fields of one member constructor (the parameters instantiated
 at the canonical variables, the members abstracted to their holes),
 each through `nestPos` at its depth, the fields above the holes; then
@@ -1158,7 +1167,8 @@ def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (
         | _ => false) && structUsedLater tyN 0 i) then
     throw (.notImplemented "nested positivity: a later field or the result depends on \
       a recursive field (the closure witness's class condition)")
-  unless (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP base) do
+  unless nestResHead cur && (cur.getAppArgs.drop ctx.nP).all
+      (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
       index mentions the block")
   pure (ks, tyN, st)

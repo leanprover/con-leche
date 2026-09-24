@@ -409,6 +409,7 @@ operator IS `d.Φ` — with the constructors' fields read with holes
   N := d.N
   w := d.w
   params := d.params
+  pars := fun m ψ => ((d.ppsM m ψ).take d.nP).map (·.2.2)
   ids := fun c ψ => d.IdsM c ψ
   u := fun c ψ => d.uM c ψ
   Φ := d.Φ

@@ -611,7 +611,7 @@ theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
 /-- **A member constructor's result**: its reading is a spine whose
 arguments after the parameters (the result's indices) are hole-free. -/
 @[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
-  ∃ fa vs, r = AnnotTerm.mkAppN fa vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
+  ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
 
 /-- **THE CONSUMER'S PREMISE, from the run: a member constructor is
 positive.**  A successful `nestMemberCtor` (every field through
@@ -660,10 +660,20 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       obtain ⟨hag, hrd, hws⟩ := hres
       have hspine := Expr.mkAppN_getApp res
       rw [← hspine] at hrd hws
-      obtain ⟨fa, vs, -, hsp, rfl⟩ := denoteMeta_mkAppN_inv hrd
+      obtain ⟨fa, vs, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv hrd
+      simp only [Bool.and_eq_true] at hok
+      obtain ⟨hhead, hok⟩ := hok
+      have hfa' : ∃ i, fa = .bvar i := by
+        unfold ConLeche.nestResHead at hhead
+        split at hhead
+        · rename_i heq
+          rw [heq, denoteMeta] at hfa
+          exact ⟨_, (Option.some.inj hfa).symm⟩
+        · exact nomatch hhead
+      obtain ⟨i, rfl⟩ := hfa'
       rw [← List.take_append_drop ctx.nP res.getAppArgs] at hsp
       obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-      refine ⟨fa, vs₁ ++ vs₂, rfl, ?_⟩
+      refine ⟨i, vs₁ ++ vs₂, rfl, ?_⟩
       have hl₁ : vs₁.length ≤ ctx.nP := by
         rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]; omega
       intro v hv

@@ -64,6 +64,7 @@ fibre. -/
   N := 1
   w := w
   params := fun _ => []
+  pars := fun _ _ => []
   ids := fun _ _ => []
   u := fun _ _ => 0
   Φ := fun _ _ X _ => graph (fun _ => F (app (X 0) pt)) unitSet
