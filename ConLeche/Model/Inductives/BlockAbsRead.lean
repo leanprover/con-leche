@@ -174,14 +174,16 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok posKs)
+    {nst : Bool}
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hk : d.k = d.memberNames.length)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) :
     ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false := by
-  obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ := ConLeche.checkBlockPositivity_inv hrun
+  obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ :=
+    ConLeche.checkBlockPositivity_inv_gen hrun
   intro c hc j cA hcj
   obtain ⟨-, -, -, -, -, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   have hn : (p.nestCtx fvsP find? consts).names = d.memberNames := hnames

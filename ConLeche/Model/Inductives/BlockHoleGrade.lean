@@ -330,7 +330,8 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       abD.map (fun x => (x.1, x.2.1)) = abN.map (fun x => (x.1, x.2.1)) ∧
       FieldsEqOn V (d.holeCtx ψ).reverse (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
       StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
-        (d.params ψ).reverse (abN.map (·.2.2)) ((d.Fss c ψ).getD j []) := by
+        (d.params ψ).reverse (abN.map (·.2.2)) ((d.Fss c ψ).getD j []) ∧
+      StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (abN.map (·.2.2)) := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
@@ -367,7 +368,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   have hhiQ : (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k := by
     simp only [ConLeche.NestCtx.hiAt, ConLeche.BlockParts.nestCtx, hkL, hnP, Nat.add_zero]
   -- THE producer, its link from the walk context
-  obtain ⟨abD, abN, E, hRD, hRN, hlD, hlN, hE, hS⟩ :=
+  obtain ⟨abD, abN, E, hRD, hRN, hlD, hlN, hE, hS, hSf⟩ :=
     storedFieldShapes_of_walk (ctx := p.nestCtx fvsP env.find? env.consts) mp.base2 ψ rfl hholes
       (show p.memberNames.Nodup by rw [hnames]; exact hnd) hplen hpar hparW hform'
       (show c < p.memberNames.length by rw [hkL]; exact hc)
@@ -386,7 +387,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
           simp only [ConLeche.BlockParts.nestCtx] at this
           rwa [hnames] at this) ρ hρ)
   rw [hhiQ] at hRD hRN
-  simp only [ConLeche.BlockParts.nestCtx] at hRD hRN hE hS
+  simp only [ConLeche.BlockParts.nestCtx] at hRD hRN hE hS hSf
   -- the link, again, at the crest's reading
   obtain ⟨abD', abN', B, -, hcaE, hNE, hlD', hlN', hbits, -, -, -, -, -, -, hEq, -, hcbN, -⟩ :=
     blockWalkCtx hin hN hF hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hty hm hRD
@@ -421,6 +422,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   rw [denoteMeta_erasedEq herased, hnP] at hRD
   rw [hnP] at hRN
   rw [hkL, hnP, hnIdxs, hFssD.symm] at hS
+  rw [hkL, hnP, hnIdxs] at hSf
   -- the normal form mentions no member and has the block's levels
   have hB : crest.looseBVarsBounded 0 = true := by
     refine ConLeche.looseBVarsBounded_instPisWith (fun a ha => ?_) ?_ hcrest
@@ -444,8 +446,8 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     simpa [ConLeche.BlockParts.nestCtx, hnames] using this
   have hlpN' : lpDefF lps tyN = true := by
     rw [← hlps]; exact lpDefF_of_allLevelParamsDefined _ hlpN
-  refine ⟨hcbN, hoccN, hlpN', A, abD, abN, hA', hRD, hRN, hlD, hlN, hbits, hEq, ?_⟩
-  refine ⟨hS.len, hS.flat, fun hs hhs hv => hS.override hs hhs fun t ht σ => ?_⟩
+  refine ⟨hcbN, hoccN, hlpN', A, abD, abN, hA', hRD, hRN, hlD, hlN, hbits, hEq, ?_, hSf⟩
+  refine ⟨hS.len, hS.holeApp, fun hs hhs hv => hS.override hs hhs fun t ht σ => ?_⟩
   rw [hnames]
   exact hv t ht σ
 
@@ -524,7 +526,8 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
       cv.type.stripPis (d.nP + d.nIdxAt t) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ)
     {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length) :
     StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
-      (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j []) := by
+      (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j []) ∧
+    StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (d.absF ψ c j) := by
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
     omega
@@ -532,7 +535,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   generalize hcA : (d.ctorsM c)[j] = cA at hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
   have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2 c j cA hcj).1
-  obtain ⟨-, -, -, A, abD, abN, -, -, hRN, -, hlN, -, -, hS⟩ :=
+  obtain ⟨-, -, -, A, abD, abN, -, -, hRN, -, hlN, -, -, hS, hSf⟩ :=
     blockRunLink hμ mp hN hcore.1 hrun hnames hlps hnP hnIdxs hk hnd hctorsAs ψ hformers hck hcj
       (hD₀.storedCtorFacts hCf hCb)
   -- the datum's reading of the same normal form
@@ -540,8 +543,8 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   obtain ⟨-, abN', -, hNr, -, hlN', -, habN, -⟩ := hR ψ
   rw [hnfs c j cA hcj, hRN] at hNr
   obtain ⟨rfl, -⟩ := mkPisAV_inj (hlN.trans hlN'.symm) (Option.some.inj hNr)
-  rw [habN] at hS
-  exact hS
+  rw [habN] at hS hSf
+  exact ⟨hS, hSf⟩
 
 /-! ## The hole chains are closed below the operator's frame -/
 

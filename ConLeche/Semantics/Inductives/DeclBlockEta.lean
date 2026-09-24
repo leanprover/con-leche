@@ -227,14 +227,15 @@ environment**: the CHECK's own name facts (`recStage_cvFacts`,
 `Verify/Inductives/RecStage.lean`), read through the conformance
 check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {block : List ConstantInfo} {cvTas : List ConstantVal} {conf : Bool}
     {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p block cvTas ctorsAs ctorsN = .ok rs)
+    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
+    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p false false conf block cvTas ctorsAs
+      ctorsN = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
-    ∀ r ∈ rs, envC.find? r.1.name = none := by
-  obtain ⟨-, -, -, hS⟩ := ConLeche.recStage_of_rec h hnames
+    ∀ r ∈ ConLeche.tgtRs out, envC.find? r.1.name = none := by
+  obtain ⟨-, hS, -⟩ := ConLeche.recStage_of_rec h hnames
   exact fun r hr => (ConLeche.recStage_cvFacts hS r hr).1
 
 /-! ## The recursors' and the tables' phases -/
@@ -385,6 +386,8 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         rw [hn, hf₁C] at this
         exact nomatch this
   -- ## the recursors, then the tables
+  obtain ⟨-, -, hcons⟩ := ConLeche.recStage_off hRec hnames _ _ 0 _
+  rw [hcons] at hTbl
   refine checkBlockTables_etaClosed ?_ hTbl
   exact EtaFamiliesClosed.keep hEC
     (consBlockRecs_extEta (ExtEta.refl _) (checkBlockRec_fresh hRec hnames))

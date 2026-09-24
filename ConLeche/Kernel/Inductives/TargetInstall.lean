@@ -97,17 +97,10 @@ def targetPass (so : ShadowOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool)
   let (ctorsAs, sortsss) ← checkBlockCtorsF (so.opsAt fe₁) fe₁ fe₁ p₁ (p₁.members.zip cvTas)
   pure (fe₁, cvTas, p₁, ctorsAs, sortsss)
 
-/-- **The firing mode of a rule at an OUTSIDE major** (lane L2): the
-syntactic reading of the recursor type's major domain
-(`Expr.nestedRuleSyn`, the major's parameter count `nPc`, constants
-resolving in `fe`) — `.nested lvls pins`, with `pins` the major's
-parameters lowered into the rule-prefix context, whose guards are
-`EnvWF`'s `.nested` clause (`nestedRuleSyn_inv`); `.inert` when the
-reading fails (a matched major then declines at fire time). -/
+/-- **The firing mode of a rule at an OUTSIDE major** (lane L2):
+`auxRuleFireR` with constants resolving in `fe`. -/
 def auxRuleFire (fe : FEnv) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
-  match Expr.nestedRuleSyn (·.constsResolveF fe) cv.levelParams cv.type mI rP nPc with
-  | some (lvls, pins) => .nested lvls pins
-  | none => .inert
+  auxRuleFireR (·.constsResolveF fe) cv mI rP nPc
 
 /-- The records the target install conses for the family: each
 recursor's stored rules at its major's constructors (`sumRules` with

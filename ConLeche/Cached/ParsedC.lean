@@ -243,7 +243,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       -- #219): a recognised block is the fixpoint route's, every other
       -- one the modeled path's (its model the in-process modeller's).
       match blockParts? nP block with
-      | some p => checkBlockKS mode fe block p
+      | some p => checkBlockKS mode fe block p uniformNested
       | none => checkIndDeclSF mode fe nP block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>

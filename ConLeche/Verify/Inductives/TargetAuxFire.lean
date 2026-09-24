@@ -81,7 +81,7 @@ theorem targetRecInfos_nested {fe : FEnv} :
         intro hr
         simp only [List.mem_map] at hr
         obtain ⟨rl, -, rfl⟩ := hr
-        simp only [auxRuleFire] at hf
+        simp only [auxRuleFire, auxRuleFireR] at hf
         split at hf
         · rename_i lvls' pins' hsyn
           injection hf with h1 h2
@@ -405,7 +405,7 @@ theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool}
     (hout : M.member = none)
     (hfire : auxRuleFire fe' cv mI rP M.nPc = .nested lvls pins) :
     lvls = M.lvls ∧ pins = M.ds.map (·.abstractRange 0 rP) := by
-  simp only [auxRuleFire] at hfire
+  simp only [auxRuleFire, auxRuleFireR] at hfire
   split at hfire
   · rename_i lvls' pins' hsyn
     injection hfire with h1 h2

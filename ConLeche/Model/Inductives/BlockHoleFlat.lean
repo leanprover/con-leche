@@ -101,17 +101,19 @@ variable {env : Env} {mo : EnvModel V env} {d : BlockData V} {lps : List Name}
 
 /-- **A uniform block's constructor presents its fields with holes flat**
 (see the module docstring) at a `Type`-valued parameter frame: the flat
-shape of the stored field shape facts (`StoredFieldShapes.flat`), and
+presentation of the fields with holes (`StoredFieldsFlat`, the flat
+block's), and
 the grading of the fields with holes at the hole frame of every tuple
 (`hG`, U2) for the calls' index fit and the fields' level. -/
 theorem blockFlatAt_of (hH : BlockHoleFacts mo d lps) {ψ : Name → Nat} {ρp : Nat → V}
     (hw : d.w ψ ≠ 0)
+    {c : Nat} {j : Nat}
+    (hflat : StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (d.absF ψ c j))
     (hlenIds : ∀ m, m < d.k → (d.IdsM m ψ).length = d.nIdxAt m)
-    {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length)
     (hG : ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ fas rec, d.toLfp.FlatAt ψ ρp c j fas rec := by
-  obtain ⟨rec, hrec⟩ := (hH.shapes ψ c hc j hj).flat
+  obtain ⟨rec, hrec⟩ := hflat
   have hlenP : (d.params ψ).length = d.nP := hH.lenP ψ
   refine ⟨d.absF ψ c j, rec, rfl, fun _ _ _ _ _ _ => rfl, fun l tl m es h => ?_, hrec.2.1,
     hrec.2.2, ?_, ?_⟩
@@ -169,6 +171,8 @@ theorem blockHoleClosed_of (hH : BlockHoleFacts mo d lps) {ψ : Name → Nat} {�
     (hs : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0)
     (hIdx : ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ))
     (hlenIds : ∀ m, m < d.k → (d.IdsM m ψ).length = d.nIdxAt m)
+    (hflat : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+      StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (d.absF ψ c j))
     (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
@@ -178,7 +182,7 @@ theorem blockHoleClosed_of (hH : BlockHoleFacts mo d lps) {ψ : Name → Nat} {�
     ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
       fun _ => (hIdx m (Nat.lt_of_lt_of_le hm hkN)).2⟩
   refine LfpDatum.closed_of_flat hw hkN hok _ (fun X _ c hc t ht x hx => ?_)
-    (fun c hc j hj => blockFlatAt_of hH hw hlenIds hc hj (hG c hc j hj))
+    (fun c hc j hj => blockFlatAt_of hH hw (hflat c hc j hj) hlenIds (hG c hc j hj))
   have happ : ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
     fun j hj => blockHolesApplied hH ψ hc hj
   have hres : ∀ j, j < d.toLfp.nctors c →
