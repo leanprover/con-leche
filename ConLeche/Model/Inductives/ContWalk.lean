@@ -7,6 +7,8 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Inductives.ContSubst
+import ConLeche.Model.Annot.CanonCrest
+import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Verify.Inductives.NestContInv
@@ -582,6 +584,95 @@ theorem substE_grp (ρp Y ρ : Nat → V) :
       rw [show q - ds.length + (hi + grp.length)
         = (q - ds.length + hi) + (grpVals D (Level.substFn φ lps us) grp ρp Y).length by
           rw [hvl]; omega, consList_apply_add]
+
+/-- **A frame constructor's type, read** (the container substitution
+law at the frame, `frameCrest_read`, over the recorded reading M2): the
+group's constructor `(c, j)`, instantiated at the key and with the group
+abstracted to its holes, reads at the frame's depth as the recorded
+Π-tower substituted by the frame's variables. -/
+theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
+    {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
+    cv.levelParams = lps ∧ ∃ crest ab,
+      instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+        (grpSub us hi grp)) = some crest ∧
+      ab.map (·.2.2) = D.fields (Level.substFn φ lps us) c j ∧ ab.length = nF ∧
+      denoteMeta mp.base2.acval env φ (hi + grp.length) crest
+        = some (mkPisAV (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
+              (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab)
+            (AnnotTerm.substAV (substTau (ds.length + D.k) (hi + grp.length)
+              (grpX mp.base2 φ D us hi grp ds (hi + grp.length)))
+              (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
+                ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
+                  ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
+  obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, hocc, A, hA, hread⟩ := hrd c hc j hj
+  rw [hfc] at hf'
+  obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'
+    exact ⟨hf'.1, hf'.2.1, hf'.2.2⟩
+  have hlp : cv.levelParams = lps := by
+    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC c hc
+    obtain ⟨cvm', capsm', hfm', hlm'⟩ := hlps c hc
+    rw [hfm] at hfm'
+    obtain ⟨rfl, rfl⟩ : cvm = cvm' ∧ capsm = capsm' := by simpa using hfm'
+    rw [← hlm, hlm']
+  refine ⟨hlp, ?_⟩
+  obtain ⟨-, hlenF, ab, hab, hmapF⟩ := hread (Level.substFn φ lps us)
+  have hk : D.names.length = D.k := hkN
+  have hAw : Expr.WScoped (ds.length + D.names.length) A := by
+    have := ConLeche.memberCrest_wscoped (ctx := canonCtx D.names cv.levelParams ds.length)
+      (holes := canonHoles ds.length D.k)
+      (fun x hx => by
+        obtain ⟨mm, hmm, rfl⟩ := mem_canonHoles hx
+        refine ⟨?_, _, _, rfl⟩
+        simp only [Expr.WScoped, ConLeche.NestCtx.hiAt, canonCtx]
+        exact ⟨by omega, trivial⟩)
+      (fun x hx => by
+        obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
+        have hlt : i < ds.length := by
+          have := (List.getElem?_eq_some_iff.mp hi').1
+          simpa [canonCtx, canonParams] using this
+        change (canonParams ds.length)[i]? = _ at hi'
+        rw [canonParams_getElem? hi']
+        simp only [Expr.WScoped, ConLeche.NestCtx.hiAt, canonCtx]
+        exact ⟨by omega, trivial⟩) hcl hA
+    simpa [ConLeche.NestCtx.hiAt, canonCtx] using this
+  obtain ⟨crest, hcr, hcrd⟩ := frameCrest_read mp.base2 (φ := φ)
+    (ctx := canonCtx D.names cv.levelParams ds.length) (holes := canonHoles ds.length D.k)
+    (us := us) (sub := grpSub us hi grp) (ds := ds) (D' := hi + grp.length)
+    (s := grpS D us hi grp ds) (x := grpX mp.base2 φ D us hi grp ds (hi + grp.length))
+    (fun mm hmm => ⟨_, canonHoles_getElem? (by simpa [canonCtx, hk] using hmm)⟩)
+    (by rw [hlp]; exact hnd) (by rw [hlp]; exact hul) (canonParams_length _)
+    (fun mm hmm => by
+      show grpS D us hi grp ds (ds.length + mm) = _
+      unfold grpS
+      rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega]
+      rfl)
+    (fun n vs hn => grpSub_none (fun hm => by
+      obtain ⟨p, hp, hpn⟩ := List.mem_map.mp hm
+      obtain ⟨⟨mm, hmm, hpm⟩, -⟩ := hg.2.2 p hp
+      have : D.names.contains (D.member mm) = true := by
+        rw [List.contains_iff_mem]
+        unfold LfpDatum.member
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+        exact List.getElem_mem _
+      change D.names.contains n = false at hn
+      rw [← hpn, hpm, this] at hn
+      exact nomatch hn))
+    (fun i hi' => by
+      show grpS D us hi grp ds i = _
+      unfold grpS; rw [if_pos (show i < ds.length from hi')])
+    (fun i hi' => ⟨.sort .zero, by
+      show (canonParams ds.length)[i]? = _
+      simp [canonParams, List.getElem?_range (show i < ds.length from hi')]⟩) rfl
+    (fun i hi' => grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg i
+      (by simpa [canonCtx, hk] using hi'))
+    hcl hAw hocc hA (by
+      show denoteMeta _ env (Level.substFn φ cv.levelParams us) (ds.length + D.names.length) A = _
+      rw [hk, hlp]; exact hab)
+  simp only [canonCtx, hk] at hcrd
+  refine ⟨crest, ab, hcr, hmapF, ?_, hcrd⟩
+  rw [← hlenF, ← hmapF, List.length_map]
 
 end Frame
 
