@@ -95,14 +95,14 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts) (isRec : B
 /-! ## Stage 1b: the constructors -/
 
 /-- `checkBlockCtors` through the index. -/
-def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
+def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) (ctx : NestCtx) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe p.memberNames ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ctx ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
+    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p ctx rest
     pure (ctorsA :: restC, sortss :: restS)
 
 /-- `checkBlockPass` through the index. -/
@@ -110,7 +110,9 @@ def checkBlockPassF (ops : CheckerOps m) (fe : FEnv) (p₀ : BlockParts) (isRec 
     m (BlockPass FEnv × Bool) := do
   let (fe₁, cvTas, p₁) ← checkBlockIndsF ops fe p₀ isRec
   let pC := p₀.complete p₁
-  let (ctorsAs, sortsss) ← checkBlockCtorsF ops fe₁ fe₁ pC.toBlockShape
+  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas fe₁.find? fe₁.env.consts)
+    (.internal "direct rec: type former telescope")
+  let (ctorsAs, sortsss) ← checkBlockCtorsF ops fe₁ fe₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
   let kinds ← classifyBlockKinds pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
   let p := pC.withKinds kinds

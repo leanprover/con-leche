@@ -13,7 +13,7 @@ public section
 
 DESIGN DOCUMENT 2 §2.3/§2.4 needs, for a container `C` whose stored
 constructor type `E` is instantiated at the pins `Ds` (a syntactic
-substitution of `C`'s parameters) and then normalised (`normPosDom`)
+substitution of `C`'s parameters) and then normalised (the positivity function's normal form, `nestNormCtor`)
 and re-checked at the block's opened frame, that
 
 > the reading of the normalised copy at the frame equals the reading
@@ -485,12 +485,12 @@ theorem copyRead_transport
   exact ⟨Ro, hRo, fun ρ hρ => (hclaim ρ hρ).trans (hval ρ)⟩
 
 /-- `copyRead_transport` with leg (b) read off a **recorded `isDefEq`
-run** through `DefEqClaim` — the shape a `normCtorVal`-style record
+run** through `DefEqClaim` — the shape a `nestNormCtor`-style record
 would hand over if the normalisation stage recorded the comparison of
 the normalised domain against the declared one.  (It does not today:
-`normCtorVal` re-*checks* the rebuilt type and records no `isDefEq`;
+`nestNormCtor` re-*checks* the rebuilt type and records no `isDefEq`;
 see the lane P8 report.  The reduction's own `WhnfClaim` gives the
-same conclusion and is what a `normPosDom` inversion must produce.) -/
+same conclusion and is what an inversion of the normalisation must produce.) -/
 theorem copyRead_transport_defEq {μ : CheckMode} {m : EnvModel V env}
     {F : Nat} (hclaims : DefEqClaim μ m φ F)
     {Ds : List Expr} {E : Expr} {dss dso : List Expr} {rss rso : Expr}

@@ -184,34 +184,29 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
         rw [hp] at h0
         exact nomatch h0
 
-/-- The normalisation stage stores either the constructor as checked
-or a from-scratch check of the rebuilt constant — in both cases some
+/-- The normalisation stage (`nestNormCtor`, the positivity function's
+normal form) stores either the constructor as checked or a
+from-scratch check of the rebuilt constant — in both cases some
 constant with the declared name and level parameters (task #210 Part
 D). -/
-theorem normCtorVal_inv {env : Env} {names : List Name} {nP nF : Nat} {cvC cvCa₀ cvCa : ConstantVal}
+theorem nestNormCtor_inv {env : Env} {ctx : NestCtx} {nF : Nat} {cvC cvCa₀ cvCa : ConstantVal}
     {F : Nat} (h₀ : checkConstantVal (fueledOps mode F) env cvC = .ok cvCa₀)
-    (h : normCtorVal (fueledOps mode F) env names nP nF cvC cvCa₀ = .ok cvCa) :
+    (h : nestNormCtor (fueledOps mode F) env ctx nF cvC cvCa₀ = .ok cvCa) :
     ∃ ty', checkConstantVal (fueledOps mode F) env { cvC with type := ty' } = .ok cvCa := by
-  unfold normCtorVal at h
-  obtain ⟨q, hq, h⟩ := exceptBind_ok h
-  obtain ⟨cbs, _⟩ := q
-  try simp only at h
-  obtain ⟨r, hr, h⟩ := exceptBind_ok h
-  obtain ⟨fvsP, crest⟩ := r
-  try simp only at h
-  obtain ⟨u, hu, h⟩ := exceptBind_ok h
-  obtain ⟨fbs, resid⟩ := u
-  try simp only at h
+  unfold nestNormCtor at h
+  obtain ⟨holes, -, h⟩ := exceptBind_ok h
+  obtain ⟨q, -, h⟩ := exceptBind_ok h
+  obtain ⟨ty', -, h⟩ := exceptBind_ok h
   split at h
   · simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     exact ⟨cvC.type, h₀⟩
   · exact ⟨_, h⟩
 
-theorem checkSumCtor_shape {env₀ env : Env} {names : List Name} {T : Name} {lps : List Name}
+theorem checkSumCtor_shape {env₀ env : Env} {ctx : NestCtx} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
-    (h : checkSumCtor (fueledOps mode F) env₀ env names T lps nP nIdx resSort isProp large
+    (h : checkSumCtor (fueledOps mode F) env₀ env ctx T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
     (∃ ty', checkConstantVal (fueledOps mode F) env { cvC with type := ty' } = .ok cvCa) ∧
     (∃ cbs es, cvCa.type.stripPis (nP + nF)
@@ -233,7 +228,7 @@ theorem checkSumCtor_shape {env₀ env : Env} {names : List Name} {T : Name} {lp
   unfold checkSumCtor at h
   obtain ⟨cvCa₀, hccv₀, h⟩ := exceptBind_ok h
   obtain ⟨cvCa', hnorm, h⟩ := exceptBind_ok h
-  have hccv := normCtorVal_inv hccv₀ hnorm
+  have hccv := nestNormCtor_inv hccv₀ hnorm
   obtain ⟨q, hq, h⟩ := exceptBind_ok h
   obtain ⟨cbs, cbody⟩ := q
   have hq' := unwrapOr_ok hq
@@ -284,16 +279,16 @@ theorem checkSumCtor_shape {env₀ env : Env} {names : List Name} {T : Name} {lp
 
 /-- All constructors, positionally: the annotated list is as long as
 the input and every entry is its constructor's run. -/
-theorem checkSumCtors_inv {env₀ env : Env} {names : List Name} {T : Name} {lps : List Name}
+theorem checkSumCtors_inv {env₀ env : Env} {ctx : NestCtx} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat} :
     ∀ {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)},
-      checkSumCtors (fueledOps mode F) env₀ env names T lps nP nIdx resSort isProp large
+      checkSumCtors (fueledOps mode F) env₀ env ctx T lps nP nIdx resSort isProp large
         cvTa cs = .ok (ctorsA, sortss) →
       ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
       ∀ (j : Nat) (c cA : ConstantVal × Nat), cs[j]? = some c → ctorsA[j]? = some cA →
         cA.2 = c.2 ∧
         ∃ sorts, sortss[j]? = some sorts ∧
-        checkSumCtor (fueledOps mode F) env₀ env names T lps nP nIdx resSort isProp large
+        checkSumCtor (fueledOps mode F) env₀ env ctx T lps nP nIdx resSort isProp large
           c.1 c.2 cvTa = .ok (cA.1, sorts)
   | [], ctorsA, sortss, h => by
     simp only [checkSumCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h

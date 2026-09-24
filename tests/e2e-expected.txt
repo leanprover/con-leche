@@ -1582,7 +1582,9 @@
 # nesting through a constant outside it is not the uniform route's
 # (the recogniser refuses it), and the modeller declines.  TARGET: 1,
 # once the uniform route's nested arm is built.
-2 corner_pin_quot_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_pin_quot_bad.ndjson
 # `EFree : Prop | mk : @Eq Prop False False -> EFree`, accepted
 # accepted.
 0 corner_pin_eq_free.ndjson
@@ -1590,7 +1592,9 @@
 # both member occurrences are index arguments and official again finds
 # no nested occurrence and rejects.  Declines, as above (TARGET: 1,
 # with the nested arm).
-2 corner_pin_eq_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_pin_eq_bad.ndjson
 # -- an INDEXED container from a NON-parametric member,
 # `TVN | node : (n : Nat) -> VecC TVN n -> TVN`: the index is an
 # explicit field bound before the occurrence, where
@@ -1830,7 +1834,9 @@
 # being declared".
 0 corner_nestpos_neg_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_neg_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_neg_bad.ndjson
 # negdeep: a negative occurrence one container DEEPER: `NegD α | mk :
 # List (α → Nat) → NegD α`, nested at `NegD NegDT` (the instance `List
 # (NegDT → Nat)` is the negative one).  Official 1: "(kernel) arg #1 of
@@ -1838,14 +1844,18 @@
 # being declared".
 0 corner_nestpos_negdeep_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_negdeep_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_negdeep_bad.ndjson
 # idxty: a container whose INDEX TYPE depends on its parameter (`IdxC α
 # : Idx α → Type`), nested at `IdxC IdxT 0`: the auxiliary type former
 # `Idx IdxT → Type` is checked before the block exists (official (N2)).
 # Official 1: "(kernel) unknown constant 'IdxT'".
 0 corner_nestpos_idxty_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_idxty_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_idxty_bad.ndjson
 # idxval: a nested instance whose INDEX VALUE mentions the block: `IdxV
 # IdxVT (List.length [h])` with `h : IdxVT` an earlier field
 # (`is_valid_ind_app` on the auxiliary application: an index with a
@@ -1853,26 +1863,34 @@
 # contains a non valid occurrence of the datatypes being declared".
 0 corner_nestpos_idxval_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_idxval_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_idxval_bad.ndjson
 # sort: a MIXED-SORT nested block: the `Type` block `SortT` through the
 # `Prop` container `Nonempty`.  Official 1: "(kernel) mutually inductive
 # types must live in the same universe".
 0 corner_nestpos_sort_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_sort_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_sort_bad.ndjson
 # sortprop: a MIXED-SORT nested block the other way: the `Prop` block
 # `SortP` through the `Type` container `PLift`.  Official 1: "(kernel)
 # mutually inductive types must live in the same universe".
 0 corner_nestpos_sortprop_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_sortprop_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_sortprop_bad.ndjson
 # local: a container PARAMETER that mentions a field: `Prod LocT (Fin
 # n)` with `n` the constructor's own field.  Official 1: "(kernel)
 # invalid nested inductive datatype 'Prod', nested inductive datatypes
 # parameters cannot contain local variables.".
 0 corner_nestpos_local_free.ndjson
 # TARGET 1 (the shadow rejects with official's reason).
-2 corner_nestpos_local_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_local_bad.ndjson
 # redex: a container reached only by REDUCTION: `FL RedT` with `FL α :=
 # List α` — official locates nested instances syntactically, before any
 # `whnf`, so `FL` is no container and the reduct `List RedT` is a non-
@@ -1911,14 +1929,20 @@
 # eqret: `@Eq Prop (PEq p) True`.  Official 1: "(kernel) invalid return
 # type for '_nested.Eq_1.refl'".
 0 corner_nestpos_eqret_free.ndjson
-2 corner_nestpos_eqret_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqret_bad.ndjson
 # eqidx: `@Eq Prop PEqI PEqI`.  Official 1: "non valid occurrence".
 0 corner_nestpos_eqidx_free.ndjson
-2 corner_nestpos_eqidx_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqidx_bad.ndjson
 # eqlocal: `(h : PEqL) → @Eq PEqL h h`.  Official 1: "nested inductive
 # datatypes parameters cannot contain local variables".
 0 corner_nestpos_eqlocal_free.ndjson
-2 corner_nestpos_eqlocal_bad.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqlocal_bad.ndjson
 # ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
 # cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
 # cannot export a family it does not generate).  Each row is TODAY's

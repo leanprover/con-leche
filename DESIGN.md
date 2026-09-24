@@ -85951,3 +85951,55 @@ axioms.  The import cleanup (26 imports removed, 30 demoted, 61
 allowlist lines, 1 FALLBACK: `FixRecRead` keeps `public import
 Verify.Inductives.FixRec`, `Unknown constant Expr.shiftFromN`) and the
 cached bridge were sub-lanes of this session.
+
+#### LANDED (lane HOLE2, checkpoint (d) part K: the stored constructor is the positivity function's normal form, 2026-09-24)
+
+NESTPLAN L1 item (ii)/brief item 3.  Charter item 3 ("ONE positivity
+function in the kernel"): the separate normalisation walk is gone.
+
+- **Deleted**: `normPosDom`, `normFieldDoms`, `normCtorVal` (kernel),
+  `normCtorValF`, their `_datF`/`S_sim`/`_name`/`_inv` lemmas.
+- **The constructor stage normalises through `nestPos`**:
+  `nestNormCtor` (`Kernel/Inductives/Positivity.lean`) runs
+  `nestMemberCtors` — the walk `nestedBlockPositivity` runs per
+  constructor — on the annotated constructor and, when the normal form
+  differs, re-checks the rebuilt type from scratch (`checkConstantVal`),
+  exactly `normCtorVal`'s arrangement.  `checkSumCtor(s)` take the
+  block's positivity context `ctx : NestCtx` in place of the member-name
+  list; the pass builds it (`blockNestCtxOf`: head former's opened
+  telescope, the formers' environment's lookup); `DeclBlockRun` conjunct
+  2 is `∃ ctx, blockNestCtxOf … = some ctx ∧ checkBlockCtors … ctx …`.
+  Cached twin `nestNormCtorF`, simulation `nestNormCtorS_sim` (over
+  `nestMemberCtorsS_sim`), `checkBlockCtorsS_sim` takes the context's
+  scoping (`blockNestCtxOf_ok`).  The inversion `nestNormCtor_inv` has
+  `normCtorVal_inv`'s statement, so no model proof changed in content
+  (statements: `names` → `ctx`, mechanically).
+- **Finding — not the ONE-run reorder of NESTPLAN (ii).**  Running the
+  walk once on the DECLARED constructors in the pass and storing its
+  normals leaves the model without a positivity fact about the STORED
+  type whenever the normal form differs: the stored type is
+  `checkConstantVal`'s output, `annotate(normal)`, and nothing relates
+  it to the walk's output — syntactically (annotate's structure is not
+  tracked) nor semantically (it needs whnf- and annotate-soundness
+  transfers field by field).  Routes to one run, for the maintainer:
+  (a) decline when `annotate(normal) ≠ normal` (measure first) and read
+  positivity SYNTACTICALLY off the stored type (the walk's output class:
+  hole-free / Π with hole-free domain / a hole at the parameters with
+  hole-free indices — no whnf in the proof); (b) no re-check, the stored
+  form typed by U2 alone (concrete typing by the override law, holes :=
+  formers).  Today the normaliser and the tail's walk (the proof's run)
+  are the same function run twice — as `normPosDom` + `nestPos` were.
+- **Verdicts: 12 e2e rows move 2 → 1, each to its recorded TARGET**
+  (`corner_pin_quot_bad`, `corner_pin_eq_bad`, `corner_nestpos_{neg,
+  negdeep,idxty,idxval,sort,sortprop,local,eqret,eqidx,eqlocal}_bad`):
+  a block with a non-positive / non-valid occurrence reached only
+  through a container used to be declined by the classifier (nested
+  occurrence, not modelled) before the walk ran; the walk now runs in the
+  constructor stage and rejects with official's reason.  The
+  target-shadow pins move on 18 rows (these 12 plus 6 `direct_fix_*_bad`/
+  `corner_mutual_redex_other_neg_bad` whose exit stays 1: the install
+  now rejects in the pass, before the shadow's classifier/positivity
+  columns run — `skip`).  Arena 90/92, nested-shadow 82/82, annot 15/15,
+  trusted and `--jobs` sweeps unchanged.
+- The model rewrite (brief items 1, 2, 4) is planned step by step in
+  `_tmp/uniform-inds/HOLE2.md` ("The model rewrite").

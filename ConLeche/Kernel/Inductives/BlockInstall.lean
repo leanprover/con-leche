@@ -190,17 +190,38 @@ def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts) (isRec : Bo
 
 /-! ## Stage 1b: the constructors -/
 
+/-- **The block's positivity context** at the canonical parameter
+variables `fvsP` (the head former's opened telescope) and an
+environment's lookup: the members, their level parameters, the shared
+parameter count, the members' index counts and the block's sort. -/
+def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
+    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) : NestCtx :=
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, consts⟩
+
+/-- The block's positivity context at the head former's opened
+telescope (`none` only at a block without a former, or a former whose
+telescope does not open — neither survives stage 1). -/
+def blockNestCtxOf (p : BlockShape) (cvTas : List ConstantVal)
+    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) : Option NestCtx :=
+  match cvTas.head? with
+  | some cvTa0 =>
+    match openPisAtFvars p.nP cvTa0.type 0 with
+    | some (fvsP, _) => some (p.nestCtx fvsP find? consts)
+    | none => none
+  | none => none
+
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
-the one-member stage does). -/
-def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
+the one-member stage does), each normalised by the positivity function
+at the block's context `ctx` (`nestNormCtor`). -/
+def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) (ctx : NestCtx) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtors ops env₀ env p.memberNames ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ctx ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtors ops env₀ env p rest
+    let (restC, restS) ← checkBlockCtors ops env₀ env p ctx rest
     pure (ctorsA :: restC, sortss :: restS)
 
 /-- **The fields' kinds, classified at install** on the stored
@@ -247,7 +268,9 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
     m (BlockPass Env × Bool) := do
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
+  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas env₁.find? env₁.consts)
+    (.internal "direct rec: type former telescope")
+  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
   let kinds ← classifyBlockKinds pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
   let p := pC.withKinds kinds

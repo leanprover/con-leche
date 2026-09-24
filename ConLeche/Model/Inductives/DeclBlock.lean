@@ -261,7 +261,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     Nonempty (EnvModelM V μ env₂) := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, isorts, rs,
-    hInd, hp, hCtors, hK, -, -, hsorts, hFOk, hPos, hRec, hTbl⟩ := hrun
+    hInd, hp, ⟨nctx, -, hCtors⟩, hK, -, -, hsorts, hFOk, hPos, hRec, hTbl⟩ := hrun
   subst hp
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   obtain ⟨hshape, -, -⟩ := ConLeche.blockParts?_inv hdp

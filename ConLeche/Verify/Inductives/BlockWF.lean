@@ -182,7 +182,8 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     {q : BlockShape} {l : List (MemberShape × ConstantVal)}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {nP F : Nat}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok (ctorsAs, sortsss)) :
+    {ctx : NestCtx}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q ctx l = .ok (ctorsAs, sortsss)) :
     EnvWF (consBlockCtors nP ctorsAs env₁) := by
   obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
   refine envWF_consBlockCtors henv ?_

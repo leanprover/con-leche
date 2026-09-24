@@ -59,9 +59,11 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     checkBlockInds (m := ConLeche.CheckM) (fueledOps μ F) env p₀ isRec
       = .ok (env₁, cvTas, p₁) ∧
     p = (p₀.complete p₁).withKinds kinds ∧
-    -- 2  the constructors, per member, at the environment holding all k formers
-    checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape
-      (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
+    -- 2  the constructors, per member, at the environment holding all k formers,
+    --    each stored in the positivity function's normal form (`nestNormCtor`)
+    (∃ ctx, ConLeche.blockNestCtxOf p.toBlockShape cvTas env₁.find? env₁.consts = some ctx ∧
+      checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape ctx
+        (p.members.zip cvTas) = .ok (ctorsAs, sortsss)) ∧
     -- 3  the kinds, classified against the WHOLE member list (the targets)
     classifyBlockKinds (m := ConLeche.CheckM) p.memberNames p.lps p.nP p.nIdxs ctorsAs
       = .ok kinds ∧
