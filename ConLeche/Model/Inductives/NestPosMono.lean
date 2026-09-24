@@ -5,6 +5,7 @@ public import ConLeche.Semantics.Inductives.HoleMono
 import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.CtxOkP
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Annot.BitLemmas
@@ -377,7 +378,7 @@ the run may hit without walking is positive). -/
     rec prog dep kb e st = .ok (k, nf, st') → P k → st'.restart = none →
     ctx.hiAt prog.length ≤ dep → Frame dep e → I st →
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
-      CtxOk m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
+      CtxOkP m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
       HoleRel m φ ctx prog dep Δa R → MonoOn R ea ∧ I st'
 
 /-- **The container case**, as the premise the theorem takes: a
@@ -394,7 +395,7 @@ positive makes the reduct's reading positive. -/
     P k → st'.restart = none →
     ctx.hiAt prog.length ≤ dep → Frame dep w → I st →
     ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
-      CtxOk m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
+      CtxOkP m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
       HoleRel m φ ctx prog dep Δa R → MonoOn R wa ∧ I st'
 
 /-- **THE THEOREM (non-container cases): a run of `nestPos` is positive.**
@@ -425,8 +426,8 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       have hw' : (fueledOps .verified F).whnf env dep e = .ok w := hw
       simp only [hw', bind, Except.bind] at hrun
       obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
-        red_sound hin (ConLeche.Rules.whnf_bridge hw) hfr hC hea hgr
-      have hCw : CtxOk m φ dep Δa w := hC.of_subset hsub
+        red_sound hin (ConLeche.Rules.whnf_bridge hw) hfr hC.toCtxOk hea hgr
+      have hCw : CtxOkP m φ dep Δa w := hC.of_subset hsub
       suffices hw2 : MonoOn R wa ∧ I st' from
         ⟨MonoOn.of_eqOn (Q := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hw2.1, hw2.2⟩
       by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
@@ -452,7 +453,7 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
         have hA : ConstOn R ta := ConstOn.of_noBVar hR.agree
           (denoteMeta_noBVar_of_nestOcc dep a hws.1 hhi (by simpa using ha) hta)
         obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgw
-        have hCop := CtxOk.openS hCw.forallE_ty hCw.forallE_body hta hgA
+        have hCop := CtxOkP.openS hCw.forallE_ty hCw.forallE_body hta hgA
         split at hrun
         · simp at hrun
         rename_i v hv
@@ -581,7 +582,7 @@ theorem nestFields_sem
       st'.restart = none → D = base + j + nF →
       ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur → I st →
       ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
-        CtxOk m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
+        CtxOkP m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
         Graded V Δa ca → HoleRel m φ ctx prog (base + j) Δa R →
         PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca ∧ I st' := by
   intro nF
@@ -627,7 +628,7 @@ theorem nestFields_sem
             hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ (hks k₁ List.mem_cons_self) hc₁ hhi
               ⟨hws.1, hb.1, hLa⟩ hI
               hC.forallE_ty hta hgA hR
-          have hCop := CtxOk.openS hC.forallE_ty hC.forallE_body hta hgA
+          have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgA
           have hfr' := frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd
           rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
           obtain ⟨hrest, hI₂⟩ := ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ D hr₂
@@ -669,7 +670,7 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     (hks : ∀ k ∈ ks, P k)
     (hfr : Frame (ctx.hiAt 0) crest) (hI : I st)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
+    (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
     (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
     PiPosThen (ResultIdxConst ctx.nP) nF R ca ∧ I st' := by
@@ -809,7 +810,7 @@ theorem nestMemberCtor_sem_flat (hin : RulesInputs V m φ) (ctx : NestCtx) (F : 
     (hks : ∀ k ∈ ks, k.flat = true)
     (hfr : Frame (ctx.hiAt 0) crest)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
+    (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
     (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
     PiPosThen (ResultIdxConst ctx.nP) nF R ca :=
