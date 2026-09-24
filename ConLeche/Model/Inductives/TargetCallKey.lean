@@ -144,6 +144,198 @@ theorem denoteMetaSpine_of_reads {acval : Name → (Name → Nat) → AnnotTerm}
     obtain ⟨vs, hvs⟩ := denoteMetaSpine_of_reads es fun e' he' => h e' (List.mem_cons_of_mem _ he')
     exact ⟨a :: vs, .cons ha hvs⟩
 
+set_option maxHeartbeats 4000000 in
+/-- **A target rule's call arguments** (`p⃗ ++ e⃗ ++ [f a⃗]` of one `ih`
+key `r`): their leaves are the frame's, they are bounded by the key's
+telescope, and — read along any locals list `n` slots above the frame
+and evaluated at a telescope spine `bs` past `n` extra values — they are
+the rule's prefix, the key's index readings and its applied field. -/
+theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
+    {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} {rc : ConLeche.RecShape}
+    {cA : ConstantVal × Nat} {M : TargetMajor} {rhs0 rhs : Expr}
+    {Q : ConLeche.TargetRuleRun μ F
+      (ConLeche.consBlockRecsBareF pp.toBlockShape 0
+        ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r0.1 rc.rP r0.1.type M cA rhs0 rhs}
+    (hle : ∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
+      ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0)
+    (hbf : Q.body.hasFvar = false)
+    (hFr : FvarList (rc.rP + cA.2) (Q.fvsPref ++ Q.fvsF).reverse)
+    (hher : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF)
+    (hB : tgtB pp.toBlockShape (tgtRs out) c j = rc.rP + cA.2)
+    (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+          Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+            pp.toBlockShape.large)))
+    {r : Nat} {ih : ConLeche.TargetIh} (hihMem : ih ∈ Q.ihs.toList)
+    (hih : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r default
+      = ih)
+    {m : Nat} (hm : ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = m) :
+    (∀ a ∈ Q.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
+      ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF) ∧
+    (∀ a ∈ Q.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
+      a.looseBVarsBounded m = true) ∧
+    ∀ (n : Nat) (ex xs fs bs : List V) (ρ : Nat → V) (osL : List Expr) (ws : List AnnotTerm),
+      ex.length = n → bs.length = m → xs.length = rc.rP → fs.length = cA.2 →
+      LocList (rc.rP + cA.2 + n) m osL →
+      DenoteMetaSpine mT.acval fe.env ψ (rc.rP + cA.2 + n + m)
+        ((Q.fvsPref ++ ih.idx ++
+          [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)]).map
+            (·.instantiateList osL 0)) ws →
+      ws.map (interp V (consList bs (consList ex (consList (xs ++ fs) ρ))))
+        = xs ++ ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval
+              fe.env ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))
+          ++ [interp V (consList bs (consList (xs ++ fs) ρ))
+            (tgtFapA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+              ψ c j r)]) := by
+  have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mT.acval n ψ').liftN m k = mT.acval n ψ' :=
+    fun n ψ' m k => liftN_eq_self_of_closed (mT.cval_closedL n ψ') k m
+  obtain ⟨C⟩ := Q.call hihMem
+  have hlp : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
+  have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
+  have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
+  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
+    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
+        rc.rP Q.fvsPref Q.fvsF Q.fnorm
+        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
+        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
+    · simp at h0
+    · intro x hx l hl
+      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
+      exact hframeL y (List.mem_reverse.mp hy) l hly
+  obtain ⟨-, -, hidxB⟩ : ih.idx.length + rc.rP
+        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
+      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
+      ∀ x ∈ ih.idx, x.looseBVarsBounded
+        ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = true := by
+    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
+        rc.rP Q.fvsPref Q.fvsF Q.fnorm
+        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
+        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
+    · simp at h0
+    · exact h0
+  rw [hm] at hidxB
+  -- the field
+  have hfi : ih.field < cA.2 := by
+    refine Nat.lt_of_not_le fun hge => ?_
+    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+    have h0 := C.hfld
+    rw [hg] at h0
+    exact inferTypeCore_bvar_absurd' h0
+  have hfvF : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
+    have hlt : rc.rP + ih.field < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
+    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + ih.field) _
+      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
+    refine ⟨ty, ?_⟩
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    rw [List.getElem_append_right (by omega)] at hty
+    simpa [hlp] using hty
+  obtain ⟨fty, hfty⟩ := hfvF
+  have hfmem : Q.fvsF.getD ih.field default ∈ Q.fvsPref ++ Q.fvsF := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    exact List.mem_append_right _ (List.getElem_mem _)
+  -- (i) the leaves
+  have hargsL : ∀ a ∈ Q.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
+      ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
+    intro a ha l hl
+    simp only [List.mem_append, List.mem_singleton] at ha
+    rcases ha with (ha | ha) | rfl
+    · exact hframeL a (List.mem_append_left _ ha) l hl
+    · exact hidxL a ha l hl
+    · rcases ConLeche.fvarLeaves_mkAppN hl with h1 | ⟨y, hy, h1⟩
+      · exact hframeL _ hfmem l h1
+      · rw [ConLeche.structTeleVars_fvarLeaves _ y hy] at h1; exact nomatch h1
+  refine ⟨hargsL, ?_, ?_⟩
+  -- (ii) the bound
+  · intro a ha
+    simp only [List.mem_append, List.mem_singleton] at ha
+    rcases ha with (ha | ha) | rfl
+    · obtain ⟨i, ty, rfl⟩ := hFr.mem_fvar (List.mem_reverse.mpr (List.mem_append_left _ ha)); rfl
+    · exact hidxB a ha
+    · refine ConLeche.looseBVarsBounded_mkAppN (by rw [hfty]; rfl) fun x hx => ?_
+      obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hx
+      simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
+      have := List.mem_range.mp hk
+      omega
+  -- (iii) the values
+  intro n ex xs fs bs ρ osL ws hexl hbl hxl hfsl hosL hwsL
+  have hargsLt : ∀ a ∈ Q.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
+      ∀ l ∈ a.fvarLeaves, l.1 < rc.rP + cA.2 := fun a ha =>
+    leaf_lt_of_mem hFr (fun l hl => List.mem_reverse.mpr (hargsL a ha l hl))
+  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) := by
+    intro i hi
+    have hlt : i < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
+    obtain ⟨ty, hty⟩ := hFr.reverse_idx i _
+      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
+    refine ⟨ty, ?_⟩
+    rw [List.getElem?_eq_getElem (by omega), ← hty, List.getElem_append_left]
+  have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
+  have hTel : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).teles
+      = Q.fnorm.map fun t => t.piBinders.1 := by rw [hFrEq]; rfl
+  have hFF' : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).fields
+      = Q.fvsF := congrArg (·.fields) hFrEq
+  -- one opened argument has one value at both depths
+  have hre : ∀ t ∈ Q.fvsPref ++ ih.idx ++
+      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
+      interp V (consList bs (consList ex (consList (xs ++ fs) ρ)))
+          ((denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + n + m)
+            (t.instantiateList osL 0)).getD default)
+        = interp V (consList bs (consList (xs ++ fs) ρ))
+          ((denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + m)
+            (t.instantiateList (locOpen (rc.rP + cA.2) m) 0)).getD default) := by
+    intro t ht
+    obtain ⟨v1, hv1⟩ := spine_reads (mT := mT) hwsL _ (List.mem_map_of_mem ht)
+    have hd := denoteMeta_open_deepen (acval := mT.acval) (env := fe.env) (φ := ψ)
+      hacl n (rc.rP + cA.2) t m (locOpen (rc.rP + cA.2) m) osL (hargsLt t ht)
+      (locOpen_locList _ _) hosL
+    rw [hv1] at hd
+    cases h0 : denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + m)
+        (t.instantiateList (locOpen (rc.rP + cA.2) m) 0) with
+    | none => rw [h0] at hd; exact nomatch hd
+    | some A0 =>
+      rw [hv1, Option.getD_some, Option.getD_some]
+      have := interp_open_indep (V := V) (acval := mT.acval) (env := fe.env) (φ := ψ)
+        hacl (hargsLt t ht) hosL (show LocList (rc.rP + cA.2 + 0) m (locOpen (rc.rP + cA.2) m)
+          from locOpen_locList _ _) hbl (ex1 := ex) (ex2 := []) hexl rfl
+        (ρ' := consList (xs ++ fs) ρ) hv1 h0
+      simpa using this
+  rw [spine_map_getD (mT := mT) hwsL]
+  simp only [List.map_append, List.map_map, List.map_cons, List.map_nil, List.append_assoc]
+  symm
+  congr 1
+  · apply List.ext_getElem (by simp [hlp, hxl])
+    intro i h1 h2
+    obtain ⟨ty, hty⟩ := hfvPref i (by omega)
+    symm
+    rw [List.getElem_map]
+    rw [List.getElem?_eq_getElem (by rw [hlp]; omega)] at hty
+    rw [Option.some.inj hty]
+    simp only [Function.comp, Expr.instantiateList, denoteMeta_fvar, Option.getD_some]
+    rw [← consList_append,
+      show rc.rP + cA.2 + n + m - 1 - i = rc.rP + cA.2 + (ex ++ bs).length - 1 - i from by
+        simp [hbl, hexl]; omega,
+      interp_frame_fvar hlenS rfl (by omega), List.getD_eq_getElem?_getD,
+      List.getElem?_append_left (by omega), List.getElem?_eq_getElem (by omega),
+      Option.getD_some]
+  · congr 1
+    · simp only [tgtEisA, tgtTeleTys]
+      rw [hih, hTel, hB, List.length_map, hm, List.map_map]
+      apply List.map_congr_left
+      intro x hx
+      exact (hre x (by simp [hx])).symm
+    · simp only [tgtFapA, tgtTeleTys]
+      rw [hih, hTel, hB, hFF', List.length_map, hm]
+      exact congrArg (·::[]) (hre _ (by simp)).symm
+
 set_option maxHeartbeats 8000000 in
 /-- **One `ih` key of a target rule, read.** -/
 theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
@@ -230,19 +422,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
-  have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
-    · simp at h0
-    · intro x hx l hl
-      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-      exact hframeL y (List.mem_reverse.mp hy) l hly
-  obtain ⟨hidxLen, hrPc, hidxB⟩ : ih.idx.length + rc.rP
+  obtain ⟨hidxLen, hrPc, -⟩ : ih.idx.length + rc.rP
         = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
       (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
       ∀ x ∈ ih.idx, x.looseBVarsBounded
@@ -360,38 +540,9 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
       rw [List.length_map, List.length_map, hmT] at this
       exact this
     rw [hbs.length_eq, hTL, List.length_map, List.length_map, List.length_map, hdl]
-  -- the field
-  have hfi : ih.field < cA.2 := by
-    refine Nat.lt_of_not_le fun hge => ?_
-    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    have h0 := C.hfld
-    rw [hg] at h0
-    exact inferTypeCore_bvar_absurd' h0
-  have hfvF : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
-    have hlt : rc.rP + ih.field < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + ih.field) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-    rw [List.getElem_append_right (by omega)] at hty
-    simpa [hlp] using hty
-  obtain ⟨fty, hfty⟩ := hfvF
-  have hfmem : Q.fvsF.getD ih.field default ∈ Q.fvsPref ++ Q.fvsF := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-    exact List.mem_append_right _ (List.getElem_mem _)
   -- the call's arguments
-  have hargsL : ∀ a ∈ Q.fvsPref ++ ih.idx ++
-      [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
-      ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    intro a ha l hl
-    simp only [List.mem_append, List.mem_singleton] at ha
-    rcases ha with (ha | ha) | rfl
-    · exact hframeL a (List.mem_append_left _ ha) l hl
-    · exact hidxL a ha l hl
-    · rcases ConLeche.fvarLeaves_mkAppN hl with h1 | ⟨y, hy, h1⟩
-      · exact hframeL _ hfmem l h1
-      · rw [ConLeche.structTeleVars_fvarLeaves _ y hy] at h1; exact nomatch h1
+  obtain ⟨hargsL, hargsB', hvalsAt⟩ :=
+    tgtCallArgs_run mpC.base2 ψ hle hbf hFr hher hB hFrEq hihMem hih hmdef
   have hargsLt : ∀ a ∈ Q.fvsPref ++ ih.idx ++
       [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
       ∀ l ∈ a.fvarLeaves, l.1 < rc.rP + cA.2 := fun a ha =>
@@ -399,17 +550,8 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   have hargsB : ∀ a ∈ Q.fvsPref ++ ih.idx ++
       [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
       a.looseBVarsBounded (locOpen (rc.rP + cA.2) m).length = true := by
-    intro a ha
     rw [show (locOpen (rc.rP + cA.2) m).length = m by simp [locOpen]]
-    simp only [List.mem_append, List.mem_singleton] at ha
-    rcases ha with (ha | ha) | rfl
-    · obtain ⟨i, ty, rfl⟩ := hFr.mem_fvar (List.mem_reverse.mpr (List.mem_append_left _ ha)); rfl
-    · exact hidxB a ha
-    · refine ConLeche.looseBVarsBounded_mkAppN (by rw [hfty]; rfl) fun x hx => ?_
-      obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hx
-      simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
-      have := List.mem_range.mp hk
-      omega
+    exact hargsB'
   have hlocAll : AllFvars (locOpen (rc.rP + cA.2) m) := (locOpen_locList _ _).allFvars
   have hloccl : ∀ o ∈ locOpen (rc.rP + cA.2) m, o.looseBVarsBounded 0 = true := by
     intro o ho; obtain ⟨i, ty, rfl⟩ := hlocAll o ho; rfl
@@ -506,54 +648,14 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     omega
   rw [interp_peelPis_mkPisAV hvsl hpeel]
   -- (g) the spine's values: the prefix, the index readings and the applied field
-  have hFF' : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
-      (tgtRs out) c j).fields = Q.fvsF := congrArg (·.fields) hFrEq
-  have hEis : (tgtEisA μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
-        (tgtRs out) mpC.base2.acval fe.env ψ c j r).map
-        (interp V (consList bs (consList (xs ++ fs) ρ)))
-      = ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
-          ((denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + m)
-            (x.instantiateList (locOpen (rc.rP + cA.2) m) 0)).getD default)) := by
-    simp only [tgtEisA, tgtTeleTys]
-    rw [hih, hTel, hB, List.length_map, hmdef, List.map_map]
-    rfl
-  have hFap : interp V (consList bs (consList (xs ++ fs) ρ))
-        (tgtFapA μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type)) (tgtRs out)
-          mpC.base2.acval fe.env ψ c j r)
-      = interp V (consList bs (consList (xs ++ fs) ρ))
-          ((denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + m)
-            ((Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)).instantiateList
-              (locOpen (rc.rP + cA.2) m) 0)).getD default) := by
-    simp only [tgtFapA, tgtTeleTys]
-    rw [hih, hTel, hB, hFF', List.length_map, hmdef]
-  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) := by
-    intro i hi
-    have hlt : i < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx i _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega), ← hty, List.getElem_append_left]
   have hvals : vs.map (interp V (consList bs (consList (xs ++ fs) ρ)))
       = xs ++ ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
           (tgtRs out) mpC.base2.acval fe.env ψ c j r).map
             (interp V (consList bs (consList (xs ++ fs) ρ)))
         ++ [interp V (consList bs (consList (xs ++ fs) ρ))
           (tgtFapA μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
-            (tgtRs out) mpC.base2.acval fe.env ψ c j r)]) := by
-    rw [spine_map_getD (mT := mpC.base2) hvs, hEis, hFap]
-    simp only [List.map_append, List.map_map, List.map_cons, List.map_nil, List.append_assoc]
-    congr 1
-    apply List.ext_getElem (by simp [hlp, hxl])
-    intro i h1 h2
-    simp only [List.length_map] at h1
-    obtain ⟨ty, hty⟩ := hfvPref i (by omega)
-    simp only [List.getElem_map, Function.comp]
-    rw [List.getElem?_eq_getElem h1] at hty
-    rw [Option.some.inj hty]
-    simp only [Expr.instantiateList, denoteMeta_fvar, Option.getD_some]
-    rw [show rc.rP + cA.2 + m - 1 - i = rc.rP + cA.2 + bs.length - 1 - i from by rw [hbl],
-      interp_frame_fvar hlenS rfl (by omega), List.getD_eq_getElem?_getD,
-      List.getElem?_append_left (by omega), List.getElem?_eq_getElem (by omega), Option.getD_some]
+            (tgtRs out) mpC.base2.acval fe.env ψ c j r)]) :=
+    hvalsAt 0 [] xs fs bs ρ _ vs rfl hbl hxl hfsl (locOpen_locList _ _) hvs
   -- (h) the conclusion reads below the spine
   rw [hvals]
   have hconclB := (checkBlockRecK_tyBounds hμ mpC h hr1 ψ).2

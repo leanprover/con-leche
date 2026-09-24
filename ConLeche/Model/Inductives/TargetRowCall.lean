@@ -12,8 +12,6 @@ import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Model.Inductives.TargetCallGen
-import ConLeche.Verify.Inductives.RecCheckScope
 
 public section
 
@@ -554,119 +552,26 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     show app (graph r _) _ = _
     rw [app_graph (mem_blockGraphPred.mpr ⟨hU, hcall⟩), hfold ih.callee hcal _ _ hxl1 hspC]
     -- the λ's body: the callee variable along the call spine
-    have hlp : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
-    have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
-    have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-    have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-      rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-          rc.rP Q.fvsPref Q.fvsF Q.fnorm
-          (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-          (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
-      · simp at h0
-      · intro x hx l hl
-        obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-        exact hframeL y (List.mem_reverse.mp hy) l hly
-    have hfi : ih.field < cA.2 := by
-      refine Nat.lt_of_not_le fun hge => ?_
-      have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-      have h0 := C.hfld
-      rw [hg] at h0
-      exact inferTypeCore_bvar_absurd' h0
-    have hfmem : Q.fvsF.getD ih.field default ∈ Q.fvsPref ++ Q.fvsF := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-      exact List.mem_append_right _ (List.getElem_mem _)
-    have hidxLt : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, l.1 < rc.rP + cA.2 := fun x hx =>
-      leaf_lt_of_mem hFr (fun l hl => List.mem_reverse.mpr (hidxL x hx l hl))
-    have hfapLt : ∀ l ∈ (Expr.mkAppN (Q.fvsF.getD ih.field default)
-        (ConLeche.structTeleVars m)).fvarLeaves, l.1 < rc.rP + cA.2 := by
-      refine leaf_lt_of_mem hFr (fun l hl => List.mem_reverse.mpr ?_)
-      rcases ConLeche.fvarLeaves_mkAppN hl with h1 | ⟨y, hy, h1⟩
-      · exact hframeL _ hfmem l h1
-      · rw [ConLeche.structTeleVars_fvarLeaves _ y hy] at h1; exact nomatch h1
-    have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) := by
-      intro i hi
-      have hlt : i < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-      obtain ⟨ty, hty⟩ := hFr.reverse_idx i _
-        (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-      refine ⟨ty, ?_⟩
-      rw [List.getElem?_eq_getElem (by omega), ← hty, List.getElem_append_left]
     have hbl : bs.length = m := by
       rw [hbs.length_eq, hTLq, List.length_map, List.length_map, htsl, ← hmdef]
       have := congrArg List.length hbitsL
       simpa using this
     have hxl : xs.length = rc.rP := by rw [hxsc, hrP]
-    have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
-    have hFF' : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
-        (tgtRs out) c j).fields = Q.fvsF := congrArg (·.fields) hFrEq
-    -- one opened argument, read at both depths, has one value
-    have hre : ∀ t : Expr, (∀ l ∈ t.fvarLeaves, l.1 < rc.rP + cA.2) →
-        (∃ v, denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + 1 + m)
-          (t.instantiateList osL 0) = some v) →
-        interp V (consList bs (cons (a ih.callee) (consList (xs ++ fs) ρ)))
-            ((denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + 1 + m)
-              (t.instantiateList osL 0)).getD default)
-          = interp V (consList bs (consList (xs ++ fs) ρ))
-            ((denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + m)
-              (t.instantiateList (locOpen (rc.rP + cA.2) m) 0)).getD default) := by
-      intro t hl ⟨v1, hv1⟩
-      have hd := denoteMeta_open_deepen (acval := mpC.base2.acval) (env := fe.env) (φ := ψ)
-        hacl 1 (rc.rP + cA.2) t m (locOpen (rc.rP + cA.2) m) osL hl (locOpen_locList _ _) hosL
-      rw [hv1] at hd
-      cases h0 : denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + m)
-          (t.instantiateList (locOpen (rc.rP + cA.2) m) 0) with
-      | none => rw [h0] at hd; exact nomatch hd
-      | some A0 =>
-        rw [hv1, Option.getD_some, Option.getD_some]
-        have := interp_open_indep (V := V) (acval := mpC.base2.acval) (env := fe.env) (φ := ψ)
-          hacl hl hosL (show LocList (rc.rP + cA.2 + 0) m (locOpen (rc.rP + cA.2) m) from
-            locOpen_locList _ _) hbl (ex1 := [a ih.callee]) (ex2 := []) rfl rfl
-          (ρ' := consList (xs ++ fs) ρ) hv1 h0
-        simpa using this
     rw [instantiateList_mkAppN] at hbodyL
     simp only [Expr.instantiateList] at hbodyL
     obtain ⟨fa, wsL, hfa, hwsL, rfl⟩ := denoteMeta_mkAppN_inv hbodyL
     rw [denoteMeta_fvar] at hfa
     obtain rfl := Option.some.inj hfa
-    rw [interp_mkAppN_foldl, spine_map_getD (mT := mpC.base2) hwsL]
+    have hvals := (tgtCallArgs_run mpC.base2 ψ hle hbf hFr hher hB hFrEq hihMem hihq
+      hmdef).2.2 1 [a ih.callee] xs fs bs ρ osL wsL rfl hbl hxl hfsl hosL hwsL
+    rw [interp_mkAppN_foldl]
     have hhead : interp V (consList bs (cons (a ih.callee) (consList (xs ++ fs) ρ)))
         (.bvar (rc.rP + cA.2 + 1 + m - 1 - (rc.rP + cA.2))) = a ih.callee := by
       rw [interp_bvar, show rc.rP + cA.2 + 1 + m - 1 - (rc.rP + cA.2) = 0 + bs.length from by
         rw [hbl]; omega, consList_apply_add]
       rfl
     rw [hhead]
-    congr 1
-    simp only [List.map_append, List.map_map, List.map_cons, List.map_nil, List.append_assoc]
-    congr 1
-    · apply List.ext_getElem (by simp [hlp, hxl])
-      intro i h1 h2
-      obtain ⟨ty, hty⟩ := hfvPref i (by omega)
-      rw [List.getElem_map]
-      rw [List.getElem?_eq_getElem (by rw [hlp]; omega)] at hty
-      rw [Option.some.inj hty]
-      simp only [Function.comp, Expr.instantiateList, denoteMeta_fvar, Option.getD_some]
-      have hc1 : cons (a ih.callee) (consList (xs ++ fs) ρ)
-          = consList [a ih.callee] (consList (xs ++ fs) ρ) := rfl
-      rw [hc1, ← consList_append,
-        show rc.rP + cA.2 + 1 + m - 1 - i = rc.rP + cA.2 + (1 + m) - 1 - i from by omega,
-        interp_frame_fvar hlenS (by simp [hbl]; omega) (by omega), List.getD_eq_getElem?_getD,
-        List.getElem?_append_left (by omega), List.getElem?_eq_getElem (by omega),
-        Option.getD_some]
-    · have hrd : ∀ t ∈ Q.fvsPref ++ ih.idx ++ [Expr.mkAppN (Q.fvsF.getD ih.field default)
-            (ConLeche.structTeleVars m)], ∃ v, denoteMeta mpC.base2.acval fe.env ψ
-              (rc.rP + cA.2 + 1 + m) (t.instantiateList osL 0) = some v :=
-        fun t ht => spine_reads (mT := mpC.base2) hwsL _ (List.mem_map_of_mem ht)
-      congr 1
-      · simp only [tgtEisA, tgtTeleTys]
-        rw [hihq, hTel, hB, List.length_map, hmdef, List.map_map]
-        apply List.map_congr_left
-        intro x hx
-        exact (hre x (hidxLt x hx) (hrd x (by simp [hx]))).symm
-      · simp only [tgtFapA, tgtTeleTys]
-        rw [hihq, hTel, hB, hFF', List.length_map, hmdef]
-        exact congrArg (·::[]) (hre _ hfapLt (hrd _ (by simp))).symm
+    exact congrArg (List.foldl app (a ih.callee)) hvals.symm
 
 end Rows
 
