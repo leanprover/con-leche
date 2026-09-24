@@ -518,7 +518,7 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         | nil => exact absurd rfl hLne
         | cons => simp
       obtain ⟨-, -, -, -, hrdC⟩ := mp.lfp_ok D hD
-      obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, _A, -, hread0⟩ :=
+      obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, -, _A, -, hread0⟩ :=
         hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
       rw [hfL' 0 h0] at hf0
       obtain ⟨rfl, rfl, rfl⟩ : L[0].1 = cv0 ∧ nPc = nPc0 ∧ L[0].2 = nF0 := by

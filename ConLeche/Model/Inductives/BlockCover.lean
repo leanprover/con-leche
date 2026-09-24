@@ -98,6 +98,8 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     (fun n ci hf _ => hfwd n ci hf) (fun n _ hf _ => hag n (by rw [hf]; rfl))
     (fun _ _ _ hf ψ _ hta =>
       hden ψ 0 _ (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hta)
+    (fun _ _ _ _ hf ψ _ hta =>
+      hden ψ 0 _ (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hta)
     (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
       hden ψ _ _ (canonCrest_constsBound
         (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hA) hta)

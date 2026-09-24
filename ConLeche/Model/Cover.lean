@@ -603,6 +603,9 @@ theorem EnvModelM.keepLfpOf {env : Env} {mp : EnvModelM V μ env} {c₀ : Consta
     (fun _ _ _ hf ψ _ hta =>
       have hm := ConLeche.Semantics.Env.find?_mem hf
       denoteMeta_cons_mono hfresh (hcross.type hm) ψ 0 (hbound _ hm).1 hta)
+    (fun _ _ _ _ hf ψ _ hta =>
+      have hm := ConLeche.Semantics.Env.find?_mem hf
+      denoteMeta_cons_mono hfresh (hcross.type hm) ψ 0 (hbound _ hm).1 hta)
     (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
       have hm := ConLeche.Semantics.Env.find?_mem hf
       denoteMeta_cons_mono hfresh (canonCrest_consCrossAt (hcross.type hm) hA) ψ _

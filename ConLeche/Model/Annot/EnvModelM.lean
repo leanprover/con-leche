@@ -141,7 +141,19 @@ hole applied to the parameters and the result index readings, whose
 fields read like the clause's fields with holes at every frame
 satisfying the hole context (the parameters, then each member's former
 type, `Tys`).  The stored type is the DECLARED one; the fields with holes
-are the positivity walk's normal form's, which reads like it there. -/
+are the positivity walk's normal form's, which reads like it there.
+
+**Finding F9 (lane NESTIND, session 7): the constructor's parameters are
+the block's.**  The stored type reads, at every level assignment, as a
+Π-tower whose first `nPc` binders are satisfied wherever the block's
+parameter telescope is.  It is the install's constructor check (the
+constructors' frames, `ctorFramesGen`: the constructor's parameter
+domains are definitionally the former's) and official's
+(`check_constructors`: "arg #i of 'c' does not match inductive
+datatype parameters", `inductive.cpp`).  An outside class's rule
+certificates read it: the instantiated constructor's field domains are
+graded because the parameters' readings fit the constructor's own
+parameter binders. -/
 @[expose] def LfpCtorReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
     (env : Env) (D : LfpDatum V) : Prop :=
   D.names.length = D.k ∧
@@ -151,6 +163,10 @@ are the positivity walk's normal form's, which reads like it there. -/
     (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
       cvm.levelParams = cv.levelParams) ∧
     (canonAbs D.names cv.levelParams nPc D.k cv.type).nestOcc D.names 0 0 = false ∧
+    (∀ (ψ : Name → Nat) (dsC : List (Nat × Nat × AnnotTerm)) (bodyC : AnnotTerm),
+      denoteMeta acval env ψ 0 cv.type = some (mkPisAV dsC bodyC) → nPc ≤ dsC.length →
+      ∀ ρ : Nat → V, Sat V (D.params ψ).reverse ρ →
+        Sat V ((dsC.take nPc).map (·.2.2)).reverse ρ) ∧
     ∃ A, ConLeche.instPisWith (canonParams nPc) (canonAbs D.names cv.levelParams nPc D.k cv.type)
         = some A ∧
       ∀ ψ : Name → Nat, (D.params ψ).length = nPc ∧ (D.fields ψ c j).length = nF ∧
@@ -432,6 +448,9 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     (hread : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ∀ (ψ : Name → Nat)
       (ta : AnnotTerm), denoteMeta mp.base2.acval env ψ 0 cv.type = some ta →
       denoteMeta acval' env' ψ 0 cv.type = some ta)
+    (hreadT : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) → ∀ (ψ : Name → Nat)
+      (ta : AnnotTerm), denoteMeta mp.base2.acval env ψ 0 cv.type = some ta →
+      denoteMeta acval' env' ψ 0 cv.type = some ta)
     (hreadC : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) →
       ∀ (names : List Name) (k : Nat) (A : Expr),
       ConLeche.instPisWith (canonParams nPc) (canonAbs names cv.levelParams nPc k cv.type)
@@ -457,11 +476,18 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
     obtain ⟨ab, hta, h1, h2⟩ := hab ψ
     exact ⟨ab, hread _ _ _ hf ψ _ hta, h1, h2⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hocc, A, hA, hrdA⟩ := hrdC c hc j hj
+  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hocc, hpars, A, hA, hrdA⟩ := hrdC c hc j hj
     refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
-      fun mm hmm => ?_, hocc, A, hA, fun ψ => ?_⟩
+      fun mm hmm => ?_, hocc, fun ψ dsC bodyC hrd' hle => ?_, A, hA, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
+    · -- the new reading is the old one (the old one exists, and crosses)
+      obtain ⟨ta, hta⟩ := mp.type_reads _ (List.mem_of_find?_eq_some hf) ψ
+      change denoteMeta mp.base2.acval env ψ 0 cv.type = some ta at hta
+      have hta' := hreadT _ _ _ _ hf ψ _ hta
+      rw [hrd'] at hta'
+      obtain rfl := Option.some.inj hta'
+      exact hpars ψ dsC bodyC hta hle
     · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
       refine ⟨h1, h2, ab, Tys, hreadC _ _ _ _ hf _ _ _ hA ψ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
       obtain ⟨cvm, caps, hfm, hr⟩ := hTys mm hmm

@@ -1315,6 +1315,30 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           exact hE2, rfl⟩,
         (by decide : (canonAbs [eqName] [uN] 2 1 eqReflA.toConstantVal.type).nestOcc
           [eqName] 0 0 = false),
+        -- F9: `Eq.refl`'s parameter binders read as `Eq`'s parameters
+        (fun ψ dsC bodyC hrd hle ρ hsat => by
+          match dsC, hle with
+          | d0 :: d1 :: rest, _ =>
+            rw [show eqReflA.toConstantVal.type
+                = Expr.forallE (.sort (.param uN))
+                    (Expr.forallE (.bvar 0)
+                      (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
+                        (.bvar 0)) (.bvar 0))
+                      { pw := .ifAllZero [] })
+                    { pw := .ifAllZero [] } from rfl] at hrd
+            obtain ⟨ta, ba, hta, hba, he⟩ := denoteMeta_forallE_inv hrd
+            obtain ⟨tb, bb, htb, -, he'⟩ := denoteMeta_forallE_inv hba
+            simp only [mkPisAV] at he
+            injection he with _ _ h0 h1
+            rw [← h1] at he'
+            injection he' with _ _ h2 _
+            rw [denoteMeta_sort] at hta
+            simp only [ConLeche.Expr.instantiate1, if_true] at htb
+            rw [denoteMeta_fvar] at htb
+            obtain rfl := Option.some.inj hta
+            obtain rfl := Option.some.inj htb
+            simp only [List.take_succ_cons, List.take_zero, List.map_cons, List.map_nil, h0, h2]
+            exact hsat),
         .app (.app (.app (.fvar 2 (.sort .zero)) (.fvar 0 (.sort .zero)))
           (.fvar 1 (.sort .zero))) (.fvar 1 (.sort .zero)), rfl,
         fun ψ => ⟨rfl, rfl, [], [_], ?_, rfl, rfl, fun mm hmm => by

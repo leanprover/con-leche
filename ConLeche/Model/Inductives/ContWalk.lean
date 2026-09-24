@@ -717,7 +717,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
                 ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
                   ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
   obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, hocc, A, hA, hread⟩ := hrd c hc j hj
+  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, hocc, -, A, hA, hread⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
     simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'

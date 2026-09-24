@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
+import ConLeche.Model.Inductives.StructRecSpine
 
 public section
 
@@ -38,7 +39,12 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false)
     (hocc : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false) :
+      (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false)
+    -- F9: the constructors' parameter binders are satisfied where the block's are (the
+    -- constructors' frames)
+    (hpars : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
+        Sat V (((d.dsF c j ψ).take d.nP).map (·.2.2)).reverse ρ) :
     LfpCtorReads m.acval env d.toLfp := by
   refine ⟨hk.symm, fun c hc j hj => ?_⟩
   have hc' : c < d.k := hc
@@ -55,8 +61,11 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
   obtain ⟨cvTa0, hcv0⟩ : ∃ cvTa0, cvTas[0]? = some cvTa0 :=
     ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hk0)⟩
   obtain ⟨-, -, -, hFD0⟩ := hcore.1 0 cvTa0 hcv0
+  have hcd := (hcore.2.2.1 c j cA hcj).2.2.1
   refine ⟨cA.1, d.nP, cA.2, by rw [hname]; exact hfind, hCf, fun mm hmm => ?_,
-    by rw [hlpsC]; exact hocc c hc' j cA hcj, Acr, by rw [hlpsC]; exact hAcr, fun ψ => ?_⟩
+    by rw [hlpsC]; exact hocc c hc' j cA hcj,
+    fun ψ dsC bodyC hrd' hle ρ hsat => ?_,
+    Acr, by rw [hlpsC]; exact hAcr, fun ψ => ?_⟩
   · -- the members' formers, at the constructor's levels
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
@@ -65,6 +74,15 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     show env.find? (d.memberNames.getD mm .anonymous) = _
     rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
     exact hfb
+  · -- F9: the reading is the constructor record's, so its parameter binders are the frames'
+    have hle' : d.nP ≤ (d.dsF c j ψ).length := by rw [hcd.len ψ]; omega
+    have h1 := stripPisAV_mkPisAV_take d.nP dsC bodyC hle
+    have h2 := stripPisAV_mkPisAV_take d.nP (d.dsF c j ψ)
+      (ctorBodyAVI m (d.memberName c) d.nP cA.2 ψ (d.esF c j ψ)) hle'
+    rw [← Option.some.inj (hrd'.symm.trans (hcd.read ψ)), h1] at h2
+    have htk : dsC.take d.nP = (d.dsF c j ψ).take d.nP := (Prod.mk.inj (Option.some.inj h2)).1
+    rw [htk]
+    exact hpars c hc' j cA hcj ψ ρ hsat
   · obtain ⟨ab, abN, hca, -, hlab, hlabN, -, habN, hEq⟩ := hr ψ
     have hlenP0 : (d.ppsM 0 ψ).length = d.nP + d.nIdxAt 0 := hFD0.len ψ
     have hlenParams : (d.params ψ).length = d.nP := by

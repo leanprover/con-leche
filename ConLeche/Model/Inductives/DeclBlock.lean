@@ -723,6 +723,9 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         exact (mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)).1)
       (canonOcc_of_positivity hPos rfl rfl hkLen
         (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc)))
+      (fun c hc j cA hj ψ ρ hsat =>
+        ((hS.toBlockCtorsStage.frames c hc j cA hj).1 ψ ρ).mp
+          (hS.toBlockCtorsStage.paramsOf 0 hk0 ψ ρ hsat c hc))
   let mpC := mpC₀.addLfp (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp hLC hstC hrdC
     hcrC
   -- ## coverage at the block's record (lane COVERB): the members leave the

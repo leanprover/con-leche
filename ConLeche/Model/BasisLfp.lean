@@ -674,7 +674,8 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → AnnotTerm} {env : Co
   refine ⟨rfl, fun c hc j hj => ?_⟩
   obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
   obtain ⟨cv, nF, hf, hcf, ⟨cvm, caps, hfm, hl⟩, hocc, hrd⟩ := h j hj
-  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_, hocc, _, rfl, fun ψ => ?_⟩
+  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_, hocc,
+    fun _ _ _ _ _ ρ _ => by rw [List.take_zero]; exact Sat_nil V ρ, _, rfl, fun ψ => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     exact ⟨cvm, caps, hfm, hl⟩
   · obtain ⟨hlen, ab, hab, hmap⟩ := hrd ψ

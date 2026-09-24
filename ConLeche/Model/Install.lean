@@ -447,6 +447,9 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
       (fun _ _ _ hf ψ _ hta =>
         have hm := ConLeche.Semantics.Env.find?_mem hf
         hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta)
+      (fun _ _ _ _ hf ψ _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta)
       (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
         have hm := ConLeche.Semantics.Env.find?_mem hf
         denoteMeta_cons_mono hfresh (canonCrest_consCrossAt (hh.projTower.type hm) hA) ψ _

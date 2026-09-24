@@ -301,7 +301,7 @@ theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModel
       exact hlen ψ'
     · have h0 : 0 < M.ctors.length := List.length_pos_iff.mpr hL
       obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-      obtain ⟨cv0, nPc0, nF0, hf0, -, -, -, _A, -, hread0⟩ :=
+      obtain ⟨cv0, nPc0, nF0, hf0, -, -, -, -, _A, -, hread0⟩ :=
         hcrd.2 mm hcl.hmm 0 (by rw [← hcl.hlen]; exact h0)
       rw [hcl.hctor 0 h0] at hf0
       obtain ⟨-, rfl, -⟩ : M.ctors[0].1 = cv0 ∧ M.nPc = nPc0 ∧ M.ctors[0].2 = nF0 := by
