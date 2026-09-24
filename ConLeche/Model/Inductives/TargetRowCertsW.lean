@@ -231,7 +231,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size)
           (blockRuleConclExpr pp (tgtRs out) c j)).getD default := by
-    rw [tgtCaAV, hBc, hihL, Array.length_toList]
+    rw [tgtCaAV, hBc, hihL, Array.length_toList, tgtConclExpr_eq_block R hr hcA hrhs]
   obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hTf hCf hb₁ hb₂ hinstC hpr
   -- the residue: its reading and scoping
   obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hds hTf hTb

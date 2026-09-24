@@ -26,8 +26,8 @@ abstraction) and the lfp clause's HOLE fit:
   the frame and the telescope's canonical openers (`locOpen`);
 * the `ih` variables' domains are their `ih` types' readings, lifted
   past the earlier variables (`tgtIhdomsAV`, `walkCtx_targetRule`'s);
-* `Ca` is the recursor's conclusion at the constructor read past the
-  `ih` variables (`tgtCaAV`);
+* `Ca` is the recursor's conclusion at the constructor (at the major,
+  `tgtConclExpr`) read past the `ih` variables (`tgtCaAV`);
 * a decoding's fit is the lfp clause's hole fit at the carrier
   (`blockHoleFitRel`) — no slot datum.
 -/
@@ -101,7 +101,7 @@ constructor (today's expression, `blockRuleConclExpr`), read past the
 @[expose] def tgtCaAV (pp : ConLeche.BlockParts) (ψ : Name → Nat) (c j : Nat) : AnnotTerm :=
   (denoteMeta acval env ψ
     (tgtB pp.toBlockShape out c j + (tgtIhL mode F fe pp.toBlockShape formerTys out c j).length)
-    (blockRuleConclExpr pp (tgtRs out) c j)).getD default
+    (tgtConclExpr pp.toBlockShape out c j)).getD default
 
 variable {V : Type w} [SetTheory V]
 

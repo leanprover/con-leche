@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Inductives.BlockRuleParams
+public import ConLeche.Model.Inductives.BlockRuleCaRun
 
 public section
 
@@ -80,6 +81,49 @@ theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetM
     cases out[j]? <;> rfl
   rw [tgtPrefFvs, blockRulePrefFvs, hT]
   rfl
+
+/-- **At a member major the target's conclusion is today's**
+(`blockRuleConclExpr` at the member-format family): the major's
+parameters are the prefix's first `nP` openers, its levels the block's,
+its constructor stored at them. -/
+theorem tgtConclExpr_eq_block {F : Nat} {fe : FEnv} {pp : BlockParts} {nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    tgtConclExpr pp.toBlockShape out j i = blockRuleConclExpr pp (tgtRs out) j i := by
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, hCrest, hFld, -, -, -⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major E
+  have hds := targetDs_eq_prefTake E Q.hpref
+  have hmem := E.isMember
+  have hct : ConLeche.targetCtorAt M cA.1 = cA.1.type := by
+    obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hmem
+    simp [ConLeche.targetCtorAt, ht]
+  have hPrefEq : tgtPrefFvs pp.toBlockShape out j = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
+    tgtPrefFvs_eq_block _ _ _
+  have hrP : rc.rP = pp.toBlockShape.rulePrefixAt j := by
+    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+  have hcrestEq : tgtCrest out j i = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
+    have hc := Q.hcrest
+    rw [hct, hds, instPisWith_eq_instPisAt] at hc
+    rw [← hCrest, blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, ← hPref, hc,
+      Option.getD_some]
+  have hcb : tgtCbody pp.toBlockShape out j i = blockRuleCbody pp.toBlockShape (tgtRs out) j i := by
+    rw [tgtCbody, blockRuleCbody, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
+    rfl
+  have hfv : tgtFieldFvs pp.toBlockShape out j i
+      = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i := by
+    rw [tgtFieldFvs, blockRuleFieldFvs, hcrestEq, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
+    rfl
+  have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
+    simp only [blockRuleRecTy, tgtRecTy, tgtRs, List.getD_eq_getElem?_getD, List.getElem?_map]
+    cases out[j]? <;> rfl
+  rw [tgtConclExpr, blockRuleConclExpr, ← hMaj, hnPc, hlvls, hds, hPref, hPrefEq, hcb, hfv,
+    tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA, hT]
 
 /-- The recomputed width `tgtB` at a stored rule. -/
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}

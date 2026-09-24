@@ -71,6 +71,21 @@ type's first `nP` openers, `targetDs_eq_prefTake`). -/
 /-- The rule's field openers. -/
 @[expose] def tgtFieldFvs (j i : Nat) : List Expr :=
   ((ConLeche.openPisAtFvars (tgtCtorOf out j i).2 (tgtCrest out j i) (tgtRP p j)).map (·.1)).getD []
+/-- The constructor's conclusion at the rule's field openers (its index
+expressions are `getAppArgs.drop nPc`, the major's parameter count). -/
+@[expose] def tgtCbody (j i : Nat) : Expr :=
+  ((ConLeche.openPisAtFvars (tgtCtorOf out j i).2 (tgtCrest out j i) (tgtRP p j)).map (·.2)).getD
+    default
+/-- **The recursor's conclusion at the constructor, AT THE MAJOR** (the
+target check's `concl`, `targetRule`): the recursor type at the prefix,
+the constructor's index expressions and the fired constructor
+`C.{M.lvls} M.ds f⃗`. -/
+@[expose] def tgtConclExpr (j i : Nat) : Expr :=
+  (ConLeche.Expr.instPisAtLift
+    (tgtPrefFvs p out j ++ (tgtCbody p out j i).getAppArgs.drop (tgtMajor out j).nPc
+      ++ [Expr.mkAppN (.const (tgtCtorOf out j i).1.name (tgtMajor out j).lvls)
+          ((tgtMajor out j).ds ++ tgtFieldFvs p out j i)])
+    (tgtRecTy out j)).getD default
 /-- The rule's body (below its `rP + nF` λ-binders). -/
 @[expose] def tgtBody (j i : Nat) : Expr :=
   (((tgtRhsOf out j i).stripLams (tgtB p out j i)).map (·.2)).getD default

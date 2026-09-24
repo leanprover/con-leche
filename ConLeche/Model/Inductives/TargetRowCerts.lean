@@ -122,7 +122,7 @@ theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2
           + (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).length)
           (blockRuleConclExpr pp (tgtRs out) c j)).getD default := by
-    rw [tgtCaAV, tgtB_at hr hcA]
+    rw [tgtCaAV, tgtB_at hr hcA, tgtConclExpr_eq_block _R hr hcA hrhs]
   rw [hCaEq]
   have hihl : (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
       fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
