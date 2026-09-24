@@ -86324,7 +86324,12 @@ at the block's members … no per-field classification").  Plan:
   `blockSlot_eq_entry` take the reading.
 - **Line delta (stage B): +1281 / −366** (the hole route added beside the
   slot one, which stages C–F delete).
-- **Verdicts: none moved.**  `tests/arena.sh` (see the landing line in
-  `HOLE2.md`); init-full: exit 0, 53 093 accepted, its 585
-  `--target-shadow` lines identical to session 2's.
+- **Verdicts: none moved.**  Gates at f8ae287e: `lake build`/`lake test`
+  0 warnings; `tests/arena.sh` EXIT 0 (arena 90/92, e2e 301/301,
+  nested-shadow 82/82, target-shadow 317/317, annot 15/15, sweeps as
+  expected, shake 537/537, pub-imports none demotable — two MEASURED
+  fallbacks for `BlockHoleGrade`, whose public statements name
+  `BlockHoleCtxFacts`/`BlockNamesOk`/`BlockHoleFacts`); init-full: exit 0,
+  53 093 accepted, its 585 `--target-shadow` lines identical to session
+  2's.  No `sorry`, no new axiom.
 - Not done: stages C–F (`HOLE2.md` "resume plan").
