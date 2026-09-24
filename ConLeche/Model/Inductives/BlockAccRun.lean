@@ -3,10 +3,8 @@ module
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
-public import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.StructEntryFree
-public import ConLeche.Model.Inductives.StoredShapes
 
 public section
 

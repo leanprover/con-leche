@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.HoleAcc
-public import ConLeche.Semantics.Inductives.FieldsEqOn
+public import ConLeche.Semantics.Sat
 
 @[expose] public section
 
