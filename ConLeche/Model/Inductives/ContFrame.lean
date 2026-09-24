@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ContN2
-public import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Model.Inductives.StructTele

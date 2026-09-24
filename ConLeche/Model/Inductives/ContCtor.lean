@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.NestPosMono
-public import ConLeche.Model.Annot.BlockLfpTup
+import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Semantics.SubstAV
-public import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.InferLemmas
 

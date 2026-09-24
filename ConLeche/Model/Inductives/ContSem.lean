@@ -2,9 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Verify.Inductives.StructWF
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Model.Inductives.ContLeaf
+import ConLeche.Model.Inductives.ContN2
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.Verify.Cached.Erase

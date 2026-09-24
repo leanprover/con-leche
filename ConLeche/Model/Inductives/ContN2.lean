@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.NestPosMono
-public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Semantics.SubstAV
+import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Semantics.SubstAV
 public import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContSubst
