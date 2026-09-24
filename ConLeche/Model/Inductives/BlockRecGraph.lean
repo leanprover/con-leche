@@ -413,7 +413,7 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
         ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM 0)[0]?
           = some cA := ⟨_, List.getElem?_eq_getElem hjc⟩
     obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 0 hk0 0 cA hcj
-    obtain ⟨-, -, hcd⟩ := hcore.2.2.1 0 0 cA hcj
+    obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 0 0 cA hcj
     have hsrc : ∀ gs : List V,
         (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).StoredFit ψ
           (consList (xs.take (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP) ρ)

@@ -207,8 +207,8 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
   mkZero := hM.mkZero
   mkInj := fun ψ hw c hc j fs j' fs' hj hj' hl hl' h =>
     hM.mkInj ψ hw c hc j fs j' fs' hj hj'
-      (by rw [hl]; simp [BlockData.toLfp, BlockData.absF])
-      (by rw [hl']; simp [BlockData.toLfp, BlockData.absF]) h
+      (by rw [hl]; exact (hH.shapes ψ c hc j hj).len)
+      (by rw [hl']; exact (hH.shapes ψ c hc j' hj').len) h
   ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
     have hsat := d.satOfSpine hsa
     obtain ⟨hj, hsp, -⟩ := (hM.carrier ψ (consList as ρ) hsat c hc t ht j fs).mp hf

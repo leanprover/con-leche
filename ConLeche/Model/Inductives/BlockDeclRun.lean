@@ -214,7 +214,7 @@ theorem blockRecCtor_seam
   have hck : c < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k := by
     rw [← hN.2.2.2]; exact hN.2.2.1 c i cA hcA
   obtain ⟨hfind, -, -⟩ := hcore.2.2.2 c hck i cA hcA
-  obtain ⟨hres, -, hdat⟩ := hcore.2.2.1 c i cA hcA
+  obtain ⟨hres, -, hdat, -⟩ := hcore.2.2.1 c i cA hcA
   have hread := hdat.read
   have hrd : rs.getD j default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
   have hsel : ((rs.getD j default).2.2.2.getD i default) = cA := by
@@ -831,7 +831,7 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
   have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt j))[i]? = some cA := by rw [hctM]; exact hcA
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk i cA hcj
-  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ i cA hcj
+  obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ i cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1

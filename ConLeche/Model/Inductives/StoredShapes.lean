@@ -140,6 +140,191 @@ theorem FlatShape.holeApp {k nP w : Nat} {nIdxOf : Nat → Nat} {F : List AnnotT
     refine holeApp_mkPisAV_of tl (fun q dd hq => holeApp_of_noBVar (htl q dd hq).2) ?_
     exact .hole (by omega) (by omega) fun r hr => holeApp_of_noBVar (hes r hr)
 
+/-! ## The walked term looks up no member
+
+The member-abstracted constructor type mentions no member constant
+(M2′, `nestNoMemberConst`), and no literal-support constant a reading
+consults can be a member: `Nat.zero`/`Nat.succ` are constructors, the
+string-support constants' types end in a constant (a member's in a
+sort), and `Char` is mentioned by `Char.ofNat`'s stored type, so it is
+older than the block.  So two leaf assignments agreeing off the members
+read it alike (`denoteMeta_agree_of_readsAt`). -/
+
+/-- A term free of member constants looks up no member, given that no
+literal-support constant it may consult is one. -/
+theorem Expr.readsAt_of_nestOcc {names : List Name} {lo hi : Nat} {env : Env}
+    (hnat : ConLeche.natLitSupported env = true →
+      ConLeche.natZeroName ∉ names ∧ ConLeche.natSuccName ∉ names)
+    (hstr : ConLeche.strLitSupported env = true →
+      ConLeche.stringOfListName ∉ names ∧ ConLeche.listNilName ∉ names ∧
+        ConLeche.listConsName ∉ names ∧ ConLeche.charName ∉ names ∧
+        ConLeche.charOfNatName ∉ names) :
+    ∀ e : Expr, e.nestOcc names lo hi = false → Expr.ReadsAt (· ∉ names) env e := by
+  intro e
+  induction e with
+  | const n us =>
+    intro h
+    simpa [Expr.ReadsAt, Expr.nestOcc] using h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam t b m iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    exact ⟨iht h.1, ihb h.2⟩
+  | proj s i e ihe => intro h; exact ihe h
+  | lit l =>
+    intro _
+    cases l with
+    | natVal n => exact hnat
+    | strVal s =>
+      intro hs
+      have hn : ConLeche.natLitSupported env = true := by
+        simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hs
+        exact hs.1.1.1.1.1.1.1
+      obtain ⟨h1, h2, h3, h4, h5⟩ := hstr hs
+      exact ⟨h1, h2, h3, h4, h5, (hnat hn).1, (hnat hn).2⟩
+  | _ => intro _; trivial
+
+theorem piResult_of_stripPis_sort :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {s : Level},
+      e.stripPis n = some (bs, .sort s) → e.piResult = .sort s
+  | 0, e, bs, s, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [h.2]; rfl
+  | n + 1, e, bs, s, h => by
+    match e with
+    | .forallE ty b m =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', r⟩, hr, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      show b.piResult = _
+      exact piResult_of_stripPis_sort n hr
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _ _
+    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [Expr.stripPis])
+
+/-- **No literal-support constant a reading consults is a block member**
+(see the section docstring): the members are `indInfo`s of the block's
+environment whose types end in a sort, fresh before it, and the block's
+environment agrees with the pre-block one off the members. -/
+theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
+    {cvTas : List ConstantVal} {names : List Name}
+    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
+    (hfindM : ∀ cvTb ∈ cvTas, (∃ caps, envI.find? cvTb.name = some (.indInfo cvTb caps)) ∧
+      ∃ k bs s, cvTb.type.stripPis k = some (bs, .sort s))
+    (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
+    (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n) :
+    (ConLeche.natLitSupported envI = true →
+      ConLeche.natZeroName ∉ names ∧ ConLeche.natSuccName ∉ names) ∧
+    (ConLeche.strLitSupported envI = true →
+      ConLeche.stringOfListName ∉ names ∧ ConLeche.listNilName ∉ names ∧
+        ConLeche.listConsName ∉ names ∧ ConLeche.charName ∉ names ∧
+        ConLeche.charOfNatName ∉ names) := by
+  -- a member: an `indInfo` whose type ends in a sort, fresh before the block
+  have hmem : ∀ n ∈ names, ∃ cvTb caps s, envI.find? n = some (.indInfo cvTb caps) ∧
+      cvTb.type.piResult = .sort s ∧ env.find? n = none := by
+    intro n hn
+    obtain ⟨cvTb, hcv, rfl⟩ := (hnames n).mp hn
+    obtain ⟨⟨caps, hf⟩, k, bs, s, hs⟩ := hfindM cvTb hcv
+    exact ⟨cvTb, caps, s, hf, piResult_of_stripPis_sort k hs, hfresh cvTb hcv⟩
+  have hnm : ∀ n, n ∉ names → ∀ cvTb ∈ cvTas, cvTb.name ≠ n :=
+    fun n hn cvTb hcv h => hn ((hnames n).mpr ⟨cvTb, hcv, h⟩)
+  refine ⟨fun hs => ?_, fun hs => ?_⟩
+  · simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hs
+    obtain ⟨⟨-, hZ⟩, hS⟩ := hs
+    refine ⟨fun hn => ?_, fun hn => ?_⟩
+    · obtain ⟨cvTb, caps, s, hf, -, -⟩ := hmem _ hn
+      rw [hf] at hZ
+      simp [ConLeche.natZeroOk] at hZ
+    · obtain ⟨cvTb, caps, s, hf, -, -⟩ := hmem _ hn
+      rw [hf] at hS
+      simp [ConLeche.natSuccOk] at hS
+  · simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hs
+    obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, hO⟩, -⟩, hNil⟩, hCons⟩, -⟩, hCO⟩ := hs
+    have hO' : ConLeche.stringOfListName ∉ names := by
+      intro hn
+      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      rw [hf] at hO
+      simp only [ConLeche.stringOfListTyOk, Bool.and_eq_true] at hO
+      obtain ⟨-, hO⟩ := hO
+      change (match cvTb.type with
+        | .forallE (.app (.const l1 us1) (.const c1 [])) (.const c2 []) _mb =>
+          l1 == ConLeche.listName && us1 == [.zero] && c1 == ConLeche.charName &&
+            c2 == ConLeche.stringName
+        | _ => false) = true at hO
+      split at hO
+      · rename_i heq
+        rw [heq] at hsort
+        simp [ConLeche.Expr.piResult] at hsort
+      · exact nomatch hO
+    have hNil' : ConLeche.listNilName ∉ names := by
+      intro hn
+      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      rw [hf] at hNil
+      simp only [ConLeche.listNilTyOk] at hNil
+      split at hNil
+      · split at hNil
+        · rename_i heq
+          change cvTb.type = _ at heq
+          rw [heq] at hsort
+          simp [ConLeche.Expr.piResult] at hsort
+        · exact nomatch hNil
+      · exact nomatch hNil
+    have hCons' : ConLeche.listConsName ∉ names := by
+      intro hn
+      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      rw [hf] at hCons
+      simp only [ConLeche.listConsTyOk] at hCons
+      split at hCons
+      · split at hCons
+        · rename_i heq
+          change cvTb.type = _ at heq
+          rw [heq] at hsort
+          simp [ConLeche.Expr.piResult] at hsort
+        · exact nomatch hCons
+      · exact nomatch hCons
+    -- `Char.ofNat : Nat → Char` is stored with a non-sort result …
+    obtain ⟨ci, hci⟩ : ∃ ci, envI.find? ConLeche.charOfNatName = some ci := by
+      cases h : envI.find? ConLeche.charOfNatName with
+      | none => rw [h] at hCO; exact nomatch hCO
+      | some ci => exact ⟨ci, rfl⟩
+    rw [hci] at hCO
+    simp only [ConLeche.charOfNatTyOk, Bool.and_eq_true] at hCO
+    obtain ⟨-, hCO⟩ := hCO
+    obtain ⟨dom, m, hty, hc2⟩ : ∃ dom m, ci.toConstantVal.type
+        = .forallE dom (.const ConLeche.charName []) m ∧ True := by
+      split at hCO
+      · rename_i c1 c2 mb heq
+        simp only [Bool.and_eq_true, beq_iff_eq] at hCO
+        exact ⟨_, mb, by rw [heq, hCO.2], trivial⟩
+      · exact nomatch hCO
+    have hCO' : ConLeche.charOfNatName ∉ names := by
+      intro hn
+      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      rw [hf] at hci
+      obtain rfl := Option.some.inj hci
+      change cvTb.type = _ at hty
+      rw [hty] at hsort
+      simp [ConLeche.Expr.piResult] at hsort
+    -- … so it is older than the block, and so is the `Char` it mentions
+    have hciE : env.find? ConLeche.charOfNatName = some ci := by
+      rw [← hI _ (hnm _ hCO')]; exact hci
+    have hres := (hwf ci (List.mem_of_find?_eq_some hciE)).2.2.1
+    rw [hty] at hres
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at hres
+    have hChar' : ConLeche.charName ∉ names := by
+      intro hn
+      obtain ⟨-, -, -, -, -, hfr⟩ := hmem _ hn
+      rw [hfr] at hres
+      exact nomatch hres.2
+    exact ⟨hO', hNil', hCons', hChar', hCO'⟩
+
 /-! ## Reading the walked shapes -/
 
 section Read
@@ -413,26 +598,6 @@ theorem erasedEq_fvarsBelow {d : Nat} :
     cases b <;> simp only [Expr.ErasedEq] at h
     rename_i s' i' e'
     exact ih e' h.2.2 ha
-
-/-- Two lists of variables at the same consecutive indices are
-erasure-equal. -/
-private theorem erasedEqL_of_fvarIdx' :
-    ∀ (as bs : List Expr) (o : Nat),
-      (∀ (i : Nat) (x : Expr), as[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      (∀ (i : Nat) (x : Expr), bs[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      as.length = bs.length → Expr.ErasedEqL as bs
-  | [], [], _, _, _, _ => trivial
-  | [], _ :: _, _, _, _, h => by simp at h
-  | _ :: _, [], _, _, _, h => by simp at h
-  | a :: as, b :: bs, o, ha, hb, h => by
-    obtain ⟨ta, rfl⟩ := ha 0 a rfl
-    obtain ⟨tb, rfl⟩ := hb 0 b rfl
-    refine ⟨rfl, erasedEqL_of_fvarIdx' as bs (o + 1) (fun i x hx => ?_) (fun i x hx => ?_)
-      (by simpa using h)⟩
-    · obtain ⟨ty, hty⟩ := ha (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
-    · obtain ⟨ty, hty⟩ := hb (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
 
 /-- A member-hole shape names a member. -/
 theorem HoleIn.lt {ctx : NestCtx} {t : Nat} :
@@ -754,7 +919,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     exact ⟨q, ty, h⟩
   have hparE : Expr.ErasedEqL ctx.params (fvsP.map (nestAbstract ctx holes)) :=
     Expr.ErasedEqL.trans
-      (erasedEqL_of_fvarIdx' ctx.params fvsP 0
+      (erasedEqL_of_fvarIdx ctx.params fvsP 0
         (fun i x hx => by
           obtain ⟨ty, h⟩ := hpar i x hx
           exact ⟨ty, by rw [h, Nat.zero_add]⟩)

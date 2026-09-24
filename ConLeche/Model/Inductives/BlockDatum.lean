@@ -9,6 +9,7 @@ import ConLeche.Model.Inductives.BlockHoleFlat
 import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.SetModel.TupleContainer
+import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Verify.Inductives.BlockWF
 public section
 
@@ -86,6 +87,7 @@ injections**, at a chosen per-member constructor pick. -/
   xrestF := fun c j => (pk c).xrestF j
   eissF := fun c j => (pk c).eissF j
   tssF := fun c j => (pk c).tssF j
+  absFF := fun c j => (pk c).absF j
   Φ := fun _ _ X => X
   inj := fun _ _ _ _ => SetTheory.pt
 
@@ -520,8 +522,8 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
           exact ⟨c, sorts, hCtor⟩)
       exact ⟨pk, fun _ => hpk⟩
     · exact ⟨⟨fun _ => [], fun _ _ => [], fun _ _ => [], fun _ => [], fun _ => [], fun _ => [],
-        fun _ => .bvar 0, fun _ _ => [], fun _ _ => []⟩, fun hh => absurd hh hm⟩
-  obtain ⟨pk₀, hpk₀⟩ : ∃ pk₀ : Nat → BlockMemberPick, ∀ m : Nat, m < q.k →
+        fun _ => .bvar 0, fun _ _ => [], fun _ _ => [], fun _ _ => []⟩, fun hh => absurd hh hm⟩
+  obtain ⟨pk₀, hpk₀, habs₀⟩ : ∃ pk₀ : Nat → BlockMemberPick, (∀ m : Nat, m < q.k →
       ∀ (j : Nat) (cA : ConstantVal × Nat), (ctorsAs.getD m [])[j]? = some cA →
         BlockCtorDataI mpD.base2 env (q.memberNames.getD m .anonymous)
           (fun i => q.memberNames.getD
@@ -532,9 +534,16 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
           ((pk₀ m).idxF j) ((pk₀ m).dsF j) ((pk₀ m).esF j) ((pk₀ m).srcsF j)
           (((kinds.getD m []).getD j []).map ConLeche.BlockFieldKind.toRec)
           ((pk₀ m).fvsPF j) ((pk₀ m).xFvsF j) ((pk₀ m).xrestF j) ((pk₀ m).eissF j)
-          ((pk₀ m).tssF j) :=
-    ⟨fun m => (hpickOf mpD (fun j cvTb hj => (hfindD j cvTb hj).1) m).choose,
-      fun m => (hpickOf mpD (fun j cvTb hj => (hfindD j cvTb hj).1) m).choose_spec⟩
+          ((pk₀ m).tssF j)) ∧
+      -- the fields with holes: the walked term's reading at the dummy carrier
+      ∀ (m j : Nat) (ψ : Name → Nat), (pk₀ m).absF j ψ
+        = canonFieldsRead mpD.base2.acval envI q.memberNames q.lps q.nP q.k
+            ((ctorsAs.getD m []).getD j default) ψ :=
+    ⟨fun m => { (hpickOf mpD (fun j cvTb hj => (hfindD j cvTb hj).1) m).choose with
+        absF := fun j ψ => canonFieldsRead mpD.base2.acval envI q.memberNames q.lps q.nP q.k
+          ((ctorsAs.getD m []).getD j default) ψ },
+      fun m => (hpickOf mpD (fun j cvTb hj => (hfindD j cvTb hj).1) m).choose_spec,
+      fun _ _ _ => rfl⟩
   -- ## the readings every member's data is taken against
   have hProp : q.isProp = (Level.isEquiv q.resSort .zero == some true) := by rw [hq]; rfl
   have hProp' : q.isProp = true → (Level.isEquiv q.resSort .zero == some true) = true :=
@@ -669,23 +678,6 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     ⟨fun c cvTb hc => (hF.nameOf c cvTb hc).symm,
       fun c j i => by rw [hF.lenCv]; exact htgtAll c j i,
       fun c j cA hj => by rw [hF.lenCv]; exact hctorLt c j cA hj, hF.lenCv⟩
-  have hctxZ : BlockHoleCtxFacts mpD.base2 dZ q.lps cvTas q isRec :=
-    ⟨fun c cvTb hc => ⟨(hfindD c cvTb hc).1, hFDD c cvTb hc⟩,
-      fun c j cA hj => hpk₀ c (hctorLt c j cA hj) j cA hj⟩
-  have hfreshZ : ∀ n ∈ dZ.memberNames, dZ.env₀.find? n = none := by
-    intro n hn
-    obtain ⟨c, hc⟩ := List.getElem?_of_mem hn
-    have hck : c < q.k := by
-      have := (List.getElem?_eq_some_iff.mp hc).1
-      show c < q.members.length
-      rw [← hlenN]; exact this
-    obtain ⟨cvTa, hcv⟩ := hcvOf c hck
-    have hc' : q.memberNames[c]? = some n := hc
-    have hmn : q.memberNames.getD c .anonymous = n := by
-      rw [List.getD_eq_getElem?_getD, hc']; rfl
-    show env.find? n = none
-    rw [← hmn, ← hF.nameOf c cvTa hcv]
-    exact hF.freshOf c cvTa hcv
   have hclosedZ : ∀ (c j : Nat) (cA : ConstantVal × Nat), (dZ.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true := by
     intro c j cA hj
@@ -712,10 +704,32 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       hF.sEval t ψ⟩
     rw [← hF.nameOf t cvTb hcv]
     exact (hfindD t cvTb hcv).1
+  have hTasI : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false := by
+    intro cvT hmem
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hmem
+    exact (mpD.base2.wf _ (List.mem_of_find?_eq_some (hfindD t cvT ht).1)).1
+  have hgetCA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (ctorsAs.getD c [])[j]? = some cA →
+      (ctorsAs.getD c []).getD j default = cA := fun c j cA hj => by
+    rw [List.getD_eq_getElem?_getD, hj]; rfl
+  -- the fields with holes ARE the walked term's reading, at the dummy carrier
+  have hAbsZ : ∀ (c j : Nat) (cA : ConstantVal × Nat), (dZ.ctorsM c)[j]? = some cA →
+      BlockAbsRead mpD.base2 dZ q.lps c j cA := by
+    intro c j cA hj
+    have hck := hctorLt c j cA hj
+    obtain ⟨hCf, hCb⟩ := hclosedZ c j cA hj
+    refine blockAbsRead_of_run hμ mpD hPos hpN hpL hpP hpI hlenN.symm hndM
+      (fun c hc => hCA c hc) hTasI hformersI hck hj
+      ((hpk₀ c hck j cA hj).storedCtorFacts hCf hCb) (fun ψ => ?_)
+    show (pk₀ c).absF j ψ = _
+    rw [habs₀, hgetCA c j cA hj]
+    rfl
+  have hctxZ : BlockHoleCtxFacts mpD.base2 dZ q.lps cvTas q isRec :=
+    ⟨fun c cvTb hc => ⟨(hfindD c cvTb hc).1, hFDD c cvTb hc⟩,
+      fun c j cA hj => ⟨hpk₀ c (hctorLt c j cA hj) j cA hj, hAbsZ c j cA hj⟩⟩
   have hHZ : BlockHoleFacts mpD.base2 dZ q.lps := by
     refine ⟨fun c _ j cA hj => hpk₀ c (hctorLt c j cA hj) j cA hj,
       fun ψ c hc j hj => blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
-        hlenN.symm hndM hfreshZ rfl (fun c hc => hCA c hc) hclosedZ ψ (hformersI ψ) hc hj,
+        hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ ψ (hformersI ψ) hc hj,
       fun ψ => hlenP0 ψ 0 hk0, fun ψ mm hmm => hlenP0 ψ mm hmm,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mp h,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mpr h,
@@ -729,7 +743,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
   -- U2's grading, per constructor
   have hGZ := fun (ψ : Name → Nat) (c : Nat) (hc : c < dZ.N) (j : Nat)
       (hj : j < (dZ.ctorsM c).length) =>
-    blockHoleGrade_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hpR hlenN.symm hndM hfreshZ rfl
+    blockHoleGrade_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hpR hlenN.symm rfl
       (fun c hc => hCA c hc) hclosedZ ψ hc hj
   -- the hole chains: graded, bit-valid, closed
   have hchZ := fun (ψ : Name → Nat) => blockHoleChains_facts hHZ ψ
@@ -749,6 +763,21 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     | some cvTb =>
       exact ((hF.fdOf c cvTb hc).params ψ₁ ψ₂
         (fun n hn => hφ n (by rw [← hF.lpsOf c cvTb hc]; exact hn))).1
+  have hlpD : ∀ c j, lpDefF q.lps ((ctorsAs.getD c []).getD j default).1.type = true := by
+    intro c j
+    by_cases hj : j < (ctorsAs.getD c []).length
+    · have hjA : (ctorsAs.getD c [])[j]? = some (ctorsAs.getD c [])[j] :=
+        List.getElem?_eq_getElem hj
+      rw [hgetCA c j _ hjA]
+      have hck := hctorLt c j _ hjA
+      obtain ⟨cvTa, hcv⟩ := hcvOf c hck
+      obtain ⟨c', sorts, -, -, -, hlpsC, -, -, -, -, -, -, -, hCtor⟩ :=
+        (hfacts c cvTa hck hcv).2 j _ hjA
+      obtain ⟨-, hlp, -, -⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
+      rw [hlpsC] at hlp
+      exact lpDefF_of_allLevelParamsDefined _ hlp
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+      rfl
   have hparamsH : ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
       dZ.toLfp.holeChains ψ₁ = dZ.toLfp.holeChains ψ₂ := by
     intro ψ₁ ψ₂ hφ
@@ -761,12 +790,13 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
         show ((ppsOf c ψ₁).drop q.nP).map (·.2.2) = ((ppsOf c ψ₂).drop q.nP).map (·.2.2)
         rw [hpp ψ₁ ψ₂ hφ c])
       (fun _ => rfl) (fun c j => ?_) (fun c j => ?_)
-    · exact BlockData.absF_congr rfl rfl rfl (fun _ => rfl) (by rw [htl c]) (by rw [hei c])
-        (by rw [congrFun hfz c]) (fun _ _ _ => by rw [congrFun hfz c])
+    · show (pk₀ c).absF j ψ₁ = (pk₀ c).absF j ψ₂
+      rw [habs₀, habs₀]
+      exact canonFieldsRead_params mpD.base2 (hlpD c j) hφ
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
   -- ## the hole operator's fixed-point premises (stage D): monotone by
   -- positivity, closed by the flat presentation of the fields with holes
-  have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm hndM hfreshZ
+  have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
     rfl (fun c hc => hCA c hc) hclosedZ
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
       MonoTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
@@ -895,7 +925,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
         (hchZ ψ).2.1 ρp (hρpOf ψ ρp j hj hρp 0 hk0) Y hY c hc t)
       hfoldZH
   -- ## the constructors, read again at the REAL carrier
-  obtain ⟨pk, hpk⟩ : ∃ pk : Nat → BlockMemberPick, ∀ m : Nat, m < q.k →
+  obtain ⟨pk, hpk, habsR⟩ : ∃ pk : Nat → BlockMemberPick, (∀ m : Nat, m < q.k →
       ∀ (j : Nat) (cA : ConstantVal × Nat), (ctorsAs.getD m [])[j]? = some cA →
         BlockCtorDataI mpR.base2 env (q.memberNames.getD m .anonymous)
           (fun i => q.memberNames.getD
@@ -906,9 +936,13 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
           ((pk m).idxF j) ((pk m).dsF j) ((pk m).esF j) ((pk m).srcsF j)
           (((kinds.getD m []).getD j []).map ConLeche.BlockFieldKind.toRec)
           ((pk m).fvsPF j) ((pk m).xFvsF j) ((pk m).xrestF j) ((pk m).eissF j)
-          ((pk m).tssF j) :=
-    ⟨fun m => (hpickOf mpR (fun j cvTb hj => (hfindR j cvTb hj).1) m).choose,
-      fun m => (hpickOf mpR (fun j cvTb hj => (hfindR j cvTb hj).1) m).choose_spec⟩
+          ((pk m).tssF j)) ∧
+      -- the fields with holes: the dummy datum's, shared
+      ∀ m, (pk m).absF = (pk₀ m).absF :=
+    ⟨fun m => { (hpickOf mpR (fun j cvTb hj => (hfindR j cvTb hj).1) m).choose with
+        absF := (pk₀ m).absF },
+      fun m => (hpickOf mpR (fun j cvTb hj => (hfindR j cvTb hj).1) m).choose_spec,
+      fun _ => rfl⟩
   -- ## the two readings agree off the recursive fields
   have hag : ∀ n : Name, (env.find? n).isSome = true →
       mpR.base2.acval n = mpD.base2.acval n := by
@@ -937,34 +971,6 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     exact ⟨h5, h6, h7, h8⟩
   -- ## the record: the REAL data, with the DUMMY readings surviving
   -- only in the leaves' field lists
-  have hTlssEq : ∀ (c : Nat) (ψ : Name → Nat),
-      (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).tlss c ψ = dZ.tlss c ψ := by
-    intro c ψ
-    by_cases hc : c < q.k
-    · show tlssOfR _ = tlssOfR _
-      refine tlssOfR_fixCtorDataList_congr (ctorsAs.getD c []) 0 fun i hi => ?_
-      rw [Nat.zero_add]
-      obtain ⟨cAi, hi'⟩ : ∃ cAi, (ctorsAs.getD c [])[i]? = some cAi :=
-        ⟨_, List.getElem?_eq_getElem hi⟩
-      exact (hident c hc i cAi hi').2.2.1 ψ
-    · show tlssOfR (fixCtorDataList _ _ _ _ _ _ (ctorsAs.getD c []) 0)
-        = tlssOfR (fixCtorDataList _ _ _ _ _ _ (ctorsAs.getD c []) 0)
-      rw [hnilCtors c hc]
-      rfl
-  have hEissEq : ∀ (c : Nat) (ψ : Name → Nat),
-      (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Eiss c ψ = dZ.Eiss c ψ := by
-    intro c ψ
-    by_cases hc : c < q.k
-    · show eissOfR _ = eissOfR _
-      refine eissOfR_fixCtorDataList_congr (ctorsAs.getD c []) 0 fun i hi => ?_
-      rw [Nat.zero_add]
-      obtain ⟨cAi, hi'⟩ : ∃ cAi, (ctorsAs.getD c [])[i]? = some cAi :=
-        ⟨_, List.getElem?_eq_getElem hi⟩
-      exact (hident c hc i cAi hi').2.1 ψ
-    · show eissOfR (fixCtorDataList _ _ _ _ _ _ (ctorsAs.getD c []) 0)
-        = eissOfR (fixCtorDataList _ _ _ _ _ _ (ctorsAs.getD c []) 0)
-      rw [hnilCtors c hc]
-      rfl
   have hEssEq : ∀ (c : Nat) (ψ : Name → Nat),
       (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Ess c ψ = dZ.Ess c ψ := by
     intro c ψ
@@ -1002,19 +1008,6 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     fun _ _ _ _ hj => essOfR_fixCtorDataList_getD hj
   -- ## the REAL record's fields with holes are the dummy one's (lane HOLE2):
   -- the two readings agree off the recursive fields
-  have hordR : ∀ m, m < q.k → ∀ (j : Nat) (cA : ConstantVal × Nat),
-      (ctorsAs.getD m [])[j]? = some cA → ∀ (ψ : Name → Nat) (i : Nat), i < cA.2 →
-      ¬ recAt q.nP (((kinds.getD m []).getD j []).map ConLeche.BlockFieldKind.toRec) (q.nP + i) →
-      (((blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Fss m ψ).getD j []).getD i default
-        = ((dZ.Fss m ψ).getD j []).getD i default := by
-    intro m hm j cA hj ψ i hi hnr
-    have hlenDR := (hpk m hm j cA hj).len ψ
-    have hlenDZ := (hpk₀ m hm j cA hj).len ψ
-    rw [hFssRD m j cA ψ hj, hFssZD m j cA ψ hj, drop_map_getD hlenDR hi,
-      drop_map_getD hlenDZ hi]
-    exact (hident m hm j cA hj).2.2.2 ψ i hi
-      (fun hk => hnr ⟨Nat.le_add_right _ _, Or.inl (by rwa [Nat.add_sub_cancel_left])⟩)
-      (fun hk => hnr ⟨Nat.le_add_right _ _, Or.inr (by rwa [Nat.add_sub_cancel_left])⟩)
   have hholeEq : ∀ ψ : Name → Nat,
       (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).toLfp.holeChains ψ
         = dZ.toLfp.holeChains ψ := by
@@ -1035,28 +1028,9 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       exact fixCtorDataList_length _ _ _ _ _ _ _ _
     refine LfpDatum.holeChains_congr rfl (fun _ => rfl) (fun _ => rfl) (fun _ => rfl)
       (fun _ => rfl) (fun c j => ?_) (fun c j => ?_)
-    · by_cases hj : j < (ctorsAs.getD c []).length
-      · obtain ⟨cA, hjA⟩ : ∃ cA, (ctorsAs.getD c [])[j]? = some cA :=
-          ⟨_, List.getElem?_eq_getElem hj⟩
-        have hck := hctorLt c j cA hjA
-        refine BlockData.absF_congr rfl rfl rfl (fun _ => rfl) (by rw [hTlssEq c ψ])
-          (by rw [hEissEq c ψ]) (by rw [hlenFR c j cA hck hjA, hlenFsZ c j cA ψ hck hjA])
-          (fun i hi hr => hordR c hck j cA hjA ψ i (by rw [hlenFR c j cA hck hjA] at hi; exact hi)
-            ?_)
-        have hks : (((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec).length
-            = cA.2 := (hpk c hck j cA hjA).ksLen
-        have hlk : i < (((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec).length := by
-          rw [hks, ← hlenFR c j cA hck hjA]; exact hi
-        have hrs : ((blockDataOf V q env ctorsAs kinds pk uOf ppsOf).rss c).getD j []
-            = rsOf (((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec) :=
-          rssOfK_getD hj
-        rw [recAt_iff_rsOf hlk, ← hrs, hr]
-        exact Bool.false_ne_true
-      · refine BlockData.absF_congr rfl rfl rfl (fun _ => rfl) (by rw [hTlssEq c ψ])
-          (by rw [hEissEq c ψ]) ?_ (fun i hi _ => ?_)
-        · rw [hgetNil _ _ (by rw [hlenFssR c]; omega), hgetNil _ _ (by rw [hlenFssZ c ψ]; omega)]
-        · rw [hgetNil _ _ (by rw [hlenFssR c]; omega)] at hi
-          exact absurd hi (Nat.not_lt_zero _)
+    · -- the fields with holes: the dummy datum's, shared
+      show (pk c).absF j ψ = (pk₀ c).absF j ψ
+      rw [habsR]
     · refine BlockData.absE_congr rfl (by rw [hEssEq c ψ]) ?_
       by_cases hj : j < (ctorsAs.getD c []).length
       · obtain ⟨cA, hjA⟩ : ∃ cA, (ctorsAs.getD c [])[j]? = some cA :=
@@ -1194,6 +1168,55 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     refine hprojTbl m cA sorts hm hcA hsorts' ?_
     rw [← blockNIdxs_getD (q := q) (j := m) hm]
     exact hn0
+  -- ## the fields with holes are the walked term's reading at the REAL
+  -- carrier too: it agrees with the dummy one off the members, and the
+  -- walked term looks up no member (M2′, `canonFieldsRead_agree`)
+  have hmemName : ∀ t, t < q.k → q.memberNames.getD t .anonymous ∈ q.memberNames := fun t ht =>
+    getD_mem _ (by rw [hlenN]; exact ht)
+  have hagDR : ∀ n, n ∉ q.memberNames → mpD.base2.acval n = mpR.base2.acval n := by
+    intro n hn
+    have hne' : ∀ cvTb ∈ cvTas, n ≠ cvTb.name := by
+      intro cvTb hcvTb hh
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      have htk : t < q.k := by
+        have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hF.lenCv] at this
+      exact hn (by rw [hh, hF.nameOf t cvTb ht]; exact hmemName t htk)
+    rw [hagR n hne', hagD n hne']
+  have hlitI := blockMembers_notLit mp.base2.wf (cvTas := cvTas) (names := q.memberNames)
+    (envI := envI)
+    (fun n => ⟨fun hn => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem hn
+        have htk : t < q.k := by
+          have := (List.getElem?_eq_some_iff.mp ht).1; rw [hlenN] at this; exact this
+        obtain ⟨cvTb, hcv⟩ := hcvOf t htk
+        refine ⟨cvTb, List.mem_of_getElem? hcv, ?_⟩
+        rw [hF.nameOf t cvTb hcv, List.getD_eq_getElem?_getD, ht]; rfl,
+      fun ⟨cvTb, hcvTb, hh⟩ => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+        have htk : t < q.k := by
+          have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hF.lenCv] at this
+        rw [← hh, hF.nameOf t cvTb ht]; exact hmemName t htk⟩)
+    (fun cvTb hcvTb => by
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      obtain ⟨bs, hbs⟩ := hF.stripOf t cvTb ht
+      exact ⟨⟨_, (hfindD t cvTb ht).1⟩, _, bs, _, hbs⟩)
+    (fun cvTb hcvTb => by
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      exact hF.freshOf t cvTb ht)
+    (fun n hn => by rw [hcons]; exact consBlockInds_find?_of_ne hn)
+  have hoccI := canonOcc_of_positivity hPos (d := dZ) hpN hpL hlenN.symm (fun c hc => hCA c hc)
+  have hAbsR : ∀ (c j : Nat) (cA : ConstantVal × Nat),
+      ((blockDataOf V q env ctorsAs kinds pk uOf ppsOf).ctorsM c)[j]? = some cA →
+      BlockAbsRead mpR.base2 (blockDataOf V q env ctorsAs kinds pk uOf ppsOf) q.lps c j cA := by
+    intro c j cA hj
+    have hck := hctorLt c j cA hj
+    obtain ⟨hCf, hCb⟩ := hclosedZ c j cA hj
+    refine blockAbsRead_of_run hμ mpR hPos hpN hpL hpP hpI hlenN.symm hndM
+      (fun c hc => hCA c hc) hTasI hformersI hck hj
+      ((hpk c hck j cA hj).storedCtorFacts hCf hCb) (fun ψ => ?_)
+    show (pk c).absF j ψ = _
+    rw [habsR, habs₀, hgetCA c j cA hj]
+    exact canonFieldsRead_agree hagDR (hoccI c hck j cA hj) hlitI.1 hlitI.2 ψ
   -- ## the constructors' stage invariant at the REAL carrier
   have hcoreR : BlockCtorsCore mpR.base2 (blockDataOf V q env ctorsAs kinds pk uOf ppsOf)
       q.lps cvTas q isRec (blockLeafH (blockDataOf V q env ctorsAs kinds pk uOf ppsOf)) 0 := by
@@ -1205,7 +1228,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
     obtain ⟨cvTa, hcv⟩ := hcvOf c hck
     obtain ⟨-, -, -, -, -, -, -, hres, -⟩ := (hfacts c cvTa hck hcv).2 j cA hj
     have hD := hpk c hck j cA hj
-    refine ⟨hres, fun e he => ?_, hD⟩
+    refine ⟨hres, fun e he => ?_, hD, hAbsR c j cA hj⟩
     refine hresIm e ?_
     have he' : e ∈ (pk c).idxF j := he
     rw [hD.idxEq] at he'
@@ -1229,7 +1252,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
         (((blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Fss c ψ).getD j []) :=
     fun ψ c hc j hj => blockStoredShapes_of_run (d := blockDataOf V q env ctorsAs kinds pk uOf ppsOf)
       hμ mpR hNZ hcoreR.holeCtx hPos hpN hpL hpP hpI
-      hlenN.symm hndM hfreshZ rfl (fun c hc => hCA c hc) hclosedZ ψ (hformersI ψ) hc hj
+      hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ ψ (hformersI ψ) hc hj
   -- ## the constructors' stage, assembled
   have hSC : BlockCtorsStage (V := V) μ F (blockDataOf V q env ctorsAs kinds pk uOf ppsOf)
       q.lps cvTas q isRec (blockLeafH (blockDataOf V q env ctorsAs kinds pk uOf ppsOf))

@@ -155,7 +155,7 @@ theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
   obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTasAll[c]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hlt)⟩
   refine ⟨hfind, hlps, (hdata c j cA hj).1, fun ψ => ?_, hleafC⟩
-  have hread := (hdata c j cA hj).2.2.read ψ
+  have hread := (hdata c j cA hj).2.2.1.read ψ
   rw [hread]
   show some (mkPisAV _ (ctorBodyAVI m' (d.memberName c) d.nP cA.2 ψ (d.esF c j ψ))) = _
   unfold ctorBodyAVI

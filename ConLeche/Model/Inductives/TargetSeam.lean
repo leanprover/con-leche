@@ -563,7 +563,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen hfresh => by
+        hctorsAs hctorsIn hdR hlfp hkLen => by
       obtain ⟨out, hrs, ⟨R⟩⟩ := htgtR
       subst hrs
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
@@ -576,7 +576,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (tgtRecEqs_params_seam hμ hrec R hcore i r hr ψ₁ ψ₂ hq)
       have hpre := tgtRecPre_graph hμ (ConLeche.mkFEnv envC) envI pp cvTasR ctorsAsR false block
-        out mpC isRecR A env₀ pk uOfD ppsOf R hrec hnd hfresh hnames hstage hcore hlfp
+        out mpC isRecR A env₀ pk uOfD ppsOf R hrec hnd hnames hstage hcore hlfp
         s hTy
       refine ⟨s, blockRecNCt (tgtRs out),
         fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ',

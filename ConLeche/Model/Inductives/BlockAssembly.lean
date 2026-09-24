@@ -785,6 +785,10 @@ structure BlockMemberPick where
   xrestF : Nat → Expr
   eissF : Nat → (Name → Nat) → List (List AnnotTerm)
   tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
+  /-- the fields with holes (`BlockData.absFF`): not a reading of this
+  member's run — the block's datum chooses them once, at the dummy
+  carrier, and every pick of the block carries the same -/
+  absF : Nat → (Name → Nat) → List AnnotTerm
 
 /-- A target's name, in the block-data spelling. -/
 theorem nameAt_eq_getD {names : List Name} {t : Nat} (ht : t < names.length) :
@@ -885,7 +889,7 @@ theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true
       (resSort := q.resSort) (isProp := q.isProp) (large := q.large) (cvTa := cvTa)
       (env₀ := env) (env₁ := envI) (kinds := kss) (sT := sOf m)
       (hfindOf m cvTa hm) (hlpsOf m cvTa hm) (hsEval m) hst hmem hFOk hrunOf
-  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF⟩, fun j cA hj => ?_⟩
+  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, fun _ _ => []⟩, fun j cA hj => ?_⟩
   have hD := hall j cA hj
   have hTof : tofOf q.memberNames (kss.getD j [])
       = fun i =>

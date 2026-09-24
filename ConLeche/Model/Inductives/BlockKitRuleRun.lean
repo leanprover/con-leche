@@ -125,7 +125,7 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
   have hmemk : p.toBlockShape.recTgtAt c < d.k :=
     (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
+  obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   have hCf : cA.1.type.hasFvar = false :=
     (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr

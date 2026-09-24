@@ -37,18 +37,47 @@ open ConLeche ConLeche.Semantics ConLeche.Verify ConLeche.SetModel
 
 /-! ## The unmentioned leaf -/
 
-/-- **Reading a term that resolves in `env₀` only consults the leaf at
-names `env₀` has**: every `.const` the reading looks up resolves in
-`env₀`, and the literal spines' support constants are part of
-`constsResolve`'s literal clauses.  Stated as an equation between two
-carriers agreeing there — the two runs are `none` together.  (At a
-BLOCK this is what makes the dummy and the real formers' readings
-agree: the two carriers differ at the k member names, none of which
-`env₀` has.) -/
-theorem denoteMeta_agree_of_resolve
-    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
-    (hag : ∀ n, (env₀.find? n).isSome = true → acval₁ n = acval₂ n) :
-    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
+/-- **The names a reading of `e` looks up satisfy `P`**: its constants,
+and — at a literal the environment supports — the support constants
+the literal's reading consults.  (`fvar` annotations are never read.) -/
+@[expose] def Expr.ReadsAt (P : Name → Prop) (env : Env) : Expr → Prop
+  | .const n _ => P n
+  | .app f a => Expr.ReadsAt P env f ∧ Expr.ReadsAt P env a
+  | .lam ty b _ => Expr.ReadsAt P env ty ∧ Expr.ReadsAt P env b
+  | .forallE ty b _ => Expr.ReadsAt P env ty ∧ Expr.ReadsAt P env b
+  | .proj _ _ e => Expr.ReadsAt P env e
+  | .lit (.natVal _) => natLitSupported env = true → P natZeroName ∧ P natSuccName
+  | .lit (.strVal _) => strLitSupported env = true →
+      P stringOfListName ∧ P listNilName ∧ P listConsName ∧ P charName ∧ P charOfNatName ∧
+        P natZeroName ∧ P natSuccName
+  | _ => True
+
+/-- Opening at a variable keeps the looked-up names. -/
+theorem Expr.ReadsAt.instantiate1 {P : Name → Prop} {env : Env} {v : Expr}
+    (hv : Expr.ReadsAt P env v) :
+    ∀ (e : Expr) (k : Nat), Expr.ReadsAt P env e → Expr.ReadsAt P env (e.instantiate1 v k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k _
+    simp only [Expr.instantiate1]
+    split
+    · exact hv
+    · split <;> trivial
+  | app f a ihf iha => intro k h; exact ⟨ihf k h.1, iha k h.2⟩
+  | lam t b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE t b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | proj s i e ihe => intro k h; exact ihe k h
+  | letE => intro _ _; trivial
+  | _ => intro _ h; exact h
+
+/-- **A reading consults the leaves only at the names it looks up**: two
+leaf assignments agreeing there read `e` alike (the two runs are `none`
+together). -/
+theorem denoteMeta_agree_of_readsAt
+    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
+    {P : Name → Prop} (hag : ∀ n, P n → acval₁ n = acval₂ n) :
+    ∀ (d : Nat) (e : Expr), Expr.ReadsAt P env e →
       denoteMeta acval₁ env φ d e = denoteMeta acval₂ env φ d e := by
   intro d e
   induction d, e using denoteMeta.induct (env := env) with
@@ -58,7 +87,7 @@ theorem denoteMeta_agree_of_resolve
     intro hcr
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_pos hlen, if_pos hlen, hag n (by simpa [Expr.constsResolve] using hcr)]
+    rw [if_pos hlen, if_pos hlen, hag n hcr]
   | case4 d n us ci hf hlen =>
     intro _
     rw [denoteMeta, denoteMeta, hf]
@@ -67,37 +96,32 @@ theorem denoteMeta_agree_of_resolve
   | case5 d n us hf => intro _; rw [denoteMeta, denoteMeta, hf]
   | case6 d ty body m ihty ihbody =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteMeta, denoteMeta, ihty hcr.1,
-      ihbody (Expr.constsResolve_instantiate1 hcr.1 0 hcr.2)]
+      ihbody (Expr.ReadsAt.instantiate1 (v := .fvar d ty) (by simp [Expr.ReadsAt]) _ 0 hcr.2)]
   | case7 d ty body m ihty ihbody =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteMeta, denoteMeta, ihty hcr.1,
-      ihbody (Expr.constsResolve_instantiate1 hcr.1 0 hcr.2)]
+      ihbody (Expr.ReadsAt.instantiate1 (v := .fvar d ty) (by simp [Expr.ReadsAt]) _ 0 hcr.2)]
   | case8 d f a ihf iha =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteMeta, denoteMeta, ihf hcr.1, iha hcr.2]
   | case9 d ty val body =>
     intro _
     rw [denoteMeta, denoteMeta]
   | case10 d sn i e ihe =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
-    rw [denoteMeta, denoteMeta, ihe hcr.2]
+    rw [denoteMeta, denoteMeta, ihe hcr]
   | case11 d n hsup =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
-      hag natZeroName hcr.1.2, hag natSuccName hcr.2]
+    obtain ⟨hZ, hS⟩ := hcr hsup
+    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup, hag natZeroName hZ,
+      hag natSuccName hS]
   | case12 d n hsup =>
     intro _
     rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
   | case13 d s hsup =>
     intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
-    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, hZ⟩, hS⟩, -⟩, hO⟩, -⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hcr
+    obtain ⟨hO, hN, hC, hH, hF, hZ, hS⟩ := hcr hsup
     rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
       hag stringOfListName hO, hag listNilName hN, hag listConsName hC,
       hag charName hH, hag charOfNatName hF, hag natZeroName hZ, hag natSuccName hS]
@@ -120,6 +144,56 @@ theorem denoteMeta_agree_of_resolve
       cases l with
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
+
+/-- A term resolving in `env₀` looks up only names `env₀` has. -/
+theorem Expr.readsAt_of_constsResolve {env₀ env : Env} :
+    ∀ (e : Expr), Expr.constsResolve env₀ e = true →
+      Expr.ReadsAt (fun n => (env₀.find? n).isSome = true) env e := by
+  intro e
+  induction e with
+  | const n us => intro h; simpa [Expr.constsResolve, Expr.ReadsAt] using h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam t b m iht ihb =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact ⟨iht h.1, ihb h.2⟩
+  | proj s i e ihe =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    exact ihe h.2
+  | lit l =>
+    intro h
+    cases l with
+    | natVal n =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h
+      exact fun _ => ⟨h.1.2, h.2⟩
+    | strVal s =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, hZ⟩, hS⟩, -⟩, hO⟩, -⟩, hN⟩, hC⟩, hH⟩, hF⟩ := h
+      exact fun _ => ⟨hO, hN, hC, hH, hF, hZ, hS⟩
+  | _ => intro _; trivial
+
+/-- **Reading a term that resolves in `env₀` only consults the leaf at
+names `env₀` has**: every `.const` the reading looks up resolves in
+`env₀`, and the literal spines' support constants are part of
+`constsResolve`'s literal clauses.  Stated as an equation between two
+carriers agreeing there — the two runs are `none` together.  (At a
+BLOCK this is what makes the dummy and the real formers' readings
+agree: the two carriers differ at the k member names, none of which
+`env₀` has.) -/
+theorem denoteMeta_agree_of_resolve
+    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
+    (hag : ∀ n, (env₀.find? n).isSome = true → acval₁ n = acval₂ n) :
+    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
+      denoteMeta acval₁ env φ d e = denoteMeta acval₂ env φ d e :=
+  fun d e he => denoteMeta_agree_of_readsAt hag d e (Expr.readsAt_of_constsResolve e he)
 
 /-! ## The reading peel -/
 

@@ -22,6 +22,8 @@ import ConLeche.Semantics.Tower.TowerWire
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Capstone
 import ConLeche.Verify.BetaGate
+import ConLeche.Model.Annot.CanonCrest
+import ConLeche.Model.Annot.BitRename
 
 public section
 
@@ -37,8 +39,9 @@ member constructor is POSITIVE along the tuple order at the hole frame
 * the walk's term — the stored constructor type, members abstracted to
   their holes, parameters at the head former's opened variables — READS
   as the Π-tower over the clause's fields with holes ending in the
-  component's hole at the parameters and the result indices
-  (`blockCtor_walkRead`, `BlockHoleRead.lean`);
+  component's hole at the parameters and the result indices (the
+  datum's reading fact `BlockAbsRead`: the walk's term is the canonical
+  crest up to erasure, `canonCrest_of_walk`);
 * its context is the parameters' telescope (member 0's former) then one
   hole per member, typed by the member's stored type (`CtxOk`, through
   `ctxOk_of_openers`); the reading is graded there because U2 INFERRED
@@ -66,26 +69,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## Reading pieces -/
-
-/-- Two lists of variables at the same consecutive indices are
-erasure-equal. -/
-theorem erasedEqL_of_fvarIdx :
-    ∀ (as bs : List Expr) (o : Nat),
-      (∀ (i : Nat) (x : Expr), as[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      (∀ (i : Nat) (x : Expr), bs[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      as.length = bs.length → Expr.ErasedEqL as bs
-  | [], [], _, _, _, _ => trivial
-  | [], _ :: _, _, _, _, h => by simp at h
-  | _ :: _, [], _, _, _, h => by simp at h
-  | a :: as, b :: bs, o, ha, hb, h => by
-    obtain ⟨ta, rfl⟩ := ha 0 a rfl
-    obtain ⟨tb, rfl⟩ := hb 0 b rfl
-    refine ⟨rfl, erasedEqL_of_fvarIdx as bs (o + 1) (fun i x hx => ?_) (fun i x hx => ?_)
-      (by simpa using h)⟩
-    · obtain ⟨ty, hty⟩ := ha (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
-    · obtain ⟨ty, hty⟩ := hb (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
 
 /-- A Π-tower's domains are graded along it. -/
 theorem wellDenotedV_mkPisAV_dom :
@@ -127,20 +110,22 @@ carrier). -/
       env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
   (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      BlockCtorRead m d lps c j cA)
+      BlockCtorRead m d lps c j cA ∧ BlockAbsRead m d lps c j cA)
 
 theorem BlockCtorsCore.holeCtx {env : Env} {m : EnvModel V env} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
     (h : BlockCtorsCore m d lps cvTas p₁ isRec A nc) : BlockHoleCtxFacts m d lps cvTas p₁ isRec :=
   ⟨fun c cvTb hc => ⟨(h.1 c cvTb hc).1, (h.1 c cvTb hc).2.2.2⟩,
-    fun c j cA hj => (h.2.2.1 c j cA hj).2.2⟩
+    fun c j cA hj => ⟨(h.2.2.1 c j cA hj).2.2.1, (h.2.2.1 c j cA hj).2.2.2⟩⟩
 
 /-- **A member constructor's walk context** (lane HOLE2): the walk's term
 — the stored constructor type, members abstracted to their holes,
 parameters at the head former's opened variables — reads as the Π-tower
 over the clause's fields with holes ending in the component's hole at the
-parameters and the result indices (`blockCtor_walkRead`); its context is
+parameters and the result indices (the datum's reading fact
+`BlockAbsRead`, at the canonical crest the walk's term is up to erasure,
+`canonCrest_of_walk`); its context is
 the parameters' telescope then one hole per member, typed by the member's
 stored type (`CtxOkP`, through `ctxOkP_of_openers`); the reading is
 GRADED there because U2 inferred the term at that context
@@ -155,7 +140,6 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
@@ -172,7 +156,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       denoteMeta m.acval env ψ (d.nP + d.k) crest
         = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
-      ab.map (·.2.2) = d.absF ψ c j ∧
+      ab.map (·.2.2) = d.absF ψ c j ∧ ab.length = cA.2 ∧
       Rules.Frame (d.nP + d.k) crest ∧
       CtxOkP m ψ (d.nP + d.k) L.reverse crest ∧
       Rules.Graded V L.reverse (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
@@ -234,25 +218,26 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     obtain ⟨cvTb, h1, h2, h3, h4, h5⟩ := hhole t ht
     rw [htx] at h5
     exact ⟨t, ht, cvTb, h1, h2, h3, h4, Option.some.inj h5⟩
-  -- ## the reading: the Π-tower over the fields with holes
-  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := hcore.2 c j cA hcj
-  have hpar : Expr.ErasedEqL ctx.params (d.fvsPF c j) := by
-    rw [hcPar]
-    refine erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => hidxF i x hx) (fun i x hx => ?_)
-      (by rw [hlenF, hD₀.pLen])
-    obtain ⟨ty, h⟩ := hD₀.pIdx i x hx
-    exact ⟨ty, by rw [h, Nat.zero_add]⟩
-  have hholes' : ∀ t, t < d.k → ∃ ty, holes[t]? = some (.fvar (d.nP + t) ty) := by
-    intro t ht
-    obtain ⟨cvTb, -, -, -, -, h⟩ := hhole t ht
-    exact ⟨_, h⟩
-  have htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k := fun l _ => by
-    rw [← hN.2.2.2]; exact hN.2.1 c j l
-  obtain ⟨ab, hca, hab⟩ := blockCtor_walkRead (m := m) hcj hD₀ hcN hcL hcP hk hpar
-    (fun x hx => by
-      obtain ⟨t, -, cvTb, -, -, -, -, rfl⟩ := hholeMem x hx
-      exact ⟨_, _, rfl⟩)
-    hholes' hnd hfresh htgt hc (Expr.WScoped.of_not_hasFvar hCf) ψ (by rw [hcPar]; exact hcrest)
+  -- ## the reading: the Π-tower over the fields with holes (the datum's
+  -- reading fact at the canonical crest, which the walk's term is up to
+  -- erasure)
+  obtain ⟨A, hA, hR⟩ := (hcore.2 c j cA hcj).2
+  obtain ⟨ab, hAr, hlab, hab⟩ := hR ψ
+  obtain ⟨A', hA', herased⟩ := canonCrest_of_walk (ctx := ctx) (k := d.k)
+    (fun i x hx => by rw [hcPar] at hx; simpa using hidxF i x hx)
+    (by rw [hcPar, hlenF, hcP])
+    (fun t x hx => by
+      have ht : t < d.k := by rw [← hlenH]; exact (List.getElem?_eq_some_iff.mp hx).1
+      obtain ⟨cvTb, -, -, -, -, h⟩ := hhole t ht
+      rw [h] at hx
+      exact ⟨_, by rw [hcP]; exact (Option.some.inj hx).symm⟩)
+    hlenH (by rw [hcPar]; exact hcrest)
+  rw [hcN, hcL, hcP, hA] at hA'
+  obtain rfl := Option.some.inj hA'
+  have hca : denoteMeta m.acval env ψ (d.nP + d.k) crest
+      = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
+          (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) := by
+    rw [denoteMeta_erasedEq herased]; exact hAr
   rw [← hhi] at hca
   -- ## the frame
   have hparW : ∀ x ∈ ctx.params, Expr.WScoped (ctx.hiAt 0) x := by
@@ -435,7 +420,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     rw [interp_closed V (hholeClosed t ht) σ (shiftE (d.toLfp.pars t ψ).length 0 ρp)]
     exact hmem
   rw [hhi] at hca hgr hfr hCP
-  exact ⟨ab, L, hhi, hca, hab, hfr, hCP, hgr, hsatFrame⟩
+  exact ⟨ab, L, hhi, hca, hab, hlab, hfr, hCP, hgr, hsatFrame⟩
 
 /-- **A member constructor is positive along the tuple order at the
 hole frame**, from its walk (`nestMemberCtor`, flat kinds) and its U2
@@ -448,7 +433,6 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
@@ -466,15 +450,14 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
     {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp) :
     d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
-  obtain ⟨ab, L, hhi, hca, hab, hfr, hCP, hgr, hsatFrame⟩ :=
-    blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hnd hfresh hcv0 hop0 hholes hc hcj
+  obtain ⟨ab, L, hhi, hca, hab, habLen, hfr, hCP, hgr, hsatFrame⟩ :=
+    blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hc hcj
       hCf hCb hcrest hinf
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
   have hcI : (p.nestCtx fvsP env.find? env.consts).nIdxs = d.nIdxs := hnIdxs
   rw [← hhi] at hca hgr hfr hCP
   generalize hctx : p.nestCtx fvsP env.find? env.consts = ctx at *
-  have hD₀ := hcore.2 c j cA hcj
   -- ## the tuple order at the hole frame is a hole relation of that context
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   have hFDof : ∀ t, t < d.k → ∃ cvTb,
@@ -518,14 +501,6 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       simp at h
   -- ## the walk is positive, read off the Π-tower
   have hpos := nestMemberCtor_sem_flat hin ctx F hm hks hfr hCP hca hgr hR
-  have habLen : ab.length = cA.2 := by
-    have h1 := congrArg List.length hab
-    rw [List.length_map] at h1
-    rw [h1, BlockData.absF, List.length_map, List.length_range]
-    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [hFssD, List.length_map, List.length_drop, hD₀.len ψ]
-    omega
   rw [← habLen] at hpos
   obtain ⟨htele, i', vs, heq, hvs⟩ := piPosThen_mkPisAV ab _ _ hpos
   rw [hab] at htele hvs
@@ -550,7 +525,6 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
       p cvTas ctorsAs = .ok ())
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     (hinst : d.nInst = 0)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -570,6 +544,6 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
-    hnd hfresh hcv0 hop0 hholes hck hcj hCf hCb hcrest hm hks hty hs
+    hcv0 hop0 hholes hck hcj hCf hCb hcrest hm hks hty hs
 
 end ConLeche.Model

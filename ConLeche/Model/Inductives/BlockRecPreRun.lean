@@ -1058,7 +1058,7 @@ theorem blockRuleFdomsAV_datum {envC : Env} {mpC : EnvModelM V μ envC} {d : Blo
   have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
   have hCf : cA.1.type.hasFvar = false :=
     (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
-  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2.1
   rw [hdnP] at hcd
   have hF : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
     fssOfR_fixCtorDataList_getD hcj
@@ -1094,7 +1094,7 @@ theorem blockRuleFdomsAV_liftDoms {envC : Env} {mpC : EnvModelM V μ envC} {d : 
   have hfind := (hcore.2.2.2 (mem c) hmemk j cA hcj).1
   have hCf : cA.1.type.hasFvar = false :=
     (mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
-  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2
+  have hcd := (hcore.2.2.1 (mem c) j cA hcj).2.2.1
   rw [hdnP] at hcd
   exact blockRuleFdomsAV_eq_liftDoms h hr hcA hrhs hcd hCf hnP (by omega) ψ
 

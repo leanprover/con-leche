@@ -17,9 +17,9 @@ public section
 
 The target check types a call on the MEMBER-ABSTRACTED field type
 (`tgtAbsM`, holes at `B + t` after the prefix and the fields).  The lfp
-clause's hole reading of the same field is `absField` (lane HOLE2): the
-stored constructor type at the canonical parameters, the fields opened
-above the holes at `nP + t` (`blockField_holeRead`).  The two are one
+clause's hole reading of the same field is its entry of `absF` (lane
+HOLE2): the stored constructor type at the canonical parameters, the
+fields opened above the holes at `nP + t` (`blockField_holeRead`).  The two are one
 term up to a renaming of the free variables (`TargetIndRen.lean`): the
 parameters stay, the holes move from `nP + t` to `B + t`, the fields
 from `nP + k + i` to `rP + i`.  So a field lying in its hole reading at
@@ -96,8 +96,6 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hnd : d.memberNames.Nodup)
-    (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     {c j : Nat} {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[c]? = some r0) {cA : ConstantVal × Nat} (hcA : r0.2.2.2[j]? = some cA)
     {rhs : Expr} (hrhs : r0.2.1[j]? = some rhs)
@@ -129,7 +127,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hcj : (d.ctorsM (pp.toBlockShape.recTgtAt c))[j]? = some cA := by rw [hctM]; exact hcA
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmaj.2.1 j cA hcj
-  have hD₀ := (hcore.2.2.1 _ j cA hcj).2.2
+  have hD₀ := (hcore.2.2.1 _ j cA hcj).2.2.1
   have hD := hD₀
   obtain ⟨crestM, hopP, hopX⟩ := hD.opens
   have hCf : cA.1.type.hasFvar = false :=
@@ -184,16 +182,15 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
   -- the clause's hole reading of the field
   let ctx : NestCtx := ⟨d.memberNames, pp.lps, d.nP, [], [], .zero, fun _ => none, []⟩
   let holes : List Expr := (List.range d.k).map fun t => .fvar (d.nP + t) (.sort .zero)
-  have hh : ∀ e ∈ holes, ∃ i ty, e = .fvar i ty := by
-    intro e he
-    obtain ⟨t, -, rfl⟩ := List.mem_map.mp he
-    exact ⟨_, _, rfl⟩
-  have hholes : ∀ t, t < d.k → ∃ ty, holes[t]? = some (.fvar (d.nP + t) ty) := fun t ht =>
-    ⟨.sort .zero, by simp [holes, List.getElem?_range ht]⟩
-  have htgt : ∀ l, l < cA.2 → d.tgts (pp.toBlockShape.recTgtAt c) j l < d.k := fun l _ => by
-    rw [← hN.2.2.2]; exact hN.2.1 _ j l
+  have hholes : ∀ (t : Nat) (y : Expr), holes[t]? = some y → ∃ ty, y = .fvar (d.nP + t) ty := by
+    intro t y hy
+    have ht : t < d.k := by simpa [holes] using (List.getElem?_eq_some_iff.mp hy).1
+    simp only [holes, List.getElem?_map, List.getElem?_range ht, Option.map_some,
+      Option.some.injEq] at hy
+    exact ⟨_, hy.symm⟩
   have hread := blockField_holeRead (m := mpC.base2) (env := fe.env) (d := d) (lps := pp.lps)
-    hcj hD₀ (ctx := ctx) rfl rfl rfl hk (holes := holes) hh hholes hnd hfresh htgt hwc hopX ψ hx
+    (hcore.2.2.1 _ j cA hcj).2.2.2 (ctx := ctx) rfl rfl rfl hk (holes := holes) hholes
+    (by simp [holes]) hopP (fun i y hy => hD.pIdx i y hy) hwc hopX ψ hx
   -- the renaming
   have hkL : cvTas.length = d.k := hN.2.2.2
   have h2 := FRen.trans (fren_shiftFromN d.nP ctx.names.length x.fvarTypeD).symm hrel0
@@ -258,16 +255,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     hread hA'
   -- the field lies in its hole reading
   have hmemA := ConLeche.Semantics.FixKI.spineFit_getD_mem' hfit (l := fi) (by rw [← hfit.length_eq, hfs]; exact hfi)
-  have habs : (d.absF ψ (pp.toBlockShape.recTgtAt c) j).getD fi default
-      = d.absField ψ (pp.toBlockShape.recTgtAt c) j fi := by
-    have hlen : (d.absF ψ (pp.toBlockShape.recTgtAt c) j).length = cA.2 := by
-      rw [← hfit.length_eq, hfs]
-    unfold BlockData.absF at hlen ⊢
-    simp only [List.length_map, List.length_range] at hlen
-    have hfi' : fi < ((d.Fss (pp.toBlockShape.recTgtAt c) ψ)[j]?.getD []).length := by
-      rw [← List.getD_eq_getElem?_getD]; omega
-    simp [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hfi']
-  rw [habs, ← consList_append, ← consList_append, hval] at hmemA
+  rw [← consList_append, ← consList_append, hval] at hmemA
   exact hmemA
 
 end Transport

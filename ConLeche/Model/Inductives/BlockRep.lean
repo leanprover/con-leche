@@ -136,6 +136,10 @@ structure BlockData (V : Type w) where
   eissF : Nat → Nat → (Name → Nat) → List (List AnnotTerm)
   /-- per component and constructor: the reflexive fields' telescopes -/
   tssF : Nat → Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
+  /-- per component and constructor: the fields WITH HOLES (lane HOLE2) —
+  the walked term's reading, members abstracted to the holes
+  (`BlockAbsRead`) -/
+  absFF : Nat → Nat → (Name → Nat) → List AnnotTerm
   /-- **the tuple operator**, at a level assignment and a parameter
   frame: a meta-level function on tuples of families, component `c` a
   set-level family over component `c`'s index-tuple set -/
@@ -251,44 +255,22 @@ formers' stage reads the constructors before they are consed). -/
 /-! ## The constructors' fields WITH HOLES (lane HOLE2)
 
 Charter item 2: a constructor's fields are read with HOLES at the
-block's members — the member-abstracted constructor domains, read at the
-parameters, then one variable per member (member `m` at `nP + m`), then
-the earlier fields (the layout `nestPos` walks,
-`Kernel/Inductives/Positivity.lean`).  At the data they are the
-constructor's field readings `Fss` with the member holes inserted below
-the fields: a hole-free field is its reading lifted over the holes; a
-field reading a member (finitary or reflexive) is the member's HOLE
-applied to the block's parameters and the field's index readings, under
-the field's own telescope.  `Model/Inductives/BlockLfpHoles.lean` proves
-the fixpoint route's fit (`ChainFit`) IS the telescope fit of these at
-the hole frame (`LfpDatum.ReadsHoles`). -/
+block's members — the member-abstracted constructor type, instantiated
+at the parameters, then one variable per member (member `m` at
+`nP + m`), then the earlier fields (the layout `nestPos` walks,
+`Kernel/Inductives/Positivity.lean`).  The datum carries them as a
+primary field (`absFF`): the walked term's reading, chosen once
+(`BlockAbsRead`, `Model/Inductives/BlockAbsRead.lean`).  No field is
+classified: every fact about their shape is the stored field shape
+facts' (`StoredFieldShapes`). -/
 
 namespace BlockData
 
 variable (d : BlockData V)
 
-/-- A telescope's entries lifted over `n` variables inserted below its
-start, the entry `l` of a telescope starting at position `i` at the
-cut `i + l`. -/
-@[expose] def liftTeleK (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
-  | _, [] => []
-  | i, dd :: tl => (dd.1, dd.2.1, dd.2.2.liftN n i) :: liftTeleK n (i + 1) tl
-
-/-- **Field `i` of component `c`'s constructor `j`, read with holes**
-(see the section docstring). -/
-@[expose] def absField (ψ : Name → Nat) (c j i : Nat) : AnnotTerm :=
-  if ((d.rss c).getD j []).getD i false then
-    mkPisAV (liftTeleK d.k i (((d.tlss c ψ).getD j []).getD i []))
-      (AnnotTerm.mkAppN
-        (.bvar (i + (((d.tlss c ψ).getD j []).getD i []).length + (d.k - 1 - d.tgts c j i)))
-        (paramBvarsAt d.nP (d.nP + d.k + i + (((d.tlss c ψ).getD j []).getD i []).length) ++
-          (((d.Eiss c ψ).getD j []).getD i []).map
-            (·.liftN d.k (i + (((d.tlss c ψ).getD j []).getD i []).length))))
-  else (((d.Fss c ψ).getD j []).getD i default).liftN d.k i
-
-/-- Component `c`'s constructor `j`'s fields with holes. -/
-@[expose] def absF (ψ : Name → Nat) (c j : Nat) : List AnnotTerm :=
-  (List.range ((d.Fss c ψ).getD j []).length).map (d.absField ψ c j)
+/-- Component `c`'s constructor `j`'s fields with holes (the datum's
+own, `absFF`). -/
+@[expose] def absF (ψ : Name → Nat) (c j : Nat) : List AnnotTerm := d.absFF c j ψ
 
 /-- Component `c`'s constructor `j`'s result index readings, below the
 holes and the fields. -/

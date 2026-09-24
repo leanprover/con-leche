@@ -70,7 +70,6 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     (hM : BlockModelAt mpC.base2 names d)
     (hC : LfpClause mpC.base2.acval d.toLfp)
     (hnd : d.memberNames.Nodup)
-    (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
     ∀ P : V → Prop,
       (∀ u, u ∈ˢ unionSet (tgtRs out).length (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs) (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) →
@@ -124,7 +123,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     rw [hctM c' _ hr]; exact hcA
   have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
+  obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   -- the fields fit at the CARRIER (the hole fit grows with the tuple), there
   -- as stored (the override law)
   have hfitH : blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c' t j fs :=
@@ -259,7 +258,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))
     (by rw [List.length_map, List.length_range, hN.2.2.2]) hvTy _ hlaw
-    (fun Aty hA => tgtField_transport hμ h R hdR' hN hcore hmr hnd hfresh hr hcA hrhs ψ ρ hxs hfsl
+    (fun Aty hA => tgtField_transport hμ h R hdR' hN hcore hmr hr hcA hrhs ψ ρ hxs hfsl
       (by simp only [List.length_map, List.length_range]; rfl) hsepH.2.1 hfi Aty hA) bs hbs
   obtain ⟨hidx, hin⟩ := hcoreT
   simp only [sepTuple] at hin

@@ -11,6 +11,8 @@ import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.StructFrames
 import ConLeche.Model.Inductives.BlockData
+import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
@@ -105,7 +107,6 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
@@ -130,8 +131,8 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
     FieldsValid (d.toLfp.frame ψ ρp X) (d.absF ψ c j) ∧
     ∀ fs : List V, SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs →
       ∀ e ∈ d.absE ψ c j, WellDenotedV V (consList fs (d.toLfp.frame ψ ρp X)) e := by
-  obtain ⟨ab, L, hhi, hca, hab, hfr, hCP, hgr, hsatFrame⟩ :=
-    blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk hnd hfresh
+  obtain ⟨ab, L, hhi, hca, hab, habLen, hfr, hCP, hgr, hsatFrame⟩ :=
+    blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
       hcv0 hop0 hholes hc hcj hCf hCb hcrest hinf
   -- the bounds: the reading of a well-scoped term
   have hbelow : FieldsBelow (d.nP + d.k) (d.absF ψ c j) ∧
@@ -146,15 +147,6 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
   refine ⟨hbelow, fun ρp hs X hX => ?_⟩
   have hσ := hsatFrame ρp hs X hX
   generalize d.toLfp.frame ψ ρp X = σ at hσ ⊢
-  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := hcore.2 c j cA hcj
-  have habLen : ab.length = cA.2 := by
-    have h1 := congrArg List.length hab
-    rw [List.length_map] at h1
-    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [h1, BlockData.absF, List.length_map, List.length_range, hFssD, List.length_map,
-      List.length_drop, hD₀.len ψ]
-    omega
   -- the fields' own readings: `ab`'s domains
   have hFab : d.absF ψ c j = ab.map (·.2.2) := hab.symm
   have hget : ∀ i (hi : i < ab.length), (d.absF ψ c j).getD i default = (ab[i]'hi).2.2 := by
@@ -235,7 +227,6 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     (hinst : d.nInst = 0)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -259,8 +250,91 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
   obtain ⟨crest, hcrest, -, ⟨ty, hty⟩, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
-  exact blockCtorHoleGrade_of_walk mp hN hcore hnames hlps hnP hnIdxs hres hk hnd hfresh hcv0 hop0
+  exact blockCtorHoleGrade_of_walk mp hN hcore hnames hlps hnP hnIdxs hres hk hcv0 hop0
     hholes hck hcj hCf hCb hcrest hty hxq hsorts
+
+/-- **The reading fact at a uniform block's datum**, from the install's
+positivity stage through THE producer (`storedFieldShapes_of_run`): the
+walked term reads as the Π-tower over the fields with holes it reads as,
+and so does the canonical crest, which the walked term is up to erasure
+(`canonCrest_of_walk`) — at a datum whose fields with holes are the
+canonical crest's field readings at the model (`habs`). -/
+theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
+    {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal}
+    {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
+      p cvTas ctorsAs = .ok ())
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
+    (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hTas : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false)
+    (hformers : ∀ (ψ : Name → Nat) (t : Nat), t < d.k → ∃ cv caps bs s,
+      env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
+      cv.type.stripPis (d.nP + d.nIdxAt t) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ)
+    {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA)
+    (hD : StoredCtorFacts mp.base2 (d.memberName c) lps cA.1 d.nP cA.2 (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) (d.idxF c j) (d.dsF c j) (d.esF c j))
+    (habs : ∀ ψ, d.absF ψ c j
+      = canonFieldsRead mp.base2.acval env d.memberNames lps d.nP d.k cA ψ) :
+    BlockAbsRead mp.base2 d lps c j cA := by
+  obtain rfl := ConLeche.CheckMode.eq_verified hμ
+  have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
+  -- the walked term, and the canonical crest it is up to erasure
+  obtain ⟨cvTb0, fvsQ, restQ, holesQ, hcvQ, hopQ, hholesQ, hall⟩ :=
+    ConLeche.checkBlockPositivity_inv hrun
+  obtain ⟨crestQ, hcrestQ, -⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  have hlenQ := ConLeche.nestHoles_length hholesQ
+  obtain ⟨A, hA, herased⟩ := canonCrest_of_walk (ctx := p.nestCtx fvsQ env.find? env.consts)
+    (k := d.k)
+    (fun i x hx => by
+      obtain ⟨ty, h⟩ := ConLeche.openPisAtFvars_index _ _ _ hopQ i x hx
+      exact ⟨ty, by rw [h, Nat.zero_add]⟩)
+    (ConLeche.Verify.openPisAtFvars_length _ hopQ)
+    (fun t x hx => by
+      have ht : t < (p.nestCtx fvsQ env.find? env.consts).names.length := by
+        rw [← hlenQ]; exact (List.getElem?_eq_some_iff.mp hx).1
+      obtain ⟨cv, caps, -, hget⟩ := ConLeche.nestHoles_getElem? hholesQ ht
+      rw [hget] at hx
+      exact ⟨_, (Option.some.inj hx).symm⟩)
+    (by rw [hlenQ]; exact hkL) hcrestQ
+  have hA' : instPisWith (canonParams d.nP) (canonAbs d.memberNames lps d.nP d.k cA.1.type)
+      = some A := by
+    rw [← hnames, ← hlps, ← hnP]; exact hA
+  refine ⟨A, hA', fun ψ => ?_⟩
+  have hform' : ∀ t, t < p.memberNames.length → ∃ cv caps bs s,
+      env.find? (p.memberNames.getD t .anonymous) = some (.indInfo cv caps) ∧
+      cv.levelParams = p.lps ∧
+      cv.type.stripPis (p.nP + p.nIdxs.getD t 0) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ := by
+    intro t ht
+    rw [hkL] at ht
+    rw [hnames, hlps, hnP, hnIdxs]
+    exact hformers ψ t ht
+  -- THE producer
+  obtain ⟨cvTa0, fvsP, rest, holes, crest, ab, E, hcv0, hop0, hholes, hcrest, hread, hab, hE, -⟩ :=
+    storedFieldShapes_of_run mp.base2 ψ hrun hTas (by rw [hnames]; exact hnd) hform'
+      (hctorsAs c hc) hcj (by rw [hkL]; exact hc) (by rw [hnames, hlps, hnP]; exact hD)
+  rw [hcv0] at hcvQ
+  obtain rfl := Option.some.inj hcvQ
+  rw [hop0] at hopQ
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hopQ)
+  rw [hholes] at hholesQ
+  obtain rfl := Option.some.inj hholesQ
+  rw [hcrest] at hcrestQ
+  obtain rfl := Option.some.inj hcrestQ
+  rw [hnP, hkL, denoteMeta_erasedEq herased] at hread
+  have hEssD : (d.Ess c ψ).getD j [] = d.esF c j ψ := essOfR_fixCtorDataList_getD hcj
+  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  have hEss : E = d.absE ψ c j := by
+    have h1 : ((d.Fss c ψ).getD j []).length = cA.2 := by
+      rw [hFssD, List.length_map, List.length_drop, hD.len ψ]; omega
+    rw [hE, BlockData.absE, hEssD, h1, hkL]
+  rw [hEss] at hread
+  refine ⟨ab, hread, hab, ?_⟩
+  rw [habs ψ]
+  exact (canonFieldsRead_eq hA' hread hab).symm
 
 /-- **The stored field shape facts at a uniform block's datum**, from
 the install's positivity stage (`DeclBlockRun` conjunct 7b) through THE
@@ -278,7 +352,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length)
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
+    (hnd : d.memberNames.Nodup)
     (hinst : d.nInst = 0)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -297,7 +371,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
   generalize hcA : (d.ctorsM c)[j] = cA at hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
-  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := hcore.2 c j cA hcj
+  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2 c j cA hcj).1
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   -- the formers' types, at the walk's names
   have hTas : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false := by
@@ -330,17 +404,11 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   obtain rfl := Option.some.inj hholesQ
   rw [hcrest] at hcrestQ
   obtain rfl := Option.some.inj hcrestQ
-  obtain ⟨ab', L, -, hca, hab', -⟩ :=
-    blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk hnd
-      hfresh hcv0 hop0 hholes hck hcj hCf hCb hcrest hty
+  obtain ⟨ab', L, -, hca, hab', hab'L, -⟩ :=
+    blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
+      hcv0 hop0 hholes hck hcj hCf hCb hcrest hty
   have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
     fssOfR_fixCtorDataList_getD hcj
-  have hab'L : ab'.length = cA.2 := by
-    have h1 := congrArg List.length hab'
-    rw [List.length_map] at h1
-    rw [h1, BlockData.absF, List.length_map, List.length_range, hFssD, List.length_map,
-      List.length_drop, hD₀.len ψ]
-    omega
   rw [hnP, hkL, hca] at hread
   obtain ⟨rfl, -⟩ := mkPisAV_inj (hab'L.trans hab.symm) (Option.some.inj hread)
   rw [hab', hkL, hnP, hnIdxs, hFssD.symm] at hS
@@ -567,33 +635,7 @@ theorem blockHoleChains_facts {env : Env} {m : EnvModel V env} {d : BlockData V}
 /-! ## Congruences of the hole form -/
 
 omit [SetTheory V] in
-/-- **The fields with holes are congruent** in the data they read: the
-recursive flags and targets, the reflexive telescopes and index readings,
-the field count, and the field readings at the positions that are not
-recursive. -/
-theorem BlockData.absF_congr {d d' : BlockData V} {ψ ψ' : Name → Nat} {c j : Nat}
-    (hnP : d.nP = d'.nP) (hk : d.k = d'.k)
-    (hrs : (d.rss c).getD j [] = (d'.rss c).getD j [])
-    (htg : ∀ i, d.tgts c j i = d'.tgts c j i)
-    (htl : (d.tlss c ψ).getD j [] = (d'.tlss c ψ').getD j [])
-    (hei : (d.Eiss c ψ).getD j [] = (d'.Eiss c ψ').getD j [])
-    (hlen : ((d.Fss c ψ).getD j []).length = ((d'.Fss c ψ').getD j []).length)
-    (hord : ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = false →
-      ((d.Fss c ψ).getD j []).getD i default = ((d'.Fss c ψ').getD j []).getD i default) :
-    d.absF ψ c j = d'.absF ψ' c j := by
-  unfold BlockData.absF
-  rw [← hlen]
-  refine List.map_congr_left fun i hi => ?_
-  have hi' := List.mem_range.mp hi
-  unfold BlockData.absField
-  rw [← hrs, ← htl, ← hei, ← htg i, ← hnP, ← hk]
-  split
-  · rfl
-  · rename_i hr
-    rw [hord i hi' (by simpa using hr)]
-
-omit [SetTheory V] in
-/-- The result index readings with holes are congruent likewise. -/
+/-- The result index readings with holes are congruent in the readings. -/
 theorem BlockData.absE_congr {d d' : BlockData V} {ψ ψ' : Name → Nat} {c j : Nat}
     (hk : d.k = d'.k) (hes : (d.Ess c ψ).getD j [] = (d'.Ess c ψ').getD j [])
     (hlen : ((d.Fss c ψ).getD j []).length = ((d'.Fss c ψ').getD j []).length) :

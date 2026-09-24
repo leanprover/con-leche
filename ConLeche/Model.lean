@@ -13,6 +13,7 @@ public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockModelRecords
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.StoredShapes
+public import ConLeche.Model.Inductives.BlockAbsRead
 public import ConLeche.Model.Inductives.BlockHoleValid
 public import ConLeche.Model.Inductives.BlockStageTable
 public import ConLeche.Model.Inductives.BlockCaps
@@ -156,6 +157,7 @@ public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.ValidSpine
 public import ConLeche.Model.Annot.BitLevels
+public import ConLeche.Model.Annot.LpDefF
 -- P modules the old `ConLeche/SetR.lean` umbrella covered only transitively;
 -- named here so `lake build ConLecheModel` roots the whole lane.
 public import ConLeche.Model.Annot.BitRename

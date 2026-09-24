@@ -89,7 +89,7 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
     -, hrds, hmemN⟩ := blockRuleCaAV_pair hμ h hcore hmr hdnP hctM ψ hc hj
   obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
+  obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   -- the hole fit, as the stored fit (the override law at the carrier)
   have hfit' := (hM.carrier ψ _ (d.satOfSpine hps) _ hmemN i hi j fs).mp hfit
   -- `Ca` at the target width

@@ -135,7 +135,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     fun _ _ _ _ hj => fssOfR_fixCtorDataList_getD hj
   have hdsLenA : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
       (d.ctorsM c)[j]? = some cA → (d.dsF c j ψ).length = d.nP + cA.2 :=
-    fun ψ c j cA hj => (hcore.2.2.1 c j cA hj).2.2.len ψ
+    fun ψ c j cA hj => (hcore.2.2.1 c j cA hj).2.2.1.len ψ
   have hnF : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
       (d.ctorsM c)[j]? = some cA → ((d.Fss c ψ).getD j []).length = cA.2 := by
     intro ψ c j cA hj

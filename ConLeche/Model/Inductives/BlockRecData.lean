@@ -1425,7 +1425,7 @@ theorem blockCtorData_of_core {envC : Env} {mpC : EnvModelM V μ envC} {d : Bloc
       (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
       d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
       (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j) :=
-  (hcore.2.2.1 c j cA hcA).2.2
+  (hcore.2.2.1 c j cA hcA).2.2.1
 
 /-! ## A.8 The remaining components, SPELLED
 
@@ -3750,7 +3750,6 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         dR.toLfp ∈ mpC.lfpBlocks →
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →
-        (∀ n ∈ dR.memberNames, dR.env₀.find? n = none) →
         ∃ (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
           (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
           (fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
@@ -3812,11 +3811,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen hfresh => by
+        hctorsAs hctorsIn hdR hlfp hkLen => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hRaZ⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR hlfp hkLen hfresh
+          hcore hctorsAs hctorsIn hdR hlfp hkLen
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hRaZ
 

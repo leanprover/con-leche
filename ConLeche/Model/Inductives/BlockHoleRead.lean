@@ -18,7 +18,7 @@ import ConLeche.Model.Inductives.StructBits
 public section
 
 /-!
-# The fields with holes ARE the member-abstracted readings (lane HOLE2)
+# The walk's term and the concrete opening (lane HOLE2)
 
 Charter item 2: the clause's fields are "the interpretation of [the]
 constructor types with holes at the block's members … ordinary open terms
@@ -29,8 +29,7 @@ variables `0 ..< nP`, its members' constants replaced by the holes
 (`Kernel/Inductives/Positivity.lean`).
 
 This file relates that walk to the CONCRETE opening the constructor stage
-reads (`BlockCtorDataI`: parameters at `0 ..< nP`, fields at
-`nP ..< nP + nF`, no holes).  The bridge is one Expr operation,
+reads (parameters at `0 ..< nP`, fields at `nP ..< nP + nF`, no holes).  The bridge is one Expr operation,
 `holeAbs`: the concrete term with the fields moved `k` slots up
 (`Expr.shiftFromN`) and the members abstracted (`nestAbstract`).  It
 commutes with opening a binder (`holeAbs_instantiate1`), so the walk's
@@ -75,9 +74,12 @@ theorem Expr.replaceConsts_instantiate1 {f : Name → List Level → Option Expr
       rfl
   | _ => intro v k; simp_all [Expr.instantiate1, Expr.replaceConsts]
 
-/-- Replacing constants keeps erasure-equality. -/
-theorem Expr.ErasedEq.replaceConsts {f : Name → List Level → Option Expr} :
-    ∀ {a b : Expr}, Expr.ErasedEq a b → Expr.ErasedEq (a.replaceConsts f) (b.replaceConsts f)
+/-- Replacing constants by erasure-equal replacements keeps
+erasure-equality. -/
+theorem Expr.ErasedEq.replaceConsts {f g : Name → List Level → Option Expr}
+    (hfg : ∀ c us, (f c us = none ∧ g c us = none) ∨
+      ∃ a b, f c us = some a ∧ g c us = some b ∧ Expr.ErasedEq a b) :
+    ∀ {a b : Expr}, Expr.ErasedEq a b → Expr.ErasedEq (a.replaceConsts f) (b.replaceConsts g)
   | .bvar i, b, h => by
     match b, h with
     | .bvar j, h => exact h
@@ -91,29 +93,81 @@ theorem Expr.ErasedEq.replaceConsts {f : Name → List Level → Option Expr} :
     match b, h with
     | .const n' us', h =>
       obtain ⟨rfl, rfl⟩ := h
-      exact Expr.ErasedEq.rfl _
+      simp only [Expr.replaceConsts]
+      rcases hfg n us with ⟨h1, h2⟩ | ⟨a, b, h1, h2, h3⟩
+      · rw [h1, h2]; exact Expr.ErasedEq.rfl _
+      · rw [h1, h2]; exact h3
   | .app f₁ a₁, b, h => by
     match b, h with
-    | .app f₂ a₂, h => exact ⟨Expr.ErasedEq.replaceConsts h.1, Expr.ErasedEq.replaceConsts h.2⟩
+    | .app f₂ a₂, h =>
+      exact ⟨Expr.ErasedEq.replaceConsts hfg h.1, Expr.ErasedEq.replaceConsts hfg h.2⟩
   | .lam t₁ b₁ m₁, b, h => by
     match b, h with
     | .lam t₂ b₂ m₂, h =>
-      exact ⟨h.1, Expr.ErasedEq.replaceConsts h.2.1, Expr.ErasedEq.replaceConsts h.2.2⟩
+      exact ⟨h.1, Expr.ErasedEq.replaceConsts hfg h.2.1, Expr.ErasedEq.replaceConsts hfg h.2.2⟩
   | .forallE t₁ b₁ m₁, b, h => by
     match b, h with
     | .forallE t₂ b₂ m₂, h =>
-      exact ⟨h.1, Expr.ErasedEq.replaceConsts h.2.1, Expr.ErasedEq.replaceConsts h.2.2⟩
+      exact ⟨h.1, Expr.ErasedEq.replaceConsts hfg h.2.1, Expr.ErasedEq.replaceConsts hfg h.2.2⟩
   | .letE t₁ v₁ b₁, b, h => by
     match b, h with
     | .letE t₂ v₂ b₂, h =>
-      exact ⟨Expr.ErasedEq.replaceConsts h.1, Expr.ErasedEq.replaceConsts h.2.1,
-        Expr.ErasedEq.replaceConsts h.2.2⟩
+      exact ⟨Expr.ErasedEq.replaceConsts hfg h.1, Expr.ErasedEq.replaceConsts hfg h.2.1,
+        Expr.ErasedEq.replaceConsts hfg h.2.2⟩
   | .lit l, b, h => by
     match b, h with
     | .lit l', h => exact h
   | .proj s i e, b, h => by
     match b, h with
-    | .proj s' i' e', h => exact ⟨h.1, h.2.1, Expr.ErasedEq.replaceConsts h.2.2⟩
+    | .proj s' i' e', h => exact ⟨h.1, h.2.1, Expr.ErasedEq.replaceConsts hfg h.2.2⟩
+
+/-- Two lists pointwise erasure-equal. -/
+@[expose] def Expr.ErasedEqL : List Expr → List Expr → Prop
+  | [], [] => True
+  | a :: as, b :: bs => Expr.ErasedEq a b ∧ Expr.ErasedEqL as bs
+  | _, _ => False
+
+/-- Two lists of variables at the same consecutive indices are
+erasure-equal. -/
+theorem erasedEqL_of_fvarIdx :
+    ∀ (as bs : List Expr) (o : Nat),
+      (∀ (i : Nat) (x : Expr), as[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
+      (∀ (i : Nat) (x : Expr), bs[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
+      as.length = bs.length → Expr.ErasedEqL as bs
+  | [], [], _, _, _, _ => trivial
+  | [], _ :: _, _, _, _, h => by simp at h
+  | _ :: _, [], _, _, _, h => by simp at h
+  | a :: as, b :: bs, o, ha, hb, h => by
+    obtain ⟨ta, rfl⟩ := ha 0 a rfl
+    obtain ⟨tb, rfl⟩ := hb 0 b rfl
+    refine ⟨rfl, erasedEqL_of_fvarIdx as bs (o + 1) (fun i x hx => ?_) (fun i x hx => ?_)
+      (by simpa using h)⟩
+    · obtain ⟨ty, hty⟩ := ha (i + 1) x hx
+      exact ⟨ty, by rw [hty]; congr 1; omega⟩
+    · obtain ⟨ty, hty⟩ := hb (i + 1) x hx
+      exact ⟨ty, by rw [hty]; congr 1; omega⟩
+
+/-- Erasure-equal lists agree position by position. -/
+theorem Expr.ErasedEqL.getElem? : ∀ {as bs : List Expr}, Expr.ErasedEqL as bs → ∀ i : Nat,
+    (as[i]? = none ∧ bs[i]? = none) ∨ ∃ a b, as[i]? = some a ∧ bs[i]? = some b ∧ Expr.ErasedEq a b
+  | [], [], _, _ => Or.inl ⟨rfl, rfl⟩
+  | a :: _, b :: _, ⟨h, _⟩, 0 => Or.inr ⟨a, b, rfl, rfl, h⟩
+  | _ :: _, _ :: _, ⟨_, h⟩, i + 1 => by
+    simpa using Expr.ErasedEqL.getElem? h i
+
+/-- **The member abstraction is blind to the holes' annotations** (up to
+erasure): at the same names and levels, erasure-equal holes give
+erasure-equal abstractions. -/
+theorem nestAbstract_erasedEq {ctx ctx' : NestCtx} {holes holes' : List Expr}
+    (hn : ctx.names = ctx'.names) (hl : ctx.lps = ctx'.lps) (hh : Expr.ErasedEqL holes holes')
+    (e : Expr) : Expr.ErasedEq (nestAbstract ctx holes e) (nestAbstract ctx' holes' e) := by
+  refine Expr.ErasedEq.replaceConsts (fun c us => ?_) (Expr.ErasedEq.rfl e)
+  rw [← hn, ← hl]
+  split
+  · split
+    · exact hh.getElem? _
+    · exact Or.inl ⟨rfl, rfl⟩
+  · exact Or.inl ⟨rfl, rfl⟩
 
 /-! ### `shiftFromN`, structurally -/
 
@@ -277,177 +331,6 @@ theorem openPisAtFvars_holeAbs {ctx : NestCtx} {holes : List Expr}
           show ctx.nP + j + ctx.names.length = ctx.nP + ctx.names.length + j by omega]
       · exact nomatch h
 
-/-! ## Reading a Π-telescope and its abstraction together -/
-
-/-- **A concretely opened telescope and its abstraction read in step**:
-the same binder bits, the domains and bodies as the openings read. -/
-theorem denoteMeta_holeAbs_tele {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {ctx : NestCtx} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) :
-    ∀ (n : Nat) {e : Expr} {j : Nat} {xs : List Expr} {rest : Expr},
-      openPisAtFvars n e (ctx.nP + j) = some (xs, rest) →
-      ∀ (cdoms adoms : Nat → AnnotTerm) (cB aB : AnnotTerm),
-        (∀ i x, xs[i]? = some x →
-          denoteMeta acval env φ (ctx.nP + j + i) x.fvarTypeD = some (cdoms i) ∧
-          denoteMeta acval env φ (ctx.nP + ctx.names.length + j + i)
-            (holeAbs ctx holes x.fvarTypeD) = some (adoms i)) →
-        denoteMeta acval env φ (ctx.nP + j + n) rest = some cB →
-        denoteMeta acval env φ (ctx.nP + ctx.names.length + j + n) (holeAbs ctx holes rest)
-          = some aB →
-        ∃ cg ag : List (Nat × Nat × AnnotTerm),
-          denoteMeta acval env φ (ctx.nP + j) e = some (mkPisAV cg cB) ∧
-          denoteMeta acval env φ (ctx.nP + ctx.names.length + j) (holeAbs ctx holes e)
-            = some (mkPisAV ag aB) ∧
-          cg.length = n ∧ ag.length = n ∧
-          ag.map (fun d => (d.1, d.2.1)) = cg.map (fun d => (d.1, d.2.1)) ∧
-          (∀ i, i < n → (cg.getD i default).2.2 = cdoms i ∧ (ag.getD i default).2.2 = adoms i)
-  | 0, e, j, xs, rest, h, cdoms, adoms, cB, aB, _, hcB, haB => by
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    refine ⟨[], [], by simpa [mkPisAV] using hcB, by simpa [mkPisAV] using haB, rfl, rfl, rfl,
-      fun i hi => absurd hi (Nat.not_lt_zero i)⟩
-  | n + 1, e, j, xs, rest, h, cdoms, adoms, cB, aB, hdoms, hcB, haB => by
-    match e, h with
-    | .forallE dom body mb, h =>
-      simp only [openPisAtFvars] at h
-      split at h
-      · next fvs r hop =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        have hop' : openPisAtFvars n (body.instantiate1 (.fvar (ctx.nP + j) dom))
-            (ctx.nP + (j + 1)) = some (fvs, r) := by rw [← Nat.add_assoc]; exact hop
-        obtain ⟨hc0, ha0⟩ := hdoms 0 _ rfl
-        simp only [Expr.fvarTypeD, Nat.add_zero] at hc0 ha0
-        obtain ⟨cg, ag, hc, ha, hcl, hal, hbits, hd⟩ :=
-          denoteMeta_holeAbs_tele hh n hop' (fun i => cdoms (i + 1)) (fun i => adoms (i + 1))
-            cB aB (fun i x hx => by
-              have := hdoms (i + 1) x (by simpa using hx)
-              rw [show ctx.nP + (j + 1) + i = ctx.nP + j + (i + 1) by omega,
-                show ctx.nP + ctx.names.length + (j + 1) + i
-                  = ctx.nP + ctx.names.length + j + (i + 1) by omega]
-              exact this)
-            (by rw [show ctx.nP + (j + 1) + n = ctx.nP + j + (n + 1) by omega]; exact hcB)
-            (by rw [show ctx.nP + ctx.names.length + (j + 1) + n
-                  = ctx.nP + ctx.names.length + j + (n + 1) by omega]; exact haB)
-        refine ⟨(0, pwBit φ mb.pw, cdoms 0) :: cg, (0, pwBit φ mb.pw, adoms 0) :: ag, ?_, ?_,
-          by simp [hcl], by simp [hal], by simp [hbits], fun i hi => ?_⟩
-        · rw [denoteMeta_forallE, hc0]
-          simp only [Option.bind_eq_bind, Option.bind_some]
-          rw [show ctx.nP + j + 1 = ctx.nP + (j + 1) by omega, hc]
-          rfl
-        · rw [holeAbs_forallE, denoteMeta_forallE, ha0]
-          simp only [Option.bind_eq_bind, Option.bind_some]
-          rw [show (holeAbs ctx holes body).instantiate1
-                (.fvar (ctx.nP + ctx.names.length + j) (holeAbs ctx holes dom))
-              = holeAbs ctx holes (body.instantiate1 (.fvar (ctx.nP + j) dom)) by
-              rw [holeAbs_instantiate1 hh body 0,
-                show ctx.nP + j + ctx.names.length = ctx.nP + ctx.names.length + j by omega],
-            show ctx.nP + ctx.names.length + j + 1 = ctx.nP + ctx.names.length + (j + 1) by omega,
-            ha]
-          rfl
-        · cases i with
-          | zero => exact ⟨rfl, rfl⟩
-          | succ i => exact hd i (by omega)
-      · exact nomatch h
-
-/-! ## A hole-free term: the abstraction only moves the fields -/
-
-/-- Shifting keeps a term's constants. -/
-theorem Expr.constsResolve_shiftFrom {env₀ : Env} {p : Nat} :
-    ∀ (e : Expr), (Expr.shiftFrom p e).constsResolve env₀ = e.constsResolve env₀ := by
-  intro e
-  induction e with
-  | fvar idx ty ih =>
-    simp only [Expr.shiftFrom]
-    split <;> simp [Expr.constsResolve, ih]
-  | _ => simp_all [Expr.shiftFrom, Expr.constsResolve]
-
-theorem Expr.constsResolve_shiftFromN {env₀ : Env} {p : Nat} :
-    ∀ (n : Nat) (e : Expr), (Expr.shiftFromN p n e).constsResolve env₀ = e.constsResolve env₀
-  | 0, _ => rfl
-  | n + 1, e => by
-    show (Expr.shiftFrom p (Expr.shiftFromN p n e)).constsResolve env₀ = _
-    rw [Expr.constsResolve_shiftFrom, Expr.constsResolve_shiftFromN n e]
-
-/-- **The member abstraction fixes a term resolving before the block**
-(no member is stored there). -/
-theorem nestAbstract_eq_self_of_resolve {ctx : NestCtx} {holes : List Expr} {env₀ : Env}
-    (hfresh : ∀ c, c ∈ ctx.names → env₀.find? c = none) :
-    ∀ (e : Expr), e.constsResolve env₀ = true → nestAbstract ctx holes e = e := by
-  intro e
-  induction e with
-  | const c us =>
-    intro h
-    simp only [Expr.constsResolve, Option.isSome_iff_exists] at h
-    obtain ⟨ci, hci⟩ := h
-    unfold nestAbstract
-    simp only [Expr.replaceConsts]
-    split
-    · split
-      · next mm hmm =>
-        have hmem : c ∈ ctx.names := by
-          obtain ⟨hlt, hget, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmm
-          have := List.getElem_mem hlt
-          simp only [beq_iff_eq] at hget
-          rw [hget] at this; exact this
-        rw [hfresh c hmem] at hci; exact nomatch hci
-      · rfl
-    · rfl
-  | fvar idx ty ih =>
-    intro h
-    simp only [Expr.constsResolve] at h
-    unfold nestAbstract at ih ⊢
-    simp only [Expr.replaceConsts]
-    rw [ih h]
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    unfold nestAbstract at ihf iha ⊢
-    simp only [Expr.replaceConsts]
-    rw [ihf h.1, iha h.2]
-  | lam ty b m iht ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    unfold nestAbstract at iht ihb ⊢
-    simp only [Expr.replaceConsts]
-    rw [iht h.1, ihb h.2]
-  | forallE ty b m iht ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    unfold nestAbstract at iht ihb ⊢
-    simp only [Expr.replaceConsts]
-    rw [iht h.1, ihb h.2]
-  | letE ty v b iht ihv ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    unfold nestAbstract at iht ihv ihb ⊢
-    simp only [Expr.replaceConsts]
-    rw [iht h.1.1, ihv h.1.2, ihb h.2]
-  | proj s i e ih =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    unfold nestAbstract at ih ⊢
-    simp only [Expr.replaceConsts]
-    rw [ih h.2]
-  | bvar _ => intro _; rfl
-  | sort _ => intro _; rfl
-  | lit _ => intro _; rfl
-
-/-- **A term resolving before the block**: its abstraction is the shift
-alone, so it reads lifted over the holes. -/
-theorem denoteMeta_holeAbs_resolve {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {ctx : NestCtx} {holes : List Expr} {env₀ : Env}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
-    (hfresh : ∀ c, c ∈ ctx.names → env₀.find? c = none) {i : Nat} {e : Expr}
-    (hres : e.constsResolve env₀ = true) (hw : Expr.WScoped (ctx.nP + i) e) :
-    denoteMeta acval env φ (ctx.nP + ctx.names.length + i) (holeAbs ctx holes e)
-      = (denoteMeta acval env φ (ctx.nP + i) e).map (AnnotTerm.liftN ctx.names.length · i) := by
-  unfold holeAbs
-  rw [nestAbstract_eq_self_of_resolve hfresh _
-      (by rw [Expr.constsResolve_shiftFromN]; exact hres),
-    show ctx.nP + ctx.names.length + i = ctx.nP + i + ctx.names.length by omega,
-    denoteMeta_shiftFromN hacl _ (Nat.le_add_right _ _) hw, Nat.add_sub_cancel_left]
-
 /-! ## A member applied: the hole applied -/
 
 theorem findIdx?_beq_of_nodup {names : List Name} (hnd : names.Nodup) {t : Nat}
@@ -470,58 +353,6 @@ theorem holeAbs_member {ctx : NestCtx} {holes : List Expr} (hnd : ctx.names.Nodu
   rw [Expr.shiftFromN_const]
   simp only [Expr.replaceConsts, beq_self_eq_true, if_true, findIdx?_beq_of_nodup hnd ht, hhole]
   rfl
-
-/-- **A field reading a member, finitary**: its abstraction reads as the
-member's hole applied to the parameter variables and the field's index
-readings, lifted over the holes. -/
-theorem denoteMeta_holeAbs_rec {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {ctx : NestCtx} {holes : List Expr} {env₀ : Env}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
-    (hfresh : ∀ c, c ∈ ctx.names → env₀.find? c = none) (hnd : ctx.names.Nodup)
-    {t : Nat} (ht : t < ctx.names.length) {tyt : Expr}
-    (hhole : holes[t]? = some (.fvar (ctx.nP + t) tyt)) {i : Nat} {e : Expr}
-    (hfn : e.getAppFn = .const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
-    (hps : ∀ (p : Nat) (x : Expr), (e.getAppArgs.take ctx.nP)[p]? = some x → ∃ ty, x = .fvar p ty)
-    (hlen : ctx.nP ≤ e.getAppArgs.length)
-    (hres : ∀ a ∈ e.getAppArgs.drop ctx.nP, a.constsResolve env₀ = true)
-    (hw : ∀ a ∈ e.getAppArgs.drop ctx.nP, Expr.WScoped (ctx.nP + i) a)
-    {Eis : List AnnotTerm}
-    (hEis : DenoteMetaSpine acval env φ (ctx.nP + i) (e.getAppArgs.drop ctx.nP) Eis) :
-    denoteMeta acval env φ (ctx.nP + ctx.names.length + i) (holeAbs ctx holes e)
-      = some (AnnotTerm.mkAppN (.bvar (i + (ctx.names.length - 1 - t)))
-          (paramBvarsAt ctx.nP (ctx.nP + ctx.names.length + i) ++
-            Eis.map (AnnotTerm.liftN ctx.names.length · i))) := by
-  rw [← Expr.mkAppN_getApp e, holeAbs_mkAppN, hfn, holeAbs_member hnd ht hhole,
-    ← List.take_append_drop ctx.nP e.getAppArgs, List.map_append]
-  refine denoteMeta_mkAppN (DenoteMetaSpine.append ?_ ?_) ?_
-  · -- the parameters: variables at their own indices
-    have hsp := denoteMetaSpine_fvars (acval := acval) (env := env) (φ := φ)
-      (ctx.nP + ctx.names.length + i) ((e.getAppArgs.take ctx.nP).map (holeAbs ctx holes)) 0
-      (fun p x hx => by
-        rw [List.getElem?_map] at hx
-        cases hq : (e.getAppArgs.take ctx.nP)[p]? with
-        | none => rw [hq] at hx; exact nomatch hx
-        | some y =>
-          rw [hq, Option.map_some, Option.some.injEq] at hx
-          obtain ⟨ty, rfl⟩ := hps p y hq
-          have hp : p < ctx.nP := by
-            have := (List.getElem?_eq_some_iff.mp hq).1
-            rw [List.length_take] at this; omega
-          obtain ⟨ty', h⟩ := holeAbs_fvar_lt ctx holes hp ty
-          exact ⟨ty', by rw [← hx, h, Nat.zero_add]⟩)
-    have hl : ((e.getAppArgs.take ctx.nP).map (holeAbs ctx holes)).length = ctx.nP := by
-      rw [List.length_map, List.length_take]; omega
-    rw [hl] at hsp
-    simpa [paramBvarsAt] using hsp
-  · -- the index expressions: resolving before the block, lifted
-    exact DenoteMetaSpine.map_map (f := id) (g := holeAbs ctx holes)
-      (h := (AnnotTerm.liftN ctx.names.length · i)) (by simpa using hEis) fun a v ha hv => by
-        rw [denoteMeta_holeAbs_resolve hacl hfresh (hres a ha) (hw a ha)]
-        simp only [id] at hv
-        rw [hv]; rfl
-  · rw [denoteMeta_fvar]
-    congr 2
-    omega
 
 /-! ## Peeling a read Π-telescope along its opening -/
 
@@ -562,309 +393,6 @@ theorem denoteMeta_peel {acval : Name → (Name → Nat) → AnnotTerm} {env : E
           rwa [show D + 1 + l = D + (l + 1) by omega] at this
       · exact nomatch h
 
-/-! ## A reflexive field: its telescope lifted, the hole under it -/
-
-/-- The telescope lifted over the holes, entry by entry. -/
-theorem liftTeleK_getD (n : Nat) :
-    ∀ (i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (l : Nat), l < tl.length →
-      (BlockData.liftTeleK n i tl).getD l default
-        = ((tl.getD l default).1, (tl.getD l default).2.1, (tl.getD l default).2.2.liftN n (i + l))
-  | _, [], _, hl => absurd hl (Nat.not_lt_zero _)
-  | i, _ :: _, 0, _ => by simp [BlockData.liftTeleK]
-  | i, _ :: tl, l + 1, hl => by
-    simp only [BlockData.liftTeleK, List.getD_cons_succ]
-    rw [liftTeleK_getD n (i + 1) tl l (by simpa using hl),
-      show i + 1 + l = i + (l + 1) by omega]
-
-theorem liftTeleK_length (n : Nat) :
-    ∀ (i : Nat) (tl : List (Nat × Nat × AnnotTerm)), (BlockData.liftTeleK n i tl).length = tl.length
-  | _, [] => rfl
-  | i, _ :: tl => by simp [BlockData.liftTeleK, liftTeleK_length n (i + 1) tl]
-
-/-- Two telescopes with the same bits and the same domains are equal. -/
-theorem tele_ext {g₁ g₂ : List (Nat × Nat × AnnotTerm)} (hlen : g₁.length = g₂.length)
-    (hbits : g₁.map (fun d => (d.1, d.2.1)) = g₂.map (fun d => (d.1, d.2.1)))
-    (hdoms : ∀ l, l < g₁.length → (g₁.getD l default).2.2 = (g₂.getD l default).2.2) :
-    g₁ = g₂ := by
-  refine List.ext_getElem hlen fun l h1 h2 => ?_
-  have hb := congrArg (·[l]?) hbits
-  simp only [List.getElem?_map, List.getElem?_eq_getElem h1, List.getElem?_eq_getElem h2,
-    Option.map_some, Option.some.injEq, Prod.mk.injEq] at hb
-  have hd := hdoms l h1
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1,
-    List.getElem?_eq_getElem h2, Option.getD_some] at hd
-  exact Prod.ext hb.1 (Prod.ext hb.2 hd)
-
-theorem liftTeleK_bits (n : Nat) :
-    ∀ (i : Nat) (tl : List (Nat × Nat × AnnotTerm)),
-      (BlockData.liftTeleK n i tl).map (fun d => (d.1, d.2.1)) = tl.map (fun d => (d.1, d.2.1))
-  | _, [] => rfl
-  | i, _ :: tl => by simp [BlockData.liftTeleK, liftTeleK_bits n (i + 1) tl]
-
-/-- **A field reading a member, reflexive**: its abstraction reads as its
-telescope lifted over the holes, the member's hole applied under it. -/
-theorem denoteMeta_holeAbs_refl {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {ctx : NestCtx} {holes : List Expr} {env₀ : Env}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
-    (hfresh : ∀ c, c ∈ ctx.names → env₀.find? c = none) (hnd : ctx.names.Nodup)
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
-    {t : Nat} (ht : t < ctx.names.length) {tyt : Expr}
-    (hhole : holes[t]? = some (.fvar (ctx.nP + t) tyt)) {i : Nat} {e : Expr}
-    (hwe : Expr.WScoped (ctx.nP + i) e)
-    {tl : List (Nat × Nat × AnnotTerm)} {cB : AnnotTerm}
-    (hread : denoteMeta acval env φ (ctx.nP + i) e = some (mkPisAV tl cB))
-    {afvs : List Expr} {body : Expr}
-    (hop : openPisAtFvars tl.length e (ctx.nP + i) = some (afvs, body))
-    (hafvs : ∀ a ∈ afvs, a.fvarTypeD.constsResolve env₀ = true)
-    (hfn : body.getAppFn = .const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
-    (hps : ∀ (p : Nat) (x : Expr), (body.getAppArgs.take ctx.nP)[p]? = some x → ∃ ty, x = .fvar p ty)
-    (hlen : ctx.nP ≤ body.getAppArgs.length)
-    (hres : ∀ a ∈ body.getAppArgs.drop ctx.nP, a.constsResolve env₀ = true)
-    {Eis : List AnnotTerm}
-    (hEis : DenoteMetaSpine acval env φ (ctx.nP + i + tl.length) (body.getAppArgs.drop ctx.nP) Eis) :
-    denoteMeta acval env φ (ctx.nP + ctx.names.length + i) (holeAbs ctx holes e)
-      = some (mkPisAV (BlockData.liftTeleK ctx.names.length i tl)
-          (AnnotTerm.mkAppN (.bvar (i + tl.length + (ctx.names.length - 1 - t)))
-            (paramBvarsAt ctx.nP (ctx.nP + ctx.names.length + (i + tl.length)) ++
-              Eis.map (AnnotTerm.liftN ctx.names.length · (i + tl.length))))) := by
-  obtain ⟨hB, hdoms⟩ := denoteMeta_peel tl.length hop rfl hread
-  have hwA := openPisAtFvars_typeWScoped tl.length hop hwe
-  have hwB : Expr.WScoped (ctx.nP + i + tl.length) body :=
-    (openPisAtFvars_WScoped tl.length e (ctx.nP + i) hop hwe).2
-  have hwArgs : ∀ a ∈ body.getAppArgs.drop ctx.nP, Expr.WScoped (ctx.nP + (i + tl.length)) a := by
-    intro a ha
-    rw [← Expr.mkAppN_getApp body] at hwB
-    rw [← Nat.add_assoc]
-    exact (wScoped_mkAppN _ hwB).2 a (List.mem_of_mem_drop ha)
-  have haB := denoteMeta_holeAbs_rec (holes := holes) hacl hfresh hnd ht hhole
-    (i := i + tl.length) hfn hps hlen hres hwArgs (by rw [← Nat.add_assoc]; exact hEis)
-  obtain ⟨cg, ag, hc, ha, hcl, hal, hbits, hd⟩ :=
-    denoteMeta_holeAbs_tele (acval := acval) (env := env) (φ := φ) hh tl.length (j := i) hop
-      (fun l => (tl.getD l default).2.2)
-      (fun l => (tl.getD l default).2.2.liftN ctx.names.length (i + l)) cB _
-      (fun l a hl => by
-        refine ⟨hdoms l a hl, ?_⟩
-        have hres' : a.fvarTypeD.constsResolve env₀ = true := hafvs a (List.mem_of_getElem? hl)
-        rw [show ctx.nP + ctx.names.length + i + l = ctx.nP + ctx.names.length + (i + l) by omega,
-          denoteMeta_holeAbs_resolve hacl hfresh hres'
-            (by rw [← Nat.add_assoc]; exact hwA l a hl),
-          ← Nat.add_assoc, hdoms l a hl]
-        rfl)
-      hB (by rw [show ctx.nP + ctx.names.length + i + tl.length
-            = ctx.nP + ctx.names.length + (i + tl.length) by omega]; exact haB)
-  have hcg : cg = tl := (mkPisAV_inj (by rw [hcl]) (Option.some.inj (hc.symm.trans hread))).1
-  subst hcg
-  have hag : ag = BlockData.liftTeleK ctx.names.length i cg := by
-    refine tele_ext (by rw [hal, liftTeleK_length, hcl]) (by rw [hbits, liftTeleK_bits]) ?_
-    intro l hl
-    rw [(hd l (by omega)).2, liftTeleK_getD _ _ _ _ (by omega)]
-  rw [ha, hag]
-
-/-! ## The uniform block's constructors: `absF` IS the walk's reading -/
-
-section BlockCtor
-
-variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {d : BlockData V}
-  {lps : List Name}
-
-/-- **Field `i` of a stored constructor, abstracted, reads as `absField`**
-— the hole reading the clause records. -/
-theorem blockField_holeRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
-      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
-    {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
-    (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
-    {holes : List Expr} (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
-    (hholes : ∀ t, t < d.k → ∃ ty, holes[t]? = some (.fvar (d.nP + t) ty))
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
-    (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k)
-    {crest : Expr} (hwc : Expr.WScoped d.nP crest)
-    (hopX : openPisAtFvars cA.2 crest d.nP = some (d.xFvsF c j, d.xrestF c j))
-    (ψ : Name → Nat) {i : Nat} {x : Expr} (hx : (d.xFvsF c j)[i]? = some x) :
-    denoteMeta m.acval env ψ (d.nP + d.k + i) (holeAbs ctx holes x.fvarTypeD)
-      = some (d.absField ψ c j i) := by
-  have hD := hD₀
-  have hacl := m.acval_closed
-  have hi : i < cA.2 := by rw [← hD.xLen]; exact (List.getElem?_eq_some_iff.mp hx).1
-  have hks : i < (d.ksF c j).length := by rw [hD.ksLen]; exact hi
-  have hjc : j < (d.ctorsM c).length := (List.getElem?_eq_some_iff.mp hcj).1
-  have hrs : (d.rss c).getD j [] = rsOf (d.ksF c j) := rssOfK_getD hjc
-  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-    fssOfR_fixCtorDataList_getD hcj
-  have hTl : (d.tlss c ψ).getD j [] = d.tssF c j ψ := tlssOfR_fixCtorDataList_getD hcj
-  have hEi : (d.Eiss c ψ).getD j [] = d.eissF c j ψ := eissOfR_fixCtorDataList_getD hcj
-  have hwx : Expr.WScoped (d.nP + i) x.fvarTypeD :=
-    openPisAtFvars_typeWScoped cA.2 hopX hwc i x hx
-  have hfresh' : ∀ n, n ∈ ctx.names → d.env₀.find? n = none := by rw [hnames]; exact hfresh
-  have hnd' : ctx.names.Nodup := by rw [hnames]; exact hnd
-  have hdepth : d.nP + d.k + i = ctx.nP + ctx.names.length + i := by
-    rw [hnP, hnames, ← hk]
-  rw [hdepth]
-  unfold BlockData.absField
-  rcases hD.opened.kinds i hi with hkd | hkd | hkd
-  · -- a hole-free field
-    have hr : ((d.rss c).getD j []).getD i false = false := by
-      rw [hrs]
-      cases h : (rsOf (d.ksF c j)).getD i false with
-      | false => rfl
-      | true =>
-        rcases (rsOf_getD_iff hks).mp h with h' | h' <;> rw [hkd] at h' <;> exact nomatch h'
-    rw [if_neg (by rw [hr]; exact Bool.false_ne_true), hFssD, drop_map_getD (hD.len ψ) hi]
-    rw [← hnP] at hwx
-    rw [denoteMeta_holeAbs_resolve hacl hfresh' (hD.opened.ord i x hx hkd) hwx, hnP,
-      hD.domRead ψ i x hx, hnames, ← hk]
-    rfl
-  · -- a finitary field reading a member
-    have hr : ((d.rss c).getD j []).getD i false = true := by
-      rw [hrs]; exact (rsOf_getD_iff hks).mpr (Or.inl hkd)
-    rw [if_pos hr]
-    have hnone : ((d.tlss c ψ).getD j []).getD i [] = [] := by
-      rw [hTl]; exact hD.tssNone ψ i (by rw [hkd]; intro h; cases h)
-    rw [hnone]
-    obtain ⟨hfn, htake, hlen, hres, -, -⟩ := hD.opened.recF i x hx hkd
-    have ht := htgt i hi
-    obtain ⟨tyt, hhole⟩ := hholes _ ht
-    have hwArgs : ∀ a ∈ x.fvarTypeD.getAppArgs.drop ctx.nP, Expr.WScoped (ctx.nP + i) a := by
-      intro a ha
-      have hw' := hwx
-      rw [← Expr.mkAppN_getApp x.fvarTypeD] at hw'
-      rw [hnP]
-      exact (wScoped_mkAppN _ hw').2 a (List.mem_of_mem_drop ha)
-    have := denoteMeta_holeAbs_rec (holes := holes) (env := env) (φ := ψ) (ctx := ctx) hacl
-      hfresh' hnd' (t := d.tgts c j i) (by rw [hnames, ← hk]; exact ht)
-      (tyt := tyt) (by rw [hnP]; exact hhole) (i := i) (e := x.fvarTypeD)
-      (by rw [hfn, hnames, hlps]; rfl)
-      (fun p y hy => by
-        rw [hnP, htake] at hy
-        obtain ⟨ty, h⟩ := hD.pIdx p y hy
-        exact ⟨ty, h⟩)
-      (by rw [hnP, hlen]; omega) (by rw [hnP]; exact hres) hwArgs
-      (by rw [hnP]; exact hD.eisRead ψ i x hx hkd)
-    rw [this, hEi, hnames, ← hk, hnP]
-    simp [mkPisAV, BlockData.liftTeleK]
-  · -- a reflexive field reading a member
-    have hr : ((d.rss c).getD j []).getD i false = true := by
-      rw [hrs]; exact (rsOf_getD_iff hks).mpr (Or.inr hkd)
-    rw [if_pos hr]
-    obtain ⟨afvs, body, hop, htlLen, hdoms, hsp⟩ := hD.reflOpen ψ i x hx hkd
-    obtain ⟨afvs', body', hop', -, hafvs, hfn, htake, hlen, hres, -, -⟩ :=
-      hD.opened.reflF i x hx hkd
-    rw [← htlLen] at hop'
-    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans hop'))
-    have ht := htgt i hi
-    obtain ⟨tyt, hhole⟩ := hholes _ ht
-    have hentry := hD.reflEntry ψ i hkd hi
-    have hread : denoteMeta m.acval env ψ (ctx.nP + i) x.fvarTypeD
-        = some (mkPisAV (d.tssF c j ψ |>.getD i [])
-            (AnnotTerm.mkAppN (m.acval (d.memberName (d.tgts c j i)) ψ)
-              (paramBvarsAt d.nP (d.nP + i + ((d.tssF c j ψ).getD i []).length)
-                ++ (d.eissF c j ψ).getD i []))) := by
-      rw [hnP, hD.domRead ψ i x hx, hentry]
-    have := denoteMeta_holeAbs_refl (holes := holes) (ctx := ctx) hacl hfresh' hnd' hh
-      (t := d.tgts c j i) (by rw [hnames, ← hk]; exact ht) (tyt := tyt)
-      (by rw [hnP]; exact hhole) (by rw [hnP]; exact hwx) hread (by rw [hnP]; exact hop)
-      hafvs (by rw [hfn, hnames, hlps]; rfl)
-      (fun p y hy => by
-        rw [hnP, htake] at hy
-        obtain ⟨ty, h⟩ := hD.pIdx p y hy
-        exact ⟨ty, h⟩)
-      (by rw [hnP, hlen]; omega) (by rw [hnP]; exact hres) (by rw [hnP]; exact hsp)
-    rw [this, hTl, hEi, hnames, ← hk, hnP, Nat.add_assoc (d.nP + d.k)]
-
-/-- **A stored constructor's type, member-abstracted, reads as the hole
-reading the clause records**: its fields are `absF`, its result the
-component's hole at the parameters and `absE`. -/
-theorem blockCtor_holeRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
-      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
-    {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
-    (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
-    {holes : List Expr} (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
-    (hholes : ∀ t, t < d.k → ∃ ty, holes[t]? = some (.fvar (d.nP + t) ty))
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
-    (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k) (hc : c < d.k)
-    (hwty : Expr.WScoped 0 cA.1.type) (ψ : Name → Nat) :
-    ∃ (crest : Expr) (ab : List (Nat × Nat × AnnotTerm)),
-      openPisAtFvars d.nP cA.1.type 0 = some (d.fvsPF c j, crest) ∧
-      denoteMeta m.acval env ψ (d.nP + d.k) (holeAbs ctx holes crest)
-        = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
-      ab.map (·.2.2) = d.absF ψ c j := by
-  have hD := hD₀
-  have hacl := m.acval_closed
-  obtain ⟨crest, hopP, hopX⟩ := hD.opens
-  have hwc : Expr.WScoped d.nP crest := by
-    have := (openPisAtFvars_WScoped d.nP _ 0 hopP hwty).2
-    rwa [Nat.zero_add] at this
-  have hfresh' : ∀ n, n ∈ ctx.names → d.env₀.find? n = none := by rw [hnames]; exact hfresh
-  have hnd' : ctx.names.Nodup := by rw [hnames]; exact hnd
-  have hnF : ((d.Fss c ψ).getD j []).length = cA.2 := by
-    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
-    omega
-  -- the concrete body, peeled off the stored type's reading
-  have hopAll : openPisAtFvars (d.nP + cA.2) cA.1.type 0
-      = some (d.fvsPF c j ++ d.xFvsF c j, d.xrestF c j) :=
-    openPisAtFvars_add d.nP hopP (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hB, -⟩ := denoteMeta_peel (d.nP + cA.2) hopAll (hD.len ψ) (hD.read ψ)
-  -- the abstract body: the component's own hole at the parameters and the indices
-  obtain ⟨tyc, hholec⟩ := hholes c hc
-  have hxr := hD.resShape
-  have hargs : (d.xrestF c j).getAppArgs = d.fvsPF c j ++ d.idxF c j := by
-    rw [hxr, Expr.getAppArgs_mkAppN]; rfl
-  have hwx : Expr.WScoped (d.nP + cA.2) (d.xrestF c j) :=
-    (openPisAtFvars_WScoped cA.2 crest d.nP hopX hwc).2
-  have hdropI : (d.xrestF c j).getAppArgs.drop d.nP = d.idxF c j := by
-    rw [hargs, List.drop_append_of_le_length (Nat.le_of_eq hD.pLen.symm), List.drop_eq_nil_of_le
-      (Nat.le_of_eq hD.pLen), List.nil_append]
-  have haB := denoteMeta_holeAbs_rec (holes := holes) (env := env) (φ := ψ) (ctx := ctx) hacl
-    hfresh' hnd' (t := c) (by rw [hnames, ← hk]; exact hc) (tyt := tyc)
-    (by rw [hnP]; exact hholec) (i := cA.2) (e := d.xrestF c j)
-    (by rw [hxr, Expr.getAppFn_mkAppN, hnames, hlps]; rfl)
-    (fun p y hy => by
-      rw [hnP, hargs, List.take_append_of_le_length (Nat.le_of_eq hD.pLen.symm),
-        List.take_of_length_le (Nat.le_of_eq hD.pLen)] at hy
-      exact hD.pIdx p y hy)
-    (by rw [hnP, hargs, List.length_append, hD.pLen]; omega)
-    (by rw [hnP]; exact hD.opened.residRes)
-    (fun a ha => by
-      rw [hnP]
-      rw [← Expr.mkAppN_getApp (d.xrestF c j)] at hwx
-      exact (wScoped_mkAppN _ hwx).2 a (List.mem_of_mem_drop (by rwa [hnP] at ha)))
-    (by rw [hnP, hdropI]; exact hD.idxRead ψ)
-  -- the telescope, field by field
-  obtain ⟨cg, ag, -, ha, -, hal, -, hd⟩ :=
-    denoteMeta_holeAbs_tele (acval := m.acval) (env := env) (φ := ψ) (ctx := ctx) hh cA.2
-      (j := 0) (by rw [hnP, Nat.add_zero]; exact hopX)
-      (fun i => ((d.dsF c j ψ).getD (d.nP + i) default).2.2) (d.absField ψ c j) _ _
-      (fun i x hx => by
-        refine ⟨by rw [hnP, Nat.add_zero]; exact hD.domRead ψ i x hx, ?_⟩
-        rw [show ctx.nP + ctx.names.length + 0 + i = d.nP + d.k + i by
-          rw [hnP, hnames, ← hk, Nat.add_zero]]
-        exact blockField_holeRead hcj hD₀ hnames hlps hnP hk hh hholes hnd hfresh htgt hwc hopX ψ hx)
-      (by rw [hnP, Nat.add_zero, Nat.zero_add] at *; exact hB)
-      (by rw [show ctx.nP + ctx.names.length + 0 + cA.2 = ctx.nP + ctx.names.length + cA.2 by omega];
-          exact haB)
-  refine ⟨crest, ag, hopP, ?_, ?_⟩
-  · rw [show d.nP + d.k = ctx.nP + ctx.names.length + 0 by rw [hnP, hnames, ← hk, Nat.add_zero], ha,
-      BlockData.absE, show ((d.Ess c ψ).getD j []) = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
-      hnF, hnames, ← hk, hnP]
-    rfl
-  · unfold BlockData.absF
-    rw [hnF]
-    refine List.ext_getElem (by simp [hal]) fun i h1 h2 => ?_
-    have hi : i < cA.2 := by simpa using h2
-    have := (hd i hi).2
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (show i < ag.length by omega),
-      Option.getD_some] at this
-    simp [this]
-
-end BlockCtor
 
 /-! ## The walk's own term: parameters at the former's variables -/
 
@@ -887,12 +415,6 @@ theorem instPisWith_of_openPis :
         show instPisWith fvs' (body.instantiate1 (.fvar i dom)) = some r'
         exact instPisWith_of_openPis n hop
       · exact nomatch h
-
-/-- Two lists pointwise erasure-equal. -/
-@[expose] def Expr.ErasedEqL : List Expr → List Expr → Prop
-  | [], [] => True
-  | a :: as, b :: bs => Expr.ErasedEq a b ∧ Expr.ErasedEqL as bs
-  | _, _ => False
 
 /-- Instantiation at erasure-equal arguments gives erasure-equal results. -/
 theorem instPisWith_erasedEq :
@@ -951,61 +473,5 @@ theorem erasedEqL_map_nestAbstract {ctx : NestCtx} {holes : List Expr} :
     obtain ⟨i, ty, rfl⟩ := h x List.mem_cons_self
     exact ⟨rfl, erasedEqL_map_nestAbstract fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
 
-section BlockCtorWalk
-
-variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {d : BlockData V}
-  {lps : List Name}
-
-/-- **THE READING THEOREM**: the term `nestPos` walks for a stored
-constructor of the block — its type instantiated at the canonical
-parameter variables, the members abstracted to their holes — reads, at
-the walk's depth `nP + k`, as the Π-tower over the clause's fields with
-holes (`absF`) ending in the component's hole at the parameters and the
-clause's result index readings (`absE`). -/
-theorem blockCtor_walkRead {c j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM c)[j]? = some cA) (hD₀ : BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
-      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j))
-    {ctx : NestCtx} (hnames : ctx.names = d.memberNames) (hlps : ctx.lps = lps)
-    (hnP : ctx.nP = d.nP) (hk : d.k = d.memberNames.length)
-    (hpar : Expr.ErasedEqL ctx.params (d.fvsPF c j))
-    {holes : List Expr} (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty)
-    (hholes : ∀ t, t < d.k → ∃ ty, holes[t]? = some (.fvar (d.nP + t) ty))
-    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
-    (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k) (hc : c < d.k)
-    (hwty : Expr.WScoped 0 cA.1.type) (ψ : Name → Nat)
-    {crestA : Expr} (hA : instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crestA) :
-    ∃ ab : List (Nat × Nat × AnnotTerm),
-      denoteMeta m.acval env ψ (d.nP + d.k) crestA
-        = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
-      ab.map (·.2.2) = d.absF ψ c j := by
-  obtain ⟨crest, ab, hopP, hread, hab⟩ :=
-    blockCtor_holeRead hcj hD₀ hnames hlps hnP hk hh hholes hnd hfresh htgt hc hwty ψ
-  have hD := hD₀
-  -- the concrete opening, abstracted
-  have hA₂ := nestAbstract_instPisWith (ctx := ctx) hh (instPisWith_of_openPis d.nP hopP)
-  have hvars : ∀ x ∈ d.fvsPF c j, ∃ i ty, x = .fvar i ty := by
-    intro x hx
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨ty, h⟩ := hD.pIdx q x hq
-    exact ⟨q, ty, h⟩
-  obtain ⟨crest', hc', herased⟩ :=
-    instPisWith_erasedEq (hpar.trans (erasedEqL_map_nestAbstract hvars)) (Expr.ErasedEq.rfl _) hA
-  rw [hA₂] at hc'
-  obtain rfl := Option.some.inj hc'
-  have hwc : Expr.fvarsBelow d.nP crest := by
-    have := (openPisAtFvars_WScoped d.nP _ 0 hopP hwty).2
-    rw [Nat.zero_add] at this
-    exact this.fvarsBelow
-  have hhA : holeAbs ctx holes crest = nestAbstract ctx holes crest := by
-    unfold holeAbs
-    rw [Expr.shiftFromN_eq_self_of_fvarsBelow _ (by rw [hnP]; exact hwc)]
-  refine ⟨ab, ?_, hab⟩
-  rw [← hread, hhA]
-  exact denoteMeta_erasedEq herased _
-
-end BlockCtorWalk
 
 end ConLeche.Model

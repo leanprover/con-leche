@@ -429,7 +429,7 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     rw [hctM c _ hr]; exact hcA
   obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-  obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
+  obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ j cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
