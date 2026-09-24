@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Cover
 public section
 
 /-!

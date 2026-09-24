@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockPosRun
-public import ConLeche.Model.Annot.BlockLfpMono
+import ConLeche.Model.Annot.BlockLfpMono
 public import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
