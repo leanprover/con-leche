@@ -39,10 +39,17 @@ variable (mode : CheckMode)
 /-! ## Helpers only the modeled route uses
 
 Gathered here by lane SPLITMOD (2026-09-24) from `CheckerBase`,
-`CoreDefs`, `Env` and `Level`: the census by consumers found no
+`CoreDefs`, `Env` and `Level` (the in-process generator,
+`ConLeche/Frontend/InModel/Nested.lean`, imports this file for
+`projModelName`): the census by consumers found no
 consumer of any of them outside the modeled install, its fueled and
 cached twins (`ModeledF`, `Cached/ModeledC`) and their proofs, so they
 go when the modeller goes. -/
+
+/-- The model-side name of field `i`'s projection for `T`
+(the documented public interface of a `_model` family). -/
+def projModelName (T : Name) (i : Nat) : Name :=
+  (T.str "_model").str ("proj_" ++ toString i)
 
 /-- Is this a `_model`-suffixed name (the shape of model companions)? -/
 def Name.isModelSuffix : Name → Bool

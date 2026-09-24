@@ -38,11 +38,6 @@ their names, docstrings, attributes and relative order.
 
 namespace ConLeche
 
-/-- The model-side name of field `i`'s projection for `T`
-(the documented public interface of a `_model` family). -/
-def projModelName (T : Name) (i : Nat) : Name :=
-  (T.str "_model").str ("proj_" ++ toString i)
-
 /-- Is the expression headed by a stored constructor? -/
 def isCtorApp (env : Env) (e : Expr) : Bool :=
   match e.getAppFn with
