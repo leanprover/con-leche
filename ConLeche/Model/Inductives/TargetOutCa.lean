@@ -75,6 +75,99 @@ theorem tgtRecTy_at {out : List (ConstantVal × TargetMajor × List Expr)} {j : 
     obtain rfl := Option.some.inj hr
     simp only [tgtRecTy, List.getD_eq_getElem?_getD, ho, Option.getD_some]
 
+set_option maxHeartbeats 1000000 in
+/-- **The fired spine at an outside class, read**: `C.{M.lvls} (M.ds ++ f⃗)`
+reads at the rule's width as the constructor's leaf at the instantiation's
+levels applied to the parameters' readings (lifted past the fields) and
+the fields' variables. -/
+theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i)
+        (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls)
+          ((tgtMajor out j).ds ++ tgtFieldFvs pp.toBlockShape out j i))
+      = some (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i) ∧
+    tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i
+      = AnnotTerm.mkAppN (mpC.base2.acval cA.1.name
+          (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+          ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).map (AnnotTerm.liftN cA.2 · 0)
+            ++ (List.range cA.2).map fun k =>
+              AnnotTerm.bvar (tgtRP pp.toBlockShape j + cA.2 - 1 - (tgtRP pp.toBlockShape j + k))) := by
+  obtain ⟨dsa, hdsa, hul, hds, -, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, hQfF, -, -, -⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  subst hMaj
+  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
+  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
+    rw [← tgtRs_ctors hr]; exact hcA
+  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
+  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
+  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
+  have hfc0 := hcl.hctor i hiL
+  rw [hcAi] at hfc0
+  have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0
+  obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
+  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
+  rw [hfc0] at hf'
+  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
+    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+  have hlpsI : cvI.levelParams = cA.1.levelParams := by
+    obtain ⟨caps, hfI⟩ := hcl.hfind
+    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
+    rw [hcl.hmem, hfI] at hfm
+    injection hfm with h; injection h with h1 _
+    rw [h1, hlm]
+  rw [hlpsI] at hul ⊢
+  have hRP : tgtRP pp.toBlockShape j = rc.rP := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hB : tgtB pp.toBlockShape out j i = tgtRP pp.toBlockShape j + cA.2 := by
+    rw [tgtB, hct']
+  have hcr : ConLeche.instPisWith (tgtMajor out j).ds
+      (cA.1.type.instantiateLevelParams cA.1.levelParams (tgtMajor out j).lvls) = some Q.crest := by
+    have h0 := Q.hcrest
+    simpa [ConLeche.targetCtorAt, hMo] using h0
+  have hfld : ConLeche.openPisAtFvars cA.2 Q.crest (tgtRP pp.toBlockShape j)
+      = some (Q.fvsF, Q.cbody) := by
+    rw [hRP]; exact Q.hfld
+  have hfc : envC.find? (D.ctorName mm i)
+      = some (.ctorInfo cA.1 (tgtMajor out j).ds.length cA.2) := by
+    rw [hdsLen]; exact hfc0
+  have hconst : denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
+      (.const cA.1.name (tgtMajor out j).lvls)
+      = some (mpC.base2.acval cA.1.name
+          (Level.substFn ψ cA.1.levelParams (tgtMajor out j).lvls)) := by
+    rw [hname]
+    exact denoteMeta_const (ci := .ctorInfo cA.1 _ cA.2) hfc (by rw [hul]; rfl)
+  have hdsaL : DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
+      (tgtMajor out j).ds
+      ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).map (AnnotTerm.liftN cA.2 · 0)) :=
+    denoteMetaSpine_liftD mpC.base2.acval_closed hdsa (fun x hx => (hds x hx).1) cA.2
+  have hidxF := ConLeche.openPisAtFvars_index _ _ _ hfld
+  have hspF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ)
+    (tgtRP pp.toBlockShape j + cA.2) Q.fvsF (tgtRP pp.toBlockShape j) hidxF
+  rw [openPisAtFvars_length _ hfld] at hspF
+  have hmk0 := denoteMeta_mkAppN_of _ hconst (DenoteMetaSpine.append hdsaL hspF)
+  have hmkE : tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i
+      = (denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
+          (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls)
+            ((tgtMajor out j).ds ++ Q.fvsF))).getD default := by
+    rw [tgtMkAV, hct', hB, hQfF]
+  rw [hmk0, Option.getD_some] at hmkE
+  refine ⟨?_, hmkE⟩
+  rw [hB, ← hQfF, hmk0, hmkE]
+
 set_option maxHeartbeats 2000000 in
 /-- **The rule's conclusion at an outside class, peeled** (the twin of
 `blockRuleCaAt_run`'s second half at the target spellings): read at the
@@ -191,29 +284,11 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       Expr.WScoped (tgtRP pp.toBlockShape j + cA.2) a :=
     fun a ha => Expr.WScoped.getAppArgs hwCb a (List.mem_of_mem_drop ha)
   -- the fired spine's reading
-  have hfc : envC.find? (D.ctorName mm i)
-      = some (.ctorInfo cA.1 (tgtMajor out j).ds.length cA.2) := by
-    rw [hdsLen]; exact hfc0
-  have hconst : denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
-      (.const cA.1.name (tgtMajor out j).lvls)
-      = some (mpC.base2.acval cA.1.name
-          (Level.substFn ψ cA.1.levelParams (tgtMajor out j).lvls)) := by
-    rw [hname]
-    exact denoteMeta_const (ci := .ctorInfo cA.1 _ cA.2) hfc (by rw [hul]; rfl)
-  have hdsaL : DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
-      (tgtMajor out j).ds (dsa.map (AnnotTerm.liftN cA.2 · 0)) :=
-    denoteMetaSpine_liftD mpC.base2.acval_closed hdsa (fun x hx => (hds x hx).1) cA.2
-  have hidxF := ConLeche.openPisAtFvars_index _ _ _ hfld
-  have hspF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ)
-    (tgtRP pp.toBlockShape j + cA.2) Q.fvsF (tgtRP pp.toBlockShape j) hidxF
-  have hmk0 := denoteMeta_mkAppN_of _ hconst (DenoteMetaSpine.append hdsaL hspF)
-  have hmkE : tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i
-      = (denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
-          (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls)
-            ((tgtMajor out j).ds ++ Q.fvsF))).getD default := by
-    rw [tgtMkAV, hct', hB, hQfF]
-  rw [hmk0, Option.getD_some] at hmkE
-  rw [← hmkE] at hmk0
+  have hmk0 : denoteMeta mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j + cA.2)
+      (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls) ((tgtMajor out j).ds ++ Q.fvsF))
+      = some (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i) := by
+    have := (tgtOutMkAV_eq hμ hcov h R hr hcA hrhs hMo hcl ψ).1
+    rwa [hB, ← hQfF] at this
   have hwMk : Expr.WScoped (tgtRP pp.toBlockShape j + cA.2)
       (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls) ((tgtMajor out j).ds ++ Q.fvsF)) := by
     refine Expr.WScoped.mkAppN (by simp [Expr.WScoped]) fun x hx => ?_
