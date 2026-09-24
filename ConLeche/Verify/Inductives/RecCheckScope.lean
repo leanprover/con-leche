@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.RecCheckRun
+public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Shift
 public import ConLeche.Rules.Rel

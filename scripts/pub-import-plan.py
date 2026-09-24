@@ -54,6 +54,17 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane RECLIB session 3: the target check's scoping lemmas state
+    # `EnvWF`, `WScoped`, `Rules.Infer` and the kernel's `targetAbs`/
+    # `targetWhnfPis` in PUBLIC statements; each MEASURED by demoting it
+    # alone (`Unknown identifier EnvWF`/`Rules.Grade`/`WScoped`/...).
+    ('ConLeche.Verify.Inductives.RecCheckScope', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Inductives.RecCheckScope', 'ConLeche.Rules.Rel'),
+    ('ConLeche.Verify.Inductives.RecCheckScope', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Inductives.RecCheckScope', 'ConLeche.Kernel.Inductives.RecCheck'),
+    # `TargetIhSlot`'s `variable [SetTheory V]` binder resolves through
+    # `TargetRecRead` (`Unknown identifier SetTheory`, `:47`), measured.
+    ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Model.Inductives.TargetRecRead'),
     # task #315 (lane INVERT, the recursor stage's run records): five
     # re-exports the model calls demotable once the positional peels
     # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records

@@ -85234,3 +85234,91 @@ term `nestPos` walks.  `Model/Inductives/BlockHoleRead.lean`:
   `EnvModelM` and its transport come with (b).
 - **Gates**: build/test 0 warnings; `tests/arena.sh` green; no exit code
   moved (proof-only).
+
+#### RECLIB session 3 (branch `agent/uinds-RECLIB`, not landed): B3 (a), (b) and the rule side of (c) over the target check
+
+**Status.**  Green checkpoints on the branch; nothing landed (no proof on
+the verified path consumes the new facts yet — the seam still takes a
+`checkBlockRecK` run, and its rule data `ihs`/`Rb0` are chosen once for
+all conjuncts, so the first consumer is the whole of (c)–(e)).  The live
+recursor stage is still `checkBlockRecK`.
+
+**Kernel (shadow; verdict-neutral).**
+1. *K3 — the `ih` type is inferred at the frame and IS the call's type*
+   (`targetCallOk`, after K1's λ inference): `inferType base ih.ty`, then
+   `isDefEq (base + 1) callTy ih.ty`.  Reason: the residue's context has
+   one slot per `ih` variable, at its `ih` type; the model must GRADE that
+   type at every frame valuation and place the call's value in it.
+   Without K3 both would need the λ's inferred type computed syntactically
+   (λ-chain and application-spine inversion of `Infer` against
+   `instPisAtLift`/`abstract1` commutations); with it they are
+   `InferClaim` (grading) and `InferClaim` + `DefEqClaim` (membership).
+   Measured: target-shadow 317/317; arena (all 182 vendored files, both
+   good and bad, `--target-shadow`) no block with `today=accept` has
+   `rec≠accept` (737 lines, session 2's 324 a subset, unchanged); init-full
+   585 block lines identical to session 2 (`RECLIB/arena-s3k3/`,
+   `RECLIB/initfull-k3.err`).  Install-time only (once per block), not a
+   per-call runtime gate.
+2. *`targetAbs` is a structural definition* with its memoised walk behind
+   `@[csimp]` (the `replaceConsts` pattern, `targetAbsGo_spec`):
+   executed code unchanged by construction; the model can now reason
+   about its leaves.
+
+**Model (all `sorry`-free).**
+* `Verify/Inductives/RecCheckScope.lean`: leaf lemmas for `targetAbs`,
+  `targetWhnfPis` (with scope: whnf shrinks the leaf closure, each
+  opened binder is abstracted again), `piBinders`, `instantiate1Lift`,
+  `instPisAtLift`, `mkPisOf`/`mkLamsOf`; `targetAbs_WScoped`;
+  `infer_full_bvarClosed` (a term `Infer .full` accepts has no loose
+  bvar).
+* `Model/Inductives/TargetIhSlot.lean`: **`targetCall_ihSlot`** (b): from
+  one `TargetCallRun` at a frame `WalkCtx` and a value of the callee's
+  stored type — the `ih` type reads, is graded, and holds the call's λ
+  value.  `walkCtx_consLifted`/`walkCtx_ihs`/`walkCtx_targetEntry`: the
+  residue's context with every `ih` slot on top (the slot's domain is the
+  frame-level reading lifted past the earlier slots).
+  `targetAbstract_entries` (index arguments are body sub-terms),
+  `targetAbstract_out_leaves` (the residue's leaves are the body's or an
+  `ih` variable's), `infer_constsBound_of_full`, **`targetIh_scope`**:
+  every `ih` type and call λ is scoped by the frame (leaves, bvars,
+  constants, the telescope's leaves — the hole-free check excludes the
+  holes' leaves), from the rule run alone.
+* `Model/Inductives/TargetFrame.lean`: `targetFrame_facts` (the frame's
+  opener list from the run's three openings, today's helpers),
+  **`walkCtx_targetRule`** (a): `targetRuleBodyEq`'s `hW` from the run,
+  and **`targetRuleBodyEq_run`** (c, rule side): the body equation with
+  every run-determined premise discharged.  Its remaining premises are
+  exactly the seam's: the frame's readings/grading/fit (`pdoms`/`fdoms`,
+  `hdoms`/`hokΔ`/`hsp`), the stored recursor/constructor types' facts,
+  `M.ds = fvsPref.take nP`, the callees' values (`hR`, `hcallee`: the
+  chain frame), `hbit` (ℓ ≠ 0), and the two environments' agreement
+  (`hmono`, `hproj`).
+
+**Next (in order).**
+(c′) The seam's conjunct 4 at `ihs := tgtIhsAV`, `Rb0 := tgtRbAV`:
+`BlockRuleResidueB`'s inner statement from `targetRuleBodyEq_run` via
+`targetRuleAt` (pins the run's witnesses to the recomputed ones).  Owed:
+`interp` of `tgtIhsAV`'s `L.inst (bvar (B + K-1-c))` at the chain frame =
+`interp (cons (a c) ρ') L` (an `inst` lemma); `tgtRbAV` (read at the
+consed environment) = `Bv` (read at `mT`) by `hmono` + `hcbe`; the
+β-step through `blockRuleHRa_tower_run` (kind-free); `pdoms`/`fdoms` =
+the old `blockRulePdomsAV`/`blockRuleFdomsAV` once `tgtCrest =
+blockRuleCrest` (`instPisWith_eq_instPisAt` is proved; the first-`nP`
+openers of the `rP`- and `mI+1`-openings agree, `openPisAtFvars_add`);
+`M.ds = fvsPref.take nP` is PROVED (`targetDs_eq_prefTake`,
+`TargetRuleData.lean`, via `openPisAtFvars_prefix`).
+(d) `heqB`/`heqV`/`heqP` at `tgtIhsAV`/`tgtRbAV` — `heqV`'s grading of
+the `ih` terms is `targetCall_ihSlot`'s λ reading (InferClaim on K1's run
+gives the λ graded at the callee slot).
+(e) `hpre` through the graph producer (call targets from `TargetIh`),
+B4 (`ind`), `hRaZ`.  Then B1 (the generic stage record) and B5.
+
+**Gates at the head.**  `lake build`/`lake test` EXIT 0, 0 warnings;
+`tests/arena.sh`: every part green (target-shadow 317/317, nested-shadow
+82/82, arena 90/92, e2e 301/301, axioms pinned, sweeps) except the shake
+gate's half (b), which flags two `public import`s of HOLE2's
+`BlockHoleRead.lean` (`Kernel.Inductives.Positivity`,
+`Model.Inductives.BlockData`) as demotable — measured: demoting either
+alone builds `ConLeche.Model`; left to lane HOLE2 (its file).  This lane's
+own new edges are shake-clean; its public statements' re-exports are
+recorded in `scripts/pub-import-plan.py`'s FALLBACK (measured).

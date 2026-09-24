@@ -181,6 +181,42 @@ theorem TargetTyEntry.ds_eq {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Boo
   cases major with
   | member I t ms ctorsA hfn ht hms hctors hpar => rfl
 
+/-- Opening fewer binders opens a prefix of the same variables. -/
+theorem openPisAtFvars_prefix :
+    ∀ (k n : Nat) (e : Expr) (d : Nat) {fvs : List Expr} {o : Expr}, k ≤ n →
+      ConLeche.openPisAtFvars n e d = some (fvs, o) →
+      ∃ o', ConLeche.openPisAtFvars k e d = some (fvs.take k, o')
+  | 0, _, e, _, _, _, _, _ => ⟨e, rfl⟩
+  | k + 1, 0, _, _, _, _, hk, _ => absurd hk (by omega)
+  | k + 1, n + 1, e, d, fvs, o, hk, h => by
+    cases e with
+    | forallE dom body bm =>
+      simp only [ConLeche.openPisAtFvars] at h ⊢
+      split at h
+      · next fvs' e' h' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨o', ho'⟩ := openPisAtFvars_prefix k n _ (d + 1) (by omega) h'
+        rw [ho']
+        exact ⟨o', by simp⟩
+      · exact nomatch h
+    | _ => simp [ConLeche.openPisAtFvars] at h
+
+/-- **The major's parameters are the rule prefix's first `nP` openers**:
+both openings start at the recursor's stored type, and `nP ≤ rP ≤ mI`. -/
+theorem targetDs_eq_prefTake {mode : ConLeche.CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
+    {nested : Bool} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
+    {fvsPref : List Expr} {oP : Expr}
+    (hpref : ConLeche.openPisAtFvars rc.rP cvRi.type 0 = some (fvsPref, oP)) :
+    M.ds = fvsPref.take p.nP := by
+  rw [TargetTyEntry.ds_eq E]
+  obtain ⟨o', ho'⟩ := openPisAtFvars_prefix rc.rP (rc.mI + 1) _ 0 (by have := E.hle; omega) E.hopen
+  rw [hpref] at ho'
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj ho')
+  rw [List.take_take, Nat.min_eq_left E.hroom]
+
 /-- **The `(j, i)`-th rule's RUN, pinned**: at a `targetRecCheck` run,
 the stored rule `rhs` of the `j`-th recursor at its major's `i`-th
 constructor is a `targetRule` run whose witnesses are the recomputed

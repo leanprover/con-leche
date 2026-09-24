@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Verify.Inductives.RecCheckRun
+public import ConLeche.Model.Inductives.TargetRecRead
+import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Leaves
