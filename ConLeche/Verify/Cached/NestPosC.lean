@@ -256,10 +256,12 @@ theorem nestCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
         (nestCtors ctx (sharedOpsC mode (mkFEnv env)) env rec prog hi us ds nPc sub cs st)
         (nestCtors ctx (fueledOpsM mode) env rec' prog hi us ds nPc sub cs st)
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst⟩
-  | (cv, nF) :: cs, st, _, hs, hcs, hst => by
+  | (cv, nF) :: cs, st, _, hs₀, hcs, hst => by
     unfold nestCtors
     dsimp only [sharedOpsC]
-    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ crest crest' hs₁ hP => ?_)
+    split
+    case isFalse => exact SimC.throw_bind
+    refine SimC.bind (SimC.unwrapOr' hs₀) (fun s₁ crest crest' hs₁ hP => ?_)
     obtain ⟨rfl, hcr⟩ := hP
     have hwc : WScoped (hi + 0) crest := by
       rw [Nat.add_zero]

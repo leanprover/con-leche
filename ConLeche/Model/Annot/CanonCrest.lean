@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Annot.BitConsCross
-import ConLeche.Verify.Inductives.NestScope
 
 public section
 

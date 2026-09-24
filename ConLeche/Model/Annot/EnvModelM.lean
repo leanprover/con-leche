@@ -5,7 +5,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Model.Annot.BlockLfp
-public import ConLeche.Kernel.Inductives.Positivity
+import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
 

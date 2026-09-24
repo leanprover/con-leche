@@ -920,6 +920,12 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     List (ConstantVal × Nat) → NestState → m NestState
   | [], st => pure st
   | (cv, nF) :: cs, st => do
+    -- the constructor's level parameters are distinct (lane CONTSEM: the
+    -- substitution law instantiates them as the recorded reading does;
+    -- every stored constant passed `checkConstantVal`'s own check)
+    unless Name.nodup cv.levelParams do
+      throw (.notImplemented "nested positivity: a container constructor with repeated \
+        level parameters")
     let crest ← unwrapOr
       (instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub))
       (.notImplemented "nested positivity: container constructor telescope")
