@@ -88303,6 +88303,74 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
   `NestedRecStageOwed`, unchanged.  The kernel side of `declBlock_nested`
   is complete.
 
+#### LANDED (lane NESTIND, session 5, 2026-09-24, `agent/uinds-NESTIND` → `nested`): F6 recorded and consumed; the outside class's reading from the run; the outside rows `hspF`/`hdec`/`hsplit`/`hconcl` at the base frame; an outside major's index count — `NestedRecStageOwed` NOT yet discharged
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 5".
+
+- **F6 recorded** (`Model/Cover.lean`, `LfpOwn.lvlNodup`): every recorded
+  member's level parameters are distinct — a recorded fact, not a new
+  restriction (the install's `checkConstantValF` nodup check, as
+  official's `check_duplicated_univ_params`).  Producers:
+  `blockLfpOwn` (the block's `lps`, `hlpsNd`), `lfpOwn_one` (new
+  argument; the basis blocks by `decide`), `lfpOwn_former0`;
+  `LfpOwn.mono` carries it.  **Consumed**: `TgtOutCls.hnd`
+  (`TargetClass.lean`, from `tgtOutCls_of`); `tgtOutDec_core` lost its
+  `hnd` premise.
+- **The outside class's reading, from the run** (`TargetOutSat.lean`):
+  `targetEntryAt` (the `j`-th recursor's `TargetTyEntry` at any
+  `outside`), `outsideDs_scoped` (the major's parameters are arguments
+  of the major's type whose free variables are the recursor type's
+  first `nP` openers), and **`tgtOutSat`** — the class reading premises
+  of `tgtOutDec_core` (`hdsa`, `hul`, `hds`, `hlenP`) and `hsat` at every
+  prefix spine fitting the rule's prefix domains: F2-extended's
+  inference of `I.{us} D⃗` at `rP`, `infer_sound` at the context of the
+  recursor type's first `rP` binder readings (`ctxOk_of_openers`,
+  `prefixDoms_graded_of_tower`), then `keyParamsFit`.
+- **The outside rows at the base frame** (`TargetOutRows.lean`): the
+  parameter readings as a function of `ψ` (`tgtOutDsa`,
+  `denoteMetaSpine_eq_map`); the rule's opening factored
+  (`tgtOutOpen`); **`tgtOutSpF`** (`hspF`, `instCtor_fit`),
+  **`tgtOutDec`** (`hdec`: `tgtOutDec_core` at `tgtOutSat`),
+  **`tgtOutSplit`** (`hsplit`: `keyLeaf` at the major's domain
+  `I.{us} D⃗ ı⃗`, the index openers read back by `map_fieldBvars`),
+  **`tgtOutConcl`** (`hconcl`: `isOfW_tupW` at the clause's `idxOk`).
+  The class's index set is meant to be guarded by the prefix fit, as a
+  member class's is (`blockRecIs`); the rows take that fit as a premise
+  or produce it.
+- **Finding F7 — resolved in the model, no record, no kernel change**:
+  an outside class needs the kernel's index count `M.nIdx`
+  (`targetOutsideInst`: the syntactic Π-telescope of `I`'s type after
+  instantiating levels and parameters, ending in a sort) to be the
+  length of the container's recorded index telescope `D.ids`.  It holds
+  (`tgtOutIdx_len`, `TargetOutIdx.lean`): the recorded former reads as
+  a Π-tower ending in a sort (`LfpReads`), so its syntactic tail is no
+  variable (`tailOk_of_read`) — instantiating the parameters opens no
+  binder (`tail_instPisWith`) — and since the instantiated tail is a sort
+  the original is, and the reading counts exactly the syntactic binders
+  (`read_of_sortTail`, `instPis_count_of_read`).  (A former whose type
+  hides binders behind a definition reads as a longer tower; the target
+  check refuses it there — the tail is a constant, not a sort.)
+- **Owed at outside classes (next)**: `hconclTy` and `hrule` need the
+  CONVERSE of the index clause at an outside major (**O13**): the
+  recursor's index binder domains, `isDefEq`-compared by the entry's
+  `hidx` with `targetIdxDoms`' outside arm (the instantiated container
+  type opened at `rP`), read as `D.ids` at the key frame — the analogue of
+  `BlockRecIdxConv.lean` (`blockRecIdxConv_run`) with the member's
+  telescope replaced by the instantiated former's reading
+  (`frameCrest_read` at the empty group, as `n2_link` does); `hcerts`
+  (`BlockRuleCerts`: the conclusion's fit and arguments and the
+  prefix-and-fields grading at the instantiated constructor, today's
+  `tgtRuleCertsW_run` reads the member throughout); the chain-frame
+  (K-lifted) forms of the base rows (`spineFit_liftDomsK`,
+  `interp_liftN_chainFrame`); then the class data function and
+  `graphRecPre_core`, item 4, `huniq` (F4: an outside major makes the
+  family eliminate into `Prop` unless the block's sort is never zero;
+  a container class's level is the block's, `targetOutsideInst`'s
+  `sI` equivalent to `resSort`), L6.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
+  No `sorry`, no new axiom.
+
 #### LANDED (lane ACCMODEL, checkpoint 1, 2026-09-24): the accessibility kit, (W) at nested blocks through `closed_of_acc`, the wide machinery deleted
 
 Ruling "(W) by ACCESSIBILITY, not the wide operator"; charter items 2
