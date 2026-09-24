@@ -88135,3 +88135,55 @@ verdict-neutral by construction.
   `crest_read`; the frame-occurrence enumeration (F-W3).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
   No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 4, 2026-09-24, `agent/uinds-NESTIND` → `nested`): F5 (`LfpClause.resIdxFit`) with its producers and its first consumer row; the target rule data at the major; the outside class record; F2 recorded
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+
+- **F5 — `LfpClause.resIdxFit : LfpResIdxFit D`** (`Model/Annot/BlockLfp.lean`;
+  the definition moved there from `ContInst.lean`): a spine hole-fitting a
+  constructor at the carrier of a satisfying parameter frame has result
+  index readings fitting the component's index telescope.  Producers at
+  every record: the uniform install (`blockResIdxFit_of_records`,
+  `BlockModelRecords.lean`, from `blockResIdxFit_lfp`,
+  `BlockHoleFold.lean`: at the least tuple the fields with holes fit iff
+  the stored fields do and the result indices read as the stored ones, so
+  `BlockModelAt.resIdxFit` carries them; `BlockModelAt.toLfp` takes it as
+  an argument), `lfp0_clause` (no index), `eqLfp_clause` (`a : α` is a
+  parameter).  Consumed by `instCtor_decode` (no longer a hypothesis) and
+  through it by the row below.
+- **Item 1 — the rule data at the MAJOR** (`TargetIhData.lean`):
+  `tgtFdomsAV`, `tgtEsAV`, `tgtMkAV` (the constructor at the major's
+  instantiation, `C.{M.lvls} M.ds f⃗`); at a member major, at EITHER
+  `outside`, they are today's (`tgtMember_eq_block` and
+  `tgtFdomsAV_eq_block`/`tgtEsAV_eq_block`/`tgtMkAV_eq_block`/
+  `tgtConclExpr_eq_block_of`, `TargetResidue.lean`).
+- **The outside class record** (`Model/Inductives/TargetClass.lean`):
+  `TgtOutCls mp M D mm cvI` — the recorded block `D` whose member `mm` is
+  the major's inductive `cvI`, its constructors the major's one for one;
+  `tgtOutCls_of` produces it from the entry's outside arm and
+  `LfpCover mp []` (`cover` + `own`, `targetCtorsOf_mkFEnv`).
+- **The decoding row at an outside class** (`TargetOutRow.lean`,
+  `tgtOutDec_core`): the rule's field spine hole-fits `D`'s constructor at
+  the carrier of the KEY frame (`keyFrame dsa rP`), at the tuple of the
+  class's index expressions, and the fired spine reads to the injection.
+  `es` at an outside class is DEFINED (`tgtOutEs`: the recorded result
+  indices substituted by `instTau`), as session 3 decided.  Premises it
+  carries (all class-level, none per container): `hsat` — the major's
+  parameters satisfy the container's parameter telescope at the key
+  frame (**F2-extended, requested from NESTKERN-2**); the class reading
+  (`hnd` levelParams distinct, `hul` level arity, `hds` scoping, `hdsa`
+  the parameters' readings at `rP`, `hlenP`) — to be discharged at the
+  assembly from the recursor type's reading and F2.
+- **F2 recorded** (`RecCheckRun.lean`): `TargetTyEntry.hpinTys`
+  (`targetMajorPins … = .ok ()`), inverted by `TargetTyEntry.pinTys_of`
+  (every parameter of an outside major infers at `rP`).
+- **Finding F6** (for NESTKERN/COVERB): an outside class needs its
+  container's level parameters DISTINCT (`instCtor_*`'s `hnd`).  Every
+  checked constant has them (`checkConstantValF`), but neither `EnvWF`
+  nor `LfpCover`/`LfpOwn` records it (only `LfpOwn.noCtors` and the walk's
+  `KeyPos`).  Proposed: `LfpOwn` (or `EnvWF`) records
+  `cv.levelParams.Nodup` at every recorded member; unreached outside
+  majors have no `KeyPos`.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0;
+  no `sorry`, no new axiom.

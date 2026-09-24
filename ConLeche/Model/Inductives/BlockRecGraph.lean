@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockKitIhRun
 import ConLeche.Semantics.Tower.BlockRecGraphI
-public import ConLeche.Model.Inductives.BlockRuleCaRun
+import ConLeche.Model.Inductives.BlockRuleCaRun
 public import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.BlockKitRuleRun
