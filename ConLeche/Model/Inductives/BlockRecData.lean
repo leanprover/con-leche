@@ -1528,7 +1528,7 @@ theorem recStage_ctorsAt {envC : Env} {p : BlockParts} {cvTas : List ConstantVal
       p.members[p.toBlockShape.recTgtAt c]? = some ms ∧
       ctorsAs[p.toBlockShape.recTgtAt c]? = some r.2.2.2 ∧ r.2.2.2.length = ms.ctors.length := by
   obtain ⟨R⟩ := id h
-  exact R.ctorsAt c r hr
+  exact R.ctorsAt c r trivial hr
 
 /-! ### A.9b The rule's FRAME and RESIDUE, as functions of the run
 

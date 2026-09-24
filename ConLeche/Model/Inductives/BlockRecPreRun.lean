@@ -2527,7 +2527,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {mem : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs mem) :
     ∃ uOf : Nat → Level,
       (∀ (ψ : Name → Nat) (c : Nat), c < rs.length →
         ∀ b ∈ blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c,
@@ -2547,7 +2547,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
   refine ⟨fun c => ((R.cvRus.map (·.2.2)).getD c .zero), ?_, ?_⟩
   · intro ψ c hc b hb
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-    obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr
+    obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr
     -- the type's own inference (`checkConstantVal`'s second run)
     obtain ⟨-, -, -, -, -, -, tyA, stype, -, -, -, -, hinfTy, -, hcv'⟩ :=
       ConLeche.checkConstantVal_inv E.hcv
@@ -2571,7 +2571,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
   · -- **the conclusion's two runs**, at the SAME level the bits law reads
     intro c hc
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-    obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr
+    obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr
     have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
     refine ⟨E.fvs, E.concl, E.sty, by rw [hrd]; exact E.hopen, E.hsty, ?_⟩
     show ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) E.sty
@@ -2587,7 +2587,7 @@ are functions — so a fact about the KERNEL's level list is read at
 theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {uOf : Nat → Level} (R : ConLeche.RecStage μ F envC p cvTas ctorsAs rs)
+    {uOf : Nat → Level} {mem : Nat → Prop} (R : ConLeche.RecStage μ F envC p cvTas ctorsAs rs mem)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
@@ -2595,7 +2595,7 @@ theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List Con
         ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
     {c : Nat} (hc : c < rs.length) : uOf c ∈ R.cvRus.map (·.2.2) := by
   obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
-  obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyAt hr0
+  obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr0
   obtain ⟨fvs', conclE', sty', hop', hsty', hu'⟩ := hruns c hc
   have hrd : rs.getD c default = r0 := by rw [List.getD_eq_getElem?_getD, hr0]; rfl
   rw [hrd] at hop'
@@ -2615,7 +2615,7 @@ theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {uOf : Nat → Level}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {mem : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs mem)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧

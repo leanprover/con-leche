@@ -296,7 +296,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   obtain ⟨R⟩ := id h
   have hcR : c < R.cvRus.length := by rw [R.lenT, ← R.len]; exact hc
   obtain ⟨cvR, nIdx, u, cvTa', fvs', tfvs, concl', trest, hcu, hcvTa', hop', hopPI, -,
-    hdeqI⟩ := R.fam.idxDoms c hcR
+    hdeqI⟩ := R.fam.idxDoms c hcR trivial
   obtain ⟨u', hcu'⟩ := R.stored_at hr
   obtain ⟨hr1, hnn, -⟩ : cvR = r.1 ∧ nIdx = r.2.2.1 ∧ u = u' := by
     simpa using Option.some.inj (hcu.symm.trans hcu')

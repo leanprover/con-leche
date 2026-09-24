@@ -104,6 +104,57 @@ theorem lps_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
 
 end RecTyEntry
 
+/-- **Stage (b) at ONE recursor, at ANY major** (lane NESTIND): the part
+of `RecTyEntry` that does not name the major's inductive — the checked
+constant, the prefix and the major's position, the recursor type's
+openers, the conclusion's sort and the elimination half.  A nested
+block's auxiliary recursor (an OUTSIDE major, a container) has it with
+`nIdx` the container's index count. -/
+structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
+    (nested : Bool) (ri : Nat) (rc : RecShape) (cvRi : ConstantVal) (nIdx : Nat) (u : Level) :
+    Type where
+  fvs : List Expr
+  concl : Expr
+  maj : Expr
+  sty : Expr
+  hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi
+  hroom : p.nP ≤ p.rulePrefixAt ri
+  hmI' : p.majorIdxAt ri = p.rulePrefixAt ri + nIdx
+  hopen : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl)
+  hmaj : fvs[p.majorIdxAt ri]? = some maj
+  hsty : inferTypeCore mode env F (p.majorIdxAt ri + 1) concl = .ok sty
+  hu : ensureSortCore mode env F (p.majorIdxAt ri + 1) sty = .ok u
+  hsmall : blockLargeElimAllowed p nested = true ∨
+    isDefEqCore mode env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
+
+/-- A member entry's major-free part. -/
+def RecTyEntry.toGen {F : Nat} {env : Env} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ri : Nat} {rc : RecShape} {cvRi : ConstantVal} {nIdx : Nat}
+    {u : Level} (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
+    RecTyGen mode F env p nested ri rc cvRi nIdx u :=
+  { fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, hcv := E.hcv,
+    hroom := E.hroom, hmI' := E.mI_eq, hopen := E.hopen, hmaj := E.hmaj, hsty := E.hsty,
+    hu := E.hu, hsmall := E.hsmall }
+
+namespace RecTyGen
+
+variable {F : Nat} {env : Env} {p : BlockShape} {nested : Bool}
+  {ri : Nat} {rc : RecShape} {cvRi : ConstantVal} {nIdx : Nat} {u : Level}
+
+theorem nP_le (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
+    p.nP ≤ p.rulePrefixAt ri := E.hroom
+
+theorem mI_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
+    p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hmI'
+
+theorem name_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
+    cvRi.name = rc.cvR.name := (checkConstantVal_lps E.hcv).1
+
+theorem lps_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
+    cvRi.levelParams = rc.cvR.levelParams := (checkConstantVal_lps E.hcv).2
+
+end RecTyGen
+
 /-! ## Stage (b'): the family's agreements -/
 
 /-- **The walk, inverted**: at every position of the tail the prefix

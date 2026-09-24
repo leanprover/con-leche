@@ -114,7 +114,7 @@ theorem recStage_ctorsIdx {envC : Env} {pp : BlockParts} {cvTas : List ConstantV
   obtain ⟨R⟩ := id h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-  obtain ⟨-, -, hct, -⟩ := R.ctorsAt i r hi
+  obtain ⟨-, -, hct, -⟩ := R.ctorsAt i r trivial hi
   exact ⟨_, hct⟩
 
 end RecCtors

@@ -220,7 +220,7 @@ theorem blockRecCounting_run
   obtain ⟨R⟩ := id h
   have hcase := R.fam.small
   have hklen : rs.length = p.toBlockShape.k := by
-    rw [R.len, (ConLeche.recPins_names R.pins).1]; rfl
+    rw [R.len, (ConLeche.recPins_names R.pinsOk).1]; rfl
   have hpos : 0 < rs.length := by rw [hklen]; exact R.fam.k_pos
   have humem := blockRecUOf_run R hruns hpos
   have hu0 : Level.eval ψ (uOf 0) ≠ 0 := by
@@ -298,7 +298,7 @@ theorem blockRecLen_run
     0 < rs.length ∧ rs.length = p.toBlockShape.k := by
   obtain ⟨R⟩ := id h
   have hklen : rs.length = p.toBlockShape.k := by
-    rw [R.len, (ConLeche.recPins_names R.pins).1]; rfl
+    rw [R.len, (ConLeche.recPins_names R.pinsOk).1]; rfl
   exact ⟨by rw [hklen]; exact R.fam.k_pos, hklen⟩
 
 omit [SetTheory V] in
