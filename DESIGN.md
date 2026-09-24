@@ -79469,6 +79469,22 @@ changed by what we need".  Sequencing:
   - Drop the (β′) check and the normal-form storage.
   - Probe the grading of parameter-family holes (Type and Prop) first.
 
+**RULING — (W) by ACCESSIBILITY, not the wide operator (maintainer,
+2026-09-24).**  Following the ACCESS spike (`_tmp/uniform-inds/ACCESS.md`,
+branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
+- The closure witness (W) for nested blocks comes from `closed_of_acc`: a
+  uniformly bounded, accessible operator has a small closed tuple.
+- It is not built from the transient wide operator (keys composed away).
+- Joint accessibility at the instantiation is an INSTALL-TIME lemma
+  derived from the positivity walk's run, the same way as monotonicity.
+- There is NO per-inductive "accessible in its parameter" clause fact.
+  That would violate item 4, and it is false in general
+  (`mk : (α → Nat) → C α`).
+- The recorded clause keeps (W) as today.
+- The wide machinery (`NestWide`, `NestWideAt`, `NestWideEx`, `WideFlat`'s
+  per-component-injection generalisation, `NestWideFit`) is to be deleted.
+- Flat blocks may later switch too, which would delete the container kit.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
