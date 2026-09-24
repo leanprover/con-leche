@@ -546,7 +546,12 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
       ⟨0, [(punitUnitA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
         exact ConLeche.Env.find?_cons_self punitUnitA env⟩
-      (fun _ h => by simp [nestPick] at h) (by decide))
+      (fun _ h => by simp [nestPick] at h) (by decide)
+      (fun nP' L h j hj => by
+        simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain rfl : j = 0 := by simp at hj; omega
+        exact ⟨_, _, [], rfl, fun _ => rfl⟩))
     (hex := filter_not_mem_self _)
     (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
       (hhead := hhead_ctor (c₀ := punitUnitA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
@@ -1074,7 +1079,13 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
         · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natZeroName = _
           rw [ConLeche.Env.find?_cons, if_neg (by decide)]; rw [hZ]; rfl
         · exact ConLeche.Env.find?_cons_self natSuccA env⟩
-      (fun _ h => by simp [nestPick] at h) (by decide))
+      (fun _ h => by simp [nestPick] at h) (by decide)
+      (fun nP' L h j hj => by
+        simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        rcases (show j = 0 ∨ j = 1 by simp at hj; omega) with rfl | rfl
+        · exact ⟨_, _, [], rfl, fun _ => rfl⟩
+        · exact ⟨_, _, [], rfl, fun _ => rfl⟩))
     (hex := filter_not_mem_self _)
     (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
       (hhead := hhead_ctor (c₀ := natSuccA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|

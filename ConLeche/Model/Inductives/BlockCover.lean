@@ -320,7 +320,11 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     (hlps : lps.Nodup)
     (hparams : ∀ ψ, (d.params ψ).length = d.nP)
     (hfindC : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2)) :
+      envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
+    (hshape : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs us args,
+      cA.1.type.stripPis (d.nP + cA.2)
+        = some (bs, Expr.mkAppN (.const (d.memberName m) us) args) ∧
+      ∀ ψ, args.length = d.nP + (d.IdsM m ψ).length) :
     LfpOwn envC d.toLfp := by
   -- the member names, positionally distinct
   have hnameNe : ∀ m m', m < d.k → m' < d.k → m ≠ m' → d.memberName m ≠ d.memberName m' := by
@@ -382,7 +386,7 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     show some (d.nP, _) = _
     rw [← hrev]
     simp [List.map_reverse, List.map_map, Function.comp_def]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
     rw [hN]
@@ -416,5 +420,14 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     exact ⟨cvm, capsm, hfm, by rw [hlm, hl]⟩
   · obtain ⟨cv, caps, hf, -, hl⟩ := hfindT c hc
     exact ⟨cv, caps, hf, hl ▸ hlps⟩
+  · have hj' : j < (d.ctorsM c).length := hj
+    have hget : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj'
+    refine ⟨(d.ctorsM c)[j].1, d.nP, (d.ctorsM c)[j].2, ?_, ?_⟩
+    · show envC.find? ((d.ctorsM c).getD j default).1.name = _
+      rw [List.getD_eq_getElem?_getD, hget, Option.getD_some]
+      exact hfindC c hc j _ hget
+    · have hmem : (d.ctorsM c)[j] ∈ ctorsAs.getD c [] := by
+        rw [← hctorsM]; exact List.getElem_mem hj'
+      exact hshape c hc _ hmem
 
 end ConLeche.Model
