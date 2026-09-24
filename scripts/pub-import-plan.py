@@ -379,6 +379,25 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.FixLeafOk','ConLeche.Semantics.Tower.FixWire'),
     ('ConLeche.Model.Annot.LfpHoleWitness','ConLeche.Semantics.NoBVar'),
     ('ConLeche.Model.Inductives.FixTeleBound','ConLeche.Model.Inductives.FixNoBVar'),
+    # lane HOLE2 stage E2 (the gate after the proof refactor): ten more,
+    # each MEASURED by demoting it alone.  The file's own public statements
+    # name the re-export: `NoBVar` (`HoleSubst.lean:403`), `Expr.nestOcc`
+    # (`NestPosOut.lean:45`), `Expr.ErasedEq` (`:45`), `EnvWF` (`:254`),
+    # `paramBvarsAt`/`BlockCtorDataI` (`StoredShapes.lean:784`), `holeP`
+    # (`:348`), `HoleIn` (`:419`), the `AnnotTerm`/`denoteMeta` of
+    # `BlockHoleRead.lean:350`; downstream reaches through the other two
+    # (`mkAppN_wellDenotedV_of_pt`, `BlockRecData.lean:3549`; a `rw` over
+    # `nestHoles` stops matching at `BlockHoleGrade.lean:322`).
+    ('ConLeche.Model.Inductives.HoleSubst','ConLeche.Semantics.NoBVar'),
+    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.Subst'),
+    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.EnvWF'),
+    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.BlockData'),
+    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosOut'),
+    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Verify.Inductives.PositivityInv'),
+    ('ConLeche.Model.Inductives.BlockHoleRead','ConLeche.Model.Annot.Bit'),
+    ('ConLeche.Model.Inductives.FixStageRec','ConLeche.Model.Inductives.FixRecLaw'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

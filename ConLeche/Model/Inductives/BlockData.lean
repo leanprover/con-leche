@@ -1,10 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.SumData
-import ConLeche.Model.Inductives.StructBodyFrames
-public import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Verify.Inductives.FixParts
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Kernel.Inductives.BlockInstall
 public section

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockData
-import ConLeche.Verify.Inductives.BlockInv
 public section
 
 /-!

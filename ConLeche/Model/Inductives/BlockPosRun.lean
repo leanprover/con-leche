@@ -7,22 +7,13 @@ public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Model.Annot.BitClosed
 import ConLeche.Semantics.Tower.FixWire
-import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructTele
-import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.TowerWire
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Capstone
 import ConLeche.Verify.BetaGate
-import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Annot.BitRename
 
 public section

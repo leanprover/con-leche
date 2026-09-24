@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.FixCtorCross
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockAbsRead
-public import ConLeche.Model.Annot.LfpHoleOp
+import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Semantics.Inductives.DeclSumEta

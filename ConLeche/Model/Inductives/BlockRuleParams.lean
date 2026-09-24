@@ -1,10 +1,6 @@
 module
 
-import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Model.Inductives.BlockRuleRun
-import ConLeche.Model.Annot.BitLevels
-public import ConLeche.Model.Annot.LpDefF
-import ConLeche.Verify.Inductives.BlockRecInv
+public import ConLeche.Model.Inductives.BlockRecData
 
 public section
 

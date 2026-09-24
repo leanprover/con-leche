@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Annot.BitInst
-public import ConLeche.Kernel.Inductives.Positivity
-public import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.Kernel.Inductives.Positivity
+import ConLeche.Semantics.Tower.TowerIntro
 public import ConLeche.Semantics.NoBVar
 import ConLeche.Model.IndSubst
 import ConLeche.Semantics.Kit

@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Model.Inductives.StructRead
+import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.Inductives.StructRead
 public import ConLeche.Model.Annot.LpDefF
 import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Inductives.StructStageFormer

@@ -1,20 +1,9 @@
 module
 
-import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Inductives.FixRec
-import ConLeche.Model.Inductives.FixRecRead
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Shift
-import ConLeche.Model.Inductives.StructRecSpine
-import ConLeche.Model.Inductives.StructData
-import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.InferLemmas
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.NestPosMono
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.Bit
 public section
 
 /-!

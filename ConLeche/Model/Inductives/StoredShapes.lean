@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.LfpHoleWitness
-public import ConLeche.Semantics.Inductives.HoleApp
+import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
 public import ConLeche.Model.Inductives.HoleSubst

@@ -1,11 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Annot.CanonCrest
-import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Verify.Inductives.NestScope
 
 public section
 
