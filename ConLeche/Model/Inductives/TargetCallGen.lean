@@ -111,6 +111,166 @@ theorem spine_map_getD {d : Nat} {τ : Nat → V} :
     simp only [List.map_cons, ha, Option.getD_some]
     rw [spine_map_getD hr]
 
+/-! ## The call's shape, from the abstraction -/
+
+omit [SetTheory V] in
+/-- In a duplicate-free list, an entry is found at its own position. -/
+theorem findIdx?_of_nodup {l : List Name} (hnd : l.Nodup) {t : Nat} {a : Name}
+    (h : l[t]? = some a) : l.findIdx? (· == a) = some t := by
+  obtain ⟨ht, hget⟩ := List.getElem?_eq_some_iff.mp h
+  rw [List.findIdx?_eq_some_iff_getElem]
+  refine ⟨ht, by simp [hget], fun j hj => ?_⟩
+  have hne : l[j] ≠ l[t] := fun he => by
+    have := (List.getElem_inj hnd).mp he
+    omega
+  simpa [hget] using hne
+
+omit [SetTheory V] in
+/-- A recognised call's index arguments number the callee's indices. -/
+theorem targetCall?_idxLen {fr : ConLeche.TargetFrame} {d : Nat} {e : Expr} {i c m : Nat}
+    {idx : List Expr} (h : ConLeche.targetCall? fr d e = some (i, c, m, idx))
+    (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0) :
+    idx.length + fr.rP = fr.mIs.getD c 0 := by
+  unfold ConLeche.targetCall? at h
+  split at h
+  next r us hfn =>
+    split at h
+    · exact nomatch h
+    next c0 hc0 =>
+      split at h
+      · exact nomatch h
+      next hus =>
+      split at h
+      · exact nomatch h
+      next hrp =>
+      dsimp only at h
+      split at h
+      · exact nomatch h
+      next hlen =>
+      split at h
+      · exact nomatch h
+      next hpref =>
+      split at h
+      · exact nomatch h
+      next maj hmaj =>
+      split at h
+      · exact nomatch h
+      next i0 hi0 =>
+      split at h
+      · exact nomatch h
+      next hmd =>
+      split at h
+      · exact nomatch h
+      next hargs =>
+      split at h
+      · exact nomatch h
+      next hidx =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, h2, -, h4⟩ := h
+      subst h2; subst h4
+      simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hrp hlen
+      have := hle c0
+      rw [hrp] at this
+      simp only [List.length_take, List.length_drop, hlen]
+      omega
+  · exact nomatch h
+
+omit [SetTheory V] in
+/-- **Every `ih` entry the abstraction allocates is a recognised call's**:
+its index arguments number the callee's indices and are bounded by the
+field's telescope. -/
+theorem targetAbstract_callShape {fr : ConLeche.TargetFrame} {B : Nat}
+    (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0) :
+    ∀ (d : Nat) (e : Expr) (acc : Array TargetIh) (e' : Expr) (acc' : Array TargetIh),
+      ConLeche.targetAbstract fr B d e acc = some (e', acc') →
+      ∀ ih ∈ acc'.toList, ih ∈ acc.toList ∨
+        (ih.idx.length + fr.rP = fr.mIs.getD ih.callee 0 ∧ fr.rPs.getD ih.callee 0 = fr.rP ∧
+          ∀ x ∈ ih.idx, x.looseBVarsBounded (fr.teles.getD ih.field []).length = true)
+  | _, .bvar _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .sort _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .lit _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .fvar _ _, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | _, .const n us, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+  | d, .lam ty b bi, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_callShape hle (d + 1) b acc1 b' acc2 h2 ih hih with hA | hA
+    · exact targetAbstract_callShape hle d ty acc ty' acc1 h1 ih hA
+    · exact Or.inr hA
+  | d, .forallE ty b bi, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_callShape hle (d + 1) b acc1 b' acc2 h2 ih hih with hA | hA
+    · exact targetAbstract_callShape hle d ty acc ty' acc1 h1 ih hA
+    · exact Or.inr hA
+  | d, .letE ty v b, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨v', acc2⟩, h2, ⟨b', acc3⟩, h3, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    intro ih hih
+    rcases targetAbstract_callShape hle (d + 1) b acc2 b' acc3 h3 ih hih with hA | hA
+    · rcases targetAbstract_callShape hle d v acc1 v' acc2 h2 ih hA with hB | hB
+      · exact targetAbstract_callShape hle d ty acc ty' acc1 h1 ih hB
+      · exact Or.inr hB
+    · exact Or.inr hA
+  | d, .proj sn i x, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨x', acc1⟩, h1, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      exact targetAbstract_callShape hle d x acc x' acc1 h1
+  | d, .app f a, acc, _, _, h => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · next i c m idx hc =>
+      simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨ty, hty, h⟩ := h
+      split at h
+      · simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
+      · simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        intro ih hih
+        rw [Array.toList_push, List.mem_append, List.mem_singleton] at hih
+        rcases hih with hih | rfl
+        · exact Or.inl hih
+        · obtain ⟨rn, -, -, hrp, hm, -, -, hidx⟩ := targetCall?_inv hc hle
+          refine Or.inr ⟨targetCall?_idxLen hc hle, hrp, fun x hx => ?_⟩
+          have := (hidx x hx).1
+          rwa [hm] at this
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨f', acc1⟩, h1, ⟨a', acc2⟩, h2, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      intro ih hih
+      rcases targetAbstract_callShape hle d a acc1 a' acc2 h2 ih hih with hA | hA
+      · exact targetAbstract_callShape hle d f acc f' acc1 h1 ih hA
+      · exact Or.inr hA
+
+
 set_option maxHeartbeats 8000000 in
 /-- **A call's target at a valuation of the holes, from its typing run.**
 At the frame `D = rP + nF` (prefix and fields, `hW`) extended by the

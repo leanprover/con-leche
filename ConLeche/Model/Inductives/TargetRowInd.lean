@@ -259,7 +259,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       rwa [hxsT] at this
     rw [hlenP, hfI] at hfx
     exact hfx
-  have hcoreT := tgtCall_core hμ h R hkLen hdR' hN hS hcore hmr hM ψ ρ hc' hjn hspF hrl
+  have hcoreT := tgtCall_core hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc' hjn hspF hxs hrl
     ((List.range d.k).map (d.toLfp.holeVal ψ (consList (xs.take d.nP) ρ)
       (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))
