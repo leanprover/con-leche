@@ -79450,6 +79450,14 @@ changed by what we need".  Sequencing:
   U4, the field readings) goes through ONE interface, "stored field
   shape facts", produced by (β′).  No proof reasons about the stored
   syntax directly.
+- AMENDED 2026-09-24 (maintainer: "you decide"; ALPHAPROBE split α in two):
+  **α1 runs NEXT, right after HOLE2's E2/F and before the nested proof
+  lanes (L5/NESTW)**: store the DECLARED constructor type, drop (β′) and
+  the normal-form storage, and produce `StoredFieldShapes` and the recorded
+  clause facts' producers (M2/M3) semantically, keeping today's holes.
+  Estimate 2–3 sessions.  **α2** (holes and carrier as parameter families,
+  M3/`HoleAgree` deleted) stays DOCKETED until after the flip.  The
+  original single-refactor plan follows, for α2's content:
 - DOCKET (after the nested flip): (α) + install-as-given, as one
   refactor.
   - Store the DECLARED constructor type.
