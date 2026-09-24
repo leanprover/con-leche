@@ -88411,3 +88411,81 @@ and the producer's design: `_tmp/uniform-inds/ACCMODEL.md`.
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
   (the shake gate after narrowing `Access.lean`'s imports).  No `sorry`,
   no new axiom.
+
+#### LANDED (lane NESTIND, session 6, 2026-09-24, `agent/uinds-NESTIND` → `nested`): O13 (the index clause's converse at an outside major); the outside rows `hconclTy`, `hdec`/`hrule` at the chain frame; finding F8 recorded and consumed (`tgtEsAV = tgtOutEs`) — `NestedRecStageOwed` NOT yet discharged
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 6".
+
+- **O13, `tgtOutIdxConv`** (`Model/Inductives/TargetOutConv.lean`), the
+  twin of `blockRecIdxConv_run` at a container: at a prefix fitting the
+  rule's prefix domains, index values fitting the container's recorded
+  index telescope at the key frame fit the recursor's index binders.  The
+  entry's `hidx` compares the recursor's index domains with
+  `targetIdxDoms`' outside arm (`targetIdxDoms_outside`: the container's
+  type instantiated at the levels and parameters, opened at the prefix);
+  `defeqDom_agree_at` walks it position by position at the context
+  "recursor prefix ++ opened container indices" — the container side's
+  list IS the context, so only the recursor side is walked (no parameter
+  comparison, unlike the member case).  The opened domains read as the
+  recorded `D.ids` substituted at the parameters' readings
+  (**`instFormer_read`**, `ContN2.lean`, factored out of `n2_link`, which
+  now uses it); their grading crosses the substitution
+  (`WellDenoted_substAV`, `AnnotValid_substAV`) from the stored former's
+  graded reading (`type_wellDenotedV`) and the parameters' readings'
+  grading (**`tgtOutSatW`**, `TargetOutSat.lean`: `tgtOutSat` plus
+  `∀ a ∈ dsa, WellDenotedV` at the prefix, off F2-extended's graded
+  instance).
+- **The outside rows**: `tgtOutMajor` (the major's domain at a prefix and
+  index values fitting the recursor's binders is the carrier at the key
+  frame), **`tgtOutConclTy`** (`hconclTy`), and at the CHAIN frame
+  (`TargetOutChain.lean`) **`tgtOutDecK`** (`hdec`) and **`tgtOutRuleK`**
+  (`hrule`) over the lifted target components `tgtFdomsK`/`tgtMkK`/
+  `liftEsK` (`chainFit_base`: the chain move once).  `tgtOutDec_core`/
+  `tgtOutDec` now also return the index values' fit to `D.ids`.
+- **Finding F8 — an outside rule's index expressions need the stored
+  constructor's conclusion arity; RECORDED** (`Model/Cover.lean`,
+  **`LfpOwn.ctorConcl`**): a recorded constructor's stored type is, past
+  its `nPc + nF` binders, its member at the constructor's own level
+  parameters applied to `nPc + |ids|` arguments.  No reading gives it (a
+  leaf `acval` may be an application, so `mkAppN f as = mkAppN g bs`
+  fixes nothing without the arity or the head).  It is the install's
+  constructor check (`checkSumCtor_shape`) and official's
+  (`check_constructors` → `is_valid_ind_app`, `nparams + nindices`
+  arguments, `inductive.cpp`) — a recorded fact, like F6, not a new
+  restriction.  Producers: `blockLfpOwn` (new premise `hshape`, from
+  `checkSumCtor_shape` in `DeclBlock.lean`), `lfpOwn_one` (new premise
+  `hconcl`; `PUnit`, `Nat`, `Eq` by `rfl`), `lfpOwn_former0` (vacuous);
+  `LfpOwn.mono` carries it.  **Consumed** (`TargetOutConcl.lean`):
+  `PiConcl` (the conclusion's shape past `n` binders, kept by
+  `instantiate1`, level instantiation, `instPisWith`, `openPisAtFvars`),
+  **`tgtOutCbody`** (the kernel's opened conclusion at an outside rule is
+  `I.{M.lvls}` at `nPc + |ids|` arguments, and reads as the substituted
+  recorded result), `AnnotTerm.mkAppN_inj_head`, and
+  **`tgtEsAV_outside`**: at an outside class the target check's index
+  expressions read AS the class's (`tgtEsAV = tgtOutEs`).  This retires
+  session 3's plan of a per-class `es` component: the rule data are the
+  target check's (`tgtFdomsAV`/`tgtEsAV`/`tgtMkAV`) at every class.
+- **`KeyPos` (for lane ACCMODEL-2): no `KeyPos` fact is consumed yet.**
+  Item 4 (`trans` at key classes) is next; the planned use is exactly the
+  per-constructor hole-fit transfer conjunct of `KeyPos`
+  (`ContSem.lean`: `∃ grp, InGrp D grp mm ∧ ∀ g, InGrp D grp g → ∀ t j fs,
+  HFits … (grpTuple …) t g j fs → HFits … (carrier … ρ') t g j fs`, at
+  `g = mm`) with its `Sat` premise at both key frames; the `FamLe`
+  conjunct is not planned (session 3's finding: carrier inclusion does
+  not give the hole fit).  An accessibility twin must provide that
+  transfer.
+- **Still owed for `NestedRecStageOwed`** (resume note): at outside
+  classes `hcerts` (`BlockRuleCerts`: the fields' grading through the
+  substitution, `Ca`'s peel via `denoteMeta_instPisAtLift_peel` at the
+  target spellings) and `hCaB` (`blockRecCa_run` + `tgtEsAV_outside` +
+  the fit's index values); `ihv`/`call` generalised over the class tuple
+  (`tgtIhv` reads `d.tup`); the class data function and
+  `graphRecPre_core`'s wiring; item 4 (`trans`/`calls`/`top`), `huniq`
+  (F4), L6 `hpins`; then the recursor stage over `consBlockRecsT` with
+  `.nested` rules (today's `blockRecStaged_*` chain is over `rs`,
+  `RecStageOk` and plain rules).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/shake.sh` clean
+  after the criterion runs (`NESTIND/s6/shake-*.log`); axioms standard
+  (`NESTIND/s6/axioms.lean`); `tests/arena.sh` see the resume note.
+  No `sorry`, no new axiom.
