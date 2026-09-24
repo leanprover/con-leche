@@ -71,6 +71,7 @@ public import ConLeche.Model.Inductives.ContSem
 public import ConLeche.Model.Inductives.ContInst
 public import ConLeche.Model.Inductives.ContInstRule
 public import ConLeche.Model.Inductives.TargetClass
+public import ConLeche.Model.Inductives.TargetOutRow
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestWideFit
