@@ -87684,3 +87684,31 @@ deleted) stays docketed.  A constructor is now installed as the
 annotation of its declared type, so `checkDecls_consts`
 (`StreamConsts.lean`) could in principle cover constructors; it does not
 (inductive blocks are excluded as a whole) — not scheduled.
+
+## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
+
+**Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
+--progress=1` reports every check once, counting up" failed under
+machine load in three lanes and passed on isolated reruns.
+
+**Cause: the checker, not the harness.**  `checkOne` (Main.lean, the
+pool of #260/#267) bumped the completed-count with an atomic
+`modifyGet` and printed the `check <n>/<M>` line AFTERWARDS, outside
+any lock.  A worker descheduled between the two let a later count's
+line overtake its own.  Captured under 192 busy loops on 96 hardware
+threads: `check 1/3 idU`, `check 3/3 tid`, `check 2/3 impSelf`.  The
+lane's contract (the #260 record above: "the count monotone") was
+broken, so the arena's assertion was right.  The verdict was never
+affected: results are walked in record order from the table.
+
+**Fix.**  `done` is now a `Std.Mutex Nat`.  The bump and its line are
+ONE critical section (`done.atomically`), so the lines leave in count
+order.  The cost is one uncontended lock per completed record, paid
+only on the heartbeat lane; a plain run does not touch `done`.  No
+proof mentions the pool's IO (`checkOne`/`checkWorker`/`checkPool` are
+used only in Main.lean).  The arena check is unchanged: it was the
+right test.
+
+**Evidence** (`_tmp/uniform-inds/FLAKE/repro.sh`: the arena's two
+assertions, repeated): under the same load, run side by side, the
+pre-fix binary failed 13 of 150 runs and the fixed binary 0 of 150.
