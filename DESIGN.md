@@ -79413,21 +79413,29 @@ this block wins.
    a check refuses, the check REJECTS (exit 1), not declines.  Decline stays
    for features we positively detect and don't support, and for our own
    resource limits (fuel, bounds).
-   * **Named restrictions official does not impose** (recorded
-     2026-09-24, lane RESTRICT-FIX, the restriction audit's finding C2):
-     **M2′** (`nestNoMemberConst`, `Kernel/Inductives/Positivity.lean`):
-     a member constant at OTHER universe levels in a constructor type
-     that the positivity walk never reads (a redex whnf drops, a phantom
-     container parameter).  A restriction official does not impose;
-     kernel-only input, unreachable from the `inductive` command (it
-     cannot write `T.{0}` for the type it defines); needed by CONTSEM
-     s2's frame reading (the substitution law of the frame's `sub`
-     against the recorded reading at the block's levels).  It DECLINES
-     (exit 2).  Fixtures `restrict_a27_m2prime_redex`,
-     `restrict_a28_m2prime_phantom` (official 0, target 2); the half
-     official shares — the member at other levels where the walk reads
-     it, `restrict_b02_m2prime_direct_bad` — is the walk's own "non valid
-     occurrence" (exit 1), because M2′ runs after the walk.
+   * **M2′ is an official check since v4.33.1** (lane L9FIX, 2026-09-24;
+     it was recorded here by lane RESTRICT-FIX as a named restriction
+     official does not impose, finding C2).  M2′ (`nestNoMemberConst`,
+     `Kernel/Inductives/Positivity.lean`) refuses a member constant at
+     OTHER universe levels anywhere in a constructor type.  Official
+     v4.33.1+ imposes a superset: `check_uniform_ind_occs`
+     (`inductive.cpp` v4.33.1 :134, called by `add_inductive` :1248 before
+     the nested elimination) walks every constructor type syntactically
+     and throws "invalid occurrence of datatype 'T' being declared: it
+     must be applied to the parameters and universe levels of the mutual
+     declaration" at every member occurrence whose levels are not
+     structurally the declaration's, or which is not applied to exactly
+     the parameter variables.  So M2′ is class A and REJECTS (exit 1)
+     with official's wording.  Official ≤ v4.33.0 accepts where the walk
+     never reads the occurrence (a redex whnf drops, a phantom container
+     parameter); fixtures `restrict_a27_m2prime_redex`,
+     `restrict_a28_m2prime_phantom` (official 0 up to v4.33.0, 1 from
+     v4.33.1; target 1).  The half where the walk reads the occurrence,
+     `restrict_b02_m2prime_direct_bad`, is the walk's own "non valid
+     occurrence" (exit 1), because M2′ runs after the walk.  The other
+     half of `check_uniform_ind_occs` (a member at the block's levels
+     applied to other arguments than the parameters) is the walk's
+     business, not M2′'s, and was not audited by lane L9FIX.
 
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
@@ -86688,7 +86696,9 @@ nothing moved on the target route but C1/C2.
   `contSem` splits on the constructor list.  `DeclIndRun`'s generic arm is
   `∃ nPd, IndMembersRun … { nparams := nPd } …` (`etaPins_empty` became
   `etaPins_nparams`).  a01/a01b: target 2 → 0.
-- **C2, M2′ — a NAMED restriction** (charter item 9's new bullet): kept, a
+- **C2, M2′ — a NAMED restriction** (SUPERSEDED by lane L9FIX: official
+  v4.33.1+ imposes it, `check_uniform_ind_occs`; M2′ now REJECTS, target
+  1 for a27/a28 — see charter item 9) (charter item 9's new bullet): kept, a
   decline, now run AFTER the walk (`nestMemberCtors`), so the half official
   shares — the member at other levels where the walk reads it (b02) — is the
   walk's own member-constant arm, "non valid occurrence", exit 1; the decline
@@ -86717,3 +86727,96 @@ nothing moved on the target route but C1/C2.
   the link gate then 0).  init-full: exit 0, 53 093 accepted;
   `--target-shadow` 585 lines and `--nested-shadow` identical to the
   pre-lane binary's.  No `sorry`, no new axiom.
+
+#### LANDED (lane L9FIX, 2026-09-24): ill-typed nested container parameters (LEVELBUG-O's L9/BIG) reject; M2′ is an official check and rejects
+
+Charter item 9.  Input: `_tmp/uniform-inds/LEVELBUG-O.md` (L9/BIG) and
+the coordinator's measurement that official v4.33.1+ rejects a27/a28.
+Official verdicts measured here on v4.29.1, v4.32.0, v4.32.1, v4.32.2,
+v4.33.0, v4.33.1 and v4.34.0 (elan); sources and outputs under
+`_tmp/uniform-inds/L9FIX/adv/`.
+
+- **The L9 escape — official's fix is v4.32.2, not v4.32.1** (the
+  LEVELBUG-O record says v4.32.1; measured: v4.32.1 accepts L9, BIG,
+  l9c1 and l9c2, v4.32.2 rejects all four).  The check is
+  `inductive.cpp` v4.33.0 :1223–1231 (added between the v4.32.1 and
+  v4.32.2 tags): after the nested elimination, every replaced nested
+  application `I Ds` (`m_aux2nested`) is type-checked in the final
+  environment, because the parameters `Ds` do not reach the auxiliary
+  declaration.  Before it, the only typing of a nested field was in the
+  auxiliary environment, with `I Ds` already replaced.
+- **No new check in `nestPos`: not needed.**  The container application
+  is typed already, before the walk.  Every member constructor's type is
+  type-checked whole by `checkConstantVal` in the environment that holds
+  every former (`checkSumCtors`, `BlockInstall.lean`; the shadow's
+  `checkConstantValF`, `TargetInstall.lean`), and only then passes
+  through `nestNormCtor`/`nestPos`.  Every container application the walk
+  meets is a whnf reduct of a subterm of a typed term: a constructor
+  type, or a container constructor instantiated and typed at its frame
+  (`nestCtors`' per-key `inferType`).  So `C.{us} Ds`, a prefix of a
+  typed application, is typed.  ConLeche never types a constructor with
+  its nested applications replaced, so official's escape cannot happen
+  structurally.  Measured: the brief expected the target to decline L9
+  through M2′, but it already rejected L9 and BIG with "application type
+  mismatch" before M2′ runs.  That covers l9c1 too (a constructor-less
+  container, so no per-key typing and no member at other levels): the
+  constructor check alone rejects it.  The proofs are unaffected.
+- **M2′ becomes a REJECT, and is class A** (charter item 9's bullet is
+  rewritten).  Official v4.33.1 added `check_uniform_ind_occs`
+  (`inductive.cpp` v4.33.1 :134, called at :1248 before the nested
+  elimination; the same in v4.34.0).  It checks every constructor type
+  syntactically (`for_each` over every node, constants only, a `.proj`'s
+  structure name is not an occurrence).  At every member constant
+  applied to at most `nparams` arguments, it throws unless the levels
+  are STRUCTURALLY the declaration's and the arguments are exactly the
+  parameter variables.  M2′ asks for "no member constant at levels other
+  than the block's (structural `==`) in the stored constructor type"
+  (`Expr.nestOcc`, likewise constants only, not `.proj`).  Suppose M2′
+  fires.  Then some member constant has other levels, and official's
+  walk reaches it: an ok occurrence stops the descent only at arguments
+  that are bound variables, and an over-applied one descends.  So
+  official throws.  M2′'s error is now `.invalid` with official's
+  wording.  The proofs needed nothing: `PositivityInv` splits on the `if`
+  and the simulations are unchanged.  The `NestedTests` guard moved.
+- **Fixtures** (`tests/e2e/restrict_{l9,big,l9c1,l9c2,m2_*}`, exported by
+  the pinned v4.29.1, which accepts every one):
+
+  | fixture | official | today | target |
+  |---|---|---|---|
+  | `restrict_l9_nest_level_illtyped` | 0 ≤ v4.32.1; 1 from v4.32.2 (from v4.33.1 by the level check) | 2 (the modeller) | 1 |
+  | `restrict_big_nest_level_illtyped_large` | same as L9 | 1 | 1 |
+  | `restrict_l9c1_nest_ctorless_illtyped` | 0 ≤ v4.32.1; 1 from v4.32.2 | 1 | 1 |
+  | `restrict_l9c2_nest_phantom_illtyped` | 0 ≤ v4.32.1; 1 from v4.32.2 | 1 | 1 |
+  | `restrict_m2_defeq_levels` (`T.{max u u}`) | 0 ≤ v4.33.0; 1 from v4.33.1 | 1 | 1 |
+  | `restrict_m2_mutual_mate` (`S.{0}` in `T.mk`) | 0 ≤ v4.33.0; 1 from v4.33.1 | 1 | 1 |
+  | `restrict_m2_own_levels_ok` (control) | 0 | 0 | 0 |
+
+  Fixtures that moved: a27 (e2e 2 → 1, target decline → reject) and
+  a28 (target decline → reject; e2e stays 0, because the modeller accepts
+  it before the flip).
+- **Adversarial pass (item 9; the reference is official v4.34.0).**
+  Goal: an input v4.34.0 accepts that M2′-as-reject refuses.  None was
+  found.
+  * A1: levels definitionally equal to the block's but spelled
+    differently (`T.{max u u}` in a dropped redex).  v4.34.0 rejects,
+    because the comparison is structural.
+  * A3: a member at other levels in a constructor's PARAMETER binder.
+    v4.34.0 rejects (≤ v4.33.0 rejects with "application type
+    mismatch").
+  * A4: a mutual mate at other levels.  v4.34.0 rejects.
+  * A5: a member at other levels inside a result index that whnf drops.
+    Every version rejects (≤ v4.33.0 with "invalid return type").
+  * A6: the control at the block's own levels.  Every version accepts,
+    and so do we.
+  * A `.proj` naming a member.  Not an occurrence on either side.  It is
+    also untypable before the member's constructors exist.
+  * An annotation introducing a member constant.  Impossible: a stored
+    constructor type is closed, and no earlier constant mentions a new
+    member.
+
+  For the container-application typing, no check was added, so there
+  is nothing to probe.  The constructor typing it relies on is
+  official's own `check_constructors` (on the unreplaced type).
+- Gates: `lake build`/`lake test` 0 warnings; nested-shadow 111/111;
+  target-shadow regenerated (only the rows above moved); arena and
+  init-full in the landing commit's message.

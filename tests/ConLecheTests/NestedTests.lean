@@ -194,7 +194,8 @@ list, and REJECTS (lane RESTRICT-FIX: never on a checked environment). -/
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
     [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
 
-/-! ### M2′: a member at other universe levels declines (lane CONTSEM)
+/-! ### M2′: a member at other universe levels rejects (lane CONTSEM; a
+reject since lane L9FIX — official ≥ v4.33.1's `check_uniform_ind_occs`)
 
 `T.{u} | mk : (fun (_ : Type) => Nat) (L T.{0}) → T.{u}` — the member
 occurs at levels other than the block's, inside a redex its whnf
@@ -205,7 +206,7 @@ drops: the abstracted constructor type still names `T`. -/
     ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?, envLv.consts⟩
     [[(⟨nm "T.mk", [nm "u"], pi (.app (.lam ty1 cNat default)
         (.app cL (.const (nm "T") [.zero]))) (.const (nm "T") [.param (nm "u")])⟩, 1)]])
-  matches .error (.notImplemented _)
+  matches .error (.invalid _)
 -- the same at the block's own levels is a hole-free field
 #guard (nestedBlockPositivity (pureOps .verified) envLv
     ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?, envLv.consts⟩

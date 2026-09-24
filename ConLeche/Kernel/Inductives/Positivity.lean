@@ -1178,14 +1178,23 @@ def nestAbstract (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
     else none
 
 /-- M2′: a member-abstracted constructor type mentions no member
-CONSTANT (every member occurrence was at the block's own levels).  A
-NAMED restriction official does not impose (lane RESTRICT-FIX, finding
-C2): kernel-only input, unreachable from the `inductive` command, needed
-by CONTSEM s2's frame reading; a decline. -/
+CONSTANT (every member occurrence was at the block's own levels) — a
+REJECT with official's wording (lane L9FIX).  Official imposes it since
+v4.33.1: `check_uniform_ind_occs` (`inductive.cpp`, run by
+`add_inductive` before the nested elimination) walks every constructor
+type SYNTACTICALLY and throws at every occurrence of a member whose
+levels are not structurally the declaration's (`const_levels(fn) ==
+lvls`) — a superset of this check (it also wants the member applied to
+exactly the parameter variables, which the walk's own arms check where
+it reads the occurrence).  Official ≤ v4.33.0 accepts where the walk
+never reads the occurrence (a redex whnf drops, a phantom container
+parameter): charter item 9 follows the newer kernel.  Needed by CONTSEM
+s2's frame reading. -/
 def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
   if e.nestOcc ctx.names 0 0 then
-    throw (.notImplemented "nested positivity: a member at other universe levels in a \
-      constructor type")
+    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared: it \
+      must be applied to the parameters and universe levels of the mutual declaration (a \
+      member at other universe levels in a constructor type)")
   else pure ()
 
 /-- One member's constructors through `nestMemberCtor`, sharing the
@@ -1208,12 +1217,12 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
     -- walk's holes are exactly the recorded reading's, at every later
     -- instantiation of the block as a container.  AFTER the walk (lane
     -- RESTRICT-FIX): a member at other levels in a position the walk
-    -- reads is official's "non valid occurrence" (a reject, fixture
-    -- `restrict_b02_m2prime_direct_bad`), so this decline fires only where
-    -- the walk never reads the occurrence — a redex whnf drops, a phantom
-    -- container parameter — which official ACCEPTS: a NAMED restriction
-    -- (kernel-only input; `restrict_a27_m2prime_redex`,
-    -- `restrict_a28_m2prime_phantom`; DESIGN, charter item 9)
+    -- reads is the walk's own "non valid occurrence" (fixture
+    -- `restrict_b02_m2prime_direct_bad`); this check catches the rest —
+    -- a redex whnf drops, a phantom container parameter
+    -- (`restrict_a27_m2prime_redex`, `restrict_a28_m2prime_phantom`).
+    -- A REJECT (lane L9FIX): official ≥ v4.33.1 rejects every such
+    -- occurrence (`check_uniform_ind_occs`; DESIGN, charter item 9)
     nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
     let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
     pure (ks :: kss, closeTelescope cq.1 0 (nestConcrete ctx tyN) :: nss, st)

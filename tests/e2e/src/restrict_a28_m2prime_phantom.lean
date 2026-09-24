@@ -2,7 +2,9 @@
 /- RESTRICT a28 (kernel-level, `addDecl`): the member at other levels inside a
    PHANTOM container's parameter: `P (α : Type) | mk : P α`,
    `T.{u} : Type | mk : P T.{0} → T.{u}`.  Official's aux constructor
-   `_nested.P_1.mk : _nested.P_1` never sees `T.{0}`; accepted.  Ours: M2′. -/
+   `_nested.P_1.mk : _nested.P_1` never sees `T.{0}`; accepted up to
+   v4.33.0, rejected from v4.33.1 (`check_uniform_ind_occs`: "invalid
+   occurrence of datatype 'T' being declared").  Ours: M2′, a reject. -/
 import Lean
 
 open Lean in

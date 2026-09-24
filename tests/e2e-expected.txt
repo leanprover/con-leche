@@ -2044,16 +2044,18 @@
 # `nestContainer`/`targetCtorsOf` read it.
 0 restrict_a01_ctorless_container.ndjson
 0 restrict_a01b_ctorless_indexed.ndjson
-# FINDING C2, M2′ — a NAMED restriction official does not impose
-# (kernel-only input: no `inductive` command writes `T.{0}` for the type
-# it defines; needed by CONTSEM s2's frame reading; DESIGN, charter item
-# 9): a member at OTHER universe levels where the walk never reads it.
-# a27: `T.{u} : Type | mk : (fun _ : Type => Nat) T.{0} → T.{u}` (whnf
-# drops it); a28: `P (α) | mk : P α`, `T.{u} | mk : P T.{0} → T.{u}` (a
-# phantom container parameter).  Official 0 (both).  a27 today 2 (the
-# uniform route: "a member at other universe levels in a constructor
-# type"); a28 today 0 (the modeller).  TARGET 2 (both) — the restriction.
-2 restrict_a27_m2prime_redex.ndjson
+# FINDING C2, M2′ — an OFFICIAL check since v4.33.1 (lane L9FIX;
+# lane RESTRICT-FIX had named it a restriction official does not
+# impose): a member at OTHER universe levels where the walk never reads
+# it.  a27: `T.{u} : Type | mk : (fun _ : Type => Nat) T.{0} → T.{u}`
+# (whnf drops it); a28: `P (α) | mk : P α`, `T.{u} | mk : P T.{0} →
+# T.{u}` (a phantom container parameter).  Official 0 up to v4.33.0,
+# 1 from v4.33.1 ("invalid occurrence of datatype 'T' being declared:
+# it must be applied to the parameters and universe levels of the
+# mutual declaration", `check_uniform_ind_occs`).  a27 today 1 (the
+# uniform route's M2′, with official's wording; was 2); a28 today 0
+# (the modeller).  TARGET 1 (both).
+1 restrict_a27_m2prime_redex.ndjson
 0 restrict_a28_m2prime_phantom.ndjson
 # The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
 # repointed to the member inside the block, levels kept; the `_free`
@@ -2071,3 +2073,36 @@
 # declined, 2).
 0 restrict_b02_m2prime_direct_free.ndjson
 1 restrict_b02_m2prime_direct_bad.ndjson
+# lane L9FIX: the LEVELBUG-O escape — a nested container application
+# `C.{us} Ds` whose parameters are ILL-TYPED, which official
+# v4.29.0–v4.32.1 never type-checks (the parameters do not reach its
+# auxiliary type) and ACCEPTS; v4.32.2+ REJECTS ("application type
+# mismatch": `inductive.cpp` v4.33.0 :1223–1231 type-checks the replaced
+# `I Ds`).  Ours rejects them all, before the walk: every member
+# constructor's type is typed whole (`checkConstantVal`, the formers
+# installed), so `C.{us} Ds` is typed as its subterm.
+# L9: `Q.{w} (α : Sort w) : Sort w | mk : Q α`, `T.{u} : Sort u | mk :
+# Q.{u} T.{0} → T.{u}`; BIG: the same at `T.{u} : Type u` with
+# `Q.{u+1}` (a large eliminator).  Both also have a member at other
+# levels: official v4.33.1+ rejects them earlier, by
+# `check_uniform_ind_occs`.  L9 today 2 (the modeller declines it, "small
+# eliminator on a non-Prop block"), BIG today 1; TARGET 1 (both).
+2 restrict_l9_nest_level_illtyped.ndjson
+1 restrict_big_nest_level_illtyped_large.ndjson
+# l9c1/l9c2: the escape WITHOUT a member at other levels (so only the
+# typing catches it, on every official ≥ v4.32.2): `R0 (α : Prop) : Type`
+# with NO constructor (c1) or a phantom `R (α : Prop) : Type | mk : R α`
+# (c2), `T : Type | mk : R0 T → T`.  Official 0 up to v4.32.1, 1 from
+# v4.32.2.  Today 1, TARGET 1.
+1 restrict_l9c1_nest_ctorless_illtyped.ndjson
+1 restrict_l9c2_nest_phantom_illtyped.ndjson
+# lane L9FIX's adversarial probes of M2′ against official v4.34.0: a
+# member at levels definitionally but not structurally the block's
+# (`T.{max u u}`), and a mutual mate at other levels (`S.{0}` in `T.mk`),
+# each in a redex whnf drops.  Official 0 up to v4.33.0, 1 from v4.33.1
+# (the levels are compared structurally; every member name is checked).
+# Today 1, TARGET 1.  The control at the block's own levels: official 0
+# on every toolchain; today 0, TARGET 0.
+1 restrict_m2_defeq_levels.ndjson
+1 restrict_m2_mutual_mate.ndjson
+0 restrict_m2_own_levels_ok.ndjson
