@@ -441,7 +441,7 @@ route): the member the record names, its shape and constructors, the
 checked former that the parameters were compared against. -/
 theorem TargetTyEntry.member_facts {fe : FEnv} {q : BlockShape} {nested : Bool}
     {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) :
+    (E : TargetTyEntry mode F fe q false nested cvTas ctorsAs rc cvRi M u) :
     ∃ ms, M.member = some rc.tgt ∧ q.members[rc.tgt]? = some ms ∧ M.nIdx = ms.nIdx ∧
       M.nPc = q.nP ∧ ctorsAs[rc.tgt]? = some M.ctors ∧ cvTas[rc.tgt]? = some E.cvTP ∧
       E.maj.fvarTypeD.getAppFn = .const ms.cvT.name (q.lps.map .param) ∧
@@ -464,6 +464,7 @@ theorem TargetTyEntry.member_facts {fe : FEnv} {q : BlockShape} {nested : Bool}
       exact eq_of_beq hget
     refine ⟨ms, rfl, hms, rfl, rfl, hctors, hcvTP, ?_, hpar⟩
     rw [hfn, hI]
+  | outside _ _ _ _ _ _ hout => exact nomatch hout
 
 /-- A stored entry of the check's output, at its index. -/
 theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i : Nat}
@@ -479,7 +480,7 @@ theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i
 rules' run, and the stored entry — the checked constant, the annotated
 rules, the major's index count and constructors. -/
 theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
-    (R : TargetRecRun mode F fe q nested block cvTas ctorsAs out) {i : Nat}
+    (R : TargetRecRun mode F fe q false nested block cvTas ctorsAs out) {i : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[i]? = some r) :
     ∃ (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level) (rhssA : List Expr),
@@ -488,7 +489,7 @@ theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
       rc.rhss.length = M.ctors.length ∧
       TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
         q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
-      Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
+      Nonempty (TargetTyEntry mode F fe q false nested cvTas ctorsAs rc cvRi M u) := by
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
@@ -512,7 +513,7 @@ theorem recShape_at {q : BlockShape} {i : Nat} {rc : RecShape} (hrc : q.recs[i]?
 against its major member. -/
 theorem recTyEntry_of_target {q : BlockShape} {i : Nat} {rc : RecShape} {cvRi : ConstantVal}
     {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
-    (E : TargetTyEntry mode F (mkFEnv env) q false cvTas ctorsAs rc cvRi M u) :
+    (E : TargetTyEntry mode F (mkFEnv env) q false false cvTas ctorsAs rc cvRi M u) :
     Nonempty (RecTyEntry mode F env q false cvTas i rc cvRi M.nIdx u) := by
   obtain ⟨hT, hM, hR⟩ := recShape_at hrc
   obtain ⟨ms, hMm, hms, hnIdx, hnPc, -, hcvTa, hfn, hpar⟩ := E.member_facts
@@ -541,7 +542,7 @@ route: no outside major, no container).  `hctorsLen`: each member's
 checked constructors are its declared ones, one for one (the
 constructors' stage). -/
 theorem recStage_of_target
-    (R : TargetRecRun mode F (mkFEnv env) p.toBlockShape false block cvTas ctorsAs out)
+    (R : TargetRecRun mode F (mkFEnv env) p.toBlockShape false false block cvTas ctorsAs out)
     (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
       p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
     RecStageOk mode F env p cvTas ctorsAs (tgtRs out) := by
@@ -698,7 +699,7 @@ theorem recStage_of_rec {rs : List (ConstantVal × List Expr × Nat × List (Con
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
     ∃ out, rs = tgtRs out ∧
-      Nonempty (TargetRecRun mode F (mkFEnv env) p.toBlockShape false block cvTas ctorsAs out) ∧
+      Nonempty (TargetRecRun mode F (mkFEnv env) p.toBlockShape false false block cvTas ctorsAs out) ∧
       RecStageOk mode F env p cvTas ctorsAs rs := by
   obtain ⟨out, hout, rfl⟩ := checkBlockRecT_run (checkBlockRecT_of_rec h)
   obtain ⟨R⟩ := targetRecCheck_run hout

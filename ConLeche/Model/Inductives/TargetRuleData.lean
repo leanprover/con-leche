@@ -128,7 +128,7 @@ variable {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Boo
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The stored recursors are stage (b)'s, at every position. -/
-theorem targetRecRun_fam_eq (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
+theorem targetRecRun_fam_eq (R : ConLeche.TargetRecRun mode F fe p false nested block cvTas ctorsAs out) :
     ConLeche.targetFamilyOf p R.tys = tgtFam p (tgtRs out) := by
   have h0 := targetRecRun_out_fst R
   have h1 : out.map (fun t => t.1.type) = R.tys.map (fun t => t.1.type) := by
@@ -143,7 +143,7 @@ constructor is a `targetRule` run whose witnesses are the recomputed
 ones — the prefix and field openers, the body, the fields' abstract
 telescopes and the abstraction — at a MEMBER major (the block's
 parameter count and levels). -/
-theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
+theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p false nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :

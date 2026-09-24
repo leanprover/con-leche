@@ -72,7 +72,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTasR ctorsAsR out)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTasR ctorsAsR (tgtRs out))
     (hnd : pp.toBlockShape.memberNames.Nodup)
     (hnames : BlockNamesOk (V := V)

@@ -96,7 +96,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hndM : pp.toBlockShape.memberNames.Nodup)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -523,7 +523,7 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
@@ -618,7 +618,7 @@ theorem tgtRuleAt_facts {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List Co
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
@@ -661,7 +661,7 @@ theorem tgtRule_below (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -802,7 +802,7 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1002,7 +1002,7 @@ theorem tgtRule_valid (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1211,7 +1211,7 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)

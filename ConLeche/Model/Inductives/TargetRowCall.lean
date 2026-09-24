@@ -52,7 +52,7 @@ set_option maxHeartbeats 4000000 in
 6), given the graph is bound-valued at the predecessors. -/
 theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -264,7 +264,7 @@ read off any recursor `r` over the rule's predecessors, ARE the target
 along a callee's spine is `r` at the tagged call. -/
 theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

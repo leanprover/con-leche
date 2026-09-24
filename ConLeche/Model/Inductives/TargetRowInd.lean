@@ -59,7 +59,7 @@ agnostic: at a call, the field's typing on the member-abstracted terms
 target in the property. -/
 theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

@@ -342,7 +342,7 @@ set_option maxHeartbeats 8000000 in
 /-- **One `ih` key of a target rule, read.** -/
 theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

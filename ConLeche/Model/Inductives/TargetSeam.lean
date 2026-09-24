@@ -85,7 +85,7 @@ theorem tgtFormer_facts
 target rows (`tgtRule_below`). -/
 theorem tgtRecEqs_below_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -147,7 +147,7 @@ target rows (`tgtRule_valid`); the frame's grading on its prefix and
 fields is `blockRuleHokPF_run`'s. -/
 theorem tgtRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
@@ -201,7 +201,7 @@ theorem tgtRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
 `blockRecEqs_params_gen` with the two target rows (`tgtRule_params`). -/
 theorem tgtRecEqs_params_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -237,7 +237,7 @@ with its residue conjunct `tgtRuleResidueB`, fed today's field readings
 fields (`blockRuleHokPF_of`). -/
 theorem tgtRuleDataB_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     (hndM : pp.toBlockShape.memberNames.Nodup)
     (hN : BlockNamesOk (V := V)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
@@ -373,7 +373,7 @@ so the family's ι law at the empty spine says it reads as the recursor's
 value, which is the point there. -/
 theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {s : (Name → Nat) → Nat} {es0 : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -502,7 +502,7 @@ by its head binder's datum (`blockRuleRaZ_run`, kind-free) or, binding
 no variable, by the ι law (`tgtRuleRaZ_empty`). -/
 theorem tgtRuleRaZ_seam (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
     {s : (Name → Nat) → Nat} {es0 : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),

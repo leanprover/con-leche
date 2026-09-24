@@ -167,7 +167,7 @@ fit the callee's member's index telescope at the parameters, and the
 applied field lies in the callee's hole applied to them. -/
 theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -568,7 +568,7 @@ form an index tuple of the callee's member and the applied field lies
 in `Y` there. -/
 theorem tgtCall_core (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

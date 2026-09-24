@@ -89,7 +89,7 @@ that field, read past the rule frame and the holes, at the rule frame
 extended by the same hole values. -/
 theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

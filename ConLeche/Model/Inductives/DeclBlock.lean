@@ -226,7 +226,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- the recursor stage's own run: the target check's, and its kind-free
         -- facts
         (∃ out, rsR = ConLeche.tgtRs out ∧ Nonempty (ConLeche.TargetRecRun μ F
-          (ConLeche.mkFEnv envC) pp.toBlockShape false block cvTasR ctorsAsR out)) →
+          (ConLeche.mkFEnv envC) pp.toBlockShape false false block cvTasR ctorsAsR out)) →
         ConLeche.RecStageOk μ F envC pp cvTasR ctorsAsR rsR →
         -- the recogniser's member names
         pp.toBlockShape.memberNames.Nodup →
