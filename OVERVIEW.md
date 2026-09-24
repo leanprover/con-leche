@@ -612,7 +612,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   equations, and installs the block through the modeled route, which
   checks those theorems like any other declaration and uses their
   equations semantically
-  ([function `checkIotaThm` in `ConLeche/Kernel/Inductives/Modeled.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Modeled.lean#L340-L351)).
+  ([function `checkIotaThm` in `ConLeche/Kernel/Inductives/Modeled.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Modeled.lean#L347-L358)).
   The construction and the code are a port of the maintainer's
   [lean-inductive-models](https://github.com/nomeata/lean-inductive-models),
   a standalone tool that translates mutual and nested inductive types
@@ -628,7 +628,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   the block, so the uniform route's recogniser refuses it outright and
   no model lookup is needed to route it. A nested occurrence under a
   binder is outside the scheme and declines
-  ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/InModel/Nested.lean#L47-L54)).
+  ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/InModel/Nested.lean#L48-L55)).
 
 A block no route takes is a positive decline naming its class, never
 an acceptance.
@@ -641,14 +641,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L473-L481)):
+  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L468-L476)):
   when a definition under one of these names arrives, the install
   certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L405-L422),
+  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L400-L417),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L111-L118)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -658,7 +658,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1100)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L483-L498))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L478-L493))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
