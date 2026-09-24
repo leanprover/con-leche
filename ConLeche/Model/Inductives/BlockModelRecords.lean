@@ -166,7 +166,11 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
     (hmono : ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) :
+      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp))
+    (hfitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X Y, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) Y →
+      TupleLe d.N (d.idx ψ ρp) X Y → ∀ c, c < d.N → ∀ (t : V) (j : Nat) (fs : List V),
+        d.toLfp.HFits ψ ρp X t c j fs → d.toLfp.HFits ψ ρp Y t c j fs) :
     BlockModelAt mo d.memberNames d := by
   have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
 
@@ -339,7 +343,8 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [hNk]
     exact blockPhi_maps_of (hS.holeOk ψ ρp hs)
   refine blockModelAt_of_stages mo rfl hinj hlenC (by rw [hNk]; exact hk0) hlenPps
-    hidxOk hfib hmaps hmono hclosed hcarrier (fun ψ => d.toLfp.holeChains ψ) ?_ ?_ hparams ?_
+    hidxOk hfib hmaps hmono hfitsMono hclosed hcarrier (fun ψ => d.toLfp.holeChains ψ) ?_ ?_
+    hparams ?_
     (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_
   -- the members' leaves: the block operator at the HOLE chains
   · intro mm hmm ψ
@@ -393,7 +398,7 @@ theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
-    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
@@ -404,6 +409,20 @@ theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData
       Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) :=
   fun ψ ρp hs => monoTuple_of_tupRel (D := d.toLfp)
     (blockHoleFib_of_records hN hS hcore hk0 hPhi hinj ψ ρp hs) (hpos ψ ρp hs)
+
+/-- **The hole fit grows with the tuple, from positivity**: every
+constructor positive along the tuple order at the hole frame
+(`LfpDatum.hfits_mono`). -/
+theorem blockFitsMono_of_pos {d : BlockData V}
+    (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X Y, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) Y →
+      TupleLe d.N (d.idx ψ ρp) X Y → ∀ c, c < d.N → ∀ (t : V) (j : Nat) (fs : List V),
+        d.toLfp.HFits ψ ρp X t c j fs → d.toLfp.HFits ψ ρp Y t c j fs :=
+  fun ψ ρp hs X Y hX hY hXY c hc _ j _ hf =>
+    LfpDatum.hfits_mono (hpos ψ ρp hs c hc j hf.1) ⟨X, Y, hX, hY, hXY, rfl, rfl⟩ hf
 
 /-! ## 9. The block's LFP CLAUSE from the stages' records (lanes ENVLFP, HOLE2)
 
@@ -429,7 +448,8 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
     LfpClause mo.acval d.toLfp :=
   (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
-    (blockMono_of_pos hN hS hcore hinst hk0 hPhi hinj hpos)).toLfp (lps := lps)
+    (blockMono_of_pos hN hS hcore hk0 hPhi hinj hpos) (blockFitsMono_of_pos hpos)).toLfp
+    (lps := lps)
     (blockHoleFacts_of_stage hN hS hcore hk0)
 
 end ConLeche.Model

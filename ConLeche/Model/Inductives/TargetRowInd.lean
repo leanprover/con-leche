@@ -151,7 +151,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   -- the rule's prefix and fields fit (a slot read: `blockKitSpF_run`)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c'].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
-  have hspF := blockKitSpF_run hμ h hcore hmr hM hN hmr.1 hctM ψ hbnd ρ
+  have hspF := blockKitSpF_run hμ h hcore hmr hmr.1 hctM ψ hbnd ρ
     (tgtRs out).length xs c' hc' hpar' hpref' j hjn t fs htI hfitC
   rw [blockRecFdomsK_eq_of_bounded hbnd hr hcA hrhs] at hspF
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c' :=

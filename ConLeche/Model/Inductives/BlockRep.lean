@@ -407,6 +407,11 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
     ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
       x ∈ˢ app (d.Φ ψ ρp X c) t ↔ ∃ j fs, d.toLfp.HFits ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
+  /-- **the hole fit grows with the tuple** (positivity's, at the fit) -/
+  fitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X Y, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) Y →
+    TupleLe d.N (d.idx ψ ρp) X Y → ∀ c, c < d.N → ∀ (t : V) (j : Nat) (fs : List V),
+      d.toLfp.HFits ψ ρp X t c j fs → d.toLfp.HFits ψ ρp Y t c j fs
   /-- **the leaf**: a MEMBER's former at fitting parameters and its own
   indices is the least pre-fixed TUPLE's component at the index tuple -/
   leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),

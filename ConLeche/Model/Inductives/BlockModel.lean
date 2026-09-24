@@ -463,6 +463,10 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp))
     (hmono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp))
+    (hfitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X Y, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) Y →
+      TupleLe d.N (d.idx ψ ρp) X Y → ∀ c, c < d.N → ∀ (t : V) (j : Nat) (fs : List V),
+        d.toLfp.HFits ψ ρp X t c j fs → d.toLfp.HFits ψ ρp Y t c j fs)
     (hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L)
     (hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
@@ -526,7 +530,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
   refine ⟨hnames, hidxOk, fun ψ ρp hρ => ⟨hmono ψ ρp hρ, hmaps ψ ρp hρ, hclosed ψ ρp hρ⟩,
-    hfib, ?_, ?_, hresFit, hcarrier, ?_, ?_⟩
+    hfib, hfitsMono, ?_, ?_, hresFit, hcarrier, ?_, ?_⟩
   · -- leaf
     intro mm hmm ψ ρ as is hsa hsi
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa

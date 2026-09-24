@@ -136,7 +136,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hN hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
+  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
   have hargs := blockRuleConclArgsW_run hμ h hdR hS hcore hmr ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
   -- the grading of the prefix and the fields
   have hPF := blockRuleHokPF_run hμ h hdR hS hcore hmr

@@ -90,18 +90,14 @@ omit [SetTheory V] in
 /-- **A zero chain is no chain**: `chainFrame 0` is the base frame. -/
 @[simp] theorem chainFrame_zero (a ρ : Nat → V) : chainFrame 0 a ρ = ρ := rfl
 
-/-- **`hspF` AT THE BASE FRAME** — `blockRecSpF_of` at `K = 0`.
+/-- **`hspF` AT THE BASE FRAME** — `blockRecSpF` at `K = 0`.
 
-`blockRecSpF_of` has `K` and the chain tuple `a` free; its conclusion
+`blockRecSpF` has `K` and the chain tuple `a` free; its conclusion
 is a chain-frame statement because the KIT consumes it under the `K`
 Σ' binders, not because the bridge needs them.  `BlockRuleDataB`'s
 first conjunct is the same statement at `ρ` and at the UNLIFTED rule
-domains, which is the `K = 0` instance — no boundedness premise.
-
-Every other premise is `blockRecSpF_of`'s own; §2 below produces the
-three that mention the block (`hps`, `ht`, `hfit`). -/
-theorem blockRecSpF_base {envC : Env} {mpC : EnvModelM V μ envC} {names : List Name}
-    {d : BlockData V} (hM : BlockModelAt mpC.base2 names d) {lps : List Name}
+domains, which is the `K = 0` instance — no boundedness premise. -/
+theorem blockRecSpF_base {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
     {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -109,28 +105,15 @@ theorem blockRecSpF_base {envC : Env} {mpC : EnvModelM V μ envC} {names : List 
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {ψ : Name → Nat}
-    {ρ : Nat → V} {xs fs : List V} {t : V} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM (mem c))[j]? = some cA)
-    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    {ρ : Nat → V} {xs fs : List V}
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hasLen : (xs.take d.nP).length = d.nP)
-    (hps : SpineFit ρ (d.params ψ) (xs.take d.nP))
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
-    (hcN : mem c < d.N) (hj : j < (d.ctorsM (mem c)).length)
-    (ht : t ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c))
-    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ))))
     (hxs : xs.length = p.toBlockShape.rulePrefixAt c)
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs)
-    (hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ))) t (mem c) j fs) :
+    (hfit : SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs) :
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
         ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i) (xs ++ fs) := by
-  have hq := blockRecSpF_of (K := 0) (a := fun _ => (pt : V)) hM hμ h hr hcj hcf hfd hasLen
-    hps htgt hcN hj ht hX hxs
+  have hq := blockRecSpF (K := 0) (a := fun _ => (pt : V)) hμ h hr hfd hxs
     (by simpa only [chainFrame_zero, blockRecPdomsK, liftDomsK_zero] using hpref) hfit
   simpa only [chainFrame_zero, blockRecPdomsK, blockRecFdomsK, liftDomsK_zero] using hq
 
@@ -207,8 +190,8 @@ theorem blockCtorSpine_split {mm j : Nat} {cA : ConstantVal × Nat}
     exact h2
 
 /-- **THE SHARED FACT of the fit's FIELD half and of `mk`**: the
-constructor's field values fit its field domains AT THE RECURSOR's
-parameter frame, as a `ChainFit` at the block's own carrier.
+constructor's field values fit its STORED field domains AT THE
+RECURSOR's parameter frame, at the index tuple the major names.
 
 Nothing syntactic produces this — the rule is `paramsBlind`.  What
 produces it is the MAJOR PREMISE, in four moves:
@@ -226,7 +209,7 @@ produces it is the MAJOR PREMISE, in four moves:
 
 `hw` is not a convenience: at a `Prop`-valued block step 4 is FALSE
 and so is the conclusion — see §4. -/
-theorem blockRuleChainFit_run (hM : BlockModelAt mpC.base2 names d)
+theorem blockRuleStoredFit_run (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
     (hfind : envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
@@ -240,9 +223,7 @@ theorem blockRuleChainFit_run (hM : BlockModelAt mpC.base2 names d)
       ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
     (hmaj : interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       ∈ˢ (ps ++ is).foldl app (interp V ρ (mpC.base2.acval (d.memberName mm) ψ))) :
-    d.ChainFit ψ (consList ps ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
-      (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
+    d.StoredFit ψ (consList ps ρ) (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
   have hmN : mm < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM mm).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hacv : mpC.base2.acval cA.1.name ψj = mpC.base2.acval cA.1.name ψ :=
@@ -256,9 +237,9 @@ theorem blockRuleChainFit_run (hM : BlockModelAt mpC.base2 names d)
     exact hM.ctor mm hmN j cA hcj ψ ρ _ _ hqs hfq
   rw [hM.leaf mm hmemk ψ ρ ps is hps hidx, hval] at hmaj
   have ht : d.tup ψ mm is ∈ˢ d.idx ψ (consList ps ρ) mm := tupW_mem hidx
-  obtain ⟨j', fs', hj', hfit', heq⟩ :=
+  obtain ⟨j', fs', hfit', heq⟩ :=
     blockCarrier_case hM (d.satOfSpine hps) hmN ht hmaj
-  obtain ⟨rfl, rfl⟩ := hM.mkInj ψ hw mm hmN j _ j' fs' hjl hj'
+  obtain ⟨rfl, rfl⟩ := hM.mkInj ψ hw mm hmN j _ j' fs' hjl hfit'.1
     hfq.length_eq hfit'.length_eq heq
   exact hfit'
 
@@ -317,30 +298,7 @@ theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   simp only [hpref, hidxE, hmajE] at hpar hidx hmaj
   exact ⟨hpar, hidx, hmaj⟩
 
-/-- **The field spine as a `SpineFit`** — `ChainFit`'s `FitsFrom` at
-the block's slots, read as a fit of the field domains, through the
-slot agreement.  `blockRecSpF` does this inside its own proof; `mk`
-needs it on its own, because `BlockModelAt.ctor` speaks `SpineFit`. -/
-theorem blockRuleFieldSpine_run (hM : BlockModelAt mpC.base2 names d)
-    {mm j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM mm)[j]? = some cA)
-    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
-    {ψ : Name → Nat} {ρ : Nat → V} {ps fs : List V} {t : V}
-    (hasLen : ps.length = d.nP) (hps : SpineFit ρ (d.params ψ) ps)
-    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
-    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
-    (ht : t ∈ˢ d.idx ψ (consList ps ρ) mm)
-    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList ps ρ))
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ))))
-    (hfit : d.ChainFit ψ (consList ps ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
-      t mm j fs) :
-    SpineFit (consList ps ρ) ((d.Fss mm ψ).getD j []) fs :=
-  spineFit_of_fitsFrom (fun l hl bs hb hrb => by
-    rw [Nat.zero_add] at hrb ⊢
-    exact blockSlot_agree hM hcj hcf.2.2 hasLen hps htgt hcN hjl ht hX l hl bs hb hrb) hfit.1
-
-/-! ### 2b. THE SQUASH ARM — the same `ChainFit` at `d.w ψ = 0`
+/-! ### 2b. THE SQUASH ARM — the same stored fit at `d.w ψ = 0`
 
 At a `Prop`-valued block `mkInj` is FALSE (`BlockModelAt.mkZero`: every
 injection is the point), so §2's step 4 has no analogue and the
@@ -355,7 +313,7 @@ constructor — so `j' = j` needs no injectivity, and
 field that is not an index source is a proposition.
 
 Then `srcVals_of_fit` at BOTH frames identifies both spines with the
-source spine: the recursor's frame reads `fs'` (`ChainFit`'s own
+source spine: the recursor's frame reads `fs'` (the stored fit's own
 index clause, retracted by `projS_tupW`), the constructor's frame
 reads this rule's own fields, and the two index lists are the same by
 the rule's INDEX PIN, which the contract's telescope already carries.
@@ -407,10 +365,10 @@ theorem blockCtorFieldProp {mm j : Nat} {cA : ConstantVal × Nat}
   rw [← univ_zero]
   exact fieldsBoundSrc_at hbnd hs hfs (by rw [hlenF]; exact hq)
 
-/-- **§2's fact at `d.w ψ = 0`** — the same `ChainFit`, by the
+/-- **§2's fact at `d.w ψ = 0`** — the same stored fit, by the
 subsingleton criterion instead of by injectivity.  See the section
 note for the premises. -/
-theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
+theorem blockRuleStoredFit_sq (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
     (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
@@ -419,9 +377,7 @@ theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
     (hlarge : d.large = true) (hct1 : (d.ctorsM mm).length ≤ 1)
     (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
       ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
-    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
     {ρ : Nat → V} {ps is : List V} {ys : List AnnotTerm}
-    (hasLen : ps.length = d.nP)
     (hps : SpineFit ρ (d.params ψ) ps)
     (hidx : SpineFit (consList ps ρ) (d.IdsM mm ψ) is)
     (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
@@ -432,9 +388,7 @@ theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
           (consList ((ys.take d.nP).map (interp V ρ)) ρ))) = is)
     (hmaj : interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       ∈ˢ (ps ++ is).foldl app (interp V ρ (mpC.base2.acval (d.memberName mm) ψ))) :
-    d.ChainFit ψ (consList ps ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
-      (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
+    d.StoredFit ψ (consList ps ρ) (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
   have hmN : mm < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM mm).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hacv : mpC.base2.acval cA.1.name ψj = mpC.base2.acval cA.1.name ψ :=
@@ -448,12 +402,11 @@ theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
     exact hM.ctor mm hmN j cA hcj ψ ρ _ _ hqs hfq
   rw [hM.leaf mm hmemk ψ ρ ps is hps hidx, hval] at hmaj
   have ht : d.tup ψ mm is ∈ˢ d.idx ψ (consList ps ρ) mm := tupW_mem hidx
-  obtain ⟨j', fs', hj', hfit', -⟩ :=
+  obtain ⟨j', fs', hfit', -⟩ :=
     blockCarrier_case hM (d.satOfSpine hps) hmN ht hmaj
-  rw [show j' = j from by omega] at hfit'
-  -- the recursor side: the decomposition's spine, as a `SpineFit`
-  have hspR := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hmN hjl ht
-    (lfpTuple_mem _ _ _ _) hfit'
+  rw [show j' = j from by have := hfit'.1; omega] at hfit'
+  -- the recursor side: the decomposition's spine
+  have hspR := hfit'.2.1
   -- the index values, at the recursor's frame
   have hIdxOk := hM.idxOk ψ _ (d.satOfSpine hps) mm hmN
   have hEsLen : ((d.Ess mm ψ).getD j []).length = (d.IdsM mm ψ).length := by
@@ -464,7 +417,7 @@ theorem blockRuleChainFit_sq (hM : BlockModelAt mpC.base2 names d)
       fun l h1 h2 => ?_
     rw [List.length_map, hEsLen] at h1
     have hlE : l < ((d.Ess mm ψ).getD j []).length := by rw [hEsLen]; exact h1
-    have hstep := hfit'.2 l h1
+    have hstep := hfit'.2.2 l h1
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlE, Option.getD_some] at hstep
     rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx h1,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
@@ -577,106 +530,19 @@ theorem blockRuleIdxPin_run {mm j : Nat} {cA : ConstantVal × Nat}
 own proof.  The graph kit's `huniq` at `w = 0, ℓ ≠ 0` asks for that
 identification on its own (`blockGraphUniq_run`, `BlockRecGraph.lean`:
 two decodings of one major have the same fields), and this section is
-the lift: the same three steps — the `FitsFrom`-to-
-`SpineFit` bridge (§3's `blockRuleFieldSpine_run`), the subsingleton
-criterion (`blockCtorFieldProp`) and `srcVals_of_fit` — at an
-ARBITRARY index tuple and an arbitrary fitting spine instead of at the
-rule's own.
-
-**The lift needs ONE extra premise, `TupleLe`, and it is not
-cosmetic.**  The regime quantifies over an arbitrary member `X` of the
-TUPLE SPACE, while §2b works at the fixpoint: a `ChainFit` at a
-general `X` puts a RECURSIVE field's value in the SLOT, and the
-criterion is a statement about the field's DOMAIN.  At `w = 0` the
-slot is a truth value, so that field's own value collapses to the
-point — but the criterion cannot be WALKED past it:
-`CtorDataI.srcProp` bounds field `q` only along a spine fitting the
-EARLIER DOMAINS (`FieldsBoundSrc`), and a slot member need not be a
-member of the domain when the domain is the empty truth value.
-
-A tuple BELOW the fixpoint transports its `ChainFit` INTO the
-fixpoint's (`blockChainFit_of_le`, by `slotSet_mono` at every
-recursive position), and there the domains are the slots
-(`blockSlot_agree`) and the criterion applies unchanged.  The graph
-kit's call site is at the fixpoint itself (`TupleLe.refl`). -/
-
-/-- **`FitsFrom` transports along an INCLUSION of the slots** —
-`spineFit_of_fitsFrom`'s pattern with `⊆ˢ` in place of `=`.  The
-inclusion is asked for only at the positions the walk actually reads,
-and along the walk's own prefixes, which is what lets the slot fit
-(`BlockModelAt.idxFit`) supply it. -/
-theorem fitsFrom_mono {rs : List Bool} {slot slot' : Nat → (Nat → V) → V} :
-    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
-      (∀ l, l < Fs.length → ∀ bs : List V,
-        FitsFrom rs slot i ρ (Fs.take l) bs → rs.getD (i + l) false = true →
-        slot (i + l) (consList bs ρ) ⊆ˢ slot' (i + l) (consList bs ρ)) →
-      FitsFrom rs slot i ρ Fs as → FitsFrom rs slot' i ρ Fs as
-  | _, _, [], [], _, _ => trivial
-  | _, _, [], _ :: _, _, h => h.elim
-  | _, _, _ :: _, [], _, h => h.elim
-  | i, ρ, F :: Fs, a :: as, hag, h => by
-    refine ⟨?_, fitsFrom_mono (fun l hl bs hb hr => ?_) h.2⟩
-    · have h1 : a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) := h.1
-      show a ∈ˢ (if rs.getD i false then slot' i ρ else interp V ρ F)
-      by_cases hr : rs.getD i false = true
-      · rw [if_pos hr] at h1 ⊢
-        have h0 := hag 0 (by simp) [] trivial (by rw [Nat.add_zero]; exact hr)
-        rw [Nat.add_zero] at h0
-        simp only [consList_nil] at h0
-        exact h0 _ h1
-      · have hr' : rs.getD i false = false := by simpa using hr
-        rw [hr'] at h1 ⊢
-        exact h1
-    · have hb' : FitsFrom rs slot i ρ ((F :: Fs).take (l + 1)) (a :: bs) := ⟨h.1, hb⟩
-      have hag' := hag (l + 1) (by simpa using hl) (a :: bs) hb'
-        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr)
-      rw [show i + (l + 1) = i + 1 + l from by omega] at hag'
-      exact hag'
-
-/-- **A `ChainFit` at a tuple BELOW the fixpoint is a `ChainFit` at
-the fixpoint.**  The index clause does not mention the tuple at all;
-the entry clause transports at every RECURSIVE position by
-`slotSet_mono`, whose slot fit is `BlockModelAt.idxFit` at the SMALLER
-tuple — which is where the walk's own prefix is available. -/
-theorem blockChainFit_of_le (hM : BlockModelAt mpC.base2 names d)
-    {mm j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM mm)[j]? = some cA)
-    (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
-    {ψ : Name → Nat} {ρ : Nat → V} {ps : List V}
-    (hps : SpineFit ρ (d.params ψ) ps)
-    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
-    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
-    {t : V} (ht : t ∈ˢ d.idx ψ (consList ps ρ) mm)
-    {X : Nat → V}
-    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList ps ρ)) X)
-    (hle : TupleLe d.N (d.idx ψ (consList ps ρ)) X
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ))))
-    {fs : List V} (hfit : d.ChainFit ψ (consList ps ρ) X t mm j fs) :
-    d.ChainFit ψ (consList ps ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
-      t mm j fs := by
-  have hnF : ((d.Fss mm ψ).getD j []).length = cA.2 := by
-    obtain ⟨-, -, hCD⟩ := hcf
-    have hFssD : (d.Fss mm ψ).getD j [] = ((d.dsF mm j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [hFssD, List.length_map, List.length_drop, hCD.len ψ]
-    omega
-  refine ⟨fitsFrom_mono (fun l hl bs hb hrb => ?_) hfit.1, hfit.2⟩
-  rw [Nat.zero_add] at hrb ⊢
-  rw [hnF] at hl
-  have hSF := hM.idxFit ψ (consList ps ρ) (d.satOfSpine hps) X hX mm hcN t ht j hjl l
-    (by rw [hnF]; exact hl) hrb bs hb
-  exact slotSet_mono (hle _ (Nat.lt_of_lt_of_le (htgt l hl) (Nat.le_add_right _ _))) hSF
+the lift: the subsingleton criterion (`blockCtorFieldProp`) and
+`srcVals_of_fit` at an ARBITRARY index tuple and an arbitrary stored-fit
+spine instead of at the rule's own. -/
 
 /-- **THE LIFT** — the subsingleton criterion as a producer of regime
 SQ's `hsrcAt`: at a `Prop`-valued block with the declared large shape,
-a spine fitting the lone constructor at a tuple BELOW the fixpoint IS
-the source spine of the index tuple.
+a spine fitting the lone constructor as stored IS the source spine of
+the index tuple.
 
 `srcs` is `srcList` at the constructor's own index readings, which is
 the shape `srcVals_of_fit` produces and the shape the regime's `srcs`
 parameter is instantiated at. -/
-theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
+theorem blockStoredFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
     (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
@@ -684,16 +550,10 @@ theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
     (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
       ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
     (hlenIds : (d.IdsM mm ψ).length = d.nIdxAt mm)
-    {ρ : Nat → V} {ps : List V}
-    (hasLen : ps.length = d.nP) (hps : SpineFit ρ (d.params ψ) ps)
-    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
-    (hcN : mm < d.N) (hjl : j < (d.ctorsM mm).length)
-    {X : Nat → V}
-    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList ps ρ)) X)
-    (hle : TupleLe d.N (d.idx ψ (consList ps ρ)) X
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ))))
+    {ρ : Nat → V} {ps : List V} (hps : SpineFit ρ (d.params ψ) ps)
+    (hcN : mm < d.N)
     {t : V} (ht : t ∈ˢ d.idx ψ (consList ps ρ) mm)
-    {fs : List V} (hfit : d.ChainFit ψ (consList ps ρ) X t mm j fs) :
+    {fs : List V} (hfit : d.StoredFit ψ (consList ps ρ) t mm j fs) :
     fs = srcVals (isOfW (d.uM mm ψ) (d.nIdxAt mm) t)
       (srcList ((d.Ess mm ψ).getD j []) ((d.Fss mm ψ).getD j []).length) := by
   have hIdxOk := hM.idxOk ψ _ (d.satOfSpine hps) mm hcN
@@ -703,15 +563,13 @@ theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
     rw [hEssD, hCD.lenE ψ, hlenIds]
   have ht' : t ∈ˢ idxSet (d.uM mm ψ) (consList ps ρ) (d.IdsM mm ψ) := ht
   obtain ⟨is, hisp, rfl⟩ := mem_idxSet_elim ht'
-  have hfitL := blockChainFit_of_le hM hcj hcf hps htgt hcN hjl ht hX hle hfit
-  have hsp := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hcN hjl ht
-    (lfpTuple_mem _ _ _ _) hfitL
+  have hsp := hfit.2.1
   have hidx : idxValsAt (consList ps ρ) ((d.Ess mm ψ).getD j []) fs = is := by
     show ((d.Ess mm ψ).getD j []).map (interp V (consList fs (consList ps ρ))) = is
     refine List.ext_getElem (by rw [List.length_map, hEsLen, hisp.length_eq])
       fun l h1 h2 => ?_
     rw [List.length_map, hEsLen] at h1
-    have hstep := hfitL.2 l h1
+    have hstep := hfit.2.2 l h1
     rw [List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem (by rw [hEsLen]; exact h1), Option.getD_some] at hstep
     rw [List.getElem_map, hstep, projS_tupW hIdxOk hisp h1,
@@ -725,7 +583,7 @@ theorem blockChainFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
 At `d.w ψ ≠ 0` it is §2 (injectivity); at `d.w ψ = 0` it is §2b (the
 subsingleton criterion), whose three extra facts are asked for only
 there. -/
-theorem blockRuleChainFit_any (hM : BlockModelAt mpC.base2 names d)
+theorem blockRuleStoredFit_any (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {cA : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some cA)
     (hcf : BlockCtorFacts mpC.base2 d lps mm j cA)
@@ -735,9 +593,7 @@ theorem blockRuleChainFit_any (hM : BlockModelAt mpC.base2 names d)
     (hct1 : d.w ψ = 0 → (d.ctorsM mm).length ≤ 1)
     (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
       ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
-    (htgt : ∀ l, l < cA.2 → d.tgts mm j l < d.k)
     {ρ : Nat → V} {ps is : List V} {ys : List AnnotTerm}
-    (hasLen : ps.length = d.nP)
     (hps : SpineFit ρ (d.params ψ) ps)
     (hidx : SpineFit (consList ps ρ) (d.IdsM mm ψ) is)
     (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
@@ -749,19 +605,17 @@ theorem blockRuleChainFit_any (hM : BlockModelAt mpC.base2 names d)
           (consList ((ys.take d.nP).map (interp V ρ)) ρ))) = is)
     (hmaj : interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       ∈ˢ (ps ++ is).foldl app (interp V ρ (mpC.base2.acval (d.memberName mm) ψ))) :
-    d.ChainFit ψ (consList ps ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)))
-      (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
+    d.StoredFit ψ (consList ps ρ) (d.tup ψ mm is) mm j ((ys.drop d.nP).map (interp V ρ)) := by
   by_cases hw : d.w ψ = 0
-  · exact blockRuleChainFit_sq hM hcj hcf hmemk hlv hw (hlarge hw) (hct1 hw) hparamsC htgt
-      hasLen hps hidx hqs hfq (hpin hw) hmaj
-  · exact blockRuleChainFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
+  · exact blockRuleStoredFit_sq hM hcj hcf hmemk hlv hw (hlarge hw) (hct1 hw) hparamsC
+      hps hidx hqs hfq (hpin hw) hmaj
+  · exact blockRuleStoredFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
 
 /-- **`BlockRuleDataB`'s FIRST conjunct at the run** — the prefix half
 (`blockRuleHspPref_run`) and the FIELD half, appended.
 
-The field half is `blockRecSpF_of` at `K = 0` (§1) over the
-`ChainFit` at the recursor's parameters (§2), and its three
+The field half is `blockRecSpF` at `K = 0` (§1) over the
+stored fit at the recursor's parameters (§2), and its three
 block-facing premises come from `BlockRecSplitAt` at the contract's
 own recursor fit.
 
@@ -780,7 +634,6 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
     (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
     -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
@@ -816,13 +669,10 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     rw [List.length_map, List.length_take]; omega
   have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
       = d.nP := by rw [List.length_take, hxsLen]; omega
-  refine blockRecSpF_base (j := j) (mem := mem) (cA := cA) hM hμ h hr hcj hcf hfd
-    hasLen hps htgt
-    (Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _))
-    (List.getElem?_eq_some_iff.mp hcj).1 (tupW_mem hidx) (lfpTuple_mem _ _ _ _) hxsLen
+  refine blockRecSpF_base (j := j) (mem := mem) hμ h hr hfd hxsLen
     (blockRuleHspPref_run hμ mpC h hr ψ hxl hfitR) ?_
-  exact blockRuleChainFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC htgt hasLen
-    hps hidx hqs hfq hpin hmaj
+  exact (blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
+    hps hidx hqs hfq hpin hmaj).2.1
 
 /-- **The major's VALUE**: the constructor applied to its own
 parameters and fields is the block's injection.  `BlockModelAt.ctor`
@@ -871,7 +721,6 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
     (hmemk : mem c < d.k)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
     -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
@@ -909,10 +758,9 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
     rw [List.length_map, List.length_take]; omega
   have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
       = d.nP := by rw [List.length_take, hxsLen]; omega
-  have hfit := blockRuleChainFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC htgt hasLen
+  have hfit := blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
     hps hidx hqs hfq hpin hmaj
-  have hfp := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hmN hjl
-    (tupW_mem hidx) (lfpTuple_mem _ _ _ _) hfit
+  have hfp := hfit.2.1
   have hnF : ((d.Fss (mem c) ψ).getD j []).length = cA.2 := by
     obtain ⟨-, -, hD⟩ := hcf
     have hFssD : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
@@ -966,7 +814,6 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
       = ((d.Ess (mem c) ψ).getD j []).map
           (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
     (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem c) j l < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
     -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
@@ -1004,10 +851,9 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
     rw [List.length_map, List.length_take]; omega
   have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
       = d.nP := by rw [List.length_take, hXsLen]; omega
-  have hfit := blockRuleChainFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC htgt hasLen
+  have hfit := blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
     hps hidx hqs hfq hpin hmaj
-  have hfp := blockRuleFieldSpine_run hM hcj hcf hasLen hps htgt hmN hjl
-    (tupW_mem hidx) (lfpTuple_mem _ _ _ _) hfit
+  have hfp := hfit.2.1
   have hnF : ((d.Fss (mem c) ψ).getD j []).length = cA.2 := by
     obtain ⟨-, -, hD⟩ := hcf
     have hFssD : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
@@ -1039,7 +885,7 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
   have hl : l < (d.IdsM (mem c) ψ).length := by
     rw [List.length_map, hEsLen] at h1; exact h1
   have hlE : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
-  have hstep := hfit.2 l hl
+  have hstep := hfit.2.2 l hl
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlE, Option.getD_some] at hstep
   rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx hl,
     List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
@@ -1813,7 +1659,6 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem j) jc l < d.k)
     {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
@@ -1923,7 +1768,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
       ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
         ++ (ys.drop p.nP).map (interp V ρ)) := by
     have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
-      htgt hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
+      hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
       (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, hcbLdR, -, -⟩ :=
@@ -1933,12 +1778,12 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (fun l hl => blockRecDenote_cross_eq h _ l _ (hcbLdR l hl))
     (hdF us hus) (hokF us hus) hsp1
   refine ⟨hsp1, ?_, ?_, ?_, htow⟩
-  · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd htgt hlv
+  · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd hlv
       (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0) (hparamsC us hus)
       hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   · have hq := blockRuleHmk_run hM hμ h hr hcA hrhs hcj hcf hlps hdnP hnP (hfd us hus)
-      hmemk htgt hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
+      hmemk hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
       (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   · intro a hleaf
@@ -2238,7 +2083,6 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem j) jc l < d.k)
     {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
@@ -2313,7 +2157,7 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
   have hpin := blockRuleIdxPin_run hcj hcf hlv (by rw [hyl, hdnP]) hxl hrPle hnI
     (hctorRead _) hfitC (by rw [hdnP]; exact hidx)
   have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
-    htgt hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
+    hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
     (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
   rwa [hdnP] at hq
 
@@ -2343,7 +2187,6 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
     (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    (htgt : ∀ l, l < cA.2 → d.tgts (mem j) jc l < d.k)
     {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
@@ -2442,10 +2285,10 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
         ctorTy φ j i r cA rl rhs) :
     BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk htgt hjK hctorRead
+  have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk hjK hctorRead
     hfd hlenP hparamsC hsplit hlarge hct1
   exact blockRuleDataB_of_residue hM hμ h hpd hfdD hesD hmkD hr hcA hrhs hplain hcj hcf hlps
-    hdnP hnP hmemk htgt hjK hctorRead hfd hes hlenP hparamsC hsplit hlarge hct1 hread hokRa
+    hdnP hnP hmemk hjK hctorRead hfd hes hlenP hparamsC hsplit hlarge hct1 hread hokRa
     hCf hCb hdF hokF (hres (by subst hpd hfdD; exact hsp))
 
 end DataRun

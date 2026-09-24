@@ -527,6 +527,7 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
   kN := Nat.le_add_right _ _
   functor := hM.functor
   fibre := hM.fibre
+  fitsMono := hM.fitsMono
   leaf := hM.leaf
   mkZero := hM.mkZero
   mkInj := fun ψ hw c hc j fs j' fs' hj hj' hl hl' h =>

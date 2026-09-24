@@ -275,6 +275,13 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
     ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
     ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
       x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+  /-- **the hole fit grows with the tuple** (positivity's, at the fit):
+  a spine fitting a constructor at the hole frame of a tuple fits it at
+  the hole frame of every larger tuple -/
+  fitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y →
+    TupleLe D.N (D.idx ψ ρp) X Y → ∀ c, c < D.N → ∀ (t : V) (j : Nat) (fs : List V),
+      D.HFits ψ ρp X t c j fs → D.HFits ψ ρp Y t c j fs
   /-- **the leaf**: a member's former at fitting parameters and its own
   indices is the carrier's component at the index tuple -/
   leaf : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
@@ -323,6 +330,7 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   kN := h.kN
   functor := h.functor
   fibre := h.fibre
+  fitsMono := h.fitsMono
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     rw [hag mm hmm]; exact h.leaf mm hmm ψ ρ as is hsa hsi
   mkZero := h.mkZero

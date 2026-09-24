@@ -143,6 +143,7 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval nm ψ) = C ψ)
     -- the hole reading (lane HOLE2): the fit IS the fields' fit at the hole
     (hholes : ∀ (ρp : Nat → V) S j fs, fits S j fs ↔ j < n ∧ SpineFit (cons S ρp) (flds j) fs)
+    (hfitsMono : ∀ S S' j fs, S ⊆ˢ S' → fits S j fs → fits S' j fs)
     (hzero : ∀ ψ, w ψ = 0 → ∀ j fs, inj j fs = pt)
     (hinjI : ∀ ψ, w ψ ≠ 0 → ∀ j fs j' fs', j < n → j' < n →
       fs.length = (flds j).length → fs'.length = (flds j').length →
@@ -182,6 +183,16 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     rw [lfp0_frame, hholes ρp]
     exact ⟨fun ⟨h1, h2⟩ => ⟨h1, h2, fun l hl => absurd hl (Nat.not_lt_zero l)⟩,
       fun ⟨h1, h2, _⟩ => ⟨h1, h2⟩⟩
+  fitsMono := fun ψ ρp _ X Y _ _ hXY c _ t j fs hf => by
+    obtain ⟨hj, hsp, -⟩ := hf
+    rw [lfp0_frame] at hsp
+    have hsub : app (X 0) pt ⊆ˢ app (Y 0) pt :=
+      hXY 0 Nat.one_pos pt (by rw [lfp0_idx]; exact pt_mem_unitSet)
+    obtain ⟨hj', hsp'⟩ := (hholes ρp (app (Y 0) pt) j fs).mp
+      (hfitsMono _ _ j fs hsub ((hholes ρp (app (X 0) pt) j fs).mpr ⟨hj, hsp⟩))
+    refine ⟨hj', ?_, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
+    rw [lfp0_frame]
+    exact hsp'
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero hsa.length_eq
@@ -224,6 +235,7 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ => empty_mem_univ w) (fun _ => Subset.refl _)
     (fun _ _ _ _ x hx => absurd hx (not_mem_empty x)) hleaf
     (fun _ _ j _ => ⟨False.elim, fun h => absurd h.1 (Nat.not_lt_zero j)⟩)
+    (fun _ _ _ _ _ h => h)
     (fun _ _ _ _ => rfl)
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
@@ -259,6 +271,7 @@ theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn :
     (fun _ _ j fs => by
       rw [spineFit_nil_iff]
       exact ⟨fun ⟨h1, h2⟩ => ⟨by omega, h2⟩, fun ⟨h1, h2⟩ => ⟨by omega, h2⟩⟩)
+    (fun _ _ _ _ _ h => h)
     (fun _ _ _ _ => rfl)
     (fun _ _ j fs j' fs' hj hj' hl hl' _ => by
       refine ⟨by omega, ?_⟩
@@ -378,6 +391,10 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
         · simp only [if_neg (show (1 : Nat) ≠ 0 by decide)] at hsp
           match fs, hsp with
           | [m], hsp => exact Or.inr ⟨rfl, m, rfl, by simpa using hsp.1⟩)
+    (fun S S' j fs hSS' h => by
+      rcases h with h | ⟨hj, m, hfs, hm⟩
+      · exact Or.inl h
+      · exact Or.inr ⟨hj, m, hfs, hSS' m hm⟩)
     (fun _ h => absurd h (by decide))
     (fun _ _ j fs j' fs' hj hj' hl hl' h => by
       unfold natFlds at hl hl'
@@ -535,6 +552,22 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
     rw [mem_truthVal]
     exact ⟨fun ⟨h, hx⟩ => ⟨0, [], (hfits 0 []).mp ⟨rfl, rfl, h⟩, hx⟩,
       fun ⟨j, fs, hf, hx⟩ => ⟨((hfits j fs).mpr hf).2.2, hx⟩⟩
+  fitsMono := fun ψ ρp _ X Y _ _ _ c _ t j fs hf => by
+    have hfr : ∀ Z, (eqLfp (V := V) nm cn lv).frame ψ ρp Z 1 = ρp 0 := by
+      intro Z
+      show consList [_] ρp 1 = ρp 0
+      rw [consList_cons, consList_nil]; rfl
+    obtain ⟨hj, hsp, hidx⟩ := hf
+    have hfs : fs = [] := spineFit_nil_iff.mp hsp
+    subst hfs
+    refine ⟨hj, trivial, fun l hl => ?_⟩
+    obtain ⟨e, he, hv⟩ := hidx l hl
+    refine ⟨e, he, ?_⟩
+    have hl0 : l = 0 := Nat.lt_one_iff.mp hl
+    subst hl0
+    obtain rfl := Option.some.inj he.symm
+    rw [consList_nil, interp_bvar, hfr] at hv ⊢
+    exact hv
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     match as, is, hsa, hsi with

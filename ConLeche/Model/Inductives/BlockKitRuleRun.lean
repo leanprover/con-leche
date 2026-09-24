@@ -258,15 +258,15 @@ section Rule
 the candidate `a`.  The peel (§1) hands the base-frame prefix, the
 parameter fit and the field spine at the parameter frame; the index
 values fit the member's telescope (`resIdxFit`); the fired spine is the
-block's injection (`blockRecMkK_value`) of a `ChainFit` spine
-(`blockRecCtorFitsFrom_of`, `blockRecCtorIdx`), hence in the carrier;
+block's injection (`blockRecMkK_value`) of a stored-fit spine
+(`blockRecCtorIdx`), hence in the carrier;
 §2 assembles. -/
 theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
@@ -328,16 +328,12 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
   have hxsK : xs.length
       = (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length := by
     rw [blockRecPdomsK_run hμ mpC h hr ψ K]; exact hxs
-  have hfit : d.ChainFit ψ (consList (xs.take d.nP) ρ)
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-        (d.Φ ψ (consList (xs.take d.nP) ρ)))
+  have hfit : d.StoredFit ψ (consList (xs.take d.nP) ρ)
       (d.tup ψ (p.toBlockShape.recTgtAt c)
         ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map
           (interp V (consList (xs ++ fs) (chainFrame K a ρ)))))
       (p.toBlockShape.recTgtAt c) j fs :=
-    ⟨blockRecCtorFitsFrom_of (mem := p.toBlockShape.recTgtAt) hM hμ h hr hcj hcf hfd hasLen
-      hps (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l) hmN hjl htup
-      (lfpTuple_mem _ _ _ _) hxsK hspK,
+    ⟨hjl, hfb,
      blockRecCtorIdx (mem := p.toBlockShape.recTgtAt) hM hes hpl hfl hxs' hfs hmN hjl hps hfb⟩
   -- the fired spine is the block's injection
   have hmk : interp V (consList (xs ++ fs) (chainFrame K a ρ))
@@ -355,7 +351,8 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
           ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map
             (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) :=
     lfpTuple_closed hcl hmono _ hmN _ htup _
-      ((hM.fibre ψ _ hsat _ (lfpTuple_mem _ _ _ _) _ hmN _ htup _).mpr ⟨j, fs, hjl, hfit, rfl⟩)
+      ((hM.fibre ψ _ hsat _ (lfpTuple_mem _ _ _ _) _ hmN _ htup _).mpr
+        ⟨j, fs, (hM.carrier ψ _ hsat _ hmN _ htup j fs).mpr hfit, rfl⟩)
   -- the carrier is the member's former applied
   have hx : d.inj ψ (p.toBlockShape.recTgtAt c) j fs
       ∈ˢ (xs.take d.nP ++ (blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map

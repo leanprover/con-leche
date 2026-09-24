@@ -91,9 +91,8 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
-  -- the hole fit, as today's slot fit (the recorded clause's `holes`)
-  have hfit' := ((hC.holes ψ _ (d.satOfSpine hps) _ (lfpTuple_mem _ _ _ _)
-    (pp.toBlockShape.recTgtAt c) hmemN i hi j fs).mpr hfit).2
+  -- the hole fit, as the stored fit (the override law at the carrier)
+  have hfit' := (hM.carrier ψ _ (d.satOfSpine hps) _ hmemN i hi j fs).mp hfit
   -- `Ca` at the target width
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcdP := hcd
@@ -115,12 +114,8 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   obtain ⟨is, hIs, rfl⟩ := mem_idxSet_elim hi
   -- the field spine fits the constructor's own field domains
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c := by rw [hpref.length_eq, hpl]
-  have hasLen : (xs.take d.nP).length = d.nP := by
-    rw [List.length_take, hxs, hdnP]; omega
   have hfd := blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
-  have hq := blockRecSpF_base (mem := pp.toBlockShape.recTgtAt) hM hμ h hr hcj
-    ⟨hfindC, hlpsC, hcd⟩ hfd hasLen hps (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l)
-    hmemN hjc hi (lfpTuple_mem _ _ _ _) hxs hpref hfit'
+  have hq := blockRecSpF_base (mem := pp.toBlockShape.recTgtAt) hμ h hr hfd hxs hpref hfit'.2.1
   obtain ⟨xs', fs', heq, hxs', hfs'⟩ := spineFit_append_inv hq
   obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hxs'.length_eq, hpref.length_eq])
   have hod : (xs.drop d.nP).length = pp.toBlockShape.rulePrefixAt c - d.nP := by

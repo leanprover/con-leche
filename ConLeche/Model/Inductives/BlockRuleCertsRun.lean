@@ -76,7 +76,7 @@ theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
@@ -128,7 +128,7 @@ theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
         ++ blockRecFdomsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) := by
     rw [chainFrame_zero, blockRecFdomsK, liftDomsK_zero]
     exact hab
-  have hfire := blockKitRule_run hμ h hcore hmr hM hN hdnP hctM ψ 0 (fun _ => pt) σ₀
+  have hfire := blockKitRule_run hμ h hcore hmr hM hdnP hctM ψ 0 (fun _ => pt) σ₀
     c hc j hj xs fs hxl hsp0
   rw [chainFrame_zero] at hfire
   -- the recursor's tower, and its binder data's bounds
