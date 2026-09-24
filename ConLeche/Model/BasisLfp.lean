@@ -427,10 +427,23 @@ adds the block's clause, whose leaf is the former's pinned leaf. -/
 theorem nonempty_addLfp_of_exists {μ : ConLeche.CheckMode} {env : ConLeche.Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {c₀ : ConLeche.ConstantInfo}
     (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, mp'.base2.acval = acval)
-    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D) :
+    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D)
+    (hrd : LfpReads acval ⟨c₀ :: env.consts⟩ D) :
     Nonempty (EnvModelM V μ ⟨c₀ :: env.consts⟩) := by
   obtain ⟨mp', hac⟩ := h
-  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst⟩
+  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst (by rw [hac]; exact hrd)⟩
+
+/-- **A one-member unparameterized unindexed block's former reads as its
+sort** (M4: the hole telescope is empty). -/
+theorem lfp0_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}
+    {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps} {nm : Name} {w : (Name → Nat) → Nat}
+    {F : V → V} {fits : V → Nat → List V → Prop} {inj : Nat → List V → V} {n : Nat}
+    {cn : Nat → Name} {flds : Nat → List AnnotTerm}
+    (hf : env.find? nm = some (.indInfo cv caps))
+    (hty : ∀ ψ, denoteMeta acval env ψ 0 cv.type = some (.sort (w ψ))) :
+    LfpReads acval env (lfp0 nm w F fits inj n cn flds) := fun mm hmm => by
+  obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+  exact ⟨cv, caps, hf, fun ψ => ⟨[], hty ψ, rfl, fun _ h => nomatch h⟩⟩
 
 /-- A one-member block without constructors is stored once its former is
 the head of the cons. -/

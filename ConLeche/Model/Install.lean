@@ -442,7 +442,10 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => findPreserved_cons hfresh hf)
       (fun n _ hf _ => acvalWith_ne fun h => by
-        rw [h, hfresh] at hf; exact nomatch hf) }, rfl⟩
+        rw [h, hfresh] at hf; exact nomatch hf)
+      (fun _ _ _ hf ψ _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta) }, rfl⟩
 
 
 /-- **The P step at a cons, at an unconditional membership premise**
