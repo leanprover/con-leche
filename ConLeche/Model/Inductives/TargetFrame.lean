@@ -30,11 +30,38 @@ open SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckMode)
 
+/-- **The major's parameters, scoped at the rule prefix** (lane NESTIND):
+each is scoped at the prefix's depth, bvar-closed, names stored constants
+and draws its leaves from the prefix openers.  At a member major they ARE
+the first `nP` prefix openers (`tgtDsOk_of_take`); at an outside major
+they are the arguments of the recursor type's major domain. -/
+@[expose] def TgtDsOk (envT : Env) (rP : Nat) (fvsPref ds : List Expr) : Prop :=
+  ∀ a ∈ ds, Expr.WScoped rP a ∧ a.looseBVarsBounded 0 = true ∧ ConstsBound envT a ∧
+    ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref
+
+/-- **At a member major** the parameters are the prefix openers. -/
+theorem tgtDsOk_of_take {envT : Env} {rP nP : Nat} {recTy oP : Expr} {fvsPref ds : List Expr}
+    (h₁ : ConLeche.openPisAtFvars rP recTy 0 = some (fvsPref, oP))
+    (hTf : recTy.hasFvar = false) (hTc : ConstsBound envT recTy)
+    (hds : ds = fvsPref.take nP) : TgtDsOk envT rP fvsPref ds := by
+  subst hds
+  have hw₁ : Expr.WScoped 0 recTy := Expr.WScoped.of_not_hasFvar hTf
+  have hwP := (ConLeche.openPisAtFvars_WScoped _ _ 0 h₁ hw₁).1
+  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hTf
+  intro a ha
+  have ha' := List.mem_of_mem_take ha
+  refine ⟨by have := hwP a ha'; rwa [Nat.zero_add] at this,
+    openPisAtFvars_fvars_closed h₁ a ha', (openPisAtFvars_constsBound _ hTc h₁).1 a ha',
+    fun l hl => ?_⟩
+  rcases ConLeche.Verify.openPisAtFvars_leaves rP h₁ l (Or.inr ⟨a, ha', hl⟩) with h' | h'
+  · rw [hrecNil] at h'; exact nomatch h'
+  · exact h'
+
 /-- **The target rule's frame facts** from its three openings. -/
-theorem targetFrame_facts {envT : Env} {rP nF nP : Nat} {recTy cty crest oP cbody : Expr}
+theorem targetFrame_facts {envT : Env} {rP nF : Nat} {recTy cty crest oP cbody : Expr}
     {fvsPref fvsF ds : List Expr}
     (h₁ : ConLeche.openPisAtFvars rP recTy 0 = some (fvsPref, oP))
-    (hcr : ConLeche.instPisWith ds cty = some crest) (hds : ds = fvsPref.take nP)
+    (hcr : ConLeche.instPisWith ds cty = some crest) (hds : TgtDsOk envT rP fvsPref ds)
     (h₂ : ConLeche.openPisAtFvars nF crest rP = some (fvsF, cbody))
     (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
     (hTc : ConstsBound envT recTy)
@@ -45,7 +72,6 @@ theorem targetFrame_facts {envT : Env} {rP nF nP : Nat} {recTy cty crest oP cbod
     (∀ x ∈ fvsPref ++ fvsF, ConstsBound envT x) ∧
     (∀ x ∈ fvsPref ++ fvsF, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
       Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF) := by
-  subst hds
   rw [instPisWith_eq_instPisAt] at hcr
   obtain ⟨⟨cpref, crest'⟩, hinstC, hcr⟩ := Option.map_eq_some_iff.mp hcr
   have hcr' : crest = crest' := hcr.symm
@@ -54,20 +80,26 @@ theorem targetFrame_facts {envT : Env} {rP nF nP : Nat} {recTy cty crest oP cbod
   have hL1 : FvarList rP fvsPref.reverse := by
     have := fvarList_of_open fvarList_nil h₁ hw₁
     rwa [Nat.zero_add, List.append_nil] at this
-  have hw₂ := blockRuleHw2_of h₁ hw₁ hCf hinstC
+  have hw₂ : Expr.WScoped rP crest :=
+    (instPisAt_WScoped (d := rP) _ cty hinstC (Expr.WScoped.of_not_hasFvar hCf)
+      (fun a ha => (hds a ha).1)).2
   have hL2 := fvarList_of_open hL1 h₂ hw₂
   have h₃ : ConLeche.openPisAtFvars 0 (Expr.sort .zero) (rP + nF)
       = some ([], Expr.sort .zero) := rfl
   have hb₂ : crest.looseBVarsBounded 0 = true :=
-    (ConLeche.Verify.instPisAt_bounded _ hinstC hCb
-      (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))).2
+    (ConLeche.Verify.instPisAt_bounded _ hinstC hCb (fun a ha => (hds a ha).2.1)).2
   have hc₂ : ConstsBound envT crest :=
-    constsBound_instPisAt _ hinstC hCc
-      (fun a ha => (openPisAtFvars_constsBound _ hTc h₁).1 a (List.mem_of_mem_take ha))
+    constsBound_instPisAt _ hinstC hCc (fun a ha => (hds a ha).2.2.1)
+  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
+  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
+    intro l hl
+    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
+    · rw [hctyNil] at h'; exact nomatch h'
+    · exact (hds a ha).2.2.2 l hla
   obtain ⟨hlb, -⟩ := blockRuleHlbF_of h₁ h₂ h₃ hTb hb₂ rfl
   have hcb := blockRuleHcbF_of h₁ h₂ h₃ hTc hc₂ (by simp)
   have hcl := blockRuleHclF_of (nR := 0) (ihTele' := Expr.sort .zero) (o₃ := Expr.sort .zero)
-    (fvsIh := []) h₁ h₂ rfl hTf hCf hinstC (fun l hl => by simp [Expr.fvarLeaves] at hl)
+    (fvsIh := []) h₁ h₂ rfl hTf hcrestLeaf (fun l hl => by simp [Expr.fvarLeaves] at hl)
   simp only [List.append_nil] at hlb hcb hcl
   exact ⟨by rw [List.reverse_append]; exact hL2, hlb, hcb, hcl⟩
 
@@ -138,7 +170,7 @@ theorem walkCtx_targetRule (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.
     (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
     (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
     (hbf : R.body.hasFvar = false)
-    (hds : M.ds = R.fvsPref.take p.nP)
+    (hds : TgtDsOk feT.env rP R.fvsPref M.ds)
     (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
     (hTc : ConstsBound feT.env recTy)
     (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)
@@ -219,7 +251,7 @@ theorem targetRule_reads (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.FE
     (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
     (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
     (hbf : R.body.hasFvar = false)
-    (hds : M.ds = R.fvsPref.take p.nP)
+    (hds : TgtDsOk feT.env rP R.fvsPref M.ds)
     (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
     (hTc : ConstsBound feT.env recTy)
     (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)
@@ -334,7 +366,7 @@ theorem targetRule_graded (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.F
     (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
     (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
     (hbf : R.body.hasFvar = false)
-    (hds : M.ds = R.fvsPref.take p.nP)
+    (hds : TgtDsOk feT.env rP R.fvsPref M.ds)
     (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
     (hTc : ConstsBound feT.env recTy)
     (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)
@@ -432,7 +464,7 @@ theorem targetRuleBodyEq_run (hμ : μ.verifiedChecks = true) {feR feT : ConLech
     (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
     (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
     (hbf : R.body.hasFvar = false)
-    (hds : M.ds = R.fvsPref.take p.nP)
+    (hds : TgtDsOk feT.env rP R.fvsPref M.ds)
     (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
     (hTc : ConstsBound feT.env recTy)
     (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)

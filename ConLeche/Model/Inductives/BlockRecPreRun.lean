@@ -3011,28 +3011,24 @@ leaves are openers of the openings before it: the recursor type is
 fvar-free, the constructor's telescope was instantiated at the prefix
 openers (`instPisAt_fvarLeaves` at an fvar-free stored type), and the
 generated tower's leaves are `hfv₃`'s. -/
-theorem blockRuleHclF_of {nP rP nF nR : Nat}
-    {recTy cty crest ihTele' o₁ o₂ o₃ : Expr} {cpref fvsPref fvsF fvsIh : List Expr}
+theorem blockRuleHclF_of {rP nF nR : Nat}
+    {recTy crest ihTele' o₁ o₂ o₃ : Expr} {fvsPref fvsF fvsIh : List Expr}
     (h₁ : openPisAtFvars rP recTy 0 = some (fvsPref, o₁))
     (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
     (h₃ : openPisAtFvars nR ihTele' (rP + nF) = some (fvsIh, o₃))
-    (hf₁ : recTy.hasFvar = false) (hCf : cty.hasFvar = false)
-    (hinstC : ConLeche.Expr.instPisAt (fvsPref.take nP) cty = some (cpref, crest))
+    (hf₁ : recTy.hasFvar = false)
+    -- the constructor's telescope draws its leaves from the prefix (lane NESTIND: at an
+    -- outside major it is instantiated at the major's parameters, not the prefix openers)
+    (hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref)
     (hfv₃ : ∀ l ∈ ihTele'.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF) :
     ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
       Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF ++ fvsIh := by
   have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hf₁
-  have hctyNil : cty.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
   have hlP : ∀ a ∈ fvsPref, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
     intro a ha l hl
     rcases openPisAtFvars_leaves rP h₁ l (Or.inr ⟨a, ha, hl⟩) with h' | h'
     · rw [hrecNil] at h'; exact nomatch h'
     · exact h'
-  have hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref := by
-    intro l hl
-    rcases ConLeche.instPisAt_fvarLeaves _ cty hinstC l hl with h' | ⟨a, ha, hla⟩
-    · rw [hctyNil] at h'; exact nomatch h'
-    · exact hlP a (List.mem_of_mem_take ha) l hla
   intro x hx l hl
   rcases List.mem_append.mp hx with hx' | hx'
   · rcases List.mem_append.mp hx' with hx'' | hx''

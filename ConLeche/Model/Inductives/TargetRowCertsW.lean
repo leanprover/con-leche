@@ -180,7 +180,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCf' : (ConLeche.targetCtorAt M cA.1).hasFvar = false := by rw [hct]; exact hCf
   have hCb' : (ConLeche.targetCtorAt M cA.1).looseBVarsBounded 0 = true := by rw [hct]; exact hCb
   have hCc' : ConstsBound fe.env (ConLeche.targetCtorAt M cA.1) := by rw [hct]; exact hcbC
-  obtain ⟨hFr, hlbFQ, hcbFQ, hherQ⟩ := targetFrame_facts Q.hpref Q.hcrest hds Q.hfld hTf hTb hTc
+  obtain ⟨hFr, hlbFQ, hcbFQ, hherQ⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
     hCf' hCb' hCc'
   have hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
     intro t ht
@@ -234,7 +234,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     rw [tgtCaAV, hBc, hihL, Array.length_toList, tgtConclExpr_eq_block R hr hcA hrhs]
   obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hTf hCf hb₁ hb₂ hinstC hpr
   -- the residue: its reading and scoping
-  obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hds hTf hTb
+  obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb
     hTc hCf' hCb' hCc' hformer hRT3
   -- the `ih` opening
   have hb₃ : ∀ t ∈ Q.ihs.toList.map (·.ty), t.looseBVarsBounded 0 = true := by

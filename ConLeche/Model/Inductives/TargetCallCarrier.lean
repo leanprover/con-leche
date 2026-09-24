@@ -133,7 +133,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
   have hCc : ConstsBound fe.env cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-  obtain ⟨hFr, -, -, -⟩ := targetFrame_facts Q.hpref Q.hcrest hds Q.hfld hTf hTb hTc
+  obtain ⟨hFr, -, -, -⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
     (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
   have hlp : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
   have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld

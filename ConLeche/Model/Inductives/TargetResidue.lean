@@ -525,8 +525,8 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       rw [interp_closed (V := V) (hleafCl _ c') _ ρ]
       exact hleaf c' hlt
   -- the frame's openers, as a local list
-  obtain ⟨hFr, -, -, -⟩ := targetFrame_facts (envT := fe.env) Q.hpref Q.hcrest hds Q.hfld
-    hTf hTb hTc (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
+  obtain ⟨hFr, -, -, -⟩ := targetFrame_facts (envT := fe.env) Q.hpref Q.hcrest
+    (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
   have h1 : LocList 0 (rc.rP + cA.2) (Q.fvsPref ++ Q.fvsF).reverse :=
     ⟨hFr.1, fun q hq => by
       obtain ⟨ty, hty⟩ := hFr.2.1 q hq
@@ -558,7 +558,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (fun D y ya hcby hy => by
       have := blockRecDenote_cross h hac _ D y hcby hy
       rwa [hac] at this)
-    Q hle hbf hds hTf hTb hTc (by rw [hct]; exact hCf) (by rw [hct]; exact hCb)
+    Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc (by rw [hct]; exact hCf) (by rw [hct]; exact hCb)
     (by rw [hct]; exact hCc)
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv')
     hRT hpl hfl hdoms hokΔ
@@ -810,7 +810,7 @@ theorem tgtRule_below (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
         ψ j i).erase := by
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT, -, -, hB, hFrEq, hAbs⟩ :=
     tgtRuleAt_facts h R hr hcA hrhs
-  obtain ⟨⟨Bv, hBv, hBb⟩, hlam, -, -, -⟩ := targetRule_reads hμ mT ψ Q hle hbf hds hTf hTb hTc
+  obtain ⟨⟨Bv, hBv, hBb⟩, hlam, -, -, -⟩ := targetRule_reads hμ mT ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc
     (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv') hRT
   have hlen : (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
@@ -1062,11 +1062,11 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
       (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
-  obtain ⟨hlamG, Bv, hBv, hBG⟩ := targetRule_graded hμ hacl hin Q hle hbf hds hTf hTb hTc
+  obtain ⟨hlamG, Bv, hBv, hBG⟩ := targetRule_graded hμ hacl hin Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc
     (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv')
     hRT (by rw [hpl]) (by rw [hfl]) hdoms hokΔ hys' (fun c => tup.getD c pt) hR
-  obtain ⟨-, hlamB, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hds hTf hTb hTc
+  obtain ⟨-, hlamB, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc
     (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv') hRT3
   have hLb : ∀ q, q < Q.ihs.size →

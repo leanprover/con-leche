@@ -331,7 +331,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk0 j cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-  obtain ⟨-, hlamR, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hds hTf hTb hTc
+  obtain ⟨-, hlamR, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc
     (by rw [hct]; exact hwfC.1) (by rw [hct]; exact hwfC.2.2.2.1)
     (by rw [hct]; exact constsBound_of_constsResolve _ hwfC.2.2.1)
     (fun t ht => hformerF t ht) (fun c' => hRT3 c')
@@ -430,7 +430,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     denoteMeta_mkLamsOf (acval := mpC.base2.acval) (env := fe.env) (φ := ψ)
       (D := rc.rP + cA.2 + 1) _ _ 0 [] _ (LocList.nil _) hLr'
   -- the telescope, at the frame and one slot deeper
-  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest hds Q.hfld hTf hTb hTc
+  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
     (by rw [hct]; exact hwfC.1) (by rw [hct]; exact hwfC.2.2.2.1)
     (by rw [hct]; exact constsBound_of_constsResolve _ hwfC.2.2.1)
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF

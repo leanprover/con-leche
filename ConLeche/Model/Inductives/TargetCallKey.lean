@@ -409,7 +409,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk0 j cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest hds Q.hfld hTf hTb hTc
+  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
     (by rw [hct]; exact hwfC.1) (by rw [hct]; exact hwfC.2.2.2.1)
     (by rw [hct]; exact constsBound_of_constsResolve _ hwfC.2.2.1)
   have hlp : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
@@ -577,7 +577,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   have hins := instPisAtLift_instantiateList hloccl _ hargsB (hRT3 ih.callee).2.1 hX
   rw [hrecTy] at hins
   -- (c) the arguments read
-  obtain ⟨-, hlam, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hds hTf hTb hTc
+  obtain ⟨-, hlam, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb hTc
     (by rw [hct]; exact hwfC.1) (by rw [hct]; exact hwfC.2.2.2.1)
     (by rw [hct]; exact constsBound_of_constsResolve _ hwfC.2.2.1)
     (fun t ht => hformerF t ht) (fun c' => hRT3 c')
