@@ -87914,3 +87914,87 @@ NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
   `blockParts?`, `nestMemberCtors`, `checkBlockPositivity`,
   `targetRecCheck` moved; every citing paragraph re-read and still true
   with the switch off).  No `sorry`, no new axiom.
+
+#### BRANCH (lane NESTIND, session 3, 2026-09-24, `agent/uinds-NESTIND`, not landed — no `declBlock_nested` premise discharged yet): O12 (an instantiated container constructor, read) and the target rule data at its majors
+
+**O12 — the group-free container reading** (`Model/Inductives/ContInst.lean`,
+`ContInstRule.lean`).  CONTSEM's frame lemmas are now stated over
+`GrpWf` (the group's names distinct, each a member at the key) — `GrpOk`
+is `grp ≠ [] ∧ GrpWf`; nonemptiness is read only by the walk
+(`frame_sem`).  At the EMPTY group (`instCtx env`, `grpWf_nil`,
+`grpSub_nil`: the substitution is the identity) every member of the
+container stays its constant, read by its leaf:
+* `instCtor_read` — constructor `(c, j)` of a recorded block `D`,
+  instantiated at levels `us` and parameters `ds` (depth `hi`), reads as
+  the recorded Π-tower substituted by `instTau` (parameters at their
+  readings, members at their constants' readings, `instTau_substE`);
+* `instCtor_open` — the same opened over its `nF` fields (what
+  `targetRule` does at an outside major): `readOpenedDoms` of the field
+  openers is the substituted telescope, the conclusion the substituted
+  result;
+* `instCtor_fit` — at a valuation whose key frame satisfies `D`'s
+  parameter telescope, a spine fits the instantiated fields iff it fits
+  the recorded fields at the CARRIER's hole frame (`holeAgree_instance`
+  at the empty group), and the result indices read alike;
+* `instCtor_decode` — such a spine's result index values fit the
+  component's index telescope (F5 below), so its index tuple lies in the
+  index set; the spine hole-fits the recorded constructor at the carrier
+  at that tuple, and the constructor's leaf at the parameters and the
+  spine is the clause's injection (`LfpClause.ctor`).
+
+**Item 1 — the target rule data at the MAJORS**
+(`Model/Inductives/TargetRuleData.lean`, `TargetIhData.lean`).  The
+recomputed rule data (`tgtCrest`, `tgtFieldFvs`, `tgtFrame`, `tgtAbs`,
+`tgtIhsAV`, `tgtRbAV`, `tgtIhL`, …, `tgtIhv`, `tgtCall`) are functions of
+NESTKERN's stored family `out` (majors kept), not of `tgtRs out`:
+`tgtMajor out j`; `tgtCrest out j i` is the constructor at the MAJOR's
+instantiation (`instPisWith M.ds (targetCtorAt M c)`, the kernel's
+`hcrest` verbatim); `tgtCbody`, `tgtConclExpr` (the kernel's `concl`:
+`M.lvls`, `M.ds`, `drop M.nPc`), and `tgtCaAV` reads it.
+`targetRuleAtG` pins the `(j, i)`-th rule's run at EITHER `outside`
+(with the recursor's `TargetTyEntry`); `targetRuleAt` is its member
+corollary (unchanged statement).  At member majors the new data are
+today's: `tgtPrefFvs_eq_block`, `tgtConclExpr_eq_block`,
+`tgtCtorOf_at`.  Every use site passes `out` (289 mechanical edits).
+
+**Findings.**
+* **F5 — the clause does not record that constructors' result indices
+  fit the index telescope** (`BlockModelAt.resIdxFit`'s clause form,
+  named `LfpResIdxFit` in `ContInst.lean`).  At an OUTSIDE class the
+  rule rows `hrule`/`hdec` need the fired major's index tuple in the
+  index set (it is `LfpClause.ctor`'s hypothesis and the recursor
+  type's index binders' domain); nothing in `LfpClause` gives it —
+  `fibre` quantifies over tuples already in the index set.  Proposed:
+  one clause conjunct `resIdxFit : LfpResIdxFit D` (at the carrier;
+  producers: the uniform install's `hM.resIdxFit` through the override
+  law, the basis clauses trivially, `Eq`'s hand clause), owned by NESTW.
+* **F2 is needed at the rule rows too**, not only at L6's pins: `hdec`
+  must produce the outside class's fit from the rule's prefix and field
+  spine alone, and `instCtor_fit`/`instCtor_decode` need the parameters'
+  readings to satisfy the container's parameter telescope at the key
+  frame.  `hsplit`/`hspF`/`hconclTy` can carry the satisfaction in the
+  class's index set or fit (`Is`/`fit` guarded by it); `hdec`/`hrule`
+  cannot.
+* **`es` at an outside class**: the rule's index expressions are
+  `cbody.getAppArgs.drop M.nPc`, and reading them as the recorded result
+  indices needs the conclusion's spine arity (`getAppArgs.length =
+  nPc + |resIdx|`), which no reading fact gives (a leaf `acval` may be an
+  application).  The model's `es` is value-level only
+  (`BlockRuleDataAt`, `IotaIndexPin` at `|cargs| = nPc + nIdx`), so at an
+  outside class it is DEFINED as the substituted recorded indices
+  (`(D.resIdx ψ' c j).map (substAV instTau · nF)`, `instCtor_decode`'s
+  values) — a per-class component, the member classes keeping `tgt`/
+  `block` data.
+* **Item 4's `trans` needs a per-constructor transfer at the key, not
+  `KeyPos`'s `FamLe`**: the kit moves a HOLE FIT at an admissible frame
+  to the true frame; carrier inclusion recovers it only through `mkInj`
+  (w ≠ 0) and only for tuples below the smaller frame's carrier.  The
+  transfer exists inside `frameIter` (`ctor_transfer`, per group
+  constructor, along the frame relation) and has to be exported through
+  `frame_sem` → `keyPos_of_frame` → `KeyPos` (CONTSEM's files; the cache
+  invariant NESTKERN threads in L4 carries it).  `Adm` for a key class is
+  then "the key frame of a walk valuation related (`R₀`) to the true
+  one"; for classes no call reaches, `ρ = fr b` and `fitsMono`.
+
+Gates at the session tip: `lake build`/`lake test` 0 warnings; arena
+below.  No kernel change, no `sorry`, no new axiom.
