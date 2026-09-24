@@ -85814,3 +85814,140 @@ expected).  No kernel change; no `sorry`, no new axioms.
   member constant left.
 
 Gates (at `d2686a72`): see the landing line in CONTSEM.md.
+
+#### LANDED (lane RECLIB, session 6): B1 — the target check IS the recursor stage; B5 — `checkBlockRecK` and the proofs only it reached are gone
+
+**The switch (B1).**  The uniform route's recursor stage is the
+classification-free `targetRecCheck` (`Kernel/Inductives/RecCheck.lean`),
+run by `checkBlockRecT` (`Kernel/Inductives/BlockTail.lean`) at the
+constructors' index `mkFEnv env₂` with `outside = false` and `nested =
+false`, on the stream's raw block (the pins read it; `checkBlock`,
+`checkBlockTail`, `checkBlockRec` and `DeclBlockRun` carry `block`).  The
+stored family is `tgtRs out` (moved into the kernel), consed by the same
+`consBlockRecs`.  ONE implementation: the pure install runs it at
+`ShadowOps.ofOps ops` (`ShadowOps.fueled mode F` is `ofOps (fueledOps
+mode F)` by definition), the cached fold at `shadowOpsC` (moved to
+`Cached/CheckerC.lean`), `--target-shadow` at `outside = true`; the cached
+`checkBlockRecSFast` is `checkBlockRecS`'s `@[csimp]` inline (the LIN1
+hint to the conformance check), proved equal.  Layering: the check is
+written over `FEnv`, whose operations sit above `Kernel/Checker.lean`, so
+`checkBlock`'s tail moved to `BlockTail.lean` and `checkDecl`/
+`checkDeclsPure` to `Kernel/CheckDecl.lean` (above `RecCheck`).
+
+**Two kernel additions, live** (with K1–K5, for the maintainer's review):
+* **K6** — a recursor's parameter domains are compared with its MAJOR's
+  former (`cvTas[t]` for a member major; the first former's for an
+  outside one), no longer the first former's: today's check compared
+  with `cvTas[recTgtAt]`, and `RecTyEntry.hparams` states it there.
+* **K7** — a member major must be the member the recursor RECORD names
+  (`M.member.all (· == rc.tgt)`).  `RecShape.tgt` is the recogniser's
+  reading of the DECLARED type's major head; the checked type is the
+  annotated one, which unfolds `let`s, so the two can differ only on a
+  record whose declared type reaches its major through a `let` —
+  official never writes one, and today's check rejected it (it required
+  the major head at `members[recTgtAt]`).
+Both make the target check agree with today's check on these rows, so
+they are verdict-neutral by construction; measured below.  **Not checked
+on the live route any more: `p.recPinned`** (`blockRecPinOk`, the
+stream's structural pin).  Its content — the recursor count, the
+constructor grouping in block order, per recursor one rule per member
+constructor with the constructor's name and field count — is exactly
+`targetRecPins` + `targetRulePinsAll` at member majors (K7 makes the
+member the record's); at `k = 1` the conformance check still throws on
+it.  Measured: no verdict moves.
+
+**The proof (B1).**  ONE record of the stage's kind-free facts,
+`RecStage` (`Verify/Inductives/RecStage.lean`): the records' pins
+(`RecPinsOk`), per recursor stage (b)'s `RecTyEntry` (now at `nested =
+false`), the family's agreements (`RecFamFacts`: counting guard, level
+pin, index domains as a per-recursor statement, shared prefix), the
+stored family's shape (lengths, the stored-is-checked bridge, each
+recursor's constructors), and per rule its λ-TOWER (`RuleTower`: the old
+`RuleRun` minus every field that named a kind or the `ih` frame, plus the
+conclusion row).  Its producer `recStage_of_target` reads a
+`TargetRecRun` (`recStage_of_rec` from the stage's run; the one extra
+premise is the constructors' name record, `hnames`).  The base inversions
+are re-pointed to it (`recStage_tyAt`/`_facts`/`_reserved`/`_recNames`/
+`_cvFacts`, `recPins_names`, `recStage_ctorsAt`/`_rulesLen`/…), and the
+model's ~180 lemmas that took `checkBlockRecK … = .ok rs` take
+`RecStageOk …` instead (a mechanical restatement; none re-proved).  The
+kind-reading residue chain is replaced where the target composition still
+read it: the frame's grading `hokA` → `blockRuleHokPF_run` (prefix and
+fields, from the constructor's reading record — the `ih` segment is the
+walk's), the conclusion row off the tower (`blockRuleConcl_run`),
+`blockRuleCaAV_pair`/`blockGradeHokA_chain`/`blockRecFdomsK_eq_run`
+kind-free, and `hkLen` (the kinds' lengths) dropped wherever it became
+unused.  `declBlock_target` (`Model/Inductives/TargetSeam.lean`) is THE
+composition, with no owed premise: `declBlock`'s callback hands it the
+target run and the stage record; `Model/Fold.lean` calls it.  The cached
+bridge: `targetRecCheckS_run` (`Verify/Cached/TargetRecC.lean`, the
+target check's simulation at `shadowOpsC`, per stage), `checkBlockTailS_run`/
+`checkBlockKS_run` re-proved, the skeleton/push-chain lemmas at the target
+check (`targetRecCheck_member`, `checkBlockRecS_fresh`).
+
+**The deletion (B5).**  Kernel: `checkBlockRecK`, `checkBlockRecTys`,
+`checkBlockRecFamilyAgree`, `checkBlockRecIdxDomsAt`, `checkBlockRecPins`,
+`checkBlockRecsRules`, `checkBlockRules`, `checkBlockRule`, `blockIhCall?`,
+`abstractIh`, `blockIhKeys`, `BlockRuleFrame`, `blockIhPis`,
+`blockIhSpinePis`, `blockNested`, `blockRecIdxOf`, `blockRulePrefixVars`,
+`pairIdxOf?`, `BlockShape.recTgts`; the `F` twins (`checkBlockRecTysF`,
+`checkBlockRuleF`, `checkBlockRulesF`, `checkBlockRecsRulesF`,
+`blockRecCallData`); the cached `checkBlockRecKS` and its simulations;
+the run records `RecKRun`/`RuleRun`/`RulesRun`/`RecRulesEntry`/
+`RecFamRun`/`IhCallRun`; the old composition `declBlock_run`; and every
+proof only they reached — found by the reference cone, not by name:
+roots `ConLeche.MainTheorem`, the test library, `Main`, the pinned
+axiom theorems and every `@[csimp]` (88, all kept); the dead set is
+(live before the switch) ∖ (live after), iterated to a fixpoint (three
+passes).  Generic library lemmas that became unreferenced but carry
+`rfl`/`simp` use the cone cannot see (`mkFEnv_env`, `instSeq_append`, …)
+were restored after the build asked for them.  Modules emptied and
+removed: `Model/Inductives/FixIntro.lean`,
+`Model/Inductives/BlockFieldRead.lean`, `Verify/Inductives/BlockRecNames.lean`.
+
+**Not done: L2's `.nested` production (optional item).**  Storing the
+syntactic reading at an outside major needs `nestedRuleShape` split into
+its syntactic core and the `_model` lookup, which re-opens the modelled
+route's proofs (`nestedRuleShape_inv`, `IotaSound`, `ModeledF`'s bridge)
+— not cheap; left to L2 with R1.md's recipe.
+
+**Slot reads left on the live route** (for HOLE2's checkpoint (d)):
+* the recursor model's `ChainFit` (slot fit) readers:
+  `blockChainFit_of_le` (B4's lift to the carrier),
+  `blockChainFit_srcVals_zero`, `blockKitSpF_run`, `blockKitRule_run`,
+  `blockRuleDecoding_run`, `blockGraphUniq_run` (through
+  `blockChainFitRel`), `blockRecPre_graph_gen`, `blockIndCaE_of_run`,
+  `blockRecEsK_eq_is`, `blockRecSpF`/`_of`, `blockRecCtorFitsFrom`/`_of`,
+  `blockCarrier_case`/`_unique`, `BlockData.ChainFit.length_eq`;
+* the datum's slot/kind fields (`BlockData.tgts`/`rss`/`slotAt`/`ksF`,
+  via `blockDataOf … p.kinds`) in the generic producers
+  `blockRecEqs_below_gen`/`_params_gen`/`_valid_gen` (these also read
+  `blockRuleKsOf`, the kinds at a rule), `blockRuleDataB_seam_gen`,
+  `blockRuleEsAV_valid_seam`, `blockMembersRun_seam`,
+  `blockRecCtor_seam`, `blockCtorData_of_core`, `blockRuleFdomsAV_datum`/
+  `_liftDoms`, `blockRuleCaAV_pair`, `blockRuleConclArgsW_run`,
+  `blockGradeLhs_run`, `blockRuleMkAV_wdV`, `blockCtorEs_wdV`,
+  `blockRuleSpine_peel`, `blockCtorFieldProp`;
+* the model side HOLE2 owns (`BlockModelAt.fibre`/`idxFit`/`toLfp`,
+  `blockModelAt_of_stages`/`_of_records`, `blockReadsHoles`,
+  `blockSlot_agree`/`_eq_entry`, `blockMono_of_pos`, `blockHolesApplied`).
+Full list with the slot constants each reads: `_tmp/uniform-inds/RECLIB/s6/slots.txt`.
+
+**Line delta** (`git diff --shortstat uniform-inds`, at the landing):
+95 files, +4 036 / −17 881 (net −13 845); the proof tiers alone −13.7 k, the kernel/cached −1.4 k, the new files `RecStage.lean` (≈640), `TargetRecC.lean` (≈1 400), `BlockTail.lean`, `CheckDecl.lean` included.
+
+**Gates** (at the landing commit): `lake build` and `lake test` EXIT 0, 0 warnings;
+`tests/arena.sh` green in every part (the overview-links anchors,
+re-pointed after its run, verified separately): layering, pins, trust
+surface, quotes, challenge, shake 538/538 allowlisted, pub-imports none
+demotable (61 fallbacks), inmodel, nested-shadow 82/82, target-shadow
+317/317, axioms pinned (20), arena 90/92, e2e 301/301, annot 15/15,
+mode/prelude/progress/pool/DAG sweeps, trusted and `--jobs` sweeps as
+expected.  init-full: exit 0, 53 093 accepted, its 585 `--target-shadow`
+lines identical to K5's; arena `--target-shadow` over all 182 vendored
+files: 737 lines, identical to K5's but for the `today:` message text on
+two rejects (today's check IS the target check now).  No `sorry`, no new
+axioms.  The import cleanup (26 imports removed, 30 demoted, 61
+allowlist lines, 1 FALLBACK: `FixRecRead` keeps `public import
+Verify.Inductives.FixRec`, `Unknown constant Expr.shiftFromN`) and the
+cached bridge were sub-lanes of this session.
