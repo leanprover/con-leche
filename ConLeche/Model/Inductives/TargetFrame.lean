@@ -216,6 +216,114 @@ theorem walkCtx_targetRule (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.
   rw [e]
   exact h.2
 
+set_option maxHeartbeats 2000000 in
+/-- **A target rule's two readings exist and are bound by their frames**
+(from the run alone): the residue at the frame and the `ih` variables,
+and every call λ at the frame and its callee slot.  The residue's
+leaves are the frame's or an `ih` variable's, whose type the walk
+records bvar-closed (`targetIh_scope`); both terms are inferred
+(`R.hty`, K1's `hcall`), so they read (`acceptedReads_of`). -/
+theorem targetRule_reads (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.FEnv}
+    (mT : EnvModel V feT.env) (φ : Name → Nat)
+    {F : Nat} {p : ConLeche.BlockShape} {formerTys : List Expr}
+    {fam : ConLeche.TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr}
+    {M : ConLeche.TargetMajor} {c : ConstantVal × Nat} {rhs out : Expr}
+    (R : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hbf : R.body.hasFvar = false)
+    (hds : M.ds = R.fvsPref.take p.nP)
+    (hTf : recTy.hasFvar = false) (hTb : recTy.looseBVarsBounded 0 = true)
+    (hTc : ConstsBound feT.env recTy)
+    (hCf : (ConLeche.targetCtorAt M c.1).hasFvar = false)
+    (hCb : (ConLeche.targetCtorAt M c.1).looseBVarsBounded 0 = true)
+    (hCc : ConstsBound feT.env (ConLeche.targetCtorAt M c.1))
+    (hformer : ∀ t ∈ formerTys, t.hasFvar = false)
+    (hRT : ∀ c',
+      (fam.recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      (fam.recTys.getD c' (.sort .zero)).looseBVarsBounded 0 = true ∧
+      ConstsBound feT.env (fam.recTys.getD c' (.sort .zero))) :
+    (∃ Bv : AnnotTerm,
+      denoteMeta mT.acval feT.env φ (rP + c.2 + R.ihs.size) R.bodyO = some Bv ∧
+      ConLeche.Term.Term.bvarsBelow (rP + c.2 + R.ihs.size) Bv.erase) ∧
+    ∀ (r : Nat) (ih : ConLeche.TargetIh), R.ihs[r]? = some ih →
+      ∃ Lr : AnnotTerm, denoteMeta mT.acval feT.env φ (rP + c.2 + 1)
+          (targetCallLam fam R.fvsPref R.fvsF (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+            (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) = some Lr ∧
+        ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
+          (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) ∧
+        ConLeche.Term.Term.bvarsBelow (rP + c.2 + 1) Lr.erase := by
+  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
+  obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts R.hpref R.hcrest hds R.hfld hTf hTb hTc
+    hCf hCb hCc
+  have hframeL := frame_leaves_mem hFr hher
+  have hwf : TargetIhWF (ConLeche.targetFrameOf fam rP R.fvsPref R.fvsF R.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (rP + c.2) R.ihs :=
+    (targetAbstract_acc 0 _ #[] _ _ R.habs).2 (fun r hr => absurd hr (by simp))
+  have hscope := fun ih (hih : ih ∈ R.ihs.toList) =>
+    targetIh_scope hμ R mT.wf hle hbf hFr hher hcbF hformer (fun c' => (hRT c').1) hih
+  have hfvEq := ihs_fv_eq hwf
+  have hL : FvarList (rP + c.2 + R.ihs.size) (targetFrameIh (R.fvsPref ++ R.fvsF) R.ihs) := by
+    have h := fvarList_ihs hFr (R.ihs.toList.map (·.ty)) (fun t ht => by
+      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
+      exact wscoped_of_leaves_mem hFr _ (hscope ih hih).1)
+    rw [targetFrameIh, List.reverse_append, hfvEq]
+    simpa using h
+  -- the residue's leaves, and their types' bvar-closedness
+  have hlL : ∀ l ∈ R.bodyO.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ targetFrameIh (R.fvsPref ++ R.fvsF) R.ihs ∧
+        l.2.looseBVarsBounded 0 = true := by
+    intro l hl
+    rw [targetFrameIh, List.mem_reverse]
+    rcases targetAbstract_out_leaves 0 _ #[] _ _ R.habs l hl with h0 | ⟨ih, hih, h0⟩
+    · obtain ⟨x, hx, hlx⟩ := fvarLeaves_instantiateList hFr R.body hbf 0 l h0
+      have hm := hframeL x (List.mem_reverse.mp hx) l hlx
+      exact ⟨List.mem_append_left _ hm, hlbF _ hm⟩
+    · obtain ⟨r, hr, hget⟩ := List.getElem_of_mem hih
+      have hr' : r < R.ihs.size := by simpa using hr
+      obtain ⟨hfv, -⟩ := hwf r hr'
+      have hget' : R.ihs[r] = ih := by simpa using hget
+      rw [hget'] at hfv
+      rw [hfv] at h0
+      simp only [Expr.fvarLeaves, List.mem_cons] at h0
+      rcases h0 with rfl | h0
+      · exact ⟨List.mem_append_right _ (List.mem_map.mpr ⟨ih, hih, hfv⟩), (hscope ih hih).2.1⟩
+      · have hm := (hscope ih hih).1 l h0 |> List.mem_reverse.mp
+        exact ⟨List.mem_append_left _ hm, hlbF _ hm⟩
+  have hinfB := Rules.inferTypeCore_bridge R.hty
+  have hbT : R.bodyO.looseBVarsBounded 0 = true := ConLeche.infer_full_bvarClosed hinfB
+  have hws := wscoped_of_leaves_mem hL _ (fun l hl => (hlL l hl).1)
+  obtain ⟨Bv, hBv⟩ := acceptedReads_of mT φ R.hty hws hbT (fun l hl => (hlL l hl).2)
+  refine ⟨⟨Bv, hBv, bvarsBelow_of_reading (m := mT) hws hbT hBv⟩, fun r ih hr => ?_⟩
+  obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
+  have hih : ih ∈ R.ihs.toList := by rw [← hrget]; exact Array.getElem_mem_toList hrl
+  obtain ⟨C⟩ := R.call hih
+  obtain ⟨-, -, -, hlE, -, -⟩ := hscope ih hih
+  obtain ⟨hRf, hRb, hRcb⟩ := hRT ih.callee
+  have hL1 : FvarList (rP + c.2 + 1)
+      (Expr.fvar (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
+        :: (R.fvsPref ++ R.fvsF).reverse) :=
+    hFr.cons _ (Expr.WScoped.of_not_hasFvar hRf)
+  have hLE : Expr.LeavesBounded (targetCallLam fam R.fvsPref R.fvsF
+      (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+    intro l hl
+    rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+    · injection h0 with _ h2; rw [h2]; exact hRb
+    · exact hlbF _ (List.mem_reverse.mp h0)
+  have hbC := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge C.hcall)
+  obtain ⟨Lr, hLr⟩ := acceptedReads_of mT φ C.hcall
+    (wscoped_of_leaves_mem hL1 _ hlE) hbC hLE
+  have hcbLam : ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
+      (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+    refine infer_constsBound_of_full (Rules.inferTypeCore_bridge C.hcall) rfl (fun l hl => ?_)
+    rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+    · injection h0 with _ h2; rw [h2]; exact hRcb
+    · have := hcbF _ (List.mem_reverse.mp h0); simpa using this
+  exact ⟨Lr, hLr, hcbLam,
+    bvarsBelow_of_reading (m := mT) (wscoped_of_leaves_mem hL1 _ hlE) hbC hLr⟩
+
 set_option maxHeartbeats 4000000 in
 /-- **The body equation of one target-checked rule, at its run** (B3 (c),
 the rule side): the stored rule body, opened at the caller's frame and
