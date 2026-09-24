@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.SetTheory.Derive.LfpTuple
-public import ConLeche.SetTheory.Derive.Universe
-public import ConLeche.SetTheory.Derive.Sigma
 public import ConLeche.SetModel.Iter
 
 @[expose] public section

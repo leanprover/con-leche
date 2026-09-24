@@ -88113,3 +88113,44 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
   L5 + L6 (NESTIND):
   `NestedRecStageOwed`, unchanged.  The kernel side of `declBlock_nested`
   is complete.
+
+#### LANDED (lane ACCMODEL, checkpoint 1, 2026-09-24): the accessibility kit, (W) at nested blocks through `closed_of_acc`, the wide machinery deleted
+
+Ruling "(W) by ACCESSIBILITY, not the wide operator"; charter items 2
+and 4.  No kernel change; verdict-neutral by construction.  Resume note
+and the producer's design: `_tmp/uniform-inds/ACCMODEL.md`.
+
+- **`SetModel/Access.lean`**: the ACCESS spike's kit as a module
+  (renamed `AccTuple`, `AccRead`, `accRead_*`, `accPaths`; the Brouwer-tree
+  iteration under `AccIter`): `closed_of_acc` (an `A`-accessible operator
+  with `A ∈ univ w`, `w ≠ 0`, mapping the tuple space into itself has a
+  closed tuple — no ordinals, no monotonicity), `AccTuple.monoTuple`, the
+  closure lemmas over readings, `AccTuple.section`, `lfpP_acc` (the
+  nested case: the least tuple of an accessible joint operator is
+  `accPaths A`-accessible in its parameter).  Instances (List, Tree,
+  `sup`, Rose WITHOUT a key): `tests/ConLecheTests/AccessTests.lean`.
+- **The owed premise restated** (`BlockPosRunCont.lean`):
+  `NestedClosedOwed` → **`NestedAccOwed`** — the hole operator is
+  accessible with ONE bound of the level
+  (`∃ A, A ∈ univ w ∧ AccTuple … (holeOp ψ ρp) A`); the block step
+  (`BlockDatum.lean`, `hfunZ`, `w ≠ 0` at `nst = true`) turns it into the
+  closed tuple by `closed_of_acc` and `blockPhi_maps_of`.  Joint
+  accessibility at the instantiation stays an install-time lemma from
+  the walk's run (no per-inductive clause fact, ruling).
+- **Deleted** (root reachability: imported by the aggregates and each
+  other only): `SetModel/NestWide.lean`, `NestWideAt.lean`,
+  `NestWideEx.lean`, `WideFlat.lean` (whole: its `UBlock` flat kit and the
+  `uPhiI`/`closedI_of_flat` generalisation served the wide route only),
+  `Model/Inductives/NestWideFit.lean`, `blockHoleClosed_of_wide`.
+- **Next** (the producer of `NestedAccOwed`, ACCMODEL.md "What
+  remains"): the reading-level twin of `HoleMono` (`AccOn` over support
+  items, bound as a function of the frame, `underBoth` under a field),
+  the run inversion (twin of `nestPos_sem`, the bound invariant off the
+  output's non-hole positions so U4 makes the telescope bound uniform),
+  the container case (the group `lfpP_acc` at an abstract parameter,
+  `frameRelA` with the frame holes ranging over the container's space, a
+  `KeyAcc` cache invariant).  Open risk: sizes at a `v = 0` Π over a
+  hole-reading body (ACCMODEL.md "Sizes").
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (the shake gate after narrowing `Access.lean`'s imports).  No `sorry`,
+  no new axiom.
