@@ -87042,6 +87042,13 @@ cached or frontend change; verdict-neutral by construction.
   `zip`) — stage F's.
 - Gates: `lake build`/`lake test` 0 warnings; `tests/overview-links.sh`
   and `tests/quote-gate.sh` OK.  No `sorry`, no new axiom.
+- **Landed** (session 7) after merging `uniform-inds` ec611122 (L8a,
+  NESTW-KIT, NESTIND-KIT, PROJFIX; no conflict — L8a's `declBlock_cover`
+  adapter builds unchanged): `lake build`/`lake test` 0 warnings;
+  `tests/arena.sh` EXIT 0 (arena 90/92, e2e 344/344, nested-shadow
+  111/111, target-shadow 365/365, annot 15/15, shake 549/549
+  allowlisted, axioms pinned).  Line delta (`ConLeche/`, E2 as a whole):
+  +4 409 / −4 141.
 
 #### LANDED (lane PROJFIX, 2026-09-24): the projection rewrite follows the route switch — flip preparation
 
