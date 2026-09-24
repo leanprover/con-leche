@@ -87735,3 +87735,47 @@ capstone/Challenge/pin-cert roots and `tests/*`).  `SetModel/WfRec.lean`,
 `SetTheory/Derive/TransClosure.lean` and `UnionRec`'s `UnionRecKitC`
 are now reached by the `SetModel` aggregate only (their one consumer was
 `NarrowTreeList`): deletion candidates, left for the census.
+
+#### LANDED (lane NESTW, session 2, 2026-09-24): `LfpClause.idxOk`; L7 steps 1–2 — the flat kit at per-component injections (F-W2) and the `WideAt` record
+
+NESTPLAN L7 (Model half), resume plan `_tmp/uniform-inds/NESTW.md` §3.
+Charter items 2 and 4.  No kernel change; verdict-neutral by construction.
+
+- **`LfpClause.idxOk`** (lane NESTIND, finding F1): every component's
+  index telescope is graded (`IdxOk (D.u c ψ) ρp (D.ids c ψ)`) at every
+  frame satisfying the parameters — what inverting an index tuple to its
+  spine (`isOfW_tupW`) needs at a container class.  Produced at every
+  record: the uniform block (`BlockModelAt.toLfp`, from `hM.idxOk`), the
+  basis `lfp0_clause` (no index), `Eq`'s `eqLfp_clause` (the index at
+  `α`, graded by the parameters' `Sat`).  Landed first, alone (2fafbf63).
+- **F-W2, the flat kit at per-component injections**
+  (`SetModel/WideFlat.lean`): `uPhiI d ι ρ α` is `uPhi`'s fibre with each
+  tagged tower re-encoded through `ι c` above `Prop` (`UBlock.decode`);
+  fibre law `mem_uPhiI`, `uPhiI_mono`, `uPhiI_zero` (the injection is not
+  read at `Prop`), `uPhiI_tower` (`uPhi` is the `towerInj` instance).
+  `UBlock.closedI_of_flat`: (W) at `w ≠ 0` for a flat block at any `ι`
+  that is a set of the level at every spine fitting at a tuple of the
+  space (`hι`); the builder (`wideMk`) injects the rebuilt spine when it
+  fits at SOME tuple of the space and is the point otherwise, so no
+  universe fact about `ι` off the fits is needed.  No clause change (the
+  alternative, pinning `inj` to the tower at `w ≠ 0`, is false for `Nat`).
+  `closed_of_flat` is now the tagged-tower corollary (`towerInj_mem`; it
+  gained `hα`, which its one caller had).
+- **Step 2, `WideAt`** (`SetModel/NestWideAt.lean`): the wide
+  presentation of an operator `Φ` on `k` members as ONE record — `n` keys,
+  the wide block `ub` on `k + n` components agreeing with the block's
+  index sets below `k`, `ι`, the frame `ρ`, a parameter `α`, `hι`, the
+  flat presentation (`HoleUnread` included), the key groups with
+  `KeyGroups.Ok` at `uPhiI ub ι ρ α`, and the substitution law at the
+  members.  `WideAt.closed`: (W) at `w ≠ 0` (`closed_of_wide_groups` +
+  `closedI_of_flat`).  Set-level on purpose: the Model instance is
+  `Φ := D.holeOp ψ ρp`.  Check instance `roseWideAt` (`NestWideEx`),
+  re-deriving `Rose`'s (W) through the record.
+- **Next** (step 3, 3–5 sessions): the producer from the run — the
+  Model→set adapter (hole-free fields `plain`, member-recursive fields an
+  `RTel` over the member hole by `holeVal_app`, nested fields an `RTel`
+  over their key occurrence's hole), then the derivation-indexed
+  inversion of the walk (keys = frame occurrences, F-W3); `HoleUnread` from
+  F-W1's kernel check (NESTKERN) or its named premise until then.
+- Axioms of `WideAt.closed`, `UBlock.closedI_of_flatAll`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.

@@ -15,6 +15,7 @@ public import ConLeche.SetModel.NestRecCls
 public import ConLeche.SetModel.WideFlat
 public import ConLeche.SetModel.NestWide
 public import ConLeche.SetModel.NestWideEx
+public import ConLeche.SetModel.NestWideAt
 
 @[expose] public section
 
@@ -75,7 +76,10 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   (`closed_of_wide_groups`), asking of each container only its lfp
   clause at the instantiation; instances `Rose`/`List`, the two-level
   `T`/`Rose T`/`List (Rose T)`, a mutual container group reached by
-  restart, and `Prop`.
+  restart, and `Prop`.  The flat kit takes a per-component injection
+  (`uPhiI`, `UBlock.closedI_of_flat`: a key builds its container
+  clause's values); `NestWideAt` packages the whole presentation as
+  one record (`WideAt`, (W) by `WideAt.closed`).
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and
