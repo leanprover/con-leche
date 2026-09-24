@@ -3,6 +3,10 @@ module
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
+public import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.Inductives.StructEntryFree
+public import ConLeche.Model.Inductives.StoredShapes
 
 public section
 
@@ -227,5 +231,245 @@ theorem holeRelA_accRel {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V} 
   symm := LfpDatum.accRel_symm
   rich := RichOn.congrQ (fun i n => (holeQ_top_iff hhi hcN hcP har i n).symm)
     (LfpDatum.accRel_rich (Nat.le_add_right _ _) hw)
+
+/-! ## The walk's outputs at any kind (syntactic) -/
+
+section Syntax
+
+open ConLeche (CheckM CheckError NestState NestFieldKind BinderMeta nestPos nestFields
+  nestMemberCtor closeTelescope fueledOps openPisAtFvars structUsedLater)
+
+/-- **A top-level output is bvar-closed, and hole-free at an ordinary
+kind** (`nestPos_out` without the flat restriction). -/
+theorem nestPos_top_out {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat} :
+    ∀ (fuel dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind) (nd : Expr)
+      (st' : NestState),
+      nestPos (fueledOps .verified F) env ctx fuel [] dep kb e st = .ok (k, nd, st') →
+      e.looseBVarsBounded 0 = true → ctx.hiAt 0 ≤ dep →
+      nd.looseBVarsBounded 0 = true ∧
+      (k = .ordinary → nd.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro dep kb e st k nd st' hrun
+    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
+  | succ fuel ih =>
+    intro dep kb e st k nd st' hrun hcl hhi
+    rw [nestPos] at hrun
+    cases hw : ConLeche.whnf .verified env F dep e with
+    | error err =>
+      have hw' : (fueledOps .verified F).whnf env dep e = .error err := hw
+      simp [hw', bind, Except.bind] at hrun
+    | ok w =>
+      have hw' : (fueledOps .verified F).whnf env dep e = .ok w := hw
+      simp only [hw', bind, Except.bind, List.length_nil] at hrun
+      have hwcl : w.looseBVarsBounded 0 = true := ConLeche.whnf_looseBVars henv F hw hcl
+      by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false
+      · rw [if_pos (by simpa using hocc)] at hrun
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl, -⟩ := hrun
+        refine ⟨?_, fun _ => ?_⟩
+        · split
+          · exact hwcl
+          · exact hcl
+        · split
+          · exact hocc
+          · rename_i h; simpa using h
+      rw [if_neg (by simpa using hocc)] at hrun
+      split at hrun
+      · -- `pi`
+        rename_i a b mb
+        by_cases ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = true
+        · rw [if_pos ha] at hrun
+          simp [throw, throwThe, MonadExceptOf.throw] at hrun
+        rw [if_neg ha] at hrun
+        split at hrun
+        · simp at hrun
+        rename_i v hv
+        obtain ⟨k₁, nb, st₁⟩ := v
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl, rfl⟩ := hrun
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hwcl
+        have hbcl := ConLeche.looseBVarsBounded_instantiate1 (d := dep) (ty := a) b 0 hwcl.2
+        obtain ⟨h1, h2⟩ := ih (dep + 1) (kb + 1) _ st k₁ nb _ hv hbcl (by omega)
+        have ha' : a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false := by simpa using ha
+        refine ⟨?_, fun ho => ?_⟩
+        · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+          exact ⟨hwcl.1, ConLeche.looseBVarsBounded_abstract1 nb 0 h1⟩
+        · simp only [Expr.nestOcc, ha', Bool.false_or]
+          rw [nestOcc_abstract1 (by omega) nb 0]
+          exact h2 ho
+      · -- a head applied to arguments: the output is the reduct, which mentions a hole
+        refine ⟨?_, fun hk => ?_⟩
+        · repeat' split at hrun
+          all_goals first
+            | (simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+               obtain ⟨-, rfl, -⟩ := hrun; exact hwcl)
+            | simp [throw, throwThe, MonadExceptOf.throw] at hrun
+            | simp at hrun
+            | skip
+          all_goals (rename_i v hv; obtain ⟨k₁, st₁⟩ := v
+                     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+                     obtain ⟨-, rfl, -⟩ := hrun; exact hwcl)
+        · repeat' split at hrun
+          all_goals first
+            | (simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+               obtain ⟨rfl, -, -⟩ := hrun; exact absurd hk (by simp))
+            | simp [throw, throwThe, MonadExceptOf.throw] at hrun
+            | simp at hrun
+            | skip
+          all_goals (rename_i v hv; obtain ⟨k₁, st₁⟩ := v
+                     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+                     obtain ⟨rfl, -, -⟩ := hrun
+                     have := nestCont_not_flat hv
+                     rw [hk] at this
+                     exact absurd this (by decide))
+
+/-- The kinds U4 guards: a recursive, reflexive or nested field. -/
+@[expose] def nonOrd : NestFieldKind → Bool
+  | .recursive _ | .reflexive _ | .nested _ _ => true
+  | _ => false
+
+/-- **U4, every guarded kind**: no later field and not the result uses a
+recursive, reflexive or nested field (the walk's own check on its normal
+form; `nestMemberCtor_inv` states the flat half). -/
+theorem nestMemberCtor_u4 {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
+    {st' : NestState}
+    (h : nestMemberCtor ops env ctx nF crest st = .ok (ks, tyN, st')) :
+    ∀ i, i < nF → nonOrd (ks.getD i .ordinary) = true → structUsedLater tyN 0 i = false := by
+  simp only [nestMemberCtor, bind, Except.bind] at h
+  split at h
+  · simp at h
+  rename_i v hv
+  obtain ⟨ks₁, nds, cur, st₁⟩ := v
+  simp only at h
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  rename_i hany
+  split at h
+  · split at h
+    rotate_left
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl, rfl⟩ := h
+    intro i hi hno
+    simp only [List.any_eq_true, List.mem_range, Bool.and_eq_true, not_exists, not_and] at hany
+    cases hu : structUsedLater (closeTelescope nds (ctx.hiAt 0) cur) 0 i
+    · rfl
+    · exfalso
+      refine hany i hi ?_ hu
+      revert hno
+      cases ks₁.getD i .ordinary <;> simp [nonOrd]
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **A member constructor's normal form, opened**, at every kind: its
+telescope opens at the walk's depth; every opened domain is
+erasure-equal to its field's output, hole-free at an ordinary kind. -/
+theorem memberCtor_open {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat}
+    {nF : Nat} {crest tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
+    (hcl : crest.looseBVarsBounded 0 = true)
+    (hm : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁)) :
+    ∃ (nds : List (Expr × BinderMeta)) (xs : List Expr) (rest : Expr),
+      openPisAtFvars nF tyN (ctx.hiAt 0) = some (xs, rest) ∧ ks.length = nF ∧
+      nds.length = nF ∧
+      ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k nd, ks[i]? = some k ∧
+        nds[i]?.map (·.1) = some nd ∧ Expr.ErasedEq x.fvarTypeD nd ∧
+        (k = .ordinary → nd.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) := by
+  obtain ⟨err, nds, cur, hf, hr, htyN, -, -, -⟩ := nestMemberCtor_inv hm
+  obtain ⟨xs₀, hop₀, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
+  rw [Nat.add_zero] at hop₀
+  obtain ⟨hcurcl, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop₀ hcl
+  have hxl₀ : xs₀.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop₀
+  have hfield : ∀ (i : Nat) (x : Expr), xs₀[i]? = some x → ∃ k nd,
+      ks[i]? = some k ∧ nds[i]?.map (·.1) = some nd ∧ nd.looseBVarsBounded 0 = true ∧
+      (k = .ordinary → nd.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) := by
+    intro i x hx
+    obtain ⟨k, nd, s1, s2, hk, hnd, hrun⟩ := hall i x hx
+    rw [Nat.add_zero] at hrun
+    obtain ⟨h1, h2⟩ := nestPos_top_out henv (ConLeche.whnfWalkFuel crest) _ 0 _ s1 k nd s2 hrun
+      (hxcl x (List.mem_of_getElem? hx)) (by omega)
+    exact ⟨k, nd, hk, hnd, h1, h2⟩
+  have hndcl : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hp
+    have hil : i < xs₀.length := by
+      rw [hxl₀, ← hnl]; exact (List.getElem?_eq_some_iff.mp hi).1
+    obtain ⟨k, nd, -, hnd, hcl', -⟩ := hfield i _ (List.getElem?_eq_getElem hil)
+    rw [hi, Option.map_some, Option.some.injEq] at hnd
+    rw [hnd]; exact hcl'
+  obtain ⟨xs, rest, hop, -, hdoms⟩ := open_of_erasedEq_closeTelescope nds (ctx.hiAt 0) cur
+    tyN hndcl hcurcl (by rw [htyN]; exact Expr.ErasedEq.rfl _)
+  rw [hnl] at hop
+  have hxl : xs.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop
+  refine ⟨nds, xs, rest, hop, hkl, hnl, fun i x hx => ?_⟩
+  have hi : i < nF := by rw [← hxl]; exact (List.getElem?_eq_some_iff.mp hx).1
+  obtain ⟨x₀, hx₀⟩ : ∃ x₀, xs₀[i]? = some x₀ := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨k, nd, hk, hnd, -, hord⟩ := hfield i x₀ hx₀
+  exact ⟨k, nd, hk, hnd, hdoms i x nd hx hnd, hord⟩
+
+/-- No leaf at `q`: no occurrence in `[q, q + 1)`. -/
+theorem nestOcc_nil_of_leaves {q : Nat} :
+    ∀ (e : Expr), (∀ z ∈ e.fvarLeaves, z.1 ≠ q) → e.nestOcc [] q (q + 1) = false := by
+  intro e
+  induction e with
+  | bvar _ => intro _; rfl
+  | sort _ => intro _; rfl
+  | lit _ => intro _; rfl
+  | const n _ => intro _; simp [Expr.nestOcc]
+  | fvar i ty _ =>
+    intro h
+    have := h (i, ty) (by simp [Expr.fvarLeaves])
+    simp only [Expr.nestOcc, decide_eq_false_iff_not]
+    omega
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
+    exact ⟨ihf fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
+      iha fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
+  | lam ty b _ iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
+    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
+      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
+  | forallE ty b _ iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
+    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
+      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
+    exact ⟨⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
+      ihv fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩,
+      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
+  | proj _ _ e ihe =>
+    intro h
+    simp only [Expr.nestOcc]
+    exact ihe fun z hz => h z (by simp [Expr.fvarLeaves, hz])
+
+/-- **U4, on the opened normal form**: a later field's domain does not
+mention a field no later binder uses. -/
+theorem u4_nestOcc {ctx : NestCtx} {nF j l : Nat} {tyN rest : Expr} {xs : List Expr} {x : Expr}
+    (hop : openPisAtFvars nF tyN (ctx.hiAt 0) = some (xs, rest))
+    (hW : Expr.WScoped (ctx.hiAt 0) tyN) (hU : structUsedLater tyN 0 j = false)
+    (hj : j < nF) (hjl : j < l) (hx : xs[l]? = some x) :
+    x.fvarTypeD.nestOcc [] (ctx.hiAt 0 + j) (ctx.hiAt 0 + j + 1) = false := by
+  obtain ⟨⟨bs, r⟩, hst⟩ := Option.isSome_iff_exists.mp
+    (stripPis_of_openPis nF hop (j + 1) (by omega))
+  have hfree : r.hasLooseBVar 0 = false := by
+    unfold structUsedLater at hU
+    rw [Nat.zero_add, hst] at hU
+    simpa [Expr.hasLooseBVarB_eq] using hU
+  obtain ⟨h1, -⟩ := openPisAtFvars_leaf_free nF j hop hj hst hfree fun z hz => by
+    have := Expr.fvarLeaves_lt_of_wscoped hW z hz
+    omega
+  refine nestOcc_nil_of_leaves _ fun z hz => ?_
+  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index nF tyN (ctx.hiAt 0) hop l x hx
+  exact h1 l hjl _ hx z (by simp only [Expr.fvarTypeD] at hz; simp [Expr.fvarLeaves, hz])
+
+end Syntax
 
 end ConLeche.Model
