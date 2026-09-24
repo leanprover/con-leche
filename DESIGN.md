@@ -87736,6 +87736,135 @@ capstone/Challenge/pin-cert roots and `tests/*`).  `SetModel/WfRec.lean`,
 are now reached by the `SetModel` aggregate only (their one consumer was
 `NarrowTreeList`): deletion candidates, left for the census.
 
+#### LANDED (lane NESTW, session 2, 2026-09-24): `LfpClause.idxOk`; L7 steps 1–2 — the flat kit at per-component injections (F-W2) and the `WideAt` record
+
+NESTPLAN L7 (Model half), resume plan `_tmp/uniform-inds/NESTW.md` §3.
+Charter items 2 and 4.  No kernel change; verdict-neutral by construction.
+
+- **`LfpClause.idxOk`** (lane NESTIND, finding F1): every component's
+  index telescope is graded (`IdxOk (D.u c ψ) ρp (D.ids c ψ)`) at every
+  frame satisfying the parameters — what inverting an index tuple to its
+  spine (`isOfW_tupW`) needs at a container class.  Produced at every
+  record: the uniform block (`BlockModelAt.toLfp`, from `hM.idxOk`), the
+  basis `lfp0_clause` (no index), `Eq`'s `eqLfp_clause` (the index at
+  `α`, graded by the parameters' `Sat`).  Landed first, alone (2fafbf63).
+- **F-W2, the flat kit at per-component injections**
+  (`SetModel/WideFlat.lean`): `uPhiI d ι ρ α` is `uPhi`'s fibre with each
+  tagged tower re-encoded through `ι c` above `Prop` (`UBlock.decode`);
+  fibre law `mem_uPhiI`, `uPhiI_mono`, `uPhiI_zero` (the injection is not
+  read at `Prop`), `uPhiI_tower` (`uPhi` is the `towerInj` instance).
+  `UBlock.closedI_of_flat`: (W) at `w ≠ 0` for a flat block at any `ι`
+  that is a set of the level at every spine fitting at a tuple of the
+  space (`hι`); the builder (`wideMk`) injects the rebuilt spine when it
+  fits at SOME tuple of the space and is the point otherwise, so no
+  universe fact about `ι` off the fits is needed.  No clause change (the
+  alternative, pinning `inj` to the tower at `w ≠ 0`, is false for `Nat`).
+  `closed_of_flat` is now the tagged-tower corollary (`towerInj_mem`; it
+  gained `hα`, which its one caller had).
+- **Step 2, `WideAt`** (`SetModel/NestWideAt.lean`): the wide
+  presentation of an operator `Φ` on `k` members as ONE record — `n` keys,
+  the wide block `ub` on `k + n` components agreeing with the block's
+  index sets below `k`, `ι`, the frame `ρ`, a parameter `α`, `hι`, the
+  flat presentation (`HoleUnread` included), the key groups with
+  `KeyGroups.Ok` at `uPhiI ub ι ρ α`, and the substitution law at the
+  members.  `WideAt.closed`: (W) at `w ≠ 0` (`closed_of_wide_groups` +
+  `closedI_of_flat`).  Set-level on purpose: the Model instance is
+  `Φ := D.holeOp ψ ρp`.  Check instance `roseWideAt` (`NestWideEx`),
+  re-deriving `Rose`'s (W) through the record.
+- **Next** (step 3, 3–5 sessions): the producer from the run — the
+  Model→set adapter (hole-free fields `plain`, member-recursive fields an
+  `RTel` over the member hole by `holeVal_app`, nested fields an `RTel`
+  over their key occurrence's hole), then the derivation-indexed
+  inversion of the walk (keys = frame occurrences, F-W3); `HoleUnread` from
+  F-W1's kernel check (NESTKERN) or its named premise until then.
+- Axioms of `WideAt.closed`, `UBlock.closedI_of_flatAll`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+#### LANDED (lane NESTKERN, checkpoint 1, 2026-09-24): the route switch in the kernel, the block step at either switch, and `declBlock_nested` — the integration contract of `nested`
+
+NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
+`_tmp/uniform-inds/NESTKERN/`.
+
+- **The switch** (`uniformNested : Bool := false`, `Kernel/Inductives/BlockParts.lean`):
+  PROJFIX's `modelledRoute` now reads `!uniformNested && …`, and the same
+  constant is handed to the uniform install as its `nst` argument by both
+  dispatches (`checkDecl`, `checkDeclC`).  L9 sets it to `true`; the
+  recogniser, the projection rewrite (`uniformRoute`) and the install move
+  together.  With it off nothing changes (measured below).
+- **The kernel at `nst`** (the target installer's pieces on the live path):
+  `checkBlockPositivity … nst` (the flat guard is `nst || nestKindsFlat`),
+  `checkBlockPass`/`checkBlockTail`/`checkBlock` thread `nst` (trailing
+  default `false`, so every existing statement reads the switch-off
+  install); the recursor stage runs `targetRecCheck … nst (nst &&
+  blockNestedBit …)` (the container bit: a non-flat kind or a recursor
+  whose major is not a member; the check adds its own outside majors,
+  F4) and returns the check's output `out`; conformance runs only where
+  every kind is flat (`nestKindsFlat`; NESTPLAN Q-F); **the family is
+  consed at its majors** (`consBlockRecsT`, rules `tgtStoredRules`: the
+  major's parameter count and constructors, `.nested lvls pins` at an
+  outside major by `auxRuleFireR` — L2's syntactic reading, now live).
+  Cached twins: `checkBlockRecS(Fast)`, `checkBlockPassS`,
+  `checkBlockTailS` (`consBlockRecsTF`), `checkBlockKS`.  At member
+  majors the cons at the majors IS the member cons
+  (`consBlockRecsT_member`, `consBlockRecsTF_member`, from
+  `targetRecRun_majors`), which is how every switch-off proof reads it.
+- **Proofs at the switch.**  `DeclBlockRun … nst` (conjunct 8 the stage's
+  run to `out`, conjunct 9 `consBlockRecsT`); `declBlockRun_of`,
+  `checkBlockPass_inv`/`checkBlockTail_inv`, the `datF` bridges and
+  `checkBlockPositivity_inv_gen` are generic in `nst`; the cached
+  simulation, the skeleton agreement, the push chain and η-closure are
+  stated with the switch off (the cached bridge at `nst = true` is L9's
+  — bridging comes last).
+- **Representation, kind-free** (the prerequisite for a TRUE skeleton):
+  `StoredFieldShapes` carries `holeApp` (every hole applied to the
+  parameters, M3 at every field) instead of the flat presentation, which
+  is its own fact `StoredFieldsFlat` read only by the flat block's (W)
+  (`blockHoleClosed_of`); the producers return both.  A container field
+  is not flat, so the old record was false at nested blocks.
+- **The block step, once** (`declBlock_gen`, `Model/Inductives/DeclBlock.lean`):
+  at either switch, from two producers — the constructors' stage with the
+  operator's monotonicity (`BlockCtorStageAt`; switch off:
+  `blockCtorStageAt_flat` = `blockTablesStage_of` + `blockCtorPos_of_run`)
+  and the recursors' stage from its own run (`BlockRecStagedT` at
+  `consBlockRecsT`, fed the carrier's coverage).  `declBlock` is its
+  switch-off wrapper (unchanged statement: `declBlock_target` and the fold
+  are untouched).
+- **`declBlock_nested`** (`Model/Inductives/DeclBlockNested.lean`, the
+  contract): `DeclBlockRun … true`, `LfpCover mp [] → ∃ mp', LfpCover mp'
+  []` (the fold's `BlockCoverPB` shape), with two OWED premises:
+  * `NestedCtorStageOwed` — **L4 (NESTKERN, next)**: the positivity
+    stage's reading facts at container kinds (`blockRunLink` minus flat:
+    the hole telescope reading, `StoredFieldShapes`) and the walk's cache
+    invariant threaded over the block's constructors; **L3/COVERB**:
+    `CtorPos` at container kinds from `nestMemberCtor_sem_cont`, whose one
+    input is `ContCover` at the formers' carrier (COVERB's recipe from the
+    premise's `LfpCover mp []`); **L7 (NESTW)**: the hole operator's closed
+    tuple at `w ≠ 0` (`closed_of_wide_groups`);
+  * `NestedRecStageOwed` — **L5 + L6 (NESTIND)**: `BlockRecStagedT` from
+    the stage's run at `outside = true` and the constructors' records at a
+    covered carrier (records at `outside`, the graph producer over clause
+    classes with `NestKit`'s `ok`/`trans`/`calls`/`top`/`huniq`, O12's rule
+    typing at container constructors; `RecRuleLaw` for `.nested`).
+  The next checkpoint splits `NestedCtorStageOwed` into its three lanes'
+  facts by restating `blockTablesStage_of` over the producers it calls.
+- **Probe** (switch ON, binary only, `_tmp/uniform-inds/NESTKERN/probe-wt`):
+  e2e + arena (138 gated rows + the ungated `init-prelude`) against the
+  switch-off binary: **6 moves** — PROJFIX's four, all to official
+  (`ind_rec_struct_proj_raw` 2→0, `ind_proj_mutual_nested` 2→0,
+  `corner_tshadow_aux_nonfield_bad` 0→1, `restrict_a28_m2prime_phantom`
+  0→1), and two item-8 accept-supersets PROJFIX's probe could not reach
+  (it rerouted only the recogniser's refusals, these are recognised
+  container blocks WITHOUT auxiliary recursors that the flat guard
+  declined): `corner_nestpos_redex_bad` 2→0 (D1), `corner_nestpos_group_bad`
+  2→0 (D2) — NESTPLAN L9 (d)'s recorded targets.  init-full: exit 0,
+  53 093 accepted (on and off).  Mathlib (`--jobs=8`): exit 0, 654 504
+  accepted; the projection rewrite count 40 → 0 (PROJFIX's prediction).
+  The switch-off binary matches `tests/e2e-expected.txt` and
+  `tests/arena-expected.txt` on every row.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  after OVERVIEW's anchors were repointed (`checkDecls_skels`,
+  `blockParts?`, `nestMemberCtors`, `checkBlockPositivity`,
+  `targetRecCheck` moved; every citing paragraph re-read and still true
+  with the switch off).  No `sorry`, no new axiom.
 #### LANDED (lane NESTKERN, 2026-09-24): U4 at every non-ordinary field (F-W1), the outside major's pins typed (F2), the container bit from the check's own majors (F4)
 
 Three kernel findings of the nested proof lanes, landed together on

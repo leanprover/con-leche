@@ -1243,21 +1243,24 @@ theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     checkBlockRecElimPin_datF, checkBlockRecPrefixAgree_datF, targetRulePinsAll_datF,
     targetRecsRules_datF]
 
-theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (block : List ConstantInfo)
+theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool)
+    (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRecT (fueledOpsM mode) env p block cvTas ctorsAs).val F =
-      checkBlockRecT (fueledOps mode F) env p block cvTas ctorsAs := by
+    (checkBlockRecT (fueledOpsM mode) env p nst nested block cvTas ctorsAs).val F =
+      checkBlockRecT (fueledOps mode F) env p nst nested block cvTas ctorsAs := by
   unfold checkBlockRecT
-  simp only [FueledM.atF_bind, FueledM.atF_pure, targetRecCheck_datF]
+  simp only [targetRecCheck_datF]
   rfl
 
-theorem checkBlockRec_datF (env : Env) (p : BlockParts) (block : List ConstantInfo)
+theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nst nested conf : Bool)
+    (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env p block cvTas ctorsAs ctorsN).val F =
-      checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs ctorsN := by
+    (checkBlockRec (fueledOpsM mode) env p nst nested conf block cvTas ctorsAs ctorsN).val F =
+      checkBlockRec (fueledOps mode F) env p nst nested conf block cvTas ctorsAs ctorsN := by
   unfold checkBlockRec thenConform
+  cases conf <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecT_datF,
-    checkBlockRecConform_datF]
+    checkBlockRecConform_datF, Bool.false_eq_true, ↓reduceIte]
 
 theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),
@@ -1320,32 +1323,34 @@ theorem checkAbsCtorTysAll_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : Li
 
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockPositivity (fueledOpsM mode) env₁ find? consts p cvTas ctorsAs).val F
-      = checkBlockPositivity (fueledOps mode F) env₁ find? consts p cvTas ctorsAs := by
+    (ctorsAs : List (List (ConstantVal × Nat))) (nst : Bool) (F : Nat) :
+    (checkBlockPositivity (fueledOpsM mode) env₁ find? consts p cvTas ctorsAs nst).val F
+      = checkBlockPositivity (fueledOps mode F) env₁ find? consts p cvTas ctorsAs nst := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, nestBlockCtors_datF, checkAbsCtorTysAll_datF]
 
-theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
-    (checkBlockPass (fueledOpsM mode) env p isRec).val F =
-      checkBlockPass (fueledOps mode F) env p isRec := by
+theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec nst : Bool) (F : Nat) :
+    (checkBlockPass (fueledOpsM mode) env p isRec nst).val F =
+      checkBlockPass (fueledOps mode F) env p isRec nst := by
   unfold checkBlockPass
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockInds_datF, checkBlockCtors_datF,
     checkBlockPositivity_datF, unwrapOr_atF]
 
-theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env) (F : Nat) :
-    (checkBlockTail (fueledOpsM mode) block q).val F =
-      checkBlockTail (fueledOps mode F) block q := by
+theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env) (nst : Bool)
+    (F : Nat) :
+    (checkBlockTail (fueledOpsM mode) block q nst).val F =
+      checkBlockTail (fueledOps mode F) block q nst := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF]
 
 /-- **The uniform install at fuel `F`, at k members**: the same program
 at the two monads, stage by stage — no gate is read. -/
-theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts) (F : Nat) :
-    (checkBlock (fueledOpsM mode) env block p).val F =
-      checkBlock (fueledOps mode F) env block p := by
+theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts) (nst : Bool)
+    (F : Nat) :
+    (checkBlock (fueledOpsM mode) env block p nst).val F =
+      checkBlock (fueledOps mode F) env block p nst := by
   unfold checkBlock
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     checkBlockPass_datF, checkBlockTail_datF]
@@ -1596,7 +1601,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · exact checkBasisDecl_datF env _ F
     · split
       · split
-        · exact checkBlock_datF env block _ F
+        · exact checkBlock_datF env block _ _ F
         · exact checkModeled_datF env _ block F
       · rfl
 

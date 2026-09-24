@@ -822,7 +822,7 @@ formers' and the constructors' types are fvar-free. -/
 theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
     {q : BlockPass FEnv} {b : Bool} {s' : CState}
-    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec s₀ = .ok ((q, b), s')) :
+    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec false s₀ = .ok ((q, b), s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧

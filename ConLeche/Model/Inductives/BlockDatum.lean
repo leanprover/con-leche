@@ -697,8 +697,8 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       fun c j cA hj => ⟨hpk₀ c (hctorLt c j cA hj) j cA hj, hAbsZ c j cA hj⟩⟩
   have hHZ : BlockHoleFacts mpD.base2 dZ q.lps := by
     refine ⟨fun c _ j cA hj => hpk₀ c (hctorLt c j cA hj) j cA hj,
-      fun ψ c hc j hj => blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
-        hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj,
+      fun ψ c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
+        hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).1,
       fun ψ => hlenP0 ψ 0 hk0, fun ψ mm hmm => hlenP0 ψ mm hmm,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mp h,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mpr h,
@@ -793,6 +793,8 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       rw [hw] at hmaps ⊢
       exact closedTuple_zero hmaps
     · exact blockHoleClosed_of hHZ hs hw hIdxZ (fun m hm => hIdsLen m ψ)
+        (fun c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
+          hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).2)
         (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
@@ -1191,11 +1193,11 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         ((blockDataOf V q ctorsAs pk uOf ppsOf).params ψ).reverse
         ((blockDataOf V q ctorsAs pk uOf ppsOf).absF ψ c j)
         (((blockDataOf V q ctorsAs pk uOf ppsOf).Fss c ψ).getD j []) :=
-    fun ψ c hc j hj => blockStoredShapes_of_run (d := blockDataOf V q ctorsAs pk uOf ppsOf)
+    fun ψ c hc j hj => (blockStoredShapes_of_run (d := blockDataOf V q ctorsAs pk uOf ppsOf)
       hμ mpR hNZ hcoreR.holeCtx hPos hpN hpL hpP hpI
       hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ
       (fun c j cA hj => by show (pk c).nf j = _; rw [(habsR c).2]; exact hnfZ c j cA hj)
-      ψ (hformersI ψ) hc hj
+      ψ (hformersI ψ) hc hj).1
   -- ## the constructors' stage, assembled
   have hSC : BlockCtorsStage (V := V) μ F (blockDataOf V q ctorsAs pk uOf ppsOf)
       q.lps cvTas q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf))

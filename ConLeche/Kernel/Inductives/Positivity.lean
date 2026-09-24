@@ -649,6 +649,14 @@ def NestFieldKind.flat : NestFieldKind → Bool
   | .ordinary | .recursive _ | .reflexive _ => true
   | _ => false
 
+/-- **Every field of every constructor of every member is flat** (no
+container instantiation): the uniform route's install gate while nested
+blocks stay on the modelled route (`checkBlockPositivity`), and the
+reject-only conformance check's switch (`checkBlockTail`: it has no
+container arm). -/
+def nestKindsFlat (ks : List (List (List NestFieldKind))) : Bool :=
+  ks.all (·.all (·.all NestFieldKind.flat))
+
 /-- Official's `is_rec` off the walk's kinds, BLOCK-wide: some field of
 some constructor of some member is not ordinary (on the auxiliary block
 official builds, a container occurrence counts).  The capability

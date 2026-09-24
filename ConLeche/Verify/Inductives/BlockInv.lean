@@ -283,14 +283,14 @@ formers, the positivity function's run on the stored constructors, the
 record completed, and the settling bit — the record at the walk's
 `is_rec` against the one the pass ran at, at every member. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
-    {q : BlockPass Env} {b : Bool} {F : Nat}
-    (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok (q, b)) :
+    {q : BlockPass Env} {b : Bool} {F : Nat} {nst : Bool}
+    (h : checkBlockPass (fueledOps mode F) env p₀ isRec nst = .ok (q, b)) :
     ∃ (p₁ : BlockShape),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs) ∧
+        (p₀.complete p₁) q.cvTas q.ctorsAs nst = .ok (q.kinds, q.nfs) ∧
       q.p = p₀.complete p₁ ∧
       b = ((List.range q.p.k).all fun i =>
         blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) == blockCapsAt p₁ i isRec) := by
@@ -350,23 +350,26 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 /-- **The tail, inverted**: the elimination restriction (official's
 `elim_only_at_universe_zero`), every member's index binders' sorts, the
 constructors consed,
-the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok rs`, so
+the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out`, so
 that milestone M5's replacement fits without restating the tail — the
-recursors consed with their rules, and the projection tables. -/
+recursors consed with their rules at their majors, and the projection
+tables. -/
 theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
-    {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
+    {F : Nat} {nst : Bool}
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q nst = .ok env₂) :
     ∃ (isorts : List (List Level))
-      (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
+      (out : List (ConstantVal × TargetMajor × List Expr)),
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
-          = .ok rs ∧
+        q.p nst (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
+        block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
+          = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP 0 rs
+        (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
+          (·.constsResolve (consBlockCtors q.p.nP q.ctorsAs q.env₁)) q.p.toBlockShape 0 out
           (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
@@ -393,12 +396,13 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   rw [hsorts] at h
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p block q.cvTas q.ctorsAs
-      (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
+      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p nst
+      (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) block q.cvTas
+      q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
   | error e => rw [hRec] at h; exact nomatch h
-  | ok rs =>
+  | ok out =>
   rw [hRec] at h
   dsimp only at h
-  exact ⟨isorts, rs, helim, rfl, rfl, h⟩
+  exact ⟨isorts, out, helim, rfl, rfl, h⟩
 
 end ConLeche

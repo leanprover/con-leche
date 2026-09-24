@@ -708,18 +708,82 @@ theorem ctorsLen_of_names
 route's `checkBlockRec` succeeded only through the target check (the
 conformance check after it only rejects), whose run gives the stage
 record at the stored family. -/
-theorem recStage_of_rec {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {ctorsN : List (List (ConstantVal × Nat))}
-    (h : checkBlockRec (fueledOps mode F) env p block cvTas ctorsAs ctorsN = .ok rs)
+theorem recStage_of_rec {out : List (ConstantVal × TargetMajor × List Expr)}
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+      = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
-    ∃ out, rs = tgtRs out ∧
-      Nonempty (TargetRecRun mode F (mkFEnv env) p.toBlockShape false block cvTas ctorsAs out) ∧
-      RecStageOk mode F env p cvTas ctorsAs rs := by
-  obtain ⟨out, hout, rfl⟩ := checkBlockRecT_run (checkBlockRecT_of_rec h)
-  obtain ⟨R⟩ := targetRecCheck_run hout
-  exact ⟨out, rfl, ⟨R⟩, recStage_of_target R (ctorsLen_of_names hnames)⟩
+    Nonempty (TargetRecRun mode F (mkFEnv env) p.toBlockShape false block cvTas ctorsAs out) ∧
+      RecStageOk mode F env p cvTas ctorsAs (tgtRs out) ∧
+      ∀ t ∈ out, t.2.1.nPc = p.nP ∧ t.2.1.member.isSome = true := by
+  obtain ⟨R⟩ := targetRecCheck_run (checkBlockRecT_run (checkBlockRecT_of_rec h))
+  exact ⟨⟨R⟩, recStage_of_target R (ctorsLen_of_names hnames), targetRecRun_majors R⟩
 
 end Producer
+
+/-! ## The cons at the majors, at member majors (lane NESTKERN) -/
+
+/-- **At member majors the cons at the majors IS the member cons**: every
+major a member at the block's parameter count, `consBlockRecsT` conses
+exactly `consBlockRecs`'s records of `tgtRs out`. -/
+theorem consBlockRecsT_member (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) (nP : Nat) :
+    ∀ (m : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env),
+      (∀ t ∈ out, t.2.1.nPc = nP ∧ t.2.1.member.isSome = true) →
+      consBlockRecsT find? resolves p m out env = consBlockRecs find? p nP m (tgtRs out) env
+  | _, [], _, _ => rfl
+  | m, (cv, M, rhss) :: rest, env, h => by
+    obtain ⟨hnP, hmem⟩ := h _ List.mem_cons_self
+    dsimp only at hnP hmem
+    simp only [consBlockRecsT, tgtRs, List.map_cons, consBlockRecs]
+    have hr : tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss
+        = sumRules find? cv.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cv.type M.ctors rhss := by
+      unfold tgtStoredRules
+      cases hM : M.member with
+      | none => rw [hM] at hmem; exact nomatch hmem
+      | some _ => rw [hnP]
+    rw [hr]
+    exact consBlockRecsT_member find? resolves p nP (m + 1) rest _
+      (fun t ht => h t (List.mem_cons_of_mem _ ht))
+
+/-- The cons at the majors through the index, at member majors. -/
+theorem consBlockRecsTF_member (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) (nP : Nat) :
+    ∀ (m : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (fe : FEnv),
+      (∀ t ∈ out, t.2.1.nPc = nP ∧ t.2.1.member.isSome = true) →
+      consBlockRecsTF find? resolves p m out fe = consBlockRecsF find? p nP m (tgtRs out) fe
+  | _, [], _, _ => rfl
+  | m, (cv, M, rhss) :: rest, fe, h => by
+    obtain ⟨hnP, hmem⟩ := h _ List.mem_cons_self
+    dsimp only at hnP hmem
+    simp only [consBlockRecsTF, tgtRs, List.map_cons, consBlockRecsF]
+    have hr : tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss
+        = sumRules find? cv.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cv.type M.ctors rhss := by
+      unfold tgtStoredRules
+      cases hM : M.member with
+      | none => rw [hM] at hmem; exact nomatch hmem
+      | some _ => rw [hnP]
+    rw [hr]
+    exact consBlockRecsTF_member find? resolves p nP (m + 1) rest _
+      (fun t ht => h t (List.mem_cons_of_mem _ ht))
+
+/-- **The recursor stage and the install spine with the switch off, in
+the member format**: the target check's run at the member-only
+instantiation, the stage record at `tgtRs out`, and the cons at the
+majors read as the member cons. -/
+theorem recStage_off {out : List (ConstantVal × TargetMajor × List Expr)}
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+      = .ok out)
+    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
+    (find? : Name → Option ConstantInfo) (resolves : Expr → Bool) (m : Nat) (env' : Env) :
+    Nonempty (TargetRecRun mode F (mkFEnv env) p.toBlockShape false block cvTas ctorsAs out) ∧
+      RecStageOk mode F env p cvTas ctorsAs (tgtRs out) ∧
+      consBlockRecsT find? resolves p.toBlockShape m out env'
+        = consBlockRecs find? p.toBlockShape p.nP m (tgtRs out) env' := by
+  obtain ⟨hR, hS, hmaj⟩ := recStage_of_rec h hnames
+  exact ⟨hR, hS, consBlockRecsT_member _ _ _ _ _ _ _ hmaj⟩
 
 end ConLeche

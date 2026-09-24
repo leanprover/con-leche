@@ -1185,8 +1185,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
     {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockTailS mode block ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs⟩ s₀
-      = .ok (feOut, s')) :
+    (h : checkBlockTailS mode block ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs⟩ false
+      s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, (checkBlockTail (fueledOpsM mode) block ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs⟩).val F
       = .ok feOut.env := by
@@ -1207,22 +1207,40 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
   obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
-  obtain ⟨rs, s₃, hrec, h⟩ := bindC_ok h
+  obtain ⟨out, s₃, hrec, h⟩ := bindC_ok h
   unfold checkBlockRecS at hrec
-  -- the check, then the reject-only conformance check (lane CONF1)
+  -- the check, then (where every kind is flat) the reject-only conformance
+  -- check (lane CONF1)
   unfold thenConform at hrec
-  obtain ⟨rs', s₄, hrecK, hrec⟩ := bindC_ok hrec
-  obtain ⟨out, s₄', htc, hrecK⟩ := bindC_ok hrecK
-  obtain ⟨rfl, rfl⟩ := pureC_ok hrecK
+  obtain ⟨out', s₄, htc, hrec⟩ := bindC_ok hrec
   obtain ⟨hs₄, F₃, hF₃⟩ := targetRecCheckS_run hμ henv₂ hT hct (flushC_csok hsS.residue) htc
   obtain ⟨u5, s₅, hconf, hrec⟩ := bindC_ok hrec
-  obtain ⟨hs₅, F₅, hF₅⟩ := checkBlockRecConformS_run hμ henv₂ hs₄ hconf
   obtain ⟨hv, rfl⟩ := pureC_ok hrec
-  subst rs
+  subst out'
+  -- the conformance branch: its run, or nothing
+  obtain ⟨hs₅, F₅, hF₅⟩ : CSOKF s₅ ∧ ∃ F₅, (if nestKindsFlat kinds then
+      checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p cvTas
+        (blockNormalCtors p.toBlockShape ctorsAs nfs) else pure ()) = .ok () := by
+    cases hk : nestKindsFlat kinds with
+    | true =>
+      rw [hk] at hconf
+      obtain ⟨hs₅, F₅, hF₅⟩ := checkBlockRecConformS_run hμ henv₂ hs₄ hconf
+      exact ⟨hs₅, F₅, by simpa using hF₅⟩
+    | false =>
+      rw [hk] at hconf
+      obtain ⟨-, rfl⟩ := pureC_ok hconf
+      exact ⟨hs₄, 0, rfl⟩
   have hs₃ := hs₅
+  obtain ⟨R⟩ := targetRecCheck_run hF₃
+  have hcons := consBlockRecsTF_member (consBlockCtors p.nP ctorsAs env₁).find?
+    (·.constsResolveF (mkFEnv (consBlockCtors p.nP ctorsAs env₁))) p.toBlockShape p.nP 0 out
+    (mkFEnv (consBlockCtors p.nP ctorsAs env₁)) (targetRecRun_majors R)
+  have hconsP := consBlockRecsT_member (consBlockCtors p.nP ctorsAs env₁).find?
+    (·.constsResolve (consBlockCtors p.nP ctorsAs env₁)) p.toBlockShape p.nP 0 out
+    (consBlockCtors p.nP ctorsAs env₁) (targetRecRun_majors R)
   have henv₃ := targetRecCheck_recsWF henv₂ hF₃ (consBlockCtors p.nP ctorsAs env₁).find? p.nP
   rw [show FEnv.find? (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-    = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _,
+    = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _, hcons,
     consBlockRecsF_mkFEnv, structWalkersC_eq_plain] at h
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
   obtain ⟨G, hle₀, hle₃, hle₅⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
@@ -1231,19 +1249,28 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
-  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p block
-      cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok (tgtRs out) := by
+  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p false
+      (false && blockNestedBit p.toBlockShape kinds) (nestKindsFlat kinds) block
+      cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out := by
     have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
         p.toBlockShape false false block cvTas ctorsAs = .ok out := by
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)
-    have gC : checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-        (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok () := by
-      rw [← checkBlockRecConform_datF]
-      exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
+    have gC : (if nestKindsFlat kinds then
+        checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
+          (blockNormalCtors p.toBlockShape ctorsAs nfs) else pure ()) = .ok () := by
+      cases hk : nestKindsFlat kinds with
+      | true =>
+        rw [hk] at hF₅
+        simp only [↓reduceIte] at hF₅ ⊢
+        rw [← checkBlockRecConform_datF]
+        exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
+      | false => rfl
     unfold checkBlockRec thenConform checkBlockRecT
-    simp only [ShadowOps.fueled] at gK
-    simp only [Bind.bind, Except.bind, gK, gC, pure, Except.pure]
+    simp only [ShadowOps.fueled, Bool.false_and] at gK ⊢
+    simp only [pure, Except.pure] at gC
+    simp only [Bind.bind, Except.bind, gK, pure, Except.pure]
+    rw [gC]
   rw [checkBlockTail_datF]
   unfold checkBlockTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]
@@ -1253,6 +1280,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   simp only [Except.bind]
   rw [g₃]
   simp only [Except.bind]
+  rw [hconsP]
   exact hT₆
 
 /-- **The uniform install at k members, at the recursor stage's CHECK,
@@ -1262,7 +1290,7 @@ where it overshot, and the install after the settled one. -/
 theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
     {env : Env} (henv : EnvWF env) {block : List ConstantInfo} {p₀ : BlockParts} {s₀ : CState}
     (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockKS mode (mkFEnv env) block p₀ s₀ = .ok (feOut, s')) :
+    (h : checkBlockKS mode (mkFEnv env) block p₀ false s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkBlock (fueledOps mode F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h

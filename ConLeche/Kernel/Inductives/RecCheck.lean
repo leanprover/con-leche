@@ -53,9 +53,10 @@ What carries over unchanged, and why, is recorded in DESIGN ("LANDED
 (lane TSHADOW)") and `_tmp/uniform-inds/TSHADOW.md`.
 
 **THE LIVE STAGE.**  The uniform route's recursor stage runs this check
-(`checkBlockRecT`, `BlockTail.lean`) with `outside = false` (a
-non-nested block's recursors eliminate its members) and `nested =
-false`.  `--target-shadow` (`Main.lean`) runs the SAME function with
+(`checkBlockRecT`, `BlockTail.lean`) with `outside` the route switch
+(`uniformNested`: off, a block's recursors must eliminate its members)
+and `nested` the block's container bit (`blockNestedBit`, off with the
+switch).  `--target-shadow` (`Main.lean`) runs the SAME function with
 `outside = true` inside the target installer (`TargetInstall.lean`)
 beside the install, and discards its state.  It is written ONCE, over
 an `FEnv`, parameterised by `ShadowOps` (the operations at an index, a
@@ -953,6 +954,51 @@ def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
     List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
   out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
 
+/-- **The firing mode of a rule at an OUTSIDE major** (lane L2): the
+syntactic reading of the recursor type's major domain
+(`Expr.nestedRuleSyn`, the major's parameter count `nPc`, constants
+resolving by `resolves`) — `.nested lvls pins`, with `pins` the major's
+parameters lowered into the rule-prefix context, whose guards are
+`EnvWF`'s `.nested` clause (`nestedRuleSyn_inv`); `.inert` when the
+reading fails (a matched major then declines at fire time; measured
+never to happen at a checked outside major, lane L2L8). -/
+def auxRuleFireR (resolves : Expr → Bool) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
+  match Expr.nestedRuleSyn resolves cv.levelParams cv.type mI rP nPc with
+  | some (lvls, pins) => .nested lvls pins
+  | none => .inert
+
+/-- **One checked recursor's stored rules, at its major** (lane
+NESTKERN): `sumRules` at the MAJOR's parameter count and constructors;
+at an OUTSIDE major (a nested block's auxiliary recursor) every rule
+fires as `auxRuleFireR` reads it (`.nested` at the major's
+instantiation), at a member major as `sumRules` builds it. -/
+def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+  let rules := sumRules find? cv.name M.nPc mI rP cv.type M.ctors rhss
+  match M.member with
+  | none => rules.map fun rl => { rl with fire := auxRuleFireR resolves cv mI rP M.nPc }
+  | some _ => rules
+
+/-- **The block's container bit** (official's `m_nested`, NESTPLAN Q-C):
+some field kind is not flat (the positivity function reached a
+container instantiation) or some recursor's major is not a member (the
+family carries an auxiliary recursor).  It feeds the elimination guard
+(`blockLargeElimAllowed`); the install ANDs it with the route switch. -/
+def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) : Bool :=
+  !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
+
+/-- **The checked family consed through the index, at its majors** (lane
+NESTKERN): `consBlockRecsF` with each recursor's rules at ITS major
+(`tgtStoredRules`) — the uniform route's recursor cons, which at member
+majors is `consBlockRecsF` itself (`consBlockRecsTF_member`). -/
+def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cv, M, rhss) :: rest, fe =>
+    consBlockRecsTF find? resolves p (m + 1) rest
+      (fe.push (.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
+        (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)))
+
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major
 (`targetRecTys`), the family's agreements (the counting guard, the
@@ -961,10 +1007,11 @@ rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; `outside` admits majors of inductives outside the block
 (a nested block's containers; the shadow passes `true`, the uniform
-route — non-nested blocks — `false` until lane NESTED); `nested` is
-the elimination guard's container bit as the caller reads it (the
-positivity walk's containers), to which the counting guard adds every
-checked major outside the block (F4).  Returns every recursor with
+route the route switch `uniformNested`); `nested` is the elimination
+guard's container bit as the caller reads it (`blockNestedBit`: the
+positivity walk's containers, the recogniser's auxiliary recursors), to
+which the counting guard adds every checked major outside the block
+(F4).  Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
