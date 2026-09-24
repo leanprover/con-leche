@@ -219,7 +219,12 @@ theorem tgtOutDec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
             (interp V (consList (xs ++ fs) ρ))))
         mm i fs ∧
       interp V (consList (xs ++ fs) ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ j i)
-        = D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i fs := by
+        = D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i fs ∧
+      SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+          (tgtRP pp.toBlockShape j) (consList xs ρ))
+        (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+        ((tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j) ψ i).map
+          (interp V (consList (xs ++ fs) ρ))) := by
   obtain ⟨dsa, hdsa, hul, hds, hlenP, hsatF⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
   have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
     denoteMetaSpine_eq_map hdsa

@@ -75,6 +75,7 @@ public import ConLeche.Model.Inductives.TargetOutRow
 public import ConLeche.Model.Inductives.TargetOutSat
 public import ConLeche.Model.Inductives.TargetOutRows
 public import ConLeche.Model.Inductives.TargetOutConv
+public import ConLeche.Model.Inductives.TargetOutChain
 public import ConLeche.Model.Inductives.TargetOutIdx
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
