@@ -86520,3 +86520,9 @@ inductive").  Report: `_tmp/uniform-inds/L8b.md`.
   basis side; (3) (the 43 fold step lemmas forget `lfpBlocks`) and (4)
   (`ContBlockOk.ctors` needs constructor ownership) remain, and the
   whole stays false while the modeller installs `.indInfo` (Q-B, L9).
+- **Verdicts: none moved.**  Gates: `lake build`/`lake test` 0 warnings;
+  `tests/arena.sh` EXIT 0 (arena 90/92, e2e 301/301, nested-shadow 82/82,
+  target-shadow 317/317, annot 15/15, shake 542/542, pub-imports none
+  demotable; the `IndCaps.all` docstring keeps its line count for the
+  overview-links gate); init-full: exit 0, 53 093 accepted.  No `sorry`,
+  no new axiom.
