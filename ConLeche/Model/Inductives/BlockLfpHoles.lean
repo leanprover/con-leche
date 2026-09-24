@@ -2,9 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Semantics.Kit
-import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.NatEqs
 import ConLeche.Semantics.Tower.BlockRecI
 public section
 

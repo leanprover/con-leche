@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.LfpHoleOp
-public import ConLeche.SetModel.TupleContainer
+import ConLeche.SetModel.TupleContainer
 public import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Tower.FixRecCoreI
 import ConLeche.Semantics.Tower.SumRecCase

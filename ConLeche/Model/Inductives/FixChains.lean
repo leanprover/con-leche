@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.FixShadow
-public import ConLeche.Semantics.Tower.FixFamI
 public section
 
 /-!

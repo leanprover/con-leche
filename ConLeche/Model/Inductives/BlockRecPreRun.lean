@@ -7,7 +7,6 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData
-import ConLeche.Model.Inductives.BlockModel
 
 public section
 

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Semantics.Tower.BlockLeafI
 public import ConLeche.Semantics.Tower.FixFamI
-import ConLeche.SetModel.TupleContainer
 @[expose] public section
 
 /-!

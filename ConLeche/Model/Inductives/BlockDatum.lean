@@ -7,8 +7,8 @@ import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Inductives.BlockHoleFlat
 import ConLeche.Model.Inductives.BlockHoleFold
-import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.SetModel.TupleContainer
 public import ConLeche.Verify.Inductives.BlockWF
 public section
 

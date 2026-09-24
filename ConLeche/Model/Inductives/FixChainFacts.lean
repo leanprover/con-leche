@@ -1,9 +1,7 @@
 module
 
-import ConLeche.Model.Inductives.FixChains
-import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.FixChains
-import ConLeche.Model.Inductives.FixTeleBound
+public import ConLeche.Model.Inductives.BlockData
 public section
 
 /-!

@@ -366,6 +366,19 @@ FALLBACK = {
     # demoting it alone fails the build with `Unknown constant
     # ConLeche.Expr.shiftFromN` (`:53`).
     ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Verify.Inductives.FixRec'),
+    # lane HOLE2 session 5 (the gate after the slot machinery went): five
+    # more, each MEASURED by demoting it alone.  Downstream reaches
+    # through three of them (`consList_eq_chainFrame`,
+    # `BlockDeclRun.lean:617`; `frameIdx_eq_reverse_map`,
+    # `BlockStageCtors.lean:347`; `mkPisAV_below_of`,
+    # `BlockRecData.lean:356`); `LfpHoleWitness` states `NoBVar` (`:92`)
+    # and `FixTeleBound`'s `variable [SetTheory V]` binder resolves
+    # through `FixNoBVar` (`:36`).
+    ('ConLeche.Model.Inductives.BlockRecGraph','ConLeche.Model.Inductives.BlockRecPreHpre'),
+    ('ConLeche.Model.Inductives.FixAssemblyKit','ConLeche.Model.Inductives.FixStageFormer'),
+    ('ConLeche.Model.Inductives.FixLeafOk','ConLeche.Semantics.Tower.FixWire'),
+    ('ConLeche.Model.Annot.LfpHoleWitness','ConLeche.Semantics.NoBVar'),
+    ('ConLeche.Model.Inductives.FixTeleBound','ConLeche.Model.Inductives.FixNoBVar'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

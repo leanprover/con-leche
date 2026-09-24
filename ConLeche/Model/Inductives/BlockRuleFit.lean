@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.BlockModel
 
 public section
 

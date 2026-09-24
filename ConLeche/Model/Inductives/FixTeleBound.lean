@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixChains
+public import ConLeche.Model.Inductives.FixNoBVar
 import ConLeche.Semantics.Frame
 public section
 /-!
