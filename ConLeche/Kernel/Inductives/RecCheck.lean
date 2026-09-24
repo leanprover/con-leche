@@ -82,10 +82,16 @@ structure ShadowOps (m : Type → Type) where
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- A checker's operations as shadow operations: the same at every
+index, no flush, the plain walkers — how the PURE install runs the
+check (`checkBlockRec`, `BlockInstall.lean`). -/
+def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain⟩
+
 /-- The pure operations at fuel `F`, at every index (the fueled
 instantiation the model reads a run of). -/
 def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ⟨fun _ => fueledOps mode F, fun _ => fueledOps mode F, Pure.pure (), .plain⟩
+  ShadowOps.ofOps (fueledOps mode F)
 
 /-- The pure shadow operations: `pureOps` at the index's environment. -/
 def ShadowOps.pure (mode : CheckMode) : ShadowOps CheckM :=
@@ -215,7 +221,6 @@ Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
-  let cvT0 ← unwrapOr cvTas.head? (.internal "target rec: no type former")
   let cvRi ← checkConstantValF ops fe rc.cvR
   let rP := rc.rP
   let mI := rc.mI
@@ -227,16 +232,26 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   let (fvs, concl) ← unwrapOr (openPisAtFvars (mI + 1) cvRi.type 0)
     (.invalid "target rec: the recursor's type does not bind its parameters, its indices \
       and its major premise")
-  let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvT0.type 0)
-    (.internal "target rec: type former telescope")
-  checkBlockDefEqList ops fe.env p.nP
-    s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
-    (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
   let maj ← unwrapOr fvs[mI]? (.internal "target rec: major premise")
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
   let M ← targetMajorOf fe p outside ctorsAs fvs mty
+  -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
+  -- read by the recogniser off the declared major); they differ only where
+  -- the declared type reaches its major through a `let` the annotation
+  -- unfolds — a record official never writes, and today's check rejected
+  unless M.member.all (· == rc.tgt) do
+    throw (.invalid "target rec: the recursor record's member is not its major's")
+  -- K6: the parameter domains against the MAJOR's former (a member's own;
+  -- an outside major's: the first former's), as today's check compared them
+  let cvTP ← unwrapOr (M.member.elim cvTas.head? (fun t => cvTas[t]?))
+    (.internal "target rec: no type former")
+  let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTP.type 0)
+    (.internal "target rec: type former telescope")
+  checkBlockDefEqList ops fe.env p.nP
+    s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
+    (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
   unless mI == rP + M.nIdx do
     throw (.invalid "target rec: the recursor's major-premise index is not its rule prefix \
       plus the major's index count")
@@ -906,6 +921,13 @@ def targetFamilyOf (p : BlockShape) (tys : List (ConstantVal × TargetMajor × L
     recTys := tys.map (·.1.type),
     mIs := p.recs.map (·.mI),
     rPs := p.recs.map (·.rP) }
+
+/-- **The stored family, in the install's recursor-list format**: each
+checked recursor, its annotated rules, its major's index count and its
+major's constructors (`consBlockRecs` conses them). -/
+def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
+    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
+  out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
 
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major

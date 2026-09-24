@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Semantics.Decl
+public import ConLeche.Kernel.CheckDecl
 public import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.IotaWalkInv
 

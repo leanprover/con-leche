@@ -125,7 +125,7 @@ named, on the uniform route. -/
 structure TargetTyEntry (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level) : Type where
-  cvT0 : ConstantVal
+  cvTP : ConstantVal
   fvs : List Expr
   concl : Expr
   tfvs : List Expr
@@ -133,21 +133,24 @@ structure TargetTyEntry (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape
   maj : Expr
   idoms : List Expr
   sty : Expr
-  hcvT0 : cvTas.head? = some cvT0
   hcv : checkConstantValF (fueledOps mode F) fe rc.cvR = .ok cvRi
   /-- the prefix starts with the block's parameters -/
   hroom : p.nP ≤ rc.rP
   hle : rc.rP ≤ rc.mI
   hopen : openPisAtFvars (rc.mI + 1) cvRi.type 0 = some (fvs, concl)
-  hopenT : openPisAtFvars p.nP cvT0.type 0 = some (tfvs, trest)
-  /-- the parameter domains, binder by binder, against the first former's -/
+  hmaj : fvs[rc.mI]? = some maj
+  /-- THE MAJOR, resolved (the uniform route: a member) -/
+  major : TargetMajorRun p ctorsAs fvs maj.fvarTypeD M
+  /-- (K7) a member major is the member the record names -/
+  htgt : M.member.all (· == rc.tgt) = true
+  /-- (K6) the major's former (a member's own) -/
+  hcvTP : M.member.elim cvTas.head? (fun t => cvTas[t]?) = some cvTP
+  hopenT : openPisAtFvars p.nP cvTP.type 0 = some (tfvs, trest)
+  /-- the parameter domains, binder by binder, against the major's former's -/
   hparLen : (tfvs.map Expr.fvarTypeD).length = ((fvs.take p.nP).map Expr.fvarTypeD).length
   hparams : ∀ l, l < (tfvs.map Expr.fvarTypeD).length →
     isDefEqCore mode fe.env F p.nP ((tfvs.map Expr.fvarTypeD).getD l default)
       (((fvs.take p.nP).map Expr.fvarTypeD).getD l default) = .ok true
-  hmaj : fvs[rc.mI]? = some maj
-  /-- THE MAJOR, resolved (the uniform route: a member) -/
-  major : TargetMajorRun p ctorsAs fvs maj.fvarTypeD M
   hmI : rc.mI = rc.rP + M.nIdx
   hmajLen : maj.fvarTypeD.getAppArgs.length = M.nPc + M.nIdx
   hmajIdx : maj.fvarTypeD.getAppArgs.drop M.nPc = (fvs.drop rc.rP).take (rc.mI - rc.rP)
@@ -172,8 +175,8 @@ variable {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool} {cvTas : List Co
 theorem member (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
     ∃ t ms, M.member = some t ∧ p.members[t]? = some ms ∧ M.nIdx = ms.nIdx ∧
       M.nPc = p.nP ∧ ctorsAs[t]? = some M.ctors := by
-  obtain ⟨_, _, _, _, _, _, _, _, _⟩ := E
-  rename_i major _ _ _ _ _ _ _ _ _
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
+    _⟩ := E
   cases major with
   | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨t, ms, rfl, hms, rfl, rfl, hctors⟩
 
@@ -186,7 +189,6 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     (h : targetRecTy (fueledOps mode F) fe p false nested cvTas ctorsAs rc = .ok (cvRi, M, u)) :
     Nonempty (TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) := by
   unfold targetRecTy at h
-  obtain ⟨cvT0, hcvT0, h⟩ := exceptBind_ok h
   obtain ⟨cvRi', hcv, h⟩ := exceptBind_ok h
   by_cases hroom : p.nP ≤ rc.rP
   case neg => rw [if_neg hroom] at h; close_throw h
@@ -196,12 +198,16 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
   rw [if_pos hle] at h
   obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
   obtain ⟨fvs, concl⟩ := x1
-  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
-  obtain ⟨tfvs, trest⟩ := x2
-  obtain ⟨ud, hud, h⟩ := exceptBind_ok h
   obtain ⟨maj, hmaj, h⟩ := exceptBind_ok h
   obtain ⟨M', hM', h⟩ := exceptBind_ok h
   obtain ⟨R⟩ := targetMajorOf_run hM'
+  by_cases htgt : (M'.member.all (· == rc.tgt)) = true
+  case neg => rw [if_neg htgt] at h; close_throw h
+  rw [if_pos htgt] at h
+  obtain ⟨cvTP, hcvTP, h⟩ := exceptBind_ok h
+  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
+  obtain ⟨tfvs, trest⟩ := x2
+  obtain ⟨ud, hud, h⟩ := exceptBind_ok h
   by_cases hmI : (rc.mI == rc.rP + M'.nIdx) = true
   case neg => rw [if_neg hmI] at h; close_throw h
   rw [if_pos hmI] at h
@@ -224,10 +230,11 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     simp only [Prod.mk.injEq] at heq
     obtain ⟨rfl, rfl, rfl⟩ := heq
     exact ⟨{
-          cvT0 := cvT0, fvs := fvs, concl := concl, tfvs := tfvs, trest := trest,
-          maj := maj, idoms := idoms, sty := sty, hcvT0 := unwrapOr_ok hcvT0, hcv := hcv,
-          hroom := hroom, hle := hle, hopen := unwrapOr_ok hx1, hopenT := unwrapOr_ok hx2,
-          hparLen := hpl, hparams := hpall, hmaj := unwrapOr_ok hmaj, major := R, hmI := hmI,
+          cvTP := cvTP, fvs := fvs, concl := concl, tfvs := tfvs, trest := trest,
+          maj := maj, idoms := idoms, sty := sty, hcv := hcv,
+          hroom := hroom, hle := hle, hopen := unwrapOr_ok hx1, hmaj := unwrapOr_ok hmaj,
+          major := R, htgt := htgt, hcvTP := unwrapOr_ok hcvTP, hopenT := unwrapOr_ok hx2,
+          hparLen := hpl, hparams := hpall, hmI := hmI,
           hmajLen := hargs.1, hmajIdx := hargs.2, hidoms := hidoms,
           hidxLen := (by simpa using hil), hidx := fun l hl => hiall l hl, hsty := hsty,
           hu := hu', hsmall := hsmall }⟩

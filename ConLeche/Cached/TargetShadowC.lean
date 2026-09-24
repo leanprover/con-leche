@@ -21,10 +21,6 @@ namespace ConLeche.Cached
 
 variable (mode : CheckMode)
 
-/-- The cached shadow operations. -/
-def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC⟩
-
 /-- **The target shadow through the index.** -/
 def targetShadowS (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) :
     CheckCM TargetShadowReport :=

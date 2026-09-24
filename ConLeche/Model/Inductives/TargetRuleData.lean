@@ -28,11 +28,6 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor
   TargetIh TargetFamily TargetFrame)
 
-/-- The check's output in the model's recursor-list format. -/
-@[expose] def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
-    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
-  out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
-
 /-- The family's shared data, from the stored recursors. -/
 @[expose] def tgtFam (p : BlockShape)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : TargetFamily :=

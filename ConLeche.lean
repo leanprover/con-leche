@@ -12,6 +12,7 @@ public import ConLeche.Kernel.CoreIO
 public import ConLeche.Kernel.CoreGated
 public import ConLeche.Kernel.CheckerGated
 public import ConLeche.Kernel.Checker
+public import ConLeche.Kernel.CheckDecl
 public import ConLeche.Verify.Level
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.InstLevels
