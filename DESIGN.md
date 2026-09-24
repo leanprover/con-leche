@@ -86929,3 +86929,35 @@ v4.33.0, v4.33.1 and v4.34.0 (elan); sources and outputs under
   expected); one OVERVIEW anchor (`nestNormCtor`) repointed (moved,
   unchanged).  init-full: exit 0, 53 093 accepted, unchanged.  No
   `sorry`, no new axiom.
+
+#### LANDED (lane HOLE2, checkpoint (d) session 6, part 1: (β′) — the stored constructor IS its positivity normal form, 2026-09-24)
+
+The maintainer's ruling of 2026-09-24 ("RULING + DOCKET — the semantic
+view and constructors installed as given", above), its first bullet.
+
+- **The check.**  `checkBlockPositivity` (`BlockInstall.lean`) runs the
+  walk as `nestBlockCtors … (stable := true)`: for every stored
+  constructor, `nestMemberCtors` compares `nestMemberCtor`'s normal form
+  `tyN` with the member-abstracted stored type `crest` it walked, and
+  throws `.internal` (exit 3) when they differ.  `nestNormCtor`/
+  `nestNormCtorF` (the constructor stage) and `nestedBlockPositivity`
+  (shadows, unit tests) pass `false`.  No verdict can move except to
+  exit 3, and that was measured never to happen.
+- **What the model gets.**  `checkBlockPositivity_inv` now states the
+  walk's run with its output equal to its input,
+  `nestMemberCtor … crest st₀ = .ok (ks, crest, st₁)`.  This is the one
+  place the stored fields' syntax will be read from: the "stored field
+  shape facts" producer of stage E2 inverts this run.
+- **Measured never to fire** (binary at ab197da1, under
+  `_tmp/uniform-inds/HOLE2/beta/`): `tests/arena.sh` e2e 344/344,
+  arena 90/92, nested-shadow 111/111, target-shadow 365/365, annot 15/15,
+  trusted and `--jobs` sweeps as expected; init-full exit 0, 53 093
+  accepted; Mathlib (`mathlib-full.ndjson`, `--jobs=8`) exit 0, 654 504
+  accepted — the same counts as before.
+- Proofs: the flag threaded through `nestMemberCtors_datF`/
+  `nestBlockCtors_datF`, the cached simulations (`NestPosC.lean`, one
+  `split` for the new `if`) and the inversions (`PositivityInv.lean`).
+  Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0
+  after one OVERVIEW anchor repoint (`nestNormCtor`, moved by the new
+  docstring lines).  No `sorry`, no new axiom.  Line delta (`ConLeche/`):
+  +81 / −65.
