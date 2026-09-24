@@ -79375,6 +79375,14 @@ this block wins.
    corpus.  "No instance in Mathlib" is not an argument.  "Official never
    generates this" counts only if it holds for all nested inductives.
    (2026-09-18, 2026-09-22)
+9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
+   inductives or recursors that the OFFICIAL kernel also imposes may be
+   added whenever it is necessary or simplifies the proof.  Few are
+   desirable, and sometimes not having one is cleaner (the slot design
+   was the counter-example).  "Verdict-neutral on the corpus" does not
+   establish that official imposes a restriction.  Each restriction must be
+   justified against official's code (`inductive.cpp`, the recursor rules),
+   or else reported as an accept-subset finding.
 8. **Accepted supersets of official (ruled 2026-09-23).**  Each case
    below is sound and stays accepted.  If one ever becomes an issue, a
    dedicated reject-only check goes into `ConLeche/Conformance/`; the
