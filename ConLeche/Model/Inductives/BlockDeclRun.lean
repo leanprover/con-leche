@@ -1182,6 +1182,8 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).toLfp
+      ∈ mpC.lfpBlocks)
     (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
       ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM c))
     {s : (Name → Nat) → Nat} {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
@@ -1300,7 +1302,7 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
               fire := .plain, rhs := rhs, paramsBlind := true }) rhs := by
   intro m₃ hac φ j r hr i cA rhs hcA hrhs
   have hj : j < rs.length := (List.getElem?_eq_some_iff.mp hr).1
-  have hM := blockModelAt_seam h hN hS hcore
+  have hM := blockModelAt_seam h hN hS hcore hlfp
   have hmr := blockMembersRun_seam hN hS hcore
   -- the member link and the constructor's facts
   obtain ⟨ms, hms, hctA, hlenms⟩ := checkBlockRecK_ctorsAt h hr

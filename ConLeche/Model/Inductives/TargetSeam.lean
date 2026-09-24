@@ -256,6 +256,8 @@ theorem tgtRuleDataB_seam (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).toLfp
+      ∈ mpC.lfpBlocks)
     (hmr : BlockMembersRun mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.toBlockShape cvTas)
     (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
@@ -359,7 +361,7 @@ theorem tgtRuleDataB_seam (hμ : μ.verifiedChecks = true)
   have hformer := tgtFormer_facts hmr
   have hPF := blockRuleHokPF_of hμ h hkLen hokA
   have hdF := blockRuleHdF_seam (mpC := mpC) h hcore
-  refine blockRuleDataB_seam_gen hμ h hndM hN hS hcore hctorsAs heqB heqV heqP hpre ?_
+  refine blockRuleDataB_seam_gen hμ h hndM hN hS hcore hlfp hctorsAs heqB heqV heqP hpre ?_
   intro m₃ hac φ j r hr i cA rhs hcA hrhs hread hsp
   obtain ⟨hCf, hCb, hCc⟩ := hC j r hr i cA hcA
   exact tgtRuleResidueB hμ h R hndM hr hcA hrhs hac (blockRecLeafAV_closed hμ mpC h heqB) hpre
@@ -630,7 +632,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
       have hmr := blockMembersRun_seam hnames hstage hcore
-      have hM := blockModelAt_seam hrec hnames hstage hcore
+      have hM := blockModelAt_seam hrec hnames hstage hcore hlfp
       have hokA := blockRuleGrading_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage
         hcore hmr hM
       have heqB := tgtRecEqs_below_seam hμ hrec R hcore hmr hkLen
@@ -657,8 +659,8 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       · exact fun j r hr => blockRecNCt_ge hr
       · exact fun ψ j r hr => blockRulePdomsAV_length hμ mpC hrec hr ψ
       · exact blockRecCtor_seam hrec hnames hcore hctorsAs
-      · exact tgtRuleDataB_seam hμ hrec R hnd hnames hstage hcore hmr hctorsAs hkLen heqB heqV
-          heqP hpre hokA
+      · exact tgtRuleDataB_seam hμ hrec R hnd hnames hstage hcore hlfp hmr hctorsAs hkLen heqB
+          heqV heqP hpre hokA
       · exact blockRecTyZ_run hμ mpC hrec
       · exact tgtRuleRaZ_seam hμ hrec R hpre
 
