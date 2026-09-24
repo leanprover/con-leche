@@ -904,10 +904,19 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
     (hwalk : ConLeche.nestCtors ctx (fueledOps .verified F) env rec
       ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
       (grpSub us hi grp) ctors st₁ = .ok st₂) :
-    I st₂ ∧ (st₂.restart = none → ∀ ρ ρ', R₀ ρ ρ' → ∀ c, InGrp D grp c →
+    I st₂ ∧ (st₂.restart = none → (∀ ρ ρ', R₀ ρ ρ' → ∀ c, InGrp D grp c →
       FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-        (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) := by
+        (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) ∧
+      -- the per-constructor HOLE-FIT transfer the carriers' growth is built
+      -- from (`ctor_transfer` along the frame relation), exported for lane
+      -- NESTIND (lane NESTKERN session 2)
+      ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp g → ∀ t j fs,
+        D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+          (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+          t g j fs →
+        D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
+          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs) := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   obtain ⟨hI₁, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
   -- every walked constructor is one of the group's constructors
@@ -956,100 +965,112 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
       obtain ⟨-, -, -, -, hgr, -⟩ := hIS hfr hC.toCtxOk hrd
       exact ⟨_, hfr, hC, hrd, hgr⟩)
     ctors st₁ st₂ hQ hwalk hI₁
-  refine ⟨hI₂, fun hc₂ ρ ρ' hr => ?_⟩
+  refine ⟨hI₂, fun hc₂ => ?_⟩
   have hw := hwalked hc₂
+  have hkNN := h.kN
+  have htr : ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp g → ∀ t j fs,
+      D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+        (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+        t g j fs →
+      D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
+        (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs := by
+    intro ρ ρ' hr g hG t j fs hf
+    obtain ⟨hs, hs'⟩ := hfit ρ ρ' hr
+    have hag : AgreeOff (holeP hi ctx.nP hi) ρ ρ' := by
+      have := hR₀.agree ρ ρ' hr; rwa [hhi] at this
+    have hj : j < D.nctors g := hf.1
+
+    -- the constructor `(g, j)`
+    obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
+    have hjL : j < L.length := by rw [hlenL]; exact hj
+    obtain ⟨hxmem, hnP'⟩ : L[j] ∈ ctors ∧ nP' = ds.length := by
+      obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
+        hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
+      rw [hL] at hL''
+      obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
+      refine ⟨hall _ (List.getElem_mem hjL), ?_⟩
+      rcases hnP'' with h' | h'
+      · exact h'
+      · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
+    have hfc := hfL j hjL
+    rw [hnP'] at hfc
+    obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
+    obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
+      crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
+    rw [hcr] at hcr'
+    obtain rfl := Option.some.inj hcr'
+    rw [hca] at hrd
+    obtain rfl := Option.some.inj hrd
+    -- the substituted result head is the member's hole
+    have hhead : ∃ p, ((substTau (ds.length + D.k) (hi + grp.length)
+        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN L[j].2 0
+          = .bvar p := by
+      have hgk := hG.1
+      simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
+      rw [show ds.length + D.k - 1 - (D.k - 1 - g) = ds.length + g by omega]
+      have hr := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length + g)
+        (by omega)).2.2
+      unfold grpS at hr
+      rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr
+      obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member g := by
+        obtain ⟨i, hi', h'⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
+        exact ⟨i, by simpa using hi', by simpa using h'⟩
+      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some, denoteMeta_fvar] at hr
+      rw [← Option.some.inj hr]
+      exact ⟨hi + grp.length - 1 - (hi + i) + L[j].2, by simp⟩
+    obtain ⟨p, hp⟩ := hhead
+    have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ)
+      (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) ρ
+    have hLv := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ')
+      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) ρ'
+    have hagS := holeAgree_instance mp hD hs ρ (fun mm => decide (InGrp D grp mm))
+      (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+      (vs := (List.range D.k).map fun mm =>
+        if decide (InGrp D grp mm) = true then
+          D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+            (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) mm
+        else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
+      (by simp) (fun m hm => by simp)
+    have hagL := holeAgree_instance mp hD hs' ρ' (fun mm => decide (InGrp D grp mm))
+      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
+      (vs := (List.range D.k).map fun mm =>
+        if decide (InGrp D grp mm) = true then
+          D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ')
+            (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) mm
+        else interp V ρ' (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
+      (by simp) (fun m hm => by simp)
+    have htS : (fun c => if decide (InGrp D grp c) = true then
+          grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') c
+        else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
+        = grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') := by
+      funext c
+      unfold grpTuple
+      by_cases hc : InGrp D grp c <;> simp [hc]
+    have htL : (fun c => if decide (InGrp D grp c) = true then
+          D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c
+        else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)
+        = D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') := by
+      funext c
+      by_cases hc : InGrp D grp c <;> simp [hc]
+    rw [htS, hlenP] at hagS
+    rw [htL, hlenP] at hagL
+    have hsatS := frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm))
+      (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+      (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hag) ρ
+    have hsatL := frameVals_sat mp hD hs' hlT hTys (fun mm => decide (InGrp D grp mm))
+      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
+      (fun c hc => lfpTuple_mem _ _ _ _ c hc) ρ'
+    exact ctor_transfer hEqF hlen hlenP hp hpos hres hidx
+      (h.holeApp _ g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj) ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hagS hagL
+      hsatS hsatL t fs hf
+  refine ⟨fun ρ ρ' hr => ?_, htr⟩
   obtain ⟨hs, hs'⟩ := hfit ρ ρ' hr
   have hag : AgreeOff (holeP hi ctx.nP hi) ρ ρ' := by
     have := hR₀.agree ρ ρ' hr; rwa [hhi] at this
-  have hkNN := h.kN
   intro c hc
-  refine h.carrier_le_on_group' hs hs' (InGrp D grp)
+  exact h.carrier_le_on_group' hs hs' (InGrp D grp)
     (fun g _ hG => grp_idx_eq mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG hag)
-    (fun g _ hG t _ j fs hf => ?_) c (Nat.lt_of_lt_of_le hc.1 hkNN) hc
-  have hj : j < D.nctors g := hf.1
-  -- the constructor `(g, j)`
-  obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
-  have hjL : j < L.length := by rw [hlenL]; exact hj
-  obtain ⟨hxmem, hnP'⟩ : L[j] ∈ ctors ∧ nP' = ds.length := by
-    obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
-      hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
-    rw [hL] at hL''
-    obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
-    refine ⟨hall _ (List.getElem_mem hjL), ?_⟩
-    rcases hnP'' with h' | h'
-    · exact h'
-    · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
-  have hfc := hfL j hjL
-  rw [hnP'] at hfc
-  obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
-  obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
-    crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
-  rw [hcr] at hcr'
-  obtain rfl := Option.some.inj hcr'
-  rw [hca] at hrd
-  obtain rfl := Option.some.inj hrd
-  -- the substituted result head is the member's hole
-  have hhead : ∃ p, ((substTau (ds.length + D.k) (hi + grp.length)
-      (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN L[j].2 0
-        = .bvar p := by
-    have hgk := hG.1
-    simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
-    rw [show ds.length + D.k - 1 - (D.k - 1 - g) = ds.length + g by omega]
-    have hr := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length + g)
-      (by omega)).2.2
-    unfold grpS at hr
-    rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr
-    obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member g := by
-      obtain ⟨i, hi', h'⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
-      exact ⟨i, by simpa using hi', by simpa using h'⟩
-    rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some, denoteMeta_fvar] at hr
-    rw [← Option.some.inj hr]
-    exact ⟨hi + grp.length - 1 - (hi + i) + L[j].2, by simp⟩
-  obtain ⟨p, hp⟩ := hhead
-  have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ)
-    (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) ρ
-  have hLv := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ')
-    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) ρ'
-  have hagS := holeAgree_instance mp hD hs ρ (fun mm => decide (InGrp D grp mm))
-    (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
-    (vs := (List.range D.k).map fun mm =>
-      if decide (InGrp D grp mm) = true then
-        D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ)
-          (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) mm
-      else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-    (by simp) (fun m hm => by simp)
-  have hagL := holeAgree_instance mp hD hs' ρ' (fun mm => decide (InGrp D grp mm))
-    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
-    (vs := (List.range D.k).map fun mm =>
-      if decide (InGrp D grp mm) = true then
-        D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ')
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) mm
-      else interp V ρ' (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-    (by simp) (fun m hm => by simp)
-  have htS : (fun c => if decide (InGrp D grp c) = true then
-        grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') c
-      else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-      = grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') := by
-    funext c
-    unfold grpTuple
-    by_cases hc : InGrp D grp c <;> simp [hc]
-  have htL : (fun c => if decide (InGrp D grp c) = true then
-        D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c
-      else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)
-      = D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') := by
-    funext c
-    by_cases hc : InGrp D grp c <;> simp [hc]
-  rw [htS, hlenP] at hagS
-  rw [htL, hlenP] at hagL
-  have hsatS := frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm))
-    (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
-    (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hag) ρ
-  have hsatL := frameVals_sat mp hD hs' hlT hTys (fun mm => decide (InGrp D grp mm))
-    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
-    (fun c hc => lfpTuple_mem _ _ _ _ c hc) ρ'
-  exact ctor_transfer hEqF hlen hlenP hp hpos hres hidx
-    (h.holeApp _ g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj) ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hagS hagL
-    hsatS hsatL t fs hf
+    (fun g _ hG t _ j fs hf => htr ρ ρ' hr g hG t j fs hf) c (Nat.lt_of_lt_of_le hc.1 hkNN) hc
 
 end Frame
 
@@ -1153,11 +1174,18 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog hi us ds ds.length r grp st₀
         = .ok (grp', st') → I st₀ →
       I st' ∧ (st'.restart = none → lps.Nodup ∧ GrpOk ctx D hi us ds grp' ∧
-        (grp'.headD default).1 = n ∧ ∀ ρ ρ', R₀ ρ ρ' → ∀ c,
+        (grp'.headD default).1 = n ∧ (∀ ρ ρ', R₀ ρ ρ' → ∀ c,
         InGrp D grp' c →
         FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
           (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) := by
+          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) ∧
+        -- the per-constructor hole-fit transfer (`frameIter`), exported
+        ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp' g → ∀ t j fs,
+          D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+            (grpTuple D (Level.substFn φ lps us) grp' (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+            t g j fs →
+          D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
+            (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs) := by
   intro r
   induction r with
   | zero =>
@@ -1268,6 +1296,6 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       rename_i hrs
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
-      exact ⟨hI₂, fun hc => ⟨hnd, hg, hhead, hle hc⟩⟩
+      exact ⟨hI₂, fun hc => ⟨hnd, hg, hhead, (hle hc).1, (hle hc).2⟩⟩
 
 end ConLeche.Model

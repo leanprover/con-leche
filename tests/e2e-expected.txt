@@ -1374,7 +1374,9 @@
 # nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
 # Official v4.33.0 ACCEPTS, v4.34.0-rc2 REJECTS with
 # `check_uniform_ind_occs`; the arena's expected outcome for the shape
-# is `either`.  This checker accepts it.
+# is `either`.  This checker accepts it today (the modeller); the
+# uniform route REJECTS it (lane NESTKERN s2: M3 on the walk's normal
+# form — the hole applied to a non-parameter), official v4.33.1+'s verdict.
 0 nested_nonuniform_param.ndjson
 # nested_aux_clash: `nested_p03`'s stream with one ordinary definition
 # NAMED `_nested.List_2.cons` inserted before the block — the name the
@@ -2100,6 +2102,15 @@
 # (the modeller).  TARGET 1 (both).
 1 restrict_a27_m2prime_redex.ndjson
 0 restrict_a28_m2prime_phantom.ndjson
+# FINDING M3 (lane NESTKERN, session 2) — the other half of official's
+# `check_uniform_ind_occs` (v4.33.1+): a member UNAPPLIED where the walk
+# never reads it.  a29: `Wrap (F : Type → Type) | mk : Nat → Wrap F`,
+# `T (α) | mk : Wrap T → T α` (a phantom container parameter).
+# Official 0 up to v4.33.0, 1 from v4.33.1 (the same message as M2′).
+# The uniform model needs every hole applied to the parameters (M3):
+# the walk's normal form is checked (`Expr.holesApplied`).  Today 0 (the
+# modeller); TARGET 1 (the uniform route's check, official's wording).
+0 restrict_a29_m3_phantom_unapplied.ndjson
 # The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
 # repointed to the member inside the block, levels kept; the `_free`
 # half is the exported, accepted block).

@@ -24,6 +24,10 @@
 #     target REJECTS — M2′, official's `check_uniform_ind_occs` since
 #     v4.33.1 (charter item 9; `restrict_a27_m2prime_redex` rejects on
 #     both).
+#   * `restrict_a29_m3_phantom_unapplied`, `nested_nonuniform_param`:
+#     today accept (the modeller), the target REJECTS — M3 on the walk's
+#     normal form (`Expr.holesApplied`, lane NESTKERN s2), official's
+#     `check_uniform_ind_occs` since v4.33.1.
 tests/e2e/indexed_vec.ndjson 1 0 -
 tests/e2e/prop_proj.ndjson 1 0 -
 tests/e2e/nat_ops.ndjson 1 0 -
@@ -238,7 +242,7 @@ tests/e2e/nested_p31.ndjson 1 2 -
 tests/e2e/nested_lam_pin_prop.ndjson 1 0 T=accept/accept/accept/skip/accept/1
 tests/e2e/nested_pin_prop_cod.ndjson 1 2 -
 tests/e2e/nested_unused_param.ndjson 1 1 -
-tests/e2e/nested_nonuniform_param.ndjson 1 0 E=accept/accept/accept/skip/accept/1
+tests/e2e/nested_nonuniform_param.ndjson 1 0 E=accept/reject/skip/skip/reject/1
 tests/e2e/nested_aux_clash.ndjson 1 0 P3=accept/accept/accept/skip/accept/3
 tests/e2e/nested_bvar_field.ndjson 1 0 J=accept/accept/accept/skip/accept/1,BvarField=accept/accept/accept/skip/accept/2
 tests/e2e/nested_pi_field.ndjson 1 2 -
@@ -365,6 +369,7 @@ tests/e2e/restrict_a01_ctorless_container.ndjson 1 0 T=accept/accept/accept/skip
 tests/e2e/restrict_a01b_ctorless_indexed.ndjson 1 0 T=accept/accept/accept/skip/accept/1
 tests/e2e/restrict_a27_m2prime_redex.ndjson 1 1 T=reject/reject/skip/skip/reject/0
 tests/e2e/restrict_a28_m2prime_phantom.ndjson 1 0 T=accept/reject/skip/skip/reject/1
+tests/e2e/restrict_a29_m3_phantom_unapplied.ndjson 1 0 T=accept/reject/skip/skip/reject/1
 tests/e2e/restrict_b01_idx_only_free.ndjson 1 0 -
 tests/e2e/restrict_b01_idx_only_bad.ndjson 1 1 T=reject/reject/skip/skip/reject/0
 tests/e2e/restrict_b02_m2prime_direct_free.ndjson 1 0 -

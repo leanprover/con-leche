@@ -231,9 +231,22 @@ def targetPinTys (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Un
     targetPinTys ops env d xs
 
 /-- F2's check at a resolved major: an outside major's parameters typed
-at the rule prefix (`targetPinTys`); nothing at a member. -/
+at the rule prefix (`targetPinTys`), and — lane NESTKERN session 2, for
+lane NESTIND's rows `hdec`/`hrule` — the instantiation `I.{us} D⃗` itself
+typed there, so the `D⃗` SATISFY the container's parameter telescope at
+the instantiation (the application's typing checks each `D_i` against
+the telescope's domain instantiated at the earlier ones).  Official checks
+exactly this term: `tc.check(nested, …)` on every replaced nested
+application `I Ds` in the parameters' context (`inductive.cpp` v4.33.0
+:1223–1231, "the parametric arguments `Ds` do not appear in the auxiliary
+declaration, so they would otherwise escape type checking"); the `D⃗`
+mention only the parameter binders, below `rP`.  Nothing at a member. -/
 def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor) : m Unit :=
-  if M.member.isNone then targetPinTys ops env rP M.ds else pure ()
+  if M.member.isNone then do
+    targetPinTys ops env rP M.ds
+    let _ ← ops.inferType env rP (Expr.mkAppN (.const M.ind M.lvls) M.ds)
+    pure ()
+  else pure ()
 
 /-- **One recursor's type** (`checkBlockRecTysF` at any major): the
 constant check; `nP ≤ rP`; the first `nP` binder domains are the block's

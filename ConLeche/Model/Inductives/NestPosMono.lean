@@ -737,6 +737,9 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     · simp [throw, throwThe, MonadExceptOf.throw] at h
     split at h
     · rename_i hok
+      split at h
+      rotate_left
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
       have hks₁ : ∀ k ∈ ks₁, P k := by
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         exact h.1 ▸ hks

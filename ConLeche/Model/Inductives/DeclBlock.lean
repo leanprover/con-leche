@@ -3,9 +3,8 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
-import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Annot.BlockLfpMono
-public import ConLeche.Model.Annot.BlockLfpTup
+import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
 public import ConLeche.Semantics.Inductives.DeclBlock
@@ -310,6 +309,58 @@ theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : 
       show ctorsAs[c]? = some (ctorsAs.getD c [])
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
       rfl) hclosed hnfs
+
+/-- **The constructors' stage with the switch ON** (lane NESTKERN, session
+2): the stage theorems at the switch (`blockTablesStage_of_gen`,
+`blockCtorPos_of_run_gen`), under the input's coverage — the walk's
+container case reads the containers' clauses (`ContCover` at the formers'
+carrier, `lfpCover_formers`) and threads its cache invariant — given (W)
+for the nested hole operator (`NestedClosedOwed`, lane ACCMODEL). -/
+theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
+    (mp : EnvModelM V μ env) (hW : NestedClosedOwed V μ F) :
+    LfpCover mp [] → BlockCtorStageAt V μ F mp true := by
+  intro hcov envI p₀ isRec cvTas q ctorsAs sortsss isorts hE hlps₀ hndM hndC hClps hInd hCtors
+    hsorts pP posKs hPos hpN hpL hpP hpI hpR hfamFree hprojTbl
+  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
+    blockTablesStage_of_gen hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
+      hPos hpN hpL hpP hpI hpR hfamFree hprojTbl (fun _ => hcov) (fun _ => hW)
+  obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of hμ mp hInd hlps₀
+  obtain ⟨-, -, -, -, -, -, -, -, hcons, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
+  have hlenCA : ctorsAs.length = q.k := by
+    obtain ⟨hl, -, -⟩ := ConLeche.checkBlockCtors_inv hCtors
+    rw [hl, List.length_zip, hF.lenCv]
+    exact Nat.min_self _
+  have hlenN : q.memberNames.length = q.k := by
+    show (q.members.map _).length = _; simp; rfl
+  -- coverage at the formers' carrier, the members exempt
+  have hcovI : ∃ mk : EnvModelM V μ envI, mk.base2 = mpI.base2 ∧ LfpCover mk pP.memberNames := by
+    refine lfpCover_formers mp hcons mpI (fun cvTb hcvTb => ?_) hagI (fun cvTb hcvTb => ?_)
+      (fun n hn => ?_) hcov
+    · obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      exact hF.freshOf t cvTb ht
+    · obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      have htk : t < q.k := by
+        have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hF.lenCv] at this
+      rw [hF.nameOf t cvTb ht, hpN]
+      exact getD_mem _ (by rw [hlenN]; exact htk)
+    · rw [hpN] at hn
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hn
+      have htk : t < q.k := by
+        have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hlenN] at this
+      obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hF.lenCv]; exact htk)⟩
+      have hname := hF.nameOf t cvTb hcv
+      rw [List.getD_eq_getElem?_getD, ht] at hname
+      rw [← show cvTb.name = n from hname]
+      exact hF.freshOf t cvTb hcv
+  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_⟩
+  exact blockCtorPos_of_run_gen hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
+    (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+      ConLeche.BlockShape.memberNames])
+    rfl hlenCA (fun c hc => by
+      show ctorsAs[c]? = some (ctorsAs.getD c [])
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
+      rfl) hclosed hnfs (fun _ => hcovI)
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`

@@ -1097,7 +1097,8 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
       = targetMajorPins (fueledOps mode F) env rP M := by
   unfold targetMajorPins
   split
-  · exact targetPinTys_datF env rP F M.ds
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, fueledOpsM_inferType_atF,
+      targetPinTys_datF env rP F M.ds]
   · rfl
 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)

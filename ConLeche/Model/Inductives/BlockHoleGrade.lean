@@ -227,8 +227,9 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
+      p cvTas ctorsAs nst = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
@@ -250,7 +251,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv hrun
+    ConLeche.checkBlockPositivity_inv_gen hrun
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
     omega
@@ -302,8 +303,9 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
+      p cvTas ctorsAs nst = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
@@ -331,14 +333,14 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       FieldsEqOn V (d.holeCtx ψ).reverse (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
       StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
         (d.params ψ).reverse (abN.map (·.2.2)) ((d.Fss c ψ).getD j []) ∧
-      StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (abN.map (·.2.2)) := by
+      (nst = false → StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (abN.map (·.2.2))) := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv hrun
+    ConLeche.checkBlockPositivity_inv_gen hrun
   obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, hks⟩, ⟨ty, hty⟩, hlpN,
-    ⟨xq, sorts, hxq, hsorts⟩, hoccA⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+    ⟨xq, sorts, hxq, hsorts⟩, -⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   rw [hnfe]
   have hCf : cA.1.type.hasFvar = false := hD.hasFvar
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hD.bounded
@@ -424,25 +426,9 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   rw [hkL, hnP, hnIdxs, hFssD.symm] at hS
   rw [hkL, hnP, hnIdxs] at hSf
   -- the normal form mentions no member and has the block's levels
-  have hB : crest.looseBVarsBounded 0 = true := by
-    refine ConLeche.looseBVarsBounded_instPisWith (fun a ha => ?_) ?_ hcrest
-    · obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-      obtain ⟨ty, rfl⟩ := hpar q a hq
-      rfl
-    · unfold ConLeche.nestAbstract
-      refine ConLeche.looseBVarsBounded_replaceConsts (fun c us r hr => ?_) _ 0 hCb
-      split at hr
-      · split at hr
-        · obtain ⟨i, cv, caps, -, rfl⟩ := ConLeche.nestHoles_mem hholes r (List.mem_of_getElem? hr)
-          rfl
-        · exact nomatch hr
-      · exact nomatch hr
   have hoccN : tyN.nestOcc d.memberNames 0 0 = false := by
-    have := storedWalk_nestOcc mp.base2.wf hplen hpar hB hm hks
-      (instPisWith_nestOcc_zero (fun v hv => by
-        obtain ⟨q, hq⟩ := List.getElem?_of_mem hv
-        obtain ⟨ty, rfl⟩ := hpar q v hq
-        exact ⟨_, _, rfl⟩) hcrest hoccA)
+    obtain ⟨-, -, -, -, -, -, -, -, hha⟩ := nestMemberCtor_inv hm
+    have := holesApplied_nestOcc_zero _ hha
     simpa [ConLeche.BlockParts.nestCtx, hnames] using this
   have hlpN' : lpDefF lps tyN = true := by
     rw [← hlps]; exact lpDefF_of_allLevelParamsDefined _ hlpN
@@ -464,8 +450,9 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
       FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
+      p cvTas ctorsAs nst = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
@@ -508,8 +495,9 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
+      p cvTas ctorsAs nst = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length)
@@ -527,7 +515,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length) :
     StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
       (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j []) ∧
-    StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (d.absF ψ c j) := by
+    (nst = false → StoredFieldsFlat d.k d.nP (d.w ψ) d.nIdxAt (d.absF ψ c j)) := by
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
     omega
