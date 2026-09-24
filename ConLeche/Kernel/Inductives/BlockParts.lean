@@ -364,6 +364,20 @@ def recMajorForeign (names : List Name) (mI : Nat) (ty : Expr) : Bool :=
      | _ => false)
   | _ => false
 
+/-- **THE ROUTE SWITCH — the one predicate the flip (NESTPLAN L9) changes**
+(lane PROJFIX, 2026-09-24): does a recognised SHAPE belong to the
+modelled route?  Today it does exactly when one of its recursors
+eliminates out of a constant outside the block (`recMajorForeign`: a
+nested block's auxiliary recursor).  The recogniser (`blockParts?`)
+refuses such a shape, and everything that must follow the route reads
+`blockParts?` and nothing else: the install dispatch (`checkDecl`,
+`checkDeclC`, the proofs' dispatch sites) and the frontend's
+projection-function rewrite (`uniformRoute`, `projRecOwners`), which
+must not rewrite a block whose `.proj` nodes the uniform route serves
+from its projection table.  The flip makes this `false`. -/
+def modelledRoute (p : BlockShape) : Bool :=
+  p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type)
+
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
@@ -568,8 +582,15 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
     -- fallback: the dispatch is the recogniser alone, task #219).  A
     -- recursor whose type has no major AT ALL is a broken record of
     -- this block's own recursor and stays here, to be rejected
-    if p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type) then none
+    if modelledRoute p then none
     else some ⟨p, [], blockRecPinOk p block⟩
   | none => none
+
+/-- **Which route WILL install a block**: the uniform one exactly when
+the recogniser takes it (the dispatch is `blockParts?` alone, task
+#219), and so it moves with `modelledRoute` at the flip.  Read by the
+frontend's projection rewrite (`projRecOwners`). -/
+def uniformRoute (nPd : Nat) (block : List ConstantInfo) : Bool :=
+  (blockParts? nPd block).isSome
 
 end ConLeche
