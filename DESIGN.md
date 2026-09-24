@@ -86150,3 +86150,42 @@ Gates (after merging `uniform-inds` cfcc7f89): `lake build`/`lake test`
 demotable, overview anchor re-pointed).  No `sorry`, no new axiom.
 Next: the frame relation, the cache invariant and `ContSem` itself
 (CONTSEM.md "Resume (session 3 → 4)").
+
+#### LANDED (lane CONTSEM, session 3, checkpoint 2): the walk's theorem threads the cache invariant and a prefix-intrinsic context discipline
+
+NESTPLAN L3 (iii)/(iv) groundwork; no kernel change.
+- **`NestPosSem`/`ContSem` thread a state invariant `I`**
+  (`Model/Inductives/NestPosMono.lean`): a run from a state satisfying
+  `I` ends in one satisfying `I` (under the same context premises as the
+  positivity conclusion).  `ContSem` will be proved at `I = CacheInv`
+  (every cached frame-hole-free instantiation is positive along every
+  hole relation at depth `hiAt 0`); the flat consumer uses `I = True`.
+- **`HoleRel.dsScoped`** now says the frames' parameter terms are scoped
+  below the frames' holes (`hiAt |prog|`, what the kernel checks at each
+  frame's entry) instead of at the depth — independent of the depth, so
+  truncation keeps it.
+- **Finding — `CtxOk` does not survive truncation; `CtxOkP`
+  (`Model/CtxOkP.lean`).**  `CtxOk` states each leaf's link to its entry,
+  and its annotation's grading, under valuations satisfying the WHOLE
+  context.  A container frame is walked in the context truncated at its
+  key's depth; a valuation of the truncated context need not extend to
+  the whole one (a later entry may be an empty type), so those facts do
+  not transfer.  `CtxOkP` states them under the context BELOW the leaf,
+  the annotation read at its own depth.  It implies `CtxOk`, is kept by
+  opening a binder (the domain's grading IS a prefix fact), and survives
+  truncation (`CtxOkP.drop`) and extension by new top entries
+  (`CtxOkP.extend`).  `NestPosSem`/`ContSem`/`nestFields_sem`/
+  `nestMemberCtor_sem` take it; `blockCtorPos_of_walk` builds it
+  (`ctxOkP_of_openers`, the U2 context's gradings are prefix facts).
+- On the lane branch only (no consumer yet, restored after the landing
+  for session 4): the frame relation (`HoleRel.drop`/`HoleRel.extend`,
+  `ContFrame.lean`) and N2 read (`PiDomsFree`,
+  `noBVarTele_of_piDomsFree`, `ContN2.lean`).
+
+Gates: see the landing line in `_tmp/uniform-inds/CONTSEM.md`.  Next:
+CONTSEM.md "Resume (session 4)" — N2 linked to the clause, the
+per-constructor transfer (one more kernel check proposed there:
+`nestResHead` on an instantiated container constructor, to be measured),
+the `nestCtors` inversion, the frame lemma, `ContSem` with the cache
+invariant, and `nestMemberCtor_sem` at container kinds with coverage
+(L8) as a named premise.
