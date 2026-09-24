@@ -215,6 +215,16 @@ theorem interp_termXI {X Y t : V} {bs : List V} {nF : Nat} (hlen : bs.length = n
   congr 1
   exact propext ((EqAll_eqsXI_gen hlen).trans (EqAll_eqsXI_gen hlen).symm)
 
+/-- **The index tuple's retraction**, at both regimes. -/
+theorem projS_tupW (hI : IdxOk u ρp Ids) {is : List V} (hsp : SpineFit ρp Ids is) {l : Nat}
+    (hl : l < Ids.length) : projS l (tupW u is) = is.getD l pt := by
+  have hislen : is.length = Ids.length := hsp.length_eq
+  by_cases hu : u = 0
+  · subst hu
+    rw [tupW_zero, projS_pt, spineFit_pt_of_bound0 hI.2 hsp l (by omega)]
+  · rw [tupW_pos hu, projS_mkTower l is (by omega), List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (by omega), Option.getD_some]
+
 /-- **The terminator's reading** at a tuple: the index expressions'
 values are the tuple's components. -/
 theorem EqAll_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : SpineFit ρp Ids is)
@@ -222,14 +232,8 @@ theorem EqAll_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : SpineFit
     EqAll (consList bs (cons (tupW u is) (cons X ρp))) (eqsXI Ids.length nF Es) ↔
       ∀ l, l < Ids.length → interp V (consList bs ρp) (Es.getD l default) = is.getD l pt := by
   rw [EqAll_eqsXI_gen hlen]
-  have hislen : is.length = Ids.length := hsp.length_eq
-  have hproj : ∀ l, l < Ids.length → projS l (tupW u is) = is.getD l pt := by
-    intro l hl
-    by_cases hu : u = 0
-    · subst hu
-      rw [tupW_zero, projS_pt, spineFit_pt_of_bound0 hI.2 hsp l (by omega)]
-    · rw [tupW_pos hu, projS_mkTower l is (by omega), List.getD_eq_getElem?_getD,
-        List.getElem?_eq_getElem (by omega), Option.getD_some]
+  have hproj : ∀ l, l < Ids.length → projS l (tupW u is) = is.getD l pt :=
+    fun l hl => projS_tupW hI hsp hl
   constructor
   · intro h l hl; rw [← hproj l hl]; exact h l hl
   · intro h l hl; rw [hproj l hl]; exact h l hl

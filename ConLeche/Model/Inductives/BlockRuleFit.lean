@@ -6,7 +6,6 @@ import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockModel
-import ConLeche.Model.Inductives.BlockLfpHoles
 
 public section
 

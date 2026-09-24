@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockLfpHoles
 public import ConLeche.Model.Annot.LfpHoleOp
-public import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Semantics.Tower.BlockHoleChain
+import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Semantics.Tower.BlockRecI
 public section
@@ -52,18 +51,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## Small readings -/
-
-/-- **The index tuple's retraction**, at both regimes (moved from
-`BlockRecPreRun.lean`). -/
-theorem projS_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxOk u ρp Ids)
-    {is : List V} (hsp : SpineFit ρp Ids is) {l : Nat} (hl : l < Ids.length) :
-    projS l (tupW u is) = is.getD l pt := by
-  have hislen : is.length = Ids.length := hsp.length_eq
-  by_cases hu : u = 0
-  · subst hu
-    rw [tupW_zero, projS_pt, spineFit_pt_of_bound0 hI.2 hsp l (by omega)]
-  · rw [tupW_pos hu, projS_mkTower l is (by omega), List.getD_eq_getElem?_getD,
-      List.getElem?_eq_getElem (by omega), Option.getD_some]
 
 /-- **Fits along two lists of readings agree** when the readings agree at
 every prefix. -/

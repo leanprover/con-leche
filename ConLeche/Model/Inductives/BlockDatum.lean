@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.BlockStageTables
 import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
+import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Verify.Inductives.BlockInv
 public import ConLeche.Verify.Inductives.BlockWF
