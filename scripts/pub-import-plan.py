@@ -65,6 +65,11 @@ FALLBACK = {
     # `TargetIhSlot`'s `variable [SetTheory V]` binder resolves through
     # `TargetRecRead` (`Unknown identifier SetTheory`, `:47`), measured.
     ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Model.Inductives.TargetRecRead'),
+    # lane RECLIB session 5: the same `variable [SetTheory V]` binder
+    # class, MEASURED by demoting each alone (`Unknown identifier
+    # SetTheory`, `TargetCallCore.lean:67`, `TargetCallKit.lean:41`).
+    ('ConLeche.Model.Inductives.TargetCallCore', 'ConLeche.Model.Inductives.TargetIhData'),
+    ('ConLeche.Model.Inductives.TargetCallKit', 'ConLeche.Model.Inductives.TargetRecRead'),
     # lane HOLE2 (the positivity walk's cached simulation): three
     # re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `NestPosC`'s public simulation theorems are stated over

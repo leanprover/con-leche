@@ -2,14 +2,13 @@ module
 
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
-import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetIndTransport
 import ConLeche.Model.Inductives.BlockRecGraph
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Model.Annot.BlockLfpTup
+import ConLeche.Model.Inductives.StructBits
 
 public section
 

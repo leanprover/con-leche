@@ -1,15 +1,16 @@
 module
 
-public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.BlockRecPreRun
+public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Verify.Inductives.BlockRecRun
+public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 
 public section
 

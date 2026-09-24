@@ -1,11 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.TargetIhData
 public import ConLeche.Model.Inductives.TargetIndRen
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Inductives.StructBits
+public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Model.Inductives.BlockHoleRead
+public import ConLeche.Model.Inductives.BlockDatum
 
 public section
 

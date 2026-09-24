@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.Annot.BitRename
-public import ConLeche.Model.Inductives.BlockHoleRead
-public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.Inductives.FixRec
+import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.Bit
+import ConLeche.Semantics.Interp
 
 public section
 

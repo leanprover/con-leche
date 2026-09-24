@@ -8,7 +8,6 @@ import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Inductives.BlockRecNames
@@ -16,6 +15,12 @@ import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.Inductives.StructFrames
+import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Capstone
+import ConLeche.Semantics.Kit
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.BetaGate
 
 public section
 

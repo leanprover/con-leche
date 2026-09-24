@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetIhData
-import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetRowCerts
 import ConLeche.Model.Inductives.TargetRowCall

@@ -1,23 +1,24 @@
 module
 
-public import ConLeche.Model.Inductives.TargetCallKit
 public import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.CtxOkKit
-import ConLeche.Model.IndDomGrade
 import ConLeche.Model.IndFrame
-import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Inductives.StructFrames
 import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
-import ConLeche.Verify.InferLemmas
+import ConLeche.Model.Inductives.TargetCallKit
+public import ConLeche.Verify.Inductives.RecCheckRun
+import ConLeche.Semantics.Kit
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.BetaGate
+import ConLeche.Verify.InstList
 
 public section
 
