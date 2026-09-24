@@ -12,6 +12,7 @@ public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
 public import ConLeche.SetModel.NestRecEx
+public import ConLeche.SetModel.NestRecCls
 public import ConLeche.SetModel.WideFlat
 public import ConLeche.SetModel.NestWide
 public import ConLeche.SetModel.NestWideEx
@@ -64,6 +65,11 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   property") with no container parameter-monotonicity and no Bekić,
   `exu` under `huniq` in both regimes; instances `Tree`/`List`,
   `Rose`/`List`, and the two-level `T`/`Rose T`/`List (Rose T)`;
+* `NestRecCls` — the kit's induction transported to the RECURSOR's
+  classes (lane NESTIND): recursor `c` eliminates one component of one
+  clause class, several recursors may share a class, and the graph
+  kit's `ind` over the recursors' tagged majors follows
+  (`NestKit.ind_recClasses`);
 * `WideFlat`, `NestWide`, `NestWideEx` — the closure witness (W) of a
   NESTED block (lane NESTW-KIT): the closed tuple of a FLAT hole-operator
   block (`UBlock.closed_of_flat`, R3's caveat as the named premise
