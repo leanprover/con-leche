@@ -245,25 +245,32 @@ theorem nestFieldsS_sim (hrec : RecSimC mode env rec rec') (prog : List NestHole
         exact SimC.pure hs₂ ⟨rfl, hst₂⟩
     · exact SimC.throw
 
-theorem nestCtorsS_sim (hrec : RecSimC mode env rec rec') (ctx : NestCtx) (prog : List NestHole)
+theorem nestCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (hrec : RecSimC mode env rec rec') (ctx : NestCtx) (prog : List NestHole)
     (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr)
     (hds : ∀ d ∈ ds, WScoped hi d) (hsub : ∀ c us e, sub c us = some e → WScoped hi e) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) {s₀ : CState}, CSOK mode env s₀ →
       (∀ c ∈ cs, c.1.type.hasFvar = false) → NestStOk st →
       SimC mode env s₀ (fun v w => v = w ∧ NestStOk v)
-        (nestCtors ctx rec prog hi us ds nPc sub cs st)
-        (nestCtors ctx rec' prog hi us ds nPc sub cs st)
+        (nestCtors ctx (sharedOpsC mode (mkFEnv env)) env rec prog hi us ds nPc sub cs st)
+        (nestCtors ctx (fueledOpsM mode) env rec' prog hi us ds nPc sub cs st)
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst⟩
   | (cv, nF) :: cs, st, _, hs, hcs, hst => by
     unfold nestCtors
+    dsimp only [sharedOpsC]
     refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ crest crest' hs₁ hP => ?_)
     obtain ⟨rfl, hcr⟩ := hP
     have hwc : WScoped (hi + 0) crest := by
       rw [Nat.add_zero]
       exact wscoped_instPisWith hds (WScoped.replaceConsts_closed hsub _
         (by rw [Expr.hasFvar_instantiateLevelParams]; exact hcs _ List.mem_cons_self)) hcr
-    refine SimC.bind (nestFieldsS_sim hrec prog hi _ nF 0 crest st hs₁ hwc hst)
+    refine SimC.bind (opE_infer_sim hμ henv hs₁ (by simpa using hwc))
+      (fun s₁' ty ty' hs₁' hR => ?_)
+    obtain ⟨rfl, hty⟩ := hR
+    refine SimC.bind (opS_sim hμ henv hs₁' hty) (fun s₁'' u u' hs₁'' hU => ?_)
+    obtain rfl : u = u' := hU
+    refine SimC.bind (nestFieldsS_sim hrec prog hi _ nF 0 crest st hs₁'' hwc hst)
       (fun s₂ r r' hs₂ hR => ?_)
     obtain ⟨rfl, hst₂⟩ := hR
     rcases r with ⟨ks, nds, cur, st₂⟩
@@ -273,9 +280,9 @@ theorem nestCtorsS_sim (hrec : RecSimC mode env rec rec') (ctx : NestCtx) (prog 
     all_goals first
       | exact SimC.pure hs₂ ⟨rfl, hst₂⟩
       | exact SimC.throw_bind
-      | exact nestCtorsS_sim hrec ctx prog hi us ds nPc sub hds hsub cs st₂ hs₂ htl hst₂
-      | exact SimC.bind_pure_left (nestCtorsS_sim hrec ctx prog hi us ds nPc sub hds hsub cs st₂
-          hs₂ htl hst₂)
+      | exact nestCtorsS_sim hμ henv hrec ctx prog hi us ds nPc sub hds hsub cs st₂ hs₂ htl hst₂
+      | exact SimC.bind_pure_left (nestCtorsS_sim hμ henv hrec ctx prog hi us ds nPc sub hds hsub
+          cs st₂ hs₂ htl hst₂)
 
 
 /-- A frame's holes are well scoped above the frame. -/
@@ -290,14 +297,15 @@ theorem frameHoles_wscoped {grp : List (Name × Expr)} (hg : ∀ x ∈ grp, x.2.
   simp only [WScoped]
   exact ⟨by omega, WScoped.of_not_hasFvar (hg _ (List.getElem_mem hi'))⟩
 
-theorem nestFrameS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
+theorem nestFrameS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (hds : ∀ d ∈ ds, WScoped hi d) :
     ∀ (r : Nat) (grp : List (Name × Expr)) (st : NestState) {s₀ : CState}, CSOK mode env s₀ →
       (∀ x ∈ grp, x.2.hasFvar = false) → NestStOk st →
       SimC mode env s₀ (fun v w => v = w ∧ (∀ x ∈ v.1, x.2.hasFvar = false) ∧ NestStOk v.2)
-        (nestFrame ctx rec prog hi us ds nPc r grp st)
-        (nestFrame ctx rec' prog hi us ds nPc r grp st)
+        (nestFrame ctx (sharedOpsC mode (mkFEnv env)) env rec prog hi us ds nPc r grp st)
+        (nestFrame ctx (fueledOpsM mode) env rec' prog hi us ds nPc r grp st)
   | 0, _, _, _, _, _, _ => SimC.throw
   | r + 1, grp, st, _, hs, hg, hst => by
     unfold nestFrame
@@ -306,7 +314,7 @@ theorem nestFrameS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode
     obtain ⟨rfl, hcl, hst₁⟩ := hQ
     rcases q with ⟨ctors, st₁⟩
     dsimp only
-    refine SimC.bind (nestCtorsS_sim hrec ctx _ (hi + grp.length) us ds nPc _
+    refine SimC.bind (nestCtorsS_sim hμ henv hrec ctx _ (hi + grp.length) us ds nPc _
       (fun d hd => WScoped.mono (Nat.le_add_right _ _) (hds d hd))
       (fun c us' e he => by
         split at he
@@ -317,23 +325,28 @@ theorem nestFrameS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode
     · split
       · split
         · exact SimC.throw_bind
-        · refine SimC.bind (nestGrowGroupS_sim hc hi us ds _ grp hs₂ hg) (fun s₃ g g' hs₃ hG => ?_)
-          obtain ⟨rfl, hg'⟩ := hG
-          exact nestFrameS_sim hc hrec prog hi us ds nPc hds r g _ hs₃ hg'
-            (fun C r' hm q hq x hx => hst₂ C r' hm q hq x hx)
+        · split
+          · refine SimC.bind (nestGrowGroupS_sim hc hi us ds _ grp hs₂ hg)
+              (fun s₃ g g' hs₃ hG => ?_)
+            obtain ⟨rfl, hg'⟩ := hG
+            exact nestFrameS_sim hμ henv hc hrec prog hi us ds nPc hds r g _ hs₃ hg'
+              (fun C r' hm q hq x hx => hst₂ C r' hm q hq x hx)
+          · exact SimC.throw_bind
       · exact SimC.pure hs₂ ⟨rfl, hg, hst₂⟩
     · exact SimC.pure hs₂ ⟨rfl, hg, hst₂⟩
 
-theorem nestContNewS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
+theorem nestContNewS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
-    (hds : ∀ d ∈ ds, WScoped (ctx.hiAt prog.length) d) (st : NestState) {s₀ : CState}
-    (hs : CSOK mode env s₀) (hst : NestStOk st) :
+    (hds : ∀ d ∈ ds, WScoped (ctx.hiAt prog.length) d) (old : Option Nat) (st : NestState)
+    {s₀ : CState} (hs : CSOK mode env s₀) (hst : NestStOk st) :
     SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2)
-      (nestContNew ctx rec prog kb n us ds nPc st) (nestContNew ctx rec' prog kb n us ds nPc st) := by
+      (nestContNew ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us ds nPc old st)
+      (nestContNew ctx (fueledOpsM mode) env rec' prog kb n us ds nPc old st) := by
   unfold nestContNew
   refine SimC.bind (nestInstTypeS_sim hc hs _ _) (fun s₁ ni ni' hs₁ hN => ?_)
   obtain ⟨rfl, hni⟩ := hN
-  refine SimC.bind (nestFrameS_sim hc hrec prog _ us ds nPc hds 64 _ st hs₁
+  refine SimC.bind (nestFrameS_sim hμ henv hc hrec prog _ us ds nPc hds 64 _ st hs₁
     (fun x hx => by simp only [List.mem_singleton] at hx; subst hx; exact hni) hst)
     (fun s₂ gs gs' hs₂ hG => ?_)
   obtain ⟨rfl, -, hst₂⟩ := hG
@@ -341,31 +354,41 @@ theorem nestContNewS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mo
   · exact SimC.pure hs₂ ⟨rfl, hst₂⟩
   · refine SimC.bind (nestAcceptGroupS_sim hc _ us ds _ _ hs₂ hst₂) (fun s₃ st₃ st₃' hs₃ hA => ?_)
     obtain ⟨rfl, hst₃⟩ := hA
-    split
-    · exact SimC.throw_bind
-    · exact SimC.pure hs₃ ⟨rfl, fun C r' hm q hq x hx => hst₃ C r' hm q hq x hx⟩
+    cases old with
+    | some q => exact SimC.pure hs₃ ⟨rfl, hst₃⟩
+    | none =>
+      dsimp only
+      split
+      · exact SimC.throw_bind
+      · exact SimC.pure hs₃ ⟨rfl, fun C r' hm q hq x hx => hst₃ C r' hm q hq x hx⟩
 
-theorem nestContKeyS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
+theorem nestContKeyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (hds : ∀ d ∈ ds, WScoped (ctx.hiAt prog.length) d) (st : NestState) {s₀ : CState}
     (hs : CSOK mode env s₀) (hst : NestStOk st) :
     SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2)
-      (nestContKey ctx rec prog kb n us ds nPc st) (nestContKey ctx rec' prog kb n us ds nPc st) := by
+      (nestContKey ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us ds nPc st)
+      (nestContKey ctx (fueledOpsM mode) env rec' prog kb n us ds nPc st) := by
   unfold nestContKey
   split
   · split
     · exact SimC.throw
     · exact SimC.pure hs ⟨rfl, fun C r' hm q hq x hx => hst C r' hm q hq x hx⟩
   · split
-    · exact SimC.pure hs ⟨rfl, hst⟩
-    · exact nestContNewS_sim hc hrec prog kb n us ds nPc hds st hs hst
+    · split
+      · exact SimC.pure hs ⟨rfl, hst⟩
+      · exact nestContNewS_sim hμ henv hc hrec prog kb n us ds nPc hds _ st hs hst
+    · exact nestContNewS_sim hμ henv hc hrec prog kb n us ds nPc hds none st hs hst
 
-theorem nestContS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
+theorem nestContS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     {dep : Nat} (hargs : ∀ a ∈ args, WScoped dep a) (st : NestState) {s₀ : CState}
     (hs : CSOK mode env s₀) (hst : NestStOk st) :
     SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2)
-      (nestCont ctx rec prog kb n us args st) (nestCont ctx rec' prog kb n us args st) := by
+      (nestCont ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us args st)
+      (nestCont ctx (fueledOpsM mode) env rec' prog kb n us args st) := by
   unfold nestCont
   obtain ⟨hst', -⟩ := nestContainerC_ok hc hst n
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hP => ?_)
@@ -374,10 +397,12 @@ theorem nestContS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hrec : RecSimC mode 
   have hkey : ∀ (hck : (List.take q.1 args).all
       (fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length)) = true),
       SimC mode env s₁ (fun v w => v = w ∧ NestStOk v.snd)
-        (nestContKey ctx rec prog kb n us (List.take q.fst args) q.fst (nestContainerC ctx st n).snd)
-        (nestContKey ctx rec' prog kb n us (List.take q.fst args) q.fst (nestContainerC ctx st n).snd) := by
+        (nestContKey ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us (List.take q.fst args)
+          q.fst (nestContainerC ctx st n).snd)
+        (nestContKey ctx (fueledOpsM mode) env rec' prog kb n us (List.take q.fst args) q.fst
+          (nestContainerC ctx st n).snd) := by
     intro hck
-    refine nestContKeyS_sim hc hrec prog kb n us _ q.1 (fun d hd => ?_) _ hs₁ hst'
+    refine nestContKeyS_sim hμ henv hc hrec prog kb n us _ q.1 (fun d hd => ?_) _ hs₁ hst'
     have h1 := List.all_eq_true.mp hck d hd
     simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h1
     exact WScoped.of_fvarsBelow (hargs d (List.mem_of_mem_take hd)) (fvarB_le h1.2)
@@ -428,7 +453,7 @@ theorem nestPosS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx 
             | exact SimC.pure hs₁ ⟨rfl, hst⟩
         · split
           · exact SimC.throw
-          · refine SimC.bind (nestContS_sim hc ih prog kb _ _ _
+          · refine SimC.bind (nestContS_sim hμ henv hc ih prog kb _ _ _
               (Expr.WScoped.getAppArgs hww) st hs₁ hst) (fun s₂ r r' hs₂ hR => ?_)
             obtain ⟨rfl, hst₂⟩ := hR
             rcases r with ⟨k, st₂⟩
@@ -455,6 +480,14 @@ theorem nestMemberCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     | exact SimC.throw
     | exact SimC.pure hs₁ ⟨rfl, hst₁⟩
 
+theorem nestNoMemberConstS_sim {ctx : NestCtx} {s₀ : CState} (hs : CSOK mode env s₀) (e : Expr) :
+    SimC mode env s₀ (fun v w => v = w ∧ True)
+      (nestNoMemberConst (m := CheckCM) ctx e) (nestNoMemberConst (m := FueledM) ctx e) := by
+  unfold nestNoMemberConst
+  split
+  · exact SimC.throw
+  · exact SimC.pure hs ⟨rfl, trivial⟩
+
 theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
@@ -467,7 +500,9 @@ theorem nestMemberCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst⟩
   | c :: cs, st, _, hs, hcs, hst => by
     unfold nestMemberCtors
-    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ crest crest' hs₁ hP => ?_)
+    refine SimC.bind (nestNoMemberConstS_sim hs _) (fun s₀' u u' hs₀' hU => ?_)
+    obtain ⟨rfl, -⟩ := hU
+    refine SimC.bind (SimC.unwrapOr' hs₀') (fun s₁ crest crest' hs₁ hP => ?_)
     obtain ⟨rfl, hcr⟩ := hP
     refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ cq cq' hs₂ hP => ?_)
     obtain ⟨rfl, -⟩ := hP

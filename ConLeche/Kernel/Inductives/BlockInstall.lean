@@ -69,8 +69,9 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       unitlike := nIdx == 0 && c.2 == 0
       unitParams := p.nP
       ruleK := p.k == 1 && c.2 == 0 && p.isProp
-      sortZ := Level.zeronessOf p.resSort }
-  | _, _ => {}
+      sortZ := Level.zeronessOf p.resSort
+      all := p.memberNames }
+  | _, _ => { all := p.memberNames }
 
 /-- Official's `is_rec` off the classified kinds, BLOCK-wide: some
 field of some constructor of some member is recursive or reflexive. -/
