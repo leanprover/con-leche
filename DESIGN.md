@@ -87350,3 +87350,101 @@ and 4.  It generalises R3's probe (`_probe/r23/R3.lean`, `probe/uinds-R23`).
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
 `sorry`, no new axiom.  Line delta (`ConLeche/`): +1 660 / −1 (a new
 library, nothing deleted).
+
+#### LANDED (lane HOLE2, checkpoint (d) session 7: stage F — the kernel classifier deleted, `is_rec` from the walk, 2026-09-24)
+
+Plan item 7 of `_tmp/uniform-inds/HOLE2.md`.  Charter items 2 and 3
+("no per-field classification"; ONE positivity function).
+
+- **The pass runs the ONE positivity function.**  `checkBlockPositivity`
+  (U2 included) moved from the tail into `checkBlockPass`, right after the
+  constructors, where the classifier ran; it returns the walk's field
+  kinds (`BlockPass.kinds`).  The capability record's `is_rec` is
+  `nestIsRec` of those kinds (moved to `Positivity.lean` from the target
+  shadow): the settle bit is `blockCapsAt pC i (nestIsRec kinds) ==
+  blockCapsAt p₁ i isRec`, and the second pass runs at `nestIsRec q.kinds`.
+  Pure (`BlockInstall.lean`/`BlockTail.lean`) and cached
+  (`checkBlockPassS`/`checkBlockTailS`) alike; the tail lost its unused
+  environment argument.
+- **Deleted from the kernel**: `BlockFieldKind` (+ `toRec`),
+  `blockPositivity`, `blockFieldKind`, `blockCtorKinds`, `memberTgt`,
+  `blockFamOk`, `classifyMemberKinds`/`classifyBlockKinds`, the kinds
+  re-check `blockOpenedOk`/`blockMemberFieldsOk`/`blockFieldsOk` (+ the
+  `F` twins, `nameAt`/`nIdxAt`), the unused `checkBlockPassF`,
+  `BlockParts.kinds`/`withKinds` (+ its simp lemmas), `blockTgtsOf`,
+  `blockCaps`, `blockIsRec`; `memberIdxAt?` stays (the recogniser's
+  `ctorMember?`).  `structUsedLater` is NOT deleted: it is the walk's U4
+  (`nestMemberCtor`) and the projection guards' (`structProjGuards`), not
+  the classifier's; only the classifier's use of it went.
+- **Conformance classifies for itself** (`Conformance/RecGen.lean`,
+  charter item 6): `confFamOk`/`confPositivity`/`confCtorKinds` (the old
+  walk at ONE member, into `RecFieldKind`) and `confKinds` (the old
+  install verdicts: `.negative` → invalid, `.unsupported` → decline).
+  `BlockParts.toNative` takes the kinds; `checkBlockRecConform`/`…F` run
+  `confKinds` first.  It never fires after the positivity function
+  accepted (measured: the target shadow's `cls`/`kinds` columns agreed on
+  every accepted row, and the e2e/arena/init-full verdicts are unchanged).
+- **Proofs**: `DeclBlockRun` conjunct 3 is the positivity run
+  (`= .ok kinds`), conjunct 4 the caps at `nestIsRec kinds`; conjuncts 7/7b
+  gone.  `checkBlockPositivity_inv` and its five model consumers take any
+  output (`posKs`).  The cached pass simulation runs
+  `checkBlockPositivityS_sim`; the conformance simulation `confKindsC_ok`.
+  The recursor seam's kinds-length premise (lane RM50) is dropped: the
+  target check never read it.  `classifyBlockKinds_inv`,
+  `blockOpenedOk_tgt_lt`, `blockFieldsOkF_len`, `blockRuleKsOf` deleted.
+- **Target shadow**: the `cls`/`kinds`/`fields` columns go with the
+  classifier (report, `Main.lean`'s line, `tests/target-shadow.sh`); the
+  expected file was rewritten by dropping those three columns and
+  re-checked against a run (365/365); conformance runs where every kind
+  is flat.
+- **Dead code** (`scripts/dead-census.py` at 40e24973 and after, the
+  newly unreachable set): `List.mapM_option_length` (its module
+  `Verify/Inductives/FixParts.lean` then empty, deleted) and the derived
+  `Repr NestFieldKind`.  No `@[csimp]` touched.
+- Verdicts: init-full exit 0, 53 093 accepted (unchanged); `tests/arena.sh`
+  e2e 344/344, arena 90/92, nested-shadow 111/111, target-shadow 365/365.
+  Line delta (`ConLeche/`): +384 / −1 061 (kernel/cached/conformance:
+  +205 / −537).
+
+**For α1 — what still depends on "the stored constructor type is its
+normal form"** (outside `storedFieldShapes_of_run` and the recorded
+clause facts' producers; survey at 9836ee9d):
+- *Kernel, verdict-relevant:* (1) the conformance classifier
+  (`confPositivity`/`confCtorKinds`, `RecGen.lean`) reads field domains
+  WITHOUT whnf — on declared types a redex field (`053_reduceCtorParam`,
+  `118`/`119_reduceCtorParamRefl*`, e2e `ind_pos_whnf_*`,
+  `corner_*redex*`) becomes `.unsupported` → decline; also its
+  `structUsedLater c.1.type`; (2) conformance generation (`nativeRulesOk`,
+  `structRecTyR`'s ih binders via `structFieldTeleOf`/`structFieldIdxOf`)
+  compares rule bodies syntactically against ih's built from the stored
+  field telescopes — k = 1 only.  Fix: conformance whnf's its own fields
+  (as `targetWhnfPis` does), or keeps a private normalisation.  (3) The
+  (β′) guard (`nestMemberCtors`' `stable`, `Positivity.lean`) and (4) the
+  storage itself (`nestNormCtor` in `checkSumCtor`, `nestNormCtorF`) — to
+  delete.  Verdict-neutral either way: the recursor CHECK (`targetRule`
+  re-whnf's every field, compares by `isDefEq`), rule firing, caps,
+  `checkSumCtor`'s own checks; the projection guards
+  (`structProjGuards cA.1.type`) move TOWARD official (it reads the
+  declared type).
+- *Proofs:* (1) `storedWalk_fields` (`NestPosOut.lean`) uses `tyN =
+  crest` and carries U4 as `structUsedLater crest` — U4 on the DECLARED
+  type is false in general (a later `Const (T p) x` whnf's to `T p`), so
+  U4 must come from the walk's `tyN`; (2) `checkBlockPositivity_inv`'s
+  `(ks, crest, st₁)` shape (make `tyN` existential; consumers
+  `blockCtorPos_of_run`, `blockCtorHoleGrade…`, `blockStoredShapes_of_run`,
+  `canonOcc_of_positivity` only pass it; `blockAbsRead_of_run` is M2);
+  (3) the SYNTACTIC facts on `D.fields = absF` (= the reading of the
+  stored crest, `BlockDatum.lean` `absF := canonFieldsRead …`):
+  `blockFlatAt_of`'s `fas := d.absF` can move to `FlatAt`'s semantic
+  `fas` (the reading of `tyN`) at the price of FlatAt's
+  interpretation-equality conjunct, but `HolesApplied`/`HoleApp` is
+  syntactic on `D.fields` itself — a declared `(fun X => X p) T`
+  abstracts to an unapplied hole — so either M3 is re-derived on a
+  normalised presentation or `D.fields` changes, moving its pass-through
+  consumers (`holeOp_fibre`, `BlockHoleValid`, `BlockLfpTup`,
+  `ContCtor`, `BlockHoleFold`, `BlockModelRecords`, `BlockDatum`,
+  `BlockHoleGrade`, `BlockHoleFlat`).  Everything else (the recursor
+  model, `BlockCtorDataI`, `FixStageTable`'s guard, `nestNormCtor_inv`)
+  is generic in the stored type.  Stale docs then: the `nestNormCtor`
+  docstrings, `OVERVIEW.md`'s two `nestNormCtor` citations,
+  `Verify/Cached/StreamConsts.lean`'s constructor exclusion.

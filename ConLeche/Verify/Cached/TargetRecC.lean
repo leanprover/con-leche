@@ -9,7 +9,6 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Cached.NestPosC
 
 public section
 
