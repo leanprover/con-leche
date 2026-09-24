@@ -1751,7 +1751,7 @@ theorem declBlock_run (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen => by
+        hctorsAs hctorsIn hdR hlfp hkLen _hfresh => by
       -- the family level `s`, chosen with its parametricity and its typing
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
       obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
