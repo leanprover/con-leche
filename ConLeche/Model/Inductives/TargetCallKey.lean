@@ -16,7 +16,6 @@ import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Kit

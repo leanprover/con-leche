@@ -7,7 +7,6 @@ import ConLeche.Model.Inductives.SumRecFrames
 import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Kernel.PropWhen
 public import ConLeche.Model.Inductives.FixRecLaw
-import ConLeche.Model.Inductives.FixIntro
 import ConLeche.Semantics.Tower.FixWire
 public section
 

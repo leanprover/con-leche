@@ -95,60 +95,7 @@ binders that stand between them and the fields: that is
 `structIdxAt nF (rP - nP) i l m` and `structTeleAt nF (rP - nP) i l`
 (`ConLeche/Kernel/Inductives/FieldTele.lean`). -/
 
-/-- **The rule's own prefix variables**, in order, as seen from under
-the `nF` fields and `d` further binders. -/
-def blockRulePrefixVars (rP nF d : Nat) : List Expr :=
-  (List.range rP).map fun l => Expr.bvar (d + nF + rP - 1 - l)
-
-/-- **The inductive hypothesis' guarded call**, as a `∀`-telescope over
-the field's own telescope so that it can be instantiated at the
-spine's actual arguments: `∀ a⃗, rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)`, spelled
-at a rule body's frame under the `nF` fields and `d` further
-binders. -/
-def blockIhSpinePis (recName : Name) (rlvls : List Level) (pw : PropWhen)
-    (nP rP nF i d : Nat) (tele : List (Expr × BinderMeta)) (idx : List Expr) : Expr :=
-  let m := tele.length
-  Expr.mkPisOf (structTeleAt nF (rP - nP) i d pw tele)
-    (Expr.mkAppN (.const recName rlvls)
-      (blockRulePrefixVars rP nF (d + m) ++ idx.map (structIdxAt nF (rP - nP) i d m) ++
-        [Expr.mkAppN (.bvar (nF - 1 - i + d + m)) (structTeleVars m)]))
-
-/-- **The `ih` binders of a rule's frame**, one per (recursive FIELD,
-CALLEE recursor) key (`blockIhKeys`): `∀ a⃗, <rec_c's own conclusion at
-the rule's prefix, at the field's index expressions and at `f_i a⃗`>`.
-The conclusion is THAT CALLEE's STORED type instantiated at exactly the
-arguments the guarded call carries, which is what makes `ih_{(i,c)} a⃗`
-and the call interchangeable — the ruling of 2026-09-21: the family is
-primitively MUTUALLY recursive, so a rule may call ANY recursor of the
-group on a field, and each call gets its own opener typed from its own
-callee.  `recTyOf` is the stored type of a RECURSOR; `none` when one of
-them does not have the binders the instantiation needs. -/
-def blockIhPis (nP rP nF : Nat) (pw : PropWhen) (recTyOf : Nat → Expr)
-    (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) :
-    List (Nat × Nat) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (i, c) :: is, l, body =>
-    let m := (teleOf i).length
-    let o := rP - nP
-    match Expr.instPisAtLift
-        (blockRulePrefixVars rP nF (l + m) ++ (idxOf i).map (structIdxAt nF o i l m) ++
-          [Expr.mkAppN (.bvar (nF - 1 - i + l + m)) (structTeleVars m)])
-        (recTyOf c) with
-    | none => none
-    | some concl =>
-      (blockIhPis nP rP nF pw recTyOf teleOf idxOf is (l + 1) body).map fun rest =>
-        .forallE (Expr.mkPisOf (structTeleAt nF o i l pw (teleOf i)) concl) rest ⟨pw⟩
-
 /-! ## The elimination restriction, declaratively -/
-
-/-- **A container occurrence anywhere in the block.**  Official's
-`elim_only_at_universe_zero` is evaluated on the AUX block, so a
-nested block counts as several types there; this is the bit that says
-so.  The classification declines a block with one today
-(`classifyMemberKinds`), so it is `false` for every block that
-reaches the route — it is named because the nested rung sets it. -/
-def blockNested (kinds : List (List (List BlockFieldKind))) : Bool :=
-  kinds.any fun kss => kss.any fun ks => ks.any (· == .unsupported)
 
 /-- **When a large eliminator is allowed**, official's
 `elim_only_at_universe_zero` said declaratively: always when the
@@ -192,21 +139,8 @@ def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
 
 /-! ## The primitive-recursion abstraction -/
 
-/-- **The member a field's kind names**, when the field has an
-inductive hypothesis (`blockTgtsOf`'s answer as an `Option`: a field
-with no hypothesis has no target, rather than the placeholder `0`). -/
-def BlockFieldKind.tgt? : BlockFieldKind → Option Nat
-  | .recursive t => some t
-  | .reflexive t => some t
-  | _ => none
-
 /-- The position of a name in a list (`none` when absent). -/
 def nameIdxOf? (names : List Name) (n : Name) : Option Nat :=
   (List.range names.length).find? fun i => names.getD i default == n
-
-/-- The position of a pair in a list (`none` when absent) — the `ih`
-binder a (field, callee) key owns. -/
-def pairIdxOf? (ps : List (Nat × Nat)) (p : Nat × Nat) : Option Nat :=
-  (List.range ps.length).find? fun i => ps.getD i (0, 0) == p
 
 end ConLeche

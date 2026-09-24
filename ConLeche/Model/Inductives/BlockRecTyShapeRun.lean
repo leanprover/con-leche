@@ -4,7 +4,6 @@ public import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockFieldRead
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockRecRule
 
@@ -597,33 +596,6 @@ section Keys
 
 open ConLeche (BlockFieldKind blockTgtsOf)
 
-/-- **`hihOpen` half A's two ARITIES at the constructor**, off the
-constructors' stage's own record: the field-domain row's length is the
-constructor's field count, and a RECURSIVE or REFLEXIVE field's index
-readings number the TARGET member's indices.
-
-Both are `hihOpen`'s conjuncts `((d.Fss …).getD j []).length = nF` and
-`(((d.Eiss …).getD j []).getD i []).length = nIdx`; the third length
-(`(((d.tlss …).getD j []).getD i []).length = m`) is the existential's
-own choice of `m` and needs no theorem. -/
-theorem blockIhKey_block_lengths {env : Env} {m : EnvModel V env} {d : BlockData V}
-    {lps : List Name} {mm j i : Nat} {cA : ConstantVal × Nat} (ψ : Name → Nat)
-    (hcj : (d.ctorsM mm)[j]? = some cA)
-    (hcf : BlockCtorFacts m d lps mm j cA) (hi : i < cA.2)
-    (hkind : (d.ksF mm j).getD i .ordinary = .recursive ∨
-      (d.ksF mm j).getD i .ordinary = .reflexive) :
-    ((d.Fss mm ψ).getD j []).length = cA.2 ∧
-      (((d.Eiss mm ψ).getD j []).getD i []).length = d.nIdxAt (d.tgts mm j i) := by
-  obtain ⟨-, -, hcd⟩ := hcf
-  refine ⟨?_, ?_⟩
-  · rw [BlockData.Fss, BlockData.cds, fssOfR_fixCtorDataList_getD hcj,
-      List.length_map, List.length_drop, hcd.len ψ]
-    omega
-  · rw [BlockData.Eiss, BlockData.cds, eissOfR_fixCtorDataList_getD hcj]
-    rcases hkind with hk | hk
-    · exact hcd.eisLen ψ i hk hi
-    · exact hcd.eisLenRefl ψ i hk hi
-
 /-- **`hihOpen` half A's MEMBER arity**: the index telescope a member
 contributes has that member's index count — the last of the fused
 premise's four lengths, and the one that ties the field's readings to
@@ -661,56 +633,6 @@ its `l = 0` self lifted at the telescope's cut
 (`peelPis_liftN_inv`) — so the `l = r` conclusion IS the `l = 0`
 conclusion lifted, which is what `mkPisAV_ihTeleAtR_shift` then needs
 to move the `liftN` out of the tower. -/
-
-/-- **`hihOpen`'s `BlockRuleConclAt`, FROM the run's peel.**
-
-`blockRuleHconcl_of` (`BlockRecOpenerRead.lean`) peels the callee's
-stored type along the spine `blockIhPis` generates for the `r`-th
-key, i.e. at `ih` level `l = r`; `hihOpen` states its
-`BlockRuleConclAt` at `l = 0`, because that is the level
-`blockRecCa_value` reads the conclusion at.  Going `0 → r` needs the
-`l = 0` peel to EXIST first and nothing at the run produces it, so
-the shift alone cannot close the conjunct.  It closes the other way:
-the `l = r` spine IS the `l = 0` spine lifted (the same three shift
-lemmas), and the Π-peel's lift is reversible
-(`peelPis_liftN_inv`, `BlockRecRule.lean`), so the `l = 0` peel and
-the identification `Cr = Ca.liftN r m` come out TOGETHER — the
-existential's own choice of `CihR`, and the equation the domain
-conjunct then carries through `mkPisAV_ihTeleAtR_liftN`.
-
-`hT` is where the callee's type being CLOSED is spent, and it is
-spent once: at the run `T'` is `TVa.liftN (rP + nF + r + m) 0` and
-`T` is `TVa`, so `hT` is two lifts of a closed reading being the
-identity.  Stating it as an equation keeps this module free of any
-closedness predicate. -/
-theorem blockRuleConclAt_of_shift {rP nF i m r o : Nat} {T T' Cr : AnnotTerm}
-    {Eis : List AnnotTerm}
-    (hT : T' = T.liftN r m)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis T'
-      (((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
-        Eis.map (ihIdxAtM nF o i r m) ++
-        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)])
-      = some Cr) :
-    ∃ Ca, ConLeche.Model.AnnotTerm.peelPis T
-        (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
-          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)])
-      = some Ca ∧ Cr = Ca.liftN r m := by
-  have hE : (Eis.map (ihIdxAtM nF o i 0 m)).map (AnnotTerm.liftN r · m)
-      = Eis.map (ihIdxAtM nF o i r m) := by
-    rw [List.map_map]
-    exact List.map_congr_left fun E _ => (ihIdxAtM_shift nF o i r m E).symm
-  have hF : [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)].map
-        (AnnotTerm.liftN r · m)
-      = [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
-    rw [List.map_singleton, ← fieldApp_shift]
-  have hmap : (paramBvarsAt rP (rP + nF + m) ++ Eis.map (ihIdxAtM nF o i 0 m) ++
-        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + m)) (teleVarsAV m)]).map
-        (AnnotTerm.liftN r · m)
-      = ((List.range rP).map fun l => AnnotTerm.bvar (r + m + nF + rP - 1 - l)) ++
-          Eis.map (ihIdxAtM nF o i r m) ++
-          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + r + m)) (teleVarsAV m)] := by
-    rw [List.map_append, List.map_append, paramBvarsAt_shift, hE, hF]
-  exact peelPis_liftN_inv r m _ (by rw [hmap, ← hT]; exact hpeel)
 
 /-! ## `WalkCtx` at the rule's opened frame
 

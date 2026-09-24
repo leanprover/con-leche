@@ -11,7 +11,6 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp

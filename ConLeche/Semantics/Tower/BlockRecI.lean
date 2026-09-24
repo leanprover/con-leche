@@ -508,17 +508,6 @@ very spine the check abstracted.  At the chain frame that call's head
 is class `c'`'s component, so the tower is spellable here, and its
 FOLD along a fitting telescope spine is the call's value. -/
 
-/-- The ih term of a guarded field: the curried λ-tower (bit `ℓ`) over
-the field's telescope `tl` of `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)`, at the frame
-`prefix ++ fields` under the `K` chain binders.  `eis` are the field's
-index expressions and `fap` the applied field, both at the frame
-`prefix ++ fields ++ telescope`. -/
-def ihFunAV (ℓ K c' rP nF : Nat) (tl : List (Nat × Nat × AnnotTerm)) (eis : List AnnotTerm)
-    (fap : AnnotTerm) : AnnotTerm :=
-  mkLamsC ℓ tl
-    (AnnotTerm.mkAppN (.bvar (tl.length + nF + rP + (K - 1 - c')))
-      (prefVarsAV rP (nF + tl.length) ++ eis ++ [fap]))
-
 /-! ## Two named obligations: one elimination level (D-d) and the residue (G1) -/
 
 /-- **D-d, stated** (DESIGN v2 §3.2): the family eliminates at ONE

@@ -282,106 +282,11 @@ theorem mkPisOf_WScoped {d : Nat} :
     exact ⟨hbs _ List.mem_cons_self,
       mkPisOf_WScoped (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
 
-theorem structIdxAt_WScoped {d nF o i l m : Nat} {e : Expr} (h : WScoped d e) :
-    WScoped d (structIdxAt nF o i l m e) :=
-  WScoped.liftLooseBVars' (WScoped.liftLooseBVars' h)
-
-theorem structTeleAt_WScoped {d nF o i l : Nat} {pw : PropWhen}
-    {tele : List (Expr × BinderMeta)} (h : ∀ b ∈ tele, WScoped d b.1) :
-    ∀ b ∈ structTeleAt nF o i l pw tele, WScoped d b.1 := by
-  intro b hb
-  simp only [structTeleAt, List.mem_map, List.mem_range] at hb
-  obtain ⟨k, hk, rfl⟩ := hb
-  refine structIdxAt_WScoped ?_
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some]
-  exact h _ (List.getElem_mem hk)
-
 theorem structTeleVars_WScoped {d m : Nat} : ∀ x ∈ structTeleVars m, WScoped d x := by
   intro x hx
   simp only [structTeleVars, List.mem_map] at hx
   obtain ⟨k, -, rfl⟩ := hx
   simp [WScoped]
-
-theorem blockRulePrefixVars_WScoped {d rP nF l : Nat} :
-    ∀ x ∈ blockRulePrefixVars rP nF l, WScoped d x := by
-  intro x hx
-  simp only [blockRulePrefixVars, List.mem_map] at hx
-  obtain ⟨k, -, rfl⟩ := hx
-  simp [WScoped]
-
-/-- **The generated `ih` telescope is fvar-free over fvar-free pieces.** -/
-theorem blockIhPis_ws0 {nP rP nF : Nat} {pw : PropWhen} {recTyOf : Nat → Expr}
-    {teleOf : Nat → List (Expr × BinderMeta)} {idxOf : Nat → List Expr}
-    (hrec : ∀ c, WScoped 0 (recTyOf c)) (htele : ∀ i, ∀ b ∈ teleOf i, WScoped 0 b.1)
-    (hidx : ∀ i, ∀ x ∈ idxOf i, WScoped 0 x) :
-    ∀ (ks : List (Nat × Nat)) (l : Nat) {body r : Expr}, WScoped 0 body →
-      blockIhPis nP rP nF pw recTyOf teleOf idxOf ks l body = some r → WScoped 0 r
-  | [], _, body, r, hb, h => by
-    simp only [blockIhPis, Option.some.injEq] at h
-    exact h ▸ hb
-  | (i, c) :: ks, l, body, r, hb, h => by
-    simp only [blockIhPis] at h
-    split at h
-    · exact nomatch h
-    · next concl hconcl =>
-      obtain ⟨rest, hrest, rfl⟩ := Option.map_eq_some_iff.mp h
-      have hc : WScoped 0 concl := by
-        refine instPisAtLift_WScoped hconcl (hrec c) ?_
-        intro a ha
-        simp only [List.mem_append, List.mem_map, List.mem_singleton] at ha
-        rcases ha with (ha | ⟨x, hx, rfl⟩) | rfl
-        · exact blockRulePrefixVars_WScoped a ha
-        · exact structIdxAt_WScoped (hidx i x hx)
-        · exact Expr.WScoped.mkAppN (by simp [WScoped]) structTeleVars_WScoped
-      simp only [WScoped]
-      exact ⟨mkPisOf_WScoped (structTeleAt_WScoped (htele i)) hc,
-        blockIhPis_ws0 hrec htele hidx ks (l + 1) hb hrest⟩
-
-theorem piBinders_ws0 : ∀ {e : Expr}, WScoped 0 e →
-    (∀ b ∈ e.piBinders.1, WScoped 0 b.1) ∧ WScoped 0 e.piBinders.2
-  | .forallE ty b m, h => by
-    simp only [WScoped] at h
-    obtain ⟨h1, h2⟩ := piBinders_ws0 h.2
-    simp only [Expr.piBinders]
-    refine ⟨?_, h2⟩
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx
-    · exact h.1
-    · exact h1 x hx
-  | .bvar _, h | .fvar .., h | .sort _, h | .const .., h | .app .., h | .lam .., h
-  | .letE .., h | .lit _, h | .proj .., h => by
-    constructor
-    · intro b hb; simp [Expr.piBinders] at hb
-    · simpa [Expr.piBinders] using h
-
-theorem structFieldTeleOf_ws0 {cty : Expr} (h : WScoped 0 cty) (nP nF i : Nat) :
-    ∀ b ∈ structFieldTeleOf cty nP nF i, WScoped 0 b.1 := by
-  unfold structFieldTeleOf
-  split
-  · next cbs body hs =>
-    have hcbs := (stripPis_not_hasFvar _ hs (ws0_hasFvar h)).1
-    have hb : WScoped 0 (cbs.getD (nP + i) default).1 := by
-      rw [List.getD_eq_getElem?_getD]
-      cases hx : cbs[nP + i]? with
-      | none => exact WScoped.of_not_hasFvar (by rfl)
-      | some x => exact WScoped.of_not_hasFvar (hcbs x (List.mem_of_getElem? hx))
-    exact (piBinders_ws0 hb).1
-  · intro b hb; exact nomatch hb
-
-theorem structFieldIdxOf_ws0 {cty : Expr} (h : WScoped 0 cty) (nP nF i : Nat) :
-    ∀ x ∈ structFieldIdxOf cty nP nF i, WScoped 0 x := by
-  unfold structFieldIdxOf
-  split
-  · next cbs body hs =>
-    have hcbs := (stripPis_not_hasFvar _ hs (ws0_hasFvar h)).1
-    have hb : WScoped 0 (cbs.getD (nP + i) default).1 := by
-      rw [List.getD_eq_getElem?_getD]
-      cases hx : cbs[nP + i]? with
-      | none => exact WScoped.of_not_hasFvar (by rfl)
-      | some x => exact WScoped.of_not_hasFvar (hcbs x (List.mem_of_getElem? hx))
-    intro x hx
-    exact Expr.WScoped.getAppArgs (piBinders_ws0 hb).2 x (List.mem_of_mem_drop hx)
-  · intro x hx; exact nomatch hx
 
 /-- `instantiateList` at well-scoped values keeps a scoped term scoped. -/
 theorem instantiateList_WScoped {d : Nat} {vs : List Expr} {e : Expr}

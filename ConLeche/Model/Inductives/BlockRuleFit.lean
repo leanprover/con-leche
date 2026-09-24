@@ -2120,7 +2120,7 @@ side, so `hihv` is `List.getD` of a `map`. -/
 
 section IhsPin
 
-open ConLeche (pairIdxOf? structFieldTeleOf)
+open ConLeche (structFieldTeleOf)
 
 end IhsPin
 
@@ -2164,7 +2164,7 @@ satisfiable — cf. `blockRuleBodyEq_run`'s `hop0`/`hop2` note). -/
 
 section BodyEqRun
 
-open ConLeche (BlockParts pairIdxOf? structFieldTeleOf
+open ConLeche (BlockParts structFieldTeleOf
   nameIdxOf? openPisAtFvars)
 
 end BodyEqRun
@@ -2204,8 +2204,8 @@ lengths — and the peel's outputs are bound by the peel's own rows. -/
 
 section ResidueB
 
-open ConLeche (BlockParts pairIdxOf? structFieldTeleOf
-  structFieldIdxOf nameIdxOf? openPisAtFvars blockIhPis)
+open ConLeche (BlockParts structFieldTeleOf
+  structFieldIdxOf nameIdxOf? openPisAtFvars)
 
 end ResidueB
 
@@ -2223,7 +2223,7 @@ is the two producers' premises minus the one they share. -/
 
 section DataRun
 
-open ConLeche (BlockParts blockIhPis openPisAtFvars)
+open ConLeche (BlockParts openPisAtFvars)
 
 /-- **The contract's first conjunct over its own telescope.** -/
 theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)

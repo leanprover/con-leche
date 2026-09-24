@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.FixChainFacts
 import ConLeche.Model.Inductives.SumRecFrames
 import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Kernel.PropWhen
-import ConLeche.Model.Inductives.FixIntro
 public section
 
 /-!

@@ -20,7 +20,6 @@ public import ConLeche.Model.Inductives.BlockStageCtors
 public import ConLeche.Model.Inductives.BlockStageTables
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockDatum
-public import ConLeche.Model.Inductives.BlockFieldRead
 public import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule

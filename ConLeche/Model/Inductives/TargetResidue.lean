@@ -9,7 +9,6 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Inductives.BlockRuleParams
 

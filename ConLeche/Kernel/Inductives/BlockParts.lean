@@ -56,15 +56,6 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-/-- The positions of the recursive fields (the ones with an inductive
-hypothesis), `recIdxOf` at the target-carrying kinds. -/
-def blockRecIdxOf (ks : List BlockFieldKind) : List Nat :=
-  (List.range ks.length).filter fun i =>
-    match ks.getD i .ordinary with
-    | .recursive _ => true
-    | .reflexive _ => true
-    | _ => false
-
 /-- The targets of the fields, one per field (`0` at a field with no
 inductive hypothesis, where nothing reads it). -/
 def blockTgtsOf (ks : List BlockFieldKind) : List Nat :=
@@ -175,13 +166,6 @@ def allCtors (p : BlockShape) : List (ConstantVal × Nat) :=
 It is the target the recogniser read off the MAJOR (`RecShape.tgt`). -/
 def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
   (p.recs.getD r default).tgt
-
-/-- **Every recursor's target member**, in recursor order, at the
-install's reading (`recTgtAt`): the rule stage's frame carries it, and the
-`ih` openers are keyed by (recursive field, CALLEE recursor) against
-it. -/
-def recTgts (p : BlockShape) : List Nat :=
-  (List.range p.recs.length).map p.recTgtAt
 
 /-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 

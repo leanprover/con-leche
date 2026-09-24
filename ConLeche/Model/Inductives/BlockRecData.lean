@@ -1473,35 +1473,6 @@ omit [SetTheory V] in
   | d, _ :: xs => by
     simp only [readOpenedDoms, List.length_cons, readOpenedDoms_length_eq acval env ψ (d + 1) xs]
 
-/-- An opened telescope's readings are bounded at their own depths
-when every opener is an `fvar` at its depth whose type is scoped there
-and bvar-closed — a reading below its depth, or the default `bvar 0`
-under a non-empty frame (an empty frame opens nothing). -/
-theorem readOpenedDoms_below {m : EnvModel V envC} {ψ : Name → Nat} :
-    ∀ (d : Nat) (fvs : List Expr), 0 < d ∨ fvs = [] →
-      (∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-        Expr.WScoped (d + q) (Expr.fvarTypeD x) ∧ (Expr.fvarTypeD x).looseBVarsBounded 0 = true) →
-      ∀ q, q < fvs.length →
-        Term.bvarsBelow (d + q) ((readOpenedDoms m.acval envC ψ d fvs).getD q default).erase
-  | _, [], _, _, q, hq => absurd hq (Nat.not_lt_zero q)
-  | d, x :: fvs, hd, hx, 0, _ => by
-    obtain ⟨hw, hb⟩ := hx 0 x rfl
-    show Term.bvarsBelow (d + 0)
-      ((denoteMeta m.acval envC ψ d x.fvarTypeD).getD default).erase
-    rw [Nat.add_zero] at hw ⊢
-    cases hA : denoteMeta m.acval envC ψ d x.fvarTypeD with
-    | none => exact hd.resolve_right (List.cons_ne_nil _ _)
-    | some A => exact bvarsBelow_of_reading (m := m) hw hb hA
-  | d, x :: fvs, hd, hx, q + 1, hq => by
-    show Term.bvarsBelow (d + (q + 1))
-      ((readOpenedDoms m.acval envC ψ (d + 1) fvs).getD q default).erase
-    rw [show d + (q + 1) = d + 1 + q from by omega]
-    exact readOpenedDoms_below (d + 1) fvs (Or.inl (by omega))
-      (fun q' x' hx' => by
-        have := hx (q' + 1) x' hx'
-        rwa [show d + (q' + 1) = d + 1 + q' from by omega] at this)
-      q (by simpa using hq)
-
 section Components
 
 variable (p : ConLeche.BlockShape)
@@ -1603,51 +1574,6 @@ theorem recStage_rulesLen {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
   obtain ⟨R⟩ := id h
   exact R.rulesLen hr
 
-section RuleDefs
-
-variable (pp : ConLeche.BlockParts)
-  (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-
-/-- The `(c, i)`-th stored right-hand side. -/
-@[expose] def blockRuleRhsOf (c i : Nat) : Expr := ((rs.getD c default).2.1).getD i default
-
-/-- The rule's λ-tower BODY (`stripLams` at the frame's width). -/
-@[expose] def blockRuleBodyAt (c i : Nat) : Expr :=
-  (((blockRuleRhsOf rs c i).stripLams
-    (pp.toBlockShape.rulePrefixAt c + (blockRuleCtorOf rs c i).2)).map (·.2)).getD default
-
-variable (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env) (ψ : Name → Nat)
-
-/-- The constructor's own opening at its full telescope — the openers
-`FieldReadAt` reads the fields' telescopes against. -/
-@[expose] def blockRuleCtorFvs (c i : Nat) : List Expr :=
-  ((ConLeche.openPisAtFvars (pp.nP + (blockRuleCtorOf rs c i).2)
-    (blockRuleCtorOf rs c i).1.type 0).map (·.1)).getD []
-
-/-- **A field's telescope READINGS** (`FieldReadAt`'s `tl`, spelled). -/
-@[expose] def blockRuleTlAV (c i q : Nat) : List (Nat × Nat × AnnotTerm) :=
-  (List.range (ConLeche.structFieldTeleOf (blockRuleCtorOf rs c i).1.type pp.nP
-      (blockRuleCtorOf rs c i).2 q).length).map fun k =>
-    let b := (ConLeche.structFieldTeleOf (blockRuleCtorOf rs c i).1.type pp.nP
-      (blockRuleCtorOf rs c i).2 q).getD k default
-    (0, pwBit ψ b.2.pw,
-      (denoteMeta acval envC ψ (pp.nP + q + k)
-        (Expr.instSeq ((blockRuleCtorFvs pp rs c i).take (pp.nP + q)
-          ++ ConLeche.Verify.openFvars (pp.nP + q) k) (pp.nP + q + k - 1) b.1)).getD default)
-
-/-- **A field's index READINGS** (`FieldReadAt`'s `Eis`, spelled). -/
-@[expose] def blockRuleEisAV (c i q : Nat) : List AnnotTerm :=
-  ((ConLeche.structFieldIdxOf (blockRuleCtorOf rs c i).1.type pp.nP
-      (blockRuleCtorOf rs c i).2 q).map
-    (Expr.instSeq ((blockRuleCtorFvs pp rs c i).take (pp.nP + q)
-      ++ ConLeche.Verify.openFvars (pp.nP + q) (ConLeche.structFieldTeleOf (blockRuleCtorOf rs c i).1.type
-        pp.nP (blockRuleCtorOf rs c i).2 q).length)
-      (pp.nP + q + (ConLeche.structFieldTeleOf (blockRuleCtorOf rs c i).1.type pp.nP
-        (blockRuleCtorOf rs c i).2 q).length - 1))).map fun e =>
-    (denoteMeta acval envC ψ (pp.nP + q + (ConLeche.structFieldTeleOf
-      (blockRuleCtorOf rs c i).1.type pp.nP (blockRuleCtorOf rs c i).2 q).length) e).getD default
-
-end RuleDefs
 
 /-! ### A-1's identification: the components ARE the run's witnesses -/
 
@@ -1823,12 +1749,6 @@ theorem blockRuleCtorOf_eq {rs : List (ConstantVal × List Expr × Nat × List (
     blockRuleCtorOf rs c i = cA := by
   simp only [blockRuleCtorOf, List.getD_eq_getElem?_getD, hr, Option.getD_some, hcA]
 
-theorem blockRuleRhsOf_eq {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
-    blockRuleRhsOf rs c i = rhs := by
-  simp only [blockRuleRhsOf, List.getD_eq_getElem?_getD, hr, Option.getD_some, hrhs]
-
 /-- **The rule's conclusion row** — the recursor's conclusion at the
 rule's prefix, the constructor's result indices and the constructed
 element (the rule tower's `hconcl`), at §A.8's pinned openers. -/
@@ -1931,35 +1851,6 @@ theorem instLamsAt_rest_eq :
     | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _
     | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
       exact absurd h1 (by simp [ConLeche.Expr.instLamsAt])
-
-omit [SetTheory V] in
-/-- A stripped λ-tower's body stays loose-bvar-bounded by the strip
-depth — `stripPis_body_bounded`'s twin, which the residue's `hbB`
-needs off the rule's own `looseBVarsBounded 0`. -/
-theorem stripLams_body_bounded :
-    ∀ (k : Nat) {e : ConLeche.Expr} {bs : List (ConLeche.Expr × ConLeche.BinderMeta)}
-      {body : ConLeche.Expr} {j : Nat},
-      ConLeche.Expr.stripLams k e = some (bs, body) →
-      ConLeche.Expr.looseBVarsBounded j e = true →
-      ConLeche.Expr.looseBVarsBounded (j + k) body = true := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body j h hb
-    simp only [ConLeche.Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.2]
-    exact hb
-  | succ k ih =>
-    intro e bs body j h hb
-    match e, h with
-    | .lam ty b m, h =>
-      simp only [ConLeche.Expr.stripLams, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
-      obtain ⟨-, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body := by simpa using heq
-      simp only [ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-      have hq := ih hbstrip hb.2
-      rw [show j + 1 + k = j + (k + 1) from by omega] at hq
-      exact hq
 
 end Peel
 
@@ -2070,7 +1961,7 @@ not the recursors'. -/
 
 section HfldRun
 
-open ConLeche (BlockFieldKind pairIdxOf?)
+open ConLeche (BlockFieldKind)
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {lps : List Name}
   {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
@@ -2700,71 +2591,6 @@ the transport is the mono lemma's own direction — its
 `ConstsBound envC` premise comes off the constructor's stored type by
 four structural steps. -/
 
-section FieldMono
-
-/-- A `∀`-telescope's binders and body inherit the term's bound. -/
-theorem constsBound_piBinders {envC : Env} :
-    ∀ {e : Expr}, ConstsBound envC e →
-      (∀ b ∈ (Expr.piBinders e).1, ConstsBound envC b.1) ∧ ConstsBound envC (Expr.piBinders e).2
-  | .forallE ty b mb, h => by
-    rw [constsBound_forallE] at h
-    obtain ⟨hbs, hbody⟩ := constsBound_piBinders h.2
-    refine ⟨fun c hc => ?_, hbody⟩
-    rcases List.mem_cons.mp hc with rfl | hc'
-    · exact h.1
-    · exact hbs c hc'
-  | .bvar _, h | .sort _, h | .const _ _, h | .lit _, h | .fvar _ _, h
-  | .app _ _, h | .lam _ _ _, h | .letE _ _ _, h | .proj _ _ _, h =>
-    ⟨fun _ hc => (nomatch hc), h⟩
-
-/-- `stripPis`' binders and body inherit it too. -/
-theorem constsBound_stripPis {envC : Env} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr},
-      ConstsBound envC e → e.stripPis n = some (bs, body) →
-      (∀ b ∈ bs, ConstsBound envC b.1) ∧ ConstsBound envC body
-  | 0, e, bs, body, he, h => by
-    simp only [ConLeche.Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨fun _ hc => (nomatch hc), he⟩
-  | n + 1, e, bs, body, he, h => by
-    match e with
-    | .forallE ty b mb =>
-      rw [constsBound_forallE] at he
-      simp only [ConLeche.Expr.stripPis, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs₀, body₀⟩, hst, heq⟩ := h
-      simp only [Prod.mk.injEq] at heq
-      obtain ⟨rfl, rfl⟩ := heq
-      obtain ⟨hbs, hbody⟩ := constsBound_stripPis n he.2 hst
-      refine ⟨fun c hc => ?_, hbody⟩
-      rcases List.mem_cons.mp hc with rfl | hc'
-      · exact he.1
-      · exact hbs c hc'
-    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _ _
-    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
-
-/-- The field's own telescope and index expressions are subterms of
-the constructor's stored type. -/
-theorem constsBound_structFieldParts {envC : Env} {cty : Expr} (hcb : ConstsBound envC cty)
-    {nP nF i : Nat} (hi : i < nF) :
-    (∀ b ∈ ConLeche.structFieldTeleOf cty nP nF i, ConstsBound envC b.1) ∧
-      ∀ e ∈ ConLeche.structFieldIdxOf cty nP nF i, ConstsBound envC e := by
-  unfold ConLeche.structFieldTeleOf ConLeche.structFieldIdxOf
-  cases hs : cty.stripPis (nP + nF) with
-  | none => exact ⟨fun _ hb => (nomatch hb), fun _ hb => (nomatch hb)⟩
-  | some q =>
-    obtain ⟨cbs, cbody⟩ := q
-    obtain ⟨hbs, -⟩ := constsBound_stripPis (nP + nF) hcb hs
-    have hcbslen : cbs.length = nP + nF := ConLeche.Expr.stripPis_length _ hs
-    have hfield : ConstsBound envC (cbs.getD (nP + i) default).1 := by
-      have hlt : nP + i < cbs.length := by omega
-      refine hbs _ ?_
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
-      exact List.getElem_mem hlt
-    obtain ⟨htl, hbody⟩ := constsBound_piBinders hfield
-    exact ⟨htl, fun e he =>
-      constsBound_getAppArgs _ hbody e (List.mem_of_mem_drop he)⟩
-
-end FieldMono
 
 /-! ## A.18 `hfit`, CLOSED
 
@@ -2803,51 +2629,6 @@ one, where the check ran.  The bridge is
 because `blockIhCall?` rejects a block recursor anywhere in them
 (`IhCallRun.hfree`). -/
 
-section ArgsConsts
-
-/-- A term that mentions none of `names` is bounded by any environment
-that finds everything the bigger one finds EXCEPT those names. -/
-theorem constsBound_of_not_mentions {envC env' : Env} {names : List Name}
-    (hmono : ∀ n : Name, (env'.find? n).isSome = true → names.contains n = false →
-      (envC.find? n).isSome = true) :
-    ∀ e : Expr, ConstsBound env' e → e.mentionsAnyConst names = false →
-      ConstsBound envC e
-  | .bvar _, _, _ => by simp
-  | .sort _, _, _ => by simp
-  | .lit _, _, _ => by simp
-  | .const n _, hcb, hm => by
-    rw [constsBound_const] at hcb ⊢
-    exact hmono n hcb (by simpa [Expr.mentionsAnyConst] using hm)
-  | .fvar _ ty, hcb, hm => by
-    rw [constsBound_fvar] at hcb ⊢
-    exact constsBound_of_not_mentions hmono ty hcb (by simpa [Expr.mentionsAnyConst] using hm)
-  | .app f a, hcb, hm => by
-    rw [constsBound_app] at hcb ⊢
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
-    exact ⟨constsBound_of_not_mentions hmono f hcb.1 hm.1,
-      constsBound_of_not_mentions hmono a hcb.2 hm.2⟩
-  | .lam ty b _, hcb, hm => by
-    rw [constsBound_lam] at hcb ⊢
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
-    exact ⟨constsBound_of_not_mentions hmono ty hcb.1 hm.1,
-      constsBound_of_not_mentions hmono b hcb.2 hm.2⟩
-  | .forallE ty b _, hcb, hm => by
-    rw [constsBound_forallE] at hcb ⊢
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
-    exact ⟨constsBound_of_not_mentions hmono ty hcb.1 hm.1,
-      constsBound_of_not_mentions hmono b hcb.2 hm.2⟩
-  | .letE t v b, hcb, hm => by
-    rw [constsBound_letE] at hcb ⊢
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
-    exact ⟨constsBound_of_not_mentions hmono t hcb.1 hm.1.1,
-      constsBound_of_not_mentions hmono v hcb.2.1 hm.1.2,
-      constsBound_of_not_mentions hmono b hcb.2.2 hm.2⟩
-  | .proj _ _ e, hcb, hm => by
-    rw [constsBound_proj] at hcb ⊢
-    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at hm
-    exact constsBound_of_not_mentions hmono e hcb hm.2
-
-end ArgsConsts
 
 /-! ## A.17c The BARE-`k` model, and the rule's own reading
 

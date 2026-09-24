@@ -213,19 +213,6 @@ theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
 
 /-! ## The whole CHECK -/
 
-namespace RecKRun
-
-variable {F : Nat} {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-
-/-- The recursors' type list the rules are checked against IS the
-stored recursors' types. -/
-theorem recTys_eq :
-    (rs.map fun r => (r.1, r.2.2.1)).map (·.1.type) = rs.map (·.1.type) := by
-  simp only [List.map_map]; rfl
-
-end RecKRun
 
 /-- The field kinds the rule stage runs the `(c, i)`-th rule at: the
 block's own, at the `c`-th recursor's member. -/

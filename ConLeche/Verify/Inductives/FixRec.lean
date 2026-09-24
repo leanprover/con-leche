@@ -35,51 +35,6 @@ open Expr
 
 /-! ## The index expression at the recursor's frame -/
 
-/-- A lift raises the loose-bvar bound by the lift's amount. -/
-theorem Expr.looseBVarsBounded_liftLooseBVars (k : Nat) :
-    ∀ (e : Expr) {b c : Nat}, e.looseBVarsBounded b = true →
-      (e.liftLooseBVars k c).looseBVarsBounded (b + k) = true := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro b c hb
-    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
-    simp only [Expr.liftLooseBVars]
-    split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
-  | fvar _ _ _ => intro b c _; rfl
-  | sort _ => intro b c _; rfl
-  | const _ _ => intro b c _; rfl
-  | lit _ => intro b c _; rfl
-  | app f a ihf iha =>
-    intro b c hb
-    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    exact ⟨ihf hb.1, iha hb.2⟩
-  | lam ty body _ ihty ihb =>
-    intro b c hb
-    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    refine ⟨ihty hb.1, ?_⟩
-    have := ihb (b := b + 1) (c := c + 1) hb.2
-    rw [show b + 1 + k = b + k + 1 from by omega] at this
-    exact this
-  | forallE ty body _ ihty ihb =>
-    intro b c hb
-    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    refine ⟨ihty hb.1, ?_⟩
-    have := ihb (b := b + 1) (c := c + 1) hb.2
-    rw [show b + 1 + k = b + k + 1 from by omega] at this
-    exact this
-  | letE ty v body ihty ihv ihb =>
-    intro b c hb
-    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    refine ⟨⟨ihty hb.1.1, ihv hb.1.2⟩, ?_⟩
-    have := ihb (b := b + 1) (c := c + 1) hb.2
-    rw [show b + 1 + k = b + k + 1 from by omega] at this
-    exact this
-  | proj _ _ e ih =>
-    intro b c hb
-    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded] at hb ⊢
-    exact ih hb
-
 /-! ## Iterated variable shifts -/
 
 /-- `Expr.shiftFrom p`, iterated `n` times: insert `n` fresh variable
@@ -87,14 +42,6 @@ slots at index `p`. -/
 @[expose] def Expr.shiftFromN (p : Nat) : Nat → Expr → Expr
   | 0, e => e
   | n + 1, e => Expr.shiftFrom p (Expr.shiftFromN p n e)
-
-/-- A term without free variables is fixed by the shift. -/
-theorem Expr.shiftFromN_eq_self_of_not_hasFvar {p : Nat} :
-    ∀ (n : Nat) {e : Expr}, e.hasFvar = false → Expr.shiftFromN p n e = e
-  | 0, _, _ => rfl
-  | n + 1, e, h => by
-    show Expr.shiftFrom p (Expr.shiftFromN p n e) = e
-    rw [Expr.shiftFromN_eq_self_of_not_hasFvar n h, Expr.shiftFrom_eq_self_of_not_hasFvar h]
 
 /-- A shift bumps a free variable at or above the cut by one. -/
 theorem Expr.shiftFromN_fvar (p : Nat) :
@@ -173,30 +120,6 @@ theorem Expr.WScoped_shiftFromN {p : Nat} :
     show Expr.WScoped (d + (n + 1)) (Expr.shiftFrom p (Expr.shiftFromN p n e))
     rw [show d + (n + 1) = d + n + 1 from by omega]
     exact Expr.WScoped_shiftFrom (Expr.WScoped_shiftFromN (p := p) n hw)
-
-/-- A shift commutes with an instantiation sequence. -/
-theorem Expr.shiftFrom_instSeq (p : Nat) :
-    ∀ (sp : List Expr) (t : Nat) (e : Expr),
-      Expr.shiftFrom p (instSeq sp t e)
-        = instSeq (sp.map (Expr.shiftFrom p)) t (Expr.shiftFrom p e)
-  | [], _, _ => rfl
-  | a :: sp, t, e => by
-    show Expr.shiftFrom p (instSeq sp (t - 1) (e.instantiate1 a t)) = _
-    rw [Expr.shiftFrom_instSeq p sp (t - 1) (e.instantiate1 a t),
-      Expr.shiftFrom_instantiate1_gen e t]
-    rfl
-
-/-- An iterated shift commutes with an instantiation sequence. -/
-theorem Expr.shiftFromN_instSeq (p : Nat) :
-    ∀ (n : Nat) (sp : List Expr) (t : Nat) (e : Expr),
-      Expr.shiftFromN p n (instSeq sp t e)
-        = instSeq (sp.map (Expr.shiftFromN p n)) t (Expr.shiftFromN p n e)
-  | 0, sp, t, e => by simp [Expr.shiftFromN]
-  | n + 1, sp, t, e => by
-    show Expr.shiftFrom p (Expr.shiftFromN p n (instSeq sp t e)) = _
-    rw [Expr.shiftFromN_instSeq p n sp t e, Expr.shiftFrom_instSeq p]
-    simp only [List.map_map]
-    rfl
 
 /-- Well-scopedness survives an instantiation sequence at well-scoped
 arguments. -/
