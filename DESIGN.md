@@ -79404,7 +79404,12 @@ this block wins.
    was the counter-example).  "Verdict-neutral on the corpus" does not
    establish that official imposes a restriction.  Each restriction must be
    justified against official's code (`inductive.cpp`, the recursor rules),
-   or else reported as an accept-subset finding.
+   or else reported as an accept-subset finding.  Before a check is called
+   verdict-neutral, try hard to construct an e2e fixture that official
+   ACCEPTS and the check refuses.  If we believe official also rejects what
+   a check refuses, the check REJECTS (exit 1), not declines.  Decline stays
+   for features we positively detect and don't support, and for our own
+   resource limits (fuel, bounds).
 
 **Maintainer's direction (2026-09-21).**  One uniform native installer
 and ONE proof for every inductive block: a k-member block is the general
