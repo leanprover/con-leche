@@ -4,6 +4,9 @@ public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Semantics.Tower.BlockRecI
+import ConLeche.SetTheory.Derive.Univ
+import ConLeche.SetTheory.Derive.Graphs
+import ConLeche.Model.Inductives.StructTele
 
 public section
 
@@ -239,5 +242,110 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List AnnotT
       exact hR₀.dsScoped i key hk x hx
     · rw [List.getElem?_append_right (by omega)] at hk
       exact hbase key (List.mem_of_getElem? hk) x hx
+
+/-! ## Forgetting the frames, and empty frames -/
+
+/-- **The hole relation seen at the block's own depth**, the frames
+forgotten (a cached instantiation's parameters lie below every frame
+hole). -/
+theorem HoleRel.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
+    {R : FrameRel V} (hR : HoleRel m φ ctx prog d Δa R) (hle : ctx.hiAt prog.length ≤ d) :
+    HoleRel m φ ctx [] (ctx.hiAt 0) (Δa.drop (d - ctx.hiAt 0)) (R.drop (d - ctx.hiAt 0)) where
+  dom := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
+    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
+    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+  agree := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
+    refine hR.agree ρ ρ' hr (i + (d - ctx.hiAt 0)) fun hp => hi ?_
+    simp only [holeP, NestCtx.hiAt, List.length_nil] at hp hle ⊢
+    omega
+  member := by
+    rintro t ht _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ as has
+    have hlt : ctx.nP + t < ctx.hiAt 0 := by simp only [NestCtx.hiAt]; omega
+    have hle' : ctx.hiAt 0 ≤ d := by simp only [NestCtx.hiAt] at hle ⊢; omega
+    have := hR.member t ht ρ ρ' hr as has
+    dsimp only
+    rwa [show ctx.hiAt 0 - 1 - (ctx.nP + t) + (d - ctx.hiAt 0) = d - 1 - (ctx.nP + t) by omega]
+  frame := by
+    intro i hk h
+    simp at h
+  dsScoped := by
+    intro i hk h
+    simp at h
+
+theorem foldl_app_empty : ∀ (as : List V), as.foldl app (empty : V) = empty
+  | [] => rfl
+  | a :: as => by rw [List.foldl_cons, app_empty, foldl_app_empty as]
+
+/-- **Empty enclosing frames**: a relation at the block's own depth,
+extended by the enclosing frames of `prog` holding the empty set on both
+sides (a `Sort 0` entry each) — their holes' order is then trivial. -/
+theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameRel V}
+    (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δ0 R00) (prog : List NestHole)
+    (hsc : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
+      Expr.WScoped (ctx.hiAt prog.length) x) :
+    HoleRel m φ ctx prog (ctx.hiAt prog.length)
+      (List.replicate prog.length (.sort 0) ++ Δ0)
+      (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate prog.length empty) ρ ∧
+        σ' = consList (List.replicate prog.length empty) ρ') where
+  dom := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
+    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
+    have hsp : ∀ σ : Nat → V, SpineFit σ (List.replicate prog.length (AnnotTerm.sort 0))
+        (List.replicate prog.length empty) := by
+      intro σ
+      induction prog.length generalizing σ with
+      | zero => trivial
+      | succ n ih =>
+        exact ⟨by rw [interp_sort]; exact empty_mem_univ 0, ih _⟩
+    have e := List.reverse_replicate (n := prog.length) (a := (AnnotTerm.sort 0))
+    refine ⟨?_, ?_⟩
+    · have := sat_of_spineFit h1 (hsp ρ); rwa [e] at this
+    · have := sat_of_spineFit h2 (hsp ρ'); rwa [e] at this
+  agree := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
+    by_cases hip : i < prog.length
+    · exfalso; apply hi
+      simp only [NestCtx.hiAt] at ⊢
+      refine ⟨by omega, by omega, by omega⟩
+    obtain ⟨j, rfl⟩ : ∃ j, i = j + prog.length := ⟨i - prog.length, by omega⟩
+    have e1 := consList_apply_add (List.replicate prog.length (empty : V)) ρ j
+    have e2 := consList_apply_add (List.replicate prog.length (empty : V)) ρ' j
+    rw [List.length_replicate] at e1 e2
+    rw [e1, e2]
+    refine hR.agree ρ ρ' hr j fun hp => hi ?_
+    obtain ⟨h1, h2, h3⟩ := hp
+    simp only [NestCtx.hiAt, List.length_nil] at h1 h2 h3 ⊢
+    refine ⟨by omega, by omega, by omega⟩
+  member := by
+    rintro t ht _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ as has
+    have hlt : ctx.nP + t < ctx.hiAt 0 := by simp only [NestCtx.hiAt]; omega
+    have e1 := consList_apply_add (List.replicate prog.length (empty : V)) ρ
+      (ctx.hiAt 0 - 1 - (ctx.nP + t))
+    have e2 := consList_apply_add (List.replicate prog.length (empty : V)) ρ'
+      (ctx.hiAt 0 - 1 - (ctx.nP + t))
+    rw [List.length_replicate] at e1 e2
+    rw [show ctx.hiAt prog.length - 1 - (ctx.nP + t)
+      = ctx.hiAt 0 - 1 - (ctx.nP + t) + prog.length by simp only [NestCtx.hiAt] at hlt ⊢; omega,
+      e1, e2]
+    have := hR.member t ht ρ ρ' hr as has
+    simpa using this
+  frame := by
+    rintro i hk hki dsa hsp ni _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
+    have hlen : i < prog.length := by
+      have := (List.getElem?_eq_some_iff.mp hki).1
+      simpa using this
+    have hpos : ∀ σ : Nat → V,
+        consList (List.replicate prog.length (empty : V)) σ
+          (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i)) = empty := by
+      intro σ
+      rw [consList_getD_of_lt _ _ _ (by simp only [List.length_replicate, NestCtx.hiAt]; omega)]
+      simp only [List.getD_eq_getElem?_getD, List.getElem?_replicate, List.length_replicate]
+      rw [if_pos (by omega)]
+      rfl
+    rw [hpos ρ, hpos ρ', foldl_app_empty, foldl_app_empty]
+    exact Subset.refl _
+  dsScoped := hsc
 
 end ConLeche.Model
