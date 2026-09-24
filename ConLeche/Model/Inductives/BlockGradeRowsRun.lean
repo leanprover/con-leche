@@ -255,7 +255,7 @@ theorem blockGradeLhs_run
   have hfit := blockKitRule_run hμ h hcore hmr hM rfl hctM ψ rs.length
     (fun c => as.getD c pt) ρ c hc j hj xs fs hxl hsp
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr hj hxl hsp
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl (fun c r _ hr => hctM c r hr) hr hj hxl hsp
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 := by

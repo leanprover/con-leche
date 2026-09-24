@@ -743,8 +743,8 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 
 /-- **The graph kit's `hconclTy`, at the run**: the conclusion read at
 any class element is a set of the CHECKED elimination level. -/
-theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+theorem blockRecConclTy_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     {uOf : Nat → Level}
@@ -753,8 +753,7 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
         ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
         ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
-    (ψ : Name → Nat) (ρ : Nat → V) :
-    ∀ xs : List V, ∀ c, c < rs.length →
+    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) {c : Nat} (hm : memR c) (hc : c < rs.length) :
       ∀ i, i ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
           p.toBlockShape.recTgtAt xs c →
       ∀ x, x ∈ˢ app (blockRecCr d ψ ρ p.toBlockShape.recTgtAt xs c) i →
@@ -764,11 +763,11 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
         ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
           p.toBlockShape.large)) : V) := by
-  intro xs c hc i hi x hx
+  intro i hi x hx
   obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
   obtain ⟨hpar, hpref⟩ := blockRecIs_fits hi
   rw [blockRecIs_pos hpar hpref] at hi
-  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr ψ
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := hm) hμ mpC h hmr hr ψ
   have hlenIds := blockMembers_IdsM_length hmr hmemk ψ
   have hmemN : p.toBlockShape.recTgtAt c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hi' : i ∈ˢ idxSet (d.uM (p.toBlockShape.recTgtAt c) ψ) (consList (xs.take d.nP) ρ)
@@ -793,7 +792,7 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hislen : is.length = d.nIdxAt (p.toBlockShape.recTgtAt c) := by
     rw [hisfit.length_eq, hlenIds]
   -- THE CONVERSE: the index values fit the recursor's index binders
-  have hidxR := blockRecIdxConv_run (hm := trivial) hμ mpC h hmr hr ψ ρ xs is hprefR hisfit
+  have hidxR := blockRecIdxConv_run (hm := hm) hμ mpC h hmr hr ψ ρ xs is hprefR hisfit
   rw [hlenIds] at hidxR
   -- the major
   have hmaj : x ∈ˢ interp V (consList (xs ++ is) ρ)
@@ -844,6 +843,30 @@ theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hrd] at hop
   have hu := blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
   rwa [blockRecElimPin_run h hruns ψ hc] at hu
+
+/-- The graph kit's `hconclTy`, at the run, at every recursor (all majors members). -/
+theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
+    {uOf : Nat → Level}
+    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
+      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
+        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs : List V, ∀ c, c < rs.length →
+      ∀ i, i ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
+          p.toBlockShape.recTgtAt xs c →
+      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ p.toBlockShape.recTgtAt xs c) i →
+      interp V
+          (consList (xs ++ (isOfW (d.uM (p.toBlockShape.recTgtAt c) ψ)
+            (d.nIdxAt (p.toBlockShape.recTgtAt c)) i ++ [x])) ρ)
+          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
+          p.toBlockShape.large)) : V) :=
+  fun xs _ hc => blockRecConclTy_at hμ mpC h hmr hM hruns ψ ρ xs trivial hc
 
 end ConclTy
 

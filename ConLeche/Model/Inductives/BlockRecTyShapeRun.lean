@@ -523,19 +523,17 @@ applications (`interp_of_major_reading`).
 The index clause's OPPOSITE direction is not among them and is not
 produced here: nothing in the run ties the recursor's index binders to
 the member's telescope. -/
-theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+theorem blockRecTyShape_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
-    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
+    (ψ : Name → Nat) (ρ : Nat → V) {c : Nat} (hm : memR c) (hc : c < rs.length) :
+    BlockRecTyShapeOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt
       p.toBlockShape.recTgtAt
-      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ := by
-  intro c hc
-  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hK]; exact hc)⟩
-  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr ψ
-  have hpar := blockRecParams_run (hm := trivial) hμ mpC h hmr hr ψ ρ
-  have hidxF := blockRecIdxFit_run (hm := trivial) hμ mpC h hmr hr ψ ρ
+      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ c := by
+  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨_, List.getElem?_eq_getElem hc⟩
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := hm) hμ mpC h hmr hr ψ
+  have hpar := blockRecParams_run (hm := hm) hμ mpC h hmr hr ψ ρ
+  have hidxF := blockRecIdxFit_run (hm := hm) hμ mpC h hmr hr ψ ρ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, -⟩ := hmr
   obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[p.toBlockShape.recTgtAt c]? = some cvTa :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmemk)⟩
@@ -569,6 +567,16 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hIdsLen, hgetMaj, ← consList_append, hmI]
   exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
+
+/-- `blockRecTyShape_at` at every recursor (all majors members). -/
+theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
+    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
+      p.toBlockShape.recTgtAt
+      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ :=
+  fun c hc => blockRecTyShape_at hμ mpC h hmr ψ ρ trivial (by rw [hK]; exact hc)
 
 /-! ## 7. The `ih` KEY's block facts (`hkey` half A)
 

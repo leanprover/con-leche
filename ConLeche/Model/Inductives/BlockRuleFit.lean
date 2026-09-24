@@ -2359,24 +2359,24 @@ theorem fieldsBelow_getD :
 field half is the constructor's field domains (`CtorDataI.below`,
 dropped past the parameters) lifted past the rule prefix's non-parameter
 stretch (`blockRuleFdomsAV_eq`). -/
-theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
+theorem blockRuleDoms_bounded_one (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
     ∀ (ψ : Name → Nat) (j : Nat)
-        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), memR j → rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
       r.2.1[i]? = some rhs →
       ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
           ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).length →
         Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
           ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default).erase) := by
-  intro ψ j r hr i cA rhs hcA hrhs l hl
+  intro ψ j r hm hr i cA rhs hcA hrhs l hl
   -- the member link and the constructor's data
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
   have hmemk : pp.toBlockShape.recTgtAt j
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
@@ -2387,11 +2387,11 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk i cA hcj
   obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ i cA hcj
   have hCf : cA.1.type.hasFvar = false := (mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)).1
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hnP := TE.nP_le
   have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
   -- the two halves' bounds
-  have hfd := (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcd hCf hnP ψ).1
+  have hfd := (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ).1
   have hfB : FieldsBelow (pp.toBlockShape.rulePrefixAt j)
       (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i) := by
     rw [hfd]
@@ -2412,6 +2412,24 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
     have := fieldsBelow_getD hfB _ hq
     rwa [show pp.toBlockShape.rulePrefixAt j + (l - pp.toBlockShape.rulePrefixAt j) = l
       from by omega] at this
+
+/-- `blockRuleDoms_bounded_one` at every recursor (all majors members). -/
+theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
+    (hcore : BlockCtorsCore mpC.base2
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp.toBlockShape isRec A
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
+    ∀ (ψ : Name → Nat) (j : Nat)
+        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
+      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
+      r.2.1[i]? = some rhs →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).length →
+        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j
+          ++ blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default).erase) :=
+  fun ψ j r hr => blockRuleDoms_bounded_one hμ h hcore ψ j r trivial hr
 
 end DomsBounded
 

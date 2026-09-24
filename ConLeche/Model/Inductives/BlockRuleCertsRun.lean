@@ -272,7 +272,7 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     rw [chainFrame_zero, blockRecFdomsK, liftDomsK_zero]
     exact hab
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr hj hxl hsp0
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl (fun c r _ hr => hctM c r hr) hr hj hxl hsp0
   have hpl : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
       = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 :=

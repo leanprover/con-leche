@@ -268,10 +268,10 @@ index values fit the member's own index telescope there; and the
 major lies in the member's former applied to both.  Every conjunct is
 a statement about the STORED type's reading, none about the
 recursion. -/
-@[expose] def BlockRecSplitAt (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
-    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
-  ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
+@[expose] def BlockRecSplitOne (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
+    (d : BlockData V) (ψ : Name → Nat) (rP mem : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (c : Nat) : Prop :=
+  ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
     (prefOf (rP c) ys).length = rP c ∧
     ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
     SpineFit ρ (d.params ψ) ((prefOf (rP c) ys).take d.nP) ∧
@@ -279,6 +279,36 @@ recursion. -/
       (idxOf (rP c) ys) ∧
     majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
+
+/-- `BlockRecSplitOne` at every recursor of the family. -/
+@[expose] def BlockRecSplitAt (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
+    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
+    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
+  ∀ c, c < K → BlockRecSplitOne V mo d ψ rP mem rds ρ c
+
+/-- **`GraphFamData.hsplit` at ONE member class** (lane NESTIND). -/
+theorem blockRec_hsplit_at (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
+    {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+    {pdoms : Nat → List AnnotTerm} {c : Nat}
+    (hpdE : pdoms c = ((rds c).map (·.2.2)).take (rP c))
+    (hmem : mem c < d.k)
+    (hsplit : BlockRecSplitOne V mo d ψ rP mem rds ρ c) :
+    ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      (prefOf (rP c) ys).length = rP c ∧
+      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ pdoms mem (prefOf (rP c) ys) c ∧
+      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
+  intro ys hfit
+  obtain ⟨hlen, hdec, hpar, hidx, hmaj⟩ := hsplit ys hfit
+  have hpref : SpineFit ρ (pdoms c) (prefOf (rP c) ys) := by
+    rw [hpdE]
+    exact spineFit_take_any hfit _
+  rw [blockRecIs_pos hpar hpref]
+  refine ⟨hlen, hdec, tupW_mem hidx, ?_⟩
+  rw [blockRecCr, ← hM.leaf (mem c) hmem ψ ρ ((prefOf (rP c) ys).take d.nP)
+    (idxOf (rP c) ys) hpar hidx]
+  exact hmaj
 
 /-- **`GraphFamData.hsplit` at the block's carriers**, from the stored
 type's reading and the representation's `leaf` clause. -/
@@ -293,17 +323,8 @@ theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ :
       ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
       d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ pdoms mem (prefOf (rP c) ys) c ∧
       majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) := by
-  intro c hc ys hfit
-  obtain ⟨hlen, hdec, hpar, hidx, hmaj⟩ := hsplit c hc ys hfit
-  have hpref : SpineFit ρ (pdoms c) (prefOf (rP c) ys) := by
-    rw [hpdE c hc]
-    exact spineFit_take_any hfit _
-  rw [blockRecIs_pos hpar hpref]
-  refine ⟨hlen, hdec, tupW_mem hidx, ?_⟩
-  rw [blockRecCr, ← hM.leaf (mem c) (hmem c hc) ψ ρ ((prefOf (rP c) ys).take d.nP)
-    (idxOf (rP c) ys) hpar hidx]
-  exact hmaj
+        (d.tup ψ (mem c) (idxOf (rP c) ys)) :=
+  fun c hc => blockRec_hsplit_at hM (hpdE c hc) (hmem c hc) (hsplit c hc)
 
 end ClassData
 
@@ -408,7 +429,31 @@ tagged index IS the conclusion's reading at the fitting spine.  The
 index spine comes back out of its tuple at the member's own index
 telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
 `idxOk` clause), and the spine is the frame by `hsplit`'s
-decomposition. -/
+decomposition.  This is it at ONE member class (lane NESTIND), the
+motive read at the member's own universe and index count. -/
+theorem blockRec_hconcl_at {env : Env} {mo : EnvModel V env} {names : List Name}
+    {d : BlockData V} (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat}
+    {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
+    {uX nIdxX : Nat → Nat} {c : Nat} (hc : c < K)
+    (huX : uX c = d.uM (mem c) ψ) (hnX : nIdxX c = d.nIdxAt (mem c))
+    (hmem : mem c < d.N)
+    (hlenIds : (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
+    (hsplit : BlockRecSplitOne V mo d ψ rP mem rds ρ c) :
+    ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+      blockRecMot K concl uX nIdxX ρ
+          (prefOf (rP c) ys) (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
+        = interp V (consList ys ρ) (concl c) := by
+  intro ys hfit
+  obtain ⟨-, hdec, hpar, hidx, -⟩ := hsplit ys hfit
+  have hIdx : IdxOk (d.uM (mem c) ψ) (consList ((prefOf (rP c) ys).take d.nP) ρ)
+      (d.IdsM (mem c) ψ) := hM.idxOk ψ _ (d.satOfSpine hpar) (mem c) hmem
+  have hret : isOfW (uX c) (nIdxX c)
+      (d.tup ψ (mem c) (idxOf (rP c) ys)) = idxOf (rP c) ys := by
+    rw [huX, hnX, ← hlenIds]
+    exact isOfW_tupW hIdx hidx
+  rw [blockRecMot_tagged hc, hret, ← hdec]
+
+/-- `blockRec_hconcl_at` at every class of an all-member family. -/
 theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
     (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat} {rP mem : Nat → Nat}
     {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
@@ -418,16 +463,8 @@ theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d
     ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
       blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ
           (prefOf (rP c) ys) (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c) := by
-  intro c hc ys hfit
-  obtain ⟨-, hdec, hpar, hidx, -⟩ := hsplit c hc ys hfit
-  have hIdx : IdxOk (d.uM (mem c) ψ) (consList ((prefOf (rP c) ys).take d.nP) ρ)
-      (d.IdsM (mem c) ψ) := hM.idxOk ψ _ (d.satOfSpine hpar) (mem c) (hmem c hc)
-  have hret : isOfW (d.uM (mem c) ψ) (d.nIdxAt (mem c))
-      (d.tup ψ (mem c) (idxOf (rP c) ys)) = idxOf (rP c) ys := by
-    rw [← hlenIds c hc]
-    exact isOfW_tupW hIdx hidx
-  rw [blockRecMot_tagged hc, hret, ← hdec]
+        = interp V (consList ys ρ) (concl c) :=
+  fun c hc => blockRec_hconcl_at hM hc rfl rfl (hmem c hc) (hlenIds c hc) (hsplit c hc)
 
 /-! ## 13. The residue across the chain frame
 

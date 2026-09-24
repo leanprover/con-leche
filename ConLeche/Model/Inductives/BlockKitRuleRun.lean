@@ -88,7 +88,7 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
+      memR c → rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hm : memR c) (hr : rs[c]? = some r) {j : Nat} (hj : j < blockRecNCt rs c)
     {ψ : Name → Nat} {K : Nat} {a ρ : Nat → V} {xs fs : List V}
@@ -121,7 +121,7 @@ theorem blockRuleSpine_peel (hμ : μ.verifiedChecks = true)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hcj : (d.ctorsM (p.toBlockShape.recTgtAt c))[j]? = some cA := by
-    rw [hctM c r hr]; exact hcA
+    rw [hctM c r hm hr]; exact hcA
   have hmemk : p.toBlockShape.recTgtAt c < d.k :=
     (blockRecMajor_run (hm := hm) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
@@ -261,17 +261,17 @@ values fit the member's telescope (`resIdxFit`); the fired spine is the
 block's injection (`blockRecMkK_value`) of a stored-fit spine
 (`blockRecCtorIdx`), hence in the carrier;
 §2 assembles. -/
-theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+theorem blockKitRule_at (hμ : μ.verifiedChecks = true)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
+      memR c → rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
     (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
-    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+    ∀ c, c < rs.length → memR c → ∀ j, j < blockRecNCt rs c →
       ∀ xs fs : List V,
         xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
         SpineFit (chainFrame K a ρ)
@@ -282,10 +282,10 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
               (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
             ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ))
               (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c j)])) := by
-  intro c hc j hj xs fs hxs hsp
+  intro c hc hm j hj xs fs hxs hsp
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfs, hnF, hpre, hps, hfb, hes, hfd⟩ :=
-    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr hdnP hctM hr hj hxs hsp
+    blockRuleSpine_peel (hm := hm) hμ h hcore hmr hdnP hctM hr hj hxs hsp
   have hmN : p.toBlockShape.recTgtAt c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM (p.toBlockShape.recTgtAt c)).length :=
     (List.getElem?_eq_some_iff.mp hcj).1
@@ -339,7 +339,7 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
   have hmk : interp V (consList (xs ++ fs) (chainFrame K a ρ))
         (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c j)
       = d.inj ψ (p.toBlockShape.recTgtAt c) j fs :=
-    blockRecMkK_value (hm := trivial) (mem := p.toBlockShape.recTgtAt) hM h hr hcA hrhs hcf.1
+    blockRecMkK_value (hm := hm) (mem := p.toBlockShape.recTgtAt) hM h hr hcA hrhs hcf.1
       (by rw [← hcf.2.1]; rfl) hnP hmN hcj ψ hxs' hfs
       (by rw [hpl, hfl, hxs', hfs]) (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfb)
   -- the injection lies in the carrier: the fibre, then closure
@@ -365,7 +365,32 @@ theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
       (·.2.2)).take (p.toBlockShape.rulePrefixAt c)) xs := by
     rw [← List.map_take]; exact hpre
   rw [hmk, ← List.append_assoc]
-  exact blockRecSpineFit_of_parts (hm := trivial) hμ h hmr hr ψ ρ hprefR hisfit hx
+  exact blockRecSpineFit_of_parts (hm := hm) hμ h hmr hr ψ ρ hprefR hisfit hx
+
+/-- `blockKitRule_at` at every recursor (all majors members). -/
+theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
+    (hdnP : d.nP = p.nP)
+    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
+    (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
+    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∀ xs fs : List V,
+        xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+        SpineFit (chainFrame K a ρ)
+          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
+            ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
+          (xs ++ ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map
+              (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+            ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ))
+              (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c j)])) :=
+  fun c hc => blockKitRule_at hμ h hcore hmr hM hdnP (fun c r _ hr => hctM c r hr) ψ K a ρ
+    c hc trivial
 
 end Rule
 

@@ -98,7 +98,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
   have hspF := blockKitSpF_run hμ h hcore hmr rfl hctM ψ hbnd ρ (tgtRs out).length xs
     c hc hpar hpref j hj i fs hi hchain
-  rw [blockRecFdomsK_eq_of_bounded hbnd hr0 hcA hrhs] at hspF
+  rw [blockRecFdomsK_eq_of_bounded (hbnd _) hr0 hcA hrhs] at hspF
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c :=
     hpref.length_eq.trans (blockRulePdomsAV_length hμ mpC h hr0 ψ)
   obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
@@ -303,7 +303,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   obtain ⟨cA, rhs, hcA, hrhs, -, -, -, -, hxs', hfsl, -, hpre, hps, -, -, -⟩ :=
-    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl hctM hr0 hj hxs hsp
+    blockRuleSpine_peel (hm := trivial) hμ h hcore hmr rfl (fun c r _ hr => hctM c r hr) hr0 hj hxs hsp
   -- the fields at the base frame
   have hfsR : SpineFit (consList xs ρ)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) fs := by
