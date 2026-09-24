@@ -995,4 +995,216 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
 
 end Frame
 
+/-! ## The frame, restarts included -/
+
+theorem mapIdx_news (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
+    (grp.mapIdx fun _ (c, _) => ({ key := ⟨c, us, ds⟩, base := hi } : NestHole))
+      = grpNews us ds hi grp := by
+  apply List.ext_getElem (by simp [grpNews])
+  intro i h₁ h₂
+  simp [grpNews]
+
+/-- A frame's group grown by named containers, inverted. -/
+theorem nestGrowGroup_inv {ctx : NestCtx} {hi : Nat} {us : List Level} {ds : List Expr} :
+    ∀ (cs : List Name) (grp grp' : List (Name × Expr)),
+      ConLeche.nestGrowGroup (m := CheckM) ctx hi us ds cs grp = .ok grp' →
+      ∃ ext, grp' = grp ++ ext ∧ ext.map (·.1) = cs ∧
+        ∀ p ∈ ext, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+  | [], grp, grp', h => by
+    simp only [ConLeche.nestGrowGroup, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨[], by simp, rfl, fun _ hp => nomatch hp⟩
+  | c :: cs, grp, grp', h => by
+    simp only [ConLeche.nestGrowGroup, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i q hq
+    obtain ⟨nI, cty⟩ := q
+    obtain ⟨ext, rfl, hmap, hall⟩ := nestGrowGroup_inv cs _ grp' h
+    refine ⟨(c, cty) :: ext, by simp, by simp [hmap], fun p hp => ?_⟩
+    rcases List.mem_cons.mp hp with rfl | hp
+    · exact ⟨nI, hq⟩
+    · exact hall p hp
+
+/-- The lps of a recorded block's constructor are its members'. -/
+theorem ctor_lps {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {lps : List Name}
+    (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      cv.levelParams = lps)
+    {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal} {nPc nF : Nat}
+    (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF)) : cv.levelParams = lps := by
+  obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hrd c hc j hj
+  rw [hfc] at hf'
+  obtain rfl : cv = cv' := by
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'
+    exact hf'.1
+  obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC c hc
+  obtain ⟨cvm', capsm', hfm', hlm'⟩ := hlps c hc
+  rw [hfm] at hfm'
+  obtain ⟨rfl, rfl⟩ : cvm = cvm' ∧ capsm = capsm' := by simpa using hfm'
+  rw [← hlm, hlm']
+
+theorem nodup_eraseDups' {α : Type} [BEq α] [LawfulBEq α] : ∀ (l : List α), l.eraseDups.Nodup
+  | [] => List.nodup_nil
+  | a :: as => by
+    rw [List.eraseDups_cons]
+    refine List.nodup_cons.mpr ⟨fun h => ?_, nodup_eraseDups' _⟩
+    rw [List.mem_eraseDups, List.mem_filter] at h
+    simp at h
+termination_by l => l.length
+decreasing_by
+  simp only [List.length_cons]
+  have := List.length_filter_le (fun b => !b == a) as
+  omega
+
+open Classical in
+/-- **THE FRAME LEMMA** (CONTSEM step 4): a container frame's run —
+restarts included — keeps the state invariant, and when it ends without
+a pending restart its final group is well formed and every member of it
+grows between the two key frames of each pair of the enclosing
+relation. -/
+theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+    (hin : RulesInputs V mp.base2 φ) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
+    (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
+    (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      cv.levelParams = lps)
+    {us : List Level} (hul : us.length = lps.length) {hi : Nat} {ds : List Expr}
+    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
+    (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
+    (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
+      L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
+        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+    (hall : ∀ mm, mm < D.k → ∀ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) →
+      caps.all = D.names)
+    {F : Nat} {I : NestState → Prop} (hIok : CtorsOfOk ctx I)
+    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) I rec)
+    {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List AnnotTerm}
+    {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
+    (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+    (hfit : ∀ ρ ρ', R₀ ρ ρ' →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
+    {n : Name} (hnL : ∃ nP' L, ConLeche.nestContainer ctx n = some (nP', L) ∧ L ≠ []) :
+    ∀ (r : Nat) (grp : List (Name × Expr)) (st₀ : NestState) (grp' : List (Name × Expr))
+      (st' : NestState), GrpOk ctx D hi us ds grp → (grp.headD default).1 = n →
+      ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog hi us ds ds.length r grp st₀
+        = .ok (grp', st') → I st₀ →
+      I st' ∧ (st'.restart = none → GrpOk ctx D hi us ds grp' ∧ ∀ ρ ρ', R₀ ρ ρ' → ∀ c,
+        InGrp D grp' c →
+        FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
+          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
+          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) := by
+  intro r
+  induction r with
+  | zero =>
+    intro grp st₀ grp' st' _ _ h _
+    simp [ConLeche.nestFrame, throw, throwThe, MonadExceptOf.throw] at h
+  | succ r ih =>
+    intro grp st₀ grp' st' hg hhead h hI₀
+    simp only [ConLeche.nestFrame, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i v hgc
+    obtain ⟨ctors, st₁⟩ := v
+    split at h
+    · simp at h
+    rename_i st₂ hwc
+    have hwc' : ConLeche.nestCtors ctx (fueledOps .verified F) env rec
+        ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
+        (grpSub us hi grp) ctors st₁ = .ok st₂ := by
+      rw [← mapIdx_news]; exact hwc
+    -- the level parameters are distinct (the head's first constructor's check)
+    have hnd : lps.Nodup := by
+      obtain ⟨-, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
+      obtain ⟨nP', L, hL, hLne⟩ := hnL
+      have hn : n ∈ grp.map (·.1) := by
+        rw [← hhead]
+        obtain ⟨p, ps, hp⟩ := List.exists_cons_of_ne_nil hg.1
+        subst hp; simp
+      obtain ⟨nP'', L', hL', -, hsub⟩ := hctorsAll n hn
+      rw [hL] at hL'
+      obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L' := by simpa using hL'
+      obtain ⟨y, hy⟩ := List.exists_mem_of_ne_nil _ hLne
+      obtain ⟨x, xs, hxs⟩ := List.exists_cons_of_ne_nil (List.ne_nil_of_mem (hsub y hy))
+      subst hxs
+      have hndx := nestCtors_head_nodup hwc'
+      obtain ⟨cn, hcn, nPx, Lx, hLx, hnPx, hxL⟩ := hctorsIn x List.mem_cons_self
+      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
+      obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
+      obtain ⟨nP₃, L₃, hL₃, hlen₃, hfL₃⟩ := hcov c hc
+      rw [hpc, hL₃] at hLx
+      obtain ⟨rfl, rfl⟩ : nP₃ = nPx ∧ L₃ = Lx := by simpa using hLx
+      obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
+      rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
+      exact hndx
+    obtain ⟨hI₂, hle⟩ := frameIter mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hIok hrec
+      hcov hhi hR₀ hΔ hCds hLds hfit hgc hI₀ hwc'
+    split at h
+    · -- a restart request
+      rename_i b adds hrs
+      split at h
+      · -- at this frame: restart with the grown group
+        rename_i hb
+        split at h
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
+        rename_i hne
+        split at h
+        · rename_i hblk
+          split at h
+          · simp at h
+          rename_i grp'' hgrow
+          obtain ⟨ext, rfl, hmap, hext⟩ := nestGrowGroup_inv _ _ _ hgrow
+          -- the grown group is well formed
+          have hg' : GrpOk ctx D hi us ds (grp ++ ext) := by
+            obtain ⟨hne₀, hnd₀, hall₀⟩ := hg
+            refine ⟨by simp [hne₀], ?_, fun p hp => ?_⟩
+            · rw [List.map_append, hmap, List.nodup_append]
+              refine ⟨hnd₀, (nodup_eraseDups' _).filter _, fun a ha b hb hab => ?_⟩
+              subst hab
+              rw [List.mem_filter] at hb
+              have hc : (grp.map (·.1)).contains a = true := List.contains_iff_mem.mpr ha
+              rw [hc] at hb
+              exact absurd hb.2 (by decide)
+            · rcases List.mem_append.mp hp with hp | hp
+              · exact hall₀ p hp
+              · refine ⟨?_, hext p hp⟩
+                have hpn : p.1 ∈ List.filter (fun c => !(grp.map (·.1)).contains c)
+                    adds.eraseDups := by
+                  rw [← hmap]; exact List.mem_map_of_mem hp
+                have hin' := List.all_eq_true.mp hblk _ hpn
+                obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne₀
+                obtain ⟨⟨mm₀, hmm₀, hpm₀⟩, -⟩ := hall₀ p₀ (by rw [hp₀]; exact List.mem_cons_self)
+                obtain ⟨cv₀, caps₀, hf₀, -⟩ := hlps mm₀ hmm₀
+                have hblkOf : ConLeche.nestBlockOf ctx (grp.headD default).1 = D.names := by
+                  rw [hp₀]
+                  simp only [List.headD_cons]
+                  unfold ConLeche.nestBlockOf
+                  rw [hpm₀, hfind, hf₀]
+                  exact hall mm₀ hmm₀ cv₀ caps₀ hf₀
+                rw [hblkOf, List.contains_iff_mem] at hin'
+                obtain ⟨mm, hmm, hpm⟩ := List.getElem_of_mem hin'
+                refine ⟨mm, by omega, ?_⟩
+                unfold LfpDatum.member
+                rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm, Option.getD_some, hpm]
+          have hhead' : ((grp ++ ext).headD default).1 = n := by
+            obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hg.1
+            rw [hp₀] at hhead ⊢
+            simpa using hhead
+          exact ih (grp ++ ext) _ grp' st' hg' hhead' h (hIok.mix st₀ st₂ hI₀ hI₂)
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
+      · -- another frame's restart: unwind
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        refine ⟨hI₂, fun hc => ?_⟩
+        rw [hc] at hrs; exact nomatch hrs
+    · -- no restart: the frame's own result
+      rename_i hrs
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨hI₂, fun hc => ⟨hg, hle hc⟩⟩
+
 end ConLeche.Model
