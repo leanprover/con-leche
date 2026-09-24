@@ -169,6 +169,23 @@ theorem lfp_namesLen {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : Lf
     (hD : D ∈ mp.lfpBlocks) : D.names.length = D.k :=
   (mp.lfp_ok D hD).2.2.2.1
 
+/-- The arguments' leaves are the application's. -/
+theorem mem_fvarLeaves_mkAppN_arg {l : Nat × Expr} :
+    ∀ {xs : List Expr} {f x : Expr}, x ∈ xs → l ∈ x.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
+  | [], _, _, hx, _ => nomatch hx
+  | y :: ys, f, x, hx, hl => by
+    simp only [Expr.mkAppN]
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact mem_fvarLeaves_mkAppN_head (by simp [Expr.fvarLeaves, hl])
+    · exact mem_fvarLeaves_mkAppN_arg hx hl
+where
+  mem_fvarLeaves_mkAppN_head : ∀ {xs : List Expr} {f : Expr}, l ∈ f.fvarLeaves →
+      l ∈ (Expr.mkAppN f xs).fvarLeaves
+    | [], _, h => h
+    | y :: ys, f, h => by
+      simp only [Expr.mkAppN]
+      exact mem_fvarLeaves_mkAppN_head (by simp [Expr.fvarLeaves, h])
+
 section Case
 
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs V mp.base2 φ)
@@ -252,13 +269,126 @@ theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ :
       simp only [List.mem_singleton] at hq
       subst hq
       exact ⟨⟨mm, hmm, hn.symm⟩, hnI⟩⟩ (by simp) hrun hI₀
-  obtain ⟨-, -, hle⟩ := hsem.2 hc₁
+  obtain ⟨-, -, -, hle⟩ := hsem.2 hc₁
   have hle' := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mc ⟨hmc, by
     rw [List.contains_iff_mem, List.mem_map]; exact ⟨p, hp, hpc⟩⟩
   have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog.length (empty : V))
   rw [hlenR, ← hhiEq] at e
   rwa [e, e] at hle'
 
+/-- **A new (or re-walked) instantiation** (`nestContNew`): the frame
+lemma at the enclosing relation seen at the key's depth makes the
+container instance positive; the reached group-mates and the
+instantiation itself are cached with their positivity. -/
+theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List Expr}
+    {wa : AnnotTerm}
+    (hwa : denoteMeta mp.base2.acval env φ dep (Expr.mkAppN (.const n us) (ds ++ is)) = some wa)
+    {Δa : List AnnotTerm} {R : FrameRel V}
+    (hC : CtxOkP mp.base2 φ dep Δa (Expr.mkAppN (.const n us) (ds ++ is)))
+    (hgr : Graded V Δa wa) (hR : HoleRel mp.base2 φ ctx prog dep Δa R)
+    (hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
+    {nI : Nat} {cty : Expr}
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
+      = .ok (nI, cty))
+    (hisl : is.length = nI) {kb : Nat} {old : Option Nat} {st₀ : NestState}
+    {k : NestFieldKind} {st' : NestState}
+    (hrun : ConLeche.nestContNew ctx (fueledOps .verified F) env rec prog kb n us ds ds.length old
+      st₀ = .ok (k, st'))
+    (hI₀ : CacheInv mp φ ctx st₀) :
+    CacheInv mp φ ctx st' ∧ (st'.restart = none → MonoOn R wa) := by
+  have hblk := hcov.block D hD
+  have hkN := lfp_namesLen mp hD
+  obtain ⟨cv, caps, hf, hcvl⟩ := hlps mm hmm
+  subst hn
+  -- the key's parameters read at the key's depth
+  obtain ⟨fa, vs, -, hsp, -⟩ := denoteMeta_mkAppN_inv hwa
+  obtain ⟨vs₁, vs₂, -, hsp₁, -⟩ := DenoteMetaSpine.split _ hsp
+  obtain ⟨dsa, hdsa, -⟩ := DenoteMetaSpine.unlift (m := mp.base2) (φ := φ) hhid
+    (fun x hx => (hdsw x hx).1) hsp₁
+  -- the relation at the key's depth
+  have hR₀ := hR.drop (Nat.le_refl _) hhid
+  have hΔ : (Δa.drop (dep - ctx.hiAt prog.length)).length = ctx.hiAt prog.length := by
+    rw [List.length_drop, hC.1]; omega
+  have hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length)
+      (Δa.drop (dep - ctx.hiAt prog.length)) x := fun x hx =>
+    hC.drop hhid fun l hl => ⟨mem_fvarLeaves_mkAppN_arg (List.mem_append_left _ hx) hl,
+      ConLeche.Expr.fvarLeaves_lt_of_wscoped (hdsw x hx).1 l hl⟩
+  have hfit : ∀ σ σ', R.drop (dep - ctx.hiAt prog.length) σ σ' →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) σ) ∧
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) σ') := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
+    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
+    have k1 := keyParamsFit mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (fun x hx => (hdsw x hx).1)
+      hdsa ρ (hgr ρ h1)
+    have k2 := keyParamsFit mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (fun x hx => (hdsw x hx).1)
+      hdsa ρ' (hgr ρ' h2)
+    rw [hcvl] at k1 k2
+    exact ⟨k1, k2⟩
+  -- invert the run
+  have hrun' := hrun
+  simp only [ConLeche.nestContNew, bind, Except.bind] at hrun'
+  rw [hnI] at hrun'
+  dsimp only at hrun'
+  split at hrun'
+  · simp at hrun'
+  rename_i gs hfr
+  obtain ⟨grp', st₁⟩ := gs
+  have hsem := frame_sem mp hin hD hblk.nodup hkN hcov.find hlps hul hdsw hdsa (hlenP _) hblk.ctors
+    hblk.all (cacheInv_ctorsOfOk mp ctx) hrec rfl hR₀ hΔ hCds hLds hfit (n := D.member mm)
+    (by obtain ⟨L, hL, hLne⟩ := hnL; exact ⟨_, L, hL, hLne⟩)
+    64 [(D.member mm, cty)] st₀ grp' st₁
+    ⟨by simp, by simp, fun q hq => by
+      simp only [List.mem_singleton] at hq
+      subst hq
+      exact ⟨⟨mm, hmm, rfl⟩, _, hnI⟩⟩ (by simp) hfr hI₀
+  by_cases hrs : st₁.restart.isSome = true
+  · rw [if_pos hrs] at hrun'
+    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
+    obtain ⟨-, rfl⟩ := hrun'
+    exact ⟨hsem.1, fun hc => by rw [hc] at hrs; exact nomatch hrs⟩
+  rw [if_neg hrs] at hrun'
+  have hc₁ : st₁.restart = none := by simpa using hrs
+  obtain ⟨hnd, hg', hhead', hle⟩ := hsem.2 hc₁
+  have hheadmem : (D.member mm, (grp'.headD default).2) ∈ grp' := by
+    obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hg'.1
+    rw [hp₀] at hhead' ⊢
+    simp only [List.headD_cons] at hhead' ⊢
+    rw [← hhead']
+    exact List.mem_cons_self
+  -- the instance is positive
+  have hmono : MonoOn R wa := by
+    obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hcov.find hnI hf (by rw [hcvl]; exact hnd)
+      (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
+    refine monoOn_of_famLe mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (by rw [hids, hisl])
+      (fun x hx => (hdsw x hx).1) hdsa hR.dom hgr hisC fun ρ ρ' hr => ?_
+    have := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mm ⟨hmm, by
+      rw [List.contains_iff_mem, List.mem_map]; exact ⟨_, hheadmem, rfl⟩⟩
+    rw [hcvl]
+    exact this
+  -- the cache: the reached group-mates, then the instantiation
+  split at hrun'
+  · simp at hrun'
+  rename_i st₂ hacc
+  have hI₂ : CacheInv mp φ ctx st₂ :=
+    nestAcceptGroup_sem mp _ _ _ hacc hsem.1 fun p hp hfree =>
+      keyPos_of_frame mp hin hcov hrec hD hmm rfl hlps hul hdsw hLds hlenP hnL hsc hfr hc₁ hI₀
+        ⟨_, hnI⟩ hnd hg' hfree p (List.mem_of_mem_drop hp)
+  split at hrun'
+  · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
+    obtain ⟨-, rfl⟩ := hrun'
+    exact ⟨hI₂, fun _ => hmono⟩
+  · split at hrun'
+    · simp [throw, throwThe, MonadExceptOf.throw] at hrun'
+    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
+      obtain ⟨-, rfl⟩ := hrun'
+      refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, fun _ => hmono⟩
+      simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
+      rcases hki with hki | rfl
+      · exact hI₂.2 ki hki hfv
+      · exact keyPos_of_frame mp hin hcov hrec hD hmm rfl hlps hul hdsw hLds hlenP hnL hsc hfr hc₁
+          hI₀ ⟨_, hnI⟩ hnd hg' hfv _ hheadmem
+
 end Case
 
 end ConLeche.Model
+

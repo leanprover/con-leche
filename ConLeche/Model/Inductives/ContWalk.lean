@@ -1093,7 +1093,8 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       (st' : NestState), GrpOk ctx D hi us ds grp → (grp.headD default).1 = n →
       ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog hi us ds ds.length r grp st₀
         = .ok (grp', st') → I st₀ →
-      I st' ∧ (st'.restart = none → lps.Nodup ∧ GrpOk ctx D hi us ds grp' ∧ ∀ ρ ρ', R₀ ρ ρ' → ∀ c,
+      I st' ∧ (st'.restart = none → lps.Nodup ∧ GrpOk ctx D hi us ds grp' ∧
+        (grp'.headD default).1 = n ∧ ∀ ρ ρ', R₀ ρ ρ' → ∀ c,
         InGrp D grp' c →
         FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
           (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
@@ -1205,6 +1206,6 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       rename_i hrs
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
-      exact ⟨hI₂, fun hc => ⟨hnd, hg, hle hc⟩⟩
+      exact ⟨hI₂, fun hc => ⟨hnd, hg, hhead, hle hc⟩⟩
 
 end ConLeche.Model
