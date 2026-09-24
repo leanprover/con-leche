@@ -86717,3 +86717,87 @@ nothing moved on the target route but C1/C2.
   the link gate then 0).  init-full: exit 0, 53 093 accepted;
   `--target-shadow` 585 lines and `--nested-shadow` identical to the
   pre-lane binary's.  No `sorry`, no new axiom.
+
+#### LANDED (lane HOLE2, checkpoint (d) session 5: stage D, and stage E's reader half — the slot operator gone, 2026-09-24)
+
+Charter item 2 ("the interpretation of its constructor types with holes
+at the block's members … no per-field classification").  Plan:
+`_tmp/uniform-inds/HOLE2.md`, stages D/E.  No kernel, cached or frontend
+change; verdict-neutral by construction.
+
+- **The closure witness of the hole operator** (`Model/Annot/LfpHoleWitness.lean`,
+  `LfpDatum.closed_of_flat`): (W) at `w ≠ 0` for any operator whose fibre
+  elements are injections of hole-fitting spines, given a FLAT
+  presentation of every constructor's fields with holes (`FlatAt`: terms
+  agreeing with the fields at every hole frame and fitting prefix; a
+  recursive field a Π-tower of hole-free domains, nonzero bits, over a
+  member hole at the parameters and hole-free indices; ordinary fields
+  hole-free; U4 — no later field reads a recursive one; the calls'
+  indices fit; the fields graded).  Shapes are the SHADOW tuples of
+  elements of the fibre at some tuple (cut from a tagged sum of shadow
+  telescopes, each ordinary domain kept where it is a member); positions
+  the recursive fields' telescope spines, their universe bound read off
+  the witnessing element (a function's domain is a member) — no
+  telescope-bound or shadow-grading premise.
+- **At the install** (`BlockHoleFlat.lean`, `blockFlatAt_of`/
+  `blockHoleClosed_of`; `BlockDatum`): the stage's hole operator is
+  monotone from POSITIVITY (`monoTuple_of_tupRel`, `blockCtorPos_of_run`
+  at the dummy carrier) and closed by the kit (`closedTuple_zero` at
+  `w = 0`); the records take the closed tuple from the stage.  Stage A's
+  bridge (`blockHoleOp_eq_slot`) and the slot witness (`BlockWitness.lean`,
+  `blockPhi_closed_container`, `BlockChainsOk.hclosed`) are gone.  The
+  producer still reads the kinds datum in three places: the recursive
+  shape (`absField`'s definition), the bits (`tssBits`) and U4
+  (`blockChainNoBVar_of`, from the classifier's re-check `BlockOpened`) —
+  stage E2's job (below).
+- **The clause's fibre is the hole fit**: `LfpDatum.fits`,
+  `LfpDatum.ReadsHoles` and `LfpClause.holes` deleted; `LfpClause.fibre`
+  and `BlockModelAt.fibre` state `HFits`.  New clause field `fitsMono`
+  (the hole fit grows with the tuple — positivity at the fit; the graph
+  producer's induction needs it at `w = 0`, where `mkInj` is false;
+  basis clauses prove it directly, uniform blocks by
+  `blockFitsMono_of_pos`).
+- **The recursor readers read the STORED fit** (`BlockData.StoredFit`:
+  the stored field readings and the result index readings), through
+  `BlockModelAt.carrier` (at the least tuple the hole fit IS the stored
+  fit — the override law, `blockHFits_lfp_iff`).  `ChainFit`, `FitsFrom`,
+  `slotAt`, `IdxFit`, `BlockModelAt.idxFit`, `blockSlot_agree`,
+  `blockReadsHoles`, the `FitsFrom` bridges, `blockChainFit_of_le`,
+  `blockRuleFieldSpine_run`, `blockRecSpF_of`/`blockRecCtorFitsFrom_of`
+  deleted; `blockChainFitRel` → `blockStoredFitRel`; a cascade of `htgt`/
+  `hN` premises dropped.
+- **The slot operator deleted by consumers**: the slot `BlockChainsOk`,
+  `slotChs`, `chainsXBI`, the slot `blockPhi`/`blockStepV`,
+  `ChainFacts`/`ChainFactsS`/`ChainValidFacts`, `blockChainFacts_of`, the
+  shadow grading, `BlockChains.lean`, `BlockAssemblyKit.lean`; the stage's
+  `chainsOk`/`lenZ`/`lenZj`/`ord` and its `fssZ` parameter (21 files).
+- **Line delta (session 5, `ConLeche/`): +2 447 / −5 388 (net −2 941)**;
+  per checkpoint: kit + clause in hole form +1 509/−429; D integration and
+  readers +849/−2 490; slot machinery +141/−2 538.
+- **Not done: E2 (the kinds out of the datum, `absF` primary) and F (the
+  kernel classifier).  Finding (the crux, for a ruling):** every remaining
+  kinds consumer (`BlockCtorDataI`/`BlockOpened`, `absField`,
+  `blockCtor_walkRead`, the override law, `blockHolesApplied`, the flat
+  producer) needs the SYNTACTIC shape of the STORED constructor's fields
+  (flat, holes applied to the parameters — the clause's `holeApp` is
+  syntactic, CONTSEM's M3 rests on it).  Today the classifier's re-check
+  (`blockOpenedOk`) certifies it.  The walk alone does not: the tail run
+  walks `whnf` of each stored field, so it gives only SEMANTIC flatness,
+  and the stored type is `annotate(normal form)`, whose syntax no proof
+  relates to the walk's output.  Three ways, none taken without a ruling:
+  (α) semantic presentation everywhere (re-prove the hole machinery —
+  `HoleApp`, `holeTmAV` substitution, CONTSEM's M3 — under a semantic
+  applied-holes premise; large); (β) prove `annotate` preserves the
+  walk's normal-form skeleton from the first run (inversion lemmas exist,
+  plus the `closeTelescope`/`nestConcrete`/opening round trips; large,
+  mechanical); (β′) **recommended**: the tail run checks that the stored
+  constructor IS its own positivity normal form (`tyN == crest` in
+  `checkBlockPositivity`, an `.internal` error otherwise) — then the
+  model reads flatness, applied holes and U4 syntactically off the walk's
+  output.  (β′) is not a restriction official imposes (charter item 9):
+  it is an internal-consistency check on our own stored form, expected
+  never to fire (whnf is the identity on Π and fvar-headed spines), but
+  it is a new check and needs the maintainer's word.  No field
+  classification is needed in the model either way; no smallest failing
+  case exists — it is a proof gap, not a counterexample.
+- Gates: see the landing line in `HOLE2.md`.
