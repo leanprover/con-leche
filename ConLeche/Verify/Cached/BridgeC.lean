@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.BlockRunC
+public import ConLeche.Verify.Cached.TargetRecC
 import ConLeche.Cached.ParsedC
 
 public section
@@ -637,7 +637,7 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         | none =>
           if indParamsOk nP block = true then
             (match blockParts? nP block with
-              | some p => checkBlockKS mode (mkFEnv env) p
+              | some p => checkBlockKS mode (mkFEnv env) block p
               | none => checkIndDeclSF mode (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe', s') := h
