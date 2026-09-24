@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Semantics.Interp
 public import ConLeche.Semantics.Tower.TowerIntro
 
 @[expose] public section
