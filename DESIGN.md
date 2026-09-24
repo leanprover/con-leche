@@ -87779,3 +87779,51 @@ Charter items 2 and 4.  No kernel change; verdict-neutral by construction.
   F-W1's kernel check (NESTKERN) or its named premise until then.
 - Axioms of `WideAt.closed`, `UBlock.closedI_of_flatAll`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+
+#### BRANCH (lane NESTIND, session 2, 2026-09-24, `agent/uinds-NESTIND`, not landed — no `declBlock_nested` premise to discharge yet): the recursor stage at ANY majors; the member classes' rows one class at a time
+
+**What changed.**
+* `RecStage … rs mem` (`Verify/Inductives/RecStage.lean`) is guarded by
+  `mem : Nat → Prop`, the recursors whose CHECKED major is a member.  The
+  member-shaped facts (`tyEntry`, `ctorsAt`, `ruleTower`, `fam.idxDoms`)
+  hold at `mem i` only; the rest at every recursor, through two new
+  major-free records: `RecTyGen` (`BlockRecRun.lean`; the checked
+  constant, prefix, major position, openers, conclusion sort, elimination
+  half) and `RuleOutOk` (the annotated right-hand side, its typing).  The
+  name-set pin is the kernel's own (`RecPinsF`, at `rc.tgt < k`);
+  `RecPinsOk` is `R.pinsOk` at `mem := True`.
+* `RecStageG … mem := Nonempty (RecStage … mem)`; **`RecStageOk` IS
+  `RecStageG … (fun _ => True)`**, so every existing statement over
+  `RecStageOk` is unchanged.
+* Producer: `recStage_of_targetG` — any `TargetRecRun` (either `outside`,
+  either `nested`) gives `RecStageG … (tgtRs out) (tgtMemAt out)`,
+  `tgtMemAt out i := (out[i]?).all (·.2.1.member.isSome)`.
+  `recStage_of_target` is its `mono` to `True` (every major a member on
+  the uniform route).  `TargetTyEntry.member_facts_of`,
+  `targetDs_eq_prefTake_of`, `recTyEntry_of_targetG`: the member facts at
+  either `outside` under `M.member.isSome`.
+* Model rows (`Model/Inductives/*`): every row stated at ONE recursor is
+  over `RecStageG`; it takes `(hm : memR c)` exactly when it reads the
+  member (the build decides — an unused `hm` is a linter warning).
+  Callers pass `(hm := …)` by name.  The family-wide rows got per-class
+  forms, the old statement their instance at `True`:
+  `blockRecTyShape_at` (over the new `BlockRecTyShapeOne`),
+  `blockRecSplitOne_of_shape`, `blockRec_hsplit_at`,
+  `blockRec_hconcl_at` (at any motive readings `uX nIdxX` agreeing at the
+  class), `blockRecConclTy_at`, `blockKitSpF_at`, `blockKitRule_at`,
+  `blockRuleDecoding_at`, `blockRecNCt_at`, `blockRuleDoms_bounded_one`,
+  `tgtRuleCerts_at`, `tgtKitCaB_at`; the counting stage's `hctM` and the
+  bounds' `hbnd` are guarded (`memR c → rs[c]? = some r → …`).
+  `BlockRecSplitAt`/`BlockRecTyShape` are now `∀ c < K` of their `One`
+  forms.
+
+**Not per class yet (and why).**  `hihF`/`hchain` (`tgtGraphIhF_run`,
+`tgtGraphIhChain_run`) read each `ih` key's CALLEE's conclusion typing
+(`tgtIhKey_run` → `blockRecConclTy`), and at a nested block a member's
+callee may be an auxiliary recursor: that is L5 (c)'s `calls` (F3), not a
+member row.  `hind` is the nested kit (`lfpNestKit`).  `huniq` is
+`lfpCls_huniq` at `w ≠ 0`, `huniq_of_prop` at `ℓ = 0`.  `hEq`
+(`tgtRecEqs_hEq`) is over the rule components that hard-code the member
+major — NESTKERN's representation (item 1).  The install-level facts
+(`blockRecStaged_*`, `recStage_nodup`, `recStage_names`) stay at
+`RecStageOk`.
