@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Subst
 public import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.InstLevels
 

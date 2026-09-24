@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Annot.BitInst
+public import ConLeche.Model.Annot.Bit
+public import ConLeche.Verify.Shift
+import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Semantics.SubstAV
 public import ConLeche.Verify.SubstFvars

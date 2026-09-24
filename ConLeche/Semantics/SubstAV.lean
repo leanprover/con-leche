@@ -1,9 +1,6 @@
 module
 
-public import ConLeche.Semantics.Kit
-public import ConLeche.Semantics.DenoteClosed
-public import ConLeche.Semantics.Tower.TowerIntro
-public import ConLeche.Semantics.BasisType
+import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Semantics.Tower.TowerLeaf
 
 @[expose] public section
@@ -26,7 +23,7 @@ recorded reading so substituted (`denoteMeta_substFvars`,
 
 namespace ConLeche.Semantics
 open ConLeche.SetModel
-open ConLeche.Term ConLeche.Verify
+open ConLeche.Term
 open ConLeche.SetTheory
 
 universe w
