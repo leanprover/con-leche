@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Model.Inductives.BlockStageCtors
-public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
