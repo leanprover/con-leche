@@ -20,10 +20,13 @@ public section
 
 `checkBlockKS` (`ConLeche/Cached/CheckerC.lean`), the cached mirror of
 the uniform installer at any number of members, is reproduced by the
-pure fueled `checkBlock`.  With it, the `.indDecl` dispatch of the
-cached driver (`checkModeledOrNativeSF_run`, moved here from
-`BridgeCSDecl.lean`) takes the uniform route at every recognised
-block.
+pure fueled `checkBlock`.  This file holds the pass (`checkBlockPassS_run`),
+the stages' simulations and the `SimG` kit; the recursor stage — the
+target check — its install and the `.indDecl` dispatch
+(`checkBlockTailS_run`, `checkBlockKS_run`, `checkModeledOrNativeSF_run`)
+are in `ConLeche/Verify/Cached/TargetRecC.lean` (lane RECLIB, B1).  The
+old stage's simulation (§4, `checkBlockRecKS_run`) is no longer on the
+fold's path.
 
 The file follows `BridgeCSDecl.lean`'s layout:
 
@@ -1008,7 +1011,7 @@ chain of operations can change environment where a flush lets it. -/
 
 /-- `SimC` across environment transitions: `Pre` of the entry state,
 `Post` of the exit state. -/
-def SimG (Pre Post : CState → Prop) {β α : Type} (P : β → α → Prop) (c : CheckCM β)
+@[expose] def SimG (Pre Post : CState → Prop) {β α : Type} (P : β → α → Prop) (c : CheckCM β)
     (p : FueledM α) : Prop :=
   ∀ s₀, Pre s₀ → ∀ v' s', c s₀ = .ok (v', s') → Post s' ∧ ∃ v, P v' v ∧ ∃ F, p.val F = .ok v
 
@@ -1614,227 +1617,5 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     split
     · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, rfl⟩
     · rfl
-
-/-- **The install after the pass, at k members and at the recursor
-stage's CHECK, at the cached driver**, is reproduced by the pure fueled
-`checkBlockTail`. -/
-theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
-    {env env₁ : Env} (henv₁ : EnvWF env₁) {cvTas : List ConstantVal} {p : BlockParts}
-    {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
-    (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
-    {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockTailS mode (mkFEnv env) ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss⟩ s₀
-      = .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (checkBlockTail (fueledOpsM mode) env ⟨env₁, cvTas, p, ctorsAs, sortsss⟩).val F
-      = .ok feOut.env := by
-  unfold checkBlockTailS at h
-  dsimp only at h
-  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors)) = true
-  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
-  rw [if_neg hg] at h
-  rw [checkBlockIdxSortsF_eqC] at h
-  obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
-  have hzT : ∀ x ∈ p.members.zip cvTas, WScoped 0 x.2.type :=
-    fun x hx => hT x.2 (List.of_mem_zip hx).2
-  obtain ⟨hsS, isorts', hPs, F₀, hF₀⟩ :=
-    checkBlockIdxSortsS_sim hμ henv₁ hzT hs isorts sS hsorts
-  obtain rfl : isorts = isorts' := hPs
-  rw [structWalkersC_eq_plain, blockFieldsOkF_eqC] at h
-  by_cases hk : blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs ctorsAs p.kinds = true
-  case neg => rw [if_neg hk] at h; exact absurd h throwC_bind_ok
-  rw [if_pos hk] at h
-  -- the positivity stage (lane HOLE2)
-  obtain ⟨uP, sP, hPos, h⟩ := bindC_ok h
-  rw [show FEnv.find? (mkFEnv env₁) = env₁.find? from mkFEnv_find?_fun _] at hPos
-  obtain ⟨hsP, uP', hPr, FP, hFP⟩ :=
-    checkBlockPositivityS_sim hμ henv₁ p cvTas ctorsAs hT hct hsS uP sP hPos
-  rw [consBlockCtorsF_mkFEnv] at h
-  obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl2
-  injection hfl2 with hfl2
-  obtain rfl : sP.flushed = sC := congrArg Prod.snd hfl2
-  obtain ⟨rs, s₃, hrec, h⟩ := bindC_ok h
-  unfold checkBlockRecS at hrec
-  -- the check, then the reject-only conformance check (lane CONF1)
-  unfold thenConform at hrec
-  obtain ⟨rs', s₄, hrecK, hrec⟩ := bindC_ok hrec
-  obtain ⟨hs₄, F₃, hF₃⟩ := checkBlockRecKS_run hμ henv₂ hT hct (flushC_csok hsP.residue) hrecK
-  obtain ⟨u5, s₅, hconf, hrec⟩ := bindC_ok hrec
-  obtain ⟨hs₅, F₅, hF₅⟩ := checkBlockRecConformS_run hμ henv₂ hs₄ hconf
-  obtain ⟨hv, rfl⟩ := pureC_ok hrec
-  subst rs'
-  have hs₃ := hs₅
-  have hF₃p : checkBlockRecK (fueledOps mode F₃) (consBlockCtors p.nP ctorsAs env₁) p cvTas ctorsAs
-      = .ok rs := by
-    rw [← checkBlockRecK_datF]; exact hF₃
-  have henv₃ := envWF_consBlockRecs (find? := (consBlockCtors p.nP ctorsAs env₁).find?)
-    (q := p.toBlockShape) (nP := p.nP) henv₂ (checkBlockRecK_facts hF₃p)
-  rw [show FEnv.find? (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-    = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _,
-    consBlockRecsF_mkFEnv] at h
-  obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
-  obtain ⟨G, hle₀, hle₃, hle₅, hleP⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G ∧ FP ≤ G :=
-    ⟨max F₀ (max F₃ (max F₅ FP)), by omega, by omega, by omega, by omega⟩
-  refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
-      (p.members.zip cvTas) = .ok isorts := by
-    rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
-  have gP : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts p cvTas ctorsAs
-      = .ok () := by
-    rw [← checkBlockPositivity_datF]; exact FueledM.up hleP hFP
-  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
-      cvTas ctorsAs = .ok rs := by
-    have gK : checkBlockRecK (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-        ctorsAs = .ok rs := by
-      rw [← checkBlockRecK_datF]; exact FueledM.up hle₃ hF₃
-    have gC : checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-        ctorsAs = .ok () := by
-      rw [← checkBlockRecConform_datF]
-      exact FueledM.up hle₅ (by rw [checkBlockRecConform_datF]; exact hF₅)
-    unfold checkBlockRec thenConform
-    simp only [Bind.bind, Except.bind, gK, gC, pure, Except.pure]
-  rw [checkBlockTail_datF]
-  unfold checkBlockTail
-  simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [if_neg hg]
-  try simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [g₀]
-  simp only [Except.bind]
-  rw [if_pos hk]
-  try simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [gP]
-  try simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [g₃]
-  simp only [Except.bind]
-  exact hT₆
-
-/-- **The uniform install at k members, at the recursor stage's CHECK,
-at the cached driver**, is reproduced by the pure fueled `checkBlock`:
-the pass at the syntactic reading, again at the classified verdict
-where it overshot, and the install after the settled one. -/
-theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
-    {env : Env} (henv : EnvWF env) {p₀ : BlockParts} {s₀ : CState} (hwf : CSOKF s₀)
-    {feOut : FEnv} {s' : CState}
-    (h : checkBlockKS mode (mkFEnv env) p₀ s₀ = .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkBlock (fueledOps mode F) env p₀ = .ok feOut.env := by
-  unfold checkBlockKS at h
-  by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
-  case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
-  rw [if_pos hnd] at h
-  obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl0
-  injection hfl0 with hfl0
-  obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
-  obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
-  obtain ⟨⟨fe₁, cvTas, p, ctorsAs, sortsss⟩, settled⟩ := r
-  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, hct, henv₂, F₁, hF₁⟩ :=
-    checkBlockPassS_run hμ henv (flushC_csok hwf) hP
-  simp only at hq₁ hs₁ henv₁ hT hct henv₂ hF₁
-  subst hq₁
-  try simp only at h
-  cases settled with
-  | true =>
-    simp only [↓reduceIte] at h
-    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct henv₂ hs₁ h
-    refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
-    have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀)
-        = .ok (⟨env₁, cvTas, p, ctorsAs, sortsss⟩, true) := by
-      rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-    have g₂ : checkBlockTail (fueledOps mode (max F₁ F₂)) env ⟨env₁, cvTas, p, ctorsAs, sortsss⟩
-        = .ok feOut.env := by
-      rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
-    unfold checkBlock
-    rw [if_pos hnd]
-    simp only [Bind.bind, Except.bind, pure, Except.pure]
-    rw [g₁]
-    simp only [Except.bind, ↓reduceIte]
-    exact g₂
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
-  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl1
-  injection hfl1 with hfl1
-  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
-  obtain ⟨r', s₂, hP', h⟩ := bindC_ok h
-  obtain ⟨⟨fe₁', cvTas', p', ctorsAs', sortsss'⟩, settled'⟩ := r'
-  obtain ⟨env₁', hq₁', hs₁', henv₁', hT', hct', henv₂', F₂, hF₂⟩ :=
-    checkBlockPassS_run hμ henv (flushC_csok hs₁.residue) hP'
-  simp only at hq₁' hs₁' henv₁' hT' hct' henv₂' hF₂
-  subst hq₁'
-  try simp only at h
-  cases settled' with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact absurd h throwC_bind_ok
-  | true =>
-  simp only [↓reduceIte] at h
-  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkBlockTailS_run hμ henv₁' hT' hct' henv₂' hs₁' h
-  obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
-    ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
-  refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : checkBlockPass (fueledOps mode G) env p₀ (blockRawRec p₀)
-      = .ok (⟨env₁, cvTas, p, ctorsAs, sortsss⟩, false) := by
-    rw [← checkBlockPass_datF]; exact FueledM.up hle₁ hF₁
-  have g₂ : checkBlockPass (fueledOps mode G) env p₀ (blockIsRec p.kinds)
-      = .ok (⟨env₁', cvTas', p', ctorsAs', sortsss'⟩, true) := by
-    rw [← checkBlockPass_datF]; exact FueledM.up hle₂ hF₂
-  have g₃ : checkBlockTail (fueledOps mode G) env ⟨env₁', cvTas', p', ctorsAs', sortsss'⟩
-      = .ok feOut.env := by
-    rw [← checkBlockTail_datF]; exact FueledM.up hle₃ hF₃
-  unfold checkBlock
-  rw [if_pos hnd]
-  simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [g₁]
-  simp only [Except.bind, Bool.false_eq_true, ↓reduceIte]
-  rw [g₂]
-  simp only [Except.bind, ↓reduceIte]
-  exact g₃
-
-variable {pins : List NatOpPinSet}
-
-/-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkBlockKS`, everything else to `checkIndDeclSF`,
-and either way the pure fueled `checkDecl` reproduces the run. -/
-theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
-    (hok : indParamsOk nP block = true)
-    {s₀ : CState} (hwf : CSOKF s₀)
-    {feOut : FEnv} {s' : CState}
-    (h : (match blockParts? nP block with
-          | some p => checkBlockKS mode (mkFEnv env) p
-          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
-      .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
-      .ok feOut.env := by
-  -- the declared parameter count (task #228) is a pure guard shared by
-  -- the two drivers: `hok` is the branch both take
-  show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match basisPinHit block with
-      | some kind => checkBasisDecl (m := CheckM) env kind
-      | none =>
-        if indParamsOk nP block = true then
-          (match blockParts? nP block with
-            | some p => checkBlock (fueledOps mode F) env p
-            | none => checkModeled mode (fueledOps mode F) env block)
-        else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
-  -- task #293: this block is not one of the five pinned ones (the
-  -- recognition happened before the dispatch, on both sides)
-  simp only [hpin, if_pos hok]
-  cases hfp : blockParts? nP block with
-  | some p =>
-    rw [hfp] at h
-    simp only at h
-    -- the uniform route, at any number of members
-    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
-  | none =>
-    rw [hfp] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
 
 end ConLeche.Cached
