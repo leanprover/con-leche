@@ -7,6 +7,8 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
+import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.Inductives.NestScope
 
 public section
 
@@ -122,5 +124,141 @@ theorem cacheInv_ctorsOfOk {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (
         exact (beq_iff_eq.mp heq).symm
       · exact hst.1 c' r h
   mix := fun _ _ h₀ h => ⟨h.1, h₀.2⟩
+
+/-! ## Pieces -/
+
+/-- The key frame seen through empty frames on top. -/
+theorem keyFrame_lift (dsa : List AnnotTerm) (h : Nat) (vs : List V) (ρ : Nat → V) :
+    keyFrame (dsa.map (AnnotTerm.liftN vs.length · 0)) (h + vs.length) (consList vs ρ)
+      = keyFrame dsa h ρ := by
+  unfold keyFrame
+  rw [List.map_map]
+  congr 1
+  · exact List.map_congr_left fun a _ => interp_liftN_consList vs ρ a
+  · funext j
+    rw [show j + (h + vs.length) = (j + h) + vs.length by omega, consList_apply_add]
+
+/-- **Accepting the reached group-mates keeps the cache invariant**, given
+each pushed instantiation's positivity. -/
+theorem nestAcceptGroup_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+    {hi : Nat} {us : List Level} {ds : List Expr} :
+    ∀ (grp : List (Name × Expr)) (st st' : NestState),
+      ConLeche.nestAcceptGroup (m := CheckM) ctx hi us ds grp st = .ok st' →
+      CacheInv mp φ ctx st →
+      (∀ p ∈ grp, (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) → KeyPos mp φ ctx ⟨p.1, us, ds⟩) →
+      CacheInv mp φ ctx st'
+  | [], st, st', h, hI, _ => by
+    simp only [ConLeche.nestAcceptGroup, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact hI
+  | (c, ty) :: rest, st, st', h, hI, hk => by
+    simp only [ConLeche.nestAcceptGroup, bind, Except.bind] at h
+    split at h
+    · split at h
+      · simp at h
+      rename_i q hq
+      refine nestAcceptGroup_sem mp rest _ st' h ⟨hI.1, fun ki hki hfv => ?_⟩
+        (fun p hp => hk p (List.mem_cons_of_mem _ hp))
+      simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
+      rcases hki with hki | rfl
+      · exact hI.2 ki hki hfv
+      · exact hk (c, ty) List.mem_cons_self hfv
+    · exact nestAcceptGroup_sem mp rest st st' h hI (fun p hp => hk p (List.mem_cons_of_mem _ hp))
+
+/-- A recorded block's names and members, from its record. -/
+theorem lfp_namesLen {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) : D.names.length = D.k :=
+  (mp.lfp_ok D hD).2.2.2.1
+
+section Case
+
+variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs V mp.base2 φ)
+  {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
+  {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+  (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) (CacheInv mp φ ctx) rec)
+  {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {n : Name}
+  (hn : D.member mm = n) {lps : List Name}
+  (hlps : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
+      cv.levelParams = lps)
+  {us : List Level} (hul : us.length = lps.length) {prog : List NestHole} {ds : List Expr}
+  (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
+  (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+  (hlenP : ∀ ψ, (D.params ψ).length = ds.length)
+  (hnL : ∃ L, ConLeche.nestContainer ctx n = some (ds.length, L) ∧ L ≠ [])
+  (hsc : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
+      Expr.WScoped (ctx.hiAt prog.length) x)
+
+include hin hcov hrec hD hmm hn hlps hul hdsw hLds hlenP hnL hsc
+
+/-- **The instantiations a frame accepts are positive** (the cache
+invariant at a push): for every member of a frame's final group, with
+the key's parameters below every frame hole — the frame lemma at any
+hole relation without frames, extended by empty enclosing frames. -/
+theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ : NestState}
+    (hrun : ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog (ctx.hiAt prog.length) us ds
+      ds.length 64 [(n, cty)] st₀ = .ok (grp', st₁))
+    (hc₁ : st₁.restart = none) (hI₀ : CacheInv mp φ ctx st₀)
+    (hnI : ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
+      = .ok (nI, cty))
+    (hnd : lps.Nodup) (hg' : GrpOk ctx D (ctx.hiAt prog.length) us ds grp')
+    (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) :
+    ∀ p ∈ grp', KeyPos mp φ ctx ⟨p.1, us, ds⟩ := by
+  intro p hp
+  obtain ⟨⟨mc, hmc, hpc⟩, -⟩ := hg'.2.2 p hp
+  refine ⟨D, hD, mc, hmc, hpc.symm, fun cv' caps' hf' => ?_⟩
+  obtain ⟨cvc, capsc, hfc, hlc⟩ := hlps mc hmc
+  change env.find? p.1 = _ at hf'
+  rw [hpc, hfc] at hf'
+  obtain ⟨rfl, rfl⟩ : cvc = cv' ∧ capsc = caps' := by simpa using hf'
+  simp only
+  rw [hlc]
+  refine ⟨hnd, hlenP _, fun Δ0 R00 hR00 hΔ0 hC0 dsa0 hdsa0 hfit00 ρ ρ' hr => ?_⟩
+  have hblk := hcov.block D hD
+  have hkN := lfp_namesLen mp hD
+  have hle0 : ctx.hiAt 0 ≤ ctx.hiAt prog.length := by simp only [ConLeche.NestCtx.hiAt]; omega
+  have hds0 : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x := fun x hx =>
+    ConLeche.WScoped.of_fvarsBelow (hdsw x hx).1 (ConLeche.Expr.fvarB_le (hfree x hx))
+  have hlenR : (List.replicate prog.length (empty : V)).length = prog.length := by simp
+  have hhiEq : ctx.hiAt prog.length = ctx.hiAt 0 + prog.length := by
+    simp only [ConLeche.NestCtx.hiAt]; omega
+  -- the enclosing frames, empty
+  have hR₀ := HoleRel.extendEmpty hR00 prog hsc
+  have hdsaL := DenoteMetaSpine.lift (m := mp.base2) (φ := φ) hle0 hds0 hdsa0
+  rw [show ctx.hiAt prog.length - ctx.hiAt 0 = prog.length by rw [hhiEq]; omega] at hdsaL
+  have hfit' : ∀ σ σ', (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧
+        σ = consList (List.replicate prog.length empty) ρ ∧
+        σ' = consList (List.replicate prog.length empty) ρ') σ σ' →
+      Sat V (D.params (Level.substFn φ lps us)).reverse
+          (keyFrame (dsa0.map (AnnotTerm.liftN prog.length · 0)) (ctx.hiAt prog.length) σ) ∧
+      Sat V (D.params (Level.substFn φ lps us)).reverse
+          (keyFrame (dsa0.map (AnnotTerm.liftN prog.length · 0)) (ctx.hiAt prog.length) σ') := by
+    rintro _ _ ⟨ρ₁, ρ₁', hr₁, rfl, rfl⟩
+    have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog.length (empty : V))
+    rw [hlenR, ← hhiEq] at e
+    rw [e, e]
+    exact hfit00 ρ₁ ρ₁' hr₁
+  have hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length)
+      (List.replicate prog.length (.sort 0) ++ Δ0) x := by
+    intro x hx
+    have := CtxOkP.extend (h := ctx.hiAt 0) (g := prog.length)
+      (Ts := List.replicate prog.length (.sort 0)) (by simp) hΔ0
+      (fun l hl => Or.inl ((hC0 x hx).2 l hl))
+    rwa [← hhiEq] at this
+  have hsem := frame_sem mp hin hD hblk.nodup hkN hcov.find hlps hul
+    (fun x hx => hdsw x hx) hdsaL (hlenP _) hblk.ctors hblk.all (cacheInv_ctorsOfOk mp ctx) hrec
+    rfl hR₀ (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit' (n := n) (by
+      obtain ⟨L, hL, hLne⟩ := hnL; exact ⟨_, L, hL, hLne⟩)
+    64 [(n, cty)] st₀ grp' st₁
+    ⟨by simp, by simp, fun q hq => by
+      simp only [List.mem_singleton] at hq
+      subst hq
+      exact ⟨⟨mm, hmm, hn.symm⟩, hnI⟩⟩ (by simp) hrun hI₀
+  obtain ⟨-, -, hle⟩ := hsem.2 hc₁
+  have hle' := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mc ⟨hmc, by
+    rw [List.contains_iff_mem, List.mem_map]; exact ⟨p, hp, hpc⟩⟩
+  have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog.length (empty : V))
+  rw [hlenR, ← hhiEq] at e
+  rwa [e, e] at hle'
+
+end Case
 
 end ConLeche.Model
