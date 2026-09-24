@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
+public import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Verify.Inductives.BlockInv
 public import ConLeche.Verify.Inductives.BlockWF
@@ -26,7 +27,11 @@ count and a telescope reading; every shape equation the later stages
 need (`d.nP = q.nP`, `d.rss`, `d.tgtss`, …) is then definitional, and
 the two carriers differ only in the pick.  `BlockData.withPhi`
 installs the tuple operator and the injections over the record's own
-derived fields, so `blockModelAt_of_stages`' `hPhi`/`hinj` are `rfl`.
+derived fields, so `blockModelAt_of_records`' `hPhi`/`hinj` are `rfl`.
+The operator is the HOLE operator (`LfpDatum.holeOp`, lane HOLE2: the
+interpretation of the constructors' fields with holes); the stages
+still reason at the fixpoint route's slot operator, which it equals on
+the tuple space (`blockHoleOp_eq_slot`).
 -/
 
 namespace ConLeche.Model
@@ -78,14 +83,12 @@ injections**, at a chosen per-member constructor pick. -/
   inj := fun _ _ _ _ => SetTheory.pt
 
 /-- **The tuple operator and the injections, over the record's own
-derived fields**: the fixpoint route's operator at the block's width,
-and the tagged-union injections, the point at a `Prop`-valued
-block. -/
+derived fields**: the hole operator of the record's fields with holes
+(charter item 2), and the tagged-union injections, the point at a
+`Prop`-valued block. -/
 @[expose] noncomputable def BlockData.withPhi (d : BlockData V) : BlockData V :=
   { d with
-    Φ := fun ψ ρp => blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-      d.rss d.tgtss (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ)
-      (fun c => d.Ess c ψ)
+    Φ := fun ψ ρp => d.toLfp.holeOp ψ ρp
     inj := fun ψ _ j fs =>
       if d.w ψ = 0 then (SetTheory.pt : V) else ConLeche.SetTheory.Tower.inj j (mkTower (fs ++ [SetTheory.pt])) }
 
@@ -996,7 +999,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
             (fun c => dZ.tlss c ψ) (fun c => dZ.Eiss c ψ) (fun c => dZ.Fss c ψ)
             (fun c => dZ.Ess c ψ) (ppsOf j ψ) j := by
     intro j ψ
-    show blockTyAV _ _ _ _ _ _ _ _ _ _ _ _ = _
+    unfold blockLeafZ
     rw [show (fun c => (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).tlss c ψ)
           = (fun c => dZ.tlss c ψ) from funext fun c => hTlssEq c ψ,
       show (fun c => (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).Eiss c ψ)

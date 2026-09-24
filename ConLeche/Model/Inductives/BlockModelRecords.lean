@@ -1,11 +1,12 @@
 module
 
-import ConLeche.Model.Inductives.BlockModel
+public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockAssemblyKit
 import ConLeche.Model.Inductives.FixAssemblyKit
 public import ConLeche.Model.Inductives.BlockLfpHoles
 public import ConLeche.Model.Annot.BlockLfpTup
+public import ConLeche.Model.Annot.LfpHoleOp
 public section
 
 /-!
@@ -65,19 +66,12 @@ theorem ndMkTowerAV_congr_lt {r : Nat} {Gty G G' : Nat → AnnotTerm} :
 /-- **The block's operator term is congruent** in the field readings,
 at equal chains. -/
 theorem blockFunAV_congr_chains {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-    {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Fsss' Esss : Nat → List (List AnnotTerm)}
-    (hchains : ∀ m, m < k →
-      chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) (Esss m)
-        = chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss' m)
-            (Esss m)) :
-    blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss
-      = blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss' Esss := by
-  unfold blockFunAV
+    {Chs Chs' : Nat → List (List AnnotTerm)} (hchains : ∀ m, m < k → Chs m = Chs' m) :
+    blockFunG k w uf Idss Chs = blockFunG k w uf Idss Chs' := by
+  unfold blockFunG
   refine congrArg _ (ndMkTowerAV_congr_lt k 0 fun i hi => ?_)
   rw [Nat.zero_add]
-  unfold blockArmAV
+  unfold blockArmG
   rw [hchains i hi]
 
 /-- **The LEAF's bridge**: a member's former leaf is the same term at
@@ -103,8 +97,9 @@ theorem blockTyAV_congr_ord {k w : Nat} {uf : Nat → Nat} {Idss : Nat → List 
         = chainsXBI uf Idss (Idss m').length (rsss m') (tgtsss m') (tlsss m') (Eisss m')
             (Fsss' m') (Esss m') :=
     fun m' hm' => chainsXBI_congr_ord (hlen m' hm') (hlenj m' hm') (hord m' hm')
-  unfold blockTyAV blockBodyAV
-  rw [blockFunAV_congr_chains (w := w) hchains]
+  unfold blockTyAV blockTyG blockBodyG
+  rw [blockFunAV_congr_chains (w := w) (Chs := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+    (Chs' := slotChs uf Idss rsss tgtsss tlsss Eisss Fsss' Esss) hchains]
 
 /-! ## 8. `BlockModelAt` from the stages' three records
 
@@ -152,6 +147,58 @@ theorem blockHoleFacts_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
       ((hcore.2.2.1 c j _ hcj).2.2).lenE ψ, hS.lenIds c hck ψ]
 
+/-- **The hole operator IS the slot operator on the tuple space** (lane
+HOLE2, the bridge of the model rewrite's stage A): both are graphs over
+the component's index set, and their fibres agree — the slot operator's
+is `ChainFit` (`blockSlotFibre`), the hole operator's is `HFits`
+(`LfpDatum.holeOp_fibre`), and the two fits are one
+(`blockReadsHoles`). -/
+theorem blockHoleOp_eq_slot {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} (hH : BlockHoleFacts mo d lps) (hidx : d.IdxFit)
+    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
+    (hslot : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+        x ∈ˢ app (d.slotPhi ψ ρp X c) t ↔
+          ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs)
+    (hIdxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)) :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      d.toLfp.holeOp ψ ρp X c = d.slotPhi ψ ρp X c := by
+  intro ψ ρp hs X hX c hc
+  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
+    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
+      fun _ => (hIdxOk ψ ρp hs m (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _))).2⟩
+  have happ : ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
+    fun j hj => blockHolesApplied hH ψ hc hj
+  have hres : ∀ j, j < d.toLfp.nctors c →
+      (d.toLfp.resIdx ψ c j).length = (d.toLfp.ids c ψ).length := by
+    intro j hj
+    show (d.absE ψ c j).length = (d.IdsM c ψ).length
+    simp only [BlockData.absE, List.length_map]
+    exact hH.lenE ψ c hc j hj
+  have happEq : ∀ t, t ∈ˢ d.idx ψ ρp c →
+      app (d.toLfp.holeOp ψ ρp X c) t = app (d.slotPhi ψ ρp X c) t := by
+    intro t ht
+    refine SetTheory.ext fun x => ?_
+    rw [LfpDatum.holeOp_fibre hok (Nat.le_add_right _ _) X happ hres ht x, hslot ψ ρp hs X hX c hc t ht x]
+    constructor
+    · rintro ⟨j, fs, hf, rfl⟩
+      obtain ⟨hj, hcf⟩ := (blockReadsHoles hidx hH ψ ρp hs X hX c hc t ht j fs).mpr hf
+      exact ⟨j, fs, hj, hcf, (hinj ψ c j fs).symm⟩
+    · rintro ⟨j, fs, hj, hcf, rfl⟩
+      exact ⟨j, fs, (blockReadsHoles hidx hH ψ ρp hs X hX c hc t ht j fs).mp ⟨hj, hcf⟩,
+        hinj ψ c j fs⟩
+  show lamR (d.w ψ + 1) (d.idx ψ ρp c) _ = lamR (d.w ψ + 1) (d.idx ψ ρp c) _
+  refine lamR_congr fun t ht => ?_
+  have h1 := happEq t ht
+  unfold LfpDatum.holeOp BlockData.slotPhi at h1
+  rw [app_blockPhi (uf := fun c => d.toLfp.u c ψ) (Idss := fun c => d.toLfp.ids c ψ) ht,
+    app_blockPhi (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) ht] at h1
+  exact h1
+
 /-- **The block's representation, from the stages' three records.** -/
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
@@ -161,9 +208,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
-    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp
-      = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
     (hmono : d.IdxFit → d.Fibre → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -253,13 +298,26 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       rw [recAt_iff_rsOf hlk, ← hrs, hr]
       exact Bool.false_ne_true
     exact (hS.ord m hm j _ (hcAof m j hjc) ψ l (by rw [← hlj]; exact hl) hnrec).symm
-  refine blockModelAt_of_stages mo rfl hPhi hinj ?_ hlenC (by rw [hNk]; exact hk0) hlenPps
-    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_ ?_
   -- the operator's premise bundle, at the REAL chains
-  · intro ψ ρp hsat
+  have hokR : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      BlockChainsOk d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+        (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ) := by
+    intro ψ ρp hsat
     rw [hNk]
     exact blockChainsOk_congr_ord (hlenZF ψ) (hlenjZF ψ) (hordF ψ)
       (hS.chainsOk 0 hk0 ψ ρp ((hparams ψ 0 (by rw [hNk]; exact hk0) ρp).mp hsat))
+  -- the datum's operator is the hole operator, which IS the slot operator
+  -- on the tuple space (the bridge of the model rewrite's stage A)
+  have hPhi' : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      d.Φ ψ ρp X c = d.slotPhi ψ ρp X c := by
+    intro ψ ρp hs X hX c hc
+    rw [hPhi]
+    exact blockHoleOp_eq_slot (blockHoleFacts_of_records hN hS hcore hinst hk0)
+      (blockIdxFit_of_chains hokR hlenC htgts) hinj (blockSlotFibre hinj hokR hlenC htgts)
+      (fun ψ ρp hs c hc => (hokR ψ ρp hs).hI c hc) ψ ρp hs X hX c hc
+  refine blockModelAt_of_stages mo rfl hPhi' hinj hokR hlenC (by rw [hNk]; exact hk0) hlenPps
+    htgts ?_ hparams ?_ (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_ ?_
   -- the members' leaves, at the REAL chains
   · intro mm hmm ψ
     obtain ⟨hnameOf, -, -, hlenCv⟩ := hN
@@ -344,9 +402,7 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
-    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp
-      = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
     (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →

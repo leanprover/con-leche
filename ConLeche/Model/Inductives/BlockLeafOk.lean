@@ -360,9 +360,7 @@ end ChainBelow
 section LeafBelow
 
 variable {k w nP nIdx : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
+  {Chs : Nat → List (List AnnotTerm)}
 
 omit [SetTheory V] in
 theorem famTyAV_below {u w : Nat} {Ids : List AnnotTerm} (h : FieldsBelow nP Ids) :
@@ -374,11 +372,10 @@ theorem famTyAV_below {u w : Nat} {Ids : List AnnotTerm} (h : FieldsBelow nP Ids
 omit [SetTheory V] in
 /-- Member `m`'s arm of the operator, below the operator's λ. -/
 theorem blockArmAV_below {m : Nat} (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hchains : ∀ chain ∈ chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m)
-        (Eisss m) (Fsss m) (Esss m), FieldsBelow (nP + 2) chain) :
+    (hchains : ∀ chain ∈ Chs m, FieldsBelow (nP + 2) chain) :
     Term.bvarsBelow (nP + 1)
-      (blockArmAV w uf Idss rsss tgtsss tlsss Eisss Fsss Esss m).erase := by
-  unfold blockArmAV
+      (blockArmG w uf Idss Chs m).erase := by
+  unfold blockArmG
   simp only [AnnotTerm.erase_lam, Term.bvarsBelow]
   refine ⟨?_, ?_⟩
   · rw [AnnotTerm.erase_liftN]
@@ -389,10 +386,9 @@ theorem blockArmAV_below {m : Nat} (hIds : ∀ c, FieldsBelow nP (Idss c))
 omit [SetTheory V] in
 /-- The block's operator, below the parameter frame. -/
 theorem blockFunAV_below (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hchains : ∀ m, m < k → ∀ chain ∈ chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m)
-        (tlsss m) (Eisss m) (Fsss m) (Esss m), FieldsBelow (nP + 2) chain) :
-    Term.bvarsBelow nP (blockFunAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).erase := by
-  unfold blockFunAV
+    (hchains : ∀ m, m < k → ∀ chain ∈ Chs m, FieldsBelow (nP + 2) chain) :
+    Term.bvarsBelow nP (blockFunG k w uf Idss Chs).erase := by
+  unfold blockFunG
   simp only [AnnotTerm.erase_lam, Term.bvarsBelow]
   refine ⟨?_, ?_⟩
   · unfold famsTyBAV
@@ -419,10 +415,9 @@ theorem idxTupAV_below (hIds : ∀ c, FieldsBelow nP (Idss c)) :
 omit [SetTheory V] in
 /-- The block's carrier tuple, below the parameter frame. -/
 theorem blockBodyAV_below (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hchains : ∀ m, m < k → ∀ chain ∈ chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m)
-        (tlsss m) (Eisss m) (Fsss m) (Esss m), FieldsBelow (nP + 2) chain) :
-    Term.bvarsBelow nP (blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).erase := by
-  unfold blockBodyAV
+    (hchains : ∀ m, m < k → ∀ chain ∈ Chs m, FieldsBelow (nP + 2) chain) :
+    Term.bvarsBelow nP (blockBodyG k w uf Idss Chs).erase := by
+  unfold blockBodyG
   rw [AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [Term.bvarsBelow]) ?_
   intro a ha
@@ -438,10 +433,9 @@ theorem blockTyAV_below {m : Nat} {pps : List (Nat × Nat × AnnotTerm)}
     (hp : DomsBelow 0 pps) (hlen : pps.length = nP + nIdx)
     (hIdsLen : (Idss m).length = nIdx)
     (hIds : ∀ c, FieldsBelow nP (Idss c))
-    (hchains : ∀ m, m < k → ∀ chain ∈ chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m)
-        (tlsss m) (Eisss m) (Fsss m) (Esss m), FieldsBelow (nP + 2) chain) :
+    (hchains : ∀ m, m < k → ∀ chain ∈ Chs m, FieldsBelow (nP + 2) chain) :
     Term.bvarsBelow 0
-      (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m).erase := by
+      (blockTyG k w uf Idss Chs pps m).erase := by
   refine mkLamsAV_below hp.mapC ?_
   rw [List.length_map, hlen, Nat.zero_add, ← hIdsLen]
   simp only [AnnotTerm.erase_app, Term.bvarsBelow]
@@ -449,7 +443,7 @@ theorem blockTyAV_below {m : Nat} {pps : List (Nat × Nat × AnnotTerm)}
   · refine projAV_below ?_
     rw [AnnotTerm.erase_liftN]
     exact VExprAux.bvarsBelow_liftN (Idss m).length
-      (blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).erase nP 0
+      (blockBodyG k w uf Idss Chs).erase nP 0
       (blockBodyAV_below hIds hchains)
   · exact mkTowerGo_below (w := uf m) (hIds m)
 
@@ -462,9 +456,7 @@ end Below
 section Currency
 
 variable {k w nP : Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
+  {Chs : Nat → List (List AnnotTerm)}
 
 /-- The non-dependent tuple VALUE is bit-valid, hereditarily from its
 components'. -/
@@ -498,10 +490,9 @@ theorem blockBodyAV_validV {ρp : Nat → V} (hI : BlockIdxOk (V := V) k uf ρp 
     (hchains : ∀ Y, Y ∈ˢ famsSpaceB k w ρp uf Idss → ∀ c, c < k →
       ∀ t, t ∈ˢ idxSet (uf c) ρp (Idss c) →
       SumFieldsValid (cons t (cons Y ρp))
-        (chainsXBI uf Idss (Idss c).length (rsss c) (tgtsss c) (tlsss c) (Eisss c)
-          (Fsss c) (Esss c))) :
-    AnnotValid V ρp (blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss) := by
-  unfold blockBodyAV
+        (Chs c)) :
+    AnnotValid V ρp (blockBodyG k w uf Idss Chs) := by
+  unfold blockBodyG
   refine mkAppN_validV (by simp) ?_
   intro a ha
   simp only [List.mem_cons] at ha
@@ -511,7 +502,7 @@ theorem blockBodyAV_validV {ρp : Nat → V} (hI : BlockIdxOk (V := V) k uf ρp 
     exact ndMkTowerAV_validV k 0 (fun _ _ => trivial)
       (fun i hi => towerBodyAV_validV (hIV i (by omega)))
   · -- the operator
-    unfold blockFunAV
+    unfold blockFunG
     rw [AnnotValid_lam]
     have hfam : ∀ i, i < k → AnnotValid V ρp (famTyAV (uf i) w (Idss i)) := by
       intro i hi
@@ -528,7 +519,7 @@ theorem blockBodyAV_validV {ρp : Nat → V} (hI : BlockIdxOk (V := V) k uf ρp 
         rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
       refine ndMkTowerAV_validV k 0 (fun i hi => ?_) (fun i hi => ?_)
       · rw [AnnotValid_liftN, hsh1]; exact hfam i (by omega)
-      · unfold blockArmAV
+      · unfold blockArmG
         rw [AnnotValid_lam]
         refine ⟨by rw [AnnotValid_liftN, hsh1]; exact towerBodyAV_validV (hIV i (by omega)),
           fun t ht => ?_⟩
@@ -543,11 +534,10 @@ theorem blockLeafBody_validV {ρp : Nat → V} (hI : BlockIdxOk (V := V) k uf ρ
     (hchains : ∀ Y, Y ∈ˢ famsSpaceB k w ρp uf Idss → ∀ c, c < k →
       ∀ t, t ∈ˢ idxSet (uf c) ρp (Idss c) →
       SumFieldsValid (cons t (cons Y ρp))
-        (chainsXBI uf Idss (Idss c).length (rsss c) (tgtsss c) (tlsss c) (Eisss c)
-          (Fsss c) (Esss c)))
+        (Chs c))
     {m : Nat} (hm : m < k) {is : List V} (hsp : SpineFit ρp (Idss m) is) :
     AnnotValid V (consList is ρp)
-      (.app (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+      (.app (projAV m ((blockBodyG k w uf Idss Chs).liftN
           (Idss m).length 0))
         (mkTowerGo (uf m) (Idss m))) := by
   have hsh : shiftE (Idss m).length 0 (consList is ρp) = ρp := by
@@ -562,13 +552,13 @@ theorem blockLeafBody_validV {ρp : Nat → V} (hI : BlockIdxOk (V := V) k uf ρ
 premise, valid under the tower. -/
 theorem blockTyAV_wellDenotedV {m : Nat} (hm : m < k)
     {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    (hok : ParamsOkXBI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss m pps)
+    (hok : ParamsOkG k w ρ uf Idss Chs m pps)
     (hval : UnderTowerValid ρ
-      (.app (projAV m ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+      (.app (projAV m ((blockBodyG k w uf Idss Chs).liftN
           (Idss m).length 0))
         (mkTowerGo (uf m) (Idss m))) pps) :
-    WellDenotedV V ρ (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m) :=
-  ⟨blockTyAV_wellDenoted hm hok, mkLamsC_validV (m := w + 1) hval⟩
+    WellDenotedV V ρ (blockTyG k w uf Idss Chs pps m) :=
+  ⟨blockTyG_wellDenoted hm hok, mkLamsC_validV (m := w + 1) hval⟩
 
 end Currency
 

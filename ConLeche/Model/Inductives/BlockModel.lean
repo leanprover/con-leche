@@ -334,11 +334,102 @@ theorem slotFit_of_slotsFitXB {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
           List.append_assoc] at hq
         exact hq
 
+/-! ## The slot operator's fibre and the slots' index fit -/
+
+/-- The fixpoint route's slot operator at the block data. -/
+noncomputable abbrev BlockData.slotPhi (d : BlockData V) (ψ : Name → Nat) (ρp : Nat → V) :
+    (Nat → V) → Nat → V :=
+  blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+    (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ)
+
+section Slot
+
+variable {d : BlockData V}
+    (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
+      d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
+    (hok : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      BlockChainsOk d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
+        (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hlenC : ∀ (ψ : Name → Nat) (c : Nat), (d.Fss c ψ).length = (d.ctorsM c).length)
+    (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
+      l < ((d.Fss c ψ).getD j []).length →
+      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N)
+include hinj hok hlenC htgts
+
+/-- **The slot operator's fibre**: the injections of the spines fitting a
+constructor's `ChainFit`. -/
+theorem blockSlotFibre :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.slotPhi ψ ρp X c) t ↔
+        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs := by
+  intro ψ ρp hρ X hX c hc t ht x
+  have h := hok ψ ρp hρ
+  have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
+    (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
+  unfold BlockData.slotPhi
+  rw [app_blockPhi (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) ht,
+    blockStepV_mem_iff h hY hc ht x]
+  constructor
+  · rintro ⟨j, fs, hj, hfit, heq, rfl⟩
+    rw [hlenC] at hj
+    refine ⟨j, fs, hj, ⟨?_, heq⟩, (hinj ψ c j fs).symm⟩
+    refine FitsFrom.congr_slot (fun l hl σ => ?_) hfit
+    rw [Nat.zero_add]
+    obtain ⟨htg, hlt⟩ := htgts ψ c j l hj hl
+    show slotSet _ _ _ _ _ _ = _
+    rw [htg, projS_ndMkTowerSet_zero hlt]
+    rfl
+  · rintro ⟨j, fs, hj, ⟨hfit, heq⟩, rfl⟩
+    refine ⟨j, fs, by rw [hlenC]; exact hj, ?_, heq, hinj ψ c j fs⟩
+    refine FitsFrom.congr_slot (fun l hl σ => ?_) hfit
+    rw [Nat.zero_add]
+    obtain ⟨htg, hlt⟩ := htgts ψ c j l hj hl
+    show _ = slotSet _ _ _ _ _ _
+    rw [htg, projS_ndMkTowerSet_zero hlt]
+    rfl
+
+omit hinj in
+/-- **The slots' index fit**, off the slot chains' premise bundle. -/
+theorem blockIdxFit_of_chains : d.IdxFit := by
+  intro ψ ρp hρ X hX c hc t ht j hj i hi hr as hb
+  have h := hok ψ ρp hρ
+  have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
+    (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
+  have hSF := h.hfit _ hY c hc t ht j (by rw [hlenC]; exact hj)
+  have hb' : FitsFrom ((d.rss c).getD j [])
+      (fun m σ => slotSet (d.w ψ) (d.uM (((d.tgtss c).getD j []).getD m 0) ψ) σ
+        (((d.tlss c ψ).getD j []).getD m []) (((d.Eiss c ψ).getD j []).getD m [])
+        (projS (((d.tgtss c).getD j []).getD m 0)
+          (ndMkTowerSet X 0 d.N))) 0 (consList [] ρp)
+      (((d.Fss c ψ).getD j []).take i) as := by
+    rw [consList_nil]
+    refine FitsFrom.congr_slot (fun l hl σ => ?_) hb
+    rw [Nat.zero_add]
+    obtain ⟨htg, hlt⟩ := htgts ψ c j l hj (by
+      have hli : l < i := by
+        have h' := hl
+        rw [List.length_take] at h'
+        omega
+      omega)
+    show _ = slotSet _ _ _ _ _ _
+    rw [htg, projS_ndMkTowerSet_zero hlt]
+    rfl
+  have hq := slotFit_of_slotsFitXB h.hI i ((d.Fss c ψ).getD j []) 0 [] as rfl hSF hb' ?_ hi
+  · obtain ⟨htg, hlt⟩ := htgts ψ c j i hj hi
+    rw [Nat.zero_add, List.nil_append, htg] at hq
+    exact hq.2
+  · rw [Nat.zero_add]; exact hr
+
+end Slot
+
 /-! ## The representation -/
 
 /-- **The block's representation, from the stages' outputs.**  Every
-clause of `BlockModelAt` at the fixpoint route's data: the operator is
-`blockPhi` at the components' chains (`hPhi`), the injections the
+clause of `BlockModelAt` at the fixpoint route's data: the operator
+agrees with `blockPhi` at the components' chains ON THE TUPLE SPACE
+(`hPhi` — the datum's operator is the hole operator, lane HOLE2), the injections the
 member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves
 `blockTyAV` (`hleaf`), the constructors' `sumMkAV` (`hctorLeaf`).  The
 remaining hypotheses are the stages' own facts: the operator's premise
@@ -353,9 +444,9 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     {d : BlockData V}
     -- what the representation IS
     (hnames : d.memberNames = names)
-    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp
-      = blockPhi d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-          (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      d.Φ ψ ρp X c = d.slotPhi ψ ρp X c)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
     -- the operator's premise bundle, at every parameter frame
@@ -425,58 +516,9 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
   have hfib : d.Fibre := by
     intro ψ ρp hρ X hX c hc t ht x
-    have h := hok ψ ρp hρ
-    have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
-      (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
-    rw [hPhi, app_blockPhi (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) ht,
-      blockStepV_mem_iff h hY hc ht x]
-    constructor
-    · rintro ⟨j, fs, hj, hfit, heq, rfl⟩
-      rw [hlenC] at hj
-      refine ⟨j, fs, hj, ⟨?_, heq⟩, (hinj ψ c j fs).symm⟩
-      refine FitsFrom.congr_slot (fun l hl σ => ?_) hfit
-      rw [Nat.zero_add]
-      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj hl
-      show slotSet _ _ _ _ _ _ = _
-      rw [htg, projS_ndMkTowerSet_zero hlt]
-      rfl
-    · rintro ⟨j, fs, hj, ⟨hfit, heq⟩, rfl⟩
-      refine ⟨j, fs, by rw [hlenC]; exact hj, ?_, heq, hinj ψ c j fs⟩
-      refine FitsFrom.congr_slot (fun l hl σ => ?_) hfit
-      rw [Nat.zero_add]
-      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj hl
-      show _ = slotSet _ _ _ _ _ _
-      rw [htg, projS_ndMkTowerSet_zero hlt]
-      rfl
-  have hidx : d.IdxFit := by
-    intro ψ ρp hρ X hX c hc t ht j hj i hi hr as hb
-    have h := hok ψ ρp hρ
-    have hY := ndMkTowerSet_mem_famsSpaceB (V := V) (k := d.N) (w := d.w ψ) (ρp := ρp)
-      (uf := fun c => d.uM c ψ) (Idss := fun c => d.IdsM c ψ) hX
-    have hSF := h.hfit _ hY c hc t ht j (by rw [hlenC]; exact hj)
-    have hb' : FitsFrom ((d.rss c).getD j [])
-        (fun m σ => slotSet (d.w ψ) (d.uM (((d.tgtss c).getD j []).getD m 0) ψ) σ
-          (((d.tlss c ψ).getD j []).getD m []) (((d.Eiss c ψ).getD j []).getD m [])
-          (projS (((d.tgtss c).getD j []).getD m 0)
-            (ndMkTowerSet X 0 d.N))) 0 (consList [] ρp)
-        (((d.Fss c ψ).getD j []).take i) as := by
-      rw [consList_nil]
-      refine FitsFrom.congr_slot (fun l hl σ => ?_) hb
-      rw [Nat.zero_add]
-      obtain ⟨htg, hlt⟩ := htgts ψ c j l hj (by
-        have hli : l < i := by
-          have h' := hl
-          rw [List.length_take] at h'
-          omega
-        omega)
-      show _ = slotSet _ _ _ _ _ _
-      rw [htg, projS_ndMkTowerSet_zero hlt]
-      rfl
-    have hq := slotFit_of_slotsFitXB h.hI i ((d.Fss c ψ).getD j []) 0 [] as rfl hSF hb' ?_ hi
-    · obtain ⟨htg, hlt⟩ := htgts ψ c j i hj hi
-      rw [Nat.zero_add, List.nil_append, htg] at hq
-      exact hq.2
-    · rw [Nat.zero_add]; exact hr
+    rw [hPhi ψ ρp hρ X hX c hc]
+    exact blockSlotFibre hinj hok hlenC htgts ψ ρp hρ X hX c hc t ht x
+  have hidx : d.IdxFit := blockIdxFit_of_chains hok hlenC htgts
   refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, hresFit, ?_, ?_⟩
   · -- idxOk
     intro ψ ρp hρ c hc
@@ -484,9 +526,11 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
   · -- functor
     intro ψ ρp hρ
     have h := hok ψ ρp hρ
-    refine ⟨hmono hidx hfib ψ ρp hρ, ?_, ?_⟩ <;> rw [hPhi]
-    · exact blockPhi_maps h
-    · exact h.hclosed
+    refine ⟨hmono hidx hfib ψ ρp hρ, fun X hX m hm => ?_, ?_⟩
+    · rw [hPhi ψ ρp hρ X hX m hm]; exact blockPhi_maps h X hX m hm
+    · obtain ⟨L, hL⟩ := h.hclosed
+      exact ⟨L, (isClosedTuple_congr (fun _ _ => rfl)
+        (fun X hX m hm => (hPhi ψ ρp hρ X hX m hm).symm)).mp hL⟩
   · exact hfib
   · -- leaf
     intro mm hmm ψ ρ as is hsa hsi
@@ -515,9 +559,12 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       · rw [hsh]; exact h.hok
       · rw [hsh, hfr]; exact hsi
     rw [hleaf mm hmm ψ,
-      blockTyAV_fold (show mm < d.N from Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
-        hsp hbase, hsh, hfr, hPhi]
-    rfl
+      blockTyG_fold (show mm < d.N from Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
+        hsp hbase, hsh, hfr]
+    congr 1
+    exact lfpTuple_congr (fun _ _ => rfl)
+      (fun X hX m hm => (hPhi ψ (consList as ρ) hsat X hX m hm).symm)
+      (Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
   · -- ctor
     intro c hc j cA hj ψ ρ as fs hsa hsf
     have hjl : j < (d.ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1

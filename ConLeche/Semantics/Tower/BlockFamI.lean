@@ -309,10 +309,10 @@ theorem projS_ndMkTowerSet_zero {Xs : Nat → V} {c : Nat} (hc : c < k) :
     projS c (ndMkTowerSet Xs 0 k) = Xs c := by
   rw [projS_ndMkTowerSet k 0 c hc, Nat.zero_add]
 
-theorem app_blockPhi {Xs : Nat → V} {m : Nat} {t : V}
+theorem app_blockPhi {Chs : Nat → List (List AnnotTerm)} {Xs : Nat → V} {m : Nat} {t : V}
     (ht : t ∈ˢ idxSet (uf m) ρp (Idss m)) :
-    SetTheory.app (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss Xs m) t
-      = blockStepV w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m (ndMkTowerSet Xs 0 k) t :=
+    SetTheory.app (blockPhiG k w ρp uf Idss Chs Xs m) t
+      = blockStepG w ρp Chs m (ndMkTowerSet Xs 0 k) t :=
   app_lamR_pos (Nat.succ_ne_zero w) ht
 
 /-- **The block's fibre is monotone** in the family tuple. -/
@@ -349,14 +349,14 @@ theorem blockPhi_mono (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss
   exact hXY c hc
 
 /-- **The block's operator preserves the tuple space.** -/
-theorem blockPhi_maps_of (hok : BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
-    MapsTuple w k (blockIdx uf ρp Idss)
-      (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) := by
+theorem blockPhi_maps_of {Chs : Nat → List (List AnnotTerm)}
+    (hok : BlockChainsOkG k w ρp uf Idss Chs) :
+    MapsTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs) := by
   intro X hX m hm
   show lamR (w + 1) (idxSet (uf m) ρp (Idss m)) _ ∈ˢ famSpace w (blockIdx uf ρp Idss m)
   rw [← lfpFamSpace_eq']
   exact lamR_mem fun t ht =>
-    blockStepV_univ hok (ndMkTowerSet_mem_famsSpaceB hX) hm ht
+    blockStepG_univ hok (ndMkTowerSet_mem_famsSpaceB hX) hm ht
 
 theorem blockPhi_maps (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
     MapsTuple w k (blockIdx uf ρp Idss)
@@ -365,11 +365,24 @@ theorem blockPhi_maps (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss
 
 /-- **At a `Prop`-valued block the top tuple is closed** — the `w = 0`
 half of (W), with no container at all (`closedTuple_zero`). -/
-theorem blockPhi_closed_zero_of
-    (hok : BlockChainsOkI k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) :
-    ∃ L, IsClosedTuple 0 k (blockIdx uf ρp Idss)
-      (blockPhi k 0 ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L :=
+theorem blockPhi_closed_zero_of {Chs : Nat → List (List AnnotTerm)}
+    (hok : BlockChainsOkG k 0 ρp uf Idss Chs) :
+    ∃ L, IsClosedTuple 0 k (blockIdx uf ρp Idss) (blockPhiG k 0 ρp uf Idss Chs) L :=
   closedTuple_zero (blockPhi_maps_of hok)
+
+/-- **The fixed-point equation at ANY chains**, per member and
+fibrewise, with the operator's monotonicity and a closed tuple as
+PREMISES (lane HOLE2: at the hole chains monotonicity is positivity's,
+never the chains' shape). -/
+theorem blockFamG_app_eq {Chs : Nat → List (List AnnotTerm)}
+    (hok : BlockChainsOkG k w ρp uf Idss Chs)
+    (hmono : MonoTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs))
+    (hclosed : ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs) L)
+    {m : Nat} (hm : m < k) {t : V} (ht : t ∈ˢ idxSet (uf m) ρp (Idss m)) :
+    blockStepG w ρp Chs m (ndMkTowerSet (blockFamG k w ρp uf Idss Chs) 0 k) t
+      = SetTheory.app (blockFamG k w ρp uf Idss Chs m) t := by
+  have := app_lfpTuple_eq hclosed hmono (blockPhi_maps_of hok) hm ht
+  rwa [app_blockPhi (uf := uf) (Idss := Idss) ht] at this
 
 /-- **The fixed-point equation**, per member and fibrewise: member
 `m`'s fibre at `t` is the functor's fibre at the carrier tuple. -/
@@ -377,9 +390,8 @@ theorem blockFam_app_eq (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eis
     {m : Nat} (hm : m < k) {t : V} (ht : t ∈ˢ idxSet (uf m) ρp (Idss m)) :
     blockStepV w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
         (ndMkTowerSet (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) 0 k) t
-      = SetTheory.app (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m) t := by
-  have := app_lfpTuple_eq h.hclosed (blockPhi_mono h) (blockPhi_maps h) hm ht
-  rwa [app_blockPhi (uf := uf) (Idss := Idss) ht] at this
+      = SetTheory.app (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m) t :=
+  blockFamG_app_eq h.hok (blockPhi_mono h) h.hclosed hm ht
 
 end Functor
 
@@ -653,7 +665,7 @@ member-local index themselves.
 Note also that `helim` quantifies over ALL tuples of the tuple space
 and the whole parameter frame is free — narrowing either to the carrier
 breaks falsifier F0. -/
-theorem blockPhi_closed_container (hw : w ≠ 0)
+theorem blockPhi_closed_container {Chs : Nat → List (List AnnotTerm)} (hw : w ≠ 0)
     (A : Nat → V → V) (B : V → V) (tgtM : V → V → Nat) (tgtI : V → V → V)
     (mk : Nat → V → V → V)
     (hA : ∀ m, m < k → ∀ i, i ∈ˢ idxSet (uf m) ρp (Idss m) → A m i ∈ˢ (univ w : V))
@@ -665,12 +677,10 @@ theorem blockPhi_closed_container (hw : w ≠ 0)
       g ∈ˢ (univ w : V) → mk m a g ∈ˢ (univ w : V))
     (helim : ∀ Xs, InTupleSpace w k (blockIdx uf ρp Idss) Xs → ∀ m, m < k →
       ∀ i, i ∈ˢ idxSet (uf m) ρp (Idss m) →
-      ∀ x, x ∈ˢ blockStepV w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
-          (ndMkTowerSet Xs 0 k) i →
+      ∀ x, x ∈ˢ blockStepG w ρp Chs m (ndMkTowerSet Xs 0 k) i →
         ∃ a, a ∈ˢ A m i ∧ ∃ g, g ∈ˢ piSet (B a) (fun p => SetTheory.app (Xs (tgtM a p)) (tgtI a p)) ∧
           x = mk m a g) :
-    ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss)
-      (blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) L :=
+    ∃ L, IsClosedTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs) L :=
   tupleContainer_closed_exists hw _ A B tgtM tgtI mk hA hB htgt hmkU
     fun Xs hXs m hm i hi x hx => by
       rw [app_blockPhi (uf := uf) (Idss := Idss) hi] at hx

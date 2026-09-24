@@ -12,7 +12,7 @@ recursive field's domain reads to the TARGET member's leaf at the
 parameter variables and the field's index expressions; along a
 fitting spine that is the target's component of the least tuple at the
 tuple of the expressions' values (`blockLeafApp`, through
-`blockTyAV_fold`).  So the constructor's REAL chain is the X-chain the
+`blockTyG_fold`).  So the constructor's REAL chain is the X-chain the
 operator was spelled from with the least tuple substituted for the
 tuple variable (`ChainRealBI`), hereditarily along the real chain —
 the walk keeps the shadow spine beside the real one exactly as along
@@ -92,7 +92,7 @@ theorem blockLeafApp {k w nP c : Nat} (hc : c < k) {pps : List (Nat × Nat × An
     · rw [hsh]; exact hI
     · rw [hsh]; exact hok
     · rw [hsh, hfr]; exact hsp
-  rw [blockTyAV_fold hc hspAll hbase, hframe, hsh, hfr]
+  rw [blockTyG_fold hc hspAll hbase, hframe, hsh, hfr]
 
 /-! ## The real chain -/
 

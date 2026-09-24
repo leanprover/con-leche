@@ -197,7 +197,7 @@ theorem blockStepV_congr_ord {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
     blockStepV (V := V) w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
       = blockStepV w ρp uf Idss rsss tgtsss tlsss Eisss Fsss' Esss m := by
   funext Y t
-  unfold blockStepV
+  unfold blockStepV blockStepG slotChs
   rw [hchains m hm]
 
 /-- **The block functor's premise bundle transports from the LEAF's
@@ -226,7 +226,9 @@ theorem blockChainsOk_congr_ord {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
             (Esss m) :=
     fun m hm => chainsXBI_congr_ord (hlen m hm) (hlenj m hm) (hord m hm)
   refine ⟨h.hI, fun Y hY m hm t ht => ?_, fun Y hY m hm t ht j hj => ?_, ?_⟩
-  · rw [← hchains m hm]; exact h.hok Y hY m hm t ht
+  · have := h.hok Y hY m hm t ht
+    unfold slotChs at this ⊢
+    rw [← hchains m hm]; exact this
   · -- the slots fit: the chain's entries are the same terms
     have hjl : j < (Fsss m).length := by rw [hlen m hm]; exact hj
     have := h.hfit Y hY m hm t ht j hjl
@@ -236,8 +238,10 @@ theorem blockChainsOk_congr_ord {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat}
     refine ⟨L, hL.1, fun m hm => ?_⟩
     have hφ : blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss' Esss L m
         = blockPhi k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss L m := by
-      unfold blockPhi
-      rw [blockStepV_congr_ord hchains hm]
+      unfold blockPhi blockPhiG
+      rw [show blockStepG w ρp (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss' Esss) m
+          = blockStepG w ρp (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) m
+        from (blockStepV_congr_ord hchains hm).symm]
     rw [hφ]
     exact hL.2 m hm
 
