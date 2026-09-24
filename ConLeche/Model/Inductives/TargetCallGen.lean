@@ -158,7 +158,10 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
       fs.getD ih.field pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty)
     -- the call's major domain: the callee's member at the parameters and the indices
     {I : Name} {t nP : Nat} (hnP : nP ≤ rP)
-    (hmaj : C.majDom = Expr.mkAppN (.const I lvls) (fvsPref.take nP ++ ih.idx))
+    (hRf : (fam.recTys.getD ih.callee (.sort .zero)).hasFvar = false)
+    (hmaj : ∀ os : List Expr, LocList (rP + nF + formerTys.length) (teles.getD ih.field []).length os →
+      C.majDom.instantiateList os 0 = Expr.mkAppN (.const I lvls)
+        ((fvsPref.take nP).map (·.instantiateList os 0) ++ ih.idx.map (·.instantiateList os 0)))
     (hI : names.findIdx? (· == I) = some t) (ht : t < formerTys.length)
     {pds : List (Nat × Nat × AnnotTerm)} {R : AnnotTerm}
     (hTt : denoteMeta mT.acval envT φ 0 (formerTys.getD t default) = some (mkPisAV pds R))
@@ -274,11 +277,12 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
   -- (4) the major type: framed, read, graded
   have hmajL : ∀ l ∈ C.majDom.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF := by
     intro l hl
-    rw [hmaj] at hl
-    rcases ConLeche.fvarLeaves_mkAppN hl with h1 | ⟨x, hx, h1⟩
-    · simp [Expr.fvarLeaves] at h1
+    have hl' : l ∈ C.calleeAt.fvarLeaves := by
+      rw [C.hmajDom]; simp [Expr.fvarLeaves, hl]
+    rcases ConLeche.instPisAtLift_fvarLeaves _ _ C.hcallee l hl' with h1 | ⟨x, hx, h1⟩
+    · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRf] at h1; exact nomatch h1
     · rcases List.mem_append.mp hx with hx | hx
-      · exact hframeL x (List.mem_append_left _ (List.mem_of_mem_take hx)) l h1
+      · exact hframeL x (List.mem_append_left _ hx) l h1
       · exact hidxL x hx l h1
   have hWL : ∀ l ∈ (Expr.mkPisOf (teles.getD ih.field [])
       (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys D) C.majDom)).fvarLeaves,
@@ -355,10 +359,6 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
     simp only [ConLeche.targetAbs, beq_self_eq_true, if_true, hI]
     rw [List.getD_eq_getElem?_getD, ConLeche.targetHoles, List.getElem?_map,
       List.getElem?_range (by omega), Option.map_some, Option.getD_some]
-  have hAbsMaj : ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys D) C.majDom
-      = Expr.mkAppN (Expr.fvar (D + t) (formerTys.getD t default)) (fvsPref.take nP ++ ih.idx) := by
-    rw [hmaj, targetAbs_mkAppN, hholeT, List.map_append, hprefAbs,
-      List.map_congr_left (fun x hx => C.hidxAbs x hx), List.map_id']
   have hprefInst : (fvsPref.take nP).map (·.instantiateList os' 0) = fvsPref.take nP := by
     refine (List.map_congr_left (g := id) fun x hx => ?_).trans (List.map_id _)
     obtain ⟨i, hi, hget⟩ := List.getElem_of_mem (List.mem_of_mem_take hx)
@@ -366,8 +366,28 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
     rw [List.getElem?_append_left hi, List.getElem?_eq_getElem hi, hget] at hty
     obtain rfl := Option.some.inj hty
     simp [Expr.instantiateList]
-  rw [hAbsMaj, instantiateList_mkAppN, List.map_append, hprefInst] at hXr
-  simp only [Expr.instantiateList] at hXr
+  have hholesF : ∀ h ∈ ConLeche.targetHoles formerTys D, ∃ i ty, h = Expr.fvar i ty := by
+    intro h hh
+    simp only [ConLeche.targetHoles, List.mem_map] at hh
+    obtain ⟨t', -, rfl⟩ := hh
+    exact ⟨_, _, rfl⟩
+  have hosF : ∀ o ∈ os', ∃ i ty, o = Expr.fvar i ty := by
+    intro o ho
+    obtain ⟨j, hj, hget⟩ := List.getElem_of_mem ho
+    obtain ⟨ty, hty⟩ := hos'.2 j (by rw [← hos'.1]; exact hj)
+    rw [List.getElem?_eq_getElem hj, hget] at hty
+    exact ⟨_, _, Option.some.inj hty⟩
+  have hAbsMaj : (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys D)
+      C.majDom).instantiateList os' 0
+      = Expr.mkAppN (Expr.fvar (D + t) (formerTys.getD t default))
+          (fvsPref.take nP ++ ih.idx.map (·.instantiateList os' 0)) := by
+    rw [← targetAbs_instantiateList hholesF hosF, hmaj os' hos', targetAbs_mkAppN, hholeT,
+      List.map_append, hprefInst, hprefAbs, List.map_map]
+    congr 2
+    refine List.map_congr_left fun x hx => ?_
+    simp only [Function.comp]
+    rw [targetAbs_instantiateList hholesF hosF, C.hidxAbs x hx]
+  rw [hAbsMaj] at hXr
   obtain ⟨fa, vs, hfa, hvs, rfl⟩ := denoteMeta_mkAppN_inv hXr
   rw [denoteMeta_fvar] at hfa
   obtain rfl := Option.some.inj hfa
