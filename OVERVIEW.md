@@ -554,7 +554,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   it has one member or several mutually inductive ones: any number of
   parameters, indices, constructors and fields, recursive and reflexive
   fields, `Prop` or `Type`. The recogniser reads the block's shape
-  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L560)) —
+  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L574)) —
   its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs

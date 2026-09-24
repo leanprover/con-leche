@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L560
-   560  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L574
+   574  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L628-L635
    628  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
