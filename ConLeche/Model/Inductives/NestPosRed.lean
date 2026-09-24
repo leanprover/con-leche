@@ -13,6 +13,8 @@ import ConLeche.Semantics.Frame
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InferLeaves
+import ConLeche.Model.Inductives.TargetIhSlot
+public import ConLeche.Semantics.ConstsBound
 
 public section
 
@@ -243,6 +245,74 @@ theorem graded_cons_congr {Δ : List AnnotTerm} {A B e : AnnotTerm}
     (h : ∀ ρ : Nat → V, Sat V Δ ρ → interp V ρ A = interp V ρ B)
     (hg : Graded V (A :: Δ) e) : Graded V (B :: Δ) e :=
   fun ρ hρ => hg ρ (sat_cons_congr (fun σ hσ => (h σ hσ).symm) hρ)
+
+/-! ## A reading names only stored constants -/
+
+omit [SetTheory V] in
+/-- **A term that reads names only stored constants**, once its free
+variables' annotations do (`denoteMeta` looks every constant up). -/
+theorem constsBound_of_read {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} :
+    ∀ (d : Nat) (e : Expr) {ea : AnnotTerm}, denoteMeta acval env φ d e = some ea →
+      (∀ l ∈ e.fvarLeaves, ConstsBound env l.2) → ConstsBound env e := by
+  intro d e
+  induction d, e using denoteMeta.induct (env := env) with
+  | case1 d u => intro _ _ _; simp
+  | case2 d idx ty => intro _ _ hl; simpa using hl (idx, ty) (by simp [Expr.fvarLeaves])
+  | case3 d n us ci hf hlen => intro _ _ _; simp [hf]
+  | case4 d n us ci hf hlen =>
+    intro _ h _
+    rw [denoteMeta, hf] at h
+    dsimp only at h
+    rw [if_neg hlen] at h
+    exact nomatch h
+  | case5 d n us hf => intro _ h _; rw [denoteMeta, hf] at h; exact nomatch h
+  | case6 d ty body m ihty ihbody =>
+    intro _ h hl
+    obtain ⟨ta, ba, hta, hba, -⟩ := denoteMeta_forallE_inv h
+    have hty := ihty hta fun l h' => hl l (by simp [Expr.fvarLeaves, h'])
+    refine constsBound_forallE.mpr ⟨hty, constsBound_of_instantiate1 _ 0 (ihbody hba fun l h' => ?_)⟩
+    rcases Expr.fvarLeaves_instantiate1 body 0 h' with h3 | h3
+    · exact hl l (by simp [Expr.fvarLeaves, h3])
+    · simp only [Expr.fvarLeaves, List.mem_cons] at h3
+      rcases h3 with rfl | h3
+      · exact hty
+      · exact hl l (by simp [Expr.fvarLeaves, h3])
+  | case7 d ty body m ihty ihbody =>
+    intro _ h hl
+    obtain ⟨ta, ba, hta, hba, -⟩ := denoteMeta_lam_inv h
+    have hty := ihty hta fun l h' => hl l (by simp [Expr.fvarLeaves, h'])
+    refine constsBound_lam.mpr ⟨hty, constsBound_of_instantiate1 _ 0 (ihbody hba fun l h' => ?_)⟩
+    rcases Expr.fvarLeaves_instantiate1 body 0 h' with h3 | h3
+    · exact hl l (by simp [Expr.fvarLeaves, h3])
+    · simp only [Expr.fvarLeaves, List.mem_cons] at h3
+      rcases h3 with rfl | h3
+      · exact hty
+      · exact hl l (by simp [Expr.fvarLeaves, h3])
+  | case8 d f a ihf iha =>
+    intro _ h hl
+    obtain ⟨fa, aa, hfa, haa, -⟩ := denoteMeta_app_inv h
+    exact constsBound_app.mpr ⟨ihf hfa fun l h' => hl l (by simp [Expr.fvarLeaves, h']),
+      iha haa fun l h' => hl l (by simp [Expr.fvarLeaves, h'])⟩
+  | case9 d ty val body => intro _ h _; rw [denoteMeta] at h; exact nomatch h
+  | case10 d sn j e ihe =>
+    intro _ h hl
+    obtain ⟨ea', hea', -⟩ := denoteMeta_proj_inv h
+    exact constsBound_proj.mpr (ihe hea' fun l h' => hl l (by simpa [Expr.fvarLeaves] using h'))
+  | case15 d e h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 =>
+    intro _ _ _
+    cases e with
+    | bvar => simp
+    | sort => exact (h1 _ rfl).elim
+    | fvar => exact (h2 _ _ rfl).elim
+    | const => exact (h3 _ _ rfl).elim
+    | forallE => exact (h4 _ _ _ rfl).elim
+    | lam => exact (h5 _ _ _ rfl).elim
+    | app => exact (h6 _ _ rfl).elim
+    | letE => exact (h7 _ _ _ rfl).elim
+    | proj => exact (h8 _ _ _ rfl).elim
+    | lit l => exact constsBound_lit
+  | _ => intro _ _ _; exact constsBound_lit
 
 /-! ## One field -/
 

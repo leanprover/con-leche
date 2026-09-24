@@ -849,8 +849,9 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       ConLeche.checkStructFieldSortsI (fueledOps .verified F) env isProp false ctx.sort
         (ctx.hiAt 0) xq.1 [] nF = .ok sorts)
     {Δp Δh : List AnnotTerm}
-    (hlink : ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
-      denoteMeta m.acval env ψ (ctx.hiAt 0) crest = some (mkPisAV abD B) ∧
+    (hlink : ∀ ca : AnnotTerm, denoteMeta m.acval env ψ (ctx.hiAt 0) crest = some ca →
+      ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
+      ca = mkPisAV abD B ∧
       denoteMeta m.acval env ψ (ctx.hiAt 0) tyN = some (mkPisAV abN B) ∧
       abD.length = nF ∧ abN.length = nF ∧
       FieldsEqOn V Δh (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
@@ -1090,9 +1091,8 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     rw [hleavesL] at this
     exact this.symm
   -- ## the normal form: the link, its reading and its fields
-  obtain ⟨abD, abN, B₀, hRD, hRN, hlD, hlN, hEqF, hfrN, hsubN⟩ := hlink
-  rw [hR] at hRD
-  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hppl.trans hlD.symm) (Option.some.inj hRD)
+  obtain ⟨abD, abN, B₀, hRD, hRN, hlD, hlN, hEqF, hfrN, hsubN⟩ := hlink _ hR
+  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hppl.trans hlD.symm) hRD
   obtain ⟨hWN, -, -⟩ := hfrN
   obtain ⟨xsN, restN, hopN, -, hfields⟩ := storedWalk_fields henv hplen hpar hB hwalk hflat
   obtain ⟨isProp, xq, sorts, hxq, hsorts⟩ := hU2
