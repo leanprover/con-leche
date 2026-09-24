@@ -427,45 +427,18 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     checkIotaSidesTy mode ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
       rhsS (eqHeadLevel tbody.getAppFn) cvName
 
-/-- The nested-shape data of a non-canonical rule: the constructor's
-level and parameter instantiations, read off the recursor type's
-major-premise domain
-(`∀ …prefix… …indices…, ∀ (t : D.{lvls} p₁ … p_cnP i₁ … i_k), …`,
-`k = mI - rP`).  The parameter instantiations are stored *lowered into
-the rule-prefix context* (`rP` binders; `Expr.lowerBVars`) — the
-lift-back roundtrip certifies that no index variable occurs in them —
-and the domain's trailing arguments must be exactly the index
-variables in order.  `none` — the rule stays inert, and a matched
-major declines at fire time — when the model stores no `iota_j`
-constant, the prefix exceeds the major's position, the major domain is
-not a constant-headed application of exactly `cnP + k` arguments of
-this split shape, or an instantiation fails the syntactic
-well-formedness guards (closed, bounded by the prefix telescope,
-constants resolving, levels declared — the facts `EnvWF` records for
-the stored rule). -/
+/-- The nested-shape data of a non-canonical rule: the syntactic reading
+`Expr.nestedRuleSyn` of the recursor type's major-premise domain (the
+constructor's level and parameter instantiations, lowered into the
+rule-prefix context, and well-formed as `EnvWF` records them), behind
+the model's `iota_j` lookup.  `none` — the rule stays inert, and a
+matched major declines at fire time — when the model stores no `iota_j`
+constant or the reading fails. -/
 def nestedRuleShape (env' envSelf : Env) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     Option (List Level × List Expr) :=
-  if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
-      rP ≤ mI then
-    match tyA.stripPis mI with
-    | some (_, .forallE dom _ _) =>
-      match dom.getAppFn with
-      | .const _D lvls =>
-        let args := dom.getAppArgs
-        let k := mI - rP
-        let pins := (args.take cnP).map (Expr.lowerBVars k 0)
-        if args.length = cnP + k ∧
-            args.take cnP == pins.map (Expr.liftLooseBVars k 0) ∧
-            args.drop cnP ==
-              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
-            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
-              p.constsResolve envSelf && p.allLevelParamsDefined lps) ∧
-            lvls.all (Level.allParamsDefined lps) then
-          some (lvls, pins)
-        else none
-      | _ => none
-    | _ => none
+  if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome then
+    Expr.nestedRuleSyn (·.constsResolve envSelf) lps tyA mI rP cnP
   else none
 
 /-- Check a *nested-auxiliary* recursor rule's `iota_j` theorem — the

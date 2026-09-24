@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.BridgeDecl
+import ConLeche.Verify.Inductives.NestedRuleSyn
 
 public section
 
@@ -1089,14 +1090,9 @@ theorem nestedRuleShape_pins {env' envSelf : Env} {cvName : Name}
     ∀ p ∈ pins, p.hasFvar = false := by
   intro p hp
   simp only [nestedRuleShape] at h
-  repeat split at h
-  all_goals try (simp at h; done)
-  rename_i hcond
-  simp only [Option.some.injEq, Prod.mk.injEq] at h
-  obtain ⟨-, rfl⟩ := h
-  have hall := List.all_eq_true.mp hcond.2.2.2.1 p hp
-  simp only [Bool.and_eq_true, Bool.not_eq_true'] at hall
-  exact hall.1.1.1
+  split at h
+  case isFalse => exact nomatch h
+  exact ((nestedRuleSyn_inv h).2.2.1 p hp).1
 
 set_option maxHeartbeats 6400000 in
 /-- The nested-auxiliary iota-theorem check, `wfOpsM mode` run to pure run:
